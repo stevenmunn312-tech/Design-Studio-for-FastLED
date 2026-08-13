@@ -198,6 +198,38 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram?.querySelector('[data-microphone-role="dout"]')?.textContent).toContain('DOUT')
     expect(diagram?.querySelector('[data-microphone-role="channel"] title')?.textContent).toContain('L/R · GND')
     expect(diagram?.querySelector('[data-wire="microphone-channel-select"]')?.getAttribute('data-wire-role')).toBe('channel-select')
+    // L/R selects the channel by being tied to ground, so it carries the same
+    // ground symbol as the GND pad — not a drawn strap between the two, which
+    // hooked over the breakout and ended up hidden beneath the board artwork.
+    for (const wireId of ['microphone-channel-select', 'microphone-ground']) {
+      expect(diagram?.querySelector(`[data-net-stub-for="${wireId}"]`)?.getAttribute('data-net-stub')).toBe('gnd')
+    }
+
+    // Every pad dot has to land on the pad it names. The offsets used to be
+    // authored against the microphone's layout box rather than the artwork,
+    // which the box letterboxes — so the dots drifted off the pad column,
+    // worst at its ends. Pin them to the rendered <image> instead of to
+    // literal coordinates, so the artwork and the dots can only move together.
+    const micRender = diagram?.querySelector('[data-component-render="inmp441-breakout"]')
+    const num = (element: Element | null | undefined, attribute: string) =>
+      Number(element?.getAttribute(attribute))
+    const renderTop = num(micRender, 'y')
+    const renderHeight = num(micRender, 'height')
+    // The artwork is drawn at its own 1100x800 aspect, not stretched to the box.
+    expect(renderHeight).toBeCloseTo(num(micRender, 'width') * (800 / 1100), 4)
+
+    const padCentres = (['bclk', 'ws', 'channel', 'dout', 'vdd', 'gnd'] as const).map((role) =>
+      num(diagram?.querySelector(`[data-microphone-role="${role}"] circle`), 'cy'))
+    for (const centre of padCentres) {
+      expect(centre).toBeGreaterThan(renderTop)
+      expect(centre).toBeLessThan(renderTop + renderHeight)
+    }
+    // Six pads on one evenly spaced column, top to bottom in silkscreen order.
+    const pitches = padCentres.slice(1).map((centre, index) => centre - padCentres[index])
+    for (const pitch of pitches) expect(pitch).toBeCloseTo(renderHeight * (114.1 / 800), 1)
+    const padX = new Set((['bclk', 'ws', 'channel', 'dout', 'vdd', 'gnd'] as const).map((role) =>
+      num(diagram?.querySelector(`[data-microphone-role="${role}"] circle`), 'cx')))
+    expect(padX.size).toBe(1)
     for (const terminal of [
       'supply-1-positive',
       'supply-1-ground',

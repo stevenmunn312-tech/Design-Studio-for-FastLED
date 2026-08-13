@@ -319,18 +319,40 @@ type MicrophoneSignalRole = 'bclk' | 'ws' | 'dout'
 
 type MicrophoneTerminalRole = MicrophoneSignalRole | 'channel' | 'vdd' | 'gnd'
 
-const MICROPHONE_TERMINALS: Record<MicrophoneTerminalRole, { x: number; y: number }> = {
-  bclk: { x: 23, y: 22 },
-  ws: { x: 23, y: 45 },
-  channel: { x: 23, y: 68 },
-  dout: { x: 23, y: 90 },
-  vdd: { x: 23, y: 113 },
-  gnd: { x: 23, y: 136 },
+/**
+ * Pad positions live in the INMP441 artwork's own pixel space, measured off the
+ * render: one column at x=121, six centres on a 114.1px pitch from y=114.5.
+ *
+ * They used to be authored in the layout box's space instead, which put every
+ * dot a few units off its pad — worst at the ends of the column. Two reasons at
+ * once: the box is 205x160 while the artwork is 1100x800, so
+ * `preserveAspectRatio="xMidYMid meet"` fitted the render into 205x149 and
+ * centred it inside the box; and the hardcoded 23-unit pad pitch didn't match
+ * the artwork's real 21.3. Deriving both the <image> height and the pad points
+ * from the same scale keeps them locked together — the same split the
+ * peripheral modules already make between artwork box and footprint.
+ */
+const MICROPHONE_SOURCE = { width: 1100, height: 800 } as const
+const MICROPHONE_PAD_X = 121
+/** Top pad centre and pitch, fitted across all six measured centres (114.5 to 685). */
+const MICROPHONE_PAD_TOP = 114.5
+const MICROPHONE_PAD_PITCH = 114.1
+/** Silkscreen order down the column, which is what the pitch above steps through. */
+const MICROPHONE_PAD_ORDER: readonly MicrophoneTerminalRole[] = ['bclk', 'ws', 'channel', 'dout', 'vdd', 'gnd']
+
+/** The artwork drawn at its own aspect ratio inside the item's footprint. */
+function microphoneRenderBox(layout: ItemLayout) {
+  const scale = layout.width / MICROPHONE_SOURCE.width
+  return { x: layout.x, y: layout.y, width: layout.width, height: MICROPHONE_SOURCE.height * scale, scale }
 }
 
 function microphoneTerminalPoint(layout: ItemLayout, role: MicrophoneTerminalRole) {
-  const terminal = MICROPHONE_TERMINALS[role]
-  return { x: layout.x + terminal.x, y: layout.y + terminal.y }
+  const box = microphoneRenderBox(layout)
+  const padY = MICROPHONE_PAD_TOP + (MICROPHONE_PAD_ORDER.indexOf(role) * MICROPHONE_PAD_PITCH)
+  return {
+    x: box.x + (MICROPHONE_PAD_X * box.scale),
+    y: box.y + (padY * box.scale),
+  }
 }
 
 function microphoneSignalPresentation(connection: PhysicalDiagramConnection): {
@@ -467,7 +489,8 @@ function ControllerGraphic({ boardProfile, connections, selected }: { boardProfi
 }
 
 function MicrophoneGraphic({ layout, connections, selected }: { layout: ItemLayout; connections: PhysicalDiagramConnection[]; selected: boolean }) {
-  const { x, y, item } = layout
+  const { y, item } = layout
+  const box = microphoneRenderBox(layout)
   const terminal = (role: MicrophoneTerminalRole, className: string, label: string) => {
     const point = microphoneTerminalPoint(layout, role)
     return <g data-terminal={`${item.id}-${role}`} data-microphone-role={role}>
@@ -477,14 +500,14 @@ function MicrophoneGraphic({ layout, connections, selected }: { layout: ItemLayo
   }
   return (
     <g className={selected ? styles.physicalSelected : undefined}>
-      <text x={x + 102} y={y - 16} textAnchor="middle" className={styles.physicalComponentLabel}>{item.title}</text>
+      <text x={box.x + (box.width / 2)} y={y - 16} textAnchor="middle" className={styles.physicalComponentLabel}>{item.title}</text>
       <image
         data-component-render="inmp441-breakout"
         href={microphoneRender}
-        x={x}
-        y={y}
-        width={layout.width}
-        height={layout.height}
+        x={box.x}
+        y={box.y}
+        width={box.width}
+        height={box.height}
         preserveAspectRatio="xMidYMid meet"
         className={styles.physicalBoardRender}
       />
@@ -957,8 +980,14 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
             const target = microphoneTerminalPoint(microphoneLayout, presentation.role)
             return <path key={connection.id} data-wire={connection.id} data-wire-role={presentation.role} d={routeFromController(controllerPoint, target.x, target.y, busLane(connection, controllerIndex))} className={presentation.wireClassName} />
           })}
-          {/* Hooks right, over the breakout, so the left edge stays clear for the rail stubs. */}
-          <path data-wire="microphone-channel-select" data-wire-role="channel-select" d={`M${channelPoint.x} ${channelPoint.y}H${channelPoint.x + 12}V${groundPoint.y}H${groundPoint.x}`} className={styles.groundWire} />
+          {/*
+            L/R selects the channel by being tied to ground, so it carries the
+            same ground symbol as the GND pad rather than a drawn strap between
+            the two — one net, one symbol, per the common-net rule the callout
+            states. It was a strap hooked right over the breakout, which the
+            board artwork then painted over, hiding it entirely.
+          */}
+          <NetStub x={channelPoint.x} y={channelPoint.y} kind="gnd" direction="left" lead={26} label="GND (LEFT)" wireId="microphone-channel-select" wireRole="channel-select" />
           <NetStub x={groundPoint.x} y={groundPoint.y} kind="gnd" direction="left" lead={26} wireId="microphone-ground" />
         </>
         })()}
