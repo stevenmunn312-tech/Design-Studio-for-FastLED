@@ -133,6 +133,39 @@ describe('BuildDiagramWorkspace', () => {
     expect(getByText('Exact board: confirmed', { selector: 'li' })).toBeTruthy()
   })
 
+  it('sizes boards against each other by their real dimensions', () => {
+    const boardImage = () => {
+      const { container, unmount } = render(<BuildDiagramWorkspace />)
+      const image = container.querySelector('svg[data-build-export="current-view"] [data-controller-render] image')!
+      const box = {
+        width: Number(image.getAttribute('width')),
+        height: Number(image.getAttribute('height')),
+        bottom: Number(image.getAttribute('y')) + Number(image.getAttribute('height')),
+      }
+      unmount()
+      return box
+    }
+    selectEsp32DevKitV1()
+    const esp32d = boardImage()
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
+    selectDevKit()
+    const devKitC = boardImage()
+
+    // The ESP-32D's PCB is 28.0 mm across, the S3-DevKitC's 25.4 mm, so the
+    // classic board must draw *wider* — it used to be the other way round,
+    // because the profile carried a 28 mm width that matched no revision.
+    expect(esp32d.width).toBeGreaterThan(devKitC.width)
+    expect(esp32d.width / devKitC.width).toBeCloseTo(28.0 / 25.4, 2)
+    // ...and shorter, since it is the physically shorter board.
+    expect(esp32d.height).toBeLessThan(devKitC.height)
+    // Both stay inside the controller column and share the baseline.
+    for (const box of [esp32d, devKitC]) {
+      expect(box.width).toBeLessThanOrEqual(184)
+      expect(box.height).toBeLessThanOrEqual(426)
+      expect(box.bottom).toBeCloseTo(530, 4)
+    }
+  })
+
   it('lands ESP-32D connections on that board render’s own header pads', () => {
     const mic = microphoneNode()
     // The pins a Microphone dropped on this board actually gets — the S3
@@ -162,16 +195,11 @@ describe('BuildDiagramWorkspace', () => {
     const rails = new Set(terminals.map((terminal) => terminal.getAttribute('cx')))
     expect(rails.size).toBeLessThanOrEqual(3) // two rails plus the USB inlet
 
-    // Boards are drawn at true relative scale, so this one is narrower than the
-    // 28 mm-wide-but-more-generously-cropped DevKitC rather than both being
-    // stretched to a fixed slot width. Bottom edges share a baseline so every
-    // render's USB end sits at the same height.
-    const width = Number(image.getAttribute('width'))
-    expect(width).toBeLessThan(184)
-    expect(width).toBeGreaterThan(150)
     // The box keeps the artwork's exact aspect: any mismatch letterboxes the
-    // render inside it and walks every pad off its dot.
-    expect(height).toBeCloseTo(width * (1570 / 800), 4)
+    // render inside it and walks every pad off its dot. Bottom edges share a
+    // baseline so every render's USB end sits at the same height.
+    const width = Number(image.getAttribute('width'))
+    expect(height).toBeCloseTo(width * (1631 / 800), 4)
     expect(top + height).toBeCloseTo(530, 4)
 
     // Both supplied rails need a visible stub, and each has to point away from
@@ -190,8 +218,8 @@ describe('BuildDiagramWorkspace', () => {
     // on one of the 15 pad rows. Restated here from the render package's own
     // measured geometry rather than read back from the spec, so an accidental
     // edit to those numbers fails instead of quietly moving every dot: the
-    // rows run 231.571..1244.714 in the artwork's 1570-tall space.
-    const rowAt = (index: number) => top + (((231.571 + (index * (1244.714 - 231.571) / 14)) / 1570) * height)
+    // rows run 231.571..1244.714 in the artwork's 1631-tall space.
+    const rowAt = (index: number) => top + (((231.571 + (index * (1244.714 - 231.571) / 14)) / 1631) * height)
     const rows = Array.from({ length: 15 }, (_, index) => rowAt(index))
     for (const terminal of terminals) {
       const cy = Number(terminal.getAttribute('cy'))

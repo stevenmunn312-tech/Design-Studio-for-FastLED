@@ -2,7 +2,7 @@ import type { ElectricalPlanSummary, OutputElectricalPlan } from '../../build/el
 import type { PhysicalBoardProfile } from '../../build/boardProfiles'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
 import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/powerDistribution'
-import devKitCBoardRender from '../../assets/boards/esp32-s3-devkitc-1.png'
+import devKitCBoardRender from '../../assets/boards/esp32-s3-devkitc-1.webp'
 import esp32DevKitV1BoardRender from '../../assets/boards/esp32-devkit-v1-30pin.webp'
 import microphoneRender from '../../assets/components/inmp441-breakout.png'
 import levelShifterRender from '../../assets/components/sn74ahct125n-dip14.png'
@@ -145,25 +145,29 @@ interface ControllerRenderSpec {
 type ControllerRender = ControllerRenderSpec & { x: number; y: number; width: number; height: number }
 
 const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
-  // 29.481 mm = 28 mm PCB over alpha bounds 10..387 of a 398px-wide render.
+  // Header geometry from the render package, independently checked here: 22 + 22
+  // rails on a 78.8px pitch sharing rows, rail centres symmetric about the image
+  // (45.400 + 754.600 = 800). 25.7215 mm = Espressif's 25.40 mm PCB width over
+  // alpha bounds 5..794 of an 800px render — and that scale reproduces the
+  // drawing's 70.74 mm overall length to 0.04 mm, so the model is dimensionally
+  // true, not just proportionally plausible.
   'espressif-esp32-s3-devkitc-1': {
     href: devKitCBoardRender,
-    sourceWidth: 398, sourceHeight: 922, imageWidthMm: 29.481,
-    leftPinX: 48, rightPinX: 351, firstPinY: 76.5, lastPinY: 795.5,
+    sourceWidth: 800, sourceHeight: 2199, imageWidthMm: 25.7215,
+    leftPinX: 45.400, rightPinX: 754.600, firstPinY: 45.783, lastPinY: 1700.583,
     pinsPerRail: 22, leftPrefix: 'j1', rightPrefix: 'j3',
     powerAnchors: { v3v3: 'j1-1', ground: 'j3-22' },
-    usbPoint: { x: 270, y: 875 },
+    // The UART port, not the native-USB one: that's the port this app's upload
+    // path drives, so it's the one a builder will have a cable in.
+    usbPoint: { x: 224.717, y: 2183.621 },
     shortLabel: 'ESP32-S3 DevKitC-1',
     usbLabel: 'USB-C',
   },
-  // Header geometry supplied with the render package and independently checked:
-  // 15 + 15 rails on a 72.367px pitch sharing the same rows, first pad centre
-  // y=231.57 and last y=1244.71. The rail centres are symmetric about the
-  // image (60.879 + 739.121 = 800 exactly).
-  // 28.354 mm = 28 mm PCB over alpha bounds 5..794 of an 800px-wide render.
+  // 15 + 15 rails on a 72.367px pitch sharing rows, rail centres symmetric
+  // (60.879 + 739.121 = 800). 28.354 mm = 28 mm PCB over alpha bounds 5..794.
   'esp32-devkit-v1-30pin-esp32d': {
     href: esp32DevKitV1BoardRender,
-    sourceWidth: 800, sourceHeight: 1570, imageWidthMm: 28.354,
+    sourceWidth: 800, sourceHeight: 1631, imageWidthMm: 28.354,
     leftPinX: 60.879, rightPinX: 739.121, firstPinY: 231.571, lastPinY: 1244.714,
     pinsPerRail: 15, leftPrefix: 'left', rightPrefix: 'right',
     // Both rails carry a GND pad (left-14 and right-14) on the same net; the
@@ -171,9 +175,9 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     // the right rail they would be adjacent pads, close enough for the ground
     // symbol's bars to run into the 3V3 stub.
     powerAnchors: { v3v3: 'right-15', ground: 'left-14' },
-    usbPoint: { x: 400, y: 1552 },
+    usbPoint: { x: 400, y: 1612.646 },
     shortLabel: 'ESP32 DevKit v1',
-    usbLabel: 'Micro-USB',
+    usbLabel: 'USB-C',
   },
 }
 
@@ -191,8 +195,21 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
 const CONTROLLER_SLOT_X = 74
 const CONTROLLER_SLOT_WIDTH = 184
 const CONTROLLER_BASELINE_Y = 530
-const CONTROLLER_UNITS_PER_MM = CONTROLLER_SLOT_WIDTH
-  / Math.max(...Object.values(CONTROLLER_SPECS).map((spec) => spec.imageWidthMm))
+/** Ceiling for the column: the wiring-plan callout ends at y=96. */
+const CONTROLLER_SLOT_TOP_Y = 104
+const CONTROLLER_SLOT_HEIGHT = CONTROLLER_BASELINE_Y - CONTROLLER_SLOT_TOP_Y
+
+/**
+ * One scale for all boards, set by whichever runs out of room first. The widest
+ * board can't exceed the slot and the tallest can't reach the callout — the
+ * S3-DevKitC is 2.75x as tall as it is wide, so at width-only scale it would
+ * have run straight through the callout.
+ */
+const CONTROLLER_UNITS_PER_MM = Math.min(
+  CONTROLLER_SLOT_WIDTH / Math.max(...Object.values(CONTROLLER_SPECS).map((spec) => spec.imageWidthMm)),
+  CONTROLLER_SLOT_HEIGHT / Math.max(...Object.values(CONTROLLER_SPECS)
+    .map((spec) => spec.imageWidthMm * (spec.sourceHeight / spec.sourceWidth))),
+)
 
 const CONTROLLER_RENDERS: Record<string, ControllerRender> = Object.fromEntries(
   Object.entries(CONTROLLER_SPECS).map(([id, spec]) => {

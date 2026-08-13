@@ -149,7 +149,7 @@ const DEVKITC_PINS: PhysicalBoardPinProfile[] = [
   pin('j3-13', 'GPIO35', 'gpio', 'j3-13', undefined, 35, 'Unavailable on octal flash/PSRAM variants'),
   pin('j3-14', 'GPIO0 / BOOT', 'gpio', 'j3-14', undefined, 0, 'Boot-strapping pin'),
   pin('j3-15', 'GPIO45', 'gpio', 'j3-15', undefined, 45, 'Strapping pin'),
-  pin('j3-16', 'GPIO48', 'gpio', 'j3-16', undefined, 48, 'Also drives the on-board RGB LED'),
+  pin('j3-16', 'GPIO48', 'gpio', 'j3-16', undefined, 48, 'Drove the on-board RGB LED on the initial revision; v1.1 uses GPIO38'),
   pin('j3-17', 'GPIO47', 'gpio', 'j3-17', undefined, 47),
   pin('j3-18', 'GPIO21', 'gpio', 'j3-18', undefined, 21),
   pin('j3-19', 'USB_D+ / GPIO20', 'gpio', 'j3-19', undefined, 20, 'Native USB D+'),
@@ -330,10 +330,13 @@ export const BOARD_PROFILES: PhysicalBoardProfile[] = [
     label: 'Espressif ESP32-S3-DevKitC-1',
     manufacturer: 'Espressif',
     model: 'ESP32-S3-DevKitC-1',
-    revision: 'manufacturer profile',
+    revision: 'v1.1, ESP32-S3-WROOM-1-N8R8',
     targetFamilies: ['esp32-s3'],
     compatibleFqbns: ['esp32:esp32:esp32s3'],
-    dimensionsMm: { width: 54, height: 28 },
+    // Espressif's v1.1 mechanical drawing: 25.40 mm wide, 62.74 mm to the
+    // connector mounting edge. The previous 54 x 28 matched no revision and
+    // would have mis-sized the board on a true-relative-scale diagram.
+    dimensionsMm: { width: 62.74, height: 25.4 },
     confidence: 'manufacturer-verified',
     moduleSilk: 'ESP32-S3-WROOM-1',
     previewSvg: boardSvg('Espressif DevKitC-1', '#58d68d', 'USB', 'Manufacturer verified'),
