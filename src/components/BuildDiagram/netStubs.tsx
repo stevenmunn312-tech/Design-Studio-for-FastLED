@@ -1,4 +1,5 @@
 import styles from './BuildDiagramWorkspace.module.css'
+import { COMMON_NET_CALLOUT_HEIGHT } from './physicalDiagramLayout'
 
 /**
  * Shared-rail net stubs.
@@ -103,14 +104,14 @@ export function NetStub({
  * imply the grounds are independent, which is the one misreading that damages
  * hardware.
  */
-export function CommonNetCallout({ x, y, width }: { x: number; y: number; width: number }) {
+export function CommonNetCallout({ x, y, width, powerBelow = true }: { x: number; y: number; width: number; powerBelow?: boolean }) {
   return (
     <g data-common-net-callout="true" transform={`translate(${x} ${y})`}>
-      <rect width={width} height="52" rx="8" fill="#fffdf4" stroke="#c9bb86" strokeWidth="2" />
+      <rect width={width} height={COMMON_NET_CALLOUT_HEIGHT} rx="8" fill="#fffdf4" stroke="#c9bb86" strokeWidth="2" />
       <text x="16" y="22" className={styles.physicalLegendTitle}>SHARED NETS — SYMBOLS REPLACE DRAWN WIRES</text>
       <text x="16" y="41" className={styles.physicalLegendMeta}>
         Every GND symbol is one common net: bond controller, level shifter, peripheral and all PSU zone grounds together.
-        +5V draws from the fused bus below; 3V3 draws from the controller regulator.
+        {' '}+5V draws from the fused bus {powerBelow ? 'below' : 'on the power sheet'}; 3V3 draws from the controller regulator.
       </text>
     </g>
   )

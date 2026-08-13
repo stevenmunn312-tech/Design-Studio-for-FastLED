@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react'
+import { flushSync } from 'react-dom'
 import {
   boardPinForGpio,
   boardProfileById,
@@ -17,9 +18,11 @@ import { bomCsv, buildBomRows, buildConnectionRows, connectionsCsv } from '../..
 import { buildHardwareManifest, type HardwareManifestItem, type HardwarePinUse } from '../../build/hardwareManifest'
 import { fuseBlockAllocations } from '../../build/powerDistribution'
 import { useGraphStore } from '../../state/graphStore'
+import { useProjectStore } from '../../state/projectStore'
 import { useUiStore } from '../../state/uiStore'
 import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import PhysicalAssemblyDiagram from './PhysicalAssemblyDiagram'
+import BuildPrintSheets from './BuildPrintSheets'
 import {
   availableSections,
   buildSectionById,
@@ -307,6 +310,7 @@ export default function BuildDiagramWorkspace() {
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH)
   const [detailPaneWidth, setDetailPaneWidth] = useState(DEFAULT_DETAIL_WIDTH)
   const [diagramZoom, setDiagramZoom] = useState(1)
+  const [printSheetsMounted, setPrintSheetsMounted] = useState(false)
   const [sectionId, setSectionId] = useState<BuildSectionId>(DEFAULT_SECTION_ID)
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const panStateRef = useRef<ViewportPanState | null>(null)
@@ -356,6 +360,28 @@ export default function BuildDiagramWorkspace() {
       setSelectedItemId('')
     }
   }, [selectedItemId, visiblePrimaryItems])
+
+  /**
+   * The printed sheets are several full copies of the diagram, so they are only
+   * built for the print itself rather than kept mounted while the user edits.
+   * `flushSync` is what makes that safe: the browser snapshots the page as soon
+   * as the beforeprint handler returns, so the render has to have happened by
+   * then. Ctrl+P and the Print button both land here.
+   */
+  useEffect(() => {
+    const mount = () => flushSync(() => setPrintSheetsMounted(true))
+    const unmount = () => setPrintSheetsMounted(false)
+    const media = typeof window.matchMedia === 'function' ? window.matchMedia('print') : null
+    const onMediaChange = (event: MediaQueryListEvent) => (event.matches ? mount() : unmount())
+    window.addEventListener('beforeprint', mount)
+    window.addEventListener('afterprint', unmount)
+    media?.addEventListener?.('change', onMediaChange)
+    return () => {
+      window.removeEventListener('beforeprint', mount)
+      window.removeEventListener('afterprint', unmount)
+      media?.removeEventListener?.('change', onMediaChange)
+    }
+  }, [])
 
   useEffect(() => {
     if (!boardPickerOpen) return
@@ -423,6 +449,19 @@ export default function BuildDiagramWorkspace() {
     () => buildBomRows(manifest, electricalPlan, buildProfile, exactBoard, exportItemIds),
     [buildProfile, electricalPlan, exactBoard, exportItemIds, manifest],
   )
+  const exportPlan = exportMode === 'complete-build' ? electricalPlan : visibleElectricalPlan
+  const exportDiagramConnections = useMemo(() => exportItems.flatMap((item) => item.pins.map((pin) => {
+    const boardPin = boardPinForGpio(exactBoard, pin.pin)
+    return {
+      id: `${item.id}:${pin.propertyKey}`,
+      itemId: item.id,
+      pinLabel: boardPin?.label ?? `GPIO ${pin.pin}`,
+      useLabel: pin.label,
+      boardAnchorId: boardPin?.anchorId,
+    }
+  })), [exactBoard, exportItems])
+  const projectName = useProjectStore((state) =>
+    state.projects.find((project) => project.id === state.currentProjectId)?.name)
   const patchBuildProfile = (recipe: (current: ReturnType<typeof ensureBuildProfile>) => ReturnType<typeof ensureBuildProfile>) => {
     updateBuildProfile((current) => recipe(ensureBuildProfile(current)))
   }
@@ -474,7 +513,9 @@ export default function BuildDiagramWorkspace() {
   }
 
   const exportDiagramSvg = async () => {
-    const source = document.querySelector<SVGSVGElement>(`svg[data-build-export="${exportMode}"]`)
+    // Scoped to the export roots: the print sheets are diagrams too, and they
+    // are in the document whenever a print is in flight.
+    const source = document.querySelector<SVGSVGElement>(`[data-build-export-root="${exportMode}"] svg[data-build-export]`)
     if (!source) return
     const clone = source.cloneNode(true) as SVGSVGElement
     clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
@@ -484,6 +525,12 @@ export default function BuildDiagramWorkspace() {
     clone.prepend(metadata)
     await inlineSvgImages(clone)
     downloadBuildFile(new XMLSerializer().serializeToString(clone), 'fastled-build-diagram.svg', 'image/svg+xml;charset=utf-8')
+  }
+
+  /** Mounts the sheets even where `beforeprint` is not supported, then prints. */
+  const printBuildSheets = () => {
+    flushSync(() => setPrintSheetsMounted(true))
+    window.print()
   }
 
   const exportConnectionsCsv = () => {
@@ -995,6 +1042,7 @@ export default function BuildDiagramWorkspace() {
                   transform: `scale(${diagramZoom})`,
                 }}
                 data-pan-surface="true"
+                data-build-export-root="current-view"
               >
                 <PhysicalAssemblyDiagram
                   boardProfile={exactBoard}
@@ -1017,7 +1065,7 @@ export default function BuildDiagramWorkspace() {
           </div>
         )}
         {exactBoard && (
-          <div className={styles.exportDiagramHidden} aria-hidden="true">
+          <div className={styles.exportDiagramHidden} aria-hidden="true" data-build-export-root="complete-build">
             <PhysicalAssemblyDiagram
               boardProfile={exactBoard}
               items={primaryItems}
@@ -1341,7 +1389,7 @@ export default function BuildDiagramWorkspace() {
               </p>
               <div className={styles.exportActionGrid}>
                 <button type="button" className={styles.exportModeButton} disabled={!exactBoard} onClick={exportDiagramSvg}>Export SVG</button>
-                <button type="button" className={styles.exportModeButton} disabled={!exactBoard} onClick={() => window.print()}>Print / PDF</button>
+                <button type="button" className={styles.exportModeButton} disabled={!exactBoard} onClick={printBuildSheets}>Print / PDF</button>
                 <button type="button" className={styles.exportModeButton} disabled={!exactBoard} onClick={exportConnectionsCsv}>Connections CSV</button>
                 <button type="button" className={styles.exportModeButton} disabled={!exactBoard} onClick={exportBomCsv}>BOM CSV</button>
               </div>
@@ -1352,6 +1400,48 @@ export default function BuildDiagramWorkspace() {
           </>
         )}
       </aside>
+      {exactBoard && printSheetsMounted && (
+        <BuildPrintSheets
+          boardProfile={exactBoard}
+          items={exportItems}
+          plan={exportPlan}
+          connections={exportDiagramConnections}
+          connectionRows={exportConnectionRows}
+          bomRows={exportBomRows}
+          projectName={projectName}
+          targetLabel={selectedTarget?.label ?? selectedFqbn}
+          exportScope={exportMode}
+          exportScopeLabel={exportMode === 'complete-build'
+            ? 'Complete build — every configured hardware item'
+            : `Current view — ${activeSection.label} section, visible hardware only`}
+          status={exportDraftStatus}
+          readiness={[
+            { label: 'Exact board', value: exactBoard.label },
+            { label: 'Wiring plan', value: requirementsCalculatedText },
+            { label: 'Signal plan', value: readinessText },
+            { label: 'Power plan', value: electricalPlan.powerReadyText },
+            { label: 'Build reference', value: buildReadyText },
+          ]}
+          powerSummary={electricalPlan.totals ? [
+            {
+              label: electricalPlan.totals.operatingCurrentCapMa != null ? 'PSU sizing budget' : 'Design load',
+              value: `${formatCurrentMa(electricalPlan.totals.psuSizingCurrentMa)} @ ${formatVoltage(electricalPlan.totals.nominalVoltage)}`,
+            },
+            {
+              label: 'Full-white ceiling',
+              value: formatCurrentMa(electricalPlan.totals.designCurrentMa),
+            },
+            {
+              label: 'Supply budget',
+              value: `${formatCurrentMa(electricalPlan.totals.recommendedSupplyCurrentMa)} / ${formatWattage(electricalPlan.totals.recommendedSupplyWattage)}`,
+            },
+            ...electricalPlan.totals.supplies.map((supply, index) => ({
+              label: `PSU ${index + 1}`,
+              value: `5 V · ${formatCurrentMa(supply.recommendedCurrentMa)} / ${formatWattage(supply.recommendedWattage)} · ${supply.outputTitles.join(', ')}`,
+            })),
+          ] : []}
+        />
+      )}
       {boardPickerOpen && (
         <div className={styles.boardPickerBackdrop} onMouseDown={(event) => {
           if (event.target === event.currentTarget) setBoardPickerOpen(false)

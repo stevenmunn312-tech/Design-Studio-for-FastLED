@@ -701,6 +701,56 @@ describe('BuildDiagramWorkspace', () => {
     expect(getByText('Current view is selected. Exports will follow the hardware currently visible under the eye/filter/isolation state and the All section.')).toBeTruthy()
   })
 
+  it('builds a paginated print document only while printing, with power on its own pages', () => {
+    useGraphStore.setState({ nodes: [matrixNode(14, 64, 64), microphoneNode()] as never[] })
+    selectDevKit()
+    const { container } = render(<BuildDiagramWorkspace />)
+
+    // Several full copies of the sheet: built for the print, not kept mounted.
+    expect(container.querySelector('[data-build-print-document]')).toBeNull()
+    fireEvent(window, new Event('beforeprint'))
+
+    const printDocument = container.querySelector('[data-build-print-document]')
+    expect(printDocument).toBeTruthy()
+    const pageTitles = Array.from(printDocument?.querySelectorAll('header strong') ?? [])
+      .map((heading) => heading.textContent)
+    const supplyCount = container.querySelectorAll('svg[data-build-export="current-view"] [data-power-zone]').length
+    expect(supplyCount).toBeGreaterThan(1)
+    expect(pageTitles).toEqual([
+      'Build reference',
+      'Signal wiring',
+      ...Array.from({ length: supplyCount }, (_, index) => `Power — PSU zone ${index + 1} of ${supplyCount}`),
+      'Connection schedule',
+      'Parts list',
+    ])
+
+    // Each power page crops to exactly the band its own zone is drawn in, and
+    // the bands tile: a printed zone is whole and no band prints twice.
+    const printSheets = Array.from(printDocument?.querySelectorAll('svg[data-build-export]') ?? [])
+    const wiring = printSheets[0]
+    expect(wiring.querySelector('[data-power-zone]')).toBeNull()
+    expect(wiring.querySelector('[data-component-render="sn74ahct125n-dip14"]')).toBeTruthy()
+    const crops = printSheets.slice(1).map((sheet, index) => {
+      const [x, y, width, height] = (sheet.getAttribute('viewBox') ?? '').split(' ').map(Number)
+      expect([x, width]).toEqual([0, 1120])
+      expect(sheet.querySelectorAll('[data-power-zone]')).toHaveLength(supplyCount)
+      const zone = sheet.querySelectorAll('[data-power-zone]')[index]
+      expect(Number(zone.getAttribute('data-power-zone-y'))).toBe(y)
+      return { y, height }
+    })
+    expect(crops).toHaveLength(supplyCount)
+    expect(crops[1].y).toBe(crops[0].y + crops[0].height)
+
+    // The schedules a builder ticks off print too; before this they were CSV-only.
+    const tables = printDocument?.querySelectorAll('table') ?? []
+    expect(tables).toHaveLength(2)
+    expect(tables[0].querySelectorAll('tbody tr').length).toBeGreaterThan(0)
+    expect(tables[1].textContent).toContain('74AHCT125 level shifter')
+
+    fireEvent(window, new Event('afterprint'))
+    expect(container.querySelector('[data-build-print-document]')).toBeNull()
+  })
+
   it('shows identifying details for all supported exact boards', () => {
     const { container, getByRole, getByText } = render(<BuildDiagramWorkspace />)
     fireEvent.click(getByRole('button', { name: 'Choose your board' }))

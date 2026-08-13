@@ -275,3 +275,24 @@
   line-height: 1;
   transform: translateX(1px);
 }
+
+/* Printing is a Build Diagram feature: the app chrome around the workspace is
+   screen furniture, and the printed sheets bring their own page headers. */
+@media print {
+  .app {
+    display: block;
+    height: auto;
+    overflow: visible;
+    background: white;
+  }
+
+  .app > *:not(.workspace) {
+    display: none !important;
+  }
+
+  .workspace {
+    display: block;
+    overflow: visible;
+    background: none;
+  }
+}
