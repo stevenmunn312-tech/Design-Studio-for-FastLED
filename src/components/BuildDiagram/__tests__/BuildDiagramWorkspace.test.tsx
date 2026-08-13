@@ -167,6 +167,7 @@ describe('BuildDiagramWorkspace', () => {
     // Exits left of the board, drops, then rejoins the bus band (266..290) and
     // runs in to the series resistor at x=350.
     expect(outputWirePath).toMatch(/H58V542H266V342H350$/)
+    expect(diagram?.querySelector('[data-component-render="330ohm-blue-axial-resistor"]')).toBeTruthy()
     expect(diagram?.querySelector('[data-component-render="sn74ahct125n-dip14"]')).toBeTruthy()
     expect(diagram?.querySelector('[data-component-render="inmp441-breakout"]')).toBeTruthy()
     expect(diagram?.querySelector('[data-terminal="level-shifter-1-vcc"] circle')?.getAttribute('cx')).toBe('147')

@@ -10,6 +10,7 @@ import potentiometerModuleRender from '../../assets/components/potentiometer-mod
 import encoderModuleRender from '../../assets/components/encoder-module.png'
 import psuRender from '../../assets/components/5v-psu.png'
 import capacitorRender from '../../assets/components/panasonic-eeufr0j102b-1000uf.png'
+import resistorRender from '../../assets/components/330ohm-blue-axial-resistor.png'
 import fuseBlock2Render from '../../assets/components/fuse-block-2-circuit.png'
 import fuseBlock4Render from '../../assets/components/fuse-block-4-circuit.png'
 import fuseBlock6Render from '../../assets/components/fuse-block-6-circuit.png'
@@ -1022,9 +1023,16 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
         {outputLayouts.map((layout, index) => (
           <g key={`${layout.item.id}-resistor`} transform={`translate(350 ${levelShifterTerminalPoint(index, 'a').y - 14})`}>
             <text x="20" y="-8" textAnchor="middle" className={styles.physicalComponentLabel}>330Ω</text>
-            <line x1="0" y1="14" x2="7" y2="14" stroke="#269847" strokeWidth="4" />
-            <rect x="7" y="4" width="26" height="20" rx="4" fill="#dfc39a" stroke="#795f38" />
-            <line x1="33" y1="14" x2="40" y2="14" stroke="#269847" strokeWidth="4" />
+            <image
+              data-component-render="330ohm-blue-axial-resistor"
+              href={resistorRender}
+              x="0"
+              y="0"
+              width="40"
+              height="28"
+              preserveAspectRatio="xMidYMid meet"
+              className={styles.physicalBoardRender}
+            />
           </g>
         ))}
         {Array.from({ length: Math.ceil(outputLayouts.length / 4) }, (_, chipIndex) => {
