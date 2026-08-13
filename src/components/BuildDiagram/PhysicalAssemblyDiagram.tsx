@@ -9,7 +9,7 @@ import buttonModuleRender from '../../assets/components/button-module.png'
 import potentiometerModuleRender from '../../assets/components/potentiometer-module.png'
 import encoderModuleRender from '../../assets/components/encoder-module.png'
 import psuRender from '../../assets/components/5v-psu.png'
-import capacitorRender from '../../assets/components/electrolytic-capacitor-1000uf-6v3.png'
+import capacitorRender from '../../assets/components/panasonic-eeufr0j102b-1000uf.png'
 import fuseBlock2Render from '../../assets/components/fuse-block-2-circuit.png'
 import fuseBlock4Render from '../../assets/components/fuse-block-4-circuit.png'
 import fuseBlock6Render from '../../assets/components/fuse-block-6-circuit.png'
@@ -30,6 +30,7 @@ import {
   diagramContentBottom,
   feedCombLaneY,
   feedIndexForFuseSlot,
+  fuseBlockPoints,
   FUSE_BLOCK_CELL_HEIGHT,
   FUSE_BLOCK_CELL_WIDTH,
   FUSE_BLOCK_START_X,
@@ -47,6 +48,7 @@ import {
   physicalAssemblyDiagramHeight,
   powerDistributionSectionLayout,
   POWER_BRANCH_ROW_SPACING,
+  POWER_FEED_PAIR_GAP,
   powerSectionStartY,
   type ItemLayout,
   type LevelShifterTerminalPoint,
@@ -83,45 +85,6 @@ const FUSE_BLOCK_RENDERS: Record<FuseBlockCircuitCount, string> = {
   8: fuseBlock8Render,
   10: fuseBlock10Render,
   12: fuseBlock12Render,
-}
-
-const FUSE_BLOCK_MODEL_WIDTH = 5.8
-
-/**
- * Map the plan-view Blender model coordinates into the fixed SVG image cell.
- * The Cycles renders use a 15% orthographic perimeter, so these points land on
- * the visible screw heads for every supported fixed block size.
- */
-function fuseBlockPoints(circuitCount: FuseBlockCircuitCount, x: number, y: number) {
-  const rows = circuitCount / 2
-  const modelHeight = 3.45 + (rows * 1.72)
-  const scale = Math.min(
-    FUSE_BLOCK_CELL_WIDTH / (FUSE_BLOCK_MODEL_WIDTH * 1.15),
-    FUSE_BLOCK_CELL_HEIGHT / (modelHeight * 1.15),
-  )
-  const centreX = x + (FUSE_BLOCK_CELL_WIDTH / 2)
-  const centreY = y + (FUSE_BLOCK_CELL_HEIGHT / 2)
-  return {
-    positive: { x: centreX, y: centreY + ((modelHeight / 2 - 0.47) * scale) },
-    ground: { x: centreX, y: centreY - ((modelHeight / 2 - 0.38) * scale) },
-    groundCircuit(slot: number) {
-      const modelX = -2 + ((4 * slot) / (circuitCount - 1))
-      const busY = (modelHeight / 2) - 1.05
-      return {
-        x: centreX + (modelX * scale),
-        y: centreY - (busY * scale),
-      }
-    },
-    circuit(slot: number) {
-      const rowFromTop = Math.floor(slot / 2)
-      const column = slot % 2
-      const modelY = (-modelHeight / 2) + 1.62 + ((rows - rowFromTop - 1) * 1.72)
-      return {
-        x: centreX + ((column === 0 ? -2.22 : 2.22) * scale),
-        y: centreY - (modelY * scale),
-      }
-    },
-  }
 }
 
 const DEVKITC_RENDER = {
@@ -632,6 +595,26 @@ const LEFT_RAIL_MIN_X = 230
 const PSU_POSITIVE_TRUNK_X = 212
 const PSU_GROUND_TRUNK_X = 196
 
+/**
+ * Panasonic EEUFR0J102B render, cropped to its own alpha bounds. The part is
+ * drawn from the side with both leads out the left, positive above the striped
+ * negative, so the leads sit straight on the two feed wires.
+ */
+const CAPACITOR_ASPECT = 1382 / 504
+const CAPACITOR_POSITIVE_LEAD_RATIO = 142 / 504
+const CAPACITOR_NEGATIVE_LEAD_RATIO = 361 / 504
+const CAPACITOR_HEIGHT = Math.round(POWER_FEED_PAIR_GAP / (CAPACITOR_NEGATIVE_LEAD_RATIO - CAPACITOR_POSITIVE_LEAD_RATIO))
+const CAPACITOR_WIDTH = Math.round(CAPACITOR_HEIGHT * CAPACITOR_ASPECT)
+/**
+ * The feed run ends on the LED panel terminals and the capacitor's own leads
+ * pick up from there, so the part reads as bridging the pair at the injection
+ * point rather than sitting in series with it.
+ */
+const FEED_RUN_END = 900
+const LED_TERMINAL_X = FEED_RUN_END - 16
+const CAPACITOR_X = FEED_RUN_END - 2
+const FEED_LABEL_X = 748
+
 function laneGeometry(feedCount: number) {
   const pitch = Math.round(Math.min(
     LANE_MAX_PITCH,
@@ -690,10 +673,14 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
       // negative bus and its first fuse row, then drops the gutter between the
       // two screw columns onto the positive input. Going round the outside
       // instead would have to cut across the branch rails that wrap the block.
-      const positiveBus = blocks.map((block) => {
+      const positiveBus = blocks.map((block, blockIndex) => {
         const points = fuseBlockPoints(block.circuitCount, block.x, block.y)
         const point = points.positive
-        const entryY = Math.round((points.groundCircuit(0).y + points.circuit(0).y) / 2)
+        // Level with the PSU terminal for the first block, so that run is dead
+        // straight; later blocks step down the same riser.
+        const entryY = blockIndex === 0
+          ? sectionLayout.trunkEntryY
+          : Math.round((points.groundCircuit(0).y + points.circuit(0).y) / 2)
         return `M${psuPositive.x} ${psuPositive.y}H${PSU_POSITIVE_TRUNK_X}V${entryY}H${point.x}V${point.y}`
       }).join('')
       const groundBus = blocks.map((block) => {
@@ -733,7 +720,7 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
         <NetStub x={264} y={82} kind="gnd" direction="up" wireId={`${supply.id}-rail-ground`} />
 
         <g data-fuse-value-schedule={`${supply.id}`}>
-          <text x="780" y="88" className={styles.physicalLegendTitle}>FUSE BLOCK VALUES</text>
+          <text x="42" y={sectionLayout.scheduleY} className={styles.physicalLegendTitle}>FUSE BLOCK VALUES</text>
           {blocks.flatMap((block) => {
             const values = Array.from({ length: block.circuitCount }, (_, slot) => {
               const localIndex = feedIndexForFuseSlot(slot, block.assignedFeedCount)
@@ -747,7 +734,7 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
             }
             return lines
           }).map((line, lineIndex) => (
-            <text key={`${line.block}-${lineIndex}`} x="780" y={109 + (lineIndex * 18)} className={styles.physicalWireLabel}>
+            <text key={`${line.block}-${lineIndex}`} x="42" y={sectionLayout.scheduleY + 21 + (lineIndex * 18)} className={styles.physicalWireLabel}>
               {line.continuation ? '           ' : `BLOCK ${line.block} · `}{line.values.join('  ·  ')}
             </text>
           ))}
@@ -788,7 +775,7 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
         <path data-wire={`${supply.id}-ground-bus`} data-wire-role="main-psu-ground" d={groundBus} className={styles.mainGroundWire} />
 
         {assigned.map((injection, index) => {
-          const rowY = sectionLayout.branchStartY + (index * POWER_BRANCH_ROW_SPACING) + 38
+          const rowY = sectionLayout.firstBranchY + (index * POWER_BRANCH_ROW_SPACING)
           const fuseText = injection.fuse.ratingMa ? formatAmps(injection.fuse.ratingMa) : 'RATED'
           const wireText = injection.conductor ? `AWG ${injection.conductor.awg}` : 'WIRE TBD'
           const destination = `${injection.outputTitle} · ${injection.role.toUpperCase()} @ ${injection.positionMm} mm`
@@ -802,21 +789,19 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
           const { x: positiveX, y: positiveY } = points.positive
           const positiveLaneX = lanes.positive(index)
           const groundLaneX = lanes.ground(index)
-          const groundRowY = rowY + 32
+          const groundRowY = rowY + POWER_FEED_PAIR_GAP
           // Right-column feeds leave straight out to their lane. Left-column
           // feeds drop down a rail beside the block and cross under it in the
           // feed comb, so nothing ever has to climb back over the block.
           const railX = leftRail(leftRank)
           const feedCombY = feedCombLaneY(sectionLayout.feedCombY, leftRank)
           const positivePath = isRightColumn
-            ? `M${fuseX} ${fuseY}H${positiveLaneX}V${rowY}H1020`
-            : `M${fuseX} ${fuseY}H${railX}V${feedCombY}H${positiveLaneX}V${rowY}H1020`
+            ? `M${fuseX} ${fuseY}H${positiveLaneX}V${rowY}H${FEED_RUN_END}`
+            : `M${fuseX} ${fuseY}H${railX}V${feedCombY}H${positiveLaneX}V${rowY}H${FEED_RUN_END}`
           const groundCombY = groundCombLaneY(block.y, localIndex, block.assignedFeedCount)
-          const capacitorX = 784
-          const capacitorY = rowY - 64
-          const capacitorLeadY = rowY + 16
-          const capacitorPositiveX = capacitorX + 22
-          const capacitorNegativeX = capacitorX + 36
+          const capacitorY = rowY - (CAPACITOR_HEIGHT * CAPACITOR_POSITIVE_LEAD_RATIO)
+          // Lead tips: where the part's own leads meet the two feed wires.
+          const capacitorLeadX = CAPACITOR_X + 8
 
           return <g key={injection.id}>
             {/* The unfused positive path is physically internal to the rendered block. */}
@@ -847,32 +832,36 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
               data-wire={`${injection.id}-ground`}
               data-ground-screw-slot={slot + 1}
               data-ground-screw-count={block.circuitCount}
-              d={`M${groundX} ${groundY}V${groundCombY}H${groundLaneX}V${groundRowY}H1020`}
+              d={`M${groundX} ${groundY}V${groundCombY}H${groundLaneX}V${groundRowY}H${FEED_RUN_END}`}
               className={styles.groundWire}
             />
-            <text x="854" y={rowY - 11} className={styles.physicalWireLabel}>{destination} · {formatAmps(injection.designCurrentMa)} · {wireText} · 500 mm</text>
+            {/* Both captions sit above the pair: the gap below it belongs to the
+                next feed, and the capacitor owns the space beside the wires. */}
+            <text x={FEED_LABEL_X} y={rowY - 36} className={styles.physicalWireLabel}>{destination} · {formatAmps(injection.designCurrentMa)} · {wireText} · 500 mm</text>
             <g data-terminal={`${injection.id}-capacitor`}>
               <image
-                data-component-render="electrolytic-capacitor-1000uf-6v3"
+                data-component-render="panasonic-eeufr0j102b-1000uf"
                 href={capacitorRender}
-                x={capacitorX}
+                x={CAPACITOR_X}
                 y={capacitorY}
-                width="60"
-                height="80"
+                width={CAPACITOR_WIDTH}
+                height={CAPACITOR_HEIGHT}
                 preserveAspectRatio="xMidYMid meet"
                 className={styles.physicalBoardRender}
               />
-              <line x1={capacitorPositiveX} y1={rowY} x2={capacitorPositiveX} y2={capacitorLeadY} className={styles.powerWire} />
-              <line x1={capacitorNegativeX} y1={capacitorLeadY} x2={capacitorNegativeX} y2={groundRowY} className={styles.groundWire} />
-              <circle data-terminal={`${injection.id}-capacitor-positive`} cx={capacitorPositiveX} cy={rowY} r="4" fill="#d84938" stroke="#ffd1d7" />
-              <circle data-terminal={`${injection.id}-capacitor-negative`} cx={capacitorNegativeX} cy={groundRowY} r="4" fill="#202425" stroke="#f2c766" />
-              <title>1000 µF, 6.3 V electrolytic · positive to fused +5 V, negative to common ground</title>
+              <circle data-terminal={`${injection.id}-capacitor-positive`} cx={capacitorLeadX} cy={rowY} r="4" fill="#d84938" stroke="#ffd1d7" />
+              <circle data-terminal={`${injection.id}-capacitor-negative`} cx={capacitorLeadX} cy={groundRowY} r="4" fill="#202425" stroke="#f2c766" />
+              <title>Panasonic EEUFR0J102B · 1000 µF, 6.3 V · positive lead to fused +5 V, striped negative lead to common ground</title>
             </g>
-            <text x="856" y={rowY + 22} className={styles.physicalWireLabel}>1000µF · 6.3 V · OBSERVE POLARITY</text>
-            <circle cx="1020" cy={rowY} r="6" fill="#d84938" stroke="#f0a093" data-terminal={`${injection.id}-led-positive`} />
-            <circle cx="1020" cy={groundRowY} r="6" fill="#202425" stroke="#aeb6b7" data-terminal={`${injection.id}-led-ground`} />
-            <text x="1032" y={rowY + 5} className={styles.physicalPinLabel}>+5V</text>
-            <text x="1032" y={groundRowY + 5} className={styles.physicalPinLabel}>GND</text>
+            <text x={FEED_LABEL_X} y={rowY - 22} className={styles.physicalWireLabel}>1000 µF · 6.3 V · STRIPED LEAD TO GND</text>
+            {/* Polarity is carried by the wire colours, the legend and the
+                capacitor note, so the pair stays free of per-row pin text. */}
+            <circle cx={LED_TERMINAL_X} cy={rowY} r="6" fill="#d84938" stroke="#f0a093" data-terminal={`${injection.id}-led-positive`}>
+              <title>{injection.outputTitle} +5 V injection · {injection.role.toUpperCase()} @ {injection.positionMm} mm</title>
+            </circle>
+            <circle cx={LED_TERMINAL_X} cy={groundRowY} r="6" fill="#202425" stroke="#aeb6b7" data-terminal={`${injection.id}-led-ground`}>
+              <title>{injection.outputTitle} ground return · {injection.role.toUpperCase()} @ {injection.positionMm} mm</title>
+            </circle>
           </g>
         })}
       </g>

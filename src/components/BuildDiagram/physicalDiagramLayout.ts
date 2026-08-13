@@ -1,6 +1,6 @@
 import type { ElectricalPlanSummary } from '../../build/electricalPlan'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
-import { fuseBlockAllocations } from '../../build/powerDistribution'
+import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/powerDistribution'
 
 export type ItemLayout = {
   item: HardwareManifestItem
@@ -26,7 +26,12 @@ export const FEED_COMB_STEP = 9
 const GROUND_COMB_CLEARANCE = 16
 /** Clearance between the bottom of the block stack and the first feed comb lane. */
 const FEED_COMB_CLEARANCE = 22
-const PSU_RENDER_HEIGHT = 220
+export const PSU_RENDER_HEIGHT = 220
+/** Terminal offsets measured off the labelled PSU render's screw block. */
+export const PSU_POSITIVE_TERMINAL_OFFSET = 64
+export const PSU_GROUND_TERMINAL_OFFSET = 87
+/** Vertical gap between a feed's +5 V and ground rows, set by the capacitor. */
+export const POWER_FEED_PAIR_GAP = 26
 
 /**
  * Feeds are split across the two screw columns of their block so the harness
@@ -49,6 +54,45 @@ export function fuseSlotForFeed(localIndex: number, assignedFeedCount: number) {
   const isRightColumn = localIndex < rightCount
   const columnRank = isRightColumn ? localIndex : localIndex - rightCount
   return { slot: (columnRank * 2) + (isRightColumn ? 1 : 0), isRightColumn, columnRank }
+}
+
+const FUSE_BLOCK_MODEL_WIDTH = 5.8
+
+/**
+ * Map the plan-view Blender model coordinates into the fixed SVG image cell.
+ * The Cycles renders use a 15% orthographic perimeter, so these points land on
+ * the visible screw heads for every supported fixed block size.
+ */
+export function fuseBlockPoints(circuitCount: FuseBlockCircuitCount, x: number, y: number) {
+  const rows = circuitCount / 2
+  const modelHeight = 3.45 + (rows * 1.72)
+  const scale = Math.min(
+    FUSE_BLOCK_CELL_WIDTH / (FUSE_BLOCK_MODEL_WIDTH * 1.15),
+    FUSE_BLOCK_CELL_HEIGHT / (modelHeight * 1.15),
+  )
+  const centreX = x + (FUSE_BLOCK_CELL_WIDTH / 2)
+  const centreY = y + (FUSE_BLOCK_CELL_HEIGHT / 2)
+  return {
+    positive: { x: centreX, y: centreY + ((modelHeight / 2 - 0.47) * scale) },
+    ground: { x: centreX, y: centreY - ((modelHeight / 2 - 0.38) * scale) },
+    groundCircuit(slot: number) {
+      const modelX = -2 + ((4 * slot) / (circuitCount - 1))
+      const busY = (modelHeight / 2) - 1.05
+      return {
+        x: centreX + (modelX * scale),
+        y: centreY - (busY * scale),
+      }
+    },
+    circuit(slot: number) {
+      const rowFromTop = Math.floor(slot / 2)
+      const column = slot % 2
+      const modelY = (-modelHeight / 2) + 1.62 + ((rows - rowFromTop - 1) * 1.72)
+      return {
+        x: centreX + ((column === 0 ? -2.22 : 2.22) * scale),
+        y: centreY - (modelY * scale),
+      }
+    },
+  }
 }
 
 /** Comb lane a feed's ground return takes above its own block. */
@@ -84,25 +128,49 @@ export function powerDistributionSectionLayout(feedCount: number) {
     leftColumnFeeds += fuseColumnSplit(block.assignedFeedCount).leftCount
   }
   const fuseBlockY = blockTops[0] ?? 96
-  const psuY = fuseBlockY
   const blocksBottom = cursor
   const feedCombY = blocksBottom + FEED_COMB_CLEARANCE
   const feedCombBottom = feedCombY + (Math.max(0, leftColumnFeeds - 1) * FEED_COMB_STEP)
+
+  const firstBlock = blocks[0]
+  const firstPoints = firstBlock && fuseBlockPoints(firstBlock.circuitCount, FUSE_BLOCK_START_X, fuseBlockY)
+  // The +5 V trunk enters the block through the clear band between its negative
+  // bus and its first fuse row. Hanging the PSU off that height keeps the trunk
+  // a single straight run rather than a jog.
+  const trunkEntryY = firstPoints
+    ? Math.round((firstPoints.groundCircuit(0).y + firstPoints.circuit(0).y) / 2)
+    : fuseBlockY + 54
+  const psuY = Math.max(76, trunkEntryY - PSU_POSITIVE_TERMINAL_OFFSET)
   const componentBottom = Math.max(psuY + PSU_RENDER_HEIGHT, blocksBottom)
-  // The feed rows start below every source component, so each branch is a
-  // single downward-and-right run instead of wrapping back around the block.
-  const branchStartY = Math.max(componentBottom, feedCombBottom) + 26
-  const firstBranchY = branchStartY + 38
+
+  // Rows start level with the first branch leaving the block, so the shallowest
+  // feed is a dead-straight run. The floor keeps the first left-column feed
+  // below the comb it crosses under the block in — otherwise that branch would
+  // have to climb back up and the fan would stop being planar.
+  const firstRightSlot = firstBlock ? fuseSlotForFeed(0, firstBlock.assignedFeedCount).slot : 0
+  const firstBranchAlignedY = firstPoints ? Math.round(firstPoints.circuit(firstRightSlot).y) : componentBottom
+  const leftColumnStart = firstBlock ? fuseColumnSplit(firstBlock.assignedFeedCount).rightCount : 0
+  const leftColumnFloor = firstBlock && leftColumnStart < firstBlock.assignedFeedCount
+    ? feedCombBottom + 24 - (leftColumnStart * POWER_BRANCH_ROW_SPACING)
+    : 0
+  const firstBranchY = Math.max(firstBranchAlignedY, leftColumnFloor)
   const branchBottom = firstBranchY + (Math.max(0, feedCount - 1) * POWER_BRANCH_ROW_SPACING) + 64
+
+  // The fuse schedule drops into the space the PSU and combs leave clear on the
+  // left, well inside the lane band the feeds start at.
+  const scheduleY = Math.max(componentBottom, feedCombBottom) + 34
+  const scheduleBottom = scheduleY + (blocks.reduce((lines, block) => lines + Math.ceil(block.circuitCount / 6), 0) * 18)
   return {
     blockCount: blocks.length,
     blockTops,
     blocksBottom,
     feedCombY,
-    branchStartY,
+    firstBranchY,
+    scheduleY,
     psuY,
     fuseBlockY,
-    sectionHeight: Math.max(componentBottom, branchBottom) + 30,
+    trunkEntryY,
+    sectionHeight: Math.max(componentBottom, scheduleBottom, branchBottom) + 30,
   }
 }
 

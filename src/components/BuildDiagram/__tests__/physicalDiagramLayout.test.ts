@@ -4,26 +4,58 @@ import {
   feedCombLaneY,
   feedIndexForFuseSlot,
   FUSE_BLOCK_CELL_HEIGHT,
+  FUSE_BLOCK_START_X,
+  fuseBlockPoints,
   fuseColumnSplit,
   fuseSlotForFeed,
   groundCombLaneY,
   POWER_BRANCH_ROW_SPACING,
   powerDistributionSectionLayout,
+  PSU_POSITIVE_TERMINAL_OFFSET,
 } from '../physicalDiagramLayout'
 
 const FEED_COUNTS = [1, 2, 3, 4, 5, 6, 7, 10, 12, 13, 24, 26]
 
 describe('powerDistributionSectionLayout', () => {
-  it('keeps every feed row below the whole block stack so branches only run downward', () => {
+  it('never asks a branch to climb back up towards its row', () => {
     for (const feedCount of FEED_COUNTS) {
       const layout = powerDistributionSectionLayout(feedCount)
-      const firstRowY = layout.branchStartY + 38
       expect(layout.blockTops).toHaveLength(layout.blockCount)
-      expect(layout.blocksBottom, `${feedCount} feeds`).toBeGreaterThan(layout.fuseBlockY)
-      expect(firstRowY, `${feedCount} feeds`).toBeGreaterThan(layout.blocksBottom)
-      expect(firstRowY, `${feedCount} feeds`).toBeGreaterThan(layout.psuY + 220)
-      const lastRowY = firstRowY + ((feedCount - 1) * POWER_BRANCH_ROW_SPACING)
+      let leftRank = 0
+      let feedIndex = 0
+      for (const [blockIndex, block] of fuseBlockAllocations(feedCount).entries()) {
+        const points = fuseBlockPoints(block.circuitCount, FUSE_BLOCK_START_X, layout.blockTops[blockIndex])
+        for (let localIndex = 0; localIndex < block.assignedFeedCount; localIndex += 1, feedIndex += 1) {
+          const rowY = layout.firstBranchY + (feedIndex * POWER_BRANCH_ROW_SPACING)
+          const { slot, isRightColumn } = fuseSlotForFeed(localIndex, block.assignedFeedCount)
+          const label = `${feedCount} feeds, feed ${feedIndex}`
+          // Ground leaves the comb above the block, so its row must be lower.
+          expect(rowY, label).toBeGreaterThan(groundCombLaneY(layout.blockTops[blockIndex], localIndex, block.assignedFeedCount))
+          if (isRightColumn) {
+            // Straight out of the screw, then down: never above the screw.
+            expect(rowY, label).toBeGreaterThanOrEqual(Math.round(points.circuit(slot).y))
+          } else {
+            // Around the block into the comb, then down: never above the comb.
+            expect(rowY, label).toBeGreaterThan(feedCombLaneY(layout.feedCombY, leftRank))
+            leftRank += 1
+          }
+        }
+      }
+      const lastRowY = layout.firstBranchY + ((feedCount - 1) * POWER_BRANCH_ROW_SPACING)
       expect(layout.sectionHeight, `${feedCount} feeds`).toBeGreaterThan(lastRowY)
+      expect(layout.sectionHeight, `${feedCount} feeds`).toBeGreaterThan(layout.scheduleY)
+    }
+  })
+
+  it('hangs the PSU off the height its +5 V trunk enters the block at', () => {
+    for (const feedCount of FEED_COUNTS) {
+      const layout = powerDistributionSectionLayout(feedCount)
+      const points = fuseBlockPoints(fuseBlockAllocations(feedCount)[0].circuitCount, FUSE_BLOCK_START_X, layout.fuseBlockY)
+      // A straight trunk means the PSU terminal and the entry share a height,
+      // and the entry has to stay in the clear band between bus and first fuse.
+      expect(layout.psuY + PSU_POSITIVE_TERMINAL_OFFSET, `${feedCount} feeds`).toBe(layout.trunkEntryY)
+      expect(layout.trunkEntryY, `${feedCount} feeds`).toBeGreaterThan(points.groundCircuit(0).y)
+      expect(layout.trunkEntryY, `${feedCount} feeds`).toBeLessThan(points.circuit(0).y)
     }
   })
 
@@ -37,7 +69,6 @@ describe('powerDistributionSectionLayout', () => {
     expect(groundCombLaneY(blockTop, 0, 6)).toBeGreaterThan(64)
     expect(layout.feedCombY).toBeGreaterThan(blockTop + FUSE_BLOCK_CELL_HEIGHT)
     expect(feedCombLaneY(layout.feedCombY, 2)).toBeGreaterThan(feedCombLaneY(layout.feedCombY, 0))
-    expect(feedCombLaneY(layout.feedCombY, 2)).toBeLessThan(layout.branchStartY + 38)
   })
 
   it('grows the header rather than the width when a zone needs several blocks', () => {
@@ -45,7 +76,7 @@ describe('powerDistributionSectionLayout', () => {
     const many = powerDistributionSectionLayout(26)
     expect(many.blockCount).toBeGreaterThan(single.blockCount)
     expect(many.blockTops.every((top, index) => index === 0 || top > many.blockTops[index - 1])).toBe(true)
-    expect(many.branchStartY).toBeGreaterThan(single.branchStartY)
+    expect(many.firstBranchY).toBeGreaterThan(single.firstBranchY)
   })
 })
 
