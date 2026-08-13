@@ -37,9 +37,16 @@ describe('boardProfiles', () => {
     const devkit = BOARD_PROFILES.find((profile) => profile.id === 'espressif-esp32-s3-devkitc-1')
     const xiao = BOARD_PROFILES.find((profile) => profile.id === 'seeed-xiao-esp32s3')
 
-    expect(boardPinForGpio(generic, 0)?.label).toBe('BOOT / GPIO0')
+    // The 22 + 22 silkscreen order, confirmed against two physical boards.
+    expect(boardPinForGpio(generic, 0)?.label).toBe('GPIO0 / BOOT')
     expect(boardPinForGpio(generic, 14)?.label).toBe('GPIO14')
     expect(boardPinForGpio(generic, 35)?.availability).toBe('unavailable')
+    expect(generic?.pins).toHaveLength(44)
+    // GPIO19/20 are the native USB pair and live on this board's left rail;
+    // the previous map put a straight GPIO1..GPIO18 run there instead.
+    expect(boardPinForGpio(generic, 19)?.anchorId).toBe('left-13')
+    expect(boardPinForGpio(generic, 20)?.anchorId).toBe('left-14')
+    expect(boardPinForGpio(generic, 43)?.label).toBe('TX / GPIO43')
     expect(boardPinForGpio(devkit, 14)?.label).toBe('GPIO14')
     expect(boardPinForGpio(devkit, 0)?.label).toBe('GPIO0 / BOOT')
     expect(boardPinForGpio(devkit, 20)?.label).toBe('USB_D+ / GPIO20')

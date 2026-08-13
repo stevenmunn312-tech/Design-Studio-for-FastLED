@@ -4,6 +4,7 @@ import type { HardwareManifestItem } from '../../build/hardwareManifest'
 import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/powerDistribution'
 import devKitCBoardRender from '../../assets/boards/esp32-s3-devkitc-1.webp'
 import esp32DevKitV1BoardRender from '../../assets/boards/esp32-devkit-v1-30pin.webp'
+import genericN16R8BoardRender from '../../assets/boards/generic-esp32-s3-n16r8-44pin.webp'
 import microphoneRender from '../../assets/components/inmp441-breakout.png'
 import levelShifterRender from '../../assets/components/sn74ahct125n-dip14.png'
 import buttonModuleRender from '../../assets/components/button-module.png'
@@ -160,6 +161,22 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     // path drives, so it's the one a builder will have a cable in.
     usbPoint: { x: 224.717, y: 2183.621 },
     shortLabel: 'ESP32-S3 DevKitC-1',
+  },
+  // 22 + 22 rails on a 71.457px pitch sharing rows, measured here (the package
+  // carried no pixel geometry): first pad centre y=147.47, last y=1648.07, rail
+  // centres symmetrised about the image at 83.25 / 716.75.
+  // 28.354 mm = 28 mm PCB over alpha bounds 5..794 of an 800px render.
+  'generic-esp32-s3-n16r8-44pin-dual-usbc': {
+    href: genericN16R8BoardRender,
+    sourceWidth: 800, sourceHeight: 1886, imageWidthMm: 28.354,
+    leftPinX: 83.25, rightPinX: 716.75, firstPinY: 147.47, lastPinY: 1648.07,
+    pinsPerRail: 22, leftPrefix: 'left', rightPrefix: 'right',
+    // 3V3 tops the left rail and GND ends the right, so the two stubs leave
+    // opposite edges and opposite ends of the board.
+    powerAnchors: { v3v3: 'left-1', ground: 'right-22' },
+    // The COM port: the one this app's upload path drives.
+    usbPoint: { x: 246, y: 1840 },
+    shortLabel: 'ESP32-S3 N16R8',
   },
   // 15 + 15 rails on a 72.367px pitch sharing rows, rail centres symmetric
   // (60.879 + 739.121 = 800). 28.354 mm = 28 mm PCB over alpha bounds 5..794.
