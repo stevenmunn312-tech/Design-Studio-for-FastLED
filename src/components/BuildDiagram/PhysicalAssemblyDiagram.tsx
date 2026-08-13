@@ -163,7 +163,11 @@ const CONTROLLER_RENDERS: Record<string, ControllerRender> = {
     sourceWidth: 1200, sourceHeight: 1800,
     leftPinX: 274, rightPinX: 925.5, firstPinY: 393.5, lastPinY: 1405.5,
     pinsPerRail: 15, leftPrefix: 'left', rightPrefix: 'right',
-    powerAnchors: { v3v3: 'right-15', ground: 'right-14' },
+    // Both rails carry a GND pad (left-14 and right-14) on the same net; the
+    // left one is used so the ground and 3V3 stubs leave opposite edges. On
+    // the right rail they would be adjacent pads 11 units apart, close enough
+    // for the ground symbol's bars to run into the 3V3 stub.
+    powerAnchors: { v3v3: 'right-15', ground: 'left-14' },
     usbPoint: { x: 600, y: 1600 },
     shortLabel: 'ESP32 DevKit v1',
   },
@@ -1220,9 +1224,15 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
             })}
           </g>
         })}
-        {/* Source ends of the two rails the controller supplies, so each net still shows both ends. */}
-        <NetStub x={controllerGround.x} y={controllerGround.y} kind="gnd" direction="right" lead={26} wireId="controller-common-ground" />
-        {usesThreeVolt && <NetStub x={controller3v3.x} y={controller3v3.y} kind="v3v3" direction="left" lead={26} wireId="controller-3v3-rail" />}
+        {/*
+          Source ends of the two rails the controller supplies, so each net
+          still shows both ends. Each stub points away from the rail its pad is
+          on — these were hardcoded left/right for the first board's pad
+          placement, so a board whose 3V3 sits on the other rail aimed its stub
+          into the board and had it painted over by the render.
+        */}
+        <NetStub x={controllerGround.x} y={controllerGround.y} kind="gnd" direction={controllerGround.side} lead={26} wireId="controller-common-ground" />
+        {usesThreeVolt && <NetStub x={controller3v3.x} y={controller3v3.y} kind="v3v3" direction={controller3v3.side} lead={26} wireId="controller-3v3-rail" />}
       </g>
 
       {layers.levelShifter && outputLayouts.length > 0 && <g filter="url(#component-shadow)">

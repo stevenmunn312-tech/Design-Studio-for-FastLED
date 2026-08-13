@@ -162,6 +162,18 @@ describe('BuildDiagramWorkspace', () => {
     const rails = new Set(terminals.map((terminal) => terminal.getAttribute('cx')))
     expect(rails.size).toBeLessThanOrEqual(3) // two rails plus the USB inlet
 
+    // Both supplied rails need a visible stub, and each has to point away from
+    // the rail its pad is on. A stub aimed at the board is drawn under the
+    // render and vanishes — which is what a hardcoded direction did to 3V3 on
+    // a board whose 3V3 pad is on the opposite rail from the first board's.
+    const boardMidX = Number(image.getAttribute('x')) + (Number(image.getAttribute('width')) / 2)
+    for (const wireId of ['controller-3v3-rail', 'controller-common-ground']) {
+      const stub = diagram?.querySelector(`[data-net-stub-for="${wireId}"]`)
+      expect(stub, wireId).toBeTruthy()
+      const away = Number(stub!.getAttribute('data-net-stub-x')) < boardMidX ? 'left' : 'right'
+      expect(stub!.getAttribute('data-net-stub-direction'), wireId).toBe(away)
+    }
+
     // Stronger than "somewhere on the board": every header terminal has to land
     // on one of the 15 pad rows. The rows run 393.5..1405.5 in the artwork's own
     // 1800-tall space, so a dot that drifts off the grid fails here.
