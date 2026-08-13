@@ -167,3 +167,20 @@ body,
   font-family: var(--font-body);
   font-size: var(--fs-body);
 }
+
+/*
+ * The app is a fixed, non-scrolling viewport, and that clipped print output to
+ * exactly one page no matter how many page breaks the content asked for. Print
+ * is a document, so the page box has to grow with it.
+ */
+@media print {
+  html,
+  body,
+  #root {
+    width: auto;
+    height: auto;
+    overflow: visible;
+    background: white;
+    color: black;
+  }
+}

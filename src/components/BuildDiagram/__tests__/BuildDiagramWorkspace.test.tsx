@@ -706,11 +706,13 @@ describe('BuildDiagramWorkspace', () => {
     selectDevKit()
     const { container } = render(<BuildDiagramWorkspace />)
 
-    // Several full copies of the sheet: built for the print, not kept mounted.
-    expect(container.querySelector('[data-build-print-document]')).toBeNull()
+    // Several full copies of the sheet: built for the print, not kept mounted,
+    // and portalled onto the body so the clipped workspace cannot crop them.
+    expect(document.body.querySelector('[data-build-print-document]')).toBeNull()
     fireEvent(window, new Event('beforeprint'))
 
-    const printDocument = container.querySelector('[data-build-print-document]')
+    const printDocument = document.body.querySelector('[data-build-print-document]')
+    expect(printDocument?.parentElement).toBe(document.body)
     expect(printDocument).toBeTruthy()
     const pageTitles = Array.from(printDocument?.querySelectorAll('header strong') ?? [])
       .map((heading) => heading.textContent)
@@ -748,7 +750,7 @@ describe('BuildDiagramWorkspace', () => {
     expect(tables[1].textContent).toContain('74AHCT125 level shifter')
 
     fireEvent(window, new Event('afterprint'))
-    expect(container.querySelector('[data-build-print-document]')).toBeNull()
+    expect(document.body.querySelector('[data-build-print-document]')).toBeNull()
   })
 
   it('shows identifying details for all supported exact boards', () => {

@@ -1937,20 +1937,6 @@
     margin: 8mm;
   }
 
-  /* Only the print document prints; the workspace panes are screen furniture. */
-  .workspace {
-    display: block;
-    overflow: visible;
-    background: white;
-  }
-
-  .sidebar,
-  .detailPane,
-  .diagramPane,
-  .exportDiagramHidden {
-    display: none;
-  }
-
   .printDocument {
     position: static;
     width: auto;
@@ -1960,16 +1946,20 @@
     /* A4 landscape less the page margins, with a hair of slack so a rounded
        page box never spills into a second, blank page. */
     height: 192mm;
+    page-break-after: always;
     break-after: page;
+    page-break-inside: avoid;
     break-inside: avoid;
   }
 
   .printPageFlow {
     height: auto;
+    page-break-inside: auto;
     break-inside: auto;
   }
 
   .printPage:last-child {
+    page-break-after: auto;
     break-after: auto;
   }
 

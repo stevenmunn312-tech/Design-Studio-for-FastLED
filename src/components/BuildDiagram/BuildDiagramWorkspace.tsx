@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react'
-import { flushSync } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 import {
   boardPinForGpio,
   boardProfileById,
@@ -1400,7 +1400,9 @@ export default function BuildDiagramWorkspace() {
           </>
         )}
       </aside>
-      {exactBoard && printSheetsMounted && (
+      {/* Printed straight onto the body: the workspace is a fixed, clipped,
+          three-column viewport, and the sheets must not inherit any of it. */}
+      {exactBoard && printSheetsMounted && createPortal(
         <BuildPrintSheets
           boardProfile={exactBoard}
           items={exportItems}
@@ -1440,7 +1442,8 @@ export default function BuildDiagramWorkspace() {
               value: `5 V · ${formatCurrentMa(supply.recommendedCurrentMa)} / ${formatWattage(supply.recommendedWattage)} · ${supply.outputTitles.join(', ')}`,
             })),
           ] : []}
-        />
+        />,
+        document.body,
       )}
       {boardPickerOpen && (
         <div className={styles.boardPickerBackdrop} onMouseDown={(event) => {

@@ -276,23 +276,10 @@
   transform: translateX(1px);
 }
 
-/* Printing is a Build Diagram feature: the app chrome around the workspace is
-   screen furniture, and the printed sheets bring their own page headers. */
+/* Printing is a Build Diagram feature, and the sheets it prints are portalled
+   onto the body. Nothing in the app itself is meant for paper. */
 @media print {
   .app {
-    display: block;
-    height: auto;
-    overflow: visible;
-    background: white;
-  }
-
-  .app > *:not(.workspace) {
-    display: none !important;
-  }
-
-  .workspace {
-    display: block;
-    overflow: visible;
-    background: none;
+    display: none;
   }
 }
