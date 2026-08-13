@@ -136,9 +136,8 @@ interface ControllerRenderSpec {
   /** Anchor ids carrying the shared rails, plus the USB inlet in source pixels. */
   powerAnchors: { v3v3: string; ground: string }
   usbPoint: { x: number; y: number }
-  /** Caption drawn under the render, and the connector it actually carries. */
+  /** Caption drawn under the render. */
   shortLabel: string
-  usbLabel: string
 }
 
 /** A spec plus the sheet geometry derived from it. */
@@ -161,7 +160,6 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     // path drives, so it's the one a builder will have a cable in.
     usbPoint: { x: 224.717, y: 2183.621 },
     shortLabel: 'ESP32-S3 DevKitC-1',
-    usbLabel: 'USB-C',
   },
   // 15 + 15 rails on a 72.367px pitch sharing rows, rail centres symmetric
   // (60.879 + 739.121 = 800). 28.354 mm = 28 mm PCB over alpha bounds 5..794.
@@ -177,7 +175,6 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     powerAnchors: { v3v3: 'right-15', ground: 'left-14' },
     usbPoint: { x: 400, y: 1612.646 },
     shortLabel: 'ESP32 DevKit v1',
-    usbLabel: 'USB-C',
   },
 }
 
@@ -332,7 +329,7 @@ function controllerPowerPoint(
  * they must not overlap.
  *
  * Bus wires (mic, output data) all terminate above y~520, so they can hug the
- * board in 266..290 where the USB-C block is no obstacle. Control wires run all
+ * board in 266..290 where the USB connector block is no obstacle. Control wires run all
  * the way down to the module lanes, so they need 296..328 — clear of that block
  * (ends x=291) and of the series resistors (start x=350).
  */
@@ -501,7 +498,7 @@ function routeToControlPad(
   laneY: number,
   laneIndex: number,
 ) {
-  // Left-side pins exit past the board edge before dropping; the USB-C block
+  // Left-side pins exit past the board edge before dropping; the USB block
   // and the board render both sit between the header and the lanes.
   const corridorX = point.side === 'right'
     ? CONTROL_CORRIDOR_X + ((laneIndex % CONTROL_CORRIDOR_COUNT) * CONTROL_CORRIDOR_SPACING)
@@ -631,7 +628,7 @@ function ControllerGraphic({ boardProfile, connections, selected }: { boardProfi
         </g>
         <g data-terminal="controller-usb">
           <circle cx={usb.x} cy={usb.y} r={padRadius} className={styles.controllerUsbTerminal} />
-          <title>{render.usbLabel} power</title>
+          <title>USB power</title>
         </g>
       </g>
     )
@@ -678,7 +675,7 @@ function ControllerGraphic({ boardProfile, connections, selected }: { boardProfi
       </g>
       <g data-terminal="controller-usb">
         <circle cx="166" cy="512" r="5" fill="#55bdc7" stroke="#d9f5f7" />
-        <text x="166" y="503" textAnchor="middle" className={styles.physicalBoardSubSilk}>USB-C POWER</text>
+        <text x="166" y="503" textAnchor="middle" className={styles.physicalBoardSubSilk}>USB POWER</text>
       </g>
     </g>
   )
@@ -1123,7 +1120,6 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
   const controller3v3 = controllerPowerPoint('3v3', boardProfile)
   const controllerGround = controllerPowerPoint('ground', boardProfile)
   const controllerUsb = controllerPowerPoint('usb', boardProfile)
-  const controllerUsbLabel = controllerRender(boardProfile)?.usbLabel ?? 'USB-C'
   const powerSectionY = powerSectionStartY(items, layers)
   const showPowerDistribution = layers.powerDistribution && outputLayouts.length > 0
   // Every control module render carries a VCC pad, not just the pot.
@@ -1357,9 +1353,11 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
       <g filter="url(#component-shadow)" transform={`translate(${controllerUsb.x - 92} 592)`}>
         <rect width="184" height="62" rx="12" fill="#e9ecea" stroke="#879092" strokeWidth="2" />
         <path d="M138 19h30v24h-30l-12-12z" fill="#aeb7ba" stroke="#5f696c" />
-        {/* Names the connector the selected board actually carries — this said
-            USB-C for every board, which is wrong for a Micro-USB DevKit. */}
-        <text x="18" y="27" className={styles.physicalComponentLabel}>{controllerUsbLabel} power</text>
+        {/* Deliberately does not name the connector type. Board renders are
+            visually normalised to USB-C, so a type here would assert something
+            the physical board may not have — the render shows the shape and
+            the label just marks the controller's power inlet. */}
+        <text x="18" y="27" className={styles.physicalComponentLabel}>USB power</text>
         <text x="18" y="46" className={styles.physicalMetaLabel}>controller only</text>
         <path data-wire="controller-usb-power" d={`M92 0V${controllerUsb.y - 592}`} className={styles.logicPowerWire} />
       </g>

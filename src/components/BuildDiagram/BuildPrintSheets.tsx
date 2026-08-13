@@ -191,7 +191,7 @@ export default function BuildPrintSheets({
         <PrintLegend
           entries={[
             { className: styles.signalWire, label: 'LED data' },
-            { className: styles.logicPowerWire, label: 'USB-C controller power' },
+            { className: styles.logicPowerWire, label: 'USB controller power' },
             ...(hasMicrophone ? [
               { className: styles.microphoneBclkWire, label: 'Mic BCLK' },
               { className: styles.microphoneWsWire, label: 'Mic WS' },
