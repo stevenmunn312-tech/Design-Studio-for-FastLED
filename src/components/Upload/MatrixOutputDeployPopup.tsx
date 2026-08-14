@@ -11,7 +11,7 @@ import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph } from '../../codegen/streamReceiverGenerator'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
 import { sdCardConnected, readySongCount, buildShowPayload } from '../../utils/showUpload'
-import { findPinConflicts, findMatrixLayoutErrors, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors } from '../../utils/validateGraph'
+import { findPinConflicts, findMatrixLayoutErrors, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors } from '../../utils/validateGraph'
 import { summarizeCapacity } from '../../utils/capacityFormat'
 import { useCodegenGraph } from '../../utils/codegenGraph'
 import { useModalFocus } from '../../hooks/useModalFocus'
@@ -86,6 +86,7 @@ export default function MatrixOutputDeployPopup() {
     [nodes, selectedFqbn],
   )
   const hub75ConfigErrors = useMemo(() => findHub75ConfigErrors(nodes), [nodes])
+  const formulaErrors = useMemo(() => findFormulaErrors(nodes), [nodes])
   const hub75TopologyErrors = useMemo(
     () => findHub75TopologyDiagnosticErrors(nodes, nodeId),
     [nodes, nodeId],
@@ -106,6 +107,7 @@ export default function MatrixOutputDeployPopup() {
     ...outputResourceErrors,
     ...boardCompatibilityErrors,
     ...hub75ConfigErrors,
+    ...formulaErrors,
     ...(capacityOverflow ? [`${board?.label ?? 'This board'}: design is too large to fit (live capacity check)`] : []),
   ]
   const canBuild = hasFrameInput && blockingErrors.length === 0

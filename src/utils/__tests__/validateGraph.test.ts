@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -325,6 +325,41 @@ describe('validateGraph', () => {
     expect(findScalarExpressionErrors([node('r', 'Random', { min: 0, max: 'w / 2' }), out])).toEqual([])
     expect(findScalarExpressionErrors([node('r', 'Random', { min: 0, max: 'unknown + 1' }), out]))
       .toEqual(['Random max has an invalid numeric expression: unknown + 1'])
+  })
+
+  describe('findFormulaErrors', () => {
+    it('accepts a formula the sandbox parser compiles', () => {
+      expect(findFormulaErrors([node('cf', 'CustomFormula', { formula: 'sin(x*6+t)*0.5+0.5' })])).toEqual([])
+      expect(findFormulaErrors([node('ff', 'FieldFormula', { formula: 'sin8(r*200 + t*60)/255' })])).toEqual([])
+    })
+
+    it('reports formula source that would otherwise reach the C++ generator raw', () => {
+      const nodes = [node('cf', 'CustomFormula', { formula: '0.0f; digitalWrite(2, HIGH); float _x = 0' })]
+      expect(findFormulaErrors(nodes)).toEqual([
+        expect.stringMatching(/CustomFormula has an invalid formula/),
+      ])
+    })
+
+    it('blocks export/upload by folding into validateGraph errors', () => {
+      const nodes = [
+        node('cf', 'CustomFormula', { formula: 'globalThis' }),
+        node('out', 'MatrixOutput'),
+      ]
+      const { errors } = validateGraph(nodes, [edge('e', 'cf', 'out', 'frame')])
+      expect(errors.some((e) => e.includes('invalid formula'))).toBe(true)
+    })
+
+    it('raises a repairable Graph Health diagnostic', () => {
+      const nodes = [
+        node('cf', 'CustomFormula', { formula: 'fetch("x")' }),
+        node('out', 'MatrixOutput'),
+      ]
+      const diagnostics = buildGraphDiagnostics(nodes, [edge('e', 'cf', 'out', 'frame')])
+      const formula = diagnostics.find((d) => d.id === 'cf-formula')
+      expect(formula?.severity).toBe('error')
+      expect(formula?.nodeIds).toEqual(['cf'])
+      expect(formula?.fix).toMatch(/render this node blank/)
+    })
   })
 
   it('warns about isolated nodes', () => {

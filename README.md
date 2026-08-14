@@ -4,7 +4,7 @@
 
 Design Studio for FastLED is a live, node-based creative environment for LED strips, matrices, and tiled panels. Connect patterns, palettes, signals, effects, audio analysis, and hardware output; watch the result move instantly; then generate or upload the same design as FastLED C++.
 
-**Public beta · 151 modules · 20 included audio-reactive patterns · Windows, macOS, and Linux packaging · MIT core**
+**Public beta · 153 modules · 40 included patterns · Windows, macOS, and Linux packaging · MIT core**
 
 [Check beta releases](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/releases) · [Run from source](#run-from-source) · [Help test hardware](#help-test-the-beta)
 
@@ -19,11 +19,13 @@ Design Studio for FastLED is a live, node-based creative environment for LED str
 What makes the Studio useful:
 
 - **Immediate visual feedback.** Adjust a speed, palette, blend, field, or particle control and see the result now.
-- **A deep creative toolbox.** Choose from 151 modules spanning patterns, simulations, color, fields, effects, audio, logic, show control, hardware input, and output.
+- **A deep creative toolbox.** Choose from 153 modules spanning patterns, simulations, color, fields, effects, audio, logic, show control, hardware input, and output.
 - **Preview-to-firmware parity.** The graph evaluator and C++ generator are designed together so the hardware result follows what you authored.
 - **Reusable creative building blocks.** Turn any patch into a Group, save it to the Pattern Library, organize it into shelves, and reuse it in future shows.
 - **A real performance workflow.** Stage Mode, the Performance Deck, music transport, spectrum views, transitions, and beat-driven particles turn patches into playable visuals.
 - **Hardware-aware guardrails.** Graph Health, wiring diagnostics, board compatibility checks, power warnings, and measured flash/RAM capacity catch problems before upload.
+- **A plan for the physical build.** The Build Diagram turns the graph into wiring: a scale controller with its real pin map, power distribution and fuses, exportable parts and connection lists, and printable assembly sheets.
+- **Shareable results.** Record the preview as a PNG, GIF, or WebM clip straight from the workspace.
 - **Your work stays portable.** Use named projects, Project Files, Graph JSON, share links, recovery snapshots, and standalone `.ino` exports.
 
 ## Start with a spark, not an empty canvas
@@ -127,12 +129,15 @@ Configure the controller, size, LED chipset, color order, pins, brightness, phys
 
 Graph Health continuously explains incomplete wiring, pin conflicts, output power, controller compatibility, show structure, and memory pressure. The live controller-capacity meter performs a real compile-only check against the selected board and reports measured flash/RAM use when the toolchain can provide it.
 
+When it is time to build the rig rather than the patch, switch to **View → Build Diagram** for a physical wiring workspace derived from the same graph: the selected controller drawn to scale with its real pin map, power distribution and fuse blocks, a parts list and connection list you can export as CSV, and printable assembly sheets.
+
 ## Pattern Library
 
 The Pattern Library turns good experiments into a personal visual vocabulary:
 
 - New saves and imports land in **New & Unsorted**.
-- **Standard** and **Audio Reactive** provide built-in shelves, including 20 curated audio-reactive patterns.
+- **Standard** and **Audio Reactive** are built-in shelves holding 40 curated patterns, 20 on each.
+- **Scan patterns** adds a Studio Score judged against what each pattern is for, alongside your own 1–5 star rating. Sort or filter a collection by either.
 - Create your own shelves, drag patterns between them, and remove a shelf without deleting its contents.
 - Click or drag a pattern onto the canvas, or drop it directly into a Pattern Collection.
 - With the local helper running, personal patterns are mirrored as shareable JSON files in the per-user `My Patterns` data folder.
@@ -142,15 +147,15 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 ## Feature map
 
 <details>
-<summary><strong>Show all 151 modules by category</strong></summary>
+<summary><strong>Show all 153 modules by category</strong></summary>
 
 - **Inputs:** Microphone, Button, Potentiometer, Encoder, DMX / Art-Net, RTC Clock, MIDI
 - **Audio:** FFT Analyzer, Beat Detect, Percussion Detect, Audio Features, Audio → Hue
 - **Signals:** Time, Interval, Counter, Random, Envelope, Sin, Cos, Wave, Complex Wave, BeatSin, Clock, Schedule Trigger, DMX Channel
 - **Math & Logic:** Math, Clamp, Map Range, Lerp, Ease, Abs, Mod, Gate, Smooth, Sample & Hold, Switch, Not, Compare, Trigger, XY → Index
 - **Color:** Hue Cycle, HSV → RGB, RGB → HSV, Color Temperature, Heat Color, Blend Colors, CHSV, Gradient Sampler, Palette Sampler, Palette Sweep, Palette Selector, Custom Palette, Palette from Image, Poline Palette, Blend Palettes
-- **Patterns:** Solid Color, Text, Clock Display, Circle, Line, Shape, Path, 3D Wireframe, Gradient Frame, Palette Gradient, Image, Noise, Plasma, Rainbow, Pride 2015, Pacifica, TwinkleFox, Scanner, Confetti, Juggle, Radial Burst, Spiral, Kaleidoscope, Fractal Noise, Gabor Noise, Blobs, Fire, Fire 2012, Particles, Flow Field, Starfield, Boids, Reaction Diffusion, Game of Life, Spectrum Bars, Spectrum Visualizer, Bass Pulse, Bass Rings, Midrange Waves, Midrange Bloom, Treble Sparks, Treble Prism, Audio Cascade, Beat Flash, Kick Shock, Vocal Aurora, Beat Kaleidoscope, Spectra Mosaic, Percussion Blobs, Ember Pulse, Turbulent Bloom, Gravity Well, Rain Ripples, Prism Storm, Audio Flow, Color Trails, AnimARTrix, Custom Formula, Code
-- **Fields:** Field Formula, Field Noise, Wave Sim, Distance Field, Frame → Field, Field Math, Field Warp, Field Rotate, Field Tile, Field → Frame
+- **Patterns:** Solid Color, Text, Clock Display, Circle, Line, Shape, Path, 3D Wireframe, Gradient Frame, Palette Gradient, Image, Noise, Plasma, Rainbow, Pride 2015, Pacifica, TwinkleFox, Scanner, Confetti, Juggle, Radial Burst, Spiral, Kaleidoscope, Fractal Noise, Gabor Noise, Blobs, Fire, Fire 2012, Particles, Formula Points, Flow Field, Starfield, Boids, Reaction Diffusion, Game of Life, Spectrum Bars, Spectrum Visualizer, Bass Pulse, Bass Rings, Midrange Waves, Midrange Bloom, Treble Sparks, Treble Prism, Audio Cascade, Beat Flash, Kick Shock, Vocal Aurora, Beat Kaleidoscope, Spectra Mosaic, Percussion Blobs, Ember Pulse, Turbulent Bloom, Gravity Well, Rain Ripples, Prism Storm, Audio Flow, Color Trails, AnimARTrix, Custom Formula, Code
+- **Fields:** Field Formula, Field Noise, Formula Field, Wave Sim, Distance Field, Frame → Field, Field Math, Field Warp, Field Rotate, Field Tile, Field → Frame
 - **Effects:** Blur 2D, Blend, Mask, Brightness, Fade to Black, Hue Shift, Gamma, Saturation, Color Boost, Transform, Array, Invert, Mirror, Trails, Frame Feedback, Frame Switch, Zones
 - **Show:** Music Library, Pattern Collection, Transitions, Show Engine, Sequencer, Transition, Performance Generator, SD Card
 - **Output:** Matrix Output
@@ -179,7 +184,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 - **Recovery Snapshot** — a recent browser-local restore point.
 - **Pattern** — a reusable saved Group in the Pattern Library.
 
-Imported projects, patterns, and share links are treated as untrusted. Formula and Code previews remain blocked until you review the source and choose **Trust and run**.
+Imported projects, patterns, and share links are treated as untrusted, because they can carry code and network settings written by someone else. Until you review the source and choose **Trust and run**, Formula and Code node previews stay blank and no Art-Net listener is opened. Everything else — patterns, effects, fields, audio — runs normally, so most shared patches look complete and open without a prompt: you are only asked when the file actually contains something that is being held back. Export and upload are still allowed but ask first, since generated firmware runs on your board with no sandbox around it.
 
 ## Beta hardware scope
 
@@ -216,7 +221,7 @@ Read the [Hardware validation guide](docs/release/beta-hardware-validation.md), 
 - **Microphone:** audio-reactive preview requires browser permission. Denying it simply leaves live audio nodes inactive.
 - **Local helper:** USB upload, streaming, native file dialogs, and disk-backed project/pattern sync use a localhost service on your machine.
 - **Network credentials:** Art-Net and NTP credentials stay in browser-local storage and are excluded from projects and share links. Generated network-enabled firmware necessarily embeds them in plain text, so treat exported `.ino` files accordingly.
-- **Art-Net preview:** the helper opens a local-network UDP listener only while an Art-Net input is active.
+- **Art-Net preview:** the helper opens a local-network UDP listener only while an Art-Net input is active **and** the workspace is trusted. The port to listen on is stored in the graph, so an untrusted project cannot open a socket on your machine before you have looked at it.
 
 Read [SECURITY.md](SECURITY.md) for the full policy and private vulnerability-reporting process.
 

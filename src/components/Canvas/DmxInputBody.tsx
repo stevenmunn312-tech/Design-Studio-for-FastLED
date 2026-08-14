@@ -24,6 +24,7 @@ export default function DmxInputBody({ nodeId }: { nodeId: string }) {
   const snapshot = useDmxStore((s) => s.snapshot)
   const configure = useDmxStore((s) => s.configure)
   const stop = useDmxStore((s) => s.stop)
+  const trusted = useGraphStore((s) => s.trusted)
   const credentials = useNetworkCredentialsStore((s) => s.byNodeId[nodeId] ?? EMPTY_CREDENTIALS)
   const setCredentials = useNetworkCredentialsStore((s) => s.setCredentials)
 
@@ -31,15 +32,23 @@ export default function DmxInputBody({ nodeId }: { nodeId: string }) {
   const listenPort = Math.max(1, Math.min(65535, Math.round(Number(props.previewPort ?? 6454) || 6454)))
   const mode = String(props.inputMode ?? 'Art-Net')
 
+  // Opening the listener is a real network side effect performed by the local
+  // helper — it binds a UDP socket on every interface, on a port this node's
+  // own `previewPort` property chooses. That property travels inside a shared
+  // graph, so merely opening someone else's project used to expose a
+  // LAN-reachable socket on a port they picked, before the user had decided
+  // anything. Hold it until the workspace is trusted, the same gate the
+  // formula/Code nodes use (fixed 2026-08-14).
   useEffect(() => {
     if (mode !== 'Art-Net') return
+    if (!trusted) return
     void configure({ listenPort, universe })
     return () => {
       void stop()
     }
-  }, [configure, listenPort, mode, stop, universe])
+  }, [configure, listenPort, mode, stop, trusted, universe])
 
-  const label = statusLabel(helperOnline, listening, live, error)
+  const label = !trusted ? 'LISTENER HELD — UNTRUSTED' : statusLabel(helperOnline, listening, live, error)
   const liveValues = snapshot.channels.slice(0, 4)
 
   return (
@@ -57,6 +66,11 @@ export default function DmxInputBody({ nodeId }: { nodeId: string }) {
         <span>{liveValues.map((value) => String(value).padStart(3, ' ')).join(' ')}</span>
       </div>
       {error && <div className={styles.note}>{error}</div>}
+      {mode === 'Art-Net' && !trusted && (
+        <div className={styles.note}>
+          This project isn’t trusted yet, so no UDP listener has been opened. Choose <strong>Trust and run</strong> to start receiving Art-Net.
+        </div>
+      )}
       {mode !== 'Art-Net' && (
         <div className={styles.note}>Preview listens for Art-Net only; firmware uses the selected DMX512 pins.</div>
       )}

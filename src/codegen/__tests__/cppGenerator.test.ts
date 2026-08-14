@@ -1257,6 +1257,50 @@ describe('generateCpp', () => {
     expect(cpp.indexOf('float a=')).toBeLessThan(cpp.indexOf('float _v=sin(r + a + b + t)'))
   })
 
+  // A formula string travels inside a shared graph, so codegen must apply the
+  // same sandboxed-parser check the preview does. Before this, the raw string
+  // was pasted straight into `float _v=<formula>;`, so an untrusted project
+  // could smuggle arbitrary C++ into a sketch the user then flashed.
+  it('refuses to emit CustomFormula source that the sandbox parser rejects', () => {
+    const injected = '0.0f; digitalWrite(2, HIGH); float _x = 0'
+    const cf = node('cf', 'CustomFormula', 'pattern', { formula: injected })
+    const cpp = generateCpp([cf, outputNode], [edge('e', 'cf', 'frame', 'out', 'frame')])
+    expect(cpp).not.toContain('digitalWrite(2, HIGH)')
+    expect(cpp).toContain('float _v=0.0f;')
+    expect(cpp).toContain('invalid formula')
+  })
+
+  it('refuses to emit FieldFormula source that the sandbox parser rejects', () => {
+    const injected = '0.0f; } void evil() { for(;;)'
+    const ff = node('ff', 'FieldFormula', 'field', { formula: injected })
+    const toFrame = node('tf', 'FieldToFrame', 'field', {})
+    const cpp = generateCpp([ff, toFrame, outputNode], [
+      edge('e1', 'ff', 'tf', 'field', 'field'),
+      edge('e2', 'tf', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).not.toContain('void evil()')
+    expect(cpp).toContain('float _v=0.0f;')
+  })
+
+  it('still emits a valid formula unchanged', () => {
+    const cf = node('cf', 'CustomFormula', 'pattern', { formula: 'sin(x*6+t)*0.5+0.5' })
+    const cpp = generateCpp([cf, outputNode], [edge('e', 'cf', 'frame', 'out', 'frame')])
+    expect(cpp).toContain('float _v=sin(x*6+t)*0.5+0.5;')
+    expect(cpp).not.toContain('invalid formula')
+  })
+
+  // The de Jong coefficients are looked up from a fixed table, but the preset
+  // name was echoed raw into a `//` comment — a newline ends the comment.
+  it('resolves the FormulaPoints attractor preset name before echoing it', () => {
+    const fp = node('fp', 'FormulaPoints', 'pattern', {
+      formulaType: 'attractor',
+      preset: 'classic\n  digitalWrite(2, HIGH);',
+    })
+    const cpp = generateCpp([fp, outputNode], [edge('e', 'fp', 'frame', 'out', 'frame')])
+    expect(cpp).not.toContain('digitalWrite(2, HIGH)')
+    expect(cpp).toContain('de Jong, classic)')
+  })
+
   it('emits an Image as a PROGMEM pixel array blitted to the matrix', () => {
     const image = { w: 2, h: 2, pixels: [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255] }
     const img = node('img', 'Image', 'pattern', { image })
