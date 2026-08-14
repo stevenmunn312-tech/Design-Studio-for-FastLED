@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useId, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import styles from './HelpModal.module.css'
 import NodeReference from './NodeReference'
@@ -120,10 +120,10 @@ function QuickStartTab() {
           <img
             className={styles.helpImage}
             src={firstPatchScreenshot}
-            alt="Design Studio workspace showing the Node Library, a Rainbow node connected to Matrix Output, and the live LED Preview"
+            alt="The Design Studio workspace: a Juggle node wired into Matrix Output on the canvas, a Comment node holding the tutorial steps, and the live LED preview on the right"
           />
           <figcaption>
-            A complete two-node patch: choose nodes in the library on the left, connect them on the canvas, and confirm the result in LED Preview on the right.
+            The starter patch as it arrives: Juggle feeds Matrix Output, the Comment node carries the steps to try, and LED Preview confirms the result on the right.
           </figcaption>
         </figure>
       </div>
@@ -550,8 +550,47 @@ function UploadTab() {
   )
 }
 
+// Same list AppDialogHost traps against — Help is a modal dialog too, so it
+// owes the keyboard the same containment the other dialogs already give it.
+const FOCUSABLE = [
+  'a[href]',
+  'button:not([disabled])',
+  'textarea:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(', ')
+
+function focusableElements(root: HTMLElement | null): HTMLElement[] {
+  if (!root) return []
+  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => !el.hasAttribute('hidden'))
+}
+
 export default function HelpModal() {
   const { closeHelp, helpTab, setHelpTab } = useUiStore()
+  const modalRef = useRef<HTMLDivElement>(null)
+  const tabRefs = useRef(new Map<HelpTab, HTMLButtonElement>())
+  const restoreFocusRef = useRef<HTMLElement | null>(null)
+  const titleId = useId()
+  const panelId = useId()
+  const tabId = (id: HelpTab) => `${panelId}-tab-${id}`
+
+  // Remember what opened Help (the ? button, a menu item, or whatever had
+  // focus when F1 was pressed) and hand focus back on close, so dismissing
+  // the dialog doesn't dump keyboard users at the top of the document.
+  useEffect(() => {
+    restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const timer = window.setTimeout(() => tabRefs.current.get(helpTab)?.focus(), 0)
+    return () => {
+      window.clearTimeout(timer)
+      const target = restoreFocusRef.current
+      restoreFocusRef.current = null
+      if (target?.isConnected) target.focus()
+    }
+    // Mount/unmount only: re-running on tab change would steal focus back to
+    // the tab strip every time someone tabs into the panel and switches.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') closeHelp() }
@@ -559,29 +598,86 @@ export default function HelpModal() {
     return () => window.removeEventListener('keydown', handler)
   }, [closeHelp])
 
+  // Roving focus across the tab strip, matching the MenuBar convention.
+  function handleTabKeyDown(e: ReactKeyboardEvent<HTMLButtonElement>) {
+    const index = TABS.findIndex((t) => t.id === helpTab)
+    let next = -1
+    if (e.key === 'ArrowRight') next = (index + 1) % TABS.length
+    else if (e.key === 'ArrowLeft') next = (index - 1 + TABS.length) % TABS.length
+    else if (e.key === 'Home') next = 0
+    else if (e.key === 'End') next = TABS.length - 1
+    else return
+    e.preventDefault()
+    const target = TABS[next].id
+    setHelpTab(target)
+    tabRefs.current.get(target)?.focus()
+  }
+
+  // Keep Tab inside the dialog. `aria-modal` already hides the workbench from
+  // assistive tech, but without this the keyboard still walks out into the
+  // canvas behind an apparently-modal dialog.
+  function handleKeyDown(e: ReactKeyboardEvent<HTMLDivElement>) {
+    if (e.key !== 'Tab') return
+    const items = focusableElements(modalRef.current)
+    if (items.length === 0) return
+    const first = items[0]
+    const last = items[items.length - 1]
+    const active = document.activeElement as HTMLElement | null
+    if (e.shiftKey && active === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
+
   return (
     <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) closeHelp() }}>
-      <div className={styles.modal} role="dialog" aria-label="Help" aria-modal="true">
+      <div
+        ref={modalRef}
+        className={styles.modal}
+        role="dialog"
+        aria-labelledby={titleId}
+        aria-modal="true"
+        onKeyDown={handleKeyDown}
+      >
         <div className={styles.header}>
-          <span className={styles.title}>Design Studio for FastLED — Help</span>
-          <button className={styles.closeBtn} onClick={closeHelp} title="Close (Esc)">×</button>
+          <span className={styles.title} id={titleId}>Design Studio for FastLED — Help</span>
+          <button className={styles.closeBtn} onClick={closeHelp} title="Close (Esc)" aria-label="Close help">×</button>
         </div>
 
-        <div className={styles.tabs} role="tablist">
+        <div className={styles.tabs} role="tablist" aria-label="Help sections">
           {TABS.map((t) => (
             <button
               key={t.id}
+              ref={(el) => { if (el) tabRefs.current.set(t.id, el); else tabRefs.current.delete(t.id) }}
               role="tab"
+              id={tabId(t.id)}
               aria-selected={helpTab === t.id}
+              aria-controls={panelId}
+              // Roving tabindex: one stop for the whole strip, arrows move
+              // within it — otherwise Tab has to walk every section before
+              // reaching the content.
+              tabIndex={helpTab === t.id ? 0 : -1}
               className={`${styles.tab} ${helpTab === t.id ? styles.tabActive : ''}`}
               onClick={() => setHelpTab(t.id)}
+              onKeyDown={handleTabKeyDown}
             >
               {t.label}
             </button>
           ))}
         </div>
 
-        <div className={`${styles.body} ${helpTab === 'nodes' ? styles.bodyNodeReference : ''}`}>
+        <div
+          className={`${styles.body} ${helpTab === 'nodes' ? styles.bodyNodeReference : ''}`}
+          role="tabpanel"
+          id={panelId}
+          aria-labelledby={tabId(helpTab)}
+          // The panel scrolls, so it needs to be reachable by keyboard even
+          // when a section holds nothing focusable of its own.
+          tabIndex={0}
+        >
           {helpTab === 'quickstart' && <QuickStartTab />}
           {helpTab === 'shortcuts' && <ShortcutsTab />}
           {helpTab === 'nodes' && <NodeReference />}
