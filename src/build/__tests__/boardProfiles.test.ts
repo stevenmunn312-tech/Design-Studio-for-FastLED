@@ -5,6 +5,7 @@ import {
   boardPinVerdict,
   compatibleBoardProfilesForFqbn,
   isBoardProfileCompatibleWithFqbn,
+  UNMAPPED_CAPABILITY_IDS,
   validateBoardProfiles,
 } from '../boardProfiles'
 import type { PhysicalBoardProfile } from '../boardProfiles'
@@ -84,6 +85,43 @@ describe('boardProfiles', () => {
     expect(boardPinForGpio(esp32d, 36)?.note).toMatch(/Input-only/)
     // GPIO0 reaches the BOOT button only — there is no header pad to wire to.
     expect(boardPinForGpio(esp32d, 0)).toBeUndefined()
+  })
+})
+
+describe('imported board profiles', () => {
+  it('keeps the authored map when a generated one exists for the same board', () => {
+    // Several manifests describe boards that already have a hand-checked map —
+    // some confirmed against hardware in hand. The generated map must never
+    // displace those, or a verified pinout silently becomes an inferred one.
+    const xiao = BOARD_PROFILES.filter((p) => p.id === 'seeed-xiao-esp32s3')
+    expect(xiao).toHaveLength(1)
+    expect(xiao[0].confidence).toBe('manufacturer-verified')
+    expect(xiao[0].caveats.join(' ')).not.toMatch(/not hand-checked/)
+    // ...while still picking up the imported capability data.
+    expect(xiao[0].pinSafety?.safeGeneralPurpose.length).toBeGreaterThan(0)
+    expect(xiao[0].render?.file).toBe('boards/seeed-xiao-esp32s3.webp')
+  })
+
+  it('marks generated profiles as unverified and says so in a caveat', () => {
+    const generated = BOARD_PROFILES.find((p) => p.id === 'lolin-s2-mini')
+    expect(generated).toBeTruthy()
+    expect(generated!.confidence).toBe('visual-match-only')
+    expect(generated!.caveats.join(' ')).toMatch(/not hand-checked against a physical board/)
+    expect(generated!.targetFamilies.length).toBeGreaterThan(0)
+  })
+
+  it('carries no duplicate board ids after the merge', () => {
+    const ids = BOARD_PROFILES.map((p) => p.id)
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  it('drops a generated map whose pins cannot be tied to GPIO numbers', () => {
+    // adafruit-feather-esp32-v2 silkscreens aliases only ("SDA", "D14") and its
+    // manifest has no "alias/GPIOn" entries to bridge them. A header of
+    // anonymous pins answers no pin question, so it is left out entirely
+    // rather than shipped looking complete.
+    expect(BOARD_PROFILES.some((p) => p.id === 'adafruit-feather-esp32-v2')).toBe(false)
+    expect(UNMAPPED_CAPABILITY_IDS).toContain('adafruit-feather-esp32-v2')
   })
 })
 

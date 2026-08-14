@@ -228,6 +228,172 @@ def convert_render(folder: Path, board: dict, profile_id: str) -> dict | None:
         return {"file": f"boards/{profile_id}.webp", "widthPx": img.width, "heightPx": img.height}
 
 
+# --- Profile generation for boards with no authored pin map ------------------
+RAIL_KEYS = ("rails", "headerColumnsUsbDownTopToBottom", "appPinMapTopToBottom",
+             "pinLabelsUsbDownTopToBottom", "pinLabelsTopToBottom")
+
+GROUND = {"GND", "G", "GND1", "GND2"}
+POWER_OUT = {"3V3", "3.3V", "3V"}
+POWER_IN = {"5V", "VBUS", "VIN", "VBAT", "VUSB", "BAT"}
+CONTROL = {"EN", "RST", "RESET", "BOOT", "DB/DEBUG_TX"}
+
+
+def alias_map(board: dict) -> dict[str, int]:
+    """Alias -> GPIO, harvested from entries written as "A0/GPIO18".
+
+    Several boards silkscreen their headers with aliases only ("A0", "SDA",
+    "MOSI") and never print the GPIO number, so the rail labels alone cannot be
+    resolved. The safety and peripheral sections spell both out, so they are the
+    only reliable bridge. `D<n>` is deliberately not inferred as GPIO n: it
+    holds on the Feather ESP32 v2 and not on the XIAO, where D0 is GPIO1.
+    """
+    out: dict[str, int] = {}
+    sources: list = []
+    safety = board.get("pinSafetySummary")
+    if isinstance(safety, dict):
+        for value in safety.values():
+            if isinstance(value, list):
+                sources.extend(str(v) for v in value)
+            elif isinstance(value, dict):
+                sources.extend(str(k) for k in value)
+    for token in sources:
+        if "/" not in token or len(token) > 40 or "." in token:
+            continue
+        nums = GPIO_TOKEN.findall(token)
+        if len(nums) != 1:
+            continue
+        for part in token.split("/"):
+            part = part.strip()
+            if part and not GPIO_TOKEN.fullmatch(part):
+                out.setdefault(part, int(nums[0]))
+    return out
+
+
+def resolve_gpio(label: str, aliases: dict[str, int]) -> int | None:
+    label = label.strip()
+    explicit = GPIO_TOKEN.findall(label)
+    if explicit:
+        return int(explicit[0])
+    # A bare number is the GPIO number — the DevKitC and LOLIN silkscreens
+    # print pins that way.
+    if label.isdigit():
+        return int(label)
+    for part in [label, *(p.strip() for p in label.split("/"))]:
+        if part in aliases:
+            return aliases[part]
+    return None
+
+
+def pin_role(label: str, gpio: int | None) -> str:
+    upper = label.strip().upper()
+    if upper in GROUND:
+        return "ground"
+    if upper in POWER_OUT:
+        return "power-out"
+    if upper in POWER_IN:
+        return "power-in"
+    if "USB" in upper and gpio is None:
+        return "usb"
+    if gpio is not None:
+        return "gpio"
+    if upper in CONTROL:
+        return "reserved"
+    return "reserved"
+
+
+def side_for(rail_name: str) -> str | None:
+    name = rail_name.lower()
+    if "left" in name:
+        return "left"
+    if "right" in name:
+        return "right"
+    if "bottom" in name or "expansion" in name:
+        return "bottom"
+    if "top" in name:
+        return "top"
+    return None
+
+
+def build_profile(board: dict, profile_id: str) -> dict | None:
+    """Anchors and pins for a board with no authored profile.
+
+    Only `labelAlign` and per-side ordering are consumed by the pinout view, so
+    anchors carry no pixel geometry — deriving coordinates here would invent
+    precision the renderer does not use.
+    """
+    rails = next((board[k] for k in RAIL_KEYS if isinstance(board.get(k), dict)), None)
+    if not rails:
+        return None
+    aliases = alias_map(board)
+    anchors: list[dict] = []
+    pins: list[dict] = []
+    unresolved = 0
+
+    for rail_name, rail in rails.items():
+        side = side_for(rail_name)
+        if side is None:
+            continue
+        labels = rail if isinstance(rail, list) else (
+            (rail.get("labelsTopToBottom") or rail.get("labelsLeftToRight"))
+            if isinstance(rail, dict) else None)
+        if not isinstance(labels, list):
+            continue  # several manifests carry `"bottom": null`
+        prefix = re.sub(r"[^a-z0-9]", "", rail_name.lower())
+        for index, raw in enumerate(labels):
+            label = str(raw).strip()
+            anchor_id = f"{prefix}-{index + 1}"
+            gpio = resolve_gpio(label, aliases)
+            role = pin_role(label, gpio)
+            if role == "gpio" and gpio is None:
+                unresolved += 1
+            anchors.append({"id": anchor_id, "x": 0, "y": 0, "labelAlign": side})
+            pin = {"id": anchor_id, "label": label, "role": role, "anchorId": anchor_id}
+            if gpio is not None:
+                pin["gpio"] = gpio
+            pins.append(pin)
+
+    if not pins:
+        return None
+
+    # A profile whose pins cannot be tied to GPIO numbers is worse than no
+    # profile: it renders a header of anonymous "reserved" pins and can answer
+    # no pin question. This trips when a board silkscreens aliases only
+    # ("SDA", "D14") and its manifest has no "alias/GPIOn" entries to bridge
+    # them — the fix is upstream in the asset, not a guess here.
+    signal = [p for p in pins if p["role"] in ("gpio", "reserved")]
+    resolved = [p for p in signal if "gpio" in p]
+    if signal and len(resolved) / len(signal) < 0.7:
+        return {"id": profile_id, "_rejected":
+                f"only {len(resolved)}/{len(signal)} pins resolve to a GPIO number"}
+
+    fqbn = board.get("fqbn") or ""
+    compatible = board.get("compatibleFqbns") or ([fqbn] if fqbn else [])
+    dims = board.get("dimensionsMmInUsbDownRenderAxes") or {}
+    width = dims.get("pcbWidthAcrossHeaders") or (board.get("dimensionsMm") or {}).get("width")
+    height = dims.get("pcbHeightAlongHeaders") or (board.get("dimensionsMm") or {}).get("height")
+
+    return {
+        "id": profile_id,
+        "label": board.get("label") or board.get("boardVariant") or profile_id,
+        "manufacturer": board.get("manufacturer") or "Unknown",
+        "model": board.get("model") or board.get("boardVariant") or profile_id,
+        "revision": board.get("revision") or "imported",
+        "fqbn": fqbn,
+        "compatibleFqbns": compatible,
+        "dimensionsMm": {"width": width or 0, "height": height or 0},
+        "sourceSummary": board.get("sourceConfidence")
+            or "Imported from the board asset manifest.",
+        "caveats": [
+            "Generated from the board asset manifest and not hand-checked "
+            "against a physical board.",
+        ],
+        "notes": [],
+        "pinAnchors": anchors,
+        "pins": pins,
+        "unresolvedGpioCount": unresolved,
+    }
+
+
 def ts_literal(value, indent: int = 2) -> str:
     pad = " " * indent
     if isinstance(value, dict):
@@ -258,6 +424,7 @@ def main() -> int:
         sys.exit(f"Not a directory: {root}")
 
     imported: dict[str, dict] = {}
+    profiles: dict[str, dict] = {}
     skipped: list[str] = []
 
     for folder in sorted(p for p in root.iterdir() if p.is_dir()):
@@ -294,6 +461,12 @@ def main() -> int:
         if render:
             entry["render"] = render
 
+        profile = build_profile(board, profile_id)
+        if profile and "_rejected" in profile:
+            skipped.append(f"{folder.name}: no pin map — {profile['_rejected']}")
+        elif profile:
+            profiles[profile_id] = profile
+
         if not entry:
             skipped.append(f"{folder.name}: nothing importable")
             continue
@@ -303,16 +476,24 @@ def main() -> int:
     rows = "\n".join(
         f"  {json.dumps(pid)}: {ts_literal(entry, 2)},"
         for pid, entry in sorted(imported.items()))
+    profile_rows = "\n".join(
+        f"  {ts_literal({k: v for k, v in p.items() if k != 'unresolvedGpioCount'}, 2)},"
+        for _, p in sorted(profiles.items()))
     OUT_TS.write_text(
         "// GENERATED FILE — do not edit by hand.\n"
         "// Produced by scripts/import-board-assets.py from the Blender board assets.\n"
         "// Merged into BOARD_PROFILES by boardProfiles.ts; hand-authored pin maps win.\n"
         "\n"
-        "import type { BoardCapabilityData } from '../boardCapabilities'\n"
+        "import type { BoardCapabilityData, GeneratedBoardProfile } from '../boardCapabilities'\n"
         "\n"
         "export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {\n"
         f"{rows}\n"
-        "}\n",
+        "}\n"
+        "\n"
+        "/** Pin maps derived from the manifests. Only used where no profile is authored. */\n"
+        "export const GENERATED_BOARD_PROFILES: GeneratedBoardProfile[] = [\n"
+        f"{profile_rows}\n"
+        "]\n",
         encoding="utf-8")
 
     print(f"imported {len(imported)} board(s) -> {OUT_TS.relative_to(REPO)}")
@@ -328,6 +509,11 @@ def main() -> int:
         if "render" in entry:
             bits.append(f"render {entry['render']['widthPx']}x{entry['render']['heightPx']}")
         print(f"  {pid}: {'; '.join(bits) or 'no capability data'}")
+    print(f"generated {len(profiles)} pin map(s)")
+    for pid, p in sorted(profiles.items()):
+        gpio = sum(1 for pin in p["pins"] if "gpio" in pin)
+        flag = f"  UNRESOLVED {p['unresolvedGpioCount']}" if p["unresolvedGpioCount"] else ""
+        print(f"  {pid}: {len(p['pins'])} pins, {gpio} with a GPIO number{flag}")
     for line in skipped:
         print(f"  SKIPPED {line}")
     return 0

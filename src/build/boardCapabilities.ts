@@ -69,6 +69,33 @@ export interface BoardRenderAsset {
  * covered, and for several boards confirmed against hardware in hand, so the
  * import adds to them rather than replacing them.
  */
+/**
+ * A pin map derived from a board asset manifest, used only where no profile is
+ * hand-authored.
+ *
+ * Carries no `targetFamilies` or `previewSvg`: the first is derived from the
+ * FQBN at merge time by the same helper every other consumer uses, and the
+ * second is a placeholder the merge supplies. Anchors carry no coordinates
+ * because the pinout view positions pins by their index within a side and
+ * reads only `labelAlign` — emitting pixel geometry here would invent
+ * precision nothing consumes.
+ */
+export interface GeneratedBoardProfile {
+  id: string
+  label: string
+  manufacturer: string
+  model: string
+  revision: string
+  fqbn: string
+  compatibleFqbns: string[]
+  dimensionsMm: { width: number; height: number }
+  sourceSummary: string
+  caveats: string[]
+  notes: string[]
+  pinAnchors: Array<{ id: string; x: number; y: number; labelAlign: 'left' | 'right' | 'top' | 'bottom' }>
+  pins: Array<{ id: string; label: string; role: string; anchorId: string; gpio?: number }>
+}
+
 export interface BoardCapabilityData {
   pinSafety?: BoardPinSafety
   /**

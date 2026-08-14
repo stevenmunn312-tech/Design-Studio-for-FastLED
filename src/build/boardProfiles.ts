@@ -1,6 +1,6 @@
 import type { BuildTargetFamily } from './buildProfile'
 import { targetFamilyFromFqbn } from './buildProfile'
-import { BOARD_CAPABILITY_DATA } from './generated/boardCapabilityData'
+import { BOARD_CAPABILITY_DATA, GENERATED_BOARD_PROFILES } from './generated/boardCapabilityData'
 import type {
   BoardCapabilityData,
   BoardPeripheralPins,
@@ -618,7 +618,7 @@ const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
  * a pin-safety list are not enough to build a usable profile without the pin
  * map, so those boards wait until one is authored.
  */
-export const BOARD_PROFILES: PhysicalBoardProfile[] = AUTHORED_PROFILES.map((profile) => {
+const MERGED_AUTHORED: PhysicalBoardProfile[] = AUTHORED_PROFILES.map((profile) => {
   const imported: BoardCapabilityData | undefined = BOARD_CAPABILITY_DATA[profile.id]
   if (!imported) return profile
   return {
@@ -632,10 +632,45 @@ export const BOARD_PROFILES: PhysicalBoardProfile[] = AUTHORED_PROFILES.map((pro
   }
 })
 
-/** Imported board ids that have no authored profile yet. */
+/**
+ * Generated profiles for boards nobody has authored a pin map for, appended
+ * after the authored ones so an authored profile always wins on id collision.
+ *
+ * `targetFamilies` is derived here rather than in the generator so it stays in
+ * lockstep with every other consumer of `targetFamilyFromFqbn`, and the preview
+ * SVG is the same placeholder the authored profiles use — the imported render
+ * is a separate, richer asset shown by the pinout view.
+ */
+const IMPORTED_PROFILES: PhysicalBoardProfile[] = GENERATED_BOARD_PROFILES
+  .filter((generated) => !AUTHORED_PROFILES.some((p) => p.id === generated.id))
+  .map((generated) => {
+    const families = [...new Set(generated.compatibleFqbns.map(targetFamilyFromFqbn))]
+    const capability: BoardCapabilityData = BOARD_CAPABILITY_DATA[generated.id] ?? {}
+    return {
+      ...generated,
+      targetFamilies: families,
+      // Imported maps have not been checked against a board in hand, and the
+      // caveat the generator attaches says so.
+      confidence: 'visual-match-only' as BoardProfileConfidence,
+      previewSvg: boardSvg(generated.label, '#7aa2ff', 'USB', 'Imported'),
+      pinAnchors: generated.pinAnchors as PhysicalBoardPinAnchor[],
+      pins: generated.pins as PhysicalBoardPinProfile[],
+      processor: capability.processor,
+      memory: capability.memory,
+      pinSafety: capability.pinSafety,
+      peripheralPins: capability.peripheralPins,
+      render: capability.render,
+      safetyNotes: capability.safetyNotes,
+    }
+  })
+
+/** Imported board ids that have no profile at all — no authored map, no usable generated one. */
 export const UNMAPPED_CAPABILITY_IDS: string[] = Object.keys(BOARD_CAPABILITY_DATA)
-  .filter((id) => !AUTHORED_PROFILES.some((profile) => profile.id === id))
+  .filter((id) => !AUTHORED_PROFILES.some((p) => p.id === id))
+  .filter((id) => !IMPORTED_PROFILES.some((p) => p.id === id))
   .sort()
+
+export const BOARD_PROFILES: PhysicalBoardProfile[] = [...MERGED_AUTHORED, ...IMPORTED_PROFILES]
 
 /**
  * Profiles whose source manifest carries safety commentary but no list of
