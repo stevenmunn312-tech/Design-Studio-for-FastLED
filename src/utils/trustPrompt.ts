@@ -2,7 +2,7 @@ import { useGraphStore } from '../state/graphStore'
 import { useUiStore } from '../state/uiStore'
 import { useProjectStore } from '../state/projectStore'
 import { captureWorkspace } from '../state/workspacePersistence'
-import { isPatternContentTrusted, trustPatternContent } from '../state/patternTrust'
+import { isPatternContentTrusted, trustPatternContent, workspaceTrustHolds } from '../state/patternTrust'
 import type { SavedPattern } from '../state/patternLibrary'
 
 /**
@@ -16,12 +16,27 @@ import type { SavedPattern } from '../state/patternLibrary'
  * addPatternToCollection) — those are frequent, additive workflow actions,
  * so a blocking modal on every drop would be disruptive; the persistent
  * `TrustBanner` is the affordance for that case instead.
+ *
+ * Also a no-op when the graph holds nothing the flag actually blocks — the
+ * same test `TrustBanner` applies, for the same reason (todo.md, 2026-08-14):
+ * a modal about Formula and Code logic that isn't in the file is the fastest
+ * way to teach someone to dismiss this dialog without reading it. The graph
+ * still stays untrusted, so the moment such a node is added the banner
+ * appears and export/upload keeps confirming separately.
  */
 export async function promptTrustIfNeeded(): Promise<void> {
-  if (useGraphStore.getState().trusted) return
+  const state = useGraphStore.getState()
+  if (state.trusted) return
+  const holds = workspaceTrustHolds(state.nodes, state.graphData)
+  if (!holds.formulaOrCode && !holds.artnet) return
+  const blocked = holds.formulaOrCode && holds.artnet
+    ? 'Its Formula and Code node preview logic won’t run, and no Art-Net listener will open, until you trust it.'
+    : holds.artnet
+      ? 'No Art-Net listener will open until you trust it.'
+      : 'Its Formula and Code node preview logic won’t run until you trust it.'
   const trust = await useUiStore.getState().requestConfirm({
     title: 'Trust this graph?',
-    message: 'This graph came from outside this browser — a share link, an imported file, or someone else’s project. Its Formula and Code node preview logic won’t run until you trust it. Only trust graphs from people and sources you trust.',
+    message: `This graph came from outside this browser — a share link, an imported file, or someone else’s project. ${blocked} Only trust graphs from people and sources you trust.`,
     confirmLabel: 'Trust and run',
     cancelLabel: 'Keep blocked',
     tone: 'danger',

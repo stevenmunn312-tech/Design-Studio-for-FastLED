@@ -183,7 +183,7 @@ function QuickStartTab() {
           <div><strong>Export and upload</strong><span>Allowed, but Studio asks first. Generated firmware runs directly on your board with no sandbox around it.</span></div>
         </div>
         <div className={styles.note}>
-          Trusting is remembered per project. Before trusting something you did not write, it is worth reading its Formula and Code nodes — and <strong>‹/› View Code</strong> shows the exact sketch any upload would flash.
+          You will only be asked when the file actually contains one of those things; most shared patches are ordinary patterns and open without a word. Trusting is remembered per project. Before trusting something you did not write, it is worth reading its Formula and Code nodes — and <strong>‹/› View Code</strong> shows the exact sketch any upload would flash.
         </div>
       </div>
 

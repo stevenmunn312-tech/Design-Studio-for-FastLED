@@ -87,6 +87,77 @@ export function patternNeedsTrust(subgraph: GraphContent, groups: GroupRegistry 
   return walk(subgraph)
 }
 
+/**
+ * What a *workspace* holds that trusting would change. Deliberately a
+ * superset of `TRUST_GATED_NODE_TYPES`, and deliberately a separate list:
+ * the pattern critic renders a saved subgraph without mounting any node
+ * bodies, so a pattern's `DMXInput` can never open a socket and must not
+ * make `patternNeedsTrust` interrupt a scan. A workspace *does* mount node
+ * bodies, so its Art-Net listener is held by the same flag and is a real
+ * reason to explain the banner. Keep the two lists apart — merging them
+ * reintroduces a prompt the pattern path has no reason to show.
+ */
+const WORKSPACE_ONLY_GATED_NODE_TYPES = new Set(['DMXInput'])
+
+/** What an untrusted workspace is currently holding back. */
+export interface WorkspaceTrustHolds {
+  /** A CustomFormula/FieldFormula/Code node renders blank until trusted. */
+  formulaOrCode: boolean
+  /** An Art-Net DMXInput keeps its UDP listener closed until trusted. */
+  artnet: boolean
+}
+
+/**
+ * What trusting this workspace would actually unblock. Empty holds mean the
+ * untrusted state is costing the user nothing they can see — a workspace of
+ * ordinary pattern/effect/audio nodes renders and behaves identically either
+ * way, so warning about it only trains people to dismiss the banner
+ * (todo.md, 2026-08-14).
+ *
+ * Every graph in the workspace counts, not just the active one: a Group's
+ * subgraph lives in `graphData`, `enterGraph` swaps which one is top-level,
+ * and `evaluateGraph` forwards `trusted` into subgraphs. Scanning all of them
+ * is both simpler and safer than following Group links — an orphaned subgraph
+ * that no Group references yet is rare, and counting it over-warns by one
+ * banner rather than under-warning by a real block.
+ */
+export function workspaceTrustHolds(
+  nodes: readonly unknown[],
+  graphData: Record<string, GraphContent> = {},
+): WorkspaceTrustHolds {
+  const holds: WorkspaceTrustHolds = { formulaOrCode: false, artnet: false }
+
+  const visit = (node: unknown) => {
+    const data = (node as { data?: { nodeType?: string; properties?: Record<string, unknown> } } | undefined)?.data
+    const nodeType = String(data?.nodeType ?? '')
+    if (TRUST_GATED_NODE_TYPES.has(nodeType)) {
+      holds.formulaOrCode = true
+      return
+    }
+    if (!WORKSPACE_ONLY_GATED_NODE_TYPES.has(nodeType)) return
+    // Only Art-Net mode opens a listener; a DMX512 node reads its universe in
+    // firmware and does nothing at all in preview, so trusting changes nothing
+    // for it. Matches DmxInputBody's own `mode !== 'Art-Net'` early return,
+    // including its default when the property is missing.
+    if (nodeType === 'DMXInput' && String(data?.properties?.inputMode ?? 'Art-Net') === 'Art-Net') {
+      holds.artnet = true
+    }
+  }
+
+  nodes.forEach(visit)
+  for (const content of Object.values(graphData)) content?.nodes?.forEach(visit)
+  return holds
+}
+
+/** Whether trusting this workspace would unblock anything at all. */
+export function workspaceNeedsTrust(
+  nodes: readonly unknown[],
+  graphData: Record<string, GraphContent> = {},
+): boolean {
+  const holds = workspaceTrustHolds(nodes, graphData)
+  return holds.formulaOrCode || holds.artnet
+}
+
 export function trustPatternContent(subgraph: GraphContent): void {
   trustedFingerprints.add(fingerprint(subgraph))
   persist()

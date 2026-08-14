@@ -184,7 +184,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 - **Recovery Snapshot** — a recent browser-local restore point.
 - **Pattern** — a reusable saved Group in the Pattern Library.
 
-Imported projects, patterns, and share links are treated as untrusted, because they can carry code and network settings written by someone else. Until you review the source and choose **Trust and run**, Formula and Code node previews stay blank and no Art-Net listener is opened. Everything else — patterns, effects, fields, audio — runs normally, so most shared patches look complete. Export and upload are still allowed but ask first, since generated firmware runs on your board with no sandbox around it.
+Imported projects, patterns, and share links are treated as untrusted, because they can carry code and network settings written by someone else. Until you review the source and choose **Trust and run**, Formula and Code node previews stay blank and no Art-Net listener is opened. Everything else — patterns, effects, fields, audio — runs normally, so most shared patches look complete and open without a prompt: you are only asked when the file actually contains something that is being held back. Export and upload are still allowed but ask first, since generated firmware runs on your board with no sandbox around it.
 
 ## Beta hardware scope
 
