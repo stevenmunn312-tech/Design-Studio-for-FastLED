@@ -9,6 +9,8 @@ import { boardGpioInfo } from '../state/uploadStore'
 import { MAX_PIN_NUMBER, pinSupports } from '../state/boardGpio'
 import { getNetworkCredentials } from '../state/networkCredentials'
 import { collectPinUses } from '../build/hardwareManifest'
+import { boardPinVerdict, boardProfileById } from '../build/boardProfiles'
+import type { PhysicalBoardProfile } from '../build/boardProfiles'
 
 export interface ValidationResult {
   errors:   string[]
@@ -434,6 +436,43 @@ export interface BoardPinCompatibility {
   warnings: string[]
 }
 
+/** The exact board a Board node names, if the graph has one and it resolves. */
+export function selectedBoardProfile(nodes: StudioNode[]): PhysicalBoardProfile | undefined {
+  const board = nodes.find((node) => node.data.nodeType === 'Board')
+  const id = (board?.data.properties as Record<string, unknown> | undefined)?.profileId
+  return typeof id === 'string' && id ? boardProfileById(id) : undefined
+}
+
+/**
+ * Pin checks the FQBN cannot make.
+ *
+ * `findBoardPinCompatibility` above validates against the *chip*, which is why
+ * a Seeed XIAO and an ESP32-S3-DevKitC-1 look identical to it — both are
+ * `esp32:esp32:esp32s3`. The XIAO reaches GPIO39-42 only through underside
+ * pads, so a microphone on GPIO39 passes every chip-level rule and still
+ * cannot be wired. The Board node's profile is the only thing that knows.
+ *
+ * Silent when no Board node is present, when its profile carries no safety
+ * data, or when a pin's standing is `unknown` — an allowlist is not exhaustive,
+ * so absence is not evidence against a pin.
+ */
+export function findExactBoardPinIssues(nodes: StudioNode[]): BoardPinCompatibility {
+  const profile = selectedBoardProfile(nodes)
+  const errors: string[] = []
+  const warnings: string[] = []
+  if (!profile?.pinSafety) return { errors, warnings }
+  for (const use of collectPinUses(nodes)) {
+    if (!isValidPinNumber(use.pin)) continue
+    const verdict = boardPinVerdict(profile, use.pin)
+    if (verdict.standing === 'reserved') {
+      errors.push(`${use.label} uses pin ${use.pin}, which isn't available on a ${profile.label}: ${verdict.reason}`)
+    } else if (verdict.standing === 'caution') {
+      warnings.push(`${use.label} uses pin ${use.pin} on a ${profile.label}: ${verdict.reason}`)
+    }
+  }
+  return { errors, warnings }
+}
+
 /** Checks every generated pin role against the selected board's Arduino pin
  * table. Custom boards without a table keep the numeric-only fallback. */
 export function findBoardPinCompatibility(nodes: StudioNode[], selectedFqbn: string): BoardPinCompatibility {
@@ -630,6 +669,9 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
     errors.push('HUB75 output requires a classic ESP32, ESP32-S2, or ESP32-S3 board — the DMA library needs their LCD-mode peripheral, which RISC-V ESP32 variants (C3/C6/H2) and other board families don\'t have')
   }
   errors.push(...findBoardPinCompatibility(nodes, selectedFqbn).errors)
+  // Board-exact checks need no FQBN — the Board node names the board directly,
+  // and it catches what the chip-level table above cannot.
+  errors.push(...findExactBoardPinIssues(nodes).errors)
   return errors
 }
 
@@ -822,6 +864,27 @@ export function buildGraphDiagnostics(
       }))
     }
   }
+  // Board-exact pin standing. Distinct from the FQBN checks above: the chip
+  // table cannot tell a XIAO from an S3-DevKitC-1, and only one of them can
+  // reach GPIO39 with a jumper wire.
+  const exactBoard = findExactBoardPinIssues(nodes)
+  const exactPinUses = collectPinUses(nodes)
+  for (const [severity, messages] of [['error', exactBoard.errors], ['warning', exactBoard.warnings]] as const) {
+    messages.forEach((message, index) => diagnostics.push({
+      id: `board-exact-${severity}-${index}`,
+      severity,
+      category: 'pins',
+      title: severity === 'error'
+        ? 'Pin is not available on the chosen board'
+        : 'Pin has a caveat on the chosen board',
+      message,
+      fix: severity === 'error'
+        ? 'Pick a pin the board brings out to a header, or change the board on the Board node.'
+        : 'Check the board pinout before wiring, or move to a pin with no caveat.',
+      nodeIds: exactPinUses.filter((use) => message.startsWith(use.label)).map((use) => use.nodeId).slice(0, 1),
+    }))
+  }
+
   const cappedOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput' && (node.data.properties as Record<string, unknown>).powerLimit === true)
   const outputResourceErrors = findOutputResourceErrors(nodes)
   if (outputResourceErrors.length > 0) {

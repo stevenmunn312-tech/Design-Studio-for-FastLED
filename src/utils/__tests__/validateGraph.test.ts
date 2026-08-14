@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -532,6 +532,62 @@ describe('validateGraph', () => {
       const edges = [edge('e1', 'sc', 'out', 'frame')]
       const { errors } = validateGraph(nodes, edges)
       expect(errors.some(e => e.includes('GPIO 5'))).toBe(true)
+    })
+  })
+
+  describe('findExactBoardPinIssues', () => {
+    // The bug this whole board-profile effort exists to close. A Seeed XIAO and
+    // an ESP32-S3-DevKitC-1 are the same FQBN, so every chip-level check passes
+    // them identically — but the XIAO reaches GPIO39-42 only through underside
+    // pads, and the library's stock mic pins land squarely on them.
+    const micOnPads = [
+      node('board', 'Board', { profileId: 'seeed-xiao-esp32s3' }),
+      node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 }),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ]
+
+    it('catches pins the chosen board cannot reach', () => {
+      const { errors } = findExactBoardPinIssues(micOnPads)
+      expect(errors).toHaveLength(3)
+      for (const pin of [39, 40, 41]) {
+        expect(errors.join(' ')).toContain(`pin ${pin}`)
+      }
+      expect(errors.join(' ')).toMatch(/XIAO/)
+      expect(errors.join(' ')).toMatch(/bottomExpansion/)
+    })
+
+    it('passes the same pins once the board is one that exposes them', () => {
+      const onDevKit = micOnPads.map((n) => n.id === 'board'
+        ? node('board', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1' })
+        : n)
+      expect(findExactBoardPinIssues(onDevKit).errors).toEqual([])
+    })
+
+    it('stays silent with no Board node, so existing graphs are unaffected', () => {
+      expect(findExactBoardPinIssues(micOnPads.slice(1))).toEqual({ errors: [], warnings: [] })
+      expect(findExactBoardPinIssues([node('board', 'Board', { profileId: '' })]))
+        .toEqual({ errors: [], warnings: [] })
+    })
+
+    it('does not flag a pin merely because the allowlist omits it', () => {
+      // An allowlist is not exhaustive, so absence is not evidence against a
+      // pin. Only an explicit reservation is an error.
+      const { errors } = findExactBoardPinIssues([
+        node('board', 'Board', { profileId: 'seeed-xiao-esp32s3' }),
+        node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 21 }),
+      ])
+      expect(errors).toEqual([])
+    })
+
+    it('surfaces in the live diagnostics and in deploy validation alike', () => {
+      const diagnostics = buildGraphDiagnostics(micOnPads, [], { selectedFqbn: 'esp32:esp32:esp32s3' })
+      const exact = diagnostics.filter((d) => d.id.startsWith('board-exact-error'))
+      expect(exact.length).toBe(3)
+      expect(exact[0].category).toBe('pins')
+      expect(exact[0].fix).toMatch(/header|Board node/)
+      // Deploy validation must reach the same verdict or the two drift apart.
+      expect(findBoardCompatibilityErrors(micOnPads, 'esp32:esp32:esp32s3')
+        .filter((e) => e.includes('XIAO')).length).toBe(3)
     })
   })
 
