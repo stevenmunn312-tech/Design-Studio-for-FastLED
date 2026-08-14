@@ -15,6 +15,8 @@
 // and unknown identifiers (`fetch`, `globalThis`, …) are structural parse
 // errors, not merely "happens not to resolve at runtime."
 
+import { SHIM_NAMES } from './fastledShims'
+
 export type FormulaFn = (...args: unknown[]) => number
 
 export interface FormulaCompileOptions {
@@ -331,4 +333,32 @@ export function compileFormulaSource(source: string, { variables, callableVariab
   } catch {
     return null
   }
+}
+
+// ── The CustomFormula / FieldFormula node contract ────────────────────────
+//
+// Per-pixel formula closure. Args are positional and shared by CustomFormula
+// and FieldFormula: x, y, cx, cy, r, angle, t, W, H, a, b, fieldIn, then the
+// FastLED shims (sin8, cos8, …) in SHIM_NAMES order.
+//
+// This is the *only* entry point either formula node should use, on any path.
+// A formula string travels inside a shared graph, so it is untrusted content;
+// the preview reaches it through `compileNodeFormula` and the C++ generator
+// through `isNodeFormulaValid`. Both therefore enforce the same guarantee —
+// a formula that passes contains nothing but numbers, allowlisted identifiers
+// and arithmetic/comparison operators. The tokenizer has no token for `;`,
+// `{`, `}`, quotes or `#`, so a validated formula is structurally incapable of
+// carrying a statement, and pasting it into a C++ expression cannot inject
+// code. Skipping the check on the codegen side is what made an exported
+// sketch able to run source the preview had already refused (fixed 2026-08-14).
+export const NODE_FORMULA_VARIABLES = ['x', 'y', 'cx', 'cy', 'r', 'angle', 't', 'W', 'H', 'a', 'b', 'fieldIn'] as const
+
+/** Compile a CustomFormula/FieldFormula source string; `null` when invalid. */
+export function compileNodeFormula(source: string): FormulaFn | null {
+  return compileFormulaSource(source, { variables: NODE_FORMULA_VARIABLES, callableVariables: SHIM_NAMES })
+}
+
+/** True when a formula parses cleanly and is therefore safe to emit into C++. */
+export function isNodeFormulaValid(source: string): boolean {
+  return compileNodeFormula(source) !== null
 }

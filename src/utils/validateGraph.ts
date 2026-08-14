@@ -1,6 +1,7 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { HUB75_CHIPSET, NODE_LIBRARY, supportsScalarExpression } from '../state/nodeLibrary'
 import { evaluateScalarExpression } from '../state/scalarExpression'
+import { isNodeFormulaValid } from '../state/formulaLang'
 import { isValidRtcDateTime } from '../state/rtc'
 import { validateMatrixLayout, tileRotationAt } from '../state/xyLayout'
 import { compositionDims } from '../state/outputRouting'
@@ -651,6 +652,23 @@ export function findScalarExpressionErrors(nodes: StudioNode[]): string[] {
   return errors
 }
 
+/** Formula nodes whose source the sandboxed parser rejects. The preview
+ *  already renders these blank, but an invalid formula must also block export
+ *  and upload: the C++ generator refuses to emit unvalidated source (it falls
+ *  back to a blank render), so without this the sketch would silently differ
+ *  from what the node claims to do. */
+export function findFormulaErrors(nodes: StudioNode[]): string[] {
+  const errors: string[] = []
+  for (const node of nodes) {
+    if (node.data.nodeType !== 'CustomFormula' && node.data.nodeType !== 'FieldFormula') continue
+    const formula = String((node.data.properties as Record<string, unknown>).formula ?? '')
+    if (!isNodeFormulaValid(formula)) {
+      errors.push(`${node.data.label} has an invalid formula: ${formula || '(empty)'}`)
+    }
+  }
+  return errors
+}
+
 /** FastLED's power limiter is global across all registered controllers, so
  * independently capped routes must agree on supply voltage; their mA budgets
  * are then summed into one controller-wide cap. */
@@ -862,6 +880,19 @@ export function buildGraphDiagnostics(
         })
       }
     }
+  }
+
+  for (const node of nodes) {
+    if (node.data.nodeType !== 'CustomFormula' && node.data.nodeType !== 'FieldFormula') continue
+    const formula = String((node.data.properties as Record<string, unknown>).formula ?? '')
+    if (isNodeFormulaValid(formula)) continue
+    diagnostics.push({
+      id: `${node.id}-formula`, severity: 'error', category: 'expression',
+      title: `${nodeLabel(node)} has an invalid formula`,
+      message: `formula: ${formula || '(empty)'}`,
+      fix: 'Formulas may use only numbers, the built-in variables (x, y, cx, cy, r, angle, t, W, H, a, b, fieldIn), the FastLED shims, and arithmetic — no statements or other identifiers. Preview and firmware both render this node blank until it parses.',
+      nodeIds: [node.id], nodeLabel: nodeLabel(node), propertyKey: 'formula',
+    })
   }
 
   for (const node of nodes) {
@@ -1111,6 +1142,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   errors.push(...findMatrixLayoutErrors(nodes))
   errors.push(...findHub75ConfigErrors(nodes))
   errors.push(...findScalarExpressionErrors(nodes))
+  errors.push(...findFormulaErrors(nodes))
   errors.push(...findBoardCompatibilityErrors(nodes, selectedFqbn))
   warnings.push(...findPreviewOnlyWarnings(nodes, edges))
   warnings.push(...findRtcWarnings(nodes))

@@ -7,7 +7,7 @@ import { useMusicStore } from '../../../state/musicStore'
 import { useProjectStore } from '../../../state/projectStore'
 import { useStreamStore } from '../../../state/streamStore'
 import { generateWiringDiagnosticSketch } from '../../../codegen/wiringDiagnosticGenerator'
-import { findHub75ConfigErrors, findHub75TopologyDiagnosticErrors } from '../../../utils/validateGraph'
+import { findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors } from '../../../utils/validateGraph'
 
 vi.mock('../../../codegen/cppGenerator', () => ({
   generateCpp: vi.fn(() => '// sketch'),
@@ -40,6 +40,7 @@ vi.mock('../../../utils/validateGraph', () => ({
   findBoardCompatibilityErrors: vi.fn(() => []),
   findHub75ConfigErrors: vi.fn(() => []),
   findHub75TopologyDiagnosticErrors: vi.fn(() => []),
+  findFormulaErrors: vi.fn(() => []),
 }))
 
 function setMatrixGraph() {
@@ -123,6 +124,7 @@ describe('MatrixOutputDeployPopup', () => {
   afterEach(() => {
     vi.mocked(findHub75ConfigErrors).mockReturnValue([])
     vi.mocked(findHub75TopologyDiagnosticErrors).mockReturnValue([])
+    vi.mocked(findFormulaErrors).mockReturnValue([])
   })
 
   it('keeps readiness collapsed behind the action-needed gate', () => {
@@ -198,6 +200,26 @@ describe('MatrixOutputDeployPopup', () => {
 
     const wiringButton = getByRole('button', { name: '🧪 Flash Wiring Test' }) as HTMLButtonElement
     expect(wiringButton.disabled).toBe(true)
+  })
+
+  it('blocks Export .ino when a formula node would not survive codegen validation', () => {
+    // The C++ generator refuses to emit unvalidated formula source (it falls
+    // back to a blank render), so an invalid formula must block export rather
+    // than quietly shipping a sketch that does something else.
+    vi.mocked(findFormulaErrors).mockReturnValue([
+      'Custom Formula has an invalid formula: 0.0f; digitalWrite(2, HIGH); float _x = 0',
+    ])
+    useUploadStore.setState({
+      helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' },
+      installedCores: [],
+      selectedPort: 'COM7',
+      ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [{ name: 'ESP32-S3' }] }],
+    })
+
+    const { getByRole } = render(<MatrixOutputDeployPopup />)
+
+    expect((getByRole('button', { name: '↓ Export .ino' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((getByRole('button', { name: '🧪 Flash Wiring Test' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('offers a dedicated HUB75 topology flash for a valid folded grid', () => {
