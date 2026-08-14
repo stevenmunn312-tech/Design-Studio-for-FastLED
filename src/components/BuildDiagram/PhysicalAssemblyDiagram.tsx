@@ -122,8 +122,11 @@ interface ControllerRenderSpec {
    *
    * This is what sizes the board on the sheet, so a XIAO and a Mega no longer
    * draw the same width on a diagram whose whole job is physical assembly.
-   * Derive it from the board's PCB width and the render's alpha bounds:
-   * `pcbWidthMm * imageWidthPx / alphaContentWidthPx`.
+   * Derive it the same way for every board so the relative sizes stay honest:
+   * `visibleWidthMm * imageWidthPx / alphaContentWidthPx`, where the visible
+   * width is the PCB's own width unless something overhangs it. All four
+   * renders crop to 790 of 800 px, so this is the board width plus the 10 px
+   * of transparent margin.
    */
   imageWidthMm: number
   /** Header geometry in source pixels: rail x, and first/last pad centre y. */
@@ -164,35 +167,33 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     shortLabel: 'ESP32-S3 DevKitC-1',
   },
   // 7 + 7 rails on a 111.817px pitch, supplied with the render and checked
-  // here: pad rows land on real rings and the rail centres sum to exactly
-  // 800.0. 18.1725 mm comes from the 2.54 mm header pitch (800 / 44.0223
-  // px/mm), which also reproduces the stated 15.24 mm rail separation exactly.
+  // here: pad rows land on real rings and the rail centres sum to exactly 800.0.
   // The four expansion pads are on the underside and so have no top-down
   // position; they fall back to the generic terminal column.
   'seeed-xiao-esp32s3': {
     href: xiaoBoardRender,
-    sourceWidth: 800, sourceHeight: 1046, imageWidthMm: 18.1725,
+    sourceWidth: 800, sourceHeight: 1046, imageWidthMm: 18.1266,
     leftPinX: 64.5497, rightPinX: 735.4503, firstPinY: 134.943, lastPinY: 805.8435,
     pinsPerRail: 7, leftPrefix: 'left', rightPrefix: 'right',
     // This board has exactly one 3V3 and one GND, adjacent on the left rail.
     powerAnchors: { v3v3: 'left-5', ground: 'left-6' },
-    usbPoint: { x: 394, y: 1020 },
+    usbPoint: { x: 400, y: 1029.477 },
     shortLabel: 'XIAO ESP32S3',
   },
-  // 22 + 22 rails on a 71.457px pitch sharing rows, measured here (the package
-  // carried no pixel geometry): first pad centre y=147.47, last y=1648.07, rail
-  // centres symmetrised about the image at 83.25 / 716.75.
-  // 28.354 mm = 28 mm PCB over alpha bounds 5..794 of an 800px render.
+  // 22 + 22 rails on a 71.475px pitch sharing rows. Geometry is now projected
+  // from the model's own 2.54 mm pad grid through the render camera rather than
+  // detected from pixels, so it supersedes the values measured here earlier —
+  // the rail centres land symmetric to four decimal places (83.4285 + 716.5715).
   'generic-esp32-s3-n16r8-44pin-dual-usbc': {
     href: genericN16R8BoardRender,
-    sourceWidth: 800, sourceHeight: 1886, imageWidthMm: 28.354,
-    leftPinX: 83.25, rightPinX: 716.75, firstPinY: 147.47, lastPinY: 1648.07,
+    sourceWidth: 800, sourceHeight: 1886, imageWidthMm: 28.3544,
+    leftPinX: 83.4285, rightPinX: 716.5715, firstPinY: 147.7725, lastPinY: 1648.7433,
     pinsPerRail: 22, leftPrefix: 'left', rightPrefix: 'right',
     // 3V3 tops the left rail and GND ends the right, so the two stubs leave
     // opposite edges and opposite ends of the board.
     powerAnchors: { v3v3: 'left-1', ground: 'right-22' },
     // The COM port: the one this app's upload path drives.
-    usbPoint: { x: 246, y: 1840 },
+    usbPoint: { x: 253.674, y: 1757.925 },
     shortLabel: 'ESP32-S3 N16R8',
   },
   // 15 + 15 rails on a 72.367px pitch sharing rows, rail centres symmetric

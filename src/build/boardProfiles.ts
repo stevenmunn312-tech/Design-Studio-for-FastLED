@@ -393,7 +393,8 @@ export const BOARD_PROFILES: PhysicalBoardProfile[] = [
     revision: 'manufacturer profile',
     targetFamilies: ['esp32-s3'],
     compatibleFqbns: ['esp32:esp32:esp32s3'],
-    dimensionsMm: { width: 21, height: 18 },
+    // Seeed's figures: 21.0 mm along the rails, 17.8 mm across them.
+    dimensionsMm: { width: 21, height: 17.8 },
     confidence: 'manufacturer-verified',
     moduleSilk: 'ESP32-S3',
     previewSvg: boardSvg('Seeed XIAO ESP32S3', '#7aa2ff', 'USB-C', 'Compact layout'),
