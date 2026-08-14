@@ -11,8 +11,36 @@
    `.field select`). A translucent background reads as muddy against the node
    body, and the open option list inherits it — so the dropdown itself, not
    just the closed control, has to be given a solid colour. */
+.pickerRow {
+  display: flex;
+  gap: 4px;
+  align-items: stretch;
+}
+
+.eyeBtn {
+  flex: 0 0 auto;
+  padding: 0 7px;
+  border-radius: 6px;
+  border: 1px solid var(--border-glow);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: var(--fs-caption);
+  line-height: 1;
+}
+
+.eyeBtn:hover:not(:disabled) {
+  border-color: var(--accent-output);
+}
+
+.eyeBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .picker {
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   padding: 4px 6px;
   border-radius: 6px;
   border: 1px solid var(--border-glow);

@@ -32,6 +32,7 @@ import styles from './App.module.css'
 const PerformanceDeck = lazy(() => import('./components/PerformanceDeck/PerformanceDeck'))
 
 const BoardPopup = lazy(() => import('./components/Upload/BoardPopup'))
+const BoardPinoutPopup = lazy(() => import('./components/Upload/BoardPinoutPopup'))
 const MatrixOutputSetupWizard = lazy(() => import('./components/Upload/MatrixOutputSetupWizard'))
 const MatrixOutputDeployPopup = lazy(() => import('./components/Upload/MatrixOutputDeployPopup'))
 const ArduinoCliPopup = lazy(() => import('./components/Upload/ArduinoCliPopup'))
@@ -81,6 +82,7 @@ export default function App() {
   const hasMicNode = micNodeProps !== null
   const showPreviewPlaying = useShowPlayback((s) => s.playing)
   const boardPopupOpen = useUploadStore((s) => s.boardPopupOpen)
+  const pinoutProfileId = useUploadStore((s) => s.pinoutProfileId)
   const setupWizardOpen = useUploadStore((s) => s.setupWizardOpen)
   const deployPopupOpen = useUploadStore((s) => s.deployPopupOpen)
   const cliPopupOpen = useUploadStore((s) => s.cliPopupOpen)
@@ -622,6 +624,7 @@ export default function App() {
         {setupWizardOpen && <MatrixOutputSetupWizard />}
         {deployPopupOpen && <MatrixOutputDeployPopup />}
         {boardPopupOpen && <BoardPopup />}
+        {pinoutProfileId && <BoardPinoutPopup />}
         {cliPopupOpen && <ArduinoCliPopup />}
         {consoleOpen && <OutputConsole />}
         {helpOpen && <HelpModal />}

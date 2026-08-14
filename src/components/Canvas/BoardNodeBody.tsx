@@ -19,6 +19,7 @@ interface Props { nodeId: string }
 export default function BoardNodeBody({ nodeId }: Props) {
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
   const setSelectedFqbn = useUploadStore((s) => s.setSelectedFqbn)
+  const openPinout = useUploadStore((s) => s.openPinout)
 
   const profileId = useGraphStore((s) => {
     const node = s.nodes.find((n) => n.id === nodeId)
@@ -47,17 +48,29 @@ export default function BoardNodeBody({ nodeId }: Props) {
 
   return (
     <div className={`${styles.body} nodrag`}>
-      <select
-        className={styles.picker}
-        value={profileId}
-        onChange={(e) => choose(e.target.value)}
-        aria-label="Controller board"
-      >
-        <option value="">Choose your board…</option>
-        {BOARD_PROFILES.map((p) => (
-          <option key={p.id} value={p.id}>{p.label}</option>
-        ))}
-      </select>
+      <div className={styles.pickerRow}>
+        <select
+          className={styles.picker}
+          value={profileId}
+          onChange={(e) => choose(e.target.value)}
+          aria-label="Controller board"
+        >
+          <option value="">Choose your board…</option>
+          {BOARD_PROFILES.map((p) => (
+            <option key={p.id} value={p.id}>{p.label}</option>
+          ))}
+        </select>
+        <button
+          type="button"
+          className={styles.eyeBtn}
+          onClick={() => profile && openPinout(profile.id)}
+          disabled={!profile}
+          title={profile ? `View the ${profile.label} pinout` : 'Choose a board first'}
+          aria-label="View board pinout"
+        >
+          👁
+        </button>
+      </div>
 
       {!profile && (
         <p className={styles.empty}>

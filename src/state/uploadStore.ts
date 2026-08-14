@@ -241,6 +241,9 @@ interface UploadState {
   serialBaud: number
   // overlays
   boardPopupOpen: boolean
+  /** Board profile id whose pinout view is open, or null. Holds the id rather
+   *  than a boolean so the view survives a board change underneath it. */
+  pinoutProfileId: string | null
   setupWizardOpen: boolean
   deployPopupOpen: boolean
   cliPopupOpen: boolean
@@ -268,6 +271,8 @@ interface UploadState {
   // overlays
   openBoardPopup: () => void
   closeBoardPopup: () => void
+  openPinout: (profileId: string) => void
+  closePinout: () => void
   openSetupWizard: (nodeId?: string) => void
   closeSetupWizard: () => void
   openDeployPopup: (nodeId?: string) => void
@@ -346,6 +351,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   serialError: '',
   serialBaud: 115200,
   boardPopupOpen: false,
+  pinoutProfileId: null,
   setupWizardOpen: false,
   deployPopupOpen: false,
   cliPopupOpen: false,
@@ -434,6 +440,8 @@ export const useUploadStore = create<UploadState>((set, get) => ({
 
   openBoardPopup: () => { set({ boardPopupOpen: true }); get().refreshPorts(); get().refreshCores() },
   closeBoardPopup: () => set({ boardPopupOpen: false }),
+  openPinout: (profileId) => set({ pinoutProfileId: profileId }),
+  closePinout: () => set({ pinoutProfileId: null }),
   openSetupWizard: (nodeId) => { set({ setupWizardOpen: true, activeOutputNodeId: nodeId ?? null }); get().refreshPorts(); get().refreshCores() },
   closeSetupWizard: () => set({ setupWizardOpen: false }),
   openDeployPopup: (nodeId) => { set({ deployPopupOpen: true, activeOutputNodeId: nodeId ?? null }); get().refreshPorts(); get().refreshCores() },
