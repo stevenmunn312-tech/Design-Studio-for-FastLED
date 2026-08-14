@@ -14,7 +14,7 @@ import { polinePalette, hexToRgb } from './polinePalette'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette } from './customPalette'
 import { inputClampRange, bypassPort, resolveNodeScalarExpressions } from './nodeLibrary'
 import { makeShims, SHIM_NAMES } from './fastledShims'
-import { compileFormulaSource, type FormulaFn } from './formulaLang'
+import { compileNodeFormula, type FormulaFn } from './formulaLang'
 import { createBeatDetectorState, denormalizeBeatParam, updateBeatDetectorFromSpectrum } from '../audio/beatDetection'
 import { denormalizeAudioFlowParam } from './audioFlowRange'
 import { SPEED_MAX, SCALE_MAX, NOISE_SPEED_MAX, NOISE_SCALE_MAX, FORMULA_POINTS_SPEED_MAX, FORMULA_FIELD_SPEED_MAX, denormRate } from './speedRange'
@@ -235,19 +235,18 @@ function advanceDrift(key: string, t: number, rateA: number, rateB = 0): DriftPh
   return state
 }
 
-// Per-pixel formula closure. Args are positional and shared by CustomFormula and
-// FieldFormula: x, y, cx, cy, r, angle, t, W, H, a, b, fieldIn, then the FastLED
-// shims (sin8, cos8, …) in SHIM_NAMES order. Compiled by the sandboxed parser in
+// Per-pixel formula closure, compiled by the sandboxed parser in
 // `formulaLang.ts` — not `new Function` — so untrusted formula content can't
-// reach globalThis/window/fetch/localStorage/etc; see that module for why.
-const FORMULA_VARIABLES = ['x', 'y', 'cx', 'cy', 'r', 'angle', 't', 'W', 'H', 'a', 'b', 'fieldIn'] as const
+// reach globalThis/window/fetch/localStorage/etc; see that module for the
+// positional argument contract and for why the C++ generator validates
+// through the same entry point.
 const formulaCache = new Map<string, FormulaFn | null>()
 const fieldFormulaCache = new Map<string, FormulaFn | null>()
 
 function compileFormula(formula: string, cache: Map<string, FormulaFn | null>): FormulaFn | null {
   if (!cache.has(formula)) {
     if (cache.size > 50) cache.clear()
-    cache.set(formula, compileFormulaSource(formula, { variables: FORMULA_VARIABLES, callableVariables: SHIM_NAMES }))
+    cache.set(formula, compileNodeFormula(formula))
   }
   return cache.get(formula) ?? null
 }

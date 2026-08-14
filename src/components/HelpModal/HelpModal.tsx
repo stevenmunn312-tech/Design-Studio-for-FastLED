@@ -161,11 +161,29 @@ function QuickStartTab() {
           <div><strong>Project file</strong><span>A full workspace copy for backup or moving to another machine.</span></div>
           <div><strong>Graph JSON</strong><span>Raw graph interchange for development and advanced workflows.</span></div>
           <div><strong>Share link</strong><span>A URL containing a copy of the workspace at the time you create it.</span></div>
+          <div><strong>Share to Community</strong><span>Packages the current workspace as a pattern to publish, rather than as a private link.</span></div>
           <div><strong>Recovery snapshot</strong><span>One of the recent rolling browser snapshots; use it after an unwanted edit or failed load.</span></div>
           <div><strong>Pattern Library</strong><span>Reusable groups saved independently so they can be dropped into other projects and shows.</span></div>
         </div>
         <div className={styles.note}>
           <strong>Offline authoring:</strong> after the first successful load, Studio can be installed and reopened offline for editing and preview. Board discovery, upload, live stream, and helper-backed file operations still need the local helper.
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Opening a project from someone else</div>
+        <div className={styles.text}>
+          A share link, an imported graph, a project file, or a pattern dropped from the library arrives <strong>untrusted</strong>, because it can contain code and network settings written by whoever made it. Your own saved projects are unaffected. Studio holds the risky parts back until you choose <strong>Trust and run</strong> in the banner.
+        </div>
+        <div className={styles.definitionGrid}>
+          <div><strong>Formula and Code nodes</strong><span>Render blank in the preview. Everything else — patterns, effects, fields, audio — runs normally, so most shared patches look completely finished.</span></div>
+          <div><strong>DMX / Art-Net</strong><span>No network listener is opened, since the port to listen on is part of the shared file.</span></div>
+          <div><strong>Export and upload</strong><span>Allowed, but Studio asks first. Generated firmware runs directly on your board with no sandbox around it.</span></div>
+        </div>
+        <div className={styles.note}>
+          Trusting is remembered per project. Before trusting something you did not write, it is worth reading its Formula and Code nodes — and <strong>‹/› View Code</strong> shows the exact sketch any upload would flash.
         </div>
       </div>
 
@@ -188,6 +206,33 @@ function QuickStartTab() {
         </div>
         <div className={styles.note}>
           <code>w</code> and <code>h</code> are pixel counts; the last valid coordinates are <code>max_x</code> (<code>w - 1</code>) and <code>max_y</code> (<code>h - 1</code>). Invalid expressions are outlined and block export or upload. Sliders and hardware setup fields remain literal values.
+        </div>
+        <div className={styles.note}>
+          The <strong>Custom Formula</strong> and <strong>Field Formula</strong> nodes use a separate, larger per-pixel language with its own variables and FastLED helpers — see their Node Reference entries. Like the fields above, a formula that does not parse renders blank and blocks export or upload, in preview and in generated firmware alike.
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Beyond the canvas</div>
+        <div className={styles.choiceGrid}>
+          <div className={styles.choiceCard}>
+            <strong>Plan the physical build</strong>
+            <span>Open <strong>View → Build Diagram</strong> for a wiring workspace built from your graph: a scale controller with its real pin map, power distribution and fuses, a parts list and connection list you can export as CSV, and printable assembly sheets.</span>
+          </div>
+          <div className={styles.choiceCard}>
+            <strong>Record the preview</strong>
+            <span>Use <strong>⏺ Record</strong> in the LED Preview header to save a PNG still, or an animated GIF or WebM clip. Clips render offline from a clean start, so simulations can warm up first and loops can be made seamless.</span>
+          </div>
+          <div className={styles.choiceCard}>
+            <strong>Review saved patterns</strong>
+            <span>The Pattern Library keeps your own 1–5 star ratings, and <strong>Scan patterns</strong> adds a Studio Score judged against what each pattern is for. Sort or filter a collection by either.</span>
+          </div>
+          <div className={styles.choiceCard}>
+            <strong>Drive several outputs</strong>
+            <span>Add more than one Matrix Output to run separate LED routes from one board, each with its own pins, size, layout, and brightness. The preview header selects which route you are watching.</span>
+          </div>
         </div>
       </div>
 
@@ -237,7 +282,7 @@ function ShortcutsTab() {
           <div className={styles.kbd}><span className={styles.key}>Del</span><span className={styles.key}>Backspace</span></div>
           <div className={styles.shortcutDesc}>Delete selected node(s)</div>
           <div className={styles.kbd}><span className={styles.key}>Esc</span></div>
-          <div className={styles.shortcutDesc}>Close this dialog / menu, exit Stage/Performance mode, or deselect nodes on the canvas — in that priority order</div>
+          <div className={styles.shortcutDesc}>Closes one layer at a time, in this order: this dialog or an open menu, the Performance Deck, Stage mode, the Build Diagram, Performance mode, and finally the canvas selection</div>
           <div className={styles.kbd}><span className={styles.key}>?</span></div>
           <div className={styles.shortcutDesc}>Open this Help dialog (F1 also works)</div>
           <div className={styles.kbd}><span className={styles.key}>Ctrl/Cmd</span><span className={styles.key}>K</span></div>
@@ -443,6 +488,12 @@ function UploadTab() {
               <strong>Preview receives Art-Net only</strong>, in both modes, through the local helper's UDP listener — so a DMX512 node previews blank unless an Art-Net source happens to be sending. Preview holds one live universe at a time. One sketch shares a single Wi-Fi connection across every Art-Net input and NTP clock, so configure them identically; Graph Health flags unsupported boards, pin conflicts, and missing or conflicting Wi-Fi settings before upload.
             </div>
           </div>
+          <div className={styles.tip}>
+            <div className={styles.tipIcon}>◇</div>
+            <div className={styles.tipText}>
+              <strong>In an untrusted project the listener stays closed.</strong> The port to listen on is stored in the node, so a shared graph could otherwise open a network socket on your machine before you had looked at it. The node says <em>listener held</em> until you choose <strong>Trust and run</strong>.
+            </div>
+          </div>
         </div>
       </div>
 
@@ -486,10 +537,13 @@ function UploadTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Board catalogue (out of the box)</div>
         <div className={styles.text}>
-          Studio includes ESP32-S3, ESP32, ESP8266, Arduino Uno, Arduino Nano, Arduino Mega, Teensy 4.1, RP2040 (Pico), and Arduino Nano 33 IoT, plus custom boards you add. A catalogue entry means Studio knows how to target the board; it does not mean every feature and LED configuration has been tested on it.
+          Studio ships around three dozen board targets, plus any custom board you add. They cover the <strong>ESP32</strong> family (S3, S2, C3, C6, H2, classic, DevKit v1), <strong>ESP8266</strong>, <strong>Arduino</strong> AVR and SAMD boards (Uno, Nano, Leonardo, Mega, Nano Every, Due, Zero, Nano 33 IoT, UNO R4 WiFi), <strong>Teensy</strong> LC through 4.1, <strong>RP2040/RP2350</strong> (Pico and Pico 2), five <strong>Adafruit</strong> SAMD21/SAMD51 boards, four <strong>STM32</strong> boards, and the <strong>nRF52840 DK</strong>. Use <strong>⚙ Board</strong> to choose which ones appear in your dropdown.
         </div>
         <div className={styles.text}>
-          The recorded public-beta validation covers <strong>ESP32-S3 + 16×16 WS2812B matrix</strong> and <strong>ESP8266 + 10×1 WS2812B strip</strong> for normal Upload, Wiring Test, and Stream Receiver + Live Stream. Treat other combinations as experimental until they appear in the <a className={styles.link} href={`${REPO_URL}/blob/main/docs/release/beta-support-matrix.md`} target="_blank" rel="noopener noreferrer">beta support matrix</a>.
+          A catalogue entry means Studio knows how to target the board; it does not mean every feature and LED configuration has been tested on it. Entries marked <em>experimental</em> in the list are the least proven.
+        </div>
+        <div className={styles.text}>
+          The recorded public-beta validation covers <strong>ESP32-S3 + 16×16 WS2812B matrix</strong> (normal Upload, Wiring Test, Stream Receiver + Live Stream, and a generative show — including one driven by an on-device INMP441 microphone) and <strong>ESP8266 + 10×1 WS2812B strip</strong> (normal Upload, Wiring Test, Stream Receiver + Live Stream). Treat other combinations as experimental until they appear in the <a className={styles.link} href={`${REPO_URL}/blob/main/docs/release/beta-support-matrix.md`} target="_blank" rel="noopener noreferrer">beta support matrix</a>.
         </div>
       </div>
     </>

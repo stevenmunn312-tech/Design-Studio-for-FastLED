@@ -25,6 +25,7 @@ import {
 } from '../audio/micAnalysis'
 import { inputClampRange, bypassPort, CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, CORRECTION_OPTIONS, SPI_CHIPSETS, HUB75_CHIPSET, resolveNodeScalarExpressions } from '../state/nodeLibrary'
 import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
+import { isNodeFormulaValid } from '../state/formulaLang'
 import { particleRadius } from '../state/particleScale'
 import { buildXYTable, rotatePoint, tileRotationAt } from '../state/xyLayout'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette, type RGB } from '../state/customPalette'
@@ -3911,9 +3912,13 @@ export function generateCpp(
               swirl: [-2.7, -0.09, -0.86, -2.2],
               web: [-0.827, -1.637, 1.659, -0.943],
             }
-            const [pa, pb, pc, pd] = presets[String(p.preset ?? 'classic')] ?? presets.classic
+            // Resolve the preset name against the known set before echoing it:
+            // the raw property travels in a shared graph, and a newline in it
+            // would end this `//` comment and inject the rest as code.
+            const presetName = String(p.preset ?? 'classic') in presets ? String(p.preset ?? 'classic') : 'classic'
+            const [pa, pb, pc, pd] = presets[presetName]
             const persist = Math.max(0, Math.min(1, Number(p.persistence ?? 0.85)))
-            ln(`  { // Formula Points: attractor (de Jong, ${String(p.preset ?? 'classic')})`)
+            ln(`  { // Formula Points: attractor (de Jong, ${presetName})`)
             ln(`    static float ${A}ax=0.1f, ${A}ay=0.1f;`)
             ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)(${floatLit(1 - persist)}*255.0f));`)
             ln(`    for(int _i=0;_i<${count};_i++){`)
@@ -4809,12 +4814,18 @@ export function generateCpp(
       case 'CustomFormula': {
         needsT.v = true
         const raw = String(p.formula ?? 'sin(x*6+t)*0.5+0.5')
-        if (usesShims(raw)) needsShims.v = true
-        if (/\bPHI\b/.test(raw)) needsPhi.v = true
-        const formula = cppRewriteShims(raw).replace(/\*\//g, '* /')
+        // Fail closed on anything the sandboxed parser rejects: a formula
+        // arrives inside a shared graph, and an unvalidated string pasted
+        // into an expression is a C++ injection hole. `validateGraph` blocks
+        // export/upload on the same check, so this is the last line rather
+        // than the message the user sees.
+        const safe = isNodeFormulaValid(raw)
+        if (safe && usesShims(raw)) needsShims.v = true
+        if (safe && /\bPHI\b/.test(raw)) needsPhi.v = true
+        const formula = safe ? cppRewriteShims(raw).replace(/\*\//g, '* /') : '0.0f'
         const ob = ownBuf()
         const pal = paletteExpr(node.id, 'paletteIn', p)
-        ln(`  { /* CustomFormula: ${raw.replace(/\*\//g, '* /')} */`)
+        ln(`  { /* CustomFormula: ${safe ? raw.replace(/\*\//g, '* /') : 'invalid formula — rendering blank' } */`)
         ln(`    float a=${f('a', 'a', 0)}, b=${f('b', 'b', 0)}; (void)a; (void)b;`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float x=(float)_x/(WIDTH-1>0?WIDTH-1:1),y=(float)_y/(HEIGHT-1>0?HEIGHT-1:1);`)
@@ -4829,13 +4840,15 @@ export function generateCpp(
       case 'FieldFormula': {
         needsT.v = true
         const raw = String(p.formula ?? 'sin8(r*200 + t*60)/255')
-        if (usesShims(raw)) needsShims.v = true
-        if (/\bPHI\b/.test(raw)) needsPhi.v = true
-        const formula = cppRewriteShims(raw).replace(/\*\//g, '* /')
+        // Same fail-closed validation as CustomFormula above.
+        const safe = isNodeFormulaValid(raw)
+        if (safe && usesShims(raw)) needsShims.v = true
+        if (safe && /\bPHI\b/.test(raw)) needsPhi.v = true
+        const formula = safe ? cppRewriteShims(raw).replace(/\*\//g, '* /') : '0.0f'
         const of = ownField()
         const a = f('a', 'a', 0), b = f('b', 'b', 0)
         const fin = srcField('fieldIn')
-        ln(`  { /* FieldFormula: ${raw.replace(/\*\//g, '* /')} */`)
+        ln(`  { /* FieldFormula: ${safe ? raw.replace(/\*\//g, '* /') : 'invalid formula — rendering blank' } */`)
         ln(`    float a=${a}, b=${b}; (void)a;(void)b;`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float x=_x, y=_y; (void)x;(void)y;`)
