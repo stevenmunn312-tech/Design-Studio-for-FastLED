@@ -7,6 +7,7 @@ import esp32DevKitV1BoardRender from '../../assets/boards/esp32-devkit-v1-30pin.
 import genericN16R8BoardRender from '../../assets/boards/generic-esp32-s3-n16r8-44pin.webp'
 import xiaoBoardRender from '../../assets/boards/seeed-xiao-esp32s3.webp'
 import devKit38BoardRender from '../../assets/boards/esp32-generic-devkit-38pin.webp'
+import lolinS3BoardRender from '../../assets/boards/lolin-s3-40pin.webp'
 import microphoneRender from '../../assets/components/inmp441-breakout.png'
 import levelShifterRender from '../../assets/components/sn74ahct125n-dip14.png'
 import buttonModuleRender from '../../assets/components/button-module.png'
@@ -166,6 +167,21 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     // path drives, so it's the one a builder will have a cable in.
     usbPoint: { x: 224.717, y: 2183.621 },
     shortLabel: 'ESP32-S3 DevKitC-1',
+  },
+  // 20 + 20 rails. Pad rows are the model's own rail-label Y coordinates, which
+  // the package states are exactly its plated-hole centres, and the rail X came
+  // out of the model geometry symmetric to four decimals (55.7763 + 744.2237).
+  // Scale is the render camera's orthographic width, so it needs no image
+  // measurement at all.
+  'lolin-s3-40pin-dual-usbc': {
+    href: lolinS3BoardRender,
+    sourceWidth: 800, sourceHeight: 2262, imageWidthMm: 26.1458,
+    leftPinX: 55.7763, rightPinX: 744.2237, firstPinY: 211.8, lastPinY: 1955.8,
+    pinsPerRail: 20, leftPrefix: 'left', rightPrefix: 'right',
+    powerAnchors: { v3v3: 'left-1', ground: 'right-1' },
+    // The UART port on the right, not the OTG port on the left.
+    usbPoint: { x: 560, y: 2180 },
+    shortLabel: 'LOLIN S3',
   },
   // 7 + 7 rails on a 111.817px pitch, supplied with the render and checked
   // here: pad rows land on real rings and the rail centres sum to exactly 800.0.

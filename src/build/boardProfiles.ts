@@ -370,6 +370,68 @@ const DEVKIT38_PINS: PhysicalBoardPinProfile[] = [
   pin('right-19', 'GPIO6', 'gpio', 'right-19', 'unavailable', 6, 'Wired to the module SPI flash - not usable as GPIO'),
 ]
 
+// LOLIN S3, 20 + 20 header, USB at the bottom. Rail order read out of the
+// board model's own silkscreen text objects, which are plain GPIO numbers.
+// GPIO35-37 are absent from the header entirely on this N16R8 board - octal
+// PSRAM uses them.
+const LOLIN_S3_LEFT_LABELS = [
+  '3V3', '3V3', 'RST', '4', '5', '6', '7', '15', '16', '17',
+  '18', '8', '3', '46', '9', '10', '11', '12', '5V', 'GND',
+] as const
+
+const LOLIN_S3_RIGHT_LABELS = [
+  'GND', '1', '2', '43', '44', '42', '41', '40', '39', '38',
+  '0', '45', '48', '47', '21', '14', '13', 'GND', 'GND', 'GND',
+] as const
+
+const LOLIN_S3_PIN_ANCHORS = [
+  ...verticalAnchors('left', 'left', LOLIN_S3_LEFT_LABELS, 30, 78, 16),
+  ...verticalAnchors('right', 'right', LOLIN_S3_RIGHT_LABELS, 354, 78, 16),
+]
+
+const LOLIN_S3_PINS: PhysicalBoardPinProfile[] = [
+  pin('left-1', '3V3', 'power-out', 'left-1'),
+  pin('left-2', '3V3', 'power-out', 'left-2'),
+  pin('left-3', 'RST', 'reserved', 'left-3', undefined, undefined, 'Board reset / EN'),
+  pin('left-4', 'GPIO4', 'gpio', 'left-4', undefined, 4),
+  pin('left-5', 'GPIO5', 'gpio', 'left-5', undefined, 5),
+  pin('left-6', 'GPIO6', 'gpio', 'left-6', undefined, 6),
+  pin('left-7', 'GPIO7', 'gpio', 'left-7', undefined, 7),
+  pin('left-8', 'GPIO15', 'gpio', 'left-8', undefined, 15),
+  pin('left-9', 'GPIO16', 'gpio', 'left-9', undefined, 16),
+  pin('left-10', 'GPIO17', 'gpio', 'left-10', undefined, 17),
+  pin('left-11', 'GPIO18', 'gpio', 'left-11', undefined, 18),
+  pin('left-12', 'GPIO8', 'gpio', 'left-12', undefined, 8),
+  pin('left-13', 'GPIO3', 'gpio', 'left-13', undefined, 3),
+  pin('left-14', 'GPIO46', 'gpio', 'left-14', undefined, 46, 'Input-only; no internal pull resistor'),
+  pin('left-15', 'GPIO9', 'gpio', 'left-15', undefined, 9),
+  pin('left-16', 'GPIO10', 'gpio', 'left-16', undefined, 10),
+  pin('left-17', 'GPIO11', 'gpio', 'left-17', undefined, 11),
+  pin('left-18', 'GPIO12', 'gpio', 'left-18', undefined, 12),
+  pin('left-19', '5V', 'power-in', 'left-19', undefined, undefined, '5 V input - bypasses the USB regulator'),
+  pin('left-20', 'GND', 'ground', 'left-20'),
+  pin('right-1', 'GND', 'ground', 'right-1'),
+  pin('right-2', 'GPIO1', 'gpio', 'right-2', undefined, 1),
+  pin('right-3', 'GPIO2', 'gpio', 'right-3', undefined, 2),
+  pin('right-4', 'TX / GPIO43', 'gpio', 'right-4', undefined, 43, 'UART0 TX'),
+  pin('right-5', 'RX / GPIO44', 'gpio', 'right-5', undefined, 44, 'UART0 RX'),
+  pin('right-6', 'GPIO42', 'gpio', 'right-6', undefined, 42),
+  pin('right-7', 'GPIO41', 'gpio', 'right-7', undefined, 41),
+  pin('right-8', 'GPIO40', 'gpio', 'right-8', undefined, 40),
+  pin('right-9', 'GPIO39', 'gpio', 'right-9', undefined, 39),
+  pin('right-10', 'GPIO38', 'gpio', 'right-10', undefined, 38),
+  pin('right-11', 'GPIO0 / BOOT', 'gpio', 'right-11', undefined, 0, 'Boot-strapping pin'),
+  pin('right-12', 'GPIO45', 'gpio', 'right-12', undefined, 45, 'Strapping pin'),
+  pin('right-13', 'GPIO48', 'gpio', 'right-13', undefined, 48, 'Drives the on-board RGB LED'),
+  pin('right-14', 'GPIO47', 'gpio', 'right-14', undefined, 47),
+  pin('right-15', 'GPIO21', 'gpio', 'right-15', undefined, 21),
+  pin('right-16', 'GPIO14', 'gpio', 'right-16', undefined, 14),
+  pin('right-17', 'GPIO13', 'gpio', 'right-17', undefined, 13),
+  pin('right-18', 'GND', 'ground', 'right-18'),
+  pin('right-19', 'GND', 'ground', 'right-19'),
+  pin('right-20', 'GND', 'ground', 'right-20'),
+]
+
 export const BOARD_PROFILES: PhysicalBoardProfile[] = [
   {
     id: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
@@ -469,6 +531,30 @@ export const BOARD_PROFILES: PhysicalBoardProfile[] = [
     sourceSummary: 'Header order taken from the user-supplied ESP-32D pinout image; pin count confirmed against the physical board.',
     pinAnchors: ESP32D_PIN_ANCHORS,
     pins: ESP32D_PINS,
+  },
+  {
+    id: 'lolin-s3-40pin-dual-usbc',
+    label: 'LOLIN S3, 40-pin dual USB-C',
+    manufacturer: 'WEMOS / LOLIN',
+    model: 'LOLIN S3 (ESP32-S3-WROOM-1 N16R8)',
+    revision: '40-pin dual USB-C',
+    targetFamilies: ['esp32-s3'],
+    compatibleFqbns: ['esp32:esp32:esp32s3'],
+    dimensionsMm: { width: 70, height: 25.4 },
+    confidence: 'pinout-verified',
+    moduleSilk: 'ESP32-S3-WROOM',
+    previewSvg: boardSvg('LOLIN S3', '#c9a0ff', 'USB-C', 'Pinout verified'),
+    notes: [
+      'Two 20-pin rails with two USB-C ports: OTG on the left, UART on the right.',
+      'GPIO35, GPIO36 and GPIO37 are not on the header at all - octal PSRAM uses them on N16R8 modules.',
+      'GPIO46 is input-only with no internal pull resistor, so it cannot drive LED data.',
+    ],
+    caveats: [
+      'Not hardware-validated by this project. The header order comes from the board model rather than a board in hand.',
+    ],
+    sourceSummary: 'Rail order read from the board model silkscreen; pad geometry projected from the model through its render camera.',
+    pinAnchors: LOLIN_S3_PIN_ANCHORS,
+    pins: LOLIN_S3_PINS,
   },
   {
     id: 'seeed-xiao-esp32s3',

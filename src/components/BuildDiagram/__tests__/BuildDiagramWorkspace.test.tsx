@@ -5,6 +5,7 @@ import { useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/uploadStore'
 import { micPinDefaultsForBoard } from '../../../state/micPinDefaults'
+import { BOARD_PROFILES } from '../../../build/boardProfiles'
 import { POWER_FEED_PAIR_GAP } from '../physicalDiagramLayout'
 
 function matrixNode(dataPin = 14, width = 16, height = 16, id = 'out', extra: Record<string, unknown> = {}) {
@@ -922,8 +923,12 @@ describe('BuildDiagramWorkspace', () => {
     expect(getByText('Espressif ESP32-S3-DevKitC-1')).toBeTruthy()
     expect(getByText('Seeed Studio XIAO ESP32S3')).toBeTruthy()
     expect(getByText('D4 / GPIO5')).toBeTruthy()
+    expect(getByRole('img', { name: 'LOLIN S3, 40-pin dual USB-C pinout' })).toBeTruthy()
+    // Derived rather than hardcoded, so adding a board doesn't fail this.
     const previews = container.querySelectorAll('svg[aria-label$=" pinout"]')
-    expect(previews).toHaveLength(3)
+    expect(previews).toHaveLength(
+      BOARD_PROFILES.filter((profile) => profile.targetFamilies.includes('esp32-s3')).length
+    )
     for (const preview of previews) {
       expect(preview.querySelector('[data-board-usb="bottom"]')?.getAttribute('y')).toBe('370')
     }
