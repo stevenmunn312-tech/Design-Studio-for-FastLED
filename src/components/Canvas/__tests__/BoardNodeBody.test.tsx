@@ -59,13 +59,32 @@ describe('BoardNodeBody', () => {
     expect(useUploadStore.getState().selectedFqbn).toBe(xiao.compatibleFqbns[0])
   })
 
-  it('says outright when a board carries no pin-safety data', () => {
+  it('reports header-safe pin count and peripheral starting pins', () => {
     const xiao = BOARD_PROFILES.find((p) => p.id === 'seeed-xiao-esp32s3')!
     reset([boardNode('b1', xiao.id)])
     render(<BoardNodeBody nodeId="b1" />)
-    // Silence here would read as "checked, and it's fine". It has to read as
-    // "not checked yet" instead, or the board looks more trustworthy than it is.
-    expect(screen.getByText(/No pin-safety data yet/)).toBeTruthy()
+
+    const safe = xiao.pinSafety?.safeGeneralPurpose ?? []
+    expect(safe.length).toBeGreaterThan(0)
+    expect(screen.getByText(`${safe.length} on the header`)).toBeTruthy()
+
+    // The XIAO is the board this whole capability model came from: GPIO39-42
+    // exist on the S3 die but reach only underside pads here, so they must
+    // never appear in the header-safe allowlist.
+    for (const pad of [39, 40, 41, 42]) expect(safe).not.toContain(pad)
+
+    const mic = xiao.peripheralPins?.inmp441
+    expect(mic).toBeTruthy()
+    expect(screen.getByText(new RegExp(`Mic → WS ${mic!.wsLrclk}`))).toBeTruthy()
+  })
+
+  it('says outright when a board carries no pin-safety data', () => {
+    // Every imported board now has safety data, so this path is exercised
+    // through a profile with none rather than a real one. It still matters:
+    // silence must read as "not checked yet", not "checked and fine".
+    reset([boardNode('b1', 'no-such-profile')])
+    render(<BoardNodeBody nodeId="b1" />)
+    expect(screen.getByText(/Pin advice stays chip-level/)).toBeTruthy()
   })
 
   it('flags a second Board node rather than silently picking one', () => {

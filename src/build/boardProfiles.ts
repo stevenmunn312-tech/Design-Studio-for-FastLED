@@ -1,5 +1,15 @@
 import type { BuildTargetFamily } from './buildProfile'
 import { targetFamilyFromFqbn } from './buildProfile'
+import { BOARD_CAPABILITY_DATA } from './generated/boardCapabilityData'
+import type {
+  BoardCapabilityData,
+  BoardPeripheralPins,
+  BoardPinSafety,
+  BoardRenderAsset,
+} from './boardCapabilities'
+
+// Re-exported so consumers keep importing board types from this one module.
+export type { BoardCapabilityData, BoardPeripheralPins, BoardPinSafety, BoardRenderAsset }
 
 export type BoardProfileConfidence = 'manufacturer-verified' | 'pinout-verified' | 'visual-match-only'
 export type BoardPinRole = 'gpio' | 'power-in' | 'power-out' | 'ground' | 'usb' | 'analog' | 'reserved'
@@ -21,54 +31,6 @@ export interface PhysicalBoardPinProfile {
   availability?: BoardPinAvailability
   gpio?: number
   note?: string
-}
-
-/**
- * How usable each GPIO is *on this board*, which is not the same question as
- * whether the MCU has the pin. A Seeed XIAO ESP32S3 has GPIO39-42 on the die
- * but exposes them only as underside pads, so a pin map derived from the chip
- * alone will happily recommend a pin nobody can reach with a jumper wire.
- *
- * Keyed by GPIO number rather than label, because this is consulted from pin
- * properties (which are numbers) rather than from silkscreen text.
- */
-export interface BoardPinSafety {
-  /** Broken out to a header, output-capable, clear of straps and buses. */
-  safeGeneralPurpose: number[]
-  /** Usable, with a reason to think first — ADC2/Wi-Fi, JTAG, an onboard LED. */
-  useWithCaution: Record<number, string>
-  /** On the chip, not usable from this board. Flash/PSRAM, native USB, pads. */
-  boardReservedOrNotExposed: Record<number, string>
-}
-
-/**
- * Per-board starting pins for the peripherals Studio knows how to wire. These
- * replace the per-node hardcoded tables (see `micPinDefaults.ts`) with a fact
- * the board itself carries, so a board change retargets every peripheral at
- * once instead of one node type at a time.
- *
- * A profile's entries are required not to collide with each other, so mic, amp
- * and LED data can all be taken at face value on the same board.
- */
-export interface BoardPeripheralPins {
-  /** INMP441 I2S microphone. */
-  inmp441?: { wsLrclk: number; sckBclk: number; sdDout: number }
-  /** MAX98357A I2S amplifier. */
-  max98357?: { bclk: number; lrc: number; din: number }
-  /** Addressable LED data line. */
-  fastLedData?: {
-    recommendedDefault: number
-    commonAlternatives: number[]
-    selectionNote?: string
-  }
-}
-
-/** Rendered board photo used by the pinout view, imported from the Blender assets. */
-export interface BoardRenderAsset {
-  /** Path relative to the board render directory. */
-  file: string
-  widthPx: number
-  heightPx: number
 }
 
 export interface PhysicalBoardProfile {
@@ -93,6 +55,8 @@ export interface PhysicalBoardProfile {
   processor?: string
   memory?: { flashMb: number; psramMb: number }
   pinSafety?: BoardPinSafety
+  /** Prose safety commentary from the imported manifest. Displayed, never parsed. */
+  safetyNotes?: string[]
   peripheralPins?: BoardPeripheralPins
   /** Present once the board has been imported from the Blender asset set;
    *  absent while the profile is still on the generated `previewSvg` placeholder. */
@@ -496,7 +460,7 @@ const LOLIN_S3_PINS: PhysicalBoardPinProfile[] = [
   pin('right-20', 'GND', 'ground', 'right-20'),
 ]
 
-export const BOARD_PROFILES: PhysicalBoardProfile[] = [
+const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
   {
     id: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
     label: 'Generic ESP32-S3 N16R8, 44-pin dual USB-C',
@@ -644,6 +608,46 @@ export const BOARD_PROFILES: PhysicalBoardProfile[] = [
   },
 ]
 
+/**
+ * The authored profiles with imported capability data merged on.
+ *
+ * The authored side wins for anything it declares: its pin maps and anchors are
+ * hand-checked, test-covered, and for several boards confirmed against a board
+ * in hand, so the import adds capability data rather than overwriting geometry.
+ * Capability data for an id with no authored profile is ignored — a render and
+ * a pin-safety list are not enough to build a usable profile without the pin
+ * map, so those boards wait until one is authored.
+ */
+export const BOARD_PROFILES: PhysicalBoardProfile[] = AUTHORED_PROFILES.map((profile) => {
+  const imported: BoardCapabilityData | undefined = BOARD_CAPABILITY_DATA[profile.id]
+  if (!imported) return profile
+  return {
+    ...profile,
+    processor: profile.processor ?? imported.processor,
+    memory: profile.memory ?? imported.memory,
+    pinSafety: profile.pinSafety ?? imported.pinSafety,
+    peripheralPins: profile.peripheralPins ?? imported.peripheralPins,
+    render: profile.render ?? imported.render,
+    safetyNotes: profile.safetyNotes ?? imported.safetyNotes,
+  }
+})
+
+/** Imported board ids that have no authored profile yet. */
+export const UNMAPPED_CAPABILITY_IDS: string[] = Object.keys(BOARD_CAPABILITY_DATA)
+  .filter((id) => !AUTHORED_PROFILES.some((profile) => profile.id === id))
+  .sort()
+
+/**
+ * Profiles whose source manifest carries safety commentary but no list of
+ * known-good pins. Their pins all report `unknown`, which is honest but means
+ * the board can give no positive pin advice — a data gap to fill upstream in
+ * the board asset, not something the app can infer.
+ */
+export const UNLISTED_SAFETY_IDS: string[] = BOARD_PROFILES
+  .filter((p) => p.pinSafety && p.pinSafety.safeGeneralPurpose.length === 0)
+  .map((p) => p.id)
+  .sort()
+
 export function boardProfileById(id: string): PhysicalBoardProfile | undefined {
   return BOARD_PROFILES.find((profile) => profile.id === id)
 }
@@ -768,7 +772,11 @@ export function validateBoardProfiles(profiles: PhysicalBoardProfile[] = BOARD_P
         if (verdict.standing === 'reserved') {
           issues.push(`${profile.id}: ${role} starts on GPIO${gpio}, which is board-reserved (${verdict.reason})`)
         }
-        if (verdict.standing === 'unknown' && safety) {
+        // Only meaningful against a real allowlist. Some boards ship a safety
+        // section with cautions and reservations but no list of good pins —
+        // there is nothing to check "unmentioned" against, and every pin would
+        // be flagged. The gap itself is reported by UNLISTED_SAFETY_IDS.
+        if (verdict.standing === 'unknown' && (safety?.safeGeneralPurpose.length ?? 0) > 0) {
           issues.push(`${profile.id}: ${role} starts on GPIO${gpio}, which the safety summary does not mention`)
         }
       }

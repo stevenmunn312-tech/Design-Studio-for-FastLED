@@ -72,11 +72,12 @@ export default defineConfig(() => {
         workbox: {
           globPatterns: ['**/*.{js,css,html,svg,png,webp,woff2}'],
           // The Essentia.js WASM chunk (~2.5 MB) is loaded on demand only when the
-          // user analyses a song with that engine, and the generated node-card
-          // images (~140 SVGs) only when a Help node-reference page is opened —
-          // keep both out of the precache so the base install stays small;
-          // runtime-cache them after first use instead.
-          globIgnores: ['**/essentia-wasm*.js', 'node-cards/**'],
+          // user analyses a song with that engine, the generated node-card
+          // images (~140 SVGs) only when a Help node-reference page is opened,
+          // and the board renders (~590 KB of WebP) only when the Board node's
+          // pinout view is shown — keep them all out of the precache so the
+          // base install stays small; runtime-cache them after first use.
+          globIgnores: ['**/essentia-wasm*.js', 'node-cards/**', 'boards/**'],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\./,
@@ -92,6 +93,11 @@ export default defineConfig(() => {
               urlPattern: /\/node-cards\/.+\.svg$/,
               handler: 'CacheFirst',
               options: { cacheName: 'node-cards', expiration: { maxEntries: 200 } },
+            },
+            {
+              urlPattern: /\/boards\/.+\.webp$/,
+              handler: 'CacheFirst',
+              options: { cacheName: 'board-renders', expiration: { maxEntries: 40 } },
             },
           ],
         },
