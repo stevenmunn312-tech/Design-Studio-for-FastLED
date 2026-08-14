@@ -2,10 +2,33 @@ import { describe, expect, it } from 'vitest'
 import {
   BOARD_PROFILES,
   boardPinForGpio,
+  boardPinVerdict,
   compatibleBoardProfilesForFqbn,
   isBoardProfileCompatibleWithFqbn,
   validateBoardProfiles,
 } from '../boardProfiles'
+import type { PhysicalBoardProfile } from '../boardProfiles'
+
+/** Minimal profile that passes the pre-existing checks, so each test below
+ *  fails only on the capability rule it is actually about. */
+function fixture(overrides: Partial<PhysicalBoardProfile> = {}): PhysicalBoardProfile {
+  return {
+    id: 'fixture-board',
+    label: 'Fixture Board',
+    manufacturer: 'Test',
+    model: 'Fixture',
+    revision: 'test',
+    targetFamilies: ['esp32-s3'],
+    compatibleFqbns: ['esp32:esp32:esp32s3'],
+    dimensionsMm: { width: 20, height: 50 },
+    confidence: 'manufacturer-verified',
+    previewSvg: '<svg/>',
+    notes: [],
+    caveats: [],
+    sourceSummary: 'fixture',
+    ...overrides,
+  }
+}
 
 describe('boardProfiles', () => {
   it('validates the built-in physical board registry', () => {
@@ -61,5 +84,114 @@ describe('boardProfiles', () => {
     expect(boardPinForGpio(esp32d, 36)?.note).toMatch(/Input-only/)
     // GPIO0 reaches the BOOT button only — there is no header pad to wire to.
     expect(boardPinForGpio(esp32d, 0)).toBeUndefined()
+  })
+})
+
+describe('board pin safety', () => {
+  const safe = fixture({
+    pinSafety: {
+      safeGeneralPurpose: [16, 17, 21],
+      useWithCaution: { 12: 'ADC2 — conflicts with Wi-Fi' },
+      boardReservedOrNotExposed: { 39: 'Underside pad, not on a header' },
+    },
+  })
+
+  it('never reports a pin as safe on a profile with no safety data', () => {
+    // The whole point of this data is that "the chip has it" and "you can reach
+    // it" are different questions. A profile that has not been imported yet
+    // must not answer the second one — 'unknown' tells the caller to fall back
+    // to chip-level rules rather than trusting silence.
+    expect(boardPinVerdict(fixture(), 16)).toEqual({ standing: 'unknown' })
+    expect(boardPinVerdict(undefined, 16)).toEqual({ standing: 'unknown' })
+  })
+
+  it('reports standing and reason per GPIO', () => {
+    expect(boardPinVerdict(safe, 16)).toEqual({ standing: 'safe' })
+    expect(boardPinVerdict(safe, 12)).toEqual({
+      standing: 'caution',
+      reason: 'ADC2 — conflicts with Wi-Fi',
+    })
+    // This is the XIAO microphone bug in miniature: a real ESP32-S3 GPIO that
+    // the board does not bring out to a header.
+    expect(boardPinVerdict(safe, 39)).toEqual({
+      standing: 'reserved',
+      reason: 'Underside pad, not on a header',
+    })
+    // Known board, unlisted pin — still not an endorsement.
+    expect(boardPinVerdict(safe, 99).standing).toBe('unknown')
+  })
+
+  it('rejects a pin claimed as both safe and unreachable', () => {
+    const issues = validateBoardProfiles([fixture({
+      pinSafety: {
+        safeGeneralPurpose: [16, 39],
+        useWithCaution: {},
+        boardReservedOrNotExposed: { 39: 'Underside pad' },
+      },
+    })])
+    expect(issues).toContain('fixture-board: GPIO39 is listed as both safe and board-reserved')
+  })
+
+  it('rejects peripheral starting points that collide with each other', () => {
+    // Mic, amp and LED data are handed out as working defaults, so they have to
+    // coexist. Two peripherals sharing a pin means one of them is silently dead.
+    const issues = validateBoardProfiles([fixture({
+      pinSafety: {
+        safeGeneralPurpose: [16, 17, 18, 21, 33, 34],
+        useWithCaution: {},
+        boardReservedOrNotExposed: {},
+      },
+      peripheralPins: {
+        inmp441: { wsLrclk: 33, sckBclk: 34, sdDout: 16 },
+        max98357: { bclk: 17, lrc: 18, din: 16 },
+      },
+    })])
+    expect(issues).toContain(
+      'fixture-board: GPIO16 is the starting point for both INMP441 SD and MAX98357 DIN')
+  })
+
+  it('rejects a peripheral starting point on a reserved pin', () => {
+    const issues = validateBoardProfiles([fixture({
+      pinSafety: {
+        safeGeneralPurpose: [16, 17],
+        useWithCaution: {},
+        boardReservedOrNotExposed: { 39: 'Underside pad' },
+      },
+      peripheralPins: {
+        fastLedData: { recommendedDefault: 39, commonAlternatives: [] },
+      },
+    })])
+    expect(issues).toContain(
+      'fixture-board: FastLED data starts on GPIO39, which is board-reserved (Underside pad)')
+  })
+
+  it('rejects a peripheral starting point the safety summary never mentions', () => {
+    const issues = validateBoardProfiles([fixture({
+      pinSafety: {
+        safeGeneralPurpose: [16, 17],
+        useWithCaution: {},
+        boardReservedOrNotExposed: {},
+      },
+      peripheralPins: {
+        fastLedData: { recommendedDefault: 21, commonAlternatives: [] },
+      },
+    })])
+    expect(issues).toContain(
+      'fixture-board: FastLED data starts on GPIO21, which the safety summary does not mention')
+  })
+
+  it('accepts a coherent profile', () => {
+    expect(validateBoardProfiles([fixture({
+      pinSafety: {
+        safeGeneralPurpose: [16, 17, 18, 21, 33, 34, 35],
+        useWithCaution: { 12: 'ADC2' },
+        boardReservedOrNotExposed: { 39: 'Underside pad' },
+      },
+      peripheralPins: {
+        inmp441: { wsLrclk: 33, sckBclk: 34, sdDout: 35 },
+        max98357: { bclk: 17, lrc: 18, din: 16 },
+        fastLedData: { recommendedDefault: 21, commonAlternatives: [16] },
+      },
+    })])).toEqual([])
   })
 })

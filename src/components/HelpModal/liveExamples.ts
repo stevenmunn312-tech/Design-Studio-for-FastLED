@@ -840,6 +840,19 @@ function commentExample(node: NodeDefinition): ReferenceLiveExample {
   )
 }
 
+function boardExample(node: NodeDefinition): ReferenceLiveExample {
+  const builder = new ExampleBuilder()
+  builder.add('pattern', 'Pride2015', { speed: 0.4 })
+  builder.add('out', 'MatrixOutput', { width: 16, height: 16 })
+  builder.add('target', node.type, TARGET_PROPERTIES[node.type])
+  builder.wire('pattern', 'frame', 'out', 'frame')
+  return builder.finish(
+    'Name the controller the patch targets',
+    'Board carries no noodles — it names the exact controller the rest of the graph is built for. Choosing a board here is what makes pin advice match the header in your hand rather than just the chip, and it is what the wiring diagram reads.',
+    'Pride 2015 keeps rendering unchanged. Board affects pin validation, supported features, and the wiring diagram rather than the pixels themselves.',
+  )
+}
+
 function transitionExample(node: NodeDefinition): ReferenceLiveExample {
   const builder = new ExampleBuilder()
   builder.add('a', 'Pacifica', { palette: 'ocean', speed: 0.34 })
@@ -1127,6 +1140,7 @@ export function buildGenericLiveExample(node: NodeDefinition): ReferenceLiveExam
   if (node.type === 'RGBToHSV') return rgbToHsvExample(node)
   if (node.type === 'SampleHold') return sampleHoldExample(node)
   if (node.type === 'MatrixOutput') return matrixOutputExample(node)
+  if (node.type === 'Board') return boardExample(node)
   if (node.type === 'Comment') return commentExample(node)
   if (node.type === 'Transition') return transitionExample(node)
   if (node.type === 'Sequencer') return sequencerExample(node)

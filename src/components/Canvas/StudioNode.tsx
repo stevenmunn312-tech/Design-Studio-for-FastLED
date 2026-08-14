@@ -41,6 +41,7 @@ const TransitionPickerBody = lazy(() => import('./TransitionPickerBody').then((m
 const CustomPaletteEditorBody = lazy(() => import('./PaletteEditorBody').then((m) => ({ default: m.CustomPaletteEditorBody })))
 const PolineEditorBody = lazy(() => import('./PaletteEditorBody').then((m) => ({ default: m.PolineEditorBody })))
 const ImageNodeBody = lazy(() => import('./ImageNodeBody'))
+const BoardNodeBody = lazy(() => import('./BoardNodeBody'))
 const Wireframe3DNodeBody = lazy(() => import('./Wireframe3DNodeBody'))
 const MatrixOutputUpload = lazy(() => import('../Upload/MatrixOutputUpload'))
 
@@ -1035,7 +1036,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // convention) instead of the fixed category accent every other node uses.
   const accent = isComment && isHexColor(props.color) ? props.color : categoryAccent
   const editable = Object.entries(props).filter(
-    ([k]) => k !== 'font' && k !== 'image' && k !== 'animation' && k !== 'mesh' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden' && k !== 'bypassed' && k !== 'showInMainPreview'
+    ([k]) => k !== 'font' && k !== 'image' && k !== 'animation' && k !== 'mesh' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden' && k !== 'bypassed' && k !== 'showInMainPreview' && k !== 'profileId'
       && !(d.nodeType === 'CustomPalette' && (k === 'colors' || k === 'positions'))
       && !(d.nodeType === 'Poline' && (k === 'anchorA' || k === 'anchorB' || k === 'anchorC'))
       // Comment's `text` gets its own multi-line editor in the body, not the
@@ -1248,6 +1249,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           {d.nodeType === 'MusicLibrary' && <MusicLibraryNodeBody nodeId={id} />}
           {d.nodeType === 'PerformanceGenerator' && <PerformanceGeneratorBody nodeId={id} />}
           {d.nodeType === 'Image' && <ImageNodeBody nodeId={id} />}
+          {d.nodeType === 'Board' && <BoardNodeBody nodeId={id} />}
           {d.nodeType === 'Wireframe3D' && props.model === 'custom' && <Wireframe3DNodeBody nodeId={id} />}
 
           {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}

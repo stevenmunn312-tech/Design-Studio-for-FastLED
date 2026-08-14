@@ -2322,6 +2322,31 @@ export const NODE_LIBRARY: NodeDefinition[] = [
 
   // ── Output ─────────────────────────────────────────────────────────────
   {
+    // The controller every other piece of hardware in the graph is attached
+    // to. Config only — no ports, no evaluation, no codegen of its own, the
+    // same shape as Comment.
+    //
+    // It holds a board *profile* id rather than an FQBN on purpose: an FQBN
+    // like `esp32:esp32:esp32` names the silicon and leaves the header layout
+    // ambiguous (two different DevKit profiles claim that exact target), which
+    // is the failure this node exists to remove. The FQBN is derived from the
+    // chosen profile and mirrored into uploadStore for upload.
+    //
+    // See docs/development/design/board-node-architecture.md. This is the
+    // non-breaking half: pins still live on the peripheral nodes and outputs
+    // are not yet attached by a `route` edge.
+    type: 'Board',
+    label: 'Board',
+    category: 'output',
+    inputs: [],
+    outputs: [],
+    defaultProperties: {
+      // Empty means "not chosen yet" — deliberately not defaulted to a board,
+      // so an unset Board node reads as a question rather than a wrong answer.
+      profileId: '',
+    },
+  },
+  {
     type: 'MatrixOutput',
     label: 'Matrix Output',
     category: 'output',
@@ -2811,6 +2836,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   PatternCollection: 'Absorbs pattern groups into a set for the Show Engine.',
   TransitionSet: 'A pool of transition styles for the Show Engine / Performance Generator.',
   // output
+  Board: 'The controller board — exact model, its pins, and what it supports.',
   MatrixOutput: 'The LED matrix output — board, pin, and size.',
   // note
   Comment: 'A sticky note for the canvas — no ports, just text and color.',

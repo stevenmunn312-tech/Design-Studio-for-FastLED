@@ -23,6 +23,54 @@ export interface PhysicalBoardPinProfile {
   note?: string
 }
 
+/**
+ * How usable each GPIO is *on this board*, which is not the same question as
+ * whether the MCU has the pin. A Seeed XIAO ESP32S3 has GPIO39-42 on the die
+ * but exposes them only as underside pads, so a pin map derived from the chip
+ * alone will happily recommend a pin nobody can reach with a jumper wire.
+ *
+ * Keyed by GPIO number rather than label, because this is consulted from pin
+ * properties (which are numbers) rather than from silkscreen text.
+ */
+export interface BoardPinSafety {
+  /** Broken out to a header, output-capable, clear of straps and buses. */
+  safeGeneralPurpose: number[]
+  /** Usable, with a reason to think first — ADC2/Wi-Fi, JTAG, an onboard LED. */
+  useWithCaution: Record<number, string>
+  /** On the chip, not usable from this board. Flash/PSRAM, native USB, pads. */
+  boardReservedOrNotExposed: Record<number, string>
+}
+
+/**
+ * Per-board starting pins for the peripherals Studio knows how to wire. These
+ * replace the per-node hardcoded tables (see `micPinDefaults.ts`) with a fact
+ * the board itself carries, so a board change retargets every peripheral at
+ * once instead of one node type at a time.
+ *
+ * A profile's entries are required not to collide with each other, so mic, amp
+ * and LED data can all be taken at face value on the same board.
+ */
+export interface BoardPeripheralPins {
+  /** INMP441 I2S microphone. */
+  inmp441?: { wsLrclk: number; sckBclk: number; sdDout: number }
+  /** MAX98357A I2S amplifier. */
+  max98357?: { bclk: number; lrc: number; din: number }
+  /** Addressable LED data line. */
+  fastLedData?: {
+    recommendedDefault: number
+    commonAlternatives: number[]
+    selectionNote?: string
+  }
+}
+
+/** Rendered board photo used by the pinout view, imported from the Blender assets. */
+export interface BoardRenderAsset {
+  /** Path relative to the board render directory. */
+  file: string
+  widthPx: number
+  heightPx: number
+}
+
 export interface PhysicalBoardProfile {
   id: string
   label: string
@@ -42,6 +90,22 @@ export interface PhysicalBoardProfile {
   sourceSummary: string
   pinAnchors?: PhysicalBoardPinAnchor[]
   pins?: PhysicalBoardPinProfile[]
+  processor?: string
+  memory?: { flashMb: number; psramMb: number }
+  pinSafety?: BoardPinSafety
+  peripheralPins?: BoardPeripheralPins
+  /** Present once the board has been imported from the Blender asset set;
+   *  absent while the profile is still on the generated `previewSvg` placeholder. */
+  render?: BoardRenderAsset
+}
+
+export type BoardPinStanding = 'safe' | 'caution' | 'reserved' | 'unknown'
+
+export interface BoardPinVerdict {
+  standing: BoardPinStanding
+  /** Why it is not plainly safe. Absent for `safe`, and for `unknown`, where
+   *  the honest answer is that this profile carries no safety data yet. */
+  reason?: string
 }
 
 function boardSvg(label: string, accent: string, portLabel: string, badge: string): string {
@@ -605,6 +669,44 @@ export function boardPinForGpio(
   return profile?.pins?.find((pin) => pin.gpio === gpio)
 }
 
+/**
+ * Whether `gpio` is usable on this board, and why not when it isn't.
+ *
+ * Returns `unknown` — never `safe` — for a profile with no `pinSafety`, so a
+ * board that hasn't been imported yet can't be mistaken for one that has been
+ * checked. Callers should treat `unknown` as "fall back to chip-level rules".
+ */
+export function boardPinVerdict(
+  profile: PhysicalBoardProfile | undefined,
+  gpio: number,
+): BoardPinVerdict {
+  const safety = profile?.pinSafety
+  if (!safety) return { standing: 'unknown' }
+  const reserved = safety.boardReservedOrNotExposed[gpio]
+  if (reserved !== undefined) return { standing: 'reserved', reason: reserved }
+  const caution = safety.useWithCaution[gpio]
+  if (caution !== undefined) return { standing: 'caution', reason: caution }
+  if (safety.safeGeneralPurpose.includes(gpio)) return { standing: 'safe' }
+  return { standing: 'unknown' }
+}
+
+/** Every GPIO this profile names in a peripheral starting point. */
+function peripheralPinEntries(pins: BoardPeripheralPins): Array<[string, number]> {
+  const entries: Array<[string, number]> = []
+  if (pins.inmp441) {
+    entries.push(['INMP441 WS', pins.inmp441.wsLrclk])
+    entries.push(['INMP441 SCK', pins.inmp441.sckBclk])
+    entries.push(['INMP441 SD', pins.inmp441.sdDout])
+  }
+  if (pins.max98357) {
+    entries.push(['MAX98357 BCLK', pins.max98357.bclk])
+    entries.push(['MAX98357 LRC', pins.max98357.lrc])
+    entries.push(['MAX98357 DIN', pins.max98357.din])
+  }
+  if (pins.fastLedData) entries.push(['FastLED data', pins.fastLedData.recommendedDefault])
+  return entries
+}
+
 export function validateBoardProfiles(profiles: PhysicalBoardProfile[] = BOARD_PROFILES): string[] {
   const issues: string[] = []
   const ids = new Set<string>()
@@ -629,6 +731,47 @@ export function validateBoardProfiles(profiles: PhysicalBoardProfile[] = BOARD_P
       if (pinIds.has(pin.id)) issues.push(`${profile.id}: duplicate pin id "${pin.id}"`)
       if (!anchorsById.has(pin.anchorId)) issues.push(`${profile.id}: missing pin anchor "${pin.anchorId}" for pin "${pin.id}"`)
       pinIds.add(pin.id)
+    }
+
+    // A pin cannot be both freely usable and unreachable. Left unchecked this
+    // reads as "safe" at every call site, which is the exact failure the
+    // safety data exists to prevent.
+    const safety = profile.pinSafety
+    if (safety) {
+      for (const gpio of safety.safeGeneralPurpose) {
+        if (safety.boardReservedOrNotExposed[gpio] !== undefined) {
+          issues.push(`${profile.id}: GPIO${gpio} is listed as both safe and board-reserved`)
+        }
+        if (safety.useWithCaution[gpio] !== undefined) {
+          issues.push(`${profile.id}: GPIO${gpio} is listed as both safe and use-with-caution`)
+        }
+      }
+      for (const gpio of Object.keys(safety.useWithCaution).map(Number)) {
+        if (safety.boardReservedOrNotExposed[gpio] !== undefined) {
+          issues.push(`${profile.id}: GPIO${gpio} is listed as both use-with-caution and board-reserved`)
+        }
+      }
+    }
+
+    // The peripheral starting points are handed out as working defaults, so
+    // they have to actually work together on one board.
+    if (profile.peripheralPins) {
+      const entries = peripheralPinEntries(profile.peripheralPins)
+      const seen = new Map<number, string>()
+      for (const [role, gpio] of entries) {
+        const taken = seen.get(gpio)
+        if (taken) {
+          issues.push(`${profile.id}: GPIO${gpio} is the starting point for both ${taken} and ${role}`)
+        }
+        seen.set(gpio, role)
+        const verdict = boardPinVerdict(profile, gpio)
+        if (verdict.standing === 'reserved') {
+          issues.push(`${profile.id}: ${role} starts on GPIO${gpio}, which is board-reserved (${verdict.reason})`)
+        }
+        if (verdict.standing === 'unknown' && safety) {
+          issues.push(`${profile.id}: ${role} starts on GPIO${gpio}, which the safety summary does not mention`)
+        }
+      }
     }
   }
   return issues

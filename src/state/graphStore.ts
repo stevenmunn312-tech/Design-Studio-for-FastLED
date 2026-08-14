@@ -250,7 +250,11 @@ type HistorySlice = Pick<GraphState, 'nodes' | 'edges'>
 // Scene-level outputs/sources are left behind in the parent graph when
 // encapsulating a selection into a group. MatrixOutput can have several root
 // routes; scene-wide hardware/time sources remain singletons in the root graph.
-const GROUP_EXCLUDED_TYPES = new Set(['MatrixOutput', 'MicInput', 'DMXInput', 'MusicLibrary'])
+// `Board` is here for a slightly different reason than the rest: it is not a
+// route or a live source, it is the controller the whole scene targets. A saved
+// pattern must stay board-agnostic, so grouping a selection never seals a board
+// choice inside it.
+const GROUP_EXCLUDED_TYPES = new Set(['MatrixOutput', 'MicInput', 'DMXInput', 'MusicLibrary', 'Board'])
 
 /** Nodes that represent one scene-wide hardware resource. Creation actions use
  *  this set as a final guard, so every UI path (click, drop, paste, duplicate)
