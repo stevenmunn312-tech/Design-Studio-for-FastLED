@@ -61,6 +61,11 @@ build/architecture overview aimed at contributors.
     paths/attractors; pattern category), plus a `PHI` formula-language
     constant. `FormulaPoints` is implemented; `FormulaField`/`PHI` are
     implemented in a separate, parallel branch/PR.
+  - [Board node and hardware capability model](development/design/board-node-architecture.md)
+    — proposed 1.0.0 refactor: a singleton Board node selecting a board
+    *profile* rather than a chip target, a capability model that separates
+    audio source from schedule source, and the `route` attachment between
+    outputs and the board.
 - [Plans](development/plans/)
   - [Node review findings](development/plans/node-todo.md)
     — the category-by-category control, validation, evaluator, and codegen
