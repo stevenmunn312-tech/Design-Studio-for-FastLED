@@ -219,20 +219,23 @@ function QuickStartTab() {
         <div className={styles.choiceGrid}>
           <div className={styles.choiceCard}>
             <strong>Plan the physical build</strong>
-            <span>Open <strong>View → Build Diagram</strong> for a wiring workspace built from your graph: a scale controller with its real pin map, power distribution and fuses, a parts list and connection list you can export as CSV, and printable assembly sheets.</span>
+            <span>Open <strong>View → Build Diagram</strong> for a wiring workspace built from your graph: a scale controller with its real pin map, power distribution and fuses, a parts list and connection list you can export as CSV, the diagram itself as SVG, and paginated print sheets for the bench.</span>
           </div>
           <div className={styles.choiceCard}>
             <strong>Record the preview</strong>
-            <span>Use <strong>⏺ Record</strong> in the LED Preview header to save a PNG still, or an animated GIF or WebM clip. Clips render offline from a clean start, so simulations can warm up first and loops can be made seamless.</span>
+            <span>Use <strong>⏺ Record</strong> in the LED Preview header to save a PNG still, or an animated GIF or WebM clip. Clips render offline from a clean start, so simulations can warm up first and loops can be made seamless. An audio-reactive graph can capture the live microphone while it records.</span>
           </div>
           <div className={styles.choiceCard}>
             <strong>Review saved patterns</strong>
-            <span>The Pattern Library keeps your own 1–5 star ratings, and <strong>Scan patterns</strong> adds a Studio Score judged against what each pattern is for. Sort or filter a collection by either.</span>
+            <span>The Pattern Library keeps your own 1–5 star ratings, and <strong>Scan patterns</strong> adds a Studio Score judged against the intent it infers — ambient, showpiece, accent, audio-reactive, or static utility — which you can also set yourself. Sort or filter a collection by either signal. A scan asks before running any pattern holding Formula or Code nodes, and remembers your answer.</span>
           </div>
           <div className={styles.choiceCard}>
             <strong>Drive several outputs</strong>
             <span>Add more than one Matrix Output to run separate LED routes from one board, each with its own pins, size, layout, and brightness. The preview header selects which route you are watching.</span>
           </div>
+        </div>
+        <div className={styles.note}>
+          <strong>Rearranging the workspace:</strong> <strong>View → Layout</strong> resizes the panels for what you are doing — <strong>Build</strong> gives the node library the most room, <strong>Tune</strong> narrows it in favour of the preview, and <strong>Preview</strong> hides the library altogether for the largest LED preview short of Stage mode. The same menu holds the appearance toggles: theme, motion, contrast, UI effects, and signal dimming.
         </div>
       </div>
 

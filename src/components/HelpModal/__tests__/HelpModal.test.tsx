@@ -200,6 +200,7 @@ describe('HelpModal session state', () => {
     expect(view.getByText('Record the preview')).toBeTruthy()
     expect(view.getByText('Review saved patterns')).toBeTruthy()
     expect(view.getByText('Drive several outputs')).toBeTruthy()
+    expect(view.getAllByText(/View → Layout/).length).toBeGreaterThan(0)
   })
 
   it('describes the board catalogue by family rather than a stale fixed list', () => {
