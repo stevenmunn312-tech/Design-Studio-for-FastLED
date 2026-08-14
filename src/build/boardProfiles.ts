@@ -310,6 +310,66 @@ const XIAO_PINS: PhysicalBoardPinProfile[] = [
   pin('bottom-4', 'GPIO39 / MTCK', 'gpio', 'bottom-4', undefined, 39, 'Underside pad'),
 ]
 
+// Generic 38-pin ESP32-WROOM-32 dev board (NodeMCU-32S style), USB at the
+// bottom. Unlike the 30-pin ESP-32D, this layout brings the module's SPI-flash
+// pins out to the header; they are listed so a wire to one is rejected rather
+// than silently accepted.
+const DEVKIT38_LEFT_LABELS = [
+  '3V3', 'EN', 'VP', 'VN', '34', '35', '32', '33', '25', '26',
+  '27', '14', '12', 'GND', '13', '9', '10', '11', 'VIN',
+] as const
+
+const DEVKIT38_RIGHT_LABELS = [
+  'GND', '23', '22', 'TX0', 'RX0', '21', 'GND', '19', '18', '5',
+  'TX2', 'RX2', '4', '0', '2', '15', '8', '7', '6',
+] as const
+
+const DEVKIT38_PIN_ANCHORS = [
+  ...verticalAnchors('left', 'left', DEVKIT38_LEFT_LABELS, 30, 78, 16),
+  ...verticalAnchors('right', 'right', DEVKIT38_RIGHT_LABELS, 354, 78, 16),
+]
+
+const DEVKIT38_PINS: PhysicalBoardPinProfile[] = [
+  pin('left-1', '3V3', 'power-out', 'left-1'),
+  pin('left-2', 'EN', 'reserved', 'left-2', undefined, undefined, 'Board reset / enable'),
+  pin('left-3', 'VP / GPIO36', 'gpio', 'left-3', undefined, 36, 'Input-only; no internal pull resistor'),
+  pin('left-4', 'VN / GPIO39', 'gpio', 'left-4', undefined, 39, 'Input-only; no internal pull resistor'),
+  pin('left-5', 'GPIO34', 'gpio', 'left-5', undefined, 34, 'Input-only; no internal pull resistor'),
+  pin('left-6', 'GPIO35', 'gpio', 'left-6', undefined, 35, 'Input-only; no internal pull resistor'),
+  pin('left-7', 'GPIO32', 'gpio', 'left-7', undefined, 32),
+  pin('left-8', 'GPIO33', 'gpio', 'left-8', undefined, 33),
+  pin('left-9', 'GPIO25', 'gpio', 'left-9', undefined, 25, 'DAC1'),
+  pin('left-10', 'GPIO26', 'gpio', 'left-10', undefined, 26, 'DAC2'),
+  pin('left-11', 'GPIO27', 'gpio', 'left-11', undefined, 27),
+  pin('left-12', 'GPIO14', 'gpio', 'left-12', undefined, 14),
+  pin('left-13', 'GPIO12', 'gpio', 'left-13', undefined, 12, 'Strapping pin - must be low at boot'),
+  pin('left-14', 'GND', 'ground', 'left-14'),
+  pin('left-15', 'GPIO13', 'gpio', 'left-15', undefined, 13),
+  pin('left-16', 'GPIO9', 'gpio', 'left-16', 'unavailable', 9, 'Wired to the module SPI flash - not usable as GPIO'),
+  pin('left-17', 'GPIO10', 'gpio', 'left-17', 'unavailable', 10, 'Wired to the module SPI flash - not usable as GPIO'),
+  pin('left-18', 'GPIO11', 'gpio', 'left-18', 'unavailable', 11, 'Wired to the module SPI flash - not usable as GPIO'),
+  pin('left-19', 'VIN', 'power-in', 'left-19', undefined, undefined, '5 V input - bypasses the USB regulator'),
+  pin('right-1', 'GND', 'ground', 'right-1'),
+  pin('right-2', 'GPIO23', 'gpio', 'right-2', undefined, 23, 'VSPI MOSI'),
+  pin('right-3', 'GPIO22', 'gpio', 'right-3', undefined, 22, 'I2C SCL'),
+  pin('right-4', 'TX0 / GPIO1', 'gpio', 'right-4', undefined, 1, 'UART0 TX - used by the USB serial bridge'),
+  pin('right-5', 'RX0 / GPIO3', 'gpio', 'right-5', undefined, 3, 'UART0 RX - used by the USB serial bridge'),
+  pin('right-6', 'GPIO21', 'gpio', 'right-6', undefined, 21, 'I2C SDA'),
+  pin('right-7', 'GND', 'ground', 'right-7'),
+  pin('right-8', 'GPIO19', 'gpio', 'right-8', undefined, 19, 'VSPI MISO'),
+  pin('right-9', 'GPIO18', 'gpio', 'right-9', undefined, 18, 'VSPI SCK'),
+  pin('right-10', 'GPIO5', 'gpio', 'right-10', undefined, 5, 'VSPI SS / strapping pin'),
+  pin('right-11', 'TX2 / GPIO17', 'gpio', 'right-11', undefined, 17, 'UART2 TX'),
+  pin('right-12', 'RX2 / GPIO16', 'gpio', 'right-12', undefined, 16, 'UART2 RX'),
+  pin('right-13', 'GPIO4', 'gpio', 'right-13', undefined, 4),
+  pin('right-14', 'GPIO0 / BOOT', 'gpio', 'right-14', undefined, 0, 'Boot-strapping pin'),
+  pin('right-15', 'GPIO2', 'gpio', 'right-15', undefined, 2, 'Strapping pin; drives the on-board LED'),
+  pin('right-16', 'GPIO15', 'gpio', 'right-16', undefined, 15, 'Strapping pin'),
+  pin('right-17', 'GPIO8', 'gpio', 'right-17', 'unavailable', 8, 'Wired to the module SPI flash - not usable as GPIO'),
+  pin('right-18', 'GPIO7', 'gpio', 'right-18', 'unavailable', 7, 'Wired to the module SPI flash - not usable as GPIO'),
+  pin('right-19', 'GPIO6', 'gpio', 'right-19', 'unavailable', 6, 'Wired to the module SPI flash - not usable as GPIO'),
+]
+
 export const BOARD_PROFILES: PhysicalBoardProfile[] = [
   {
     id: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
@@ -360,6 +420,31 @@ export const BOARD_PROFILES: PhysicalBoardProfile[] = [
     sourceSummary: 'Official board family documentation reviewed for pinout and power-path expectations.',
     pinAnchors: DEVKITC_PIN_ANCHORS,
     pins: DEVKITC_PINS,
+  },
+  {
+    id: 'esp32-generic-devkit-38pin',
+    label: 'Generic ESP32 DevKit, 38-pin',
+    manufacturer: 'Generic / NodeMCU-32S style',
+    model: 'ESP32-WROOM-32 development board',
+    revision: '38-pin generic layout',
+    targetFamilies: ['esp32'],
+    compatibleFqbns: ['esp32:esp32:esp32', 'esp32:esp32:nodemcu-32s'],
+    dimensionsMm: { width: 55, height: 28 },
+    confidence: 'pinout-verified',
+    moduleSilk: 'ESP32-WROOM-32',
+    previewSvg: boardSvg('Generic ESP32 38-pin', '#8ad0ff', 'USB-C', 'Pinout verified'),
+    notes: [
+      'Two 19-pin rails. Unlike the 30-pin board this layout brings GPIO6-GPIO11 out to the header, but they are wired to the module SPI flash and cannot be used.',
+      'GPIO34-36 and GPIO39 are input-only with no internal pull resistor - they cannot drive LED data.',
+      'The 3V3 rail comes off the on-board regulator and is not a supply for LED strips; feed strips from your own 5 V supply and share ground.',
+    ],
+    caveats: [
+      'Component placement varies between sellers under this layout; the header order and dimensions are the verified part.',
+      'Regulator headroom, VIN backfeed protection, and USB power sharing are unverified on generic clones of this board.',
+    ],
+    sourceSummary: 'Header order and dimensions taken from the board render package; component placement treated as seller-variable.',
+    pinAnchors: DEVKIT38_PIN_ANCHORS,
+    pins: DEVKIT38_PINS,
   },
   {
     id: 'esp32-devkit-v1-30pin-esp32d',

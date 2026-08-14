@@ -6,6 +6,7 @@ import devKitCBoardRender from '../../assets/boards/esp32-s3-devkitc-1.webp'
 import esp32DevKitV1BoardRender from '../../assets/boards/esp32-devkit-v1-30pin.webp'
 import genericN16R8BoardRender from '../../assets/boards/generic-esp32-s3-n16r8-44pin.webp'
 import xiaoBoardRender from '../../assets/boards/seeed-xiao-esp32s3.webp'
+import devKit38BoardRender from '../../assets/boards/esp32-generic-devkit-38pin.webp'
 import microphoneRender from '../../assets/components/inmp441-breakout.png'
 import levelShifterRender from '../../assets/components/sn74ahct125n-dip14.png'
 import buttonModuleRender from '../../assets/components/button-module.png'
@@ -195,6 +196,20 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     // The COM port: the one this app's upload path drives.
     usbPoint: { x: 253.674, y: 1757.925 },
     shortLabel: 'ESP32-S3 N16R8',
+  },
+  // 19 + 19 rails on a 71.536px pitch. Geometry projected from the model, and
+  // internally consistent: the rail centres sum to exactly 800.0, and the
+  // stated 24.10 mm rail separation puts the pad pitch at 2.54000 mm.
+  'esp32-generic-devkit-38pin': {
+    href: devKit38BoardRender,
+    sourceWidth: 800, sourceHeight: 1718, imageWidthMm: 28.2828,
+    leftPinX: 60.6246, rightPinX: 739.3754, firstPinY: 137.7216, lastPinY: 1425.3767,
+    pinsPerRail: 19, leftPrefix: 'left', rightPrefix: 'right',
+    // Row 1 of each rail: 3V3 on the left, GND on the right, so the two stubs
+    // leave opposite edges at the same height.
+    powerAnchors: { v3v3: 'left-1', ground: 'right-1' },
+    usbPoint: { x: 400, y: 1699.13 },
+    shortLabel: 'ESP32 DevKit 38-pin',
   },
   // 15 + 15 rails on a 72.367px pitch sharing rows, rail centres symmetric
   // (60.879 + 739.121 = 800). 28.354 mm = 28 mm PCB over alpha bounds 5..794.

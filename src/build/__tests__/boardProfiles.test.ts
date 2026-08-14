@@ -16,14 +16,17 @@ describe('boardProfiles', () => {
     expect(compatibleBoardProfilesForFqbn('esp32:esp32:esp32s3').map((profile) => profile.id)).toEqual(
       BOARD_PROFILES.filter((profile) => profile.targetFamilies.includes('esp32-s3')).map((profile) => profile.id)
     )
-    // The classic-ESP32 profile is offered for both catalogue entries that map
-    // to that silicon, and never for an S3 project.
-    expect(compatibleBoardProfilesForFqbn('esp32:esp32:esp32doit-devkit-v1').map((profile) => profile.id))
-      .toEqual(['esp32-devkit-v1-30pin-esp32d'])
-    expect(compatibleBoardProfilesForFqbn('esp32:esp32:esp32').map((profile) => profile.id))
-      .toEqual(['esp32-devkit-v1-30pin-esp32d'])
-    expect(compatibleBoardProfilesForFqbn('esp32:esp32:esp32s3').map((profile) => profile.id))
-      .not.toContain('esp32-devkit-v1-30pin-esp32d')
+    // Classic-ESP32 profiles are offered for both catalogue entries that map to
+    // that silicon, and never for an S3 project. More than one board can share
+    // a target — the 30-pin and 38-pin layouts are both plain ESP32 — so the
+    // user picks which one they physically have.
+    for (const fqbn of ['esp32:esp32:esp32doit-devkit-v1', 'esp32:esp32:esp32']) {
+      expect(compatibleBoardProfilesForFqbn(fqbn).map((profile) => profile.id))
+        .toEqual(expect.arrayContaining(['esp32-devkit-v1-30pin-esp32d', 'esp32-generic-devkit-38pin']))
+    }
+    for (const id of ['esp32-devkit-v1-30pin-esp32d', 'esp32-generic-devkit-38pin']) {
+      expect(compatibleBoardProfilesForFqbn('esp32:esp32:esp32s3').map((profile) => profile.id)).not.toContain(id)
+    }
     expect(compatibleBoardProfilesForFqbn('rp2040:rp2040:rpipico')).toEqual([])
   })
 
