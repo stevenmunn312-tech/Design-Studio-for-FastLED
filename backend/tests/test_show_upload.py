@@ -51,7 +51,7 @@ def test_provisioner_compile_failure_stops_before_sd_transfer(client, monkeypatc
     monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
     monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
     monkeypatch.setattr(app, "_ensure_fbuild_audio_lib", _fake_generator(None))
-    fake_compile = _compile_sequence({"Provisioner": (1, "compile")})
+    fake_compile = _compile_sequence({"Player pre-flight": (0, "compile"), "Provisioner": (1, "compile")})
     monkeypatch.setattr(app, "_compile_upload_fbuild", fake_compile)
 
     def _boom(*a, **kw):
@@ -64,14 +64,14 @@ def test_provisioner_compile_failure_stops_before_sd_transfer(client, monkeypatc
     )
     assert "Provisioner build failed" in r.text
     assert "nothing was flashed" in r.text
-    assert fake_compile.calls == ["Provisioner"]
+    assert fake_compile.calls == ["Player pre-flight", "Provisioner"]
 
 
 def test_provisioner_upload_failure_stops_before_sd_transfer(client, monkeypatch):
     monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
     monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
     monkeypatch.setattr(app, "_ensure_fbuild_audio_lib", _fake_generator(None))
-    fake_compile = _compile_sequence({"Provisioner": (1, "upload")})
+    fake_compile = _compile_sequence({"Player pre-flight": (0, "compile"), "Provisioner": (1, "upload")})
     monkeypatch.setattr(app, "_compile_upload_fbuild", fake_compile)
 
     def _boom(*a, **kw):
@@ -84,14 +84,14 @@ def test_provisioner_upload_failure_stops_before_sd_transfer(client, monkeypatch
     )
     assert "Provisioner flash failed" in r.text
     assert "download mode" in r.text
-    assert fake_compile.calls == ["Provisioner"]
+    assert fake_compile.calls == ["Player pre-flight", "Provisioner"]
 
 
 def test_sd_transfer_failure_stops_before_player_build(client, monkeypatch):
     monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
     monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
     monkeypatch.setattr(app, "_ensure_fbuild_audio_lib", _fake_generator(None))
-    fake_compile = _compile_sequence({"Provisioner": (0, "upload")})
+    fake_compile = _compile_sequence({"Player pre-flight": (0, "compile"), "Provisioner": (0, "upload")})
     monkeypatch.setattr(app, "_compile_upload_fbuild", fake_compile)
     monkeypatch.setattr(app, "_serial_send", _fake_generator(False))
 
@@ -101,14 +101,14 @@ def test_sd_transfer_failure_stops_before_player_build(client, monkeypatch):
     )
     assert "SD transfer failed" in r.text
     assert "not flashing the player" in r.text
-    assert fake_compile.calls == ["Provisioner"]  # Player build never attempted
+    assert fake_compile.calls == ["Player pre-flight", "Provisioner"]  # real Player build never attempted
 
 
 def test_player_compile_failure_message(client, monkeypatch):
     monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
     monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
     monkeypatch.setattr(app, "_ensure_fbuild_audio_lib", _fake_generator(None))
-    fake_compile = _compile_sequence({"Provisioner": (0, "upload"), "Player": (1, "compile")})
+    fake_compile = _compile_sequence({"Player pre-flight": (0, "compile"), "Provisioner": (0, "upload"), "Player": (1, "compile")})
     monkeypatch.setattr(app, "_compile_upload_fbuild", fake_compile)
     monkeypatch.setattr(app, "_serial_send", _fake_generator(True))
 
@@ -118,14 +118,14 @@ def test_player_compile_failure_message(client, monkeypatch):
     )
     assert "Player build failed" in r.text
     assert "still running the provisioner" in r.text
-    assert fake_compile.calls == ["Provisioner", "Player"]
+    assert fake_compile.calls == ["Player pre-flight", "Provisioner", "Player"]
 
 
 def test_player_upload_failure_message(client, monkeypatch):
     monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
     monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
     monkeypatch.setattr(app, "_ensure_fbuild_audio_lib", _fake_generator(None))
-    fake_compile = _compile_sequence({"Provisioner": (0, "upload"), "Player": (1, "upload")})
+    fake_compile = _compile_sequence({"Player pre-flight": (0, "compile"), "Provisioner": (0, "upload"), "Player": (1, "upload")})
     monkeypatch.setattr(app, "_compile_upload_fbuild", fake_compile)
     monkeypatch.setattr(app, "_serial_send", _fake_generator(True))
 
@@ -135,14 +135,14 @@ def test_player_upload_failure_message(client, monkeypatch):
     )
     assert "Player flash failed" in r.text
     assert "download mode" in r.text
-    assert fake_compile.calls == ["Provisioner", "Player"]
+    assert fake_compile.calls == ["Player pre-flight", "Provisioner", "Player"]
 
 
 def test_full_pipeline_success(client, monkeypatch):
     monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
     monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
     monkeypatch.setattr(app, "_ensure_fbuild_audio_lib", _fake_generator(None))
-    fake_compile = _compile_sequence({"Provisioner": (0, "upload"), "Player": (0, "upload")})
+    fake_compile = _compile_sequence({"Player pre-flight": (0, "compile"), "Provisioner": (0, "upload"), "Player": (0, "upload")})
     monkeypatch.setattr(app, "_compile_upload_fbuild", fake_compile)
     monkeypatch.setattr(app, "_serial_send", _fake_generator(True))
 
@@ -151,4 +151,59 @@ def test_full_pipeline_success(client, monkeypatch):
         data={"meta": '{"port": "COM7"}', "provisioner": "prov-ino", "player": "player-ino"},
     )
     assert "All done" in r.text
-    assert fake_compile.calls == ["Provisioner", "Player"]
+    assert fake_compile.calls == ["Player pre-flight", "Provisioner", "Player"]
+
+
+def test_player_preflight_stops_before_flashing_or_transferring(client, monkeypatch):
+    # The Player is the likeliest build to fail — every collected pattern adds
+    # static render buffers, and a classic ESP32 exhausts DRAM long before
+    # flash. It used to be built last, so an over-size design was discovered
+    # only after the provisioner had overwritten the user's firmware and a
+    # multi-megabyte song had crossed the wire at 115200: twelve minutes to
+    # learn what a 45-second compile knew up front (hardware, 2026-08-16,
+    # dram0_0_seg overflowed by 93,512 bytes).
+    monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
+    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
+    monkeypatch.setattr(app, "_ensure_fbuild_audio_lib", _fake_generator(None))
+    fake_compile = _compile_sequence({"Player pre-flight": (1, "compile")})
+    monkeypatch.setattr(app, "_compile_upload_fbuild", fake_compile)
+
+    def _boom(*a, **kw):
+        raise AssertionError("nothing may touch the board when the player cannot fit")
+    monkeypatch.setattr(app, "_serial_send", _boom)
+
+    r = client.post(
+        "/api/upload-show",
+        data={"meta": '{"port": "COM7"}', "provisioner": "prov-ino", "player": "player-ino"},
+    )
+    assert "Player will not fit" in r.text
+    assert "the card was not touched" in r.text
+    # The provisioner must never be flashed: leaving the board running it, with
+    # the user's own firmware gone, is a worse end state than doing nothing.
+    assert fake_compile.calls == ["Player pre-flight"]
+
+
+def test_player_preflight_compiles_without_flashing(client, monkeypatch):
+    # The pre-flight must compile only. Handing it the port would flash a
+    # player onto the board before its songs and shows exist on the card.
+    ports = {}
+
+    def fake(label, ino, fqbn, port):
+        ports[label] = port
+        if False:
+            yield  # pragma: no cover
+        return (0, "upload")
+
+    monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
+    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
+    monkeypatch.setattr(app, "_ensure_fbuild_audio_lib", _fake_generator(None))
+    monkeypatch.setattr(app, "_compile_upload_fbuild", fake)
+    monkeypatch.setattr(app, "_serial_send", _fake_generator(True))
+
+    client.post(
+        "/api/upload-show",
+        data={"meta": '{"port": "COM7"}', "provisioner": "prov-ino", "player": "player-ino"},
+    )
+    assert ports["Player pre-flight"] == ""
+    assert ports["Provisioner"] == "COM7"
+    assert ports["Player"] == "COM7"

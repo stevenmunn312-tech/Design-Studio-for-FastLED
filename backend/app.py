@@ -2136,17 +2136,19 @@ async def upload_show(
         data = await uf.read()
         payloads.append((paths[i] if i < len(paths) else f"/{uf.filename}", data))
 
-    def _build_flash(label, ino, work_slot):
+    def _build_flash(label, ino, work_slot, target_port=None):
         """Compile+flash one sketch (provisioner or player) through the active
         engine. `work_slot` is a single-item list used as an out-param for the
-        arduino-cli temp dir, so the caller's `finally` can clean it up."""
+        arduino-cli temp dir, so the caller's `finally` can clean it up.
+        `target_port` of "" compiles without flashing."""
+        use_port = port if target_port is None else target_port
         if engine == "fbuild":
-            if label == "Player":
+            if label.startswith("Player"):
                 yield from _ensure_fbuild_audio_lib()
-            return (yield from _compile_upload_fbuild(label, ino, fqbn, port))
-        work, sketch_dir = _make_sketch(label.lower(), ino)
+            return (yield from _compile_upload_fbuild(label, ino, fqbn, use_port))
+        work, sketch_dir = _make_sketch(label.split()[0].lower(), ino)
         work_slot[0] = work
-        return (yield from _compile_upload(label, sketch_dir, fqbn, port))
+        return (yield from _compile_upload(label, sketch_dir, fqbn, use_port))
 
     def stream():
         prov_work: list = [None]
@@ -2155,6 +2157,34 @@ async def upload_show(
             if not port:
                 yield "[error] a serial port is required to write the SD card\n"
                 return
+            # Pre-flight the Player before anything slow or destructive.
+            #
+            # The Player is by far the likeliest build to fail — every collected
+            # pattern contributes static render buffers, and a classic ESP32
+            # runs out of DRAM well before it runs out of flash. It used to be
+            # compiled last, so a design that could never fit was discovered
+            # only after the provisioner had been flashed over the user's
+            # firmware and a multi-megabyte song had crossed the wire: twelve
+            # minutes to learn what a 45-second compile knew up front (observed
+            # 2026-08-16, overflow of 93,512 bytes).
+            #
+            # Compiling first costs one extra build on the success path, since
+            # fbuild's shared scaffold is overwritten by the provisioner in
+            # between. That is a good trade against wasting the whole run.
+            preflight_rc, _ = yield from _build_flash("Player pre-flight", player, play_work, target_port="")
+            if preflight_rc != 0:
+                yield ("\n*** Player will not fit — stopping before the SD transfer ***\n"
+                       "  Nothing was flashed and the card was not touched.\n"
+                       "  Remove patterns from the collection or reduce the matrix size,\n"
+                       "  then try again.\n")
+                return
+            # Drop the pre-flight's temp dir now rather than nulling the slot —
+            # the real Player build reuses it, and the `finally` only ever sees
+            # whatever the last build left there.
+            if play_work[0]:
+                shutil.rmtree(play_work[0], ignore_errors=True)
+                play_work[0] = None
+
             rc, phase = yield from _build_flash("Provisioner", provisioner, prov_work)
             if rc != 0:
                 yield (f"\n*** Provisioner build failed (exit {rc}) — nothing was flashed ***\n"
