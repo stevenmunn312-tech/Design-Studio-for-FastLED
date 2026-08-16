@@ -136,14 +136,17 @@ export function collectPinUses(nodes: StudioNode[]): HardwarePinUse[] {
         break
       case 'SDCard':
         push(node, `${baseLabel} CS pin`, 'sdCsPin', props.sdCsPin)
+        // The internal DAC has no Amplifier node — it *is* the output stage,
+        // on two pins the library fixes for us, so they are claimed here.
         if (props.audioOutput === 'internalDac') {
           push(node, `${baseLabel} internal DAC (GPIO25)`, 'internalDac', 25)
           push(node, `${baseLabel} internal DAC (GPIO26)`, 'internalDac', 26)
-        } else {
-          push(node, `${baseLabel} I2S BCLK`, 'i2sBclk', props.i2sBclk)
-          push(node, `${baseLabel} I2S LRC`, 'i2sLrc', props.i2sLrc)
-          push(node, `${baseLabel} I2S DOUT`, 'i2sDout', props.i2sDout)
         }
+        break
+      case 'Amplifier':
+        push(node, `${baseLabel} I2S BCLK`, 'i2sBclk', props.i2sBclk)
+        push(node, `${baseLabel} I2S LRC`, 'i2sLrc', props.i2sLrc)
+        push(node, `${baseLabel} I2S DOUT`, 'i2sDout', props.i2sDout)
         break
     }
   }

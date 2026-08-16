@@ -65,12 +65,18 @@ interface ConfigNode { data: { nodeType: string; properties: Record<string, unkn
 
 /**
  * Derive the player's hardware config from the graph: LED matrix settings come
- * from the MatrixOutput node, SD + I2S audio pins from the SDCard node. Used by
- * the music-sync upload flow, where the SDCard is wired into MatrixOutput.
+ * from the MatrixOutput node, the card's own pins from SDCard, and the I2S
+ * output pins from an Amplifier node. Used by the music-sync upload flow, where
+ * the SDCard is wired into MatrixOutput.
+ *
+ * The amplifier is found by scanning rather than by a wire — it is a config
+ * node like Board. With no Amplifier on the canvas the built-in defaults still
+ * apply, so a graph that never had one keeps generating a working sketch.
  */
 export function playerConfigFromGraph(nodes: ConfigNode[]): Partial<PlayerConfig> {
   const mo = nodes.find((n) => n.data.nodeType === 'MatrixOutput')?.data.properties ?? {}
   const sd = nodes.find((n) => n.data.nodeType === 'SDCard')?.data.properties ?? {}
+  const amp = nodes.find((n) => n.data.nodeType === 'Amplifier')?.data.properties ?? {}
   const num = (v: unknown, d: number) => (v === undefined || v === null ? d : Number(v))
   const str = (v: unknown, d: string) => (v === undefined || v === null ? d : String(v))
   return {
@@ -85,9 +91,9 @@ export function playerConfigFromGraph(nodes: ConfigNode[]): Partial<PlayerConfig
     overclock:   num(mo.overclock, DEFAULTS.overclock),
     sdCsPin:    sanitizePin(sd.sdCsPin, DEFAULTS.sdCsPin),
     audioOutput: str(sd.audioOutput, DEFAULTS.audioOutput),
-    i2sBclk:    sanitizePin(sd.i2sBclk, DEFAULTS.i2sBclk),
-    i2sLrc:     sanitizePin(sd.i2sLrc, DEFAULTS.i2sLrc),
-    i2sDout:    sanitizePin(sd.i2sDout, DEFAULTS.i2sDout),
+    i2sBclk:    sanitizePin(amp.i2sBclk, DEFAULTS.i2sBclk),
+    i2sLrc:     sanitizePin(amp.i2sLrc, DEFAULTS.i2sLrc),
+    i2sDout:    sanitizePin(amp.i2sDout, DEFAULTS.i2sDout),
     maxVolume:  sanitizeVolume(sd.maxVolume),
     hub75Props: mo,
   }

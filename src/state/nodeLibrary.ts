@@ -2639,16 +2639,41 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // GPIO10 avoids colliding with MatrixOutput's default LED data pin
       // (GPIO5) on the primary supported ESP32-S3 target.
       sdCsPin:     10,
-      // 'i2s' drives an external DAC/amp (MAX98357A, PCM5102, …) over the
-      // i2sBclk/i2sLrc/i2sDout pins below. 'internalDac' instead uses the
-      // classic ESP32's built-in 8-bit DAC, fixed to GPIO25/26 by the
-      // ESP32-audioI2S library — not available on ESP32-S3/S2/C3, which have
-      // no DAC peripheral (see findBoardCompatibilityErrors).
+      // 'i2s' sends audio to an external DAC/amp — wire an Amplifier node,
+      // which owns those pins. 'internalDac' instead uses the classic ESP32's
+      // built-in 8-bit DAC, fixed to GPIO25/26 by the ESP32-audioI2S library —
+      // not available on ESP32-S3/S2/C3, which have no DAC peripheral (see
+      // findBoardCompatibilityErrors).
       audioOutput: 'i2s',
-      i2sBclk:     26,
-      i2sLrc:      25,
-      i2sDout:     22,
+      // Software volume in the decoder, so it stays with the player rather
+      // than the amplifier — the MAX98357A's own gain is set by a resistor.
       maxVolume:   18,
+    },
+  },
+  {
+    // The external I2S amplifier the player feeds. Its pins used to live on
+    // SD Card, which conflated "where the music is stored" with "what turns it
+    // into sound" — two separate parts you buy, wire and can get wrong
+    // independently. Splitting them also means a graph can say it has an amp
+    // at all, which is what makes the pin advice and the wiring diagram able
+    // to talk about it.
+    //
+    // Config only: no ports, no evaluation, found by scanning the graph — the
+    // same shape as Board. Physical connections belong in the Build Diagram,
+    // not as noodles on the canvas.
+    type: 'Amplifier',
+    label: 'Amplifier',
+    category: 'output',
+    inputs: [],
+    outputs: [],
+    defaultProperties: {
+      // Defaults inherited from the SD Card node so existing wiring guides
+      // stay correct; `model` exists so the node can name the exact part the
+      // way Board names an exact board, rather than silently assuming one.
+      model:   'MAX98357A',
+      i2sBclk: 26,
+      i2sLrc:  25,
+      i2sDout: 22,
     },
   },
 
@@ -2694,7 +2719,8 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   MidiInput: 'Web MIDI note velocity/gate + CC value from a controller. Preview-only.',
   MusicLibrary: 'Music source — double-click to drop tracks, analyse and export.',
   PerformanceGenerator: 'Converts analysed music into timed LED show files.',
-  SDCard: 'SD + audio pins; connect to Matrix Output to load music/show files on upload.',
+  SDCard: 'SD card pins; connect to Matrix Output to load music/show files on upload.',
+  Amplifier: 'The I2S amplifier the show player feeds — its part and pins.',
   // math
   Math: 'Binary math — add, subtract, multiply, divide, min or max (a op b).',
   Clamp: 'Constrains a value between min and max.',

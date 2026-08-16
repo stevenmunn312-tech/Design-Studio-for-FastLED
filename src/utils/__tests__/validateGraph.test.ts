@@ -621,21 +621,29 @@ describe('validateGraph', () => {
       expect(warnings[0]).toContain('pin A')
     })
 
-    it('checks SD Card CS and external-I2S pins', () => {
+    it('checks SD Card CS and the Amplifier I2S pins', () => {
+      // The I2S pins live on their own node now, but they still have to be
+      // range-checked — an amplifier is a part you can wire wrong exactly like
+      // the card is.
       const nodes = [
-        node('sd', 'SDCard', {
-          sdCsPin: -1,
-          audioOutput: 'i2s',
-          i2sBclk: 26,
-          i2sLrc: 25.5,
-          i2sDout: 9999,
-        }),
+        node('sd', 'SDCard', { sdCsPin: -1, audioOutput: 'i2s' }),
+        node('amp', 'Amplifier', { i2sBclk: 26, i2sLrc: 25.5, i2sDout: 9999 }),
       ]
       const warnings = findPinRangeWarnings(nodes)
       expect(warnings).toHaveLength(3)
       expect(warnings.some((warning) => warning.includes('CS pin'))).toBe(true)
       expect(warnings.some((warning) => warning.includes('I2S LRC'))).toBe(true)
       expect(warnings.some((warning) => warning.includes('I2S DOUT'))).toBe(true)
+    })
+
+    it('still claims the internal DAC pins, which have no Amplifier node', () => {
+      // internalDac *is* the output stage, on two pins the library fixes, so
+      // SDCard keeps claiming them for conflict detection.
+      const nodes = [
+        node('sd', 'SDCard', { sdCsPin: 5, audioOutput: 'internalDac' }),
+        node('out', 'MatrixOutput', { dataPin: 25 }),
+      ]
+      expect(findPinConflicts(nodes).some((c) => c.includes('25'))).toBe(true)
     })
 
     it('surfaces out-of-range pins as warnings (not errors) from validateGraph', () => {

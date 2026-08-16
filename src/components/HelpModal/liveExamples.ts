@@ -840,6 +840,24 @@ function commentExample(node: NodeDefinition): ReferenceLiveExample {
   )
 }
 
+function amplifierExample(node: NodeDefinition): ReferenceLiveExample {
+  const builder = new ExampleBuilder()
+  builder.add('music', 'MusicLibrary')
+  builder.add('performance', 'PerformanceGenerator')
+  builder.add('sd', 'SDCard')
+  builder.add('out', 'MatrixOutput')
+  builder.add('target', node.type)
+  builder.wire('music', 'music', 'performance', 'music')
+  builder.wire('performance', 'shows', 'sd', 'shows')
+  builder.wire('sd', 'sdcard', 'out', 'sdcard')
+  return builder.finish(
+    'Name the amplifier the show player drives',
+    'Amplifier carries no noodles — it names the I2S amp that the music-sync show player feeds, and owns its BCLK/LRC/DIN pins. Those used to sit on SD Card, which mixed up where the songs are stored with what turns them into sound: two separate parts you buy, wire, and can get wrong independently.',
+    'Amplifier affects the generated player firmware and pin validation rather than the LED preview. With no Amplifier on the canvas the player falls back to its built-in pin defaults.',
+    'workflow',
+  )
+}
+
 function boardExample(node: NodeDefinition): ReferenceLiveExample {
   const builder = new ExampleBuilder()
   builder.add('pattern', 'Pride2015', { speed: 0.4 })
@@ -1141,6 +1159,7 @@ export function buildGenericLiveExample(node: NodeDefinition): ReferenceLiveExam
   if (node.type === 'SampleHold') return sampleHoldExample(node)
   if (node.type === 'MatrixOutput') return matrixOutputExample(node)
   if (node.type === 'Board') return boardExample(node)
+  if (node.type === 'Amplifier') return amplifierExample(node)
   if (node.type === 'Comment') return commentExample(node)
   if (node.type === 'Transition') return transitionExample(node)
   if (node.type === 'Sequencer') return sequencerExample(node)

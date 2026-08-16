@@ -77,15 +77,35 @@ describe('playerConfigFromGraph', () => {
   const node = (nodeType: string, properties: Record<string, unknown>) =>
     ({ data: { nodeType, properties } })
 
-  it('pulls LED config from MatrixOutput and SD/I2S pins from SDCard', () => {
+  it('takes LED config from MatrixOutput, card pins from SDCard, I2S from Amplifier', () => {
+    // The I2S pins moved off SDCard: where the music is stored and what turns
+    // it into sound are two separate parts you buy, wire, and can get wrong
+    // independently.
     const cfg = playerConfigFromGraph([
       node('MatrixOutput', { width: 32, height: 8, chipset: 'SK6812', colorOrder: 'RGB', dataPin: 12 }),
-      node('SDCard', { sdCsPin: 21, i2sBclk: 5, i2sLrc: 6, i2sDout: 7, maxVolume: 12 }),
+      node('SDCard', { sdCsPin: 21, maxVolume: 12 }),
+      node('Amplifier', { i2sBclk: 5, i2sLrc: 6, i2sDout: 7 }),
     ])
     expect(cfg).toMatchObject({
       ledWidth: 32, ledHeight: 8, chipset: 'SK6812', colorOrder: 'RGB', ledDataPin: 12,
       sdCsPin: 21, i2sBclk: 5, i2sLrc: 6, i2sDout: 7, maxVolume: 12,
     })
+  })
+
+  it('ignores I2S pins left on a SDCard node', () => {
+    // Breaking change, no migration: a graph saved before the split keeps the
+    // old properties, and they must not quietly win over the Amplifier.
+    const cfg = playerConfigFromGraph([
+      node('SDCard', { i2sBclk: 5, i2sLrc: 6, i2sDout: 7 }),
+      node('Amplifier', { i2sBclk: 27, i2sLrc: 26, i2sDout: 25 }),
+    ])
+    expect(cfg).toMatchObject({ i2sBclk: 27, i2sLrc: 26, i2sDout: 25 })
+  })
+
+  it('keeps working with no Amplifier node at all', () => {
+    // A graph that never had one still generates a valid sketch.
+    const cfg = playerConfigFromGraph([node('SDCard', { sdCsPin: 21 })])
+    expect(cfg).toMatchObject({ sdCsPin: 21, i2sBclk: 26, i2sLrc: 25, i2sDout: 22 })
   })
 
   it('falls back to defaults for missing nodes/props', () => {
@@ -104,13 +124,8 @@ describe('playerConfigFromGraph', () => {
 
   it('sanitizes SD/I2S pins and max volume read from saved graph properties', () => {
     const cfg = playerConfigFromGraph([
-      node('SDCard', {
-        sdCsPin: -4.7,
-        i2sBclk: 19.6,
-        i2sLrc: 280,
-        i2sDout: 'invalid',
-        maxVolume: 99,
-      }),
+      node('SDCard', { sdCsPin: -4.7, maxVolume: 99 }),
+      node('Amplifier', { i2sBclk: 19.6, i2sLrc: 280, i2sDout: 'invalid' }),
     ])
     expect(cfg).toMatchObject({
       sdCsPin: 0,
