@@ -20,6 +20,7 @@ the exact environment and path that were exercised. Everything else stays
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.101 | ESP32-S3 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | USB flash via `esptool` through the helper's normal Upload path | Generate a live-graph sketch, compile, flash, and run it on hardware | `backend/README.md` and `CLAUDE.md` build-engine note (`2026-06-26`) |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP32-S3 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | 🧪 Flash Wiring Test | Flash the standalone wiring-diagnostic sketch and confirm LEDs display correctly | `CLAUDE.md` wiring-diagnostics note (`hw-59a1bb36`, `2026-07-24`): full diagnostic sequence confirmed correct; re-validation of the `2026-07-15` first pass |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 151.0.7922.138 | Classic ESP32 (Generic DevKit 38-pin, ESP32-D0WD-V3 rev v3.1, no PSRAM) | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` 2.5.16 | USB flash via `esptool` through the helper's normal Upload path | Generate a live-graph sketch, compile, flash, and run it on hardware | Classic-ESP32 bring-up note below (`2026-08-16`) |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP32-S3 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | ⚡ Flash Stream Receiver + 📡 Live Stream | Flash the Adalight stream receiver once, then push live-preview frames to the board over serial, sustained | `CLAUDE.md` live-streaming note (`hw-f31a7f82`, `2026-07-24`): re-validated after fixing an intermittent freeze (root cause: the dev helper's unread stdout/stderr pipes, not the receiver or write path) — 5+ minutes of steady 30 fps with no freeze; supersedes the `2026-07-15` first pass |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.101 | ESP32-S3 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | USB flash via `esptool` through the helper's normal Upload path | Generate a generative show controller sketch (`PatternCollection` → Show Engine → `MatrixOutput`), compile, flash, and run it on hardware | `CLAUDE.md` show-codegen note (`2026-06-26`) |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP32-S3 + INMP441 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | USB flash via `esptool` through the helper's normal Upload path | Generate a generative show with on-device microphone, non-crossfade transitions, beat-triggered advance, and particle overlay; compile, flash, and run it on hardware | GitHub issue #106 (hw-e791188d, `2026-07-24`): all checks passed including show runtime, beat advance, and particle overlay |
@@ -57,6 +58,33 @@ These are the only fully recorded public-beta support rows today.
   `getAudioCurrentTime()`), but no confirming end-to-end playback pass or full
   six-field environment record exists yet. SD-show provisioning therefore
   remains experimental.
+- **2026-08-16 — classic ESP32, first successful bring-up (`fbuild` 2.5.16).**
+  A Generic 38-pin DevKit (ESP32-D0WD-V3 rev v3.1, WROOM, no PSRAM) driving a
+  16×16 serpentine WS2812B panel through a 74AHCT125 level shifter on GPIO16,
+  with the panel on its own 5 V supply. A live-graph sketch compiled, flashed
+  and ran with correct output — the row above. Three further things this run
+  settled:
+  - **The `fbuild` `.ino` revert is now hardware-validated.** `_write_fbuild_main`
+    went back to writing a plain `.ino` on 2026-08-10 on the strength of the
+    2.5.16 prelude fix (FastLED/fbuild#1275) and had never been run on a board.
+    It compiles and runs.
+  - **`huge_app.csv` boots on a non-PSRAM classic ESP32** — one of the four
+    defects from the failed 2026-07-28 run above. A stale dual-OTA table from
+    before the fix produced `ota data partition invalid and no factory` at boot;
+    an `esptool erase-flash` followed by a normal upload cleared it, and the
+    error has not returned. The remaining three defects still await an
+    end-to-end SD-show pass.
+  - **The capacity meter correctly discards fbuild's bogus RAM figure.** This
+    build self-reported `RAM: 340.12KB / 320.00KB (106.3%)` and still linked,
+    flashed and verified; the meter showed `flash 15%` with no SRAM figure
+    rather than a false overflow.
+
+  **Board-level gotcha worth passing to other testers:** this DevKit has a
+  USB-C socket with no CC pull-down resistors, so a proper USB-C source refuses
+  to supply VBUS and the board is completely dead on a C-to-C cable — no power
+  LED, no enumeration — while a permissive charger brick powers it fine. It
+  needs a USB-A-to-C cable. Nothing about this is a Studio fault, but it looks
+  exactly like a broken board.
 
 ## CI-covered host/platform coverage
 
@@ -79,7 +107,9 @@ Unless a future row says otherwise, treat the following as experimental:
 - All host OS + browser combinations except Windows 11 Home (build
   10.0.26200) + Chrome 150.0.7871.101 or 150.0.7871.187, the recorded combos
   above.
-- All boards except ESP32-S3 and ESP8266 (see the rows above).
+- All boards except ESP32-S3, ESP8266, and the classic ESP32 (see the rows
+  above). The classic-ESP32 row covers a normal live-graph upload only — its
+  SD-show path is still experimental, per the 2026-07-28 note.
 - All LED chipsets except the recorded WS2812B row above.
 - All matrix/strip sizes except the recorded 16x16 and 10x1 rows above.
 - Tiled panels and custom XY maps (non-rectangular layouts) — strip layout
