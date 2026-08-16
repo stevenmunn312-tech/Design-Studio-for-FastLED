@@ -59,6 +59,19 @@ class FakeSerial:
             time.sleep(self.hang_seconds)
         self.writes.append(data)
 
+    # A quiet board: `read` returns nothing, which is the case that used to
+    # leave the serial monitor with no cancellation point.
+    @property
+    def in_waiting(self):
+        return 0
+
+    @property
+    def is_open(self):
+        return not self.closed
+
+    def read(self, _n=1):
+        return b""
+
     def close(self):
         self.closed = True
 

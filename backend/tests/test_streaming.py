@@ -108,3 +108,30 @@ def test_stop_clears_state_so_monitor_is_allowed_again(client, fake_serial):
     client.post("/api/stream/stop")
     r = client.get("/api/stream/status")
     assert r.json() == {"ok": True, "streaming": False, "port": None, "baud": 0}
+
+
+def test_serial_monitor_releases_a_quiet_port_when_cancelled(fake_serial):
+    # A generator can only be closed at a `yield`. The monitor used to yield
+    # only when the board sent something, so a *silent* board left the loop
+    # spinning inside ser.read() with no cancellation point: the browser
+    # aborted, the port stayed open, and the next flash died with
+    # "Access is denied". Seen on 2026-08-16 — a freshly flashed provisioner
+    # says almost nothing, which is precisely when it bit.
+    import asyncio
+
+    response = app.serial_monitor("COM7", 115200)
+
+    async def drive():
+        body = response.body_iterator
+        first = await body.__anext__()
+        assert b"connected to COM7" in first
+        # Several turns of a quiet board must still produce cancellation points.
+        for _ in range(3):
+            assert await body.__anext__() == b""
+        port = fake_serial.instances[-1]
+        assert port.closed is False
+        await body.aclose()   # what Starlette does when the client disconnects
+        return port
+
+    port = asyncio.run(drive())
+    assert port.closed is True, "the port must be released as soon as the client goes away"

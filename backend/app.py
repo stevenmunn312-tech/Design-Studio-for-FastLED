@@ -1423,8 +1423,15 @@ def serial_monitor(port: str, baud: int = 115200):
             yield f"[serial] connected to {port} at {baud} baud\n".encode()
             while True:
                 data = ser.read(ser.in_waiting or 1)
-                if data:
-                    yield data
+                # Yield even with nothing to send. A generator can only be
+                # closed at a `yield`, so yielding solely when data arrives
+                # means a *quiet* board has no cancellation point: the client
+                # aborts, this loop keeps reading, and the port stays open. The
+                # next upload then fails with "Access is denied" — which is
+                # what a freshly flashed, silent provisioner produced on
+                # 2026-08-16. The empty chunk costs nothing on the wire and
+                # gives the read timeout a chance to release the port.
+                yield data if data else b""
         except GeneratorExit:
             return
         except Exception as e:
