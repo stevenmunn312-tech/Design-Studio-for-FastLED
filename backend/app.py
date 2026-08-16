@@ -672,7 +672,12 @@ async def _desktop_security_headers(request: Request, call_next):
 
 
 # ── Compile / upload / serial helpers ─────────────────────────────────────────
-CHUNK = 1024  # serial transfer block size — must match PROVISION_CHUNK (frontend)
+# These three must match the provisioner's constants exactly — see
+# `provisionerSketchGenerator.ts` (PROVISION_CHUNK / PROVISION_BAUD). The device
+# is generated and flashed by the same release as this file, so they move
+# together, but a mismatch stalls a transfer rather than failing it loudly.
+CHUNK = 4096            # serial transfer block size — must match PROVISION_CHUNK
+PROVISION_BAUD = 921600  # negotiated after the handshake; falls back to 115200
 
 # Force UTF-8 across the ESP32 toolchain — its bundled Python (esptool, ...)
 # prints build output through the locale codec (cp1252 on Windows) and dies with
@@ -1145,6 +1150,35 @@ def _serial_send(port, payloads):
             yield "[error] board did not report READY (SD mounted?)\n"
             return False
 
+        # Raise the link now that the board has proven it is alive. A song is
+        # megabytes: at 115200 that is ~11 minutes, which makes the feature
+        # unusable. The handshake stays at 115200 so first contact can never be
+        # what fails, and the new rate is verified with a PING before any file
+        # is sent — a bridge that cannot hold it falls back rather than
+        # corrupting a transfer.
+        ser.write(f"BAUD {PROVISION_BAUD}\n".encode())
+        ser.flush()
+        if line() == "OK":
+            time.sleep(0.15)  # device flushes its "OK" and switches
+            ser.baudrate = PROVISION_BAUD
+            fast = False
+            for _ in range(5):
+                ser.reset_input_buffer()
+                ser.write(b"PING\n")
+                ser.flush()
+                if line() == "READY":
+                    fast = True
+                    break
+                time.sleep(0.2)
+            if fast:
+                yield f"  link raised to {PROVISION_BAUD} baud\n"
+            else:
+                ser.baudrate = 115200
+                ser.reset_input_buffer()
+                yield "  [warn] board did not answer at the higher rate — continuing at 115200\n"
+        else:
+            yield "  [warn] board kept the link at 115200 (older provisioner?)\n"
+
         for path, data in payloads:
             yield f"  -> {path} ({len(data)} bytes)\n"
             ser.reset_input_buffer()
@@ -1154,6 +1188,13 @@ def _serial_send(port, payloads):
                 yield f"[error] device refused {path}\n"
                 return False
             sent = 0
+            # Report roughly every 5%. A multi-megabyte song is minutes of
+            # transfer, and a log that says nothing at all for that long is
+            # indistinguishable from a hang — which is exactly how a genuine
+            # stall was misread during bring-up.
+            step = max(len(data) // 20, CHUNK)
+            next_report = step
+            started = time.monotonic()
             while sent < len(data):
                 block = data[sent:sent + CHUNK]
                 ser.write(block)
@@ -1162,6 +1203,12 @@ def _serial_send(port, payloads):
                     yield f"[error] lost ack for {path} at byte {sent}\n"
                     return False
                 sent += len(block)
+                if sent >= next_report and sent < len(data):
+                    elapsed = time.monotonic() - started
+                    rate = sent / elapsed / 1024 if elapsed > 0 else 0
+                    eta = (len(data) - sent) / (sent / elapsed) if sent and elapsed > 0 else 0
+                    yield f"     {sent * 100 // len(data)}%  {rate:.0f} KB/s  ~{eta:.0f}s left\n"
+                    next_report = sent + step
             if line() != "DONE":
                 yield f"[error] {path} was not confirmed\n"
                 return False

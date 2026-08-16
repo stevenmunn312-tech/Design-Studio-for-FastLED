@@ -33,7 +33,15 @@ export interface ProvisionerConfig {
 const DEFAULTS: ProvisionerConfig = { sdCsPin: 10 }
 
 /** Transfer block size, in bytes — must match the host sender in the backend. */
-export const PROVISION_CHUNK = 1024
+export const PROVISION_CHUNK = 4096
+
+/** Link speed the host negotiates after the handshake, falling back to 115200.
+ *  A 7.5 MB song takes ~11 minutes at 115200 and well under two at this rate. */
+export const PROVISION_BAUD = 921600
+
+/** Device UART receive buffer. Comfortably larger than one block so the driver
+ *  keeps absorbing while the previous block's SD write completes. */
+export const PROVISION_RX_BUFFER = 8192
 
 export function generateProvisionerSketch(cfg: Partial<ProvisionerConfig> = {}): string {
   const c = {
@@ -50,7 +58,8 @@ export function generateProvisionerSketch(cfg: Partial<ProvisionerConfig> = {}):
 #include <SPI.h>
 
 #define SD_CS  ${c.sdCsPin}
-#define CHUNK  ${PROVISION_CHUNK}
+#define CHUNK      ${PROVISION_CHUNK}
+#define RX_BUFFER  ${PROVISION_RX_BUFFER}
 
 // Create the parent directory of \`path\` (one level is enough for /music, /shows).
 void ensureDir(const String& path) {
@@ -73,6 +82,11 @@ String readLine() {
 }
 
 void setup() {
+  // A whole song crosses this link, so the RX buffer has to absorb a full
+  // block while the SD write of the previous one is still finishing. The
+  // 256-byte default would overrun the moment the link is raised below.
+  // Must precede begin() — ESP32 sizes the driver's buffer at init.
+  Serial.setRxBufferSize(RX_BUFFER);
   Serial.begin(115200);
   while (!Serial) { /* wait for USB CDC */ }
   delay(200);
@@ -107,7 +121,9 @@ void loop() {
     if (!f) { Serial.println("ERR open-failed"); return; }
     Serial.println("OK");
 
-    uint8_t buf[CHUNK];
+    // static, not a local: a 4 KB block on the loop task's 8 KB stack is too
+    // close to the edge, and only one transfer is ever in flight.
+    static uint8_t buf[CHUNK];
     uint32_t remaining = size;
     while (remaining > 0) {
       uint32_t want = remaining < CHUNK ? remaining : CHUNK;
@@ -122,6 +138,17 @@ void loop() {
     }
     f.close();
     Serial.println("DONE");
+  } else if (line.startsWith("BAUD ")) {
+    // The host raises the link once the handshake proves the board is alive.
+    // Boot stays at 115200 so the initial contact can never be the thing that
+    // fails, and the host verifies the new rate with a PING before trusting
+    // it — an unreliable bridge falls back instead of corrupting a transfer.
+    uint32_t rate = (uint32_t) strtoul(line.substring(5).c_str(), nullptr, 10);
+    if (rate < 9600) { Serial.println("ERR bad-baud"); return; }
+    Serial.println("OK");
+    Serial.flush();          // let "OK" leave at the old rate before switching
+    delay(50);
+    Serial.updateBaudRate(rate);
   } else if (line == "END") {
     Serial.println("BYE");
   }

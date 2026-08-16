@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateProvisionerSketch, PROVISION_CHUNK } from '../provisionerSketchGenerator'
+import { generateProvisionerSketch, PROVISION_CHUNK, PROVISION_RX_BUFFER } from '../provisionerSketchGenerator'
 import { generatePlayerSketch, playerConfigFromGraph } from '../playerSketchGenerator'
 import { TRANSITION_HELPER_CPP } from '../transitionHelperCpp'
 
@@ -7,7 +7,7 @@ describe('generateProvisionerSketch', () => {
   it('bakes the SD chip-select pin and chunk size into the sketch', () => {
     const ino = generateProvisionerSketch({ sdCsPin: 21 })
     expect(ino).toContain('#define SD_CS  21')
-    expect(ino).toContain(`#define CHUNK  ${PROVISION_CHUNK}`)
+    expect(ino).toContain(`#define CHUNK      ${PROVISION_CHUNK}`)
   })
 
   it('rounds and clamps the SD chip-select pin before emitting firmware', () => {
@@ -38,6 +38,29 @@ describe('generateProvisionerSketch', () => {
     const ino = generateProvisionerSketch()
     expect(ino).toContain('line.lastIndexOf(\' \')')
     expect(ino).not.toContain('line.indexOf(\' \', 4)')
+  })
+
+  it('boots at 115200 and lets the host raise the link', () => {
+    // A 7.5 MB song is ~11 minutes at 115200, which makes SD provisioning
+    // unusable. First contact stays slow-and-safe so the handshake can never
+    // be what fails; the host raises the rate only after READY, and verifies
+    // it before sending a byte of payload.
+    const ino = generateProvisionerSketch()
+    expect(ino).toContain('Serial.begin(115200)')
+    expect(ino).toContain('line.startsWith("BAUD ")')
+    expect(ino).toContain('Serial.updateBaudRate(rate)')
+    // "OK" must clear the wire at the old rate or the host never sees it.
+    expect(ino).toMatch(/Serial\.println\("OK"\);\s*\n\s*Serial\.flush\(\);/)
+  })
+
+  it('sizes the RX buffer above one block for the raised link', () => {
+    const ino = generateProvisionerSketch()
+    expect(ino).toContain(`#define RX_BUFFER  ${PROVISION_RX_BUFFER}`)
+    expect(PROVISION_RX_BUFFER).toBeGreaterThan(PROVISION_CHUNK)
+    // setRxBufferSize is ignored unless it precedes begin().
+    expect(ino.indexOf('setRxBufferSize')).toBeLessThan(ino.indexOf('Serial.begin(115200)'))
+    // A 4 KB block must not live on the loop task's 8 KB stack.
+    expect(ino).toContain('static uint8_t buf[CHUNK]')
   })
 
   it('refuses a PUT whose size did not parse instead of desyncing', () => {
