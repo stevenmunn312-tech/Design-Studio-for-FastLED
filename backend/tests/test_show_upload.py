@@ -207,3 +207,71 @@ def test_player_preflight_compiles_without_flashing(client, monkeypatch):
     assert ports["Player pre-flight"] == ""
     assert ports["Provisioner"] == "COM7"
     assert ports["Player"] == "COM7"
+
+
+class _GreetingSerial:
+    """Serial stand-in that replays scripted lines, then silence."""
+
+    def __init__(self, lines):
+        self.lines = list(lines)
+        self.timeout = 0
+        self.writes = []
+        self.closed = False
+        self.dtr = self.rts = True
+        self.baudrate = 115200
+
+    def readline(self):
+        return self.lines.pop(0) if self.lines else b""
+
+    def reset_input_buffer(self):
+        pass
+
+    def write(self, data):
+        self.writes.append(data)
+
+    def flush(self):
+        pass
+
+    def close(self):
+        self.closed = True
+
+
+def _run_send(monkeypatch, lines):
+    import serial
+    fake = _GreetingSerial(lines)
+    monkeypatch.setattr(serial, "Serial", lambda *a, **k: fake)
+    monkeypatch.setattr(app.time, "sleep", lambda _s: None)
+    out = list(app._serial_send("COM7", [("/music/x.mp3", b"abc")]))
+    return fake, "".join(out)
+
+
+def test_sd_mount_failure_is_reported_verbatim_and_immediately(monkeypatch):
+    # The provisioner prints this once at boot and then halts, so it never
+    # answers a PING. The retry loop used to clear the buffer before its first
+    # attempt, discarding the one line that explained the failure — leaving
+    # ~165s of silence and a guess. A card with no power produced exactly this
+    # on 2026-08-16.
+    _fake, log = _run_send(monkeypatch, [b"ERR sd-mount-failed\n"])
+    assert "board says: ERR sd-mount-failed" in log
+    assert "could not mount the SD card" in log
+    assert "formatted FAT32" in log
+    # It must not sit through eight timeouts first.
+    assert "waiting for the board" not in log
+
+
+def test_handshake_reports_progress_instead_of_going_quiet(monkeypatch):
+    # Over two minutes of possible waiting has to look like waiting.
+    _fake, log = _run_send(monkeypatch, [])
+    assert "waiting for the board (1/8)" in log
+    assert "waiting for the board (8/8)" in log
+    assert "never reported READY" in log
+    assert "it sent nothing at all" in log
+
+
+def test_boot_greeting_of_ready_skips_the_handshake_loop(monkeypatch):
+    # A board that announced itself at boot needs no handshake retries; the
+    # PINGs that follow belong to the baud-raise confirmation, not to waiting.
+    fake, log = _run_send(monkeypatch, [b"READY\n", b"OK\n", b"A\n", b"DONE\n", b"BYE\n"])
+    assert "board says: READY" in log
+    assert "waiting for the board" not in log
+    assert fake.writes[0] == b"BAUD 921600\n", "it should go straight to raising the link"

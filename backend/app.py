@@ -1137,17 +1137,50 @@ def _serial_send(port, payloads):
     try:
         ser.dtr = False
         ser.rts = False
-        ready = False
-        for _ in range(8):
+        # Read the boot greeting before anything resets the input buffer.
+        #
+        # The provisioner announces itself once at startup: "READY", or
+        # "ERR sd-mount-failed" if it could not mount the card — after which it
+        # halts and never answers a PING again. The retry loop below clears the
+        # buffer before each attempt, which used to discard that line, so a card
+        # that simply had no power produced ~165s of silence and a guess
+        # ("did not report READY (SD mounted?)") when the board had already
+        # said precisely what was wrong. Observed 2026-08-16.
+        ser.timeout = 3
+        greeting = line()
+        ser.timeout = 20
+        if greeting:
+            yield f"  board says: {greeting}\n"
+        if greeting.startswith("ERR sd-mount"):
+            yield ("[error] the board could not mount the SD card — it is halted.\n"
+                   "  Check the card is inserted and formatted FAT32, that the reader has\n"
+                   "  power, and that its CS pin matches the SD Card node.\n")
+            return False
+
+        ready = greeting == "READY"
+        last = greeting
+        attempt = 0
+        while not ready and attempt < 8:
+            attempt += 1
             ser.reset_input_buffer()
             ser.write(b"PING\n")
             ser.flush()
-            if line() == "READY":
+            reply = line()
+            if reply == "READY":
                 ready = True
                 break
+            if reply:
+                last = reply
+                yield f"  board says: {reply}\n"
+            else:
+                # Say something every attempt. Silence here is indistinguishable
+                # from a hang, and this loop can run for well over two minutes.
+                yield f"  waiting for the board ({attempt}/8)…\n"
             time.sleep(0.5)
         if not ready:
-            yield "[error] board did not report READY (SD mounted?)\n"
+            detail = f" — last reply: {last}" if last else " — it sent nothing at all"
+            yield (f"[error] the board never reported READY{detail}\n"
+                   "  If it sent nothing, check power and that the provisioner flashed.\n")
             return False
 
         # Raise the link now that the board has proven it is alive. A song is
