@@ -1260,7 +1260,6 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
             <MatrixOutputUpload
               nodeId={id}
               hasFrameInput={sourceMap.has('frame')}
-              hasSdCardInput={sourceMap.has('sdcard')}
             />
           )}
         </Suspense>

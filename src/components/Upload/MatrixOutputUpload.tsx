@@ -20,7 +20,6 @@ export default function MatrixOutputUpload({
 }: {
   nodeId: string
   hasFrameInput: boolean
-  hasSdCardInput: boolean
 }) {
   // This body is always mounted on the canvas, so it must not re-render on
   // unrelated store writes — it drives the live capacity check.

@@ -54,7 +54,7 @@ describe('MatrixOutputUpload summary', () => {
     useUploadStore.setState({ openSetupWizard })
 
     const { getByRole } = render(
-      <MatrixOutputUpload nodeId="matrix" hasFrameInput hasSdCardInput={false} />,
+      <MatrixOutputUpload nodeId="matrix" hasFrameInput />,
     )
 
     fireEvent.click(getByRole('button', { name: '✦ Setup...' }))
@@ -66,7 +66,7 @@ describe('MatrixOutputUpload summary', () => {
     useUploadStore.setState({ openDeployPopup })
 
     const { getByRole } = render(
-      <MatrixOutputUpload nodeId="matrix" hasFrameInput hasSdCardInput={false} />,
+      <MatrixOutputUpload nodeId="matrix" hasFrameInput />,
     )
 
     fireEvent.click(getByRole('button', { name: '↑ Upload...' }))
@@ -76,14 +76,14 @@ describe('MatrixOutputUpload summary', () => {
   describe('live controller-capacity meter', () => {
     it('shows nothing when no frame is wired to Matrix Output', () => {
       const { queryByText } = render(
-        <MatrixOutputUpload nodeId="matrix" hasFrameInput={false} hasSdCardInput={false} />,
+        <MatrixOutputUpload nodeId="matrix" hasFrameInput={false} />,
       )
       expect(queryByText(/capacity/i)).toBeNull()
     })
 
     it('reports toolchain-missing without hitting the network when the helper/core is not ready', async () => {
       const { getByText } = render(
-        <MatrixOutputUpload nodeId="matrix" hasFrameInput hasSdCardInput={false} />,
+        <MatrixOutputUpload nodeId="matrix" hasFrameInput />,
       )
       await waitFor(() => expect(getByText(/install toolchain to check/i)).toBeTruthy())
       expect(useCapacityStore.getState().status).toBe('toolchain-missing')
