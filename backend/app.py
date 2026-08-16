@@ -22,6 +22,7 @@ studio keeps working (it just falls back to showing copy-paste commands).
 """
 from __future__ import annotations
 
+import contextlib
 import io
 import json
 import os
@@ -804,7 +805,8 @@ def _compile_upload(label, sketch_dir, fqbn, port):
     if not port:
         yield "  (no port selected — compiled only)\n"
         return 0, "compile"
-    rc = yield from _run_phase(f"{label} · upload", _ARDUINO_BASE + ["upload", "-v", "-p", port, "--fqbn", fqbn, str(sketch_dir)])
+    with _flashing():   # keeps `board list` off the port — see serial_ports()
+        rc = yield from _run_phase(f"{label} · upload", _ARDUINO_BASE + ["upload", "-v", "-p", port, "--fqbn", fqbn, str(sketch_dir)])
     return rc, "upload"
 
 
@@ -1062,10 +1064,11 @@ def _compile_upload_fbuild(label, ino, fqbn, port):
         upload_lines = []
         for attempt in range(3):
             upload_lines = []
-            rc = yield from _run_phase(
-                f"{label} · upload", [_FBUILD_BIN, "deploy", "-e", env, "-p", port, "--skip-build", "--no-timestamp"],
-                sink=upload_lines, cwd=_FBUILD_PROJECT_DIR,
-            )
+            with _flashing():   # keeps `board list` off the port — see serial_ports()
+                rc = yield from _run_phase(
+                    f"{label} · upload", [_FBUILD_BIN, "deploy", "-e", env, "-p", port, "--skip-build", "--no-timestamp"],
+                    sink=upload_lines, cwd=_FBUILD_PROJECT_DIR,
+                )
             if rc == 0:
                 break
             port_busy = any("access is denied" in line.lower() or "port is busy" in line.lower() for line in upload_lines)
@@ -1377,7 +1380,15 @@ def serial_ports():
         return (addr or "").strip().upper()
 
     # 1) arduino-cli detected ports (board/FQBN matches when recognised)
-    if _ARDUINO_CLI:
+    #
+    # Skipped while a flash is running: `board list` *opens* every serial port
+    # to identify what is on it, holding each for several seconds. If that
+    # lands while esptool is trying to connect, the flash dies with a bare
+    # "Access is denied" that looks like a stuck monitor, a wedged driver, or a
+    # dead board — none of which it is. Cost hours on 2026-08-16. pyserial's
+    # enumeration below needs no open and still lists the port, so the dropdown
+    # keeps working during an upload; only the board-name enrichment pauses.
+    if _ARDUINO_CLI and not _flash_in_progress():
         try:
             proc = subprocess.run(
                 _ARDUINO_BASE + ["board", "list", "--format", "json"],
@@ -1435,6 +1446,32 @@ def serial_ports():
 _monitor_lock = threading.Lock()
 _monitor_serial = None
 _monitor_port: str | None = None
+
+
+# Number of flashes in flight. `board list` opens every serial port to probe
+# it, so it must not run while esptool is trying to connect — see serial_ports().
+# A counter rather than a flag: the show pipeline flashes three times in one
+# request, and nested/overlapping phases must not clear it early.
+_flash_lock = threading.Lock()
+_flash_count = 0
+
+
+def _flash_in_progress() -> bool:
+    with _flash_lock:
+        return _flash_count > 0
+
+
+@contextlib.contextmanager
+def _flashing():
+    """Mark a flash as running for the duration of the block."""
+    global _flash_count
+    with _flash_lock:
+        _flash_count += 1
+    try:
+        yield
+    finally:
+        with _flash_lock:
+            _flash_count -= 1
 
 
 def _release_monitor(port: str) -> bool:
@@ -2286,7 +2323,10 @@ async def upload_show(
                        f"\n*** Provisioner flash failed (exit {rc}) — if it couldn't connect, put "
                        "the board in download mode (hold BOOT, tap RST) and retry ***\n")
                 return
-            ok = yield from _serial_send(port, payloads)
+            # The transfer owns the port for minutes on a full song, so keep
+            # `board list` off it for the whole time — not just during esptool.
+            with _flashing():
+                ok = yield from _serial_send(port, payloads)
             if not ok:
                 yield "\n*** SD transfer failed — not flashing the player ***\n"
                 return

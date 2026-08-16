@@ -166,3 +166,47 @@ def test_release_monitor_closes_a_held_port(fake_serial):
         await body.aclose()
 
     asyncio.run(exercise())
+
+
+def test_board_list_is_skipped_while_a_flash_holds_the_port(client, monkeypatch):
+    # `arduino-cli board list` OPENS every serial port to identify what is on
+    # it, holding each for seconds. Landing inside an esptool connect kills the
+    # flash with a bare "Access is denied" that looks like a stuck monitor, a
+    # wedged driver or a dead board. Measured on 2026-08-16: the probe held
+    # COM4 for ~4s, and the frontend polls this endpoint.
+    monkeypatch.setattr(app, "_ARDUINO_CLI", "/fake/arduino-cli")
+    called = []
+    monkeypatch.setattr(app.subprocess, "run",
+                        lambda *a, **k: called.append(a) or subprocess_result())
+
+    def subprocess_result():
+        class R:
+            returncode = 0
+            stdout = "{}"
+        return R()
+
+    r = client.get("/api/serial/ports")
+    assert r.status_code == 200
+    assert called, "board list should run when nothing is flashing"
+
+    called.clear()
+    with app._flashing():
+        r = client.get("/api/serial/ports")
+        assert r.status_code == 200
+        assert r.json()["ok"] is True
+        assert not called, "board list must not open ports during a flash"
+
+    # And it resumes once the flash finishes.
+    r = client.get("/api/serial/ports")
+    assert called, "board list should resume after the flash"
+
+
+def test_flash_guard_nests_for_the_three_phase_show_upload():
+    # upload-show flashes provisioner, transfers, then flashes the player.
+    # An inner phase finishing must not clear the guard for the outer one.
+    assert app._flash_in_progress() is False
+    with app._flashing():
+        with app._flashing():
+            assert app._flash_in_progress() is True
+        assert app._flash_in_progress() is True, "inner exit must not release the outer guard"
+    assert app._flash_in_progress() is False
