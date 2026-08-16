@@ -22,29 +22,26 @@ for both the new schema and any supported compatibility path.
 This is a public repository. Keep `main` releasable. **These instructions
 override the global cortex / strict-git rules for this repository.**
 
-### Two active lines: `main` (beta) and `Hardware` (1.0.0)
+### `main` is frozen; all work happens on `Hardware`
 
-`main` carries the current public beta. The long-lived `Hardware` branch is
-where the roadmap work lands — the Board node refactor and the rest of
-`roadmap-private.md` — and it is **allowed to break compatibility**, on the
-basis that the beta is a small hardware-testing group.
+**`main` is locked as of 2026-08-17** at the current public beta. Do not commit
+to it — not features, not bug fixes, not documentation — unless the user
+explicitly asks for a beta hotfix and says so in those terms.
 
-Which branch a change belongs on:
+**`Hardware` is the only active line.** It carries the roadmap work (the Board
+node refactor and the rest of `roadmap-private.md`) and is free to break
+compatibility: node types, properties, port ids, and persisted workspace data
+can all be reshaped without a migration path.
 
-- **Breaking changes go to `Hardware` only.** Anything that renames or reshapes
-  node types, properties, port ids, or persisted workspace data. Nothing that
-  would invalidate a beta user's saved project may land on `main`.
-- **Non-breaking changes go to both.** Bug fixes, diagnostics, new nodes,
-  performance, and UI improvements are wanted on `main` so beta users get them,
-  and on `Hardware` so it does not drift. Land on `main` first, then merge
-  `main` into `Hardware` — never the reverse, which would drag breaking work
-  into the beta.
-- **When unsure, treat it as breaking** and put it on `Hardware`. A beta user
-  losing a project costs far more than a fix arriving one release later.
+The two branches are **deliberately isolated**. Do not merge between them in
+either direction. `main` is a frozen record of what the beta testers are
+running, and its value is that it stays exactly that; `Hardware` is free to
+diverge as far as the roadmap needs. If something genuinely must reach beta
+users, that is a decision for the user to make, not a routine merge.
 
-Merge `main` into `Hardware` regularly rather than letting it diverge; the
-longer the gap, the more the Board node refactor conflicts with ordinary beta
-fixes touching the same upload and validation paths.
+Note that `main`'s own copy of this file still describes the earlier
+merge-both-ways policy, because it was frozen before this correction landed.
+`Hardware` is authoritative.
 
 - **Use plain `git`** (`git add`, `git commit`, `git push`, `git pull`). Do **not**
   use `cortex git` here.
