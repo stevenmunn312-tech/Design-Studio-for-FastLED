@@ -98,7 +98,12 @@ export function generatePlayerSketch(
   // `audioEnvelope`: the .show carries a baked bass/mids/treble track (see
   // bakeEnvelope) and the collected patterns were compiled with externalAudio,
   // so the player hosts the _audio* globals and feeds them from the track.
-  opts: { audioEnvelope?: boolean } = {},
+  // `preferredTrack`: the safe title this sketch was generated for, without
+  // extension. The card outlives any single upload, so choosing "the first mp3
+  // in /music" can play a song left over from an earlier session — paired with
+  // that song's show, which makes the mismatch look like a sync bug rather
+  // than the wrong file.
+  opts: { audioEnvelope?: boolean; preferredTrack?: string } = {},
 ): string {
   const raw = { ...DEFAULTS, ...cfg }
   const c = {
@@ -411,6 +416,9 @@ ${isHub75 ? '' : `#define LED_DATA_PIN  ${c.ledDataPin}\n`}${clockPinDefine}#def
 #define HEIGHT        ${c.ledHeight}
 #define NUM_LEDS      ${numLeds}
 #define SD_CS         ${c.sdCsPin}
+// Safe title (no extension) of the track this sketch was built for. Empty when
+// the payload had none, in which case the loader falls back to scanning.
+static const char* PREFERRED_TRACK = ${JSON.stringify(opts.preferredTrack ?? '')};
 ${internalDac ? '' : `#define I2S_BCLK      ${c.i2sBclk}\n#define I2S_LRC       ${c.i2sLrc}\n#define I2S_DOUT      ${c.i2sDout}\n`}
 
 // ── Show file binary format ───────────────────────────────────────────────────
@@ -594,20 +602,44 @@ ${ledSetupLines}
   ${internalDac ? '' : 'audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);'}
   audio.setVolume(${c.maxVolume});
 
-  // Play the first .mp3 found in /music/
-  File root = SD.open("/music");
-  File entry = root.openNextFile();
-  while (entry) {
-    String name = entry.name();
-    if (name.endsWith(".mp3") || name.endsWith(".MP3")) {
-      String showPath = "/shows/" + name.substring(0, name.lastIndexOf('.')) + ".show";
-      loadShowFile(showPath.c_str());
-      audio.connecttoFS(SD, ("/music/" + name).c_str());
-      Serial.printf("Playing: %s\\n", name.c_str());
-      break;
+  // Play the track this sketch was generated for.
+  bool started = false;
+  if (PREFERRED_TRACK[0]) {
+    String mp3  = String("/music/") + PREFERRED_TRACK + ".mp3";
+    String show = String("/shows/") + PREFERRED_TRACK + ".show";
+    if (SD.exists(mp3.c_str()) && SD.exists(show.c_str())) {
+      loadShowFile(show.c_str());
+      audio.connecttoFS(SD, mp3.c_str());
+      Serial.printf("Playing: %s\\n", mp3.c_str());
+      started = true;
+    } else {
+      Serial.printf("Expected track missing: %s\\n", mp3.c_str());
     }
-    entry = root.openNextFile();
   }
+
+  // Fallback: first .mp3 that has a matching .show. Requiring the pair matters
+  // — an .mp3 left on the card by an earlier session has no show of its own,
+  // and playing it would run the wrong audio against whatever show did load.
+  if (!started) {
+    File root = SD.open("/music");
+    File entry = root.openNextFile();
+    while (entry) {
+      String name = entry.name();
+      if (name.endsWith(".mp3") || name.endsWith(".MP3")) {
+        String showPath = "/shows/" + name.substring(0, name.lastIndexOf('.')) + ".show";
+        if (SD.exists(showPath.c_str())) {
+          loadShowFile(showPath.c_str());
+          audio.connecttoFS(SD, ("/music/" + name).c_str());
+          Serial.printf("Playing (fallback): %s\\n", name.c_str());
+          started = true;
+          break;
+        }
+        Serial.printf("Skipping %s — no matching show\\n", name.c_str());
+      }
+      entry = root.openNextFile();
+    }
+  }
+  if (!started) Serial.println("No playable track found on the card");
 }
 
 // ── Loop ──────────────────────────────────────────────────────────────────────

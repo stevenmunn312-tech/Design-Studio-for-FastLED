@@ -63,7 +63,14 @@ export function buildShowPayload(
   const renderers = patternSet && patternSet.length > 0
     ? buildPatternRenderers(patternSet, groups, roleParams, bakedAudio, { beat: '(flashLevel > 0.01f)' })
     : undefined
-  const player = generatePlayerSketch(playerConfigFromGraph(nodes), renderers, { audioEnvelope: bakedAudio && !!renderers })
+  // Name the track the player should open. Without it the sketch scans /music
+  // and takes whatever sorts first, which on a card carrying files from an
+  // earlier session is somebody else's song — and its show, so the result
+  // looks like broken sync rather than the wrong file.
+  const player = generatePlayerSketch(playerConfigFromGraph(nodes), renderers, {
+    audioEnvelope: bakedAudio && !!renderers,
+    preferredTrack: safeTitle(done[0].show!.songTitle),
+  })
 
   const files: ShowUploadFile[] = []
   for (const e of done) {

@@ -129,6 +129,34 @@ describe('playerConfigFromGraph', () => {
   })
 })
 
+describe('generatePlayerSketch track selection', () => {
+  it('opens the track it was generated for rather than scanning', () => {
+    // Hardware, 2026-08-16: the card still held a song from an earlier session
+    // that sorted first, so the player loaded that pair instead of the freshly
+    // provisioned one — silent output that looked like an I2S wiring fault.
+    const ino = generatePlayerSketch({}, undefined, { preferredTrack: 'Uplifting Trance' })
+    expect(ino).toContain('static const char* PREFERRED_TRACK = "Uplifting Trance"')
+    expect(ino).toContain('String("/music/") + PREFERRED_TRACK + ".mp3"')
+    // Both halves of the pair must exist before it commits to them.
+    expect(ino).toContain('SD.exists(mp3.c_str()) && SD.exists(show.c_str())')
+    expect(ino).toContain('Expected track missing')
+  })
+
+  it('falls back only to an mp3 that has a matching show', () => {
+    // A stray mp3 with no show of its own must be skipped, not played against
+    // whatever show happened to load.
+    const ino = generatePlayerSketch()
+    expect(ino).toContain('static const char* PREFERRED_TRACK = ""')
+    expect(ino).toContain('no matching show')
+    expect(ino).toContain('No playable track found on the card')
+  })
+
+  it('escapes a title that would otherwise break the C string', () => {
+    const ino = generatePlayerSketch({}, undefined, { preferredTrack: 'He said "hi"' })
+    expect(ino).toContain('PREFERRED_TRACK = "He said \\"hi\\""')
+  })
+})
+
 describe('generatePlayerSketch audio output', () => {
   it('defaults to I2S: pinout call, pin defines, no internal-DAC call', () => {
     const ino = generatePlayerSketch()
