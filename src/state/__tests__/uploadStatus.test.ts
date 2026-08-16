@@ -77,4 +77,24 @@ describe('parseStatus', () => {
     expect(s.phase).toBe('done')
     expect(s.message).toBe('Done · flash 96% ⚠')
   })
+
+  it('names a refused build rather than reporting a generic error', () => {
+    // Builds share one project directory and are serialized, so a request can
+    // be refused with nothing compiled. Saying "Error — see output" sends the
+    // user to inspect a graph that is fine; the actionable fact is that
+    // something else is building and they should retry.
+    const log =
+      '=== ✗ Sketch: another fbuild build is still running (waited 180s) ===\n' +
+      '  Nothing was compiled or sent to the board — your sketch is fine.\n' +
+      '*** DID NOT RUN *** Another build was already using the build directory.\n'
+    const s = parseStatus(log)
+    expect(s.phase).toBe('error')
+    expect(s.message).toBe('Another build is running — try again')
+  })
+
+  it('still reports a real compile failure as an error', () => {
+    // The rule above must not swallow genuine failures.
+    const log = '=== Sketch · compile ===\nerror: expected \';\'\n[Sketch · compile exit code: 1]\n'
+    expect(parseStatus(log)).toEqual({ phase: 'error', message: 'Error — see output' })
+  })
 })

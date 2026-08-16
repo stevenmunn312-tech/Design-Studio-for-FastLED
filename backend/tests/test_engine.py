@@ -350,13 +350,17 @@ def test_compile_upload_fbuild_fails_fast_when_lock_is_wedged(monkeypatch):
     # — the UI just showed "Starting…" indefinitely with zero output and no
     # error. A bounded acquire must fail fast with a clear message instead.
     monkeypatch.setattr(app, "_FBUILD_LOCK_TIMEOUT_S", 0.05)
-    app._fbuild_build_lock.acquire()  # simulate another build already wedged
+    monkeypatch.setattr(app, "_FBUILD_LOCK_STALE_S", 60)  # not old enough to reclaim
+    held = app._fbuild_build_lock.acquire(1, 60)  # simulate another build already wedged
     try:
         lines = list(app._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", ""))
     finally:
-        app._fbuild_build_lock.release()
+        app._fbuild_build_lock.release(held)
 
-    assert any("stuck" in line.lower() or "restart the helper" in line.lower() for line in lines)
+    log = "".join(lines)
+    assert "still running" in log
+    # It must not read as a problem with the user's graph: nothing was built.
+    assert "your sketch is fine" in log
 
 
 def test_compile_upload_fbuild_releases_lock_after_a_failed_build(monkeypatch):
@@ -368,8 +372,9 @@ def test_compile_upload_fbuild_releases_lock_after_a_failed_build(monkeypatch):
 
     list(app._compile_upload_fbuild("Test", "void setup(){}", "someone:elses:board", ""))
 
-    assert app._fbuild_build_lock.acquire(timeout=1)
-    app._fbuild_build_lock.release()
+    token = app._fbuild_build_lock.acquire(1, 60)
+    assert token is not None
+    app._fbuild_build_lock.release(token)
 
 
 def test_compile_upload_fbuild_vendors_hub75_lib_only_when_sketch_needs_it(monkeypatch):
@@ -465,3 +470,76 @@ def test_drain_compile_collects_lines_and_return_value():
 
     assert lines == ["a\n", "b\n"]
     assert result == (0, "compile")
+
+
+# The fbuild build lock has to survive its holder being abandoned. The holder is
+# a generator, and a generator's `finally` only runs on exhaustion, close, or
+# GC — so a client that stops consuming an upload stream leaves the lock held
+# with nothing running. Observed on 2026-08-16 during classic-ESP32 bring-up.
+
+
+def test_build_lock_grants_and_releases_by_token():
+    lock = app._FbuildBuildLock()
+    token = lock.acquire(1, 60)
+    assert token is not None
+    assert lock.acquire(0.05, 60) is None  # held
+    lock.release(token)
+    assert lock.acquire(0.05, 60) is not None
+
+
+def test_build_lock_ignores_release_from_a_reclaimed_holder():
+    # The abandoned generator may still be collected later and call release().
+    # If that freed the *new* holder's lock, two builds could share one project
+    # directory — the exact corruption the lock exists to prevent.
+    lock = app._FbuildBuildLock()
+    stale = lock.acquire(1, 60)
+    reclaimed = lock.acquire(1, 0)  # stale_after=0 → immediately reclaimable
+    assert reclaimed is not None and reclaimed != stale
+
+    lock.release(stale)  # late release from the abandoned holder
+    assert lock.acquire(0.05, 60) is None, "reclaimed lock must still be held"
+
+    lock.release(reclaimed)
+    assert lock.acquire(0.05, 60) is not None
+
+
+def test_build_lock_does_not_steal_from_a_holder_that_is_still_working():
+    # A slow build that keeps emitting output must never be reclaimed, however
+    # impatient the waiter is.
+    lock = app._FbuildBuildLock()
+    token = lock.acquire(1, 60)
+    assert token is not None
+    time.sleep(0.05)
+    lock.touch()
+    assert lock.acquire(0.05, 0.5) is None
+    assert lock.seconds_since_progress() < 0.5
+    lock.release(token)
+
+
+def test_build_lock_reclaims_a_holder_that_has_gone_silent():
+    lock = app._FbuildBuildLock()
+    abandoned = lock.acquire(1, 60)
+    assert abandoned is not None
+    time.sleep(0.12)
+    # No touch() since acquire — the holder is not executing.
+    assert lock.acquire(1, 0.1) is not None
+
+
+def test_build_lock_touch_is_a_noop_when_unheld():
+    # `_run_phase` is shared with the arduino-cli path, which takes no lock.
+    lock = app._FbuildBuildLock()
+    lock.touch()
+    assert lock.seconds_since_progress() is None
+
+
+def test_stale_threshold_exceeds_the_wait_timeout():
+    # A single impatient waiter must never be able to reclaim: only a holder
+    # silent for longer than anyone is willing to wait counts as abandoned.
+    assert app._FBUILD_LOCK_STALE_S > app._FBUILD_LOCK_TIMEOUT_S
+
+
+def test_busy_result_does_not_blame_the_sketch():
+    lines = "".join(app._upload_result_lines(-1, "busy", "COM8"))
+    assert "DID NOT RUN" in lines
+    assert "didn't compile" not in lines
+    assert "UPLOAD FAILED" not in lines

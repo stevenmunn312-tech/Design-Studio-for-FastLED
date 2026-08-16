@@ -311,7 +311,83 @@ _fbuild_project_ready = False
 # failure that a caller could easily misread as a real capacity overflow.
 # Every `_compile_upload_fbuild` run holds this for its whole duration so
 # fbuild compiles are always serialized project-wide.
-_fbuild_build_lock = threading.Lock()
+class _FbuildBuildLock:
+    """Serialises fbuild runs project-wide, and survives an abandoned holder.
+
+    Not a bare `threading.Lock`, because the holder is a **generator**:
+    `_compile_upload_fbuild` acquires on entry and releases in a `finally`, and
+    a generator's `finally` only runs on exhaustion, close, or garbage
+    collection. A client that stops consuming an upload stream leaves that
+    generator suspended at a `yield` *still holding the lock*, with no
+    subprocess running and nothing to release it — every later build then waits
+    the full timeout and fails, with the helper otherwise perfectly healthy.
+    Observed on 2026-08-16 during classic-ESP32 bring-up.
+
+    Two properties fix that:
+
+    * **Progress stamping.** `touch()` is called for every chunk a running
+      build emits, so "is anyone actually working?" is answerable. Only the
+      true holder can stamp: a suspended generator is not executing at all.
+    * **Reclaim on staleness.** A waiter may take a lock whose holder has
+      emitted nothing for `_FBUILD_LOCK_STALE_S`. That is deliberately longer
+      than the wait timeout, so a slow-but-live build is never stolen from by
+      the first waiter that runs out of patience — it is only reclaimed once
+      it has been silent for twice as long as anyone is willing to wait.
+
+    Release is token-checked. When a stale lock is reclaimed the original
+    holder may still be collected later and call `release()`; without the token
+    that stale call would free the *new* holder's lock and reintroduce exactly
+    the concurrent-scaffold corruption this exists to prevent.
+    """
+
+    def __init__(self):
+        self._cond = threading.Condition()
+        self._held_by = None
+        self._progress_at = 0.0
+        self._next_token = 1
+
+    def _grant(self):
+        token = self._next_token
+        self._next_token += 1
+        self._held_by = token
+        self._progress_at = time.monotonic()
+        return token
+
+    def acquire(self, timeout, stale_after):
+        """Token on success, None if the wait timed out. Never blocks forever."""
+        deadline = time.monotonic() + timeout
+        with self._cond:
+            while True:
+                if self._held_by is None:
+                    return self._grant()
+                if time.monotonic() - self._progress_at >= stale_after:
+                    self._held_by = None
+                    return self._grant()
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return None
+                self._cond.wait(min(remaining, 1.0))
+
+    def release(self, token):
+        with self._cond:
+            if self._held_by != token:
+                return  # stale holder, already reclaimed — must not free the new one
+            self._held_by = None
+            self._cond.notify_all()
+
+    def touch(self):
+        """Stamp progress. A no-op when unheld, so the arduino-cli path (which
+        shares `_run_phase` but takes no lock) costs nothing."""
+        with self._cond:
+            if self._held_by is not None:
+                self._progress_at = time.monotonic()
+
+    def seconds_since_progress(self):
+        with self._cond:
+            return None if self._held_by is None else time.monotonic() - self._progress_at
+
+
+_fbuild_build_lock = _FbuildBuildLock()
 
 # A build can legitimately run long (a cold toolchain/library clone), but if
 # one is ever genuinely wedged (a hung subprocess, an interrupted git clone
@@ -322,6 +398,13 @@ _fbuild_build_lock = threading.Lock()
 # stuck build fails fast and visibly rather than silently wedging everything
 # that comes after it.
 _FBUILD_LOCK_TIMEOUT_S = 180
+
+# How long a holder must emit nothing before a waiter may take the lock from
+# it. Deliberately longer than the wait above: a build that is merely slow gets
+# more rope than any single waiter has patience for, so the first request to
+# time out never steals from live work — only a holder that has been silent for
+# twice that long is treated as abandoned.
+_FBUILD_LOCK_STALE_S = _FBUILD_LOCK_TIMEOUT_S * 2
 
 
 def _env_id(base_fqbn: str, psram_id: str | None = None) -> str:
@@ -624,6 +707,11 @@ def _run_phase(label, args, sink=None, cwd=None):
     for line in proc.stdout:
         if sink is not None:
             sink.append(line)
+        # Evidence that this build is alive. Only a running holder reaches here,
+        # so a generator abandoned mid-stream stops stamping and eventually
+        # becomes reclaimable — see `_FbuildBuildLock`. A no-op for the
+        # arduino-cli path, which shares this helper but holds no lock.
+        _fbuild_build_lock.touch()
         yield line
     proc.wait()
     yield f"[{label} exit code: {proc.returncode}]\n"
@@ -903,13 +991,18 @@ def _compile_upload_fbuild(label, ino, fqbn, port):
     unlikely. The acquire is timeout-bounded (see `_FBUILD_LOCK_TIMEOUT_S`)
     so a genuinely wedged build fails fast and visibly instead of silently
     starving every later build/upload/capacity-check request forever."""
-    if not _fbuild_build_lock.acquire(timeout=_FBUILD_LOCK_TIMEOUT_S):
+    token = _fbuild_build_lock.acquire(_FBUILD_LOCK_TIMEOUT_S, _FBUILD_LOCK_STALE_S)
+    if token is None:
         yield (
-            f"\n=== ✗ {label}: another fbuild build has been running for over "
-            f"{_FBUILD_LOCK_TIMEOUT_S}s — it may be stuck. Wait for it to finish, "
-            "or restart the helper to clear it. ===\n"
+            f"\n=== ✗ {label}: another fbuild build is still running (waited "
+            f"{_FBUILD_LOCK_TIMEOUT_S}s) ===\n"
+            "  Builds are serialized because they share one project directory.\n"
+            "  Nothing was compiled or sent to the board — your sketch is fine.\n"
+            "  Wait for the other build to finish and try again; if it never\n"
+            f"  does, it is treated as abandoned after {_FBUILD_LOCK_STALE_S}s and\n"
+            "  the next attempt takes over automatically.\n"
         )
-        return -1, "compile"
+        return -1, "busy"
     try:
         yield from _ensure_fbuild_project()
         if "#include <esp_dmx.h>" in ino:
@@ -983,13 +1076,18 @@ def _compile_upload_fbuild(label, ino, fqbn, port):
             yield "  [engine-gap] fbuild can't flash this board yet. Switch to the arduino-cli engine and try again.\n"
         return rc, "upload"
     finally:
-        _fbuild_build_lock.release()
+        _fbuild_build_lock.release(token)
 
 
 def _upload_result_lines(rc, phase, port):
     """Shared status messaging after a compile/upload run, whichever engine ran it."""
     if rc == 0 and port:
         yield "\nUpload complete.\n"
+    elif phase == "busy":
+        # Never blame the sketch here: nothing was compiled. Saying "the sketch
+        # didn't compile" sends the user to inspect a graph that is fine.
+        yield ("\n*** DID NOT RUN *** Another build was already using the build "
+               "directory. Nothing was compiled or sent to the board.\n")
     elif rc != 0 and phase == "compile":
         yield (f"\n*** BUILD FAILED (exit code {rc}) *** The sketch didn't compile, so "
                "nothing was sent to the board — see the errors above.\n")

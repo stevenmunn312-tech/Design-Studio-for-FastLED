@@ -157,6 +157,13 @@ export function parseStatus(log: string): UploadStatus {
   if (/\[size-error\]/.test(log)) {
     return { phase: 'error', message: "Won't fit — too big for this board" }
   }
+  // Builds are serialized on one shared project directory, so a request can be
+  // refused without anything being compiled. That is not a build error and the
+  // sketch is fine — checked before the generic rule below so it can say what
+  // actually happened and what to do, rather than "Error — see output".
+  if (/\*\*\* DID NOT RUN \*\*\*/.test(log)) {
+    return { phase: 'error', message: 'Another build is running — try again' }
+  }
   if (/\*\*\* FAILED|\*\*\* .*failed|\[error\]|exit code: [1-9]/i.test(log)) {
     return { phase: 'error', message: 'Error — see output' }
   }
