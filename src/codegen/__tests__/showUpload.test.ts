@@ -27,6 +27,27 @@ describe('generateProvisionerSketch', () => {
     expect(ino).toContain('Serial.println("DONE")')         // file complete
     expect(ino).toContain('line == "END"')                  // session end
   })
+
+  it('parses PUT on the last space so a path may contain spaces', () => {
+    // Hardware-found, 2026-08-16. `PUT /music/Uplifting Trance.mp3 7505711`
+    // split on the *first* space gave path "/music/Uplifting" and size 0, so
+    // the device opened a truncated file, answered OK, skipped the write loop
+    // and replied DONE — while the host streamed 7.5 MB at a device that had
+    // stopped listening and reported "lost ack at byte 0". Song titles contain
+    // spaces far more often than not, so this broke nearly every real transfer.
+    const ino = generateProvisionerSketch()
+    expect(ino).toContain('line.lastIndexOf(\' \')')
+    expect(ino).not.toContain('line.indexOf(\' \', 4)')
+  })
+
+  it('refuses a PUT whose size did not parse instead of desyncing', () => {
+    // Size 0 means the trailing token was not a number. Accepting it replies
+    // DONE immediately and leaves the host streaming into a device that is
+    // back at the command prompt — a silent desync is much harder to diagnose
+    // than a refusal the host reports as "device refused".
+    const ino = generateProvisionerSketch()
+    expect(ino).toContain('ERR bad-size')
+  })
 })
 
 describe('playerConfigFromGraph', () => {

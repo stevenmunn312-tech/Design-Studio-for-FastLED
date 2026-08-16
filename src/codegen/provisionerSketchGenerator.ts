@@ -15,6 +15,9 @@
 //                   replies "OK", then the host streams <n> bytes in blocks of at
 //                   most PROVISION_CHUNK, the device replying "A" after each block
 //                   is written, and "DONE" once all <n> bytes are stored.
+//                   <path> MAY CONTAIN SPACES — song titles routinely do — so
+//                   the device splits this line on its *last* space. <n> is
+//                   therefore the only field that must be space-free.
 //   END             device replies "BYE"; provisioning is complete.
 //
 // The Python helper (backend/) implements the host side; keep the two in sync.
@@ -82,10 +85,21 @@ void loop() {
   if (line == "PING") {
     Serial.println("READY");
   } else if (line.startsWith("PUT ")) {
-    int sp = line.indexOf(' ', 4);
-    if (sp < 0) { Serial.println("ERR bad-put"); return; }
+    // Split on the LAST space, not the first: the size is a single trailing
+    // token but the path is user-derived and routinely contains spaces
+    // ("/music/Uplifting Trance.mp3"). Splitting on the first space parsed the
+    // path as "/music/Uplifting" and the size as 0, so the device opened a
+    // truncated file, answered OK, skipped the write loop entirely and replied
+    // DONE — while the host streamed megabytes at a device that had stopped
+    // listening, and reported a lost ack at byte 0.
+    int sp = line.lastIndexOf(' ');
+    if (sp < 4) { Serial.println("ERR bad-put"); return; }
     String path = line.substring(4, sp);
     uint32_t size = (uint32_t) strtoul(line.substring(sp + 1).c_str(), nullptr, 10);
+    // A zero size means the size token did not parse. Refusing here surfaces it
+    // as a clean "device refused" on the host; accepting it silently desyncs
+    // the stream, which is far harder to diagnose.
+    if (size == 0) { Serial.println("ERR bad-size"); return; }
 
     ensureDir(path);
     if (SD.exists(path)) SD.remove(path);
