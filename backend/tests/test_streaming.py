@@ -135,3 +135,34 @@ def test_serial_monitor_releases_a_quiet_port_when_cancelled(fake_serial):
 
     port = asyncio.run(drive())
     assert port.closed is True, "the port must be released as soon as the client goes away"
+
+
+def test_release_monitor_closes_a_held_port(fake_serial):
+    # The frontend already aborts the monitor before every upload, but that
+    # abort does not guarantee the helper lets go: Starlette only notices a
+    # dropped client when a body write fails, and a quiet board never causes
+    # one. Reclaiming the handle explicitly is what makes the next flash work.
+    import asyncio
+
+    response = app.serial_monitor("COM7", 115200)
+
+    async def exercise():
+        body = response.body_iterator
+        await body.__anext__()          # "[serial] connected…"
+        port = fake_serial.instances[-1]
+        assert port.closed is False
+
+        assert app._release_monitor("COM9") is False, "must not touch a different port"
+        assert port.closed is False
+        assert app._release_monitor("COM7") is True
+        assert port.closed is True
+        # Idempotent: a second upload must not fail because the first reclaimed it.
+        assert app._release_monitor("COM7") is False
+
+        # The stream notices the closed handle and ends cleanly rather than
+        # raising into the response body.
+        chunk = await body.__anext__()
+        assert b"released for upload" in chunk
+        await body.aclose()
+
+    asyncio.run(exercise())

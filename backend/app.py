@@ -1391,6 +1391,34 @@ def serial_ports():
     return {"ok": True, "ports": sorted(by_addr.values(), key=lambda x: x["address"])}
 
 
+# The active serial monitor's open port, so a flash can reclaim it.
+#
+# Relying on the client disconnect alone does not work: the monitor is a
+# generator, and Starlette only notices a dropped client when a body write
+# fails, so a quiet board can hold the port indefinitely after the browser has
+# aborted. The frontend already calls stopSerial() before every upload — the
+# abort was never the problem, the release was. Tracking the handle here makes
+# reclaiming it explicit rather than a race against disconnect detection.
+_monitor_lock = threading.Lock()
+_monitor_serial = None
+_monitor_port: str | None = None
+
+
+def _release_monitor(port: str) -> bool:
+    """Close the serial monitor if it holds `port`. True if one was closed."""
+    global _monitor_serial, _monitor_port
+    with _monitor_lock:
+        if _monitor_serial is None or _monitor_port != port:
+            return False
+        try:
+            _monitor_serial.close()
+        except Exception:
+            pass
+        _monitor_serial = None
+        _monitor_port = None
+        return True
+
+
 @app.get("/api/serial/monitor")
 def serial_monitor(port: str, baud: int = 115200):
     """Stream text received from a board until the browser disconnects.
@@ -1413,6 +1441,7 @@ def serial_monitor(port: str, baud: int = 115200):
             yield b"[error] pyserial is not installed\n"
             return
 
+        global _monitor_serial, _monitor_port
         ser = None
         try:
             ser = serial.Serial(port, baud, timeout=0.2)
@@ -1420,6 +1449,8 @@ def serial_monitor(port: str, baud: int = 115200):
             # monitoring. Some USB bridges may still pulse them when opened.
             ser.dtr = False
             ser.rts = False
+            with _monitor_lock:
+                _monitor_serial, _monitor_port = ser, port
             yield f"[serial] connected to {port} at {baud} baud\n".encode()
             while True:
                 data = ser.read(ser.in_waiting or 1)
@@ -1431,12 +1462,21 @@ def serial_monitor(port: str, baud: int = 115200):
                 # what a freshly flashed, silent provisioner produced on
                 # 2026-08-16. The empty chunk costs nothing on the wire and
                 # gives the read timeout a chance to release the port.
+                # A closed handle means a flash reclaimed the port (see
+                # _release_monitor); end the stream instead of erroring.
+                if not ser.is_open:
+                    yield b"\n[serial] port released for upload\n"
+                    return
                 yield data if data else b""
         except GeneratorExit:
             return
         except Exception as e:
             yield f"[error] {e}\n".encode(errors="replace")
         finally:
+            with _monitor_lock:
+                if _monitor_serial is ser:
+                    _monitor_serial = None
+                    _monitor_port = None
             if ser is not None and ser.is_open:
                 ser.close()
 
@@ -2030,6 +2070,13 @@ def upload(payload: dict = Body(...)):
     port = (payload.get("port") or "").strip()
     if port and _stream_active() and _stream_port == port:
         return JSONResponse({"ok": False, "error": "port is in use by a live stream — stop it first"}, status_code=409)
+    # A serial monitor on the same port blocks esptool with a bare
+    # PermissionError. The frontend aborts it before every upload, but that
+    # abort alone does not guarantee release — Starlette only notices a dropped
+    # client when a body write fails, and a quiet board never triggers one — so
+    # reclaim the handle explicitly instead of racing disconnect detection.
+    if port:
+        _release_monitor(port)
 
     if engine == "fbuild":
         def stream():
@@ -2136,6 +2183,13 @@ async def upload_show(
     port = (info.get("port") or "").strip()
     if port and _stream_active() and _stream_port == port:
         return JSONResponse({"ok": False, "error": "port is in use by a live stream — stop it first"}, status_code=409)
+    # A serial monitor on the same port blocks esptool with a bare
+    # PermissionError. The frontend aborts it before every upload, but that
+    # abort alone does not guarantee release — Starlette only notices a dropped
+    # client when a body write fails, and a quiet board never triggers one — so
+    # reclaim the handle explicitly instead of racing disconnect detection.
+    if port:
+        _release_monitor(port)
     paths = info.get("paths") or []
     # Read every upload into memory now (sync generator can't await later).
     payloads = []
