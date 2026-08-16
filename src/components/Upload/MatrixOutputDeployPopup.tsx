@@ -10,7 +10,7 @@ import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph } from '../../codegen/streamReceiverGenerator'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
-import { sdCardConnected, readySongCount, buildShowPayload } from '../../utils/showUpload'
+import { readySongCount, buildShowPayload } from '../../utils/showUpload'
 import { findPinConflicts, findMatrixLayoutErrors, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors } from '../../utils/validateGraph'
 import { summarizeCapacity } from '../../utils/capacityFormat'
 import { useCodegenGraph } from '../../utils/codegenGraph'
@@ -290,7 +290,6 @@ export default function MatrixOutputDeployPopup() {
     })()
   }
 
-  const sdConnected = useMemo(() => sdCardConnected(nodes, edges), [nodes, edges])
   const readySongs = readySongCount(entries)
   function handleShowUpload() {
     void (async () => {
@@ -333,8 +332,33 @@ export default function MatrixOutputDeployPopup() {
     : status.phase === 'idle' ? ''
     : styles.stBusy
 
+  // One Upload button, whatever shape the graph is.
+  //
+  // With an SD Card node wired, the board runs the music-sync player rather
+  // than a normal sketch, so uploading means provisioning the card and then
+  // flashing that player. That used to live on a separate "♪ Upload show to SD"
+  // action while Upload itself sat disabled saying "connect a frame" — so the
+  // obvious button was the wrong one, and the right one was easy to miss.
+  const isShowUpload = hasSdCardInput
+  const canUploadNow = isShowUpload
+    ? canShowUpload && readySongs > 0
+    : canBuild
+
+  const uploadTitle =
+    busy ? status.message
+    : isShowUpload
+      ? readySongs === 0
+        ? 'Analyse at least one song in the Music Library first'
+        : blockingErrors.length > 0 ? blockingErrors.join('\n')
+        : readinessIssues.length > 0 ? readinessIssues.join('\n')
+        : `Write ${readySongs} song${readySongs === 1 ? '' : 's'} to the SD card, then flash the player`
+      : !hasFrameInput ? 'Connect a frame to enable upload'
+        : blockingErrors.length > 0 ? blockingErrors.join('\n')
+        : readinessIssues.length > 0 ? readinessIssues.join('\n')
+        : 'Compile & upload to the board'
+
   const uploadLabel =
-    status.phase === 'idle' ? '↑ Upload'
+    status.phase === 'idle' ? (isShowUpload ? `♪ Upload show (${readySongs})` : '↑ Upload')
     : status.phase === 'done' ? '✓ Done'
     : status.phase === 'error' ? '✗ Error'
     : status.message
@@ -421,16 +445,10 @@ export default function MatrixOutputDeployPopup() {
 
         <button
           className={`${styles.wizardButtonBase} ${styles.uploadBtn} ${phaseClass}`}
-          disabled={!canBuild || !uploadReady || busy}
+          disabled={!canUploadNow || !uploadReady || busy}
           aria-busy={busy}
-          onClick={handleUpload}
-          title={
-            busy ? status.message
-            : !hasFrameInput ? 'Connect a frame to enable upload'
-            : blockingErrors.length > 0 ? blockingErrors.join('\n')
-            : readinessIssues.length > 0 ? readinessIssues.join('\n')
-            : 'Compile & upload to the board'
-          }
+          onClick={isShowUpload ? handleShowUpload : handleUpload}
+          title={uploadTitle}
         >
           <span className={busy ? styles.busyText : undefined}>{uploadLabel}</span>
         </button>
@@ -542,25 +560,6 @@ export default function MatrixOutputDeployPopup() {
           >
             {streaming ? `⏹ Streaming — ${streamFps} fps` : '📡 Live Stream'}
           </button>
-
-          {sdConnected && (
-            <button
-              className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
-              disabled={!canShowUpload || !uploadReady || busy || readySongs === 0}
-              onClick={handleShowUpload}
-              title={
-                !hasSdCardInput
-                  ? 'Connect an SD Card node to Matrix Output to enable SD-show upload'
-                  : readinessIssues.length > 0
-                    ? readinessIssues.join('\n')
-                    : readySongs === 0
-                      ? 'Analyse music in the Music Library node first'
-                      : 'Flash the provisioner, write music/show files to SD, then flash the player'
-              }
-            >
-              ♪ Upload show to SD ({readySongs})
-            </button>
-          )}
 
           <button className={`${styles.wizardButtonBase} ${styles.outputBtn}`} onClick={openConsole} title="Show build and serial output">
             ⌗ Output / Serial

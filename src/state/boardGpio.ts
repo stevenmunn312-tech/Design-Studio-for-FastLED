@@ -152,6 +152,19 @@ const ESP32_PINS: BoardPinsOptions = {
 
 const ESP32_GPIO = boardPins(ESP32_PINS)
 
+// WROVER modules wire GPIO16/17 to the on-package PSRAM, so the pads exist on
+// the header and still cannot be used. This is exactly the distinction the
+// plain-ESP32 table cannot make: same silicon, same silkscreen, two pins fewer.
+const ESP32_WROVER_GPIO = boardPins({
+  ...ESP32_PINS,
+  digital: ESP32_PINS.digital.filter((pin) => pin !== 16 && pin !== 17),
+  unavailable: {
+    ...ESP32_PINS.unavailable,
+    16: 'Reserved for the WROVER module’s PSRAM — not usable',
+    17: 'Reserved for the WROVER module’s PSRAM — not usable',
+  },
+})
+
 // 30-pin DOIT-style DevKit v1 around an ESP32-WROOM-32D module (silk "ESP-32D").
 // Its two 15-pin rails carry the classic ESP32's usable pads with one exception:
 // GPIO0 has no header pad — the BOOT button is its only connection — so it is
@@ -456,6 +469,15 @@ const NRF52840_GPIO = boardPins({
 export const BOARD_GPIO_BY_FQBN: Readonly<Record<string, BoardGpio>> = {
   'esp32:esp32:esp32s3': ESP32_S3_GPIO,
   'esp32:esp32:esp32': ESP32_GPIO,
+  // Named boards that also have a physical profile in the Board node. Each
+  // maps to its chip's table; the header differences live in the profile.
+  'esp32:esp32:nodemcu-32s': ESP32_GPIO,
+  'esp32:esp32:esp32wrover': ESP32_WROVER_GPIO,
+  'esp32:esp32:lolin_s2_mini': ESP32_S2_GPIO,
+  'esp32:esp32:lolin_s3': ESP32_S3_GPIO,
+  'esp32:esp32:adafruit_feather_esp32s2': ESP32_S2_GPIO,
+  'esp32:esp32:adafruit_feather_esp32s3': ESP32_S3_GPIO,
+  'esp32:esp32:adafruit_qtpy_esp32s2': ESP32_S2_GPIO,
   'esp32:esp32:esp32doit-devkit-v1': ESP32_DEVKIT_V1_GPIO,
   'esp32:esp32:esp32s2': ESP32_S2_GPIO,
   'esp32:esp32:esp32c3': ESP32_C3_GPIO,

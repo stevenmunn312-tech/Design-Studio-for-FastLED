@@ -139,3 +139,39 @@ describe('uploadStore', () => {
     expect(useUploadStore.getState().selectedPort).toBe('COM4')
   })
 })
+
+describe('board catalogue covers the Board node', () => {
+  it('offers an upload target for every physical board profile', async () => {
+    // The Board node picks a *profile*; upload picks an FQBN. If a profile's
+    // target is missing here, the board can be chosen on the canvas and then
+    // not as an upload target — which reads as a broken board rather than a
+    // gap between two lists.
+    const { BOARDS } = await import('../uploadStore')
+    const { BOARD_PROFILES } = await import('../../build/boardProfiles')
+    const catalogue = new Set(BOARDS.map((b) => b.fqbn))
+
+    const missing = BOARD_PROFILES
+      .flatMap((p) => p.compatibleFqbns)
+      .filter((fqbn) => !catalogue.has(fqbn))
+    expect([...new Set(missing)]).toEqual([])
+  })
+
+  it('carries no duplicate FQBNs', async () => {
+    const { BOARDS } = await import('../uploadStore')
+    const fqbns = BOARDS.map((b) => b.fqbn)
+    expect(new Set(fqbns).size).toBe(fqbns.length)
+  })
+
+  it('only declares PSRAM options the ESP32 core actually exposes', async () => {
+    // Verified against `arduino-cli board details` per board. LOLIN S2 Mini and
+    // LOLIN S3 carry PSRAM on the module but expose no PSRAM menu, so declaring
+    // one would append an option the core rejects and break the upload.
+    const { BOARDS } = await import('../uploadStore')
+    const byFqbn = new Map(BOARDS.map((b) => [b.fqbn, b]))
+    for (const fqbn of ['esp32:esp32:lolin_s2_mini', 'esp32:esp32:lolin_s3', 'esp32:esp32:nodemcu-32s']) {
+      expect(byFqbn.get(fqbn)?.psram, fqbn).toBeUndefined()
+    }
+    expect(byFqbn.get('esp32:esp32:adafruit_feather_esp32s3')?.psram?.map((p) => p.opt))
+      .toEqual(['PSRAM=opi', 'PSRAM=enabled'])
+  })
+})

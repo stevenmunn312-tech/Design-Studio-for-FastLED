@@ -271,3 +271,69 @@ describe('MatrixOutputDeployPopup', () => {
     expect(await findByRole('dialog', { name: 'Hardware validation report' })).toBeTruthy()
   })
 })
+
+describe('MatrixOutputDeployPopup SD-show upload', () => {
+  // With an SD Card node wired, the board runs the music-sync player rather
+  // than a normal sketch. That path used to live on its own button while
+  // Upload sat disabled saying "connect a frame" — so the obvious control was
+  // the wrong one and the right one was easy to miss entirely.
+  function setSdShowGraph() {
+    setMatrixGraph()
+    useGraphStore.setState({
+      nodes: [...useGraphStore.getState().nodes, {
+        id: 'sd', type: 'studioNode', position: { x: 0, y: 0 },
+        data: { label: 'SD Card', nodeType: 'SDCard', category: 'show', properties: {}, inputs: [], outputs: [] },
+      }] as never[],
+      edges: [{ id: 'e1', source: 'sd', target: 'matrix', sourceHandle: 'sdcard', targetHandle: 'sdcard' }] as never[],
+    })
+  }
+
+  beforeEach(() => {
+    localStorage.clear()
+    setSdShowGraph()
+    useMusicStore.setState({ entries: [] })
+    useProjectStore.setState({ projects: [], currentProjectId: '', recentProjectIds: [] })
+    useStreamStore.setState({ streaming: false, fps: 0, error: '', start: vi.fn(), stop: vi.fn() })
+    useUploadStore.setState({
+      helper: { ok: true, arduinoCli: true, engine: 'fbuild', fbuild: true } as never,
+      installedCores: ['esp32:esp32'],
+      selectedFqbn: 'esp32:esp32:esp32', selectedPort: 'COM4',
+      ports: [{ address: 'COM4', label: 'COM4', protocol: 'serial', boards: [] }] as never,
+      busy: false, status: { phase: 'idle', message: '' },
+      codeViewOpen: false, deployPopupOpen: true,
+      refreshHelper: vi.fn(), refreshPorts: vi.fn(), installCore: vi.fn(),
+      openBoardPopup: vi.fn(), openCliPopup: vi.fn(), openConsole: vi.fn(),
+      openCodeView: vi.fn(), closeDeployPopup: vi.fn(),
+      runUpload: vi.fn(), runLastUpload: vi.fn(), runShowUpload: vi.fn(), exportIno: vi.fn(),
+    })
+  })
+
+  it('drops the separate show-upload button', async () => {
+    const showUpload = await import('../../../utils/showUpload')
+    vi.mocked(showUpload.readySongCount).mockReturnValue(2)
+    const { queryByRole } = render(<MatrixOutputDeployPopup />)
+    expect(queryByRole('button', { name: /Upload show to SD/i })).toBeNull()
+  })
+
+  it('turns the main Upload button into the show upload', async () => {
+    const showUpload = await import('../../../utils/showUpload')
+    vi.mocked(showUpload.readySongCount).mockReturnValue(2)
+    const { getByRole } = render(<MatrixOutputDeployPopup />)
+
+    const btn = getByRole('button', { name: /Upload show/i }) as HTMLButtonElement
+    expect(btn.disabled).toBe(false)
+    // It must not say "connect a frame": an SD show has no frame by design.
+    expect(btn.title).not.toMatch(/Connect a frame/i)
+    expect(btn.title).toMatch(/SD card/i)
+  })
+
+  it('explains an unanalysed library instead of just disabling itself', async () => {
+    const showUpload = await import('../../../utils/showUpload')
+    vi.mocked(showUpload.readySongCount).mockReturnValue(0)
+    const { getByRole } = render(<MatrixOutputDeployPopup />)
+
+    const btn = getByRole('button', { name: /Upload show/i }) as HTMLButtonElement
+    expect(btn.disabled).toBe(true)
+    expect(btn.title).toMatch(/Analyse at least one song/i)
+  })
+})

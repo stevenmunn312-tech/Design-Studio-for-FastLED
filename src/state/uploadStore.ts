@@ -67,6 +67,35 @@ export const BOARDS: Board[] = [
   { label: 'ESP32-C3',      fqbn: 'esp32:esp32:esp32c3',   core: 'esp32:esp32',   thirdParty: true },
   { label: 'ESP32-C6',      fqbn: 'esp32:esp32:esp32c6',   core: 'esp32:esp32',   thirdParty: true },
   { label: 'ESP32-H2',      fqbn: 'esp32:esp32:esp32h2',   core: 'esp32:esp32',   thirdParty: true },
+
+  // Named boards that have a physical profile in the Board node. The two lists
+  // have to agree: a board offered on the canvas but absent here can be chosen
+  // as a design target and then not as an upload target, which reads as a bug.
+  // `uploadStore.test.ts` asserts every profile FQBN resolves to an entry.
+  //
+  // The PSRAM options below are what `arduino-cli board details` actually
+  // reports per board, not what the module datasheet implies — LOLIN's two
+  // carry PSRAM yet expose no PSRAM menu at all, and inventing one would append
+  // an option the core rejects.
+  { label: 'NodeMCU-32S',   fqbn: 'esp32:esp32:nodemcu-32s', core: 'esp32:esp32', thirdParty: true },
+  // Listed by the ESP32-DevKitC V4 profile, which ships in WROOM and WROVER
+  // builds. No PSRAM menu: the WROVER board definition enables it inherently.
+  { label: 'ESP32 Wrover Module', fqbn: 'esp32:esp32:esp32wrover', core: 'esp32:esp32', thirdParty: true },
+  { label: 'LOLIN S2 Mini', fqbn: 'esp32:esp32:lolin_s2_mini', core: 'esp32:esp32', thirdParty: true },
+  { label: 'LOLIN S3',      fqbn: 'esp32:esp32:lolin_s3',   core: 'esp32:esp32',   thirdParty: true },
+  { label: 'Adafruit Feather ESP32-S2', fqbn: 'esp32:esp32:adafruit_feather_esp32s2', core: 'esp32:esp32', thirdParty: true,
+    psram: [{ id: 'qspi', label: 'QSPI (2 MB)', opt: 'PSRAM=enabled' }],
+  },
+  { label: 'Adafruit Feather ESP32-S3', fqbn: 'esp32:esp32:adafruit_feather_esp32s3', core: 'esp32:esp32', thirdParty: true,
+    psram: [
+      { id: 'opi',  label: 'OPI',                    opt: 'PSRAM=opi' },
+      { id: 'qspi', label: 'QSPI (2 MB, stock part)', opt: 'PSRAM=enabled' },
+    ],
+  },
+  { label: 'Adafruit QT Py ESP32-S2', fqbn: 'esp32:esp32:adafruit_qtpy_esp32s2', core: 'esp32:esp32', thirdParty: true,
+    psram: [{ id: 'qspi', label: 'QSPI (2 MB)', opt: 'PSRAM=enabled' }],
+  },
+
   { label: 'ESP8266',       fqbn: 'esp8266:esp8266:nodemcuv2', core: 'esp8266:esp8266', thirdParty: true },
   { label: 'Arduino Uno',   fqbn: 'arduino:avr:uno',       core: 'arduino:avr' },
   { label: 'Arduino Nano',  fqbn: 'arduino:avr:nano',      core: 'arduino:avr' },

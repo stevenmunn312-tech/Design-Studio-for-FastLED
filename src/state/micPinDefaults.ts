@@ -23,11 +23,24 @@ const ESP32_S3_PINS: MicI2sPins = { i2sWs: 39, i2sSck: 40, i2sSd: 41 }
 /** Classic ESP32: all ADC1, so no Wi-Fi conflict; SD lands on input-only 34. */
 const ESP32_CLASSIC_PINS: MicI2sPins = { i2sWs: 32, i2sSck: 33, i2sSd: 34 }
 
+/** ESP32-S2: the same trio the plain S2 entry uses, named for reuse below. */
+const ESP32_S2_PINS: MicI2sPins = { i2sWs: 33, i2sSck: 34, i2sSd: 35 }
+
 export const MIC_PIN_DEFAULTS_BY_FQBN: Readonly<Record<string, MicI2sPins>> = {
   'esp32:esp32:esp32s3': ESP32_S3_PINS,
   'esp32:esp32:esp32': ESP32_CLASSIC_PINS,
   'esp32:esp32:esp32doit-devkit-v1': ESP32_CLASSIC_PINS,
-  'esp32:esp32:esp32s2': { i2sWs: 33, i2sSck: 34, i2sSd: 35 },
+  'esp32:esp32:esp32s2': ESP32_S2_PINS,
+  // Named boards that also have a Board-node profile. They share their chip's
+  // defaults; where a board cannot actually reach those pins the Board node's
+  // own pin-safety data is what catches it, not this table.
+  'esp32:esp32:nodemcu-32s': ESP32_CLASSIC_PINS,
+  'esp32:esp32:esp32wrover': ESP32_CLASSIC_PINS,
+  'esp32:esp32:lolin_s2_mini': ESP32_S2_PINS,
+  'esp32:esp32:lolin_s3': ESP32_S3_PINS,
+  'esp32:esp32:adafruit_feather_esp32s2': ESP32_S2_PINS,
+  'esp32:esp32:adafruit_feather_esp32s3': ESP32_S3_PINS,
+  'esp32:esp32:adafruit_qtpy_esp32s2': ESP32_S2_PINS,
   'esp32:esp32:esp32c3': { i2sWs: 4, i2sSck: 6, i2sSd: 7 },
   'esp32:esp32:esp32c6': { i2sWs: 18, i2sSck: 19, i2sSd: 20 },
   'esp32:esp32:esp32h2': { i2sWs: 10, i2sSck: 11, i2sSd: 12 },
