@@ -66,7 +66,15 @@ build/architecture overview aimed at contributors.
     *profile* rather than a chip target, a capability model that separates
     audio source from schedule source, and the `route` attachment between
     outputs and the board.
+  - [Hardware nodes](development/design/hardware-nodes.md)
+    — the `Hardware` branch's model: parts attach to the Board with an
+    `attach` edge and take their pins from it, each names its exact module,
+    and a capability node (Audio, later Storage) abstracts *what the board can
+    do* from *which part does it*.
 - [Plans](development/plans/)
+  - [Hardware branch todo](development/plans/hardware-todo.md)
+    — running order and state for the 1.0.0 hardware work, plus the
+    unresolved bench findings carried over from validation.
   - [Node review findings](development/plans/node-todo.md)
     — the category-by-category control, validation, evaluator, and codegen
     audit, including completed fixes and retained follow-ups.
