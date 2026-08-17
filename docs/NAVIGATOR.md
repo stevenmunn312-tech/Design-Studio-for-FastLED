@@ -67,10 +67,11 @@ build/architecture overview aimed at contributors.
     audio source from schedule source, and the `route` attachment between
     outputs and the board.
   - [Hardware nodes](development/design/hardware-nodes.md)
-    — the `Hardware` branch's model: parts attach to the Board with an
-    `attach` edge and take their pins from it, each names its exact module,
-    and a capability node (Audio, later Storage) abstracts *what the board can
-    do* from *which part does it*.
+    — the `Hardware` branch's model: one component, two views. A hardware pane
+    shows the board with its parts and is the only place hardware comes into
+    existence; the graph shows just the parts that carry signal. Parts take
+    their pins from the board on creation, and a capability node (Audio, later
+    Storage) abstracts *what the board can do* from *which part does it*.
 - [Plans](development/plans/)
   - [Hardware branch todo](development/plans/hardware-todo.md)
     — running order and state for the 1.0.0 hardware work, plus the

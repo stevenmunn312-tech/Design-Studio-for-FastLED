@@ -7,6 +7,10 @@ is the running order and the state of each piece.
 
 `main` is frozen — nothing here goes to the beta.
 
+Sequenced so the two-view model is proven end to end on a small surface before
+anything migrates onto it. Phase 1 is deliberately narrow: board plus LED
+outputs only, but complete enough to answer whether the split works.
+
 ## Done
 
 - [x] **Board node, non-breaking half.** Singleton node selecting a board
@@ -17,74 +21,82 @@ is the running order and the state of each piece.
 - [x] **Amplifier split out of SD Card.** `i2sBclk`/`i2sLrc`/`i2sDout` moved to
   a portless `Amplifier` node with a `model` property. Breaking, no migration.
 
-## Next — attachment model
+## Phase 1 — prove the two-view model
 
-The port model is the piece everything else hangs off, so it goes first.
+Board and LED outputs only. Enough to know whether the split works before
+committing the rest of the hardware to it.
 
-- [ ] **`attach` edge type.** Part → Board, one hop, rejected anywhere else.
-  Decide the visual treatment; it must not read as signal flow.
-- [ ] **Dynamic attachment ports on the Board node.** Grows with what is
-  attached. Prototype the readability of eight attached parts before
-  committing — open question 3 in the design note.
-- [ ] **Pins default from the board on attach.** Reads
-  `commonPeripheralStartingPoints`. Only ever overwrites pins the user has not
-  edited, matching `retargetedMicPins`. This is the payoff of the whole
-  exercise — it is what prevents the amp-pin class of bug.
-- [ ] **Retire the scan-based lookup.** `playerConfigFromGraph` and the Board
-  node currently find each other by scanning; once attachment exists they
-  should follow the edge, so an unattached part is visibly unattached.
+- [ ] **Split canvas with a resizeable divider.** Graph above, hardware below.
+  Must collapse to nothing — the supported minimum is 1280×720.
+- [ ] **Hardware view: board + auto-radial layout.** Not draggable. Parts are
+  placed and connected by the view.
+- [ ] **"Add hardware" action** in the hardware pane, replacing hardware entries
+  in the node library.
+- [ ] **Creating a part creates its graph node**, already carrying pins from the
+  board profile. This is the whole point — see the design note.
+- [ ] **Remove LED output from the node library.** First test of "hardware only
+  exists via the hardware view".
+- [ ] **Deletion semantics.** Graph delete disconnects; hardware view removes.
+- [ ] **Empty state with no board chosen**, in both panes.
 
-## Then — parts and identity
+Decision gate: does the split earn its screen space? If the hardware pane feels
+like overhead at this size, stop and reconsider before migrating anything else.
 
-- [ ] **Part dropdown per hardware node.** INMP441, MAX98357A, and so on.
-  Drives pin roles, thumbnail, and part-specific caveats.
-- [ ] **Part catalogue.** Where do part definitions live? Probably the same
-  shape as `boardProfiles.ts` — id, label, pin roles, render, notes.
-- [ ] **Module thumbnails.** Small image in the existing `NodePreview` slot.
-  Needs renders; the Blender asset pipeline already produces board renders and
-  the Build Diagram already draws INMP441 and 74AHCT125 graphics.
-- [ ] **`Microphone` node.** Replaces `MicInput` as a hardware part with no
-  signal output. Open question 4: rename or new type.
+## Phase 2 — LED output forms
 
-## Then — the Audio capability
+- [ ] **`form` property** — strip / matrix / ring / HUB75 — replacing the
+  overloaded `layout` + `chipset` combination.
+- [ ] **Four sidebar entries** that each create the node pre-set to a form.
+- [ ] **Ring form + XY mapping.** LED count, start angle, direction.
+- [ ] **In-graph preview in the output's own shape.** A ring draws a ring.
+- [ ] **Stage becomes the audience view** — lights only.
+- [ ] Decide the rename: `MatrixOutput` → `LED Output` (open question 2).
+
+## Phase 3 — migrate the remaining parts
+
+Once the pattern is proven, everything physical moves to the hardware view.
+
+- [ ] **Microphone** (replaces `MicInput`), **Button**, **Pot**, **Encoder** —
+  appear in both views.
+- [ ] **Amplifier**, **SD Card**, **Board** — hardware view only, no graph node.
+- [ ] **Part dropdown per component** (INMP441, MAX98357A, …) driving pin roles,
+  thumbnail and caveats.
+- [ ] **Part catalogue.** Probably the same shape as `boardProfiles.ts` — id,
+  label, pin roles, render, notes.
+- [ ] **Module thumbnails** in the graph's preview slot; full renders in the
+  hardware view. The Blender pipeline already produces board renders and the
+  Build Diagram already draws INMP441 and 74AHCT125 graphics.
+- [ ] **Retarget pins on board change**, touching only unedited pins.
+
+## Phase 4 — the Audio capability
 
 - [ ] **`Audio` node.** Source dropdown over the board's capabilities, honest
   empty state, defaults to the only attached source.
-- [ ] **Analysis nodes consume it through ports.** `FFTAnalyzer`,
+- [ ] **Analysis nodes consume it through ports** — `FFTAnalyzer`,
   `BeatDetect`, `PercussionDetect`, `AudioFeatures` stop reading
   `useAudioStore.getState()` ambiently.
 - [ ] **Decoder tap.** The source that does not exist yet: the board plays a
   track and analyses its own PCM before the DAC. Unlocks generative shows
-  running against real music without a microphone.
-- [ ] **Line in.** Required, not optional, because a self-contained player
-  module cannot be decoder-tapped.
-
-## Then — LED outputs
-
-- [ ] **`form` property on the output node** — strip / matrix / ring / HUB75 —
-  replacing the overloaded `layout` + `chipset` combination.
-- [ ] **Four sidebar entries** that each drop the node pre-set to a form.
-- [ ] **Ring form.** New XY mapping: LED count, start angle, direction.
-- [ ] **In-node previews in the output's own shape.** A ring draws a ring.
-  Side panel stays — different job.
+  running against real music with no microphone.
+- [ ] **Line in.** Required rather than optional, because a self-contained
+  player module cannot be decoder-tapped.
 
 ## Deferred
 
-- [ ] **Storage capability node.** SD card / onboard flash / USB. Open
-  question 1; the show pipeline needs the distinction regardless.
-- [ ] **Two-board graphs.** Attachment makes them representable; codegen still
-  emits one sketch.
+- [ ] **Storage capability node** (SD / onboard flash / USB). Open question 1;
+  the show pipeline needs the distinction regardless.
+- [ ] **Two-board graphs.** The trigger that would bring attachment edges back.
 - [ ] **Raspberry Pi backend.** Out of scope for 1.0.0, but the codegen backend
-  is a field on the profile so adding it is an entry rather than a refactor.
+  is a field on the profile, so adding it is an entry rather than a refactor.
 
 ## Carried over from the bench
 
-Not part of this branch's design, but unresolved and worth not losing:
+Not part of this branch's design, but unresolved and worth not losing.
 
-- [ ] **No audio from the MAX98357A.** ESP32 initialises I2S and emits a sine
-  at two clock rates; wiring and voltages verified; amp `SD` jumpered high.
-  Next: confirm the speaker is bridged across `+`/`−` rather than one leg to
-  ground, then try a known-good speaker.
+- [ ] **No audio from the MAX98357A.** ESP32 initialises I2S and emits a sine at
+  two clock rates; wiring and voltages verified; amp `SD` jumpered high. Next:
+  confirm the speaker is bridged across `+`/`−` rather than one leg to ground,
+  then try a known-good speaker.
 - [ ] **fbuild deploy cannot open the port** while esptool from a shell opens
   the same port seconds later. Reproducible; engine currently switched to
   `arduino-cli`, which flashes reliably. Good upstream report.
