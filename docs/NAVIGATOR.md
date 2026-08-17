@@ -76,6 +76,9 @@ build/architecture overview aimed at contributors.
   - [Hardware branch todo](development/plans/hardware-todo.md)
     — running order and state for the 1.0.0 hardware work, plus the
     unresolved bench findings carried over from validation.
+  - [Hardware renders](development/plans/hardware-renders.md)
+    — which board and module renders the two-view hardware pane still needs,
+    what is already modelled, and the boards awaiting import.
   - [Node review findings](development/plans/node-todo.md)
     — the category-by-category control, validation, evaluator, and codegen
     audit, including completed fixes and retained follow-ups.
