@@ -23,19 +23,30 @@ Nothing else in the branch can be demonstrated without these.
 
 - [ ] **WS2812B strip** — a short run, tileable or croppable to any length.
 - [ ] **WS2812B matrix panel, 16×16** — the validated reference configuration.
-- [ ] **LED ring** — the new form. Decide whether one parametric ring covers
-  12/16/24 px or each count needs its own render.
 - [ ] **HUB75 panel** — 64×64 P4, matching the hardware-validated setup.
+
+**LED rings — one render per LED count**, not a single parametric ring. The
+count is the thing the user bought, and the whole point of the picture is
+recognising your own part:
+
+- [ ] 8 LEDs
+- [ ] 12 LEDs
+- [ ] 16 LEDs
+- [ ] 24 LEDs
+- [ ] 60 LEDs
 
 ## Phase 3 — parts with a signal role
 
 - [ ] **INMP441 I2S microphone.** The default microphone and the part the whole
   mic pin story is built around. The Build Diagram already draws a schematic
   version, so there is reference to work from.
-- [ ] **microSD SPI breakout.** Note there are two common variants — the 5 V
-  module with a regulator and level shifter, and the bare 3.3 V breakout. They
-  are wired differently and one is destroyed by 5 V, so they may warrant
-  separate parts rather than one render.
+**microSD breakout — two separate parts, two renders.** The 5 V module carries
+a regulator and level shifter; the bare 3.3 V breakout does not and is damaged
+by 5 V. Showing one generic picture for both would be exactly the quiet lie
+this model exists to remove.
+
+- [ ] microSD module, 5 V (onboard regulator + level shifter)
+- [ ] microSD breakout, 3.3 V (bare)
 - [x] **Button module** — `button_module.blend` / `.png`.
 - [x] **Potentiometer module** — `potentiometer_module.blend` / `.png`.
 - [x] **Rotary encoder module** — `encoder_module.blend` / `.png`.
@@ -120,7 +131,41 @@ existing tests fail — see `uploadStore.ts`, `boardGpio.ts`,
   asset by adding a `safeGeneralPurpose` in that form.
 - [ ] **Six boards carry no pin-safety data**, so they give no positive pin
   advice — reported by `UNLISTED_SAFETY_IDS`.
-- [ ] **Teensy, RP2040, SAMD and AVR boards** are in the upload catalogue with
-  no model at all. Compile-only targets by design, but they will look empty in
-  a hardware view that shows every other board as a picture. Decide whether
-  they get a generic outline or are simply not selectable there.
+
+### Boards still to model
+
+Every board in the upload catalogue gets a real model — no generic outlines. A
+board shown as a grey box in a view where every other board is a photograph
+reads as unfinished, and the point of the hardware view is recognising the part
+in your hand.
+
+Five catalogue entries are chip-family targets rather than specific boards
+(`esp32c3`, `esp32c6`, `esp32h2`, `nodemcuv2`, `arduino:avr:uno`) and are
+already covered by models awaiting import above.
+
+That leaves 28, grouped by family so they can be batched:
+
+**Teensy (7)**
+- [ ] Teensy 4.1 · [ ] Teensy 4.0 · [ ] Teensy 3.6 · [ ] Teensy 3.5
+- [ ] Teensy 3.1 / 3.2 · [ ] Teensy 3.0 · [ ] Teensy LC
+
+**Adafruit SAMD / nRF52 (6)**
+- [ ] Feather M0 (SAMD21) · [ ] QT Py M0 (SAMD21) · [ ] Feather M4 (SAMD51)
+- [ ] Grand Central M4 · [ ] Matrix Portal M4 · [ ] nRF52840 DK
+
+**Arduino (7)**
+- [ ] Nano · [ ] Leonardo · [ ] Mega · [ ] Nano Every
+- [ ] Nano 33 IoT · [ ] Zero · [ ] Due
+
+**STM32 (4)**
+- [ ] Blue Pill F103C8 · [ ] Black Pill F411CE
+- [ ] Nucleo F429ZI · [ ] Nucleo F439ZI
+
+**Other (4)**
+- [ ] ESP32 Wrover Module · [ ] RP2040 Pico · [ ] RP2350 Pico 2
+- [ ] Arduino UNO R4 WiFi
+
+Lowest priority of everything in this file — none of them is hardware
+validated, and the ESP32 family covers the boards actually being tested. Worth
+doing in family batches once the parts above are done, since a family shares
+most of its geometry.
