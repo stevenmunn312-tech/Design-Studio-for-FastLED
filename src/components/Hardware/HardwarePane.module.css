@@ -378,3 +378,9 @@
   opacity: 0.4;
   z-index: 0;
 }
+
+/* The output the side preview is currently showing. */
+.partSelected {
+  outline: 1px solid color-mix(in srgb, var(--accent-output) 70%, transparent);
+  outline-offset: 3px;
+}

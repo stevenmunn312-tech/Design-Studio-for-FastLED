@@ -216,18 +216,36 @@ const MA_PER_HUB75_PIXEL_WORST_CASE = 1
 // margin rather than a misconfiguration to keep flagging.
 const POWER_CAP_MIN_COVERAGE = 2 / 3
 
+/**
+ * Nodes that drive physical LEDs, and how many each drives.
+ *
+ * Both output kinds count. A LED string was invisible to the power and RAM
+ * estimates while only `MatrixOutput` was matched, so a strip-only build
+ * reported a 0 mA draw and a 0-byte buffer — silently confident, and wrong in
+ * exactly the case where the draw matters most.
+ */
+export function ledDrivingOutputs(nodes: StudioNode[]): StudioNode[] {
+  return nodes.filter((node) =>
+    node.data.nodeType === 'MatrixOutput' || node.data.nodeType === 'LedStringOutput')
+}
+
+/** LEDs on one output: a panel's grid, or a run's length. */
+export function outputLedCount(node: StudioNode): number {
+  const props = node.data.properties as Record<string, unknown>
+  if (node.data.nodeType === 'LedStringOutput') {
+    return Math.max(0, Math.round(Number(props.ledCount ?? 0)))
+  }
+  return Math.max(0, Math.round(Number(props.width ?? 0))) * Math.max(0, Math.round(Number(props.height ?? 0)))
+}
+
 export function estimatePowerLoad(nodes: StudioNode[]): PowerEstimate | null {
-  const outputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
+  const outputs = ledDrivingOutputs(nodes)
   if (outputs.length === 0) return null
-  const ledCount = outputs.reduce((sum, output) => {
-    const props = output.data.properties as Record<string, unknown>
-    return sum + Math.max(0, Math.round(Number(props.width ?? 0))) * Math.max(0, Math.round(Number(props.height ?? 0)))
-  }, 0)
+  const ledCount = outputs.reduce((sum, output) => sum + outputLedCount(output), 0)
   const worstCaseMa = outputs.reduce((sum, output) => {
     const props = output.data.properties as Record<string, unknown>
-    const pixels = Math.max(0, Math.round(Number(props.width ?? 0))) * Math.max(0, Math.round(Number(props.height ?? 0)))
     const rate = String(props.chipset ?? 'WS2812B') === HUB75_CHIPSET ? MA_PER_HUB75_PIXEL_WORST_CASE : MA_PER_LED_WORST_CASE
-    return sum + pixels * rate
+    return sum + (outputLedCount(output) * rate)
   }, 0)
   const capped = outputs.filter((output) => (output.data.properties as Record<string, unknown>).powerLimit === true)
   const configuredMa = capped.length > 0
@@ -308,13 +326,10 @@ const PARTICLE_POOL_SIZE = (mode: string) => (mode === 'swarm' ? 40 : 120)
  * the rest of this module) — it does not recurse into group subgraphs.
  */
 export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): FirmwareRamEstimate | null {
-  const outputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
+  const outputs = ledDrivingOutputs(nodes)
   if (outputs.length === 0) return null
   const { w, h } = compositionDims(nodes, edges)
-  const ledCount = outputs.reduce((sum, output) => {
-    const props = output.data.properties as Record<string, unknown>
-    return sum + Math.max(0, Math.round(Number(props.width ?? 0))) * Math.max(0, Math.round(Number(props.height ?? 0)))
-  }, 0)
+  const ledCount = outputs.reduce((sum, output) => sum + outputLedCount(output), 0)
   const renderLedCount = w * h
 
   // Only nodes that actually feed the terminal frame get a buffer in the

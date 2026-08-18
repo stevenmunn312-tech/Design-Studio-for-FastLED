@@ -1,0 +1,45 @@
+/*
+ * A strip, not a dashboard. It sits under the preview and has to stay quiet
+ * enough that the preview keeps the eye — colour arrives only when a figure
+ * needs attention.
+ */
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1, 8px) var(--space-2, 16px);
+  align-items: baseline;
+  padding: var(--space-1, 8px) var(--space-2, 16px);
+  border-top: 1px solid color-mix(in srgb, var(--border-glow) 70%, transparent);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.label {
+  font-style: normal;
+  text-transform: uppercase;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  opacity: 0.55;
+}
+
+.item strong {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.note {
+  opacity: 0.5;
+  white-space: nowrap;
+}
+
+/* Quiet by default; a figure earns colour only when it needs a decision. */
+.item[data-level='ok'] strong { color: var(--text-primary, #e8ecf1); }
+.item[data-level='warn'] strong { color: #ffb74d; }
+.item[data-level='bad'] strong { color: #ff6b6b; }

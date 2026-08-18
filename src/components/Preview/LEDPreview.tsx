@@ -17,6 +17,7 @@ import RecordPopup from './RecordPopup'
 import { isDiffusedStyle, previewStyleLabel, type PreviewStyle } from './previewStyles'
 import { graphConsumesAudio } from './previewAudioUsage'
 import PreviewSpectrum from './PreviewSpectrum'
+import HardwareReadiness from './HardwareReadiness'
 import {
   nextSpectrumVisualizerMode,
   spectrumVisualizerLabel,
@@ -891,22 +892,9 @@ export default function LEDPreview() {
           </div>
         )}
         <div className={styles.headerRight} aria-label={stageMode ? 'Stage controls and status' : 'Preview telemetry'}>
-          {previewRoutes.length > 1 && (
-            <label className={styles.outputRoutePicker}>
-              <span>Route</span>
-              <select
-                aria-label="Preview output route"
-                value={activeOutputId}
-                onChange={(event) => setPreviewOutputId(event.target.value)}
-              >
-                {previewRoutes.map((route, index) => (
-                  <option key={route.id} value={route.id}>
-                    {route.label} {index + 1} · {route.width}×{route.height}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+          {/* The route picker moved to the hardware view: outputs are
+              identified by looking at them there, so they are chosen there
+              too rather than by name in a dropdown here. */}
           {stageMode ? (
             <>
               <span
@@ -1029,6 +1017,7 @@ export default function LEDPreview() {
               )}
             </div>
           </div>
+          {!stageMode && <HardwareReadiness />}
           <PreviewSpectrum
             audioVisualizerLive={audioVisualizerLive}
             spectrumOverride={playbackSpectrum}

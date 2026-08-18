@@ -1038,3 +1038,43 @@ describe('validateGraph', () => {
     })
   })
 })
+
+describe('LED strings count toward the hardware estimates', () => {
+  // A strip-only build used to report a 0 mA draw and a 0-byte buffer, because
+  // only MatrixOutput was matched. Silently confident, and wrong in exactly the
+  // case where the draw matters — 300 LEDs is a real power budget.
+  function ledString(id: string, ledCount: number): StudioNode {
+    return {
+      id, type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        label: 'LED String', nodeType: 'LedStringOutput', category: 'output',
+        properties: { ledCount, chipset: 'WS2812B', colorOrder: 'GRB', dataPin: 18 },
+        inputs: [], outputs: [],
+      },
+    } as unknown as StudioNode
+  }
+
+  it('counts a strip LED run in the power estimate', () => {
+    const estimate = estimatePowerLoad([ledString('s', 300)])
+    expect(estimate).not.toBeNull()
+    expect(estimate!.ledCount).toBe(300)
+    expect(estimate!.worstCaseMa).toBeGreaterThan(0)
+  })
+
+  it('counts a strip in the firmware RAM estimate', () => {
+    const estimate = estimateFirmwareRam([ledString('s', 300)], [])
+    expect(estimate).not.toBeNull()
+  })
+
+  it('adds a strip and a panel together', () => {
+    const panel = {
+      id: 'm', type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        label: 'Matrix Output', nodeType: 'MatrixOutput', category: 'output',
+        properties: { width: 16, height: 16, chipset: 'WS2812B' },
+        inputs: [], outputs: [],
+      },
+    } as unknown as StudioNode
+    expect(estimatePowerLoad([panel, ledString('s', 60)])!.ledCount).toBe((16 * 16) + 60)
+  })
+})

@@ -105,6 +105,8 @@ export default function HardwarePane() {
   const edges = useGraphStore((state) => state.edges)
   const viewCenter = useUiStore((state) => state.viewCenter)
   const setStatus = useUiStore((state) => state.setStatus)
+  const previewOutputId = useUiStore((state) => state.previewOutputId)
+  const setPreviewOutputId = useUiStore((state) => state.setPreviewOutputId)
   const sidebarOpen = useUiStore((state) => state.sidebarOpen)
   const sidebarWidth = useUiStore((state) => state.sidebarWidth)
   const previewPanelOpen = useUiStore((state) => state.previewPanelOpen)
@@ -647,13 +649,24 @@ export default function HardwarePane() {
               })()}
               <button
                 type="button"
-                className={`${styles.part} ${output.isStrip ? styles.strip : styles.matrix}`}
+                className={[
+                  styles.part,
+                  output.isStrip ? styles.strip : styles.matrix,
+                  // Which output the side preview is showing. The hardware view
+                  // is where outputs are identified now, so it is also where one
+                  // is chosen — the preview header no longer carries a picker.
+                  previewOutputId === output.node.id ? styles.partSelected : '',
+                ].filter(Boolean).join(' ')}
                 style={outputStyle(output.partId, output.isStrip)}
+                onClick={() => {
+                  if (view.consumedByPan()) return
+                  setPreviewOutputId(output.node.id)
+                }}
                 onContextMenu={(event) => {
                   event.preventDefault()
                   openItemMenu(output.node.id, (event.currentTarget as HTMLButtonElement).getBoundingClientRect())
                 }}
-                title="Right-click for hardware actions"
+                title="Click to preview this output · right-click for hardware actions"
                 aria-label={output.isStrip
                   ? `WS2812B strip, ${output.cols} LEDs on pin ${output.dataPin}`
                   : `WS2812B matrix, ${output.cols} by ${output.rows} on pin ${output.dataPin}`}
