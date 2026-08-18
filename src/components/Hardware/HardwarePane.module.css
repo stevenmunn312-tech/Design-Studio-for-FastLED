@@ -323,3 +323,33 @@
   pointer-events: none;
   border-radius: inherit;
 }
+
+/*
+ * The diffuser. One dome per LED, tiled to the same pitch as the render and the
+ * live cells beneath it, so the lens lands on the LED rather than across two.
+ *
+ * A transparent centre lets the lit colour through; the darkened rim separates
+ * one LED from the next so a run reads as discrete emitters rather than a bar
+ * of colour, and the small highlight gives the dome its curvature.
+ *
+ * Entirely static — the gradient never changes as frames arrive. That keeps it
+ * free per frame and, unlike a CSS filter over live content, safe from the
+ * renderer-memory leak documented in src/dev/animationFilterGuard.ts.
+ */
+.lens {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background-repeat: repeat;
+  background-position: center;
+  background-image: radial-gradient(
+    circle at 50% 42%,
+    rgba(255, 255, 255, 0.20) 0%,
+    rgba(255, 255, 255, 0.07) 18%,
+    rgba(255, 255, 255, 0) 34%,
+    rgba(0, 0, 0, 0.18) 52%,
+    rgba(0, 0, 0, 0.46) 74%,
+    rgba(0, 0, 0, 0.62) 100%
+  );
+}

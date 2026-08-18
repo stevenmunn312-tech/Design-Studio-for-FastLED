@@ -291,6 +291,23 @@ export default function HardwarePane() {
     }
   }
 
+  /*
+   * The diffuser over a part: one dome per LED, registered to the same tile as
+   * the render beneath so the lens sits on the LED rather than between two.
+   *
+   * Static by design. It never changes as frames arrive, so it costs nothing
+   * per frame and — unlike a filter over live content — cannot trip the
+   * renderer-memory leak that `src/dev/animationFilterGuard.ts` guards against.
+   * The colour comes from the lit cells underneath and reads through the
+   * transparent centre.
+   */
+  const lensStyle = (partId: string, isStrip: boolean): CSSProperties | undefined => {
+    const part = placed.get(partId)
+    if (!part || !arrangement) return undefined
+    const tile = (isStrip ? WS2812B_PITCH_MM : WS2812B_MATRIX_PITCH_MM) * arrangement.mmScale
+    return { backgroundSize: isStrip ? `${tile}px 100%` : `${tile}px ${tile}px` }
+  }
+
   /* Captions hang under the band on the layout's own anchor, so a long run
      keeps its label near its start rather than off screen at its midpoint. */
   const captionStyle = (id: string): CSSProperties | undefined => {
@@ -605,6 +622,11 @@ export default function HardwarePane() {
                   cols={output.cols}
                   rows={output.rows}
                   className={styles.ledPreview}
+                />
+                <span
+                  className={styles.lens}
+                  style={lensStyle(output.partId, output.isStrip)}
+                  aria-hidden="true"
                 />
               </button>
               <span className={styles.caption} style={captionStyle(output.partId)}>
