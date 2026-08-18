@@ -107,6 +107,8 @@
  * 63.5 mm DevKit — the size difference on the bench.
  */
 .part {
+  /* Above its own spill pools, which are painted behind it. */
+  z-index: 1;
   position: absolute;
   display: block;
   padding: 0;
@@ -352,4 +354,20 @@
     rgba(0, 0, 0, 0.46) 74%,
     rgba(0, 0, 0, 0.62) 100%
   );
+}
+
+/*
+ * Light thrown onto the bench. Sits behind its part and reaches past the edges,
+ * screened so pools from neighbouring LEDs add the way light does rather than
+ * occluding one another.
+ *
+ * No filter: the pools are soft because the gradient is soft, not because
+ * anything is blurred over live content.
+ */
+.spill {
+  position: absolute;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0.55;
+  z-index: 0;
 }

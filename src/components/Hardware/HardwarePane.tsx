@@ -27,6 +27,7 @@ import {
 } from '../../state/hardware'
 import BoardNodeBody from '../Canvas/BoardNodeBody'
 import HardwareLedPreview from './HardwareLedPreview'
+import HardwareLedSpill from './HardwareLedSpill'
 import HardwareLink from './HardwareLink'
 import { useHardwareView } from './useHardwareView'
 import { hardwareArrangement, type HardwarePartBox, type HardwarePartLink } from './hardwareLayout'
@@ -306,6 +307,24 @@ export default function HardwarePane() {
     if (!part || !arrangement) return undefined
     const tile = (isStrip ? WS2812B_PITCH_MM : WS2812B_MATRIX_PITCH_MM) * arrangement.mmScale
     return { backgroundSize: isStrip ? `${tile}px 100%` : `${tile}px ${tile}px` }
+  }
+
+  /*
+   * The pool layer sits behind a part and reaches past its edges, because the
+   * whole point of spill is the light that lands off the object. The margin
+   * scales with the part's short side so a thin run glows proportionally rather
+   * than being swamped.
+   */
+  const spillStyle = (partId: string): CSSProperties | undefined => {
+    const part = placed.get(partId)
+    if (!part) return undefined
+    const margin = Math.max(18, Math.min(part.width, part.height) * 1.6)
+    return {
+      left: part.x - margin,
+      top: part.y - margin,
+      width: part.width + (margin * 2),
+      height: part.height + (margin * 2),
+    }
   }
 
   /* Captions hang under the band on the layout's own anchor, so a long run
@@ -604,6 +623,14 @@ export default function HardwarePane() {
 
           {ledOutputs.map((output) => (
             <Fragment key={output.node.id}>
+              <HardwareLedSpill
+                nodeId={output.node.id}
+                gradientId={`spill-${output.node.id}`}
+                sampleCols={output.isStrip ? 8 : 4}
+                sampleRows={output.isStrip ? 1 : 4}
+                className={styles.spill}
+                style={spillStyle(output.partId)}
+              />
               <button
                 type="button"
                 className={`${styles.part} ${output.isStrip ? styles.strip : styles.matrix}`}
