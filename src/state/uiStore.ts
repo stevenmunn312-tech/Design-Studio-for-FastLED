@@ -83,6 +83,12 @@ const GRAPH_HEALTH_KEY = 'design-studio-for-fastled-graph-health-open'
 const SIDEBAR_WIDTH_KEY = 'design-studio-for-fastled-sidebar-width'
 const PREVIEW_WIDTH_KEY = 'design-studio-for-fastled-preview-width'
 const LAYOUT_PRESET_KEY = 'design-studio-for-fastled-layout-preset'
+const HARDWARE_RATIO_KEY = 'design-studio-for-fastled-hardware-pane-ratio'
+
+function clampHardwarePaneRatio(value: unknown, fallback = 0.5): number {
+  const ratio = typeof value === 'number' && Number.isFinite(value) ? value : fallback
+  return Math.max(0, Math.min(0.75, ratio))
+}
 
 function load<T>(key: string, fallback: T): T {
   try { const v = localStorage.getItem(key); return v !== null ? JSON.parse(v) : fallback } catch { return fallback }
@@ -132,6 +138,7 @@ interface UiState {
   previewPanelOpen: boolean
   sidebarWidth: number
   previewWidth: number
+  hardwarePaneRatio: number
   /** Which named panel-width preset is active, or 'custom' after a manual drag. */
   layoutPreset: LayoutPresetId | 'custom'
   graphHealthOpen: boolean
@@ -190,6 +197,7 @@ interface UiState {
   togglePreviewPanel: () => void
   setSidebarWidth: (px: number) => void
   setPreviewWidth: (px: number) => void
+  setHardwarePaneRatio: (ratio: number) => void
   applyLayoutPreset: (preset: LayoutPresetId) => void
   toggleGraphHealth: () => void
   toggleEvaluation: () => void
@@ -255,6 +263,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   previewPanelOpen: true,
   sidebarWidth: load<number>(SIDEBAR_WIDTH_KEY, DEFAULT_SIDEBAR_WIDTH),
   previewWidth: load<number>(PREVIEW_WIDTH_KEY, DEFAULT_PREVIEW_WIDTH),
+  hardwarePaneRatio: clampHardwarePaneRatio(load<unknown>(HARDWARE_RATIO_KEY, 0.5)),
   layoutPreset: load<LayoutPresetId | 'custom'>(LAYOUT_PRESET_KEY, 'custom'),
   graphHealthOpen: load<boolean>(GRAPH_HEALTH_KEY, true),
   evaluationRunning: true,
@@ -325,6 +334,11 @@ export const useUiStore = create<UiState>((set, get) => ({
     save(PREVIEW_WIDTH_KEY, width)
     save(LAYOUT_PRESET_KEY, 'custom')
     set({ previewWidth: width, layoutPreset: 'custom' })
+  },
+  setHardwarePaneRatio: (ratio) => {
+    const next = clampHardwarePaneRatio(ratio)
+    save(HARDWARE_RATIO_KEY, next)
+    set({ hardwarePaneRatio: next })
   },
   applyLayoutPreset: (preset) => {
     const config = LAYOUT_PRESETS[preset]

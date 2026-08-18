@@ -9,6 +9,9 @@ import { useShowPlayback } from '../../../state/showPlayback'
 import type { SavedProject } from '../../../state/projectStore'
 import { openCommunityTab, postToCommunityTab } from '../../../utils/communityUpload'
 import { captureSharePreview } from '../../../utils/sharePreviewCapture'
+import { useUploadStore } from '../../../state/uploadStore'
+import { INMP441_NO_BOARD_MESSAGE, INMP441_UNSUPPORTED_MESSAGE } from '../../../state/micPinDefaults'
+import { BOARD_PROFILES } from '../../../build/boardProfiles'
 
 vi.mock('../../../utils/communityUpload', () => ({
   openCommunityTab: vi.fn().mockReturnValue({ target: 'design-studio-community-test', opened: true }),
@@ -19,6 +22,12 @@ vi.mock('../../../utils/communityUpload', () => ({
 vi.mock('../../../utils/sharePreviewCapture', () => ({
   captureSharePreview: vi.fn().mockResolvedValue(null),
 }))
+
+// Every loaded root graph carries a hidden root Board node — the hardware view
+// owns it and it is not authored content, so these assertions look past it.
+const authoredNodes = () =>
+  useGraphStore.getState().nodes.filter((node) => node.data.nodeType !== 'Board')
+const authoredNodeIds = () => authoredNodes().map((node) => node.id)
 
 const defaultRequestNewProjectDecision = useUiStore.getState().requestNewProjectDecision
 const defaultResolveNewProjectDecision = useUiStore.getState().resolveNewProjectDecision
@@ -38,6 +47,15 @@ function project(id: string, name: string, nodeId: string, updatedAt: number): S
       }] as never[],
       edges: [],
     },
+  }
+}
+
+function boardNodeForFqbn(fqbn: string) {
+  const profile = BOARD_PROFILES.find((entry) => entry.compatibleFqbns.includes(fqbn))
+  if (!profile) throw new Error(`Missing physical board profile for ${fqbn}`)
+  return {
+    id: 'board', type: 'studioNode', position: { x: 0, y: 0 },
+    data: { label: 'Board', nodeType: 'Board', category: 'hardware', properties: { profileId: profile.id }, inputs: [], outputs: [] },
   }
 }
 
@@ -84,6 +102,7 @@ describe('MenuBar file menu', () => {
       resolveNewProjectDecision: defaultResolveNewProjectDecision,
     })
     useAudioStore.setState({ micActive: false, active: false })
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
     useShowPlayback.setState({ playing: false, nodeId: null, show: null, posMs: 0, useGroupInputs: false })
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
     delete (window as Window & { showOpenFilePicker?: unknown }).showOpenFilePicker
@@ -164,7 +183,59 @@ describe('MenuBar file menu', () => {
 
     expect(getByRole('button', { name: 'Toggle stage mode' }).getAttribute('aria-pressed')).toBe('true')
     expect(getByRole('button', { name: 'Toggle 3D preview' })).toBeTruthy()
-    expect(getByRole('button', { name: 'Toggle microphone preview input' })).toBeTruthy()
+    expect(getByRole('button', { name: 'Add a MicInput node to enable the microphone' }).textContent).toBe('Mic Off')
+  })
+
+  it('disables the microphone with the compatibility message for an unsupported board', async () => {
+    useGraphStore.setState({
+      nodes: [{
+        id: 'mic', type: 'studioNode', position: { x: 0, y: 0 },
+        data: { label: 'Microphone', nodeType: 'MicInput', category: 'input', properties: {}, inputs: [], outputs: [] },
+      }, boardNodeForFqbn('arduino:avr:uno')] as never[],
+    })
+    useUploadStore.setState({ selectedFqbn: 'arduino:avr:uno' })
+    useAudioStore.setState({ micActive: true, active: true })
+
+    const { getByRole } = render(<MenuBar />)
+    const mic = getByRole('button', { name: INMP441_UNSUPPORTED_MESSAGE })
+
+    expect((mic as HTMLButtonElement).disabled).toBe(true)
+    expect(mic.textContent).toBe('Mic Off')
+    expect(mic.getAttribute('aria-pressed')).toBe('false')
+    expect(mic.getAttribute('title')).toBe(INMP441_UNSUPPORTED_MESSAGE)
+    await waitFor(() => expect(useAudioStore.getState().micActive).toBe(false))
+  })
+
+  it('says no board is selected and forces the microphone off', async () => {
+    useGraphStore.setState({
+      nodes: [{
+        id: 'mic', type: 'studioNode', position: { x: 0, y: 0 },
+        data: { label: 'Microphone', nodeType: 'MicInput', category: 'input', properties: {}, inputs: [], outputs: [] },
+      }] as never[],
+    })
+    useAudioStore.setState({ micActive: true, active: true })
+
+    const { getByRole } = render(<MenuBar />)
+    const mic = getByRole('button', { name: INMP441_NO_BOARD_MESSAGE })
+
+    expect((mic as HTMLButtonElement).disabled).toBe(true)
+    expect(mic.textContent).toBe('Mic Off')
+    expect(mic.getAttribute('aria-pressed')).toBe('false')
+    expect(mic.getAttribute('title')).toBe(INMP441_NO_BOARD_MESSAGE)
+    await waitFor(() => expect(useAudioStore.getState().micActive).toBe(false))
+  })
+
+  it('enables Mic On for a Teensy 4.0 with a MicInput node', () => {
+    useGraphStore.setState({
+      nodes: [{
+        id: 'mic', type: 'studioNode', position: { x: 0, y: 0 },
+        data: { label: 'Microphone', nodeType: 'MicInput', category: 'input', properties: {}, inputs: [], outputs: [] },
+      }, boardNodeForFqbn('teensy:avr:teensy40')] as never[],
+    })
+    useUploadStore.setState({ selectedFqbn: 'teensy:avr:teensy40' })
+
+    const { getByRole } = render(<MenuBar />)
+    expect((getByRole('button', { name: 'Toggle microphone preview input' }) as HTMLButtonElement).disabled).toBe(false)
   })
 
   it('moves appearance toggles into a compact View menu', () => {
@@ -265,7 +336,7 @@ describe('MenuBar file menu', () => {
     await waitFor(() => {
       expect(useProjectStore.getState().currentProjectId).toBe(pg.id)
     })
-    expect(useGraphStore.getState().nodes.map((node) => node.id)).toEqual(['pg-node'])
+    expect(authoredNodeIds()).toEqual(['pg-node'])
     expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['scratch'])
     expect(useProjectStore.getState().recentProjectIds).toEqual([alpha.id])
     expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha', 'continuing', 'project "pg"')
@@ -291,7 +362,7 @@ describe('MenuBar file menu', () => {
     })
     const current = useProjectStore.getState().projects.find((entry) => entry.id === useProjectStore.getState().currentProjectId)
     expect(current?.name).toBe('New Project')
-    expect(useGraphStore.getState().nodes).toEqual([])
+    expect(authoredNodes()).toEqual([])
   })
 
   it('supports the yes path before creating a new project', async () => {
@@ -324,7 +395,7 @@ describe('MenuBar file menu', () => {
     const current = useProjectStore.getState().projects.find((entry) => entry.id === useProjectStore.getState().currentProjectId)
     expect(current?.name).toBe('New Project')
     expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['scratch'])
-    expect(useGraphStore.getState().nodes).toEqual([])
+    expect(authoredNodes()).toEqual([])
   })
 
   it('supports the no path before creating a new project', async () => {
@@ -357,7 +428,7 @@ describe('MenuBar file menu', () => {
     const current = useProjectStore.getState().projects.find((entry) => entry.id === useProjectStore.getState().currentProjectId)
     expect(current?.name).toBe('New Project(1)')
     expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['alpha-node'])
-    expect(useGraphStore.getState().nodes).toEqual([])
+    expect(authoredNodes()).toEqual([])
   })
 
   it('supports the cancel path before creating a new project', () => {
@@ -384,7 +455,7 @@ describe('MenuBar file menu', () => {
 
     expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha', 'creating a new project', 'a new blank project')
     expect(useProjectStore.getState().currentProjectId).toBe(alpha.id)
-    expect(useGraphStore.getState().nodes.map((node) => node.id)).toEqual(['scratch'])
+    expect(authoredNodeIds()).toEqual(['scratch'])
     expect((window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker).toBeUndefined()
   })
 
@@ -420,7 +491,7 @@ describe('MenuBar file menu', () => {
       expect(useProjectStore.getState().currentProjectId).toBe(pg.id)
     })
     expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha', 'continuing', 'project "pg"')
-    expect(useGraphStore.getState().nodes.map((node) => node.id)).toEqual(['pg-node'])
+    expect(authoredNodeIds()).toEqual(['pg-node'])
     expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['scratch'])
   })
 
@@ -449,7 +520,7 @@ describe('MenuBar file menu', () => {
 
     expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha', 'continuing', 'project "pg"')
     expect(useProjectStore.getState().currentProjectId).toBe(alpha.id)
-    expect(useGraphStore.getState().nodes.map((node) => node.id)).toEqual(['scratch'])
+    expect(authoredNodeIds()).toEqual(['scratch'])
   })
 
   it('saves a copy through the native save dialog', async () => {

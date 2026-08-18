@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useUiStore } from './state/uiStore'
 import { useGraphStore } from './state/graphStore'
 import { useAudioStore } from './state/audioStore'
@@ -11,6 +11,8 @@ import NodeGraphCanvas from './components/Canvas/NodeGraphCanvas'
 import LEDPreview from './components/Preview/LEDPreview'
 import StatusBar from './components/StatusBar/StatusBar'
 import { useUploadStore } from './state/uploadStore'
+import { inmp441SupportedForBoardProfile } from './state/micPinDefaults'
+import { selectedPhysicalBoardProfile } from './build/boardProfiles'
 import { usePatternLibrary } from './state/patternLibrary'
 import { useProjectStore } from './state/projectStore'
 import { readSharedWorkspace, clearShareHash } from './utils/shareGraph'
@@ -25,8 +27,10 @@ import { usePerformanceDeckSession } from './state/performanceDeckSessionStore'
 import { serializeKeyCombo } from './state/performanceDeck'
 import { dispatchDeckAction } from './state/performanceDeckActions'
 import { PanelResizeHandle } from './components/Layout/PanelResizeHandle'
+import { HorizontalResizeHandle } from './components/Layout/HorizontalResizeHandle'
 import { DEFAULT_PREVIEW_WIDTH, DEFAULT_SIDEBAR_WIDTH, MAX_PREVIEW_WIDTH, MAX_SIDEBAR_WIDTH, MIN_PREVIEW_WIDTH, MIN_SIDEBAR_WIDTH } from './state/layoutPresets'
 import { enterStagePresentation, exitStagePresentation } from './utils/stagePresentation'
+import HardwarePane from './components/Hardware/HardwarePane'
 import styles from './App.module.css'
 
 const PerformanceDeck = lazy(() => import('./components/PerformanceDeck/PerformanceDeck'))
@@ -49,6 +53,8 @@ const AUTOSAVE_INTERVAL = 10_000
 const AUTOSAVE_IDLE_TIMEOUT = 2_000
 const SNAPSHOT_INTERVAL = 120_000
 const STAGE_CURSOR_IDLE_MS = 2_000
+const MIN_GRAPH_PANE_HEIGHT = 180
+const MIN_HARDWARE_PANE_HEIGHT = 0
 
 export default function App() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen)
@@ -71,8 +77,10 @@ export default function App() {
   const togglePreviewPanel = useUiStore((s) => s.togglePreviewPanel)
   const sidebarWidth = useUiStore((s) => s.sidebarWidth)
   const previewWidth = useUiStore((s) => s.previewWidth)
+  const hardwarePaneRatio = useUiStore((s) => s.hardwarePaneRatio)
   const setSidebarWidth = useUiStore((s) => s.setSidebarWidth)
   const setPreviewWidth = useUiStore((s) => s.setPreviewWidth)
+  const setHardwarePaneRatio = useUiStore((s) => s.setHardwarePaneRatio)
   const startAudio = useAudioStore((s) => s.startAudio)
   const stopAudio = useAudioStore((s) => s.stopAudio)
   const micNodeProps = useGraphStore((s) => {
@@ -80,7 +88,9 @@ export default function App() {
     return (mic?.data.properties as Record<string, unknown> | undefined) ?? null
   })
   const hasMicNode = micNodeProps !== null
+  const selectedBoardProfile = useGraphStore((s) => selectedPhysicalBoardProfile(s.nodes))
   const showPreviewPlaying = useShowPlayback((s) => s.playing)
+  const visibleGraphNodeCount = useGraphStore((s) => s.nodes.filter((node) => node.data.nodeType !== 'Board').length)
   const boardPopupOpen = useUploadStore((s) => s.boardPopupOpen)
   const pinoutProfileId = useUploadStore((s) => s.pinoutProfileId)
   const setupWizardOpen = useUploadStore((s) => s.setupWizardOpen)
@@ -89,9 +99,12 @@ export default function App() {
   const consoleOpen = useUploadStore((s) => s.consoleOpen)
   const refreshHelper = useUploadStore((s) => s.refreshHelper)
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
+  const micSupported = inmp441SupportedForBoardProfile(selectedBoardProfile)
   const hadMicNode = useRef(false)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
+  const splitCanvasRef = useRef<HTMLDivElement | null>(null)
   const [stageCursorHidden, setStageCursorHidden] = useState(false)
+  const [splitCanvasHeight, setSplitCanvasHeight] = useState(0)
 
   // Probe the upload helper once on mount (the Vite plugin should have spawned it).
   useEffect(() => { refreshHelper() }, [refreshHelper])
@@ -119,6 +132,19 @@ export default function App() {
   useEffect(() => {
     document.documentElement.style.setProperty('--right-panel-width', `${previewWidth}px`)
   }, [previewWidth])
+  useEffect(() => {
+    const element = splitCanvasRef.current
+    if (!element) return
+    const update = () => setSplitCanvasHeight(element.clientHeight)
+    update()
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', update)
+      return () => window.removeEventListener('resize', update)
+    }
+    const observer = new ResizeObserver(update)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autosaveIdle = useRef<number | null>(null)
   const latestAutosaveState = useRef<ReturnType<typeof useGraphStore.getState> | null>(null)
@@ -240,22 +266,28 @@ export default function App() {
     }
   }, [])
 
-  // Follow the upload target with any Microphone still on stock I2S pins. The
-  // library default is ESP32-S3 wiring and GPIO40/41 don't exist on half the
-  // family, so a board switch otherwise left the node holding pins that board
-  // has no pads for. Skipped on the first run: loading a project must not
-  // rewrite it, only an actual change of target.
+  // Follow every real board change with that board's remembered microphone
+  // wiring, falling back to its common pins when the user has not pinned a
+  // per-board default. Loading a project is not itself a board change.
   const retargetMicPins = useGraphStore((s) => s.retargetMicPins)
   const lastMicFqbn = useRef<string | null>(null)
   useEffect(() => {
     const previous = lastMicFqbn.current
-    lastMicFqbn.current = selectedFqbn
-    if (previous === null || previous === selectedFqbn) return
-    const moved = retargetMicPins(selectedFqbn)
+    const boardFqbn = selectedBoardProfile?.compatibleFqbns[0] ?? selectedFqbn
+    lastMicFqbn.current = boardFqbn
+    if (selectedBoardProfile?.compatibleFqbns[0] && selectedBoardProfile.compatibleFqbns[0] !== selectedFqbn) {
+      useUploadStore.getState().setSelectedFqbn(selectedBoardProfile.compatibleFqbns[0])
+    }
+    if (previous === null || previous === boardFqbn) return
+    const moved = retargetMicPins(boardFqbn)
     if (moved > 0) {
       setStatus(`Microphone I2S pins moved to this board's defaults on ${moved} node${moved > 1 ? 's' : ''}`, 'info')
     }
-  }, [selectedFqbn, retargetMicPins, setStatus])
+  }, [selectedBoardProfile, selectedFqbn, retargetMicPins, setStatus])
+
+  useEffect(() => {
+    if (visibleGraphNodeCount === 0) setHardwarePaneRatio(0.5)
+  }, [setHardwarePaneRatio, visibleGraphNodeCount])
 
   // Keep FastLED's processor gain in sync with the MicInput node.
   useEffect(() => {
@@ -273,18 +305,16 @@ export default function App() {
       if (hadMicNode.current) stopAudio()
       return
     }
-    if (hasMicNode) {
+    if (hasMicNode && micSupported) {
       hadMicNode.current = true
       startAudio().catch(() => {
         setStatus('Microphone could not start. Check browser permission and the selected audio input.', 'error')
       })
       return
     }
-    if (hadMicNode.current) {
-      hadMicNode.current = false
-      stopAudio()
-    }
-  }, [hasMicNode, showPreviewPlaying, startAudio, stopAudio, setStatus])
+    hadMicNode.current = false
+    stopAudio()
+  }, [hasMicNode, micSupported, showPreviewPlaying, startAudio, stopAudio, setStatus])
 
   useEffect(() => () => {
     if (hadMicNode.current) stopAudio()
@@ -527,6 +557,17 @@ export default function App() {
     return () => window.removeEventListener('keydown', handler)
   }, [setStatus])
 
+  const hardwarePaneHeight = useMemo(() => {
+    if (splitCanvasHeight <= 0) return 0
+    const ratio = Number.isFinite(hardwarePaneRatio) ? hardwarePaneRatio : 0.5
+    const max = Math.max(MIN_HARDWARE_PANE_HEIGHT, splitCanvasHeight - MIN_GRAPH_PANE_HEIGHT)
+    return Math.max(MIN_HARDWARE_PANE_HEIGHT, Math.min(max, splitCanvasHeight * ratio))
+  }, [hardwarePaneRatio, splitCanvasHeight])
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--hardware-pane-height', `${hardwarePaneHeight}px`)
+  }, [hardwarePaneHeight])
+
   return (
     <div className={`${styles.app} ${stageMode ? styles.appStage : ''} ${stageCursorHidden ? styles.appStageCursorHidden : ''} ${performanceMode ? styles.appPerformance : ''}`}>
       <div className={styles.menuShell}><MenuBar /></div>
@@ -572,7 +613,25 @@ export default function App() {
                 >
                   <span className={styles.sidebarHandleArrow} aria-hidden="true">{sidebarOpen ? '‹' : '›'}</span>
                 </button>
-                <NodeGraphCanvas />
+                <div ref={splitCanvasRef} className={styles.splitCanvas}>
+                  <div className={styles.graphPane}>
+                    <NodeGraphCanvas />
+                  </div>
+                  {splitCanvasHeight > 0 && (
+                    <HorizontalResizeHandle
+                      height={hardwarePaneHeight}
+                      min={MIN_HARDWARE_PANE_HEIGHT}
+                      max={Math.max(MIN_HARDWARE_PANE_HEIGHT, splitCanvasHeight - MIN_GRAPH_PANE_HEIGHT)}
+                      containerHeight={splitCanvasHeight}
+                      defaultRatio={0.5}
+                      label="Resize hardware view"
+                      onCommit={setHardwarePaneRatio}
+                    />
+                  )}
+                  <div className={styles.hardwareDock}>
+                    <HardwarePane />
+                  </div>
+                </div>
               </div>
               <div className={`${styles.previewDock} ${previewPanelOpen ? '' : styles.previewDockClosed}`}>
                 <div

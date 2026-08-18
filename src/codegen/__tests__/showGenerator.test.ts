@@ -11,6 +11,7 @@ const edge = (id: string, s: string, sh: string, t: string, th: string) =>
   ({ id, source: s, sourceHandle: sh, target: t, targetHandle: th } as unknown as StudioEdge)
 
 describe('showGenerator', () => {
+  const micBoard = node('board', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1' })
   const groups = {
     g0: { nodes: [node('sc', 'SolidColor', { r: 0, g: 0, b: 255 }), node('go', 'GroupOutput')],
           edges: [edge('e', 'sc', 'frame', 'go', 'frame')] },
@@ -314,7 +315,7 @@ describe('showGenerator', () => {
     expect(generateShowSketch(base, wire, groups)).not.toContain('void particleOverlay(')
 
     // Mic present → the controller hosts _audioBeat and overlays sparks on the beat.
-    const withMic = [...base, node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
+    const withMic = [...base, micBoard, node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
     const cpp = generateShowSketch(withMic, wire, groups)
     expect(cpp).toContain('void particleOverlay(')
     expect(cpp).toContain('static uint8_t  burstStyle = 3;')
@@ -330,6 +331,7 @@ describe('showGenerator', () => {
     })
     const base = [node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }), pmRandom,
       node('out', 'MatrixOutput', { width: 8, height: 8 }),
+      micBoard,
       node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
     const wire = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame'),
       edge('eb', 'pm', 'beat', 'pm', 'beat')]
@@ -346,7 +348,7 @@ describe('showGenerator', () => {
 
     // Beat wired + a MicInput on the canvas → the controller hosts the engine
     // and uses _audioBeat to advance early after minTime.
-    const withMic = [...nodes, node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
+    const withMic = [...nodes, micBoard, node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
     expect(generateShowSketch(withMic, beatEdge, groups)).toContain('_audioBeat && now - phaseStart >=')
   })
 
@@ -448,7 +450,7 @@ describe('showGenerator', () => {
       node('pc', 'PatternCollection', { patternIds: ['ga'] }),
       node('pm', 'PatternMaster', { minTime: 4, maxTime: 12, transitionSec: 1 }),
       node('out', 'MatrixOutput', { width: 8, height: 8 }),
-      ...(withMic ? [node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })] : []),
+      ...(withMic ? [micBoard, node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })] : []),
     ]
     const showEdges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
 

@@ -1,60 +1,131 @@
-// Board-aware INMP441 I2S pin defaults for a newly created MicInput.
+// Board-aware INMP441 compatibility and starting pins.
 //
-// The library default (39/40/41) is the common ESP32-S3 wiring, but those pads
-// do not exist on every ESP32 variant — GPIO40/41 are absent from the classic
-// ESP32, C3, C6 and H2 entirely — so dropping a Microphone onto a classic-ESP32
-// project produced a node that could never compile, flagged only after the fact
-// by the board-compatibility check.
-//
-// Each entry below is picked to be genuinely free on that variant: present on
-// the board, the right direction for its role (WS/SCK are driven by the MCU,
-// SD is sampled from the mic), and clear of strapping pins, UART0, and the
-// ADC2/Wi-Fi caveat, so a fresh node reports no pin errors *or* warnings.
-// `micPinDefaults.test.ts` asserts exactly that against the GPIO catalogue, so
-// a new board entry cannot quietly inherit an impossible default.
+// This table is deliberately keyed by the exact upload FQBN. A chip may have
+// an I2S peripheral while a particular board exposes different pads, and the
+// Teensy I2S pins are fixed in hardware. Keeping capability and practical
+// wiring together prevents the UI from enabling a microphone without also
+// knowing what to put in its three pin fields.
 
 import { useUploadStore } from './uploadStore'
 
 export interface MicI2sPins { i2sWs: number; i2sSck: number; i2sSd: number }
 
-/** ESP32-S3: the library default, and what the show/audio path was validated on. */
+/** The capture layer used by generated firmware. Every layer ultimately feeds
+ * signed 16-bit mono PCM into FastLED's Processor, which is also the contract
+ * implemented by the browser preview. */
+export type Inmp441FirmwareBackend =
+  | 'fastled-esp32'
+  | 'fastled-teensy'
+  | 'pico-i2s'
+  | 'samd51-zero-i2s'
+  | 'stm32-i2s'
+
+export const INMP441_NO_BOARD_MESSAGE = 'No board selected'
+export const INMP441_UNSUPPORTED_MESSAGE = 'The inmp441 microphone does not work with this board'
+
 const ESP32_S3_PINS: MicI2sPins = { i2sWs: 39, i2sSck: 40, i2sSd: 41 }
-
-/** Classic ESP32: all ADC1, so no Wi-Fi conflict; SD lands on input-only 34. */
 const ESP32_CLASSIC_PINS: MicI2sPins = { i2sWs: 32, i2sSck: 33, i2sSd: 34 }
-
-/** ESP32-S2: the same trio the plain S2 entry uses, named for reuse below. */
 const ESP32_S2_PINS: MicI2sPins = { i2sWs: 33, i2sSck: 34, i2sSd: 35 }
+const ESP32_C3_PINS: MicI2sPins = { i2sWs: 6, i2sSck: 4, i2sSd: 7 }
+const ESP32_C6_PINS: MicI2sPins = { i2sWs: 7, i2sSck: 6, i2sSd: 2 }
+const ESP32_H2_PINS: MicI2sPins = { i2sWs: 11, i2sSck: 10, i2sSd: 12 }
+const TEENSY_4_PINS: MicI2sPins = { i2sWs: 20, i2sSck: 21, i2sSd: 8 }
+const TEENSY_3_PINS: MicI2sPins = { i2sWs: 23, i2sSck: 9, i2sSd: 13 }
+const PICO_PINS: MicI2sPins = { i2sWs: 21, i2sSck: 20, i2sSd: 22 }
 
 export const MIC_PIN_DEFAULTS_BY_FQBN: Readonly<Record<string, MicI2sPins>> = {
+  // ESP32 family. Named-board entries use pins actually exposed on that board.
   'esp32:esp32:esp32s3': ESP32_S3_PINS,
   'esp32:esp32:esp32': ESP32_CLASSIC_PINS,
   'esp32:esp32:esp32doit-devkit-v1': ESP32_CLASSIC_PINS,
   'esp32:esp32:esp32s2': ESP32_S2_PINS,
-  // Named boards that also have a Board-node profile. They share their chip's
-  // defaults; where a board cannot actually reach those pins the Board node's
-  // own pin-safety data is what catches it, not this table.
+  'esp32:esp32:esp32c3': ESP32_C3_PINS,
+  'esp32:esp32:esp32c6': ESP32_C6_PINS,
+  'esp32:esp32:esp32h2': ESP32_H2_PINS,
   'esp32:esp32:nodemcu-32s': ESP32_CLASSIC_PINS,
   'esp32:esp32:esp32wrover': ESP32_CLASSIC_PINS,
   'esp32:esp32:lolin_s2_mini': ESP32_S2_PINS,
   'esp32:esp32:lolin_s3': ESP32_S3_PINS,
-  'esp32:esp32:adafruit_feather_esp32s2': ESP32_S2_PINS,
-  'esp32:esp32:adafruit_feather_esp32s3': ESP32_S3_PINS,
-  'esp32:esp32:adafruit_qtpy_esp32s2': ESP32_S2_PINS,
-  'esp32:esp32:esp32c3': { i2sWs: 4, i2sSck: 6, i2sSd: 7 },
-  'esp32:esp32:esp32c6': { i2sWs: 18, i2sSck: 19, i2sSd: 20 },
-  'esp32:esp32:esp32h2': { i2sWs: 10, i2sSck: 11, i2sSd: 12 },
+  'esp32:esp32:adafruit_feather_esp32s2': { i2sWs: 10, i2sSck: 11, i2sSd: 12 },
+  'esp32:esp32:adafruit_feather_esp32s3': { i2sWs: 10, i2sSck: 11, i2sSd: 12 },
+  'esp32:esp32:adafruit_qtpy_esp32s2': { i2sWs: 35, i2sSck: 36, i2sSd: 37 },
+  'esp32:esp32:adafruit_feather_esp32_v2': { i2sWs: 32, i2sSck: 14, i2sSd: 33 },
+  'esp32:esp32:lolin_c3_mini': ESP32_C3_PINS,
+  'esp32:esp32:XIAO_ESP32C3': ESP32_C3_PINS,
+  'esp32:esp32:XIAO_ESP32C6': { i2sWs: 22, i2sSck: 19, i2sSd: 2 },
+
+  // PJRC Audio / FastLED Teensy backend. Teensy LC and 3.0 are excluded by
+  // the backend because their normal builds cannot hold its I2S DMA buffers.
+  'teensy:avr:teensy41': TEENSY_4_PINS,
+  'teensy:avr:teensy40': TEENSY_4_PINS,
+  'teensy:avr:teensyMM': TEENSY_4_PINS,
+  'teensy:avr:teensy36': TEENSY_3_PINS,
+  'teensy:avr:teensy35': TEENSY_3_PINS,
+  'teensy:avr:teensy31': TEENSY_3_PINS,
+
+  // Earle Philhower's RP2040/RP2350 Arduino core uses PIO for I2S. LRCLK is
+  // paired with the adjacent BCLK pin; 20/21 plus data on 22 is a practical
+  // breadboard-friendly starting point on the Pico headers.
+  'rp2040:rp2040:rpipico': PICO_PINS,
+  'rp2040:rp2040:rpipicow': PICO_PINS,
+  'rp2040:rp2040:rpipico2': PICO_PINS,
+  'rp2040:rp2040:rpipico2w': PICO_PINS,
+  // KB2040 exposes GP8-GP10 together; Earle's I2S input pairs BCLK with the
+  // next GPIO for LRCLK, so 8/9 keeps data on adjacent GP10.
+  'rp2040:rp2040:adafruit_kb2040': { i2sWs: 9, i2sSck: 8, i2sSd: 10 },
+
+  // SAMD51 board-variant I2S input pins, in Arduino pin numbering. These are
+  // the core's PIN_I2S_FS / PIN_I2S_SCK / PIN_I2S_SDI definitions. MatrixPortal
+  // M4 is deliberately absent: its current Adafruit variant declares no I2S
+  // interface even though it uses the same MCU family.
+  'adafruit:samd:adafruit_feather_m4': { i2sWs: 10, i2sSck: 1, i2sSd: 12 },
+  'adafruit:samd:adafruit_grandcentral_m4': { i2sWs: 33, i2sSck: 14, i2sSd: 31 },
+
+  // STM32duino SPI2/I2S2 wiring (PB12 WS, PB13 CK, PB15 SD), translated to
+  // each board variant's Arduino digital-pin numbers. The common F103C8 Blue
+  // Pill is deliberately excluded: its medium-density SPI block exposes only
+  // the I2S-mode bit, not the full I2S configuration/prescaler registers needed
+  // to clock an INMP441.
+  'STMicroelectronics:stm32:blackpill_f411ce': { i2sWs: 27, i2sSck: 28, i2sSd: 30 },
+  'STMicroelectronics:stm32:nucleo_f429zi': { i2sWs: 19, i2sSck: 18, i2sSd: 17 },
+  'STMicroelectronics:stm32:nucleo_f439zi': { i2sWs: 19, i2sSck: 18, i2sSd: 17 },
 }
 
-/**
- * Pins a MicInput created against `fqbn` should start with, or `undefined` to
- * keep the library default. Non-ESP32 targets get no mapping on purpose: the
- * microphone can't be built for them at all (deploy validation says so
- * outright), so there is no pin choice that would make the node any more
- * valid — inventing one would only disguise that.
- */
 export function micPinDefaultsForBoard(fqbn: string): MicI2sPins | undefined {
   return MIC_PIN_DEFAULTS_BY_FQBN[fqbn]
+}
+
+export function inmp441SupportedForBoard(fqbn: string): boolean {
+  return micPinDefaultsForBoard(fqbn) !== undefined
+}
+
+/** Capture backend for an exact upload target. Capability and code generation
+ * deliberately share this function so the UI cannot enable a board for which
+ * the exporter would silently emit a null FastLED input. */
+export function inmp441FirmwareBackendForBoard(
+  fqbn: string,
+): Inmp441FirmwareBackend | undefined {
+  if (!inmp441SupportedForBoard(fqbn)) return undefined
+  if (fqbn.startsWith('esp32:esp32:')) return 'fastled-esp32'
+  if (fqbn.startsWith('teensy:avr:')) return 'fastled-teensy'
+  if (fqbn.startsWith('rp2040:rp2040:')) return 'pico-i2s'
+  if (fqbn.startsWith('adafruit:samd:')) return 'samd51-zero-i2s'
+  if (fqbn.startsWith('STMicroelectronics:stm32:')) return 'stm32-i2s'
+  return undefined
+}
+
+/** Exact mic-capable FQBN represented by a Board node profile. */
+export function inmp441FqbnForBoardProfile(
+  profile: { compatibleFqbns: readonly string[] } | undefined,
+): string | undefined {
+  return profile?.compatibleFqbns.find((fqbn) =>
+    inmp441FirmwareBackendForBoard(fqbn) !== undefined)
+}
+
+export function inmp441SupportedForBoardProfile(
+  profile: { compatibleFqbns: readonly string[] } | undefined,
+): boolean {
+  return profile?.compatibleFqbns.some(inmp441SupportedForBoard) ?? false
 }
 
 /** The selected board's mic pins, read at node-creation time. */
@@ -68,34 +139,24 @@ function samePins(properties: Record<string, unknown>, pins: MicI2sPins): boolea
   return PIN_KEYS.every((key) => Number(properties[key]) === pins[key])
 }
 
-/**
- * True when a MicInput's pins are still a stock default rather than something
- * the user typed. Matching against *every* board's default set — not just the
- * previously selected one — covers a project saved under one target and opened
- * under another, and the library default that pre-dates this mapping.
- */
+/** True when a MicInput's pins match one of Studio's board starting points. */
 export function micPinsAreDefault(properties: Record<string, unknown>): boolean {
   return Object.values(MIC_PIN_DEFAULTS_BY_FQBN).some((pins) => samePins(properties, pins))
 }
 
-/**
- * Pins to move an existing MicInput to when the upload target changes, or
- * `undefined` to leave it alone.
- *
- * Switching board used to leave a Microphone on the old target's pins, which on
- * a different ESP32 variant may not exist at all — the node looked configured
- * but could never build. Retargeting only ever touches a node still on a stock
- * default: edit any of the three and the node is yours, and a board switch
- * leaves it exactly as you set it (deploy validation still flags it if those
- * pins aren't on the new board).
- */
+/** Target-board saved/default pins for retargeting an existing MicInput. */
 export function retargetedMicPins(
   properties: Record<string, unknown>,
   nextFqbn: string,
+  savedProperties?: Record<string, unknown>,
 ): MicI2sPins | undefined {
-  const next = micPinDefaultsForBoard(nextFqbn)
-  if (!next) return undefined
-  if (!micPinsAreDefault(properties)) return undefined
+  const stock = micPinDefaultsForBoard(nextFqbn)
+  if (!stock) return undefined
+  const next: MicI2sPins = {
+    i2sWs: Number(savedProperties?.i2sWs ?? stock.i2sWs),
+    i2sSck: Number(savedProperties?.i2sSck ?? stock.i2sSck),
+    i2sSd: Number(savedProperties?.i2sSd ?? stock.i2sSd),
+  }
   if (samePins(properties, next)) return undefined
   return next
 }

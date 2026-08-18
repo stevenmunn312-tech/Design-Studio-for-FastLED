@@ -1,7 +1,12 @@
 import { useMemo } from 'react'
 import { useGraphStore } from '../../state/graphStore'
 import { useUploadStore } from '../../state/uploadStore'
-import { BOARD_PROFILES, boardProfileById } from '../../build/boardProfiles'
+import {
+  BOARD_PROFILE_FAMILIES,
+  boardProfileById,
+  boardProfileFamilyId,
+  boardProfilesForFamily,
+} from '../../build/boardProfiles'
 import styles from './BoardNodeBody.module.css'
 
 // The Board node picks a *profile*, not an FQBN. `esp32:esp32:esp32` names the
@@ -33,8 +38,10 @@ export default function BoardNodeBody({ nodeId }: Props) {
     (s) => s.nodes.filter((n) => n.data.nodeType === 'Board').length)
 
   const profile = useMemo(() => boardProfileById(profileId), [profileId])
+  const familyId = profile ? boardProfileFamilyId(profile) : ''
+  const familyBoards = useMemo(() => boardProfilesForFamily(familyId), [familyId])
 
-  function choose(nextId: string) {
+  function chooseBoard(nextId: string) {
     updateNodeProperty(nodeId, 'profileId', nextId)
     const next = boardProfileById(nextId)
     // Profiles list the specific FQBN first and the family fallback after, so
@@ -43,23 +50,47 @@ export default function BoardNodeBody({ nodeId }: Props) {
     if (fqbn) setSelectedFqbn(fqbn)
   }
 
+  function chooseFamily(nextFamilyId: string) {
+    const firstBoard = boardProfilesForFamily(nextFamilyId)[0]
+    chooseBoard(firstBoard?.id ?? '')
+  }
+
   const safeCount = profile?.pinSafety?.safeGeneralPurpose.length ?? 0
   const peripherals = profile?.peripheralPins
 
   return (
     <div className={`${styles.body} nodrag`}>
-      <div className={styles.pickerRow}>
+      <label className={styles.pickerField}>
+        <span className={styles.pickerLabel}>Family</span>
         <select
           className={styles.picker}
-          value={profileId}
-          onChange={(e) => choose(e.target.value)}
-          aria-label="Controller board"
+          value={familyId}
+          onChange={(e) => chooseFamily(e.target.value)}
+          aria-label="Board family"
         >
-          <option value="">Choose your board…</option>
-          {BOARD_PROFILES.map((p) => (
-            <option key={p.id} value={p.id}>{p.label}</option>
+          <option value="">Choose a family…</option>
+          {BOARD_PROFILE_FAMILIES.map((family) => (
+            <option key={family.id} value={family.id}>{family.label}</option>
           ))}
         </select>
+      </label>
+
+      <div className={styles.pickerRow}>
+        <label className={styles.pickerField}>
+          <span className={styles.pickerLabel}>Board</span>
+          <select
+            className={styles.picker}
+            value={profileId}
+            onChange={(e) => chooseBoard(e.target.value)}
+            aria-label="Controller board"
+            disabled={!familyId}
+          >
+            <option value="">Choose your board…</option>
+            {familyBoards.map((p) => (
+              <option key={p.id} value={p.id}>{p.label}</option>
+            ))}
+          </select>
+        </label>
         <button
           type="button"
           className={styles.eyeBtn}

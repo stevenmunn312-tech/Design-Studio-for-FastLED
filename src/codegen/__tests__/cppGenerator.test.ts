@@ -2167,11 +2167,12 @@ describe('Formula Points codegen', () => {
 
 describe('generateCpp — INMP441 audio engine', () => {
   const out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8 })
+  const micBoard = node('board', 'Board', 'hardware', { profileId: 'espressif-esp32-s3-devkitc-1' })
   const micGraph = (channel = 'Left') => {
     const mic = node('mic', 'MicInput', 'hardware', { i2sWs: 39, i2sSck: 40, i2sSd: 41, channel })
     const fft = node('fft', 'FFTAnalyzer', 'audio', {})
     const bp = node('bp', 'BassPulse', 'pattern', {})
-    return generateCpp([mic, fft, bp, out], [
+    return generateCpp([micBoard, mic, fft, bp, out], [
       edge('e1', 'mic', 'fft', 'audio', 'audio'),
       edge('e2', 'fft', 'bp', 'bass', 'bass'),
       edge('e3', 'bp', 'out', 'frame', 'frame'),
@@ -2202,7 +2203,7 @@ describe('generateCpp — INMP441 audio engine', () => {
   it('prints FastLED processor levels and conditioner stats when Serial Debug is on', () => {
     const dbgMic = node('mic', 'MicInput', 'hardware', { serialDebug: true })
     const fft = node('fft', 'FFTAnalyzer', 'audio', {})
-    const on = generateCpp([dbgMic, fft, out], [edge('e1', 'mic', 'fft', 'audio', 'audio')])
+    const on = generateCpp([micBoard, dbgMic, fft, out], [edge('e1', 'mic', 'fft', 'audio', 'audio')])
     expect(on).toContain('#define MIC_DEBUG 1')
     expect(on).toContain('Serial.begin(115200);')
     expect(on).toContain('getSignalConditionerStats()')
@@ -2227,7 +2228,7 @@ describe('generateCpp — INMP441 audio engine', () => {
   it('applies FFT Analyzer gain and smoothing on-device', () => {
     const mic = node('mic', 'MicInput', 'hardware', {})
     const fft = node('fft', 'FFTAnalyzer', 'audio', { gain: 1.5, smoothing: 0.8 })
-    const cpp = generateCpp([mic, fft, out], [edge('e1', 'mic', 'fft', 'audio', 'audio')])
+    const cpp = generateCpp([micBoard, mic, fft, out], [edge('e1', 'mic', 'fft', 'audio', 'audio')])
     expect(cpp).toContain('n_fft_bass_raw * 1.500f')
     expect(cpp).toContain('_smooth * 0.800f')
     expect(cpp).toContain('* 0.200f')
@@ -2236,7 +2237,7 @@ describe('generateCpp — INMP441 audio engine', () => {
   it("FFTAnalyzer's bands property changes the generated resample resolution", () => {
     const mic = node('mic', 'MicInput', 'hardware', {})
     const fft = node('fft', 'FFTAnalyzer', 'audio', { bands: 12 })
-    const cpp = generateCpp([mic, fft, out], [edge('e1', 'mic', 'fft', 'audio', 'audio')])
+    const cpp = generateCpp([micBoard, mic, fft, out], [edge('e1', 'mic', 'fft', 'audio', 'audio')])
     expect(cpp).toContain('float _fftBands_fft[12];')
     expect(cpp).toContain('for (int _b = 0; _b < 12; _b++)')
   })
@@ -2304,7 +2305,7 @@ describe('generateCpp — INMP441 audio engine', () => {
       style: 'Bars', bands: 16, gain: 1.25, smoothing: 0.58, tilt: 0.2,
       peakHold: 0.42, peakGravity: 1.8, waterfallSpeed: 10, palette: 'citrus',
     })
-    const cpp = generateCpp([mic, visualizer, out], [
+    const cpp = generateCpp([micBoard, mic, visualizer, out], [
       edge('sv-audio', 'svmic', 'sv', 'audio', 'audio'),
       edge('sv-frame', 'sv', 'out', 'frame', 'frame'),
     ])
@@ -2330,7 +2331,7 @@ describe('generateCpp — INMP441 audio engine', () => {
   it('uses FastLED native beat and BPM for a live MicInput graph', () => {
     const mic = node('mic', 'MicInput', 'hardware', {})
     const beat = node('bd', 'BeatDetect', 'audio', { threshold: 0.08, attack: 0.3, decay: 0.05 })
-    const cpp = generateCpp([mic, beat, out], [
+    const cpp = generateCpp([micBoard, mic, beat, out], [
       edge('e1', 'mic', 'bd', 'audio', 'audio'),
       edge('e2', 'bd', 'out', 'frame', 'frame'),
     ])
@@ -2349,7 +2350,7 @@ describe('generateCpp — INMP441 audio engine', () => {
   it('emits heuristic PercussionDetect envelopes from the live spectrum', () => {
     const mic = node('mic', 'MicInput', 'hardware', {})
     const perc = node('pd', 'PercussionDetect', 'audio', { sensitivity: 0.65, decay: 0.6, separation: 0.5 })
-    const cpp = generateCpp([mic, perc, out], [
+    const cpp = generateCpp([micBoard, mic, perc, out], [
       edge('e1', 'mic', 'pd', 'audio', 'audio'),
       edge('e2', 'pd', 'out', 'frame', 'frame'),
     ])
@@ -2363,7 +2364,7 @@ describe('generateCpp — INMP441 audio engine', () => {
   it('emits heuristic AudioFeatures outputs from the live spectrum', () => {
     const mic = node('mic', 'MicInput', 'hardware', {})
     const feat = node('af', 'AudioFeatures', 'audio', { sensitivity: 0.6, gate: 0.1, smoothing: 0.2 })
-    const cpp = generateCpp([mic, feat, out], [
+    const cpp = generateCpp([micBoard, mic, feat, out], [
       edge('e1', 'mic', 'af', 'audio', 'audio'),
       edge('e2', 'af', 'out', 'frame', 'frame'),
     ])
@@ -2411,6 +2412,29 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(micGraph('Right')).toContain('fl::audio::AudioChannel::Right')
   })
 
+  it.each([
+    ['teensy-4-0', 'CreateTeensyI2S', '#include <Audio.h>'],
+    ['raspberry-pi-pico', 'class StudioInmp441Input', '#include <I2S.h>'],
+    ['adafruit-feather-m4-express', 'Adafruit_ZeroI2S _i2s', '#include <Adafruit_ZeroI2S.h>'],
+    ['weact-black-pill-f411ce', 'STM32 SPI2/I2S2 polling receiver', 'SPI2->I2SCFGR'],
+  ])('emits the %s capture adapter while keeping the shared processor contract', (profileId, capture, include) => {
+    const board = node('board', 'Board', 'hardware', { profileId })
+    const mic = node('mic', 'MicInput', 'hardware', {})
+    const fft = node('fft', 'FFTAnalyzer', 'audio', {})
+    const cpp = generateCpp([board, mic, fft, out], [edge('e1', 'mic', 'fft', 'audio', 'audio')])
+    expect(cpp).toContain(capture)
+    expect(cpp).toContain(include)
+    expect(cpp).toContain('_audioProcessor->getBassLevel()')
+    expect(cpp).toContain('_audioProcessor->getEqBin(i >> 1)')
+  })
+
+  it('selects the dependency-free SAMD51 software-SPI fallback before FastLED is included', () => {
+    const board = node('board', 'Board', 'hardware', { profileId: 'adafruit-feather-m4-express' })
+    const mic = node('mic', 'MicInput', 'hardware', {})
+    const cpp = generateCpp([board, mic, out], [])
+    expect(cpp.indexOf('#define FASTLED_FORCE_SOFTWARE_SPI 1')).toBeLessThan(cpp.indexOf('#include <FastLED.h>'))
+  })
+
   it('falls back to silence with no mic node', () => {
     const fft = node('fft', 'FFTAnalyzer', 'audio', {})
     const bp = node('bp', 'BassPulse', 'pattern', {})
@@ -2445,20 +2469,27 @@ describe('generateCpp — INMP441 audio engine', () => {
 })
 
 describe('audioEngineForGraph', () => {
+  const micBoard = node('board', 'Board', 'hardware', { profileId: 'espressif-esp32-s3-devkitc-1' })
   it('returns null when the graph has no MicInput', () => {
     expect(audioEngineForGraph([node('fft', 'FFTAnalyzer', 'audio', {})])).toBeNull()
   })
 
   it('returns FastLED processor setup when a MicInput is present', () => {
     const mic = node('mic', 'MicInput', 'hardware', { i2sWs: 39, i2sSck: 40, i2sSd: 41, channel: 'Right' })
-    const eng = audioEngineForGraph([mic])!
-    expect(eng.include).toContain('FastLED 3.10.3+')
+    const eng = audioEngineForGraph([micBoard, mic])!
+    expect(eng.include).toContain('same FastLED Processor contract as preview')
+    expect(eng.backend).toBe('fastled-esp32')
+    expect(eng.fqbn).toBe('esp32:esp32:esp32s3')
     const joined = eng.code.join('\n')
     expect(joined).toContain('void setupAudio()')
     expect(joined).toContain('void updateAudio()')
     expect(joined).toContain('fl::audio::AudioChannel::Right')
     expect(joined).toContain('FastLED.add(config)')
     expect(joined).not.toContain('i2s_driver_install')
+  })
+
+  it('does not invent a firmware target when no Board node is selected', () => {
+    expect(audioEngineForGraph([node('mic', 'MicInput', 'hardware', {})])).toBeNull()
   })
 })
 

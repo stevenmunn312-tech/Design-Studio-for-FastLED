@@ -19,9 +19,12 @@ import type { SavedPattern } from './patternLibrary'
 import { isPatternContentTrusted, trustPatternContent } from './patternTrust'
 import { useNetworkCredentialsStore } from './networkCredentials'
 import { retargetedMicPins } from './micPinDefaults'
+import { useNodeDefaults } from './nodeDefaults'
 import { useUiStore } from './uiStore'
 import { validateMatrixLayout } from './xyLayout'
 import { emptyBuildProfile, normalizeBuildProfile, type BuildProfile } from '../build/buildProfile'
+import { boardProfileById } from '../build/boardProfiles'
+import { DEFAULT_BOARD_PROFILE_ID, isHardwareManagedSignalNodeType, ROOT_BOARD_NODE_ID } from './hardware'
 import {
   type PerformanceDeckConfig,
   type PinnedControl,
@@ -165,9 +168,8 @@ interface GraphState {
   clearSelection: () => void
   updateNodeProperty: (id: string, key: string, value: unknown) => void
   updateNodeProperties: (id: string, updates: Record<string, unknown>) => void
-  /** Move every MicInput still on a stock default onto `fqbn`'s I2S pins, as
-   *  one undoable step. Nodes with user-chosen pins are left alone. Returns
-   *  how many nodes moved. */
+  /** Move every MicInput onto `fqbn`'s saved per-board wiring, or that board's
+   *  common starting pins when no custom default exists. One undoable step. */
   retargetMicPins: (fqbn: string) => number
   loadGraph: (nodes: StudioNode[], edges: StudioEdge[], workspace?: WorkspaceExtras) => void
   duplicateNode: (id: string) => void
@@ -181,6 +183,7 @@ interface GraphState {
   copySelection: () => void
   pasteNode: (position: { x: number; y: number }) => void
   deleteNode: (id: string) => void
+  removeNodeCompletely: (id: string) => void
   deleteSelection: () => void
   disconnectNode: (id: string) => void
   /** Drop `graphData`/`graphs` entries no longer reachable from any Group
@@ -254,7 +257,7 @@ type HistorySlice = Pick<GraphState, 'nodes' | 'edges'>
 // route or a live source, it is the controller the whole scene targets. A saved
 // pattern must stay board-agnostic, so grouping a selection never seals a board
 // choice inside it.
-const GROUP_EXCLUDED_TYPES = new Set(['MatrixOutput', 'MicInput', 'DMXInput', 'MusicLibrary', 'Board'])
+const GROUP_EXCLUDED_TYPES = new Set(['MatrixOutput', 'LedStringOutput', 'MicInput', 'DMXInput', 'MusicLibrary', 'Board'])
 
 /** Nodes that represent one scene-wide hardware resource. Creation actions use
  *  this set as a final guard, so every UI path (click, drop, paste, duplicate)
@@ -264,6 +267,8 @@ export const SINGLETON_NODE_TYPES = new Set(['MicInput', 'DMXInput'])
 export function canAddNodeType(nodes: StudioNode[], nodeType: string): boolean {
   return !SINGLETON_NODE_TYPES.has(nodeType) || !nodes.some((n) => n.data.nodeType === nodeType)
 }
+
+SINGLETON_NODE_TYPES.add('Board')
 
 export interface CreateGroupOptions {
   /** Saved to the pattern library right after creation (the caller still has
@@ -332,6 +337,73 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     return { ...n, data: { ...data, nodeType, label, category, properties, inputs, outputs } }
   })
   return { nodes: normalizedNodes, edges: edges.map((e) => ({ ...e })) }
+}
+
+function createRootBoardNode(profileId = DEFAULT_BOARD_PROFILE_ID): StudioNode {
+  const profile = boardProfileById(profileId)
+  return {
+    id: ROOT_BOARD_NODE_ID,
+    type: 'studioNode',
+    position: { x: -720, y: -360 },
+    hidden: true,
+    selectable: false,
+    draggable: false,
+    data: {
+      label: 'Board',
+      nodeType: 'Board',
+      category: 'output',
+      properties: { profileId: profile?.id ?? DEFAULT_BOARD_PROFILE_ID },
+      inputs: [],
+      outputs: [],
+    },
+  } as StudioNode
+}
+
+function ensureRootBoardNode(nodes: StudioNode[]): StudioNode[] {
+  const boardNodes = nodes.filter((node) => node.data.nodeType === 'Board')
+  if (boardNodes.length === 0) return [...nodes, createRootBoardNode()]
+  const [primary, ...extras] = boardNodes
+  const primaryProps = (primary.data.properties ?? {}) as Record<string, unknown>
+  const explicitProfileId = typeof primaryProps.profileId === 'string' && primaryProps.profileId
+    ? primaryProps.profileId
+    : DEFAULT_BOARD_PROFILE_ID
+  return nodes
+    .filter((node) => !extras.some((extra) => extra.id === node.id))
+    .map((node) => {
+      if (node.id !== primary.id) return node
+      return {
+        ...node,
+        hidden: true,
+        selectable: false,
+        draggable: false,
+        data: {
+          ...node.data,
+          label: 'Board',
+          category: 'output',
+          properties: { ...node.data.properties, profileId: explicitProfileId },
+          inputs: [],
+          outputs: [],
+        },
+      }
+    })
+}
+
+function removeNodeAndEdges(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  selectedNodeId: string | null,
+  performanceDeck: PerformanceDeckConfig,
+  removedIds: Set<string>,
+) {
+  return {
+    nodes: nodes.filter((node) => !removedIds.has(node.id)),
+    edges: edges.filter((edge) => !removedIds.has(edge.source ?? '') && !removedIds.has(edge.target ?? '')),
+    selectedNodeId: selectedNodeId && removedIds.has(selectedNodeId) ? null : selectedNodeId,
+    performanceDeck: {
+      ...performanceDeck,
+      pins: performanceDeck.pins.filter((pin) => !removedIds.has(pin.nodeId)),
+    },
+  }
 }
 
 // Minimum horizontal clearance to keep between a node's right edge and the left
@@ -1053,16 +1125,17 @@ export const useGraphStore = create<GraphState>()(
 
       retargetMicPins: (fqbn) => {
         let moved = 0
+        const saved = useNodeDefaults.getState().micOverridesByFqbn[fqbn]
         set((s) => {
           const nodes = s.nodes.map((n) => {
             if (n.data.nodeType !== 'MicInput') return n
-            const pins = retargetedMicPins(n.data.properties as Record<string, unknown>, fqbn)
+            const pins = retargetedMicPins(n.data.properties as Record<string, unknown>, fqbn, saved)
             if (!pins) return n
             moved += 1
             return { ...n, data: { ...n.data, properties: { ...n.data.properties, ...pins } } }
           })
-          // No-op when nothing moved, so a board switch with a hand-wired
-          // Microphone doesn't push an empty step onto the undo stack.
+          // No-op when nothing moved, so re-selecting the same effective
+          // wiring doesn't push an empty step onto the undo stack.
           return moved > 0 ? { nodes } : {}
         })
         return moved
@@ -1093,8 +1166,12 @@ export const useGraphStore = create<GraphState>()(
             { nodes: active.nodes, graphData, graphs, activeGraphId },
             [],
           )
+          const rootNodes = activeGraphId === ROOT_GRAPH_ID
+            ? ensureRootBoardNode(active.nodes)
+            : active.nodes
           return {
             ...active,
+            nodes: rootNodes,
             graphData: pruned?.graphData ?? graphData,
             graphs: pruned?.graphs ?? graphs,
             activeGraphId,
@@ -1183,17 +1260,37 @@ export const useGraphStore = create<GraphState>()(
         }),
 
       deleteNode: (id) => {
+        const node = useGraphStore.getState().nodes.find((entry) => entry.id === id)
+        const nodeType = node?.data.nodeType ?? ''
+        if (nodeType === 'Board') return
         scheduleOrphanGraphPrune()
-        set((s) => ({
-          nodes: s.nodes.filter((n) => n.id !== id),
-          edges: s.edges.filter((e) => e.source !== id && e.target !== id),
-          selectedNodeId: s.selectedNodeId === id ? null : s.selectedNodeId,
-          // A pin targeting a deleted node is useless; drop it. Scenes keep
-          // any now-stale pinId keys harmlessly (recall just skips pins that
-          // no longer resolve) — same lazy-cleanup philosophy as orphan
-          // subgraph pruning above.
-          performanceDeck: { ...s.performanceDeck, pins: s.performanceDeck.pins.filter((p) => p.nodeId !== id) },
-        }))
+        if (isHardwareManagedSignalNodeType(nodeType)) {
+          set((s) => ({
+            edges: s.edges.filter((edge) => edge.source !== id && edge.target !== id),
+            selectedNodeId: s.selectedNodeId === id ? null : s.selectedNodeId,
+          }))
+          return
+        }
+        set((s) => removeNodeAndEdges(
+          s.nodes,
+          s.edges,
+          s.selectedNodeId,
+          s.performanceDeck,
+          new Set([id]),
+        ))
+      },
+
+      removeNodeCompletely: (id) => {
+        const node = useGraphStore.getState().nodes.find((entry) => entry.id === id)
+        if (!node || node.data.nodeType === 'Board') return
+        scheduleOrphanGraphPrune()
+        set((s) => removeNodeAndEdges(
+          s.nodes,
+          s.edges,
+          s.selectedNodeId,
+          s.performanceDeck,
+          new Set([id]),
+        ))
       },
 
       deleteSelection: () => {
@@ -1201,14 +1298,32 @@ export const useGraphStore = create<GraphState>()(
         set((s) => {
           const selectedIds = new Set(s.nodes.filter((n) => n.selected).map((n) => n.id))
           if (selectedIds.size === 0) return s
+          for (const node of s.nodes) {
+            if (!selectedIds.has(node.id)) continue
+            if (node.data.nodeType === 'Board') selectedIds.delete(node.id)
+          }
+          if (selectedIds.size === 0) return s
+          const disconnectOnlyIds = new Set(
+            s.nodes
+              .filter((node) => selectedIds.has(node.id) && isHardwareManagedSignalNodeType(node.data.nodeType))
+              .map((node) => node.id)
+          )
+          const removeIds = new Set([...selectedIds].filter((id) => !disconnectOnlyIds.has(id)))
+          if (removeIds.size === 0) {
+            return {
+              edges: s.edges.filter((edge) => !disconnectOnlyIds.has(edge.source ?? '') && !disconnectOnlyIds.has(edge.target ?? '')),
+              selectedNodeId: s.selectedNodeId && selectedIds.has(s.selectedNodeId) ? null : s.selectedNodeId,
+            }
+          }
+          const removed = removeNodeAndEdges(
+            s.nodes,
+            s.edges.filter((edge) => !disconnectOnlyIds.has(edge.source ?? '') && !disconnectOnlyIds.has(edge.target ?? '')),
+            s.selectedNodeId,
+            s.performanceDeck,
+            removeIds,
+          )
           return {
-            nodes: s.nodes.filter((n) => !selectedIds.has(n.id)),
-            edges: s.edges.filter((e) => !selectedIds.has(e.source ?? '') && !selectedIds.has(e.target ?? '')),
-            selectedNodeId: s.selectedNodeId && selectedIds.has(s.selectedNodeId) ? null : s.selectedNodeId,
-            performanceDeck: {
-              ...s.performanceDeck,
-              pins: s.performanceDeck.pins.filter((p) => !selectedIds.has(p.nodeId)),
-            },
+            ...removed,
           }
         })
       },

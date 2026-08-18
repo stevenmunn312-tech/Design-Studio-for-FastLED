@@ -159,8 +159,8 @@ function activeStagePatternName(
     return libraryPatternNameForGroup(groupId, graphs, libraryPatternIds, libraryNameCounts)
   }
 
-  const output = nodes.find((node) => node.id === outputId && nodeTypeOf(node) === 'MatrixOutput')
-    ?? nodes.find((node) => nodeTypeOf(node) === 'MatrixOutput')
+  const output = nodes.find((node) => node.id === outputId && ['MatrixOutput', 'LedStringOutput'].includes(nodeTypeOf(node)))
+    ?? nodes.find((node) => ['MatrixOutput', 'LedStringOutput'].includes(nodeTypeOf(node)))
   if (!output) return null
   const sourceEdge = edges.find((edge) => edge.target === output.id && edge.targetHandle === 'frame')
   const sourceNode = nodes.find((node) => node.id === sourceEdge?.source)
@@ -235,7 +235,7 @@ export default function LEDPreview() {
 
   const graphHasFrameSignal = useGraphStore((s) => {
     const terminalIds = new Set(s.nodes
-      .filter((node) => ['MatrixOutput', 'GroupOutput'].includes(String(node.data.nodeType)))
+      .filter((node) => ['MatrixOutput', 'LedStringOutput', 'GroupOutput'].includes(String(node.data.nodeType)))
       .map((node) => node.id))
     return s.edges.some((edge) => terminalIds.has(edge.target) && edge.targetHandle === 'frame')
   })
@@ -263,7 +263,7 @@ export default function LEDPreview() {
   useEffect(() => {
     if (activeOutputId !== previewOutputId) setPreviewOutputId(activeOutputId)
   }, [activeOutputId, previewOutputId, setPreviewOutputId])
-  const activeOutput = useGraphStore((s) => s.nodes.find((node) => node.id === activeOutputId && node.data.nodeType === 'MatrixOutput'))
+  const activeOutput = useGraphStore((s) => s.nodes.find((node) => node.id === activeOutputId && ['MatrixOutput', 'LedStringOutput'].includes(node.data.nodeType)))
   // Real matrix dimensions — used for the canvas/WebGL buffer size, the
   // frame passed to the renderers, and the on-screen W×H readout, so a
   // strip layout (e.g. 10×1) never grows a phantom extra row/column. Only
@@ -538,7 +538,7 @@ export default function LEDPreview() {
         // Firmware renders once on a shared logical composition canvas, then
         // fits/crops each terminal's source frame into its physical route. Do
         // the same here and pick the route selected in the preview header.
-        const composition = compositionDims(graphNodes)
+        const composition = compositionDims(graphNodes, graphEdges)
         const { outputs } = evaluateGraphFull(graphNodes, graphEdges, tick, composition.w, composition.h, groups, fullPass, trusted)
         const evalMs = PERF_TELEMETRY ? performance.now() - evalStart : 0
         const routes = outputRoutes(graphNodes)

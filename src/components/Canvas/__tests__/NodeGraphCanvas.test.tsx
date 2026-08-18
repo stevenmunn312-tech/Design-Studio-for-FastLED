@@ -17,6 +17,7 @@ const setCenterMock = vi.fn()
 const setViewportMock = vi.fn().mockResolvedValue(true)
 const getZoomMock = () => 1
 const startAudioMock = vi.fn(async () => {})
+const stopAudioMock = vi.fn()
 const { runTidyMock } = vi.hoisted(() => ({ runTidyMock: vi.fn() }))
 let reactFlowProps: Record<string, unknown> = {}
 let canvasContextMenuProps: Record<string, unknown> = {}
@@ -64,6 +65,11 @@ vi.mock('../../../audio/interactionSfx', () => ({
 vi.mock('../../../utils/tidyGraph', () => ({ runTidy: runTidyMock }))
 
 describe('NodeGraphCanvas start screen', () => {
+  const visibleNodeTypes = () =>
+    useGraphStore.getState().nodes
+      .filter((node) => node.data.nodeType !== 'Board')
+      .map((node) => node.data.nodeType)
+
   beforeEach(() => {
     vi.clearAllMocks()
     getNodeMock.mockReturnValue(undefined)
@@ -87,7 +93,8 @@ describe('NodeGraphCanvas start screen', () => {
       testSignal: false,
     })
     startAudioMock.mockClear()
-    useAudioStore.setState({ startAudio: startAudioMock })
+    stopAudioMock.mockClear()
+    useAudioStore.setState({ startAudio: startAudioMock, stopAudio: stopAudioMock })
   })
 
   it('launches the juggle starter from the empty-canvas start screen', async () => {
@@ -96,7 +103,7 @@ describe('NodeGraphCanvas start screen', () => {
     fireEvent.click(getByRole('button', { name: 'Start with Juggle' }))
 
     await waitFor(() => {
-      expect(useGraphStore.getState().nodes).toHaveLength(3)
+      expect(visibleNodeTypes()).toHaveLength(3)
     })
     expect(useUiStore.getState().lastStartChoice).toBe('juggle')
     expect(useUiStore.getState().fitViewRequest.nodeIds).toHaveLength(3)
@@ -162,7 +169,7 @@ describe('NodeGraphCanvas start screen', () => {
     ])
   })
 
-  it('launches the audio first patch with its tutorial and live microphone', async () => {
+  it('launches the audio first patch against the default classic ESP32 board', async () => {
     useUiStore.setState({ testSignal: true })
     localStorage.setItem('design-studio-for-fastled-test-signal', 'true')
     const { getByRole } = render(<NodeGraphCanvas />)
@@ -170,7 +177,8 @@ describe('NodeGraphCanvas start screen', () => {
     fireEvent.click(getByRole('button', { name: 'Audio-reactive demo' }))
 
     await waitFor(() => expect(startAudioMock).toHaveBeenCalledOnce())
-    expect(useGraphStore.getState().nodes.map((node) => node.data.nodeType)).toEqual(
+    expect(stopAudioMock).not.toHaveBeenCalled()
+    expect(visibleNodeTypes()).toEqual(
       expect.arrayContaining(['MicInput', 'SpectrumVisualizer', 'MatrixOutput', 'Comment']),
     )
     expect(useUiStore.getState().testSignal).toBe(false)
@@ -240,7 +248,7 @@ describe('NodeGraphCanvas start screen', () => {
     await waitFor(() => {
       expect(useUiStore.getState().lastStartChoice).toBe('blank')
     })
-    expect(useGraphStore.getState().nodes).toEqual([])
+    expect(visibleNodeTypes()).toEqual([])
   })
 
   it('unplugs a connected Field Noise speed input when its input handle is dragged to empty canvas', () => {

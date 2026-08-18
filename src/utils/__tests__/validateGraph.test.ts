@@ -66,12 +66,20 @@ describe('validateGraph', () => {
       .toEqual(['a', 'b'])
   })
 
-  it('blocks MicInput firmware on non-ESP32 boards', () => {
+  it('allows INMP441-capable boards and blocks incompatible boards', () => {
     const nodes = [node('mic', 'MicInput')]
     expect(findBoardCompatibilityErrors(nodes, 'arduino:avr:uno')).toEqual([
-      expect.stringMatching(/requires an ESP32-family board/),
+      'The inmp441 microphone does not work with this board',
     ])
-    expect(findBoardCompatibilityErrors(nodes, 'esp32:esp32:esp32s3')).toEqual([])
+    for (const fqbn of [
+      'esp32:esp32:esp32s3',
+      'teensy:avr:teensy40',
+      'rp2040:rp2040:rpipico',
+      'adafruit:samd:adafruit_feather_m4',
+      'STMicroelectronics:stm32:blackpill_f411ce',
+    ]) {
+      expect(findBoardCompatibilityErrors(nodes, fqbn)).toEqual([])
+    }
     expect(findBoardCompatibilityErrors([], 'arduino:avr:uno')).toEqual([])
   })
 

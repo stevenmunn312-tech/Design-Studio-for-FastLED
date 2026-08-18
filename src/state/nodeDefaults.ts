@@ -7,8 +7,10 @@
 
 import { create } from 'zustand'
 import { micPinDefaultsForSelectedBoard } from './micPinDefaults'
+import { useUploadStore } from './uploadStore'
 
 const KEY = 'design-studio-for-fastled.node-defaults.v1'
+const MIC_KEY = 'design-studio-for-fastled.mic-defaults-by-board.v1'
 
 function sanitizeProperties(nodeType: string, properties: Record<string, unknown>): Record<string, unknown> {
   const sanitized = { ...properties }
@@ -19,16 +21,16 @@ function sanitizeProperties(nodeType: string, properties: Record<string, unknown
   return sanitized
 }
 
-function load(): Record<string, Record<string, unknown>> {
+function load(key = KEY, fixedNodeType?: string): Record<string, Record<string, unknown>> {
   try {
-    const raw = localStorage.getItem(KEY)
+    const raw = localStorage.getItem(key)
     const parsed = raw ? JSON.parse(raw) : {}
     if (!parsed || typeof parsed !== 'object') return {}
     return Object.fromEntries(
       Object.entries(parsed).map(([nodeType, properties]) => [
         nodeType,
         properties && typeof properties === 'object'
-          ? sanitizeProperties(nodeType, properties as Record<string, unknown>)
+          ? sanitizeProperties(fixedNodeType ?? nodeType, properties as Record<string, unknown>)
           : {},
       ])
     )
@@ -37,9 +39,9 @@ function load(): Record<string, Record<string, unknown>> {
   }
 }
 
-function persist(overrides: Record<string, Record<string, unknown>>) {
+function persist(overrides: Record<string, Record<string, unknown>>, key = KEY) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(overrides))
+    localStorage.setItem(key, JSON.stringify(overrides))
   } catch {
     // Quota exceeded or private-mode storage disabled — keep the in-memory copy.
   }
@@ -47,22 +49,61 @@ function persist(overrides: Record<string, Record<string, unknown>>) {
 
 interface NodeDefaultsState {
   overrides: Record<string, Record<string, unknown>>
-  setDefault: (nodeType: string, properties: Record<string, unknown>) => void
-  clearDefault: (nodeType: string) => void
+  /** MicInput is hardware wiring, so its remembered settings are isolated by
+   * upload target rather than sharing the global per-node-type bucket. */
+  micOverridesByFqbn: Record<string, Record<string, unknown>>
+  setDefault: (nodeType: string, properties: Record<string, unknown>, fqbn?: string) => void
+  clearDefault: (nodeType: string, fqbn?: string) => void
+}
+
+const loadedOverrides = load()
+const loadedMicOverrides = load(MIC_KEY, 'MicInput')
+
+// Older releases had one global MicInput default. Preserve it by assigning it
+// to the board that is selected during migration; there is no older board key
+// from which a more precise association could be recovered.
+if (loadedOverrides.MicInput) {
+  const fqbn = useUploadStore.getState().selectedFqbn
+  if (!loadedMicOverrides[fqbn]) loadedMicOverrides[fqbn] = loadedOverrides.MicInput
+  delete loadedOverrides.MicInput
+  persist(loadedOverrides)
+  persist(loadedMicOverrides, MIC_KEY)
+}
+
+function targetFqbn(fqbn?: string): string {
+  return fqbn ?? useUploadStore.getState().selectedFqbn
 }
 
 export const useNodeDefaults = create<NodeDefaultsState>((set) => ({
-  overrides: load(),
+  overrides: loadedOverrides,
+  micOverridesByFqbn: loadedMicOverrides,
 
-  setDefault: (nodeType, properties) =>
+  setDefault: (nodeType, properties, fqbn) =>
     set((s) => {
+      if (nodeType === 'MicInput') {
+        const board = targetFqbn(fqbn)
+        const micOverridesByFqbn = {
+          ...s.micOverridesByFqbn,
+          [board]: sanitizeProperties(nodeType, properties),
+        }
+        persist(micOverridesByFqbn, MIC_KEY)
+        return { micOverridesByFqbn }
+      }
       const overrides = { ...s.overrides, [nodeType]: sanitizeProperties(nodeType, properties) }
       persist(overrides)
       return { overrides }
     }),
 
-  clearDefault: (nodeType) =>
+  clearDefault: (nodeType, fqbn) =>
     set((s) => {
+      if (nodeType === 'MicInput') {
+        const board = targetFqbn(fqbn)
+        if (!(board in s.micOverridesByFqbn)) return s
+        const micOverridesByFqbn = { ...s.micOverridesByFqbn }
+        delete micOverridesByFqbn[board]
+        persist(micOverridesByFqbn, MIC_KEY)
+        return { micOverridesByFqbn }
+      }
       if (!(nodeType in s.overrides)) return s
       const overrides = { ...s.overrides }
       delete overrides[nodeType]
@@ -86,11 +127,22 @@ export function resolveDefaultProperties(
   nodeType: string,
   libraryDefault: Record<string, unknown> | undefined
 ): Record<string, unknown> {
-  const override = useNodeDefaults.getState().overrides[nodeType]
+  const state = useNodeDefaults.getState()
+  const fqbn = useUploadStore.getState().selectedFqbn
+  const override = nodeType === 'MicInput'
+    ? state.micOverridesByFqbn[fqbn]
+    : state.overrides[nodeType]
   const boardDefault = nodeType === 'MicInput' ? micPinDefaultsForSelectedBoard() : undefined
   return sanitizeProperties(nodeType, {
     ...(libraryDefault ?? {}),
     ...(boardDefault ?? {}),
     ...(override ?? {}),
   })
+}
+
+export function hasCustomNodeDefault(nodeType: string, fqbn?: string): boolean {
+  const state = useNodeDefaults.getState()
+  return nodeType === 'MicInput'
+    ? targetFqbn(fqbn) in state.micOverridesByFqbn
+    : nodeType in state.overrides
 }

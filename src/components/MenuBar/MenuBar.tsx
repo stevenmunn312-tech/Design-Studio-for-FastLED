@@ -9,6 +9,12 @@ import { useAudioStore } from '../../state/audioStore'
 import { useShowPlayback } from '../../state/showPlayback'
 import { useProjectStore } from '../../state/projectStore'
 import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
+import {
+  inmp441SupportedForBoardProfile,
+  INMP441_NO_BOARD_MESSAGE,
+  INMP441_UNSUPPORTED_MESSAGE,
+} from '../../state/micPinDefaults'
+import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
 import type { StudioNode, StudioEdge, WorkspaceExtras } from '../../state/graphStore'
 import { captureWorkspace, blankWorkspace } from '../../state/workspacePersistence'
 import {
@@ -140,10 +146,20 @@ export default function MenuBar() {
   const hasMicNode = useGraphStore((s) =>
     s.nodes.some((n) => (n.data as { nodeType?: string }).nodeType === 'MicInput')
   )
+  const selectedBoardProfile = useGraphStore((s) => selectedPhysicalBoardProfile(s.nodes))
+  const micSupported = inmp441SupportedForBoardProfile(selectedBoardProfile)
   const micActive = useAudioStore((s) => s.micActive)
   const startAudio = useAudioStore((s) => s.startAudio)
   const stopAudio = useAudioStore((s) => s.stopAudio)
   const showPlaying = useShowPlayback((s) => s.playing)
+  const micUnavailableMessage = !hasMicNode
+    ? 'Add a MicInput node to enable the microphone'
+    : !selectedBoardProfile
+      ? INMP441_NO_BOARD_MESSAGE
+      : !micSupported
+        ? INMP441_UNSUPPORTED_MESSAGE
+        : null
+  const effectiveMicActive = micActive && micUnavailableMessage === null
   const deckOpen = usePerformanceDeckSession((s) => s.deckOpen)
   const toggleDeck = usePerformanceDeckSession((s) => s.toggleDeck)
 
@@ -204,6 +220,10 @@ export default function MenuBar() {
   }, [viewMenuOpen])
 
   useEffect(() => {
+    if (micActive && micUnavailableMessage) stopAudio()
+  }, [micActive, micUnavailableMessage, stopAudio])
+
+  useEffect(() => {
     if (!fileMenuOpen && !viewMenuOpen) return
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') closeMenus()
@@ -215,6 +235,10 @@ export default function MenuBar() {
   }, [fileMenuOpen, viewMenuOpen])
 
   const toggleMic = () => {
+    if (micUnavailableMessage) {
+      setStatus(micUnavailableMessage, 'info')
+      return
+    }
     if (!micActive && showPlaying) {
       void requestAlert({
         title: 'Microphone unavailable',
@@ -266,7 +290,8 @@ export default function MenuBar() {
 
   const handleCommunityShare = async () => {
     const graphState = useGraphStore.getState()
-    if (graphState.nodes.length === 0 && Object.keys(graphState.graphData ?? {}).length === 0) {
+    const visibleRootNodes = graphState.nodes.filter((node) => node.data.nodeType !== 'Board')
+    if (visibleRootNodes.length === 0 && Object.keys(graphState.graphData ?? {}).length === 0) {
       setStatus('Add a pattern before sharing it with the community', 'info')
       return
     }
@@ -361,7 +386,7 @@ export default function MenuBar() {
 
   const confirmReplaceUnsavedWorkspace = async (message: string) => {
     if (currentProject) return true
-    if (useGraphStore.getState().nodes.length === 0) return true
+    if (useGraphStore.getState().nodes.every((node) => node.data.nodeType === 'Board')) return true
     return requestConfirm({
       title: 'Replace current workspace?',
       message,
@@ -944,20 +969,19 @@ export default function MenuBar() {
           {previewStyleLabel(effectivePreviewStyle)}
         </button>
         <button
-          className={`${styles.btn} ${styles.micBtn} ${micActive ? styles.btnMicActive : ''}`}
+          className={`${styles.btn} ${styles.micBtn} ${effectiveMicActive ? styles.btnMicActive : ''}`}
           onClick={toggleMic}
-          disabled={!hasMicNode}
-          aria-label="Toggle microphone preview input"
-          aria-pressed={micActive}
+          disabled={micUnavailableMessage !== null}
+          aria-label={micUnavailableMessage ?? 'Toggle microphone preview input'}
+          aria-pressed={effectiveMicActive}
           title={
-            !hasMicNode
-              ? 'Add a MicInput node to enable the microphone'
-              : !micActive && showPlaying
+            micUnavailableMessage
+              ?? (!effectiveMicActive && showPlaying
                 ? 'Microphone is disabled while a performance is playing music'
-                : micActive ? 'Stop microphone' : 'Start microphone'
+                : effectiveMicActive ? 'Stop microphone' : 'Start microphone')
           }
         >
-          {micActive ? 'Mic On' : 'Mic Off'}
+          {effectiveMicActive ? 'Mic On' : 'Mic Off'}
         </button>
       </div>
     </header>

@@ -3,7 +3,12 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import BoardNodeBody from '../BoardNodeBody'
 import { useGraphStore, ROOT_GRAPH_ID } from '../../../state/graphStore'
 import { useUploadStore } from '../../../state/uploadStore'
-import { BOARD_PROFILES } from '../../../build/boardProfiles'
+import {
+  BOARD_PROFILES,
+  BOARD_PROFILE_FAMILIES,
+  boardProfileFamilyId,
+  boardProfilesForFamily,
+} from '../../../build/boardProfiles'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import type { StudioNode } from '../../../state/graphStore'
 
@@ -34,22 +39,53 @@ function reset(nodes: StudioNode[]) {
 describe('BoardNodeBody', () => {
   beforeEach(() => reset([boardNode('b1')]))
 
-  it('offers every physical board profile and starts unset', () => {
+  it('starts unset and offers every populated board family', () => {
     render(<BoardNodeBody nodeId="b1" />)
+    const familyPicker = screen.getByLabelText('Board family') as HTMLSelectElement
     const picker = screen.getByLabelText('Controller board') as HTMLSelectElement
+    expect(familyPicker.value).toBe('')
     expect(picker.value).toBe('')
+    expect(picker.disabled).toBe(true)
     // Unset is deliberate — a defaulted board would be a wrong answer stated
     // confidently, where an empty one is a question.
     expect(screen.getByText(/Pin advice stays chip-level/)).toBeTruthy()
-    for (const profile of BOARD_PROFILES) {
-      expect(screen.getByRole('option', { name: profile.label })).toBeTruthy()
+    for (const family of BOARD_PROFILE_FAMILIES) {
+      expect(screen.getByRole('option', { name: family.label })).toBeTruthy()
     }
+  })
+
+  it('filters the board selector to the chosen family', () => {
+    render(<BoardNodeBody nodeId="b1" />)
+
+    fireEvent.change(screen.getByLabelText('Board family'), { target: { value: 'teensy' } })
+
+    const teensyBoards = boardProfilesForFamily('teensy')
+    expect(teensyBoards.length).toBeGreaterThan(0)
+    for (const board of teensyBoards) {
+      expect(screen.getByRole('option', { name: board.label })).toBeTruthy()
+    }
+    for (const board of BOARD_PROFILES.filter((profile) => boardProfileFamilyId(profile) !== 'teensy')) {
+      expect(screen.queryByRole('option', { name: board.label })).toBeNull()
+    }
+  })
+
+  it('selects the first board when the family changes and keeps upload aligned', () => {
+    render(<BoardNodeBody nodeId="b1" />)
+    const firstPico = boardProfilesForFamily('rp')[0]
+
+    fireEvent.change(screen.getByLabelText('Board family'), { target: { value: 'rp' } })
+
+    const props = useGraphStore.getState().nodes[0].data.properties as Record<string, unknown>
+    expect(props.profileId).toBe(firstPico.id)
+    expect((screen.getByLabelText('Controller board') as HTMLSelectElement).value).toBe(firstPico.id)
+    expect(useUploadStore.getState().selectedFqbn).toBe(firstPico.compatibleFqbns[0])
   })
 
   it('records the profile and mirrors its closest FQBN into the upload target', () => {
     const xiao = BOARD_PROFILES.find((p) => p.id === 'seeed-xiao-esp32s3')!
     render(<BoardNodeBody nodeId="b1" />)
 
+    fireEvent.change(screen.getByLabelText('Board family'), { target: { value: 'esp32' } })
     fireEvent.change(screen.getByLabelText('Controller board'), { target: { value: xiao.id } })
 
     const props = useGraphStore.getState().nodes[0].data.properties as Record<string, unknown>
@@ -63,6 +99,8 @@ describe('BoardNodeBody', () => {
     const xiao = BOARD_PROFILES.find((p) => p.id === 'seeed-xiao-esp32s3')!
     reset([boardNode('b1', xiao.id)])
     render(<BoardNodeBody nodeId="b1" />)
+
+    expect((screen.getByLabelText('Board family') as HTMLSelectElement).value).toBe('esp32')
 
     const safe = xiao.pinSafety?.safeGeneralPurpose ?? []
     expect(safe.length).toBeGreaterThan(0)

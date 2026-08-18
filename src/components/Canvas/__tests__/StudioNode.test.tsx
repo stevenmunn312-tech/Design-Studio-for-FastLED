@@ -12,6 +12,8 @@ import { useNodeDefaults } from '../../../state/nodeDefaults'
 import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/uploadStore'
 import { useHardwareInputStore } from '../../../state/hardwareInputStore'
+import { BOARD_PROFILES } from '../../../build/boardProfiles'
+import { INMP441_NO_BOARD_MESSAGE, INMP441_UNSUPPORTED_MESSAGE } from '../../../state/micPinDefaults'
 
 // React Flow's <Handle> needs flow context; keep a lightweight DOM stand-in so
 // node-body tests can also assert the absolute port geometry.
@@ -40,8 +42,16 @@ function makeNode(nodeType: string, props: Record<string, unknown>): StudioNodeT
   } as unknown as StudioNodeT
 }
 
-function renderNode(n: StudioNodeT) {
-  useGraphStore.setState({ nodes: [n], edges: [] })
+function renderNode(n: StudioNodeT, options?: { board?: boolean }) {
+  const nodes = [n]
+  if (n.data.nodeType === 'MicInput' && options?.board !== false) {
+    const fqbn = useUploadStore.getState().selectedFqbn
+    const profile = BOARD_PROFILES.find((entry) => entry.compatibleFqbns.includes(fqbn))
+    if (profile) {
+      nodes.push({ ...makeNode('Board', { profileId: profile.id }), id: 'board' })
+    }
+  }
+  useGraphStore.setState({ nodes, edges: [] })
   const props = { id: n.id, data: n.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
   return render(<StudioNode {...props} />)
 }
@@ -55,7 +65,7 @@ describe('StudioNode', () => {
     useMusicStore.setState({ entries: [] })
     usePreviewStore.setState({ outputs: new Map() })
     useAudioStore.setState({ active: false, bass: 0, mids: 0, treble: 0, beat: false, bpm: 120, spectrum: Array(16).fill(0) })
-    useNodeDefaults.setState({ overrides: {} })
+    useNodeDefaults.setState({ overrides: {}, micOverridesByFqbn: {} })
     useUiStore.setState({ uiEffectsEnabled: true })
     // Default board matches the app's own default (ESP32-S3, which has a GPIO
     // table) so pin-picker tests aren't sensitive to another test's selection.
@@ -213,7 +223,7 @@ describe('StudioNode', () => {
     ) as HTMLInputElement
     expect(checkbox).toBeTruthy()
     fireEvent.click(checkbox)
-    expect(useNodeDefaults.getState().overrides.MicInput?.i2sWs).toBe(39)
+    expect(useNodeDefaults.getState().micOverridesByFqbn['esp32:esp32:esp32s3']?.i2sWs).toBe(39)
     first.unmount()
 
     // React Flow re-renders the node with fresh store data after an edit —
@@ -221,7 +231,32 @@ describe('StudioNode', () => {
     renderNode(makeNode('MicInput', {
       gain: 1, i2sWs: 5, i2sSck: 40, i2sSd: 41, channel: 'Left', serialDebug: false,
     }))
-    expect(useNodeDefaults.getState().overrides.MicInput?.i2sWs).toBe(5)
+    expect(useNodeDefaults.getState().micOverridesByFqbn['esp32:esp32:esp32s3']?.i2sWs).toBe(5)
+  })
+
+  it('disables an INMP441 node and shows the board message on an incompatible board', () => {
+    useUploadStore.setState({ selectedFqbn: 'arduino:avr:uno' })
+    const mic = renderNode(makeNode('MicInput', {
+      gain: 1, i2sWs: 39, i2sSck: 40, i2sSd: 41, channel: 'Left', serialDebug: false,
+    }))
+
+    expect(mic.getByText(INMP441_UNSUPPORTED_MESSAGE)).toBeTruthy()
+    expect(Array.from(mic.container.querySelectorAll('input, select')).every((control) => (
+      (control as HTMLInputElement | HTMLSelectElement).disabled
+    ))).toBe(true)
+    expect(mic.container.querySelector('[data-handle="source:audio"]')?.getAttribute('aria-disabled')).toBe('true')
+  })
+
+  it('disables an INMP441 node and says when no board is selected', () => {
+    const mic = renderNode(makeNode('MicInput', {
+      gain: 1, i2sWs: 39, i2sSck: 40, i2sSd: 41, channel: 'Left', serialDebug: false,
+    }), { board: false })
+
+    expect(mic.getByText(INMP441_NO_BOARD_MESSAGE)).toBeTruthy()
+    expect(Array.from(mic.container.querySelectorAll('input, select')).every((control) => (
+      (control as HTMLInputElement | HTMLSelectElement).disabled
+    ))).toBe(true)
+    expect(mic.container.querySelector('[data-handle="source:audio"]')?.getAttribute('aria-disabled')).toBe('true')
   })
 
   it('anchors connection handles to their port rows', () => {

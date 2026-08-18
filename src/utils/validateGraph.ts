@@ -1,5 +1,5 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
-import { HUB75_CHIPSET, NODE_LIBRARY, supportsScalarExpression } from '../state/nodeLibrary'
+import { HUB75_CHIPSET, isPortlessNodeType, NODE_LIBRARY, supportsScalarExpression } from '../state/nodeLibrary'
 import { evaluateScalarExpression } from '../state/scalarExpression'
 import { isNodeFormulaValid } from '../state/formulaLang'
 import { isValidRtcDateTime } from '../state/rtc'
@@ -11,6 +11,7 @@ import { getNetworkCredentials } from '../state/networkCredentials'
 import { collectPinUses } from '../build/hardwareManifest'
 import { boardPinVerdict, boardProfileById } from '../build/boardProfiles'
 import type { PhysicalBoardProfile } from '../build/boardProfiles'
+import { inmp441SupportedForBoard, INMP441_UNSUPPORTED_MESSAGE } from '../state/micPinDefaults'
 
 export interface ValidationResult {
   errors:   string[]
@@ -309,7 +310,7 @@ const PARTICLE_POOL_SIZE = (mode: string) => (mode === 'swarm' ? 40 : 120)
 export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): FirmwareRamEstimate | null {
   const outputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
   if (outputs.length === 0) return null
-  const { w, h } = compositionDims(nodes)
+  const { w, h } = compositionDims(nodes, edges)
   const ledCount = outputs.reduce((sum, output) => {
     const props = output.data.properties as Record<string, unknown>
     return sum + Math.max(0, Math.round(Number(props.width ?? 0))) * Math.max(0, Math.round(Number(props.height ?? 0)))
@@ -635,8 +636,8 @@ export function findHub75TopologyDiagnosticErrors(nodes: StudioNode[], outputNod
 
 export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: string): string[] {
   const errors: string[] = []
-  if (selectedFqbn && nodes.some((node) => node.data.nodeType === 'MicInput') && !selectedFqbn.startsWith('esp32:')) {
-    errors.push('Microphone firmware requires an ESP32-family board because INMP441 capture uses the ESP-IDF I2S driver')
+  if (selectedFqbn && nodes.some((node) => node.data.nodeType === 'MicInput') && !inmp441SupportedForBoard(selectedFqbn)) {
+    errors.push(INMP441_UNSUPPORTED_MESSAGE)
   }
   if (selectedFqbn && nodes.some((node) =>
     node.data.nodeType === 'DMXInput' && String((node.data.properties as Record<string, unknown>).inputMode ?? 'Art-Net') === 'DMX512'
@@ -925,7 +926,7 @@ export function buildGraphDiagnostics(
     }
   }
 
-  const { w: expressionWidth, h: expressionHeight } = compositionDims(nodes)
+  const { w: expressionWidth, h: expressionHeight } = compositionDims(nodes, edges)
   for (const node of nodes) {
     const props = node.data.properties as Record<string, unknown>
     for (const [key, value] of Object.entries(props)) {
@@ -1069,13 +1070,13 @@ export function buildGraphDiagnostics(
     })
   }
 
-  if (options.selectedFqbn && !options.selectedFqbn.startsWith('esp32:')) {
+  if (options.selectedFqbn && !inmp441SupportedForBoard(options.selectedFqbn)) {
     for (const node of nodes.filter((entry) => entry.data.nodeType === 'MicInput')) {
       diagnostics.push({
         id: `${node.id}-board`, severity: 'error', category: 'board',
         title: 'Microphone is incompatible with the selected board',
-        message: 'INMP441 capture uses the ESP-IDF I2S driver and cannot compile for this target.',
-        fix: 'Choose an ESP32-family board in Board & Port, or remove the Microphone node.',
+        message: INMP441_UNSUPPORTED_MESSAGE,
+        fix: 'Choose a board with INMP441 support in Board & Port, or remove the Microphone node.',
         nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
       })
     }
@@ -1164,7 +1165,7 @@ export function buildGraphDiagnostics(
   for (const node of nodes) {
     if (
       node.data.nodeType === terminalType ||
-      node.data.nodeType === 'Comment' ||
+      isPortlessNodeType(node.data.nodeType) ||
       edges.some((edge) => edge.source === node.id || edge.target === node.id)
     ) continue
     diagnostics.push({
@@ -1250,7 +1251,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
 
   const isolated = nodes.filter(n =>
     n.data.nodeType !== 'MatrixOutput' &&
-    n.data.nodeType !== 'Comment' &&
+    !isPortlessNodeType(n.data.nodeType) &&
     !edges.some(e => e.source === n.id || e.target === n.id)
   )
   if (isolated.length > 0)

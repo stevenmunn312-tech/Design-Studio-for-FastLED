@@ -54,7 +54,11 @@ WEBP_QUALITY = 82
 # --- Safety vocabulary -------------------------------------------------------
 # Every key below carries pin *identifiers*, either as a list of tokens or as a
 # dict keyed by token/range. Keys not listed here are prose and become notes.
-SAFE_KEYS = ("safeGeneralPurpose", "generallyConvenientDigitalPins")
+SAFE_KEYS = (
+    "safeGeneralPurpose", "generallyConvenientDigitalPins",
+    "preferredGeneralPurpose", "alwaysSafeGeneralPurpose",
+    "usableWithPeripheralAwareness",
+)
 # `bootCaution` is a token list on some boards and prose sentences on others.
 # Both are safe to list here: gpios_in_token() rejects anything sentence-shaped,
 # so the prose form contributes nothing rather than mis-attributing.
@@ -96,7 +100,30 @@ def gpios_in_token(token: str) -> list[int]:
     return found
 
 
-def collect(section: dict, keys: tuple[str, ...]) -> dict[int, str]:
+def gpios_in_board_token(token: str, aliases: dict[str, int]) -> list[int]:
+    """GPIO numbers in one manifest token, including board-level aliases.
+
+    Newer manifests carry explicit `gpioMap` tables because their silkscreens
+    use names such as D6, A4, SDA, and GP28 instead of GPIO numbers. Keep the
+    same conservative sentence rejection as `gpios_in_token`: aliases are only
+    resolved from a short identifier or slash-delimited pin label, never prose.
+    """
+    direct = gpios_in_token(token)
+    if direct:
+        return direct
+    if len(token) > 40 or "." in token or "," in token:
+        return []
+    resolved: list[int] = []
+    candidates = [token, *(part.strip() for part in token.split("/"))]
+    for candidate in candidates:
+        # A trailing tilde is the common PWM marker on Arduino pin labels.
+        normalised = candidate.strip().rstrip("~")
+        if normalised in aliases and aliases[normalised] not in resolved:
+            resolved.append(aliases[normalised])
+    return resolved
+
+
+def collect(section: dict, keys: tuple[str, ...], aliases: dict[str, int]) -> dict[int, str]:
     """Pin -> reason for every structured entry under `keys`."""
     out: dict[int, str] = {}
     for key in keys:
@@ -106,11 +133,11 @@ def collect(section: dict, keys: tuple[str, ...]) -> dict[int, str]:
         shared_note = section.get(NOTE_FOR.get(key, ""), "") if isinstance(section, dict) else ""
         if isinstance(value, dict):
             for token, reason in value.items():
-                for gpio in gpios_in_token(str(token)):
+                for gpio in gpios_in_board_token(str(token), aliases):
                     out.setdefault(gpio, str(reason))
         elif isinstance(value, list):
             for item in value:
-                for gpio in gpios_in_token(str(item)):
+                for gpio in gpios_in_board_token(str(item), aliases):
                     out.setdefault(gpio, shared_note or key)
     return out
 
@@ -131,7 +158,7 @@ def prose_notes(section: dict) -> list[str]:
     return notes
 
 
-def expansion_pins(board: dict) -> dict[int, str]:
+def expansion_pins(board: dict, aliases: dict[str, int]) -> dict[int, str]:
     """Pins that live on an expansion rail rather than a main header.
 
     A manifest can contradict itself here, and one does: the XIAO ESP32S3 lists
@@ -150,7 +177,7 @@ def expansion_pins(board: dict) -> dict[int, str]:
         labels = rail.get("labelsTopToBottom") or rail.get("labelsLeftToRight") or [] \
             if isinstance(rail, dict) else rail
         for label in labels if isinstance(labels, list) else []:
-            for gpio in gpios_in_token(str(label)):
+            for gpio in gpios_in_board_token(str(label), aliases):
                 out[gpio] = f"On the {name} rail, not a main header pin."
     return out
 
@@ -159,11 +186,12 @@ def build_safety(board: dict) -> tuple[dict | None, list[str]]:
     section = board.get("pinSafetySummary")
     if not isinstance(section, dict):
         return None, []
-    safe = sorted(collect(section, SAFE_KEYS))
-    caution = collect(section, CAUTION_KEYS)
-    reserved = collect(section, RESERVED_KEYS)
+    aliases = alias_map(board)
+    safe = sorted(collect(section, SAFE_KEYS, aliases))
+    caution = collect(section, CAUTION_KEYS, aliases)
+    reserved = collect(section, RESERVED_KEYS, aliases)
     # Rail structure overrides the allowlist — see expansion_pins().
-    reserved.update(expansion_pins(board))
+    reserved.update(expansion_pins(board, aliases))
     # A pin cannot be both. Reserved is the strongest claim and wins, then
     # caution — the app's own validator rejects overlaps, so resolve here.
     caution = {g: r for g, r in caution.items() if g not in reserved}
@@ -172,8 +200,8 @@ def build_safety(board: dict) -> tuple[dict | None, list[str]]:
             "boardReservedOrNotExposed": reserved}, prose_notes(section)
 
 
-def first_gpio(value) -> int | None:
-    nums = gpios_in_token(str(value))
+def first_gpio(value, aliases: dict[str, int] | None = None) -> int | None:
+    nums = gpios_in_board_token(str(value), aliases or {})
     return nums[0] if nums else None
 
 
@@ -182,31 +210,55 @@ def build_peripherals(board: dict) -> dict | None:
     if not isinstance(section, dict):
         return None
     out: dict = {}
+    aliases = alias_map(board)
 
     mic = section.get("INMP441")
     if isinstance(mic, dict):
         # Key names vary by board: BCLK_SCK vs SCK_BCLK vs BCLK, SD_DOUT vs SD.
-        ws = first_gpio(mic.get("WS_LRCLK") or mic.get("WS") or "")
-        sck = first_gpio(mic.get("BCLK_SCK") or mic.get("SCK_BCLK") or mic.get("SCK") or mic.get("BCLK") or "")
-        sd = first_gpio(mic.get("SD_DOUT") or mic.get("SD") or mic.get("DOUT") or "")
+        ws = first_gpio(mic.get("WS_LRCLK") or mic.get("WS") or "", aliases)
+        sck = first_gpio(mic.get("BCLK_SCK") or mic.get("SCK_BCLK") or mic.get("SCK") or mic.get("BCLK") or "", aliases)
+        sd = first_gpio(mic.get("SD_DOUT") or mic.get("SD") or mic.get("DOUT") or "", aliases)
         if None not in (ws, sck, sd):
             out["inmp441"] = {"wsLrclk": ws, "sckBclk": sck, "sdDout": sd}
 
     amp = section.get("MAX98357") or section.get("MAX98357A")
     if isinstance(amp, dict):
-        bclk, lrc, din = (first_gpio(amp.get(k) or "") for k in ("BCLK", "LRC", "DIN"))
+        bclk, lrc, din = (first_gpio(amp.get(k) or "", aliases) for k in ("BCLK", "LRC", "DIN"))
         if None not in (bclk, lrc, din):
             out["max98357"] = {"bclk": bclk, "lrc": lrc, "din": din}
 
     led = section.get("FastLEDData") or section.get("FastLED")
     if isinstance(led, dict):
-        default = first_gpio(led.get("recommendedDefault") or "")
+        default = first_gpio(led.get("recommendedDefault") or "", aliases)
         if default is not None:
-            alts = [g for a in (led.get("commonAlternatives") or []) if (g := first_gpio(a)) is not None]
+            alts = [g for a in (led.get("commonAlternatives") or []) if (g := first_gpio(a, aliases)) is not None]
             entry = {"recommendedDefault": default, "commonAlternatives": alts}
             if led.get("selectionNote"):
                 entry["selectionNote"] = str(led["selectionNote"])
             out["fastLedData"] = entry
+
+    # Defaults are presented as a set that can be used together. Some source
+    # manifests document alternative shared-bus wiring in prose, but the app's
+    # compact summary has no way to communicate that mode switch. Prefer the
+    # microphone, then keep only disjoint amplifier and LED defaults.
+    used: set[int] = set()
+    mic_entry = out.get("inmp441")
+    if mic_entry:
+        used.update(mic_entry.values())
+    amp_entry = out.get("max98357")
+    if amp_entry:
+        amp_pins = set(amp_entry.values())
+        if amp_pins & used:
+            del out["max98357"]
+        else:
+            used.update(amp_pins)
+    led_entry = out.get("fastLedData")
+    if led_entry and led_entry["recommendedDefault"] in used:
+        replacement = next((pin for pin in led_entry["commonAlternatives"] if pin not in used), None)
+        if replacement is None:
+            del out["fastLedData"]
+        else:
+            led_entry["recommendedDefault"] = replacement
 
     return out or None
 
@@ -219,6 +271,13 @@ def convert_render(folder: Path, board: dict, profile_id: str) -> dict | None:
         return None
     OUT_RENDERS.mkdir(parents=True, exist_ok=True)
     dest = OUT_RENDERS / f"{profile_id}.webp"
+    # A full catalogue import is intentionally repeatable while manifests are
+    # being corrected. Avoid recompressing dozens of unchanged Cycles renders
+    # on every run; Pillow can read the cached dimensions from the WebP header.
+    if dest.is_file() and dest.stat().st_mtime >= src.stat().st_mtime:
+        with Image.open(dest) as cached:
+            return {"file": f"boards/{profile_id}.webp",
+                    "widthPx": cached.width, "heightPx": cached.height}
     with Image.open(src) as img:
         img = img.convert("RGBA")
         if img.width > RENDER_MAX_W:
@@ -248,6 +307,21 @@ def alias_map(board: dict) -> dict[str, int]:
     holds on the Feather ESP32 v2 and not on the XIAO, where D0 is GPIO1.
     """
     out: dict[str, int] = {}
+    for field in ("gpioMap", "gpioAliases"):
+        explicit = board.get(field)
+        if not isinstance(explicit, dict):
+            continue
+        for alias, value in explicit.items():
+            if isinstance(value, int):
+                names = [str(alias), *str(alias).split("/")]
+                for name in names:
+                    out[name.strip().rstrip("~")] = value
+                continue
+            numbers = gpios_in_token(str(value))
+            if numbers:
+                names = [str(alias), *str(alias).split("/")]
+                for name in names:
+                    out[name.strip().rstrip("~")] = numbers[0]
     sources: list = []
     safety = board.get("pinSafetySummary")
     if isinstance(safety, dict):
@@ -266,6 +340,33 @@ def alias_map(board: dict) -> dict[str, int]:
             part = part.strip()
             if part and not GPIO_TOKEN.fullmatch(part):
                 out.setdefault(part, int(nums[0]))
+
+    # On non-Espressif Arduino cores, D<n> is the number passed to pin APIs.
+    # Do not apply that rule to ESP32/ESP8266 boards: their D aliases are often
+    # silk names with a different underlying GPIO (the XIAO's D0 is GPIO1).
+    fqbn = str(board.get("fqbn") or "").lower()
+    if not fqbn.startswith(("esp32:", "esp8266:")):
+        for rail in (board.get("rails") or {}).values():
+            labels = rail if isinstance(rail, list) else (
+                (rail.get("labelsTopToBottom") or rail.get("labelsLeftToRight"))
+                if isinstance(rail, dict) else None)
+            for raw in labels if isinstance(labels, list) else []:
+                for part in str(raw).split("/"):
+                    match = re.fullmatch(r"D(\d+)~?", part.strip(), re.I)
+                    if match:
+                        out.setdefault(f"D{match.group(1)}", int(match.group(1)))
+
+    # Raspberry Pi Pico headers use GP<n>; the Arduino-Pico core accepts the
+    # same number directly. This spelling is unambiguous across the asset set.
+    for rail in (board.get("rails") or {}).values():
+        labels = rail if isinstance(rail, list) else (
+            (rail.get("labelsTopToBottom") or rail.get("labelsLeftToRight"))
+            if isinstance(rail, dict) else None)
+        for raw in labels if isinstance(labels, list) else []:
+            for part in str(raw).split("/"):
+                match = re.fullmatch(r"GP(\d+)", part.strip(), re.I)
+                if match:
+                    out.setdefault(f"GP{match.group(1)}", int(match.group(1)))
     return out
 
 
@@ -279,8 +380,9 @@ def resolve_gpio(label: str, aliases: dict[str, int]) -> int | None:
     if label.isdigit():
         return int(label)
     for part in [label, *(p.strip() for p in label.split("/"))]:
-        if part in aliases:
-            return aliases[part]
+        normalised = part.rstrip("~")
+        if normalised in aliases:
+            return aliases[normalised]
     return None
 
 
@@ -352,25 +454,32 @@ def build_profile(board: dict, profile_id: str) -> dict | None:
                 pin["gpio"] = gpio
             pins.append(pin)
 
-    if not pins:
-        return None
-
-    # A profile whose pins cannot be tied to GPIO numbers is worse than no
-    # profile: it renders a header of anonymous "reserved" pins and can answer
-    # no pin question. This trips when a board silkscreens aliases only
-    # ("SDA", "D14") and its manifest has no "alias/GPIOn" entries to bridge
-    # them — the fix is upstream in the asset, not a guess here.
+    # Sparse maps remain useful as board identities: the real render and
+    # silkscreen labels let somebody recognise the controller in their hand.
+    # Unresolved pins carry no GPIO number and therefore stay neutral in the UI
+    # and cannot be mistaken for safe wiring advice. Record the limitation in a
+    # visible caveat rather than dropping the whole board from the picker.
     signal = [p for p in pins if p["role"] in ("gpio", "reserved")]
     resolved = [p for p in signal if "gpio" in p]
-    if signal and len(resolved) / len(signal) < 0.7:
-        return {"id": profile_id, "_rejected":
-                f"only {len(resolved)}/{len(signal)} pins resolve to a GPIO number"}
+    coverage_note = None
+    if not pins:
+        coverage_note = "This board has no header pin map in the imported manifest."
+    elif signal and len(resolved) / len(signal) < 0.7:
+        coverage_note = (
+            f"Only {len(resolved)}/{len(signal)} signal pins could be tied to a "
+            "numeric GPIO; unresolved labels are shown without pin advice."
+        )
 
     fqbn = board.get("fqbn") or ""
     compatible = board.get("compatibleFqbns") or ([fqbn] if fqbn else [])
     dims = board.get("dimensionsMmInUsbDownRenderAxes") or {}
-    width = dims.get("pcbWidthAcrossHeaders") or (board.get("dimensionsMm") or {}).get("width")
-    height = dims.get("pcbHeightAlongHeaders") or (board.get("dimensionsMm") or {}).get("height")
+    landscape = dims.get("sourceLandscapeDimensions") or []
+    width = (dims.get("pcbWidthAcrossHeaders") or dims.get("pcbWidthAcrossRails")
+             or (board.get("dimensionsMm") or {}).get("width")
+             or (landscape[0] if len(landscape) >= 2 else None))
+    height = (dims.get("pcbHeightAlongHeaders") or dims.get("pcbHeightAlongRails")
+              or (board.get("dimensionsMm") or {}).get("height")
+              or (landscape[1] if len(landscape) >= 2 else None))
 
     return {
         "id": profile_id,
@@ -386,6 +495,7 @@ def build_profile(board: dict, profile_id: str) -> dict | None:
         "caveats": [
             "Generated from the board asset manifest and not hand-checked "
             "against a physical board.",
+            *([coverage_note] if coverage_note else []),
         ],
         "notes": [],
         "pinAnchors": anchors,
@@ -462,9 +572,7 @@ def main() -> int:
             entry["render"] = render
 
         profile = build_profile(board, profile_id)
-        if profile and "_rejected" in profile:
-            skipped.append(f"{folder.name}: no pin map — {profile['_rejected']}")
-        elif profile:
+        if profile:
             profiles[profile_id] = profile
 
         if not entry:

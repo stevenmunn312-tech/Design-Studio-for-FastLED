@@ -236,7 +236,10 @@ describe('CanvasContextMenu — drag-to-empty picker', () => {
     expect(getByRole('button', { name: 'Delete Selected' }).hasAttribute('disabled')).toBe(true)
   })
 
-  it('deletes the current selection from the canvas menu', () => {
+  // MatrixOutput is hardware-managed: the hardware view owns whether the part
+  // exists, so deleting it on the graph canvas only disconnects it. The ordinary
+  // node in the same selection is removed outright.
+  it('deletes the current selection from the canvas menu, keeping hardware parts', () => {
     seedSelectedNodes()
     const onClose = vi.fn()
     const { getByRole } = render(
@@ -248,7 +251,9 @@ describe('CanvasContextMenu — drag-to-empty picker', () => {
 
     fireEvent.click(getByRole('button', { name: 'Delete Selected' }))
 
-    expect(useGraphStore.getState().nodes).toHaveLength(0)
+    const remaining = useGraphStore.getState().nodes
+    expect(remaining.map((node) => node.data.nodeType)).toEqual(['MatrixOutput'])
+    expect(useGraphStore.getState().edges).toHaveLength(0)
     expect(onClose).toHaveBeenCalled()
   })
 

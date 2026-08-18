@@ -17,6 +17,20 @@
   align-items: stretch;
 }
 
+.pickerField {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pickerLabel {
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  line-height: 1;
+}
+
 .eyeBtn {
   flex: 0 0 auto;
   padding: 0 7px;
@@ -58,6 +72,11 @@
 .picker:focus-visible {
   outline: 2px solid var(--accent-output);
   outline-offset: 1px;
+}
+
+.picker:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .empty,

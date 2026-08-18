@@ -89,6 +89,35 @@
   overflow: hidden;
 }
 
+.splitCanvas {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.graphPane {
+  position: relative;
+  flex: 1 1 auto;
+  /* The divider clamps against MIN_GRAPH_PANE_HEIGHT; this is the backstop. */
+  min-height: 180px;
+}
+
+/*
+ * Height comes from the shared variable, not an inline style, so a divider drag
+ * resizes the pane live — the same contract the sidebar and preview handles
+ * use. Written inline, the drag only landed on release and the pane appeared
+ * not to respond at all.
+ */
+.hardwareDock {
+  position: relative;
+  flex: 0 0 var(--hardware-pane-height, 0px);
+  min-height: 0;
+  overflow: hidden;
+}
+
 .appPerformance .sidebarPanel,
 .appPerformance .previewPanel {
   background:

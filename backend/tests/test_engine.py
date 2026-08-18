@@ -102,6 +102,15 @@ def test_write_fbuild_ini_emits_a_section_per_board_and_psram_variant(tmp_path, 
     assert "-DNO_GFX=1" in text
     assert "NO_GFX" not in uno_section
 
+    # fbuild must carry the SAMD51 identity into vendored library TUs, not just
+    # the sketch, or FastLED falls through to its unsupported generic Arduino
+    # pin implementation.
+    feather_m4_section = text.split("[env:adafruit_samd_adafruit_feather_m4]")[1].split("[env:")[0]
+    assert "-DARDUINO_ARCH_SAMD" in feather_m4_section
+    assert "-D__SAMD51J19A__" in feather_m4_section
+    assert "-DEIC_IRQn=EIC_0_IRQn" in feather_m4_section
+    assert "-DFASTLED_FORCE_SOFTWARE_SPI=1" in feather_m4_section
+
     # Base (non-PSRAM) ESP32 envs get the huge_app.csv partition table — the
     # stock default.csv's 1.31MB OTA app slots are too small for the
     # audio-heavy music-sync Player sketch. Non-ESP32 boards don't.
@@ -152,6 +161,61 @@ def test_patch_fastled_sd_stub_is_a_noop_before_fastled_is_vendored(tmp_path, mo
     # failed — the target file may not exist yet, and that must not raise.
     monkeypatch.setattr(app, "_FBUILD_LIB_DIR", tmp_path / "FastLED")
     app._patch_fastled_sd_stub()
+
+
+def test_patch_fastled_samd51_disables_unused_generic_i2s_backend(tmp_path, monkeypatch):
+    lib_dir = tmp_path / "FastLED"
+    monkeypatch.setattr(app, "_FBUILD_LIB_DIR", lib_dir)
+    audio = lib_dir / "src" / "fl" / "audio" / "audio_input.cpp.hpp"
+    audio.parent.mkdir(parents=True)
+    audio.write_text(
+        "  #elif defined(FL_IS_TEENSY)\n"
+        "    // Teensy uses the PJRC Audio backend when enabled, never generic Arduino I2S.\n"
+        "    #define FASTLED_USES_ARDUINO_AUDIO_INPUT 0\n"
+        "  #elif FL_HAS_INCLUDE(<Arduino.h>)\n",
+        encoding="utf-8",
+    )
+    arduino_audio = lib_dir / "src" / "platforms" / "arduino" / "audio_input.hpp"
+    arduino_audio.parent.mkdir(parents=True)
+    arduino_audio.write_text(
+        '#elif defined(FL_IS_SAMD21)\n'
+        '#define ARDUINO_I2S_FULLY_SUPPORTED 0\n'
+        '#define ARDUINO_I2S_BROKEN_REASON "I2S not supported on SAMD21"\n'
+        '#elif FL_HAS_INCLUDE(<I2S.h>)\n'
+        '#include <I2S.h>\n',
+        encoding="utf-8",
+    )
+
+    app._patch_fastled_samd51_build()
+    app._patch_fastled_samd51_build()  # idempotent
+
+    patched = audio.read_text(encoding="utf-8")
+    assert patched.count("defined(FL_IS_SAMD51)") == 1
+    assert "Studio supplies a ZeroI2S IInput adapter" in patched
+    patched_arduino = arduino_audio.read_text(encoding="utf-8")
+    assert patched_arduino.count("defined(FL_IS_SAMD51)") == 1
+    assert "Studio uses ZeroI2S on SAMD51" in patched_arduino
+    assert "<I2S.h>" not in patched_arduino
+    assert "selected IInput adapter" in patched_arduino
+
+
+def test_patch_fastled_samd51_honours_software_spi_selection(tmp_path, monkeypatch):
+    lib_dir = tmp_path / "FastLED"
+    monkeypatch.setattr(app, "_FBUILD_LIB_DIR", lib_dir)
+    for relative in ("platforms/spi_device_proxy.h", "platforms/spi_output_template.h"):
+        dispatcher = lib_dir / "src" / relative
+        dispatcher.parent.mkdir(parents=True, exist_ok=True)
+        dispatcher.write_text(
+            "#elif defined(FL_IS_SAM) || defined(FL_IS_SAMD)\n#include \"hardware.h\"\n",
+            encoding="utf-8",
+        )
+
+    app._patch_fastled_samd51_build()
+    app._patch_fastled_samd51_build()
+
+    for relative in ("platforms/spi_device_proxy.h", "platforms/spi_output_template.h"):
+        patched = (lib_dir / "src" / relative).read_text(encoding="utf-8")
+        assert patched.count("!defined(FASTLED_FORCE_SOFTWARE_SPI)") == 1
 
 
 def test_fbuild_size_report_keeps_sane_ram_percentage():
@@ -403,6 +467,78 @@ def test_compile_upload_fbuild_vendors_hub75_lib_only_when_sketch_needs_it(monke
         "Test", '#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>\nvoid setup(){}', "esp32:esp32:esp32s3", "",
     ))
     assert calls == [1]
+
+
+def test_fbuild_libraries_for_sketch_hides_only_unrequested_optional_libs(tmp_path, monkeypatch):
+    lib_root = tmp_path / "lib"
+    stash = tmp_path / ".optional-libs"
+    audio = lib_root / "ESP32-audioI2S"
+    dmx = lib_root / "esp_dmx"
+    zero_i2s = lib_root / "Adafruit_ZeroI2S"
+    zero_dma = lib_root / "Adafruit_ZeroDMA"
+    for path in (audio, dmx, zero_i2s, zero_dma):
+        path.mkdir(parents=True)
+        (path / "sentinel.txt").write_text(path.name, encoding="utf-8")
+
+    monkeypatch.setattr(app, "_FBUILD_LIB_DIR", lib_root / "FastLED")
+    monkeypatch.setattr(app, "_FBUILD_OPTIONAL_LIB_STASH_DIR", stash)
+    monkeypatch.setattr(app, "_FBUILD_OPTIONAL_LIBRARIES", (
+        (audio, ("#include <Audio_nopsram.h>",)),
+        (dmx, ("#include <esp_dmx.h>",)),
+        (zero_i2s, ("#include <Adafruit_ZeroI2S.h>",)),
+        (zero_dma, ("#include <Adafruit_ZeroI2S.h>",)),
+    ))
+
+    with app._fbuild_libraries_for_sketch("#include <Adafruit_ZeroI2S.h>"):
+        assert not audio.exists()
+        assert not dmx.exists()
+        assert zero_i2s.exists()
+        assert zero_dma.exists()
+        assert (stash / audio.name).exists()
+
+    assert all(path.exists() for path in (audio, dmx, zero_i2s, zero_dma))
+    assert not stash.exists()
+
+
+def test_fbuild_libraries_for_sketch_restores_hidden_libs_after_failure(tmp_path, monkeypatch):
+    lib_root = tmp_path / "lib"
+    stash = tmp_path / ".optional-libs"
+    audio = lib_root / "ESP32-audioI2S"
+    audio.mkdir(parents=True)
+    monkeypatch.setattr(app, "_FBUILD_LIB_DIR", lib_root / "FastLED")
+    monkeypatch.setattr(app, "_FBUILD_OPTIONAL_LIB_STASH_DIR", stash)
+    monkeypatch.setattr(app, "_FBUILD_OPTIONAL_LIBRARIES", (
+        (audio, ("#include <Audio_nopsram.h>",)),
+    ))
+
+    try:
+        with app._fbuild_libraries_for_sketch("void setup(){}"):
+            assert not audio.exists()
+            raise RuntimeError("build failed")
+    except RuntimeError:
+        pass
+
+    assert audio.exists()
+    assert not stash.exists()
+
+
+def test_restore_stranded_fbuild_optional_libraries_recovers_interrupted_move(tmp_path, monkeypatch):
+    lib_root = tmp_path / "lib"
+    stash = tmp_path / ".optional-libs"
+    audio = lib_root / "ESP32-audioI2S"
+    staged = stash / audio.name
+    staged.mkdir(parents=True)
+    (staged / "sentinel.txt").write_text("cached", encoding="utf-8")
+    monkeypatch.setattr(app, "_FBUILD_LIB_DIR", lib_root / "FastLED")
+    monkeypatch.setattr(app, "_FBUILD_OPTIONAL_LIB_STASH_DIR", stash)
+    monkeypatch.setattr(app, "_FBUILD_OPTIONAL_LIBRARIES", (
+        (audio, ("#include <Audio_nopsram.h>",)),
+    ))
+
+    app._restore_stranded_fbuild_optional_libraries()
+
+    assert (audio / "sentinel.txt").read_text(encoding="utf-8") == "cached"
+    assert not stash.exists()
 
 
 def test_compile_upload_fbuild_points_at_arduino_cli_when_deployer_is_missing(monkeypatch):

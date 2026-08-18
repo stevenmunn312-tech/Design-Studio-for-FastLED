@@ -107,7 +107,7 @@ export default function TemplatesPopup() {
       : STARTER_TEMPLATES.find((template) => template.id === lastStartChoice)?.name ?? null
 
   const confirmReplace = async (confirmLabel: string) => {
-    if (useGraphStore.getState().nodes.length === 0) return true
+    if (useGraphStore.getState().nodes.every((node) => node.data.nodeType === 'Board')) return true
     return requestConfirm({
       title: 'Replace current graph?',
       message: 'Starting here replaces your current workspace. Any unsaved work will be lost. Continue?',

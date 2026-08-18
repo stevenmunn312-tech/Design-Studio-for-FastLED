@@ -13,6 +13,7 @@ import { openCommunityTab, postToCommunityTab, suggestPatternFileName } from '..
 import { captureSharePreview } from '../../utils/sharePreviewCapture'
 import { runTidy } from '../../utils/tidyGraph'
 import type { NodeDefinition } from '../../types'
+import { isHardwareLibraryHiddenNodeType } from '../../state/hardware'
 import styles from './Sidebar.module.css'
 
 // Bumped to v2 so existing sessions (whose stored value predates Quick
@@ -23,6 +24,7 @@ const FAVOURITES_KEY = 'design-studio-for-fastled-sidebar-favourites'
 const RECENT_KEY = 'design-studio-for-fastled-sidebar-recent'
 const VIEW_KEY = 'design-studio-for-fastled-sidebar-view'
 const RECENT_LIMIT = 8
+const SIDEBAR_NODE_LIBRARY = NODE_LIBRARY.filter((definition) => !isHardwareLibraryHiddenNodeType(definition.type))
 
 const BEGINNER_NODE_TYPES = new Set([
   'MicInput', 'FFTAnalyzer', 'BeatDetect',
@@ -248,7 +250,7 @@ function Sidebar() {
       .join('|')
   )
   const presentSingletons = useMemo(() => new Set(singletonSignature.split('|').filter(Boolean)), [singletonSignature])
-  const isEmptyGraph = useGraphStore((s) => s.nodes.length === 0)
+  const isEmptyGraph = useGraphStore((s) => s.nodes.every((node) => node.data.nodeType === 'Board'))
   const instantiatePattern = useGraphStore((s) => s.instantiatePattern)
   const createCollectionFromPatterns = useGraphStore((s) => s.createCollectionFromPatterns)
   const addPatternsToCollection = useGraphStore((s) => s.addPatternsToCollection)
@@ -324,15 +326,15 @@ function Sidebar() {
     return haystack.includes(query)
   }, [query])
   const filteredByView = useCallback(
-    (defs: NodeDefinition[]) => defs.filter((def) => isVisibleInView(def) && nodeMatchesQuery(def)),
+    (defs: NodeDefinition[]) => defs.filter((def) => !isHardwareLibraryHiddenNodeType(def.type) && isVisibleInView(def) && nodeMatchesQuery(def)),
     [isVisibleInView, nodeMatchesQuery],
   )
   const favouriteDefs = favourites
-    .map((type) => NODE_LIBRARY.find((def) => def.type === type))
+    .map((type) => SIDEBAR_NODE_LIBRARY.find((def) => def.type === type))
     .filter((def): def is NodeDefinition => !!def)
     .filter((def) => nodeMatchesQuery(def))
   const recentDefs = recent
-    .map((type) => NODE_LIBRARY.find((def) => def.type === type))
+    .map((type) => SIDEBAR_NODE_LIBRARY.find((def) => def.type === type))
     .filter((def): def is NodeDefinition => !!def)
     .filter((def) => nodeMatchesQuery(def))
   const visibleRecipes = RECIPE_CARDS.filter((recipe) => (
@@ -358,7 +360,7 @@ function Sidebar() {
     e.dataTransfer.effectAllowed = 'copy'
     setDraggingNodeType(type)
 
-    const def = NODE_LIBRARY.find((node) => node.type === type)
+    const def = SIDEBAR_NODE_LIBRARY.find((node) => node.type === type)
     if (!def || typeof e.dataTransfer.setDragImage !== 'function') return
     const ghost = document.createElement('div')
     ghost.className = styles.dragGhost
@@ -719,11 +721,11 @@ function Sidebar() {
   }, [isEmptyGraph])
 
   const searchStatus = query === ''
-    ? `${viewMode === 'all' ? NODE_LIBRARY.length : BEGINNER_NODE_TYPES.size} modules`
+    ? `${viewMode === 'all' ? SIDEBAR_NODE_LIBRARY.length : BEGINNER_NODE_TYPES.size} modules`
     : `${CATEGORIES.reduce((count, category) => count + filteredByView(categoryNodes(category.id)).length, 0) + visiblePatterns.length + visibleRecipes.length} matches`
 
   const handleAddNode = (type: string) => {
-    const def = NODE_LIBRARY.find((n) => n.type === type)
+    const def = SIDEBAR_NODE_LIBRARY.find((n) => n.type === type)
     if (!def) return
     // Pass `centreOnDrop` so the node settles vertically centred on the drop
     // point once React Flow measures its (variable) height, rather than hanging

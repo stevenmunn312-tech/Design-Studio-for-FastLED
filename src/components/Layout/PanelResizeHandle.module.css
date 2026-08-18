@@ -31,3 +31,40 @@
 .previewResizeHandle {
   right: calc(var(--right-panel-width) - 3px);
 }
+
+.horizontalResizeHandle {
+  position: relative;
+  flex: 0 0 6px;
+  width: 100%;
+  z-index: 11;
+  cursor: row-resize;
+  background:
+    linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent-output) 50%, transparent), transparent);
+  opacity: 0.32;
+  transition: opacity var(--anim-hover), background var(--anim-hover);
+  touch-action: none;
+}
+
+/*
+ * The visible divider is 6px, but the pane collapses to nothing, and a 6px
+ * target pinned between the canvas and the Graph Health rail is not something
+ * you can reliably grab to pull the pane back up. The hit area extends well
+ * past the paint.
+ */
+.horizontalResizeHandle::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -7px;
+  bottom: -7px;
+}
+
+.horizontalResizeHandle:hover,
+.horizontalResizeHandle:focus-visible {
+  opacity: 0.72;
+}
+
+.horizontalResizeHandle:focus-visible {
+  outline: none;
+}

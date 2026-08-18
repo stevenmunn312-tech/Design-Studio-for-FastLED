@@ -173,8 +173,10 @@ describe('generatePlayerSketch track selection', () => {
 })
 
 describe('generatePlayerSketch audio output', () => {
-  it('defaults to I2S: pinout call, pin defines, no internal-DAC call', () => {
+  it('defaults to direct external I2S through the no-PSRAM decoder', () => {
     const ino = generatePlayerSketch()
+    expect(ino).toContain('#include <Audio_nopsram.h>')
+    expect(ino).toContain('Audio audio;')
     expect(ino).toContain('audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);')
     expect(ino).toContain('#define I2S_BCLK      26')
     expect(ino).not.toContain('setInternalDAC')
@@ -184,6 +186,7 @@ describe('generatePlayerSketch audio output', () => {
     const ino = generatePlayerSketch({ audioOutput: 'internalDac' })
     expect(ino).toContain('Audio audio(true);')
     expect(ino).not.toContain('setInternalDAC')
+    expect(ino).toContain('#include <Audio_nopsram.h>')
     expect(ino).not.toContain('audio.setPinout(')
     expect(ino).not.toContain('#define I2S_BCLK')
     expect(ino).not.toContain('#define I2S_LRC')
@@ -230,7 +233,7 @@ describe('generatePlayerSketch', () => {
     const ino = generatePlayerSketch()
     // The style id is captured and dispatched through the shared helper, which
     // implements all 16 styles (wipe/iris/… plus the crossfade default).
-    expect(ino).toContain('#include <Audio.h>       // ESP32-audioI2S\n\n// Explicit FastLED-typed declarations')
+    expect(ino).toContain('#include <Audio_nopsram.h>  // ESP32-audioI2S-nopsram\n#include <FastLED.h>')
     expect(ino).toContain('CRGB samplePalette(uint8_t palId, uint8_t index);')
     expect(ino).toContain('void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt);')
     expect(ino).toContain('transType     = (uint8_t)ev.params[0];')

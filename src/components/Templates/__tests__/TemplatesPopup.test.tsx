@@ -53,7 +53,9 @@ describe('TemplatesPopup', () => {
     fireEvent.click(getByRole('button', { name: /Blank Canvas/i }))
 
     await waitFor(() => {
-      expect(useGraphStore.getState().nodes).toEqual([])
+      // A blank canvas still carries the hidden root Board node the hardware
+      // view owns; blank means no authored content, not no nodes at all.
+      expect(useGraphStore.getState().nodes.filter((node) => node.data.nodeType !== 'Board')).toEqual([])
     })
     expect(useUiStore.getState().lastStartChoice).toBe('blank')
     expect(useUiStore.getState().templatesOpen).toBe(false)

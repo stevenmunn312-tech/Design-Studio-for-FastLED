@@ -95,11 +95,20 @@ export const BOARDS: Board[] = [
   { label: 'Adafruit QT Py ESP32-S2', fqbn: 'esp32:esp32:adafruit_qtpy_esp32s2', core: 'esp32:esp32', thirdParty: true,
     psram: [{ id: 'qspi', label: 'QSPI (2 MB)', opt: 'PSRAM=enabled' }],
   },
+  { label: 'Adafruit Feather ESP32 V2', fqbn: 'esp32:esp32:adafruit_feather_esp32_v2', core: 'esp32:esp32', thirdParty: true },
+  { label: 'LOLIN C3 Mini', fqbn: 'esp32:esp32:lolin_c3_mini', core: 'esp32:esp32', thirdParty: true },
+  { label: 'Seeed XIAO ESP32-C3', fqbn: 'esp32:esp32:XIAO_ESP32C3', core: 'esp32:esp32', thirdParty: true },
+  { label: 'Seeed XIAO ESP32-C6', fqbn: 'esp32:esp32:XIAO_ESP32C6', core: 'esp32:esp32', thirdParty: true },
 
   { label: 'ESP8266',       fqbn: 'esp8266:esp8266:nodemcuv2', core: 'esp8266:esp8266', thirdParty: true },
+  { label: 'Adafruit Feather HUZZAH ESP8266', fqbn: 'esp8266:esp8266:huzzah', core: 'esp8266:esp8266', thirdParty: true },
+  { label: 'LOLIN D1 Mini', fqbn: 'esp8266:esp8266:d1_mini', core: 'esp8266:esp8266', thirdParty: true },
+  { label: 'Generic ESP8266', fqbn: 'esp8266:esp8266:generic', core: 'esp8266:esp8266', thirdParty: true },
+  { label: 'WEMOS D1 R2', fqbn: 'esp8266:esp8266:d1', core: 'esp8266:esp8266', thirdParty: true },
   { label: 'Arduino Uno',   fqbn: 'arduino:avr:uno',       core: 'arduino:avr' },
   { label: 'Arduino Nano',  fqbn: 'arduino:avr:nano',      core: 'arduino:avr' },
   { label: 'Arduino Leonardo', fqbn: 'arduino:avr:leonardo', core: 'arduino:avr' },
+  { label: 'Arduino Micro', fqbn: 'arduino:avr:micro', core: 'arduino:avr' },
   // Same arduino:avr core as Uno/Nano above (built-in board index, no
   // board-manager URL to register) — just a bigger chip with more pins.
   // Not yet hardware-validated by this project; see beta-support-matrix.md.
@@ -109,6 +118,7 @@ export const BOARDS: Board[] = [
   { label: 'Arduino Nano Every', fqbn: 'arduino:megaavr:nona4809', core: 'arduino:megaavr' },
   { label: 'Teensy 4.1',    fqbn: 'teensy:avr:teensy41',   core: 'teensy:avr',    thirdParty: true },
   { label: 'Teensy 4.0',    fqbn: 'teensy:avr:teensy40',   core: 'teensy:avr',    thirdParty: true },
+  { label: 'Teensy MicroMod', fqbn: 'teensy:avr:teensyMM', core: 'teensy:avr', thirdParty: true },
   { label: 'Teensy 3.6',    fqbn: 'teensy:avr:teensy36',   core: 'teensy:avr',    thirdParty: true },
   { label: 'Teensy 3.5',    fqbn: 'teensy:avr:teensy35',   core: 'teensy:avr',    thirdParty: true },
   // Teensy 3.1 and 3.2 are the same MK20DX256 board revision and share this fqbn.
@@ -117,11 +127,16 @@ export const BOARDS: Board[] = [
   { label: 'Teensy LC',     fqbn: 'teensy:avr:teensyLC',   core: 'teensy:avr',    thirdParty: true },
   { label: 'RP2040 (Pico)', fqbn: 'rp2040:rp2040:rpipico', core: 'rp2040:rp2040', thirdParty: true },
   { label: 'RP2350 (Pico 2)', fqbn: 'rp2040:rp2040:rpipico2', core: 'rp2040:rp2040', thirdParty: true },
+  { label: 'Raspberry Pi Pico W', fqbn: 'rp2040:rp2040:rpipicow', core: 'rp2040:rp2040', thirdParty: true },
+  { label: 'Raspberry Pi Pico 2 W', fqbn: 'rp2040:rp2040:rpipico2w', core: 'rp2040:rp2040', thirdParty: true },
+  { label: 'Adafruit KB2040', fqbn: 'rp2040:rp2040:adafruit_kb2040', core: 'rp2040:rp2040', thirdParty: true },
   // arduino:samd and arduino:sam are also part of arduino-cli's built-in board
   // index (Arduino's own cores, unlike the ESP32/RP2040/Teensy third-party
   // packages above). Not yet hardware-validated by this project; see
   // beta-support-matrix.md.
   { label: 'Arduino Nano 33 IoT (experimental)', fqbn: 'arduino:samd:nano_33_iot', core: 'arduino:samd' },
+  { label: 'Arduino Nano 33 BLE', fqbn: 'arduino:mbed_nano:nano33ble', core: 'arduino:mbed_nano' },
+  { label: 'Arduino Nano RP2040 Connect', fqbn: 'arduino:mbed_nano:nanorp2040connect', core: 'arduino:mbed_nano' },
   { label: 'Arduino Due',   fqbn: 'arduino:sam:arduino_due_x', core: 'arduino:sam' },
   // The exact fbuild/PlatformIO board id for a bare Arduino Zero (vs. the
   // Adafruit Feather M0 below, which shares the same SAMD21 chip) could not be
@@ -143,7 +158,11 @@ export const BOARDS: Board[] = [
   { label: 'Nucleo F429ZI (experimental)', fqbn: 'STMicroelectronics:stm32:nucleo_f429zi', core: 'STMicroelectronics:stm32', thirdParty: true },
   { label: 'Nucleo F439ZI (experimental)', fqbn: 'STMicroelectronics:stm32:nucleo_f439zi', core: 'STMicroelectronics:stm32', thirdParty: true },
   { label: 'Arduino UNO R4 WiFi', fqbn: 'arduino:renesas_uno:unor4wifi', core: 'arduino:renesas_uno' },
+  { label: 'Arduino UNO R4 Minima', fqbn: 'arduino:renesas_uno:minima', core: 'arduino:renesas_uno' },
   { label: 'nRF52840 DK', fqbn: 'adafruit:nrf52:pca10056', core: 'adafruit:nrf52', thirdParty: true },
+  { label: 'Adafruit Feather nRF52840 Express', fqbn: 'adafruit:nrf52:feather52840', core: 'adafruit:nrf52', thirdParty: true },
+  { label: 'Seeed XIAO nRF52840', fqbn: 'Seeeduino:nrf52:xiaonRF52840', core: 'Seeeduino:nrf52', thirdParty: true },
+  { label: 'SparkFun Pro Micro 5V', fqbn: 'SparkFun:avr:promicro', core: 'SparkFun:avr', thirdParty: true },
 ]
 
 export function boardByFqbn(fqbn: string): Board | undefined {

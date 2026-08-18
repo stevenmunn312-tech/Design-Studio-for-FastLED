@@ -2460,6 +2460,25 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       hub75ColorDepthBits: 8,
     },
   },
+  {
+    type: 'LedStringOutput',
+    label: 'LED String',
+    category: 'output',
+    inputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+    ],
+    outputs: [],
+    defaultProperties: {
+      ledCount: 60,
+      chipset: 'WS2812B',
+      colorOrder: 'GRB',
+      dataPin: 18,
+      brightness: 200,
+      powerLimit: false,
+      volts: 5,
+      milliamps: 2000,
+    },
+  },
 
   // ── Inputs ─────────────────────────────────────────────────────────────
   {
@@ -2864,6 +2883,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   // output
   Board: 'The controller board — exact model, its pins, and what it supports.',
   MatrixOutput: 'The LED matrix output — board, pin, and size.',
+  LedStringOutput: 'A single run of addressable LEDs — its length, pin, and chipset.',
   // note
   Comment: 'A sticky note for the canvas — no ports, just text and color.',
 }
@@ -3284,6 +3304,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     routeY: { control: 'slider', min: 0, max: 63, step: 1 },
     tilesX: { control: 'slider', min: 1, max: 8, step: 1 },
     tilesY: { control: 'slider', min: 1, max: 8, step: 1 },
+  },
+  LedStringOutput: {
+    brightness: { control: 'slider', min: 0, max: 255, step: 1 },
+    ledCount: { control: 'slider', min: 1, max: 300, step: 1 },
+    dataPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
   // Saturation's amount is 0–2 (1 = unchanged), not the shared 0–1 opacity.
   Saturation: {
@@ -3832,6 +3857,20 @@ const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MidiInput', 'SDCard',
 ])
 
+/**
+ * True for a node type that carries no ports at all, so nothing can ever be
+ * wired to it: `Comment`, and the hardware-only parts the hardware view owns
+ * (`Board`, `Amplifier`), which exist physically but carry no signal.
+ *
+ * Connection diagnostics use this rather than naming types one by one — a
+ * portless node cannot be *dis*connected, so reporting it as unwired is noise
+ * the user has no way to act on.
+ */
+export function isPortlessNodeType(nodeType: string): boolean {
+  const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
+  return definition ? definition.inputs.length === 0 && definition.outputs.length === 0 : false
+}
+
 export function supportsScalarExpression(nodeType: string, key: string): boolean {
   if (SCALAR_EXPRESSION_BLOCKED_TYPES.has(nodeType)) return false
   if (typeof libraryDefaults(nodeType)[key] !== 'number') return false
@@ -4292,6 +4331,9 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     if (key === 'tilesX' || key === 'tilesY' || key === 'tileSerpentine' || key === 'tileRotations')
       return properties.layout === 'panels'
     if (key === 'customXYMap') return properties.layout === 'custom'
+  }
+  if (nodeType === 'LedStringOutput') {
+    if (key === 'volts' || key === 'milliamps') return properties.powerLimit === true
   }
   if (nodeType === 'SDCard') {
     // The I2S pins only apply when driving an external DAC; the internal-DAC

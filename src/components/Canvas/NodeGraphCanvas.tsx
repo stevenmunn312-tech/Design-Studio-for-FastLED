@@ -43,6 +43,7 @@ import { startBlankCanvas, startTemplateById } from '../../utils/startFlow'
 import { runTidy } from '../../utils/tidyGraph'
 import { usePreviewStore } from '../../state/previewStore'
 import { playNoodleConnectSfx, playNoodleDisconnectSfx } from '../../audio/interactionSfx'
+import { isHardwareLibraryHiddenNodeType } from '../../state/hardware'
 import styles from './NodeGraphCanvas.module.css'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -118,7 +119,7 @@ function NodeGraphCanvasInner() {
   // re-renders it on every unrelated store write (clipboard, trust flag,
   // performance-deck edits, …) on top of the node/edge churn it genuinely
   // needs.
-  const { nodes, edges, selectedNodeId, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, insertNodeOnEdge, spliceNodeOnEdge, spreadNodes, instantiatePattern, addToCollection, addPatternToCollection, enterGraph, removeEdge, reconnectNoodle } =
+  const { nodes: allNodes, edges: allEdges, selectedNodeId, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, insertNodeOnEdge, spliceNodeOnEdge, spreadNodes, instantiatePattern, addToCollection, addPatternToCollection, enterGraph, removeEdge, reconnectNoodle } =
     useGraphStore(useShallow((s) => ({
       nodes: s.nodes,
       edges: s.edges,
@@ -138,6 +139,15 @@ function NodeGraphCanvasInner() {
       removeEdge: s.removeEdge,
       reconnectNoodle: s.reconnectNoodle,
     })))
+  const nodes = useMemo(
+    () => allNodes.filter((node) => !isHardwareLibraryHiddenNodeType(String((node.data as { nodeType?: string }).nodeType ?? '')) || node.data.nodeType !== 'Board'),
+    [allNodes],
+  )
+  const visibleNodeIds = useMemo(() => new Set(nodes.map((node) => node.id)), [nodes])
+  const edges = useMemo(
+    () => allEdges.filter((edge) => visibleNodeIds.has(edge.source ?? '') && visibleNodeIds.has(edge.target ?? '')),
+    [allEdges, visibleNodeIds],
+  )
   // Restore the saved pan/zoom on mount; fit the view only when there's none
   // (first run). Read once so it isn't re-applied on every render.
   const initialViewport = useMemo(() => loadViewport(), [])

@@ -2,6 +2,8 @@ import { useGraphStore } from '../state/graphStore'
 import { useAudioStore } from '../state/audioStore'
 import { STARTER_TEMPLATES, type StarterTemplate } from '../state/starterTemplates'
 import { useUiStore } from '../state/uiStore'
+import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
+import { inmp441SupportedForBoardProfile } from '../state/micPinDefaults'
 import { runTidy } from './tidyGraph'
 
 interface StartFlowOptions {
@@ -25,9 +27,14 @@ export function startTemplate(template: StarterTemplate, options?: StartFlowOpti
   if (template.activateMicrophone) {
     const ui = useUiStore.getState()
     if (ui.testSignal) ui.toggleTestSignal()
-    void useAudioStore.getState().startAudio().catch(() => {
-      ui.setStatus('Microphone could not start. Check browser permission and the selected audio input.', 'error')
-    })
+    const boardProfile = selectedPhysicalBoardProfile(useGraphStore.getState().nodes)
+    if (inmp441SupportedForBoardProfile(boardProfile)) {
+      void useAudioStore.getState().startAudio().catch(() => {
+        ui.setStatus('Microphone could not start. Check browser permission and the selected audio input.', 'error')
+      })
+    } else {
+      useAudioStore.getState().stopAudio()
+    }
   }
 }
 

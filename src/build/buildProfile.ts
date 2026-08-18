@@ -319,7 +319,7 @@ export function targetFamilyFromFqbn(fqbn: string): BuildTargetFamily {
   if (text.includes(':samd:')) return 'samd'
   if (text.includes(':sam:')) return 'sam'
   if (text.includes('renesas_uno')) return 'renesas'
-  if (text.includes(':nrf52:')) return 'nrf52'
+  if (text.includes(':nrf52:') || text.includes('nrf52840') || text.includes('nano33ble')) return 'nrf52'
   return 'unknown'
 }
 

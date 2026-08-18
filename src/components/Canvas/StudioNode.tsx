@@ -23,6 +23,12 @@ import RtcInputBody from './RtcInputBody'
 import { pinDisplayLabel, pinSupports } from '../../state/boardGpio'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
+import {
+  inmp441SupportedForBoardProfile,
+  INMP441_NO_BOARD_MESSAGE,
+  INMP441_UNSUPPORTED_MESSAGE,
+} from '../../state/micPinDefaults'
+import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
 import { usePerformanceBakeStore } from '../../state/performanceBakeStore'
 import { getCodeError } from '../../state/graphEvaluator'
 import { useMusicStore } from '../../state/musicStore'
@@ -375,8 +381,8 @@ const LivePropertyControls = memo(function LivePropertyControls({
   // saved default until the user unchecks/rechecks it.
   useEffect(() => {
     if (!showSetDefault || !isCustomDefault) return
-    useNodeDefaults.getState().setDefault(nodeType, rawProps)
-  }, [showSetDefault, isCustomDefault, nodeType, rawProps])
+    useNodeDefaults.getState().setDefault(nodeType, rawProps, selectedFqbn)
+  }, [showSetDefault, isCustomDefault, nodeType, rawProps, selectedFqbn])
 
   // Port id matching a property key drives that property (evaluator convention);
   // the `paletteIn` port drives the `palette` property, and the `color` port
@@ -405,7 +411,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
   )
   const liveFor = (propKey: string): unknown => liveValues[portFor(propKey)]
   const expressionDimsKey = useGraphStore((s) => {
-    const { w, h } = compositionDims(s.nodes)
+    const { w, h } = compositionDims(s.nodes, s.edges)
     return `${w}:${h}`
   })
   const [expressionW, expressionH] = expressionDimsKey.split(':').map(Number)
@@ -794,8 +800,8 @@ const LivePropertyControls = memo(function LivePropertyControls({
             checked={isCustomDefault}
             aria-label={`Use these settings as the default for new ${nodeLabel} nodes`}
             onChange={(e) => {
-              if (e.target.checked) useNodeDefaults.getState().setDefault(nodeType, rawProps)
-              else useNodeDefaults.getState().clearDefault(nodeType)
+              if (e.target.checked) useNodeDefaults.getState().setDefault(nodeType, rawProps, selectedFqbn)
+              else useNodeDefaults.getState().clearDefault(nodeType, selectedFqbn)
             }}
           />
         </div>
@@ -907,14 +913,16 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   )
   const performanceMode = useUiStore((s) => s.performanceMode)
   const uiEffectsEnabled = useUiStore((s) => s.uiEffectsEnabled)
+  const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
+  const selectedBoardProfile = useGraphStore((s) => selectedPhysicalBoardProfile(s.nodes))
   const signalPathDimEnabled = useUiStore((s) => s.signalPathDimEnabled)
   const focusState = useGraphStore((s) => {
     if (!signalPathDimEnabled || !s.selectedNodeId) return 'neutral'
     return signalPathFor(s.edges, s.selectedNodeId).has(id) ? 'active' : 'dim'
   })
   // Matrix dimensions (from MatrixOutput) set the frame-preview aspect ratio.
-  const gridW = useGraphStore((s) => Math.max(1, Math.min(128, compositionDims(s.nodes).w)))
-  const gridH = useGraphStore((s) => Math.max(1, Math.min(128, compositionDims(s.nodes).h)))
+  const gridW = useGraphStore((s) => Math.max(1, Math.min(128, compositionDims(s.nodes, s.edges).w)))
+  const gridH = useGraphStore((s) => Math.max(1, Math.min(128, compositionDims(s.nodes, s.edges).h)))
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
   const setGroupInputRole = useGraphStore((s) => s.setGroupInputRole)
@@ -1063,7 +1071,14 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // offered on nodes whose settings are hardware/rig-specific and rarely
   // change once dialled in (mic pins, matrix wiring).
   const showSetDefault = d.nodeType === 'MicInput' || d.nodeType === 'MatrixOutput'
-  const isCustomDefault = useNodeDefaults((s) => d.nodeType in s.overrides)
+  const micUnavailable = d.nodeType === 'MicInput'
+    && (!selectedBoardProfile || !inmp441SupportedForBoardProfile(selectedBoardProfile))
+  const micUnavailableMessage = !selectedBoardProfile
+    ? INMP441_NO_BOARD_MESSAGE
+    : INMP441_UNSUPPORTED_MESSAGE
+  const isCustomDefault = useNodeDefaults((s) => d.nodeType === 'MicInput'
+    ? selectedFqbn in s.micOverridesByFqbn
+    : d.nodeType in s.overrides)
 
   // Waveform nodes show a scope at the top of the body; this shifts the port
   // handles below it down by the scope height + the body's flex gap. Wave's
@@ -1122,7 +1137,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   return (
     <div
       ref={nodeRef}
-      className={`${styles.node} ${categoryClass} ${performanceMode ? styles.nodePerformance : ''} ${selected ? styles.nodeSelected : ''} ${focusState === 'dim' ? styles.nodeDim : focusState === 'active' ? styles.nodePath : ''} ${previewKind === 'frame' ? styles.nodeFrameSource : ''} ${isMusicLibrary && musicLibraryAnalyzing ? styles.nodeMusicAnalyzing : ''}`}
+      className={`${styles.node} ${categoryClass} ${performanceMode ? styles.nodePerformance : ''} ${selected ? styles.nodeSelected : ''} ${focusState === 'dim' ? styles.nodeDim : focusState === 'active' ? styles.nodePath : ''} ${previewKind === 'frame' ? styles.nodeFrameSource : ''} ${isMusicLibrary && musicLibraryAnalyzing ? styles.nodeMusicAnalyzing : ''} ${micUnavailable ? styles.nodeDisabled : ''}`}
       style={{
         width: isMusicLibrary ? 300 : isCode ? 320 : isPerfGen ? 300 : isComment ? 260 : undefined,
         '--node-accent': accent,
@@ -1144,6 +1159,11 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         </span>
       </div>
       <div className={styles.body}>
+        {micUnavailable && (
+          <div className={styles.hardwareUnsupported} role="status">
+            {micUnavailableMessage}
+          </div>
+        )}
         {isComment && (
           <textarea
             className={`nodrag ${styles.commentEditor}`}
@@ -1218,7 +1238,9 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                     id={input.id}
                     title={`${input.label} · ${input.dataType}`}
                     role="button"
-                    tabIndex={0}
+                    tabIndex={micUnavailable ? -1 : 0}
+                    isConnectable={!micUnavailable}
+                    aria-disabled={micUnavailable}
                     aria-label={`Connect to ${displayName} ${input.label} input, ${input.dataType}. Press Enter or Space to ${sourceMap.has(input.id) ? 'replace the existing connection' : 'choose a source port'}.`}
                     onKeyDown={activateHandleFromKeyboard}
                     style={{ ...HANDLE_STYLE, top: '50%', left: -8, background: inputColor, boxShadow: `0 0 6px ${inputColor}` }}
@@ -1235,7 +1257,9 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                   id={output.id}
                   title={`${output.label} · ${output.dataType}`}
                   role="button"
-                  tabIndex={0}
+                  tabIndex={micUnavailable ? -1 : 0}
+                  isConnectable={!micUnavailable}
+                  aria-disabled={micUnavailable}
                   aria-label={`Connect from ${displayName} ${output.label} output, ${output.dataType}. Press Enter or Space to choose a destination port.`}
                   onKeyDown={activateHandleFromKeyboard}
                   style={{ ...HANDLE_STYLE, top: '50%', right: -8, background: outputColor, boxShadow: `0 0 6px ${outputColor}` }}
@@ -1299,7 +1323,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           props={props}
           sourceMap={sourceMap}
           uiEffectsEnabled={uiEffectsEnabled}
-          locked={bakeLocked}
+          locked={bakeLocked || micUnavailable}
           editable={editable}
           hasRGB={showRGB}
           isGroupInput={isGroupInput}

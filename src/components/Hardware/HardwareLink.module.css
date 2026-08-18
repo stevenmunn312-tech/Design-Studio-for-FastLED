@@ -1,0 +1,56 @@
+@keyframes flow {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -72;
+  }
+}
+
+.core {
+  animation: flow var(--edge-flow-duration, 1.4s) linear infinite;
+}
+
+.carrier {
+  filter:
+    drop-shadow(0 0 1px rgb(255 255 255 / 0.28))
+    drop-shadow(0 0 3px rgb(255 255 255 / 0.12));
+}
+
+@keyframes packetTravel {
+  from {
+    offset-distance: 0%;
+  }
+  to {
+    offset-distance: 100%;
+  }
+}
+
+/*
+ * No CSS filter here, deliberately: a filter on an element running an infinite
+ * animation makes Chromium allocate a GPU filter buffer per frame and never
+ * reclaim it. The glow comes from the static halo and bloom strokes instead.
+ */
+.packet {
+  offset-rotate: 0deg;
+  animation: packetTravel var(--packet-duration, 1.5s) linear infinite;
+  animation-delay: var(--packet-delay, 0s);
+}
+
+:global([data-reduced-motion]) .core {
+  animation: none;
+}
+
+:global([data-reduced-motion]) .packet {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .core {
+    animation: none;
+  }
+
+  .packet {
+    display: none;
+  }
+}

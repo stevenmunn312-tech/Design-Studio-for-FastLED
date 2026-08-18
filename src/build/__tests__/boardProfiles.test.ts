@@ -51,7 +51,8 @@ describe('boardProfiles', () => {
     for (const id of ['esp32-devkit-v1-30pin-esp32d', 'esp32-generic-devkit-38pin']) {
       expect(compatibleBoardProfilesForFqbn('esp32:esp32:esp32s3').map((profile) => profile.id)).not.toContain(id)
     }
-    expect(compatibleBoardProfilesForFqbn('rp2040:rp2040:rpipico')).toEqual([])
+    expect(compatibleBoardProfilesForFqbn('rp2040:rp2040:rpipico').map((profile) => profile.id))
+      .toEqual(expect.arrayContaining(['raspberry-pi-pico', 'raspberry-pi-pico-2']))
   })
 
   it('checks exact-board compatibility against the project target', () => {
@@ -115,13 +116,12 @@ describe('imported board profiles', () => {
     expect(new Set(ids).size).toBe(ids.length)
   })
 
-  it('drops a generated map whose pins cannot be tied to GPIO numbers', () => {
-    // adafruit-feather-esp32-v2 silkscreens aliases only ("SDA", "D14") and its
-    // manifest has no "alias/GPIOn" entries to bridge them. A header of
-    // anonymous pins answers no pin question, so it is left out entirely
-    // rather than shipped looking complete.
-    expect(BOARD_PROFILES.some((p) => p.id === 'adafruit-feather-esp32-v2')).toBe(false)
-    expect(UNMAPPED_CAPABILITY_IDS).toContain('adafruit-feather-esp32-v2')
+  it('keeps imported boards visible while leaving unresolved pins neutral', () => {
+    const feather = BOARD_PROFILES.find((p) => p.id === 'adafruit-feather-esp32-v2')
+    expect(feather).toBeTruthy()
+    expect(feather?.render?.file).toBe('boards/adafruit-feather-esp32-v2.webp')
+    expect(feather?.pins?.some((pin) => pin.label === 'D14' && pin.gpio === 14)).toBe(true)
+    expect(UNMAPPED_CAPABILITY_IDS).toEqual([])
   })
 })
 

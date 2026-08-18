@@ -276,6 +276,25 @@
   gap: 4px;
 }
 
+.nodeDisabled {
+  filter: saturate(0.35);
+}
+
+.nodeDisabled .header {
+  opacity: 0.62;
+}
+
+.hardwareUnsupported {
+  padding: 7px 8px;
+  border: 1px solid color-mix(in srgb, var(--danger, #ff5a6f) 55%, var(--divider));
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--danger, #ff5a6f) 10%, transparent);
+  color: var(--text-primary);
+  font-family: var(--font-code);
+  font-size: var(--fs-caption);
+  line-height: 1.35;
+}
+
 .previewWrap {
   position: relative;
 }

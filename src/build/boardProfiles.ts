@@ -633,13 +633,14 @@ const MERGED_AUTHORED: PhysicalBoardProfile[] = AUTHORED_PROFILES.map((profile) 
 })
 
 /**
- * Generated profiles for boards nobody has authored a pin map for, appended
+ * Generated profiles for boards nobody has authored a profile for, appended
  * after the authored ones so an authored profile always wins on id collision.
  *
  * `targetFamilies` is derived here rather than in the generator so it stays in
  * lockstep with every other consumer of `targetFamilyFromFqbn`, and the preview
  * SVG is the same placeholder the authored profiles use — the imported render
- * is a separate, richer asset shown by the pinout view.
+ * is a separate, richer asset shown by the pinout view. Sparse source pin maps
+ * remain sparse: unresolved labels have no GPIO number and stay neutral.
  */
 const IMPORTED_PROFILES: PhysicalBoardProfile[] = GENERATED_BOARD_PROFILES
   .filter((generated) => !AUTHORED_PROFILES.some((p) => p.id === generated.id))
@@ -672,6 +673,52 @@ export const UNMAPPED_CAPABILITY_IDS: string[] = Object.keys(BOARD_CAPABILITY_DA
 
 export const BOARD_PROFILES: PhysicalBoardProfile[] = [...MERGED_AUTHORED, ...IMPORTED_PROFILES]
 
+export interface BoardProfileFamily {
+  id: string
+  label: string
+}
+
+const BOARD_PROFILE_FAMILY_DEFINITIONS: readonly BoardProfileFamily[] = [
+  { id: 'esp32', label: 'ESP32' },
+  { id: 'esp8266', label: 'ESP8266' },
+  { id: 'teensy', label: 'Teensy' },
+  { id: 'rp', label: 'RP2040 / RP2350' },
+  { id: 'samd', label: 'SAMD' },
+  { id: 'stm32', label: 'STM32' },
+  { id: 'avr', label: 'Arduino AVR / megaAVR' },
+  { id: 'sam', label: 'Arduino SAM' },
+  { id: 'renesas', label: 'Arduino Renesas' },
+  { id: 'nrf52', label: 'nRF52' },
+  { id: 'other', label: 'Other' },
+]
+
+/** Broad controller family used by the Board node's first selector. This is
+ * intentionally coarser than BuildTargetFamily: ESP32-S2/S3/C3/C6/H2 all
+ * belong under one user-facing ESP32 family. */
+export function boardProfileFamilyId(profile: PhysicalBoardProfile): string {
+  const fqbn = profile.compatibleFqbns[0]?.toLowerCase() ?? ''
+  if (fqbn.startsWith('esp32:')) return 'esp32'
+  if (fqbn.startsWith('esp8266:')) return 'esp8266'
+  if (fqbn.startsWith('teensy:')) return 'teensy'
+  if (fqbn.startsWith('rp2040:') || fqbn.includes('nanorp2040')) return 'rp'
+  if (fqbn.startsWith('stmicroelectronics:stm32:')) return 'stm32'
+  if (fqbn.includes(':samd:')) return 'samd'
+  if (fqbn.includes(':sam:')) return 'sam'
+  if (fqbn.includes('renesas_uno')) return 'renesas'
+  if (fqbn.includes(':nrf52:') || fqbn.includes('nrf52840') || fqbn.includes('nano33ble')) return 'nrf52'
+  if (fqbn.includes(':avr:') || fqbn.includes(':megaavr:')) return 'avr'
+  return 'other'
+}
+
+/** Only expose families that currently contain at least one physical board. */
+export const BOARD_PROFILE_FAMILIES: readonly BoardProfileFamily[] =
+  BOARD_PROFILE_FAMILY_DEFINITIONS.filter((family) =>
+    BOARD_PROFILES.some((profile) => boardProfileFamilyId(profile) === family.id))
+
+export function boardProfilesForFamily(familyId: string): PhysicalBoardProfile[] {
+  return BOARD_PROFILES.filter((profile) => boardProfileFamilyId(profile) === familyId)
+}
+
 /**
  * Profiles whose source manifest carries safety commentary but no list of
  * known-good pins. Their pins all report `unknown`, which is honest but means
@@ -685,6 +732,17 @@ export const UNLISTED_SAFETY_IDS: string[] = BOARD_PROFILES
 
 export function boardProfileById(id: string): PhysicalBoardProfile | undefined {
   return BOARD_PROFILES.find((profile) => profile.id === id)
+}
+
+/** The physical board explicitly chosen on the active graph, if there is one. */
+export function selectedPhysicalBoardProfile(nodes: readonly {
+  data: { nodeType?: unknown; properties?: unknown }
+}[]): PhysicalBoardProfile | undefined {
+  const board = nodes.find((node) => node.data.nodeType === 'Board')
+  const properties = board?.data.properties
+  if (!properties || typeof properties !== 'object') return undefined
+  const profileId = (properties as Record<string, unknown>).profileId
+  return typeof profileId === 'string' && profileId ? boardProfileById(profileId) : undefined
 }
 
 export function compatibleBoardProfilesForFqbn(fqbn: string): PhysicalBoardProfile[] {

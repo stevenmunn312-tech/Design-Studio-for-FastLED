@@ -7135,6 +7135,7 @@ function createEvalNode(
 
       // ── Output ─────────────────────────────────────────────────────────
       case 'MatrixOutput':
+      case 'LedStringOutput':
         out = { frame: input(id, 'frame', null) }
         break
 
@@ -7183,7 +7184,7 @@ export function evaluateGraph(
   // its idle animation — so the preview always matches what would be flashed.
   const outputNode = nodes.find(n => {
     const nt = (n.data as { nodeType?: string }).nodeType
-    return nt === 'GroupOutput' || nt === 'MatrixOutput'
+    return nt === 'GroupOutput' || nt === 'MatrixOutput' || nt === 'LedStringOutput'
   })
   if (outputNode) {
     const frame = evalNode(outputNode.id).frame

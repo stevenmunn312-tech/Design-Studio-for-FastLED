@@ -176,7 +176,7 @@ export async function captureSequence(opts: CaptureOptions): Promise<Uint8Clampe
   // back to the caller's gridW/gridH in that same case. Without this, a
   // 32x32 capture request would evaluate at 16x16 and then read a phantom
   // 32x32 region out of it, leaving 3/4 of the packed frame black.
-  const composition = route ? compositionDims(nodes) : { w: gridW, h: gridH }
+  const composition = route ? compositionDims(nodes, edges) : { w: gridW, h: gridH }
   const brightness = masterBrightnessScale(route?.node)
   // The routed frame's true shape. gridW/gridH is the caller's expectation and
   // only applies when there is no route to size against.

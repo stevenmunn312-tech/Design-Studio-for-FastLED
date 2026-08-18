@@ -5,6 +5,7 @@ import { evaluateGraph } from '../graphEvaluator'
 import type { StudioNode, StudioEdge } from '../graphStore'
 import { useUiStore } from '../uiStore'
 import { clearPatternContentTrustForTests } from '../patternTrust'
+import { useNodeDefaults } from '../nodeDefaults'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -679,6 +680,43 @@ describe('graphStore — grouping', () => {
     const result = saveGroupToLibrary(`groupnode-${gid}`)
     expect(result).toEqual({ name: 'MyPattern', replaced: false })
     expect(usePatternLibrary.getState().patterns.some((p) => p.name === 'MyPattern')).toBe(true)
+  })
+})
+
+describe('graphStore — board-aware microphone wiring', () => {
+  beforeEach(() => {
+    reset()
+    useNodeDefaults.setState({ micOverridesByFqbn: {} })
+  })
+
+  it('retargets an existing MicInput to a board common pinout', () => {
+    reset([node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41, gain: 2 })])
+
+    expect(useGraphStore.getState().retargetMicPins('teensy:avr:teensy40')).toBe(1)
+    expect(useGraphStore.getState().nodes[0].data.properties).toMatchObject({
+      i2sWs: 20, i2sSck: 21, i2sSd: 8, gain: 2,
+    })
+  })
+
+  it('uses pins previously set as the default for that particular board', () => {
+    useNodeDefaults.getState().setDefault('MicInput', {
+      i2sWs: 2, i2sSck: 3, i2sSd: 4, gain: 1,
+    }, 'teensy:avr:teensy40')
+    reset([node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41, gain: 2 })])
+
+    expect(useGraphStore.getState().retargetMicPins('teensy:avr:teensy40')).toBe(1)
+    expect(useGraphStore.getState().nodes[0].data.properties).toMatchObject({
+      i2sWs: 2, i2sSck: 3, i2sSd: 4, gain: 2,
+    })
+  })
+
+  it('leaves visible pin values alone when the target board is incompatible', () => {
+    reset([node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })])
+
+    expect(useGraphStore.getState().retargetMicPins('arduino:avr:uno')).toBe(0)
+    expect(useGraphStore.getState().nodes[0].data.properties).toMatchObject({
+      i2sWs: 39, i2sSck: 40, i2sSd: 41,
+    })
   })
 })
 

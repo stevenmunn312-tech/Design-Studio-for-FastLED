@@ -32,6 +32,12 @@ import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalett
 import { animartrixCppLines } from '../animartrix/codegen'
 import { compositionDims, outputRoutes } from '../state/outputRouting'
 import { getNetworkCredentials } from '../state/networkCredentials'
+import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
+import {
+  inmp441FirmwareBackendForBoard,
+  inmp441FqbnForBoardProfile,
+  type Inmp441FirmwareBackend,
+} from '../state/micPinDefaults'
 import { sanitizePin } from './hardwarePins'
 import { resolveWireframeMesh, meshBoundingRadius, WIREFRAME_FIT_MARGIN, WIREFRAME_CAM_FAR, WIREFRAME_CAM_NEAR } from '../state/wireframeModel'
 
@@ -217,6 +223,7 @@ function topoSort(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
 // The SD-card player intentionally does not use this block: it supplies the
 // same globals from its baked song envelope.
 function audioEngineCpp(
+  backend: Inmp441FirmwareBackend,
   ws: number,
   sck: number,
   sd: number,
@@ -227,6 +234,12 @@ function audioEngineCpp(
   const audioChannel = channel === 'Right'
     ? 'fl::audio::AudioChannel::Right'
     : 'fl::audio::AudioChannel::Left'
+  const captureAdapter = audioCaptureAdapterCpp(backend, channel)
+  const createInput = backend === 'fastled-esp32'
+    ? [`  auto config = fl::audio::Config::CreateInmp441(MIC_WS, MIC_SD, MIC_SCK, ${audioChannel});`, '  _audioProcessor = FastLED.add(config);']
+    : backend === 'fastled-teensy'
+      ? [`  auto config = fl::audio::Config::CreateTeensyI2S(fl::audio::TeensyI2S::I2SPort::I2S1, ${audioChannel}, 44100, 16, fl::audio::MicProfile::INMP441);`, '  _audioProcessor = FastLED.add(config);']
+      : ['  _audioProcessor = FastLED.add(fl::make_shared<StudioInmp441Input>());']
   return [
     '// ── FastLED INMP441 audio reactivity ───────────────────────────────────────',
     `#define MIC_WS    ${ws}`,
@@ -234,6 +247,7 @@ function audioEngineCpp(
     `#define MIC_SD    ${sd}`,
     `#define MIC_GAIN  ${gain.toFixed(3)}f`,
     `#define MIC_DEBUG ${serialDebug ? 1 : 0}   // print FastLED processor levels (~10×/sec)`,
+    ...captureAdapter,
     'float _audioBass = 0, _audioMids = 0, _audioTreble = 0, _audioBpm = 120;',
     'bool  _audioBeat = false;',
     'static float _audioSpectrum[32];',
@@ -245,8 +259,7 @@ function audioEngineCpp(
     '#if MIC_DEBUG',
     '  Serial.begin(115200);',
     '#endif',
-    `  auto config = fl::audio::Config::CreateInmp441(MIC_WS, MIC_SD, MIC_SCK, ${audioChannel});`,
-    '  _audioProcessor = FastLED.add(config);',
+    ...createInput,
     '  if (!_audioProcessor) return;',
     '  _audioProcessor->setGain(MIC_GAIN);',
     '  _audioProcessor->onBeat([] { _audioBeatCount = _audioBeatCount + 1; });',
@@ -288,6 +301,175 @@ function audioEngineCpp(
     '  }',
     '#endif',
     '}',
+  ]
+}
+
+function audioCaptureAdapterCpp(
+  backend: Inmp441FirmwareBackend,
+  channel: 'Left' | 'Right',
+): string[] {
+  if (backend === 'fastled-esp32' || backend === 'fastled-teensy') return []
+  const side = channel === 'Right' ? 'right' : 'left'
+
+  if (backend === 'pico-i2s') {
+    return [
+      '',
+      '// Earle Philhower RP2040/RP2350 PIO-I2S -> FastLED PCM adapter.',
+      'class StudioInmp441Input final : public fl::audio::IInput {',
+      ' public:',
+      '  StudioInmp441Input() : _i2s(INPUT) {}',
+      '  void start() noexcept override {',
+      '    if (MIC_WS != MIC_SCK + 1) { _failed = true; return; }',
+      '    _i2s.setBCLK(MIC_SCK);  // this core assigns LRCLK to BCLK + 1',
+      '    _i2s.setDIN(MIC_SD);',
+      '    _i2s.setBitsPerSample(32);',
+      '    _i2s.setFrequency(44100);',
+      '    _i2s.setBuffers(4, 256);',
+      '    _failed = !_i2s.begin();',
+      '  }',
+      '  void stop() noexcept override { _i2s.end(); }',
+      '  bool error(fl::string* msg = nullptr) noexcept override {',
+      '    if (_failed && msg) *msg = "RP2040 I2S failed (LRCLK must be BCLK + 1)";',
+      '    return _failed;',
+      '  }',
+      '  fl::audio::Sample read() noexcept override {',
+      '    if (_failed) return fl::audio::Sample();',
+      '    for (size_t i = 0; i < SAMPLE_COUNT; ++i) {',
+      '      int32_t left = 0, right = 0;',
+      '      if (!_i2s.read32(&left, &right)) { _failed = true; return fl::audio::Sample(); }',
+      `      _pcm[i] = (fl::i16)(${side} >> 16);`,
+      '    }',
+      '    return fl::audio::Sample(fl::span<const fl::i16>(_pcm, SAMPLE_COUNT), millis());',
+      '  }',
+      ' private:',
+      '  static const size_t SAMPLE_COUNT = 512;',
+      '  I2S _i2s;',
+      '  fl::i16 _pcm[SAMPLE_COUNT];',
+      '  bool _failed = false;',
+      '};',
+      '',
+    ]
+  }
+
+  if (backend === 'samd51-zero-i2s') {
+    return [
+      '',
+      '// Adafruit SAMD51 ZeroI2S receive -> FastLED PCM adapter.',
+      '#ifndef PIN_I2S_SD',
+      '#define PIN_I2S_SD MIC_SD',
+      '#endif',
+      'class StudioInmp441Input final : public fl::audio::IInput {',
+      ' public:',
+      '  StudioInmp441Input() : _i2s(MIC_WS, MIC_SCK, PIN_I2S_SD, MIC_SD) {}',
+      '  void start() noexcept override {',
+      '    _failed = !_i2s.begin(I2S_32_BIT, 44100);',
+      '    if (!_failed) _i2s.enableRx();',
+      '  }',
+      '  void stop() noexcept override { _i2s.disableRx(); }',
+      '  bool error(fl::string* msg = nullptr) noexcept override {',
+      '    if (_failed && msg) *msg = "SAMD51 ZeroI2S receive failed";',
+      '    return _failed;',
+      '  }',
+      '  fl::audio::Sample read() noexcept override {',
+      '    if (_failed) return fl::audio::Sample();',
+      '    for (size_t i = 0; i < SAMPLE_COUNT; ++i) {',
+      '      uint32_t waitStarted = micros();',
+      '      while (!_i2s.rxReady()) {',
+      '        if ((uint32_t)(micros() - waitStarted) > 5000U) return fl::audio::Sample();',
+      '      }',
+      '      int32_t left = 0, right = 0;',
+      '      _i2s.read(&left, &right);',
+      `      _pcm[i] = (fl::i16)(${side} >> 16);`,
+      '    }',
+      '    return fl::audio::Sample(fl::span<const fl::i16>(_pcm, SAMPLE_COUNT), millis());',
+      '  }',
+      ' private:',
+      '  static const size_t SAMPLE_COUNT = 512;',
+      '  Adafruit_ZeroI2S _i2s;',
+      '  fl::i16 _pcm[SAMPLE_COUNT];',
+      '  bool _failed = false;',
+      '};',
+      '',
+    ]
+  }
+
+  return [
+    '',
+    '// STM32 SPI2/I2S2 polling receiver -> FastLED PCM adapter.',
+    '// PB12=WS, PB13=BCLK, PB15=SD on the supported F1/F4 board profiles.',
+    'class StudioInmp441Input final : public fl::audio::IInput {',
+    ' public:',
+    '  void start() noexcept override {',
+    '#if defined(STM32F1xx)',
+    '    RCC->APB2ENR |= RCC_APB2ENR_AFIOEN | RCC_APB2ENR_IOPBEN;',
+    '    RCC->APB1ENR |= RCC_APB1ENR_SPI2EN;',
+    '    uint32_t crh = GPIOB->CRH;',
+    '    crh &= ~((0xFU << 16) | (0xFU << 20) | (0xFU << 28));',
+    '    crh |=  ((0xBU << 16) | (0xBU << 20) | (0x4U << 28));',
+    '    GPIOB->CRH = crh;',
+    '    SPI2->I2SPR = 13U;  // 72 MHz I2S clock -> about 43.27 kHz',
+    '#elif defined(STM32F4xx)',
+    '    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN;',
+    '    RCC->APB1ENR |= RCC_APB1ENR_SPI2EN;',
+    '    GPIOB->MODER = (GPIOB->MODER & ~((3U << 24) | (3U << 26) | (3U << 30))) |',
+    '                   (2U << 24) | (2U << 26) | (2U << 30);',
+    '    GPIOB->PUPDR &= ~((3U << 24) | (3U << 26) | (3U << 30));',
+    '    GPIOB->OSPEEDR |= (3U << 24) | (3U << 26) | (3U << 30);',
+    '    GPIOB->AFR[1] = (GPIOB->AFR[1] & ~((0xFU << 16) | (0xFU << 20) | (0xFU << 28))) |',
+    '                    (5U << 16) | (5U << 20) | (5U << 28);',
+    '    RCC->CR &= ~RCC_CR_PLLI2SON;',
+    '    uint32_t pllWait = millis();',
+    '    while ((RCC->CR & RCC_CR_PLLI2SRDY) && (uint32_t)(millis() - pllWait) < 20U) {}',
+    '    RCC->PLLI2SCFGR = (RCC->PLLI2SCFGR & ~((0x1FFU << 6) | (7U << 28))) |',
+    '                       (271U << 6) | (2U << 28);',
+    '    RCC->CR |= RCC_CR_PLLI2SON;',
+    '    pllWait = millis();',
+    '    while (!(RCC->CR & RCC_CR_PLLI2SRDY) && (uint32_t)(millis() - pllWait) < 20U) {}',
+    '#ifdef RCC_DCKCFGR_I2S2SRC',
+    '    RCC->DCKCFGR &= ~RCC_DCKCFGR_I2S2SRC;',
+    '#endif',
+    '    SPI2->I2SPR = 24U;  // 135.5 MHz PLLI2S -> about 44.11 kHz',
+    '#else',
+    '    _failed = true;',
+    '    return;',
+    '#endif',
+    '    SPI2->I2SCFGR = 0;',
+    '    SPI2->I2SCFGR = SPI_I2SCFGR_I2SMOD | SPI_I2SCFGR_I2SCFG_0 |',
+    '                      SPI_I2SCFGR_I2SCFG_1 | SPI_I2SCFGR_CHLEN |',
+    '                      SPI_I2SCFGR_DATLEN_1;',
+    '    SPI2->I2SCFGR |= SPI_I2SCFGR_I2SE;',
+    '  }',
+    '  void stop() noexcept override { SPI2->I2SCFGR &= ~SPI_I2SCFGR_I2SE; }',
+    '  bool error(fl::string* msg = nullptr) noexcept override {',
+    '    if (_failed && msg) *msg = "STM32 I2S2 receive failed";',
+    '    return _failed;',
+    '  }',
+    '  fl::audio::Sample read() noexcept override {',
+    '    if (_failed) return fl::audio::Sample();',
+    '    for (size_t i = 0; i < SAMPLE_COUNT; ++i) {',
+    '      uint16_t lHi, lLo, rHi, rLo;',
+    '      if (!readHalf(lHi) || !readHalf(lLo) || !readHalf(rHi) || !readHalf(rLo))',
+    '        return fl::audio::Sample();',
+    '      int32_t left = (int32_t)(((uint32_t)lHi << 16) | lLo);',
+    '      int32_t right = (int32_t)(((uint32_t)rHi << 16) | rLo);',
+    `      _pcm[i] = (fl::i16)(${side} >> 16);`,
+    '    }',
+    '    return fl::audio::Sample(fl::span<const fl::i16>(_pcm, SAMPLE_COUNT), millis());',
+    '  }',
+    ' private:',
+    '  bool readHalf(uint16_t& value) {',
+    '    uint32_t waitStarted = micros();',
+    '    while (!(SPI2->SR & SPI_SR_RXNE)) {',
+    '      if ((uint32_t)(micros() - waitStarted) > 5000U) { _failed = true; return false; }',
+    '    }',
+    '    value = (uint16_t)SPI2->DR;',
+    '    return true;',
+    '  }',
+    '  static const size_t SAMPLE_COUNT = 512;',
+    '  fl::i16 _pcm[SAMPLE_COUNT];',
+    '  bool _failed = false;',
+    '};',
+    '',
   ]
 }
 
@@ -610,23 +792,54 @@ export function hub75SetupCpp(hw: Hub75Hardware): string[] {
  * globals. Returns null when the graph has no MicInput. Mirrors the block
  * generateCpp inlines for a mic-bearing single-pattern sketch.
  */
-export function audioEngineForGraph(nodes: StudioNode[]): { include: string; code: string[] } | null {
+export function audioEngineForGraph(nodes: StudioNode[]): { preInclude: string[]; include: string; code: string[]; fqbn: string; backend: Inmp441FirmwareBackend } | null {
   const micNode = nodes.find((n) => n.data.nodeType === 'MicInput')
   if (!micNode) return null
+  // The Board node is the sole target authority. MatrixOutput's legacy board
+  // field and the upload store are intentionally not consulted here.
+  const fqbn = inmp441FqbnForBoardProfile(selectedPhysicalBoardProfile(nodes))
+  const backend = fqbn ? inmp441FirmwareBackendForBoard(fqbn) : undefined
+  if (!fqbn || !backend) return null
   const p = micNode.data.properties as Record<string, unknown>
   const fc = (v: unknown, d: number, min: number, max: number) => {
     const n = Number(v); return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : d
   }
   const channel: 'Left' | 'Right' = String(p.channel ?? 'Left') === 'Right' ? 'Right' : 'Left'
   return {
+    // FastLED 3.10.5's SAMD ISR translation unit still names the SAMD21-style
+    // PMUX/EIC symbols. Adafruit's SAMD51 CMSIS headers expose their equivalent
+    // indexed forms; aliases here keep exported sketches compilable without
+    // modifying the user's FastLED installation.
+    preInclude: backend === 'samd51-zero-i2s' ? [
+      '// The INMP441 + clockless LED path does not need SAMD hardware SPI.',
+      '#define FASTLED_FORCE_SOFTWARE_SPI 1',
+      '#if defined(__SAMD51__)',
+      '#ifndef PORT_PMUX_PMUXO_A',
+      '#define PORT_PMUX_PMUXO_A PORT_PMUX_PMUXO(0)',
+      '#define PORT_PMUX_PMUXE_A PORT_PMUX_PMUXE(0)',
+      '#endif',
+      '#ifndef EIC_IRQn',
+      '#define EIC_IRQn EIC_0_IRQn',
+      '#endif',
+      '#endif',
+    ] : [],
     include: [
-      `// Live microphone capture and analysis are supplied by FastLED 3.10.3+.`,
+      `// INMP441 capture feeds the same FastLED Processor contract as preview.`,
+      ...(backend === 'fastled-teensy' ? [
+        `// Keep the build system's library scanner aware of PJRC Audio sources.`,
+        `#include <Audio.h>`,
+      ] : []),
+      ...(backend === 'pico-i2s' ? [`#include <I2S.h>`] : []),
+      ...(backend === 'samd51-zero-i2s' ? [`#include <Adafruit_ZeroI2S.h>`] : []),
     ].join('\n'),
     code: audioEngineCpp(
+      backend,
       sanitizePin(p.i2sWs, 39), sanitizePin(p.i2sSck, 40), sanitizePin(p.i2sSd, 41), channel,
       fc(p.gain, MIC_DEFAULTS.gain, 0, MIC_MAX_GAIN),
       p.serialDebug === true,
     ),
+    fqbn,
+    backend,
   }
 }
 
@@ -900,7 +1113,7 @@ export function generateCpp(
     const n = Number(val)
     return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : def
   }
-  const composition = compositionDims(nodes)
+  const composition = compositionDims(nodes, edges)
   const width      = multipleOutputs ? composition.w : intProp(outputNode ? rawProps(outputNode).width : undefined, 16, 1, 64)
   const height     = multipleOutputs ? composition.h : intProp(outputNode ? rawProps(outputNode).height : undefined, 16, 1, 64)
   const expressionScale = !multipleOutputs && outputNode && rawProps(outputNode).supersample === true ? 2 : 1
@@ -1360,7 +1573,7 @@ export function generateCpp(
         ln(`  float ${rawBass}, ${rawMids}, ${rawTreble};`)
         ln(`  {`)
         ln(`    float ${bandsVar}[${bands}];`)
-        ln(`    for (int _b = 0; _b < ${bands}; _b++) { int _lo = (_b * 32) / ${bands}, _hi = max(_lo + 1, ((_b + 1) * 32) / ${bands}); float _sum = 0.0f; for (int _i = _lo; _i < _hi; _i++) _sum += ${useAudioGlobals ? '_audioSpectrum[_i]' : '0.0f'}; ${bandsVar}[_b] = _sum / (_hi - _lo); }`)
+        ln(`    for (int _b = 0; _b < ${bands}; _b++) { int _lo = (_b * 32) / ${bands}, _next = ((_b + 1) * 32) / ${bands}, _hi = _next > _lo ? _next : _lo + 1; float _sum = 0.0f; for (int _i = _lo; _i < _hi; _i++) _sum += ${useAudioGlobals ? '_audioSpectrum[_i]' : '0.0f'}; ${bandsVar}[_b] = _sum / (_hi - _lo); }`)
         ln(`    ${rawBass} = ${groupExpr(bassFrom, bassTo)};`)
         ln(`    ${rawMids} = ${groupExpr(midsFrom, midsTo)};`)
         ln(`    ${rawTreble} = ${groupExpr(trebleFrom, trebleTo)};`)
@@ -5416,6 +5629,7 @@ export function generateCpp(
     ? { ...clocklessRoutes[0].hardware, overclock: Math.max(...clocklessRoutes.map((route) => route.hardware.overclock)) }
     : hw
   lines.push(...overclockDefineCpp(overclockHw))
+  if (audio) lines.push(...audio.preInclude)
   lines.push(`#include <FastLED.h>`)
   if (isHub75) lines.push(...hub75IncludesCpp(hub75Hw!))
   if (needsDs3231) lines.push(`#include <Wire.h>`)

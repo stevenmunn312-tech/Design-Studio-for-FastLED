@@ -871,6 +871,20 @@ function boardExample(node: NodeDefinition): ReferenceLiveExample {
   )
 }
 
+function ledStringExample(node: NodeDefinition): ReferenceLiveExample {
+  const builder = new ExampleBuilder()
+  builder.add('sweep', 'Rainbow', { speed: 0.3, deltaHue: 6 })
+  builder.add('trails', 'Trails', { decay: 0.86 })
+  builder.add('target', node.type, { ledCount: 60, dataPin: 18 })
+  builder.wire('sweep', 'frame', 'trails', 'frame')
+  builder.wire('trails', 'frame', 'target', 'frame')
+  return builder.finish(
+    'Drive a single run of addressable LEDs',
+    `${node.label}: ${NODE_DESCRIPTIONS[node.type]} Rainbow sweeps hue along the run and Trails gives each pixel a falling tail, so the length, data pin, and chipset set here describe one physical strip rather than a matrix.`,
+    'The preview should show a hue sweep travelling along a single row with a fading tail. Changing the LED count changes how long that run is in the hardware view.',
+  )
+}
+
 function transitionExample(node: NodeDefinition): ReferenceLiveExample {
   const builder = new ExampleBuilder()
   builder.add('a', 'Pacifica', { palette: 'ocean', speed: 0.34 })
@@ -1159,6 +1173,7 @@ export function buildGenericLiveExample(node: NodeDefinition): ReferenceLiveExam
   if (node.type === 'SampleHold') return sampleHoldExample(node)
   if (node.type === 'MatrixOutput') return matrixOutputExample(node)
   if (node.type === 'Board') return boardExample(node)
+  if (node.type === 'LedStringOutput') return ledStringExample(node)
   if (node.type === 'Amplifier') return amplifierExample(node)
   if (node.type === 'Comment') return commentExample(node)
   if (node.type === 'Transition') return transitionExample(node)

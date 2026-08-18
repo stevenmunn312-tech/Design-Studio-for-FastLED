@@ -30,6 +30,7 @@ import platform
 import re
 import shutil
 import socket
+import stat
 import subprocess
 import sys
 import tarfile
@@ -211,6 +212,98 @@ _FBUILD_ESP_DMX_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "esp_dmx"
 # has no native HUB75 driver, so a HUB75 MatrixOutput route needs this DMA
 # library instead. Vendored the same lazy way as ESP32-audioI2S/esp_dmx above.
 _FBUILD_HUB75_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "ESP32-HUB75-MatrixPanel-DMA"
+# SAMD51 INMP441 capture uses Adafruit's receive-capable ZeroI2S driver and
+# its ZeroDMA dependency. Both are fetched only when a generated sketch names
+# ZeroI2S, just like the other optional hardware libraries below.
+_FBUILD_ZERO_I2S_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "Adafruit_ZeroI2S"
+_FBUILD_ZERO_DMA_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "Adafruit_ZeroDMA"
+_FBUILD_OPTIONAL_LIB_STASH_DIR = _FBUILD_PROJECT_DIR / ".optional-libs"
+
+# fbuild currently compiles every library directory under the project's local
+# `lib/`, even when the sketch does not include that library. That makes lazy
+# hardware dependencies contaminate unrelated targets: for example, a SAMD51
+# microphone sketch used to fail inside the previously cached ESP32-audioI2S
+# library. Keep the cache, but expose only the optional libraries named by the
+# current sketch while the (project-wide locked) build runs.
+_FBUILD_OPTIONAL_LIBRARIES = (
+    (_FBUILD_AUDIO_LIB_DIR, ("#include <Audio_nopsram.h>",)),
+    (_FBUILD_ESP_DMX_LIB_DIR, ("#include <esp_dmx.h>",)),
+    (_FBUILD_HUB75_LIB_DIR, ("#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>",)),
+    (_FBUILD_ZERO_I2S_LIB_DIR, ("#include <Adafruit_ZeroI2S.h>",)),
+    # ZeroI2S includes ZeroDMA, so both must enter and leave the local library
+    # search path together.
+    (_FBUILD_ZERO_DMA_LIB_DIR, ("#include <Adafruit_ZeroI2S.h>",)),
+)
+
+
+def _remove_build_cache_tree(path: Path) -> None:
+    """Remove an exact vendored cache directory, including read-only git packs."""
+    def make_writable_and_retry(func, name, _error):
+        os.chmod(name, stat.S_IWRITE)
+        func(name)
+
+    shutil.rmtree(path, onerror=make_writable_and_retry)
+
+
+def _restore_stranded_fbuild_optional_libraries() -> None:
+    """Recover libraries left staged by a process interrupted mid-build."""
+    if not _FBUILD_OPTIONAL_LIB_STASH_DIR.exists():
+        return
+    local_lib_root = _FBUILD_LIB_DIR.parent
+    local_lib_root.mkdir(parents=True, exist_ok=True)
+    for staged in _FBUILD_OPTIONAL_LIB_STASH_DIR.iterdir():
+        library_dir = local_lib_root / staged.name
+        if staged.is_dir() and not library_dir.exists():
+            staged.rename(library_dir)
+    try:
+        _FBUILD_OPTIONAL_LIB_STASH_DIR.rmdir()
+    except OSError:
+        # A duplicate/stale entry is safer left alone than deleted. It can only
+        # exist after an interrupted/manual cache edit and is outside `lib/`,
+        # so it cannot affect compilation.
+        pass
+
+
+@contextlib.contextmanager
+def _fbuild_libraries_for_sketch(ino: str):
+    """Temporarily hide cached optional libraries unused by this sketch."""
+    _restore_stranded_fbuild_optional_libraries()
+    moved: list[tuple[Path, Path]] = []
+    try:
+        required = {
+            library_dir.resolve()
+            for library_dir, include_markers in _FBUILD_OPTIONAL_LIBRARIES
+            if any(marker in ino for marker in include_markers)
+        }
+        # FastLED is the one universal local dependency. Everything else is a
+        # hardware-specific cache entry and must opt in via a header marker
+        # above. Scanning the directory also quarantines old/transitive entries
+        # from earlier fbuild runs (for example ESP8266Audio), not just the
+        # dependencies this version of the helper knows how to vendor.
+        local_lib_root = _FBUILD_LIB_DIR.parent
+        if not local_lib_root.exists():
+            yield
+            return
+        for library_dir in local_lib_root.iterdir():
+            if (
+                not library_dir.is_dir()
+                or library_dir.resolve() == _FBUILD_LIB_DIR.resolve()
+                or library_dir.resolve() in required
+            ):
+                continue
+            _FBUILD_OPTIONAL_LIB_STASH_DIR.mkdir(parents=True, exist_ok=True)
+            staged = _FBUILD_OPTIONAL_LIB_STASH_DIR / library_dir.name
+            library_dir.rename(staged)
+            moved.append((library_dir, staged))
+        yield
+    finally:
+        for library_dir, staged in reversed(moved):
+            if staged.exists() and not library_dir.exists():
+                staged.rename(library_dir)
+        try:
+            _FBUILD_OPTIONAL_LIB_STASH_DIR.rmdir()
+        except OSError:
+            pass
 
 # arduino-cli FQBN -> PlatformIO platform/board, mirroring `BOARDS` in
 # `src/state/uploadStore.ts`. `psram_memory_type` maps this repo's PSRAM option
@@ -272,6 +365,7 @@ _PIO_BOARDS: dict[str, dict] = {
     "esp8266:esp8266:nodemcuv2": {"platform": "espressif8266", "board": "nodemcuv2"},
     "teensy:avr:teensy41": {"platform": "teensy", "board": "teensy41"},
     "teensy:avr:teensy40": {"platform": "teensy", "board": "teensy40"},
+    "teensy:avr:teensyMM": {"platform": "teensy", "board": "teensymm"},
     "teensy:avr:teensy36": {"platform": "teensy", "board": "teensy36"},
     "teensy:avr:teensy35": {"platform": "teensy", "board": "teensy35"},
     "teensy:avr:teensy31": {"platform": "teensy", "board": "teensy31"},
@@ -279,6 +373,7 @@ _PIO_BOARDS: dict[str, dict] = {
     "teensy:avr:teensyLC": {"platform": "teensy", "board": "teensyLC"},
     "rp2040:rp2040:rpipico": {"platform": "raspberrypi", "board": "pico"},
     "rp2040:rp2040:rpipico2": {"platform": "raspberrypi", "board": "rpipico2"},
+    "rp2040:rp2040:adafruit_kb2040": {"platform": "raspberrypi", "board": "adafruit_kb2040"},
     "arduino:samd:nano_33_iot": {"platform": "atmelsam", "board": "nano_33_iot"},
     "arduino:sam:arduino_due_x": {"platform": "atmelsam", "board": "due"},
     # Confirmed against fbuild's board-support reference for a bare SAMD21
@@ -287,9 +382,22 @@ _PIO_BOARDS: dict[str, dict] = {
     "arduino:samd:arduino_zero_native": {"platform": "atmelsam", "board": "zeroUSB"},
     "adafruit:samd:adafruit_feather_m0": {"platform": "atmelsam", "board": "adafruit_feather_m0"},
     "adafruit:samd:adafruit_qtpy_m0": {"platform": "atmelsam", "board": "adafruit_qtpy_m0"},
-    "adafruit:samd:adafruit_feather_m4": {"platform": "atmelsam", "board": "adafruit_feather_m4"},
-    "adafruit:samd:adafruit_grandcentral_m4": {"platform": "atmelsam", "board": "adafruit_grandcentral_m4"},
-    "adafruit:samd:adafruit_matrixportal_m4": {"platform": "atmelsam", "board": "adafruit_matrixportal_m4"},
+    # fbuild's atmelsam adapter currently drops the Arduino board/architecture
+    # defines when compiling vendored local-library unity files. Repeat the
+    # exact MCU identity here so FastLED selects its SAMD51 implementation in
+    # both the sketch TU and library TUs.
+    "adafruit:samd:adafruit_feather_m4": {
+        "platform": "atmelsam", "board": "adafruit_feather_m4",
+        "build_flags": ["-DARDUINO_ARCH_SAMD", "-D__SAMD51__", "-D__SAMD51J19A__", "-DEIC_IRQn=EIC_0_IRQn", "-DFASTLED_FORCE_SOFTWARE_SPI=1"],
+    },
+    "adafruit:samd:adafruit_grandcentral_m4": {
+        "platform": "atmelsam", "board": "adafruit_grandcentral_m4",
+        "build_flags": ["-DARDUINO_ARCH_SAMD", "-D__SAMD51__", "-D__SAMD51P20A__", "-DEIC_IRQn=EIC_0_IRQn", "-DFASTLED_FORCE_SOFTWARE_SPI=1"],
+    },
+    "adafruit:samd:adafruit_matrixportal_m4": {
+        "platform": "atmelsam", "board": "adafruit_matrixportal_m4",
+        "build_flags": ["-DARDUINO_ARCH_SAMD", "-D__SAMD51__", "-D__SAMD51J19A__", "-DEIC_IRQn=EIC_0_IRQn", "-DFASTLED_FORCE_SOFTWARE_SPI=1"],
+    },
     "STMicroelectronics:stm32:bluepill_f103c8": {"platform": "ststm32", "board": "bluepill_f103c8"},
     "STMicroelectronics:stm32:blackpill_f411ce": {"platform": "ststm32", "board": "blackpill_f411ce"},
     "STMicroelectronics:stm32:nucleo_f429zi": {"platform": "ststm32", "board": "nucleo_f429zi"},
@@ -454,7 +562,9 @@ def _write_fbuild_ini() -> None:
         # builds (this static ini is written once for every env, not per
         # request) — the macro is inert for every sketch that doesn't include the
         # HUB75 header.
-        base_flags = ["-DCORE_DEBUG_LEVEL=0", "-DNO_GFX=1"] if meta["platform"] == "espressif32" else []
+        base_flags = list(meta.get("build_flags", []))
+        if meta["platform"] == "espressif32":
+            base_flags.extend(("-DCORE_DEBUG_LEVEL=0", "-DNO_GFX=1"))
         # The stock dual-OTA `default.csv` partition table caps each app slot at
         # 0x140000 (1,310,720 bytes) on a typical 4MB-flash ESP32 module. The
         # music-sync Player sketch (ESP32-audioI2S's codec support pushes it well
@@ -497,9 +607,15 @@ def _ensure_fbuild_project():
         return
     _FBUILD_SRC_DIR.mkdir(parents=True, exist_ok=True)
     _write_fbuild_ini()
-    if not (_FBUILD_LIB_DIR / "library.json").exists():
+    fastled_sentinel = _FBUILD_LIB_DIR / "src" / "fl" / "stl" / "stdint.h"
+    if not (_FBUILD_LIB_DIR / "library.json").exists() or not fastled_sentinel.exists():
         yield "\n=== vendoring FastLED (first run only) ===\n"
         _FBUILD_LIB_DIR.parent.mkdir(parents=True, exist_ok=True)
+        # A cancelled/failed checkout can leave library.json behind while most
+        # source files are staged as deleted. Treat that as a corrupt build
+        # cache and replace this exact vendored directory.
+        if _FBUILD_LIB_DIR.exists():
+            _remove_build_cache_tree(_FBUILD_LIB_DIR)
         rc = yield from _run_phase(
             "vendor FastLED",
             ["git", "clone", "--depth", "1", "https://github.com/FastLED/FastLED.git", str(_FBUILD_LIB_DIR)],
@@ -507,6 +623,7 @@ def _ensure_fbuild_project():
         if rc != 0:
             yield "[error] failed to vendor FastLED — the build below will fail on FastLED.h\n"
     _patch_fastled_sd_stub()
+    _patch_fastled_samd51_build()
     _fbuild_project_ready = True
 
 
@@ -542,40 +659,146 @@ def _patch_fastled_sd_stub() -> None:
     path.write_text(_FASTLED_SD_STUB, encoding="utf-8")
 
 
+def _patch_fastled_samd51_build() -> None:
+    """Apply narrow upstream SAMD51 compile fixes to the vendored FastLED.
+
+    FastLED 3.10.4+ currently names SAMD21-only PMUX/EIC constants in its
+    SAMD51 ISR source, and its unused SAMD51 quad-SPI implementation returns
+    obsolete result types. Studio does not use the quad-SPI path; stubbing its
+    buffer acquisition keeps ordinary FastLED controllers and the audio
+    processor buildable until upstream lands equivalent fixes. Its generic
+    Arduino audio unit also cannot include ``I2S.h`` on SAMD51 because the
+    core's ``I2S`` peripheral macro expands inside that header token. Studio's
+    SAMD51 code uses its own ZeroI2S adapter, so disable that unused generic
+    backend on SAMD51 only.
+    """
+    isr = _FBUILD_LIB_DIR / "src" / "platforms" / "arm" / "samd" / "isr_samd.hpp"
+    if isr.exists():
+        text = isr.read_text(encoding="utf-8")
+        text = text.replace("PORT_PMUX_PMUXO_A", "PORT_PMUX_PMUXO(0)")
+        text = text.replace("PORT_PMUX_PMUXE_A", "PORT_PMUX_PMUXE(0)")
+        text = text.replace("NVIC_DisableIRQ(EIC_IRQn)", "NVIC_DisableIRQ(EIC_0_IRQn)")
+        isr.write_text(text, encoding="utf-8")
+
+    quad = _FBUILD_LIB_DIR / "src" / "platforms" / "arm" / "d51" / "spi_hw_4_samd51.cpp.hpp"
+    if quad.exists():
+        text = quad.read_text(encoding="utf-8")
+        start = text.find("DMABuffer SPIQuadSAMD51::acquireDMABuffer(size_t bytes_per_lane) {")
+        end = text.find("\nbool SPIQuadSAMD51::transmit", start)
+        if start >= 0 and end > start:
+            stub = (
+                "DMABuffer SPIQuadSAMD51::acquireDMABuffer(size_t bytes_per_lane) {\n"
+                "    (void)bytes_per_lane;\n"
+                "    return DMABuffer(SPIError::NOT_SUPPORTED);\n"
+                "}\n"
+            )
+            text = text[:start] + stub + text[end:]
+            quad.write_text(text, encoding="utf-8")
+
+    audio = _FBUILD_LIB_DIR / "src" / "fl" / "audio" / "audio_input.cpp.hpp"
+    if audio.exists():
+        text = audio.read_text(encoding="utf-8")
+        old = (
+            "  #elif defined(FL_IS_TEENSY)\n"
+            "    // Teensy uses the PJRC Audio backend when enabled, never generic Arduino I2S.\n"
+            "    #define FASTLED_USES_ARDUINO_AUDIO_INPUT 0\n"
+            "  #elif FL_HAS_INCLUDE(<Arduino.h>)"
+        )
+        new = (
+            "  #elif defined(FL_IS_TEENSY)\n"
+            "    // Teensy uses the PJRC Audio backend when enabled, never generic Arduino I2S.\n"
+            "    #define FASTLED_USES_ARDUINO_AUDIO_INPUT 0\n"
+            "  #elif defined(FL_IS_SAMD51)\n"
+            "    // Studio supplies a ZeroI2S IInput adapter on SAMD51.\n"
+            "    #define FASTLED_USES_ARDUINO_AUDIO_INPUT 0\n"
+            "  #elif FL_HAS_INCLUDE(<Arduino.h>)"
+        )
+        if old in text:
+            audio.write_text(text.replace(old, new), encoding="utf-8")
+
+    arduino_audio = _FBUILD_LIB_DIR / "src" / "platforms" / "arduino" / "audio_input.hpp"
+    if arduino_audio.exists():
+        text = arduino_audio.read_text(encoding="utf-8")
+        old = (
+            '#elif defined(FL_IS_SAMD21)\n'
+            '#define ARDUINO_I2S_FULLY_SUPPORTED 0\n'
+            '#define ARDUINO_I2S_BROKEN_REASON "I2S not supported on SAMD21"\n'
+            '#elif FL_HAS_INCLUDE(<I2S.h>)'
+        )
+        new = (
+            '#elif defined(FL_IS_SAMD21)\n'
+            '#define ARDUINO_I2S_FULLY_SUPPORTED 0\n'
+            '#define ARDUINO_I2S_BROKEN_REASON "I2S not supported on SAMD21"\n'
+            '#elif defined(FL_IS_SAMD51)\n'
+            '#define ARDUINO_I2S_FULLY_SUPPORTED 0\n'
+            '#define ARDUINO_I2S_BROKEN_REASON "Studio uses ZeroI2S on SAMD51"\n'
+            '#elif FL_HAS_INCLUDE(<I2S.h>)'
+        )
+        if old in text:
+            text = text.replace(old, new)
+        # fbuild's dependency scanner evaluates header tokens before the C++
+        # platform branch can discard them. On Adafruit SAMD51, the core macro
+        # named `I2S` expands the token in both __has_include(<I2S.h>) and
+        # #include <I2S.h> into a peripheral address, yielding an impossible
+        # path such as `((I2s *)0x43002800UL).h`. None of Studio's supported
+        # mic targets uses this generic FastLED adapter (each has a selected
+        # backend above), so remove those two tokens from the vendored unity
+        # build instead of allowing an unused source path to break SAMD51.
+        text = text.replace(
+            "#elif FL_HAS_INCLUDE(<I2S.h>)",
+            "#elif 0 // Studio mic targets use their selected IInput adapter",
+        )
+        text = text.replace(
+            "#include <I2S.h>",
+            "// Generic Arduino I2S include disabled by the Studio build helper.",
+        )
+        arduino_audio.write_text(text, encoding="utf-8")
+
+    # The generated SAMD51 sketches use clockless LEDs and explicitly select
+    # FastLED's software-SPI fallback. Honour that selection before FastLED's
+    # new SAMD dispatcher includes its still-experimental hardware SPI adapter,
+    # which has an unnecessary transitive <SPI.h> dependency under fbuild.
+    for relative in ("platforms/spi_device_proxy.h", "platforms/spi_output_template.h"):
+        dispatcher = _FBUILD_LIB_DIR / "src" / relative
+        if dispatcher.exists():
+            text = dispatcher.read_text(encoding="utf-8")
+            text = text.replace(
+                "#elif defined(FL_IS_SAM) || defined(FL_IS_SAMD)",
+                "#elif (defined(FL_IS_SAM) || defined(FL_IS_SAMD)) && !defined(FASTLED_FORCE_SOFTWARE_SPI)",
+            )
+            dispatcher.write_text(text, encoding="utf-8")
+
+
 _fbuild_audio_lib_ready = False
 
 
 def _ensure_fbuild_audio_lib():
-    """Vendor ESP32-audioI2S (schreibfaul1/ESP32-audioI2S), same rationale as
+    """Vendor ESP32-audioI2S-nopsram (PLSousa/ESP32-audioI2S), same rationale as
     `_ensure_fbuild_project`'s FastLED vendoring — fbuild 2.4.0's `lib_deps`
     registry resolution doesn't work. Only the Player sketch (`#include
-    <Audio.h>`) needs this, so it's fetched lazily on first Player build rather
-    than unconditionally for every compile."""
+    <Audio_nopsram.h>`) needs this, so it's fetched lazily on first Player build
+    rather than unconditionally for every compile."""
     global _fbuild_audio_lib_ready
     if _fbuild_audio_lib_ready:
         return
-    if (_FBUILD_AUDIO_LIB_DIR / "library.json").exists():
+    if (_FBUILD_AUDIO_LIB_DIR / "src" / "Audio_nopsram.h").exists():
         _fbuild_audio_lib_ready = True
         return
-    yield "\n=== vendoring ESP32-audioI2S (first run only) ===\n"
+    yield "\n=== vendoring ESP32-audioI2S-nopsram (first run only) ===\n"
     _FBUILD_AUDIO_LIB_DIR.parent.mkdir(parents=True, exist_ok=True)
-    # Pinned to 3.0.12, NOT the default branch: the library was rewritten
-    # starting with 3.1.0 so AudioBuffer always allocates a fixed ~640KB+64KB
-    # input buffer with no PSRAM/DRAM distinction — an allocation that can
-    # never succeed on a plain (non-PSRAM) ESP32's ~320KB of internal RAM, so
-    # the Player silently fails to buffer audio ("OOM: failed to allocate
-    # 720896 bytes for AudioBuffer") even though it compiles and flashes fine.
-    # 3.0.x is the last line where AudioBuffer falls back to a small
-    # (~16KB) internal-RAM buffer when PSRAM isn't present — 3.0.12 is its
-    # newest patch release. Re-pin deliberately (bump the tag here) rather
-    # than tracking the default branch, which has no stability guarantee.
+    # Replace an earlier upstream checkout. Upstream v3 requires PSRAM; this
+    # v2.0.6-based fork keeps the small DRAM buffer and carries the GCC 14/IDF 5
+    # fixes needed by recent Arduino-ESP32 cores. The revision below is the
+    # branch commit validated on a classic ESP32 + MAX98357A without PSRAM.
+    if _FBUILD_AUDIO_LIB_DIR.exists():
+        shutil.rmtree(_FBUILD_AUDIO_LIB_DIR)
     rc = yield from _run_phase(
-        "vendor ESP32-audioI2S",
-        ["git", "clone", "--branch", "3.0.12", "--depth", "1",
-         "https://github.com/schreibfaul1/ESP32-audioI2S.git", str(_FBUILD_AUDIO_LIB_DIR)],
+        "vendor ESP32-audioI2S-nopsram",
+        ["git", "clone", "--branch", "v2.0.6-gcc14-nopsram", "--depth", "1",
+         "https://github.com/PLSousa/ESP32-audioI2S.git", str(_FBUILD_AUDIO_LIB_DIR)],
     )
     if rc != 0:
-        yield "[error] failed to vendor ESP32-audioI2S — the Player build below will fail on Audio.h\n"
+        yield "[error] failed to vendor ESP32-audioI2S-nopsram — the Player build below will fail on Audio_nopsram.h\n"
     _fbuild_audio_lib_ready = True
 
 
@@ -629,6 +852,40 @@ def _ensure_fbuild_hub75_lib():
     if rc != 0:
         yield "[error] failed to vendor ESP32-HUB75-MatrixPanel-DMA — HUB75 builds will fail on ESP32-HUB75-MatrixPanel-I2S-DMA.h\n"
     _fbuild_hub75_lib_ready = True
+
+
+_fbuild_zero_i2s_lib_ready = False
+
+
+def _ensure_fbuild_zero_i2s_lib():
+    """Vendor the pinned SAMD51 I2S receive library and DMA dependency."""
+    global _fbuild_zero_i2s_lib_ready
+    if _fbuild_zero_i2s_lib_ready:
+        return
+    ready = (
+        (_FBUILD_ZERO_I2S_LIB_DIR / "Adafruit_ZeroI2S.h").exists()
+        and (_FBUILD_ZERO_DMA_LIB_DIR / "Adafruit_ZeroDMA.h").exists()
+    )
+    if ready:
+        _fbuild_zero_i2s_lib_ready = True
+        return
+    yield "\n=== vendoring Adafruit ZeroI2S + ZeroDMA (first SAMD51 mic build only) ===\n"
+    _FBUILD_ZERO_I2S_LIB_DIR.parent.mkdir(parents=True, exist_ok=True)
+    libraries = (
+        ("Adafruit ZeroI2S", "1.2.4", "https://github.com/adafruit/Adafruit_ZeroI2S.git", _FBUILD_ZERO_I2S_LIB_DIR),
+        ("Adafruit ZeroDMA", "1.1.4", "https://github.com/adafruit/Adafruit_ZeroDMA.git", _FBUILD_ZERO_DMA_LIB_DIR),
+    )
+    for label, tag, url, path in libraries:
+        if path.exists():
+            shutil.rmtree(path)
+        rc = yield from _run_phase(
+            f"vendor {label}",
+            ["git", "clone", "--branch", tag, "--depth", "1", url, str(path)],
+        )
+        if rc != 0:
+            yield f"[error] failed to vendor {label} — the SAMD51 microphone build will fail\n"
+            return
+    _fbuild_zero_i2s_lib_ready = True
 
 
 def _write_fbuild_main(ino: str) -> None:
@@ -1016,17 +1273,19 @@ def _compile_upload_fbuild(label, ino, fqbn, port):
             yield from _ensure_fbuild_esp_dmx_lib()
         if "#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>" in ino:
             yield from _ensure_fbuild_hub75_lib()
+        if "#include <Adafruit_ZeroI2S.h>" in ino:
+            yield from _ensure_fbuild_zero_i2s_lib()
         env = _fbuild_env_for_fqbn(fqbn)
         if env is None:
             yield f"\n=== ✗ {label}: no fbuild board mapping for {fqbn} ===\n"
             return -1, "compile"
-        _write_fbuild_main(ino)
-
         compile_lines = []
-        rc = yield from _run_phase(
-            f"{label} · compile", [_FBUILD_BIN, "build", "-e", env, "-v", "--no-timestamp"],
-            sink=compile_lines, cwd=_FBUILD_PROJECT_DIR,
-        )
+        with _fbuild_libraries_for_sketch(ino):
+            _write_fbuild_main(ino)
+            rc = yield from _run_phase(
+                f"{label} · compile", [_FBUILD_BIN, "build", "-e", env, "-v", "--no-timestamp"],
+                sink=compile_lines, cwd=_FBUILD_PROJECT_DIR,
+            )
         if rc != 0:
             if _looks_like_overflow(compile_lines):
                 yield (

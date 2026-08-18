@@ -7,10 +7,12 @@ import { saveGroupToLibrary, usePatternLibrary } from '../../state/patternLibrar
 import { useUiStore } from '../../state/uiStore'
 import { runTidy } from '../../utils/tidyGraph'
 import type { NodeDefinition, NodePort } from '../../types'
+import { isHardwareLibraryHiddenNodeType } from '../../state/hardware'
 import CreateGroupDialog, { type CreateGroupResult } from './CreateGroupDialog'
 import styles from './CanvasContextMenu.module.css'
 
 const FFT_BAND_IDS = ['bass', 'mids', 'treble'] as const
+const CANVAS_NODE_LIBRARY = NODE_LIBRARY.filter((def) => !isHardwareLibraryHiddenNodeType(def.type))
 const NODE_BY_TYPE = new Map(NODE_LIBRARY.map((def) => [def.type, def]))
 
 interface DirectSuggestion {
@@ -277,7 +279,7 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
   })
 
   const directSuggestions: DirectSuggestion[] = connectFrom
-    ? NODE_LIBRARY
+    ? CANVAS_NODE_LIBRARY
       .filter((def) => canAddNodeType(nodes, def.type))
       .map((def) => {
         const input = compatibleInputFor(def, connectFrom)
@@ -390,14 +392,14 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
     onClose()
   }
 
-  const filtered = NODE_LIBRARY.filter(
+  const filtered = CANVAS_NODE_LIBRARY.filter(
     (n) =>
       (query === '' || n.label.toLowerCase().includes(query.toLowerCase())) &&
       (!connectFrom || !!compatibleInputFor(n, connectFrom)) &&
       canAddNodeType(nodes, n.type)
   )
 
-  const isEmptyGraph = nodes.length === 0
+  const isEmptyGraph = nodes.every((node) => node.data.nodeType === 'Board')
   const canPaste = !!clipboard && clipboard.nodes.some((n) => canAddNodeType(nodes, n.data.nodeType))
   const selectedIds = nodes.filter((n) => n.selected).map((n) => n.id)
   const hasSelection = selectedIds.length > 0
