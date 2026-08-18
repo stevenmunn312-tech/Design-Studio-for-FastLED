@@ -315,15 +315,20 @@ export default function HardwarePane() {
    * scales with the part's short side so a thin run glows proportionally rather
    * than being swamped.
    */
-  const spillStyle = (partId: string): CSSProperties | undefined => {
+  const spillGeometry = (partId: string, sampleCols: number, sampleRows: number) => {
     const part = placed.get(partId)
     if (!part) return undefined
-    const margin = Math.max(18, Math.min(part.width, part.height) * 1.6)
+    // Enough to read as light on the bench without hazing the whole pane.
+    const margin = Math.max(20, Math.min(part.width, part.height) * 0.9)
     return {
-      left: part.x - margin,
-      top: part.y - margin,
-      width: part.width + (margin * 2),
-      height: part.height + (margin * 2),
+      style: {
+        left: part.x - margin,
+        top: part.y - margin,
+        width: part.width + (margin * 2),
+        height: part.height + (margin * 2),
+      } as CSSProperties,
+      insetX: (margin * sampleCols) / Math.max(1, part.width),
+      insetY: (margin * sampleRows) / Math.max(1, part.height),
     }
   }
 
@@ -623,14 +628,24 @@ export default function HardwarePane() {
 
           {ledOutputs.map((output) => (
             <Fragment key={output.node.id}>
-              <HardwareLedSpill
-                nodeId={output.node.id}
-                gradientId={`spill-${output.node.id}`}
-                sampleCols={output.isStrip ? 8 : 4}
-                sampleRows={output.isStrip ? 1 : 4}
-                className={styles.spill}
-                style={spillStyle(output.partId)}
-              />
+              {(() => {
+                const cols = output.isStrip ? 8 : 4
+                const rows = output.isStrip ? 1 : 4
+                const geometry = spillGeometry(output.partId, cols, rows)
+                if (!geometry) return null
+                return (
+                  <HardwareLedSpill
+                    nodeId={output.node.id}
+                    gradientId={`spill-${output.node.id}`}
+                    sampleCols={cols}
+                    sampleRows={rows}
+                    insetX={geometry.insetX}
+                    insetY={geometry.insetY}
+                    className={styles.spill}
+                    style={geometry.style}
+                  />
+                )
+              })()}
               <button
                 type="button"
                 className={`${styles.part} ${output.isStrip ? styles.strip : styles.matrix}`}

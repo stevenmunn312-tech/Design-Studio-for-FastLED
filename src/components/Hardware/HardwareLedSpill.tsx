@@ -23,6 +23,8 @@ export default function HardwareLedSpill({
   gradientId,
   sampleCols,
   sampleRows,
+  insetX,
+  insetY,
   style,
   className,
 }: {
@@ -30,6 +32,10 @@ export default function HardwareLedSpill({
   gradientId: string
   sampleCols: number
   sampleRows: number
+  /** Margin around the part, in sample cells, so the viewBox can extend past
+   *  the LEDs while the pools themselves stay over them. */
+  insetX: number
+  insetY: number
   style?: CSSProperties
   className?: string
 }) {
@@ -92,16 +98,18 @@ export default function HardwareLedSpill({
     return usePreviewStore.subscribe(read)
   }, [nodeId, sampleCols, sampleRows])
 
-  // Pools are drawn on a unit grid and stretched by the SVG's own box, so the
-  // same geometry serves a square panel and a long thin run.
-  const radius = 0.62
+  // Pools sit over the LEDs; only their falloff reaches past. The element is
+  // larger than the part, so the viewBox is widened by the same margin rather
+  // than the grid being stretched across it — otherwise the pools drift off the
+  // object and light appears where there is no LED.
+  const radius = 0.85
 
   return (
     <svg
       ref={wrapRef}
       className={className}
       style={style}
-      viewBox={`0 0 ${sampleCols} ${sampleRows}`}
+      viewBox={`${-insetX} ${-insetY} ${sampleCols + (insetX * 2)} ${sampleRows + (insetY * 2)}`}
       preserveAspectRatio="none"
       aria-hidden="true"
     >
