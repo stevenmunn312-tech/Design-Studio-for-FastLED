@@ -303,12 +303,21 @@
  * per-LED grid lands on the tiles underneath, and screened rather than drawn
  * opaque so an unlit run still reads as a physical strip or panel.
  */
+/*
+ * The live frame over a part's render. Stretched edge to edge so its one-cell-
+ * per-LED grid lands on the tiles underneath.
+ *
+ * Deliberately no `filter` here. A CSS filter over content that changes every
+ * frame makes Chromium re-rasterise and leak the filter buffer — the second of
+ * the two renderer-memory leaks this project has already been bitten by, and
+ * the reason `src/dev/animationFilterGuard.ts` exists. Any glow or diffusion
+ * has to come from the drawn geometry, not from a filter over it.
+ */
 .ledPreview {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  image-rendering: pixelated;
   mix-blend-mode: screen;
   opacity: 0.92;
   pointer-events: none;
