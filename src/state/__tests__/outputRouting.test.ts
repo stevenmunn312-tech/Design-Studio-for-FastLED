@@ -62,7 +62,7 @@ describe('routing per LED output form', () => {
     const route = outputRoutes([output('s', { form: 'strip', ledCount: 90 })])[0]
     expect(route.form).toBe('strip')
     expect([route.width, route.height]).toEqual([90, 1])
-    expect(route.ringMap).toBeNull()
+    expect(route.ring).toBeNull()
   })
 
   it('claims a square canvas for a ring but stays a chain of LEDs', () => {
@@ -85,6 +85,31 @@ describe('routing per LED output form', () => {
     ]
     // Top, right, bottom, left — clockwise from 12 o'clock.
     expect(routeFrame(frame, route, 3, 3)).toEqual([[
+      { r: 1, g: 0, b: 0 }, { r: 0, g: 2, b: 0 }, { r: 0, g: 0, b: 3 }, { r: 0, g: 0, b: 4 },
+    ]])
+  })
+
+  it('samples a ring against the canvas that exists, not the one it asked for', () => {
+    // A ring beside a bigger matrix reads the shared 5x5 canvas, not the 3x3 its
+    // own circumference asked for. Indexing a 3x3 map into a 5x5 frame lights
+    // every LED from the wrong pixel — and silently, since both are in range.
+    const nodes = [
+      output('r', { form: 'ring', ledCount: 4, ringStartAngle: 0, ringDirection: 'cw' }),
+      output('m', { form: 'matrix', width: 5, height: 5 }),
+    ]
+    expect(compositionDims(nodes)).toEqual({ w: 5, h: 5 })
+    const route = outputRoutes(nodes)[0]
+    const black = { r: 0, g: 0, b: 0 }
+    const row = (...cells: Array<{ r: number; g: number; b: number }>) => cells
+    // Colour only the compass points of the 5x5 canvas the ring will read.
+    const frame = [
+      row(black, black, { r: 1, g: 0, b: 0 }, black, black),
+      row(black, black, black, black, black),
+      row({ r: 0, g: 0, b: 4 }, black, black, black, { r: 0, g: 2, b: 0 }),
+      row(black, black, black, black, black),
+      row(black, black, { r: 0, g: 0, b: 3 }, black, black),
+    ]
+    expect(routeFrame(frame, route, 5, 5)).toEqual([[
       { r: 1, g: 0, b: 0 }, { r: 0, g: 2, b: 0 }, { r: 0, g: 0, b: 3 }, { r: 0, g: 0, b: 4 },
     ]])
   })

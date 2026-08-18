@@ -299,6 +299,42 @@
   position: relative;
 }
 
+/*
+ * The LED output's preview, drawn in the shape of the part it drives: a run of
+ * tape, a panel, a ring's annulus, or a scan panel. The bare board underneath,
+ * with the live emitters painted over it by HardwareLedPreview — the same
+ * component the hardware view uses, so the two agree about which LED is which.
+ *
+ * Deliberately no `filter` on any of this. A CSS filter over content that
+ * changes every frame is one of the two renderer-memory leaks this project has
+ * been bitten by; see src/dev/animationFilterGuard.ts.
+ */
+.outputShape {
+  position: relative;
+  margin: 0 auto;
+  border-radius: 3px;
+  background-color: #0b0d10;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* A ring's board is an annulus; masking the disc out of the middle is what
+   stops a circle of LEDs being drawn on a square. Its LEDs sit at 89% of the
+   radius, clear of the cutout. */
+.outputShapeRing {
+  border-radius: 50%;
+  mask: radial-gradient(circle closest-side at 50% 50%, transparent 0 68%, #000 70%);
+}
+
+.outputShapeLeds {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  mix-blend-mode: screen;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
 .previewToggle {
   position: absolute;
   top: 2px;

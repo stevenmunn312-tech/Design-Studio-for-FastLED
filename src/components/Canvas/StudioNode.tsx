@@ -13,6 +13,8 @@ import { waveNodeSamples } from '../../state/wave'
 import WaveScope from './WaveScope'
 import ComplexWaveScope from './ComplexWaveScope'
 import NodePreview, { type PreviewKind } from './NodePreview'
+import HardwareLedPreview from '../Hardware/HardwareLedPreview'
+import { outputForm, outputGridDims, ringDirection, ringStartAngle } from '../../state/ledOutputForm'
 import MatrixSizePopup from './MatrixSizePopup'
 import BeatDetectBody from './BeatDetectBody'
 import FFTAnalyzerBody from './FFTAnalyzerBody'
@@ -813,6 +815,11 @@ const LivePropertyControls = memo(function LivePropertyControls({
 // Body content width = --node-width (240) − 2×--space-1 (8) horizontal padding.
 // Frame previews fill this width and keep the matrix aspect ratio.
 const BODY_CONTENT_W = 224
+/** A ring's preview is square, and a square as wide as the node body would
+ *  dominate a node that already carries the upload UI and a capacity meter. */
+const RING_PREVIEW_PX = 116
+/** Tall enough that a run of tape reads as LEDs rather than as a rule. */
+const STRIP_PREVIEW_PX = 16
 
 const HANDLE_STYLE = {
   width: 12,
@@ -1104,6 +1111,49 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // Frame previews fill the node width at the matrix aspect ratio; palette /
   // colour / wave previews use the fixed scope height.
   const framePreviewH = Math.round((BODY_CONTENT_W * gridH) / gridW)
+  /*
+   * The LED output's own preview, drawn in the shape of the thing it drives.
+   *
+   * This node has no output port, so it never qualified for the generic
+   * preview above — the one node whose whole job is "here is what goes to the
+   * LEDs" showed nothing of them. It reads the same publish the hardware view
+   * does, through the same component, so a ring draws a ring rather than a row
+   * of cells standing in for one.
+   */
+  const outputShape = useMemo(() => {
+    if (d.nodeType !== 'MatrixOutput') return null
+    const form = outputForm(rawProps)
+    const grid = outputGridDims(rawProps)
+    if (form === 'ring') {
+      return {
+        cols: grid.width,
+        rows: 1,
+        // A square, but not a 224px one — the node already carries ~20
+        // properties, the upload UI and a capacity meter.
+        height: RING_PREVIEW_PX,
+        width: RING_PREVIEW_PX,
+        cellFill: 0.5,
+        ring: {
+          ledCount: grid.width,
+          startAngle: ringStartAngle(rawProps),
+          direction: ringDirection(rawProps),
+        },
+      }
+    }
+    if (form === 'strip') {
+      // A 300:1 box is a hairline. A run is drawn at a readable height and
+      // reads as a run because it is one row, not because it is one pixel tall.
+      return { cols: grid.width, rows: 1, height: STRIP_PREVIEW_PX, width: null, cellFill: 1, ring: null }
+    }
+    return {
+      cols: grid.width,
+      rows: grid.height,
+      height: Math.round((BODY_CONTENT_W * grid.height) / grid.width),
+      width: null,
+      cellFill: 0.5,
+      ring: null,
+    }
+  }, [d.nodeType, rawProps])
   // Per-node opt-out of the live preview thumbnail (a small toggle button on
   // the preview itself), so a busy graph can be quieted node by node.
   const previewHidden = Boolean(rawProps.previewHidden)
@@ -1211,6 +1261,47 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                 height={previewKind === 'frame' ? framePreviewH : undefined}
                 valueOverride={palettePreviewOverride}
               />
+              <button
+                type="button"
+                className={`nodrag ${styles.previewToggle}`}
+                onClick={() => updateNodeProperty(id, 'previewHidden', true)}
+                title="Hide preview"
+                aria-label="Hide preview"
+              >
+                ▾
+              </button>
+            </div>
+          )
+        )}
+        {showLiveNodeVisuals && outputShape && (
+          previewHidden ? (
+            <button
+              type="button"
+              className={`nodrag ${styles.previewToggleCollapsed}`}
+              onClick={() => updateNodeProperty(id, 'previewHidden', false)}
+              title="Show preview"
+              aria-label="Show preview"
+            >
+              ▸ preview
+            </button>
+          ) : (
+            <div className={styles.previewWrap}>
+              <div
+                className={`${styles.outputShape} ${outputShape.ring ? styles.outputShapeRing : ''}`}
+                style={{
+                  height: outputShape.height,
+                  width: outputShape.width ?? undefined,
+                }}
+              >
+                <HardwareLedPreview
+                  nodeId={id}
+                  cols={outputShape.cols}
+                  rows={outputShape.rows}
+                  cellFill={outputShape.cellFill}
+                  ring={outputShape.ring}
+                  className={styles.outputShapeLeds}
+                />
+              </div>
               <button
                 type="button"
                 className={`nodrag ${styles.previewToggle}`}

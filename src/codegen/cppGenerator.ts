@@ -30,8 +30,8 @@ import { particleRadius } from '../state/particleScale'
 import { buildXYTable, rotatePoint, tileRotationAt } from '../state/xyLayout'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette, type RGB } from '../state/customPalette'
 import { animartrixCppLines } from '../animartrix/codegen'
-import { compositionDims, outputRoutes } from '../state/outputRouting'
-import { isLinearForm, outputCanvasDims, outputForm, outputLedTotal, ringSampleMapForProps } from '../state/ledOutputForm'
+import { compositionDims, outputRoutes, ringMapFor } from '../state/outputRouting'
+import { isLinearForm, outputCanvasDims, outputForm, outputLedTotal } from '../state/ledOutputForm'
 import { getNetworkCredentials } from '../state/networkCredentials'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
 import {
@@ -1164,7 +1164,11 @@ export function generateCpp(
   // its own physical count the way a supersampled panel does — the render buffer
   // is NUM_LEDS either way, and the strip FastLED drives is not.
   const isRing = !multipleOutputs && singleForm === 'ring'
-  const ringMap = isRing && outputNode ? ringSampleMapForProps(props(outputNode)) : null
+  // Single-output: WIDTH/HEIGHT are the ring's own square, so its map is built
+  // against exactly that.
+  const ringMap = isRing && outputNode
+    ? ringMapFor(outputRoutes([outputNode])[0], width, height)
+    : null
   const physLeds = isRing ? 'RING_LEDS' : ss ? 'PANEL_LEDS' : 'NUM_LEDS'
   const panelW = ss ? 'PANEL_W' : 'WIDTH'
   // Optional power cap (FastLED.setMaxPowerInVoltsAndMilliamps) — dims globally
@@ -1188,6 +1192,11 @@ export function generateCpp(
       xyTable: buildXYTable(route.width, route.height, p),
       /** Physical LEDs on this route: a panel's grid, or a chain's length. */
       ledTotal: outputLedTotal(p),
+      // Built against the emitted WIDTH/HEIGHT, which is the shared composition
+      // canvas whenever there is more than one output — a ring beside a bigger
+      // matrix reads that canvas, not the smaller square its own circumference
+      // asked for.
+      ringMap: ringMapFor(route, composition.w, composition.h),
     }
   })
 

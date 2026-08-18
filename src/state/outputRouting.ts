@@ -6,8 +6,11 @@ import {
   outputCanvasDims,
   outputForm,
   outputGridDims,
-  ringSampleMapForProps,
+  ringDirection,
+  ringSampleMap,
+  ringStartAngle,
   type LedOutputForm,
+  type RingDirection,
 } from './ledOutputForm'
 
 export type OutputRouteMode = 'fit' | 'crop'
@@ -29,9 +32,41 @@ export interface OutputRoute {
   routeMode: OutputRouteMode
   routeX: number
   routeY: number
-  /** For a ring: one composition index per LED, in wire order. Null otherwise.
-   *  This is the ring's whole XY mapping — see ledOutputForm.ringSampleMap. */
-  ringMap: number[] | null
+  /** For a ring: the geometry its XY mapping is built from. Null otherwise.
+   *
+   *  Deliberately the parameters rather than a finished map. The map's indices
+   *  are into the *composition* canvas, which a route does not know — a ring
+   *  beside a bigger matrix reads a 16x16 canvas, not the 8x8 its own
+   *  circumference asked for — so baking one here would index the wrong pixels
+   *  the moment a second output widened the canvas. `ringMapFor` builds it
+   *  against the canvas that actually exists. */
+  ring: { ledCount: number; startAngle: number; direction: RingDirection } | null
+}
+
+// One map per (ring, canvas size). The preview asks for the same one 60 times a
+// second and the geometry only changes when the user edits the node.
+const ringMapCache = new Map<string, number[]>()
+
+/**
+ * A ring's sample map against a specific composition canvas: one canvas index
+ * per LED, in wire order.
+ *
+ * Shared by the live preview, the hardware view's ring, and the PROGMEM table
+ * the sketch bakes, so all three light the same LED from the same pixel.
+ */
+export function ringMapFor(route: OutputRoute, canvasW: number, canvasH: number): number[] | null {
+  const ring = route.ring
+  if (!ring) return null
+  const w = Math.max(1, Math.round(canvasW))
+  const h = Math.max(1, Math.round(canvasH))
+  const key = `${ring.ledCount}:${ring.startAngle}:${ring.direction}:${w}:${h}`
+  const cached = ringMapCache.get(key)
+  if (cached) return cached
+  const map = ringSampleMap(ring.ledCount, ring.startAngle, ring.direction, w, h)
+  // Bounded: a project holds a handful of rings and the canvas rarely changes.
+  if (ringMapCache.size > 64) ringMapCache.clear()
+  ringMapCache.set(key, map)
+  return map
 }
 
 function int(value: unknown, fallback: number, min: number, max: number): number {
@@ -65,7 +100,13 @@ export function outputRoutes(nodes: StudioNode[]): OutputRoute[] {
         routeMode: linear ? 'fit' : props.routeMode === 'crop' ? 'crop' : 'fit',
         routeX: int(props.routeX, 0, 0, 63),
         routeY: int(props.routeY, 0, 0, 63),
-        ringMap: form === 'ring' ? ringSampleMapForProps(props) : null,
+        ring: form === 'ring'
+          ? {
+            ledCount: grid.width,
+            startAngle: ringStartAngle(props),
+            direction: ringDirection(props),
+          }
+          : null,
       }
     })
 }
@@ -117,15 +158,17 @@ export function routeFrame(frame: Frame | null, route: OutputRoute, compositionW
   const out: Frame = reuse && reuse.length === route.height && reuse[0]?.length === route.width
     ? reuse
     : Array.from({ length: route.height }, () => Array.from({ length: route.width }, () => ({ r: 0, g: 0, b: 0 })))
-  // A ring reads a circle out of the composition rather than a rectangle: each
-  // LED has one baked source pixel (ledOutputForm.ringSampleMap), and firmware
-  // bakes the identical table, so the two cannot drift.
-  if (route.ringMap) {
+  // A ring reads a circle out of the composition rather than a rectangle: one
+  // source pixel per LED, from the same helper the sketch bakes as PROGMEM, so
+  // the circle on the bench and the circle in the preview cannot drift.
+  const ringMap = ringMapFor(route, compositionW, compositionH)
+  if (ringMap) {
     const orow = out[0]
+    const stride = Math.max(1, compositionW)
     for (let i = 0; i < route.width; i++) {
       const px = orow[i]
-      const index = route.ringMap[i] ?? 0
-      const src = frame[Math.floor(index / Math.max(1, compositionW))]?.[index % Math.max(1, compositionW)]
+      const index = ringMap[i] ?? 0
+      const src = frame[Math.floor(index / stride)]?.[index % stride]
       px.r = src?.r ?? 0; px.g = src?.g ?? 0; px.b = src?.b ?? 0
     }
     return out

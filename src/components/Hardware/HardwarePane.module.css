@@ -160,6 +160,27 @@
   filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.16));
 }
 
+/*
+ * A ring's board is an annulus, not a square, so the part is drawn as one: the
+ * disc is masked out of its centre rather than filled, and the LEDs sit on the
+ * remaining band exactly where `ringSampleMap` puts them. Anything else would
+ * draw a square where the user is holding a circle.
+ *
+ * `mask` rather than a filter, for the same reason as everywhere else in this
+ * file — the live cells above must never sit under a filtered layer.
+ */
+.ring {
+  border-radius: 50%;
+  background-color: #0b0d10;
+  /* `closest-side` pins the gradient to the half-width, so the band's inner
+     edge is a plain fraction of the radius rather than of the diagonal —
+     the LEDs sit at 89% of it and must clear the cutout comfortably. */
+  mask: radial-gradient(circle closest-side at 50% 50%, transparent 0 68%, #000 70%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 10px 20px rgba(0, 0, 0, 0.35);
+}
+
 /* Anchored under its part's band by the layout, centred on the part. */
 .caption {
   position: absolute;

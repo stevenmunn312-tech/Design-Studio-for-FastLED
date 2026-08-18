@@ -18,13 +18,22 @@ import {
 } from '../../build/boardProfiles'
 import {
   DEFAULT_BOARD_PROFILE_ID,
+  HUB75_PITCH_MM,
   INMP441_FOOTPRINT_MM,
   ROOT_BOARD_NODE_ID,
   WS2812B_MATRIX_PITCH_MM,
   WS2812B_PITCH_MM,
+  WS2812B_RING_PITCH_MM,
   WS2812B_STRIP_WIDTH_MM,
   type PartFootprintMm,
 } from '../../state/hardware'
+import {
+  LED_OUTPUT_FORM_LABELS,
+  outputForm,
+  ringDirection,
+  ringStartAngle,
+  type LedOutputForm,
+} from '../../state/ledOutputForm'
 import BoardNodeBody from '../Canvas/BoardNodeBody'
 import HardwareLedPreview from './HardwareLedPreview'
 import HardwareLedSpill from './HardwareLedSpill'
@@ -34,8 +43,28 @@ import { hardwareArrangement, type HardwarePartBox, type HardwarePartLink } from
 import styles from './HardwarePane.module.css'
 
 const MIC_NODE_TYPE = 'MicInput'
-const LED_STRING_NODE_TYPE = 'LedStringOutput'
-const LED_MATRIX_NODE_TYPE = 'MatrixOutput'
+// One node type for every LED output; the form says which of the four things
+// you can buy it is (src/state/ledOutputForm.ts).
+const LED_OUTPUT_NODE_TYPE = 'MatrixOutput'
+
+/**
+ * The four LED outputs, as the "Add Hardware" menu offers them.
+ *
+ * Four entries rather than a dropdown behind one, because "I bought a ring,
+ * where is the ring?" is a fair question a hidden variant answers badly — and
+ * one node type behind them, because all four share a port signature and the
+ * bundling rule says that is one node with a variant property.
+ */
+const LED_OUTPUT_ENTRIES: Array<{
+  form: LedOutputForm
+  hint: string
+  properties: Record<string, unknown>
+}> = [
+  { form: 'strip', hint: 'A run of addressable tape', properties: { ledCount: 60 } },
+  { form: 'matrix', hint: 'An addressable panel', properties: { width: 16, height: 16 } },
+  { form: 'ring', hint: 'A circle of addressable LEDs', properties: { ledCount: 24 } },
+  { form: 'hub75', hint: 'A scan panel on its own ribbon', properties: { width: 64, height: 32 } },
+]
 
 // Layout ids. Stable and independent of graph node ids, so the arrangement is
 // about parts rather than about whichever node happens to back one.
@@ -160,22 +189,40 @@ export default function HardwarePane() {
       return Math.max(1, Math.min(max, Number.isFinite(raw) ? Math.round(raw) : fallback))
     }
     return nodes
-      .filter((node) => node.data.nodeType === LED_STRING_NODE_TYPE || node.data.nodeType === LED_MATRIX_NODE_TYPE)
+      .filter((node) => node.data.nodeType === LED_OUTPUT_NODE_TYPE)
       .map((node) => {
         const props = node.data.properties as Record<string, unknown>
-        const isStrip = node.data.nodeType === LED_STRING_NODE_TYPE
-        const cols = isStrip ? clamp(props.ledCount, 60, 2000) : clamp(props.width, 16, 256)
-        const rows = isStrip ? 1 : clamp(props.height, 16, 256)
-        const pitch = isStrip ? WS2812B_PITCH_MM : WS2812B_MATRIX_PITCH_MM
+        const form = outputForm(props)
+        const isStrip = form === 'strip'
+        const isRing = form === 'ring'
+        const ledCount = clamp(props.ledCount, 60, 2000)
+        const cols = isStrip || isRing ? ledCount : clamp(props.width, 16, 256)
+        const rows = isStrip || isRing ? 1 : clamp(props.height, 16, 256)
+        // Every part at true scale through the view's one mm-to-pixel factor: a
+        // ring's diameter follows from its own circumference, and a HUB75 panel
+        // is much denser than addressable tape, which is exactly the difference
+        // worth seeing on the bench.
+        const ringDiameterMm = (ledCount * WS2812B_RING_PITCH_MM) / Math.PI
+        const pitch = form === 'hub75' ? HUB75_PITCH_MM : WS2812B_MATRIX_PITCH_MM
         const feed = edges.find((edge) => edge.target === node.id)
         return {
           node,
           partId: `led-${node.id}`,
+          form,
           isStrip,
+          isRing,
+          label: LED_OUTPUT_FORM_LABELS[form],
           cols,
           rows,
-          widthMm: cols * pitch,
-          heightMm: isStrip ? WS2812B_STRIP_WIDTH_MM : rows * pitch,
+          ring: isRing
+            ? {
+              ledCount,
+              startAngle: ringStartAngle(props),
+              direction: ringDirection(props),
+            }
+            : null,
+          widthMm: isStrip ? cols * WS2812B_PITCH_MM : isRing ? ringDiameterMm : cols * pitch,
+          heightMm: isStrip ? WS2812B_STRIP_WIDTH_MM : isRing ? ringDiameterMm : rows * pitch,
           dataPin: Number(props.dataPin ?? 0),
           signalKey: feed ? `${feed.source}:${feed.sourceHandle ?? 'frame'}` : null,
         }
@@ -197,12 +244,8 @@ export default function HardwarePane() {
     () => NODE_LIBRARY.find((definition) => definition.type === MIC_NODE_TYPE),
     [],
   )
-  const ledStringDefinition = useMemo(
-    () => NODE_LIBRARY.find((definition) => definition.type === LED_STRING_NODE_TYPE),
-    [],
-  )
-  const matrixDefinition = useMemo(
-    () => NODE_LIBRARY.find((definition) => definition.type === LED_MATRIX_NODE_TYPE),
+  const ledOutputDefinition = useMemo(
+    () => NODE_LIBRARY.find((definition) => definition.type === LED_OUTPUT_NODE_TYPE),
     [],
   )
 
@@ -287,7 +330,8 @@ export default function HardwarePane() {
     const box = { left: part.x, top: part.y, width: part.width, height: part.height }
     // A strip is a photograph of real tape, tiled one segment per LED. A panel
     // is not tape: squeezing that 2.6:1 segment into a square cell distorted it
-    // into noise, so a panel draws its own emitters over bare PCB instead.
+    // into noise, so a panel draws its own emitters over bare PCB instead — and
+    // so does a ring, over a round board.
     return isStrip
       ? { ...box, backgroundImage: `url(${ledSegmentRender})`, backgroundSize: `${tile}px 100%` }
       : box
@@ -435,61 +479,51 @@ export default function HardwarePane() {
       const output = ledOutputs.find((entry) => entry.node.id === kind)
       if (!output) return
       removeNodeCompletely(output.node.id)
-      setStatus(`Removed WS2812B LED ${output.isStrip ? 'strip' : 'matrix'} on pin ${output.dataPin}`, 'info')
+      setStatus(`Removed ${output.label}`, 'info')
     }
     setItemMenu(null)
   }
 
-  const addLedMatrix = () => {
-    if (!matrixDefinition || nextLedPin === null) return
-    const nodeId = `${LED_MATRIX_NODE_TYPE}-${Date.now()}-${Math.round(Math.random() * 1e6)}`
+  /*
+   * One creator for all four forms. The node is the same either way; the form
+   * and the size that suits it are what the menu entry chose.
+   *
+   * A HUB75 panel is not on the LED data pin — it has its own ribbon, and its
+   * pins come from the node's defaults — so it does not consume one.
+   */
+  const addLedOutput = (entry: (typeof LED_OUTPUT_ENTRIES)[number]) => {
+    if (!ledOutputDefinition) return
+    const needsDataPin = entry.form !== 'hub75'
+    if (needsDataPin && nextLedPin === null) return
+    const nodeId = `${LED_OUTPUT_NODE_TYPE}-${Date.now()}-${Math.round(Math.random() * 1e6)}`
     addNode({
       id: nodeId,
       type: 'studioNode',
       position: {
         x: viewCenter.x + 120,
-        y: viewCenter.y + 80,
+        y: viewCenter.y - 40 + (ledOutputs.length * 60),
       },
       data: {
-        label: matrixDefinition.label,
-        nodeType: matrixDefinition.type,
-        category: matrixDefinition.category,
+        label: LED_OUTPUT_FORM_LABELS[entry.form],
+        nodeType: ledOutputDefinition.type,
+        category: ledOutputDefinition.category,
         properties: {
-          ...resolveDefaultProperties(matrixDefinition.type, matrixDefinition.defaultProperties),
-          dataPin: nextLedPin,
+          ...resolveDefaultProperties(ledOutputDefinition.type, ledOutputDefinition.defaultProperties),
+          form: entry.form,
+          ...entry.properties,
+          ...(needsDataPin ? { dataPin: nextLedPin } : {}),
         },
-        inputs: matrixDefinition.inputs,
-        outputs: matrixDefinition.outputs,
+        inputs: ledOutputDefinition.inputs,
+        outputs: ledOutputDefinition.outputs,
       },
     } as never)
     setAddMenuOpen(false)
-    setStatus(`Added WS2812B LED matrix on pin ${nextLedPin}`, 'success')
-  }
-
-  const addLedString = () => {
-    if (!ledStringDefinition || nextLedPin === null) return
-    const nodeId = `${LED_STRING_NODE_TYPE}-${Date.now()}-${Math.round(Math.random() * 1e6)}`
-    addNode({
-      id: nodeId,
-      type: 'studioNode',
-      position: {
-        x: viewCenter.x + 120,
-        y: viewCenter.y - 40,
-      },
-      data: {
-        label: 'LED String 1',
-        nodeType: ledStringDefinition.type,
-        category: ledStringDefinition.category,
-        properties: {
-          ...resolveDefaultProperties(ledStringDefinition.type, ledStringDefinition.defaultProperties),
-          dataPin: nextLedPin,
-        },
-        inputs: ledStringDefinition.inputs,
-        outputs: ledStringDefinition.outputs,
-      },
-    } as never)
-    setAddMenuOpen(false)
-    setStatus('Added WS2812B LED string hardware and its graph node', 'success')
+    setStatus(
+      needsDataPin
+        ? `Added ${LED_OUTPUT_FORM_LABELS[entry.form]} on pin ${nextLedPin}`
+        : `Added ${LED_OUTPUT_FORM_LABELS[entry.form]} on its own signal ribbon`,
+      'success',
+    )
   }
 
   return (
@@ -522,26 +556,29 @@ export default function HardwarePane() {
             <span>INMP441 microphone</span>
             <small>{hasMic ? 'One microphone per board' : 'Creates the microphone graph node'}</small>
           </button>
-          <button
-            type="button"
-            role="menuitem"
-            className={styles.addMenuItem}
-            disabled={nextLedPin === null}
-            onClick={addLedString}
-          >
-            <span>WS2812B LED strip</span>
-            <small>{nextLedPin === null ? 'No free GPIO on this board' : `Adds a strip on pin ${nextLedPin}`}</small>
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            className={styles.addMenuItem}
-            disabled={nextLedPin === null}
-            onClick={addLedMatrix}
-          >
-            <span>WS2812B LED matrix</span>
-            <small>{nextLedPin === null ? 'No free GPIO on this board' : `Adds a matrix on pin ${nextLedPin}`}</small>
-          </button>
+          {LED_OUTPUT_ENTRIES.map((entry) => {
+            const needsDataPin = entry.form !== 'hub75'
+            const blocked = needsDataPin && nextLedPin === null
+            return (
+              <button
+                key={entry.form}
+                type="button"
+                role="menuitem"
+                className={styles.addMenuItem}
+                disabled={blocked}
+                onClick={() => addLedOutput(entry)}
+              >
+                <span>{LED_OUTPUT_FORM_LABELS[entry.form]}</span>
+                <small>
+                  {blocked
+                    ? 'No free GPIO on this board'
+                    : needsDataPin
+                      ? `${entry.hint} on pin ${nextLedPin}`
+                      : entry.hint}
+                </small>
+              </button>
+            )
+          })}
         </div>
       )}
 
@@ -577,7 +614,7 @@ export default function HardwarePane() {
                     key={`${link.source}-${link.target}`}
                     signalKey={output.signalKey}
                     effects={uiEffectsEnabled}
-                    label={`Board frame data out to ${output.isStrip ? 'an LED strip' : 'an LED matrix'}`}
+                    label={`Board frame data out to a ${output.label}`}
                     link={link}
                   />
                 )))}
@@ -630,6 +667,9 @@ export default function HardwarePane() {
           {ledOutputs.map((output) => (
             <Fragment key={output.node.id}>
               {(() => {
+                // A coarse sample of the part's own light, enough for the pools
+                // it throws onto the bench. A ring's light comes off a circle,
+                // so its pool samples a square around it like a panel does.
                 const cols = output.isStrip ? 8 : 4
                 const rows = output.isStrip ? 1 : 4
                 const geometry = spillGeometry(output.partId, cols, rows)
@@ -652,6 +692,7 @@ export default function HardwarePane() {
                 className={[
                   styles.part,
                   output.isStrip ? styles.strip : styles.matrix,
+                  output.isRing ? styles.ring : '',
                   // Which output the side preview is showing. The hardware view
                   // is where outputs are identified now, so it is also where one
                   // is chosen — the preview header no longer carries a picker.
@@ -667,27 +708,35 @@ export default function HardwarePane() {
                   openItemMenu(output.node.id, (event.currentTarget as HTMLButtonElement).getBoundingClientRect())
                 }}
                 title="Click to preview this output · right-click for hardware actions"
-                aria-label={output.isStrip
-                  ? `WS2812B strip, ${output.cols} LEDs on pin ${output.dataPin}`
-                  : `WS2812B matrix, ${output.cols} by ${output.rows} on pin ${output.dataPin}`}
+                aria-label={output.ring
+                  ? `${output.label}, ${output.ring.ledCount} LEDs on pin ${output.dataPin}`
+                  : output.isStrip
+                    ? `${output.label}, ${output.cols} LEDs on pin ${output.dataPin}`
+                    : `${output.label}, ${output.cols} by ${output.rows} on pin ${output.dataPin}`}
               >
                 <HardwareLedPreview
                   nodeId={output.node.id}
                   cols={output.cols}
                   rows={output.rows}
                   cellFill={output.isStrip ? 1 : 0.5}
+                  ring={output.ring}
                   className={styles.ledPreview}
                 />
-                <span
-                  className={styles.lens}
-                  style={lensStyle(output.partId, output.isStrip)}
-                  aria-hidden="true"
-                />
+                {/* The diffuser registers one dome per LED against a grid,
+                    which a ring's circle of emitters does not have. */}
+                {!output.isRing && (
+                  <span
+                    className={styles.lens}
+                    style={lensStyle(output.partId, output.isStrip)}
+                    aria-hidden="true"
+                  />
+                )}
               </button>
               <span className={styles.caption} style={captionStyle(output.partId)}>
-                <strong>{output.isStrip ? 'WS2812B LED Strip' : 'WS2812B LED Matrix'}</strong>
+                <strong>{output.label}</strong>
                 <span>
-                  {output.isStrip ? `${output.cols} LEDs` : `${output.cols}x${output.rows}`} on pin {output.dataPin}
+                  {output.isStrip || output.isRing ? `${output.cols} LEDs` : `${output.cols}x${output.rows}`}
+                  {output.form === 'hub75' ? ' on its signal ribbon' : ` on pin ${output.dataPin}`}
                 </span>
               </span>
             </Fragment>

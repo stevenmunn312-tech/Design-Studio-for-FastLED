@@ -57,3 +57,20 @@ export const WS2812B_STRIP_WIDTH_MM = 8.41
  * ribbon rather than both being drawn as the same tape.
  */
 export const WS2812B_MATRIX_PITCH_MM = 10
+
+/**
+ * Ring spacing, from the same 10 mm LED pitch a panel uses — a ring is the same
+ * 5050 package on a round PCB. Its diameter follows from its own circumference
+ * rather than a table of stock parts: `N x pitch = pi x D`. A 24-LED ring comes
+ * out at 76 mm against a real one's ~86 mm outer diameter, which is the
+ * difference between the LED circle and the board it is on.
+ */
+export const WS2812B_RING_PITCH_MM = 10
+
+/**
+ * HUB75 scan panels are sold by pixel pitch, and P4 (4 mm) is the common indoor
+ * part — a 64x32 P4 is 256x128 mm. Much denser than addressable tape, which is
+ * the point of drawing every part at true scale: a panel and a strip are not
+ * the same object at different zooms.
+ */
+export const HUB75_PITCH_MM = 4
