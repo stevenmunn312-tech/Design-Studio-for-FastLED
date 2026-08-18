@@ -139,11 +139,18 @@
  * in.
  */
 /* Panels tile on both axes; the strip is a ribbon so it repeats on one. */
+/*
+ * A panel's bare PCB. Unlike the strip it carries no photograph: the LED render
+ * is a 2.6:1 strip segment, and squeezing it into a square cell turned a panel
+ * into noise. The emitters are drawn instead, so what is lit is exactly what is
+ * drawn, and the diffuser above supplies the dome.
+ */
 .matrix {
-  background-repeat: repeat;
-  background-position: left top;
   border-radius: 3px;
-  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.2));
+  background-color: #0b0d10;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 10px 20px rgba(0, 0, 0, 0.35);
 }
 
 .strip {

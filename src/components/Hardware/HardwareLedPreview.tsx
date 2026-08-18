@@ -25,12 +25,17 @@ export default function HardwareLedPreview({
   nodeId,
   cols,
   rows,
+  cellFill = 1,
   style,
   className,
 }: {
   nodeId: string
   cols: number
   rows: number
+  /** Fraction of each cell the emitter covers. A strip is drawn over a photo of
+   *  real tape so its cells fill completely; a panel draws its own LEDs, and a
+   *  5050 package on a 10 mm grid covers about half its cell. */
+  cellFill?: number
   style?: CSSProperties
   className?: string
 }) {
@@ -108,10 +113,11 @@ export default function HardwareLedPreview({
         <rect
           key={index}
           ref={(element) => { cellRefs.current[index] = element }}
-          x={index % cols}
-          y={Math.floor(index / cols)}
-          width="1"
-          height="1"
+          x={(index % cols) + ((1 - cellFill) / 2)}
+          y={Math.floor(index / cols) + ((1 - cellFill) / 2)}
+          width={cellFill}
+          height={cellFill}
+          rx={cellFill * 0.18}
           fill="rgb(0 0 0)"
         />
       ))}

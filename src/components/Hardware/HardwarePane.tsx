@@ -281,15 +281,14 @@ export default function HardwarePane() {
   const outputStyle = (partId: string, isStrip: boolean): CSSProperties | undefined => {
     const part = placed.get(partId)
     if (!part || !arrangement) return undefined
-    const tile = (isStrip ? WS2812B_PITCH_MM : WS2812B_MATRIX_PITCH_MM) * arrangement.mmScale
-    return {
-      left: part.x,
-      top: part.y,
-      width: part.width,
-      height: part.height,
-      backgroundImage: `url(${ledSegmentRender})`,
-      backgroundSize: isStrip ? `${tile}px 100%` : `${tile}px ${tile}px`,
-    }
+    const tile = WS2812B_PITCH_MM * arrangement.mmScale
+    const box = { left: part.x, top: part.y, width: part.width, height: part.height }
+    // A strip is a photograph of real tape, tiled one segment per LED. A panel
+    // is not tape: squeezing that 2.6:1 segment into a square cell distorted it
+    // into noise, so a panel draws its own emitters over bare PCB instead.
+    return isStrip
+      ? { ...box, backgroundImage: `url(${ledSegmentRender})`, backgroundSize: `${tile}px 100%` }
+      : box
   }
 
   /*
@@ -663,6 +662,7 @@ export default function HardwarePane() {
                   nodeId={output.node.id}
                   cols={output.cols}
                   rows={output.rows}
+                  cellFill={output.isStrip ? 1 : 0.5}
                   className={styles.ledPreview}
                 />
                 <span
