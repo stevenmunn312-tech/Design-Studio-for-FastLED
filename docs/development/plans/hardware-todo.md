@@ -33,16 +33,17 @@ committing the rest of the hardware to it.
   tested. Parts are placed and linked by the view; nothing is draggable.
 - [x] **"Add hardware" action** in the hardware pane: INMP441 microphone,
   WS2812B LED strip, WS2812B LED matrix.
-- [ ] **Creating a part creates its graph node, already carrying pins from the
-  board profile.** Half done. The microphone gets board-correct I2S pins via
-  `micPinDefaultsForSelectedBoard()`, but `resolveDefaultProperties` applies a
-  board default *only* for `MicInput` — LED outputs still take the flat library
-  `dataPin: 5` whatever board is selected. The data to fix it already exists and
-  is currently only displayed, never applied: `BoardPeripheralPins.fastLedData`
-  (`recommendedDefault` plus alternatives) is populated on 17 profiles, and its
-  own comment says it exists to replace the per-node tables so one board change
-  retargets every peripheral. Closing this means consulting it for the LED
-  output types in `resolveDefaultProperties`.
+- [x] **Creating a part creates its graph node, already carrying pins from the
+  board profile.** LED outputs take the board's `fastLedData` recommendation,
+  then its named alternatives, then the general-purpose pool, skipping every
+  pin the graph already claims. The microphone reads `peripheralPins.inmp441`
+  from the profile, falling back to the per-FQBN table — an FQBN names a chip,
+  so a XIAO and a DevKitC-1 look identical to it while only the profile knows
+  which pads are broken out. Precedence on a board change is the user's saved
+  pins for that board, then the profile, then the table: a board they wired
+  differently is a fact about their bench, not a preference to correct.
+  The build diagram needed no change — it maps each node's GPIO onto the exact
+  board's pad, so improving the source improved the drawing.
 - [x] **Remove LED output from the node library.** `Board`, `MicInput`,
   `LedStringOutput` and `MatrixOutput` are all hidden from the sidebar, canvas
   picker and drag-to-create. A matrix entry was added to the hardware pane first

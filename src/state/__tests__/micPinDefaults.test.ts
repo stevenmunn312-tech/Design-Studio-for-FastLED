@@ -4,6 +4,7 @@ import {
   inmp441FirmwareBackendForBoard,
   inmp441SupportedForBoard,
   micPinDefaultsForBoard,
+  micPinsFromProfile,
   retargetedMicPins,
 } from '../micPinDefaults'
 import { BOARDS } from '../uploadStore'
@@ -129,5 +130,44 @@ describe('board-aware MicInput pin defaults', () => {
     for (const [fqbn, pins] of Object.entries(MIC_PIN_DEFAULTS_BY_FQBN)) {
       expect(new Set(Object.values(pins)).size, fqbn).toBe(3)
     }
+  })
+})
+
+describe('board profile pins take precedence over the FQBN table', () => {
+  // An FQBN names a chip, not a board: a XIAO ESP32S3 and an ESP32-S3-DevKitC-1
+  // are both esp32:esp32:esp32s3, and only the profile knows which pads are
+  // actually broken out.
+  const profile = {
+    peripheralPins: { inmp441: { wsLrclk: 5, sckBclk: 6, sdDout: 7 } },
+  } as unknown as Parameters<typeof micPinsFromProfile>[0]
+
+  it('reads the profile pins in Studio property order', () => {
+    expect(micPinsFromProfile(profile)).toEqual({ i2sWs: 5, i2sSck: 6, i2sSd: 7 })
+  })
+
+  it('is undefined when the profile carries no microphone pins', () => {
+    expect(micPinsFromProfile({ peripheralPins: {} } as never)).toBeUndefined()
+    expect(micPinsFromProfile(undefined)).toBeUndefined()
+  })
+
+  it('prefers the profile over the FQBN table when retargeting', () => {
+    const current = { i2sWs: 1, i2sSck: 2, i2sSd: 3 }
+    expect(retargetedMicPins(current, 'esp32:esp32:esp32s3', undefined, profile))
+      .toEqual({ i2sWs: 5, i2sSck: 6, i2sSd: 7 })
+  })
+
+  it('still lets the user’s saved pins for that board win over both', () => {
+    // Their bench is wired the way it is wired; a board profile is a starting
+    // point, not a correction.
+    const current = { i2sWs: 1, i2sSck: 2, i2sSd: 3 }
+    const saved = { i2sWs: 30, i2sSck: 31, i2sSd: 32 }
+    expect(retargetedMicPins(current, 'esp32:esp32:esp32s3', saved, profile))
+      .toEqual({ i2sWs: 30, i2sSck: 31, i2sSd: 32 })
+  })
+
+  it('falls back to the FQBN table when the profile has no pins', () => {
+    const current = { i2sWs: 1, i2sSck: 2, i2sSd: 3 }
+    expect(retargetedMicPins(current, 'esp32:esp32:esp32s3', undefined, undefined))
+      .toEqual(MIC_PIN_DEFAULTS_BY_FQBN['esp32:esp32:esp32s3'])
   })
 })

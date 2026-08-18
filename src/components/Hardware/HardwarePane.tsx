@@ -355,7 +355,7 @@ export default function HardwarePane() {
         label: micDefinition.label,
         nodeType: micDefinition.type,
         category: micDefinition.category,
-        properties: resolveDefaultProperties(micDefinition.type, micDefinition.defaultProperties),
+        properties: resolveDefaultProperties(micDefinition.type, micDefinition.defaultProperties, boardProfile),
         inputs: micDefinition.inputs,
         outputs: micDefinition.outputs,
       },

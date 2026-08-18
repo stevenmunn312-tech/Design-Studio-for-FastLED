@@ -7,6 +7,7 @@
 // knowing what to put in its three pin fields.
 
 import { useUploadStore } from './uploadStore'
+import type { PhysicalBoardProfile } from '../build/boardProfiles'
 
 export interface MicI2sPins { i2sWs: number; i2sSck: number; i2sSd: number }
 
@@ -128,9 +129,27 @@ export function inmp441SupportedForBoardProfile(
   return profile?.compatibleFqbns.some(inmp441SupportedForBoard) ?? false
 }
 
+/**
+ * The board profile's own INMP441 pins, when it carries them.
+ *
+ * Preferred over the FQBN table because an FQBN names a chip, not a board: a
+ * XIAO ESP32S3 and an ESP32-S3-DevKitC-1 are both `esp32:esp32:esp32s3`, and
+ * only the profile knows which pads are actually broken out. The table stays as
+ * the fallback for boards with no imported profile data.
+ */
+export function micPinsFromProfile(
+  profile: Pick<PhysicalBoardProfile, 'peripheralPins'> | undefined,
+): MicI2sPins | undefined {
+  const pins = profile?.peripheralPins?.inmp441
+  if (!pins) return undefined
+  return { i2sWs: pins.wsLrclk, i2sSck: pins.sckBclk, i2sSd: pins.sdDout }
+}
+
 /** The selected board's mic pins, read at node-creation time. */
-export function micPinDefaultsForSelectedBoard(): MicI2sPins | undefined {
-  return micPinDefaultsForBoard(useUploadStore.getState().selectedFqbn)
+export function micPinDefaultsForSelectedBoard(
+  profile?: Pick<PhysicalBoardProfile, 'peripheralPins'>,
+): MicI2sPins | undefined {
+  return micPinsFromProfile(profile) ?? micPinDefaultsForBoard(useUploadStore.getState().selectedFqbn)
 }
 
 const PIN_KEYS = ['i2sWs', 'i2sSck', 'i2sSd'] as const
@@ -149,8 +168,12 @@ export function retargetedMicPins(
   properties: Record<string, unknown>,
   nextFqbn: string,
   savedProperties?: Record<string, unknown>,
+  profile?: Pick<PhysicalBoardProfile, 'peripheralPins'>,
 ): MicI2sPins | undefined {
-  const stock = micPinDefaultsForBoard(nextFqbn)
+  // Precedence: what the user chose for this board, then the board profile's
+  // own pins, then the FQBN table. Their choice wins because a board they have
+  // wired differently is a fact about their bench, not a preference to correct.
+  const stock = micPinsFromProfile(profile) ?? micPinDefaultsForBoard(nextFqbn)
   if (!stock) return undefined
   const next: MicI2sPins = {
     i2sWs: Number(savedProperties?.i2sWs ?? stock.i2sWs),

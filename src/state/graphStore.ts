@@ -23,7 +23,7 @@ import { useNodeDefaults } from './nodeDefaults'
 import { useUiStore } from './uiStore'
 import { validateMatrixLayout } from './xyLayout'
 import { emptyBuildProfile, normalizeBuildProfile, type BuildProfile } from '../build/buildProfile'
-import { boardProfileById } from '../build/boardProfiles'
+import { boardProfileById, selectedPhysicalBoardProfile } from '../build/boardProfiles'
 import { DEFAULT_BOARD_PROFILE_ID, isHardwareManagedSignalNodeType, ROOT_BOARD_NODE_ID } from './hardware'
 import {
   type PerformanceDeckConfig,
@@ -1127,9 +1127,12 @@ export const useGraphStore = create<GraphState>()(
         let moved = 0
         const saved = useNodeDefaults.getState().micOverridesByFqbn[fqbn]
         set((s) => {
+          // The Board node's profile knows which pads this exact board exposes,
+          // where the FQBN only names the chip. Falls back to the FQBN table.
+          const profile = selectedPhysicalBoardProfile(s.nodes)
           const nodes = s.nodes.map((n) => {
             if (n.data.nodeType !== 'MicInput') return n
-            const pins = retargetedMicPins(n.data.properties as Record<string, unknown>, fqbn, saved)
+            const pins = retargetedMicPins(n.data.properties as Record<string, unknown>, fqbn, saved, profile)
             if (!pins) return n
             moved += 1
             return { ...n, data: { ...n.data, properties: { ...n.data.properties, ...pins } } }

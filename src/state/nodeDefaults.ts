@@ -125,14 +125,18 @@ export const useNodeDefaults = create<NodeDefaultsState>((set) => ({
  *  a pin was saved still reach new nodes. */
 export function resolveDefaultProperties(
   nodeType: string,
-  libraryDefault: Record<string, unknown> | undefined
+  libraryDefault: Record<string, unknown> | undefined,
+  // The board a part is being added to, when the caller knows it. Lets a
+  // microphone start on the pins this exact board exposes rather than the
+  // chip-level FQBN guess.
+  boardProfile?: Parameters<typeof micPinDefaultsForSelectedBoard>[0],
 ): Record<string, unknown> {
   const state = useNodeDefaults.getState()
   const fqbn = useUploadStore.getState().selectedFqbn
   const override = nodeType === 'MicInput'
     ? state.micOverridesByFqbn[fqbn]
     : state.overrides[nodeType]
-  const boardDefault = nodeType === 'MicInput' ? micPinDefaultsForSelectedBoard() : undefined
+  const boardDefault = nodeType === 'MicInput' ? micPinDefaultsForSelectedBoard(boardProfile) : undefined
   return sanitizeProperties(nodeType, {
     ...(libraryDefault ?? {}),
     ...(boardDefault ?? {}),
