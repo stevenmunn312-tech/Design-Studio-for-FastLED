@@ -813,7 +813,7 @@ function matrixOutputExample(node: NodeDefinition): ReferenceLiveExample {
   builder.add('fft', 'FFTAnalyzer', { smoothing: 0.7 })
   builder.add('cascade', 'AudioCascade', { palette: 'party' })
   builder.add('trails', 'Trails', { decay: 0.9 })
-  builder.add('target', node.type, { width: 16, height: 16, brightness: 220 })
+  builder.add('target', node.type, { form: 'matrix', width: 16, height: 16, brightness: 220 })
   builder.wire('mic', 'audio', 'fft', 'audio')
   builder.wire('fft', 'bass', 'cascade', 'bass')
   builder.wire('fft', 'mids', 'cascade', 'mids')
@@ -822,7 +822,7 @@ function matrixOutputExample(node: NodeDefinition): ReferenceLiveExample {
   builder.wire('trails', 'frame', 'target', 'frame')
   return builder.finish(
     'Finish an audio-reactive LED patch',
-    'Microphone and FFT Analyzer drive Audio Cascade, Trails preserves its falling colour, and Matrix Output turns the final frame into the shared preview, firmware, and upload target.',
+    'Microphone and FFT Analyzer drive Audio Cascade, Trails preserves its falling colour, and the LED Matrix turns the final frame into the shared preview, firmware, and upload target. The same node covers a string, a ring, and a HUB75 panel — its form decides which.',
     'The main preview should show a colourful audio cascade. Matrix size and master brightness changes should be reflected immediately before export or upload.',
   )
 }
@@ -868,20 +868,6 @@ function boardExample(node: NodeDefinition): ReferenceLiveExample {
     'Name the controller the patch targets',
     'Board carries no noodles — it names the exact controller the rest of the graph is built for. Choosing a board here is what makes pin advice match the header in your hand rather than just the chip, and it is what the wiring diagram reads.',
     'Pride 2015 keeps rendering unchanged. Board affects pin validation, supported features, and the wiring diagram rather than the pixels themselves.',
-  )
-}
-
-function ledStringExample(node: NodeDefinition): ReferenceLiveExample {
-  const builder = new ExampleBuilder()
-  builder.add('sweep', 'Rainbow', { speed: 0.3, deltaHue: 6 })
-  builder.add('trails', 'Trails', { decay: 0.86 })
-  builder.add('target', node.type, { ledCount: 60, dataPin: 18 })
-  builder.wire('sweep', 'frame', 'trails', 'frame')
-  builder.wire('trails', 'frame', 'target', 'frame')
-  return builder.finish(
-    'Drive a single run of addressable LEDs',
-    `${node.label}: ${NODE_DESCRIPTIONS[node.type]} Rainbow sweeps hue along the run and Trails gives each pixel a falling tail, so the length, data pin, and chipset set here describe one physical strip rather than a matrix.`,
-    'The preview should show a hue sweep travelling along a single row with a fading tail. Changing the LED count changes how long that run is in the hardware view.',
   )
 }
 
@@ -1173,7 +1159,6 @@ export function buildGenericLiveExample(node: NodeDefinition): ReferenceLiveExam
   if (node.type === 'SampleHold') return sampleHoldExample(node)
   if (node.type === 'MatrixOutput') return matrixOutputExample(node)
   if (node.type === 'Board') return boardExample(node)
-  if (node.type === 'LedStringOutput') return ledStringExample(node)
   if (node.type === 'Amplifier') return amplifierExample(node)
   if (node.type === 'Comment') return commentExample(node)
   if (node.type === 'Transition') return transitionExample(node)

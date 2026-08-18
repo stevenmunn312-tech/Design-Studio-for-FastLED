@@ -1,5 +1,14 @@
 import type { Frame } from './graphEvaluator'
 import type { StudioNode } from './graphStore'
+import {
+  isLinearForm,
+  LED_OUTPUT_FORM_LABELS,
+  outputCanvasDims,
+  outputForm,
+  outputGridDims,
+  ringSampleMapForProps,
+  type LedOutputForm,
+} from './ledOutputForm'
 
 export type OutputRouteMode = 'fit' | 'crop'
 
@@ -7,12 +16,22 @@ export interface OutputRoute {
   node: StudioNode
   id: string
   label: string
+  /** What this output physically is; every field below follows from it. */
+  form: LedOutputForm
+  /** The output's own pixel grid — a matrix's panel, or a chain's 1 x N. */
   width: number
   height: number
+  /** The footprint this route claims on the shared composition canvas. Equal to
+   *  width x height except for a ring, whose circle needs two real axes. */
+  canvasW: number
+  canvasH: number
   supersample: number
   routeMode: OutputRouteMode
   routeX: number
   routeY: number
+  /** For a ring: one composition index per LED, in wire order. Null otherwise.
+   *  This is the ring's whole XY mapping — see ledOutputForm.ringSampleMap. */
+  ringMap: number[] | null
 }
 
 function int(value: unknown, fallback: number, min: number, max: number): number {
@@ -20,24 +39,33 @@ function int(value: unknown, fallback: number, min: number, max: number): number
   return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : fallback
 }
 
-/** Matrix Output nodes are the routing table: each incoming Frame cable is an
+/** LED Output nodes are the routing table: each incoming Frame cable is an
  * independent route to that node's controller, layout, and brightness. */
 export function outputRoutes(nodes: StudioNode[]): OutputRoute[] {
   return nodes
-    .filter((node) => node.data.nodeType === 'MatrixOutput' || node.data.nodeType === 'LedStringOutput')
+    .filter((node) => node.data.nodeType === 'MatrixOutput')
     .map((node) => {
       const props = node.data.properties as Record<string, unknown>
-      const isLedString = node.data.nodeType === 'LedStringOutput'
+      const form = outputForm(props)
+      const linear = isLinearForm(form)
+      const grid = outputGridDims(props)
+      const canvas = outputCanvasDims(props)
       return {
         node,
         id: node.id,
-        label: String(node.data.label ?? (isLedString ? 'LED String' : 'Matrix Output')),
-        width: isLedString ? int(props.ledCount, 60, 1, 300) : int(props.width, 16, 1, 64),
-        height: isLedString ? 1 : int(props.height, 16, 1, 64),
-        supersample: isLedString ? 1 : props.supersample === true ? 2 : 1,
-        routeMode: isLedString ? 'fit' : props.routeMode === 'crop' ? 'crop' : 'fit',
+        label: String(node.data.label ?? LED_OUTPUT_FORM_LABELS[form]),
+        form,
+        width: grid.width,
+        height: grid.height,
+        canvasW: canvas.width,
+        canvasH: canvas.height,
+        // A chain has no 2 x 2 block to average down, and no viewport to offset
+        // within — it takes the whole composition either way.
+        supersample: linear ? 1 : props.supersample === true ? 2 : 1,
+        routeMode: linear ? 'fit' : props.routeMode === 'crop' ? 'crop' : 'fit',
         routeX: int(props.routeX, 0, 0, 63),
         routeY: int(props.routeY, 0, 0, 63),
+        ringMap: form === 'ring' ? ringSampleMapForProps(props) : null,
       }
     })
 }
@@ -70,8 +98,8 @@ export function compositionDims(nodes: StudioNode[], edges?: FrameFeedEdge[]): {
     : routes
   const sizing = connected.length > 0 ? connected : routes
   return {
-    w: Math.max(...sizing.map((route) => route.width * route.supersample)),
-    h: Math.max(...sizing.map((route) => route.height * route.supersample)),
+    w: Math.max(...sizing.map((route) => route.canvasW * route.supersample)),
+    h: Math.max(...sizing.map((route) => route.canvasH * route.supersample)),
   }
 }
 
@@ -89,6 +117,19 @@ export function routeFrame(frame: Frame | null, route: OutputRoute, compositionW
   const out: Frame = reuse && reuse.length === route.height && reuse[0]?.length === route.width
     ? reuse
     : Array.from({ length: route.height }, () => Array.from({ length: route.width }, () => ({ r: 0, g: 0, b: 0 })))
+  // A ring reads a circle out of the composition rather than a rectangle: each
+  // LED has one baked source pixel (ledOutputForm.ringSampleMap), and firmware
+  // bakes the identical table, so the two cannot drift.
+  if (route.ringMap) {
+    const orow = out[0]
+    for (let i = 0; i < route.width; i++) {
+      const px = orow[i]
+      const index = route.ringMap[i] ?? 0
+      const src = frame[Math.floor(index / Math.max(1, compositionW))]?.[index % Math.max(1, compositionW)]
+      px.r = src?.r ?? 0; px.g = src?.g ?? 0; px.b = src?.b ?? 0
+    }
+    return out
+  }
   for (let y = 0; y < route.height; y++) {
     const orow = out[y]
     for (let x = 0; x < route.width; x++) {

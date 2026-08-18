@@ -59,16 +59,16 @@ describe('HelpModal session state', () => {
     const first = render(<HelpModal />)
 
     fireEvent.click(first.getByRole('tab', { name: 'Node Reference' }))
-    fireEvent.change(first.getByLabelText('Find module'), { target: { value: 'matrix output' } })
+    fireEvent.change(first.getByLabelText('Find module'), { target: { value: 'led matrix' } })
 
     let matrixOutputButton: HTMLElement | undefined
     await waitFor(() => {
-      matrixOutputButton = first.getAllByRole('button').find((button) => button.textContent?.includes('Matrix OutputMAT-OUT'))
+      matrixOutputButton = first.getAllByRole('button').find((button) => button.textContent?.includes('LED MatrixMAT-OUT'))
       expect(matrixOutputButton).toBeTruthy()
     })
 
     fireEvent.click(matrixOutputButton!)
-    expect(useUiStore.getState().helpNodeReference.search).toBe('matrix output')
+    expect(useUiStore.getState().helpNodeReference.search).toBe('led matrix')
     expect(useUiStore.getState().helpNodeReference.selectedType).toBe('MatrixOutput')
 
     first.unmount()
@@ -76,8 +76,8 @@ describe('HelpModal session state', () => {
     const second = render(<HelpModal />)
 
     expect(second.getByRole('tab', { name: 'Node Reference' }).getAttribute('aria-selected')).toBe('true')
-    expect((second.getByLabelText('Find module') as HTMLInputElement).value).toBe('matrix output')
-    expect(second.getByRole('heading', { name: 'Matrix Output' })).toBeTruthy()
+    expect((second.getByLabelText('Find module') as HTMLInputElement).value).toBe('led matrix')
+    expect(second.getByRole('heading', { name: 'LED Matrix' })).toBeTruthy()
   })
 
   it('opens the node reference on a general node introduction', () => {

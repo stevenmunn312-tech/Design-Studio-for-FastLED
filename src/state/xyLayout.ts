@@ -1,4 +1,9 @@
-// MatrixOutput physical-wiring layout: grid (x,y) -> physical LED index.
+// LED output physical-wiring layout: grid (x,y) -> physical LED index.
+//
+// Only the matrix and HUB75 forms have a wiring order to choose. A string is
+// its own order and a ring's is its start angle and direction
+// (src/state/ledOutputForm.ts), so a linear form is always plain row-major here
+// regardless of what a `layout` left over from an earlier form still says.
 //
 // `layout: 'matrix'` (default) and `'strip'` keep the existing behaviour —
 // row-major, optionally zig-zagged by the pixel-level `serpentine` flag.
@@ -12,10 +17,13 @@
 // `buildXYTable` returns `null` when the grid can be addressed with a plain
 // row-major memmove (no remap needed) so callers can keep that fast path.
 
+import { isLinearForm, outputForm } from './ledOutputForm'
+
 export type MatrixLayout = 'matrix' | 'strip' | 'panels' | 'custom'
 export type TileRotation = 0 | 90 | 180 | 270
 
 export interface TileLayoutProps {
+  form?: unknown
   layout?: unknown
   serpentine?: unknown
   tilesX?: unknown
@@ -31,6 +39,7 @@ function clampInt(v: unknown, def: number, min: number, max: number): number {
 }
 
 function normalizedLayout(props: TileLayoutProps): MatrixLayout {
+  if (isLinearForm(outputForm(props as Record<string, unknown>))) return 'matrix'
   const layout = props.layout
   return layout === 'strip' || layout === 'panels' || layout === 'custom' ? layout : 'matrix'
 }
@@ -155,7 +164,8 @@ export function buildXYTable(width: number, height: number, props: TileLayoutPro
   if (!Number.isFinite(width) || !Number.isFinite(height) || width < 1 || height < 1) return null
 
   const layout = normalizedLayout(props)
-  const pixelSerpentine = props.serpentine === true
+  // Serpentine zig-zags alternate rows; a one-row chain has none to zig.
+  const pixelSerpentine = props.serpentine === true && !isLinearForm(outputForm(props as Record<string, unknown>))
 
   if (layout === 'custom') {
     const custom = parseCustomXYMap(props.customXYMap, width * height)

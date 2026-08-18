@@ -4,7 +4,7 @@
 
 Design Studio for FastLED is a live, node-based creative environment for LED strips, matrices, and tiled panels. Connect patterns, palettes, signals, effects, audio analysis, and hardware output; watch the result move instantly; then generate or upload the same design as FastLED C++.
 
-**Public beta · 156 modules · 40 included patterns · Windows, macOS, and Linux packaging · MIT core**
+**Public beta · 155 modules · 40 included patterns · Windows, macOS, and Linux packaging · MIT core**
 
 [Check beta releases](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/releases) · [Run from source](#run-from-source) · [Help test hardware](#help-test-the-beta)
 
@@ -19,7 +19,7 @@ Design Studio for FastLED is a live, node-based creative environment for LED str
 What makes the Studio useful:
 
 - **Immediate visual feedback.** Adjust a speed, palette, blend, field, or particle control and see the result now.
-- **A deep creative toolbox.** Choose from 156 modules spanning patterns, simulations, color, fields, effects, audio, logic, show control, hardware input, and output.
+- **A deep creative toolbox.** Choose from 155 modules spanning patterns, simulations, color, fields, effects, audio, logic, show control, hardware input, and output.
 - **Preview-to-firmware parity.** The graph evaluator and C++ generator are designed together so the hardware result follows what you authored.
 - **Reusable creative building blocks.** Turn any patch into a Group, save it to the Pattern Library, organize it into shelves, and reuse it in future shows.
 - **A real performance workflow.** Stage Mode, the Performance Deck, music transport, spectrum views, transitions, and beat-driven particles turn patches into playable visuals.
@@ -34,7 +34,7 @@ The Start Gallery includes guided patches for Juggle, Fire, scrolling text, live
 
 ![The full-screen Start Gallery with beginner, audio, field, and show templates](docs/images/readme/design-studio-start-gallery.png)
 
-The first patch is deliberately simple: a live Juggle pattern flows into Matrix Output. Change a few controls, splice an effect directly into the wire, and the preview responds immediately.
+The first patch is deliberately simple: a live Juggle pattern flows into LED Output. Change a few controls, splice an effect directly into the wire, and the preview responds immediately.
 
 | Build and preview a patch | Browse and collect reusable patterns |
 | --- | --- |
@@ -80,7 +80,7 @@ Without Python, visual authoring, live preview, projects, sharing, and code expo
 ## Your first five minutes
 
 1. Choose **Start with Juggle** or open **✦ Start** and pick a guided patch.
-2. Read the graph from left to right. Sources create signals or pixels; effects transform them; **Matrix Output** is the destination.
+2. Read the graph from left to right. Sources create signals or pixels; effects transform them; **LED Output** is the destination.
 3. Change a speed, palette, particle style, or effect amount and watch the preview react.
 4. Drag a module from the Node Library—or drag a wire onto empty canvas to see only compatible next nodes.
 5. Press **? Help** for shortcuts, upload guidance, illustrated examples, and searchable documentation for every module.
@@ -92,7 +92,7 @@ For an even faster experiment, use the sidebar’s **Quick recipes**: *Live spec
 ### Design one patch
 
 ```text
-Pattern → signals / palettes / effects → Matrix Output → LEDs
+Pattern → signals / palettes / effects → LED Output → LEDs
 ```
 
 This is the shortest route from an idea to hardware. Every frame-producing pattern can run alone or flow through a chain of transforms, masks, feedback, fields, and color tools.
@@ -101,7 +101,7 @@ This is the shortest route from an idea to hardware. Every frame-producing patte
 
 ```text
 Pattern → Group → Pattern Library → Pattern Collection
-        → Show Engine → Matrix Output → LEDs
+        → Show Engine → LED Output → LEDs
 ```
 
 Save finished patterns as reusable Groups, collect the ones you want, and let Show Engine choose timing and transitions. Add an optional beat input to advance the show and trigger particle bursts. The preview and generated controller sketch share the same show structure.
@@ -109,7 +109,7 @@ Save finished patterns as reusable Groups, collect the ones you want, and let Sh
 ### Author a music-synced SD show
 
 ```text
-Music Library → Performance Generator → SD Card → Matrix Output
+Music Library → Performance Generator → SD Card → LED Output
 ```
 
 Analyze MP3s, generate a timed show, hand-edit its event timeline, audition it against the music, and package the player, show data, and tracks for SD-card playback. A Pattern Collection can provide the visual vocabulary.
@@ -118,7 +118,7 @@ Analyze MP3s, generate a timed show, hand-edit its event timeline, audition it a
 
 ## From preview to hardware
 
-Configure the controller, size, LED chipset, color order, pins, brightness, physical layout, and optional power cap directly on **Matrix Output**. Then choose the workflow that fits the moment:
+Configure the controller, size, LED chipset, color order, pins, brightness, physical layout, and optional power cap directly on **LED Output**. Then choose the workflow that fits the moment:
 
 - **Upload** — compile and flash a standalone FastLED sketch.
 - **Re-upload last sketch** — resend the current project’s last upload without regenerating it.
@@ -147,7 +147,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 ## Feature map
 
 <details>
-<summary><strong>Show all 156 modules by category</strong></summary>
+<summary><strong>Show all 155 modules by category</strong></summary>
 
 - **Inputs:** Microphone, Button, Potentiometer, Encoder, DMX / Art-Net, RTC Clock, MIDI
 - **Audio:** FFT Analyzer, Beat Detect, Percussion Detect, Audio Features, Audio → Hue
@@ -158,7 +158,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 - **Fields:** Field Formula, Field Noise, Formula Field, Wave Sim, Distance Field, Frame → Field, Field Math, Field Warp, Field Rotate, Field Tile, Field → Frame
 - **Effects:** Blur 2D, Blend, Mask, Brightness, Fade to Black, Hue Shift, Gamma, Saturation, Color Boost, Transform, Array, Invert, Mirror, Trails, Frame Feedback, Frame Switch, Zones
 - **Show:** Music Library, Pattern Collection, Transitions, Show Engine, Sequencer, Transition, Performance Generator, SD Card
-- **Output:** Amplifier, Board, LED String, Matrix Output
+- **Output:** Amplifier, Board, LED Matrix
 - **Notes:** Comment
 
 </details>
@@ -201,7 +201,7 @@ Everything else—including other boards, browsers, operating-system combination
 
 ## Help test the beta
 
-Real hardware reports are the fastest way to expand that support matrix. The Matrix Output upload panel includes an opt-in **Beta hardware coverage** report that shows exactly what will be copied or downloaded; nothing is submitted automatically.
+Real hardware reports are the fastest way to expand that support matrix. The LED Output upload panel includes an opt-in **Beta hardware coverage** report that shows exactly what will be copied or downloaded; nothing is submitted automatically.
 
 Useful reports include:
 

@@ -160,8 +160,8 @@ function activeStagePatternName(
     return libraryPatternNameForGroup(groupId, graphs, libraryPatternIds, libraryNameCounts)
   }
 
-  const output = nodes.find((node) => node.id === outputId && ['MatrixOutput', 'LedStringOutput'].includes(nodeTypeOf(node)))
-    ?? nodes.find((node) => ['MatrixOutput', 'LedStringOutput'].includes(nodeTypeOf(node)))
+  const output = nodes.find((node) => node.id === outputId && nodeTypeOf(node) === 'MatrixOutput')
+    ?? nodes.find((node) => nodeTypeOf(node) === 'MatrixOutput')
   if (!output) return null
   const sourceEdge = edges.find((edge) => edge.target === output.id && edge.targetHandle === 'frame')
   const sourceNode = nodes.find((node) => node.id === sourceEdge?.source)
@@ -236,7 +236,7 @@ export default function LEDPreview() {
 
   const graphHasFrameSignal = useGraphStore((s) => {
     const terminalIds = new Set(s.nodes
-      .filter((node) => ['MatrixOutput', 'LedStringOutput', 'GroupOutput'].includes(String(node.data.nodeType)))
+      .filter((node) => ['MatrixOutput', 'GroupOutput'].includes(String(node.data.nodeType)))
       .map((node) => node.id))
     return s.edges.some((edge) => terminalIds.has(edge.target) && edge.targetHandle === 'frame')
   })
@@ -264,7 +264,7 @@ export default function LEDPreview() {
   useEffect(() => {
     if (activeOutputId !== previewOutputId) setPreviewOutputId(activeOutputId)
   }, [activeOutputId, previewOutputId, setPreviewOutputId])
-  const activeOutput = useGraphStore((s) => s.nodes.find((node) => node.id === activeOutputId && ['MatrixOutput', 'LedStringOutput'].includes(node.data.nodeType)))
+  const activeOutput = useGraphStore((s) => s.nodes.find((node) => node.id === activeOutputId && node.data.nodeType === 'MatrixOutput'))
   // Real matrix dimensions — used for the canvas/WebGL buffer size, the
   // frame passed to the renderers, and the on-screen W×H readout, so a
   // strip layout (e.g. 10×1) never grows a phantom extra row/column. Only

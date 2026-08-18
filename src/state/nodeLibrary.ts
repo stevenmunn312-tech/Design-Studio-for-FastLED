@@ -6,6 +6,7 @@ import { ANIMARTRIX_EFFECTS } from '../animartrix/catalog'
 import { MAX_PIN_NUMBER, type GpioCapability } from './boardGpio'
 import { EASE_TYPES } from './easing'
 import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
+import { LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, outputForm } from './ledOutputForm'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   // ── Inputs ─────────────────────────────────────────────────────────────
@@ -2348,7 +2349,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   },
   {
     type: 'MatrixOutput',
-    label: 'Matrix Output',
+    label: 'LED Matrix',
     category: 'output',
     inputs: [
       { id: 'frame',  label: 'Frame',   dataType: 'frame' },
@@ -2358,8 +2359,21 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     outputs: [],
     defaultProperties: {
+      // What this output physically is — strip / matrix / ring / HUB75 panel
+      // (src/state/ledOutputForm.ts). One node, four forms, one per thing you
+      // can buy; the hardware view offers each as its own entry. The form is
+      // what decides which of the properties below apply at all.
+      form: 'matrix',
       width: 16,
       height: 16,
+      // Strip and ring forms are one chain of `ledCount` LEDs; width/height
+      // above are the matrix and HUB75 forms' grid.
+      ledCount: 60,
+      // Ring geometry: where LED 0 sits (degrees clockwise from 12 o'clock,
+      // where a ring's data-in pad usually is) and which way the chain runs
+      // seen from the front.
+      ringStartAngle: 0,
+      ringDirection: 'cw',
       chipset: 'WS2812B',
       colorOrder: 'GRB',
       dataPin: 5,
@@ -2367,11 +2381,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // Ignored (editor disabled) for clockless chipsets.
       clockPin: 6,
       serpentine: false,
-      // Physical wiring layout (src/state/xyLayout.ts): 'matrix'/'strip' keep
-      // the plain row-major (or pixel-serpentine) behaviour above; 'panels'
-      // splits the grid into tilesX×tilesY equal panels, each independently
-      // rotatable and chained in row or serpentine panel order; 'custom' takes
-      // an explicit JSON permutation via customXYMap for anything else.
+      // Physical wiring order *within* the matrix and HUB75 forms
+      // (src/state/xyLayout.ts): 'matrix' keeps the plain row-major (or
+      // pixel-serpentine) behaviour above; 'panels' splits the grid into
+      // tilesX×tilesY equal panels, each independently rotatable and chained in
+      // row or serpentine panel order; 'custom' takes an explicit JSON
+      // permutation via customXYMap for anything else. The linear forms have no
+      // wiring order to choose — a strip is its own order and a ring's is
+      // `ringStartAngle`/`ringDirection`.
       layout: 'matrix',
       tilesX: 1,
       tilesY: 1,
@@ -2458,25 +2475,6 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // against CPU/DMA bandwidth (ESP32-HUB75-MatrixPanel-DMA's
       // setPixelColorDepthBits).
       hub75ColorDepthBits: 8,
-    },
-  },
-  {
-    type: 'LedStringOutput',
-    label: 'LED String',
-    category: 'output',
-    inputs: [
-      { id: 'frame', label: 'Frame', dataType: 'frame' },
-    ],
-    outputs: [],
-    defaultProperties: {
-      ledCount: 60,
-      chipset: 'WS2812B',
-      colorOrder: 'GRB',
-      dataPin: 18,
-      brightness: 200,
-      powerLimit: false,
-      volts: 5,
-      milliamps: 2000,
     },
   },
 
@@ -2882,8 +2880,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   TransitionSet: 'A pool of transition styles for the Show Engine / Performance Generator.',
   // output
   Board: 'The controller board — exact model, its pins, and what it supports.',
-  MatrixOutput: 'The LED matrix output — board, pin, and size.',
-  LedStringOutput: 'A single run of addressable LEDs — its length, pin, and chipset.',
+  MatrixOutput: 'An LED output — a string, matrix, ring, or HUB75 panel, with its pin and size.',
   // note
   Comment: 'A sticky note for the canvas — no ports, just text and color.',
 }
@@ -3008,6 +3005,18 @@ export const CHIPSET_OPTIONS = [
   'NEOPIXEL', 'APA102', 'APA102HD', 'WS2801', 'HD108', 'HUB75',
 ] as const
 
+/**
+ * The chipsets the dropdown offers — every addressable part, and not HUB75.
+ *
+ * HUB75 is a `form`, not a wire protocol you might pick for a strip
+ * (src/state/ledOutputForm.ts): choosing the HUB75 panel form is what makes an
+ * output a scan panel, and the chipset editor is disabled there. Sanitisation
+ * still runs against the full `CHIPSET_OPTIONS` above, so a saved graph that
+ * carries `chipset: 'HUB75'` from before the form property existed still reads
+ * back as the panel it is.
+ */
+export const ADDRESSABLE_CHIPSET_OPTIONS = CHIPSET_OPTIONS.filter((chipset) => chipset !== 'HUB75')
+
 /** SPI (clocked) chipsets — need a `clockPin` alongside the data pin, and the
  *  FASTLED_OVERCLOCK define doesn't apply to them. */
 export const SPI_CHIPSETS: ReadonlySet<string> = new Set(['APA102', 'APA102HD', 'WS2801', 'HD108'])
@@ -3085,7 +3094,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   // Poline position functions — keep in sync with polinePalette.ts POSITION_FNS.
   position:   { control: 'select', options: ['linear', 'sinusoidal', 'quadratic', 'cubic', 'arc', 'smoothStep', 'exponential'] },
   points:     { control: 'slider', min: 1, max: 12, step: 1 },
-  chipset:    { control: 'select', options: CHIPSET_OPTIONS },
+  chipset:    { control: 'select', options: ADDRESSABLE_CHIPSET_OPTIONS },
   colorOrder: { control: 'select', options: COLOR_ORDER_OPTIONS },
   correction: { control: 'select', options: CORRECTION_OPTIONS },
   overclock:  { control: 'slider', min: 1, max: 1.7, step: 0.05 },
@@ -3295,20 +3304,22 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   // MatrixOutput's brightness is FastLED.setBrightness's native 0–255 (the
   // shared `brightness` meta is a 0–1 frame-level scale).
   MatrixOutput: {
+    form: { control: 'select', options: LED_OUTPUT_FORMS },
     brightness: { control: 'slider', min: 0, max: 255, step: 1 },
     dataPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     clockPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
-    layout: { control: 'select', options: ['matrix', 'strip', 'panels', 'custom'] },
+    ledCount: { control: 'slider', min: 1, max: MAX_LED_RUN, step: 1 },
+    // A full turn either way, so a ring can be rotated to wherever its data-in
+    // pad physically ended up without reaching for a negative number.
+    ringStartAngle: { control: 'slider', min: 0, max: 359, step: 1 },
+    ringDirection: { control: 'select', options: ['cw', 'ccw'] },
+    // 'strip' is gone: a run of tape is a `form` now, not a wiring order.
+    layout: { control: 'select', options: ['matrix', 'panels', 'custom'] },
     routeMode: { control: 'select', options: ['fit', 'crop'] },
     routeX: { control: 'slider', min: 0, max: 63, step: 1 },
     routeY: { control: 'slider', min: 0, max: 63, step: 1 },
     tilesX: { control: 'slider', min: 1, max: 8, step: 1 },
     tilesY: { control: 'slider', min: 1, max: 8, step: 1 },
-  },
-  LedStringOutput: {
-    brightness: { control: 'slider', min: 0, max: 255, step: 1 },
-    ledCount: { control: 'slider', min: 1, max: 300, step: 1 },
-    dataPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
   // Saturation's amount is 0–2 (1 = unchanged), not the shared 0–1 opacity.
   Saturation: {
@@ -3676,8 +3687,12 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   powerLimit: 'Caps current draw via FastLED.setMaxPowerInVoltsAndMilliamps, auto-dimming to stay under the volts/mA budget below. Preview-only — no visible effect here.',
   usePsram: "Moves this board's render buffers into PSRAM instead of internal DRAM, for designs that overflow internal RAM. Only available on boards with PSRAM.",
   psramMode: "Which PSRAM interface to target — must match the board module's physical package; it can't be probed from the host.",
-  layout: 'How the grid maps to physical LED wiring order — plain matrix, a single strip, tiled panels, or a custom index permutation.',
-  chipset: "The LED chipset driving this output — must match the physical strip/panel. HUB75 (scan-panel matrices) is supported on ESP32 / ESP32-S2 / ESP32-S3 as a single-output route; see docs/development/design/hub75-output.md.",
+  layout: 'How the grid maps to physical LED wiring order — plain matrix, tiled panels, or a custom index permutation. The string and ring forms have no wiring order to choose.',
+  chipset: 'The addressable LED chipset driving this output — must match the physical part. HUB75 scan panels are their own form rather than a chipset; see docs/development/design/hub75-output.md.',
+  form: 'What this output physically is — a string of tape, a matrix panel, a ring, or a HUB75 scan panel. Everything else on the node follows from it.',
+  ledCount: 'How many LEDs are on this run — the length of a string, or the number around a ring.',
+  ringStartAngle: 'Where LED 0 sits on the ring, in degrees clockwise from the top — set it to wherever the data-in pad ended up.',
+  ringDirection: 'Which way the chain runs around the ring, seen from the front.',
   colorOrder: 'Wire colour byte order the chipset expects. The wrong order swaps colours (e.g. red renders as green).',
   clockPin: 'SPI chipsets only — the clock line alongside the data pin.',
   hub75WideScan: '64-row (1:32 scan) panels multiplex an extra row-select line (E) below; 32-row (1:16 scan) panels leave it unconnected.',
@@ -3928,6 +3943,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'days', label: 'Day Rules', keys: ['dayMode', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'requireSync', 'enable'] },
   ],
   MatrixOutput: [
+    { key: 'form', label: 'Output', keys: ['form', 'ledCount', 'ringStartAngle', 'ringDirection'] },
     { key: 'routing', label: 'Frame Route', keys: ['routeMode', 'routeX', 'routeY'] },
     { key: 'wiring', label: 'Wiring', keys: ['chipset', 'colorOrder', 'dataPin', 'clockPin', 'serpentine'] },
     { key: 'hub75', label: 'HUB75 Wiring', keys: [
@@ -4119,6 +4135,9 @@ export function bypassPort(outputs: { id: string; dataType?: string }[], inputs:
  * matching `PROPERTY_META` options and the evaluator/codegen cases.
  */
 const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, string> }> = {
+  // The one output node titles itself after the thing it is: LED String, LED
+  // Matrix, LED Ring, HUB75 Panel.
+  MatrixOutput: { prop: 'form', labels: LED_OUTPUT_FORM_LABELS },
   ClockDisplay: {
     prop: 'displayMode',
     labels: {
@@ -4313,13 +4332,23 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   if (nodeType === 'MatrixOutput') {
     if (key === 'routeX' || key === 'routeY') return properties.routeMode === 'crop'
     if (key === 'volts' || key === 'milliamps') return properties.powerLimit === true
-    const chipset = String(properties.chipset ?? 'WS2812B')
-    const hub75 = chipset === HUB75_CHIPSET
-    const spi = SPI_CHIPSETS.has(chipset)
+    // The form decides which of this node's ~40 properties are even questions.
+    const form = outputForm(properties)
+    const hub75 = form === 'hub75'
+    const linear = form === 'strip' || form === 'ring'
+    // A strip and a ring are a length; a matrix and a panel are a grid.
+    if (key === 'ledCount') return linear
+    if (key === 'width' || key === 'height') return !linear
+    if (key === 'ringStartAngle' || key === 'ringDirection') return form === 'ring'
+    // HUB75 is a form, so its chipset is implied rather than chosen.
+    if (key === 'chipset') return !hub75
+    const spi = !hub75 && SPI_CHIPSETS.has(String(properties.chipset ?? 'WS2812B'))
     // HUB75 is driven over its own pin ribbon via a DMA library, not FastLED's
     // addLeds<>() — the single data pin, wire colour order, per-pixel
     // serpentine, and clockless-only overclock define all stop applying.
-    if (key === 'dataPin' || key === 'colorOrder' || key === 'serpentine') return !hub75
+    if (key === 'dataPin' || key === 'colorOrder') return !hub75
+    // Serpentine zig-zags alternate *rows*, which a one-row form does not have.
+    if (key === 'serpentine') return !hub75 && !linear
     // The clock pin only exists on SPI chipsets; FASTLED_OVERCLOCK only applies
     // to clockless (non-HUB75) ones.
     if (key === 'clockPin') return spi
@@ -4328,12 +4357,13 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
       if (key === 'hub75EPin') return hub75 && properties.hub75WideScan === true
       return hub75
     }
+    // Supersampling averages an SS x SS block down to one LED, and panel/custom
+    // wiring orders describe a grid — neither means anything on a single chain.
+    if (key === 'supersample') return !linear
+    if (key === 'layout') return !linear
     if (key === 'tilesX' || key === 'tilesY' || key === 'tileSerpentine' || key === 'tileRotations')
-      return properties.layout === 'panels'
-    if (key === 'customXYMap') return properties.layout === 'custom'
-  }
-  if (nodeType === 'LedStringOutput') {
-    if (key === 'volts' || key === 'milliamps') return properties.powerLimit === true
+      return !linear && properties.layout === 'panels'
+    if (key === 'customXYMap') return !linear && properties.layout === 'custom'
   }
   if (nodeType === 'SDCard') {
     // The I2S pins only apply when driving an external DAC; the internal-DAC

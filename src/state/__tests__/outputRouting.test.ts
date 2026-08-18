@@ -56,3 +56,44 @@ describe('multi-output routing', () => {
     expect(routeFrame(frame, route, 2, 1)).toEqual([[{ r: 4, g: 5, b: 6 }]])
   })
 })
+
+describe('routing per LED output form', () => {
+  it('routes a string as one row of its own length', () => {
+    const route = outputRoutes([output('s', { form: 'strip', ledCount: 90 })])[0]
+    expect(route.form).toBe('strip')
+    expect([route.width, route.height]).toEqual([90, 1])
+    expect(route.ringMap).toBeNull()
+  })
+
+  it('claims a square canvas for a ring but stays a chain of LEDs', () => {
+    // A ring's route is 1 x N like a strip's — that is the order it is wired in
+    // — while the canvas it reads is the square its circle is inscribed in.
+    const route = outputRoutes([output('r', { form: 'ring', ledCount: 24 })])[0]
+    expect([route.width, route.height]).toEqual([24, 1])
+    expect([route.canvasW, route.canvasH]).toEqual([8, 8])
+    expect(compositionDims([output('r', { form: 'ring', ledCount: 24 })])).toEqual({ w: 8, h: 8 })
+  })
+
+  it('reads a circle out of the composition rather than a rectangle', () => {
+    const route = outputRoutes([output('r', { form: 'ring', ledCount: 4, ringStartAngle: 0, ringDirection: 'cw' })])[0]
+    // A 3x3 canvas with a distinct colour at each compass point.
+    const black = { r: 0, g: 0, b: 0 }
+    const frame = [
+      [black, { r: 1, g: 0, b: 0 }, black],
+      [{ r: 0, g: 0, b: 4 }, black, { r: 0, g: 2, b: 0 }],
+      [black, { r: 0, g: 0, b: 3 }, black],
+    ]
+    // Top, right, bottom, left — clockwise from 12 o'clock.
+    expect(routeFrame(frame, route, 3, 3)).toEqual([[
+      { r: 1, g: 0, b: 0 }, { r: 0, g: 2, b: 0 }, { r: 0, g: 0, b: 3 }, { r: 0, g: 0, b: 4 },
+    ]])
+  })
+
+  it('ignores supersample and crop settings a chain inherited from another form', () => {
+    const route = outputRoutes([output('s', {
+      form: 'strip', ledCount: 30, supersample: true, routeMode: 'crop', routeX: 5,
+    })])[0]
+    expect(route.supersample).toBe(1)
+    expect(route.routeMode).toBe('fit')
+  })
+})

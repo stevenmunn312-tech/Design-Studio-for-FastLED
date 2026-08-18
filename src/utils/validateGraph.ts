@@ -1,5 +1,6 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
-import { HUB75_CHIPSET, isPortlessNodeType, NODE_LIBRARY, supportsScalarExpression } from '../state/nodeLibrary'
+import { isPortlessNodeType, NODE_LIBRARY, supportsScalarExpression } from '../state/nodeLibrary'
+import { outputForm, outputLedTotal } from '../state/ledOutputForm'
 import { evaluateScalarExpression } from '../state/scalarExpression'
 import { isNodeFormulaValid } from '../state/formulaLang'
 import { isValidRtcDateTime } from '../state/rtc'
@@ -216,26 +217,17 @@ const MA_PER_HUB75_PIXEL_WORST_CASE = 1
 // margin rather than a misconfiguration to keep flagging.
 const POWER_CAP_MIN_COVERAGE = 2 / 3
 
-/**
- * Nodes that drive physical LEDs, and how many each drives.
- *
- * Both output kinds count. A LED string was invisible to the power and RAM
- * estimates while only `MatrixOutput` was matched, so a strip-only build
- * reported a 0 mA draw and a 0-byte buffer — silently confident, and wrong in
- * exactly the case where the draw matters most.
- */
+/** Nodes that drive physical LEDs, in every form. */
 export function ledDrivingOutputs(nodes: StudioNode[]): StudioNode[] {
-  return nodes.filter((node) =>
-    node.data.nodeType === 'MatrixOutput' || node.data.nodeType === 'LedStringOutput')
+  return nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
 }
 
-/** LEDs on one output: a panel's grid, or a run's length. */
+/** LEDs on one output: a panel's grid, or a chain's length. Every estimate that
+ *  costs LEDs — power draw, firmware RAM — counts through here, so a string or
+ *  a ring can never be silently priced at zero the way it was while only a
+ *  width x height grid was understood. */
 export function outputLedCount(node: StudioNode): number {
-  const props = node.data.properties as Record<string, unknown>
-  if (node.data.nodeType === 'LedStringOutput') {
-    return Math.max(0, Math.round(Number(props.ledCount ?? 0)))
-  }
-  return Math.max(0, Math.round(Number(props.width ?? 0))) * Math.max(0, Math.round(Number(props.height ?? 0)))
+  return outputLedTotal(node.data.properties as Record<string, unknown>)
 }
 
 export function estimatePowerLoad(nodes: StudioNode[]): PowerEstimate | null {
@@ -244,7 +236,7 @@ export function estimatePowerLoad(nodes: StudioNode[]): PowerEstimate | null {
   const ledCount = outputs.reduce((sum, output) => sum + outputLedCount(output), 0)
   const worstCaseMa = outputs.reduce((sum, output) => {
     const props = output.data.properties as Record<string, unknown>
-    const rate = String(props.chipset ?? 'WS2812B') === HUB75_CHIPSET ? MA_PER_HUB75_PIXEL_WORST_CASE : MA_PER_LED_WORST_CASE
+    const rate = outputForm(props) === 'hub75' ? MA_PER_HUB75_PIXEL_WORST_CASE : MA_PER_LED_WORST_CASE
     return sum + (outputLedCount(output) * rate)
   }, 0)
   const capped = outputs.filter((output) => (output.data.properties as Record<string, unknown>).powerLimit === true)
@@ -567,7 +559,7 @@ export function findHub75ConfigIssues(nodes: StudioNode[]): Hub75ConfigIssue[] {
   const singleOutput = matrixOutputs.length === 1
   matrixOutputs.forEach((output, index) => {
     const props = output.data.properties as Record<string, unknown>
-    if (String(props.chipset ?? 'WS2812B') !== HUB75_CHIPSET) return
+    if (outputForm(props) !== 'hub75') return
     const base = String(output.data.label ?? output.data.nodeType)
     const label = matrixOutputs.length > 1 ? `${base} ${index + 1}` : base
     if (!singleOutput) {
@@ -627,8 +619,8 @@ export function findHub75TopologyDiagnosticErrors(nodes: StudioNode[], outputNod
   if (!output) return ['Add a Matrix Output before flashing the HUB75 2D topology test.']
 
   const props = output.data.properties as Record<string, unknown>
-  if (String(props.chipset ?? 'WS2812B') !== HUB75_CHIPSET) {
-    return ['Set Matrix Output chipset to HUB75 to use the 2D panel-topology test.']
+  if (outputForm(props) !== 'hub75') {
+    return ['Set the LED output form to HUB75 Panel to use the 2D panel-topology test.']
   }
 
   const configIssue = findHub75ConfigIssues(nodes).find((issue) => issue.nodeId === output.id)
@@ -680,7 +672,7 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
   // at the vendored tag, not guessed. Every other board family (AVR, RP2040,
   // SAMD, STM32, Teensy, ESP8266, …) is out entirely too.
   if (selectedFqbn && nodes.some((node) =>
-    node.data.nodeType === 'MatrixOutput' && String((node.data.properties as Record<string, unknown>).chipset ?? 'WS2812B') === HUB75_CHIPSET
+    node.data.nodeType === 'MatrixOutput' && outputForm(node.data.properties as Record<string, unknown>) === 'hub75'
   ) && !HUB75_SUPPORTED_FQBNS.has(selectedFqbn)) {
     errors.push('HUB75 output requires a classic ESP32, ESP32-S2, or ESP32-S3 board — the DMA library needs their LCD-mode peripheral, which RISC-V ESP32 variants (C3/C6/H2) and other board families don\'t have')
   }

@@ -181,7 +181,7 @@ describe('validateGraph', () => {
   it('explains when the dedicated topology diagnostic does not apply', () => {
     expect(findHub75TopologyDiagnosticErrors([
       node('out', 'MatrixOutput', { width: 64, height: 64, chipset: 'WS2812B', layout: 'panels', tilesX: 2, tilesY: 2 }),
-    ])).toEqual([expect.stringMatching(/chipset to HUB75/)])
+    ])).toEqual([expect.stringMatching(/form to HUB75 Panel/)])
     expect(findHub75TopologyDiagnosticErrors([
       node('out', 'MatrixOutput', { width: 64, height: 64, chipset: 'HUB75', layout: 'matrix' }),
     ])).toEqual([expect.stringMatching(/layout to Panels/)])
@@ -920,8 +920,17 @@ describe('validateGraph', () => {
     })
 
     it('surfaces a large internal-RAM estimate as a validateGraph warning', () => {
-      const nodes = [node('sc', 'SolidColor'), node('out', 'MatrixOutput', { width: 100, height: 100 })]
-      const edges = [edge('e1', 'sc', 'out', 'frame')]
+      // 64x64 is the largest panel the app will actually build, and four CRGB
+      // buffers of it (the leds array plus a three-node chain) is 48 KB.
+      const nodes = [
+        node('sc', 'SolidColor'), node('blur', 'Blur2D'), node('trails', 'Trails'),
+        node('out', 'MatrixOutput', { width: 64, height: 64 }),
+      ]
+      const edges = [
+        edge('e1', 'sc', 'blur', 'frame'),
+        edge('e2', 'blur', 'trails', 'frame'),
+        edge('e3', 'trails', 'out', 'frame'),
+      ]
       const { warnings } = validateGraph(nodes, edges)
       expect(warnings.some(w => w.includes('internal RAM'))).toBe(true)
     })
@@ -1041,14 +1050,14 @@ describe('validateGraph', () => {
 
 describe('LED strings count toward the hardware estimates', () => {
   // A strip-only build used to report a 0 mA draw and a 0-byte buffer, because
-  // only MatrixOutput was matched. Silently confident, and wrong in exactly the
-  // case where the draw matters — 300 LEDs is a real power budget.
+  // only a width x height grid was understood. Silently confident, and wrong in
+  // exactly the case where the draw matters — 300 LEDs is a real power budget.
   function ledString(id: string, ledCount: number): StudioNode {
     return {
       id, type: 'studioNode', position: { x: 0, y: 0 },
       data: {
-        label: 'LED String', nodeType: 'LedStringOutput', category: 'output',
-        properties: { ledCount, chipset: 'WS2812B', colorOrder: 'GRB', dataPin: 18 },
+        label: 'LED String', nodeType: 'MatrixOutput', category: 'output',
+        properties: { form: 'strip', ledCount, chipset: 'WS2812B', colorOrder: 'GRB', dataPin: 18 },
         inputs: [], outputs: [],
       },
     } as unknown as StudioNode
@@ -1070,8 +1079,8 @@ describe('LED strings count toward the hardware estimates', () => {
     const panel = {
       id: 'm', type: 'studioNode', position: { x: 0, y: 0 },
       data: {
-        label: 'Matrix Output', nodeType: 'MatrixOutput', category: 'output',
-        properties: { width: 16, height: 16, chipset: 'WS2812B' },
+        label: 'LED Matrix', nodeType: 'MatrixOutput', category: 'output',
+        properties: { form: 'matrix', width: 16, height: 16, chipset: 'WS2812B' },
         inputs: [], outputs: [],
       },
     } as unknown as StudioNode

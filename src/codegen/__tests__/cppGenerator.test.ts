@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { generateCpp, audioEngineForGraph } from '../cppGenerator'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { DEFAULT_FONT, textColumns } from '../../state/font'
+import { ringSampleMapForProps } from '../../state/ledOutputForm'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -73,6 +74,71 @@ describe('generateCpp', () => {
     expect(cpp).toContain('_c.nscale8_video(180)')
     expect(cpp).toContain('int _sx = (2 + _x) % WIDTH, _sy = (1 + _y) % HEIGHT;')
     expect(cpp.match(/FastLED\.show\(\);/g)).toHaveLength(1)
+  })
+
+  // ── LED output forms ───────────────────────────────────────────────────────
+  // A string used to be its own node type with no `case` in this generator at
+  // all, so a strip-only graph compiled to a "not yet supported" comment. It is
+  // one `form` of the single output node now, which is what gives it firmware.
+
+  it('renders a string on its own 1 x N grid', () => {
+    const out = node('out', 'MatrixOutput', 'output', { form: 'strip', ledCount: 144, dataPin: 18 })
+    const cpp = generateCpp([node('sc', 'SolidColor', 'pattern'), out], [edge('e', 'sc', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('#define WIDTH    144')
+    expect(cpp).toContain('#define HEIGHT   1')
+    expect(cpp).toContain('#define DATA_PIN 18')
+    expect(cpp).toContain('CRGB leds[NUM_LEDS];')
+    // Row-major already is the physical order on a single run, so no XY table.
+    expect(cpp).not.toContain('_xytable')
+    expect(cpp).toContain('::memmove(leds, buf_sc, sizeof(CRGB) * NUM_LEDS);')
+  })
+
+  it('ignores a serpentine flag a string inherited from an earlier form', () => {
+    const out = node('out', 'MatrixOutput', 'output', { form: 'strip', ledCount: 60, serpentine: true })
+    expect(generateCpp([out], [])).not.toContain('_xytable')
+  })
+
+  it('bakes a ring sample map and drives the ring through it', () => {
+    const out = node('out', 'MatrixOutput', 'output', {
+      form: 'ring', ledCount: 24, ringStartAngle: 0, ringDirection: 'cw', dataPin: 7,
+    })
+    const cpp = generateCpp([node('sc', 'SolidColor', 'pattern'), out], [edge('e', 'sc', 'out', 'frame', 'frame')])
+    // The render canvas is the square the ring is inscribed in; the LEDs are
+    // the chain around it.
+    expect(cpp).toContain('#define WIDTH    8')
+    expect(cpp).toContain('#define HEIGHT   8')
+    expect(cpp).toContain('#define RING_LEDS 24')
+    expect(cpp).toContain('CRGB leds[RING_LEDS];')
+    expect(cpp).toContain('const uint16_t _ringmap[RING_LEDS] PROGMEM = {')
+    expect(cpp).toContain('for (int _i = 0; _i < RING_LEDS; _i++) leds[_i] = buf_sc[pgm_read_word(&_ringmap[_i])];')
+    expect(cpp).toContain('FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, RING_LEDS);')
+  })
+
+  it('bakes the same ring map the live preview routes through', () => {
+    const props = { form: 'ring', ledCount: 16, ringStartAngle: 45, ringDirection: 'ccw' }
+    const cpp = generateCpp([node('out', 'MatrixOutput', 'output', props)], [])
+    const baked = cpp.match(/_ringmap\[RING_LEDS\] PROGMEM = \{ ([^}]+) \}/)![1]
+    expect(baked.split(',').map(Number)).toEqual(ringSampleMapForProps(props))
+  })
+
+  it('drives a ring alongside a panel on its own map', () => {
+    const ring = node('ring', 'MatrixOutput', 'output', { form: 'ring', ledCount: 12, dataPin: 6, brightness: 90 })
+    const panel = node('panel', 'MatrixOutput', 'output', { form: 'matrix', width: 8, height: 8, dataPin: 5 })
+    const cpp = generateCpp(
+      [node('sc', 'SolidColor', 'pattern'), ring, panel],
+      [edge('e1', 'sc', 'ring', 'frame', 'frame'), edge('e2', 'sc', 'panel', 'frame', 'frame')],
+    )
+    expect(cpp).toContain('CRGB leds_ring[12];')
+    expect(cpp).toContain('CRGB leds_panel[64];')
+    expect(cpp).toContain('const uint16_t _ringmap_ring[12] PROGMEM = {')
+    expect(cpp).toContain('CRGB _c = buf_sc[pgm_read_word(&_ringmap_ring[_i])]; _c.nscale8_video(90);')
+  })
+
+  it('treats the HUB75 form as a scan panel whatever chipset string it carries', () => {
+    const out = node('out', 'MatrixOutput', 'output', { form: 'hub75', chipset: 'WS2812B', width: 64, height: 32 })
+    const cpp = generateCpp([out], [])
+    expect(cpp).toContain('ESP32-HUB75-MatrixPanel-I2S-DMA.h')
+    expect(cpp).not.toContain('FastLED.addLeds')
   })
 
   it('emits the default hardware setup (brightness 200, no correction, dither untouched)', () => {

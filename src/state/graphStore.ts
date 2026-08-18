@@ -22,6 +22,7 @@ import { retargetedMicPins } from './micPinDefaults'
 import { useNodeDefaults } from './nodeDefaults'
 import { useUiStore } from './uiStore'
 import { validateMatrixLayout } from './xyLayout'
+import { isLinearForm, outputCanvasDims, outputForm } from './ledOutputForm'
 import { emptyBuildProfile, normalizeBuildProfile, type BuildProfile } from '../build/buildProfile'
 import { boardProfileById, selectedPhysicalBoardProfile } from '../build/boardProfiles'
 import { DEFAULT_BOARD_PROFILE_ID, isHardwareManagedSignalNodeType, ROOT_BOARD_NODE_ID } from './hardware'
@@ -257,7 +258,7 @@ type HistorySlice = Pick<GraphState, 'nodes' | 'edges'>
 // route or a live source, it is the controller the whole scene targets. A saved
 // pattern must stay board-agnostic, so grouping a selection never seals a board
 // choice inside it.
-const GROUP_EXCLUDED_TYPES = new Set(['MatrixOutput', 'LedStringOutput', 'MicInput', 'DMXInput', 'MusicLibrary', 'Board'])
+const GROUP_EXCLUDED_TYPES = new Set(['MatrixOutput', 'MicInput', 'DMXInput', 'MusicLibrary', 'Board'])
 
 /** Nodes that represent one scene-wide hardware resource. Creation actions use
  *  this set as a final guard, so every UI path (click, drop, paste, duplicate)
@@ -289,11 +290,16 @@ const LIBRARY_DEF = new Map(NODE_LIBRARY.map((def) => [def.type, def]))
 // Legacy node types folded into another node on load. AnimatedImage merged into
 // the single Image node (which now handles stills and animations alike) — its
 // `animation`/`playbackRate`/`loop` properties carry over unchanged.
-const LEGACY_TYPE_RENAME: Record<string, string> = { AnimatedImage: 'Image' }
+// LedStringOutput was a second output node type for the length of one branch
+// phase. It is the same object as every other LED output — one `form` of it —
+// so it folds back in, which is also how a string finally acquires the codegen
+// it never had as its own type.
+const LEGACY_TYPE_RENAME: Record<string, string> = { AnimatedImage: 'Image', LedStringOutput: 'MatrixOutput' }
 
 function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes: StudioNode[]; edges: StudioEdge[] } {
   const normalizedNodes = nodes.map((n) => {
     const data = n.data as StudioNodeData
+    const wasLedString = data.nodeType === 'LedStringOutput'
     const nodeType = LEGACY_TYPE_RENAME[data.nodeType] ?? data.nodeType
     const def = LIBRARY_DEF.get(nodeType)
     const category: NodeCategory = def?.category ?? data.category
@@ -320,6 +326,20 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     // radius rather than silently picking up the new node-creation default.
     if (nodeType === 'Circle' || nodeType === 'ClockDisplay') {
       properties.scaleWithMatrix ??= false
+    }
+    // An LED output's shape used to be spelled two ways that never quite meant
+    // it — `chipset: 'HUB75'` for a scan panel, `layout: 'strip'` for a run of
+    // tape, and no way at all to say "ring". Resolve a saved node's form once,
+    // on load, so the rest of the app only ever reads the explicit property.
+    // `outputForm` performs the same inference defensively, so a node that
+    // reaches it unmigrated still opens as the thing it is.
+    if (nodeType === 'MatrixOutput') {
+      properties.form ??= wasLedString ? 'strip' : outputForm(properties)
+      if (properties.form === 'strip' || properties.form === 'ring') properties.ledCount ??= 60
+      // `layout: 'strip'` was only ever a second spelling of 'matrix' — same
+      // row-major table — and it is no longer offered, so collapse it rather
+      // than leave a saved node pointing at a value its dropdown has dropped.
+      if (properties.layout === 'strip') properties.layout = 'matrix'
     }
     // Wi-Fi SSID/password used to be ordinary node properties (persisted into
     // project files and share links). They now live browser-local only in
@@ -2000,16 +2020,16 @@ export const useTemporalStore = <T>(
 let matrixDimsNodes: StudioNode[] | null = null
 let matrixDimsCache = { w: 16, h: 16 }
 
-/** Raw width/height from the MatrixOutput node (16×16 when absent). Memoised
- *  on the nodes array identity — safe to call from per-node store selectors. */
+/** The first LED output's canvas size (16×16 when absent) — the grid a pattern
+ *  is rendered on for it, which for a ring is the square its circle is
+ *  inscribed in rather than its 1 x N chain. Memoised on the nodes array
+ *  identity — safe to call from per-node store selectors. */
 export function matrixDims(nodes: StudioNode[]): { w: number; h: number } {
   if (nodes !== matrixDimsNodes) {
     matrixDimsNodes = nodes
     const output = nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
-    matrixDimsCache = {
-      w: Number(output?.data.properties.width ?? 16),
-      h: Number(output?.data.properties.height ?? 16),
-    }
+    const dims = output ? outputCanvasDims(output.data.properties as Record<string, unknown>) : null
+    matrixDimsCache = { w: dims?.width ?? 16, h: dims?.height ?? 16 }
   }
   return matrixDimsCache
 }
@@ -2028,7 +2048,9 @@ export function matrixTileLayout(nodes: StudioNode[]): { tilesX: number; tilesY:
     matrixTileLayoutNodes = nodes
     const output = nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
     const p = output?.data.properties as Record<string, unknown> | undefined
-    if (p?.layout === 'panels') {
+    // A tile grid describes a panel; a chain has no tiles to draw boundaries
+    // between, whatever `layout` a previous form left behind.
+    if (p && p.layout === 'panels' && !isLinearForm(outputForm(p))) {
       const width = Math.max(0, Math.round(Number(p.width ?? 0)))
       const height = Math.max(0, Math.round(Number(p.height ?? 0)))
       const tilesX = Math.max(1, Math.min(16, Math.round(Number(p.tilesX ?? 1)) || 1))

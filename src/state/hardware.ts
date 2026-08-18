@@ -4,12 +4,12 @@ export const ROOT_BOARD_NODE_ID = 'board-root'
 // Parts the hardware view owns. Deleting one on the graph canvas only
 // disconnects it — the part itself goes when it is removed in the hardware
 // view, which is the half of the two-view model that says what is on the bench.
-const HARDWARE_MANAGED_SIGNAL_NODE_TYPES = new Set(['MicInput', 'LedStringOutput', 'MatrixOutput'])
+const HARDWARE_MANAGED_SIGNAL_NODE_TYPES = new Set(['MicInput', 'MatrixOutput'])
 
 // Not offered in the node library, the canvas picker or drag-to-create: these
 // exist only by adding the part in the hardware view, so a graph can never
 // carry an output the bench does not.
-const HARDWARE_LIBRARY_HIDDEN_NODE_TYPES = new Set(['Board', 'MicInput', 'LedStringOutput', 'MatrixOutput'])
+const HARDWARE_LIBRARY_HIDDEN_NODE_TYPES = new Set(['Board', 'MicInput', 'MatrixOutput'])
 
 export function isHardwareManagedSignalNodeType(nodeType: string): boolean {
   return HARDWARE_MANAGED_SIGNAL_NODE_TYPES.has(nodeType)

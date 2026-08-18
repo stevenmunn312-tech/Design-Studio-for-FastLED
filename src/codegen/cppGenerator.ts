@@ -31,6 +31,7 @@ import { buildXYTable, rotatePoint, tileRotationAt } from '../state/xyLayout'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette, type RGB } from '../state/customPalette'
 import { animartrixCppLines } from '../animartrix/codegen'
 import { compositionDims, outputRoutes } from '../state/outputRouting'
+import { isLinearForm, outputCanvasDims, outputForm, outputLedTotal, ringSampleMapForProps } from '../state/ledOutputForm'
 import { getNetworkCredentials } from '../state/networkCredentials'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
 import {
@@ -539,7 +540,10 @@ export function ledHardwareFromProps(p: Record<string, unknown>): LedHardware {
     return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : def
   }
   return {
-    chipset:    pick(p.chipset, CHIPSET_OPTIONS, 'WS2812B'),
+    // The form is what makes an output a scan panel; the chipset property is
+    // only ever consulted for the addressable forms, so a HUB75 panel can never
+    // be flashed as WS2812B because a stale chipset string disagreed with it.
+    chipset:    outputForm(p) === 'hub75' ? HUB75_CHIPSET : pick(p.chipset, CHIPSET_OPTIONS, 'WS2812B'),
     colorOrder: pick(p.colorOrder, COLOR_ORDER_OPTIONS, 'GRB'),
     brightness: Math.round(num(p.brightness, 200, 0, 255)),
     correction: pick(p.correction, CORRECTION_OPTIONS, 'none'),
@@ -1114,9 +1118,16 @@ export function generateCpp(
     return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : def
   }
   const composition = compositionDims(nodes, edges)
-  const width      = multipleOutputs ? composition.w : intProp(outputNode ? rawProps(outputNode).width : undefined, 16, 1, 64)
-  const height     = multipleOutputs ? composition.h : intProp(outputNode ? rawProps(outputNode).height : undefined, 16, 1, 64)
-  const expressionScale = !multipleOutputs && outputNode && rawProps(outputNode).supersample === true ? 2 : 1
+  // What the single output physically is (src/state/ledOutputForm.ts). A string
+  // renders on its own 1 x N grid, a ring on the square its circle is inscribed
+  // in, a matrix or panel on its panel — so the render canvas comes from the
+  // form rather than from width/height, which two of the four forms don't use.
+  const singleForm = outputNode ? outputForm(rawProps(outputNode)) : 'matrix'
+  const singleLinear = !multipleOutputs && isLinearForm(singleForm)
+  const singleCanvas = outputNode ? outputCanvasDims(rawProps(outputNode)) : { width: 16, height: 16 }
+  const width      = multipleOutputs ? composition.w : singleCanvas.width
+  const height     = multipleOutputs ? composition.h : singleCanvas.height
+  const expressionScale = !multipleOutputs && !singleLinear && outputNode && rawProps(outputNode).supersample === true ? 2 : 1
   const props = (n: StudioNode) => resolveNodeScalarExpressions(
     n.data.nodeType as string,
     rawProps(n),
@@ -1143,11 +1154,18 @@ export function generateCpp(
   // HEIGHT/NUM_LEDS become the render size) and average each SS×SS block down
   // into the physical `leds` (PANEL_LEDS) at MatrixOutput. 1 = off (unchanged
   // output). 2× only for now, matching the preview.
-  const supersample = !multipleOutputs && (outputNode ? props(outputNode).supersample : false) === true ? 2 : 1
+  // A single chain has no 2 x 2 block to average down, whatever a supersample
+  // flag left over from an earlier form still says.
+  const supersample = !multipleOutputs && !singleLinear && (outputNode ? props(outputNode).supersample : false) === true ? 2 : 1
   const ss = supersample > 1
   // Physical strip length + panel width for the XY map (differ from the render
   // NUM_LEDS/WIDTH only when supersampling).
-  const physLeds = ss ? 'PANEL_LEDS' : 'NUM_LEDS'
+  // A ring's LEDs sit around a circle inscribed in the render canvas, so it has
+  // its own physical count the way a supersampled panel does — the render buffer
+  // is NUM_LEDS either way, and the strip FastLED drives is not.
+  const isRing = !multipleOutputs && singleForm === 'ring'
+  const ringMap = isRing && outputNode ? ringSampleMapForProps(props(outputNode)) : null
+  const physLeds = isRing ? 'RING_LEDS' : ss ? 'PANEL_LEDS' : 'NUM_LEDS'
   const panelW = ss ? 'PANEL_W' : 'WIDTH'
   // Optional power cap (FastLED.setMaxPowerInVoltsAndMilliamps) — dims globally
   // to keep the PSU draw under a limit so a big matrix can't brown out the board.
@@ -1168,6 +1186,8 @@ export function generateCpp(
       dataPin: sanitizePin(p.dataPin, 5),
       hardware: ledHardwareFromProps(p),
       xyTable: buildXYTable(route.width, route.height, p),
+      /** Physical LEDs on this route: a panel's grid, or a chain's length. */
+      ledTotal: outputLedTotal(p),
     }
   })
 
@@ -5567,7 +5587,12 @@ export function generateCpp(
           const leds = `leds_${route.safeId}`
           const xy = route.xyTable ? `XY_${route.safeId}(_x, _y)` : `_y * ${route.width} + _x`
           if (!src) {
-            ln(`  fill_solid(${leds}, ${route.width * route.height}, CRGB::Black);`)
+            ln(`  fill_solid(${leds}, ${route.ledTotal}, CRGB::Black);`)
+          } else if (route.ringMap) {
+            ln(`  for (int _i = 0; _i < ${route.ringMap.length}; _i++) {`)
+            ln(`    CRGB _c = ${src}[pgm_read_word(&_ringmap_${route.safeId}[_i])]; _c.nscale8_video(${route.hardware.brightness});`)
+            ln(`    ${leds}[_i] = _c;`)
+            ln(`  }`)
           } else if (route.routeMode === 'crop') {
             ln(`  for (int _y = 0; _y < ${route.height}; _y++) for (int _x = 0; _x < ${route.width}; _x++) {`)
             ln(`    int _sx = (${route.routeX} + _x) % WIDTH, _sy = (${route.routeY} + _y) % HEIGHT;`)
@@ -5589,6 +5614,8 @@ export function generateCpp(
         }
         if (!src) {
           ln(`  fill_solid(leds, ${physLeds}, CRGB::Black);`)
+        } else if (ringMap) {
+          ln(`  for (int _i = 0; _i < RING_LEDS; _i++) leds[_i] = ${src}[pgm_read_word(&_ringmap[_i])];`)
         } else if (ss) {
           // Average each SS×SS block of the render buffer into one physical LED.
           const dst = xyTable ? 'XY(_x, _y)' : `_y * PANEL_W + _x`
@@ -5668,6 +5695,9 @@ export function generateCpp(
     lines.push(`#define HEIGHT   ${height}`)
     lines.push(`#define NUM_LEDS (WIDTH * HEIGHT)`)
   }
+  if (ringMap) {
+    lines.push(`#define RING_LEDS ${ringMap.length}                 // LEDs around the ring`)
+  }
   if (multipleOutputs) {
     for (const route of outputConfigs) {
       lines.push(`#define DATA_PIN_${route.safeId} ${route.dataPin}`)
@@ -5679,7 +5709,7 @@ export function generateCpp(
   }
   lines.push(``)
   if (multipleOutputs) {
-    for (const route of outputConfigs) lines.push(`CRGB leds_${route.safeId}[${route.width * route.height}];`)
+    for (const route of outputConfigs) lines.push(`CRGB leds_${route.safeId}[${route.ledTotal}];`)
   } else if (isHub75) {
     lines.push(...hub75GlobalsCpp(hub75Hw!))
   } else {
@@ -5754,6 +5784,23 @@ export function generateCpp(
     lines.push(`  h = (h ^ (h >> 13)) * 1274126177u;`)
     lines.push(`  return ((h ^ (h >> 16)) & 0xFFFFFF) / 16777216.0f;`)
     lines.push(`}`)
+    lines.push(``)
+  }
+
+  // A ring's map is the composition pixel each LED reads, baked from the same
+  // pure helper the live preview routes through, so the circle on the bench and
+  // the circle in the preview are the same circle by construction.
+  if (multipleOutputs) {
+    for (const route of outputConfigs) {
+      if (!route.ringMap) continue
+      lines.push(`// Ring sample map for ${cppComment(route.label)} — render index per LED.`)
+      lines.push(`const uint16_t _ringmap_${route.safeId}[${route.ringMap.length}] PROGMEM = { ${route.ringMap.join(',')} };`)
+      lines.push(``)
+    }
+  } else if (ringMap) {
+    lines.push(`// Ring sample map (LED index -> render index), baked from the ring's`)
+    lines.push(`// LED count, start angle, and direction.`)
+    lines.push(`const uint16_t _ringmap[RING_LEDS] PROGMEM = { ${ringMap.join(',')} };`)
     lines.push(``)
   }
 
@@ -5838,7 +5885,7 @@ export function generateCpp(
         dataPinMacro: `DATA_PIN_${route.safeId}`,
         clockPinMacro: `CLOCK_PIN_${route.safeId}`,
         brightness: null,
-        ledCountMacro: String(route.width * route.height),
+        ledCountMacro: String(route.ledTotal),
         ledsName: `leds_${route.safeId}`,
         controllerName: `controller_${route.safeId}`,
       }))
@@ -5847,7 +5894,7 @@ export function generateCpp(
   } else if (isHub75) {
     lines.push(...hub75SetupCpp(hub75Hw!))
   } else {
-    lines.push(...fastledSetupCpp(hw, ss ? { ledCountMacro: physLeds } : {}))
+    lines.push(...fastledSetupCpp(hw, (ss || ringMap) ? { ledCountMacro: physLeds } : {}))
   }
   // HUB75 has no FastLED CLEDController registered, so setMaxPowerInVoltsAndMilliamps
   // would have nothing to throttle.
