@@ -112,7 +112,31 @@ Once the pattern is proven, everything physical moves to the hardware view.
 - [ ] **Module thumbnails** in the graph's preview slot; full renders in the
   hardware view. The Blender pipeline already produces board renders and the
   Build Diagram already draws INMP441 and 74AHCT125 graphics.
-- [ ] **Retarget pins on board change**, touching only unedited pins.
+- [ ] **Retarget pins on board change**, touching only unedited pins. Partly
+  built: `retargetedMicPins` / `graphStore.retargetMicPins` already do exactly
+  this for the microphone, and Phase 1 gave it the profile-then-table
+  precedence. This generalises it rather than inventing it.
+- [ ] **Upload leaves the node and gets its own button and popup.** Upload is
+  not a property of one output any more — there can be several, and the board
+  it flashes lives in the hardware view. The popup already exists and is
+  already global (`MatrixOutputDeployPopup`, mounted in `App.tsx`, opened
+  through `uploadStore.deployPopupOpen`); what goes is the 114-line
+  `MatrixOutputUpload` strip embedded in the node body, replaced by one
+  top-level button. This supersedes the "no separate modal" decision recorded
+  in CLAUDE.md, which dates from when `MatrixOutput` was a singleton.
+
+  Two consequences to settle rather than discover:
+
+  1. **Which output does the popup act on?** It takes an
+     `activeOutputNodeId` today because a per-node button supplied one. Opened
+     from a global button with three outputs on the canvas, it either picks
+     one, asks, or becomes genuinely multi-output.
+  2. **The live capacity meter loses its host.** It runs continuously *while
+     composing* precisely because `MatrixOutputUpload` is always mounted in the
+     node body; a popup only mounts when open. Either the compile-check driver
+     moves somewhere always-mounted (the status bar already shows board and
+     chip), or the meter becomes popup-only and stops being the ambient "will
+     it fit" signal it was built to be.
 
 ## Phase 4 — the Audio capability
 
