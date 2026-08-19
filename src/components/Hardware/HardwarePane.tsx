@@ -1,9 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import microphoneRender from '../../assets/components/inmp441-i2s-microphone.webp'
-import buttonRender from '../../assets/components/button-module.webp'
-import potRender from '../../assets/components/potentiometer-module.webp'
-import encoderRender from '../../assets/components/encoder-module.webp'
 import amplifierRender from '../../assets/components/max98357a-i2s-amplifier.webp'
 import ledSegmentRender from '../../assets/components/ws2812b-led.webp'
 import { useGraphStore, type StudioNode } from '../../state/graphStore'
@@ -14,6 +10,7 @@ import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { nextFreeLedDataPin } from '../../state/ledPinAssignment'
 import { assignPartPins, type PartPinRequest } from '../../state/partPinAssignment'
 import { partDimensionsMm, partRenderSrc, ringDiameterMm } from '../../state/partCatalogue'
+import { partRenderForNodeType } from '../../state/partRenders'
 import { useUploadStore } from '../../state/uploadStore'
 import {
   BOARD_PROFILE_FAMILIES,
@@ -75,7 +72,6 @@ interface InputPartEntry {
   partId: string
   label: string
   hint: string
-  render: string
   footprint: PartFootprintMm
   /** The output port whose activity lights this part's run to the board. */
   signalPort: string
@@ -126,7 +122,6 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     partId: 'mic',
     label: 'INMP441 microphone',
     hint: 'Creates the microphone graph node',
-    render: partRenderSrc('inmp441-i2s-microphone') ?? microphoneRender,
     // 15.0 x 10.5 from the asset's datasheet-checked part.json. The constant it
     // falls back to says 20.5 x 14.5 — a third larger, for the same picture.
     footprint: partDimensionsMm('inmp441-i2s-microphone', INMP441_FOOTPRINT_MM),
@@ -139,7 +134,6 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     partId: 'button',
     label: 'Button',
     hint: 'A momentary push button',
-    render: buttonRender,
     footprint: BUTTON_MODULE_FOOTPRINT_MM,
     signalPort: 'pressed',
     pinRequests: [{ key: 'pin' }],
@@ -149,7 +143,6 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     partId: 'pot',
     label: 'Potentiometer',
     hint: 'A knob on an analog pin',
-    render: potRender,
     footprint: POT_MODULE_FOOTPRINT_MM,
     signalPort: 'value',
     // The one part that cannot take just any free pin.
@@ -160,7 +153,6 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     partId: 'encoder',
     label: 'Rotary encoder',
     hint: 'Quadrature dial with a push switch',
-    render: encoderRender,
     footprint: ENCODER_MODULE_FOOTPRINT_MM,
     signalPort: 'position',
     pinRequests: [{ key: 'pinA' }, { key: 'pinB' }, { key: 'pinSW' }],
@@ -929,7 +921,11 @@ export default function HardwarePane() {
                 }}
                 title="Right-click for hardware actions"
               >
-                <img src={part.entry.render} alt={part.entry.label} draggable={false} />
+                <img
+                  src={partRenderForNodeType(part.entry.nodeType)?.src}
+                  alt={part.entry.label}
+                  draggable={false}
+                />
               </button>
               <span className={styles.caption} style={captionStyle(part.partId)}>
                 <strong>{part.entry.label}</strong>

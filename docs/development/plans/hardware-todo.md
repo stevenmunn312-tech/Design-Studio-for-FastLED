@@ -165,9 +165,21 @@ Once the pattern is proven, everything physical moves to the hardware view.
   few LEDs sit on it, so `ringDiameterMm` interpolates between the counts that
   were actually modelled rather than fitting a curve. The INMP441 was a third
   too large and is now read from its asset too.
-- [ ] **Module thumbnails** in the graph's preview slot; full renders in the
-  hardware view. The Blender pipeline already produces board renders and the
-  Build Diagram already draws INMP441 and 74AHCT125 graphics.
+- [x] **Module thumbnails** in the graph's preview slot; full renders in the
+  hardware view. The four signal-carrying parts show their own module photo
+  above their port rows, collapsible through the same `previewHidden` toggle
+  every other preview uses. Capped in height with `object-fit: contain` rather
+  than stretched, because the renders differ in aspect — a microphone is wide,
+  an amplifier is tall — and a fixed box would letterbox one and crop another.
+
+  `src/state/partRenders.ts` is the single map from node type to picture, read
+  by both views. Two lists would eventually disagree about which photo is which
+  part, which is exactly the confusion the photo is there to prevent. It still
+  has two sources underneath: the microphone resolves through the generated
+  catalogue, while button, potentiometer and encoder predate `Parts/` and stay
+  bundled imports. Moving those three into `Parts/` with a `part.json` would
+  collapse that — and would give them datasheet-checked dimensions, which they
+  currently lack (their footprints are still derived from the render aspect).
 - [ ] **Retarget pins on board change**, touching only unedited pins. Partly
   built: `retargetedMicPins` / `graphStore.retargetMicPins` already do exactly
   this for the microphone, and Phase 1 gave it the profile-then-table

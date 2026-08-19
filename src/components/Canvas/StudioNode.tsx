@@ -15,6 +15,7 @@ import ComplexWaveScope from './ComplexWaveScope'
 import NodePreview, { type PreviewKind } from './NodePreview'
 import HardwareLedPreview from '../Hardware/HardwareLedPreview'
 import { isLinearForm, outputForm, outputGridDims, ringDirection, ringStartAngle } from '../../state/ledOutputForm'
+import { partRenderForNodeType } from '../../state/partRenders'
 import MatrixSizePopup from './MatrixSizePopup'
 import BeatDetectBody from './BeatDetectBody'
 import FFTAnalyzerBody from './FFTAnalyzerBody'
@@ -1098,6 +1099,16 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const isBeatDetect = d.nodeType === 'BeatDetect'
   const isFFTAnalyzer = d.nodeType === 'FFTAnalyzer'
   const isHardwareInput = d.nodeType === 'ButtonInput' || d.nodeType === 'PotInput' || d.nodeType === 'EncoderInput'
+  /*
+   * A thumbnail of the part this node is, in the preview slot.
+   *
+   * Small deliberately. A photoreal module either shrinks past recognition or
+   * grows enough to wreck the density that makes a node graph readable, and
+   * these nodes already carry a live widget and their pin fields — so the
+   * picture confirms which part you are looking at and then gets out of the
+   * way. The hardware view is where it is drawn at a size worth studying.
+   */
+  const partRender = partRenderForNodeType(d.nodeType)
   const waveSamples = isWave
     ? waveNodeSamples(String(props.waveform ?? 'sine'), Number(props.amplitude ?? 1), Number(props.frequency ?? 1), Number(props.phase ?? 0))
     : null
@@ -1270,6 +1281,38 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                 onClick={() => updateNodeProperty(id, 'previewHidden', true)}
                 title="Hide preview"
                 aria-label="Hide preview"
+              >
+                ▾
+              </button>
+            </div>
+          )
+        )}
+        {partRender && (
+          previewHidden ? (
+            <button
+              type="button"
+              className={`nodrag ${styles.previewToggleCollapsed}`}
+              onClick={() => updateNodeProperty(id, 'previewHidden', false)}
+              title="Show part"
+              aria-label="Show part"
+            >
+              ▸ part
+            </button>
+          ) : (
+            <div className={styles.previewWrap}>
+              <img
+                className={styles.partThumb}
+                src={partRender.src}
+                alt={partRender.label}
+                title={partRender.label}
+                draggable={false}
+              />
+              <button
+                type="button"
+                className={`nodrag ${styles.previewToggle}`}
+                onClick={() => updateNodeProperty(id, 'previewHidden', true)}
+                title="Hide part"
+                aria-label="Hide part"
               >
                 ▾
               </button>

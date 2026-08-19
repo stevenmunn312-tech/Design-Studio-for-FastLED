@@ -309,6 +309,24 @@
  * changes every frame is one of the two renderer-memory leaks this project has
  * been bitten by; see src/dev/animationFilterGuard.ts.
  */
+/*
+ * The module photo on a hardware node. Capped in height rather than stretched
+ * to the body width: these renders differ in aspect (a microphone is wide, an
+ * amplifier is tall), and a fixed box would letterbox one and crop another.
+ * `object-fit: contain` keeps every part its own shape at a common size.
+ *
+ * Small on purpose — see the comment at `partRender` in StudioNode.tsx.
+ */
+.partThumb {
+  display: block;
+  width: 100%;
+  height: 52px;
+  object-fit: contain;
+  object-position: center;
+  border-radius: 3px;
+  pointer-events: none;
+}
+
 .outputShape {
   position: relative;
   margin: 0 auto;
