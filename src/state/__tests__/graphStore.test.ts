@@ -1556,3 +1556,39 @@ describe('graphStore — duplicateSelection', () => {
     expect(useGraphStore.getState().nodes).toHaveLength(1)
   })
 })
+
+describe('focusNode', () => {
+  function node(id: string, selected = false): StudioNode {
+    return {
+      id, type: 'studioNode', position: { x: 0, y: 0 }, selected,
+      data: { label: id, nodeType: 'SolidColor', category: 'pattern', properties: {}, inputs: [], outputs: [] },
+    } as unknown as StudioNode
+  }
+
+  it('makes its target the only selected node', () => {
+    // Reported from the bench: clicking a hardware part centred the graph on
+    // its node while the previously-clicked node stayed React-Flow-selected,
+    // kept RF's own elevation, and went on obscuring it.
+    useGraphStore.getState().loadGraph([node('a', true), node('b')], [])
+    useGraphStore.getState().focusNode('b')
+    const { nodes, selectedNodeId } = useGraphStore.getState()
+    expect(selectedNodeId).toBe('b')
+    expect(nodes.find((n) => n.id === 'a')!.selected).toBe(false)
+    expect(nodes.find((n) => n.id === 'b')!.selected).toBe(true)
+  })
+
+  it('leaves the array alone when the flags already agree', () => {
+    useGraphStore.getState().loadGraph([node('a'), node('b', true)], [])
+    const before = useGraphStore.getState().nodes
+    useGraphStore.getState().focusNode('b')
+    expect(useGraphStore.getState().nodes).toBe(before)
+  })
+
+  it('is not what selectNode does', () => {
+    // selectNode must stay non-exclusive: onNodeClick fires for ctrl-click
+    // too, so collapsing the selection there would break multi-select.
+    useGraphStore.getState().loadGraph([node('a', true), node('b', true)], [])
+    useGraphStore.getState().selectNode('b')
+    expect(useGraphStore.getState().nodes.find((n) => n.id === 'a')!.selected).toBe(true)
+  })
+})

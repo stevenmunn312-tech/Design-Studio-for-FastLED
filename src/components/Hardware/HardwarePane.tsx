@@ -271,7 +271,7 @@ export default function HardwarePane() {
   const edges = useGraphStore((state) => state.edges)
   const viewCenter = useUiStore((state) => state.viewCenter)
   const setStatus = useUiStore((state) => state.setStatus)
-  const selectNode = useGraphStore((state) => state.selectNode)
+  const focusNode = useGraphStore((state) => state.focusNode)
   const requestFitView = useUiStore((state) => state.requestFitView)
   const flashNode = useUiStore((state) => state.flashNode)
   const previewOutputId = useUiStore((state) => state.previewOutputId)
@@ -432,7 +432,7 @@ export default function HardwarePane() {
   }, [itemMenu, nodes])
 
   const revealNode = (nodeId: string, label: string) => {
-    selectNode(nodeId)
+    focusNode(nodeId)
     requestFitView([nodeId])
     flashNode(nodeId)
     setStatus(`Showing ${label} in the graph`, 'info')

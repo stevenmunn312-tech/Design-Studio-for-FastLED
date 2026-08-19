@@ -34,7 +34,7 @@ export default function GraphHealthDrawer() {
   const edges = useGraphStore((state) => state.edges)
   const activeGraphId = useGraphStore((state) => state.activeGraphId)
   const graphs = useGraphStore((state) => state.graphs)
-  const selectNode = useGraphStore((state) => state.selectNode)
+  const focusNode = useGraphStore((state) => state.focusNode)
   const selectedFqbn = useUploadStore((state) => state.selectedFqbn)
   const openBoardPopup = useUploadStore((state) => state.openBoardPopup)
   const open = useUiStore((state) => state.graphHealthOpen)
@@ -56,7 +56,7 @@ export default function GraphHealthDrawer() {
 
   const locate = (issue: GraphDiagnostic) => {
     if (issue.nodeIds.length === 0) return
-    selectNode(issue.nodeIds[0])
+    focusNode(issue.nodeIds[0])
     requestFitView(issue.nodeIds)
     setStatus(`Located ${issue.nodeLabel ?? 'graph issue'}`, 'info')
   }

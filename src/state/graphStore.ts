@@ -163,6 +163,9 @@ interface GraphState {
    *  layout that already has room. */
   spreadNodes: () => void
   selectNode: (id: string | null) => void
+  /** Make `id` the one selected node, setting React Flow's own flags too —
+   *  for "take me to this node" actions triggered outside the canvas. */
+  focusNode: (id: string) => void
   selectAllNodes: () => void
   /** Deselect every node (Escape) — clears both the marquee/click selection
    *  state on the nodes and the Inspector's `selectedNodeId`. */
@@ -1094,6 +1097,37 @@ export const useGraphStore = create<GraphState>()(
         set((s) => ({ nodes: spreadNodesByEdges(s.nodes, s.edges) })),
 
       selectNode: (id) => set({ selectedNodeId: id }),
+
+      /*
+       * "Take me to this node" — an exclusive selection made in code.
+       *
+       * Distinct from `selectNode`, which deliberately only records our own
+       * `selectedNodeId`: React Flow drives its `selected` flags itself on a
+       * canvas click, and `onNodeClick` fires for ctrl-click too, so making
+       * that action exclusive would collapse a multi-selection every time a
+       * node was added to one.
+       *
+       * Nothing sets those flags for a selection made in code, though, which
+       * left the previously-clicked node still React-Flow-selected: it kept
+       * RF's own elevation, tied with ours, and won on DOM order — so the
+       * hardware view would centre on a node that stayed underneath the one
+       * you had selected before. Two nodes also drew as selected at once.
+       *
+       * Returns the array unchanged when the flags already agree, so this
+       * costs nothing when the node was already the lone selection.
+       */
+      focusNode: (id) => set((s) => {
+        if (!s.nodes.some((node) => (node.selected ?? false) !== (node.id === id))) {
+          return { selectedNodeId: id }
+        }
+        return {
+          selectedNodeId: id,
+          nodes: s.nodes.map((node) => {
+            const selected = node.id === id
+            return (node.selected ?? false) === selected ? node : { ...node, selected }
+          }),
+        }
+      }),
 
       selectAllNodes: () =>
         set((s) => ({ nodes: s.nodes.map((n) => ({ ...n, selected: true })) })),
