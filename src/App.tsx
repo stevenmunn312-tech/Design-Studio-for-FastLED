@@ -282,7 +282,7 @@ export default function App() {
     if (previous === null || previous === boardFqbn) return
     const moved = retargetHardwarePins(boardFqbn)
     if (moved > 0) {
-      setStatus(`Moved ${moved} part${moved > 1 ? 's' : ''} onto this board's pins — hand-edited pins were left alone`, 'info')
+      setStatus(`Moved ${moved} part${moved > 1 ? 's' : ''} onto this board's pins`, 'info')
     }
   }, [selectedBoardProfile, selectedFqbn, retargetHardwarePins, setStatus])
 

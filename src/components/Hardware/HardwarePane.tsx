@@ -682,6 +682,7 @@ export default function HardwarePane() {
         properties: withAssignedPins(
           resolveDefaultProperties(definition.type, definition.defaultProperties, boardProfile),
           assigned.pins,
+          selectedFqbn,
         ),
         inputs: definition.inputs,
         outputs: definition.outputs,
@@ -747,6 +748,7 @@ export default function HardwarePane() {
         properties: withAssignedPins(
           resolveDefaultProperties(definition.type, definition.defaultProperties, boardProfile),
           profilePins,
+          selectedFqbn,
         ),
         inputs: definition.inputs,
         outputs: definition.outputs,

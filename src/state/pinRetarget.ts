@@ -11,6 +11,13 @@
 // to move, and a pin holding anything else is the user's to keep. No heuristic
 // about "does this look like a default", no coincidences, and it survives a
 // round trip through a saved project.
+//
+// And it is recorded *per board*. Wiring a pin by hand is a decision about the
+// board in front of you — the same reason `micOverridesByFqbn` keeps the
+// microphone's remembered settings per upload target rather than in one global
+// bucket. Carrying that decision onto a different board would strand the part
+// on a pin the new board may not even expose, so an edit protects a pin on the
+// board it was made for and nowhere else.
 
 import type { StudioNode } from './graphStore'
 import type { PhysicalBoardProfile } from '../build/boardProfiles'
@@ -20,6 +27,8 @@ import { outputForm } from './ledOutputForm'
 
 /** Property holding the values the app last assigned, keyed by pin property. */
 export const ASSIGNED_PINS_KEY = 'assignedPins'
+/** Property holding the board those assignments were made for. */
+export const ASSIGNED_BOARD_KEY = 'assignedPinsBoard'
 
 /**
  * The pins each hardware part owns, and where they come from on a board.
@@ -70,14 +79,26 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
   },
 }
 
-/** Stamp the values the app just assigned, so a later edit is recognisable. */
+/**
+ * Stamp the values the app just assigned, and the board they are for, so a
+ * later edit is recognisable and a later board change knows to ignore it.
+ */
 export function withAssignedPins(
   properties: Record<string, unknown>,
   pins: Record<string, number>,
+  fqbn?: string,
 ): Record<string, unknown> {
   if (Object.keys(pins).length === 0) return properties
-  const previous = (properties[ASSIGNED_PINS_KEY] ?? {}) as Record<string, number>
-  return { ...properties, ...pins, [ASSIGNED_PINS_KEY]: { ...previous, ...pins } }
+  // Assignments only compose while they are for the same board; a new board
+  // starts a fresh record rather than inheriting the old one's values.
+  const sameBoard = !fqbn || properties[ASSIGNED_BOARD_KEY] === fqbn
+  const previous = sameBoard ? (properties[ASSIGNED_PINS_KEY] ?? {}) as Record<string, number> : {}
+  return {
+    ...properties,
+    ...pins,
+    [ASSIGNED_PINS_KEY]: { ...previous, ...pins },
+    ...(fqbn ? { [ASSIGNED_BOARD_KEY]: fqbn } : {}),
+  }
 }
 
 /**
@@ -87,6 +108,10 @@ export function withAssignedPins(
  * user's — including a pin edited back to the value the app once chose, which
  * is indistinguishable from an untouched one and is treated as untouched,
  * because the outcome is identical either way.
+ *
+ * An edit made for a *different* board does not protect anything here: it was
+ * a decision about that board's header, and holding a part to it on a board
+ * that may not even expose the pin would be worse than moving it.
  *
  * With no record at all — a node from a project saved before provenance was
  * kept — the microphone falls back to the check that was written for it and
@@ -98,7 +123,11 @@ export function isPinAppOwned(
   nodeType: string,
   properties: Record<string, unknown>,
   key: string,
+  fqbn?: string,
 ): boolean {
+  const stampedFor = properties[ASSIGNED_BOARD_KEY]
+  if (fqbn && typeof stampedFor === 'string' && stampedFor !== fqbn) return true
+
   const assigned = properties[ASSIGNED_PINS_KEY] as Record<string, number> | undefined
   const recorded = assigned?.[key]
   if (typeof recorded === 'number') return Number(properties[key]) === recorded
@@ -152,7 +181,7 @@ export function retargetHardwarePins(
     if (!plan) continue
     const properties = node.data.properties as Record<string, unknown>
     for (const key of plan.keys) {
-      if (!isPinAppOwned(node.data.nodeType, properties, key)) {
+      if (!isPinAppOwned(node.data.nodeType, properties, key, fqbn)) {
         const pin = Number(properties[key])
         if (Number.isFinite(pin)) claimed.add(pin)
       }
@@ -172,7 +201,7 @@ export function retargetHardwarePins(
     // A HUB75 panel takes a signal ribbon, not pins from this pool.
     if (node.data.nodeType === 'MatrixOutput' && outputForm(properties) === 'hub75') continue
 
-    const movable = plan.keys.filter((key) => isPinAppOwned(node.data.nodeType, properties, key))
+    const movable = plan.keys.filter((key) => isPinAppOwned(node.data.nodeType, properties, key, fqbn))
     if (movable.length === 0) continue
 
     let next: Record<string, number> | null =
@@ -212,7 +241,7 @@ export function retargetHardwarePins(
         ...node,
         data: {
           ...node.data,
-          properties: withAssignedPins(node.data.properties as Record<string, unknown>, pins),
+          properties: withAssignedPins(node.data.properties as Record<string, unknown>, pins, fqbn),
         },
       }
     }),

@@ -39,6 +39,24 @@ describe('pin ownership', () => {
     expect(both.assignedPins).toEqual({ pinA: 4, pinB: 5 })
   })
 
+  it('ignores an edit made for a different board', () => {
+    // Wiring a pin by hand is a decision about the board in front of you.
+    // Holding a part to it on a board that may not even expose that pin would
+    // be worse than moving it — the same reason mic defaults are kept per FQBN.
+    const properties = { ...withAssignedPins({}, { pin: 4 }, 'esp32:esp32:esp32'), pin: 12 }
+    expect(isPinAppOwned('ButtonInput', properties, 'pin', 'esp32:esp32:esp32')).toBe(false)
+    expect(isPinAppOwned('ButtonInput', properties, 'pin', ESP32_S3)).toBe(true)
+  })
+
+  it('starts a fresh record when the board changes', () => {
+    const onFirst = withAssignedPins({}, { pinA: 4 }, 'esp32:esp32:esp32')
+    const onSecond = withAssignedPins(onFirst, { pinB: 5 }, ESP32_S3)
+    // pinA belonged to the old board and must not be carried over as though
+    // it had been chosen for this one.
+    expect(onSecond.assignedPins).toEqual({ pinB: 5 })
+    expect(onSecond.assignedPinsBoard).toBe(ESP32_S3)
+  })
+
   it('reads a legacy microphone through the check written for it', () => {
     // No provenance recorded. 39/40/41 is a known Studio starting point, so it
     // was never hand-wired; 7/8/9 in that slot is not, so it was.
