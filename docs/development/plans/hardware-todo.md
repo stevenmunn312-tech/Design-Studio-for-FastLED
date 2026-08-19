@@ -150,8 +150,21 @@ Once the pattern is proven, everything physical moves to the hardware view.
   chains.
 - [ ] **Part dropdown per component** (INMP441, MAX98357A, …) driving pin roles,
   thumbnail and caveats.
-- [ ] **Part catalogue.** Probably the same shape as `boardProfiles.ts` — id,
-  label, pin roles, render, notes.
+- [x] **Part catalogue.** `scripts/import-part-assets.py` reads each modelled
+  asset's `part.json`, converts its Cycles PNG to WebP under `public/parts/`,
+  and emits `src/build/generated/partCatalogueData.ts` — the same
+  generate-then-merge shape as the board importer. `src/state/partCatalogue.ts`
+  is the typed reader: `partDimensionsMm`, `partRenderSrc`, `ringDiameterMm`.
+
+  It exists because the app was guessing sizes the assets already knew from
+  datasheets, and the hardware view's whole promise is true relative scale. Two
+  of the three hand-declared footprints were wrong: the MAX98357A by nearly half
+  its length, and every ring diameter, derived as `N x 10 mm / pi` — which gives
+  25.5 mm for an 8-LED ring that measures 32.2 and 191 mm for a 60 that measures
+  158. Rings are not linear in LED count because a small one needs a hub however
+  few LEDs sit on it, so `ringDiameterMm` interpolates between the counts that
+  were actually modelled rather than fitting a curve. The INMP441 was a third
+  too large and is now read from its asset too.
 - [ ] **Module thumbnails** in the graph's preview slot; full renders in the
   hardware view. The Blender pipeline already produces board renders and the
   Build Diagram already draws INMP441 and 74AHCT125 graphics.

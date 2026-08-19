@@ -13,6 +13,7 @@ import { CATEGORY_COLOR, NODE_LIBRARY } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { nextFreeLedDataPin } from '../../state/ledPinAssignment'
 import { assignPartPins, type PartPinRequest } from '../../state/partPinAssignment'
+import { partDimensionsMm, partRenderSrc, ringDiameterMm } from '../../state/partCatalogue'
 import { useUploadStore } from '../../state/uploadStore'
 import {
   BOARD_PROFILE_FAMILIES,
@@ -33,7 +34,6 @@ import {
   ROOT_BOARD_NODE_ID,
   WS2812B_MATRIX_PITCH_MM,
   WS2812B_PITCH_MM,
-  WS2812B_RING_PITCH_MM,
   WS2812B_STRIP_WIDTH_MM,
   type PartFootprintMm,
 } from '../../state/hardware'
@@ -113,8 +113,8 @@ const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     partId: 'amplifier',
     label: 'Amplifier',
     hint: 'I2S amp for the SD-card player',
-    footprint: MAX98357A_FOOTPRINT_MM,
-    render: amplifierRender,
+    footprint: partDimensionsMm('max98357a-i2s-amplifier', MAX98357A_FOOTPRINT_MM),
+    render: partRenderSrc('max98357a-i2s-amplifier') ?? amplifierRender,
     profilePins: { i2sBclk: 'bclk', i2sLrc: 'lrc', i2sDout: 'din' },
     singleton: true,
   },
@@ -126,8 +126,10 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     partId: 'mic',
     label: 'INMP441 microphone',
     hint: 'Creates the microphone graph node',
-    render: microphoneRender,
-    footprint: INMP441_FOOTPRINT_MM,
+    render: partRenderSrc('inmp441-i2s-microphone') ?? microphoneRender,
+    // 15.0 x 10.5 from the asset's datasheet-checked part.json. The constant it
+    // falls back to says 20.5 x 14.5 — a third larger, for the same picture.
+    footprint: partDimensionsMm('inmp441-i2s-microphone', INMP441_FOOTPRINT_MM),
     signalPort: 'audio',
     pinRequests: [],
     singleton: true,
@@ -363,7 +365,10 @@ export default function HardwarePane() {
         // ring's diameter follows from its own circumference, and a HUB75 panel
         // is much denser than addressable tape, which is exactly the difference
         // worth seeing on the bench.
-        const ringDiameterMm = (ledCount * WS2812B_RING_PITCH_MM) / Math.PI
+        // Measured where the ring exists, interpolated where it does not — real
+        // rings are not linear in LED count, because a small one needs a hub
+        // whatever sits on it. See partCatalogue.ringDiameterMm.
+        const ringMm = ringDiameterMm(ledCount)
         const pitch = form === 'hub75' ? HUB75_PITCH_MM : WS2812B_MATRIX_PITCH_MM
         const feed = edges.find((edge) => edge.target === node.id)
         return {
@@ -382,8 +387,8 @@ export default function HardwarePane() {
               direction: ringDirection(props),
             }
             : null,
-          widthMm: isStrip ? cols * WS2812B_PITCH_MM : isRing ? ringDiameterMm : cols * pitch,
-          heightMm: isStrip ? WS2812B_STRIP_WIDTH_MM : isRing ? ringDiameterMm : rows * pitch,
+          widthMm: isStrip ? cols * WS2812B_PITCH_MM : isRing ? ringMm : cols * pitch,
+          heightMm: isStrip ? WS2812B_STRIP_WIDTH_MM : isRing ? ringMm : rows * pitch,
           dataPin: Number(props.dataPin ?? 0),
           signalKey: feed ? `${feed.source}:${feed.sourceHandle ?? 'frame'}` : null,
         }

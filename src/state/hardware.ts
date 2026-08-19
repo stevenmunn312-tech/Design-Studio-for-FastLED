@@ -66,14 +66,10 @@ export const WS2812B_STRIP_WIDTH_MM = 8.41
  */
 export const WS2812B_MATRIX_PITCH_MM = 10
 
-/**
- * Ring spacing, from the same 10 mm LED pitch a panel uses — a ring is the same
- * 5050 package on a round PCB. Its diameter follows from its own circumference
- * rather than a table of stock parts: `N x pitch = pi x D`. A 24-LED ring comes
- * out at 76 mm against a real one's ~86 mm outer diameter, which is the
- * difference between the LED circle and the board it is on.
- */
-export const WS2812B_RING_PITCH_MM = 10
+// Ring diameters are no longer derived. `N x pitch = pi x D` predicted 76 mm
+// for a 24-LED ring that measures 65.5, and was wrong at both ends of the
+// range — a small ring needs a minimum hub however few LEDs sit on it. The
+// modelled assets carry the measured figure; see partCatalogue.ringDiameterMm.
 
 /**
  * HUB75 scan panels are sold by pixel pitch, and P4 (4 mm) is the common indoor
