@@ -458,10 +458,15 @@ export function findPinConflicts(nodes: StudioNode[], edges: StudioEdge[] = []):
 }
 
 /**
- * Parallel runs share one array, so the leader's size is the one that reaches
- * the wire. A mirror of a different length is not a wiring choice with a
- * meaning — the shorter panel takes a prefix of the longer one's pixels and the
- * rest fall off the end — so say so rather than emit it quietly.
+ * Parallel runs share one array, so the leader's length is the one that reaches
+ * the wire and a shorter run lights only the first part of it.
+ *
+ * A **warning**, not an error, because uneven parallel runs are a real build:
+ * eight strips forming a star with four of them half length is exactly this
+ * shape, and taking a prefix is what the designer wants there. Worth saying out
+ * loud — it is also what an accidental size typo looks like — but never worth
+ * blocking an upload over, so the copy describes the behaviour rather than
+ * demanding a fix.
  */
 export function findMirroredOutputMismatches(nodes: StudioNode[], edges: StudioEdge[]): string[] {
   const routes = outputRoutes(nodes)
@@ -476,7 +481,8 @@ export function findMirroredOutputMismatches(nodes: StudioNode[], edges: StudioE
     const mine = outputLedTotal(route.node.data.properties as Record<string, unknown>)
     const theirs = outputLedTotal(leader.node.data.properties as Record<string, unknown>)
     if (mine !== theirs) {
-      issues.push(`${route.label} (${mine} LEDs) is wired in parallel with ${leader.label} (${theirs} LEDs) on GPIO ${route.dataPin} — parallel runs show the same data, so the shorter one lights only the first ${Math.min(mine, theirs)} pixels. Match their lengths, or move one to its own pin.`)
+      const shorter = mine < theirs ? route.label : leader.label
+      issues.push(`${route.label} (${mine} LEDs) and ${leader.label} (${theirs} LEDs) are wired in parallel on GPIO ${route.dataPin}, so both carry the same data and ${shorter} lights only the first ${Math.min(mine, theirs)} pixels of it. Intended for uneven runs; match their lengths or split the pin if it is not.`)
     }
   }
   return issues.sort()
@@ -907,10 +913,10 @@ export function buildGraphDiagnostics(
   }
   findMirroredOutputMismatches(nodes, edges).forEach((message, index) => {
     diagnostics.push({
-      id: `mirror-mismatch-${index}`, severity: 'error', category: 'layout',
+      id: `mirror-mismatch-${index}`, severity: 'warning', category: 'layout',
       title: 'Parallel runs are different lengths',
       message,
-      fix: 'Match the two runs\' LED counts, or give one its own data pin so they are independent outputs.',
+      fix: 'Nothing to fix if the uneven runs are deliberate. Otherwise match their LED counts, or give one its own data pin so they become independent outputs.',
       nodeIds: [], nodeLabel: 'LED outputs',
     })
   })
@@ -1277,7 +1283,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   errors.push(...findPinConflicts(nodes, edges))
   errors.push(...findOutputResourceErrors(nodes))
   errors.push(...findMatrixLayoutErrors(nodes))
-  errors.push(...findMirroredOutputMismatches(nodes, edges))
+
   errors.push(...findHub75ConfigErrors(nodes))
   errors.push(...findScalarExpressionErrors(nodes))
   errors.push(...findFormulaErrors(nodes))
@@ -1295,6 +1301,8 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
       `Worst-case draw (~${power.worstCaseMa} mA for ${power.ledCount} LEDs) exceeds the configured power cap (${power.configuredMa} mA) — FastLED will auto-dim to stay under it`
     )
   }
+
+  warnings.push(...findMirroredOutputMismatches(nodes, edges))
 
   const ram = estimateFirmwareRam(nodes, edges)
   if (ram && !ram.usesPsram && ram.internalBytes > INTERNAL_RAM_WARN_BYTES) {

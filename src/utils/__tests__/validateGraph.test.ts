@@ -1122,15 +1122,24 @@ describe('runs wired in parallel off one pin', () => {
     expect(collisions[0].title).toContain('GPIO 18')
   })
 
-  it('surfaces a parallel-run length mismatch in Graph Health', () => {
+  it('reports uneven parallel runs as a warning, never an error', () => {
+    // Eight strips forming a star with four of them half length is a real
+    // build, and taking a prefix is what the designer wants there. Worth
+    // saying, never worth blocking an upload over.
     const nodes = [
       node('sc', 'SolidColor'),
       out('a', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
       out('b', { form: 'strip', ledCount: 60, dataPin: 18 }),
     ]
-    const found = buildGraphDiagnostics(nodes, [feed('e1', 'a'), feed('e2', 'b')])
+    const edges = [feed('e1', 'a'), feed('e2', 'b')]
+    const found = buildGraphDiagnostics(nodes, edges)
       .filter((d) => d.title === 'Parallel runs are different lengths')
     expect(found).toHaveLength(1)
+    expect(found[0].severity).toBe('warning')
+
+    const { errors, warnings } = validateGraph(nodes, edges)
+    expect(warnings.some((w) => w.includes('lights only the first 60 pixels'))).toBe(true)
+    expect(errors.some((e) => e.includes('wired in parallel'))).toBe(false)
   })
 
   it('flags a mirror of a different length, which cannot show the same data', () => {

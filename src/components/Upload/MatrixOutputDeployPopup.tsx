@@ -80,9 +80,12 @@ export default function MatrixOutputDeployPopup() {
 
   const pinConflicts = useMemo(() => findPinConflicts(nodes, edges), [nodes, edges])
   const layoutErrors = useMemo(
-    () => [...findMatrixLayoutErrors(nodes), ...findMirroredOutputMismatches(nodes, edges)],
-    [nodes, edges],
+    () => findMatrixLayoutErrors(nodes),
+    [nodes],
   )
+  // Uneven parallel runs are worth saying and never worth blocking — a star
+  // with half-length arms is a real build, not a misconfiguration.
+  const mirrorNotes = useMemo(() => findMirroredOutputMismatches(nodes, edges), [nodes, edges])
   const outputResourceErrors = useMemo(() => findOutputResourceErrors(nodes), [nodes])
   const boardCompatibilityErrors = useMemo(
     () => findBoardCompatibilityErrors(nodes, selectedFqbn),
@@ -459,6 +462,12 @@ export default function MatrixOutputDeployPopup() {
         {blockingErrors.length > 0 && (
           <div className={styles.streamError}>
             {blockingErrors.map((c) => <div key={c}>{c}</div>)}
+          </div>
+        )}
+
+        {mirrorNotes.length > 0 && (
+          <div className={styles.streamNote}>
+            {mirrorNotes.map((note) => <div key={note}>{note}</div>)}
           </div>
         )}
 

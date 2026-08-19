@@ -349,6 +349,17 @@
   line-height: 1.4;
 }
 
+/* Something worth reading before flashing, but not a reason to stop — uneven
+   parallel runs, for instance, which are a real build rather than a mistake. */
+.streamNote {
+  font-size: 10px;
+  /* The amber Graph Health already uses for warnings, so one severity reads
+     the same everywhere rather than inventing a second colour for it. */
+  color: var(--accent-favourites);
+  text-align: center;
+  line-height: 1.4;
+}
+
 .powerRow {
   font-size: 9px;
   color: var(--text-secondary);
