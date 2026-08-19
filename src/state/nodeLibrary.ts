@@ -2380,7 +2380,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // Clock pin for SPI (clocked) chipsets — APA102/APA102HD/WS2801/HD108.
       // Ignored (editor disabled) for clockless chipsets.
       clockPin: 6,
-      serpentine: false,
+      // On by default, because the matrix people actually buy is serpentine —
+      // the cheap flexible WS2812B panels almost all zig-zag alternate rows, so
+      // defaulting off meant the common case shipped mirrored every other row
+      // and the user had to know the word "serpentine" to fix it. Gated to the
+      // grid forms: a single chain has no alternate rows to zig.
+      serpentine: true,
       // Physical wiring order *within* the matrix and HUB75 forms
       // (src/state/xyLayout.ts): 'matrix' keeps the plain row-major (or
       // pixel-serpentine) behaviour above; 'panels' splits the grid into

@@ -30,7 +30,7 @@ import { particleRadius } from '../state/particleScale'
 import { buildXYTable, rotatePoint, tileRotationAt } from '../state/xyLayout'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette, type RGB } from '../state/customPalette'
 import { animartrixCppLines } from '../animartrix/codegen'
-import { compositionDims, outputRoutes, ringMapFor } from '../state/outputRouting'
+import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes, ringMapFor } from '../state/outputRouting'
 import { isLinearForm, outputCanvasDims, outputForm, outputLedTotal } from '../state/ledOutputForm'
 import { getNetworkCredentials } from '../state/networkCredentials'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
@@ -1101,7 +1101,21 @@ export function generateCpp(
 
   const nodeMap = new Map(nodes.map((n) => [n.id, n]))
 
-  const outputNodes = nodes.filter((n) => n.data.nodeType === 'MatrixOutput')
+  const allOutputNodes = nodes.filter((n) => n.data.nodeType === 'MatrixOutput')
+  /*
+   * Runs wired in parallel off one GPIO are one controller, not several: the
+   * pixels reach the mirror down the leader's wire, so it gets no `leds` array,
+   * no `addLeds`, and no blit. `outputMirrorLeaders` decides which is which
+   * (same frame + same data pin), and everything downstream here works from
+   * the leaders alone — including whether this is a single-output sketch at
+   * all, so two mirrored panels emit the same simple sketch one panel does.
+   */
+  const mirrorLeaders = outputMirrorLeaders(outputRoutes(nodes), edges)
+  const isMirrorOf = (node: StudioNode) => {
+    const leader = mirrorLeaders.get(node.id)
+    return leader && leader !== node.id ? leader : null
+  }
+  const outputNodes = allOutputNodes.filter((n) => !isMirrorOf(n))
   const outputNode = outputNodes[0]
   const multipleOutputs = outputNodes.length > 1
   const rawProps = (n: StudioNode) => n.data.properties as Record<string, unknown>
@@ -1173,16 +1187,18 @@ export function generateCpp(
   const panelW = ss ? 'PANEL_W' : 'WIDTH'
   // Optional power cap (FastLED.setMaxPowerInVoltsAndMilliamps) — dims globally
   // to keep the PSU draw under a limit so a big matrix can't brown out the board.
-  const poweredOutputs = outputNodes.filter((node) => props(node).powerLimit === true)
+  // Every physical run, mirrors included — a parallel panel is a second panel
+  // on the PSU even though it shares an array.
+  const poweredOutputs = allOutputNodes.filter((node) => props(node).powerLimit === true)
   const powerLimit = poweredOutputs.length > 0
   const volts      = intProp(poweredOutputs[0] ? props(poweredOutputs[0]).volts : outputNode ? props(outputNode).volts : undefined, 5, 1, 60)
   const milliamps  = poweredOutputs.length > 0
     ? poweredOutputs.reduce((sum, node) => sum + intProp(props(node).milliamps, 2000, 100, 100000), 0)
     : intProp(outputNode ? props(outputNode).milliamps : undefined, 2000, 100, 100000)
   // Per-node render buffers in external PSRAM (ESP32 family; see PSRAM_ALLOC_CPP).
-  const usePsram = opts.psramAllowed !== false && outputNodes.some((node) => props(node).usePsram === true)
+  const usePsram = opts.psramAllowed !== false && allOutputNodes.some((node) => props(node).usePsram === true)
 
-  const outputConfigs = outputRoutes(nodes).map((route) => {
+  const outputConfigs = leadingOutputRoutes(nodes, edges).map((route) => {
     const p = props(route.node)
     return {
       ...route,
@@ -5582,6 +5598,13 @@ export function generateCpp(
       }
 
       case 'MatrixOutput': {
+        const mirrorOf = isMirrorOf(node)
+        if (mirrorOf) {
+          const leader = nodeMap.get(mirrorOf)
+          ln(`  // ${cppComment(String(node.data.label ?? 'LED output'))} is wired in parallel with`)
+          ln(`  // ${cppComment(String(leader?.data.label ?? 'the first output'))} on the same pin — same wire, same pixels.`)
+          break
+        }
         const src = srcBuf('frame')
         if (isHub75) {
           if (!src) {

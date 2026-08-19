@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, estimatePowerLoad, estimateFirmwareRam, findMirroredOutputMismatches } from '../validateGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -1045,6 +1045,71 @@ describe('validateGraph', () => {
       )
       expect(stopwatch.some((issue) => issue.id === 'clk-clock-no-time')).toBe(false)
     })
+  })
+})
+
+describe('runs wired in parallel off one pin', () => {
+  function out(id: string, props: Record<string, unknown>): StudioNode {
+    return {
+      id, type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        label: `Output ${id}`, nodeType: 'MatrixOutput', category: 'output',
+        properties: props, inputs: [], outputs: [],
+      },
+    } as unknown as StudioNode
+  }
+  const feed = (id: string, target: string) => (
+    { id, source: 'sc', sourceHandle: 'frame', target, targetHandle: 'frame' } as unknown as StudioEdge
+  )
+
+  it('counts every physical run in the power estimate', () => {
+    // Two panels on one wire are still two panels on the PSU. Counting the
+    // shared array once here would under-read the draw by half, in exactly the
+    // situation where a brownout happens.
+    const nodes = [
+      out('a', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
+      out('b', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
+    ]
+    expect(estimatePowerLoad(nodes)!.ledCount).toBe(512)
+  })
+
+  it('counts the shared leds array once in the RAM estimate', () => {
+    const nodes = [
+      node('sc', 'SolidColor'),
+      out('a', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
+      out('b', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
+    ]
+    const edges = [feed('e1', 'a'), feed('e2', 'b')]
+    expect(estimateFirmwareRam(nodes, edges)!.ledsArrayBytes).toBe(256 * 3)
+  })
+
+  it('does not call a deliberately shared pin a conflict', () => {
+    const nodes = [
+      out('a', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
+      out('b', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
+    ]
+    const edges = [feed('e1', 'a'), feed('e2', 'b')]
+    expect(findPinConflicts(nodes, edges)).toEqual([])
+    // Without the shared frame they are two independent runs colliding.
+    expect(findPinConflicts(nodes, [feed('e1', 'a')])).toEqual([expect.stringContaining('GPIO 18')])
+  })
+
+  it('flags a mirror of a different length, which cannot show the same data', () => {
+    const nodes = [
+      out('a', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
+      out('b', { form: 'strip', ledCount: 60, dataPin: 18 }),
+    ]
+    const issues = findMirroredOutputMismatches(nodes, [feed('e1', 'a'), feed('e2', 'b')])
+    expect(issues).toHaveLength(1)
+    expect(issues[0]).toContain('first 60 pixels')
+  })
+
+  it('says nothing when the parallel runs match', () => {
+    const nodes = [
+      out('a', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
+      out('b', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
+    ]
+    expect(findMirroredOutputMismatches(nodes, [feed('e1', 'a'), feed('e2', 'b')])).toEqual([])
   })
 })
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compositionDims, outputRoutes, routeFrame } from '../outputRouting'
+import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes, routeFrame } from '../outputRouting'
 import type { StudioNode } from '../graphStore'
 
 function output(id: string, properties: Record<string, unknown>): StudioNode {
@@ -54,6 +54,69 @@ describe('multi-output routing', () => {
     const route = outputRoutes([output('a', { width: 1, height: 1, routeMode: 'crop', routeX: 1, routeY: 0 })])[0]
     const frame = [[{ r: 1, g: 2, b: 3 }, { r: 4, g: 5, b: 6 }]]
     expect(routeFrame(frame, route, 2, 1)).toEqual([[{ r: 4, g: 5, b: 6 }]])
+  })
+})
+
+describe('runs wired in parallel off one pin', () => {
+  const feed = (target: string) => ({ source: 'pattern', sourceHandle: 'frame', target, targetHandle: 'frame' })
+
+  it('makes the second run a mirror of the first when both share a frame and a pin', () => {
+    const nodes = [
+      output('a', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
+      output('b', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
+    ]
+    const edges = [feed('a'), feed('b')]
+    const leaders = outputMirrorLeaders(outputRoutes(nodes), edges)
+    expect(leaders.get('a')).toBe('a')
+    expect(leaders.get('b')).toBe('a')
+    // One controller, so one array in the sketch.
+    expect(leadingOutputRoutes(nodes, edges).map((route) => route.id)).toEqual(['a'])
+  })
+
+  it('keeps same-frame runs on different pins independent', () => {
+    // Two GPIOs is a real setup — cable length, signal integrity — and reading
+    // it as a mirror would silently drop one of the user's runs.
+    const nodes = [
+      output('a', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
+      output('b', { form: 'matrix', width: 16, height: 16, dataPin: 19 }),
+    ]
+    const edges = [feed('a'), feed('b')]
+    expect(leadingOutputRoutes(nodes, edges).map((route) => route.id)).toEqual(['a', 'b'])
+  })
+
+  it('does not group runs on one pin that show different frames', () => {
+    const nodes = [
+      output('a', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
+      output('b', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
+    ]
+    const edges = [feed('a'), { source: 'other', sourceHandle: 'frame', target: 'b', targetHandle: 'frame' }]
+    expect(leadingOutputRoutes(nodes, edges).map((route) => route.id)).toEqual(['a', 'b'])
+  })
+
+  it('never groups a HUB75 panel, which has a ribbon rather than a data pin', () => {
+    const nodes = [
+      output('a', { form: 'hub75', width: 64, height: 32, dataPin: 18 }),
+      output('b', { form: 'hub75', width: 64, height: 32, dataPin: 18 }),
+    ]
+    const edges = [feed('a'), feed('b')]
+    expect(leadingOutputRoutes(nodes, edges).map((route) => route.id)).toEqual(['a', 'b'])
+  })
+
+  it('leaves an unwired output alone, however its pin is set', () => {
+    const nodes = [
+      output('a', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
+      output('b', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
+    ]
+    expect(leadingOutputRoutes(nodes, [feed('a')]).map((route) => route.id)).toEqual(['a', 'b'])
+  })
+
+  it('does not let a mirror stretch the shared canvas', () => {
+    // The mirror shows the leader's array, so nothing ever renders at its size.
+    const nodes = [
+      output('a', { form: 'matrix', width: 8, height: 8, dataPin: 18 }),
+      output('b', { form: 'matrix', width: 32, height: 32, dataPin: 18 }),
+    ]
+    expect(compositionDims(nodes, [feed('a'), feed('b')])).toEqual({ w: 8, h: 8 })
   })
 })
 

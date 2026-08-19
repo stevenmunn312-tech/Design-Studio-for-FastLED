@@ -141,6 +141,33 @@ describe('generateCpp', () => {
     expect(cpp).not.toContain('FastLED.addLeds')
   })
 
+  it('emits one controller for two runs wired in parallel on the same pin', () => {
+    const a = node('a', 'MatrixOutput', 'output', { form: 'matrix', width: 8, height: 8, dataPin: 18 })
+    const b = node('b', 'MatrixOutput', 'output', { form: 'matrix', width: 8, height: 8, dataPin: 18 })
+    const cpp = generateCpp(
+      [node('sc', 'SolidColor', 'pattern'), a, b],
+      [edge('e1', 'sc', 'a', 'frame', 'frame'), edge('e2', 'sc', 'b', 'frame', 'frame')],
+    )
+    // Both panels hang off one wire, so the sketch is the one-panel sketch.
+    expect(cpp).toContain('CRGB leds[NUM_LEDS];')
+    expect(cpp).not.toContain('leds_a')
+    expect(cpp).not.toContain('leds_b')
+    expect(cpp.match(/FastLED\.addLeds/g)).toHaveLength(1)
+    expect(cpp).toContain('wired in parallel with')
+  })
+
+  it('still emits a controller each when same-frame runs are on different pins', () => {
+    const a = node('a', 'MatrixOutput', 'output', { form: 'matrix', width: 8, height: 8, dataPin: 18 })
+    const b = node('b', 'MatrixOutput', 'output', { form: 'matrix', width: 8, height: 8, dataPin: 19 })
+    const cpp = generateCpp(
+      [node('sc', 'SolidColor', 'pattern'), a, b],
+      [edge('e1', 'sc', 'a', 'frame', 'frame'), edge('e2', 'sc', 'b', 'frame', 'frame')],
+    )
+    expect(cpp).toContain('CRGB leds_a[64];')
+    expect(cpp).toContain('CRGB leds_b[64];')
+    expect(cpp.match(/FastLED\.addLeds/g)).toHaveLength(2)
+  })
+
   it('emits the default hardware setup (brightness 200, no correction, dither untouched)', () => {
     const cpp = generateCpp([outputNode], [])
     expect(cpp).toContain('FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);')

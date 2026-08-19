@@ -36,6 +36,7 @@ vi.mock('../../../utils/showUpload', () => ({
 vi.mock('../../../utils/validateGraph', () => ({
   findPinConflicts: vi.fn(() => []),
   findMatrixLayoutErrors: vi.fn(() => []),
+  findMirroredOutputMismatches: vi.fn(() => []),
   findOutputResourceErrors: vi.fn(() => []),
   findBoardCompatibilityErrors: vi.fn(() => []),
   findHub75ConfigErrors: vi.fn(() => []),

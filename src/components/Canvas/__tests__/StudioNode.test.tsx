@@ -544,7 +544,13 @@ describe('StudioNode', () => {
       fixedPalette: 'rainbow',
     })
     const { container, findByText } = renderNode(node)
-    expect(await findByText('Analyse music in a Music Library node, then preview the timed show here.')).toBeTruthy()
+    // PerformanceGeneratorBody is lazy, so this races a dynamic import.
+    // findByText's 1s default is not enough under a loaded parallel run — the
+    // same reason the palette editor's mount is awaited explicitly.
+    expect(await findByText(
+      'Analyse music in a Music Library node, then preview the timed show here.',
+      {}, { timeout: 5000 },
+    )).toBeTruthy()
     expect((container.firstElementChild as HTMLElement).style.width).toBe('300px')
     // paletteMode/fixedPalette live in the collapsible "Palette" group.
     fireEvent.click(within(container).getByText('Palette'))

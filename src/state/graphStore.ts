@@ -359,6 +359,48 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
   return { nodes: normalizedNodes, edges: edges.map((e) => ({ ...e })) }
 }
 
+/**
+ * Wiring a frame into a second LED output puts it on the first one's pin.
+ *
+ * Two runs showing the same frame are, by default, the same run twice: both
+ * data lines on one GPIO, both panels lit identically. That is the setup people
+ * actually build, and allocating a fresh GPIO for it made the app disagree with
+ * the bench — and raised a pin conflict when the user then wired it truthfully.
+ * `outputMirrorLeaders` reads the result back, so the generated sketch emits one
+ * controller for the pair.
+ *
+ * Only a default. Editing the pin afterwards splits them into two independent
+ * runs again, which is also a real setup and stays supported.
+ */
+function withAdoptedMirrorPin(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  connection: Connection,
+): StudioNode[] {
+  if ((connection.targetHandle ?? '') !== 'frame' || !connection.target || !connection.source) return nodes
+  const target = nodes.find((n) => n.id === connection.target)
+  if (!target || target.data.nodeType !== 'MatrixOutput') return nodes
+  // A HUB75 panel has a signal ribbon rather than a data pin to share.
+  if (outputForm(target.data.properties as Record<string, unknown>) === 'hub75') return nodes
+
+  const feedKey = `${connection.source}:${connection.sourceHandle ?? 'frame'}`
+  const sibling = nodes.find((node) => {
+    if (node.id === target.id || node.data.nodeType !== 'MatrixOutput') return false
+    if (outputForm(node.data.properties as Record<string, unknown>) === 'hub75') return false
+    return edges.some((edge) =>
+      edge.target === node.id
+      && (edge.targetHandle ?? 'frame') === 'frame'
+      && `${edge.source}:${edge.sourceHandle ?? 'frame'}` === feedKey)
+  })
+  if (!sibling) return nodes
+
+  const pin = (sibling.data.properties as Record<string, unknown>).dataPin
+  if (typeof pin !== 'number' || (target.data.properties as Record<string, unknown>).dataPin === pin) return nodes
+  return nodes.map((node) => node.id === target.id
+    ? { ...node, data: { ...node.data, properties: { ...node.data.properties, dataPin: pin } } }
+    : node)
+}
+
 function createRootBoardNode(profileId = DEFAULT_BOARD_PROFILE_ID): StudioNode {
   const profile = boardProfileById(profileId)
   return {
@@ -961,7 +1003,8 @@ export const useGraphStore = create<GraphState>()(
             : s.edges
           // `reconnectable: 'target'` lets a noodle be unplugged/re-routed from
           // the input (target) end only — grab it at the input port and drag.
-          return { edges: addEdge({ ...connection, type: 'glowEdge', reconnectable: 'target', style: { stroke: color } }, replaced) }
+          const edges = addEdge({ ...connection, type: 'glowEdge', reconnectable: 'target', style: { stroke: color } }, replaced)
+          return { edges, nodes: withAdoptedMirrorPin(s.nodes, edges, connection) }
         }),
 
       removeEdge: (id) =>

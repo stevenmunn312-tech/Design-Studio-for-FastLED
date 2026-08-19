@@ -5,7 +5,7 @@ import { evaluateScalarExpression } from '../state/scalarExpression'
 import { isNodeFormulaValid } from '../state/formulaLang'
 import { isValidRtcDateTime } from '../state/rtc'
 import { validateMatrixLayout, tileRotationAt } from '../state/xyLayout'
-import { compositionDims } from '../state/outputRouting'
+import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes } from '../state/outputRouting'
 import { boardGpioInfo } from '../state/uploadStore'
 import { MAX_PIN_NUMBER, pinSupports } from '../state/boardGpio'
 import { getNetworkCredentials } from '../state/networkCredentials'
@@ -321,7 +321,13 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): F
   const outputs = ledDrivingOutputs(nodes)
   if (outputs.length === 0) return null
   const { w, h } = compositionDims(nodes, edges)
-  const ledCount = outputs.reduce((sum, output) => sum + outputLedCount(output), 0)
+  // Runs wired in parallel off one pin share a single `leds` array, so RAM
+  // counts them once — unlike power, which counts every physical run because
+  // each one is a real panel on the PSU.
+  const controllers = new Set(leadingOutputRoutes(nodes, edges).map((route) => route.id))
+  const ledCount = outputs
+    .filter((output) => controllers.has(output.id))
+    .reduce((sum, output) => sum + outputLedCount(output), 0)
   const renderLedCount = w * h
 
   // Only nodes that actually feed the terminal frame get a buffer in the
@@ -414,9 +420,19 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): F
 // the ~300–500 KB total) — not a hard board-specific limit.
 const INTERNAL_RAM_WARN_BYTES = 40_000
 
-export function findPinConflicts(nodes: StudioNode[]): string[] {
+export function findPinConflicts(nodes: StudioNode[], edges: StudioEdge[] = []): string[] {
+  // LED outputs wired in parallel share a pin deliberately — that is what makes
+  // them one controller driving two panels. Their data-pin uses collapse to one
+  // entry so the shared GPIO reads as the single assignment it is; every other
+  // pin on those nodes still conflicts normally.
+  const routes = outputRoutes(nodes)
+  const leaders = outputMirrorLeaders(routes, edges)
+  const mirroredOutputPins = new Set(
+    routes.filter((route) => leaders.get(route.id) !== route.id).map((route) => `${route.id}:dataPin`),
+  )
   const byPin = new Map<number, string[]>()
-  for (const { label, pin } of collectPinUses(nodes)) {
+  for (const { label, pin, nodeId, propertyKey } of collectPinUses(nodes)) {
+    if (mirroredOutputPins.has(`${nodeId}:${propertyKey}`)) continue
     const labels = byPin.get(pin) ?? []
     labels.push(label)
     byPin.set(pin, labels)
@@ -426,6 +442,31 @@ export function findPinConflicts(nodes: StudioNode[]): string[] {
     if (labels.length > 1) conflicts.push(`GPIO ${pin} is assigned to more than one pin: ${labels.join(', ')}`)
   }
   return conflicts.sort()
+}
+
+/**
+ * Parallel runs share one array, so the leader's size is the one that reaches
+ * the wire. A mirror of a different length is not a wiring choice with a
+ * meaning — the shorter panel takes a prefix of the longer one's pixels and the
+ * rest fall off the end — so say so rather than emit it quietly.
+ */
+export function findMirroredOutputMismatches(nodes: StudioNode[], edges: StudioEdge[]): string[] {
+  const routes = outputRoutes(nodes)
+  const leaders = outputMirrorLeaders(routes, edges)
+  const byId = new Map(routes.map((route) => [route.id, route]))
+  const issues: string[] = []
+  for (const route of routes) {
+    const leaderId = leaders.get(route.id)
+    if (!leaderId || leaderId === route.id) continue
+    const leader = byId.get(leaderId)
+    if (!leader) continue
+    const mine = outputLedTotal(route.node.data.properties as Record<string, unknown>)
+    const theirs = outputLedTotal(leader.node.data.properties as Record<string, unknown>)
+    if (mine !== theirs) {
+      issues.push(`${route.label} (${mine} LEDs) is wired in parallel with ${leader.label} (${theirs} LEDs) on GPIO ${route.dataPin} — parallel runs show the same data, so the shorter one lights only the first ${Math.min(mine, theirs)} pixels. Match their lengths, or move one to its own pin.`)
+    }
+  }
+  return issues.sort()
 }
 
 export function isValidPinNumber(pin: number): boolean {
@@ -1208,9 +1249,10 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
     }
   }
 
-  errors.push(...findPinConflicts(nodes))
+  errors.push(...findPinConflicts(nodes, edges))
   errors.push(...findOutputResourceErrors(nodes))
   errors.push(...findMatrixLayoutErrors(nodes))
+  errors.push(...findMirroredOutputMismatches(nodes, edges))
   errors.push(...findHub75ConfigErrors(nodes))
   errors.push(...findScalarExpressionErrors(nodes))
   errors.push(...findFormulaErrors(nodes))

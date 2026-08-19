@@ -29,6 +29,9 @@ export interface OutputRoute {
   canvasW: number
   canvasH: number
   supersample: number
+  /** The GPIO this run's data line is on. Two runs on the same pin, fed the
+   *  same frame, are wired in parallel — see `outputMirrorLeaders`. */
+  dataPin: number
   routeMode: OutputRouteMode
   routeX: number
   routeY: number
@@ -96,6 +99,7 @@ export function outputRoutes(nodes: StudioNode[]): OutputRoute[] {
         canvasH: canvas.height,
         // A chain has no 2 x 2 block to average down, and no viewport to offset
         // within — it takes the whole composition either way.
+        dataPin: int(props.dataPin, 5, 0, 255),
         supersample: linear ? 1 : props.supersample === true ? 2 : 1,
         routeMode: linear ? 'fit' : props.routeMode === 'crop' ? 'crop' : 'fit',
         routeX: int(props.routeX, 0, 0, 63),
@@ -111,10 +115,74 @@ export function outputRoutes(nodes: StudioNode[]): OutputRoute[] {
     })
 }
 
-/** Just enough of an edge to ask "is anything wired into this output?". */
+/** Just enough of an edge to ask "is anything wired into this output?" — and,
+ *  with the source fields, "is this the same frame as that one?". */
 export interface FrameFeedEdge {
+  source?: string
+  sourceHandle?: string | null
   target: string
   targetHandle?: string | null
+}
+
+/** The frame a route is fed by, as a key two routes can be compared on. */
+function frameFeedKey(routeId: string, edges: readonly FrameFeedEdge[]): string | null {
+  const feed = edges.find((edge) => edge.target === routeId && (edge.targetHandle ?? 'frame') === 'frame')
+  return feed?.source ? `${feed.source}:${feed.sourceHandle ?? 'frame'}` : null
+}
+
+/**
+ * Which runs are wired in parallel off one GPIO, showing the same thing.
+ *
+ * Two LED outputs fed the same frame *and* assigned the same data pin are not
+ * two controllers — they are one, with both runs' data lines soldered to that
+ * pin. This is the "two identical panels showing the same thing" case, and it
+ * is what the app defaults to when a second output is wired to a frame that
+ * already drives one (`graphStore.onConnect` adopts the existing pin).
+ *
+ * Returns route id -> the id of the run that owns the controller. A route that
+ * maps to itself is a leader and gets its own `leds` array, `addLeds`, and
+ * blit; a route that maps to another is a mirror of it and gets none of those,
+ * because the pixels reach it down the leader's wire.
+ *
+ * Two things are deliberately *not* grouped. A HUB75 panel has a signal ribbon
+ * rather than a data pin, so "same pin" means nothing for it. And two outputs
+ * on the same frame with *different* pins stay independent — that is a real
+ * setup (separate GPIOs for cable length or signal integrity), and reading it
+ * as a mirror would silently drop one of the user's runs.
+ */
+export function outputMirrorLeaders(
+  routes: readonly OutputRoute[],
+  edges: readonly FrameFeedEdge[],
+): Map<string, string> {
+  const leaders = new Map<string, string>()
+  const leaderByGroup = new Map<string, string>()
+  for (const route of routes) {
+    const feed = route.form === 'hub75' ? null : frameFeedKey(route.id, edges)
+    if (!feed) {
+      leaders.set(route.id, route.id)
+      continue
+    }
+    const group = `${feed}|${route.dataPin}`
+    const existing = leaderByGroup.get(group)
+    if (existing) {
+      leaders.set(route.id, existing)
+    } else {
+      leaderByGroup.set(group, route.id)
+      leaders.set(route.id, route.id)
+    }
+  }
+  return leaders
+}
+
+/** The routes that own a controller: every output except the parallel mirrors.
+ *  Graph order, so the leader of a group is the one the user wired first. */
+export function leadingOutputRoutes(
+  nodes: StudioNode[],
+  edges: readonly FrameFeedEdge[],
+): OutputRoute[] {
+  const routes = outputRoutes(nodes)
+  const leaders = outputMirrorLeaders(routes, edges)
+  return routes.filter((route) => leaders.get(route.id) === route.id)
 }
 
 /**
@@ -133,9 +201,13 @@ export interface FrameFeedEdge {
 export function compositionDims(nodes: StudioNode[], edges?: FrameFeedEdge[]): { w: number; h: number } {
   const routes = outputRoutes(nodes)
   if (routes.length === 0) return { w: 16, h: 16 }
+  const mirrorLeaders = edges ? outputMirrorLeaders(routes, edges) : null
   const connected = edges
-    ? routes.filter((route) => edges.some((edge) =>
-        edge.target === route.id && (edge.targetHandle ?? 'frame') === 'frame'))
+    ? routes.filter((route) =>
+      // A mirror shows the leader's array, so its own size must not stretch
+      // the canvas — nothing ever renders at it.
+      (mirrorLeaders?.get(route.id) ?? route.id) === route.id
+      && edges.some((edge) => edge.target === route.id && (edge.targetHandle ?? 'frame') === 'frame'))
     : routes
   const sizing = connected.length > 0 ? connected : routes
   return {

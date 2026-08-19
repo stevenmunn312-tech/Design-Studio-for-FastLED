@@ -11,7 +11,7 @@ import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph } from '../../codegen/streamReceiverGenerator'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
 import { readySongCount, buildShowPayload } from '../../utils/showUpload'
-import { findPinConflicts, findMatrixLayoutErrors, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors } from '../../utils/validateGraph'
+import { findPinConflicts, findMatrixLayoutErrors, findMirroredOutputMismatches, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors } from '../../utils/validateGraph'
 import { summarizeCapacity } from '../../utils/capacityFormat'
 import { useCodegenGraph } from '../../utils/codegenGraph'
 import { useModalFocus } from '../../hooks/useModalFocus'
@@ -78,8 +78,11 @@ export default function MatrixOutputDeployPopup() {
   const coreReady = !!board && (usingFbuild || installedCores.includes(board.core))
   const uploadReady = helperReady && activeEngineReady && coreReady && portDetected
 
-  const pinConflicts = useMemo(() => findPinConflicts(nodes), [nodes])
-  const layoutErrors = useMemo(() => findMatrixLayoutErrors(nodes), [nodes])
+  const pinConflicts = useMemo(() => findPinConflicts(nodes, edges), [nodes, edges])
+  const layoutErrors = useMemo(
+    () => [...findMatrixLayoutErrors(nodes), ...findMirroredOutputMismatches(nodes, edges)],
+    [nodes, edges],
+  )
   const outputResourceErrors = useMemo(() => findOutputResourceErrors(nodes), [nodes])
   const boardCompatibilityErrors = useMemo(
     () => findBoardCompatibilityErrors(nodes, selectedFqbn),
