@@ -9,6 +9,7 @@ import { CATEGORY_COLOR, NODE_LIBRARY } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { nextFreeLedDataPin } from '../../state/ledPinAssignment'
 import { assignPartPins, type PartPinRequest } from '../../state/partPinAssignment'
+import { withAssignedPins } from '../../state/pinRetarget'
 import { partDimensionsMm, partRenderSrc, ringDiameterMm } from '../../state/partCatalogue'
 import { partRenderForNodeType } from '../../state/partRenders'
 import { resolvePartIdentity } from '../../state/partOptions'
@@ -676,12 +677,12 @@ export default function HardwarePane() {
         label: definition.label,
         nodeType: definition.type,
         category: definition.category,
-        properties: {
-          // The microphone's I2S trio comes from the board profile here; the
-          // rest carry the pins resolved above.
-          ...resolveDefaultProperties(definition.type, definition.defaultProperties, boardProfile),
-          ...assigned.pins,
-        },
+        // Stamped with what the app chose, so a later board change can tell
+        // an untouched pin from one the user has since wired by hand.
+        properties: withAssignedPins(
+          resolveDefaultProperties(definition.type, definition.defaultProperties, boardProfile),
+          assigned.pins,
+        ),
         inputs: definition.inputs,
         outputs: definition.outputs,
       },
@@ -743,10 +744,10 @@ export default function HardwarePane() {
         label: definition.label,
         nodeType: definition.type,
         category: definition.category,
-        properties: {
-          ...resolveDefaultProperties(definition.type, definition.defaultProperties, boardProfile),
-          ...profilePins,
-        },
+        properties: withAssignedPins(
+          resolveDefaultProperties(definition.type, definition.defaultProperties, boardProfile),
+          profilePins,
+        ),
         inputs: definition.inputs,
         outputs: definition.outputs,
       },

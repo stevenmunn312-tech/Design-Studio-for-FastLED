@@ -692,7 +692,7 @@ describe('graphStore — board-aware microphone wiring', () => {
   it('retargets an existing MicInput to a board common pinout', () => {
     reset([node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41, gain: 2 })])
 
-    expect(useGraphStore.getState().retargetMicPins('teensy:avr:teensy40')).toBe(1)
+    expect(useGraphStore.getState().retargetHardwarePins('teensy:avr:teensy40')).toBe(1)
     expect(useGraphStore.getState().nodes[0].data.properties).toMatchObject({
       i2sWs: 20, i2sSck: 21, i2sSd: 8, gain: 2,
     })
@@ -704,7 +704,7 @@ describe('graphStore — board-aware microphone wiring', () => {
     }, 'teensy:avr:teensy40')
     reset([node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41, gain: 2 })])
 
-    expect(useGraphStore.getState().retargetMicPins('teensy:avr:teensy40')).toBe(1)
+    expect(useGraphStore.getState().retargetHardwarePins('teensy:avr:teensy40')).toBe(1)
     expect(useGraphStore.getState().nodes[0].data.properties).toMatchObject({
       i2sWs: 2, i2sSck: 3, i2sSd: 4, gain: 2,
     })
@@ -713,7 +713,7 @@ describe('graphStore — board-aware microphone wiring', () => {
   it('leaves visible pin values alone when the target board is incompatible', () => {
     reset([node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })])
 
-    expect(useGraphStore.getState().retargetMicPins('arduino:avr:uno')).toBe(0)
+    expect(useGraphStore.getState().retargetHardwarePins('arduino:avr:uno')).toBe(0)
     expect(useGraphStore.getState().nodes[0].data.properties).toMatchObject({
       i2sWs: 39, i2sSck: 40, i2sSd: 41,
     })

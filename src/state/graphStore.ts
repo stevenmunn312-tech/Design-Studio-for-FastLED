@@ -19,6 +19,7 @@ import type { SavedPattern } from './patternLibrary'
 import { isPatternContentTrusted, trustPatternContent } from './patternTrust'
 import { useNetworkCredentialsStore } from './networkCredentials'
 import { retargetedMicPins } from './micPinDefaults'
+import { retargetHardwarePins as retargetHardwarePinsFor } from './pinRetarget'
 import { useNodeDefaults } from './nodeDefaults'
 import { useUiStore } from './uiStore'
 import { validateMatrixLayout } from './xyLayout'
@@ -172,9 +173,9 @@ interface GraphState {
   clearSelection: () => void
   updateNodeProperty: (id: string, key: string, value: unknown) => void
   updateNodeProperties: (id: string, updates: Record<string, unknown>) => void
-  /** Move every MicInput onto `fqbn`'s saved per-board wiring, or that board's
-   *  common starting pins when no custom default exists. One undoable step. */
-  retargetMicPins: (fqbn: string) => number
+  /** Move every hardware part's app-assigned pins onto `fqbn`'s board,
+   *  leaving pins the user has edited exactly where they are. */
+  retargetHardwarePins: (fqbn: string) => number
   loadGraph: (nodes: StudioNode[], edges: StudioEdge[], workspace?: WorkspaceExtras) => void
   duplicateNode: (id: string) => void
   /** Duplicate every currently multi-selected node plus the edges wiring them
@@ -1220,23 +1221,32 @@ export const useGraphStore = create<GraphState>()(
           }),
         })),
 
-      retargetMicPins: (fqbn) => {
+      retargetHardwarePins: (fqbn) => {
         let moved = 0
         const saved = useNodeDefaults.getState().micOverridesByFqbn[fqbn]
         set((s) => {
           // The Board node's profile knows which pads this exact board exposes,
           // where the FQBN only names the chip. Falls back to the FQBN table.
           const profile = selectedPhysicalBoardProfile(s.nodes)
-          const nodes = s.nodes.map((n) => {
-            if (n.data.nodeType !== 'MicInput') return n
-            const pins = retargetedMicPins(n.data.properties as Record<string, unknown>, fqbn, saved, profile)
-            if (!pins) return n
-            moved += 1
-            return { ...n, data: { ...n.data, properties: { ...n.data.properties, ...pins } } }
-          })
+
+          // The user's own per-board microphone wiring outranks everything: a
+          // board they have pinned a default for is a board they have already
+          // decided about.
+          const withSavedMic = saved
+            ? s.nodes.map((n) => {
+              if (n.data.nodeType !== 'MicInput') return n
+              const pins = retargetedMicPins(n.data.properties as Record<string, unknown>, fqbn, saved, profile)
+              if (!pins) return n
+              moved += 1
+              return { ...n, data: { ...n.data, properties: { ...n.data.properties, ...pins } } }
+            })
+            : s.nodes
+
+          const result = retargetHardwarePinsFor(withSavedMic, profile, fqbn)
+          moved += result.moved
           // No-op when nothing moved, so re-selecting the same effective
           // wiring doesn't push an empty step onto the undo stack.
-          return moved > 0 ? { nodes } : {}
+          return moved > 0 ? { nodes: result.nodes } : {}
         })
         return moved
       },

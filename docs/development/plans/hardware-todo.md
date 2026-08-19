@@ -197,10 +197,25 @@ Once the pattern is proven, everything physical moves to the hardware view.
   bundled imports. Moving those three into `Parts/` with a `part.json` would
   collapse that — and would give them datasheet-checked dimensions, which they
   currently lack (their footprints are still derived from the render aspect).
-- [ ] **Retarget pins on board change**, touching only unedited pins. Partly
-  built: `retargetedMicPins` / `graphStore.retargetMicPins` already do exactly
-  this for the microphone, and Phase 1 gave it the profile-then-table
-  precedence. This generalises it rather than inventing it.
+- [x] **Retarget pins on board change**, touching only unedited pins.
+  `pinRetarget.ts` moves every part in one pass; `graphStore.retargetHardwarePins`
+  replaces the microphone-only action.
+
+  The "touching only unedited pins" half turned out **not to exist**.
+  `micPinsAreDefault` was written for exactly this and was never called, so a
+  board change rewrote a microphone's I2S pins whether or not they had been
+  wired by hand. Ownership is now *recorded* rather than guessed: when the app
+  assigns a pin it stamps the value it chose in `assignedPins`, so a pin still
+  holding that value is the app's to move and a pin holding anything else is
+  the user's to keep. No heuristic, no coincidences, and it survives a save.
+  Legacy nodes with no stamp fall back to `micPinsAreDefault`, which finally
+  gives that function the job it was written for.
+
+  Two things the tests forced out. A part's own current pins must be excluded
+  from its claim set, or it can never be handed back the pin it already holds
+  and every board change shuffles parts that had no reason to move. And pins
+  the user owns are claimed but never moved, so a retargeted part routes
+  *around* their wiring instead of landing on top of it.
 - [ ] **Upload leaves the node; the bottom pane becomes Hardware | Upload.**
   Upload is not a property of one output — it never was. One board takes one
   sketch, and that sketch already drives every output: `cppGenerator` emits a

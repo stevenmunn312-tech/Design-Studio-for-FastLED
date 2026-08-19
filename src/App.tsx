@@ -266,10 +266,11 @@ export default function App() {
     }
   }, [])
 
-  // Follow every real board change with that board's remembered microphone
-  // wiring, falling back to its common pins when the user has not pinned a
-  // per-board default. Loading a project is not itself a board change.
-  const retargetMicPins = useGraphStore((s) => s.retargetMicPins)
+  // Follow every real board change by moving each part onto that board's pins:
+  // the user's remembered per-board microphone wiring first, then whatever the
+  // profile exposes, and never a pin the user has edited themselves. Loading a
+  // project is not itself a board change.
+  const retargetHardwarePins = useGraphStore((s) => s.retargetHardwarePins)
   const lastMicFqbn = useRef<string | null>(null)
   useEffect(() => {
     const previous = lastMicFqbn.current
@@ -279,11 +280,11 @@ export default function App() {
       useUploadStore.getState().setSelectedFqbn(selectedBoardProfile.compatibleFqbns[0])
     }
     if (previous === null || previous === boardFqbn) return
-    const moved = retargetMicPins(boardFqbn)
+    const moved = retargetHardwarePins(boardFqbn)
     if (moved > 0) {
-      setStatus(`Microphone I2S pins moved to this board's defaults on ${moved} node${moved > 1 ? 's' : ''}`, 'info')
+      setStatus(`Moved ${moved} part${moved > 1 ? 's' : ''} onto this board's pins — hand-edited pins were left alone`, 'info')
     }
-  }, [selectedBoardProfile, selectedFqbn, retargetMicPins, setStatus])
+  }, [selectedBoardProfile, selectedFqbn, retargetHardwarePins, setStatus])
 
   useEffect(() => {
     if (visibleGraphNodeCount === 0) setHardwarePaneRatio(0.5)
