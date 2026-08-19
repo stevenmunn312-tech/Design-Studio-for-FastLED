@@ -109,6 +109,17 @@ interface FixturePartEntry {
 
 const FIXTURE_PARTS: readonly FixturePartEntry[] = [
   {
+    nodeType: 'SDCard',
+    partId: 'sdcard',
+    label: 'SD Card',
+    hint: 'Storage for music-synced shows',
+    // Sized and pictured per module, because the 5 V board and the bare 3.3 V
+    // one are different objects — and mixing them up destroys cards.
+    footprint: partDimensionsMm('microsd-module-5v', { width: 24, height: 42 }),
+    render: partRenderSrc('microsd-module-5v') ?? undefined,
+    singleton: true,
+  },
+  {
     nodeType: 'Amplifier',
     partId: 'amplifier',
     label: 'Amplifier',
@@ -1180,7 +1191,10 @@ export default function HardwarePane() {
         >
           {itemMenu.mode === 'settings' ? (
             <div className={styles.itemMenuSettings}>
-              <AmplifierBody nodeId={itemMenu.kind} />
+              <AmplifierBody
+                nodeId={itemMenu.kind}
+                nodeType={nodes.find((node) => node.id === itemMenu.kind)?.data.nodeType}
+              />
             </div>
           ) : itemMenuIdentity && (
             <div className={styles.itemMenuSettings}>

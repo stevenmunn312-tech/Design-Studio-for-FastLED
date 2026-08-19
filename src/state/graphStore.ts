@@ -26,7 +26,7 @@ import { validateMatrixLayout } from './xyLayout'
 import { isLinearForm, outputCanvasDims, outputForm } from './ledOutputForm'
 import { emptyBuildProfile, normalizeBuildProfile, type BuildProfile } from '../build/buildProfile'
 import { boardProfileById, selectedPhysicalBoardProfile } from '../build/boardProfiles'
-import { DEFAULT_BOARD_PROFILE_ID, isHardwareManagedSignalNodeType, ROOT_BOARD_NODE_ID } from './hardware'
+import { DEFAULT_BOARD_PROFILE_ID, isHardwareManagedSignalNodeType, isHardwareOnlyNodeType, ROOT_BOARD_NODE_ID } from './hardware'
 import {
   type PerformanceDeckConfig,
   type PinnedControl,
@@ -358,7 +358,13 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     }
     const inputs = def?.inputs ?? (Array.isArray(data.inputs) ? data.inputs : [])
     const outputs = def?.outputs ?? (Array.isArray(data.outputs) ? data.outputs : [])
-    return { ...n, data: { ...data, nodeType, label, category, properties, inputs, outputs } }
+    // A hardware-only part is hidden wherever it came from — a template, an
+    // older save, a share link — rather than relying on every creation path to
+    // remember. Board has always been forced this way; the rest join it.
+    const hidden = isHardwareOnlyNodeType(nodeType)
+      ? { hidden: true, selectable: false, draggable: false }
+      : {}
+    return { ...n, ...hidden, data: { ...data, nodeType, label, category, properties, inputs, outputs } }
   })
   return { nodes: normalizedNodes, edges: edges.map((e) => ({ ...e })) }
 }

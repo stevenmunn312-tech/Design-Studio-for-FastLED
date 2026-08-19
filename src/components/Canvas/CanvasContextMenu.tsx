@@ -126,30 +126,6 @@ const BRIDGE_SUGGESTIONS: BridgeSuggestion[] = [
       { from: 'hue', sourceHandle: 'hue', to: 'hsv', targetHandle: 'h' },
     ],
   },
-  {
-    id: 'music-to-sdcard',
-    fromType: 'music',
-    finalType: 'sdcard',
-    title: 'Music → SD card',
-    description: 'Insert Performance Generator and SD Card so a track can flow straight into the export path.',
-    steps: [
-      { key: 'perf', type: 'PerformanceGenerator' },
-      { key: 'sd', type: 'SDCard' },
-    ],
-    edges: [
-      { from: 'source', sourceHandle: '*', to: 'perf', targetHandle: 'music' },
-      { from: 'perf', sourceHandle: 'shows', to: 'sd', targetHandle: 'shows' },
-    ],
-  },
-  {
-    id: 'shows-to-sdcard',
-    fromType: 'shows',
-    finalType: 'sdcard',
-    title: 'Bridge to SD card',
-    description: 'Insert SD Card so this show output lands on the upload-to-SD path.',
-    steps: [{ key: 'sd', type: 'SDCard' }],
-    edges: [{ from: 'source', sourceHandle: '*', to: 'sd', targetHandle: 'shows' }],
-  },
 ]
 
 function nodeDescription(def: NodeDefinition) {

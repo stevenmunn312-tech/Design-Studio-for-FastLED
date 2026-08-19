@@ -267,12 +267,16 @@ describe('validateGraph', () => {
     expect(errors).toContain('Missing MatrixOutput node')
   })
 
-  it('errors when MatrixOutput has neither a frame nor an SD Card input connected', () => {
+  it('errors when an LED output has no frame connected', () => {
     const { errors } = validateGraph([node('out', 'MatrixOutput')], [])
-    expect(errors).toContain('MatrixOutput has no Frame or SD Card input connected')
+    expect(errors).toContain('LED output has no Frame input connected')
   })
 
-  it('accepts an SD-show wiring path without a frame input', () => {
+  it('accepts an SD show, whose LEDs the player drives rather than the graph', () => {
+    // No frame reaches the output, and that is correct: the generated player
+    // reads the card and drives the LEDs itself. The SD card's presence on the
+    // bench is what says so — it used to be said by a cable that carried
+    // nothing into the output's `sdcard` input.
     const nodes = [
       node('lib', 'MusicLibrary'),
       node('pg', 'PerformanceGenerator'),
@@ -281,8 +285,6 @@ describe('validateGraph', () => {
     ]
     const edges = [
       { id: 'e1', source: 'lib', target: 'pg', sourceHandle: 'music', targetHandle: 'music' } as unknown as StudioEdge,
-      { id: 'e2', source: 'pg', target: 'sd', sourceHandle: 'shows', targetHandle: 'shows' } as unknown as StudioEdge,
-      { id: 'e3', source: 'sd', target: 'out', sourceHandle: 'sdcard', targetHandle: 'sdcard' } as unknown as StudioEdge,
     ]
     const { errors } = validateGraph(nodes, edges)
     expect(errors).toHaveLength(0)
@@ -314,7 +316,7 @@ describe('validateGraph', () => {
       node('out-b', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
     ]
     const { errors } = validateGraph(nodes, [edge('e1', 'a', 'out-a', 'frame')])
-    expect(errors).toContain('MatrixOutput 2 has no Frame or SD Card input connected')
+    expect(errors).toContain('LED output 2 has no Frame input connected')
     expect(errors.some((message) => message.includes('GPIO 5'))).toBe(true)
   })
 

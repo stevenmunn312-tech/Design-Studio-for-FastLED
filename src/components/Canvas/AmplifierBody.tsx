@@ -2,8 +2,9 @@ import { useGraphStore } from '../../state/graphStore'
 import styles from './BoardNodeBody.module.css'
 import PartIdentity from '../Hardware/PartIdentity'
 
-// The amplifier's settings, shown in the hardware view rather than on a graph
-// node — it carries no signal, so it has no business on the signal canvas.
+// A hardware-only part's settings, shown in the hardware view rather than on a
+// graph node — these parts carry no signal, so they have no business on the
+// signal canvas.
 // Bespoke and small, the same shape as BoardNodeBody, because a hardware-only
 // part has a handful of fields rather than the generic property list a node
 // body renders.
@@ -12,15 +13,20 @@ import PartIdentity from '../Hardware/PartIdentity'
 // always assumed a MAX98357A and nothing in the UI ever said so, which is the
 // class of silent assumption naming the part is meant to end.
 
-const PIN_FIELDS = [
-  { key: 'i2sBclk', label: 'BCLK' },
-  { key: 'i2sLrc', label: 'LRC / WS' },
-  { key: 'i2sDout', label: 'DIN' },
-] as const
+const PIN_FIELDS: Record<string, ReadonlyArray<{ key: string; label: string }>> = {
+  Amplifier: [
+    { key: 'i2sBclk', label: 'BCLK' },
+    { key: 'i2sLrc', label: 'LRC / WS' },
+    { key: 'i2sDout', label: 'DIN' },
+  ],
+  SDCard: [
+    { key: 'sdCsPin', label: 'CS' },
+  ],
+}
 
-interface Props { nodeId: string }
+interface Props { nodeId: string; nodeType?: string }
 
-export default function AmplifierBody({ nodeId }: Props) {
+export default function AmplifierBody({ nodeId, nodeType = 'Amplifier' }: Props) {
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
   const props = useGraphStore((s) => {
     const node = s.nodes.find((n) => n.id === nodeId)
@@ -29,10 +35,10 @@ export default function AmplifierBody({ nodeId }: Props) {
 
   return (
     <div className={styles.body}>
-      <PartIdentity nodeId={nodeId} nodeType="Amplifier" />
+      <PartIdentity nodeId={nodeId} nodeType={nodeType} />
 
       <div className={styles.detail}>
-        {PIN_FIELDS.map((field) => (
+        {(PIN_FIELDS[nodeType] ?? []).map((field) => (
           <label key={field.key} className={styles.row}>
             <span className={styles.key}>{field.label}</span>
             <input

@@ -53,6 +53,21 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       { id: 'inmp441-i2s-microphone', label: 'INMP441' },
     ],
   },
+  SDCard: {
+    property: 'partId',
+    options: [
+      {
+        id: 'microsd-module-5v',
+        label: 'microSD module (5 V)',
+        note: 'Has an onboard regulator and level shifter, so it takes 5 V power and 5 V SPI.',
+      },
+      {
+        id: 'microsd-breakout-3v3',
+        label: 'microSD breakout (3.3 V)',
+        note: 'Bare board: no regulator, no level shifter. 5 V power or 5 V SPI can destroy the card.',
+      },
+    ],
+  },
   Amplifier: {
     property: 'model',
     options: [

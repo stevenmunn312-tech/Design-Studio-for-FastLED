@@ -290,23 +290,27 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       'Drop songs into Music Library and run analysis to create timed show files.',
       'Preview a song in Performance Generator and adjust its energy, hold, palette, and transition settings.',
       'Optionally wire a Pattern Collection or Transitions node into Performance Generator.',
-      'Choose the board and port, then use Upload show to SD from Matrix Output.',
+      'Add an SD Card in the hardware view, then upload the show from the Upload tab.',
     ],
     nodeSpecs: [
       { id: 'lib', type: 'MusicLibrary', col: 0, row: 0 },
       { id: 'perf', type: 'PerformanceGenerator', col: 1, row: 0 },
-      { id: 'sd', type: 'SDCard', col: 2, row: 0 },
-      { id: 'out', type: 'MatrixOutput', col: 3, row: 0 },
+      // The show still plays on LEDs — the player drives them, so this output
+      // is configured rather than wired.
+      { id: 'out', type: 'MatrixOutput', col: 2, row: 0 },
+      // A bench part: hidden on the canvas, and what makes this an SD show.
+      { id: 'sd', type: 'SDCard', col: 3, row: 0 },
+
       tutorialNote(
         'guide', 0, -1,
         'OFFLINE SHOW\nImport and analyse music, then preview the timeline.\nSD Card packages it; Matrix Output uploads it.',
         TRY_COLOR,
       ),
     ],
+    // The card is a bench part now, not a node, so the chain ends at the
+    // generator. The two edges that used to continue to it carried nothing.
     edgeSpecs: [
       { source: 'lib', sourceHandle: 'music', target: 'perf', targetHandle: 'music' },
-      { source: 'perf', sourceHandle: 'shows', target: 'sd', targetHandle: 'shows' },
-      { source: 'sd', sourceHandle: 'sdcard', target: 'out', targetHandle: 'sdcard' },
     ],
   }),
 ]

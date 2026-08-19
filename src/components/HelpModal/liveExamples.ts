@@ -741,8 +741,6 @@ function workflowExample(node: NodeDefinition): ReferenceLiveExample {
       builder.add('sd', 'SDCard')
       builder.add('out', 'MatrixOutput')
       builder.wire('target', 'music', 'performance', 'music')
-      builder.wire('performance', 'shows', 'sd', 'shows')
-      builder.wire('sd', 'sdcard', 'out', 'sdcard')
       break
     case 'PerformanceGenerator':
       builder.add('music', 'MusicLibrary')
@@ -754,8 +752,6 @@ function workflowExample(node: NodeDefinition): ReferenceLiveExample {
       builder.wire('music', 'music', 'target', 'music')
       builder.wire('patterns', 'patternset', 'target', 'patternset')
       builder.wire('transitions', 'transitions', 'target', 'transitions')
-      builder.wire('target', 'shows', 'sd', 'shows')
-      builder.wire('sd', 'sdcard', 'out', 'sdcard')
       break
     case 'SDCard':
       builder.add('music', 'MusicLibrary')
@@ -763,8 +759,6 @@ function workflowExample(node: NodeDefinition): ReferenceLiveExample {
       builder.add('target', node.type)
       builder.add('out', 'MatrixOutput')
       builder.wire('music', 'music', 'performance', 'music')
-      builder.wire('performance', 'shows', 'target', 'shows')
-      builder.wire('target', 'sdcard', 'out', 'sdcard')
       break
     case 'PatternCollection':
       builder.add('target', node.type)
@@ -848,8 +842,6 @@ function amplifierExample(node: NodeDefinition): ReferenceLiveExample {
   builder.add('out', 'MatrixOutput')
   builder.add('target', node.type)
   builder.wire('music', 'music', 'performance', 'music')
-  builder.wire('performance', 'shows', 'sd', 'shows')
-  builder.wire('sd', 'sdcard', 'out', 'sdcard')
   return builder.finish(
     'Name the amplifier the show player drives',
     'Amplifier carries no noodles — it names the I2S amp that the music-sync show player feeds, and owns its BCLK/LRC/DIN pins. Those used to sit on SD Card, which mixed up where the songs are stored with what turns them into sound: two separate parts you buy, wire, and can get wrong independently.',

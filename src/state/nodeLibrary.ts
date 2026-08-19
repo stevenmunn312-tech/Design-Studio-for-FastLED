@@ -2355,7 +2355,6 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'frame',  label: 'Frame',   dataType: 'frame' },
       // Optional: wire an SD Card node here to bundle music/show files onto the card
       // (written first over serial) before the sketch is flashed on upload.
-      { id: 'sdcard', label: 'SD Card', dataType: 'sdcard' },
     ],
     outputs: [],
     defaultProperties: {
@@ -2634,7 +2633,6 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
     ],
     outputs: [
-      { id: 'shows', label: 'Shows', dataType: 'shows' },
     ],
     defaultProperties: {
       beatIntensity:      0.8,
@@ -2655,8 +2653,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'SDCard',
     label: 'SD Card',
     category: 'show',
-    inputs: [{ id: 'shows', label: 'Shows', dataType: 'shows' }],
-    outputs: [{ id: 'sdcard', label: 'SD Card', dataType: 'sdcard' }],
+    // Portless. Both of its cables carried nothing: the evaluator returned {}
+    // for this node and `{ shows: null }` for the generator feeding it, and no
+    // code ever read either edge. Every consumer — buildShowPayload,
+    // playerConfigFromGraph — finds this node by scanning the graph. The chain
+    // on canvas was a picture of a pipeline rather than the pipeline, and the
+    // card is a bench part, so it lives in the hardware view now.
+    inputs: [],
+    outputs: [],
     defaultProperties: {
       // GPIO10 avoids colliding with MatrixOutput's default LED data pin
       // (GPIO5) on the primary supported ESP32-S3 target.

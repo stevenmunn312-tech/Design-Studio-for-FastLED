@@ -10,7 +10,7 @@ import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph } from '../../codegen/streamReceiverGenerator'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
-import { readySongCount, buildShowPayload } from '../../utils/showUpload'
+import { readySongCount, buildShowPayload, sdCardConnected } from '../../utils/showUpload'
 import { findPinConflicts, findMatrixLayoutErrors, findMirroredOutputMismatches, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors } from '../../utils/validateGraph'
 import { summarizeCapacity } from '../../utils/capacityFormat'
 import { useCodegenGraph } from '../../utils/codegenGraph'
@@ -59,7 +59,9 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
   const nodeId = outputNode?.id ?? ''
   const isHub75 = String(ownProps.chipset ?? 'WS2812B') === 'HUB75'
   const hasFrameInput = !!outputNode && edges.some((e) => e.target === nodeId && e.targetHandle === 'frame')
-  const hasSdCardInput = !!outputNode && edges.some((e) => e.target === nodeId && e.targetHandle === 'sdcard')
+  // An SD card on the bench is what makes this an SD-show upload; there is
+  // no cable to consult, and there never really was one.
+  const hasSdCardInput = useMemo(() => sdCardConnected(nodes), [nodes])
 
   const board = boardByFqbn(selectedFqbn)
   const usingFbuild = helper?.engine === 'fbuild'

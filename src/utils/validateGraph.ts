@@ -1,6 +1,7 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { isPortlessNodeType, NODE_LIBRARY, supportsScalarExpression } from '../state/nodeLibrary'
 import { outputForm, outputLedTotal } from '../state/ledOutputForm'
+import { sdCardConnected } from './showUpload'
 import { evaluateScalarExpression } from '../state/scalarExpression'
 import { isNodeFormulaValid } from '../state/formulaLang'
 import { isValidRtcDateTime } from '../state/rtc'
@@ -1270,12 +1271,19 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   if (hasOutput) {
     const outputs = nodes.filter(n => n.data.nodeType === 'MatrixOutput')
     for (const [index, out] of outputs.entries()) {
-      const hasFrameInput = incoming.has(`${out.id}:frame`)
-      const hasSdCardInput = incoming.has(`${out.id}:sdcard`)
-      if (!hasFrameInput && !hasSdCardInput) {
+      /*
+       * A frame is the only thing that reaches an LED output now — the SD card
+       * is a bench part rather than a cable into this node.
+       *
+       * An SD show is the exception, and always was: its LEDs are driven by
+       * the generated player from the card, so the output is configured rather
+       * than wired and having no frame is correct. That used to be excused by
+       * the `sdcard` edge; the card's presence says the same thing.
+       */
+      if (!incoming.has(`${out.id}:frame`) && !sdCardConnected(nodes)) {
         errors.push(outputs.length === 1
-          ? 'MatrixOutput has no Frame or SD Card input connected'
-          : `MatrixOutput ${index + 1} has no Frame or SD Card input connected`)
+          ? 'LED output has no Frame input connected'
+          : `LED output ${index + 1} has no Frame input connected`)
       }
     }
   }

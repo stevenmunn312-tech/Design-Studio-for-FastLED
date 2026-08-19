@@ -559,7 +559,7 @@ describe('StudioNode', () => {
     expect(selects[1].disabled).toBe(true)
   })
 
-  it('drops the frame handle for a stale Performance Generator snapshot saved before the port was removed', () => {
+  it('drops stale Performance Generator output handles saved before those ports were removed', () => {
     const node = makeNode('PerformanceGenerator', {
       beatIntensity: 0.8,
       energySensitivity: 0.7,
@@ -571,9 +571,10 @@ describe('StudioNode', () => {
       { id: 'music', label: 'Music', dataType: 'music' },
       { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
     ]
-    // Simulate an old save that still declares the now-removed `frame` output
-    // (a firmware-facing one would be structurally misleading — see
-    // nodeLibrary.ts). The live library definition should win over it.
+    // Simulate an old save still declaring both removed outputs: `frame`, which
+    // would be structurally misleading (see nodeLibrary.ts), and `shows`, which
+    // went with the SD Card to the hardware view. The live library definition
+    // should win over either.
     node.data.outputs = [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'shows', label: 'Shows', dataType: 'shows' },
@@ -582,7 +583,7 @@ describe('StudioNode', () => {
     const { container } = renderNode(node)
 
     expect(container.querySelector('[data-handle="source:frame"]')).toBeNull()
-    expect(container.querySelector('[data-handle="source:shows"]')).toBeTruthy()
+    expect(container.querySelector('[data-handle="source:shows"]')).toBeNull()
     expect(container.querySelector('[data-handle="target:transitions"]')).toBeTruthy()
   })
 

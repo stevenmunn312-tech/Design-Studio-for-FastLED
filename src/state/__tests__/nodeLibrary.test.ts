@@ -459,13 +459,13 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('SDCard', 'maxVolume')).toEqual({ control: 'slider', min: 0, max: 21, step: 1 })
   })
 
-  it('PerformanceGenerator exposes only shows — no misleading frame port', () => {
+  it('PerformanceGenerator exposes no output ports at all', () => {
     // A firmware-facing frame port would be structurally misleading (a normal
     // sketch has no audio transport to drive it); the live show preview is
     // opt-in via the `showInMainPreview` property instead (showPlayback.ts).
-    expect(NODE_LIBRARY.find((n) => n.type === 'PerformanceGenerator')?.outputs).toEqual([
-      { id: 'shows', label: 'Shows', dataType: 'shows' },
-    ])
+    // `shows` went with the SD Card's move to the hardware view — it was a
+    // cable that carried nothing, drawn to a node that is now a bench part.
+    expect(NODE_LIBRARY.find((n) => n.type === 'PerformanceGenerator')?.outputs).toEqual([])
     expect(NODE_LIBRARY.find((n) => n.type === 'PerformanceGenerator')?.defaultProperties).toMatchObject({
       showInMainPreview: false,
     })

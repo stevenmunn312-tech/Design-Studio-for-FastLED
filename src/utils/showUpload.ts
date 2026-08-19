@@ -3,7 +3,7 @@
 // /shows/*.show). Used by the Build & Upload panel when an SDCard node is wired
 // into MatrixOutput.
 
-import type { StudioNode, StudioEdge, StudioNodeData } from '../state/graphStore'
+import type { StudioNode, StudioNodeData } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import type { MusicEntry } from '../state/musicStore'
 import { generateProvisionerSketch } from '../codegen/provisionerSketchGenerator'
@@ -14,16 +14,19 @@ import type { ShowUploadFile } from './backendClient'
 
 const nodeType = (n: StudioNode) => (n.data as StudioNodeData).nodeType
 
-/** True when an SDCard node is wired into MatrixOutput's `sdcard` input. */
-export function sdCardConnected(nodes: StudioNode[], edges: StudioEdge[]): boolean {
-  const mo = nodes.find((n) => nodeType(n) === 'MatrixOutput')
-  if (!mo) return false
-  return edges.some(
-    (e) =>
-      e.target === mo.id &&
-      e.targetHandle === 'sdcard' &&
-      nodes.some((n) => n.id === e.source && nodeType(n) === 'SDCard'),
-  )
+/**
+ * True when the bench has an SD card on it.
+ *
+ * Presence, not wiring. The card used to be gated on an edge into the LED
+ * output's `sdcard` input, but that edge carried nothing — every function that
+ * builds the payload, this file's own `buildShowPayload` included, finds the
+ * node by scanning and ignores the wiring entirely. So the noodle only ever
+ * decided whether the button appeared, which is a job the part's existence
+ * does better now that a card is added in the hardware view rather than
+ * dragged onto a canvas.
+ */
+export function sdCardConnected(nodes: StudioNode[]): boolean {
+  return nodes.some((n) => nodeType(n) === 'SDCard')
 }
 
 /** Number of songs ready (analysed) to upload. */

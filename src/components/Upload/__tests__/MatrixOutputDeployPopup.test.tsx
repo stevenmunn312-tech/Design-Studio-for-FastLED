@@ -28,7 +28,10 @@ vi.mock('../../../codegen/wiringDiagnosticGenerator', () => ({
 }))
 
 vi.mock('../../../utils/showUpload', () => ({
-  sdCardConnected: vi.fn(() => false),
+  // Presence, matching the real gate: an SD card on the bench is what makes
+  // this an SD-show upload, not a cable into the output.
+  sdCardConnected: vi.fn((nodes: Array<{ data: { nodeType: string } }>) =>
+    nodes.some((node) => node.data.nodeType === 'SDCard')),
   readySongCount: vi.fn(() => 0),
   buildShowPayload: vi.fn(() => null),
 }))
@@ -274,7 +277,7 @@ describe('MatrixOutputDeployPopup', () => {
 })
 
 describe('MatrixOutputDeployPopup SD-show upload', () => {
-  // With an SD Card node wired, the board runs the music-sync player rather
+  // With an SD Card on the bench, the board runs the music-sync player rather
   // than a normal sketch. That path used to live on its own button while
   // Upload sat disabled saying "connect a frame" — so the obvious control was
   // the wrong one and the right one was easy to miss entirely.
@@ -285,7 +288,7 @@ describe('MatrixOutputDeployPopup SD-show upload', () => {
         id: 'sd', type: 'studioNode', position: { x: 0, y: 0 },
         data: { label: 'SD Card', nodeType: 'SDCard', category: 'show', properties: {}, inputs: [], outputs: [] },
       }] as never[],
-      edges: [{ id: 'e1', source: 'sd', target: 'matrix', sourceHandle: 'sdcard', targetHandle: 'sdcard' }] as never[],
+      edges: [] as never[],
     })
   }
 

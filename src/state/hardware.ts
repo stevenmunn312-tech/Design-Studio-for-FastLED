@@ -13,10 +13,10 @@ const HARDWARE_MANAGED_SIGNAL_NODE_TYPES = new Set([
 // carry an output the bench does not.
 const HARDWARE_LIBRARY_HIDDEN_NODE_TYPES = new Set([
   'Board', 'MicInput', 'ButtonInput', 'PotInput', 'EncoderInput', 'MatrixOutput',
-  // Carries no signal, so it has no business on the signal canvas at all — it
-  // lives as a hidden node purely so its settings persist with the workspace
-  // and the player generator can keep scanning for them.
-  'Amplifier',
+  // Carry no signal, so they have no business on the signal canvas at all —
+  // they live as hidden nodes purely so their settings persist with the
+  // workspace and the player generator can keep scanning for them.
+  'Amplifier', 'SDCard',
 ])
 
 export function isHardwareManagedSignalNodeType(nodeType: string): boolean {
@@ -25,6 +25,19 @@ export function isHardwareManagedSignalNodeType(nodeType: string): boolean {
 
 export function isHardwareLibraryHiddenNodeType(nodeType: string): boolean {
   return HARDWARE_LIBRARY_HIDDEN_NODE_TYPES.has(nodeType)
+}
+
+/**
+ * Parts that exist only in the hardware view — Board, Amplifier, SD Card.
+ *
+ * They are still nodes, because that is where their settings persist and where
+ * the generators scan for them, but nothing draws them on the signal canvas.
+ * Derived rather than listed: hardware-managed *and* not signal-carrying is
+ * exactly what "hardware only" means, so the two sets cannot drift apart.
+ */
+export function isHardwareOnlyNodeType(nodeType: string): boolean {
+  return HARDWARE_LIBRARY_HIDDEN_NODE_TYPES.has(nodeType)
+    && !HARDWARE_MANAGED_SIGNAL_NODE_TYPES.has(nodeType)
 }
 
 /**

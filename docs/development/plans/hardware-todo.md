@@ -131,8 +131,7 @@ Once the pattern is proven, everything physical moves to the hardware view.
   outstanding in [`hardware-renders.md`](hardware-renders.md), so it draws a
   labelled placeholder at the part's real footprint — the layout will not shift
   when the photo lands.
-- [ ] **SD Card** — hardware view only. Deliberately deferred to the upload-tab
-  work below, because the only thing its ports do is gate that UI.
+- [x] **SD Card** — hardware view only, and the gate is the part's existence.
 
   Both of its ports turned out to be decorative. `PerformanceGenerator`
   evaluates to `{ shows: null }` and `SDCard` to `{}`, and nothing reads the
@@ -142,12 +141,20 @@ Once the pattern is proven, everything physical moves to the hardware view.
   `playerConfigFromGraph` — scans for the node by type and ignores wiring
   entirely. The chain on canvas is a picture of a pipeline, not the pipeline.
 
-  Decided: the gate becomes **the part exists**, matching what the payload
-  builder already does. Removing the node then strands `MatrixOutput.sdcard`
-  and `PerformanceGenerator.shows`, and the `shows`/`sdcard` dataTypes lose
-  their only four users — so the sweep also covers the Music-synced SD Show
-  starter, four live examples, two NodeReference recipes and two picker bridge
-  chains.
+  Done. Both ports and both dataTypes are gone, along with the four live
+  examples' edges, the picker bridge chains and the starter's wiring. The
+  microSD module and the bare breakout are offered as a part dropdown, which is
+  the safety-critical case the design note wanted it for: one has a regulator
+  and level shifter, the other is destroyed by 5 V.
+
+  One thing the removal broke and had to be given back: an SD show's LED output
+  legitimately has *no* frame wired, because the generated player drives it
+  from the card. The `sdcard` edge used to excuse that; the card's presence
+  says the same thing now, and `validateGraph` asks it directly.
+
+  Hidden-ness also moved into `normalizeLoadedGraph` via `isHardwareOnlyNodeType`,
+  so a hardware-only part is hidden wherever it came from — a template, an older
+  save, a share link — rather than relying on each creation path to remember.
 - [x] **Part dropdown per component.** `partOptions.ts` holds which exact module
   each part can be; `PartIdentity` shows it wherever a part is configured,
   alongside the logic voltage, the header order left to right, and the asset's
