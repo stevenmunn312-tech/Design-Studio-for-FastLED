@@ -104,11 +104,12 @@ export const POT_MODULE_FOOTPRINT_MM = moduleFootprint(30)
 export const ENCODER_MODULE_FOOTPRINT_MM = moduleFootprint(32)
 
 /**
- * The MAX98357A breakout, 17.8 mm along its long edge.
+ * The MAX98357A breakout: 0.70 x 1.00 inch, so 17.78 x 25.4 mm.
  *
- * No render yet — `docs/development/plans/hardware-renders.md` still lists it —
- * so the hardware view draws a placeholder card at this size. The footprint is
- * declared now regardless, because the part's real size beside a board is the
- * thing the view exists to show, and it should not change when the photo lands.
+ * Taken from the modelled asset's `part.json`, which cites Adafruit's own
+ * fabrication print. An earlier guess here said 17.8 x 13.2 and drew the board
+ * at about half its real length — in a view whose whole purpose is true
+ * relative scale, a wrong millimetre figure is the one error that cannot be
+ * shrugged off, so this number comes from the asset rather than from memory.
  */
-export const MAX98357A_FOOTPRINT_MM: PartFootprintMm = { width: 17.8, height: 13.2 }
+export const MAX98357A_FOOTPRINT_MM: PartFootprintMm = { width: 17.78, height: 25.4 }

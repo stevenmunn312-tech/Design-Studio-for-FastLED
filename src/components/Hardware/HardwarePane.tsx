@@ -4,6 +4,7 @@ import microphoneRender from '../../assets/components/inmp441-i2s-microphone.web
 import buttonRender from '../../assets/components/button-module.webp'
 import potRender from '../../assets/components/potentiometer-module.webp'
 import encoderRender from '../../assets/components/encoder-module.webp'
+import amplifierRender from '../../assets/components/max98357a-i2s-amplifier.webp'
 import ledSegmentRender from '../../assets/components/ws2812b-led.webp'
 import { useGraphStore, type StudioNode } from '../../state/graphStore'
 import { usePreviewStore } from '../../state/previewStore'
@@ -113,6 +114,7 @@ const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     label: 'Amplifier',
     hint: 'I2S amp for the SD-card player',
     footprint: MAX98357A_FOOTPRINT_MM,
+    render: amplifierRender,
     profilePins: { i2sBclk: 'bclk', i2sLrc: 'lrc', i2sDout: 'din' },
     singleton: true,
   },

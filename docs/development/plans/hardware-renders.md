@@ -17,36 +17,53 @@ Render contract is the existing board one: orthographic, 800 px wide,
 transparent background, tight calculated crop, raw Cycles PNG. Conversion to
 WebP happens at import (`scripts/import-board-assets.py`).
 
+> **This file had gone stale.** Sixteen parts under `Blender Assets/Parts/`
+> are finished — every blocking Phase 1 item included — while this list still
+> showed them outstanding. Checked against the folder on 2026-08-19. What is
+> actually missing is not the renders but the **import**: only the INMP441,
+> 74AHCT125, button, potentiometer and encoder have reached
+> `src/assets/components/`, and the amplifier only did so on that date.
+>
+> Each finished part carries a `part.json` with `dimensionsMm` verified against
+> a datasheet or fabrication print. The app should read those rather than
+> hand-declaring footprints — two of the three it had guessed were wrong (see
+> the note under the amplifier). That is Phase 3's part-catalogue item.
+
 ## Blocking — Phase 1 (LED outputs)
 
 Nothing else in the branch can be demonstrated without these.
 
-- [ ] **WS2812B strip** — a short run, tileable or croppable to any length.
-- [ ] **WS2812B matrix panel, 16×16** — the validated reference configuration.
-- [ ] **HUB75 panel** — 64×64 P4, matching the hardware-validated setup.
+- [x] **WS2812B strip** — 100.2 × 12.5 mm, `ws2812b-strip`.
+- [x] **WS2812B matrix panel, 16×16** — 160 × 160 mm, `ws2812b-matrix-16x16`.
+- [x] **HUB75 panel** — 64×64 P4, 256 × 256 mm, `hub75-panel-64x64-p4`.
 
 **LED rings — one render per LED count**, not a single parametric ring. The
 count is the thing the user bought, and the whole point of the picture is
 recognising your own part:
 
-- [ ] 8 LEDs
-- [ ] 12 LEDs
-- [ ] 16 LEDs
-- [ ] 24 LEDs
-- [ ] 60 LEDs
+- [x] 8 LEDs — 32.2 mm diameter
+- [x] 12 LEDs — 37.0 mm
+- [x] 16 LEDs — 44.5 mm
+- [x] 24 LEDs — 65.5 mm
+- [x] 60 LEDs — 158.0 mm
+
+These are the measured diameters, and they are not linear in LED count — the
+app currently derives a ring's size as `N x 10 mm / pi`, which gives 25.5 mm at
+8 LEDs and 191 mm at 60 against the real 32.2 and 158. Another reason the
+catalogue should carry the numbers.
 
 ## Phase 3 — parts with a signal role
 
-- [ ] **INMP441 I2S microphone.** The default microphone and the part the whole
-  mic pin story is built around. The Build Diagram already draws a schematic
-  version, so there is reference to work from.
+- [x] **INMP441 I2S microphone** — 15.0 × 10.5 mm, imported.
+  Note: the app declares this part as 20.5 × 14.5 mm, which disagrees with the
+  asset it is displaying by a third. Unconfirmed which is intended.
 **microSD breakout — two separate parts, two renders.** The 5 V module carries
 a regulator and level shifter; the bare 3.3 V breakout does not and is damaged
 by 5 V. Showing one generic picture for both would be exactly the quiet lie
 this model exists to remove.
 
-- [ ] microSD module, 5 V (onboard regulator + level shifter)
-- [ ] microSD breakout, 3.3 V (bare)
+- [x] microSD module, 5 V (onboard regulator + level shifter) — 24 × 42 mm
+- [x] microSD breakout, 3.3 V (bare) — 20.32 × 21.59 mm
 - [x] **Button module** — `button_module.blend` / `.png`.
 - [x] **Potentiometer module** — `potentiometer_module.blend` / `.png`.
 - [x] **Rotary encoder module** — `encoder_module.blend` / `.png`.
@@ -55,18 +72,19 @@ this model exists to remove.
 
 Hardware view only; these never appear in the graph.
 
-- [ ] **MAX98357A I2S amplifier.** The default amplifier, and the part that
-  cost an evening when its pin defaults disagreed with the wiring guide.
-- [ ] **Speaker**, 4–8 Ω. Needed to make the amplifier's output legible.
-- [ ] **74AHCT125 level shifter.** The Build Diagram draws one already; check
-  whether that asset can be reused before modelling.
+- [x] **MAX98357A I2S amplifier** — 17.78 × 25.4 mm (0.70 × 1.00 in), modelled
+  2026-08-17, imported to the app 2026-08-19. The app had guessed 17.8 × 13.2
+  and drew it at about half its real length; in a view whose purpose is true
+  relative scale that is the one error that cannot be shrugged off.
+- [x] **Speaker**, 4 Ω 3 W 40 mm — `speaker-4ohm-3w-40mm`.
+- [x] **74AHCT125 level shifter** — 11.71 × 19.3 mm, already imported.
 
 ## Phase 4 — audio sources
 
-- [ ] **DFPlayer Mini** or equivalent self-contained player module. In scope
-  because it is the case that makes line-in mandatory: its decoding happens on
-  the module, so it can never be decoder-tapped.
-- [ ] **Line-in ADC breakout** (PCM1802 / ES8388 class).
+- [x] **DFPlayer Mini** — 20 × 20 mm. In scope because it is the case that makes
+  line-in mandatory: its decoding happens on the module, so it can never be
+  decoder-tapped.
+- [x] **Line-in ADC breakout** — PCM1802, 52 × 38 mm.
 
 ## Support parts
 
