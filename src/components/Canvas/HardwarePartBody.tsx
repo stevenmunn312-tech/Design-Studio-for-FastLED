@@ -1,4 +1,5 @@
 import { useGraphStore } from '../../state/graphStore'
+import { PART_FIELDS } from '../../state/partFields'
 import styles from './BoardNodeBody.module.css'
 import PartIdentity from '../Hardware/PartIdentity'
 
@@ -13,20 +14,11 @@ import PartIdentity from '../Hardware/PartIdentity'
 // always assumed a MAX98357A and nothing in the UI ever said so, which is the
 // class of silent assumption naming the part is meant to end.
 
-const PIN_FIELDS: Record<string, ReadonlyArray<{ key: string; label: string }>> = {
-  Amplifier: [
-    { key: 'i2sBclk', label: 'BCLK' },
-    { key: 'i2sLrc', label: 'LRC / WS' },
-    { key: 'i2sDout', label: 'DIN' },
-  ],
-  SDCard: [
-    { key: 'sdCsPin', label: 'CS' },
-  ],
-}
+
 
 interface Props { nodeId: string; nodeType?: string }
 
-export default function AmplifierBody({ nodeId, nodeType = 'Amplifier' }: Props) {
+export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Props) {
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
   const props = useGraphStore((s) => {
     const node = s.nodes.find((n) => n.id === nodeId)
@@ -38,16 +30,29 @@ export default function AmplifierBody({ nodeId, nodeType = 'Amplifier' }: Props)
       <PartIdentity nodeId={nodeId} nodeType={nodeType} />
 
       <div className={styles.detail}>
-        {(PIN_FIELDS[nodeType] ?? []).map((field) => (
+        {(PART_FIELDS[nodeType] ?? []).map((field) => (
           <label key={field.key} className={styles.row}>
             <span className={styles.key}>{field.label}</span>
-            <input
-              className={`nodrag nowheel ${styles.picker}`}
-              type="number"
-              min={0}
-              value={Number(props[field.key] ?? 0)}
-              onChange={(event) => updateNodeProperty(nodeId, field.key, Number(event.target.value))}
-            />
+            {field.kind === 'select' ? (
+              <select
+                className={`nodrag ${styles.picker}`}
+                value={String(props[field.key] ?? field.options[0])}
+                onChange={(event) => updateNodeProperty(nodeId, field.key, event.target.value)}
+              >
+                {field.options.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                className={`nodrag nowheel ${styles.picker}`}
+                type="number"
+                min={field.kind === 'number' ? field.min : 0}
+                max={field.kind === 'number' ? field.max : undefined}
+                value={Number(props[field.key] ?? 0)}
+                onChange={(event) => updateNodeProperty(nodeId, field.key, Number(event.target.value))}
+              />
+            )}
           </label>
         ))}
       </div>

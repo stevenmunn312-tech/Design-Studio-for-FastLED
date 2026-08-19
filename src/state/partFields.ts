@@ -1,0 +1,26 @@
+/**
+ * The settings a hardware-only part carries, beyond the module it is.
+ *
+ * Listed here because these parts have no node body for the generic property
+ * editor to render into — and anything omitted becomes unreachable rather than
+ * merely hidden. The SD card's output mode and volume were exactly that for one
+ * commit: real settings, one of them board-validated, with nowhere left to
+ * enter them once the node left the canvas.
+ */
+type PartField =
+  | { key: string; label: string; kind: 'pin' }
+  | { key: string; label: string; kind: 'select'; options: readonly string[] }
+  | { key: string; label: string; kind: 'number'; min: number; max: number }
+
+export const PART_FIELDS: Record<string, readonly PartField[]> = {
+  Amplifier: [
+    { key: 'i2sBclk', label: 'BCLK', kind: 'pin' },
+    { key: 'i2sLrc', label: 'LRC / WS', kind: 'pin' },
+    { key: 'i2sDout', label: 'DIN', kind: 'pin' },
+  ],
+  SDCard: [
+    { key: 'sdCsPin', label: 'CS', kind: 'pin' },
+    { key: 'audioOutput', label: 'Audio out', kind: 'select', options: ['i2s', 'internalDac'] },
+    { key: 'maxVolume', label: 'Volume', kind: 'number', min: 0, max: 21 },
+  ],
+}

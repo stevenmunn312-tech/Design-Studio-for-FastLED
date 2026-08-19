@@ -44,7 +44,7 @@ import {
   ringStartAngle,
   type LedOutputForm,
 } from '../../state/ledOutputForm'
-import AmplifierBody from '../Canvas/AmplifierBody'
+import HardwarePartBody from '../Canvas/HardwarePartBody'
 import MatrixOutputDeployPopup from '../Upload/MatrixOutputDeployPopup'
 import BoardNodeBody from '../Canvas/BoardNodeBody'
 import HardwareLedPreview from './HardwareLedPreview'
@@ -1191,7 +1191,7 @@ export default function HardwarePane() {
         >
           {itemMenu.mode === 'settings' ? (
             <div className={styles.itemMenuSettings}>
-              <AmplifierBody
+              <HardwarePartBody
                 nodeId={itemMenu.kind}
                 nodeType={nodes.find((node) => node.id === itemMenu.kind)?.data.nodeType}
               />
