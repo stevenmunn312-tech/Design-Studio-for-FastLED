@@ -237,6 +237,58 @@ describe('retargetHardwarePins', () => {
     expect(nodes[0].data.properties.pin).toBe(15)
   })
 
+  it('does not freeze a whole microphone because one pin was edited', () => {
+    /*
+     * Reported from the bench, with screenshots. A mic sat on the 30-pin
+     * DevKit's 32/33/34; the SD pin was changed to 18; switching to an S3 that
+     * wants 39/40/41 left the mic on 32/33/18 — the edit had frozen WS and SCK
+     * as well. The legacy ownership check asked whether all three pins matched
+     * one board's starting point, so touching any one of them made the other
+     * two look hand-wired.
+     *
+     * No provenance recorded here on purpose: that is the state the reported
+     * node was in.
+     */
+    const s3 = profile([1, 2], { wsLrclk: 39, sckBclk: 40, sdDout: 41 }, 'esp32-s3-generic-n16r8')
+    const nodes = [part('mic', 'MicInput', { i2sWs: 32, i2sSck: 33, i2sSd: 18 })]
+
+    const result = retargetHardwarePins(nodes, s3, ESP32_S3)
+    const props = result.nodes[0].data.properties
+    expect(props.i2sWs).toBe(39)
+    expect(props.i2sSck).toBe(40)
+    // 18 was never one of Studio's suggestions, so it is the user's and stays.
+    expect(props.i2sSd).toBe(18)
+  })
+
+  it('follows the described microphone behaviour end to end', () => {
+    /*
+     * "I change boards, the mic should change all its pins to the defaults for
+     * that board. Later if I go back to the first board it should retain the
+     * SD as 32 instead of 33, but only for that board."
+     */
+    const boardA = profile([1, 2], { wsLrclk: 32, sckBclk: 33, sdDout: 34 }, 'board-a')
+    const boardB = profile([3, 4], { wsLrclk: 39, sckBclk: 40, sdDout: 41 }, 'board-b')
+
+    // On board A, wired as the app suggested, then the SD pin changed by hand.
+    let nodes = [part('mic', 'MicInput', {
+      ...withAssignedPins({}, { i2sWs: 32, i2sSck: 33, i2sSd: 34 }, boardA.id),
+      i2sSd: 18,
+    })]
+
+    // To board B: everything takes B's pins, the hand-edit included, because
+    // that edit was about board A.
+    nodes = retargetHardwarePins(nodes, boardB, 'b').nodes
+    expect(nodes[0].data.properties).toMatchObject({ i2sWs: 39, i2sSck: 40, i2sSd: 41 })
+
+    // Back to A: A's own pins, and the hand-edit returns with them.
+    nodes = retargetHardwarePins(nodes, boardA, 'a').nodes
+    expect(nodes[0].data.properties).toMatchObject({ i2sWs: 32, i2sSck: 33, i2sSd: 18 })
+
+    // And B is still B's, unaffected by what was done on A.
+    nodes = retargetHardwarePins(nodes, boardB, 'b').nodes
+    expect(nodes[0].data.properties).toMatchObject({ i2sWs: 39, i2sSck: 40, i2sSd: 41 })
+  })
+
   it('ignores nodes that are not hardware parts', () => {
     const nodes = [part('p', 'Plasma', { speed: 0.5 })]
     expect(retargetHardwarePins(nodes, profile([21]), ESP32_S3).moved).toBe(0)

@@ -163,6 +163,22 @@ export function micPinsAreDefault(properties: Record<string, unknown>): boolean 
   return Object.values(MIC_PIN_DEFAULTS_BY_FQBN).some((pins) => samePins(properties, pins))
 }
 
+/**
+ * True when *this one* pin still holds a value Studio would have suggested.
+ *
+ * Per pin, deliberately. `micPinsAreDefault` asks whether the whole trio
+ * matches a single board's starting point, which is the wrong question for
+ * ownership: change the SD pin alone and the trio matches nothing, so WS and
+ * SCK look hand-wired too and stop following the board. Reported from the
+ * bench — one edited pin froze the other two on their old board's values.
+ */
+export function micPinIsDefault(properties: Record<string, unknown>, key: string): boolean {
+  if (!PIN_KEYS.includes(key as (typeof PIN_KEYS)[number])) return false
+  const value = Number(properties[key])
+  return Object.values(MIC_PIN_DEFAULTS_BY_FQBN)
+    .some((pins) => pins[key as (typeof PIN_KEYS)[number]] === value)
+}
+
 /** Target-board saved/default pins for retargeting an existing MicInput. */
 export function retargetedMicPins(
   properties: Record<string, unknown>,

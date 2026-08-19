@@ -29,7 +29,7 @@
 import type { StudioNode } from './graphStore'
 import type { PhysicalBoardProfile } from '../build/boardProfiles'
 import { assignPartPins, type PartPinRequest } from './partPinAssignment'
-import { micPinDefaultsForBoard, micPinsAreDefault } from './micPinDefaults'
+import { micPinDefaultsForBoard, micPinIsDefault } from './micPinDefaults'
 import { outputForm } from './ledOutputForm'
 
 /** Property holding the values the app last assigned, keyed by pin property. */
@@ -151,7 +151,10 @@ export function isPinAppOwned(
   const assigned = properties[ASSIGNED_PINS_KEY] as Record<string, number> | undefined
   const recorded = assigned?.[key]
   if (typeof recorded === 'number') return Number(properties[key]) === recorded
-  if (nodeType === 'MicInput') return micPinsAreDefault(properties)
+  // Per pin, not per trio: asking whether all three match one board's starting
+  // point means editing the SD pin alone makes WS and SCK look hand-wired too,
+  // and all three stop following the board.
+  if (nodeType === 'MicInput') return micPinIsDefault(properties, key)
   return true
 }
 
