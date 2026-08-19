@@ -38,6 +38,7 @@ const PerformanceDeck = lazy(() => import('./components/PerformanceDeck/Performa
 const BoardPopup = lazy(() => import('./components/Upload/BoardPopup'))
 const BoardPinoutPopup = lazy(() => import('./components/Upload/BoardPinoutPopup'))
 const MatrixOutputSetupWizard = lazy(() => import('./components/Upload/MatrixOutputSetupWizard'))
+const CapacityWatcher = lazy(() => import('./components/Upload/CapacityWatcher'))
 const MatrixOutputDeployPopup = lazy(() => import('./components/Upload/MatrixOutputDeployPopup'))
 const ArduinoCliPopup = lazy(() => import('./components/Upload/ArduinoCliPopup'))
 const OutputConsole = lazy(() => import('./components/Upload/OutputConsole'))
@@ -695,6 +696,10 @@ export default function App() {
       <PerformanceDeckMidiBridge />
       <Suspense fallback={null}>
         <AppDialogHost />
+        {/* Headless. Drives the live capacity check from here rather than a
+            node body or the hardware pane, because both can be hidden and the
+            measurement should not stop when the view does. */}
+        <CapacityWatcher />
         {setupWizardOpen && <MatrixOutputSetupWizard />}
         {deployPopupOpen && <MatrixOutputDeployPopup />}
         {boardPopupOpen && <BoardPopup />}

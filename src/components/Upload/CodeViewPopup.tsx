@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useUploadStore } from '../../state/uploadStore'
 import styles from './Upload.module.css'
 
-// Read-only "show me the code" panel — the exact string MatrixOutputUpload
+// Read-only "show me the code" panel — the exact string the upload tab
 // would export/upload, for learning the generated firmware or debugging a
 // preview-vs-firmware mismatch. Opened from the node's "View Code" button.
 // Line numbers are a display-only gutter (aria-hidden, unselectable) so they

@@ -45,6 +45,7 @@ import {
   type LedOutputForm,
 } from '../../state/ledOutputForm'
 import AmplifierBody from '../Canvas/AmplifierBody'
+import MatrixOutputDeployPopup from '../Upload/MatrixOutputDeployPopup'
 import BoardNodeBody from '../Canvas/BoardNodeBody'
 import HardwareLedPreview from './HardwareLedPreview'
 import HardwareLedSpill from './HardwareLedSpill'
@@ -282,6 +283,8 @@ export default function HardwarePane() {
   const previewPanelOpen = useUiStore((state) => state.previewPanelOpen)
   const previewWidth = useUiStore((state) => state.previewWidth)
   const uiEffectsEnabled = useUiStore((state) => state.uiEffectsEnabled)
+  const paneTab = useUiStore((state) => state.hardwarePaneTab)
+  const setPaneTab = useUiStore((state) => state.setHardwarePaneTab)
   const [addMenuOpen, setAddMenuOpen] = useState(false)
   const [boardMenu, setBoardMenu] = useState<{ x: number; y: number } | null>(null)
   const [itemMenu, setItemMenu] = useState<
@@ -825,22 +828,49 @@ export default function HardwarePane() {
   return (
     <section ref={sectionRef} className={styles.hardwarePane} aria-label="Hardware view">
       <div className={styles.toolbar} style={toolbarStyle}>
-        <button
-          type="button"
-          className={styles.addButton}
-          onClick={() => setAddMenuOpen((open) => !open)}
-          aria-expanded={addMenuOpen}
-          aria-haspopup="menu"
-        >
-          Add Hardware
-        </button>
+        {/* Tabs across the whole pane rather than a side dock: the console is
+            readable at full width and the board render stays big, which is
+            what the old floating slide-over could never offer. */}
+        <div className={styles.paneTabs} role="tablist" aria-label="Hardware pane">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={paneTab === 'hardware'}
+            className={`${styles.paneTab} ${paneTab === 'hardware' ? styles.paneTabActive : ''}`}
+            onClick={() => setPaneTab('hardware')}
+          >
+            Hardware
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={paneTab === 'upload'}
+            className={`${styles.paneTab} ${paneTab === 'upload' ? styles.paneTabActive : ''}`}
+            onClick={() => setPaneTab('upload')}
+          >
+            Upload
+          </button>
+        </div>
+        {paneTab === 'hardware' && (
+          <button
+            type="button"
+            className={styles.addButton}
+            onClick={() => setAddMenuOpen((open) => !open)}
+            aria-expanded={addMenuOpen}
+            aria-haspopup="menu"
+          >
+            Add Hardware
+          </button>
+        )}
         <div className={styles.boardMeta}>
           <strong>{boardProfile.label}</strong>
           <span>{boardFamilyLabel}</span>
         </div>
       </div>
 
-      {addMenuOpen && (
+      {paneTab === 'upload' && <MatrixOutputDeployPopup inline />}
+
+      {paneTab === 'hardware' && addMenuOpen && (
         <div ref={addMenuRef} className={styles.addMenu} style={addMenuStyle} role="menu" aria-label="Add hardware">
           {INPUT_PARTS.map((entry) => {
             const blocker = inputPartBlocker(entry)
@@ -903,6 +933,7 @@ export default function HardwarePane() {
       <div
         ref={stageRef}
         className={`${styles.stage} ${view.panning ? styles.stagePanning : ''}`}
+        hidden={paneTab !== 'hardware'}
         {...view.handlers}
       >
         <div

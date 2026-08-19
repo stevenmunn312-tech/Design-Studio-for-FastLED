@@ -351,6 +351,17 @@
 
 /* Something worth reading before flashing, but not a reason to stop — uneven
    parallel runs, for instance, which are a real build rather than a mistake. */
+/* The upload tools inside the hardware pane's Upload tab. Scrolls within the
+   pane rather than growing it, so the tab strip and the divider stay put. */
+.inlineDeploy {
+  height: 100%;
+  overflow-y: auto;
+  padding: 12px clamp(12px, 3vw, 28px) 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .streamNote {
   font-size: 10px;
   /* The amber Graph Health already uses for warnings, so one severity reads

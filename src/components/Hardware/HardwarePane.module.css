@@ -308,6 +308,37 @@
    in docs/development/plans/hardware-renders.md. Drawn as a labelled board at
    the part's real footprint, so it takes the space the photo will and the
    layout does not shift when the render lands. */
+/* Hardware | Upload. The pane's own tabs, not the app's, so they sit inside
+   the toolbar rather than competing with the menu bar above. */
+.paneTabs {
+  display: flex;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.paneTab {
+  padding: 4px 12px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--fs-caption);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.paneTab:hover {
+  color: var(--text-primary);
+}
+
+.paneTabActive {
+  background: var(--bg-primary);
+  border-color: var(--divider);
+  color: var(--text-primary);
+}
+
 .partPlaceholder {
   border-radius: 3px;
   background-color: #12171d;

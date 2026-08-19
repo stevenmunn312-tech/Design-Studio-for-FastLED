@@ -35,7 +35,7 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
   const togglePatternSection = useGraphStore((s) => s.togglePatternSection)
   const setPatternSections = useGraphStore((s) => s.setPatternSections)
 
-  // Last live-capacity-meter delta (see MatrixOutputUpload.tsx), so adding or
+  // Last live-capacity-meter delta (driven by CapacityWatcher), so adding or
   // removing a pattern here shows what it cost without opening the upload panel.
   const { result: capacityResult, previousResult: capacityPrevious } = useCapacityStore()
   const deltaText = (() => {

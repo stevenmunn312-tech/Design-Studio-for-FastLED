@@ -25,6 +25,8 @@ export type NewProjectDecision = 'yes' | 'no' | 'cancel'
 export type AppDialogTone = 'default' | 'danger'
 export type StartChoice = string | 'blank' | null
 export type HelpTab = 'quickstart' | 'shortcuts' | 'nodes' | 'upload' | 'about'
+/** The bottom pane shows the bench, or the tools that flash it. */
+export type HardwarePaneTab = 'hardware' | 'upload'
 export type WorkspaceMode = 'design' | 'build'
 
 export interface HelpNodeReferenceState {
@@ -78,6 +80,7 @@ const LEGACY_DIFFUSION_KEY = 'design-studio-for-fastled-preview-diffusion'
 const TEST_SIGNAL_KEY = 'design-studio-for-fastled-test-signal'
 const UI_EFFECTS_KEY = 'design-studio-for-fastled-ui-effects-enabled'
 const SIGNAL_PATH_DIM_KEY = 'design-studio-for-fastled-signal-path-dim-enabled'
+const HARDWARE_TAB_KEY = 'design-studio-for-fastled-hardware-pane-tab'
 const START_CHOICE_KEY = 'design-studio-for-fastled-last-start-choice'
 const GRAPH_HEALTH_KEY = 'design-studio-for-fastled-graph-health-open'
 const SIDEBAR_WIDTH_KEY = 'design-studio-for-fastled-sidebar-width'
@@ -180,6 +183,10 @@ interface UiState {
   /** Centre of the visible canvas in flow coordinates — where click-to-add
    *  drops a node so it lands on screen wherever the user has panned. */
   viewCenter: { x: number; y: number }
+  /** Which half of the bottom pane is showing: the bench, or the upload
+   *  tools that act on it. Persisted — it is a workspace preference, not a
+   *  moment. */
+  hardwarePaneTab: HardwarePaneTab
   /** Monotonic fit-view request consumed by the canvas. */
   fitViewRequest: { nonce: number; nodeIds?: string[] }
   /**
@@ -219,6 +226,7 @@ interface UiState {
   setStageFullscreenStatus: (status: StagePresentationStatus) => void
   setStageWakeLockStatus: (status: StagePresentationStatus) => void
   setStageIdle: (idle: boolean) => void
+  setHardwarePaneTab: (tab: HardwarePaneTab) => void
   togglePerformanceMode: () => void
   setPerformanceMode: (active: boolean) => void
   toggleUiEffects: () => void
@@ -309,6 +317,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   sparkPort: null,
   draggingNodeType: null,
   viewCenter: { x: 300, y: 250 },
+  hardwarePaneTab: (load<string>(HARDWARE_TAB_KEY, 'hardware') === 'upload' ? 'upload' : 'hardware') as HardwarePaneTab,
   fitViewRequest: { nonce: 0 },
   nodeFlash: { nodeId: null, nonce: 0 },
   theme: load<AppTheme>(THEME_KEY, 'dark'),
@@ -388,6 +397,10 @@ export const useUiStore = create<UiState>((set, get) => ({
   setStageFullscreenStatus: (stageFullscreenStatus) => set({ stageFullscreenStatus }),
   setStageWakeLockStatus: (stageWakeLockStatus) => set({ stageWakeLockStatus }),
   setStageIdle: (stageIdle) => set({ stageIdle }),
+  setHardwarePaneTab: (hardwarePaneTab) => {
+    save(HARDWARE_TAB_KEY, hardwarePaneTab)
+    set({ hardwarePaneTab })
+  },
   togglePerformanceMode: () => set((s) => ({ performanceMode: !s.performanceMode })),
   setPerformanceMode: (performanceMode) => set({ performanceMode }),
   toggleUiEffects: () => {

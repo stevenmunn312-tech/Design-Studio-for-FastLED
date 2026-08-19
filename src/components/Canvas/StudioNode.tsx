@@ -53,7 +53,6 @@ const PolineEditorBody = lazy(() => import('./PaletteEditorBody').then((m) => ({
 const ImageNodeBody = lazy(() => import('./ImageNodeBody'))
 const BoardNodeBody = lazy(() => import('./BoardNodeBody'))
 const Wireframe3DNodeBody = lazy(() => import('./Wireframe3DNodeBody'))
-const MatrixOutputUpload = lazy(() => import('../Upload/MatrixOutputUpload'))
 
 type PortDef = { id: string; label: string; dataType: string }
 
@@ -1098,7 +1097,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       // Comment's `text` gets its own multi-line editor in the body, not the
       // generic single-line field list.
       && !(isComment && k === 'text')
-      // PSRAM controls render in MatrixOutputUpload — their visibility depends
+      // PSRAM controls render in the upload tab — their visibility depends
       // on whether the *selected board* supports PSRAM, which only it knows.
       && k !== 'usePsram' && k !== 'psramMode'
       // MatrixOutput's width/height are edited via the dedicated size dropdown
@@ -1454,12 +1453,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           {d.nodeType === 'Transition' && <TransitionPickerBody nodeId={id} />}
           {d.nodeType === 'TransitionSet' && <TransitionSetBody nodeId={id} />}
 
-          {d.nodeType === 'MatrixOutput' && (
-            <MatrixOutputUpload
-              nodeId={id}
-              hasFrameInput={sourceMap.has('frame')}
-            />
-          )}
+
         </Suspense>
 
         {isCode && (

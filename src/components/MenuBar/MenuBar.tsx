@@ -933,6 +933,21 @@ export default function MenuBar() {
         </button>
       </nav>
       <div className={styles.previewControls}>
+        {/* The upload tools live in the hardware pane now, and that pane can be
+            dragged shut — deliberately, since the 1280x720 minimum depends on
+            it. So this opens the pane on the Upload tab rather than a dialog:
+            upload must never be unreachable because the bench is hidden. */}
+        <button
+          className={styles.btn}
+          onClick={() => {
+            const ui = useUiStore.getState()
+            ui.setHardwarePaneTab('upload')
+            if (ui.hardwarePaneRatio < 0.2) ui.setHardwarePaneRatio(0.5)
+          }}
+          title="Open the upload tools"
+        >
+          ↑ Upload
+        </button>
         {import.meta.env.DEV && <DevPerformanceHudToggle />}
         <button
           className={`${styles.btn} ${styles.stageBtn} ${stageMode ? styles.btnStageActive : ''}`}

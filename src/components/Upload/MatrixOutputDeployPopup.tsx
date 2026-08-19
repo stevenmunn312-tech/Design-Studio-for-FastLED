@@ -30,7 +30,15 @@ const CAPACITY_LEVEL_CLASS = {
   ok: 'capacityOk', warn: 'capacityWarn', error: 'capacityError', pending: 'capacityPending',
 } as const
 
-export default function MatrixOutputDeployPopup() {
+/**
+ * The upload tools.
+ *
+ * `inline` drops the modal shell so the same body can sit in the hardware
+ * pane's Upload tab, where these tools now live — uploading is a bench
+ * activity, and the bench is drawn right there. The floating dialog remains
+ * for the times the pane is collapsed to nothing, which it is allowed to be.
+ */
+export default function MatrixOutputDeployPopup({ inline = false }: { inline?: boolean } = {}) {
   const [readinessOpen, setReadinessOpen] = useState(false)
   const [validationAction, setValidationAction] = useState<HardwareValidationAction | null>(null)
   const { nodes, edges } = useGraphStore()
@@ -39,7 +47,7 @@ export default function MatrixOutputDeployPopup() {
   const {
     helper, installedCores, selectedFqbn, selectedPort, ports, busy, status, codeViewOpen,
     refreshHelper, refreshPorts, installCore, activeOutputNodeId,
-    openBoardPopup, openCliPopup, openConsole, openCodeView, closeDeployPopup, runUpload, runLastUpload, runShowUpload, exportIno,
+    openBoardPopup, openCliPopup, openConsole, openCodeView, closeDeployPopup, openSetupWizard, runUpload, runLastUpload, runShowUpload, exportIno,
   } = useUploadStore()
   const hasLastSketch = useUploadStore((s) => !!(currentProjectId && s.lastSketchByProject[currentProjectId]))
   const { streaming, fps: streamFps, error: streamError, start: startStreaming, stop: stopStreaming } = useStreamStore()
@@ -60,7 +68,7 @@ export default function MatrixOutputDeployPopup() {
   const usePsram = !!psramOptions && ownProps.usePsram === true
   const psramChoice = psramOptions?.find((o) => o.id === ownProps.psramMode) ?? psramOptions?.[0]
 
-  // See MatrixOutputUpload: keyed on the codegen-relevant graph so a node drag
+  // See CapacityWatcher: keyed on the codegen-relevant graph so a node drag
   // behind this popup doesn't re-run the sketch generator every frame.
   const codegenGraph = useCodegenGraph(nodes, edges)
   const code = useMemo(() => {
@@ -98,7 +106,7 @@ export default function MatrixOutputDeployPopup() {
     [nodes, nodeId],
   )
 
-  // Live controller-capacity meter (see MatrixOutputUpload.tsx, which drives
+  // Live controller-capacity meter (see CapacityWatcher.tsx, which drives
   // the actual debounced compile-check) — the measured result is the
   // authority here: only a *confirmed* overflow blocks Upload, so editing is
   // never blocked just because a check hasn't completed yet.
@@ -371,25 +379,34 @@ export default function MatrixOutputDeployPopup() {
 
   if (!outputNode) return null
 
-  return (
-    <div className={styles.overlay} onMouseDown={(event) => { if (event.target === event.currentTarget) closeDeployPopup() }}>
-      <div
-        ref={dialogRef}
-        className={`${styles.popup} ${styles.deployPopup}`}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Upload tools"
-        tabIndex={-1}
-      >
+  const body = (
+    <>
         <div className={styles.popupHeader}>
           <div>
             <div className={styles.wizardKicker}>Upload</div>
             <div className={styles.wizardTitle}>Deploy to hardware</div>
           </div>
-          <button className={styles.closeBtn} onClick={closeDeployPopup} title="Close" aria-label="Close upload tools">×</button>
+          {/* Nothing to close when this *is* the pane — the tab strip is how
+              you leave, and an × that dismissed the whole bottom half would be
+              a different action wearing the same button. */}
+          {!inline && (
+            <button className={styles.closeBtn} onClick={closeDeployPopup} title="Close" aria-label="Close upload tools">×</button>
+          )}
         </div>
 
-        <div className={styles.targetBig}>{target}</div>
+        <div className={styles.targetRow}>
+          <div className={styles.targetBig}>{target}</div>
+          {/* The guided setup used to hang off the output node's strip, which
+              was its only way in. Moving upload here without it would have
+              quietly removed the wizard from the app. */}
+          <button
+            className={styles.setupBtn}
+            onClick={() => openSetupWizard(outputNode?.id)}
+            title="Open the guided hardware setup wizard"
+          >
+            ✦ Setup…
+          </button>
+        </div>
         {hasFrameInput && (
           <div
             className={`${styles.capacityLine} ${styles[CAPACITY_LEVEL_CLASS[capacitySummary.level]]}`}
@@ -605,6 +622,22 @@ export default function MatrixOutputDeployPopup() {
             onClose={() => setValidationAction(null)}
           />
         )}
+    </>
+  )
+
+  if (inline) return <div className={styles.inlineDeploy}>{body}</div>
+
+  return (
+    <div className={styles.overlay} onMouseDown={(event) => { if (event.target === event.currentTarget) closeDeployPopup() }}>
+      <div
+        ref={dialogRef}
+        className={`${styles.popup} ${styles.deployPopup}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Upload tools"
+        tabIndex={-1}
+      >
+        {body}
       </div>
     </div>
   )
