@@ -175,7 +175,7 @@ interface GraphState {
   updateNodeProperties: (id: string, updates: Record<string, unknown>) => void
   /** Move every hardware part's app-assigned pins onto `fqbn`'s board,
    *  leaving pins the user has edited exactly where they are. */
-  retargetHardwarePins: (fqbn: string) => number
+  retargetHardwarePins: (fqbn: string, previousBoard?: string) => number
   loadGraph: (nodes: StudioNode[], edges: StudioEdge[], workspace?: WorkspaceExtras) => void
   duplicateNode: (id: string) => void
   /** Duplicate every currently multi-selected node plus the edges wiring them
@@ -1221,7 +1221,7 @@ export const useGraphStore = create<GraphState>()(
           }),
         })),
 
-      retargetHardwarePins: (fqbn) => {
+      retargetHardwarePins: (fqbn, previousBoard) => {
         let moved = 0
         const saved = useNodeDefaults.getState().micOverridesByFqbn[fqbn]
         set((s) => {
@@ -1242,7 +1242,7 @@ export const useGraphStore = create<GraphState>()(
             })
             : s.nodes
 
-          const result = retargetHardwarePinsFor(withSavedMic, profile, fqbn)
+          const result = retargetHardwarePinsFor(withSavedMic, profile, fqbn, previousBoard)
           moved += result.moved
           // No-op when nothing moved, so re-selecting the same effective
           // wiring doesn't push an empty step onto the undo stack.

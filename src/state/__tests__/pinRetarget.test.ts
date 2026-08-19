@@ -237,6 +237,29 @@ describe('retargetHardwarePins', () => {
     expect(nodes[0].data.properties.pin).toBe(15)
   })
 
+  it('does not strand an unstamped edit on every board', () => {
+    /*
+     * Reported with screenshots. An SD pin set to 18 on a 30-pin DevKit still
+     * read 18 after switching to an S3 that wants 41 — on a board where that
+     * pin was never chosen, and eventually on boards with no GPIO 18 at all.
+     * A pin with no stamp has no board attached, so treating it as the user's
+     * everywhere pins it everywhere; it belongs to the board being left.
+     */
+    const devkit = profile([1, 2], { wsLrclk: 32, sckBclk: 33, sdDout: 34 }, 'esp32-devkit-v1-30pin-esp32d')
+    const s3 = profile([3, 4], { wsLrclk: 39, sckBclk: 40, sdDout: 41 }, 'esp32-s3-generic-n16r8')
+
+    // No provenance: the state a node saved before stamping existed is in.
+    let nodes = [part('mic', 'MicInput', { i2sWs: 32, i2sSck: 33, i2sSd: 18 })]
+
+    nodes = retargetHardwarePins(nodes, s3, ESP32_S3, devkit.id).nodes
+    // The S3's own pins, all three of them.
+    expect(nodes[0].data.properties).toMatchObject({ i2sWs: 39, i2sSck: 40, i2sSd: 41 })
+
+    // And the edit was not lost — it belonged to the DevKit, and returns there.
+    nodes = retargetHardwarePins(nodes, devkit, 'esp32:esp32:esp32doit-devkit-v1').nodes
+    expect(nodes[0].data.properties).toMatchObject({ i2sWs: 32, i2sSck: 33, i2sSd: 18 })
+  })
+
   it('does not freeze a whole microphone because one pin was edited', () => {
     /*
      * Reported from the bench, with screenshots. A mic sat on the 30-pin
@@ -250,14 +273,17 @@ describe('retargetHardwarePins', () => {
      * node was in.
      */
     const s3 = profile([1, 2], { wsLrclk: 39, sckBclk: 40, sdDout: 41 }, 'esp32-s3-generic-n16r8')
-    const nodes = [part('mic', 'MicInput', { i2sWs: 32, i2sSck: 33, i2sSd: 18 })]
+    const nodes = [part('mic', 'MicInput', {
+      ...withAssignedPins({}, { i2sWs: 32, i2sSck: 33, i2sSd: 34 }, 'esp32-devkit-v1-30pin-esp32d'),
+      i2sSd: 18,
+    })]
 
     const result = retargetHardwarePins(nodes, s3, ESP32_S3)
     const props = result.nodes[0].data.properties
+    // All three follow the new board; the edit belonged to the old one.
     expect(props.i2sWs).toBe(39)
     expect(props.i2sSck).toBe(40)
-    // 18 was never one of Studio's suggestions, so it is the user's and stays.
-    expect(props.i2sSd).toBe(18)
+    expect(props.i2sSd).toBe(41)
   })
 
   it('follows the described microphone behaviour end to end', () => {

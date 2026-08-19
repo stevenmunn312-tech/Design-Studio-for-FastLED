@@ -144,9 +144,17 @@ export function isPinAppOwned(
   properties: Record<string, unknown>,
   key: string,
   board?: string,
+  /** Which board these pin values were chosen on, when the node carries no
+   *  stamp of its own — the board being left. */
+  pinsBelongTo?: string,
 ): boolean {
-  const stampedFor = properties[ASSIGNED_BOARD_KEY]
-  if (board && typeof stampedFor === 'string' && stampedFor !== board) return true
+  const stampedFor = typeof properties[ASSIGNED_BOARD_KEY] === 'string'
+    ? properties[ASSIGNED_BOARD_KEY] as string
+    : pinsBelongTo
+  // Values chosen on another board say nothing about this one, so they are
+  // free to move here. This is what stops an edit with no board attached from
+  // being treated as deliberate on every board at once.
+  if (board && stampedFor && stampedFor !== board) return true
 
   const assigned = properties[ASSIGNED_PINS_KEY] as Record<string, number> | undefined
   const recorded = assigned?.[key]
@@ -198,6 +206,16 @@ export function retargetHardwarePins(
   nodes: StudioNode[],
   profile: PhysicalBoardProfile | undefined,
   fqbn: string,
+  /**
+   * The board being left, for parts carrying no stamp of their own.
+   *
+   * Without it a hand-wired pin on an older node has no board attached, and
+   * treating it as the user's everywhere strands it: an SD pin set to 18 on one
+   * DevKit stayed 18 on every board afterwards, including boards with no GPIO
+   * 18 at all. Attributing it to the board it was actually set on is what lets
+   * it be remembered there and released everywhere else.
+   */
+  previousBoard?: string,
 ): RetargetResult {
   /*
    * Memory is keyed on the *profile*, not the FQBN.
@@ -223,9 +241,13 @@ export function retargetHardwarePins(
     const stampedFor = properties[ASSIGNED_BOARD_KEY]
     const remembered = userPinsByBoard(properties)[boardKey] ?? {}
     const out: Record<string, number> = { ...remembered }
-    // Still on the board these values were stamped for, so an edited pin is a
-    // live choice about this board rather than a leftover from another.
-    if (stampedFor === boardKey || stampedFor === undefined) {
+    /*
+     * Live edits count only while this really is the board they were made on.
+     * An unstamped node is *not* treated as belonging to the board being
+     * arrived at — its pins were chosen somewhere else, and claiming them here
+     * is what pinned an edited pin across every board.
+     */
+    if (stampedFor === boardKey) {
       for (const key of plan.keys) {
         if (!isPinAppOwned(node.data.nodeType, properties, key, boardKey)) {
           const pin = Number(properties[key])
@@ -256,12 +278,15 @@ export function retargetHardwarePins(
     /* Remember what the user chose for the board being left, before anything
        overwrites it — this is what makes returning to that board bring their
        wiring back rather than the app's suggestion. */
-    const leaving = properties[ASSIGNED_BOARD_KEY]
+    // A node with no stamp of its own is attributed to the board being left,
+    // which is where its pins were actually chosen.
+    const stamped = properties[ASSIGNED_BOARD_KEY]
+    const leaving = typeof stamped === 'string' ? stamped : previousBoard
     const memory = userPinsByBoard(properties)
     if (typeof leaving === 'string' && leaving !== boardKey) {
       const chosen: Record<string, number> = {}
       for (const key of plan.keys) {
-        if (!isPinAppOwned(node.data.nodeType, properties, key, leaving)) {
+        if (!isPinAppOwned(node.data.nodeType, properties, key, leaving, leaving)) {
           const pin = Number(properties[key])
           if (Number.isFinite(pin)) chosen[key] = pin
         }
@@ -274,7 +299,8 @@ export function retargetHardwarePins(
     // Their earlier choices for the board being arrived at win outright.
     const mine = ownedNow(node)
     const movable = plan.keys.filter((key) =>
-      mine[key] === undefined && isPinAppOwned(node.data.nodeType, properties, key, boardKey))
+      mine[key] === undefined
+      && isPinAppOwned(node.data.nodeType, properties, key, boardKey, leaving))
     if (movable.length === 0 && Object.keys(mine).length === 0) continue
 
     let next: Record<string, number> | null = movable.length === 0

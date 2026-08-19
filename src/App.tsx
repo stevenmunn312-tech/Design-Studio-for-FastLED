@@ -285,7 +285,7 @@ export default function App() {
       useUploadStore.getState().setSelectedFqbn(selectedBoardProfile.compatibleFqbns[0])
     }
     if (previous === null || previous === boardKey) return
-    const moved = retargetHardwarePins(boardFqbn)
+    const moved = retargetHardwarePins(boardFqbn, previous)
     if (moved > 0) {
       setStatus(`Moved ${moved} part${moved > 1 ? 's' : ''} onto this board's pins`, 'info')
     }
