@@ -102,8 +102,25 @@ them, and the string form's firmware is new (it had none before).
 
 Once the pattern is proven, everything physical moves to the hardware view.
 
-- [ ] **Microphone** (replaces `MicInput`), **Button**, **Pot**, **Encoder** —
-  appear in both views.
+- [x] **Microphone**, **Button**, **Pot**, **Encoder** — appear in both views.
+  All four are sourced in the hardware view and hidden from the sidebar, canvas
+  picker and drag-to-create, so a part is attached to a known board with
+  known-good pins by construction. `partPinAssignment.ts` generalises
+  `nextFreeLedDataPin`: a part declares the pins it needs and the capability
+  each role demands, and gets them all or none — an encoder that could only
+  place two of three would look assigned and be unwirable. The microphone stays
+  the exception, taking its I2S trio from the profile's `peripheralPins`,
+  because an I2S peripheral is a fixed function of the pads rather than any
+  three free GPIOs.
+
+  Two correctness points the tests forced out. The profile's
+  `safeGeneralPurpose` is an **allowlist**, not a preference — falling through
+  to the FQBN table when it ran out handed back pins the profile deliberately
+  excluded, which is the XIAO underside-pad bug the safety data exists to
+  prevent. And a pin the board flags goes last rather than out: on an S3 analog
+  covers GPIO1-20, but 11-20 are ADC2 and stop converting once Wi-Fi is up, so
+  a potentiometer must prefer ADC1 while a board with only ADC2 left is still
+  offered rather than refused.
 - [ ] **Amplifier**, **SD Card**, **Board** — hardware view only, no graph node.
 - [ ] **Part dropdown per component** (INMP441, MAX98357A, …) driving pin roles,
   thumbnail and caveats.

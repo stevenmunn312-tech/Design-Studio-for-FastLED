@@ -1,13 +1,18 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import microphoneRender from '../../assets/components/inmp441-i2s-microphone.webp'
+import buttonRender from '../../assets/components/button-module.webp'
+import potRender from '../../assets/components/potentiometer-module.webp'
+import encoderRender from '../../assets/components/encoder-module.webp'
 import ledSegmentRender from '../../assets/components/ws2812b-led.webp'
-import { useGraphStore } from '../../state/graphStore'
+import { useGraphStore, type StudioNode } from '../../state/graphStore'
 import { usePreviewStore } from '../../state/previewStore'
 import { useUiStore } from '../../state/uiStore'
 import { CATEGORY_COLOR, NODE_LIBRARY } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { nextFreeLedDataPin } from '../../state/ledPinAssignment'
+import { assignPartPins, type PartPinRequest } from '../../state/partPinAssignment'
+import { useUploadStore } from '../../state/uploadStore'
 import {
   BOARD_PROFILE_FAMILIES,
   boardProfileById,
@@ -17,9 +22,12 @@ import {
   type PhysicalBoardProfile,
 } from '../../build/boardProfiles'
 import {
+  BUTTON_MODULE_FOOTPRINT_MM,
   DEFAULT_BOARD_PROFILE_ID,
+  ENCODER_MODULE_FOOTPRINT_MM,
   HUB75_PITCH_MM,
   INMP441_FOOTPRINT_MM,
+  POT_MODULE_FOOTPRINT_MM,
   ROOT_BOARD_NODE_ID,
   WS2812B_MATRIX_PITCH_MM,
   WS2812B_PITCH_MM,
@@ -43,6 +51,81 @@ import { hardwareArrangement, type HardwarePartBox, type HardwarePartLink } from
 import styles from './HardwarePane.module.css'
 
 const MIC_NODE_TYPE = 'MicInput'
+
+/**
+ * The parts that carry signal into the board, and so exist in both views: a
+ * module in the hardware view and an ordinary node in the graph.
+ *
+ * Sourced here rather than dragged from the sidebar, which is the decision the
+ * whole two-view design rests on — a part created this way is attached to a
+ * known board with known-good pins by construction, so the class of pin bug
+ * hardware validation kept finding stops being expressible.
+ *
+ * The microphone is the exception to the pin rule: its I2S trio comes from the
+ * board profile's own `peripheralPins.inmp441` via `resolveDefaultProperties`,
+ * because an I2S peripheral is a fixed function of the pads, not any three free
+ * GPIOs. The rest ask `assignPartPins` for whatever the board has spare.
+ */
+interface InputPartEntry {
+  nodeType: string
+  /** Part id in the layout — stable, and independent of the node backing it. */
+  partId: string
+  label: string
+  hint: string
+  render: string
+  footprint: PartFootprintMm
+  /** The output port whose activity lights this part's run to the board. */
+  signalPort: string
+  /** Pins to find on the board. Empty when the profile supplies them. */
+  pinRequests: readonly PartPinRequest[]
+  /** Scene singletons — one microphone per board, but many buttons. */
+  singleton?: boolean
+}
+
+const INPUT_PARTS: readonly InputPartEntry[] = [
+  {
+    nodeType: MIC_NODE_TYPE,
+    partId: 'mic',
+    label: 'INMP441 microphone',
+    hint: 'Creates the microphone graph node',
+    render: microphoneRender,
+    footprint: INMP441_FOOTPRINT_MM,
+    signalPort: 'audio',
+    pinRequests: [],
+    singleton: true,
+  },
+  {
+    nodeType: 'ButtonInput',
+    partId: 'button',
+    label: 'Button',
+    hint: 'A momentary push button',
+    render: buttonRender,
+    footprint: BUTTON_MODULE_FOOTPRINT_MM,
+    signalPort: 'pressed',
+    pinRequests: [{ key: 'pin' }],
+  },
+  {
+    nodeType: 'PotInput',
+    partId: 'pot',
+    label: 'Potentiometer',
+    hint: 'A knob on an analog pin',
+    render: potRender,
+    footprint: POT_MODULE_FOOTPRINT_MM,
+    signalPort: 'value',
+    // The one part that cannot take just any free pin.
+    pinRequests: [{ key: 'pin', capability: 'analogInput' }],
+  },
+  {
+    nodeType: 'EncoderInput',
+    partId: 'encoder',
+    label: 'Rotary encoder',
+    hint: 'Quadrature dial with a push switch',
+    render: encoderRender,
+    footprint: ENCODER_MODULE_FOOTPRINT_MM,
+    signalPort: 'position',
+    pinRequests: [{ key: 'pinA' }, { key: 'pinB' }, { key: 'pinSW' }],
+  },
+]
 // One node type for every LED output; the form says which of the four things
 // you can buy it is (src/state/ledOutputForm.ts).
 const LED_OUTPUT_NODE_TYPE = 'MatrixOutput'
@@ -69,7 +152,6 @@ const LED_OUTPUT_ENTRIES: Array<{
 // Layout ids. Stable and independent of graph node ids, so the arrangement is
 // about parts rather than about whichever node happens to back one.
 const BOARD_PART_ID = 'board'
-const MIC_PART_ID = 'mic'
 
 function boardImageSrc(profile: PhysicalBoardProfile): string {
   if (profile.render?.file) return `/${profile.render.file}`
@@ -97,6 +179,27 @@ function boardFootprintMm(profile: PhysicalBoardProfile): PartFootprintMm {
   return ratio >= 1
     ? { width: longMm / ratio, height: longMm }
     : { width: longMm, height: longMm * ratio }
+}
+
+/** One run from an input part into the board, lit by that part's own output. */
+function InputLink({ signalKey, effects, label, link }: {
+  signalKey: string
+  effects: boolean
+  label: string
+  link: { source: string; target: string; x1: number; y1: number; x2: number; y2: number }
+}) {
+  const signal = usePreviewStore((state) => state.signals.get(signalKey))
+  return (
+    <HardwareLink
+      dataType="audio"
+      color={CATEGORY_COLOR.input}
+      emissive={signal?.emissive}
+      energy={signal?.energy}
+      effects={effects}
+      label={label}
+      {...link}
+    />
+  )
 }
 
 /**
@@ -174,10 +277,28 @@ export default function HardwarePane() {
     () => nodes.find((node) => node.data.nodeType === 'Board')?.id ?? ROOT_BOARD_NODE_ID,
     [nodes],
   )
-  const micNode = useMemo(
-    () => nodes.find((node) => node.data.nodeType === MIC_NODE_TYPE),
-    [nodes],
-  )
+  const selectedFqbn = useUploadStore((state) => state.selectedFqbn)
+  /*
+   * Every input part on the canvas, paired with its catalogue entry. Several
+   * buttons are ordinary, so a part id has to distinguish them — the entry's
+   * own id for the first, then the node id, which is stable across re-renders.
+   */
+  const inputParts = useMemo(() => {
+    const seen = new Map<string, number>()
+    return nodes
+      .flatMap((node) => {
+        const entry = INPUT_PARTS.find((candidate) => candidate.nodeType === node.data.nodeType)
+        if (!entry) return []
+        const index = seen.get(entry.nodeType) ?? 0
+        seen.set(entry.nodeType, index + 1)
+        return [{
+          entry,
+          node,
+          partId: index === 0 ? entry.partId : `${entry.partId}-${node.id}`,
+          signalKey: `${node.id}:${entry.signalPort}`,
+        }]
+      })
+  }, [nodes])
   /*
    * Every LED output, in graph order. Not one strip and one panel: a board can
    * drive several, each on its own pin, and the view has to show what is
@@ -239,11 +360,23 @@ export default function HardwarePane() {
     () => nextFreeLedDataPin(boardProfile, nodes),
     [boardProfile, nodes],
   )
-  const hasMic = Boolean(micNode)
-  const micDefinition = useMemo(
-    () => NODE_LIBRARY.find((definition) => definition.type === MIC_NODE_TYPE),
-    [],
-  )
+  const hasPartOfType = (nodeType: string) =>
+    inputParts.some((part) => part.entry.nodeType === nodeType)
+
+  /*
+   * A part's caption says where it is wired, which is the whole point of
+   * sourcing it here — the pins came from this board rather than from a guess.
+   * The microphone names its I2S trio; the rest name whatever they were given.
+   */
+  const partPinSummary = (node: StudioNode, entry: InputPartEntry): string => {
+    const props = node.data.properties as Record<string, unknown>
+    const keys = entry.nodeType === MIC_NODE_TYPE
+      ? ['i2sWs', 'i2sSck', 'i2sSd']
+      : entry.pinRequests.map((request) => request.key)
+    const pins = keys.map((key) => Number(props[key])).filter((pin) => Number.isFinite(pin))
+    if (pins.length === 0) return 'Mirrored in the graph'
+    return `Pin${pins.length > 1 ? 's' : ''} ${pins.join(', ')}`
+  }
   const ledOutputDefinition = useMemo(
     () => NODE_LIBRARY.find((definition) => definition.type === LED_OUTPUT_NODE_TYPE),
     [],
@@ -262,14 +395,6 @@ export default function HardwarePane() {
     [leftInset],
   )
 
-  /*
-   * Each run takes its colour and activity from the port it carries, the same
-   * way a canvas noodle does: the microphone's own audio output, and — for the
-   * board-to-strip run — whatever the LED string's frame input is wired to.
-   */
-  const micSignalKey = micNode ? `${micNode.id}:audio` : null
-  const micSignal = usePreviewStore((state) => (micSignalKey ? state.signals.get(micSignalKey) : undefined))
-
   const boardBoxMm = useMemo(
     () => (boardProfile ? boardFootprintMm(boardProfile) : null),
     [boardProfile],
@@ -286,13 +411,13 @@ export default function HardwarePane() {
       { id: BOARD_PART_ID, widthMm: boardBoxMm.width, heightMm: boardBoxMm.height },
     ]
     const links: HardwarePartLink[] = []
-    if (hasMic) {
+    for (const part of inputParts) {
       parts.unshift({
-        id: MIC_PART_ID,
-        widthMm: INMP441_FOOTPRINT_MM.width,
-        heightMm: INMP441_FOOTPRINT_MM.height,
+        id: part.partId,
+        widthMm: part.entry.footprint.width,
+        heightMm: part.entry.footprint.height,
       })
-      links.push({ source: MIC_PART_ID, target: BOARD_PART_ID })
+      links.push({ source: part.partId, target: BOARD_PART_ID })
     }
     for (const output of ledOutputs) {
       parts.push({ id: output.partId, widthMm: output.widthMm, heightMm: output.heightMm })
@@ -305,7 +430,7 @@ export default function HardwarePane() {
       { width: usableWidth, height: Math.max(1, stageBox.height), offsetX: leftInset + 24 },
       BOARD_PART_ID,
     )
-  }, [boardBoxMm, hasMic, ledOutputs, leftInset, rightInset, stageBox])
+  }, [boardBoxMm, inputParts, ledOutputs, leftInset, rightInset, stageBox])
 
   const placed = useMemo(
     () => new Map((arrangement?.parts ?? []).map((part) => [part.id, part])),
@@ -427,30 +552,64 @@ export default function HardwarePane() {
     })
   }
 
-  const addMicrophone = () => {
-    if (!micDefinition || hasMic) return
-    const nodeId = `${MIC_NODE_TYPE}-${Date.now()}`
+  /*
+   * Why an entry cannot be used right now, or null when it can. Drives both the
+   * disabled state and the line under it, so the menu explains itself rather
+   * than just going grey.
+   */
+  const inputPartBlocker = (entry: InputPartEntry): string | null => {
+    if (entry.singleton && hasPartOfType(entry.nodeType)) return `One ${entry.label.toLowerCase()} per board`
+    if (entry.pinRequests.length === 0) return null
+    const assigned = assignPartPins(boardProfile, selectedFqbn, nodes, entry.pinRequests)
+    return assigned.ok ? null : assigned.reason
+  }
+
+  /*
+   * One creator for all four input parts. The node is the same object the graph
+   * would have shown either way; what the hardware view adds is that it arrives
+   * already carrying pins this board actually exposes.
+   */
+  const addInputPart = (entry: InputPartEntry) => {
+    const definition = NODE_LIBRARY.find((candidate) => candidate.type === entry.nodeType)
+    if (!definition || inputPartBlocker(entry)) return
+    const assigned = entry.pinRequests.length
+      ? assignPartPins(boardProfile, selectedFqbn, nodes, entry.pinRequests)
+      : { ok: true as const, pins: {} }
+    if (!assigned.ok) return
+
+    const nodeId = `${entry.nodeType}-${Date.now()}-${Math.round(Math.random() * 1e6)}`
     addNode({
       id: nodeId,
       type: 'studioNode',
       position: {
         x: viewCenter.x - 180,
-        y: viewCenter.y - 120,
+        y: viewCenter.y - 120 + (inputParts.length * 60),
       },
       data: {
-        label: micDefinition.label,
-        nodeType: micDefinition.type,
-        category: micDefinition.category,
-        properties: resolveDefaultProperties(micDefinition.type, micDefinition.defaultProperties, boardProfile),
-        inputs: micDefinition.inputs,
-        outputs: micDefinition.outputs,
+        label: definition.label,
+        nodeType: definition.type,
+        category: definition.category,
+        properties: {
+          // The microphone's I2S trio comes from the board profile here; the
+          // rest carry the pins resolved above.
+          ...resolveDefaultProperties(definition.type, definition.defaultProperties, boardProfile),
+          ...assigned.pins,
+        },
+        inputs: definition.inputs,
+        outputs: definition.outputs,
       },
     } as never)
     setAddMenuOpen(false)
-    setStatus('Added INMP441 microphone hardware and its graph node', 'success')
+    const pins = Object.values(assigned.pins)
+    setStatus(
+      pins.length
+        ? `Added ${entry.label} on pin${pins.length > 1 ? 's' : ''} ${pins.join(', ')}`
+        : `Added ${entry.label} and its graph node`,
+      'success',
+    )
   }
 
-  const openItemMenu = (kind: 'mic' | (string & {}), anchor?: DOMRect | null) => {
+  const openItemMenu = (kind: string, anchor?: DOMRect | null) => {
     const bounds = sectionRef.current?.getBoundingClientRect()
     if (!bounds) return
     const menuWidth = 180
@@ -470,11 +629,12 @@ export default function HardwarePane() {
     })
   }
 
+  // `kind` is the graph node id for every part now, input or output.
   const removeHardwareItem = (kind: string) => {
-    if (kind === 'mic') {
-      if (!micNode) return
-      removeNodeCompletely(micNode.id)
-      setStatus('Removed INMP441 microphone hardware', 'info')
+    const input = inputParts.find((part) => part.node.id === kind)
+    if (input) {
+      removeNodeCompletely(input.node.id)
+      setStatus(`Removed ${input.entry.label}`, 'info')
     } else {
       const output = ledOutputs.find((entry) => entry.node.id === kind)
       if (!output) return
@@ -546,16 +706,22 @@ export default function HardwarePane() {
 
       {addMenuOpen && (
         <div ref={addMenuRef} className={styles.addMenu} style={addMenuStyle} role="menu" aria-label="Add hardware">
-          <button
-            type="button"
-            role="menuitem"
-            className={styles.addMenuItem}
-            disabled={hasMic}
-            onClick={addMicrophone}
-          >
-            <span>INMP441 microphone</span>
-            <small>{hasMic ? 'One microphone per board' : 'Creates the microphone graph node'}</small>
-          </button>
+          {INPUT_PARTS.map((entry) => {
+            const blocker = inputPartBlocker(entry)
+            return (
+              <button
+                key={entry.nodeType}
+                type="button"
+                role="menuitem"
+                className={styles.addMenuItem}
+                disabled={blocker !== null}
+                onClick={() => addInputPart(entry)}
+              >
+                <span>{entry.label}</span>
+                <small>{blocker ?? entry.hint}</small>
+              </button>
+            )
+          })}
           {LED_OUTPUT_ENTRIES.map((entry) => {
             const needsDataPin = entry.form !== 'hub75'
             const blocked = needsDataPin && nextLedPin === null
@@ -593,20 +759,17 @@ export default function HardwarePane() {
         >
           {arrangement && (
             <svg className={styles.links} aria-hidden="true">
-              {hasMic && arrangement.links
-                .filter((link) => link.source === MIC_PART_ID)
+              {inputParts.map((part) => arrangement.links
+                .filter((link) => link.source === part.partId)
                 .map((link) => (
-                  <HardwareLink
+                  <InputLink
                     key={`${link.source}-${link.target}`}
-                    dataType="audio"
-                    color={CATEGORY_COLOR.input}
-                    emissive={micSignal?.emissive}
-                    energy={micSignal?.energy}
+                    signalKey={part.signalKey}
                     effects={uiEffectsEnabled}
-                    label="Microphone audio into the board"
-                    {...link}
+                    label={`${part.entry.label} into the board`}
+                    link={link}
                   />
-                ))}
+                )))}
               {ledOutputs.map((output) => arrangement.links
                 .filter((link) => link.target === output.partId)
                 .map((link) => (
@@ -621,26 +784,26 @@ export default function HardwarePane() {
             </svg>
           )}
 
-          {hasMic && (
-            <>
+          {inputParts.map((part) => (
+            <Fragment key={part.node.id}>
               <button
                 type="button"
                 className={styles.part}
-                style={partStyle(MIC_PART_ID)}
+                style={partStyle(part.partId)}
                 onContextMenu={(event) => {
                   event.preventDefault()
-                  openItemMenu('mic', (event.currentTarget as HTMLButtonElement).getBoundingClientRect())
+                  openItemMenu(part.node.id, (event.currentTarget as HTMLButtonElement).getBoundingClientRect())
                 }}
                 title="Right-click for hardware actions"
               >
-                <img src={microphoneRender} alt="INMP441 microphone" draggable={false} />
+                <img src={part.entry.render} alt={part.entry.label} draggable={false} />
               </button>
-              <span className={styles.caption} style={captionStyle(MIC_PART_ID)}>
-                <strong>INMP441 Microphone</strong>
-                <span>Mirrored in the graph as Microphone</span>
+              <span className={styles.caption} style={captionStyle(part.partId)}>
+                <strong>{part.entry.label}</strong>
+                <span>{partPinSummary(part.node, part.entry)}</span>
               </span>
-            </>
-          )}
+            </Fragment>
+          ))}
 
           <button
             ref={boardCardRef}
@@ -743,7 +906,7 @@ export default function HardwarePane() {
           ))}
         </div>
 
-        {!hasMic && ledOutputs.length === 0 && (
+        {inputParts.length === 0 && ledOutputs.length === 0 && (
           <p className={styles.emptyHint}>
             Add hardware here to keep the board and the graph in sync.
           </p>

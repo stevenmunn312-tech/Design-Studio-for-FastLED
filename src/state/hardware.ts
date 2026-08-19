@@ -4,12 +4,16 @@ export const ROOT_BOARD_NODE_ID = 'board-root'
 // Parts the hardware view owns. Deleting one on the graph canvas only
 // disconnects it — the part itself goes when it is removed in the hardware
 // view, which is the half of the two-view model that says what is on the bench.
-const HARDWARE_MANAGED_SIGNAL_NODE_TYPES = new Set(['MicInput', 'MatrixOutput'])
+const HARDWARE_MANAGED_SIGNAL_NODE_TYPES = new Set([
+  'MicInput', 'ButtonInput', 'PotInput', 'EncoderInput', 'MatrixOutput',
+])
 
 // Not offered in the node library, the canvas picker or drag-to-create: these
 // exist only by adding the part in the hardware view, so a graph can never
 // carry an output the bench does not.
-const HARDWARE_LIBRARY_HIDDEN_NODE_TYPES = new Set(['Board', 'MicInput', 'MatrixOutput'])
+const HARDWARE_LIBRARY_HIDDEN_NODE_TYPES = new Set([
+  'Board', 'MicInput', 'ButtonInput', 'PotInput', 'EncoderInput', 'MatrixOutput',
+])
 
 export function isHardwareManagedSignalNodeType(nodeType: string): boolean {
   return HARDWARE_MANAGED_SIGNAL_NODE_TYPES.has(nodeType)
@@ -74,3 +78,23 @@ export const WS2812B_RING_PITCH_MM = 10
  * the same object at different zooms.
  */
 export const HUB75_PITCH_MM = 4
+
+/**
+ * The three input modules share one render aspect (640x462), so each declares
+ * only its real long dimension and takes its short side from the picture — the
+ * same trick `boardFootprintMm` uses, keeping a part physically true along its
+ * dominant axis while never distorting the image.
+ *
+ * Nominal stock-module sizes rather than measurements off the renders: a KY-004
+ * button breakout, a panel-mount potentiometer on its carrier, and a KY-040
+ * encoder with its knob. Re-measure if a render is replaced.
+ */
+const MODULE_RENDER_RATIO = 462 / 640
+
+function moduleFootprint(longMm: number): PartFootprintMm {
+  return { width: longMm, height: longMm * MODULE_RENDER_RATIO }
+}
+
+export const BUTTON_MODULE_FOOTPRINT_MM = moduleFootprint(18.5)
+export const POT_MODULE_FOOTPRINT_MM = moduleFootprint(30)
+export const ENCODER_MODULE_FOOTPRINT_MM = moduleFootprint(32)
