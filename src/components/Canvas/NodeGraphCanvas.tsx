@@ -144,9 +144,6 @@ function NodeGraphCanvasInner() {
     [allNodes],
   )
   const visibleNodeIds = useMemo(() => new Set(nodes.map((node) => node.id)), [nodes])
-  // Which node is currently announcing itself, so it can be raised above its
-  // neighbours for as long as it does.
-  const flashedNodeId = useUiStore((s) => (s.nodeFlash.nonce > 0 ? s.nodeFlash.nodeId : null))
   const edges = useMemo(
     () => allEdges.filter((edge) => visibleNodeIds.has(edge.source ?? '') && visibleNodeIds.has(edge.target ?? '')),
     [allEdges, visibleNodeIds],
@@ -966,15 +963,20 @@ function NodeGraphCanvasInner() {
     return {
       ...node,
       ariaLabel: `${label} node${node.id === selectedNodeId ? ', selected' : ''}. ${inputs} input${inputs === 1 ? '' : 's'}, ${outputs} output${outputs === 1 ? '' : 's'}.`,
-      // A node the hardware view just jumped to has to be visible when you
-      // arrive. React Flow's own elevateNodesOnSelect never fires here: it
-      // keys off its `.selected` flag, and `selectNode` only sets our
-      // `selectedNodeId` — the same mismatch the edge zIndex below works
-      // around. Without this the canvas centres correctly on a node sitting
-      // underneath its neighbour, which looks like the wrong node.
-      zIndex: node.id === flashedNodeId ? 1001 : undefined,
+      // The selected node sits above its neighbours, and stays there.
+      //
+      // React Flow's own elevateNodesOnSelect never fires for a selection made
+      // in code: it keys off its `.selected` flag, while `selectNode` sets only
+      // our `selectedNodeId` — the same mismatch the edge zIndex below works
+      // around. So the hardware view could centre perfectly on a node that was
+      // underneath its neighbour, which just looks like the wrong node.
+      //
+      // Tied to selection rather than to the flash on purpose. Clicking a part
+      // is how you go and *work on* its node, so dropping it back under
+      // something the moment the pulse ends undoes the thing you asked for.
+      zIndex: node.id === selectedNodeId ? 1000 : undefined,
     }
-  }), [flashedNodeId, nodes, selectedNodeId])
+  }), [nodes, selectedNodeId])
   const accessibleNodeInfo = useMemo(() => new Map(nodes.map((node) => {
     const data = node.data as {
       label?: string

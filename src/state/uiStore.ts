@@ -429,9 +429,11 @@ export const useUiStore = create<UiState>((set, get) => ({
     fitViewRequest: { nonce: state.fitViewRequest.nonce + 1, nodeIds },
   })),
   flashNode: (nodeId) => {
-    // Clears itself, the way setStatus does. The flash also raises the node
-    // above its neighbours so it is visible on arrival, and leaving that in
-    // place would quietly pin the last-clicked node above the graph forever.
+    // Clears itself, the way setStatus does — otherwise a node that unmounts
+    // and comes back (scrolled out of view and in again) would read a nonce
+    // still sitting in the store and pulse a second time, long after the
+    // click that meant it. Staying *on top* is handled by selection, not by
+    // this; see the node zIndex in NodeGraphCanvas.
     if (flashTimer !== null) clearTimeout(flashTimer)
     flashTimer = setTimeout(() => {
       flashTimer = null
