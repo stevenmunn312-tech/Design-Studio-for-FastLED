@@ -229,7 +229,7 @@ Once the pattern is proven, everything physical moves to the hardware view.
   and every board change shuffles parts that had no reason to move. And pins
   the user owns are claimed but never moved, so a retargeted part routes
   *around* their wiring instead of landing on top of it.
-- [ ] **Upload leaves the node; the bottom pane becomes Hardware | Upload.**
+- [x] **Upload leaves the node; the bottom pane becomes Hardware | Upload.**
   Upload is not a property of one output — it never was. One board takes one
   sketch, and that sketch already drives every output: `cppGenerator` emits a
   `leds_<id>` array per route, an `addLeds` per route on its own
@@ -251,7 +251,19 @@ Once the pattern is proven, everything physical moves to the hardware view.
   CLAUDE.md's "driven from the MatrixOutput node — there is no separate modal"
   decision, which dates from when `MatrixOutput` was a singleton.
 
-  Three things this has to get right:
+  **Done.** `MatrixOutputDeployPopup` gained an `inline` mode rather than being
+  rewritten, so the tab is the same tested UI without its modal shell, and the
+  dialog still opens when the pane is collapsed. All three points below were
+  settled: the menu bar gained an Upload button that opens the pane on that
+  tab; `activeOutputNodeId` kept its smaller per-output job; and the capacity
+  meter moved to `CapacityWatcher`, headless and mounted at the app so a
+  collapsed pane cannot stop the measurement.
+
+  One thing nearly lost: the guided setup wizard had its *only* entry point on
+  the removed node strip, so moving upload without noticing would have quietly
+  deleted the wizard from the app. It now opens from the upload tab.
+
+  Three things this had to get right:
 
   1. **The pane collapses to zero, deliberately** —
      `clampHardwarePaneRatio` allows 0 and the 1280x720 supported minimum
