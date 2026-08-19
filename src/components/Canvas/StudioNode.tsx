@@ -938,12 +938,22 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
    */
   const flashNonce = useUiStore((s) => (s.nodeFlash.nodeId === id ? s.nodeFlash.nonce : 0))
   const [flashing, setFlashing] = useState(false)
+  const flashTimer = useRef<number | null>(null)
+  const lastFlash = useRef(0)
   useEffect(() => {
-    if (!flashNonce) return
+    // Only ever acts on a *rising* nonce. The store clears the flash on a timer
+    // to drop the node's raised z-index, which drives this selector back to 0;
+    // cancelling the pulse on that edge — as an effect cleanup would — used to
+    // leave the node lit permanently.
+    if (!flashNonce || flashNonce === lastFlash.current) return
+    lastFlash.current = flashNonce
     setFlashing(true)
-    const timer = window.setTimeout(() => setFlashing(false), FLASH_MS)
-    return () => window.clearTimeout(timer)
+    if (flashTimer.current) window.clearTimeout(flashTimer.current)
+    flashTimer.current = window.setTimeout(() => setFlashing(false), FLASH_MS)
   }, [flashNonce])
+  useEffect(() => () => {
+    if (flashTimer.current) window.clearTimeout(flashTimer.current)
+  }, [])
   const performanceMode = useUiStore((s) => s.performanceMode)
   const uiEffectsEnabled = useUiStore((s) => s.uiEffectsEnabled)
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)

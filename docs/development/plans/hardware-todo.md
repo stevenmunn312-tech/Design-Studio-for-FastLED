@@ -148,8 +148,25 @@ Once the pattern is proven, everything physical moves to the hardware view.
   their only four users — so the sweep also covers the Music-synced SD Show
   starter, four live examples, two NodeReference recipes and two picker bridge
   chains.
-- [ ] **Part dropdown per component** (INMP441, MAX98357A, …) driving pin roles,
-  thumbnail and caveats.
+- [x] **Part dropdown per component.** `partOptions.ts` holds which exact module
+  each part can be; `PartIdentity` shows it wherever a part is configured,
+  alongside the logic voltage, the header order left to right, and the asset's
+  own caveats — all read from `part.json`, so it is the datasheet talking
+  rather than the app remembering. The header order is the detail that earns
+  its space: it is what you read off with a jumper in your hand.
+
+  **A dropdown only where a choice exists.** The microphone lists one module,
+  because the generator is hard-bound to it (`CreateInmp441`,
+  `MicProfile::INMP441`) — what varies per board is the capture backend, not
+  the microphone — so it states its name rather than offering alternatives it
+  would treat identically. That would be the same quiet misrepresentation this
+  model exists to remove.
+
+  Corrected while doing it: `AmplifierBody` had offered PCM5102A and UDA1334A
+  with no asset behind them, so selecting one would have shown a MAX98357A
+  photo and its dimensions. They remain offered — the wiring genuinely is the
+  same three I2S lines — but an unmodelled choice now says so instead of
+  borrowing another part's picture.
 - [x] **Part catalogue.** `scripts/import-part-assets.py` reads each modelled
   asset's `part.json`, converts its Cycles PNG to WebP under `public/parts/`,
   and emits `src/build/generated/partCatalogueData.ts` — the same

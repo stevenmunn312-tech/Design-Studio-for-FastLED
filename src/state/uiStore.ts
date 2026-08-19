@@ -271,6 +271,12 @@ let newProjectDecisionResolver: ((decision: NewProjectDecision) => void) | null 
 let appDialogResolver: ((value: boolean | string | null | undefined) => void) | null = null
 let appDialogNonce = 0
 
+/** How long a node announces itself, and stays raised, after the hardware view
+ *  jumps to it. Slightly longer than the CSS animation so the node does not
+ *  drop back behind a neighbour mid-pulse. */
+const NODE_FLASH_MS = 1300
+let flashTimer: ReturnType<typeof setTimeout> | null = null
+
 export const useUiStore = create<UiState>((set, get) => ({
   statusText: 'Ready',
   statusLevel: 'idle',
@@ -422,9 +428,17 @@ export const useUiStore = create<UiState>((set, get) => ({
   requestFitView: (nodeIds) => set((state) => ({
     fitViewRequest: { nonce: state.fitViewRequest.nonce + 1, nodeIds },
   })),
-  flashNode: (nodeId) => set((state) => ({
-    nodeFlash: { nodeId, nonce: state.nodeFlash.nonce + 1 },
-  })),
+  flashNode: (nodeId) => {
+    // Clears itself, the way setStatus does. The flash also raises the node
+    // above its neighbours so it is visible on arrival, and leaving that in
+    // place would quietly pin the last-clicked node above the graph forever.
+    if (flashTimer !== null) clearTimeout(flashTimer)
+    flashTimer = setTimeout(() => {
+      flashTimer = null
+      useUiStore.setState({ nodeFlash: { nodeId: null, nonce: 0 } })
+    }, NODE_FLASH_MS)
+    set((state) => ({ nodeFlash: { nodeId, nonce: state.nodeFlash.nonce + 1 } }))
+  },
 
   setTheme: (theme) => {
     save(THEME_KEY, theme)

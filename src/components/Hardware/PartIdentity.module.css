@@ -1,0 +1,88 @@
+.identity {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 200px;
+  max-width: 260px;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: var(--fs-caption);
+}
+
+.key {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+}
+
+.value {
+  min-width: 0;
+  color: var(--text-primary);
+  text-align: right;
+}
+
+.picker {
+  flex: 1 1 auto;
+  min-width: 0;
+  /* Opaque, matching the other in-node selects: a translucent background reads
+     as muddy over the pane, and the open option list inherits it. */
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--divider);
+  border-radius: 3px;
+  padding: 2px 4px;
+  font: inherit;
+  font-size: var(--fs-caption);
+}
+
+.pins {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/*
+ * The header order, as an ordered list so it is announced as a sequence rather
+ * than as loose words — the order is the whole content.
+ */
+.pinList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pinList li {
+  padding: 1px 5px;
+  border: 1px solid var(--divider);
+  border-radius: 3px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-code);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.notes {
+  margin: 2px 0 0;
+  padding-left: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  line-height: 1.4;
+}
+
+.unmodelled {
+  margin: 2px 0 0;
+  color: var(--accent-favourites);
+  font-size: var(--fs-caption);
+  line-height: 1.4;
+}

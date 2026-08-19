@@ -11,6 +11,8 @@ import { nextFreeLedDataPin } from '../../state/ledPinAssignment'
 import { assignPartPins, type PartPinRequest } from '../../state/partPinAssignment'
 import { partDimensionsMm, partRenderSrc, ringDiameterMm } from '../../state/partCatalogue'
 import { partRenderForNodeType } from '../../state/partRenders'
+import { resolvePartIdentity } from '../../state/partOptions'
+import PartIdentity from './PartIdentity'
 import { useUploadStore } from '../../state/uploadStore'
 import {
   BOARD_PROFILE_FAMILIES,
@@ -417,6 +419,18 @@ export default function HardwarePane() {
    * Only for parts that *have* a node. An amplifier has none by design, so it
    * opens its settings instead rather than appearing to do nothing.
    */
+  /* The node type behind the open part menu, when that part names an exact
+     module — so right-clicking a microphone shows what it is and how its
+     header runs, not just a Remove button. */
+  const itemMenuIdentity = useMemo(() => {
+    if (!itemMenu || itemMenu.mode === 'settings') return null
+    const node = nodes.find((candidate) => candidate.id === itemMenu.kind)
+    if (!node) return null
+    return resolvePartIdentity(node.data.nodeType, node.data.properties as Record<string, unknown>)
+      ? node.data.nodeType
+      : null
+  }, [itemMenu, nodes])
+
   const revealNode = (nodeId: string, label: string) => {
     selectNode(nodeId)
     requestFitView([nodeId])
@@ -1130,9 +1144,13 @@ export default function HardwarePane() {
           className={styles.itemMenu}
           style={{ left: itemMenu.x, top: itemMenu.y }}
         >
-          {itemMenu.mode === 'settings' && (
+          {itemMenu.mode === 'settings' ? (
             <div className={styles.itemMenuSettings}>
               <AmplifierBody nodeId={itemMenu.kind} />
+            </div>
+          ) : itemMenuIdentity && (
+            <div className={styles.itemMenuSettings}>
+              <PartIdentity nodeId={itemMenu.kind} nodeType={itemMenuIdentity} />
             </div>
           )}
           <button
