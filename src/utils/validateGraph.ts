@@ -420,19 +420,32 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): F
 // the ~300–500 KB total) — not a hard board-specific limit.
 const INTERNAL_RAM_WARN_BYTES = 40_000
 
-export function findPinConflicts(nodes: StudioNode[], edges: StudioEdge[] = []): string[] {
-  // LED outputs wired in parallel share a pin deliberately — that is what makes
-  // them one controller driving two panels. Their data-pin uses collapse to one
-  // entry so the shared GPIO reads as the single assignment it is; every other
-  // pin on those nodes still conflicts normally.
+/**
+ * Pin uses that are a shared GPIO on purpose, as `nodeId:propertyKey` keys.
+ *
+ * LED outputs wired in parallel share a data pin deliberately — that is what
+ * makes them one controller driving two panels — so the mirror's data pin is
+ * dropped and the GPIO reads as the single assignment it is. Every other pin on
+ * those nodes still collides normally.
+ *
+ * Shared by both pin-collision walks (`findPinConflicts` for deploy validation,
+ * `buildGraphDiagnostics` for the Graph Health drawer). They are separate
+ * loops over the same data and have already drifted once: exempting only the
+ * first left the drawer still calling a deliberately shared pin an error.
+ */
+export function deliberatelySharedPinUses(nodes: StudioNode[], edges: StudioEdge[]): Set<string> {
   const routes = outputRoutes(nodes)
   const leaders = outputMirrorLeaders(routes, edges)
-  const mirroredOutputPins = new Set(
+  return new Set(
     routes.filter((route) => leaders.get(route.id) !== route.id).map((route) => `${route.id}:dataPin`),
   )
+}
+
+export function findPinConflicts(nodes: StudioNode[], edges: StudioEdge[] = []): string[] {
+  const shared = deliberatelySharedPinUses(nodes, edges)
   const byPin = new Map<number, string[]>()
   for (const { label, pin, nodeId, propertyKey } of collectPinUses(nodes)) {
-    if (mirroredOutputPins.has(`${nodeId}:${propertyKey}`)) continue
+    if (shared.has(`${nodeId}:${propertyKey}`)) continue
     const labels = byPin.get(pin) ?? []
     labels.push(label)
     byPin.set(pin, labels)
@@ -872,8 +885,11 @@ export function buildGraphDiagnostics(
     }
   }
 
+  const sharedPinUses = deliberatelySharedPinUses(nodes, edges)
   const usesByPin = new Map<number, ReturnType<typeof collectPinUses>[number][]>()
   for (const use of collectPinUses(nodes)) {
+    // A run wired in parallel with another shares its data pin on purpose.
+    if (sharedPinUses.has(`${use.nodeId}:${use.propertyKey}`)) continue
     const uses = usesByPin.get(use.pin) ?? []
     uses.push(use)
     usesByPin.set(use.pin, uses)
@@ -889,6 +905,15 @@ export function buildGraphDiagnostics(
       nodeLabel: uses.length === 2 ? uses.map((use) => use.label).join(' / ') : `${uses.length} pin roles`,
     })
   }
+  findMirroredOutputMismatches(nodes, edges).forEach((message, index) => {
+    diagnostics.push({
+      id: `mirror-mismatch-${index}`, severity: 'error', category: 'layout',
+      title: 'Parallel runs are different lengths',
+      message,
+      fix: 'Match the two runs\' LED counts, or give one its own data pin so they are independent outputs.',
+      nodeIds: [], nodeLabel: 'LED outputs',
+    })
+  })
   for (const use of collectPinUses(nodes)) {
     if (isValidPinNumber(use.pin)) continue
     diagnostics.push({

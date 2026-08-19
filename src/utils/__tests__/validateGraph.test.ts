@@ -1094,6 +1094,45 @@ describe('runs wired in parallel off one pin', () => {
     expect(findPinConflicts(nodes, [feed('e1', 'a')])).toEqual([expect.stringContaining('GPIO 18')])
   })
 
+  it('does not call a deliberately shared pin an error in Graph Health either', () => {
+    // Graph Health keeps its own pin-collision walk, separate from
+    // findPinConflicts. Exempting only the latter left the drawer still
+    // reporting "GPIO 18 is assigned twice" on a pair the app had just wired
+    // in parallel on purpose — reported from the bench.
+    const nodes = [
+      node('sc', 'SolidColor'),
+      out('a', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
+      out('b', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
+    ]
+    const edges = [feed('e1', 'a'), feed('e2', 'b')]
+    const pinErrors = buildGraphDiagnostics(nodes, edges).filter((d) => d.category === 'pins')
+    expect(pinErrors).toEqual([])
+  })
+
+  it('still reports a genuine collision in Graph Health', () => {
+    const nodes = [
+      node('sc', 'SolidColor'),
+      out('a', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
+      out('b', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
+    ]
+    // Only one is wired, so they are two independent runs sharing a GPIO.
+    const collisions = buildGraphDiagnostics(nodes, [feed('e1', 'a')])
+      .filter((d) => d.category === 'pins')
+    expect(collisions).toHaveLength(1)
+    expect(collisions[0].title).toContain('GPIO 18')
+  })
+
+  it('surfaces a parallel-run length mismatch in Graph Health', () => {
+    const nodes = [
+      node('sc', 'SolidColor'),
+      out('a', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
+      out('b', { form: 'strip', ledCount: 60, dataPin: 18 }),
+    ]
+    const found = buildGraphDiagnostics(nodes, [feed('e1', 'a'), feed('e2', 'b')])
+      .filter((d) => d.title === 'Parallel runs are different lengths')
+    expect(found).toHaveLength(1)
+  })
+
   it('flags a mirror of a different length, which cannot show the same data', () => {
     const nodes = [
       out('a', { form: 'matrix', width: 16, height: 16, dataPin: 18 }),
