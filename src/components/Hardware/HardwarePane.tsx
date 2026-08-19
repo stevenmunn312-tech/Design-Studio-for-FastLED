@@ -24,6 +24,7 @@ import {
 import {
   BUTTON_MODULE_FOOTPRINT_MM,
   DEFAULT_BOARD_PROFILE_ID,
+  MAX98357A_FOOTPRINT_MM,
   ENCODER_MODULE_FOOTPRINT_MM,
   HUB75_PITCH_MM,
   INMP441_FOOTPRINT_MM,
@@ -42,6 +43,7 @@ import {
   ringStartAngle,
   type LedOutputForm,
 } from '../../state/ledOutputForm'
+import AmplifierBody from '../Canvas/AmplifierBody'
 import BoardNodeBody from '../Canvas/BoardNodeBody'
 import HardwareLedPreview from './HardwareLedPreview'
 import HardwareLedSpill from './HardwareLedSpill'
@@ -81,6 +83,40 @@ interface InputPartEntry {
   /** Scene singletons — one microphone per board, but many buttons. */
   singleton?: boolean
 }
+
+/**
+ * Parts that exist only here: physically real, carrying no signal, so they have
+ * no node on the graph canvas.
+ *
+ * They are still graph *nodes* — hidden ones — because that is where their
+ * settings persist with the workspace and where `playerSketchGenerator` already
+ * scans for them. What changes is that nothing draws them on the signal canvas
+ * and nothing offers them in the sidebar. Board works exactly this way already.
+ */
+interface FixturePartEntry {
+  nodeType: string
+  partId: string
+  label: string
+  hint: string
+  footprint: PartFootprintMm
+  /** Absent until the Blender render lands; a placeholder is drawn meanwhile. */
+  render?: string
+  /** Pins to read off the board profile, keyed property -> profile field. */
+  profilePins?: Record<string, 'bclk' | 'lrc' | 'din'>
+  singleton?: boolean
+}
+
+const FIXTURE_PARTS: readonly FixturePartEntry[] = [
+  {
+    nodeType: 'Amplifier',
+    partId: 'amplifier',
+    label: 'Amplifier',
+    hint: 'I2S amp for the SD-card player',
+    footprint: MAX98357A_FOOTPRINT_MM,
+    profilePins: { i2sBclk: 'bclk', i2sLrc: 'lrc', i2sDout: 'din' },
+    singleton: true,
+  },
+]
 
 const INPUT_PARTS: readonly InputPartEntry[] = [
   {
@@ -246,7 +282,9 @@ export default function HardwarePane() {
   const uiEffectsEnabled = useUiStore((state) => state.uiEffectsEnabled)
   const [addMenuOpen, setAddMenuOpen] = useState(false)
   const [boardMenu, setBoardMenu] = useState<{ x: number; y: number } | null>(null)
-  const [itemMenu, setItemMenu] = useState<{ x: number; y: number; kind: string } | null>(null)
+  const [itemMenu, setItemMenu] = useState<
+    { x: number; y: number; kind: string; mode: 'actions' | 'settings' } | null
+  >(null)
   const sectionRef = useRef<HTMLElement | null>(null)
   const stageRef = useRef<HTMLDivElement | null>(null)
   const boardCardRef = useRef<HTMLButtonElement | null>(null)
@@ -360,8 +398,14 @@ export default function HardwarePane() {
     () => nextFreeLedDataPin(boardProfile, nodes),
     [boardProfile, nodes],
   )
+  const fixtureParts = useMemo(() => nodes.flatMap((node) => {
+    const entry = FIXTURE_PARTS.find((candidate) => candidate.nodeType === node.data.nodeType)
+    return entry ? [{ entry, node, partId: entry.partId }] : []
+  }), [nodes])
+
   const hasPartOfType = (nodeType: string) =>
     inputParts.some((part) => part.entry.nodeType === nodeType)
+    || fixtureParts.some((part) => part.entry.nodeType === nodeType)
 
   /*
    * A part's caption says where it is wired, which is the whole point of
@@ -423,6 +467,14 @@ export default function HardwarePane() {
       parts.push({ id: output.partId, widthMm: output.widthMm, heightMm: output.heightMm })
       links.push({ source: BOARD_PART_ID, target: output.partId })
     }
+    for (const part of fixtureParts) {
+      parts.push({
+        id: part.partId,
+        widthMm: part.entry.footprint.width,
+        heightMm: part.entry.footprint.height,
+      })
+      links.push({ source: BOARD_PART_ID, target: part.partId })
+    }
     const usableWidth = Math.max(120, stageBox.width - leftInset - rightInset - 48)
     return hardwareArrangement(
       parts,
@@ -430,7 +482,7 @@ export default function HardwarePane() {
       { width: usableWidth, height: Math.max(1, stageBox.height), offsetX: leftInset + 24 },
       BOARD_PART_ID,
     )
-  }, [boardBoxMm, inputParts, ledOutputs, leftInset, rightInset, stageBox])
+  }, [boardBoxMm, fixtureParts, inputParts, ledOutputs, leftInset, rightInset, stageBox])
 
   const placed = useMemo(
     () => new Map((arrangement?.parts ?? []).map((part) => [part.id, part])),
@@ -609,7 +661,7 @@ export default function HardwarePane() {
     )
   }
 
-  const openItemMenu = (kind: string, anchor?: DOMRect | null) => {
+  const openItemMenu = (kind: string, anchor?: DOMRect | null, mode: 'actions' | 'settings' = 'actions') => {
     const bounds = sectionRef.current?.getBoundingClientRect()
     if (!bounds) return
     const menuWidth = 180
@@ -624,13 +676,59 @@ export default function HardwarePane() {
     const maxY = Math.max(72, bounds.height - 80)
     setItemMenu({
       kind,
+      mode,
       x: Math.min(Math.max(leftInset + 16, preferredX), maxX),
       y: Math.min(Math.max(72, preferredY), maxY),
     })
   }
 
+  /*
+   * A fixture is created hidden: it is a real part with real settings, but it
+   * carries no signal, so nothing should draw it on the signal canvas. Its
+   * I2S pins come from the board profile when that board names them, the same
+   * precedence the microphone already follows.
+   */
+  const addFixturePart = (entry: FixturePartEntry) => {
+    const definition = NODE_LIBRARY.find((candidate) => candidate.type === entry.nodeType)
+    if (!definition || (entry.singleton && hasPartOfType(entry.nodeType))) return
+    const amp = boardProfile?.peripheralPins?.max98357
+    const profilePins = entry.profilePins && amp
+      ? Object.fromEntries(
+        Object.entries(entry.profilePins).map(([key, field]) => [key, amp[field]]),
+      )
+      : {}
+    addNode({
+      id: `${entry.nodeType}-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+      type: 'studioNode',
+      position: { x: viewCenter.x, y: viewCenter.y },
+      hidden: true,
+      selectable: false,
+      draggable: false,
+      data: {
+        label: definition.label,
+        nodeType: definition.type,
+        category: definition.category,
+        properties: {
+          ...resolveDefaultProperties(definition.type, definition.defaultProperties, boardProfile),
+          ...profilePins,
+        },
+        inputs: definition.inputs,
+        outputs: definition.outputs,
+      },
+    } as never)
+    setAddMenuOpen(false)
+    setStatus(`Added ${entry.label}`, 'success')
+  }
+
   // `kind` is the graph node id for every part now, input or output.
   const removeHardwareItem = (kind: string) => {
+    const fixture = fixtureParts.find((part) => part.node.id === kind)
+    if (fixture) {
+      removeNodeCompletely(fixture.node.id)
+      setStatus(`Removed ${fixture.entry.label}`, 'info')
+      setItemMenu(null)
+      return
+    }
     const input = inputParts.find((part) => part.node.id === kind)
     if (input) {
       removeNodeCompletely(input.node.id)
@@ -722,6 +820,22 @@ export default function HardwarePane() {
               </button>
             )
           })}
+          {FIXTURE_PARTS.map((entry) => {
+            const blocked = Boolean(entry.singleton && hasPartOfType(entry.nodeType))
+            return (
+              <button
+                key={entry.nodeType}
+                type="button"
+                role="menuitem"
+                className={styles.addMenuItem}
+                disabled={blocked}
+                onClick={() => addFixturePart(entry)}
+              >
+                <span>{entry.label}</span>
+                <small>{blocked ? `One ${entry.label.toLowerCase()} per board` : entry.hint}</small>
+              </button>
+            )
+          })}
           {LED_OUTPUT_ENTRIES.map((entry) => {
             const needsDataPin = entry.form !== 'hub75'
             const blocked = needsDataPin && nextLedPin === null
@@ -768,6 +882,18 @@ export default function HardwarePane() {
                     effects={uiEffectsEnabled}
                     label={`${part.entry.label} into the board`}
                     link={link}
+                  />
+                )))}
+              {fixtureParts.map((part) => arrangement.links
+                .filter((link) => link.target === part.partId)
+                .map((link) => (
+                  <HardwareLink
+                    key={`${link.source}-${link.target}`}
+                    dataType="audio"
+                    color={CATEGORY_COLOR.output}
+                    effects={uiEffectsEnabled}
+                    label={`Board I2S out to the ${part.entry.label.toLowerCase()}`}
+                    {...link}
                   />
                 )))}
               {ledOutputs.map((output) => arrangement.links
@@ -826,6 +952,33 @@ export default function HardwarePane() {
             <strong>{boardProfile.label}</strong>
             <span>Click or right-click to change boards</span>
           </span>
+
+          {fixtureParts.map((part) => (
+            <Fragment key={part.node.id}>
+              <button
+                type="button"
+                className={`${styles.part} ${part.entry.render ? '' : styles.partPlaceholder}`}
+                style={partStyle(part.partId)}
+                onClick={() => {
+                  if (view.consumedByPan()) return
+                  openItemMenu(part.node.id, undefined, 'settings')
+                }}
+                onContextMenu={(event) => {
+                  event.preventDefault()
+                  openItemMenu(part.node.id, (event.currentTarget as HTMLButtonElement).getBoundingClientRect())
+                }}
+                title="Click for settings · right-click for hardware actions"
+              >
+                {part.entry.render
+                  ? <img src={part.entry.render} alt={part.entry.label} draggable={false} />
+                  : <span className={styles.placeholderLabel}>{part.entry.label}</span>}
+              </button>
+              <span className={styles.caption} style={captionStyle(part.partId)}>
+                <strong>{String(part.node.data.properties.model ?? part.entry.label)}</strong>
+                <span>Hardware only — click to configure</span>
+              </span>
+            </Fragment>
+          ))}
 
           {ledOutputs.map((output) => (
             <Fragment key={output.node.id}>
@@ -947,6 +1100,11 @@ export default function HardwarePane() {
           className={styles.itemMenu}
           style={{ left: itemMenu.x, top: itemMenu.y }}
         >
+          {itemMenu.mode === 'settings' && (
+            <div className={styles.itemMenuSettings}>
+              <AmplifierBody nodeId={itemMenu.kind} />
+            </div>
+          )}
           <button
             type="button"
             className={styles.itemMenuButton}

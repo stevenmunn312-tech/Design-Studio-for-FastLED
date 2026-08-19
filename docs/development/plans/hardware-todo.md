@@ -121,7 +121,33 @@ Once the pattern is proven, everything physical moves to the hardware view.
   covers GPIO1-20, but 11-20 are ADC2 and stop converting once Wi-Fi is up, so
   a potentiometer must prefer ADC1 while a board with only ADC2 left is still
   offered rather than refused.
-- [ ] **Amplifier**, **SD Card**, **Board** — hardware view only, no graph node.
+- [x] **Amplifier**, **Board** — hardware view only, no graph node. Both are
+  hidden graph nodes rather than absent ones: that is where their settings
+  persist with the workspace and where `playerSketchGenerator` already scans
+  for them, so nothing about codegen changed. Board was already in this shape;
+  the Amplifier joins it, with its I2S pins taken from the profile's
+  `peripheralPins.max98357` and its settings in the part menu, since a part
+  with no node body has nowhere else to put them. Its MAX98357A render is still
+  outstanding in [`hardware-renders.md`](hardware-renders.md), so it draws a
+  labelled placeholder at the part's real footprint — the layout will not shift
+  when the photo lands.
+- [ ] **SD Card** — hardware view only. Deliberately deferred to the upload-tab
+  work below, because the only thing its ports do is gate that UI.
+
+  Both of its ports turned out to be decorative. `PerformanceGenerator`
+  evaluates to `{ shows: null }` and `SDCard` to `{}`, and nothing reads the
+  `shows` edge at all; the `sdcard` edge is read by exactly two booleans
+  (`sdCardConnected`, `hasSdCardInput`) that decide whether "Upload show to SD"
+  appears. Everything that builds the payload — `buildShowPayload`,
+  `playerConfigFromGraph` — scans for the node by type and ignores wiring
+  entirely. The chain on canvas is a picture of a pipeline, not the pipeline.
+
+  Decided: the gate becomes **the part exists**, matching what the payload
+  builder already does. Removing the node then strands `MatrixOutput.sdcard`
+  and `PerformanceGenerator.shows`, and the `shows`/`sdcard` dataTypes lose
+  their only four users — so the sweep also covers the Music-synced SD Show
+  starter, four live examples, two NodeReference recipes and two picker bridge
+  chains.
 - [ ] **Part dropdown per component** (INMP441, MAX98357A, …) driving pin roles,
   thumbnail and caveats.
 - [ ] **Part catalogue.** Probably the same shape as `boardProfiles.ts` — id,

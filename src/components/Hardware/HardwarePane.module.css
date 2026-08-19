@@ -304,6 +304,37 @@
   padding: 12px;
 }
 
+/* A part with no render yet — the MAX98357A is still on the outstanding list
+   in docs/development/plans/hardware-renders.md. Drawn as a labelled board at
+   the part's real footprint, so it takes the space the photo will and the
+   layout does not shift when the render lands. */
+.partPlaceholder {
+  border-radius: 3px;
+  background-color: #12171d;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 10px 20px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.placeholderLabel {
+  color: var(--text-secondary);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 0 4px;
+}
+
+/* The settings a hardware-only part carries, shown in its part menu because it
+   has no node body to live in. */
+.itemMenuSettings {
+  min-width: 190px;
+  padding: 6px 8px 2px;
+}
+
 .itemMenu {
   position: absolute;
   z-index: 20;

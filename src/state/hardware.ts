@@ -13,6 +13,10 @@ const HARDWARE_MANAGED_SIGNAL_NODE_TYPES = new Set([
 // carry an output the bench does not.
 const HARDWARE_LIBRARY_HIDDEN_NODE_TYPES = new Set([
   'Board', 'MicInput', 'ButtonInput', 'PotInput', 'EncoderInput', 'MatrixOutput',
+  // Carries no signal, so it has no business on the signal canvas at all — it
+  // lives as a hidden node purely so its settings persist with the workspace
+  // and the player generator can keep scanning for them.
+  'Amplifier',
 ])
 
 export function isHardwareManagedSignalNodeType(nodeType: string): boolean {
@@ -98,3 +102,13 @@ function moduleFootprint(longMm: number): PartFootprintMm {
 export const BUTTON_MODULE_FOOTPRINT_MM = moduleFootprint(18.5)
 export const POT_MODULE_FOOTPRINT_MM = moduleFootprint(30)
 export const ENCODER_MODULE_FOOTPRINT_MM = moduleFootprint(32)
+
+/**
+ * The MAX98357A breakout, 17.8 mm along its long edge.
+ *
+ * No render yet — `docs/development/plans/hardware-renders.md` still lists it —
+ * so the hardware view draws a placeholder card at this size. The footprint is
+ * declared now regardless, because the part's real size beside a board is the
+ * thing the view exists to show, and it should not change when the photo lands.
+ */
+export const MAX98357A_FOOTPRINT_MM: PartFootprintMm = { width: 17.8, height: 13.2 }
