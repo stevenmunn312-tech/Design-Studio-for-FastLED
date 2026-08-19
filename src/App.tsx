@@ -398,17 +398,25 @@ export default function App() {
   // A screensaver should disappear as an interface when nobody is touching it.
   // Pointer movement brings the cursor back immediately; two quiet seconds hide
   // it again. Keyboard focus remains visible and all controls stay operable.
+  //
+  // The same two seconds now take the Stage chrome with the cursor, because
+  // Stage is the audience view and an audience should see lights, not a
+  // telemetry strip. Published to uiStore so the preview panel can follow it.
   useEffect(() => {
+    const setIdle = (idle: boolean) => {
+      setStageCursorHidden(idle)
+      useUiStore.getState().setStageIdle(idle)
+    }
     if (!stageMode) {
-      setStageCursorHidden(false)
+      setIdle(false)
       return
     }
 
-    let timer = window.setTimeout(() => setStageCursorHidden(true), STAGE_CURSOR_IDLE_MS)
+    let timer = window.setTimeout(() => setIdle(true), STAGE_CURSOR_IDLE_MS)
     const wakeCursor = () => {
-      setStageCursorHidden(false)
+      setIdle(false)
       window.clearTimeout(timer)
-      timer = window.setTimeout(() => setStageCursorHidden(true), STAGE_CURSOR_IDLE_MS)
+      timer = window.setTimeout(() => setIdle(true), STAGE_CURSOR_IDLE_MS)
     }
     window.addEventListener('pointermove', wakeCursor, { passive: true })
     window.addEventListener('pointerdown', wakeCursor, { passive: true })
@@ -416,6 +424,7 @@ export default function App() {
       window.clearTimeout(timer)
       window.removeEventListener('pointermove', wakeCursor)
       window.removeEventListener('pointerdown', wakeCursor)
+      useUiStore.getState().setStageIdle(false)
     }
   }, [stageMode])
 

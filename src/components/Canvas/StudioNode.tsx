@@ -14,7 +14,7 @@ import WaveScope from './WaveScope'
 import ComplexWaveScope from './ComplexWaveScope'
 import NodePreview, { type PreviewKind } from './NodePreview'
 import HardwareLedPreview from '../Hardware/HardwareLedPreview'
-import { outputForm, outputGridDims, ringDirection, ringStartAngle } from '../../state/ledOutputForm'
+import { isLinearForm, outputForm, outputGridDims, ringDirection, ringStartAngle } from '../../state/ledOutputForm'
 import MatrixSizePopup from './MatrixSizePopup'
 import BeatDetectBody from './BeatDetectBody'
 import FFTAnalyzerBody from './FFTAnalyzerBody'
@@ -690,7 +690,10 @@ const LivePropertyControls = memo(function LivePropertyControls({
               const rows = editable.filter(([key]) => group.keys.includes(key))
               if (rows.length === 0) return null
               const open = Boolean(openGroups[group.key])
-              const matrixSizeRow = isMatrixOutput && group.key === 'layout' ? (() => {
+              // A grid's size, so only for the forms that have one — a string
+              // and a ring are a length, edited as `ledCount` in the Output
+              // group above.
+              const matrixSizeRow = isMatrixOutput && group.key === 'layout' && !isLinearForm(outputForm(props)) ? (() => {
                 const w = Number(props.width ?? 16)
                 const h = Number(props.height ?? 16)
                 const preset = w === h && MATRIX_SIZE_PRESETS.includes(w) ? String(w) : 'custom'

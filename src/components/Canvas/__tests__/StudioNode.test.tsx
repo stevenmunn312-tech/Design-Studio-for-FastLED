@@ -479,6 +479,62 @@ describe('StudioNode', () => {
     expect(await findByText('Pending')).toBeTruthy()  // pending badge
   })
 
+  describe('LED output forms', () => {
+    // One node, four things you can buy. The header has to say which, and the
+    // preview has to be shaped like it — a row of cells standing in for a ring
+    // is a picture of a part the user did not buy.
+
+    it('titles itself after the form it is in', () => {
+      for (const [form, label] of [
+        ['strip', 'LED String'],
+        ['matrix', 'LED Matrix'],
+        ['ring', 'LED Ring'],
+        ['hub75', 'HUB75 Panel'],
+      ] as const) {
+        const { container, unmount } = renderNode(makeNode('MatrixOutput', { form, ledCount: 24 }))
+        expect(within(container).getByText(label)).toBeTruthy()
+        unmount()
+      }
+    })
+
+    it('draws a ring as a circle of LEDs, not a row of cells', () => {
+      const { container } = renderNode(makeNode('MatrixOutput', {
+        form: 'ring', ledCount: 12, ringStartAngle: 0, ringDirection: 'cw',
+      }))
+      const rects = Array.from(container.querySelectorAll('svg[viewBox="0 0 1 1"] rect'))
+      expect(rects).toHaveLength(12)
+      const centres = rects.map((rect) => ({
+        x: Number(rect.getAttribute('x')) + (Number(rect.getAttribute('width')) / 2),
+        y: Number(rect.getAttribute('y')) + (Number(rect.getAttribute('height')) / 2),
+      }))
+      // LED 0 at 12 o'clock, and every LED the same distance from the centre.
+      expect(centres[0].x).toBeCloseTo(0.5, 5)
+      expect(centres[0].y).toBeLessThan(0.2)
+      const radii = centres.map((c) => Math.hypot(c.x - 0.5, c.y - 0.5))
+      for (const radius of radii) expect(radius).toBeCloseTo(radii[0], 5)
+    })
+
+    it('draws a string as one row of its own length', () => {
+      const { container } = renderNode(makeNode('MatrixOutput', { form: 'strip', ledCount: 30 }))
+      const svg = container.querySelector('svg[viewBox="0 0 30 1"]')
+      expect(svg).toBeTruthy()
+      expect(svg!.querySelectorAll('rect')).toHaveLength(30)
+    })
+
+    it('offers a grid size only to the forms that have a grid', () => {
+      const grid = renderNode(makeNode('MatrixOutput', { form: 'matrix', width: 16, height: 16 }))
+      fireEvent.click(within(grid.container).getByText('Layout'))
+      expect(within(grid.container).getByLabelText(/matrix size/i)).toBeTruthy()
+      grid.unmount()
+
+      // A string is a length, edited as `ledCount`; a 16 x 16 dropdown on it
+      // would be a control for a dimension it does not have.
+      const run = renderNode(makeNode('MatrixOutput', { form: 'strip', ledCount: 60 }))
+      fireEvent.click(within(run.container).getByText('Layout'))
+      expect(within(run.container).queryByLabelText(/matrix size/i)).toBeNull()
+    })
+  })
+
   it('embeds an empty show monitor in the Performance Generator node', async () => {
     const node = makeNode('PerformanceGenerator', {
       beatIntensity: 0.8,

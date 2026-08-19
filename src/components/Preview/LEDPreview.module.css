@@ -127,6 +127,37 @@
   backdrop-filter: blur(16px);
 }
 
+/*
+ * Stage gone quiet: the audience view is lights, so everything that is not a
+ * lit LED fades out along with the cursor after two idle seconds. Pointer
+ * movement brings it straight back, and the elements are `inert` while hidden
+ * so a faded Exit button cannot be tabbed to or clicked through.
+ *
+ * Opacity and visibility only — the elements keep their space, so nothing
+ * reflows when the chrome comes and goes and the matrix never resizes under
+ * the audience. Honours reduced motion by simply not animating.
+ */
+.stageChromeQuiet {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 600ms ease, visibility 0s linear 600ms;
+}
+
+.header,
+.visualizer,
+.stagePatternBrand {
+  transition: opacity 220ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stageChromeQuiet,
+  .header,
+  .visualizer,
+  .stagePatternBrand {
+    transition: none;
+  }
+}
+
 .stageIdentity {
   display: flex;
   align-items: center;

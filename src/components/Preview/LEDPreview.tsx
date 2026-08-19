@@ -290,6 +290,11 @@ export default function LEDPreview() {
   const stageMode = useUiStore((s) => s.stageMode)
   const stageFullscreenStatus = useUiStore((s) => s.stageFullscreenStatus)
   const stageWakeLockStatus = useUiStore((s) => s.stageWakeLockStatus)
+  // Stage is the audience view: once nobody has touched the pointer for a
+  // couple of seconds, everything that is not a lit LED gets out of the way.
+  // Pointer movement brings it all back, so the way out is always one nudge
+  // away and Esc/F10 keep working regardless.
+  const stageQuiet = useUiStore((s) => s.stageMode && s.stageIdle)
   const previewPanelOpen = useUiStore((s) => s.previewPanelOpen)
   const evaluationRunning = useUiStore((s) => s.evaluationRunning)
   // Stage-mode pattern name, derived inside a selector that returns a plain
@@ -876,7 +881,10 @@ export default function LEDPreview() {
 
   return (
     <div className={`${styles.panel} ${stageMode ? styles.panelStage : ''} ${performanceMode ? styles.panelPerformance : ''}`}>
-      <div className={`${styles.header} ${stageMode ? styles.headerStage : ''}`}>
+      <div
+        className={`${styles.header} ${stageMode ? styles.headerStage : ''} ${stageQuiet ? styles.stageChromeQuiet : ''}`}
+        inert={stageQuiet}
+      >
         {stageMode ? (
           <div className={styles.stageIdentity}>
             <span className={styles.liveDot} aria-hidden="true" />
@@ -994,7 +1002,10 @@ export default function LEDPreview() {
           </div>
         )}
       </div>
-      <div className={styles.visualizer}>
+      {/* Spectrum and transport are workbench furniture; on stage they leave
+          with everything else once the room goes quiet. The standby HUD stays,
+          because it is the only thing that explains a black stage. */}
+      <div className={`${styles.visualizer} ${stageQuiet ? styles.stageChromeQuiet : ''}`} inert={stageQuiet}>
           {uiEffectsEnabled && <div className={styles.visualizerGlow} />}
           {uiEffectsEnabled && <div className={styles.visualizerGrid} />}
           <div className={styles.visualizerSection}>
@@ -1135,7 +1146,7 @@ export default function LEDPreview() {
             {musicError && !showMode && <p className={styles.musicError} role="alert">{musicError}</p>}
           </div>
           {stageMode && stagePatternName && (
-            <div className={styles.stagePatternBrand}>
+            <div className={`${styles.stagePatternBrand} ${stageQuiet ? styles.stageChromeQuiet : ''}`}>
               <span className={styles.stagePatternKicker}>My Pattern</span>
               <strong className={styles.stagePatternName} title={stagePatternName}>{stagePatternName}</strong>
             </div>

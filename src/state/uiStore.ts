@@ -150,6 +150,13 @@ interface UiState {
   stageFullscreenStatus: StagePresentationStatus
   /** Screen Wake Lock API state for the current Stage session. */
   stageWakeLockStatus: StagePresentationStatus
+  /**
+   * Whether Stage has gone quiet: nobody has moved the pointer for a couple of
+   * seconds, so the cursor and every piece of chrome step out and leave the
+   * lights on their own. Session-only and always false outside Stage, like
+   * `performanceMode` — it is a moment, not a preference.
+   */
+  stageIdle: boolean
   /** Canvas-focused presentation mode that hushes chrome and emphasizes signal flow. */
   performanceMode: boolean
   uiEffectsEnabled: boolean
@@ -205,6 +212,7 @@ interface UiState {
   setStageMode: (active: boolean) => void
   setStageFullscreenStatus: (status: StagePresentationStatus) => void
   setStageWakeLockStatus: (status: StagePresentationStatus) => void
+  setStageIdle: (idle: boolean) => void
   togglePerformanceMode: () => void
   setPerformanceMode: (active: boolean) => void
   toggleUiEffects: () => void
@@ -270,6 +278,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   stageMode: false,
   stageFullscreenStatus: 'idle',
   stageWakeLockStatus: 'idle',
+  stageIdle: false,
   // Perform is a presentation state for the current session, like Stage. A
   // previous session must not reopen with the editing chrome unexpectedly
   // hushed, so it always starts off and is intentionally not persisted.
@@ -363,6 +372,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   setStageMode: (stageMode) => set({ stageMode }),
   setStageFullscreenStatus: (stageFullscreenStatus) => set({ stageFullscreenStatus }),
   setStageWakeLockStatus: (stageWakeLockStatus) => set({ stageWakeLockStatus }),
+  setStageIdle: (stageIdle) => set({ stageIdle }),
   togglePerformanceMode: () => set((s) => ({ performanceMode: !s.performanceMode })),
   setPerformanceMode: (performanceMode) => set({ performanceMode }),
   toggleUiEffects: () => {

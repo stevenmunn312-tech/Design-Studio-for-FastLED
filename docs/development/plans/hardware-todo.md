@@ -58,13 +58,45 @@ like overhead at this size, stop and reconsider before migrating anything else.
 
 ## Phase 2 — LED output forms
 
-- [ ] **`form` property** — strip / matrix / ring / HUB75 — replacing the
-  overloaded `layout` + `chipset` combination.
-- [ ] **Four sidebar entries** that each create the node pre-set to a form.
-- [ ] **Ring form + XY mapping.** LED count, start angle, direction.
-- [ ] **In-graph preview in the output's own shape.** A ring draws a ring.
-- [ ] **Stage becomes the audience view** — lights only.
-- [ ] Decide the rename: `MatrixOutput` → `LED Output` (open question 2).
+- [x] **`form` property** — strip / matrix / ring / HUB75 — replacing the
+  overloaded `layout` + `chipset` combination. `src/state/ledOutputForm.ts` is
+  the one place that answers what an output physically is; LED count,
+  composition canvas, enabled editors and validation all follow from it.
+  `LedStringOutput` folded back in as `form: 'strip'` — it had no `case` in the
+  C++ generator at all, so a string-only graph compiled to a "not yet
+  supported" comment, and being one form of the output node is what gives it
+  firmware. `layout: 'strip'` is deliberately *not* read as the strip form:
+  `xyLayout` always treated it identically to `'matrix'`, so it only ever meant
+  "this grid is wired as one chain", and the multi-output codegen test caught
+  the inference turning a saved 16x4 panel into a 60-LED run.
+- [x] **Four entries** in the hardware pane's Add Hardware menu, each creating
+  the node pre-set to a form with a size that suits it. (The design note said
+  "sidebar"; Phase 1 hid every hardware node from the sidebar, so the hardware
+  view is where they are now.) A HUB75 panel does not consume an LED data pin —
+  it has its own ribbon — so it stays available when the board is out of GPIO.
+- [x] **Ring form + XY mapping.** LED count, start angle, direction.
+  `ringSampleMap` gives one composition pixel per LED, measured from 12 o'clock
+  where a ring's data-in pad usually is. The preview routes through it and the
+  sketch bakes it as PROGMEM, so both circles are the same circle. A ring claims
+  the square its own circumference implies (`N = pi x D`) rather than a strip's
+  1-pixel-tall footprint, because a circle cannot be sampled out of one row —
+  and the map is built against the canvas that actually exists, not the one the
+  ring asked for, or a ring beside a bigger matrix reads the wrong pixels.
+- [x] **In-graph preview in the output's own shape.** A ring draws a ring, a
+  string draws a run. The output node has no output port so it never qualified
+  for the generic preview — the one node whose job is "here is what reaches the
+  LEDs" showed nothing of them. It reuses the hardware view's component.
+- [x] **Stage becomes the audience view** — lights only. The two idle seconds
+  that already hid the cursor now take the header, telemetry, spectrum and
+  transport with them; pointer movement brings them straight back, and the
+  hidden chrome is `inert` so a faded Exit button cannot be tabbed to.
+- [x] Decided the rename (open question 2): **label only**. The node type id
+  stays `MatrixOutput` — invisible to users, and renaming it is ~740 references
+  of churn with no user-facing gain. The label is per form, so the node titles
+  itself LED String / LED Matrix / LED Ring / HUB75 Panel.
+
+Not yet hardware-validated: the ring and HUB75 forms have no bench run behind
+them, and the string form's firmware is new (it had none before).
 
 ## Phase 3 — migrate the remaining parts
 
