@@ -104,18 +104,20 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
 export function withAssignedPins(
   properties: Record<string, unknown>,
   pins: Record<string, number>,
-  fqbn?: string,
+  /** The board these are for — a profile id, since the profile knows the
+   *  header where an FQBN only names the chip. */
+  board?: string,
 ): Record<string, unknown> {
   if (Object.keys(pins).length === 0) return properties
   // Assignments only compose while they are for the same board; a new board
   // starts a fresh record rather than inheriting the old one's values.
-  const sameBoard = !fqbn || properties[ASSIGNED_BOARD_KEY] === fqbn
+  const sameBoard = !board || properties[ASSIGNED_BOARD_KEY] === board
   const previous = sameBoard ? (properties[ASSIGNED_PINS_KEY] ?? {}) as Record<string, number> : {}
   return {
     ...properties,
     ...pins,
     [ASSIGNED_PINS_KEY]: { ...previous, ...pins },
-    ...(fqbn ? { [ASSIGNED_BOARD_KEY]: fqbn } : {}),
+    ...(board ? { [ASSIGNED_BOARD_KEY]: board } : {}),
   }
 }
 
@@ -141,10 +143,10 @@ export function isPinAppOwned(
   nodeType: string,
   properties: Record<string, unknown>,
   key: string,
-  fqbn?: string,
+  board?: string,
 ): boolean {
   const stampedFor = properties[ASSIGNED_BOARD_KEY]
-  if (fqbn && typeof stampedFor === 'string' && stampedFor !== fqbn) return true
+  if (board && typeof stampedFor === 'string' && stampedFor !== board) return true
 
   const assigned = properties[ASSIGNED_PINS_KEY] as Record<string, number> | undefined
   const recorded = assigned?.[key]
@@ -194,6 +196,18 @@ export function retargetHardwarePins(
   profile: PhysicalBoardProfile | undefined,
   fqbn: string,
 ): RetargetResult {
+  /*
+   * Memory is keyed on the *profile*, not the FQBN.
+   *
+   * The profile is what knows the header — which pads this exact board breaks
+   * out — while an FQBN only names the chip, and several profiles share one.
+   * `esp32:esp32:esp32` belongs to both the 38-pin generic DevKit and the
+   * 30-pin DevKit v1, so keying on it meant switching between two boards with
+   * genuinely different headers looked like no change at all: pins never
+   * moved, and a choice made on one board would have been restored onto the
+   * other as if their pinouts matched.
+   */
+  const boardKey = profile?.id ?? fqbn
   const updates = new Map<string, { pins: Record<string, number>; memory: PinsByBoard; mine: string[] }>()
   const claimed = new Set<number>()
 
@@ -204,13 +218,13 @@ export function retargetHardwarePins(
     if (!plan) return {}
     const properties = node.data.properties as Record<string, unknown>
     const stampedFor = properties[ASSIGNED_BOARD_KEY]
-    const remembered = userPinsByBoard(properties)[fqbn] ?? {}
+    const remembered = userPinsByBoard(properties)[boardKey] ?? {}
     const out: Record<string, number> = { ...remembered }
     // Still on the board these values were stamped for, so an edited pin is a
     // live choice about this board rather than a leftover from another.
-    if (stampedFor === fqbn || stampedFor === undefined) {
+    if (stampedFor === boardKey || stampedFor === undefined) {
       for (const key of plan.keys) {
-        if (!isPinAppOwned(node.data.nodeType, properties, key, fqbn)) {
+        if (!isPinAppOwned(node.data.nodeType, properties, key, boardKey)) {
           const pin = Number(properties[key])
           if (Number.isFinite(pin)) out[key] = pin
         }
@@ -241,7 +255,7 @@ export function retargetHardwarePins(
        wiring back rather than the app's suggestion. */
     const leaving = properties[ASSIGNED_BOARD_KEY]
     const memory = userPinsByBoard(properties)
-    if (typeof leaving === 'string' && leaving !== fqbn) {
+    if (typeof leaving === 'string' && leaving !== boardKey) {
       const chosen: Record<string, number> = {}
       for (const key of plan.keys) {
         if (!isPinAppOwned(node.data.nodeType, properties, key, leaving)) {
@@ -257,7 +271,7 @@ export function retargetHardwarePins(
     // Their earlier choices for the board being arrived at win outright.
     const mine = ownedNow(node)
     const movable = plan.keys.filter((key) =>
-      mine[key] === undefined && isPinAppOwned(node.data.nodeType, properties, key, fqbn))
+      mine[key] === undefined && isPinAppOwned(node.data.nodeType, properties, key, boardKey))
     if (movable.length === 0 && Object.keys(mine).length === 0) continue
 
     let next: Record<string, number> | null = movable.length === 0
@@ -318,10 +332,10 @@ export function retargetHardwarePins(
         data: {
           ...node.data,
           properties: {
-            ...withAssignedPins(node.data.properties as Record<string, unknown>, appPlaced, fqbn),
+            ...withAssignedPins(node.data.properties as Record<string, unknown>, appPlaced, boardKey),
             ...restored,
             [USER_PINS_KEY]: update.memory,
-            [ASSIGNED_BOARD_KEY]: fqbn,
+            [ASSIGNED_BOARD_KEY]: boardKey,
           },
         },
       }

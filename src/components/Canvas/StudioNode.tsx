@@ -16,6 +16,7 @@ import NodePreview, { type PreviewKind } from './NodePreview'
 import HardwareLedPreview from '../Hardware/HardwareLedPreview'
 import { isLinearForm, outputForm, outputGridDims, ringDirection, ringStartAngle } from '../../state/ledOutputForm'
 import { partRenderForNodeType } from '../../state/partRenders'
+import { ASSIGNED_BOARD_KEY, ASSIGNED_PINS_KEY, USER_PINS_KEY } from '../../state/pinRetarget'
 import MatrixSizePopup from './MatrixSizePopup'
 import BeatDetectBody from './BeatDetectBody'
 import FFTAnalyzerBody from './FFTAnalyzerBody'
@@ -1088,6 +1089,10 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const accent = isComment && isHexColor(props.color) ? props.color : categoryAccent
   const editable = Object.entries(props).filter(
     ([k]) => k !== 'font' && k !== 'image' && k !== 'animation' && k !== 'mesh' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden' && k !== 'bypassed' && k !== 'showInMainPreview' && k !== 'profileId'
+    // Pin provenance is bookkeeping, not a setting: which pins the app
+    // assigned, which board for, and the user's own choices per board.
+    // It was rendering as `[object Object]` rows on every hardware node.
+    && k !== ASSIGNED_PINS_KEY && k !== ASSIGNED_BOARD_KEY && k !== USER_PINS_KEY
       && !(d.nodeType === 'CustomPalette' && (k === 'colors' || k === 'positions'))
       && !(d.nodeType === 'Poline' && (k === 'anchorA' || k === 'anchorB' || k === 'anchorC'))
       // Comment's `text` gets its own multi-line editor in the body, not the

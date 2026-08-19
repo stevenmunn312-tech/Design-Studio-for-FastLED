@@ -271,15 +271,20 @@ export default function App() {
   // profile exposes, and never a pin the user has edited themselves. Loading a
   // project is not itself a board change.
   const retargetHardwarePins = useGraphStore((s) => s.retargetHardwarePins)
-  const lastMicFqbn = useRef<string | null>(null)
+  const lastBoardKey = useRef<string | null>(null)
   useEffect(() => {
-    const previous = lastMicFqbn.current
+    const previous = lastBoardKey.current
     const boardFqbn = selectedBoardProfile?.compatibleFqbns[0] ?? selectedFqbn
-    lastMicFqbn.current = boardFqbn
+    // Keyed on the profile: several profiles share one FQBN — `esp32:esp32:esp32`
+    // belongs to both the 38-pin generic DevKit and the 30-pin DevKit v1 — so
+    // watching the FQBN alone meant swapping between two boards with genuinely
+    // different headers registered as no change and nothing was retargeted.
+    const boardKey = selectedBoardProfile?.id ?? boardFqbn
+    lastBoardKey.current = boardKey
     if (selectedBoardProfile?.compatibleFqbns[0] && selectedBoardProfile.compatibleFqbns[0] !== selectedFqbn) {
       useUploadStore.getState().setSelectedFqbn(selectedBoardProfile.compatibleFqbns[0])
     }
-    if (previous === null || previous === boardFqbn) return
+    if (previous === null || previous === boardKey) return
     const moved = retargetHardwarePins(boardFqbn)
     if (moved > 0) {
       setStatus(`Moved ${moved} part${moved > 1 ? 's' : ''} onto this board's pins`, 'info')

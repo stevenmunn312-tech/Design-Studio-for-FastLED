@@ -11,8 +11,13 @@ function part(id: string, nodeType: string, properties: Record<string, unknown>)
 }
 
 /** A board exposing a general pool and, optionally, an I2S mic trio. */
-function profile(pool: number[], inmp441?: { wsLrclk: number; sckBclk: number; sdDout: number }) {
+function profile(
+  pool: number[],
+  inmp441?: { wsLrclk: number; sckBclk: number; sdDout: number },
+  id = 'test-board',
+) {
   return {
+    id,
     pinSafety: { safeGeneralPurpose: pool, useWithCaution: {}, boardReservedOrNotExposed: {} },
     peripheralPins: inmp441 ? { inmp441 } : undefined,
   } as unknown as PhysicalBoardProfile
@@ -143,57 +148,93 @@ describe('retargetHardwarePins', () => {
      * each reflash meant dark LEDs, a pin edit and another flash. The choice
      * has to survive leaving the board and coming back.
      */
-    const ESP8266 = 'esp8266:esp8266:nodemcuv2'
+    const nodemcu = profile([2, 4], undefined, 'esp8266-nodemcu-v3')
+    const s3 = profile([21, 33], undefined, 'esp32-s3-devkitc-1')
     const wired = part('b', 'ButtonInput', {
-      ...withAssignedPins({}, { pin: 21 }, ESP8266),
+      ...withAssignedPins({}, { pin: 2 }, nodemcu.id),
       pin: 13,
     })
 
-    const away = retargetHardwarePins([wired], profile([21, 33]), ESP32_S3)
+    const away = retargetHardwarePins([wired], s3, ESP32_S3)
     expect(away.nodes[0].data.properties.pin).not.toBe(13)
 
-    const back = retargetHardwarePins(away.nodes, profile([2, 4]), ESP8266)
+    const back = retargetHardwarePins(away.nodes, nodemcu, 'esp8266:esp8266:nodemcuv2')
     expect(back.nodes[0].data.properties.pin).toBe(13)
   })
 
   it('keeps a returned pin theirs, so it survives the next trip too', () => {
-    const ESP8266 = 'esp8266:esp8266:nodemcuv2'
+    const nodemcu = profile([2, 4], undefined, 'esp8266-nodemcu-v3')
+    const s3 = profile([21, 33], undefined, 'esp32-s3-devkitc-1')
     let nodes = [part('b', 'ButtonInput', {
-      ...withAssignedPins({}, { pin: 21 }, ESP8266),
+      ...withAssignedPins({}, { pin: 2 }, nodemcu.id),
       pin: 13,
     })]
     for (let lap = 0; lap < 3; lap++) {
-      nodes = retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3).nodes
-      nodes = retargetHardwarePins(nodes, profile([2, 4]), ESP8266).nodes
+      nodes = retargetHardwarePins(nodes, s3, ESP32_S3).nodes
+      nodes = retargetHardwarePins(nodes, nodemcu, 'esp8266:esp8266:nodemcuv2').nodes
     }
     expect(nodes[0].data.properties.pin).toBe(13)
   })
 
   it('remembers each board separately', () => {
-    const ESP8266 = 'esp8266:esp8266:nodemcuv2'
+    const nodemcu = profile([2, 4], undefined, 'esp8266-nodemcu-v3')
+    const s3 = profile([21, 33], undefined, 'esp32-s3-devkitc-1')
     let nodes = [part('b', 'ButtonInput', {
-      ...withAssignedPins({}, { pin: 21 }, ESP8266),
+      ...withAssignedPins({}, { pin: 2 }, nodemcu.id),
       pin: 13,
     })]
     // Move to the S3 and hand-wire it differently there.
-    nodes = retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3).nodes
+    nodes = retargetHardwarePins(nodes, s3, ESP32_S3).nodes
     nodes = [part('b', 'ButtonInput', { ...nodes[0].data.properties, pin: 7 })]
 
-    nodes = retargetHardwarePins(nodes, profile([2, 4]), ESP8266).nodes
+    nodes = retargetHardwarePins(nodes, nodemcu, 'esp8266:esp8266:nodemcuv2').nodes
     expect(nodes[0].data.properties.pin).toBe(13)
-    nodes = retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3).nodes
+    nodes = retargetHardwarePins(nodes, s3, ESP32_S3).nodes
     expect(nodes[0].data.properties.pin).toBe(7)
   })
 
   it('does not report a move when it only recorded a choice', () => {
-    const ESP8266 = 'esp8266:esp8266:nodemcuv2'
+    const s3 = profile([21, 33], undefined, 'esp32-s3-devkitc-1')
     const nodes = [part('b', 'ButtonInput', {
-      ...withAssignedPins({}, { pin: 13 }, ESP8266),
+      ...withAssignedPins({}, { pin: 13 }, 'esp8266-nodemcu-v3'),
       // Already on the pin this board remembers, so nothing shifts.
-      userPinsByBoard: { [ESP32_S3]: { pin: 13 } },
+      userPinsByBoard: { [s3.id]: { pin: 13 } },
       pin: 13,
     })]
-    expect(retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3).moved).toBe(0)
+    expect(retargetHardwarePins(nodes, s3, ESP32_S3).moved).toBe(0)
+  })
+
+  it('retargets between two boards that share an FQBN', () => {
+    /*
+     * `esp32:esp32:esp32` belongs to both the 38-pin generic DevKit and the
+     * 30-pin DevKit v1 — different headers, same chip. Keying on the FQBN made
+     * switching between them look like no change at all, so the pins never
+     * moved: reported from the bench with a microphone left on another board's
+     * wiring while the board panel advertised its own.
+     */
+    const thirtyPin = profile([2, 4], undefined, 'esp32-devkit-v1-30pin-esp32d')
+    const thirtyEight = profile([21, 33], undefined, 'esp32-generic-devkit-38pin')
+    const shared = 'esp32:esp32:esp32'
+
+    let nodes = [part('b', 'ButtonInput', withAssignedPins({}, { pin: 2 }, thirtyPin.id))]
+    nodes = retargetHardwarePins(nodes, thirtyEight, shared).nodes
+    expect(nodes[0].data.properties.pin).toBe(21)
+  })
+
+  it('keeps each shared-FQBN board its own memory', () => {
+    const thirtyPin = profile([2, 4], undefined, 'esp32-devkit-v1-30pin-esp32d')
+    const thirtyEight = profile([21, 33], undefined, 'esp32-generic-devkit-38pin')
+    const shared = 'esp32:esp32:esp32'
+
+    // Hand-wired on the 30-pin, then away to the 38-pin and back.
+    let nodes = [part('b', 'ButtonInput', {
+      ...withAssignedPins({}, { pin: 2 }, thirtyPin.id),
+      pin: 15,
+    })]
+    nodes = retargetHardwarePins(nodes, thirtyEight, shared).nodes
+    expect(nodes[0].data.properties.pin).toBe(21)
+    nodes = retargetHardwarePins(nodes, thirtyPin, shared).nodes
+    expect(nodes[0].data.properties.pin).toBe(15)
   })
 
   it('ignores nodes that are not hardware parts', () => {
