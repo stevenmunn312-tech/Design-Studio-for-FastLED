@@ -269,6 +269,9 @@ export default function HardwarePane() {
   const edges = useGraphStore((state) => state.edges)
   const viewCenter = useUiStore((state) => state.viewCenter)
   const setStatus = useUiStore((state) => state.setStatus)
+  const selectNode = useGraphStore((state) => state.selectNode)
+  const requestFitView = useUiStore((state) => state.requestFitView)
+  const flashNode = useUiStore((state) => state.flashNode)
   const previewOutputId = useUiStore((state) => state.previewOutputId)
   const setPreviewOutputId = useUiStore((state) => state.setPreviewOutputId)
   const sidebarOpen = useUiStore((state) => state.sidebarOpen)
@@ -401,6 +404,25 @@ export default function HardwarePane() {
     const entry = FIXTURE_PARTS.find((candidate) => candidate.nodeType === node.data.nodeType)
     return entry ? [{ entry, node, partId: entry.partId }] : []
   }), [nodes])
+
+  /*
+   * Show me the node for this part.
+   *
+   * The two views are two halves of one object, and until now the hardware side
+   * could not point at its other half — you had to find the node yourself in a
+   * patch that may have scrolled far away. Select, move the canvas there, then
+   * let the node say which one it is: a moved viewport alone does not answer
+   * that when several nodes land on screen together.
+   *
+   * Only for parts that *have* a node. An amplifier has none by design, so it
+   * opens its settings instead rather than appearing to do nothing.
+   */
+  const revealNode = (nodeId: string, label: string) => {
+    selectNode(nodeId)
+    requestFitView([nodeId])
+    flashNode(nodeId)
+    setStatus(`Showing ${label} in the graph`, 'info')
+  }
 
   const hasPartOfType = (nodeType: string) =>
     inputParts.some((part) => part.entry.nodeType === nodeType)
@@ -915,11 +937,15 @@ export default function HardwarePane() {
                 type="button"
                 className={styles.part}
                 style={partStyle(part.partId)}
+                onClick={() => {
+                  if (view.consumedByPan()) return
+                  revealNode(part.node.id, part.entry.label)
+                }}
                 onContextMenu={(event) => {
                   event.preventDefault()
                   openItemMenu(part.node.id, (event.currentTarget as HTMLButtonElement).getBoundingClientRect())
                 }}
-                title="Right-click for hardware actions"
+                title="Click to show its node in the graph · right-click for hardware actions"
               >
                 <img
                   src={partRenderForNodeType(part.entry.nodeType)?.src}
@@ -1021,12 +1047,13 @@ export default function HardwarePane() {
                 onClick={() => {
                   if (view.consumedByPan()) return
                   setPreviewOutputId(output.node.id)
+                  revealNode(output.node.id, output.label)
                 }}
                 onContextMenu={(event) => {
                   event.preventDefault()
                   openItemMenu(output.node.id, (event.currentTarget as HTMLButtonElement).getBoundingClientRect())
                 }}
-                title="Click to preview this output · right-click for hardware actions"
+                title="Click to preview this output and show its node · right-click for hardware actions"
                 aria-label={output.ring
                   ? `${output.label}, ${output.ring.ledCount} LEDs on pin ${output.dataPin}`
                   : output.isStrip

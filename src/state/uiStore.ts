@@ -182,6 +182,12 @@ interface UiState {
   viewCenter: { x: number; y: number }
   /** Monotonic fit-view request consumed by the canvas. */
   fitViewRequest: { nonce: number; nodeIds?: string[] }
+  /**
+   * "That one" — a node asked to announce itself, after the view has moved to
+   * it. Carries a nonce so clicking the same part twice flashes twice; without
+   * one the second click would set an unchanged value and nothing would happen.
+   */
+  nodeFlash: { nodeId: string | null; nonce: number }
   theme: AppTheme
   reducedMotion: boolean
   highContrast: boolean
@@ -229,6 +235,8 @@ interface UiState {
   setDraggingNodeType: (nodeType: string | null) => void
   setViewCenter: (center: { x: number; y: number }) => void
   requestFitView: (nodeIds?: string[]) => void
+  /** Ask a node to announce itself once the view has moved to it. */
+  flashNode: (nodeId: string) => void
   setTheme: (theme: AppTheme) => void
   cycleTheme: () => void
   toggleReducedMotion: () => void
@@ -296,6 +304,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   draggingNodeType: null,
   viewCenter: { x: 300, y: 250 },
   fitViewRequest: { nonce: 0 },
+  nodeFlash: { nodeId: null, nonce: 0 },
   theme: load<AppTheme>(THEME_KEY, 'dark'),
   reducedMotion: load<boolean>(MOTION_KEY, false),
   highContrast: load<boolean>(CONTRAST_KEY, false),
@@ -412,6 +421,9 @@ export const useUiStore = create<UiState>((set, get) => ({
   setViewCenter: (center) => set({ viewCenter: center }),
   requestFitView: (nodeIds) => set((state) => ({
     fitViewRequest: { nonce: state.fitViewRequest.nonce + 1, nodeIds },
+  })),
+  flashNode: (nodeId) => set((state) => ({
+    nodeFlash: { nodeId, nonce: state.nodeFlash.nonce + 1 },
   })),
 
   setTheme: (theme) => {

@@ -182,3 +182,19 @@ describe('uiStore.setStatus auto-clear', () => {
     expect(useUiStore.getState().fitViewRequest).toEqual({ nonce: 2, nodeIds: undefined })
   })
 })
+
+describe('nodeFlash', () => {
+  it('carries the node being asked to announce itself', () => {
+    useUiStore.getState().flashNode('mic-1')
+    expect(useUiStore.getState().nodeFlash.nodeId).toBe('mic-1')
+  })
+
+  it('bumps the nonce every time, so the same part can flash twice', () => {
+    // Without a nonce the second click would set an unchanged value and the
+    // node would sit there having already flashed once.
+    useUiStore.getState().flashNode('mic-1')
+    const first = useUiStore.getState().nodeFlash.nonce
+    useUiStore.getState().flashNode('mic-1')
+    expect(useUiStore.getState().nodeFlash.nonce).toBe(first + 1)
+  })
+})

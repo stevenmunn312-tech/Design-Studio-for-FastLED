@@ -819,6 +819,10 @@ const LivePropertyControls = memo(function LivePropertyControls({
 // Body content width = --node-width (240) − 2×--space-1 (8) horizontal padding.
 // Frame previews fill this width and keep the matrix aspect ratio.
 const BODY_CONTENT_W = 224
+/** How long a node announces itself after the hardware view jumps to it.
+ *  Long enough to catch the eye having just moved, short enough not to linger
+ *  as if it were a selection state. Must match `.nodeFlash`'s duration. */
+const FLASH_MS = 1100
 /** A ring's preview is square, and a square as wide as the node body would
  *  dominate a node that already carries the upload UI and a capacity meter. */
 const RING_PREVIEW_PX = 116
@@ -922,6 +926,24 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const sparkPortId = useUiStore((s) =>
     s.sparkPort?.nodeId === id ? (s.sparkPort?.portId ?? null) : null
   )
+  /*
+   * "I am the one you just clicked on the bench." The hardware view moves the
+   * canvas here, and a moved viewport alone does not say which node it moved
+   * for — especially in a dense patch where several nodes land on screen.
+   *
+   * Keyed on the nonce rather than the id so clicking the same part twice
+   * flashes twice. One-shot, and box-shadow rather than a filter: an animated
+   * CSS filter is the Chromium GPU-memory leak this project already spent a
+   * long hunt on (see src/dev/animationFilterGuard.ts).
+   */
+  const flashNonce = useUiStore((s) => (s.nodeFlash.nodeId === id ? s.nodeFlash.nonce : 0))
+  const [flashing, setFlashing] = useState(false)
+  useEffect(() => {
+    if (!flashNonce) return
+    setFlashing(true)
+    const timer = window.setTimeout(() => setFlashing(false), FLASH_MS)
+    return () => window.clearTimeout(timer)
+  }, [flashNonce])
   const performanceMode = useUiStore((s) => s.performanceMode)
   const uiEffectsEnabled = useUiStore((s) => s.uiEffectsEnabled)
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
@@ -1201,7 +1223,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   return (
     <div
       ref={nodeRef}
-      className={`${styles.node} ${categoryClass} ${performanceMode ? styles.nodePerformance : ''} ${selected ? styles.nodeSelected : ''} ${focusState === 'dim' ? styles.nodeDim : focusState === 'active' ? styles.nodePath : ''} ${previewKind === 'frame' ? styles.nodeFrameSource : ''} ${isMusicLibrary && musicLibraryAnalyzing ? styles.nodeMusicAnalyzing : ''} ${micUnavailable ? styles.nodeDisabled : ''}`}
+      className={`${styles.node} ${categoryClass} ${performanceMode ? styles.nodePerformance : ''} ${selected ? styles.nodeSelected : ''} ${focusState === 'dim' ? styles.nodeDim : focusState === 'active' ? styles.nodePath : ''} ${previewKind === 'frame' ? styles.nodeFrameSource : ''} ${flashing ? styles.nodeFlash : ''} ${isMusicLibrary && musicLibraryAnalyzing ? styles.nodeMusicAnalyzing : ''} ${micUnavailable ? styles.nodeDisabled : ''}`}
       style={{
         width: isMusicLibrary ? 300 : isCode ? 320 : isPerfGen ? 300 : isComment ? 260 : undefined,
         '--node-accent': accent,
