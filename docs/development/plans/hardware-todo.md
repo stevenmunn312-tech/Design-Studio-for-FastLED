@@ -116,27 +116,49 @@ Once the pattern is proven, everything physical moves to the hardware view.
   built: `retargetedMicPins` / `graphStore.retargetMicPins` already do exactly
   this for the microphone, and Phase 1 gave it the profile-then-table
   precedence. This generalises it rather than inventing it.
-- [ ] **Upload leaves the node and gets its own button and popup.** Upload is
-  not a property of one output any more — there can be several, and the board
-  it flashes lives in the hardware view. The popup already exists and is
-  already global (`MatrixOutputDeployPopup`, mounted in `App.tsx`, opened
-  through `uploadStore.deployPopupOpen`); what goes is the 114-line
-  `MatrixOutputUpload` strip embedded in the node body, replaced by one
-  top-level button. This supersedes the "no separate modal" decision recorded
-  in CLAUDE.md, which dates from when `MatrixOutput` was a singleton.
+- [ ] **Upload leaves the node; the bottom pane becomes Hardware | Upload.**
+  Upload is not a property of one output — it never was. One board takes one
+  sketch, and that sketch already drives every output: `cppGenerator` emits a
+  `leds_<id>` array per route, an `addLeds` per route on its own
+  `DATA_PIN_<id>`, and a single `FastLED.show()` once all of them are filled.
+  So there is nothing to pick. **One board, one upload, all outputs.**
 
-  Two consequences to settle rather than discover:
+  Being embedded in a node said otherwise — it implied you were flashing *that*
+  output — and the per-node button is what supplied `activeOutputNodeId` in the
+  first place. Moving it to the bench is also just truthful about what it does.
 
-  1. **Which output does the popup act on?** It takes an
-     `activeOutputNodeId` today because a per-node button supplied one. Opened
-     from a global button with three outputs on the canvas, it either picks
-     one, asks, or becomes genuinely multi-output.
-  2. **The live capacity meter loses its host.** It runs continuously *while
-     composing* precisely because `MatrixOutputUpload` is always mounted in the
-     node body; a popup only mounts when open. Either the compile-check driver
-     moves somewhere always-mounted (the status bar already shows board and
-     chip), or the meter becomes popup-only and stops being the ambient "will
-     it fit" signal it was built to be.
+  **Decided: tabs across the whole bottom pane**, not a side dock. Each tab
+  gets full width, so the console is comfortable to read and the board render
+  stays big — the two things that were cramped in a floating slide-over.
+
+  What moves: the 114-line `MatrixOutputUpload` strip in the node body, and
+  `OutputConsole`, which is already a two-tab (output / serial) slide-over and
+  so folds in as a move rather than a rewrite. `MatrixOutputDeployPopup` is
+  already global and store-driven, so its contents transplant. This supersedes
+  CLAUDE.md's "driven from the MatrixOutput node — there is no separate modal"
+  decision, which dates from when `MatrixOutput` was a singleton.
+
+  Three things this has to get right:
+
+  1. **The pane collapses to zero, deliberately** —
+     `clampHardwarePaneRatio` allows 0 and the 1280x720 supported minimum
+     depends on it. So a top-level button stays, and its job is "open the pane
+     on the Upload tab". Upload must never become unreachable because the
+     divider was dragged shut.
+  2. **`activeOutputNodeId` still has a job, a smaller one.** Not for upload,
+     which is whole-graph, but for the actions that genuinely are per-output:
+     Flash Wiring Test and the HUB75 topology test bake one output's settings,
+     and the last-sketch cache is keyed per project. Those need a named output;
+     the Upload button does not.
+  3. **The live capacity meter needs a host.** It runs continuously *while
+     composing* only because `MatrixOutputUpload` is always mounted in the node
+     body. A tab is not mounted while the other tab shows, so either the
+     compile-check driver moves somewhere always-mounted, or the ambient "will
+     it fit" signal is lost.
+
+  Caveat that survives all of this: a **HUB75 panel must be the only output**
+  (`isHub75` requires a single route, and `findHub75ConfigIssues` blocks the
+  mixed case). "All outputs in one upload" is an addressable-output promise.
 
 ## Phase 4 — the Audio capability
 
