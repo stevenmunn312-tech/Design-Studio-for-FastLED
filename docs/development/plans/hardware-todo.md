@@ -211,12 +211,18 @@ Once the pattern is proven, everything physical moves to the hardware view.
   Legacy nodes with no stamp fall back to `micPinsAreDefault`, which finally
   gives that function the job it was written for.
 
-  Ownership is **per board**. Wiring a pin by hand is a decision about the
-  board in front of you — the same reason `micOverridesByFqbn` keeps the
-  microphone's remembered settings per upload target rather than in one global
-  bucket — so an edit protects a pin on the board it was made for and nowhere
-  else. Carrying it onto a different board would strand the part on a pin that
-  board may not even expose.
+  Hand-wired pins are **remembered per board**, not merely ignored elsewhere.
+  Leaving a board writes the user's choices into that board's memory; returning
+  restores them. This is the point of the whole item: a project already built
+  and enclosed uses the pins it is soldered to, not the pins most people use,
+  and an ESP8266 LED run on a non-standard data pin had that pin reset to the
+  default on every board change — dark LEDs, a pin edit, another flash, every
+  single time. Following the suggested pins is right for a new build and wrong
+  for one that already exists, and only the user knows which they have.
+
+  Restored pins stay the *user's*, never re-stamped as the app's, so the
+  memory survives any number of trips between boards. Each board keeps its own
+  entry, so wiring the same part differently on two boards works.
 
   Two things the tests forced out. A part's own current pins must be excluded
   from its claim set, or it can never be handed back the pin it already holds

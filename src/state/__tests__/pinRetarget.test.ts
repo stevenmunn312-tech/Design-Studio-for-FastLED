@@ -136,6 +136,66 @@ describe('retargetHardwarePins', () => {
     expect(result.nodes).toBe(nodes)
   })
 
+  it('brings a hand-wired pin back when you return to its board', () => {
+    /*
+     * The case this exists for. An ESP8266 LED run is soldered to a
+     * non-standard data pin; every board change put it back to the default, so
+     * each reflash meant dark LEDs, a pin edit and another flash. The choice
+     * has to survive leaving the board and coming back.
+     */
+    const ESP8266 = 'esp8266:esp8266:nodemcuv2'
+    const wired = part('b', 'ButtonInput', {
+      ...withAssignedPins({}, { pin: 21 }, ESP8266),
+      pin: 13,
+    })
+
+    const away = retargetHardwarePins([wired], profile([21, 33]), ESP32_S3)
+    expect(away.nodes[0].data.properties.pin).not.toBe(13)
+
+    const back = retargetHardwarePins(away.nodes, profile([2, 4]), ESP8266)
+    expect(back.nodes[0].data.properties.pin).toBe(13)
+  })
+
+  it('keeps a returned pin theirs, so it survives the next trip too', () => {
+    const ESP8266 = 'esp8266:esp8266:nodemcuv2'
+    let nodes = [part('b', 'ButtonInput', {
+      ...withAssignedPins({}, { pin: 21 }, ESP8266),
+      pin: 13,
+    })]
+    for (let lap = 0; lap < 3; lap++) {
+      nodes = retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3).nodes
+      nodes = retargetHardwarePins(nodes, profile([2, 4]), ESP8266).nodes
+    }
+    expect(nodes[0].data.properties.pin).toBe(13)
+  })
+
+  it('remembers each board separately', () => {
+    const ESP8266 = 'esp8266:esp8266:nodemcuv2'
+    let nodes = [part('b', 'ButtonInput', {
+      ...withAssignedPins({}, { pin: 21 }, ESP8266),
+      pin: 13,
+    })]
+    // Move to the S3 and hand-wire it differently there.
+    nodes = retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3).nodes
+    nodes = [part('b', 'ButtonInput', { ...nodes[0].data.properties, pin: 7 })]
+
+    nodes = retargetHardwarePins(nodes, profile([2, 4]), ESP8266).nodes
+    expect(nodes[0].data.properties.pin).toBe(13)
+    nodes = retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3).nodes
+    expect(nodes[0].data.properties.pin).toBe(7)
+  })
+
+  it('does not report a move when it only recorded a choice', () => {
+    const ESP8266 = 'esp8266:esp8266:nodemcuv2'
+    const nodes = [part('b', 'ButtonInput', {
+      ...withAssignedPins({}, { pin: 13 }, ESP8266),
+      // Already on the pin this board remembers, so nothing shifts.
+      userPinsByBoard: { [ESP32_S3]: { pin: 13 } },
+      pin: 13,
+    })]
+    expect(retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3).moved).toBe(0)
+  })
+
   it('ignores nodes that are not hardware parts', () => {
     const nodes = [part('p', 'Plasma', { speed: 0.5 })]
     expect(retargetHardwarePins(nodes, profile([21]), ESP32_S3).moved).toBe(0)

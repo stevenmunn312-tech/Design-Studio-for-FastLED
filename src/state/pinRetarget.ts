@@ -12,12 +12,19 @@
 // about "does this look like a default", no coincidences, and it survives a
 // round trip through a saved project.
 //
-// And it is recorded *per board*. Wiring a pin by hand is a decision about the
-// board in front of you — the same reason `micOverridesByFqbn` keeps the
-// microphone's remembered settings per upload target rather than in one global
-// bucket. Carrying that decision onto a different board would strand the part
-// on a pin the new board may not even expose, so an edit protects a pin on the
-// board it was made for and nowhere else.
+// And it is remembered *per board*. Wiring a pin by hand is a decision about
+// the board in front of you — the same reason `micOverridesByFqbn` keeps the
+// microphone's settings per upload target rather than in one global bucket —
+// so an edit is kept for the board it was made on, applied again the next time
+// that board is selected, and ignored on every other.
+//
+// That last part is the whole point. A project already built and enclosed uses
+// the pins it is soldered to, not the pins most people use: an ESP8266 LED run
+// on a non-standard data pin had that pin overwritten with the default on
+// every board change, so each reflash produced dark LEDs, a pin edit, and
+// another flash — every time. Following the suggested pins is right for a new
+// build and wrong for one that already exists, and only the user knows which
+// they have. Remembering what they chose is how the app stops asking.
 
 import type { StudioNode } from './graphStore'
 import type { PhysicalBoardProfile } from '../build/boardProfiles'
@@ -29,6 +36,17 @@ import { outputForm } from './ledOutputForm'
 export const ASSIGNED_PINS_KEY = 'assignedPins'
 /** Property holding the board those assignments were made for. */
 export const ASSIGNED_BOARD_KEY = 'assignedPinsBoard'
+/** Property holding pins the user chose, kept per board so returning to a
+ *  board brings its own wiring back. */
+export const USER_PINS_KEY = 'userPinsByBoard'
+
+type PinsByBoard = Record<string, Record<string, number>>
+
+/** The user's own pin choices, per board. */
+export function userPinsByBoard(properties: Record<string, unknown>): PinsByBoard {
+  const stored = properties[USER_PINS_KEY]
+  return stored && typeof stored === 'object' ? { ...(stored as PinsByBoard) } : {}
+}
 
 /**
  * The pins each hardware part owns, and where they come from on a board.
@@ -157,35 +175,52 @@ export interface RetargetResult {
 }
 
 /**
- * Move every part's app-owned pins onto the newly selected board.
+ * Move every part onto the newly selected board.
  *
- * Runs as one pass so the parts cannot collide with each other: each part's
- * newly chosen pins are visible to the next through `claimed`. Peripheral pins
- * are taken first, before the general pool is handed out, because an I2S trio
- * has nowhere else to go while a button can sit anywhere.
+ * Three things happen per part, in order. Any pin the user had chosen for the
+ * board being left is written into that board's memory. Any pin they had
+ * previously chosen for the board being arrived at is restored. Whatever is
+ * left over — the pins the app placed and the user never touched — is assigned
+ * from the new board's profile.
  *
- * Pins the user owns are never moved *and* never freed — they stay claimed, so
- * a retargeted part is routed around the user's wiring rather than on top of it.
+ * Runs as one pass so parts cannot collide: each part's pins become visible to
+ * the next through `claimed`. Peripheral pins resolve before the general pool,
+ * because an I2S trio is a fixed function of the pads while a button can sit
+ * anywhere. Pins the user owns are claimed but never moved, so a retargeted
+ * part routes around their wiring instead of landing on top of it.
  */
 export function retargetHardwarePins(
   nodes: StudioNode[],
   profile: PhysicalBoardProfile | undefined,
   fqbn: string,
 ): RetargetResult {
-  const updates = new Map<string, Record<string, number>>()
+  const updates = new Map<string, { pins: Record<string, number>; memory: PinsByBoard; mine: string[] }>()
   const claimed = new Set<number>()
 
-  // Everything the user owns is off the table before anything is handed out.
-  for (const node of nodes) {
+  /* What the user has chosen for *this* board, either just now on it or on a
+     previous visit. Off the table before anything is handed out. */
+  const ownedNow = (node: StudioNode): Record<string, number> => {
     const plan = PART_PIN_PLANS[node.data.nodeType]
-    if (!plan) continue
+    if (!plan) return {}
     const properties = node.data.properties as Record<string, unknown>
-    for (const key of plan.keys) {
-      if (!isPinAppOwned(node.data.nodeType, properties, key, fqbn)) {
-        const pin = Number(properties[key])
-        if (Number.isFinite(pin)) claimed.add(pin)
+    const stampedFor = properties[ASSIGNED_BOARD_KEY]
+    const remembered = userPinsByBoard(properties)[fqbn] ?? {}
+    const out: Record<string, number> = { ...remembered }
+    // Still on the board these values were stamped for, so an edited pin is a
+    // live choice about this board rather than a leftover from another.
+    if (stampedFor === fqbn || stampedFor === undefined) {
+      for (const key of plan.keys) {
+        if (!isPinAppOwned(node.data.nodeType, properties, key, fqbn)) {
+          const pin = Number(properties[key])
+          if (Number.isFinite(pin)) out[key] = pin
+        }
       }
     }
+    return out
+  }
+
+  for (const node of nodes) {
+    for (const pin of Object.values(ownedNow(node))) claimed.add(pin)
   }
 
   const order = [...nodes].sort((a, b) => {
@@ -201,12 +236,34 @@ export function retargetHardwarePins(
     // A HUB75 panel takes a signal ribbon, not pins from this pool.
     if (node.data.nodeType === 'MatrixOutput' && outputForm(properties) === 'hub75') continue
 
-    const movable = plan.keys.filter((key) => isPinAppOwned(node.data.nodeType, properties, key, fqbn))
-    if (movable.length === 0) continue
+    /* Remember what the user chose for the board being left, before anything
+       overwrites it — this is what makes returning to that board bring their
+       wiring back rather than the app's suggestion. */
+    const leaving = properties[ASSIGNED_BOARD_KEY]
+    const memory = userPinsByBoard(properties)
+    if (typeof leaving === 'string' && leaving !== fqbn) {
+      const chosen: Record<string, number> = {}
+      for (const key of plan.keys) {
+        if (!isPinAppOwned(node.data.nodeType, properties, key, leaving)) {
+          const pin = Number(properties[key])
+          if (Number.isFinite(pin)) chosen[key] = pin
+        }
+      }
+      if (Object.keys(chosen).length > 0) {
+        memory[leaving] = { ...memory[leaving], ...chosen }
+      }
+    }
 
-    let next: Record<string, number> | null =
-      peripheralPins(plan, profile) ?? plan.fromFqbn?.(fqbn) ?? null
-    if (next) {
+    // Their earlier choices for the board being arrived at win outright.
+    const mine = ownedNow(node)
+    const movable = plan.keys.filter((key) =>
+      mine[key] === undefined && isPinAppOwned(node.data.nodeType, properties, key, fqbn))
+    if (movable.length === 0 && Object.keys(mine).length === 0) continue
+
+    let next: Record<string, number> | null = movable.length === 0
+      ? {}
+      : peripheralPins(plan, profile) ?? plan.fromFqbn?.(fqbn) ?? null
+    if (next && movable.length > 0) {
       // Only the movable subset, and only when the board actually says
       // something different from what is already there.
       next = Object.fromEntries(movable.map((key) => [key, next![key]]))
@@ -225,23 +282,47 @@ export function retargetHardwarePins(
     }
     if (!next) continue
 
-    const changed = Object.entries(next).filter(([key, pin]) => Number(properties[key]) !== pin)
-    for (const [, pin] of Object.entries(next)) claimed.add(pin)
-    if (changed.length === 0) continue
-    updates.set(node.id, Object.fromEntries(changed))
+    // The user's remembered pins for this board sit alongside whatever the app
+    // just placed, and take precedence where both have something to say.
+    const resolved = { ...next, ...mine }
+    for (const pin of Object.values(resolved)) claimed.add(pin)
+
+    const changed = Object.entries(resolved).filter(([key, pin]) => Number(properties[key]) !== pin)
+    const memoryChanged = JSON.stringify(memory) !== JSON.stringify(userPinsByBoard(properties))
+    if (changed.length === 0 && !memoryChanged) continue
+    updates.set(node.id, {
+      pins: Object.fromEntries(changed),
+      memory,
+      // Restored pins are the user's, so they must not be stamped as the app's
+      // or the next board change would treat them as free to move.
+      mine: Object.keys(mine),
+    })
   }
 
   if (updates.size === 0) return { nodes, moved: 0 }
   return {
-    moved: updates.size,
+    // A part whose only change was recording what the user chose has not
+    // moved, and saying so would be a status line about nothing.
+    moved: [...updates.values()].filter((update) => Object.keys(update.pins).length > 0).length,
     nodes: nodes.map((node) => {
-      const pins = updates.get(node.id)
-      if (!pins) return node
+      const update = updates.get(node.id)
+      if (!update) return node
+      const appPlaced = Object.fromEntries(
+        Object.entries(update.pins).filter(([key]) => !update.mine.includes(key)),
+      )
+      const restored = Object.fromEntries(
+        Object.entries(update.pins).filter(([key]) => update.mine.includes(key)),
+      )
       return {
         ...node,
         data: {
           ...node.data,
-          properties: withAssignedPins(node.data.properties as Record<string, unknown>, pins, fqbn),
+          properties: {
+            ...withAssignedPins(node.data.properties as Record<string, unknown>, appPlaced, fqbn),
+            ...restored,
+            [USER_PINS_KEY]: update.memory,
+            [ASSIGNED_BOARD_KEY]: fqbn,
+          },
         },
       }
     }),
