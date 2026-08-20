@@ -1,6 +1,5 @@
 import { NODE_LIBRARY, portColor } from './nodeLibrary'
 import { resolveDefaultProperties } from './nodeDefaults'
-import { LED_OUTPUT_GENERIC_LABEL } from './ledOutputForm'
 import type { StudioNode, StudioEdge } from './graphStore'
 
 export interface StarterTemplate {
@@ -73,11 +72,7 @@ function template(
         if (!def) throw new Error(`Unknown template node type: ${spec.type}`)
         return {
           id: spec.id,
-          // The output is drawn by what it is for, not by which form this
-          // particular starter happens to use — every one of them is a matrix,
-          // and a map full of "LED Matrix" reads as a constraint rather than
-          // as the one node every patch ends at.
-          label: spec.type === 'MatrixOutput' ? LED_OUTPUT_GENERIC_LABEL : def.label,
+          label: def.label,
           category: def.category,
           col: spec.col,
           row: spec.row ?? 0,

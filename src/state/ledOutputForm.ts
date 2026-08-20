@@ -31,14 +31,6 @@ export const LED_OUTPUT_FORM_LABELS: Record<LedOutputForm, string> = {
   hub75: 'HUB75 Panel',
 }
 
-/**
- * The form-agnostic name, for copy that means "the output node" without
- * committing to one of the four forms — help prose, Graph Health fixes, and
- * the Start Gallery's graph maps, whose starters would otherwise all name the
- * matrix specifically. The per-form labels above stay the node's own title.
- */
-export const LED_OUTPUT_GENERIC_LABEL = 'LED Output'
-
 export type RingDirection = 'cw' | 'ccw'
 
 /** Composition-canvas and LED-count bounds, shared by every caller so the

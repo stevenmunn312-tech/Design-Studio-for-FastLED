@@ -31,20 +31,6 @@ describe('TemplatesPopup', () => {
     expect(getByText('Last start: Audio Spectrum')).toBeTruthy()
   })
 
-  // Every starter ends at the same node, and every one of them happens to use
-  // the matrix form — so drawing its own title made the gallery read as eight
-  // matrix patches rather than eight patches that all end at the LED output.
-  it('names the output generically in the graph maps', () => {
-    // A two-word label is drawn as two <tspan> lines, whose textContent would
-    // otherwise run together as "LEDOutput".
-    const { container } = render(<TemplatesPopup />)
-    const boxLabels = [...container.querySelectorAll('svg text')].map((text) =>
-      [...text.querySelectorAll('tspan')].map((line) => line.textContent).join(' '))
-
-    expect(boxLabels).toContain('LED Output')
-    expect(boxLabels).not.toContain('LED Matrix')
-  })
-
   it('can start from a blank canvas and remember that choice', async () => {
     useGraphStore.setState({
       nodes: [{
