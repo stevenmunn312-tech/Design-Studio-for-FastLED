@@ -773,7 +773,7 @@ describe('StudioNode', () => {
     const rtc = renderNode(makeNode('RTCInput', { timeSource: 'DS3231' }))
     expect(rtc.getByText('DS3231 / I2C')).toBeTruthy()
     expect(rtc.getByText(/Preview simulates a healthy module/)).toBeTruthy()
-    expect(rtc.getByText(/Default SDA\/SCL pins/)).toBeTruthy()
+    expect(rtc.getByText(/Select an exact board to show its default SDA\/SCL pins/)).toBeTruthy()
     expect(rtc.getByRole('button', { name: 'Set from computer' })).toBeTruthy()
   })
 

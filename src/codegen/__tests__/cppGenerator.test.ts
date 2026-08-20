@@ -3208,6 +3208,13 @@ describe('RTCInput (codegen)', () => {
     expect(cpp).not.toContain('#include <RTClib.h>')
     expect(cpp).not.toContain('_rtcParseBuildStamp(__DATE__, __TIME__, _rtcBuild_rtc);')
   })
+
+  it('uses an exact Espressif board profile when its Wire pins differ from the generic target', () => {
+    const board = node('board', 'Board', 'input', { profileId: 'seeed-xiao-esp32s3' })
+    const rtc = node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' })
+    const cpp = generateCpp([board, rtc], [])
+    expect(cpp).toContain("Wire.begin(5, 6);  // DS3231 on Seeed Studio XIAO ESP32S3's default SDA/SCL pins")
+  })
 })
 
 describe('ScheduleTrigger (codegen)', () => {

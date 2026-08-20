@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react'
 import { createPortal, flushSync } from 'react-dom'
 import {
-  boardPinForGpio,
   boardProfileById,
   compatibleBoardProfilesForFqbn,
   isBoardProfileCompatibleWithFqbn,
@@ -17,7 +16,7 @@ import {
 } from '../../build/buildProfile'
 import { calculateElectricalPlan } from '../../build/electricalPlan'
 import { bomCsv, buildBomRows, buildConnectionRows, connectionsCsv } from '../../build/buildExports'
-import { buildHardwareManifest, type HardwareManifestItem, type HardwarePinUse } from '../../build/hardwareManifest'
+import { boardPinForUse, boardPinLabelForUse, buildHardwareManifest, type HardwareManifestItem, type HardwarePinUse } from '../../build/hardwareManifest'
 import { fuseBlockAllocations } from '../../build/powerDistribution'
 import { rootGraphNodes, useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
 import { ROOT_BOARD_NODE_ID } from '../../state/hardware'
@@ -477,11 +476,11 @@ export default function BuildDiagramWorkspace() {
   )
   const exportPlan = exportMode === 'complete-build' ? electricalPlan : visibleElectricalPlan
   const exportDiagramConnections = useMemo(() => exportItems.flatMap((item) => item.pins.map((pin) => {
-    const boardPin = boardPinForGpio(exactBoard, pin.pin)
+    const boardPin = boardPinForUse(exactBoard, pin)
     return {
       id: `${item.id}:${pin.propertyKey}`,
       itemId: item.id,
-      pinLabel: boardPin?.label ?? `GPIO ${pin.pin}`,
+      pinLabel: boardPinLabelForUse(exactBoard, pin),
       useLabel: pin.label,
       boardAnchorId: boardPin?.anchorId,
     }
@@ -634,10 +633,11 @@ export default function BuildDiagramWorkspace() {
       const layout = byItemId.get(item.id)
       if (!layout) return []
       return item.pins.map((pinUse, pinIndex) => {
-        const boardPin = canRenderControllerPins ? boardPinForGpio(exactBoard, pinUse.pin) : undefined
+        const boardPin = canRenderControllerPins ? boardPinForUse(exactBoard, pinUse) : undefined
         const boardAnchor = boardPin ? boardAnchorsById.get(boardPin.anchorId) : undefined
+        const pinLabel = boardPinLabelForUse(exactBoard, pinUse)
         const unavailableReason = boardPin?.availability === 'unavailable'
-          ? `GPIO ${pinUse.pin} is exposed on the selected board header but unavailable on this module because octal PSRAM uses it.`
+          ? `${pinLabel} is exposed on the selected board header but unavailable on this module because octal PSRAM uses it.`
           : undefined
         const deviceY = layout.y + 52 + (pinIndex * 24)
         const controllerX = boardAnchor && !unavailableReason ? controllerBox.x + boardAnchor.x : undefined
@@ -660,7 +660,7 @@ export default function BuildDiagramWorkspace() {
               ? unavailableReason
             : boardPin
               ? undefined
-              : `GPIO ${pinUse.pin} is not mapped on the selected physical board profile.`,
+              : `${pinLabel} is not mapped on the selected physical board profile.`,
         }
       })
     })
@@ -686,7 +686,7 @@ export default function BuildDiagramWorkspace() {
 
   const unresolvedSignalMappingCount = primaryItems.reduce((count, item) => count + item.pins.reduce((pinCount, pinUse) => {
     if (!canRenderControllerPins) return pinCount + 1
-    const boardPin = boardPinForGpio(exactBoard, pinUse.pin)
+    const boardPin = boardPinForUse(exactBoard, pinUse)
     return pinCount + (!boardPin || boardPin.availability === 'unavailable' ? 1 : 0)
   }, 0), 0)
   const signalReady = !!exactBoard
@@ -1085,7 +1085,7 @@ export default function BuildDiagramWorkspace() {
                   connections={allConnections.map((connection) => ({
                     id: connection.id,
                     itemId: connection.itemId,
-                    pinLabel: connection.boardPin?.label ?? `GPIO ${connection.pinUse.pin}`,
+                    pinLabel: boardPinLabelForUse(exactBoard, connection.pinUse),
                     useLabel: connection.pinUse.label,
                     boardAnchorId: connection.boardPin?.anchorId,
                   }))}
@@ -1104,11 +1104,11 @@ export default function BuildDiagramWorkspace() {
               selectedItemId="controller"
               onSelectItem={() => undefined}
               connections={primaryItems.flatMap((item) => item.pins.map((pin) => {
-                const boardPin = boardPinForGpio(exactBoard, pin.pin)
+                const boardPin = boardPinForUse(exactBoard, pin)
                 return {
                   id: `${item.id}:${pin.propertyKey}`,
                   itemId: item.id,
-                  pinLabel: boardPin?.label ?? `GPIO ${pin.pin}`,
+                  pinLabel: boardPinLabelForUse(exactBoard, pin),
                   useLabel: pin.label,
                   boardAnchorId: boardPin?.anchorId,
                 }
@@ -1194,7 +1194,7 @@ export default function BuildDiagramWorkspace() {
                   <ul className={styles.flatList}>
                     {selectedConnections.map((connection) => (
                       <li key={connection.id} className={styles.pinRow}>
-                        <strong>{connection.boardPin?.label ?? `GPIO ${connection.pinUse.pin}`}</strong> · {connection.pinUse.label}
+                        <strong>{boardPinLabelForUse(exactBoard, connection.pinUse)}</strong> · {connection.pinUse.label}
                       </li>
                     ))}
                   </ul>
@@ -1250,7 +1250,7 @@ export default function BuildDiagramWorkspace() {
                       onClick={() => setSelectedItemId(row.itemId)}
                     >
                       <strong>{row.itemTitle}</strong>
-                      <span>{row.boardPin?.label ?? `GPIO ${row.pinUse.pin}`} → {row.pinUse.label}</span>
+                      <span>{boardPinLabelForUse(exactBoard, row.pinUse)} → {row.pinUse.label}</span>
                     </button>
                   ))}
                 </div>

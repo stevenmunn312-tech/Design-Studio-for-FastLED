@@ -1,30 +1,68 @@
+import { boardI2cDefault, type BoardI2cPinDefault } from '../build/boardI2cDefaults'
 import type { PhysicalBoardPinProfile, PhysicalBoardProfile } from '../build/boardProfiles'
 
+export interface RtcI2cPin {
+  /** Arduino pin number used by generated code and conflict checks. */
+  arduinoPin: number
+  /** Exact reviewed header pad when the physical board map contains it. */
+  boardPin?: PhysicalBoardPinProfile
+  /** Compact label for node and export copy. */
+  displayLabel: string
+}
+
 export interface RtcI2cPins {
-  sda: PhysicalBoardPinProfile
-  scl: PhysicalBoardPinProfile
+  sda: RtcI2cPin
+  scl: RtcI2cPin
 }
 
-function i2cRole(pin: PhysicalBoardPinProfile, role: 'SDA' | 'SCL'): boolean {
-  const text = `${pin.label} ${pin.note ?? ''}`.toUpperCase()
-  return new RegExp(`(^|[^A-Z0-9])${role}([^A-Z0-9]|$)`).test(text)
-    && !new RegExp(`(^|[^A-Z0-9])${role}1([^A-Z0-9]|$)`).test(text)
+function normalized(value: string): string {
+  return value.trim().toUpperCase().replaceAll(' ', '')
 }
 
-/** Resolve the reviewed board header pads behind Arduino's default SDA/SCL
- * aliases. The DS3231 firmware intentionally calls Wire.begin() without free
- * pin properties, so Build Diagram and the RTC node must report those same
- * fixed board defaults rather than inventing another assignment. */
+function physicalPin(
+  profile: PhysicalBoardProfile,
+  definition: BoardI2cPinDefault,
+): PhysicalBoardPinProfile | undefined {
+  const available = (profile.pins ?? []).filter((pin) => pin.availability !== 'unavailable')
+  for (const label of definition.physicalLabels ?? []) {
+    const match = available.find((pin) => normalized(pin.label) === normalized(label))
+    if (match) return match
+  }
+  return available.find((pin) => pin.gpio === definition.arduinoPin)
+}
+
+function resolvePin(profile: PhysicalBoardProfile, definition: BoardI2cPinDefault): RtcI2cPin {
+  const boardPin = physicalPin(profile, definition)
+  return {
+    arduinoPin: definition.arduinoPin,
+    boardPin,
+    displayLabel: definition.displayLabel ?? boardPin?.label ?? `pin ${definition.arduinoPin}`,
+  }
+}
+
+/** Resolve Arduino Wire's reviewed default bus and, where available, the exact
+ * physical pads behind it. This is deliberately profile metadata rather than a
+ * label heuristic: every supported board must have an audited entry. */
 export function rtcI2cPinsForProfile(profile: PhysicalBoardProfile | undefined): RtcI2cPins | null {
-  const pins = profile?.pins ?? []
-  const sda = pins.find((pin) => typeof pin.gpio === 'number' && pin.availability !== 'unavailable' && i2cRole(pin, 'SDA'))
-  const scl = pins.find((pin) => typeof pin.gpio === 'number' && pin.availability !== 'unavailable' && i2cRole(pin, 'SCL'))
-  return sda && scl ? { sda, scl } : null
+  if (!profile) return null
+  const definition = boardI2cDefault(profile.id)
+  if (!definition) return null
+  return {
+    sda: resolvePin(profile, definition.sda),
+    scl: resolvePin(profile, definition.scl),
+  }
+}
+
+function summaryPart(role: 'SDA' | 'SCL', pin: RtcI2cPin): string {
+  const label = pin.displayLabel
+  if (normalized(label) === role) return `${role} pin ${pin.arduinoPin}`
+  if (new RegExp(`(^|[^A-Z0-9])${role}([^A-Z0-9]|$)`, 'i').test(label)) return label
+  return `${role} ${label}`
 }
 
 export function rtcI2cPinSummary(profile: PhysicalBoardProfile | undefined): string {
   const pins = rtcI2cPinsForProfile(profile)
   return pins
-    ? `SDA ${pins.sda.label} · SCL ${pins.scl.label}`
-    : 'Default SDA/SCL pins are not mapped for this board'
+    ? `${summaryPart('SDA', pins.sda)} · ${summaryPart('SCL', pins.scl)}`
+    : 'Select an exact board to show its default SDA/SCL pins'
 }

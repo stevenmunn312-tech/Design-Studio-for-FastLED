@@ -1,7 +1,7 @@
-import { boardPinForGpio, type PhysicalBoardProfile } from './boardProfiles'
+import type { PhysicalBoardProfile } from './boardProfiles'
 import type { BuildProfile } from './buildProfile'
 import type { ElectricalPlanSummary } from './electricalPlan'
-import type { HardwareManifest, HardwareManifestItem } from './hardwareManifest'
+import { boardPinLabelForUse, type HardwareManifest, type HardwareManifestItem, type HardwarePinUse } from './hardwareManifest'
 import { fuseBlockAllocations } from './powerDistribution'
 
 export interface BuildConnectionRow {
@@ -45,7 +45,7 @@ export function buildConnectionRows(
   const controller = exactBoard?.label ?? 'Controller'
   const outputs = items.filter((item) => item.kind === 'matrix-output')
   const nonOutputs = items.filter((item) => item.kind !== 'matrix-output')
-  const boardTerminal = (pin: number) => boardPinForGpio(exactBoard, pin)?.label ?? `GPIO ${pin}`
+  const boardTerminal = (pin: HardwarePinUse) => boardPinLabelForUse(exactBoard, pin)
   const includedOutputIds = new Set(outputs.map((output) => output.id))
   const includedPlanOutputs = plan.outputs.filter((output) => includedOutputIds.has(output.itemId))
   const logicSupplyId = includedPlanOutputs.flatMap((output) => output.injections)
@@ -58,7 +58,7 @@ export function buildConnectionRows(
     for (const pin of item.pins) {
       rows.push({
         from: controller,
-        fromTerminal: boardTerminal(pin.pin),
+        fromTerminal: boardTerminal(pin),
         to: item.title,
         toTerminal: pin.label,
         purpose: 'Signal',
@@ -78,7 +78,7 @@ export function buildConnectionRows(
     const channel = (outputIndex % 4) + 1
     const shifter = `74AHCT125 level shifter ${chip}`
     const resistor = `${item.title} 330 ohm data resistor`
-    rows.push({ from: controller, fromTerminal: boardTerminal(pin.pin), to: shifter, toTerminal: `A${channel}`, purpose: '3.3 V LED data' })
+    rows.push({ from: controller, fromTerminal: boardTerminal(pin), to: shifter, toTerminal: `A${channel}`, purpose: '3.3 V LED data' })
     rows.push({ from: shifter, fromTerminal: `Y${channel}`, to: resistor, toTerminal: 'Input', purpose: '5 V conditioned LED data' })
     rows.push({
       from: resistor,

@@ -9,7 +9,12 @@ import {
 import { boardByFqbn } from '../state/uploadStore'
 import { controllerSettings } from '../state/controllerSettings'
 import { targetFamilyFromFqbn, type BuildTargetFamily } from './buildProfile'
-import { selectedPhysicalBoardProfile } from './boardProfiles'
+import {
+  boardPinForGpio,
+  selectedPhysicalBoardProfile,
+  type PhysicalBoardPinProfile,
+  type PhysicalBoardProfile,
+} from './boardProfiles'
 import { rtcI2cPinsForProfile } from '../state/rtcPins'
 
 export interface HardwarePinUse {
@@ -19,6 +24,32 @@ export interface HardwarePinUse {
   propertyKey: string
   pin: number
   requirement: GpioPropertyRequirement | null
+  /** Exact physical pad for a board-owned fixed peripheral alias. */
+  boardPinId?: string
+  /** True when the board/core owns this assignment rather than a node field. */
+  boardDefault?: boolean
+  /** Reviewed physical alias when a rendered pad is not present in the map. */
+  boardPinLabel?: string
+}
+
+export function boardPinForUse(
+  profile: PhysicalBoardProfile | undefined,
+  use: HardwarePinUse,
+): PhysicalBoardPinProfile | undefined {
+  if (use.boardPinId) {
+    const exact = profile?.pins?.find((pin) => pin.id === use.boardPinId)
+    if (exact) return exact
+  }
+  return boardPinForGpio(profile, use.pin)
+}
+
+export function boardPinLabelForUse(
+  profile: PhysicalBoardProfile | undefined,
+  use: HardwarePinUse,
+): string {
+  return boardPinForUse(profile, use)?.label
+    ?? use.boardPinLabel
+    ?? `${use.boardDefault ? 'Arduino pin' : 'GPIO'} ${use.pin}`
 }
 
 export interface HardwareManifestItem {
@@ -141,8 +172,28 @@ export function collectPinUses(nodes: StudioNode[]): HardwarePinUse[] {
         break
       case 'RTCInput':
         if (String(props.timeSource ?? 'Compile Time') !== 'DS3231' || !rtcPins) break
-        push(node, `${baseLabel} SDA`, 'sdaPin', rtcPins.sda.gpio)
-        push(node, `${baseLabel} SCL`, 'sclPin', rtcPins.scl.gpio)
+        uses.push({
+          label: `${baseLabel} SDA`,
+          nodeId: node.id,
+          nodeType: node.data.nodeType,
+          propertyKey: 'sdaPin',
+          pin: rtcPins.sda.arduinoPin,
+          requirement: null,
+          boardPinId: rtcPins.sda.boardPin?.id,
+          boardDefault: true,
+          boardPinLabel: rtcPins.sda.displayLabel,
+        })
+        uses.push({
+          label: `${baseLabel} SCL`,
+          nodeId: node.id,
+          nodeType: node.data.nodeType,
+          propertyKey: 'sclPin',
+          pin: rtcPins.scl.arduinoPin,
+          requirement: null,
+          boardPinId: rtcPins.scl.boardPin?.id,
+          boardDefault: true,
+          boardPinLabel: rtcPins.scl.displayLabel,
+        })
         break
       case 'SDCard':
         push(node, `${baseLabel} CS pin`, 'sdCsPin', props.sdCsPin)

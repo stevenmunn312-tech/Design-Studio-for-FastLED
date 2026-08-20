@@ -34,6 +34,7 @@ import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes
 import { isLinearForm, outputCanvasDims, outputForm, outputLedTotal } from '../state/ledOutputForm'
 import { getNetworkCredentials } from '../state/networkCredentials'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
+import { rtcI2cPinsForProfile } from '../state/rtcPins'
 import { controllerSettings, ledPropsWithController } from '../state/controllerSettings'
 import {
   inmp441FirmwareBackendForBoard,
@@ -1446,7 +1447,13 @@ export function generateCpp(
   const pinSetupLines = new Set<string>()
   const setupLines: string[] = []
   if (needsDs3231) {
-    setupLines.push(`  Wire.begin();  // DS3231 on the board's default SDA/SCL pins`)
+    const rtcBoard = selectedPhysicalBoardProfile(nodes)
+    const rtcPins = rtcI2cPinsForProfile(rtcBoard)
+    const supportsExplicitWirePins = rtcBoard?.targetFamilies.some((family) =>
+      family === 'esp8266' || family.startsWith('esp32'))
+    setupLines.push(rtcPins && supportsExplicitWirePins
+      ? `  Wire.begin(${rtcPins.sda.arduinoPin}, ${rtcPins.scl.arduinoPin});  // DS3231 on ${rtcBoard.label}'s default SDA/SCL pins`
+      : `  Wire.begin();  // DS3231 on the board's default SDA/SCL pins`)
     setupLines.push(`  Serial.begin(115200);  // accepts deliberate FLS_RTC_SET commands from Studio`)
   }
   // File-scope lines contributed by Code nodes (helpers, persistent vars, etc.),
