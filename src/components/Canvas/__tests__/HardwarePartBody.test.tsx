@@ -47,19 +47,24 @@ describe('HardwarePartBody', () => {
     }
   })
 
-  it('renders the SD card settings, including the ones that are not pins', () => {
+  it('renders the SD card as storage and nothing else', () => {
+    // Audio output is derived from the parts present, and volume belongs with
+    // the output — so the card is left with the one thing it owns.
     setPart('SDCard')
-    const { getByLabelText } = render(<HardwarePartBody nodeId="part" nodeType="SDCard" />)
+    const { getByLabelText, queryByLabelText } = render(
+      <HardwarePartBody nodeId="part" nodeType="SDCard" />,
+    )
     expect(getByLabelText('CS')).toBeTruthy()
-    expect(getByLabelText('Audio out')).toBeTruthy()
-    expect(getByLabelText('Volume')).toBeTruthy()
+    expect(queryByLabelText('Audio out')).toBeNull()
+    expect(queryByLabelText('Volume')).toBeNull()
   })
 
-  it('renders the amplifier I2S pins', () => {
+  it('renders the amplifier I2S pins and its volume', () => {
     setPart('Amplifier')
     const { getByLabelText } = render(<HardwarePartBody nodeId="part" nodeType="Amplifier" />)
     expect(getByLabelText('BCLK')).toBeTruthy()
     expect(getByLabelText('LRC / WS')).toBeTruthy()
     expect(getByLabelText('DIN')).toBeTruthy()
+    expect(getByLabelText('Volume')).toBeTruthy()
   })
 })

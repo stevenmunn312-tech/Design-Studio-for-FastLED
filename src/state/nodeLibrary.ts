@@ -2665,15 +2665,11 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // GPIO10 avoids colliding with MatrixOutput's default LED data pin
       // (GPIO5) on the primary supported ESP32-S3 target.
       sdCsPin:     10,
-      // 'i2s' sends audio to an external DAC/amp — wire an Amplifier node,
-      // which owns those pins. 'internalDac' instead uses the classic ESP32's
-      // built-in 8-bit DAC, fixed to GPIO25/26 by the ESP32-audioI2S library —
-      // not available on ESP32-S3/S2/C3, which have no DAC peripheral (see
-      // findBoardCompatibilityErrors).
-      audioOutput: 'i2s',
-      // Software volume in the decoder, so it stays with the player rather
-      // than the amplifier — the MAX98357A's own gain is set by a resistor.
-      maxVolume:   18,
+      // Audio output is no longer asked here. Adding an Amplifier part *is* the
+      // statement that this build uses I2S, and a classic ESP32 with no amp
+      // falls back to its built-in DAC — see state/audioOutput.ts. Volume moved
+      // to the amplifier with it: where the music is stored and how loudly it
+      // comes out are different questions about different parts.
     },
   },
   {
@@ -2700,6 +2696,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       i2sBclk: 26,
       i2sLrc:  25,
       i2sDout: 22,
+      // Software volume in the decoder. It sits with the output rather than
+      // with the SD card, because it describes how loud the sound is, not
+      // where the song came from. (The MAX98357A's own gain is a resistor.)
+      maxVolume: 18,
     },
   },
 
@@ -4373,13 +4373,6 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     if (key === 'tilesX' || key === 'tilesY' || key === 'tileSerpentine' || key === 'tileRotations')
       return !linear && properties.layout === 'panels'
     if (key === 'customXYMap') return !linear && properties.layout === 'custom'
-  }
-  if (nodeType === 'SDCard') {
-    // The I2S pins only apply when driving an external DAC; the internal-DAC
-    // mode is fixed to GPIO25/26 by the ESP32-audioI2S library.
-    if (key === 'i2sBclk' || key === 'i2sLrc' || key === 'i2sDout') {
-      return String(properties.audioOutput ?? 'i2s') !== 'internalDac'
-    }
   }
   if (nodeType === 'Mirror' && key === 'glowAmount') {
     return properties.glow === true

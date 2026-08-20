@@ -17,10 +17,11 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
     { key: 'i2sBclk', label: 'BCLK', kind: 'pin' },
     { key: 'i2sLrc', label: 'LRC / WS', kind: 'pin' },
     { key: 'i2sDout', label: 'DIN', kind: 'pin' },
+    { key: 'maxVolume', label: 'Volume', kind: 'number', min: 0, max: 21 },
   ],
+  // Storage, and only storage. Audio output is derived from the parts present
+  // (state/audioOutput.ts) rather than set here.
   SDCard: [
     { key: 'sdCsPin', label: 'CS', kind: 'pin' },
-    { key: 'audioOutput', label: 'Audio out', kind: 'select', options: ['i2s', 'internalDac'] },
-    { key: 'maxVolume', label: 'Volume', kind: 'number', min: 0, max: 21 },
   ],
 }

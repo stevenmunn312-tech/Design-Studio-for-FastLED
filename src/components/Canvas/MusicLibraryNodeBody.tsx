@@ -21,7 +21,7 @@ const STATUS_LABEL: Record<string, string> = {
 const SECTIONS = ['intro', 'verse', 'buildup', 'drop', 'chorus', 'bridge', 'outro'] as const
 
 export default function MusicLibraryNodeBody({ nodeId }: { nodeId: string }) {
-  const { entries, addFiles, analyzeAll, removeEntry, clearAll } = useMusicStore()
+  const { entries, addFiles, retryFailed, removeEntry, clearAll } = useMusicStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const performanceProperties = useGraphStore((s) => {
     const perfId = s.edges.find((edge) =>
@@ -35,10 +35,11 @@ export default function MusicLibraryNodeBody({ nodeId }: { nodeId: string }) {
 
   const doneCount    = entries.filter(e => e.status === 'done').length
   const analyzingAny = entries.some(e => e.status === 'analyzing')
+  const failedCount  = entries.filter(e => e.status === 'error').length
 
   function handleFiles(files: FileList | null) {
     if (!files) return
-    addFiles(Array.from(files))
+    addFiles(Array.from(files), performanceOptionsFromProperties(performanceProperties ?? {}))
   }
 
   function handleDrop(e: React.DragEvent) {
@@ -115,13 +116,18 @@ export default function MusicLibraryNodeBody({ nodeId }: { nodeId: string }) {
           Clear
         </button>
         <div className={styles.footerRight}>
-          <button
-            className={`nodrag ${styles.primaryBtn}`}
-            onClick={() => analyzeAll(performanceOptionsFromProperties(performanceProperties ?? {}))}
-            disabled={analyzingAny || entries.length === 0 || entries.every(e => e.status === 'done')}
-          >
-            {analyzingAny ? 'Analyzing…' : 'Analyze All'}
-          </button>
+          {/* Analysis starts on its own when songs are added, so there is no
+              button for the normal path. This appears only when a song failed
+              — the one case the user has to decide about. */}
+          {failedCount > 0 && (
+            <button
+              className={`nodrag ${styles.primaryBtn}`}
+              onClick={() => retryFailed(performanceOptionsFromProperties(performanceProperties ?? {}))}
+              disabled={analyzingAny}
+            >
+              {analyzingAny ? 'Analyzing…' : `Retry ${failedCount}`}
+            </button>
+          )}
         </div>
       </div>
 

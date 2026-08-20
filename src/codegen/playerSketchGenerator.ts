@@ -14,6 +14,8 @@ import { STUDIO_PALETTES, customPaletteDeclarationsCpp, paletteCppRef } from '..
 import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
+import { audioOutputMode } from '../state/audioOutput'
+import type { StudioNode } from '../state/graphStore'
 
 export interface PlayerConfig {
   ledWidth:    number
@@ -73,7 +75,7 @@ interface ConfigNode { data: { nodeType: string; properties: Record<string, unkn
  * node like Board. With no Amplifier on the canvas the built-in defaults still
  * apply, so a graph that never had one keeps generating a working sketch.
  */
-export function playerConfigFromGraph(nodes: ConfigNode[]): Partial<PlayerConfig> {
+export function playerConfigFromGraph(nodes: ConfigNode[], fqbn = ''): Partial<PlayerConfig> {
   const mo = nodes.find((n) => n.data.nodeType === 'MatrixOutput')?.data.properties ?? {}
   const sd = nodes.find((n) => n.data.nodeType === 'SDCard')?.data.properties ?? {}
   const amp = nodes.find((n) => n.data.nodeType === 'Amplifier')?.data.properties ?? {}
@@ -90,11 +92,13 @@ export function playerConfigFromGraph(nodes: ConfigNode[]): Partial<PlayerConfig
     dither:      mo.dither !== false,
     overclock:   num(mo.overclock, DEFAULTS.overclock),
     sdCsPin:    sanitizePin(sd.sdCsPin, DEFAULTS.sdCsPin),
-    audioOutput: str(sd.audioOutput, DEFAULTS.audioOutput),
+    // Derived from the parts present rather than read from a property — see
+    // state/audioOutput.ts for why asking twice invites two answers.
+    audioOutput: audioOutputMode(nodes as StudioNode[], fqbn),
     i2sBclk:    sanitizePin(amp.i2sBclk, DEFAULTS.i2sBclk),
     i2sLrc:     sanitizePin(amp.i2sLrc, DEFAULTS.i2sLrc),
     i2sDout:    sanitizePin(amp.i2sDout, DEFAULTS.i2sDout),
-    maxVolume:  sanitizeVolume(sd.maxVolume),
+    maxVolume:  sanitizeVolume(amp.maxVolume),
     hub75Props: mo,
   }
 }

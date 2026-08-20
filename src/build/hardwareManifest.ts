@@ -136,9 +136,17 @@ export function collectPinUses(nodes: StudioNode[]): HardwarePinUse[] {
         break
       case 'SDCard':
         push(node, `${baseLabel} CS pin`, 'sdCsPin', props.sdCsPin)
-        // The internal DAC has no Amplifier node — it *is* the output stage,
-        // on two pins the library fixes for us, so they are claimed here.
-        if (props.audioOutput === 'internalDac') {
+        /*
+         * The internal DAC has no Amplifier part — it *is* the output stage,
+         * on two pins the library fixes for us, so they are claimed here.
+         *
+         * A card with no amplifier means either the internal DAC or no output
+         * at all, and this walk has no board to tell them apart. Claiming the
+         * pins in both cases is the safe way to be wrong: the no-output case
+         * is already an error, and holding 25/26 stops something else taking
+         * pins the DAC would need on the board where it does work.
+         */
+        if (!nodes.some((entry) => entry.data.nodeType === 'Amplifier')) {
           push(node, `${baseLabel} internal DAC (GPIO25)`, 'internalDac', 25)
           push(node, `${baseLabel} internal DAC (GPIO26)`, 'internalDac', 26)
         }

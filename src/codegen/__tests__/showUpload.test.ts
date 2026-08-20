@@ -78,13 +78,13 @@ describe('playerConfigFromGraph', () => {
     ({ data: { nodeType, properties } })
 
   it('takes LED config from MatrixOutput, card pins from SDCard, I2S from Amplifier', () => {
-    // The I2S pins moved off SDCard: where the music is stored and what turns
-    // it into sound are two separate parts you buy, wire, and can get wrong
-    // independently.
+    // The I2S pins and the volume moved off SDCard: where the music is stored
+    // and what turns it into sound are two separate parts you buy, wire, and
+    // can get wrong independently.
     const cfg = playerConfigFromGraph([
       node('MatrixOutput', { width: 32, height: 8, chipset: 'SK6812', colorOrder: 'RGB', dataPin: 12 }),
-      node('SDCard', { sdCsPin: 21, maxVolume: 12 }),
-      node('Amplifier', { i2sBclk: 5, i2sLrc: 6, i2sDout: 7 }),
+      node('SDCard', { sdCsPin: 21 }),
+      node('Amplifier', { i2sBclk: 5, i2sLrc: 6, i2sDout: 7, maxVolume: 12 }),
     ])
     expect(cfg).toMatchObject({
       ledWidth: 32, ledHeight: 8, chipset: 'SK6812', colorOrder: 'RGB', ledDataPin: 12,
@@ -117,15 +117,29 @@ describe('playerConfigFromGraph', () => {
     expect(cfg.audioOutput).toBe('i2s')
   })
 
-  it('pulls audioOutput from SDCard', () => {
-    const cfg = playerConfigFromGraph([node('SDCard', { audioOutput: 'internalDac' })])
-    expect(cfg.audioOutput).toBe('internalDac')
+  it('derives the audio output from the parts, not from a property', () => {
+    // Adding an amplifier *is* the statement that this build uses I2S; asking
+    // again invites the two answers to disagree about the same bench.
+    expect(playerConfigFromGraph([
+      node('SDCard', {}), node('Amplifier', {}),
+    ], 'esp32:esp32:esp32').audioOutput).toBe('i2s')
+
+    // No amplifier on a classic ESP32: the built-in DAC is the only way that
+    // board makes a sound unaided.
+    expect(playerConfigFromGraph([node('SDCard', {})], 'esp32:esp32:esp32').audioOutput)
+      .toBe('internalDac')
+
+    // An S3 has no DAC to fall back on, so it stays I2S and validation says an
+    // amplifier is missing rather than the player pretending it has one.
+    expect(playerConfigFromGraph([node('SDCard', {})], 'esp32:esp32:esp32s3').audioOutput)
+      .toBe('i2s')
   })
 
   it('sanitizes SD/I2S pins and max volume read from saved graph properties', () => {
     const cfg = playerConfigFromGraph([
-      node('SDCard', { sdCsPin: -4.7, maxVolume: 99 }),
-      node('Amplifier', { i2sBclk: 19.6, i2sLrc: 280, i2sDout: 'invalid' }),
+      node('SDCard', { sdCsPin: -4.7 }),
+      // Volume lives with the output now, not with the storage.
+      node('Amplifier', { i2sBclk: 19.6, i2sLrc: 280, i2sDout: 'invalid', maxVolume: 99 }),
     ])
     expect(cfg).toMatchObject({
       sdCsPin: 0,

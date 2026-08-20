@@ -71,8 +71,11 @@ export interface MusicEntry {
 interface MusicState {
   entries:   MusicEntry[]
 
-  addFiles:       (files: File[]) => void
+  /** Adds songs and starts analysing them — there is no second step. */
+  addFiles:       (files: File[], options?: Partial<PerformanceOptions>) => void
   analyzeAll:     (options?: Partial<PerformanceOptions>) => Promise<void>
+  /** Re-queue every song whose analysis failed. */
+  retryFailed:    (options?: Partial<PerformanceOptions>) => Promise<void>
   removeEntry:    (id: string) => void
   clearAll:       () => void
   regenerateShow: (id: string, options?: Partial<PerformanceOptions>) => void
@@ -82,10 +85,13 @@ interface MusicState {
   revertShow:     (id: string, options?: Partial<PerformanceOptions>) => void
 }
 
+/** Guards the analysis queue: one runner, however many drops. */
+let analyzing = false
+
 export const useMusicStore = create<MusicState>((set, get) => ({
   entries: [],
 
-  addFiles: (files) => {
+  addFiles: (files, options = {}) => {
     const newEntries: MusicEntry[] = files
       .filter(f => f.type.startsWith('audio/') || f.name.match(/\.(mp3|wav|ogg|flac|m4a)$/i))
       .map(f => ({
@@ -96,41 +102,74 @@ export const useMusicStore = create<MusicState>((set, get) => ({
         status:   'pending' as const,
       }))
     set(s => ({ entries: [...s.entries, ...newEntries] }))
+    // Dropping a song *is* the request to analyse it, so there is no second
+    // step to remember. A run already in flight picks these up next pass.
+    void get().analyzeAll(options)
   },
 
   analyzeAll: async (options = {}) => {
-    const { entries } = get()
-    for (const entry of entries) {
-      if (entry.status === 'done') continue
-      set(s => ({
-        entries: s.entries.map(e =>
-          e.id === entry.id ? { ...e, status: 'analyzing', progress: 0 } : e
-        ),
-      }))
-      try {
-        const onProgress = (p: number) => set(s => ({
-          entries: s.entries.map(e =>
-            e.id === entry.id ? { ...e, progress: p } : e
-          ),
-        }))
-        const analysis = await analyzeWithEssentia(entry.file, onProgress)
-        const { ids, sectionTags } = wiredCollection()
-        const showStart = performance.now()
-        const show = generateShow(analysis, options, ids, sectionTags, wiredTransitions())
-        recordPerfTask('musicShow', performance.now() - showStart)
+    /*
+     * One runner at a time, re-reading state each pass rather than iterating a
+     * snapshot.
+     *
+     * Analysis starts by itself when songs are added now, so a second drop can
+     * land while the first batch is still going. The old shape captured
+     * `entries` once and was safe only because a disabled button stopped it
+     * being called twice — songs added mid-run would have been skipped by the
+     * loop already running and picked up by nothing.
+     */
+    if (analyzing) return
+    analyzing = true
+    try {
+      for (;;) {
+        const entry = get().entries.find(e => e.status === 'pending')
+        if (!entry) break
+
         set(s => ({
           entries: s.entries.map(e =>
-            e.id === entry.id ? { ...e, analysis, show, status: 'done', progress: 1 } : e
+            e.id === entry.id ? { ...e, status: 'analyzing', progress: 0 } : e
           ),
         }))
-      } catch (err) {
-        set(s => ({
-          entries: s.entries.map(e =>
-            e.id === entry.id ? { ...e, status: 'error', error: String(err) } : e
-          ),
-        }))
+        try {
+          const onProgress = (p: number) => set(s => ({
+            entries: s.entries.map(e =>
+              e.id === entry.id ? { ...e, progress: p } : e
+            ),
+          }))
+          const analysis = await analyzeWithEssentia(entry.file, onProgress)
+          const { ids, sectionTags } = wiredCollection()
+          const showStart = performance.now()
+          const show = generateShow(analysis, options, ids, sectionTags, wiredTransitions())
+          recordPerfTask('musicShow', performance.now() - showStart)
+          set(s => ({
+            entries: s.entries.map(e =>
+              e.id === entry.id ? { ...e, analysis, show, status: 'done', progress: 1 } : e
+            ),
+          }))
+        } catch (err) {
+          // Left as 'error' rather than 'pending', so the loop moves on instead
+          // of retrying the same unreadable file forever. Retrying is the
+          // user's call.
+          set(s => ({
+            entries: s.entries.map(e =>
+              e.id === entry.id ? { ...e, status: 'error', error: String(err) } : e
+            ),
+          }))
+        }
       }
+    } finally {
+      analyzing = false
     }
+  },
+
+  retryFailed: async (options = {}) => {
+    // Put the failures back in the queue and let the one runner take them.
+    set(s => ({
+      entries: s.entries.map(e =>
+        e.status === 'error' ? { ...e, status: 'pending', error: undefined } : e
+      ),
+    }))
+    await get().analyzeAll(options)
   },
 
   removeEntry: (id) =>

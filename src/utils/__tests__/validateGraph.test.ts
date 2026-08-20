@@ -83,16 +83,31 @@ describe('validateGraph', () => {
     expect(findBoardCompatibilityErrors([], 'arduino:avr:uno')).toEqual([])
   })
 
-  it('blocks SD Card internal-DAC audio on anything but the classic ESP32', () => {
-    const nodes = [node('sd', 'SDCard', { audioOutput: 'internalDac' })]
-    expect(findBoardCompatibilityErrors(nodes, 'esp32:esp32:esp32s3')).toEqual([
-      expect.stringMatching(/internal-DAC audio output requires the classic ESP32/),
+  it('reports an SD show with nothing to make a sound through', () => {
+    /*
+     * "Internal DAC on a board without one" is no longer checked, because it
+     * can no longer be expressed: the output mode is derived from the parts,
+     * and `internalDac` is only ever chosen on a board that has one.
+     *
+     * The reachable failure is the opposite — a card full of music and no
+     * output stage. An S3 has no DAC to fall back on, so the show uploads,
+     * runs, and is silent.
+     */
+    const cardOnly = [node('sd', 'SDCard')]
+    expect(findBoardCompatibilityErrors(cardOnly, 'esp32:esp32:esp32s3')).toEqual([
+      expect.stringMatching(/no audio output/),
     ])
-    expect(findBoardCompatibilityErrors(nodes, 'esp32:esp32:esp32')).toEqual([])
-    // The 30-pin DevKit v1 is the same classic ESP32 silicon, so it keeps the DAC.
-    expect(findBoardCompatibilityErrors(nodes, 'esp32:esp32:esp32doit-devkit-v1')).toEqual([])
-    // Default (I2S) output is unaffected by board choice.
-    expect(findBoardCompatibilityErrors([node('sd', 'SDCard')], 'esp32:esp32:esp32s3')).toEqual([])
+
+    // A classic ESP32 falls back to its built-in DAC, so a card alone is fine.
+    expect(findBoardCompatibilityErrors(cardOnly, 'esp32:esp32:esp32')).toEqual([])
+    // The 30-pin DevKit v1 is the same classic silicon, so it keeps the DAC.
+    expect(findBoardCompatibilityErrors(cardOnly, 'esp32:esp32:esp32doit-devkit-v1')).toEqual([])
+    // An amplifier answers it on any board.
+    expect(findBoardCompatibilityErrors(
+      [...cardOnly, node('amp', 'Amplifier')], 'esp32:esp32:esp32s3',
+    )).toEqual([])
+    // And a graph with no card has no audio to worry about.
+    expect(findBoardCompatibilityErrors([], 'esp32:esp32:esp32s3')).toEqual([])
   })
 
   it('blocks HUB75 on boards without the LCD-mode DMA peripheral', () => {

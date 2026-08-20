@@ -1,6 +1,7 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { isPortlessNodeType, NODE_LIBRARY, supportsScalarExpression } from '../state/nodeLibrary'
 import { outputForm, outputLedTotal } from '../state/ledOutputForm'
+import { audioOutputMissing } from '../state/audioOutput'
 import { sdCardConnected } from './showUpload'
 import { evaluateScalarExpression } from '../state/scalarExpression'
 import { isNodeFormulaValid } from '../state/formulaLang'
@@ -719,13 +720,19 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
   }) && !selectedFqbn.startsWith('esp32:') && !selectedFqbn.startsWith('esp8266:')) {
     errors.push('Art-Net and NTP time sync require a Wi-Fi-capable ESP32-family board or ESP8266')
   }
-  const internalDacSd = nodes.find((node) =>
-    node.data.nodeType === 'SDCard' && (node.data.properties as Record<string, unknown>).audioOutput === 'internalDac'
-  )
-  // Only the classic ESP32 has the DAC peripheral ESP32-audioI2S's internal-DAC
-  // mode drives; S3/S2/C3 have no DAC hardware at all.
-  if (selectedFqbn && internalDacSd && !isClassicEsp32(selectedFqbn)) {
-    errors.push('SD Card internal-DAC audio output requires the classic ESP32 board — ESP32-S3/S2/C3 have no built-in DAC')
+  /*
+   * "Internal DAC on a board with no DAC" used to be an error here. It cannot
+   * happen any more: the output mode is derived from the parts present, and
+   * `internalDac` is only ever chosen on a board that has one. The check went
+   * with the property — a rule the model cannot express needs no validation.
+   *
+   * What is still possible is the opposite: a card full of music and nothing to
+   * play it through. An S3 has no DAC to fall back on, so without an amplifier
+   * the show uploads, runs, and makes no sound — which looks like a broken
+   * build rather than a missing part.
+   */
+  if (audioOutputMissing(nodes, selectedFqbn)) {
+    errors.push('The SD show has no audio output — add an Amplifier in the hardware view, or use a classic ESP32, which can fall back to its built-in DAC')
   }
   // ESP32-HUB75-MatrixPanel-DMA needs the ESP32/S2/S3 'LCD mode' DMA
   // peripheral; RISC-V ESP32 variants (C3/C6/H2) have no such hardware, per
@@ -1192,16 +1199,17 @@ export function buildGraphDiagnostics(
     }
   }
 
-  if (options.selectedFqbn && !isClassicEsp32(options.selectedFqbn)) {
-    for (const node of nodes.filter((entry) =>
-      entry.data.nodeType === 'SDCard' && (entry.data.properties as Record<string, unknown>).audioOutput === 'internalDac'
-    )) {
+  // The old "internal DAC on a board without one" diagnostic is gone with the
+  // property that made it possible; the reachable problem is having no output
+  // stage at all. See the matching note in findBoardCompatibilityErrors.
+  if (audioOutputMissing(nodes, options.selectedFqbn ?? '')) {
+    for (const node of nodes.filter((entry) => entry.data.nodeType === 'SDCard')) {
       diagnostics.push({
-        id: `${node.id}-board`, severity: 'error', category: 'board',
-        title: 'Internal-DAC audio output is incompatible with the selected board',
-        message: 'Only the classic ESP32 has the built-in DAC peripheral; ESP32-S3/S2/C3 have none.',
-        fix: 'Choose the classic ESP32 board in Board & Port, or switch the SD Card node to I2S output.',
-        nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
+        id: `${node.id}-audio-out`, severity: 'error', category: 'board',
+        title: 'The SD show has no audio output',
+        message: 'Nothing on the bench turns the decoded song into sound, and this board has no built-in DAC to fall back on.',
+        fix: 'Add an Amplifier in the hardware view, or choose a classic ESP32, whose internal DAC can drive a small speaker directly.',
+        nodeIds: [node.id], nodeLabel: nodeLabel(node),
       })
     }
   }
