@@ -215,6 +215,47 @@ function topoSort(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
   return result
 }
 
+/**
+ * Keep only the nodes that can actually reach an LED output.
+ *
+ * `topoSort` walks the whole canvas, and `emit()` ran over every node it
+ * returned — so a parked pattern or an abandoned branch still got a
+ * `buf_`/`field_` global *and* its full render code in `loop()`, executing
+ * every frame after `FastLED.show()` on pixels nothing displays. Walking
+ * backward from the outputs first makes the sketch contain only what feeds
+ * them, which is also the assumption `estimateFirmwareRam` already documents
+ * (src/utils/validateGraph.ts).
+ *
+ * Every MatrixOutput is a root, mirrors included — an output with nothing
+ * wired into it still has to be set up. With no output at all there is nothing
+ * to walk back from, so the graph is left alone and validation reports it.
+ */
+function reachableFromOutputs(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
+  const outputs = nodes.filter((n) => n.data.nodeType === 'MatrixOutput')
+  if (outputs.length === 0) return nodes
+  // Board carries no ports — it is the target authority codegen reads as
+  // configuration (selectedPhysicalBoardProfile), so it is never "unreachable".
+  const roots = [...outputs, ...nodes.filter((n) => n.data.nodeType === 'Board')]
+
+  const sources = new Map<string, string[]>()
+  for (const e of edges) {
+    if (!e.source || !e.target) continue
+    const list = sources.get(e.target)
+    if (list) list.push(e.source)
+    else sources.set(e.target, [e.source])
+  }
+
+  const keep = new Set<string>()
+  const stack = roots.map((n) => n.id)
+  while (stack.length) {
+    const id = stack.pop()!
+    if (keep.has(id)) continue
+    keep.add(id)
+    for (const src of sources.get(id) ?? []) stack.push(src)
+  }
+  return nodes.filter((n) => keep.has(n.id))
+}
+
 // FastLED 3.10.3+ owns the live INMP441 pipeline: capture, signal
 // conditioning, shared FFT, adaptive frequency-band normalization, equalizer,
 // and beat detection. Studio keeps the small _audio* global interface used by
@@ -1084,7 +1125,13 @@ export function generateCpp(
   // `psramAllowed`: gate for the MatrixOutput `usePsram` property — the upload
   // UI passes false when the selected board has no PSRAM support, so a stale
   // toggle can't emit ESP32-only allocation calls into an AVR/RP2040 sketch.
-  opts: { externalAudio?: boolean; nativeFastLedAudio?: boolean; groupInputExprs?: Record<string, string>; psramAllowed?: boolean } = {},
+  // `aliasTerminalBuffer`: let the node feeding the single LED output render
+  // straight into `leds` instead of into its own buffer that is then copied
+  // over wholesale. Safe only when this sketch is the sole writer of `leds` —
+  // a pattern-show body is not (every pattern renders through the same `leds`,
+  // and a persistent-buffer node such as Trails would be clobbered by the
+  // other pattern mid-transition), so showGenerator passes false.
+  opts: { externalAudio?: boolean; nativeFastLedAudio?: boolean; groupInputExprs?: Record<string, string>; psramAllowed?: boolean; aliasTerminalBuffer?: boolean } = {},
 ): string {
   if (nodes.length === 0) return '// No nodes in graph\n'
 
@@ -1221,12 +1268,39 @@ export function generateCpp(
   // the processor; `useAudioGlobals` means FFTAnalyzer/BeatDetect
   // resolve to the live band levels (either because we host the engine, or a
   // controller does — `externalAudio`) instead of placeholder constants.
-  const audio = audioEngineForGraph(nodes)
+  // Everything below works from the nodes that actually feed an output — an
+  // unwired MicInput must not emit the I2S engine any more than a parked Fire
+  // node should emit a buffer and a simulation.
+  const live = reachableFromOutputs(nodes, edges)
+  const audio = audioEngineForGraph(live)
   const emitEngine = !!audio
   const useAudioGlobals = emitEngine || !!opts.externalAudio
   const nativeFastLedAudio = emitEngine || !!opts.nativeFastLedAudio
 
-  const sorted = topoSort(nodes, edges)
+  const sorted = topoSort(live, edges)
+
+  /*
+   * The node feeding the output used to fill its own `buf_` and then have the
+   * whole thing `memmove`d into `leds` — one redundant NUM_LEDS buffer plus a
+   * full-frame copy every loop. When the blit really is that plain copy, the
+   * node can just render into `leds` directly.
+   *
+   * Conditions: a single non-HUB75 route whose blit is the unmapped memmove
+   * (a ring map, supersample or XY table all rewrite pixel positions on the
+   * way out, so the buffers genuinely differ), and the source's frame output
+   * feeds nothing but this output — a second consumer would otherwise read a
+   * buffer that FastLED also owns.
+   */
+  const aliasedTerminalId: string | null = (() => {
+    if (opts.aliasTerminalBuffer === false) return null
+    if (multipleOutputs || isHub75 || ringMap || ss || xyTable) return null
+    if (!outputNode) return null
+    const up = incoming.get(`${outputNode.id}:frame`)
+    if (!up || up.srcPort !== 'frame') return null
+    const consumers = edges.filter((e) => e.source === up.srcId && e.sourceHandle === 'frame')
+    if (consumers.length !== 1) return null
+    return live.some((n) => n.id === up.srcId) ? safeId(up.srcId) : null
+  })()
   const emitRtcHelpers = sorted.some((n) => n.data.nodeType === 'RTCInput')
   const needsDs3231 = sorted.some((n) => n.data.nodeType === 'RTCInput' && String(props(n).timeSource ?? 'Compile Time') === 'DS3231')
   const dmxInputs = sorted.filter((n) => n.data.nodeType === 'DMXInput')
@@ -5661,7 +5735,7 @@ export function generateCpp(
           ln(`  }`)
         } else if (xyTable) {
           ln(`  for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) leds[XY(_x, _y)] = ${src}[_y * WIDTH + _x];`)
-        } else {
+        } else if (src !== `buf_${aliasedTerminalId}`) {
           ln(`  ::memmove(leds, ${src}, sizeof(CRGB) * NUM_LEDS);`)
         }
         ln(`  FastLED.show();`)
@@ -5755,8 +5829,17 @@ export function generateCpp(
     ...[...frameBufs].map((b) => `CRGB buf_${b}[NUM_LEDS];`),
     ...[...fieldBufs].map((b) => `float field_${b}[NUM_LEDS];`),
   ]
+  // The node feeding the output writes into `leds` itself rather than into a
+  // second full-frame buffer that is then copied over — an alias, so every
+  // reference to it in the loop is unchanged. Never a PSRAM buffer: `leds` is
+  // always internal, and this is `leds`.
+  const aliasDecl = `CRGB buf_${aliasedTerminalId}[NUM_LEDS];`
   const psramAllocs: string[] = []
   for (const d of bufferDecls) {
+    if (aliasedTerminalId && d === aliasDecl) {
+      lines.push(`CRGB* const buf_${aliasedTerminalId} = leds;   // renders straight into the output buffer`)
+      continue
+    }
     const ps = usePsram ? psramBufferDecl(d) : null
     if (ps) { lines.push(ps.decl); psramAllocs.push(ps.alloc) }
     else lines.push(d)

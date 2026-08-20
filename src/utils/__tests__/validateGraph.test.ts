@@ -822,34 +822,53 @@ describe('validateGraph', () => {
       expect(estimateFirmwareRam([node('sc', 'SolidColor')], [])).toBeNull()
     })
 
-    it('counts the leds array plus one frame buffer for a simple chain', () => {
+    // The node feeding a plain single output renders into `leds` itself, so a
+    // one-node chain needs no frame buffer at all beyond the leds array.
+    it('counts only the leds array when the one node feeding it renders in place', () => {
       const nodes = [node('sc', 'SolidColor'), node('out', 'MatrixOutput', { width: 4, height: 4 })]
       const edges = [edge('e1', 'sc', 'out', 'frame')]
       const ram = estimateFirmwareRam(nodes, edges)!
       expect(ram.ledCount).toBe(16)
       expect(ram.ledsArrayBytes).toBe(48)      // 16 * 3
-      expect(ram.frameBufferBytes).toBe(48)    // one frame-producing node * 16 * 3
+      expect(ram.frameBufferBytes).toBe(0)     // the terminal node aliases `leds`
       expect(ram.fieldBufferBytes).toBe(0)
       expect(ram.statefulBytes).toBe(0)
-      expect(ram.internalBytes).toBe(96)
+      expect(ram.internalBytes).toBe(48)
       expect(ram.psramBytes).toBe(0)
+    })
+
+    it('counts one frame buffer per upstream node in a chain', () => {
+      const nodes = [node('sc', 'SolidColor'), node('fd', 'Fade'), node('out', 'MatrixOutput', { width: 4, height: 4 })]
+      const edges = [edge('e1', 'sc', 'fd', 'frame'), edge('e2', 'fd', 'out', 'frame')]
+      const ram = estimateFirmwareRam(nodes, edges)!
+      expect(ram.frameBufferBytes).toBe(48)    // SolidColor's; Fade aliases `leds`
+      expect(ram.internalBytes).toBe(96)
+    })
+
+    it('counts the terminal buffer when the output remaps pixels on the way out', () => {
+      // A serpentine XY table means the render buffer and `leds` differ, so the
+      // terminal node cannot render straight into the output.
+      const nodes = [node('sc', 'SolidColor'), node('out', 'MatrixOutput', { width: 4, height: 4, serpentine: true })]
+      const edges = [edge('e1', 'sc', 'out', 'frame')]
+      expect(estimateFirmwareRam(nodes, edges)!.frameBufferBytes).toBe(48)
     })
 
     it('ignores nodes not reachable from MatrixOutput', () => {
       const nodes = [
         node('sc', 'SolidColor'),
+        node('fd', 'Fade'),
         node('out', 'MatrixOutput', { width: 4, height: 4 }),
         node('fire', 'Fire2012'), // isolated — never wired in
       ]
-      const edges = [edge('e1', 'sc', 'out', 'frame')]
+      const edges = [edge('e1', 'sc', 'fd', 'frame'), edge('e2', 'fd', 'out', 'frame')]
       const ram = estimateFirmwareRam(nodes, edges)!
       expect(ram.statefulBytes).toBe(0)
       expect(ram.frameBufferBytes).toBe(48) // only SolidColor's buffer, not Fire2012's
     })
 
     it('adds a stateful node\'s known per-LED overhead when reachable', () => {
-      const nodes = [node('fire', 'Fire2012'), node('out', 'MatrixOutput', { width: 4, height: 4 })]
-      const edges = [edge('e1', 'fire', 'out', 'frame')]
+      const nodes = [node('fire', 'Fire2012'), node('fd', 'Fade'), node('out', 'MatrixOutput', { width: 4, height: 4 })]
+      const edges = [edge('e1', 'fire', 'fd', 'frame'), edge('e2', 'fd', 'out', 'frame')]
       const ram = estimateFirmwareRam(nodes, edges)!
       expect(ram.frameBufferBytes).toBe(48)  // Fire2012's own frame buffer
       expect(ram.statefulBytes).toBe(16)     // 16 LEDs * 1 byte/LED heat map
@@ -873,13 +892,13 @@ describe('validateGraph', () => {
         edge('e2', 'fb', 'out', 'frame'),
       ]
       const ram = estimateFirmwareRam(nodes, edges)!
-      expect(ram.frameBufferBytes).toBe(96) // SolidColor + FrameFeedback
+      expect(ram.frameBufferBytes).toBe(48) // SolidColor's; FrameFeedback aliases `leds`
       expect(ram.statefulBytes).toBe(16 * 3 * 4) // (delay + current slot) * CRGB pixels
     })
 
     it('counts ColorTrails output plus its intermediate advection buffer', () => {
-      const nodes = [node('ct', 'ColorTrails'), node('out', 'MatrixOutput', { width: 4, height: 4 })]
-      const edges = [edge('e1', 'ct', 'out', 'frame')]
+      const nodes = [node('ct', 'ColorTrails'), node('fd', 'Fade'), node('out', 'MatrixOutput', { width: 4, height: 4 })]
+      const edges = [edge('e1', 'ct', 'fd', 'frame'), edge('e2', 'fd', 'out', 'frame')]
       const ram = estimateFirmwareRam(nodes, edges)!
       expect(ram.frameBufferBytes).toBe(96) // persistent output + one CRGB intermediate
       expect(ram.statefulBytes).toBe(0)
@@ -928,25 +947,27 @@ describe('validateGraph', () => {
     })
 
     it('offloads frame/field buffers to PSRAM when usePsram is on', () => {
-      const nodes = [node('sc', 'SolidColor'), node('out', 'MatrixOutput', { width: 4, height: 4, usePsram: true })]
-      const edges = [edge('e1', 'sc', 'out', 'frame')]
+      const nodes = [node('sc', 'SolidColor'), node('fd', 'Fade'), node('out', 'MatrixOutput', { width: 4, height: 4, usePsram: true })]
+      const edges = [edge('e1', 'sc', 'fd', 'frame'), edge('e2', 'fd', 'out', 'frame')]
       const ram = estimateFirmwareRam(nodes, edges)!
       expect(ram.usesPsram).toBe(true)
-      expect(ram.psramBytes).toBe(48)
+      expect(ram.psramBytes).toBe(48)    // SolidColor's; Fade aliases the internal leds array
       expect(ram.internalBytes).toBe(48) // just the leds array
     })
 
     it('surfaces a large internal-RAM estimate as a validateGraph warning', () => {
       // 64x64 is the largest panel the app will actually build, and four CRGB
-      // buffers of it (the leds array plus a three-node chain) is 48 KB.
+      // buffers of it (the leds array plus a four-node chain whose last node
+      // renders straight into leds) is 48 KB.
       const nodes = [
         node('sc', 'SolidColor'), node('blur', 'Blur2D'), node('trails', 'Trails'),
-        node('out', 'MatrixOutput', { width: 64, height: 64 }),
+        node('fd', 'Fade'), node('out', 'MatrixOutput', { width: 64, height: 64 }),
       ]
       const edges = [
         edge('e1', 'sc', 'blur', 'frame'),
         edge('e2', 'blur', 'trails', 'frame'),
-        edge('e3', 'trails', 'out', 'frame'),
+        edge('e3', 'trails', 'fd', 'frame'),
+        edge('e4', 'fd', 'out', 'frame'),
       ]
       const { warnings } = validateGraph(nodes, edges)
       expect(warnings.some(w => w.includes('internal RAM'))).toBe(true)

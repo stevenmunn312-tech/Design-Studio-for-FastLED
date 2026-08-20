@@ -90,7 +90,9 @@ describe('generateCpp', () => {
     expect(cpp).toContain('CRGB leds[NUM_LEDS];')
     // Row-major already is the physical order on a single run, so no XY table.
     expect(cpp).not.toContain('_xytable')
-    expect(cpp).toContain('::memmove(leds, buf_sc, sizeof(CRGB) * NUM_LEDS);')
+    // The terminal node renders into `leds` directly — no second buffer to copy.
+    expect(cpp).toContain('CRGB* const buf_sc = leds;')
+    expect(cpp).not.toContain('::memmove(leds, buf_sc,')
   })
 
   it('ignores a serpentine flag a string inherited from an earlier form', () => {
@@ -327,7 +329,7 @@ describe('generateCpp', () => {
     // loop body, but it is deliberately handled elsewhere rather than missing,
     // so the sketch says where instead of calling it unsupported.
     const generator = node('pg', 'PerformanceGenerator', 'show')
-    const cpp = generateCpp([generator, outputNode], [])
+    const cpp = generateCpp([generator], [])
     expect(cpp).not.toContain('buf_pg')
     expect(cpp).toContain('// PerformanceGenerator —')
     expect(cpp).not.toContain('not yet supported')
@@ -414,7 +416,7 @@ describe('generateCpp', () => {
     expect(withoutMapRange).not.toContain('mapFloat')
 
     const mr = node('mr', 'MapRange', 'math', { inMin: 0, inMax: 1, outMin: 0, outMax: 255 })
-    const withMapRange = generateCpp([mr, outputNode], [])
+    const withMapRange = generateCpp([mr], [])
     expect(withMapRange).toContain('float mapFloat(')
   })
 
@@ -424,22 +426,21 @@ describe('generateCpp', () => {
     const hi = node('hi', 'Math', 'math', { mathOp: 'add', a: 20, b: 0 })
     const mr = node('mr', 'MapRange', 'math', { inMin: 0, inMax: 1, outMin: 0, outMax: 1 })
     const cpp = generateCpp(
-      [value, lo, hi, mr, outputNode],
+      [value, lo, hi, mr],
       [
         edge('e1', 'value', 'mr', 'result', 'value'),
         edge('e2', 'lo', 'mr', 'result', 'outMin'),
         edge('e3', 'hi', 'mr', 'result', 'outMax'),
-      ],
-    )
+      ])
     expect(cpp).toContain('mapFloat(n_value_result, 0, 1, n_lo_result, n_hi_result)')
   })
 
   it('emits Math result variable for the selected operation', () => {
     const add = node('a', 'Math', 'math', { mathOp: 'add', a: 1, b: 2 })
-    const cpp = generateCpp([add, outputNode], [])
+    const cpp = generateCpp([add], [])
     expect(cpp).toContain('n_a_result')
     expect(cpp).toContain('(1) + (2)')
-    const mul = generateCpp([node('a', 'Math', 'math', { mathOp: 'multiply', a: 3, b: 4 }), outputNode], [])
+    const mul = generateCpp([node('a', 'Math', 'math', { mathOp: 'multiply', a: 3, b: 4 })], [])
     expect(mul).toContain('(3) * (4)')
   })
 
@@ -461,14 +462,14 @@ describe('generateCpp', () => {
     }
     for (const [easeType, primitive] of Object.entries(expected)) {
       const ease = node('ease', 'Ease', 'math', { easeType, t: 0.5 })
-      expect(generateCpp([ease, outputNode], []), easeType).toContain(primitive)
+      expect(generateCpp([ease], []), easeType).toContain(primitive)
     }
 
-    const linear = generateCpp([node('ease', 'Ease', 'math', { easeType: 'linear', t: 0.5 }), outputNode], [])
+    const linear = generateCpp([node('ease', 'Ease', 'math', { easeType: 'linear', t: 0.5 })], [])
     expect(linear).toContain('float n_ease_result = (uint8_t)(constrain(0.5, 0.0f, 1.0f) * 255) / 255.0f;')
     expect(linear).not.toContain('fl::ease')
 
-    const unknown = generateCpp([node('ease', 'Ease', 'math', { easeType: 'unknown', t: 0.5 }), outputNode], [])
+    const unknown = generateCpp([node('ease', 'Ease', 'math', { easeType: 'unknown', t: 0.5 })], [])
     expect(unknown).toContain('ease8InOutCubic(')
   })
 
@@ -476,7 +477,7 @@ describe('generateCpp', () => {
     const timeN = node('t1', 'TimeNode', 'math', {})
     const sin   = node('s1', 'Sin', 'math', {})
     const cpp = generateCpp(
-      [timeN, sin, outputNode],
+      [timeN, sin],
       [edge('e1', 't1', 's1', 'time', 'x')]
     )
     expect(cpp).toContain('n_t1_time')
@@ -486,7 +487,7 @@ describe('generateCpp', () => {
 
   it('emits CHSV node with 0–255 channel values', () => {
     const chsv = node('c', 'CHSV', 'math', { hue: 128, sat: 255, val: 200 })
-    const cpp = generateCpp([chsv, outputNode], [])
+    const cpp = generateCpp([chsv], [])
     expect(cpp).toContain('CHSV(')
     expect(cpp).toContain('128')
     expect(cpp).toContain('255')
@@ -513,14 +514,23 @@ describe('generateCpp', () => {
 
   it('emits BeatSin node with bpm/low/high', () => {
     const bs = node('b', 'BeatSin', 'math', { bpm: 120, low: 0, high: 1 })
-    const cpp = generateCpp([bs, outputNode], [])
+    const cpp = generateCpp([bs], [])
     expect(cpp).toContain('float n_b_value = 0.000f + ((sinf(((millis() / 1000.0f) * 120.000f / 60.0f) * 6.2831853f) + 1.0f) * 0.5f) * (1.000f - 0.000f);')
   })
 
   it('resolves matrix expressions before emitting scalar properties', () => {
     const bs = node('bx', 'BeatSin', 'math', { bpm: 80, low: 'center_y', high: 'num_leds / 8' })
     const random = node('rx', 'Random', 'signal', { min: 'max_x', max: 'w + h' })
-    const cpp = generateCpp([bs, random, outputNode], [])
+    const sc = node('sc', 'SolidColor', 'pattern', {})
+    const b1 = node('b1', 'BrightnessMod', 'composite', {})
+    const b2 = node('b2', 'BrightnessMod', 'composite', {})
+    const cpp = generateCpp([bs, random, sc, b1, b2, outputNode], [
+      edge('e1', 'sc', 'b1', 'frame', 'frame'),
+      edge('e2', 'b1', 'b2', 'frame', 'frame'),
+      edge('e3', 'b2', 'out', 'frame', 'frame'),
+      edge('e4', 'bx', 'b1', 'value', 'brightness'),
+      edge('e5', 'rx', 'b2', 'value', 'brightness'),
+    ])
     expect(cpp).toContain('* 80.000f / 60.0f')
     expect(cpp).toContain('3.500f')
     expect(cpp).toContain('(8.000f - 3.500f)')
@@ -529,7 +539,7 @@ describe('generateCpp', () => {
 
   it('emits seeded Random with a per-instance 16-bit LCG draw', () => {
     const random = node('rs', 'Random', 'signal', { min: -1, max: 1, seed: 77 })
-    const cpp = generateCpp([random, outputNode], [])
+    const cpp = generateCpp([random], [])
     expect(cpp).toContain('static uint32_t _rng_rs = 77u')
     expect(cpp).toContain('(_rng_rs >> 16) & 0xFFFFu')
     expect(cpp).not.toContain('random16() / 65535.0f')
@@ -537,7 +547,7 @@ describe('generateCpp', () => {
 
   it('emits a millis()-based Clock with bpm/beatsPerBar/subdivision baked in', () => {
     const clk = node('clk', 'Clock', 'signal', { bpm: 128, beatsPerBar: 4, subdivision: 2 })
-    const cpp = generateCpp([clk, outputNode], [])
+    const cpp = generateCpp([clk], [])
     expect(cpp).toContain('_clkOrigin_clk')
     expect(cpp).toContain('128.0f')
     expect(cpp).toContain('% 4u == 0u')
@@ -551,7 +561,7 @@ describe('generateCpp', () => {
   it('Clock reads tap/sync/reset from wired bool sources', () => {
     const tap = node('tapsrc', 'Compare', 'math', {})
     const clk = node('clk2', 'Clock', 'signal', { bpm: 100 })
-    const cpp = generateCpp([tap, clk, outputNode], [
+    const cpp = generateCpp([tap, clk], [
       edge('e1', 'tapsrc', 'clk2', 'result', 'tap'),
     ])
     expect(cpp).toContain('n_tapsrc_result')
@@ -559,7 +569,7 @@ describe('generateCpp', () => {
 
   it('emits a sine Wave oscillator', () => {
     const w = node('w', 'Wave', 'math', { amplitude: 2, frequency: 0.5, phase: 0.25, waveform: 'sine' })
-    const cpp = generateCpp([w, outputNode], [])
+    const cpp = generateCpp([w], [])
     expect(cpp).toContain('_arg = ((0.5) * t + (0.25))')
     expect(cpp).toContain('sinf(6.2831853f * _arg)')
     expect(cpp).toContain('float t = millis()') // needs the time variable
@@ -579,7 +589,7 @@ describe('generateCpp', () => {
       const wa = node('wa', 'Wave', 'math', { amplitude: 1, frequency: 1, phase: 0, waveform: 'sine' })
       const wb = node('wb', 'Wave', 'math', { amplitude: 1, frequency: 2, phase: 0, waveform: 'sine' })
       const cw = node('cw', 'ComplexWave', 'math', { operation })
-      return generateCpp([wa, wb, cw, outputNode], [
+      return generateCpp([wa, wb, cw], [
         edge('e1', 'wa', 'cw', 'result', 'a'),
         edge('e2', 'wb', 'cw', 'result', 'b'),
       ])
@@ -599,7 +609,7 @@ describe('generateCpp', () => {
 
   it('emits blur2d with an XYMap (required since FastLED 3.10)', () => {
     const blur = node('bl', 'Blur2D', 'pattern', { amount: 0.5 })
-    const cpp = generateCpp([blur, outputNode], [])
+    const cpp = generateCpp([blur], [])
     expect(cpp).toContain('blur2d(buf_bl, WIDTH, HEIGHT, (uint8_t)(constrain(0.5,0.0f,1.0f)*255.0f), _xyMap)')
     expect(cpp).toContain('fl::XYMap _xyMap = fl::XYMap::constructRectangularGrid(WIDTH, HEIGHT);')
   })
@@ -730,7 +740,9 @@ describe('generateCpp', () => {
     const sc = node('sc', 'SolidColor', 'pattern', { r: 1, g: 2, b: 3 })
     const cpp = generateCpp([sc, outputNode], [edge('e', 'sc', 'out', 'frame', 'frame')])
     expect(cpp).not.toContain('XY(')
-    expect(cpp).toContain('::memmove(leds, buf_sc, sizeof(CRGB) * NUM_LEDS)')
+    // The terminal node renders into `leds` directly — no second buffer to copy.
+    expect(cpp).toContain('CRGB* const buf_sc = leds;')
+    expect(cpp).not.toContain('::memmove(leds, buf_sc,')
   })
 
   it('renders at 2× and downscales into leds when supersample is on', () => {
@@ -776,7 +788,9 @@ describe('generateCpp', () => {
     const sc = node('sc', 'SolidColor', 'pattern', { r: 1, g: 2, b: 3 })
     const cpp = generateCpp([sc, out], [edge('e', 'sc', 'out', 'frame', 'frame')])
     expect(cpp).not.toContain('XY(')
-    expect(cpp).toContain('::memmove(leds, buf_sc, sizeof(CRGB) * NUM_LEDS)')
+    // The terminal node renders into `leds` directly — no second buffer to copy.
+    expect(cpp).toContain('CRGB* const buf_sc = leds;')
+    expect(cpp).not.toContain('::memmove(leds, buf_sc,')
   })
 
   it('leaves output unchanged when supersample is off', () => {
@@ -790,7 +804,7 @@ describe('generateCpp', () => {
 
   it('emits Fire2012 heat simulation coloured through its palette', () => {
     const fire = node('f', 'Fire2012', 'pattern', { cooling: 55, sparking: 120, palette: 'heat' })
-    const cpp = generateCpp([fire, outputNode], [])
+    const cpp = generateCpp([fire], [])
     expect(cpp).toContain('Fire2012')
     // Default 'heat' palette reproduces the classic HeatColors fire ramp.
     expect(cpp).toContain('ColorFromPalette(paldef_heat, _h)')
@@ -798,50 +812,50 @@ describe('generateCpp', () => {
 
   describe.each(['Fire', 'Fire2012'] as const)('%s extra controls', (type) => {
     it('direction picks which macro is the primary (flame-base) axis', () => {
-      const up = generateCpp([node('f', type, 'pattern', { direction: 'up' }), outputNode], [])
+      const up = generateCpp([node('f', type, 'pattern', { direction: 'up' })], [])
       expect(up).toContain('[HEIGHT][WIDTH]')
-      const left = generateCpp([node('f', type, 'pattern', { direction: 'left' }), outputNode], [])
+      const left = generateCpp([node('f', type, 'pattern', { direction: 'left' })], [])
       expect(left).toContain('[WIDTH][HEIGHT]')
       // 'left' bases at the right edge, mapping x = WIDTH-1-p.
       expect(left).toContain('WIDTH-1-(_p)')
     })
 
     it('turbulence widens the sideways diffusion window', () => {
-      const narrow = generateCpp([node('f', type, 'pattern', { turbulence: 0 }), outputNode], [])
-      const wide = generateCpp([node('f', type, 'pattern', { turbulence: 2 }), outputNode], [])
+      const narrow = generateCpp([node('f', type, 'pattern', { turbulence: 0 })], [])
+      const wide = generateCpp([node('f', type, 'pattern', { turbulence: 2 })], [])
       expect(narrow).toContain('_ds=-0; _ds<=0')
       expect(wide).toContain('_ds=-2; _ds<=2')
     })
 
     it('paletteMix<1 blends the palette colour with heat-brightness grayscale', () => {
-      const cpp = generateCpp([node('f', type, 'pattern', { paletteMix: 0.25 }), outputNode], [])
+      const cpp = generateCpp([node('f', type, 'pattern', { paletteMix: 0.25 })], [])
       expect(cpp).toContain('_h*0.75f+_c.r*0.25f')
     })
 
     it('mirror folds the rendered buffer symmetric across its width', () => {
-      const cpp = generateCpp([node('f', type, 'pattern', { mirror: true }), outputNode], [])
+      const cpp = generateCpp([node('f', type, 'pattern', { mirror: true })], [])
       expect(cpp).toContain('WIDTH-1-_x')
     })
 
     it('a nonzero seed emits a per-instance LCG instead of random8()', () => {
-      const seeded = generateCpp([node('f', type, 'pattern', { seed: 7 }), outputNode], [])
+      const seeded = generateCpp([node('f', type, 'pattern', { seed: 7 })], [])
       expect(seeded).toContain('_fireLcg_f = 7u')
       expect(seeded).not.toContain('random8()/255.0f')
-      const unseeded = generateCpp([node('f', type, 'pattern', {}), outputNode], [])
+      const unseeded = generateCpp([node('f', type, 'pattern', {})], [])
       expect(unseeded).not.toContain('_fireLcg_f')
       expect(unseeded).toContain('random8()/255.0f')
     })
   })
 
   it('emits deterministic seed hooks for seeded stochastic nodes', () => {
-    const particles = generateCpp([node('p', 'Particles', 'pattern', { seed: 321 }), outputNode], [])
+    const particles = generateCpp([node('p', 'Particles', 'pattern', { seed: 321 })], [])
     expect(particles).toContain('random16_set_seed(321u)')
 
-    const noiseCpp = generateCpp([node('n', 'Noise', 'pattern', { noiseType: 'simplex', seed: 9 }), outputNode], [])
+    const noiseCpp = generateCpp([node('n', 'Noise', 'pattern', { noiseType: 'simplex', seed: 9 })], [])
     expect(noiseCpp).toContain('float _spd=')
     expect(noiseCpp).toContain('(t+0.117f)')
 
-    const confetti = generateCpp([node('c', 'Confetti', 'pattern', { seed: 17 }), outputNode], [])
+    const confetti = generateCpp([node('c', 'Confetti', 'pattern', { seed: 17 })], [])
     expect(confetti).toContain('static uint32_t _rng_c=17u')
     expect(confetti).not.toContain('random16(NUM_LEDS)')
   })
@@ -926,7 +940,7 @@ describe('generateCpp', () => {
   it('resolves a connected PaletteBlend to its base palette A', () => {
     const blend = node('bl', 'PaletteBlend', 'color', { paletteA: 'forest', paletteB: 'party', amount: 0.5 })
     const samp  = node('s', 'PaletteSampler', 'color', { t: 0.5 })
-    const cpp = generateCpp([blend, samp, outputNode], [edge('e1', 'bl', 's', 'palette', 'paletteIn')])
+    const cpp = generateCpp([blend, samp], [edge('e1', 'bl', 's', 'palette', 'paletteIn')])
     expect(cpp).toContain('ColorFromPalette(paldef_forest')
   })
 
@@ -1268,7 +1282,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('https://github.com/StefanPetrick/animartrix')
     expect(cpp).toContain('_ax_axSnare')
     expect(cpp).toContain('acosf(cosf(_th*_sym))')
-    expect(cpp).toContain('CRGB buf_ax[NUM_LEDS];')
+    expect(cpp).toContain('CRGB* const buf_ax = leds;')
   })
 
   it('emits MidrangeWaves through a FastLED palette with energy-controlled reactivity', () => {
@@ -1345,7 +1359,7 @@ describe('generateCpp', () => {
 
   it('declares CustomFormula A/B inputs before using them', () => {
     const formula = node('cf', 'CustomFormula', 'pattern', { formula: 'sin(r + a + b + t)', a: 0.2, b: 0.4 })
-    const cpp = generateCpp([formula, outputNode], [edge('e', 'cf', 'frame', 'out', 'frame')])
+    const cpp = generateCpp([formula, outputNode], [edge('e', 'cf', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float a=0.2, b=0.4;')
     expect(cpp.indexOf('float a=')).toBeLessThan(cpp.indexOf('float _v=sin(r + a + b + t)'))
   })
@@ -1357,7 +1371,7 @@ describe('generateCpp', () => {
   it('refuses to emit CustomFormula source that the sandbox parser rejects', () => {
     const injected = '0.0f; digitalWrite(2, HIGH); float _x = 0'
     const cf = node('cf', 'CustomFormula', 'pattern', { formula: injected })
-    const cpp = generateCpp([cf, outputNode], [edge('e', 'cf', 'frame', 'out', 'frame')])
+    const cpp = generateCpp([cf, outputNode], [edge('e', 'cf', 'out', 'frame', 'frame')])
     expect(cpp).not.toContain('digitalWrite(2, HIGH)')
     expect(cpp).toContain('float _v=0.0f;')
     expect(cpp).toContain('invalid formula')
@@ -1377,7 +1391,7 @@ describe('generateCpp', () => {
 
   it('still emits a valid formula unchanged', () => {
     const cf = node('cf', 'CustomFormula', 'pattern', { formula: 'sin(x*6+t)*0.5+0.5' })
-    const cpp = generateCpp([cf, outputNode], [edge('e', 'cf', 'frame', 'out', 'frame')])
+    const cpp = generateCpp([cf, outputNode], [edge('e', 'cf', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _v=sin(x*6+t)*0.5+0.5;')
     expect(cpp).not.toContain('invalid formula')
   })
@@ -1389,7 +1403,7 @@ describe('generateCpp', () => {
       formulaType: 'attractor',
       preset: 'classic\n  digitalWrite(2, HIGH);',
     })
-    const cpp = generateCpp([fp, outputNode], [edge('e', 'fp', 'frame', 'out', 'frame')])
+    const cpp = generateCpp([fp, outputNode], [edge('e', 'fp', 'out', 'frame', 'frame')])
     expect(cpp).not.toContain('digitalWrite(2, HIGH)')
     expect(cpp).toContain('de Jong, classic)')
   })
@@ -1729,7 +1743,9 @@ describe('generateCpp', () => {
     expect(cpp).toContain('CRGB buf_b[NUM_LEDS];')
     expect(cpp).toContain('::memmove(buf_lb, buf_a, sizeof(CRGB) * NUM_LEDS)')
     expect(cpp).toContain('nblend(buf_lb, buf_b, NUM_LEDS, (uint8_t)((0.5) * 255))')
-    expect(cpp).toContain('::memmove(leds, buf_lb, sizeof(CRGB) * NUM_LEDS)')
+    // The terminal node renders into `leds` directly — no second buffer to copy.
+    expect(cpp).toContain('CRGB* const buf_lb = leds;')
+    expect(cpp).not.toContain('::memmove(leds, buf_lb,')
   })
 
   it('Blend non-normal mode emits a per-channel blend loop', () => {
@@ -2060,7 +2076,7 @@ describe('generateCpp — Kaleidoscope', () => {
   // vanished on hardware.
   it('samples the source through the wedge fold instead of copying it through', () => {
     const cpp = gen({ segments: 6 })
-    expect(cpp).toContain('CRGB buf_kal[NUM_LEDS];')
+    expect(cpp).toContain('CRGB* const buf_kal = leds;')
     expect(cpp).toContain('buf_kal[_y*WIDTH+_x]=(_ksx<0||_ksx>=WIDTH||_ksy<0||_ksy>=HEIGHT)?CRGB::Black:buf_sc[_ksy*WIDTH+_ksx];')
     expect(cpp).not.toContain('::memmove(buf_kal, buf_sc')
     expect(cpp).not.toContain('mirror logic to apply')
@@ -2296,7 +2312,12 @@ describe('generateCpp — INMP441 audio engine', () => {
   it('prints FastLED processor levels and conditioner stats when Serial Debug is on', () => {
     const dbgMic = node('mic', 'MicInput', 'hardware', { serialDebug: true })
     const fft = node('fft', 'FFTAnalyzer', 'audio', {})
-    const on = generateCpp([micBoard, dbgMic, fft, out], [edge('e1', 'mic', 'fft', 'audio', 'audio')])
+    const bp = node('bp', 'BassPulse', 'pattern', {})
+    const on = generateCpp([micBoard, dbgMic, fft, bp, out], [
+      edge('e1', 'mic', 'fft', 'audio', 'audio'),
+      edge('e2', 'fft', 'bp', 'bass', 'bass'),
+      edge('e3', 'bp', 'out', 'frame', 'frame'),
+    ])
     expect(on).toContain('#define MIC_DEBUG 1')
     expect(on).toContain('Serial.begin(115200);')
     expect(on).toContain('getSignalConditionerStats()')
@@ -2321,7 +2342,12 @@ describe('generateCpp — INMP441 audio engine', () => {
   it('applies FFT Analyzer gain and smoothing on-device', () => {
     const mic = node('mic', 'MicInput', 'hardware', {})
     const fft = node('fft', 'FFTAnalyzer', 'audio', { gain: 1.5, smoothing: 0.8 })
-    const cpp = generateCpp([micBoard, mic, fft, out], [edge('e1', 'mic', 'fft', 'audio', 'audio')])
+    const bp = node('bp', 'BassPulse', 'pattern', {})
+    const cpp = generateCpp([micBoard, mic, fft, bp, out], [
+      edge('e1', 'mic', 'fft', 'audio', 'audio'),
+      edge('e2', 'fft', 'bp', 'bass', 'bass'),
+      edge('e3', 'bp', 'out', 'frame', 'frame'),
+    ])
     expect(cpp).toContain('n_fft_bass_raw * 1.500f')
     expect(cpp).toContain('_smooth * 0.800f')
     expect(cpp).toContain('* 0.200f')
@@ -2330,7 +2356,12 @@ describe('generateCpp — INMP441 audio engine', () => {
   it("FFTAnalyzer's bands property changes the generated resample resolution", () => {
     const mic = node('mic', 'MicInput', 'hardware', {})
     const fft = node('fft', 'FFTAnalyzer', 'audio', { bands: 12 })
-    const cpp = generateCpp([micBoard, mic, fft, out], [edge('e1', 'mic', 'fft', 'audio', 'audio')])
+    const bp = node('bp', 'BassPulse', 'pattern', {})
+    const cpp = generateCpp([micBoard, mic, fft, bp, out], [
+      edge('e1', 'mic', 'fft', 'audio', 'audio'),
+      edge('e2', 'fft', 'bp', 'bass', 'bass'),
+      edge('e3', 'bp', 'out', 'frame', 'frame'),
+    ])
     expect(cpp).toContain('float _fftBands_fft[12];')
     expect(cpp).toContain('for (int _b = 0; _b < 12; _b++)')
   })
@@ -2368,7 +2399,7 @@ describe('generateCpp — INMP441 audio engine', () => {
 
   it('emits Audio to Hue in the documented 0-360 degree range', () => {
     const audioHue = node('ah', 'AudioHue', 'audio', { bass: 1, mids: 0.5, treble: 0.25 })
-    const cpp = generateCpp([audioHue, out], [])
+    const cpp = generateCpp([audioHue], [])
 
     expect(cpp).toContain('float n_ah_hue = ((1)*0.5f+(0.5)*0.3f+(0.25)*0.2f)*360.0f;')
     expect(cpp).not.toContain('uint8_t n_ah_hue')
@@ -2379,7 +2410,7 @@ describe('generateCpp — INMP441 audio engine', () => {
       bass: 1, mids: 0.5, treble: 0.25,
       bassWeight: 0, midsWeight: 0.2, trebleWeight: 1,
     })
-    const cpp = generateCpp([audioHue, out], [])
+    const cpp = generateCpp([audioHue], [])
 
     expect(cpp).toContain('float n_ah_hue = ((1)*0.0f+(0.5)*0.2f+(0.25)*1.0f)*360.0f;')
   })
@@ -2434,7 +2465,7 @@ describe('generateCpp — INMP441 audio engine', () => {
 
   it('keeps the tunable BeatDetect envelope for external baked SD audio', () => {
     const beat = node('bd', 'BeatDetect', 'audio', { threshold: 0.08, attack: 0.3, decay: 0.05 })
-    const cpp = generateCpp([beat, out], [], {}, { externalAudio: true })
+    const cpp = generateCpp([beat], [], {}, { externalAudio: true })
     expect(cpp).toContain('bool n_bd_beat = false;')
     expect(cpp).toContain('n_bd_detector_fast += (_flux - n_bd_detector_fast)')
     expect(cpp).toContain('_audioSpectrum[_i] - n_bd_detector_prevSpectrum[_i]')
@@ -2514,7 +2545,12 @@ describe('generateCpp — INMP441 audio engine', () => {
     const board = node('board', 'Board', 'hardware', { profileId })
     const mic = node('mic', 'MicInput', 'hardware', {})
     const fft = node('fft', 'FFTAnalyzer', 'audio', {})
-    const cpp = generateCpp([board, mic, fft, out], [edge('e1', 'mic', 'fft', 'audio', 'audio')])
+    const bp = node('bp', 'BassPulse', 'pattern', {})
+    const cpp = generateCpp([board, mic, fft, bp, out], [
+      edge('e1', 'mic', 'fft', 'audio', 'audio'),
+      edge('e2', 'fft', 'bp', 'bass', 'bass'),
+      edge('e3', 'bp', 'out', 'frame', 'frame'),
+    ])
     expect(cpp).toContain(capture)
     expect(cpp).toContain(include)
     expect(cpp).toContain('_audioProcessor->getBassLevel()')
@@ -2589,10 +2625,14 @@ describe('audioEngineForGraph', () => {
 describe('PSRAM buffer placement (MatrixOutput usePsram)', () => {
   const psOut = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, dataPin: 5, usePsram: true })
   const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
-  const wiring = [edge('e1', 'sc', 'out', 'frame', 'frame')]
+  // A Fade sits between the source and the output so `buf_sc` is a real
+  // placeable buffer — the node feeding the output aliases `leds` instead of
+  // owning one, and `leds` never moves to PSRAM.
+  const fd = node('fd', 'Fade', 'composite', { fade: 0.5 })
+  const wiring = [edge('e1', 'sc', 'fd', 'frame', 'frame'), edge('e2', 'fd', 'out', 'frame', 'frame')]
 
   it('moves per-node buffers to _psAlloc and keeps leds internal', () => {
-    const cpp = generateCpp([sc, psOut], wiring)
+    const cpp = generateCpp([sc, fd, psOut], wiring)
     expect(cpp).toContain('CRGB* buf_sc = nullptr;')
     expect(cpp).toContain('buf_sc = (CRGB*)_psAlloc(sizeof(CRGB) * NUM_LEDS);')
     expect(cpp).toContain('void* _psAlloc(size_t n)')
@@ -2600,16 +2640,19 @@ describe('PSRAM buffer placement (MatrixOutput usePsram)', () => {
     // from ISR/DMA context where PSRAM access can fault.
     expect(cpp).toContain('CRGB leds[NUM_LEDS];')
     expect(cpp).not.toContain('CRGB buf_sc[NUM_LEDS];')
+    // …and the aliased terminal buffer is `leds`, so it is never allocated.
+    expect(cpp).toContain('CRGB* const buf_fd = leds;')
+    expect(cpp).not.toContain('buf_fd = (CRGB*)_psAlloc')
   })
 
   it('ignores a stale toggle when the board has no PSRAM (psramAllowed: false)', () => {
-    const cpp = generateCpp([sc, psOut], wiring, {}, { psramAllowed: false })
+    const cpp = generateCpp([sc, fd, psOut], wiring, {}, { psramAllowed: false })
     expect(cpp).toContain('CRGB buf_sc[NUM_LEDS];')
     expect(cpp).not.toContain('_psAlloc')
   })
 
   it('emits plain static buffers when the toggle is off', () => {
-    const cpp = generateCpp([sc, outputNode], wiring)
+    const cpp = generateCpp([sc, fd, outputNode], wiring)
     expect(cpp).toContain('CRGB buf_sc[NUM_LEDS];')
     expect(cpp).not.toContain('_psAlloc')
   })
@@ -2894,7 +2937,7 @@ describe('Trails (feedback/persistence)', () => {
       edge('e1', 'sc', 'tr', 'frame', 'frame'),
       edge('e2', 'tr', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('CRGB buf_tr[NUM_LEDS];')
+    expect(cpp).toContain('CRGB* const buf_tr = leds;')
     expect(cpp).toContain('float _decay = constrain(0.4,0.0f,1.0f); _decay = _decay*_decay*_decay;')
     expect(cpp).toContain('fadeToBlackBy(buf_tr, NUM_LEDS, (uint8_t)(_decay*255.0f));')
     expect(cpp).toContain('if(buf_sc[_i].r>buf_tr[_i].r)buf_tr[_i].r=buf_sc[_i].r;')
@@ -2977,7 +3020,7 @@ describe('Pride2015 / Pacifica (codegen)', () => {
   it('Pride2015 emits the shared per-pixel loop mapped through CHSV', () => {
     const pr = node('pr', 'Pride2015', 'pattern', { speed: 0.4, scale: 0.4 })
     const cpp = generateCpp([pr, outputNode], [edge('e1', 'pr', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('CRGB buf_pr[NUM_LEDS];')
+    expect(cpp).toContain('CRGB* const buf_pr = leds;')
     expect(cpp).toContain('buf_pr[_y*WIDTH+_x]=CHSV(')
     expect(cpp).toContain('fmodf(_i*_sc*6.0f+t*_spd*40.0f,360.0f)')
   })
@@ -2985,7 +3028,7 @@ describe('Pride2015 / Pacifica (codegen)', () => {
   it('Pacifica emits the layered-wave formula through ColorFromPalette with a whitecap blend', () => {
     const pa = node('pa', 'Pacifica', 'pattern', { speed: 0.35, scale: 0.5, palette: 'ocean' })
     const cpp = generateCpp([pa, outputNode], [edge('e1', 'pa', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('CRGB buf_pa[NUM_LEDS];')
+    expect(cpp).toContain('CRGB* const buf_pa = leds;')
     expect(cpp).toContain('ColorFromPalette(paldef_ocean,(uint8_t)(_n*255.0f))')
     expect(cpp).toContain('if(_foam>0.85f)')
   })
@@ -2993,7 +3036,7 @@ describe('Pride2015 / Pacifica (codegen)', () => {
   it('TwinkleFox emits the shared per-pixel hash + twinkle cycle through the palette', () => {
     const tf = node('tf', 'TwinkleFox', 'pattern', { speed: 0.5, density: 0.5, palette: 'party' })
     const cpp = generateCpp([tf, outputNode], [edge('e1', 'tf', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('CRGB buf_tf[NUM_LEDS];')
+    expect(cpp).toContain('CRGB* const buf_tf = leds;')
     expect(cpp).toContain('int _si=_i+0;')
     expect(cpp).toContain('_ph=sinf(_si*12.9898f)*43758.5453f')
     expect(cpp).toContain('float _tri=1.0f-fabsf(2.0f*_cy-1.0f);')
@@ -3004,7 +3047,7 @@ describe('Pride2015 / Pacifica (codegen)', () => {
   it('Scanner emits a ping-pong palette beam along the selected axis', () => {
     const sc = node('sc', 'Scanner', 'pattern', { speed: 0.45, width: 2, fade: 0.6, axis: 'vertical', palette: 'lava' })
     const cpp = generateCpp([sc, outputNode], [edge('e1', 'sc', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('CRGB buf_sc[NUM_LEDS];')
+    expect(cpp).toContain('CRGB* const buf_sc = leds;')
     expect(cpp).toContain('float _travel=_ph<=1.0f?_ph:2.0f-_ph;')
     expect(cpp).toContain('ColorFromPalette(paldef_lava,(uint8_t)(_travel*255.0f))')
     expect(cpp).toContain('float _coord=(float)_y;')
@@ -3014,7 +3057,7 @@ describe('Pride2015 / Pacifica (codegen)', () => {
   it('Confetti emits persistent fade-and-sprinkle palette logic', () => {
     const cf = node('cf', 'Confetti', 'pattern', { speed: 0.45, density: 0.45, fade: 0.28, palette: 'party' })
     const cpp = generateCpp([cf, outputNode], [edge('e1', 'cf', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('CRGB buf_cf[NUM_LEDS];')
+    expect(cpp).toContain('CRGB* const buf_cf = leds;')
     expect(cpp).toContain('fadeToBlackBy(buf_cf, NUM_LEDS, (uint8_t)(_fd * 255.0f));')
     expect(cpp).toContain('int _spawns=(int)(_den * (0.08f + _spd * 0.2142857f) * sqrtf((float)NUM_LEDS));')
     expect(cpp).toContain('buf_cf[_i] += ColorFromPalette(paldef_party, random8() + _drift);')
@@ -3023,7 +3066,7 @@ describe('Pride2015 / Pacifica (codegen)', () => {
   it('Juggle emits fading multi-dot palette motion and supports the Sinelon count=1 case', () => {
     const jg = node('jg', 'Juggle', 'pattern', { speed: 0.5, count: 1, fade: 0.22, palette: 'rainbow' })
     const cpp = generateCpp([jg, outputNode], [edge('e1', 'jg', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('CRGB buf_jg[NUM_LEDS];')
+    expect(cpp).toContain('CRGB* const buf_jg = leds;')
     expect(cpp).toContain('const int _dots=1;')
     expect(cpp).toContain('fadeToBlackBy(buf_jg, NUM_LEDS, (uint8_t)(_fd * 255.0f));')
     expect(cpp).toContain('float _phase=0.0f;')
@@ -3062,16 +3105,23 @@ describe('Saturation / RGBToHSV (codegen)', () => {
       rB: 110, gB: 220, bB: 130,
       t: 0.25,
     })
-    const cpp = generateCpp([bc, outputNode], [])
+    const cpp = generateCpp([bc], [])
     expect(cpp).toContain('CRGB n_bc_color = blend(CRGB(10,20,30), CRGB(110,220,130), (uint8_t)((0.25) * 255));')
   })
 
   it('RGBToHSV emits h/s/v floats via rgb2hsv_approximate', () => {
     const c = node('c', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })
     const rh = node('rh', 'RGBToHSV', 'color', {})
+    const sc = node('sc', 'SolidColor', 'pattern', {})
+    const bm = node('bm', 'BrightnessMod', 'composite', {})
     const cpp = generateCpp(
-      [c, rh, outputNode],
-      [edge('e1', 'c', 'rh', 'rgb', 'rgb'), edge('e2', 'c', 'out', 'rgb', 'frame')],
+      [c, rh, sc, bm, outputNode],
+      [
+        edge('e1', 'c', 'rh', 'rgb', 'rgb'),
+        edge('e2', 'sc', 'bm', 'frame', 'frame'),
+        edge('e3', 'rh', 'bm', 'v', 'brightness'),
+        edge('e4', 'bm', 'out', 'frame', 'frame'),
+      ],
     )
     expect(cpp).toContain('CHSV _hsv_rh = rgb2hsv_approximate(n_c_rgb);')
     expect(cpp).toContain('float n_rh_h = _hsv_rh.hue / 255.0f * 360.0f;')
@@ -3081,7 +3131,7 @@ describe('Saturation / RGBToHSV (codegen)', () => {
 
   it('RGBToHSV emits its editable color fallback when unwired', () => {
     const rh = node('rh', 'RGBToHSV', 'color', { r: 0, g: 255, b: 0 })
-    const cpp = generateCpp([rh, outputNode], [])
+    const cpp = generateCpp([rh], [])
     expect(cpp).toContain('CHSV _hsv_rh = rgb2hsv_approximate(CRGB(0,255,0));')
   })
 })
@@ -3089,7 +3139,7 @@ describe('Saturation / RGBToHSV (codegen)', () => {
 describe('EncoderInput (codegen)', () => {
   it('emits a polling quadrature decode with static per-node state', () => {
     const enc = node('enc', 'EncoderInput', 'input', { pinA: 32, pinB: 33, pinSW: 25 })
-    const cpp = generateCpp([enc, outputNode], [])
+    const cpp = generateCpp([enc], [])
     expect(cpp).toContain('static int8_t _encLast_enc = 0; static float _encPos_enc = 0;')
     expect(cpp).toContain('digitalRead(32)')
     expect(cpp).toContain('digitalRead(33)')
@@ -3099,13 +3149,13 @@ describe('EncoderInput (codegen)', () => {
 
   it('omits the reset-on-press latch when resetOnPress is off (the default)', () => {
     const enc = node('enc', 'EncoderInput', 'input', { pinA: 32, pinB: 33, pinSW: 25, resetOnPress: false })
-    const cpp = generateCpp([enc, outputNode], [])
+    const cpp = generateCpp([enc], [])
     expect(cpp).not.toContain('_encSwLast_enc')
   })
 
   it('zeros the running position on a press edge when resetOnPress is on', () => {
     const enc = node('enc', 'EncoderInput', 'input', { pinA: 32, pinB: 33, pinSW: 25, resetOnPress: true })
-    const cpp = generateCpp([enc, outputNode], [])
+    const cpp = generateCpp([enc], [])
     expect(cpp).toContain('static bool _encSwLast_enc = false;')
     expect(cpp).toContain('if (n_enc_pressed && !_encSwLast_enc) _encPos_enc = 0;')
     expect(cpp).toContain('_encSwLast_enc = n_enc_pressed;')
@@ -3118,7 +3168,7 @@ describe('EncoderInput (codegen)', () => {
 describe('RTCInput (codegen)', () => {
   it('emits compile-time-seeded firmware clock support by default', () => {
     const rtc = node('rtc', 'RTCInput', 'input', {})
-    const cpp = generateCpp([rtc, outputNode], [])
+    const cpp = generateCpp([rtc], [])
     expect(cpp).toContain('struct _RtcDateTime {')
     expect(cpp).toContain('_rtcSeedValid_rtc = _rtcParseBuildStamp(__DATE__, __TIME__, _rtcBuild_rtc);')
     expect(cpp).toContain('static uint64_t _rtcElapsedMillis_rtc = 0;')
@@ -3136,7 +3186,7 @@ describe('RTCInput (codegen)', () => {
       startMinute: 59,
       startSecond: 58,
     })
-    const cpp = generateCpp([rtc, outputNode], [])
+    const cpp = generateCpp([rtc], [])
     expect(cpp).toContain('_rtcSeedValid_rtc = _rtcValidDateTime(2026, 12, 31, 23, 59, 58);')
     expect(cpp).toContain('_rtcBaseDays_rtc = _rtcDaysFromCivil(2026, 12, 31);')
     expect(cpp).toContain('_rtcBaseSeconds_rtc = (uint32_t)(23) * 3600u + (uint32_t)(59) * 60u + (uint32_t)(58);')
@@ -3144,7 +3194,7 @@ describe('RTCInput (codegen)', () => {
 
   it('reads a DS3231 directly over Wire without a third-party RTC library', () => {
     const rtc = node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' })
-    const cpp = generateCpp([rtc, outputNode], [])
+    const cpp = generateCpp([rtc], [])
     expect(cpp).toContain('#include <Wire.h>')
     expect(cpp).toContain("Wire.begin();  // DS3231 on the board's default SDA/SCL pins")
     expect(cpp).toContain('bool _rtcReadDs3231(_RtcDateTime &out, bool &oscillatorStopped)')
@@ -3165,7 +3215,7 @@ describe('ScheduleTrigger (codegen)', () => {
     const sched = node('sch', 'ScheduleTrigger', 'signal', {
       scheduleMode: 'Trigger', startHour: 18, startMinute: 0, startSecond: 0,
     })
-    const cpp = generateCpp([rtc, sched, outputNode], [
+    const cpp = generateCpp([rtc, sched], [
       edge('e1', 'rtc', 'sch', 'valid', 'valid'),
       edge('e2', 'rtc', 'sch', 'secondsOfDay', 'secondsOfDay'),
     ])
@@ -3179,7 +3229,7 @@ describe('ScheduleTrigger (codegen)', () => {
     const sched = node('sch', 'ScheduleTrigger', 'signal', {
       scheduleMode: 'Window', startHour: 18, endHour: 20,
     })
-    const cpp = generateCpp([sched, outputNode], [])
+    const cpp = generateCpp([sched], [])
     expect(cpp).toContain('float n_sch_progress = 0.0f;')
     // 18:00 → 20:00 is a 7200 s span starting at 64800 s.
     expect(cpp).toContain('n_sch_progress = constrain(_scheduleElapsed_sch / 7200.0f, 0.0f, 1.0f);')
@@ -3189,7 +3239,7 @@ describe('ScheduleTrigger (codegen)', () => {
     const sched = node('sch', 'ScheduleTrigger', 'signal', {
       scheduleMode: 'Window', startHour: 22, endHour: 2,
     })
-    const cpp = generateCpp([sched, outputNode], [])
+    const cpp = generateCpp([sched], [])
     // 22:00 → 02:00 is four hours, and the pre-midnight part is 7200 s long.
     expect(cpp).toContain('n_sch_progress = constrain(_scheduleElapsed_sch / 14400.0f, 0.0f, 1.0f);')
     expect(cpp).toContain('? _scheduleSeconds_sch - 79200.0f : 7200.0f + _scheduleSeconds_sch;')
@@ -3198,7 +3248,7 @@ describe('ScheduleTrigger (codegen)', () => {
   // Both sides clamp the calendar day, so the one-pulse-per-day key matches.
   it('clamps the day of month the same way the evaluator does', () => {
     const sched = node('sch', 'ScheduleTrigger', 'signal', { scheduleMode: 'Trigger' })
-    expect(generateCpp([sched, outputNode], [])).toContain(
+    expect(generateCpp([sched], [])).toContain(
       'int _scheduleDay_sch = constrain((int)roundf(1), 1, 31);',
     )
   })
@@ -3210,7 +3260,7 @@ describe('ScheduleTrigger (codegen)', () => {
       scheduleMode: 'Window', startHour: 30, startMinute: 0, startSecond: 0, endHour: 23, endMinute: 59, endSecond: 59,
     })
     // Hour clamps to 23, not a total clamped to 86399.
-    expect(generateCpp([sched, outputNode], [])).toContain('_scheduleSeconds_sch >= 82800.0f')
+    expect(generateCpp([sched], [])).toContain('_scheduleSeconds_sch >= 82800.0f')
   })
 })
 
@@ -3340,7 +3390,7 @@ describe('generateCpp — BeatFlash', () => {
 
   it('defaults to a solid CRGB flash color, screen-blended, with an attack ramp', () => {
     const bf = node('bf', 'BeatFlash', 'pattern', {})
-    const cpp = generateCpp([beat, base, bf, outputNode], [
+    const cpp = generateCpp([beat, base, bf], [
       edge('e1', 'beat', 'bf', 'pressed', 'beat'),
       edge('e2', 'base', 'bf', 'frame', 'frame'),
     ])
@@ -3353,7 +3403,7 @@ describe('generateCpp — BeatFlash', () => {
 
   it('samples a palette instead of the solid color when one is selected', () => {
     const bf = node('bf2', 'BeatFlash', 'pattern', { palette: 'ocean' })
-    const cpp = generateCpp([beat, base, bf, outputNode], [
+    const cpp = generateCpp([beat, base, bf], [
       edge('e1', 'beat', 'bf2', 'pressed', 'beat'),
       edge('e2', 'base', 'bf2', 'frame', 'frame'),
     ])
@@ -3363,7 +3413,7 @@ describe('generateCpp — BeatFlash', () => {
 
   it('preserveBase=false overwrites the pixel outright instead of blending', () => {
     const bf = node('bf3', 'BeatFlash', 'pattern', { preserveBase: false, r: 0, g: 255, b: 0 })
-    const cpp = generateCpp([beat, base, bf, outputNode], [
+    const cpp = generateCpp([beat, base, bf], [
       edge('e1', 'beat', 'bf3', 'pressed', 'beat'),
       edge('e2', 'base', 'bf3', 'frame', 'frame'),
     ])
@@ -3373,7 +3423,7 @@ describe('generateCpp — BeatFlash', () => {
 
   it('blendMode "add" adds the flash color without subtracting the base', () => {
     const bf = node('bf4', 'BeatFlash', 'pattern', { blendMode: 'add' })
-    const cpp = generateCpp([beat, base, bf, outputNode], [
+    const cpp = generateCpp([beat, base, bf], [
       edge('e1', 'beat', 'bf4', 'pressed', 'beat'),
       edge('e2', 'base', 'bf4', 'frame', 'frame'),
     ])
@@ -3468,14 +3518,115 @@ describe('show-pipeline nodes in a normal sketch', () => {
 
   it('explains where each one is handled instead of calling it unsupported', () => {
     for (const type of SHOW_PIPELINE) {
-      const cpp = generateCpp([node(`n-${type}`, type, 'show', {}), outputNode], [])
+      const cpp = generateCpp([node(`n-${type}`, type, 'show', {})], [])
       expect(cpp, type).toContain(`// ${type} —`)
       expect(cpp, type).not.toContain('not yet supported')
     }
   })
 
+  describe('dead-branch pruning', () => {
+    // emit() used to run over every node on the canvas, so a parked pattern got
+    // a global buffer and a full render in loop() — executing every frame, after
+    // FastLED.show(), on pixels nothing displays.
+    const out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, dataPin: 5 })
+    const live = node('live', 'Rainbow', 'pattern')
+
+    it('emits nothing for a node that cannot reach an output', () => {
+      const cpp = generateCpp([out, live, node('orphan', 'Fire', 'pattern')],
+        [edge('e1', 'live', 'out', 'frame', 'frame')])
+      expect(cpp).not.toContain('buf_orphan')
+      expect(cpp).not.toContain('_fireHeat_orphan')
+      expect(cpp).toContain('fill_rainbow(buf_live')
+    })
+
+    it('drops a whole branch whose end feeds nothing', () => {
+      const cpp = generateCpp(
+        [out, live, node('d1', 'Fire', 'pattern'), node('d2', 'Blur2D', 'pattern')],
+        [edge('e1', 'live', 'out', 'frame', 'frame'), edge('e2', 'd1', 'd2', 'frame', 'frame')],
+      )
+      expect(cpp).not.toContain('buf_d1')
+      expect(cpp).not.toContain('buf_d2')
+      // …including the XYMap only the dropped Blur2D needed.
+      expect(cpp).not.toContain('XYMap')
+    })
+
+    it('does not emit the audio engine for a MicInput wired to nothing', () => {
+      const board = node('board', 'Board', 'hardware', { profileId: 'espressif-esp32-s3-devkitc-1' })
+      const cpp = generateCpp([board, out, live, node('mic', 'MicInput', 'hardware', {})],
+        [edge('e1', 'live', 'out', 'frame', 'frame')])
+      expect(cpp).not.toContain('void setupAudio()')
+      expect(cpp).not.toContain('CreateInmp441')
+    })
+
+    it('keeps the Board node, which is configuration rather than dataflow', () => {
+      const board = node('board', 'Board', 'hardware', { profileId: 'espressif-esp32-s3-devkitc-1' })
+      const mic = node('mic', 'MicInput', 'hardware', {})
+      const fft = node('fft', 'FFTAnalyzer', 'audio', {})
+      const bp = node('bp', 'BassPulse', 'pattern', {})
+      const cpp = generateCpp([board, mic, fft, bp, out], [
+        edge('e1', 'mic', 'fft', 'audio', 'audio'),
+        edge('e2', 'fft', 'bp', 'bass', 'bass'),
+        edge('e3', 'bp', 'out', 'frame', 'frame'),
+      ])
+      expect(cpp).toContain('CreateInmp441')
+    })
+
+    it('leaves a graph with no output alone', () => {
+      // Nothing to walk back from; validateGraph reports the missing output.
+      expect(generateCpp([node('m', 'Math', 'math', { mathOp: 'add', a: 1, b: 2 })], []))
+        .toContain('n_m_result')
+    })
+  })
+
+  describe('terminal buffer alias', () => {
+    const out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, dataPin: 5 })
+
+    it('renders the node feeding the output straight into leds', () => {
+      const cpp = generateCpp([node('sc', 'SolidColor', 'pattern'), out],
+        [edge('e1', 'sc', 'out', 'frame', 'frame')])
+      expect(cpp).toContain('CRGB* const buf_sc = leds;')
+      expect(cpp).not.toContain('CRGB buf_sc[NUM_LEDS];')
+      expect(cpp).not.toContain('::memmove(leds, buf_sc,')
+    })
+
+    it('keeps a real buffer when the frame also feeds something else', () => {
+      // A second consumer reads that buffer, so it cannot be the output array.
+      const cpp = generateCpp(
+        [node('sc', 'SolidColor', 'pattern'), node('fd', 'Fade', 'composite'), out],
+        [
+          edge('e1', 'sc', 'out', 'frame', 'frame'),
+          edge('e2', 'sc', 'fd', 'frame', 'frame'),
+        ],
+      )
+      expect(cpp).toContain('CRGB buf_sc[NUM_LEDS];')
+      expect(cpp).toContain('::memmove(leds, buf_sc,')
+    })
+
+    it('keeps a real buffer when the output remaps pixels on the way out', () => {
+      const serp = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, dataPin: 5, serpentine: true })
+      const cpp = generateCpp([node('sc', 'SolidColor', 'pattern'), serp],
+        [edge('e1', 'sc', 'out', 'frame', 'frame')])
+      expect(cpp).toContain('CRGB buf_sc[NUM_LEDS];')
+      expect(cpp).toContain('leds[XY(_x, _y)] = buf_sc[_y * WIDTH + _x]')
+    })
+
+    it('keeps a real buffer when supersampling downscales into leds', () => {
+      const ssOut = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, dataPin: 5, supersample: true })
+      const cpp = generateCpp([node('sc', 'SolidColor', 'pattern'), ssOut],
+        [edge('e1', 'sc', 'out', 'frame', 'frame')])
+      expect(cpp).toContain('CRGB buf_sc[NUM_LEDS];')
+    })
+
+    it('does not shadow leds inside a Code node that aliases the output', () => {
+      const code = node('cd', 'Code', 'pattern', { code: 'leds[0] = CRGB::Red;' })
+      const cpp = generateCpp([code, out], [edge('e1', 'cd', 'out', 'frame', 'frame')])
+      expect(cpp).toContain('CRGB* const buf_cd = leds;')
+      expect(cpp).not.toContain('CRGB* leds = leds;')
+    })
+  })
+
   it('still flags a genuinely unknown node type as unsupported', () => {
-    const cpp = generateCpp([node('mystery', 'NotARealNode', 'pattern', {}), outputNode], [])
+    const cpp = generateCpp([node('mystery', 'NotARealNode', 'pattern', {})], [])
     expect(cpp).toContain('NotARealNode — not yet supported in code gen')
   })
 })

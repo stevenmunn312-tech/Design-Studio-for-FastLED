@@ -146,6 +146,45 @@ void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, 
 float prnd(float n) { float s = sinf(n * 12.9898f) * 43758.5453f; return s - floorf(s); }
 `
 
+// The particle hash alone, for a sketch that needs the sparks but not the
+// transition switch (a one-pattern show never transitions).
+const PRND_HEADING = '// Hash → [0,1)'
+export const PARTICLE_HASH_CPP = TRANSITION_HELPER_CPP.slice(TRANSITION_HELPER_CPP.indexOf(PRND_HEADING))
+
+/**
+ * The transition helper narrowed to a known set of style ids.
+ *
+ * `type` is a runtime value, so the compiler cannot drop the arms a sketch
+ * never reaches — but a generative show bakes its pool as a const array, so
+ * the reachable set *is* known at generation time. Passing it here keeps a
+ * crossfade-only show (the default with no TransitionSet wired) from carrying
+ * all fifteen other effects. Omit `styleIds` to keep every case: the
+ * music-sync player selects styles from the `.show` file at runtime and can
+ * be handed any of them.
+ *
+ * The crossfade arm is `default:`, so it always survives.
+ */
+export function transitionHelperCpp(styleIds?: readonly number[]): string {
+  if (!styleIds) return TRANSITION_HELPER_CPP
+  const keep = new Set(styleIds)
+  const out: string[] = []
+  let depth: number | null = null
+  for (const line of TRANSITION_HELPER_CPP.split('\n')) {
+    if (depth === null) {
+      const start = /^ {4}case (\d+): \{/.exec(line)
+      if (start && !keep.has(Number(start[1]))) { depth = 1; continue }
+      out.push(line)
+      continue
+    }
+    for (const ch of line) {
+      if (ch === '{') depth++
+      else if (ch === '}') depth--
+    }
+    if (depth <= 0) depth = null
+  }
+  return out.join('\n')
+}
+
 // Beat-triggered particle overlay as a self-contained function that adds sparks
 // onto the global `leds`. The 17-style switch mirrors renderParticleBurst in
 // graphEvaluator.ts (and the inline block in playerSketchGenerator.ts) — keep

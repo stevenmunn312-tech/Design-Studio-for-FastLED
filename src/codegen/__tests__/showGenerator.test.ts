@@ -505,3 +505,70 @@ describe('showGenerator', () => {
     })
   })
 })
+
+describe('show sketch weight', () => {
+  const groups = {
+    g0: { nodes: [node('sc', 'SolidColor', { r: 0, g: 0, b: 255 }), node('go', 'GroupOutput')],
+          edges: [edge('e', 'sc', 'frame', 'go', 'frame')] },
+    g1: { nodes: [node('nz', 'Noise', { palette: 'ocean' }), node('go', 'GroupOutput')],
+          edges: [edge('e', 'nz', 'frame', 'go', 'frame')] },
+  }
+  const master = node('pm', 'PatternMaster', {})
+  const out = node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 })
+  const wiring = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
+  const show = (patternIds: string[], extraNodes: StudioNode[] = [], extraEdges: StudioEdge[] = []) => generateShowSketch(
+    [node('pc', 'PatternCollection', { patternIds }), master, out, ...extraNodes],
+    [...wiring, ...extraEdges], groups,
+  )
+
+  // Palette declarations are non-const 48-byte globals, so the 29 unused ones
+  // this used to emit were ~1.4KB of dead RAM.
+  it('declares only the palettes the collected patterns name', () => {
+    const cpp = show(['g0', 'g1'])
+    expect(cpp).toContain('CRGBPalette16 paldef_ocean(')     // Noise samples it
+    expect(cpp).not.toContain('CRGBPalette16 paldef_lava(')
+    expect(cpp).not.toContain('CRGBPalette16 paldef_sunset(')
+  })
+
+  it('declares no palettes at all when no pattern samples one', () => {
+    expect(show(['g0'])).not.toContain('CRGBPalette16 paldef_')
+  })
+
+  // `type` is a runtime value, so the compiler cannot drop the arms the pool
+  // never selects — but the pool is baked as a const array at generation time.
+  it('narrows the transition switch to the pool', () => {
+    const cpp = show(['g0', 'g1'])
+    expect(cpp).toContain('const uint8_t TRANS_POOL[] = { 0 };')
+    expect(cpp).toContain('default: {  // crossfade (0)')
+    expect(cpp).not.toContain('case 1: {  // wipe')
+    expect(cpp).not.toContain('case 15: {  // zoom')
+  })
+
+  it('keeps exactly the styles a wired TransitionSet selects', () => {
+    const set = node('ts', 'TransitionSet', { transitions: ['wipe', 'zoom'] })
+    const cpp = show(['g0', 'g1'], [set], [edge('e3', 'ts', 'transitions', 'pm', 'transitions')])
+    expect(cpp).toContain('case 1: {  // wipe')
+    expect(cpp).toContain('case 15: {  // zoom')
+    expect(cpp).toContain('default: {  // crossfade (0)')   // always the fallback arm
+    expect(cpp).not.toContain('case 2: {  // dissolve')
+    expect(cpp).not.toContain('case 11: {  // ripple')
+  })
+
+  // A collection of one never transitions: the guard was `PATTERN_COUNT > 1`,
+  // so showA/showB, the pool and the compositing switch were all unreachable.
+  it('omits the whole transition apparatus for a one-pattern collection', () => {
+    const cpp = show(['g0'])
+    expect(cpp).toContain('#define PATTERN_COUNT 1')
+    expect(cpp).toContain('renderPattern(0, now);')
+    expect(cpp).not.toContain('showA')
+    expect(cpp).not.toContain('showB')
+    expect(cpp).not.toContain('TRANS_POOL')
+    expect(cpp).not.toContain('compositeTransition')
+  })
+
+  it('still emits it for two patterns', () => {
+    const cpp = show(['g0', 'g1'])
+    expect(cpp).toContain('CRGB showA[NUM_LEDS];   // outgoing pattern during a transition')
+    expect(cpp).toContain('compositeTransition(transType, leds, showA, showB, p);')
+  })
+})

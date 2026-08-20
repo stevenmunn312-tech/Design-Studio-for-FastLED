@@ -6,7 +6,7 @@ import { sdCardConnected } from './showUpload'
 import { evaluateScalarExpression } from '../state/scalarExpression'
 import { isNodeFormulaValid } from '../state/formulaLang'
 import { isValidRtcDateTime } from '../state/rtc'
-import { validateMatrixLayout, tileRotationAt } from '../state/xyLayout'
+import { buildXYTable, validateMatrixLayout, tileRotationAt } from '../state/xyLayout'
 import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes } from '../state/outputRouting'
 import { boardGpioInfo } from '../state/uploadStore'
 import { MAX_PIN_NUMBER, pinSupports } from '../state/boardGpio'
@@ -350,12 +350,32 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): F
     for (const e of incomingByTarget.get(id) ?? []) stack.push(e.source)
   }
 
+  // The node feeding a single plain output renders into `leds` rather than
+  // owning a buffer that is copied over (cppGenerator's terminal alias), so it
+  // is not counted. The conditions are restated here rather than shared,
+  // because codegen's own check runs against expression-resolved properties it
+  // derives internally; when the two disagree this over-counts by one frame,
+  // which is the safe direction for a budget. The compile-check meter remains
+  // the authority on actual usage.
+  const aliasedTerminalId = (() => {
+    if (outputs.length !== 1) return null
+    const output = outputs[0]
+    const p = output.data.properties as Record<string, unknown>
+    if (outputForm(p) === 'ring' || p.supersample === true) return null
+    if (String(p.chipset ?? '') === 'HUB75') return null
+    if (buildXYTable(w, h, p)) return null
+    const feed = (incomingByTarget.get(output.id) ?? []).find((e) => e.targetHandle === 'frame')
+    if (!feed || feed.sourceHandle !== 'frame') return null
+    const consumers = edges.filter((e) => e.source === feed.source && e.sourceHandle === 'frame')
+    return consumers.length === 1 ? feed.source : null
+  })()
+
   let frameBufferBytes = 0, fieldBufferBytes = 0, statefulBytes = 0
   for (const id of reachable) {
     const n = byId.get(id)
     if (!n) continue
     const outputTypes = OUTPUT_DATATYPES_BY_NODE_TYPE.get(n.data.nodeType)
-    if (outputTypes?.has('frame')) frameBufferBytes += renderLedCount * 3
+    if (outputTypes?.has('frame') && id !== aliasedTerminalId) frameBufferBytes += renderLedCount * 3
     if (outputTypes?.has('field')) fieldBufferBytes += renderLedCount * 4
     // ColorTrails' separable subpixel advection needs one intermediate CRGB
     // frame in addition to its persistent output buffer. Codegen declares it

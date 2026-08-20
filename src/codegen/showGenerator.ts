@@ -19,7 +19,7 @@ import { customPaletteDeclarationsCpp } from '../state/paletteCatalog'
 import { generateCpp, audioEngineForGraph, psramBufferDecl, PSRAM_ALLOC_CPP, ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp } from './cppGenerator'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { SHOW_TRANSITIONS } from './performanceGenerator'
-import { TRANSITION_HELPER_CPP, PARTICLE_OVERLAY_CPP } from './transitionHelperCpp'
+import { transitionHelperCpp, PARTICLE_HASH_CPP, PARTICLE_OVERLAY_CPP } from './transitionHelperCpp'
 import { hexToRgb } from '../state/polinePalette'
 import { buildXYTable } from '../state/xyLayout'
 import { compositionDims, outputRoutes } from '../state/outputRouting'
@@ -175,7 +175,11 @@ function buildPattern(
 
   // `externalAudio` lets the pattern's FFTAnalyzer/BeatDetect reference the
   // controller-hosted mic globals (the controller emits the engine once).
-  const sketch = generateCpp(nodes, retainedEdges, groups, { externalAudio, nativeFastLedAudio, groupInputExprs })
+  // `aliasTerminalBuffer: false`: in a show every pattern renders through the
+  // same `leds`, so a pattern whose terminal node aliased it would be clobbered
+  // by the other pattern mid-transition (and a persistent-buffer node such as
+  // Trails would lose its accumulated frame entirely).
+  const sketch = generateCpp(nodes, retainedEdges, groups, { externalAudio, nativeFastLedAudio, groupInputExprs, aliasTerminalBuffer: false })
   const lines = sketch.split('\n')
   // FrameFeedback history and baked image palettes are per-node globals too.
   // Prefix them alongside buf_/field_ so two collected patterns cloned from
@@ -331,9 +335,12 @@ export function generateShowSketch(
   const beatTrigger = info.beatWired && !!audio
   // Particle overlay also rides the mic beat, so it needs the same source.
   const particlesOn = info.particles && beatTrigger
-  const fastLedDecls = new Set<string>([
-    'void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt);',
-  ])
+  // A collection of one never transitions — the dwell simply never ends — so
+  // the whole transition apparatus (showA/showB, the style pool, and the
+  // compositing switch) is left out rather than emitted unreachable.
+  const transitions = renderers.count > 1
+  const fastLedDecls = new Set<string>()
+  if (transitions) fastLedDecls.add('void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt);')
   if (particlesOn) fastLedDecls.add('void particleOverlay(uint32_t burstStart, uint8_t burstStyle, uint8_t burstR, uint8_t burstG, uint8_t burstB, float burstIntensity, uint32_t posMs);')
   for (const block of [...renderers.helpers, ...renderers.functions]) {
     const proto = cppPrototype(block)
@@ -379,8 +386,10 @@ export function generateShowSketch(
   if (isHub75) L.push(...hub75GlobalsCpp(hub75Hw!))
   if (multiOutput) for (const route of routes) L.push(`CRGB leds_${route.safeId}[${route.width * route.height}];`)
   const showBufs = [
-    'CRGB showA[NUM_LEDS];   // outgoing pattern during a transition',
-    'CRGB showB[NUM_LEDS];   // incoming pattern during a transition',
+    ...(transitions ? [
+      'CRGB showA[NUM_LEDS];   // outgoing pattern during a transition',
+      'CRGB showB[NUM_LEDS];   // incoming pattern during a transition',
+    ] : []),
     ...renderers.buffers,
   ]
   const psramAllocs: string[] = []
@@ -391,20 +400,23 @@ export function generateShowSketch(
   }
   L.push('')
   if (usePsram) { L.push(PSRAM_ALLOC_CPP); L.push('') }
-  // The random pool of transition style ids the controller draws from.
-  L.push(`const uint8_t TRANS_POOL[] = { ${info.transitionIds.join(', ')} };`)
-  L.push(`#define TRANS_POOL_N ${info.transitionIds.length}`)
+  if (transitions) {
+    // The random pool of transition style ids the controller draws from.
+    L.push(`const uint8_t TRANS_POOL[] = { ${info.transitionIds.join(', ')} };`)
+    L.push(`#define TRANS_POOL_N ${info.transitionIds.length}`)
+    L.push('')
+  }
+  // Palette declarations are non-const 48-byte globals, so an unused one costs
+  // real RAM — all 29 of them is ~1.4KB. A normal sketch narrows to the
+  // palettes it names as it emits them; here the pattern bodies arrive as
+  // finished text from separate generateCpp runs, so the union is recovered
+  // afterwards by looking for the `paldef_*` symbols they actually reference.
+  const paletteDeclMarker = L.length
   L.push('')
-  // Declares all palettes rather than narrowing to the ones the collected
-  // patterns name (as generateCpp does for a normal sketch): the pattern bodies
-  // are rewritten in from separate generateCpp runs, so the union isn't known
-  // here. Costs ~1.4KB of RAM, which is under half a percent on the ESP32-class
-  // hardware a multi-pattern show already requires.
-  for (const decl of customPaletteDeclarationsCpp()) L.push(decl)
   L.push('')
   if (audio) { for (const line of audio.code) L.push(line); L.push('') }
-  L.push(TRANSITION_HELPER_CPP)
-  L.push('')
+  if (transitions) { L.push(transitionHelperCpp(info.transitionIds)); L.push('') }
+  else if (particlesOn) { L.push(PARTICLE_HASH_CPP); L.push('') }
   if (particlesOn) { L.push(PARTICLE_OVERLAY_CPP); L.push('') }
   for (const h of renderers.helpers) { L.push(h); L.push('') }
 
@@ -459,9 +471,11 @@ export function generateShowSketch(
   const transMs = Math.round(info.transitionSec * 1000)
   L.push('void loop() {')
   if (audio) L.push('  updateAudio();   // refresh mic band levels once per frame')
-  L.push('  static uint8_t  cur = random8(PATTERN_COUNT), nxt = 0, transType = 0;')
-  L.push('  static bool     transitioning = false;')
-  L.push('  static uint32_t phaseStart = 0, dwell = 0;')
+  if (transitions) {
+    L.push('  static uint8_t  cur = random8(PATTERN_COUNT), nxt = 0, transType = 0;')
+    L.push('  static bool     transitioning = false;')
+    L.push('  static uint32_t phaseStart = 0, dwell = 0;')
+  }
   if (particlesOn) {
     L.push('  static uint32_t burstStart = 0; static bool prevBeat = false;')
     L.push(`  static uint8_t  burstStyle = ${info.particleStyle};`)
@@ -476,27 +490,32 @@ export function generateShowSketch(
     L.push('  }')
     L.push('  prevBeat = _audioBeat;')
   }
-  L.push(`  if (dwell == 0) dwell = random16(${minMs}, ${maxMs});`)
-  L.push('')
-  L.push('  if (!transitioning) {')
-  L.push('    renderPattern(cur, now);')
-  L.push('    bool timeUp = now - phaseStart >= dwell;')
-  if (beatTrigger) L.push(`    bool beatTrig = _audioBeat && now - phaseStart >= ${minMs};`)
-  const advance = beatTrigger ? '(timeUp || beatTrig)' : 'timeUp'
-  L.push(`    if (${advance} && PATTERN_COUNT > 1) {`)
-  L.push('      nxt = (cur + 1 + random8(PATTERN_COUNT - 1)) % PATTERN_COUNT;')
-  L.push('      transType = TRANS_POOL[random8(TRANS_POOL_N)];')
-  L.push('      transitioning = true; phaseStart = now;')
-  L.push('    }')
-  L.push('  } else {')
-  L.push(`    float p = ${transMs} > 0 ? (float)(now - phaseStart) / ${transMs} : 1.0f;`)
-  L.push('    if (p >= 1.0f) p = 1.0f;')
-  L.push('    renderPattern(cur, now); ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);  // outgoing')
-  L.push('    renderPattern(nxt, now); ::memmove(showB, leds, sizeof(CRGB) * NUM_LEDS);  // incoming')
-  L.push('    compositeTransition(transType, leds, showA, showB, p);')
-  L.push('    if (p >= 1.0f) { cur = nxt; transitioning = false; phaseStart = now; dwell = random16(' + minMs + ', ' + maxMs + '); }')
-  L.push('  }')
-  L.push('')
+  if (!transitions) {
+    L.push('  renderPattern(0, now);   // the collection holds a single pattern')
+    L.push('')
+  } else {
+    L.push(`  if (dwell == 0) dwell = random16(${minMs}, ${maxMs});`)
+    L.push('')
+    L.push('  if (!transitioning) {')
+    L.push('    renderPattern(cur, now);')
+    L.push('    bool timeUp = now - phaseStart >= dwell;')
+    if (beatTrigger) L.push(`    bool beatTrig = _audioBeat && now - phaseStart >= ${minMs};`)
+    const advance = beatTrigger ? '(timeUp || beatTrig)' : 'timeUp'
+    L.push(`    if (${advance}) {`)
+    L.push('      nxt = (cur + 1 + random8(PATTERN_COUNT - 1)) % PATTERN_COUNT;')
+    L.push('      transType = TRANS_POOL[random8(TRANS_POOL_N)];')
+    L.push('      transitioning = true; phaseStart = now;')
+    L.push('    }')
+    L.push('  } else {')
+    L.push(`    float p = ${transMs} > 0 ? (float)(now - phaseStart) / ${transMs} : 1.0f;`)
+    L.push('    if (p >= 1.0f) p = 1.0f;')
+    L.push('    renderPattern(cur, now); ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);  // outgoing')
+    L.push('    renderPattern(nxt, now); ::memmove(showB, leds, sizeof(CRGB) * NUM_LEDS);  // incoming')
+    L.push('    compositeTransition(transType, leds, showA, showB, p);')
+    L.push('    if (p >= 1.0f) { cur = nxt; transitioning = false; phaseStart = now; dwell = random16(' + minMs + ', ' + maxMs + '); }')
+    L.push('  }')
+    L.push('')
+  }
   if (particlesOn) {
     L.push(`  particleOverlay(burstStart, burstStyle, burstColor.r, burstColor.g, burstColor.b, ${info.particleIntensity}f, now);`)
   }
@@ -528,6 +547,14 @@ export function generateShowSketch(
   }
   L.push('  FastLED.delay(16);')
   L.push('}')
+
+  // Splice in only the palettes something else in the sketch actually names.
+  const paletteDecls = customPaletteDeclarationsCpp()
+  const withoutPalettes = [...L.slice(0, paletteDeclMarker), ...L.slice(paletteDeclMarker + 1)].join('\n')
+  L.splice(paletteDeclMarker, 1, ...paletteDecls.filter((decl) => {
+    const symbol = /^CRGBPalette16 (paldef_[A-Za-z0-9_]+)\(/.exec(decl)?.[1]
+    return symbol ? new RegExp(`\\b${symbol}\\b`).test(withoutPalettes) : true
+  }))
 
   return L.join('\n')
 }
