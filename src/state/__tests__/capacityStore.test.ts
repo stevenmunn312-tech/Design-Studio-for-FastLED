@@ -17,6 +17,55 @@ describe('capacityStore', () => {
     compileCheck.mockClear()
   })
 
+  it('drops the reading when there is nothing left to build', async () => {
+    // The whole point of the null request. Leaving the old numbers up meant a
+    // graph that stopped being buildable still showed a reading — from a
+    // design that no longer existed — at status 'measured'.
+    const { useCapacityStore } = await freshStore()
+    const { request } = useCapacityStore.getState()
+
+    request('CODE', 'esp32:esp32:esp32', true)
+    await vi.advanceTimersByTimeAsync(1300)
+    expect(useCapacityStore.getState().status).toBe('measured')
+    expect(useCapacityStore.getState().result).not.toBeNull()
+
+    request(null, 'esp32:esp32:esp32', true)
+    expect(useCapacityStore.getState().status).toBe('nothing-to-measure')
+    expect(useCapacityStore.getState().result).toBeNull()
+  })
+
+  it('does not carry a sketch reading over to the player, or back', async () => {
+    // Same board, different binary. Showing one subject's numbers under the
+    // other's name is the same lie a board switch would be.
+    const { useCapacityStore } = await freshStore()
+    const { request } = useCapacityStore.getState()
+
+    request('CODE', 'esp32:esp32:esp32', true, undefined, 'sketch')
+    await vi.advanceTimersByTimeAsync(1300)
+    expect(useCapacityStore.getState().result).not.toBeNull()
+    expect(useCapacityStore.getState().subject).toBe('sketch')
+
+    request('PLAYER', 'esp32:esp32:esp32', true, undefined, 'player')
+    expect(useCapacityStore.getState().status).toBe('checking')
+    expect(useCapacityStore.getState().result).toBeNull()
+    expect(useCapacityStore.getState().subject).toBe('player')
+  })
+
+  it('re-checks the same code when only the subject changed', async () => {
+    // The cache key has to include the subject, or switching a graph into a
+    // show with identical source would be swallowed as a repeat.
+    const { useCapacityStore } = await freshStore()
+    const { request } = useCapacityStore.getState()
+
+    request('SAME', 'esp32:esp32:esp32', true, undefined, 'sketch')
+    await vi.advanceTimersByTimeAsync(1300)
+    expect(compileCheck).toHaveBeenCalledTimes(1)
+
+    request('SAME', 'esp32:esp32:esp32', true, undefined, 'player')
+    await vi.advanceTimersByTimeAsync(1300)
+    expect(compileCheck).toHaveBeenCalledTimes(2)
+  })
+
   it('re-checks once the toolchain becomes ready, without needing a code or board change', async () => {
     const { useCapacityStore } = await freshStore()
     const { request } = useCapacityStore.getState()

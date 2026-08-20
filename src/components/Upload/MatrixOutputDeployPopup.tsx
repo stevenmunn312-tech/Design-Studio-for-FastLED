@@ -113,8 +113,11 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
   // the actual debounced compile-check) — the measured result is the
   // authority here: only a *confirmed* overflow blocks Upload, so editing is
   // never blocked just because a check hasn't completed yet.
-  const { status: capacityStatus, result: capacityResult } = useCapacityStore()
-  const capacitySummary = useMemo(() => summarizeCapacity(board, capacityStatus, capacityResult), [board, capacityStatus, capacityResult])
+  const { status: capacityStatus, result: capacityResult, subject: capacitySubject } = useCapacityStore()
+  const capacitySummary = useMemo(
+    () => summarizeCapacity(board, capacityStatus, capacityResult, capacitySubject),
+    [board, capacityStatus, capacityResult, capacitySubject],
+  )
   const capacityOverflow = capacityResult?.target === (usePsram && psramChoice ? `${selectedFqbn}:${psramChoice.opt}` : selectedFqbn)
     && !capacityResult.ok && capacityResult.overflow
 

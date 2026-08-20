@@ -370,6 +370,23 @@ Once the pattern is proven, everything physical moves to the hardware view.
   **Not hardware-validated** — it rides along with the SD-show retest.
 
 
+- [x] **A missing SD card no longer bricks the player.** The mount failure was
+  an infinite spin, so a card that was not seated — or one taken out to a
+  reader and put back, which the card-reader path now asks for — left the board
+  dead until someone physically reset it. Nothing about a missing card is
+  permanent. It now reports `ERR sd-mount-failed` once from `setup()`, retries
+  every second (releasing the bus first, since `begin()` against stale driver
+  state keeps failing even once the card is seated), and calls `startPlayback()`
+  when the card appears.
+
+  The upload path is deliberately unchanged: the host still reads that one
+  greeting and still treats it as fatal for a transfer, which is correct —
+  there is nowhere to write. Saying it once rather than on every retry is what
+  keeps it a greeting instead of a stream the host has to filter.
+
+  Worth a troubleshooting entry in the help too, since the failure is usually
+  wiring or a CS pin rather than the card.
+
 ## Phase 4 — the Audio capability
 
 - [ ] **`Audio` node.** Source dropdown over the board's capabilities, honest
@@ -442,9 +459,35 @@ Not part of this branch's design, but unresolved and worth not losing.
 - [ ] **fbuild deploy cannot open the port** while esptool from a shell opens
   the same port seconds later. Reproducible; engine currently switched to
   `arduino-cli`, which flashes reliably. Good upstream report.
-- [ ] **The capacity meter measures the wrong sketch for SD shows.** It
-  compile-checks the normal sketch, so it reports comfortable headroom for a
-  design whose *player* will not link.
-- [ ] **The show player ignores PSRAM.** `playerSketchGenerator` has no PSRAM
+- [x] **The capacity meter measures the wrong sketch for SD shows.** It was
+  three divergences, not one, all pointing the same way — comfortable.
+
+  It compile-checked `generateCpp`/`generateShowSketch` while an SD show
+  flashes `generatePlayerSketch`: a different binary with the audio and SD
+  libraries, `showA`/`showB`, and a buffer per collected pattern, always the
+  larger one. It gated on a frame edge reaching a MatrixOutput, which a show
+  does not have — so a typical show fired no request at all, and the store kept
+  the previous reading at status `measured`, from a design that no longer
+  existed. And it appended the PSRAM board option while `runShowUpload` flashes
+  plain `selectedFqbn` against a player that deliberately includes the
+  *no-PSRAM* build of ESP32-audioI2S, understating exactly the internal DRAM
+  that overflows.
+
+  Fixed by choosing the subject with the same predicate the Upload button uses
+  (`sdCardConnected`), measuring through the shared `buildShowPlayer` that the
+  real upload calls, and dropping the PSRAM option on that path.
+  `buildShowPlayerForMeasurement` derives the pattern set from the wired
+  collection rather than from an analysed song, so the meter works while the
+  show is being composed instead of blanking until an analysis finishes — which
+  is exactly when it earns its place.
+
+  Two guards came with it, both aimed at the class rather than the instance.
+  `request(null, …)` is now how a caller says "nothing to build", and it clears
+  the reading; skipping the call is what let a stale number pass for a current
+  one. And the meter names what it measured (`ESP32-S3 · player · flash 74%`),
+  with a subject change invalidating the result exactly like a board change —
+  a meter that says what it measured cannot silently measure the wrong thing.
+- [ ] **The show player ignores PSRAM.** (The capacity meter no longer
+  pretends otherwise — see above — but the player still cannot use it.) `playerSketchGenerator` has no PSRAM
   path at all, so the SD-show ceiling is internal DRAM even on a board that has
   PSRAM. `buildPatternRenderers` already accepts `psramAllowed`.

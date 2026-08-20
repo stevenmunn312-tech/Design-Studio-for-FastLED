@@ -434,6 +434,9 @@ ${isHub75 ? '' : `#define LED_DATA_PIN  ${c.ledDataPin}\n`}${clockPinDefine}#def
 #define SD_CS         ${c.sdCsPin}
 // Serial file transfer, so new shows reach a running board without a reflash.
 // Every wait is bounded — see provServiceSerial.
+// How often to look for a card that was missing at boot, or pulled and
+// returned. Slow enough that a permanently empty slot costs nothing.
+#define SD_REMOUNT_MS            1000
 #define PROV_CHUNK               4096
 #define PROV_RX_BUFFER           8192
 #define PROV_LINE_TIMEOUT_MS       50
@@ -676,6 +679,36 @@ bool startPlayback() {
  * permanently, with nothing visible to the host. A timeout costs one failed
  * transfer; an unbounded wait costs the session.
  */
+/** False until the card mounts. Not a fatal state — see sdRetryMount. */
+bool sdMounted = false;
+
+/*
+ * Keep trying to mount the card, and start playing when it appears.
+ *
+ * This used to be an infinite spin on a failed mount, which meant a card that
+ * was not seated — or taken out to a reader and put back — left the board dead
+ * until someone physically reset it. Nothing about a missing card is
+ * permanent, so nothing here should be either. The upload path is unaffected:
+ * the host still reads the one "ERR sd-mount-failed" greeting from setup() and
+ * still treats it as fatal for a transfer, which is correct, since there is
+ * nowhere to write.
+ */
+void sdRetryMount() {
+  if (sdMounted) return;
+  static uint32_t lastTry = 0;
+  if (millis() - lastTry < SD_REMOUNT_MS) return;
+  lastTry = millis();
+
+  // Release the bus first: begin() on a half-initialised card can keep
+  // failing against stale driver state even once the card is seated.
+  SD.end();
+  if (!SD.begin(SD_CS)) return;
+
+  sdMounted = true;
+  Serial.println("SD card mounted");
+  startPlayback();
+}
+
 static bool     provTransferring = false;
 static uint32_t provLastCommandMs = 0;
 
@@ -831,14 +864,15 @@ ${ledSetupLines}
 
   // The protocol's own wording, not a human sentence: the host reads this
   // greeting and turns it into a real explanation (card seated? FAT32? CS pin?).
-  // Halting is deliberate — with no card there is nothing to play and nowhere
-  // to receive, so answering the host would only hide the fault.
-  if (!SD.begin(SD_CS)) { Serial.println("ERR sd-mount-failed"); while(1); }
+  // Said once here rather than on every retry, so it stays a greeting the host
+  // can read instead of a stream it has to filter.
+  sdMounted = SD.begin(SD_CS);
+  if (!sdMounted) Serial.println("ERR sd-mount-failed");
 
   ${internalDac ? '' : 'audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);'}
   audio.setVolume(${c.maxVolume});
 
-  startPlayback();
+  if (sdMounted) startPlayback();
 }
 
 // ── Loop ──────────────────────────────────────────────────────────────────────
@@ -852,6 +886,8 @@ void loop() {
   // reason the reads below are bounded. There is no playback to sync against
   // during a transfer anyway, so the panel simply holds its last frame.
   if (provTransferring) return;
+
+  sdRetryMount();
 
   // Heartbeat so a serial monitor can tell "still running, just quiet" apart
   // from "hung" — printed before audio.loop() so it keeps ticking even if

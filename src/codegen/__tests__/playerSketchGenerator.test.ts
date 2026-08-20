@@ -54,8 +54,23 @@ describe('playerSketchGenerator', () => {
     it('reports a mount failure in the wording the host diagnoses', () => {
       // The host turns this exact string into a real explanation (card seated?
       // FAT32? CS pin?); a human sentence here would be passed through as an
-      // unrecognised greeting instead.
-      expect(sketch).toContain('Serial.println("ERR sd-mount-failed"); while(1);')
+      // unrecognised greeting instead. Said once, from setup(), so it stays a
+      // greeting rather than a stream the host has to filter.
+      expect(sketch).toContain('if (!sdMounted) Serial.println("ERR sd-mount-failed");')
+    })
+
+    it('keeps trying to mount, instead of halting on a missing card', () => {
+      // Nothing about a missing card is permanent — it can be unseated, or out
+      // at a reader. Halting meant a physical reset was the only way back.
+      expect(sketch).not.toMatch(/sd-mount-failed[^\n]*while\s*\(\s*1\s*\)/)
+      expect(sketch).toContain('void sdRetryMount() {')
+      expect(sketch).toContain('sdRetryMount();')
+      // Releases the bus first: begin() against stale driver state can keep
+      // failing even once the card is seated.
+      expect(sketch).toMatch(/SD\.end\(\);\n\s*if \(!SD\.begin\(SD_CS\)\) return;/)
+      // ...and picks up playback once the card turns up, since setup() could
+      // not have started any.
+      expect(sketch).toMatch(/sdMounted = true;\n[^]*?startPlayback\(\);/)
     })
 
     it('sizes the RX buffer before begin(), where the driver reads it', () => {

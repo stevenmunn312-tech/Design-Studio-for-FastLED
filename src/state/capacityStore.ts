@@ -12,7 +12,21 @@ import { compileCheck, type CompileCheckResult } from '../utils/backendClient'
 // hit an unrelated compile error (`!result.ok && !result.overflow`) — the
 // meter renders all three from `status === 'measured' | 'stale'` plus that
 // flag, rather than needing a status value per outcome.
-export type CapacityStatus = 'checking' | 'measured' | 'stale' | 'toolchain-missing'
+export type CapacityStatus =
+  | 'checking'
+  | 'measured'
+  | 'stale'
+  | 'toolchain-missing'
+  /** There is no sketch to build yet, so there is deliberately no number.
+   *  Distinct from 'measured' with a stale `result`, which is what this state
+   *  replaces: a graph that stopped being buildable used to leave the previous
+   *  reading on screen, from a different design, looking current. */
+  | 'nothing-to-measure'
+
+/** What the measured sketch actually is. A reading is only meaningful against
+ *  its subject — an SD show flashes the player, which pulls in the audio and
+ *  SD libraries plus a buffer per pattern, and is always the larger binary. */
+export type CapacitySubject = 'sketch' | 'player'
 
 interface CapacityState {
   status: CapacityStatus
@@ -23,6 +37,8 @@ interface CapacityState {
    *  target — lets callers (e.g. Pattern Collection) show "since last check"
    *  deltas after adding/removing a pattern. */
   previousResult: CompileCheckResult | null
+  /** What `result` was measured against, for the meter to name. */
+  subject: CapacitySubject
 
   /**
    * Request a capacity check for `code` compiled against `fqbn` (already
@@ -32,8 +48,18 @@ interface CapacityState {
    * with no installed core doesn't spam failing requests; the meter shows
    * 'toolchain-missing' instead. `engineTag` additionally invalidates the
    * cache when the active build engine changes under an unchanged code+fqbn.
+   *
+   * A null `code` means "there is nothing to build" — the caller must say so
+   * rather than skipping the call, or the last reading stays on screen as
+   * though it still described the graph.
    */
-  request: (code: string, fqbn: string, toolchainReady: boolean, engineTag?: string) => void
+  request: (
+    code: string | null,
+    fqbn: string,
+    toolchainReady: boolean,
+    engineTag?: string,
+    subject?: CapacitySubject,
+  ) => void
   clear: () => void
 }
 
@@ -56,18 +82,37 @@ let inFlightController: AbortController | null = null
 // board switch can be detected even before any response has come back.
 let requestedFqbn: string | null = null
 let requestedKey: string | null = null
+let requestedSubject: CapacitySubject | null = null
 
 export const useCapacityStore = create<CapacityState>((set) => ({
   status: 'toolchain-missing',
   result: null,
   previousResult: null,
+  subject: 'sketch',
 
-  request: (code, fqbn, toolchainReady, engineTag) => {
-    const key = `${fqbn}|${engineTag ?? ''}|${hashCode(code)}`
+  request: (code, fqbn, toolchainReady, engineTag, subject = 'sketch') => {
+    if (code === null) {
+      // Drop the reading rather than leaving it: it described a graph that no
+      // longer exists, and a number with nothing behind it is worse than none.
+      if (debounceTimer) clearTimeout(debounceTimer)
+      inFlightController?.abort()
+      requestedKey = null
+      set((s) => (s.status === 'nothing-to-measure' && !s.result
+        ? s
+        : { status: 'nothing-to-measure', result: null, previousResult: null }))
+      return
+    }
+
+    const key = `${fqbn}|${engineTag ?? ''}|${subject}|${hashCode(code)}`
     if (key === requestedKey) return
 
     const boardChanged = requestedFqbn !== null && requestedFqbn !== fqbn
+    // A show and a normal sketch are different binaries on the same board, so
+    // carrying one's numbers into the other's slot is the same lie a board
+    // switch would be.
+    const subjectChanged = requestedSubject !== null && requestedSubject !== subject
     requestedFqbn = fqbn
+    requestedSubject = subject
 
     if (debounceTimer) clearTimeout(debounceTimer)
     inFlightController?.abort()
@@ -90,10 +135,12 @@ export const useCapacityStore = create<CapacityState>((set) => ({
     // A board switch invalidates any number we're showing outright (never
     // show one board's reading labelled as another's); otherwise keep the
     // last result visible (dimmed via 'stale') while we re-check.
+    const invalidated = boardChanged || subjectChanged
     set((s) => ({
-      status: boardChanged || !s.result ? 'checking' : 'stale',
-      result: boardChanged ? null : s.result,
-      previousResult: boardChanged ? null : s.previousResult,
+      status: invalidated || !s.result ? 'checking' : 'stale',
+      result: invalidated ? null : s.result,
+      previousResult: invalidated ? null : s.previousResult,
+      subject,
     }))
 
     debounceTimer = setTimeout(() => {
@@ -128,6 +175,7 @@ export const useCapacityStore = create<CapacityState>((set) => ({
     inFlightController?.abort()
     requestedKey = null
     requestedFqbn = null
-    set({ status: 'toolchain-missing', result: null, previousResult: null })
+    requestedSubject = null
+    set({ status: 'toolchain-missing', result: null, previousResult: null, subject: 'sketch' })
   },
 }))

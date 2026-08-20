@@ -3,7 +3,7 @@
 // mounting React.
 import type { Board } from '../state/uploadStore'
 import type { CompileCheckResult } from './backendClient'
-import type { CapacityStatus } from '../state/capacityStore'
+import type { CapacityStatus, CapacitySubject } from '../state/capacityStore'
 
 export type CapacityLevel = 'ok' | 'warn' | 'error' | 'pending'
 
@@ -13,23 +13,34 @@ export interface CapacitySummary { text: string; level: CapacityLevel }
 // overflowing headroom.
 const SIZE_WARN_PCT = 90
 
-/** Compact `<board> · flash P% · SRAM P%` (or the current pending/error state)
- *  for the always-visible meter on the MatrixOutput node body. */
+/** Compact `<board> · <subject> · flash P% · SRAM P%` (or the current
+ *  pending/error state) for the always-visible capacity meter.
+ *
+ *  The subject is named because the same board builds two very different
+ *  binaries: a normal sketch, and the SD show's player. Measuring one while
+ *  the Upload button flashes the other is a silent failure — a meter that says
+ *  what it measured cannot have it.
+ */
 export function summarizeCapacity(
   board: Board | undefined,
   status: CapacityStatus,
   result: CompileCheckResult | null,
+  subject: CapacitySubject = 'sketch',
 ): CapacitySummary {
   const label = board?.label ?? 'No board'
   if (status === 'toolchain-missing') return { text: `${label} · capacity: install toolchain to check`, level: 'pending' }
+  if (status === 'nothing-to-measure') return { text: `${label} · capacity: nothing to build yet`, level: 'pending' }
   if (!result) return { text: `${label} · checking capacity…`, level: 'pending' }
 
   const stale = status === 'stale' ? ' (rechecking…)' : ''
+  // Only the show path is worth naming: "sketch" on every ordinary graph would
+  // be noise on a line that has to stay scannable.
+  const what = subject === 'player' ? ' · player' : ''
 
   if (!result.ok && !result.overflow) {
     // A genuine compile error unrelated to capacity (a bad Formula/Code node,
     // a toolchain hiccup, …) has no flash/RAM figures to show at all.
-    return { text: `${label} · ${result.error ?? 'capacity check failed'}${stale}`, level: 'error' }
+    return { text: `${label}${what} · ${result.error ?? 'capacity check failed'}${stale}`, level: 'error' }
   }
 
   // Always show both metrics, never just whichever one happened to be
@@ -46,7 +57,7 @@ export function summarizeCapacity(
   // unavailable — means that gap can never be mistaken for good news.
   const flashText = result.flash ? `flash ${result.flash.percent}%` : 'flash n/a'
   const ramText = result.ram ? `SRAM ${result.ram.percent}%` : 'SRAM n/a'
-  const text = `${label} · ${flashText} · ${ramText}${stale}`
+  const text = `${label}${what} · ${flashText} · ${ramText}${stale}`
 
   if (!result.ok) return { text, level: 'error' } // overflow, with whatever figures we have
 

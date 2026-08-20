@@ -15,6 +15,33 @@ function ok(flashPct: number, ramPct: number): CompileCheckResult {
 }
 
 describe('summarizeCapacity', () => {
+  it('says there is nothing to build rather than showing an old number', () => {
+    const s = summarizeCapacity(board, 'nothing-to-measure', null)
+    expect(s.level).toBe('pending')
+    expect(s.text).toContain('nothing to build yet')
+  })
+
+  it('names the player, so a reading cannot be read against the wrong binary', () => {
+    // The same board builds two very different binaries. A meter that says
+    // what it measured cannot silently measure the wrong one.
+    expect(summarizeCapacity(board, 'measured', ok(74, 41), 'player').text)
+      .toBe('Arduino Uno · player · flash 74% · SRAM 41%')
+  })
+
+  it('leaves an ordinary sketch unnamed, keeping the line scannable', () => {
+    expect(summarizeCapacity(board, 'measured', ok(74, 41), 'sketch').text)
+      .toBe('Arduino Uno · flash 74% · SRAM 41%')
+  })
+
+  it('names the player on a failed check too', () => {
+    const failed: CompileCheckResult = {
+      ok: false, overflow: false, target: board.fqbn, flash: null, ram: null,
+      error: 'capacity check unavailable',
+    }
+    expect(summarizeCapacity(board, 'measured', failed, 'player').text)
+      .toContain('Arduino Uno · player · capacity check unavailable')
+  })
+
   it('reports toolchain-missing without a board number', () => {
     const s = summarizeCapacity(board, 'toolchain-missing', null)
     expect(s.level).toBe('pending')

@@ -1,11 +1,14 @@
 // Assembles the music-sync upload payload from the graph and the analysed songs:
 // the player sketch and the SD file list (/music/*.mp3 + /shows/*.show). Used
-// by the Build & Upload panel when an SDCard node is wired into MatrixOutput.
+// by the Build & Upload panel when an SDCard node is on the bench, and — via
+// `buildShowPlayerForMeasurement` — by the live capacity meter, so the meter
+// measures the sketch that will actually be flashed.
 //
 // There is no provisioner sketch here any more: the player carries the
 // file-receive protocol itself, so the helper flashes it once and pushes the
 // files through it.
 
+import type { Edge } from '@xyflow/react'
 import type { StudioNode, StudioNodeData } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import type { MusicEntry } from '../state/musicStore'
@@ -39,6 +42,91 @@ export function readySongCount(entries: MusicEntry[]): number {
 const safeTitle = (s: string) => s.replace(/[^a-zA-Z0-9_\- ]/g, '_')
 
 /**
+ * The Pattern Collection wired into a Performance Generator's `patternset`
+ * input: its ordered group ids and each pattern's section tags (aligned by
+ * index; `[]` = eligible in any section). Both empty when none is wired, which
+ * is the built-in enum-pattern flow.
+ *
+ * Pure over a graph rather than reading the store, because two callers need it
+ * against different graphs: show generation uses the live one, while the
+ * capacity meter measures a filtered copy that ignores node positions.
+ */
+export function wiredPatternCollection(
+  nodes: StudioNode[],
+  edges: Edge[],
+): { ids: string[]; sectionTags: string[][] } {
+  const empty = { ids: [], sectionTags: [] }
+  const gen = nodes.find((n) => nodeType(n) === 'PerformanceGenerator')
+  if (!gen) return empty
+  const link = edges.find((e) => e.target === gen.id && e.targetHandle === 'patternset')
+  if (!link) return empty
+  const coll = nodes.find((n) => n.id === link.source && nodeType(n) === 'PatternCollection')
+  if (!coll) return empty
+  const props = coll.data.properties as { patternIds?: string[]; patternSections?: Record<string, string[]> }
+  const ids = props.patternIds ?? []
+  const sections = props.patternSections ?? {}
+  return { ids, sectionTags: ids.map((id) => sections[id] ?? []) }
+}
+
+/**
+ * Generate the player sketch for a given pattern set.
+ *
+ * Shared by the real upload and by the capacity meter, so the meter measures
+ * the binary that will actually be flashed rather than an approximation of it.
+ * Everything that moves the sketch's size is a parameter here; the song title
+ * is the one input that does not, which is what lets the meter run before any
+ * song has been analysed.
+ */
+export function buildShowPlayer(
+  nodes: StudioNode[],
+  groups: GroupRegistry,
+  opts: { patternSet?: string[]; bakedAudio: boolean; preferredTrack: string; fqbn?: string },
+): string {
+  // A collection (version 2) show carries its pattern group ids in patternSet;
+  // compile those subgraphs into render_pN() so the player draws the user's own
+  // patterns instead of the built-in enum set. "Use group inputs" threads the
+  // section energy, (normalised) speed, and palette into each pattern's
+  // `energy`/`speed`/`palette` roles.
+  const pgProps = (nodes.find((n) => nodeType(n) === 'PerformanceGenerator')?.data as StudioNodeData | undefined)?.properties ?? {}
+  const roleParams = pgProps.useGroupInputs ? ['energy', 'speed', 'palette'] : []
+  const renderers = opts.patternSet && opts.patternSet.length > 0
+    ? buildPatternRenderers(opts.patternSet, groups, roleParams, opts.bakedAudio, { beat: '(flashLevel > 0.01f)' })
+    : undefined
+  return generatePlayerSketch(playerConfigFromGraph(nodes, opts.fqbn), renderers, {
+    audioEnvelope: opts.bakedAudio && !!renderers,
+    preferredTrack: opts.preferredTrack,
+  })
+}
+
+/**
+ * The player sketch the capacity meter should measure, or null when there is
+ * no show to build.
+ *
+ * Deliberately independent of the analysed songs. The player's size is set by
+ * the collection's patterns, the LED configuration and the audio path — not by
+ * which track it opens — so waiting for an analysis would blank the meter for
+ * exactly as long as someone is composing the show, which is when it earns its
+ * place. A baked envelope is assumed because it is the larger build: reporting
+ * the smaller one and then flashing the bigger is the failure this whole
+ * change exists to stop.
+ */
+export function buildShowPlayerForMeasurement(
+  nodes: StudioNode[],
+  edges: Edge[],
+  groups: GroupRegistry = {},
+  fqbn = '',
+): string | null {
+  if (!sdCardConnected(nodes)) return null
+  const { ids } = wiredPatternCollection(nodes, edges)
+  return buildShowPlayer(nodes, groups, {
+    patternSet: ids,
+    bakedAudio: true,
+    preferredTrack: '',
+    fqbn,
+  })
+}
+
+/**
  * Build the player sketch and the SD file list. Returns null when there are no
  * analysed songs to upload. The player reads `/music/*.mp3` and the matching
  * `/shows/<name>.show`, so both share the song's safe title.
@@ -56,21 +144,15 @@ export function buildShowPayload(
   // patterns instead of the built-in enum set. "Use group inputs" threads the
   // section energy, (normalised) speed, and palette into each pattern's
   // `energy`/`speed`/`palette` roles.
-  const patternSet = done[0].show!.patternSet
-  const pgProps = (nodes.find((n) => nodeType(n) === 'PerformanceGenerator')?.data as StudioNodeData | undefined)?.properties ?? {}
-  const roleParams = pgProps.useGroupInputs ? ['energy', 'speed', 'palette'] : []
-  // A baked audio envelope means the collected patterns should read the song's
-  // FFT (externalAudio) and the player hosts the audio globals from the track.
-  const bakedAudio = !!done[0].show!.audio
-  const renderers = patternSet && patternSet.length > 0
-    ? buildPatternRenderers(patternSet, groups, roleParams, bakedAudio, { beat: '(flashLevel > 0.01f)' })
-    : undefined
   // Name the track the player should open. Without it the sketch scans /music
   // and takes whatever sorts first, which on a card carrying files from an
   // earlier session is somebody else's song — and its show, so the result
   // looks like broken sync rather than the wrong file.
-  const player = generatePlayerSketch(playerConfigFromGraph(nodes), renderers, {
-    audioEnvelope: bakedAudio && !!renderers,
+  const player = buildShowPlayer(nodes, groups, {
+    patternSet: done[0].show!.patternSet,
+    // A baked audio envelope means the collected patterns should read the
+    // song's FFT (externalAudio) and the player hosts the audio globals.
+    bakedAudio: !!done[0].show!.audio,
     preferredTrack: safeTitle(done[0].show!.songTitle),
   })
 

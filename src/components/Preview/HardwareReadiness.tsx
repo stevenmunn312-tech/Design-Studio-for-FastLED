@@ -32,6 +32,7 @@ export default function HardwareReadiness() {
 
   const capacityStatus = useCapacityStore((s) => s.status)
   const capacityResult = useCapacityStore((s) => s.result)
+  const capacitySubject = useCapacityStore((s) => s.subject)
 
   const power = useMemo(() => estimatePowerLoad(nodes), [nodes])
   const ram = useMemo(() => estimateFirmwareRam(nodes, edges), [nodes, edges])
@@ -42,7 +43,7 @@ export default function HardwareReadiness() {
   }, [nodes, edges])
 
   const board = boardByFqbn(selectedFqbn)
-  const capacity = summarizeCapacity(board, capacityStatus, capacityResult)
+  const capacity = summarizeCapacity(board, capacityStatus, capacityResult, capacitySubject)
 
   // Nothing to be ready for until something drives LEDs.
   if (!power) return null

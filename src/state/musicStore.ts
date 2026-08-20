@@ -3,30 +3,21 @@ import type { SongAnalysis, ShowFile } from '../types/showFile'
 import { generateShow } from '../codegen/performanceGenerator'
 import type { PerformanceOptions } from '../codegen/performanceGenerator'
 import { useGraphStore } from './graphStore'
+import { wiredPatternCollection } from '../utils/showUpload'
 import { recordPerfTask } from '../dev/perfMonitor'
 
 /**
  * The Pattern Collection wired into a Performance Generator's `patternset`
- * input: its ordered group `ids` and the per-pattern `sectionTags` (aligned by
- * index; `[]` = eligible in any section). Both empty when none is wired (the
- * built-in enum-pattern flow). Resolved live from the active graph, so
- * generation picks up the current collection regardless of which node body
- * triggered it.
+ * input, resolved against the active graph.
+ *
+ * The resolution itself lives in `showUpload.ts` so the capacity meter can run
+ * it over its own filtered copy of the graph — two definitions of "which
+ * patterns are in this show" is exactly how the meter and the upload end up
+ * measuring different things.
  */
 function wiredCollection(): { ids: string[]; sectionTags: string[][] } {
-  const empty = { ids: [], sectionTags: [] }
   const { nodes, edges } = useGraphStore.getState()
-  const typeOf = (n: { data: { nodeType?: string } }) => n.data.nodeType
-  const gen = nodes.find((n) => typeOf(n) === 'PerformanceGenerator')
-  if (!gen) return empty
-  const link = edges.find((e) => e.target === gen.id && e.targetHandle === 'patternset')
-  if (!link) return empty
-  const coll = nodes.find((n) => n.id === link.source && typeOf(n) === 'PatternCollection')
-  if (!coll) return empty
-  const props = coll.data.properties as { patternIds?: string[]; patternSections?: Record<string, string[]> }
-  const ids = props.patternIds ?? []
-  const sections = props.patternSections ?? {}
-  return { ids, sectionTags: ids.map((id) => sections[id] ?? []) }
+  return wiredPatternCollection(nodes, edges)
 }
 
 /**
