@@ -24,6 +24,7 @@ import { hexToRgb } from '../state/polinePalette'
 import { buildXYTable } from '../state/xyLayout'
 import { compositionDims, outputRoutes } from '../state/outputRouting'
 import { outputCanvasDims } from '../state/ledOutputForm'
+import { controllerSettings, ledPropsWithController } from '../state/controllerSettings'
 
 const nodeType = (n: StudioNode) => (n.data as { nodeType?: string }).nodeType
 const props = (n: StudioNode) => n.data.properties as Record<string, unknown>
@@ -301,6 +302,7 @@ export function generateShowSketch(
   const routedOutputs = nodes.filter((node) => nodeType(node) === 'MatrixOutput' && routedOutputIds.has(node.id))
   const out = routedOutputs[0]
   const op = out ? props(out) : {}
+  const controller = controllerSettings(nodes)
   const multiOutput = routedOutputs.length > 1
   const dims = compositionDims(routedOutputs)
   // `width`/`height` are the matrix and panel forms' grid — a string and a
@@ -312,16 +314,16 @@ export function generateShowSketch(
   const width = multiOutput ? dims.w : single.width
   const height = multiOutput ? dims.h : single.height
   const dataPin = Number(op.dataPin ?? 5)
-  const hw = ledHardwareFromProps(op)
+  const hw = ledHardwareFromProps(ledPropsWithController(op, nodes))
   // HUB75 is restricted to a single LED output route (findHub75ConfigIssues
   // in validateGraph.ts), so this only ever applies in the !multiOutput branch
   // below — mirrors generateCpp's own isHub75 gate.
   const isHub75 = !multiOutput && hw.chipset === HUB75_CHIPSET
-  const hub75Hw = isHub75 ? hub75HardwareFromProps(op, width, height) : null
+  const hub75Hw = isHub75 ? hub75HardwareFromProps(ledPropsWithController(op, nodes), width, height) : null
   const routes = outputRoutes(routedOutputs).map((route) => ({
     ...route,
     safeId: safeId(route.id),
-    hardware: ledHardwareFromProps(props(route.node)),
+    hardware: ledHardwareFromProps(ledPropsWithController(props(route.node), nodes)),
     dataPin: Math.max(0, Math.min(48, Math.round(Number(props(route.node).dataPin ?? 5)))),
     xyTable: buildXYTable(route.width, route.height, props(route.node)),
   }))
@@ -330,7 +332,7 @@ export function generateShowSketch(
   // the two transition compositing buffers) to external PSRAM. The sub-pattern
   // sketches always emit plain arrays (their synthetic MatrixOutput carries no
   // properties); the conversion happens here, at the show level.
-  const usePsram = opts.psramAllowed !== false && routedOutputs.some((node) => props(node).usePsram === true)
+  const usePsram = opts.psramAllowed !== false && controller.usePsram
 
   // A MicInput on the canvas turns the controller into an audio host: it runs
   // FastLED's INMP441 audio processor and the collected patterns' FFTAnalyzer/
@@ -459,11 +461,14 @@ export function generateShowSketch(
         controllerName: `controller_${route.safeId}`,
       })) L.push(s)
     }
-    L.push('  FastLED.setBrightness(255);  // per-output brightness is applied while routing pixels')
+    L.push('  FastLED.setBrightness(255);  // controller brightness is applied while routing pixels')
   } else if (isHub75) {
     for (const s of hub75SetupCpp(hub75Hw!)) L.push(s)
   } else {
     for (const s of fastledSetupCpp(hw)) L.push(s)
+  }
+  if (controller.powerLimit && !isHub75) {
+    L.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${controller.volts}, ${controller.milliamps});`)
   }
   L.push(info.seed ? `  random16_set_seed(${info.seed}u);` : '  randomSeed(analogRead(A0));')
   if (audio) L.push('  setupAudio();')

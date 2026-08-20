@@ -15,6 +15,7 @@ import { collectPinUses } from '../build/hardwareManifest'
 import { boardPinVerdict, boardProfileById } from '../build/boardProfiles'
 import type { PhysicalBoardProfile } from '../build/boardProfiles'
 import { inmp441SupportedForBoard, INMP441_UNSUPPORTED_MESSAGE } from '../state/micPinDefaults'
+import { controllerSettings } from '../state/controllerSettings'
 
 export interface ValidationResult {
   errors:   string[]
@@ -241,10 +242,8 @@ export function estimatePowerLoad(nodes: StudioNode[]): PowerEstimate | null {
     const rate = outputForm(props) === 'hub75' ? MA_PER_HUB75_PIXEL_WORST_CASE : MA_PER_LED_WORST_CASE
     return sum + (outputLedCount(output) * rate)
   }, 0)
-  const capped = outputs.filter((output) => (output.data.properties as Record<string, unknown>).powerLimit === true)
-  const configuredMa = capped.length > 0
-    ? capped.reduce((sum, output) => sum + Number((output.data.properties as Record<string, unknown>).milliamps ?? 0), 0)
-    : null
+  const controller = controllerSettings(nodes)
+  const configuredMa = controller.powerLimit ? controller.milliamps : null
   const recommendedMa = Math.ceil(worstCaseMa / 100) * 100
   return {
     ledCount,
@@ -272,7 +271,7 @@ export interface FirmwareRamEstimate {
    *  tables plus one `pal_<id>` per palette-building node. 48 bytes each, and
    *  always internal: codegen never PSRAM-allocates them. */
   paletteBytes: number
-  /** Whether MatrixOutput's `usePsram` is on (frame/field buffers move to PSRAM). */
+  /** Whether the Board's `usePsram` is on (frame/field buffers move to PSRAM). */
   usesPsram: boolean
   /** RAM that must fit in the MCU's internal SRAM regardless of PSRAM. */
   internalBytes: number
@@ -430,7 +429,7 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): F
   const paletteBytes = (namedPalettes.size + builderPalettes) * PALETTE_BYTES
 
   const ledsArrayBytes = ledCount * 3
-  const usesPsram = outputs.some((output) => (output.data.properties as Record<string, unknown>).usePsram === true)
+  const usesPsram = controllerSettings(nodes).usePsram
   const psramBytes = usesPsram ? frameBufferBytes + fieldBufferBytes : 0
   const internalBytes = ledsArrayBytes + statefulBytes + paletteBytes + (usesPsram ? 0 : frameBufferBytes + fieldBufferBytes)
 
@@ -835,17 +834,10 @@ export function findFormulaErrors(nodes: StudioNode[]): string[] {
   return errors
 }
 
-/** FastLED's power limiter is global across all registered controllers, so
- * independently capped routes must agree on supply voltage; their mA budgets
- * are then summed into one controller-wide cap. */
+/** Kept as a validation seam for callers; power is now a single Board setting. */
 export function findOutputResourceErrors(nodes: StudioNode[]): string[] {
-  const capped = nodes.filter((node) =>
-    node.data.nodeType === 'MatrixOutput' && (node.data.properties as Record<string, unknown>).powerLimit === true
-  )
-  const volts = [...new Set(capped.map((node) => Number((node.data.properties as Record<string, unknown>).volts ?? 5)))]
-  return volts.length > 1
-    ? [`Matrix outputs with power limits must use one shared supply voltage (found ${volts.join(' V, ')} V)`]
-    : []
+  void nodes
+  return []
 }
 
 export type GraphDiagnosticSeverity = 'error' | 'warning'
@@ -1021,19 +1013,6 @@ export function buildGraphDiagnostics(
     }))
   }
 
-  const cappedOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput' && (node.data.properties as Record<string, unknown>).powerLimit === true)
-  const outputResourceErrors = findOutputResourceErrors(nodes)
-  if (outputResourceErrors.length > 0) {
-    diagnostics.push({
-      id: 'outputs-power-voltage', severity: 'error', category: 'power',
-      title: 'Output power voltages disagree',
-      message: outputResourceErrors[0],
-      fix: 'Use the same supply voltage for every power-limited output; their current budgets are summed.',
-      nodeIds: cappedOutputs.map((node) => node.id),
-      nodeLabel: `${cappedOutputs.length} output routes`,
-    })
-  }
-
   const matrixOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
   const matrixOutput = matrixOutputs[0]
   const hub75Issues = findHub75ConfigIssues(nodes)
@@ -1189,7 +1168,7 @@ export function buildGraphDiagnostics(
       id: `${matrixOutput.id}-power-unlimited`, severity: 'warning', category: 'power',
       title: 'High-current output has no power cap',
       message: `Worst-case full white is about ${power.worstCaseMa} mA for ${power.ledCount} LEDs.`,
-      fix: 'Enable Power limit on the LED output and enter the continuous current rating of the LED power supply.',
+      fix: 'Enable the global power cap in the Board controller settings and enter the continuous current rating of the LED power supply.',
       nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
     })
   }

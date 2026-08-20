@@ -3,6 +3,7 @@ import { buildXYTable, tileRotationAt } from '../state/xyLayout'
 import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
+import { controllerSettings, ledPropsWithController } from '../state/controllerSettings'
 
 function intProp(val: unknown, def: number, min: number, max: number): number {
   const n = Math.round(Number(val))
@@ -30,20 +31,21 @@ export function generateWiringDiagnosticSketch(
   if (!outputNode) return null
 
   const p = outputNode.data.properties as Record<string, unknown>
+  const controller = controllerSettings(nodes)
   const width = intProp(p.width, 16, 1, 64)
   const height = intProp(p.height, 16, 1, 64)
   const dataPin = sanitizePin(p.dataPin, 5)
-  const hw = ledHardwareFromProps(p)
+  const hw = ledHardwareFromProps(ledPropsWithController(p, nodes))
   const isHub75 = hw.chipset === HUB75_CHIPSET
-  const hub75Hw = isHub75 ? hub75HardwareFromProps(p, width, height) : null
+  const hub75Hw = isHub75 ? hub75HardwareFromProps(ledPropsWithController(p, nodes), width, height) : null
   // Addressable LEDs need the baked grid -> physical-index table. HUB75's DMA
   // display / VirtualMatrixPanel_T path already owns chain routing, with
   // hub75Hw.coordMap handling per-tile rotation, so applying buildXYTable here
   // as well would remap a folded grid twice.
   const xyTable = isHub75 ? null : buildXYTable(width, height, p)
-  const powerLimit = p.powerLimit === true
-  const volts = intProp(p.volts, 5, 1, 24)
-  const milliamps = intProp(p.milliamps, 2000, 100, 50000)
+  const powerLimit = controller.powerLimit
+  const volts = controller.volts
+  const milliamps = controller.milliamps
   const layout = p.layout === 'panels' ? 'panels' : 'matrix'
   const tilesX = layout === 'panels' ? intProp(p.tilesX, 1, 1, 8) : 1
   const tilesY = layout === 'panels' ? intProp(p.tilesY, 1, 1, 8) : 1

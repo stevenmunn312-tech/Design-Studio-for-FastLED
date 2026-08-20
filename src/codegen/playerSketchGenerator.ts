@@ -27,6 +27,9 @@ export interface PlayerConfig {
   correction:  string   // FastLED.setCorrection profile ('none' = uncorrected)
   dither:      boolean  // false → setDither(DISABLE_DITHER)
   overclock:   number   // clockless-chipset FASTLED_OVERCLOCK multiplier
+  powerLimit:  boolean
+  volts:       number
+  milliamps:   number
   sdCsPin:     number
   audioOutput: string   // 'i2s' (external DAC) or 'internalDac' (ESP32 built-in DAC, GPIO25/26)
   i2sBclk:     number   // I2S bit clock pin (audioOutput === 'i2s' only)
@@ -44,6 +47,7 @@ const DEFAULTS: PlayerConfig = {
   ledWidth: 16, ledHeight: 16, ledDataPin: 18, ledClockPin: 6,
   chipset: 'WS2812B', colorOrder: 'GRB',
   correction: 'none', dither: true, overclock: 1,
+  powerLimit: false, volts: 5, milliamps: 2000,
   // GPIO10 avoids colliding with MatrixOutput's default LED data pin (GPIO5).
   sdCsPin: 10,
   audioOutput: 'i2s',
@@ -77,6 +81,7 @@ interface ConfigNode { data: { nodeType: string; properties: Record<string, unkn
  */
 export function playerConfigFromGraph(nodes: ConfigNode[], fqbn = ''): Partial<PlayerConfig> {
   const mo = nodes.find((n) => n.data.nodeType === 'MatrixOutput')?.data.properties ?? {}
+  const board = nodes.find((n) => n.data.nodeType === 'Board')?.data.properties ?? mo
   const sd = nodes.find((n) => n.data.nodeType === 'SDCard')?.data.properties ?? {}
   const amp = nodes.find((n) => n.data.nodeType === 'Amplifier')?.data.properties ?? {}
   const num = (v: unknown, d: number) => (v === undefined || v === null ? d : Number(v))
@@ -90,7 +95,10 @@ export function playerConfigFromGraph(nodes: ConfigNode[], fqbn = ''): Partial<P
     colorOrder:  str(mo.colorOrder, DEFAULTS.colorOrder),
     correction:  str(mo.correction, DEFAULTS.correction),
     dither:      mo.dither !== false,
-    overclock:   num(mo.overclock, DEFAULTS.overclock),
+    overclock:   num(board.overclock, DEFAULTS.overclock),
+    powerLimit:  board.powerLimit === true,
+    volts:       num(board.volts, DEFAULTS.volts),
+    milliamps:   num(board.milliamps, DEFAULTS.milliamps),
     sdCsPin:    sanitizePin(sd.sdCsPin, DEFAULTS.sdCsPin),
     // Derived from the parts present rather than read from a property — see
     // state/audioOutput.ts for why asking twice invites two answers.
@@ -145,6 +153,9 @@ export function generatePlayerSketch(
   const ledSetupLines = isHub75
     ? hub75SetupCpp(hub75Hw!).join('\n')
     : fastledSetupCpp(hw, { dataPinMacro: 'LED_DATA_PIN', clockPinMacro: 'LED_CLOCK_PIN', brightness: 180 }).join('\n')
+  const powerSetupLine = c.powerLimit && !isHub75
+    ? `  FastLED.setMaxPowerInVoltsAndMilliamps(${Math.max(1, Math.round(c.volts))}, ${Math.max(100, Math.round(c.milliamps))});`
+    : ''
 
   // Collection patterns: per-pattern frame buffers, deduped helpers, and the
   // render_pN() functions — emitted above renderPattern().
@@ -861,6 +872,7 @@ void setup() {
   Serial.begin(115200);
 
 ${ledSetupLines}
+${powerSetupLine}
 
   // The protocol's own wording, not a human sentence: the host reads this
   // greeting and turns it into a real explanation (card seated? FAT32? CS pin?).

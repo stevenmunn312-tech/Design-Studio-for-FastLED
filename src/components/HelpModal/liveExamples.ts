@@ -443,7 +443,7 @@ function selectedInputs(node: NodeDefinition): NodePort[] {
 }
 
 function addMatrix(builder: ExampleBuilder, sourceKey: string, sourceHandle = 'frame'): void {
-  builder.add('out', 'MatrixOutput', { width: 16, height: 16, brightness: 220 })
+  builder.add('out', 'MatrixOutput', { width: 16, height: 16 })
   builder.wire(sourceKey, sourceHandle, 'out', 'frame')
 }
 

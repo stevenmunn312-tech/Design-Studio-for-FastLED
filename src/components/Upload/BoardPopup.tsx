@@ -3,6 +3,7 @@ import { useGraphStore } from '../../state/graphStore'
 import { allBoards, boardByFqbn, engineReady, useUploadStore } from '../../state/uploadStore'
 import { estimateFirmwareRam } from '../../utils/validateGraph'
 import styles from './Upload.module.css'
+import { controllerSettings } from '../../state/controllerSettings'
 
 const EMPTY_CUSTOM_BOARD = { label: '', fqbn: '', core: '', boardUrl: '' }
 
@@ -36,7 +37,7 @@ export default function BoardPopup() {
     closeBoardPopup, openCliPopup,
     addCustomBoard, removeCustomBoard, checkForUpdates, closeUpdatesPopup, upgradeCores,
   } = useUploadStore()
-  const { nodes, edges, updateNodeProperty } = useGraphStore()
+  const { nodes, edges } = useGraphStore()
   const [newBoard, setNewBoard] = useState(EMPTY_CUSTOM_BOARD)
   const [addError, setAddError] = useState<string | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -68,11 +69,10 @@ export default function BoardPopup() {
   }
   const portLabel = ports.find((p) => p.address === selectedPort)?.label ?? selectedPort
   const target = `${board?.label ?? 'No board'} · ${portLabel || 'no port'}`
-  const outputNode = nodes.find((n) => n.data.nodeType === 'MatrixOutput')
-  const ownProps = (outputNode?.data.properties ?? {}) as Record<string, unknown>
+  const controller = controllerSettings(nodes)
   const psramOptions = board?.psram
-  const usePsram = !!psramOptions && ownProps.usePsram === true
-  const psramChoice = psramOptions?.find((option) => option.id === ownProps.psramMode) ?? psramOptions?.[0]
+  const usePsram = !!psramOptions && controller.usePsram
+  const psramChoice = psramOptions?.find((option) => option.id === controller.psramMode) ?? psramOptions?.[0]
   const ram = useMemo(() => estimateFirmwareRam(nodes, edges), [nodes, edges])
 
   const handleAddBoard = () => {
@@ -318,33 +318,12 @@ export default function BoardPopup() {
           </>
         )}
 
-        {psramOptions && outputNode && (
-          <>
-            <div className={styles.sectionTitle}>PSRAM</div>
-            <div className={styles.psramRow}>
-              <label className={styles.psramCheck} title="Put the render buffers in external PSRAM — frees internal RAM for designs too big to link. Needs a module with PSRAM (falls back to internal heap without one).">
-                <input
-                  type="checkbox"
-                  checked={usePsram}
-                  onChange={(e) => updateNodeProperty(outputNode.id, 'usePsram', e.target.checked)}
-                />
-                Use PSRAM
-              </label>
-              {usePsram && psramOptions.length > 1 && (
-                <select
-                  className={`nodrag ${styles.psramSelect}`}
-                  value={psramChoice?.id}
-                  onChange={(e) => updateNodeProperty(outputNode.id, 'psramMode', e.target.value)}
-                  title="PSRAM interface — set by the module package (picking the wrong one makes the board boot-loop)"
-                >
-                  {psramOptions.map((option) => (
-                    <option key={option.id} value={option.id}>{option.label}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-          </>
-        )}
+        <div className={styles.sectionTitle}>Controller settings</div>
+        <div className={styles.note}>
+          Brightness {controller.brightness} · overclock {controller.overclock.toFixed(2)}× · power cap {controller.powerLimit ? `${controller.volts} V / ${controller.milliamps} mA` : 'off'}
+          {psramOptions ? ` · PSRAM ${usePsram ? (psramChoice?.label ?? controller.psramMode) : 'off'}` : ' · PSRAM unavailable'}.
+          Edit these on the Board in Hardware.
+        </div>
       </div>
     </div>
   )

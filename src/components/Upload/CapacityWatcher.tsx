@@ -7,6 +7,7 @@ import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { buildShowPlayerForMeasurement, sdCardConnected } from '../../utils/showUpload'
 import { useCodegenGraph } from '../../utils/codegenGraph'
+import { controllerSettings } from '../../state/controllerSettings'
 
 /**
  * Drives the live controller-capacity check. Renders nothing.
@@ -48,10 +49,8 @@ export default function CapacityWatcher() {
   const isShow = useMemo(() => sdCardConnected(nodes), [nodes])
 
   /*
-   * PSRAM is read from whichever output asks for it rather than from one
-   * chosen node: the sketch is per *board*, and `generateCpp` already turns it
-   * on when any output does. Measuring a different FQBN option than the one an
-   * upload would use is the one way this meter could quietly lie.
+   * PSRAM is a controller setting. Measuring a different FQBN option than the
+   * one an upload would use is the one way this meter could quietly lie.
    *
    * The show path takes none of it. `runShowUpload` flashes plain
    * `selectedFqbn`, and the player deliberately includes the no-PSRAM build of
@@ -59,12 +58,9 @@ export default function CapacityWatcher() {
    * the internal-DRAM figure that overflows.
    */
   const psramOptions = isShow ? undefined : board?.psram
-  const psramNode = nodes.find((node) =>
-    node.data.nodeType === 'MatrixOutput'
-    && (node.data.properties as Record<string, unknown>).usePsram === true)
-  const psramMode = (psramNode?.data.properties as Record<string, unknown> | undefined)?.psramMode
-  const psramChoice = psramOptions?.find((option) => option.id === psramMode) ?? psramOptions?.[0]
-  const fqbnWithOpt = psramNode && psramChoice ? `${selectedFqbn}:${psramChoice.opt}` : selectedFqbn
+  const controller = controllerSettings(nodes)
+  const psramChoice = psramOptions?.find((option) => option.id === controller.psramMode) ?? psramOptions?.[0]
+  const fqbnWithOpt = controller.usePsram && psramChoice ? `${selectedFqbn}:${psramChoice.opt}` : selectedFqbn
 
   // Nothing reaches the LEDs until a frame does, and a sketch with no frame
   // measures a design nobody is building. A show is exempt: its LEDs are

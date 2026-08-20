@@ -2,6 +2,7 @@ import type { StudioNode } from '../state/graphStore'
 import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
+import { ledPropsWithController } from '../state/controllerSettings'
 
 // A tiny, generic Adalight-protocol receiver — flashed once, then the studio
 // pushes already-computed live-preview frames straight to it over serial at
@@ -48,9 +49,10 @@ export function generateStreamReceiverSketch(nodes: StudioNode[]): string | null
   if (!layout) return null
   const p = outputNode.data.properties as Record<string, unknown>
   const dataPin = sanitizePin(p.dataPin, 5)
-  const hw = ledHardwareFromProps(p)
+  const combined = ledPropsWithController(p, nodes)
+  const hw = ledHardwareFromProps(combined)
   const isHub75 = hw.chipset === HUB75_CHIPSET
-  const hub75Hw = isHub75 ? hub75HardwareFromProps(p, layout.width, layout.height) : null
+  const hub75Hw = isHub75 ? hub75HardwareFromProps(combined, layout.width, layout.height) : null
 
   const lines: string[] = []
   lines.push('// Design Studio for FastLED — generic live-stream receiver (Adalight protocol).')

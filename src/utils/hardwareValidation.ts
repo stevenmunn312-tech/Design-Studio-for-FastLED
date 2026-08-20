@@ -2,6 +2,7 @@ import type { StudioEdge, StudioNode } from '../state/graphStore'
 import type { BackendHealth, CompileCheckResult } from './backendClient'
 import { boardByFqbn } from '../state/uploadStore'
 import { MIC_SAMPLE_RATE } from '../audio/micAnalysis'
+import { controllerSettings } from '../state/controllerSettings'
 
 export type HardwareValidationAction =
   | 'normal-upload'
@@ -389,13 +390,18 @@ export function buildHardwareValidationProfile(options: {
   const { nodes, edges, selectedFqbn, helper, capacityResult } = options
   const matrixNode = nodes.find((node) => nodeType(node) === 'MatrixOutput')
   const p = props(matrixNode)
+  const controllerSettingsValue = controllerSettings(nodes)
   const chipset = String(p.chipset ?? 'WS2812B')
   const layout = String(p.layout ?? 'matrix')
   const engine = helper?.engine ?? 'unknown'
   const engineVersion = engine === 'fbuild' ? helper?.fbuildVersion : helper?.version
   const action = options.action ?? defaultAction(nodes, edges)
   const runtime = options.runtime ?? detectValidationRuntime()
-  const features = featureList(nodes, edges, p)
+  const features = featureList(nodes, edges, {
+    ...p,
+    usePsram: controllerSettingsValue.usePsram,
+    psramMode: controllerSettingsValue.psramMode,
+  })
   const mic = nodes.find((node) => nodeType(node) === 'MicInput')
   const micProps = props(mic)
   const sd = nodes.find((node) => nodeType(node) === 'SDCard')
@@ -431,19 +437,19 @@ export function buildHardwareValidationProfile(options: {
       serpentine: p.serpentine === true,
       dataPin: Math.round(n(p.dataPin, 5)),
       clockPin: CLOCKED_CHIPSETS.has(chipset) ? Math.round(n(p.clockPin, 6)) : null,
-      brightness: Math.round(n(p.brightness, 200)),
+      brightness: controllerSettingsValue.brightness,
       correction: String(p.correction ?? 'none'),
       dither: p.dither !== false,
-      overclock: n(p.overclock, 1),
-      powerLimit: p.powerLimit === true,
-      volts: p.powerLimit === true ? n(p.volts, 5) : null,
-      milliamps: p.powerLimit === true ? Math.round(n(p.milliamps, 2000)) : null,
+      overclock: controllerSettingsValue.overclock,
+      powerLimit: controllerSettingsValue.powerLimit,
+      volts: controllerSettingsValue.powerLimit ? controllerSettingsValue.volts : null,
+      milliamps: controllerSettingsValue.powerLimit ? controllerSettingsValue.milliamps : null,
       tilesX: layout === 'panels' ? Math.round(n(p.tilesX, 1)) : null,
       tilesY: layout === 'panels' ? Math.round(n(p.tilesY, 1)) : null,
       tileSerpentine: layout === 'panels' ? p.tileSerpentine === true : null,
       tileRotations: layout === 'panels' ? String(p.tileRotations ?? '') : null,
       customMap: layout === 'custom' ? customMapSummary(p.customXYMap) : null,
-      psram: p.usePsram === true ? String(p.psramMode ?? 'default') : null,
+      psram: controllerSettingsValue.usePsram ? controllerSettingsValue.psramMode : null,
       supersample: p.supersample === true,
     },
     peripherals: {

@@ -231,7 +231,7 @@ function QuickStartTab() {
           </div>
           <div className={styles.choiceCard}>
             <strong>Drive several outputs</strong>
-            <span>Add more than one LED output to run separate LED routes from one board, each with its own pins, size, layout, and brightness. The preview header selects which route you are watching.</span>
+            <span>Add more than one LED output to run separate LED routes from one board, each with its own pins, size, layout, and render options. Master brightness and power remain controller-wide Board settings. The preview header selects which route you are watching.</span>
           </div>
         </div>
         <div className={styles.note}>

@@ -358,14 +358,12 @@ describe('validateGraph', () => {
     expect(errors.some((message) => message.includes('GPIO 5'))).toBe(true)
   })
 
-  it('rejects conflicting supply voltages across globally power-limited outputs', () => {
+  it('does not treat legacy per-output supply voltages as independent caps', () => {
     const nodes = [
       node('out-a', 'MatrixOutput', { powerLimit: true, volts: 5 }),
       node('out-b', 'MatrixOutput', { powerLimit: true, volts: 12 }),
     ]
-    expect(findOutputResourceErrors(nodes)).toEqual([
-      expect.stringMatching(/one shared supply voltage/),
-    ])
+    expect(findOutputResourceErrors(nodes)).toEqual([])
   })
 
   it('accepts valid numeric expressions and reports invalid ones', () => {

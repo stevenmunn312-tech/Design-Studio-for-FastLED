@@ -40,6 +40,7 @@ import { idleFrame } from './idleFrame'
 import { publishStreamFrame } from '../../state/streamStore'
 import { compositionDims, outputRoutes, routeFrame } from '../../state/outputRouting'
 import { exitStagePresentation } from '../../utils/stagePresentation'
+import { controllerSettings } from '../../state/controllerSettings'
 
 // Statically replaced at build time, so the telemetry branches (phase timers +
 // the per-frame context object for the dev HUD) are dead-code-stripped in prod.
@@ -185,15 +186,12 @@ function activeStagePatternName(
 }
 
 // Mirror the firmware's FastLED.setBrightness master dim: scale the terminal
-// frame by the MatrixOutput node's `brightness` (0–255, default 200 matching
+// frame by the Board node's `brightness` (0–255, default 200 matching
 // the generated sketch) so the preview matches what the hardware shows. Only
 // the graph's own frame is dimmed — the idle shimmer isn't a real output, and
 // show playback drives brightness through its own SET_BRIGHTNESS events.
-function applyMasterBrightness(frame: Frame | null, output: StudioNode | undefined): Frame | null {
+function applyMasterBrightness(frame: Frame | null, brightness: number): Frame | null {
   if (!frame) return null
-  if (!output) return frame
-  const raw = Number((output.data.properties as { brightness?: unknown }).brightness)
-  const brightness = Number.isFinite(raw) ? Math.max(0, Math.min(255, raw)) : 200
   if (brightness >= 255) return frame
   const s = brightness / 255
   // Scale in place: `frame` here is the caller-owned route buffer (routeFrame
@@ -545,6 +543,7 @@ export default function LEDPreview() {
         // 60 fps anyway, and this keeps the React component free of a full
         // nodes/edges subscription (which would re-render it on every drag).
         const { nodes: graphNodes, edges: graphEdges, trusted } = useGraphStore.getState()
+        const controller = controllerSettings(graphNodes)
         const groups = getGroupRegistry()
         // One evaluation pass feeds both the main matrix and every node preview.
         // Nodes disconnected from the output only feed previews published at
@@ -566,7 +565,7 @@ export default function LEDPreview() {
           : null
         let frame = selectedRoute ? routeFrame(rendered, selectedRoute, composition.w, composition.h, routeBufRef.current) : null
         if (frame) routeBufRef.current = frame
-        frame = applyMasterBrightness(frame, selectedRoute?.node)
+        frame = applyMasterBrightness(frame, controller.brightness)
         if (!frame && selectedRoute) {
           frame = clearOutputFrame(routeBufRef.current, selectedRoute.width, selectedRoute.height)
           routeBufRef.current = frame
@@ -637,17 +636,17 @@ export default function LEDPreview() {
           // Output-node and hardware-bay previews consume the physical routed
           // frame, not the evaluator's shared composition frame. Publishing it
           // beside the raw terminal value keeps fit/crop, form changes, ring
-          // sampling and per-output brightness identical to the main preview.
+          // sampling and controller brightness identical to the main preview.
           for (const route of routes) {
             const ports = outputs.get(route.id) ?? {}
             const source = ports.frame as Frame | null | undefined
             const routed = applyMasterBrightness(
               routeFrame(source ?? null, route, composition.w, composition.h),
-              route.node,
+              controller.brightness,
             )
             outputs.set(route.id, { ...ports, previewFrame: routed })
           }
-          usePreviewStore.getState().setOutputs(outputs)
+          usePreviewStore.getState().setOutputs(outputs, controller.brightness)
           lastPreviewPublish.current = now
         }
         // Phase timings and the context object are dev-HUD-only; in production

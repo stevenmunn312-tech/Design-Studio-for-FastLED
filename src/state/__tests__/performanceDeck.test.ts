@@ -182,8 +182,8 @@ describe('deriveControlShape', () => {
     )
   })
 
-  it('reads slider bounds from propertyMeta (MatrixOutput brightness override)', () => {
-    const shape = deriveControlShape('MatrixOutput', 'brightness', 200)
+  it('reads slider bounds from propertyMeta (Board brightness)', () => {
+    const shape = deriveControlShape('Board', 'brightness', 200)
     expect(shape.kind).toBe('fader')
     expect(shape.max).toBe(255)
   })

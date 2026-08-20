@@ -7,11 +7,12 @@ import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGe
 import { estimatePowerLoad, findHub75TopologyDiagnosticErrors } from '../../utils/validateGraph'
 import { useModalFocus } from '../../hooks/useModalFocus'
 import styles from './Upload.module.css'
+import { controllerSettings } from '../../state/controllerSettings'
 
 const STEPS = [
   { key: 'controller', title: 'Controller', blurb: 'Pick the board, port, and build path.' },
   { key: 'matrix', title: 'Matrix', blurb: 'Set the shape of the LEDs you want to drive.' },
-  { key: 'leds', title: 'LEDs', blurb: 'Match the strip type, color order, wiring pins, brightness, and power.' },
+  { key: 'leds', title: 'LEDs', blurb: 'Match the strip type, color order, and wiring pins.' },
   { key: 'upload', title: 'Upload', blurb: 'Review the setup, then run a wiring test or open the upload tools.' },
 ] as const
 
@@ -25,12 +26,6 @@ const SIZE_PRESETS = [
 
 function clampInt(value: string, fallback: number, min = 1, max = 999) {
   const parsed = Math.round(Number(value))
-  if (!Number.isFinite(parsed)) return fallback
-  return Math.max(min, Math.min(max, parsed))
-}
-
-function clampFloat(value: string, fallback: number, min: number, max: number) {
-  const parsed = Number(value)
   if (!Number.isFinite(parsed)) return fallback
   return Math.max(min, Math.min(max, parsed))
 }
@@ -64,6 +59,7 @@ export default function MatrixOutputSetupWizard() {
     ?? nodes.find((n) => n.data.nodeType === 'MatrixOutput')
   const nodeId = node?.id ?? null
   const props = ((node?.data.properties ?? {}) as Record<string, unknown>)
+  const controller = controllerSettings(nodes)
 
   const width = Number(props.width ?? 16)
   const height = Number(props.height ?? 16)
@@ -413,57 +409,10 @@ export default function MatrixOutputSetupWizard() {
                 : 'Clockless chipsets only need the data pin.'}
             </div>
 
-            <label className={styles.fieldBlock}>
-              <span className={styles.fieldLabel}>Brightness</span>
-              <input
-                className={styles.rangeInput}
-                type="range"
-                min={0}
-                max={255}
-                step={1}
-                value={Number(props.brightness ?? 200)}
-                onChange={(e) => updateNodeProperty(matrixNodeId, 'brightness', clampInt(e.target.value, Number(props.brightness ?? 200), 0, 255))}
-              />
-              <div className={styles.rangeValue}>{Number(props.brightness ?? 200)}</div>
-            </label>
-
-            <label className={styles.checkField}>
-              <input
-                type="checkbox"
-                checked={props.powerLimit === true}
-                onChange={(e) => updateNodeProperty(matrixNodeId, 'powerLimit', e.target.checked)}
-              />
-              <span>Enable a power cap</span>
-            </label>
-
-            {props.powerLimit === true && (
-              <div className={styles.dualFieldRow}>
-                <label className={styles.fieldBlock}>
-                  <span className={styles.fieldLabel}>Volts</span>
-                  <input
-                    className={styles.textInput}
-                    type="number"
-                    min={3}
-                    max={24}
-                    step={1}
-                    value={Number(props.volts ?? 5)}
-                    onChange={(e) => updateNodeProperty(matrixNodeId, 'volts', clampFloat(e.target.value, Number(props.volts ?? 5), 3, 24))}
-                  />
-                </label>
-                <label className={styles.fieldBlock}>
-                  <span className={styles.fieldLabel}>Milliamps</span>
-                  <input
-                    className={styles.textInput}
-                    type="number"
-                    min={100}
-                    max={20000}
-                    step={100}
-                    value={Number(props.milliamps ?? 2000)}
-                    onChange={(e) => updateNodeProperty(matrixNodeId, 'milliamps', clampInt(e.target.value, Number(props.milliamps ?? 2000), 100, 20000))}
-                  />
-                </label>
-              </div>
-            )}
+            <div className={styles.note}>
+              Controller settings: brightness {controller.brightness} · overclock {controller.overclock.toFixed(2)}× · power cap {controller.powerLimit ? `${controller.volts} V / ${controller.milliamps} mA` : 'off'}.
+              Edit these once on the Board in Hardware.
+            </div>
 
             {power && power.ledCount > 0 && (
               <div
@@ -485,6 +434,7 @@ export default function MatrixOutputSetupWizard() {
               <div className={styles.wizardSummaryRow}><span>Target</span><strong>{board?.label ?? 'No board'} · {portLabel || 'No port'}</strong></div>
               <div className={styles.wizardSummaryRow}><span>Matrix</span><strong>{width} × {height} · {layout}</strong></div>
               <div className={styles.wizardSummaryRow}><span>LED path</span><strong>{chipset} · {String(props.colorOrder ?? 'GRB')}</strong></div>
+              <div className={styles.wizardSummaryRow}><span>Controller</span><strong>{controller.brightness} brightness · {controller.powerLimit ? `${controller.volts} V / ${controller.milliamps} mA cap` : 'power cap off'}</strong></div>
               <div className={styles.wizardSummaryRow}><span>Graph ready</span><strong>{hasFrameInput ? 'Frame connected' : 'Connect a frame before upload'}</strong></div>
             </div>
 

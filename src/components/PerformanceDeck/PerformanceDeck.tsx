@@ -42,8 +42,9 @@ export default function PerformanceDeck() {
   const [sceneName, setSceneName] = useState('')
 
   const nodeById = new Map(nodes.map((n) => [n.id, n]))
-  const output = nodes.find((n) => n.data.nodeType === 'MatrixOutput')
-  const brightnessPin = deck.pins.find((p) => p.nodeId === output?.id && p.propertyKey === 'brightness')
+  const controller = nodes.find((n) => n.data.nodeType === 'Board')
+    ?? nodes.find((n) => n.data.nodeType === 'MatrixOutput')
+  const brightnessPin = deck.pins.find((p) => p.nodeId === controller?.id && p.propertyKey === 'brightness')
 
   // ── MIDI-learn capture: consume the next raw CC/note while armed ────────
   useEffect(() => {
@@ -119,7 +120,7 @@ export default function PerformanceDeck() {
           >
             {panicActive ? '● Restore' : '⏻ PANIC'}
           </button>
-          {output && (
+          {controller && (
             <div className={styles.brightnessRow}>
               <span>Master Brightness</span>
               <input
@@ -128,11 +129,11 @@ export default function PerformanceDeck() {
                 min={0}
                 max={255}
                 step={1}
-                value={Number(output.data.properties.brightness ?? 200)}
-                onChange={(e) => updateNodeProperty(output.id, 'brightness', Number(e.target.value))}
+                value={Number(controller.data.properties.brightness ?? 200)}
+                onChange={(e) => updateNodeProperty(controller.id, 'brightness', Number(e.target.value))}
               />
-              <span>{String(output.data.properties.brightness ?? 200)}</span>
-              {!brightnessPin && <span className={styles.hint}>(pin this from the node to save/morph it)</span>}
+              <span>{String(controller.data.properties.brightness ?? 200)}</span>
+              {!brightnessPin && <span className={styles.hint}>(pin this in Controller Settings to save/morph it)</span>}
             </div>
           )}
         </div>

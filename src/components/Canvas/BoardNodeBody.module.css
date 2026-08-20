@@ -129,3 +129,42 @@
   font-size: var(--fs-caption);
   line-height: 1.35;
 }
+
+.settingsSection {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--accent-output) 28%, transparent);
+}
+
+.settingsHeader { display: grid; gap: 2px; }
+.settingsHeader strong { font-size: 11px; color: var(--text-primary); }
+.settingsHeader span { font-size: 9px; color: var(--text-secondary); }
+
+.settingField { display: grid; gap: 5px; font-size: 10px; color: var(--text-secondary); }
+.settingField > span { display: flex; justify-content: space-between; gap: 12px; }
+.settingField input[type='range'] { width: 100%; }
+.settingValue { display: inline-flex; align-items: center; gap: 5px; }
+.pinButton { padding: 0; border: 0; background: transparent; cursor: pointer; font-size: 10px; }
+
+.checkField {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.numberRow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.numberRow label { display: grid; gap: 4px; font-size: 9px; color: var(--text-secondary); }
+.numberRow input {
+  min-width: 0;
+  padding: 5px 6px;
+  color: var(--text-primary);
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+}
+
+.psramBlock { display: grid; gap: 7px; }

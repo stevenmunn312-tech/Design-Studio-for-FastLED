@@ -2346,6 +2346,16 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // Empty means "not chosen yet" — deliberately not defaulted to a board,
       // so an unset Board node reads as a question rather than a wrong answer.
       profileId: '',
+      // One sketch, one FastLED/controller policy. These used to be repeated
+      // on every LED Output even though firmware can apply only one global
+      // master level, power ceiling, overclock define and PSRAM build target.
+      brightness: 200,
+      overclock: 1,
+      powerLimit: false,
+      volts: 5,
+      milliamps: 2000,
+      usePsram: false,
+      psramMode: 'opi',
     },
   },
   {
@@ -2414,28 +2424,11 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // down to one physical LED (FastLED-style downscale) — antialiases moving
       // shapes on small panels at ~4× the render cost. Preview + normal sketch.
       supersample: false,
-      // FastLED.setBrightness — the global master dim (0–255; also applied to
-      // the live preview so preview matches firmware).
-      brightness: 200,
       // FastLED.setCorrection colour-correction profile ('none' = uncorrected).
       correction: 'none',
       // FastLED temporal dithering (recovers colour depth at low brightness);
       // on is FastLED's own default, off emits setDither(DISABLE_DITHER).
       dither: true,
-      // Clockless-chipset overclock multiplier; >1 emits
-      // `#define FASTLED_OVERCLOCK <x>` (WS2812 tolerates up to ~1.25 typically).
-      overclock: 1,
-      // Optional PSU power cap (FastLED.setMaxPowerInVoltsAndMilliamps) — when on,
-      // FastLED auto-dims to keep total draw under volts × milliamps.
-      powerLimit: false,
-      volts: 5,
-      milliamps: 2000,
-      // Place per-node render buffers in external PSRAM (ESP32 family). These
-      // are rendered by the upload tab (not the generic property list)
-      // because visibility depends on the *selected board* supporting PSRAM;
-      // `psramMode` holds the board's PsramOption id (OPI vs QSPI on the S3).
-      usePsram: false,
-      psramMode: 'opi',
       // HUB75 scan-panel wiring (chipset === 'HUB75' only; see
       // docs/development/design/hub75-output.md). ESP32-HUB75-MatrixPanel-DMA's
       // own documented default pinout (R1=25/G1=26/B1=27/A=23/...) is tuned for
@@ -3310,11 +3303,14 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Random: {
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
-  // MatrixOutput's brightness is FastLED.setBrightness's native 0–255 (the
-  // shared `brightness` meta is a 0–1 frame-level scale).
+  // Board brightness is FastLED.setBrightness's native 0–255 (the shared
+  // `brightness` meta is a 0–1 frame-level scale).
+  Board: {
+    brightness: { control: 'slider', min: 0, max: 255, step: 1 },
+    overclock: { control: 'slider', min: 1, max: 2, step: 0.05 },
+  },
   MatrixOutput: {
     form: { control: 'select', options: LED_OUTPUT_FORMS },
-    brightness: { control: 'slider', min: 0, max: 255, step: 1 },
     dataPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     clockPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     ledCount: { control: 'slider', min: 1, max: MAX_LED_RUN, step: 1 },
@@ -3961,8 +3957,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
       'hub75ClkPin', 'hub75LatPin', 'hub75OePin', 'hub75ColorDepthBits',
     ] },
     { key: 'layout', label: 'Layout', keys: ['layout', 'tilesX', 'tilesY', 'tileSerpentine', 'tileRotations', 'customXYMap'] },
-    { key: 'rendering', label: 'Rendering', keys: ['supersample', 'brightness', 'correction', 'dither', 'overclock'] },
-    { key: 'power', label: 'Power', keys: ['powerLimit', 'volts', 'milliamps'] },
+    { key: 'rendering', label: 'Rendering', keys: ['supersample', 'correction', 'dither'] },
   ],
   Image: [
     { key: 'transform', label: 'Transform', keys: ['fit', 'positionX', 'positionY', 'rotation', 'flipX', 'flipY', 'zoom', 'cropX', 'cropY'] },

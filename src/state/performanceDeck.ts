@@ -88,7 +88,7 @@ export function blankDeckConfig(): PerformanceDeckConfig {
 // Mirrors StudioNode.tsx's inline `editable` denylist (font/image/code/etc.)
 // rather than nodePresets.ts's `presettableProperties`, which blanket-
 // excludes every input/output/hardware-category node's properties — that
-// would wrongly exclude MatrixOutput.brightness, exactly the property
+// would wrongly exclude Board.brightness, exactly the property
 // "master brightness" needs to pin.
 const STRUCTURAL_KEYS = new Set([
   'font',
@@ -135,7 +135,7 @@ const WIRING_KEYS: Record<string, Set<string>> = {
 /** Whether a node property is sensible to pin as a live performance control.
  *  Deliberately property-shape-based (numbers/booleans/enum strings), not
  *  category-based — unlike nodePresets.ts's blanket input/output/hardware
- *  exclusion, MatrixOutput.brightness (an "output"-category node) must stay
+ *  exclusion, Board.brightness (an "output"-category node) must stay
  *  pinnable. */
 export function isPinnableProperty(nodeType: string, key: string, value?: unknown): boolean {
   if (STRUCTURAL_KEYS.has(key)) return false

@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render } from '@testing-library/react'
+import { act, render } from '@testing-library/react'
 import NodePreview from '../NodePreview'
 import { usePreviewStore } from '../../../state/previewStore'
 
 describe('NodePreview', () => {
-  beforeEach(() => usePreviewStore.setState({ outputs: new Map() }))
+  beforeEach(() => usePreviewStore.getState().clear())
 
   it('renders a palette as a left-to-right gradient strip', () => {
     usePreviewStore.setState({
@@ -29,6 +29,27 @@ describe('NodePreview', () => {
     expect(container.querySelector('canvas')).toBeNull()
     expect(container.querySelector('img')).toBeNull()
     expect(container.querySelectorAll('svg rect')).toHaveLength(16 * 16)
+  })
+
+  it('dims the frame thumbnail by the published master brightness', () => {
+    const { container } = render(<NodePreview nodeId="n" kind="frame" port="frame" />)
+    act(() => {
+      usePreviewStore.getState().setOutputs(
+        new Map([['n', { frame: [[{ r: 200, g: 100, b: 50 }]] }]]),
+        // Half brightness: the same scale the LED output's own preview applies.
+        128,
+      )
+    })
+    // 200/100/50 x 128/255, rounded.
+    expect(container.querySelector('rect')?.getAttribute('fill')).toBe('rgb(100 50 25)')
+  })
+
+  it('shows the frame thumbnail undimmed at full master brightness', () => {
+    const { container } = render(<NodePreview nodeId="n" kind="frame" port="frame" />)
+    act(() => {
+      usePreviewStore.getState().setOutputs(new Map([['n', { frame: [[{ r: 200, g: 100, b: 50 }]] }]]), 255)
+    })
+    expect(container.querySelector('rect')?.getAttribute('fill')).toBe('rgb(200 100 50)')
   })
 
   it('falls back to a rainbow strip when the palette output is missing', () => {

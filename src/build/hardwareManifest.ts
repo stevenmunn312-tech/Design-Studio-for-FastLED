@@ -7,6 +7,7 @@ import {
   type GpioPropertyRequirement,
 } from '../state/nodeLibrary'
 import { boardByFqbn } from '../state/uploadStore'
+import { controllerSettings } from '../state/controllerSettings'
 import { targetFamilyFromFqbn, type BuildTargetFamily } from './buildProfile'
 
 export interface HardwarePinUse {
@@ -161,12 +162,11 @@ export function collectPinUses(nodes: StudioNode[]): HardwarePinUse[] {
   return uses
 }
 
-function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number, pinUses: HardwarePinUse[]): HardwareManifestItem {
+function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number, pinUses: HardwarePinUse[], powerCapMa: number | null): HardwareManifestItem {
   const props = node.data.properties as Record<string, unknown>
   const width = Math.max(0, Math.round(Number(props.width ?? 0)))
   const height = Math.max(0, Math.round(Number(props.height ?? 0)))
   const chipset = String(props.chipset ?? 'WS2812B')
-  const powerCapMa = props.powerLimit === true ? Number(props.milliamps ?? 0) : null
   return {
     id: `output:${node.id}`,
     kind: 'matrix-output',
@@ -232,6 +232,11 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
     pinUsesByNodeId.set(pinUse.nodeId, list)
   }
   const matrixOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
+  const settings = controllerSettings(nodes)
+  const totalPixels = matrixOutputs.reduce((sum, node) => {
+    const props = node.data.properties as Record<string, unknown>
+    return sum + Math.max(0, Math.round(Number(props.width ?? 0))) * Math.max(0, Math.round(Number(props.height ?? 0)))
+  }, 0)
   const hardwareNodes = nodes.filter((node) =>
     node.data.nodeType === 'MatrixOutput'
     || node.data.nodeType === 'MicInput'
@@ -249,7 +254,15 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
     }
     switch (node.data.nodeType) {
       case 'MatrixOutput':
-        return buildMatrixOutputItem(node, matrixOutputs.findIndex((entry) => entry.id === node.id) + 1, matrixOutputs.length, pins)
+        return buildMatrixOutputItem(
+          node,
+          matrixOutputs.findIndex((entry) => entry.id === node.id) + 1,
+          matrixOutputs.length,
+          pins,
+          settings.powerLimit && totalPixels > 0
+            ? Math.round(settings.milliamps * (Math.max(0, Number((node.data.properties as Record<string, unknown>).width ?? 0)) * Math.max(0, Number((node.data.properties as Record<string, unknown>).height ?? 0))) / totalPixels)
+            : null,
+        )
       case 'MicInput':
         return buildPeripheralItem(node, 'mic-input', 'INMP441 microphone input', pins)
       case 'ButtonInput':
@@ -276,6 +289,12 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
       boardLabel: board?.label ?? null,
       hardwareNodeCount: hardwareNodes.length,
       connectedEdgeCount: edges.length,
+      brightness: settings.brightness,
+      overclock: settings.overclock,
+      powerLimit: settings.powerLimit,
+      volts: settings.powerLimit ? settings.volts : null,
+      milliamps: settings.powerLimit ? settings.milliamps : null,
+      psram: settings.usePsram ? settings.psramMode : null,
     },
   }
 

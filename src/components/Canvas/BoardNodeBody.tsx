@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useGraphStore } from '../../state/graphStore'
-import { useUploadStore } from '../../state/uploadStore'
+import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
+import { controllerSettings } from '../../state/controllerSettings'
 import {
   BOARD_PROFILE_FAMILIES,
   boardProfileById,
@@ -23,8 +24,13 @@ interface Props { nodeId: string }
 
 export default function BoardNodeBody({ nodeId }: Props) {
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
+  const pinProperty = useGraphStore((s) => s.pinProperty)
+  const unpinProperty = useGraphStore((s) => s.unpinProperty)
+  const brightnessPin = useGraphStore((s) => s.performanceDeck.pins.find(
+    (pin) => pin.nodeId === nodeId && pin.propertyKey === 'brightness'))
   const setSelectedFqbn = useUploadStore((s) => s.setSelectedFqbn)
   const openPinout = useUploadStore((s) => s.openPinout)
+  const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
 
   const profileId = useGraphStore((s) => {
     const node = s.nodes.find((n) => n.id === nodeId)
@@ -38,6 +44,11 @@ export default function BoardNodeBody({ nodeId }: Props) {
     (s) => s.nodes.filter((n) => n.data.nodeType === 'Board').length)
 
   const profile = useMemo(() => boardProfileById(profileId), [profileId])
+  const boardTarget = boardByFqbn(selectedFqbn)
+  const psramOptions = boardTarget?.psram
+  const graphNodes = useGraphStore((s) => s.nodes)
+  const settings = useMemo(() => controllerSettings(graphNodes), [graphNodes])
+  const psramChoice = psramOptions?.find((option) => option.id === settings.psramMode) ?? psramOptions?.[0]
   const familyId = profile ? boardProfileFamilyId(profile) : ''
   const familyBoards = useMemo(() => boardProfilesForFamily(familyId), [familyId])
 
@@ -161,6 +172,79 @@ export default function BoardNodeBody({ nodeId }: Props) {
           )}
         </div>
       )}
+
+      <div className={styles.settingsSection}>
+        <div className={styles.settingsHeader}>
+          <strong>Controller Settings</strong>
+          <span>One policy for every LED output</span>
+        </div>
+
+        <label className={styles.settingField}>
+          <span>
+            Master brightness
+            <span className={styles.settingValue}>
+              <b>{settings.brightness}</b>
+              <button type="button" className={styles.pinButton}
+                aria-label={brightnessPin ? 'Unpin master brightness from Performance Deck' : 'Pin master brightness to Performance Deck'}
+                title={brightnessPin ? 'Unpin from Performance Deck' : 'Pin to Performance Deck'}
+                onClick={() => brightnessPin ? unpinProperty(brightnessPin.id) : pinProperty(nodeId, 'brightness')}>
+                📌
+              </button>
+            </span>
+          </span>
+          <input type="range" min={0} max={255} step={1} value={settings.brightness}
+            aria-label="Master brightness"
+            onChange={(event) => updateNodeProperty(nodeId, 'brightness', Number(event.target.value))} />
+        </label>
+
+        <label className={styles.settingField} title="Global FastLED clockless-chipset timing multiplier">
+          <span>LED overclock <b>{settings.overclock.toFixed(2)}×</b></span>
+          <input type="range" min={1} max={2} step={0.05} value={settings.overclock}
+            aria-label="LED overclock"
+            onChange={(event) => updateNodeProperty(nodeId, 'overclock', Number(event.target.value))} />
+        </label>
+
+        <label className={styles.checkField}>
+          <input type="checkbox" checked={settings.powerLimit} aria-label="Enable global power cap"
+            onChange={(event) => updateNodeProperty(nodeId, 'powerLimit', event.target.checked)} />
+          <span>Enable global power cap</span>
+        </label>
+
+        {settings.powerLimit && (
+          <div className={styles.numberRow}>
+            <label>
+              <span>Volts</span>
+              <input type="number" min={3} max={24} step={1} value={settings.volts}
+                aria-label="Power cap volts"
+                onChange={(event) => updateNodeProperty(nodeId, 'volts', Number(event.target.value))} />
+            </label>
+            <label>
+              <span>Milliamps</span>
+              <input type="number" min={100} max={100000} step={100} value={settings.milliamps}
+                aria-label="Power cap milliamps"
+                onChange={(event) => updateNodeProperty(nodeId, 'milliamps', Number(event.target.value))} />
+            </label>
+          </div>
+        )}
+
+        {psramOptions ? (
+          <div className={styles.psramBlock}>
+            <label className={styles.checkField}>
+              <input type="checkbox" checked={settings.usePsram} aria-label="Use PSRAM"
+                onChange={(event) => updateNodeProperty(nodeId, 'usePsram', event.target.checked)} />
+              <span>Use PSRAM for render buffers</span>
+            </label>
+            {settings.usePsram && psramOptions.length > 1 && (
+              <select className={styles.picker} value={psramChoice?.id} aria-label="PSRAM type"
+                onChange={(event) => updateNodeProperty(nodeId, 'psramMode', event.target.value)}>
+                {psramOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+              </select>
+            )}
+          </div>
+        ) : (
+          <p className={styles.pending}>PSRAM is not available for this board target.</p>
+        )}
+      </div>
 
       {boardNodeCount > 1 && (
         <p className={styles.warning}>

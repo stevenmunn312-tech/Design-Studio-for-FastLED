@@ -45,7 +45,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('GRB')
   })
 
-  it('emits independently configured synchronized controllers for multiple outputs', () => {
+  it('emits independently wired synchronized controllers with Board-wide brightness', () => {
     const patternA = node('pattern-a', 'SolidColor', 'pattern')
     const patternB = node('pattern-b', 'Plasma', 'pattern')
     const outA = node('out-a', 'MatrixOutput', 'output', {
@@ -57,7 +57,7 @@ describe('generateCpp', () => {
       layout: 'strip', routeMode: 'crop', routeX: 2, routeY: 1,
     })
     const cpp = generateCpp(
-      [patternA, patternB, outA, outB],
+      [node('board', 'Board', 'output', { brightness: 64 }), patternA, patternB, outA, outB],
       [edge('ea', 'pattern-a', 'out-a', 'frame', 'frame'), edge('eb', 'pattern-b', 'out-b', 'frame', 'frame')],
     )
 
@@ -71,7 +71,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('FastLED.addLeds<WS2812B, DATA_PIN_out_a, GRB>(leds_out_a, 64)')
     expect(cpp).toContain('FastLED.addLeds<APA102, DATA_PIN_out_b, CLOCK_PIN_out_b, BGR>(leds_out_b, 64)')
     expect(cpp).toContain('_c.nscale8_video(64)')
-    expect(cpp).toContain('_c.nscale8_video(180)')
+    expect(cpp).not.toContain('_c.nscale8_video(180)')
     expect(cpp).toContain('int _sx = (2 + _x) % WIDTH, _sy = (1 + _y) % HEIGHT;')
     expect(cpp.match(/FastLED\.show\(\);/g)).toHaveLength(1)
   })

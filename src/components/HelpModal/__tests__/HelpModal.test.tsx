@@ -231,7 +231,8 @@ describe('HelpModal session state', () => {
       .map((row) => row.querySelector('span')?.textContent ?? row.textContent ?? '')
 
     expect(settings.length).toBeGreaterThan(0)
-    expect(settings.some((s) => s.startsWith('Brightness'))).toBe(true)
+    expect(settings.some((s) => s.startsWith('Brightness'))).toBe(false)
+    expect(settings.some((s) => s.startsWith('Correction'))).toBe(true)
     expect(settings.some((s) => s.startsWith('Form'))).toBe(false)
   })
 

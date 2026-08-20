@@ -5,6 +5,7 @@ import { compositionDims, outputRoutes, routeFrame } from '../../state/outputRou
 import { applyShowPlaybackSignal } from './showPlaybackSignal'
 import type { RecordedAudioFrame } from './recordAudio'
 import type { ShowFile } from '../../types/showFile'
+import { controllerSettings } from '../../state/controllerSettings'
 
 // Offline capture engine for the preview recorder: evaluates the graph
 // deterministically from t = 0 at the chosen capture fps — independent of the
@@ -56,10 +57,7 @@ export interface CaptureOptions {
   isCancelled?: () => boolean
 }
 
-function masterBrightnessScale(output: StudioNode | undefined): number {
-  if (!output) return 1
-  const raw = Number((output.data.properties as { brightness?: unknown }).brightness)
-  const brightness = Number.isFinite(raw) ? Math.max(0, Math.min(255, raw)) : 200
+function masterBrightnessScale(brightness: number): number {
   return brightness >= 255 ? 1 : brightness / 255
 }
 
@@ -177,7 +175,7 @@ export async function captureSequence(opts: CaptureOptions): Promise<Uint8Clampe
   // 32x32 capture request would evaluate at 16x16 and then read a phantom
   // 32x32 region out of it, leaving 3/4 of the packed frame black.
   const composition = route ? compositionDims(nodes, edges) : { w: gridW, h: gridH }
-  const brightness = masterBrightnessScale(route?.node)
+  const brightness = masterBrightnessScale(controllerSettings(nodes).brightness)
   // The routed frame's true shape. gridW/gridH is the caller's expectation and
   // only applies when there is no route to size against.
   const outW = route?.width ?? gridW

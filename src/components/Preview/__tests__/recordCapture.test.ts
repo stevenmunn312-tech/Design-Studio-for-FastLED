@@ -123,7 +123,7 @@ describe('captureSequence', () => {
     })
 
     expect(frames).toHaveLength(5)
-    // Default MatrixOutput brightness is 200 → scale 200/255.
+    // Default Board brightness is 200 → scale 200/255.
     const expected = bytesFrame(8, 8, Math.round(255 * 200 / 255), 0, Math.round(128 * 200 / 255))
     for (const frame of frames!) expect([...frame]).toEqual([...expected])
   })

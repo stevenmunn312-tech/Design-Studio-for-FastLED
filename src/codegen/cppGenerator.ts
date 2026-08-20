@@ -34,6 +34,7 @@ import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes
 import { isLinearForm, outputCanvasDims, outputForm, outputLedTotal } from '../state/ledOutputForm'
 import { getNetworkCredentials } from '../state/networkCredentials'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
+import { controllerSettings, ledPropsWithController } from '../state/controllerSettings'
 import {
   inmp441FirmwareBackendForBoard,
   inmp441FqbnForBoardProfile,
@@ -1122,7 +1123,7 @@ export function generateCpp(
   // `externalAudio`: the host sketch already provides the audio-engine globals
   // (used when compiling a pattern subgraph into a controller that hosts the
   // engine), so FFTAnalyzer/BeatDetect reference them without re-emitting it.
-  // `psramAllowed`: gate for the MatrixOutput `usePsram` property — the upload
+  // `psramAllowed`: gate for the Board `usePsram` property — the upload
   // UI passes false when the selected board has no PSRAM support, so a stale
   // toggle can't emit ESP32-only allocation calls into an AVR/RP2040 sketch.
   // `aliasTerminalBuffer`: let the node feeding the single LED output render
@@ -1149,6 +1150,7 @@ export function generateCpp(
   const nodeMap = new Map(nodes.map((n) => [n.id, n]))
 
   const allOutputNodes = nodes.filter((n) => n.data.nodeType === 'MatrixOutput')
+  const controller = controllerSettings(nodes)
   /*
    * Runs wired in parallel off one GPIO are one controller, not several: the
    * pixels reach the mirror down the leader's wire, so it gets no `leds` array,
@@ -1198,13 +1200,13 @@ export function generateCpp(
   const dataPin    = sanitizePin(outputNode ? props(outputNode).dataPin : undefined, 5)
   // Chipset, colour order, master brightness, correction, dithering, overclock
   // — sanitised centrally (shared with the show/player generators).
-  const hw = ledHardwareFromProps(outputNode ? props(outputNode) : {})
+  const hw = ledHardwareFromProps(ledPropsWithController(outputNode ? props(outputNode) : {}, nodes))
   // HUB75 has no FastLED driver — it's driven via a separate DMA library
   // instead of addLeds<>()/leds[]/show(). Scoped to a single LED output
   // route for now; findUnimplementedChipsetErrors blocks every other
   // combination (multi-route, panel chaining, supersample) before deploy.
   const isHub75 = !multipleOutputs && hw.chipset === HUB75_CHIPSET
-  const hub75Hw = isHub75 ? hub75HardwareFromProps(props(outputNode!), width, height) : null
+  const hub75Hw = isHub75 ? hub75HardwareFromProps(ledPropsWithController(props(outputNode!), nodes), width, height) : null
   // Serpentine (zig-zag) matrices wire alternate rows in reverse; buffers stay
   // row-major and MatrixOutput remaps grid → physical index via XY(). Panel/
   // custom layouts (src/state/xyLayout.ts) fold into the same XY() remap, so
@@ -1236,14 +1238,11 @@ export function generateCpp(
   // to keep the PSU draw under a limit so a big matrix can't brown out the board.
   // Every physical run, mirrors included — a parallel panel is a second panel
   // on the PSU even though it shares an array.
-  const poweredOutputs = allOutputNodes.filter((node) => props(node).powerLimit === true)
-  const powerLimit = poweredOutputs.length > 0
-  const volts      = intProp(poweredOutputs[0] ? props(poweredOutputs[0]).volts : outputNode ? props(outputNode).volts : undefined, 5, 1, 60)
-  const milliamps  = poweredOutputs.length > 0
-    ? poweredOutputs.reduce((sum, node) => sum + intProp(props(node).milliamps, 2000, 100, 100000), 0)
-    : intProp(outputNode ? props(outputNode).milliamps : undefined, 2000, 100, 100000)
+  const powerLimit = controller.powerLimit
+  const volts = controller.volts
+  const milliamps = controller.milliamps
   // Per-node render buffers in external PSRAM (ESP32 family; see PSRAM_ALLOC_CPP).
-  const usePsram = opts.psramAllowed !== false && allOutputNodes.some((node) => props(node).usePsram === true)
+  const usePsram = opts.psramAllowed !== false && controller.usePsram
 
   const outputConfigs = leadingOutputRoutes(nodes, edges).map((route) => {
     const p = props(route.node)
@@ -1251,7 +1250,7 @@ export function generateCpp(
       ...route,
       safeId: safeId(route.id),
       dataPin: sanitizePin(p.dataPin, 5),
-      hardware: ledHardwareFromProps(p),
+      hardware: ledHardwareFromProps(ledPropsWithController(p, nodes)),
       xyTable: buildXYTable(route.width, route.height, p),
       /** Physical LEDs on this route: a panel's grid, or a chain's length. */
       ledTotal: outputLedTotal(p),
@@ -6005,7 +6004,7 @@ export function generateCpp(
         controllerName: `controller_${route.safeId}`,
       }))
     }
-    lines.push(`  FastLED.setBrightness(255);  // per-output brightness is applied while routing pixels`)
+    lines.push(`  FastLED.setBrightness(255);  // controller brightness is applied while routing pixels`)
   } else if (isHub75) {
     lines.push(...hub75SetupCpp(hub75Hw!))
   } else {

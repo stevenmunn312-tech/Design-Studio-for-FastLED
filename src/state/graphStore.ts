@@ -27,6 +27,7 @@ import { isLinearForm, outputCanvasDims, outputForm } from './ledOutputForm'
 import { emptyBuildProfile, normalizeBuildProfile, type BuildProfile } from '../build/buildProfile'
 import { boardProfileById, selectedPhysicalBoardProfile } from '../build/boardProfiles'
 import { DEFAULT_BOARD_PROFILE_ID, isHardwareManagedSignalNodeType, isHardwareOnlyNodeType, ROOT_BOARD_NODE_ID } from './hardware'
+import { controllerSettings, DEFAULT_CONTROLLER_SETTINGS } from './controllerSettings'
 import {
   type PerformanceDeckConfig,
   type PinnedControl,
@@ -127,7 +128,7 @@ interface GraphState {
   /** Apply every value in a saved scene to its pinned control's node
    *  property, in one atomic, non-undoable step. */
   recallScene: (sceneId: string) => void
-  /** Emergency blackout: zero MatrixOutput.brightness plus every pinned
+  /** Emergency blackout: zero Board.brightness plus every pinned
    *  numeric/boolean control, snapshotting prior values for `restorePanic`.
    *  Excluded from undo history entirely (see `panic`'s implementation). */
   panic: () => void
@@ -411,7 +412,7 @@ function withAdoptedMirrorPin(
     : node)
 }
 
-function createRootBoardNode(profileId = DEFAULT_BOARD_PROFILE_ID): StudioNode {
+function createRootBoardNode(profileId = DEFAULT_BOARD_PROFILE_ID, settings = DEFAULT_CONTROLLER_SETTINGS): StudioNode {
   const profile = boardProfileById(profileId)
   return {
     id: ROOT_BOARD_NODE_ID,
@@ -424,7 +425,7 @@ function createRootBoardNode(profileId = DEFAULT_BOARD_PROFILE_ID): StudioNode {
       label: 'Board',
       nodeType: 'Board',
       category: 'output',
-      properties: { profileId: profile?.id ?? DEFAULT_BOARD_PROFILE_ID },
+      properties: { profileId: profile?.id ?? DEFAULT_BOARD_PROFILE_ID, ...settings },
       inputs: [],
       outputs: [],
     },
@@ -433,12 +434,16 @@ function createRootBoardNode(profileId = DEFAULT_BOARD_PROFILE_ID): StudioNode {
 
 function ensureRootBoardNode(nodes: StudioNode[]): StudioNode[] {
   const boardNodes = nodes.filter((node) => node.data.nodeType === 'Board')
-  if (boardNodes.length === 0) return [...nodes, createRootBoardNode()]
+  const legacySettings = controllerSettings(nodes.filter((node) => node.data.nodeType !== 'Board'))
+  if (boardNodes.length === 0) return [...nodes, createRootBoardNode(DEFAULT_BOARD_PROFILE_ID, legacySettings)]
   const [primary, ...extras] = boardNodes
   const primaryProps = (primary.data.properties ?? {}) as Record<string, unknown>
   const explicitProfileId = typeof primaryProps.profileId === 'string' && primaryProps.profileId
     ? primaryProps.profileId
     : DEFAULT_BOARD_PROFILE_ID
+  const migratedSettings = Object.fromEntries(
+    Object.entries(legacySettings).map(([key, value]) => [key, primaryProps[key] ?? value]),
+  )
   return nodes
     .filter((node) => !extras.some((extra) => extra.id === node.id))
     .map((node) => {
@@ -452,7 +457,7 @@ function ensureRootBoardNode(nodes: StudioNode[]): StudioNode[] {
           ...node.data,
           label: 'Board',
           category: 'output',
-          properties: { ...node.data.properties, profileId: explicitProfileId },
+          properties: { ...DEFAULT_CONTROLLER_SETTINGS, ...migratedSettings, ...node.data.properties, profileId: explicitProfileId },
           inputs: [],
           outputs: [],
         },
@@ -902,8 +907,9 @@ export const useGraphStore = create<GraphState>()(
           }
           // Master brightness always goes dark on panic, whether or not the
           // user pinned it — otherwise "blackout" could do nothing visible.
-          const output = s.nodes.find((n) => n.data.nodeType === 'MatrixOutput')
-          if (output) addTarget(output.id, 'brightness')
+          const controller = s.nodes.find((n) => n.data.nodeType === 'Board')
+            ?? s.nodes.find((n) => n.data.nodeType === 'MatrixOutput')
+          if (controller) addTarget(controller.id, 'brightness')
 
           for (const [nodeId, keys] of targets) {
             const node = s.nodes.find((n) => n.id === nodeId)

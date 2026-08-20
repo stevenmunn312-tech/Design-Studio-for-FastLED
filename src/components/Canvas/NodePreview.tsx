@@ -30,11 +30,17 @@ function FrameThumb({ nodeId, port, height }: { nodeId: string; port: string; he
   }, [])
 
   useEffect(() => {
-    const publish = (frame: Frame | undefined) => {
+    // Scaled by the Board's master brightness, the same value the LED output's
+    // own preview is dimmed by (`applyMasterBrightness` in LEDPreview). Without
+    // it a source node showed its pattern at full intensity while the output
+    // node showed the same pattern at the brightness the hardware will run —
+    // two previews of one frame that disagreed on how bright it was.
+    const publish = (frame: Frame | undefined, brightness: number) => {
       if (!frame || !onScreenRef.current) return
       const srcH = frame.length
       const srcW = frame[0]?.length ?? 0
       if (!srcW || !srcH) return
+      const scale = Math.max(0, Math.min(255, brightness)) / 255
       const previous = previousColorsRef.current
       for (let y = 0; y < THUMB_GRID; y++) {
         const srcY = Math.min(srcH - 1, Math.floor(y * srcH / THUMB_GRID))
@@ -43,9 +49,9 @@ function FrameThumb({ nodeId, port, height }: { nodeId: string; port: string; he
           const srcX = Math.min(srcW - 1, Math.floor(x * srcW / THUMB_GRID))
           const index = y * THUMB_GRID + x
           const pixel = srcRow[srcX]
-          const r = Math.max(0, Math.min(255, Math.round(pixel.r)))
-          const g = Math.max(0, Math.min(255, Math.round(pixel.g)))
-          const b = Math.max(0, Math.min(255, Math.round(pixel.b)))
+          const r = Math.max(0, Math.min(255, Math.round(pixel.r * scale)))
+          const g = Math.max(0, Math.min(255, Math.round(pixel.g * scale)))
+          const b = Math.max(0, Math.min(255, Math.round(pixel.b * scale)))
           const packed = (r << 16) | (g << 8) | b
           if (previous[index] === packed) continue
           previous[index] = packed
@@ -55,7 +61,7 @@ function FrameThumb({ nodeId, port, height }: { nodeId: string; port: string; he
     }
 
     const readFrame = (state: ReturnType<typeof usePreviewStore.getState>) => {
-      publish(state.outputs.get(nodeId)?.[port] as Frame | undefined)
+      publish(state.outputs.get(nodeId)?.[port] as Frame | undefined, state.brightness)
     }
     readFrame(usePreviewStore.getState())
     return usePreviewStore.subscribe(readFrame)

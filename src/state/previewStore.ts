@@ -7,7 +7,15 @@ import { signalVisual, type SignalVisual } from '../utils/signalVisual'
 interface PreviewState {
   outputs: Map<string, Record<string, unknown>>
   signals: Map<string, SignalVisual>
-  setOutputs: (outputs: Map<string, Record<string, unknown>>) => void
+  /** The Board's master brightness (0-255), published beside the outputs.
+   *
+   *  Frames are published raw — the evaluator's own buffers are pooled and
+   *  shared, so dimming them at publish time would corrupt the next pass and
+   *  darken the edge-signal lighting too. The node thumbnails scale by this on
+   *  paint instead, which is what makes a source node's preview agree with the
+   *  LED output's (`previewFrame`, already dimmed by the render loop). */
+  brightness: number
+  setOutputs: (outputs: Map<string, Record<string, unknown>>, brightness?: number) => void
   clear: () => void
 }
 
@@ -68,11 +76,12 @@ function samePortValues(a: Record<string, unknown> | undefined, b: Record<string
 export const usePreviewStore = create<PreviewState>((set) => ({
   outputs: new Map(),
   signals: new Map(),
+  brightness: 255,
   clear: () => {
     frameCopies.clear()
-    set({ outputs: new Map(), signals: new Map() })
+    set({ outputs: new Map(), signals: new Map(), brightness: 255 })
   },
-  setOutputs: (outputs) => set((state) => {
+  setOutputs: (outputs, brightness) => set((state) => {
     const stableOutputs = new Map<string, Record<string, unknown>>()
     const signals = new Map<string, SignalVisual>()
     for (const [nodeId, ports] of outputs) {
@@ -112,6 +121,10 @@ export const usePreviewStore = create<PreviewState>((set) => ({
       const nodeId = key.slice(0, key.lastIndexOf(':'))
       if (!outputs.has(nodeId)) frameCopies.delete(key)
     }
-    return { outputs: stableOutputs, signals }
+    return {
+      outputs: stableOutputs,
+      signals,
+      brightness: brightness == null ? state.brightness : Math.max(0, Math.min(255, brightness)),
+    }
   }),
 }))

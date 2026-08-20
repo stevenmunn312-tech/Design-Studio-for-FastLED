@@ -23,6 +23,7 @@ import {
 import CodeViewPopup from './CodeViewPopup'
 import HardwareValidationPopup from './HardwareValidationPopup'
 import styles from './Upload.module.css'
+import { controllerSettings } from '../../state/controllerSettings'
 
 type ReadinessState = 'ready' | 'checking' | 'missing'
 
@@ -68,8 +69,9 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
   const usingFbuild = helper?.engine === 'fbuild'
   const activeEngineReady = engineReady(helper)
   const psramOptions = board?.psram
-  const usePsram = !!psramOptions && ownProps.usePsram === true
-  const psramChoice = psramOptions?.find((o) => o.id === ownProps.psramMode) ?? psramOptions?.[0]
+  const controller = controllerSettings(nodes)
+  const usePsram = !!psramOptions && controller.usePsram
+  const psramChoice = psramOptions?.find((o) => o.id === controller.psramMode) ?? psramOptions?.[0]
 
   // See CapacityWatcher: keyed on the codegen-relevant graph so a node drag
   // behind this popup doesn't re-run the sketch generator every frame.
@@ -571,7 +573,7 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
                 ? blockingErrors.join('\n')
                 : readinessIssues.length > 0
                   ? readinessIssues.join('\n')
-                  : 'Flash a standalone wiring diagnostic sketch using the current LED output board, pins, color order, brightness, power cap, and layout settings'
+                  : 'Flash a standalone wiring diagnostic sketch using the current Board controller settings plus this output’s pins, color order, and layout'
             }
           >
             🧪 Flash Wiring Test
