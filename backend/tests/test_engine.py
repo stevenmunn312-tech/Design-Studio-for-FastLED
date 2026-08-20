@@ -513,7 +513,7 @@ def test_fbuild_libraries_for_sketch_hides_only_unrequested_optional_libs(tmp_pa
     monkeypatch.setattr(app, "_FBUILD_LIB_DIR", lib_root / "FastLED")
     monkeypatch.setattr(app, "_FBUILD_OPTIONAL_LIB_STASH_DIR", stash)
     monkeypatch.setattr(app, "_FBUILD_OPTIONAL_LIBRARIES", (
-        (audio, ("#include <Audio_nopsram.h>",)),
+        (audio, ("#include <Audio.h>",)),
         (dmx, ("#include <esp_dmx.h>",)),
         (zero_i2s, ("#include <Adafruit_ZeroI2S.h>",)),
         (zero_dma, ("#include <Adafruit_ZeroI2S.h>",)),
@@ -538,7 +538,7 @@ def test_fbuild_libraries_for_sketch_restores_hidden_libs_after_failure(tmp_path
     monkeypatch.setattr(app, "_FBUILD_LIB_DIR", lib_root / "FastLED")
     monkeypatch.setattr(app, "_FBUILD_OPTIONAL_LIB_STASH_DIR", stash)
     monkeypatch.setattr(app, "_FBUILD_OPTIONAL_LIBRARIES", (
-        (audio, ("#include <Audio_nopsram.h>",)),
+        (audio, ("#include <Audio.h>",)),
     ))
 
     try:
@@ -562,7 +562,7 @@ def test_restore_stranded_fbuild_optional_libraries_recovers_interrupted_move(tm
     monkeypatch.setattr(app, "_FBUILD_LIB_DIR", lib_root / "FastLED")
     monkeypatch.setattr(app, "_FBUILD_OPTIONAL_LIB_STASH_DIR", stash)
     monkeypatch.setattr(app, "_FBUILD_OPTIONAL_LIBRARIES", (
-        (audio, ("#include <Audio_nopsram.h>",)),
+        (audio, ("#include <Audio.h>",)),
     ))
 
     app._restore_stranded_fbuild_optional_libraries()

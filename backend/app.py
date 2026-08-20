@@ -226,7 +226,7 @@ _FBUILD_OPTIONAL_LIB_STASH_DIR = _FBUILD_PROJECT_DIR / ".optional-libs"
 # library. Keep the cache, but expose only the optional libraries named by the
 # current sketch while the (project-wide locked) build runs.
 _FBUILD_OPTIONAL_LIBRARIES = (
-    (_FBUILD_AUDIO_LIB_DIR, ("#include <Audio_nopsram.h>",)),
+    (_FBUILD_AUDIO_LIB_DIR, ("#include <Audio.h>",)),
     (_FBUILD_ESP_DMX_LIB_DIR, ("#include <esp_dmx.h>",)),
     (_FBUILD_HUB75_LIB_DIR, ("#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>",)),
     (_FBUILD_ZERO_I2S_LIB_DIR, ("#include <Adafruit_ZeroI2S.h>",)),
@@ -778,32 +778,37 @@ _fbuild_audio_lib_ready = False
 
 
 def _ensure_fbuild_audio_lib():
-    """Vendor ESP32-audioI2S-nopsram (PLSousa/ESP32-audioI2S), same rationale as
+    """Vendor ESP32-audioI2S (schreibfaul1/ESP32-audioI2S), same rationale as
     `_ensure_fbuild_project`'s FastLED vendoring — fbuild 2.4.0's `lib_deps`
     registry resolution doesn't work. Only the Player sketch (`#include
-    <Audio_nopsram.h>`) needs this, so it's fetched lazily on first Player build
-    rather than unconditionally for every compile."""
+    <Audio.h>`) needs this, so it's fetched lazily on first Player build rather
+    than unconditionally for every compile."""
     global _fbuild_audio_lib_ready
     if _fbuild_audio_lib_ready:
         return
-    if (_FBUILD_AUDIO_LIB_DIR / "src" / "Audio_nopsram.h").exists():
+    # Named for the header the sketch includes, which is also what tells a
+    # `-nopsram` fork checkout apart from this one: that fork ships only
+    # Audio_nopsram.h, so a stale one misses here and is replaced below.
+    if (_FBUILD_AUDIO_LIB_DIR / "src" / "Audio.h").exists():
         _fbuild_audio_lib_ready = True
         return
-    yield "\n=== vendoring ESP32-audioI2S-nopsram (first run only) ===\n"
+    yield "\n=== vendoring ESP32-audioI2S (first run only) ===\n"
     _FBUILD_AUDIO_LIB_DIR.parent.mkdir(parents=True, exist_ok=True)
-    # Replace an earlier upstream checkout. Upstream v3 requires PSRAM; this
-    # v2.0.6-based fork keeps the small DRAM buffer and carries the GCC 14/IDF 5
-    # fixes needed by recent Arduino-ESP32 cores. The revision below is the
-    # branch commit validated on a classic ESP32 + MAX98357A without PSRAM.
+    # Replaces a `-nopsram` fork checkout if one is cached. That fork is built
+    # for a classic ESP32 with no PSRAM; this player targets an ESP32-S3 with
+    # it, which is what upstream v3 wants.
+    #
+    # Pinned to 3.0.12, NOT the default branch: the library is rewritten often
+    # enough that tracking its head carries no stability guarantee.
     if _FBUILD_AUDIO_LIB_DIR.exists():
         shutil.rmtree(_FBUILD_AUDIO_LIB_DIR)
     rc = yield from _run_phase(
-        "vendor ESP32-audioI2S-nopsram",
-        ["git", "clone", "--branch", "v2.0.6-gcc14-nopsram", "--depth", "1",
-         "https://github.com/PLSousa/ESP32-audioI2S.git", str(_FBUILD_AUDIO_LIB_DIR)],
+        "vendor ESP32-audioI2S",
+        ["git", "clone", "--branch", "3.0.12", "--depth", "1",
+         "https://github.com/schreibfaul1/ESP32-audioI2S.git", str(_FBUILD_AUDIO_LIB_DIR)],
     )
     if rc != 0:
-        yield "[error] failed to vendor ESP32-audioI2S-nopsram — the Player build below will fail on Audio_nopsram.h\n"
+        yield "[error] failed to vendor ESP32-audioI2S — the Player build below will fail on Audio.h\n"
     _fbuild_audio_lib_ready = True
 
 
