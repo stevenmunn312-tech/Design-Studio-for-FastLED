@@ -19,7 +19,7 @@ import { calculateElectricalPlan } from '../../build/electricalPlan'
 import { bomCsv, buildBomRows, buildConnectionRows, connectionsCsv } from '../../build/buildExports'
 import { buildHardwareManifest, type HardwareManifestItem, type HardwarePinUse } from '../../build/hardwareManifest'
 import { fuseBlockAllocations } from '../../build/powerDistribution'
-import { useGraphStore } from '../../state/graphStore'
+import { rootGraphNodes, useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
 import { ROOT_BOARD_NODE_ID } from '../../state/hardware'
 import { useProjectStore } from '../../state/projectStore'
 import { useUiStore } from '../../state/uiStore'
@@ -295,8 +295,11 @@ function boundsForLayouts(
 }
 
 export default function BuildDiagramWorkspace() {
-  const nodes = useGraphStore((state) => state.nodes)
-  const edges = useGraphStore((state) => state.edges)
+  // The whole diagram describes physical hardware, which lives in the root
+  // graph — so it reads the root graph even while a pattern group is open on
+  // the canvas, rather than showing an empty bench with no board.
+  const nodes = useRootNodes()
+  const edges = useRootEdges()
   const storedBuildProfile = useGraphStore((state) => state.buildProfile)
   const updateBuildProfile = useGraphStore((state) => state.updateBuildProfile)
   const closeBuildDiagram = useUiStore((state) => state.closeBuildDiagram)
@@ -309,9 +312,10 @@ export default function BuildDiagramWorkspace() {
   // keep its own `buildProfile.physicalBoardProfileId`, which meant a graph
   // whose Board node already named an exact board still opened here on "Exact
   // board required" — two views disagreeing about the same physical fact.
-  const benchBoardProfileId = useGraphStore((state) => selectedPhysicalBoardProfile(state.nodes)?.id)
-  const boardNodeId = useGraphStore(
-    (state) => state.nodes.find((node) => node.data.nodeType === 'Board')?.id ?? ROOT_BOARD_NODE_ID)
+  const benchBoardProfileId = useGraphStore((state) => selectedPhysicalBoardProfile(rootGraphNodes(state))?.id)
+  const boardNodeId = useMemo(
+    () => nodes.find((node) => node.data.nodeType === 'Board')?.id ?? ROOT_BOARD_NODE_ID,
+    [nodes])
   const updateNodeProperty = useGraphStore((state) => state.updateNodeProperty)
   const setSelectedFqbn = useUploadStore((state) => state.setSelectedFqbn)
   // A chosen exact board only applies while it still matches the upload target.

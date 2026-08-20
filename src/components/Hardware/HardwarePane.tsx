@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import amplifierRender from '../../assets/components/max98357a-i2s-amplifier.webp'
 import ledSegmentRender from '../../assets/components/ws2812b-led.webp'
-import { useGraphStore, type StudioNode } from '../../state/graphStore'
+import { useGraphStore, useRootEdges, useRootNodes, type StudioNode } from '../../state/graphStore'
 import { usePreviewStore } from '../../state/previewStore'
 import { useUiStore } from '../../state/uiStore'
 import { CATEGORY_COLOR, NODE_LIBRARY } from '../../state/nodeLibrary'
@@ -334,8 +334,10 @@ function OutputLink({ signalKey, effects, label, link }: {
 export default function HardwarePane() {
   const addNode = useGraphStore((state) => state.addNode)
   const removeNodeCompletely = useGraphStore((state) => state.removeNodeCompletely)
-  const nodes = useGraphStore((state) => state.nodes)
-  const edges = useGraphStore((state) => state.edges)
+  // The bench is the project's hardware, which lives in the root graph — so it
+  // stays visible and editable while a pattern group is open on the canvas.
+  const nodes = useRootNodes()
+  const edges = useRootEdges()
   const viewCenter = useUiStore((state) => state.viewCenter)
   const setStatus = useUiStore((state) => state.setStatus)
   const focusNode = useGraphStore((state) => state.focusNode)

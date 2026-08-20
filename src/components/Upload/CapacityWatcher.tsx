@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { getGroupRegistry, useGraphStore } from '../../state/graphStore'
+import { getGroupRegistry, useRootEdges, useRootNodes } from '../../state/graphStore'
 import { boardByFqbn, engineReady, useUploadStore } from '../../state/uploadStore'
 import { useCapacityStore } from '../../state/capacityStore'
 import { generateCpp } from '../../codegen/cppGenerator'
@@ -24,8 +24,8 @@ import { controllerSettings } from '../../state/controllerSettings'
  * have to be on screen for the measurement to happen.
  */
 export default function CapacityWatcher() {
-  const nodes = useGraphStore((s) => s.nodes)
-  const edges = useGraphStore((s) => s.edges)
+  const nodes = useRootNodes()
+  const edges = useRootEdges()
   const { helper, installedCores, selectedFqbn } = useUploadStore(useShallow((s) => ({
     helper: s.helper,
     installedCores: s.installedCores,

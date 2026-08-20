@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { useGraphStore, getGroupRegistry, matrixTileLayout, ROOT_GRAPH_ID, clearStashedGraphHistory, reachableGroupRegistry } from '../graphStore'
+import { useGraphStore, getGroupRegistry, matrixTileLayout, ROOT_GRAPH_ID, clearStashedGraphHistory, reachableGroupRegistry, rootGraphNodes } from '../graphStore'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { evaluateGraph } from '../graphEvaluator'
 import type { StudioNode, StudioEdge } from '../graphStore'
@@ -852,6 +852,63 @@ describe('graphStore — loadGraph normalization', () => {
 // responsible for forcing `false` on untrusted content) — these tests cover
 // loadGraph's own defaulting plus the pattern-drop actions that must always
 // force the workspace untrusted regardless of the current state.
+describe('graphStore — hardware while a group is open', () => {
+  beforeEach(() => reset())
+
+  // Hardware only ever lives in the root graph, so every hardware question and
+  // every hardware edit has to reach past whichever group is active.
+  function enterAGroup(rootNodes: StudioNode[]) {
+    reset(rootNodes)
+    useGraphStore.setState({
+      graphs: {
+        [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' },
+        g1: { id: 'g1', name: 'Pattern' },
+      },
+      graphData: { g1: { nodes: [node('inner', 'SolidColor')], edges: [] } },
+    })
+    useGraphStore.getState().enterGraph('g1')
+  }
+
+  it('still finds the board from inside a group', () => {
+    enterAGroup([node('board-root', 'Board', { profileId: 'esp32-generic-devkit-38pin' })])
+    expect(useGraphStore.getState().nodes.map((n) => n.id)).toEqual(['inner'])
+    expect(rootGraphNodes(useGraphStore.getState()).map((n) => n.id)).toEqual(['board-root'])
+  })
+
+  it('edits a hardware part in the root graph rather than silently doing nothing', () => {
+    enterAGroup([node('board-root', 'Board', { profileId: '' })])
+    useGraphStore.getState().updateNodeProperty('board-root', 'profileId', 'espressif-esp32-s3-devkitc-1')
+
+    const board = rootGraphNodes(useGraphStore.getState()).find((n) => n.id === 'board-root')!
+    expect(board.data.properties.profileId).toBe('espressif-esp32-s3-devkitc-1')
+    // The group's own content is untouched.
+    expect(useGraphStore.getState().nodes.map((n) => n.id)).toEqual(['inner'])
+  })
+
+  it('adds a part to the bench, not into the open group', () => {
+    enterAGroup([node('board-root', 'Board')])
+    useGraphStore.getState().addNode(node('out', 'MatrixOutput', { width: 16, height: 16 }))
+
+    expect(rootGraphNodes(useGraphStore.getState()).map((n) => n.id)).toEqual(['board-root', 'out'])
+    expect(useGraphStore.getState().nodes.map((n) => n.id)).toEqual(['inner'])
+  })
+
+  it('removes a part from the bench while a group is open', () => {
+    enterAGroup([node('board-root', 'Board'), node('out', 'MatrixOutput')])
+    useGraphStore.getState().removeNodeCompletely('out')
+
+    expect(rootGraphNodes(useGraphStore.getState()).map((n) => n.id)).toEqual(['board-root'])
+  })
+
+  it('leaves a non-hardware node added inside a group in that group', () => {
+    enterAGroup([node('board-root', 'Board')])
+    useGraphStore.getState().addNode(node('plasma', 'Plasma'))
+
+    expect(useGraphStore.getState().nodes.map((n) => n.id)).toEqual(['inner', 'plasma'])
+    expect(rootGraphNodes(useGraphStore.getState()).map((n) => n.id)).toEqual(['board-root'])
+  })
+})
+
 describe('graphStore — trust boundary', () => {
   beforeEach(() => {
     reset()

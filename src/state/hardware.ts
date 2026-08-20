@@ -43,6 +43,17 @@ export function isHardwareOnlyNodeType(nodeType: string): boolean {
 }
 
 /**
+ * Every node type the hardware view owns, signal-carrying or not.
+ *
+ * These only ever live in the root graph — none of them can be pulled into a
+ * pattern group — so they are also exactly the types a store action must reach
+ * into the root graph for when a group happens to be the active graph.
+ */
+export function isHardwareNodeType(nodeType: string): boolean {
+  return isHardwareManagedSignalNodeType(nodeType) || isHardwareOnlyNodeType(nodeType)
+}
+
+/**
  * A part's real footprint in millimetres, in the orientation its render is
  * drawn. The hardware view scales every part through one shared mm-to-pixel
  * factor, so a XIAO beside a microphone is the size difference you would see on

@@ -1,7 +1,7 @@
 import { lazy, memo, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import type { NodeProps, Node } from '@xyflow/react'
-import { useGraphStore } from '../../state/graphStore'
+import { rootGraphEdges, rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { compositionDims } from '../../state/outputRouting'
 import type { StudioEdge, StudioNodeData } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
@@ -415,7 +415,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
   )
   const liveFor = (propKey: string): unknown => liveValues[portFor(propKey)]
   const expressionDimsKey = useGraphStore((s) => {
-    const { w, h } = compositionDims(s.nodes, s.edges)
+    const { w, h } = compositionDims(rootGraphNodes(s), rootGraphEdges(s))
     return `${w}:${h}`
   })
   const [expressionW, expressionH] = expressionDimsKey.split(':').map(Number)
@@ -958,15 +958,17 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const performanceMode = useUiStore((s) => s.performanceMode)
   const uiEffectsEnabled = useUiStore((s) => s.uiEffectsEnabled)
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
-  const selectedBoardProfile = useGraphStore((s) => selectedPhysicalBoardProfile(s.nodes))
+  const selectedBoardProfile = useGraphStore((s) => selectedPhysicalBoardProfile(rootGraphNodes(s)))
   const signalPathDimEnabled = useUiStore((s) => s.signalPathDimEnabled)
   const focusState = useGraphStore((s) => {
     if (!signalPathDimEnabled || !s.selectedNodeId) return 'neutral'
     return signalPathFor(s.edges, s.selectedNodeId).has(id) ? 'active' : 'dim'
   })
   // Matrix dimensions (from MatrixOutput) set the frame-preview aspect ratio.
-  const gridW = useGraphStore((s) => Math.max(1, Math.min(128, compositionDims(s.nodes, s.edges).w)))
-  const gridH = useGraphStore((s) => Math.max(1, Math.min(128, compositionDims(s.nodes, s.edges).h)))
+  // The matrix a preview thumbnail is drawn for is the project's, not the
+  // active graph's — inside a pattern group there is no LED output to read.
+  const gridW = useGraphStore((s) => Math.max(1, Math.min(128, compositionDims(rootGraphNodes(s), rootGraphEdges(s)).w)))
+  const gridH = useGraphStore((s) => Math.max(1, Math.min(128, compositionDims(rootGraphNodes(s), rootGraphEdges(s)).h)))
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
   const setGroupInputRole = useGraphStore((s) => s.setGroupInputRole)

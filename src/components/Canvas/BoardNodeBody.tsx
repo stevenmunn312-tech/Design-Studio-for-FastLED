@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useGraphStore } from '../../state/graphStore'
+import { useGraphStore, useRootNodes } from '../../state/graphStore'
 import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import { controllerSettings } from '../../state/controllerSettings'
 import {
@@ -46,7 +46,7 @@ export default function BoardNodeBody({ nodeId }: Props) {
   const profile = useMemo(() => boardProfileById(profileId), [profileId])
   const boardTarget = boardByFqbn(selectedFqbn)
   const psramOptions = boardTarget?.psram
-  const graphNodes = useGraphStore((s) => s.nodes)
+  const graphNodes = useRootNodes()
   const settings = useMemo(() => controllerSettings(graphNodes), [graphNodes])
   const psramChoice = psramOptions?.find((option) => option.id === settings.psramMode) ?? psramOptions?.[0]
   const familyId = profile ? boardProfileFamilyId(profile) : ''

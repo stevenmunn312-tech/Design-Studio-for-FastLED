@@ -26,7 +26,7 @@ import { validateMatrixLayout } from './xyLayout'
 import { isLinearForm, outputCanvasDims, outputForm } from './ledOutputForm'
 import { emptyBuildProfile, normalizeBuildProfile, type BuildProfile } from '../build/buildProfile'
 import { boardProfileById, selectedPhysicalBoardProfile } from '../build/boardProfiles'
-import { DEFAULT_BOARD_PROFILE_ID, isHardwareManagedSignalNodeType, isHardwareOnlyNodeType, ROOT_BOARD_NODE_ID } from './hardware'
+import { DEFAULT_BOARD_PROFILE_ID, isHardwareManagedSignalNodeType, isHardwareNodeType, isHardwareOnlyNodeType, ROOT_BOARD_NODE_ID } from './hardware'
 import { controllerSettings, DEFAULT_CONTROLLER_SETTINGS } from './controllerSettings'
 import {
   type PerformanceDeckConfig,
@@ -1050,15 +1050,19 @@ export const useGraphStore = create<GraphState>()(
 
       addNode: (node, centreOnDrop) => {
         set((s) => {
-          if (!canAddNodeType(s.nodes, node.data.nodeType)) return s
+          // A part added from the hardware view belongs on the bench, which is
+          // the root graph — never sealed inside whichever pattern group the
+          // canvas happens to be showing.
+          const rootScoped = isHardwareNodeType(node.data.nodeType) && s.activeGraphId !== ROOT_GRAPH_ID
+          const target = rootScoped ? rootGraphNodes(s) : s.nodes
+          if (!canAddNodeType(target, node.data.nodeType)) return s
           if (centreOnDrop) pendingCentreY.set(node.id, node.position.y)
-          return {
-            nodes: [
-              ...s.nodes.map((n) => (n.selected ? { ...n, selected: false } : n)),
-              { ...node, selected: true },
-            ],
-            selectedNodeId: node.id,
-          }
+          const next = [
+            ...target.map((n) => (n.selected ? { ...n, selected: false } : n)),
+            { ...node, selected: !rootScoped },
+          ]
+          if (rootScoped) return withRootNodes(s, next)
+          return { nodes: next, selectedNodeId: node.id }
         })
       },
 
@@ -1138,6 +1142,16 @@ export const useGraphStore = create<GraphState>()(
        * costs nothing when the node was already the lone selection.
        */
       focusNode: (id) => set((s) => {
+        // Focusing a hardware part from the hardware view while a group is open
+        // has to bring the canvas back to the graph the part is actually in;
+        // selecting an id the active graph does not contain shows nothing.
+        if (!s.nodes.some((node) => node.id === id) && rootGraphNodes(s).some((node) => node.id === id)) {
+          queueMicrotask(() => {
+            useGraphStore.getState().enterGraph(ROOT_GRAPH_ID)
+            useGraphStore.getState().focusNode(id)
+          })
+          return { selectedNodeId: id }
+        }
         if (!s.nodes.some((node) => (node.selected ?? false) !== (node.id === id))) {
           return { selectedNodeId: id }
         }
@@ -1220,53 +1234,47 @@ export const useGraphStore = create<GraphState>()(
         }),
 
       updateNodeProperty: (id, key, value) =>
-        set((s) => ({
-          nodes: s.nodes.map((n) =>
-            n.id === id
-              ? { ...n, data: { ...n.data, properties: { ...n.data.properties, [key]: value } } }
-              : n
-          ),
-        })),
+        set((s) => editNodeIn(s, id, (properties) => ({ ...properties, [key]: value }))),
 
       updateNodeProperties: (id, updates) =>
-        set((s) => ({
-          nodes: s.nodes.map((n) => {
-            if (n.id !== id) return n
-            const properties = { ...n.data.properties }
-            for (const [key, value] of Object.entries(updates)) {
-              if (value === undefined) delete properties[key]
-              else properties[key] = value
-            }
-            return { ...n, data: { ...n.data, properties } }
-          }),
+        set((s) => editNodeIn(s, id, (current) => {
+          const properties = { ...current }
+          for (const [key, value] of Object.entries(updates)) {
+            if (value === undefined) delete properties[key]
+            else properties[key] = value
+          }
+          return properties
         })),
 
       retargetHardwarePins: (fqbn, previousBoard) => {
         let moved = 0
         const saved = useNodeDefaults.getState().micOverridesByFqbn[fqbn]
         set((s) => {
+          // Hardware is root-graph content, so retargeting reads and rewrites
+          // the root graph even while a pattern group is the active one.
+          const hardwareNodes = rootGraphNodes(s)
           // The Board node's profile knows which pads this exact board exposes,
           // where the FQBN only names the chip. Falls back to the FQBN table.
-          const profile = selectedPhysicalBoardProfile(s.nodes)
+          const profile = selectedPhysicalBoardProfile(hardwareNodes)
 
           // The user's own per-board microphone wiring outranks everything: a
           // board they have pinned a default for is a board they have already
           // decided about.
           const withSavedMic = saved
-            ? s.nodes.map((n) => {
+            ? hardwareNodes.map((n) => {
               if (n.data.nodeType !== 'MicInput') return n
               const pins = retargetedMicPins(n.data.properties as Record<string, unknown>, fqbn, saved, profile)
               if (!pins) return n
               moved += 1
               return { ...n, data: { ...n.data, properties: { ...n.data.properties, ...pins } } }
             })
-            : s.nodes
+            : hardwareNodes
 
           const result = retargetHardwarePinsFor(withSavedMic, profile, fqbn, previousBoard)
           moved += result.moved
           // No-op when nothing moved, so re-selecting the same effective
           // wiring doesn't push an empty step onto the undo stack.
-          return moved > 0 ? { nodes: result.nodes } : {}
+          return moved > 0 ? withRootNodes(s, result.nodes) : {}
         })
         return moved
       },
@@ -1412,16 +1420,22 @@ export const useGraphStore = create<GraphState>()(
       },
 
       removeNodeCompletely: (id) => {
-        const node = useGraphStore.getState().nodes.find((entry) => entry.id === id)
+        const state = useGraphStore.getState()
+        // Removing a part is a hardware-view act, so it has to find the part in
+        // the root graph even when a pattern group is the active one.
+        const inActive = state.nodes.some((entry) => entry.id === id)
+        const node = (inActive ? state.nodes : rootGraphNodes(state)).find((entry) => entry.id === id)
         if (!node || node.data.nodeType === 'Board') return
         scheduleOrphanGraphPrune()
-        set((s) => removeNodeAndEdges(
-          s.nodes,
-          s.edges,
-          s.selectedNodeId,
-          s.performanceDeck,
-          new Set([id]),
-        ))
+        set((s) => {
+          if (inActive) {
+            return removeNodeAndEdges(s.nodes, s.edges, s.selectedNodeId, s.performanceDeck, new Set([id]))
+          }
+          const removed = removeNodeAndEdges(
+            rootGraphNodes(s), rootGraphEdges(s), s.selectedNodeId, s.performanceDeck, new Set([id]))
+          const { nodes, edges, ...rest } = removed
+          return { ...rest, ...withRootContent(s, { nodes, edges }) }
+        })
       },
 
       deleteSelection: () => {
@@ -2170,6 +2184,85 @@ export function matrixTileLayout(nodes: StudioNode[]): { tilesX: number; tilesY:
     }
   }
   return matrixTileLayoutCache
+}
+
+/**
+ * The root graph's content, whichever graph is currently active.
+ *
+ * Hardware lives only in the root graph — the Board node, every LED output,
+ * every peripheral — because those types are excluded from grouping in the
+ * first place. So a hardware question asked against `nodes` gets the right
+ * answer only while the root graph happens to be the active one: step into a
+ * pattern group and the bench appears empty, the board unchosen, and the
+ * project's brightness and power caps fall back to their defaults. Every
+ * surface that asks a project-wide hardware question reads through these.
+ */
+const NO_NODES: StudioNode[] = []
+const NO_EDGES: StudioEdge[] = []
+
+type GraphScope = Pick<GraphState, 'nodes' | 'edges' | 'activeGraphId' | 'graphData'>
+
+export function rootGraphNodes(s: GraphScope): StudioNode[] {
+  if (s.activeGraphId === ROOT_GRAPH_ID) return s.nodes
+  return s.graphData[ROOT_GRAPH_ID]?.nodes ?? NO_NODES
+}
+
+export function rootGraphEdges(s: GraphScope): StudioEdge[] {
+  if (s.activeGraphId === ROOT_GRAPH_ID) return s.edges
+  return s.graphData[ROOT_GRAPH_ID]?.edges ?? NO_EDGES
+}
+
+/** `rootGraphNodes` as a hook. Both branches return a stored array, so the
+ *  identity is stable and this cannot loop a subscriber. */
+export function useRootNodes(): StudioNode[] {
+  return useGraphStore(rootGraphNodes)
+}
+
+export function useRootEdges(): StudioEdge[] {
+  return useGraphStore(rootGraphEdges)
+}
+
+/**
+ * The state slice that writes `nodes` back into whichever graph they came
+ * from — the write counterpart of `rootGraphNodes`. Editing a hardware part
+ * from inside a group would otherwise be a silent no-op, since the node being
+ * edited is not in the active graph at all.
+ */
+function withRootNodes(s: GraphScope, nodes: StudioNode[]): Partial<GraphState> {
+  return withRootContent(s, { nodes })
+}
+
+/**
+ * Known limitation: zundo's `partialize` tracks only `nodes`/`edges`, so a
+ * hardware edit made from inside a group lands in `graphData` and is not on
+ * the undo stack. That is strictly better than the silent no-op it replaced,
+ * but it is why hardware editing still belongs in the hardware view.
+ */
+function withRootContent(
+  s: GraphScope,
+  content: { nodes?: StudioNode[]; edges?: StudioEdge[] },
+): Partial<GraphState> {
+  if (s.activeGraphId === ROOT_GRAPH_ID) return content
+  const root = s.graphData[ROOT_GRAPH_ID] ?? { nodes: [], edges: [] }
+  return { graphData: { ...s.graphData, [ROOT_GRAPH_ID]: { ...root, ...content } } }
+}
+
+/**
+ * Apply a property edit to `id` wherever it lives: the active graph normally,
+ * the root graph when the id belongs to hardware the user is editing from
+ * inside a group.
+ */
+function editNodeIn(
+  s: GraphScope,
+  id: string,
+  edit: (properties: Record<string, unknown>) => Record<string, unknown>,
+): Partial<GraphState> {
+  const apply = (nodes: StudioNode[]) => nodes.map((n) =>
+    n.id === id ? { ...n, data: { ...n.data, properties: edit(n.data.properties) } } : n)
+  if (s.nodes.some((n) => n.id === id)) return { nodes: apply(s.nodes) }
+  const root = rootGraphNodes(s)
+  if (root === s.nodes || !root.some((n) => n.id === id)) return { nodes: s.nodes }
+  return withRootNodes(s, apply(root))
 }
 
 /**

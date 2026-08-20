@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties } from 'react'
-import { useGraphStore, getGroupRegistry, matrixTileLayout, type GraphMeta, type StudioEdge, type StudioNode } from '../../state/graphStore'
+import { useGraphStore, getGroupRegistry, matrixTileLayout, rootGraphEdges, rootGraphNodes, type GraphMeta, type StudioEdge, type StudioNode } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audioStore'
 import { evaluateGraphFull, getPatternShowSelection, type Frame } from '../../state/graphEvaluator'
@@ -542,8 +542,13 @@ export default function LEDPreview() {
         // Read the graph straight from the store each frame — the loop runs at
         // 60 fps anyway, and this keeps the React component free of a full
         // nodes/edges subscription (which would re-render it on every drag).
-        const { nodes: graphNodes, edges: graphEdges, trusted } = useGraphStore.getState()
-        const controller = controllerSettings(graphNodes)
+        const state = useGraphStore.getState()
+        const { nodes: graphNodes, edges: graphEdges, trusted } = state
+        // Brightness and the composition size are facts about the hardware, so
+        // they come from the root graph — a pattern group open on the canvas
+        // still renders at the project's matrix size and master brightness.
+        const hardwareNodes = rootGraphNodes(state)
+        const controller = controllerSettings(hardwareNodes)
         const groups = getGroupRegistry()
         // One evaluation pass feeds both the main matrix and every node preview.
         // Nodes disconnected from the output only feed previews published at
@@ -555,7 +560,7 @@ export default function LEDPreview() {
         // Firmware renders once on a shared logical composition canvas, then
         // fits/crops each terminal's source frame into its physical route. Do
         // the same here and pick the route selected in the preview header.
-        const composition = compositionDims(graphNodes, graphEdges)
+        const composition = compositionDims(hardwareNodes, rootGraphEdges(state))
         const { outputs } = evaluateGraphFull(graphNodes, graphEdges, tick, composition.w, composition.h, groups, fullPass, trusted)
         const evalMs = PERF_TELEMETRY ? performance.now() - evalStart : 0
         const routes = outputRoutes(graphNodes)

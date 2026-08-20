@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useUiStore } from './state/uiStore'
-import { useGraphStore } from './state/graphStore'
+import { rootGraphNodes, useGraphStore } from './state/graphStore'
 import { useAudioStore } from './state/audioStore'
 import { useShowPlayback } from './state/showPlayback'
 import { AudioEngine } from './audio/audioEngine'
@@ -90,7 +90,7 @@ export default function App() {
     return (mic?.data.properties as Record<string, unknown> | undefined) ?? null
   })
   const hasMicNode = micNodeProps !== null
-  const selectedBoardProfile = useGraphStore((s) => selectedPhysicalBoardProfile(s.nodes))
+  const selectedBoardProfile = useGraphStore((s) => selectedPhysicalBoardProfile(rootGraphNodes(s)))
   const showPreviewPlaying = useShowPlayback((s) => s.playing)
   const visibleGraphNodeCount = useGraphStore((s) => s.nodes.filter((node) => node.data.nodeType !== 'Board').length)
   const boardPopupOpen = useUploadStore((s) => s.boardPopupOpen)

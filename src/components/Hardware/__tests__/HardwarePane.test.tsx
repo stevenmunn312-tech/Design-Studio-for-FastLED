@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import HardwarePane from '../HardwarePane'
-import { useGraphStore } from '../../../state/graphStore'
+import { ROOT_GRAPH_ID, rootGraphNodes, useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/uploadStore'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
@@ -39,6 +39,9 @@ describe('HardwarePane', () => {
     useGraphStore.setState({
       nodes: [node('Board', ROOT_BOARD_NODE_ID, { profileId: DEFAULT_BOARD_PROFILE_ID }) as never],
       edges: [],
+      activeGraphId: ROOT_GRAPH_ID,
+      graphs: { [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' } },
+      graphData: {},
     })
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
     useUiStore.setState({
@@ -48,6 +51,36 @@ describe('HardwarePane', () => {
       previewPanelOpen: false,
       uiEffectsEnabled: true,
     })
+  })
+
+  it('keeps the bench usable while a pattern group is the active graph', () => {
+    // Hardware lives in the root graph, so stepping into a group used to leave
+    // this pane looking at an empty bench with no board.
+    useGraphStore.setState({
+      nodes: [],
+      edges: [],
+      activeGraphId: 'g1',
+      graphs: {
+        [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' },
+        g1: { id: 'g1', name: 'Pattern' },
+      },
+      graphData: {
+        [ROOT_GRAPH_ID]: {
+          nodes: [node('Board', ROOT_BOARD_NODE_ID, { profileId: DEFAULT_BOARD_PROFILE_ID }) as never],
+          edges: [],
+        },
+      },
+    })
+    render(<HardwarePane />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
+    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /Inputs/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /DS3231 RTC module/ }))
+
+    // The part lands on the bench, not sealed inside the open group.
+    const rootTypes = rootGraphNodes(useGraphStore.getState()).map((entry) => entry.data.nodeType)
+    expect(rootTypes).toContain('RTCInput')
+    expect(useGraphStore.getState().nodes).toHaveLength(0)
   })
 
   it('adds a DS3231 RTC module as a hardware-owned RTCInput node', () => {

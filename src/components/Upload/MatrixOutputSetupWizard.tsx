@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useGraphStore } from '../../state/graphStore'
+import { useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
 import { BOARDS, boardByFqbn, engineReady, useUploadStore } from '../../state/uploadStore'
 import { CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, SPI_CHIPSETS } from '../../state/nodeLibrary'
 import { validateMatrixLayout } from '../../state/xyLayout'
@@ -32,7 +32,9 @@ function clampInt(value: string, fallback: number, min = 1, max = 999) {
 
 export default function MatrixOutputSetupWizard() {
   const [step, setStep] = useState(0)
-  const { nodes, edges, updateNodeProperty, updateNodeProperties } = useGraphStore()
+  const nodes = useRootNodes()
+  const edges = useRootEdges()
+  const { updateNodeProperty, updateNodeProperties } = useGraphStore()
   const {
     helper,
     ports,

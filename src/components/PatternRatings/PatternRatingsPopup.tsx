@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import { usePatternLibrary, type SavedPattern } from '../../state/patternLibrary'
-import { getGroupRegistry, matrixDims, useGraphStore } from '../../state/graphStore'
+import { getGroupRegistry, matrixDims, rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import {
   PATTERN_INTENTS,
   patternRatingKey,
@@ -181,7 +181,7 @@ function RatingCard({
 }
 
 function ratingContext() {
-  const { w, h } = matrixDims(useGraphStore.getState().nodes)
+  const { w, h } = matrixDims(rootGraphNodes(useGraphStore.getState()))
   const cap = 32
   const scale = Math.min(1, cap / Math.max(w, h))
   return {

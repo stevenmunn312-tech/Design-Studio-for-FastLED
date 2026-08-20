@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { fireEvent, render } from '@testing-library/react'
 import BuildDiagramWorkspace from '../BuildDiagramWorkspace'
-import { useGraphStore } from '../../../state/graphStore'
+import { ROOT_GRAPH_ID, useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/uploadStore'
 import { micPinDefaultsForBoard } from '../../../state/micPinDefaults'
@@ -157,6 +157,30 @@ describe('BuildDiagramWorkspace', () => {
 
     expect(queryByText('Exact board required')).toBeNull()
     expect(getByText('Exact board: confirmed', { selector: 'li' })).toBeTruthy()
+  })
+
+  it('keeps describing the bench while a pattern group is open', () => {
+    // Hardware is root-graph content, so stepping into a group must not empty
+    // the bench or un-choose the board.
+    selectBoard('esp32-generic-devkit-38pin')
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32' })
+    const root = useGraphStore.getState().nodes
+    useGraphStore.setState({
+      nodes: [],
+      edges: [],
+      activeGraphId: 'g1',
+      graphs: {
+        [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' },
+        g1: { id: 'g1', name: 'Pattern' },
+      },
+      graphData: { [ROOT_GRAPH_ID]: { nodes: root, edges: [] } },
+    })
+    const { getAllByText, getByText, queryByText } = render(<BuildDiagramWorkspace />)
+
+    expect(queryByText('Exact board required')).toBeNull()
+    expect(getByText('Exact board: confirmed', { selector: 'li' })).toBeTruthy()
+    // The graph's own hardware is still listed, not an empty bench.
+    expect(getAllByText('Matrix Output').length).toBeGreaterThan(0)
   })
 
   it('records a board picked here on the Board node itself', () => {

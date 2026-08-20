@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
+import { getGroupRegistry, useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useUploadStore, boardByFqbn, engineReady } from '../../state/uploadStore'
 import { useStreamStore } from '../../state/streamStore'
@@ -42,7 +42,8 @@ const CAPACITY_LEVEL_CLASS = {
 export default function MatrixOutputDeployPopup({ inline = false }: { inline?: boolean } = {}) {
   const [readinessOpen, setReadinessOpen] = useState(false)
   const [validationAction, setValidationAction] = useState<HardwareValidationAction | null>(null)
-  const { nodes, edges } = useGraphStore()
+  const nodes = useRootNodes()
+  const edges = useRootEdges()
   const entries = useMusicStore((s) => s.entries)
   const currentProjectId = useProjectStore((s) => s.currentProjectId)
   const {

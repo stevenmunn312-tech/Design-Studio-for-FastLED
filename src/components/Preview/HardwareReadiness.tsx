@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useGraphStore } from '../../state/graphStore'
+import { useRootEdges, useRootNodes } from '../../state/graphStore'
 import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import { useCapacityStore } from '../../state/capacityStore'
 import { summarizeCapacity } from '../../utils/capacityFormat'
@@ -26,8 +26,10 @@ import styles from './HardwareReadiness.module.css'
  * not.
  */
 export default function HardwareReadiness() {
-  const nodes = useGraphStore((s) => s.nodes)
-  const edges = useGraphStore((s) => s.edges)
+  // Power, RAM and pin conflicts are all questions about the project's
+  // hardware, which lives in the root graph.
+  const nodes = useRootNodes()
+  const edges = useRootEdges()
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
 
   const capacityStatus = useCapacityStore((s) => s.status)

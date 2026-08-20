@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useGraphStore } from '../../state/graphStore'
+import { useRootEdges, useRootNodes } from '../../state/graphStore'
 import { allBoards, boardByFqbn, engineReady, useUploadStore } from '../../state/uploadStore'
 import { estimateFirmwareRam } from '../../utils/validateGraph'
 import styles from './Upload.module.css'
@@ -37,7 +37,8 @@ export default function BoardPopup() {
     closeBoardPopup, openCliPopup,
     addCustomBoard, removeCustomBoard, checkForUpdates, closeUpdatesPopup, upgradeCores,
   } = useUploadStore()
-  const { nodes, edges } = useGraphStore()
+  const nodes = useRootNodes()
+  const edges = useRootEdges()
   const [newBoard, setNewBoard] = useState(EMPTY_CUSTOM_BOARD)
   const [addError, setAddError] = useState<string | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)

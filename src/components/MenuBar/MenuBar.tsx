@@ -3,7 +3,7 @@ import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUiStore } from '../../state/uiStore'
 import type { LayoutPresetId } from '../../state/layoutPresets'
-import { useGraphStore, useTemporalStore, ROOT_GRAPH_ID, reachableGroupRegistry } from '../../state/graphStore'
+import { rootGraphNodes, useGraphStore, useTemporalStore, ROOT_GRAPH_ID, reachableGroupRegistry } from '../../state/graphStore'
 import { usePerformanceDeckSession } from '../../state/performanceDeckSessionStore'
 import { useAudioStore } from '../../state/audioStore'
 import { useShowPlayback } from '../../state/showPlayback'
@@ -146,7 +146,7 @@ export default function MenuBar() {
   const hasMicNode = useGraphStore((s) =>
     s.nodes.some((n) => (n.data as { nodeType?: string }).nodeType === 'MicInput')
   )
-  const selectedBoardProfile = useGraphStore((s) => selectedPhysicalBoardProfile(s.nodes))
+  const selectedBoardProfile = useGraphStore((s) => selectedPhysicalBoardProfile(rootGraphNodes(s)))
   const micSupported = inmp441SupportedForBoardProfile(selectedBoardProfile)
   const micActive = useAudioStore((s) => s.micActive)
   const startAudio = useAudioStore((s) => s.startAudio)
