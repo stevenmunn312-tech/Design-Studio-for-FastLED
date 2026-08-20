@@ -15,8 +15,6 @@ import {
   fuseSlotForFeed,
   groundCombLaneY,
   itemLayouts,
-  peripheralPadCount,
-  peripheralPadLabel,
   peripheralPadPoint,
   physicalAssemblyDiagramHeight,
   POWER_BRANCH_ROW_SPACING,

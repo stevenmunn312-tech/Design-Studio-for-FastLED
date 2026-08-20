@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   BOARD_PROFILES,
   boardPinForGpio,
+  boardProfileById,
   boardPinVerdict,
   compatibleBoardProfilesForFqbn,
   isBoardProfileCompatibleWithFqbn,
@@ -231,5 +232,20 @@ describe('board pin safety', () => {
         fastLedData: { recommendedDefault: 21, commonAlternatives: [16] },
       },
     })])).toEqual([])
+  })
+})
+
+describe('ESP32 DevKit v1 (ESP-32D) audio pins', () => {
+  it('carries the amp pinout that was validated on the physical board', () => {
+    // The generated data has no amp entry for this board, so an Amplifier
+    // arriving here inherited the 38-pin profile's 27/14/22 — GPIO14 included,
+    // which this board's own safety map flags. 27/26/25 was meter-verified on
+    // the bench on 2026-08-18 and confirmed by a clean tone through the amp.
+    const profile = boardProfileById('esp32-devkit-v1-30pin-esp32d')
+    expect(profile?.peripheralPins?.max98357).toEqual({ bclk: 27, lrc: 26, din: 25 })
+
+    // ...and all three are pins this board actually brings out safely.
+    const safe = new Set(profile?.pinSafety?.safeGeneralPurpose ?? [])
+    for (const pin of [27, 26, 25]) expect(safe.has(pin), `GPIO${pin} is safe here`).toBe(true)
   })
 })

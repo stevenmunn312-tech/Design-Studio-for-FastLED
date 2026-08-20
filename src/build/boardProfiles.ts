@@ -557,6 +557,22 @@ const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
       'Header map read from the user-supplied ESP-32D pinout image and confirmed against the physical board\'s 15 + 15 rails.',
     ],
     sourceSummary: 'Header order taken from the user-supplied ESP-32D pinout image; pin count confirmed against the physical board.',
+    /*
+     * Hardware-validated on this board, 2026-08-18: BCLK 27, LRC 26, DIN 25,
+     * checked pad-to-pin with a meter and confirmed by a clean 440 Hz tone
+     * through a MAX98357A on exactly these pins.
+     *
+     * The generated data carries no amp pinout for this board at all, and the
+     * 38-pin profiles carry 27/14/22 — which is what an amplifier here
+     * inherited when the board changed, GPIO14 included, a pad this board's own
+     * safety map flags. Measured pins beat imported ones (`hand-authored pin
+     * maps win`, see the generated file's header).
+     *
+     * GPIO25/26 are also this chip's DAC pins. Not a conflict: one Amplifier is
+     * either an I2S module or an analog one taking line level from that DAC,
+     * never both at once.
+     */
+    peripheralPins: { max98357: { bclk: 27, lrc: 26, din: 25 } },
     pinAnchors: ESP32D_PIN_ANCHORS,
     pins: ESP32D_PINS,
   },
