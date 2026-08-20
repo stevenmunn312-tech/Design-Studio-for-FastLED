@@ -59,6 +59,8 @@ export function generateProvisionerSketch(cfg: Partial<ProvisionerConfig> = {}):
 
 #define SD_CS  ${c.sdCsPin}
 #define CHUNK      ${PROVISION_CHUNK}
+#define LINE_TIMEOUT_MS      2000
+#define BLOCK_TIMEOUT_MS     3000
 #define RX_BUFFER  ${PROVISION_RX_BUFFER}
 
 // Create the parent directory of \`path\` (one level is enough for /music, /shows).
@@ -70,13 +72,21 @@ void ensureDir(const String& path) {
 }
 
 // Read one '\\n'-terminated control line, ignoring '\\r'.
-String readLine() {
+// Bounded: an idle line returns an empty string rather than waiting for a
+// byte that may never come, so a host that goes away leaves the board
+// responsive instead of wedged.
+String readLine(uint32_t timeoutMs) {
   String s;
+  uint32_t last = millis();
   for (;;) {
-    while (!Serial.available()) { /* wait */ }
+    if (!Serial.available()) {
+      if (millis() - last > timeoutMs) return String();
+      continue;
+    }
     char ch = Serial.read();
     if (ch == '\\n') break;
     if (ch != '\\r') s += ch;
+    last = millis();
   }
   return s;
 }
@@ -95,7 +105,7 @@ void setup() {
 }
 
 void loop() {
-  String line = readLine();
+  String line = readLine(LINE_TIMEOUT_MS);
   if (line == "PING") {
     Serial.println("READY");
   } else if (line.startsWith("PUT ")) {
@@ -128,9 +138,22 @@ void loop() {
     while (remaining > 0) {
       uint32_t want = remaining < CHUNK ? remaining : CHUNK;
       uint32_t got = 0;
+      uint32_t last = millis();
       while (got < want) {
-        while (!Serial.available()) { /* wait */ }
+        if (!Serial.available()) {
+          // Bounded for the same reason: a byte lost to a USB hiccup costs
+          // one transfer instead of a board that never answers again.
+          if (millis() - last > BLOCK_TIMEOUT_MS) {
+            f.close();
+            SD.remove(path);   // a truncated file is worse than no file
+            Serial.printf("ERR timeout %lu/%lu\\n",
+                          (unsigned long) (size - remaining + got), (unsigned long) size);
+            return;
+          }
+          continue;
+        }
         got += Serial.readBytes(buf + got, want - got);
+        last = millis();
       }
       f.write(buf, want);
       remaining -= want;

@@ -2,6 +2,55 @@ import { describe, it, expect } from 'vitest'
 import { generatePlayerSketch, playerConfigFromGraph } from '../playerSketchGenerator'
 
 describe('playerSketchGenerator', () => {
+  describe('serial file receiver', () => {
+    const sketch = generatePlayerSketch(playerConfigFromGraph([
+      { data: { nodeType: 'MatrixOutput', properties: { width: 16, height: 16 } } },
+    ]))
+
+    it('accepts the provisioner wire protocol, so shows reach a flashed board', () => {
+      // Folding the receiver in is what removes a whole compile-and-flash cycle
+      // from every upload: the board is flashed once and files are pushed to it
+      // while it runs.
+      expect(sketch).toContain('void provServiceSerial() {')
+      expect(sketch).toContain('if (line == "PING") {')
+      expect(sketch).toContain('if (line.startsWith("PUT ")) {')
+      expect(sketch).toContain('if (line == "END") {')
+      expect(sketch).toContain('Serial.println("A");')      // per-block ack
+      expect(sketch).toContain('Serial.println("DONE");')
+      expect(sketch).toContain('Serial.println("BYE");')
+      expect(sketch).toContain('provServiceSerial();')      // called from loop()
+    })
+
+    it('bounds every read, so a dropped byte cannot wedge the board', () => {
+      // The Adalight stream receiver desynced permanently on one byte lost to
+      // FastLED.show()'s interrupts-disabled window, with nothing visible to
+      // the host. This sketch drives LEDs too, so an unbounded wait would
+      // reproduce that exactly — a timeout costs one transfer instead.
+      expect(sketch).not.toContain('while (!Serial.available())')
+      expect(sketch).toContain('if (millis() - last > timeoutMs) return String();')
+      expect(sketch).toContain('if (millis() - last > PROV_BLOCK_TIMEOUT_MS) {')
+      // ...and a host that dies mid-protocol must not leave the board mute.
+      expect(sketch).toContain('millis() - provLastCommandMs > PROV_SESSION_TIMEOUT_MS')
+    })
+
+    it('sizes the RX buffer before begin(), where the driver reads it', () => {
+      const rx = sketch.indexOf('Serial.setRxBufferSize(PROV_RX_BUFFER);')
+      expect(rx).toBeGreaterThan(-1)
+      expect(rx).toBeLessThan(sketch.indexOf('Serial.begin(115200);'))
+    })
+
+    it('resumes playback after a transfer, and stays quiet during one', () => {
+      // The card changed underneath the player, so the track has to be picked
+      // again — a board that arrived with an empty card would otherwise stay
+      // on "no playable track" until power-cycled.
+      expect(sketch).toContain('bool startPlayback() {')
+      expect(sketch).toMatch(/Serial\.println\("BYE"\);\s*\n\s*startPlayback\(\);/)
+      // The heartbeat is line-based like the protocol's own replies, so it
+      // must not interleave with them.
+      expect(sketch).toContain('if (!provTransferring && millis() - _dbgLast >= 2000) {')
+    })
+  })
+
   describe('HUB75 (docs/development/design/hub75-output.md)', () => {
     const hub75Cfg = playerConfigFromGraph([
       { data: { nodeType: 'MatrixOutput', properties: { width: 8, height: 8, chipset: 'HUB75' } } },

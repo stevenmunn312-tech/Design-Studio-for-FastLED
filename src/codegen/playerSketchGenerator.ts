@@ -432,6 +432,13 @@ ${isHub75 ? '' : `#define LED_DATA_PIN  ${c.ledDataPin}\n`}${clockPinDefine}#def
 #define HEIGHT        ${c.ledHeight}
 #define NUM_LEDS      ${numLeds}
 #define SD_CS         ${c.sdCsPin}
+// Serial file transfer, so new shows reach a running board without a reflash.
+// Every wait is bounded — see provServiceSerial.
+#define PROV_CHUNK               4096
+#define PROV_RX_BUFFER           8192
+#define PROV_LINE_TIMEOUT_MS       50
+#define PROV_BLOCK_TIMEOUT_MS    3000
+#define PROV_SESSION_TIMEOUT_MS 30000
 // Safe title (no extension) of the track this sketch was built for. Empty when
 // the payload had none, in which case the loader falls back to scanning.
 static const char* PREFERRED_TRACK = ${JSON.stringify(opts.preferredTrack ?? '')};
@@ -608,17 +615,12 @@ void applyEvent(const ShowEvent& ev) {
 }
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
-void setup() {
-  Serial.begin(115200);
-
-${ledSetupLines}
-
-  if (!SD.begin(SD_CS)) { Serial.println("SD mount failed"); while(1); }
-
-  ${internalDac ? '' : 'audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);'}
-  audio.setVolume(${c.maxVolume});
-
-  // Play the track this sketch was generated for.
+/*
+ * Pick a track and start it. Extracted from setup() so the serial receiver can
+ * call it again after new files land — otherwise a card that arrived empty
+ * would keep reporting "no playable track" until the board was power-cycled.
+ */
+bool startPlayback() {
   bool started = false;
   if (PREFERRED_TRACK[0]) {
     String mp3  = String("/music/") + PREFERRED_TRACK + ".mp3";
@@ -656,16 +658,168 @@ ${ledSetupLines}
     }
   }
   if (!started) Serial.println("No playable track found on the card");
+  return started;
+}
+
+/*
+ * Show-file receiver, living inside the player.
+ *
+ * This used to be a second sketch flashed just before the player, which cost a
+ * whole extra compile-and-flash cycle on every upload — far more time than the
+ * transfer itself. Folding it in means the board is flashed once and new shows
+ * are pushed to it while it runs.
+ *
+ * Every read here is bounded. The standalone provisioner got away with an
+ * unbounded spin on Serial.available() because it never drove LEDs; this sketch
+ * calls FastLED.show(), which disables interrupts long enough to lose a UART
+ * byte. That is precisely what desynced the Adalight stream receiver —
+ * permanently, with nothing visible to the host. A timeout costs one failed
+ * transfer; an unbounded wait costs the session.
+ */
+static bool     provTransferring = false;
+static uint32_t provLastCommandMs = 0;
+
+static String provReadLine(uint32_t timeoutMs) {
+  String out;
+  uint32_t last = millis();
+  for (;;) {
+    if (!Serial.available()) {
+      if (millis() - last > timeoutMs) return String();
+      continue;
+    }
+    int ch = Serial.read();
+    if (ch == '\\n') break;
+    if (ch != '\\r') out += (char) ch;
+    last = millis();
+  }
+  return out;
+}
+
+static void provEnsureDir(const String& path) {
+  int slash = path.lastIndexOf('/');
+  if (slash <= 0) return;
+  String dir = path.substring(0, slash);
+  if (dir.length() && !SD.exists(dir.c_str())) SD.mkdir(dir.c_str());
+}
+
+/** Receive one file. Returns false on timeout, having told the host so. */
+static bool provReceive(const String& path, uint32_t size) {
+  provEnsureDir(path);
+  if (SD.exists(path.c_str())) SD.remove(path.c_str());
+  File f = SD.open(path.c_str(), FILE_WRITE);
+  if (!f) { Serial.println("ERR open-failed"); return false; }
+  Serial.println("OK");
+
+  // Static rather than local: a 4 KB block is too much to put on the loop
+  // task's stack, and only one transfer is ever in flight.
+  static uint8_t block[PROV_CHUNK];
+  uint32_t remaining = size;
+  while (remaining > 0) {
+    uint32_t want = remaining < PROV_CHUNK ? remaining : PROV_CHUNK;
+    uint32_t got = 0;
+    uint32_t last = millis();
+    while (got < want) {
+      if (!Serial.available()) {
+        if (millis() - last > PROV_BLOCK_TIMEOUT_MS) {
+          f.close();
+          SD.remove(path.c_str());   // a truncated show file is worse than none
+          Serial.printf("ERR timeout %lu/%lu\\n",
+                        (unsigned long) (size - remaining + got), (unsigned long) size);
+          return false;
+        }
+        continue;
+      }
+      got += Serial.readBytes(block + got, want - got);
+      last = millis();
+    }
+    f.write(block, want);
+    remaining -= want;
+    Serial.println("A");
+  }
+  f.close();
+  Serial.println("DONE");
+  return true;
+}
+
+/**
+ * Serve one host command, if one is waiting.
+ *
+ * Costs a single Serial.available() per loop while a show plays, so this is
+ * free in the common case.
+ */
+void provServiceSerial() {
+  // A host that dies mid-protocol never sends END, and the board would stay
+  // silent forever waiting for it. Give up and resume normal life.
+  if (provTransferring && millis() - provLastCommandMs > PROV_SESSION_TIMEOUT_MS) {
+    provTransferring = false;
+    Serial.println("ERR session-timeout");
+    startPlayback();
+  }
+
+  if (!Serial.available()) return;
+
+  String line = provReadLine(PROV_LINE_TIMEOUT_MS);
+  if (line.length() == 0) return;
+  provLastCommandMs = millis();
+
+  if (line == "PING") {
+    // Answering PING is what stops playback: it is the host announcing a
+    // transfer, and the heartbeat would otherwise interleave with the
+    // protocol's own line-based replies and confuse its reader.
+    audio.stopSong();
+    provTransferring = true;
+    Serial.println("READY");
+    return;
+  }
+
+  if (line.startsWith("PUT ")) {
+    int sp = line.lastIndexOf(' ');
+    if (sp <= 4) { Serial.println("ERR bad-put"); return; }
+    audio.stopSong();
+    provTransferring = true;
+    provReceive(line.substring(4, sp), (uint32_t) line.substring(sp + 1).toInt());
+    provLastCommandMs = millis();
+    return;
+  }
+
+  if (line == "END") {
+    provTransferring = false;
+    Serial.println("BYE");
+    startPlayback();   // the card changed underneath us; pick a track again
+    return;
+  }
+}
+
+void setup() {
+  // Large enough to absorb a whole transfer block while the SD write of the
+  // previous one finishes. Must precede begin() — the ESP32 driver sizes its
+  // buffer at init — and the 256-byte default overruns the moment the host
+  // raises the link.
+  Serial.setRxBufferSize(PROV_RX_BUFFER);
+  Serial.begin(115200);
+
+${ledSetupLines}
+
+  if (!SD.begin(SD_CS)) { Serial.println("SD mount failed"); while(1); }
+
+  ${internalDac ? '' : 'audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);'}
+  audio.setVolume(${c.maxVolume});
+
+  startPlayback();
 }
 
 // ── Loop ──────────────────────────────────────────────────────────────────────
 void loop() {
+  // Accepting new show files is checked before anything else, so a board that
+  // found nothing playable still answers the host instead of sitting mute.
+  provServiceSerial();
+
   // Heartbeat so a serial monitor can tell "still running, just quiet" apart
   // from "hung" — printed before audio.loop() so it keeps ticking even if
   // that call itself stalls. audioPos not advancing points at playback;
   // pattern/event not advancing with audioPos moving points at show sync.
   static uint32_t _dbgLast = 0;
-  if (millis() - _dbgLast >= 2000) {
+  if (!provTransferring && millis() - _dbgLast >= 2000) {
     _dbgLast = millis();
     Serial.printf("[status] uptime=%lus audioPos=%lu pattern=%u event=%u/%u\\n",
                   millis() / 1000, (unsigned long)audio.getFilePos(), patternId, eventIdx, eventCount);
