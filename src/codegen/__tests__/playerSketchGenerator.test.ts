@@ -59,6 +59,16 @@ describe('playerSketchGenerator', () => {
       expect(sketch).toContain('if (!sdMounted) Serial.println("ERR sd-mount-failed");')
     })
 
+    it('reports the card state on every heartbeat, not just at boot', () => {
+      // A serial monitor is almost always opened after the board has booted,
+      // so the one-time greeting is the line nobody sees. Without this field
+      // the monitor shows uptime climbing and audioPos at 0 — a healthy-looking
+      // board playing nothing, with no hint that the card is why. The help's
+      // SD troubleshooting tells people to read this field first.
+      expect(sketch).toContain('sd=%s')
+      expect(sketch).toContain('sdMounted ? "ok" : "MISSING"')
+    })
+
     it('keeps trying to mount, instead of halting on a missing card', () => {
       // Nothing about a missing card is permanent — it can be unseated, or out
       // at a reader. Halting meant a physical reset was the only way back.

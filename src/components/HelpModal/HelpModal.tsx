@@ -250,7 +250,7 @@ function QuickStartTab() {
           </div>
           <div className={styles.choiceCard}>
             <strong>Music-synced SD show</strong>
-            <span>Analyse tracks in Music Library, build the timeline in Performance Generator, connect it through SD Card to Matrix Output, then choose <strong>Upload show to SD</strong>.</span>
+            <span>Drop tracks into Music Library — they analyse as they land — build the timeline in Performance Generator, add an <strong>SD Card</strong> part in the hardware view, then <strong>Upload</strong>. That writes the songs and shows to the card and flashes the player.</span>
           </div>
         </div>
       </div>
@@ -461,7 +461,41 @@ function UploadTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Music-synced SD show</div>
         <div className={styles.text}>
-          Connect an <strong>SD Card</strong> node to Matrix Output's <code>sdcard</code> input after building a timeline with Music Library and Performance Generator. Then choose <strong>♪ Upload show to SD</strong> to provision the card and flash the player. Keep ordinary generative shows on the normal <strong>Upload</strong> path.
+          Add an <strong>SD Card</strong> part in the hardware view, then build a timeline with Music Library and Performance Generator. Upload flashes a dedicated player sketch that reads the card, rather than the normal sketch — keep ordinary generative shows on the normal <strong>Upload</strong> path.
+        </div>
+        <div className={styles.text}>
+          Songs reach the card one of two ways. By default they go over USB serial, which is reliable everywhere but takes minutes per track. Tick <strong>Card reader available</strong> and Studio pauses to ask you to move the card to a reader, writes the files directly, and asks for it back before flashing — seconds instead of minutes. Either way, a song already on the card at the same size is skipped, so re-uploading a changed show does not re-send the music.
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>If the SD card show does not play</div>
+        <div className={styles.text}>
+          The player prints a status line every two seconds. Open <strong>Output / Serial</strong> and read the <code>sd=</code> field first — it separates a card problem from everything else, and you can attach the monitor at any time rather than having to catch the board booting.
+        </div>
+        <div className={styles.definitionGrid}>
+          <div>
+            <strong><code>sd=MISSING</code></strong>
+            <span>The card never mounted. Check it is seated, formatted <strong>FAT32</strong> (not exFAT — a 64&nbsp;GB card is usually exFAT out of the box, so reformat it), that the module has 3.3&nbsp;V power and a common ground, and that the CS pin on the SD Card part matches how it is wired. The board keeps retrying once a second, so reseating the card or fixing the wiring recovers it without a reset.</span>
+          </div>
+          <div>
+            <strong><code>sd=ok</code>, <code>audioPos</code> stuck at 0</strong>
+            <span>The card mounted but nothing is playing. Usually there is no matching pair on it: the player needs <code>/music/&lt;name&gt;.mp3</code> <em>and</em> <code>/shows/&lt;name&gt;.show</code> with the same name. A lone MP3 left from an earlier session is skipped on purpose, so the wrong song can never run against the wrong show.</span>
+          </div>
+          <div>
+            <strong><code>audioPos</code> climbing, LEDs dark</strong>
+            <span>Audio and show sync are fine, so this is an LED problem, not an SD one. Work through <em>Preview works, LEDs do not</em> above — data pin, common ground, external power, chipset, brightness.</span>
+          </div>
+          <div>
+            <strong>Audio plays but LEDs lag or jump</strong>
+            <span><code>event</code> should advance alongside <code>audioPos</code>. If it does not, the <code>.show</code> file on the card is older than the timeline you edited — re-upload. Editing events in the timeline marks that song so option changes stop regenerating it; use <strong>Revert</strong> to rebuild from the analysis.</span>
+          </div>
+          <div>
+            <strong>Upload says the board never reported READY</strong>
+            <span>Serial transfers need the player already flashed and running. If the board says <code>ERR sd-mount-failed</code>, fix the card first — there is nowhere to write the files. A serial monitor left open on the same port also blocks the transfer.</span>
+          </div>
         </div>
       </div>
 

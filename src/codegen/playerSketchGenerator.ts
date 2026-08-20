@@ -896,8 +896,13 @@ void loop() {
   static uint32_t _dbgLast = 0;
   if (!provTransferring && millis() - _dbgLast >= 2000) {
     _dbgLast = millis();
-    Serial.printf("[status] uptime=%lus audioPos=%lu pattern=%u event=%u/%u\\n",
-                  millis() / 1000, (unsigned long)audio.getFilePos(), patternId, eventIdx, eventCount);
+    // sd= is here rather than only in the boot greeting because a serial
+    // monitor is almost always opened *after* the board has booted, and would
+    // otherwise miss the one line that explains the silence: uptime climbing
+    // with audioPos at 0 looks like a healthy board playing nothing.
+    Serial.printf("[status] uptime=%lus sd=%s audioPos=%lu pattern=%u event=%u/%u\\n",
+                  millis() / 1000, sdMounted ? "ok" : "MISSING",
+                  (unsigned long)audio.getFilePos(), patternId, eventIdx, eventCount);
   }
 
   audio.loop();
