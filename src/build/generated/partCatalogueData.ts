@@ -47,6 +47,65 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 19.6
     }
   },
+  "ds3231-rtc-module": {
+    "partId": "ds3231-rtc-module",
+    "label": "DS3231 RTC module (ZS-042)",
+    "category": "support",
+    "dimensionsMm": {
+      "width": 38.0,
+      "height": 22.0
+    },
+    "manufacturer": "generic",
+    "logicVoltage": "3.3 V / 5 V",
+    "pinLabelsLeftToRight": [
+      "32K",
+      "SQW",
+      "SCL",
+      "SDA",
+      "VCC",
+      "GND"
+    ],
+    "notes": [
+      "Matches the DS3231 option on the RTC Clock node, which reads the chip directly over Wire at I2C address 0x68.",
+      "The DS3231 has an integrated temperature-compensated crystal, so unlike a DS1307 module there is no external 32.768 kHz can on the board.",
+      "Runs from 3.3 V or 5 V. The onboard pull-ups sit on whichever rail VCC is fed, so powering it from 5 V puts 5 V on SDA/SCL and can damage a 3.3 V-only host such as an ESP32.",
+      "The CR2032 backup cell and the AT24C32 A0/A1/A2 address jumpers are on the reverse face and are not visible in this top-down render.",
+      "Board revisions ship with a 200 ohm and 1N4148 trickle charger fitted, which is unsafe with a non-rechargeable CR2032; many users cut that track."
+    ],
+    "render": {
+      "file": "parts/ds3231-rtc-module.webp",
+      "widthPx": 464,
+      "heightPx": 272,
+      "pxPerMm": 12.0
+    }
+  },
+  "hc-sr501-pir-sensor": {
+    "partId": "hc-sr501-pir-sensor",
+    "label": "HC-SR501 PIR motion sensor module",
+    "category": "input-control",
+    "dimensionsMm": {
+      "width": 32.0,
+      "height": 24.0
+    },
+    "manufacturer": "generic",
+    "logicVoltage": "4.5-20 V supply; 3.3 V digital output",
+    "pinLabelsLeftToRight": [
+      "VCC",
+      "OUT",
+      "GND"
+    ],
+    "notes": [
+      "The OUT pin is a digital motion signal: approximately 3.3 V when active and 0 V when idle.",
+      "Sensitivity and output hold time are adjustable; the H/L jumper selects repeatable or single-trigger operation.",
+      "Pin order is recorded left-to-right in the normalized lens-up render as VCC, OUT, GND. Supplier clones can mirror the header, so follow the silkscreen on the owned module."
+    ],
+    "render": {
+      "file": "parts/hc-sr501-pir-sensor.webp",
+      "widthPx": 400,
+      "heightPx": 304,
+      "pxPerMm": 12.0
+    }
+  },
   "hub75-panel-64x64-p4": {
     "partId": "hub75-panel-64x64-p4",
     "label": "HUB75 panel, 64×64 P4",
@@ -237,6 +296,33 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "file": "parts/pcm1802-line-in-adc.webp",
       "widthPx": 632,
       "heightPx": 464,
+      "pxPerMm": 12.0
+    }
+  },
+  "photosensitive-ldr-module": {
+    "partId": "photosensitive-ldr-module",
+    "label": "Photosensitive LDR analog light-sensor module",
+    "category": "input-control",
+    "dimensionsMm": {
+      "width": 32.0,
+      "height": 23.8
+    },
+    "manufacturer": "generic (Keyestudio KS6026 form)",
+    "logicVoltage": "3.3-5 V supply; analog output follows VCC",
+    "pinLabelsLeftToRight": [
+      "S",
+      "VCC",
+      "GND"
+    ],
+    "notes": [
+      "The S pin is an analog voltage from the onboard LDR voltage divider; brighter light raises the documented KS6026 output.",
+      "Power the module from 3.3 V when its signal connects to a 3.3 V-only ADC, because the analog output range follows the supply.",
+      "This package follows the documented 32 x 23.8 mm KS6026 three-pin form; smaller KY-018/HW-486 modules are a separate mechanical variant."
+    ],
+    "render": {
+      "file": "parts/photosensitive-ldr-module.webp",
+      "widthPx": 408,
+      "heightPx": 310,
       "pxPerMm": 12.0
     }
   },
@@ -504,6 +590,43 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 1200,
       "heightPx": 157,
       "pxPerMm": 11.896
+    }
+  },
+  "xc4448-3w-stereo-amplifier": {
+    "partId": "xc4448-3w-stereo-amplifier",
+    "label": "XC4448 2 x 3 W stereo amplifier module",
+    "category": "amplifier",
+    "dimensionsMm": {
+      "width": 23.0,
+      "height": 16.0
+    },
+    "manufacturer": "Duinotech / Jaycar",
+    "logicVoltage": "2.5-5.5 V supply",
+    "pinLabelsLeftToRight": [
+      "R+",
+      "R-",
+      "L-",
+      "L+",
+      "GND",
+      "+5V",
+      "SW",
+      "GND",
+      "LIN",
+      "GND",
+      "RIN"
+    ],
+    "notes": [
+      "This is the red 23 x 16 mm Duinotech/Jaycar XC4448 revision, not the common green five-pad PAM8403 breakout.",
+      "The left-to-right order follows the physical module after rotating its connection row to the required bottom-edge orientation.",
+      "The two speaker outputs are bridge-tied: connect each speaker only across its own + and - pads; neither negative output is ground and the channels must not share a return.",
+      "SW is the shutdown control. The supplier sheet renders this small silkscreen ambiguously as '5W' in its pinout table, while the product photograph shows SW.",
+      "Maximum 2 x 3 W output is specified at 5 V into 4 ohm loads at the PAM8403 datasheet test condition."
+    ],
+    "render": {
+      "file": "parts/xc4448-3w-stereo-amplifier.webp",
+      "widthPx": 400,
+      "heightPx": 287,
+      "pxPerMm": 16.174
     }
   },
 }
