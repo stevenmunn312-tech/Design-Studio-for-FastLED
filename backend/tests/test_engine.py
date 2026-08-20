@@ -1,5 +1,6 @@
 """Build-engine selection and FQBN <-> fbuild-environment translation — pure
 logic, no subprocess/hardware involved."""
+import stat
 import threading
 import time
 
@@ -709,3 +710,59 @@ def test_busy_result_does_not_blame_the_sketch():
     assert "DID NOT RUN" in lines
     assert "didn't compile" not in lines
     assert "UPLOAD FAILED" not in lines
+
+
+def test_vendoring_replaces_a_checkout_whose_git_packs_are_read_only(monkeypatch, tmp_path):
+    """Replacing a vendored library must survive git's read-only pack files.
+
+    Reproduced on a real bench: switching the player back to upstream
+    ESP32-audioI2S found a cached fork checkout, and the bare `shutil.rmtree`
+    hit `PermissionError: [WinError 5]` on `.git/objects/...`. Raised inside a
+    generator feeding a StreamingResponse, it killed the upload right after the
+    "vendoring" line, with nothing said about why.
+    """
+    stale = tmp_path / "ESP32-audioI2S"
+    (stale / ".git" / "objects").mkdir(parents=True)
+    pack = stale / ".git" / "objects" / "readonly.pack"
+    pack.write_text("pack", encoding="utf-8")
+    pack.chmod(stat.S_IREAD)
+
+    monkeypatch.setattr(app, "_FBUILD_AUDIO_LIB_DIR", stale)
+    monkeypatch.setattr(app, "_fbuild_audio_lib_ready", False)
+
+    cloned = []
+
+    def fake_run_phase(label, args, sink=None, cwd=None):
+        cloned.append(args)
+        # Stands in for the clone, leaving the marker the next run looks for.
+        (stale / "src").mkdir(parents=True, exist_ok=True)
+        (stale / "src" / "Audio.h").write_text("// upstream", encoding="utf-8")
+        yield "cloned\n"
+        return 0
+
+    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+
+    lines = list(app._ensure_fbuild_audio_lib())
+
+    assert any("vendoring ESP32-audioI2S" in line for line in lines)
+    assert cloned, "the stale checkout was removed and a fresh clone ran"
+    assert (stale / "src" / "Audio.h").exists()
+    assert not (stale / ".git").exists()
+
+
+def test_vendoring_is_skipped_when_upstream_is_already_cached(monkeypatch, tmp_path):
+    # The marker is upstream's own header, which is also what tells a -nopsram
+    # fork checkout apart: that fork ships only Audio_nopsram.h, so a stale one
+    # misses here and gets replaced.
+    cached = tmp_path / "ESP32-audioI2S"
+    (cached / "src").mkdir(parents=True)
+    (cached / "src" / "Audio.h").write_text("// upstream", encoding="utf-8")
+
+    def must_not_clone(*args, **kwargs):
+        raise AssertionError("a cached upstream checkout must not be re-cloned")
+
+    monkeypatch.setattr(app, "_FBUILD_AUDIO_LIB_DIR", cached)
+    monkeypatch.setattr(app, "_fbuild_audio_lib_ready", False)
+    monkeypatch.setattr(app, "_run_phase", must_not_clone)
+
+    assert list(app._ensure_fbuild_audio_lib()) == []

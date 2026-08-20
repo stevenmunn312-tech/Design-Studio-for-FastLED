@@ -801,7 +801,14 @@ def _ensure_fbuild_audio_lib():
     # Pinned to 3.0.12, NOT the default branch: the library is rewritten often
     # enough that tracking its head carries no stability guarantee.
     if _FBUILD_AUDIO_LIB_DIR.exists():
-        shutil.rmtree(_FBUILD_AUDIO_LIB_DIR)
+        # Not a bare rmtree: a previous vendoring left a .git behind, and git's
+        # pack files are read-only, which on Windows makes rmtree raise
+        # PermissionError. Raised here it escapes mid-stream from a generator
+        # inside a StreamingResponse, so the upload stops dead after the
+        # "vendoring" line with nothing said. That is what
+        # `_remove_build_cache_tree` is for, and the FastLED cache already used
+        # it — this path never had a replacement exercised on Windows.
+        _remove_build_cache_tree(_FBUILD_AUDIO_LIB_DIR)
     rc = yield from _run_phase(
         "vendor ESP32-audioI2S",
         ["git", "clone", "--branch", "3.0.12", "--depth", "1",
@@ -887,7 +894,7 @@ def _ensure_fbuild_zero_i2s_lib():
     )
     for label, tag, url, path in libraries:
         if path.exists():
-            shutil.rmtree(path)
+            _remove_build_cache_tree(path)
         rc = yield from _run_phase(
             f"vendor {label}",
             ["git", "clone", "--branch", tag, "--depth", "1", url, str(path)],
