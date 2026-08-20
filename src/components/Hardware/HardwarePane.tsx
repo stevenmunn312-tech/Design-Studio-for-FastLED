@@ -210,6 +210,8 @@ interface AddMenuItem {
 interface AddMenuCategory {
   id: string
   label: string
+  /** What the category is for, so the top level is readable without opening it. */
+  hint: string
   items: AddMenuItem[]
 }
 
@@ -897,6 +899,7 @@ export default function HardwarePane() {
     {
       id: 'inputs',
       label: 'Inputs',
+      hint: 'Controls and sensors that feed the graph',
       items: INPUT_PARTS.map((entry) => {
         const blocker = inputPartBlocker(entry)
         return {
@@ -909,11 +912,22 @@ export default function HardwarePane() {
         }
       }),
     },
-    { id: 'storage', label: 'Storage', items: moduleItems('SDCard', sdCardFixture) },
-    { id: 'amplifiers', label: 'Amplifiers & DACs', items: moduleItems('Amplifier', amplifierFixture) },
+    {
+      id: 'storage',
+      label: 'Storage',
+      hint: 'Where a music-synced show lives',
+      items: moduleItems('SDCard', sdCardFixture),
+    },
+    {
+      id: 'amplifiers',
+      label: 'Amplifiers & DACs',
+      hint: 'How sound gets off the board',
+      items: moduleItems('Amplifier', amplifierFixture),
+    },
     {
       id: 'led-outputs',
       label: 'LED outputs',
+      hint: 'What the patterns light up',
       items: LED_OUTPUT_ENTRIES.map((entry) => {
         const needsDataPin = entry.form !== 'hub75'
         const blocked = needsDataPin && nextLedPin === null
@@ -1001,7 +1015,7 @@ export default function HardwarePane() {
                         }}
                       >
                         <span>{category.label}</span>
-                        <small>{`${category.items.length} ${category.items.length === 1 ? 'module' : 'modules'}`}</small>
+                        <small>{category.hint}</small>
                         <span aria-hidden="true" className={styles.addMenuChevron}>›</span>
                       </button>
 
