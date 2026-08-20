@@ -31,6 +31,7 @@ export default function HardwareReadiness() {
   const nodes = useRootNodes()
   const edges = useRootEdges()
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
+  const openConsole = useUploadStore((s) => s.openConsole)
 
   const capacityStatus = useCapacityStore((s) => s.status)
   const capacityResult = useCapacityStore((s) => s.result)
@@ -46,6 +47,7 @@ export default function HardwareReadiness() {
 
   const board = boardByFqbn(selectedFqbn)
   const capacity = summarizeCapacity(board, capacityStatus, capacityResult, capacitySubject)
+  const capacityFailed = capacity.level === 'error'
 
   // Nothing to be ready for until something drives LEDs.
   if (!power) return null
@@ -74,10 +76,28 @@ export default function HardwareReadiness() {
         {capped && <span className={styles.note}>capped</span>}
       </span>
 
-      <span className={styles.item} data-level={capacity.level === 'error' ? 'bad' : capacity.level === 'warn' ? 'warn' : 'ok'} title={capacity.text}>
-        <em className={styles.label}>Fits</em>
-        <strong>{capacity.text.replace(/^.*?·\s*/, '')}</strong>
-      </span>
+      {/* A failed check says "see helper log", and this chip is the furthest
+        * point in the workbench from it — so make it the way there. The full
+        * compiler output is appended to the Output tab (see OutputConsole);
+        * clicking opens it rather than leaving the user to find it. */}
+      {capacityFailed ? (
+        <button
+          type="button"
+          className={`${styles.item} ${styles.itemButton}`}
+          data-level="bad"
+          onClick={openConsole}
+          title={`${capacity.text}\n\nClick to open the output log.${capacityResult?.log ? `\n\n${capacityResult.log.slice(-1500)}` : ''}`}
+        >
+          <em className={styles.label}>Fits</em>
+          <strong>{capacity.text.replace(/^.*?·\s*/, '')}</strong>
+          <span className={styles.note}>see output</span>
+        </button>
+      ) : (
+        <span className={styles.item} data-level={capacity.level === 'warn' ? 'warn' : 'ok'} title={capacity.text}>
+          <em className={styles.label}>Fits</em>
+          <strong>{capacity.text.replace(/^.*?·\s*/, '')}</strong>
+        </span>
+      )}
 
       <span className={styles.item} data-level={pinLevel} title="Pin conflicts, and pins the chosen board cannot reach">
         <em className={styles.label}>Pins</em>

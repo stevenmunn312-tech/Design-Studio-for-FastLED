@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, waitFor } from '@testing-library/react'
 import OutputConsole from '../OutputConsole'
 import { useUploadStore } from '../../../state/uploadStore'
+import { useCapacityStore } from '../../../state/capacityStore'
 
 describe('OutputConsole', () => {
   const writeText = vi.fn<(text: string) => Promise<void>>()
@@ -13,6 +14,8 @@ describe('OutputConsole', () => {
       configurable: true,
       value: { writeText },
     })
+    // No capacity reading by default — only the tests that care set one.
+    useCapacityStore.setState({ status: 'checking', result: null })
     useUploadStore.setState({
       log: 'compile line\nupload line\n',
       serialLog: '',
@@ -32,6 +35,39 @@ describe('OutputConsole', () => {
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('compile line\nupload line\n'))
     expect(getByRole('button', { name: 'Copied' })).toBeTruthy()
+  })
+
+  it('shows a failed capacity check here, where the log it points at lives', () => {
+    // The meter is a chip under the preview that says "see helper log" — and
+    // the helper log is this panel, which knew nothing about the check. The
+    // one place that reported the failure could not show why, and the place
+    // that could show why did not know it had happened.
+    useCapacityStore.setState({
+      status: 'measured',
+      result: {
+        ok: false, overflow: false, target: 'esp32:esp32:esp32', flash: null, ram: null,
+        error: 'Compile failed — see helper log', log: "error: 'wat' was not declared in this scope",
+      },
+    })
+    const { getByText } = render(<OutputConsole />)
+
+    expect(getByText(/Last capacity check/)).toBeTruthy()
+    expect(getByText(/was not declared in this scope/)).toBeTruthy()
+  })
+
+  it('says nothing about a capacity check that was only queued', () => {
+    // `busy` means nothing was compiled — there is no failure to report, and
+    // the store is already retrying.
+    useCapacityStore.setState({
+      status: 'checking',
+      result: {
+        ok: false, overflow: false, busy: true, target: 'esp32:esp32:esp32', flash: null, ram: null,
+        error: 'Another build is running — not measured',
+      },
+    })
+    const { queryByText } = render(<OutputConsole />)
+
+    expect(queryByText(/Last capacity check/)).toBeNull()
   })
 
   it('disables copying when there is no output', () => {

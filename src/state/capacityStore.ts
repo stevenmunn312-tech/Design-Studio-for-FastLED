@@ -65,6 +65,12 @@ interface CapacityState {
 
 const DEBOUNCE_MS = 1200
 
+// How long to wait before re-asking after the helper reported it was busy with
+// another build. Deliberately short: the check that comes back busy has already
+// spent the helper's whole serialization timeout waiting, so this is a pause
+// between attempts, not a poll interval.
+const BUSY_RETRY_MS = 3000
+
 // Non-cryptographic FNV-1a — only used as a cheap change-detection key over
 // the generated sketch text, not for anything security-sensitive.
 function hashCode(s: string): string {
@@ -143,7 +149,7 @@ export const useCapacityStore = create<CapacityState>((set) => ({
       subject,
     }))
 
-    debounceTimer = setTimeout(() => {
+    const runCheck = () => {
       if (requestedKey !== key) return // superseded before the debounce fired
       const controller = new AbortController()
       inFlightController = controller
@@ -151,6 +157,17 @@ export const useCapacityStore = create<CapacityState>((set) => ({
       compileCheck(code, fqbn, controller.signal)
         .then((res) => {
           if (controller.signal.aborted || requestedKey !== key) return
+          if (res.busy) {
+            // Nothing was measured — the helper was serializing this behind
+            // another build, which during an Upload is the normal case. Retry
+            // on our own: the effect that asked for this check only re-fires
+            // when the graph or board changes, so publishing the non-answer
+            // would strand the meter on it (as a compile *failure*, no less)
+            // until the user happened to edit something.
+            set({ status: 'checking' })
+            debounceTimer = setTimeout(runCheck, BUSY_RETRY_MS)
+            return
+          }
           set((s) => ({
             status: 'measured',
             result: res,
@@ -167,7 +184,9 @@ export const useCapacityStore = create<CapacityState>((set) => ({
             },
           })
         })
-    }, DEBOUNCE_MS)
+    }
+
+    debounceTimer = setTimeout(runCheck, DEBOUNCE_MS)
   },
 
   clear: () => {

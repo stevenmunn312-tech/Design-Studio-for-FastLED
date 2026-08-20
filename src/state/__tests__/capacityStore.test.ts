@@ -34,6 +34,31 @@ describe('capacityStore', () => {
     expect(useCapacityStore.getState().result).toBeNull()
   })
 
+  it('retries instead of publishing a build-serialization collision', async () => {
+    // The helper serializes builds, so a check that lands during an Upload
+    // comes back having compiled nothing. Publishing that non-answer stranded
+    // the meter on it — reported as a compile *failure* — until the user
+    // happened to edit the graph, because the effect that asks for a check
+    // only re-fires on a graph or board change.
+    const { useCapacityStore } = await freshStore()
+    const { request } = useCapacityStore.getState()
+
+    compileCheck.mockResolvedValueOnce({
+      ok: false, overflow: false, busy: true, target: 'esp32:esp32:esp32', flash: null, ram: null,
+      error: 'Another build is running — not measured',
+    } as never)
+
+    request('CODE', 'esp32:esp32:esp32', true)
+    await vi.advanceTimersByTimeAsync(1300)
+    expect(useCapacityStore.getState().status).toBe('checking')
+    expect(useCapacityStore.getState().result).toBeNull()
+
+    await vi.advanceTimersByTimeAsync(3100)
+    expect(compileCheck).toHaveBeenCalledTimes(2)
+    expect(useCapacityStore.getState().status).toBe('measured')
+    expect(useCapacityStore.getState().result?.ok).toBe(true)
+  })
+
   it('does not carry a sketch reading over to the player, or back', async () => {
     // Same board, different binary. Showing one subject's numbers under the
     // other's name is the same lie a board switch would be.

@@ -1,6 +1,31 @@
 import { useEffect, useRef, useState } from 'react'
 import { useUploadStore } from '../../state/uploadStore'
+import { useCapacityStore } from '../../state/capacityStore'
 import styles from './Upload.module.css'
+
+/**
+ * The capacity meter's own compile log, as an Output-tab footer.
+ *
+ * The meter is a three-word chip under the preview, and when its check fails
+ * it says "see helper log" — while the helper log lives down here, showing
+ * only what an *Upload* streamed. So the one place that reports the failure is
+ * the one place that cannot show why, and the place that could show why does
+ * not know it happened. This closes that loop.
+ *
+ * Deliberately kept out of `log` rather than appended to it: `parseStatus`
+ * scans that string for failure markers, so folding a capacity check's
+ * compiler errors into it would flip a healthy upload's status to "Error", and
+ * the next upload clears `log` and would take the explanation with it.
+ */
+function useCapacityFailureReport(): string {
+  const result = useCapacityStore((s) => s.result)
+  // `busy` is not a failure — nothing was compiled (see capacityStore).
+  if (!result || result.ok || result.busy) return ''
+  const rule = '─'.repeat(48)
+  const detail = result.log?.trim()
+  return `\n${rule}\nLast capacity check · ${result.target}\n${result.error ?? 'check failed'}\n`
+    + (detail ? `${rule}\n${detail}\n` : '')
+}
 
 // Dismissible slide-over that streams the detailed compile/upload output. Opens
 // automatically on error; stays put otherwise so the user can pop it open from
@@ -14,7 +39,8 @@ export default function OutputConsole() {
   const copyResetRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const [tab, setTab] = useState<'output' | 'serial'>('output')
-  const visibleLog = tab === 'output' ? log : serialLog
+  const capacityReport = useCapacityFailureReport()
+  const visibleLog = tab === 'output' ? log + capacityReport : serialLog
 
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight

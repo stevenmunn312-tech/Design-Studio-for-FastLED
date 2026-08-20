@@ -29,6 +29,23 @@ describe('parseStatus', () => {
     expect(s.percent).toBeUndefined()
   })
 
+  it('says an upload is queued while it waits for the build directory', () => {
+    // Builds are serialized on one shared project directory, so an upload can
+    // wait minutes before its first compiler output. That wait used to be
+    // silent and the button sat on "Starting…" with nothing to say whether it
+    // was queued, compiling, or wedged.
+    const log = 'Uploading to COM4 (esp32:esp32:esp32)…\n'
+      + '  [waiting] the build directory is busy with another build — queued behind it, nothing is wrong\n'
+    const s = parseStatus(log)
+    expect(s.phase).toBe('working')
+    expect(s.message).toBe('Queued behind another build…')
+  })
+
+  it('stops reporting queued once the compile it waited for begins', () => {
+    const log = '  [waiting] still queued (5s of 180s)…\n=== Sketch · compile ===\n'
+    expect(parseStatus(log).phase).toBe('compiling')
+  })
+
   it('reports done on a successful upload', () => {
     expect(parseStatus('=== Sketch · upload ===\n...\nUpload complete.\n').phase).toBe('done')
   })

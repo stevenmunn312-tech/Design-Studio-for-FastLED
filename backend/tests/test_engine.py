@@ -427,6 +427,36 @@ def test_compile_upload_fbuild_fails_fast_when_lock_is_wedged(monkeypatch):
     assert "your sketch is fine" in log
 
 
+def test_compile_upload_fbuild_narrates_the_wait_for_a_busy_build_directory(monkeypatch):
+    # The UI derives its status from this stream, so a build queued behind
+    # another one used to emit nothing at all until it either got the lock or
+    # timed out - the Upload button sat on "Starting..." for three minutes with
+    # no way to tell queued from compiling from wedged.
+    monkeypatch.setattr(app, "_FBUILD_LOCK_TIMEOUT_S", 0.2)
+    monkeypatch.setattr(app, "_FBUILD_LOCK_POLL_S", 0.05)
+    monkeypatch.setattr(app, "_FBUILD_LOCK_STALE_S", 60)  # not old enough to reclaim
+    held = app._fbuild_build_lock.acquire(1, 60)
+    try:
+        lines = list(app._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", ""))
+    finally:
+        app._fbuild_build_lock.release(held)
+
+    log = "".join(lines)
+    assert "[waiting]" in log
+    # The wait is narrated before the timeout verdict, not only after it.
+    assert log.index("[waiting]") < log.index("still running")
+
+
+def test_compile_upload_fbuild_does_not_narrate_a_wait_it_never_had(monkeypatch):
+    # An uncontended build is the common case and must stay silent about the
+    # lock - a "queued" line on every upload would be noise that means nothing.
+    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn: None)
+
+    log = "".join(app._compile_upload_fbuild("Test", "void setup(){}", "someone:elses:board", ""))
+    assert "[waiting]" not in log
+
+
 def test_compile_upload_fbuild_releases_lock_after_a_failed_build(monkeypatch):
     # The lock must release on every return path (bad fqbn, failed compile,
     # successful compile-only, successful upload) or a single failed build

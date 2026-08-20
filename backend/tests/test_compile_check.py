@@ -135,6 +135,45 @@ def test_compile_check_reports_generic_error_when_not_overflow(client, monkeypat
     assert "compile failed" in data["error"].lower()
 
 
+def test_compile_check_does_not_blame_the_sketch_for_a_build_lock_timeout(client, monkeypatch):
+    # Builds are serialized on one shared project directory, so a check that
+    # collides with the user's own Upload can wait out the timeout without
+    # compiling anything. That came back as a plain compile failure, so the
+    # capacity meter read "Compile failed - see helper log" for a design that
+    # had never been built - beside an Upload that then succeeded. The upload
+    # path already refuses to blame the sketch for this (`_upload_result_lines`
+    # with phase "busy"); the meter must too.
+    monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
+    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
+
+    def fake_compile_upload_fbuild(label, ino, fqbn, port):
+        yield "another fbuild build is still running\n"
+        return -1, "busy"
+
+    monkeypatch.setattr(app, "_compile_upload_fbuild", fake_compile_upload_fbuild)
+
+    r = client.post("/api/compile-check", json={"ino": "void setup(){}", "fqbn": "esp32:esp32:esp32s3"})
+    data = r.json()
+    assert data["ok"] is False
+    assert data["busy"] is True
+    assert data["overflow"] is False
+    assert "compile failed" not in data["error"].lower()
+
+
+def test_compile_check_marks_a_real_compile_failure_as_not_busy(client, monkeypatch):
+    monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
+    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
+
+    def fake_compile_upload_fbuild(label, ino, fqbn, port):
+        yield "some unrelated compile error\n"
+        return 1, "compile"
+
+    monkeypatch.setattr(app, "_compile_upload_fbuild", fake_compile_upload_fbuild)
+
+    r = client.post("/api/compile-check", json={"ino": "void setup(){}", "fqbn": "esp32:esp32:esp32s3"})
+    assert r.json()["busy"] is False
+
+
 def test_compile_check_400_when_engine_missing(client, monkeypatch):
     monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
     monkeypatch.setattr(app, "_FBUILD_BIN", None)

@@ -90,6 +90,20 @@ describe('summarizeCapacity', () => {
     expect(s.text).toContain('Compile failed')
   })
 
+  it('treats a build-serialization collision as not-measured, never a failure', () => {
+    // Regression: a check that collided with the user's own Upload came back
+    // from the helper as a plain compile failure, so the meter reported
+    // "Compile failed" for a design that had never been compiled — beside an
+    // Upload that then succeeded.
+    const result: CompileCheckResult = {
+      ok: false, overflow: false, busy: true, target: board.fqbn, flash: null, ram: null,
+      error: 'Another build is running — not measured',
+    }
+    const s = summarizeCapacity(board, 'measured', result)
+    expect(s.level).toBe('pending')
+    expect(s.text).not.toContain('failed')
+  })
+
   it('marks a stale result as rechecking without dropping the last numbers', () => {
     const s = summarizeCapacity(board, 'stale', ok(50, 20))
     expect(s.text).toContain('flash 50%')

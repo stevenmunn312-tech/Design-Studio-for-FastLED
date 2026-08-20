@@ -515,6 +515,11 @@ _FBUILD_LOCK_TIMEOUT_S = 180
 # twice that long is treated as abandoned.
 _FBUILD_LOCK_STALE_S = _FBUILD_LOCK_TIMEOUT_S * 2
 
+# How long each slice of the wait is. The wait is taken in slices rather than
+# one blocking call so a queued build can say it is queued — see the acquire
+# loop in `_compile_upload_fbuild`.
+_FBUILD_LOCK_POLL_S = 5
+
 
 def _env_id(base_fqbn: str, psram_id: str | None = None) -> str:
     slug = re.sub(r"[^A-Za-z0-9_]", "_", base_fqbn)
@@ -1255,7 +1260,23 @@ def _compile_upload_fbuild(label, ino, fqbn, port):
     unlikely. The acquire is timeout-bounded (see `_FBUILD_LOCK_TIMEOUT_S`)
     so a genuinely wedged build fails fast and visibly instead of silently
     starving every later build/upload/capacity-check request forever."""
-    token = _fbuild_build_lock.acquire(_FBUILD_LOCK_TIMEOUT_S, _FBUILD_LOCK_STALE_S)
+    # Take the wait in slices instead of one blocking `acquire`, and narrate it.
+    # The UI derives its status from this stream, so a build queued behind
+    # another one used to produce no output at all for up to
+    # `_FBUILD_LOCK_TIMEOUT_S` — the Upload button sat on "Starting…" for three
+    # minutes with nothing to distinguish queued from compiling from wedged.
+    # Saying so costs one line and turns a mystery into a wait.
+    token = _fbuild_build_lock.acquire(0, _FBUILD_LOCK_STALE_S)
+    if token is None:
+        waited = 0.0
+        yield ("\n  [waiting] the build directory is busy with another build — "
+               "queued behind it, nothing is wrong\n")
+        while token is None and waited < _FBUILD_LOCK_TIMEOUT_S:
+            step = min(_FBUILD_LOCK_POLL_S, _FBUILD_LOCK_TIMEOUT_S - waited)
+            token = _fbuild_build_lock.acquire(step, _FBUILD_LOCK_STALE_S)
+            waited += step
+            if token is None and waited < _FBUILD_LOCK_TIMEOUT_S:
+                yield f"  [waiting] still queued ({int(waited)}s of {int(_FBUILD_LOCK_TIMEOUT_S)}s)…\n"
     if token is None:
         yield (
             f"\n=== ✗ {label}: another fbuild build is still running (waited "
@@ -2512,7 +2533,7 @@ def compile_check(payload: dict = Body(...)):
         return JSONResponse({"ok": False, "error": "no sketch to compile"}, status_code=400)
 
     if engine == "fbuild":
-        lines, (rc, _phase) = _drain_compile(_compile_upload_fbuild("Capacity check", ino, fqbn, ""))
+        lines, (rc, phase) = _drain_compile(_compile_upload_fbuild("Capacity check", ino, fqbn, ""))
         sizes = _fbuild_size_bytes_report(lines)
         # A no-op incremental build (nothing changed since the last compile)
         # skips fbuild's own "Flash:"/"RAM:" line entirely — fall back to its
@@ -2534,21 +2555,37 @@ def compile_check(payload: dict = Body(...)):
     else:
         work, sketch_dir = _make_sketch(SKETCH, ino)
         try:
-            lines, (rc, _phase) = _drain_compile(_compile_upload("Capacity check", sketch_dir, fqbn, ""))
+            lines, (rc, phase) = _drain_compile(_compile_upload("Capacity check", sketch_dir, fqbn, ""))
             sizes = _size_bytes_report(lines)
         finally:
             shutil.rmtree(work, ignore_errors=True)
 
     ok = rc == 0
-    overflow = not ok and _looks_like_overflow(lines)
+    # Nothing was compiled: the request waited out `_FBUILD_LOCK_TIMEOUT_S`
+    # behind another build (commonly the user's own Upload) and gave up. The
+    # upload path already refuses to blame the sketch for this — the meter used
+    # to, reporting "Compile failed — see helper log" for a design that had not
+    # been built at all, next to an Upload that then succeeded. It is a
+    # not-measured state, so the frontend retries rather than showing a verdict.
+    busy = not ok and phase == "busy"
+    overflow = not ok and not busy and _looks_like_overflow(lines)
+    if ok:
+        error = None
+    elif busy:
+        error = "Another build is running — not measured"
+    elif overflow:
+        error = "Design is too large for this board"
+    else:
+        error = "Compile failed — see helper log"
     return JSONResponse({
         "ok": ok,
         "overflow": overflow,
+        "busy": busy,
         "engine": engine,
         "target": fqbn,
         "flash": sizes.get("flash"),
         "ram": sizes.get("ram"),
-        "error": None if ok else ("Design is too large for this board" if overflow else "Compile failed — see helper log"),
+        "error": error,
         # Tail of the log only on failure, so the frontend can surface *why*
         # without the endpoint always shipping the full compile transcript.
         "log": None if ok else "".join(lines)[-4000:],

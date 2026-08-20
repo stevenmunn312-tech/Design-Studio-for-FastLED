@@ -43,3 +43,21 @@
 .item[data-level='ok'] strong { color: var(--text-primary, #e8ecf1); }
 .item[data-level='warn'] strong { color: #ffb74d; }
 .item[data-level='bad'] strong { color: #ff6b6b; }
+
+/* The Fits chip becomes a button only when the check failed and there is an
+ * output log worth opening — otherwise the strip stays a quiet readout. */
+.itemButton {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.itemButton:hover strong,
+.itemButton:focus-visible strong { text-decoration: underline; }

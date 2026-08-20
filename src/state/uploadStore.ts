@@ -230,6 +230,10 @@ export function parseStatus(log: string): UploadStatus {
     return { phase: 'uploading', percent: p, message: p != null ? `Uploading ${p}%` : 'Uploading…' }
   }
   if (/compile ===/.test(log)) return { phase: 'compiling', message: `Compiling…${sizeTag}` }
+  // Queued behind another build — the helper serializes them on one shared
+  // project directory and emits `[waiting]` while it holds. Checked after the
+  // compile marker because a run that got the lock has moved past this.
+  if (/\[waiting\]/.test(log)) return { phase: 'working', message: 'Queued behind another build…' }
   return { phase: 'working', message: 'Working…' }
 }
 

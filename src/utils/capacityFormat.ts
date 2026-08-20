@@ -37,6 +37,14 @@ export function summarizeCapacity(
   // be noise on a line that has to stay scannable.
   const what = subject === 'player' ? ' · player' : ''
 
+  if (!result.ok && result.busy) {
+    // Not a verdict at all: the helper serializes builds, so a check that
+    // collides with an Upload never got compiled. Saying "compile failed" here
+    // blamed a design that had not been built — and did it in the one place
+    // that is nowhere near the upload output the message pointed at.
+    return { text: `${label}${what} · waiting for the current build…`, level: 'pending' }
+  }
+
   if (!result.ok && !result.overflow) {
     // A genuine compile error unrelated to capacity (a bad Formula/Code node,
     // a toolchain hiccup, …) has no flash/RAM figures to show at all.

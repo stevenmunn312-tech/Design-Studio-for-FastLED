@@ -338,6 +338,11 @@ export interface CompileCheckSize { usedBytes: number; limitBytes: number; perce
 export interface CompileCheckResult {
   ok: boolean
   overflow: boolean
+  /** The helper never got to compile: it waited out its build-serialization
+   *  timeout behind another build (usually the user's own Upload). Nothing was
+   *  measured and nothing is wrong with the design — the meter retries instead
+   *  of reporting a verdict it doesn't have. */
+  busy?: boolean
   engine?: 'fbuild' | 'arduino-cli'
   target: string
   flash: CompileCheckSize | null
