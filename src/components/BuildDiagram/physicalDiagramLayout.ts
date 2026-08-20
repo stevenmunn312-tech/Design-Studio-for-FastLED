@@ -224,6 +224,8 @@ const PAD_X_RATIOS_3 = [0.4196, 0.4995, 0.579]
 const PAD_X_RATIOS_RTC_ZS042 = [0.612, 0.543, 0.474, 0.681]
 const PAD_X_RATIOS_RTC_XC9044 = [0.165, 0.337, 0.505, 0.843]
 const PAD_X_RATIOS_5 = [0.34, 0.4194, 0.4992, 0.5787, 0.658]
+/** The pitch both measured tables above share, for parts with no table yet. */
+const PAD_PITCH_RATIO = 0.0797
 const PAD_X_RATIOS_SD_5V = [0.24, 0.3475, 0.45, 0.55, 0.6525, 0.755]
 const PAD_X_RATIOS_SD_3V3 = [0.135, 0.255, 0.3775, 0.5, 0.6225, 0.745, 0.87]
 
@@ -353,7 +355,15 @@ export function peripheralPadPoint(layout: ItemLayout, padIndex: number) {
       y: layout.y + (0.948 * PERIPHERAL_RENDER_H),
     }
   }
-  const ratios = peripheralPadCount(layout.item) === 5 ? PAD_X_RATIOS_5 : PAD_X_RATIOS_3
+  const count = peripheralPadCount(layout.item)
+  // The 3- and 5-pad tables are measured against their artwork and share one
+  // pitch; anything else (an audio module has 6, 7, 9 or 11 pads) is spaced on
+  // that same pitch about the centre. Falling through to the 3-pad table
+  // instead clamped every pad past the third onto the third's position, which
+  // stacks four wires on one point.
+  const ratios = count === 5 ? PAD_X_RATIOS_5
+    : count === 3 ? PAD_X_RATIOS_3
+    : Array.from({ length: count }, (_, index) => 0.4995 + ((index - (count - 1) / 2) * PAD_PITCH_RATIO))
   const ratio = ratios[Math.min(Math.max(padIndex, 0), ratios.length - 1)]
   return {
     x: layout.x + (ratio * PERIPHERAL_RENDER_W),

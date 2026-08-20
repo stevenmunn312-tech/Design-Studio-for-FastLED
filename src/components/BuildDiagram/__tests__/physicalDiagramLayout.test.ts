@@ -15,6 +15,9 @@ import {
   fuseSlotForFeed,
   groundCombLaneY,
   itemLayouts,
+  peripheralPadCount,
+  peripheralPadLabel,
+  peripheralPadPoint,
   physicalAssemblyDiagramHeight,
   POWER_BRANCH_ROW_SPACING,
   POWER_SECTION_SPACING,
@@ -31,6 +34,43 @@ import {
 } from '../physicalDiagramLayout'
 
 const FEED_COUNTS = [1, 2, 3, 4, 5, 6, 7, 10, 12, 13, 24, 26]
+
+const audioModule = (partId: string): HardwareManifestItem => ({
+  id: `amp:${partId}`,
+  kind: 'amplifier',
+  title: partId,
+  subtitle: '',
+  sourceNodeId: 'amp',
+  sourceNodeType: 'Amplifier',
+  supported: true,
+  pins: [],
+  facts: { partId },
+})
+
+describe('audio module pads', () => {
+  it('gives every pad its own position, however many the module has', () => {
+    // The measured ratio tables only cover 3- and 5-pad parts, and an audio
+    // module has 6, 7, 9 or 11. Falling through to the 3-pad table clamped
+    // every pad past the third onto the third's spot, stacking four wire ends
+    // on one point.
+    for (const partId of ['max98357a-i2s-amplifier', 'pam8403-3w-stereo-amplifier', 'uda1334a-i2s-dac']) {
+      const item = audioModule(partId)
+      const layout = { x: 0, y: 0, item } as never
+      const count = peripheralPadCount(item)
+      expect(count).toBeGreaterThan(5)
+      const xs = Array.from({ length: count }, (_, index) => peripheralPadPoint(layout, index).x)
+      expect(new Set(xs).size, `${partId} has ${count} distinct pads`).toBe(count)
+      // ...and in silkscreen order, left to right.
+      expect([...xs].sort((a, b) => a - b)).toEqual(xs)
+    }
+  })
+
+  it('labels pads from the catalogue rather than a hardcoded guess', () => {
+    const item = audioModule('max98357a-i2s-amplifier')
+    expect(peripheralPadLabel(item, 0)).toBe('LRC')
+    expect(peripheralPadLabel(item, 6)).toBe('VIN')
+  })
+})
 
 describe('powerDistributionSectionLayout', () => {
   it('never asks a branch to climb back up towards its row', () => {
