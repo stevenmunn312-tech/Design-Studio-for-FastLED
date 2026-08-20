@@ -1,3 +1,5 @@
+import type { LedOutputForm } from './ledOutputForm'
+
 export const DEFAULT_BOARD_PROFILE_ID = 'esp32-generic-devkit-38pin'
 export const ROOT_BOARD_NODE_ID = 'board-root'
 
@@ -91,6 +93,21 @@ export const WS2812B_MATRIX_PITCH_MM = 10
  * the same object at different zooms.
  */
 export const HUB75_PITCH_MM = 4
+
+/**
+ * The physical LED pitch a form is laid out on.
+ *
+ * One answer for both the part's real-world size on the bench and the tile its
+ * diffuser is drawn at. They were computed separately once, and a HUB75 panel
+ * sized on its own 4 mm pitch got a diffuser tiled at addressable tape's 10 mm
+ * — a dome every two and a half LEDs. A ring never asks: its LEDs follow a
+ * circumference rather than a grid, and it draws no diffuser at all.
+ */
+export function ledPitchMm(form: LedOutputForm): number {
+  if (form === 'strip') return WS2812B_PITCH_MM
+  if (form === 'hub75') return HUB75_PITCH_MM
+  return WS2812B_MATRIX_PITCH_MM
+}
 
 /**
  * The three input modules share one render aspect (640x462), so each declares

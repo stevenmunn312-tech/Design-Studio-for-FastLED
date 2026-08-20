@@ -28,11 +28,10 @@ import {
   DEFAULT_BOARD_PROFILE_ID,
   MAX98357A_FOOTPRINT_MM,
   ENCODER_MODULE_FOOTPRINT_MM,
-  HUB75_PITCH_MM,
   INMP441_FOOTPRINT_MM,
   POT_MODULE_FOOTPRINT_MM,
   ROOT_BOARD_NODE_ID,
-  WS2812B_MATRIX_PITCH_MM,
+  ledPitchMm,
   WS2812B_PITCH_MM,
   WS2812B_STRIP_WIDTH_MM,
   type PartFootprintMm,
@@ -48,6 +47,7 @@ import HardwarePartBody from '../Canvas/HardwarePartBody'
 import MatrixOutputDeployPopup from '../Upload/MatrixOutputDeployPopup'
 import BoardNodeBody from '../Canvas/BoardNodeBody'
 import HardwareLedPreview from './HardwareLedPreview'
+import { LED_CELL_FILL } from './ledPreviewGeometry'
 import HardwareLedSpill from './HardwareLedSpill'
 import HardwareLink from './HardwareLink'
 import FloatingMenu from './FloatingMenu'
@@ -439,7 +439,7 @@ export default function HardwarePane() {
         // rings are not linear in LED count, because a small one needs a hub
         // whatever sits on it. See partCatalogue.ringDiameterMm.
         const ringMm = ringDiameterMm(ledCount)
-        const pitch = form === 'hub75' ? HUB75_PITCH_MM : WS2812B_MATRIX_PITCH_MM
+        const pitch = ledPitchMm(form)
         const feed = edges.find((edge) => edge.target === node.id)
         return {
           node,
@@ -661,11 +661,15 @@ export default function HardwarePane() {
    * The colour comes from the lit cells underneath and reads through the
    * transparent centre.
    */
-  const lensStyle = (partId: string, isStrip: boolean): CSSProperties | undefined => {
+  const lensStyle = (partId: string, form: LedOutputForm): CSSProperties | undefined => {
     const part = placed.get(partId)
     if (!part || !arrangement) return undefined
-    const tile = (isStrip ? WS2812B_PITCH_MM : WS2812B_MATRIX_PITCH_MM) * arrangement.mmScale
-    return { backgroundSize: isStrip ? `${tile}px 100%` : `${tile}px ${tile}px` }
+    // The same pitch the part was sized at, so the tile divides its box exactly
+    // and one dome lands on one emitter. `.lens` tiles from the box origin for
+    // the same reason — centred tiling puts the domes half a pitch out on any
+    // even-sided panel, which is every panel anyone buys.
+    const tile = ledPitchMm(form) * arrangement.mmScale
+    return { backgroundSize: form === 'strip' ? `${tile}px 100%` : `${tile}px ${tile}px` }
   }
 
   /*
@@ -1331,7 +1335,7 @@ export default function HardwarePane() {
                   nodeId={output.node.id}
                   cols={output.cols}
                   rows={output.rows}
-                  cellFill={output.isStrip ? 1 : 0.5}
+                  cellFill={output.isStrip ? 1 : LED_CELL_FILL}
                   ring={output.ring}
                   className={styles.ledPreview}
                 />
@@ -1340,7 +1344,7 @@ export default function HardwarePane() {
                 {!output.isRing && (
                   <span
                     className={styles.lens}
-                    style={lensStyle(output.partId, output.isStrip)}
+                    style={lensStyle(output.partId, output.form)}
                     aria-hidden="true"
                   />
                 )}

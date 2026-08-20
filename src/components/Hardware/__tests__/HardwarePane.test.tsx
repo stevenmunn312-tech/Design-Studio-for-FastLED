@@ -66,6 +66,37 @@ describe('HardwarePane', () => {
     expect(within(document.body).getByText('Default I2C bus')).toBeTruthy()
   })
 
+  /*
+   * The diffuser is tiled in screen pixels while the part is sized in
+   * millimetres, so the only thing keeping one dome on one LED is that both
+   * derive from `ledPitchMm`. A HUB75 panel sized on its own 4 mm pitch once
+   * got a diffuser tiled at addressable tape's 10 mm.
+   */
+  it.each([
+    { form: 'matrix', props: { form: 'matrix', width: 16, height: 8 }, cols: 16, rows: 8 },
+    { form: 'hub75', props: { form: 'hub75', chipset: 'HUB75', width: 64, height: 32 }, cols: 64, rows: 32 },
+  ])('tiles the $form diffuser at one dome per LED', ({ props, cols, rows }) => {
+    useGraphStore.setState({
+      nodes: [
+        node('Board', ROOT_BOARD_NODE_ID, { profileId: DEFAULT_BOARD_PROFILE_ID }) as never,
+        node('MatrixOutput', 'out', props) as never,
+      ],
+      edges: [],
+    })
+    const { container } = render(<HardwarePane />)
+
+    // Matched on the grid wording, since the label names the form
+    // ("LED Matrix, 16 by 8 on pin 5" / "HUB75 Panel, 64 by 32 on its ...").
+    const part = container.querySelector<HTMLElement>('[aria-label*=" by "]')
+    const lens = part?.querySelector<HTMLElement>('span[style*="background-size"]')
+    // Layout needs a measured bench; skip rather than assert on a zero-sized one.
+    if (!part?.style.width || !lens) return
+
+    const [tileW, tileH] = lens.style.backgroundSize.split(' ').map(parseFloat)
+    expect(parseFloat(part.style.width) / tileW).toBeCloseTo(cols, 6)
+    expect(parseFloat(part.style.height) / tileH).toBeCloseTo(rows, 6)
+  })
+
   it('adds a Raspberry Pi RTC clock module as the compact RTCInput option', () => {
     render(<HardwarePane />)
 

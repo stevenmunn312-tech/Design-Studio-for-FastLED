@@ -34,6 +34,7 @@ export interface RingGeometry {
  */
 export default function HardwareLedPreview({
   nodeId,
+  port = 'previewFrame',
   cols,
   rows,
   cellFill = 1,
@@ -42,6 +43,14 @@ export default function HardwareLedPreview({
   className,
 }: {
   nodeId: string
+  /** Which published port to paint. Defaults to `previewFrame`, the routed
+   *  physical frame an LED output receives. A source node's own thumbnail
+   *  passes its output port instead, so the node that makes a frame and the
+   *  node that lights it are drawn by one renderer rather than two that agree
+   *  only by coincidence. */
+  port?: string
+  /** The emitter grid. May be coarser than the frame — a source thumbnail
+   *  caps its cell count — in which case the frame is sampled down into it. */
   cols: number
   rows: number
   /** Fraction of each cell the emitter covers. A strip is drawn over a photo of
@@ -100,7 +109,7 @@ export default function HardwareLedPreview({
   }, [])
 
   useEffect(() => {
-    const paint = (frame: Frame | undefined) => {
+    const paint = (frame: Frame | undefined, scale: number) => {
       if (!onScreenRef.current) return
       // A missing route is a real blackout, not "keep the last good frame".
       // Reset the colour cache as well as the SVG so reconnecting an identical
@@ -114,17 +123,20 @@ export default function HardwareLedPreview({
       const srcW = frame[0]?.length ?? 0
       if (!srcW || !srcH) return
       const previous = previousRef.current
+      // Proportional, so a grid coarser than the frame samples down instead of
+      // showing a corner of it. An LED output's grid always equals its routed
+      // frame exactly, which makes this the identity map for that caller.
       for (let index = 0; index < count; index++) {
-        // `previewFrame` is already routed into the output's physical grid.
-        // Rings are a one-row frame in wire order; their SVG positions below
-        // turn that row into the configured circle without sampling it again.
-        const srcY = Math.min(srcH - 1, Math.floor(index / cols))
-        const srcX = Math.min(srcW - 1, index % cols)
+        // A routed frame is already in the output's physical grid. Rings are a
+        // one-row frame in wire order; their SVG positions below turn that row
+        // into the configured circle without sampling it again.
+        const srcY = Math.min(srcH - 1, Math.floor(Math.floor(index / cols) * srcH / rows))
+        const srcX = Math.min(srcW - 1, Math.floor((index % cols) * srcW / cols))
         const pixel = frame[Math.min(srcH - 1, srcY)]?.[Math.min(srcW - 1, srcX)]
         if (!pixel) continue
-        const r = Math.max(0, Math.min(255, Math.round(pixel.r)))
-        const g = Math.max(0, Math.min(255, Math.round(pixel.g)))
-        const b = Math.max(0, Math.min(255, Math.round(pixel.b)))
+        const r = Math.max(0, Math.min(255, Math.round(pixel.r * scale)))
+        const g = Math.max(0, Math.min(255, Math.round(pixel.g * scale)))
+        const b = Math.max(0, Math.min(255, Math.round(pixel.b * scale)))
         const packed = (r << 16) | (g << 8) | b
         if (previous[index] === packed) continue
         previous[index] = packed
@@ -132,12 +144,18 @@ export default function HardwareLedPreview({
       }
     }
 
+    // The Board's master brightness is applied here rather than baked into the
+    // published frame: one place, so an LED output and the node feeding it are
+    // dimmed identically and neither can be dimmed twice.
     const read = (state: ReturnType<typeof usePreviewStore.getState>) => {
-      paint(state.outputs.get(nodeId)?.previewFrame as Frame | undefined)
+      paint(
+        state.outputs.get(nodeId)?.[port] as Frame | undefined,
+        Math.max(0, Math.min(255, state.brightness)) / 255,
+      )
     }
     read(usePreviewStore.getState())
     return usePreviewStore.subscribe(read)
-  }, [cols, count, nodeId, ring, rows])
+  }, [cols, count, nodeId, port, ring, rows])
 
   if (ringCells) {
     return (

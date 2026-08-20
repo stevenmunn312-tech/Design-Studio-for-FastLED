@@ -9,11 +9,12 @@ interface PreviewState {
   signals: Map<string, SignalVisual>
   /** The Board's master brightness (0-255), published beside the outputs.
    *
-   *  Frames are published raw — the evaluator's own buffers are pooled and
-   *  shared, so dimming them at publish time would corrupt the next pass and
-   *  darken the edge-signal lighting too. The node thumbnails scale by this on
-   *  paint instead, which is what makes a source node's preview agree with the
-   *  LED output's (`previewFrame`, already dimmed by the render loop). */
+   *  Every frame here is raw, routed one included. The evaluator's buffers are
+   *  pooled and shared, so dimming them at publish time would corrupt the next
+   *  pass and darken the edge-signal lighting too. `HardwareLedPreview` scales
+   *  by this on paint instead — one place for every LED preview, so a source
+   *  node and the output it feeds cannot disagree about how bright a frame is,
+   *  and neither can be dimmed twice. */
   brightness: number
   setOutputs: (outputs: Map<string, Record<string, unknown>>, brightness?: number) => void
   clear: () => void

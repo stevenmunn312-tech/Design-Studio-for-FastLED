@@ -1,87 +1,41 @@
-import { useEffect, useRef } from 'react'
 import { usePreviewStore } from '../../state/previewStore'
-import { paletteStops, type Frame } from '../../state/graphEvaluator'
+import { paletteStops } from '../../state/graphEvaluator'
+import HardwareLedPreview from '../Hardware/HardwareLedPreview'
+import { LED_CELL_FILL, thumbGrid } from '../Hardware/ledPreviewGeometry'
 import styles from './NodePreview.module.css'
 
 type RGB = { r: number; g: number; b: number }
 export type PreviewKind = 'frame' | 'palette' | 'color'
 
-const THUMB_GRID = 16
-const THUMB_PIXELS = Array.from({ length: THUMB_GRID * THUMB_GRID }, (_, index) => index)
-
-// A fixed SVG grid avoids creating a new decoded image or canvas compositor
-// resource for every frame. The same 256 rects are reused for the lifetime of
-// the preview, so renderer memory stays bounded while the colours remain live.
-function FrameThumb({ nodeId, port, height }: { nodeId: string; port: string; height?: number }) {
-  const wrapRef = useRef<HTMLDivElement>(null)
-  const pixelRefs = useRef<Array<SVGRectElement | null>>([])
-  const previousColorsRef = useRef(new Uint32Array(THUMB_GRID * THUMB_GRID))
-  const onScreenRef = useRef(true)
-
-  useEffect(() => {
-    const wrap = wrapRef.current
-    if (!wrap || typeof IntersectionObserver === 'undefined') return
-    const observer = new IntersectionObserver(
-      (entries) => { onScreenRef.current = entries[entries.length - 1]?.isIntersecting ?? true },
-      { rootMargin: '150px' },
-    )
-    observer.observe(wrap)
-    return () => observer.disconnect()
-  }, [])
-
-  useEffect(() => {
-    // Scaled by the Board's master brightness, the same value the LED output's
-    // own preview is dimmed by (`applyMasterBrightness` in LEDPreview). Without
-    // it a source node showed its pattern at full intensity while the output
-    // node showed the same pattern at the brightness the hardware will run —
-    // two previews of one frame that disagreed on how bright it was.
-    const publish = (frame: Frame | undefined, brightness: number) => {
-      if (!frame || !onScreenRef.current) return
-      const srcH = frame.length
-      const srcW = frame[0]?.length ?? 0
-      if (!srcW || !srcH) return
-      const scale = Math.max(0, Math.min(255, brightness)) / 255
-      const previous = previousColorsRef.current
-      for (let y = 0; y < THUMB_GRID; y++) {
-        const srcY = Math.min(srcH - 1, Math.floor(y * srcH / THUMB_GRID))
-        const srcRow = frame[srcY]
-        for (let x = 0; x < THUMB_GRID; x++) {
-          const srcX = Math.min(srcW - 1, Math.floor(x * srcW / THUMB_GRID))
-          const index = y * THUMB_GRID + x
-          const pixel = srcRow[srcX]
-          const r = Math.max(0, Math.min(255, Math.round(pixel.r * scale)))
-          const g = Math.max(0, Math.min(255, Math.round(pixel.g * scale)))
-          const b = Math.max(0, Math.min(255, Math.round(pixel.b * scale)))
-          const packed = (r << 16) | (g << 8) | b
-          if (previous[index] === packed) continue
-          previous[index] = packed
-          pixelRefs.current[index]?.setAttribute('fill', `rgb(${r} ${g} ${b})`)
-        }
-      }
-    }
-
-    const readFrame = (state: ReturnType<typeof usePreviewStore.getState>) => {
-      publish(state.outputs.get(nodeId)?.[port] as Frame | undefined, state.brightness)
-    }
-    readFrame(usePreviewStore.getState())
-    return usePreviewStore.subscribe(readFrame)
-  }, [nodeId, port])
-
+/*
+ * A frame node's live thumbnail, drawn by the same renderer as the LED output.
+ *
+ * It used to be its own fixed 16x16 grid of gapless, full-cell blocks, which
+ * made one frame look like two different things depending on which end of a
+ * cable you read it from: adjacent lit pixels merged into continuous blobs on
+ * the source node and separated into isolated dots on the output. The pixels
+ * were identical the whole time. Sharing HardwareLedPreview means the source,
+ * the output node and the hardware bay cannot drift apart again, and the
+ * emitter look is the one the user is actually designing for.
+ */
+function FrameThumb({ nodeId, port, height, cols, rows }: {
+  nodeId: string
+  port: string
+  height?: number
+  cols: number
+  rows: number
+}) {
+  const grid = thumbGrid(cols, rows)
   return (
-    <div ref={wrapRef} className={styles.frameWrap} style={height ? { height } : undefined}>
-      <svg className={styles.frame} viewBox={`0 0 ${THUMB_GRID} ${THUMB_GRID}`} preserveAspectRatio="none" aria-hidden="true">
-        {THUMB_PIXELS.map((index) => (
-          <rect
-            key={index}
-            ref={(element) => { pixelRefs.current[index] = element }}
-            x={index % THUMB_GRID}
-            y={Math.floor(index / THUMB_GRID)}
-            width="1"
-            height="1"
-            fill="rgb(0 0 0)"
-          />
-        ))}
-      </svg>
+    <div className={styles.frameWrap} style={height ? { height } : undefined}>
+      <HardwareLedPreview
+        nodeId={nodeId}
+        port={port}
+        cols={grid.cols}
+        rows={grid.rows}
+        cellFill={LED_CELL_FILL}
+        className={styles.frame}
+      />
     </div>
   )
 }
@@ -104,15 +58,20 @@ export default function NodePreview({
   kind,
   port,
   height,
+  cols = 16,
+  rows = 16,
   valueOverride,
 }: {
   nodeId: string
   kind: PreviewKind
   port: string
   height?: number
+  /** The frame's own dimensions — the shared composition canvas. */
+  cols?: number
+  rows?: number
   valueOverride?: unknown
 }) {
-  if (kind === 'frame') return <FrameThumb nodeId={nodeId} port={port} height={height} />
+  if (kind === 'frame') return <FrameThumb nodeId={nodeId} port={port} height={height} cols={cols} rows={rows} />
   return <ScalarPreview nodeId={nodeId} kind={kind} port={port} valueOverride={valueOverride} />
 }
 

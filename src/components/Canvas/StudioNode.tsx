@@ -14,6 +14,7 @@ import WaveScope from './WaveScope'
 import ComplexWaveScope from './ComplexWaveScope'
 import NodePreview, { type PreviewKind } from './NodePreview'
 import HardwareLedPreview from '../Hardware/HardwareLedPreview'
+import { LED_CELL_FILL } from '../Hardware/ledPreviewGeometry'
 import { isLinearForm, outputForm, outputGridDims, ringDirection, ringStartAngle } from '../../state/ledOutputForm'
 import { partRenderForNodeType } from '../../state/partRenders'
 import { ASSIGNED_BOARD_KEY, ASSIGNED_PINS_KEY, USER_PINS_KEY } from '../../state/pinRetarget'
@@ -1195,7 +1196,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         // properties, the upload UI and a capacity meter.
         height: RING_PREVIEW_PX,
         width: RING_PREVIEW_PX,
-        cellFill: 0.5,
+        cellFill: LED_CELL_FILL,
         ring: {
           ledCount: grid.width,
           startAngle: ringStartAngle(rawProps),
@@ -1213,7 +1214,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       rows: grid.height,
       height: Math.round((BODY_CONTENT_W * grid.height) / grid.width),
       width: null,
-      cellFill: 0.5,
+      cellFill: LED_CELL_FILL,
       ring: null,
     }
   }, [d.nodeType, rawProps])
@@ -1322,6 +1323,8 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                 kind={previewKind}
                 port={outPort.id}
                 height={previewKind === 'frame' ? framePreviewH : undefined}
+                cols={gridW}
+                rows={gridH}
                 valueOverride={palettePreviewOverride}
               />
               <button

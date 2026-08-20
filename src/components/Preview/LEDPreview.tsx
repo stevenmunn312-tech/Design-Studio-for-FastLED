@@ -635,16 +635,17 @@ export default function LEDPreview() {
           }
           // Output-node and hardware-bay previews consume the physical routed
           // frame, not the evaluator's shared composition frame. Publishing it
-          // beside the raw terminal value keeps fit/crop, form changes, ring
-          // sampling and controller brightness identical to the main preview.
+          // beside the raw terminal value keeps fit/crop, form changes and ring
+          // sampling identical to the main preview. Master brightness is *not*
+          // baked in here — HardwareLedPreview applies it on paint, so an
+          // output and the node feeding it dim by the same value.
           for (const route of routes) {
             const ports = outputs.get(route.id) ?? {}
             const source = ports.frame as Frame | null | undefined
-            const routed = applyMasterBrightness(
-              routeFrame(source ?? null, route, composition.w, composition.h),
-              controller.brightness,
-            )
-            outputs.set(route.id, { ...ports, previewFrame: routed })
+            outputs.set(route.id, {
+              ...ports,
+              previewFrame: routeFrame(source ?? null, route, composition.w, composition.h),
+            })
           }
           usePreviewStore.getState().setOutputs(outputs, controller.brightness)
           lastPreviewPublish.current = now

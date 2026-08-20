@@ -497,7 +497,14 @@
   pointer-events: none;
   border-radius: inherit;
   background-repeat: repeat;
-  background-position: center;
+  /*
+   * From the box origin, not centred. The part's box is exactly cols x rows
+   * tiles, so tiling from the origin lands one dome per LED; `center` offsets
+   * the grid by half a tile whenever the panel has an even number of LEDs on
+   * an axis — which is every panel sold — and every dome then sits on the
+   * corner where four emitters meet instead of on one.
+   */
+  background-position: 0 0;
   background-image: radial-gradient(
     circle at 50% 42%,
     rgba(255, 255, 255, 0.20) 0%,
