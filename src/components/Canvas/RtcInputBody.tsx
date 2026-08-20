@@ -4,11 +4,22 @@ import {
   type RtcPreview,
 } from '../../state/rtc'
 import { useGraphStore } from '../../state/graphStore'
+import { rootGraphNodes } from '../../state/graphStore'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNetworkCredentialsStore, EMPTY_CREDENTIALS } from '../../state/networkCredentials'
+import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
+import { rtcI2cPinSummary } from '../../state/rtcPins'
+import { useUploadStore } from '../../state/uploadStore'
+import { useStreamStore } from '../../state/streamStore'
+import { setRtcDateTime } from '../../utils/backendClient'
 import styles from './RtcInputBody.module.css'
 
 const REFRESH_MS = 250
+
+function localDateTimeCommandValue(now: Date): string {
+  const two = (value: number) => String(value).padStart(2, '0')
+  return `${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())} ${two(now.getHours())}:${two(now.getMinutes())}:${two(now.getSeconds())}`
+}
 
 function sourceLabel(timeSource: string): string {
   switch (timeSource) {
@@ -47,6 +58,30 @@ export default function RtcInputBody({ nodeId }: { nodeId: string }) {
   const snapshot = live ?? fallback
   const credentials = useNetworkCredentialsStore((s) => s.byNodeId[nodeId] ?? EMPTY_CREDENTIALS)
   const setCredentials = useNetworkCredentialsStore((s) => s.setCredentials)
+  const boardProfile = useGraphStore((s) => selectedPhysicalBoardProfile(rootGraphNodes(s)))
+  const selectedPort = useUploadStore((s) => s.selectedPort)
+  const helperReady = useUploadStore((s) => s.helper?.ok === true)
+  const uploadBusy = useUploadStore((s) => s.busy)
+  const stopSerial = useUploadStore((s) => s.stopSerial)
+  const [setStatus, setSetStatus] = useState<'idle' | 'setting' | 'done' | 'error'>('idle')
+  const [setMessage, setSetMessage] = useState('')
+
+  const setFromComputer = async () => {
+    if (!selectedPort || !helperReady || uploadBusy || setStatus === 'setting') return
+    setSetStatus('setting')
+    setSetMessage('Writing…')
+    stopSerial()
+    await useStreamStore.getState().stop()
+    const value = localDateTimeCommandValue(new Date())
+    const result = await setRtcDateTime(selectedPort, value)
+    if (result.ok) {
+      setSetStatus('done')
+      setSetMessage(`Set to ${value}`)
+    } else {
+      setSetStatus('error')
+      setSetMessage(result.error ?? 'RTC write failed')
+    }
+  }
 
   useEffect(() => {
     setFallback(rtcPreviewSnapshot(properties))
@@ -79,11 +114,28 @@ export default function RtcInputBody({ nodeId }: { nodeId: string }) {
         </div>
       )}
       {timeSource === 'DS3231' && (
-        <div className={styles.note}>
-          Preview simulates a healthy module with the browser clock. Firmware reads address
-          0x68 on the board&apos;s default SDA/SCL pins; stale means the oscillator-stop flag is set.
-          Set a new module&apos;s clock once with its setup utility—the generated sketch never overwrites it.
-        </div>
+        <>
+          <div className={styles.pinReadout}>{rtcI2cPinSummary(boardProfile)}</div>
+          <div className={styles.rtcAction}>
+            <button
+              type="button"
+              className={`nodrag ${styles.setButton}`}
+              disabled={!selectedPort || !helperReady || uploadBusy || setStatus === 'setting'}
+              onClick={setFromComputer}
+              title={!helperReady ? 'Start the local upload helper first' : !selectedPort ? 'Select the board USB port first' : 'Write this computer’s local date and time to the DS3231'}
+            >
+              {setStatus === 'setting' ? 'Setting…' : 'Set from computer'}
+            </button>
+            <span className={setStatus === 'error' ? styles.actionError : setStatus === 'done' ? styles.actionDone : ''}>
+              {setMessage || (selectedPort ? selectedPort : 'Select a USB port')}
+            </span>
+          </div>
+          <div className={styles.note}>
+            Preview simulates a healthy module with the browser clock. Firmware reads address
+            0x68 over the board&apos;s default I²C bus. Set from computer writes the physical module
+            through the selected USB port; it never runs automatically.
+          </div>
+        </>
       )}
       {String(timeSource ?? 'Compile Time') === 'NTP' && (
         <>

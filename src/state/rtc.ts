@@ -96,11 +96,13 @@ export function readRtcSnapshot(now: Date = rtcClockSource()): RtcSnapshot {
 // The generated firmware picks its wall clock from RTCInput's `timeSource`, so
 // the preview has to do the same or the designer sees a different time than the
 // board will show. Manual runs a seeded software clock forward from boot (and
-// reports invalid for an impossible seed, exactly like `_rtcValidDateTime`);
+// reports invalid for an impossible seed, exactly like `_rtcValidDateTime`),
+// but remains explicitly stale because it has no persistent authority;
 // NTP shows UTC shifted by the configured offset, which is the wall clock
 // `configTime(offset, 0, server)` produces on-device. Compile Time seeds from
 // the build stamp on hardware, so the browser's local clock is its closest
-// preview. A physical DS3231 cannot be read by the browser, so preview models a
+// preview, but it is likewise stale. A physical DS3231 cannot be read by the
+// browser, so preview models a
 // healthy chip with the browser clock; firmware performs the real I2C read.
 
 export type RtcTimeSource = 'Compile Time' | 'Manual' | 'NTP' | 'DS3231'
@@ -172,7 +174,7 @@ export function rtcPreviewSnapshot(
         Math.round(fields.hour), Math.round(fields.minute), Math.round(fields.second),
       )
       const elapsed = Number.isFinite(elapsedSeconds) ? Math.max(0, elapsedSeconds) : 0
-      return { ...snapshotFromUtc(new Date(seed + elapsed * 1000)), synced: true, stale: false }
+      return { ...snapshotFromUtc(new Date(seed + elapsed * 1000)), synced: false, stale: true }
     }
     case 'NTP': {
       const offsetMinutes = Number(props.timezoneOffsetMinutes ?? 0)
@@ -184,7 +186,7 @@ export function rtcPreviewSnapshot(
       // generated sketch replaces this with the real I2C fields and OSF flag.
       return { ...readRtcSnapshot(now), synced: true, stale: false }
     default:
-      return { ...readRtcSnapshot(now), synced: true, stale: false }
+      return { ...readRtcSnapshot(now), synced: false, stale: true }
   }
 }
 

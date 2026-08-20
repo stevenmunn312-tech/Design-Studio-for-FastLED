@@ -50,6 +50,37 @@ describe('hardwareManifest', () => {
     })
   })
 
+  it('maps a DS3231 to the exact board default SDA/SCL pads', () => {
+    const manifest = buildHardwareManifest([
+      node('board', 'Board', { profileId: 'esp32-devkit-v1-30pin-esp32d' }),
+      node('rtc', 'RTCInput', { timeSource: 'DS3231', partId: 'jaycar-xc9044-rtc-module' }),
+    ], [], 'esp32:esp32:esp32doit-devkit-v1')
+
+    expect(manifest.primaryItems).toHaveLength(1)
+    expect(manifest.primaryItems[0]).toMatchObject({
+      kind: 'rtc-input',
+      facts: { partId: 'jaycar-xc9044-rtc-module' },
+      pins: [
+        { propertyKey: 'sdaPin', pin: 21 },
+        { propertyKey: 'sclPin', pin: 22 },
+      ],
+    })
+  })
+
+  it('refuses to invent RTC wiring when no exact board pin map is selected', () => {
+    const manifest = buildHardwareManifest([
+      node('rtc', 'RTCInput', { timeSource: 'DS3231' }),
+    ], [], 'esp32:esp32:esp32doit-devkit-v1')
+
+    expect(manifest.primaryItems).toEqual([])
+    expect(manifest.unsupportedItems[0]).toMatchObject({
+      kind: 'rtc-input',
+      supported: false,
+      pins: [],
+    })
+    expect(manifest.unsupportedItems[0].reasons?.[0]).toMatch(/will not invent RTC wiring/)
+  })
+
   it('marks unsupported hardware explicitly instead of pretending to wire it', () => {
     const manifest = buildHardwareManifest([
       node('dmx', 'DMXInput', { inputMode: 'DMX512', dmxRxPin: 16 }),

@@ -1131,6 +1131,21 @@ export const AUDIO_HUE_LIVE_EXAMPLE = namedExample(
   'The bright end of the gradient should move around the colour wheel as bass, mids, and treble trade emphasis.',
 )
 
+export const RTC_CLOCK_LIVE_EXAMPLE = namedExample(
+  'Display trustworthy battery-backed time',
+  [
+    { key: 'rtc', type: 'RTCInput', properties: { timeSource: 'DS3231', partId: 'ds3231-rtc-module' } },
+    { key: 'clock', type: 'ClockDisplay', properties: { displayMode: 'Digital + Date' } },
+    { key: 'out', type: 'MatrixOutput', properties: { width: 16, height: 16 } },
+  ],
+  [
+    { source: 'rtc', sourceHandle: 'dateTime', target: 'clock', targetHandle: 'dateTime' },
+    { source: 'clock', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+  ],
+  'RTC Clock publishes the complete calendar and its health as one DateTime connection. Clock Display accepts it only while the DS3231 reading is valid, synced, and not stale.',
+  'The preview simulates a healthy DS3231. On hardware, the display shows dashes until the connected module has trustworthy battery-backed time.',
+)
+
 const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   MicInput: MICROPHONE_LIVE_EXAMPLE,
   ButtonInput: BUTTON_LIVE_EXAMPLE,
@@ -1143,6 +1158,8 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   PercussionDetect: PERCUSSION_DETECT_LIVE_EXAMPLE,
   AudioFeatures: AUDIO_FEATURES_LIVE_EXAMPLE,
   AudioHue: AUDIO_HUE_LIVE_EXAMPLE,
+  RTCInput: RTC_CLOCK_LIVE_EXAMPLE,
+  ClockDisplay: RTC_CLOCK_LIVE_EXAMPLE,
 }
 
 /** Build a varied, node-specific example for any library definition. */

@@ -133,7 +133,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   },
   {
     // RTC-fed clock/date display plus local stopwatch/timer modes. The clock
-    // modes read `secondsOfDay` (and optional date fields) from RTCInput; the
+    // modes normally read one structured DateTime value from RTCInput; the
+    // legacy scalar inputs remain useful for synthetic/test clocks and saves
+    // made before DateTime wiring existed. The
     // stopwatch/timer modes keep their own state so graph bools can run/pause
     // or reset them.
     type: 'ClockDisplay',
@@ -141,6 +143,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'pattern',
     subcategory: 'Shapes & Text',
     inputs: [
+      { id: 'dateTime', label: 'DateTime', dataType: 'datetime' },
       { id: 'base', label: 'Base', dataType: 'frame' },
       { id: 'color', label: 'Color', dataType: 'color' },
       { id: 'secondsOfDay', label: 'Seconds Today', dataType: 'float' },
@@ -2560,6 +2563,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'input',
     inputs: [],
     outputs: [
+      { id: 'dateTime', label: 'DateTime', dataType: 'datetime' },
       { id: 'valid', label: 'Valid', dataType: 'bool' },
       { id: 'synced', label: 'Synced', dataType: 'bool' },
       { id: 'stale', label: 'Stale', dataType: 'bool' },
@@ -2974,6 +2978,7 @@ export const PORT_COLORS: Record<string, string> = {
   field: '#f5c542',
   audio: '#00e0a4',
   dmx: '#6bf8ff',
+  datetime: '#d8ff63',
   music: '#ffb74d',
   patternset: '#00e0a4',
   transitionset: '#b388ff',

@@ -88,3 +88,55 @@
   line-height: 1.35;
   color: rgba(255, 255, 255, 0.55);
 }
+
+.pinReadout {
+  padding: 5px 7px;
+  border-left: 2px solid color-mix(in srgb, var(--node-accent) 72%, white);
+  background: rgba(8, 12, 18, 0.42);
+  color: rgba(255, 255, 255, 0.78);
+  font-family: var(--font-code, monospace);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.rtcAction {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+}
+
+.setButton {
+  border: 1px solid color-mix(in srgb, var(--node-accent) 58%, rgba(255, 255, 255, 0.18));
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--node-accent) 20%, rgba(8, 12, 18, 0.88));
+  color: rgba(255, 255, 255, 0.92);
+  padding: 4px 7px;
+  font: 700 10px/1.2 var(--font-code, monospace);
+  letter-spacing: 0.03em;
+  cursor: pointer;
+}
+
+.setButton:hover:not(:disabled),
+.setButton:focus-visible {
+  border-color: color-mix(in srgb, var(--node-accent) 82%, white);
+  outline: none;
+}
+
+.setButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.rtcAction span {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 9px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rtcAction .actionDone { color: #9fffc2; }
+.rtcAction .actionError { color: #ff9f9f; white-space: normal; }

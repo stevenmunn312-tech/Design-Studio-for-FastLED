@@ -9,6 +9,8 @@ import {
 import { boardByFqbn } from '../state/uploadStore'
 import { controllerSettings } from '../state/controllerSettings'
 import { targetFamilyFromFqbn, type BuildTargetFamily } from './buildProfile'
+import { selectedPhysicalBoardProfile } from './boardProfiles'
+import { rtcI2cPinsForProfile } from '../state/rtcPins'
 
 export interface HardwarePinUse {
   label: string
@@ -21,7 +23,7 @@ export interface HardwarePinUse {
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'button-input' | 'pot-input' | 'encoder-input' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'rtc-input' | 'button-input' | 'pot-input' | 'encoder-input' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -47,6 +49,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'ButtonInput',
   'PotInput',
   'EncoderInput',
+  'RTCInput',
 ])
 
 const BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS = new Set([
@@ -70,6 +73,7 @@ function nominalVoltageForChipset(chipset: string): number | null {
 
 export function collectPinUses(nodes: StudioNode[]): HardwarePinUse[] {
   const uses: HardwarePinUse[] = []
+  const rtcPins = rtcI2cPinsForProfile(selectedPhysicalBoardProfile(nodes))
   const matrixOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
   const matrixOrdinal = new Map(matrixOutputs.map((node, index) => [node.id, index + 1]))
   const push = (node: StudioNode, label: string, propertyKey: string, value: unknown) => {
@@ -134,6 +138,11 @@ export function collectPinUses(nodes: StudioNode[]): HardwarePinUse[] {
         push(node, `${baseLabel} pin A`, 'pinA', props.pinA)
         push(node, `${baseLabel} pin B`, 'pinB', props.pinB)
         push(node, `${baseLabel} switch pin`, 'pinSW', props.pinSW)
+        break
+      case 'RTCInput':
+        if (String(props.timeSource ?? 'Compile Time') !== 'DS3231' || !rtcPins) break
+        push(node, `${baseLabel} SDA`, 'sdaPin', rtcPins.sda.gpio)
+        push(node, `${baseLabel} SCL`, 'sclPin', rtcPins.scl.gpio)
         break
       case 'SDCard':
         push(node, `${baseLabel} CS pin`, 'sdCsPin', props.sdCsPin)
@@ -224,6 +233,7 @@ function buildUnsupportedItem(node: StudioNode, pinUses: HardwarePinUse[]): Hard
 export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], selectedFqbn = ''): HardwareManifest {
   const targetFamily = targetFamilyFromFqbn(selectedFqbn)
   const board = boardByFqbn(selectedFqbn)
+  const physicalBoard = selectedPhysicalBoardProfile(nodes)
   const pinUses = collectPinUses(nodes)
   const pinUsesByNodeId = new Map<string, HardwarePinUse[]>()
   for (const pinUse of pinUses) {
@@ -243,6 +253,8 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
     || node.data.nodeType === 'ButtonInput'
     || node.data.nodeType === 'PotInput'
     || node.data.nodeType === 'EncoderInput'
+    || (node.data.nodeType === 'RTCInput'
+      && String((node.data.properties as Record<string, unknown>).timeSource ?? 'Compile Time') === 'DS3231')
     || node.data.nodeType === 'DMXInput'
     || node.data.nodeType === 'SDCard'
   )
@@ -271,6 +283,16 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         return buildPeripheralItem(node, 'pot-input', 'Analog potentiometer input', pins)
       case 'EncoderInput':
         return buildPeripheralItem(node, 'encoder-input', 'Rotary encoder input', pins)
+      case 'RTCInput':
+        return {
+          ...buildPeripheralItem(node, 'rtc-input', 'DS3231 battery-backed I²C clock', pins),
+          supported: pins.some((pin) => pin.propertyKey === 'sdaPin')
+            && pins.some((pin) => pin.propertyKey === 'sclPin'),
+          facts: { partId: String((node.data.properties as Record<string, unknown>).partId ?? 'ds3231-rtc-module') },
+          reasons: rtcI2cPinsForProfile(physicalBoard)
+            ? undefined
+            : [`${physicalBoard?.label ?? 'The selected board'} does not yet have reviewed default SDA/SCL pads, so Studio will not invent RTC wiring.`],
+        }
       default:
         return buildUnsupportedItem(node, pins)
     }

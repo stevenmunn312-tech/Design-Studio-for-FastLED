@@ -924,6 +924,11 @@ function rtcHelperCpp(): string[] {
     '  uint8_t month, day, hour, minute, second, weekday;',
     '  bool valid;',
     '};',
+    'struct _RtcDateTimeValue {',
+    '  bool valid, synced, stale;',
+    '  float hour, minute, second, weekday, day, month, year, secondsOfDay;',
+    '  bool weekend;',
+    '};',
     '',
     'bool _rtcLeap(int16_t year) {',
     '  return (year % 4 == 0) && ((year % 100 != 0) || (year % 400 == 0));',
@@ -1019,6 +1024,9 @@ function ds3231HelperCpp(): string[] {
     'uint8_t _rtcBcdToDec(uint8_t value) {',
     '  return (uint8_t)((value >> 4) * 10u + (value & 0x0fu));',
     '}',
+    'uint8_t _rtcDecToBcd(uint8_t value) {',
+    '  return (uint8_t)(((value / 10u) << 4) | (value % 10u));',
+    '}',
     '',
     'bool _rtcReadDs3231(_RtcDateTime &out, bool &oscillatorStopped) {',
     '  Wire.beginTransmission(0x68);',
@@ -1062,6 +1070,41 @@ function ds3231HelperCpp(): string[] {
     '    oscillatorStopped = (Wire.read() & 0x80u) != 0;',
     '  }',
     '  return true;',
+    '}',
+    '',
+    'bool _rtcWriteDs3231(int16_t year, uint8_t month, uint8_t day, uint8_t hour, uint8_t minute, uint8_t second) {',
+    '  if (!_rtcValidDateTime(year, month, day, hour, minute, second) || year < 2000 || year > 2199) return false;',
+    '  const uint8_t weekday = (uint8_t)(_rtcWeekdayFromDays(_rtcDaysFromCivil(year, month, day)) + 1u);',
+    '  Wire.beginTransmission(0x68);',
+    '  Wire.write((uint8_t)0x00);',
+    '  Wire.write(_rtcDecToBcd(second)); Wire.write(_rtcDecToBcd(minute)); Wire.write(_rtcDecToBcd(hour));',
+    '  Wire.write(_rtcDecToBcd(weekday)); Wire.write(_rtcDecToBcd(day));',
+    '  Wire.write((uint8_t)(_rtcDecToBcd(month) | (year >= 2100 ? 0x80u : 0u)));',
+    '  Wire.write(_rtcDecToBcd((uint8_t)(year % 100)));',
+    '  if (Wire.endTransmission() != 0) return false;',
+    '  // A deliberate successful set makes the reading trustworthy again.',
+    '  Wire.beginTransmission(0x68); Wire.write((uint8_t)0x0f);',
+    '  if (Wire.endTransmission() != 0 || Wire.requestFrom((uint8_t)0x68, (uint8_t)1) != 1) return false;',
+    '  const uint8_t status = Wire.read();',
+    '  Wire.beginTransmission(0x68); Wire.write((uint8_t)0x0f); Wire.write((uint8_t)(status & ~0x80u));',
+    '  return Wire.endTransmission() == 0;',
+    '}',
+    '',
+    'void _rtcHandleSerialSet() {',
+    '  static char line[48]; static uint8_t length = 0;',
+    '  while (Serial.available() > 0) {',
+    '    const char ch = (char)Serial.read();',
+    "    if (ch == '\\r') continue;",
+    "    if (ch != '\\n') { if (length + 1 < sizeof(line)) line[length++] = ch; continue; }",
+    "    line[length] = '\\0'; length = 0;",
+    '    int year, month, day, hour, minute, second;',
+    '    if (sscanf(line, "FLS_RTC_SET %d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &minute, &second) == 6',
+    '        && _rtcWriteDs3231((int16_t)year, (uint8_t)month, (uint8_t)day, (uint8_t)hour, (uint8_t)minute, (uint8_t)second)) {',
+    '      Serial.println("FLS_RTC_OK");',
+    '    } else if (strncmp(line, "FLS_RTC_SET", 11) == 0) {',
+    '      Serial.println("FLS_RTC_ERROR");',
+    '    }',
+    '  }',
     '}',
     '',
   ]
@@ -1402,7 +1445,10 @@ export function generateCpp(
   // A Set so two nodes reading the same pin don't emit it twice.
   const pinSetupLines = new Set<string>()
   const setupLines: string[] = []
-  if (needsDs3231) setupLines.push(`  Wire.begin();  // DS3231 on the board's default SDA/SCL pins`)
+  if (needsDs3231) {
+    setupLines.push(`  Wire.begin();  // DS3231 on the board's default SDA/SCL pins`)
+    setupLines.push(`  Serial.begin(115200);  // accepts deliberate FLS_RTC_SET commands from Studio`)
+  }
   // File-scope lines contributed by Code nodes (helpers, persistent vars, etc.),
   // emitted between the buffer declarations and setup().
   const globalLines: string[] = []
@@ -2022,9 +2068,9 @@ export function generateCpp(
         ln(`  float ${v('hour')} = 0.0f, ${v('minute')} = 0.0f, ${v('second')} = 0.0f;`)
         ln(`  float ${v('weekday')} = 0.0f, ${v('day')} = 0.0f, ${v('month')} = 0.0f, ${v('year')} = 0.0f;`)
         ln(`  float ${v('secondsOfDay')} = 0.0f;`)
-        // Free-running software clock. It is the clock for Compile Time and
-        // Manual, and the pre-sync fallback for NTP (which overwrites the
-        // fields below once the network hands back a real epoch).
+        // Free-running software clock. Compile Time, Manual, and pre-sync NTP
+        // are useful field sources, but none is a persistent time authority;
+        // they remain stale until NTP or a physical RTC supplies real time.
         ln(`  if (_rtcSeedValid_${id}) {`)
         ln(`    uint32_t _rtcNowMs_${id} = millis();`)
         ln(`    _rtcElapsedMillis_${id} += (uint32_t)(_rtcNowMs_${id} - _rtcLastMillis_${id});`)
@@ -2038,8 +2084,8 @@ export function generateCpp(
         ln(`    _rtcCivilFromDays(_rtcDays_${id}, _rtcYear_${id}, _rtcMonth_${id}, _rtcDay_${id});`)
         ln(`    uint8_t _rtcWeekday_${id} = _rtcWeekdayFromDays(_rtcDays_${id});`)
         ln(`    ${v('valid')} = true;`)
-        ln(`    ${v('synced')} = ${ntp ? 'false' : 'true'};`)
-        ln(`    ${v('stale')} = ${ntp ? 'true' : 'false'};`)
+        ln(`    ${v('synced')} = false;`)
+        ln(`    ${v('stale')} = true;`)
         ln(`    ${v('hour')} = (float)(_rtcSecondsOfDay_${id} / 3600u);`)
         ln(`    ${v('minute')} = (float)((_rtcSecondsOfDay_${id} / 60u) % 60u);`)
         ln(`    ${v('second')} = (float)(_rtcSecondsOfDay_${id} % 60u);`)
@@ -2108,6 +2154,7 @@ export function generateCpp(
           ln(`    ${v('weekend')} = _rtcChip_${id}.weekday == 0 || _rtcChip_${id}.weekday == 6;`)
           ln(`  }`)
         }
+        ln(`  _RtcDateTimeValue ${v('dateTime')} = { ${v('valid')}, ${v('synced')}, ${v('stale')}, ${v('hour')}, ${v('minute')}, ${v('second')}, ${v('weekday')}, ${v('day')}, ${v('month')}, ${v('year')}, ${v('secondsOfDay')}, ${v('weekend')} };`)
         break
       }
 
@@ -2527,17 +2574,25 @@ export function generateCpp(
           : `CRGB(${Number(p.r ?? 255)}, ${Number(p.g ?? 220)}, ${Number(p.b ?? 90)})`
         const xExpr = f('x', 'x', 0.5)
         const yExpr = f('y', 'y', 0.5)
-        // The evaluator treats an unwired `valid` as true whenever a time is
+        const dateTimeUp = incoming.get(`${node.id}:dateTime`)
+        const dateTimeExpr = dateTimeUp
+          ? `n_${safeId(dateTimeUp.srcId)}_${dateTimeUp.srcPort}`
+          : null
+        // DateTime carries source health, so clock modes reject stale or
+        // unsynced readings by default. The evaluator treats an unwired legacy
+        // `valid` as true whenever a scalar time is
         // available, so a graph that wires the seconds but not the valid flag
         // must not preview a running clock and then flash dashes. With neither
         // wired there is no clock at all on hardware, so dashes are correct —
         // buildGraphDiagnostics flags that case.
-        const validExpr = incoming.get(`${node.id}:valid`)
-          ? boolExpr(node.id, 'valid')
-          : (incoming.get(`${node.id}:secondsOfDay`) ? 'true' : 'false')
-        const secondsExpr = f('secondsOfDay', 'secondsOfDay', 0)
-        const dayExpr = f('day', 'day', 1)
-        const monthExpr = f('month', 'month', 1)
+        const validExpr = dateTimeExpr
+          ? `(${dateTimeExpr}.valid && ${dateTimeExpr}.synced && !${dateTimeExpr}.stale)`
+          : incoming.get(`${node.id}:valid`)
+            ? boolExpr(node.id, 'valid')
+            : (incoming.get(`${node.id}:secondsOfDay`) ? 'true' : 'false')
+        const secondsExpr = dateTimeExpr ? `${dateTimeExpr}.secondsOfDay` : f('secondsOfDay', 'secondsOfDay', 0)
+        const dayExpr = dateTimeExpr ? `${dateTimeExpr}.day` : f('day', 'day', 1)
+        const monthExpr = dateTimeExpr ? `${dateTimeExpr}.month` : f('month', 'month', 1)
         const runExpr = incoming.get(`${node.id}:run`) ? boolExpr(node.id, 'run') : (p.run === false ? 'false' : 'true')
         const resetExpr = incoming.get(`${node.id}:reset`) ? boolExpr(node.id, 'reset') : (p.reset === true ? 'true' : 'false')
         const durationExpr = `max(0.0f, ${f('durationSec', 'durationSec', 300)})`
@@ -6019,6 +6074,7 @@ export function generateCpp(
 
   lines.push(`void loop() {`)
   if (emitEngine) lines.push(`  updateAudio();`)
+  if (needsDs3231) lines.push(`  _rtcHandleSerialSet();`)
   if (needsT.v) lines.push(`  float t = millis() / 1000.0f;`)
   lines.push(...loopLines)
   if (multipleOutputs || !sorted.some((n) => n.data.nodeType === 'MatrixOutput')) {

@@ -27,7 +27,7 @@ describe('setRtcClockSource', () => {
     const a = rtcPreviewSnapshot({ timeSource: 'Compile Time' })
     const b = rtcPreviewSnapshot({ timeSource: 'Compile Time' })
     expect(b).toEqual(a)
-    expect(a).toMatchObject({ hour: 10, minute: 4, second: 5, synced: true })
+    expect(a).toMatchObject({ hour: 10, minute: 4, second: 5, synced: false, stale: true })
   })
 
   it('still lets an explicit now win over the pinned source', () => {

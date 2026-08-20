@@ -16,9 +16,12 @@ contract as built.
 
 ### The clock is a wire, not an ambient resource
 
-`RTCInput` is an ordinary node with ordinary outputs. `ScheduleTrigger` reads
-`valid` / `synced` / `secondsOfDay` / `weekday` / `day` / `month` / `year`
-through **normal input ports**, and `ClockDisplay` likewise.
+`RTCInput` is an ordinary node with ordinary outputs. Its primary `DateTime`
+output carries the complete reading and health state over one typed wire to
+`ClockDisplay`. The scalar outputs remain available for schedules, animation,
+diagnostics, and synthetic test clocks. `ScheduleTrigger` reads `valid` /
+`synced` / `secondsOfDay` / `weekday` / `day` / `month` / `year` through normal
+input ports.
 
 Rejected: a scene-wide singleton clock that schedule nodes read implicitly.
 An implicit global would have been less wiring, but it would also have been the
@@ -40,8 +43,8 @@ current time" is per-node, not per-scene.
 
 | Source | Seed | `valid` | `synced` | `stale` |
 |---|---|---|---|---|
-| `Compile Time` | the sketch's `__DATE__` / `__TIME__` build stamp | true | true | false |
-| `Manual` | the entered start date/time | true once the seed parses | true | false |
+| `Compile Time` | the sketch's `__DATE__` / `__TIME__` build stamp | true | false | true |
+| `Manual` | the entered start date/time | true once the seed parses | false | true |
 | `NTP` | build stamp, then the network epoch once it arrives | true | false until synced | true until synced |
 | `DS3231` | battery-backed I²C calendar registers | true after a valid read | true when OSF is clear | true when OSF is set or a later read fails |
 
@@ -71,10 +74,11 @@ calendar is published immediately. Status register bit 7 (OSF, oscillator stop)
 maps to `stale`; `synced` is true only when OSF is clear. If a module that was
 reading successfully later disappears from the bus, firmware keeps the last
 good sample visible but marks it stale. A module absent from boot remains
-invalid. Firmware deliberately never writes or clears OSF: a fresh/replaced
-module must be set once with its vendor or library setup utility, and a stale
-flag remains visible until the clock is deliberately corrected. This avoids a
-normal board reboot silently overwriting battery-backed time with a build stamp.
+invalid. Firmware never writes the module automatically. A deliberate **Set
+from computer** action on the RTC node sends one validated local timestamp over
+the selected USB serial port, writes the DS3231 calendar, and clears OSF after a
+successful write. This avoids a normal board reboot silently overwriting
+battery-backed time while keeping first-time setup inside Studio.
 This path is experimental until the support matrix records a physical hardware
 run.
 
@@ -93,12 +97,15 @@ source* will produce on-device, not simply the browser's clock:
 - **Manual** seeds from the entered date/time and runs forward using preview `t`
   as the stand-in for `millis()` — the same advance the board will do — and
   reports an impossible seed as fully invalid, matching `_rtcValidDateTime`.
+  It remains unsynced/stale because it is a rehearsal source, not persistent
+  timekeeping.
 - **NTP** shows UTC plus the configured offset, which is the wall clock
   `configTime` produces.
 - **DS3231** uses browser-local time as a deliberate healthy-module simulation;
   a browser cannot inspect the board's I²C bus. The node body says so explicitly.
 - **Compile Time** previews as the browser's local clock. The build stamp isn't
-  knowable in the browser, and local time is its closest honest approximation.
+  knowable in the browser, and local time is its closest approximation. It is
+  deliberately unsynced/stale, so a Clock Display using DateTime shows dashes.
 
 `RtcInputBody` renders the evaluator's **published outputs** (via
 `previewStore`), not a second clock read of its own, so the on-node readout
@@ -167,10 +174,11 @@ table. That table is **generated from the shared `src/state/font.ts` data**,
 along with every string extent, rather than hand-transcribed, so preview and
 firmware layout cannot drift apart.
 
-An unwired `valid` counts as true whenever `secondsOfDay` is wired (matching the
-evaluator), so the common two-wire hookup just works. With neither wired,
-hardware has no clock at all: it renders `--:--`, and Graph Health warns that the
-preview's browser-clock fallback will not survive a flash.
+The normal hookup is one `DateTime` wire. Clock modes display it only while the
+reading is valid, synced, and not stale. The old scalar hookup remains supported:
+an unwired `valid` counts as true whenever `secondsOfDay` is wired. With neither
+path wired, preview and hardware both render `--:--`; there is no implicit
+browser-clock fallback.
 
 ## Validation
 

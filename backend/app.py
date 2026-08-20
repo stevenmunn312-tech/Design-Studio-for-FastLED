@@ -1816,6 +1816,61 @@ def serial_monitor(port: str, baud: int = 115200):
     return StreamingResponse(stream(), media_type="text/plain; charset=utf-8")
 
 
+@app.post("/api/rtc/set")
+def set_rtc_time(payload: dict = Body(...)):
+    """Set a DS3231 through a Studio-generated sketch already on the board.
+
+    This is deliberately a narrow protocol rather than an arbitrary serial
+    write endpoint: the browser may send one validated local civil timestamp,
+    and firmware must explicitly acknowledge that it wrote the RTC.
+    """
+    import datetime as _datetime
+    import re as _re
+
+    port = str(payload.get("port") or "").strip()
+    value = str(payload.get("dateTime") or "").strip()
+    match = _re.fullmatch(r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})", value)
+    if not port:
+        return JSONResponse({"ok": False, "error": "a serial port is required"}, status_code=400)
+    if not match:
+        return JSONResponse({"ok": False, "error": "dateTime must use YYYY-MM-DD HH:MM:SS"}, status_code=400)
+    try:
+        _datetime.datetime(*map(int, match.groups()))
+    except ValueError:
+        return JSONResponse({"ok": False, "error": "dateTime is not a real calendar time"}, status_code=400)
+    if _flash_in_progress():
+        return JSONResponse({"ok": False, "error": "an upload is using the serial port"}, status_code=409)
+    if _stream_active() and _stream_port == port:
+        return JSONResponse({"ok": False, "error": "port is in use by a live stream — stop it first"}, status_code=409)
+
+    _release_monitor(port)
+    try:
+        import serial
+        ser = serial.Serial(port, 115200, timeout=3, write_timeout=3)
+        ser.dtr = False
+        ser.rts = False
+        try:
+            # Give USB CDC/bridge boards a moment after opening, then discard
+            # boot chatter before issuing the one explicit command.
+            time.sleep(0.25)
+            if hasattr(ser, "reset_input_buffer"):
+                ser.reset_input_buffer()
+            ser.write(f"FLS_RTC_SET {value}\n".encode("ascii"))
+            ser.flush()
+            deadline = time.monotonic() + 3.0
+            while time.monotonic() < deadline:
+                reply = ser.readline().decode(errors="replace").strip()
+                if reply == "FLS_RTC_OK":
+                    return {"ok": True, "dateTime": value}
+                if reply == "FLS_RTC_ERROR":
+                    return JSONResponse({"ok": False, "error": "the board could not write the DS3231"}, status_code=502)
+            return JSONResponse({"ok": False, "error": "the board did not acknowledge the RTC command; upload the current sketch first"}, status_code=504)
+        finally:
+            ser.close()
+    except Exception as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=503)
+
+
 # ── Live streaming (Adalight) ─────────────────────────────────────────────────
 # A lightweight alternative to a compile+flash cycle: once the tiny generic
 # Adalight receiver sketch (src/codegen/streamReceiverGenerator.ts) is flashed

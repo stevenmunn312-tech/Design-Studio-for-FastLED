@@ -99,6 +99,23 @@ export async function monitorSerial(
   await pipeStream(res, onData)
 }
 
+/** Ask a running Studio-generated sketch to write its connected DS3231. */
+export async function setRtcDateTime(
+  port: string,
+  dateTime: string,
+): Promise<{ ok: boolean; dateTime?: string; error?: string }> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/rtc/set`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ port, dateTime }),
+    })
+    return (await res.json()) as { ok: boolean; dateTime?: string; error?: string }
+  } catch (error) {
+    return { ok: false, error: String(error) }
+  }
+}
+
 // ── Live streaming (Adalight) ────────────────────────────────────────────────
 // The port is opened once and held by the helper across many small per-frame
 // POSTs — see backend/app.py's /api/stream/* for why (reopening it every frame

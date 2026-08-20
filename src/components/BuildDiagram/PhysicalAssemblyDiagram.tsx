@@ -790,11 +790,14 @@ const PERIPHERAL_RENDERS: Partial<Record<HardwareManifestItem['kind'], { href: s
   'button-input': { href: buttonModuleRender, id: 'button-module' },
   'pot-input': { href: potentiometerModuleRender, id: 'potentiometer-module' },
   'encoder-input': { href: encoderModuleRender, id: 'encoder-module' },
+  'rtc-input': { href: '/parts/ds3231-rtc-module.webp', id: 'ds3231-rtc-module' },
 }
 
 function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; connections: PhysicalDiagramConnection[]; selected: boolean }) {
   const { x, y, item } = layout
-  const render = PERIPHERAL_RENDERS[item.kind]
+  const render = item.kind === 'rtc-input' && item.facts.partId === 'jaycar-xc9044-rtc-module'
+    ? { href: '/parts/jaycar-xc9044-rtc-module.webp', id: 'jaycar-xc9044-rtc-module' }
+    : PERIPHERAL_RENDERS[item.kind]
   const padLabel = (index: number) => peripheralPadLabel(item.kind, index)
   return (
     <g className={selected ? styles.physicalSelected : undefined}>

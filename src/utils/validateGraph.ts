@@ -1097,21 +1097,20 @@ export function buildGraphDiagnostics(
     })
   }
 
-  // A Clock Display in a clock mode draws the browser clock in preview as an
-  // authoring aid, but hardware has no time source of its own — without an RTC
-  // wired in, the flashed sketch can only ever show dashes.
+  // Clock modes have no implicit browser/hardware clock. DateTime is the normal
+  // one-wire source; Seconds Today remains a supported legacy/synthetic feed.
   for (const node of nodes) {
     if (node.data.nodeType !== 'ClockDisplay') continue
     const mode = String((node.data.properties as Record<string, unknown>).displayMode ?? 'Digital HH:MM')
     if (mode === 'Stopwatch' || mode === 'Timer') continue
-    if (edges.some((e) => e.target === node.id && e.targetHandle === 'secondsOfDay')) continue
+    if (edges.some((e) => e.target === node.id && (e.targetHandle === 'dateTime' || e.targetHandle === 'secondsOfDay'))) continue
     diagnostics.push({
       id: `${node.id}-clock-no-time`,
       severity: 'warning',
       category: 'connection',
       title: `${nodeLabel(node)} has no clock wired`,
-      message: 'Preview falls back to this browser’s clock, but the generated firmware has no time source and will display “--:--”.',
-      fix: 'Wire an RTC Clock node’s Seconds Today output into this node, or switch it to Stopwatch/Timer.',
+      message: 'No DateTime source is connected, so preview and generated firmware display “--:--”.',
+      fix: 'Wire an RTC Clock node’s DateTime output into this node, or switch it to Stopwatch/Timer.',
       nodeIds: [node.id],
       nodeLabel: nodeLabel(node),
     })

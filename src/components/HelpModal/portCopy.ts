@@ -15,7 +15,7 @@
 
 export const TYPE_GLYPH: Record<string, string> = {
   frame: '▦', palette: '≋', color: '●', audio: '⌁', float: '∿', bool: '◆',
-  field: '⌖', music: '♫', image: '▥', dmx: '⎋', patternset: '◫', transitionset: '⇄',
+  field: '⌖', music: '♫', image: '▥', dmx: '⎋', datetime: '◷', patternset: '◫', transitionset: '⇄',
 }
 
 /**
@@ -39,6 +39,7 @@ export const OUTPUT_USE_CASES: Record<string, string> = {
   transitionset: 'Its output widens the pool of transitions — for the Show Engine live, or Performance Generator on export.',
   image: 'Its output is the validated picture itself, ready for Palette from Image or another data-only consumer.',
   dmx: 'Its output is one live DMX universe, which DMX Channel decodes into individual slot values.',
+  datetime: 'Its output carries a complete clock reading to Clock Display or other time-aware nodes over one wire.',
 }
 
 export const PORT_DESCRIPTIONS: Record<string, string> = {
@@ -54,4 +55,5 @@ export const PORT_DESCRIPTIONS: Record<string, string> = {
   transitionset: 'a curated set of transition styles',
   image: 'an uploaded picture as raw pixel data',
   dmx: 'one live DMX universe of 512 channels',
+  datetime: 'a complete date, time, and clock-health reading',
 }

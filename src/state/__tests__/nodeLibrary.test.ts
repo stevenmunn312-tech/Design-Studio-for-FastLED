@@ -415,7 +415,7 @@ describe('nodeLibrary', () => {
     expect(rtc?.category).toBe('input')
     expect(rtc?.inputs).toEqual([])
     expect(rtc?.outputs.map((port) => port.id)).toEqual([
-      'valid', 'synced', 'stale', 'hour', 'minute', 'second', 'weekday', 'day', 'month', 'year', 'secondsOfDay', 'weekend',
+      'dateTime', 'valid', 'synced', 'stale', 'hour', 'minute', 'second', 'weekday', 'day', 'month', 'year', 'secondsOfDay', 'weekend',
     ])
     expect(rtc?.defaultProperties).toMatchObject({
       timeSource: 'Compile Time',
@@ -454,7 +454,7 @@ describe('nodeLibrary', () => {
     expect(clock?.category).toBe('pattern')
     expect(clock?.subcategory).toBe('Shapes & Text')
     expect(clock?.inputs.map((port) => port.id)).toEqual([
-      'base', 'color', 'secondsOfDay', 'valid', 'day', 'month', 'run', 'reset', 'durationSec', 'x', 'y', 'radius',
+      'dateTime', 'base', 'color', 'secondsOfDay', 'valid', 'day', 'month', 'run', 'reset', 'durationSec', 'x', 'y', 'radius',
     ])
     expect(clock?.outputs.map((port) => port.id)).toEqual(['frame', 'seconds', 'done'])
     expect(clock?.defaultProperties).toMatchObject({

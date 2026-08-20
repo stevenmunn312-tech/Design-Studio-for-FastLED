@@ -3174,6 +3174,7 @@ describe('RTCInput (codegen)', () => {
     expect(cpp).toContain('static uint64_t _rtcElapsedMillis_rtc = 0;')
     expect(cpp).toContain('n_rtc_valid = true;')
     expect(cpp).toContain('n_rtc_secondsOfDay = (float)_rtcSecondsOfDay_rtc + _rtcMillisRema_rtc / 1000.0f;')
+    expect(cpp).toContain('_RtcDateTimeValue n_rtc_dateTime = { n_rtc_valid, n_rtc_synced, n_rtc_stale')
   })
 
   it('emits a manual firmware clock seed when requested', () => {
@@ -3200,6 +3201,8 @@ describe('RTCInput (codegen)', () => {
     expect(cpp).toContain('bool _rtcReadDs3231(_RtcDateTime &out, bool &oscillatorStopped)')
     expect(cpp).toContain('Wire.beginTransmission(0x68);')
     expect(cpp).toContain('oscillatorStopped = (Wire.read() & 0x80u) != 0;')
+    expect(cpp).toContain('void _rtcHandleSerialSet()')
+    expect(cpp).toContain('FLS_RTC_SET %d-%d-%d %d:%d:%d')
     expect(cpp).toContain('n_rtc_synced = !_rtcChipStale_rtc;')
     expect(cpp).toContain('n_rtc_stale = _rtcChipStale_rtc;')
     expect(cpp).not.toContain('#include <RTClib.h>')
@@ -3265,6 +3268,19 @@ describe('ScheduleTrigger (codegen)', () => {
 })
 
 describe('ClockDisplay (codegen)', () => {
+  it('reads time and health through the DateTime connection', () => {
+    const rtc = node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' })
+    const clk = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Digital + Date' })
+    const cpp = generateCpp([rtc, clk, outputNode], [
+      edge('dt', 'rtc', 'clk', 'dateTime', 'dateTime'),
+      edge('frame', 'clk', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('(n_rtc_dateTime.valid && n_rtc_dateTime.synced && !n_rtc_dateTime.stale)')
+    expect(cpp).toContain('n_rtc_dateTime.secondsOfDay')
+    expect(cpp).toContain('n_rtc_dateTime.day')
+    expect(cpp).toContain('n_rtc_dateTime.month')
+  })
+
   it('emits a dynamic bitmap text renderer for RTC-fed clock/date modes', () => {
     const rtc = node('rtc', 'RTCInput', 'input', {})
     const clk = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Digital + Date' })

@@ -220,6 +220,8 @@ export const PERIPHERALS_PER_ROW = 3
  */
 const PAD_Y_RATIO = 0.884
 const PAD_X_RATIOS_3 = [0.4196, 0.4995, 0.579]
+const PAD_X_RATIOS_RTC_ZS042 = [0.612, 0.543, 0.474, 0.681]
+const PAD_X_RATIOS_RTC_XC9044 = [0.165, 0.337, 0.505, 0.843]
 const PAD_X_RATIOS_5 = [0.34, 0.4194, 0.4992, 0.5787, 0.658]
 
 /**
@@ -230,18 +232,36 @@ export const PERIPHERAL_STUB_LEAD = 26
 
 /** Pads run VCC, [signals...], GND left to right on every module. */
 export function peripheralPadCount(kind: HardwareManifestItem['kind']) {
-  return kind === 'encoder-input' ? 5 : 3
+  return kind === 'encoder-input' ? 5 : kind === 'rtc-input' ? 4 : 3
 }
 
 /** Silkscreen names on the module renders, indexed the same as the pads. */
 export function peripheralPadLabel(kind: HardwareManifestItem['kind'], padIndex: number) {
   const labels = kind === 'encoder-input'
     ? ['VCC', 'A', 'B', 'SW', 'GND']
+    : kind === 'rtc-input'
+      ? ['3V3', 'SDA', 'SCL', 'GND']
     : ['VCC', 'SIG', 'GND']
   return labels[Math.min(Math.max(padIndex, 0), labels.length - 1)]
 }
 
 export function peripheralPadPoint(layout: ItemLayout, padIndex: number) {
+  if (layout.item.kind === 'rtc-input') {
+    const compact = layout.item.facts.partId === 'jaycar-xc9044-rtc-module'
+    const ratios = compact ? PAD_X_RATIOS_RTC_XC9044 : PAD_X_RATIOS_RTC_ZS042
+    const sourceAspect = compact ? 1 : 464 / 272
+    const sourceYRatio = compact ? 0.855 : 0.886
+    const boxAspect = PERIPHERAL_RENDER_W / PERIPHERAL_RENDER_H
+    const renderWidth = sourceAspect > boxAspect ? PERIPHERAL_RENDER_W : PERIPHERAL_RENDER_H * sourceAspect
+    const renderHeight = sourceAspect > boxAspect ? PERIPHERAL_RENDER_W / sourceAspect : PERIPHERAL_RENDER_H
+    const offsetX = (PERIPHERAL_RENDER_W - renderWidth) / 2
+    const offsetY = (PERIPHERAL_RENDER_H - renderHeight) / 2
+    const ratio = ratios[Math.min(Math.max(padIndex, 0), ratios.length - 1)]
+    return {
+      x: layout.x + offsetX + (ratio * renderWidth),
+      y: layout.y + offsetY + (sourceYRatio * renderHeight),
+    }
+  }
   const ratios = peripheralPadCount(layout.item.kind) === 5 ? PAD_X_RATIOS_5 : PAD_X_RATIOS_3
   const ratio = ratios[Math.min(Math.max(padIndex, 0), ratios.length - 1)]
   return {

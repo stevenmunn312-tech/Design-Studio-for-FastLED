@@ -3991,6 +3991,13 @@ describe('RTCInput', () => {
         month: 7,
         year: 2026,
         weekend: false,
+        dateTime: {
+          valid: true,
+          hour: 14,
+          minute: 5,
+          day: 27,
+          month: 7,
+        },
       })
       expect(outputs.get('rtc')?.secondsOfDay).toBeCloseTo(14 * 3600 + 5 * 60 + 9.25, 4)
     } finally {
@@ -4168,6 +4175,10 @@ describe('ScheduleTrigger', () => {
     })
 
     const synced = scheduleGraph({ rtc: 'rtc-sy', sched: 'sched-sy' }, seed, props)
+    const trueNode = node('sync-true', 'Not', 'math', {})
+    synced.nodes.push(trueNode)
+    synced.edges = synced.edges.filter((e) => e.targetHandle !== 'synced')
+    synced.edges.push(edge('sync-edge', 'sync-true', 'result', 'sched-sy', 'synced'))
     expect(evaluateGraphFull(synced.nodes, synced.edges, 0, W, H).outputs.get('sched-sy')).toMatchObject({
       active: true,
     })
@@ -4175,6 +4186,25 @@ describe('ScheduleTrigger', () => {
 })
 
 describe('ClockDisplay', () => {
+  it('renders from the one-wire DateTime value and does not borrow the browser clock when unwired', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 7, 21, 13, 45, 0))
+    const rtc = node('rtc', 'RTCInput', 'input', {
+      timeSource: 'DS3231',
+    })
+    const clock = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Digital + Date' })
+    try {
+      const wired = withOutput(clock, [rtc], [edge('dt', 'rtc', 'dateTime', 'clk', 'dateTime')])
+      const wiredOutput = evaluateGraphFull(wired.nodes, wired.edges, 0, 16, 16).outputs.get('clk')
+      expect(wiredOutput?.seconds).toBe(13 * 3600 + 45 * 60)
+
+      const bare = withOutput(clock)
+      expect(evaluateGraphFull(bare.nodes, bare.edges, 0, 16, 16).outputs.get('clk')?.seconds).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('renders a wired RTC time/date display that changes with the upstream clock', () => {
     vi.useFakeTimers()
     try {

@@ -68,7 +68,7 @@ interface StreamState {
   error: string | null
   layout: StreamLayout | null
   start: (port: string, layout: StreamLayout) => Promise<void>
-  stop: () => void
+  stop: () => Promise<void>
 }
 
 let sendTimer: ReturnType<typeof setInterval> | null = null
@@ -125,11 +125,11 @@ export const useStreamStore = create<StreamState>((set, get) => ({
     }, SEND_INTERVAL_MS)
   },
 
-  stop: () => {
+  stop: async () => {
     if (sendTimer) { clearInterval(sendTimer); sendTimer = null }
     inFlight = false
     const wasStreaming = get().streaming
     set({ streaming: false, fps: 0 })
-    if (wasStreaming) void stopStream()
+    if (wasStreaming) await stopStream()
   },
 }))

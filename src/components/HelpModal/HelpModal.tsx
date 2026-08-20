@@ -545,7 +545,7 @@ function UploadTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>◇</div>
             <div className={styles.tipText}>
-              Pick a <strong>time source</strong> on the RTC Clock node. <strong>Compile Time</strong> and <strong>Manual</strong> work on every board with no network — Manual seeds from a date/time you type in, and preview runs it forward in real time so you can rehearse a schedule without waiting for the actual hour. <strong>NTP</strong> needs a Wi-Fi-capable board (ESP32-family or ESP8266) plus an SSID, password, and NTP server. <strong>DS3231</strong> reads a battery-backed module at I²C address <code>0x68</code> through the board&apos;s default SDA/SCL pins and needs no extra Arduino library.
+              Pick a <strong>time source</strong> on the RTC Clock node. <strong>Compile Time</strong> and <strong>Manual</strong> work on every board with no network, but are marked unsynced/stale because they cannot retain trustworthy time across power cycles. Manual remains useful for rehearsing schedules. <strong>NTP</strong> needs a Wi-Fi-capable board (ESP32-family or ESP8266) plus an SSID, password, and NTP server. <strong>DS3231</strong> reads a battery-backed module at I²C address <code>0x68</code> through the board&apos;s default SDA/SCL pins and needs no extra Arduino library.
             </div>
           </div>
           <div className={styles.tip}>
@@ -557,7 +557,7 @@ function UploadTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>◇</div>
             <div className={styles.tipText}>
-              For a DS3231, connect <strong>VCC</strong>, <strong>GND</strong>, <strong>SDA</strong>, and <strong>SCL</strong> to the board&apos;s labelled I²C pins. Set a fresh module&apos;s clock once with its vendor/library setup example; generated Studio firmware reads but never overwrites the battery-backed calendar. The browser simulates a healthy module; on firmware, <code>valid</code> confirms a readable calendar value, <code>synced</code> means the DS3231 oscillator-stop flag is clear, and <code>stale</code> warns that the module lost time or a previously working I²C read failed. Avoid assigning those SDA/SCL pins to the LED output or another non-I²C peripheral.
+              For a DS3231, connect <strong>3V3</strong>, <strong>GND</strong>, <strong>SDA</strong>, and <strong>SCL</strong> to the board&apos;s labelled default I²C pins; the RTC node and Build Diagram show the exact reviewed pads for the selected board. After uploading the current sketch, <strong>Set from computer</strong> writes the computer&apos;s local date and time through the selected USB port. Studio never changes it automatically. The browser simulates a healthy module; on firmware, <code>valid</code> confirms a readable calendar value, <code>synced</code> means the DS3231 oscillator-stop flag is clear, and <code>stale</code> warns that the module lost time or a previously working I²C read failed. Avoid assigning those SDA/SCL pins to a non-I²C peripheral.
             </div>
           </div>
           <div className={styles.tip}>

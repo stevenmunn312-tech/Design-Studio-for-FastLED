@@ -4,7 +4,7 @@ import { useDmxStore } from './dmxStore'
 import { useHardwareInputStore } from './hardwareInputStore'
 import { useMidiStore } from './midiStore'
 import { blankDmxSnapshot, clampDmxChannel, clampDmxByte, type DmxSnapshot } from './dmx'
-import { readRtcSnapshot, rtcPreviewSnapshot } from './rtc'
+import { rtcPreviewSnapshot, type RtcPreview } from './rtc'
 import { useUiStore } from './uiStore'
 import { asFont, textBlockLayout, textAlignMode, TEXT_LINE_GAP, type BitmapFont, DEFAULT_FONT } from './font'
 import { animatedImageFrame, asAnimatedImage, asImage, sampleImageToFrame, type ImageData } from './image'
@@ -4442,7 +4442,7 @@ function evalFieldTile(field: Field | null, tilesX: number, tilesY: number, W = 
 
 // ── Main entry point ──────────────────────────────────────────────────────────
 
-export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | null
+export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | null
 
 /** A reusable pattern group: a named subgraph that a `Group` node evaluates. */
 export interface GroupDef { nodes: StudioNode[]; edges: StudioEdge[] }
@@ -5042,11 +5042,20 @@ function createEvalNode(
           g: byte(Number(props.g ?? 220) / 255),
           b: byte(Number(props.b ?? 90) / 255),
         }
-        const fallbackRtc = readRtcSnapshot()
-        const valid = Boolean(input(id, 'valid', fallbackRtc.valid))
-        const secondsOfDay = Number(input(id, 'secondsOfDay', fallbackRtc.secondsOfDay))
-        const day = Number(input(id, 'day', fallbackRtc.day))
-        const month = Number(input(id, 'month', fallbackRtc.month))
+        // DateTime is the normal one-wire clock feed. It carries health as
+        // well as fields, so a stale/unsynced source cannot quietly present a
+        // questionable wall clock as correct. The scalar ports remain as a
+        // compatibility/synthetic-clock path, but there is deliberately no
+        // browser-clock fallback: unwired preview and firmware both show dashes.
+        const dateTime = input(id, 'dateTime', null) as RtcPreview | null
+        const legacySeconds = input(id, 'secondsOfDay', null)
+        const legacyValid = input(id, 'valid', null)
+        const valid = dateTime
+          ? dateTime.valid && dateTime.synced && !dateTime.stale
+          : legacyValid == null ? typeof legacySeconds === 'number' : Boolean(legacyValid)
+        const secondsOfDay = Number(dateTime?.secondsOfDay ?? legacySeconds ?? 0)
+        const day = Number(dateTime?.day ?? input(id, 'day', 1))
+        const month = Number(dateTime?.month ?? input(id, 'month', 1))
         const x = num(id, 'x', props, 'x', 0.5)
         const y = num(id, 'y', props, 'y', 0.5)
         const radiusScale = props.scaleWithMatrix ? matrixSizeScale(W, H) : 1
@@ -7052,6 +7061,7 @@ function createEvalNode(
         // date, and NTP shows UTC + the configured offset. See rtc.ts.
         const rtc = rtcPreviewSnapshot(props, t)
         out = {
+          dateTime: rtc,
           valid: rtc.valid,
           synced: rtc.synced,
           stale: rtc.stale,
