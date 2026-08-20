@@ -318,11 +318,30 @@ describe('validateGraph', () => {
     expect(errors).toContain('LED output has no Frame input connected')
   })
 
-  it('accepts an SD show, whose LEDs the player drives rather than the graph', () => {
-    // No frame reaches the output, and that is correct: the generated player
-    // reads the card and drives the LEDs itself. The SD card plus Performance
-    // Generator says so — it used to be said by a cable that carried nothing
-    // into the output's `sdcard` input.
+  it('accepts an SD show that says which output it plays on', () => {
+    // The player reads the card and drives the LEDs itself, so no pixels travel
+    // down the generator's frame edge — but the edge is what names the hardware
+    // it drives, and every part it needs has to be on the bench.
+    const nodes = [
+      node('lib', 'MusicLibrary'),
+      node('pg', 'PerformanceGenerator'),
+      node('sd', 'SDCard'),
+      node('out', 'MatrixOutput'),
+    ]
+    const edges = [
+      { id: 'e1', source: 'lib', target: 'pg', sourceHandle: 'music', targetHandle: 'music' } as unknown as StudioEdge,
+      { id: 'e2', source: 'pg', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' } as unknown as StudioEdge,
+    ]
+    const { errors } = validateGraph(nodes, edges)
+    expect(errors).toHaveLength(0)
+  })
+
+  it('refuses a show that is not sending itself anywhere', () => {
+    // The case that motivated the frame port. Without it the player took its
+    // LED configuration from whichever MatrixOutput came first in the node
+    // array — or invented a 16x16 WS2812B on GPIO18 when there was none — and
+    // flashed a board that lit nothing, with the canvas showing a chain that
+    // simply stopped after the generator.
     const nodes = [
       node('lib', 'MusicLibrary'),
       node('pg', 'PerformanceGenerator'),
@@ -333,7 +352,36 @@ describe('validateGraph', () => {
       { id: 'e1', source: 'lib', target: 'pg', sourceHandle: 'music', targetHandle: 'music' } as unknown as StudioEdge,
     ]
     const { errors } = validateGraph(nodes, edges)
-    expect(errors).toHaveLength(0)
+    expect(errors.some((e) => e.includes('not sending its show anywhere'))).toBe(true)
+  })
+
+  it('refuses a show with nothing to play it from', () => {
+    // The player streams the song and the .show file off the card at runtime.
+    const nodes = [
+      node('lib', 'MusicLibrary'),
+      node('pg', 'PerformanceGenerator'),
+      node('out', 'MatrixOutput'),
+    ]
+    const edges = [
+      { id: 'e2', source: 'pg', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' } as unknown as StudioEdge,
+    ]
+    const { errors } = validateGraph(nodes, edges)
+    expect(errors.some((e) => e.includes('no SD Card'))).toBe(true)
+  })
+
+  it('refuses a show pointed at two LED outputs instead of choosing one for the user', () => {
+    const nodes = [
+      node('pg', 'PerformanceGenerator'),
+      node('sd', 'SDCard'),
+      node('out', 'MatrixOutput'),
+      node('out2', 'MatrixOutput'),
+    ]
+    const edges = [
+      { id: 'e2', source: 'pg', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' } as unknown as StudioEdge,
+      { id: 'e3', source: 'pg', target: 'out2', sourceHandle: 'frame', targetHandle: 'frame' } as unknown as StudioEdge,
+    ]
+    const { errors } = validateGraph(nodes, edges)
+    expect(errors.some((e) => e.includes('drives 2 LED outputs'))).toBe(true)
   })
 
   it('passes a valid minimal graph', () => {

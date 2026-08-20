@@ -48,7 +48,7 @@ export default function CapacityWatcher() {
    * could not link, so the subject is chosen with the same predicate the
    * Upload button uses.
    */
-  const isShow = useMemo(() => sdShowConnected(nodes), [nodes])
+  const isShow = useMemo(() => sdShowConnected(nodes, edges), [nodes, edges])
 
   /*
    * PSRAM is a controller setting. Measuring a different FQBN option than the

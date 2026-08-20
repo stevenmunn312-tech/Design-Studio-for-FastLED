@@ -2,7 +2,7 @@ import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { isPortlessNodeType, NODE_LIBRARY, supportsScalarExpression } from '../state/nodeLibrary'
 import { outputForm, outputLedTotal } from '../state/ledOutputForm'
 import { audioOutputMissing } from '../state/audioOutput'
-import { sdShowConnected } from './showUpload'
+import { resolveShowTarget } from '../state/showTarget'
 import { evaluateScalarExpression } from '../state/scalarExpression'
 import { isNodeFormulaValid } from '../state/formulaLang'
 import { isValidRtcDateTime } from '../state/rtc'
@@ -638,6 +638,42 @@ export function findShowOutputFormErrors(nodes: StudioNode[], edges: StudioEdge[
     .map((node) => `${String(node.data.label ?? 'LED Ring')}: a ring cannot be driven by the Show Engine yet — its circular LED map is not generated for shows. Use a string or matrix output, or drive the ring from a normal pattern graph.`)
 }
 
+/**
+ * What a music-sync show needs before it can be built.
+ *
+ * The player is a whole firmware for a whole board: it reads the card, decodes
+ * the audio, and drives the LEDs. Each of those needs a part named on the
+ * bench, and until this existed the generator filled the gaps by scanning and
+ * defaulting — the LED output was whichever MatrixOutput came first in the node
+ * array, or a hardcoded 16x16 WS2812B on GPIO18 if there was none at all. A
+ * board flashed from those assumptions lights nothing and explains nothing.
+ *
+ * Reported per missing piece rather than as one "show is incomplete", because
+ * each one is a different thing to go and do.
+ */
+export function findShowTargetErrors(nodes: StudioNode[], edges: StudioEdge[]): string[] {
+  const generator = nodes.find((node) => node.data.nodeType === 'PerformanceGenerator')
+  if (!generator) return []
+  const errors: string[] = []
+
+  const { reached, problem } = resolveShowTarget(nodes, edges)
+  if (problem === 'unconnected') {
+    errors.push('Performance Generator is not sending its show anywhere — wire its Show output into an LED output, so the player knows which hardware to drive')
+  } else if (problem === 'ambiguous') {
+    errors.push(`Performance Generator drives ${reached.length} LED outputs — the SD player runs one. Disconnect all but the output the show plays on.`)
+  }
+
+  // The card is the whole point: the player streams the song and the .show file
+  // off it at runtime. Without one there is nothing to play and no player to
+  // build, and the graph would fall through to an ordinary sketch — which has
+  // no case for this node, so the LEDs would simply stay dark.
+  if (!nodes.some((node) => node.data.nodeType === 'SDCard')) {
+    errors.push('The music show has no SD Card — add one in the hardware view, since the player reads the song and the timed show file from the card at runtime')
+  }
+
+  return errors
+}
+
 export interface Hub75ConfigIssue {
   nodeId: string
   label: string
@@ -1240,6 +1276,40 @@ export function buildGraphDiagnostics(
     }
   }
 
+  // Everything the music-sync player needs named rather than guessed. The
+  // generator itself is the node to select for all of them: it is the node that
+  // declares the show, and the one whose missing wire is the usual cause.
+  const generator = nodes.find((node) => node.data.nodeType === 'PerformanceGenerator')
+  if (generator) {
+    const show = resolveShowTarget(nodes, edges)
+    if (show.problem === 'unconnected') {
+      diagnostics.push({
+        id: `${generator.id}-show-target`, severity: 'error', category: 'show',
+        title: 'The show is not going anywhere',
+        message: 'Performance Generator has music and patterns but no LED output, so nothing says which hardware the player should drive.',
+        fix: 'Wire the generator\'s Show output into an LED output. The edge carries no pixels — the player drives the LEDs from the card — but it is what names the destination.',
+        nodeIds: [generator.id], nodeLabel: nodeLabel(generator),
+      })
+    } else if (show.problem === 'ambiguous') {
+      diagnostics.push({
+        id: `${generator.id}-show-target-many`, severity: 'error', category: 'show',
+        title: 'The show drives more than one LED output',
+        message: `The SD player allocates one LED array and one controller, but this show reaches ${show.reached.length} outputs.`,
+        fix: 'Disconnect all but the output the show plays on.',
+        nodeIds: [generator.id, ...show.reached.map((node) => node.id)], nodeLabel: nodeLabel(generator),
+      })
+    }
+    if (!nodes.some((node) => node.data.nodeType === 'SDCard')) {
+      diagnostics.push({
+        id: `${generator.id}-show-card`, severity: 'error', category: 'show',
+        title: 'The music show has no SD Card',
+        message: 'The player reads the song and its timed show file off the card while it runs, so a show without one has nothing to play.',
+        fix: 'Add an SD Card in the hardware view and set its CS pin.',
+        nodeIds: [generator.id], nodeLabel: nodeLabel(generator),
+      })
+    }
+  }
+
   const master = nodes.find((node) => node.data.nodeType === 'PatternMaster')
   if (master && !incoming.has(`${master.id}:patternset`)) {
     diagnostics.push({
@@ -1306,16 +1376,16 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
     const outputs = nodes.filter(n => n.data.nodeType === 'MatrixOutput')
     for (const [index, out] of outputs.entries()) {
       /*
-       * A frame is the only thing that reaches an LED output now — the SD card
-       * is a bench part rather than a cable into this node.
+       * A frame is the only thing that reaches an LED output — the SD card is a
+       * bench part rather than a cable into this node.
        *
-       * An SD show is the exception, and always was: its LEDs are driven by
-       * the generated player from the card, so the output is configured rather
-       * than wired and having no frame is correct. That used to be excused by
-       * the `sdcard` edge; the card plus Performance Generator now says it
-       * without mistaking ordinary SD hardware for a show.
+       * An SD show used to be excused from this, on the grounds that the player
+       * drives its LEDs from the card so the output is configured rather than
+       * wired. The exception is gone: the Performance Generator has a `frame`
+       * output now and the show's destination is that edge, so a show answers
+       * this requirement the same way every other graph does.
        */
-      if (!incoming.has(`${out.id}:frame`) && !sdShowConnected(nodes)) {
+      if (!incoming.has(`${out.id}:frame`)) {
         errors.push(outputs.length === 1
           ? 'LED output has no Frame input connected'
           : `LED output ${index + 1} has no Frame input connected`)
@@ -1327,6 +1397,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   errors.push(...findOutputResourceErrors(nodes))
   errors.push(...findMatrixLayoutErrors(nodes))
   errors.push(...findShowOutputFormErrors(nodes, edges))
+  errors.push(...findShowTargetErrors(nodes, edges))
 
   errors.push(...findHub75ConfigErrors(nodes))
   errors.push(...findScalarExpressionErrors(nodes))

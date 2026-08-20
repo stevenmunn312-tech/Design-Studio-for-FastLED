@@ -127,11 +127,17 @@ describe('evaluateGraph', () => {
     expect(evaluateGraph([node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })], [], 0, W, H)).toBeNull()
   })
 
-  it('PerformanceGenerator has no frame port — its shows output is the only thing it exposes', () => {
+  it('PerformanceGenerator emits a blank frame — the edge names the destination, it does not carry the show', () => {
+    // Playback is driven by an audio transport the evaluator's tick has no
+    // relationship to, so there is nothing to render here. showPlayback.ts
+    // composites the playing show *over* the terminal frame instead.
     const pg = node('pg', 'PerformanceGenerator', 'show')
     const out = node('zzout', 'MatrixOutput', 'output', {})
     const { outputs } = evaluateGraphFull([pg, out], [], 0, W, H)
-    expect(outputs.get('pg')).toEqual({ shows: null })
+    const frame = (outputs.get('pg') as { frame: RGB[][] }).frame
+    expect(frame.length).toBe(H)
+    expect(frame[0].length).toBe(W)
+    expect(frame[0][0]).toEqual({ r: 0, g: 0, b: 0 })
   })
 
   it('Math computes each bundled operation on a and b', () => {

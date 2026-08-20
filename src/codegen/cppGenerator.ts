@@ -5814,6 +5814,19 @@ export function generateCpp(
         // Canvas-only annotation — no ports, nothing to emit.
         break
 
+      case 'PerformanceGenerator':
+        // Its `frame` names the LED output the show plays on, so it can be
+        // wired into one — but a *normal* sketch has no audio transport and no
+        // card reader, so there is no show here to render. Declare the buffer
+        // and leave it black rather than emitting a blit from a buffer that was
+        // never declared: this graph is already blocked (`findShowTargetErrors`
+        // wants an SD Card, and with one the player generator runs instead of
+        // this), and code shown in the preview while a user fixes that should
+        // still be code.
+        ln(`  // ${type} — ${SHOW_PIPELINE_NOTES[type]}`)
+        ln(`  fill_solid(${ownBuf()}, NUM_LEDS, CRGB::Black);`)
+        break
+
       default:
         ln(`  // ${type} — ${SHOW_PIPELINE_NOTES[type] ?? 'not yet supported in code gen'}`)
     }

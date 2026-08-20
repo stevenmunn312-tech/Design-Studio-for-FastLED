@@ -610,7 +610,7 @@ describe('StudioNode', () => {
     expect(selects[1].disabled).toBe(true)
   })
 
-  it('drops stale Performance Generator output handles saved before those ports were removed', () => {
+  it('keeps the live Performance Generator ports and drops the one that really did go', () => {
     const node = makeNode('PerformanceGenerator', {
       beatIntensity: 0.8,
       energySensitivity: 0.7,
@@ -622,10 +622,10 @@ describe('StudioNode', () => {
       { id: 'music', label: 'Music', dataType: 'music' },
       { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
     ]
-    // Simulate an old save still declaring both removed outputs: `frame`, which
-    // would be structurally misleading (see nodeLibrary.ts), and `shows`, which
-    // went with the SD Card to the hardware view. The live library definition
-    // should win over either.
+    // An old save declaring both: `shows`, which went with the SD Card to the
+    // hardware view and is gone for good, and `frame`, which is live again —
+    // it is how a show says which LED output it plays on. The live library
+    // definition decides, not the save.
     node.data.outputs = [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'shows', label: 'Shows', dataType: 'shows' },
@@ -633,7 +633,7 @@ describe('StudioNode', () => {
 
     const { container } = renderNode(node)
 
-    expect(container.querySelector('[data-handle="source:frame"]')).toBeNull()
+    expect(container.querySelector('[data-handle="source:frame"]')).toBeTruthy()
     expect(container.querySelector('[data-handle="source:shows"]')).toBeNull()
     expect(container.querySelector('[data-handle="target:transitions"]')).toBeTruthy()
   })

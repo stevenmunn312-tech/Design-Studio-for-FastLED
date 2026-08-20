@@ -11,7 +11,7 @@ import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph } from '../../codegen/streamReceiverGenerator'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
 import { readySongCount, buildShowPayload, sdShowConnected } from '../../utils/showUpload'
-import { findPinConflicts, findMatrixLayoutErrors, findMirroredOutputMismatches, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowOutputFormErrors } from '../../utils/validateGraph'
+import { findPinConflicts, findMatrixLayoutErrors, findMirroredOutputMismatches, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowOutputFormErrors, findShowTargetErrors } from '../../utils/validateGraph'
 import { summarizeCapacity } from '../../utils/capacityFormat'
 import { useCodegenGraph } from '../../utils/codegenGraph'
 import { useModalFocus } from '../../hooks/useModalFocus'
@@ -64,7 +64,7 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
   const hasFrameInput = !!outputNode && edges.some((e) => e.target === nodeId && e.targetHandle === 'frame')
   // A card is ordinary storage hardware until Performance Generator declares
   // that this graph is the offline music-show workflow.
-  const hasSdShow = useMemo(() => sdShowConnected(nodes), [nodes])
+  const hasSdShow = useMemo(() => sdShowConnected(nodes, edges), [nodes, edges])
 
   const board = boardByFqbn(selectedFqbn)
   const usingFbuild = helper?.engine === 'fbuild'
@@ -108,6 +108,10 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
   const hub75ConfigErrors = useMemo(() => findHub75ConfigErrors(nodes), [nodes])
   const showOutputFormErrors = useMemo(() => findShowOutputFormErrors(nodes, edges), [nodes, edges])
   const formulaErrors = useMemo(() => findFormulaErrors(nodes), [nodes])
+  // A music show has to name every part the player drives: the LED output it
+  // sends the show to, and the card it reads the song from. Guessing either
+  // one flashes a board that lights nothing.
+  const showTargetErrors = useMemo(() => findShowTargetErrors(nodes, edges), [nodes, edges])
   const hub75TopologyErrors = useMemo(
     () => findHub75TopologyDiagnosticErrors(nodes, nodeId),
     [nodes, nodeId],
@@ -141,6 +145,7 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
     ...boardCompatibilityErrors,
     ...hub75ConfigErrors,
     ...showOutputFormErrors,
+    ...showTargetErrors,
     ...formulaErrors,
     ...(capacityOverflow ? [`${board?.label ?? 'This board'}: design is too large to fit (live capacity check)`] : []),
   ]
@@ -332,7 +337,7 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
   function handleShowUpload() {
     void (async () => {
       if (!(await confirmUploadIfUntrusted())) return
-      const payload = buildShowPayload(nodes, entries, getGroupRegistry())
+      const payload = buildShowPayload(nodes, edges, entries, getGroupRegistry())
       if (payload) await offerValidationAfter('sd-show', runShowUpload(payload))
     })()
   }

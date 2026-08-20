@@ -46,6 +46,7 @@ vi.mock('../../../utils/validateGraph', () => ({
   findHub75ConfigErrors: vi.fn(() => []),
   findHub75TopologyDiagnosticErrors: vi.fn(() => []),
   findFormulaErrors: vi.fn(() => []),
+  findShowTargetErrors: vi.fn(() => []),
 }))
 
 function setMatrixGraph() {

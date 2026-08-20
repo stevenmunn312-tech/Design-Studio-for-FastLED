@@ -315,8 +315,9 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     nodeSpecs: [
       { id: 'lib', type: 'MusicLibrary', col: 0, row: 0 },
       { id: 'perf', type: 'PerformanceGenerator', col: 1, row: 0 },
-      // The show still plays on LEDs — the player drives them, so this output
-      // is configured rather than wired.
+      // The show plays on LEDs, and the edge into this output is what says so.
+      // The player drives them from the card rather than through that edge, but
+      // the destination has to be stated somewhere or the player is guessing.
       { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 2, row: 0 },
       // A bench part: hidden on the canvas, and what makes this an SD show.
       { id: 'sd', type: 'SDCard', col: 3, row: 0 },
@@ -327,10 +328,12 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
         TRY_COLOR,
       ),
     ],
-    // The card is a bench part now, not a node, so the chain ends at the
-    // generator. The two edges that used to continue to it carried nothing.
+    // The card is a bench part, not a node, so no edge runs to it. The chain
+    // does not stop at the generator though: it ends where every graph ends, at
+    // the hardware the result is going to.
     edgeSpecs: [
       { source: 'lib', sourceHandle: 'music', target: 'perf', targetHandle: 'music' },
+      { source: 'perf', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
     ],
   }),
 ]

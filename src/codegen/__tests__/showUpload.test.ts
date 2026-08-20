@@ -75,17 +75,24 @@ describe('generateProvisionerSketch', () => {
 
 describe('playerConfigFromGraph', () => {
   const node = (nodeType: string, properties: Record<string, unknown>) =>
-    ({ data: { nodeType, properties } })
+    ({ id: nodeType.toLowerCase(), data: { nodeType, properties } })
+
+  // The LED target comes off a wire — the generator's `frame` into an output's
+  // `frame` — so a fixture whose MatrixOutput should be read has to include
+  // both ends, the same as a real graph.
+  const showEdge = [{ source: 'performancegenerator', target: 'matrixoutput', sourceHandle: 'frame', targetHandle: 'frame' }]
+  const generator = node('PerformanceGenerator', {})
 
   it('takes LED config from MatrixOutput, card pins from SDCard, I2S from Amplifier', () => {
     // The I2S pins and the volume moved off SDCard: where the music is stored
     // and what turns it into sound are two separate parts you buy, wire, and
     // can get wrong independently.
     const cfg = playerConfigFromGraph([
+      generator,
       node('MatrixOutput', { width: 32, height: 8, chipset: 'SK6812', colorOrder: 'RGB', dataPin: 12 }),
       node('SDCard', { sdCsPin: 21 }),
       node('Amplifier', { i2sBclk: 5, i2sLrc: 6, i2sDout: 7, maxVolume: 12 }),
-    ])
+    ], showEdge)
     expect(cfg).toMatchObject({
       ledWidth: 32, ledHeight: 8, chipset: 'SK6812', colorOrder: 'RGB', ledDataPin: 12,
       sdCsPin: 21, i2sBclk: 5, i2sLrc: 6, i2sDout: 7, maxVolume: 12,
@@ -109,6 +116,8 @@ describe('playerConfigFromGraph', () => {
   })
 
   it('falls back to defaults for missing nodes/props', () => {
+    // Reached only by a graph validation has already blocked: with no show
+    // target `sdShowConnected` is false, so no real upload gets here.
     const cfg = playerConfigFromGraph([])
     expect(cfg.ledWidth).toBe(16)
     expect(cfg.chipset).toBe('WS2812B')
@@ -122,16 +131,16 @@ describe('playerConfigFromGraph', () => {
     // again invites the two answers to disagree about the same bench.
     expect(playerConfigFromGraph([
       node('SDCard', {}), node('Amplifier', {}),
-    ], 'esp32:esp32:esp32').audioOutput).toBe('i2s')
+    ], [], 'esp32:esp32:esp32').audioOutput).toBe('i2s')
 
     // No amplifier on a classic ESP32: the built-in DAC is the only way that
     // board makes a sound unaided.
-    expect(playerConfigFromGraph([node('SDCard', {})], 'esp32:esp32:esp32').audioOutput)
+    expect(playerConfigFromGraph([node('SDCard', {})], [], 'esp32:esp32:esp32').audioOutput)
       .toBe('internalDac')
 
     // An S3 has no DAC to fall back on, so it stays I2S and validation says an
     // amplifier is missing rather than the player pretending it has one.
-    expect(playerConfigFromGraph([node('SDCard', {})], 'esp32:esp32:esp32s3').audioOutput)
+    expect(playerConfigFromGraph([node('SDCard', {})], [], 'esp32:esp32:esp32s3').audioOutput)
       .toBe('i2s')
   })
 
@@ -152,8 +161,9 @@ describe('playerConfigFromGraph', () => {
 
   it('sanitizes MatrixOutput pins read from saved graph properties', () => {
     const cfg = playerConfigFromGraph([
+      generator,
       node('MatrixOutput', { dataPin: -3.8, clockPin: 270 }),
-    ])
+    ], showEdge)
     expect(cfg).toMatchObject({ ledDataPin: 0, ledClockPin: 255 })
   })
 })

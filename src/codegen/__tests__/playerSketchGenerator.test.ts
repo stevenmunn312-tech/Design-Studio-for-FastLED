@@ -1,11 +1,19 @@
 import { describe, it, expect } from 'vitest'
 import { generatePlayerSketch, playerConfigFromGraph } from '../playerSketchGenerator'
 
+// The show's LED target comes off a wire now — the generator's `frame` into an
+// output's `frame` — so a fixture that wants its MatrixOutput read has to say
+// so, exactly like a real graph does. Without the edge there is no target and
+// the config falls back to defaults, which is the point of the change.
+const SHOW_EDGE = [{ source: 'pg', target: 'mo', sourceHandle: 'frame', targetHandle: 'frame' }]
+const generator = { id: 'pg', data: { nodeType: 'PerformanceGenerator', properties: {} } }
+
 describe('playerSketchGenerator', () => {
   describe('serial file receiver', () => {
     const sketch = generatePlayerSketch(playerConfigFromGraph([
-      { data: { nodeType: 'MatrixOutput', properties: { width: 16, height: 16 } } },
-    ]))
+      generator,
+      { id: 'mo', data: { nodeType: 'MatrixOutput', properties: { width: 16, height: 16 } } },
+    ], SHOW_EDGE))
 
     it('accepts the provisioner wire protocol, so shows reach a flashed board', () => {
       // Folding the receiver in is what removes a whole compile-and-flash cycle
@@ -108,8 +116,9 @@ describe('playerSketchGenerator', () => {
 
   describe('HUB75 (docs/development/design/hub75-output.md)', () => {
     const hub75Cfg = playerConfigFromGraph([
-      { data: { nodeType: 'MatrixOutput', properties: { width: 8, height: 8, chipset: 'HUB75' } } },
-    ])
+      generator,
+      { id: 'mo', data: { nodeType: 'MatrixOutput', properties: { width: 8, height: 8, chipset: 'HUB75' } } },
+    ], SHOW_EDGE)
 
     it('resolves HUB75 props from the MatrixOutput node', () => {
       expect(hub75Cfg.chipset).toBe('HUB75')
@@ -144,16 +153,18 @@ describe('playerSketchGenerator', () => {
 
     it('drives a single-row HUB75 panel chain via chain_length', () => {
       const chainedCfg = playerConfigFromGraph([
-        { data: { nodeType: 'MatrixOutput', properties: { width: 24, height: 8, chipset: 'HUB75', layout: 'panels', tilesX: 3, tilesY: 1 } } },
-      ])
+        generator,
+        { id: 'mo', data: { nodeType: 'MatrixOutput', properties: { width: 24, height: 8, chipset: 'HUB75', layout: 'panels', tilesX: 3, tilesY: 1 } } },
+      ], SHOW_EDGE)
       const sketch = generatePlayerSketch(chainedCfg)
       expect(sketch).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 3, _hub75Pins);')
     })
 
     it('remaps square-tile per-panel rotation through a HUB75 coord table', () => {
       const rotatedCfg = playerConfigFromGraph([
-        { data: { nodeType: 'MatrixOutput', properties: { width: 16, height: 8, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 1, tileRotations: '0,90' } } },
-      ])
+        generator,
+        { id: 'mo', data: { nodeType: 'MatrixOutput', properties: { width: 16, height: 8, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 1, tileRotations: '0,90' } } },
+      ], SHOW_EDGE)
       const sketch = generatePlayerSketch(rotatedCfg)
       expect(sketch).toContain('const uint16_t _hub75CoordMap[NUM_LEDS] PROGMEM = {')
       expect(sketch).toContain('dma_display->drawPixelRGB888(_hub75XY & 0xFF, _hub75XY >> 8, _c.r, _c.g, _c.b);')
@@ -161,8 +172,9 @@ describe('playerSketchGenerator', () => {
 
     it('drives a folded 2D HUB75 panel grid via VirtualMatrixPanel_T', () => {
       const gridCfg = playerConfigFromGraph([
-        { data: { nodeType: 'MatrixOutput', properties: { width: 16, height: 16, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2 } } },
-      ])
+        generator,
+        { id: 'mo', data: { nodeType: 'MatrixOutput', properties: { width: 16, height: 16, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2 } } },
+      ], SHOW_EDGE)
       const sketch = generatePlayerSketch(gridCfg)
       expect(sketch).toContain('#include <ESP32-HUB75-VirtualMatrixPanel_T.hpp>')
       expect(sketch).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 4, _hub75Pins);')
@@ -176,8 +188,9 @@ describe('playerSketchGenerator', () => {
 
     it('remaps rotated tiles before drawing into a folded 2D HUB75 virtual grid', () => {
       const gridCfg = playerConfigFromGraph([
-        { data: { nodeType: 'MatrixOutput', properties: { width: 16, height: 16, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2, tileRotations: '0,90,180,270' } } },
-      ])
+        generator,
+        { id: 'mo', data: { nodeType: 'MatrixOutput', properties: { width: 16, height: 16, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2, tileRotations: '0,90,180,270' } } },
+      ], SHOW_EDGE)
       const sketch = generatePlayerSketch(gridCfg)
       expect(sketch).toContain('const uint16_t _hub75CoordMap[NUM_LEDS] PROGMEM = {')
       expect(sketch).toContain('hub75Virtual->drawPixelRGB888(_hub75XY & 0xFF, _hub75XY >> 8, _c.r, _c.g, _c.b);')

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMusicStore } from '../../state/musicStore'
-import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
+import { useGraphStore, getGroupRegistry, rootGraphNodes, rootGraphEdges } from '../../state/graphStore'
+import { resolveShowTarget } from '../../state/showTarget'
 import { useShowPlayback } from '../../state/showPlayback'
 import { usePlayerTransport } from '../../state/playerTransport'
 import { renderShowFrame, showStateAt, sectionAt } from '../../state/showPreview'
@@ -52,12 +53,17 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
   const useGroupInputs = !!properties.useGroupInputs
   const trusted = useGraphStore((s) => s.trusted)
 
+  // The output this show is wired to — the same resolver the player's codegen
+  // uses, so the preview cannot be drawing one size while the firmware builds
+  // another. Both used to scan for the first MatrixOutput independently.
+  // Unwired there is no answer, and 16x16 is only a shape to draw the empty
+  // canvas at; `findShowTargetErrors` is what says so in words.
   const gridW = useGraphStore((s) => {
-    const o = s.nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
+    const o = resolveShowTarget(rootGraphNodes(s), rootGraphEdges(s)).target
     return Math.max(1, Math.min(64, Number(o?.data.properties.width ?? 16)))
   })
   const gridH = useGraphStore((s) => {
-    const o = s.nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
+    const o = resolveShowTarget(rootGraphNodes(s), rootGraphEdges(s)).target
     return Math.max(1, Math.min(64, Number(o?.data.properties.height ?? 16)))
   })
 

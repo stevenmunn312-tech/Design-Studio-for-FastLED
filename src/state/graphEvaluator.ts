@@ -7132,11 +7132,14 @@ function createEvalNode(
         break
 
       case 'PerformanceGenerator':
-        // The timed-show player lives in the node body (PerformanceGeneratorBody)
-        // and, opt-in via `showInMainPreview`, mirrors into the main LED preview
-        // through showPlayback.ts — not a graph-wired `frame` port (see the node
-        // definition comment for why a firmware-facing one would be misleading).
-        out = { shows: null }
+        // The `frame` edge names the show's destination; it does not carry it.
+        // Playback lives in the node body (PerformanceGeneratorBody) and, opt-in
+        // via `showInMainPreview`, reaches the main LED preview through
+        // showPlayback.ts — which composites over this frame rather than through
+        // it, because a show is driven by an audio transport that the evaluator's
+        // tick has no relationship to. So the port emits blank: with nothing
+        // playing, nothing is what the LEDs are doing.
+        out = { frame: blankFrame(W, H), shows: null }
         break
 
       case 'SDCard':

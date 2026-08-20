@@ -322,15 +322,22 @@ describe('generateCpp', () => {
     expect(cpp).not.toContain('nscale8(_br)')
   })
 
-  it('PerformanceGenerator has no frame port to wire into MatrixOutput', () => {
-    // Music-sync shows only ever play back through the SD-card export
-    // (`shows` → SDCard) or the in-browser preview — never a normal sketch's
-    // frame path (see nodeLibrary.ts). It contributes no render buffer and no
-    // loop body, but it is deliberately handled elsewhere rather than missing,
-    // so the sketch says where instead of calling it unsupported.
+  it('renders a wired PerformanceGenerator as black rather than as broken C++', () => {
+    // Its `frame` exists to name the LED output a show plays on, so it can be
+    // wired into one — but a normal sketch has no audio transport and no card,
+    // so there is no show to draw. Such a graph is already blocked (it needs an
+    // SD Card, and with one the *player* generator runs instead of this), yet
+    // the code preview still renders while the user fixes that, and a blit from
+    // a buffer that was never declared would not compile.
     const generator = node('pg', 'PerformanceGenerator', 'show')
-    const cpp = generateCpp([generator], [])
-    expect(cpp).not.toContain('buf_pg')
+    const cpp = generateCpp([generator, outputNode], [
+      { id: 'e', source: 'pg', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' },
+    ] as never)
+    // Declared — here through the terminal-alias path, since it is the only
+    // thing feeding the output, which is exactly the shape that used to blit
+    // from nothing.
+    expect(cpp).toContain('buf_pg = leds')
+    expect(cpp).toContain('fill_solid(buf_pg, NUM_LEDS, CRGB::Black)')
     expect(cpp).toContain('// PerformanceGenerator —')
     expect(cpp).not.toContain('not yet supported')
   })

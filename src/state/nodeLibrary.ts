@@ -2616,12 +2616,30 @@ export const NODE_LIBRARY: NodeDefinition[] = [
 
   // ── Music-sync pipeline (the Music Library source lives in Show) ───────
   {
-    // No `frame` output — the generated show only ever plays back through the
-    // SD-card export (`shows` → SDCard) or the in-browser preview (this node's
-    // own body, optionally mirrored into the main LED preview via the
-    // `showInMainPreview` toggle). A firmware-facing frame port would be
-    // structurally misleading: a normal (non-SD-show) sketch has no audio
-    // transport to drive it, so it could only ever render black.
+    // The `frame` output is the show's destination, and the reason it exists is
+    // not that a normal sketch renders it — it doesn't; the SD player drives
+    // the LEDs itself, from the card, with no evaluator in the loop.
+    //
+    // It exists because *something* has to say which output the show plays on,
+    // and every alternative was worse. This port used to be deliberately
+    // absent, on the reasoning that a firmware-facing frame port could only
+    // ever render black. True, and beside the point: with no port, the player
+    // took its LED configuration from `nodes.find(n => nodeType ===
+    // 'MatrixOutput')` — array order — so a bench with two outputs was chosen
+    // between silently, and a bench with none flashed a hardcoded 16x16
+    // WS2812B on GPIO18 at a board wired to something else. It also left the
+    // chain ending mid-air: the canvas said patterns and music go into a
+    // generator, and then nothing, while the LED output sat there asking to be
+    // fed and the graph diagnostics told the user to feed it. Building this
+    // patch from scratch, the honest reading of that canvas is "I am done",
+    // and the reward is a board that lights nothing.
+    //
+    // So the edge carries no pixels and states the thing that matters anyway:
+    // this performance goes to that hardware. It makes the target explicit,
+    // makes an unconnected generator dead code like every other unconnected
+    // node (`reachableFromOutputs`), and gives validation something concrete to
+    // require. `PatternMaster` already works exactly this way — `isPatternShow`
+    // demands its frame actually reach a MatrixOutput.
     type: 'PerformanceGenerator',
     label: 'Performance Generator',
     category: 'show',
@@ -2631,6 +2649,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
     ],
     outputs: [
+      { id: 'frame', label: 'Show', dataType: 'frame' },
     ],
     defaultProperties: {
       beatIntensity:      0.8,

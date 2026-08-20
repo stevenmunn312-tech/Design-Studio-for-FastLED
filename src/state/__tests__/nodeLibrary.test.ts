@@ -490,13 +490,16 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('SDCard', 'maxVolume')).toEqual({ control: 'slider', min: 0, max: 21, step: 1 })
   })
 
-  it('PerformanceGenerator exposes no output ports at all', () => {
-    // A firmware-facing frame port would be structurally misleading (a normal
-    // sketch has no audio transport to drive it); the live show preview is
-    // opt-in via the `showInMainPreview` property instead (showPlayback.ts).
-    // `shows` went with the SD Card's move to the hardware view — it was a
-    // cable that carried nothing, drawn to a node that is now a bench part.
-    expect(NODE_LIBRARY.find((n) => n.type === 'PerformanceGenerator')?.outputs).toEqual([])
+  it('PerformanceGenerator exposes a frame output, which is where its show is going', () => {
+    // Not because a normal sketch renders it — it does not; the SD player drives
+    // the LEDs from the card. It exists because the destination has to be
+    // *stated*: without it the player took its LED config from whichever
+    // MatrixOutput came first in the node array, and the canvas showed a chain
+    // that stopped in mid-air next to an output asking to be fed.
+    // `shows` stays gone: it was a cable to the SD Card, which is a bench part.
+    expect(NODE_LIBRARY.find((n) => n.type === 'PerformanceGenerator')?.outputs).toEqual([
+      { id: 'frame', label: 'Show', dataType: 'frame' },
+    ])
     expect(NODE_LIBRARY.find((n) => n.type === 'PerformanceGenerator')?.defaultProperties).toMatchObject({
       showInMainPreview: false,
     })

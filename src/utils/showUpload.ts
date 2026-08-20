@@ -16,6 +16,7 @@ import { generatePlayerSketch, playerConfigFromGraph } from '../codegen/playerSk
 import { buildPatternRenderers } from '../codegen/showGenerator'
 import { showFileToBinary } from '../codegen/performanceGenerator'
 import type { ShowUploadFile } from './backendClient'
+import { resolveShowTarget } from '../state/showTarget'
 
 const nodeType = (n: StudioNode) => (n.data as StudioNodeData).nodeType
 
@@ -37,13 +38,18 @@ export function sdCardConnected(nodes: StudioNode[]): boolean {
 /**
  * True only for the offline music-show workflow.
  *
- * An SD card is ordinary hardware too: its presence alone must not replace a
- * normal sketch upload with the music player. Performance Generator is the
- * graph-level declaration that the card is carrying timed show files.
+ * Three things, all required. An SD card is ordinary hardware: its presence
+ * alone must not replace a normal sketch upload with the music player. A
+ * Performance Generator is the graph-level declaration that the card carries
+ * timed show files. And the generator's `frame` must actually reach an LED
+ * output, because that edge is what names the hardware the player will drive —
+ * without it there is no show to build, only a guess about where it would go.
+ *
+ * That last condition mirrors `isPatternShow`, which has always demanded the
+ * Pattern Master's frame reach a MatrixOutput before hijacking the sketch.
  */
-export function sdShowConnected(nodes: StudioNode[]): boolean {
-  return sdCardConnected(nodes)
-    && nodes.some((n) => nodeType(n) === 'PerformanceGenerator')
+export function sdShowConnected(nodes: StudioNode[], edges: Edge[]): boolean {
+  return sdCardConnected(nodes) && !!resolveShowTarget(nodes, edges).target
 }
 
 /** Number of songs ready (analysed) to upload. */
@@ -91,6 +97,7 @@ export function wiredPatternCollection(
  */
 export function buildShowPlayer(
   nodes: StudioNode[],
+  edges: Edge[],
   groups: GroupRegistry,
   opts: { patternSet?: string[]; bakedAudio: boolean; preferredTrack: string; fqbn?: string },
 ): string {
@@ -104,7 +111,7 @@ export function buildShowPlayer(
   const renderers = opts.patternSet && opts.patternSet.length > 0
     ? buildPatternRenderers(opts.patternSet, groups, roleParams, opts.bakedAudio, { beat: '(flashLevel > 0.01f)' })
     : undefined
-  return generatePlayerSketch(playerConfigFromGraph(nodes, opts.fqbn), renderers, {
+  return generatePlayerSketch(playerConfigFromGraph(nodes, edges, opts.fqbn), renderers, {
     audioEnvelope: opts.bakedAudio && !!renderers,
     preferredTrack: opts.preferredTrack,
   })
@@ -128,9 +135,9 @@ export function buildShowPlayerForMeasurement(
   groups: GroupRegistry = {},
   fqbn = '',
 ): string | null {
-  if (!sdShowConnected(nodes)) return null
+  if (!sdShowConnected(nodes, edges)) return null
   const { ids } = wiredPatternCollection(nodes, edges)
-  return buildShowPlayer(nodes, groups, {
+  return buildShowPlayer(nodes, edges, groups, {
     patternSet: ids,
     bakedAudio: true,
     preferredTrack: '',
@@ -145,6 +152,7 @@ export function buildShowPlayerForMeasurement(
  */
 export function buildShowPayload(
   nodes: StudioNode[],
+  edges: Edge[],
   entries: MusicEntry[],
   groups: GroupRegistry = {},
 ): { player: string; files: ShowUploadFile[] } | null {
@@ -160,7 +168,7 @@ export function buildShowPayload(
   // and takes whatever sorts first, which on a card carrying files from an
   // earlier session is somebody else's song — and its show, so the result
   // looks like broken sync rather than the wrong file.
-  const player = buildShowPlayer(nodes, groups, {
+  const player = buildShowPlayer(nodes, edges, groups, {
     patternSet: done[0].show!.patternSet,
     // A baked audio envelope means the collected patterns should read the
     // song's FFT (externalAudio) and the player hosts the audio globals.

@@ -15,6 +15,7 @@ import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75Hardwar
 import { sanitizePin } from './hardwarePins'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { audioOutputMode } from '../state/audioOutput'
+import { resolveShowTarget, type ShowTargetNode, type ShowTargetEdge } from '../state/showTarget'
 import type { StudioNode } from '../state/graphStore'
 
 export interface PlayerConfig {
@@ -67,20 +68,29 @@ function cppPrototype(definition: string): string | null {
 }
 
 // Minimal node shape so this stays decoupled from the graph store.
-interface ConfigNode { data: { nodeType: string; properties: Record<string, unknown> } }
+interface ConfigNode { id: string; data: { nodeType: string; properties: Record<string, unknown> } }
 
 /**
- * Derive the player's hardware config from the graph: LED matrix settings come
- * from the MatrixOutput node, the card's own pins from SDCard, and the I2S
- * output pins from an Amplifier node. Used by the music-sync upload flow, where
- * the SDCard is wired into MatrixOutput.
+ * Derive the player's hardware config from the graph: LED settings come from
+ * the output the show plays on, the card's own pins from SDCard, and the I2S
+ * output pins from an Amplifier node.
  *
  * The amplifier is found by scanning rather than by a wire — it is a config
  * node like Board. With no Amplifier on the canvas the built-in defaults still
  * apply, so a graph that never had one keeps generating a working sketch.
+ *
+ * The LED output is *not* found that loosely. It is the output the generator's
+ * `frame` edge reaches (`resolveShowTarget`) — it used to be the first
+ * MatrixOutput in array order, which chose silently on any bench with two and
+ * invented a 16x16 WS2812B on GPIO18 on a bench with none. An unresolved target
+ * is a validation error (`findShowTargetErrors`) and `sdShowConnected` is false,
+ * so this function is not reached for a real upload; the `?? {}` below only
+ * ever supplies defaults to a build that is already blocked.
  */
-export function playerConfigFromGraph(nodes: ConfigNode[], fqbn = ''): Partial<PlayerConfig> {
-  const mo = nodes.find((n) => n.data.nodeType === 'MatrixOutput')?.data.properties ?? {}
+export function playerConfigFromGraph(
+  nodes: ConfigNode[], edges: ShowTargetEdge[] = [], fqbn = '',
+): Partial<PlayerConfig> {
+  const mo = resolveShowTarget(nodes as ShowTargetNode[], edges).target?.data.properties ?? {}
   const board = nodes.find((n) => n.data.nodeType === 'Board')?.data.properties ?? mo
   const sd = nodes.find((n) => n.data.nodeType === 'SDCard')?.data.properties ?? {}
   const amp = nodes.find((n) => n.data.nodeType === 'Amplifier')?.data.properties ?? {}

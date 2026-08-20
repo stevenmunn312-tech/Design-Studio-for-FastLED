@@ -107,10 +107,15 @@ describe('CapacityWatcher', () => {
       },
     }
 
+    // The generator's frame edge is what makes this a show: it names the LED
+    // output the player will drive. Without it there is no target, so there is
+    // no player to measure — see resolveShowTarget.
+    const showEdge = { id: 'show', source: 'performance', target: 'matrix', sourceHandle: 'frame', targetHandle: 'frame' }
+
     function setShowGraph() {
       useGraphStore.setState({
         nodes: [sdCard, performanceGenerator, output] as never[],
-        edges: [] as never[],
+        edges: [showEdge] as never[],
         selectedNodeId: null,
         graphData: {},
         graphs: { root: { id: 'root', name: 'Main' } },
@@ -133,9 +138,18 @@ describe('CapacityWatcher', () => {
       setTarget.mockRestore()
     })
 
-    it('measures a show with no frame wired, since the player needs none', () => {
-      // A show's LEDs are driven by the player's own pattern dispatch. Gating
-      // on a frame edge left the entire show path unmeasured.
+    it('measures nothing for a show that has not said where it plays', () => {
+      // No target, no player: the sketch that would be measured is one the
+      // upload path refuses to build.
+      setShowGraph()
+      useGraphStore.setState({ edges: [] as never[] })
+      const setTarget = vi.spyOn(useCapacityStore.getState(), 'setTarget')
+      render(<CapacityWatcher />)
+      expect(setTarget.mock.calls[0][0].subject).toBe('sketch')
+      setTarget.mockRestore()
+    })
+
+    it('measures the player once the show names its output', () => {
       setShowGraph()
       const setTarget = vi.spyOn(useCapacityStore.getState(), 'setTarget')
       render(<CapacityWatcher />)
@@ -152,7 +166,7 @@ describe('CapacityWatcher', () => {
           ...output,
           data: { ...output.data, properties: { ...output.data.properties, usePsram: true, psramMode: 'opi' } },
         }] as never[],
-        edges: [] as never[],
+        edges: [showEdge] as never[],
         selectedNodeId: null,
         graphData: {},
         graphs: { root: { id: 'root', name: 'Main' } },
