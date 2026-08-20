@@ -776,6 +776,28 @@ describe('StudioNode', () => {
     expect(rtc.getByText(/default SDA\/SCL pins/)).toBeTruthy()
   })
 
+  it('renders RTC published preview outputs without a snapshot loop', () => {
+    usePreviewStore.setState({
+      outputs: new Map([['n1', {
+        valid: true,
+        synced: true,
+        stale: false,
+        hour: 7,
+        minute: 8,
+        second: 9,
+        weekday: 2,
+        day: 3,
+        month: 4,
+        year: 2026,
+        secondsOfDay: 25689,
+        weekend: false,
+      }]]),
+    })
+    const rtc = renderNode(makeNode('RTCInput', { timeSource: 'DS3231' }))
+    expect(rtc.getByText('07:08:09')).toBeTruthy()
+    expect(rtc.getByText('Tue 2026-04-03')).toBeTruthy()
+  })
+
   it('a bundled node header reflects the selected variant', () => {
     const { getByText } = renderNode(makeNode('Math', { mathOp: 'multiply', a: 1, b: 2 }))
     expect(getByText('Multiply')).toBeTruthy()   // not the generic "Math"

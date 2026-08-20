@@ -180,6 +180,37 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 26.133
     }
   },
+  "jaycar-xc9044-rtc-module": {
+    "partId": "jaycar-xc9044-rtc-module",
+    "label": "DS3231 RTC Clock Module for Raspberry Pi",
+    "category": "support",
+    "dimensionsMm": {
+      "width": 14.0,
+      "height": 14.0
+    },
+    "manufacturer": "generic",
+    "logicVoltage": "3.3 V I2C / battery-backed",
+    "pinLabelsLeftToRight": [
+      "3V3",
+      "SDA",
+      "SCL",
+      "SQW",
+      "GND"
+    ],
+    "notes": [
+      "Jaycar XC9044 is sold as a DS3231 RTC Clock Module for Raspberry Pi and is read by the app's firmware over the same Wire/I2C address 0x68 as the larger DS3231 module.",
+      "The five-pin female header is arranged for the Raspberry Pi GPIO header; for non-Pi controllers it should be wired as an I2C module using 3V3, SDA, SCL and GND. SQW is not used by generated firmware.",
+      "The onboard CR927 backup cell keeps the DS3231 ticking while the controller is unpowered.",
+      "Unlike the ZS-042 module, this compact board does not expose the AT24C32 EEPROM address jumpers or the long six-pin breakout row.",
+      "Jaycar's product copy describes the module as I2C, DS3231-based, battery-backed with CR927 backup cell, and 14 mm by 14 mm."
+    ],
+    "render": {
+      "file": "parts/jaycar-xc9044-rtc-module.webp",
+      "widthPx": 400,
+      "heightPx": 400,
+      "pxPerMm": 26.0
+    }
+  },
   "max98357a-i2s-amplifier": {
     "partId": "max98357a-i2s-amplifier",
     "label": "MAX98357A I2S amplifier",

@@ -15,7 +15,36 @@ with the board plus LED outputs only, so those four are the blocking set.
 
 Render contract is the existing board one: orthographic, 800 px wide,
 transparent background, tight calculated crop, raw Cycles PNG. Conversion to
-WebP happens at import (`scripts/import-board-assets.py`).
+WebP happens at import (`scripts/import-board-assets.py` /
+`scripts/import-part-assets.py`).
+
+## Blender workspace
+
+Do not create app hardware renders as hand-drawn placeholders when a new
+physical part is requested. The source-of-truth asset workspace is:
+
+```text
+C:\Users\User\Desktop\Blender Assets\
+```
+
+Use `Parts\` for non-board modules, with each finished part in its own folder
+containing a `.blend`, raw render PNG, and `part.json`. Blender is normally
+already running with the Blender MCP add-on on port `9876`; use that session to
+create or inspect the model, render the transparent orthographic PNG, then run:
+
+```bash
+python scripts/import-part-assets.py "C:/Users/User/Desktop/Blender Assets/Parts"
+```
+
+The importer writes `public/parts/<part-id>.webp` and refreshes
+`src/build/generated/partCatalogueData.ts`. Keep dimensions in `part.json`
+verified against a datasheet, fabrication print, or supplier page before
+importing.
+
+Pin silkscreen is part of render quality, not decorative polish. Header labels
+must be clear at the size the hardware bench displays them: high contrast,
+unobscured by components or traces, and large enough to distinguish the exact
+pin order before a user wires the part.
 
 > **This file had gone stale.** Sixteen parts under `Blender Assets/Parts/`
 > are finished — every blocking Phase 1 item included — while this list still

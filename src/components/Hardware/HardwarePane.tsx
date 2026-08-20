@@ -81,8 +81,14 @@ interface InputPartEntry {
   footprint: PartFootprintMm
   /** The output port whose activity lights this part's run to the board. */
   signalPort: string
+  /** The data type used to color the hardware-view run. */
+  dataType?: string
   /** Pins to find on the board. Empty when the profile supplies them. */
   pinRequests: readonly PartPinRequest[]
+  /** Extra properties stamped on nodes created from this hardware entry. */
+  properties?: Record<string, unknown>
+  /** Caption when the part is wired by a board peripheral rather than GPIO. */
+  connectionSummary?: string
   /** Scene singletons — one microphone per board, but many buttons. */
   singleton?: boolean
 }
@@ -144,6 +150,32 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     footprint: partDimensionsMm('inmp441-i2s-microphone', INMP441_FOOTPRINT_MM),
     signalPort: 'audio',
     pinRequests: [],
+    singleton: true,
+  },
+  {
+    nodeType: 'RTCInput',
+    partId: 'rtc',
+    label: 'DS3231 RTC module',
+    hint: 'Battery-backed clock on the board I2C bus',
+    footprint: partDimensionsMm('ds3231-rtc-module', { width: 38, height: 22 }),
+    signalPort: 'secondsOfDay',
+    dataType: 'float',
+    pinRequests: [],
+    properties: { timeSource: 'DS3231', partId: 'ds3231-rtc-module' },
+    connectionSummary: 'Default I2C bus',
+    singleton: true,
+  },
+  {
+    nodeType: 'RTCInput',
+    partId: 'rtc-xc9044',
+    label: 'DS3231 RTC Clock Module for Raspberry Pi',
+    hint: 'Compact Pi-header clock on the board I2C bus',
+    footprint: partDimensionsMm('jaycar-xc9044-rtc-module', { width: 14, height: 14 }),
+    signalPort: 'secondsOfDay',
+    dataType: 'float',
+    pinRequests: [],
+    properties: { timeSource: 'DS3231', partId: 'jaycar-xc9044-rtc-module' },
+    connectionSummary: 'Default I2C bus',
     singleton: true,
   },
   {
@@ -250,8 +282,9 @@ function boardFootprintMm(profile: PhysicalBoardProfile): PartFootprintMm {
 }
 
 /** One run from an input part into the board, lit by that part's own output. */
-function InputLink({ signalKey, effects, label, link }: {
+function InputLink({ signalKey, dataType, effects, label, link }: {
   signalKey: string
+  dataType?: string
   effects: boolean
   label: string
   link: { source: string; target: string; x1: number; y1: number; x2: number; y2: number }
@@ -259,7 +292,7 @@ function InputLink({ signalKey, effects, label, link }: {
   const signal = usePreviewStore((state) => state.signals.get(signalKey))
   return (
     <HardwareLink
-      dataType="audio"
+      dataType={dataType ?? 'audio'}
       color={CATEGORY_COLOR.input}
       emissive={signal?.emissive}
       energy={signal?.energy}
@@ -362,7 +395,11 @@ export default function HardwarePane() {
     const seen = new Map<string, number>()
     return nodes
       .flatMap((node) => {
-        const entry = INPUT_PARTS.find((candidate) => candidate.nodeType === node.data.nodeType)
+        const props = node.data.properties as Record<string, unknown>
+        const entry = INPUT_PARTS.find((candidate) =>
+          candidate.nodeType === node.data.nodeType
+          && candidate.properties?.partId === props.partId,
+        ) ?? INPUT_PARTS.find((candidate) => candidate.nodeType === node.data.nodeType)
         if (!entry) return []
         const index = seen.get(entry.nodeType) ?? 0
         seen.set(entry.nodeType, index + 1)
@@ -515,6 +552,7 @@ export default function HardwarePane() {
       ? ['i2sWs', 'i2sSck', 'i2sSd']
       : entry.pinRequests.map((request) => request.key)
     const pins = keys.map((key) => Number(props[key])).filter((pin) => Number.isFinite(pin))
+    if (pins.length === 0 && entry.connectionSummary) return entry.connectionSummary
     if (pins.length === 0) return 'Mirrored in the graph'
     return `Pin${pins.length > 1 ? 's' : ''} ${pins.join(', ')}`
   }
@@ -751,7 +789,10 @@ export default function HardwarePane() {
         // Stamped with what the app chose, so a later board change can tell
         // an untouched pin from one the user has since wired by hand.
         properties: withAssignedPins(
-          resolveDefaultProperties(definition.type, definition.defaultProperties, boardProfile),
+          {
+            ...resolveDefaultProperties(definition.type, definition.defaultProperties, boardProfile),
+            ...(entry.properties ?? {}),
+          },
           assigned.pins,
           boardProfile?.id ?? selectedFqbn,
         ),
@@ -932,7 +973,7 @@ export default function HardwarePane() {
       items: INPUT_PARTS.map((entry) => {
         const blocker = inputPartBlocker(entry)
         return {
-          key: entry.nodeType,
+          key: entry.partId,
           label: entry.label,
           hint: entry.hint,
           disabled: blocker !== null,
@@ -1115,6 +1156,7 @@ export default function HardwarePane() {
                   <InputLink
                     key={`${link.source}-${link.target}`}
                     signalKey={part.signalKey}
+                    dataType={part.entry.dataType}
                     effects={uiEffectsEnabled}
                     label={`${part.entry.label} into the board`}
                     link={link}
@@ -1163,7 +1205,10 @@ export default function HardwarePane() {
                 title="Click to show its node in the graph · right-click for hardware actions"
               >
                 <img
-                  src={partRenderForNodeType(part.entry.nodeType)?.src}
+                  src={partRenderForNodeType(
+                    part.entry.nodeType,
+                    part.node.data.properties as Record<string, unknown>,
+                  )?.src}
                   alt={part.entry.label}
                   draggable={false}
                 />

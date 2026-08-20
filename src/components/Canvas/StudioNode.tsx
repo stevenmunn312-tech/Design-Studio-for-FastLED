@@ -1157,7 +1157,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
    * picture confirms which part you are looking at and then gets out of the
    * way. The hardware view is where it is drawn at a size worth studying.
    */
-  const partRender = partRenderForNodeType(d.nodeType)
+  const partRender = partRenderForNodeType(d.nodeType, props)
   const waveSamples = isWave
     ? waveNodeSamples(String(props.waveform ?? 'sine'), Number(props.amplitude ?? 1), Number(props.frequency ?? 1), Number(props.phase ?? 0))
     : null

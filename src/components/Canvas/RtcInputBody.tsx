@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   formatRtcDate, formatRtcTime, rtcPreviewSnapshot, rtcTimeSource,
   type RtcPreview,
@@ -42,7 +42,8 @@ export default function RtcInputBody({ nodeId }: { nodeId: string }) {
   // Local fallback for when the render loop isn't publishing this node (preview
   // paused, or the node is outside the evaluated hot set).
   const [fallback, setFallback] = useState(() => rtcPreviewSnapshot(properties))
-  const live = usePreviewStore((s) => publishedSnapshot(s.outputs.get(nodeId)))
+  const publishedPorts = usePreviewStore((s) => s.outputs.get(nodeId))
+  const live = useMemo(() => publishedSnapshot(publishedPorts), [publishedPorts])
   const snapshot = live ?? fallback
   const credentials = useNetworkCredentialsStore((s) => s.byNodeId[nodeId] ?? EMPTY_CREDENTIALS)
   const setCredentials = useNetworkCredentialsStore((s) => s.setCredentials)

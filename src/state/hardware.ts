@@ -5,14 +5,14 @@ export const ROOT_BOARD_NODE_ID = 'board-root'
 // disconnects it — the part itself goes when it is removed in the hardware
 // view, which is the half of the two-view model that says what is on the bench.
 const HARDWARE_MANAGED_SIGNAL_NODE_TYPES = new Set([
-  'MicInput', 'ButtonInput', 'PotInput', 'EncoderInput', 'MatrixOutput',
+  'MicInput', 'ButtonInput', 'PotInput', 'EncoderInput', 'RTCInput', 'MatrixOutput',
 ])
 
 // Not offered in the node library, the canvas picker or drag-to-create: these
 // exist only by adding the part in the hardware view, so a graph can never
 // carry an output the bench does not.
 const HARDWARE_LIBRARY_HIDDEN_NODE_TYPES = new Set([
-  'Board', 'MicInput', 'ButtonInput', 'PotInput', 'EncoderInput', 'MatrixOutput',
+  'Board', 'MicInput', 'ButtonInput', 'PotInput', 'EncoderInput', 'RTCInput', 'MatrixOutput',
   // Carry no signal, so they have no business on the signal canvas at all —
   // they live as hidden nodes purely so their settings persist with the
   // workspace and the player generator can keep scanning for them.

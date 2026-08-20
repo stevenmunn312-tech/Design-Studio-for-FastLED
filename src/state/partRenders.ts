@@ -18,6 +18,7 @@ import encoderRender from '../assets/components/encoder-module.webp'
 import microphoneRender from '../assets/components/inmp441-i2s-microphone.webp'
 import potRender from '../assets/components/potentiometer-module.webp'
 import { partRenderSrc } from './partCatalogue'
+import { resolvePartIdentity } from './partOptions'
 
 export interface PartRender {
   /** Displayed name of the exact module, for alt text and captions. */
@@ -35,11 +36,28 @@ export const PART_RENDER_BY_NODE_TYPE: Record<string, PartRender> = {
     label: 'INMP441 microphone',
     src: partRenderSrc('inmp441-i2s-microphone') ?? microphoneRender,
   },
+  RTCInput: {
+    label: 'DS3231 RTC module',
+    src: partRenderSrc('ds3231-rtc-module') ?? '',
+  },
   ButtonInput: { label: 'Button module', src: buttonRender },
   PotInput: { label: 'Potentiometer module', src: potRender },
   EncoderInput: { label: 'Rotary encoder module', src: encoderRender },
 }
 
-export function partRenderForNodeType(nodeType: string): PartRender | null {
+export function partRenderForNodeType(
+  nodeType: string,
+  properties: Record<string, unknown> = {},
+): PartRender | null {
+  const identity = resolvePartIdentity(nodeType, properties)
+  const catalogued = identity?.entry?.render?.file
+    ? partRenderSrc(identity.entry.partId)
+    : null
+  if (identity && catalogued) {
+    return {
+      label: identity.entry?.label ?? identity.option.label,
+      src: catalogued,
+    }
+  }
   return PART_RENDER_BY_NODE_TYPE[nodeType] ?? null
 }

@@ -5,10 +5,10 @@ import { isHardwareLibraryHiddenNodeType } from '../hardware'
 
 describe('part renders', () => {
   it('covers every signal-carrying hardware part', () => {
-    // The four that exist in both views. If one gains a node type without a
+    // The parts that exist in both views. If one gains a node type without a
     // picture, its graph node silently stops showing which part it is.
     expect(Object.keys(PART_RENDER_BY_NODE_TYPE).sort())
-      .toEqual(['ButtonInput', 'EncoderInput', 'MicInput', 'PotInput'])
+      .toEqual(['ButtonInput', 'EncoderInput', 'MicInput', 'PotInput', 'RTCInput'])
   })
 
   it('only names parts the hardware view owns', () => {
@@ -24,6 +24,12 @@ describe('part renders', () => {
     // hardware view must both resolve to that one asset rather than to two
     // copies that could drift apart.
     expect(partRenderForNodeType('MicInput')!.src).toBe(partRenderSrc('inmp441-i2s-microphone'))
+    expect(partRenderForNodeType('RTCInput')!.src).toBe(partRenderSrc('ds3231-rtc-module'))
+  })
+
+  it('uses the selected module render when a node stores a part id', () => {
+    expect(partRenderForNodeType('RTCInput', { partId: 'jaycar-xc9044-rtc-module' })!.src)
+      .toBe(partRenderSrc('jaycar-xc9044-rtc-module'))
   })
 
   it('gives every entry a usable image and a name', () => {

@@ -71,6 +71,21 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       { id: 'inmp441-i2s-microphone', label: 'INMP441' },
     ],
   },
+  RTCInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'ds3231-rtc-module',
+        label: 'DS3231 RTC module',
+        summary: 'ZS-042 breakout, six-pin header',
+      },
+      {
+        id: 'jaycar-xc9044-rtc-module',
+        label: 'DS3231 RTC Clock Module for Raspberry Pi',
+        summary: 'Pi-header DS3231, CR927 backup',
+      },
+    ],
+  },
   SDCard: {
     property: 'partId',
     options: [
