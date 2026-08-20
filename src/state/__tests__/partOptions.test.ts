@@ -81,6 +81,21 @@ describe('part options', () => {
     }
   })
 
+  /*
+   * The Add Hardware menu shows this line under each module. A full caveat in
+   * that slot stretched the panel most of the way across the window, so the
+   * long text stays in `note`, where the part panel reads it.
+   */
+  it('gives every module a short menu summary where a choice exists', () => {
+    for (const [nodeType, config] of Object.entries(PART_OPTIONS)) {
+      if (config.options.length < 2) continue
+      for (const option of config.options) {
+        expect(option.summary, `${nodeType}/${option.label}`).toBeTruthy()
+        expect(option.summary!.length, `${nodeType}/${option.label}`).toBeLessThanOrEqual(48)
+      }
+    }
+  })
+
   it('knows the PAM8403 is the analog one', () => {
     const identity = resolvePartIdentity('Amplifier', { model: 'pam8403-3w-stereo-amplifier' })!
     expect(identity.option.input).toBe('analog')

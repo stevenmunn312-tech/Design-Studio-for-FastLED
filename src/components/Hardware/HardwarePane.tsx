@@ -51,6 +51,7 @@ import HardwareLedPreview from './HardwareLedPreview'
 import HardwareLedSpill from './HardwareLedSpill'
 import HardwareLink from './HardwareLink'
 import FloatingMenu from './FloatingMenu'
+import type { PlacementBox } from './floatingPlacement'
 import { useHardwareView } from './useHardwareView'
 import { hardwareArrangement, type HardwarePartBox, type HardwarePartLink } from './hardwareLayout'
 import styles from './HardwarePane.module.css'
@@ -317,9 +318,9 @@ export default function HardwarePane() {
   const paneTab = useUiStore((state) => state.hardwarePaneTab)
   const setPaneTab = useUiStore((state) => state.setHardwarePaneTab)
   const [addMenuOpen, setAddMenuOpen] = useState(false)
-  const [boardMenu, setBoardMenu] = useState<{ x: number; y: number } | null>(null)
+  const [boardMenu, setBoardMenu] = useState<{ anchor: PlacementBox } | null>(null)
   const [itemMenu, setItemMenu] = useState<
-    { x: number; y: number; kind: string; mode: 'actions' | 'settings' } | null
+    { anchor: PlacementBox; kind: string; mode: 'actions' | 'settings' } | null
   >(null)
   const sectionRef = useRef<HTMLElement | null>(null)
   const stageRef = useRef<HTMLDivElement | null>(null)
@@ -692,23 +693,22 @@ export default function HardwarePane() {
 
   if (!boardProfile) return null
 
-  const openBoardMenu = (anchor?: DOMRect | null) => {
+  /*
+   * Viewport coordinates, because FloatingMenu measures against the window.
+   * These were pane-relative and clamped to the pane, which is what put every
+   * menu the pane's own offset too high once the layer went to fixed
+   * positioning. Clamping is the floating layer's job now.
+   */
+  const anchorBox = (rect: DOMRect | null): PlacementBox => {
+    if (rect) return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }
     const bounds = sectionRef.current?.getBoundingClientRect()
-    if (!bounds) return
-    const menuWidth = Math.min(360, window.innerWidth - 24)
-    const anchorRect = anchor ?? boardCardRef.current?.getBoundingClientRect() ?? null
-    const preferredX = anchorRect
-      ? anchorRect.left - bounds.left + (anchorRect.width / 2) - (menuWidth / 2)
-      : leftInset + 32
-    const preferredY = anchorRect
-      ? anchorRect.top - bounds.top - 18
-      : 72
-    const maxX = Math.max(leftInset + 16, bounds.width - rightInset - menuWidth - 16)
-    const maxY = Math.max(72, bounds.height - 320)
-    setBoardMenu({
-      x: Math.min(Math.max(leftInset + 16, preferredX), maxX),
-      y: Math.min(Math.max(72, preferredY), maxY),
-    })
+    const left = (bounds?.left ?? 0) + leftInset + 32
+    const top = (bounds?.top ?? 0) + 72
+    return { left, top, right: left, bottom: top }
+  }
+
+  const openBoardMenu = (anchor?: DOMRect | null) => {
+    setBoardMenu({ anchor: anchorBox(anchor ?? boardCardRef.current?.getBoundingClientRect() ?? null) })
   }
 
   /*
@@ -770,24 +770,7 @@ export default function HardwarePane() {
   }
 
   const openItemMenu = (kind: string, anchor?: DOMRect | null, mode: 'actions' | 'settings' = 'actions') => {
-    const bounds = sectionRef.current?.getBoundingClientRect()
-    if (!bounds) return
-    const menuWidth = 180
-    const anchorRect = anchor ?? null
-    const preferredX = anchorRect
-      ? anchorRect.left - bounds.left + (anchorRect.width / 2) - (menuWidth / 2)
-      : leftInset + 32
-    const preferredY = anchorRect
-      ? anchorRect.bottom - bounds.top + 8
-      : 72
-    const maxX = Math.max(leftInset + 16, bounds.width - rightInset - menuWidth - 16)
-    const maxY = Math.max(72, bounds.height - 80)
-    setItemMenu({
-      kind,
-      mode,
-      x: Math.min(Math.max(leftInset + 16, preferredX), maxX),
-      y: Math.min(Math.max(72, preferredY), maxY),
-    })
+    setItemMenu({ kind, mode, anchor: anchorBox(anchor ?? null) })
   }
 
   /*
@@ -931,7 +914,7 @@ export default function HardwarePane() {
     return partOptionsFor(nodeType).map((option) => ({
       key: option.id,
       label: option.label,
-      hint: option.note ?? fixture.hint,
+      hint: option.summary ?? fixture.hint,
       disabled: blocked,
       disabledReason: blocked ? `One ${fixture.label.toLowerCase()} per board` : null,
       onSelect: () => addFixturePart(fixture, option.id),
@@ -1344,7 +1327,7 @@ export default function HardwarePane() {
 
       {boardMenu && (
         <FloatingMenu
-          anchor={{ left: boardMenu.x, top: boardMenu.y, right: boardMenu.x, bottom: boardMenu.y }}
+          anchor={boardMenu.anchor}
           placement="below"
           align="start"
           className={styles.boardMenu}
@@ -1360,7 +1343,7 @@ export default function HardwarePane() {
 
       {itemMenu && (
         <FloatingMenu
-          anchor={{ left: itemMenu.x, top: itemMenu.y, right: itemMenu.x, bottom: itemMenu.y }}
+          anchor={itemMenu.anchor}
           placement="below"
           align="start"
           className={styles.itemMenu}

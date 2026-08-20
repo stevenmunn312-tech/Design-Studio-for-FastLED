@@ -24,6 +24,14 @@ export interface PartOption {
    */
   note?: string
   /**
+   * One short line for the Add Hardware menu.
+   *
+   * Separate from `note`, which is the full caveat the part panel shows while
+   * you are wiring. A menu row is for choosing between modules, and a
+   * paragraph in one stretched the panel across the window.
+   */
+  summary?: string
+  /**
    * How sound reaches this part, for the ones where that is not a given.
    *
    * Every amplifier the app knew before the PAM8403 took I2S, so "there is an
@@ -42,8 +50,9 @@ export interface PartIdentity {
   /** Every caveat worth reading before wiring: the asset's own notes first,
    *  then anything specific to choosing this option. */
   notes: string[]
-  /** True when more than one module is offered, so the UI knows whether to
-   *  render a dropdown or simply state the name. */
+  /** True when more than one module is offered. The choice is made in the Add
+   *  Hardware menu, so nothing renders a picker from this — it is for copy that
+   *  needs to know whether alternatives exist. */
   hasChoice: boolean
 }
 
@@ -68,11 +77,13 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       {
         id: 'microsd-module-5v',
         label: 'microSD module (5 V)',
+        summary: 'Regulator and level shifter on board',
         note: 'Has an onboard regulator and level shifter, so it takes 5 V power and 5 V SPI.',
       },
       {
         id: 'microsd-breakout-3v3',
         label: 'microSD breakout (3.3 V)',
+        summary: 'Bare board — 3.3 V only',
         note: 'Bare board: no regulator, no level shifter. 5 V power or 5 V SPI can destroy the card.',
       },
     ],
@@ -80,23 +91,26 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
   Amplifier: {
     property: 'model',
     options: [
-      { id: 'max98357a-i2s-amplifier', label: 'MAX98357A', input: 'i2s' },
+      { id: 'max98357a-i2s-amplifier', label: 'MAX98357A', input: 'i2s', summary: 'I2S in, drives a speaker directly' },
       {
         id: 'pcm5102a-i2s-dac',
         label: 'PCM5102A',
         input: 'i2s',
+        summary: 'I2S DAC — line out, needs an amp',
         note: 'A DAC, not an amplifier — the same three I2S wires, but a line-level output that needs a powered speaker or a separate amp.',
       },
       {
         id: 'uda1334a-i2s-dac',
         label: 'UDA1334A',
         input: 'i2s',
+        summary: 'I2S DAC — line out, needs an amp',
         note: 'Line-level I2S DAC, wired the same as the PCM5102A.',
       },
       {
         id: 'pam8403-3w-stereo-amplifier',
         label: 'PAM8403',
         input: 'analog',
+        summary: 'Line level in — classic ESP32 only',
         note: 'Takes line level, not I2S. The classic ESP32 drives it from its own DAC on GPIO25/26 — no other supported board has a DAC, so this part cannot make a sound on an ESP32-S3, S2, C3, C6 or H2.',
       },
     ],

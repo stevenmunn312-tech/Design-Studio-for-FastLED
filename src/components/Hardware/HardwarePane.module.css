@@ -276,7 +276,12 @@
   position: fixed;
   z-index: 1000;
   min-width: 240px;
+  max-width: 320px;
   padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--border-glow) 92%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-panel) 96%, #05090d);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.28);
 }
 
 .addMenuGroup {
@@ -318,7 +323,8 @@
 .addSubmenu {
   position: fixed;
   z-index: 1001;
-  min-width: 240px;
+  min-width: 260px;
+  max-width: 340px;
   padding: 8px;
   border: 1px solid color-mix(in srgb, var(--border-glow) 92%, transparent);
   border-radius: 18px;
@@ -523,4 +529,12 @@
 .partSelected {
   outline: 1px solid color-mix(in srgb, var(--accent-output) 70%, transparent);
   outline-offset: 3px;
+}
+
+/* A module's hint is a sentence, not a label: let it wrap inside the panel
+   instead of stretching it. */
+.addMenuItem small {
+  white-space: normal;
+  line-height: 1.35;
+  color: var(--text-secondary);
 }
