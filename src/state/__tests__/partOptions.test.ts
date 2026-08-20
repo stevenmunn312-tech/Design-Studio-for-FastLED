@@ -69,4 +69,23 @@ describe('part options', () => {
       expect(partById(config.options[0].id), nodeType).toBeDefined()
     }
   })
+
+  /*
+   * Every amplifier has to say how sound reaches it. Leaving it unstated is
+   * what let "there is an amplifier" mean "this build uses I2S", which is only
+   * true of the I2S ones — see state/audioOutput.ts.
+   */
+  it('makes every amplifier declare whether it takes I2S or line level', () => {
+    for (const option of partOptionsFor('Amplifier')) {
+      expect(option.input, option.label).toMatch(/^(i2s|analog)$/)
+    }
+  })
+
+  it('knows the PAM8403 is the analog one', () => {
+    const identity = resolvePartIdentity('Amplifier', { model: 'pam8403-3w-stereo-amplifier' })!
+    expect(identity.option.input).toBe('analog')
+    expect(identity.entry?.label).toContain('PAM8403')
+    // Its note is the only place the app explains why an ESP32-S3 cannot use it.
+    expect(identity.notes.join(' ')).toMatch(/DAC/)
+  })
 })

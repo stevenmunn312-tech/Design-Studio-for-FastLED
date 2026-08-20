@@ -1,5 +1,5 @@
 import { useGraphStore } from '../../state/graphStore'
-import { partOptionProperty, partOptionsFor, resolvePartIdentity } from '../../state/partOptions'
+import { resolvePartIdentity } from '../../state/partOptions'
 import styles from './PartIdentity.module.css'
 
 /**
@@ -14,7 +14,6 @@ import styles from './PartIdentity.module.css'
  * counting pads in a picture that may be rotated.
  */
 export default function PartIdentity({ nodeId, nodeType }: { nodeId: string; nodeType: string }) {
-  const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
   const properties = useGraphStore((s) => {
     const node = s.nodes.find((n) => n.id === nodeId)
     return (node?.data.properties ?? {}) as Record<string, unknown>
@@ -22,29 +21,22 @@ export default function PartIdentity({ nodeId, nodeType }: { nodeId: string; nod
 
   const identity = resolvePartIdentity(nodeType, properties)
   if (!identity) return null
-  const options = partOptionsFor(nodeType)
-  const property = partOptionProperty(nodeType)
 
   return (
     <div className={styles.identity}>
       <div className={styles.row}>
         <span className={styles.key}>Part</span>
-        {identity.hasChoice && property ? (
-          <select
-            className={`nodrag ${styles.picker}`}
-            value={identity.option.id}
-            aria-label="Exact module"
-            onChange={(event) => updateNodeProperty(nodeId, property, event.target.value)}
-          >
-            {options.map((option) => (
-              <option key={option.id} value={option.id}>{option.label}</option>
-            ))}
-          </select>
-        ) : (
-          // One supported module, so state it rather than offer a choice that
-          // is not one.
-          <strong className={styles.value}>{identity.option.label}</strong>
-        )}
+        {/*
+          * States the module rather than offering to change it.
+          *
+          * Add Hardware names every module separately, so the choice is made
+          * once, when the part is put on the bench. A picker here would be the
+          * same question asked a second time, and it let a generic answer
+          * stand — which stopped being harmless with the PAM8403, an amplifier
+          * that cannot take I2S. To use a different module, remove this part
+          * and add the one you have.
+          */}
+        <strong className={styles.value}>{identity.option.label}</strong>
       </div>
 
       {identity.entry?.logicVoltage && (

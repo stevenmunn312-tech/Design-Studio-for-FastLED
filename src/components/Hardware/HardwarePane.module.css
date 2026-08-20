@@ -262,11 +262,69 @@
   box-shadow: 0 18px 36px rgba(0, 0, 0, 0.28);
 }
 
+/* The button owns the menu. It used to be positioned against the pane's left
+   inset while the button sat centred in the toolbar, so the menu opened in the
+   corner with nothing above it. */
+.addMenuAnchor {
+  position: relative;
+  display: inline-flex;
+}
+
 .addMenu {
-  top: 54px;
-  left: 16px;
-  min-width: 220px;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 240px;
   padding: 8px;
+}
+
+.addMenuGroup {
+  position: relative;
+}
+
+/* Label and hint stack on the left, chevron pinned right across both rows. */
+.addMenuParent {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "label chevron"
+    "hint  chevron";
+  align-items: center;
+  column-gap: 10px;
+}
+
+.addMenuParent > span:first-child {
+  grid-area: label;
+}
+
+.addMenuParent > small {
+  grid-area: hint;
+}
+
+.addMenuChevron {
+  grid-area: chevron;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text-secondary);
+}
+
+.addMenuParent[aria-expanded='true'] {
+  background: color-mix(in srgb, var(--accent-output) 14%, transparent);
+}
+
+/* Flies out beside its parent row. The menu is centred under a toolbar button
+   on a pane at least 1280px wide, so there is always room to the right. */
+.addSubmenu {
+  position: absolute;
+  top: -8px;
+  left: calc(100% + 6px);
+  z-index: 21;
+  min-width: 240px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--border-glow) 92%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-panel) 96%, #05090d);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.28);
 }
 
 .addMenuItem {

@@ -23,6 +23,15 @@ export interface PartOption {
    * and that difference has to be stated somewhere.
    */
   note?: string
+  /**
+   * How sound reaches this part, for the ones where that is not a given.
+   *
+   * Every amplifier the app knew before the PAM8403 took I2S, so "there is an
+   * amplifier on the bench" was allowed to mean "this build uses I2S". An
+   * analog amplifier takes line level and has to be fed by the board's own DAC,
+   * so the assumption had to become a stated fact — see state/audioOutput.ts.
+   */
+  input?: 'i2s' | 'analog'
 }
 
 export interface PartIdentity {
@@ -71,16 +80,24 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
   Amplifier: {
     property: 'model',
     options: [
-      { id: 'max98357a-i2s-amplifier', label: 'MAX98357A' },
+      { id: 'max98357a-i2s-amplifier', label: 'MAX98357A', input: 'i2s' },
       {
         id: 'pcm5102a-i2s-dac',
         label: 'PCM5102A',
+        input: 'i2s',
         note: 'A DAC, not an amplifier — the same three I2S wires, but a line-level output that needs a powered speaker or a separate amp.',
       },
       {
         id: 'uda1334a-i2s-dac',
         label: 'UDA1334A',
+        input: 'i2s',
         note: 'Line-level I2S DAC, wired the same as the PCM5102A.',
+      },
+      {
+        id: 'pam8403-3w-stereo-amplifier',
+        label: 'PAM8403',
+        input: 'analog',
+        note: 'Takes line level, not I2S. The classic ESP32 drives it from its own DAC on GPIO25/26 — no other supported board has a DAC, so this part cannot make a sound on an ESP32-S3, S2, C3, C6 or H2.',
       },
     ],
   },

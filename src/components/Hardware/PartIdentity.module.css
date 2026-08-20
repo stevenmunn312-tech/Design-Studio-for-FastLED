@@ -25,20 +25,6 @@
   text-align: right;
 }
 
-.picker {
-  flex: 1 1 auto;
-  min-width: 0;
-  /* Opaque, matching the other in-node selects: a translucent background reads
-     as muddy over the pane, and the open option list inherits it. */
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  border: 1px solid var(--divider);
-  border-radius: 3px;
-  padding: 2px 4px;
-  font: inherit;
-  font-size: var(--fs-caption);
-}
-
 .pins {
   display: flex;
   flex-direction: column;

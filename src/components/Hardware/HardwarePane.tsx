@@ -12,7 +12,7 @@ import { assignPartPins, type PartPinRequest } from '../../state/partPinAssignme
 import { withAssignedPins } from '../../state/pinRetarget'
 import { partDimensionsMm, partRenderSrc, ringDiameterMm } from '../../state/partCatalogue'
 import { partRenderForNodeType } from '../../state/partRenders'
-import { resolvePartIdentity } from '../../state/partOptions'
+import { partOptionProperty, partOptionsFor, resolvePartIdentity } from '../../state/partOptions'
 import PartIdentity from './PartIdentity'
 import { useUploadStore } from '../../state/uploadStore'
 import {
@@ -195,6 +195,23 @@ const LED_OUTPUT_ENTRIES: Array<{
   { form: 'ring', hint: 'A circle of addressable LEDs', properties: { ledCount: 24 } },
   { form: 'hub75', hint: 'A scan panel on its own ribbon', properties: { width: 64, height: 32 } },
 ]
+
+/** One leaf of the Add Hardware menu: exactly one module you can put down. */
+interface AddMenuItem {
+  key: string
+  label: string
+  hint: string
+  disabled: boolean
+  /** Why it cannot be added, shown in place of the hint. */
+  disabledReason: string | null
+  onSelect: () => void
+}
+
+interface AddMenuCategory {
+  id: string
+  label: string
+  items: AddMenuItem[]
+}
 
 // Layout ids. Stable and independent of graph node ids, so the arrangement is
 // about parts rather than about whichever node happens to back one.
@@ -484,10 +501,7 @@ export default function HardwarePane() {
     () => ({ paddingLeft: `${leftInset + 16}px`, paddingRight: `${rightInset + 16}px` }),
     [leftInset, rightInset],
   )
-  const addMenuStyle = useMemo(
-    () => ({ left: `${leftInset + 16}px` }),
-    [leftInset],
-  )
+  const [openSubmenu, setOpenSubmenu] = useState<string | null>(null)
 
   const boardBoxMm = useMemo(
     () => (boardProfile ? boardFootprintMm(boardProfile) : null),
@@ -621,6 +635,7 @@ export default function HardwarePane() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setAddMenuOpen(false)
+        setOpenSubmenu(null)
         setBoardMenu(null)
         setItemMenu(null)
       }
@@ -739,9 +754,16 @@ export default function HardwarePane() {
    * I2S pins come from the board profile when that board names them, the same
    * precedence the microphone already follows.
    */
-  const addFixturePart = (entry: FixturePartEntry) => {
+  /*
+   * `moduleId` is the exact module the menu entry named, e.g. the PAM8403
+   * rather than "an amplifier". It is stamped onto the node at creation, which
+   * is now the only moment a module is chosen — the identity panel reports what
+   * the part is and no longer offers to change it.
+   */
+  const addFixturePart = (entry: FixturePartEntry, moduleId?: string) => {
     const definition = NODE_LIBRARY.find((candidate) => candidate.type === entry.nodeType)
     if (!definition || (entry.singleton && hasPartOfType(entry.nodeType))) return
+    const moduleProperty = partOptionProperty(entry.nodeType)
     const amp = boardProfile?.peripheralPins?.max98357
     const profilePins = entry.profilePins && amp
       ? Object.fromEntries(
@@ -759,16 +781,20 @@ export default function HardwarePane() {
         label: definition.label,
         nodeType: definition.type,
         category: definition.category,
-        properties: withAssignedPins(
-          resolveDefaultProperties(definition.type, definition.defaultProperties, boardProfile),
-          profilePins,
-          boardProfile?.id ?? selectedFqbn,
-        ),
+        properties: {
+          ...withAssignedPins(
+            resolveDefaultProperties(definition.type, definition.defaultProperties, boardProfile),
+            profilePins,
+            boardProfile?.id ?? selectedFqbn,
+          ),
+          ...(moduleProperty && moduleId ? { [moduleProperty]: moduleId } : {}),
+        },
         inputs: definition.inputs,
         outputs: definition.outputs,
       },
     } as never)
     setAddMenuOpen(false)
+    setOpenSubmenu(null)
     setStatus(`Added ${entry.label}`, 'success')
   }
 
@@ -836,6 +862,73 @@ export default function HardwarePane() {
     )
   }
 
+  /*
+   * The Add Hardware menu, as categories of exact modules.
+   *
+   * Every leaf names one module, because that is the thing you put on the
+   * bench: "Amplifier" then a dropdown asked the same question twice and let
+   * the generic answer stand, which mattered once the PAM8403 arrived — it is
+   * an amplifier that cannot take I2S, so "an amplifier" is no longer enough
+   * to know how the sound gets out.
+   *
+   * The module leaves are read out of PART_OPTIONS rather than restated here,
+   * so a part gaining an option gains a menu entry and the two cannot drift.
+   */
+  const moduleItems = (
+    nodeType: string,
+    fixture: FixturePartEntry | undefined,
+  ): AddMenuItem[] => {
+    if (!fixture) return []
+    const blocked = Boolean(fixture.singleton && hasPartOfType(fixture.nodeType))
+    return partOptionsFor(nodeType).map((option) => ({
+      key: option.id,
+      label: option.label,
+      hint: option.note ?? fixture.hint,
+      disabled: blocked,
+      disabledReason: blocked ? `One ${fixture.label.toLowerCase()} per board` : null,
+      onSelect: () => addFixturePart(fixture, option.id),
+    }))
+  }
+
+  const sdCardFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'SDCard')
+  const amplifierFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'Amplifier')
+
+  const addMenuCategories: AddMenuCategory[] = [
+    {
+      id: 'inputs',
+      label: 'Inputs',
+      items: INPUT_PARTS.map((entry) => {
+        const blocker = inputPartBlocker(entry)
+        return {
+          key: entry.nodeType,
+          label: entry.label,
+          hint: entry.hint,
+          disabled: blocker !== null,
+          disabledReason: blocker,
+          onSelect: () => addInputPart(entry),
+        }
+      }),
+    },
+    { id: 'storage', label: 'Storage', items: moduleItems('SDCard', sdCardFixture) },
+    { id: 'amplifiers', label: 'Amplifiers & DACs', items: moduleItems('Amplifier', amplifierFixture) },
+    {
+      id: 'led-outputs',
+      label: 'LED outputs',
+      items: LED_OUTPUT_ENTRIES.map((entry) => {
+        const needsDataPin = entry.form !== 'hub75'
+        const blocked = needsDataPin && nextLedPin === null
+        return {
+          key: entry.form,
+          label: LED_OUTPUT_FORM_LABELS[entry.form],
+          hint: needsDataPin ? `${entry.hint} on pin ${nextLedPin}` : entry.hint,
+          disabled: blocked,
+          disabledReason: blocked ? 'No free GPIO on this board' : null,
+          onSelect: () => addLedOutput(entry),
+        }
+      }),
+    },
+  ].filter((category) => category.items.length > 0)
+
   return (
     <section ref={sectionRef} className={styles.hardwarePane} aria-label="Hardware view">
       <div className={styles.toolbar} style={toolbarStyle}>
@@ -863,15 +956,78 @@ export default function HardwarePane() {
           </button>
         </div>
         {paneTab === 'hardware' && (
-          <button
-            type="button"
-            className={styles.addButton}
-            onClick={() => setAddMenuOpen((open) => !open)}
-            aria-expanded={addMenuOpen}
-            aria-haspopup="menu"
-          >
-            Add Hardware
-          </button>
+          /* The menu hangs off the button rather than the pane's left inset,
+             which is what made it open in the corner while the button sat in
+             the middle of the toolbar. */
+          <div ref={addMenuRef} className={styles.addMenuAnchor}>
+            <button
+              type="button"
+              className={styles.addButton}
+              onClick={() => {
+                setAddMenuOpen((open) => !open)
+                setOpenSubmenu(null)
+              }}
+              aria-expanded={addMenuOpen}
+              aria-haspopup="menu"
+            >
+              Add Hardware
+            </button>
+
+            {addMenuOpen && (
+              <div className={styles.addMenu} role="menu" aria-label="Add hardware">
+                {addMenuCategories.map((category) => {
+                  const open = openSubmenu === category.id
+                  return (
+                    <div
+                      key={category.id}
+                      className={styles.addMenuGroup}
+                      onMouseEnter={() => setOpenSubmenu(category.id)}
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className={`${styles.addMenuItem} ${styles.addMenuParent}`}
+                        aria-haspopup="menu"
+                        aria-expanded={open}
+                        onClick={() => setOpenSubmenu(open ? null : category.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'ArrowRight') {
+                            event.preventDefault()
+                            setOpenSubmenu(category.id)
+                          } else if (event.key === 'ArrowLeft') {
+                            event.preventDefault()
+                            setOpenSubmenu(null)
+                          }
+                        }}
+                      >
+                        <span>{category.label}</span>
+                        <small>{`${category.items.length} ${category.items.length === 1 ? 'module' : 'modules'}`}</small>
+                        <span aria-hidden="true" className={styles.addMenuChevron}>›</span>
+                      </button>
+
+                      {open && (
+                        <div className={styles.addSubmenu} role="menu" aria-label={category.label}>
+                          {category.items.map((item) => (
+                            <button
+                              key={item.key}
+                              type="button"
+                              role="menuitem"
+                              className={styles.addMenuItem}
+                              disabled={item.disabled}
+                              onClick={item.onSelect}
+                            >
+                              <span>{item.label}</span>
+                              <small>{item.disabledReason ?? item.hint}</small>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         )}
         <div className={styles.boardMeta}>
           <strong>{boardProfile.label}</strong>
@@ -881,65 +1037,6 @@ export default function HardwarePane() {
 
       {paneTab === 'upload' && <MatrixOutputDeployPopup inline />}
 
-      {paneTab === 'hardware' && addMenuOpen && (
-        <div ref={addMenuRef} className={styles.addMenu} style={addMenuStyle} role="menu" aria-label="Add hardware">
-          {INPUT_PARTS.map((entry) => {
-            const blocker = inputPartBlocker(entry)
-            return (
-              <button
-                key={entry.nodeType}
-                type="button"
-                role="menuitem"
-                className={styles.addMenuItem}
-                disabled={blocker !== null}
-                onClick={() => addInputPart(entry)}
-              >
-                <span>{entry.label}</span>
-                <small>{blocker ?? entry.hint}</small>
-              </button>
-            )
-          })}
-          {FIXTURE_PARTS.map((entry) => {
-            const blocked = Boolean(entry.singleton && hasPartOfType(entry.nodeType))
-            return (
-              <button
-                key={entry.nodeType}
-                type="button"
-                role="menuitem"
-                className={styles.addMenuItem}
-                disabled={blocked}
-                onClick={() => addFixturePart(entry)}
-              >
-                <span>{entry.label}</span>
-                <small>{blocked ? `One ${entry.label.toLowerCase()} per board` : entry.hint}</small>
-              </button>
-            )
-          })}
-          {LED_OUTPUT_ENTRIES.map((entry) => {
-            const needsDataPin = entry.form !== 'hub75'
-            const blocked = needsDataPin && nextLedPin === null
-            return (
-              <button
-                key={entry.form}
-                type="button"
-                role="menuitem"
-                className={styles.addMenuItem}
-                disabled={blocked}
-                onClick={() => addLedOutput(entry)}
-              >
-                <span>{LED_OUTPUT_FORM_LABELS[entry.form]}</span>
-                <small>
-                  {blocked
-                    ? 'No free GPIO on this board'
-                    : needsDataPin
-                      ? `${entry.hint} on pin ${nextLedPin}`
-                      : entry.hint}
-                </small>
-              </button>
-            )
-          })}
-        </div>
-      )}
 
       <div
         ref={stageRef}
