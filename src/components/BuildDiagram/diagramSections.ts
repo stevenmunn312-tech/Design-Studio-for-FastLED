@@ -50,8 +50,8 @@ export const BUILD_SECTIONS: BuildSection[] = [
   {
     id: 'audio',
     label: 'Audio',
-    summary: 'Controller I2S pins to the microphone breakout.',
-    kinds: ['mic-input'],
+    summary: 'Controller I2S pins to the microphone breakout and the show player’s audio module.',
+    kinds: ['mic-input', 'amplifier'],
     layers: { signalWires: true, levelShifter: false, powerDistribution: false },
   },
   {

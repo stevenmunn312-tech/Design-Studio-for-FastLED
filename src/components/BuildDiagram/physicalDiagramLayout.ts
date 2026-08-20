@@ -1,6 +1,7 @@
 import type { ElectricalPlanSummary } from '../../build/electricalPlan'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
 import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/powerDistribution'
+import { partById } from '../../state/partCatalogue'
 
 export type ItemLayout = {
   item: HardwareManifestItem
@@ -237,7 +238,22 @@ function isThreeVoltSd(item: HardwareManifestItem) {
   return item.kind === 'sd-card' && item.facts.partId === 'microsd-breakout-3v3'
 }
 
+/**
+ * An audio module's pads come from the part catalogue rather than from another
+ * hardcoded array here, because there are four of them and they agree on
+ * almost nothing: a MAX98357A has seven pads, a PAM8403 eleven, a PCM5102A six,
+ * a UDA1334A nine, in four different orders. The catalogue already carries each
+ * one's `pinLabelsLeftToRight`, measured off the part rather than guessed (see
+ * the hardware render workflow in CLAUDE.md), so swapping the module on the
+ * bench redraws the right pads for free.
+ */
+function amplifierPads(item: HardwareManifestItem): string[] {
+  const entry = partById(String(item.facts.partId ?? ''))
+  return entry?.pinLabelsLeftToRight?.length ? entry.pinLabelsLeftToRight : ['VCC', 'SIG', 'GND']
+}
+
 export function peripheralPadCount(item: HardwareManifestItem) {
+  if (item.kind === 'amplifier') return amplifierPads(item).length
   return item.kind === 'sd-card'
     ? isThreeVoltSd(item) ? 7 : 6
     : item.kind === 'encoder-input' ? 5 : item.kind === 'rtc-input' ? 4 : 3
@@ -245,6 +261,10 @@ export function peripheralPadCount(item: HardwareManifestItem) {
 
 /** Silkscreen names on the module renders, indexed the same as the pads. */
 export function peripheralPadLabel(item: HardwareManifestItem, padIndex: number) {
+  if (item.kind === 'amplifier') {
+    const pads = amplifierPads(item)
+    return pads[Math.min(Math.max(padIndex, 0), pads.length - 1)]
+  }
   const labels = item.kind === 'sd-card'
     ? isThreeVoltSd(item)
       ? ['CD', 'MISO', 'GND', 'SCK', '3V3', 'MOSI', 'CS']
@@ -257,23 +277,51 @@ export function peripheralPadLabel(item: HardwareManifestItem, padIndex: number)
   return labels[Math.min(Math.max(padIndex, 0), labels.length - 1)]
 }
 
+// Supply and ground are found by name on an audio module — every catalogued one
+// labels them, and no two put them in the same place.
+const AMP_POWER_LABELS = ['VIN', '+5V', 'VCC', '5V']
+const AMP_GROUND_LABEL = 'GND'
+
+function amplifierPadIndexByLabel(item: HardwareManifestItem, wanted: readonly string[]) {
+  const pads = amplifierPads(item)
+  const index = pads.findIndex((label) => wanted.includes(label.toUpperCase()))
+  return index >= 0 ? index : 0
+}
+
 export function peripheralPowerPadIndex(item: HardwareManifestItem) {
+  if (item.kind === 'amplifier') return amplifierPadIndexByLabel(item, AMP_POWER_LABELS)
   return item.kind === 'sd-card' ? (isThreeVoltSd(item) ? 4 : 1) : 0
 }
 
 export function peripheralGroundPadIndex(item: HardwareManifestItem) {
+  if (item.kind === 'amplifier') return amplifierPadIndexByLabel(item, [AMP_GROUND_LABEL])
   return item.kind === 'sd-card' ? (isThreeVoltSd(item) ? 2 : 0) : peripheralPadCount(item) - 1
 }
 
 /** Manifest order for SD is CS, SCK, MOSI, MISO; the two module variants put
  * those pads in different physical orders. */
 export function peripheralSignalPadIndex(item: HardwareManifestItem, signalIndex: number) {
+  if (item.kind === 'amplifier') {
+    // The manifest pushes BCLK, LRC, DOUT (or the two DAC line-in pins); find
+    // each on the module by the name it is silkscreened with.
+    const pads = amplifierPads(item).map((label) => label.toUpperCase())
+    const wanted = item.facts.input === 'analog'
+      ? [['LIN'], ['RIN']]
+      : [['BCLK', 'BCK', 'SCK'], ['LRC', 'LCK', 'WSEL'], ['DIN']]
+    const names = wanted[Math.min(Math.max(signalIndex, 0), wanted.length - 1)]
+    const index = pads.findIndex((label) => names.includes(label))
+    return index >= 0 ? index : Math.min(signalIndex + 1, pads.length - 1)
+  }
   if (item.kind !== 'sd-card') return signalIndex + 1
   const order = isThreeVoltSd(item) ? [6, 3, 5, 1] : [5, 4, 3, 2]
   return order[Math.min(Math.max(signalIndex, 0), order.length - 1)]
 }
 
 export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' {
+  // Audio modules take the 5 V rail: a class-D amp's output power comes from
+  // its supply, and 3.3 V would make it quiet rather than broken — the kind of
+  // wrong that reads as a bad speaker.
+  if (item.kind === 'amplifier') return 'v5'
   return item.kind === 'sd-card' && !isThreeVoltSd(item) ? 'v5' : 'v3v3'
 }
 

@@ -103,6 +103,41 @@ describe('hardwareManifest', () => {
     })
   })
 
+  it('draws the audio module, which the bench had but the diagram did not', () => {
+    // Its pins were already claimed by collectPinUses, which is exactly what
+    // made the omission hard to spot: the wires were reserved and the part was
+    // never drawn, so a show's amplifier showed up in the hardware view and
+    // vanished from the build the user was meant to wire from.
+    const manifest = buildHardwareManifest([
+      node('out', 'MatrixOutput', { width: 16, height: 16, chipset: 'WS2812B', dataPin: 14 }),
+      node('sd', 'SDCard', { sdCsPin: 5 }),
+      node('amp', 'Amplifier', { i2sBclk: 26, i2sLrc: 25, i2sDout: 22 }),
+    ], [], 'esp32:esp32:esp32')
+
+    const amp = manifest.items.find((item) => item.sourceNodeId === 'amp')
+    expect(amp?.kind).toBe('amplifier')
+    expect(amp?.supported).toBe(true)
+    expect(amp?.facts.partId).toBe('max98357a-i2s-amplifier')
+    expect(amp?.pins.map((pin) => pin.pin)).toEqual([26, 25, 22])
+    expect(manifest.primaryItems.some((item) => item.kind === 'amplifier')).toBe(true)
+  })
+
+  it('claims line-in pins for an analog amplifier, not I2S it cannot listen to', () => {
+    // A PAM8403 has no I2S receiver: the classic ESP32 hands it line level from
+    // its own DAC. Drawing three I2S wires to it would be a diagram of a build
+    // that cannot make a sound.
+    const manifest = buildHardwareManifest([
+      node('out', 'MatrixOutput', { width: 16, height: 16, chipset: 'WS2812B', dataPin: 14 }),
+      node('sd', 'SDCard', { sdCsPin: 5 }),
+      node('amp', 'Amplifier', { model: 'pam8403-3w-stereo-amplifier', i2sBclk: 26, i2sLrc: 25, i2sDout: 22 }),
+    ], [], 'esp32:esp32:esp32')
+
+    const amp = manifest.items.find((item) => item.sourceNodeId === 'amp')
+    expect(amp?.facts.input).toBe('analog')
+    expect(amp?.pins.map((pin) => pin.pin)).toEqual([25, 26])
+    expect(amp?.pins.every((pin) => pin.propertyKey === 'internalDac')).toBe(true)
+  })
+
   it('marks unsupported hardware explicitly instead of pretending to wire it', () => {
     const manifest = buildHardwareManifest([
       node('dmx', 'DMXInput', { inputMode: 'DMX512', dmxRxPin: 16 }),

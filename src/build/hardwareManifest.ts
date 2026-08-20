@@ -17,6 +17,7 @@ import {
 } from './boardProfiles'
 import { rtcI2cPinsForProfile } from '../state/rtcPins'
 import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
+import { resolvePartIdentity } from '../state/partOptions'
 
 export interface HardwarePinUse {
   label: string
@@ -55,7 +56,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'rtc-input' | 'sd-card' | 'button-input' | 'pot-input' | 'encoder-input' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -83,6 +84,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'EncoderInput',
   'RTCInput',
   'SDCard',
+  'Amplifier',
 ])
 
 const BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS = new Set([
@@ -238,11 +240,25 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
           push(node, `${baseLabel} internal DAC (GPIO26)`, 'internalDac', 26)
         }
         break
-      case 'Amplifier':
+      case 'Amplifier': {
+        /*
+         * An analog amplifier has no I2S receiver in it: the board hands it
+         * line level from its own DAC, on the two pins the library fixes. It
+         * claims those instead of three I2S pins it cannot listen to — the
+         * same split `audioOutputMode` makes, made here so the diagram draws
+         * the wires that actually exist.
+         */
+        const identity = resolvePartIdentity('Amplifier', props)
+        if (identity?.option.input === 'analog') {
+          push(node, `${baseLabel} line in (GPIO25)`, 'internalDac', 25)
+          push(node, `${baseLabel} line in (GPIO26)`, 'internalDac', 26)
+          break
+        }
         push(node, `${baseLabel} I2S BCLK`, 'i2sBclk', props.i2sBclk)
         push(node, `${baseLabel} I2S LRC`, 'i2sLrc', props.i2sLrc)
         push(node, `${baseLabel} I2S DOUT`, 'i2sDout', props.i2sDout)
         break
+      }
     }
   }
   return uses
@@ -334,6 +350,11 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
       && String((node.data.properties as Record<string, unknown>).timeSource ?? 'Compile Time') === 'DS3231')
     || node.data.nodeType === 'DMXInput'
     || node.data.nodeType === 'SDCard'
+    // Left out until now, so a bench with an amplifier on it drew everything
+    // except the thing making the sound. Its pins were already claimed by
+    // `collectPinUses`, which is what made the omission hard to see: the wires
+    // were reserved, the part was not drawn.
+    || node.data.nodeType === 'Amplifier'
   )
 
   const items = hardwareNodes.map((node) => {
@@ -383,6 +404,25 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           reasons: spiPins.length === 4
             ? undefined
             : ['The selected board does not have a reviewed default SPI bus for the SD card.'],
+        }
+      }
+      case 'Amplifier': {
+        const identity = resolvePartIdentity('Amplifier', node.data.properties as Record<string, unknown>)
+        const partId = identity?.option.id ?? 'max98357a-i2s-amplifier'
+        const analog = identity?.option.input === 'analog'
+        // Named by the module, not by the role: "Amplifier" on a bench holding
+        // a PCM5102A would be wrong twice over — it is a DAC, and it is line
+        // level. The part's own summary already says which.
+        return {
+          ...buildPeripheralItem(node, 'amplifier', identity?.option.summary ?? 'Audio output module', pins),
+          title: identity?.entry?.label ?? identity?.option.label ?? nodeLabel(node),
+          supported: analog
+            ? pins.some((pin) => pin.propertyKey === 'internalDac')
+            : ['i2sBclk', 'i2sLrc', 'i2sDout'].every((key) => pins.some((pin) => pin.propertyKey === key)),
+          facts: { partId, input: analog ? 'analog' : 'i2s' },
+          reasons: analog || pins.length === 3
+            ? undefined
+            : ['This audio module has no complete set of I2S pins configured.'],
         }
       }
       default:

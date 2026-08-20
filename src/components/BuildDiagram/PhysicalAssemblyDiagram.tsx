@@ -2,6 +2,7 @@ import type { ElectricalPlanSummary, OutputElectricalPlan } from '../../build/el
 import type { PhysicalBoardProfile } from '../../build/boardProfiles'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
 import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/powerDistribution'
+import { partRenderSrc } from '../../state/partCatalogue'
 import devKitCBoardRender from '../../assets/boards/esp32-s3-devkitc-1.webp'
 import esp32DevKitV1BoardRender from '../../assets/boards/esp32-devkit-v1-30pin.webp'
 import genericN16R8BoardRender from '../../assets/boards/generic-esp32-s3-n16r8-44pin.webp'
@@ -795,15 +796,23 @@ const PERIPHERAL_RENDERS: Partial<Record<HardwareManifestItem['kind'], { href: s
   'encoder-input': { href: encoderModuleRender, id: 'encoder-module' },
   'rtc-input': { href: '/parts/ds3231-rtc-module.webp', id: 'ds3231-rtc-module' },
   'sd-card': { href: '/parts/microsd-module-5v.webp', id: 'microsd-module-5v' },
+  amplifier: { href: '/parts/max98357a-i2s-amplifier.webp', id: 'max98357a-i2s-amplifier' },
 }
 
 function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; connections: PhysicalDiagramConnection[]; selected: boolean }) {
   const { x, y, item } = layout
+  // An audio module is drawn as the module that is on the bench — four parts
+  // share this kind and they do not look remotely alike.
+  const amplifierRenderFile = item.kind === 'amplifier'
+    ? partRenderSrc(String(item.facts.partId ?? 'max98357a-i2s-amplifier'))
+    : null
   const render = item.kind === 'rtc-input' && item.facts.partId === 'jaycar-xc9044-rtc-module'
     ? { href: '/parts/jaycar-xc9044-rtc-module.webp', id: 'jaycar-xc9044-rtc-module' }
     : item.kind === 'sd-card' && item.facts.partId === 'microsd-breakout-3v3'
       ? { href: '/parts/microsd-breakout-3v3.webp', id: 'microsd-breakout-3v3' }
-      : PERIPHERAL_RENDERS[item.kind]
+      : amplifierRenderFile
+        ? { href: amplifierRenderFile, id: String(item.facts.partId) }
+        : PERIPHERAL_RENDERS[item.kind]
   const padLabel = (index: number) => peripheralPadLabel(item, index)
   const powerPadIndex = peripheralPowerPadIndex(item)
   const groundPadIndex = peripheralGroundPadIndex(item)

@@ -91,6 +91,20 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
     keys: ['i2sBclk', 'i2sLrc', 'i2sDout'],
     peripheral: 'max98357',
     peripheralFields: ['bclk', 'lrc', 'din'],
+    /*
+     * Only a handful of profiles name a curated `max98357` pinout, and without
+     * a fallback the rest could not move this part at all: `next` came back
+     * null and the retarget skipped it, so changing board left the amplifier
+     * pointing at the old board's pins — sometimes at pads the new board does
+     * not bring out. Every other multi-pin part has a second answer (MicInput
+     * an FQBN default, RTC and SD a profile one); this had none.
+     *
+     * Three plain digital lines is the honest request. ESP32 I2S routes
+     * through the GPIO matrix, so the peripheral imposes nothing beyond
+     * "output-capable" — which is why the curated entries, where they exist,
+     * are a tidy choice rather than a hardware constraint.
+     */
+    requests: [{ key: 'i2sBclk' }, { key: 'i2sLrc' }, { key: 'i2sDout' }],
   },
   ButtonInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
   PotInput: { keys: ['pin'], requests: [{ key: 'pin', capability: 'analogInput' }] },

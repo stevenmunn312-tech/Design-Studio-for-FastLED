@@ -151,6 +151,34 @@ describe('retargetHardwarePins', () => {
     expect(result.nodes[0].data.properties).toMatchObject({ i2sWs: 7, i2sSck: 8, i2sSd: 9 })
   })
 
+  it('moves an amplifier onto a board whose profile names no amp pinout', () => {
+    // Only a handful of profiles carry a curated `max98357` entry, and this
+    // part had no second answer — so on every other board the retarget found
+    // nothing and skipped it, leaving the amplifier on the previous board's
+    // pins. Reported from a real bench: switching to an ESP32 DevKit v1 left
+    // the MAX98357A exactly where the 38-pin board had put it.
+    const nodes = [part('amp', 'Amplifier', withAssignedPins({}, { i2sBclk: 26, i2sLrc: 25, i2sDout: 22 }))]
+    const result = retargetHardwarePins(nodes, profile([21, 33, 32]), ESP32_S3)
+    const props = result.nodes[0].data.properties
+    for (const key of ['i2sBclk', 'i2sLrc', 'i2sDout']) {
+      expect([21, 33, 32], `${key} came from the new board's pool`).toContain(props[key])
+    }
+    expect(new Set([props.i2sBclk, props.i2sLrc, props.i2sDout]).size).toBe(3)
+    expect(result.moved).toBeGreaterThan(0)
+  })
+
+  it('still prefers a curated amp pinout when the profile has one', () => {
+    // The fallback is for boards that say nothing, and must not override the
+    // ones that do.
+    const withAmp = {
+      ...profile([21, 33, 32]),
+      peripheralPins: { max98357: { bclk: 5, lrc: 6, din: 7 } },
+    } as unknown as PhysicalBoardProfile
+    const nodes = [part('amp', 'Amplifier', withAssignedPins({}, { i2sBclk: 26, i2sLrc: 25, i2sDout: 22 }))]
+    const result = retargetHardwarePins(nodes, withAmp, ESP32_S3)
+    expect(result.nodes[0].data.properties).toMatchObject({ i2sBclk: 5, i2sLrc: 6, i2sDout: 7 })
+  })
+
   it('re-stamps what it moved, so the next board change still knows', () => {
     const nodes = [part('b', 'ButtonInput', withAssignedPins({}, { pin: 4 }))]
     const once = retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3)
