@@ -1365,8 +1365,10 @@ def _upload_result_lines(rc, phase, port):
 
 
 def _serial_send(port, payloads):
-    """Host side of the provisioner protocol: PING -> READY, then PUT each file in
-    CHUNK blocks with a per-block ack. Yields progress lines; returns True on ok."""
+    """Host side of the file-transfer protocol: PING -> READY, then PUT each file
+    in CHUNK blocks with a per-block ack. Yields progress lines; returns True on
+    ok. The device end is the player sketch (it carries the receiver itself);
+    the standalone provisioner speaks the same protocol."""
     try:
         import serial  # pyserial — lazy so the module still loads without it
     except ImportError:
@@ -1374,7 +1376,7 @@ def _serial_send(port, payloads):
         return False
 
     yield f"\n=== Transfer to SD ({len(payloads)} file(s)) ===\n"
-    time.sleep(2.0)  # let the board reboot into the freshly-flashed provisioner
+    time.sleep(2.0)  # let the board reboot into the freshly-flashed player
 
     ser = None
     for _ in range(5):
@@ -1401,13 +1403,15 @@ def _serial_send(port, payloads):
         ser.rts = False
         # Read the boot greeting before anything resets the input buffer.
         #
-        # The provisioner announces itself once at startup: "READY", or
-        # "ERR sd-mount-failed" if it could not mount the card — after which it
-        # halts and never answers a PING again. The retry loop below clears the
+        # A board that cannot mount the card prints "ERR sd-mount-failed" and
+        # halts, never answering a PING again. The retry loop below clears the
         # buffer before each attempt, which used to discard that line, so a card
         # that simply had no power produced ~165s of silence and a guess
         # ("did not report READY (SD mounted?)") when the board had already
         # said precisely what was wrong. Observed 2026-08-16.
+        #
+        # The player also greets with whatever it is doing ("Playing: …"), which
+        # is not READY — the PING loop below is what establishes contact.
         ser.timeout = 3
         greeting = line()
         ser.timeout = 20
@@ -1442,7 +1446,7 @@ def _serial_send(port, payloads):
         if not ready:
             detail = f" — last reply: {last}" if last else " — it sent nothing at all"
             yield (f"[error] the board never reported READY{detail}\n"
-                   "  If it sent nothing, check power and that the provisioner flashed.\n")
+                   "  If it sent nothing, check power and that the player flashed.\n")
             return False
 
         # Raise the link now that the board has proven it is alive. A song is
@@ -1472,7 +1476,7 @@ def _serial_send(port, payloads):
                 ser.reset_input_buffer()
                 yield "  [warn] board did not answer at the higher rate — continuing at 115200\n"
         else:
-            yield "  [warn] board kept the link at 115200 (older provisioner?)\n"
+            yield "  [warn] board kept the link at 115200 (older sketch?)\n"
 
         for path, data in payloads:
             yield f"  -> {path} ({len(data)} bytes)\n"
@@ -2492,15 +2496,21 @@ def compile_check(payload: dict = Body(...)):
 @app.post("/api/upload-show")
 async def upload_show(
     meta: str = Form(...),
-    provisioner: str = Form(...),
     player: str = Form(...),
     files: list[UploadFile] = File(default=[]),
+    provisioner: str = Form(default=""),
 ):
-    """Music-sync upload: flash the provisioner, stream the songs/shows onto the
-    SD card over serial, then compile + upload the player. Streams logs as text.
+    """Music-sync upload: compile + flash the player, then stream the songs and
+    shows onto the SD card through it. Streams logs as text.
 
     `meta` is JSON {"fqbn", "port", "paths": [...]} where `paths[i]` is the SD
     destination for `files[i]` (e.g. "/music/song.mp3", "/shows/song.show").
+
+    The player carries the file-receive protocol itself, so this is one build
+    and one flash. It used to be three: a pre-flight compile, a whole separate
+    provisioner sketch flashed purely to write the card, then the player over
+    the top. `provisioner` is accepted and ignored so an older frontend keeps
+    working; nothing is flashed from it.
     """
     engine = _active_engine()
     if engine == "fbuild" and not _FBUILD_BIN:
@@ -2541,45 +2551,32 @@ async def upload_show(
         return (yield from _compile_upload(label, sketch_dir, fqbn, use_port))
 
     def stream():
-        prov_work: list = [None]
         play_work: list = [None]
         try:
             if not port:
                 yield "[error] a serial port is required to write the SD card\n"
                 return
-            # Pre-flight the Player before anything slow or destructive.
+            # Flash the player first, then push the files through it.
             #
-            # The Player is by far the likeliest build to fail — every collected
+            # The player is by far the likeliest build to fail — every collected
             # pattern contributes static render buffers, and a classic ESP32
-            # runs out of DRAM well before it runs out of flash. It used to be
-            # compiled last, so a design that could never fit was discovered
-            # only after the provisioner had been flashed over the user's
-            # firmware and a multi-megabyte song had crossed the wire: twelve
-            # minutes to learn what a 45-second compile knew up front (observed
-            # 2026-08-16, overflow of 93,512 bytes).
+            # runs out of DRAM well before it runs out of flash. Building it
+            # first means a design that could never fit costs one compile to
+            # discover, with the board and the card both untouched. The old
+            # order learned the same thing only after flashing a provisioner
+            # over the user's firmware and pushing a multi-megabyte song across
+            # the wire: twelve minutes to find out (observed 2026-08-16).
             #
-            # Compiling first costs one extra build on the success path, since
-            # fbuild's shared scaffold is overwritten by the provisioner in
-            # between. That is a good trade against wasting the whole run.
-            preflight_rc, _ = yield from _build_flash("Player pre-flight", player, play_work, target_port="")
-            if preflight_rc != 0:
-                yield ("\n*** Player will not fit — stopping before the SD transfer ***\n"
-                       "  Nothing was flashed and the card was not touched.\n"
-                       "  Remove patterns from the collection or reduce the matrix size,\n"
-                       "  then try again.\n")
-                return
-            # Drop the pre-flight's temp dir now rather than nulling the slot —
-            # the real Player build reuses it, and the `finally` only ever sees
-            # whatever the last build left there.
-            if play_work[0]:
-                shutil.rmtree(play_work[0], ignore_errors=True)
-                play_work[0] = None
-
-            rc, phase = yield from _build_flash("Provisioner", provisioner, prov_work)
+            # It also means a failed transfer is now cheap to retry — the board
+            # is already running the receiver, so nothing needs rebuilding.
+            rc, phase = yield from _build_flash("Player", player, play_work)
             if rc != 0:
-                yield (f"\n*** Provisioner build failed (exit {rc}) — nothing was flashed ***\n"
+                yield (f"\n*** Player build failed (exit {rc}) — nothing was flashed "
+                       "and the card was not touched ***\n"
+                       "  Remove patterns from the collection or reduce the matrix size,\n"
+                       "  then try again.\n"
                        if phase == "compile" else
-                       f"\n*** Provisioner flash failed (exit {rc}) — if it couldn't connect, put "
+                       f"\n*** Player flash failed (exit {rc}) — if it couldn't connect, put "
                        "the board in download mode (hold BOOT, tap RST) and retry ***\n")
                 return
             # The transfer owns the port for minutes on a full song, so keep
@@ -2587,20 +2584,13 @@ async def upload_show(
             with _flashing():
                 ok = yield from _serial_send(port, payloads)
             if not ok:
-                yield "\n*** SD transfer failed — not flashing the player ***\n"
+                yield ("\n*** SD transfer failed — the player is flashed, so retrying "
+                       "sends the files again without another build ***\n")
                 return
-            rc, phase = yield from _build_flash("Player", player, play_work)
-            if rc == 0:
-                yield "\nAll done — songs/shows are on the card and the player is flashed.\n"
-            else:
-                yield (f"\n*** Player build failed (exit {rc}) — the board is still running the provisioner ***\n"
-                       if phase == "compile" else
-                       f"\n*** Player flash failed (exit {rc}) — if it couldn't connect, put the "
-                       "board in download mode (hold BOOT, tap RST) and retry ***\n")
+            yield "\nAll done — songs/shows are on the card and the player is flashed.\n"
         finally:
-            for w in (prov_work[0], play_work[0]):
-                if w:
-                    shutil.rmtree(w, ignore_errors=True)
+            if play_work[0]:
+                shutil.rmtree(play_work[0], ignore_errors=True)
 
     return StreamingResponse(stream(), media_type="text/plain")
 

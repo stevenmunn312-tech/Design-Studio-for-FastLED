@@ -353,18 +353,17 @@ export interface ShowUploadFile {
 }
 
 /**
- * Music-sync upload: flash the provisioner, stream the songs/shows onto the SD
- * card over serial, then flash the player — all in one helper call, streaming
- * logs to `onLog`.
+ * Music-sync upload: flash the player, then stream the songs/shows onto the SD
+ * card through it — one helper call, streaming logs to `onLog`. The player
+ * carries the file-receive protocol, so this is one build and one flash.
  */
 export async function uploadShow(
-  opts: { fqbn: string; port: string; provisioner: string; player: string; files: ShowUploadFile[] },
+  opts: { fqbn: string; port: string; player: string; files: ShowUploadFile[] },
   onLog: (chunk: string) => void,
   signal?: AbortSignal,
 ): Promise<void> {
   const form = new FormData()
   form.append('meta', JSON.stringify({ fqbn: opts.fqbn, port: opts.port, paths: opts.files.map((f) => f.path) }))
-  form.append('provisioner', opts.provisioner)
   form.append('player', opts.player)
   for (const f of opts.files) form.append('files', f.data, f.path.split('/').pop() ?? 'file')
   const res = await fetch(`${BACKEND_URL}/api/upload-show`, { method: 'POST', body: form, signal })

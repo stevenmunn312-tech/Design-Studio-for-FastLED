@@ -353,7 +353,7 @@ interface UploadState {
   // which shouldn't clobber the cached pattern sketch.
   runUpload: (code: string, fqbnOpt?: string, opts?: { cache?: boolean }) => Promise<void>
   runLastUpload: () => Promise<void>
-  runShowUpload: (payload: { provisioner: string; player: string; files: ShowUploadFile[] }) => Promise<void>
+  runShowUpload: (payload: { player: string; files: ShowUploadFile[] }) => Promise<void>
   exportIno: (code: string, filename?: string) => void
   locate: (path: string) => Promise<{ ok: boolean; error?: string }>
   installCli: () => Promise<void>

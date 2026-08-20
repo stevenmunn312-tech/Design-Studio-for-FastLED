@@ -1,7 +1,11 @@
-"""Music-sync `/api/upload-show` failure phases: provisioner compile fail,
-provisioner upload fail, SD-transfer fail, player compile fail, player upload
-fail, and the full success path — each must stop at the right step and never
-run a step that would touch hardware once an earlier one has failed.
+"""Music-sync `/api/upload-show` phases: player compile fail, player upload
+fail, SD-transfer fail, and the success path — each must stop at the right step
+and never run a step that would touch hardware once an earlier one has failed.
+
+The player carries the file-receive protocol itself, so this is one build and
+one flash followed by the transfer. There is no provisioner sketch and no
+separate pre-flight compile: building the player *is* the pre-flight, and a
+build that fails leaves both the board and the card untouched.
 
 `_compile_upload_fbuild`/`_serial_send`/`_ensure_fbuild_audio_lib` are all
 generator functions (their real implementations `yield` progress lines and
@@ -41,172 +45,102 @@ def test_upload_show_reports_when_no_port_given(client, monkeypatch):
     monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
     r = client.post(
         "/api/upload-show",
-        data={"meta": "{}", "provisioner": "prov-ino", "player": "player-ino"},
+        data={"meta": "{}", "player": "player-ino"},
     )
     assert r.status_code == 200
     assert "a serial port is required" in r.text
 
 
-def test_provisioner_compile_failure_stops_before_sd_transfer(client, monkeypatch):
+def _setup(monkeypatch, compile_fake, transfer_ok=True):
     monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
     monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
     monkeypatch.setattr(app, "_ensure_fbuild_audio_lib", _fake_generator(None))
-    fake_compile = _compile_sequence({"Player pre-flight": (0, "compile"), "Provisioner": (1, "compile")})
-    monkeypatch.setattr(app, "_compile_upload_fbuild", fake_compile)
+    monkeypatch.setattr(app, "_compile_upload_fbuild", compile_fake)
+    monkeypatch.setattr(app, "_serial_send", _fake_generator(transfer_ok))
 
-    def _boom(*a, **kw):
-        raise AssertionError("SD transfer must not start when the provisioner failed to compile")
-    monkeypatch.setattr(app, "_serial_send", _boom)
 
-    r = client.post(
+def _post(client):
+    return client.post(
         "/api/upload-show",
-        data={"meta": '{"port": "COM7"}', "provisioner": "prov-ino", "player": "player-ino"},
+        data={"meta": '{"port": "COM7"}', "player": "player-ino"},
     )
-    assert "Provisioner build failed" in r.text
-    assert "nothing was flashed" in r.text
-    assert fake_compile.calls == ["Player pre-flight", "Provisioner"]
 
 
-def test_provisioner_upload_failure_stops_before_sd_transfer(client, monkeypatch):
-    monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
-    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
-    monkeypatch.setattr(app, "_ensure_fbuild_audio_lib", _fake_generator(None))
-    fake_compile = _compile_sequence({"Player pre-flight": (0, "compile"), "Provisioner": (1, "upload")})
-    monkeypatch.setattr(app, "_compile_upload_fbuild", fake_compile)
+def test_player_compile_failure_touches_neither_board_nor_card(client, monkeypatch):
+    # The whole reason the player is built first: a design that cannot fit is
+    # the likeliest failure, and discovering it must cost one compile — not a
+    # flash over the user's firmware plus a multi-megabyte transfer.
+    fake = _compile_sequence({"Player": (1, "compile")})
+    _setup(monkeypatch, fake)
+    sent = []
 
-    def _boom(*a, **kw):
-        raise AssertionError("SD transfer must not start when the provisioner failed to flash")
-    monkeypatch.setattr(app, "_serial_send", _boom)
+    def send_fake(port, payloads):
+        sent.append(port)
+        if False:
+            yield  # pragma: no cover
+        return True
 
-    r = client.post(
-        "/api/upload-show",
-        data={"meta": '{"port": "COM7"}', "provisioner": "prov-ino", "player": "player-ino"},
-    )
-    assert "Provisioner flash failed" in r.text
-    assert "download mode" in r.text
-    assert fake_compile.calls == ["Player pre-flight", "Provisioner"]
+    monkeypatch.setattr(app, "_serial_send", send_fake)
 
-
-def test_sd_transfer_failure_stops_before_player_build(client, monkeypatch):
-    monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
-    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
-    monkeypatch.setattr(app, "_ensure_fbuild_audio_lib", _fake_generator(None))
-    fake_compile = _compile_sequence({"Player pre-flight": (0, "compile"), "Provisioner": (0, "upload")})
-    monkeypatch.setattr(app, "_compile_upload_fbuild", fake_compile)
-    monkeypatch.setattr(app, "_serial_send", _fake_generator(False))
-
-    r = client.post(
-        "/api/upload-show",
-        data={"meta": '{"port": "COM7"}', "provisioner": "prov-ino", "player": "player-ino"},
-    )
-    assert "SD transfer failed" in r.text
-    assert "not flashing the player" in r.text
-    assert fake_compile.calls == ["Player pre-flight", "Provisioner"]  # real Player build never attempted
+    r = _post(client)
+    assert "nothing was flashed" in r.text and "card was not touched" in r.text
+    assert sent == []
 
 
-def test_player_compile_failure_message(client, monkeypatch):
-    monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
-    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
-    monkeypatch.setattr(app, "_ensure_fbuild_audio_lib", _fake_generator(None))
-    fake_compile = _compile_sequence({"Player pre-flight": (0, "compile"), "Provisioner": (0, "upload"), "Player": (1, "compile")})
-    monkeypatch.setattr(app, "_compile_upload_fbuild", fake_compile)
-    monkeypatch.setattr(app, "_serial_send", _fake_generator(True))
-
-    r = client.post(
-        "/api/upload-show",
-        data={"meta": '{"port": "COM7"}', "provisioner": "prov-ino", "player": "player-ino"},
-    )
-    assert "Player build failed" in r.text
-    assert "still running the provisioner" in r.text
-    assert fake_compile.calls == ["Player pre-flight", "Provisioner", "Player"]
-
-
-def test_player_upload_failure_message(client, monkeypatch):
-    monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
-    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
-    monkeypatch.setattr(app, "_ensure_fbuild_audio_lib", _fake_generator(None))
-    fake_compile = _compile_sequence({"Player pre-flight": (0, "compile"), "Provisioner": (0, "upload"), "Player": (1, "upload")})
-    monkeypatch.setattr(app, "_compile_upload_fbuild", fake_compile)
-    monkeypatch.setattr(app, "_serial_send", _fake_generator(True))
-
-    r = client.post(
-        "/api/upload-show",
-        data={"meta": '{"port": "COM7"}', "provisioner": "prov-ino", "player": "player-ino"},
-    )
+def test_player_upload_failure_suggests_download_mode(client, monkeypatch):
+    _setup(monkeypatch, _compile_sequence({"Player": (1, "upload")}))
+    r = _post(client)
     assert "Player flash failed" in r.text
     assert "download mode" in r.text
-    assert fake_compile.calls == ["Player pre-flight", "Provisioner", "Player"]
 
 
-def test_full_pipeline_success(client, monkeypatch):
-    monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
-    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
-    monkeypatch.setattr(app, "_ensure_fbuild_audio_lib", _fake_generator(None))
-    fake_compile = _compile_sequence({"Player pre-flight": (0, "compile"), "Provisioner": (0, "upload"), "Player": (0, "upload")})
-    monkeypatch.setattr(app, "_compile_upload_fbuild", fake_compile)
-    monkeypatch.setattr(app, "_serial_send", _fake_generator(True))
-
-    r = client.post(
-        "/api/upload-show",
-        data={"meta": '{"port": "COM7"}', "provisioner": "prov-ino", "player": "player-ino"},
-    )
-    assert "All done" in r.text
-    assert fake_compile.calls == ["Player pre-flight", "Provisioner", "Player"]
+def test_sd_transfer_failure_says_a_retry_needs_no_rebuild(client, monkeypatch):
+    # The board is already running the receiver, which is the point of merging
+    # it in — a retry re-sends the files with no build at all.
+    fake = _compile_sequence({"Player": (0, "upload")})
+    _setup(monkeypatch, fake, transfer_ok=False)
+    r = _post(client)
+    assert "SD transfer failed" in r.text
+    assert "without another build" in r.text
 
 
-def test_player_preflight_stops_before_flashing_or_transferring(client, monkeypatch):
-    # The Player is the likeliest build to fail — every collected pattern adds
-    # static render buffers, and a classic ESP32 exhausts DRAM long before
-    # flash. It used to be built last, so an over-size design was discovered
-    # only after the provisioner had overwritten the user's firmware and a
-    # multi-megabyte song had crossed the wire at 115200: twelve minutes to
-    # learn what a 45-second compile knew up front (hardware, 2026-08-16,
-    # dram0_0_seg overflowed by 93,512 bytes).
-    monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
-    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
-    monkeypatch.setattr(app, "_ensure_fbuild_audio_lib", _fake_generator(None))
-    fake_compile = _compile_sequence({"Player pre-flight": (1, "compile")})
-    monkeypatch.setattr(app, "_compile_upload_fbuild", fake_compile)
+def test_success_is_one_build_flashed_to_the_port_then_the_transfer(client, monkeypatch):
+    order = []
 
-    def _boom(*a, **kw):
-        raise AssertionError("nothing may touch the board when the player cannot fit")
-    monkeypatch.setattr(app, "_serial_send", _boom)
-
-    r = client.post(
-        "/api/upload-show",
-        data={"meta": '{"port": "COM7"}', "provisioner": "prov-ino", "player": "player-ino"},
-    )
-    assert "Player will not fit" in r.text
-    assert "the card was not touched" in r.text
-    # The provisioner must never be flashed: leaving the board running it, with
-    # the user's own firmware gone, is a worse end state than doing nothing.
-    assert fake_compile.calls == ["Player pre-flight"]
-
-
-def test_player_preflight_compiles_without_flashing(client, monkeypatch):
-    # The pre-flight must compile only. Handing it the port would flash a
-    # player onto the board before its songs and shows exist on the card.
-    ports = {}
-
-    def fake(label, ino, fqbn, port):
-        ports[label] = port
+    def compile_fake(label, ino, fqbn, port):
+        order.append((label, port))
         if False:
             yield  # pragma: no cover
         return (0, "upload")
 
+    def send_fake(port, payloads):
+        order.append(("transfer", port))
+        if False:
+            yield  # pragma: no cover
+        return True
+
     monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
     monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
     monkeypatch.setattr(app, "_ensure_fbuild_audio_lib", _fake_generator(None))
-    monkeypatch.setattr(app, "_compile_upload_fbuild", fake)
-    monkeypatch.setattr(app, "_serial_send", _fake_generator(True))
+    monkeypatch.setattr(app, "_compile_upload_fbuild", compile_fake)
+    monkeypatch.setattr(app, "_serial_send", send_fake)
 
-    client.post(
+    r = _post(client)
+    # One build, flashed to the real port, and the transfer runs through it.
+    assert order == [("Player", "COM7"), ("transfer", "COM7")]
+    assert "All done" in r.text
+
+
+def test_a_provisioner_field_from_an_older_frontend_is_ignored(client, monkeypatch):
+    # Accepted so an older client keeps working, but nothing is built from it.
+    fake = _compile_sequence({"Player": (0, "upload")})
+    _setup(monkeypatch, fake)
+    r = client.post(
         "/api/upload-show",
-        data={"meta": '{"port": "COM7"}', "provisioner": "prov-ino", "player": "player-ino"},
+        data={"meta": '{"port": "COM7"}', "player": "player-ino", "provisioner": "prov-ino"},
     )
-    assert ports["Player pre-flight"] == ""
-    assert ports["Provisioner"] == "COM7"
-    assert ports["Player"] == "COM7"
+    assert r.status_code == 200
+    assert fake.calls == ["Player"]
 
 
 class _GreetingSerial:

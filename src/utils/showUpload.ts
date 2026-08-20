@@ -1,12 +1,14 @@
 // Assembles the music-sync upload payload from the graph and the analysed songs:
-// the provisioner + player sketches and the SD file list (/music/*.mp3 +
-// /shows/*.show). Used by the Build & Upload panel when an SDCard node is wired
-// into MatrixOutput.
+// the player sketch and the SD file list (/music/*.mp3 + /shows/*.show). Used
+// by the Build & Upload panel when an SDCard node is wired into MatrixOutput.
+//
+// There is no provisioner sketch here any more: the player carries the
+// file-receive protocol itself, so the helper flashes it once and pushes the
+// files through it.
 
 import type { StudioNode, StudioNodeData } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import type { MusicEntry } from '../state/musicStore'
-import { generateProvisionerSketch } from '../codegen/provisionerSketchGenerator'
 import { generatePlayerSketch, playerConfigFromGraph } from '../codegen/playerSketchGenerator'
 import { buildPatternRenderers } from '../codegen/showGenerator'
 import { showFileToBinary } from '../codegen/performanceGenerator'
@@ -37,20 +39,17 @@ export function readySongCount(entries: MusicEntry[]): number {
 const safeTitle = (s: string) => s.replace(/[^a-zA-Z0-9_\- ]/g, '_')
 
 /**
- * Build the provisioner + player sketches and the SD file list. Returns null
- * when there are no analysed songs to upload. The player reads `/music/*.mp3`
- * and the matching `/shows/<name>.show`, so both share the song's safe title.
+ * Build the player sketch and the SD file list. Returns null when there are no
+ * analysed songs to upload. The player reads `/music/*.mp3` and the matching
+ * `/shows/<name>.show`, so both share the song's safe title.
  */
 export function buildShowPayload(
   nodes: StudioNode[],
   entries: MusicEntry[],
   groups: GroupRegistry = {},
-): { provisioner: string; player: string; files: ShowUploadFile[] } | null {
+): { player: string; files: ShowUploadFile[] } | null {
   const done = entries.filter((e) => e.status === 'done' && e.show)
   if (done.length === 0) return null
-
-  const sd = (nodes.find((n) => nodeType(n) === 'SDCard')?.data as StudioNodeData | undefined)?.properties ?? {}
-  const provisioner = generateProvisionerSketch({ sdCsPin: Number(sd.sdCsPin ?? 10) })
 
   // A collection (version 2) show carries its pattern group ids in patternSet;
   // compile those subgraphs into render_pN() so the player draws the user's own
@@ -81,5 +80,5 @@ export function buildShowPayload(
     files.push({ path: `/music/${title}.mp3`, data: e.file })
     files.push({ path: `/shows/${title}.show`, data: new Blob([showFileToBinary(e.show!)]) })
   }
-  return { provisioner, player, files }
+  return { player, files }
 }

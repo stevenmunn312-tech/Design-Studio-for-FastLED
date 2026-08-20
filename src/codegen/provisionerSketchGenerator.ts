@@ -1,6 +1,10 @@
-// Generates the ESP32 "provisioner" sketch — a tiny firmware flashed *before*
-// the player so Design Studio for FastLED can load songs (/music) and shows (/shows) onto
-// the SD card over USB serial, then flash the player on top.
+// Generates the ESP32 "provisioner" sketch — a tiny firmware that loads songs
+// (/music) and shows (/shows) onto the SD card over USB serial.
+//
+// NOTHING CALLS THIS ANY MORE. The player carries the same receiver itself, so
+// the upload is one build and one flash instead of three. This file is kept
+// only until that merged path is hardware-validated; delete it (and its tests)
+// once it is, rather than letting a second copy of the protocol drift.
 //
 // ── Wire protocol (host → device) ─────────────────────────────────────────────
 // Newline-terminated ASCII control lines, with raw binary payloads in between.

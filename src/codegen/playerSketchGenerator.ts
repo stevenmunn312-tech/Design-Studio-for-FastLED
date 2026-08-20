@@ -747,12 +747,26 @@ static bool provReceive(const String& path, uint32_t size) {
  * Costs a single Serial.available() per loop while a show plays, so this is
  * free in the common case.
  */
+/*
+ * End a transfer session and put the link back to 115200.
+ *
+ * The heartbeat resumes after this, and a serial monitor opened by hand is at
+ * 115200 — leaving the UART raised would turn every status line into garbage
+ * for a user who never asked for the fast link in the first place.
+ */
+static void provEndSession() {
+  provTransferring = false;
+  Serial.flush();
+  delay(50);
+  Serial.updateBaudRate(115200);
+}
+
 void provServiceSerial() {
   // A host that dies mid-protocol never sends END, and the board would stay
   // silent forever waiting for it. Give up and resume normal life.
   if (provTransferring && millis() - provLastCommandMs > PROV_SESSION_TIMEOUT_MS) {
-    provTransferring = false;
     Serial.println("ERR session-timeout");
+    provEndSession();
     startPlayback();
   }
 
@@ -782,9 +796,24 @@ void provServiceSerial() {
     return;
   }
 
+  if (line.startsWith("BAUD ")) {
+    // The host raises the link once the handshake proves the board is alive.
+    // Boot stays at 115200 so first contact can never be the thing that fails,
+    // and the host verifies the new rate with a PING before trusting it.
+    uint32_t rate = (uint32_t) strtoul(line.substring(5).c_str(), nullptr, 10);
+    if (rate < 9600) { Serial.println("ERR bad-baud"); return; }
+    Serial.println("OK");
+    Serial.flush();          // let "OK" leave at the old rate before switching
+    delay(50);
+    Serial.updateBaudRate(rate);
+    return;
+  }
+
   if (line == "END") {
-    provTransferring = false;
+    // "BYE" first: the host is still listening at whatever rate BAUD raised the
+    // link to, and dropping back before the reply lands turns it into garbage.
     Serial.println("BYE");
+    provEndSession();
     startPlayback();   // the card changed underneath us; pick a track again
     return;
   }
@@ -800,7 +829,11 @@ void setup() {
 
 ${ledSetupLines}
 
-  if (!SD.begin(SD_CS)) { Serial.println("SD mount failed"); while(1); }
+  // The protocol's own wording, not a human sentence: the host reads this
+  // greeting and turns it into a real explanation (card seated? FAT32? CS pin?).
+  // Halting is deliberate — with no card there is nothing to play and nowhere
+  // to receive, so answering the host would only hide the fault.
+  if (!SD.begin(SD_CS)) { Serial.println("ERR sd-mount-failed"); while(1); }
 
   ${internalDac ? '' : 'audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);'}
   audio.setVolume(${c.maxVolume});
@@ -813,6 +846,12 @@ void loop() {
   // Accepting new show files is checked before anything else, so a board that
   // found nothing playable still answers the host instead of sitting mute.
   provServiceSerial();
+
+  // Nothing else runs mid-transfer. Rendering ends in FastLED.show(), and its
+  // interrupts-disabled window is exactly what drops a UART byte — the whole
+  // reason the reads below are bounded. There is no playback to sync against
+  // during a transfer anyway, so the panel simply holds its last frame.
+  if (provTransferring) return;
 
   // Heartbeat so a serial monitor can tell "still running, just quiet" apart
   // from "hung" — printed before audio.loop() so it keeps ticking even if

@@ -292,6 +292,42 @@ Once the pattern is proven, everything physical moves to the hardware view.
   (`isHub75` requires a single route, and `findHub75ConfigIssues` blocks the
   mixed case). "All outputs in one upload" is an addressable-output promise.
 
+- [x] **The player receives its own show files.** SD upload was three build
+  steps: a pre-flight compile of the player, a whole separate provisioner
+  sketch flashed purely to write the card, then the player flashed over the
+  top. The player now carries the same receive protocol, so it is one build and
+  one flash, and the files go through the running board.
+
+  The transfer was never the slow part — two compile-and-flash cycles were. A
+  failed transfer is also cheap now: the receiver is already on the board, so a
+  retry re-sends the files with no build at all.
+
+  **Every read is bounded**, which the standalone provisioner's were not. It
+  got away with spinning on `Serial.available()` because it never drove LEDs;
+  the player calls `FastLED.show()`, whose interrupts-disabled window is
+  exactly what desynced the Adalight stream receiver — permanently, with
+  nothing visible to the host. Three timeouts: 50 ms on a control line, 3 s
+  mid-block (deleting the partial file, since a truncated `.show` is worse than
+  none), 30 s on a host that dies without sending `END`. The render loop is
+  also held off entirely while transferring, so that interrupt window never
+  opens mid-protocol.
+
+  Track selection moved out of `setup()` into `startPlayback()` so a transfer
+  can pick a track again afterwards — a board that arrived with an empty card
+  would otherwise sit on "no playable track" until power-cycled. `BAUD` came
+  across too (without it a song is ~11 minutes at 115200) and the link drops
+  back to 115200 on `END`, or a hand-opened serial monitor sees garbage.
+
+  `provisionerSketchGenerator.ts` is now unreferenced. It is kept, with a
+  header saying so, only until the merged path is hardware-validated — then it
+  and its tests should go, rather than leaving a second copy of the protocol to
+  drift. `/api/upload-show` still accepts and ignores a `provisioner` field so
+  an older frontend keeps working.
+
+  **Not hardware-validated.** The whole SD-show path is blocked behind the
+  MAX98357A fault below, so this rides along with that retest.
+
+
 ## Phase 4 — the Audio capability
 
 - [ ] **`Audio` node.** Source dropdown over the board's capabilities, honest

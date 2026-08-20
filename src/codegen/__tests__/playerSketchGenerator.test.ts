@@ -33,6 +33,31 @@ describe('playerSketchGenerator', () => {
       expect(sketch).toContain('millis() - provLastCommandMs > PROV_SESSION_TIMEOUT_MS')
     })
 
+    it('raises the link on request, and puts it back afterwards', () => {
+      // A song is megabytes; at 115200 that is ~11 minutes, which makes the
+      // feature unusable. Boot stays slow so first contact can never be what
+      // fails, and the host verifies the new rate with a PING before trusting
+      // it.
+      expect(sketch).toContain('if (line.startsWith("BAUD ")) {')
+      expect(sketch).toContain('Serial.updateBaudRate(rate);')
+      // ...and back down at the end, or the status heartbeat becomes garbage
+      // in a serial monitor the user opened at 115200.
+      expect(sketch).toContain('Serial.updateBaudRate(115200);')
+    })
+
+    it('holds the render loop while a transfer is running', () => {
+      // Rendering ends in FastLED.show(), whose interrupts-disabled window is
+      // the thing that drops UART bytes in the first place.
+      expect(sketch).toContain('if (provTransferring) return;')
+    })
+
+    it('reports a mount failure in the wording the host diagnoses', () => {
+      // The host turns this exact string into a real explanation (card seated?
+      // FAT32? CS pin?); a human sentence here would be passed through as an
+      // unrecognised greeting instead.
+      expect(sketch).toContain('Serial.println("ERR sd-mount-failed"); while(1);')
+    })
+
     it('sizes the RX buffer before begin(), where the driver reads it', () => {
       const rx = sketch.indexOf('Serial.setRxBufferSize(PROV_RX_BUFFER);')
       expect(rx).toBeGreaterThan(-1)
@@ -44,7 +69,12 @@ describe('playerSketchGenerator', () => {
       // again — a board that arrived with an empty card would otherwise stay
       // on "no playable track" until power-cycled.
       expect(sketch).toContain('bool startPlayback() {')
-      expect(sketch).toMatch(/Serial\.println\("BYE"\);\s*\n\s*startPlayback\(\);/)
+      // "BYE" leaves before the link drops back to 115200 — the host is still
+      // listening at whatever rate BAUD raised it to, and reordering these two
+      // turns the reply it is waiting on into garbage.
+      expect(sketch).toMatch(
+        /Serial\.println\("BYE"\);\n\s*provEndSession\(\);\n\s*startPlayback\(\);/,
+      )
       // The heartbeat is line-based like the protocol's own replies, so it
       // must not interleave with them.
       expect(sketch).toContain('if (!provTransferring && millis() - _dbgLast >= 2000) {')
