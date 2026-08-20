@@ -50,6 +50,25 @@ describe('starterTemplates', () => {
       .toEqual(['audio-spectrum'])
   })
 
+  it('puts every part the SD player drives on the bench, and wires the show to one of them', () => {
+    // The player is a whole firmware for a whole board: it reads the card,
+    // turns the song into sound, and drives the LEDs. If a part is not on the
+    // hardware view it does not exist in the generated output, so a starter
+    // that omitted one produced a board that lit nothing, played nothing, or
+    // both — and the generator filled the gap by scanning for whichever
+    // MatrixOutput came first and assuming an audio path from the board.
+    const { nodes, edges } = STARTER_TEMPLATES.find((t) => t.id === 'music-sync-sd-show')!.build()
+    const types = nodes.map((n) => (n.data as StudioNodeData).nodeType)
+    expect(types).toContain('SDCard')
+    expect(types).toContain('Amplifier')
+    expect(types).toContain('MatrixOutput')
+
+    const generator = nodes.find((n) => (n.data as StudioNodeData).nodeType === 'PerformanceGenerator')!
+    const output = nodes.find((n) => (n.data as StudioNodeData).nodeType === 'MatrixOutput')!
+    expect(edges.some((e) => e.source === generator.id && e.target === output.id
+      && e.sourceHandle === 'frame' && e.targetHandle === 'frame')).toBe(true)
+  })
+
   for (const template of STARTER_TEMPLATES) {
     it(`"${template.name}" builds a well-formed, type-compatible graph`, () => {
       const { nodes, edges } = template.build()

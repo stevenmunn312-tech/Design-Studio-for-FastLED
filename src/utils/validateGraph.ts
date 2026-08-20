@@ -639,19 +639,27 @@ export function findShowOutputFormErrors(nodes: StudioNode[], edges: StudioEdge[
 }
 
 /**
- * What a music-sync show needs before it can be built.
+ * What a music-sync show needs on the bench before it can be built.
  *
  * The player is a whole firmware for a whole board: it reads the card, decodes
- * the audio, and drives the LEDs. Each of those needs a part named on the
- * bench, and until this existed the generator filled the gaps by scanning and
- * defaulting — the LED output was whichever MatrixOutput came first in the node
- * array, or a hardcoded 16x16 WS2812B on GPIO18 if there was none at all. A
- * board flashed from those assumptions lights nothing and explains nothing.
+ * the song, turns it into sound, and drives the LEDs. Every one of those is a
+ * physical thing, and every one of them has to be named — until this existed
+ * the generator filled the gaps by scanning and defaulting, so the LED output
+ * was whichever MatrixOutput came first in the node array (or a hardcoded 16x16
+ * WS2812B on GPIO18 when there was none), and the audio path was inferred from
+ * whatever the board could theoretically do. A board flashed from those
+ * assumptions lights nothing, plays nothing, and explains neither.
+ *
+ * The bench is also how the player will learn to talk to parts it does not know
+ * about yet: an audio module is a declared part with a model, so a new one is a
+ * new entry in the catalogue rather than a new guess here.
  *
  * Reported per missing piece rather than as one "show is incomplete", because
  * each one is a different thing to go and do.
  */
-export function findShowTargetErrors(nodes: StudioNode[], edges: StudioEdge[]): string[] {
+export function findShowRequirementErrors(
+  nodes: StudioNode[], edges: StudioEdge[], selectedFqbn = '',
+): string[] {
   const generator = nodes.find((node) => node.data.nodeType === 'PerformanceGenerator')
   if (!generator) return []
   const errors: string[] = []
@@ -669,6 +677,19 @@ export function findShowTargetErrors(nodes: StudioNode[], edges: StudioEdge[]): 
   // no case for this node, so the LEDs would simply stay dark.
   if (!nodes.some((node) => node.data.nodeType === 'SDCard')) {
     errors.push('The music show has no SD Card — add one in the hardware view, since the player reads the song and the timed show file from the card at runtime')
+  }
+
+  // Nothing on the bench turns the decoded song into sound. The board's own
+  // pins are not an answer: an I2S amplifier, an I2S DAC and an analog amp are
+  // three different parts, wired three different ways, and the player has to
+  // emit code for the one that is actually there. Inferring it from what the
+  // board *could* do meant a graph with no audio module at all still generated
+  // a confident I2S sketch (or a DAC one) for hardware nobody had described.
+  const amplifier = nodes.find((node) => node.data.nodeType === 'Amplifier')
+  if (!amplifier) {
+    errors.push('The music show has nothing to play the song through — add an Amplifier in the hardware view (a MAX98357A drives a speaker directly; an I2S DAC or analog amp are the other shapes)')
+  } else if (audioOutputMissing(nodes, selectedFqbn)) {
+    errors.push('The SD show\'s audio module cannot make a sound on this board — an analog amplifier needs line level from an internal DAC, which only the classic ESP32 has')
   }
 
   return errors
@@ -809,14 +830,12 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
    * `internalDac` is only ever chosen on a board that has one. The check went
    * with the property — a rule the model cannot express needs no validation.
    *
-   * What is still possible is the opposite: a card full of music and nothing to
-   * play it through. An S3 has no DAC to fall back on, so without an amplifier
-   * the show uploads, runs, and makes no sound — which looks like a broken
-   * build rather than a missing part.
+   * "A card full of music and nothing to play it through" moved too, to
+   * `findShowRequirementErrors`, which now asks for the audio module outright
+   * rather than only when the board has no DAC to fall back on. Both live there
+   * so a show reports its missing parts in one place, and so the two rules
+   * cannot both fire for one bench.
    */
-  if (audioOutputMissing(nodes, selectedFqbn)) {
-    errors.push('The SD show has no audio output — add an Amplifier in the hardware view, or use a classic ESP32, which can fall back to its built-in DAC')
-  }
   // ESP32-HUB75-MatrixPanel-DMA needs the ESP32/S2/S3 'LCD mode' DMA
   // peripheral; RISC-V ESP32 variants (C3/C6/H2) have no such hardware, per
   // the library's own supported-variants list — confirmed against its README
@@ -1261,21 +1280,6 @@ export function buildGraphDiagnostics(
     }
   }
 
-  // The old "internal DAC on a board without one" diagnostic is gone with the
-  // property that made it possible; the reachable problem is having no output
-  // stage at all. See the matching note in findBoardCompatibilityErrors.
-  if (audioOutputMissing(nodes, options.selectedFqbn ?? '')) {
-    for (const node of nodes.filter((entry) => entry.data.nodeType === 'SDCard')) {
-      diagnostics.push({
-        id: `${node.id}-audio-out`, severity: 'error', category: 'board',
-        title: 'The SD show has no audio output',
-        message: 'Nothing on the bench turns the decoded song into sound, and this board has no built-in DAC to fall back on.',
-        fix: 'Add an Amplifier in the hardware view, or choose a classic ESP32, whose internal DAC can drive a small speaker directly.',
-        nodeIds: [node.id], nodeLabel: nodeLabel(node),
-      })
-    }
-  }
-
   // Everything the music-sync player needs named rather than guessed. The
   // generator itself is the node to select for all of them: it is the node that
   // declares the show, and the one whose missing wire is the usual cause.
@@ -1306,6 +1310,27 @@ export function buildGraphDiagnostics(
         message: 'The player reads the song and its timed show file off the card while it runs, so a show without one has nothing to play.',
         fix: 'Add an SD Card in the hardware view and set its CS pin.',
         nodeIds: [generator.id], nodeLabel: nodeLabel(generator),
+      })
+    }
+    // The board's own pins are not an answer here: an I2S amplifier, an I2S DAC
+    // and an analog amp are three parts wired three ways, and the player emits
+    // code for whichever one is on the bench.
+    const amplifier = nodes.find((node) => node.data.nodeType === 'Amplifier')
+    if (!amplifier) {
+      diagnostics.push({
+        id: `${generator.id}-show-audio`, severity: 'error', category: 'show',
+        title: 'The music show has nothing to play the song through',
+        message: 'Nothing on the bench turns the decoded song into sound, so the player has no audio hardware to generate code for.',
+        fix: 'Add an Amplifier in the hardware view. A MAX98357A drives a speaker straight off I2S; an I2S DAC or an analog amp are the other shapes.',
+        nodeIds: [generator.id], nodeLabel: nodeLabel(generator),
+      })
+    } else if (audioOutputMissing(nodes, options.selectedFqbn ?? '')) {
+      diagnostics.push({
+        id: `${amplifier.id}-audio-out`, severity: 'error', category: 'board',
+        title: 'This audio module cannot make a sound on this board',
+        message: 'An analog amplifier needs line level, which comes from an internal DAC — and only the classic ESP32 has one.',
+        fix: 'Switch to an I2S module (MAX98357A, PCM5102A, UDA1334A), or choose a classic ESP32.',
+        nodeIds: [amplifier.id], nodeLabel: nodeLabel(amplifier),
       })
     }
   }
@@ -1397,7 +1422,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   errors.push(...findOutputResourceErrors(nodes))
   errors.push(...findMatrixLayoutErrors(nodes))
   errors.push(...findShowOutputFormErrors(nodes, edges))
-  errors.push(...findShowTargetErrors(nodes, edges))
+  errors.push(...findShowRequirementErrors(nodes, edges, selectedFqbn))
 
   errors.push(...findHub75ConfigErrors(nodes))
   errors.push(...findScalarExpressionErrors(nodes))

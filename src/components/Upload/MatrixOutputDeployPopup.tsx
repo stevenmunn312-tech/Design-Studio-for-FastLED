@@ -11,7 +11,7 @@ import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph } from '../../codegen/streamReceiverGenerator'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
 import { readySongCount, buildShowPayload, sdShowConnected } from '../../utils/showUpload'
-import { findPinConflicts, findMatrixLayoutErrors, findMirroredOutputMismatches, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowOutputFormErrors, findShowTargetErrors } from '../../utils/validateGraph'
+import { findPinConflicts, findMatrixLayoutErrors, findMirroredOutputMismatches, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowOutputFormErrors, findShowRequirementErrors } from '../../utils/validateGraph'
 import { summarizeCapacity } from '../../utils/capacityFormat'
 import { useCodegenGraph } from '../../utils/codegenGraph'
 import { useModalFocus } from '../../hooks/useModalFocus'
@@ -109,9 +109,13 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
   const showOutputFormErrors = useMemo(() => findShowOutputFormErrors(nodes, edges), [nodes, edges])
   const formulaErrors = useMemo(() => findFormulaErrors(nodes), [nodes])
   // A music show has to name every part the player drives: the LED output it
-  // sends the show to, and the card it reads the song from. Guessing either
-  // one flashes a board that lights nothing.
-  const showTargetErrors = useMemo(() => findShowTargetErrors(nodes, edges), [nodes, edges])
+  // sends the show to, the card it reads the song from, and the module that
+  // turns that song into sound. Guessing any of them flashes a board that
+  // lights nothing, plays nothing, or both.
+  const showTargetErrors = useMemo(
+    () => findShowRequirementErrors(nodes, edges, selectedFqbn),
+    [nodes, edges, selectedFqbn],
+  )
   const hub75TopologyErrors = useMemo(
     () => findHub75TopologyDiagnosticErrors(nodes, nodeId),
     [nodes, nodeId],

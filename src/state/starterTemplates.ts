@@ -310,7 +310,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       'Drop songs into Music Library and run analysis to create timed show files.',
       'Preview a song in Performance Generator and adjust its energy, hold, palette, and transition settings.',
       'Optionally wire a Pattern Collection or Transitions node into Performance Generator.',
-      'Set the SD Card pins in the hardware view, then upload the show from the Upload tab.',
+      'Check the SD Card and Amplifier pins in the hardware view — swap the MAX98357A for your own module if it differs — then upload the show from the Upload tab.',
     ],
     nodeSpecs: [
       { id: 'lib', type: 'MusicLibrary', col: 0, row: 0 },
@@ -321,6 +321,12 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 2, row: 0 },
       // A bench part: hidden on the canvas, and what makes this an SD show.
       { id: 'sd', type: 'SDCard', col: 3, row: 0 },
+      // The other half of playing a song: something that turns it into sound.
+      // A MAX98357A because it is the one that needs nothing else — I2S in, a
+      // speaker out — and because a default you can see on the bench and swap
+      // beats an audio path inferred from what the board could theoretically
+      // do. The player emits code for whichever module is actually here.
+      { id: 'amp', type: 'Amplifier', col: 3, row: 1 },
 
       tutorialNote(
         'guide', 0, -1,

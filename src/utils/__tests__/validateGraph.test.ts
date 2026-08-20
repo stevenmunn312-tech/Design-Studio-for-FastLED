@@ -83,31 +83,64 @@ describe('validateGraph', () => {
     expect(findBoardCompatibilityErrors([], 'arduino:avr:uno')).toEqual([])
   })
 
-  it('reports an SD show with nothing to make a sound through', () => {
+  it('leaves the show’s audio hardware to findShowRequirementErrors', () => {
     /*
-     * "Internal DAC on a board without one" is no longer checked, because it
-     * can no longer be expressed: the output mode is derived from the parts,
-     * and `internalDac` is only ever chosen on a board that has one.
+     * Two rules used to live here and both have moved.
      *
-     * The reachable failure is the opposite — a card full of music and no
-     * output stage. An S3 has no DAC to fall back on, so the show uploads,
-     * runs, and is silent.
+     * "Internal DAC on a board without one" can no longer be expressed: the
+     * output mode is derived from the parts, and `internalDac` is only ever
+     * chosen on a board that has one.
+     *
+     * "A card full of music and nothing to play it through" is now asked of
+     * every show, not only of boards with no DAC to fall back on — the player
+     * emits code for a specific module, so the module has to be on the bench.
+     * It belongs with the show's other missing-part errors, and having it in
+     * two places let one bench report it twice.
      */
     const cardOnly = [node('sd', 'SDCard')]
-    expect(findBoardCompatibilityErrors(cardOnly, 'esp32:esp32:esp32s3')).toEqual([
-      expect.stringMatching(/no audio output/),
-    ])
-
-    // A classic ESP32 falls back to its built-in DAC, so a card alone is fine.
+    expect(findBoardCompatibilityErrors(cardOnly, 'esp32:esp32:esp32s3')).toEqual([])
     expect(findBoardCompatibilityErrors(cardOnly, 'esp32:esp32:esp32')).toEqual([])
-    // The 30-pin DevKit v1 is the same classic silicon, so it keeps the DAC.
-    expect(findBoardCompatibilityErrors(cardOnly, 'esp32:esp32:esp32doit-devkit-v1')).toEqual([])
-    // An amplifier answers it on any board.
-    expect(findBoardCompatibilityErrors(
-      [...cardOnly, node('amp', 'Amplifier')], 'esp32:esp32:esp32s3',
-    )).toEqual([])
-    // And a graph with no card has no audio to worry about.
     expect(findBoardCompatibilityErrors([], 'esp32:esp32:esp32s3')).toEqual([])
+  })
+
+  it('refuses a show with nothing to turn the song into sound', () => {
+    // The board's own pins are not an answer: an I2S amplifier, an I2S DAC and
+    // an analog amp are three parts wired three ways, and the player generates
+    // code for whichever one is actually there. Inferring it from what the
+    // board could theoretically do produced a confident sketch for hardware
+    // nobody had described — and, on a classic ESP32, silently assumed a DAC
+    // path with nothing plugged into it.
+    const show = [
+      node('pg', 'PerformanceGenerator'),
+      node('sd', 'SDCard'),
+      node('out', 'MatrixOutput'),
+    ]
+    const edges = [
+      { id: 'e', source: 'pg', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' } as unknown as StudioEdge,
+    ]
+    expect(validateGraph(show, edges, 'esp32:esp32:esp32').errors
+      .some((e) => e.includes('nothing to play the song through'))).toBe(true)
+
+    // With a module on the bench there is something to generate for.
+    expect(validateGraph([...show, node('amp', 'Amplifier')], edges, 'esp32:esp32:esp32').errors)
+      .toHaveLength(0)
+  })
+
+  it('refuses an analog amplifier on a board with no DAC to feed it', () => {
+    // The part is present and still cannot make a sound: it takes line level,
+    // and only the classic ESP32 can produce any.
+    const show = [
+      node('pg', 'PerformanceGenerator'),
+      node('sd', 'SDCard'),
+      node('out', 'MatrixOutput'),
+      node('amp', 'Amplifier', { model: 'pam8403-3w-stereo-amplifier' }),
+    ]
+    const edges = [
+      { id: 'e', source: 'pg', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' } as unknown as StudioEdge,
+    ]
+    expect(validateGraph(show, edges, 'esp32:esp32:esp32s3').errors
+      .some((e) => e.includes('cannot make a sound on this board'))).toBe(true)
+    expect(validateGraph(show, edges, 'esp32:esp32:esp32').errors).toHaveLength(0)
   })
 
   it('blocks HUB75 on boards without the LCD-mode DMA peripheral', () => {
@@ -326,6 +359,7 @@ describe('validateGraph', () => {
       node('lib', 'MusicLibrary'),
       node('pg', 'PerformanceGenerator'),
       node('sd', 'SDCard'),
+      node('amp', 'Amplifier'),
       node('out', 'MatrixOutput'),
     ]
     const edges = [
