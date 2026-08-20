@@ -203,6 +203,18 @@ function applyMasterBrightness(frame: Frame | null, output: StudioNode | undefin
   return frame
 }
 
+/** Reuse the selected route buffer as a real black frame while an existing
+ * output has no Frame cable. The colourful idle shimmer is reserved for a
+ * graph with no LED output at all; showing it behind "Signal standby" made a
+ * disconnected route look as though it was still receiving the old pattern. */
+function clearOutputFrame(reuse: Frame | null, width: number, height: number): Frame {
+  const frame = reuse && reuse.length === height && (reuse[0]?.length ?? 0) === width
+    ? reuse
+    : Array.from({ length: height }, () => Array.from({ length: width }, () => ({ r: 0, g: 0, b: 0 })))
+  for (const row of frame) for (const pixel of row) { pixel.r = 0; pixel.g = 0; pixel.b = 0 }
+  return frame
+}
+
 export default function LEDPreview() {
   const canvasWrapRef = useRef<HTMLDivElement>(null)
   const canvasRef   = useRef<HTMLCanvasElement>(null)
@@ -555,6 +567,10 @@ export default function LEDPreview() {
         let frame = selectedRoute ? routeFrame(rendered, selectedRoute, composition.w, composition.h, routeBufRef.current) : null
         if (frame) routeBufRef.current = frame
         frame = applyMasterBrightness(frame, selectedRoute?.node)
+        if (!frame && selectedRoute) {
+          frame = clearOutputFrame(routeBufRef.current, selectedRoute.width, selectedRoute.height)
+          routeBufRef.current = frame
+        }
         if (!frame) frame = idleFrame(tick, gW, gH)
         const showStart = PERF_TELEMETRY ? performance.now() : 0
         frame = applyShowPlaybackSignal(frame, useShowPlayback.getState(), gW, gH, groups, trusted)
@@ -617,6 +633,19 @@ export default function LEDPreview() {
             for (const [id, ports] of usePreviewStore.getState().outputs) {
               if (!outputs.has(id)) outputs.set(id, ports)
             }
+          }
+          // Output-node and hardware-bay previews consume the physical routed
+          // frame, not the evaluator's shared composition frame. Publishing it
+          // beside the raw terminal value keeps fit/crop, form changes, ring
+          // sampling and per-output brightness identical to the main preview.
+          for (const route of routes) {
+            const ports = outputs.get(route.id) ?? {}
+            const source = ports.frame as Frame | null | undefined
+            const routed = applyMasterBrightness(
+              routeFrame(source ?? null, route, composition.w, composition.h),
+              route.node,
+            )
+            outputs.set(route.id, { ...ports, previewFrame: routed })
           }
           usePreviewStore.getState().setOutputs(outputs)
           lastPreviewPublish.current = now

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import type { CSSProperties } from 'react'
 import { usePreviewStore } from '../../state/previewStore'
 import type { Frame } from '../../state/graphEvaluator'
-import { ringSampleMap, type RingDirection } from '../../state/ledOutputForm'
+import type { RingDirection } from '../../state/ledOutputForm'
 
 /** Half the width of one LED on a ring, in bounding-box fractions — a 5050
  *  package against the ~76 mm circle a 24-LED ring describes. */
@@ -100,39 +100,26 @@ export default function HardwareLedPreview({
   }, [])
 
   useEffect(() => {
-    // A ring's map depends on the frame's size, which is the shared composition
-    // canvas and changes when another output is added. Rebuilt only when that
-    // size changes, never per frame.
-    let ringMap: number[] | null = null
-    let ringMapSize = ''
     const paint = (frame: Frame | undefined) => {
-      if (!onScreenRef.current || !frame) return
+      if (!onScreenRef.current) return
+      // A missing route is a real blackout, not "keep the last good frame".
+      // Reset the colour cache as well as the SVG so reconnecting an identical
+      // frame is still painted rather than mistaken for an unchanged one.
+      if (!frame) {
+        previousRef.current.fill(0)
+        for (const cell of cellRefs.current) cell?.setAttribute('fill', 'rgb(0 0 0)')
+        return
+      }
       const srcH = frame.length
       const srcW = frame[0]?.length ?? 0
       if (!srcW || !srcH) return
-      if (ring) {
-        const size = `${srcW}x${srcH}`
-        if (size !== ringMapSize) {
-          ringMap = ringSampleMap(ring.ledCount, ring.startAngle, ring.direction, srcW, srcH)
-          ringMapSize = size
-        }
-      }
       const previous = previousRef.current
       for (let index = 0; index < count; index++) {
-        // Row-major across the source: a strip walks the frame in the order the
-        // physical run does, a panel maps cell for cell, and a ring reads the
-        // circle its own mapping describes.
-        const source = ringMap?.[index]
-        const srcY = source != null
-          ? Math.floor(source / srcW)
-          : rows === 1
-            ? Math.min(srcH - 1, Math.floor(index / srcW))
-            : Math.min(srcH - 1, Math.floor(Math.floor(index / cols) * srcH / rows))
-        const srcX = source != null
-          ? source % srcW
-          : rows === 1
-            ? index % srcW
-            : Math.min(srcW - 1, Math.floor((index % cols) * srcW / cols))
+        // `previewFrame` is already routed into the output's physical grid.
+        // Rings are a one-row frame in wire order; their SVG positions below
+        // turn that row into the configured circle without sampling it again.
+        const srcY = Math.min(srcH - 1, Math.floor(index / cols))
+        const srcX = Math.min(srcW - 1, index % cols)
         const pixel = frame[Math.min(srcH - 1, srcY)]?.[Math.min(srcW - 1, srcX)]
         if (!pixel) continue
         const r = Math.max(0, Math.min(255, Math.round(pixel.r)))
@@ -146,7 +133,7 @@ export default function HardwareLedPreview({
     }
 
     const read = (state: ReturnType<typeof usePreviewStore.getState>) => {
-      paint(state.outputs.get(nodeId)?.frame as Frame | undefined)
+      paint(state.outputs.get(nodeId)?.previewFrame as Frame | undefined)
     }
     read(usePreviewStore.getState())
     return usePreviewStore.subscribe(read)
