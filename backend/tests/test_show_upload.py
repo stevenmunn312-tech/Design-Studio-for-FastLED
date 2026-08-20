@@ -14,6 +14,8 @@ generator functions — a plain `return` without any `yield` in the body would
 make `yield from fake(...)` blow up with "not iterable" the moment app.py
 tries to delegate to it.
 """
+import io
+
 import app
 
 
@@ -99,9 +101,17 @@ def test_sd_transfer_failure_says_a_retry_needs_no_rebuild(client, monkeypatch):
     # it in — a retry re-sends the files with no build at all.
     fake = _compile_sequence({"Player": (0, "upload")})
     _setup(monkeypatch, fake, transfer_ok=False)
-    r = _post(client)
+    r = _post_with_files(client)
     assert "SD transfer failed" in r.text
     assert "without another build" in r.text
+
+
+def _post_with_files(client):
+    return client.post(
+        "/api/upload-show",
+        data={"meta": '{"port": "COM7", "paths": ["/music/x.mp3"]}', "player": "player-ino"},
+        files=[("files", ("x.mp3", io.BytesIO(b"abc"), "audio/mpeg"))],
+    )
 
 
 def test_success_is_one_build_flashed_to_the_port_then_the_transfer(client, monkeypatch):
@@ -125,10 +135,32 @@ def test_success_is_one_build_flashed_to_the_port_then_the_transfer(client, monk
     monkeypatch.setattr(app, "_compile_upload_fbuild", compile_fake)
     monkeypatch.setattr(app, "_serial_send", send_fake)
 
-    r = _post(client)
+    r = _post_with_files(client)
     # One build, flashed to the real port, and the transfer runs through it.
     assert order == [("Player", "COM7"), ("transfer", "COM7")]
     assert "All done" in r.text
+
+
+def test_no_files_flashes_the_player_and_skips_the_transfer(client, monkeypatch):
+    # The card-reader path writes the songs and shows to a mounted card itself,
+    # so by the time it calls this endpoint the only thing left is the flash.
+    # Opening the serial port to transfer nothing would just be a delay.
+    fake = _compile_sequence({"Player": (0, "upload")})
+    _setup(monkeypatch, fake)
+    sent = []
+
+    def send_fake(port, payloads):
+        sent.append(port)
+        if False:
+            yield  # pragma: no cover
+        return True
+
+    monkeypatch.setattr(app, "_serial_send", send_fake)
+
+    r = _post(client)
+    assert fake.calls == ["Player"]
+    assert sent == []
+    assert "the player is flashed" in r.text
 
 
 def test_a_provisioner_field_from_an_older_frontend_is_ignored(client, monkeypatch):

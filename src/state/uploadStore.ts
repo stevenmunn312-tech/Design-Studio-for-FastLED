@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import {
   checkBackend, listPorts, listCores, uploadSketch, uploadShow, locateCli, installCli, installCore,
   monitorSerial, checkCoreUpdates, upgradeCores as requestCoreUpgrade, setEngine as requestSetEngine,
+  copyToSdCard, compileCheck,
   type BackendHealth, type SerialPort, type ShowUploadFile, type CoreUpdate,
 } from '../utils/backendClient'
 import { useProjectStore } from './projectStore'
@@ -234,11 +235,11 @@ export function parseStatus(log: string): UploadStatus {
 
 // ── Persistence ───────────────────────────────────────────────────────────────
 const KEY = 'design-studio-for-fastled-upload'
-interface Persisted { myBoards: string[]; selectedFqbn: string; selectedPort: string; customBoards: Board[] }
+interface Persisted { myBoards: string[]; selectedFqbn: string; selectedPort: string; customBoards: Board[]; cardReader: boolean }
 interface CachedSketchUpload { code: string; fqbnOpt?: string }
 
 function load(): Persisted {
-  const fallback: Persisted = { myBoards: BOARDS.map((b) => b.fqbn), selectedFqbn: BOARDS[0].fqbn, selectedPort: '', customBoards: [] }
+  const fallback: Persisted = { myBoards: BOARDS.map((b) => b.fqbn), selectedFqbn: BOARDS[0].fqbn, selectedPort: '', customBoards: [], cardReader: false }
   try {
     const v = localStorage.getItem(KEY)
     if (!v) return fallback
@@ -263,9 +264,26 @@ function projectSelection(fallback: Persisted): Pick<UploadState, 'selectedFqbn'
   }
 }
 
-function persistFallback(s: Pick<UploadState, 'myBoards' | 'selectedFqbn' | 'selectedPort' | 'customBoards'>) {
-  persistedPrefs = { myBoards: s.myBoards, selectedFqbn: s.selectedFqbn, selectedPort: s.selectedPort, customBoards: s.customBoards }
+function persistFallback(s: Pick<UploadState, 'myBoards' | 'selectedFqbn' | 'selectedPort' | 'customBoards' | 'cardReader'>) {
+  persistedPrefs = {
+    myBoards: s.myBoards, selectedFqbn: s.selectedFqbn, selectedPort: s.selectedPort,
+    customBoards: s.customBoards, cardReader: s.cardReader,
+  }
   try { localStorage.setItem(KEY, JSON.stringify(persistedPrefs)) } catch { /* quota */ }
+}
+
+/**
+ * A pause in the upload while the user physically moves the SD card.
+ *
+ * `insert` also carries the drive list and needs one chosen; `reinsert` is an
+ * acknowledgement, since by then the card is out of the reader and there is
+ * nothing left to enumerate.
+ */
+export interface SdPrompt {
+  stage: 'insert' | 'reinsert'
+  /** What the copy will write, so the dialog can say so before it happens. */
+  fileCount: number
+  totalBytes: number
 }
 
 // ── Store ─────────────────────────────────────────────────────────────────────
@@ -354,6 +372,15 @@ interface UploadState {
   runUpload: (code: string, fqbnOpt?: string, opts?: { cache?: boolean }) => Promise<void>
   runLastUpload: () => Promise<void>
   runShowUpload: (payload: { player: string; files: ShowUploadFile[] }) => Promise<void>
+
+  /** Whether the user has a card reader — persisted, because it describes their
+   *  desk rather than this upload. Chooses the card-reader path over serial. */
+  cardReader: boolean
+  setCardReader: (on: boolean) => void
+  /** The open card-swap prompt, or null. Driven by `runShowUpload`. */
+  sdPrompt: SdPrompt | null
+  /** Answer the open prompt: a drive path to continue, or null to cancel. */
+  resolveSdPrompt: (drive: string | null) => void
   exportIno: (code: string, filename?: string) => void
   locate: (path: string) => Promise<{ ok: boolean; error?: string }>
   installCli: () => Promise<void>
@@ -363,6 +390,11 @@ interface UploadState {
   closeUpdatesPopup: () => void
   upgradeCores: (cores?: string[]) => Promise<void>
 }
+
+// Resolves the open card-swap prompt. Module-level rather than store state
+// for the same reason uiStore's dialog resolver is: a function in a Zustand
+// store would be compared by identity on every render.
+let sdPromptResolver: ((drive: string | null) => void) | null = null
 
 let persistedPrefs = load()
 const initialSelection = projectSelection(persistedPrefs)
@@ -394,6 +426,8 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   selectedFqbn: initialSelection.selectedFqbn,
   selectedPort: initialSelection.selectedPort,
   customBoards: persistedPrefs.customBoards,
+  cardReader: persistedPrefs.cardReader,
+  sdPrompt: null,
   lastSketchByProject: {},
   checkingUpdates: false,
   availableUpdates: [],
@@ -588,28 +622,123 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     await get().runUpload(cached.code, cached.fqbnOpt)
   },
 
+  setCardReader: (on) => { set({ cardReader: on }); persistFallback({ ...get(), cardReader: on }) },
+
+  resolveSdPrompt: (drive) => {
+    sdPromptResolver?.(drive)
+    sdPromptResolver = null
+    set({ sdPrompt: null })
+  },
+
   runShowUpload: async (payload) => {
-    const { selectedFqbn, selectedPort, busy, helper } = get()
+    const { selectedFqbn, selectedPort, busy, helper, cardReader } = get()
     if (busy) return
     if (!engineReady(helper)) { set({ cliPopupOpen: true }); return }
     if (!selectedPort) { set({ boardPopupOpen: true }); return }
     get().stopSerial()
     useStreamStore.getState().stop()
-    set({ busy: true, consoleOpen: true, log: `Provisioning show to ${selectedPort} (${selectedFqbn})…\n`, status: { phase: 'working', message: 'Provisioning…' } })
+
+    const onLog = (chunk: string) => {
+      const log = (get().log + chunk).slice(-60000)
+      const status = parseStatus(log)
+      set({ log, status })
+      if (status.phase === 'error') set({ consoleOpen: true })
+    }
+
+    /* Pause the upload while the user moves the card. Resolves to the chosen
+     * drive, or null if they cancelled.
+     *
+     * The dialog finds the drives itself, and keeps looking: it is asking the
+     * user to plug something in *now*, so a list gathered here would be a
+     * snapshot from before they were asked — and empty nearly every time. */
+    const askForCard = (stage: 'insert' | 'reinsert') => {
+      const totalBytes = payload.files.reduce((n, f) => n + f.data.size, 0)
+      set({ sdPrompt: { stage, fileCount: payload.files.length, totalBytes } })
+      return new Promise<string | null>((resolve) => { sdPromptResolver = resolve })
+    }
+
+    set({
+      busy: true,
+      consoleOpen: true,
+      log: `Uploading show to ${selectedPort} (${selectedFqbn})…\n`,
+      status: { phase: 'working', message: 'Uploading…' },
+    })
     try {
-      await uploadShow({ fqbn: selectedFqbn, port: selectedPort, ...payload }, (chunk) => {
-        const log = (get().log + chunk).slice(-60000)
-        const status = parseStatus(log)
-        set({ log, status })
-        if (status.phase === 'error') set({ consoleOpen: true })
-      })
+      // The card-reader path writes the files directly and then flashes the
+      // player with nothing to transfer. It is offered rather than chosen for
+      // the user because only they know whether a reader is on the desk — and
+      // a wrong guess here is minutes of serial transfer, or a dialog asking
+      // for hardware that isn't there.
+      let viaReader = false
+      if (cardReader) {
+        // Compile the player before asking for the card.
+        //
+        // On the serial path the build already happens first, so a player that
+        // will not fit costs one compile to discover. Here the flash comes
+        // last — after two card swaps — so without this the user does the
+        // whole dance and *then* learns the design overflows DRAM. The live
+        // capacity meter is no help: it measures the normal sketch, not the
+        // player, so a show whose player will not link reads as comfortable.
+        //
+        // It is close to free on the success path — the real build that
+        // follows compiles identical source and hits the engine's cache.
+        get().appendLog('\n=== Checking the player fits ===\n')
+        try {
+          const fit = await compileCheck(payload.player, selectedFqbn)
+          if (!fit.ok) {
+            get().appendLog(
+              fit.overflow
+                ? '\n*** The player will not fit on this board — nothing was written or flashed ***\n'
+                  + '  Remove patterns from the collection or reduce the matrix size.\n'
+                : `\n*** Could not build the player — nothing was written or flashed ***\n${fit.error ?? ''}\n`,
+            )
+            set({ status: { phase: 'error', message: fit.overflow ? "Won't fit" : 'Build failed' }, consoleOpen: true })
+            return
+          }
+          get().appendLog('  Fits — asking for the card.\n')
+        } catch {
+          // The helper went away mid-check. Fall through rather than block:
+          // the real build is about to run anyway and will report properly.
+          get().appendLog('  [warn] could not pre-check the player; continuing.\n')
+        }
+
+        const drive = await askForCard('insert')
+        if (drive === null) {
+          // Cancelling the card swap cancels the upload. Falling through to
+          // serial instead would silently do the slow thing they opted out of.
+          set({ status: { phase: 'idle', message: '' } })
+          get().appendLog('\nCancelled — nothing was written or flashed.\n')
+          return
+        }
+        await copyToSdCard({ drive, files: payload.files }, onLog)
+        if (parseStatus(get().log).phase === 'error') {
+          set({ status: { phase: 'error', message: 'Card write failed' }, consoleOpen: true })
+          return
+        }
+        // Acknowledgement only — the flash needs the board, not the card, but
+        // a player that boots without one has nothing to play.
+        await askForCard('reinsert')
+        viaReader = true
+      }
+
+      await uploadShow(
+        {
+          fqbn: selectedFqbn,
+          port: selectedPort,
+          player: payload.player,
+          // Already written by hand — the flash is all that is left.
+          files: viaReader ? [] : payload.files,
+        },
+        onLog,
+      )
       const final = parseStatus(get().log)
       set({ status: final.phase === 'error' ? final : { phase: 'done', message: 'Done' } })
     } catch (err) {
       get().appendLog(`\n[error] ${err}\n`)
       set({ status: { phase: 'error', message: 'Error — helper offline?' }, consoleOpen: true })
     } finally {
-      set({ busy: false })
+      sdPromptResolver = null
+      set({ busy: false, sdPrompt: null })
       if (get().status.phase === 'error') scheduleErrorReset(set, get)
     }
   },

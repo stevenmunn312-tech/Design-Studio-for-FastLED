@@ -42,6 +42,7 @@ const CapacityWatcher = lazy(() => import('./components/Upload/CapacityWatcher')
 const MatrixOutputDeployPopup = lazy(() => import('./components/Upload/MatrixOutputDeployPopup'))
 const ArduinoCliPopup = lazy(() => import('./components/Upload/ArduinoCliPopup'))
 const OutputConsole = lazy(() => import('./components/Upload/OutputConsole'))
+const SdCardPrompt = lazy(() => import('./components/Upload/SdCardPrompt'))
 const AppDialogHost = lazy(() => import('./components/AppDialog/AppDialogHost'))
 const HelpModal = lazy(() => import('./components/HelpModal/HelpModal'))
 const NewProjectPrompt = lazy(() => import('./components/NewProjectPrompt/NewProjectPrompt'))
@@ -706,6 +707,9 @@ export default function App() {
         {pinoutProfileId && <BoardPinoutPopup />}
         {cliPopupOpen && <ArduinoCliPopup />}
         {consoleOpen && <OutputConsole />}
+        {/* Renders only mid-upload, and reads its own flag — no App-level
+            state to keep in step with the upload it belongs to. */}
+        <SdCardPrompt />
         {helpOpen && <HelpModal />}
         <NewProjectPrompt />
         {recoverOpen && <RecoverPopup />}

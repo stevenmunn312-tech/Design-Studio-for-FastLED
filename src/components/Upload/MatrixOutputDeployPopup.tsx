@@ -48,6 +48,7 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
     helper, installedCores, selectedFqbn, selectedPort, ports, busy, status, codeViewOpen,
     refreshHelper, refreshPorts, installCore, activeOutputNodeId,
     openBoardPopup, openCliPopup, openConsole, openCodeView, closeDeployPopup, openSetupWizard, runUpload, runLastUpload, runShowUpload, exportIno,
+    cardReader, setCardReader,
   } = useUploadStore()
   const hasLastSketch = useUploadStore((s) => !!(currentProjectId && s.lastSketchByProject[currentProjectId]))
   const { streaming, fps: streamFps, error: streamError, start: startStreaming, stop: stopStreaming } = useStreamStore()
@@ -307,6 +308,10 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
   }
 
   const readySongs = readySongCount(entries)
+  const cardReaderTip = cardReader
+    ? 'The studio will pause and ask you to move the card to a reader, write the files, then ask for it back before flashing.'
+    : 'Songs go to the card over serial — reliable everywhere, but minutes per song.'
+
   function handleShowUpload() {
     void (async () => {
       if (!(await confirmUploadIfUntrusted())) return
@@ -367,7 +372,9 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
         ? 'Analyse at least one song in the Music Library first'
         : blockingErrors.length > 0 ? blockingErrors.join('\n')
         : readinessIssues.length > 0 ? readinessIssues.join('\n')
-        : `Write ${readySongs} song${readySongs === 1 ? '' : 's'} to the SD card, then flash the player`
+        : cardReader
+          ? `Write ${readySongs} song${readySongs === 1 ? '' : 's'} to a card in your reader, then flash the player`
+          : `Write ${readySongs} song${readySongs === 1 ? '' : 's'} to the SD card over serial, then flash the player`
       : !hasFrameInput ? 'Connect a frame to enable upload'
         : blockingErrors.length > 0 ? blockingErrors.join('\n')
         : readinessIssues.length > 0 ? readinessIssues.join('\n')
@@ -466,6 +473,24 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
               </div>
             ))}
           </div>
+        )}
+
+        {/* Only on the show path: it changes how the songs reach the card,
+            and a normal sketch upload never touches one. Persisted, because it
+            describes the user's desk rather than this particular upload. */}
+        {isShowUpload && (
+          <label className={styles.cardReaderRow} title={cardReaderTip}>
+            <input
+              type="checkbox"
+              checked={cardReader}
+              disabled={busy}
+              onChange={(e) => setCardReader(e.target.checked)}
+            />
+            <span>
+              Card reader available
+              <em> — much faster song transfers</em>
+            </span>
+          </label>
         )}
 
         <button

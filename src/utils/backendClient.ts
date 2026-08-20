@@ -370,6 +370,49 @@ export async function uploadShow(
   await pipeStream(res, onLog)
 }
 
+/** One mounted removable volume the helper is willing to write an SD layout to. */
+export interface RemovableDrive {
+  path: string
+  label: string
+  freeBytes: number
+  totalBytes: number
+}
+
+/**
+ * Mounted removable volumes, for the card-reader upload path.
+ *
+ * Empty is a normal answer — no reader attached, no card in it, or a platform
+ * the helper cannot positively identify a volume as removable on. It never
+ * means "use this other drive instead": the serial path is the fallback.
+ */
+export async function listRemovableDrives(): Promise<RemovableDrive[]> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/removable-drives`)
+    if (!res.ok) return []
+    const json = await res.json()
+    return Array.isArray(json.drives) ? (json.drives as RemovableDrive[]) : []
+  } catch {
+    return []   // helper offline — the checkbox is simply unavailable
+  }
+}
+
+/**
+ * Write the songs and shows straight onto a card in a reader, streaming
+ * progress to `onLog`. Files already present at the same size are skipped by
+ * the helper, so re-uploading a show does not re-copy the music.
+ */
+export async function copyToSdCard(
+  opts: { drive: string; files: ShowUploadFile[] },
+  onLog: (chunk: string) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const form = new FormData()
+  form.append('meta', JSON.stringify({ drive: opts.drive, paths: opts.files.map((f) => f.path) }))
+  for (const f of opts.files) form.append('files', f.data, f.path.split('/').pop() ?? 'file')
+  const res = await fetch(`${BACKEND_URL}/api/sd-copy`, { method: 'POST', body: form, signal })
+  await pipeStream(res, onLog)
+}
+
 // ── Saved patterns ("My Patterns" folder on disk) ────────────────────────────
 // Each pattern is one shareable JSON file. Every call degrades to null/false
 // when the helper isn't running, so the library falls back to localStorage.

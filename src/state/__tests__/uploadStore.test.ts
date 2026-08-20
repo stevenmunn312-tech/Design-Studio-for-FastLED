@@ -28,6 +28,8 @@ const mocks = vi.hoisted(() => ({
   listProjects: vi.fn(),
   saveProjectToDisk: vi.fn(),
   deleteProjectFromDisk: vi.fn(),
+  copyToSdCard: vi.fn(),
+  compileCheck: vi.fn(),
 }))
 
 vi.mock('../../utils/backendClient', () => ({
@@ -43,6 +45,8 @@ vi.mock('../../utils/backendClient', () => ({
   listProjects: mocks.listProjects,
   saveProjectToDisk: mocks.saveProjectToDisk,
   deleteProjectFromDisk: mocks.deleteProjectFromDisk,
+  copyToSdCard: mocks.copyToSdCard,
+  compileCheck: mocks.compileCheck,
 }))
 
 async function freshStores() {
@@ -64,6 +68,129 @@ describe('uploadStore', () => {
     mocks.listProjects.mockResolvedValue(null)
     mocks.saveProjectToDisk.mockResolvedValue(false)
     mocks.deleteProjectFromDisk.mockResolvedValue(false)
+    mocks.copyToSdCard.mockResolvedValue(undefined)
+    mocks.compileCheck.mockResolvedValue({ ok: true, overflow: false, target: '', flash: null, ram: null, error: null })
+  })
+
+  describe('show upload — serial vs card reader', () => {
+    const showPayload = () => ({
+      player: 'player-ino',
+      files: [
+        { path: '/music/Song.mp3', data: new Blob(['x'.repeat(64)]) },
+        { path: '/shows/Song.show', data: new Blob(['y'.repeat(16)]) },
+      ],
+    })
+
+    async function readyStore() {
+      const { useProjectStore, useUploadStore } = await freshStores()
+      useProjectStore.getState().createProject('Main', workspace(['main']))
+      useUploadStore.setState({
+        helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false },
+        selectedFqbn: 'esp32:esp32:esp32s3',
+        selectedPort: 'COM7',
+      })
+      return useUploadStore
+    }
+
+    it('sends the files over serial when no reader is available', async () => {
+      const useUploadStore = await readyStore()
+      await useUploadStore.getState().runShowUpload(showPayload())
+
+      expect(mocks.copyToSdCard).not.toHaveBeenCalled()
+      expect(mocks.uploadShow).toHaveBeenCalledTimes(1)
+      expect(mocks.uploadShow.mock.calls[0][0].files).toHaveLength(2)
+      expect(useUploadStore.getState().sdPrompt).toBeNull()
+    })
+
+    it('writes the card directly, then flashes with nothing left to transfer', async () => {
+      const useUploadStore = await readyStore()
+      useUploadStore.getState().setCardReader(true)
+
+      const done = useUploadStore.getState().runShowUpload(showPayload())
+
+      // Stage one: choose a drive.
+      await vi.waitFor(() => expect(useUploadStore.getState().sdPrompt?.stage).toBe('insert'))
+      expect(useUploadStore.getState().sdPrompt).toMatchObject({ fileCount: 2, totalBytes: 80 })
+      useUploadStore.getState().resolveSdPrompt('E:\\')
+
+      // Stage two: acknowledge the card is back before the flash.
+      await vi.waitFor(() => expect(useUploadStore.getState().sdPrompt?.stage).toBe('reinsert'))
+      expect(mocks.copyToSdCard).toHaveBeenCalledTimes(1)
+      expect(mocks.copyToSdCard.mock.calls[0][0]).toMatchObject({ drive: 'E:\\' })
+      expect(mocks.uploadShow).not.toHaveBeenCalled()   // not until the card is back
+      useUploadStore.getState().resolveSdPrompt('')
+
+      await done
+      // The files are already on the card; sending them again over serial
+      // would undo the entire point of the reader path.
+      expect(mocks.uploadShow).toHaveBeenCalledTimes(1)
+      expect(mocks.uploadShow.mock.calls[0][0].files).toEqual([])
+      expect(useUploadStore.getState().sdPrompt).toBeNull()
+    })
+
+    it('checks the player fits before asking for the card', async () => {
+      // The flash is last on this path, so without the check the user does two
+      // card swaps and only then learns the design overflows DRAM. The live
+      // capacity meter does not cover it — that measures the normal sketch,
+      // not the player.
+      const useUploadStore = await readyStore()
+      useUploadStore.getState().setCardReader(true)
+      mocks.compileCheck.mockResolvedValue({
+        ok: false, overflow: true, target: '', flash: null, ram: null, error: null,
+      })
+
+      await useUploadStore.getState().runShowUpload(showPayload())
+
+      expect(useUploadStore.getState().sdPrompt).toBeNull()
+      expect(mocks.copyToSdCard).not.toHaveBeenCalled()
+      expect(mocks.uploadShow).not.toHaveBeenCalled()
+      expect(useUploadStore.getState().status).toMatchObject({ phase: 'error' })
+      expect(useUploadStore.getState().log).toContain('will not fit')
+    })
+
+    it('serial uploads skip the pre-check — that path already builds first', async () => {
+      const useUploadStore = await readyStore()
+      await useUploadStore.getState().runShowUpload(showPayload())
+      expect(mocks.compileCheck).not.toHaveBeenCalled()
+    })
+
+    it('a helper that vanishes mid-check does not block the upload', async () => {
+      // The real build runs next and reports properly; refusing here would
+      // turn a transient helper blip into a dead button.
+      const useUploadStore = await readyStore()
+      useUploadStore.getState().setCardReader(true)
+      mocks.compileCheck.mockRejectedValue(new Error('offline'))
+
+      const done = useUploadStore.getState().runShowUpload(showPayload())
+      await vi.waitFor(() => expect(useUploadStore.getState().sdPrompt?.stage).toBe('insert'))
+      useUploadStore.getState().resolveSdPrompt(null)
+      await done
+    })
+
+    it('cancelling the card swap writes nothing and flashes nothing', async () => {
+      // Falling back to serial here would silently do the slow thing the user
+      // just declined, on hardware they may not have plugged in.
+      const useUploadStore = await readyStore()
+      useUploadStore.getState().setCardReader(true)
+
+      const done = useUploadStore.getState().runShowUpload(showPayload())
+      await vi.waitFor(() => expect(useUploadStore.getState().sdPrompt?.stage).toBe('insert'))
+      useUploadStore.getState().resolveSdPrompt(null)
+      await done
+
+      expect(mocks.copyToSdCard).not.toHaveBeenCalled()
+      expect(mocks.uploadShow).not.toHaveBeenCalled()
+      expect(useUploadStore.getState().busy).toBe(false)
+      expect(useUploadStore.getState().sdPrompt).toBeNull()
+    })
+
+    it('remembers the reader across reloads — it describes the desk, not the upload', async () => {
+      const first = await readyStore()
+      first.getState().setCardReader(true)
+
+      const { useUploadStore: reloaded } = await freshStores()
+      expect(reloaded.getState().cardReader).toBe(true)
+    })
   })
 
   it('tracks board and port per project when switching', async () => {

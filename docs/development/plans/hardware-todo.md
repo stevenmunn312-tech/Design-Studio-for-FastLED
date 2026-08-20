@@ -328,6 +328,48 @@ Once the pattern is proven, everything physical moves to the hardware view.
   MAX98357A fault below, so this rides along with that retest.
 
 
+- [x] **Card-reader upload path, behind one checkbox.** Serial is universal but
+  slow — a 7 MB song is minutes even at 921600. With a reader on the desk,
+  writing the card directly is seconds. **Card reader available** on the upload
+  tab picks between them, persisted because it describes the user's rig rather
+  than one upload.
+
+  Checked, the upload becomes: compile the player → "put the card in the
+  reader" (drive picker) → write → "put it back" → flash. Unchecked, it is
+  unchanged: flash the player, then push the files through it.
+
+  Four things this had to get right:
+
+  1. **The browser names a directory on the host, so the guard is the
+     feature.** `/api/sd-copy` writes only to a volume that is in
+     `_removable_drives()` at the time of the call, and every path is reduced
+     to `<drive>/music/<basename>` or `<drive>/shows/<basename>` — a fixed
+     subdirectory list, `..` segments dropped, filename flattened. Drive
+     detection is deliberately conservative: a volume that cannot be
+     positively identified as removable is left out, because missing a reader
+     costs the user the serial path while offering the system disk costs them
+     their disk.
+  2. **The dialog has to keep looking.** It asks the user to plug something in
+     *now*, so a drive list gathered before it opened is a snapshot from before
+     they were asked — empty nearly every time. The component polls.
+  3. **The player must be compiled before the card dance, not after.** The
+     flash is last on this path, so without a pre-check the user does two card
+     swaps and only then learns the design overflows DRAM. `/api/compile-check`
+     already does exactly this and the real build that follows compiles
+     identical source, so it is close to free. The live capacity meter is no
+     substitute — it measures the normal sketch, not the player (see the open
+     item below).
+  4. **Cancelling cancels.** Falling back to serial when the user backs out of
+     the card prompt would silently do the slow thing they just declined.
+
+  Files already on the card at the same size are skipped, so "update the show,
+  keep the music" writes kilobytes rather than re-copying megabytes. Writes go
+  to a `.part` file and are renamed, so a card pulled mid-write leaves the
+  previous file rather than a truncated one.
+
+  **Not hardware-validated** — it rides along with the SD-show retest.
+
+
 ## Phase 4 — the Audio capability
 
 - [ ] **`Audio` node.** Source dropdown over the board's capabilities, honest
