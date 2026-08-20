@@ -103,14 +103,14 @@ export async function monitorSerial(
 export async function setRtcDateTime(
   port: string,
   dateTime: string,
-): Promise<{ ok: boolean; dateTime?: string; error?: string }> {
+): Promise<{ ok: boolean; dateTime?: string; serialMessage?: string; error?: string }> {
   try {
     const res = await fetch(`${BACKEND_URL}/api/rtc/set`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ port, dateTime }),
     })
-    return (await res.json()) as { ok: boolean; dateTime?: string; error?: string }
+    return (await res.json()) as { ok: boolean; dateTime?: string; serialMessage?: string; error?: string }
   } catch (error) {
     return { ok: false, error: String(error) }
   }

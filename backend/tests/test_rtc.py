@@ -15,6 +15,7 @@ class RtcSerial:
         self.rts = True
         self.writes = []
         self.closed = False
+        self.replies = [b"RTC clock set successfully\n", b"FLS_RTC_OK\n"]
         type(self).instances.append(self)
 
     def reset_input_buffer(self):
@@ -27,7 +28,7 @@ class RtcSerial:
         pass
 
     def readline(self):
-        return b"FLS_RTC_OK\n"
+        return self.replies.pop(0) if self.replies else b""
 
     def close(self):
         self.closed = True
@@ -44,7 +45,11 @@ def test_set_rtc_sends_one_validated_command(client, monkeypatch):
     })
 
     assert response.status_code == 200
-    assert response.json() == {"ok": True, "dateTime": "2026-08-21 13:45:09"}
+    assert response.json() == {
+        "ok": True,
+        "dateTime": "2026-08-21 13:45:09",
+        "serialMessage": "RTC clock set successfully",
+    }
     device = RtcSerial.instances[0]
     assert device.writes == [b"FLS_RTC_SET 2026-08-21 13:45:09\n"]
     assert device.dtr is False
@@ -59,3 +64,25 @@ def test_set_rtc_rejects_an_impossible_calendar_time(client):
     })
     assert response.status_code == 400
     assert response.json()["error"] == "dateTime is not a real calendar time"
+
+
+def test_set_rtc_returns_the_board_failure_message(client, monkeypatch):
+    class FailedRtcSerial(RtcSerial):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.replies = [b"RTC clock set failed\n", b"FLS_RTC_ERROR\n"]
+
+    monkeypatch.setattr(serial, "Serial", FailedRtcSerial)
+    monkeypatch.setattr(app_module.time, "sleep", lambda _seconds: None)
+
+    response = client.post("/api/rtc/set", json={
+        "port": "COM7",
+        "dateTime": "2026-08-21 13:45:09",
+    })
+
+    assert response.status_code == 502
+    assert response.json() == {
+        "ok": False,
+        "error": "the board could not write the DS3231",
+        "serialMessage": "RTC clock set failed",
+    }

@@ -70,6 +70,11 @@ export default function RtcInputBody({ nodeId }: { nodeId: string }) {
     await useStreamStore.getState().stop()
     const value = localDateTimeCommandValue(new Date())
     const result = await setRtcDateTime(selectedPort, value)
+    const serialMessage = result.serialMessage
+      ?? (result.ok ? 'RTC clock set successfully' : `RTC clock set failed: ${result.error ?? 'unknown error'}`)
+    useUploadStore.setState((state) => ({
+      serialLog: `${state.serialLog}${state.serialLog && !state.serialLog.endsWith('\n') ? '\n' : ''}${serialMessage}\n`.slice(-60000),
+    }))
     if (result.ok) {
       setSetStatus('done')
       setSetMessage(`Set to ${value}`)

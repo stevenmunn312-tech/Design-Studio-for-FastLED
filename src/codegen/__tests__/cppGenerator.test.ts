@@ -3203,6 +3203,8 @@ describe('RTCInput (codegen)', () => {
     expect(cpp).toContain('oscillatorStopped = (Wire.read() & 0x80u) != 0;')
     expect(cpp).toContain('void _rtcHandleSerialSet()')
     expect(cpp).toContain('FLS_RTC_SET %d-%d-%d %d:%d:%d')
+    expect(cpp).toContain('Serial.println("RTC clock set successfully")')
+    expect(cpp).toContain('Serial.println("RTC clock set failed")')
     expect(cpp).toContain('n_rtc_synced = !_rtcChipStale_rtc;')
     expect(cpp).toContain('n_rtc_stale = _rtcChipStale_rtc;')
     expect(cpp).not.toContain('#include <RTClib.h>')

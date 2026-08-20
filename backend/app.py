@@ -1858,12 +1858,19 @@ def set_rtc_time(payload: dict = Body(...)):
             ser.write(f"FLS_RTC_SET {value}\n".encode("ascii"))
             ser.flush()
             deadline = time.monotonic() + 3.0
+            serial_message = ""
             while time.monotonic() < deadline:
                 reply = ser.readline().decode(errors="replace").strip()
+                if reply.startswith("RTC clock set "):
+                    serial_message = reply
                 if reply == "FLS_RTC_OK":
-                    return {"ok": True, "dateTime": value}
+                    return {"ok": True, "dateTime": value, "serialMessage": serial_message or "RTC clock set successfully"}
                 if reply == "FLS_RTC_ERROR":
-                    return JSONResponse({"ok": False, "error": "the board could not write the DS3231"}, status_code=502)
+                    return JSONResponse({
+                        "ok": False,
+                        "error": "the board could not write the DS3231",
+                        "serialMessage": serial_message or "RTC clock set failed",
+                    }, status_code=502)
             return JSONResponse({"ok": False, "error": "the board did not acknowledge the RTC command; upload the current sketch first"}, status_code=504)
         finally:
             ser.close()
