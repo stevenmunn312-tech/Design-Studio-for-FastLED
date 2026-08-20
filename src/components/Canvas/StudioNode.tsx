@@ -1103,6 +1103,11 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       // MatrixOutput's width/height are edited via the dedicated size dropdown
       // (16/32/64/Custom) below, not the generic number-field editor.
       && k !== 'width' && k !== 'height'
+      // What the output physically *is* belongs to the hardware view: you get
+      // a ring by putting a ring on the bench, not by retyping a matrix. A
+      // dropdown here let the graph claim a part the bench did not have, which
+      // is the one thing the two-view model exists to prevent.
+      && k !== 'form'
       && !(isGroupInput && k === 'paramId')
       && !(hasRGB && (k === 'r' || k === 'g' || k === 'b'))
   )

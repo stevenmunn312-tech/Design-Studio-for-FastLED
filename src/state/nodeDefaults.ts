@@ -123,6 +123,24 @@ export const useNodeDefaults = create<NodeDefaultsState>((set) => ({
  *
  *  Layering rather than replacing means properties added to the library after
  *  a pin was saved still reach new nodes. */
+/**
+ * Properties the hardware view owns, stripped out of a saved default.
+ *
+ * `form` says what the output physically is, and only placing a part decides
+ * that. A default carrying one would hand every new output the shape of
+ * whichever part happened to be on the bench when the user pressed save —
+ * which is exactly how the starters came to load as LED Strings.
+ *
+ * Filtered on read rather than on save, so a default that already carries one
+ * stops applying immediately instead of waiting to be re-saved.
+ */
+const HARDWARE_OWNED_KEYS = new Set(['form'])
+
+function withoutHardwareOwned(override: Record<string, unknown> | undefined): Record<string, unknown> {
+  if (!override) return {}
+  return Object.fromEntries(Object.entries(override).filter(([key]) => !HARDWARE_OWNED_KEYS.has(key)))
+}
+
 export function resolveDefaultProperties(
   nodeType: string,
   libraryDefault: Record<string, unknown> | undefined,
@@ -140,7 +158,7 @@ export function resolveDefaultProperties(
   return sanitizeProperties(nodeType, {
     ...(libraryDefault ?? {}),
     ...(boardDefault ?? {}),
-    ...(override ?? {}),
+    ...withoutHardwareOwned(override),
   })
 }
 

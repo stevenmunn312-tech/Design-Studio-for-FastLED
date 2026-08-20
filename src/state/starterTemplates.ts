@@ -167,14 +167,14 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       'Follow the blue Frame wire from Juggle to the LED output and watch the preview.',
       'Set Count to 5 and raise Speed on Juggle to see how node controls alter the signal.',
       'From Effects, drag Trails onto the blue wire.',
-      'Finally, drag Transform onto the blue wire to reshape the motion.',
+      'Finally, drag Mirror onto the blue wire so the dots run out from the centre.',
     ],
     nodeSpecs: [
       { id: 'juggle', type: 'Juggle', col: 0 },
       { id: 'out', type: 'MatrixOutput', properties: { form: 'strip' }, col: 1 },
       tutorialNote(
         'guide', 0, -1,
-        'FIRST PATCH\nSet Juggle Count to 5 and raise Speed.\nNext splice in Trails, then splice Transform.',
+        'FIRST PATCH\nSet Juggle Count to 5 and raise Speed.\nNext splice in Trails, then splice Mirror.',
       ),
     ],
     edgeSpecs: [

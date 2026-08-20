@@ -23,6 +23,19 @@ describe('node defaults', () => {
     })
   })
 
+  // The hardware view is the only thing that says what an output physically
+  // is. A saved default carrying a form handed every new output the shape of
+  // whichever part was on the bench when save was pressed, which is how the
+  // starters came to load as LED Strings.
+  it('ignores a saved LED output form, including one already stored', () => {
+    useNodeDefaults.setState({ overrides: { MatrixOutput: { form: 'ring', ledCount: 24, brightness: 120 } } })
+
+    const resolved = resolveDefaultProperties('MatrixOutput', { form: 'matrix', width: 16, height: 16 })
+
+    expect(resolved.form).toBe('matrix')   // the library's, not the saved one
+    expect(resolved.brightness).toBe(120)  // everything else still applies
+  })
+
   it('keeps microphone defaults separate for each selected board', () => {
     useNodeDefaults.getState().setDefault('MicInput', {
       gain: 1, i2sWs: 2, i2sSck: 3, i2sSd: 4,

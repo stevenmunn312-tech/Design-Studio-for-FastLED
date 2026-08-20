@@ -497,6 +497,22 @@ describe('StudioNode', () => {
       }
     })
 
+    // What the output physically is comes from the part on the bench, so the
+    // node cannot retype a matrix into a ring — you remove that part in the
+    // hardware view and add the one you want. A dropdown here let the graph
+    // claim a part the bench did not have.
+    it('offers no way to change the form', () => {
+      const { container } = renderNode(makeNode('MatrixOutput', { form: 'matrix', width: 16, height: 16 }))
+
+      const selects = [...container.querySelectorAll('select')]
+      for (const select of selects) {
+        const options = [...select.querySelectorAll('option')].map((o) => o.textContent)
+        expect(options).not.toContain('ring')
+        expect(options).not.toContain('hub75')
+      }
+      expect(within(container).queryByText('Form')).toBeNull()
+    })
+
     it('draws a ring as a circle of LEDs, not a row of cells', () => {
       const { container } = renderNode(makeNode('MatrixOutput', {
         form: 'ring', ledCount: 12, ringStartAngle: 0, ringDirection: 'cw',
