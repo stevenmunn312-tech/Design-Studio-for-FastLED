@@ -21,6 +21,12 @@ import {
   powerDistributionSectionLayout,
   powerSectionStartY,
   powerZoneBands,
+  peripheralGroundPadIndex,
+  peripheralPadCount,
+  peripheralPadLabel,
+  peripheralPowerNet,
+  peripheralPowerPadIndex,
+  peripheralSignalPadIndex,
   PSU_POSITIVE_TERMINAL_OFFSET,
 } from '../physicalDiagramLayout'
 
@@ -142,6 +148,38 @@ function planWithSupplies(feedCounts: number[]): ElectricalPlanSummary {
 }
 
 const OUTPUT_ITEM = { id: 'output:out', kind: 'matrix-output', pins: [] } as unknown as HardwareManifestItem
+const SD_5V_ITEM = {
+  id: 'sd-card:sd',
+  kind: 'sd-card',
+  pins: [],
+  facts: { partId: 'microsd-module-5v' },
+} as unknown as HardwareManifestItem
+const SD_3V3_ITEM = {
+  ...SD_5V_ITEM,
+  facts: { partId: 'microsd-breakout-3v3' },
+} as unknown as HardwareManifestItem
+
+describe('microSD module pads', () => {
+  it('maps SPI signals and power to the photographed 5 V module order', () => {
+    expect(peripheralPadCount(SD_5V_ITEM)).toBe(6)
+    expect(Array.from({ length: 6 }, (_, index) => peripheralPadLabel(SD_5V_ITEM, index)))
+      .toEqual(['GND', 'VCC', 'MISO', 'MOSI', 'SCK', 'CS'])
+    expect(peripheralPowerPadIndex(SD_5V_ITEM)).toBe(1)
+    expect(peripheralGroundPadIndex(SD_5V_ITEM)).toBe(0)
+    expect([0, 1, 2, 3].map((index) => peripheralSignalPadIndex(SD_5V_ITEM, index)))
+      .toEqual([5, 4, 3, 2])
+    expect(peripheralPowerNet(SD_5V_ITEM)).toBe('v5')
+  })
+
+  it('maps the bare breakout to its 3.3 V pad order', () => {
+    expect(peripheralPadCount(SD_3V3_ITEM)).toBe(7)
+    expect(peripheralPowerPadIndex(SD_3V3_ITEM)).toBe(4)
+    expect(peripheralGroundPadIndex(SD_3V3_ITEM)).toBe(2)
+    expect([0, 1, 2, 3].map((index) => peripheralSignalPadIndex(SD_3V3_ITEM, index)))
+      .toEqual([6, 3, 5, 1])
+    expect(peripheralPowerNet(SD_3V3_ITEM)).toBe('v3v3')
+  })
+})
 
 describe('powerZoneBands', () => {
   it('tiles the power section with no gap or overlap between zones', () => {

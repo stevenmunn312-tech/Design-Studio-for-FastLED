@@ -22,6 +22,15 @@ function outputNode(extra: Record<string, unknown> = {}): StudioNode {
   } as unknown as StudioNode
 }
 
+function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
+  return {
+    id,
+    type: 'studioNode',
+    position: { x: 0, y: 0 },
+    data: { label: nodeType, nodeType, category: 'input', properties, inputs: [], outputs: [] },
+  } as unknown as StudioNode
+}
+
 describe('buildExports', () => {
   it('quotes CSV fields safely', () => {
     expect(rowsToCsv(['A', 'B'], [['plain', 'with, comma'], ['with "quote"', 'line\nbreak']]))
@@ -84,6 +93,28 @@ describe('buildExports', () => {
     ]))
     expect(connectionRows).toEqual(expect.arrayContaining([
       expect.objectContaining({ to: 'Matrix Output', purpose: expect.stringContaining('configured FastLED current limit 5000 mA') }),
+    ]))
+  })
+
+  it('exports the 5 V microSD power and classic ESP-32D SPI wiring', () => {
+    const board = boardProfileById('esp32-devkit-v1-30pin-esp32d')
+    const manifest = buildHardwareManifest([
+      node('board', 'Board', { profileId: board?.id }),
+      node('sd', 'SDCard', { partId: 'microsd-module-5v', sdCsPin: 5 }),
+    ], [], 'esp32:esp32:esp32doit-devkit-v1')
+    const rows = buildConnectionRows(manifest.primaryItems, calculateElectricalPlan(
+      manifest,
+      ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }),
+      board,
+    ), board)
+
+    expect(rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ fromTerminal: 'GPIO5', purpose: 'Signal' }),
+      expect.objectContaining({ fromTerminal: 'GPIO18', purpose: 'Signal' }),
+      expect.objectContaining({ fromTerminal: 'GPIO23', purpose: 'Signal' }),
+      expect.objectContaining({ fromTerminal: 'GPIO19', purpose: 'Signal' }),
+      expect.objectContaining({ fromTerminal: '5V / VIN', toTerminal: 'VCC', purpose: 'Module power' }),
+      expect.objectContaining({ fromTerminal: 'GND', toTerminal: 'GND', purpose: 'Common ground reference' }),
     ]))
   })
 })

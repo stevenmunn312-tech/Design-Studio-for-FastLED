@@ -56,6 +56,22 @@ function inputNode(id: string, nodeType: 'ButtonInput' | 'PotInput' | 'EncoderIn
   }
 }
 
+function sdCardNode() {
+  return {
+    id: 'sd',
+    type: 'studioNode',
+    position: { x: 0, y: 0 },
+    data: {
+      label: 'SD Card',
+      nodeType: 'SDCard',
+      category: 'input',
+      properties: { partId: 'microsd-module-5v', sdCsPin: 5 },
+      inputs: [],
+      outputs: [],
+    },
+  }
+}
+
 // The exact board lives on the Board node — the bench's own record of which
 // controller is in the build — so a test selects one by putting it there.
 function boardNode(profileId = '', extra: Record<string, unknown> = {}) {
@@ -641,6 +657,26 @@ describe('BuildDiagramWorkspace', () => {
     expect(signalXs).toEqual([...signalXs].sort((a, b) => a - b))
     expect(Math.min(...signalXs)).toBeGreaterThan(vccX)
     expect(Math.max(...signalXs)).toBeLessThan(gndX)
+  })
+
+  it('draws the SD card module with the ESP-32D SPI bus in the build diagram', () => {
+    useGraphStore.setState({ nodes: [boardNode(), matrixNode(), sdCardNode()] as never[] })
+    selectEsp32DevKitV1()
+    const { container, getByText } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+
+    expect(getByText('Storage')).toBeTruthy()
+    expect(diagram?.querySelector('[data-component-render="microsd-module-5v"]')).toBeTruthy()
+    for (const wire of [
+      'sd-card:sd:sdCsPin',
+      'sd-card:sd:sdSckPin',
+      'sd-card:sd:sdMosiPin',
+      'sd-card:sd:sdMisoPin',
+    ]) {
+      expect(diagram?.querySelector(`[data-wire="${wire}"]`), wire).toBeTruthy()
+    }
+    expect(diagram?.querySelector('[data-net-stub-for="sd-card:sd-power"]')?.getAttribute('data-net-stub')).toBe('v5')
+    expect(diagram?.querySelector('[data-net-stub-for="sd-card:sd-ground"]')).toBeTruthy()
   })
 
   it('gives every control signal its own lane, ordered so no climb crosses another run', () => {

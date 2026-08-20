@@ -44,9 +44,12 @@ import {
   fuseColumnSplit,
   fuseSlotForFeed,
   groundCombLaneY,
-  peripheralPadCount,
+  peripheralGroundPadIndex,
   peripheralPadLabel,
   peripheralPadPoint,
+  peripheralPowerNet,
+  peripheralPowerPadIndex,
+  peripheralSignalPadIndex,
   PERIPHERAL_LANE_BASE,
   PERIPHERAL_LANE_SPACING,
   PERIPHERAL_RENDER_H,
@@ -540,7 +543,7 @@ function assignControlLanes(
     const own = connections.filter((connection) => connection.itemId === layout.item.id)
     own.forEach((connection, index) => {
       const entry = rows.get(layout.y) ?? []
-      entry.push({ id: connection.id, padX: peripheralPadPoint(layout, index + 1).x, rowTop: layout.y })
+      entry.push({ id: connection.id, padX: peripheralPadPoint(layout, peripheralSignalPadIndex(layout.item, index)).x, rowTop: layout.y })
       rows.set(layout.y, entry)
     })
   })
@@ -791,14 +794,20 @@ const PERIPHERAL_RENDERS: Partial<Record<HardwareManifestItem['kind'], { href: s
   'pot-input': { href: potentiometerModuleRender, id: 'potentiometer-module' },
   'encoder-input': { href: encoderModuleRender, id: 'encoder-module' },
   'rtc-input': { href: '/parts/ds3231-rtc-module.webp', id: 'ds3231-rtc-module' },
+  'sd-card': { href: '/parts/microsd-module-5v.webp', id: 'microsd-module-5v' },
 }
 
 function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; connections: PhysicalDiagramConnection[]; selected: boolean }) {
   const { x, y, item } = layout
   const render = item.kind === 'rtc-input' && item.facts.partId === 'jaycar-xc9044-rtc-module'
     ? { href: '/parts/jaycar-xc9044-rtc-module.webp', id: 'jaycar-xc9044-rtc-module' }
-    : PERIPHERAL_RENDERS[item.kind]
-  const padLabel = (index: number) => peripheralPadLabel(item.kind, index)
+    : item.kind === 'sd-card' && item.facts.partId === 'microsd-breakout-3v3'
+      ? { href: '/parts/microsd-breakout-3v3.webp', id: 'microsd-breakout-3v3' }
+      : PERIPHERAL_RENDERS[item.kind]
+  const padLabel = (index: number) => peripheralPadLabel(item, index)
+  const powerPadIndex = peripheralPowerPadIndex(item)
+  const groundPadIndex = peripheralGroundPadIndex(item)
+  const powerNet = peripheralPowerNet(item)
   return (
     <g className={selected ? styles.physicalSelected : undefined}>
       <text x={x + (PERIPHERAL_RENDER_W / 2)} y={y - 12} textAnchor="middle" className={styles.physicalComponentLabel}>{item.title}</text>
@@ -814,25 +823,26 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
           className={styles.physicalBoardRender}
         />
       )}
-      {/* Pad 0 is VCC and the last pad is GND on every module; the signals sit
-          between them in the order the connection list already uses. */}
+      {/* The layout maps semantic power, signal, and ground roles onto the
+          photographed pad order for each module variant. */}
       <g data-terminal={`${item.id}-3v3`}>
-        <circle cx={peripheralPadPoint(layout, 0).x} cy={peripheralPadPoint(layout, 0).y} r="5" className={styles.peripheralPowerTerminal} />
-        <title>VCC · 3V3</title>
+        <circle cx={peripheralPadPoint(layout, powerPadIndex).x} cy={peripheralPadPoint(layout, powerPadIndex).y} r="5" className={styles.peripheralPowerTerminal} />
+        <title>{powerNet === 'v5' ? 'VCC · 5V' : 'VCC · 3V3'}</title>
       </g>
       {connections.map((connection, index) => {
-        const point = peripheralPadPoint(layout, index + 1)
+        const padIndex = peripheralSignalPadIndex(item, index)
+        const point = peripheralPadPoint(layout, padIndex)
         return (
           <g key={connection.id} data-terminal={`${item.id}-${connection.id}`}>
             <circle cx={point.x} cy={point.y} r="5" className={styles.peripheralSignalTerminal} />
-            <title>{padLabel(index + 1)} · {connectionPinLabel(connection)}</title>
+            <title>{padLabel(padIndex)} · {connectionPinLabel(connection)}</title>
           </g>
         )
       })}
       <g data-terminal={`${item.id}-gnd`}>
         <circle
-          cx={peripheralPadPoint(layout, peripheralPadCount(item.kind) - 1).x}
-          cy={peripheralPadPoint(layout, peripheralPadCount(item.kind) - 1).y}
+          cx={peripheralPadPoint(layout, groundPadIndex).x}
+          cy={peripheralPadPoint(layout, groundPadIndex).y}
           r="5"
           className={styles.peripheralGroundTerminal}
         />
@@ -1191,8 +1201,8 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
   const controllerUsb = controllerPowerPoint('usb', boardProfile)
   const powerSectionY = powerSectionStartY(items, layers)
   const showPowerDistribution = layers.powerDistribution && outputLayouts.length > 0
-  // Every control module render carries a VCC pad, not just the pot.
-  const usesThreeVolt = !!microphoneLayout || peripheralLayouts.length > 0
+  const usesThreeVolt = !!microphoneLayout
+    || peripheralLayouts.some((layout) => peripheralPowerNet(layout.item) === 'v3v3')
   const controlLanes = assignControlLanes(peripheralLayouts, connections)
   // Dense lane index over just the wires that use the bus band, so the five
   // lanes are spent on real users rather than on gaps left by control wires
@@ -1298,14 +1308,21 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
         })}
         {peripheralLayouts.map((layout, layoutIndex) => {
           const peripheralConnections = connections.filter((connection) => connection.itemId === layout.item.id)
-          const vccPad = peripheralPadPoint(layout, 0)
-          const groundPad = peripheralPadPoint(layout, peripheralPadCount(layout.item.kind) - 1)
+          const vccPad = peripheralPadPoint(layout, peripheralPowerPadIndex(layout.item))
+          const groundPad = peripheralPadPoint(layout, peripheralGroundPadIndex(layout.item))
           return <g key={layout.item.id}>
-            <NetStub x={vccPad.x} y={vccPad.y} kind="v3v3" direction="down" lead={PERIPHERAL_STUB_LEAD} wireId={`${layout.item.id}-3v3`} />
+            <NetStub
+              x={vccPad.x}
+              y={vccPad.y}
+              kind={peripheralPowerNet(layout.item)}
+              direction="down"
+              lead={PERIPHERAL_STUB_LEAD}
+              wireId={`${layout.item.id}-${layout.item.kind === 'sd-card' ? 'power' : '3v3'}`}
+            />
             {layers.signalWires && peripheralConnections.map((connection, index) => {
               const controllerIndex = controllerConnections.indexOf(connection)
               const controllerPoint = controllerConnectionPoint(connection, controllerIndex, controllerConnections.length, boardProfile)
-              const pad = peripheralPadPoint(layout, index + 1)
+              const pad = peripheralPadPoint(layout, peripheralSignalPadIndex(layout.item, index))
               const lane = controlLanes.get(connection.id)
               if (!lane) return null
               return <path

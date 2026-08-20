@@ -16,7 +16,7 @@ export interface RtcI2cPins {
 }
 
 function normalized(value: string): string {
-  return value.trim().toUpperCase().replaceAll(' ', '')
+  return value.trim().toUpperCase().replace(/ /g, '')
 }
 
 function physicalPin(

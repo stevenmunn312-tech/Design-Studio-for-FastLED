@@ -16,6 +16,7 @@ import {
   type PhysicalBoardProfile,
 } from './boardProfiles'
 import { rtcI2cPinsForProfile } from '../state/rtcPins'
+import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
 
 export interface HardwarePinUse {
   label: string
@@ -54,7 +55,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'rtc-input' | 'button-input' | 'pot-input' | 'encoder-input' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'rtc-input' | 'sd-card' | 'button-input' | 'pot-input' | 'encoder-input' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -81,6 +82,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'PotInput',
   'EncoderInput',
   'RTCInput',
+  'SDCard',
 ])
 
 const BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS = new Set([
@@ -102,9 +104,10 @@ function nominalVoltageForChipset(chipset: string): number | null {
   return chipset === HUB75_CHIPSET ? 5 : 5
 }
 
-export function collectPinUses(nodes: StudioNode[]): HardwarePinUse[] {
+export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): HardwarePinUse[] {
   const uses: HardwarePinUse[] = []
   const rtcPins = rtcI2cPinsForProfile(selectedPhysicalBoardProfile(nodes))
+  const sdSpiPins = sdSpiPinsForBoard(selectedPhysicalBoardProfile(nodes), selectedFqbn)
   const matrixOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
   const matrixOrdinal = new Map(matrixOutputs.map((node, index) => [node.id, index + 1]))
   const push = (node: StudioNode, label: string, propertyKey: string, value: unknown) => {
@@ -202,7 +205,24 @@ export function collectPinUses(nodes: StudioNode[]): HardwarePinUse[] {
         }
         break
       case 'SDCard':
-        push(node, `${baseLabel} CS pin`, 'sdCsPin', props.sdCsPin)
+        push(node, `${baseLabel} CS pin`, 'sdCsPin', props.sdCsPin ?? sdSpiPins?.cs)
+        if (sdSpiPins) {
+          for (const [propertyKey, label, pin] of [
+            ['sdSckPin', `${baseLabel} SCK`, sdSpiPins.sck],
+            ['sdMosiPin', `${baseLabel} MOSI`, sdSpiPins.mosi],
+            ['sdMisoPin', `${baseLabel} MISO`, sdSpiPins.miso],
+          ] as const) {
+            uses.push({
+              label,
+              nodeId: node.id,
+              nodeType: node.data.nodeType,
+              propertyKey,
+              pin,
+              requirement: null,
+              boardDefault: true,
+            })
+          }
+        }
         /*
          * The internal DAC has no Amplifier part — it *is* the output stage,
          * on two pins the library fixes for us, so they are claimed here.
@@ -291,7 +311,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
   const targetFamily = targetFamilyFromFqbn(selectedFqbn)
   const board = boardByFqbn(selectedFqbn)
   const physicalBoard = selectedPhysicalBoardProfile(nodes)
-  const pinUses = collectPinUses(nodes)
+  const pinUses = collectPinUses(nodes, selectedFqbn)
   const pinUsesByNodeId = new Map<string, HardwarePinUse[]>()
   for (const pinUse of pinUses) {
     const list = pinUsesByNodeId.get(pinUse.nodeId) ?? []
@@ -350,6 +370,21 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             ? undefined
             : [`${physicalBoard?.label ?? 'The selected board'} does not have complete RTC SDA/SCL properties.`],
         }
+      case 'SDCard': {
+        const partId = String((node.data.properties as Record<string, unknown>).partId ?? 'microsd-module-5v')
+        const spiPins = pins.filter((pin) => ['sdCsPin', 'sdSckPin', 'sdMosiPin', 'sdMisoPin'].includes(pin.propertyKey))
+        return {
+          ...buildPeripheralItem(node, 'sd-card', partId === 'microsd-breakout-3v3'
+            ? 'Bare 3.3 V microSD SPI breakout'
+            : '5 V microSD SPI module with regulator and level shifting', spiPins),
+          supported: ['sdCsPin', 'sdSckPin', 'sdMosiPin', 'sdMisoPin']
+            .every((key) => spiPins.some((pin) => pin.propertyKey === key)),
+          facts: { partId, supplyVoltage: partId === 'microsd-breakout-3v3' ? 3.3 : 5 },
+          reasons: spiPins.length === 4
+            ? undefined
+            : ['The selected board does not have a reviewed default SPI bus for the SD card.'],
+        }
+      }
       default:
         return buildUnsupportedItem(node, pins)
     }

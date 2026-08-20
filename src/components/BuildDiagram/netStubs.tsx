@@ -111,7 +111,7 @@ export function CommonNetCallout({ x, y, width, powerBelow = true }: { x: number
       <text x="16" y="22" className={styles.physicalLegendTitle}>SHARED NETS — SYMBOLS REPLACE DRAWN WIRES</text>
       <text x="16" y="41" className={styles.physicalLegendMeta}>
         Every GND symbol is one common net: bond controller, level shifter, peripheral and all PSU zone grounds together.
-        {' '}+5V draws from the fused bus {powerBelow ? 'below' : 'on the power sheet'}; 3V3 draws from the controller regulator.
+        {' '}+5V feeds low-current modules from the controller 5V rail and LED loads from the fused bus {powerBelow ? 'below' : 'on the power sheet'}; 3V3 draws from the controller regulator.
       </text>
     </g>
   )

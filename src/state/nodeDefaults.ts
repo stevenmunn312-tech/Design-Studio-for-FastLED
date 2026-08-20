@@ -10,6 +10,7 @@ import { micPinDefaultsForSelectedBoard } from './micPinDefaults'
 import { useUploadStore } from './uploadStore'
 import { boardI2cDefault } from '../build/boardI2cDefaults'
 import { sdCsPinDefaultForBoard } from './sdPinDefaults'
+import type { PhysicalBoardProfile } from '../build/boardProfiles'
 
 const KEY = 'design-studio-for-fastled.node-defaults.v1'
 const MIC_KEY = 'design-studio-for-fastled.mic-defaults-by-board.v1'
@@ -149,7 +150,7 @@ export function resolveDefaultProperties(
   // The board a part is being added to, when the caller knows it. Lets a
   // microphone start on the pins this exact board exposes rather than the
   // chip-level FQBN guess.
-  boardProfile?: Parameters<typeof micPinDefaultsForSelectedBoard>[0],
+  boardProfile?: PhysicalBoardProfile,
 ): Record<string, unknown> {
   const state = useNodeDefaults.getState()
   const fqbn = useUploadStore.getState().selectedFqbn

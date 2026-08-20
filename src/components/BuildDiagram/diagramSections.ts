@@ -10,7 +10,7 @@ import type { HardwareManifestItem } from '../../build/hardwareManifest'
  * drawn four times.
  */
 
-export type BuildSectionId = 'all' | 'data' | 'audio' | 'controls' | 'power'
+export type BuildSectionId = 'all' | 'data' | 'audio' | 'storage' | 'controls' | 'power'
 
 export interface BuildSectionLayers {
   /** Controller-to-device signal runs. */
@@ -52,6 +52,13 @@ export const BUILD_SECTIONS: BuildSection[] = [
     label: 'Audio',
     summary: 'Controller I2S pins to the microphone breakout.',
     kinds: ['mic-input'],
+    layers: { signalWires: true, levelShifter: false, powerDistribution: false },
+  },
+  {
+    id: 'storage',
+    label: 'Storage',
+    summary: 'Controller SPI bus, chip select, power, and ground to the SD card module.',
+    kinds: ['sd-card'],
     layers: { signalWires: true, levelShifter: false, powerDistribution: false },
   },
   {

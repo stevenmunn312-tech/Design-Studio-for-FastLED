@@ -223,6 +223,8 @@ const PAD_X_RATIOS_3 = [0.4196, 0.4995, 0.579]
 const PAD_X_RATIOS_RTC_ZS042 = [0.612, 0.543, 0.474, 0.681]
 const PAD_X_RATIOS_RTC_XC9044 = [0.165, 0.337, 0.505, 0.843]
 const PAD_X_RATIOS_5 = [0.34, 0.4194, 0.4992, 0.5787, 0.658]
+const PAD_X_RATIOS_SD_5V = [0.24, 0.3475, 0.45, 0.55, 0.6525, 0.755]
+const PAD_X_RATIOS_SD_3V3 = [0.135, 0.255, 0.3775, 0.5, 0.6225, 0.745, 0.87]
 
 /**
  * Pads sit ~18px above the board edge at render scale, so a stub needs a lead
@@ -230,19 +232,49 @@ const PAD_X_RATIOS_5 = [0.34, 0.4194, 0.4992, 0.5787, 0.658]
  */
 export const PERIPHERAL_STUB_LEAD = 26
 
-/** Pads run VCC, [signals...], GND left to right on every module. */
-export function peripheralPadCount(kind: HardwareManifestItem['kind']) {
-  return kind === 'encoder-input' ? 5 : kind === 'rtc-input' ? 4 : 3
+/** SD images have variant-specific pad orders; simpler peripherals use VCC, signals, GND. */
+function isThreeVoltSd(item: HardwareManifestItem) {
+  return item.kind === 'sd-card' && item.facts.partId === 'microsd-breakout-3v3'
+}
+
+export function peripheralPadCount(item: HardwareManifestItem) {
+  return item.kind === 'sd-card'
+    ? isThreeVoltSd(item) ? 7 : 6
+    : item.kind === 'encoder-input' ? 5 : item.kind === 'rtc-input' ? 4 : 3
 }
 
 /** Silkscreen names on the module renders, indexed the same as the pads. */
-export function peripheralPadLabel(kind: HardwareManifestItem['kind'], padIndex: number) {
-  const labels = kind === 'encoder-input'
+export function peripheralPadLabel(item: HardwareManifestItem, padIndex: number) {
+  const labels = item.kind === 'sd-card'
+    ? isThreeVoltSd(item)
+      ? ['CD', 'MISO', 'GND', 'SCK', '3V3', 'MOSI', 'CS']
+      : ['GND', 'VCC', 'MISO', 'MOSI', 'SCK', 'CS']
+    : item.kind === 'encoder-input'
     ? ['VCC', 'A', 'B', 'SW', 'GND']
-    : kind === 'rtc-input'
+    : item.kind === 'rtc-input'
       ? ['3V3', 'SDA', 'SCL', 'GND']
     : ['VCC', 'SIG', 'GND']
   return labels[Math.min(Math.max(padIndex, 0), labels.length - 1)]
+}
+
+export function peripheralPowerPadIndex(item: HardwareManifestItem) {
+  return item.kind === 'sd-card' ? (isThreeVoltSd(item) ? 4 : 1) : 0
+}
+
+export function peripheralGroundPadIndex(item: HardwareManifestItem) {
+  return item.kind === 'sd-card' ? (isThreeVoltSd(item) ? 2 : 0) : peripheralPadCount(item) - 1
+}
+
+/** Manifest order for SD is CS, SCK, MOSI, MISO; the two module variants put
+ * those pads in different physical orders. */
+export function peripheralSignalPadIndex(item: HardwareManifestItem, signalIndex: number) {
+  if (item.kind !== 'sd-card') return signalIndex + 1
+  const order = isThreeVoltSd(item) ? [6, 3, 5, 1] : [5, 4, 3, 2]
+  return order[Math.min(Math.max(signalIndex, 0), order.length - 1)]
+}
+
+export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' {
+  return item.kind === 'sd-card' && !isThreeVoltSd(item) ? 'v5' : 'v3v3'
 }
 
 export function peripheralPadPoint(layout: ItemLayout, padIndex: number) {
@@ -262,7 +294,18 @@ export function peripheralPadPoint(layout: ItemLayout, padIndex: number) {
       y: layout.y + offsetY + (sourceYRatio * renderHeight),
     }
   }
-  const ratios = peripheralPadCount(layout.item.kind) === 5 ? PAD_X_RATIOS_5 : PAD_X_RATIOS_3
+  if (layout.item.kind === 'sd-card') {
+    const ratios = isThreeVoltSd(layout.item) ? PAD_X_RATIOS_SD_3V3 : PAD_X_RATIOS_SD_5V
+    const sourceAspect = 400 / 690
+    const renderWidth = PERIPHERAL_RENDER_H * sourceAspect
+    const offsetX = (PERIPHERAL_RENDER_W - renderWidth) / 2
+    const ratio = ratios[Math.min(Math.max(padIndex, 0), ratios.length - 1)]
+    return {
+      x: layout.x + offsetX + (ratio * renderWidth),
+      y: layout.y + (0.948 * PERIPHERAL_RENDER_H),
+    }
+  }
+  const ratios = peripheralPadCount(layout.item) === 5 ? PAD_X_RATIOS_5 : PAD_X_RATIOS_3
   const ratio = ratios[Math.min(Math.max(padIndex, 0), ratios.length - 1)]
   return {
     x: layout.x + (ratio * PERIPHERAL_RENDER_W),

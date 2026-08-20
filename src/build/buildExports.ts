@@ -66,6 +66,15 @@ export function buildConnectionRows(
     }
     if (item.kind === 'mic-input' || item.kind === 'pot-input' || item.kind === 'rtc-input') {
       rows.push({ from: controller, fromTerminal: '3V3', to: item.title, toTerminal: item.kind === 'mic-input' ? 'VDD' : '3V3', purpose: 'Logic power' })
+    } else if (item.kind === 'sd-card') {
+      const supplyVoltage = Number(item.facts.supplyVoltage ?? 5)
+      rows.push({
+        from: controller,
+        fromTerminal: supplyVoltage === 3.3 ? '3V3' : '5V / VIN',
+        to: item.title,
+        toTerminal: supplyVoltage === 3.3 ? '3V3' : 'VCC',
+        purpose: 'Module power',
+      })
     }
     rows.push({ from: controller, fromTerminal: 'GND', to: item.title, toTerminal: 'GND', purpose: 'Common ground reference' })
   }

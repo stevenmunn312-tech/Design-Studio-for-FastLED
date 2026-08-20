@@ -83,6 +83,26 @@ describe('hardwareManifest', () => {
     })
   })
 
+  it('maps a 5 V microSD module to the classic ESP-32D SPI bus', () => {
+    const manifest = buildHardwareManifest([
+      node('board', 'Board', { profileId: 'esp32-devkit-v1-30pin-esp32d' }),
+      node('sd', 'SDCard', { partId: 'microsd-module-5v', sdCsPin: 5 }),
+    ], [], 'esp32:esp32:esp32doit-devkit-v1')
+
+    expect(manifest.unsupportedItems).toEqual([])
+    expect(manifest.primaryItems[0]).toMatchObject({
+      kind: 'sd-card',
+      supported: true,
+      facts: { partId: 'microsd-module-5v', supplyVoltage: 5 },
+      pins: [
+        { propertyKey: 'sdCsPin', pin: 5 },
+        { propertyKey: 'sdSckPin', pin: 18 },
+        { propertyKey: 'sdMosiPin', pin: 23 },
+        { propertyKey: 'sdMisoPin', pin: 19 },
+      ],
+    })
+  })
+
   it('marks unsupported hardware explicitly instead of pretending to wire it', () => {
     const manifest = buildHardwareManifest([
       node('dmx', 'DMXInput', { inputMode: 'DMX512', dmxRxPin: 16 }),
