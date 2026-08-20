@@ -52,17 +52,3 @@ export function rtcI2cPinsForProfile(profile: PhysicalBoardProfile | undefined):
     scl: resolvePin(profile, definition.scl),
   }
 }
-
-function summaryPart(role: 'SDA' | 'SCL', pin: RtcI2cPin): string {
-  const label = pin.displayLabel
-  if (normalized(label) === role) return `${role} pin ${pin.arduinoPin}`
-  if (new RegExp(`(^|[^A-Z0-9])${role}([^A-Z0-9]|$)`, 'i').test(label)) return label
-  return `${role} ${label}`
-}
-
-export function rtcI2cPinSummary(profile: PhysicalBoardProfile | undefined): string {
-  const pins = rtcI2cPinsForProfile(profile)
-  return pins
-    ? `${summaryPart('SDA', pins.sda)} · ${summaryPart('SCL', pins.scl)}`
-    : 'Select an exact board to show its default SDA/SCL pins'
-}

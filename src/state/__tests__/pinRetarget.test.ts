@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { isPinAppOwned, retargetHardwarePins, withAssignedPins } from '../pinRetarget'
 import type { StudioNode } from '../graphStore'
-import type { PhysicalBoardProfile } from '../../build/boardProfiles'
+import { boardProfileById, type PhysicalBoardProfile } from '../../build/boardProfiles'
 
 function part(id: string, nodeType: string, properties: Record<string, unknown>): StudioNode {
   return {
@@ -71,6 +71,19 @@ describe('pin ownership', () => {
 })
 
 describe('retargetHardwarePins', () => {
+  it('moves board-owned RTC properties to the new board defaults', () => {
+    const xiao = boardProfileById('seeed-xiao-esp32s3')!
+    const devkit = boardProfileById('esp32-devkit-v1-30pin-esp32d')!
+    const nodes = [part('rtc', 'RTCInput', withAssignedPins(
+      { timeSource: 'DS3231', sdaPin: 5, sclPin: 6 },
+      { sdaPin: 5, sclPin: 6 },
+      xiao.id,
+    ))]
+
+    const result = retargetHardwarePins(nodes, devkit, 'esp32:esp32:esp32', xiao.id)
+    expect(result.nodes[0].data.properties).toMatchObject({ sdaPin: 21, sclPin: 22 })
+  })
+
   it('moves a part the app placed', () => {
     const nodes = [part('b', 'ButtonInput', withAssignedPins({}, { pin: 4 }))]
     const result = retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3)

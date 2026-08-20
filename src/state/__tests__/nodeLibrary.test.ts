@@ -419,6 +419,8 @@ describe('nodeLibrary', () => {
     ])
     expect(rtc?.defaultProperties).toMatchObject({
       timeSource: 'Compile Time',
+      sdaPin: 21,
+      sclPin: 22,
       ntpServer: 'pool.ntp.org',
       timezoneOffsetMinutes: 0,
       wifiHostname: 'fastled-clock',
@@ -434,6 +436,8 @@ describe('nodeLibrary', () => {
     expect(isPropertyEnabled('RTCInput', 'startYear', { timeSource: 'Compile Time' })).toBe(false)
     expect(isPropertyEnabled('RTCInput', 'ntpServer', { timeSource: 'NTP' })).toBe(true)
     expect(isPropertyEnabled('RTCInput', 'ntpServer', { timeSource: 'Manual' })).toBe(false)
+    expect(isPropertyEnabled('RTCInput', 'sdaPin', { timeSource: 'DS3231' })).toBe(true)
+    expect(isPropertyEnabled('RTCInput', 'sdaPin', { timeSource: 'NTP' })).toBe(false)
     expect(propertyMeta('RTCInput', 'timeSource')).toEqual({
       control: 'select',
       options: ['Compile Time', 'Manual', 'NTP', 'DS3231'],

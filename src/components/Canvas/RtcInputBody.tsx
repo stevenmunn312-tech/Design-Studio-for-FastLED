@@ -4,11 +4,8 @@ import {
   type RtcPreview,
 } from '../../state/rtc'
 import { useGraphStore } from '../../state/graphStore'
-import { rootGraphNodes } from '../../state/graphStore'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNetworkCredentialsStore, EMPTY_CREDENTIALS } from '../../state/networkCredentials'
-import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
-import { rtcI2cPinSummary } from '../../state/rtcPins'
 import { useUploadStore } from '../../state/uploadStore'
 import { useStreamStore } from '../../state/streamStore'
 import { setRtcDateTime } from '../../utils/backendClient'
@@ -58,7 +55,6 @@ export default function RtcInputBody({ nodeId }: { nodeId: string }) {
   const snapshot = live ?? fallback
   const credentials = useNetworkCredentialsStore((s) => s.byNodeId[nodeId] ?? EMPTY_CREDENTIALS)
   const setCredentials = useNetworkCredentialsStore((s) => s.setCredentials)
-  const boardProfile = useGraphStore((s) => selectedPhysicalBoardProfile(rootGraphNodes(s)))
   const selectedPort = useUploadStore((s) => s.selectedPort)
   const helperReady = useUploadStore((s) => s.helper?.ok === true)
   const uploadBusy = useUploadStore((s) => s.busy)
@@ -115,7 +111,6 @@ export default function RtcInputBody({ nodeId }: { nodeId: string }) {
       )}
       {timeSource === 'DS3231' && (
         <>
-          <div className={styles.pinReadout}>{rtcI2cPinSummary(boardProfile)}</div>
           <div className={styles.rtcAction}>
             <button
               type="button"
@@ -132,7 +127,7 @@ export default function RtcInputBody({ nodeId }: { nodeId: string }) {
           </div>
           <div className={styles.note}>
             Preview simulates a healthy module with the browser clock. Firmware reads address
-            0x68 over the board&apos;s default I²C bus. Set from computer writes the physical module
+            0x68 over the configured SDA/SCL pins. Set from computer writes the physical module
             through the selected USB port; it never runs automatically.
           </div>
         </>

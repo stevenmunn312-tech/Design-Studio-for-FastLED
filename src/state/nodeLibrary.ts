@@ -2579,6 +2579,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     defaultProperties: {
       timeSource: 'Compile Time',
+      sdaPin: 21,
+      sclPin: 22,
       ntpServer: 'pool.ntp.org',
       timezoneOffsetMinutes: 0,
       wifiHostname: 'fastled-clock',
@@ -3231,6 +3233,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   RTCInput: {
     timeSource: { control: 'select', options: ['Compile Time', 'Manual', 'NTP', 'DS3231'] },
+    sdaPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    sclPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     timezoneOffsetMinutes: { control: 'slider', min: -720, max: 840, step: 15 },
     startMonth: { control: 'slider', min: 1, max: 12, step: 1 },
     startDay: { control: 'slider', min: 1, max: 31, step: 1 },
@@ -3719,7 +3723,9 @@ export const FORMULA_LANG_HELP = 'Variables: x, y, t, cx, cy, r, angle, W, H, a,
 /** Per-node overrides for property names whose meaning collides across nodes. */
 export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, string>> = {
   RTCInput: {
-    timeSource: 'Compile Time seeds from the sketch build stamp; Manual uses the fields below; NTP syncs over Wi-Fi; DS3231 reads a battery-backed clock on the board default I2C pins.',
+    timeSource: 'Compile Time seeds from the sketch build stamp; Manual uses the fields below; NTP syncs over Wi-Fi; DS3231 reads a battery-backed clock using the SDA/SCL properties initialized from the selected board.',
+    sdaPin: 'DS3231 I2C data pin. Studio fills this from the selected physical board’s Arduino Wire default.',
+    sclPin: 'DS3231 I2C clock pin. Studio fills this from the selected physical board’s Arduino Wire default.',
     startYear: 'Manual clock start year. Only used when Time source is Manual.',
     startMonth: 'Manual clock start month (1-12). Only used when Time source is Manual.',
     startDay: 'Manual clock start day of month. Only used when Time source is Manual.',
@@ -3813,6 +3819,8 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   RTCInput: {
     timeSource: 'time source',
+    sdaPin: 'SDA pin',
+    sclPin: 'SCL pin',
     ntpServer: 'NTP server',
     timezoneOffsetMinutes: 'UTC offset (min)',
     wifiHostname: 'hostname',
@@ -3945,6 +3953,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   RTCInput: [
     { key: 'source', label: 'Clock Source', keys: ['timeSource'] },
+    { key: 'wiring', label: 'DS3231 Wiring', keys: ['sdaPin', 'sclPin'] },
     { key: 'network', label: 'NTP Network', keys: ['ntpServer', 'timezoneOffsetMinutes', 'wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
     { key: 'manualStart', label: 'Manual Start', keys: ['startYear', 'startMonth', 'startDay', 'startHour', 'startMinute', 'startSecond'] },
   ],
@@ -4082,6 +4091,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   ButtonInput: new Set(['pin']),
   PotInput: new Set(['pin']),
   EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
+  RTCInput: new Set(['sdaPin', 'sclPin']),
   SDCard: new Set(['sdCsPin', 'i2sBclk', 'i2sLrc', 'i2sDout']),
   MatrixOutput: new Set([
     'dataPin', 'clockPin',
@@ -4109,6 +4119,8 @@ export function gpioRequirementForProperty(
   props: Record<string, unknown>,
 ): GpioPropertyRequirement | null {
   if (!isGpioPinProperty(nodeType, key)) return null
+  // An I2C bus pair is not an ordinary digital-output assignment.
+  if (nodeType === 'RTCInput') return null
   if (nodeType === 'PotInput') return { capability: 'analogInput', pullup: false }
   if (nodeType === 'ButtonInput' || nodeType === 'EncoderInput') {
     return { capability: 'digitalInput', pullup: props.pullup !== false }
@@ -4293,6 +4305,7 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     }
   }
   if (nodeType === 'RTCInput') {
+    if (key === 'sdaPin' || key === 'sclPin') return String(properties.timeSource ?? 'Compile Time') === 'DS3231'
     if (key === 'ntpServer' || key === 'timezoneOffsetMinutes' || key === 'wifiHostname' || key === 'useDhcp' || key === 'staticIp' || key === 'staticGateway' || key === 'staticSubnet' || key === 'staticDns') {
       if (String(properties.timeSource ?? 'Compile Time') !== 'NTP') return false
       if (key === 'staticIp' || key === 'staticGateway' || key === 'staticSubnet' || key === 'staticDns') return properties.useDhcp === false

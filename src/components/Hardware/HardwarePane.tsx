@@ -10,6 +10,7 @@ import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { nextFreeLedDataPin } from '../../state/ledPinAssignment'
 import { assignPartPins, type PartPinRequest } from '../../state/partPinAssignment'
 import { withAssignedPins } from '../../state/pinRetarget'
+import { boardI2cDefault } from '../../build/boardI2cDefaults'
 import { partDimensionsMm, partRenderSrc, ringDiameterMm } from '../../state/partCatalogue'
 import { partRenderForNodeType } from '../../state/partRenders'
 import { partOptionProperty, partOptionsFor, resolvePartIdentity } from '../../state/partOptions'
@@ -779,6 +780,10 @@ export default function HardwarePane() {
       ? assignPartPins(boardProfile, selectedFqbn, nodes, entry.pinRequests)
       : { ok: true as const, pins: {} }
     if (!assigned.ok) return
+    const rtcDefaults = entry.nodeType === 'RTCInput' ? boardI2cDefault(boardProfile?.id) : undefined
+    const assignedPins = rtcDefaults
+      ? { ...assigned.pins, sdaPin: rtcDefaults.sda.arduinoPin, sclPin: rtcDefaults.scl.arduinoPin }
+      : assigned.pins
 
     const nodeId = `${entry.nodeType}-${Date.now()}-${Math.round(Math.random() * 1e6)}`
     addNode({
@@ -799,7 +804,7 @@ export default function HardwarePane() {
             ...resolveDefaultProperties(definition.type, definition.defaultProperties, boardProfile),
             ...(entry.properties ?? {}),
           },
-          assigned.pins,
+          assignedPins,
           boardProfile?.id ?? selectedFqbn,
         ),
         inputs: definition.inputs,
@@ -807,7 +812,7 @@ export default function HardwarePane() {
       },
     } as never)
     setAddMenuOpen(false)
-    const pins = Object.values(assigned.pins)
+    const pins = Object.values(assignedPins)
     setStatus(
       pins.length
         ? `Added ${entry.label} on pin${pins.length > 1 ? 's' : ''} ${pins.join(', ')}`

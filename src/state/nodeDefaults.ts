@@ -8,6 +8,7 @@
 import { create } from 'zustand'
 import { micPinDefaultsForSelectedBoard } from './micPinDefaults'
 import { useUploadStore } from './uploadStore'
+import { boardI2cDefault } from '../build/boardI2cDefaults'
 
 const KEY = 'design-studio-for-fastled.node-defaults.v1'
 const MIC_KEY = 'design-studio-for-fastled.mic-defaults-by-board.v1'
@@ -134,7 +135,7 @@ export const useNodeDefaults = create<NodeDefaultsState>((set) => ({
  * Filtered on read rather than on save, so a default that already carries one
  * stops applying immediately instead of waiting to be re-saved.
  */
-const HARDWARE_OWNED_KEYS = new Set(['form'])
+const HARDWARE_OWNED_KEYS = new Set(['form', 'sdaPin', 'sclPin'])
 
 function withoutHardwareOwned(override: Record<string, unknown> | undefined): Record<string, unknown> {
   if (!override) return {}
@@ -154,7 +155,12 @@ export function resolveDefaultProperties(
   const override = nodeType === 'MicInput'
     ? state.micOverridesByFqbn[fqbn]
     : state.overrides[nodeType]
-  const boardDefault = nodeType === 'MicInput' ? micPinDefaultsForSelectedBoard(boardProfile) : undefined
+  const rtcPins = nodeType === 'RTCInput' ? boardI2cDefault(boardProfile?.id) : undefined
+  const boardDefault = nodeType === 'MicInput'
+    ? micPinDefaultsForSelectedBoard(boardProfile)
+    : rtcPins
+      ? { sdaPin: rtcPins.sda.arduinoPin, sclPin: rtcPins.scl.arduinoPin }
+      : undefined
   return sanitizeProperties(nodeType, {
     ...(libraryDefault ?? {}),
     ...(boardDefault ?? {}),

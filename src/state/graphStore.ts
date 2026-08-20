@@ -26,6 +26,7 @@ import { validateMatrixLayout } from './xyLayout'
 import { isLinearForm, outputCanvasDims, outputForm } from './ledOutputForm'
 import { emptyBuildProfile, normalizeBuildProfile, type BuildProfile } from '../build/buildProfile'
 import { boardProfileById, selectedPhysicalBoardProfile } from '../build/boardProfiles'
+import { boardI2cDefault } from '../build/boardI2cDefaults'
 import { DEFAULT_BOARD_PROFILE_ID, isHardwareManagedSignalNodeType, isHardwareNodeType, isHardwareOnlyNodeType, ROOT_BOARD_NODE_ID } from './hardware'
 import { controllerSettings, DEFAULT_CONTROLLER_SETTINGS } from './controllerSettings'
 import {
@@ -310,6 +311,9 @@ const LIBRARY_DEF = new Map(NODE_LIBRARY.map((def) => [def.type, def]))
 const LEGACY_TYPE_RENAME: Record<string, string> = { AnimatedImage: 'Image', LedStringOutput: 'MatrixOutput' }
 
 function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes: StudioNode[]; edges: StudioEdge[] } {
+  const savedBoard = nodes.find((node) => node.data.nodeType === 'Board')
+  const savedProfileId = (savedBoard?.data.properties as Record<string, unknown> | undefined)?.profileId
+  const rtcDefaults = boardI2cDefault(typeof savedProfileId === 'string' ? savedProfileId : undefined)
   const normalizedNodes = nodes.map((n) => {
     const data = n.data as StudioNodeData
     const wasLedString = data.nodeType === 'LedStringOutput'
@@ -322,6 +326,13 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     // preview nor firmware honored it. FastLED's INMP441 pipeline owns the
     // 44.1 kHz rate now, so strip the misleading legacy property on load.
     if (nodeType === 'MicInput') delete properties.sampleRate
+    // RTC pins became first-class node properties after the RTC hardware node
+    // was introduced. Backfill older saves from their exact board so opening a
+    // project exposes the same wiring it was already generating.
+    if (nodeType === 'RTCInput') {
+      properties.sdaPin ??= rtcDefaults?.sda.arduinoPin ?? 21
+      properties.sclPin ??= rtcDefaults?.scl.arduinoPin ?? 22
+    }
     // AudioHue's bass/mids/treble mix used to be hardcoded in the evaluator and
     // the C++ generator. It is now three editable weights, so backfill saves
     // made before they existed with the old mix — otherwise the node keeps

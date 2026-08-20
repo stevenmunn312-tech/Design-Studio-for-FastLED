@@ -1449,10 +1449,15 @@ export function generateCpp(
   if (needsDs3231) {
     const rtcBoard = selectedPhysicalBoardProfile(nodes)
     const rtcPins = rtcI2cPinsForProfile(rtcBoard)
+    const rtcNode = sorted.find((node) => node.data.nodeType === 'RTCInput'
+      && String(props(node).timeSource ?? 'Compile Time') === 'DS3231')
+    const rtcProps = rtcNode ? props(rtcNode) : {}
+    const sdaPin = sanitizePin(rtcProps.sdaPin, rtcPins?.sda.arduinoPin ?? 21)
+    const sclPin = sanitizePin(rtcProps.sclPin, rtcPins?.scl.arduinoPin ?? 22)
     const supportsExplicitWirePins = rtcBoard?.targetFamilies.some((family) =>
       family === 'esp8266' || family.startsWith('esp32'))
     setupLines.push(rtcPins && supportsExplicitWirePins
-      ? `  Wire.begin(${rtcPins.sda.arduinoPin}, ${rtcPins.scl.arduinoPin});  // DS3231 on ${rtcBoard.label}'s default SDA/SCL pins`
+      ? `  Wire.begin(${sdaPin}, ${sclPin});  // DS3231 I2C pins from the RTC node`
       : `  Wire.begin();  // DS3231 on the board's default SDA/SCL pins`)
     setupLines.push(`  Serial.begin(115200);  // accepts deliberate FLS_RTC_SET commands from Studio`)
   }

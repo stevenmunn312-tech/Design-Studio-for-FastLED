@@ -67,18 +67,20 @@ describe('hardwareManifest', () => {
     })
   })
 
-  it('refuses to invent RTC wiring when no exact board pin map is selected', () => {
+  it('keeps RTC property wiring when no exact physical board is selected', () => {
     const manifest = buildHardwareManifest([
-      node('rtc', 'RTCInput', { timeSource: 'DS3231' }),
+      node('rtc', 'RTCInput', { timeSource: 'DS3231', sdaPin: 4, sclPin: 5 }),
     ], [], 'esp32:esp32:esp32doit-devkit-v1')
 
-    expect(manifest.primaryItems).toEqual([])
-    expect(manifest.unsupportedItems[0]).toMatchObject({
+    expect(manifest.unsupportedItems).toEqual([])
+    expect(manifest.primaryItems[0]).toMatchObject({
       kind: 'rtc-input',
-      supported: false,
-      pins: [],
+      supported: true,
+      pins: [
+        { propertyKey: 'sdaPin', pin: 4 },
+        { propertyKey: 'sclPin', pin: 5 },
+      ],
     })
-    expect(manifest.unsupportedItems[0].reasons?.[0]).toMatch(/will not invent RTC wiring/)
   })
 
   it('marks unsupported hardware explicitly instead of pretending to wire it', () => {

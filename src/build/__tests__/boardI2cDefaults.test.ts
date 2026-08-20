@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { BOARD_I2C_DEFAULTS } from '../boardI2cDefaults'
 import { BOARD_PROFILES, boardProfileById } from '../boardProfiles'
-import { rtcI2cPinSummary, rtcI2cPinsForProfile } from '../../state/rtcPins'
+import { rtcI2cPinsForProfile } from '../../state/rtcPins'
 
 describe('board I2C defaults', () => {
   it('has one reviewed Wire default for every supported physical board', () => {
@@ -44,8 +44,11 @@ describe('board I2C defaults', () => {
     expect(unresolved).toEqual(['nordic-nrf52840-dk'])
   })
 
-  it('reports the selected board defaults in compact node copy', () => {
-    expect(rtcI2cPinSummary(boardProfileById('seeed-xiao-esp32s3'))).toMatch(/SDA.*5.*SCL.*6/i)
-    expect(rtcI2cPinSummary(undefined)).toMatch(/Select an exact board/i)
+  it('resolves the selected board defaults as property values', () => {
+    expect(rtcI2cPinsForProfile(boardProfileById('seeed-xiao-esp32s3'))).toMatchObject({
+      sda: { arduinoPin: 5 },
+      scl: { arduinoPin: 6 },
+    })
+    expect(rtcI2cPinsForProfile(undefined)).toBeNull()
   })
 })

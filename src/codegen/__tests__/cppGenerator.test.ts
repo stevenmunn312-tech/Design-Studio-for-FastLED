@@ -3213,7 +3213,14 @@ describe('RTCInput (codegen)', () => {
     const board = node('board', 'Board', 'input', { profileId: 'seeed-xiao-esp32s3' })
     const rtc = node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' })
     const cpp = generateCpp([board, rtc], [])
-    expect(cpp).toContain("Wire.begin(5, 6);  // DS3231 on Seeed Studio XIAO ESP32S3's default SDA/SCL pins")
+    expect(cpp).toContain('Wire.begin(5, 6);  // DS3231 I2C pins from the RTC node')
+  })
+
+  it('uses editable RTC pin properties on Espressif targets', () => {
+    const board = node('board', 'Board', 'input', { profileId: 'seeed-xiao-esp32s3' })
+    const rtc = node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231', sdaPin: 7, sclPin: 8 })
+    const cpp = generateCpp([board, rtc], [])
+    expect(cpp).toContain('Wire.begin(7, 8);  // DS3231 I2C pins from the RTC node')
   })
 })
 

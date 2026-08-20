@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { resolveDefaultProperties, useNodeDefaults } from '../nodeDefaults'
 import { useUploadStore } from '../uploadStore'
+import { boardProfileById } from '../../build/boardProfiles'
 
 describe('node defaults', () => {
   beforeEach(() => {
@@ -59,6 +60,16 @@ describe('node defaults', () => {
     useUploadStore.setState({ selectedFqbn: 'teensy:avr:teensy40' })
     expect(resolveDefaultProperties('MicInput', { gain: 1 })).toMatchObject({
       i2sWs: 20, i2sSck: 21, i2sSd: 8,
+    })
+  })
+
+  it('uses the exact board RTC defaults instead of saved cross-board pins', () => {
+    useNodeDefaults.getState().setDefault('RTCInput', { sdaPin: 30, sclPin: 31, startYear: 2030 })
+    const xiao = boardProfileById('seeed-xiao-esp32s3')
+    expect(resolveDefaultProperties('RTCInput', { sdaPin: 21, sclPin: 22 }, xiao)).toMatchObject({
+      sdaPin: 5,
+      sclPin: 6,
+      startYear: 2030,
     })
   })
 })

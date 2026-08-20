@@ -31,6 +31,7 @@ import type { PhysicalBoardProfile } from '../build/boardProfiles'
 import { assignPartPins, type PartPinRequest } from './partPinAssignment'
 import { micPinDefaultsForBoard, micPinIsDefault } from './micPinDefaults'
 import { outputForm } from './ledOutputForm'
+import { boardI2cDefault } from '../build/boardI2cDefaults'
 
 /** Property holding the values the app last assigned, keyed by pin property. */
 export const ASSIGNED_PINS_KEY = 'assignedPins'
@@ -72,6 +73,7 @@ interface PartPinPlan {
    * was on a board that cannot reach those pins.
    */
   fromFqbn?: (fqbn: string) => Record<string, number> | null
+  fromProfile?: (profile: PhysicalBoardProfile | undefined) => Record<string, number> | null
 }
 
 export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
@@ -94,6 +96,15 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
   EncoderInput: {
     keys: ['pinA', 'pinB', 'pinSW'],
     requests: [{ key: 'pinA' }, { key: 'pinB' }, { key: 'pinSW' }],
+  },
+  RTCInput: {
+    keys: ['sdaPin', 'sclPin'],
+    fromProfile: (profile) => {
+      const defaults = boardI2cDefault(profile?.id)
+      return defaults
+        ? { sdaPin: defaults.sda.arduinoPin, sclPin: defaults.scl.arduinoPin }
+        : null
+    },
   },
 }
 
@@ -263,8 +274,8 @@ export function retargetHardwarePins(
   }
 
   const order = [...nodes].sort((a, b) => {
-    const peripheralA = PART_PIN_PLANS[a.data.nodeType]?.peripheral ? 0 : 1
-    const peripheralB = PART_PIN_PLANS[b.data.nodeType]?.peripheral ? 0 : 1
+    const peripheralA = PART_PIN_PLANS[a.data.nodeType]?.peripheral || PART_PIN_PLANS[a.data.nodeType]?.fromProfile ? 0 : 1
+    const peripheralB = PART_PIN_PLANS[b.data.nodeType]?.peripheral || PART_PIN_PLANS[b.data.nodeType]?.fromProfile ? 0 : 1
     return peripheralA - peripheralB
   })
 
@@ -305,7 +316,7 @@ export function retargetHardwarePins(
 
     let next: Record<string, number> | null = movable.length === 0
       ? {}
-      : peripheralPins(plan, profile) ?? plan.fromFqbn?.(fqbn) ?? null
+      : peripheralPins(plan, profile) ?? plan.fromProfile?.(profile) ?? plan.fromFqbn?.(fqbn) ?? null
     if (next && movable.length > 0) {
       // Only the movable subset, and only when the board actually says
       // something different from what is already there.

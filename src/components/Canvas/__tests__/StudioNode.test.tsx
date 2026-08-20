@@ -770,10 +770,13 @@ describe('StudioNode', () => {
   })
 
   it('labels the DS3231 preview as simulated hardware time', () => {
-    const rtc = renderNode(makeNode('RTCInput', { timeSource: 'DS3231' }))
+    const rtc = renderNode(makeNode('RTCInput', { timeSource: 'DS3231', sdaPin: 5, sclPin: 6 }))
     expect(rtc.getByText('DS3231 / I2C')).toBeTruthy()
     expect(rtc.getByText(/Preview simulates a healthy module/)).toBeTruthy()
-    expect(rtc.getByText(/Select an exact board to show its default SDA\/SCL pins/)).toBeTruthy()
+    expect(rtc.queryByText(/default SDA\/SCL pins/i)).toBeNull()
+    fireEvent.click(rtc.getByText('DS3231 Wiring'))
+    expect(rtc.getByLabelText('SDA pin value')).toHaveProperty('value', '5')
+    expect(rtc.getByLabelText('SCL pin value')).toHaveProperty('value', '6')
     expect(rtc.getByRole('button', { name: 'Set from computer' })).toBeTruthy()
   })
 

@@ -171,29 +171,35 @@ export function collectPinUses(nodes: StudioNode[]): HardwarePinUse[] {
         push(node, `${baseLabel} switch pin`, 'pinSW', props.pinSW)
         break
       case 'RTCInput':
-        if (String(props.timeSource ?? 'Compile Time') !== 'DS3231' || !rtcPins) break
-        uses.push({
-          label: `${baseLabel} SDA`,
-          nodeId: node.id,
-          nodeType: node.data.nodeType,
-          propertyKey: 'sdaPin',
-          pin: rtcPins.sda.arduinoPin,
-          requirement: null,
-          boardPinId: rtcPins.sda.boardPin?.id,
-          boardDefault: true,
-          boardPinLabel: rtcPins.sda.displayLabel,
-        })
-        uses.push({
-          label: `${baseLabel} SCL`,
-          nodeId: node.id,
-          nodeType: node.data.nodeType,
-          propertyKey: 'sclPin',
-          pin: rtcPins.scl.arduinoPin,
-          requirement: null,
-          boardPinId: rtcPins.scl.boardPin?.id,
-          boardDefault: true,
-          boardPinLabel: rtcPins.scl.displayLabel,
-        })
+        if (String(props.timeSource ?? 'Compile Time') !== 'DS3231') break
+        {
+          const sdaPin = Number(props.sdaPin ?? rtcPins?.sda.arduinoPin ?? 21)
+          const sclPin = Number(props.sclPin ?? rtcPins?.scl.arduinoPin ?? 22)
+          const sdaIsDefault = !!rtcPins && sdaPin === rtcPins.sda.arduinoPin
+          const sclIsDefault = !!rtcPins && sclPin === rtcPins.scl.arduinoPin
+          uses.push({
+            label: `${baseLabel} SDA`,
+            nodeId: node.id,
+            nodeType: node.data.nodeType,
+            propertyKey: 'sdaPin',
+            pin: sdaPin,
+            requirement: null,
+            boardPinId: sdaIsDefault ? rtcPins.sda.boardPin?.id : undefined,
+            boardDefault: sdaIsDefault,
+            boardPinLabel: sdaIsDefault ? rtcPins.sda.displayLabel : undefined,
+          })
+          uses.push({
+            label: `${baseLabel} SCL`,
+            nodeId: node.id,
+            nodeType: node.data.nodeType,
+            propertyKey: 'sclPin',
+            pin: sclPin,
+            requirement: null,
+            boardPinId: sclIsDefault ? rtcPins.scl.boardPin?.id : undefined,
+            boardDefault: sclIsDefault,
+            boardPinLabel: sclIsDefault ? rtcPins.scl.displayLabel : undefined,
+          })
+        }
         break
       case 'SDCard':
         push(node, `${baseLabel} CS pin`, 'sdCsPin', props.sdCsPin)
@@ -340,9 +346,9 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           supported: pins.some((pin) => pin.propertyKey === 'sdaPin')
             && pins.some((pin) => pin.propertyKey === 'sclPin'),
           facts: { partId: String((node.data.properties as Record<string, unknown>).partId ?? 'ds3231-rtc-module') },
-          reasons: rtcI2cPinsForProfile(physicalBoard)
+          reasons: pins.length === 2
             ? undefined
-            : [`${physicalBoard?.label ?? 'The selected board'} does not yet have reviewed default SDA/SCL pads, so Studio will not invent RTC wiring.`],
+            : [`${physicalBoard?.label ?? 'The selected board'} does not have complete RTC SDA/SCL properties.`],
         }
       default:
         return buildUnsupportedItem(node, pins)
