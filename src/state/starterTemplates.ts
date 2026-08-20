@@ -1,5 +1,7 @@
 import { NODE_LIBRARY, portColor } from './nodeLibrary'
 import { resolveDefaultProperties } from './nodeDefaults'
+import { LED_OUTPUT_FORM_LABELS, outputForm } from './ledOutputForm'
+import { isHardwareOnlyNodeType } from './hardware'
 import type { StudioNode, StudioEdge } from './graphStore'
 
 export interface StarterTemplate {
@@ -67,17 +69,24 @@ function template(
     preview: {
       // Tutorial comments belong on the loaded canvas, but the gallery's tiny
       // graph map should stay focused on the actual signal path.
-      nodes: options.nodeSpecs.filter((spec) => spec.type !== 'Comment').map((spec) => {
-        const def = LIBRARY_DEF.get(spec.type)
-        if (!def) throw new Error(`Unknown template node type: ${spec.type}`)
-        return {
-          id: spec.id,
-          label: def.label,
-          category: def.category,
-          col: spec.col,
-          row: spec.row ?? 0,
-        }
-      }),
+      nodes: options.nodeSpecs
+        .filter((spec) => spec.type !== 'Comment' && !isHardwareOnlyNodeType(spec.type))
+        .map((spec) => {
+          const def = LIBRARY_DEF.get(spec.type)
+          if (!def) throw new Error(`Unknown template node type: ${spec.type}`)
+          return {
+            id: spec.id,
+            // The output's own title, so a starter built for a matrix says so —
+            // Fire and Scrolling Text both teach the matrix specifically, and
+            // Juggle is a run of tape.
+            label: spec.type === 'MatrixOutput'
+              ? LED_OUTPUT_FORM_LABELS[outputForm(spec.properties)]
+              : def.label,
+            category: def.category,
+            col: spec.col,
+            row: spec.row ?? 0,
+          }
+        }),
       edges: options.edgeSpecs.map((spec) => {
         const srcDef = LIBRARY_DEF.get(options.nodeSpecs.find((node) => node.id === spec.source)?.type ?? '')
         const srcPort = srcDef?.outputs.find((port) => port.id === spec.sourceHandle)
@@ -94,6 +103,17 @@ function template(
   }
 }
 
+/*
+ * Every starter pins its output `form` rather than taking the library default.
+ *
+ * `resolveDefaultProperties` layers the user's saved node defaults over the
+ * library's, so once someone saves a MatrixOutput default for the strip on
+ * their bench, every starter loads as a string — including Fire, which teaches
+ * matching flame direction to how a matrix is mounted, and Scrolling Text,
+ * which teaches how text fits the matrix. The form is part of the lesson, so
+ * it is stated, not inherited. Dimensions are deliberately still inherited:
+ * those are a fact about the user's hardware, not about the lesson.
+ */
 function buildGraph(nodeSpecs: NodeSpec[], edgeSpecs: EdgeSpec[]): { nodes: StudioNode[]; edges: StudioEdge[] } {
   const uid = Date.now()
   const idFor = (localId: string) => `${localId}-${uid}`
@@ -151,7 +171,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     ],
     nodeSpecs: [
       { id: 'juggle', type: 'Juggle', col: 0 },
-      { id: 'out', type: 'MatrixOutput', col: 1 },
+      { id: 'out', type: 'MatrixOutput', properties: { form: 'strip' }, col: 1 },
       tutorialNote(
         'guide', 0, -1,
         'FIRST PATCH\nSet Juggle Count to 5 and raise Speed.\nNext splice in Trails, then splice Transform.',
@@ -172,7 +192,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     ],
     nodeSpecs: [
       { id: 'fire', type: 'Fire2012', col: 0 },
-      { id: 'out', type: 'MatrixOutput', col: 1 },
+      { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 1 },
       tutorialNote(
         'guide', 0, -1,
         'TRY THIS\nCooling shapes flame height; Sparking creates embers.\nSet Direction to match your LEDs.',
@@ -194,7 +214,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     ],
     nodeSpecs: [
       { id: 'text', type: 'Text', col: 0, properties: { text: 'HELLO', scroll: 0.3, wrap: true } },
-      { id: 'out', type: 'MatrixOutput', col: 1 },
+      { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 1 },
       tutorialNote(
         'guide', 0, -1,
         'MAKE IT YOURS\nEdit the message, then try Scroll and alignment.\nMatrix size controls how much text fits.',
@@ -217,7 +237,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     nodeSpecs: [
       { id: 'mic', type: 'MicInput', col: 0 },
       { id: 'spectrum', type: 'SpectrumVisualizer', col: 1 },
-      { id: 'out', type: 'MatrixOutput', col: 2 },
+      { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 2 },
       tutorialNote(
         'guide', 0, -1,
         'LIVE AUDIO\nTeal carries sound; blue carries pixels.\nAllow the mic, then try Style, Gain and Palette.',
@@ -243,7 +263,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { id: 'dy', type: 'FieldNoise', col: 0, row: 2, properties: { speed: 0.22, scale: 0.8 } },
       { id: 'warp', type: 'FieldWarp', col: 1, row: 1, properties: { strength: 1.5 } },
       { id: 'tofr', type: 'FieldToFrame', col: 2, row: 1 },
-      { id: 'out', type: 'MatrixOutput', col: 3, row: 1 },
+      { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 3, row: 1 },
       tutorialNote(
         'guide', 0, -1,
         'FIELD PIPELINE\nFields are brightness maps. Base is the image; dX and dY bend it.\nTry Warp Strength, then Noise Scale.',
@@ -270,7 +290,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     nodeSpecs: [
       { id: 'collection', type: 'PatternCollection', col: 0, row: 0 },
       { id: 'master', type: 'PatternMaster', col: 1, row: 0 },
-      { id: 'out', type: 'MatrixOutput', col: 2, row: 0 },
+      { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 2, row: 0 },
       tutorialNote(
         'guide', 0, -1,
         'BUILD A SHOW\nGroup a pattern, then connect its Frame to Pattern Collection.\nAdd 2+ patterns for Show Engine.',
@@ -290,14 +310,14 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       'Drop songs into Music Library and run analysis to create timed show files.',
       'Preview a song in Performance Generator and adjust its energy, hold, palette, and transition settings.',
       'Optionally wire a Pattern Collection or Transitions node into Performance Generator.',
-      'Add an SD Card in the hardware view, then upload the show from the Upload tab.',
+      'Set the SD Card pins in the hardware view, then upload the show from the Upload tab.',
     ],
     nodeSpecs: [
       { id: 'lib', type: 'MusicLibrary', col: 0, row: 0 },
       { id: 'perf', type: 'PerformanceGenerator', col: 1, row: 0 },
       // The show still plays on LEDs — the player drives them, so this output
       // is configured rather than wired.
-      { id: 'out', type: 'MatrixOutput', col: 2, row: 0 },
+      { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 2, row: 0 },
       // A bench part: hidden on the canvas, and what makes this an SD show.
       { id: 'sd', type: 'SDCard', col: 3, row: 0 },
 

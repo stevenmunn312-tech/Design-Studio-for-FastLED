@@ -31,6 +31,31 @@ describe('TemplatesPopup', () => {
     expect(getByText('Last start: Audio Spectrum')).toBeTruthy()
   })
 
+  // A two-word label is drawn as two <tspan> lines, whose textContent would
+  // otherwise run together as "LEDString".
+  const boxLabels = (container: HTMLElement) =>
+    [...container.querySelectorAll('svg text')].map((text) =>
+      [...text.querySelectorAll('tspan')].map((line) => line.textContent).join(' '))
+
+  it('draws each starter output as the form that starter teaches', () => {
+    // Juggle is a run of tape; the rest are built for a matrix, and two of them
+    // teach it (Fire's mounting direction, Scrolling Text's fit).
+    const { container } = render(<TemplatesPopup />)
+    const labels = boxLabels(container)
+
+    expect(labels).toContain('LED String')
+    expect(labels).toContain('LED Matrix')
+    expect(labels.filter((l) => l === 'LED String')).toHaveLength(1)
+  })
+
+  it('keeps hardware-only parts off the graph maps', () => {
+    // SD Card is a bench part with no canvas presence, so the map that draws
+    // the signal path has nothing to draw for it.
+    const { container } = render(<TemplatesPopup />)
+
+    expect(boxLabels(container)).not.toContain('SD Card')
+  })
+
   it('can start from a blank canvas and remember that choice', async () => {
     useGraphStore.setState({
       nodes: [{

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { STARTER_TEMPLATES } from '../starterTemplates'
+import { useNodeDefaults } from '../nodeDefaults'
+import { outputForm } from '../ledOutputForm'
 import { NODE_LIBRARY, portsCompatible } from '../nodeLibrary'
 import { validateGraph } from '../../utils/validateGraph'
 import type { StudioNodeData } from '../graphStore'
@@ -10,6 +12,26 @@ describe('starterTemplates', () => {
   it('has unique ids', () => {
     const ids = STARTER_TEMPLATES.map((t) => t.id)
     expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  // The form is part of the lesson: Fire teaches matching flame direction to
+  // how a matrix is mounted, Scrolling Text teaches how text fits it, and
+  // Juggle is a run of tape. Saved node defaults must not reshape any of them.
+  it('pins each output form against a saved node default', () => {
+    useNodeDefaults.setState({ overrides: { MatrixOutput: { form: 'strip', ledCount: 300 } } })
+    try {
+      const forms = new Map(STARTER_TEMPLATES.map((template) => {
+        const output = template.build().nodes.find((node) => node.data.nodeType === 'MatrixOutput')
+        return [template.id, output && outputForm(output.data.properties)]
+      }))
+      expect(forms.get('juggle')).toBe('strip')
+      for (const [id, form] of forms) {
+        if (id === 'juggle') continue
+        expect(form, `${id} output form`).toBe('matrix')
+      }
+    } finally {
+      useNodeDefaults.setState({ overrides: {} })
+    }
   })
 
   it('gives every starter a tutorial note and concrete next steps', () => {
