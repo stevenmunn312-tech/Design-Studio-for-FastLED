@@ -117,12 +117,21 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
   // the actual debounced compile-check) — the measured result is the
   // authority here: only a *confirmed* overflow blocks Upload, so editing is
   // never blocked just because a check hasn't completed yet.
-  const { status: capacityStatus, result: capacityResult, subject: capacitySubject } = useCapacityStore()
+  const {
+    status: capacityStatus, result: capacityResult, subject: capacitySubject,
+    target: capacityTarget, check: runCapacityCheck,
+  } = useCapacityStore()
   const capacitySummary = useMemo(
     () => summarizeCapacity(board, capacityStatus, capacityResult, capacitySubject),
     [board, capacityStatus, capacityResult, capacitySubject],
   )
-  const capacityOverflow = capacityResult?.target === (usePsram && psramChoice ? `${selectedFqbn}:${psramChoice.opt}` : selectedFqbn)
+  const canCheckCapacity = !!capacityTarget?.code && capacityTarget.toolchainReady && capacityStatus !== 'checking'
+  // Only a *current* measurement blocks. 'measured' means the reading was taken
+  // against the graph and board as they stand; a 'stale' overflow describes a
+  // design the user may already have shrunk, and blocking on it would trap them
+  // behind a number they have no obligation to refresh.
+  const capacityOverflow = capacityStatus === 'measured'
+    && capacityResult?.target === (usePsram && psramChoice ? `${selectedFqbn}:${psramChoice.opt}` : selectedFqbn)
     && !capacityResult.ok && capacityResult.overflow
 
   const blockingErrors = [
@@ -423,16 +432,26 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
           </button>
         </div>
         {hasFrameInput && (
-          <div
-            className={`${styles.capacityLine} ${styles[CAPACITY_LEVEL_CLASS[capacitySummary.level]]}`}
+          /* The check compiles the whole design against the board, so it runs
+           * only when asked — see capacityStore. This is the deliberate place
+           * to ask: you are about to flash, which is exactly when "does it
+           * fit" is worth a real build. */
+          <button
+            type="button"
+            className={`${styles.capacityLine} ${styles.capacityButton} ${styles[CAPACITY_LEVEL_CLASS[capacitySummary.level]]}`}
+            onClick={runCapacityCheck}
+            disabled={!canCheckCapacity}
             title={
               capacityResult && !capacityResult.ok && capacityResult.log
-                ? `Live controller-capacity check failed:\n${capacityResult.log.slice(-1500)}`
-                : 'Live controller-capacity check, compiled against the selected board with no port needed'
+                ? `Controller-capacity check failed:\n${capacityResult.log.slice(-1500)}`
+                : 'Compile this design against the selected board to measure flash/SRAM. Nothing is flashed.'
             }
           >
             {capacitySummary.text}
-          </div>
+            {canCheckCapacity && (
+              <span className={styles.capacityAction}>{capacityStatus === 'measured' ? ' · recheck' : ' · check'}</span>
+            )}
+          </button>
         )}
 
         <button

@@ -61,15 +61,30 @@ describe('CapacityWatcher', () => {
 
   it('says there is nothing to measure, rather than staying quiet', () => {
     // A sketch with nothing wired to the LEDs measures a design nobody is
-    // building, so no compile is spent on it — but the store still has to be
-    // told. Skipping the call left the previous reading on screen describing a
-    // graph that no longer existed, which is worse than showing no number.
+    // building — but the store still has to be told. Skipping the call left the
+    // previous reading on screen describing a graph that no longer existed,
+    // which is worse than showing no number.
     setGraph(false)
-    const request = vi.spyOn(useCapacityStore.getState(), 'request')
+    const setTarget = vi.spyOn(useCapacityStore.getState(), 'setTarget')
     render(<CapacityWatcher />)
-    expect(request).toHaveBeenCalledTimes(1)
-    expect(request.mock.calls[0][0]).toBeNull()
-    request.mockRestore()
+    expect(setTarget).toHaveBeenCalledTimes(1)
+    expect(setTarget.mock.calls[0][0].code).toBeNull()
+    setTarget.mockRestore()
+  })
+
+  it('publishes the target without compiling anything', () => {
+    // The check became user-initiated: this component tracks what *would* be
+    // built so an existing reading can be called stale, and that is all. If it
+    // ever starts a build again it can take the helper's build lock ahead of
+    // the user's own Upload — the collision that motivated the change.
+    setGraph(true)
+    const check = vi.spyOn(useCapacityStore.getState(), 'check')
+    const setTarget = vi.spyOn(useCapacityStore.getState(), 'setTarget')
+    render(<CapacityWatcher />)
+    expect(setTarget).toHaveBeenCalled()
+    expect(check).not.toHaveBeenCalled()
+    check.mockRestore()
+    setTarget.mockRestore()
   })
 
   describe('SD shows measure the player', () => {
@@ -108,24 +123,24 @@ describe('CapacityWatcher', () => {
       // a buffer per pattern — and always the larger one. Measuring the normal
       // sketch reported comfortable headroom for designs that could not link.
       setShowGraph()
-      const request = vi.spyOn(useCapacityStore.getState(), 'request')
+      const setTarget = vi.spyOn(useCapacityStore.getState(), 'setTarget')
       render(<CapacityWatcher />)
 
-      const [code, , , , subject] = request.mock.calls[0]
+      const { code, subject } = setTarget.mock.calls[0][0]
       expect(subject).toBe('player')
       expect(code).toContain('Music-Sync Player')
       expect(code).toContain('void provServiceSerial() {')
-      request.mockRestore()
+      setTarget.mockRestore()
     })
 
     it('measures a show with no frame wired, since the player needs none', () => {
       // A show's LEDs are driven by the player's own pattern dispatch. Gating
       // on a frame edge left the entire show path unmeasured.
       setShowGraph()
-      const request = vi.spyOn(useCapacityStore.getState(), 'request')
+      const setTarget = vi.spyOn(useCapacityStore.getState(), 'setTarget')
       render(<CapacityWatcher />)
-      expect(request.mock.calls[0][0]).not.toBeNull()
-      request.mockRestore()
+      expect(setTarget.mock.calls[0][0].code).not.toBeNull()
+      setTarget.mockRestore()
     })
 
     it('does not add a PSRAM option the show upload never sends', () => {
@@ -143,19 +158,19 @@ describe('CapacityWatcher', () => {
         graphs: { root: { id: 'root', name: 'Main' } },
         activeGraphId: 'root',
       })
-      const request = vi.spyOn(useCapacityStore.getState(), 'request')
+      const setTarget = vi.spyOn(useCapacityStore.getState(), 'setTarget')
       render(<CapacityWatcher />)
-      expect(request.mock.calls[0][1]).toBe('esp32:esp32:esp32s3')
-      request.mockRestore()
+      expect(setTarget.mock.calls[0][0].fqbn).toBe('esp32:esp32:esp32s3')
+      setTarget.mockRestore()
     })
   })
 
-  it('measures once a frame does reach it', () => {
+  it('has something to measure once a frame does reach it', () => {
     setGraph(true)
-    const request = vi.spyOn(useCapacityStore.getState(), 'request')
+    const setTarget = vi.spyOn(useCapacityStore.getState(), 'setTarget')
     render(<CapacityWatcher />)
-    expect(request).toHaveBeenCalled()
-    request.mockRestore()
+    expect(setTarget.mock.calls[0][0].code).not.toBeNull()
+    setTarget.mockRestore()
   })
 
   it('reports toolchain-missing without hitting the network', async () => {

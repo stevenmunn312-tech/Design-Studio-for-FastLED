@@ -10,18 +10,20 @@ import { useCodegenGraph } from '../../utils/codegenGraph'
 import { controllerSettings } from '../../state/controllerSettings'
 
 /**
- * Drives the live controller-capacity check. Renders nothing.
+ * Keeps the capacity store pointed at what an Upload would actually build.
+ * Renders nothing, and — since the check became user-initiated — compiles
+ * nothing: it publishes the target, and pressing Check is what runs it.
  *
- * It used to live in the LED output's node body, which was always mounted and
- * so kept the check running while you composed — that ambient "will it fit"
- * signal is the whole point of the meter. Upload has moved to the hardware
- * pane, and a pane can be collapsed to nothing on purpose, so hosting it there
- * would silently stop the check exactly when someone hides the bench to get
- * more canvas. Mounted at the app instead, where nothing can turn it off.
+ * Still mounted at the app rather than in a panel. The target has to stay
+ * current wherever you are, because that is what tells an existing reading it
+ * has gone out of date; hosting it in the hardware pane would freeze the
+ * staleness test exactly when someone collapses the bench for more canvas, and
+ * leave an old number looking current.
  *
  * Headless because it is not a view: several places read the result — the
- * upload tab, the pattern collection's delta readout — and none of them should
- * have to be on screen for the measurement to happen.
+ * hardware readiness strip, the deploy popup, the pattern collection's delta
+ * readout — and none of them should have to be on screen for the target to
+ * track the graph.
  */
 export default function CapacityWatcher() {
   const nodes = useRootNodes()
@@ -31,7 +33,7 @@ export default function CapacityWatcher() {
     installedCores: s.installedCores,
     selectedFqbn: s.selectedFqbn,
   })))
-  const requestCapacityCheck = useCapacityStore((s) => s.request)
+  const setCapacityTarget = useCapacityStore((s) => s.setTarget)
 
   const board = boardByFqbn(selectedFqbn)
   const usingFbuild = helper?.engine === 'fbuild'
@@ -88,17 +90,17 @@ export default function CapacityWatcher() {
       : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
   }, [codegenGraph, psramOptions, hasFrameInput, isShow, selectedFqbn])
 
-  // Called even with nothing to build: a skipped call would leave the previous
-  // reading on screen describing a graph that no longer exists.
+  // Published even with nothing to build: a skipped call would leave the
+  // previous reading on screen describing a graph that no longer exists.
   useEffect(() => {
-    requestCapacityCheck(
-      capacityCode,
-      fqbnWithOpt,
+    setCapacityTarget({
+      code: capacityCode,
+      fqbn: fqbnWithOpt,
       toolchainReady,
-      helper?.engine,
-      isShow ? 'player' : 'sketch',
-    )
-  }, [capacityCode, fqbnWithOpt, toolchainReady, helper?.engine, isShow, requestCapacityCheck])
+      engineTag: helper?.engine,
+      subject: isShow ? 'player' : 'sketch',
+    })
+  }, [capacityCode, fqbnWithOpt, toolchainReady, helper?.engine, isShow, setCapacityTarget])
 
   return null
 }

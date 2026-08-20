@@ -144,6 +144,23 @@
   padding-bottom: 2px;
   letter-spacing: 0.03em;
 }
+/* The capacity line is the button that runs the check (see capacityStore: it
+ * compiles for real, so it never runs on its own). It keeps the line's quiet
+ * look — the level colour still has to read as the meter, not as a control. */
+.capacityButton {
+  appearance: none;
+  background: none;
+  border: 0;
+  width: 100%;
+  font-family: inherit;
+  font-size: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+.capacityButton:disabled { cursor: default; }
+.capacityButton:not(:disabled):hover { text-decoration: underline; }
+.capacityAction { opacity: 0.65; }
+
 .capacityOk { color: var(--text-secondary); }
 .capacityWarn { color: #ffcc66; }
 .capacityError { color: var(--error); }

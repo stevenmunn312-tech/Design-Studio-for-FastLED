@@ -30,9 +30,15 @@ export function summarizeCapacity(
   const label = board?.label ?? 'No board'
   if (status === 'toolchain-missing') return { text: `${label} · capacity: install toolchain to check`, level: 'pending' }
   if (status === 'nothing-to-measure') return { text: `${label} · capacity: nothing to build yet`, level: 'pending' }
-  if (!result) return { text: `${label} · checking capacity…`, level: 'pending' }
+  if (status === 'checking') return { text: `${label} · checking capacity…`, level: 'pending' }
+  // The resting state now that checks are user-initiated. It offers the check
+  // rather than implying one is coming, because none is.
+  if (status === 'idle' || !result) return { text: `${label} · capacity not checked`, level: 'pending' }
 
-  const stale = status === 'stale' ? ' (rechecking…)' : ''
+  // A reading against a graph that has since changed. Kept on screen because
+  // the last real number still tells you roughly where you stand — but never
+  // unlabelled, and (see the deploy popup) never authoritative enough to block.
+  const stale = status === 'stale' ? ' (before your last edits)' : ''
   // Only the show path is worth naming: "sketch" on every ordinary graph would
   // be noise on a line that has to stay scannable.
   const what = subject === 'player' ? ' · player' : ''
@@ -42,7 +48,7 @@ export function summarizeCapacity(
     // collides with an Upload never got compiled. Saying "compile failed" here
     // blamed a design that had not been built — and did it in the one place
     // that is nowhere near the upload output the message pointed at.
-    return { text: `${label}${what} · waiting for the current build…`, level: 'pending' }
+    return { text: `${label}${what} · another build is running — check again`, level: 'pending' }
   }
 
   if (!result.ok && !result.overflow) {

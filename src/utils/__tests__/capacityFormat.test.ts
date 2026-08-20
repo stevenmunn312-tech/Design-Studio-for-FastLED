@@ -104,10 +104,21 @@ describe('summarizeCapacity', () => {
     expect(s.text).not.toContain('failed')
   })
 
-  it('marks a stale result as rechecking without dropping the last numbers', () => {
+  it('keeps a stale result’s numbers, but never lets them read as current', () => {
+    // Checks are user-initiated, so a reading routinely outlives the design it
+    // measured. The last real number still says roughly where you stand; it
+    // just must not look like an answer about the graph in front of you.
     const s = summarizeCapacity(board, 'stale', ok(50, 20))
     expect(s.text).toContain('flash 50%')
-    expect(s.text).toContain('rechecking')
+    expect(s.text).toContain('before your last edits')
+  })
+
+  it('offers the check when nothing has been measured yet', () => {
+    // The resting state of a user-initiated meter. It must not imply a check
+    // is on its way, because none is.
+    const s = summarizeCapacity(board, 'idle', null)
+    expect(s.level).toBe('pending')
+    expect(s.text).toContain('not checked')
   })
 
   it('falls back to a "No board" label when nothing is selected', () => {

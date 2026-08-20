@@ -1,26 +1,49 @@
 import { create } from 'zustand'
 import { compileCheck, type CompileCheckResult } from '../utils/backendClient'
 
-// Live controller-capacity meter: debounces a compile-only check against the
-// helper after graph/board/engine changes, so users composing a
-// PatternCollection -> PatternMaster -> MatrixOutput show on a small board see
-// real flash/SRAM headroom instead of guessing until Upload fails.
+// Controller-capacity meter: a compile-only build against the helper, so a
+// PatternCollection -> PatternMaster -> MatrixOutput show on a small board
+// reports real flash/SRAM headroom instead of guessing until Upload fails.
+//
+// **User-initiated.** It used to run itself, debounced, after every graph or
+// board change — an ambient "will it fit" signal, and a full board compile per
+// edit pause to produce it. Two costs killed that: the obvious one (a real
+// toolchain build, repeatedly, for a question nobody asked yet), and a sharper
+// one — the helper serializes builds on one project directory, so a background
+// check could take the lock and put itself *ahead of the user's own Upload*,
+// which then sat waiting on a build it never asked for. Nothing compiles here
+// now unless someone presses Check.
+//
+// The consequence is that a reading can describe an older graph, and saying so
+// is the whole job of `stale`: `setTarget` publishes what *would* be built now,
+// and any reading measured against a different target is marked out of date
+// rather than left on screen looking current.
 //
 // `status` covers the "no trustworthy number yet" states; once a check
 // completes, `result` (from `/api/compile-check`) carries whether it actually
-// fit (`result.ok && !result.overflow`), overflowed (`result.overflow`), or
-// hit an unrelated compile error (`!result.ok && !result.overflow`) — the
-// meter renders all three from `status === 'measured' | 'stale'` plus that
-// flag, rather than needing a status value per outcome.
+// fit (`result.ok && !result.overflow`), overflowed (`result.overflow`), was
+// never compiled because the helper was busy with another build
+// (`result.busy`), or hit an unrelated compile error — the meter renders all of
+// them from the status plus those flags, rather than needing a status value per
+// outcome.
 export type CapacityStatus =
+  /** Nothing has been measured for this graph yet. The meter offers a check
+   *  rather than a number; it is the normal resting state now that checks are
+   *  user-initiated, not an error. */
+  | 'idle'
   | 'checking'
+  /** `result` describes exactly what would be built right now. */
   | 'measured'
+  /** `result` is real but was measured against a different graph, board, or
+   *  engine — shown, labelled, never treated as current (in particular an
+   *  overflow this stale must not block an upload of a design that has since
+   *  been shrunk). */
   | 'stale'
   | 'toolchain-missing'
   /** There is no sketch to build yet, so there is deliberately no number.
-   *  Distinct from 'measured' with a stale `result`, which is what this state
-   *  replaces: a graph that stopped being buildable used to leave the previous
-   *  reading on screen, from a different design, looking current. */
+   *  Distinct from a stale reading: a graph that stopped being buildable used
+   *  to leave the previous reading on screen, from a different design, looking
+   *  current. */
   | 'nothing-to-measure'
 
 /** What the measured sketch actually is. A reading is only meaningful against
@@ -28,10 +51,25 @@ export type CapacityStatus =
  *  SD libraries plus a buffer per pattern, and is always the larger binary. */
 export type CapacitySubject = 'sketch' | 'player'
 
+/** Everything needed to run a check, published by `CapacityWatcher` as the
+ *  graph and board change. Held in the store so the surfaces that offer the
+ *  check — a chip under the preview, a button in the deploy popup — can ask
+ *  for one without knowing how to generate a sketch. */
+export interface CapacityTarget {
+  /** `null` when there is nothing to build. */
+  code: string | null
+  fqbn: string
+  toolchainReady: boolean
+  engineTag?: string
+  subject: CapacitySubject
+  /** Identity of everything a reading depends on — the staleness test. */
+  key: string
+}
+
 interface CapacityState {
   status: CapacityStatus
-  /** Most recent completed check — kept during 'stale' so the meter can show
-   *  the old numbers, dimmed, while a re-check is in flight. */
+  /** Most recent completed check. Kept when it goes stale so the meter can
+   *  still show the old numbers, labelled as out of date. */
   result: CompileCheckResult | null
   /** The result before the current one, only when it was for the same board
    *  target — lets callers (e.g. Pattern Collection) show "since last check"
@@ -39,37 +77,31 @@ interface CapacityState {
   previousResult: CompileCheckResult | null
   /** What `result` was measured against, for the meter to name. */
   subject: CapacitySubject
+  /** What a check would build right now, or `null` before anything is known. */
+  target: CapacityTarget | null
 
-  /**
-   * Request a capacity check for `code` compiled against `fqbn` (already
-   * including any board-option suffix, e.g. `esp32:esp32:esp32s3:PSRAM=opi`).
-   * Debounced and cached by `fqbn` — repeat calls with the same code+target
-   * are no-ops. `toolchainReady` gates the network call entirely so a board
-   * with no installed core doesn't spam failing requests; the meter shows
-   * 'toolchain-missing' instead. `engineTag` additionally invalidates the
-   * cache when the active build engine changes under an unchanged code+fqbn.
-   *
-   * A null `code` means "there is nothing to build" — the caller must say so
-   * rather than skipping the call, or the last reading stays on screen as
-   * though it still described the graph.
-   */
-  request: (
-    code: string | null,
-    fqbn: string,
-    toolchainReady: boolean,
-    engineTag?: string,
-    subject?: CapacitySubject,
-  ) => void
+  /** Publish what would be built now. Cheap and side-effect-free — it never
+   *  starts a build, it only decides whether an existing reading still
+   *  describes the graph. */
+  setTarget: (target: Omit<CapacityTarget, 'key'>) => void
+
+  /** Run a check against the current target. The only thing in this store that
+   *  compiles anything, and only ever reached from an explicit user action. */
+  check: () => void
+
   clear: () => void
 }
-
-const DEBOUNCE_MS = 1200
 
 // How long to wait before re-asking after the helper reported it was busy with
 // another build. Deliberately short: the check that comes back busy has already
 // spent the helper's whole serialization timeout waiting, so this is a pause
 // between attempts, not a poll interval.
 const BUSY_RETRY_MS = 3000
+
+// How many times a busy result is retried before the meter reports it. The
+// user pressed Check, so retrying beats making them press again — but not
+// forever, or a walked-away-from session polls a busy helper indefinitely.
+const BUSY_RETRY_LIMIT = 3
 
 // Non-cryptographic FNV-1a — only used as a cheap change-detection key over
 // the generated sketch text, not for anything security-sensitive.
@@ -82,100 +114,95 @@ function hashCode(s: string): string {
   return (h >>> 0).toString(36)
 }
 
-let debounceTimer: ReturnType<typeof setTimeout> | null = null
-let inFlightController: AbortController | null = null
-// The fqbn a request() call is for — separate from the store's `result`, so a
-// board switch can be detected even before any response has come back.
-let requestedFqbn: string | null = null
-let requestedKey: string | null = null
-let requestedSubject: CapacitySubject | null = null
+function targetKey(t: Omit<CapacityTarget, 'key'>): string {
+  return `${t.fqbn}|${t.engineTag ?? ''}|${t.subject}|${t.code === null ? 'none' : hashCode(t.code)}`
+}
 
-export const useCapacityStore = create<CapacityState>((set) => ({
-  status: 'toolchain-missing',
+let retryTimer: ReturnType<typeof setTimeout> | null = null
+let inFlightController: AbortController | null = null
+// The target the most recent completed reading was measured against. Compared
+// with the live target to decide 'measured' vs 'stale'.
+let measuredKey: string | null = null
+
+function cancelInFlight() {
+  if (retryTimer) clearTimeout(retryTimer)
+  retryTimer = null
+  inFlightController?.abort()
+  inFlightController = null
+}
+
+export const useCapacityStore = create<CapacityState>((set, get) => ({
+  status: 'idle',
   result: null,
   previousResult: null,
   subject: 'sketch',
+  target: null,
 
-  request: (code, fqbn, toolchainReady, engineTag, subject = 'sketch') => {
-    if (code === null) {
+  setTarget: (next) => {
+    const key = targetKey(next)
+    const target: CapacityTarget = { ...next, key }
+    const state = get()
+    if (state.target?.key === key && state.target.toolchainReady === next.toolchainReady) return
+
+    // A check in flight was for the old target — its answer would describe a
+    // graph that has since moved on.
+    if (state.status === 'checking') cancelInFlight()
+
+    if (next.code === null) {
       // Drop the reading rather than leaving it: it described a graph that no
       // longer exists, and a number with nothing behind it is worse than none.
-      if (debounceTimer) clearTimeout(debounceTimer)
-      inFlightController?.abort()
-      requestedKey = null
-      set((s) => (s.status === 'nothing-to-measure' && !s.result
-        ? s
-        : { status: 'nothing-to-measure', result: null, previousResult: null }))
+      measuredKey = null
+      set({ target, status: 'nothing-to-measure', result: null, previousResult: null })
       return
     }
-
-    const key = `${fqbn}|${engineTag ?? ''}|${subject}|${hashCode(code)}`
-    if (key === requestedKey) return
-
-    const boardChanged = requestedFqbn !== null && requestedFqbn !== fqbn
-    // A show and a normal sketch are different binaries on the same board, so
-    // carrying one's numbers into the other's slot is the same lie a board
-    // switch would be.
-    const subjectChanged = requestedSubject !== null && requestedSubject !== subject
-    requestedFqbn = fqbn
-    requestedSubject = subject
-
-    if (debounceTimer) clearTimeout(debounceTimer)
-    inFlightController?.abort()
-
-    if (!toolchainReady) {
-      // Clear the cache key rather than storing it: nothing was measured, so
-      // the identical call that arrives once the core finishes installing
-      // (same code, same board, same engine) must not be swallowed by the
-      // early return above — that used to pin the meter to 'toolchain-missing'
-      // until the user happened to edit the graph or switch boards. Only
-      // publish when the status actually changes, since this branch is now
-      // re-entered on every render while the toolchain is unavailable.
-      requestedKey = null
-      set((s) => (s.status === 'toolchain-missing' ? s : { status: 'toolchain-missing' }))
+    if (!next.toolchainReady) {
+      set({ target, status: 'toolchain-missing' })
       return
     }
+    set({
+      target,
+      status: !state.result || measuredKey === null
+        ? 'idle'
+        : measuredKey === key ? 'measured' : 'stale',
+    })
+  },
 
-    requestedKey = key
+  check: () => {
+    const target = get().target
+    if (!target || target.code === null || !target.toolchainReady) return
 
-    // A board switch invalidates any number we're showing outright (never
-    // show one board's reading labelled as another's); otherwise keep the
-    // last result visible (dimmed via 'stale') while we re-check.
-    const invalidated = boardChanged || subjectChanged
-    set((s) => ({
-      status: invalidated || !s.result ? 'checking' : 'stale',
-      result: invalidated ? null : s.result,
-      previousResult: invalidated ? null : s.previousResult,
-      subject,
-    }))
+    cancelInFlight()
+    const { code, fqbn, key } = target
+    let attempt = 0
 
-    const runCheck = () => {
-      if (requestedKey !== key) return // superseded before the debounce fired
+    const run = () => {
+      // The target moved while we were waiting to retry — whatever this would
+      // measure is no longer what anyone asked about.
+      if (get().target?.key !== key) return
       const controller = new AbortController()
       inFlightController = controller
       set({ status: 'checking' })
       compileCheck(code, fqbn, controller.signal)
         .then((res) => {
-          if (controller.signal.aborted || requestedKey !== key) return
-          if (res.busy) {
+          if (controller.signal.aborted || get().target?.key !== key) return
+          if (res.busy && attempt < BUSY_RETRY_LIMIT) {
             // Nothing was measured — the helper was serializing this behind
-            // another build, which during an Upload is the normal case. Retry
-            // on our own: the effect that asked for this check only re-fires
-            // when the graph or board changes, so publishing the non-answer
-            // would strand the meter on it (as a compile *failure*, no less)
-            // until the user happened to edit something.
-            set({ status: 'checking' })
-            debounceTimer = setTimeout(runCheck, BUSY_RETRY_MS)
+            // another build, which during an Upload is the normal case.
+            attempt += 1
+            retryTimer = setTimeout(run, BUSY_RETRY_MS)
             return
           }
+          measuredKey = key
           set((s) => ({
             status: 'measured',
             result: res,
             previousResult: s.result && s.result.target === res.target ? s.result : s.previousResult,
+            subject: target.subject,
           }))
         })
         .catch(() => {
-          if (controller.signal.aborted || requestedKey !== key) return
+          if (controller.signal.aborted || get().target?.key !== key) return
+          measuredKey = key
           set({
             status: 'measured',
             result: {
@@ -186,15 +213,12 @@ export const useCapacityStore = create<CapacityState>((set) => ({
         })
     }
 
-    debounceTimer = setTimeout(runCheck, DEBOUNCE_MS)
+    run()
   },
 
   clear: () => {
-    if (debounceTimer) clearTimeout(debounceTimer)
-    inFlightController?.abort()
-    requestedKey = null
-    requestedFqbn = null
-    requestedSubject = null
-    set({ status: 'toolchain-missing', result: null, previousResult: null, subject: 'sketch' })
+    cancelInFlight()
+    measuredKey = null
+    set({ status: 'idle', result: null, previousResult: null, subject: 'sketch', target: null })
   },
 }))

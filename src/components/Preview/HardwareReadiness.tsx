@@ -36,6 +36,8 @@ export default function HardwareReadiness() {
   const capacityStatus = useCapacityStore((s) => s.status)
   const capacityResult = useCapacityStore((s) => s.result)
   const capacitySubject = useCapacityStore((s) => s.subject)
+  const capacityTarget = useCapacityStore((s) => s.target)
+  const runCapacityCheck = useCapacityStore((s) => s.check)
 
   const power = useMemo(() => estimatePowerLoad(nodes), [nodes])
   const ram = useMemo(() => estimateFirmwareRam(nodes, edges), [nodes, edges])
@@ -48,6 +50,9 @@ export default function HardwareReadiness() {
   const board = boardByFqbn(selectedFqbn)
   const capacity = summarizeCapacity(board, capacityStatus, capacityResult, capacitySubject)
   const capacityFailed = capacity.level === 'error'
+  // A check compiles the design for real, so it only ever runs from a press —
+  // and there is only something to press when there is something to build.
+  const canCheck = !!capacityTarget?.code && capacityTarget.toolchainReady && capacityStatus !== 'checking'
 
   // Nothing to be ready for until something drives LEDs.
   if (!power) return null
@@ -76,10 +81,13 @@ export default function HardwareReadiness() {
         {capped && <span className={styles.note}>capped</span>}
       </span>
 
-      {/* A failed check says "see helper log", and this chip is the furthest
-        * point in the workbench from it — so make it the way there. The full
-        * compiler output is appended to the Output tab (see OutputConsole);
-        * clicking opens it rather than leaving the user to find it. */}
+      {/* The chip's click always leads to the next useful thing, which differs
+        * by state. After a failed check that is the compiler output: the text
+        * says "see helper log", and this chip is the furthest point in the
+        * workbench from it, so make it the way there (OutputConsole appends
+        * the failure to the Output tab). Otherwise it is the check itself —
+        * which compiles the design for real and so never runs on its own; see
+        * capacityStore. */}
       {capacityFailed ? (
         <button
           type="button"
@@ -91,6 +99,18 @@ export default function HardwareReadiness() {
           <em className={styles.label}>Fits</em>
           <strong>{capacity.text.replace(/^.*?·\s*/, '')}</strong>
           <span className={styles.note}>see output</span>
+        </button>
+      ) : canCheck ? (
+        <button
+          type="button"
+          className={`${styles.item} ${styles.itemButton}`}
+          data-level={capacity.level === 'warn' ? 'warn' : 'ok'}
+          onClick={runCapacityCheck}
+          title={`${capacity.text}\n\nClick to compile this design against the selected board and measure it. Nothing is flashed.`}
+        >
+          <em className={styles.label}>Fits</em>
+          <strong>{capacity.text.replace(/^.*?·\s*/, '')}</strong>
+          <span className={styles.note}>{capacityStatus === 'measured' ? 'recheck' : 'check'}</span>
         </button>
       ) : (
         <span className={styles.item} data-level={capacity.level === 'warn' ? 'warn' : 'ok'} title={capacity.text}>

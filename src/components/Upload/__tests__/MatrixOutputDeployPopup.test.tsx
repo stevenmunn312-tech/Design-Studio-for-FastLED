@@ -6,6 +6,7 @@ import { useUploadStore } from '../../../state/uploadStore'
 import { useMusicStore } from '../../../state/musicStore'
 import { useProjectStore } from '../../../state/projectStore'
 import { useStreamStore } from '../../../state/streamStore'
+import { useCapacityStore } from '../../../state/capacityStore'
 import { generateWiringDiagnosticSketch } from '../../../codegen/wiringDiagnosticGenerator'
 import { findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors } from '../../../utils/validateGraph'
 
@@ -100,6 +101,7 @@ describe('MatrixOutputDeployPopup', () => {
     useMusicStore.setState({ entries: [] })
     useProjectStore.setState({ projects: [], currentProjectId: '', recentProjectIds: [] })
     useStreamStore.setState({ streaming: false, fps: 0, error: '', start: vi.fn(), stop: vi.fn() })
+    useCapacityStore.getState().clear()
     useUploadStore.setState({
       helper: null,
       installedCores: [],
@@ -182,6 +184,50 @@ describe('MatrixOutputDeployPopup', () => {
 
     fireEvent.click(wiringButton)
     expect(runUpload).toHaveBeenCalledWith('// wiring diagnostic', undefined, { cache: false })
+  })
+
+  describe('the capacity meter only blocks on a current measurement', () => {
+    const OVERFLOW = {
+      ok: false, overflow: true, target: 'esp32:esp32:esp32s3',
+      flash: { usedBytes: 0, limitBytes: 0, percent: 122 }, ram: null, error: 'Design is too large for this board',
+    }
+
+    function readyToUploadAFrame() {
+      useGraphStore.setState({
+        nodes: [...useGraphStore.getState().nodes, {
+          id: 'sc',
+          type: 'studioNode',
+          position: { x: 0, y: 0 },
+          data: { label: 'Solid Color', nodeType: 'SolidColor', category: 'pattern', properties: {}, inputs: [], outputs: [] },
+        }] as never[],
+        edges: [{ id: 'e', source: 'sc', target: 'matrix', sourceHandle: 'frame', targetHandle: 'frame' }] as never[],
+      })
+      useUploadStore.setState({
+        helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.5.16' },
+        selectedPort: 'COM7',
+        ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [{ name: 'ESP32-S3' }] }],
+      })
+    }
+
+    it('blocks Upload on an overflow measured against this exact design', () => {
+      readyToUploadAFrame()
+      useCapacityStore.setState({ status: 'measured', result: OVERFLOW as never })
+
+      const { getByRole } = render(<MatrixOutputDeployPopup />)
+      expect((getByRole('button', { name: '↑ Upload' }) as HTMLButtonElement).disabled).toBe(true)
+    })
+
+    it('does not block Upload on an overflow the user may already have fixed', () => {
+      // Checks are user-initiated, so a reading goes stale the moment the graph
+      // changes — including the change that shrank the design. Blocking on a
+      // stale overflow would trap someone behind a number they are under no
+      // obligation to refresh, for a build that now fits.
+      readyToUploadAFrame()
+      useCapacityStore.setState({ status: 'stale', result: OVERFLOW as never })
+
+      const { getByRole } = render(<MatrixOutputDeployPopup />)
+      expect((getByRole('button', { name: '↑ Upload' }) as HTMLButtonElement).disabled).toBe(false)
+    })
   })
 
   it('blocks Flash Wiring Test on an unsupported HUB75 config', () => {
