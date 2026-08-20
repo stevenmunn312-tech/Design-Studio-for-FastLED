@@ -270,6 +270,44 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 16.333
     }
   },
+  "pam8403-3w-stereo-amplifier": {
+    "partId": "pam8403-3w-stereo-amplifier",
+    "label": "PAM8403 2 x 3 W stereo amplifier module",
+    "category": "amplifier",
+    "dimensionsMm": {
+      "width": 23.0,
+      "height": 16.0
+    },
+    "manufacturer": "generic (PAM8403)",
+    "logicVoltage": "2.5-5.5 V supply",
+    "pinLabelsLeftToRight": [
+      "R+",
+      "R-",
+      "L-",
+      "L+",
+      "GND",
+      "+5V",
+      "SW",
+      "GND",
+      "LIN",
+      "GND",
+      "RIN"
+    ],
+    "notes": [
+      "Sold by Jaycar/Duinotech as XC4448, which is a distributor SKU rather than a part number; the amplifier on it is a PAM8403.",
+      "Modelled on that red 23 x 16 mm eleven-pad revision. The common green five-pad PAM8403 breakout is the same chip on a different board and does not look like this render.",
+      "The left-to-right order follows the physical module after rotating its connection row to the required bottom-edge orientation.",
+      "The two speaker outputs are bridge-tied: connect each speaker only across its own + and - pads; neither negative output is ground and the channels must not share a return.",
+      "SW is the shutdown control. The supplier sheet renders this small silkscreen ambiguously as '5W' in its pinout table, while the product photograph shows SW.",
+      "Maximum 2 x 3 W output is specified at 5 V into 4 ohm loads at the PAM8403 datasheet test condition."
+    ],
+    "render": {
+      "file": "parts/pam8403-3w-stereo-amplifier.webp",
+      "widthPx": 400,
+      "heightPx": 287,
+      "pxPerMm": 16.174
+    }
+  },
   "pcm1802-line-in-adc": {
     "partId": "pcm1802-line-in-adc",
     "label": "PCM1802 line-in ADC breakout",
@@ -590,43 +628,6 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 1200,
       "heightPx": 157,
       "pxPerMm": 11.896
-    }
-  },
-  "xc4448-3w-stereo-amplifier": {
-    "partId": "xc4448-3w-stereo-amplifier",
-    "label": "XC4448 2 x 3 W stereo amplifier module",
-    "category": "amplifier",
-    "dimensionsMm": {
-      "width": 23.0,
-      "height": 16.0
-    },
-    "manufacturer": "Duinotech / Jaycar",
-    "logicVoltage": "2.5-5.5 V supply",
-    "pinLabelsLeftToRight": [
-      "R+",
-      "R-",
-      "L-",
-      "L+",
-      "GND",
-      "+5V",
-      "SW",
-      "GND",
-      "LIN",
-      "GND",
-      "RIN"
-    ],
-    "notes": [
-      "This is the red 23 x 16 mm Duinotech/Jaycar XC4448 revision, not the common green five-pad PAM8403 breakout.",
-      "The left-to-right order follows the physical module after rotating its connection row to the required bottom-edge orientation.",
-      "The two speaker outputs are bridge-tied: connect each speaker only across its own + and - pads; neither negative output is ground and the channels must not share a return.",
-      "SW is the shutdown control. The supplier sheet renders this small silkscreen ambiguously as '5W' in its pinout table, while the product photograph shows SW.",
-      "Maximum 2 x 3 W output is specified at 5 V into 4 ohm loads at the PAM8403 datasheet test condition."
-    ],
-    "render": {
-      "file": "parts/xc4448-3w-stereo-amplifier.webp",
-      "widthPx": 400,
-      "heightPx": 287,
-      "pxPerMm": 16.174
     }
   },
 }
