@@ -436,9 +436,35 @@ export default function HardwarePane() {
     () => nextFreeLedDataPin(boardProfile, nodes),
     [boardProfile, nodes],
   )
+  /*
+   * Every fixture on the bench, pictured as the module it actually is.
+   *
+   * FIXTURE_PARTS can only name a default — its render and footprint are
+   * resolved once at module load — so an Amplifier was drawn as a MAX98357A
+   * and an SD Card as the 5 V module whatever you had chosen. That is the
+   * hardware view telling a quiet lie about the bench, and the SD pair is the
+   * case where it bites: the 5 V module and the bare 3.3 V breakout are
+   * visibly different boards, and confusing them destroys cards.
+   *
+   * The catalogue already carries a render and a datasheet-checked size per
+   * module, so the part looks itself up rather than inheriting the default's
+   * picture.
+   */
   const fixtureParts = useMemo(() => nodes.flatMap((node) => {
     const entry = FIXTURE_PARTS.find((candidate) => candidate.nodeType === node.data.nodeType)
-    return entry ? [{ entry, node, partId: entry.partId }] : []
+    if (!entry) return []
+    const identity = resolvePartIdentity(node.data.nodeType, node.data.properties as Record<string, unknown>)
+    const chosen = identity?.entry
+    return [{
+      entry: {
+        ...entry,
+        label: identity?.option.label ?? entry.label,
+        footprint: chosen?.dimensionsMm ?? entry.footprint,
+        render: (chosen && partRenderSrc(chosen.partId)) ?? entry.render,
+      },
+      node,
+      partId: entry.partId,
+    }]
   }), [nodes])
 
   /*
@@ -766,8 +792,14 @@ export default function HardwarePane() {
     const definition = NODE_LIBRARY.find((candidate) => candidate.type === entry.nodeType)
     if (!definition || (entry.singleton && hasPartOfType(entry.nodeType))) return
     const moduleProperty = partOptionProperty(entry.nodeType)
+    const chosen = moduleId
+      ? partOptionsFor(entry.nodeType).find((option) => option.id === moduleId)
+      : undefined
     const amp = boardProfile?.peripheralPins?.max98357
-    const profilePins = entry.profilePins && amp
+    // Only a module with an I2S receiver gets the board's I2S trio. An analog
+    // amplifier takes line level from the DAC, so handing it BCLK/LRC/DIN
+    // would be three pin assignments for a connection it does not have.
+    const profilePins = entry.profilePins && amp && chosen?.input !== 'analog'
       ? Object.fromEntries(
         Object.entries(entry.profilePins).map(([key, field]) => [key, amp[field]]),
       )

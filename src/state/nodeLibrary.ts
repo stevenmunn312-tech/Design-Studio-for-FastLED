@@ -1,4 +1,5 @@
 import type { NodeDefinition } from '../types'
+import { resolvePartIdentity } from './partOptions'
 import { STUDIO_PALETTES } from './paletteCatalog'
 import { evaluateScalarExpression } from './scalarExpression'
 import { MIC_DEFAULTS, MIC_MAX_GAIN } from '../audio/micAnalysis'
@@ -4298,6 +4299,15 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
       return true
     }
     if (key.startsWith('start')) return String(properties.timeSource ?? 'Compile Time') === 'Manual'
+  }
+  if (nodeType === 'Amplifier') {
+    if (key === 'i2sBclk' || key === 'i2sLrc' || key === 'i2sDout') {
+      // An analog amplifier has no I2S receiver in it. It is fed line level
+      // from the board's own DAC, so an I2S pin trio here would describe
+      // wiring that does not exist and invite someone to run three jumpers to
+      // pads that are not there.
+      return resolvePartIdentity('Amplifier', properties)?.option.input !== 'analog'
+    }
   }
   if (nodeType === 'ScheduleTrigger') {
     if (key === 'endHour' || key === 'endMinute' || key === 'endSecond') {
