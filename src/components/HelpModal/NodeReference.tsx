@@ -40,7 +40,11 @@ const CATEGORY_ORDER: NodeCategory[] = ['input', 'audio', 'signal', 'math', 'col
 
 const NODE_INTRO_TYPE = '__using_nodes__'
 
-const HIDDEN_PROPERTIES = new Set(['patternIds', 'patternSections'])
+// Properties the reference does not list: they are not settings the reader can
+// go and change. `form` is the bench's answer to what the output physically
+// is — there is no editor for it, so documenting its four options as a choice
+// described a control that does not exist.
+const HIDDEN_PROPERTIES = new Set(['patternIds', 'patternSections', 'form'])
 
 interface AudioArticleContent {
   type: string

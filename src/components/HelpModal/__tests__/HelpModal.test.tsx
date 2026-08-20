@@ -217,6 +217,24 @@ describe('HelpModal session state', () => {
     }
   })
 
+  // What the output physically is comes from the part on the bench, and there
+  // is no editor for it — so listing its four options as a setting documented
+  // a control that does not exist.
+  it('does not list the LED output form as a setting', () => {
+    useUiStore.setState({
+      helpTab: 'nodes',
+      helpNodeReference: { search: '', expandedCategory: 'output', selectedType: 'MatrixOutput' },
+    })
+    const { container } = render(<HelpModal />)
+    // CSS-module class names are hashed, so match the stable prefix.
+    const settings = [...container.querySelectorAll('[class*="propertyRow"], dt')]
+      .map((row) => row.querySelector('span')?.textContent ?? row.textContent ?? '')
+
+    expect(settings.length).toBeGreaterThan(0)
+    expect(settings.some((s) => s.startsWith('Brightness'))).toBe(true)
+    expect(settings.some((s) => s.startsWith('Form'))).toBe(false)
+  })
+
   it.each(['BeatDetect', 'SpectrumBars'])('forces real audio for the %s live example', (selectedType) => {
     useUiStore.setState({
       helpTab: 'nodes',
