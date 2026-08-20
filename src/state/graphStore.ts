@@ -19,7 +19,7 @@ import type { SavedPattern } from './patternLibrary'
 import { isPatternContentTrusted, trustPatternContent } from './patternTrust'
 import { useNetworkCredentialsStore } from './networkCredentials'
 import { retargetedMicPins } from './micPinDefaults'
-import { retargetHardwarePins as retargetHardwarePinsFor } from './pinRetarget'
+import { retargetHardwarePins as retargetHardwarePinsFor, withAssignedPins } from './pinRetarget'
 import { useNodeDefaults } from './nodeDefaults'
 import { useUiStore } from './uiStore'
 import { validateMatrixLayout } from './xyLayout'
@@ -27,6 +27,7 @@ import { isLinearForm, outputCanvasDims, outputForm } from './ledOutputForm'
 import { emptyBuildProfile, normalizeBuildProfile, type BuildProfile } from '../build/buildProfile'
 import { boardProfileById, selectedPhysicalBoardProfile } from '../build/boardProfiles'
 import { boardI2cDefault } from '../build/boardI2cDefaults'
+import { sdCsPinDefaultForBoard } from './sdPinDefaults'
 import { DEFAULT_BOARD_PROFILE_ID, isHardwareManagedSignalNodeType, isHardwareNodeType, isHardwareOnlyNodeType, ROOT_BOARD_NODE_ID } from './hardware'
 import { controllerSettings, DEFAULT_CONTROLLER_SETTINGS } from './controllerSettings'
 import {
@@ -314,6 +315,8 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
   const savedBoard = nodes.find((node) => node.data.nodeType === 'Board')
   const savedProfileId = (savedBoard?.data.properties as Record<string, unknown> | undefined)?.profileId
   const rtcDefaults = boardI2cDefault(typeof savedProfileId === 'string' ? savedProfileId : undefined)
+  const savedProfile = typeof savedProfileId === 'string' ? boardProfileById(savedProfileId) : undefined
+  const sdCsDefault = sdCsPinDefaultForBoard(savedProfile)
   const normalizedNodes = nodes.map((n) => {
     const data = n.data as StudioNodeData
     const wasLedString = data.nodeType === 'LedStringOutput'
@@ -332,6 +335,17 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     if (nodeType === 'RTCInput') {
       properties.sdaPin ??= rtcDefaults?.sda.arduinoPin ?? 21
       properties.sclPin ??= rtcDefaults?.scl.arduinoPin ?? 22
+    }
+    // The SD card used to carry one global ESP32-S3-oriented CS default (10),
+    // even in a project whose exact classic ESP32 board uses the core's GPIO5
+    // SS alias. Migrate that unstamped library value, while leaving any value
+    // already carrying pin provenance alone as a deliberate board choice.
+    if (nodeType === 'SDCard' && sdCsDefault !== null) {
+      const assigned = properties.assignedPins as Record<string, number> | undefined
+      const legacyGlobalDefault = properties.sdCsPin === 10 && assigned?.sdCsPin === undefined
+      if (properties.sdCsPin === undefined || legacyGlobalDefault) {
+        Object.assign(properties, withAssignedPins(properties, { sdCsPin: sdCsDefault }, savedProfile?.id))
+      }
     }
     // AudioHue's bass/mids/treble mix used to be hardcoded in the evaluator and
     // the C++ generator. It is now three editable weights, so backfill saves

@@ -72,4 +72,10 @@ describe('node defaults', () => {
       startYear: 2030,
     })
   })
+
+  it('uses the selected board core default for SD card CS', () => {
+    useNodeDefaults.getState().setDefault('SDCard', { sdCsPin: 10 })
+    const esp32d = boardProfileById('esp32-devkit-v1-30pin-esp32d')
+    expect(resolveDefaultProperties('SDCard', { sdCsPin: 10 }, esp32d)).toMatchObject({ sdCsPin: 5 })
+  })
 })

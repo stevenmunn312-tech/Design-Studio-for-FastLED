@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { render } from '@testing-library/react'
+import { fireEvent, render } from '@testing-library/react'
 import HardwarePartBody from '../HardwarePartBody'
 import { PART_FIELDS } from '../../../state/partFields'
 import { useGraphStore } from '../../../state/graphStore'
@@ -54,7 +54,10 @@ describe('HardwarePartBody', () => {
     const { getByLabelText, queryByLabelText } = render(
       <HardwarePartBody nodeId="part" nodeType="SDCard" />,
     )
-    expect(getByLabelText('CS')).toBeTruthy()
+    const cs = getByLabelText('CS') as HTMLInputElement
+    expect(cs).toBeTruthy()
+    fireEvent.change(cs, { target: { value: '5' } })
+    expect(useGraphStore.getState().nodes[0].data.properties.sdCsPin).toBe(5)
     expect(queryByLabelText('Audio out')).toBeNull()
     expect(queryByLabelText('Volume')).toBeNull()
   })

@@ -763,6 +763,17 @@ describe('graphStore — loadGraph normalization', () => {
     expect(dataOf('mic').properties.gain).toBe(1)
   })
 
+  it('migrates the old global SD CS default to the exact ESP-32D default', () => {
+    const board = node('board-root', 'Board', { profileId: 'esp32-devkit-v1-30pin-esp32d' })
+    const sd = node('sd', 'SDCard', { sdCsPin: 10 })
+    useGraphStore.getState().loadGraph([board, sd], [])
+    expect(dataOf('sd').properties).toMatchObject({
+      sdCsPin: 5,
+      assignedPins: { sdCsPin: 5 },
+      assignedPinsBoard: 'esp32-devkit-v1-30pin-esp32d',
+    })
+  })
+
   it('backfills AudioHue band weights with the mix that used to be hardcoded', () => {
     const hue = node('ah', 'AudioHue', { bass: 0.5, mids: 0.5, treble: 0.5 })
     useGraphStore.getState().loadGraph([hue], [])

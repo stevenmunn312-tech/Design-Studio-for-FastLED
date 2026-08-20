@@ -2660,8 +2660,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [],
     outputs: [],
     defaultProperties: {
-      // GPIO10 avoids colliding with MatrixOutput's default LED data pin
-      // (GPIO5) on the primary supported ESP32-S3 target.
+      // Library fallback for a graph with no exact board. Hardware creation
+      // and board retargeting replace it with the selected core's SS default
+      // (GPIO5 on the classic ESP-32D, GPIO10 on ESP32-S3).
       sdCsPin:     10,
       // Audio output is no longer asked here. Adding an Amplifier part *is* the
       // statement that this build uses I2S, and a classic ESP32 with no amp

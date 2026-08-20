@@ -32,6 +32,7 @@ import { assignPartPins, type PartPinRequest } from './partPinAssignment'
 import { micPinDefaultsForBoard, micPinIsDefault } from './micPinDefaults'
 import { outputForm } from './ledOutputForm'
 import { boardI2cDefault } from '../build/boardI2cDefaults'
+import { sdCsPinDefaultForBoard } from './sdPinDefaults'
 
 /** Property holding the values the app last assigned, keyed by pin property. */
 export const ASSIGNED_PINS_KEY = 'assignedPins'
@@ -104,6 +105,13 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
       return defaults
         ? { sdaPin: defaults.sda.arduinoPin, sclPin: defaults.scl.arduinoPin }
         : null
+    },
+  },
+  SDCard: {
+    keys: ['sdCsPin'],
+    fromProfile: (profile) => {
+      const sdCsPin = sdCsPinDefaultForBoard(profile)
+      return sdCsPin === null ? null : { sdCsPin }
     },
   },
 }

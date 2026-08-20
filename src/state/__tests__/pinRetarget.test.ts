@@ -84,6 +84,19 @@ describe('retargetHardwarePins', () => {
     expect(result.nodes[0].data.properties).toMatchObject({ sdaPin: 21, sclPin: 22 })
   })
 
+  it('moves an untouched SD CS property from the S3 default to ESP-32D GPIO5', () => {
+    const s3 = boardProfileById('generic-esp32-s3-n16r8-44pin-dual-usbc')!
+    const esp32d = boardProfileById('esp32-devkit-v1-30pin-esp32d')!
+    const nodes = [part('sd', 'SDCard', withAssignedPins(
+      { sdCsPin: 10 },
+      { sdCsPin: 10 },
+      s3.id,
+    ))]
+
+    const result = retargetHardwarePins(nodes, esp32d, 'esp32:esp32:esp32', s3.id)
+    expect(result.nodes[0].data.properties.sdCsPin).toBe(5)
+  })
+
   it('moves a part the app placed', () => {
     const nodes = [part('b', 'ButtonInput', withAssignedPins({}, { pin: 4 }))]
     const result = retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3)

@@ -11,6 +11,7 @@ import { nextFreeLedDataPin } from '../../state/ledPinAssignment'
 import { assignPartPins, type PartPinRequest } from '../../state/partPinAssignment'
 import { withAssignedPins } from '../../state/pinRetarget'
 import { boardI2cDefault } from '../../build/boardI2cDefaults'
+import { sdCsPinDefaultForBoard } from '../../state/sdPinDefaults'
 import { partDimensionsMm, partRenderSrc, ringDiameterMm } from '../../state/partCatalogue'
 import { partRenderForNodeType } from '../../state/partRenders'
 import { partOptionProperty, partOptionsFor, resolvePartIdentity } from '../../state/partOptions'
@@ -845,14 +846,17 @@ export default function HardwarePane() {
       ? partOptionsFor(entry.nodeType).find((option) => option.id === moduleId)
       : undefined
     const amp = boardProfile?.peripheralPins?.max98357
+    const sdCsPin = entry.nodeType === 'SDCard' ? sdCsPinDefaultForBoard(boardProfile, selectedFqbn) : null
     // Only a module with an I2S receiver gets the board's I2S trio. An analog
     // amplifier takes line level from the DAC, so handing it BCLK/LRC/DIN
     // would be three pin assignments for a connection it does not have.
-    const profilePins = entry.profilePins && amp && chosen?.input !== 'analog'
-      ? Object.fromEntries(
-        Object.entries(entry.profilePins).map(([key, field]) => [key, amp[field]]),
-      )
-      : {}
+    const profilePins = sdCsPin !== null
+      ? { sdCsPin }
+      : entry.profilePins && amp && chosen?.input !== 'analog'
+        ? Object.fromEntries(
+          Object.entries(entry.profilePins).map(([key, field]) => [key, amp[field]]),
+        )
+        : {}
     addNode({
       id: `${entry.nodeType}-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
       type: 'studioNode',
@@ -1282,7 +1286,9 @@ export default function HardwarePane() {
               </button>
               <span className={styles.caption} style={captionStyle(part.partId)}>
                 <strong>{String(part.node.data.properties.model ?? part.entry.label)}</strong>
-                <span>Hardware only — click to configure</span>
+                <span>{part.node.data.nodeType === 'SDCard'
+                  ? `CS GPIO ${Number((part.node.data.properties as Record<string, unknown>).sdCsPin ?? 10)} — click to configure`
+                  : 'Hardware only — click to configure'}</span>
               </span>
             </Fragment>
           ))}
