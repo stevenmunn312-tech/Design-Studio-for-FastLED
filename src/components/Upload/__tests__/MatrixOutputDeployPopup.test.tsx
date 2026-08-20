@@ -28,10 +28,9 @@ vi.mock('../../../codegen/wiringDiagnosticGenerator', () => ({
 }))
 
 vi.mock('../../../utils/showUpload', () => ({
-  // Presence, matching the real gate: an SD card on the bench is what makes
-  // this an SD-show upload, not a cable into the output.
-  sdCardConnected: vi.fn((nodes: Array<{ data: { nodeType: string } }>) =>
-    nodes.some((node) => node.data.nodeType === 'SDCard')),
+  sdShowConnected: vi.fn((nodes: Array<{ data: { nodeType: string } }>) =>
+    nodes.some((node) => node.data.nodeType === 'SDCard')
+      && nodes.some((node) => node.data.nodeType === 'PerformanceGenerator')),
   readySongCount: vi.fn(() => 0),
   buildShowPayload: vi.fn(() => null),
 }))
@@ -285,10 +284,16 @@ describe('MatrixOutputDeployPopup SD-show upload', () => {
   function setSdShowGraph() {
     setMatrixGraph()
     useGraphStore.setState({
-      nodes: [...useGraphStore.getState().nodes, {
-        id: 'sd', type: 'studioNode', position: { x: 0, y: 0 },
-        data: { label: 'SD Card', nodeType: 'SDCard', category: 'show', properties: {}, inputs: [], outputs: [] },
-      }] as never[],
+      nodes: [...useGraphStore.getState().nodes,
+        {
+          id: 'performance', type: 'studioNode', position: { x: 0, y: 0 },
+          data: { label: 'Performance Generator', nodeType: 'PerformanceGenerator', category: 'show', properties: {}, inputs: [], outputs: [] },
+        },
+        {
+          id: 'sd', type: 'studioNode', position: { x: 0, y: 0 },
+          data: { label: 'SD Card', nodeType: 'SDCard', category: 'show', properties: {}, inputs: [], outputs: [] },
+        },
+      ] as never[],
       edges: [] as never[],
     })
   }
@@ -340,5 +345,19 @@ describe('MatrixOutputDeployPopup SD-show upload', () => {
     const btn = getByRole('button', { name: /Upload show/i }) as HTMLButtonElement
     expect(btn.disabled).toBe(true)
     expect(btn.title).toMatch(/Analyse at least one song/i)
+  })
+
+  it('keeps a standalone SD card on the normal sketch upload path', () => {
+    setMatrixGraph()
+    useGraphStore.setState({
+      nodes: [...useGraphStore.getState().nodes, {
+        id: 'sd', type: 'studioNode', position: { x: 0, y: 0 },
+        data: { label: 'SD Card', nodeType: 'SDCard', category: 'hardware', properties: {}, inputs: [], outputs: [] },
+      }] as never[],
+    })
+    const { getByRole, queryByText } = render(<MatrixOutputDeployPopup />)
+
+    expect(getByRole('button', { name: '↑ Upload' })).toBeTruthy()
+    expect(queryByText('Card reader available')).toBeNull()
   })
 })

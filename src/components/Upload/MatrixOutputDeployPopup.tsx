@@ -10,7 +10,7 @@ import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph } from '../../codegen/streamReceiverGenerator'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
-import { readySongCount, buildShowPayload, sdCardConnected } from '../../utils/showUpload'
+import { readySongCount, buildShowPayload, sdShowConnected } from '../../utils/showUpload'
 import { findPinConflicts, findMatrixLayoutErrors, findMirroredOutputMismatches, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowOutputFormErrors } from '../../utils/validateGraph'
 import { summarizeCapacity } from '../../utils/capacityFormat'
 import { useCodegenGraph } from '../../utils/codegenGraph'
@@ -62,9 +62,9 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
   const nodeId = outputNode?.id ?? ''
   const isHub75 = String(ownProps.chipset ?? 'WS2812B') === 'HUB75'
   const hasFrameInput = !!outputNode && edges.some((e) => e.target === nodeId && e.targetHandle === 'frame')
-  // An SD card on the bench is what makes this an SD-show upload; there is
-  // no cable to consult, and there never really was one.
-  const hasSdCardInput = useMemo(() => sdCardConnected(nodes), [nodes])
+  // A card is ordinary storage hardware until Performance Generator declares
+  // that this graph is the offline music-show workflow.
+  const hasSdShow = useMemo(() => sdShowConnected(nodes), [nodes])
 
   const board = boardByFqbn(selectedFqbn)
   const usingFbuild = helper?.engine === 'fbuild'
@@ -136,7 +136,7 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
     ...(capacityOverflow ? [`${board?.label ?? 'This board'}: design is too large to fit (live capacity check)`] : []),
   ]
   const canBuild = hasFrameInput && blockingErrors.length === 0
-  const canShowUpload = hasSdCardInput && blockingErrors.length === 0
+  const canShowUpload = hasSdShow && blockingErrors.length === 0
   const suggestedAction = useMemo(() => suggestedValidationAction(nodes, edges), [nodes, edges])
   const validationProfile = useMemo(() => buildHardwareValidationProfile({
     nodes,
@@ -363,12 +363,10 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
 
   // One Upload button, whatever shape the graph is.
   //
-  // With an SD Card node wired, the board runs the music-sync player rather
-  // than a normal sketch, so uploading means provisioning the card and then
-  // flashing that player. That used to live on a separate "♪ Upload show to SD"
-  // action while Upload itself sat disabled saying "connect a frame" — so the
-  // obvious button was the wrong one, and the right one was easy to miss.
-  const isShowUpload = hasSdCardInput
+  // A Performance Generator plus SD Card runs the music-sync player rather
+  // than a normal sketch, so uploading provisions the card and flashes that
+  // player. A standalone SD Card remains on the normal sketch path.
+  const isShowUpload = hasSdShow
   const canUploadNow = isShowUpload
     ? canShowUpload && readySongs > 0
     : canBuild

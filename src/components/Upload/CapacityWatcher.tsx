@@ -5,7 +5,7 @@ import { boardByFqbn, engineReady, useUploadStore } from '../../state/uploadStor
 import { useCapacityStore } from '../../state/capacityStore'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
-import { buildShowPlayerForMeasurement, sdCardConnected } from '../../utils/showUpload'
+import { buildShowPlayerForMeasurement, sdShowConnected } from '../../utils/showUpload'
 import { useCodegenGraph } from '../../utils/codegenGraph'
 import { controllerSettings } from '../../state/controllerSettings'
 
@@ -46,7 +46,7 @@ export default function CapacityWatcher() {
    * could not link, so the subject is chosen with the same predicate the
    * Upload button uses.
    */
-  const isShow = useMemo(() => sdCardConnected(nodes), [nodes])
+  const isShow = useMemo(() => sdShowConnected(nodes), [nodes])
 
   /*
    * PSRAM is a controller setting. Measuring a different FQBN option than the

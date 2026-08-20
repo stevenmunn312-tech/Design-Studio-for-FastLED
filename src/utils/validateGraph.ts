@@ -2,7 +2,7 @@ import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { isPortlessNodeType, NODE_LIBRARY, supportsScalarExpression } from '../state/nodeLibrary'
 import { outputForm, outputLedTotal } from '../state/ledOutputForm'
 import { audioOutputMissing } from '../state/audioOutput'
-import { sdCardConnected } from './showUpload'
+import { sdShowConnected } from './showUpload'
 import { evaluateScalarExpression } from '../state/scalarExpression'
 import { isNodeFormulaValid } from '../state/formulaLang'
 import { isValidRtcDateTime } from '../state/rtc'
@@ -1312,9 +1312,10 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
        * An SD show is the exception, and always was: its LEDs are driven by
        * the generated player from the card, so the output is configured rather
        * than wired and having no frame is correct. That used to be excused by
-       * the `sdcard` edge; the card's presence says the same thing.
+       * the `sdcard` edge; the card plus Performance Generator now says it
+       * without mistaking ordinary SD hardware for a show.
        */
-      if (!incoming.has(`${out.id}:frame`) && !sdCardConnected(nodes)) {
+      if (!incoming.has(`${out.id}:frame`) && !sdShowConnected(nodes)) {
         errors.push(outputs.length === 1
           ? 'LED output has no Frame input connected'
           : `LED output ${index + 1} has no Frame input connected`)

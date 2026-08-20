@@ -310,11 +310,19 @@ describe('validateGraph', () => {
     expect(errors).toContain('LED output has no Frame input connected')
   })
 
+  it('does not mistake standalone SD hardware for an offline show', () => {
+    const { errors } = validateGraph([
+      node('sd', 'SDCard'),
+      node('out', 'MatrixOutput'),
+    ], [])
+    expect(errors).toContain('LED output has no Frame input connected')
+  })
+
   it('accepts an SD show, whose LEDs the player drives rather than the graph', () => {
     // No frame reaches the output, and that is correct: the generated player
-    // reads the card and drives the LEDs itself. The SD card's presence on the
-    // bench is what says so — it used to be said by a cable that carried
-    // nothing into the output's `sdcard` input.
+    // reads the card and drives the LEDs itself. The SD card plus Performance
+    // Generator says so — it used to be said by a cable that carried nothing
+    // into the output's `sdcard` input.
     const nodes = [
       node('lib', 'MusicLibrary'),
       node('pg', 'PerformanceGenerator'),

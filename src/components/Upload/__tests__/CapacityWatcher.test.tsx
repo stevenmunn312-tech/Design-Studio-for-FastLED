@@ -82,10 +82,19 @@ describe('CapacityWatcher', () => {
         properties: { sdCsPin: 10 }, inputs: [], outputs: [],
       },
     }
+    const performanceGenerator = {
+      id: 'performance',
+      type: 'studioNode',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Performance Generator', nodeType: 'PerformanceGenerator', category: 'show',
+        properties: {}, inputs: [], outputs: [],
+      },
+    }
 
     function setShowGraph() {
       useGraphStore.setState({
-        nodes: [sdCard, output] as never[],
+        nodes: [sdCard, performanceGenerator, output] as never[],
         edges: [] as never[],
         selectedNodeId: null,
         graphData: {},
@@ -124,7 +133,7 @@ describe('CapacityWatcher', () => {
       // no-PSRAM build of ESP32-audioI2S — so a PSRAM reading here would
       // understate the internal DRAM that actually overflows.
       useGraphStore.setState({
-        nodes: [sdCard, {
+        nodes: [sdCard, performanceGenerator, {
           ...output,
           data: { ...output.data, properties: { ...output.data.properties, usePsram: true, psramMode: 'opi' } },
         }] as never[],

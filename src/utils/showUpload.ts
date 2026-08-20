@@ -34,6 +34,18 @@ export function sdCardConnected(nodes: StudioNode[]): boolean {
   return nodes.some((n) => nodeType(n) === 'SDCard')
 }
 
+/**
+ * True only for the offline music-show workflow.
+ *
+ * An SD card is ordinary hardware too: its presence alone must not replace a
+ * normal sketch upload with the music player. Performance Generator is the
+ * graph-level declaration that the card is carrying timed show files.
+ */
+export function sdShowConnected(nodes: StudioNode[]): boolean {
+  return sdCardConnected(nodes)
+    && nodes.some((n) => nodeType(n) === 'PerformanceGenerator')
+}
+
 /** Number of songs ready (analysed) to upload. */
 export function readySongCount(entries: MusicEntry[]): number {
   return entries.filter((e) => e.status === 'done' && e.show).length
@@ -116,7 +128,7 @@ export function buildShowPlayerForMeasurement(
   groups: GroupRegistry = {},
   fqbn = '',
 ): string | null {
-  if (!sdCardConnected(nodes)) return null
+  if (!sdShowConnected(nodes)) return null
   const { ids } = wiredPatternCollection(nodes, edges)
   return buildShowPlayer(nodes, groups, {
     patternSet: ids,
