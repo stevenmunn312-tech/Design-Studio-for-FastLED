@@ -241,14 +241,14 @@ export default function LEDPreview() {
     return s.edges.some((edge) => terminalIds.has(edge.target) && edge.targetHandle === 'frame')
   })
   // A Performance Generator preview reaches the output bay through the show
-  // playback bus rather than a Matrix Output frame cable. Treat that live show
+  // playback bus rather than a LED output frame cable. Treat that live show
   // as a real frame signal so Stage does not contradict its lit matrix with a
   // "Signal idle" / standby overlay.
   const hasFrameSignal = graphHasFrameSignal || playbackShow !== null
   const graphAudioVisualizerLive = useGraphStore((s) => graphConsumesAudio(s.nodes, s.edges))
   const playbackSpectrum = playbackShow ? showAudioSpectrum(playbackShow.audio, playbackPosMs) : null
   const audioVisualizerLive = graphAudioVisualizerLive || !!playbackSpectrum
-  // Every Matrix Output is an explicit Frame route. Keep the preview focused
+  // Every LED output is an explicit Frame route. Keep the preview focused
   // on one route at a time while the evaluator still computes all terminals.
   const outputRouteKey = useGraphStore((s) => JSON.stringify(outputRoutes(s.nodes).map((route) => ({
     id: route.id, label: route.label, width: route.width, height: route.height,

@@ -2353,8 +2353,6 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'output',
     inputs: [
       { id: 'frame',  label: 'Frame',   dataType: 'frame' },
-      // Optional: wire an SD Card node here to bundle music/show files onto the card
-      // (written first over serial) before the sketch is flashed on upload.
     ],
     outputs: [],
     defaultProperties: {
@@ -2405,7 +2403,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // JSON array of WIDTH*HEIGHT ints (a permutation of 0..N-1): grid index
       // (row-major) -> physical LED index. Only used when layout is 'custom'.
       customXYMap: '',
-      // The Frame cable into each Matrix Output is an explicit hardware route.
+      // The Frame cable into each LED output is an explicit hardware route.
       // Fit scales the shared composition canvas to this output; crop takes a
       // wrapped viewport beginning at routeX/routeY.
       routeMode: 'fit',
@@ -2745,7 +2743,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   MidiInput: 'Web MIDI note velocity/gate + CC value from a controller. Preview-only.',
   MusicLibrary: 'Music source — double-click to drop tracks, analyse and export.',
   PerformanceGenerator: 'Converts analysed music into timed LED show files.',
-  SDCard: 'SD card pins; connect to Matrix Output to load music/show files on upload.',
+  SDCard: 'SD card and audio pins for the music-sync player; a bench part, not wired.',
   Amplifier: 'The I2S amplifier the show player feeds — its part and pins.',
   // math
   Math: 'Binary math — add, subtract, multiply, divide, min or max (a op b).',
@@ -2969,7 +2967,10 @@ export const CATEGORY_ACCENT_VAR: Record<string, string> =
 
 // Port (handle) colour by data type, so ports that can connect share a colour.
 // `float` and `bool` share one — they interconnect (see portsCompatible).
-const PORT_COLORS: Record<string, string> = {
+// Keyed by live port dataType — `nodeLibrary.test.ts` holds it to that. The
+// `shows` and `sdcard` entries lived on here after SD Card and Performance
+// Generator went portless, colouring handles that no longer exist.
+export const PORT_COLORS: Record<string, string> = {
   float: '#9aa0a6',
   bool:  '#9aa0a6',
   color: '#ffd24a',
@@ -2980,8 +2981,6 @@ const PORT_COLORS: Record<string, string> = {
   audio: '#00e0a4',
   dmx: '#6bf8ff',
   music: '#ffb74d',
-  shows: '#ffa726',
-  sdcard: '#ffa500',
   patternset: '#00e0a4',
   transitionset: '#b388ff',
 }

@@ -267,7 +267,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
     id: 'controller',
     kind: 'controller',
     title: board?.label ?? (selectedFqbn || 'No board target selected'),
-    subtitle: selectedFqbn ? `Target family: ${targetFamily}` : 'Select a board target in Matrix Output setup',
+    subtitle: selectedFqbn ? `Target family: ${targetFamily}` : 'Select a board target in the LED output setup',
     supported: true,
     pins: [],
     facts: {

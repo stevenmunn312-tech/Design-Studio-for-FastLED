@@ -829,7 +829,7 @@ function commentExample(node: NodeDefinition): ReferenceLiveExample {
   builder.wire('pattern', 'frame', 'out', 'frame')
   return builder.finish(
     'Document a patch without changing it',
-    'The Comment sits beside a working Pacifica → Matrix Output patch but has no noodles. It records design intent while remaining completely outside evaluation and generated firmware.',
+    'The Comment sits beside a working Pacifica → LED Matrix patch but has no noodles. It records design intent while remaining completely outside evaluation and generated firmware.',
     'Pacifica keeps rendering unchanged. Editing, moving, or deleting the Comment must not alter the LED preview.',
   )
 }
@@ -932,7 +932,7 @@ export const MICROPHONE_LIVE_EXAMPLE = namedExample(
     { source: 'bars', sourceHandle: 'frame', target: 'trails', targetHandle: 'frame' },
     { source: 'trails', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
   ],
-  'Microphone feeds FFT Analyzer once; its three frequency lanes shape Spectrum Bars independently. Trails gives fast treble hits a readable tail before Matrix Output.',
+  'Microphone feeds FFT Analyzer once; its three frequency lanes shape Spectrum Bars independently. Trails gives fast treble hits a readable tail before the LED output.',
   'Allow microphone access and play audio nearby. Live audio should make bass feel broad, mids structured, and treble quick and bright.',
 )
 

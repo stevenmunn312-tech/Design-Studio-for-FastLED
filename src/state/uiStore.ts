@@ -166,7 +166,7 @@ interface UiState {
   /** When on, selecting a node dims everything outside its signal path. */
   signalPathDimEnabled: boolean
   preview3d: boolean
-  /** Session-only Matrix Output route displayed by the preview/recorder. */
+  /** Session-only LED output route displayed by the preview/recorder. */
   previewOutputId: string
   previewStyle: PreviewStyle
   /** Presentation used by the browser-only spectrum below the LED preview. */

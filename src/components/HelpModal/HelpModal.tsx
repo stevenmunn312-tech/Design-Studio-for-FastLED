@@ -82,7 +82,7 @@ function QuickStartTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Your first working patch</div>
         <div className={styles.lede}>
-          Every design follows the same path: make a frame, connect it to <strong>Matrix Output</strong>, check the preview, then choose whether to keep designing, export code, or run it on LEDs.
+          Every design follows the same path: make a frame, connect it to the <strong>LED output</strong>, check the preview, then choose whether to keep designing, export code, or run it on LEDs.
         </div>
         <div className={styles.steps}>
           <div className={styles.step}>
@@ -94,7 +94,7 @@ function QuickStartTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>2</div>
             <div className={styles.stepText}>
-              <strong>Check the frame path.</strong> The starter connects <code>Juggle.frame</code> to <code>Matrix Output.frame</code>. A frame connection is cyan; drag from the output handle on the right of Juggle to the matching input on the left of Matrix Output if it is missing.
+              <strong>Check the frame path.</strong> The starter connects <code>Juggle.frame</code> to <code>LED Matrix.frame</code>. A frame connection is cyan; drag from the output handle on the right of Juggle to the matching input on the left of the LED output if it is missing.
             </div>
           </div>
           <div className={styles.step}>
@@ -106,7 +106,7 @@ function QuickStartTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>4</div>
             <div className={styles.stepText}>
-              <strong>Match your LEDs.</strong> Open <strong>✦ Setup…</strong> on Matrix Output and set the grid or strip size, chipset, layout, and pins. These settings control the preview dimensions and the generated firmware.
+              <strong>Match your LEDs.</strong> Open <strong>✦ Setup…</strong> on the LED output and set the grid or strip size, chipset, layout, and pins. These settings control the preview dimensions and the generated firmware.
             </div>
           </div>
           <div className={styles.step}>
@@ -120,10 +120,10 @@ function QuickStartTab() {
           <img
             className={styles.helpImage}
             src={firstPatchScreenshot}
-            alt="The Design Studio workspace: a Juggle node wired into Matrix Output on the canvas, a Comment node holding the tutorial steps, and the live LED preview on the right"
+            alt="The Design Studio workspace: a Juggle node wired into the LED output on the canvas, a Comment node holding the tutorial steps, and the live LED preview on the right"
           />
           <figcaption>
-            The starter patch as it arrives: Juggle feeds Matrix Output, the Comment node carries the steps to try, and LED Preview confirms the result on the right.
+            The starter patch as it arrives: Juggle feeds the LED output, the Comment node carries the steps to try, and LED Preview confirms the result on the right.
           </figcaption>
         </figure>
       </div>
@@ -147,7 +147,7 @@ function QuickStartTab() {
           </div>
           <div className={styles.choiceCard}>
             <strong>Fix an incomplete graph</strong>
-            <span>Open Graph Health for node-specific repair steps. A design needs a complete frame path into Matrix Output before it can export or upload.</span>
+            <span>Open Graph Health for node-specific repair steps. A design needs a complete frame path into the LED output before it can export or upload.</span>
           </div>
         </div>
       </div>
@@ -192,7 +192,7 @@ function QuickStartTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Dimension-aware numeric expressions</div>
         <div className={styles.text}>
-          A free-entry number field on a creative node can use a safe expression instead of a fixed number. For example, set BeatSin <code>high</code> to <code>h - 2</code> or Random <code>max</code> to <code>w / 2</code>. Preview and firmware both resolve the expression from the active Matrix Output size.
+          A free-entry number field on a creative node can use a safe expression instead of a fixed number. For example, set BeatSin <code>high</code> to <code>h - 2</code> or Random <code>max</code> to <code>w / 2</code>. Preview and firmware both resolve the expression from the active LED output size.
         </div>
         <div className={styles.expressionBox}>
           <div>
@@ -231,7 +231,7 @@ function QuickStartTab() {
           </div>
           <div className={styles.choiceCard}>
             <strong>Drive several outputs</strong>
-            <span>Add more than one Matrix Output to run separate LED routes from one board, each with its own pins, size, layout, and brightness. The preview header selects which route you are watching.</span>
+            <span>Add more than one LED output to run separate LED routes from one board, each with its own pins, size, layout, and brightness. The preview header selects which route you are watching.</span>
           </div>
         </div>
         <div className={styles.note}>
@@ -246,7 +246,7 @@ function QuickStartTab() {
         <div className={styles.choiceGrid}>
           <div className={styles.choiceCard}>
             <strong>Self-running generative show</strong>
-            <span>Add saved patterns to Pattern Collection, connect it to Show Engine, then connect the engine's frame to Matrix Output. The engine chooses patterns and transitions while it runs.</span>
+            <span>Add saved patterns to Pattern Collection, connect it to Show Engine, then connect the engine's frame to the LED output. The engine chooses patterns and transitions while it runs.</span>
           </div>
           <div className={styles.choiceCard}>
             <strong>Music-synced SD show</strong>
@@ -379,7 +379,7 @@ function UploadTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>2</div>
             <div className={styles.tipText}>
-              <strong>Connect the board by USB</strong> and accept any operating-system permission prompt. Select the exact board and detected port in <strong>Matrix Output → Setup…</strong>.
+              <strong>Connect the board by USB</strong> and accept any operating-system permission prompt. Select the exact board and detected port in the <strong>LED output → Setup…</strong>.
             </div>
           </div>
           <div className={styles.tip}>
@@ -408,7 +408,7 @@ function UploadTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>1</div>
             <div className={styles.stepText}>
-              Use <strong>✦ Setup…</strong> on Matrix Output to confirm the board, port, LED dimensions, chipset, layout, and pins.
+              Use <strong>✦ Setup…</strong> on the LED output to confirm the board, port, LED dimensions, chipset, layout, and pins.
             </div>
           </div>
           <div className={styles.step}>
@@ -439,7 +439,7 @@ function UploadTab() {
         <div className={styles.definitionGrid}>
           <div><strong>Compile failed</strong><span>No firmware reached the board. Open Output / Serial, fix the reported graph, dependency, or capacity error, then compile again.</span></div>
           <div><strong>Upload failed</strong><span>The sketch compiled, but flashing failed. Recheck the selected port, USB cable, driver, permissions, and any board-specific download-mode steps.</span></div>
-          <div><strong>Wrong colours or order</strong><span>Run Wiring Test and correct colour order, serpentine direction, panel layout, or custom XY map in Matrix Output.</span></div>
+          <div><strong>Wrong colours or order</strong><span>Run Wiring Test and correct colour order, serpentine direction, panel layout, or custom XY map in the LED output.</span></div>
           <div><strong>Preview works, LEDs do not</strong><span>Confirm data and clock pins, common ground, external power, chipset, brightness, and power-limit settings before changing the graph.</span></div>
         </div>
       </div>
@@ -449,7 +449,7 @@ function UploadTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Export without uploading</div>
         <div className={styles.text}>
-          Click <strong>View Code</strong> in the Matrix Output node to inspect the exact sketch that would be uploaded, or <strong>Export .ino</strong> to download it. Open it in the Arduino IDE or compile with <code>arduino-cli compile --fqbn &lt;board&gt; sketch.ino</code>.
+          Click <strong>View Code</strong> in the LED output node to inspect the exact sketch that would be uploaded, or <strong>Export .ino</strong> to download it. Open it in the Arduino IDE or compile with <code>arduino-cli compile --fqbn &lt;board&gt; sketch.ino</code>.
         </div>
         <div className={styles.text}>
           The generated sketch targets FastLED and does not need Studio or the helper at runtime. Compatibility still depends on the selected board, chipset, libraries, pins, memory, and any node-specific hardware support; check Graph Health and the beta support matrix rather than assuming every combination is validated.

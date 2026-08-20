@@ -799,7 +799,7 @@ function Sidebar() {
     }
     setStatus(
       omittedSingletons.has('MatrixOutput')
-        ? `${recipe.title} recipe added — wire it into your existing Matrix Output when ready`
+        ? `${recipe.title} recipe added — wire it into your existing LED output when ready`
         : `${recipe.title} recipe added`,
       'success',
     )

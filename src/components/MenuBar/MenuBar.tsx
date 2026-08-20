@@ -329,7 +329,7 @@ export default function MenuBar() {
             : boardIdentity.includes('arduino') ? 'Arduino'
               : 'Other'
 
-    // Shared patterns stay hardware-agnostic: drop Matrix Output (and its
+    // Shared patterns stay hardware-agnostic: drop LED output (and its
     // wires) so the graph plugs into anyone's rig via that node's own
     // defaults, the same shape as a saved Pattern Library entry. Group
     // nodes stay as references — their content travels alongside as `groups`

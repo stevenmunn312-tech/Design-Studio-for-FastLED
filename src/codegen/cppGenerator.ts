@@ -638,7 +638,7 @@ export function fastledSetupCpp(
 // A HUB75 route (docs/development/design/hub75-output.md) has no FastLED
 // driver — it's driven over its own 13-14 signal ribbon via a separate DMA
 // library instead of FastLED's addLeds<>()/leds[]/show(). Scoped for now to a
-// single Matrix Output route and no supersampling — see findHub75ConfigIssues
+// single LED output route and no supersampling — see findHub75ConfigIssues
 // in validateGraph.ts for the gate.
 
 /** A folded 2D grid of chained panels (`layout: 'panels'`, `tilesY > 1`)
@@ -1113,7 +1113,7 @@ const SHOW_PIPELINE_NOTES: Record<string, string> = {
   MusicLibrary: 'song source for the music-sync SD show; the Player sketch (Upload show to SD) consumes it, not this sketch',
   PerformanceGenerator: 'builds the timed .show file exported to the SD card; no equivalent in a normal sketch',
   SDCard: 'SD/I2S player configuration; emitted by the Player sketch (Upload show to SD)',
-  PatternCollection: 'resolved by the show controller generator once its Show Engine drives a Matrix Output',
+  PatternCollection: 'resolved by the show controller generator once its Show Engine drives a LED output',
   TransitionSet: 'transition pool read by the Show Engine / Performance Generator, not emitted directly',
 }
 
@@ -1200,7 +1200,7 @@ export function generateCpp(
   // — sanitised centrally (shared with the show/player generators).
   const hw = ledHardwareFromProps(outputNode ? props(outputNode) : {})
   // HUB75 has no FastLED driver — it's driven via a separate DMA library
-  // instead of addLeds<>()/leds[]/show(). Scoped to a single Matrix Output
+  // instead of addLeds<>()/leds[]/show(). Scoped to a single LED output
   // route for now; findUnimplementedChipsetErrors blocks every other
   // combination (multi-route, panel chaining, supersample) before deploy.
   const isHub75 = !multipleOutputs && hw.chipset === HUB75_CHIPSET

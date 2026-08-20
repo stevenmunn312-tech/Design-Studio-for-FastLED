@@ -569,7 +569,7 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
                 ? blockingErrors.join('\n')
                 : readinessIssues.length > 0
                   ? readinessIssues.join('\n')
-                  : 'Flash a standalone wiring diagnostic sketch using the current Matrix Output board, pins, color order, brightness, power cap, and layout settings'
+                  : 'Flash a standalone wiring diagnostic sketch using the current LED output board, pins, color order, brightness, power cap, and layout settings'
             }
           >
             🧪 Flash Wiring Test

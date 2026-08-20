@@ -306,7 +306,7 @@ export function generateShowSketch(
   const height = multiOutput ? dims.h : Number(op.height ?? 16)
   const dataPin = Number(op.dataPin ?? 5)
   const hw = ledHardwareFromProps(op)
-  // HUB75 is restricted to a single Matrix Output route (findHub75ConfigIssues
+  // HUB75 is restricted to a single LED output route (findHub75ConfigIssues
   // in validateGraph.ts), so this only ever applies in the !multiOutput branch
   // below — mirrors generateCpp's own isHub75 gate.
   const isHub75 = !multiOutput && hw.chipset === HUB75_CHIPSET

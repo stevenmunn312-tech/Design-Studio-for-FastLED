@@ -134,15 +134,15 @@ export default function MatrixOutputSetupWizard() {
         className={`${styles.popup} ${styles.wizardPopup}`}
         role="dialog"
         aria-modal="true"
-        aria-label="Matrix Output setup wizard"
+        aria-label="LED output setup wizard"
         tabIndex={-1}
       >
         <div className={styles.popupHeader}>
           <div>
             <div className={styles.wizardKicker}>Setup wizard</div>
-            <div className={styles.wizardTitle}>Matrix Output</div>
+            <div className={styles.wizardTitle}>LED Output</div>
           </div>
-          <button className={styles.closeBtn} onClick={closeSetupWizard} title="Close" aria-label="Close Matrix Output setup wizard">×</button>
+          <button className={styles.closeBtn} onClick={closeSetupWizard} title="Close" aria-label="Close LED output setup wizard">×</button>
         </div>
 
         <div className={styles.wizardSteps} aria-label="Wizard steps">

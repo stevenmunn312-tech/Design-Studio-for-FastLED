@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useRef } from 'react'
 import type { NodeCategory, NodeDefinition } from '../../types'
-import { CATEGORIES, CATEGORY_COLOR, NODE_DESCRIPTIONS, NODE_LIBRARY, propertyGroupsFor, propertyMeta, portColor } from '../../state/nodeLibrary'
+import { CATEGORIES, CATEGORY_COLOR, isPortlessNodeType, NODE_DESCRIPTIONS, NODE_LIBRARY, propertyGroupsFor, propertyMeta, portColor } from '../../state/nodeLibrary'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audioStore'
 import { insertLiveExample } from '../../utils/insertLiveExample'
@@ -13,6 +13,7 @@ import {
   AUDIO_FEATURES_LIVE_EXAMPLE, AUDIO_HUE_LIVE_EXAMPLE,
 } from './liveExamples'
 import type { ReferenceLiveExample } from './liveExamples'
+import { OUTPUT_USE_CASES, PORT_DESCRIPTIONS, TYPE_GLYPH } from './portCopy'
 import styles from './NodeReference.module.css'
 
 type FilterCategory = 'all' | NodeCategory
@@ -71,15 +72,15 @@ const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
     ],
     propertyNote: 'Bands sets FFT resolution. Gain, Smoothing, and Tilt shape the visual response of the three band outputs.',
     exampleTitle: 'Separate the song into spectrum bars',
-    examplePath: 'Microphone.audio -> FFT Analyzer.audio -> Spectrum Bars.bass/mids/treble -> Matrix Output',
-    exampleAlt: 'Placeholder for a tidy graph using Microphone, FFT Analyzer, Spectrum Bars, and Matrix Output',
-    exampleExplanation: 'Microphone supplies the audio stream. FFT Analyzer extracts bass, mids, and treble levels; Spectrum Bars maps those three values into columns of colour and sends the rendered frame to Matrix Output.',
+    examplePath: 'Microphone.audio -> FFT Analyzer.audio -> Spectrum Bars.bass/mids/treble -> LED Matrix',
+    exampleAlt: 'Placeholder for a tidy graph using Microphone, FFT Analyzer, Spectrum Bars, and LED Matrix',
+    exampleExplanation: 'Microphone supplies the audio stream. FFT Analyzer extracts bass, mids, and treble levels; Spectrum Bars maps those three values into columns of colour and sends the rendered frame to the LED output.',
     previewTitle: 'What you should see',
     previewDescription: 'Bass-heavy moments should lift the low-band bars, midrange content should fill the centre response, and bright transients should flick the treble side. Allow microphone access so the bars follow the real audio input.',
     previewAlt: 'Placeholder for the LED preview showing FFT-driven spectrum bars',
     liveExample: FFT_ANALYZER_LIVE_EXAMPLE,
     successMessage: 'FFT Analyzer example added — microphone starting',
-    skippedMessage: 'FFT Analyzer example added — Matrix Output is already in use; connect Spectrum Bars when ready',
+    skippedMessage: 'FFT Analyzer example added — LED output is already in use; connect Spectrum Bars when ready',
   },
   BeatDetect: {
     type: 'BeatDetect',
@@ -92,15 +93,15 @@ const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
     ],
     propertyNote: 'Threshold, Attack, and Decay are normalized detector controls. Tune them against the source track before relying on the BPM output.',
     exampleTitle: 'Flash the frame on each beat',
-    examplePath: 'Microphone.audio -> Beat Detect.beat + Noise Field.frame -> Beat Flash -> Matrix Output',
-    exampleAlt: 'Placeholder for a tidy graph using Microphone, Beat Detect, Noise Field, Beat Flash, and Matrix Output',
-    exampleExplanation: 'Microphone feeds Beat Detect. Each Beat pulse triggers Beat Flash, while Noise Field provides the underlying frame that gets flashed before it reaches Matrix Output.',
+    examplePath: 'Microphone.audio -> Beat Detect.beat + Noise Field.frame -> Beat Flash -> LED Matrix',
+    exampleAlt: 'Placeholder for a tidy graph using Microphone, Beat Detect, Noise Field, Beat Flash, and LED Matrix',
+    exampleExplanation: 'Microphone feeds Beat Detect. Each Beat pulse triggers Beat Flash, while Noise Field provides the underlying frame that gets flashed before it reaches the LED output.',
     previewTitle: 'What you should see',
     previewDescription: 'The base pattern should keep moving quietly, then punch brighter on detected beats. Raise Threshold if it fires too often, or lower it if the patch misses obvious hits.',
     previewAlt: 'Placeholder for the LED preview showing Beat Detect driving Beat Flash',
     liveExample: BEAT_DETECT_LIVE_EXAMPLE,
     successMessage: 'Beat Detect example added — microphone starting',
-    skippedMessage: 'Beat Detect example added — Matrix Output is already in use; connect Beat Flash when ready',
+    skippedMessage: 'Beat Detect example added — LED output is already in use; connect Beat Flash when ready',
   },
   PercussionDetect: {
     type: 'PercussionDetect',
@@ -113,15 +114,15 @@ const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
     ],
     propertyNote: 'Sensitivity affects all three lanes. Decay lengthens the envelope tails, while Separation reduces bleed between kick, snare, and hi-hat.',
     exampleTitle: 'Split drums into layered blobs',
-    examplePath: 'Microphone.audio -> Percussion Detect.kick/snare/hihat -> Percussion Blobs -> Matrix Output',
-    exampleAlt: 'Placeholder for a tidy graph using Microphone, Percussion Detect, Percussion Blobs, and Matrix Output',
-    exampleExplanation: 'Microphone feeds Percussion Detect. Its kick, snare, and hi-hat envelopes each drive the matching Percussion Blobs input, giving every drum family a distinct visual layer before the frame goes to Matrix Output.',
+    examplePath: 'Microphone.audio -> Percussion Detect.kick/snare/hihat -> Percussion Blobs -> LED Matrix',
+    exampleAlt: 'Placeholder for a tidy graph using Microphone, Percussion Detect, Percussion Blobs, and LED Matrix',
+    exampleExplanation: 'Microphone feeds Percussion Detect. Its kick, snare, and hi-hat envelopes each drive the matching Percussion Blobs input, giving every drum family a distinct visual layer before the frame goes to the LED output.',
     previewTitle: 'What you should see',
     previewDescription: 'Low hits should create heavier blobs, snares should add mid-sized accents, and hi-hats should sprinkle faster detail. If everything moves together, increase Separation or lower Sensitivity.',
     previewAlt: 'Placeholder for the LED preview showing Percussion Detect driving Percussion Blobs',
     liveExample: PERCUSSION_DETECT_LIVE_EXAMPLE,
     successMessage: 'Percussion Detect example added — microphone starting',
-    skippedMessage: 'Percussion Detect example added — Matrix Output is already in use; connect Percussion Blobs when ready',
+    skippedMessage: 'Percussion Detect example added — LED output is already in use; connect Percussion Blobs when ready',
   },
   AudioFeatures: {
     type: 'AudioFeatures',
@@ -134,15 +135,15 @@ const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
     ],
     propertyNote: 'Sensitivity and Gate define how easily features wake up. Smoothing trades responsiveness for steadier motion.',
     exampleTitle: 'Let vocals open an aurora',
-    examplePath: 'Microphone.audio -> Audio Features.vocals/energy/silence -> Vocal Aurora -> Matrix Output',
-    exampleAlt: 'Placeholder for a tidy graph using Microphone, Audio Features, Vocal Aurora, and Matrix Output',
-    exampleExplanation: 'Microphone feeds Audio Features. Vocals shapes the aurora curtains, Energy controls their brightness and movement, and Silence tells Vocal Aurora when to dim the result before Matrix Output.',
+    examplePath: 'Microphone.audio -> Audio Features.vocals/energy/silence -> Vocal Aurora -> LED Matrix',
+    exampleAlt: 'Placeholder for a tidy graph using Microphone, Audio Features, Vocal Aurora, and LED Matrix',
+    exampleExplanation: 'Microphone feeds Audio Features. Vocals shapes the aurora curtains, Energy controls their brightness and movement, and Silence tells Vocal Aurora when to dim the result before the LED output.',
     previewTitle: 'What you should see',
     previewDescription: 'Voice-like passages should lift the aurora into brighter curtains, energetic sections should intensify it, and quiet sections should settle back instead of staying fully lit.',
     previewAlt: 'Placeholder for the LED preview showing Audio Features driving Vocal Aurora',
     liveExample: AUDIO_FEATURES_LIVE_EXAMPLE,
     successMessage: 'Audio Features example added — microphone starting',
-    skippedMessage: 'Audio Features example added — Matrix Output is already in use; connect Vocal Aurora when ready',
+    skippedMessage: 'Audio Features example added — LED output is already in use; connect Vocal Aurora when ready',
   },
   AudioHue: {
     type: 'AudioHue',
@@ -155,15 +156,15 @@ const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
     ],
     propertyNote: 'Audio to Hue has no inline properties. Tune its result upstream with FFT Analyzer or downstream with math/color nodes.',
     exampleTitle: 'Turn spectrum balance into colour',
-    examplePath: 'Microphone -> FFT Analyzer -> Audio to Hue -> HSV to RGB -> Solid Color -> Matrix Output',
-    exampleAlt: 'Placeholder for a tidy graph using Microphone, FFT Analyzer, Audio to Hue, HSV to RGB, Solid Color, and Matrix Output',
-    exampleExplanation: 'Microphone feeds FFT Analyzer, which produces bass, mids, and treble values. Audio to Hue converts those bands into hue degrees, HSV to RGB turns hue into a colour, and Solid Color paints that colour into the frame sent to Matrix Output.',
+    examplePath: 'Microphone -> FFT Analyzer -> Audio to Hue -> HSV to RGB -> Solid Color -> LED Matrix',
+    exampleAlt: 'Placeholder for a tidy graph using Microphone, FFT Analyzer, Audio to Hue, HSV to RGB, Solid Color, and LED Matrix',
+    exampleExplanation: 'Microphone feeds FFT Analyzer, which produces bass, mids, and treble values. Audio to Hue converts those bands into hue degrees, HSV to RGB turns hue into a colour, and Solid Color paints that colour into the frame sent to the LED output.',
     previewTitle: 'What you should see',
     previewDescription: 'The matrix should wash through different colours as the balance between bass, mids, and treble changes. Strong bass leans the hue one way, while brighter treble nudges it toward another part of the wheel.',
     previewAlt: 'Placeholder for the LED preview showing Audio to Hue driving a solid colour wash',
     liveExample: AUDIO_HUE_LIVE_EXAMPLE,
     successMessage: 'Audio to Hue example added — microphone starting',
-    skippedMessage: 'Audio to Hue example added — Matrix Output is already in use; connect Solid Color when ready',
+    skippedMessage: 'Audio to Hue example added — LED output is already in use; connect Solid Color when ready',
   },
 }
 
@@ -188,11 +189,9 @@ const PROPERTY_LABELS: Record<string, string> = {
   cy: 'Centre Y',
   dataPin: 'Data Pin',
   deltaHue: 'Delta Hue',
-  fft: 'FFT',
   fixedPalette: 'Fixed Palette',
   globalCode: 'Global Code',
   h: 'Hue',
-  hihat: 'Hi-Hat',
   i2sBclk: 'I2S BCLK',
   i2sDout: 'I2S DOUT',
   i2sLrc: 'I2S LRC',
@@ -207,7 +206,6 @@ const PROPERTY_LABELS: Record<string, string> = {
   patternHold: 'Pattern Hold',
   paletteA: 'Palette A',
   paletteB: 'Palette B',
-  paletteIn: 'Palette',
   powerLimit: 'Power Limit',
   psramMode: 'PSRAM Type',
   pullup: 'Pull-Up',
@@ -220,7 +218,6 @@ const PROPERTY_LABELS: Record<string, string> = {
   sdCsPin: 'SD CS Pin',
   serialDebug: 'Serial Debug',
   serpentine: 'Serpentine',
-  snare: 'Snare',
   t: 'Mix / T',
   transitionSec: 'Transition Seconds',
   transitionType: 'Transition Type',
@@ -322,11 +319,9 @@ function categoryLabel(category: NodeCategory): string {
   return CATEGORY_LABELS[category] ?? humanizePropertyKey(category)
 }
 
-const TYPE_GLYPH: Record<string, string> = {
-  frame: '▦', palette: '≋', color: '●', audio: '⌁', float: '∿', bool: '◆',
-  field: '⌖', music: '♫', shows: '▶', sdcard: '▣', patternset: '◫', transitionset: '⇄',
-}
-
+// One glyph per live port dataType. `shows` and `sdcard` are deliberately
+// absent: SD Card and Performance Generator are both portless now, so nothing
+// carries either type and an entry for them described wiring that cannot exist.
 function nodeDataType(node: NodeDefinition): string {
   return node.outputs[0]?.dataType ?? node.inputs[0]?.dataType ?? 'control'
 }
@@ -358,9 +353,10 @@ function sourceNodeForType(dataType: string, nodeType: string, index: number): E
     frame: { label: 'Noise', category: 'pattern' },
     palette: { label: 'Palette Selector', category: 'color' },
     patternset: { label: 'Pattern Collection', category: 'show' },
-    shows: { label: 'Performance Generator', category: 'show' },
     music: { label: 'Music Library', category: 'show' },
     transitionset: { label: 'Transitions', category: 'show' },
+    image: { label: 'Image', category: 'pattern' },
+    dmx: { label: 'DMX / Art-Net', category: 'input' },
   }
   const fallbackPresets: Record<string, { label: string; category: NodeCategory }> = {
     audio: { label: 'FFT Analyzer', category: 'audio' },
@@ -371,9 +367,10 @@ function sourceNodeForType(dataType: string, nodeType: string, index: number): E
     frame: { label: 'Gradient Frame', category: 'pattern' },
     palette: { label: 'Custom Palette', category: 'color' },
     patternset: { label: 'Show Engine', category: 'show' },
-    shows: { label: 'SD Card', category: 'show' },
-    music: { label: 'Performance Generator', category: 'show' },
+    music: { label: 'Music Library', category: 'show' },
     transitionset: { label: 'Performance Generator', category: 'show' },
+    image: { label: 'Image', category: 'pattern' },
+    dmx: { label: 'DMX / Art-Net', category: 'input' },
   }
   const preset = presets[dataType] ?? { label: 'Value Source', category: 'math' as NodeCategory }
   const fallback = fallbackPresets[dataType] ?? preset
@@ -384,8 +381,8 @@ function sourceNodeForType(dataType: string, nodeType: string, index: number): E
 function buildFrameRecipe(node: NodeDefinition): ExampleRecipe {
   const sources = node.inputs.map((input, index) => sourceNodeForType(input.dataType, node.label, index))
   const columns = sources.length > 0
-    ? [sources, [makeNode('target', node.label, node.category, true)], [makeNode('sink', 'Matrix Output', 'output')]]
-    : [[makeNode('target', node.label, node.category, true)], [makeNode('sink', 'Matrix Output', 'output')]]
+    ? [sources, [makeNode('target', node.label, node.category, true)], [makeNode('sink', 'LED Matrix', 'output')]]
+    : [[makeNode('target', node.label, node.category, true)], [makeNode('sink', 'LED Matrix', 'output')]]
   const edges = sources.length > 0
     ? [
         ...sources.map((source) => ({ from: source.id, to: 'target' })),
@@ -394,8 +391,8 @@ function buildFrameRecipe(node: NodeDefinition): ExampleRecipe {
     : [{ from: 'target', to: 'sink' }]
   const sourceLabels = sources.map((source) => source.label)
   const explanation = sourceLabels.length > 0
-    ? `${sourceLabels.join(' + ')} feed ${node.label}, and its frame goes straight to Matrix Output for a live result.`
-    : `${node.label} is acting as the main frame generator here, so it can drive Matrix Output directly.`
+    ? `${sourceLabels.join(' + ')} feed ${node.label}, and its frame goes straight to the LED output for a live result.`
+    : `${node.label} is acting as the main frame generator here, so it can drive the LED output directly.`
   return {
     columns,
     edges,
@@ -413,7 +410,7 @@ function buildFloatRecipe(node: NodeDefinition): ExampleRecipe {
       sources.length > 0 ? sources : [makeNode('source-fallback', 'Wave', 'math')],
       [makeNode('target', node.label, node.category, true), basePattern],
       [brightness],
-      [makeNode('sink', 'Matrix Output', 'output')],
+      [makeNode('sink', 'LED Matrix', 'output')],
     ],
     edges: [
       ...(sources.length > 0 ? sources : [makeNode('source-fallback', 'Wave', 'math')]).map((source) => ({ from: source.id, to: 'target' })),
@@ -435,7 +432,7 @@ function buildBoolRecipe(node: NodeDefinition): ExampleRecipe {
       sources.length > 0 ? sources : [makeNode('source-fallback', 'Beat Detect', 'audio')],
       [makeNode('target', node.label, node.category, true), basePattern],
       [beatFlash],
-      [makeNode('sink', 'Matrix Output', 'output')],
+      [makeNode('sink', 'LED Matrix', 'output')],
     ],
     edges: [
       ...(sources.length > 0 ? sources : [makeNode('source-fallback', 'Beat Detect', 'audio')]).map((source) => ({ from: source.id, to: 'target' })),
@@ -455,7 +452,7 @@ function buildColorRecipe(node: NodeDefinition): ExampleRecipe {
       sources.length > 0 ? sources : [makeNode('source-fallback', 'Wave', 'math')],
       [makeNode('target', node.label, node.category, true)],
       [makeNode('solid', 'Solid Color', 'pattern')],
-      [makeNode('sink', 'Matrix Output', 'output')],
+      [makeNode('sink', 'LED Matrix', 'output')],
     ],
     edges: [
       ...(sources.length > 0 ? sources : [makeNode('source-fallback', 'Wave', 'math')]).map((source) => ({ from: source.id, to: 'target' })),
@@ -474,7 +471,7 @@ function buildPaletteRecipe(node: NodeDefinition): ExampleRecipe {
       sources.length > 0 ? sources : [makeNode('source-fallback', 'Counter', 'math')],
       [makeNode('target', node.label, node.category, true)],
       [makeNode('pattern', 'Noise', 'pattern')],
-      [makeNode('sink', 'Matrix Output', 'output')],
+      [makeNode('sink', 'LED Matrix', 'output')],
     ],
     edges: [
       ...(sources.length > 0 ? sources : [makeNode('source-fallback', 'Counter', 'math')]).map((source) => ({ from: source.id, to: 'target' })),
@@ -493,7 +490,7 @@ function buildFieldRecipe(node: NodeDefinition): ExampleRecipe {
       sources.length > 0 ? sources : [makeNode('source-fallback', 'Distance Field', 'pattern')],
       [makeNode('target', node.label, node.category, true)],
       [makeNode('field-frame', 'Field → Frame', 'pattern')],
-      [makeNode('sink', 'Matrix Output', 'output')],
+      [makeNode('sink', 'LED Matrix', 'output')],
     ],
     edges: [
       ...(sources.length > 0 ? sources : [makeNode('source-fallback', 'Distance Field', 'pattern')]).map((source) => ({ from: source.id, to: 'target' })),
@@ -511,7 +508,7 @@ function buildAudioRecipe(node: NodeDefinition): ExampleRecipe {
       [makeNode('target', node.label, node.category, true)],
       [makeNode('fft', 'FFT Analyzer', 'audio')],
       [makeNode('bars', 'Spectrum Bars', 'pattern')],
-      [makeNode('sink', 'Matrix Output', 'output')],
+      [makeNode('sink', 'LED Matrix', 'output')],
     ],
     edges: [
       { from: 'target', to: 'fft' },
@@ -528,35 +525,12 @@ function buildMusicRecipe(node: NodeDefinition): ExampleRecipe {
     columns: [
       [makeNode('target', node.label, node.category, true)],
       [makeNode('perf', 'Performance Generator', 'show')],
-      [makeNode('sd', 'SD Card', 'show')],
-      [makeNode('sink', 'Matrix Output', 'output')],
     ],
     edges: [
       { from: 'target', to: 'perf' },
-      { from: 'perf', to: 'sd' },
-      { from: 'sd', to: 'sink' },
     ],
-    explanation: `${node.label} feeds analysed music straight into Performance Generator for offline show building and SD export.`,
+    explanation: `${node.label} feeds analysed music straight into Performance Generator, which builds the timed show. The SD Card part is added in the hardware view rather than wired here — Upload writes the songs and shows to the card and flashes the player.`,
     result: 'An analysed music library ready for show generation.',
-  }
-}
-
-function buildShowsRecipe(node: NodeDefinition): ExampleRecipe {
-  const sources = node.inputs.map((input, index) => sourceNodeForType(input.dataType, node.label, index))
-  return {
-    columns: [
-      sources.length > 0 ? sources : [makeNode('source-fallback', 'Music Library', 'show')],
-      [makeNode('target', node.label, node.category, true)],
-      [makeNode('sd', 'SD Card', 'show')],
-      [makeNode('sink', 'Matrix Output', 'output')],
-    ],
-    edges: [
-      ...(sources.length > 0 ? sources : [makeNode('source-fallback', 'Music Library', 'show')]).map((source) => ({ from: source.id, to: 'target' })),
-      { from: 'target', to: 'sd' },
-      { from: 'sd', to: 'sink' },
-    ],
-    explanation: `${node.label} produces show files, which the SD Card node packages for upload alongside the player firmware.`,
-    result: 'Show files ready for SD export and synchronized playback.',
   }
 }
 
@@ -567,7 +541,7 @@ function buildPatternSetRecipe(node: NodeDefinition): ExampleRecipe {
       sources.length > 0 ? sources : [makeNode('group', 'Group Pattern', 'pattern')],
       [makeNode('target', node.label, node.category, true)],
       [makeNode('master', 'Show Engine', 'show')],
-      [makeNode('sink', 'Matrix Output', 'output')],
+      [makeNode('sink', 'LED Matrix', 'output')],
     ],
     edges: [
       ...(sources.length > 0 ? sources : [makeNode('group', 'Group Pattern', 'pattern')]).map((source) => ({ from: source.id, to: 'target' })),
@@ -583,33 +557,24 @@ function buildTransitionSetRecipe(node: NodeDefinition): ExampleRecipe {
   return {
     columns: [
       [makeNode('target', node.label, node.category, true)],
-      [makeNode('perf', 'Performance Generator', 'show')],
-      [makeNode('sd', 'SD Card', 'show')],
-      [makeNode('sink', 'Matrix Output', 'output')],
+      [makeNode('master', 'Show Engine', 'show'), makeNode('perf', 'Performance Generator', 'show')],
     ],
     edges: [
+      { from: 'target', to: 'master' },
       { from: 'target', to: 'perf' },
-      { from: 'perf', to: 'sd' },
-      { from: 'sd', to: 'sink' },
     ],
-    explanation: `${node.label} feeds extra transition styles into Performance Generator so the exported show has more variety.`,
+    explanation: `${node.label} widens the pool of transition styles. Wire it into the Show Engine for a live generative show, or into Performance Generator for an exported music-synced one.`,
     result: 'A curated transition pool for show generation.',
   }
 }
 
-function buildSDCardRecipe(node: NodeDefinition): ExampleRecipe {
+/** A node with no ports at all — it is configured, not wired. */
+function buildPortlessRecipe(node: NodeDefinition): ExampleRecipe {
   return {
-    columns: [
-      [makeNode('shows', 'Performance Generator', 'show')],
-      [makeNode('target', node.label, node.category, true)],
-      [makeNode('sink', 'Matrix Output', 'output')],
-    ],
-    edges: [
-      { from: 'shows', to: 'target' },
-      { from: 'target', to: 'sink' },
-    ],
-    explanation: `${node.label} bridges generated shows into Matrix Output so the helper can provision the card before flashing the board.`,
-    result: 'An SD-backed upload path for music, show files, and player firmware.',
+    columns: [[makeNode('target', node.label, node.category, true)]],
+    edges: [],
+    explanation: `${node.label} carries no cables. It is a part you add and configure, and the rest of the app finds it by looking for it rather than by following a wire.`,
+    result: 'A configured part that the build reads directly.',
   }
 }
 
@@ -623,7 +588,7 @@ function buildMatrixOutputRecipe(node: NodeDefinition): ExampleRecipe {
       { from: 'pattern', to: 'target' },
       { from: 'audio', to: 'target' },
     ],
-    explanation: 'Pattern and composite nodes converge on Matrix Output. This is where preview, export, board selection, and upload all happen.',
+    explanation: 'Pattern and composite nodes converge on the LED output. This is where preview, export, board selection, and upload all happen.',
     result: 'The final LED frame, firmware sketch, and upload destination.',
   }
 }
@@ -637,17 +602,13 @@ function buildSpecialRecipe(node: NodeDefinition): ExampleRecipe | null {
         columns: [
           [makeNode('music', 'Music Library', 'show'), makeNode('patterns', 'Pattern Collection', 'show'), makeNode('transitions', 'Transitions', 'show')],
           [makeNode('target', node.label, node.category, true)],
-          [makeNode('sd', 'SD Card', 'show')],
-          [makeNode('preview', 'Matrix Output', 'output')],
         ],
         edges: [
           { from: 'music', to: 'target' },
           { from: 'patterns', to: 'target' },
           { from: 'transitions', to: 'target' },
-          { from: 'target', to: 'sd' },
-          { from: 'sd', to: 'preview' },
         ],
-        explanation: `${node.label} turns a direct music input plus a selected Pattern Collection into timed show files for SD export; watch the generated show in this node's own player before exporting.`,
+        explanation: `${node.label} turns a direct music input plus a selected Pattern Collection into timed show files; watch the generated show in this node's own player, then add an SD Card part in the hardware view and Upload to write the card and flash the player.`,
         result: 'A full offline music-show build stage for SD export.',
       }
     case 'PatternCollection':
@@ -657,7 +618,7 @@ function buildSpecialRecipe(node: NodeDefinition): ExampleRecipe | null {
         columns: [
           [makeNode('collection', 'Pattern Collection', 'show'), makeNode('mic', 'Microphone', 'input'), makeNode('transitions', 'Transitions', 'show')],
           [makeNode('target', node.label, node.category, true)],
-          [makeNode('sink', 'Matrix Output', 'output')],
+          [makeNode('sink', 'LED Matrix', 'output')],
         ],
         edges: [
           { from: 'collection', to: 'target' },
@@ -674,10 +635,8 @@ function buildSpecialRecipe(node: NodeDefinition): ExampleRecipe | null {
       return buildAudioRecipe(node)
     case 'MatrixOutput':
       return buildMatrixOutputRecipe(node)
-    case 'SDCard':
-      return buildSDCardRecipe(node)
     default:
-      return null
+      return isPortlessNodeType(node.type) ? buildPortlessRecipe(node) : null
   }
 }
 
@@ -693,8 +652,6 @@ function buildExampleRecipe(node: NodeDefinition): ExampleRecipe {
     case 'float': return buildFloatRecipe(node)
     case 'palette': return buildPaletteRecipe(node)
     case 'patternset': return buildPatternSetRecipe(node)
-    case 'sdcard': return buildSDCardRecipe(node)
-    case 'shows': return buildShowsRecipe(node)
     case 'music': return buildMusicRecipe(node)
     case 'transitionset': return buildTransitionSetRecipe(node)
     case 'frame':
@@ -714,24 +671,10 @@ function buildUseCases(node: NodeDefinition): string[] {
     color: 'Use it anywhere a downstream pattern or blend node expects a color or palette-driven input.',
     pattern: 'Use it as a frame-building stage, either as the main generator or as a reusable pattern block inside a larger graph.',
     field: 'Use it to build and shape scalar fields, composing freely before Field → Frame turns the result into pixels.',
-    composite: 'Drop it between a frame generator and Matrix Output when you want to refine, mix, or transition the result.',
+    composite: 'Drop it between a frame generator and the LED output when you want to refine, mix, or transition the result.',
     show: 'Use it in the show pipeline — collecting patterns, scheduling them to music, and exporting to hardware.',
     output: 'Use it as the terminal stage that turns the graph into preview pixels, firmware, and uploads.',
     note: 'Use it to annotate a patch directly on the canvas without affecting evaluation, preview, or code generation.',
-  }
-  const outputUseCases: Record<string, string> = {
-    audio: 'It usually sits near the start of the graph and feeds analyzers, beat detectors, or audio-reactive patterns.',
-    bool: 'Its output is most useful for gates, pulses, flash triggers, comparisons, and beat-driven state changes.',
-    color: 'Its output is typically wired into Solid Color, shapes, text, gradients, or another colour-processing node.',
-    field: 'Its output is usually followed by Field → Frame or another field-processing node before it becomes visible pixels.',
-    float: 'Its output is typically wired into sliders-as-inputs such as speed, amount, fade, scale, or brightness.',
-    frame: 'Its frame can go straight to Matrix Output, or pass through Blend, Blur 2D, Transform, Fade, or Transition first.',
-    palette: 'Its palette is typically sampled by Noise, Spectrum Bars, Field → Frame, or Palette Sampler.',
-    patternset: 'Its output is used by the Show Engine to run a reusable multi-pattern show.',
-    sdcard: 'Its output is only needed when you want Matrix Output to provision music/show files onto an SD card.',
-    shows: 'Its output is used by SD Card to assemble a synchronized playback package.',
-    music: 'Its output is used by Performance Generator to create timed show events from analysed tracks.',
-    transitionset: 'Its output is used by Performance Generator to widen the pool of transitions used in exported shows.',
   }
   const inputDrivenUse = node.inputs.length === 0
     ? 'It also works well as a drop-in starting point when you want immediate visible output before wiring anything more advanced.'
@@ -739,7 +682,7 @@ function buildUseCases(node: NodeDefinition): string[] {
   return uniqueSentences([
     primaryUse,
     categoryUseCases[node.category] ?? '',
-    outputUseCases[primaryOutput ?? ''] ?? '',
+    OUTPUT_USE_CASES[primaryOutput ?? ''] ?? '',
     inputDrivenUse,
   ]).slice(0, 4)
 }
@@ -769,21 +712,7 @@ function searchRank(node: NodeDefinition, search: string): number {
 }
 
 function describePort(dataType: string, direction: 'input' | 'output'): string {
-  const descriptions: Record<string, string> = {
-    audio: 'a live microphone or analysed audio stream',
-    bool: 'a true/false gate or one-frame trigger',
-    color: 'a single RGB colour',
-    field: 'a scalar value for every matrix coordinate',
-    float: 'a numeric control signal',
-    frame: 'a complete LED matrix frame',
-    palette: 'a reusable gradient of colours',
-    patternset: 'a collection of saved pattern groups',
-    sdcard: 'an SD-card provisioning configuration',
-    shows: 'a set of generated, timed show files',
-    music: 'a library of analysed music tracks',
-    transitionset: 'a curated set of transition styles',
-  }
-  const value = descriptions[dataType] ?? `a ${humanizeText(dataType)} value`
+  const value = PORT_DESCRIPTIONS[dataType] ?? `a ${humanizeText(dataType)} value`
   return direction === 'input'
     ? `Accepts ${value}. Leave it unwired to use the node's own setting where available.`
     : `Provides ${value} to compatible downstream nodes.`
@@ -1031,7 +960,7 @@ function openLiveExample(
   }, 80)
   const matrixInputOccupied = result.skippedConnections.some((edge) =>
     (edge.target === 'out' || edge.target === 'target')
-    && (edge.targetHandle === 'frame' || edge.targetHandle === 'sdcard'))
+    && edge.targetHandle === 'frame')
   ui.setStatus(matrixInputOccupied ? options.skippedMessage : options.successMessage, 'success')
   if (usesMicrophone) {
     void useAudioStore.getState().startAudio().catch(() => {
@@ -1122,7 +1051,7 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
   const tryLive = () => {
     openLiveExample(MICROPHONE_LIVE_EXAMPLE, {
       successMessage: 'Microphone example added — microphone starting',
-      skippedMessage: 'Microphone example added — Matrix Output is already in use; connect Spectrum Bars when ready',
+      skippedMessage: 'Microphone example added — LED output is already in use; connect Spectrum Bars when ready',
     })
   }
   return (
@@ -1173,7 +1102,7 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
             </button>
           </div>
         </div>
-        <ExampleGraphFigure node={node} alt="Tidy audio spectrum graph using Microphone, FFT Analyzer, Spectrum Bars, and Matrix Output" />
+        <ExampleGraphFigure node={node} alt="Tidy audio spectrum graph using Microphone, FFT Analyzer, Spectrum Bars, and LED Matrix" />
         <div className={styles.exampleExplanation}>
           <b>How it works</b>
           <p>{MICROPHONE_LIVE_EXAMPLE.explanation}</p>
@@ -1199,7 +1128,7 @@ function ButtonArticle({ node }: { node: NodeDefinition }) {
   const tryLive = () => {
     openLiveExample(BUTTON_LIVE_EXAMPLE, {
       successMessage: 'Button example added — press the Button node to swap scenes',
-      skippedMessage: 'Button example added — Matrix Output is already in use; connect the Frame Switch chain when ready',
+      skippedMessage: 'Button example added — LED output is already in use; connect the Frame Switch chain when ready',
     })
   }
   return (
@@ -1250,7 +1179,7 @@ function ButtonArticle({ node }: { node: NodeDefinition }) {
             </button>
           </div>
         </div>
-        <ExampleGraphFigure node={node} alt="Tidy scene-switch graph using Button, Pacifica, Fire 2012, Frame Switch, and Matrix Output" />
+        <ExampleGraphFigure node={node} alt="Tidy scene-switch graph using Button, Pacifica, Fire 2012, Frame Switch, and LED Matrix" />
         <div className={styles.exampleExplanation}>
           <b>How it works</b>
           <p>{BUTTON_LIVE_EXAMPLE.explanation}</p>
@@ -1276,7 +1205,7 @@ function PotentiometerArticle({ node }: { node: NodeDefinition }) {
   const tryLive = () => {
     openLiveExample(POTENTIOMETER_LIVE_EXAMPLE, {
       successMessage: 'Potentiometer example added — drag the slider to sweep the colour wheel',
-      skippedMessage: 'Potentiometer example added — Matrix Output is already in use; connect Hue Shift when ready',
+      skippedMessage: 'Potentiometer example added — LED output is already in use; connect Hue Shift when ready',
     })
   }
   return (
@@ -1327,7 +1256,7 @@ function PotentiometerArticle({ node }: { node: NodeDefinition }) {
             </button>
           </div>
         </div>
-        <ExampleGraphFigure node={node} alt="Tidy control graph using Potentiometer, Map Range, Blobs, Hue Shift, and Matrix Output" />
+        <ExampleGraphFigure node={node} alt="Tidy control graph using Potentiometer, Map Range, Blobs, Hue Shift, and LED Matrix" />
         <div className={styles.exampleExplanation}>
           <b>How it works</b>
           <p>{POTENTIOMETER_LIVE_EXAMPLE.explanation}</p>
@@ -1353,7 +1282,7 @@ function EncoderArticle({ node }: { node: NodeDefinition }) {
   const tryLive = () => {
     openLiveExample(ENCODER_LIVE_EXAMPLE, {
       successMessage: 'Encoder example added — turn the star and click to flash it',
-      skippedMessage: 'Encoder example added — Matrix Output is already in use; connect the Shape chain when ready',
+      skippedMessage: 'Encoder example added — LED output is already in use; connect the Shape chain when ready',
     })
   }
   return (
@@ -1404,7 +1333,7 @@ function EncoderArticle({ node }: { node: NodeDefinition }) {
             </button>
           </div>
         </div>
-        <ExampleGraphFigure node={node} alt="Tidy control graph using Encoder, Map Range, Shape, Trails, Beat Flash, and Matrix Output" />
+        <ExampleGraphFigure node={node} alt="Tidy control graph using Encoder, Map Range, Shape, Trails, Beat Flash, and LED Matrix" />
         <div className={styles.exampleExplanation}>
           <b>How it works</b>
           <p>{ENCODER_LIVE_EXAMPLE.explanation}</p>
@@ -1430,7 +1359,7 @@ function MidiArticle({ node }: { node: NodeDefinition }) {
   const tryLive = () => {
     openLiveExample(MIDI_LIVE_EXAMPLE, {
       successMessage: 'MIDI example added — note velocity, gate, and CC now drive the preview patch',
-      skippedMessage: 'MIDI example added — Matrix Output is already in use; connect Brightness when ready',
+      skippedMessage: 'MIDI example added — LED output is already in use; connect Brightness when ready',
     })
   }
   return (
@@ -1481,7 +1410,7 @@ function MidiArticle({ node }: { node: NodeDefinition }) {
             </button>
           </div>
         </div>
-        <ExampleGraphFigure node={node} alt="Tidy MIDI control graph using MIDI, Noise Field, Hue Shift, Frame Switch, Brightness, and Matrix Output" />
+        <ExampleGraphFigure node={node} alt="Tidy MIDI control graph using MIDI, Noise Field, Hue Shift, Frame Switch, Brightness, and LED Matrix" />
         <div className={styles.exampleExplanation}>
           <b>How it works</b>
           <p>{MIDI_LIVE_EXAMPLE.explanation}</p>
@@ -1529,7 +1458,7 @@ function ReferenceArticle({ node }: { node: NodeDefinition }) {
   const tryLive = () => {
     openLiveExample(liveExample, {
       successMessage: `${node.label} example added${usesMicrophone ? ' — microphone starting' : ''}`,
-      skippedMessage: `${node.label} example added — Matrix Output is already in use; connect the final output when ready`,
+      skippedMessage: `${node.label} example added — LED output is already in use; connect the final output when ready`,
     })
   }
   return (
@@ -1701,7 +1630,7 @@ function UsingNodesArticle() {
         <span className={styles.flowArrow} aria-hidden="true">→</span>
         <div className={styles.flowCard}>
           <span className={styles.flowNumber}>3</span>
-          <b>Matrix Output</b>
+          <b>LED output</b>
           <small>Send the final frame to preview, export, or hardware.</small>
         </div>
       </section>
@@ -1806,7 +1735,7 @@ function UsingNodesArticle() {
 
       <section className={styles.manualSection}>
         <h2>A reliable first patch</h2>
-        <p className={styles.guideCallout}>Add <b>Juggle</b> and <b>Matrix Output</b>, then connect <b>Juggle.frame → Matrix Output.frame</b>. If the LED Preview animates, the graph is complete. Set Count to 5, raise Speed, splice in Trails, then splice in Transform. This two-node patch uses the same editing workflow as a full show.</p>
+        <p className={styles.guideCallout}>Add <b>Juggle</b> and <b>LED Matrix</b>, then connect <b>Juggle.frame → LED Matrix.frame</b>. If the LED Preview animates, the graph is complete. Set Count to 5, raise Speed, splice in Trails, then splice in Transform. This two-node patch uses the same editing workflow as a full show.</p>
       </section>
     </article>
   )

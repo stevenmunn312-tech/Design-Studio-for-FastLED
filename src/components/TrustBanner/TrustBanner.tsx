@@ -15,7 +15,7 @@ import styles from './TrustBanner.module.css'
  * at all (a dragged-in pattern just goes untrusted quietly, by design).
  *
  * The content check matters. Until 2026-08-14 this rendered for *any*
- * untrusted workspace, so a shared `Plasma → Matrix Output` graph — the
+ * untrusted workspace, so a shared `Plasma → LED output` graph — the
  * ordinary case for a shared pattern — warned at length about Formula and
  * Code logic it did not contain. A security affordance that usually
  * describes a block that isn't happening is one people learn to dismiss on

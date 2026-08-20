@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { NODE_LIBRARY, NODE_DESCRIPTIONS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, isPropertyEnabled, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel } from '../nodeLibrary'
+import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, isPropertyEnabled, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel } from '../nodeLibrary'
 import { EASE_TYPES } from '../easing'
 
 describe('nodeLibrary', () => {
@@ -86,6 +86,20 @@ describe('nodeLibrary', () => {
   it('every node in the shelf has a tooltip description', () => {
     const missing = NODE_LIBRARY.filter((n) => !NODE_DESCRIPTIONS[n.type]).map((n) => n.type)
     expect(missing).toEqual([])
+  })
+
+  // A colour for a dataType nothing carries tints a handle that cannot exist;
+  // a live dataType with no colour silently falls back to the float/bool grey
+  // and stops reading as its own type. Both are drift, so both are caught.
+  it('colours exactly the port dataTypes that exist', () => {
+    const live = new Set<string>()
+    for (const node of NODE_LIBRARY) {
+      for (const port of node.inputs) live.add(port.dataType)
+      for (const port of node.outputs) live.add(port.dataType)
+    }
+    expect(live.size).toBeGreaterThan(8)
+    expect(Object.keys(PORT_COLORS).filter((t) => !live.has(t))).toEqual([])
+    expect([...live].filter((t) => !(t in PORT_COLORS)).sort()).toEqual([])
   })
 
   it('descriptions are concise single lines', () => {

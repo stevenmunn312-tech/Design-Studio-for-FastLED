@@ -647,7 +647,7 @@ export function findHub75ConfigIssues(nodes: StudioNode[]): Hub75ConfigIssue[] {
     if (!singleOutput) {
       issues.push({
         nodeId: output.id, label,
-        message: `${label} is set to HUB75, which only supports a single Matrix Output route by design — remove the other output route(s), or switch this one to an addressable chipset.`,
+        message: `${label} is set to HUB75, which only supports a single LED output route by design — remove the other output route(s), or switch this one to an addressable chipset.`,
       })
       return
     }
@@ -698,7 +698,7 @@ export function findHub75ConfigErrors(nodes: StudioNode[]): string[] {
 export function findHub75TopologyDiagnosticErrors(nodes: StudioNode[], outputNodeId?: string): string[] {
   const output = nodes.find((node) => node.id === outputNodeId && node.data.nodeType === 'MatrixOutput')
     ?? nodes.find((node) => node.data.nodeType === 'MatrixOutput')
-  if (!output) return ['Add a Matrix Output before flashing the HUB75 2D topology test.']
+  if (!output) return ['Add an LED output before flashing the HUB75 2D topology test.']
 
   const props = output.data.properties as Record<string, unknown>
   if (outputForm(props) !== 'hub75') {
@@ -708,13 +708,13 @@ export function findHub75TopologyDiagnosticErrors(nodes: StudioNode[], outputNod
   const configIssue = findHub75ConfigIssues(nodes).find((issue) => issue.nodeId === output.id)
   if (configIssue) return [configIssue.message]
   if (String(props.layout ?? 'matrix') !== 'panels') {
-    return ['Set Matrix Output layout to Panels to use the HUB75 2D panel-topology test.']
+    return ['Set the LED output layout to Panels to use the HUB75 2D panel-topology test.']
   }
 
   const width = Math.max(0, Math.round(Number(props.width ?? 0)))
   const height = Math.max(0, Math.round(Number(props.height ?? 0)))
   const layoutErrors = validateMatrixLayout(width, height, props)
-  if (layoutErrors.length > 0) return layoutErrors.map((message) => `${String(output.data.label ?? 'Matrix Output')}: ${message}`)
+  if (layoutErrors.length > 0) return layoutErrors.map((message) => `${String(output.data.label ?? 'LED output')}: ${message}`)
 
   const tilesY = Math.max(1, Math.round(Number(props.tilesY ?? 1)))
   if (tilesY < 2) {
@@ -875,7 +875,7 @@ export function buildGraphDiagnostics(
   const diagnostics: GraphDiagnostic[] = []
   const target = options.target ?? 'matrix'
   const terminalType = target === 'group' ? 'GroupOutput' : 'MatrixOutput'
-  const terminalName = target === 'group' ? 'Group Output' : 'Matrix Output'
+  const terminalName = target === 'group' ? 'Group Output' : 'LED output'
   const terminals = nodes.filter((node) => node.data.nodeType === terminalType)
   const terminal = terminals[0]
   const incoming = new Set(edges.filter((edge) => edge.target && edge.targetHandle).map((edge) => `${edge.target}:${edge.targetHandle}`))
@@ -896,7 +896,7 @@ export function buildGraphDiagnostics(
       id: `missing-${terminalType}`, severity: 'error', category: 'connection',
       title: `${terminalName} is missing`,
       message: `This ${target === 'group' ? 'group' : 'graph'} has no terminal for its rendered frame.`,
-      fix: target === 'group' ? 'Recreate the group so it receives a Group Output terminal.' : 'Add one Matrix Output node from the Output section.',
+      fix: target === 'group' ? 'Recreate the group so it receives a Group Output terminal.' : 'Add one LED output node from the Output section.',
       nodeIds: [], action: target === 'matrix' ? 'open-node-library' : undefined,
     })
   } else {
@@ -1017,7 +1017,7 @@ export function buildGraphDiagnostics(
       diagnostics.push({
         id: `${matrixOutput.id}-layout-${index}`, severity: 'error', category: 'layout',
         title: 'Matrix layout is invalid', message,
-        fix: 'Correct the panel grid, rotations, or custom XY map in Matrix Output layout controls.',
+        fix: 'Correct the panel grid, rotations, or custom XY map in the LED output layout controls.',
         nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
       })
     })
@@ -1027,7 +1027,7 @@ export function buildGraphDiagnostics(
         id: `${matrixOutput.id}-hub75-config`, severity: 'error', category: 'layout',
         title: 'HUB75 configuration is not supported',
         message: hub75Issue.message,
-        fix: 'Switch to an addressable chipset, or adjust the HUB75 route to a single Matrix Output using Matrix or Panels layout with Supersample off.',
+        fix: 'Switch to an addressable chipset, or adjust the HUB75 route to a single LED output using Matrix or Panels layout with Supersample off.',
         nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
       })
     }
@@ -1161,7 +1161,7 @@ export function buildGraphDiagnostics(
       id: `${matrixOutput.id}-power-unlimited`, severity: 'warning', category: 'power',
       title: 'High-current output has no power cap',
       message: `Worst-case full white is about ${power.worstCaseMa} mA for ${power.ledCount} LEDs.`,
-      fix: 'Enable Power limit on Matrix Output and enter the continuous current rating of the LED power supply.',
+      fix: 'Enable Power limit on the LED output and enter the continuous current rating of the LED power supply.',
       nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
     })
   }

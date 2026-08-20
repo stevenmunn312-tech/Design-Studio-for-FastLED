@@ -322,7 +322,7 @@ interface UploadState {
   cliPopupOpen: boolean
   consoleOpen: boolean
   codeViewOpen: boolean
-  /** Matrix Output whose node-local Setup/Upload button opened the overlay. */
+  /** LED output whose node-local Setup/Upload button opened the overlay. */
   activeOutputNodeId: string | null
 
   // helper / hardware

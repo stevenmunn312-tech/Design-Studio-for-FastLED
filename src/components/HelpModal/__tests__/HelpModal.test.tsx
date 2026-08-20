@@ -97,7 +97,7 @@ describe('HelpModal session state', () => {
     expect(view.getByText('Your first working patch')).toBeTruthy()
     // The screenshot shows the Juggle starter, which is what the Quick Start
     // steps walk through — the alt text described a Rainbow node until 2026-08-14.
-    expect(view.getByAltText(/Juggle node wired into Matrix Output/i)).toBeTruthy()
+    expect(view.getByAltText(/Juggle node wired into the LED output/i)).toBeTruthy()
 
     fireEvent.click(view.getByRole('tab', { name: 'Upload & Export' }))
 

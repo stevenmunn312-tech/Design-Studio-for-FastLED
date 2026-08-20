@@ -245,7 +245,7 @@ describe('validateGraph', () => {
       node('out-b', 'MatrixOutput', { chipset: 'WS2812B' }),
     ]
     const errors = findHub75ConfigErrors(nodes)
-    expect(errors).toEqual([expect.stringMatching(/only supports a single Matrix Output route/)])
+    expect(errors).toEqual([expect.stringMatching(/only supports a single LED output route/)])
   })
 
   it('allows HUB75 wired into the generative Pattern Show pipeline', () => {

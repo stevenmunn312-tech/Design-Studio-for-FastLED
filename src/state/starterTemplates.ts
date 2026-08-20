@@ -142,9 +142,9 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   template({
     id: 'juggle',
     name: 'Juggle',
-    description: 'Learn the basic patch: a pattern makes pixels, and Matrix Output sends them to the preview or LEDs.',
+    description: 'Learn the basic patch: a pattern makes pixels, and the LED output sends them to the preview or LEDs.',
     completionSteps: [
-      'Follow the blue Frame wire from Juggle to Matrix Output and watch the preview.',
+      'Follow the blue Frame wire from Juggle to the LED output and watch the preview.',
       'Set Count to 5 and raise Speed on Juggle to see how node controls alter the signal.',
       'From Effects, drag Trails onto the blue wire.',
       'Finally, drag Transform onto the blue wire to reshape the motion.',
@@ -190,7 +190,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     completionSteps: [
       'Replace HELLO with your own message and adjust Scroll to set its speed and direction.',
       'Try horizontal and vertical alignment, wrap, and letter spacing.',
-      'Set Matrix Output width and height to match the display you are designing for.',
+      'Set the LED output width and height to match the display you are designing for.',
     ],
     nodeSpecs: [
       { id: 'text', type: 'Text', col: 0, properties: { text: 'HELLO', scroll: 0.3, wrap: true } },
@@ -265,7 +265,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       'Build a pattern, select its nodes, create a Group, then connect that Group frame to Pattern Collection.',
       'Add at least two pattern groups; tune Show Engine dwell and transition timing.',
       'Optionally add Transitions or a microphone beat before testing the show in the preview.',
-      'Upload the controller sketch from Matrix Output once the collection has patterns.',
+      'Upload the controller sketch from the LED output once the collection has patterns.',
     ],
     nodeSpecs: [
       { id: 'collection', type: 'PatternCollection', col: 0, row: 0 },
@@ -303,7 +303,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
 
       tutorialNote(
         'guide', 0, -1,
-        'OFFLINE SHOW\nImport and analyse music, then preview the timeline.\nSD Card packages it; Matrix Output uploads it.',
+        'OFFLINE SHOW\nImport and analyse music, then preview the timeline.\nSD Card packages it; the LED output uploads it.',
         TRY_COLOR,
       ),
     ],
