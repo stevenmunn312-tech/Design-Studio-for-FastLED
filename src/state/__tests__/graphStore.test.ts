@@ -909,6 +909,101 @@ describe('graphStore — hardware while a group is open', () => {
   })
 })
 
+describe('graphStore — undoing a hardware edit made inside a group', () => {
+  let gid = ''
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    reset([
+      node('board-root', 'Board', { profileId: '', brightness: 200 }),
+      node('sc', 'SolidColor', { r: 0 }),
+    ])
+    gid = useGraphStore.getState().createGroup('P', ['sc'])
+    useGraphStore.getState().enterGraph(gid)
+    // Flush the debounced push the setup itself queued, then start each test
+    // from an empty stack so it counts only its own steps.
+    vi.advanceTimersByTime(400)
+    useGraphStore.temporal.getState().clear()
+  })
+  afterEach(() => vi.useRealTimers())
+
+  // `enterGraph` finishes in a microtask (restoring that graph's own stacks and
+  // resuming tracking), which a synchronous test body never lets run.
+  const enter = async (id: string) => {
+    useGraphStore.getState().enterGraph(id)
+    await Promise.resolve()
+    vi.advanceTimersByTime(400)
+  }
+
+  const board = () => rootGraphNodes(useGraphStore.getState()).find((n) => n.id === 'board-root')!
+
+  it('undoes a hardware property edit without leaving the group', () => {
+    useGraphStore.getState().updateNodeProperty('board-root', 'brightness', 40)
+    vi.advanceTimersByTime(400)
+    expect(board().data.properties.brightness).toBe(40)
+    expect(useGraphStore.temporal.getState().pastStates).toHaveLength(1)
+
+    useGraphStore.temporal.getState().undo()
+    expect(board().data.properties.brightness).toBe(200)
+    expect(useGraphStore.getState().activeGraphId).toBe(gid)
+
+    useGraphStore.temporal.getState().redo()
+    expect(board().data.properties.brightness).toBe(40)
+  })
+
+  it('collapses a hardware slider drag into one step, like any other edit', () => {
+    for (let v = 1; v <= 5; v++) {
+      useGraphStore.getState().updateNodeProperty('board-root', 'brightness', v * 10)
+      vi.advanceTimersByTime(100)
+    }
+    vi.advanceTimersByTime(400)
+
+    expect(useGraphStore.temporal.getState().pastStates).toHaveLength(1)
+    useGraphStore.temporal.getState().undo()
+    expect(board().data.properties.brightness).toBe(200)
+  })
+
+  it('interleaves hardware and group edits in one history', () => {
+    useGraphStore.getState().updateNodeProperty('board-root', 'brightness', 40)
+    vi.advanceTimersByTime(400)
+    useGraphStore.getState().updateNodeProperty('sc', 'r', 9)
+    vi.advanceTimersByTime(400)
+
+    const temporal = useGraphStore.temporal.getState()
+    temporal.undo()
+    expect(useGraphStore.getState().nodes.find((n) => n.id === 'sc')!.data.properties.r).toBe(0)
+    expect(board().data.properties.brightness).toBe(40)
+
+    temporal.undo()
+    expect(board().data.properties.brightness).toBe(200)
+  })
+
+  it('undoes a part added to the bench from inside the group', () => {
+    useGraphStore.getState().addNode(node('out', 'MatrixOutput', { width: 16, height: 16 }))
+    vi.advanceTimersByTime(400)
+    expect(rootGraphNodes(useGraphStore.getState()).some((n) => n.id === 'out')).toBe(true)
+
+    useGraphStore.temporal.getState().undo()
+    expect(rootGraphNodes(useGraphStore.getState()).some((n) => n.id === 'out')).toBe(false)
+  })
+
+  it('never rolls back the parent graph a later visit has moved on from', async () => {
+    // The step recorded here remembers the root as it stood now; the user then
+    // leaves, edits the root directly, and comes back. Undoing must not put
+    // the root back to that stale memory.
+    useGraphStore.getState().updateNodeProperty('board-root', 'brightness', 40)
+    vi.advanceTimersByTime(400)
+
+    await enter(ROOT_GRAPH_ID)
+    useGraphStore.getState().addNode(node('out', 'MatrixOutput'))
+    vi.advanceTimersByTime(400)
+    await enter(gid)
+
+    useGraphStore.temporal.getState().undo()
+    expect(rootGraphNodes(useGraphStore.getState()).some((n) => n.id === 'out')).toBe(true)
+  })
+})
+
 describe('graphStore — trust boundary', () => {
   beforeEach(() => {
     reset()

@@ -141,7 +141,7 @@ interface GraphState {
    *  `panicRestoreValues` below, it's a plain top-level field rather than
    *  part of `performanceDeck` so it's automatically excluded from both
    *  `captureWorkspace` (persistence) and zundo's `partialize` (undo, which
-   *  only tracks `nodes`/`edges`) without any extra bookkeeping. */
+   *  tracks graph content only) without any extra bookkeeping. */
   panicActive: boolean
   /** Values captured immediately before the last panic, so `restorePanic`
    *  can put them back. Null when no panic is in effect. */
@@ -249,7 +249,15 @@ interface GraphState {
   setGroupInputRole: (nodeId: string, role: string) => void
 }
 
-type HistorySlice = Pick<GraphState, 'nodes' | 'edges'>
+/**
+ * `graphData` is tracked alongside the active graph's `nodes`/`edges` so an
+ * edit to a graph that is *not* the active one is still undoable — which is
+ * the case for every hardware edit made while a pattern group is open, since
+ * hardware lives in the root graph (see `withRootContent`). It also makes the
+ * group-shaped edits (create/instantiate/absorb) restore their subgraph on
+ * undo instead of leaving it for the orphan sweep.
+ */
+type HistorySlice = Pick<GraphState, 'nodes' | 'edges' | 'graphData'>
 
 // Legacy node types folded into bundled nodes (Noise / Math / Transition /
 // Blend), mapped to the bundle plus the variant property that selects the old
@@ -659,12 +667,25 @@ function stashActiveHistory(graphId: string): void {
   stashedHistory.set(graphId, { pastStates: [...pastStates], futureStates: [...futureStates] })
 }
 
+/**
+ * A stashed snapshot remembers every *other* graph as it stood when this graph
+ * was last active, and those graphs can have moved on since — the user stepped
+ * out, edited the parent, and came back. Restoring such a snapshot verbatim
+ * would roll those edits back, so each one adopts the current `graphData` on
+ * the way in: the step still undoes this graph's own `nodes`/`edges`, and
+ * leaves every other graph alone. The cost is that a hardware edit made in an
+ * earlier visit stops being undoable once you leave and return, which is the
+ * safe direction to be wrong in.
+ */
 function restoreStashedHistory(graphId: string): void {
   const stacks = stashedHistory.get(graphId)
   stashedHistory.delete(graphId)
+  const graphData = useGraphStore.getState().graphData
+  const rebase = (snapshots: Partial<HistorySlice>[]) =>
+    snapshots.map((snapshot) => (snapshot.graphData ? { ...snapshot, graphData } : snapshot))
   useGraphStore.temporal.setState({
-    pastStates: stacks?.pastStates ?? [],
-    futureStates: stacks?.futureStates ?? [],
+    pastStates: rebase(stacks?.pastStates ?? []),
+    futureStates: rebase(stacks?.futureStates ?? []),
   })
 }
 
@@ -1473,12 +1494,20 @@ export const useGraphStore = create<GraphState>()(
         })
       },
 
-      pruneOrphanGraphs: () =>
+      pruneOrphanGraphs: () => {
+        // Collecting unreachable subgraphs is bookkeeping, not something the
+        // user did — and now that `graphData` is tracked it would otherwise
+        // land its own undo step that appears to do nothing when pressed.
+        const temporalApi = useGraphStore.temporal.getState()
+        const wasTracking = temporalApi.isTracking
+        if (wasTracking) temporalApi.pause()
         set((s) => {
           const extraNodeLists = historyNodeLists()
           if (s.clipboard) extraNodeLists.push(s.clipboard.nodes)
           return pruneOrphanGraphData(s, extraNodeLists) ?? s
-        }),
+        })
+        if (wasTracking) useGraphStore.temporal.getState().resume()
+      },
 
       disconnectNode: (id) =>
         set((s) => ({
@@ -2070,8 +2099,9 @@ export const useGraphStore = create<GraphState>()(
     }),
     {
       limit: 100,
-      // Only track nodes + edges in history — not UI selection state
-      partialize: (s): HistorySlice => ({ nodes: s.nodes, edges: s.edges }),
+      // Track graph content — the active graph plus every stored one — and not
+      // UI selection state
+      partialize: (s): HistorySlice => ({ nodes: s.nodes, edges: s.edges, graphData: s.graphData }),
       // Treat states as equal (don't snapshot) while any node is mid-drag —
       // but remember the state from just before the drag started, since the
       // eventual post-drag push needs it (see preDragHistoryState above).
@@ -2085,6 +2115,7 @@ export const useGraphStore = create<GraphState>()(
           if (!wasDragging && preDragHistoryState === undefined) preDragHistoryState = past
           return true
         }
+        if (past.graphData !== current.graphData) return false
         if (past.nodes === current.nodes && past.edges === current.edges) return true
         // A pure selection change (no drag, no edit) isn't an undoable graph
         // edit — see the partialize comment above.
@@ -2233,10 +2264,11 @@ function withRootNodes(s: GraphScope, nodes: StudioNode[]): Partial<GraphState> 
 }
 
 /**
- * Known limitation: zundo's `partialize` tracks only `nodes`/`edges`, so a
- * hardware edit made from inside a group lands in `graphData` and is not on
- * the undo stack. That is strictly better than the silent no-op it replaced,
- * but it is why hardware editing still belongs in the hardware view.
+ * Undo covers these edits: `graphData` is part of the tracked history slice
+ * (see `HistorySlice`), so a hardware change made from inside a group takes
+ * its turn in the same stack as the group's own edits, in the order the user
+ * made them. Leaving the group and coming back retires those steps — see
+ * `restoreStashedHistory` for why.
  */
 function withRootContent(
   s: GraphScope,

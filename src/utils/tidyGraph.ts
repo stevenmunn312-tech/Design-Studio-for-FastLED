@@ -53,7 +53,7 @@ export function runTidy(): number {
   const temporal = useGraphStore.temporal
   const { pastStates } = temporal.getState()
   temporal.setState({
-    pastStates: [...pastStates.slice(-(HISTORY_LIMIT - 1)), { nodes: s.nodes, edges: s.edges }],
+    pastStates: [...pastStates.slice(-(HISTORY_LIMIT - 1)), { nodes: s.nodes, edges: s.edges, graphData: s.graphData }],
     futureStates: [],
   })
   temporal.getState().pause()

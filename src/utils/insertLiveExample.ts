@@ -44,7 +44,7 @@ export function insertLiveExample(
   const temporal = useGraphStore.temporal
   const { pastStates } = temporal.getState()
   temporal.setState({
-    pastStates: [...pastStates.slice(-(HISTORY_LIMIT - 1)), { nodes: state.nodes, edges: state.edges }],
+    pastStates: [...pastStates.slice(-(HISTORY_LIMIT - 1)), { nodes: state.nodes, edges: state.edges, graphData: state.graphData }],
     futureStates: [],
   })
   temporal.getState().pause()
