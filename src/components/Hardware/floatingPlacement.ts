@@ -23,8 +23,15 @@ export function placeFloating(
   viewport: { width: number; height: number },
   placement: 'below' | 'beside',
   align: 'center' | 'start' = 'center',
+  /**
+   * A cap the panel asked for. It takes part in the side decision rather than
+   * clipping afterwards: a long panel that would fit below once capped should
+   * open below, not flip above because its uncapped content is taller.
+   */
+  preferredMaxHeight = Infinity,
 ): PlacementResult {
-  const { width, height } = size
+  const { width } = size
+  const height = Math.min(size.height, preferredMaxHeight)
   if (placement === 'below') {
     const below = viewport.height - anchor.bottom - GAP - MARGIN
     const above = anchor.top - GAP - MARGIN
@@ -40,7 +47,7 @@ export function placeFloating(
     return {
       left: clamp(natural, MARGIN, viewport.width - width - MARGIN),
       top,
-      maxHeight: Math.max(0, goesBelow ? below : above),
+      maxHeight: Math.max(0, Math.min(goesBelow ? below : above, preferredMaxHeight)),
     }
   }
 
@@ -56,6 +63,6 @@ export function placeFloating(
   return {
     left: clamp(left, MARGIN, viewport.width - width - MARGIN),
     top,
-    maxHeight: Math.max(0, viewport.height - MARGIN - top),
+    maxHeight: Math.max(0, Math.min(viewport.height - MARGIN - top, preferredMaxHeight)),
   }
 }

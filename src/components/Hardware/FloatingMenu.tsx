@@ -30,6 +30,14 @@ interface FloatingMenuProps {
   className?: string
   role?: string
   ariaLabel?: string
+  /**
+   * A cap the panel would like, on top of whatever the viewport allows.
+   *
+   * Without one, a panel with a lot to say fills the tallest side it can find
+   * and reads as a full-height column rather than a popup beside the thing you
+   * clicked. The viewport limit still wins when it is the smaller of the two.
+   */
+  maxHeight?: number
   /** The panel element, for outside-click tests against portalled content. */
   panelRef?: (element: HTMLDivElement | null) => void
   children: ReactNode
@@ -50,6 +58,7 @@ export default function FloatingMenu({
   className,
   role,
   ariaLabel,
+  maxHeight,
   panelRef,
   children,
 }: FloatingMenuProps) {
@@ -73,6 +82,7 @@ export default function FloatingMenu({
         { width: window.innerWidth, height: window.innerHeight },
         placement,
         align,
+        maxHeight,
       )
 
       setStyle((current) => {
@@ -101,7 +111,7 @@ export default function FloatingMenu({
       window.removeEventListener('resize', place)
       window.removeEventListener('scroll', place, true)
     }
-  }, [anchor, placement, align, children])
+  }, [anchor, placement, align, maxHeight, children])
 
   if (!anchor) return null
 

@@ -46,6 +46,36 @@ describe('placeFloating, below an anchor', () => {
   })
 })
 
+describe('placeFloating, with a panel-requested cap', () => {
+  /*
+   * The part popup. It has a lot to say, and without a cap it filled the
+   * tallest side it could find and read as a full-height column rather than a
+   * popup beside the part you clicked.
+   */
+  const part = { left: 1100, top: 700, right: 1160, bottom: 750 }
+
+  it('caps the height the panel is given', () => {
+    const at = placeFloating(part, { width: 300, height: 2000 }, VIEW, 'below', 'center', 440)
+    expect(at.maxHeight).toBe(440)
+  })
+
+  /*
+   * The cap decides the side too. Judging by uncapped content would flip a
+   * capped panel above an anchor it would have fitted under.
+   */
+  it('stays below when the capped panel fits there', () => {
+    const high = { left: 600, top: 40, right: 700, bottom: 90 }
+    const at = placeFloating(high, { width: 300, height: 2000 }, VIEW, 'below', 'center', 300)
+    expect(at.top).toBe(96) // below the anchor, not flipped above it
+    expect(at.maxHeight).toBe(300)
+  })
+
+  it('still respects the viewport when that is the tighter limit', () => {
+    const at = placeFloating(part, { width: 300, height: 2000 }, VIEW, 'beside', 'center', 5000)
+    expect(at.maxHeight).toBeLessThanOrEqual(VIEW.height)
+  })
+})
+
 describe('placeFloating, beside an anchor', () => {
   const row = { left: 560, top: 300, right: 800, bottom: 344 }
 

@@ -1203,9 +1203,16 @@ export default function HardwarePane() {
                 type="button"
                 className={`${styles.part} ${part.entry.render ? '' : styles.partPlaceholder}`}
                 style={partStyle(part.partId)}
-                onClick={() => {
+                onClick={(event) => {
                   if (view.consumedByPan()) return
-                  openItemMenu(part.node.id, undefined, 'settings')
+                  // The clicked part is the anchor. Passing nothing fell back
+                  // to the pane's corner, which read as the panel opening
+                  // nowhere near what you clicked.
+                  openItemMenu(
+                    part.node.id,
+                    (event.currentTarget as HTMLButtonElement).getBoundingClientRect(),
+                    'settings',
+                  )
                 }}
                 onContextMenu={(event) => {
                   event.preventDefault()
@@ -1347,6 +1354,7 @@ export default function HardwarePane() {
           placement="below"
           align="start"
           className={styles.itemMenu}
+          maxHeight={440}
           panelRef={(element) => { itemMenuRef.current = element }}
         >
           {itemMenu.mode === 'settings' ? (
