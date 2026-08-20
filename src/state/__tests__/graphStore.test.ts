@@ -735,6 +735,27 @@ describe('graphStore — loadGraph normalization', () => {
     expect(dataOf('lib').category).toBe('show')
   })
 
+  it('adopts a pre-Board saved exact board onto the Board node', () => {
+    // Projects saved before the Board node recorded the exact board on the
+    // build profile. Loading one as the generic default would describe the
+    // wiring for hardware the user never chose.
+    useGraphStore.getState().loadGraph([node('out', 'MatrixOutput')], [], {
+      nodes: [], edges: [],
+      buildProfile: { version: 1, physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1' },
+    } as never)
+    const board = useGraphStore.getState().nodes.find((n) => n.data.nodeType === 'Board')!
+    expect(board.data.properties.profileId).toBe('espressif-esp32-s3-devkitc-1')
+  })
+
+  it('keeps the board the Board node already names over a saved build profile', () => {
+    const board = node('board-root', 'Board', { profileId: 'esp32-generic-devkit-38pin' })
+    useGraphStore.getState().loadGraph([board], [], {
+      nodes: [], edges: [],
+      buildProfile: { version: 1, physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1' },
+    } as never)
+    expect(dataOf('board-root').properties.profileId).toBe('esp32-generic-devkit-38pin')
+  })
+
   it('removes the obsolete MicInput sample-rate property on load', () => {
     const mic = node('mic', 'MicInput', { sampleRate: 44100, gain: 1 })
     useGraphStore.getState().loadGraph([mic], [])

@@ -432,15 +432,23 @@ function createRootBoardNode(profileId = DEFAULT_BOARD_PROFILE_ID, settings = DE
   } as StudioNode
 }
 
-function ensureRootBoardNode(nodes: StudioNode[]): StudioNode[] {
+/**
+ * `fallbackProfileId` carries a board the workspace already named elsewhere —
+ * a project saved before the Board node existed recorded its exact board on
+ * the build profile instead. Adopting it here is what stops that project from
+ * loading as the generic default and quietly re-describing someone's wiring
+ * for a board they did not choose.
+ */
+function ensureRootBoardNode(nodes: StudioNode[], fallbackProfileId?: string): StudioNode[] {
+  const fallback = (fallbackProfileId && boardProfileById(fallbackProfileId)?.id) || DEFAULT_BOARD_PROFILE_ID
   const boardNodes = nodes.filter((node) => node.data.nodeType === 'Board')
   const legacySettings = controllerSettings(nodes.filter((node) => node.data.nodeType !== 'Board'))
-  if (boardNodes.length === 0) return [...nodes, createRootBoardNode(DEFAULT_BOARD_PROFILE_ID, legacySettings)]
+  if (boardNodes.length === 0) return [...nodes, createRootBoardNode(fallback, legacySettings)]
   const [primary, ...extras] = boardNodes
   const primaryProps = (primary.data.properties ?? {}) as Record<string, unknown>
   const explicitProfileId = typeof primaryProps.profileId === 'string' && primaryProps.profileId
     ? primaryProps.profileId
-    : DEFAULT_BOARD_PROFILE_ID
+    : fallback
   const migratedSettings = Object.fromEntries(
     Object.entries(legacySettings).map(([key, value]) => [key, primaryProps[key] ?? value]),
   )
@@ -1288,8 +1296,9 @@ export const useGraphStore = create<GraphState>()(
             { nodes: active.nodes, graphData, graphs, activeGraphId },
             [],
           )
+          const buildProfile = normalizeBuildProfile(workspace?.buildProfile)
           const rootNodes = activeGraphId === ROOT_GRAPH_ID
-            ? ensureRootBoardNode(active.nodes)
+            ? ensureRootBoardNode(active.nodes, buildProfile?.physicalBoardProfileId)
             : active.nodes
           return {
             ...active,
@@ -1297,7 +1306,7 @@ export const useGraphStore = create<GraphState>()(
             graphData: pruned?.graphData ?? graphData,
             graphs: pruned?.graphs ?? graphs,
             activeGraphId,
-            buildProfile: normalizeBuildProfile(workspace?.buildProfile),
+            buildProfile,
             selectedNodeId: null,
             // Missing/undefined = trusted: this predates the trust field, so
             // it's the user's own prior local work, not imported content.

@@ -56,23 +56,55 @@ function inputNode(id: string, nodeType: 'ButtonInput' | 'PotInput' | 'EncoderIn
   }
 }
 
-function selectDevKit() {
-  useGraphStore.setState({
-    buildProfile: { version: 1, physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1' },
+// The exact board lives on the Board node — the bench's own record of which
+// controller is in the build — so a test selects one by putting it there.
+function boardNode(profileId = '', extra: Record<string, unknown> = {}) {
+  return {
+    id: 'board-root',
+    type: 'studioNode',
+    position: { x: 0, y: 0 },
+    hidden: true,
+    data: {
+      label: 'Board',
+      nodeType: 'Board',
+      category: 'output',
+      properties: { profileId, ...extra },
+      inputs: [],
+      outputs: [],
+    },
+  }
+}
+
+function selectBoard(profileId: string, extra: Record<string, unknown> = {}) {
+  useGraphStore.setState((state) => {
+    const nodes = state.nodes as never[]
+    const board = (nodes as unknown as Array<{ data: { nodeType: string } }>)
+      .find((node) => node.data.nodeType === 'Board')
+    if (!board) return { nodes: [...nodes, boardNode(profileId, extra)] as never[] }
+    return {
+      nodes: (nodes as unknown as Array<{ data: { nodeType: string; properties: Record<string, unknown> } }>).map((node) =>
+        node.data.nodeType === 'Board'
+          ? { ...node, data: { ...node.data, properties: { ...node.data.properties, profileId, ...extra } } }
+          : node) as never[],
+    }
   })
+}
+
+function selectDevKit(extra: Record<string, unknown> = {}) {
+  selectBoard('espressif-esp32-s3-devkitc-1', extra)
 }
 
 function selectEsp32DevKitV1() {
   useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32doit-devkit-v1' })
-  useGraphStore.setState({
-    buildProfile: { version: 1, physicalBoardProfileId: 'esp32-devkit-v1-30pin-esp32d' },
-  })
+  selectBoard('esp32-devkit-v1-30pin-esp32d')
 }
 
 describe('BuildDiagramWorkspace', () => {
   beforeEach(() => {
     useGraphStore.setState({
-      nodes: [matrixNode()] as never[],
+      // Every root graph carries a Board node; it starts with no exact profile
+      // chosen, which is the state the empty diagram is describing.
+      nodes: [boardNode(), matrixNode()] as never[],
       edges: [],
       buildProfile: undefined,
       graphData: {},
@@ -114,6 +146,28 @@ describe('BuildDiagramWorkspace', () => {
     expect(getByText((_, node) => node?.tagName === 'LI' && node.textContent === 'PSU 1: 5 V, at least 20 A / 100 W continuous for Matrix Output (20% headroom)')).toBeTruthy()
     expect(getByText('Build reference — Signal and Power ready')).toBeTruthy()
     expect(queryByText('Still unresolved')).toBeNull()
+  })
+
+  it('opens on the board the Board node already names, without asking again', () => {
+    // The bench had already answered this question. Build Diagram used to keep
+    // its own copy of the answer and so asked a second time.
+    selectBoard('esp32-generic-devkit-38pin')
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32' })
+    const { getByText, queryByText } = render(<BuildDiagramWorkspace />)
+
+    expect(queryByText('Exact board required')).toBeNull()
+    expect(getByText('Exact board: confirmed', { selector: 'li' })).toBeTruthy()
+  })
+
+  it('records a board picked here on the Board node itself', () => {
+    const { getByRole, getByText } = render(<BuildDiagramWorkspace />)
+    fireEvent.click(getByRole('button', { name: 'Choose your board' }))
+    fireEvent.click(getByText('Espressif ESP32-S3-DevKitC-1'))
+
+    const board = (useGraphStore.getState().nodes as unknown as Array<{
+      data: { nodeType: string; properties: Record<string, unknown> }
+    }>).find((node) => node.data.nodeType === 'Board')
+    expect(board?.data.properties.profileId).toBe('espressif-esp32-s3-devkitc-1')
   })
 
   it('stops using a saved exact board once the upload target no longer matches', () => {
@@ -453,11 +507,13 @@ describe('BuildDiagramWorkspace', () => {
   it('shows two 5 A output limits while retaining the uncapped safety ceiling', () => {
     useGraphStore.setState({
       nodes: [
-        matrixNode(14, 16, 16, 'out-a', { powerLimit: true, milliamps: 5000 }),
-        matrixNode(27, 16, 16, 'out-b', { powerLimit: true, milliamps: 5000 }),
+        matrixNode(14, 16, 16, 'out-a'),
+        matrixNode(27, 16, 16, 'out-b'),
       ] as never[],
     })
-    selectDevKit()
+    // The cap is project-wide on the Board and splits across the two equal
+    // outputs, so 10 A total is 5 A each.
+    selectDevKit({ powerLimit: true, milliamps: 10000 })
     const { container, getByText } = render(<BuildDiagramWorkspace />)
     const diagram = container.querySelector('svg[data-build-export="current-view"]')
 
@@ -721,10 +777,8 @@ describe('BuildDiagramWorkspace', () => {
   })
 
   it('keeps invalid GPIO mappings blocking even when that hardware is hidden', () => {
-    useGraphStore.setState({
-      nodes: [matrixNode(35)] as never[],
-      buildProfile: { version: 1, physicalBoardProfileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc' },
-    })
+    useGraphStore.setState({ nodes: [matrixNode(35)] as never[] })
+    selectBoard('generic-esp32-s3-n16r8-44pin-dual-usbc')
     const { getByRole, getByText } = render(<BuildDiagramWorkspace />)
 
     expect(getByText('Signal plan: needs review: 1 controller pin mapping unresolved', { selector: 'li' })).toBeTruthy()
@@ -745,9 +799,9 @@ describe('BuildDiagramWorkspace', () => {
 
   it('uses additional fixed fuse blocks and one electrolytic per feed when a PSU zone exceeds twelve circuits', () => {
     useGraphStore.setState({
-      nodes: [matrixNode(14, 64, 64, 'out', { powerLimit: true, milliamps: 5000 })] as never[],
+      nodes: [matrixNode(14, 64, 64, 'out')] as never[],
     })
-    selectDevKit()
+    selectDevKit({ powerLimit: true, milliamps: 5000 })
     const { container } = render(<BuildDiagramWorkspace />)
     const diagram = container.querySelector('svg[data-build-export="current-view"]')
 

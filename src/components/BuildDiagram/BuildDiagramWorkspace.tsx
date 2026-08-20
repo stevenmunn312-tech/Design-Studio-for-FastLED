@@ -5,6 +5,7 @@ import {
   boardProfileById,
   compatibleBoardProfilesForFqbn,
   isBoardProfileCompatibleWithFqbn,
+  selectedPhysicalBoardProfile,
   type PhysicalBoardPinAnchor,
   type PhysicalBoardProfile,
   type PhysicalBoardPinProfile,
@@ -19,6 +20,7 @@ import { bomCsv, buildBomRows, buildConnectionRows, connectionsCsv } from '../..
 import { buildHardwareManifest, type HardwareManifestItem, type HardwarePinUse } from '../../build/hardwareManifest'
 import { fuseBlockAllocations } from '../../build/powerDistribution'
 import { useGraphStore } from '../../state/graphStore'
+import { ROOT_BOARD_NODE_ID } from '../../state/hardware'
 import { useProjectStore } from '../../state/projectStore'
 import { useUiStore } from '../../state/uiStore'
 import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
@@ -302,14 +304,24 @@ export default function BuildDiagramWorkspace() {
   const manifest = useMemo(() => buildHardwareManifest(nodes, edges, selectedFqbn), [nodes, edges, selectedFqbn])
   const buildProfile = ensureBuildProfile(storedBuildProfile)
   const boardOptions = useMemo(() => compatibleBoardProfilesForFqbn(selectedFqbn), [selectedFqbn])
-  // A saved exact board only applies while it still matches the upload target.
+  // The Board node is where the user says which controller is on the bench, so
+  // it is the only place this view may read that from. Build Diagram used to
+  // keep its own `buildProfile.physicalBoardProfileId`, which meant a graph
+  // whose Board node already named an exact board still opened here on "Exact
+  // board required" — two views disagreeing about the same physical fact.
+  const benchBoardProfileId = useGraphStore((state) => selectedPhysicalBoardProfile(state.nodes)?.id)
+  const boardNodeId = useGraphStore(
+    (state) => state.nodes.find((node) => node.data.nodeType === 'Board')?.id ?? ROOT_BOARD_NODE_ID)
+  const updateNodeProperty = useGraphStore((state) => state.updateNodeProperty)
+  const setSelectedFqbn = useUploadStore((state) => state.setSelectedFqbn)
+  // A chosen exact board only applies while it still matches the upload target.
   // Switching FQBN used to leave the old board's render and pin map in place —
   // an ESP32 wiring diagram presented as if it were for the newly selected S3.
   // Dropping back to "choose your board" makes the diagram ask again rather
   // than quietly show wiring for hardware that is no longer selected. The id
-  // stays on the profile, so switching the target back restores it.
-  const exactBoard = isBoardProfileCompatibleWithFqbn(buildProfile.physicalBoardProfileId, selectedFqbn)
-    ? boardProfileById(buildProfile.physicalBoardProfileId ?? '')
+  // stays on the Board node, so switching the target back restores it.
+  const exactBoard = isBoardProfileCompatibleWithFqbn(benchBoardProfileId, selectedFqbn)
+    ? boardProfileById(benchBoardProfileId ?? '')
     : undefined
   const selectedTarget = boardByFqbn(selectedFqbn)
   const [selectedItemId, setSelectedItemId] = useState<string>(() => exactBoard ? 'controller' : '')
@@ -337,11 +349,11 @@ export default function BuildDiagramWorkspace() {
       map.set(item.id, itemFingerprint(
         item,
         selectedFqbn,
-        buildProfile.physicalBoardProfileId,
+        benchBoardProfileId,
       ))
     }
     return map
-  }, [buildProfile.physicalBoardProfileId, primaryItems, selectedFqbn])
+  }, [benchBoardProfileId, primaryItems, selectedFqbn])
 
   const completedItemIds = useMemo(() => {
     const ids = new Set<string>()
@@ -493,7 +505,7 @@ export default function BuildDiagramWorkspace() {
     const fingerprint = itemFingerprint(
       item,
       selectedFqbn,
-      buildProfile.physicalBoardProfileId,
+      benchBoardProfileId,
     )
     patchBuildProfile((current) => {
       const done = { ...(current.done ?? {}) }
@@ -507,10 +519,14 @@ export default function BuildDiagramWorkspace() {
   }
 
   const selectExactBoard = (profileId: string) => {
-    patchBuildProfile((current) => ({
-      ...current,
-      physicalBoardProfileId: profileId,
-    }))
+    // Writes the bench's own record of the board, the same act as picking it in
+    // the hardware view — anything less would leave this view's answer local to
+    // this view. Profiles list their specific FQBN first, so mirroring the
+    // first entry sharpens a family-level upload target the same way the
+    // hardware view's picker does.
+    updateNodeProperty(boardNodeId, 'profileId', profileId)
+    const fqbn = boardProfileById(profileId)?.compatibleFqbns[0]
+    if (fqbn && fqbn !== selectedFqbn) setSelectedFqbn(fqbn)
     setSelectedItemId('controller')
     setBoardPickerOpen(false)
   }
@@ -1472,7 +1488,7 @@ export default function BuildDiagramWorkspace() {
                 <button
                   key={profile.id}
                   type="button"
-                  className={`${styles.boardPickerCard} ${buildProfile.physicalBoardProfileId === profile.id ? styles.boardPickerCardActive : ''}`}
+                  className={`${styles.boardPickerCard} ${benchBoardProfileId === profile.id ? styles.boardPickerCardActive : ''}`}
                   onClick={() => selectExactBoard(profile.id)}
                 >
                   <BoardPinoutPreview profile={profile} />
