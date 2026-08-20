@@ -50,6 +50,7 @@ import BoardNodeBody from '../Canvas/BoardNodeBody'
 import HardwareLedPreview from './HardwareLedPreview'
 import HardwareLedSpill from './HardwareLedSpill'
 import HardwareLink from './HardwareLink'
+import FloatingMenu from './FloatingMenu'
 import { useHardwareView } from './useHardwareView'
 import { hardwareArrangement, type HardwarePartBox, type HardwarePartLink } from './hardwareLayout'
 import styles from './HardwarePane.module.css'
@@ -529,7 +530,12 @@ export default function HardwarePane() {
     () => ({ paddingLeft: `${leftInset + 16}px`, paddingRight: `${rightInset + 16}px` }),
     [leftInset, rightInset],
   )
-  const [openSubmenu, setOpenSubmenu] = useState<string | null>(null)
+  // The open submenu, with the row it flies out from — the row is the anchor,
+  // so the submenu tracks it rather than guessing an offset.
+  const [openSubmenu, setOpenSubmenu] = useState<{ id: string; anchor: HTMLElement } | null>(null)
+  const addButtonRef = useRef<HTMLButtonElement | null>(null)
+  const addPanelRef = useRef<HTMLDivElement | null>(null)
+  const addSubmenuPanelRef = useRef<HTMLDivElement | null>(null)
 
   const boardBoxMm = useMemo(
     () => (boardProfile ? boardFootprintMm(boardProfile) : null),
@@ -656,9 +662,17 @@ export default function HardwarePane() {
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
-      if (addMenuRef.current && !addMenuRef.current.contains(event.target as Node)) setAddMenuOpen(false)
-      if (boardMenuRef.current && !boardMenuRef.current.contains(event.target as Node)) setBoardMenu(null)
-      if (itemMenuRef.current && !itemMenuRef.current.contains(event.target as Node)) setItemMenu(null)
+      const target = event.target as Node
+      // The menu and its submenu are portalled to the body, so "inside the
+      // anchor" is no longer the same question as "inside the menu".
+      const insideAdd = [addMenuRef.current, addPanelRef.current, addSubmenuPanelRef.current]
+        .some((element) => element?.contains(target))
+      if (!insideAdd) {
+        setAddMenuOpen(false)
+        setOpenSubmenu(null)
+      }
+      if (boardMenuRef.current && !boardMenuRef.current.contains(target)) setBoardMenu(null)
+      if (itemMenuRef.current && !itemMenuRef.current.contains(target)) setItemMenu(null)
     }
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -1002,11 +1016,12 @@ export default function HardwarePane() {
           </button>
         </div>
         {paneTab === 'hardware' && (
-          /* The menu hangs off the button rather than the pane's left inset,
-             which is what made it open in the corner while the button sat in
-             the middle of the toolbar. */
+          /* Portalled, because the pane is overflow:hidden and only the lower
+             part of the window — a menu positioned inside it was clipped by the
+             pane rather than by the screen. */
           <div ref={addMenuRef} className={styles.addMenuAnchor}>
             <button
+              ref={addButtonRef}
               type="button"
               className={styles.addButton}
               onClick={() => {
@@ -1020,26 +1035,34 @@ export default function HardwarePane() {
             </button>
 
             {addMenuOpen && (
-              <div className={styles.addMenu} role="menu" aria-label="Add hardware">
+              <FloatingMenu
+                anchor={addButtonRef.current}
+                placement="below"
+                className={styles.addMenu}
+                role="menu"
+                ariaLabel="Add hardware"
+                panelRef={(element) => { addPanelRef.current = element }}
+              >
                 {addMenuCategories.map((category) => {
-                  const open = openSubmenu === category.id
+                  const open = openSubmenu?.id === category.id
                   return (
-                    <div
-                      key={category.id}
-                      className={styles.addMenuGroup}
-                      onMouseEnter={() => setOpenSubmenu(category.id)}
-                    >
+                    <div key={category.id} className={styles.addMenuGroup}>
                       <button
                         type="button"
                         role="menuitem"
                         className={`${styles.addMenuItem} ${styles.addMenuParent}`}
                         aria-haspopup="menu"
                         aria-expanded={open}
-                        onClick={() => setOpenSubmenu(open ? null : category.id)}
+                        onMouseEnter={(event) =>
+                          setOpenSubmenu({ id: category.id, anchor: event.currentTarget })}
+                        onFocus={(event) =>
+                          setOpenSubmenu({ id: category.id, anchor: event.currentTarget })}
+                        onClick={(event) =>
+                          setOpenSubmenu(open ? null : { id: category.id, anchor: event.currentTarget })}
                         onKeyDown={(event) => {
                           if (event.key === 'ArrowRight') {
                             event.preventDefault()
-                            setOpenSubmenu(category.id)
+                            setOpenSubmenu({ id: category.id, anchor: event.currentTarget })
                           } else if (event.key === 'ArrowLeft') {
                             event.preventDefault()
                             setOpenSubmenu(null)
@@ -1050,28 +1073,35 @@ export default function HardwarePane() {
                         <small>{category.hint}</small>
                         <span aria-hidden="true" className={styles.addMenuChevron}>›</span>
                       </button>
-
-                      {open && (
-                        <div className={styles.addSubmenu} role="menu" aria-label={category.label}>
-                          {category.items.map((item) => (
-                            <button
-                              key={item.key}
-                              type="button"
-                              role="menuitem"
-                              className={styles.addMenuItem}
-                              disabled={item.disabled}
-                              onClick={item.onSelect}
-                            >
-                              <span>{item.label}</span>
-                              <small>{item.disabledReason ?? item.hint}</small>
-                            </button>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   )
                 })}
-              </div>
+              </FloatingMenu>
+            )}
+
+            {addMenuOpen && openSubmenu && (
+              <FloatingMenu
+                anchor={openSubmenu.anchor}
+                placement="beside"
+                className={styles.addSubmenu}
+                role="menu"
+                ariaLabel={addMenuCategories.find((c) => c.id === openSubmenu.id)?.label}
+                panelRef={(element) => { addSubmenuPanelRef.current = element }}
+              >
+                {(addMenuCategories.find((c) => c.id === openSubmenu.id)?.items ?? []).map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    role="menuitem"
+                    className={styles.addMenuItem}
+                    disabled={item.disabled}
+                    onClick={item.onSelect}
+                  >
+                    <span>{item.label}</span>
+                    <small>{item.disabledReason ?? item.hint}</small>
+                  </button>
+                ))}
+              </FloatingMenu>
             )}
           </div>
         )}
@@ -1313,24 +1343,28 @@ export default function HardwarePane() {
       </div>
 
       {boardMenu && (
-        <div
-          ref={boardMenuRef}
+        <FloatingMenu
+          anchor={{ left: boardMenu.x, top: boardMenu.y, right: boardMenu.x, bottom: boardMenu.y }}
+          placement="below"
+          align="start"
           className={styles.boardMenu}
-          style={{ left: boardMenu.x, top: boardMenu.y }}
+          panelRef={(element) => { boardMenuRef.current = element }}
         >
           <div className={styles.boardMenuHeader}>
             <strong>Board</strong>
             <span>{boardProfilesForFamily(boardFamilyId).length} options in this family</span>
           </div>
           <BoardNodeBody nodeId={boardNodeId} />
-        </div>
+        </FloatingMenu>
       )}
 
       {itemMenu && (
-        <div
-          ref={itemMenuRef}
+        <FloatingMenu
+          anchor={{ left: itemMenu.x, top: itemMenu.y, right: itemMenu.x, bottom: itemMenu.y }}
+          placement="below"
+          align="start"
           className={styles.itemMenu}
-          style={{ left: itemMenu.x, top: itemMenu.y }}
+          panelRef={(element) => { itemMenuRef.current = element }}
         >
           {itemMenu.mode === 'settings' ? (
             <div className={styles.itemMenuSettings}>
@@ -1351,7 +1385,7 @@ export default function HardwarePane() {
           >
             Remove
           </button>
-        </div>
+        </FloatingMenu>
       )}
     </section>
   )

@@ -252,10 +252,9 @@
   text-align: center;
 }
 
-.addMenu,
 .boardMenu {
-  position: absolute;
-  z-index: 20;
+  position: fixed;
+  z-index: 1000;
   border: 1px solid color-mix(in srgb, var(--border-glow) 92%, transparent);
   border-radius: 18px;
   background: color-mix(in srgb, var(--bg-panel) 96%, #05090d);
@@ -270,10 +269,12 @@
   display: inline-flex;
 }
 
+/* Positioned by FloatingMenu, which portals it to the body and measures it
+   against the viewport. Only the look lives here — a stray transform or
+   top/left would fight the coordinates it sets inline. */
 .addMenu {
-  top: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
+  position: fixed;
+  z-index: 1000;
   min-width: 240px;
   padding: 8px;
 }
@@ -312,13 +313,11 @@
   background: color-mix(in srgb, var(--accent-output) 14%, transparent);
 }
 
-/* Flies out beside its parent row. The menu is centred under a toolbar button
-   on a pane at least 1280px wide, so there is always room to the right. */
+/* Flies out beside its parent row, flipping to the row's left when the window
+   has no room on the right. */
 .addSubmenu {
-  position: absolute;
-  top: -8px;
-  left: calc(100% + 6px);
-  z-index: 21;
+  position: fixed;
+  z-index: 1001;
   min-width: 240px;
   padding: 8px;
   border: 1px solid color-mix(in srgb, var(--border-glow) 92%, transparent);
@@ -425,8 +424,8 @@
 }
 
 .itemMenu {
-  position: absolute;
-  z-index: 20;
+  position: fixed;
+  z-index: 1000;
   min-width: 140px;
   padding: 8px;
   border: 1px solid color-mix(in srgb, var(--border-glow) 92%, transparent);
