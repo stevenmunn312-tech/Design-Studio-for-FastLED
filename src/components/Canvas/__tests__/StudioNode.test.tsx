@@ -497,6 +497,40 @@ describe('StudioNode', () => {
       }
     })
 
+    // Property groups start collapsed, so open every one and read the key
+    // column — what a form offers, not merely what is expanded by default.
+    const offeredKeys = (container: HTMLElement) => {
+      for (const button of container.querySelectorAll('button')) fireEvent.click(button)
+      return [...container.querySelectorAll('[class*="propKey"]')].map((key) => key.textContent ?? '')
+    }
+
+    // Forty-six properties, thirteen of which a string has. The rest used to
+    // render greyed, which at that ratio is not context but noise.
+    it('offers a string only the properties a string has', () => {
+      const { container } = renderNode(makeNode('MatrixOutput', { form: 'strip', ledCount: 60 }))
+      const keys = offeredKeys(container)
+
+      expect(keys).toContain('ledCount')
+      expect(keys).toContain('chipset')
+      for (const dead of ['serpentine', 'supersample', 'customXYMap', 'tilesX', 'width', 'height', 'hub75R1Pin', 'hub75ClkPin']) {
+        expect(keys, dead).not.toContain(dead)
+      }
+      // A string has no grid, so the whole Layout group goes with it.
+      expect(within(container).queryByText('Layout')).toBeNull()
+    })
+
+    it('still offers a panel its HUB75 wiring', () => {
+      const { container } = renderNode(makeNode('MatrixOutput', { form: 'hub75', width: 64, height: 32 }))
+      const keys = offeredKeys(container)
+
+      expect(keys).toContain('hub75R1Pin')
+      expect(keys).toContain('hub75ClkPin')
+      // …and not the addressable-chain settings a scan panel has no use for.
+      expect(keys).not.toContain('ledCount')
+      expect(keys).not.toContain('colorOrder')
+      expect(keys).not.toContain('dataPin')
+    })
+
     // What the output physically is comes from the part on the bench, so the
     // node cannot retype a matrix into a ring — you remove that part in the
     // hardware view and add the one you want. A dropdown here let the graph
@@ -544,9 +578,10 @@ describe('StudioNode', () => {
       grid.unmount()
 
       // A string is a length, edited as `ledCount`; a 16 x 16 dropdown on it
-      // would be a control for a dimension it does not have.
+      // would be a control for a dimension it does not have — and since none of
+      // the Layout group applies to a chain, the group itself is not offered.
       const run = renderNode(makeNode('MatrixOutput', { form: 'strip', ledCount: 60 }))
-      fireEvent.click(within(run.container).getByText('Layout'))
+      expect(within(run.container).queryByText('Layout')).toBeNull()
       expect(within(run.container).queryByLabelText(/matrix size/i)).toBeNull()
     })
   })

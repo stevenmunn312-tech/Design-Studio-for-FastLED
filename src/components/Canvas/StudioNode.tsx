@@ -1110,6 +1110,14 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       && k !== 'form'
       && !(isGroupInput && k === 'paramId')
       && !(hasRGB && (k === 'r' || k === 'g' || k === 'b'))
+      // An inapplicable property is normally shown disabled, which reads as
+      // "this exists for the other variants" — useful on a five-property node
+      // like Transition. The LED output has forty-six, so a string was showing
+      // thirty-three dead rows against thirteen live ones, all sixteen HUB75
+      // pins among them. At that ratio the greyed rows stop being context and
+      // start being the thing you have to read past, so this one node hides
+      // them. Empty groups already drop out below.
+      && !(d.nodeType === 'MatrixOutput' && !isPropertyEnabled(d.nodeType, k, props))
   )
   // The "clamp inputs" toggle is rendered specially (it has no entry in the
   // node's default properties); show it only where it would do something.

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, estimatePowerLoad, estimateFirmwareRam, findMirroredOutputMismatches } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, estimatePowerLoad, estimateFirmwareRam, findMirroredOutputMismatches, findShowOutputFormErrors } from '../validateGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -131,6 +131,29 @@ describe('validateGraph', () => {
     // No board selected yet, or an addressable chipset: no HUB75-specific error.
     expect(findBoardCompatibilityErrors(nodes, '')).toEqual([])
     expect(findBoardCompatibilityErrors([node('out', 'MatrixOutput', { chipset: 'WS2812B' })], 'esp32:esp32:esp32c3')).toEqual([])
+  })
+
+  // A ring reads a circle out of the composition, which needs the `_ringmap`
+  // table and a physical array kept apart from the render buffer. The show
+  // sketch has neither, so it drove a d x d raster down a chain of N.
+  it('blocks a ring driven by the Show Engine, and allows a string', () => {
+    const ring = [
+      node('pc', 'PatternCollection', { patternIds: [] }),
+      node('pm', 'PatternMaster', {}),
+      node('out', 'MatrixOutput', { form: 'ring', ledCount: 24 }),
+    ]
+    const wires = [edge('e1', 'pm', 'out', 'frame')]
+    expect(findShowOutputFormErrors(ring, wires)).toEqual([
+      expect.stringMatching(/ring cannot be driven by the Show Engine/),
+    ])
+
+    const strip = [ring[0], ring[1], node('out', 'MatrixOutput', { form: 'strip', ledCount: 60 })]
+    expect(findShowOutputFormErrors(strip, wires)).toEqual([])
+  })
+
+  it('leaves a ring alone when no Show Engine drives it', () => {
+    const nodes = [node('sc', 'SolidColor'), node('out', 'MatrixOutput', { form: 'ring', ledCount: 24 })]
+    expect(findShowOutputFormErrors(nodes, [edge('e1', 'sc', 'out', 'frame')])).toEqual([])
   })
 
   it('allows a single HUB75 Matrix Output route with default layout', () => {

@@ -506,6 +506,33 @@ describe('showGenerator', () => {
   })
 })
 
+describe('show sketch output geometry', () => {
+  const groups = {
+    g0: { nodes: [node('sc', 'SolidColor', { r: 0, g: 0, b: 255 }), node('go', 'GroupOutput')],
+          edges: [edge('e', 'sc', 'frame', 'go', 'frame')] },
+  }
+  const wiring = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
+  const show = (props: Record<string, unknown>) => generateShowSketch(
+    [node('pc', 'PatternCollection', { patternIds: ['g0'] }), node('pm', 'PatternMaster', {}), node('out', 'MatrixOutput', props)],
+    wiring, groups,
+  )
+
+  // `width`/`height` are the grid forms' properties. Reading them raw handed a
+  // string the stale 16x16 defaults, so a show on a 60-LED run emitted
+  // NUM_LEDS 256 and drove the wrong geometry off the end of the strip.
+  it('takes a string its length, not the unused grid defaults', () => {
+    const cpp = show({ form: 'strip', ledCount: 60, width: 16, height: 16, dataPin: 5 })
+    expect(cpp).toContain('#define WIDTH    60')
+    expect(cpp).toContain('#define HEIGHT   1')
+  })
+
+  it('still takes a matrix its grid', () => {
+    const cpp = show({ form: 'matrix', width: 32, height: 8, dataPin: 5 })
+    expect(cpp).toContain('#define WIDTH    32')
+    expect(cpp).toContain('#define HEIGHT   8')
+  })
+})
+
 describe('show sketch weight', () => {
   const groups = {
     g0: { nodes: [node('sc', 'SolidColor', { r: 0, g: 0, b: 255 }), node('go', 'GroupOutput')],

@@ -11,7 +11,7 @@ import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph } from '../../codegen/streamReceiverGenerator'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
 import { readySongCount, buildShowPayload, sdCardConnected } from '../../utils/showUpload'
-import { findPinConflicts, findMatrixLayoutErrors, findMirroredOutputMismatches, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors } from '../../utils/validateGraph'
+import { findPinConflicts, findMatrixLayoutErrors, findMirroredOutputMismatches, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowOutputFormErrors } from '../../utils/validateGraph'
 import { summarizeCapacity } from '../../utils/capacityFormat'
 import { useCodegenGraph } from '../../utils/codegenGraph'
 import { useModalFocus } from '../../hooks/useModalFocus'
@@ -103,6 +103,7 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
     [nodes, selectedFqbn],
   )
   const hub75ConfigErrors = useMemo(() => findHub75ConfigErrors(nodes), [nodes])
+  const showOutputFormErrors = useMemo(() => findShowOutputFormErrors(nodes, edges), [nodes, edges])
   const formulaErrors = useMemo(() => findFormulaErrors(nodes), [nodes])
   const hub75TopologyErrors = useMemo(
     () => findHub75TopologyDiagnosticErrors(nodes, nodeId),
@@ -127,6 +128,7 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
     ...outputResourceErrors,
     ...boardCompatibilityErrors,
     ...hub75ConfigErrors,
+    ...showOutputFormErrors,
     ...formulaErrors,
     ...(capacityOverflow ? [`${board?.label ?? 'This board'}: design is too large to fit (live capacity check)`] : []),
   ]

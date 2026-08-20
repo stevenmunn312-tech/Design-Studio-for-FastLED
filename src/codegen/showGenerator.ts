@@ -23,6 +23,7 @@ import { transitionHelperCpp, PARTICLE_HASH_CPP, PARTICLE_OVERLAY_CPP } from './
 import { hexToRgb } from '../state/polinePalette'
 import { buildXYTable } from '../state/xyLayout'
 import { compositionDims, outputRoutes } from '../state/outputRouting'
+import { outputCanvasDims } from '../state/ledOutputForm'
 
 const nodeType = (n: StudioNode) => (n.data as { nodeType?: string }).nodeType
 const props = (n: StudioNode) => n.data.properties as Record<string, unknown>
@@ -302,8 +303,14 @@ export function generateShowSketch(
   const op = out ? props(out) : {}
   const multiOutput = routedOutputs.length > 1
   const dims = compositionDims(routedOutputs)
-  const width = multiOutput ? dims.w : Number(op.width ?? 16)
-  const height = multiOutput ? dims.h : Number(op.height ?? 16)
+  // `width`/`height` are the matrix and panel forms' grid — a string and a
+  // ring are a length, and reading the raw properties handed them the stale
+  // 16x16 defaults, so a show on a 60-LED string emitted NUM_LEDS 256 and drove
+  // the wrong geometry. outputCanvasDims is the form-aware answer generateCpp
+  // has always used.
+  const single = outputCanvasDims(op)
+  const width = multiOutput ? dims.w : single.width
+  const height = multiOutput ? dims.h : single.height
   const dataPin = Number(op.dataPin ?? 5)
   const hw = ledHardwareFromProps(op)
   // HUB75 is restricted to a single LED output route (findHub75ConfigIssues

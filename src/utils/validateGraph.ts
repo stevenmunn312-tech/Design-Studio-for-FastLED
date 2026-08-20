@@ -611,6 +611,34 @@ export function findMatrixLayoutErrors(nodes: StudioNode[]): string[] {
   })
 }
 
+/**
+ * A ring driven by the Show Engine, which the show sketch cannot render yet.
+ *
+ * A ring's LEDs are one chain that reads a *circle* out of the composition, so
+ * it needs the `_ringmap` table plus a physical `leds[RING_LEDS]` array kept
+ * separate from the render buffer — `generateCpp` does both. `generateShowSketch`
+ * has neither: `leds` is the composition buffer every pattern renders into and
+ * every transition composites through, and its blit has no ring branch. So a
+ * ring in a show drove a square raster of `d x d` LEDs down a chain of `N`,
+ * lighting the wrong LED from the wrong pixel.
+ *
+ * Blocked rather than emitted, on the same principle as the HUB75 gate above:
+ * a config no generator can express is an error at deploy, not a surprise on
+ * the bench. Removing this means teaching the show sketch the same
+ * composition/physical split `generateCpp` already makes.
+ */
+export function findShowOutputFormErrors(nodes: StudioNode[], edges: StudioEdge[]): string[] {
+  const masters = new Set(nodes.filter((node) => node.data.nodeType === 'PatternMaster').map((node) => node.id))
+  if (masters.size === 0) return []
+  const driven = new Set(edges
+    .filter((edge) => masters.has(edge.source) && edge.sourceHandle === 'frame' && edge.targetHandle === 'frame')
+    .map((edge) => edge.target))
+  return nodes
+    .filter((node) => node.data.nodeType === 'MatrixOutput' && driven.has(node.id))
+    .filter((node) => outputForm(node.data.properties as Record<string, unknown>) === 'ring')
+    .map((node) => `${String(node.data.label ?? 'LED Ring')}: a ring cannot be driven by the Show Engine yet — its circular LED map is not generated for shows. Use a string or matrix output, or drive the ring from a normal pattern graph.`)
+}
+
 export interface Hub75ConfigIssue {
   nodeId: string
   label: string
@@ -1319,6 +1347,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   errors.push(...findPinConflicts(nodes, edges))
   errors.push(...findOutputResourceErrors(nodes))
   errors.push(...findMatrixLayoutErrors(nodes))
+  errors.push(...findShowOutputFormErrors(nodes, edges))
 
   errors.push(...findHub75ConfigErrors(nodes))
   errors.push(...findScalarExpressionErrors(nodes))
