@@ -337,6 +337,37 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 12.0
     }
   },
+  "pcm5102a-i2s-dac": {
+    "partId": "pcm5102a-i2s-dac",
+    "label": "PCM5102A I2S stereo DAC module",
+    "category": "amplifier",
+    "dimensionsMm": {
+      "width": 14.0,
+      "height": 32.0
+    },
+    "manufacturer": "generic (GY-style compact form)",
+    "logicVoltage": "5 V VIN; 3.3 V I2S logic",
+    "pinLabelsLeftToRight": [
+      "SCK",
+      "BCK",
+      "DIN",
+      "LCK",
+      "GND",
+      "VIN"
+    ],
+    "notes": [
+      "The request named PCM5210A; no documented audio IC or breakout under that designation was found. This package uses the established PCM5102A part and records the correction explicitly.",
+      "This is the compact purple 14 x 32 mm GY-style module with a 3.5 mm stereo line-output jack and six primary I2S/power connections.",
+      "The analog output is line level and requires powered speakers or a separate power amplifier; it is not a direct 3 W speaker amplifier.",
+      "SCK is optional in common three-wire I2S use because PCM5102A can derive its internal clock from BCK through the integrated PLL."
+    ],
+    "render": {
+      "file": "parts/pcm5102a-i2s-dac.webp",
+      "widthPx": 400,
+      "heightPx": 883,
+      "pxPerMm": 26.857
+    }
+  },
   "photosensitive-ldr-module": {
     "partId": "photosensitive-ldr-module",
     "label": "Photosensitive LDR analog light-sensor module",
@@ -406,6 +437,40 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "file": "parts/speaker-4ohm-3w-40mm.webp",
       "widthPx": 488,
       "heightPx": 488,
+      "pxPerMm": 12.0
+    }
+  },
+  "uda1334a-i2s-dac": {
+    "partId": "uda1334a-i2s-dac",
+    "label": "Adafruit UDA1334A I2S stereo DAC breakout",
+    "category": "amplifier",
+    "dimensionsMm": {
+      "width": 40.0,
+      "height": 25.0
+    },
+    "manufacturer": "Adafruit",
+    "logicVoltage": "3-5 V VIN and I2S logic; PLL and SF0 are 3.3 V only",
+    "pinLabelsLeftToRight": [
+      "VIN",
+      "3VO",
+      "GND",
+      "WSEL",
+      "DIN",
+      "BCLK",
+      "Lout",
+      "AGND",
+      "Rout"
+    ],
+    "notes": [
+      "The nine primary bottom-edge pins are recorded left-to-right; the separate six-pin upper row exposes SCLK, SF1, MUTE, SF0, PLL and DEEM controls.",
+      "This board provides stereo line-level output through Lout/Rout or the 3.5 mm jack and is intended to feed a separate amplifier; 32 ohm headphones can distort.",
+      "Only BCLK, WSEL and DIN are required for normal I2S audio; the onboard PLL supports MCLK-less sources.",
+      "VIN accepts 3-5 V and the regulator provides 3VO. PLL and SF0 are 3.3 V-only controls according to the Adafruit guide."
+    ],
+    "render": {
+      "file": "parts/uda1334a-i2s-dac.webp",
+      "widthPx": 504,
+      "heightPx": 324,
       "pxPerMm": 12.0
     }
   },

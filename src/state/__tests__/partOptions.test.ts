@@ -45,10 +45,21 @@ describe('part options', () => {
     expect(identity.notes.some((note) => note.includes('not an amplifier'))).toBe(true)
   })
 
-  it('admits when a chosen module has not been modelled', () => {
-    // Selecting it must not silently show the default part's photo and size.
-    const identity = resolvePartIdentity('Amplifier', { model: 'pcm5102a-i2s-dac' })!
-    expect(identity.entry).toBeUndefined()
+  /*
+   * This used to demonstrate the rule with the PCM5102A, which had no entry of
+   * its own. Now that everything offered is modelled there is no unmodelled
+   * option left to point at, so it checks the mechanism instead: the entry is
+   * looked up by the option's own id, and can never be another module's photo
+   * and size standing in for it.
+   */
+  it('never lends a module another part\'s catalogue entry', () => {
+    for (const [nodeType, config] of Object.entries(PART_OPTIONS)) {
+      for (const option of config.options) {
+        const identity = resolvePartIdentity(nodeType, { [config.property]: option.id })!
+        expect(identity.option.id, nodeType).toBe(option.id)
+        expect(identity.entry?.partId, `${nodeType}/${option.label}`).toBe(option.id)
+      }
+    }
   })
 
   it('names a property for every part that offers options', () => {
@@ -62,11 +73,28 @@ describe('part options', () => {
     expect(partOptionsFor('Plasma')).toEqual([])
   })
 
-  it('points its default options at real catalogue entries', () => {
-    // The first option is what the part falls back to, so it is the one that
-    // must have a verified size and a picture behind it.
+  /*
+   * No module is offered before it has been modelled.
+   *
+   * An option with no catalogue entry is a part number the app cannot draw,
+   * cannot size and cannot list a header for — exactly the "list of plausible
+   * part numbers the app treats identically" this module was written to avoid.
+   * The PCM5102A and UDA1334A sat in that state until their renders landed, so
+   * the hardware view drew them at the MAX98357A's size, with its picture.
+   *
+   * This checks every option, not just the default: the fallback was the only
+   * one covered before, which is how the other two got in.
+   */
+  it('offers no module without a catalogue entry behind it', () => {
     for (const [nodeType, config] of Object.entries(PART_OPTIONS)) {
-      expect(partById(config.options[0].id), nodeType).toBeDefined()
+      for (const option of config.options) {
+        const entry = partById(option.id)
+        expect(entry, `${nodeType}/${option.label}`).toBeDefined()
+        // A render and a verified size are the point of the entry.
+        expect(entry!.render?.file, `${nodeType}/${option.label}`).toBeTruthy()
+        expect(entry!.dimensionsMm.width, `${nodeType}/${option.label}`).toBeGreaterThan(0)
+        expect(entry!.dimensionsMm.height, `${nodeType}/${option.label}`).toBeGreaterThan(0)
+      }
     }
   })
 
