@@ -1908,6 +1908,21 @@ export function generateCpp(
         ln(`  float ${v('value')} = analogRead(${sanitizePin(p.pin, 4)}) / 4095.0f;`)
         break
 
+      case 'MotionInput': {
+        // HC-SR501's OUT idles low and goes high on movement — the opposite
+        // sense to ButtonInput above, which reads a pulled-up contact. Plain
+        // INPUT: the module drives the line both ways, so a pull-up would only
+        // fight it.
+        const pin = sanitizePin(p.pin, 5)
+        pinSetupLines.add(`  pinMode(${pin}, INPUT);`)
+        ln(`  bool ${v('motion')} = digitalRead(${pin}) == HIGH;`)
+        break
+      }
+
+      case 'LightInput':
+        ln(`  float ${v('level')} = analogRead(${sanitizePin(p.pin, 4)}) / 4095.0f;`)
+        break
+
       // Polling quadrature decode (no interrupts) via a standard 4x lookup
       // table; `position` is an unbounded running count.
       case 'EncoderInput': {

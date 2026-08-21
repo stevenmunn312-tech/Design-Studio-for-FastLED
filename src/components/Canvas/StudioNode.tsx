@@ -1151,6 +1151,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const isBeatDetect = d.nodeType === 'BeatDetect'
   const isFFTAnalyzer = d.nodeType === 'FFTAnalyzer'
   const isHardwareInput = d.nodeType === 'ButtonInput' || d.nodeType === 'PotInput' || d.nodeType === 'EncoderInput'
+    || d.nodeType === 'MotionInput' || d.nodeType === 'LightInput'
   /*
    * A thumbnail of the part this node is, in the preview slot.
    *

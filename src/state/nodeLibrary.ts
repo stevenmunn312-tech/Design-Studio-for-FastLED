@@ -2487,6 +2487,32 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { pin: 0, pullup: true },
   },
   {
+    // HC-SR501 PIR module. One digital line that goes high while it sees
+    // movement and stays high for the module's own hold time — the sensitivity
+    // and hold are trimmer pots on the board, not properties here, because
+    // nothing in the firmware can read or set them.
+    type: 'MotionInput',
+    label: 'Motion Sensor',
+    category: 'input',
+    inputs: [],
+    outputs: [{ id: 'motion', label: 'Motion', dataType: 'bool' }],
+    // No pull-up: the module drives the line both ways, unlike a bare button.
+    defaultProperties: { pin: 5 },
+  },
+  {
+    // LDR module (KS6026 form) — a light-dependent resistor in a divider, so
+    // the output is an analog voltage that rises with brightness. Needs an ADC
+    // pin, the same constraint as the potentiometer below.
+    type: 'LightInput',
+    label: 'Light Sensor',
+    category: 'input',
+    inputs: [],
+    outputs: [{ id: 'level', label: 'Level', dataType: 'float' }],
+    // GPIO4 is ADC1 on the app's default board — see PotInput below for why
+    // that matters and why a classic-ESP32 default would be wrong here.
+    defaultProperties: { pin: 4 },
+  },
+  {
     type: 'PotInput',
     label: 'Potentiometer',
     category: 'input',
@@ -2756,6 +2782,8 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   AudioHue: 'Maps bass/mids/treble to a hue value.',
   // hardware
   ButtonInput: 'Reads a hardware button as a boolean.',
+  MotionInput: 'Reads a PIR motion sensor as a boolean.',
+  LightInput: 'Reads an LDR light sensor as a 0\u20131 value.',
   PotInput: 'Reads a potentiometer as a 0–1 value.',
   EncoderInput: 'Reads a rotary encoder — running position plus its push-button.',
   DMXInput: 'DMX / Art-Net source for preview and firmware (Art-Net or ESP32 DMX512).',
@@ -3565,6 +3593,12 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   PotInput: {
     pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
+  MotionInput: {
+    pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
+  LightInput: {
+    pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
   EncoderInput: {
     pinA: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     pinB: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -3906,6 +3940,7 @@ export function propertyLabel(nodeType: string, key: string): string {
 // bounded sliders stay deliberately simple and predictable.
 const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MatrixOutput', 'MicInput', 'ButtonInput', 'PotInput', 'EncoderInput',
+  'MotionInput', 'LightInput',
   'DMXInput', 'DMXChannel', 'RTCInput',
   'MidiInput', 'SDCard',
 ])

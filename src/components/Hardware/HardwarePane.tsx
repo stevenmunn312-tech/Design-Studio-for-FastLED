@@ -200,6 +200,27 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     pinRequests: [{ key: 'pin', capability: 'analogInput' }],
   },
   {
+    nodeType: 'MotionInput',
+    partId: 'pir',
+    label: 'HC-SR501 PIR sensor',
+    hint: 'Goes high while it sees movement',
+    footprint: partDimensionsMm('hc-sr501-pir-sensor', { width: 32, height: 24 }),
+    signalPort: 'motion',
+    dataType: 'bool',
+    pinRequests: [{ key: 'pin' }],
+  },
+  {
+    nodeType: 'LightInput',
+    partId: 'ldr',
+    label: 'LDR light sensor',
+    hint: 'Brightness on an analog pin',
+    footprint: partDimensionsMm('photosensitive-ldr-module', { width: 32, height: 23.8 }),
+    signalPort: 'level',
+    dataType: 'float',
+    // An LDR divider is an analog signal — the same constraint the pot has.
+    pinRequests: [{ key: 'pin', capability: 'analogInput' }],
+  },
+  {
     nodeType: 'EncoderInput',
     partId: 'encoder',
     label: 'Rotary encoder',

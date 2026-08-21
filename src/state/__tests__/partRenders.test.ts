@@ -8,7 +8,7 @@ describe('part renders', () => {
     // The parts that exist in both views. If one gains a node type without a
     // picture, its graph node silently stops showing which part it is.
     expect(Object.keys(PART_RENDER_BY_NODE_TYPE).sort())
-      .toEqual(['ButtonInput', 'EncoderInput', 'MicInput', 'PotInput', 'RTCInput'])
+      .toEqual(['ButtonInput', 'EncoderInput', 'LightInput', 'MicInput', 'MotionInput', 'PotInput', 'RTCInput'])
   })
 
   it('only names parts the hardware view owns', () => {

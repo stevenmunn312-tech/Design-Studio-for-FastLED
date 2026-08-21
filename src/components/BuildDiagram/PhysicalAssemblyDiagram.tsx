@@ -797,6 +797,8 @@ const PERIPHERAL_RENDERS: Partial<Record<HardwareManifestItem['kind'], { href: s
   'rtc-input': { href: '/parts/ds3231-rtc-module.webp', id: 'ds3231-rtc-module' },
   'sd-card': { href: '/parts/microsd-module-5v.webp', id: 'microsd-module-5v' },
   amplifier: { href: '/parts/max98357a-i2s-amplifier.webp', id: 'max98357a-i2s-amplifier' },
+  'motion-input': { href: '/parts/hc-sr501-pir-sensor.webp', id: 'hc-sr501-pir-sensor' },
+  'light-input': { href: '/parts/photosensitive-ldr-module.webp', id: 'photosensitive-ldr-module' },
 }
 
 function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; connections: PhysicalDiagramConnection[]; selected: boolean }) {

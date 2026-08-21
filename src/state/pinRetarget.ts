@@ -108,6 +108,10 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
   },
   ButtonInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
   PotInput: { keys: ['pin'], requests: [{ key: 'pin', capability: 'analogInput' }] },
+  MotionInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
+  // An LDR divider is an analog signal: on a pin with no ADC it reads
+  // garbage silently, exactly as a potentiometer does.
+  LightInput: { keys: ['pin'], requests: [{ key: 'pin', capability: 'analogInput' }] },
   EncoderInput: {
     keys: ['pinA', 'pinB', 'pinSW'],
     requests: [{ key: 'pinA' }, { key: 'pinB' }, { key: 'pinSW' }],

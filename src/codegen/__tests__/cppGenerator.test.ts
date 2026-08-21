@@ -322,6 +322,40 @@ describe('generateCpp', () => {
     expect(cpp).not.toContain('nscale8(_br)')
   })
 
+  it('reads a PIR the way the module drives its line, not the way a button does', () => {
+    // HC-SR501's OUT idles low and goes high on movement. A button is the
+    // opposite — a pulled-up contact read as LOW when pressed — so copying the
+    // button case would invert every motion trigger, and plain INPUT matters
+    // because the module drives the line both ways and a pull-up fights it.
+    // Wired to something the output actually reaches: an unconnected sensor is
+    // pruned by `reachableFromOutputs` like any other dead branch, which is
+    // correct and would make this assert nothing.
+    const pir = node('pir', 'MotionInput', 'input', { pin: 5 })
+    const solid = node('sc', 'SolidColor', 'pattern', {})
+    const swap = node('sw', 'FrameSwitch', 'composite', {})
+    const cpp = generateCpp([pir, solid, swap, outputNode], [
+      { id: 'e1', source: 'sc', target: 'sw', sourceHandle: 'frame', targetHandle: 'a' },
+      { id: 'e2', source: 'pir', target: 'sw', sourceHandle: 'motion', targetHandle: 'sel' },
+      { id: 'e3', source: 'sw', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' },
+    ] as never)
+    expect(cpp).toContain('pinMode(5, INPUT);')
+    expect(cpp).toContain('digitalRead(5) == HIGH')
+    expect(cpp).not.toContain('pinMode(5, INPUT_PULLUP)')
+  })
+
+  it('reads an LDR as an analog level', () => {
+    // The obvious use: room brightness driving output brightness.
+    const ldr = node('ldr', 'LightInput', 'input', { pin: 4 })
+    const solid = node('sc', 'SolidColor', 'pattern', {})
+    const dim = node('dim', 'BrightnessMod', 'composite', {})
+    const cpp = generateCpp([ldr, solid, dim, outputNode], [
+      { id: 'e1', source: 'sc', target: 'dim', sourceHandle: 'frame', targetHandle: 'frame' },
+      { id: 'e2', source: 'ldr', target: 'dim', sourceHandle: 'level', targetHandle: 'brightness' },
+      { id: 'e3', source: 'dim', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' },
+    ] as never)
+    expect(cpp).toContain('analogRead(4) / 4095.0f')
+  })
+
   it('renders a wired PerformanceGenerator as black rather than as broken C++', () => {
     // Its `frame` exists to name the LED output a show plays on, so it can be
     // wired into one — but a normal sketch has no audio transport and no card,

@@ -56,7 +56,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -85,6 +85,8 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'RTCInput',
   'SDCard',
   'Amplifier',
+  'MotionInput',
+  'LightInput',
 ])
 
 const BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS = new Set([
@@ -169,6 +171,12 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         break
       case 'PotInput':
         push(node, `${baseLabel} pin`, 'pin', props.pin)
+        break
+      case 'MotionInput':
+        push(node, `${baseLabel} OUT pin`, 'pin', props.pin)
+        break
+      case 'LightInput':
+        push(node, `${baseLabel} signal pin`, 'pin', props.pin)
         break
       case 'EncoderInput':
         push(node, `${baseLabel} pin A`, 'pinA', props.pinA)
@@ -355,6 +363,8 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
     // `collectPinUses`, which is what made the omission hard to see: the wires
     // were reserved, the part was not drawn.
     || node.data.nodeType === 'Amplifier'
+    || node.data.nodeType === 'MotionInput'
+    || node.data.nodeType === 'LightInput'
   )
 
   const items = hardwareNodes.map((node) => {
@@ -381,6 +391,16 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         return buildPeripheralItem(node, 'pot-input', 'Analog potentiometer input', pins)
       case 'EncoderInput':
         return buildPeripheralItem(node, 'encoder-input', 'Rotary encoder input', pins)
+      case 'MotionInput':
+        return {
+          ...buildPeripheralItem(node, 'motion-input', 'HC-SR501 PIR motion sensor', pins),
+          facts: { partId: 'hc-sr501-pir-sensor' },
+        }
+      case 'LightInput':
+        return {
+          ...buildPeripheralItem(node, 'light-input', 'LDR analog light sensor', pins),
+          facts: { partId: 'photosensitive-ldr-module' },
+        }
       case 'RTCInput':
         return {
           ...buildPeripheralItem(node, 'rtc-input', 'DS3231 battery-backed I²C clock', pins),

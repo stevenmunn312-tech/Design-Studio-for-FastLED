@@ -151,6 +151,24 @@ describe('retargetHardwarePins', () => {
     expect(result.nodes[0].data.properties).toMatchObject({ i2sWs: 7, i2sSck: 8, i2sSd: 9 })
   })
 
+  it('keeps a light sensor on a pin that actually has an ADC', () => {
+    // An LDR is a voltage divider: on a pin with no ADC it reads garbage
+    // silently, which is the same trap the potentiometer's default fell into
+    // when the app moved from classic-ESP32 to S3 pin numbering.
+    const nodes = [part('ldr', 'LightInput', withAssignedPins({}, { pin: 34 }))]
+    const profile = {
+      id: 'adc-board',
+      pinSafety: { safeGeneralPurpose: [4, 5, 6], useWithCaution: {}, boardReservedOrNotExposed: {} },
+      pins: [
+        { gpio: 4, capabilities: ['analogInput'] },
+        { gpio: 5, capabilities: [] },
+        { gpio: 6, capabilities: [] },
+      ],
+    } as unknown as PhysicalBoardProfile
+    const result = retargetHardwarePins(nodes, profile, ESP32_S3)
+    expect(result.nodes[0].data.properties.pin).toBe(4)
+  })
+
   it('moves an amplifier onto a board whose profile names no amp pinout', () => {
     // Only a handful of profiles carry a curated `max98357` entry, and this
     // part had no second answer — so on every other board the retarget found

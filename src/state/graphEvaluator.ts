@@ -7019,6 +7019,18 @@ function createEvalNode(
         out = { value: useHardwareInputStore.getState().pot.get(id) ?? 0.5 }
         break
 
+      // The two sensor modules borrow the same two run-state maps: a PIR is a
+      // boolean line like a button, an LDR an analog one like a knob. The maps
+      // are keyed by node id, so sharing them cannot collide — and a second
+      // pair holding exactly the same shapes would only be ceremony.
+      case 'MotionInput':
+        out = { motion: useHardwareInputStore.getState().button.get(id) ?? false }
+        break
+
+      case 'LightInput':
+        out = { level: useHardwareInputStore.getState().pot.get(id) ?? 0.5 }
+        break
+
       case 'EncoderInput': {
         const enc = useHardwareInputStore.getState().encoder.get(id)
         out = { position: enc?.position ?? 0, pressed: enc?.pressed ?? false }

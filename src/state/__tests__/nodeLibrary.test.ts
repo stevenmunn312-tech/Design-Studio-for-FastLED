@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType } from '../hardware'
 import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, isPropertyEnabled, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel } from '../nodeLibrary'
 import { EASE_TYPES } from '../easing'
 
@@ -503,6 +504,24 @@ describe('nodeLibrary', () => {
     expect(NODE_LIBRARY.find((n) => n.type === 'PerformanceGenerator')?.defaultProperties).toMatchObject({
       showInMainPreview: false,
     })
+  })
+
+  it('adds the PIR and LDR as bench parts, not sidebar nodes', () => {
+    // Both are physical modules, so they follow the same rule every other part
+    // does: they exist because they are on the hardware view. Draggable from
+    // the sidebar, a graph could claim a sensor no board is wired to.
+    for (const type of ['MotionInput', 'LightInput']) {
+      const def = NODE_LIBRARY.find((n) => n.type === type)
+      expect(def, type).toBeTruthy()
+      expect(def!.category).toBe('input')
+      expect(isHardwareLibraryHiddenNodeType(type), type).toBe(true)
+      expect(isHardwareManagedSignalNodeType(type), type).toBe(true)
+    }
+
+    expect(NODE_LIBRARY.find((n) => n.type === 'MotionInput')!.outputs)
+      .toEqual([{ id: 'motion', label: 'Motion', dataType: 'bool' }])
+    expect(NODE_LIBRARY.find((n) => n.type === 'LightInput')!.outputs)
+      .toEqual([{ id: 'level', label: 'Level', dataType: 'float' }])
   })
 
   it('Particles gates its extra variant-specific controls by particleType', () => {

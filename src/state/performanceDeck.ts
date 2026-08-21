@@ -129,6 +129,8 @@ const WIRING_KEYS: Record<string, Set<string>> = {
   MatrixOutput: new Set(['chipset', 'colorOrder', 'dataPin', 'clockPin', 'serpentine']),
   ButtonInput: new Set(['pin']),
   PotInput: new Set(['pin']),
+  MotionInput: new Set(['pin']),
+  LightInput: new Set(['pin']),
   EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
 }
 

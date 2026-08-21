@@ -8,6 +8,7 @@ export const ROOT_BOARD_NODE_ID = 'board-root'
 // view, which is the half of the two-view model that says what is on the bench.
 const HARDWARE_MANAGED_SIGNAL_NODE_TYPES = new Set([
   'MicInput', 'ButtonInput', 'PotInput', 'EncoderInput', 'RTCInput', 'MatrixOutput',
+  'MotionInput', 'LightInput',
 ])
 
 // Not offered in the node library, the canvas picker or drag-to-create: these
@@ -15,6 +16,7 @@ const HARDWARE_MANAGED_SIGNAL_NODE_TYPES = new Set([
 // carry an output the bench does not.
 const HARDWARE_LIBRARY_HIDDEN_NODE_TYPES = new Set([
   'Board', 'MicInput', 'ButtonInput', 'PotInput', 'EncoderInput', 'RTCInput', 'MatrixOutput',
+  'MotionInput', 'LightInput',
   // Carry no signal, so they have no business on the signal canvas at all —
   // they live as hidden nodes purely so their settings persist with the
   // workspace and the player generator can keep scanning for them.

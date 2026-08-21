@@ -43,6 +43,14 @@ export const PART_RENDER_BY_NODE_TYPE: Record<string, PartRender> = {
   ButtonInput: { label: 'Button module', src: buttonRender },
   PotInput: { label: 'Potentiometer module', src: potRender },
   EncoderInput: { label: 'Rotary encoder module', src: encoderRender },
+  MotionInput: {
+    label: 'HC-SR501 PIR sensor',
+    src: partRenderSrc('hc-sr501-pir-sensor') ?? '',
+  },
+  LightInput: {
+    label: 'LDR light sensor',
+    src: partRenderSrc('photosensitive-ldr-module') ?? '',
+  },
 }
 
 export function partRenderForNodeType(

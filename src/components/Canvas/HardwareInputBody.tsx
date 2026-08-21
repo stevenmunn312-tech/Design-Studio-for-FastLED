@@ -111,6 +111,9 @@ function EncoderInputWidget({ nodeId, resetOnPress }: { nodeId: string; resetOnP
 export default function HardwareInputBody({ nodeId, nodeType, resetOnPress = false }: { nodeId: string; nodeType: string; resetOnPress?: boolean }) {
   if (nodeType === 'ButtonInput') return <ButtonInputWidget nodeId={nodeId} />
   if (nodeType === 'PotInput') return <PotInputWidget nodeId={nodeId} />
+  // Same two widgets, same two run-state maps — see the evaluator's note.
+  if (nodeType === 'MotionInput') return <ButtonInputWidget nodeId={nodeId} />
+  if (nodeType === 'LightInput') return <PotInputWidget nodeId={nodeId} />
   if (nodeType === 'EncoderInput') return <EncoderInputWidget nodeId={nodeId} resetOnPress={resetOnPress} />
   return null
 }

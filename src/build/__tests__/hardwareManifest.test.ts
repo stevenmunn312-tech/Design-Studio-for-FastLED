@@ -138,6 +138,25 @@ describe('hardwareManifest', () => {
     expect(amp?.pins.every((pin) => pin.propertyKey === 'internalDac')).toBe(true)
   })
 
+  it('draws the PIR and the LDR, and claims the pins they sit on', () => {
+    const manifest = buildHardwareManifest([
+      node('out', 'MatrixOutput', { width: 16, height: 16, chipset: 'WS2812B', dataPin: 14 }),
+      node('pir', 'MotionInput', { pin: 5 }),
+      node('ldr', 'LightInput', { pin: 4 }),
+    ], [], 'esp32:esp32:esp32s3')
+
+    const pir = manifest.items.find((item) => item.sourceNodeId === 'pir')
+    const ldr = manifest.items.find((item) => item.sourceNodeId === 'ldr')
+    expect(pir?.kind).toBe('motion-input')
+    expect(ldr?.kind).toBe('light-input')
+    // Drawn as the modelled part, not a generic box.
+    expect(pir?.facts.partId).toBe('hc-sr501-pir-sensor')
+    expect(ldr?.facts.partId).toBe('photosensitive-ldr-module')
+    // Claimed, so a pin conflict with anything else is caught.
+    expect(pir?.pins.map((pin) => pin.pin)).toEqual([5])
+    expect(ldr?.pins.map((pin) => pin.pin)).toEqual([4])
+  })
+
   it('marks unsupported hardware explicitly instead of pretending to wire it', () => {
     const manifest = buildHardwareManifest([
       node('dmx', 'DMXInput', { inputMode: 'DMX512', dmxRxPin: 16 }),
