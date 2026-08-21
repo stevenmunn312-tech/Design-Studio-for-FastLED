@@ -1291,6 +1291,28 @@
 }
 .serialIdle { color: var(--text-secondary); font-size: 11px; }
 
+/* Verbose toggle in the console header — a preference, so it sits quiet beside
+ * the actions rather than competing with them. */
+.consoleToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.consoleToggle input { margin: 0; cursor: pointer; }
+
+/* How many lines the condensed view is holding back. */
+.consoleToggleCount {
+  opacity: 0.6;
+  font-family: var(--font-code);
+}
+
 .consoleBody {
   flex: 1;
   margin: 0;

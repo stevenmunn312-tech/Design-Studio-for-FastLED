@@ -22,6 +22,7 @@ studio keeps working (it just falls back to showing copy-paste commands).
 """
 from __future__ import annotations
 
+import codecs
 import contextlib
 import io
 import json
@@ -621,9 +622,14 @@ def _ensure_fbuild_project():
         # cache and replace this exact vendored directory.
         if _FBUILD_LIB_DIR.exists():
             _remove_build_cache_tree(_FBUILD_LIB_DIR)
+        # `--progress`: git draws its counters only when stderr is a
+        # terminal, and ours is a pipe — without it a clone of any size is
+        # a silent wait, indistinguishable from a hang. `_iter_stream_lines`
+        # is what lets those counters through, since git writes them with
+        # carriage returns rather than newlines.
         rc = yield from _run_phase(
             "vendor FastLED",
-            ["git", "clone", "--depth", "1", "https://github.com/FastLED/FastLED.git", str(_FBUILD_LIB_DIR)],
+            ["git", "clone", "--progress", "--depth", "1", "https://github.com/FastLED/FastLED.git", str(_FBUILD_LIB_DIR)],
         )
         if rc != 0:
             yield "[error] failed to vendor FastLED — the build below will fail on FastLED.h\n"
@@ -811,7 +817,7 @@ def _ensure_fbuild_audio_lib():
         _remove_build_cache_tree(_FBUILD_AUDIO_LIB_DIR)
     rc = yield from _run_phase(
         "vendor ESP32-audioI2S",
-        ["git", "clone", "--branch", "3.0.12", "--depth", "1",
+        ["git", "clone", "--progress", "--branch", "3.0.12", "--depth", "1",
          "https://github.com/schreibfaul1/ESP32-audioI2S.git", str(_FBUILD_AUDIO_LIB_DIR)],
     )
     if rc != 0:
@@ -834,7 +840,7 @@ def _ensure_fbuild_esp_dmx_lib():
     _FBUILD_ESP_DMX_LIB_DIR.parent.mkdir(parents=True, exist_ok=True)
     rc = yield from _run_phase(
         "vendor esp_dmx",
-        ["git", "clone", "--depth", "1", "https://github.com/someweisguy/esp_dmx.git", str(_FBUILD_ESP_DMX_LIB_DIR)],
+        ["git", "clone", "--progress", "--depth", "1", "https://github.com/someweisguy/esp_dmx.git", str(_FBUILD_ESP_DMX_LIB_DIR)],
     )
     if rc != 0:
         yield "[error] failed to vendor esp_dmx — DMX512 builds may fail on esp_dmx.h\n"
@@ -863,7 +869,7 @@ def _ensure_fbuild_hub75_lib():
     # than floating.
     rc = yield from _run_phase(
         "vendor ESP32-HUB75-MatrixPanel-DMA",
-        ["git", "clone", "--branch", "3.0.14", "--depth", "1",
+        ["git", "clone", "--progress", "--branch", "3.0.14", "--depth", "1",
          "https://github.com/mrcodetastic/ESP32-HUB75-MatrixPanel-DMA.git", str(_FBUILD_HUB75_LIB_DIR)],
     )
     if rc != 0:
@@ -897,7 +903,7 @@ def _ensure_fbuild_zero_i2s_lib():
             _remove_build_cache_tree(path)
         rc = yield from _run_phase(
             f"vendor {label}",
-            ["git", "clone", "--branch", tag, "--depth", "1", url, str(path)],
+            ["git", "clone", "--progress", "--branch", tag, "--depth", "1", url, str(path)],
         )
         if rc != 0:
             yield f"[error] failed to vendor {label} — the SAMD51 microphone build will fail\n"
@@ -970,6 +976,45 @@ def _make_sketch(name: str, ino: str):
     return work, sketch_dir
 
 
+def _iter_stream_lines(stream):
+    """Yield a subprocess's output as lines, treating a bare CR as a break.
+
+    Build tools draw progress in place, with a carriage return and no newline:
+    esptool's `Writing at 0x0001a000... (42 %)`, git clone's `Receiving
+    objects:  61%`. Iterating the pipe by newline holds every one of those in
+    the buffer until the tool finally emits one — so a flash sat at "Starting…"
+    or one stale percentage and then jumped to 100% in a single burst at the
+    end, and a clone said nothing at all for its whole duration.
+
+    Read in chunks off the raw pipe rather than through a text wrapper, so a
+    chunk surfaces as soon as the OS has it instead of when a line completes.
+    """
+    decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+    pending = ""
+    while True:
+        chunk = stream.read(4096)
+        if not chunk:
+            break
+        pending += decoder.decode(chunk)
+        while True:
+            cr, lf = pending.find("\r"), pending.find("\n")
+            if cr < 0 and lf < 0:
+                break
+            index = min(position for position in (cr, lf) if position >= 0)
+            segment = pending[:index]
+            broke_on_return = pending[index] == "\r"
+            # CRLF is one break, not two.
+            width = 2 if broke_on_return and pending[index + 1:index + 2] == "\n" else 1
+            pending = pending[index + width:]
+            # A bare CR with nothing before it is a tool repositioning the
+            # cursor, not a blank line worth logging. A real newline is.
+            if segment or not broke_on_return:
+                yield segment + "\n"
+    pending += decoder.decode(b"", final=True)
+    if pending:
+        yield pending + "\n"
+
+
 def _run_phase(label, args, sink=None, cwd=None):
     """Run one build-tool phase (arduino-cli or fbuild), yielding its output
     lines; returns the exit code. If `sink` (a list) is given, each output line
@@ -979,12 +1024,12 @@ def _run_phase(label, args, sink=None, cwd=None):
     try:
         proc = subprocess.Popen(
             args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            text=True, encoding="utf-8", errors="replace", bufsize=1, env=_TOOLCHAIN_ENV, cwd=cwd,
+            bufsize=0, env=_TOOLCHAIN_ENV, cwd=cwd,
         )
     except Exception as e:
         yield f"[error] failed to launch {args[0]}: {e}\n"
         return -1
-    for line in proc.stdout:
+    for line in _iter_stream_lines(proc.stdout):
         if sink is not None:
             sink.append(line)
         # Evidence that this build is alive. Only a running holder reaches here,

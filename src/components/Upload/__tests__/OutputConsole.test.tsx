@@ -70,6 +70,31 @@ describe('OutputConsole', () => {
     expect(queryByText(/Last capacity check/)).toBeNull()
   })
 
+  it('hides toolchain noise until Verbose is ticked, without a second build', () => {
+    // A single ESP32 build prints thousands of lines and almost all of them are
+    // the toolchain talking to itself. Filtering is display-only, so the detail
+    // is one click away rather than one more upload away.
+    useUploadStore.setState({
+      log: [
+        '=== Player · compile ===',
+        'In file included from .../driver/i2s.h:23,',
+        '.../adc.h:19:2: warning: #warning "legacy adc driver is deprecated" [-Wcpp]',
+        '   19 | #warning "legacy adc driver is deprecated"',
+        '      |  ^~~~~~~',
+        '[Player · compile exit code: 0]',
+      ].join(String.fromCharCode(10)),
+      verboseOutput: false,
+    })
+    const { getByText, queryByText, getByRole, rerender } = render(<OutputConsole />)
+
+    expect(getByText(/Player · compile ===/)).toBeTruthy()
+    expect(queryByText(/legacy adc driver is deprecated/)).toBeNull()
+
+    fireEvent.click(getByRole('checkbox', { name: /Verbose/ }))
+    rerender(<OutputConsole />)
+    expect(getByText(/legacy adc driver is deprecated/)).toBeTruthy()
+  })
+
   it('disables copying when there is no output', () => {
     useUploadStore.setState({ log: '' })
     const { getByRole } = render(<OutputConsole />)

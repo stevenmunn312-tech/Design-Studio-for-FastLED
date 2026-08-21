@@ -239,11 +239,11 @@ export function parseStatus(log: string): UploadStatus {
 
 // ── Persistence ───────────────────────────────────────────────────────────────
 const KEY = 'design-studio-for-fastled-upload'
-interface Persisted { myBoards: string[]; selectedFqbn: string; selectedPort: string; customBoards: Board[]; cardReader: boolean }
+interface Persisted { myBoards: string[]; selectedFqbn: string; selectedPort: string; customBoards: Board[]; cardReader: boolean; verboseOutput: boolean }
 interface CachedSketchUpload { code: string; fqbnOpt?: string }
 
 function load(): Persisted {
-  const fallback: Persisted = { myBoards: BOARDS.map((b) => b.fqbn), selectedFqbn: BOARDS[0].fqbn, selectedPort: '', customBoards: [], cardReader: false }
+  const fallback: Persisted = { myBoards: BOARDS.map((b) => b.fqbn), selectedFqbn: BOARDS[0].fqbn, selectedPort: '', customBoards: [], cardReader: false, verboseOutput: false }
   try {
     const v = localStorage.getItem(KEY)
     if (!v) return fallback
@@ -268,10 +268,10 @@ function projectSelection(fallback: Persisted): Pick<UploadState, 'selectedFqbn'
   }
 }
 
-function persistFallback(s: Pick<UploadState, 'myBoards' | 'selectedFqbn' | 'selectedPort' | 'customBoards' | 'cardReader'>) {
+function persistFallback(s: Pick<UploadState, 'myBoards' | 'selectedFqbn' | 'selectedPort' | 'customBoards' | 'cardReader' | 'verboseOutput'>) {
   persistedPrefs = {
     myBoards: s.myBoards, selectedFqbn: s.selectedFqbn, selectedPort: s.selectedPort,
-    customBoards: s.customBoards, cardReader: s.cardReader,
+    customBoards: s.customBoards, cardReader: s.cardReader, verboseOutput: s.verboseOutput,
   }
   try { localStorage.setItem(KEY, JSON.stringify(persistedPrefs)) } catch { /* quota */ }
 }
@@ -380,7 +380,12 @@ interface UploadState {
   /** Whether the user has a card reader — persisted, because it describes their
    *  desk rather than this upload. Chooses the card-reader path over serial. */
   cardReader: boolean
+  /** Show the toolchain's own chatter in the output console, not just the
+   *  build's. Persisted, because whether someone wants compiler warnings is a
+   *  standing preference rather than a per-upload one. */
+  verboseOutput: boolean
   setCardReader: (on: boolean) => void
+  setVerboseOutput: (on: boolean) => void
   /** The open card-swap prompt, or null. Driven by `runShowUpload`. */
   sdPrompt: SdPrompt | null
   /** Answer the open prompt: a drive path to continue, or null to cancel. */
@@ -431,6 +436,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   selectedPort: initialSelection.selectedPort,
   customBoards: persistedPrefs.customBoards,
   cardReader: persistedPrefs.cardReader,
+  verboseOutput: persistedPrefs.verboseOutput,
   sdPrompt: null,
   lastSketchByProject: {},
   checkingUpdates: false,
@@ -627,6 +633,8 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   },
 
   setCardReader: (on) => { set({ cardReader: on }); persistFallback({ ...get(), cardReader: on }) },
+
+  setVerboseOutput: (on) => { set({ verboseOutput: on }); persistFallback({ ...get(), verboseOutput: on }) },
 
   resolveSdPrompt: (drive) => {
     sdPromptResolver?.(drive)

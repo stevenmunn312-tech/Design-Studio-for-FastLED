@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useUploadStore } from '../../state/uploadStore'
 import { useCapacityStore } from '../../state/capacityStore'
+import { condenseLogView } from '../../utils/logView'
 import styles from './Upload.module.css'
 
 /**
@@ -33,6 +34,7 @@ function useCapacityFailureReport(): string {
 export default function OutputConsole() {
   const {
     log, status, busy, selectedPort, serialLog, serialConnected, serialError, serialBaud,
+    verboseOutput, setVerboseOutput,
     closeConsole, clearLog, clearSerialLog, startSerial, stopSerial, setSerialBaud,
   } = useUploadStore()
   const bodyRef = useRef<HTMLPreElement>(null)
@@ -40,7 +42,13 @@ export default function OutputConsole() {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const [tab, setTab] = useState<'output' | 'serial'>('output')
   const capacityReport = useCapacityFailureReport()
-  const visibleLog = tab === 'output' ? log + capacityReport : serialLog
+  // Filtering is display-only — the store keeps every byte, so ticking Verbose
+  // reveals this same run rather than needing another. Memoised because this
+  // re-renders on every streamed chunk of a log that can reach megabytes.
+  const outputLog = log + capacityReport
+  const output = useMemo(() => condenseLogView(outputLog, verboseOutput), [outputLog, verboseOutput])
+  const visibleLog = tab === 'output' ? output.text : serialLog
+  const hidden = tab === 'output' ? output.hidden : 0
 
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight
@@ -79,11 +87,24 @@ export default function OutputConsole() {
           </span>
         )}
         <span className={styles.spacer} />
+        {tab === 'output' && (
+          <label className={styles.consoleToggle} title="Show the toolchain's own output too — compiler warnings, include chains, and the source echoed under each one">
+            <input
+              type="checkbox"
+              checked={verboseOutput}
+              onChange={(e) => setVerboseOutput(e.target.checked)}
+            />
+            Verbose
+            {hidden > 0 && <span className={styles.consoleToggleCount}>+{hidden}</span>}
+          </label>
+        )}
         <button
           className={styles.consoleCopyBtn}
           onClick={copyLog}
           disabled={!visibleLog}
-          title="Copy the complete output as text"
+          title={hidden > 0
+            ? 'Copies what is shown here — tick Verbose first if you need the whole log'
+            : 'Copy the complete output as text'}
           aria-live="polite"
         >
           {copyLabel}
