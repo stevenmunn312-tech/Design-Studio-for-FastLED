@@ -333,8 +333,31 @@ def _fbuild_libraries_for_sketch(ino: str):
 # PSRAM likely needs a board profile matching this module's real GPIO
 # wiring (the stock `esp32-s3-devkitc-1` id is the *reference* Espressif
 # layout, which a third-party N16R8 board need not match) rather than a
-# flash_mode/frequency override — unresolved, needs the module's exact
-# datasheet/pin map to progress further.
+# flash_mode/frequency override.
+#
+# The module facts that note asked for, read off the die with
+# `esptool --chip esp32s3 flash_id` (2026-08-21):
+#
+#     Features:  Wi-Fi, BT 5 (LE), Dual Core + LP Core, 240MHz,
+#                Embedded PSRAM 8MB (AP_3v3)
+#     Detected flash size:          16MB
+#     Flash type set in eFuse:      quad (4 data lines)
+#     Chip: ESP32-S3 (QFN56) rev v0.2, 40MHz crystal, USB-Serial/JTAG
+#
+# So the PSRAM is real and octal, the flash is 16MB, and the flash is *quad*
+# per eFuse — which means the `qio_opi` memory_type (QIO flash + OPI PSRAM)
+# the `opi` option selects is the right pairing for this part, and the boot
+# loop above was not a case of claiming QIO on a part wired for something
+# else. Whatever forcing `flash_mode = qio` broke, it was not that.
+#
+# Note also what these numbers say about the *non*-PSRAM env below: it carries
+# no `flash_size` override, so it builds against the stock board id's 8MB
+# manifest on a chip with 16MB. That is the same silent mismatch the paragraph
+# above describes fixing for the PSRAM options, still present for the default
+# one — and it means the capacity meter measures against half this board's real
+# ceiling. Fixing it properly means taking the size from the selected physical
+# board profile (which names the exact module) rather than from the generic
+# FQBN, since an N8 module must not be told it has 16MB.
 _PIO_BOARDS: dict[str, dict] = {
     "esp32:esp32:esp32s3": {
         "platform": "espressif32", "board": "esp32-s3-devkitc-1",
