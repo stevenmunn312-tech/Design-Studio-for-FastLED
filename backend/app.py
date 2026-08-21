@@ -322,18 +322,22 @@ def _fbuild_libraries_for_sketch(ino: str):
 # this flash_size/partitions fix is confirmed correct (the board now reports
 # ESP.getFlashChipSize() == 16MB instead of silently building against 8MB).
 #
-# Deliberately NOT also forcing `board_build.flash_mode = qio` here even
-# though `board_build.arduino.memory_type` alone leaves the image header at
-# the base board's default `mode:DIO` (and the ROM boot log does report a
-# clean, non-fatal "wrong PSRAM line mode" — `psramFound()` just stays
-# false): hardware-tested forcing `flash_mode = qio` (at both 80MHz and
-# 40MHz `f_flash`, and with no explicit `f_flash` at all) instead sent this
-# module into a `TG0WDT_SYS_RST`/`RTCWDT_RTC_RST` boot loop before `setup()`
-# ever ran — worse than the clean DIO-mode failure. Actually enabling octal
-# PSRAM likely needs a board profile matching this module's real GPIO
-# wiring (the stock `esp32-s3-devkitc-1` id is the *reference* Espressif
-# layout, which a third-party N16R8 board need not match) rather than a
-# flash_mode/frequency override.
+# `board_build.flash_mode = qio` is now set on the PSRAM variants — see their
+# entries below. It was not, for a while, and the reason it failed is worth
+# keeping: forcing QIO used to send this module into a
+# `TG0WDT_SYS_RST`/`RTCWDT_RTC_RST` boot loop, while leaving the header at the
+# board's default DIO booted cleanly but reported "wrong PSRAM line mode" with
+# `psramFound()` false. That was read at the time as a board-profile/GPIO-wiring
+# problem needing the module's datasheet.
+#
+# It was neither. The flash mode lives in the *bootloader's* image header as
+# well as the app's, and the two have to agree: a QIO app against the DIO
+# bootloader already on the flash loops, and a DIO app against a QIO bootloader
+# boots without PSRAM. Burning a QIO 80MHz bootloader to the part (Steve,
+# 2026-08-21) makes both halves agree, and the module then boots *and* keeps its
+# PSRAM. Note the consequence: an upload writes bootloader.bin too, so these env
+# settings are what keep a hand-burned bootloader from being replaced by a
+# disagreeing one.
 #
 # The module facts that note asked for, read off the die with
 # `esptool --chip esp32s3 flash_id` (2026-08-21):
@@ -370,8 +374,14 @@ _PIO_BOARDS: dict[str, dict] = {
             16: {"flash_size": "16MB", "partitions": "huge_app.csv"},
         },
         "psram_memory_type": {
-            "opi":  {"memory_type": "qio_opi",  "flash_size": "16MB", "partitions": "default_16MB.csv"},
-            "qspi": {"memory_type": "qio_qspi", "flash_size": "8MB",  "partitions": "default_8MB.csv"},
+            # flash_mode/f_flash confirmed on the bench (2026-08-21): an N16R8
+            # with a QIO 80MHz bootloader burned to it boots and keeps its PSRAM.
+            # The eFuse on that part reads "quad (4 data lines)", so QIO is what
+            # the flash is wired for — not a tuning choice.
+            "opi":  {"memory_type": "qio_opi",  "flash_size": "16MB", "partitions": "default_16MB.csv",
+                     "flash_mode": "qio", "f_flash": "80000000L"},
+            "qspi": {"memory_type": "qio_qspi", "flash_size": "8MB",  "partitions": "default_8MB.csv",
+                     "flash_mode": "qio", "f_flash": "80000000L"},
         },
     },
     "esp32:esp32:esp32": {
@@ -666,6 +676,17 @@ def _write_fbuild_ini() -> None:
                 f"build_flags = {' '.join([*base_flags, '-DBOARD_HAS_PSRAM'])}",
                 f"board_build.arduino.memory_type = {psram_meta['memory_type']}",
                 f"board_upload.flash_size = {psram_meta['flash_size']}",
+                # State the flash mode the memory_type already implies, so the
+                # app image header agrees with the bootloader on the part. See
+                # the note above _PIO_BOARDS: a QIO image against a DIO
+                # bootloader boot-loops, and a DIO image against a QIO one boots
+                # but reports psramFound() false — the same disagreement from
+                # either side. Only on the PSRAM variants: the plain env is for
+                # an unknown module whose stock default is DIO, and forcing QIO
+                # there would inflict that mismatch on an N8.
+                *([f"board_build.flash_mode = {psram_meta['flash_mode']}",
+                   f"board_build.f_flash = {psram_meta['f_flash']}"]
+                  if psram_meta.get("flash_mode") else []),
                 f"board_build.partitions = {psram_meta['partitions']}", "",
             ]
     _FBUILD_INI_PATH.write_text("\n".join(lines), encoding="utf-8")

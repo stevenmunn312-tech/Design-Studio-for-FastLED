@@ -737,6 +737,37 @@ def test_a_psram_option_pins_its_own_flash_size():
     assert app._fbuild_env_for_fqbn("esp32:esp32:esp32s3:PSRAM=opi", 16) == "esp32_esp32_esp32s3_opi"
 
 
+def test_the_psram_envs_state_the_flash_mode_their_memory_type_implies(tmp_path, monkeypatch):
+    """A QIO memory_type needs a QIO image header, or the two disagree.
+
+    Hardware, 2026-08-21: an N16R8 whose bootloader was burned QIO 80MHz boots
+    and keeps its PSRAM. Historically the app image was left at the board's
+    default DIO, which booted but reported psramFound() false ("wrong PSRAM line
+    mode"); forcing QIO while a DIO bootloader was still on the flash looped
+    instead. Same disagreement, either side.
+    """
+    monkeypatch.setattr(app, "_FBUILD_INI_PATH", tmp_path / "platformio.ini")
+    app._write_fbuild_ini()
+    ini = (tmp_path / "platformio.ini").read_text(encoding="utf-8")
+
+    opi = ini.split("[env:esp32_esp32_esp32s3_opi]")[1].split("[env:")[0]
+    assert "board_build.arduino.memory_type = qio_opi" in opi
+    assert "board_build.flash_mode = qio" in opi
+    assert "board_build.f_flash = 80000000L" in opi
+
+
+def test_the_plain_env_leaves_an_unknown_module_alone(tmp_path, monkeypatch):
+    # The non-PSRAM env is for a module nobody has described, whose stock
+    # bootloader is DIO. Forcing QIO there would inflict on an N8 exactly the
+    # mismatch the PSRAM envs exist to resolve.
+    monkeypatch.setattr(app, "_FBUILD_INI_PATH", tmp_path / "platformio.ini")
+    app._write_fbuild_ini()
+    ini = (tmp_path / "platformio.ini").read_text(encoding="utf-8")
+
+    plain = ini.split("[env:esp32_esp32_esp32s3]")[1].split("[env:")[0]
+    assert "flash_mode" not in plain
+
+
 def test_the_flash_variant_env_is_actually_written(tmp_path, monkeypatch):
     monkeypatch.setattr(app, "_FBUILD_INI_PATH", tmp_path / "platformio.ini")
     app._write_fbuild_ini()
