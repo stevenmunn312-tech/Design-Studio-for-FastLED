@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import {
   checkBackend, listPorts, listCores, uploadSketch, uploadShow, locateCli, installCli, installCore,
   monitorSerial, checkCoreUpdates, upgradeCores as requestCoreUpgrade, setEngine as requestSetEngine,
-  copyToSdCard, compileCheck,
+  copyToSdCard, compileCheck, cancelBuild,
   type BackendHealth, type SerialPort, type ShowUploadFile, type CoreUpdate,
 } from '../utils/backendClient'
 import { useProjectStore } from './projectStore'
@@ -193,7 +193,7 @@ export function engineReady(helper: BackendHealth | null | undefined): boolean {
 }
 
 // ── Live upload status ────────────────────────────────────────────────────────
-export type UploadPhase = 'idle' | 'compiling' | 'uploading' | 'done' | 'error' | 'working'
+export type UploadPhase = 'idle' | 'compiling' | 'uploading' | 'done' | 'error' | 'working' | 'cancelled'
 export interface UploadStatus { phase: UploadPhase; percent?: number; message: string }
 
 const IDLE: UploadStatus = { phase: 'idle', message: '' }
@@ -205,6 +205,12 @@ export function parseStatus(log: string): UploadStatus {
   // A capacity overflow is a compile failure — the helper tags it `[size-error]`
   // so we can show a specific "won't fit" message instead of the generic one
   // (the console auto-opens with the full explanation).
+  // Checked before every failure rule below: a killed process exits non-zero,
+  // and reporting that as a build failure would send someone hunting for a
+  // fault in a graph they simply changed their mind about.
+  if (/\*\*\* CANCELLED \*\*\*/.test(log)) {
+    return { phase: 'cancelled', message: 'Cancelled' }
+  }
   if (/\[size-error\]/.test(log)) {
     return { phase: 'error', message: "Won't fit — too big for this board" }
   }
@@ -388,6 +394,7 @@ interface UploadState {
   verboseOutput: boolean
   setCardReader: (on: boolean) => void
   setVerboseOutput: (on: boolean) => void
+  cancelUpload: () => Promise<void>
   /** The open card-swap prompt, or null. Driven by `runShowUpload`. */
   sdPrompt: SdPrompt | null
   /** Answer the open prompt: a drive path to continue, or null to cancel. */
@@ -618,7 +625,10 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       }, undefined, flashMb)
       // Settle on a terminal status from the full log.
       const final = parseStatus(get().log)
-      set({ status: final.phase === 'uploading' || final.phase === 'working' ? { phase: 'done', message: 'Done' } : final })
+      const settled = final.phase === 'uploading' || final.phase === 'working'
+        ? { phase: 'done' as const, message: 'Done' }
+        : final
+      set({ status: settled })
       // Pop the output/serial console open whenever an upload finishes, not
       // just on failure, so the result is always visible without an extra click.
       set({ consoleOpen: true })
@@ -641,6 +651,15 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   setCardReader: (on) => { set({ cardReader: on }); persistFallback({ ...get(), cardReader: on }) },
 
   setVerboseOutput: (on) => { set({ verboseOutput: on }); persistFallback({ ...get(), verboseOutput: on }) },
+
+  cancelUpload: async () => {
+    if (!get().busy) return
+    // Say so immediately: the helper still has to kill the process tree and
+    // drain the stream, and a button that looks inert until then invites a
+    // second press.
+    set({ status: { phase: 'cancelled', message: 'Cancelling…' } })
+    await cancelBuild()
+  },
 
   resolveSdPrompt: (drive) => {
     sdPromptResolver?.(drive)

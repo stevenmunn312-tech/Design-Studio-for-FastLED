@@ -46,6 +46,21 @@ describe('parseStatus', () => {
     expect(parseStatus(log).phase).toBe('compiling')
   })
 
+  it('calls a cancelled build cancelled, not failed', () => {
+    // A killed process exits non-zero, so every failure rule below would claim
+    // it. Reporting that as a build failure sends someone hunting for a fault
+    // in a graph they simply changed their mind about — the commonest reason
+    // to cancel being that the wrong board was selected.
+    const log = [
+      '=== Sketch · compile ===',
+      '*** CANCELLED *** Stopped at your request — nothing was sent to the board.',
+      '[Sketch · compile exit code: 130]',
+    ].join(String.fromCharCode(10))
+    const s = parseStatus(log)
+    expect(s.phase).toBe('cancelled')
+    expect(s.message).toBe('Cancelled')
+  })
+
   it('reports done on a successful upload', () => {
     expect(parseStatus('=== Sketch · upload ===\n...\nUpload complete.\n').phase).toBe('done')
   })

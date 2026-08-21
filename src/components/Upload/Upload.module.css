@@ -1293,6 +1293,17 @@
 
 /* Verbose toggle in the console header — a preference, so it sits quiet beside
  * the actions rather than competing with them. */
+/* Sits under the Upload button while a build runs. Deliberately quiet — it is
+ * an escape hatch, not a second call to action. */
+.cancelBuildBtn {
+  width: 100%;
+  margin-top: 4px;
+  border-color: color-mix(in srgb, var(--error) 45%, transparent);
+  color: var(--error);
+}
+
+.cancelBuildBtn:disabled { opacity: 0.6; cursor: default; }
+
 .consoleToggle {
   display: inline-flex;
   align-items: center;

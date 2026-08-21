@@ -50,6 +50,7 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
     helper, installedCores, selectedFqbn, selectedPort, ports, busy, status, codeViewOpen,
     refreshHelper, refreshPorts, installCore, activeOutputNodeId,
     openBoardPopup, openCliPopup, openConsole, openCodeView, closeDeployPopup, openSetupWizard, runUpload, runLastUpload, runShowUpload, exportIno,
+    cancelUpload,
     cardReader, setCardReader,
   } = useUploadStore()
   const hasLastSketch = useUploadStore((s) => !!(currentProjectId && s.lastSketchByProject[currentProjectId]))
@@ -536,6 +537,20 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
         >
           <span className={busy ? styles.busyText : undefined}>{uploadLabel}</span>
         </button>
+
+        {/* Only while something is running. A board compile is minutes long, and
+          * the commonest reason to want out of one is noticing the wrong board
+          * is selected — at which point waiting it out serves nobody. */}
+        {busy && (
+          <button
+            className={`${styles.wizardButtonBase} ${styles.cancelBuildBtn}`}
+            onClick={() => { void cancelUpload() }}
+            disabled={status.phase === 'cancelled'}
+            title="Stop the running build. Nothing is sent to the board."
+          >
+            {status.phase === 'cancelled' ? 'Cancelling…' : '✕ Cancel'}
+          </button>
+        )}
 
         {blockingErrors.length > 0 && (
           <div className={styles.streamError}>

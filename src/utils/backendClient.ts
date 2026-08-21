@@ -341,6 +341,23 @@ export async function uploadSketch(
   await pipeStream(res, onLog)
 }
 
+/**
+ * Stop the build in progress. Resolves `false` when there was nothing running.
+ *
+ * Server-side on purpose: aborting the fetch would only stop *reading* the log
+ * while the compile carried on holding the helper's build lock. See
+ * `_cancel_active_build` in backend/app.py.
+ */
+export async function cancelBuild(): Promise<boolean> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/build/cancel`, { method: 'POST' })
+    const data = await res.json()
+    return !!data.cancelled
+  } catch {
+    return false
+  }
+}
+
 export interface CompileCheckSize { usedBytes: number; limitBytes: number; percent: number }
 
 export interface CompileCheckResult {

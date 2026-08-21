@@ -1048,6 +1048,64 @@ def _make_sketch(name: str, ino: str):
     return work, sketch_dir
 
 
+# The build currently running, so a user who picked the wrong board can stop it
+# instead of waiting out a compile they no longer want.
+#
+# Cancelling has to happen *here*, not by dropping the HTTP stream: the build
+# runs inside a generator that holds `_fbuild_build_lock`, and abandoning it
+# client-side leaves that lock held by a suspended generator with no subprocess
+# to blame — the exact abandoned-holder case the lock's stale-reclaim exists to
+# survive, which would then stall every later build for `_FBUILD_LOCK_STALE_S`.
+# Killing the process makes `_run_phase` return normally, so the generator
+# unwinds through its own `finally`: lock released, stashed libraries restored.
+_active_build_lock = threading.Lock()
+_active_build_proc: subprocess.Popen | None = None
+_build_cancelled = False
+
+
+def _register_build(proc: subprocess.Popen | None) -> None:
+    global _active_build_proc
+    with _active_build_lock:
+        _active_build_proc = proc
+
+
+def _build_was_cancelled() -> bool:
+    with _active_build_lock:
+        return _build_cancelled
+
+
+def _begin_build_run() -> None:
+    """Clear the cancelled flag as a new run starts, so one cancellation cannot
+    label the next build."""
+    global _build_cancelled
+    with _active_build_lock:
+        _build_cancelled = False
+
+
+def _cancel_active_build() -> bool:
+    """Stop the running build. True if there was one to stop.
+
+    The whole tree, not just the front-end: fbuild delegates the compile to a
+    long-lived `fbuild-daemon` child, so terminating the parent alone leaves the
+    work running and the log silent.
+    """
+    global _build_cancelled
+    with _active_build_lock:
+        proc = _active_build_proc
+        if proc is None or proc.poll() is not None:
+            return False
+        _build_cancelled = True
+    try:
+        if sys.platform == "win32":
+            subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)],
+                           capture_output=True, check=False)
+        else:
+            proc.terminate()
+    except Exception:
+        return False
+    return True
+
+
 def _iter_stream_lines(stream):
     """Yield a subprocess's output as lines, treating a bare CR as a break.
 
@@ -1092,6 +1150,7 @@ def _run_phase(label, args, sink=None, cwd=None):
     lines; returns the exit code. If `sink` (a list) is given, each output line
     is also appended to it so the caller can inspect the phase output (e.g. to
     parse the flash/RAM size report)."""
+    _begin_build_run()
     yield f"\n=== {label} ===\n$ {' '.join(args)}\n"
     try:
         proc = subprocess.Popen(
@@ -1101,6 +1160,7 @@ def _run_phase(label, args, sink=None, cwd=None):
     except Exception as e:
         yield f"[error] failed to launch {args[0]}: {e}\n"
         return -1
+    _register_build(proc)
     for line in _iter_stream_lines(proc.stdout):
         if sink is not None:
             sink.append(line)
@@ -1111,6 +1171,14 @@ def _run_phase(label, args, sink=None, cwd=None):
         _fbuild_build_lock.touch()
         yield line
     proc.wait()
+    _register_build(None)
+    if _build_was_cancelled():
+        # Said before the exit code, and in a form `parseStatus` checks first:
+        # a killed process exits non-zero, and reporting that as a build failure
+        # would send the user looking for a fault in a graph they simply changed
+        # their mind about.
+        yield "\n*** CANCELLED *** Stopped at your request — nothing was sent to the board.\n"
+        return proc.returncode
     yield f"[{label} exit code: {proc.returncode}]\n"
     return proc.returncode
 
@@ -1505,6 +1573,8 @@ def _upload_result_lines(rc, phase, port):
         # didn't compile" sends the user to inspect a graph that is fine.
         yield ("\n*** DID NOT RUN *** Another build was already using the build "
                "directory. Nothing was compiled or sent to the board.\n")
+    elif _build_was_cancelled():
+        pass  # already said so, in _run_phase, before the exit code
     elif rc != 0 and phase == "compile":
         yield (f"\n*** BUILD FAILED (exit code {rc}) *** The sketch didn't compile, so "
                "nothing was sent to the board — see the errors above.\n")
@@ -2641,6 +2711,16 @@ def upload(payload: dict = Body(...)):
             shutil.rmtree(work, ignore_errors=True)
 
     return StreamingResponse(stream(), media_type="text/plain")
+
+
+@app.post("/api/build/cancel")
+def cancel_build():
+    """Stop the build in progress, if there is one.
+
+    Idempotent and safe to call when nothing is running — the UI offers it
+    whenever an upload is busy, and a build that finished a moment earlier is
+    not an error worth reporting."""
+    return JSONResponse({"ok": True, "cancelled": _cancel_active_build()})
 
 
 @app.post("/api/compile-check")

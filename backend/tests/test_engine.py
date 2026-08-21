@@ -756,6 +756,38 @@ def test_flash_size_is_read_off_the_request_or_ignored():
         assert app._flash_mb_from(bad) is None
 
 
+def test_cancelling_with_nothing_running_is_not_an_error():
+    # The UI offers Cancel whenever an upload is busy, and a build that finished
+    # a moment earlier is not a failure worth reporting.
+    app._register_build(None)
+    assert app._cancel_active_build() is False
+
+
+def test_a_cancelled_build_is_not_reported_as_a_failed_one(monkeypatch):
+    """A killed process exits non-zero; that must not read as a broken sketch.
+
+    The commonest reason to cancel is noticing the wrong board is selected, and
+    sending someone to hunt for a compile error in a graph they never doubted is
+    the worst possible answer.
+    """
+    monkeypatch.setattr(app, "_build_cancelled", True)
+    lines = "".join(app._upload_result_lines(130, "compile", "COM7"))
+    assert "BUILD FAILED" not in lines
+
+
+def test_a_real_failure_still_says_so(monkeypatch):
+    monkeypatch.setattr(app, "_build_cancelled", False)
+    lines = "".join(app._upload_result_lines(1, "compile", "COM7"))
+    assert "BUILD FAILED" in lines
+
+
+def test_the_cancel_endpoint_reports_whether_it_stopped_anything(client, monkeypatch):
+    monkeypatch.setattr(app, "_cancel_active_build", lambda: True)
+    assert client.post("/api/build/cancel").json() == {"ok": True, "cancelled": True}
+    monkeypatch.setattr(app, "_cancel_active_build", lambda: False)
+    assert client.post("/api/build/cancel").json() == {"ok": True, "cancelled": False}
+
+
 def test_vendoring_replaces_a_checkout_whose_git_packs_are_read_only(monkeypatch, tmp_path):
     """Replacing a vendored library must survive git's read-only pack files.
 
