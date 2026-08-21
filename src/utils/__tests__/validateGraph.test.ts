@@ -597,7 +597,9 @@ describe('validateGraph', () => {
       expect(conflicts).toHaveLength(1)
       expect(conflicts[0]).toContain('GPIO 25')
       expect(conflicts[0]).toContain('data pin')
-      expect(conflicts[0]).toContain('internal DAC (GPIO25)')
+      // Named per channel since the pair became two distinct pin uses — see
+      // hardwareManifest, where one shared key collapsed them in the diagram.
+      expect(conflicts[0]).toContain('internal DAC L (GPIO25)')
     })
 
     it('flags a node reusing the same pin for two of its own roles', () => {

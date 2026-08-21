@@ -244,8 +244,8 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
          * pins the DAC would need on the board where it does work.
          */
         if (!nodes.some((entry) => entry.data.nodeType === 'Amplifier')) {
-          push(node, `${baseLabel} internal DAC (GPIO25)`, 'internalDac', 25)
-          push(node, `${baseLabel} internal DAC (GPIO26)`, 'internalDac', 26)
+          push(node, `${baseLabel} internal DAC L (GPIO25)`, 'internalDacLeft', 25)
+          push(node, `${baseLabel} internal DAC R (GPIO26)`, 'internalDacRight', 26)
         }
         break
       case 'Amplifier': {
@@ -258,8 +258,13 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
          */
         const identity = resolvePartIdentity('Amplifier', props)
         if (identity?.option.input === 'analog') {
-          push(node, `${baseLabel} line in (GPIO25)`, 'internalDac', 25)
-          push(node, `${baseLabel} line in (GPIO26)`, 'internalDac', 26)
+          // Distinct keys, not one `internalDac` for both: the diagram builds a
+          // connection id from `${item.id}:${propertyKey}`, so a shared key
+          // collapses the pair into one id — the two DAC pins rendered as a
+          // duplicate of GPIO25 with GPIO26 missing. They are a stereo pair, so
+          // name them as one.
+          push(node, `${baseLabel} line in L (GPIO25)`, 'internalDacLeft', 25)
+          push(node, `${baseLabel} line in R (GPIO26)`, 'internalDacRight', 26)
           break
         }
         push(node, `${baseLabel} I2S BCLK`, 'i2sBclk', props.i2sBclk)

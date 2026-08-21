@@ -135,7 +135,13 @@ describe('hardwareManifest', () => {
     const amp = manifest.items.find((item) => item.sourceNodeId === 'amp')
     expect(amp?.facts.input).toBe('analog')
     expect(amp?.pins.map((pin) => pin.pin)).toEqual([25, 26])
-    expect(amp?.pins.every((pin) => pin.propertyKey === 'internalDac')).toBe(true)
+
+    // Distinct property keys, because the diagram builds a connection id from
+    // `${item.id}:${propertyKey}`. Sharing one `internalDac` key collapsed the
+    // stereo pair into a single id, and the Build Diagram then listed GPIO25
+    // twice with GPIO26 missing entirely.
+    expect(amp?.pins.map((pin) => pin.propertyKey)).toEqual(['internalDacLeft', 'internalDacRight'])
+    expect(new Set(amp?.pins.map((pin) => pin.propertyKey)).size).toBe(2)
   })
 
   it('draws the PIR and the LDR, and claims the pins they sit on', () => {
