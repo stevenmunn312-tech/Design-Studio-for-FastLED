@@ -365,6 +365,10 @@ def _fbuild_libraries_for_sketch(ino: str):
 _PIO_BOARDS: dict[str, dict] = {
     "esp32:esp32:esp32s3": {
         "platform": "espressif32", "board": "esp32-s3-devkitc-1",
+        # Two sockets: a UART bridge and the chip's own USB-Serial/JTAG. Which
+        # one `Serial` reaches is a build-time decision, so both envs exist and
+        # the caller says which cable is in. See `_usb_cdc_from`.
+        "usb_cdc": True,
         # The stock `esp32-s3-devkitc-1` id is the N8 manifest — 8MB, no PSRAM.
         # N16 modules are common (the bench's own is an N16R8, confirmed by
         # esptool: 16MB flash, 8MB octal PSRAM), and with no variant here they
@@ -400,8 +404,8 @@ _PIO_BOARDS: dict[str, dict] = {
     "arduino:avr:leonardo": {"platform": "atmelavr", "board": "leonardo"},
     "arduino:avr:mega": {"platform": "atmelavr", "board": "megaatmega2560"},
     "arduino:megaavr:nona4809": {"platform": "atmelmegaavr", "board": "nona4809"},
-    "esp32:esp32:esp32s2": {"platform": "espressif32", "board": "esp32-s2-saola-1"},
-    "esp32:esp32:esp32c3": {"platform": "espressif32", "board": "esp32-c3-devkitm-1"},
+    "esp32:esp32:esp32s2": {"usb_cdc": True, "platform": "espressif32", "board": "esp32-s2-saola-1"},
+    "esp32:esp32:esp32c3": {"usb_cdc": True, "platform": "espressif32", "board": "esp32-c3-devkitm-1"},
     "esp32:esp32:esp32c6": {"platform": "espressif32", "board": "esp32-c6-devkitc-1"},
     "esp32:esp32:esp32h2": {"platform": "espressif32", "board": "esp32-h2-devkitc-1"},
     "esp8266:esp8266:nodemcuv2": {"platform": "espressif8266", "board": "nodemcuv2"},
@@ -563,13 +567,20 @@ _FBUILD_LOCK_STALE_S = _FBUILD_LOCK_TIMEOUT_S * 2
 _FBUILD_LOCK_POLL_S = 5
 
 
-def _env_id(base_fqbn: str, psram_id: str | None = None, flash_mb: int | None = None) -> str:
+def _env_id(
+    base_fqbn: str, psram_id: str | None = None, flash_mb: int | None = None,
+    usb_cdc: bool = False,
+) -> str:
     slug = re.sub(r"[^A-Za-z0-9_]", "_", base_fqbn)
     if psram_id:
         # A PSRAM option already pins its own flash size (see psram_memory_type),
-        # so the two never combine.
-        return f"{slug}_{psram_id}"
-    return f"{slug}_f{flash_mb}" if flash_mb else slug
+        # so those two never combine.
+        slug = f"{slug}_{psram_id}"
+    elif flash_mb:
+        slug = f"{slug}_f{flash_mb}"
+    # CDC is orthogonal to both — it is about which socket the cable is in, not
+    # what the module contains — so it composes with whatever is above.
+    return f"{slug}_cdc" if usb_cdc else slug
 
 
 def _parse_fqbn(fqbn: str) -> tuple[str, str | None]:
@@ -592,7 +603,22 @@ def _flash_mb_from(payload: dict) -> int | None:
     return value if value > 0 else None
 
 
-def _fbuild_env_for_fqbn(fqbn: str, flash_mb: int | None = None) -> str | None:
+def _usb_cdc_from(payload: dict) -> bool:
+    """Whether the sketch's `Serial` should be the native USB port.
+
+    A fact about the user's cable, not a preference: an ESP32-S3 exposes both a
+    UART bridge and a native USB-Serial/JTAG socket, and `Serial` reaches
+    exactly one of them. Guess wrong and the serial monitor is blank, the RTC
+    handshake times out, the SD show's file transfer never starts and live
+    streaming drops every frame — all silently, because nothing is broken, the
+    two ends are just talking past each other.
+    """
+    return payload.get("usbCdcOnBoot") is True
+
+
+def _fbuild_env_for_fqbn(
+    fqbn: str, flash_mb: int | None = None, usb_cdc: bool = False,
+) -> str | None:
     """The env to build, given the FQBN and — when the caller knows it — how much
     flash the physical module actually has.
 
@@ -609,11 +635,13 @@ def _fbuild_env_for_fqbn(fqbn: str, flash_mb: int | None = None) -> str | None:
         return None
     if psram_id and psram_id not in meta.get("psram_memory_type", {}):
         psram_id = None  # unsupported/unknown option — build without it rather than fail
+    # Only offered where the board actually has a native USB socket to choose.
+    usb_cdc = usb_cdc and bool(meta.get("usb_cdc"))
     if psram_id:
-        return _env_id(base, psram_id)
+        return _env_id(base, psram_id, None, usb_cdc)
     if flash_mb and flash_mb in meta.get("flash_variants", {}):
-        return _env_id(base, None, flash_mb)
-    return _env_id(base)
+        return _env_id(base, None, flash_mb, usb_cdc)
+    return _env_id(base, None, None, usb_cdc)
 
 
 def _write_fbuild_ini() -> None:
@@ -652,28 +680,44 @@ def _write_fbuild_ini() -> None:
         # (`huge_app.csv`, the same table Arduino IDE's "Huge APP" option uses)
         # instead. PSRAM variants below already set their own larger table.
         is_esp32 = meta["platform"] == "espressif32"
-        lines += [
-            f"[env:{_env_id(base_fqbn)}]", f"platform = {meta['platform']}", f"board = {meta['board']}", "framework = arduino",
-            *([f"build_flags = {' '.join(base_flags)}"] if base_flags else []),
-            *(["board_build.partitions = huge_app.csv"] if is_esp32 else []), "",
-        ]
+
+        # Every env below is written twice on a board with a native USB socket:
+        # once as-is, once with `Serial` routed to it. See `_usb_cdc_from` for
+        # why that has to be chosen rather than defaulted — it depends on which
+        # of the board's two sockets the cable is in, and both wrong answers
+        # fail silently. Emitting the pair here keeps CDC orthogonal to the PSRAM
+        # and flash variants rather than multiplying them out by hand.
+        cdc_choices = (False, True) if meta.get("usb_cdc") else (False,)
+
+        def env_block(psram_id, flash_mb, extra_flags=(), extra_lines=()):
+            block = []
+            for cdc in cdc_choices:
+                flags = [*base_flags, *extra_flags,
+                         *(["-DARDUINO_USB_CDC_ON_BOOT=1"] if cdc else [])]
+                block += [
+                    f"[env:{_env_id(base_fqbn, psram_id, flash_mb, cdc)}]",
+                    f"platform = {meta['platform']}", f"board = {meta['board']}",
+                    "framework = arduino",
+                    *([f"build_flags = {' '.join(flags)}"] if flags else []),
+                    *extra_lines, "",
+                ]
+            return block
+
+        lines += env_block(
+            None, None,
+            extra_lines=["board_build.partitions = huge_app.csv"] if is_esp32 else [],
+        )
         # One env per flash size the board is actually sold in, so a bigger
         # module is measured and partitioned against its own flash rather than
         # the stock board id's. Declared per board (see `flash_variants`) rather
         # than assumed for every size: the manifest has to match the part.
         for flash_mb, flash_meta in meta.get("flash_variants", {}).items():
-            lines += [
-                f"[env:{_env_id(base_fqbn, None, flash_mb)}]",
-                f"platform = {meta['platform']}", f"board = {meta['board']}", "framework = arduino",
-                *([f"build_flags = {' '.join(base_flags)}"] if base_flags else []),
+            lines += env_block(None, flash_mb, extra_lines=[
                 f"board_upload.flash_size = {flash_meta['flash_size']}",
-                f"board_build.partitions = {flash_meta['partitions']}", "",
-            ]
+                f"board_build.partitions = {flash_meta['partitions']}",
+            ])
         for psram_id, psram_meta in meta.get("psram_memory_type", {}).items():
-            lines += [
-                f"[env:{_env_id(base_fqbn, psram_id)}]",
-                f"platform = {meta['platform']}", f"board = {meta['board']}", "framework = arduino",
-                f"build_flags = {' '.join([*base_flags, '-DBOARD_HAS_PSRAM'])}",
+            lines += env_block(psram_id, None, extra_flags=["-DBOARD_HAS_PSRAM"], extra_lines=[
                 f"board_build.arduino.memory_type = {psram_meta['memory_type']}",
                 f"board_upload.flash_size = {psram_meta['flash_size']}",
                 # State the flash mode the memory_type already implies, so the
@@ -687,8 +731,8 @@ def _write_fbuild_ini() -> None:
                 *([f"board_build.flash_mode = {psram_meta['flash_mode']}",
                    f"board_build.f_flash = {psram_meta['f_flash']}"]
                   if psram_meta.get("flash_mode") else []),
-                f"board_build.partitions = {psram_meta['partitions']}", "",
-            ]
+                f"board_build.partitions = {psram_meta['partitions']}",
+            ])
     _FBUILD_INI_PATH.write_text("\n".join(lines), encoding="utf-8")
 
 
@@ -1467,7 +1511,7 @@ def _drain_compile(gen):
         return lines, stop.value
 
 
-def _compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None):
+def _compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None, usb_cdc=False):
     """fbuild-engine counterpart to `_compile_upload` — same (rc, phase)
     contract, so callers don't need to know which engine ran.
 
@@ -1514,7 +1558,7 @@ def _compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None):
             yield from _ensure_fbuild_hub75_lib()
         if "#include <Adafruit_ZeroI2S.h>" in ino:
             yield from _ensure_fbuild_zero_i2s_lib()
-        env = _fbuild_env_for_fqbn(fqbn, flash_mb)
+        env = _fbuild_env_for_fqbn(fqbn, flash_mb, usb_cdc)
         if env is None:
             yield f"\n=== ✗ {label}: no fbuild board mapping for {fqbn} ===\n"
             return -1, "compile"
@@ -2730,10 +2774,11 @@ def upload(payload: dict = Body(...)):
         _release_monitor(port)
 
     flash_mb = _flash_mb_from(payload)
+    usb_cdc = _usb_cdc_from(payload)
 
     if engine == "fbuild":
         def stream():
-            rc, phase = yield from _compile_upload_fbuild("Sketch", ino, fqbn, port, flash_mb)
+            rc, phase = yield from _compile_upload_fbuild("Sketch", ino, fqbn, port, flash_mb, usb_cdc)
             yield from _upload_result_lines(rc, phase, port)
         return StreamingResponse(stream(), media_type="text/plain")
 
@@ -2781,15 +2826,16 @@ def compile_check(payload: dict = Body(...)):
 
     if engine == "fbuild":
         flash_mb = _flash_mb_from(payload)
+        usb_cdc = _usb_cdc_from(payload)
         lines, (rc, phase) = _drain_compile(
-            _compile_upload_fbuild("Capacity check", ino, fqbn, "", flash_mb))
+            _compile_upload_fbuild("Capacity check", ino, fqbn, "", flash_mb, usb_cdc))
         sizes = _fbuild_size_bytes_report(lines)
         # A no-op incremental build (nothing changed since the last compile)
         # skips fbuild's own "Flash:"/"RAM:" line entirely — fall back to its
         # persisted size-cache file rather than reporting an empty result for
         # a build that actually succeeded.
         if rc == 0 and sizes.get("flash") is None:
-            env = _fbuild_env_for_fqbn(fqbn, flash_mb)
+            env = _fbuild_env_for_fqbn(fqbn, flash_mb, usb_cdc)
             cached = _fbuild_cached_size(env) if env else None
             if cached:
                 sizes = cached
@@ -2869,6 +2915,7 @@ async def upload_show(
     fqbn = (info.get("fqbn") or _DEFAULT_FQBN).strip()
     port = (info.get("port") or "").strip()
     flash_mb = _flash_mb_from(info)
+    usb_cdc = _usb_cdc_from(info)
     if port and _stream_active() and _stream_port == port:
         return JSONResponse({"ok": False, "error": "port is in use by a live stream — stop it first"}, status_code=409)
     # A serial monitor on the same port blocks esptool with a bare
@@ -2894,7 +2941,7 @@ async def upload_show(
         if engine == "fbuild":
             if label.startswith("Player"):
                 yield from _ensure_fbuild_audio_lib()
-            return (yield from _compile_upload_fbuild(label, ino, fqbn, use_port, flash_mb))
+            return (yield from _compile_upload_fbuild(label, ino, fqbn, use_port, flash_mb, usb_cdc))
         work, sketch_dir = _make_sketch(label.split()[0].lower(), ino)
         work_slot[0] = work
         return (yield from _compile_upload(label, sketch_dir, fqbn, use_port))

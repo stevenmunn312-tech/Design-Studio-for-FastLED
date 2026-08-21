@@ -374,7 +374,7 @@ def test_compile_upload_fbuild_serializes_concurrent_builds(monkeypatch):
     # caller could misread as a capacity overflow. `_fbuild_build_lock` must
     # keep every real build fully serialized.
     monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None: "esp32_esp32_esp32s3")
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: "esp32_esp32_esp32s3")
     monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
 
     active = 0
@@ -452,7 +452,7 @@ def test_compile_upload_fbuild_does_not_narrate_a_wait_it_never_had(monkeypatch)
     # An uncontended build is the common case and must stay silent about the
     # lock - a "queued" line on every upload would be noise that means nothing.
     monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None: None)
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: None)
 
     log = "".join(app._compile_upload_fbuild("Test", "void setup(){}", "someone:elses:board", ""))
     assert "[waiting]" not in log
@@ -463,7 +463,7 @@ def test_compile_upload_fbuild_releases_lock_after_a_failed_build(monkeypatch):
     # successful compile-only, successful upload) or a single failed build
     # would itself become the next "wedged lock" case above.
     monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None: None)
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: None)
 
     list(app._compile_upload_fbuild("Test", "void setup(){}", "someone:elses:board", ""))
 
@@ -477,7 +477,7 @@ def test_compile_upload_fbuild_vendors_hub75_lib_only_when_sketch_needs_it(monke
     # as ESP32-audioI2S/esp_dmx: only sketches that actually include the DMA
     # library's header should trigger the vendor-clone.
     monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None: "esp32_esp32_esp32s3")
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: "esp32_esp32_esp32s3")
     monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
 
     calls = []
@@ -578,7 +578,7 @@ def test_compile_upload_fbuild_points_at_arduino_cli_when_deployer_is_missing(mo
     # bare failure there reads as "upload broken" when it's really "wrong
     # engine for this board" — point at the engine that actually works.
     monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None: "esp8266_esp8266_nodemcuv2")
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: "esp8266_esp8266_nodemcuv2")
     monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
 
     def fake_run_phase(label, args, sink=None, cwd=None):
@@ -605,7 +605,7 @@ def test_compile_upload_fbuild_stays_silent_on_other_upload_failures(monkeypatch
     # gap — an unrelated upload failure (board unplugged, wrong port, ...)
     # shouldn't get a misleading "switch engines" suggestion.
     monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None: "esp32_esp32_esp32s3")
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: "esp32_esp32_esp32s3")
     monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
 
     def fake_run_phase(label, args, sink=None, cwd=None):
@@ -766,6 +766,63 @@ def test_the_plain_env_leaves_an_unknown_module_alone(tmp_path, monkeypatch):
 
     plain = ini.split("[env:esp32_esp32_esp32s3]")[1].split("[env:")[0]
     assert "flash_mode" not in plain
+
+
+def test_usb_cdc_gives_every_s3_env_a_twin(tmp_path, monkeypatch):
+    """Which socket `Serial` reaches is a build-time choice, so both exist.
+
+    An ESP32-S3 has a UART bridge and a native USB-Serial/JTAG port, and the
+    sketch's `Serial` reaches exactly one. Guess wrong and the monitor is blank,
+    the RTC handshake times out, the SD show transfer never starts and live
+    streaming drops every frame — all silently.
+    """
+    monkeypatch.setattr(app, "_FBUILD_INI_PATH", tmp_path / "platformio.ini")
+    app._write_fbuild_ini()
+    ini = (tmp_path / "platformio.ini").read_text(encoding="utf-8")
+
+    # Orthogonal to the PSRAM and flash variants, not multiplied out by hand.
+    for env in ("esp32_esp32_esp32s3", "esp32_esp32_esp32s3_cdc",
+                "esp32_esp32_esp32s3_opi", "esp32_esp32_esp32s3_opi_cdc",
+                "esp32_esp32_esp32s3_f16", "esp32_esp32_esp32s3_f16_cdc"):
+        assert f"[env:{env}]" in ini, env
+
+    plain = ini.split("[env:esp32_esp32_esp32s3]")[1].split("[env:")[0]
+    cdc = ini.split("[env:esp32_esp32_esp32s3_cdc]")[1].split("[env:")[0]
+    assert "ARDUINO_USB_CDC_ON_BOOT" not in plain
+    assert "-DARDUINO_USB_CDC_ON_BOOT=1" in cdc
+    # The twin differs by that flag alone.
+    assert "board_build.partitions = huge_app.csv" in cdc
+
+    # A PSRAM twin keeps everything its base env had.
+    opi_cdc = ini.split("[env:esp32_esp32_esp32s3_opi_cdc]")[1].split("[env:")[0]
+    assert "-DBOARD_HAS_PSRAM" in opi_cdc
+    assert "board_build.flash_mode = qio" in opi_cdc
+    assert "-DARDUINO_USB_CDC_ON_BOOT=1" in opi_cdc
+
+
+def test_a_board_with_one_socket_gets_no_cdc_env(tmp_path, monkeypatch):
+    # The classic ESP32 has no native USB at all — offering the choice would be
+    # offering a cable that does not exist.
+    monkeypatch.setattr(app, "_FBUILD_INI_PATH", tmp_path / "platformio.ini")
+    app._write_fbuild_ini()
+    ini = (tmp_path / "platformio.ini").read_text(encoding="utf-8")
+    assert "[env:esp32_esp32_esp32_cdc]" not in ini
+    assert "[env:esp32_esp32_esp32doit_devkit_v1_cdc]" not in ini
+
+
+def test_cdc_is_ignored_for_a_board_that_cannot_offer_it():
+    assert app._fbuild_env_for_fqbn("esp32:esp32:esp32s3", None, True) == "esp32_esp32_esp32s3_cdc"
+    assert app._fbuild_env_for_fqbn("esp32:esp32:esp32s3:PSRAM=opi", None, True) == "esp32_esp32_esp32s3_opi_cdc"
+    assert app._fbuild_env_for_fqbn("esp32:esp32:esp32s3", 16, True) == "esp32_esp32_esp32s3_f16_cdc"
+    # No native USB on the classic part, so the request is dropped rather than
+    # resolving to an env that was never written.
+    assert app._fbuild_env_for_fqbn("esp32:esp32:esp32", None, True) == "esp32_esp32_esp32"
+
+
+def test_usb_cdc_is_read_off_the_request():
+    assert app._usb_cdc_from({"usbCdcOnBoot": True}) is True
+    for off in ({}, {"usbCdcOnBoot": False}, {"usbCdcOnBoot": "yes"}, {"usbCdcOnBoot": None}):
+        assert app._usb_cdc_from(off) is False
 
 
 def test_the_flash_variant_env_is_actually_written(tmp_path, monkeypatch):
