@@ -150,7 +150,7 @@ each source is allowed on is enforced in `validateGraph.ts`
 | Compile Time | Every board in the catalogue | No board restriction | No |
 | Manual | Every board in the catalogue | No board restriction | No |
 | NTP | ESP32-family (S3, S2, C3, C6, H2, classic) and ESP8266 | Yes — blocked on every other board | No |
-| DS3231 | Every board with the standard Arduino `Wire` API and a default I²C bus | No board restriction | No |
+| DS3231 | Every board with the standard Arduino `Wire` API and a default I²C bus | No board restriction | **Yes** — classic ESP-32D DevKit v1 (30-pin), Jaycar XC9044 module, `fbuild`, `2026-08-21`: time written via the helper's `/api/rtc/set`, then read back and rendered by Clock Display on the LEDs |
 
 Notes:
 
