@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { getGroupRegistry, useRootEdges, useRootNodes } from '../../state/graphStore'
-import { boardByFqbn, engineReady, useUploadStore } from '../../state/uploadStore'
+import { boardByFqbn, boardHasUsbCdc, engineReady, useUploadStore } from '../../state/uploadStore'
 import { useCapacityStore } from '../../state/capacityStore'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
@@ -64,6 +64,9 @@ export default function CapacityWatcher() {
    */
   const psramOptions = isShow ? undefined : board?.psram
   const controller = controllerSettings(nodes)
+  // Which socket `Serial` uses is part of the build, so the check must measure
+  // the same env the upload would flash.
+  const usbCdcOnBoot = boardHasUsbCdc(selectedFqbn) && controller.usbCdcOnBoot
   const psramChoice = psramOptions?.find((option) => option.id === controller.psramMode) ?? psramOptions?.[0]
   const fqbnWithOpt = controller.usePsram && psramChoice ? `${selectedFqbn}:${psramChoice.opt}` : selectedFqbn
 
@@ -103,8 +106,9 @@ export default function CapacityWatcher() {
       engineTag: helper?.engine,
       subject: isShow ? 'player' : 'sketch',
       flashMb,
+      usbCdcOnBoot,
     })
-  }, [capacityCode, fqbnWithOpt, toolchainReady, helper?.engine, isShow, flashMb, setCapacityTarget])
+  }, [capacityCode, fqbnWithOpt, toolchainReady, helper?.engine, isShow, flashMb, usbCdcOnBoot, setCapacityTarget])
 
   return null
 }

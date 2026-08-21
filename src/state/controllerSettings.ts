@@ -9,6 +9,10 @@ export interface ControllerSettings {
   milliamps: number
   usePsram: boolean
   psramMode: string
+  /** Route the sketch's `Serial` to the board's native USB socket rather than
+   *  its UART bridge. A fact about which cable is plugged in, not a
+   *  preference — see `usbCdcBoards` for why it cannot be defaulted. */
+  usbCdcOnBoot: boolean
 }
 
 export const DEFAULT_CONTROLLER_SETTINGS: ControllerSettings = {
@@ -19,6 +23,10 @@ export const DEFAULT_CONTROLLER_SETTINGS: ControllerSettings = {
   milliamps: 2000,
   usePsram: false,
   psramMode: 'opi',
+  // Off matches both Arduino's own default and every build this app has made
+  // so far, so enabling it is a deliberate act rather than a silent move of
+  // where a user's serial output goes.
+  usbCdcOnBoot: false,
 }
 
 function number(value: unknown, fallback: number, min: number, max: number): number {
@@ -49,6 +57,7 @@ export function controllerSettings(nodes: readonly StudioNode[]): ControllerSett
     usePsram: board ? props.usePsram === true : legacyOutputs.some((node) =>
       (node.data.properties as Record<string, unknown>).usePsram === true),
     psramMode: typeof props.psramMode === 'string' && props.psramMode ? props.psramMode : DEFAULT_CONTROLLER_SETTINGS.psramMode,
+    usbCdcOnBoot: props.usbCdcOnBoot === true,
   }
 }
 

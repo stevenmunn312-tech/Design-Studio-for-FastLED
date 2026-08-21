@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useGraphStore, useRootNodes } from '../../state/graphStore'
-import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
+import { boardHasUsbCdc, boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import { controllerSettings } from '../../state/controllerSettings'
 import {
   BOARD_PROFILE_FAMILIES,
@@ -46,6 +46,7 @@ export default function BoardNodeBody({ nodeId }: Props) {
   const profile = useMemo(() => boardProfileById(profileId), [profileId])
   const boardTarget = boardByFqbn(selectedFqbn)
   const psramOptions = boardTarget?.psram
+  const hasUsbCdc = boardHasUsbCdc(selectedFqbn)
   const graphNodes = useRootNodes()
   const settings = useMemo(() => controllerSettings(graphNodes), [graphNodes])
   const psramChoice = psramOptions?.find((option) => option.id === settings.psramMode) ?? psramOptions?.[0]
@@ -243,6 +244,22 @@ export default function BoardNodeBody({ nodeId }: Props) {
           </div>
         ) : (
           <p className={styles.pending}>PSRAM is not available for this board target.</p>
+        )}
+
+        {hasUsbCdc && (
+          <div className={styles.psramBlock}>
+            <label className={styles.checkField}>
+              <input type="checkbox" checked={settings.usbCdcOnBoot} aria-label="USB CDC on boot"
+                onChange={(event) => updateNodeProperty(nodeId, 'usbCdcOnBoot', event.target.checked)} />
+              <span>Serial over the native USB port</span>
+            </label>
+            <p className={styles.pending}>
+              This board has two USB sockets. Tick this if your cable is in the one wired
+              straight to the chip; leave it off for the socket with the separate USB-serial
+              chip. It decides where the serial monitor, RTC set, SD-show transfer and live
+              streaming talk — the wrong choice fails silently rather than reporting an error.
+            </p>
+          </div>
         )}
       </div>
 

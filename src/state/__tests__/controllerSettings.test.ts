@@ -27,6 +27,9 @@ describe('controllerSettings', () => {
       milliamps: 6000,
       usePsram: true,
       psramMode: 'opi',
+      // Off unless the Board says otherwise: enabling it moves where the
+      // user's serial output goes, so it is never inferred.
+      usbCdcOnBoot: false,
     })
     expect(ledPropsWithController({ brightness: 20, overclock: 1.7, dataPin: 5 }, nodes))
       .toEqual(expect.objectContaining({ brightness: 144, overclock: 1.25, dataPin: 5 }))

@@ -331,11 +331,12 @@ export async function uploadSketch(
   onLog: (chunk: string) => void,
   signal?: AbortSignal,
   flashMb?: number,
+  usbCdcOnBoot?: boolean,
 ): Promise<void> {
   const res = await fetch(`${BACKEND_URL}/api/upload`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ino, fqbn, port, flashMb }),
+    body: JSON.stringify({ ino, fqbn, port, flashMb, usbCdcOnBoot }),
     signal,
   })
   await pipeStream(res, onLog)
@@ -384,12 +385,12 @@ export interface CompileCheckResult {
  * a genuine compile failure (which resolves normally with `ok: false`).
  */
 export async function compileCheck(
-  ino: string, fqbn: string, signal?: AbortSignal, flashMb?: number,
+  ino: string, fqbn: string, signal?: AbortSignal, flashMb?: number, usbCdcOnBoot?: boolean,
 ): Promise<CompileCheckResult> {
   const res = await fetch(`${BACKEND_URL}/api/compile-check`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ino, fqbn, flashMb }),
+    body: JSON.stringify({ ino, fqbn, flashMb, usbCdcOnBoot }),
     signal,
   })
   return (await res.json()) as CompileCheckResult

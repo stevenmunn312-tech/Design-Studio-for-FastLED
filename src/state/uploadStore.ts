@@ -9,6 +9,7 @@ import { useProjectStore } from './projectStore'
 import { useStreamStore } from './streamStore'
 import { useGraphStore, rootGraphNodes } from './graphStore'
 import { selectedBoardFlashMb } from '../build/boardProfiles'
+import { controllerSettings } from './controllerSettings'
 import { BOARD_GPIO_BY_FQBN, type BoardGpio } from './boardGpio'
 
 export type { BoardGpio, PinNote } from './boardGpio'
@@ -24,6 +25,25 @@ export type { BoardGpio, PinNote } from './boardGpio'
 // firmware checks `psramFound()` at runtime. Boards without the field (AVR,
 // RP2040, Teensy) have no PSRAM support.
 export interface PsramOption { id: string; label: string; opt: string }
+
+/**
+ * Boards with a native USB socket *and* a separate UART bridge, where the
+ * sketch's `Serial` reaches one or the other depending on a build flag.
+ *
+ * Keyed on FQBN because it is a property of the chip, not of a particular
+ * board: every ESP32-S3/S2/C3 has the USB-Serial/JTAG peripheral. The classic
+ * ESP32 has none, so offering the choice there would offer a cable that does
+ * not exist.
+ */
+const USB_CDC_FQBNS = new Set([
+  'esp32:esp32:esp32s3',
+  'esp32:esp32:esp32s2',
+  'esp32:esp32:esp32c3',
+])
+
+export function boardHasUsbCdc(fqbn: string): boolean {
+  return USB_CDC_FQBNS.has(fqbn)
+}
 
 export interface Board {
   label: string
@@ -630,13 +650,17 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       // The module's own flash size, when the chosen board profile records one.
       // The FQBN cannot say it: `esp32:esp32:esp32s3` is generic and resolves to
       // the 8MB N8 board id, so a 16MB part built against half its flash.
-      const flashMb = selectedBoardFlashMb(rootGraphNodes(useGraphStore.getState()))
+      const rootNodes = rootGraphNodes(useGraphStore.getState())
+      const flashMb = selectedBoardFlashMb(rootNodes)
+      // Only meaningful on a board that has both sockets; elsewhere the helper
+      // ignores it, but there is no reason to send a claim we cannot make.
+      const usbCdcOnBoot = boardHasUsbCdc(selectedFqbn) && controllerSettings(rootNodes).usbCdcOnBoot
       await uploadSketch(code, fqbn, selectedPort, (chunk) => {
         const log = (get().log + chunk).slice(-60000)
         const status = parseStatus(log)
         set({ log, status })
         if (status.phase === 'error') set({ consoleOpen: true })
-      }, undefined, flashMb)
+      }, undefined, flashMb, usbCdcOnBoot)
       // Settle on a terminal status from the full log.
       const final = parseStatus(get().log)
       const settled = final.phase === 'uploading' || final.phase === 'working'

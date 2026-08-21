@@ -238,6 +238,8 @@ describe('uploadStore', () => {
       // No board profile on this graph, so nothing overrides the board id's own
       // flash manifest — the behaviour every unrecorded board keeps.
       undefined,
+      // And no Board node, so `Serial` stays on the UART bridge.
+      false,
     )
 
     mocks.uploadSketch.mockClear()
@@ -251,6 +253,8 @@ describe('uploadStore', () => {
       // No board profile on this graph, so nothing overrides the board id's own
       // flash manifest — the behaviour every unrecorded board keeps.
       undefined,
+      // And no Board node, so `Serial` stays on the UART bridge.
+      false,
     )
 
     const other = useProjectStore.getState().createProject('Other', workspace(['b']))
