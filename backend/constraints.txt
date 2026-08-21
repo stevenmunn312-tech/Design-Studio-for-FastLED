@@ -12,7 +12,7 @@ cryptography==48.0.0; platform_system == "Darwin" and platform_machine == "x86_6
 cryptography==49.0.0; platform_system != "Darwin" or platform_machine != "x86_64"
 esptool==5.3.1
 fastapi==0.139.0
-fbuild==2.5.16
+fbuild==2.5.18
 h11==0.16.0
 httpcore==1.0.9
 httptools==0.8.0
