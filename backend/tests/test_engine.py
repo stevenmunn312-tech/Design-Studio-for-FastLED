@@ -374,7 +374,7 @@ def test_compile_upload_fbuild_serializes_concurrent_builds(monkeypatch):
     # caller could misread as a capacity overflow. `_fbuild_build_lock` must
     # keep every real build fully serialized.
     monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn: "esp32_esp32_esp32s3")
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None: "esp32_esp32_esp32s3")
     monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
 
     active = 0
@@ -452,7 +452,7 @@ def test_compile_upload_fbuild_does_not_narrate_a_wait_it_never_had(monkeypatch)
     # An uncontended build is the common case and must stay silent about the
     # lock - a "queued" line on every upload would be noise that means nothing.
     monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn: None)
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None: None)
 
     log = "".join(app._compile_upload_fbuild("Test", "void setup(){}", "someone:elses:board", ""))
     assert "[waiting]" not in log
@@ -463,7 +463,7 @@ def test_compile_upload_fbuild_releases_lock_after_a_failed_build(monkeypatch):
     # successful compile-only, successful upload) or a single failed build
     # would itself become the next "wedged lock" case above.
     monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn: None)
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None: None)
 
     list(app._compile_upload_fbuild("Test", "void setup(){}", "someone:elses:board", ""))
 
@@ -477,7 +477,7 @@ def test_compile_upload_fbuild_vendors_hub75_lib_only_when_sketch_needs_it(monke
     # as ESP32-audioI2S/esp_dmx: only sketches that actually include the DMA
     # library's header should trigger the vendor-clone.
     monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn: "esp32_esp32_esp32s3")
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None: "esp32_esp32_esp32s3")
     monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
 
     calls = []
@@ -578,7 +578,7 @@ def test_compile_upload_fbuild_points_at_arduino_cli_when_deployer_is_missing(mo
     # bare failure there reads as "upload broken" when it's really "wrong
     # engine for this board" — point at the engine that actually works.
     monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn: "esp8266_esp8266_nodemcuv2")
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None: "esp8266_esp8266_nodemcuv2")
     monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
 
     def fake_run_phase(label, args, sink=None, cwd=None):
@@ -605,7 +605,7 @@ def test_compile_upload_fbuild_stays_silent_on_other_upload_failures(monkeypatch
     # gap — an unrelated upload failure (board unplugged, wrong port, ...)
     # shouldn't get a misleading "switch engines" suggestion.
     monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn: "esp32_esp32_esp32s3")
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None: "esp32_esp32_esp32s3")
     monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
 
     def fake_run_phase(label, args, sink=None, cwd=None):
@@ -710,6 +710,50 @@ def test_busy_result_does_not_blame_the_sketch():
     assert "DID NOT RUN" in lines
     assert "didn't compile" not in lines
     assert "UPLOAD FAILED" not in lines
+
+
+def test_a_bigger_module_builds_against_its_own_flash():
+    """A 16MB module must not be measured against the board id's 8MB manifest.
+
+    `esp32:esp32:esp32s3` is generic and resolves to PlatformIO's stock
+    DevKitC-1, whose manifest is the N8 variant. Without a variant env the
+    build — and the capacity meter reading its size report — targets 8MB on a
+    part with 16MB, which is half the real ceiling.
+    """
+    assert app._fbuild_env_for_fqbn("esp32:esp32:esp32s3") == "esp32_esp32_esp32s3"
+    assert app._fbuild_env_for_fqbn("esp32:esp32:esp32s3", 16) == "esp32_esp32_esp32s3_f16"
+
+
+def test_an_unknown_flash_size_keeps_the_board_manifest():
+    # Only sizes the board declares a variant for are honoured. Telling an N8
+    # part it has 16MB produces an image it cannot boot, so an unrecognised
+    # size falls back rather than inventing an env.
+    assert app._fbuild_env_for_fqbn("esp32:esp32:esp32s3", 4) == "esp32_esp32_esp32s3"
+    assert app._fbuild_env_for_fqbn("esp32:esp32:esp32doit-devkit-v1", 16) == "esp32_esp32_esp32doit_devkit_v1"
+
+
+def test_a_psram_option_pins_its_own_flash_size():
+    # The PSRAM envs already set flash_size themselves, so the two never stack.
+    assert app._fbuild_env_for_fqbn("esp32:esp32:esp32s3:PSRAM=opi", 16) == "esp32_esp32_esp32s3_opi"
+
+
+def test_the_flash_variant_env_is_actually_written(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "_FBUILD_INI_PATH", tmp_path / "platformio.ini")
+    app._write_fbuild_ini()
+    ini = (tmp_path / "platformio.ini").read_text(encoding="utf-8")
+    assert "[env:esp32_esp32_esp32s3_f16]" in ini
+    body = ini.split("[env:esp32_esp32_esp32s3_f16]")[1].split("[env:")[0]
+    assert "board_upload.flash_size = 16MB" in body
+    # Same app slot as the default env — what changes is that the rest of the
+    # flash stops being invisible, not how much the sketch may use.
+    assert "board_build.partitions = huge_app.csv" in body
+
+
+def test_flash_size_is_read_off_the_request_or_ignored():
+    assert app._flash_mb_from({"flashMb": 16}) == 16
+    assert app._flash_mb_from({"flashMb": "16"}) == 16
+    for bad in ({}, {"flashMb": None}, {"flashMb": 0}, {"flashMb": "big"}):
+        assert app._flash_mb_from(bad) is None
 
 
 def test_vendoring_replaces_a_checkout_whose_git_packs_are_read_only(monkeypatch, tmp_path):

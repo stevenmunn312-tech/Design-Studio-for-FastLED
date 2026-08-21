@@ -361,6 +361,14 @@ def _fbuild_libraries_for_sketch(ino: str):
 _PIO_BOARDS: dict[str, dict] = {
     "esp32:esp32:esp32s3": {
         "platform": "espressif32", "board": "esp32-s3-devkitc-1",
+        # The stock `esp32-s3-devkitc-1` id is the N8 manifest — 8MB, no PSRAM.
+        # N16 modules are common (the bench's own is an N16R8, confirmed by
+        # esptool: 16MB flash, 8MB octal PSRAM), and with no variant here they
+        # built and measured against 8MB. `huge_app.csv` keeps the same ~3MB app
+        # slot; what changes is that the other 8MB stops being invisible.
+        "flash_variants": {
+            16: {"flash_size": "16MB", "partitions": "huge_app.csv"},
+        },
         "psram_memory_type": {
             "opi":  {"memory_type": "qio_opi",  "flash_size": "16MB", "partitions": "default_16MB.csv"},
             "qspi": {"memory_type": "qio_qspi", "flash_size": "8MB",  "partitions": "default_8MB.csv"},
@@ -545,9 +553,13 @@ _FBUILD_LOCK_STALE_S = _FBUILD_LOCK_TIMEOUT_S * 2
 _FBUILD_LOCK_POLL_S = 5
 
 
-def _env_id(base_fqbn: str, psram_id: str | None = None) -> str:
+def _env_id(base_fqbn: str, psram_id: str | None = None, flash_mb: int | None = None) -> str:
     slug = re.sub(r"[^A-Za-z0-9_]", "_", base_fqbn)
-    return f"{slug}_{psram_id}" if psram_id else slug
+    if psram_id:
+        # A PSRAM option already pins its own flash size (see psram_memory_type),
+        # so the two never combine.
+        return f"{slug}_{psram_id}"
+    return f"{slug}_f{flash_mb}" if flash_mb else slug
 
 
 def _parse_fqbn(fqbn: str) -> tuple[str, str | None]:
@@ -559,14 +571,39 @@ def _parse_fqbn(fqbn: str) -> tuple[str, str | None]:
     return base, psram_id
 
 
-def _fbuild_env_for_fqbn(fqbn: str) -> str | None:
+def _flash_mb_from(payload: dict) -> int | None:
+    """The module's real flash size, as the frontend read it off the selected
+    board profile. Absent or unusable means "use the board id's own manifest",
+    which is what every board with no recorded module size keeps doing."""
+    try:
+        value = int(payload.get("flashMb") or 0)
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
+
+
+def _fbuild_env_for_fqbn(fqbn: str, flash_mb: int | None = None) -> str | None:
+    """The env to build, given the FQBN and — when the caller knows it — how much
+    flash the physical module actually has.
+
+    `flash_mb` comes from the board profile the user picked, not from the FQBN:
+    `esp32:esp32:esp32s3` is generic, and the stock PlatformIO board id behind it
+    is the *N8* manifest. On a 16MB module that silently builds and measures
+    against half the real flash, which is what the capacity meter then reports.
+    Only sizes the board declares a variant for are honoured — an N8 part must
+    never be told it has 16MB.
+    """
     base, psram_id = _parse_fqbn(fqbn)
     meta = _PIO_BOARDS.get(base)
     if meta is None:
         return None
     if psram_id and psram_id not in meta.get("psram_memory_type", {}):
         psram_id = None  # unsupported/unknown option — build without it rather than fail
-    return _env_id(base, psram_id)
+    if psram_id:
+        return _env_id(base, psram_id)
+    if flash_mb and flash_mb in meta.get("flash_variants", {}):
+        return _env_id(base, None, flash_mb)
+    return _env_id(base)
 
 
 def _write_fbuild_ini() -> None:
@@ -610,6 +647,18 @@ def _write_fbuild_ini() -> None:
             *([f"build_flags = {' '.join(base_flags)}"] if base_flags else []),
             *(["board_build.partitions = huge_app.csv"] if is_esp32 else []), "",
         ]
+        # One env per flash size the board is actually sold in, so a bigger
+        # module is measured and partitioned against its own flash rather than
+        # the stock board id's. Declared per board (see `flash_variants`) rather
+        # than assumed for every size: the manifest has to match the part.
+        for flash_mb, flash_meta in meta.get("flash_variants", {}).items():
+            lines += [
+                f"[env:{_env_id(base_fqbn, None, flash_mb)}]",
+                f"platform = {meta['platform']}", f"board = {meta['board']}", "framework = arduino",
+                *([f"build_flags = {' '.join(base_flags)}"] if base_flags else []),
+                f"board_upload.flash_size = {flash_meta['flash_size']}",
+                f"board_build.partitions = {flash_meta['partitions']}", "",
+            ]
         for psram_id, psram_meta in meta.get("psram_memory_type", {}).items():
             lines += [
                 f"[env:{_env_id(base_fqbn, psram_id)}]",
@@ -1329,7 +1378,7 @@ def _drain_compile(gen):
         return lines, stop.value
 
 
-def _compile_upload_fbuild(label, ino, fqbn, port):
+def _compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None):
     """fbuild-engine counterpart to `_compile_upload` — same (rc, phase)
     contract, so callers don't need to know which engine ran.
 
@@ -1376,7 +1425,7 @@ def _compile_upload_fbuild(label, ino, fqbn, port):
             yield from _ensure_fbuild_hub75_lib()
         if "#include <Adafruit_ZeroI2S.h>" in ino:
             yield from _ensure_fbuild_zero_i2s_lib()
-        env = _fbuild_env_for_fqbn(fqbn)
+        env = _fbuild_env_for_fqbn(fqbn, flash_mb)
         if env is None:
             yield f"\n=== ✗ {label}: no fbuild board mapping for {fqbn} ===\n"
             return -1, "compile"
@@ -2574,9 +2623,11 @@ def upload(payload: dict = Body(...)):
     if port:
         _release_monitor(port)
 
+    flash_mb = _flash_mb_from(payload)
+
     if engine == "fbuild":
         def stream():
-            rc, phase = yield from _compile_upload_fbuild("Sketch", ino, fqbn, port)
+            rc, phase = yield from _compile_upload_fbuild("Sketch", ino, fqbn, port, flash_mb)
             yield from _upload_result_lines(rc, phase, port)
         return StreamingResponse(stream(), media_type="text/plain")
 
@@ -2613,14 +2664,16 @@ def compile_check(payload: dict = Body(...)):
         return JSONResponse({"ok": False, "error": "no sketch to compile"}, status_code=400)
 
     if engine == "fbuild":
-        lines, (rc, phase) = _drain_compile(_compile_upload_fbuild("Capacity check", ino, fqbn, ""))
+        flash_mb = _flash_mb_from(payload)
+        lines, (rc, phase) = _drain_compile(
+            _compile_upload_fbuild("Capacity check", ino, fqbn, "", flash_mb))
         sizes = _fbuild_size_bytes_report(lines)
         # A no-op incremental build (nothing changed since the last compile)
         # skips fbuild's own "Flash:"/"RAM:" line entirely — fall back to its
         # persisted size-cache file rather than reporting an empty result for
         # a build that actually succeeded.
         if rc == 0 and sizes.get("flash") is None:
-            env = _fbuild_env_for_fqbn(fqbn)
+            env = _fbuild_env_for_fqbn(fqbn, flash_mb)
             cached = _fbuild_cached_size(env) if env else None
             if cached:
                 sizes = cached
@@ -2699,6 +2752,7 @@ async def upload_show(
     info = json.loads(meta)
     fqbn = (info.get("fqbn") or _DEFAULT_FQBN).strip()
     port = (info.get("port") or "").strip()
+    flash_mb = _flash_mb_from(info)
     if port and _stream_active() and _stream_port == port:
         return JSONResponse({"ok": False, "error": "port is in use by a live stream — stop it first"}, status_code=409)
     # A serial monitor on the same port blocks esptool with a bare
@@ -2724,7 +2778,7 @@ async def upload_show(
         if engine == "fbuild":
             if label.startswith("Player"):
                 yield from _ensure_fbuild_audio_lib()
-            return (yield from _compile_upload_fbuild(label, ino, fqbn, use_port))
+            return (yield from _compile_upload_fbuild(label, ino, fqbn, use_port, flash_mb))
         work, sketch_dir = _make_sketch(label.split()[0].lower(), ino)
         work_slot[0] = work
         return (yield from _compile_upload(label, sketch_dir, fqbn, use_port))

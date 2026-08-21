@@ -317,17 +317,25 @@ async function pipeStream(res: Response, onLog: (chunk: string) => void): Promis
  * Compile + upload a raw `.ino`, invoking `onLog` with each streamed text chunk.
  * Rejects if the helper is unreachable so the caller can fall back to commands.
  */
+/**
+ * `flashMb`: how much flash the *module* has, from the selected board profile.
+ * The FQBN cannot carry it — `esp32:esp32:esp32s3` is generic, and the board id
+ * behind it is the 8MB N8 manifest — so a 16MB part built and measured against
+ * half its flash. Omitted when the profile records no size, which leaves the
+ * board id's own manifest in charge.
+ */
 export async function uploadSketch(
   ino: string,
   fqbn: string,
   port: string,
   onLog: (chunk: string) => void,
   signal?: AbortSignal,
+  flashMb?: number,
 ): Promise<void> {
   const res = await fetch(`${BACKEND_URL}/api/upload`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ino, fqbn, port }),
+    body: JSON.stringify({ ino, fqbn, port, flashMb }),
     signal,
   })
   await pipeStream(res, onLog)
@@ -358,11 +366,13 @@ export interface CompileCheckResult {
  * a network-level failure so the caller can distinguish "helper offline" from
  * a genuine compile failure (which resolves normally with `ok: false`).
  */
-export async function compileCheck(ino: string, fqbn: string, signal?: AbortSignal): Promise<CompileCheckResult> {
+export async function compileCheck(
+  ino: string, fqbn: string, signal?: AbortSignal, flashMb?: number,
+): Promise<CompileCheckResult> {
   const res = await fetch(`${BACKEND_URL}/api/compile-check`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ino, fqbn }),
+    body: JSON.stringify({ ino, fqbn, flashMb }),
     signal,
   })
   return (await res.json()) as CompileCheckResult

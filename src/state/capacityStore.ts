@@ -62,6 +62,10 @@ export interface CapacityTarget {
   toolchainReady: boolean
   engineTag?: string
   subject: CapacitySubject
+  /** The module's flash size, when the board profile records one. Part of the
+   *  reading: the same sketch on the same FQBN measures against a different
+   *  ceiling on an N8 than on an N16, so it belongs in the key too. */
+  flashMb?: number
   /** Identity of everything a reading depends on — the staleness test. */
   key: string
 }
@@ -115,7 +119,7 @@ function hashCode(s: string): string {
 }
 
 function targetKey(t: Omit<CapacityTarget, 'key'>): string {
-  return `${t.fqbn}|${t.engineTag ?? ''}|${t.subject}|${t.code === null ? 'none' : hashCode(t.code)}`
+  return `${t.fqbn}|${t.engineTag ?? ''}|${t.subject}|${t.flashMb ?? ''}|${t.code === null ? 'none' : hashCode(t.code)}`
 }
 
 let retryTimer: ReturnType<typeof setTimeout> | null = null
@@ -172,7 +176,7 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
     if (!target || target.code === null || !target.toolchainReady) return
 
     cancelInFlight()
-    const { code, fqbn, key } = target
+    const { code, fqbn, key, flashMb } = target
     let attempt = 0
 
     const run = () => {
@@ -182,7 +186,7 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
       const controller = new AbortController()
       inFlightController = controller
       set({ status: 'checking' })
-      compileCheck(code, fqbn, controller.signal)
+      compileCheck(code, fqbn, controller.signal, flashMb)
         .then((res) => {
           if (controller.signal.aborted || get().target?.key !== key) return
           if (res.busy && attempt < BUSY_RETRY_LIMIT) {

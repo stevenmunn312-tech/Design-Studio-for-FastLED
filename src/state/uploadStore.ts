@@ -7,6 +7,8 @@ import {
 } from '../utils/backendClient'
 import { useProjectStore } from './projectStore'
 import { useStreamStore } from './streamStore'
+import { useGraphStore, rootGraphNodes } from './graphStore'
+import { selectedBoardFlashMb } from '../build/boardProfiles'
 import { BOARD_GPIO_BY_FQBN, type BoardGpio } from './boardGpio'
 
 export type { BoardGpio, PinNote } from './boardGpio'
@@ -604,12 +606,16 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     const fqbn = fqbnOpt ? `${selectedFqbn}:${fqbnOpt}` : selectedFqbn
     set({ busy: true, log: `Uploading to ${selectedPort} (${fqbn})…\n`, status: { phase: 'working', message: 'Starting…' } })
     try {
+      // The module's own flash size, when the chosen board profile records one.
+      // The FQBN cannot say it: `esp32:esp32:esp32s3` is generic and resolves to
+      // the 8MB N8 board id, so a 16MB part built against half its flash.
+      const flashMb = selectedBoardFlashMb(rootGraphNodes(useGraphStore.getState()))
       await uploadSketch(code, fqbn, selectedPort, (chunk) => {
         const log = (get().log + chunk).slice(-60000)
         const status = parseStatus(log)
         set({ log, status })
         if (status.phase === 'error') set({ consoleOpen: true })
-      })
+      }, undefined, flashMb)
       // Settle on a terminal status from the full log.
       const final = parseStatus(get().log)
       set({ status: final.phase === 'uploading' || final.phase === 'working' ? { phase: 'done', message: 'Done' } : final })

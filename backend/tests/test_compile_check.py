@@ -8,7 +8,7 @@ def test_compile_check_returns_measured_sizes_on_success(client, monkeypatch):
     monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
     monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
 
-    def fake_compile_upload_fbuild(label, ino, fqbn, port):
+    def fake_compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None):
         assert port == ""  # capacity check never uploads
         yield "Flash: 4.45KB / 31.50KB (14.1%)\n"
         yield "RAM:   367 bytes / 2.00KB (17.9%)\n"
@@ -78,7 +78,7 @@ def test_compile_check_surfaces_over_100_percent_usage_on_fbuild_overflow(client
     monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
     monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
 
-    def fake_compile_upload_fbuild(label, ino, fqbn, port):
+    def fake_compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None):
         yield "Flash: 38.39KB / 31.50KB (121.9%)\n"
         yield "region `.text' overflowed by 7052 bytes\n"
         return 1, "compile"
@@ -102,7 +102,7 @@ def test_compile_check_estimates_percentage_on_a_hard_linker_overflow(client, mo
     monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
     monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
 
-    def fake_compile_upload_fbuild(label, ino, fqbn, port):
+    def fake_compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None):
         yield "Memory: 8.00MB Flash, 320.00KB RAM\n"
         yield "ld.exe: region `dram0_0_seg' overflowed by 8734704 bytes\n"
         return 1, "compile"
@@ -122,7 +122,7 @@ def test_compile_check_reports_generic_error_when_not_overflow(client, monkeypat
     monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
     monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
 
-    def fake_compile_upload_fbuild(label, ino, fqbn, port):
+    def fake_compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None):
         yield "some unrelated compile error\n"
         return 1, "compile"
 
@@ -146,7 +146,7 @@ def test_compile_check_does_not_blame_the_sketch_for_a_build_lock_timeout(client
     monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
     monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
 
-    def fake_compile_upload_fbuild(label, ino, fqbn, port):
+    def fake_compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None):
         yield "another fbuild build is still running\n"
         return -1, "busy"
 
@@ -164,7 +164,7 @@ def test_compile_check_marks_a_real_compile_failure_as_not_busy(client, monkeypa
     monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
     monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
 
-    def fake_compile_upload_fbuild(label, ino, fqbn, port):
+    def fake_compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None):
         yield "some unrelated compile error\n"
         return 1, "compile"
 
@@ -197,7 +197,7 @@ def test_compile_check_falls_back_to_the_size_cache_on_a_no_op_incremental_build
         '"total_ram": 30000, "max_ram": 327680}}'
     )
 
-    def fake_compile_upload_fbuild(label, ino, fqbn, port):
+    def fake_compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None):
         yield "build is up to date, nothing to do\n"  # no Flash:/RAM: line at all
         return 0, "compile"
 

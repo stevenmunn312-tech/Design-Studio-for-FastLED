@@ -3,6 +3,7 @@ import {
   BOARD_PROFILES,
   boardPinForGpio,
   boardProfileById,
+  selectedBoardFlashMb,
   boardPinVerdict,
   compatibleBoardProfilesForFqbn,
   isBoardProfileCompatibleWithFqbn,
@@ -247,5 +248,31 @@ describe('ESP32 DevKit v1 (ESP-32D) audio pins', () => {
     // ...and all three are pins this board actually brings out safely.
     const safe = new Set(profile?.pinSafety?.safeGeneralPurpose ?? [])
     for (const pin of [27, 26, 25]) expect(safe.has(pin), `GPIO${pin} is safe here`).toBe(true)
+  })
+})
+
+describe('module flash size', () => {
+  it('records what the N16R8 boards actually carry', () => {
+    // The part number says it and esptool confirms it on the bench: 16MB flash,
+    // 8MB octal PSRAM. Recorded because `esp32:esp32:esp32s3` is generic and
+    // resolves to the stock 8MB N8 board id, so without this the build and the
+    // capacity meter both target half the real flash.
+    for (const id of ['generic-esp32-s3-n16r8-44pin-dual-usbc', 'lolin-s3-40pin-dual-usbc']) {
+      expect(boardProfileById(id)?.memory, id).toEqual({ flashMb: 16, psramMb: 8 })
+    }
+  })
+
+  it('says nothing for a board whose module size is not documented', () => {
+    // Never guessed: an N8 part told it has 16MB produces an image it cannot
+    // boot, so silence leaves the board id's own manifest in charge.
+    expect(selectedBoardFlashMb([
+      { data: { nodeType: 'Board', properties: { profileId: 'espressif-esp32-s3-devkitc-1' } } },
+    ])).toBeUndefined()
+  })
+
+  it('reads the size off the board the graph selected', () => {
+    expect(selectedBoardFlashMb([
+      { data: { nodeType: 'Board', properties: { profileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc' } } },
+    ])).toBe(16)
   })
 })

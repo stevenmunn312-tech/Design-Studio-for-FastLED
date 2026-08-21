@@ -234,6 +234,10 @@ describe('uploadStore', () => {
       'esp32:esp32:esp32s3:PSRAM=opi',
       'COM7',
       expect.any(Function),
+      undefined,
+      // No board profile on this graph, so nothing overrides the board id's own
+      // flash manifest — the behaviour every unrecorded board keeps.
+      undefined,
     )
 
     mocks.uploadSketch.mockClear()
@@ -243,6 +247,10 @@ describe('uploadStore', () => {
       'esp32:esp32:esp32s3:PSRAM=opi',
       'COM7',
       expect.any(Function),
+      undefined,
+      // No board profile on this graph, so nothing overrides the board id's own
+      // flash manifest — the behaviour every unrecorded board keeps.
+      undefined,
     )
 
     const other = useProjectStore.getState().createProject('Other', workspace(['b']))

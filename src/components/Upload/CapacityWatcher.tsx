@@ -8,6 +8,7 @@ import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { buildShowPlayerForMeasurement, sdShowConnected } from '../../utils/showUpload'
 import { useCodegenGraph } from '../../utils/codegenGraph'
 import { controllerSettings } from '../../state/controllerSettings'
+import { selectedBoardFlashMb } from '../../build/boardProfiles'
 
 /**
  * Keeps the capacity store pointed at what an Upload would actually build.
@@ -49,6 +50,8 @@ export default function CapacityWatcher() {
    * Upload button uses.
    */
   const isShow = useMemo(() => sdShowConnected(nodes, edges), [nodes, edges])
+  // Measured against the module's own flash, not the generic board id's.
+  const flashMb = useMemo(() => selectedBoardFlashMb(nodes), [nodes])
 
   /*
    * PSRAM is a controller setting. Measuring a different FQBN option than the
@@ -99,8 +102,9 @@ export default function CapacityWatcher() {
       toolchainReady,
       engineTag: helper?.engine,
       subject: isShow ? 'player' : 'sketch',
+      flashMb,
     })
-  }, [capacityCode, fqbnWithOpt, toolchainReady, helper?.engine, isShow, setCapacityTarget])
+  }, [capacityCode, fqbnWithOpt, toolchainReady, helper?.engine, isShow, flashMb, setCapacityTarget])
 
   return null
 }

@@ -471,6 +471,12 @@ const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
     compatibleFqbns: ['esp32:esp32:esp32s3'],
     dimensionsMm: { width: 63.5, height: 28 },
     confidence: 'pinout-verified',
+    // N16R8 is the module part number: 16MB flash, 8MB octal PSRAM.
+    // Recorded because the generic `esp32:esp32:esp32s3` FQBN resolves to
+    // PlatformIO's stock DevKitC-1 id, whose manifest is the *N8* variant —
+    // so without this the build, and the capacity meter reading it, target
+    // 8MB on a 16MB part. Confirmed on the bench with esptool.
+    memory: { flashMb: 16, psramMb: 8 },
     moduleSilk: 'ESP32-S3-WROOM',
     previewSvg: boardSvg('Generic ESP32-S3 N16R8', '#ffd166', 'USB-C', 'Pinout verified'),
     notes: [
@@ -586,6 +592,12 @@ const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
     compatibleFqbns: ['esp32:esp32:esp32s3'],
     dimensionsMm: { width: 70, height: 25.4 },
     confidence: 'pinout-verified',
+    // N16R8 is the module part number: 16MB flash, 8MB octal PSRAM.
+    // Recorded because the generic `esp32:esp32:esp32s3` FQBN resolves to
+    // PlatformIO's stock DevKitC-1 id, whose manifest is the *N8* variant —
+    // so without this the build, and the capacity meter reading it, target
+    // 8MB on a 16MB part. Confirmed on the bench with esptool.
+    memory: { flashMb: 16, psramMb: 8 },
     moduleSilk: 'ESP32-S3-WROOM',
     previewSvg: boardSvg('LOLIN S3', '#c9a0ff', 'USB-C', 'Pinout verified'),
     notes: [
@@ -751,6 +763,20 @@ export function boardProfileById(id: string): PhysicalBoardProfile | undefined {
 }
 
 /** The physical board explicitly chosen on the active graph, if there is one. */
+/**
+ * The module's flash size in MB, when the chosen board profile records one.
+ *
+ * `undefined` means "nothing recorded" — the build then uses the PlatformIO
+ * board id's own manifest, which is what every board without a documented
+ * module size has always done. Never guessed: telling an N8 part it has 16MB
+ * produces an image it cannot boot.
+ */
+export function selectedBoardFlashMb(nodes: readonly {
+  data: { nodeType: string; properties: Record<string, unknown> }
+}[]): number | undefined {
+  return selectedPhysicalBoardProfile(nodes)?.memory?.flashMb
+}
+
 export function selectedPhysicalBoardProfile(nodes: readonly {
   data: { nodeType?: unknown; properties?: unknown }
 }[]): PhysicalBoardProfile | undefined {

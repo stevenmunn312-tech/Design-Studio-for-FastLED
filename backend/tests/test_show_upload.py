@@ -32,7 +32,7 @@ def _compile_sequence(results: dict):
     which labels were actually invoked."""
     calls = []
 
-    def fake(label, ino, fqbn, port):
+    def fake(label, ino, fqbn, port, flash_mb=None):
         calls.append(label)
         if False:
             yield  # pragma: no cover
@@ -117,7 +117,7 @@ def _post_with_files(client):
 def test_success_is_one_build_flashed_to_the_port_then_the_transfer(client, monkeypatch):
     order = []
 
-    def compile_fake(label, ino, fqbn, port):
+    def compile_fake(label, ino, fqbn, port, flash_mb=None):
         order.append((label, port))
         if False:
             yield  # pragma: no cover
