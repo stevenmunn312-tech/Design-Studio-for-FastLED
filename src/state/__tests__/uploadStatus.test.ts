@@ -61,6 +61,43 @@ describe('parseStatus', () => {
     expect(s.message).toBe('Cancelled')
   })
 
+  it('tracks esptool v5\u2019s progress bar, not just v4\u2019s parenthesised percent', () => {
+    // v4 drew `Writing at 0x0001a000... (42 %)`; v5.3 draws a bar and a decimal.
+    // Matching only the older shape is why an upload showed nothing and then
+    // jumped to done — the lines were arriving and being displayed, but no
+    // percentage in them was ever recognised.
+    const log = [
+      '=== Sketch · upload ===',
+      'Writing at 0x00000000 [=>       ]  12.5%  16384/131072 bytes...',
+      'Writing at 0x0001a000 [====>    ]  42.0%  55296/131072 bytes...',
+    ].join(String.fromCharCode(10))
+    const s = parseStatus(log)
+    expect(s.phase).toBe('uploading')
+    expect(s.percent).toBe(42)
+    expect(s.message).toBe('Uploading 42%')
+  })
+
+  it('still reads the older parenthesised percent', () => {
+    const log = [
+      '=== Sketch · upload ===',
+      'Writing at 0x0001a000... (47 %)',
+    ].join(String.fromCharCode(10))
+    expect(parseStatus(log).percent).toBe(47)
+  })
+
+  it('never mistakes the compile size report for upload progress', () => {
+    // `[size] flash 51%` is a bare percent too, and it sits before the upload
+    // marker. The bar anchor is what keeps the two apart.
+    const log = [
+      '=== Sketch · compile ===',
+      '  [size] flash 51% · ram 13%',
+      '=== Sketch · upload ===',
+    ].join(String.fromCharCode(10))
+    const s = parseStatus(log)
+    expect(s.phase).toBe('uploading')
+    expect(s.percent).toBeUndefined()
+  })
+
   it('reports done on a successful upload', () => {
     expect(parseStatus('=== Sketch · upload ===\n...\nUpload complete.\n').phase).toBe('done')
   })

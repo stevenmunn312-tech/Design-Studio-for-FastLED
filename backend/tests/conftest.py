@@ -34,13 +34,23 @@ class FakeSerial:
 
     instances: list["FakeSerial"] = []
 
-    def __init__(self, port, baud, timeout=0, write_timeout=None):
+    def __init__(self, port=None, baud=None, timeout=0, write_timeout=None):
+        # Every argument is optional because the serial monitor builds the port
+        # unopened, sets its control lines, and only then calls open() — the
+        # order that keeps Windows from pulsing DTR/RTS and resetting an ESP32
+        # into download mode. `dtr`/`rts` therefore start asserted here, the way
+        # a real unopened pyserial port does, so a test can prove they were
+        # cleared before the open rather than after it.
         self.port = port
         self.baud = baud
+        self.baudrate = baud
         self.timeout = timeout
         self.write_timeout = write_timeout
         self.dtr = True
         self.rts = True
+        self.opened = port is not None
+        self.dtr_at_open = None
+        self.rts_at_open = None
         self.closed = False
         self.writes: list[bytes] = []
         # Simulates a write that never returns within pyserial's own
@@ -51,6 +61,14 @@ class FakeSerial:
         # trusting pyserial's timeout alone.
         self.hang_seconds: float = 0
         FakeSerial.instances.append(self)
+
+    def open(self):
+        # Record the control-line state the port was actually opened with: that
+        # is the moment the auto-reset circuit sees, and the whole point of the
+        # build-then-open order.
+        self.opened = True
+        self.dtr_at_open = self.dtr
+        self.rts_at_open = self.rts
 
     def write(self, data: bytes):
         if self.closed:

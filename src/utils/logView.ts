@@ -34,7 +34,11 @@ const NOISE = [
 ]
 
 /** A tool redrawing progress in place — only the newest one is worth a line. */
-const PROGRESS = /\((\d+)\s*%\)|^(Receiving|Resolving|Counting|Compressing) objects:|^Compiled \d+\/\d+ files/
+// esptool v5 prints a bar rather than v4's `(42 %)`, and — because our pipe is
+// not a TTY — ends every redraw with a newline instead of a carriage return.
+// So an unrecognised format is not just a missing percentage in the status
+// line, it is hundreds of real lines filling the console.
+const PROGRESS = /\((\d+)\s*%\)|\]\s*[\d.]+%|^(Receiving|Resolving|Counting|Compressing) objects:|^Compiled \d+\/\d+ files/
 
 function isProgress(line: string): boolean {
   return PROGRESS.test(line)

@@ -198,6 +198,19 @@ export interface UploadStatus { phase: UploadPhase; percent?: number; message: s
 
 const IDLE: UploadStatus = { phase: 'idle', message: '' }
 
+/**
+ * How far esptool says the write has got — in either of the two formats it has
+ * used.
+ *
+ * v4 drew `Writing at 0x0001a000... (42 %)`; v5.3 draws a bar,
+ * `Writing at 0x0001a000 [====>   ]  42.0%  86016/204800 bytes...`. Matching
+ * only the older shape is why an upload reported nothing and then jumped to
+ * done: the lines were arriving and being displayed, but no percentage in them
+ * was ever recognised. The `]` anchors the newer form to its bar, so the
+ * flash/RAM figures in a `[size]` line can never be mistaken for progress.
+ */
+const ESPTOOL_PERCENT = /\((\d+)\s*%\)|\]\s*([\d.]+)%/g
+
 // Derive a compact status from the helper's streamed compile/upload log. The
 // helper emits `=== … compile ===` / `=== … upload ===` markers, esptool prints
 // `(NN %)` during the write, and each phase ends with `[… exit code: N]`.
@@ -233,8 +246,9 @@ export function parseStatus(log: string): UploadStatus {
   }
   const upIdx = log.lastIndexOf('upload ===')
   if (upIdx >= 0) {
-    const pcts = [...log.slice(upIdx).matchAll(/\((\d+)\s*%\)/g)]
-    const p = pcts.length ? Number(pcts[pcts.length - 1][1]) : undefined
+    const pcts = [...log.slice(upIdx).matchAll(ESPTOOL_PERCENT)]
+    const raw = pcts.length ? Number(pcts[pcts.length - 1][1] ?? pcts[pcts.length - 1][2]) : undefined
+    const p = raw == null || Number.isNaN(raw) ? undefined : Math.round(raw)
     return { phase: 'uploading', percent: p, message: p != null ? `Uploading ${p}%` : 'Uploading…' }
   }
   if (/compile ===/.test(log)) return { phase: 'compiling', message: `Compiling…${sizeTag}` }

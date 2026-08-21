@@ -137,6 +137,34 @@ def test_serial_monitor_releases_a_quiet_port_when_cancelled(fake_serial):
     assert port.closed is True, "the port must be released as soon as the client goes away"
 
 
+def test_the_monitor_does_not_reset_the_board_it_attaches_to(fake_serial):
+    """DTR/RTS must be clear at the moment the port opens, not a line later.
+
+    Windows asserts both on open, and on an ESP32 they drive the auto-reset
+    circuit — EN and GPIO0. On a native USB-Serial/JTAG part the ROM reads that
+    combination as "enter download mode". Observed on an ESP32-S3: attaching the
+    monitor reset the board into `boot:0x0 (DOWNLOAD(USB/UART0))`, waiting for a
+    download that was never coming, while the freshly flashed sketch never ran.
+    Clearing the lines after `serial.Serial(port, ...)` is too late — the pulse
+    has already happened.
+    """
+    import asyncio
+
+    response = app.serial_monitor("COM7", 115200)
+
+    async def exercise():
+        body = response.body_iterator
+        await body.__anext__()          # "[serial] connected…"
+        opened = fake_serial.instances[-1]
+        assert opened.opened, "the port was opened"
+        assert opened.dtr_at_open is False, "DTR was clear when the port opened"
+        assert opened.rts_at_open is False, "RTS was clear when the port opened"
+        await body.aclose()
+
+    asyncio.run(exercise())
+    app._release_monitor("COM7")
+
+
 def test_release_monitor_closes_a_held_port(fake_serial):
     # The frontend already aborts the monitor before every upload, but that
     # abort does not guarantee the helper lets go: Starlette only notices a

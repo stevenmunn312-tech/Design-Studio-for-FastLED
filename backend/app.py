@@ -1997,11 +1997,26 @@ def serial_monitor(port: str, baud: int = 115200):
         global _monitor_serial, _monitor_port
         ser = None
         try:
-            ser = serial.Serial(port, baud, timeout=0.2)
-            # Avoid deliberately asserting the common auto-reset lines while
-            # monitoring. Some USB bridges may still pulse them when opened.
+            # Configure the control lines *before* opening, not after.
+            #
+            # `serial.Serial(port, ...)` opens immediately, and Windows asserts
+            # DTR and RTS on open — so clearing them on the next line is already
+            # too late: the pulse has happened. On an ESP32 those lines drive the
+            # auto-reset circuit (EN and GPIO0), and on a native USB-Serial/JTAG
+            # part the ROM reads that same combination as "enter download mode".
+            # Observed on an ESP32-S3: attaching the monitor reset the board into
+            # `boot:0x0 (DOWNLOAD(USB/UART0))`, waiting for a download that was
+            # never coming, with the freshly flashed sketch never running.
+            #
+            # Building the port unopened lets pyserial apply the state we want as
+            # part of the open itself.
+            ser = serial.Serial()
+            ser.port = port
+            ser.baudrate = baud
+            ser.timeout = 0.2
             ser.dtr = False
             ser.rts = False
+            ser.open()
             with _monitor_lock:
                 _monitor_serial, _monitor_port = ser, port
             yield f"[serial] connected to {port} at {baud} baud\n".encode()

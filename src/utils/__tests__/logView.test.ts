@@ -69,6 +69,23 @@ describe('condenseLog', () => {
     expect(condensed).toContain('Hash of data verified.')
   })
 
+  it('collapses esptool v5’s bar redraws, which arrive one per line', () => {
+    // Not a TTY, so esptool ends every redraw with a newline instead of a
+    // carriage return: an unrecognised format is not just a missing percentage
+    // in the status line, it is hundreds of real lines filling the console.
+    const writing = [
+      '=== Sketch · upload ===',
+      'Writing at 0x00000000 [=>       ]  12.5%  16384/131072 bytes...',
+      'Writing at 0x0000c000 [===>     ]  33.0%  43008/131072 bytes...',
+      'Writing at 0x0001a000 [========] 100.0%  131072/131072 bytes...',
+      'Hash of data verified.',
+    ].join(String.fromCharCode(10))
+    const condensed = condenseLog(writing, false)
+    expect(condensed).toContain('100.0%')
+    expect(condensed).not.toContain('12.5%')
+    expect(condensed).toContain('Hash of data verified.')
+  })
+
   it('collapses a clone’s counters the same way', () => {
     const clone = [
       '=== vendoring ESP32-audioI2S (first run only) ===',
