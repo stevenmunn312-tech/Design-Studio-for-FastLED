@@ -320,6 +320,7 @@ type ControllerTerminalPoint = {
   x: number
   y: number
   side: 'left' | 'right'
+  mapped: boolean
 }
 
 /** Caption for a profile drawn from primitives. A profile with a photoreal
@@ -362,7 +363,7 @@ function renderTerminalPoint(
   const side = match[1] === render.leftPrefix ? 'left' : 'right'
   const sourceX = side === 'left' ? render.leftPinX : render.rightPinX
   const pitch = (render.lastPinY - render.firstPinY) / (render.pinsPerRail - 1)
-  return { ...renderSourcePoint(render, sourceX, render.firstPinY + (pinIndex * pitch)), side }
+  return { ...renderSourcePoint(render, sourceX, render.firstPinY + (pinIndex * pitch)), side, mapped: true }
 }
 
 function controllerConnectionPoint(
@@ -376,7 +377,7 @@ function controllerConnectionPoint(
     const point = renderTerminalPoint(render, connection.boardAnchorId)
     if (point) return point
   }
-  return { x: 280, y: controllerConnectionY(index, count), side: 'right' }
+  return { x: 280, y: controllerConnectionY(index, count), side: 'right', mapped: false }
 }
 
 function controllerPowerPoint(
@@ -387,11 +388,11 @@ function controllerPowerPoint(
   if (render) {
     if (kind === '3v3') return renderTerminalPoint(render, render.powerAnchors.v3v3)!
     if (kind === 'ground') return renderTerminalPoint(render, render.powerAnchors.ground)!
-    return { ...renderSourcePoint(render, render.usbPoint.x, render.usbPoint.y), side: 'right' }
+    return { ...renderSourcePoint(render, render.usbPoint.x, render.usbPoint.y), side: 'right', mapped: true }
   }
-  if (kind === '3v3') return { x: 280, y: 220, side: 'right' }
-  if (kind === 'ground') return { x: 280, y: 476, side: 'right' }
-  return { x: 166, y: 512, side: 'right' }
+  if (kind === '3v3') return { x: 280, y: 220, side: 'right', mapped: true }
+  if (kind === 'ground') return { x: 280, y: 476, side: 'right', mapped: true }
+  return { x: 166, y: 512, side: 'right', mapped: true }
 }
 
 /**
@@ -686,9 +687,16 @@ function ControllerGraphic({ boardProfile, connections, selected }: { boardProfi
                 cx={point.x}
                 cy={point.y}
                 r={padRadius}
-                className={microphoneSignalPresentation(connection)?.terminalClassName ?? styles.controllerSignalTerminal}
+                className={point.mapped
+                  ? microphoneSignalPresentation(connection)?.terminalClassName ?? styles.controllerSignalTerminal
+                  : styles.controllerUnmappedTerminal}
               />
-              <title>{connection.pinLabel} · {connection.useLabel}</title>
+              {!point.mapped && (
+                <text x={point.x + 11} y={point.y + 4} className={styles.controllerUnmappedLabel}>
+                  {connection.pinLabel} · NOT ON BOARD
+                </text>
+              )}
+              <title>{connection.pinLabel} · {connection.useLabel}{point.mapped ? '' : ' · not exposed by this board'}</title>
             </g>
           )
         })}

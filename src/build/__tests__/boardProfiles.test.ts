@@ -251,6 +251,20 @@ describe('ESP32 DevKit v1 (ESP-32D) audio pins', () => {
   })
 })
 
+describe('Generic ESP32-S3 N16R8 audio pins', () => {
+  it('uses amplifier pins that exist on the 44-pin header', () => {
+    const profile = boardProfileById('generic-esp32-s3-n16r8-44pin-dual-usbc')
+    expect(profile?.peripheralPins?.max98357).toEqual({ bclk: 17, lrc: 18, din: 16 })
+
+    for (const pin of [17, 18, 16]) {
+      expect(boardPinForGpio(profile, pin), `GPIO${pin} is exposed`).toBeTruthy()
+      expect(profile?.pinSafety?.safeGeneralPurpose).toContain(pin)
+    }
+    // These are classic-ESP32 defaults, not pins on this board.
+    for (const pin of [26, 25, 22]) expect(boardPinForGpio(profile, pin), `GPIO${pin} is absent`).toBeUndefined()
+  })
+})
+
 describe('module flash size', () => {
   it('records what the N16R8 boards actually carry', () => {
     // The part number says it and esptool confirms it on the bench: 16MB flash,

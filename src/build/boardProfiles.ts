@@ -489,6 +489,14 @@ const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
       'Generic sellers ship several layouts under this name; this is the 22 + 22 dual-USB-C board whose silkscreen runs 3V3, 3V3, RST, 4, 5, 6, 7 down the left rail.',
     ],
     sourceSummary: 'Header order read from the board render and confirmed against two physical boards; power-path behaviour still treated as uncertain.',
+    // The classic ESP32 defaults (26/25/22) are not header pins on this S3
+    // board. Use three exposed, unencumbered GPIOs instead. The ESP32-S3 GPIO
+    // matrix can route I2S to these pins; keeping the microphone on its separate
+    // 39/40/41 trio also lets both audio devices coexist.
+    peripheralPins: {
+      inmp441: { wsLrclk: 39, sckBclk: 40, sdDout: 41 },
+      max98357: { bclk: 17, lrc: 18, din: 16 },
+    },
     pinAnchors: GENERIC_N16R8_PIN_ANCHORS,
     pins: GENERIC_N16R8_PINS,
   },

@@ -317,6 +317,7 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
   const rtcDefaults = boardI2cDefault(typeof savedProfileId === 'string' ? savedProfileId : undefined)
   const savedProfile = typeof savedProfileId === 'string' ? boardProfileById(savedProfileId) : undefined
   const sdCsDefault = sdCsPinDefaultForBoard(savedProfile)
+  const ampDefaults = savedProfile?.peripheralPins?.max98357
   const normalizedNodes = nodes.map((n) => {
     const data = n.data as StudioNodeData
     const wasLedString = data.nodeType === 'LedStringOutput'
@@ -345,6 +346,28 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
       const legacyGlobalDefault = properties.sdCsPin === 10 && assigned?.sdCsPin === undefined
       if (properties.sdCsPin === undefined || legacyGlobalDefault) {
         Object.assign(properties, withAssignedPins(properties, { sdCsPin: sdCsDefault }, savedProfile?.id))
+      }
+    }
+    // The N16R8 profile once inherited the classic ESP32 amplifier tuple even
+    // though none of GPIO26/25/22 is exposed on its 44-pin header. Repair only
+    // that exact unstamped library default; provenance means any deliberately
+    // assigned or edited wiring remains the user's.
+    if (nodeType === 'Amplifier'
+      && savedProfile?.id === 'generic-esp32-s3-n16r8-44pin-dual-usbc'
+      && ampDefaults) {
+      const assigned = properties.assignedPins as Record<string, number> | undefined
+      const legacyDefault = properties.i2sBclk === 26
+        && properties.i2sLrc === 25
+        && properties.i2sDout === 22
+        && assigned?.i2sBclk === undefined
+        && assigned?.i2sLrc === undefined
+        && assigned?.i2sDout === undefined
+      if (legacyDefault) {
+        Object.assign(properties, withAssignedPins(properties, {
+          i2sBclk: ampDefaults.bclk,
+          i2sLrc: ampDefaults.lrc,
+          i2sDout: ampDefaults.din,
+        }, savedProfile.id))
       }
     }
     // AudioHue's bass/mids/treble mix used to be hardcoded in the evaluator and

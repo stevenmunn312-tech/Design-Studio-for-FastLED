@@ -185,6 +185,22 @@ describe('retargetHardwarePins', () => {
     expect(result.moved).toBeGreaterThan(0)
   })
 
+  it('moves the classic ESP32 amplifier defaults onto the N16R8 header', () => {
+    const n16r8 = boardProfileById('generic-esp32-s3-n16r8-44pin-dual-usbc')!
+    const nodes = [part('amp', 'Amplifier', withAssignedPins(
+      { i2sBclk: 26, i2sLrc: 25, i2sDout: 22 },
+      { i2sBclk: 26, i2sLrc: 25, i2sDout: 22 },
+      'esp32-devkit-v1-30pin-esp32d',
+    ))]
+
+    const result = retargetHardwarePins(nodes, n16r8, ESP32_S3, 'esp32-devkit-v1-30pin-esp32d')
+    expect(result.nodes[0].data.properties).toMatchObject({
+      i2sBclk: 17,
+      i2sLrc: 18,
+      i2sDout: 16,
+    })
+  })
+
   it('still prefers a curated amp pinout when the profile has one', () => {
     // The fallback is for boards that say nothing, and must not override the
     // ones that do.

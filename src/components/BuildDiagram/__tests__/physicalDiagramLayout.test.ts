@@ -68,6 +68,17 @@ describe('audio module pads', () => {
     expect(peripheralPadLabel(item, 0)).toBe('LRC')
     expect(peripheralPadLabel(item, 6)).toBe('VIN')
   })
+
+  it('lands MAX98357A terminals on the fitted render header holes', () => {
+    const item = audioModule('max98357a-i2s-amplifier')
+    const layout = { x: 10, y: 20, item } as never
+    const points = Array.from({ length: 7 }, (_, index) => peripheralPadPoint(layout, index))
+
+    // The 400 x 568 portrait render is centred inside the wider module cell.
+    expect(points[0].x).toBeCloseTo(10 + ((220 - (159 * 400 / 568)) / 2) + (31.5 * 159 / 568), 4)
+    expect(points[6].x).toBeCloseTo(10 + ((220 - (159 * 400 / 568)) / 2) + (367.5 * 159 / 568), 4)
+    expect(points[0].y).toBeCloseTo(20 + (545 * 159 / 568), 4)
+  })
 })
 
 describe('powerDistributionSectionLayout', () => {

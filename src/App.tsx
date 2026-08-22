@@ -146,7 +146,10 @@ export default function App() {
     const observer = new ResizeObserver(update)
     observer.observe(element)
     return () => observer.disconnect()
-  }, [])
+  // Build Diagram replaces the design workspace rather than hiding it. Rebind
+  // whenever that replacement changes so a detached canvas cannot leave the
+  // hardware pane at zero height when the user returns.
+  }, [workspaceMode, stageMode])
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autosaveIdle = useRef<number | null>(null)
   const latestAutosaveState = useRef<ReturnType<typeof useGraphStore.getState> | null>(null)

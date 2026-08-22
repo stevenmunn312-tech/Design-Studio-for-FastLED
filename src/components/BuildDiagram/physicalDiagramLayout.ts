@@ -229,6 +229,26 @@ const PAD_PITCH_RATIO = 0.0797
 const PAD_X_RATIOS_SD_5V = [0.24, 0.3475, 0.45, 0.55, 0.6525, 0.755]
 const PAD_X_RATIOS_SD_3V3 = [0.135, 0.255, 0.3775, 0.5, 0.6225, 0.745, 0.87]
 
+/** Header-hole centres measured in each audio render's own pixel space. */
+const AMPLIFIER_PAD_GEOMETRY: Record<string, { xs: number[]; y: number }> = {
+  'max98357a-i2s-amplifier': {
+    xs: [31.5, 87.5, 143.5, 199.5, 255.5, 311.5, 367.5].map((x) => x / 400),
+    y: 545 / 568,
+  },
+  'pam8403-3w-stereo-amplifier': {
+    xs: [36, 69, 102, 135, 168, 201, 234, 267, 300, 333, 366].map((x) => x / 400),
+    y: 254 / 287,
+  },
+  'pcm5102a-i2s-dac': {
+    xs: [55, 113, 171, 229, 287, 345].map((x) => x / 400),
+    y: 837 / 883,
+  },
+  'uda1334a-i2s-dac': {
+    xs: [128, 159, 190, 221, 252, 283, 314, 345, 376].map((x) => x / 504),
+    y: 287 / 324,
+  },
+}
+
 /**
  * Pads sit ~18px above the board edge at render scale, so a stub needs a lead
  * long enough to put its symbol clear of the artwork rather than on top of it.
@@ -328,6 +348,26 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' {
 }
 
 export function peripheralPadPoint(layout: ItemLayout, padIndex: number) {
+  if (layout.item.kind === 'amplifier') {
+    const partId = String(layout.item.facts.partId ?? '')
+    const entry = partById(partId)
+    const geometry = AMPLIFIER_PAD_GEOMETRY[partId]
+    if (geometry && entry?.render) {
+      // The image uses `preserveAspectRatio="meet"`; derive the same fitted box
+      // before mapping source-space pad measurements into the diagram.
+      const sourceAspect = entry.render.widthPx / entry.render.heightPx
+      const boxAspect = PERIPHERAL_RENDER_W / PERIPHERAL_RENDER_H
+      const renderWidth = sourceAspect > boxAspect ? PERIPHERAL_RENDER_W : PERIPHERAL_RENDER_H * sourceAspect
+      const renderHeight = sourceAspect > boxAspect ? PERIPHERAL_RENDER_W / sourceAspect : PERIPHERAL_RENDER_H
+      const offsetX = (PERIPHERAL_RENDER_W - renderWidth) / 2
+      const offsetY = (PERIPHERAL_RENDER_H - renderHeight) / 2
+      const xRatio = geometry.xs[Math.min(Math.max(padIndex, 0), geometry.xs.length - 1)]
+      return {
+        x: layout.x + offsetX + (xRatio * renderWidth),
+        y: layout.y + offsetY + (geometry.y * renderHeight),
+      }
+    }
+  }
   if (layout.item.kind === 'rtc-input') {
     const compact = layout.item.facts.partId === 'jaycar-xc9044-rtc-module'
     const ratios = compact ? PAD_X_RATIOS_RTC_XC9044 : PAD_X_RATIOS_RTC_ZS042

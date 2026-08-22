@@ -774,6 +774,34 @@ describe('graphStore — loadGraph normalization', () => {
     })
   })
 
+  it('migrates the old amplifier defaults onto the N16R8 board header', () => {
+    const profileId = 'generic-esp32-s3-n16r8-44pin-dual-usbc'
+    const board = node('board-root', 'Board', { profileId })
+    const amplifier = node('amp', 'Amplifier', { i2sBclk: 26, i2sLrc: 25, i2sDout: 22 })
+    useGraphStore.getState().loadGraph([board, amplifier], [])
+    expect(dataOf('amp').properties).toMatchObject({
+      i2sBclk: 17,
+      i2sLrc: 18,
+      i2sDout: 16,
+      assignedPins: { i2sBclk: 17, i2sLrc: 18, i2sDout: 16 },
+      assignedPinsBoard: profileId,
+    })
+  })
+
+  it('preserves amplifier pins that already carry assignment provenance', () => {
+    const profileId = 'generic-esp32-s3-n16r8-44pin-dual-usbc'
+    const board = node('board-root', 'Board', { profileId })
+    const amplifier = node('amp', 'Amplifier', {
+      i2sBclk: 26,
+      i2sLrc: 25,
+      i2sDout: 22,
+      assignedPins: { i2sBclk: 26, i2sLrc: 25, i2sDout: 22 },
+      assignedPinsBoard: profileId,
+    })
+    useGraphStore.getState().loadGraph([board, amplifier], [])
+    expect(dataOf('amp').properties).toMatchObject({ i2sBclk: 26, i2sLrc: 25, i2sDout: 22 })
+  })
+
   it('backfills AudioHue band weights with the mix that used to be hardcoded', () => {
     const hue = node('ah', 'AudioHue', { bass: 0.5, mids: 0.5, treble: 0.5 })
     useGraphStore.getState().loadGraph([hue], [])

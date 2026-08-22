@@ -837,11 +837,15 @@ describe('BuildDiagramWorkspace', () => {
   })
 
   it('keeps invalid GPIO mappings blocking even when that hardware is hidden', () => {
-    useGraphStore.setState({ nodes: [matrixNode(35)] as never[] })
+    useGraphStore.setState({ nodes: [matrixNode(25)] as never[] })
     selectBoard('generic-esp32-s3-n16r8-44pin-dual-usbc')
-    const { getByRole, getByText } = render(<BuildDiagramWorkspace />)
+    const { container, getByRole, getByText } = render(<BuildDiagramWorkspace />)
 
     expect(getByText('Signal plan: needs review: 1 controller pin mapping unresolved', { selector: 'li' })).toBeTruthy()
+    const currentDiagram = container.querySelector('svg[data-build-export="current-view"]')
+    const unresolvedTerminal = currentDiagram?.querySelector('[data-terminal="controller-output:out:dataPin"]')
+    expect(unresolvedTerminal?.querySelector('circle')?.getAttribute('class')).toContain('controllerUnmappedTerminal')
+    expect(unresolvedTerminal?.textContent).toContain('GPIO 25 · NOT ON BOARD')
     fireEvent.click(getByRole('button', { name: 'Hide Matrix Output' }))
     expect(getByText('Signal plan: needs review: 1 controller pin mapping unresolved', { selector: 'li' })).toBeTruthy()
   })
