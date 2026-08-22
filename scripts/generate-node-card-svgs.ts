@@ -28,6 +28,16 @@ import { useUiStore } from '../src/state/uiStore'
 import { setRtcClockSource } from '../src/state/rtc'
 import { samplePalette, type RGB, type Palette, type Frame } from '../src/state/ledColor'
 import { liveExampleForNode } from '../src/components/HelpModal/liveExamples'
+import type { ReferenceLiveExample } from '../src/components/HelpModal/liveExamples'
+import { LED_CELL_FILL } from '../src/components/Hardware/ledPreviewGeometry'
+import {
+  outputCanvasDims,
+  outputForm,
+  outputGridDims,
+  ringDirection,
+  ringSampleMap,
+  ringStartAngle,
+} from '../src/state/ledOutputForm'
 import { tidyLayout } from '../src/utils/tidyLayout'
 import type { LiveExampleSpec } from '../src/utils/insertLiveExample'
 import type { StudioNode, StudioEdge } from '../src/state/graphStore'
@@ -250,9 +260,9 @@ const PREVIEW_FRAME_H = PREVIEW_W          // 16×16 matrix aspect
 const PREVIEW_STRIP_H = 40                 // palette / colour swatch height
 const WARMUP_TICKS = 240                   // ~4 s so stateful sims settle
 
-// Sparse shape-drawing nodes whose preview reads better without the dark
-// panel background and unlit discs behind it.
-const BARE_PREVIEW_TYPES = new Set(['Circle', 'Shape', 'Line', 'Path'])
+// Shape-drawing nodes read best with their optional base frame left unwired;
+// this affects evaluation only, not the shared emitter styling below.
+const UNWIRED_FRAME_INPUT_PREVIEW_TYPES = new Set(['Circle', 'Shape', 'Line', 'Path'])
 const STOCHASTIC_PREVIEW_TYPES = new Set([
   'Noise', 'Fire', 'Fire2012', 'TwinkleFox', 'Confetti', 'Juggle', 'Particles',
   'FractalNoise', 'GaborNoise', 'FlowField', 'Starfield', 'Boids',
@@ -302,9 +312,9 @@ function buildPreview(def: NodeDefinition, overrides?: Record<string, unknown>):
   const nodes: StudioNode[] = [mkNode(targetId, def.type, overrides)]
   const edges: StudioEdge[] = []
   let n = 0
-  // The bare-preview shape nodes draw over their (optional) base input — leave
+  // Shape nodes draw over their optional base input — leave
   // it unwired so the card shows just the shape, not a composite over Plasma.
-  const wireFrames = !BARE_PREVIEW_TYPES.has(def.type)
+  const wireFrames = !UNWIRED_FRAME_INPUT_PREVIEW_TYPES.has(def.type)
   for (const inp of def.inputs) {
     const src = inp.dataType === 'frame' && wireFrames ? 'Plasma'
       : inp.dataType === 'field' ? 'FieldNoise' : null
@@ -352,23 +362,32 @@ let paletteGradientId = 0
 const px = ({ r, g, b }: RGB) =>
   `rgb(${Math.round(Math.max(0, Math.min(255, r)))},${Math.round(Math.max(0, Math.min(255, g)))},${Math.round(Math.max(0, Math.min(255, b)))})`
 
-function previewSvg(p: PreviewData, y: number, bare = false): string {
-  if (p.kind === 'frame') {
-    const cell = PREVIEW_W / PREVIEW_GRID
-    const parts: string[] = []
-    // `bare` drops the panel background, so the LED grid (lit shape plus the
-    // off discs) sits directly on the node body instead of in a dark box.
-    if (!bare) parts.push(`<rect x="${BODY_PAD}" y="${y}" width="${PREVIEW_W}" height="${PREVIEW_FRAME_H}" rx="4" fill="#05070a"/>`)
-    for (let ry = 0; ry < PREVIEW_GRID; ry++) {
-      for (let rx = 0; rx < PREVIEW_GRID; rx++) {
-        const c = p.frame[ry]?.[rx] ?? { r: 0, g: 0, b: 0 }
-        const bright = Math.max(c.r, c.g, c.b) > 16
-        const cx = BODY_PAD + rx * cell + cell / 2
-        const cy = y + ry * cell + cell / 2
-        if (bright) parts.push(`<circle cx="${cx}" cy="${cy}" r="${cell / 2}" fill="${px(c)}" opacity="0.35"/>`)
-        parts.push(`<circle cx="${cx}" cy="${cy}" r="${(cell / 2 - 2).toFixed(1)}" fill="${bright ? px(c) : '#14171c'}"/>`)
-      }
+function gridEmitters(frame: Frame | null, columns: number, rows: number, x: number, y: number, width: number, height: number): string[] {
+  const cellW = width / columns
+  const cellH = height / rows
+  const emitterW = cellW * LED_CELL_FILL
+  const emitterH = cellH * LED_CELL_FILL
+  const insetX = (cellW - emitterW) / 2
+  const insetY = (cellH - emitterH) / 2
+  const radius = Math.min(emitterW, emitterH) * 0.18
+  const parts: string[] = []
+  for (let ry = 0; ry < rows; ry++) {
+    for (let rx = 0; rx < columns; rx++) {
+      const color = frame?.[ry]?.[rx] ?? { r: 0, g: 0, b: 0 }
+      parts.push(`<rect x="${(x + rx * cellW + insetX).toFixed(2)}" y="${(y + ry * cellH + insetY).toFixed(2)}" width="${emitterW.toFixed(2)}" height="${emitterH.toFixed(2)}" rx="${radius.toFixed(2)}" fill="${px(color)}"/>`)
     }
+  }
+  return parts
+}
+
+function frameEmitters(frame: Frame | null, x: number, y: number, width: number, height: number): string[] {
+  return gridEmitters(frame, PREVIEW_GRID, PREVIEW_GRID, x, y, width, height)
+}
+
+function previewSvg(p: PreviewData, y: number): string {
+  if (p.kind === 'frame') {
+    const parts = [`<rect x="${BODY_PAD}" y="${y}" width="${PREVIEW_W}" height="${PREVIEW_FRAME_H}" rx="4" fill="${C.canvas}" stroke="${C.border}"/>`]
+    parts.push(...frameEmitters(p.frame, BODY_PAD, y, PREVIEW_W, PREVIEW_FRAME_H))
     return parts.join('\n')
   }
   if (p.kind === 'palette') {
@@ -597,10 +616,9 @@ function nodeInner(def: NodeDefinition, overrides?: Record<string, unknown>): No
   const children: Array<{ h: number; portRow?: number; render: (y: number) => string }> = []
   const preview = buildPreviewCached(def, overrides)
   if (preview) {
-    const bare = BARE_PREVIEW_TYPES.has(def.type)
     children.push({
       h: preview.kind === 'frame' ? PREVIEW_FRAME_H : PREVIEW_STRIP_H,
-      render: (y) => previewSvg(preview, y, bare),
+      render: (y) => previewSvg(preview, y),
     })
   }
   if (hasScope) children.push({ h: SCOPE_H, render: (y) => scopeSvg(y, accent) })
@@ -689,11 +707,17 @@ function nodeCardSvg(def: NodeDefinition): string {
   return canvasWrap(W, H, `<g transform="translate(${PAD_X},${PAD_TOP})">\n${inner.svg}\n</g>`, `${def.label} node`, false)
 }
 
-// ── Main-preview assembly ──
-// Evaluate the example graph end-to-end (same warm-up as the thumbnails) and
-// render its terminal frame — what the article's "What you should see"
-// section describes — as a large LED panel.
-function evalSpecFrame(spec: LiveExampleSpec, slug: string): Frame | null {
+// ── Example-preview assembly ──
+// Evaluate the example graph end-to-end (same warm-up as the thumbnails) at
+// the composition size requested by its LED output. The final renderer below
+// then presents those pixels in their real physical form: matrix, string, or
+// ring, matching the app's main preview rather than an intermediate node card.
+function exampleOutputProperties(spec: ReferenceLiveExample): Record<string, unknown> {
+  const output = spec.nodes.find((node) => node.type === 'MatrixOutput')
+  return { ...libraryDefaults('MatrixOutput'), ...output?.properties }
+}
+
+function evalSpecFrame(spec: ReferenceLiveExample, slug: string): Frame | null {
   const nodes: StudioNode[] = []
   const keep = new Set<string>()
   for (const n of spec.nodes) {
@@ -713,11 +737,18 @@ function evalSpecFrame(spec: LiveExampleSpec, slug: string): Frame | null {
       targetHandle: e.targetHandle,
     }))
   try {
+    const canvas = outputCanvasDims(exampleOutputProperties(spec))
     resetEvaluatorState()   // cold start — see buildPreview
     return withRandomSeed(`example-preview:${slug}`, () => {
       let frame: Frame | null = null
       for (let tick = 0; tick <= WARMUP_TICKS; tick++) {
-        frame = evaluateGraphFull(nodes, edges, tick, PREVIEW_GRID, PREVIEW_GRID).frame
+        const evaluated = evaluateGraphFull(nodes, edges, tick, canvas.width, canvas.height)
+        if (spec.previewTarget) {
+          const value = evaluated.outputs.get(`${slug}-${spec.previewTarget.node}`)?.[spec.previewTarget.handle]
+          frame = Array.isArray(value) ? value as Frame : null
+        } else {
+          frame = evaluated.frame
+        }
       }
       return frame
     })
@@ -727,24 +758,56 @@ function evalSpecFrame(spec: LiveExampleSpec, slug: string): Frame | null {
   }
 }
 
-function mainPreviewSvg(frame: Frame | null, label: string): string {
-  const cell = 24
+function mainPreviewSvg(frame: Frame | null, label: string, properties: Record<string, unknown>): string {
+  const form = outputForm(properties)
+  const grid = outputGridDims(properties)
+  const canvas = outputCanvasDims(properties)
   const pad = 12
-  const size = PREVIEW_GRID * cell + pad * 2
+
+  if (form === 'strip') {
+    const cell = 18
+    const width = grid.width * cell + pad * 2
+    const height = cell + pad * 2
+    return [
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${esc(label)}">`,
+      `<rect width="${width}" height="${height}" rx="10" fill="${C.canvas}"/>`,
+      ...gridEmitters(frame, grid.width, 1, pad, pad, grid.width * cell, cell),
+      '</svg>',
+      '',
+    ].join('\n')
+  }
+
+  if (form === 'ring') {
+    const size = 408
+    const center = size / 2
+    const radius = 164
+    const emitter = 13
+    const map = ringSampleMap(grid.width, ringStartAngle(properties), ringDirection(properties), canvas.width, canvas.height)
+    const parts = [
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="${esc(label)}">`,
+      `<rect width="${size}" height="${size}" rx="10" fill="${C.canvas}"/>`,
+    ]
+    for (let index = 0; index < grid.width; index++) {
+      const angle = ((ringStartAngle(properties) + (ringDirection(properties) === 'cw' ? index : -index) * 360 / grid.width) - 90) * Math.PI / 180
+      const sample = map[index] ?? 0
+      const sx = sample % canvas.width
+      const sy = Math.floor(sample / canvas.width)
+      const color = frame?.[sy]?.[sx] ?? { r: 0, g: 0, b: 0 }
+      const x = center + Math.cos(angle) * radius - emitter / 2
+      const y = center + Math.sin(angle) * radius - emitter / 2
+      parts.push(`<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${emitter}" height="${emitter}" rx="2.3" fill="${px(color)}"/>`)
+    }
+    parts.push('</svg>', '')
+    return parts.join('\n')
+  }
+
+  const cell = 24
+  const size = Math.max(grid.width, grid.height) * cell + pad * 2
   const parts = [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="${esc(label)}">`,
-    `<rect width="${size}" height="${size}" rx="10" fill="#05070a"/>`,
+    `<rect width="${size}" height="${size}" rx="10" fill="${C.canvas}"/>`,
   ]
-  for (let ry = 0; ry < PREVIEW_GRID; ry++) {
-    for (let rx = 0; rx < PREVIEW_GRID; rx++) {
-      const c = frame?.[ry]?.[rx] ?? { r: 0, g: 0, b: 0 }
-      const bright = Math.max(c.r, c.g, c.b) > 16
-      const cx = pad + rx * cell + cell / 2
-      const cy = pad + ry * cell + cell / 2
-      if (bright) parts.push(`<circle cx="${cx}" cy="${cy}" r="${cell / 2}" fill="${px(c)}" opacity="0.35"/>`)
-      parts.push(`<circle cx="${cx}" cy="${cy}" r="${cell / 2 - 3}" fill="${bright ? px(c) : '#14171c'}"/>`)
-    }
-  }
+  parts.push(...gridEmitters(frame, grid.width, grid.height, pad, pad, grid.width * cell, grid.height * cell))
   parts.push('</svg>', '')
   return parts.join('\n')
 }
@@ -847,9 +910,13 @@ for (const def of NODE_LIBRARY) {
   writeFileSync(join(OUT_DIR, 'graphs', `${k}.svg`), exampleGraphSvg(spec))
   writeFileSync(
     join(OUT_DIR, 'previews', `${k}.svg`),
-    mainPreviewSvg(evalSpecFrame(spec, k), `LED preview of the ${def.label} example graph`),
+    mainPreviewSvg(
+      evalSpecFrame(spec, k),
+      `Evaluated output from the ${def.label} example graph`,
+      exampleOutputProperties(spec),
+    ),
   )
   count++
 }
 writeFileSync(GALLERY, galleryMd())
-console.log(`wrote ${count} node cards + example graphs + main previews to public/node-cards/ + docs/reference/node-cards.md`)
+console.log(`wrote ${count} node cards + example graphs + evaluated previews to public/node-cards/ + docs/reference/node-cards.md`)

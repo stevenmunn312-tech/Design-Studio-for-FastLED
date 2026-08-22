@@ -18,6 +18,18 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Button example graph](../../public/node-cards/graphs/button-input.svg)
 
+### Motion Sensor
+
+![Motion Sensor node](../../public/node-cards/motion-input.svg)
+
+![Motion Sensor example graph](../../public/node-cards/graphs/motion-input.svg)
+
+### Light Sensor
+
+![Light Sensor node](../../public/node-cards/light-input.svg)
+
+![Light Sensor example graph](../../public/node-cards/graphs/light-input.svg)
+
 ### Potentiometer
 
 ![Potentiometer node](../../public/node-cards/pot-input.svg)
@@ -930,11 +942,23 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ## Output
 
-### Matrix Output
+### Board
 
-![Matrix Output node](../../public/node-cards/matrix-output.svg)
+![Board node](../../public/node-cards/board.svg)
 
-![Matrix Output example graph](../../public/node-cards/graphs/matrix-output.svg)
+![Board example graph](../../public/node-cards/graphs/board.svg)
+
+### LED Matrix
+
+![LED Matrix node](../../public/node-cards/matrix-output.svg)
+
+![LED Matrix example graph](../../public/node-cards/graphs/matrix-output.svg)
+
+### Amplifier
+
+![Amplifier node](../../public/node-cards/amplifier.svg)
+
+![Amplifier example graph](../../public/node-cards/graphs/amplifier.svg)
 
 ## Notes
 

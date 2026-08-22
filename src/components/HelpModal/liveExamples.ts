@@ -1,7 +1,7 @@
 /**
  * Curated node-reference example graphs.
  *
- * The same specs drive the Help article image, the evaluated LED-panel image,
+ * The same specs drive the Help article image, the evaluated frame image,
  * and the "Try it live" insertion. Every graph is passed through the real
  * tidyLayout algorithm so the static image and inserted patch start from the
  * same clean, left-to-right dataflow layout.
@@ -14,14 +14,17 @@ import {
 } from '../../state/nodeLibrary'
 import { tidyLayout } from '../../utils/tidyLayout'
 import type { NodeDefinition, NodePort } from '../../types'
+import { LED_OUTPUT_FORM_LABELS, type LedOutputForm } from '../../state/ledOutputForm'
 
 export interface ReferenceLiveExample extends LiveExampleSpec {
   /** Compact topology shown beside the Try it live button. */
   path: string
   /** Node-specific explanation shown below the graph image. */
   explanation: string
-  /** Expected outcome shown beside the evaluated LED preview. */
+  /** Expected outcome shown beside the evaluated frame preview. */
   previewDescription: string
+  /** Frame output rendered in the reference and visible on that node in-app. */
+  previewTarget?: { node: string; handle: string }
   /** Workflow nodes have an outcome card instead of a misleading black panel. */
   previewMode?: 'led' | 'workflow'
 }
@@ -104,12 +107,16 @@ export function tidyLiveExample(draft: DraftExample): ReferenceLiveExample {
     ...draft,
     nodes: tidiedNodes,
     path: draft.path ?? graphPath(tidiedNodes),
+    previewTarget: draft.previewTarget ?? inferPreviewTarget(tidiedNodes, draft.edges),
   }
 }
 
 class ExampleBuilder {
   readonly nodes: PlannedNode[] = []
   readonly edges: LiveExampleSpec['edges'] = []
+  private previewTarget?: ReferenceLiveExample['previewTarget']
+
+  constructor(private readonly featuredType: string) {}
 
   add(key: string, type: string, properties?: Record<string, unknown>): string {
     if (this.nodes.some((node) => node.key === key)) return key
@@ -136,21 +143,63 @@ class ExampleBuilder {
     this.edges.push({ source, sourceHandle, target, targetHandle })
   }
 
+  preview(node: string, handle = 'frame'): void {
+    const type = this.typeOf(node)
+    if (type !== 'MatrixOutput' && outputPort(type, handle)?.dataType !== 'frame') {
+      throw new Error(`${type}.${handle} is not a frame output`)
+    }
+    this.previewTarget = { node, handle }
+  }
+
   finish(
     title: string,
     explanation: string,
     previewDescription: string,
     previewMode: 'led' | 'workflow' = 'led',
   ): ReferenceLiveExample {
+    const frameTarget = this.previewTarget ?? inferPreviewTarget(this.nodes, this.edges)
+    let output = this.nodes.find((entry) => entry.type === 'MatrixOutput')?.key
+    if (!output) output = this.add('output', 'MatrixOutput', exampleOutputProperties(this.featuredType))
+    if (frameTarget && frameTarget.node !== output && !this.edges.some((edge) => edge.target === output && edge.targetHandle === 'frame')) {
+      this.wire(frameTarget.node, frameTarget.handle, output, 'frame')
+    }
+    const outputNode = this.nodes.find((entry) => entry.key === output)!
+    const form = String(outputNode.properties?.form ?? 'matrix') as LedOutputForm
+    const outputLabel = LED_OUTPUT_FORM_LABELS[form] ?? LED_OUTPUT_FORM_LABELS.matrix
+    const sourceLabel = frameTarget ? definition(this.typeOf(frameTarget.node)).label : null
+    let accuratePreviewDescription = previewDescription
+    if (sourceLabel) {
+      accuratePreviewDescription = accuratePreviewDescription
+        .split(`${sourceLabel} node preview`).join(`${outputLabel} main preview`)
+    }
+    accuratePreviewDescription = accuratePreviewDescription
+      .replace(/^The main preview/, `The ${outputLabel} main preview`)
+    if (!accuratePreviewDescription.includes(`${outputLabel} main preview`)) {
+      accuratePreviewDescription = sourceLabel
+        ? `The ${outputLabel} main preview shows the final frame from ${sourceLabel}. ${accuratePreviewDescription}`
+        : `The graph includes an ${outputLabel} as its hardware destination. ${accuratePreviewDescription}`
+    }
     return tidyLiveExample({
       title,
       nodes: this.nodes,
       edges: this.edges,
       explanation,
-      previewDescription,
+      previewDescription: accuratePreviewDescription,
       previewMode,
+      previewTarget: { node: output, handle: 'frame' },
     })
   }
+}
+
+function inferPreviewTarget(
+  nodes: LiveExampleNodeSpec[],
+  edges: LiveExampleSpec['edges'],
+): ReferenceLiveExample['previewTarget'] {
+  const candidates = nodes.flatMap((node) => definition(node.type).outputs
+    .filter((port) => port.dataType === 'frame')
+    .map((port) => ({ node: node.key, handle: port.id })))
+  return [...candidates].reverse().find((candidate) => !edges.some((edge) =>
+    edge.source === candidate.node && edge.sourceHandle === candidate.handle))
 }
 
 const PALETTES = ['ocean', 'party', 'forest', 'lava', 'rainbow', 'cloud']
@@ -160,6 +209,26 @@ function hash(value: string): number {
   let result = 2166136261
   for (const char of value) result = Math.imul(result ^ char.charCodeAt(0), 16777619)
   return result >>> 0
+}
+
+const STRING_OUTPUT_EXAMPLES = new Set([
+  'BrightnessMod', 'ColorBoost', 'DMXInput', 'Fade', 'Fire2012', 'Gamma', 'GradientFrame',
+  'HueShift', 'Invert', 'PaletteSweep', 'Pacifica', 'PotInput', 'Rainbow', 'Saturation', 'Scanner', 'SolidColor',
+])
+
+const RING_OUTPUT_EXAMPLES = new Set([
+  'AudioHue', 'EncoderInput', 'HueCycle', 'Juggle', 'PaletteSampler', 'Pride2015',
+  'RadialBurst', 'Spiral', 'Temperature', 'TwinkleFox',
+])
+
+function exampleOutputProperties(featuredType: string): Record<string, unknown> {
+  if (STRING_OUTPUT_EXAMPLES.has(featuredType)) {
+    return { form: 'strip', ledCount: 30, brightness: 220 }
+  }
+  if (RING_OUTPUT_EXAMPLES.has(featuredType)) {
+    return { form: 'ring', ledCount: 24, ringStartAngle: 0, ringDirection: 'cw', brightness: 220 }
+  }
+  return { form: 'matrix', width: 16, height: 16, brightness: 220 }
 }
 
 function differentType(candidates: string[], targetType: string, seed: string): string {
@@ -437,14 +506,10 @@ function selectedInputs(node: NodeDefinition): NodePort[] {
   if (node.category === 'pattern') {
     const palette = node.inputs.find((input) => input.dataType === 'palette')
     const control = node.inputs.find((input) => input.dataType === 'float')
-    return [...(control ? [control] : []), ...(palette ? [palette] : [])]
+    const color = node.inputs.find((input) => input.dataType === 'color')
+    return [...(control ? [control] : []), ...(palette ? [palette] : color ? [color] : [])]
   }
   return []
-}
-
-function addMatrix(builder: ExampleBuilder, sourceKey: string, sourceHandle = 'frame'): void {
-  builder.add('out', 'MatrixOutput', { width: 16, height: 16 })
-  builder.wire(sourceKey, sourceHandle, 'out', 'frame')
 }
 
 function addFinish(builder: ExampleBuilder, node: NodeDefinition): string {
@@ -474,23 +539,23 @@ function directInputs(builder: ExampleBuilder, target: string): string[] {
 }
 
 function frameExample(node: NodeDefinition): ReferenceLiveExample {
-  const builder = new ExampleBuilder()
+  const builder = new ExampleBuilder(node.type)
   builder.add('target', node.type, TARGET_PROPERTIES[node.type])
   selectedInputs(node).forEach((input, index) => connectInput(builder, 'target', input, index))
   const finish = addFinish(builder, node)
-  addMatrix(builder, finish)
+  builder.preview(finish)
   const inputs = directInputs(builder, 'target')
   const sourceCopy = inputs.length ? `${inputs.join(', ')} drive the most revealing inputs.` : `${node.label} runs from its carefully chosen defaults.`
   const finishCopy = finish === 'finish' ? ' Trails keeps the motion visible long enough to read on a small matrix.' : ''
   return builder.finish(
-    node.category === 'composite' ? `Shape a finished frame with ${node.label}` : `Showcase ${node.label} on the matrix`,
+    node.category === 'composite' ? `Shape a finished frame with ${node.label}` : `Showcase ${node.label} as a live frame`,
     `${node.label} is the featured stage. ${sourceCopy} ${NODE_DESCRIPTIONS[node.type] ?? `${node.label} produces the featured frame.`}${finishCopy}`,
-    `Watch ${node.label} in the LED panel: the wired controls should change its defining motion or look, while its own node preview shows the same evaluated frame.`,
+    `Watch the ${definition(builder.typeOf(finish)).label} node preview: the wired controls should change ${node.label}'s defining motion or look there immediately.`,
   )
 }
 
 function audioPatternExample(node: NodeDefinition): ReferenceLiveExample {
-  const builder = new ExampleBuilder()
+  const builder = new ExampleBuilder(node.type)
   builder.add('mic', 'MicInput')
   builder.add('target', node.type, TARGET_PROPERTIES[node.type])
   const ids = new Set(node.inputs.map((input) => input.id))
@@ -529,21 +594,22 @@ function audioPatternExample(node: NodeDefinition): ReferenceLiveExample {
   const paletteInput = node.inputs.find((input) => input.dataType === 'palette')
   if (paletteInput) connectPalette(builder, 'target', paletteInput.id, 1)
   const finish = addFinish(builder, node)
-  addMatrix(builder, finish)
+  builder.preview(finish)
   const analyzers = directInputs(builder, 'target').filter((label) => label !== 'Palette Selector')
   return builder.finish(
     `Turn live audio into ${node.label}`,
     `Microphone fans out through ${analyzers.join(' and ') || 'the matching audio analyzer'}, whose distinct lanes feed ${node.label}. ${NODE_DESCRIPTIONS[node.type]}`,
-    `Allow microphone access and play audio nearby. ${node.label} should separate the motion by frequency, percussion, beat, or vocal energy according to the connected analyzer lanes.`,
+    `Allow microphone access and play audio nearby. The ${definition(builder.typeOf(finish)).label} node preview should separate its motion by frequency, percussion, beat, or vocal energy according to the connected analyzer lanes.`,
   )
 }
 
 function floatExample(node: NodeDefinition): ReferenceLiveExample {
-  const builder = new ExampleBuilder()
+  const builder = new ExampleBuilder(node.type)
   builder.add('target', node.type, TARGET_PROPERTIES[node.type])
   selectedInputs(node).forEach((input, index) => connectInput(builder, 'target', input, index))
   const out = node.outputs[0]
   const variation = hash(node.type) % 5
+  let previewKey: string
   if (variation === 0) {
     builder.add('map', 'MapRange', { inMin: 0, inMax: 1, outMin: 1.5, outMax: 7 })
     builder.add('visual', 'Circle', { filled: true, fill: '#ff3080' })
@@ -551,7 +617,7 @@ function floatExample(node: NodeDefinition): ReferenceLiveExample {
     builder.wire('target', out.id, 'map', 'value')
     builder.wire('map', 'result', 'visual', 'radius')
     builder.wire('visual', 'frame', 'finish', 'frame')
-    addMatrix(builder, 'finish')
+    previewKey = 'finish'
   } else if (variation === 1) {
     builder.add('map', 'MapRange', { inMin: 0, inMax: 1, outMin: -180, outMax: 180 })
     builder.add('visual', 'HueShift')
@@ -559,7 +625,7 @@ function floatExample(node: NodeDefinition): ReferenceLiveExample {
     builder.wire('target', out.id, 'map', 'value')
     builder.wire('map', 'result', 'visual', 'shift')
     builder.wire('base', 'frame', 'visual', 'frame')
-    addMatrix(builder, 'visual')
+    previewKey = 'visual'
   } else if (variation === 2) {
     builder.add('palette', 'PaletteSelector', { palette: 'party' })
     builder.add('visual', 'PaletteSampler')
@@ -567,13 +633,13 @@ function floatExample(node: NodeDefinition): ReferenceLiveExample {
     builder.wire('palette', 'palette', 'visual', 'paletteIn')
     builder.wire('target', out.id, 'visual', 't')
     builder.wire('visual', 'color', 'paint', 'color')
-    addMatrix(builder, 'paint')
+    previewKey = 'paint'
   } else if (variation === 3) {
     builder.add('base', 'GradientFrame', { rA: 0, gA: 40, bA: 255, rB: 255, gB: 20, bB: 170 })
     builder.add('visual', 'BrightnessMod')
     builder.wire('base', 'frame', 'visual', 'frame')
     builder.wire('target', out.id, 'visual', 'brightness')
-    addMatrix(builder, 'visual')
+    previewKey = 'visual'
   } else {
     builder.add('map', 'MapRange', { inMin: 0, inMax: 1, outMin: 1, outMax: 15 })
     builder.add('visual', 'Line', { x1: 0, y1: 15, x2: 15, y2: 0, r: 40, g: 230, b: 255 })
@@ -581,17 +647,19 @@ function floatExample(node: NodeDefinition): ReferenceLiveExample {
     builder.wire('target', out.id, 'map', 'value')
     builder.wire('map', 'result', 'visual', 'x2')
     builder.wire('visual', 'frame', 'finish', 'frame')
-    addMatrix(builder, 'finish')
+    previewKey = 'finish'
   }
+  builder.preview(previewKey)
+  const previewLabel = definition(builder.typeOf(previewKey)).label
   return builder.finish(
     `Turn ${node.label} into visible motion`,
     `${node.label}: ${NODE_DESCRIPTIONS[node.type]} The example routes its ${out.label.toLowerCase()} output into a visual control chosen to make that value obvious instead of always dimming the same Noise patch.`,
-    `${node.label} should now change colour, geometry, brightness, or motion in the LED panel. Follow the highlighted value through the adapter node to see the useful range conversion.`,
+    `The ${previewLabel} node preview should change colour, geometry, brightness, or motion as ${node.label} updates. Follow the value through the adapter node to see the useful range conversion.`,
   )
 }
 
 function rgbToHsvExample(node: NodeDefinition): ReferenceLiveExample {
-  const builder = new ExampleBuilder()
+  const builder = new ExampleBuilder(node.type)
   builder.add('source', 'Temperature', { kelvin: 9200 })
   builder.add('target', node.type)
   builder.add('map-h', 'MapRange', { inMin: 0, inMax: 360, outMin: 0, outMax: 255 })
@@ -599,7 +667,6 @@ function rgbToHsvExample(node: NodeDefinition): ReferenceLiveExample {
   builder.add('map-v', 'MapRange', { inMin: 0, inMax: 1, outMin: 0, outMax: 255 })
   builder.add('rebuild', 'CHSV')
   builder.add('paint', 'SolidColor')
-  builder.add('out', 'MatrixOutput')
   builder.wire('source', 'color', 'target', 'rgb')
   builder.wire('target', 'h', 'map-h', 'value')
   builder.wire('target', 's', 'map-s', 'value')
@@ -608,38 +675,37 @@ function rgbToHsvExample(node: NodeDefinition): ReferenceLiveExample {
   builder.wire('map-s', 'result', 'rebuild', 'sat')
   builder.wire('map-v', 'result', 'rebuild', 'val')
   builder.wire('rebuild', 'rgb', 'paint', 'color')
-  builder.wire('paint', 'frame', 'out', 'frame')
+  builder.preview('paint')
   return builder.finish(
     'Inspect and rebuild a colour in HSV',
     'Color Temperature supplies one RGB colour. RGB → HSV exposes hue in degrees and saturation/value as 0–1, so three Map Range nodes convert those lanes to CHSV’s 0–255 inputs before recombining them.',
-    'The rebuilt panel should closely match the source colour. Disconnect or process any HSV lane to see exactly which component changes.',
+    'The Solid Color node preview should closely match the Color Temperature swatch. Disconnect or process any HSV lane to see exactly which component changes.',
   )
 }
 
 function sampleHoldExample(node: NodeDefinition): ReferenceLiveExample {
-  const builder = new ExampleBuilder()
+  const builder = new ExampleBuilder(node.type)
   builder.add('random', 'Random', { min: 0, max: 1 })
   builder.add('interval', 'Interval', { interval: 0.8 })
   builder.add('target', node.type)
   builder.add('palette', 'PaletteSelector', { palette: 'party' })
   builder.add('sample', 'PaletteSampler')
   builder.add('paint', 'SolidColor')
-  builder.add('out', 'MatrixOutput')
   builder.wire('random', 'value', 'target', 'value')
   builder.wire('interval', 'pulse', 'target', 'trigger')
   builder.wire('target', 'result', 'sample', 't')
   builder.wire('palette', 'palette', 'sample', 'paletteIn')
   builder.wire('sample', 'color', 'paint', 'color')
-  builder.wire('paint', 'frame', 'out', 'frame')
+  builder.preview('paint')
   return builder.finish(
     'Hold one random colour per interval',
     'Random proposes a fresh value every frame, but Interval only opens Sample & Hold every 0.8 seconds. The held value selects one stable Party-palette colour until the next pulse.',
-    'The panel should jump to a new colour at each interval and remain perfectly steady between pulses.',
+    'The Solid Color node preview should jump to a new colour at each interval and remain perfectly steady between pulses.',
   )
 }
 
 function boolExample(node: NodeDefinition): ReferenceLiveExample {
-  const builder = new ExampleBuilder()
+  const builder = new ExampleBuilder(node.type)
   builder.add('target', node.type, TARGET_PROPERTIES[node.type])
   selectedInputs(node).forEach((input, index) => connectInput(builder, 'target', input, index))
   builder.add('a', 'Pacifica', { palette: 'ocean', speed: 0.32 })
@@ -648,47 +714,49 @@ function boolExample(node: NodeDefinition): ReferenceLiveExample {
   builder.wire('a', 'frame', 'switch', 'a')
   builder.wire('b', 'frame', 'switch', 'b')
   builder.wire('target', node.outputs[0].id, 'switch', 'sel')
-  addMatrix(builder, 'switch')
+  builder.preview('switch')
   return builder.finish(
     `Switch scenes with ${node.label}`,
     `${node.label}: ${NODE_DESCRIPTIONS[node.type]} Its boolean output chooses between a cool Pacifica scene and a hot Fire 2012 scene, so every state change is unmistakable.`,
-    `The LED panel should flip cleanly between ocean waves and fire whenever ${node.label} changes state.`,
+    `The Frame Switch node preview should flip cleanly between ocean waves and fire whenever ${node.label} changes state.`,
   )
 }
 
 function colorExample(node: NodeDefinition): ReferenceLiveExample {
-  const builder = new ExampleBuilder()
+  const builder = new ExampleBuilder(node.type)
   builder.add('target', node.type, TARGET_PROPERTIES[node.type])
   selectedInputs(node).forEach((input, index) => connectInput(builder, 'target', input, index))
   const variation = hash(node.type) % 3
+  let previewKey: string
   if (variation === 0) {
     builder.add('shape', 'Circle', { radius: 5.5, filled: true })
     builder.add('finish', 'Trails', { decay: 0.88 })
     builder.wire('target', node.outputs[0].id, 'shape', 'fill')
     builder.wire('shape', 'frame', 'finish', 'frame')
-    addMatrix(builder, 'finish')
+    previewKey = 'finish'
   } else if (variation === 1) {
     builder.add('other', 'Temperature', { kelvin: 2400 })
     builder.add('gradient', 'GradientFrame')
     builder.wire('target', node.outputs[0].id, 'gradient', 'colorA')
     builder.wire('other', 'color', 'gradient', 'colorB')
-    addMatrix(builder, 'gradient')
+    previewKey = 'gradient'
   } else {
     builder.add('shape', 'Shape', { shape: 'star', size: 6.5, filled: true, edge: '#ffffff' })
     builder.add('finish', 'Kaleidoscope', { segments: 6 })
     builder.wire('target', node.outputs[0].id, 'shape', 'fill')
     builder.wire('shape', 'frame', 'finish', 'frame')
-    addMatrix(builder, 'finish')
+    previewKey = 'finish'
   }
+  builder.preview(previewKey)
   return builder.finish(
     `Paint a moving scene with ${node.label}`,
     `${node.label}: ${NODE_DESCRIPTIONS[node.type]} The resulting colour is sent to a shape or gradient rather than a generic solid fill, making changes in hue and blend much easier to read.`,
-    `${node.label} should visibly recolour the featured geometry while the rest of the animation stays stable.`,
+    `The ${definition(builder.typeOf(previewKey)).label} node preview should visibly recolour its geometry while the rest of the animation stays stable.`,
   )
 }
 
 function paletteExample(node: NodeDefinition): ReferenceLiveExample {
-  const builder = new ExampleBuilder()
+  const builder = new ExampleBuilder(node.type)
   builder.add('target', node.type, TARGET_PROPERTIES[node.type])
   selectedInputs(node).forEach((input, index) => connectInput(builder, 'target', input, index))
   const choices = ['Pacifica', 'Particles', 'FractalNoise', 'Starfield', 'Noise']
@@ -699,16 +767,16 @@ function paletteExample(node: NodeDefinition): ReferenceLiveExample {
       ? { noiseType: 'worley', speed: 0.34, scale: 0.52 }
       : undefined)
   builder.wire('target', node.outputs[0].id, 'visual', 'paletteIn')
-  addMatrix(builder, 'visual')
+  builder.preview('visual')
   return builder.finish(
     `Colour ${definition(visualType).label} with ${node.label}`,
     `${node.label}: ${NODE_DESCRIPTIONS[node.type]} ${definition(visualType).label} samples that palette across a spatial animation, revealing the full colour progression instead of just one swatch.`,
-    `The LED panel should retain the ${definition(visualType).label} motion while its colour range comes entirely from ${node.label}.`,
+    `The ${definition(visualType).label} node preview should retain its motion while its colour range comes entirely from ${node.label}.`,
   )
 }
 
 function fieldExample(node: NodeDefinition): ReferenceLiveExample {
-  const builder = new ExampleBuilder()
+  const builder = new ExampleBuilder(node.type)
   builder.add('target', node.type, TARGET_PROPERTIES[node.type])
   selectedInputs(node).forEach((input, index) => connectInput(builder, 'target', input, index))
   let fieldSource = 'target'
@@ -718,28 +786,27 @@ function fieldExample(node: NodeDefinition): ReferenceLiveExample {
     fieldSource = 'field-finish'
   }
   if (node.outputs[0]?.dataType === 'frame') {
-    addMatrix(builder, 'target')
+    builder.preview('target')
   } else {
     builder.add('paint', 'FieldToFrame', { palette: PALETTES[hash(node.type) % PALETTES.length], brightness: 1 })
     builder.wire(fieldSource, 'field', 'paint', 'field')
-    addMatrix(builder, 'paint')
+    builder.preview('paint')
   }
   return builder.finish(
     `Reveal ${node.label} as a colour field`,
     `${node.label}: ${NODE_DESCRIPTIONS[node.type]} Field → Frame maps the scalar result through a vivid palette, with an extra field transform only where it helps expose the node's spatial structure.`,
-    `The LED panel should show ${node.label}'s scalar structure as colour bands or texture. Changes to the featured inputs should reshape the field before colour mapping.`,
+    `The ${node.outputs[0]?.dataType === 'frame' ? node.label : 'Field → Frame'} node preview should show ${node.label}'s scalar structure as colour bands or texture. Changes to the featured inputs should reshape the field before colour mapping.`,
   )
 }
 
 function workflowExample(node: NodeDefinition): ReferenceLiveExample {
-  const builder = new ExampleBuilder()
+  const builder = new ExampleBuilder(node.type)
   const description = NODE_DESCRIPTIONS[node.type] ?? `${node.label} is part of the show workflow.`
   switch (node.type) {
     case 'MusicLibrary':
       builder.add('target', node.type)
       builder.add('performance', 'PerformanceGenerator')
       builder.add('sd', 'SDCard')
-      builder.add('out', 'MatrixOutput')
       builder.wire('target', 'music', 'performance', 'music')
       break
     case 'PerformanceGenerator':
@@ -748,7 +815,6 @@ function workflowExample(node: NodeDefinition): ReferenceLiveExample {
       builder.add('transitions', 'TransitionSet')
       builder.add('target', node.type)
       builder.add('sd', 'SDCard')
-      builder.add('out', 'MatrixOutput')
       builder.wire('music', 'music', 'target', 'music')
       builder.wire('patterns', 'patternset', 'target', 'patternset')
       builder.wire('transitions', 'transitions', 'target', 'transitions')
@@ -757,26 +823,21 @@ function workflowExample(node: NodeDefinition): ReferenceLiveExample {
       builder.add('music', 'MusicLibrary')
       builder.add('performance', 'PerformanceGenerator')
       builder.add('target', node.type)
-      builder.add('out', 'MatrixOutput')
       builder.wire('music', 'music', 'performance', 'music')
       break
     case 'PatternCollection':
       builder.add('target', node.type)
       builder.add('transitions', 'TransitionSet')
       builder.add('show', 'PatternMaster')
-      builder.add('out', 'MatrixOutput')
       builder.wire('target', 'patternset', 'show', 'patternset')
       builder.wire('transitions', 'transitions', 'show', 'transitions')
-      builder.wire('show', 'frame', 'out', 'frame')
       break
     case 'TransitionSet':
       builder.add('patterns', 'PatternCollection')
       builder.add('target', node.type)
       builder.add('show', 'PatternMaster')
-      builder.add('out', 'MatrixOutput')
       builder.wire('patterns', 'patternset', 'show', 'patternset')
       builder.wire('target', 'transitions', 'show', 'transitions')
-      builder.wire('show', 'frame', 'out', 'frame')
       break
     case 'PatternMaster':
       builder.add('patterns', 'PatternCollection')
@@ -784,13 +845,11 @@ function workflowExample(node: NodeDefinition): ReferenceLiveExample {
       builder.add('transitions', 'TransitionSet')
       builder.add('beat', 'BeatDetect')
       builder.add('target', node.type)
-      builder.add('out', 'MatrixOutput')
       builder.wire('patterns', 'patternset', 'target', 'patternset')
       builder.wire('mic', 'audio', 'target', 'audio')
       builder.wire('mic', 'audio', 'beat', 'audio')
       builder.wire('beat', 'beat', 'target', 'beat')
       builder.wire('transitions', 'transitions', 'target', 'transitions')
-      builder.wire('target', 'frame', 'out', 'frame')
       break
   }
   return builder.finish(
@@ -802,7 +861,7 @@ function workflowExample(node: NodeDefinition): ReferenceLiveExample {
 }
 
 function matrixOutputExample(node: NodeDefinition): ReferenceLiveExample {
-  const builder = new ExampleBuilder()
+  const builder = new ExampleBuilder(node.type)
   builder.add('mic', 'MicInput')
   builder.add('fft', 'FFTAnalyzer', { smoothing: 0.7 })
   builder.add('cascade', 'AudioCascade', { palette: 'party' })
@@ -814,6 +873,7 @@ function matrixOutputExample(node: NodeDefinition): ReferenceLiveExample {
   builder.wire('fft', 'treble', 'cascade', 'treble')
   builder.wire('cascade', 'frame', 'trails', 'frame')
   builder.wire('trails', 'frame', 'target', 'frame')
+  builder.preview('target')
   return builder.finish(
     'Finish an audio-reactive LED patch',
     'Microphone and FFT Analyzer drive Audio Cascade, Trails preserves its falling colour, and the LED Matrix turns the final frame into the shared preview, firmware, and upload target. The same node covers a string, a ring, and a HUB75 panel — its form decides which.',
@@ -822,24 +882,22 @@ function matrixOutputExample(node: NodeDefinition): ReferenceLiveExample {
 }
 
 function commentExample(node: NodeDefinition): ReferenceLiveExample {
-  const builder = new ExampleBuilder()
+  const builder = new ExampleBuilder(node.type)
   builder.add('pattern', 'Pacifica', { palette: 'ocean' })
-  builder.add('out', 'MatrixOutput')
   builder.add('target', node.type, TARGET_PROPERTIES[node.type])
-  builder.wire('pattern', 'frame', 'out', 'frame')
+  builder.preview('pattern')
   return builder.finish(
     'Document a patch without changing it',
-    'The Comment sits beside a working Pacifica → LED Matrix patch but has no noodles. It records design intent while remaining completely outside evaluation and generated firmware.',
-    'Pacifica keeps rendering unchanged. Editing, moving, or deleting the Comment must not alter the LED preview.',
+    'The Comment sits beside a running Pacifica node but has no noodles. It records design intent while remaining completely outside evaluation and generated firmware.',
+    'The Pacifica node preview keeps moving unchanged. Editing, moving, or deleting the Comment does not alter that preview.',
   )
 }
 
 function amplifierExample(node: NodeDefinition): ReferenceLiveExample {
-  const builder = new ExampleBuilder()
+  const builder = new ExampleBuilder(node.type)
   builder.add('music', 'MusicLibrary')
   builder.add('performance', 'PerformanceGenerator')
   builder.add('sd', 'SDCard')
-  builder.add('out', 'MatrixOutput')
   builder.add('target', node.type)
   builder.wire('music', 'music', 'performance', 'music')
   return builder.finish(
@@ -851,78 +909,102 @@ function amplifierExample(node: NodeDefinition): ReferenceLiveExample {
 }
 
 function boardExample(node: NodeDefinition): ReferenceLiveExample {
-  const builder = new ExampleBuilder()
+  const builder = new ExampleBuilder(node.type)
   builder.add('pattern', 'Pride2015', { speed: 0.4 })
-  builder.add('out', 'MatrixOutput', { width: 16, height: 16 })
   builder.add('target', node.type, TARGET_PROPERTIES[node.type])
-  builder.wire('pattern', 'frame', 'out', 'frame')
+  builder.preview('pattern')
   return builder.finish(
     'Name the controller the patch targets',
     'Board carries no noodles — it names the exact controller the rest of the graph is built for. Choosing a board here is what makes pin advice match the header in your hand rather than just the chip, and it is what the wiring diagram reads.',
-    'Pride 2015 keeps rendering unchanged. Board affects pin validation, supported features, and the wiring diagram rather than the pixels themselves.',
+    'The Pride 2015 node preview keeps moving unchanged. Board affects pin validation, supported features, and the wiring diagram rather than those pixels.',
   )
 }
 
 function transitionExample(node: NodeDefinition): ReferenceLiveExample {
-  const builder = new ExampleBuilder()
+  const builder = new ExampleBuilder(node.type)
   builder.add('a', 'Pacifica', { palette: 'ocean', speed: 0.34 })
   builder.add('b', 'Fire2012', { palette: 'lava', sparking: 145 })
   builder.add('progress', 'BeatSin', { bpm: 24, low: 0, high: 1 })
   builder.add('target', node.type, TARGET_PROPERTIES[node.type])
-  builder.add('out', 'MatrixOutput')
   builder.wire('a', 'frame', 'target', 'a')
   builder.wire('b', 'frame', 'target', 'b')
   builder.wire('progress', 'value', 'target', 't')
-  builder.wire('target', 'frame', 'out', 'frame')
+  builder.preview('target')
   return builder.finish(
     `Travel from ocean to fire with ${node.label}`,
     `Pacifica and Fire 2012 provide clearly different A/B scenes. BeatSin sweeps transition progress smoothly from 0 to 1 so ${node.label}'s selected style is easy to inspect.`,
-    `The LED panel should repeatedly travel between cool ocean waves and hot fire using the selected ${node.label.toLowerCase()} style.`,
+    `The ${node.label} node preview should repeatedly travel between cool ocean waves and hot fire using the selected transition style.`,
   )
 }
 
 function sequencerExample(node: NodeDefinition): ReferenceLiveExample {
-  const builder = new ExampleBuilder()
+  const builder = new ExampleBuilder(node.type)
   builder.add('p0', 'Pacifica', { palette: 'ocean' })
   builder.add('p1', 'Fire2012', { palette: 'lava' })
   builder.add('p2', 'TwinkleFox', { palette: 'party' })
   builder.add('target', node.type, { dwell: 2.5, transition: 0.6 })
-  builder.add('out', 'MatrixOutput')
   builder.wire('p0', 'frame', 'target', 'p0')
   builder.wire('p1', 'frame', 'target', 'p1')
   builder.wire('p2', 'frame', 'target', 'p2')
-  builder.wire('target', 'frame', 'out', 'frame')
+  builder.preview('target')
   return builder.finish(
     'Cycle three contrasting scenes',
     'Pacifica, Fire 2012, and TwinkleFox fill three Sequencer slots. The empty fourth slot is intentionally left open so the example demonstrates partial sequencing without irrelevant filler.',
-    'The panel should dwell on each connected scene in order and then loop, making the timing controls straightforward to verify.',
+    'The Sequencer node preview should dwell on each connected scene in order and then loop, making the timing controls straightforward to verify.',
   )
 }
 
 function namedExample(
+  featuredType: string,
   title: string,
   nodes: Array<Omit<LiveExampleNodeSpec, 'dx' | 'dy'>>,
   edges: LiveExampleSpec['edges'],
   explanation: string,
   previewDescription: string,
 ): ReferenceLiveExample {
-  return tidyLiveExample({
-    title,
-    nodes: nodes.map((node) => ({ ...node, dx: 0, dy: 0 })),
-    edges,
-    explanation,
-    previewDescription,
-  })
+  const builder = new ExampleBuilder(featuredType)
+  nodes.forEach((node) => builder.add(node.key, node.type, node.properties))
+  edges.forEach((edge) => builder.wire(edge.source, edge.sourceHandle, edge.target, edge.targetHandle))
+  return builder.finish(title, explanation, previewDescription)
+}
+
+function xyMapperExample(node: NodeDefinition): ReferenceLiveExample {
+  const builder = new ExampleBuilder(node.type)
+  builder.add('x', 'BeatSin', { bpm: 23, low: 0, high: 15 })
+  builder.add('y', 'BeatSin', { bpm: 31, low: 0, high: 15 })
+  builder.add('target', node.type)
+  builder.add('normalize', 'MapRange', { inMin: 0, inMax: 255, outMin: 0, outMax: 360 })
+  builder.add('color', 'HSVToRGB', { s: 0.92, v: 1 })
+  builder.add('screen-x', 'MapRange', { inMin: 0, inMax: 15, outMin: 0, outMax: 1 })
+  builder.add('screen-y', 'MapRange', { inMin: 0, inMax: 15, outMin: 0, outMax: 1 })
+  builder.add('dot', 'Circle', { radius: 2.2, filled: true })
+  builder.add('trails', 'Trails', { decay: 0.9 })
+  builder.wire('x', 'value', 'target', 'x')
+  builder.wire('y', 'value', 'target', 'y')
+  builder.wire('target', 'index', 'normalize', 'value')
+  builder.wire('normalize', 'result', 'color', 'h')
+  builder.wire('color', 'color', 'dot', 'fill')
+  builder.wire('x', 'value', 'screen-x', 'value')
+  builder.wire('y', 'value', 'screen-y', 'value')
+  builder.wire('screen-x', 'result', 'dot', 'cx')
+  builder.wire('screen-y', 'result', 'dot', 'cy')
+  builder.wire('dot', 'frame', 'trails', 'frame')
+  builder.preview('trails')
+  return builder.finish(
+    'Turn XY → Index into a moving pixel address',
+    'Two BeatSin nodes sweep X and Y across the full 0–15 matrix coordinates. XY → Index converts each position to a row-major 0–255 LED address, and Map Range turns that address into hue. Two additional Map Range nodes normalize the pixel coordinates to Circle’s 0–1 position inputs, while Trails makes the route easy to follow.',
+    'The Trails node preview should show a coloured dot roaming across the LED Matrix. Its colour changes with the computed index: moving right advances one address at a time, while moving down jumps by a complete 16-pixel row.',
+  )
 }
 
 export const MICROPHONE_LIVE_EXAMPLE = namedExample(
+  'MicInput',
   'Turn the microphone into a living spectrum',
   [
     { key: 'mic', type: 'MicInput' },
     { key: 'fft', type: 'FFTAnalyzer', properties: { smoothing: 0.7, gain: 1.15 } },
     { key: 'bars', type: 'SpectrumBars', properties: { palette: 'party' } },
     { key: 'trails', type: 'Trails', properties: { decay: 0.88 } },
-    { key: 'out', type: 'MatrixOutput' },
   ],
   [
     { source: 'mic', sourceHandle: 'audio', target: 'fft', targetHandle: 'audio' },
@@ -930,51 +1012,49 @@ export const MICROPHONE_LIVE_EXAMPLE = namedExample(
     { source: 'fft', sourceHandle: 'mids', target: 'bars', targetHandle: 'mids' },
     { source: 'fft', sourceHandle: 'treble', target: 'bars', targetHandle: 'treble' },
     { source: 'bars', sourceHandle: 'frame', target: 'trails', targetHandle: 'frame' },
-    { source: 'trails', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
   ],
-  'Microphone feeds FFT Analyzer once; its three frequency lanes shape Spectrum Bars independently. Trails gives fast treble hits a readable tail before the LED output.',
-  'Allow microphone access and play audio nearby. Live audio should make bass feel broad, mids structured, and treble quick and bright.',
+  'Microphone feeds FFT Analyzer once; its three frequency lanes shape Spectrum Bars independently. Trails gives fast treble hits a readable tail in its own frame preview.',
+  'Allow microphone access and play audio nearby. The Trails node preview should make bass feel broad, mids structured, and treble quick and bright.',
 )
 
 export const BUTTON_LIVE_EXAMPLE = namedExample(
+  'ButtonInput',
   'Use a button to swap entire scenes',
   [
     { key: 'button', type: 'ButtonInput' },
     { key: 'ocean', type: 'Pacifica', properties: { palette: 'ocean' } },
     { key: 'fire', type: 'Fire2012', properties: { palette: 'lava' } },
     { key: 'switch', type: 'FrameSwitch' },
-    { key: 'out', type: 'MatrixOutput' },
   ],
   [
     { source: 'ocean', sourceHandle: 'frame', target: 'switch', targetHandle: 'a' },
     { source: 'fire', sourceHandle: 'frame', target: 'switch', targetHandle: 'b' },
     { source: 'button', sourceHandle: 'pressed', target: 'switch', targetHandle: 'sel' },
-    { source: 'switch', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
   ],
   'Pacifica and Fire 2012 create unmistakably different scenes. Button selects the B scene while pressed, demonstrating a real gate instead of using a trigger as an arbitrary number.',
-  'Press the Button node to switch from cool ocean waves to fire; release it to return to Pacifica.',
+  'The Frame Switch node preview starts on cool Pacifica. Press the Button node to show fire; release it to return to the ocean scene.',
 )
 
 export const POTENTIOMETER_LIVE_EXAMPLE = namedExample(
+  'PotInput',
   'Sweep a knob across the colour wheel',
   [
     { key: 'pot', type: 'PotInput' },
     { key: 'map', type: 'MapRange', properties: { inMin: 0, inMax: 1, outMin: -180, outMax: 180 } },
     { key: 'blobs', type: 'Blobs', properties: { palette: 'party', speed: 0.38 } },
     { key: 'hue', type: 'HueShift' },
-    { key: 'out', type: 'MatrixOutput' },
   ],
   [
     { source: 'pot', sourceHandle: 'value', target: 'map', targetHandle: 'value' },
     { source: 'map', sourceHandle: 'result', target: 'hue', targetHandle: 'shift' },
     { source: 'blobs', sourceHandle: 'frame', target: 'hue', targetHandle: 'frame' },
-    { source: 'hue', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
   ],
   'Potentiometer produces 0–1. Map Range converts that useful physical range into -180° to 180°, then Hue Shift rotates the colours of a lively Blobs pattern.',
-  'Drag the Potentiometer from end to end: the Blobs geometry should stay intact while its whole palette circles through the spectrum.',
+  'The Hue Shift node preview starts with the Potentiometer at its midpoint. Drag the slider end to end: the Blobs geometry stays intact while its palette circles through the spectrum.',
 )
 
 export const ENCODER_LIVE_EXAMPLE = namedExample(
+  'EncoderInput',
   'Rotate a star and flash it from one control',
   [
     { key: 'encoder', type: 'EncoderInput' },
@@ -982,7 +1062,6 @@ export const ENCODER_LIVE_EXAMPLE = namedExample(
     { key: 'shape', type: 'Shape', properties: { shape: 'star', size: 6.5, fill: '#ff3080', edge: '#00e0ff' } },
     { key: 'trails', type: 'Trails', properties: { decay: 0.88 } },
     { key: 'flash', type: 'BeatFlash', properties: { intensity: 0.85 } },
-    { key: 'out', type: 'MatrixOutput' },
   ],
   [
     { source: 'encoder', sourceHandle: 'position', target: 'map', targetHandle: 'value' },
@@ -990,13 +1069,13 @@ export const ENCODER_LIVE_EXAMPLE = namedExample(
     { source: 'shape', sourceHandle: 'frame', target: 'trails', targetHandle: 'frame' },
     { source: 'trails', sourceHandle: 'frame', target: 'flash', targetHandle: 'frame' },
     { source: 'encoder', sourceHandle: 'pressed', target: 'flash', targetHandle: 'beat' },
-    { source: 'flash', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
   ],
   'Encoder position is mapped into rotation for a star, while its integrated push-button independently triggers Beat Flash. Trails makes each turn visible.',
-  'Turn the encoder to rotate the star and leave a soft trail; click it to punch the complete frame brighter.',
+  'The Beat Flash node preview starts with an unrotated star. Turn the encoder to rotate it and leave a soft trail; click the dial to punch the complete frame brighter.',
 )
 
 export const MIDI_LIVE_EXAMPLE = namedExample(
+  'MidiInput',
   'Play colour, gate, and velocity from MIDI',
   [
     { key: 'midi', type: 'MidiInput', properties: { note: 60, cc: 1 } },
@@ -1006,7 +1085,6 @@ export const MIDI_LIVE_EXAMPLE = namedExample(
     { key: 'hue', type: 'HueShift' },
     { key: 'switch', type: 'FrameSwitch' },
     { key: 'brightness', type: 'BrightnessMod' },
-    { key: 'out', type: 'MatrixOutput' },
   ],
   [
     { source: 'midi', sourceHandle: 'cc', target: 'hue-map', targetHandle: 'value' },
@@ -1018,34 +1096,33 @@ export const MIDI_LIVE_EXAMPLE = namedExample(
     { source: 'switch', sourceHandle: 'frame', target: 'brightness', targetHandle: 'frame' },
     { source: 'midi', sourceHandle: 'note', target: 'velocity-map', targetHandle: 'value' },
     { source: 'velocity-map', sourceHandle: 'result', target: 'brightness', targetHandle: 'brightness' },
-    { source: 'brightness', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
   ],
   'MIDI CC is mapped to hue, Gate switches between the original and recoloured scenes, and the note/velocity lane is normalized before it controls final brightness.',
-  'Move CC 1 to rotate colour, hold the configured note to select the shifted scene, and vary velocity to change its brightness.',
+  'With no MIDI input, the Brightness node preview shows the idle Pacifica scene at minimum brightness. Move CC 1 to rotate colour, hold note 60 to select that shifted scene, and vary note velocity to change its brightness.',
 )
 
 export const DMX_INPUT_LIVE_EXAMPLE = namedExample(
+  'DMXInput',
   'Drive brightness from Art-Net / DMX',
   [
     { key: 'dmx', type: 'DMXInput', properties: { inputMode: 'Art-Net', universe: 0, previewPort: 6454 } },
     { key: 'channel', type: 'DMXChannel', properties: { channel: 1, activeThreshold: 1 } },
     { key: 'base', type: 'Pacifica', properties: { palette: 'ocean' } },
     { key: 'brightness', type: 'BrightnessMod' },
-    { key: 'out', type: 'MatrixOutput' },
   ],
   [
     { source: 'dmx', sourceHandle: 'dmx', target: 'channel', targetHandle: 'dmx' },
     { source: 'base', sourceHandle: 'frame', target: 'brightness', targetHandle: 'frame' },
     { source: 'channel', sourceHandle: 'value', target: 'brightness', targetHandle: 'brightness' },
-    { source: 'brightness', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
   ],
   'DMX / Art-Net receives one live universe, DMX Channel isolates slot 1 as a normalized 0–1 control, and Brightness Mod turns that raw transport data into an obvious visual response.',
-  'Without live Art-Net the preview sits dim. Send universe 0, channel 1 to fade Pacifica smoothly from black to full brightness.',
+  'Without live Art-Net the Brightness node preview is black. Send universe 0, channel 1 to fade Pacifica smoothly from black to full brightness.',
 )
 
 export const FFT_ANALYZER_LIVE_EXAMPLE = MICROPHONE_LIVE_EXAMPLE
 
 export const BEAT_DETECT_LIVE_EXAMPLE = namedExample(
+  'BeatDetect',
   'Choose a new palette colour on every beat',
   [
     { key: 'mic', type: 'MicInput' },
@@ -1055,7 +1132,6 @@ export const BEAT_DETECT_LIVE_EXAMPLE = namedExample(
     { key: 'palette', type: 'PaletteSelector', properties: { palette: 'party' } },
     { key: 'sample', type: 'PaletteSampler' },
     { key: 'solid', type: 'SolidColor' },
-    { key: 'out', type: 'MatrixOutput' },
   ],
   [
     { source: 'mic', sourceHandle: 'audio', target: 'beat', targetHandle: 'audio' },
@@ -1064,51 +1140,49 @@ export const BEAT_DETECT_LIVE_EXAMPLE = namedExample(
     { source: 'hold', sourceHandle: 'result', target: 'sample', targetHandle: 't' },
     { source: 'palette', sourceHandle: 'palette', target: 'sample', targetHandle: 'paletteIn' },
     { source: 'sample', sourceHandle: 'color', target: 'solid', targetHandle: 'color' },
-    { source: 'solid', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
   ],
   'Beat Detect does not merely flash a stock frame: each beat tells Sample & Hold to capture one new Random value, which selects a stable Party-palette colour until the next hit.',
-  'With live audio playing nearby, the entire panel should jump to a new colour on each detected beat and hold that colour between beats.',
+  'With live audio playing nearby, the Solid Color node preview should jump to a new colour on each detected beat and hold that colour between beats.',
 )
 
 export const PERCUSSION_DETECT_LIVE_EXAMPLE = namedExample(
+  'PercussionDetect',
   'Separate drums into layered reactive blobs',
   [
     { key: 'mic', type: 'MicInput' },
     { key: 'percussion', type: 'PercussionDetect', properties: { sensitivity: 0.65, separation: 0.72 } },
     { key: 'blobs', type: 'PercussionBlobs', properties: { palette: 'party' } },
-    { key: 'out', type: 'MatrixOutput' },
   ],
   [
     { source: 'mic', sourceHandle: 'audio', target: 'percussion', targetHandle: 'audio' },
     { source: 'percussion', sourceHandle: 'kick', target: 'blobs', targetHandle: 'kick' },
     { source: 'percussion', sourceHandle: 'snare', target: 'blobs', targetHandle: 'snare' },
     { source: 'percussion', sourceHandle: 'hihat', target: 'blobs', targetHandle: 'hihat' },
-    { source: 'blobs', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
   ],
   'Percussion Detect splits one microphone stream into kick, snare, and hi-hat envelopes. Percussion Blobs gives each lane its own visual weight and motion.',
-  'Low hits should make large heavy blobs, snares medium accents, and hi-hats quick small details.',
+  'The Percussion Blobs node preview should show large heavy blobs for low hits, medium accents for snares, and quick small details for hi-hats.',
 )
 
 export const AUDIO_FEATURES_LIVE_EXAMPLE = namedExample(
+  'AudioFeatures',
   'Let vocals open an aurora',
   [
     { key: 'mic', type: 'MicInput' },
     { key: 'features', type: 'AudioFeatures', properties: { sensitivity: 0.65, smoothing: 0.62 } },
     { key: 'aurora', type: 'VocalAurora', properties: { palette: 'ocean' } },
-    { key: 'out', type: 'MatrixOutput' },
   ],
   [
     { source: 'mic', sourceHandle: 'audio', target: 'features', targetHandle: 'audio' },
     { source: 'features', sourceHandle: 'vocals', target: 'aurora', targetHandle: 'vocals' },
     { source: 'features', sourceHandle: 'energy', target: 'aurora', targetHandle: 'energy' },
     { source: 'features', sourceHandle: 'silence', target: 'aurora', targetHandle: 'silence' },
-    { source: 'aurora', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
   ],
   'Audio Features derives vocals, total energy, and silence from one stream. Vocal Aurora gives each feature a distinct responsibility instead of treating them as interchangeable values.',
-  'Voice-like content should lift the curtains, louder passages intensify them, and silence should let the scene settle.',
+  'The Vocal Aurora node preview should lift its curtains for voice-like content, intensify during louder passages, and settle during silence.',
 )
 
 export const AUDIO_HUE_LIVE_EXAMPLE = namedExample(
+  'AudioHue',
   'Turn spectrum balance into a colour wash',
   [
     { key: 'mic', type: 'MicInput' },
@@ -1116,7 +1190,6 @@ export const AUDIO_HUE_LIVE_EXAMPLE = namedExample(
     { key: 'hue', type: 'AudioHue' },
     { key: 'hsv', type: 'HSVToRGB', properties: { s: 0.92, v: 1 } },
     { key: 'gradient', type: 'GradientFrame', properties: { rB: 20, gB: 0, bB: 80 } },
-    { key: 'out', type: 'MatrixOutput' },
   ],
   [
     { source: 'mic', sourceHandle: 'audio', target: 'fft', targetHandle: 'audio' },
@@ -1125,25 +1198,23 @@ export const AUDIO_HUE_LIVE_EXAMPLE = namedExample(
     { source: 'fft', sourceHandle: 'treble', target: 'hue', targetHandle: 'treble' },
     { source: 'hue', sourceHandle: 'hue', target: 'hsv', targetHandle: 'h' },
     { source: 'hsv', sourceHandle: 'color', target: 'gradient', targetHandle: 'colorA' },
-    { source: 'gradient', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
   ],
   'FFT Analyzer supplies three band levels. Audio → Hue combines their balance into degrees, HSV → RGB creates the colour, and Gradient Frame makes that colour more dimensional than a flat fill.',
-  'The bright end of the gradient should move around the colour wheel as bass, mids, and treble trade emphasis.',
+  'The bright end of the Gradient Frame node preview should move around the colour wheel as bass, mids, and treble trade emphasis.',
 )
 
 export const RTC_CLOCK_LIVE_EXAMPLE = namedExample(
+  'RTCInput',
   'Display trustworthy battery-backed time',
   [
     { key: 'rtc', type: 'RTCInput', properties: { timeSource: 'DS3231', partId: 'ds3231-rtc-module' } },
     { key: 'clock', type: 'ClockDisplay', properties: { displayMode: 'Digital + Date' } },
-    { key: 'out', type: 'MatrixOutput', properties: { width: 16, height: 16 } },
   ],
   [
     { source: 'rtc', sourceHandle: 'dateTime', target: 'clock', targetHandle: 'dateTime' },
-    { source: 'clock', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
   ],
   'RTC Clock publishes the complete calendar and its health as one DateTime connection. Clock Display accepts it only while the DS3231 reading is valid, synced, and not stale.',
-  'The preview simulates a healthy DS3231. On hardware, the display shows dashes until the connected module has trustworthy battery-backed time.',
+  'The Clock Display node preview simulates a healthy DS3231 and shows the pinned documentation time. On hardware, it shows dashes until the connected module has trustworthy battery-backed time.',
 )
 
 const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
@@ -1166,6 +1237,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
 export function buildGenericLiveExample(node: NodeDefinition): ReferenceLiveExample {
   if (node.type === 'RGBToHSV') return rgbToHsvExample(node)
   if (node.type === 'SampleHold') return sampleHoldExample(node)
+  if (node.type === 'XYMapper') return xyMapperExample(node)
   if (node.type === 'MatrixOutput') return matrixOutputExample(node)
   if (node.type === 'Board') return boardExample(node)
   if (node.type === 'Amplifier') return amplifierExample(node)

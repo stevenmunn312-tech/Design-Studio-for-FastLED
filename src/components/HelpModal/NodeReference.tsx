@@ -76,15 +76,15 @@ const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
     ],
     propertyNote: 'Bands sets FFT resolution. Gain, Smoothing, and Tilt shape the visual response of the three band outputs.',
     exampleTitle: 'Separate the song into spectrum bars',
-    examplePath: 'Microphone.audio -> FFT Analyzer.audio -> Spectrum Bars.bass/mids/treble -> LED Matrix',
-    exampleAlt: 'Placeholder for a tidy graph using Microphone, FFT Analyzer, Spectrum Bars, and LED Matrix',
-    exampleExplanation: 'Microphone supplies the audio stream. FFT Analyzer extracts bass, mids, and treble levels; Spectrum Bars maps those three values into columns of colour and sends the rendered frame to the LED output.',
+    examplePath: 'Microphone.audio -> FFT Analyzer.audio -> Spectrum Bars.bass/mids/treble -> Trails',
+    exampleAlt: 'Tidy graph using Microphone, FFT Analyzer, Spectrum Bars, and Trails',
+    exampleExplanation: 'Microphone supplies the audio stream. FFT Analyzer extracts bass, mids, and treble levels; Spectrum Bars maps those values into columns of colour and Trails holds their movement before the LED Matrix.',
     previewTitle: 'What you should see',
     previewDescription: 'Bass-heavy moments should lift the low-band bars, midrange content should fill the centre response, and bright transients should flick the treble side. Allow microphone access so the bars follow the real audio input.',
-    previewAlt: 'Placeholder for the LED preview showing FFT-driven spectrum bars',
+    previewAlt: 'LED Matrix main preview showing FFT-driven spectrum bars',
     liveExample: FFT_ANALYZER_LIVE_EXAMPLE,
     successMessage: 'FFT Analyzer example added — microphone starting',
-    skippedMessage: 'FFT Analyzer example added — LED output is already in use; connect Spectrum Bars when ready',
+    skippedMessage: 'FFT Analyzer example added',
   },
   BeatDetect: {
     type: 'BeatDetect',
@@ -97,15 +97,15 @@ const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
     ],
     propertyNote: 'Threshold, Attack, and Decay are normalized detector controls. Tune them against the source track before relying on the BPM output.',
     exampleTitle: 'Flash the frame on each beat',
-    examplePath: 'Microphone.audio -> Beat Detect.beat + Noise Field.frame -> Beat Flash -> LED Matrix',
-    exampleAlt: 'Placeholder for a tidy graph using Microphone, Beat Detect, Noise Field, Beat Flash, and LED Matrix',
-    exampleExplanation: 'Microphone feeds Beat Detect. Each Beat pulse triggers Beat Flash, while Noise Field provides the underlying frame that gets flashed before it reaches the LED output.',
+    examplePath: 'Microphone.audio -> Beat Detect.beat + Random.value -> Sample & Hold -> Palette Sampler -> Solid Color',
+    exampleAlt: 'Tidy graph using Microphone, Beat Detect, Sample and Hold, Palette Sampler, and Solid Color',
+    exampleExplanation: 'Microphone feeds Beat Detect. Each beat captures a random palette position; Solid Color holds the resulting colour on the LED Matrix until the next beat.',
     previewTitle: 'What you should see',
     previewDescription: 'The base pattern should keep moving quietly, then punch brighter on detected beats. Raise Threshold if it fires too often, or lower it if the patch misses obvious hits.',
-    previewAlt: 'Placeholder for the LED preview showing Beat Detect driving Beat Flash',
+    previewAlt: 'LED Matrix main preview showing a beat-selected palette colour',
     liveExample: BEAT_DETECT_LIVE_EXAMPLE,
     successMessage: 'Beat Detect example added — microphone starting',
-    skippedMessage: 'Beat Detect example added — LED output is already in use; connect Beat Flash when ready',
+    skippedMessage: 'Beat Detect example added',
   },
   PercussionDetect: {
     type: 'PercussionDetect',
@@ -118,15 +118,15 @@ const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
     ],
     propertyNote: 'Sensitivity affects all three lanes. Decay lengthens the envelope tails, while Separation reduces bleed between kick, snare, and hi-hat.',
     exampleTitle: 'Split drums into layered blobs',
-    examplePath: 'Microphone.audio -> Percussion Detect.kick/snare/hihat -> Percussion Blobs -> LED Matrix',
-    exampleAlt: 'Placeholder for a tidy graph using Microphone, Percussion Detect, Percussion Blobs, and LED Matrix',
-    exampleExplanation: 'Microphone feeds Percussion Detect. Its kick, snare, and hi-hat envelopes each drive the matching Percussion Blobs input, giving every drum family a distinct visual layer before the frame goes to the LED output.',
+    examplePath: 'Microphone.audio -> Percussion Detect.kick/snare/hihat -> Percussion Blobs',
+    exampleAlt: 'Tidy graph using Microphone, Percussion Detect, and Percussion Blobs',
+    exampleExplanation: 'Microphone feeds Percussion Detect. Its kick, snare, and hi-hat envelopes each drive the matching Percussion Blobs input, giving every drum family a distinct layer on the LED Matrix.',
     previewTitle: 'What you should see',
     previewDescription: 'Low hits should create heavier blobs, snares should add mid-sized accents, and hi-hats should sprinkle faster detail. If everything moves together, increase Separation or lower Sensitivity.',
-    previewAlt: 'Placeholder for the LED preview showing Percussion Detect driving Percussion Blobs',
+    previewAlt: 'LED Matrix main preview driven by separated drum envelopes',
     liveExample: PERCUSSION_DETECT_LIVE_EXAMPLE,
     successMessage: 'Percussion Detect example added — microphone starting',
-    skippedMessage: 'Percussion Detect example added — LED output is already in use; connect Percussion Blobs when ready',
+    skippedMessage: 'Percussion Detect example added',
   },
   AudioFeatures: {
     type: 'AudioFeatures',
@@ -139,15 +139,15 @@ const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
     ],
     propertyNote: 'Sensitivity and Gate define how easily features wake up. Smoothing trades responsiveness for steadier motion.',
     exampleTitle: 'Let vocals open an aurora',
-    examplePath: 'Microphone.audio -> Audio Features.vocals/energy/silence -> Vocal Aurora -> LED Matrix',
-    exampleAlt: 'Placeholder for a tidy graph using Microphone, Audio Features, Vocal Aurora, and LED Matrix',
-    exampleExplanation: 'Microphone feeds Audio Features. Vocals shapes the aurora curtains, Energy controls their brightness and movement, and Silence tells Vocal Aurora when to dim the result before the LED output.',
+    examplePath: 'Microphone.audio -> Audio Features.vocals/energy/silence -> Vocal Aurora',
+    exampleAlt: 'Tidy graph using Microphone, Audio Features, and Vocal Aurora',
+    exampleExplanation: 'Microphone feeds Audio Features. Vocals shapes the aurora curtains, Energy controls their brightness and movement, and Silence tells Vocal Aurora when to dim the LED Matrix.',
     previewTitle: 'What you should see',
     previewDescription: 'Voice-like passages should lift the aurora into brighter curtains, energetic sections should intensify it, and quiet sections should settle back instead of staying fully lit.',
-    previewAlt: 'Placeholder for the LED preview showing Audio Features driving Vocal Aurora',
+    previewAlt: 'LED Matrix main preview driven by audio features',
     liveExample: AUDIO_FEATURES_LIVE_EXAMPLE,
     successMessage: 'Audio Features example added — microphone starting',
-    skippedMessage: 'Audio Features example added — LED output is already in use; connect Vocal Aurora when ready',
+    skippedMessage: 'Audio Features example added',
   },
   AudioHue: {
     type: 'AudioHue',
@@ -160,15 +160,15 @@ const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
     ],
     propertyNote: 'Audio to Hue has no inline properties. Tune its result upstream with FFT Analyzer or downstream with math/color nodes.',
     exampleTitle: 'Turn spectrum balance into colour',
-    examplePath: 'Microphone -> FFT Analyzer -> Audio to Hue -> HSV to RGB -> Solid Color -> LED Matrix',
-    exampleAlt: 'Placeholder for a tidy graph using Microphone, FFT Analyzer, Audio to Hue, HSV to RGB, Solid Color, and LED Matrix',
-    exampleExplanation: 'Microphone feeds FFT Analyzer, which produces bass, mids, and treble values. Audio to Hue converts those bands into hue degrees, HSV to RGB turns hue into a colour, and Solid Color paints that colour into the frame sent to the LED output.',
+    examplePath: 'Microphone -> FFT Analyzer -> Audio to Hue -> HSV to RGB -> Gradient Frame',
+    exampleAlt: 'Tidy graph using Microphone, FFT Analyzer, Audio to Hue, HSV to RGB, and Gradient Frame',
+    exampleExplanation: 'Microphone feeds FFT Analyzer, which produces bass, mids, and treble values. Audio to Hue converts those bands into hue degrees, HSV to RGB turns hue into a colour, and Gradient Frame displays it on the LED Ring.',
     previewTitle: 'What you should see',
-    previewDescription: 'The matrix should wash through different colours as the balance between bass, mids, and treble changes. Strong bass leans the hue one way, while brighter treble nudges it toward another part of the wheel.',
-    previewAlt: 'Placeholder for the LED preview showing Audio to Hue driving a solid colour wash',
+    previewDescription: 'The LED Ring main preview should wash through different colours as the balance between bass, mids, and treble changes. Strong bass leans the hue one way, while brighter treble nudges it toward another part of the wheel.',
+    previewAlt: 'LED Ring main preview driven by Audio to Hue',
     liveExample: AUDIO_HUE_LIVE_EXAMPLE,
     successMessage: 'Audio to Hue example added — microphone starting',
-    skippedMessage: 'Audio to Hue example added — LED output is already in use; connect Solid Color when ready',
+    skippedMessage: 'Audio to Hue example added',
   },
 }
 
@@ -825,8 +825,8 @@ function exampleGraphSrc(nodeType: string): string {
   return nodeCardSrc(nodeType).replace('/node-cards/', '/node-cards/graphs/')
 }
 
-/** URL of the generated LED-panel image showing the example graph's evaluated
- *  terminal frame — the "what you should see" result. */
+/** URL of the generated frame showing the example's declared preview target —
+ *  normally the same embedded preview visible on the final visual node. */
 function mainPreviewSrc(nodeType: string): string {
   return nodeCardSrc(nodeType).replace('/node-cards/', '/node-cards/previews/')
 }
@@ -962,10 +962,10 @@ function openLiveExample(
   window.setTimeout(() => {
     useUiStore.getState().requestFitView(result.nodeIds)
   }, 80)
-  const matrixInputOccupied = result.skippedConnections.some((edge) =>
-    (edge.target === 'out' || edge.target === 'target')
-    && edge.targetHandle === 'frame')
-  ui.setStatus(matrixInputOccupied ? options.skippedMessage : options.successMessage, 'success')
+  const outputKeys = new Set(example.nodes.filter((node) => node.type === 'MatrixOutput').map((node) => node.key))
+  const outputInputOccupied = result.skippedConnections.some((edge) =>
+    outputKeys.has(edge.target) && edge.targetHandle === 'frame')
+  ui.setStatus(outputInputOccupied ? options.skippedMessage : options.successMessage, 'success')
   if (usesMicrophone) {
     void useAudioStore.getState().startAudio().catch(() => {
       ui.setStatus('Microphone could not start. Check browser permission and the selected audio input.', 'error')
@@ -1055,7 +1055,7 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
   const tryLive = () => {
     openLiveExample(MICROPHONE_LIVE_EXAMPLE, {
       successMessage: 'Microphone example added — microphone starting',
-      skippedMessage: 'Microphone example added — LED output is already in use; connect Spectrum Bars when ready',
+      skippedMessage: 'Microphone example added — microphone starting',
     })
   }
   return (
@@ -1106,7 +1106,7 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
             </button>
           </div>
         </div>
-        <ExampleGraphFigure node={node} alt="Tidy audio spectrum graph using Microphone, FFT Analyzer, Spectrum Bars, and LED Matrix" />
+        <ExampleGraphFigure node={node} alt="Tidy audio spectrum graph ending at an LED Matrix" />
         <div className={styles.exampleExplanation}>
           <b>How it works</b>
           <p>{MICROPHONE_LIVE_EXAMPLE.explanation}</p>
@@ -1120,7 +1120,7 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
           <p>{MICROPHONE_LIVE_EXAMPLE.previewDescription}</p>
         </div>
         <figure className={styles.previewCapture}>
-          <MainPreviewImage node={node} alt="LED matrix preview showing rainbow spectrum bars" />
+          <MainPreviewImage node={node} alt="LED Matrix main preview showing rainbow spectrum bars" />
         </figure>
       </section>
     </article>
@@ -1132,7 +1132,7 @@ function ButtonArticle({ node }: { node: NodeDefinition }) {
   const tryLive = () => {
     openLiveExample(BUTTON_LIVE_EXAMPLE, {
       successMessage: 'Button example added — press the Button node to swap scenes',
-      skippedMessage: 'Button example added — LED output is already in use; connect the Frame Switch chain when ready',
+      skippedMessage: 'Button example added — press the Button node to swap scenes',
     })
   }
   return (
@@ -1183,7 +1183,7 @@ function ButtonArticle({ node }: { node: NodeDefinition }) {
             </button>
           </div>
         </div>
-        <ExampleGraphFigure node={node} alt="Tidy scene-switch graph using Button, Pacifica, Fire 2012, Frame Switch, and LED Matrix" />
+        <ExampleGraphFigure node={node} alt="Tidy Button scene-switch graph ending at an LED Matrix" />
         <div className={styles.exampleExplanation}>
           <b>How it works</b>
           <p>{BUTTON_LIVE_EXAMPLE.explanation}</p>
@@ -1197,7 +1197,7 @@ function ButtonArticle({ node }: { node: NodeDefinition }) {
           <p>{BUTTON_LIVE_EXAMPLE.previewDescription}</p>
         </div>
         <figure className={styles.previewCapture}>
-          <MainPreviewImage node={node} alt="LED preview showing the Button swapping between Pacifica and Fire 2012" />
+          <MainPreviewImage node={node} alt="LED Matrix main preview swapping between Pacifica and Fire 2012" />
         </figure>
       </section>
     </article>
@@ -1209,7 +1209,7 @@ function PotentiometerArticle({ node }: { node: NodeDefinition }) {
   const tryLive = () => {
     openLiveExample(POTENTIOMETER_LIVE_EXAMPLE, {
       successMessage: 'Potentiometer example added — drag the slider to sweep the colour wheel',
-      skippedMessage: 'Potentiometer example added — LED output is already in use; connect Hue Shift when ready',
+      skippedMessage: 'Potentiometer example added — drag the slider to sweep the colour wheel',
     })
   }
   return (
@@ -1260,7 +1260,7 @@ function PotentiometerArticle({ node }: { node: NodeDefinition }) {
             </button>
           </div>
         </div>
-        <ExampleGraphFigure node={node} alt="Tidy control graph using Potentiometer, Map Range, Blobs, Hue Shift, and LED Matrix" />
+        <ExampleGraphFigure node={node} alt="Tidy Potentiometer control graph ending at an LED String" />
         <div className={styles.exampleExplanation}>
           <b>How it works</b>
           <p>{POTENTIOMETER_LIVE_EXAMPLE.explanation}</p>
@@ -1274,7 +1274,7 @@ function PotentiometerArticle({ node }: { node: NodeDefinition }) {
           <p>{POTENTIOMETER_LIVE_EXAMPLE.previewDescription}</p>
         </div>
         <figure className={styles.previewCapture}>
-          <MainPreviewImage node={node} alt="LED preview showing the Potentiometer sweeping Blobs through hue rotation" />
+          <MainPreviewImage node={node} alt="LED String main preview sweeping Blobs through hue rotation" />
         </figure>
       </section>
     </article>
@@ -1286,7 +1286,7 @@ function EncoderArticle({ node }: { node: NodeDefinition }) {
   const tryLive = () => {
     openLiveExample(ENCODER_LIVE_EXAMPLE, {
       successMessage: 'Encoder example added — turn the star and click to flash it',
-      skippedMessage: 'Encoder example added — LED output is already in use; connect the Shape chain when ready',
+      skippedMessage: 'Encoder example added — turn the star and click to flash it',
     })
   }
   return (
@@ -1337,7 +1337,7 @@ function EncoderArticle({ node }: { node: NodeDefinition }) {
             </button>
           </div>
         </div>
-        <ExampleGraphFigure node={node} alt="Tidy control graph using Encoder, Map Range, Shape, Trails, Beat Flash, and LED Matrix" />
+        <ExampleGraphFigure node={node} alt="Tidy Encoder control graph ending at an LED Ring" />
         <div className={styles.exampleExplanation}>
           <b>How it works</b>
           <p>{ENCODER_LIVE_EXAMPLE.explanation}</p>
@@ -1351,7 +1351,7 @@ function EncoderArticle({ node }: { node: NodeDefinition }) {
           <p>{ENCODER_LIVE_EXAMPLE.previewDescription}</p>
         </div>
         <figure className={styles.previewCapture}>
-          <MainPreviewImage node={node} alt="LED preview showing Encoder-driven star rotation with a flash accent" />
+          <MainPreviewImage node={node} alt="LED Ring main preview showing Encoder-driven star rotation with a flash accent" />
         </figure>
       </section>
     </article>
@@ -1363,7 +1363,7 @@ function MidiArticle({ node }: { node: NodeDefinition }) {
   const tryLive = () => {
     openLiveExample(MIDI_LIVE_EXAMPLE, {
       successMessage: 'MIDI example added — note velocity, gate, and CC now drive the preview patch',
-      skippedMessage: 'MIDI example added — LED output is already in use; connect Brightness when ready',
+      skippedMessage: 'MIDI example added — connect a MIDI controller to drive it',
     })
   }
   return (
@@ -1414,7 +1414,7 @@ function MidiArticle({ node }: { node: NodeDefinition }) {
             </button>
           </div>
         </div>
-        <ExampleGraphFigure node={node} alt="Tidy MIDI control graph using MIDI, Noise Field, Hue Shift, Frame Switch, Brightness, and LED Matrix" />
+        <ExampleGraphFigure node={node} alt="Tidy MIDI control graph ending at an LED Matrix" />
         <div className={styles.exampleExplanation}>
           <b>How it works</b>
           <p>{MIDI_LIVE_EXAMPLE.explanation}</p>
@@ -1428,7 +1428,7 @@ function MidiArticle({ node }: { node: NodeDefinition }) {
           <p>{MIDI_LIVE_EXAMPLE.previewDescription}</p>
         </div>
         <figure className={styles.previewCapture}>
-          <MainPreviewImage node={node} alt="LED preview showing MIDI-controlled hue switching and brightness" />
+          <MainPreviewImage node={node} alt="LED Matrix main preview showing MIDI-controlled hue switching and brightness" />
         </figure>
       </section>
     </article>
@@ -1457,7 +1457,6 @@ function ReferenceArticle({ node }: { node: NodeDefinition }) {
   const properties = propertyEntries(node)
   const useCases = buildUseCases(node)
   const liveExample = liveExampleForNode(node)
-  const hasMatrixOutput = liveExample.nodes.some((entry) => entry.type === 'MatrixOutput')
   const usesMicrophone = exampleUsesMicrophone(liveExample)
   const tryLive = () => {
     openLiveExample(liveExample, {
@@ -1521,8 +1520,12 @@ function ReferenceArticle({ node }: { node: NodeDefinition }) {
 
       <section className={styles.previewSection}>
         <div className={styles.previewCopy}>
-          <div className={styles.sectionKicker}>Main preview</div>
-          <h2>{liveExample.previewMode === 'workflow' ? 'What to complete' : hasMatrixOutput ? 'What you should see' : 'What changes'}</h2>
+          <div className={styles.sectionKicker}>
+            {liveExample.previewMode === 'workflow'
+              ? 'Workflow result'
+              : 'Main preview'}
+          </div>
+          <h2>{liveExample.previewMode === 'workflow' ? 'What to complete' : 'What you should see'}</h2>
           <p>{liveExample.previewDescription}</p>
         </div>
         <figure className={styles.previewCapture}>
@@ -1533,7 +1536,7 @@ function ReferenceArticle({ node }: { node: NodeDefinition }) {
               <p>Add the required patterns or analysed songs in the node body, then use the show preview or export controls.</p>
             </div>
           ) : (
-            <MainPreviewImage node={node} alt={`LED preview of the ${node.label} example graph`} />
+            <MainPreviewImage node={node} alt={`Evaluated frame from the ${node.label} example graph`} />
           )}
         </figure>
       </section>
