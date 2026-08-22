@@ -305,12 +305,13 @@ function boardFootprintMm(profile: PhysicalBoardProfile): PartFootprintMm {
 }
 
 /** One run from an input part into the board, lit by that part's own output. */
-function InputLink({ signalKey, dataType, effects, label, link }: {
+function InputLink({ signalKey, dataType, effects, label, link, visualScale }: {
   signalKey: string
   dataType?: string
   effects: boolean
   label: string
   link: { source: string; target: string; x1: number; y1: number; x2: number; y2: number }
+  visualScale: number
 }) {
   const signal = usePreviewStore((state) => state.signals.get(signalKey))
   return (
@@ -321,6 +322,7 @@ function InputLink({ signalKey, dataType, effects, label, link }: {
       energy={signal?.energy}
       effects={effects}
       label={label}
+      visualScale={visualScale}
       {...link}
     />
   )
@@ -333,11 +335,12 @@ function InputLink({ signalKey, dataType, effects, label, link }: {
  * is dynamic, and each needs its own previewStore subscription so a frame on
  * one run does not re-render every other part in the view.
  */
-function OutputLink({ signalKey, effects, label, link }: {
+function OutputLink({ signalKey, effects, label, link, visualScale }: {
   signalKey: string | null
   effects: boolean
   label: string
   link: { source: string; target: string; x1: number; y1: number; x2: number; y2: number }
+  visualScale: number
 }) {
   const signal = usePreviewStore((state) => (signalKey ? state.signals.get(signalKey) : undefined))
   return (
@@ -348,6 +351,7 @@ function OutputLink({ signalKey, effects, label, link }: {
       energy={signal?.energy}
       effects={effects}
       label={label}
+      visualScale={visualScale}
       {...link}
     />
   )
@@ -650,6 +654,17 @@ export default function HardwarePane() {
     () => new Map((arrangement?.parts ?? []).map((part) => [part.id, part])),
     [arrangement],
   )
+
+  /*
+   * Link styling was copied from graph noodles, where every width is expressed
+   * in canvas pixels. Hardware parts instead use a live millimetres-to-pixels
+   * scale, so a large matrix could shrink the controller without shrinking the
+   * fixed-width run beside it. Four px/mm is the normal controller-sized bench
+   * and preserves the original noodle weight there; denser arrangements scale
+   * every wire layer down with the parts. The world's pan/zoom transform then
+   * scales both together a second, shared time.
+   */
+  const linkVisualScale = arrangement ? arrangement.mmScale / 4 : 1
 
   const partStyle = (id: string): CSSProperties | undefined => {
     const part = placed.get(id)
@@ -1196,6 +1211,7 @@ export default function HardwarePane() {
                     effects={uiEffectsEnabled}
                     label={`${part.entry.label} into the board`}
                     link={link}
+                    visualScale={linkVisualScale}
                   />
                 )))}
               {fixtureParts.map((part) => arrangement.links
@@ -1207,6 +1223,7 @@ export default function HardwarePane() {
                     color={CATEGORY_COLOR.output}
                     effects={uiEffectsEnabled}
                     label={`Board I2S out to the ${part.entry.label.toLowerCase()}`}
+                    visualScale={linkVisualScale}
                     {...link}
                   />
                 )))}
@@ -1219,6 +1236,7 @@ export default function HardwarePane() {
                     effects={uiEffectsEnabled}
                     label={`Board frame data out to a ${output.label}`}
                     link={link}
+                    visualScale={linkVisualScale}
                   />
                 )))}
             </svg>

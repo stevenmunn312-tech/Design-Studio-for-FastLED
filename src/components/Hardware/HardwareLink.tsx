@@ -18,6 +18,22 @@ interface HardwareLinkProps {
   y2: number
   effects: boolean
   label: string
+  /**
+   * Scales the link's visual weight with the hardware layout. The path itself
+   * already lives in layout coordinates; this keeps strokes, plugs, dashes and
+   * travelling packets proportional when that layout draws the parts smaller.
+   */
+  visualScale?: number
+}
+
+function scaledDash(dash: string, scale: number): string {
+  return dash
+    .split(/([ ,]+)/)
+    .map((part) => {
+      const value = Number(part)
+      return Number.isFinite(value) && part.trim() ? String(value * scale) : part
+    })
+    .join('')
 }
 
 /**
@@ -30,9 +46,10 @@ interface HardwareLinkProps {
  * from the layout rather than from measuring its own box.
  */
 export default function HardwareLink({
-  dataType, color, emissive, energy = 0, x1, y1, x2, y2, effects, label,
+  dataType, color, emissive, energy = 0, x1, y1, x2, y2, effects, label, visualScale = 1,
 }: HardwareLinkProps) {
   const motion = familyMotion(signalFamily(dataType))
+  const scale = Number.isFinite(visualScale) && visualScale > 0 ? visualScale : 1
   const [path] = getBezierPath({
     sourceX: x1,
     sourceY: y1,
@@ -53,12 +70,12 @@ export default function HardwareLink({
           d={path}
           fill="none"
           stroke={stroke}
-          strokeWidth={2.4}
+          strokeWidth={2.4 * scale}
           strokeLinecap="round"
           strokeOpacity={0.58 + activity * 0.28}
         />
-        <circle cx={x1} cy={y1} r={3.2} fill={stroke} opacity={0.82} />
-        <circle cx={x2} cy={y2} r={3.2} fill={stroke} opacity={0.82} />
+        <circle cx={x1} cy={y1} r={3.2 * scale} fill={stroke} opacity={0.82} />
+        <circle cx={x2} cy={y2} r={3.2 * scale} fill={stroke} opacity={0.82} />
       </g>
     )
   }
@@ -70,7 +87,7 @@ export default function HardwareLink({
         d={path}
         fill="none"
         stroke={stroke}
-        strokeWidth={motion.outerWidth}
+        strokeWidth={motion.outerWidth * scale}
         strokeOpacity={motion.outerOpacity + activity * 0.055}
       />
       {/* Mid bloom */}
@@ -78,7 +95,7 @@ export default function HardwareLink({
         d={path}
         fill="none"
         stroke={stroke}
-        strokeWidth={motion.midWidth}
+        strokeWidth={motion.midWidth * scale}
         strokeOpacity={motion.midOpacity + activity * 0.08}
       />
       {/* Neutral carrier keeps a dark run legible, fading back as the live
@@ -88,7 +105,7 @@ export default function HardwareLink({
         d={path}
         fill="none"
         stroke="rgba(255 255 255 / 0.78)"
-        strokeWidth={motion.coreWidth + 2}
+        strokeWidth={(motion.coreWidth + 2) * scale}
         strokeLinecap="round"
         strokeOpacity={0.08 + idleVisibility * 0.12}
       />
@@ -98,11 +115,14 @@ export default function HardwareLink({
         d={path}
         fill="none"
         stroke={stroke}
-        strokeWidth={motion.coreWidth}
+        strokeWidth={motion.coreWidth * scale}
         strokeLinecap="round"
-        strokeDasharray={motion.dash}
+        strokeDasharray={scaledDash(motion.dash, scale)}
         strokeOpacity={0.62 + activity * 0.24}
-        style={{ '--edge-flow-duration': `${motion.duration}s` } as CSSProperties}
+        style={{
+          '--edge-flow-duration': `${motion.duration}s`,
+          '--edge-flow-distance': `${-72 * scale}`,
+        } as CSSProperties}
       />
       {/* Packets animate `offset-distance` forever, so they must carry no CSS
           filter — an infinite animation under a filter leaks GPU buffers in
@@ -111,7 +131,7 @@ export default function HardwareLink({
         <circle
           key={packet}
           className={styles.packet}
-          r={radius}
+          r={radius * scale}
           fill={stroke}
           opacity={Math.min(0.95, 0.24 + Math.max(energy, 0.12) * 0.56)}
           style={{
@@ -123,8 +143,8 @@ export default function HardwareLink({
       ))}
       {/* A dot at each end, so the run reads as plugged into both parts rather
           than floating in the gap between them. */}
-      <circle cx={x1} cy={y1} r={4} fill={stroke} opacity={0.85} />
-      <circle cx={x2} cy={y2} r={4} fill={stroke} opacity={0.85} />
+      <circle cx={x1} cy={y1} r={4 * scale} fill={stroke} opacity={0.85} />
+      <circle cx={x2} cy={y2} r={4 * scale} fill={stroke} opacity={0.85} />
     </g>
   )
 }

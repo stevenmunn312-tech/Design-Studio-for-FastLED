@@ -3,7 +3,7 @@
     stroke-dashoffset: 0;
   }
   to {
-    stroke-dashoffset: -72;
+    stroke-dashoffset: var(--edge-flow-distance, -72);
   }
 }
 

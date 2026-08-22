@@ -9,13 +9,19 @@ export interface HardwareViewTransform {
 
 const IDENTITY: HardwareViewTransform = { x: 0, y: 0, k: 1 }
 const MIN_ZOOM = 0.35
-const MAX_ZOOM = 6
-const ZOOM_STEP = 1.25
+/**
+ * A controller can start only a few pixels tall when a physically large LED
+ * installation shares the bench. Its source render is high resolution, so let
+ * the user get close enough to read the printed pin labels instead of stopping
+ * at the former overview-only 6x limit.
+ */
+export const HARDWARE_VIEW_MAX_ZOOM = 40
+const ZOOM_STEP = 1.5
 /** Pointer travel that turns a click into a pan, so a part is still clickable. */
 const DRAG_THRESHOLD_PX = 4
 
-function clampZoom(k: number): number {
-  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, k))
+export function clampHardwareZoom(k: number): number {
+  return Math.min(HARDWARE_VIEW_MAX_ZOOM, Math.max(MIN_ZOOM, k))
 }
 
 /**
@@ -51,7 +57,7 @@ export function useHardwareView(hostRef: RefObject<HTMLElement | null>) {
   const zoomAt = useCallback((nextK: number, clientX?: number, clientY?: number) => {
     const centre = centreOf()
     setTransform((current) => {
-      const k = clampZoom(nextK)
+      const k = clampHardwareZoom(nextK)
       if (k === current.k) return current
       if (!centre || clientX == null || clientY == null) {
         return { ...current, k }
@@ -78,7 +84,7 @@ export function useHardwareView(hostRef: RefObject<HTMLElement | null>) {
       event.preventDefault()
       const factor = Math.exp(-event.deltaY * 0.0015)
       setTransform((current) => {
-        const k = clampZoom(current.k * factor)
+        const k = clampHardwareZoom(current.k * factor)
         if (k === current.k) return current
         const bounds = host.getBoundingClientRect()
         const dx = event.clientX - (bounds.left + bounds.width / 2)
