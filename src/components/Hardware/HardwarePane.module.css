@@ -227,6 +227,14 @@
   cursor: pointer;
 }
 
+.viewControls .fitViewButton {
+  width: auto;
+  padding-inline: 9px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
 .viewControls button:hover:not(:disabled) {
   color: var(--text-primary);
   border-color: color-mix(in srgb, var(--accent-output) 55%, var(--border-glow));

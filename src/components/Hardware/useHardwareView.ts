@@ -7,6 +7,13 @@ export interface HardwareViewTransform {
   k: number
 }
 
+export interface HardwareViewBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 const IDENTITY: HardwareViewTransform = { x: 0, y: 0, k: 1 }
 const MIN_ZOOM = 0.35
 /**
@@ -19,9 +26,35 @@ export const HARDWARE_VIEW_MAX_ZOOM = 40
 const ZOOM_STEP = 1.5
 /** Pointer travel that turns a click into a pan, so a part is still clickable. */
 const DRAG_THRESHOLD_PX = 4
+const FIT_PADDING_PX = 32
 
 export function clampHardwareZoom(k: number): number {
   return Math.min(HARDWARE_VIEW_MAX_ZOOM, Math.max(MIN_ZOOM, k))
+}
+
+export function hardwareFitTransform(
+  host: Pick<DOMRect, 'width' | 'height'>,
+  content: HardwareViewBounds,
+  viewport: HardwareViewBounds = { x: 0, y: 0, width: host.width, height: host.height },
+): HardwareViewTransform {
+  const availableWidth = Math.max(1, viewport.width - FIT_PADDING_PX * 2)
+  const availableHeight = Math.max(1, viewport.height - FIT_PADDING_PX * 2)
+  const k = clampHardwareZoom(Math.min(
+    1,
+    availableWidth / Math.max(1, content.width),
+    availableHeight / Math.max(1, content.height),
+  ))
+  const hostCx = host.width / 2
+  const hostCy = host.height / 2
+  const contentCx = content.x + content.width / 2
+  const contentCy = content.y + content.height / 2
+  const viewportCx = viewport.x + viewport.width / 2
+  const viewportCy = viewport.y + viewport.height / 2
+  return {
+    k,
+    x: viewportCx - (hostCx + (contentCx - hostCx) * k),
+    y: viewportCy - (hostCy + (contentCy - hostCy) * k),
+  }
 }
 
 /**
@@ -74,7 +107,11 @@ export function useHardwareView(hostRef: RefObject<HTMLElement | null>) {
 
   const zoomIn = useCallback(() => zoomAt(transform.k * ZOOM_STEP), [transform.k, zoomAt])
   const zoomOut = useCallback(() => zoomAt(transform.k / ZOOM_STEP), [transform.k, zoomAt])
-  const reset = useCallback(() => setTransform(IDENTITY), [])
+  const fit = useCallback((content: HardwareViewBounds, viewport?: HardwareViewBounds) => {
+    const bounds = hostRef.current?.getBoundingClientRect()
+    if (!bounds) return
+    setTransform(hardwareFitTransform(bounds, content, viewport))
+  }, [hostRef])
 
   // Non-passive so the browser page-zoom/scroll does not also act on the wheel.
   useEffect(() => {
@@ -144,8 +181,7 @@ export function useHardwareView(hostRef: RefObject<HTMLElement | null>) {
     consumedByPan: () => moved.current,
     zoomIn,
     zoomOut,
-    reset,
-    isReset: transform.x === 0 && transform.y === 0 && transform.k === 1,
+    fit,
     handlers: {
       onPointerDown,
       onPointerMove,

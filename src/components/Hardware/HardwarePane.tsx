@@ -55,7 +55,12 @@ import HardwareLink from './HardwareLink'
 import FloatingMenu from './FloatingMenu'
 import type { PlacementBox } from './floatingPlacement'
 import { useHardwareView } from './useHardwareView'
-import { hardwareArrangement, type HardwarePartBox, type HardwarePartLink } from './hardwareLayout'
+import {
+  hardwareArrangement,
+  hardwareArrangementBounds,
+  type HardwarePartBox,
+  type HardwarePartLink,
+} from './hardwareLayout'
 import styles from './HardwarePane.module.css'
 
 const MIC_NODE_TYPE = 'MicInput'
@@ -652,6 +657,10 @@ export default function HardwarePane() {
 
   const placed = useMemo(
     () => new Map((arrangement?.parts ?? []).map((part) => [part.id, part])),
+    [arrangement],
+  )
+  const arrangementBounds = useMemo(
+    () => (arrangement ? hardwareArrangementBounds(arrangement) : null),
     [arrangement],
   )
 
@@ -1418,17 +1427,29 @@ export default function HardwarePane() {
           </p>
         )}
 
-        <div className={styles.viewControls}>
+        <div
+          className={styles.viewControls}
+          style={{ right: rightInset + 12 }}
+        >
           <button type="button" onClick={view.zoomOut} title="Zoom out" aria-label="Zoom out">−</button>
           <button type="button" onClick={view.zoomIn} title="Zoom in" aria-label="Zoom in">+</button>
           <button
             type="button"
-            onClick={view.reset}
-            disabled={view.isReset}
-            title="Reset view"
-            aria-label="Reset view"
+            className={styles.fitViewButton}
+            onClick={() => {
+              if (!arrangementBounds) return
+              view.fit(arrangementBounds, {
+                x: leftInset,
+                y: 0,
+                width: Math.max(1, stageBox.width - leftInset - rightInset),
+                height: Math.max(1, stageBox.height),
+              })
+            }}
+            disabled={!arrangementBounds}
+            title="Fit all hardware in view"
+            aria-label="Fit view"
           >
-            ⤾
+            Fit
           </button>
         </div>
       </div>

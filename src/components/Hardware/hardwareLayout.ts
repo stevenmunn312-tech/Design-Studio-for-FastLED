@@ -74,10 +74,19 @@ export interface HardwareArrangement {
   band: number
 }
 
+export interface HardwareArrangementBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 const BAND_MIN = 52
 const BAND_MAX = 226
 /** Room under the band for the two-line caption, so labels never collide. */
 const CAPTION_BLOCK = 46
+/** Maximum rendered caption width; kept in sync with HardwarePane.module.css. */
+const CAPTION_MAX_WIDTH = 260
 /** Slots are at least this wide, so captions clear their neighbours. */
 const SLOT_MIN_WIDTH = 150
 /** A run longer than this has its caption held near its start, not its middle. */
@@ -115,6 +124,25 @@ export function hardwareArrangement(
     arrangement = arrangeAtBand(parts, links, stage, anchorId, band)
   }
   return arrangement
+}
+
+/**
+ * Bounds of everything the user reads on the bench, including captions.
+ * Links always terminate on parts, so the part/caption union also contains
+ * every link without needing a second bounds pass.
+ */
+export function hardwareArrangementBounds(
+  arrangement: HardwareArrangement,
+): HardwareArrangementBounds | null {
+  if (!arrangement.parts.length) return null
+  const left = Math.min(...arrangement.parts.map((part) =>
+    Math.min(part.x, part.captionX - CAPTION_MAX_WIDTH / 2)))
+  const right = Math.max(...arrangement.parts.map((part) =>
+    Math.max(part.x + part.width, part.captionX + CAPTION_MAX_WIDTH / 2)))
+  const top = Math.min(...arrangement.parts.map((part) => part.y))
+  const bottom = Math.max(...arrangement.parts.map((part) =>
+    Math.max(part.y + part.height, part.captionY + CAPTION_BLOCK)))
+  return { x: left, y: top, width: right - left, height: bottom - top }
 }
 
 /** Full height of what was laid out, caption block included. */

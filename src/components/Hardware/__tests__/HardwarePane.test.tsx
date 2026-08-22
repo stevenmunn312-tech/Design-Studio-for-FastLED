@@ -99,6 +99,21 @@ describe('HardwarePane', () => {
     expect(within(document.body).getByText('Default I2C bus')).toBeTruthy()
   })
 
+  it('offers zoom and fit controls for the bench', () => {
+    render(<HardwarePane />)
+
+    expect(screen.getByRole('button', { name: 'Zoom out' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Zoom in' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Fit view' })).toBeTruthy()
+  })
+
+  it('keeps view controls clear of the preview panel', () => {
+    useUiStore.setState({ previewPanelOpen: true, previewWidth: 320 })
+    render(<HardwarePane />)
+
+    expect(screen.getByRole('button', { name: 'Fit view' }).parentElement?.style.right).toBe('332px')
+  })
+
   /*
    * The diffuser is tiled in screen pixels while the part is sized in
    * millimetres, so the only thing keeping one dome on one LED is that both
