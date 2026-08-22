@@ -5,6 +5,7 @@ import { useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/uploadStore'
 import { useAudioStore } from '../../../state/audioStore'
+import { useCapacityStore } from '../../../state/capacityStore'
 
 describe('StatusBar accessibility', () => {
   beforeEach(() => {
@@ -23,6 +24,7 @@ describe('StatusBar accessibility', () => {
       activeGraphId: 'root',
     })
     useUploadStore.setState({ selectedFqbn: '', selectedPort: '', ports: [] })
+    useCapacityStore.getState().clear()
   })
 
   it('announces normal status updates politely', () => {
@@ -45,6 +47,38 @@ describe('StatusBar accessibility', () => {
     expect(alert.textContent).toBe('Upload helper offline')
     expect(alert.getAttribute('aria-live')).toBe('assertive')
     expect(alert.getAttribute('aria-atomic')).toBe('true')
+  })
+})
+
+describe('StatusBar hardware readiness', () => {
+  beforeEach(() => {
+    useUiStore.setState({ statusText: 'Ready', statusLevel: 'idle', fps: 0, performanceMode: false, stageMode: false })
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3', selectedPort: '', ports: [] })
+    useCapacityStore.getState().clear()
+    useGraphStore.setState({
+      nodes: [{
+        id: 'matrix',
+        type: 'studioNode',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'LED Matrix', nodeType: 'MatrixOutput', category: 'output',
+          properties: { form: 'matrix', width: 16, height: 16, chipset: 'WS2812B', dataPin: 5 },
+          inputs: [], outputs: [],
+        },
+      }] as never[],
+      edges: [] as never[],
+      graphData: {},
+      graphs: { root: { id: 'root', name: 'Main' } },
+      activeGraphId: 'root',
+    })
+  })
+
+  it('places hardware diagnostics in the persistent status rail', () => {
+    const { getByLabelText, getByText } = render(<StatusBar />)
+
+    expect(getByLabelText('Hardware readiness')).toBeTruthy()
+    expect(getByText('Power')).toBeTruthy()
+    expect(getByText('Pins')).toBeTruthy()
   })
 })
 

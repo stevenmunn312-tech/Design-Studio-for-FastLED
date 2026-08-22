@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRootEdges, useRootNodes } from '../../state/graphStore'
 import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import { useCapacityStore } from '../../state/capacityStore'
@@ -25,7 +25,11 @@ import styles from './HardwareReadiness.module.css'
  * because "1.9 A" tells you which supply to reach for and "power: warning" does
  * not.
  */
-export default function HardwareReadiness() {
+interface HardwareReadinessProps {
+  compact?: boolean
+}
+
+export default function HardwareReadiness({ compact = false }: HardwareReadinessProps) {
   // Power, RAM and pin conflicts are all questions about the project's
   // hardware, which lives in the root graph.
   const nodes = useRootNodes()
@@ -38,6 +42,20 @@ export default function HardwareReadiness() {
   const capacitySubject = useCapacityStore((s) => s.subject)
   const capacityTarget = useCapacityStore((s) => s.target)
   const runCapacityCheck = useCapacityStore((s) => s.check)
+  const [checkElapsedSeconds, setCheckElapsedSeconds] = useState(0)
+
+  useEffect(() => {
+    if (capacityStatus !== 'checking') {
+      setCheckElapsedSeconds(0)
+      return
+    }
+    const startedAt = Date.now()
+    setCheckElapsedSeconds(0)
+    const timer = window.setInterval(() => {
+      setCheckElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000))
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [capacityStatus])
 
   const power = useMemo(() => estimatePowerLoad(nodes), [nodes])
   const ram = useMemo(() => estimateFirmwareRam(nodes, edges), [nodes, edges])
@@ -69,8 +87,12 @@ export default function HardwareReadiness() {
       ? `${pinTrouble.warnings} pin ${pinTrouble.warnings === 1 ? 'caution' : 'cautions'}`
       : 'pins ok'
 
+  const elapsedText = checkElapsedSeconds < 60
+    ? `${checkElapsedSeconds}s`
+    : `${Math.floor(checkElapsedSeconds / 60)}m ${checkElapsedSeconds % 60}s`
+
   return (
-    <div className={styles.strip} aria-label="Hardware readiness">
+    <div className={`${styles.strip} ${compact ? styles.compact : ''}`} aria-label="Hardware readiness">
       <span className={styles.item} data-level={powerLevel} title={
         capped
           ? `Worst case ${amps.toFixed(2)} A across ${power.ledCount} LEDs, capped at ${(power.configuredMa! / 1000).toFixed(2)} A`
@@ -88,7 +110,18 @@ export default function HardwareReadiness() {
         * the failure to the Output tab). Otherwise it is the check itself —
         * which compiles the design for real and so never runs on its own; see
         * capacityStore. */}
-      {capacityFailed ? (
+      {capacityStatus === 'checking' ? (
+        <span
+          className={`${styles.item} ${styles.checking}`}
+          data-level="ok"
+          title="Compiling this design without flashing it. A first toolchain build can take several minutes; later checks reuse the build cache."
+          aria-label={`Fits: compiling capacity, ${elapsedText} elapsed`}
+        >
+          <em className={styles.label}>Fits</em>
+          <i className={styles.spinner} aria-hidden="true" />
+          <strong>compiling · {elapsedText}</strong>
+        </span>
+      ) : capacityFailed ? (
         <button
           type="button"
           className={`${styles.item} ${styles.itemButton}`}

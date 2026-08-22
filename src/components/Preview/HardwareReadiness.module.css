@@ -14,6 +14,34 @@
   letter-spacing: 0.02em;
 }
 
+/* The status bar owns workspace diagnostics. In that rail this component
+ * keeps its readable label/value pairs, but drops the preview-panel framing
+ * and stays on one line so the rail's existing horizontal overflow handles
+ * narrow viewports without increasing the app chrome height. */
+.compact {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 10px;
+  padding: 0;
+  border-top: 0;
+  font-size: 10px;
+}
+
+.compact .item {
+  gap: 4px;
+  padding: 2px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 999px;
+}
+
+.compact .label {
+  font-size: 8px;
+}
+
+.compact .note {
+  display: none;
+}
+
 .item {
   display: inline-flex;
   align-items: baseline;
@@ -32,6 +60,28 @@
 .item strong {
   font-weight: 600;
   white-space: nowrap;
+}
+
+.spinner {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--accent-output) 28%, transparent);
+  border-top-color: color-mix(in srgb, var(--accent-output) 82%, white);
+  border-radius: 50%;
+  animation: capacitySpin 700ms linear infinite;
+}
+
+.checking strong {
+  color: color-mix(in srgb, var(--accent-output) 72%, white);
+}
+
+@keyframes capacitySpin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
 }
 
 .note {

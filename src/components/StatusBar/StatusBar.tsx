@@ -3,6 +3,7 @@ import { useGraphStore } from '../../state/graphStore'
 import { useAudioStore } from '../../state/audioStore'
 import { useUploadStore, boardByFqbn } from '../../state/uploadStore'
 import type { StatusLevel } from '../../types'
+import HardwareReadiness from '../Preview/HardwareReadiness'
 import styles from './StatusBar.module.css'
 
 const LEVEL_COLOR: Record<StatusLevel, string> = {
@@ -66,6 +67,7 @@ export default function StatusBar() {
       </div>
 
       <div className={styles.right}>
+        <HardwareReadiness compact />
         <span className={`${styles.chip} ${styles.chipStrong}`}>{nodeCount} modules</span>
         <span className={styles.chip}>{edgeCount} patches</span>
         {performanceMode && <span className={`${styles.chip} ${styles.chipAccent}`}>Performance</span>}

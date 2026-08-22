@@ -57,6 +57,16 @@ describe('HardwareReadiness — the Fits chip', () => {
     expect(queryByRole('button', { name: /Fits/ })).toBeNull()
   })
 
+  it('shows active compile feedback while a capacity check is running', () => {
+    useCapacityStore.getState().setTarget(TARGET)
+    useCapacityStore.setState({ status: 'checking' })
+
+    const { getByLabelText, getByText } = render(<HardwareReadiness compact />)
+
+    expect(getByLabelText(/Fits: compiling capacity/)).toBeTruthy()
+    expect(getByText(/compiling/)).toBeTruthy()
+  })
+
   it('leads to the compiler output after a failed check, not to another check', () => {
     // The failure text says "see helper log", and this chip is the furthest
     // point in the workbench from it. Re-running a compile that just failed is

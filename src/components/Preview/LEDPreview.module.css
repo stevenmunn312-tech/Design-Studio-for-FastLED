@@ -944,40 +944,33 @@
 .controlsRow {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
   min-width: 0;
 }
 
 .controlsSide {
-  flex: 1 1 0;
+  /* These controls have fixed-size circular buttons. Let the group keep its
+     content width and wrap as a unit; shrinking it to zero made the buttons
+     overflow into the playback group and visually stack on top of it. */
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 0;
+  gap: 6px;
+  min-width: max-content;
 }
 
 .controlsCenter {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .volWrap {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   justify-content: flex-end;
   margin-left: auto;
-}
-
-.volumeLabel {
-  color: color-mix(in srgb, var(--transport-accent) 34%, var(--text-secondary));
-  font-family: var(--font-code);
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  flex: 0 0 auto;
 }
 
 .iconBtn {
@@ -1054,7 +1047,9 @@
 .vol {
   -webkit-appearance: none;
   appearance: none;
-  width: 84px;
+  /* Compact enough for library, playback, and volume to share the preview's
+     narrow transport row without sacrificing a usable drag target. */
+  width: 52px;
   height: 5px;
   border-radius: 999px;
   background:

@@ -17,7 +17,6 @@ import RecordPopup from './RecordPopup'
 import { isDiffusedStyle, previewStyleLabel, type PreviewStyle } from './previewStyles'
 import { graphConsumesAudio } from './previewAudioUsage'
 import PreviewSpectrum from './PreviewSpectrum'
-import HardwareReadiness from './HardwareReadiness'
 import {
   nextSpectrumVisualizerMode,
   spectrumVisualizerLabel,
@@ -1062,7 +1061,6 @@ export default function LEDPreview() {
               )}
             </div>
           </div>
-          {!stageMode && <HardwareReadiness />}
           <PreviewSpectrum
             audioVisualizerLive={audioVisualizerLive}
             spectrumOverride={playbackSpectrum}
@@ -1154,7 +1152,6 @@ export default function LEDPreview() {
                 </button>
               </div>
               <div className={`${styles.controlsSide} ${styles.volWrap}`}>
-                <span className={styles.volumeLabel}>Gain</span>
                 <button
                   type="button"
                   className={styles.iconBtn}
