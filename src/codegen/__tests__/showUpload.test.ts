@@ -99,6 +99,15 @@ describe('playerConfigFromGraph', () => {
     })
   })
 
+  it('takes the PSRAM request from the controller Board', () => {
+    const cfg = playerConfigFromGraph([
+      generator,
+      node('Board', { usePsram: true }),
+      node('MatrixOutput', { width: 16, height: 16 }),
+    ], showEdge)
+    expect(cfg.usePsram).toBe(true)
+  })
+
   it('ignores I2S pins left on a SDCard node', () => {
     // Breaking change, no migration: a graph saved before the split keeps the
     // old properties, and they must not quietly win over the Amplifier.

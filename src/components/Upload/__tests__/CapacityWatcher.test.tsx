@@ -157,10 +157,7 @@ describe('CapacityWatcher', () => {
       setTarget.mockRestore()
     })
 
-    it('does not add a PSRAM option the show upload never sends', () => {
-      // runShowUpload flashes plain selectedFqbn, and the player includes the
-      // no-PSRAM build of ESP32-audioI2S — so a PSRAM reading here would
-      // understate the internal DRAM that actually overflows.
+    it('measures the PSRAM player against the same board option the upload sends', () => {
       useGraphStore.setState({
         nodes: [sdCard, performanceGenerator, {
           ...output,
@@ -174,7 +171,30 @@ describe('CapacityWatcher', () => {
       })
       const setTarget = vi.spyOn(useCapacityStore.getState(), 'setTarget')
       render(<CapacityWatcher />)
-      expect(setTarget.mock.calls[0][0].fqbn).toBe('esp32:esp32:esp32s3')
+      expect(setTarget.mock.calls[0][0].fqbn).toBe('esp32:esp32:esp32s3:PSRAM=opi')
+      expect(setTarget.mock.calls[0][0].code).toContain('CRGB* showA = nullptr;')
+      expect(setTarget.mock.calls[0][0].code).toContain('psramFound() ? ps_malloc(n) : nullptr')
+      setTarget.mockRestore()
+    })
+
+    it('keeps the measured player static on a board without PSRAM support', () => {
+      useUploadStore.setState({ selectedFqbn: 'arduino:avr:uno' })
+      useGraphStore.setState({
+        nodes: [sdCard, performanceGenerator, {
+          ...output,
+          data: { ...output.data, properties: { ...output.data.properties, usePsram: true } },
+        }] as never[],
+        edges: [showEdge] as never[],
+        selectedNodeId: null,
+        graphData: {},
+        graphs: { root: { id: 'root', name: 'Main' } },
+        activeGraphId: 'root',
+      })
+      const setTarget = vi.spyOn(useCapacityStore.getState(), 'setTarget')
+      render(<CapacityWatcher />)
+      expect(setTarget.mock.calls[0][0].fqbn).toBe('arduino:avr:uno')
+      expect(setTarget.mock.calls[0][0].code).toContain('CRGB showA[NUM_LEDS];')
+      expect(setTarget.mock.calls[0][0].code).not.toContain('psramFound()')
       setTarget.mockRestore()
     })
   })

@@ -102,6 +102,14 @@ describe('uploadStore', () => {
       expect(useUploadStore.getState().sdPrompt).toBeNull()
     })
 
+    it('uses the player payload PSRAM option for the real show upload', async () => {
+      const useUploadStore = await readyStore()
+      await useUploadStore.getState().runShowUpload({ ...showPayload(), fqbnOpt: 'PSRAM=opi' })
+
+      expect(mocks.uploadShow.mock.calls[0][0].fqbn).toBe('esp32:esp32:esp32s3:PSRAM=opi')
+      expect(useUploadStore.getState().log).toContain('(esp32:esp32:esp32s3:PSRAM=opi)')
+    })
+
     it('writes the card directly, then flashes with nothing left to transfer', async () => {
       const useUploadStore = await readyStore()
       useUploadStore.getState().setCardReader(true)

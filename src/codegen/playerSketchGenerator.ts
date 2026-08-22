@@ -11,7 +11,7 @@
 
 import type { PatternRenderers } from './showGenerator'
 import { STUDIO_PALETTES, customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCatalog'
-import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp } from './cppGenerator'
+import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp, psramBufferDecl, PSRAM_ALLOC_CPP } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { audioOutputMode } from '../state/audioOutput'
@@ -37,6 +37,7 @@ export interface PlayerConfig {
   i2sLrc:      number   // I2S left/right clock, word select (audioOutput === 'i2s' only)
   i2sDout:     number   // I2S data out to DAC (audioOutput === 'i2s' only)
   maxVolume:   number   // 0-21 for MAX98357A
+  usePsram:    boolean  // honoured only when the selected board exposes PSRAM
   // Raw HUB75 properties from the MatrixOutput node (chipset === 'HUB75'
   // only), passed straight to hub75HardwareFromProps rather than flattening
   // ~14 pin fields into this interface — that function's own sanitizePin
@@ -54,6 +55,7 @@ const DEFAULTS: PlayerConfig = {
   audioOutput: 'i2s',
   i2sBclk: 26, i2sLrc: 25, i2sDout: 22,
   maxVolume: 18,
+  usePsram: false,
   hub75Props: {},
 }
 
@@ -117,6 +119,7 @@ export function playerConfigFromGraph(
     i2sLrc:     sanitizePin(amp.i2sLrc, DEFAULTS.i2sLrc),
     i2sDout:    sanitizePin(amp.i2sDout, DEFAULTS.i2sDout),
     maxVolume:  sanitizeVolume(amp.maxVolume),
+    usePsram:   board.usePsram === true,
     hub75Props: mo,
   }
 }
@@ -131,7 +134,7 @@ export function generatePlayerSketch(
   // in /music" can play a song left over from an earlier session — paired with
   // that song's show, which makes the mismatch look like a sync bug rather
   // than the wrong file.
-  opts: { audioEnvelope?: boolean; preferredTrack?: string } = {},
+  opts: { audioEnvelope?: boolean; preferredTrack?: string; psramAllowed?: boolean } = {},
 ): string {
   const raw = { ...DEFAULTS, ...cfg }
   const c = {
@@ -148,6 +151,10 @@ export function generatePlayerSketch(
   const collection = !!(renderers && renderers.count > 0)
   const bakedAudio = !!opts.audioEnvelope
   const internalDac = c.audioOutput === 'internalDac'
+  // A stale saved toggle must never put ESP32-only allocation calls into a
+  // sketch for a board with no PSRAM option. Capability and intent are both
+  // required.
+  const usePsram = c.usePsram && opts.psramAllowed === true
   // Strip init shared with the main/show generators. Brightness stays the
   // player's own fixed 180 — the show's SET_BRIGHTNESS events drive it live.
   const hw = ledHardwareFromProps({
@@ -169,9 +176,16 @@ export function generatePlayerSketch(
 
   // Collection patterns: per-pattern frame buffers, deduped helpers, and the
   // render_pN() functions — emitted above renderPattern().
+  const psramAllocs: string[] = []
+  const playerBufferDecl = (decl: string): string => {
+    const ps = usePsram ? psramBufferDecl(decl) : null
+    if (!ps) return decl
+    psramAllocs.push(ps.alloc)
+    return ps.decl
+  }
   const patternDecls = collection
     ? [
-        ...renderers!.buffers,
+        ...renderers!.buffers.map(playerBufferDecl),
         '',
         ...renderers!.helpers.flatMap((h) => [h, '']),
         ...renderers!.functions.flatMap((fn) => [fn, '']),
@@ -501,8 +515,8 @@ struct ShowEvent {
 
 // ── Globals ───────────────────────────────────────────────────────────────────
 CRGB leds[NUM_LEDS];
-${isHub75 ? hub75GlobalsCpp(hub75Hw!).join('\n') + '\n' : ''}CRGB showA[NUM_LEDS];             // outgoing pattern during a transition
-CRGB showB[NUM_LEDS];            // incoming pattern during a transition
+${isHub75 ? hub75GlobalsCpp(hub75Hw!).join('\n') + '\n' : ''}${playerBufferDecl('CRGB showA[NUM_LEDS];             // outgoing pattern during a transition')}
+${playerBufferDecl('CRGB showB[NUM_LEDS];            // incoming pattern during a transition')}
 Audio audio${internalDac ? '(true)' : ''};  // true = internal DAC on GPIO25/26; otherwise external I2S
 
 ShowEvent* showEvents = nullptr;
@@ -529,6 +543,8 @@ uint8_t*  audioEnv = nullptr;        // frameCount * 3 bytes (bass, mids, treble
 uint32_t  audioEnvFrames = 0;
 uint8_t   audioEnvRate = 50;
 ` : ''}
+
+${usePsram ? `${PSRAM_ALLOC_CPP}\n` : ''}
 
 ${paletteGlobals}
 
@@ -887,6 +903,8 @@ void setup() {
   // raises the link.
   Serial.setRxBufferSize(PROV_RX_BUFFER);
   Serial.begin(115200);
+
+${psramAllocs.join('\n')}
 
 ${ledSetupLines}
 ${powerSetupLine}

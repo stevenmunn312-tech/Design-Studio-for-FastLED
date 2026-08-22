@@ -9,6 +9,39 @@ const SHOW_EDGE = [{ source: 'pg', target: 'mo', sourceHandle: 'frame', targetHa
 const generator = { id: 'pg', data: { nodeType: 'PerformanceGenerator', properties: {} } }
 
 describe('playerSketchGenerator', () => {
+  describe('PSRAM buffers', () => {
+    const renderers = {
+      buffers: ['CRGB p0_buf_frame[NUM_LEDS];', 'float p0_field_noise[NUM_LEDS];'],
+      helpers: [],
+      functions: ['void render_p0(uint32_t ms) { fill_solid(leds, NUM_LEDS, CRGB::Blue); }'],
+      count: 1,
+      params: [],
+    }
+
+    it('moves transition and pattern render buffers through the shared safe allocator', () => {
+      const sketch = generatePlayerSketch({ usePsram: true }, renderers, { psramAllowed: true })
+      expect(sketch).toContain('CRGB leds[NUM_LEDS];')
+      expect(sketch).toContain('CRGB* showA = nullptr;')
+      expect(sketch).toContain('CRGB* showB = nullptr;')
+      expect(sketch).toContain('CRGB* p0_buf_frame = nullptr;')
+      expect(sketch).toContain('float* p0_field_noise = nullptr;')
+      expect(sketch).toContain('void* p = psramFound() ? ps_malloc(n) : nullptr;')
+      expect(sketch).toContain('if (!p) p = malloc(n);')
+      expect(sketch).toContain('showA = (CRGB*)_psAlloc(sizeof(CRGB) * NUM_LEDS);')
+      expect(sketch).toContain('p0_field_noise = (float*)_psAlloc(sizeof(float) * NUM_LEDS);')
+    })
+
+    it('keeps static internal buffers when the selected board has no PSRAM option', () => {
+      const sketch = generatePlayerSketch({ usePsram: true }, renderers, { psramAllowed: false })
+      expect(sketch).toContain('CRGB showA[NUM_LEDS];')
+      expect(sketch).toContain('CRGB showB[NUM_LEDS];')
+      expect(sketch).toContain('CRGB p0_buf_frame[NUM_LEDS];')
+      expect(sketch).toContain('float p0_field_noise[NUM_LEDS];')
+      expect(sketch).not.toContain('psramFound()')
+      expect(sketch).not.toContain('_psAlloc(')
+    })
+  })
+
   describe('serial file receiver', () => {
     const sketch = generatePlayerSketch(playerConfigFromGraph([
       generator,

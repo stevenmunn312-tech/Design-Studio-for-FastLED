@@ -342,7 +342,11 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
   function handleShowUpload() {
     void (async () => {
       if (!(await confirmUploadIfUntrusted())) return
-      const payload = buildShowPayload(nodes, edges, entries, getGroupRegistry())
+      const payload = buildShowPayload(nodes, edges, entries, getGroupRegistry(), {
+        fqbn: selectedFqbn,
+        psramAllowed: !!psramOptions,
+        fqbnOpt: usePsram ? psramChoice?.opt : undefined,
+      })
       if (payload) await offerValidationAfter('sd-show', runShowUpload(payload))
     })()
   }

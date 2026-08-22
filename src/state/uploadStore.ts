@@ -417,7 +417,7 @@ interface UploadState {
   // which shouldn't clobber the cached pattern sketch.
   runUpload: (code: string, fqbnOpt?: string, opts?: { cache?: boolean }) => Promise<void>
   runLastUpload: () => Promise<void>
-  runShowUpload: (payload: { player: string; files: ShowUploadFile[] }) => Promise<void>
+  runShowUpload: (payload: { player: string; files: ShowUploadFile[]; fqbnOpt?: string }) => Promise<void>
 
   /** Whether the user has a card reader — persisted, because it describes their
    *  desk rather than this upload. Chooses the card-reader path over serial. */
@@ -732,10 +732,11 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       return new Promise<string | null>((resolve) => { sdPromptResolver = resolve })
     }
 
+    const showFqbn = payload.fqbnOpt ? `${selectedFqbn}:${payload.fqbnOpt}` : selectedFqbn
     set({
       busy: true,
       consoleOpen: true,
-      log: `Uploading show to ${selectedPort} (${selectedFqbn})…\n`,
+      log: `Uploading show to ${selectedPort} (${showFqbn})…\n`,
       status: { phase: 'working', message: 'Uploading…' },
     })
     try {
@@ -759,7 +760,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
         // follows compiles identical source and hits the engine's cache.
         get().appendLog('\n=== Checking the player fits ===\n')
         try {
-          const fit = await compileCheck(payload.player, selectedFqbn)
+          const fit = await compileCheck(payload.player, showFqbn)
           if (!fit.ok) {
             get().appendLog(
               fit.overflow
@@ -798,7 +799,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
 
       await uploadShow(
         {
-          fqbn: selectedFqbn,
+          fqbn: showFqbn,
           port: selectedPort,
           player: payload.player,
           // Already written by hand — the flash is all that is left.

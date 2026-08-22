@@ -473,9 +473,10 @@ Not part of this branch's design, but unresolved and worth not losing.
   *no-PSRAM* build of ESP32-audioI2S, understating exactly the internal DRAM
   that overflows.
 
-  Fixed by choosing the subject with the same predicate the Upload button uses
-  (`sdCardConnected`), measuring through the shared `buildShowPlayer` that the
-  real upload calls, and dropping the PSRAM option on that path.
+  Fixed initially by choosing the subject with the same predicate the Upload
+  button uses (`sdCardConnected`) and measuring through the shared
+  `buildShowPlayer` that the real upload calls. The PSRAM follow-up below then
+  made the player, measurement, and upload use the same selected PSRAM option.
   `buildShowPlayerForMeasurement` derives the pattern set from the wired
   collection rather than from an analysed song, so the meter works while the
   show is being composed instead of blanking until an analysis finishes — which
@@ -487,7 +488,9 @@ Not part of this branch's design, but unresolved and worth not losing.
   one. And the meter names what it measured (`ESP32-S3 · player · flash 74%`),
   with a subject change invalidating the result exactly like a board change —
   a meter that says what it measured cannot silently measure the wrong thing.
-- [ ] **The show player ignores PSRAM.** (The capacity meter no longer
-  pretends otherwise — see above — but the player still cannot use it.) `playerSketchGenerator` has no PSRAM
-  path at all, so the SD-show ceiling is internal DRAM even on a board that has
-  PSRAM. `buildPatternRenderers` already accepts `psramAllowed`.
+- [x] **The show player uses PSRAM when the selected board supports it.**
+  `playerSketchGenerator` converts `showA`/`showB` and compiled pattern
+  `CRGB`/`float` buffers through the shared safe `_psAlloc` convention while
+  keeping `leds` static/internal. Capability gating neutralises stale toggles
+  on non-PSRAM boards, and the capacity meter and real upload now select the
+  same PSRAM FQBN option as the generated player.

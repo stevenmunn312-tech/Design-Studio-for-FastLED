@@ -53,16 +53,10 @@ export default function CapacityWatcher() {
   // Measured against the module's own flash, not the generic board id's.
   const flashMb = useMemo(() => selectedBoardFlashMb(nodes), [nodes])
 
-  /*
-   * PSRAM is a controller setting. Measuring a different FQBN option than the
-   * one an upload would use is the one way this meter could quietly lie.
-   *
-   * The show path takes none of it. `runShowUpload` flashes plain
-   * `selectedFqbn`, and the player deliberately includes the no-PSRAM build of
-   * ESP32-audioI2S — so measuring a PSRAM build there would understate exactly
-   * the internal-DRAM figure that overflows.
-   */
-  const psramOptions = isShow ? undefined : board?.psram
+  /* PSRAM is a controller setting. The player, capacity check, and upload all
+   * use this same option so the measured internal-DRAM figure describes the
+   * binary that will actually be flashed. */
+  const psramOptions = board?.psram
   const controller = controllerSettings(nodes)
   // Which socket `Serial` uses is part of the build, so the check must measure
   // the same env the upload would flash.
@@ -87,7 +81,7 @@ export default function CapacityWatcher() {
   const capacityCode = useMemo(() => {
     const groups = getGroupRegistry()
     if (isShow) {
-      return buildShowPlayerForMeasurement(codegenGraph.nodes, codegenGraph.edges, groups, selectedFqbn)
+      return buildShowPlayerForMeasurement(codegenGraph.nodes, codegenGraph.edges, groups, selectedFqbn, !!psramOptions)
     }
     if (!hasFrameInput) return null
     const opts = { psramAllowed: !!psramOptions }

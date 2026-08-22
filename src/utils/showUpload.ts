@@ -99,7 +99,7 @@ export function buildShowPlayer(
   nodes: StudioNode[],
   edges: Edge[],
   groups: GroupRegistry,
-  opts: { patternSet?: string[]; bakedAudio: boolean; preferredTrack: string; fqbn?: string },
+  opts: { patternSet?: string[]; bakedAudio: boolean; preferredTrack: string; fqbn?: string; psramAllowed?: boolean },
 ): string {
   // A collection (version 2) show carries its pattern group ids in patternSet;
   // compile those subgraphs into render_pN() so the player draws the user's own
@@ -114,6 +114,7 @@ export function buildShowPlayer(
   return generatePlayerSketch(playerConfigFromGraph(nodes, edges, opts.fqbn), renderers, {
     audioEnvelope: opts.bakedAudio && !!renderers,
     preferredTrack: opts.preferredTrack,
+    psramAllowed: opts.psramAllowed,
   })
 }
 
@@ -134,6 +135,7 @@ export function buildShowPlayerForMeasurement(
   edges: Edge[],
   groups: GroupRegistry = {},
   fqbn = '',
+  psramAllowed = false,
 ): string | null {
   if (!sdShowConnected(nodes, edges)) return null
   const { ids } = wiredPatternCollection(nodes, edges)
@@ -142,6 +144,7 @@ export function buildShowPlayerForMeasurement(
     bakedAudio: true,
     preferredTrack: '',
     fqbn,
+    psramAllowed,
   })
 }
 
@@ -155,7 +158,8 @@ export function buildShowPayload(
   edges: Edge[],
   entries: MusicEntry[],
   groups: GroupRegistry = {},
-): { player: string; files: ShowUploadFile[] } | null {
+  opts: { fqbn?: string; psramAllowed?: boolean; fqbnOpt?: string } = {},
+): { player: string; files: ShowUploadFile[]; fqbnOpt?: string } | null {
   const done = entries.filter((e) => e.status === 'done' && e.show)
   if (done.length === 0) return null
 
@@ -174,6 +178,8 @@ export function buildShowPayload(
     // song's FFT (externalAudio) and the player hosts the audio globals.
     bakedAudio: !!done[0].show!.audio,
     preferredTrack: safeTitle(done[0].show!.songTitle),
+    fqbn: opts.fqbn,
+    psramAllowed: opts.psramAllowed,
   })
 
   const files: ShowUploadFile[] = []
@@ -182,5 +188,5 @@ export function buildShowPayload(
     files.push({ path: `/music/${title}.mp3`, data: e.file })
     files.push({ path: `/shows/${title}.show`, data: new Blob([showFileToBinary(e.show!)]) })
   }
-  return { player, files }
+  return { player, files, fqbnOpt: opts.fqbnOpt }
 }
