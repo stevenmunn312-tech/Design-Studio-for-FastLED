@@ -86,17 +86,19 @@ export default function FloatingMenu({
       )
 
       setStyle((current) => {
+        const needsScroll = placed.maxHeight + 1 < element.scrollHeight
         const next: CSSProperties = {
           position: 'fixed',
           left: Math.round(placed.left),
           top: Math.round(placed.top),
-          maxHeight: Math.round(placed.maxHeight),
-          overflowY: 'auto',
+          maxHeight: needsScroll ? Math.round(placed.maxHeight) : undefined,
+          overflowY: needsScroll ? 'auto' : undefined,
           visibility: 'visible',
         }
         const same = current.left === next.left
           && current.top === next.top
           && current.maxHeight === next.maxHeight
+          && current.overflowY === next.overflowY
           && current.visibility === next.visibility
         return same ? current : next
       })

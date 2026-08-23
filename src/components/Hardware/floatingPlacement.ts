@@ -55,14 +55,19 @@ export function placeFloating(
   const left = rightSide + width <= viewport.width - MARGIN
     ? rightSide
     : anchor.left - GAP - width
+  const clippedHeight = Math.min(height, viewport.height - 2 * MARGIN)
+  const lowestFullHeightTop = viewport.height - MARGIN - clippedHeight
+  const hasRoomToLift = height <= viewport.height - 2 * MARGIN
   const top = clamp(
-    anchor.top,
+    hasRoomToLift && anchor.top + height > viewport.height - MARGIN
+      ? lowestFullHeightTop - GAP
+      : anchor.top,
     MARGIN,
-    viewport.height - MARGIN - Math.min(height, viewport.height - 2 * MARGIN),
+    lowestFullHeightTop,
   )
   return {
     left: clamp(left, MARGIN, viewport.width - width - MARGIN),
     top,
-    maxHeight: Math.max(0, Math.min(viewport.height - MARGIN - top, preferredMaxHeight)),
+    maxHeight: Math.max(0, Math.min(viewport.height - MARGIN - top, height, preferredMaxHeight)),
   }
 }

@@ -150,8 +150,9 @@ describe('HardwarePane', () => {
       const panel = familySelect.closest('[style]') as HTMLElement | null
 
       expect(panel?.style.left).toBe('566px')
-      expect(panel?.style.top).toBe('240px')
-      expect(panel?.style.maxHeight).toBe('520px')
+      expect(panel?.style.top).toBe('234px')
+      expect(panel?.style.maxHeight).toBe('')
+      expect(panel?.style.overflowY).toBe('')
     } finally {
       offsetWidth.mockRestore()
       scrollHeight.mockRestore()

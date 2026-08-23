@@ -99,6 +99,13 @@ describe('placeFloating, beside an anchor', () => {
     expect(at.top + Math.min(300, at.maxHeight)).toBeLessThanOrEqual(VIEW.height)
   })
 
+  it('uses spare top room before giving a fitting side panel a scrollbar', () => {
+    const low = { left: 560, top: 600, right: 800, bottom: 684 }
+    const at = placeFloating(low, { width: 240, height: 500 }, VIEW, 'beside')
+    expect(at.top).toBe(206)
+    expect(at.maxHeight).toBe(500)
+  })
+
   it('caps a submenu taller than the whole window', () => {
     const at = placeFloating(row, { width: 240, height: 5000 }, VIEW, 'beside')
     expect(at.top).toBe(8)
