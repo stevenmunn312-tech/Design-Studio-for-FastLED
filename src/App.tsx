@@ -14,6 +14,7 @@ import { useUploadStore } from './state/uploadStore'
 import { inmp441SupportedForBoardProfile } from './state/micPinDefaults'
 import { selectedPhysicalBoardProfile } from './build/boardProfiles'
 import { usePatternLibrary } from './state/patternLibrary'
+import { useMusicStore } from './state/musicStore'
 import { useProjectStore } from './state/projectStore'
 import { readSharedWorkspace, clearShareHash } from './utils/shareGraph'
 import { pushSnapshot } from './state/snapshotHistory'
@@ -189,8 +190,7 @@ export default function App() {
           blankWorkspace(),
         )
       if (!current) return
-      const { nodes, edges, graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck } = current.workspace
-      useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck })
+      useGraphStore.getState().loadGraph(current.workspace.nodes, current.workspace.edges, current.workspace)
       useGraphStore.temporal.getState().clear()
     }
     void init()
@@ -228,16 +228,19 @@ export default function App() {
       }
     }
 
-    const unsub = useGraphStore.subscribe((state) => {
+    const scheduleAutosave = (state = useGraphStore.getState()) => {
       latestAutosaveState.current = state
       cancelQueuedAutosave()
       autosaveTimer.current = setTimeout(() => {
         autosaveTimer.current = null
         queueAutosave()
       }, AUTOSAVE_INTERVAL)
-    })
+    }
+    const unsubGraph = useGraphStore.subscribe(scheduleAutosave)
+    const unsubMusic = useMusicStore.subscribe(() => scheduleAutosave())
     return () => {
-      unsub()
+      unsubGraph()
+      unsubMusic()
       cancelQueuedAutosave()
     }
   }, [])

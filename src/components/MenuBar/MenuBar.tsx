@@ -410,8 +410,7 @@ export default function MenuBar() {
     }
     const next = useProjectStore.getState().switchProject(projectId)
     if (!next) return false
-    const { nodes, edges, graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck } = next.workspace
-    useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck })
+    useGraphStore.getState().loadGraph(next.workspace.nodes, next.workspace.edges, next.workspace)
     useGraphStore.temporal.getState().clear()
     setStatus(`Opened project "${next.name}"`, 'success')
     return true
@@ -467,8 +466,7 @@ export default function MenuBar() {
       useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
     }
     const opened = useProjectStore.getState().upsertProject(project)
-    const { nodes, edges, graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck } = opened.workspace
-    useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck })
+    useGraphStore.getState().loadGraph(opened.workspace.nodes, opened.workspace.edges, opened.workspace)
     useGraphStore.temporal.getState().clear()
     setStatus(`Opened project "${opened.name}"`, 'success')
     void promptTrustIfNeeded()

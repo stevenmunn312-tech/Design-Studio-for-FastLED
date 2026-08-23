@@ -1,6 +1,8 @@
 import type { StudioNode, StudioEdge, WorkspaceExtras } from './graphStore'
 import type { PerformanceDeckConfig } from './performanceDeck'
 import type { BuildProfile } from '../build/buildProfile'
+import { captureMusicLibrary } from './musicLibraryPersistence'
+import type { PersistedMusicEntry } from './musicLibraryPersistence'
 
 /** The full workspace shape that needs to persist across autosave, project
  *  switches, JSON export/import, and rolling recovery snapshots. */
@@ -21,6 +23,9 @@ export interface PersistedWorkspace {
    *  share links, and JSON imports created before this field all fall back
    *  safely via `normalizeDeckConfig`. */
   performanceDeck?: PerformanceDeckConfig
+  /** Music Library analysis/show metadata. The corresponding audio blobs are
+   *  browser-local IndexedDB records keyed by each entry id. */
+  musicLibrary?: PersistedMusicEntry[]
 }
 
 export function blankWorkspace(): PersistedWorkspace {
@@ -43,5 +48,6 @@ export function captureWorkspace(
     buildProfile: state.buildProfile,
     trusted: state.trusted,
     performanceDeck: state.performanceDeck,
+    musicLibrary: captureMusicLibrary(),
   })
 }

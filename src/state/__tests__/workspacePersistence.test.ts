@@ -1,8 +1,15 @@
-import { describe, it, expect } from 'vitest'
+import { beforeEach, describe, it, expect } from 'vitest'
 import { blankWorkspace, captureWorkspace, cloneWorkspace, type PersistedWorkspace } from '../workspacePersistence'
 import { blankDeckConfig } from '../performanceDeck'
+import { useMusicStore } from '../musicStore'
+
+function clearMusic() {
+  useMusicStore.setState({ entries: [] })
+}
 
 describe('captureWorkspace', () => {
+  beforeEach(clearMusic)
+
   it('includes buildProfile when present on the source state', () => {
     const workspace = captureWorkspace({
       nodes: [],
@@ -47,6 +54,26 @@ describe('captureWorkspace', () => {
       nodes: [], edges: [], graphData: {}, graphs: {}, activeGraphId: 'root', buildProfile: undefined, trusted: true, performanceDeck: undefined,
     })
     expect(workspace.performanceDeck).toBeUndefined()
+  })
+
+  it('captures a JSON-safe Music Library manifest without embedding File objects', () => {
+    useMusicStore.setState({
+      entries: [{
+        id: 'song-1',
+        file: new File(['audio'], 'track.mp3', { type: 'audio/mpeg', lastModified: 123 }),
+        analysis: null,
+        show: null,
+        status: 'pending',
+      }],
+    })
+    const workspace = captureWorkspace({
+      nodes: [], edges: [], graphData: {}, graphs: {}, activeGraphId: 'root', buildProfile: undefined, trusted: true, performanceDeck: undefined,
+    })
+
+    expect(workspace.musicLibrary).toEqual([expect.objectContaining({
+      id: 'song-1', name: 'track.mp3', type: 'audio/mpeg', size: 5, lastModified: 123, status: 'pending',
+    })])
+    expect(JSON.parse(JSON.stringify(workspace)).musicLibrary[0].file).toBeUndefined()
   })
 })
 
