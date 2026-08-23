@@ -206,8 +206,17 @@ class _GreetingSerial:
         self.timeout = 0
         self.writes = []
         self.closed = False
+        self.opened = False
         self.dtr = self.rts = True
         self.baudrate = 115200
+        self.port = None
+        self.dtr_at_open = None
+        self.rts_at_open = None
+
+    def open(self):
+        self.opened = True
+        self.dtr_at_open = self.dtr
+        self.rts_at_open = self.rts
 
     def readline(self):
         return self.lines.pop(0) if self.lines else b""
@@ -264,3 +273,15 @@ def test_boot_greeting_of_ready_skips_the_handshake_loop(monkeypatch):
     assert "board says: READY" in log
     assert "waiting for the board" not in log
     assert fake.writes[0] == b"BAUD 921600\n", "it should go straight to raising the link"
+
+
+def test_sd_transfer_does_not_reset_the_native_usb_board(monkeypatch):
+    """DTR/RTS must already be clear when Windows opens the COM port."""
+    fake, log = _run_send(monkeypatch, [
+        b"READY\n", b"OK\n", b"READY\n", b"OK\n", b"A\n", b"DONE\n", b"BYE\n",
+    ])
+
+    assert "SD transfer complete" in log
+    assert fake.opened is True
+    assert fake.dtr_at_open is False
+    assert fake.rts_at_open is False

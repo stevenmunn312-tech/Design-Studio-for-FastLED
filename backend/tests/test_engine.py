@@ -738,22 +738,22 @@ def test_a_psram_option_pins_its_own_flash_size():
 
 
 def test_the_psram_envs_state_the_flash_mode_their_memory_type_implies(tmp_path, monkeypatch):
-    """A QIO memory_type needs a QIO image header, or the two disagree.
-
-    Hardware, 2026-08-21: an N16R8 whose bootloader was burned QIO 80MHz boots
-    and keeps its PSRAM. Historically the app image was left at the board's
-    default DIO, which booted but reported psramFound() false ("wrong PSRAM line
-    mode"); forcing QIO while a DIO bootloader was still on the flash looped
-    instead. Same disagreement, either side.
-    """
+    """The image header and SDK memory type must describe the same flash bus."""
     monkeypatch.setattr(app, "_FBUILD_INI_PATH", tmp_path / "platformio.ini")
     app._write_fbuild_ini()
     ini = (tmp_path / "platformio.ini").read_text(encoding="utf-8")
 
     opi = ini.split("[env:esp32_esp32_esp32s3_opi]")[1].split("[env:")[0]
-    assert "board_build.arduino.memory_type = qio_opi" in opi
-    assert "board_build.flash_mode = qio" in opi
+    assert "board_build.memory_type = dio_opi" in opi
+    # PlatformIO accepts the nested spelling too, but fbuild 2.5.18 ignores it
+    # and silently selects dio_qspi. Keep the generated key portable.
+    assert "board_build.arduino.memory_type" not in opi
+    assert "board_build.flash_mode = dio" in opi
     assert "board_build.f_flash = 80000000L" in opi
+
+    qspi = ini.split("[env:esp32_esp32_esp32s3_qspi]")[1].split("[env:")[0]
+    assert "board_build.memory_type = qio_qspi" in qspi
+    assert "board_build.flash_mode = qio" in qspi
 
 
 def test_the_plain_env_leaves_an_unknown_module_alone(tmp_path, monkeypatch):
@@ -796,7 +796,7 @@ def test_usb_cdc_gives_every_s3_env_a_twin(tmp_path, monkeypatch):
     # A PSRAM twin keeps everything its base env had.
     opi_cdc = ini.split("[env:esp32_esp32_esp32s3_opi_cdc]")[1].split("[env:")[0]
     assert "-DBOARD_HAS_PSRAM" in opi_cdc
-    assert "board_build.flash_mode = qio" in opi_cdc
+    assert "board_build.flash_mode = dio" in opi_cdc
     assert "-DARDUINO_USB_CDC_ON_BOOT=1" in opi_cdc
 
 

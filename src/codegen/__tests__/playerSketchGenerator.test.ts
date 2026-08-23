@@ -108,6 +108,30 @@ describe('playerSketchGenerator', () => {
       // SD troubleshooting tells people to read this field first.
       expect(sketch).toContain('sd=%s')
       expect(sketch).toContain('sdMounted ? "ok" : "MISSING"')
+      expect(sketch).toContain('(unsigned long)audioPosMs')
+      expect(sketch).not.toContain('(unsigned long)audio.getFilePos()')
+    })
+
+    it('surfaces audio-library failures and does not claim a failed open is playing', () => {
+      // ESP32-audioI2S otherwise hides decoder/I2S failures behind weak
+      // callbacks, leaving a static file position as the only symptom.
+      expect(sketch).toContain('void audio_info(const char* info)')
+      expect(sketch).toContain('[audio] %s')
+      expect(sketch).toContain('if (audio.connecttoFS(SD, mp3.c_str()))')
+      expect(sketch).toContain('ERR audio-open-failed')
+    })
+
+    it('primes local-file decoding before expensive LED rendering can time it out', () => {
+      expect(sketch).toContain('void primeAudioDecoder()')
+      expect(sketch).toContain('millis() - deadline')
+      expect(sketch).toContain('audio.getAudioCurrentTime() == 0')
+      expect(sketch).toMatch(/Playing: %s[^]*?primeAudioDecoder\(\);/)
+    })
+
+    it('dispatches the final event boundary after the audio library resets at EOF', () => {
+      expect(sketch).toContain('showDurationMs = ((uint32_t)header[7])')
+      expect(sketch).toContain('audioEnded = true;')
+      expect(sketch).toContain('audioEnded ? showDurationMs : audio.getAudioCurrentTime() * 1000')
     })
 
     it('keeps trying to mount, instead of halting on a missing card', () => {
