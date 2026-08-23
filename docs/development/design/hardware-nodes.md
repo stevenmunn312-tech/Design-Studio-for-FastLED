@@ -172,9 +172,9 @@ sidebar should say so — "I bought a ring, where is the ring?" is a fair
 question a hidden dropdown answers badly.
 
 But all four share an identical port signature (`frame` in, `sdcard` in, nothing
-out), and CLAUDE.md's bundling rule is explicit that identical signatures bundle
-into one node with a variant property — the pattern Noise, Transition, Blend and
-Particles all follow.
+out). The node library's established bundling pattern uses one node with a
+variant property for identical signatures; Noise, Transition, Blend, and
+Particles follow it.
 
 Both: **one node type with a `form` property, presented as four entries** that
 each create it pre-set. Ring is a genuinely new form needing its own XY mapping

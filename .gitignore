@@ -42,6 +42,9 @@ __pycache__/
 # Scratch git worktrees Claude Code creates per-task; always local/disposable.
 .claude/worktrees/
 
+# Claude Code auto-memory
+.claude/auto-memory/dirty-files*
+
 # Local skill cache mirroring .claude/skills/ for other tooling, plus its sync
 # lockfile — regenerated locally, not repo content.
 /.agents/

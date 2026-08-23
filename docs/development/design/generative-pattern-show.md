@@ -1,6 +1,6 @@
 # Generative pattern show — design note
 
-Status: implemented (phases 1–4 shipped; see `CLAUDE.md` for current behavior) · Owner: app · Date: 2026-06-26
+Status: implemented (phases 1–4 shipped; current behavior is defined by code and tests) · Owner: app · Date: 2026-06-26
 
 How the studio should author a **generative pattern show** — a matrix that
 endlessly picks from a large set of patterns and transitions, the way the
@@ -73,8 +73,8 @@ Today `cppGenerator` emits a single flat `loop()`. The show needs:
 
 _As shipped:_ `src/codegen/showGenerator.ts` implements this as a single
 controller file (one `render_pN()` per pattern plus the dispatch/transition
-loop) rather than emitting a separate `.h` per pattern — see *Show codegen
-(Phase 4)* in `CLAUDE.md`. Multi-file `.h`-per-pattern output remains an
+loop) rather than emitting a separate `.h` per pattern. Multi-file
+`.h`-per-pattern output remains an
 unshipped follow-up if flash-size or build-time pressure ever calls for it.
 
 ## Phased rollout
@@ -95,8 +95,7 @@ unshipped follow-up if flash-size or build-time pressure ever calls for it.
 
 All four phases are implemented. Hardware validation now covers the controller
 show path, the full transition pool, and the on-device microphone/beat-triggered
-particle overlay flow; see the July 24, 2026 validation notes summarized in
-`CLAUDE.md` and `docs/release/beta-support-matrix.md`.
+particle overlay flow; see `docs/release/beta-support-matrix.md`.
 
 ## Open questions / later
 

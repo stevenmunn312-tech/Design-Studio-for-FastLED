@@ -21,8 +21,8 @@ still move quickly.
 
 ## Release checklist
 
-1. Make sure `README.md`, `CHANGELOG.md`, `todo.md`, and `CLAUDE.md` reflect
-   the shipped state.
+1. Update `README.md` and `CHANGELOG.md`; remove shipped items from the
+   active-only `todo.md`. Keep `CLAUDE.md` limited to durable agent guidance.
 2. Update `package.json`'s version field.
 3. Review `docs/release/beta-support-matrix.md` and
    `docs/release/supported-platform-policy.md` so the support promise matches

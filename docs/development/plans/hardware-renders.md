@@ -9,9 +9,9 @@ asset folder, which tracks the *modelling* workflow for boards. This file
 tracks what the **app** is waiting on, and covers the non-board parts that
 checklist does not.
 
-Priorities follow the phases in [`hardware-todo.md`](hardware-todo.md).
-**Phase 1 needs LED outputs before anything else** — the split canvas is proven
-with the board plus LED outputs only, so those four are the blocking set.
+The baseline LED-output renders are complete. Use
+[`hardware-todo.md`](hardware-todo.md) for active product work; this file now
+tracks asset/import status only.
 
 Render contract is the existing board one: orthographic, 800 px wide,
 transparent background, tight calculated crop, raw Cycles PNG. Conversion to
@@ -46,17 +46,10 @@ must be clear at the size the hardware bench displays them: high contrast,
 unobscured by components or traces, and large enough to distinguish the exact
 pin order before a user wires the part.
 
-> **This file had gone stale.** Sixteen parts under `Blender Assets/Parts/`
-> are finished — every blocking Phase 1 item included — while this list still
-> showed them outstanding. Checked against the folder on 2026-08-19. What is
-> actually missing is not the renders but the **import**: only the INMP441,
-> 74AHCT125, button, potentiometer and encoder have reached
-> `src/assets/components/`, and the amplifier only did so on that date.
->
-> Each finished part carries a `part.json` with `dimensionsMm` verified against
-> a datasheet or fabrication print. The app should read those rather than
-> hand-declaring footprints — two of the three it had guessed were wrong (see
-> the note under the amplifier). That is Phase 3's part-catalogue item.
+Finished parts carry `part.json` dimensions verified against a datasheet or
+fabrication print. Import those manifests instead of hand-declaring footprints;
+the remaining work is catalogue/import coverage, not recreating finished
+renders.
 
 ## Blocking — Phase 1 (LED outputs)
 

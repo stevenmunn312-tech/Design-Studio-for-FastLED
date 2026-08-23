@@ -97,5 +97,6 @@ that license and preserve attribution. See
 3. `npm run dev` — the app is at `http://localhost:5173`; the dev server
    auto-launches the Python helper on port 8008 when available.
 
-`CLAUDE.md` contains an extensive architecture guide covering the state
-layer, evaluator, code generator, and show pipeline.
+`CLAUDE.md` contains the concise repository invariants and commands agents need
+on every task. Follow `docs/NAVIGATOR.md` to the detailed architecture and
+feature contracts.
