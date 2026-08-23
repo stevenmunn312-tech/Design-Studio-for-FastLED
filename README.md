@@ -34,11 +34,11 @@ The Start Gallery includes guided patches for Juggle, Fire, scrolling text, live
 
 ![The full-screen Start Gallery with beginner, audio, field, and show templates](docs/images/readme/design-studio-start-gallery.png)
 
-The first patch is deliberately simple: a live Juggle pattern flows into LED Output. Change a few controls, splice an effect directly into the wire, and the preview responds immediately.
+The starter patches are deliberately simple: a pattern flows into an LED output. Change a few controls, splice an effect directly into the wire, and the preview responds immediately.
 
 | Build and preview a patch | Browse and collect reusable patterns |
 | --- | --- |
-| ![A Juggle patch driving the live LED matrix](docs/images/readme/design-studio-patch.png) | ![The Pattern Library open beside a live Field Warp patch](docs/images/readme/design-studio-pattern-library.png) |
+| ![A Fire 2012 patch driving an LED Matrix](docs/images/readme/design-studio-patch.png) | ![The Pattern Library open beside a live Field Warp patch and LED Matrix hardware](docs/images/readme/design-studio-pattern-library.png) |
 
 ## Put the visuals center stage
 

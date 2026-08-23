@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         **Preferred path:** use the in-app flow — after an upload or wiring
-        test, Matrix Output's deploy panel offers an opt-in report that
+        test, the LED output's deploy panel offers an opt-in report that
         pre-fills an issue with your exact configuration. Use this form when
         that flow isn't available. See the
         [hardware validation guide](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/blob/main/docs/release/beta-hardware-validation.md).

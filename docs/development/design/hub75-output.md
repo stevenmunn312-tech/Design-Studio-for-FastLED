@@ -166,7 +166,7 @@ Scoped to a **single** `MatrixOutput` route, `layout: 'matrix'` or a
 supersampling. `findHub75ConfigErrors`/`findHub75ConfigIssues` in
 `validateGraph.ts` (renamed from the earlier blanket
 `findUnimplementedChipsetErrors`) allow that supported shape and block every
-other combination — multiple Matrix Output routes, an unsupported layout,
+other combination — multiple LED output routes, an unsupported layout,
 non-square `90°/270°` quarter-turns, or supersampling — each with its own
 message. All
 **five** sketch generators that share these hardware helpers now have real

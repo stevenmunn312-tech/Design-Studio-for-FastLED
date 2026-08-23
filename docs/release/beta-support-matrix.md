@@ -185,7 +185,7 @@ PR before promoting it here:
 
 ## Community beta reports
 
-The Matrix Output **Upload...** panel includes an opt-in **Beta hardware
+The LED output **Upload...** panel includes an opt-in **Beta hardware
 coverage** report. It compares the current target and graph features with the
 recorded rows above, requests explicit Pass/Fail/Not tested observations, shows
 the complete payload, and only then offers Copy, JSON download, or a pre-filled

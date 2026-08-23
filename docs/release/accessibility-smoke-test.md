@@ -31,7 +31,7 @@ Do not use a mouse or touchpad during this pass.
    compatible destination port, and press Enter or Space to finish it.
 6. Focus a node and verify selection, arrow-key movement, property editing,
    undo/redo, deletion, and Escape behavior.
-7. Open Matrix Output Setup and Upload Tools. Verify initial focus, forward and
+7. Open LED output Setup and Upload Tools. Verify initial focus, forward and
    reverse focus trapping, Escape-to-close, and focus restoration.
 8. Select the supported board and port, read the upload-readiness result, and
    export a sketch. If the validation machine has the supported hardware,
