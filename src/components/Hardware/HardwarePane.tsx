@@ -753,7 +753,7 @@ export default function HardwarePane() {
   }
 
   useEffect(() => {
-    const onPointerDown = (event: MouseEvent) => {
+    const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node
       // The menu and its submenu are portalled to the body, so "inside the
       // anchor" is no longer the same question as "inside the menu".
@@ -774,10 +774,10 @@ export default function HardwarePane() {
         setItemMenu(null)
       }
     }
-    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('pointerdown', onPointerDown, { capture: true })
     document.addEventListener('keydown', onKeyDown)
     return () => {
-      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('pointerdown', onPointerDown, { capture: true })
       document.removeEventListener('keydown', onKeyDown)
     }
   }, [])
@@ -1457,7 +1457,7 @@ export default function HardwarePane() {
       {boardMenu && (
         <FloatingMenu
           anchor={boardMenu.anchor}
-          placement="below"
+          placement="beside"
           align="start"
           className={styles.boardMenu}
           panelRef={(element) => { boardMenuRef.current = element }}

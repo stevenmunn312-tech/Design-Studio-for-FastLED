@@ -114,6 +114,50 @@ describe('HardwarePane', () => {
     expect(screen.getByRole('button', { name: 'Fit view' }).parentElement?.style.right).toBe('332px')
   })
 
+  it('dismisses the board menu on any outside pointer down', () => {
+    render(<HardwarePane />)
+
+    fireEvent.click(screen.getByTitle('Click or right-click to change boards'))
+    expect(within(document.body).getByLabelText('Board family')).toBeTruthy()
+
+    fireEvent.pointerDown(document.body)
+
+    expect(within(document.body).queryByLabelText('Board family')).toBeNull()
+  })
+
+  it('opens the board menu beside the board so the full panel can fit', () => {
+    const offsetWidth = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(360)
+    const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(520)
+    try {
+      render(<HardwarePane />)
+
+      const boardButton = screen.getByTitle('Click or right-click to change boards')
+      boardButton.getBoundingClientRect = () => ({
+        left: 500,
+        top: 620,
+        right: 560,
+        bottom: 700,
+        width: 60,
+        height: 80,
+        x: 500,
+        y: 620,
+        toJSON: () => ({}),
+      })
+
+      fireEvent.click(boardButton)
+
+      const familySelect = within(document.body).getByLabelText('Board family')
+      const panel = familySelect.closest('[style]') as HTMLElement | null
+
+      expect(panel?.style.left).toBe('566px')
+      expect(panel?.style.top).toBe('240px')
+      expect(panel?.style.maxHeight).toBe('520px')
+    } finally {
+      offsetWidth.mockRestore()
+      scrollHeight.mockRestore()
+    }
+  })
+
   /*
    * The diffuser is tiled in screen pixels while the part is sized in
    * millimetres, so the only thing keeping one dome on one LED is that both
