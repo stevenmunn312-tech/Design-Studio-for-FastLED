@@ -322,22 +322,19 @@ def _fbuild_libraries_for_sketch(ino: str):
 # this flash_size/partitions fix is confirmed correct (the board now reports
 # ESP.getFlashChipSize() == 16MB instead of silently building against 8MB).
 #
-# `board_build.flash_mode = qio` is now set on the PSRAM variants — see their
-# entries below. It was not, for a while, and the reason it failed is worth
-# keeping: forcing QIO used to send this module into a
-# `TG0WDT_SYS_RST`/`RTCWDT_RTC_RST` boot loop, while leaving the header at the
-# board's default DIO booted cleanly but reported "wrong PSRAM line mode" with
-# `psramFound()` false. That was read at the time as a board-profile/GPIO-wiring
-# problem needing the module's datasheet.
+# Flash and PSRAM bus modes are independent. The N16R8 bench module needs DIO
+# flash plus octal PSRAM, which Arduino-ESP32 names `dio_opi`. The earlier
+# `qio_opi` profile forced both the bootloader and app image headers to QIO. A
+# real full upload then reset-looped before the second-stage bootloader could
+# start (`TG0WDT_SYS_RST`/`RTCWDT_RTC_RST`, `mode:QIO`, `ets_loader.c 78`) on
+# both the UART bridge and native USB paths (2026-08-24).
 #
-# It was neither. The flash mode lives in the *bootloader's* image header as
-# well as the app's, and the two have to agree: a QIO app against the DIO
-# bootloader already on the flash loops, and a DIO app against a QIO bootloader
-# boots without PSRAM. Burning a QIO 80MHz bootloader to the part (Steve,
-# 2026-08-21) makes both halves agree, and the module then boots *and* keeps its
-# PSRAM. Note the consequence: an upload writes bootloader.bin too, so these env
-# settings are what keep a hand-burned bootloader from being replaced by a
-# disagreeing one.
+# Before QIO was forced, the image header stayed DIO but the SDK libraries were
+# still selected from `qio_opi`; that inconsistent pairing booted but reported
+# "wrong PSRAM line mode" and `psramFound()` false. `dio_opi` makes all three
+# facts agree: DIO boot image, DIO-flash SDK libraries, and OPI PSRAM libraries.
+# An upload writes bootloader.bin too, so the mode must be correct here rather
+# than relying on whatever bootloader happened to be on the board already.
 #
 # The module facts that note asked for, read off the die with
 # `esptool --chip esp32s3 flash_id` (2026-08-21):
@@ -348,11 +345,10 @@ def _fbuild_libraries_for_sketch(ino: str):
 #     Flash type set in eFuse:      quad (4 data lines)
 #     Chip: ESP32-S3 (QFN56) rev v0.2, 40MHz crystal, USB-Serial/JTAG
 #
-# So the PSRAM is real and octal, the flash is 16MB, and the flash is *quad*
-# per eFuse — which means the `qio_opi` memory_type (QIO flash + OPI PSRAM)
-# the `opi` option selects is the right pairing for this part, and the boot
-# loop above was not a case of claiming QIO on a part wired for something
-# else. Whatever forcing `flash_mode = qio` broke, it was not that.
+# So the PSRAM is real and octal and the flash is 16MB. The eFuse's `quad`
+# report describes the flash bus width/capability; it did not prove that this
+# board boots in QIO mode. The UART boot trace above is the authority for the
+# actual image mode this physical board accepts.
 #
 # Note also what these numbers say about the *non*-PSRAM env below: it carries
 # no `flash_size` override, so it builds against the stock board id's 8MB
@@ -378,12 +374,10 @@ _PIO_BOARDS: dict[str, dict] = {
             16: {"flash_size": "16MB", "partitions": "huge_app.csv"},
         },
         "psram_memory_type": {
-            # flash_mode/f_flash confirmed on the bench (2026-08-21): an N16R8
-            # with a QIO 80MHz bootloader burned to it boots and keeps its PSRAM.
-            # The eFuse on that part reads "quad (4 data lines)", so QIO is what
-            # the flash is wired for — not a tuning choice.
-            "opi":  {"memory_type": "qio_opi",  "flash_size": "16MB", "partitions": "default_16MB.csv",
-                     "flash_mode": "qio", "f_flash": "80000000L"},
+            # Hardware trace (2026-08-24): QIO reset-loops in the ROM loader;
+            # DIO is the flash mode, independently of the octal PSRAM bus.
+            "opi":  {"memory_type": "dio_opi",  "flash_size": "16MB", "partitions": "default_16MB.csv",
+                     "flash_mode": "dio", "f_flash": "80000000L"},
             "qspi": {"memory_type": "qio_qspi", "flash_size": "8MB",  "partitions": "default_8MB.csv",
                      "flash_mode": "qio", "f_flash": "80000000L"},
         },
