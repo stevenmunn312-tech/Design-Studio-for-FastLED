@@ -744,12 +744,15 @@ def test_the_psram_envs_state_the_flash_mode_their_memory_type_implies(tmp_path,
     ini = (tmp_path / "platformio.ini").read_text(encoding="utf-8")
 
     opi = ini.split("[env:esp32_esp32_esp32s3_opi]")[1].split("[env:")[0]
-    assert "board_build.arduino.memory_type = dio_opi" in opi
+    assert "board_build.memory_type = dio_opi" in opi
+    # PlatformIO accepts the nested spelling too, but fbuild 2.5.18 ignores it
+    # and silently selects dio_qspi. Keep the generated key portable.
+    assert "board_build.arduino.memory_type" not in opi
     assert "board_build.flash_mode = dio" in opi
     assert "board_build.f_flash = 80000000L" in opi
 
     qspi = ini.split("[env:esp32_esp32_esp32s3_qspi]")[1].split("[env:")[0]
-    assert "board_build.arduino.memory_type = qio_qspi" in qspi
+    assert "board_build.memory_type = qio_qspi" in qspi
     assert "board_build.flash_mode = qio" in qspi
 
 

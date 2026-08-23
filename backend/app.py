@@ -712,7 +712,14 @@ def _write_fbuild_ini() -> None:
             ])
         for psram_id, psram_meta in meta.get("psram_memory_type", {}).items():
             lines += env_block(psram_id, None, extra_flags=["-DBOARD_HAS_PSRAM"], extra_lines=[
-                f"board_build.arduino.memory_type = {psram_meta['memory_type']}",
+                # Use the common PlatformIO/fbuild override, not the older
+                # Arduino-nested spelling. PlatformIO accepts both, but fbuild
+                # 2.5.18 strips `board_build.arduino.memory_type` to the
+                # unrecognised key `arduino.memory_type` and silently falls
+                # back to `<flash_mode>_qspi`. On an N16R8 that selected
+                # dio_qspi despite this profile saying dio_opi, producing the
+                # runtime "quad_psram: wrong PSRAM line mode" failure.
+                f"board_build.memory_type = {psram_meta['memory_type']}",
                 f"board_upload.flash_size = {psram_meta['flash_size']}",
                 # State the flash mode the memory_type already implies, so the
                 # app image header agrees with the bootloader on the part. See

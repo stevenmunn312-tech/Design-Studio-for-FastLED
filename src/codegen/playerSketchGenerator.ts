@@ -518,6 +518,21 @@ CRGB leds[NUM_LEDS];
 ${isHub75 ? hub75GlobalsCpp(hub75Hw!).join('\n') + '\n' : ''}${playerBufferDecl('CRGB showA[NUM_LEDS];             // outgoing pattern during a transition')}
 ${playerBufferDecl('CRGB showB[NUM_LEDS];            // incoming pattern during a transition')}
 Audio audio${internalDac ? '(true)' : ''};  // true = internal DAC on GPIO25/26; otherwise external I2S
+uint32_t audioPosMs = 0;      // elapsed playback time, never read-ahead bytes
+uint32_t showDurationMs = 0;  // header duration; also the EOF event boundary
+bool audioEnded = false;
+
+// ESP32-audioI2S reports pin, decoder, allocation, and sync failures only
+// through weak callbacks. Without these, a failed decoder merely leaves
+// getAudioCurrentTime() at zero while its large PSRAM read-ahead buffer makes
+// getFilePos() look active. Keep the diagnostics terse but visible on serial.
+void audio_info(const char* info) {
+  Serial.printf("[audio] %s\\n", info);
+}
+void audio_eof_mp3(const char* info) {
+  audioEnded = true;
+  Serial.printf("[audio] EOF %s\\n", info);
+}
 
 ShowEvent* showEvents = nullptr;
 uint32_t   eventCount = 0;
@@ -579,6 +594,8 @@ bool loadShowFile(const char* path) {
   f.read(header, 15);
   if (header[0]!='S'||header[1]!='H'||header[2]!='O'||header[3]!='W') { f.close(); return false; }
 
+  showDurationMs = ((uint32_t)header[7]) | ((uint32_t)header[8]<<8) |
+                   ((uint32_t)header[9]<<16) | ((uint32_t)header[10]<<24);
   eventCount = ((uint32_t)header[11]) | ((uint32_t)header[12]<<8) |
                ((uint32_t)header[13]<<16) | ((uint32_t)header[14]<<24);
   if (showEvents) free(showEvents);
@@ -667,16 +684,34 @@ void applyEvent(const ShowEvent& ev) {
  * call it again after new files land — otherwise a card that arrived empty
  * would keep reporting "no playable track" until the board was power-cycled.
  */
+void primeAudioDecoder() {
+  // ESP32-audioI2S parses local-file headers only when audio.loop() runs and
+  // abandons that phase after 2.5 seconds. A complex first LED frame can take
+  // long enough to starve those calls. Prime until playback time advances,
+  // bounded so a bad file or disconnected I2S device cannot wedge setup.
+  uint32_t deadline = millis() + 2000;
+  while ((int32_t)(millis() - deadline) < 0 && audio.getAudioCurrentTime() == 0) {
+    audio.loop();
+    delay(1);
+  }
+}
+
 bool startPlayback() {
   bool started = false;
+  audioEnded = false;
+  audioPosMs = 0;
   if (PREFERRED_TRACK[0]) {
     String mp3  = String("/music/") + PREFERRED_TRACK + ".mp3";
     String show = String("/shows/") + PREFERRED_TRACK + ".show";
     if (SD.exists(mp3.c_str()) && SD.exists(show.c_str())) {
       loadShowFile(show.c_str());
-      audio.connecttoFS(SD, mp3.c_str());
-      Serial.printf("Playing: %s\\n", mp3.c_str());
-      started = true;
+      if (audio.connecttoFS(SD, mp3.c_str())) {
+        Serial.printf("Playing: %s\\n", mp3.c_str());
+        primeAudioDecoder();
+        started = true;
+      } else {
+        Serial.printf("ERR audio-open-failed: %s\\n", mp3.c_str());
+      }
     } else {
       Serial.printf("Expected track missing: %s\\n", mp3.c_str());
     }
@@ -694,10 +729,13 @@ bool startPlayback() {
         String showPath = "/shows/" + name.substring(0, name.lastIndexOf('.')) + ".show";
         if (SD.exists(showPath.c_str())) {
           loadShowFile(showPath.c_str());
-          audio.connecttoFS(SD, ("/music/" + name).c_str());
-          Serial.printf("Playing (fallback): %s\\n", name.c_str());
-          started = true;
-          break;
+          if (audio.connecttoFS(SD, ("/music/" + name).c_str())) {
+            Serial.printf("Playing (fallback): %s\\n", name.c_str());
+            primeAudioDecoder();
+            started = true;
+            break;
+          }
+          Serial.printf("ERR audio-open-failed: %s\\n", name.c_str());
         }
         Serial.printf("Skipping %s — no matching show\\n", name.c_str());
       }
@@ -949,7 +987,7 @@ void loop() {
     // with audioPos at 0 looks like a healthy board playing nothing.
     Serial.printf("[status] uptime=%lus sd=%s audioPos=%lu pattern=%u event=%u/%u\\n",
                   millis() / 1000, sdMounted ? "ok" : "MISSING",
-                  (unsigned long)audio.getFilePos(), patternId, eventIdx, eventCount);
+                  (unsigned long)audioPosMs, patternId, eventIdx, eventCount);
   }
 
   audio.loop();
@@ -960,7 +998,11 @@ void loop() {
   // current-frame bitrate, which is 0/unstable for the first several frames
   // of decode, so that reconstruction could spike to a huge bogus value and
   // fire the entire event queue at once instead of pacing it across playback.
-  uint32_t posMs = audio.getAudioCurrentTime() * 1000;
+  // The library resets its clock to zero inside the EOF callback. Preserve the
+  // show-file duration for one final boundary so events at the tail are not
+  // silently skipped, then hold the completed frame.
+  uint32_t posMs = audioEnded ? showDurationMs : audio.getAudioCurrentTime() * 1000;
+  audioPosMs = posMs;
 
   // Dispatch all events whose timestamp has passed
   while (eventIdx < eventCount && showEvents[eventIdx].t <= posMs) {
