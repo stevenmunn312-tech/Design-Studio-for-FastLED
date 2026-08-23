@@ -584,6 +584,28 @@ describe('StudioNode', () => {
       expect(within(run.container).queryByText('Layout')).toBeNull()
       expect(within(run.container).queryByLabelText(/matrix size/i)).toBeNull()
     })
+
+    it('groups controller power controls under Power', () => {
+      const { container } = renderNode(makeNode('MatrixOutput', {
+        form: 'matrix',
+        width: 16,
+        height: 16,
+        chipset: 'WS2812B',
+        brightness: 200,
+        overclock: 1,
+        powerLimit: true,
+        volts: 5,
+        milliamps: 2000,
+      }))
+
+      const powerHeader = within(container).getByRole('button', { name: /power/i })
+      fireEvent.click(powerHeader)
+      expect(powerHeader.getAttribute('aria-expanded')).toBe('true')
+
+      const keys = [...powerHeader.parentElement!.querySelectorAll('[class*="propKey"]')]
+        .map((key) => key.textContent ?? '')
+      expect(keys).toEqual(['brightness', 'overclock', 'powerLimit', 'volts', 'milliamps'])
+    })
   })
 
   it('embeds an empty show monitor in the Performance Generator node', async () => {

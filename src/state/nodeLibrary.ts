@@ -4027,6 +4027,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     ] },
     { key: 'layout', label: 'Layout', keys: ['layout', 'tilesX', 'tilesY', 'tileSerpentine', 'tileRotations', 'customXYMap'] },
     { key: 'rendering', label: 'Rendering', keys: ['supersample', 'correction', 'dither'] },
+    { key: 'power', label: 'Power', keys: ['brightness', 'overclock', 'powerLimit', 'volts', 'milliamps'] },
   ],
   Image: [
     { key: 'transform', label: 'Transform', keys: ['fit', 'positionX', 'positionY', 'rotation', 'flipX', 'flipY', 'zoom', 'cropX', 'cropY'] },
