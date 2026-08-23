@@ -3,6 +3,7 @@ import { useMusicStore } from '../musicStore'
 import type { MusicEntry } from '../musicStore'
 import { useGraphStore, ROOT_GRAPH_ID } from '../graphStore'
 import type { SongAnalysis, ShowFile } from '../../types/showFile'
+import { saveMusicFile } from '../musicLibraryPersistence'
 
 // A minimal but valid analysis so revertShow can regenerate a show.
 const analysis: SongAnalysis = {
@@ -126,5 +127,41 @@ describe('musicStore — wired TransitionSet', () => {
     } finally {
       spy.mockRestore()
     }
+  })
+})
+
+describe('musicStore project persistence', () => {
+  beforeEach(() => useMusicStore.setState({ entries: [] }))
+
+  it('restores the analysed entry and its audio file from a workspace manifest', async () => {
+    const file = new File(['saved audio'], 'saved.mp3', { type: 'audio/mpeg', lastModified: 456 })
+    await saveMusicFile('saved-song', file)
+
+    useGraphStore.getState().loadGraph([], [], {
+      musicLibrary: [{
+        id: 'saved-song',
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        lastModified: file.lastModified,
+        analysis,
+        show: baseShow,
+        status: 'done',
+      }],
+    })
+
+    await vi.waitFor(() => expect(useMusicStore.getState().entries).toHaveLength(1))
+    const restored = useMusicStore.getState().entries[0]
+    expect(restored.status).toBe('done')
+    expect(restored.analysis).toEqual(analysis)
+    expect(restored.show).toEqual(baseShow)
+    expect(restored.file.name).toBe('saved.mp3')
+    expect(await restored.file.text()).toBe('saved audio')
+  })
+
+  it('clears the previous library when a workspace has no music manifest', async () => {
+    seedEntry()
+    useGraphStore.getState().loadGraph([], [])
+    await vi.waitFor(() => expect(useMusicStore.getState().entries).toEqual([]))
   })
 })

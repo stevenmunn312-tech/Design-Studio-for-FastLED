@@ -5,6 +5,12 @@ import type { PerformanceOptions } from '../codegen/performanceGenerator'
 import { useGraphStore } from './graphStore'
 import { wiredPatternCollection } from '../utils/showUpload'
 import { recordPerfTask } from '../dev/perfMonitor'
+import {
+  loadMusicFile,
+  registerMusicLibraryPersistence,
+  saveMusicFile,
+  type PersistedMusicEntry,
+} from './musicLibraryPersistence'
 
 /**
  * The Pattern Collection wired into a Performance Generator's `patternset`
@@ -79,6 +85,23 @@ interface MusicState {
 /** Guards the analysis queue: one runner, however many drops. */
 let analyzing = false
 
+let restoreGeneration = 0
+
+function persistedEntries(entries: MusicEntry[]): PersistedMusicEntry[] {
+  return entries.map((entry) => ({
+    id: entry.id,
+    name: entry.file.name,
+    type: entry.file.type,
+    size: entry.file.size,
+    lastModified: entry.file.lastModified,
+    analysis: entry.analysis,
+    show: entry.show,
+    status: entry.status === 'analyzing' ? 'pending' : entry.status,
+    edited: entry.edited,
+    error: entry.error,
+  }))
+}
+
 export const useMusicStore = create<MusicState>((set, get) => ({
   entries: [],
 
@@ -93,6 +116,7 @@ export const useMusicStore = create<MusicState>((set, get) => ({
         status:   'pending' as const,
       }))
     set(s => ({ entries: [...s.entries, ...newEntries] }))
+    for (const entry of newEntries) void saveMusicFile(entry.id, entry.file)
     // Dropping a song *is* the request to analyse it, so there is no second
     // step to remember. A run already in flight picks these up next pass.
     void get().analyzeAll(options)
@@ -193,6 +217,42 @@ export const useMusicStore = create<MusicState>((set, get) => ({
     }))
   },
 }))
+
+registerMusicLibraryPersistence(
+  () => persistedEntries(useMusicStore.getState().entries),
+  async (persisted) => {
+    const generation = ++restoreGeneration
+    // Clear the previous project's library immediately; the resolved tracks
+    // replace it together so a slower older restore cannot leak across a
+    // rapid pair of project switches.
+    useMusicStore.setState({ entries: [] })
+    const restored = await Promise.all(persisted.map(async (entry): Promise<MusicEntry> => {
+      const blob = await loadMusicFile(entry.id)
+      const file = new File(blob ? [blob] : [], entry.name, {
+        type: entry.type,
+        lastModified: entry.lastModified,
+      })
+      if (!blob) {
+        return {
+          ...entry,
+          file,
+          status: 'error',
+          error: 'The audio file is not available in this browser. Add the track again to restore playback and export.',
+        }
+      }
+      return {
+        ...entry,
+        file,
+        status: entry.status === 'error' ? 'error' : (entry.analysis ? 'done' : 'pending'),
+      }
+    }))
+    if (generation !== restoreGeneration) return
+    useMusicStore.setState({ entries: restored })
+    if (restored.some((entry) => entry.status === 'pending')) {
+      void useMusicStore.getState().analyzeAll()
+    }
+  },
+)
 
 if (import.meta.env.DEV && typeof window !== 'undefined') {
   ;(window as unknown as { useMusicStore?: typeof useMusicStore }).useMusicStore = useMusicStore

@@ -40,6 +40,7 @@ import {
   normalizeDeckConfig,
   deriveControlShape,
 } from './performanceDeck'
+import { restoreMusicLibrary, type PersistedMusicEntry } from './musicLibraryPersistence'
 
 export interface StudioNodeData extends Record<string, unknown> {
   label: string
@@ -74,6 +75,9 @@ export interface WorkspaceExtras {
   trusted?: boolean
   /** See `PersistedWorkspace.performanceDeck` (workspacePersistence.ts). */
   performanceDeck?: PerformanceDeckConfig
+  /** JSON-safe Music Library metadata. Audio bytes are stored separately in
+   *  IndexedDB so project autosaves do not exceed localStorage quotas. */
+  musicLibrary?: PersistedMusicEntry[]
 }
 
 interface GraphState {
@@ -1396,6 +1400,7 @@ export const useGraphStore = create<GraphState>()(
             panicRestoreValues: null,
           }
         })
+        restoreMusicLibrary(workspace?.musicLibrary)
       },
 
       duplicateNode: (id) =>
