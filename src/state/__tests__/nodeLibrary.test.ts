@@ -502,6 +502,7 @@ describe('nodeLibrary', () => {
       { id: 'frame', label: 'Show', dataType: 'frame' },
     ])
     expect(NODE_LIBRARY.find((n) => n.type === 'PerformanceGenerator')?.defaultProperties).toMatchObject({
+      useGroupInputs: true,
       showInMainPreview: false,
     })
   })

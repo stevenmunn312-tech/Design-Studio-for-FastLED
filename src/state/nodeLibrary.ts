@@ -2684,7 +2684,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       patternHold:        10,
       paletteMode:        'mood',
       fixedPalette:       'rainbow',
-      useGroupInputs:     false,
+      useGroupInputs:     true,
       showInMainPreview:  false,
     },
   },
