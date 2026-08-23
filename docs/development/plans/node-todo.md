@@ -1,7 +1,14 @@
-# Node review — improvement findings
+# Node review — audit record
 
-Running list from the category-by-category node review (nodeLibrary.ts /
-graphEvaluator.ts / cppGenerator.ts). Each category is reviewed for: whether
+Historical findings from the completed category-by-category node review
+(`nodeLibrary.ts` / `graphEvaluator.ts` / `cppGenerator.ts`). This is evidence,
+not an active tracker: resolved items remain for rationale, while current open
+work is distilled into the root [`todo.md`](../../../todo.md). Trust current
+code and focused tests over any implementation detail recorded here.
+References below to former `CLAUDE.md` node inventories are historical; those
+inventories were removed from always-loaded agent context.
+
+The audit considered whether
 0–1 normalization would make sense per field, whether the `clamp inputs`
 checkbox applies, whether a slider vs. plain text box is the right control,
 missing features, and input sanitization gaps. Updated as each category is

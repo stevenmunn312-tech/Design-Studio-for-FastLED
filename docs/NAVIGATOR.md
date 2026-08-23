@@ -59,8 +59,8 @@ build/architecture overview aimed at contributors.
     curves/superformula; field category) and `FormulaPoints` (stateful
     curated point/trajectory generators like phyllotaxis/Lissajous
     paths/attractors; pattern category), plus a `PHI` formula-language
-    constant. `FormulaPoints` is implemented; `FormulaField`/`PHI` are
-    implemented in a separate, parallel branch/PR.
+    constant. All three are implemented; the note records their shared
+    preview/codegen contract and remaining hardware-validation status.
   - [Board node and hardware capability model](development/design/board-node-architecture.md)
     — proposed 1.0.0 refactor: a singleton Board node selecting a board
     *profile* rather than a chip target, a capability model that separates
@@ -74,20 +74,16 @@ build/architecture overview aimed at contributors.
     Storage) abstracts *what the board can do* from *which part does it*.
 - [Plans](development/plans/)
   - [Hardware branch todo](development/plans/hardware-todo.md)
-    — running order and state for the 1.0.0 hardware work, plus the
-    unresolved bench findings carried over from validation.
+    — active hardware-line backlog and unresolved bench findings.
   - [Hardware renders](development/plans/hardware-renders.md)
     — which board and module renders the two-view hardware pane still needs,
     what is already modelled, and the boards awaiting import.
-  - [Node review findings](development/plans/node-todo.md)
-    — the category-by-category control, validation, evaluator, and codegen
-    audit, including completed fixes and retained follow-ups.
-  - [T-HMI feature integration](development/plans/thmi-feature-integration.md)
-    — how to replay the divergent `feature/thmi-touchscreen-ui` branch (FFT
-    audio, 13 transitions, T-HMI firmware) onto current `main` as PRs.
+  - [Node audit record](development/plans/node-todo.md)
+    — historical category-by-category findings. Use root `todo.md` for the
+    remaining active work and current code/tests as the implementation truth.
 - [Reports](development/reports/)
   - [Node library review](development/reports/node-review.md)
-    — a pass over all 150 node types cross-checking the registry, live preview,
+    — a broad pass cross-checking the registry, live preview,
     and firmware generator: preview/firmware divergences (a `Kaleidoscope`
     codegen stub, `Mod` by zero, frame-rate-coupled timing), unbounded
     property values, and node-metadata improvements.

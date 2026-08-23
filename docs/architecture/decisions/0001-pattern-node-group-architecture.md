@@ -148,7 +148,7 @@ where it is needed.
   `pattern` (frame generators), `field` (the scalar-field pipeline), `composite`
   (frame→frame, displayed "Effects"), `show` (the show workflow), `output` — ten
   categories total, each with a hue-swept accent colour (see the `CATEGORIES`
-  table and Design Tokens section in `CLAUDE.md`). `category` is still a coarse,
+  table in `src/state/nodeLibrary.ts` and `src/themes/tokens.css`). `category` is still a coarse,
   UI-facing grouping; the real type system remains the per-port `dataType`.
 - **Serpentine wiring.** _Resolved._ Buffers stay row-major in grid space; the
   `MatrixOutput` node has a `serpentine` toggle and, when set, codegen emits an
