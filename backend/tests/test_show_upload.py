@@ -141,6 +141,29 @@ def test_success_is_one_build_flashed_to_the_port_then_the_transfer(client, monk
     assert "All done" in r.text
 
 
+def test_show_hardware_target_reaches_fbuild(client, monkeypatch):
+    calls = []
+
+    def compile_fake(label, ino, fqbn, port, flash_mb=None, usb_cdc=False):
+        calls.append((fqbn, flash_mb, usb_cdc))
+        if False:
+            yield  # pragma: no cover
+        return (0, "upload")
+
+    _setup(monkeypatch, compile_fake)
+    r = client.post(
+        "/api/upload-show",
+        data={
+            "meta": '{"fqbn":"esp32:esp32:esp32s3:PSRAM=opi","port":"COM7",'
+                    '"flashMb":16,"usbCdcOnBoot":true}',
+            "player": "player-ino",
+        },
+    )
+
+    assert r.status_code == 200
+    assert calls == [("esp32:esp32:esp32s3:PSRAM=opi", 16, True)]
+
+
 def test_no_files_flashes_the_player_and_skips_the_transfer(client, monkeypatch):
     # The card-reader path writes the songs and shows to a mounted card itself,
     # so by the time it calls this endpoint the only thing left is the flash.
