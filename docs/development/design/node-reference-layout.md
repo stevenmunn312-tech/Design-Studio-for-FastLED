@@ -35,7 +35,7 @@ The help modal keeps a fixed node-library directory on the left and a scrollable
 - Generated visuals must use the real node data and property defaults, not a
   synthetic recreation of the library.
 - The example graph for a node should stay tidy and keep all nodes fully
-  visible, including Matrix Output when it is part of the example.
+  visible, including LED Matrix when it is part of the example.
 - Prefer a useful, representative preview frame over an idle/black result.
 - Audio examples may use:
   `C:\Users\User\Downloads\Organic Soup - Old Timers - 2017 - MP3 (1)\01 - Organic Soup - Old Timers (2016 Edit).mp3`
@@ -56,8 +56,8 @@ The help modal keeps a fixed node-library directory on the left and a scrollable
 The action must:
 
 - add the example beside the current work without replacing the graph;
-- reuse singleton Microphone and Matrix Output nodes when present;
-- never replace an occupied input noodle (show a status message when the final Matrix Output connection is skipped);
+- reuse singleton Microphone and LED Matrix nodes when present;
+- never replace an occupied input noodle (show a status message when the final LED Matrix connection is skipped);
 - add the graph in one store update and collapse React Flow measurements into one undo step;
 - close Help, reveal the preview, enable a useful test signal where appropriate, and frame the example nodes;
 - report the result in the status bar.
@@ -68,9 +68,9 @@ The Microphone pilot is covered by `src/utils/__tests__/insertLiveExample.test.t
 
 The approved example is:
 
-`Microphone → FFT Analyzer → Spectrum Bars → Matrix Output`
+`Microphone → FFT Analyzer → Spectrum Bars → LED Matrix`
 
-Microphone feeds live audio to FFT Analyzer. FFT separates bass, mids, and treble; those values drive Spectrum Bars, whose frame is sent to Matrix Output. The Main Preview shows the resulting mirrored rainbow spectrum.
+Microphone feeds live audio to FFT Analyzer. FFT separates bass, mids, and treble; those values drive Spectrum Bars, whose frame is sent to LED Matrix. The Main Preview shows the resulting mirrored rainbow spectrum.
 
 ## Rollout status — complete
 

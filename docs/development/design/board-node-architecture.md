@@ -38,7 +38,7 @@ Exactly one Board node per graph. This is not a new constraint — it is an
 existing one becoming visible. `selectedFqbn` is already a single scalar on
 `uploadStore` mirrored into `projectStore.uploadTarget`, and
 [`outputRouting.ts`](../../../src/state/outputRouting.ts) has no board awareness
-at all. Multiple Matrix Outputs have always meant multiple routes on one
+at all. Multiple LED outputs have always meant multiple routes on one
 controller, which is what codegen emits: one sketch, one `FastLED.show()`.
 
 The node selects a **board profile**, not an FQBN. This matters: `esp32:esp32:esp32`
@@ -140,7 +140,7 @@ scales are too far apart for one control.
 
 ### Outputs attach to the board, and no other wires are added
 
-Matrix Output continues to take a `frame` and gains a `route` output that plugs
+The LED output continues to take a `frame` and gains a `route` output that plugs
 into the Board node. One new data type, one legal hop, fixture to board only.
 
 This keeps `frame` meaning pixel data everywhere. It also makes "three panels on
@@ -155,14 +155,14 @@ Rejected: power and data wires on the canvas. The build diagram is the physical
 view; duplicating it in the node graph would tax every user with two edge kinds
 that mean different things.
 
-### What moves off Matrix Output, and what stays
+### What moves off the LED output, and what stays
 
 Moves: the board target and the PSRAM options. These are board-scoped and
 already sit awkwardly — the PSRAM toggle is rendered outside the generic property
 list precisely because its visibility depends on the selected board.
 
 Stays: everything genuinely about the panel — size, chipset, colour order,
-layout, tiling, brightness, correction. Matrix Output is deliberately
+layout, tiling, brightness, correction. The LED output is deliberately
 multi-instance, and three panels legitimately have three sizes.
 
 The Board node joins `GROUP_EXCLUDED_TYPES` alongside `MatrixOutput`, `MicInput`

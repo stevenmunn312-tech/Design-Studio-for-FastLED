@@ -2,12 +2,12 @@
 
 Design Studio for FastLED's public beta can use opt-in community reports to expand the
 hardware support matrix without treating an unverified configuration as
-supported. The Matrix Output **Upload...** panel identifies the missing evidence
+supported. The LED output **Upload...** panel identifies the missing evidence
 for the current board, engine, LED target, layout, and graph features.
 
 ## Tester flow
 
-1. Configure Matrix Output and run the relevant hardware action.
+1. Configure the LED output and run the relevant hardware action.
 2. After a successful action, Studio offers the validation report when the
    configuration still has a known coverage gap. **Review tests...** keeps the
    report available manually at any time.

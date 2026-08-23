@@ -45,7 +45,7 @@ Three distinct concepts (Library ≠ Collection):
 ```
 [Library]  --drag-->  (pattern groups on canvas)
                               |
-                     Collection node  --patternset-->  Pattern Master  --frame-->  Matrix Output
+                     Collection node  --patternset-->  Pattern Master  --frame-->  LED Matrix
                               ^                              ^
                        (absorbs patterns)            (transition pool + triggers)
 ```

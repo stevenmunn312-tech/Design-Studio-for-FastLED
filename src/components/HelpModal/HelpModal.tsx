@@ -3,7 +3,8 @@ import { useUiStore } from '../../state/uiStore'
 import styles from './HelpModal.module.css'
 import NodeReference from './NodeReference'
 import type { HelpTab } from '../../state/uiStore'
-import firstPatchScreenshot from '../../../docs/images/readme/design-studio-patch.png'
+
+const FIRST_PATCH_IMAGE = '/node-cards/graphs/juggle.svg'
 
 const TABS: { id: HelpTab; label: string }[] = [
   { id: 'quickstart', label: 'Quick Start' },
@@ -119,11 +120,11 @@ function QuickStartTab() {
         <figure className={styles.helpFigure}>
           <img
             className={styles.helpImage}
-            src={firstPatchScreenshot}
-            alt="The Design Studio workspace: a Juggle node wired into the LED output on the canvas, a Comment node holding the tutorial steps, and the live LED preview on the right"
+            src={FIRST_PATCH_IMAGE}
+            alt="A Juggle node wired into the LED output, ending at an LED Matrix"
           />
           <figcaption>
-            The starter patch as it arrives: Juggle feeds the LED output, the Comment node carries the steps to try, and LED Preview confirms the result on the right.
+            The Juggle reference graph: Juggle feeds the LED Matrix through a complete cyan frame path.
           </figcaption>
         </figure>
       </div>

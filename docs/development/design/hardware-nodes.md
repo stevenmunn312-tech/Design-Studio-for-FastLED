@@ -51,7 +51,7 @@ user says what they are flashing.
 
 ### The graph still ends at the output node
 
-A frame plugs into an LED output exactly as it plugs into Matrix Output today.
+A frame plugs into an LED output exactly as it plugs into the LED Matrix today.
 Codegen, `outputRouting` and the composition canvas are unchanged.
 
 Rejected: the frame terminating at the Board. It would need one frame input per
