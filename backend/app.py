@@ -1665,15 +1665,35 @@ def _serial_send(port, payloads):
 
     ser = None
     for _ in range(5):
+        candidate = None
         try:
             # A block ack (below) can take much longer than typical serial I/O:
             # the first SD write to a fresh file on a large, freshly-formatted
             # card has to walk the FAT for a free cluster, which can take many
             # seconds even though the write itself succeeds. A short timeout
             # here reads as a lost ack and aborts the whole transfer.
-            ser = serial.Serial(port, 115200, timeout=20)
+            #
+            # Configure DTR/RTS before opening. On Windows, Serial(port, ...)
+            # opens immediately with both control lines asserted; on an
+            # ESP32-S3 native USB-Serial/JTAG port that pulse sends the freshly
+            # flashed board back into ROM download mode. Clearing the lines
+            # afterward is too late — the transfer then sees only "ESP-ROM"
+            # and the player never receives PING. This mirrors serial_monitor.
+            candidate = serial.Serial()
+            candidate.port = port
+            candidate.baudrate = 115200
+            candidate.timeout = 20
+            candidate.dtr = False
+            candidate.rts = False
+            candidate.open()
+            ser = candidate
             break
         except Exception as e:
+            if candidate is not None:
+                try:
+                    candidate.close()
+                except Exception:
+                    pass
             yield f"  opening {port}… ({e})\n"
             time.sleep(1.0)
     if ser is None:
@@ -1684,8 +1704,6 @@ def _serial_send(port, payloads):
         return ser.readline().decode(errors="replace").strip()
 
     try:
-        ser.dtr = False
-        ser.rts = False
         # Read the boot greeting before anything resets the input buffer.
         #
         # A board that cannot mount the card prints "ERR sd-mount-failed" and
