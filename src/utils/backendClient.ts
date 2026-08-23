@@ -408,12 +408,25 @@ export interface ShowUploadFile {
  * carries the file-receive protocol, so this is one build and one flash.
  */
 export async function uploadShow(
-  opts: { fqbn: string; port: string; player: string; files: ShowUploadFile[] },
+  opts: {
+    fqbn: string
+    port: string
+    player: string
+    files: ShowUploadFile[]
+    flashMb?: number
+    usbCdcOnBoot?: boolean
+  },
   onLog: (chunk: string) => void,
   signal?: AbortSignal,
 ): Promise<void> {
   const form = new FormData()
-  form.append('meta', JSON.stringify({ fqbn: opts.fqbn, port: opts.port, paths: opts.files.map((f) => f.path) }))
+  form.append('meta', JSON.stringify({
+    fqbn: opts.fqbn,
+    port: opts.port,
+    paths: opts.files.map((f) => f.path),
+    flashMb: opts.flashMb,
+    usbCdcOnBoot: opts.usbCdcOnBoot,
+  }))
   form.append('player', opts.player)
   for (const f of opts.files) form.append('files', f.data, f.path.split('/').pop() ?? 'file')
   const res = await fetch(`${BACKEND_URL}/api/upload-show`, { method: 'POST', body: form, signal })

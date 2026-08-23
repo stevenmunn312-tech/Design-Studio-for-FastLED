@@ -2897,8 +2897,10 @@ async def upload_show(
     """Music-sync upload: compile + flash the player, then stream the songs and
     shows onto the SD card through it. Streams logs as text.
 
-    `meta` is JSON {"fqbn", "port", "paths": [...]} where `paths[i]` is the SD
-    destination for `files[i]` (e.g. "/music/song.mp3", "/shows/song.show").
+    `meta` is JSON {"fqbn", "port", "paths": [...], "flashMb",
+    "usbCdcOnBoot"} where `paths[i]` is the SD destination for `files[i]`
+    (e.g. "/music/song.mp3", "/shows/song.show") and the optional hardware
+    fields carry the same Board-node target facts as an ordinary upload.
 
     The player carries the file-receive protocol itself, so this is one build
     and one flash. It used to be three: a pre-flight compile, a whole separate

@@ -733,6 +733,14 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     }
 
     const showFqbn = payload.fqbnOpt ? `${selectedFqbn}:${payload.fqbnOpt}` : selectedFqbn
+    // Show uploads build a different sketch through a multipart endpoint, but
+    // they target the same physical controller as ordinary uploads. Carry the
+    // Board node's hardware facts through explicitly so native-USB serial does
+    // not silently fall back to UART0 and a known larger flash module does not
+    // fall back to the generic board manifest.
+    const rootNodes = rootGraphNodes(useGraphStore.getState())
+    const flashMb = selectedBoardFlashMb(rootNodes)
+    const usbCdcOnBoot = boardHasUsbCdc(selectedFqbn) && controllerSettings(rootNodes).usbCdcOnBoot
     set({
       busy: true,
       consoleOpen: true,
@@ -760,7 +768,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
         // follows compiles identical source and hits the engine's cache.
         get().appendLog('\n=== Checking the player fits ===\n')
         try {
-          const fit = await compileCheck(payload.player, showFqbn)
+          const fit = await compileCheck(payload.player, showFqbn, undefined, flashMb, usbCdcOnBoot)
           if (!fit.ok) {
             get().appendLog(
               fit.overflow
@@ -802,6 +810,8 @@ export const useUploadStore = create<UploadState>((set, get) => ({
           fqbn: showFqbn,
           port: selectedPort,
           player: payload.player,
+          flashMb,
+          usbCdcOnBoot,
           // Already written by hand — the flash is all that is left.
           files: viaReader ? [] : payload.files,
         },

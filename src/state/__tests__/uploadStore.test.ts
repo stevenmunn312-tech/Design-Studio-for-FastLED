@@ -15,6 +15,15 @@ function workspace(ids: string[]): PersistedWorkspace {
   return { nodes: ids.map(node), edges: [] }
 }
 
+function board(properties: Record<string, unknown>): StudioNode {
+  return {
+    id: 'board',
+    type: 'studioNode',
+    position: { x: 0, y: 0 },
+    data: { label: 'Board', nodeType: 'Board', category: 'hardware', properties, inputs: [], outputs: [] },
+  } as unknown as StudioNode
+}
+
 const mocks = vi.hoisted(() => ({
   checkBackend: vi.fn(),
   listPorts: vi.fn(),
@@ -110,6 +119,25 @@ describe('uploadStore', () => {
       expect(useUploadStore.getState().log).toContain('(esp32:esp32:esp32s3:PSRAM=opi)')
     })
 
+    it('passes the Board native-USB route and physical flash size to show uploads', async () => {
+      const useUploadStore = await readyStore()
+      const { useGraphStore } = await import('../graphStore')
+      useGraphStore.setState({
+        nodes: [board({
+          profileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
+          usbCdcOnBoot: true,
+        })],
+      })
+
+      await useUploadStore.getState().runShowUpload({ ...showPayload(), fqbnOpt: 'PSRAM=opi' })
+
+      expect(mocks.uploadShow.mock.calls[0][0]).toMatchObject({
+        fqbn: 'esp32:esp32:esp32s3:PSRAM=opi',
+        flashMb: 16,
+        usbCdcOnBoot: true,
+      })
+    })
+
     it('writes the card directly, then flashes with nothing left to transfer', async () => {
       const useUploadStore = await readyStore()
       useUploadStore.getState().setCardReader(true)
@@ -154,6 +182,31 @@ describe('uploadStore', () => {
       expect(mocks.uploadShow).not.toHaveBeenCalled()
       expect(useUploadStore.getState().status).toMatchObject({ phase: 'error' })
       expect(useUploadStore.getState().log).toContain('will not fit')
+    })
+
+    it('uses the Board hardware target for the card-reader fit check', async () => {
+      const useUploadStore = await readyStore()
+      const { useGraphStore } = await import('../graphStore')
+      useGraphStore.setState({
+        nodes: [board({
+          profileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
+          usbCdcOnBoot: true,
+        })],
+      })
+      useUploadStore.getState().setCardReader(true)
+
+      const done = useUploadStore.getState().runShowUpload({ ...showPayload(), fqbnOpt: 'PSRAM=opi' })
+      await vi.waitFor(() => expect(useUploadStore.getState().sdPrompt?.stage).toBe('insert'))
+      useUploadStore.getState().resolveSdPrompt(null)
+      await done
+
+      expect(mocks.compileCheck).toHaveBeenCalledWith(
+        'player-ino',
+        'esp32:esp32:esp32s3:PSRAM=opi',
+        undefined,
+        16,
+        true,
+      )
     })
 
     it('serial uploads skip the pre-check — that path already builds first', async () => {
