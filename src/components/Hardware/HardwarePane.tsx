@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import amplifierRender from '../../assets/components/max98357a-i2s-amplifier.webp'
 import ledSegmentRender from '../../assets/components/ws2812b-led.webp'
@@ -395,8 +395,10 @@ export default function HardwarePane() {
   const addMenuRef = useRef<HTMLDivElement | null>(null)
   const boardMenuRef = useRef<HTMLDivElement | null>(null)
   const itemMenuRef = useRef<HTMLDivElement | null>(null)
+  const boardAnchorRef = useRef<{ x: number; y: number } | null>(null)
 
   const view = useHardwareView(stageRef)
+  const { adjustForContentShift } = view
   const [stageBox, setStageBox] = useState({ width: 0, height: 0 })
 
   useEffect(() => {
@@ -674,6 +676,26 @@ export default function HardwarePane() {
    * scales both together a second, shared time.
    */
   const linkVisualScale = arrangement ? arrangement.mmScale / 4 : 1
+
+  useLayoutEffect(() => {
+    if (stageBox.width <= 0 || stageBox.height <= 0) {
+      boardAnchorRef.current = null
+      return
+    }
+    const board = placed.get(BOARD_PART_ID)
+    if (!board) {
+      boardAnchorRef.current = null
+      return
+    }
+    const next = {
+      x: board.x + board.width / 2,
+      y: board.y + board.height / 2,
+    }
+    const previous = boardAnchorRef.current
+    boardAnchorRef.current = next
+    if (!previous) return
+    adjustForContentShift(next.x - previous.x, next.y - previous.y)
+  }, [adjustForContentShift, placed, stageBox.height, stageBox.width])
 
   const partStyle = (id: string): CSSProperties | undefined => {
     const part = placed.get(id)

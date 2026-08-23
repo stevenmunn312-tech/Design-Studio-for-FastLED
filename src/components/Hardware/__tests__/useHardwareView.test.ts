@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   clampHardwareZoom,
   hardwareFitTransform,
+  hardwareTransformAfterContentShift,
   HARDWARE_VIEW_MAX_ZOOM,
 } from '../useHardwareView'
 
@@ -35,5 +36,13 @@ describe('hardware view fit', () => {
       { width: 1000, height: 500 },
       { x: 400, y: 180, width: 200, height: 100 },
     )).toEqual({ x: 0, y: 20, k: 1 })
+  })
+
+  it('keeps the anchored content fixed when layout chrome shifts the bench', () => {
+    expect(hardwareTransformAfterContentShift(
+      { x: 30, y: -12, k: 1.5 },
+      80,
+      -20,
+    )).toEqual({ x: -90, y: 18, k: 1.5 })
   })
 })

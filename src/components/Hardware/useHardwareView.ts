@@ -57,6 +57,19 @@ export function hardwareFitTransform(
   }
 }
 
+export function hardwareTransformAfterContentShift(
+  current: HardwareViewTransform,
+  dx: number,
+  dy: number,
+): HardwareViewTransform {
+  if (dx === 0 && dy === 0) return current
+  return {
+    ...current,
+    x: current.x - dx * current.k,
+    y: current.y - dy * current.k,
+  }
+}
+
 /**
  * Pan and zoom for the hardware view.
  *
@@ -112,6 +125,10 @@ export function useHardwareView(hostRef: RefObject<HTMLElement | null>) {
     if (!bounds) return
     setTransform(hardwareFitTransform(bounds, content, viewport))
   }, [hostRef])
+
+  const adjustForContentShift = useCallback((dx: number, dy: number) => {
+    setTransform((current) => hardwareTransformAfterContentShift(current, dx, dy))
+  }, [])
 
   // Non-passive so the browser page-zoom/scroll does not also act on the wheel.
   useEffect(() => {
@@ -182,6 +199,7 @@ export function useHardwareView(hostRef: RefObject<HTMLElement | null>) {
     zoomIn,
     zoomOut,
     fit,
+    adjustForContentShift,
     handlers: {
       onPointerDown,
       onPointerMove,
