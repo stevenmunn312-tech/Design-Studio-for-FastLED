@@ -71,6 +71,21 @@ describe('hardwareManifest', () => {
     })
   })
 
+  it('describes a corkscrew by its chain geometry instead of stale matrix dimensions', () => {
+    const manifest = buildHardwareManifest([
+      node('out', 'MatrixOutput', {
+        form: 'corkscrew', ledCount: 120, width: 16, height: 16,
+        corkscrewTurns: 6, chipset: 'WS2812B', dataPin: 14,
+      }),
+    ], [], 'esp32:esp32:esp32s3')
+
+    expect(manifest.primaryItems[0]).toMatchObject({
+      title: 'LED Corkscrew',
+      subtitle: '120-LED WS2812B corkscrew route',
+      facts: { form: 'corkscrew', width: 120, height: 1, pixelCount: 120 },
+    })
+  })
+
   it('maps a DS3231 to the exact board default SDA/SCL pads', () => {
     const manifest = buildHardwareManifest([
       node('board', 'Board', { profileId: 'esp32-devkit-v1-30pin-esp32d' }),

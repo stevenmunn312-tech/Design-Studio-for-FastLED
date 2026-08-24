@@ -429,6 +429,7 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     if (nodeType === 'MatrixOutput') {
       properties.form ??= wasLedString ? 'strip' : outputForm(properties)
       if (properties.form === 'strip' || properties.form === 'ring') properties.ledCount ??= 60
+      if (properties.form === 'corkscrew') properties.ledCount ??= 120
       // `layout: 'strip'` was only ever a second spelling of 'matrix' — same
       // row-major table — and it is no longer offered, so collapse it rather
       // than leave a saved node pointing at a value its dropdown has dropped.

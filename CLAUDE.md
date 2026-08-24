@@ -95,7 +95,7 @@ Data flows from the React Flow graph through Zustand, graph evaluation, preview/
 
 - Public beta saves may exist outside the repository. On `main`, node types, property names, port ids, and persisted workspace shapes require compatibility or an explicit migration and release note. `Hardware` may intentionally break them.
 - Do not use browser-preview tools to verify UI changes unless the user explicitly asks. Describe the change and let the user check it through their normal `npm run dev` workflow.
-- In user-facing copy, call `MatrixOutput` the **LED output** or use its concrete form label: **LED String**, **LED Matrix**, **LED Ring**, or **HUB75 Panel**. `MatrixOutput` remains the code identifier.
+- In user-facing copy, call `MatrixOutput` the **LED output** or use its concrete form label: **LED String**, **LED Matrix**, **LED Ring**, **LED Corkscrew**, or **HUB75 Panel**. `MatrixOutput` remains the code identifier.
 - New nodes normally require: a `NODE_LIBRARY` entry, evaluator case, codegen case, help/description entry, and focused tests. Preserve preview/firmware parity.
 - Keep trust propagation intact through every evaluator entry and recursive group/pattern evaluation. Any new path interpolating user text into C++ must validate or resolve it against a known set first. UI that performs I/O on mount must gate itself on workspace trust.
 - Hardware-wide reads use `rootGraphNodes`/`rootGraphEdges` or their hooks. Hardware writes must target the root graph even while a pattern group is open.

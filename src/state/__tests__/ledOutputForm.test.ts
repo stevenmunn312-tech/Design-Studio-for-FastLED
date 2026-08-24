@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  corkscrewAngleAt,
+  corkscrewCanvasDims,
+  corkscrewSampleMap,
+  corkscrewSampleMapForProps,
   isLinearForm,
   outputCanvasDims,
   outputForm,
@@ -14,6 +18,7 @@ import {
 describe('outputForm', () => {
   it('takes the explicit form when there is one', () => {
     expect(outputForm({ form: 'ring' })).toBe('ring')
+    expect(outputForm({ form: 'corkscrew' })).toBe('corkscrew')
     expect(outputForm({ form: 'strip' })).toBe('strip')
     expect(outputForm({ form: 'hub75' })).toBe('hub75')
     expect(outputForm({ form: 'matrix' })).toBe('matrix')
@@ -48,6 +53,7 @@ describe('output dimensions per form', () => {
   it('counts a chain by its length and a grid by its area', () => {
     expect(outputLedTotal({ form: 'strip', ledCount: 144 })).toBe(144)
     expect(outputLedTotal({ form: 'ring', ledCount: 24 })).toBe(24)
+    expect(outputLedTotal({ form: 'corkscrew', ledCount: 120 })).toBe(120)
     expect(outputLedTotal({ form: 'matrix', width: 16, height: 8 })).toBe(128)
     expect(outputLedTotal({ form: 'hub75', width: 64, height: 32 })).toBe(2048)
   })
@@ -59,11 +65,23 @@ describe('output dimensions per form', () => {
     expect(outputLedTotal({ form: 'strip', ledCount: 5000 })).toBe(300)
   })
 
-  it('gives both linear forms a 1 x N grid', () => {
+  it('gives every physical chain a 1 x N output grid', () => {
     expect(isLinearForm('strip')).toBe(true)
     expect(isLinearForm('ring')).toBe(true)
+    expect(isLinearForm('corkscrew')).toBe(true)
     expect(outputGridDims({ form: 'strip', ledCount: 60 })).toEqual({ width: 60, height: 1 })
     expect(outputGridDims({ form: 'ring', ledCount: 24 })).toEqual({ width: 24, height: 1 })
+    expect(outputGridDims({ form: 'corkscrew', ledCount: 120 })).toEqual({ width: 120, height: 1 })
+  })
+
+  it('gives a corkscrew a form-aware unwrapped cylindrical canvas', () => {
+    const wide = corkscrewCanvasDims(120, 300, 300)
+    const tall = corkscrewCanvasDims(120, 100, 600)
+    expect(wide.width).toBeGreaterThan(wide.height)
+    expect(tall.height).toBeGreaterThan(tall.width)
+    expect(outputCanvasDims({
+      form: 'corkscrew', ledCount: 120, corkscrewDiameterMm: 100, corkscrewHeightMm: 300,
+    })).toEqual(corkscrewCanvasDims(120, 100, 300))
   })
 
   it('gives a ring a square canvas even though its grid is one row', () => {
@@ -76,6 +94,55 @@ describe('output dimensions per form', () => {
     expect(ringCanvasDiameter(24)).toBe(8)   // 24 / pi
     expect(ringCanvasDiameter(60)).toBe(19)
     expect(ringCanvasDiameter(1)).toBe(3)    // floor, so there is a circle at all
+  })
+})
+
+describe('corkscrewSampleMap', () => {
+  it('traces the configured number of turns from top to bottom', () => {
+    const map = corkscrewSampleMap(9, 1, 0, 'cw', 5, 5)
+    const at = (index: number) => ({ x: index % 5, y: Math.floor(index / 5) })
+    expect(at(map[0])).toEqual({ x: 2, y: 0 })
+    expect(at(map[4])).toEqual({ x: 0, y: 2 })
+    expect(at(map[8])).toEqual({ x: 2, y: 4 })
+  })
+
+  it('reverses travel around the cylinder without reversing height', () => {
+    const cw = corkscrewSampleMap(5, 1, 0, 'cw', 5, 5)
+    const ccw = corkscrewSampleMap(5, 1, 0, 'ccw', 5, 5)
+    const x = (index: number) => index % 5
+    const y = (index: number) => Math.floor(index / 5)
+    expect(x(cw[1])).toBeGreaterThan(2)
+    expect(x(ccw[1])).toBeLessThan(2)
+    expect(y(cw[1])).toBe(y(ccw[1]))
+  })
+
+  it('rotates the chain start around the cylinder', () => {
+    const front = corkscrewSampleMap(2, 1, 0, 'cw', 9, 3)
+    const side = corkscrewSampleMap(2, 1, 90, 'cw', 9, 3)
+    expect(front[0] % 9).toBe(4)
+    expect(side[0] % 9).toBe(6)
+  })
+
+  it('uses the same angle helper as the dedicated physical preview', () => {
+    expect(corkscrewAngleAt(0, 9, 2, 45, 'cw')).toBeCloseTo(Math.PI / 4)
+    expect(corkscrewAngleAt(8, 9, 2, 45, 'cw')).toBeCloseTo((Math.PI / 4) + (Math.PI * 4))
+    expect(corkscrewAngleAt(8, 9, 2, 45, 'ccw')).toBeCloseTo((Math.PI / 4) - (Math.PI * 4))
+  })
+
+  it('emits one in-range composition index per physical LED', () => {
+    const props = {
+      form: 'corkscrew', ledCount: 120, corkscrewTurns: 6,
+      corkscrewStartAngle: 30, corkscrewDirection: 'ccw',
+      corkscrewDiameterMm: 100, corkscrewHeightMm: 300,
+    }
+    const dims = outputCanvasDims(props)
+    const map = corkscrewSampleMapForProps(props)
+    expect(map).toHaveLength(120)
+    for (const index of map) {
+      expect(Number.isInteger(index)).toBe(true)
+      expect(index).toBeGreaterThanOrEqual(0)
+      expect(index).toBeLessThan(dims.width * dims.height)
+    }
   })
 })
 

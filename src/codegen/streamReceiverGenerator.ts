@@ -3,6 +3,7 @@ import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75Hardwar
 import { sanitizePin } from './hardwarePins'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { ledPropsWithController } from '../state/controllerSettings'
+import { isLinearForm, outputForm, outputGridDims } from '../state/ledOutputForm'
 
 // A tiny, generic Adalight-protocol receiver — flashed once, then the studio
 // pushes already-computed live-preview frames straight to it over serial at
@@ -15,25 +16,22 @@ import { ledPropsWithController } from '../state/controllerSettings'
 // `leds[]` with no XY() remap of its own.
 export interface StreamLayout { width: number; height: number; serpentine: boolean; baud: number }
 
-function intProp(val: unknown, def: number, min: number, max: number): number {
-  const n = Math.round(Number(val))
-  return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : def
-}
-
 /** Resolve the layout the receiver sketch (and the packet builder) must agree
  *  on, from the graph's MatrixOutput node. Returns null if there isn't one. */
 export function streamLayoutForGraph(nodes: StudioNode[]): StreamLayout | null {
   const outputNode = nodes.find((n) => n.data.nodeType === 'MatrixOutput')
   if (!outputNode) return null
   const p = outputNode.data.properties as Record<string, unknown>
+  const grid = outputGridDims(p)
+  const form = outputForm(p)
   return {
-    width: intProp(p.width, 16, 1, 64),
-    height: intProp(p.height, 16, 1, 64),
+    width: grid.width,
+    height: grid.height,
     // Per-pixel serpentine wiring is an addressable-strip concept — HUB75 has
     // no such physical wiring order (the DMA library addresses (x, y)
     // directly), so a stale serpentine flag left over from switching a node
     // from an addressable chipset to HUB75 must not remap the stream.
-    serpentine: String(p.chipset ?? 'WS2812B') === HUB75_CHIPSET ? false : p.serpentine === true,
+    serpentine: form === 'hub75' || isLinearForm(form) ? false : p.serpentine === true,
     // A generous fixed baud for the receiver — independent of the show/upload
     // path's rate, chosen high enough that a 32×32 frame (~3 KB) clears well
     // under one frame interval.
@@ -57,8 +55,8 @@ export function generateStreamReceiverSketch(nodes: StudioNode[]): string | null
   const lines: string[] = []
   lines.push('// Design Studio for FastLED — generic live-stream receiver (Adalight protocol).')
   lines.push('// Flash this once; the studio then pushes frames over serial at runtime')
-  lines.push('// via the ✎ Live Stream control on the MatrixOutput node. Re-flash only if')
-  lines.push('// the matrix size, chipset, pins, or serpentine wiring change.')
+  lines.push('// via the ✎ Live Stream control on the LED output. Re-flash only if')
+  lines.push('// the output geometry, chipset, pins, or serpentine wiring change.')
   lines.push(...overclockDefineCpp(hw))
   lines.push('#include <FastLED.h>')
   if (isHub75) lines.push(...hub75IncludesCpp(hub75Hw!))

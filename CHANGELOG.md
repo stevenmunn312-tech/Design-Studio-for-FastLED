@@ -9,6 +9,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Added LED Corkscrew as a dedicated output form with chain length, turns,
+  starting angle, winding direction, diameter, and height controls; an
+  unwrapped-cylinder authoring canvas; a depth-aware physical preview; and one
+  shared browser/firmware sampling map.
 - Added an `Audio` capability node whose source picker is derived from attached
   board audio hardware, defaults a single microphone, and clearly reports when
   no source exists.

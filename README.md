@@ -2,7 +2,7 @@
 
 ## Build LED worlds visually. Ship them as real FastLED firmware.
 
-Design Studio for FastLED is a live, node-based creative environment for LED strips, matrices, and tiled panels. Connect patterns, palettes, signals, effects, audio analysis, and hardware output; watch the result move instantly; then generate or upload the same design as FastLED C++.
+Design Studio for FastLED is a live, node-based creative environment for LED strings, matrices, rings, corkscrew installations, and tiled panels. Connect patterns, palettes, signals, effects, audio analysis, and hardware output; watch the result move instantly; then generate or upload the same design as FastLED C++.
 
 **Public beta · 159 modules · 40 included patterns · Windows, macOS, and Linux packaging · MIT core**
 
@@ -14,7 +14,7 @@ Design Studio for FastLED is a live, node-based creative environment for LED str
 
 | Create | See | Perform | Deploy |
 | --- | --- | --- | --- |
-| Build with typed, color-coded nodes instead of starting from a blank sketch. | Preview the complete matrix and individual nodes while you edit. | Run full-screen visuals, audio-reactive patterns, and generative shows. | Generate C++, flash a controller, or stream live frames over USB. |
+| Build with typed, color-coded nodes instead of starting from a blank sketch. | Preview the complete LED output and individual nodes while you edit. | Run full-screen visuals, audio-reactive patterns, and generative shows. | Generate C++, flash a controller, or stream live frames over USB. |
 
 What makes the Studio useful:
 
@@ -121,7 +121,7 @@ Analyze MP3s, generate a timed show, hand-edit its event timeline, audition it a
 
 The workspace deliberately separates the physical rig from its signal flow:
 
-- The lower **Hardware** workbench owns the exact board and the parts attached to it. Use **Add Hardware** for microphones, controls, sensors, RTC modules, SD cards, amplifiers/DACs, and LED strings, matrices, rings, or HUB75 panels.
+- The lower **Hardware** workbench owns the exact board and the parts attached to it. Use **Add Hardware** for microphones, controls, sensors, RTC modules, SD cards, amplifiers/DACs, and LED strings, matrices, rings, corkscrew installations, or HUB75 panels.
 - Click a physical part to inspect its module identity and wiring. Pin pickers filter for suitable free GPIOs, call out conflicts and caution pins, and still allow an intentional custom GPIO.
 - The graph owns connections. Signal-carrying hardware appears there as a node; Board, SD Card, and amplifier/DAC stay workbench-only because they carry configuration rather than graph data.
 - The LED output node owns dimensions, frame routing, physical layout, color correction, dithering, and supersampling. The Board owns controller-wide brightness, power cap, overclock, PSRAM policy, and serial route.
@@ -179,7 +179,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 - **Audio reactive:** live microphone and PCM1802 line-in analysis, FFT bands, beat/percussion features, audio-driven color and pattern nodes, on-device INMP441 support, and decoded-PCM analysis for SD-player collection shows.
 - **Fields and simulations:** scalar-field math and warping, reaction diffusion, Game of Life, particles, flow fields, boids, feedback, trails, image palettes, and custom formulas.
 - **Show control:** reusable pattern collections, 16 transition styles, beat-driven particles, section-aware music shows, timeline editing, and performance controls.
-- **Physical layouts:** strips, serpentine matrices, tiled panels, multiple outputs, and custom XY maps. Only the exact combinations recorded in the support matrix count as supported today.
+- **Physical layouts:** strings, rings, unwrapped-cylinder corkscrew authoring, serpentine matrices, tiled panels, multiple outputs, and custom XY maps. Only the exact combinations recorded in the support matrix count as supported today.
 - **DMX / Art-Net:** Art-Net preview plus Art-Net or DMX512 firmware paths. Hardware validation has not yet been recorded, so all modes remain experimental.
 - **Clock and schedules:** build-time, manual, NTP-backed, and battery-backed DS3231 clocks; time windows and scheduled triggers; digital/analog clock patterns. The DS3231 set/read/display path is validated on one classic ESP-32D DevKit v1 combination; other clock paths and boards remain experimental.
 

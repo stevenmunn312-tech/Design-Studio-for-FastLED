@@ -33,7 +33,7 @@ Use **Add Hardware** in the workbench. The current categories are:
 - **Storage** — supported microSD modules;
 - **Amplifiers & DACs** — the supported I2S DAC/amplifier and analog amplifier
   modules; and
-- **LED outputs** — LED String, LED Matrix, LED Ring, and HUB75 Panel.
+- **LED outputs** — LED String, LED Matrix, LED Ring, LED Corkscrew, and HUB75 Panel.
 
 Hardware entries are intentionally absent from the Node Library. Creating the
 part from the workbench means Studio knows which board owns it and can assign
@@ -83,7 +83,7 @@ implemented and verified.
 
 ## Configure LED outputs
 
-One implementation type backs all four fixture forms, but the workbench offers
+One implementation type backs all five fixture forms, but the workbench offers
 each as the object a user buys. Configuration is split by responsibility:
 
 - the physical inspector owns GPIO assignments and module identity;
@@ -94,6 +94,11 @@ each as the object a user buys. Configuration is split by responsibility:
 
 Each output renders in its own physical shape in the graph and workbench. Click
 an output in the workbench to make it the route displayed in the side preview.
+
+For an LED Corkscrew, set the chain length, number of turns, LED 0 angle,
+winding direction, cylinder diameter, and finished height. Studio authors the
+effect on an unwrapped cylinder, then uses the same helical sample map for the
+browser preview and generated firmware.
 
 ## Navigate the workbench
 

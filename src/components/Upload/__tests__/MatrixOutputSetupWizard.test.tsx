@@ -88,6 +88,36 @@ describe('MatrixOutputSetupWizard', () => {
     expect(matrix.data.properties.height).toBe(8)
   })
 
+  it('edits dedicated corkscrew geometry without exposing matrix dimensions', () => {
+    useGraphStore.setState({
+      nodes: useGraphStore.getState().nodes.map((output) => ({
+        ...output,
+        data: {
+          ...output.data,
+          properties: {
+            ...output.data.properties,
+            form: 'corkscrew',
+            ledCount: 120,
+            corkscrewTurns: 6,
+            corkscrewDiameterMm: 100,
+            corkscrewHeightMm: 300,
+          },
+        },
+      })) as never[],
+    })
+    const { getByLabelText, getByRole, queryByLabelText } = render(<MatrixOutputSetupWizard />)
+
+    fireEvent.click(getByRole('button', { name: /Geometry/ }))
+    expect(queryByLabelText('Width')).toBeNull()
+    expect(queryByLabelText('Height')).toBeNull()
+    fireEvent.change(getByLabelText('Turns'), { target: { value: '8.5' } })
+    fireEvent.change(getByLabelText('Diameter (mm)'), { target: { value: '180' } })
+
+    const output = useGraphStore.getState().nodes[0]
+    expect(output.data.properties.corkscrewTurns).toBe(8.5)
+    expect(output.data.properties.corkscrewDiameterMm).toBe(180)
+  })
+
   it('can flash the wiring diagnostic from the final step', () => {
     const runUpload = vi.fn()
     useUploadStore.setState({ runUpload })

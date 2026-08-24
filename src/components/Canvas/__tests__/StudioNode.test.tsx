@@ -503,7 +503,7 @@ describe('StudioNode', () => {
   })
 
   describe('LED output forms', () => {
-    // One node, four things you can buy. The header has to say which, and the
+    // One node, several physical forms. The header has to say which, and the
     // preview has to be shaped like it — a row of cells standing in for a ring
     // is a picture of a part the user did not buy.
 
@@ -512,6 +512,7 @@ describe('StudioNode', () => {
         ['strip', 'LED String'],
         ['matrix', 'LED Matrix'],
         ['ring', 'LED Ring'],
+        ['corkscrew', 'LED Corkscrew'],
         ['hub75', 'HUB75 Panel'],
       ] as const) {
         const { container, unmount } = renderNode(makeNode('MatrixOutput', { form, ledCount: 24 }))
@@ -593,6 +594,26 @@ describe('StudioNode', () => {
       const svg = container.querySelector('svg[viewBox="0 0 30 1"]')
       expect(svg).toBeTruthy()
       expect(svg!.querySelectorAll('rect')).toHaveLength(30)
+    })
+
+    it('offers and previews dedicated corkscrew geometry', () => {
+      const { container } = renderNode(makeNode('MatrixOutput', {
+        form: 'corkscrew', ledCount: 30, corkscrewTurns: 3,
+        corkscrewStartAngle: 0, corkscrewDirection: 'cw',
+        corkscrewDiameterMm: 100, corkscrewHeightMm: 300,
+      }))
+      const helix = container.querySelector('svg[viewBox="0 0 1 1"]')
+      expect(helix).toBeTruthy()
+      expect(helix!.querySelector('polyline')).toBeTruthy()
+      expect(helix!.querySelectorAll('rect')).toHaveLength(30)
+
+      const keys = offeredKeys(container)
+      expect(keys).toEqual(expect.arrayContaining([
+        'ledCount', 'corkscrewTurns', 'corkscrewStartAngle', 'corkscrewDirection',
+        'corkscrewDiameterMm', 'corkscrewHeightMm',
+      ]))
+      expect(keys).not.toEqual(expect.arrayContaining(['width', 'height', 'layout', 'serpentine']))
+
     })
 
     it('offers a grid size only to the forms that have a grid', () => {

@@ -18,6 +18,7 @@ import {
 import { rtcI2cPinsForProfile } from '../state/rtcPins'
 import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
 import { resolvePartIdentity } from '../state/partOptions'
+import { LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, outputLedTotal } from '../state/ledOutputForm'
 
 export interface HardwarePinUse {
   label: string
@@ -102,7 +103,11 @@ function nodeLabel(node: StudioNode): string {
 }
 
 function matrixOutputLabel(node: StudioNode, ordinal: number, count: number): string {
-  return count > 1 ? `${nodeLabel(node)} ${ordinal}` : nodeLabel(node)
+  const form = outputForm(node.data.properties as Record<string, unknown>)
+  // Preserve the existing matrix export name for saved/custom projects, while
+  // preventing a migrated chain form from being presented as a matrix.
+  const label = form === 'matrix' ? nodeLabel(node) : LED_OUTPUT_FORM_LABELS[form]
+  return count > 1 ? `${label} ${ordinal}` : label
 }
 
 function nominalVoltageForChipset(chipset: string): number | null {
@@ -286,14 +291,17 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
 
 function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number, pinUses: HardwarePinUse[], powerCapMa: number | null): HardwareManifestItem {
   const props = node.data.properties as Record<string, unknown>
-  const width = Math.max(0, Math.round(Number(props.width ?? 0)))
-  const height = Math.max(0, Math.round(Number(props.height ?? 0)))
+  const form = outputForm(props)
+  const { width, height } = outputGridDims(props)
+  const pixelCount = outputLedTotal(props)
   const chipset = String(props.chipset ?? 'WS2812B')
   return {
     id: `output:${node.id}`,
     kind: 'matrix-output',
     title: matrixOutputLabel(node, ordinal, count),
-    subtitle: `${width}×${height} ${chipset} route`,
+    subtitle: form === 'matrix' || form === 'hub75'
+      ? `${width}×${height} ${chipset} route`
+      : `${pixelCount}-LED ${chipset} ${form} route`,
     sourceNodeId: node.id,
     sourceNodeType: node.data.nodeType,
     supported: BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS.has(chipset),
@@ -301,7 +309,8 @@ function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number,
     facts: {
       width,
       height,
-      pixelCount: width * height,
+      pixelCount,
+      form,
       routeOrdinal: ordinal,
       layout: String(props.layout ?? 'matrix'),
       chipset,
@@ -358,7 +367,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
   const settings = controllerSettings(nodes)
   const totalPixels = matrixOutputs.reduce((sum, node) => {
     const props = node.data.properties as Record<string, unknown>
-    return sum + Math.max(0, Math.round(Number(props.width ?? 0))) * Math.max(0, Math.round(Number(props.height ?? 0)))
+    return sum + outputLedTotal(props)
   }, 0)
   const hardwareNodes = nodes.filter((node) =>
     node.data.nodeType === 'MatrixOutput'
@@ -393,7 +402,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           matrixOutputs.length,
           pins,
           settings.powerLimit && totalPixels > 0
-            ? Math.round(settings.milliamps * (Math.max(0, Number((node.data.properties as Record<string, unknown>).width ?? 0)) * Math.max(0, Number((node.data.properties as Record<string, unknown>).height ?? 0))) / totalPixels)
+            ? Math.round(settings.milliamps * outputLedTotal(node.data.properties as Record<string, unknown>) / totalPixels)
             : null,
         )
       case 'MicInput':

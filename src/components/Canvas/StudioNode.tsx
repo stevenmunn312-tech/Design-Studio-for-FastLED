@@ -16,7 +16,18 @@ import NodePreview, { type PreviewKind } from './NodePreview'
 import HardwareLedPreview from '../Hardware/HardwareLedPreview'
 import BoardPinPicker from '../Hardware/BoardPinPicker'
 import { LED_CELL_FILL } from '../Hardware/ledPreviewGeometry'
-import { isLinearForm, outputForm, outputGridDims, ringDirection, ringStartAngle } from '../../state/ledOutputForm'
+import {
+  corkscrewDiameterMm,
+  corkscrewDirection,
+  corkscrewHeightMm,
+  corkscrewStartAngle,
+  corkscrewTurns,
+  isLinearForm,
+  outputForm,
+  outputGridDims,
+  ringDirection,
+  ringStartAngle,
+} from '../../state/ledOutputForm'
 import { partRenderForNodeType } from '../../state/partRenders'
 import { ASSIGNED_BOARD_KEY, ASSIGNED_PINS_KEY, USER_PINS_KEY } from '../../state/pinRetarget'
 import MatrixSizePopup from './MatrixSizePopup'
@@ -741,6 +752,7 @@ const FLASH_MS = 1100
 /** A ring's preview is square, and a square as wide as the node body would
  *  dominate a node that already carries the upload UI and a capacity meter. */
 const RING_PREVIEW_PX = 116
+const CORKSCREW_PREVIEW_H = 150
 /** Tall enough that a run of tape reads as LEDs rather than as a rule. */
 const STRIP_PREVIEW_PX = 16
 
@@ -1123,12 +1135,31 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           startAngle: ringStartAngle(rawProps),
           direction: ringDirection(rawProps),
         },
+        corkscrew: null,
+      }
+    }
+    if (form === 'corkscrew') {
+      const diameter = corkscrewDiameterMm(rawProps)
+      const physicalHeight = corkscrewHeightMm(rawProps)
+      return {
+        cols: grid.width,
+        rows: 1,
+        height: CORKSCREW_PREVIEW_H,
+        width: Math.max(48, Math.min(160, Math.round(CORKSCREW_PREVIEW_H * diameter / physicalHeight))),
+        cellFill: LED_CELL_FILL,
+        ring: null,
+        corkscrew: {
+          ledCount: grid.width,
+          turns: corkscrewTurns(rawProps),
+          startAngle: corkscrewStartAngle(rawProps),
+          direction: corkscrewDirection(rawProps),
+        },
       }
     }
     if (form === 'strip') {
       // A 300:1 box is a hairline. A run is drawn at a readable height and
       // reads as a run because it is one row, not because it is one pixel tall.
-      return { cols: grid.width, rows: 1, height: STRIP_PREVIEW_PX, width: null, cellFill: 1, ring: null }
+      return { cols: grid.width, rows: 1, height: STRIP_PREVIEW_PX, width: null, cellFill: 1, ring: null, corkscrew: null }
     }
     return {
       cols: grid.width,
@@ -1137,6 +1168,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       width: null,
       cellFill: LED_CELL_FILL,
       ring: null,
+      corkscrew: null,
     }
   }, [d.nodeType, rawProps])
   // Per-node opt-out of the live preview thumbnail (a small toggle button on
@@ -1307,7 +1339,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           ) : (
             <div className={styles.previewWrap}>
               <div
-                className={`${styles.outputShape} ${outputShape.ring ? styles.outputShapeRing : ''}`}
+                className={`${styles.outputShape} ${outputShape.ring ? styles.outputShapeRing : ''} ${outputShape.corkscrew ? styles.outputShapeCorkscrew : ''}`}
                 style={{
                   height: outputShape.height,
                   width: outputShape.width ?? undefined,
@@ -1319,6 +1351,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                   rows={outputShape.rows}
                   cellFill={outputShape.cellFill}
                   ring={outputShape.ring}
+                  corkscrew={outputShape.corkscrew}
                   className={styles.outputShapeLeds}
                 />
               </div>

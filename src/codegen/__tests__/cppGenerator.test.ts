@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { generateCpp, audioEngineForGraph } from '../cppGenerator'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { DEFAULT_FONT, textColumns } from '../../state/font'
-import { ringSampleMapForProps } from '../../state/ledOutputForm'
+import { corkscrewSampleMapForProps, ringSampleMapForProps } from '../../state/ledOutputForm'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -134,6 +134,40 @@ describe('generateCpp', () => {
     expect(cpp).toContain('CRGB leds_panel[64];')
     expect(cpp).toContain('const uint16_t _ringmap_ring[12] PROGMEM = {')
     expect(cpp).toContain('CRGB _c = buf_sc[pgm_read_word(&_ringmap_ring[_i])]; _c.nscale8_video(90);')
+  })
+
+  it('bakes a corkscrew authoring map and drives the physical chain through it', () => {
+    const props = {
+      form: 'corkscrew', ledCount: 120, corkscrewTurns: 6,
+      corkscrewStartAngle: 30, corkscrewDirection: 'ccw',
+      corkscrewDiameterMm: 100, corkscrewHeightMm: 300, dataPin: 7,
+    }
+    const out = node('out', 'MatrixOutput', 'output', props)
+    const cpp = generateCpp(
+      [node('sc', 'SolidColor', 'pattern'), out],
+      [edge('e', 'sc', 'out', 'frame', 'frame')],
+    )
+    expect(cpp).toContain('#define CORKSCREW_LEDS 120')
+    expect(cpp).toContain('CRGB leds[CORKSCREW_LEDS];')
+    expect(cpp).toContain('const uint16_t _corkscrewmap[CORKSCREW_LEDS] PROGMEM = {')
+    expect(cpp).toContain('for (int _i = 0; _i < CORKSCREW_LEDS; _i++) leds[_i] = buf_sc[pgm_read_word(&_corkscrewmap[_i])];')
+    expect(cpp).toContain('FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, CORKSCREW_LEDS);')
+    const baked = cpp.match(/_corkscrewmap\[CORKSCREW_LEDS\] PROGMEM = \{ ([^}]+) \}/)![1]
+    expect(baked.split(',').map(Number)).toEqual(corkscrewSampleMapForProps(props))
+  })
+
+  it('drives a corkscrew beside a matrix through its own map', () => {
+    const corkscrew = node('corkscrew', 'MatrixOutput', 'output', {
+      form: 'corkscrew', ledCount: 60, corkscrewTurns: 4, dataPin: 6, brightness: 90,
+    })
+    const panel = node('panel', 'MatrixOutput', 'output', { form: 'matrix', width: 8, height: 8, dataPin: 5 })
+    const cpp = generateCpp(
+      [node('sc', 'SolidColor', 'pattern'), corkscrew, panel],
+      [edge('e1', 'sc', 'corkscrew', 'frame', 'frame'), edge('e2', 'sc', 'panel', 'frame', 'frame')],
+    )
+    expect(cpp).toContain('CRGB leds_corkscrew[60];')
+    expect(cpp).toContain('const uint16_t _corkscrewmap_corkscrew[60] PROGMEM = {')
+    expect(cpp).toContain('CRGB _c = buf_sc[pgm_read_word(&_corkscrewmap_corkscrew[_i])]; _c.nscale8_video(90);')
   })
 
   it('treats the HUB75 form as a scan panel whatever chipset string it carries', () => {

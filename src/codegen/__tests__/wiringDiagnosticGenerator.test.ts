@@ -32,6 +32,17 @@ describe('generateWiringDiagnosticSketch', () => {
     expect(sketch).toContain('FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);')
   })
 
+  it.each(['strip', 'ring', 'corkscrew'])('diagnoses a %s as its physical N-LED chain', (form) => {
+    const out = node('out', 'MatrixOutput', 'output', {
+      form, ledCount: 120, width: 16, height: 16, serpentine: true, dataPin: 7,
+    })
+    const sketch = generateWiringDiagnosticSketch([out])!
+    expect(sketch).toContain('#define WIDTH 120')
+    expect(sketch).toContain('#define HEIGHT 1')
+    expect(sketch).toContain('#define DATA_PIN 7')
+    expect(sketch).not.toContain('const uint16_t _xytable')
+  })
+
   it('sanitizes MatrixOutput data and SPI clock pins', () => {
     const out = node('out', 'MatrixOutput', 'output', {
       width: 8,

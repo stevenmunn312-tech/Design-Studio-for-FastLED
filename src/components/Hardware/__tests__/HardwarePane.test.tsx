@@ -100,6 +100,27 @@ describe('HardwarePane', () => {
     expect(within(document.body).getByText('Default I2C bus')).toBeTruthy()
   })
 
+  it('adds and draws a corkscrew as dedicated helical geometry', () => {
+    const { container } = render(<HardwarePane />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
+    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /LED outputs/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /LED Corkscrew/ }))
+
+    const output = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'MatrixOutput')
+    expect(output?.data.properties).toMatchObject({
+      form: 'corkscrew',
+      ledCount: 120,
+      corkscrewTurns: 6,
+      corkscrewDiameterMm: 100,
+      corkscrewHeightMm: 300,
+    })
+    const part = container.querySelector('[aria-label^="LED Corkscrew"]')
+    expect(part).toBeTruthy()
+    expect(part!.querySelector('svg[viewBox="0 0 1 1"] polyline')).toBeTruthy()
+    expect(part!.querySelectorAll('svg[viewBox="0 0 1 1"] rect')).toHaveLength(120)
+  })
+
   it('adds PCM1802 line in with four distinct board-owned pins', () => {
     render(<HardwarePane />)
 

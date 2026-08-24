@@ -7,7 +7,7 @@ import { ANIMARTRIX_EFFECTS } from '../animartrix/catalog'
 import { MAX_PIN_NUMBER, type GpioCapability } from './boardGpio'
 import { EASE_TYPES } from './easing'
 import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
-import { LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, outputForm } from './ledOutputForm'
+import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, outputForm } from './ledOutputForm'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   {
@@ -2403,21 +2403,29 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     outputs: [],
     defaultProperties: {
-      // What this output physically is — strip / matrix / ring / HUB75 panel
-      // (src/state/ledOutputForm.ts). One node, four forms, one per thing you
-      // can buy; the hardware view offers each as its own entry. The form is
+      // What this output physically is — string / matrix / ring / corkscrew /
+      // HUB75 panel (src/state/ledOutputForm.ts). The hardware view offers each
+      // as its own entry. The form is
       // what decides which of the properties below apply at all.
       form: 'matrix',
       width: 16,
       height: 16,
-      // Strip and ring forms are one chain of `ledCount` LEDs; width/height
-      // above are the matrix and HUB75 forms' grid.
+      // String, ring, and corkscrew forms are one chain of `ledCount` LEDs;
+      // width/height above are the matrix and HUB75 forms' grid.
       ledCount: 60,
       // Ring geometry: where LED 0 sits (degrees clockwise from 12 o'clock,
       // where a ring's data-in pad usually is) and which way the chain runs
       // seen from the front.
       ringStartAngle: 0,
       ringDirection: 'cw',
+      // Corkscrew geometry: a strip wound around a cylinder. The physical
+      // dimensions establish the unwrapped authoring canvas; turns, start angle
+      // and direction trace the helical chain across it.
+      corkscrewTurns: 6,
+      corkscrewStartAngle: 0,
+      corkscrewDirection: 'cw',
+      corkscrewDiameterMm: 100,
+      corkscrewHeightMm: 300,
       chipset: 'WS2812B',
       colorOrder: 'GRB',
       dataPin: 5,
@@ -2971,7 +2979,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   TransitionSet: 'A pool of transition styles for the Show Engine / Performance Generator.',
   // output
   Board: 'The controller board — exact model, its pins, and what it supports.',
-  MatrixOutput: 'An LED output — a string, matrix, ring, or HUB75 panel, with its pin and size.',
+  MatrixOutput: 'An LED output for strings, matrices, rings, corkscrews, and HUB75 panels.',
   // note
   Comment: 'A sticky note for the canvas — no ports, just text and color.',
 }
@@ -3411,6 +3419,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     // pad physically ended up without reaching for a negative number.
     ringStartAngle: { control: 'slider', min: 0, max: 359, step: 1 },
     ringDirection: { control: 'select', options: ['cw', 'ccw'] },
+    corkscrewTurns: { control: 'slider', min: 0.5, max: 32, step: 0.5 },
+    corkscrewStartAngle: { control: 'slider', min: 0, max: 359, step: 1 },
+    corkscrewDirection: { control: 'select', options: ['cw', 'ccw'] },
+    corkscrewDiameterMm: { control: 'slider', min: 10, max: 2000, step: 10 },
+    corkscrewHeightMm: { control: 'slider', min: 10, max: 4000, step: 10 },
     // 'strip' is gone: a run of tape is a `form` now, not a wiring order.
     layout: { control: 'select', options: ['matrix', 'panels', 'custom'] },
     routeMode: { control: 'select', options: ['fit', 'crop'] },
@@ -3799,12 +3812,17 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   psramPolicy: "Automatically uses PSRAM when the exact board profile identifies its interface, or lets you force it on or off.",
   psramMode: "Which PSRAM interface to target — must match the board module's physical package; it can't be probed from the host.",
   serialRoute: "Chooses where Serial appears. Auto identifies native USB versus a UART bridge from the selected USB port when possible.",
-  layout: 'How the grid maps to physical LED wiring order — plain matrix, tiled panels, or a custom index permutation. The string and ring forms have no wiring order to choose.',
+  layout: 'How a grid maps to physical LED wiring order — plain matrix, tiled panels, or a custom index permutation. Chain forms use their own authoring geometry instead.',
   chipset: 'The addressable LED chipset driving this output — must match the physical part. HUB75 scan panels are their own form rather than a chipset; see docs/development/design/hub75-output.md.',
-  form: 'What this output physically is — a string of tape, a matrix panel, a ring, or a HUB75 scan panel. Everything else on the node follows from it.',
-  ledCount: 'How many LEDs are on this run — the length of a string, or the number around a ring.',
+  form: 'What this output physically is — a string, matrix, ring, corkscrew, or HUB75 scan panel. Everything else on the node follows from it.',
+  ledCount: 'How many LEDs are on this physical chain.',
   ringStartAngle: 'Where LED 0 sits on the ring, in degrees clockwise from the top — set it to wherever the data-in pad ended up.',
   ringDirection: 'Which way the chain runs around the ring, seen from the front.',
+  corkscrewTurns: 'How many complete turns the LED chain makes from the top of the corkscrew to the bottom.',
+  corkscrewStartAngle: 'Where LED 0 starts around the cylinder: 0° is front-centre in the physical preview.',
+  corkscrewDirection: 'Which way the chain winds when the corkscrew is viewed from above.',
+  corkscrewDiameterMm: 'Finished cylinder diameter in millimetres; sets the around-the-cylinder axis of the authoring canvas.',
+  corkscrewHeightMm: 'Finished corkscrew height in millimetres; sets the top-to-bottom axis of the authoring canvas.',
   colorOrder: 'Wire colour byte order the chipset expects. The wrong order swaps colours (e.g. red renders as green).',
   clockPin: 'SPI chipsets only — the clock line alongside the data pin.',
   hub75WideScan: '64-row (1:32 scan) panels multiplex an extra row-select line (E) below; 32-row (1:16 scan) panels leave it unconnected.',
@@ -4067,7 +4085,11 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'days', label: 'Day Rules', keys: ['dayMode', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'requireSync', 'enable'] },
   ],
   MatrixOutput: [
-    { key: 'form', label: 'Output', keys: ['form', 'ledCount', 'ringStartAngle', 'ringDirection'] },
+    { key: 'form', label: 'Output Geometry', keys: [
+      'form', 'ledCount', 'ringStartAngle', 'ringDirection',
+      'corkscrewTurns', 'corkscrewStartAngle', 'corkscrewDirection',
+      'corkscrewDiameterMm', 'corkscrewHeightMm',
+    ] },
     { key: 'routing', label: 'Frame Route', keys: ['routeMode', 'routeX', 'routeY'] },
     { key: 'wiring', label: 'Wiring', keys: ['chipset', 'colorOrder', 'dataPin', 'clockPin', 'serpentine'] },
     { key: 'hub75', label: 'HUB75 Wiring', keys: [
@@ -4279,7 +4301,7 @@ export function bypassPort(outputs: { id: string; dataType?: string }[], inputs:
  */
 const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, string> }> = {
   // The one output node titles itself after the thing it is: LED String, LED
-  // Matrix, LED Ring, HUB75 Panel.
+  // Matrix, LED Ring, LED Corkscrew, HUB75 Panel.
   MatrixOutput: { prop: 'form', labels: LED_OUTPUT_FORM_LABELS },
   ClockDisplay: {
     prop: 'displayMode',
@@ -4488,11 +4510,13 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     // The form decides which of this node's ~40 properties are even questions.
     const form = outputForm(properties)
     const hub75 = form === 'hub75'
-    const linear = form === 'strip' || form === 'ring'
-    // A strip and a ring are a length; a matrix and a panel are a grid.
+    const linear = isLinearForm(form)
+    // Chain forms are a length; a matrix and a panel are a grid.
     if (key === 'ledCount') return linear
     if (key === 'width' || key === 'height') return !linear
     if (key === 'ringStartAngle' || key === 'ringDirection') return form === 'ring'
+    if (key === 'corkscrewTurns' || key === 'corkscrewStartAngle' || key === 'corkscrewDirection'
+      || key === 'corkscrewDiameterMm' || key === 'corkscrewHeightMm') return form === 'corkscrew'
     // HUB75 is a form, so its chipset is implied rather than chosen.
     if (key === 'chipset') return !hub75
     const spi = !hub75 && SPI_CHIPSETS.has(String(properties.chipset ?? 'WS2812B'))

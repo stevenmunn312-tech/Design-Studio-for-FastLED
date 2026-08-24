@@ -373,6 +373,13 @@
   mask: radial-gradient(circle closest-side at 50% 50%, transparent 0 68%, #000 70%);
 }
 
+/* A corkscrew is a strip arranged in space, not LEDs mounted on a rectangular
+   board. HardwareLedPreview supplies the helical tape path and emitters. */
+.outputShapeCorkscrew {
+  background: transparent;
+  box-shadow: none;
+}
+
 .outputShapeLeds {
   position: absolute;
   inset: 0;

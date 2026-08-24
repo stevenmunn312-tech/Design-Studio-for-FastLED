@@ -5,6 +5,7 @@ import { MIC_SAMPLE_RATE } from '../audio/micAnalysis'
 import { controllerSettings } from '../state/controllerSettings'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
 import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
+import { isLinearForm, LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, type LedOutputForm } from '../state/ledOutputForm'
 
 export type HardwareValidationAction =
   | 'normal-upload'
@@ -48,6 +49,9 @@ export interface HardwareValidationProfile {
     engineVersion: string
   }
   matrix: {
+    /** Kept under the schema-v1 `matrix` key for report compatibility; form
+     *  records what the LED target actually is. */
+    form: LedOutputForm
     chipset: string
     colorOrder: string
     width: number
@@ -268,12 +272,15 @@ function featureList(nodes: StudioNode[], edges: StudioEdge[], matrixProps: Reco
   const master = nodes.find((node) => nodeType(node) === 'PatternMaster')
   const performance = nodes.find((node) => nodeType(node) === 'PerformanceGenerator')
   const layout = String(matrixProps.layout ?? 'matrix')
+  const form = outputForm(matrixProps)
 
-  if (layout === 'panels') features.push('Tiled panel layout')
-  if (layout === 'custom') features.push('Custom XY map')
-  if (layout === 'strip') features.push('Strip layout')
+  if (form === 'strip') features.push('LED String geometry')
+  if (form === 'ring') features.push('LED Ring geometry')
+  if (form === 'corkscrew') features.push('LED Corkscrew geometry')
+  if (!isLinearForm(form) && layout === 'panels') features.push('Tiled panel layout')
+  if (!isLinearForm(form) && layout === 'custom') features.push('Custom XY map')
   if (matrixProps.usePsram === true) features.push(`PSRAM (${String(matrixProps.psramMode ?? 'default')})`)
-  if (matrixProps.supersample === true) features.push('2× supersampling')
+  if (!isLinearForm(form) && matrixProps.supersample === true) features.push('2× supersampling')
   if (nodes.some((node) => nodeType(node) === 'MicInput')) features.push('INMP441/on-device microphone')
   if (nodes.some((node) => nodeType(node) === 'LineInput')) features.push('PCM1802/on-device line input')
 
@@ -299,6 +306,7 @@ function isRecordedTarget(profile: Omit<HardwareValidationProfile, 'gaps' | 'che
   return profile.controller.fqbn === 'esp32:esp32:esp32s3'
     && profile.controller.engine === 'fbuild'
     && m.chipset === 'WS2812B'
+    && m.form === 'matrix'
     && m.width === 16
     && m.height === 16
     && m.layout === 'matrix'
@@ -331,7 +339,9 @@ function findGaps(profile: Omit<HardwareValidationProfile, 'gaps' | 'checks'>): 
   const advanced = new Map<string, string>([
     ['Tiled panel layout', 'Panel tiling and rotation are still experimental.'],
     ['Custom XY map', 'Custom physical-index mappings are still experimental.'],
-    ['Strip layout', 'Non-matrix physical layouts are still experimental.'],
+    ['LED String geometry', 'This non-matrix physical form is still experimental.'],
+    ['LED Ring geometry', 'This non-matrix physical form is still experimental.'],
+    ['LED Corkscrew geometry', 'This non-matrix physical form is still experimental.'],
     ['2× supersampling', 'Supersampled firmware output has not been recorded on hardware.'],
     ['Baked song envelopes', 'Baked song-envelope playback is awaiting hardware evidence.'],
     ['Group-input modulation', 'Collection-driven group-input modulation is awaiting hardware evidence.'],
@@ -402,6 +412,8 @@ export function buildHardwareValidationProfile(options: {
   const controllerSettingsValue = controllerSettings(nodes)
   const chipset = String(p.chipset ?? 'WS2812B')
   const layout = String(p.layout ?? 'matrix')
+  const form = outputForm(p)
+  const grid = outputGridDims(p)
   const engine = helper?.engine ?? 'unknown'
   const engineVersion = engine === 'fbuild' ? helper?.fbuildVersion : helper?.version
   const action = options.action ?? defaultAction(nodes, edges)
@@ -441,12 +453,13 @@ export function buildHardwareValidationProfile(options: {
       engineVersion: engineVersion || 'unknown',
     },
     matrix: {
+      form,
       chipset,
       colorOrder: String(p.colorOrder ?? 'GRB'),
-      width: Math.max(1, Math.round(n(p.width, 16))),
-      height: Math.max(1, Math.round(n(p.height, 16))),
+      width: grid.width,
+      height: grid.height,
       layout,
-      serpentine: p.serpentine === true,
+      serpentine: !isLinearForm(form) && p.serpentine === true,
       dataPin: Math.round(n(p.dataPin, 5)),
       clockPin: CLOCKED_CHIPSETS.has(chipset) ? Math.round(n(p.clockPin, 6)) : null,
       brightness: controllerSettingsValue.brightness,
@@ -456,13 +469,13 @@ export function buildHardwareValidationProfile(options: {
       powerLimit: controllerSettingsValue.powerLimit,
       volts: controllerSettingsValue.powerLimit ? controllerSettingsValue.volts : null,
       milliamps: controllerSettingsValue.powerLimit ? controllerSettingsValue.milliamps : null,
-      tilesX: layout === 'panels' ? Math.round(n(p.tilesX, 1)) : null,
-      tilesY: layout === 'panels' ? Math.round(n(p.tilesY, 1)) : null,
-      tileSerpentine: layout === 'panels' ? p.tileSerpentine === true : null,
-      tileRotations: layout === 'panels' ? String(p.tileRotations ?? '') : null,
-      customMap: layout === 'custom' ? customMapSummary(p.customXYMap) : null,
+      tilesX: !isLinearForm(form) && layout === 'panels' ? Math.round(n(p.tilesX, 1)) : null,
+      tilesY: !isLinearForm(form) && layout === 'panels' ? Math.round(n(p.tilesY, 1)) : null,
+      tileSerpentine: !isLinearForm(form) && layout === 'panels' ? p.tileSerpentine === true : null,
+      tileRotations: !isLinearForm(form) && layout === 'panels' ? String(p.tileRotations ?? '') : null,
+      customMap: !isLinearForm(form) && layout === 'custom' ? customMapSummary(p.customXYMap) : null,
       psram: controllerSettingsValue.usePsram ? controllerSettingsValue.psramMode : null,
-      supersample: p.supersample === true,
+      supersample: !isLinearForm(form) && p.supersample === true,
     },
     peripherals: {
       microphone: mic
@@ -522,7 +535,7 @@ export function formatHardwareValidationReport(submission: HardwareValidationSub
     ['User agent', profile.environment.userAgent],
     ['Board', `${profile.controller.board} (${profile.controller.fqbn})`],
     ['Build engine', `${profile.controller.engine} ${profile.controller.engineVersion}`],
-    ['LED target', `${m.chipset} · ${m.colorOrder} · ${m.width}×${m.height}`],
+    ['LED target', `${LED_OUTPUT_FORM_LABELS[m.form]} · ${m.chipset} · ${m.colorOrder} · ${m.width}×${m.height}`],
     ['Layout', `${m.layout} · pixel serpentine: ${m.serpentine ? 'yes' : 'no'}`],
     ['Pins', `data ${m.dataPin}${m.clockPin == null ? '' : ` · clock ${m.clockPin}`}`],
     ['Output settings', `brightness ${m.brightness} · correction ${m.correction} · dither ${m.dither ? 'on' : 'off'} · overclock ${m.overclock}×`],

@@ -1,6 +1,12 @@
 import type { Frame } from './graphEvaluator'
 import type { StudioNode } from './graphStore'
 import {
+  corkscrewDiameterMm,
+  corkscrewDirection,
+  corkscrewHeightMm,
+  corkscrewSampleMap,
+  corkscrewStartAngle,
+  corkscrewTurns,
   isLinearForm,
   LED_OUTPUT_FORM_LABELS,
   outputCanvasDims,
@@ -10,6 +16,7 @@ import {
   ringSampleMap,
   ringStartAngle,
   type LedOutputForm,
+  type CorkscrewDirection,
   type RingDirection,
 } from './ledOutputForm'
 
@@ -25,7 +32,7 @@ export interface OutputRoute {
   width: number
   height: number
   /** The footprint this route claims on the shared composition canvas. Equal to
-   *  width x height except for a ring, whose circle needs two real axes. */
+   *  width x height except for shape-mapped chains, which need two axes. */
   canvasW: number
   canvasH: number
   supersample: number
@@ -44,11 +51,22 @@ export interface OutputRoute {
    *  the moment a second output widened the canvas. `ringMapFor` builds it
    *  against the canvas that actually exists. */
   ring: { ledCount: number; startAngle: number; direction: RingDirection } | null
+  /** For a corkscrew: the helix parameters used to build its unwrapped
+   *  cylindrical sample map and dedicated physical preview. Null otherwise. */
+  corkscrew: {
+    ledCount: number
+    turns: number
+    startAngle: number
+    direction: CorkscrewDirection
+    diameterMm: number
+    heightMm: number
+  } | null
 }
 
-// One map per (ring, canvas size). The preview asks for the same one 60 times a
+// One map per (shape, canvas size). The preview asks for the same one 60 times a
 // second and the geometry only changes when the user edits the node.
 const ringMapCache = new Map<string, number[]>()
+const corkscrewMapCache = new Map<string, number[]>()
 
 /**
  * A ring's sample map against a specific composition canvas: one canvas index
@@ -69,6 +87,28 @@ export function ringMapFor(route: OutputRoute, canvasW: number, canvasH: number)
   // Bounded: a project holds a handful of rings and the canvas rarely changes.
   if (ringMapCache.size > 64) ringMapCache.clear()
   ringMapCache.set(key, map)
+  return map
+}
+
+/** A corkscrew's helix map against the composition canvas that actually exists. */
+export function corkscrewMapFor(route: OutputRoute, canvasW: number, canvasH: number): number[] | null {
+  const corkscrew = route.corkscrew
+  if (!corkscrew) return null
+  const w = Math.max(1, Math.round(canvasW))
+  const h = Math.max(1, Math.round(canvasH))
+  const key = `${corkscrew.ledCount}:${corkscrew.turns}:${corkscrew.startAngle}:${corkscrew.direction}:${w}:${h}`
+  const cached = corkscrewMapCache.get(key)
+  if (cached) return cached
+  const map = corkscrewSampleMap(
+    corkscrew.ledCount,
+    corkscrew.turns,
+    corkscrew.startAngle,
+    corkscrew.direction,
+    w,
+    h,
+  )
+  if (corkscrewMapCache.size > 64) corkscrewMapCache.clear()
+  corkscrewMapCache.set(key, map)
   return map
 }
 
@@ -109,6 +149,16 @@ export function outputRoutes(nodes: StudioNode[]): OutputRoute[] {
             ledCount: grid.width,
             startAngle: ringStartAngle(props),
             direction: ringDirection(props),
+          }
+          : null,
+        corkscrew: form === 'corkscrew'
+          ? {
+            ledCount: grid.width,
+            turns: corkscrewTurns(props),
+            startAngle: corkscrewStartAngle(props),
+            direction: corkscrewDirection(props),
+            diameterMm: corkscrewDiameterMm(props),
+            heightMm: corkscrewHeightMm(props),
           }
           : null,
       }
@@ -230,16 +280,16 @@ export function routeFrame(frame: Frame | null, route: OutputRoute, compositionW
   const out: Frame = reuse && reuse.length === route.height && reuse[0]?.length === route.width
     ? reuse
     : Array.from({ length: route.height }, () => Array.from({ length: route.width }, () => ({ r: 0, g: 0, b: 0 })))
-  // A ring reads a circle out of the composition rather than a rectangle: one
-  // source pixel per LED, from the same helper the sketch bakes as PROGMEM, so
-  // the circle on the bench and the circle in the preview cannot drift.
-  const ringMap = ringMapFor(route, compositionW, compositionH)
-  if (ringMap) {
+  // Shape-mapped chains read dedicated paths out of the composition: one
+  // source pixel per LED, from the same helpers the sketch bakes as PROGMEM.
+  const shapeMap = ringMapFor(route, compositionW, compositionH)
+    ?? corkscrewMapFor(route, compositionW, compositionH)
+  if (shapeMap) {
     const orow = out[0]
     const stride = Math.max(1, compositionW)
     for (let i = 0; i < route.width; i++) {
       const px = orow[i]
-      const index = ringMap[i] ?? 0
+      const index = shapeMap[i] ?? 0
       const src = frame[Math.floor(index / stride)]?.[index % stride]
       px.r = src?.r ?? 0; px.g = src?.g ?? 0; px.b = src?.b ?? 0
     }

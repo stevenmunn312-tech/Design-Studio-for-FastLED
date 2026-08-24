@@ -2,16 +2,25 @@ import { useEffect, useMemo, useRef } from 'react'
 import type { CSSProperties } from 'react'
 import { usePreviewStore } from '../../state/previewStore'
 import type { Frame } from '../../state/graphEvaluator'
-import type { RingDirection } from '../../state/ledOutputForm'
+import { corkscrewAngleAt, type CorkscrewDirection, type RingDirection } from '../../state/ledOutputForm'
 
 /** Half the width of one LED on a ring, in bounding-box fractions — a 5050
  *  package against the ~76 mm circle a 24-LED ring describes. */
 const RING_LED_RADIUS = 0.035
+const CORKSCREW_LED_RADIUS_X = 0.028
+const CORKSCREW_LED_RADIUS_Y = 0.016
 
 export interface RingGeometry {
   ledCount: number
   startAngle: number
   direction: RingDirection
+}
+
+export interface CorkscrewGeometry {
+  ledCount: number
+  turns: number
+  startAngle: number
+  direction: CorkscrewDirection
 }
 
 /**
@@ -39,6 +48,7 @@ export default function HardwareLedPreview({
   rows,
   cellFill = 1,
   ring,
+  corkscrew,
   style,
   className,
 }: {
@@ -61,6 +71,9 @@ export default function HardwareLedPreview({
    *  through the ring's own XY mapping. A ring should look like a ring — a row
    *  of cells is a picture of a part the user did not buy. */
   ring?: RingGeometry | null
+  /** Draw one physical chain as a front-on helix. Its colours still arrive in
+   *  wire order; only the fixed emitter positions change. */
+  corkscrew?: CorkscrewGeometry | null
   style?: CSSProperties
   className?: string
 }) {
@@ -69,7 +82,7 @@ export default function HardwareLedPreview({
   const previousRef = useRef<Uint32Array>(new Uint32Array(0))
   const onScreenRef = useRef(true)
 
-  const count = ring ? ring.ledCount : cols * rows
+  const count = ring?.ledCount ?? corkscrew?.ledCount ?? cols * rows
 
   /*
    * A ring's LEDs, laid out on a unit-square viewBox. Angles match
@@ -86,6 +99,40 @@ export default function HardwareLedPreview({
       return { cx: 0.5 + (radius * Math.sin(theta)), cy: 0.5 - (radius * Math.cos(theta)) }
     })
   }, [ring])
+
+  /*
+   * Front-on projection of the same corkscrew angles used by the authoring
+   * sample map. Depth makes the back half quieter and renders it first; the
+   * wire-order refs remain indexed by LED so live colour painting is unchanged.
+   */
+  const corkscrewCells = useMemo(() => {
+    if (!corkscrew) return null
+    const count = Math.max(1, corkscrew.ledCount)
+    const points = Array.from({ length: count }, (_, index) => {
+      const theta = corkscrewAngleAt(
+        index,
+        count,
+        corkscrew.turns,
+        corkscrew.startAngle,
+        corkscrew.direction,
+      )
+      const progress = count <= 1 ? 0.5 : index / (count - 1)
+      const depth = Math.cos(theta)
+      return {
+        index,
+        cx: 0.5 + (0.42 * Math.sin(theta)),
+        cy: 0.04 + (0.92 * progress),
+        depth,
+        opacity: 0.42 + (0.58 * ((depth + 1) / 2)),
+        scale: 0.72 + (0.28 * ((depth + 1) / 2)),
+      }
+    })
+    return {
+      points,
+      // Back emitters first, front emitters last, like a real winding.
+      painted: [...points].sort((a, b) => a.depth - b.depth),
+    }
+  }, [corkscrew])
 
   const cells = useMemo(
     () => Array.from({ length: count }, (_, index) => index),
@@ -155,7 +202,7 @@ export default function HardwareLedPreview({
     }
     read(usePreviewStore.getState())
     return usePreviewStore.subscribe(read)
-  }, [cols, count, nodeId, port, ring, rows])
+  }, [cols, corkscrew, count, nodeId, port, ring, rows])
 
   if (ringCells) {
     return (
@@ -177,6 +224,42 @@ export default function HardwareLedPreview({
             height={RING_LED_RADIUS * 2}
             rx={RING_LED_RADIUS * 0.36}
             fill="rgb(0 0 0)"
+          />
+        ))}
+      </svg>
+    )
+  }
+
+  if (corkscrewCells) {
+    return (
+      <svg
+        ref={wrapRef}
+        className={className}
+        style={style}
+        viewBox="0 0 1 1"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <polyline
+          points={corkscrewCells.points.map((cell) => `${cell.cx},${cell.cy}`).join(' ')}
+          fill="none"
+          stroke="#5b4824"
+          strokeWidth="0.036"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity="0.8"
+        />
+        {corkscrewCells.painted.map((cell) => (
+          <rect
+            key={cell.index}
+            ref={(element) => { cellRefs.current[cell.index] = element }}
+            x={cell.cx - (CORKSCREW_LED_RADIUS_X * cell.scale)}
+            y={cell.cy - (CORKSCREW_LED_RADIUS_Y * cell.scale)}
+            width={CORKSCREW_LED_RADIUS_X * 2 * cell.scale}
+            height={CORKSCREW_LED_RADIUS_Y * 2 * cell.scale}
+            rx={CORKSCREW_LED_RADIUS_Y * 0.5}
+            fill="rgb(0 0 0)"
+            opacity={cell.opacity}
           />
         ))}
       </svg>

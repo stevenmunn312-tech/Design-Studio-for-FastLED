@@ -126,6 +126,7 @@ describe('routing per LED output form', () => {
     expect(route.form).toBe('strip')
     expect([route.width, route.height]).toEqual([90, 1])
     expect(route.ring).toBeNull()
+    expect(route.corkscrew).toBeNull()
   })
 
   it('claims a square canvas for a ring but stays a chain of LEDs', () => {
@@ -150,6 +151,29 @@ describe('routing per LED output form', () => {
     expect(routeFrame(frame, route, 3, 3)).toEqual([[
       { r: 1, g: 0, b: 0 }, { r: 0, g: 2, b: 0 }, { r: 0, g: 0, b: 3 }, { r: 0, g: 0, b: 4 },
     ]])
+  })
+
+  it('routes a corkscrew through its unwrapped cylindrical helix', () => {
+    const props = {
+      form: 'corkscrew', ledCount: 9, corkscrewTurns: 1,
+      corkscrewStartAngle: 0, corkscrewDirection: 'cw',
+      corkscrewDiameterMm: 100, corkscrewHeightMm: 100,
+    }
+    const route = outputRoutes([output('c', props)])[0]
+    expect(route.form).toBe('corkscrew')
+    expect([route.width, route.height]).toEqual([9, 1])
+    expect(route.canvasW * route.canvasH).toBeGreaterThan(1)
+    expect(route.corkscrew).toMatchObject({ ledCount: 9, turns: 1, startAngle: 0, direction: 'cw' })
+
+    const frame = Array.from({ length: route.canvasH }, (_, y) =>
+      Array.from({ length: route.canvasW }, (_, x) => ({ r: x, g: y, b: (y * route.canvasW) + x })))
+    const routed = routeFrame(frame, route, route.canvasW, route.canvasH)!
+    expect(routed).toHaveLength(1)
+    expect(routed[0]).toHaveLength(9)
+    // The helix begins at front-centre/top and ends at front-centre/bottom.
+    expect(routed[0][0].r).toBe(Math.round((route.canvasW - 1) / 2))
+    expect(routed[0][0].g).toBe(0)
+    expect(routed[0][8].g).toBe(route.canvasH - 1)
   })
 
   it('samples a ring against the canvas that exists, not the one it asked for', () => {

@@ -4,6 +4,7 @@ import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75Hardwar
 import { sanitizePin } from './hardwarePins'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { controllerSettings, ledPropsWithController } from '../state/controllerSettings'
+import { outputGridDims } from '../state/ledOutputForm'
 
 function intProp(val: unknown, def: number, min: number, max: number): number {
   const n = Math.round(Number(val))
@@ -32,8 +33,9 @@ export function generateWiringDiagnosticSketch(
 
   const p = outputNode.data.properties as Record<string, unknown>
   const controller = controllerSettings(nodes)
-  const width = intProp(p.width, 16, 1, 64)
-  const height = intProp(p.height, 16, 1, 64)
+  const grid = outputGridDims(p)
+  const width = grid.width
+  const height = grid.height
   const dataPin = sanitizePin(p.dataPin, 5)
   const hw = ledHardwareFromProps(ledPropsWithController(p, nodes))
   const isHub75 = hw.chipset === HUB75_CHIPSET
@@ -103,7 +105,7 @@ export function generateWiringDiagnosticSketch(
   lines.push('')
   if (xyTable) {
     lines.push('// Physical wiring map (grid index -> physical LED index), baked from')
-    lines.push("// MatrixOutput's serpentine / panel / custom-layout settings.")
+    lines.push("// LED output serpentine / panel / custom-layout settings.")
     lines.push(`const uint16_t _xytable[${width * height}] PROGMEM = { ${xyTable.join(',')} };`)
     lines.push(`uint16_t XY(uint8_t x, uint8_t y) { return pgm_read_word(&_xytable[(uint16_t)y * WIDTH + x]); }`)
     lines.push('')

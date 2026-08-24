@@ -90,6 +90,34 @@ describe('hardware validation profiles', () => {
     expect(profile.checks.map((check) => check.id)).toContain('reconnect')
   })
 
+  it('fingerprints a corkscrew as a physical LED chain', () => {
+    const corkscrew = node('corkscrew', 'MatrixOutput', {
+      ...baselineMatrix.data.properties,
+      form: 'corkscrew',
+      ledCount: 120,
+      corkscrewTurns: 6,
+      corkscrewDiameterMm: 100,
+      corkscrewHeightMm: 300,
+    })
+    const profile = buildHardwareValidationProfile({
+      nodes: [corkscrew],
+      edges: [],
+      selectedFqbn: 'esp32:esp32:esp32s3',
+      helper: fbuild,
+      runtime: RECORDED_RUNTIME,
+    })
+
+    expect(profile.matrix).toMatchObject({
+      form: 'corkscrew',
+      width: 120,
+      height: 1,
+      serpentine: false,
+      supersample: false,
+    })
+    expect(profile.features).toContain('LED Corkscrew geometry')
+    expect(profile.gaps).toContainEqual(expect.objectContaining({ id: 'feature-led-corkscrew-geometry' }))
+  })
+
   it('asks for the per-panel topology markers when validating a folded HUB75 wiring test', () => {
     const output = node('matrix', 'MatrixOutput', {
       width: 128,

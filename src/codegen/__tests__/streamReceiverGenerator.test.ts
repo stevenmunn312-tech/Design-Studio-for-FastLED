@@ -36,6 +36,15 @@ describe('streamLayoutForGraph', () => {
     const out = node('out', 'MatrixOutput', 'output', { width: 4, height: 4, chipset: 'HUB75', serpentine: true })
     expect(streamLayoutForGraph([out])?.serpentine).toBe(false)
   })
+
+  it.each(['strip', 'ring', 'corkscrew'])('streams a %s as its physical N-LED chain', (form) => {
+    const out = node('out', 'MatrixOutput', 'output', {
+      form, ledCount: 120, width: 16, height: 16, serpentine: true,
+    })
+    expect(streamLayoutForGraph([out])).toEqual({
+      width: 120, height: 1, serpentine: false, baud: 921600,
+    })
+  })
 })
 
 describe('generateStreamReceiverSketch', () => {

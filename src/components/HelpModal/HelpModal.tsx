@@ -26,7 +26,7 @@ function AboutTab() {
           <strong>Version {__APP_VERSION__}</strong> · public beta
         </div>
         <div className={styles.text}>
-          A node-graph authoring environment for FastLED LED strips, matrices, and tiled panels — design patterns visually, preview them live, then generate and flash real firmware.
+          A node-graph authoring environment for FastLED LED strings, matrices, rings, corkscrew installations, and tiled panels — design patterns visually, preview them live, then generate and flash real firmware.
         </div>
         <div className={styles.text}>
           Maintained by <strong>Steven Munn</strong>. The core is released under the{' '}
@@ -278,7 +278,7 @@ function HardwareTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>2</div>
             <div className={styles.stepText}>
-              <strong>Add what is on the bench.</strong> Use <strong>Add Hardware</strong> for inputs and sensors, storage, amplifiers or DACs, and LED strings, matrices, rings, or HUB75 panels. Studio assigns suitable starting pins where the board profile knows them.
+              <strong>Add what is on the bench.</strong> Use <strong>Add Hardware</strong> for inputs and sensors, storage, amplifiers or DACs, and LED strings, matrices, rings, corkscrew installations, or HUB75 panels. Studio assigns suitable starting pins where the board profile knows them.
             </div>
           </div>
           <div className={styles.step}>

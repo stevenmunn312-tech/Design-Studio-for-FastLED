@@ -9,10 +9,17 @@ import { useModalFocus } from '../../hooks/useModalFocus'
 import styles from './Upload.module.css'
 import { controllerSettings } from '../../state/controllerSettings'
 import { useUiStore } from '../../state/uiStore'
+import {
+  isLinearForm,
+  LED_OUTPUT_FORM_LABELS,
+  MAX_LED_RUN,
+  outputForm,
+  outputGridDims,
+} from '../../state/ledOutputForm'
 
 const STEPS = [
   { key: 'controller', title: 'Controller', blurb: 'Pick the board, port, and build path.' },
-  { key: 'matrix', title: 'Matrix', blurb: 'Set the shape of the LEDs you want to drive.' },
+  { key: 'geometry', title: 'Geometry', blurb: 'Set the physical form and authoring geometry of the LEDs you want to drive.' },
   { key: 'leds', title: 'LEDs', blurb: 'Match the strip type, color order, and wiring pins.' },
   { key: 'upload', title: 'Upload', blurb: 'Review the setup, then run a wiring test or open the upload tools.' },
 ] as const
@@ -64,6 +71,9 @@ export default function MatrixOutputSetupWizard() {
   const props = ((node?.data.properties ?? {}) as Record<string, unknown>)
   const controller = controllerSettings(nodes)
 
+  const form = outputForm(props)
+  const linear = isLinearForm(form)
+  const grid = outputGridDims(props)
   const width = Number(props.width ?? 16)
   const height = Number(props.height ?? 16)
   const layout = String(props.layout ?? 'matrix')
@@ -83,10 +93,10 @@ export default function MatrixOutputSetupWizard() {
   const portDetected = !!selectedPort && ports.some((p) => p.address === selectedPort)
   const coreReady = !!board && (usingFbuild || installedCores.includes(board.core))
   const uploadReady = !!helper && activeEngineReady && coreReady && portDetected
-  const ledCount = width * height
+  const ledCount = grid.width * grid.height
   const layoutErrors = useMemo(
-    () => validateMatrixLayout(width, height, { layout, tilesX, tilesY, tileSerpentine, tileRotations, customXYMap }),
-    [width, height, layout, tilesX, tilesY, tileSerpentine, tileRotations, customXYMap],
+    () => linear ? [] : validateMatrixLayout(width, height, { layout, tilesX, tilesY, tileSerpentine, tileRotations, customXYMap }),
+    [linear, width, height, layout, tilesX, tilesY, tileSerpentine, tileRotations, customXYMap],
   )
   const power = useMemo(() => estimatePowerLoad(nodes), [nodes])
   const hub75TopologyErrors = useMemo(
@@ -247,113 +257,154 @@ export default function MatrixOutputSetupWizard() {
         {step === 1 && (
           <div className={styles.wizardSection}>
             <div className={styles.wizardSummary}>
-              <div className={styles.wizardSummaryRow}><span>Layout</span><strong>{width} × {height}</strong></div>
+              <div className={styles.wizardSummaryRow}><span>Physical form</span><strong>{LED_OUTPUT_FORM_LABELS[form]}</strong></div>
+              <div className={styles.wizardSummaryRow}><span>Render route</span><strong>{grid.width} × {grid.height}</strong></div>
               <div className={styles.wizardSummaryRow}><span>Total LEDs</span><strong>{ledCount}</strong></div>
             </div>
 
-            <div className={styles.presetGrid}>
-              {SIZE_PRESETS.map((preset) => (
-                <button
-                  key={preset.label}
-                  className={`${styles.wizardButtonBase} ${styles.presetBtn} ${preset.width === width && preset.height === height ? styles.presetBtnActive : ''}`}
-                  onClick={() => applySize(preset.width, preset.height)}
-                >
-                  {preset.label}
-                </button>
-              ))}
-            </div>
-
-            <div className={styles.dualFieldRow}>
+            {linear ? (
               <label className={styles.fieldBlock}>
-                <span className={styles.fieldLabel}>Width</span>
+                <span className={styles.fieldLabel}>LED count</span>
                 <input
                   className={styles.textInput}
                   type="number"
                   min={1}
-                  max={64}
-                  value={width}
-                  onChange={(e) => updateNodeProperty(matrixNodeId, 'width', clampInt(e.target.value, width, 1, 64))}
+                  max={MAX_LED_RUN}
+                  value={ledCount}
+                  onChange={(e) => updateNodeProperty(matrixNodeId, 'ledCount', clampInt(e.target.value, ledCount, 1, MAX_LED_RUN))}
                 />
               </label>
-              <label className={styles.fieldBlock}>
-                <span className={styles.fieldLabel}>Height</span>
-                <input
-                  className={styles.textInput}
-                  type="number"
-                  min={1}
-                  max={64}
-                  value={height}
-                  onChange={(e) => updateNodeProperty(matrixNodeId, 'height', clampInt(e.target.value, height, 1, 64))}
-                />
-              </label>
-            </div>
-
-            <label className={styles.fieldBlock}>
-              <span className={styles.fieldLabel}>Layout</span>
-              <select className={styles.select} value={layout} onChange={(e) => updateNodeProperty(matrixNodeId, 'layout', e.target.value)}>
-                <option value="matrix">Matrix</option>
-                <option value="strip">Strip</option>
-                <option value="panels">Panels</option>
-                <option value="custom">Custom map</option>
-              </select>
-            </label>
-
-            <label className={styles.checkField}>
-              <input
-                type="checkbox"
-                checked={props.serpentine === true}
-                onChange={(e) => updateNodeProperty(matrixNodeId, 'serpentine', e.target.checked)}
-              />
-              <span>Pixels snake back and forth</span>
-            </label>
-
-            {layout === 'panels' && (
+            ) : (
               <>
+                <div className={styles.presetGrid}>
+                  {SIZE_PRESETS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      className={`${styles.wizardButtonBase} ${styles.presetBtn} ${preset.width === width && preset.height === height ? styles.presetBtnActive : ''}`}
+                      onClick={() => applySize(preset.width, preset.height)}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+
                 <div className={styles.dualFieldRow}>
                   <label className={styles.fieldBlock}>
-                    <span className={styles.fieldLabel}>Tiles X</span>
+                    <span className={styles.fieldLabel}>Width</span>
                     <input
                       className={styles.textInput}
                       type="number"
                       min={1}
-                      max={8}
-                      value={tilesX}
-                      onChange={(e) => updateNodeProperty(matrixNodeId, 'tilesX', clampInt(e.target.value, tilesX, 1, 8))}
+                      max={64}
+                      value={width}
+                      onChange={(e) => updateNodeProperty(matrixNodeId, 'width', clampInt(e.target.value, width, 1, 64))}
                     />
                   </label>
                   <label className={styles.fieldBlock}>
-                    <span className={styles.fieldLabel}>Tiles Y</span>
+                    <span className={styles.fieldLabel}>Height</span>
                     <input
                       className={styles.textInput}
                       type="number"
                       min={1}
-                      max={8}
-                      value={tilesY}
-                      onChange={(e) => updateNodeProperty(matrixNodeId, 'tilesY', clampInt(e.target.value, tilesY, 1, 8))}
+                      max={64}
+                      value={height}
+                      onChange={(e) => updateNodeProperty(matrixNodeId, 'height', clampInt(e.target.value, height, 1, 64))}
                     />
                   </label>
                 </div>
+
+                <label className={styles.fieldBlock}>
+                  <span className={styles.fieldLabel}>Layout</span>
+                  <select className={styles.select} value={layout} onChange={(e) => updateNodeProperty(matrixNodeId, 'layout', e.target.value)}>
+                    <option value="matrix">Matrix</option>
+                    <option value="panels">Panels</option>
+                    <option value="custom">Custom map</option>
+                  </select>
+                </label>
+
                 <label className={styles.checkField}>
                   <input
                     type="checkbox"
-                    checked={tileSerpentine}
-                    onChange={(e) => updateNodeProperty(matrixNodeId, 'tileSerpentine', e.target.checked)}
+                    checked={props.serpentine === true}
+                    onChange={(e) => updateNodeProperty(matrixNodeId, 'serpentine', e.target.checked)}
                   />
-                  <span>Panels snake as a chain</span>
-                </label>
-                <label className={styles.fieldBlock}>
-                  <span className={styles.fieldLabel}>Panel rotations</span>
-                  <input
-                    className={styles.textInput}
-                    value={tileRotations}
-                    placeholder="0,90,180,270"
-                    onChange={(e) => updateNodeProperty(matrixNodeId, 'tileRotations', e.target.value)}
-                  />
+                  <span>Pixels snake back and forth</span>
                 </label>
               </>
             )}
 
-            {layout === 'custom' && (
+            {form === 'ring' && (
+              <div className={styles.dualFieldRow}>
+                <label className={styles.fieldBlock}>
+                  <span className={styles.fieldLabel}>LED 0 angle</span>
+                  <input className={styles.textInput} type="number" min={0} max={359} value={Number(props.ringStartAngle ?? 0)} onChange={(e) => updateNodeProperty(matrixNodeId, 'ringStartAngle', clampInt(e.target.value, 0, 0, 359))} />
+                </label>
+                <label className={styles.fieldBlock}>
+                  <span className={styles.fieldLabel}>Direction</span>
+                  <select className={styles.select} value={String(props.ringDirection ?? 'cw')} onChange={(e) => updateNodeProperty(matrixNodeId, 'ringDirection', e.target.value)}>
+                    <option value="cw">Clockwise</option>
+                    <option value="ccw">Counter-clockwise</option>
+                  </select>
+                </label>
+              </div>
+            )}
+
+            {form === 'corkscrew' && (
+              <>
+                <div className={styles.dualFieldRow}>
+                  <label className={styles.fieldBlock}>
+                    <span className={styles.fieldLabel}>Turns</span>
+                    <input className={styles.textInput} type="number" min={0.5} max={32} step={0.5} value={Number(props.corkscrewTurns ?? 6)} onChange={(e) => updateNodeProperty(matrixNodeId, 'corkscrewTurns', Math.max(0.5, Math.min(32, Number(e.target.value) || 6)))} />
+                  </label>
+                  <label className={styles.fieldBlock}>
+                    <span className={styles.fieldLabel}>LED 0 angle</span>
+                    <input className={styles.textInput} type="number" min={0} max={359} value={Number(props.corkscrewStartAngle ?? 0)} onChange={(e) => updateNodeProperty(matrixNodeId, 'corkscrewStartAngle', clampInt(e.target.value, 0, 0, 359))} />
+                  </label>
+                </div>
+                <label className={styles.fieldBlock}>
+                  <span className={styles.fieldLabel}>Winding direction</span>
+                  <select className={styles.select} value={String(props.corkscrewDirection ?? 'cw')} onChange={(e) => updateNodeProperty(matrixNodeId, 'corkscrewDirection', e.target.value)}>
+                    <option value="cw">Clockwise</option>
+                    <option value="ccw">Counter-clockwise</option>
+                  </select>
+                </label>
+                <div className={styles.dualFieldRow}>
+                  <label className={styles.fieldBlock}>
+                    <span className={styles.fieldLabel}>Diameter (mm)</span>
+                    <input className={styles.textInput} type="number" min={10} max={2000} value={Number(props.corkscrewDiameterMm ?? 100)} onChange={(e) => updateNodeProperty(matrixNodeId, 'corkscrewDiameterMm', clampInt(e.target.value, 100, 10, 2000))} />
+                  </label>
+                  <label className={styles.fieldBlock}>
+                    <span className={styles.fieldLabel}>Height (mm)</span>
+                    <input className={styles.textInput} type="number" min={10} max={4000} value={Number(props.corkscrewHeightMm ?? 300)} onChange={(e) => updateNodeProperty(matrixNodeId, 'corkscrewHeightMm', clampInt(e.target.value, 300, 10, 4000))} />
+                  </label>
+                </div>
+              </>
+            )}
+
+            {!linear && layout === 'panels' && (
+              <>
+                <div className={styles.dualFieldRow}>
+                  <label className={styles.fieldBlock}>
+                    <span className={styles.fieldLabel}>Tiles X</span>
+                    <input className={styles.textInput} type="number" min={1} max={8} value={tilesX} onChange={(e) => updateNodeProperty(matrixNodeId, 'tilesX', clampInt(e.target.value, tilesX, 1, 8))} />
+                  </label>
+                  <label className={styles.fieldBlock}>
+                    <span className={styles.fieldLabel}>Tiles Y</span>
+                    <input className={styles.textInput} type="number" min={1} max={8} value={tilesY} onChange={(e) => updateNodeProperty(matrixNodeId, 'tilesY', clampInt(e.target.value, tilesY, 1, 8))} />
+                  </label>
+                </div>
+                <label className={styles.checkField}>
+                  <input type="checkbox" checked={tileSerpentine} onChange={(e) => updateNodeProperty(matrixNodeId, 'tileSerpentine', e.target.checked)} />
+                  <span>Panels snake as a chain</span>
+                </label>
+                <label className={styles.fieldBlock}>
+                  <span className={styles.fieldLabel}>Panel rotations</span>
+                  <input className={styles.textInput} value={tileRotations} placeholder="0,90,180,270" onChange={(e) => updateNodeProperty(matrixNodeId, 'tileRotations', e.target.value)} />
+                </label>
+              </>
+            )}
+
+            {!linear && layout === 'custom' && (
               <label className={styles.fieldBlock}>
                 <span className={styles.fieldLabel}>Custom XY map</span>
                 <textarea
@@ -435,7 +486,7 @@ export default function MatrixOutputSetupWizard() {
           <div className={styles.wizardSection}>
             <div className={styles.wizardSummary}>
               <div className={styles.wizardSummaryRow}><span>Target</span><strong>{board?.label ?? 'No board'} · {portLabel || 'No port'}</strong></div>
-              <div className={styles.wizardSummaryRow}><span>Matrix</span><strong>{width} × {height} · {layout}</strong></div>
+              <div className={styles.wizardSummaryRow}><span>LED output</span><strong>{LED_OUTPUT_FORM_LABELS[form]} · {grid.width} × {grid.height}{linear ? '' : ` · ${layout}`}</strong></div>
               <div className={styles.wizardSummaryRow}><span>LED path</span><strong>{chipset} · {String(props.colorOrder ?? 'GRB')}</strong></div>
               <div className={styles.wizardSummaryRow}><span>Controller</span><strong>{controller.brightness} brightness · {controller.powerLimit ? `${controller.volts} V / ${controller.milliamps} mA cap` : 'power cap off'}</strong></div>
               <div className={styles.wizardSummaryRow}><span>Graph ready</span><strong>{hasFrameInput ? 'Frame connected' : 'Connect a frame before upload'}</strong></div>
@@ -445,7 +496,7 @@ export default function MatrixOutputSetupWizard() {
               className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
               disabled={!uploadReady || busy || layoutErrors.length > 0}
               onClick={handleFlashWiringTest}
-              title={!uploadReady ? 'Finish board and port setup first' : layoutErrors.join('\n') || 'Flash a wiring test to confirm the matrix before uploading a creative sketch'}
+              title={!uploadReady ? 'Finish board and port setup first' : layoutErrors.join('\n') || 'Flash a wiring test to confirm the LED output before uploading a creative sketch'}
             >
               🧪 Flash wiring test
             </button>

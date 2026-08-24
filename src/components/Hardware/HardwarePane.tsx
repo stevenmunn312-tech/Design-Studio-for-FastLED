@@ -39,8 +39,14 @@ import {
   type PartFootprintMm,
 } from '../../state/hardware'
 import {
+  corkscrewDiameterMm,
+  corkscrewDirection,
+  corkscrewHeightMm,
+  corkscrewStartAngle,
+  corkscrewTurns,
   LED_OUTPUT_FORM_LABELS,
   outputForm,
+  outputGridDims,
   ringDirection,
   ringStartAngle,
   type LedOutputForm,
@@ -255,16 +261,16 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     pinRequests: [{ key: 'pinA' }, { key: 'pinB' }, { key: 'pinSW' }],
   },
 ]
-// One node type for every LED output; the form says which of the four things
-// you can buy it is (src/state/ledOutputForm.ts).
+// One node type for every LED output; the form says what physical geometry the
+// chain or panel has (src/state/ledOutputForm.ts).
 const LED_OUTPUT_NODE_TYPE = 'MatrixOutput'
 
 /**
- * The four LED outputs, as the "Add Hardware" menu offers them.
+ * The LED output forms, as the "Add Hardware" menu offers them.
  *
- * Four entries rather than a dropdown behind one, because "I bought a ring,
+ * Separate entries rather than a dropdown behind one, because "I bought a ring,
  * where is the ring?" is a fair question a hidden variant answers badly — and
- * one node type behind them, because all four share a port signature and the
+ * one node type behind them, because all forms share a port signature and the
  * bundling rule says that is one node with a variant property.
  */
 const LED_OUTPUT_ENTRIES: Array<{
@@ -275,6 +281,11 @@ const LED_OUTPUT_ENTRIES: Array<{
   { form: 'strip', hint: 'A run of addressable tape', properties: { ledCount: 60 } },
   { form: 'matrix', hint: 'An addressable panel', properties: { width: 16, height: 16 } },
   { form: 'ring', hint: 'A circle of addressable LEDs', properties: { ledCount: 24 } },
+  {
+    form: 'corkscrew',
+    hint: 'A strip wound helically around a cylinder',
+    properties: { ledCount: 120, corkscrewTurns: 6, corkscrewDiameterMm: 100, corkscrewHeightMm: 300 },
+  },
   { form: 'hub75', hint: 'A scan panel on its own ribbon', properties: { width: 64, height: 32 } },
 ]
 
@@ -475,12 +486,8 @@ export default function HardwarePane() {
    * Every LED output, in graph order. Not one strip and one panel: a board can
    * drive several, each on its own pin, and the view has to show what is
    * actually on the bench rather than the first of each kind.
-   */
+  */
   const ledOutputs = useMemo(() => {
-    const clamp = (value: unknown, fallback: number, max: number) => {
-      const raw = Number(value ?? fallback)
-      return Math.max(1, Math.min(max, Number.isFinite(raw) ? Math.round(raw) : fallback))
-    }
     return nodes
       .filter((node) => node.data.nodeType === LED_OUTPUT_NODE_TYPE)
       .map((node) => {
@@ -488,9 +495,11 @@ export default function HardwarePane() {
         const form = outputForm(props)
         const isStrip = form === 'strip'
         const isRing = form === 'ring'
-        const ledCount = clamp(props.ledCount, 60, 2000)
-        const cols = isStrip || isRing ? ledCount : clamp(props.width, 16, 256)
-        const rows = isStrip || isRing ? 1 : clamp(props.height, 16, 256)
+        const isCorkscrew = form === 'corkscrew'
+        const grid = outputGridDims(props)
+        const ledCount = grid.width
+        const cols = grid.width
+        const rows = grid.height
         // Every part at true scale through the view's one mm-to-pixel factor: a
         // ring's diameter follows from its own circumference, and a HUB75 panel
         // is much denser than addressable tape, which is exactly the difference
@@ -507,6 +516,7 @@ export default function HardwarePane() {
           form,
           isStrip,
           isRing,
+          isCorkscrew,
           label: LED_OUTPUT_FORM_LABELS[form],
           cols,
           rows,
@@ -517,8 +527,28 @@ export default function HardwarePane() {
               direction: ringDirection(props),
             }
             : null,
-          widthMm: isStrip ? cols * WS2812B_PITCH_MM : isRing ? ringMm : cols * pitch,
-          heightMm: isStrip ? WS2812B_STRIP_WIDTH_MM : isRing ? ringMm : rows * pitch,
+          corkscrew: isCorkscrew
+            ? {
+              ledCount,
+              turns: corkscrewTurns(props),
+              startAngle: corkscrewStartAngle(props),
+              direction: corkscrewDirection(props),
+            }
+            : null,
+          widthMm: isStrip
+            ? cols * WS2812B_PITCH_MM
+            : isRing
+              ? ringMm
+              : isCorkscrew
+                ? corkscrewDiameterMm(props)
+                : cols * pitch,
+          heightMm: isStrip
+            ? WS2812B_STRIP_WIDTH_MM
+            : isRing
+              ? ringMm
+              : isCorkscrew
+                ? corkscrewHeightMm(props)
+                : rows * pitch,
           dataPin: Number(props.dataPin ?? 0),
           signalKey: feed ? `${feed.source}:${feed.sourceHandle ?? 'frame'}` : null,
         }
@@ -893,7 +923,7 @@ export default function HardwarePane() {
   }
 
   /*
-   * One creator for all four input parts. The node is the same object the graph
+   * One creator for every signal input part. The node is the same object the graph
    * would have shown either way; what the hardware view adds is that it arrives
    * already carrying pins this board actually exposes.
    */
@@ -1037,7 +1067,7 @@ export default function HardwarePane() {
   }
 
   /*
-   * One creator for all four forms. The node is the same either way; the form
+   * One creator for every form. The node is the same either way; the form
    * and the size that suits it are what the menu entry chose.
    *
    * A HUB75 panel is not on the LED data pin — it has its own ribbon, and its
@@ -1453,6 +1483,7 @@ export default function HardwarePane() {
                   styles.part,
                   output.isStrip ? styles.strip : styles.matrix,
                   output.isRing ? styles.ring : '',
+                  output.isCorkscrew ? styles.corkscrew : '',
                   // Which output the side preview is showing. The hardware view
                   // is where outputs are identified now, so it is also where one
                   // is chosen — the preview header no longer carries a picker.
@@ -1471,6 +1502,8 @@ export default function HardwarePane() {
                 title="Click to preview and configure this output · right-click for hardware actions"
                 aria-label={output.ring
                   ? `${output.label}, ${output.ring.ledCount} LEDs on pin ${output.dataPin}`
+                  : output.corkscrew
+                    ? `${output.label}, ${output.corkscrew.ledCount} LEDs over ${output.corkscrew.turns} turns on pin ${output.dataPin}`
                   : output.isStrip
                     ? `${output.label}, ${output.cols} LEDs on pin ${output.dataPin}`
                     : `${output.label}, ${output.cols} by ${output.rows} on pin ${output.dataPin}`}
@@ -1481,11 +1514,12 @@ export default function HardwarePane() {
                   rows={output.rows}
                   cellFill={output.isStrip ? 1 : LED_CELL_FILL}
                   ring={output.ring}
+                  corkscrew={output.corkscrew}
                   className={styles.ledPreview}
                 />
                 {/* The diffuser registers one dome per LED against a grid,
                     which a ring's circle of emitters does not have. */}
-                {!output.isRing && (
+                {!output.isRing && !output.isCorkscrew && (
                   <span
                     className={styles.lens}
                     style={lensStyle(output.partId, output.form)}
@@ -1496,7 +1530,7 @@ export default function HardwarePane() {
               <span className={styles.caption} style={captionStyle(output.partId)}>
                 <strong>{output.label}</strong>
                 <span>
-                  {output.isStrip || output.isRing ? `${output.cols} LEDs` : `${output.cols}x${output.rows}`}
+                  {output.isStrip || output.isRing || output.isCorkscrew ? `${output.cols} LEDs` : `${output.cols}x${output.rows}`}
                   {output.form === 'hub75' ? ' on its signal ribbon' : ` on pin ${output.dataPin}`}
                 </span>
               </span>

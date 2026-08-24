@@ -876,7 +876,7 @@ function matrixOutputExample(node: NodeDefinition): ReferenceLiveExample {
   builder.preview('target')
   return builder.finish(
     'Finish an audio-reactive LED patch',
-    'Microphone and FFT Analyzer drive Audio Cascade, Trails preserves its falling colour, and the LED Matrix turns the final frame into the shared preview, firmware, and upload target. The same node covers a string, a ring, and a HUB75 panel — its form decides which.',
+    'Microphone and FFT Analyzer drive Audio Cascade, Trails preserves its falling colour, and the LED Matrix output turns the final frame into the shared preview, firmware, and upload target. The same output node covers a string, matrix, ring, corkscrew, or HUB75 panel — its form decides which.',
     'The main preview should show a colourful audio cascade. Matrix size and master brightness changes should be reflected immediately before export or upload.',
   )
 }

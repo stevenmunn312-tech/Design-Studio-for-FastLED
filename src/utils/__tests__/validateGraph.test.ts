@@ -217,6 +217,40 @@ describe('validateGraph', () => {
     expect(findShowOutputFormErrors(nodes, [edge('e1', 'sc', 'out', 'frame')])).toEqual([])
   })
 
+  it('blocks a corkscrew from the Show Engine until that generator can emit its helix map', () => {
+    const nodes = [
+      node('pc', 'PatternCollection', { patternIds: [] }),
+      node('pm', 'PatternMaster', {}),
+      node('out', 'MatrixOutput', { form: 'corkscrew', ledCount: 120, corkscrewTurns: 6 }),
+    ]
+    expect(findShowOutputFormErrors(nodes, [edge('e1', 'pm', 'out', 'frame')])).toEqual([
+      expect.stringMatching(/corkscrew cannot be driven by the Show Engine.*helical LED map/),
+    ])
+  })
+
+  it('blocks mapped chains from the music-sync player and ignores stale matrix layout fields', () => {
+    const nodes = [
+      node('sd', 'SDCard'),
+      node('out', 'MatrixOutput', {
+        form: 'corkscrew',
+        ledCount: 120,
+        corkscrewTurns: 6,
+        width: 0,
+        height: 0,
+        layout: 'custom',
+        customXYMap: 'not a matrix map',
+      }),
+    ]
+    const wires = [{
+      id: 'sd-out', source: 'sd', target: 'out', sourceHandle: 'sdcard', targetHandle: 'sdcard',
+    }] as StudioEdge[]
+
+    expect(findMatrixLayoutErrors(nodes)).toEqual([])
+    expect(findShowOutputFormErrors(nodes, wires)).toEqual([
+      expect.stringMatching(/corkscrew cannot be driven by the music-sync SD player.*helical LED map/),
+    ])
+  })
+
   it('allows a single HUB75 Matrix Output route with default layout', () => {
     expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'WS2812B' })])).toEqual([])
     expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'HUB75' })])).toEqual([])

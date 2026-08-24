@@ -1,6 +1,6 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { isPortlessNodeType, NODE_LIBRARY, supportsScalarExpression } from '../state/nodeLibrary'
-import { outputForm, outputLedTotal } from '../state/ledOutputForm'
+import { isLinearForm, outputForm, outputLedTotal } from '../state/ledOutputForm'
 import { audioOutputMissing } from '../state/audioOutput'
 import { resolveShowTarget } from '../state/showTarget'
 import { evaluateScalarExpression } from '../state/scalarExpression'
@@ -376,7 +376,7 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): F
     if (outputs.length !== 1) return null
     const output = outputs[0]
     const p = output.data.properties as Record<string, unknown>
-    if (outputForm(p) === 'ring' || p.supersample === true) return null
+    if (outputForm(p) === 'ring' || outputForm(p) === 'corkscrew' || p.supersample === true) return null
     if (String(p.chipset ?? '') === 'HUB75') return null
     if (buildXYTable(w, h, p)) return null
     const feed = (incomingByTarget.get(output.id) ?? []).find((e) => e.targetHandle === 'frame')
@@ -618,6 +618,9 @@ export function findBoardPinCompatibility(nodes: StudioNode[], selectedFqbn: str
 export function findMatrixLayoutErrors(nodes: StudioNode[]): string[] {
   return nodes.filter((node) => node.data.nodeType === 'MatrixOutput').flatMap((output, index) => {
     const props = output.data.properties as Record<string, unknown>
+    // Strings, rings, and corkscrews have dedicated chain/shape geometry. A
+    // stale matrix layout in a migrated node is not part of their output path.
+    if (isLinearForm(outputForm(props))) return []
     const width = Math.max(0, Math.round(Number(props.width ?? 0)))
     const height = Math.max(0, Math.round(Number(props.height ?? 0)))
     const base = String(output.data.label ?? output.data.nodeType)
@@ -627,14 +630,16 @@ export function findMatrixLayoutErrors(nodes: StudioNode[]): string[] {
 }
 
 /**
- * A ring driven by the Show Engine, which the show sketch cannot render yet.
+ * A shape-mapped chain driven by the Show Engine or music-sync SD player,
+ * whose specialized sketches cannot render it yet.
  *
- * A ring's LEDs are one chain that reads a *circle* out of the composition, so
- * it needs the `_ringmap` table plus a physical `leds[RING_LEDS]` array kept
- * separate from the render buffer — `generateCpp` does both. `generateShowSketch`
- * has neither: `leds` is the composition buffer every pattern renders into and
- * every transition composites through, and its blit has no ring branch. So a
- * ring in a show drove a square raster of `d x d` LEDs down a chain of `N`,
+ * Rings and corkscrews are chains that read through dedicated sample maps, so
+ * they need a map table plus a physical LED array kept
+ * separate from the render buffer — `generateCpp` does both. The show/player
+ * generators have neither: `leds` is the composition buffer every pattern
+ * renders into and every transition composites through, and their blits have
+ * no shape-map branch.
+ * So a mapped chain in a show drove its authoring raster down the physical run,
  * lighting the wrong LED from the wrong pixel.
  *
  * Blocked rather than emitted, on the same principle as the HUB75 gate above:
@@ -644,14 +649,25 @@ export function findMatrixLayoutErrors(nodes: StudioNode[]): string[] {
  */
 export function findShowOutputFormErrors(nodes: StudioNode[], edges: StudioEdge[]): string[] {
   const masters = new Set(nodes.filter((node) => node.data.nodeType === 'PatternMaster').map((node) => node.id))
-  if (masters.size === 0) return []
-  const driven = new Set(edges
+  const showDriven = new Set(edges
     .filter((edge) => masters.has(edge.source) && edge.sourceHandle === 'frame' && edge.targetHandle === 'frame')
     .map((edge) => edge.target))
+  const playerDriven = new Set(edges
+    .filter((edge) => edge.targetHandle === 'sdcard')
+    .map((edge) => edge.target))
   return nodes
-    .filter((node) => node.data.nodeType === 'MatrixOutput' && driven.has(node.id))
-    .filter((node) => outputForm(node.data.properties as Record<string, unknown>) === 'ring')
-    .map((node) => `${String(node.data.label ?? 'LED Ring')}: a ring cannot be driven by the Show Engine yet — its circular LED map is not generated for shows. Use a string or matrix output, or drive the ring from a normal pattern graph.`)
+    .filter((node) => node.data.nodeType === 'MatrixOutput' && (showDriven.has(node.id) || playerDriven.has(node.id)))
+    .filter((node) => {
+      const form = outputForm(node.data.properties as Record<string, unknown>)
+      return form === 'ring' || form === 'corkscrew'
+    })
+    .map((node) => {
+      const form = outputForm(node.data.properties as Record<string, unknown>)
+      const label = form === 'ring' ? 'ring' : 'corkscrew'
+      const geometry = form === 'ring' ? 'circular' : 'helical'
+      const workflow = showDriven.has(node.id) ? 'Show Engine' : 'music-sync SD player'
+      return `${String(node.data.label ?? (form === 'ring' ? 'LED Ring' : 'LED Corkscrew'))}: a ${label} cannot be driven by the ${workflow} yet — its ${geometry} LED map is not generated for that firmware. Use a string or matrix output, or drive the ${label} from a normal pattern graph.`
+    })
 }
 
 /**

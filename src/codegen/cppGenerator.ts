@@ -30,7 +30,7 @@ import { particleRadius } from '../state/particleScale'
 import { buildXYTable, rotatePoint, tileRotationAt } from '../state/xyLayout'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette, type RGB } from '../state/customPalette'
 import { animartrixCppLines } from '../animartrix/codegen'
-import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes, ringMapFor } from '../state/outputRouting'
+import { compositionDims, corkscrewMapFor, leadingOutputRoutes, outputMirrorLeaders, outputRoutes, ringMapFor } from '../state/outputRouting'
 import { isLinearForm, outputCanvasDims, outputForm, outputLedTotal } from '../state/ledOutputForm'
 import { getNetworkCredentials } from '../state/networkCredentials'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
@@ -1382,7 +1382,7 @@ export function generateCpp(
   // What the single output physically is (src/state/ledOutputForm.ts). A string
   // renders on its own 1 x N grid, a ring on the square its circle is inscribed
   // in, a matrix or panel on its panel — so the render canvas comes from the
-  // form rather than from width/height, which two of the four forms don't use.
+  // form rather than from width/height, which the chain forms do not use.
   const singleForm = outputNode ? outputForm(rawProps(outputNode)) : 'matrix'
   const singleLinear = !multipleOutputs && isLinearForm(singleForm)
   const singleCanvas = outputNode ? outputCanvasDims(rawProps(outputNode)) : { width: 16, height: 16 }
@@ -1430,7 +1430,11 @@ export function generateCpp(
   const ringMap = isRing && outputNode
     ? ringMapFor(outputRoutes([outputNode])[0], width, height)
     : null
-  const physLeds = isRing ? 'RING_LEDS' : ss ? 'PANEL_LEDS' : 'NUM_LEDS'
+  const isCorkscrew = !multipleOutputs && singleForm === 'corkscrew'
+  const corkscrewMap = isCorkscrew && outputNode
+    ? corkscrewMapFor(outputRoutes([outputNode])[0], width, height)
+    : null
+  const physLeds = isRing ? 'RING_LEDS' : isCorkscrew ? 'CORKSCREW_LEDS' : ss ? 'PANEL_LEDS' : 'NUM_LEDS'
   const panelW = ss ? 'PANEL_W' : 'WIDTH'
   // Optional power cap (FastLED.setMaxPowerInVoltsAndMilliamps) — dims globally
   // to keep the PSU draw under a limit so a big matrix can't brown out the board.
@@ -1457,6 +1461,7 @@ export function generateCpp(
       // matrix reads that canvas, not the smaller square its own circumference
       // asked for.
       ringMap: ringMapFor(route, composition.w, composition.h),
+      corkscrewMap: corkscrewMapFor(route, composition.w, composition.h),
     }
   })
 
@@ -5963,6 +5968,11 @@ export function generateCpp(
             ln(`    CRGB _c = ${src}[pgm_read_word(&_ringmap_${route.safeId}[_i])]; _c.nscale8_video(${route.hardware.brightness});`)
             ln(`    ${leds}[_i] = _c;`)
             ln(`  }`)
+          } else if (route.corkscrewMap) {
+            ln(`  for (int _i = 0; _i < ${route.corkscrewMap.length}; _i++) {`)
+            ln(`    CRGB _c = ${src}[pgm_read_word(&_corkscrewmap_${route.safeId}[_i])]; _c.nscale8_video(${route.hardware.brightness});`)
+            ln(`    ${leds}[_i] = _c;`)
+            ln(`  }`)
           } else if (route.routeMode === 'crop') {
             ln(`  for (int _y = 0; _y < ${route.height}; _y++) for (int _x = 0; _x < ${route.width}; _x++) {`)
             ln(`    int _sx = (${route.routeX} + _x) % WIDTH, _sy = (${route.routeY} + _y) % HEIGHT;`)
@@ -5986,6 +5996,8 @@ export function generateCpp(
           ln(`  fill_solid(leds, ${physLeds}, CRGB::Black);`)
         } else if (ringMap) {
           ln(`  for (int _i = 0; _i < RING_LEDS; _i++) leds[_i] = ${src}[pgm_read_word(&_ringmap[_i])];`)
+        } else if (corkscrewMap) {
+          ln(`  for (int _i = 0; _i < CORKSCREW_LEDS; _i++) leds[_i] = ${src}[pgm_read_word(&_corkscrewmap[_i])];`)
         } else if (ss) {
           // Average each SS×SS block of the render buffer into one physical LED.
           const dst = xyTable ? 'XY(_x, _y)' : `_y * PANEL_W + _x`
@@ -6080,6 +6092,9 @@ export function generateCpp(
   }
   if (ringMap) {
     lines.push(`#define RING_LEDS ${ringMap.length}                 // LEDs around the ring`)
+  }
+  if (corkscrewMap) {
+    lines.push(`#define CORKSCREW_LEDS ${corkscrewMap.length}           // LEDs along the helix`)
   }
   if (multipleOutputs) {
     for (const route of outputConfigs) {
@@ -6184,15 +6199,26 @@ export function generateCpp(
   // the circle in the preview are the same circle by construction.
   if (multipleOutputs) {
     for (const route of outputConfigs) {
-      if (!route.ringMap) continue
-      lines.push(`// Ring sample map for ${cppComment(route.label)} — render index per LED.`)
-      lines.push(`const uint16_t _ringmap_${route.safeId}[${route.ringMap.length}] PROGMEM = { ${route.ringMap.join(',')} };`)
-      lines.push(``)
+      if (route.ringMap) {
+        lines.push(`// Ring sample map for ${cppComment(route.label)} — render index per LED.`)
+        lines.push(`const uint16_t _ringmap_${route.safeId}[${route.ringMap.length}] PROGMEM = { ${route.ringMap.join(',')} };`)
+        lines.push(``)
+      }
+      if (route.corkscrewMap) {
+        lines.push(`// Corkscrew sample map for ${cppComment(route.label)} — unwrapped-cylinder render index per LED.`)
+        lines.push(`const uint16_t _corkscrewmap_${route.safeId}[${route.corkscrewMap.length}] PROGMEM = { ${route.corkscrewMap.join(',')} };`)
+        lines.push(``)
+      }
     }
   } else if (ringMap) {
     lines.push(`// Ring sample map (LED index -> render index), baked from the ring's`)
     lines.push(`// LED count, start angle, and direction.`)
     lines.push(`const uint16_t _ringmap[RING_LEDS] PROGMEM = { ${ringMap.join(',')} };`)
+    lines.push(``)
+  } else if (corkscrewMap) {
+    lines.push(`// Corkscrew sample map (LED index -> render index), baked from the`)
+    lines.push(`// cylinder size, turns, start angle, and direction.`)
+    lines.push(`const uint16_t _corkscrewmap[CORKSCREW_LEDS] PROGMEM = { ${corkscrewMap.join(',')} };`)
     lines.push(``)
   }
 
@@ -6206,7 +6232,7 @@ export function generateCpp(
     }
   } else if (xyTable) {
     lines.push(`// Physical wiring map (grid index -> physical LED index), baked from`)
-    lines.push(`// MatrixOutput's layout/serpentine/tile settings.`)
+    lines.push(`// LED output layout/serpentine/tile settings.`)
     lines.push(`const uint16_t _xytable[${width * height}] PROGMEM = { ${xyTable.join(',')} };`)
     lines.push(`uint16_t XY(uint8_t x, uint8_t y) { return pgm_read_word(&_xytable[(uint16_t)y * ${panelW} + x]); }`)
     lines.push(``)
@@ -6286,7 +6312,7 @@ export function generateCpp(
   } else if (isHub75) {
     lines.push(...hub75SetupCpp(hub75Hw!))
   } else {
-    lines.push(...fastledSetupCpp(hw, (ss || ringMap) ? { ledCountMacro: physLeds } : {}))
+    lines.push(...fastledSetupCpp(hw, (ss || ringMap || corkscrewMap) ? { ledCountMacro: physLeds } : {}))
   }
   // HUB75 has no FastLED CLEDController registered, so setMaxPowerInVoltsAndMilliamps
   // would have nothing to throttle.

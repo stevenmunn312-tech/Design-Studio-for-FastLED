@@ -32,7 +32,7 @@ workbench's **Add Hardware** menu is the creation path for:
 - signal inputs: INMP441 microphone, PCM1802 line-in ADC, button,
   potentiometer, encoder, PIR motion, ambient light, and RTC modules;
 - workbench-only fixtures: SD Card and amplifier/DAC modules; and
-- LED String, LED Matrix, LED Ring, and HUB75 Panel outputs.
+- LED String, LED Matrix, LED Ring, LED Corkscrew, and HUB75 Panel outputs.
 
 Creation targets the root graph even while the user is editing a pattern group.
 The new part receives board-profile starting pins where available. GPIO
@@ -49,7 +49,7 @@ away and back restores the intended wiring.
 - `MicInput`, `LineInput`, `ButtonInput`, `PotInput`, and `EncoderInput`;
 - `MotionInput` and `LightInput`;
 - `RTCInput`; and
-- `MatrixOutput` (the implementation type behind all four LED-output forms).
+- `MatrixOutput` (the implementation type behind all five LED-output forms).
 
 `Board`, `SDCard`, and `Amplifier` are hardware-only. They carry configuration,
 not graph data.
@@ -89,12 +89,13 @@ readiness remain desk-local deployment state.
 
 ## LED outputs
 
-One `MatrixOutput` implementation backs four physical forms exposed separately
+One `MatrixOutput` implementation backs five physical forms exposed separately
 by **Add Hardware**. Each form has its own display label and renderer:
 
 - LED String;
 - LED Matrix;
-- LED Ring; and
+- LED Ring;
+- LED Corkscrew; and
 - HUB75 Panel.
 
 The physical form cannot be changed from the signal node. The workbench creates
@@ -106,7 +107,13 @@ the object the user owns. Responsibilities are split as follows:
   supersampling; and
 - the Board owns brightness, power, overclock, and memory policy.
 
-The output renders in its own shape in the graph and workbench. Clicking a
+The corkscrew form uses an unwrapped-cylinder authoring canvas whose horizontal
+axis travels around the cylinder and whose vertical axis travels down its
+height. LED count, turns, start angle, winding direction, diameter, and height
+produce one shared preview/firmware sample map. Its physical preview draws the
+same helical chain front-on with depth cues.
+
+Every output renders in its own shape in the graph and workbench. Clicking a
 workbench output also selects the route shown in the side preview. Multi-output
 firmware remains one synchronized sketch for one board.
 

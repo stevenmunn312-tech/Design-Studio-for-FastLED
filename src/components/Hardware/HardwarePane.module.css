@@ -163,6 +163,15 @@
     0 10px 20px rgba(0, 0, 0, 0.35);
 }
 
+/* A corkscrew is an arrangement of tape around open space, so it has no
+   rectangular PCB behind it. The preview itself draws the helical tape path. */
+.corkscrew {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
 /* Anchored under its part's band by the layout, centred on the part. */
 .caption {
   --hardware-caption-scale: 1;
