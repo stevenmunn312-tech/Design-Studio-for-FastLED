@@ -2429,7 +2429,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // One sketch, one FastLED/controller policy. These used to be repeated
       // on every LED Output even though firmware can apply only one global
       // master level, power ceiling, overclock define and PSRAM build target.
-      brightness: 200,
+      brightness: 128,
       overclock: 1,
       powerLimit: false,
       volts: 5,

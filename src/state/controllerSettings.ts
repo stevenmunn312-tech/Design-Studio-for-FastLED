@@ -21,7 +21,7 @@ export interface ControllerSettings {
 }
 
 export const DEFAULT_CONTROLLER_SETTINGS: ControllerSettings = {
-  brightness: 200,
+  brightness: 128,
   overclock: 1,
   powerLimit: false,
   volts: 5,
