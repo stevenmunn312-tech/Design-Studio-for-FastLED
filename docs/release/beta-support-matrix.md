@@ -20,6 +20,9 @@ the exact environment and path that were exercised. Everything else stays
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.101 | ESP32-S3 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | USB flash via `esptool` through the helper's normal Upload path | Generate a live-graph sketch, compile, flash, and run it on hardware | Original hardware-validation record (`2026-06-26`), retained by this matrix |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 151.0.7922.173 | ESP32-S3 (OPI PSRAM enabled) | WS2812B | 60x1 | LED string (non-matrix, non-serpentine) | `fbuild` 2.5.18 | USB flash via `esptool` through the helper's normal Upload path | Generate a representative animated live-graph sketch, compile, flash, verify GRB order/brightness/orientation and the 5 V / 2000 mA cap, then disconnect, reconnect, and upload again | [GitHub issue #200](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/issues/200) (`hw-14e7d6c0`, `2026-08-24`): all eight checks passed; #201 is the duplicate submission |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 151.0.7922.173 | ESP32-S3 (OPI PSRAM enabled) | WS2812B | 60x1 | LED string (non-matrix, non-serpentine) | `fbuild` 2.5.18 | ⚡ Flash Stream Receiver + 📡 Live Stream | Flash the Adalight receiver, stream live-preview frames over serial, verify GRB order/brightness/orientation and the 5 V / 2000 mA cap, then release and reacquire the port | [GitHub issue #202](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/issues/202) (`hw-86de9ad2`, `2026-08-24`): all nine checks passed |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 151.0.7922.173 | ESP32-S3 (OPI PSRAM enabled) + INMP441 | WS2812B | 65x1 | LED string (non-matrix, non-serpentine) | `fbuild` 2.5.18 | USB flash via `esptool` through the helper's normal Upload path | Compile and flash an on-device-microphone graph; verify live audio drives the expected FFT/beat response plus LED output, GRB order, brightness, power cap, and reconnect | [GitHub issue #203](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/issues/203) (`hw-b1bb1cf3`, `2026-08-24`): all nine checks passed with INMP441 on WS 39 / SCK 40 / SD 41 at 44.1 kHz, left channel |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 151.0.7922.173 | ESP32-S3 (OPI PSRAM enabled) + INMP441 | WS2812B | 65x1 | LED string (non-matrix, non-serpentine) | `fbuild` 2.5.18 | ⚡ Flash Stream Receiver + 📡 Live Stream | Flash the Adalight receiver and sustain live-preview streaming on the microphone-equipped target; verify LED output, GRB order, brightness, power cap, reconnect, and clean port release | [GitHub issue #204](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/issues/204) (`hw-0e6da4b4`, `2026-08-24`): all ten checks passed; follow-up testing confirmed stable streaming and correct palette colours with the LED 5 V rail enabled |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP32-S3 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | 🧪 Flash Wiring Test | Flash the standalone wiring-diagnostic sketch and confirm LEDs display correctly | Validation `hw-59a1bb36` (`2026-07-24`): full diagnostic sequence passed; supersedes the first pass |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 151.0.7922.138 | Classic ESP32 (Generic DevKit 38-pin, ESP32-D0WD-V3 rev v3.1, no PSRAM) | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` 2.5.16 | USB flash via `esptool` through the helper's normal Upload path | Generate a live-graph sketch, compile, flash, and run it on hardware | Classic-ESP32 bring-up note below (`2026-08-16`) |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 151.0.7922.173 | Classic ESP-32D DevKit v1 (30-pin, ESP32-WROOM-32D, no PSRAM) | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | USB flash via `esptool` through the helper's normal Upload path, plus the helper's `/api/rtc/set` serial write-back | DS3231 (Jaycar XC9044, Pi-header variant) time set from the app, read back by RTC Clock, and rendered on the LEDs by Clock Display | RTC capability validation record below (`2026-08-21`) |
@@ -111,13 +114,14 @@ Unless a future row says otherwise, treat the following as experimental:
   above). The classic-ESP32 row covers a normal live-graph upload only — its
   SD-show path is still experimental, per the 2026-07-28 note.
 - All LED chipsets except the recorded WS2812B row above.
-- All matrix/strip sizes except the recorded 16x16, 10x1, and 60x1 rows above.
+- All matrix/strip sizes except the recorded 16x16, 10x1, 60x1, and 65x1 rows above.
 - Tiled panels and custom XY maps (non-rectangular layouts) — strip layout has
-  recorded 10x1 ESP8266 and 60x1 ESP32-S3 validations only for their exact
-  rows and actions above.
+  recorded 10x1 ESP8266 plus 60x1 and 65x1 ESP32-S3 validations only for their
+  exact rows and actions above.
 - `arduino-cli` as an upload engine, beyond the recorded ESP8266 +
   strip-layout row above.
-- PSRAM modes except OPI on the exact ESP32-S3 + 60x1 normal-upload row above.
+- PSRAM modes except OPI on the exact ESP32-S3 + 60x1 normal-upload/live-stream
+  and 65x1 microphone/live-stream rows above.
 - Baked song envelopes and collection-driven modulation in the music-show
   pipeline.
 - SD show provisioning and player upload (music-sync shows remain experimental).

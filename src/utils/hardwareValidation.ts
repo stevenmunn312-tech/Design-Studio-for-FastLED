@@ -352,11 +352,18 @@ const RECORDED_HARDWARE_TARGETS: RecordedHardwareTarget[] = [
     features: ['LED String geometry'],
   },
   {
-    evidence: 'GitHub issue #200, hw-14e7d6c0 (2026-08-24)',
+    evidence: 'GitHub issues #200 and #202, hw-14e7d6c0 and hw-86de9ad2 (2026-08-24)',
     fqbn: 'esp32:esp32:esp32s3', engine: 'fbuild', chipset: 'WS2812B',
     form: 'strip', width: 60, height: 1, layout: 'matrix', serpentine: false, psram: 'opi',
-    actions: ['normal-upload'],
+    actions: ['normal-upload', 'live-stream'],
     features: ['LED String geometry', 'PSRAM (opi)'],
+  },
+  {
+    evidence: 'GitHub issues #203 and #204, hw-b1bb1cf3 and hw-0e6da4b4 (2026-08-24)',
+    fqbn: 'esp32:esp32:esp32s3', engine: 'fbuild', chipset: 'WS2812B',
+    form: 'strip', width: 65, height: 1, layout: 'matrix', serpentine: false, psram: 'opi',
+    actions: ['microphone', 'live-stream'],
+    features: ['LED String geometry', 'PSRAM (opi)', 'INMP441/on-device microphone'],
   },
 ]
 

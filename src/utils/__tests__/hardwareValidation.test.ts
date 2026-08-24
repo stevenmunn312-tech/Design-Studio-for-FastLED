@@ -90,7 +90,7 @@ describe('hardware validation profiles', () => {
     expect(profile.checks.map((check) => check.id)).toContain('reconnect')
   })
 
-  it('recognises issue #200 only for the recorded 60x1 OPI normal-upload path', () => {
+  it('recognises issues #200 and #202 for the exact 60x1 OPI upload and stream paths', () => {
     const recordedStrip = node('strip', 'MatrixOutput', {
       form: 'strip',
       ledCount: 60,
@@ -124,7 +124,7 @@ describe('hardware validation profiles', () => {
     expect(normal.configurationKey).toBe('hw-14e7d6c0')
     expect(normal.gaps).toEqual([])
 
-    const unrecordedStream = buildHardwareValidationProfile({
+    const recordedStream = buildHardwareValidationProfile({
       nodes: [recordedStrip],
       edges: [],
       selectedFqbn: 'esp32:esp32:esp32s3',
@@ -132,8 +132,51 @@ describe('hardware validation profiles', () => {
       action: 'live-stream',
       runtime: RECORDED_RUNTIME,
     })
-    expect(unrecordedStream.gaps).toEqual([
-      expect.objectContaining({ id: 'action-live-stream' }),
+    expect(recordedStream.configurationKey).toBe('hw-86de9ad2')
+    expect(recordedStream.gaps).toEqual([])
+  })
+
+  it('recognises issues #203 and #204 only for the exact 65x1 OPI microphone and stream paths', () => {
+    const recordedStrip = node('strip', 'MatrixOutput', {
+      form: 'strip',
+      ledCount: 65,
+      chipset: 'WS2812B',
+      colorOrder: 'GRB',
+      layout: 'matrix',
+      dataPin: 4,
+      brightness: 200,
+      correction: 'TypicalLEDStrip',
+      powerLimit: true,
+      volts: 5,
+      milliamps: 2000,
+      usePsram: true,
+      psramMode: 'opi',
+    })
+    const microphone = node('mic', 'MicInput', {
+      i2sWs: 39,
+      i2sSck: 40,
+      i2sSd: 41,
+      channel: 'Left',
+    })
+    const common = {
+      nodes: [recordedStrip, microphone],
+      edges: [],
+      selectedFqbn: 'esp32:esp32:esp32s3',
+      helper: { ...fbuild, fbuildVersion: 'fbuild 2.5.18' },
+      runtime: RECORDED_RUNTIME,
+    }
+
+    const microphonePass = buildHardwareValidationProfile({ ...common, action: 'microphone' })
+    expect(microphonePass.configurationKey).toBe('hw-b1bb1cf3')
+    expect(microphonePass.gaps).toEqual([])
+
+    const streamPass = buildHardwareValidationProfile({ ...common, action: 'live-stream' })
+    expect(streamPass.configurationKey).toBe('hw-0e6da4b4')
+    expect(streamPass.gaps).toEqual([])
+
+    const unrecordedUpload = buildHardwareValidationProfile({ ...common, action: 'normal-upload' })
+    expect(unrecordedUpload.gaps).toEqual([
+      expect.objectContaining({ id: 'action-normal-upload' }),
     ])
   })
 
