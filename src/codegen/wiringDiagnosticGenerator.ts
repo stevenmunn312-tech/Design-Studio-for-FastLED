@@ -5,6 +5,7 @@ import { sanitizePin } from './hardwarePins'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { controllerSettings, ledPropsWithController } from '../state/controllerSettings'
 import { outputGridDims } from '../state/ledOutputForm'
+import { audioOutputMode } from '../state/audioOutput'
 
 function intProp(val: unknown, def: number, min: number, max: number): number {
   const n = Math.round(Number(val))
@@ -33,6 +34,15 @@ export function generateWiringDiagnosticSketch(
 
   const p = outputNode.data.properties as Record<string, unknown>
   const controller = controllerSettings(nodes)
+  const amplifier = nodes.find((node) => node.data.nodeType === 'Amplifier')
+  const amplifierProps = (amplifier?.data.properties ?? {}) as Record<string, unknown>
+  // The diagnostic does not play audio. A powered I2S amplifier left on three
+  // floating GPIOs can nevertheless turn LED-switching noise into audible
+  // interference, so keep its inputs at a defined idle level for this sketch.
+  const muteI2sAmplifier = !!amplifier && audioOutputMode(nodes) === 'i2s'
+  const amplifierBclk = sanitizePin(amplifierProps.i2sBclk, 26)
+  const amplifierLrc = sanitizePin(amplifierProps.i2sLrc, 25)
+  const amplifierDout = sanitizePin(amplifierProps.i2sDout, 22)
   const grid = outputGridDims(p)
   const width = grid.width
   const height = grid.height
@@ -85,6 +95,11 @@ export function generateWiringDiagnosticSketch(
   if (!isHub75) {
     lines.push(`#define DATA_PIN ${dataPin}`)
     if (SPI_CHIPSETS.has(hw.chipset)) lines.push(`#define CLOCK_PIN ${hw.clockPin}`)
+  }
+  if (muteI2sAmplifier) {
+    lines.push(`#define AMP_I2S_BCLK ${amplifierBclk}`)
+    lines.push(`#define AMP_I2S_LRC  ${amplifierLrc}`)
+    lines.push(`#define AMP_I2S_DOUT ${amplifierDout}`)
   }
   lines.push(`#define WIDTH ${width}`)
   lines.push(`#define HEIGHT ${height}`)
@@ -301,6 +316,13 @@ export function generateWiringDiagnosticSketch(
   lines.push('}')
   lines.push('')
   lines.push('void setup() {')
+  if (muteI2sAmplifier) {
+    lines.push('  // No audio runs in this diagnostic. Hold the powered I2S amp quiet')
+    lines.push('  // instead of leaving its clock, word-select and data inputs floating.')
+    lines.push('  pinMode(AMP_I2S_BCLK, OUTPUT); digitalWrite(AMP_I2S_BCLK, LOW);')
+    lines.push('  pinMode(AMP_I2S_LRC, OUTPUT);  digitalWrite(AMP_I2S_LRC, LOW);')
+    lines.push('  pinMode(AMP_I2S_DOUT, OUTPUT); digitalWrite(AMP_I2S_DOUT, LOW);')
+  }
   if (isHub75) lines.push(...hub75SetupCpp(hub75Hw!))
   else lines.push(...fastledSetupCpp(hw))
   // HUB75 has no FastLED CLEDController registered, so setMaxPowerInVoltsAndMilliamps

@@ -113,6 +113,33 @@ describe('generateWiringDiagnosticSketch', () => {
     expect(spiSketch).toContain('#define CLOCK_PIN 7')
   })
 
+  it('holds a configured I2S amplifier quiet while the LED-only diagnostic runs', () => {
+    const amplifier = node('amp', 'Amplifier', 'output', {
+      model: 'max98357a-i2s-amplifier',
+      i2sBclk: 14,
+      i2sLrc: 15,
+      i2sDout: 16,
+    })
+    const sketch = generateWiringDiagnosticSketch([outputNode, amplifier])!
+
+    expect(sketch).toContain('#define AMP_I2S_BCLK 14')
+    expect(sketch).toContain('#define AMP_I2S_LRC  15')
+    expect(sketch).toContain('#define AMP_I2S_DOUT 16')
+    expect(sketch).toContain('pinMode(AMP_I2S_BCLK, OUTPUT); digitalWrite(AMP_I2S_BCLK, LOW);')
+    expect(sketch).toContain('pinMode(AMP_I2S_LRC, OUTPUT);  digitalWrite(AMP_I2S_LRC, LOW);')
+    expect(sketch).toContain('pinMode(AMP_I2S_DOUT, OUTPUT); digitalWrite(AMP_I2S_DOUT, LOW);')
+    expect(sketch.indexOf('pinMode(AMP_I2S_BCLK')).toBeLessThan(sketch.indexOf('FastLED.addLeds<'))
+  })
+
+  it('does not invent I2S mute pins for an analog amplifier', () => {
+    const amplifier = node('amp', 'Amplifier', 'output', {
+      model: 'pam8403-3w-stereo-amplifier',
+    })
+    const sketch = generateWiringDiagnosticSketch([outputNode, amplifier])!
+
+    expect(sketch).not.toContain('AMP_I2S_')
+  })
+
   describe('HUB75 (docs/development/design/hub75-output.md)', () => {
     const hub75Out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, chipset: 'HUB75' })
 
