@@ -1,7 +1,8 @@
 # Board node and hardware capability model
 
-Status: board/profile architecture implemented on `Hardware`; broader
-capability layer deferred · Owner: app · Updated: 2026-08-24
+Status: board/profile architecture and microphone-backed Audio capability
+implemented on `Hardware`; broader capability sources remain deferred ·
+Owner: app · Updated: 2026-08-24
 
 The Board node is the root authority for the controller a project targets. The
 original proposal has now shipped far enough that this document describes the
@@ -124,6 +125,10 @@ Output/Serial console. It is no longer owned by an LED-output popup.
 
 The Board/profile model currently provides enough authority for:
 
+- an `Audio` graph capability that discovers attached microphone hardware,
+  defaults a lone source, and remains explicitly empty without one;
+- explicit Audio payloads through FFT, beat, percussion, feature, spectrum,
+  group, recording, preview, and firmware paths;
 - output-capable and input-capable GPIO selection;
 - board-specific LED, INMP441, MAX98357A, SD SPI, and default I²C assignments
   where reviewed;
@@ -135,10 +140,6 @@ The Board/profile model currently provides enough authority for:
 
 The following proposal slices remain open and must not be described as shipped:
 
-- an `Audio` capability node abstracting microphone, line in, decoder tap, and
-  baked envelope sources;
-- explicit audio ports through FFT/beat/percussion/features analysis instead of
-  ambient preview reads;
 - decoder-tap and line-in hardware paths;
 - a Storage capability over SD, onboard flash, and USB;
 - timed-sequence authoring beyond the existing RTC/ScheduleTrigger graph tools;

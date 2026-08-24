@@ -9,7 +9,7 @@
 // the async driver is browser-only (it pulls the workspace matrix size and group
 // registry from graphStore).
 
-import { evaluateGraph, type Frame, type RGB, type GroupRegistry, type AudioOverride } from './graphEvaluator'
+import { evaluateGraph, type Frame, type RGB, type GroupRegistry, type AudioOverride, type PortValue } from './graphEvaluator'
 import type { StudioNode, StudioEdge } from './graphStore'
 import type { SavedPattern } from './patternLibrary'
 import { NODE_LIBRARY } from './nodeLibrary'
@@ -734,13 +734,19 @@ export async function captureWindows(
     const tick = (i * 60) / RATE_FPS
     const { override, roles } = audioForFrame(i, scenario)
     i++
+    const boundInputs: Record<string, PortValue> = { ...roles }
+    for (const groupNode of saved.subgraph.nodes) {
+      if (nodeType(groupNode) !== 'GroupInput' || !groupInputIsAudioTyped(groupNode)) continue
+      const paramId = groupInputRole(groupNode)
+      if (paramId) boundInputs[paramId] = override
+    }
     // Per-frame guard, mirroring the live preview loop: a single malformed
     // frame is skipped (rendered as blank) rather than tearing down the rating.
     let rendered: Frame | null = null
     try {
       rendered = evaluateGraph(
         saved.subgraph.nodes, saved.subgraph.edges, tick, w, h, registry,
-        prefix, new Set([groupId]), roles, override, trusted,
+        prefix, new Set([groupId]), boundInputs, override, trusted,
       )
     } catch {
       rendered = null

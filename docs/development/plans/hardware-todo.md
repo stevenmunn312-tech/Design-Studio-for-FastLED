@@ -6,8 +6,8 @@ Active backlog for the breaking `Hardware` line. The implemented two-view hardwa
 
 ## Audio capability
 
-- [ ] Add an `Audio` capability node with a source dropdown over attached board capabilities, an honest empty state, and a sensible single-source default.
-- [ ] Route `FFTAnalyzer`, `BeatDetect`, `PercussionDetect`, and `AudioFeatures` through explicit ports instead of ambient `useAudioStore.getState()` reads.
+- [x] Add an `Audio` capability node with a source dropdown over attached board capabilities, an honest empty state, and a sensible single-source default.
+- [x] Route `FFTAnalyzer`, `BeatDetect`, `PercussionDetect`, and `AudioFeatures` through explicit ports instead of ambient `useAudioStore.getState()` reads.
 - [ ] Add a decoder tap so on-board playback can analyse PCM before the DAC and drive generative shows without a microphone.
 - [ ] Add line-in hardware/capability support for player modules that cannot expose decoded PCM.
 

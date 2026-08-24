@@ -7,8 +7,17 @@ versioning (`0.y.z`) until the first stable release.
 
 ## [Unreleased]
 
+### Added
+
+- Added an `Audio` capability node whose source picker is derived from attached
+  board audio hardware, defaults a single microphone, and clearly reports when
+  no source exists.
+
 ### Changed
 
+- FFT, beat, percussion, audio-feature, and spectrum analysis now consume the
+  payload carried by their Audio connection in preview, recording, group/show,
+  and generated-firmware paths instead of reading ambient audio state.
 - PSRAM now defaults to an automatic policy that enables external render
   buffers only for exact board profiles with a recorded PSRAM interface, while
   retaining manual On/Off and QSPI/OPI controls.

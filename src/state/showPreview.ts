@@ -178,9 +178,18 @@ function renderGroupFrame(
 ): Frame {
   const def = groups[groupId]
   if (!def) return blank(W, H)
+  const boundInputs = { ...groupInputs }
+  if (audioOverride) {
+    for (const node of def.nodes) {
+      if (String(node.data.nodeType ?? '') !== 'GroupInput') continue
+      const paramId = String((node.data.properties as { paramId?: string } | undefined)?.paramId ?? '')
+      const outputType = ((node.data.outputs as { dataType?: string }[] | undefined)?.[0]?.dataType) ?? ''
+      if (paramId && outputType === 'audio' && !boundInputs[paramId]) boundInputs[paramId] = audioOverride
+    }
+  }
   return evaluateGraph(
     def.nodes, def.edges, timeMs * 0.06, W, H, groups,
-    `__show_${groupId}/`, new Set([groupId]), groupInputs, audioOverride,
+    `__show_${groupId}/`, new Set([groupId]), boundInputs, audioOverride,
     trusted,
   ) ?? blank(W, H)
 }
@@ -273,9 +282,9 @@ export function renderShowFrame(
 ): Frame {
   const st = showStateAt(show, timeMs)
 
-  // Feed the song's baked bass/mids/treble to the group's audio-reactive nodes,
-  // mirroring the firmware player — so FFTAnalyzer/BeatDetect react to the track
-  // in the preview without a live mic. Independent of the group-input roles.
+  // Feed the song's baked bass/mids/treble to the group's Audio GroupInput,
+  // mirroring the firmware player. The group's explicit Audio cables decide
+  // which analyzers react; the override is not an ambient analyzer input.
   const audioOverride = showAudioOverride(show.audio, timeMs)
 
   // Mid-transition: blend the outgoing pattern (state just before the switch)

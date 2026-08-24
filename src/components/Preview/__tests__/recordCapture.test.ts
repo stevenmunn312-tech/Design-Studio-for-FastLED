@@ -204,7 +204,6 @@ describe('captureSequence', () => {
       bass: level, mids: level, treble: level,
       micBass: level, micMids: level, micTreble: level,
       spectrum: Array(32).fill(level), detectorSpectrum: Array(32).fill(level),
-      implicitConnection: false as const,
     })
 
     const frames = await captureSequence({

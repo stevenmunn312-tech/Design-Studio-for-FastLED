@@ -25,6 +25,7 @@ import { evalCodeAsync, getCodeError as getCodeErrorFromSandbox, disposeCodeSand
 import { evalAnimartrix, disposeAnimartrixState } from '../animartrix/preview'
 import { applyEase } from './easing'
 import { projectWireframeVertices, resolveWireframeMesh } from './wireframeModel'
+import { resolveAudioCapabilitySource } from './audioCapabilities'
 
 export type { RGB, Palette, Frame }
 export { getCodeErrorFromSandbox as getCodeError }
@@ -4442,15 +4443,9 @@ function evalFieldTile(field: Field | null, tilesX: number, tilesY: number, W = 
 
 // ── Main entry point ──────────────────────────────────────────────────────────
 
-export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | null
-
-/** A reusable pattern group: a named subgraph that a `Group` node evaluates. */
-export interface GroupDef { nodes: StudioNode[]; edges: StudioEdge[] }
-export type GroupRegistry = Record<string, GroupDef>
-
-/** Audio values fed to reactive nodes in place of the live mic store. The field
- *  set mirrors exactly what the audio cases read from `useAudioStore`. */
-export interface AudioOverride {
+/** The value carried by an Audio cable. Analysis nodes consume this payload;
+ * only source nodes are allowed to sample the browser audio engine. */
+export interface AudioSignal {
   active: boolean
   micActive: boolean
   nativeFastLed?: boolean
@@ -4464,13 +4459,31 @@ export interface AudioOverride {
   micTreble: number
   spectrum: number[]
   detectorSpectrum: number[]
-  /** Whether the override itself counts as an audio connection, so an *unwired*
-   *  analysis node still reads it. True (the default) for show playback, where
-   *  the song is the implicit source and there is no cable to draw. False for
-   *  the preview recorder, which replays the same live mic the canvas is
-   *  reading — there, an unwired node must stay unwired or the export would
-   *  light up nodes the preview leaves dark. */
-  implicitConnection?: boolean
+  previewSpectrum?: number[]
+}
+
+export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | AudioSignal | null
+
+/** A reusable pattern group: a named subgraph that a `Group` node evaluates. */
+export interface GroupDef { nodes: StudioNode[]; edges: StudioEdge[] }
+export type GroupRegistry = Record<string, GroupDef>
+
+/** Audio values supplied while rendering a recorded preview or baked show. The
+ * override enters through an Audio/Microphone/GroupInput source, never by
+ * making an unwired analysis node ambiently connected. */
+export type AudioOverride = AudioSignal
+
+function isAudioSignal(value: PortValue): value is AudioSignal {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const candidate = value as Partial<AudioSignal>
+  return typeof candidate.active === 'boolean'
+    && typeof candidate.micActive === 'boolean'
+    && Array.isArray(candidate.spectrum)
+    && Array.isArray(candidate.detectorSpectrum)
+}
+
+function liveAudioSignal(): AudioSignal {
+  return useAudioStore.getState()
 }
 
 function semanticAudioInputs(audio: Pick<AudioOverride, 'micBass' | 'micMids' | 'micTreble'>): Record<string, PortValue> {
@@ -4564,9 +4577,7 @@ function createEvalNode(
   instancePrefix: string,
   groupStack: ReadonlySet<string>,
   groupInputs: Record<string, PortValue>,
-  // When set, audio-reactive nodes read from this instead of the live mic store
-  // — the show preview uses it to feed a group's FFTAnalyzer/BeatDetect the
-  // song's baked bass/mids/treble, matching what firmware plays back on-device.
+  // Recorded/show audio injected at an explicit source or group boundary.
   audioOverride: AudioOverride | null = null,
   // Prebuilt lookup maps for callers that create many evaluators over the same
   // graph (e.g. sampling a scope across a tick series) — see buildEvalMaps.
@@ -4575,16 +4586,14 @@ function createEvalNode(
   // logic (todo.md's P0 trust-boundary item) — appended last so every existing
   // positional call site keeps working unchanged, defaulting to trusted.
   trusted = true,
+  // Root hardware remains authoritative while evaluating nested groups.
+  capabilityNodes: readonly StudioNode[] = nodes,
 ) {
   const t = tick / 60   // seconds at assumed 60 fps
 
   // State maps are module-level and keyed by node id; prefix with the group
   // instance path so two instances of the same group don't share state.
   const stateKey = (id: string) => markStateUsed(instancePrefix + id)
-
-  // See AudioOverride.implicitConnection: an override normally stands in for a
-  // wire (the show's song), but the recorder's mic replay must not.
-  const overrideIsAudioSource = audioOverride !== null && audioOverride.implicitConnection !== false
 
   const { nodeMap, incoming } = shared ?? buildEvalMaps(nodes, edges)
 
@@ -4741,22 +4750,29 @@ function createEvalNode(
       }
 
       // ── Audio ─────────────────────────────────────────────────────────
+      case 'Audio': {
+        // The source property names concrete root hardware. A lone source is
+        // resolved as the default; an empty/ambiguous board stays honestly
+        // disconnected instead of silently listening to the browser mic.
+        const source = resolveAudioCapabilitySource(capabilityNodes, props.sourceId)
+        out = { audio: source ? (audioOverride ?? liveAudioSignal()) : null }
+        break
+      }
+
       case 'MicInput':
-        // Carries an explicit "audio signal is present" token through the graph.
-        // Audio-reactive nodes still read their band values from the live store
-        // (or a show override), but this token lets grouped subgraphs tell the
-        // difference between a real wired mic path and an unbound GroupInput.
-        out = { audio: true }
+        // Backwards-compatible direct wiring. New patches normally go through
+        // Audio, but both paths carry the same explicit payload.
+        out = { audio: audioOverride ?? liveAudioSignal() }
         break
 
       case 'FFTAnalyzer': {
-        const audio = audioOverride ?? useAudioStore.getState()
-        const audioConnected = overrideIsAudioSource || input(id, 'audio', null) !== null
+        const audioValue = input(id, 'audio', null)
+        const audio = isAudioSignal(audioValue) ? audioValue : null
         // No live audio source → no signal, unless the Test Signal toggle is on
         // (a synthetic oscillation for previewing motion without a microphone).
         // It's off by default so unwired/grouped patterns aren't driven into
         // "hyperdrive" and stay tunable.
-        const hasLiveAudio = audioConnected && Boolean(audio.active || audio.micActive)
+        const hasLiveAudio = Boolean(audio && (audio.active || audio.micActive))
         // `bands` genuinely drives analysis resolution: the raw 32-bin
         // spectrum is resampled to this many bins (resampleSpectrumBins(),
         // shared with SpectrumVisualizer), then split into three contiguous
@@ -4765,7 +4781,7 @@ function createEvalNode(
         const bands = Math.max(8, Math.min(32, Math.round(Number(props.bands ?? 24))))
         const raw = hasLiveAudio
           ? (() => {
-              const sampled = resampleSpectrumBins(audio.detectorSpectrum ?? audio.spectrum ?? [], bands)
+              const sampled = resampleSpectrumBins(audio!.detectorSpectrum ?? audio!.spectrum ?? [], bands)
               const third = bands / 3
               return {
                 bass:   avgRange(sampled, 0, third),
@@ -4810,9 +4826,9 @@ function createEvalNode(
 
       case 'BeatDetect': {
         const key = stateKey(id)
-        const audio = audioOverride ?? useAudioStore.getState()
-        const audioConnected = overrideIsAudioSource || input(id, 'audio', null) !== null
-        if (audioConnected && audio.active && audio.nativeFastLed === true) {
+        const audioValue = input(id, 'audio', null)
+        const audio = isAudioSignal(audioValue) ? audioValue : null
+        if (audio?.active && audio.nativeFastLed === true) {
           // Live microphone audio has already passed through FastLED's native
           // Beat detector. Preserve the baked/SD override path below, which
           // intentionally keeps Studio's per-node tunable detector.
@@ -4831,7 +4847,7 @@ function createEvalNode(
           const attack = denormalizeBeatParam('attack', normProp(props.attack, 0.55))
           const decay = denormalizeBeatParam('decay', normProp(props.decay, 0.25))
           const prev = beatLevels.get(key)
-          if (audioConnected && audio.active) {
+          if (audio?.active) {
             const result = updateBeatDetectorFromSpectrum(audio.detectorSpectrum ?? audio.spectrum ?? [], t * 1000, prev ?? createBeatDetectorState(), { threshold, attack, decay })
             beatLevels.set(key, result.state)
             out = {
@@ -4877,9 +4893,9 @@ function createEvalNode(
         const sensitivity = normProp(props.sensitivity, 0.55)
         const decay = Math.max(0, Math.min(0.98, Number(props.decay ?? 0.72)))
         const separation = normProp(props.separation, 0.4)
-        const audio = audioOverride ?? useAudioStore.getState()
-        const audioConnected = overrideIsAudioSource || input(id, 'audio', null) !== null
-        if (audioConnected && audio.active) {
+        const audioValue = input(id, 'audio', null)
+        const audio = isAudioSignal(audioValue) ? audioValue : null
+        if (audio?.active) {
           const spectrum = (audio.detectorSpectrum ?? audio.spectrum ?? []).map((v) => clamp01(Number(v) || 0))
           const prev = percussionLevels.get(key) ?? {
             prevSpectrum: spectrum,
@@ -4945,9 +4961,9 @@ function createEvalNode(
         const sensitivity = normProp(props.sensitivity, 0.5)
         const gate = normProp(props.gate, 0.12)
         const smoothing = Math.max(0, Math.min(0.95, Number(props.smoothing ?? 0.8)))
-        const audio = audioOverride ?? useAudioStore.getState()
-        const audioConnected = overrideIsAudioSource || input(id, 'audio', null) !== null
-        if (audioConnected && audio.active) {
+        const audioValue = input(id, 'audio', null)
+        const audio = isAudioSignal(audioValue) ? audioValue : null
+        if (audio?.active) {
           const spectrum = (audio.detectorSpectrum ?? audio.spectrum ?? []).map((v) => clamp01(Number(v) || 0))
           const prev = audioFeatureLevels.get(key) ?? {
             prevSpectrum: spectrum,
@@ -5420,12 +5436,11 @@ function createEvalNode(
       }
 
       case 'SpectrumVisualizer': {
-        const audio = audioOverride ?? useAudioStore.getState()
-        const audioConnected = overrideIsAudioSource || input(id, 'audio', null) !== null
-        const hasLiveAudio = audioConnected && Boolean(audio.active || audio.micActive)
-        const previewAudio = audio as AudioOverride & { previewSpectrum?: number[] }
+        const audioValue = input(id, 'audio', null)
+        const audio = isAudioSignal(audioValue) ? audioValue : null
+        const hasLiveAudio = Boolean(audio && (audio.active || audio.micActive))
         const spectrum = hasLiveAudio
-          ? (previewAudio.previewSpectrum?.length ? previewAudio.previewSpectrum : audio.spectrum)
+          ? (audio!.previewSpectrum?.length ? audio!.previewSpectrum : audio!.spectrum)
           : useUiStore.getState().testSignal
             ? Array.from({ length: 32 }, (_, i) => {
                 const lowBias = 1 - i / 48
@@ -6561,13 +6576,13 @@ function createEvalNode(
       case 'PatternMaster': {
         const ids = (input(id, 'patternset', null) as string[] | null) ?? []
         const audioSignal = input(id, 'audio', null)
+        const audio = isAudioSignal(audioSignal) ? audioSignal : null
         const beat = input(id, 'beat', false) as boolean
-        const liveAudio = useAudioStore.getState()
-        const liveGroupAudio = audioSignal !== null
+        const liveGroupAudio = audio
           ? semanticAudioInputs({
-              micBass: clamp01(Number(liveAudio.bass ?? liveAudio.micBass ?? 0)),
-              micMids: clamp01(Number(liveAudio.mids ?? liveAudio.micMids ?? 0)),
-              micTreble: clamp01(Number(liveAudio.treble ?? liveAudio.micTreble ?? 0)),
+              micBass: clamp01(Number(audio.bass ?? audio.micBass ?? 0)),
+              micMids: clamp01(Number(audio.mids ?? audio.micMids ?? 0)),
+              micTreble: clamp01(Number(audio.treble ?? audio.micTreble ?? 0)),
             })
           : {}
         // Rasterise a collected pattern (a group) to a frame, the same way the
@@ -6576,12 +6591,12 @@ function createEvalNode(
           const def = groups[gid]
           if (!def || groupStack.has(gid)) return blankFrame(W, H)
           const groupInputs: Record<string, PortValue> = { ...liveGroupAudio }
-          if (audioSignal !== null) {
+          if (audio) {
             for (const groupNode of def.nodes) {
               if (String(groupNode.data.nodeType ?? '') !== 'GroupInput') continue
               const paramId = String((groupNode.data.properties as { paramId?: string } | undefined)?.paramId ?? '')
               const outputType = ((groupNode.data.outputs as { dataType?: string }[] | undefined)?.[0]?.dataType) ?? ''
-              if (paramId && outputType === 'audio') groupInputs[paramId] = audioSignal
+              if (paramId && outputType === 'audio') groupInputs[paramId] = audio
             }
           }
           return evaluateGraph(
@@ -6591,7 +6606,7 @@ function createEvalNode(
             // A collected pattern is part of the same workspace, so it inherits
             // this graph's trust — an untrusted show must not run formula/Code
             // nodes just because they sit inside a collected pattern group.
-            trusted,
+            trusted, capabilityNodes,
           ) ?? blankFrame(W, H)
         }
         // Transitions come from a wired TransitionSet (the same node type feeds
@@ -7114,6 +7129,17 @@ function createEvalNode(
         for (const port of (node.data.inputs as { id: string }[] | undefined) ?? []) {
           boundInputs[port.id] = input(id, port.id, null)
         }
+        // Show playback supplies its baked decoder signal at the group
+        // boundary. The group's own Audio cables still decide which analyzers
+        // receive it; no analyzer reads the override directly.
+        if (audioOverride) {
+          for (const groupNode of def.nodes) {
+            if (String(groupNode.data.nodeType ?? '') !== 'GroupInput') continue
+            const paramId = String((groupNode.data.properties as { paramId?: string } | undefined)?.paramId ?? '')
+            const outputType = ((groupNode.data.outputs as { dataType?: string }[] | undefined)?.[0]?.dataType) ?? ''
+            if (paramId && outputType === 'audio' && !boundInputs[paramId]) boundInputs[paramId] = audioOverride
+          }
+        }
         const frame = evaluateGraph(
           def.nodes, def.edges, tick, W, H, groups,
           `${instancePrefix}${id}/`,
@@ -7122,7 +7148,7 @@ function createEvalNode(
           // A subgraph is part of the same workspace, so it inherits this
           // graph's trust — otherwise an untrusted import could run its
           // formula/Code nodes simply by nesting them inside a group.
-          trusted,
+          trusted, capabilityNodes,
         ) ?? blankFrame(W, H)
         out = { frame }
         break
@@ -7198,10 +7224,12 @@ export function evaluateGraph(
   // logic — appended last so existing positional callers keep working
   // unchanged, defaulting to trusted (todo.md's P0 trust-boundary item).
   trusted = true,
+  // Root physical sources used by Audio capability nodes in nested groups.
+  capabilityNodes: readonly StudioNode[] = nodes,
 ): Frame | null {
   maybePruneEvaluatorState()
   if (nodes.length === 0) return null
-  const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, instancePrefix, groupStack, groupInputs, audioOverride, null, trusted)
+  const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, instancePrefix, groupStack, groupInputs, audioOverride, null, trusted, capabilityNodes)
   // Render only what reaches an explicit terminal: a GroupOutput inside a group
   // subgraph, or a MatrixOutput at the root, each passing through its `frame`
   // input. A graph with no terminal previews nothing — the canvas falls back to

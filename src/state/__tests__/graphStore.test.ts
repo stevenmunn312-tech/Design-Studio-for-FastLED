@@ -390,27 +390,29 @@ describe('graphStore — grouping', () => {
     reset(
       [
         node('mic', 'MicInput'),
+        node('audio', 'Audio', { sourceId: 'mic' }),
         node('fft', 'FFTAnalyzer'),
         node('sp', 'SpectrumBars'),
         node('out', 'MatrixOutput'),
       ],
       [
-        edge('e1', 'mic', 'audio', 'fft', 'audio'),
+        edge('e1', 'audio', 'audio', 'fft', 'audio'),
         edge('e2', 'fft', 'bass', 'sp', 'bass'),
         edge('e3', 'sp', 'frame', 'out', 'frame'),
       ],
     )
     // "Select all" then group — the singletons must stay in the parent graph.
-    const gid = useGraphStore.getState().createGroup('Spectrum', ['mic', 'fft', 'sp', 'out'])
+    const gid = useGraphStore.getState().createGroup('Spectrum', ['mic', 'audio', 'fft', 'sp', 'out'])
     const s = useGraphStore.getState()
 
     expect(s.nodes.find((n) => n.id === 'mic')).toBeTruthy()   // source left behind
+    expect(s.nodes.find((n) => n.id === 'audio')).toBeTruthy() // capability left behind
     expect(s.nodes.find((n) => n.id === 'out')).toBeTruthy()   // output left behind
     expect(s.nodes.find((n) => n.id === 'fft')).toBeUndefined() // sealed in the group
     const groupNode = s.nodes.find((n) => n.data.nodeType === 'Group')!
 
-    // The mic now feeds the group via an exposed audio param; the group feeds out.
-    expect(s.edges.some((e) => e.source === 'mic' && e.target === groupNode.id)).toBe(true)
+    // Audio now feeds the group via an exposed audio param; the group feeds out.
+    expect(s.edges.some((e) => e.source === 'audio' && e.target === groupNode.id)).toBe(true)
     expect(s.edges.some((e) => e.source === groupNode.id && e.target === 'out')).toBe(true)
     expect(s.graphData[gid].nodes.some((n) => n.data.nodeType === 'GroupInput')).toBe(true)
   })

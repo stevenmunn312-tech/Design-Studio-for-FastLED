@@ -1,6 +1,6 @@
-import { useAudioStore } from '../../state/audioStore'
 import { useGraphStore } from '../../state/graphStore'
 import { usePreviewStore } from '../../state/previewStore'
+import type { AudioSignal } from '../../state/graphEvaluator'
 import styles from './BeatDetectBody.module.css'
 
 function clamp01(value: unknown) {
@@ -8,19 +8,28 @@ function clamp01(value: unknown) {
 }
 
 export default function BeatDetectBody({ nodeId }: { nodeId: string }) {
-  const active = useAudioStore((s) => s.active)
-  const wired = useGraphStore((s) => s.edges.some((e) => e.target === nodeId && e.targetHandle === 'audio'))
+  const source = useGraphStore((state) => {
+    const edge = state.edges.find((entry) => entry.target === nodeId && entry.targetHandle === 'audio')
+    return edge?.source && edge.sourceHandle ? `${edge.source}:${edge.sourceHandle}` : ''
+  })
+  const audio = usePreviewStore((state) => {
+    if (!source) return null
+    const [sourceId, sourcePort] = source.split(':')
+    const value = state.outputs.get(sourceId)?.[sourcePort]
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as AudioSignal : null
+  })
   const output = usePreviewStore((s) => s.outputs.get(nodeId))
   const beat = Boolean(output?.beat)
   const bpm = Math.max(0, Math.round(Number(output?.bpm ?? 120)))
   const intensity = beat ? 1 : clamp01((bpm - 60) / 120)
+  const live = Boolean(audio && (audio.active || audio.micActive))
 
   return (
     <div className={styles.wrap} aria-label="Beat detector status">
       <div className={styles.topLine}>
         <span className={styles.label}>Beat Detect</span>
-        <span className={styles.mode} data-live={active && wired}>
-          {active && wired ? 'LIVE' : 'PREVIEW'}
+        <span className={styles.mode} data-live={live}>
+          {live ? 'LIVE' : 'PREVIEW'}
         </span>
       </div>
 

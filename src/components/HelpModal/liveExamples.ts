@@ -1017,6 +1017,25 @@ export const MICROPHONE_LIVE_EXAMPLE = namedExample(
   'Allow microphone access and play audio nearby. The Trails node preview should make bass feel broad, mids structured, and treble quick and bright.',
 )
 
+export const AUDIO_CAPABILITY_LIVE_EXAMPLE = namedExample(
+  'Audio',
+  'Choose attached hardware once, then analyse it',
+  [
+    { key: 'mic', type: 'MicInput' },
+    { key: 'audio', type: 'Audio' },
+    { key: 'fft', type: 'FFTAnalyzer', properties: { smoothing: 0.7, gain: 1.15 } },
+    { key: 'bars', type: 'SpectrumBars', properties: { palette: 'party' } },
+  ],
+  [
+    { source: 'audio', sourceHandle: 'audio', target: 'fft', targetHandle: 'audio' },
+    { source: 'fft', sourceHandle: 'bass', target: 'bars', targetHandle: 'bass' },
+    { source: 'fft', sourceHandle: 'mids', target: 'bars', targetHandle: 'mids' },
+    { source: 'fft', sourceHandle: 'treble', target: 'bars', targetHandle: 'treble' },
+  ],
+  'Microphone is the attached physical part. Audio selects that capability and carries its complete signal through one explicit cable to FFT Analyzer.',
+  'Allow microphone access and play audio nearby. The Spectrum Bars node preview should separate the selected source into bass, mids, and treble.',
+)
+
 export const BUTTON_LIVE_EXAMPLE = namedExample(
   'ButtonInput',
   'Use a button to swap entire scenes',
@@ -1218,6 +1237,7 @@ export const RTC_CLOCK_LIVE_EXAMPLE = namedExample(
 )
 
 const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
+  Audio: AUDIO_CAPABILITY_LIVE_EXAMPLE,
   MicInput: MICROPHONE_LIVE_EXAMPLE,
   ButtonInput: BUTTON_LIVE_EXAMPLE,
   PotInput: POTENTIOMETER_LIVE_EXAMPLE,

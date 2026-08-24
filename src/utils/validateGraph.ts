@@ -16,6 +16,7 @@ import { boardPinVerdict, boardProfileById } from '../build/boardProfiles'
 import type { PhysicalBoardProfile } from '../build/boardProfiles'
 import { inmp441SupportedForBoard, INMP441_UNSUPPORTED_MESSAGE } from '../state/micPinDefaults'
 import { controllerSettings } from '../state/controllerSettings'
+import { resolveAudioCapabilitySource } from '../state/audioCapabilities'
 
 export interface ValidationResult {
   errors:   string[]
@@ -57,6 +58,21 @@ export function findPreviewOnlyWarnings(nodes: StudioNode[], edges: StudioEdge[]
   if (used.length === 0) return []
   const names = used.map(n => String(n.data.label ?? n.data.nodeType)).join(', ')
   return [`${names} ${used.length > 1 ? 'are' : 'is'} preview-only — the generated firmware will see the idle default instead of live input`]
+}
+
+/** A used Audio capability must resolve to one concrete hardware source. */
+export function findAudioCapabilityErrors(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  capabilityNodes: readonly StudioNode[] = nodes,
+): string[] {
+  return nodes
+    .filter((node) =>
+      node.data.nodeType === 'Audio' &&
+      edges.some((edge) => edge.source === node.id) &&
+      !resolveAudioCapabilitySource(capabilityNodes, String(node.data.properties.sourceId ?? ''))
+    )
+    .map((node) => `${nodeLabel(node)} has no attached source — add a microphone in Hardware or choose an available source`)
 }
 
 function findRtcWarnings(nodes: StudioNode[]): string[] {
@@ -929,6 +945,8 @@ export interface GraphDiagnosticOptions {
   selectedFqbn?: string
   /** Group subgraphs terminate at GroupOutput rather than MatrixOutput. */
   target?: 'matrix' | 'group'
+  /** Root hardware catalogue used by Audio nodes inside a nested group. */
+  capabilityNodes?: readonly StudioNode[]
 }
 
 const POWER_WARN_MA = 5_000
@@ -992,6 +1010,24 @@ export function buildGraphDiagnostics(
         nodeIds: [candidate.id], nodeLabel: nodeLabel(candidate),
       })
     }
+  }
+
+  for (const audioNode of nodes.filter((node) =>
+    node.data.nodeType === 'Audio' &&
+    edges.some((edge) => edge.source === node.id) &&
+    !resolveAudioCapabilitySource(options.capabilityNodes ?? nodes, String(node.data.properties.sourceId ?? ''))
+  )) {
+    diagnostics.push({
+      id: `${audioNode.id}-source`,
+      severity: 'error',
+      category: 'connection',
+      title: 'Audio has no attached source',
+      message: 'This Audio signal is in use, but it does not resolve to a microphone in the Hardware graph.',
+      fix: 'Add a microphone in Hardware, then choose it from the Audio source list.',
+      nodeIds: [audioNode.id],
+      nodeLabel: nodeLabel(audioNode),
+      propertyKey: 'sourceId',
+    })
   }
 
   const sharedPinUses = deliberatelySharedPinUses(nodes, edges)
@@ -1423,6 +1459,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   errors.push(...findMatrixLayoutErrors(nodes))
   errors.push(...findShowOutputFormErrors(nodes, edges))
   errors.push(...findShowRequirementErrors(nodes, edges, selectedFqbn))
+  errors.push(...findAudioCapabilityErrors(nodes, edges))
 
   errors.push(...findHub75ConfigErrors(nodes))
   errors.push(...findScalarExpressionErrors(nodes))

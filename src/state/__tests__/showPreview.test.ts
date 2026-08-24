@@ -240,11 +240,13 @@ describe('renderShowFrame', () => {
     const makeGroup = () => ({
       nodes: [
         mk('white', 'SolidColor', { r: 255, g: 255, b: 255 }, [], [{ id: 'frame', dataType: 'frame' }]),
-        mk('fft', 'FFTAnalyzer', {}, [], [{ id: 'bass', dataType: 'float' }, { id: 'mids', dataType: 'float' }, { id: 'treble', dataType: 'float' }]),
+        mk('audio', 'GroupInput', { paramId: 'audio' }, [], [{ id: 'out', dataType: 'audio' }]),
+        mk('fft', 'FFTAnalyzer', {}, [{ id: 'audio', dataType: 'audio' }], [{ id: 'bass', dataType: 'float' }, { id: 'mids', dataType: 'float' }, { id: 'treble', dataType: 'float' }]),
         mk('bm', 'BrightnessMod', {}, [{ id: 'frame', dataType: 'frame' }, { id: 'brightness', dataType: 'float' }], [{ id: 'frame', dataType: 'frame' }]),
         mk('go', 'GroupOutput', {}, [{ id: 'frame', dataType: 'frame' }], []),
       ],
       edges: [
+        { id: 'e0', source: 'audio', sourceHandle: 'out', target: 'fft', targetHandle: 'audio' },
         { id: 'e1', source: 'white', sourceHandle: 'frame', target: 'bm', targetHandle: 'frame' },
         { id: 'e2', source: 'fft', sourceHandle: 'bass', target: 'bm', targetHandle: 'brightness' },
         { id: 'e3', source: 'bm', sourceHandle: 'frame', target: 'go', targetHandle: 'frame' },

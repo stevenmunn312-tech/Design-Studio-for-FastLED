@@ -43,6 +43,7 @@ import {
 } from '../state/micPinDefaults'
 import { sanitizePin } from './hardwarePins'
 import { resolveWireframeMesh, meshBoundingRadius, WIREFRAME_FIT_MARGIN, WIREFRAME_CAM_FAR, WIREFRAME_CAM_NEAR } from '../state/wireframeModel'
+import { resolveAudioCapabilitySource } from '../state/audioCapabilities'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -833,18 +834,26 @@ export function hub75SetupCpp(hw: Hub75Hardware): string[] {
 
 /**
  * The on-device FastLED audio processor for a graph that
- * contains a MicInput, so a *controller* sketch (e.g. the generative pattern
- * show) can host the engine once while the render functions it compiles from
- * subgraphs reference the `_audioBass`/`_audioMids`/`_audioTreble`/`_audioBeat`
- * globals. Returns null when the graph has no MicInput. Mirrors the block
- * generateCpp inlines for a mic-bearing single-pattern sketch.
+ * contains a direct MicInput or an Audio capability backed by one, so a
+ * controller sketch can host the engine once while compiled subgraphs refer
+ * to `_audioBass`/`_audioMids`/`_audioTreble`/`_audioBeat`. Returns null when
+ * the reachable graph has no microphone source. Mirrors the block generateCpp
+ * inlines for a mic-bearing single-pattern sketch.
  */
-export function audioEngineForGraph(nodes: StudioNode[]): { preInclude: string[]; include: string; code: string[]; fqbn: string; backend: Inmp441FirmwareBackend } | null {
-  const micNode = nodes.find((n) => n.data.nodeType === 'MicInput')
+export function audioEngineForGraph(
+  nodes: StudioNode[],
+  capabilityNodes: StudioNode[] = nodes,
+): { preInclude: string[]; include: string; code: string[]; fqbn: string; backend: Inmp441FirmwareBackend } | null {
+  const directMic = nodes.find((n) => n.data.nodeType === 'MicInput')
+  const capabilityMic = nodes
+    .filter((node) => node.data.nodeType === 'Audio')
+    .map((node) => resolveAudioCapabilitySource(capabilityNodes, (node.data.properties as Record<string, unknown>).sourceId)?.node)
+    .find((node) => node?.data.nodeType === 'MicInput')
+  const micNode = directMic ?? capabilityMic
   if (!micNode) return null
   // The Board node is the sole target authority. MatrixOutput's legacy board
   // field and the upload store are intentionally not consulted here.
-  const fqbn = inmp441FqbnForBoardProfile(selectedPhysicalBoardProfile(nodes))
+  const fqbn = inmp441FqbnForBoardProfile(selectedPhysicalBoardProfile(capabilityNodes))
   const backend = fqbn ? inmp441FirmwareBackendForBoard(fqbn) : undefined
   if (!fqbn || !backend) return null
   const p = micNode.data.properties as Record<string, unknown>
@@ -1182,6 +1191,11 @@ export function generateCpp(
 ): string {
   if (nodes.length === 0) return '// No nodes in graph\n'
 
+  // Capability nodes can point at root hardware that is intentionally not on
+  // a signal edge. Preserve the authored graph while the render graph below is
+  // flattened and pruned to what reaches an LED output.
+  const capabilityNodes = nodes
+
   // Inline any Group nodes so the rest of the generator works on a flat graph.
   const flat = flattenGroups(nodes, edges, groups)
   nodes = flat.nodes
@@ -1308,19 +1322,33 @@ export function generateCpp(
     }
   })
 
-  // A MicInput node turns on FastLED's on-device INMP441 audio processor; its
-  // pins/channel configure FastLED's input. `emitEngine` means this sketch hosts
-  // the processor; `useAudioGlobals` means FFTAnalyzer/BeatDetect
-  // resolve to the live band levels (either because we host the engine, or a
-  // controller does — `externalAudio`) instead of placeholder constants.
+  // A reachable direct MicInput or Audio capability backed by one turns on
+  // FastLED's INMP441 processor. `emitEngine` means this sketch hosts it;
+  // `useAudioGlobals` means a connected analyzer may reference the shared live
+  // levels (or the host controller's `externalAudio`) instead of silence.
   // Everything below works from the nodes that actually feed an output — an
   // unwired MicInput must not emit the I2S engine any more than a parked Fire
   // node should emit a buffer and a simulation.
   const live = reachableFromOutputs(nodes, edges)
-  const audio = audioEngineForGraph(live)
+  const audio = audioEngineForGraph(live, capabilityNodes)
   const emitEngine = !!audio
   const useAudioGlobals = emitEngine || !!opts.externalAudio
   const nativeFastLedAudio = emitEngine || !!opts.nativeFastLedAudio
+
+  const hasExplicitAudioInput = (nodeId: string): boolean => {
+    if (!useAudioGlobals) return false
+    const upstream = incoming.get(`${nodeId}:audio`)
+    if (!upstream) return false
+    const source = nodeMap.get(upstream.srcId)
+    if (!source) return false
+    if (source.data.nodeType === 'Audio') {
+      return resolveAudioCapabilitySource(
+        capabilityNodes,
+        (source.data.properties as Record<string, unknown>).sourceId,
+      ) !== null
+    }
+    return true
+  }
 
   const sorted = topoSort(live, edges)
 
@@ -1564,7 +1592,9 @@ export function generateCpp(
       // patterns the show player drives.
       case 'GroupInput': {
         const role = String(p.paramId ?? 'energy')
-        if (role === 'palette') ln(`  CRGBPalette16 pal_${id} = palette;`)
+        const outputType = ((node.data.outputs as { dataType?: string }[] | undefined)?.[0]?.dataType ?? '')
+        if (outputType === 'audio') ln(`  // Audio GroupInput — its cable selects the host audio globals used downstream.`)
+        else if (role === 'palette') ln(`  CRGBPalette16 pal_${id} = palette;`)
         else ln(`  float ${v('out')} = ${opts.groupInputExprs?.[role] ?? role};`)
         break
       }
@@ -1716,6 +1746,7 @@ export function generateCpp(
       }
 
       case 'FFTAnalyzer': {
+        const audioConnected = hasExplicitAudioInput(node.id)
         const gain = Math.max(0.25, Math.min(4, Number(p.gain ?? 1)))
         const rawSmoothing = Number(p.smoothing ?? 0.72)
         const smoothing = Math.max(0, Math.min(0.95, rawSmoothing > 1 ? rawSmoothing / 4 : rawSmoothing))
@@ -1744,14 +1775,14 @@ export function generateCpp(
         const rawBass = `${v('bass')}_raw`
         const rawMids = `${v('mids')}_raw`
         const rawTreble = `${v('treble')}_raw`
-        if (!useAudioGlobals) ln(`  // FFTAnalyzer — add a Microphone node to drive these from the INMP441`)
+        if (!audioConnected) ln(`  // FFTAnalyzer — connect an Audio source to drive this analysis`)
         // The resample loop's counters (_b/_lo/_hi/_i/_sum) are generic
         // names, so they're scoped to a block — multiple FFTAnalyzer nodes
         // in the same sketch would otherwise redeclare them.
         ln(`  float ${rawBass}, ${rawMids}, ${rawTreble};`)
         ln(`  {`)
         ln(`    float ${bandsVar}[${bands}];`)
-        ln(`    for (int _b = 0; _b < ${bands}; _b++) { int _lo = (_b * 32) / ${bands}, _next = ((_b + 1) * 32) / ${bands}, _hi = _next > _lo ? _next : _lo + 1; float _sum = 0.0f; for (int _i = _lo; _i < _hi; _i++) _sum += ${useAudioGlobals ? '_audioSpectrum[_i]' : '0.0f'}; ${bandsVar}[_b] = _sum / (_hi - _lo); }`)
+        ln(`    for (int _b = 0; _b < ${bands}; _b++) { int _lo = (_b * 32) / ${bands}, _next = ((_b + 1) * 32) / ${bands}, _hi = _next > _lo ? _next : _lo + 1; float _sum = 0.0f; for (int _i = _lo; _i < _hi; _i++) _sum += ${audioConnected ? '_audioSpectrum[_i]' : '0.0f'}; ${bandsVar}[_b] = _sum / (_hi - _lo); }`)
         ln(`    ${rawBass} = ${groupExpr(bassFrom, bassTo)};`)
         ln(`    ${rawMids} = ${groupExpr(midsFrom, midsTo)};`)
         ln(`    ${rawTreble} = ${groupExpr(trebleFrom, trebleTo)};`)
@@ -1766,10 +1797,11 @@ export function generateCpp(
       }
 
       case 'BeatDetect': {
-        if (nativeFastLedAudio) {
+        const audioConnected = hasExplicitAudioInput(node.id)
+        if (audioConnected && nativeFastLedAudio) {
           ln(`  bool ${v('beat')} = _audioBeat; float ${v('bpm')} = _audioBpm;`)
           ln(`  float ${v('flux')} = 0.0f, ${v('onset')} = 0.0f, ${v('contrast')} = 0.0f, ${v('threshold')} = 0.0f, ${v('cooldownMs')} = 0.0f;`)
-        } else if (useAudioGlobals) {
+        } else if (audioConnected) {
           const threshold = denormalizeBeatParam('threshold', floatProp(p.threshold, 0.2, 0, 1))
           const attack = denormalizeBeatParam('attack', floatProp(p.attack, 0.55, 0, 1))
           const decay = denormalizeBeatParam('decay', floatProp(p.decay, 0.25, 0, 1))
@@ -1808,7 +1840,7 @@ export function generateCpp(
           ln(`  }`)
           ln(`  for (int _i = 0; _i < 32; _i++) ${prefix}_prevSpectrum[_i] = _audioSpectrum[_i]; ${prefix}_ready = true;`)
         } else {
-          ln(`  // BeatDetect — add a Microphone node for on-device beat detection`)
+          ln(`  // BeatDetect — connect an Audio source for on-device beat detection`)
           ln(`  bool ${v('beat')} = false; float ${v('bpm')} = 120.0f;`)
           ln(`  float ${v('flux')} = 0.0f, ${v('onset')} = 0.0f, ${v('contrast')} = 0.0f, ${v('threshold')} = 0.0f, ${v('cooldownMs')} = 0.0f;`)
         }
@@ -1819,7 +1851,8 @@ export function generateCpp(
         const sensitivity = floatProp(p.sensitivity, 0.55, 0, 1)
         const decay = Math.max(0, Math.min(0.98, Number(p.decay ?? 0.72)))
         const separation = floatProp(p.separation, 0.4, 0, 1)
-        if (useAudioGlobals) {
+        const audioConnected = hasExplicitAudioInput(node.id)
+        if (audioConnected) {
           const prefix = v('perc')
           const threshold = 0.06 + (1 - sensitivity) * 0.18
           ln(`  static float ${prefix}_prevSpectrum[32]; static bool ${prefix}_ready = false;`)
@@ -1850,7 +1883,7 @@ export function generateCpp(
           ln(`    ${prefix}_ready = true;`)
           ln(`  }`)
         } else {
-          ln(`  // PercussionDetect — add a Microphone node for on-device percussion envelopes`)
+          ln(`  // PercussionDetect — connect an Audio source for on-device percussion envelopes`)
           ln(`  float ${v('kick')} = 0.0f, ${v('snare')} = 0.0f, ${v('hihat')} = 0.0f;`)
         }
         break
@@ -1860,7 +1893,8 @@ export function generateCpp(
         const sensitivity = floatProp(p.sensitivity, 0.5, 0, 1)
         const gate = floatProp(p.gate, 0.12, 0, 1)
         const smoothing = Math.max(0, Math.min(0.95, Number(p.smoothing ?? 0.8)))
-        if (useAudioGlobals) {
+        const audioConnected = hasExplicitAudioInput(node.id)
+        if (audioConnected) {
           const prefix = v('feat')
           const silenceThreshold = 0.015 + gate * 0.35
           ln(`  static float ${prefix}_prevSpectrum[32]; static bool ${prefix}_ready = false;`)
@@ -1886,11 +1920,15 @@ export function generateCpp(
           ln(`  }`)
           ln(`  bool ${v('silence')} = ${v('energy')} < ${silenceThreshold.toFixed(4)}f;`)
         } else {
-          ln(`  // AudioFeatures — add a Microphone node for on-device audio feature extraction`)
+          ln(`  // AudioFeatures — connect an Audio source for on-device audio feature extraction`)
           ln(`  float ${v('vocals')} = 0.0f, ${v('energy')} = 0.0f; bool ${v('silence')} = true;`)
         }
         break
       }
+
+      case 'Audio':
+        ln(`  // Audio capability — the selected hardware source is hosted once by the sketch.`)
+        break
 
       case 'MicInput':
         ln(`  // MicInput — FastLED auto-pumps the INMP441 processor; updateAudio() polls its outputs.`)
@@ -3146,7 +3184,7 @@ export function generateCpp(
         const peakGravity = Math.max(0.2, Math.min(6, Number(p.peakGravity ?? 1.8)))
         const waterfallSpeed = Math.max(1, Math.min(30, Number(p.waterfallSpeed ?? 10)))
         const pal = paletteExpr(node.id, 'paletteIn', p)
-        const audioConnected = incoming.has(`${node.id}:audio`) && useAudioGlobals
+        const audioConnected = hasExplicitAudioInput(node.id)
         ln(`  { // SpectrumVisualizer · ${style}`)
         ln(`    static float _svLevel_${id}[WIDTH]={0},_svPeak_${id}[WIDTH]={0},_svVelocity_${id}[WIDTH]={0};`)
         ln(`    static uint32_t _svHold_${id}[WIDTH]={0},_svLast_${id}=0;`)
@@ -3181,7 +3219,7 @@ export function generateCpp(
           ln(`    fill_solid(${ob},NUM_LEDS,CRGB::Black);`)
           ln(`    for(int _x=0;_x<WIDTH;_x++){ int _barH=(int)roundf(_svLevel_${id}[_x]*HEIGHT); for(int _row=0;_row<_barH;_row++){ int _y=HEIGHT-1-_row; float _amount=HEIGHT<=1?1.0f:_row/(float)(HEIGHT-1); float _brightness=${ribbon ? '(_row==_barH-1?1.0f:0.18f+_amount*0.42f)' : '0.34f+_amount*0.66f'}; ${ob}[_y*WIDTH+_x]=_svColor(_amount,_brightness); } int _py=HEIGHT-1-(int)roundf(_svPeak_${id}[_x]*(HEIGHT-1)); if(_svPeak_${id}[_x]>0.015f&&_py>=0&&_py<HEIGHT)${ob}[_py*WIDTH+_x]=_svColor(_svPeak_${id}[_x],1.0f); }`)
         }
-        if (!audioConnected) ln(`    // Connect a Microphone to the Audio input to populate the spectrum on-device.`)
+        if (!audioConnected) ln(`    // Connect an Audio source to populate the spectrum on-device.`)
         ln(`  }`)
         break
       }

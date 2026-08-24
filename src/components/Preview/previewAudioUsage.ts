@@ -1,4 +1,5 @@
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
+import { resolveAudioCapabilitySource } from '../../state/audioCapabilities'
 
 interface PortLike {
   id?: string
@@ -25,8 +26,21 @@ function outputReachableNodeIds(nodes: StudioNode[], edges: StudioEdge[]): Set<s
   return reachable
 }
 
-function hasIncomingEdge(edges: StudioEdge[], nodeId: string, handleId: string): boolean {
-  return edges.some((edge) => edge.target === nodeId && edge.targetHandle === handleId)
+function hasIncomingAudioSource(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  nodeId: string,
+  handleId: string,
+): boolean {
+  const edge = edges.find((entry) => entry.target === nodeId && entry.targetHandle === handleId)
+  if (!edge?.source) return false
+  const source = nodes.find((node) => node.id === edge.source)
+  if (!source) return false
+  if (source.data.nodeType !== 'Audio') return true
+  return resolveAudioCapabilitySource(
+    nodes,
+    (source.data.properties as Record<string, unknown>).sourceId,
+  ) !== null
 }
 
 export function graphConsumesAudio(nodes: StudioNode[], edges: StudioEdge[]): boolean {
@@ -37,12 +51,13 @@ export function graphConsumesAudio(nodes: StudioNode[], edges: StudioEdge[]): bo
 
     const nodeType = String(node.data.nodeType ?? '')
     if (AUDIO_REACTIVE_TYPES.has(nodeType)) {
-      return hasIncomingEdge(edges, node.id, 'audio')
+      return hasIncomingAudioSource(nodes, edges, node.id, 'audio')
     }
 
     if (nodeType === 'Group') {
       const inputs = ((node.data as { inputs?: PortLike[] }).inputs ?? [])
-      return inputs.some((port) => port.id && port.dataType === 'audio' && hasIncomingEdge(edges, node.id, port.id))
+      return inputs.some((port) => port.id && port.dataType === 'audio'
+        && hasIncomingAudioSource(nodes, edges, node.id, port.id))
     }
 
     return false

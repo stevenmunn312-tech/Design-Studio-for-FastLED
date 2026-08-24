@@ -1,7 +1,7 @@
 # Hardware nodes and the two-view model
 
-Status: implemented on `Hardware`; capability abstractions remain deferred ·
-Owner: app · Updated: 2026-08-24
+Status: implemented on `Hardware`; microphone-backed Audio capability shipped,
+decoder and line-in sources deferred · Owner: app · Updated: 2026-08-24
 
 The current branch models each physical component once and presents it in the
 views where it has meaning. The user-facing workflow is in the
@@ -134,10 +134,15 @@ in the same full-width workbench where the action was started.
 
 ## Deferred capability work
 
-The current microphone still provides the audio signal directly, and analysis
-nodes retain their existing ambient preview integration. The planned `Audio`
-capability node, decoder tap, line-in source, and explicit analysis-node audio
-ports are not implemented.
+The graph now has an `Audio` capability node whose source picker is derived from
+attached board hardware. With one microphone it selects that source by default;
+with none it reports an empty state. Audio cables carry the live/recorded/baked
+signal payload through FFT, beat, percussion, feature, spectrum, group, preview,
+and firmware paths instead of letting analysis nodes read ambient browser state.
+Direct `MicInput` cables remain accepted for existing Hardware-line projects.
+
+Decoder tap and line-in sources are not implemented. On-board playback still
+drives generative analysis from the baked show envelope rather than decoded PCM.
 
 A Storage capability abstraction across SD, onboard flash, and USB is also not
 implemented. SD Card remains a concrete workbench-only part used by the

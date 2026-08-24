@@ -8,7 +8,7 @@
 // supported by the generator works inside a show with no extra wiring.
 //
 // Implements the full 16-style transition pool (via a wired TransitionSet) and
-// the beat trigger (via a wired MicInput's _audioBeat). Remaining scope: a
+// the beat trigger (via the hosted microphone's _audioBeat). Remaining scope: a
 // single controller file — multi-file (.h-per-pattern) output is a follow-up.
 // The full transition pool, beat-triggered early advance, and particle overlay
 // were later hardware-validated on ESP32-S3 + INMP441 hardware.
@@ -166,7 +166,10 @@ function buildPattern(
     ? Object.fromEntries(Object.entries({ ...AUDIO_GROUP_INPUTS, ...audioExprOverrides }).filter(([role]) => !roleParams.includes(role)))
     : {}
   const groupInputRole = (n: StudioNode) => String((n.data.properties as { paramId?: string }).paramId ?? '')
-  const keepGI = (n: StudioNode) => roleParams.includes(groupInputRole(n)) || groupInputRole(n) in groupInputExprs
+  const isAudioGI = (n: StudioNode) => ((n.data.outputs as { dataType?: string }[] | undefined)?.[0]?.dataType ?? '') === 'audio'
+  const keepGI = (n: StudioNode) => roleParams.includes(groupInputRole(n))
+    || groupInputRole(n) in groupInputExprs
+    || (externalAudio && isAudioGI(n))
   const nodes = [...sub.nodes.filter((n) => nodeType(n) !== 'GroupOutput' && (nodeType(n) !== 'GroupInput' || keepGI(n))), matrix]
   const keptIds = new Set(nodes.map((n) => n.id))
   const retainedEdges = sub.edges

@@ -4,15 +4,13 @@ import { SPECTRUM_BINS } from '../../state/showAudio'
 
 // Live-audio capture for the preview recorder.
 //
-// The evaluator's audio nodes read `useAudioStore.getState()` at evaluation
-// time. That is right for the 60fps preview, where evaluation *is* real time,
-// but a recording renders far faster than real time — so every frame of an
-// offline capture would sample essentially the same instant and the clip would
-// come out frozen. Instead the recorder listens for the clip's real duration
-// first, folding the live store into one snapshot per capture frame, then
-// replays that timeline through `AudioOverride` while it renders. Same idea as
-// the SD show pipeline's baked envelope, sourced from the mic rather than an
-// offline song analysis.
+// Audio source nodes sample `useAudioStore.getState()` at evaluation time. That
+// is right for the 60fps preview, where evaluation *is* real time, but a
+// recording renders far faster than real time — so every frame of an offline
+// capture would sample essentially the same instant and the clip would come
+// out frozen. Instead the recorder listens for the clip's real duration first,
+// folding the live store into one snapshot per capture frame, then replays that
+// timeline through `AudioOverride` at the wired source node.
 
 /** The subset of the audio store the evaluator's audio cases actually read. */
 export interface AudioSample {
@@ -51,7 +49,6 @@ export function silentAudioFrame(): RecordedAudioFrame {
     spectrum: silentBins(),
     detectorSpectrum: silentBins(),
     previewSpectrum: silentBins(),
-    implicitConnection: false,
   }
 }
 
@@ -74,9 +71,6 @@ export function snapshotAudio(audio: AudioSample): RecordedAudioFrame {
     spectrum: [...(audio.spectrum ?? [])],
     detectorSpectrum: [...(audio.detectorSpectrum ?? [])],
     previewSpectrum: audio.previewSpectrum ? [...audio.previewSpectrum] : undefined,
-    // The recorder replays the same mic the canvas is reading, so it must not
-    // make an unwired analysis node behave as though something were plugged in.
-    implicitConnection: false,
   }
 }
 

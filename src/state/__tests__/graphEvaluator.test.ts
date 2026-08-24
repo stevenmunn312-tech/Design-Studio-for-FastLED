@@ -534,16 +534,16 @@ describe('evaluateGraph', () => {
       .toEqual(JSON.stringify(renderParticleBurst(0, 80, 1, 2, col, W, H)))
   })
 
-  it('audio-reactive nodes read an audioOverride instead of the mic store', () => {
-    // The show preview passes the song's baked audio as a synthetic 32-bin
-    // spectrum override (showAudio.ts's bandsToSpectrum) so a group's
-    // FFTAnalyzer reacts to the track without a live mic. FFTAnalyzer seeds
-    // its smoothing from the first target, so frame 0 == the raw band.
+  it('audio source nodes carry an audioOverride through explicit wiring', () => {
+    // Offline recording replaces the source payload with a captured frame.
+    // FFTAnalyzer seeds smoothing from the first target, so frame 0 == raw.
+    const mic = node('micov', 'MicInput', 'input', {})
     const fft = node('fftov', 'FFTAnalyzer', 'audio', {})
     const sc = node('scov', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
     const bm = node('bmov', 'BrightnessMod', 'composite', {})
     const out = node('outov', 'MatrixOutput', 'output', {})
     const edges = [
+      edge('e0', 'micov', 'audio', 'fftov', 'audio'),
       edge('e1', 'fftov', 'bass', 'bmov', 'brightness'),
       edge('e2', 'scov', 'frame', 'bmov', 'frame'),
       edge('e3', 'bmov', 'frame', 'outov', 'frame'),
@@ -552,8 +552,35 @@ describe('evaluateGraph', () => {
       active: true, micActive: true, micBass: 0, micMids: 0, micTreble: 0,
       spectrum: Array(32).fill(0.6), detectorSpectrum: Array(32).fill(0.6),
     }
-    const f = evaluateGraph([fft, sc, bm, out], edges, 0, 4, 4, {}, '', new Set(), {}, override)!
+    const f = evaluateGraph([mic, fft, sc, bm, out], edges, 0, 4, 4, {}, '', new Set(), {}, override)!
     expect(f[0][0].r).toBe(Math.round(255 * 0.6))
+  })
+
+  it('Audio resolves its selected hardware capability and stays empty without one', () => {
+    mockAudio.active = true
+    mockAudio.detectorSpectrum = Array(32).fill(0.4)
+    const mic = node('mic-cap', 'MicInput', 'input', {})
+    const audio = node('audio-cap', 'Audio', 'input', { sourceId: 'mic-cap' })
+    const fft = node('fft-cap', 'FFTAnalyzer', 'audio', { smoothing: 0 })
+    const connected = evaluateGraphFull(
+      [mic, audio, fft],
+      [edge('cap-edge', 'audio-cap', 'audio', 'fft-cap', 'audio')],
+      0, W, H,
+    ).outputs
+    expect(connected.get('audio-cap')?.audio).toMatchObject({ active: true })
+    expect(connected.get('fft-cap')?.bass).toBeCloseTo(0.4)
+
+    const emptyAudio = node('audio-empty', 'Audio', 'input', { sourceId: '' })
+    const emptyFft = node('fft-empty', 'FFTAnalyzer', 'audio', { smoothing: 0 })
+    const empty = evaluateGraphFull(
+      [emptyAudio, emptyFft],
+      [edge('empty-edge', 'audio-empty', 'audio', 'fft-empty', 'audio')],
+      0, W, H,
+    ).outputs
+    expect(empty.get('audio-empty')?.audio).toBeNull()
+    expect(empty.get('fft-empty')?.bass).toBe(0)
+    mockAudio.active = false
+    mockAudio.detectorSpectrum = Array(32).fill(0)
   })
 
   it('FFTAnalyzer derives its bands from the raw spectrum, not the store\'s pre-computed levels', () => {
@@ -2590,6 +2617,39 @@ describe('evaluateGraph — groups', () => {
     const grp = node('g1', 'Group', 'pattern', { groupId: 'blueGroup' })
     const frame = evaluateGraph([grp, out()], [edge('e1', 'g1', 'frame', 'out', 'frame')], 0, 4, 4, groups)
     expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 255 })
+  })
+
+  it('resolves a nested Audio capability against root hardware', () => {
+    const override = {
+      active: true, micActive: true, micBass: 0, micMids: 0, micTreble: 0,
+      spectrum: Array(32).fill(0.5), detectorSpectrum: Array(32).fill(0.5),
+    }
+    const groups = {
+      audioGroup: {
+        nodes: [
+          node('audio', 'Audio', 'input', { sourceId: 'mic' }),
+          node('fft', 'FFTAnalyzer', 'audio', { smoothing: 0 }),
+          node('solid', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 }),
+          node('brightness', 'BrightnessMod', 'composite', {}),
+          node('go', 'GroupOutput', 'output', {}),
+        ],
+        edges: [
+          edge('audio-fft', 'audio', 'audio', 'fft', 'audio'),
+          edge('fft-brightness', 'fft', 'bass', 'brightness', 'brightness'),
+          edge('solid-brightness', 'solid', 'frame', 'brightness', 'frame'),
+          edge('brightness-output', 'brightness', 'frame', 'go', 'frame'),
+        ],
+      },
+    }
+    const mic = node('mic', 'MicInput', 'input', {})
+    const group = node('group', 'Group', 'pattern', { groupId: 'audioGroup' })
+    const frame = evaluateGraph(
+      [mic, group, out()],
+      [edge('group-output', 'group', 'frame', 'out', 'frame')],
+      0, 4, 4, groups, '', new Set(), {}, override,
+    )!
+
+    expect(frame[0][0].r).toBe(Math.round(255 * 0.5))
   })
 
   it('renders blank for an unknown group reference', () => {

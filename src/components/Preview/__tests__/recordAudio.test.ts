@@ -32,9 +32,9 @@ function sample(over: Partial<AudioSample> = {}): AudioSample {
 }
 
 describe('snapshotAudio', () => {
-  it('never lets the recorder stand in for a missing audio cable', () => {
-    expect(snapshotAudio(sample()).implicitConnection).toBe(false)
-    expect(silentAudioFrame().implicitConnection).toBe(false)
+  it('does not carry the retired ambient-connection flag', () => {
+    expect('implicitConnection' in snapshotAudio(sample())).toBe(false)
+    expect('implicitConnection' in silentAudioFrame()).toBe(false)
   })
 
   it('clones the spectrum arrays the analysis engine reuses between frames', () => {

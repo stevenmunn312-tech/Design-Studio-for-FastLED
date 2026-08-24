@@ -4,6 +4,15 @@ import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, 
 import { EASE_TYPES } from '../easing'
 
 describe('nodeLibrary', () => {
+  it('exposes an Audio capability source with an explicit audio output', () => {
+    const audio = NODE_LIBRARY.find((node) => node.type === 'Audio')
+    expect(audio).toMatchObject({
+      category: 'input',
+      defaultProperties: { sourceId: '' },
+      outputs: [{ id: 'audio', dataType: 'audio' }],
+    })
+  })
+
   it('gives Image nodes placement and transform defaults', () => {
     expect(NODE_LIBRARY.find((n) => n.type === 'Image')?.defaultProperties).toEqual({
       fit: 'stretch',

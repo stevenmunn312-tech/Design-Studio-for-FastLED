@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ROOT_GRAPH_ID, useGraphStore } from '../../state/graphStore'
+import { ROOT_GRAPH_ID, useGraphStore, useRootNodes } from '../../state/graphStore'
 import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import { useUiStore } from '../../state/uiStore'
 import {
@@ -31,6 +31,7 @@ function actionLabel(action: GraphDiagnosticAction): string {
 
 export default function GraphHealthDrawer() {
   const nodes = useGraphStore((state) => state.nodes)
+  const capabilityNodes = useRootNodes()
   const edges = useGraphStore((state) => state.edges)
   const activeGraphId = useGraphStore((state) => state.activeGraphId)
   const graphs = useGraphStore((state) => state.graphs)
@@ -46,7 +47,8 @@ export default function GraphHealthDrawer() {
   const diagnostics = useMemo(() => buildGraphDiagnostics(nodes, edges, {
     selectedFqbn,
     target: activeGraphId === ROOT_GRAPH_ID ? 'matrix' : 'group',
-  }), [activeGraphId, edges, nodes, selectedFqbn])
+    capabilityNodes,
+  }), [activeGraphId, capabilityNodes, edges, nodes, selectedFqbn])
   const errors = diagnostics.filter((issue) => issue.severity === 'error').length
   const warnings = diagnostics.length - errors
   const visible = filter === 'all' ? diagnostics : diagnostics.filter((issue) => issue.severity === filter)

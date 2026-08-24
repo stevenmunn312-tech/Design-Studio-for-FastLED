@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, estimatePowerLoad, estimateFirmwareRam, findMirroredOutputMismatches, findShowOutputFormErrors } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, estimatePowerLoad, estimateFirmwareRam, findMirroredOutputMismatches, findShowOutputFormErrors, findAudioCapabilityErrors } from '../validateGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -16,6 +16,26 @@ function edge(id: string, source: string, target: string, th: string): StudioEdg
 }
 
 describe('validateGraph', () => {
+  it('requires a used Audio capability to resolve to hardware', () => {
+    const audio = node('audio', 'Audio')
+    const wires = [edge('audio-edge', 'audio', 'fft', 'audio')]
+
+    expect(findAudioCapabilityErrors([audio], wires)).toEqual([
+      'Audio has no attached source — add a microphone in Hardware or choose an available source',
+    ])
+    expect(buildGraphDiagnostics([audio], wires)).toContainEqual(expect.objectContaining({
+      id: 'audio-source',
+      severity: 'error',
+      propertyKey: 'sourceId',
+      nodeIds: ['audio'],
+    }))
+
+    const microphone = node('mic', 'MicInput', { partId: 'inmp441' })
+    expect(findAudioCapabilityErrors([audio, microphone], wires)).toEqual([])
+    audio.data.properties.sourceId = 'mic'
+    expect(findAudioCapabilityErrors([audio, microphone], wires)).toEqual([])
+  })
+
   it('returns node-attributed diagnostics with a concrete fix', () => {
     const nodes = [
       node('random', 'Random', { min: 0, max: 'not_valid(' }),

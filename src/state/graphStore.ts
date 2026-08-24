@@ -282,7 +282,7 @@ type HistorySlice = Pick<GraphState, 'nodes' | 'edges' | 'graphData'>
 // route or a live source, it is the controller the whole scene targets. A saved
 // pattern must stay board-agnostic, so grouping a selection never seals a board
 // choice inside it.
-const GROUP_EXCLUDED_TYPES = new Set(['MatrixOutput', 'MicInput', 'DMXInput', 'MusicLibrary', 'Board'])
+const GROUP_EXCLUDED_TYPES = new Set(['MatrixOutput', 'Audio', 'MicInput', 'DMXInput', 'MusicLibrary', 'Board'])
 
 /** Nodes that represent one scene-wide hardware resource. Creation actions use
  *  this set as a final guard, so every UI path (click, drop, paste, duplicate)
@@ -1639,8 +1639,8 @@ export const useGraphStore = create<GraphState>()(
           // Scene-level outputs/sources stay in the parent graph rather than being
           // sealed inside a reusable pattern. A surviving MatrixOutput is
           // auto-rewired to the new Group's frame output (it becomes an outgoing
-          // boundary edge); a surviving MicInput/MusicLibrary feeding the
-          // selection is surfaced as an exposed Group input (an incoming edge).
+          // boundary edge); a surviving Audio/MicInput/MusicLibrary feeding
+          // the selection is surfaced as an exposed Group input (an incoming edge).
           // This keeps the "make pattern → group → repeat" loop's sources/output
           // in place for the next pattern.
           for (const n of s.nodes)

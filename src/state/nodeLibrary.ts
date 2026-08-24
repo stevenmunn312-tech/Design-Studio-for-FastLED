@@ -10,6 +10,16 @@ import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
 import { LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, outputForm } from './ledOutputForm'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
+  {
+    type: 'Audio',
+    label: 'Audio',
+    category: 'input',
+    inputs: [],
+    outputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
+    // The concrete source id is chosen from root hardware by
+    // AudioCapabilityBody. Empty is meaningful when the board has no source.
+    defaultProperties: { sourceId: '' },
+  },
   // ── Inputs ─────────────────────────────────────────────────────────────
   {
     type: 'MicInput',
@@ -2780,6 +2790,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   FFTAnalyzer: 'Splits mic audio into bass/mids/treble; tilt boosts weak treble.',
   BeatDetect: 'Emits a beat pulse and estimated BPM from audio.',
   PercussionDetect: 'Heuristic kick, snare, and hi-hat envelopes from audio.',
+  Audio: 'Selects an audio capability attached to the board and carries it into the graph.',
   AudioFeatures: 'Heuristic vocals, energy, and silence features from audio.',
   MicInput: 'Microphone — FastLED audio processing with configurable INMP441 I2S firmware.',
   AudioHue: 'Maps bass/mids/treble to a hue value.',

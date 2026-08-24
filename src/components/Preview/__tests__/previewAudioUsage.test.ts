@@ -56,6 +56,21 @@ describe('graphConsumesAudio', () => {
     )).toBe(false)
   })
 
+  it('requires an Audio capability node to resolve attached hardware', () => {
+    const audio = node('audio', 'Audio', { sourceId: 'mic' })
+    const fft = node('fft', 'FFTAnalyzer')
+    const bars = node('bars', 'SpectrumBars')
+    const out = node('out', 'MatrixOutput')
+    const edges = [
+      edge('e1', 'audio', 'audio', 'fft', 'audio'),
+      edge('e2', 'fft', 'bass', 'bars', 'bass'),
+      edge('e3', 'bars', 'frame', 'out', 'frame'),
+    ]
+
+    expect(graphConsumesAudio([audio, fft, bars, out], edges)).toBe(false)
+    expect(graphConsumesAudio([node('mic', 'MicInput'), audio, fft, bars, out], edges)).toBe(true)
+  })
+
   it('returns true when a Spectrum Visualizer consumes wired audio', () => {
     expect(graphConsumesAudio(
       [node('mic', 'MicInput'), node('spectrum', 'SpectrumVisualizer'), node('out', 'MatrixOutput')],

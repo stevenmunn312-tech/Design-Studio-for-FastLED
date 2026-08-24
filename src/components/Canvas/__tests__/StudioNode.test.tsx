@@ -83,6 +83,27 @@ describe('StudioNode', () => {
     expect(getByText('Color')).toBeTruthy()          // input port label
   })
 
+  it('shows an honest empty state when Audio has no attached source', () => {
+    const { getByText, queryByRole } = renderNode(makeNode('Audio', { sourceId: '' }))
+    expect(getByText('No audio source attached')).toBeTruthy()
+    expect(getByText('Add a microphone in Hardware.')).toBeTruthy()
+    expect(queryByRole('combobox', { name: 'Audio source' })).toBeNull()
+  })
+
+  it('defaults Audio to the only attached hardware source', async () => {
+    const audio = makeNode('Audio', { sourceId: '' })
+    const mic = { ...makeNode('MicInput', { partId: 'inmp441-i2s-microphone' }), id: 'mic' } as StudioNodeT
+    useGraphStore.setState({ nodes: [audio, mic], edges: [] })
+    const props = { id: audio.id, data: audio.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
+    const { getByRole } = render(<StudioNode {...props} />)
+
+    expect((getByRole('combobox', { name: 'Audio source' }) as HTMLSelectElement).value).toBe('mic')
+    await waitFor(() => {
+      const saved = useGraphStore.getState().nodes.find((node) => node.id === audio.id)
+      expect(saved?.data.properties.sourceId).toBe('mic')
+    })
+  })
+
   it('shows a colour swatch for r/g/b properties', () => {
     const { container } = renderNode(makeNode('SolidColor', { r: 255, g: 0, b: 128 }))
     const color = container.querySelector('input[type="color"]') as HTMLInputElement
@@ -666,6 +687,11 @@ describe('StudioNode', () => {
   it('embeds a live beat/BPM widget in the Beat Detect node', () => {
     usePreviewStore.setState({
       outputs: new Map([
+        ['mic', { audio: {
+          active: true, micActive: true, beat: true, bpm: 132,
+          micBass: 0.8, micMids: 0, micTreble: 0,
+          spectrum: Array(16).fill(0), detectorSpectrum: Array(16).fill(0),
+        } }],
         ['n1', { beat: true, bpm: 132, flux: 0.18, onset: 0.09, threshold: 0.05, contrast: 1.8, cooldownMs: 210 }],
       ]),
     })

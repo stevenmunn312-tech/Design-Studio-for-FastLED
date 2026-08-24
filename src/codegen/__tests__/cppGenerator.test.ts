@@ -2329,6 +2329,39 @@ describe('generateCpp — INMP441 audio engine', () => {
     ])
   }
 
+  it('resolves an Audio capability node to its attached microphone', () => {
+    const mic = node('mic', 'MicInput', 'hardware', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })
+    const audio = node('audio', 'Audio', 'input', { sourceId: 'mic' })
+    const fft = node('fft', 'FFTAnalyzer', 'audio', {})
+    const bp = node('bp', 'BassPulse', 'pattern', {})
+    const cpp = generateCpp([micBoard, mic, audio, fft, bp, out], [
+      edge('e0', 'audio', 'fft', 'audio', 'audio'),
+      edge('e1', 'fft', 'bp', 'bass', 'bass'),
+      edge('e2', 'bp', 'out', 'frame', 'frame'),
+    ])
+
+    expect(cpp).toContain('fl::audio::Config::CreateInmp441')
+    expect(cpp).toContain('_sum += _audioSpectrum[_i];')
+  })
+
+  it('does not let one connected mic ambiently drive a different unwired analyzer', () => {
+    const mic = node('mic', 'MicInput', 'hardware', {})
+    const visualizer = node('sv', 'SpectrumVisualizer', 'pattern', {})
+    const fft = node('fft', 'FFTAnalyzer', 'audio', {})
+    const pulse = node('pulse', 'BassPulse', 'pattern', {})
+    const secondOut = node('out2', 'MatrixOutput', 'output', { width: 8, height: 8, dataPin: 6 })
+    const cpp = generateCpp([micBoard, mic, visualizer, fft, pulse, out, secondOut], [
+      edge('live-audio', 'mic', 'sv', 'audio', 'audio'),
+      edge('live-frame', 'sv', 'out', 'frame', 'frame'),
+      edge('unwired-level', 'fft', 'pulse', 'bass', 'bass'),
+      edge('unwired-frame', 'pulse', 'out2', 'frame', 'frame'),
+    ])
+
+    expect(cpp).toContain('fl::audio::Config::CreateInmp441')
+    expect(cpp).toContain('// FFTAnalyzer — connect an Audio source')
+    expect(cpp).toContain('_sum += 0.0f;')
+  })
+
   it('uses FastLED audio instead of emitting a second I2S driver and FFT', () => {
     const cpp = micGraph()
     expect(cpp).not.toContain('#include <driver/i2s_std.h>')
@@ -2489,7 +2522,7 @@ describe('generateCpp — INMP441 audio engine', () => {
     const cpp = generateCpp([visualizer, out], [edge('svw-frame', 'svw', 'out', 'frame', 'frame')])
     expect(cpp).toContain('SpectrumVisualizer · Waterfall')
     expect(cpp).toContain('::memmove(buf_svw,buf_svw+WIDTH')
-    expect(cpp).toContain('Connect a Microphone to the Audio input')
+    expect(cpp).toContain('Connect an Audio source to populate the spectrum')
     expect(cpp).not.toContain('_sum+=_audioSpectrum[_i]')
   })
 
@@ -2505,8 +2538,10 @@ describe('generateCpp — INMP441 audio engine', () => {
   })
 
   it('keeps the tunable BeatDetect envelope for external baked SD audio', () => {
+    const audio = node('audio', 'GroupInput', 'composite', { paramId: 'audio' })
+    audio.data.outputs = [{ id: 'out', label: 'Audio', dataType: 'audio' }]
     const beat = node('bd', 'BeatDetect', 'audio', { threshold: 0.08, attack: 0.3, decay: 0.05 })
-    const cpp = generateCpp([beat], [], {}, { externalAudio: true })
+    const cpp = generateCpp([audio, beat], [edge('audio-beat', 'audio', 'bd', 'out', 'audio')], {}, { externalAudio: true })
     expect(cpp).toContain('bool n_bd_beat = false;')
     expect(cpp).toContain('n_bd_detector_fast += (_flux - n_bd_detector_fast)')
     expect(cpp).toContain('_audioSpectrum[_i] - n_bd_detector_prevSpectrum[_i]')
@@ -2623,9 +2658,12 @@ describe('generateCpp — INMP441 audio engine', () => {
     // A host controller provides _audioSpectrum etc.; this subgraph must
     // resample the live array (not the always-zero placeholder) yet not
     // re-declare the engine.
+    const audio = node('audio', 'GroupInput', 'composite', { paramId: 'audio' })
+    audio.data.outputs = [{ id: 'out', label: 'Audio', dataType: 'audio' }]
     const fft = node('fft', 'FFTAnalyzer', 'audio', {})
     const bp = node('bp', 'BassPulse', 'pattern', {})
-    const cpp = generateCpp([fft, bp, out], [
+    const cpp = generateCpp([audio, fft, bp, out], [
+      edge('e1', 'audio', 'fft', 'out', 'audio'),
       edge('e2', 'fft', 'bp', 'bass', 'bass'),
       edge('e3', 'bp', 'out', 'frame', 'frame'),
     ], {}, { externalAudio: true })

@@ -439,11 +439,16 @@ describe('showGenerator', () => {
     const audioGroups = {
       ga: {
         nodes: [
-          node('fft', 'FFTAnalyzer', {}, [], [{ id: 'bass', dataType: 'float' }]),
+          node('audio', 'GroupInput', { paramId: 'audio' }, [], [{ id: 'out', dataType: 'audio' }]),
+          node('fft', 'FFTAnalyzer', {}, [{ id: 'audio', dataType: 'audio' }], [{ id: 'bass', dataType: 'float' }]),
           node('bp', 'BassPulse', {}, [{ id: 'bass', dataType: 'float' }], [{ id: 'frame', dataType: 'frame' }]),
           node('go', 'GroupOutput'),
         ],
-        edges: [edge('e1', 'fft', 'bass', 'bp', 'bass'), edge('e2', 'bp', 'frame', 'go', 'frame')],
+        edges: [
+          edge('e0', 'audio', 'out', 'fft', 'audio'),
+          edge('e1', 'fft', 'bass', 'bp', 'bass'),
+          edge('e2', 'bp', 'frame', 'go', 'frame'),
+        ],
       },
     } as unknown as GroupRegistry
     const showNodes = (withMic: boolean) => [
