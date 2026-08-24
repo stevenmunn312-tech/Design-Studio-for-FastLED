@@ -90,6 +90,53 @@ describe('hardware validation profiles', () => {
     expect(profile.checks.map((check) => check.id)).toContain('reconnect')
   })
 
+  it('recognises issue #200 only for the recorded 60x1 OPI normal-upload path', () => {
+    const recordedStrip = node('strip', 'MatrixOutput', {
+      form: 'strip',
+      ledCount: 60,
+      chipset: 'WS2812B',
+      colorOrder: 'GRB',
+      layout: 'matrix',
+      dataPin: 4,
+      brightness: 200,
+      correction: 'TypicalLEDStrip',
+      powerLimit: true,
+      volts: 5,
+      milliamps: 2000,
+      usePsram: true,
+      psramMode: 'opi',
+    })
+    const normal = buildHardwareValidationProfile({
+      nodes: [recordedStrip],
+      edges: [],
+      selectedFqbn: 'esp32:esp32:esp32s3',
+      helper: { ...fbuild, fbuildVersion: 'fbuild 2.5.18' },
+      action: 'normal-upload',
+      runtime: {
+        hostOs: 'Windows 11 Home build 10.0.26200',
+        browser: 'Google Chrome 151.0.7922.173',
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0) Chrome/151.0.7922.173 Safari/537.36',
+      },
+    })
+
+    expect(normal.matrix).toMatchObject({ form: 'strip', width: 60, height: 1, psram: 'opi' })
+    expect(normal.features).toEqual(['LED String geometry', 'PSRAM (opi)'])
+    expect(normal.configurationKey).toBe('hw-14e7d6c0')
+    expect(normal.gaps).toEqual([])
+
+    const unrecordedStream = buildHardwareValidationProfile({
+      nodes: [recordedStrip],
+      edges: [],
+      selectedFqbn: 'esp32:esp32:esp32s3',
+      helper: { ...fbuild, fbuildVersion: 'fbuild 2.5.18' },
+      action: 'live-stream',
+      runtime: RECORDED_RUNTIME,
+    })
+    expect(unrecordedStream.gaps).toEqual([
+      expect.objectContaining({ id: 'action-live-stream' }),
+    ])
+  })
+
   it('fingerprints a corkscrew as a physical LED chain', () => {
     const corkscrew = node('corkscrew', 'MatrixOutput', {
       ...baselineMatrix.data.properties,

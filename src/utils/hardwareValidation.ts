@@ -301,23 +301,84 @@ function featureList(nodes: StudioNode[], edges: StudioEdge[], matrixProps: Reco
   return features
 }
 
-function isRecordedTarget(profile: Omit<HardwareValidationProfile, 'gaps' | 'checks'>): boolean {
+interface RecordedHardwareTarget {
+  /** Human-readable evidence anchor; kept beside the executable matcher so a
+   *  coverage claim cannot lose the report that justifies it. */
+  evidence: string
+  fqbn: string
+  engine: string
+  chipset: string
+  form: LedOutputForm
+  width: number
+  height: number
+  layout: string
+  serpentine: boolean
+  psram: string | null
+  actions: HardwareValidationAction[]
+  features?: string[]
+}
+
+/**
+ * Reviewed end-to-end rows from docs/release/beta-support-matrix.md.
+ *
+ * Actions belong to the exact target that was exercised. Keeping them on each
+ * record prevents one normal-upload report from silently graduating wiring,
+ * streaming, or show paths on the same board and LEDs.
+ */
+const RECORDED_HARDWARE_TARGETS: RecordedHardwareTarget[] = [
+  {
+    evidence: 'Original ESP32-S3 16x16 records (2026-06-26) plus hw-59a1bb36, hw-f31a7f82, and hw-e791188d',
+    fqbn: 'esp32:esp32:esp32s3', engine: 'fbuild', chipset: 'WS2812B',
+    form: 'matrix', width: 16, height: 16, layout: 'matrix', serpentine: true, psram: null,
+    actions: ['normal-upload', 'wiring-test', 'live-stream', 'generative-show', 'microphone'],
+  },
+  {
+    evidence: 'Classic ESP32 bring-up (2026-08-16)',
+    fqbn: 'esp32:esp32:esp32', engine: 'fbuild', chipset: 'WS2812B',
+    form: 'matrix', width: 16, height: 16, layout: 'matrix', serpentine: true, psram: null,
+    actions: ['normal-upload'],
+  },
+  {
+    evidence: 'Classic ESP-32D DS3231 record (2026-08-21)',
+    fqbn: 'esp32:esp32:esp32doit-devkit-v1', engine: 'fbuild', chipset: 'WS2812B',
+    form: 'matrix', width: 16, height: 16, layout: 'matrix', serpentine: true, psram: null,
+    actions: ['normal-upload'],
+  },
+  {
+    evidence: 'hw-f57928b9, hw-7adaec6f, and hw-b0b34ed3 (2026-07-25)',
+    fqbn: 'esp8266:esp8266:nodemcuv2', engine: 'arduino-cli', chipset: 'WS2812B',
+    form: 'strip', width: 10, height: 1, layout: 'matrix', serpentine: false, psram: null,
+    actions: ['normal-upload', 'wiring-test', 'live-stream'],
+    features: ['LED String geometry'],
+  },
+  {
+    evidence: 'GitHub issue #200, hw-14e7d6c0 (2026-08-24)',
+    fqbn: 'esp32:esp32:esp32s3', engine: 'fbuild', chipset: 'WS2812B',
+    form: 'strip', width: 60, height: 1, layout: 'matrix', serpentine: false, psram: 'opi',
+    actions: ['normal-upload'],
+    features: ['LED String geometry', 'PSRAM (opi)'],
+  },
+]
+
+function matchingRecordedTargets(profile: Omit<HardwareValidationProfile, 'gaps' | 'checks'>): RecordedHardwareTarget[] {
   const m = profile.matrix
-  return profile.controller.fqbn === 'esp32:esp32:esp32s3'
-    && profile.controller.engine === 'fbuild'
-    && m.chipset === 'WS2812B'
-    && m.form === 'matrix'
-    && m.width === 16
-    && m.height === 16
-    && m.layout === 'matrix'
-    && m.serpentine
-    && !m.psram
+  return RECORDED_HARDWARE_TARGETS.filter((record) =>
+    profile.controller.fqbn === record.fqbn
+    && profile.controller.engine === record.engine
+    && m.chipset === record.chipset
+    && m.form === record.form
+    && m.width === record.width
+    && m.height === record.height
+    && m.layout === record.layout
+    && m.serpentine === record.serpentine
+    && m.psram === record.psram
+  )
 }
 
 function findGaps(profile: Omit<HardwareValidationProfile, 'gaps' | 'checks'>): ValidationGap[] {
   const gaps: ValidationGap[] = []
-  const recordedTarget = isRecordedTarget(profile)
-  if (!recordedTarget) {
+  const recordedTargets = matchingRecordedTargets(profile)
+  if (recordedTargets.length === 0) {
     gaps.push({
       id: 'exact-target',
       label: 'Exact controller + LED configuration',
@@ -325,10 +386,8 @@ function findGaps(profile: Omit<HardwareValidationProfile, 'gaps' | 'checks'>): 
     })
   }
 
-  const recordedActions = new Set<HardwareValidationAction>([
-    'normal-upload', 'wiring-test', 'live-stream', 'generative-show', 'microphone',
-  ])
-  if (!recordedTarget || !recordedActions.has(profile.action)) {
+  const actionRecorded = recordedTargets.some((record) => record.actions.includes(profile.action))
+  if (!actionRecorded) {
     gaps.push({
       id: `action-${profile.action}`,
       label: ACTION_LABELS[profile.action],
@@ -348,7 +407,9 @@ function findGaps(profile: Omit<HardwareValidationProfile, 'gaps' | 'checks'>): 
     ['SD show provisioning/player', 'SD provisioning, file transfer, player flashing, playback, and sync are awaiting a full hardware record.'],
     ['PCM1802/on-device line input', 'PCM1802 capture compiles for ESP32-S3 but still needs a dated end-to-end hardware record.'],
   ])
+  const recordedFeatures = new Set(recordedTargets.flatMap((record) => record.features ?? []))
   for (const feature of profile.features) {
+    if (recordedFeatures.has(feature)) continue
     if (feature.startsWith('PSRAM')) {
       gaps.push({ id: 'feature-psram', label: feature, reason: 'PSRAM modes are still experimental and need a dated hardware record.' })
       continue
