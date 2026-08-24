@@ -20,6 +20,16 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // AudioCapabilityBody. Empty is meaningful when the board has no source.
     defaultProperties: { sourceId: '' },
   },
+  {
+    type: 'Storage',
+    label: 'Storage',
+    category: 'input',
+    inputs: [],
+    outputs: [{ id: 'storage', label: 'Storage', dataType: 'storage' }],
+    // The concrete provider is chosen from root hardware by
+    // StorageCapabilityBody. Empty is meaningful when no board or card is attached.
+    defaultProperties: { sourceId: '' },
+  },
   // ── Inputs ─────────────────────────────────────────────────────────────
   {
     type: 'MicInput',
@@ -2820,6 +2830,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   BeatDetect: 'Emits a beat pulse and estimated BPM from audio.',
   PercussionDetect: 'Heuristic kick, snare, and hi-hat envelopes from audio.',
   Audio: 'Selects an audio capability attached to the board and carries it into the graph.',
+  Storage: 'Selects SD, onboard flash, or USB storage attached to the board.',
   AudioFeatures: 'Heuristic vocals, energy, and silence features from audio.',
   MicInput: 'Microphone — FastLED audio processing with configurable INMP441 I2S firmware.',
   LineInput: 'Stereo line-level audio through a PCM1802 I2S ADC for external players.',
@@ -3071,6 +3082,7 @@ export const PORT_COLORS: Record<string, string> = {
   frame: '#5ad1ff',
   field: '#f5c542',
   audio: '#00e0a4',
+  storage: '#c78cff',
   dmx: '#6bf8ff',
   datetime: '#d8ff63',
   music: '#ffb74d',

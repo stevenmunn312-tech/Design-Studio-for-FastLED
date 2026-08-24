@@ -138,6 +138,8 @@ The Board/profile model currently provides enough authority for:
 - board-specific LED, INMP441, MAX98357A, SD SPI, and default I²C assignments
   where reviewed, plus board-aware allocation for the PCM1802's four pins;
 - Wi-Fi and USB-CDC gating;
+- a `Storage` graph capability that resolves SD, onboard flash, and USB
+  providers from root hardware;
 - flash/internal-RAM/PSRAM reporting; and
 - board-aware validation, Build Diagram manifests, and code generation.
 
@@ -145,7 +147,6 @@ The Board/profile model currently provides enough authority for:
 
 The following proposal slices remain open and must not be described as shipped:
 
-- a Storage capability over SD, onboard flash, and USB;
 - timed-sequence authoring beyond the existing RTC/ScheduleTrigger graph tools;
 - multi-board attachment; and
 - a Raspberry Pi/Linux code-generation backend.

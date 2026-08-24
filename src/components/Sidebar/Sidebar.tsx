@@ -27,7 +27,7 @@ const RECENT_LIMIT = 8
 const SIDEBAR_NODE_LIBRARY = NODE_LIBRARY.filter((definition) => !isHardwareLibraryHiddenNodeType(definition.type))
 
 const BEGINNER_NODE_TYPES = new Set([
-  'Audio', 'FFTAnalyzer', 'BeatDetect',
+  'Audio', 'Storage', 'FFTAnalyzer', 'BeatDetect',
   'DMXInput', 'DMXChannel', 'RTCInput', 'ScheduleTrigger',
   'Wave', 'Counter', 'Random', 'SampleHold',
   'HueCycle', 'HSVToRGB', 'PaletteSelector',
@@ -39,6 +39,7 @@ const BEGINNER_NODE_TYPES = new Set([
 
 const INTENT_TAGS: Record<string, string[]> = {
   Audio: ['audio', 'source', 'hardware'],
+  Storage: ['storage', 'sd', 'flash', 'usb', 'hardware'],
   MicInput: ['audio', 'hardware'],
   DMXInput: ['dmx', 'art-net', 'lighting console'],
   DMXChannel: ['dmx', 'decoder', 'channel'],

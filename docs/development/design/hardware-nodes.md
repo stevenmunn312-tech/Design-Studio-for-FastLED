@@ -164,9 +164,11 @@ the same FastLED audio processor as the microphone path. It must receive a
 line-level output, not a bridge-tied speaker output. Browser preview still uses
 the browser/OS audio source because it cannot sample the physical ADC.
 
-A Storage capability abstraction across SD, onboard flash, and USB is also not
-implemented. SD Card remains a concrete workbench-only part used by the
-music-synchronised player workflow.
+A `Storage` capability abstracts the storage providers available to the root
+hardware graph: the concrete SD Card workbench part, the controller's onboard
+flash, and its USB transfer path. It defaults only when there is one provider;
+otherwise the provider is explicit. SD Card remains a concrete workbench-only
+part used by the music-synchronised player workflow.
 
 Multi-board graphs and a Raspberry Pi backend remain out of scope. Per-output
 native rendering is designed separately in

@@ -26,6 +26,7 @@ import { evalAnimartrix, disposeAnimartrixState } from '../animartrix/preview'
 import { applyEase } from './easing'
 import { projectWireframeVertices, resolveWireframeMesh } from './wireframeModel'
 import { resolveAudioCapabilitySource } from './audioCapabilities'
+import { resolveStorageCapabilitySource } from './storageCapabilities'
 
 export type { RGB, Palette, Frame }
 export { getCodeErrorFromSandbox as getCodeError }
@@ -4462,7 +4463,14 @@ export interface AudioSignal {
   previewSpectrum?: number[]
 }
 
-export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | AudioSignal | null
+/** Provider identity carried by the Storage capability port. */
+export interface StorageSignal {
+  id: string
+  kind: 'sd' | 'flash' | 'usb'
+  label: string
+}
+
+export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | AudioSignal | StorageSignal | null
 
 /** A reusable pattern group: a named subgraph that a `Group` node evaluates. */
 export interface GroupDef { nodes: StudioNode[]; edges: StudioEdge[] }
@@ -4756,6 +4764,12 @@ function createEvalNode(
         // disconnected instead of silently listening to the browser mic.
         const source = resolveAudioCapabilitySource(capabilityNodes, props.sourceId)
         out = { audio: source ? (audioOverride ?? liveAudioSignal()) : null }
+        break
+      }
+
+      case 'Storage': {
+        const source = resolveStorageCapabilitySource(capabilityNodes, props.sourceId)
+        out = { storage: source ? { id: source.id, kind: source.kind, label: source.label } : null }
         break
       }
 

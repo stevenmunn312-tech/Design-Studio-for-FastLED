@@ -17,6 +17,7 @@ import type { PhysicalBoardProfile } from '../build/boardProfiles'
 import { inmp441SupportedForBoard, INMP441_UNSUPPORTED_MESSAGE } from '../state/micPinDefaults'
 import { controllerSettings } from '../state/controllerSettings'
 import { resolveAudioCapabilitySource } from '../state/audioCapabilities'
+import { resolveStorageCapabilitySource } from '../state/storageCapabilities'
 
 export interface ValidationResult {
   errors:   string[]
@@ -73,6 +74,21 @@ export function findAudioCapabilityErrors(
       !resolveAudioCapabilitySource(capabilityNodes, String(node.data.properties.sourceId ?? ''))
     )
     .map((node) => `${nodeLabel(node)} has no attached source — add a microphone, line-in ADC, or SD music player, or choose an available source`)
+}
+
+/** A used Storage capability must resolve to one concrete provider. */
+export function findStorageCapabilityErrors(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  capabilityNodes: readonly StudioNode[] = nodes,
+): string[] {
+  return nodes
+    .filter((node) =>
+      node.data.nodeType === 'Storage' &&
+      edges.some((edge) => edge.source === node.id) &&
+      !resolveStorageCapabilitySource(capabilityNodes, String(node.data.properties.sourceId ?? ''))
+    )
+    .map((node) => `${nodeLabel(node)} has no attached storage provider — add a board or SD card, or choose an available provider`)
 }
 
 function findRtcWarnings(nodes: StudioNode[]): string[] {
@@ -1491,6 +1507,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   errors.push(...findShowOutputFormErrors(nodes, edges))
   errors.push(...findShowRequirementErrors(nodes, edges, selectedFqbn))
   errors.push(...findAudioCapabilityErrors(nodes, edges))
+  errors.push(...findStorageCapabilityErrors(nodes, edges))
 
   errors.push(...findHub75ConfigErrors(nodes))
   errors.push(...findScalarExpressionErrors(nodes))
