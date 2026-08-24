@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render } from '@testing-library/react'
+import { fireEvent, render, waitFor } from '@testing-library/react'
 import MatrixOutputDeployPopup from '../MatrixOutputDeployPopup'
 import { useGraphStore } from '../../../state/graphStore'
 import { useUploadStore } from '../../../state/uploadStore'
@@ -7,6 +7,7 @@ import { useMusicStore } from '../../../state/musicStore'
 import { useProjectStore } from '../../../state/projectStore'
 import { useStreamStore } from '../../../state/streamStore'
 import { useCapacityStore } from '../../../state/capacityStore'
+import { generateCpp } from '../../../codegen/cppGenerator'
 import { generateWiringDiagnosticSketch } from '../../../codegen/wiringDiagnosticGenerator'
 import { findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors } from '../../../utils/validateGraph'
 
@@ -195,6 +196,35 @@ describe('MatrixOutputDeployPopup', () => {
 
     fireEvent.click(wiringButton)
     expect(runUpload).toHaveBeenCalledWith('// wiring diagnostic', undefined, { cache: false })
+  })
+
+  it('regenerates the normal sketch when Upload is clicked', async () => {
+    const runUpload = vi.fn()
+    useGraphStore.setState({
+      nodes: [...useGraphStore.getState().nodes, {
+        id: 'sc', type: 'studioNode', position: { x: 0, y: 0 },
+        data: { label: 'Solid Color', nodeType: 'SolidColor', category: 'pattern', properties: {}, inputs: [], outputs: [] },
+      }] as never[],
+      edges: [{ id: 'e', source: 'sc', target: 'matrix', sourceHandle: 'frame', targetHandle: 'frame' }] as never[],
+      trusted: true,
+    })
+    useUploadStore.setState({
+      helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.5.20' },
+      selectedPort: 'COM7',
+      ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [{ name: 'ESP32-S3' }] }],
+      runUpload,
+    })
+
+    const { getByRole } = render(<MatrixOutputDeployPopup />)
+    // Simulate a generator module changing after the popup's displayed sketch
+    // was memoized, as happens during local hot reload while validating hardware.
+    vi.mocked(generateCpp).mockReturnValue('// freshly regenerated sketch')
+    fireEvent.click(getByRole('button', { name: '↑ Upload' }))
+
+    await waitFor(() => expect(runUpload).toHaveBeenCalledWith(
+      '// freshly regenerated sketch',
+      undefined,
+    ))
   })
 
   describe('the capacity meter only blocks on a current measurement', () => {

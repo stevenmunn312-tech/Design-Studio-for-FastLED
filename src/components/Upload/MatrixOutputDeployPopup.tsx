@@ -92,13 +92,14 @@ export default function MatrixOutputDeployPopup({
   // See CapacityWatcher: keyed on the codegen-relevant graph so a node drag
   // behind this popup doesn't re-run the sketch generator every frame.
   const codegenGraph = useCodegenGraph(nodes, edges)
-  const code = useMemo(() => {
+  function generateCurrentCode() {
     const groups = getGroupRegistry()
     const opts = { psramAllowed: psramSupported }
     return isPatternShow(codegenGraph.nodes, codegenGraph.edges)
       ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)
       : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
-  }, [codegenGraph, psramSupported])
+  }
+  const code = useMemo(generateCurrentCode, [codegenGraph, psramSupported])
 
   const portLabel = ports.find((p) => p.address === selectedPort)?.label ?? selectedPort
   const target = `${board?.label ?? 'No board'} · ${portLabel || 'no port'}`
@@ -378,7 +379,13 @@ export default function MatrixOutputDeployPopup({
   function handleUpload() {
     void (async () => {
       if (!(await confirmUploadIfUntrusted())) return
-      await offerValidationAfter(suggestedAction, runUpload(code, usePsram ? psramChoice?.opt : undefined))
+      // Generate again at the irreversible boundary. The memo above keeps View
+      // Code cheap while nodes are dragged, but it can retain a pre-HMR sketch
+      // in a local development session. Upload must always compile what the
+      // current generator says now; only "Re-upload last sketch" intentionally
+      // sends an older cached source unchanged.
+      const uploadCode = generateCurrentCode()
+      await offerValidationAfter(suggestedAction, runUpload(uploadCode, usePsram ? psramChoice?.opt : undefined))
     })()
   }
 
@@ -388,7 +395,7 @@ export default function MatrixOutputDeployPopup({
   function handleExportIno() {
     void (async () => {
       if (!(await confirmUploadIfUntrusted())) return
-      exportIno(code)
+      exportIno(generateCurrentCode())
     })()
   }
 
