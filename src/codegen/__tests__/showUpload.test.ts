@@ -314,7 +314,7 @@ describe('generatePlayerSketch', () => {
     expect(ino).toContain('#define CMD_PARTICLE_BURST 7')
     expect(ino).toContain('case CMD_PARTICLE_BURST:')
     expect(ino).toContain('float prnd(float n)')                  // shared spawn hash
-    expect(ino).toContain('CHSV(burstHue, 217, 255)')            // colored sparks
+    expect(ino).toContain('CRGB base = burstColor;')             // configured/event color
     expect(ino).toContain('(float)(posMs - burstStart) < PARTICLE_LIFE_MS')
     // Eleven motion styles dispatched by the burst's style id.
     expect(ino).toContain('switch (burstStyle)')

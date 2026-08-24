@@ -4,6 +4,40 @@ import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, 
 import { EASE_TYPES } from '../easing'
 
 describe('nodeLibrary', () => {
+  it('defines dedicated semantic Music Player control and particle bundles', () => {
+    const controls = NODE_LIBRARY.find((n) => n.type === 'PlayerControls')
+    expect(controls).toMatchObject({
+      label: 'Player Controls',
+      category: 'show',
+      outputs: [{ id: 'controls', dataType: 'playercontrols' }],
+    })
+    expect(controls?.inputs.map(({ id, dataType }) => [id, dataType])).toEqual([
+      ['controlsIn', 'playercontrols'], ['playPause', 'bool'], ['previous', 'bool'],
+      ['next', 'bool'], ['volume', 'float'], ['volumeUp', 'bool'],
+      ['volumeDown', 'bool'], ['ledToggle', 'bool'], ['brightness', 'float'],
+      ['brightnessUp', 'bool'], ['brightnessDown', 'bool'],
+    ])
+
+    const particles = NODE_LIBRARY.find((n) => n.type === 'PlayerParticles')
+    expect(particles).toMatchObject({
+      label: 'Player Particles',
+      category: 'show',
+      outputs: [{ id: 'particleFx', dataType: 'playerparticles' }],
+      defaultProperties: { enabled: false, style: 0, intensity: 0.8 },
+    })
+
+    const player = NODE_LIBRARY.find((n) => n.type === 'PatternMaster')!
+    expect(player.inputs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'controls', dataType: 'playercontrols' }),
+      expect.objectContaining({ id: 'particleFx', dataType: 'playerparticles' }),
+    ]))
+    expect(player.inputs.map((p) => p.id)).not.toEqual(expect.arrayContaining([
+      'particles', 'particleColor', 'particleIntensity', 'randomColor', 'randomStyle',
+    ]))
+    expect(player.defaultProperties).not.toHaveProperty('particles')
+    expect(PORT_COLORS).toMatchObject({ playercontrols: expect.any(String), playerparticles: expect.any(String) })
+  })
+
   it('exposes an Audio capability source with an explicit audio output', () => {
     const audio = NODE_LIBRARY.find((node) => node.type === 'Audio')
     expect(audio).toMatchObject({

@@ -318,13 +318,14 @@ describe('showGenerator', () => {
   })
 
   it('emits a beat-triggered particle overlay only with particles on, a beat wired, and a mic', () => {
-    const pmParticles = node('pm', 'PatternMaster', {
-      minTime: 4, maxTime: 12, transitionSec: 1,
-      particles: true, particleStyle: 3, particleColor: '#3366cc', particleIntensity: 0.9,
+    const pmParticles = node('pm', 'PatternMaster', { minTime: 4, maxTime: 12, transitionSec: 1 })
+    const particleFx = node('pfx', 'PlayerParticles', {
+      enabled: true, style: 3, color: '#3366cc', intensity: 0.9,
     })
-    const base = [node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }), pmParticles,
+    const base = [node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }), pmParticles, particleFx,
       node('out', 'MatrixOutput', { width: 8, height: 8 })]
     const wire = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame'),
+      edge('efx', 'pfx', 'particleFx', 'pm', 'particleFx'),
       edge('eb', 'pm', 'beat', 'pm', 'beat')]
 
     // No mic → no on-device beat source → no particle overlay.
@@ -341,15 +342,16 @@ describe('showGenerator', () => {
   })
 
   it('rolls a random style/colour per beat when randomStyle/randomColor are on', () => {
-    const pmRandom = node('pm', 'PatternMaster', {
-      minTime: 4, maxTime: 12, transitionSec: 1,
-      particles: true, randomStyle: true, randomColor: true, particleIntensity: 0.9,
+    const pmRandom = node('pm', 'PatternMaster', { minTime: 4, maxTime: 12, transitionSec: 1 })
+    const particleFx = node('pfx', 'PlayerParticles', {
+      enabled: true, randomStyle: true, randomColor: true, intensity: 0.9,
     })
-    const base = [node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }), pmRandom,
+    const base = [node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }), pmRandom, particleFx,
       node('out', 'MatrixOutput', { width: 8, height: 8 }),
       micBoard,
       node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
     const wire = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame'),
+      edge('efx', 'pfx', 'particleFx', 'pm', 'particleFx'),
       edge('eb', 'pm', 'beat', 'pm', 'beat')]
     const cpp = generateShowSketch(base, wire, groups)
     expect(cpp).toContain('burstStyle = random8(17);')

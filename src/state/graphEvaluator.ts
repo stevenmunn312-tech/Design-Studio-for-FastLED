@@ -27,6 +27,7 @@ import { applyEase } from './easing'
 import { projectWireframeVertices, resolveWireframeMesh } from './wireframeModel'
 import { resolveAudioCapabilitySource } from './audioCapabilities'
 import { resolveStorageCapabilitySource } from './storageCapabilities'
+import { usePlayerTransport } from './playerTransport'
 
 export type { RGB, Palette, Frame }
 export { getCodeErrorFromSandbox as getCodeError }
@@ -152,6 +153,24 @@ interface Particle { x: number; y: number; vx: number; vy: number; life: number;
 const particleState = new Map<string, Particle[]>()
 const particleSeedState = new Map<string, string>()
 const patternShowState = new Map<string, ShowState>()
+interface PlayerButtonState {
+  raw: boolean
+  stable: boolean
+  changedAt: number
+  nextRepeatAt: number
+}
+interface PlayerControlsState {
+  lastT: number
+  buttons: Record<string, PlayerButtonState>
+}
+const playerControlsState = new Map<string, PlayerControlsState>()
+interface MusicPlayerRuntimeState {
+  ledEnabled: boolean
+  brightness: number
+  volume: number
+  controls: PlayerControls
+}
+const musicPlayerRuntimeState = new Map<string, MusicPlayerRuntimeState>()
 
 interface RDState { u: Float32Array; v: Float32Array; un: Float32Array; vn: Float32Array; w: number; h: number; seed: number }
 const rdState = new Map<string, RDState>()
@@ -410,6 +429,7 @@ function stateMaps(): StateMap[] {
     fireHeat, flashLevel, counterVals, intervalLast, smoothState, holdState,
     envState, dmxChannelState, trailState, frameFeedbackState, fftLevels, beatLevels, clockState, clockDisplayState, fireRngState,
     seededRngState, triggerState, scheduleState, particleState, particleSeedState, patternShowState,
+    playerControlsState, musicPlayerRuntimeState,
     percussionLevels, audioFeatureLevels,
     rdState, golState, waveSimState, flowState, colorTrailsState, spectrumVisualizerState, starState, boidState, sparkState, fire2012Heat,
     kickShockState, kaleidoPunch, percussionBlobsState, emberBurst,
@@ -486,6 +506,7 @@ export function getEvaluatorMemoryStats(): {
     fftLevels: fftLevels.size, beatLevels: beatLevels.size, percussionLevels: percussionLevels.size,
     audioFeatureLevels: audioFeatureLevels.size, particleState: particleState.size,
     particleSeedState: particleSeedState.size, patternShowState: patternShowState.size,
+    playerControlsState: playerControlsState.size, musicPlayerRuntimeState: musicPlayerRuntimeState.size,
     rdState: rdState.size, golState: golState.size, waveSimState: waveSimState.size,
     flowState: flowState.size, colorTrailsState: colorTrailsState.size,
     spectrumVisualizerState: spectrumVisualizerState.size, starState: starState.size,
@@ -3835,6 +3856,11 @@ export function getPatternShowSelection(key: string): PatternShowSelection | nul
   }
 }
 
+/** Latest semantic controls consumed by a Music Player. */
+export function getMusicPlayerControls(key: string): PlayerControls | null {
+  return musicPlayerRuntimeState.get(key)?.controls ?? null
+}
+
 // The generative show: hold a random pattern for a random dwell in
 // [minTime, maxTime], then transition (a random style from `pool`) into another
 // random pattern. A wired beat advances early, once at least minTime has passed.
@@ -4470,7 +4496,31 @@ export interface StorageSignal {
   label: string
 }
 
-export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | AudioSignal | StorageSignal | null
+/** Semantic commands and values carried by a Player Controls cable. Command
+ * booleans are one-evaluation pulses. Absolute controls are omitted when no
+ * local or chained absolute source exists; deltas accumulate across chains. */
+export interface PlayerControls {
+  playPause: boolean
+  previous: boolean
+  next: boolean
+  volume?: number
+  volumeDelta: number
+  ledToggle: boolean
+  brightness?: number
+  brightnessDelta: number
+}
+
+/** Beat-particle appearance carried independently of a rendered frame. */
+export interface PlayerParticles {
+  enabled: boolean
+  style: number
+  color: RGB
+  intensity: number
+  randomColor: boolean
+  randomStyle: boolean
+}
+
+export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | AudioSignal | StorageSignal | PlayerControls | PlayerParticles | null
 
 /** A reusable pattern group: a named subgraph that a `Group` node evaluates. */
 export interface GroupDef { nodes: StudioNode[]; edges: StudioEdge[] }
@@ -4488,6 +4538,26 @@ function isAudioSignal(value: PortValue): value is AudioSignal {
     && typeof candidate.micActive === 'boolean'
     && Array.isArray(candidate.spectrum)
     && Array.isArray(candidate.detectorSpectrum)
+}
+
+function isPlayerControls(value: PortValue): value is PlayerControls {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const candidate = value as Partial<PlayerControls>
+  return typeof candidate.playPause === 'boolean'
+    && typeof candidate.previous === 'boolean'
+    && typeof candidate.next === 'boolean'
+    && typeof candidate.volumeDelta === 'number'
+    && typeof candidate.ledToggle === 'boolean'
+    && typeof candidate.brightnessDelta === 'number'
+}
+
+function isPlayerParticles(value: PortValue): value is PlayerParticles {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const candidate = value as Partial<PlayerParticles>
+  return typeof candidate.enabled === 'boolean'
+    && typeof candidate.style === 'number'
+    && candidate.color != null
+    && typeof candidate.intensity === 'number'
 }
 
 function liveAudioSignal(): AudioSignal {
@@ -6593,6 +6663,91 @@ function createEvalNode(
         break
       }
 
+      case 'PlayerControls': {
+        const key = stateKey(id)
+        const nowMs = t * 1000
+        let state = playerControlsState.get(key)
+        if (!state || t < state.lastT) state = { lastT: t, buttons: {} }
+        state.lastT = t
+        const debounceMs = Math.max(0, Number(props.debounceMs ?? 30))
+        const repeatDelayMs = Math.max(0, Number(props.repeatDelayMs ?? 400))
+        const repeatIntervalMs = Math.max(1, Number(props.repeatIntervalMs ?? 120))
+
+        const button = (port: string, repeat: boolean): boolean => {
+          const raw = Boolean(input(id, port, false))
+          let bs = state!.buttons[port]
+          if (!bs) {
+            bs = { raw: false, stable: false, changedAt: nowMs, nextRepeatAt: Infinity }
+            state!.buttons[port] = bs
+          }
+          if (raw !== bs.raw) {
+            bs.raw = raw
+            bs.changedAt = nowMs
+          }
+          let pulse = false
+          if (bs.stable !== bs.raw && nowMs - bs.changedAt >= debounceMs) {
+            bs.stable = bs.raw
+            if (bs.stable) {
+              pulse = true
+              bs.nextRepeatAt = nowMs + repeatDelayMs
+            } else {
+              bs.nextRepeatAt = Infinity
+            }
+          } else if (repeat && bs.stable && nowMs >= bs.nextRepeatAt) {
+            pulse = true
+            bs.nextRepeatAt += (Math.floor((nowMs - bs.nextRepeatAt) / repeatIntervalMs) + 1) * repeatIntervalMs
+          }
+          return pulse
+        }
+
+        const upstreamValue = input(id, 'controlsIn', null)
+        const upstream = isPlayerControls(upstreamValue) ? upstreamValue : null
+        const volumeUp = button('volumeUp', true)
+        const volumeDown = button('volumeDown', true)
+        const brightnessUp = button('brightnessUp', true)
+        const brightnessDown = button('brightnessDown', true)
+        const playPause = button('playPause', false)
+        const previous = button('previous', false)
+        const next = button('next', false)
+        const ledToggle = button('ledToggle', false)
+        const controls: PlayerControls = {
+          playPause: Boolean(upstream?.playPause) || playPause,
+          previous: Boolean(upstream?.previous) || previous,
+          next: Boolean(upstream?.next) || next,
+          volumeDelta: (upstream?.volumeDelta ?? 0)
+            + (volumeUp ? Math.max(0, Number(props.volumeStep ?? 0.05)) : 0)
+            - (volumeDown ? Math.max(0, Number(props.volumeStep ?? 0.05)) : 0),
+          ledToggle: Boolean(upstream?.ledToggle) || ledToggle,
+          brightnessDelta: (upstream?.brightnessDelta ?? 0)
+            + (brightnessUp ? Math.max(0, Number(props.brightnessStep ?? 0.05)) : 0)
+            - (brightnessDown ? Math.max(0, Number(props.brightnessStep ?? 0.05)) : 0),
+        }
+        if (incoming.has(`${id}:volume`)) controls.volume = clamp01(Number(input(id, 'volume', 0)))
+        else if (upstream?.volume != null) controls.volume = clamp01(upstream.volume)
+        if (incoming.has(`${id}:brightness`)) controls.brightness = clamp01(Number(input(id, 'brightness', 0)))
+        else if (upstream?.brightness != null) controls.brightness = clamp01(upstream.brightness)
+        playerControlsState.set(key, state)
+        out = { controls }
+        break
+      }
+
+      case 'PlayerParticles': {
+        const colorIn = input(id, 'color', null)
+        out = {
+          particleFx: {
+            enabled: Boolean(input(id, 'enabled', Boolean(props.enabled))),
+            style: Math.max(0, Math.min(16, Math.round(Number(props.style ?? 0)))),
+            color: colorIn && typeof colorIn === 'object' && !Array.isArray(colorIn)
+              ? colorIn as RGB
+              : hexToRgb(String(props.color ?? '#ff8000')),
+            intensity: clamp01(Number(input(id, 'intensity', Number(props.intensity ?? 0.8)))),
+            randomColor: Boolean(input(id, 'randomColor', Boolean(props.randomColor))),
+            randomStyle: Boolean(input(id, 'randomStyle', Boolean(props.randomStyle))),
+          } satisfies PlayerParticles,
+        }
+        break
+      }
+
       case 'PatternMaster': {
         const ids = (input(id, 'patternset', null) as string[] | null) ?? []
         const audioSignal = input(id, 'audio', null)
@@ -6633,21 +6788,67 @@ function createEvalNode(
         // PerformanceGenerator); with nothing wired the show just crossfades.
         const wiredPool = input(id, 'transitions', null) as string[] | null
         const pool = wiredPool && wiredPool.length ? wiredPool : ['crossfade']
+        const particleValue = input(id, 'particleFx', null)
+        const particleFx = isPlayerParticles(particleValue) ? particleValue : null
         const o = {
           minTime: num(id, 'minTime', props, 'minTime', 4),
           maxTime: num(id, 'maxTime', props, 'maxTime', 12),
           transSec: num(id, 'transitionSec', props, 'transitionSec', 1),
           pool,
           beatEnabled: incoming.has(`${id}:beat`),
-          particles: Boolean(input(id, 'particles', Boolean(props.particles))),
-          particleStyle: Number(props.particleStyle ?? 0),
-          particleColor: (input(id, 'particleColor', null) as RGB | null) ?? hexToRgb(String(props.particleColor ?? '#ff8000')),
-          particleIntensity: num(id, 'particleIntensity', props, 'particleIntensity', 1),
-          randomStyle: Boolean(input(id, 'randomStyle', Boolean(props.randomStyle))),
-          randomColor: Boolean(input(id, 'randomColor', Boolean(props.randomColor))),
+          particles: particleFx?.enabled ?? false,
+          particleStyle: particleFx?.style ?? 0,
+          particleColor: particleFx?.color ?? { r: 255, g: 128, b: 0 },
+          particleIntensity: particleFx?.intensity ?? 0.8,
+          randomStyle: particleFx?.randomStyle ?? false,
+          randomColor: particleFx?.randomColor ?? false,
           seed: normalizedSeed(props.seed),
         }
-        out = { frame: evalPatternShow(stateKey(id), ids, render, beat, o, t, W, H) }
+        const key = stateKey(id)
+        const controlsValue = input(id, 'controls', null)
+        const controls: PlayerControls = isPlayerControls(controlsValue) ? controlsValue : {
+          playPause: false, previous: false, next: false, volumeDelta: 0,
+          ledToggle: false, brightnessDelta: 0,
+        }
+        const existingRuntime = musicPlayerRuntimeState.get(key)
+        const previousVolume = existingRuntime?.volume
+        const runtime = existingRuntime ?? {
+          ledEnabled: true,
+          brightness: controls.brightness ?? 1,
+          volume: controls.volume ?? 1,
+          controls,
+        }
+        if (controls.volume != null) runtime.volume = controls.volume
+        runtime.volume = clamp01(runtime.volume + controls.volumeDelta)
+        if (controls.brightness != null) runtime.brightness = controls.brightness
+        runtime.brightness = clamp01(runtime.brightness + controls.brightnessDelta)
+        if (controls.ledToggle) runtime.ledEnabled = !runtime.ledEnabled
+        runtime.controls = controls
+        musicPlayerRuntimeState.set(key, runtime)
+
+        const volumeChanged = (controls.volume != null || controls.volumeDelta !== 0)
+          && (previousVolume == null || Math.abs(previousVolume - runtime.volume) > 1e-6)
+        if (controls.playPause || controls.previous || controls.next || volumeChanged) {
+          usePlayerTransport.getState().dispatchControls({
+            sourceId: key,
+            playPause: controls.playPause,
+            previous: controls.previous,
+            next: controls.next,
+            ...(volumeChanged ? { volume: runtime.volume } : {}),
+          })
+        }
+
+        const frame = evalPatternShow(key, ids, render, beat, o, t, W, H)
+        if (!runtime.ledEnabled) out = { frame: blankFrame(W, H) }
+        else if (runtime.brightness < 1) {
+          const dimmed = cloneFrame(frame)
+          for (const row of dimmed) for (const px of row) {
+            px.r *= runtime.brightness
+            px.g *= runtime.brightness
+            px.b *= runtime.brightness
+          }
+          out = { frame: dimmed }
+        } else out = { frame }
         break
       }
 

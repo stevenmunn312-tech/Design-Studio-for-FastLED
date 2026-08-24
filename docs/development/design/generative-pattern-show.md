@@ -37,18 +37,46 @@ Three distinct concepts (Library ≠ Collection):
    Collection node "absorbs" patterns into an internal list (the declutter win),
    reusing the existing group/subgraph machinery, and outputs a new `patternset`
    data type.
-3. **Pattern Master** — the show engine. Inputs: a `patternset`, a chosen pool of
-   transitions (from the existing 16), and trigger options (min/max dwell time,
-   on-beat, on-drop). It runs the random show, and because it's stateful it can
-   play that show **live in the preview**. Output → `MatrixOutput`.
+3. **Music Player** — the show engine. Inputs: a `patternset`, a chosen pool of
+   transitions (from the existing 16), optional beat/drop triggers, optional
+   `playercontrols`, and optional `playerparticles`. It runs the random show,
+   and because it is stateful it can play that show **live in the preview**.
+   Output → LED output.
 
 ```
 [Library]  --drag-->  (pattern groups on canvas)
                               |
-                     Collection node  --patternset-->  Pattern Master  --frame-->  LED Matrix
-                              ^                              ^
-                       (absorbs patterns)            (transition pool + triggers)
+                     Collection node  --patternset--┐
+Player Controls  ----------------------controls----┼-->  Music Player  --frame-->  LED output
+Player Particles --------------------particleFx----┘          ^
+                                                    transition pool + beat triggers
 ```
+
+### Physical player controls
+
+`PlayerControls` is the semantic boundary between physical inputs and playback.
+Buttons, potentiometers, and encoders wire into named play/pause, previous,
+next, volume, LED power, and brightness inputs; one `Controls` output wires to
+Music Player. Controls nodes can be chained through `controlsIn`, so a control
+panel can be assembled in sections without adding ports to Music Player.
+
+Transport commands and LED toggle are rising-edge events. Absolute volume and
+brightness are normalized values; up/down inputs produce deltas. Do not combine
+an absolute input and up/down inputs for the same setting in one controls chain:
+the absolute source continually reasserts its position, so graph validation
+warns about that mapping.
+
+This bundle is also the contract future touch/display controls should emit. The
+Music Player does not need separate physical-button and touch-screen APIs.
+
+### Particle overlay
+
+`PlayerParticles` owns the beat-particle overlay's enabled state, colour,
+random-colour and random-style choices, style, and intensity. Its `Particle FX`
+output wires to Music Player's `particleFx` input. The existing beat input on
+Music Player remains the trigger, so users do not have to duplicate the beat
+wire. This is an overlay configuration bundle, distinct from the standalone
+Particles frame generator.
 
 ### Audio
 
@@ -56,7 +84,7 @@ Three distinct concepts (Library ≠ Collection):
   section of audio. So each generated `render_<name>()` gets the shared
   mic-derived globals (`bass/mids/treble/beat`), not only the controller. In the
   live preview this is free: patterns already read the audio store.
-- **Beat/drop triggers gate on audio** — Pattern Master only offers the on-beat /
+- **Beat/drop triggers gate on audio** — Music Player only offers the on-beat /
   on-drop trigger options when an audio source is wired; time-based (min/max
   dwell) otherwise.
 
@@ -83,15 +111,16 @@ unshipped follow-up if flash-size or build-time pressure ever calls for it.
    instantiate; rename/delete; organize into shelves. The shipped flow uses
    `patternLibrary.ts`, caches locally in the browser, and mirrors user
    patterns into helper-backed JSON files when available. *(Self-contained —
-   no codegen / Pattern Master changes.)*
+   no codegen / Music Player changes.)*
 2. **Collection node** ✅ — absorb patterns into an internal list; `patternset` data
    type; declutter.
-3. **Pattern Master upgrade** ✅ — `patternset` input, transition-pool selection
+3. **Music Player upgrade** ✅ — `patternset` input, transition-pool selection
    (via a wired `TransitionSet`), beat trigger (audio-gated); live random-show
    preview.
 4. **Codegen** ✅ — per-pattern `render_pN()` functions + the controller `.ino`
-   (random pattern + random transition on triggers, beat-triggered particle
-   overlay), as a single file rather than per-pattern `.h`s (see above).
+   (random pattern + random transition on triggers), as a single file rather
+   than per-pattern `.h`s (see above). Player Controls and Player Particles are
+   compiled as explicit optional input bundles.
 
 All four phases are implemented. Hardware validation now covers the controller
 show path, the full transition pool, and the on-device microphone/beat-triggered
@@ -102,11 +131,11 @@ particle overlay flow; see `docs/release/beta-support-matrix.md`.
 - Broader sharing/distribution beyond the current helper-backed local JSON
   mirroring.
 - Per-pattern weighting or tags (e.g. "calm" vs "drop") for smarter random picks.
-- Whether Collection and Pattern Master should merge once the dust settles.
+- Whether Collection and Music Player should merge once the dust settles.
 
 ## Relationship to existing nodes
 
-`PatternMaster` (cycles 4 inputs, time/beat) and `Sequencer` (cycles 4 inputs,
-crossfade) are the seeds of Pattern Master; this supersedes the 4-input cap and
-the crossfade-only limitation, and reaches the 16 transition styles. `Transition`
-stays the manual two-input A→B primitive.
+`PatternMaster` remains the internal node type for Music Player. `Sequencer`
+(cycles four inputs with crossfade) is the smaller fixed-input alternative;
+Music Player instead consumes a Pattern Collection and can use all 16 transition
+styles. `Transition` stays the manual two-input A→B primitive.

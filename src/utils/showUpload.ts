@@ -12,7 +12,7 @@ import type { Edge } from '@xyflow/react'
 import type { StudioNode, StudioNodeData } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import type { MusicEntry } from '../state/musicStore'
-import { generatePlayerSketch, playerConfigFromGraph } from '../codegen/playerSketchGenerator'
+import { generatePlayerSketch, playerConfigFromGraph, playerControlsFromGraph, playerParticlesFromGraph } from '../codegen/playerSketchGenerator'
 import { buildPatternRenderers, patternRenderersUseAudio } from '../codegen/showGenerator'
 import { showFileToBinary } from '../codegen/performanceGenerator'
 import type { ShowUploadFile } from './backendClient'
@@ -122,15 +122,18 @@ export function buildShowPlayer(
   const renderers = patternSet.length > 0
     ? buildPatternRenderers(patternSet, groups, roleParams, true, { beat: '_audioBeat' }, true)
     : undefined
-  // FastLED's audio processor is sizeable. Only link it when the compiled
-  // collection actually reads an audio global; ordinary shows stay lean.
-  const decoderTap = patternRenderersUseAudio(renderers)
+  const particleFx = playerParticlesFromGraph(nodes, edges)
+  // FastLED's audio processor is sizeable. Link it when a compiled pattern
+  // consumes audio or Player Particles needs live beat events.
+  const decoderTap = patternRenderersUseAudio(renderers) || particleFx?.enabled === true
   return generatePlayerSketch(playerConfigFromGraph(nodes, edges, opts.fqbn), renderers, {
     audioEnvelope: opts.bakedAudio && !!renderers,
     decoderTap,
     preferredTrack: opts.preferredTrack,
     genericPlayer: opts.genericPlayer,
     psramAllowed: opts.psramAllowed,
+    controls: playerControlsFromGraph(nodes, edges),
+    particleFx,
   })
 }
 

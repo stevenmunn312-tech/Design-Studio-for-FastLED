@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, estimatePowerLoad, estimateFirmwareRam, findMirroredOutputMismatches, findShowOutputFormErrors, findAudioCapabilityErrors } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, estimatePowerLoad, estimateFirmwareRam, findMirroredOutputMismatches, findShowOutputFormErrors, findAudioCapabilityErrors, findPlayerControlMappingWarnings } from '../validateGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -16,6 +16,40 @@ function edge(id: string, source: string, target: string, th: string): StudioEdg
 }
 
 describe('validateGraph', () => {
+  it('warns when an absolute player setting and step buttons share a controls chain', () => {
+    const first = node('controls-a', 'PlayerControls')
+    const second = node('controls-b', 'PlayerControls')
+    const pot = node('volume-pot', 'Potentiometer')
+    const button = node('volume-up', 'Button')
+    const wires = [
+      edge('pot-volume', pot.id, first.id, 'volume'),
+      edge('chain', first.id, second.id, 'controlsIn'),
+      edge('button-volume', button.id, second.id, 'volumeUp'),
+    ]
+
+    expect(findPlayerControlMappingWarnings([first, second, pot, button], wires)).toEqual([
+      expect.stringMatching(/Volume has both an absolute control and up\/down buttons.*absolute control will override/),
+    ])
+    expect(buildGraphDiagnostics([first, second, pot, button], wires)).toContainEqual(expect.objectContaining({
+      severity: 'warning',
+      title: 'Volume controls conflict',
+      nodeIds: expect.arrayContaining([first.id, second.id]),
+    }))
+  })
+
+  it('allows absolute and step player settings in separate controls domains', () => {
+    const volume = node('volume-controls', 'PlayerControls')
+    const brightness = node('brightness-controls', 'PlayerControls')
+    const pot = node('pot', 'Potentiometer')
+    const button = node('button', 'Button')
+    const wires = [
+      edge('pot-volume', pot.id, volume.id, 'volume'),
+      edge('button-volume', button.id, brightness.id, 'volumeDown'),
+    ]
+
+    expect(findPlayerControlMappingWarnings([volume, brightness, pot, button], wires)).toEqual([])
+  })
+
   it('requires a used Audio capability to resolve to hardware', () => {
     const audio = node('audio', 'Audio')
     const wires = [edge('audio-edge', 'audio', 'fft', 'audio')]

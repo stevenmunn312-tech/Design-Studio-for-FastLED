@@ -20,6 +20,7 @@ import type { StudioNode } from '../state/graphStore'
 import { controllerSettings } from '../state/controllerSettings'
 import { boardProfileById } from '../build/boardProfiles'
 import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
+import { hexToRgb } from '../state/polinePalette'
 
 export interface PlayerConfig {
   ledWidth:    number
@@ -43,6 +44,7 @@ export interface PlayerConfig {
   i2sLrc:      number   // I2S left/right clock, word select (audioOutput === 'i2s' only)
   i2sDout:     number   // I2S data out to DAC (audioOutput === 'i2s' only)
   maxVolume:   number   // 0-21 for MAX98357A
+  ledBrightness: number // controller brightness ceiling, 0-255
   usePsram:    boolean  // honoured only when the selected board exposes PSRAM
   // Raw HUB75 properties from the MatrixOutput node (chipset === 'HUB75'
   // only), passed straight to hub75HardwareFromProps rather than flattening
@@ -61,6 +63,7 @@ const DEFAULTS: PlayerConfig = {
   audioOutput: 'i2s',
   i2sBclk: 26, i2sLrc: 25, i2sDout: 22,
   maxVolume: 18,
+  ledBrightness: 200,
   usePsram: false,
   hub75Props: {},
 }
@@ -131,8 +134,132 @@ export function playerConfigFromGraph(
     i2sLrc:     sanitizePin(amp.i2sLrc, DEFAULTS.i2sLrc),
     i2sDout:    sanitizePin(amp.i2sDout, DEFAULTS.i2sDout),
     maxVolume:  sanitizeVolume(amp.maxVolume),
+    ledBrightness: controller.brightness,
     usePsram:   controller.usePsram,
     hub75Props: mo,
+  }
+}
+
+export type PlayerControlAction =
+  | 'playPause' | 'previous' | 'next'
+  | 'volume' | 'volumeUp' | 'volumeDown'
+  | 'ledToggle' | 'brightness' | 'brightnessUp' | 'brightnessDown'
+
+export type PlayerControlSource =
+  | { kind: 'button'; pin: number; pullup: boolean }
+  | { kind: 'pot'; pin: number }
+  | { kind: 'encoderPosition'; pinA: number; pinB: number; pullup: boolean; key: string }
+  | { kind: 'encoderButton'; pin: number; pullup: boolean }
+
+export interface PlayerControlsConfig {
+  bindings: Partial<Record<PlayerControlAction, PlayerControlSource>>
+  debounceMs: number
+  volumeStep: number
+  brightnessStep: number
+  repeatDelayMs: number
+  repeatIntervalMs: number
+}
+
+export interface PlayerParticlesConfig {
+  enabled: boolean
+  style: number
+  color: { r: number; g: number; b: number }
+  intensity: number
+  randomColor: boolean
+  randomStyle: boolean
+}
+
+const DEFAULT_CONTROL_SETTINGS: Omit<PlayerControlsConfig, 'bindings'> = {
+  debounceMs: 30,
+  volumeStep: 0.05,
+  brightnessStep: 0.05,
+  repeatDelayMs: 400,
+  repeatIntervalMs: 120,
+}
+
+const CONTROL_ACTIONS: PlayerControlAction[] = [
+  'playPause', 'previous', 'next', 'volume', 'volumeUp', 'volumeDown',
+  'ledToggle', 'brightness', 'brightnessUp', 'brightnessDown',
+]
+
+/** Resolve the physical parts feeding the Player Controls bundle wired into
+ * Pattern Master. `controlsIn` may chain mapper nodes; the downstream mapper
+ * wins when both layers assign the same action. */
+export function playerControlsFromGraph(nodes: ConfigNode[], edges: ShowTargetEdge[]): PlayerControlsConfig {
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  const master = nodes.find((node) => node.data.nodeType === 'PatternMaster')
+  const bundle = master && edges.find((edge) =>
+    edge.target === master.id && edge.targetHandle === 'controls')
+  const root = bundle ? byId.get(bundle.source) : undefined
+  if (!root || root.data.nodeType !== 'PlayerControls') return { bindings: {}, ...DEFAULT_CONTROL_SETTINGS }
+
+  const visit = (control: ConfigNode, seen: Set<string>): PlayerControlsConfig['bindings'] => {
+    if (seen.has(control.id)) return {}
+    seen.add(control.id)
+    const result: PlayerControlsConfig['bindings'] = {}
+    const inherited = edges.find((edge) => edge.target === control.id && edge.targetHandle === 'controlsIn')
+    const parent = inherited ? byId.get(inherited.source) : undefined
+    if (parent?.data.nodeType === 'PlayerControls') Object.assign(result, visit(parent, seen))
+
+    for (const action of CONTROL_ACTIONS) {
+      const edge = edges.find((candidate) => candidate.target === control.id && candidate.targetHandle === action)
+      const source = edge ? byId.get(edge.source) : undefined
+      if (!edge || !source) continue
+      const props = source.data.properties
+      if (source.data.nodeType === 'ButtonInput' && edge.sourceHandle === 'pressed') {
+        result[action] = { kind: 'button', pin: sanitizePin(props.pin, 0), pullup: props.pullup !== false }
+      } else if (source.data.nodeType === 'PotInput' && edge.sourceHandle === 'value') {
+        result[action] = { kind: 'pot', pin: sanitizePin(props.pin, 4) }
+      } else if (source.data.nodeType === 'EncoderInput' && edge.sourceHandle === 'pressed') {
+        result[action] = { kind: 'encoderButton', pin: sanitizePin(props.pinSW, 8), pullup: props.pullup !== false }
+      } else if (source.data.nodeType === 'EncoderInput' && edge.sourceHandle === 'position') {
+        result[action] = {
+          kind: 'encoderPosition', pinA: sanitizePin(props.pinA, 6), pinB: sanitizePin(props.pinB, 7),
+          pullup: props.pullup !== false, key: source.id,
+        }
+      }
+    }
+    return result
+  }
+  const bounded = (value: unknown, fallback: number, min: number, max: number): number => {
+    const number = Number(value)
+    return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback
+  }
+  const props = root.data.properties
+  return {
+    bindings: visit(root, new Set()),
+    debounceMs: Math.round(bounded(props.debounceMs, DEFAULT_CONTROL_SETTINGS.debounceMs, 0, 250)),
+    volumeStep: bounded(props.volumeStep, DEFAULT_CONTROL_SETTINGS.volumeStep, 0.01, 0.25),
+    brightnessStep: bounded(props.brightnessStep, DEFAULT_CONTROL_SETTINGS.brightnessStep, 0.01, 0.25),
+    repeatDelayMs: Math.round(bounded(props.repeatDelayMs, DEFAULT_CONTROL_SETTINGS.repeatDelayMs, 0, 1000)),
+    repeatIntervalMs: Math.round(bounded(props.repeatIntervalMs, DEFAULT_CONTROL_SETTINGS.repeatIntervalMs, 20, 500)),
+  }
+}
+
+/** Resolve the Particle FX bundle wired into Music Player. Particle controls
+ * are show appearance rather than hardware configuration, so their inspector
+ * values are frozen into the generated player just like transition choices. */
+export function playerParticlesFromGraph(
+  nodes: ConfigNode[], edges: ShowTargetEdge[],
+): PlayerParticlesConfig | null {
+  const master = nodes.find((node) => node.data.nodeType === 'PatternMaster')
+  const link = master && edges.find((edge) =>
+    edge.target === master.id && edge.targetHandle === 'particleFx')
+  const node = link && nodes.find((candidate) =>
+    candidate.id === link.source && candidate.data.nodeType === 'PlayerParticles')
+  if (!node) return null
+  const props = node.data.properties
+  const clamp = (value: unknown, fallback: number, min: number, max: number) => {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : fallback
+  }
+  return {
+    enabled: props.enabled !== false,
+    style: Math.round(clamp(props.style, 0, 0, 16)),
+    color: hexToRgb(String(props.color ?? '#ff8000')),
+    intensity: clamp(props.intensity, 0.8, 0, 1),
+    randomColor: props.randomColor === true,
+    randomStyle: props.randomStyle === true,
   }
 }
 
@@ -148,7 +275,7 @@ export function generatePlayerSketch(
   // in /music" can play a song left over from an earlier session — paired with
   // that song's show, which makes the mismatch look like a sync bug rather
   // than the wrong file.
-  opts: { audioEnvelope?: boolean; decoderTap?: boolean; preferredTrack?: string; genericPlayer?: boolean; psramAllowed?: boolean } = {},
+  opts: { audioEnvelope?: boolean; decoderTap?: boolean; preferredTrack?: string; genericPlayer?: boolean; psramAllowed?: boolean; controls?: PlayerControlsConfig; particleFx?: PlayerParticlesConfig | null } = {},
 ): string {
   const raw = { ...DEFAULTS, ...cfg }
   const c = {
@@ -163,33 +290,96 @@ export function generatePlayerSketch(
     i2sLrc: sanitizePin(raw.i2sLrc, DEFAULTS.i2sLrc),
     i2sDout: sanitizePin(raw.i2sDout, DEFAULTS.i2sDout),
     maxVolume: sanitizeVolume(raw.maxVolume),
+    ledBrightness: Math.max(0, Math.min(255, Math.round(Number(raw.ledBrightness) || 0))),
   }
   const numLeds = c.ledWidth * c.ledHeight
   const collection = !!(renderers && renderers.count > 0)
   const bakedAudio = !!opts.audioEnvelope
   const decoderTap = collection && opts.decoderTap === true
   const genericPlayer = collection && opts.genericPlayer === true
+  const controls = opts.controls ?? { bindings: {}, ...DEFAULT_CONTROL_SETTINGS }
+  const particleFx = opts.particleFx?.enabled ? opts.particleFx : null
+  const controlEntries = Object.entries(controls.bindings) as Array<[PlayerControlAction, PlayerControlSource]>
+  const hasControls = controlEntries.length > 0
   const reactiveAudio = bakedAudio || decoderTap
   const internalDac = c.audioOutput === 'internalDac'
   // A stale saved toggle must never put ESP32-only allocation calls into a
   // sketch for a board with no PSRAM option. Capability and intent are both
   // required.
   const usePsram = c.usePsram && opts.psramAllowed === true
-  // Strip init shared with the main/show generators. Brightness stays the
-  // player's own fixed 180 — the show's SET_BRIGHTNESS events drive it live.
+
+  const controlPinSetup = [...new Set(controlEntries.flatMap(([, source]) => {
+    if (source.kind === 'pot') return []
+    if (source.kind === 'encoderPosition') {
+      const mode = source.pullup ? 'INPUT_PULLUP' : 'INPUT'
+      return [`  pinMode(${source.pinA}, ${mode});`, `  pinMode(${source.pinB}, ${mode});`]
+    }
+    return [`  pinMode(${source.pin}, ${source.pullup ? 'INPUT_PULLUP' : 'INPUT'});`]
+  }))].join('\n')
+  const oneShots = new Set<PlayerControlAction>(['playPause', 'previous', 'next', 'ledToggle'])
+  const repeats = new Set<PlayerControlAction>(['volumeUp', 'volumeDown', 'brightnessUp', 'brightnessDown'])
+  const controlButtonDecls = controlEntries
+    .filter(([action, source]) => (oneShots.has(action) || repeats.has(action))
+      && (source.kind === 'button' || source.kind === 'encoderButton'))
+    .map(([action]) => `ControlButton _control_${action};`)
+    .join('\n')
+  const controlEncoderDecls = controlEntries
+    .filter(([, source]) => source.kind === 'encoderPosition')
+    .map(([action]) => `ControlEncoder _encoder_${action};`)
+    .join('\n')
+  const digitalReadCpp = (source: PlayerControlSource): string =>
+    source.kind === 'button' || source.kind === 'encoderButton'
+      ? `digitalRead(${source.pin}) == ${source.pullup ? 'LOW' : 'HIGH'}`
+      : 'false'
+  const encoderReadCpp = (action: PlayerControlAction, source: PlayerControlSource): string =>
+    source.kind === 'encoderPosition'
+      ? `_encoder_${action}.update(digitalRead(${source.pinA}), digitalRead(${source.pinB}))`
+      : '0'
+  const controlServiceLines = controlEntries.flatMap(([action, source]) => {
+    if (oneShots.has(action) && (source.kind === 'button' || source.kind === 'encoderButton')) {
+      const body: Record<string, string> = {
+        playPause: 'if (audio.pauseResume()) playerPaused = !playerPaused;',
+        previous: 'changePlayerTrack(-1);',
+        next: 'changePlayerTrack(1);',
+        ledToggle: 'ledsEnabled = !ledsEnabled; applyPlayerBrightness();',
+      }
+      return [`  if (_control_${action}.update(${digitalReadCpp(source)}, now, false)) { ${body[action]} }`]
+    }
+    if (repeats.has(action) && (source.kind === 'button' || source.kind === 'encoderButton')) {
+      const target = action.startsWith('volume') ? 'playerVolume' : 'playerBrightness'
+      const sign = action.endsWith('Up') ? '+' : '-'
+      const apply = target === 'playerVolume' ? 'applyPlayerVolume();' : 'applyPlayerBrightness();'
+      const step = target === 'playerVolume' ? controls.volumeStep : controls.brightnessStep
+      return [`  if (_control_${action}.update(${digitalReadCpp(source)}, now, true)) { ${target} = constrain(${target} ${sign} ${step.toFixed(3)}f, 0.0f, 1.0f); ${apply} }`]
+    }
+    if ((action === 'volume' || action === 'brightness') && source.kind === 'pot') {
+      const target = action === 'volume' ? 'playerVolume' : 'playerBrightness'
+      const apply = action === 'volume' ? 'applyPlayerVolume();' : 'applyPlayerBrightness();'
+      return [`  { float value = constrain(analogRead(${source.pin}) / 4095.0f, 0.0f, 1.0f); if (fabsf(value - ${target}) >= 0.01f) { ${target} = value; ${apply} } }`]
+    }
+    if ((action === 'volume' || action === 'brightness') && source.kind === 'encoderPosition') {
+      const target = action === 'volume' ? 'playerVolume' : 'playerBrightness'
+      const apply = action === 'volume' ? 'applyPlayerVolume();' : 'applyPlayerBrightness();'
+      const step = action === 'volume' ? controls.volumeStep : controls.brightnessStep
+      return [`  { int8_t delta = ${encoderReadCpp(action, source)}; if (delta) { ${target} = constrain(${target} + delta * ${step.toFixed(3)}f, 0.0f, 1.0f); ${apply} } }`]
+    }
+    return []
+  }).join('\n')
+  // Strip init shared with the main/show generators. The Board brightness is
+  // the hard ceiling; show events and Player Controls scale beneath it.
   const hw = ledHardwareFromProps({
     chipset: c.chipset, colorOrder: c.colorOrder, correction: c.correction,
     dither: c.dither, overclock: c.overclock, clockPin: c.ledClockPin,
   })
   const isHub75 = hw.chipset === HUB75_CHIPSET
-  // Brightness stays the player's own fixed 180 — the show's SET_BRIGHTNESS
-  // events drive it live — same override fastledSetupCpp gets below.
-  const hub75Hw = isHub75 ? { ...hub75HardwareFromProps(c.hub75Props, c.ledWidth, c.ledHeight), brightness: 180 } : null
+  const hub75Hw = isHub75
+    ? { ...hub75HardwareFromProps(c.hub75Props, c.ledWidth, c.ledHeight), brightness: c.ledBrightness }
+    : null
   const overclockDefines = overclockDefineCpp(hw).map((l) => `${l}\n`).join('')
   const clockPinDefine = !isHub75 && SPI_CHIPSETS.has(hw.chipset) ? `#define LED_CLOCK_PIN ${hw.clockPin}\n` : ''
   const ledSetupLines = isHub75
     ? hub75SetupCpp(hub75Hw!).join('\n')
-    : fastledSetupCpp(hw, { dataPinMacro: 'LED_DATA_PIN', clockPinMacro: 'LED_CLOCK_PIN', brightness: 180 }).join('\n')
+    : fastledSetupCpp(hw, { dataPinMacro: 'LED_DATA_PIN', clockPinMacro: 'LED_CLOCK_PIN', brightness: c.ledBrightness }).join('\n')
   const powerSetupLine = c.powerLimit && !isHub75
     ? `  FastLED.setMaxPowerInVoltsAndMilliamps(${Math.max(1, Math.round(c.volts))}, ${Math.max(100, Math.round(c.milliamps))});`
     : ''
@@ -460,6 +650,88 @@ void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, 
 float prnd(float n) { float s = sinf(n * 12.9898f) * 43758.5453f; return s - floorf(s); }
 `
 
+  const controlSupportCpp = hasControls ? `
+// ── Physical player controls ─────────────────────────────────────────────────
+// GPIO is sampled without blocking the decoder. One-shot buttons are debounced
+// on their rising edge; adjustment buttons repeat only after a deliberate hold.
+struct ControlButton {
+  bool raw = false, stable = false;
+  uint32_t changedAt = 0, repeatAt = 0;
+  bool update(bool nextRaw, uint32_t now, bool repeat) {
+    if (nextRaw != raw) { raw = nextRaw; changedAt = now; }
+    if (stable != raw && now - changedAt >= ${controls.debounceMs}) {
+      stable = raw;
+      if (stable) { repeatAt = now + ${controls.repeatDelayMs}; return true; }
+    }
+    if (repeat && stable && (int32_t)(now - repeatAt) >= 0) {
+      repeatAt = now + ${controls.repeatIntervalMs};
+      return true;
+    }
+    return false;
+  }
+};
+
+struct ControlEncoder {
+  uint8_t last = 0;
+  int8_t update(bool a, bool b) {
+    static const int8_t table[16] = {0,-1,1,0, 1,0,0,-1, -1,0,0,1, 0,1,-1,0};
+    uint8_t state = ((uint8_t)a << 1) | (uint8_t)b;
+    int8_t delta = table[(last << 2) | state];
+    last = state;
+    return delta;
+  }
+};
+
+${controlButtonDecls}
+${controlEncoderDecls}
+float playerVolume = 1.0f;
+float playerBrightness = 1.0f;
+float showBrightness = 1.0f;
+bool ledsEnabled = true;
+bool playerPaused = false;
+
+bool startPlayback();
+
+void applyPlayerVolume() {
+  audio.setVolume((uint8_t)lroundf(playerVolume * ${c.maxVolume}));
+}
+
+void applyPlayerBrightness() {
+  float level = ledsEnabled ? playerBrightness * showBrightness : 0.0f;
+  uint8_t value = (uint8_t)lroundf(constrain(level, 0.0f, 1.0f) * ${c.ledBrightness});
+  ${isHub75 ? 'dma_display->setBrightness8(value);' : 'FastLED.setBrightness(value);'}
+}
+
+uint16_t playerTrackCount() {
+  File root = SD.open("/music");
+  if (!root) return 0;
+  uint16_t count = 0;
+  File entry = root.openNextFile();
+  while (entry) {
+    String name = entry.name();
+    if (name.endsWith(".mp3") || name.endsWith(".MP3")) count++;
+    entry.close();
+    entry = root.openNextFile();
+  }
+  root.close();
+  return count;
+}
+
+void changePlayerTrack(int8_t direction) {
+  uint16_t count = playerTrackCount();
+  if (!count) return;
+  genericTrackIndex = (uint16_t)((genericTrackIndex + count + direction) % count);
+  audio.stopSong();
+  playerPaused = false;
+  startPlayback();
+}
+
+void servicePlayerControls() {
+  uint32_t now = millis();
+${controlServiceLines}
+}
+` : ''
+
   return `// Design Studio for FastLED — Music-Sync Player${collection ? ' (collection show)' : ''}
 // Generated by Design Studio for FastLED. Requires:
 //   - ESP32-audioI2S  (schreibfaul1/ESP32-audioI2S on GitHub)
@@ -573,7 +845,7 @@ uint32_t   transStart = 0;        // ms the current transition began
 float      transDurMs = 0.0f;     // 0 = no transition in progress
 uint32_t   burstStart = 0;        // ms the current particle burst began
 float      burstIntensity = 0.0f; // 0–1 spark brightness (0 = no burst)
-uint8_t    burstHue   = 0;        // spark hue
+CRGB       burstColor = CRGB(255, 128, 0);
 uint8_t    burstStyle = 0;        // particle motion style (see PARTICLE_STYLES)
 ${hasEnergy ? 'float      energy    = 0.0f;      // SET_ENERGY → energy group-input role\n' : ''}${hasSpeed ? 'float      speed     = 0.5f;      // SET_SPEED (normalised 0–1) → speed group-input role\n' : ''}${hasPalette ? 'CRGBPalette16 palette = RainbowColors_p;  // SET_PALETTE → palette group-input role\n' : ''}${reactiveAudio ? `
 // Shared audio contract consumed by compiled FFT/beat/percussion/features nodes.
@@ -790,13 +1062,15 @@ ${bakedAudio ? '    // updateShowAudio() applies the baked fallback later in thi
 }
 ` : ''}
 
+${controlSupportCpp}
+
 // ── Event dispatcher ──────────────────────────────────────────────────────────
 void applyEvent(const ShowEvent& ev) {
   switch (ev.cmd) {
     case CMD_SET_PATTERN:    patternId  = (uint8_t)ev.params[0]; break;
     case CMD_SET_PALETTE:    paletteId  = (uint8_t)ev.params[0];${hasPalette ? ' palette = paletteFromId(paletteId);' : ''} break;
     case CMD_SET_SPEED:      animSpeed  = ev.params[0];${hasSpeed ? ' speed = constrain(ev.params[0] * 0.5f, 0.0f, 1.0f);' : ''} break;
-    case CMD_SET_BRIGHTNESS: ${isHub75 ? 'dma_display->setBrightness8((uint8_t)ev.params[0]);' : 'FastLED.setBrightness((uint8_t)ev.params[0]);'} break;
+    case CMD_SET_BRIGHTNESS:${hasControls ? ' showBrightness = constrain(ev.params[0] / 255.0f, 0.0f, 1.0f); applyPlayerBrightness();' : ` ${isHub75 ? 'dma_display->setBrightness8((uint8_t)ev.params[0]);' : 'FastLED.setBrightness((uint8_t)ev.params[0]);'}`} break;
     case CMD_BEAT_FLASH:
       flashLevel = ev.params[0] / 255.0f;
       flashDecay = expf(-16.0f / (60.0f + ((ev.paramCount > 1 ? ev.params[1] : 22.0f) / 255.0f) * 240.0f));
@@ -812,7 +1086,7 @@ void applyEvent(const ShowEvent& ev) {
     case CMD_PARTICLE_BURST:
       burstStart     = ev.t;
       burstIntensity = ev.params[0] / 255.0f;
-      burstHue       = (uint8_t)(ev.paramCount > 1 ? ev.params[1] : 0.0f);
+      burstColor     = CHSV((uint8_t)(ev.paramCount > 1 ? ev.params[1] : 0.0f), 217, 255);
       burstStyle     = (uint8_t)(ev.paramCount > 2 ? ev.params[2] : 0.0f);
       break;${hasEnergy ? '\n    case CMD_SET_ENERGY:     energy = ev.params[0]; break;' : ''}
   }
@@ -840,6 +1114,7 @@ bool startPlayback() {
   bool started = false;
   audioEnded = false;
   audioPosMs = 0;
+${hasControls ? '  playerPaused = false;\n' : ''}
 ${genericPlayer ? `
   if (GENERIC_PLAYER) {
     File root = SD.open("/music");
@@ -1114,6 +1389,7 @@ ${psramAllocs.join('\n')}
 
 ${ledSetupLines}
 ${powerSetupLine}
+${hasControls ? `${controlPinSetup}\n  applyPlayerBrightness();` : ''}
 
   // The protocol's own wording, not a human sentence: the host reads this
   // greeting and turns it into a real explanation (card seated? FAT32? CS pin?).
@@ -1143,6 +1419,7 @@ void loop() {
   if (provTransferring) return;
 
   sdRetryMount();
+${hasControls ? '  servicePlayerControls();\n' : ''}
 
   // Heartbeat so a serial monitor can tell "still running, just quiet" apart
   // from "hung" — printed before audio.loop() so it keeps ticking even if
@@ -1190,6 +1467,16 @@ ${genericPlayer ? `  if (GENERIC_PLAYER && audioEnded) {
 ${bakedAudio ? decoderTap
     ? '  if (!_decoderTapLive) updateShowAudio(posMs);  // startup/failure fallback\n'
     : '  updateShowAudio(posMs);   // song-synced FFT → pattern audio globals\n' : ''}
+${particleFx && genericPlayer && decoderTap ? `  // Player Particles turns the live decoder beat into a configured burst.
+  if (_audioBeat) {
+    burstStart = posMs;
+    burstIntensity = ${particleFx.intensity.toFixed(3)}f;
+    burstStyle = ${particleFx.randomStyle ? 'random8(17)' : particleFx.style};
+    burstColor = ${particleFx.randomColor
+      ? 'CHSV(random8(), 255, 255)'
+      : `CRGB(${particleFx.color.r}, ${particleFx.color.g}, ${particleFx.color.b})`};
+  }
+` : ''}
 ${genericPlayer ? `  // Unknown tracks have no pre-baked event timeline. Rotate the
   // collected patterns on a simple wall-clock cadence while their own audio
   // nodes react to the live decoder signal.
@@ -1245,7 +1532,7 @@ ${genericPlayer ? `  // Fade the player down during genuine silence. Release is 
   if (burstIntensity > 0.01f && (float)(posMs - burstStart) < PARTICLE_LIFE_MS) {
     float ageSec = (posMs - burstStart) / 1000.0f;
     float f = (float)(posMs - burstStart) / PARTICLE_LIFE_MS;
-    CRGB base = CHSV(burstHue, 217, 255);
+    CRGB base = burstColor;
     float cx = WIDTH * 0.5f, cy = HEIGHT * 0.5f, maxR = min(WIDTH, HEIGHT) * 0.5f;
     for (int i = 0; i < PARTICLE_COUNT; i++) {
       float bp = burstStart * 0.001f + i * 7.13f;

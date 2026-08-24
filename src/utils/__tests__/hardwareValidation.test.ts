@@ -37,6 +37,48 @@ const baselineMatrix = node('matrix', 'MatrixOutput', {
 const fbuild = { ok: true, engine: 'fbuild' as const, fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' }
 
 describe('hardware validation profiles', () => {
+  it('resolves the particle overlay from the Player Particles connection', () => {
+    const player = node('player', 'PatternMaster')
+    const particles = node('particles', 'PlayerParticles', { enabled: true })
+    const particleFx = {
+      id: 'particle-fx', source: particles.id, target: player.id,
+      sourceHandle: 'particleFx', targetHandle: 'particleFx',
+    } as StudioEdge
+    const enabled = buildHardwareValidationProfile({
+      nodes: [baselineMatrix, player, particles],
+      edges: [particleFx],
+      selectedFqbn: 'esp32:esp32:esp32s3',
+      helper: fbuild,
+      runtime: RECORDED_RUNTIME,
+    })
+
+    expect(enabled.show.particleOverlay).toBe(true)
+    expect(enabled.features).toContain('Beat particle overlay')
+
+    particles.data.properties.enabled = false
+    const disabled = buildHardwareValidationProfile({
+      nodes: [baselineMatrix, player, particles],
+      edges: [particleFx],
+      selectedFqbn: 'esp32:esp32:esp32s3',
+      helper: fbuild,
+      runtime: RECORDED_RUNTIME,
+    })
+    expect(disabled.show.particleOverlay).toBe(false)
+
+    const enabledSource = node('enabled-source', 'Button')
+    const dynamic = buildHardwareValidationProfile({
+      nodes: [baselineMatrix, player, particles, enabledSource],
+      edges: [particleFx, {
+        id: 'enabled', source: enabledSource.id, target: particles.id,
+        sourceHandle: 'value', targetHandle: 'enabled',
+      } as StudioEdge],
+      selectedFqbn: 'esp32:esp32:esp32s3',
+      helper: fbuild,
+      runtime: RECORDED_RUNTIME,
+    })
+    expect(dynamic.show.particleOverlay).toBe(true)
+  })
+
   it('reports the fixed microphone analysis rate instead of an ignored node property', () => {
     const mic = node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41, channel: 'Left', sampleRate: 16000 })
     const profile = buildHardwareValidationProfile({

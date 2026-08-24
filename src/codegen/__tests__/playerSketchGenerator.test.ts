@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generatePlayerSketch, playerConfigFromGraph } from '../playerSketchGenerator'
+import { generatePlayerSketch, playerConfigFromGraph, playerControlsFromGraph, playerParticlesFromGraph } from '../playerSketchGenerator'
 
 // The show's LED target comes off a wire now — the generator's `frame` into an
 // output's `frame` — so a fixture that wants its MatrixOutput read has to say
@@ -9,6 +9,132 @@ const SHOW_EDGE = [{ source: 'pg', target: 'mo', sourceHandle: 'frame', targetHa
 const generator = { id: 'pg', data: { nodeType: 'PerformanceGenerator', properties: {} } }
 
 describe('playerSketchGenerator', () => {
+  describe('Player Controls', () => {
+    it('traces a chained controls bundle and lets the downstream mapper override an action', () => {
+      const nodes = [
+        { id: 'master', data: { nodeType: 'PatternMaster', properties: {} } },
+        { id: 'base', data: { nodeType: 'PlayerControls', properties: {} } },
+        { id: 'controls', data: { nodeType: 'PlayerControls', properties: {
+          debounceMs: 45, volumeStep: 0.08, brightnessStep: 0.09,
+          repeatDelayMs: 525, repeatIntervalMs: 150,
+        } } },
+        { id: 'old-next', data: { nodeType: 'ButtonInput', properties: { pin: 3 } } },
+        { id: 'next', data: { nodeType: 'ButtonInput', properties: { pin: 7, pullup: false } } },
+        { id: 'volume', data: { nodeType: 'PotInput', properties: { pin: 4 } } },
+        { id: 'encoder', data: { nodeType: 'EncoderInput', properties: { pinA: 8, pinB: 9, pinSW: 10 } } },
+      ]
+      const edges = [
+        { source: 'base', sourceHandle: 'controls', target: 'controls', targetHandle: 'controlsIn' },
+        { source: 'controls', sourceHandle: 'controls', target: 'master', targetHandle: 'controls' },
+        { source: 'old-next', sourceHandle: 'pressed', target: 'base', targetHandle: 'next' },
+        { source: 'next', sourceHandle: 'pressed', target: 'controls', targetHandle: 'next' },
+        { source: 'volume', sourceHandle: 'value', target: 'base', targetHandle: 'volume' },
+        { source: 'encoder', sourceHandle: 'position', target: 'controls', targetHandle: 'brightness' },
+      ]
+
+      expect(playerControlsFromGraph(nodes, edges)).toEqual({
+        bindings: {
+          next: { kind: 'button', pin: 7, pullup: false },
+          volume: { kind: 'pot', pin: 4 },
+          brightness: { kind: 'encoderPosition', pinA: 8, pinB: 9, pullup: true, key: 'encoder' },
+        },
+        debounceMs: 45,
+        volumeStep: 0.08,
+        brightnessStep: 0.09,
+        repeatDelayMs: 525,
+        repeatIntervalMs: 150,
+      })
+    })
+
+    it('emits debounced transport, repeat adjustments, normalized pots, and brightness ceilings', () => {
+      const sketch = generatePlayerSketch({ maxVolume: 17, ledBrightness: 143 }, undefined, {
+        controls: {
+          bindings: {
+            playPause: { kind: 'button', pin: 2, pullup: true },
+            next: { kind: 'encoderButton', pin: 10, pullup: true },
+            volume: { kind: 'pot', pin: 4 },
+            volumeDown: { kind: 'button', pin: 5, pullup: true },
+            ledToggle: { kind: 'button', pin: 6, pullup: false },
+            brightnessUp: { kind: 'button', pin: 7, pullup: true },
+          },
+          debounceMs: 35,
+          volumeStep: 0.07,
+          brightnessStep: 0.09,
+          repeatDelayMs: 500,
+          repeatIntervalMs: 140,
+        },
+      })
+
+      expect(sketch).toContain('now - changedAt >= 35')
+      expect(sketch).toContain('repeatAt = now + 500')
+      expect(sketch).toContain('repeatAt = now + 140')
+      expect(sketch).toContain('audio.pauseResume()')
+      expect(sketch).toContain('changePlayerTrack(1);')
+      expect(sketch).toContain('analogRead(4) / 4095.0f')
+      expect(sketch).toContain('playerVolume * 17')
+      expect(sketch).toContain('playerBrightness * showBrightness')
+      expect(sketch).toContain('* 143')
+      expect(sketch).toContain('ledsEnabled = !ledsEnabled; applyPlayerBrightness();')
+      expect(sketch).toContain('audio.stopSong();')
+      expect(sketch).toContain('servicePlayerControls();')
+      expect(sketch).toContain('pinMode(6, INPUT);')
+      expect(sketch).toContain('digitalRead(6) == HIGH')
+      expect(sketch).toContain('playerVolume - 0.070f')
+      expect(sketch).toContain('playerBrightness + 0.090f')
+    })
+
+    it('uses the HUB75 brightness API for runtime controls', () => {
+      const sketch = generatePlayerSketch({ chipset: 'HUB75' }, undefined, {
+        controls: {
+          bindings: { brightness: { kind: 'pot', pin: 4 } },
+          debounceMs: 30, volumeStep: 0.05, brightnessStep: 0.05,
+          repeatDelayMs: 400, repeatIntervalMs: 120,
+        },
+      })
+      expect(sketch).toContain('dma_display->setBrightness8(value);')
+      expect(sketch).toContain('showBrightness = constrain(ev.params[0] / 255.0f')
+    })
+  })
+
+  describe('Player Particles', () => {
+    it('resolves only the Particle FX node wired into Music Player', () => {
+      const nodes = [
+        { id: 'master', data: { nodeType: 'PatternMaster', properties: {} } },
+        { id: 'fx', data: { nodeType: 'PlayerParticles', properties: {
+          enabled: true, style: 6, color: '#3366cc', intensity: 0.72,
+          randomColor: true, randomStyle: false,
+        } } },
+      ]
+      const edges = [{ source: 'fx', sourceHandle: 'particleFx', target: 'master', targetHandle: 'particleFx' }]
+      expect(playerParticlesFromGraph(nodes, edges)).toEqual({
+        enabled: true, style: 6, color: { r: 51, g: 102, b: 204 }, intensity: 0.72,
+        randomColor: true, randomStyle: false,
+      })
+      expect(playerParticlesFromGraph(nodes, [])).toBeNull()
+    })
+
+    it('turns live decoder beats into configured generic-player bursts', () => {
+      const renderers = {
+        buffers: [], helpers: [],
+        functions: ['void render_p0(uint32_t ms) { fill_solid(leds, NUM_LEDS, CRGB::Blue); }'],
+        count: 1, params: [],
+      }
+      const sketch = generatePlayerSketch({}, renderers, {
+        genericPlayer: true,
+        decoderTap: true,
+        particleFx: {
+          enabled: true, style: 6, color: { r: 51, g: 102, b: 204 }, intensity: 0.72,
+          randomColor: false, randomStyle: true,
+        },
+      })
+      expect(sketch).toContain('if (_audioBeat) {')
+      expect(sketch).toContain('burstIntensity = 0.720f;')
+      expect(sketch).toContain('burstStyle = random8(17);')
+      expect(sketch).toContain('burstColor = CRGB(51, 102, 204);')
+      expect(sketch).toContain('CRGB base = burstColor;')
+    })
+  })
+
   describe('PSRAM buffers', () => {
     const renderers = {
       buffers: ['CRGB p0_buf_frame[NUM_LEDS];', 'float p0_field_noise[NUM_LEDS];'],
@@ -193,7 +319,7 @@ describe('playerSketchGenerator', () => {
       expect(sketch).not.toContain('FastLED.show();')
       // The player's fixed startup brightness (180, overridden live by
       // SET_BRIGHTNESS events) still applies to the HUB75 setup path.
-      expect(sketch).toContain('dma_display->setBrightness8(180);')
+      expect(sketch).toContain('dma_display->setBrightness8(200);')
       // Pattern rendering, transitions, beat flash, and the particle overlay
       // are untouched — still CRGB math into the shared `leds` buffer.
       expect(sketch).toContain('void renderPattern(uint8_t pid, float t)')

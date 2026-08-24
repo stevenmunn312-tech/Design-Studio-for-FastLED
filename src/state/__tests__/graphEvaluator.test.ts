@@ -2468,6 +2468,117 @@ describe('evaluateGraph', () => {
     expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 255 })
   })
 
+  it('PlayerControls emits debounced edge events, normalized absolutes, and repeatable deltas', () => {
+    resetEvaluatorState()
+    const press = node('pc_press', 'Compare', 'math', { a: 0, b: 0.5 })
+    const volume = node('pc_volume', 'Math', 'math', { mathOp: 'add', a: 1.4, b: 0 })
+    const controls = node('pc', 'PlayerControls', 'show', {
+      debounceMs: 30, volumeStep: 0.1, repeatDelayMs: 100, repeatIntervalMs: 50,
+    })
+    const nodes = [press, volume, controls]
+    const edges = [
+      edge('pc_e1', press.id, 'result', controls.id, 'playPause'),
+      edge('pc_e2', press.id, 'result', controls.id, 'volumeUp'),
+      edge('pc_e3', volume.id, 'result', controls.id, 'volume'),
+    ]
+    const read = (tick: number) => evaluateGraphFull(nodes, edges, tick).outputs.get(controls.id)?.controls as {
+      playPause: boolean; volume?: number; volumeDelta: number
+    }
+
+    expect(read(0)).toMatchObject({ playPause: false, volume: 1, volumeDelta: 0 })
+    ;(press.data.properties as Record<string, unknown>).a = 1
+    expect(read(1).playPause).toBe(false)
+    expect(read(3)).toMatchObject({ playPause: true, volume: 1, volumeDelta: 0.1 })
+    expect(read(4)).toMatchObject({ playPause: false, volumeDelta: 0 })
+    expect(read(10)).toMatchObject({ playPause: false, volumeDelta: 0.1 })
+  })
+
+  it('PlayerControls chains command pulses and sums local deltas', () => {
+    resetEvaluatorState()
+    const press = node('chain_press', 'Compare', 'math', { a: 0, b: 0.5 })
+    const first = node('chain_first', 'PlayerControls', 'show', { debounceMs: 0, volumeStep: 0.1 })
+    const second = node('chain_second', 'PlayerControls', 'show', { debounceMs: 0, volumeStep: 0.2 })
+    const nodes = [press, first, second]
+    const edges = [
+      edge('chain_e1', press.id, 'result', first.id, 'next'),
+      edge('chain_e2', press.id, 'result', first.id, 'volumeUp'),
+      edge('chain_e3', first.id, 'controls', second.id, 'controlsIn'),
+      edge('chain_e4', press.id, 'result', second.id, 'volumeUp'),
+    ]
+    evaluateGraphFull(nodes, edges, 0)
+    ;(press.data.properties as Record<string, unknown>).a = 1
+    const bundle = evaluateGraphFull(nodes, edges, 1).outputs.get(second.id)?.controls as {
+      next: boolean; volumeDelta: number
+    }
+    expect(bundle.next).toBe(true)
+    expect(bundle.volumeDelta).toBeCloseTo(0.3)
+  })
+
+  it('PlayerParticles builds a bounded typed FX bundle', () => {
+    const particles = node('player_fx', 'PlayerParticles', 'show', {
+      enabled: true, style: 99, color: '#123456', intensity: 2,
+      randomColor: true, randomStyle: true,
+    })
+    expect(evaluateGraphFull([particles], [], 0).outputs.get(particles.id)?.particleFx).toEqual({
+      enabled: true,
+      style: 16,
+      color: { r: 18, g: 52, b: 86 },
+      intensity: 1,
+      randomColor: true,
+      randomStyle: true,
+    })
+  })
+
+  it('Music Player uses PlayerParticles for its beat-triggered overlay', () => {
+    resetEvaluatorState()
+    const collection = node('fx_collection', 'PatternCollection', 'show', { patternIds: ['fx_group'] })
+    const beat = node('fx_beat', 'Compare', 'math', { a: 0, b: 0.5 })
+    const particles = node('fx_bundle', 'PlayerParticles', 'show', {
+      enabled: true, style: 2, color: '#ff0000', intensity: 1,
+    })
+    const player = node('fx_player', 'PatternMaster', 'show', { minTime: 999, maxTime: 999, transitionSec: 1 })
+    const output = node('fx_output', 'MatrixOutput', 'output', {})
+    const black = node('fx_black', 'SolidColor', 'pattern', { r: 0, g: 0, b: 0 })
+    const groupOut = node('fx_group_out', 'GroupOutput', 'output', {})
+    const groups = { fx_group: { nodes: [black, groupOut], edges: [edge('fx_ge', black.id, 'frame', groupOut.id, 'frame')] } }
+    const nodes = [collection, beat, particles, player, output]
+    const edges = [
+      edge('fx_e1', collection.id, 'patternset', player.id, 'patternset'),
+      edge('fx_e2', beat.id, 'result', player.id, 'beat'),
+      edge('fx_e3', particles.id, 'particleFx', player.id, 'particleFx'),
+      edge('fx_e4', player.id, 'frame', output.id, 'frame'),
+    ]
+    expect(litPixels(evaluateGraphFull(nodes, edges, 0, 16, 16, groups).frame)).toBe(0)
+    ;(beat.data.properties as Record<string, unknown>).a = 1
+    expect(litPixels(evaluateGraphFull(nodes, edges, 1, 16, 16, groups).frame)).toBeGreaterThan(0)
+  })
+
+  it('Music Player consumes control brightness and LED toggle in preview', () => {
+    resetEvaluatorState()
+    const collection = node('ctl_collection', 'PatternCollection', 'show', { patternIds: ['ctl_group'] })
+    const brightness = node('ctl_brightness', 'Math', 'math', { mathOp: 'add', a: 0.5, b: 0 })
+    const toggle = node('ctl_toggle', 'Compare', 'math', { a: 0, b: 0.5 })
+    const controls = node('ctl_controls', 'PlayerControls', 'show', { debounceMs: 0 })
+    const player = node('ctl_player', 'PatternMaster', 'show', { minTime: 999, maxTime: 999, transitionSec: 1 })
+    const output = node('ctl_output', 'MatrixOutput', 'output', {})
+    const solid = node('ctl_solid', 'SolidColor', 'pattern', { r: 200, g: 100, b: 50 })
+    const groupOut = node('ctl_group_out', 'GroupOutput', 'output', {})
+    const groups = { ctl_group: { nodes: [solid, groupOut], edges: [edge('ctl_ge', solid.id, 'frame', groupOut.id, 'frame')] } }
+    const nodes = [collection, brightness, toggle, controls, player, output]
+    const edges = [
+      edge('ctl_e1', collection.id, 'patternset', player.id, 'patternset'),
+      edge('ctl_e2', brightness.id, 'result', controls.id, 'brightness'),
+      edge('ctl_e3', toggle.id, 'result', controls.id, 'ledToggle'),
+      edge('ctl_e4', controls.id, 'controls', player.id, 'controls'),
+      edge('ctl_e5', player.id, 'frame', output.id, 'frame'),
+    ]
+    const dim = evaluateGraphFull(nodes, edges, 0, 4, 4, groups).frame!
+    expect(dim[0][0]).toEqual({ r: 100, g: 50, b: 25 })
+    ;(toggle.data.properties as Record<string, unknown>).a = 1
+    const off = evaluateGraphFull(nodes, edges, 1, 4, 4, groups).frame!
+    expect(litPixels(off)).toBe(0)
+  })
+
   it('PatternMaster forwards its wired audio input into absorbed groups', () => {
     mockAudio.active = true
     mockAudio.micActive = true

@@ -191,6 +191,15 @@ function props(node: StudioNode | undefined): Record<string, unknown> {
   return (node?.data.properties ?? {}) as Record<string, unknown>
 }
 
+function activePlayerParticles(nodes: StudioNode[], edges: StudioEdge[], master: StudioNode | undefined): StudioNode | undefined {
+  if (!master) return undefined
+  const particleEdge = edges.find((edge) => edge.target === master.id && edge.targetHandle === 'particleFx')
+  const particles = particleEdge && nodes.find((node) => node.id === particleEdge.source && nodeType(node) === 'PlayerParticles')
+  if (!particles) return undefined
+  const enabledIsWired = edges.some((edge) => edge.target === particles.id && edge.targetHandle === 'enabled')
+  return props(particles).enabled === true || enabledIsWired ? particles : undefined
+}
+
 function n(value: unknown, fallback: number): number {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
@@ -290,7 +299,7 @@ function featureList(nodes: StudioNode[], edges: StudioEdge[], matrixProps: Reco
     const transitions = (props(transitionNode).transitions as string[] | undefined) ?? []
     if (transitions.some((transition) => transition !== 'crossfade')) features.push('Non-crossfade show transitions')
     if (edges.some((edge) => edge.target === master.id && edge.targetHandle === 'beat')) features.push('Beat-triggered show advance')
-    if (props(master).particles === true) features.push('Beat particle overlay')
+    if (activePlayerParticles(nodes, edges, master)) features.push('Beat particle overlay')
   }
 
   if (performance) {
@@ -499,7 +508,7 @@ export function buildHardwareValidationProfile(options: {
   const sdProps = props(sd)
   const sdDefaults = sdSpiPinsForBoard(selectedPhysicalBoardProfile(nodes), selectedFqbn)
   const master = nodes.find((node) => nodeType(node) === 'PatternMaster')
-  const masterProps = props(master)
+  const playerParticles = activePlayerParticles(nodes, edges, master)
   const performance = nodes.find((node) => nodeType(node) === 'PerformanceGenerator')
   const collection = nodes.find((node) => nodeType(node) === 'PatternCollection')
   const transitionEdge = master && edges.find((edge) => edge.target === master.id && edge.targetHandle === 'transitions')
@@ -560,7 +569,7 @@ export function buildHardwareValidationProfile(options: {
       patternCount: Array.isArray(props(collection).patternIds) ? (props(collection).patternIds as unknown[]).length : 0,
       transitions,
       beatTrigger: !!master && edges.some((edge) => edge.target === master.id && edge.targetHandle === 'beat'),
-      particleOverlay: masterProps.particles === true,
+      particleOverlay: !!playerParticles,
       groupInputModulation: props(performance).useGroupInputs === true,
     },
     features,

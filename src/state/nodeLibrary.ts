@@ -2081,6 +2081,48 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
 
+  // ── Music Player controls and effects ───────────────────────────────
+  {
+    type: 'PlayerControls',
+    label: 'Player Controls',
+    category: 'show',
+    inputs: [
+      { id: 'controlsIn', label: 'Controls In', dataType: 'playercontrols' },
+      { id: 'playPause', label: 'Play / Pause', dataType: 'bool' },
+      { id: 'previous', label: 'Previous', dataType: 'bool' },
+      { id: 'next', label: 'Next', dataType: 'bool' },
+      { id: 'volume', label: 'Volume', dataType: 'float' },
+      { id: 'volumeUp', label: 'Volume Up', dataType: 'bool' },
+      { id: 'volumeDown', label: 'Volume Down', dataType: 'bool' },
+      { id: 'ledToggle', label: 'LED On / Off', dataType: 'bool' },
+      { id: 'brightness', label: 'Brightness', dataType: 'float' },
+      { id: 'brightnessUp', label: 'Brightness Up', dataType: 'bool' },
+      { id: 'brightnessDown', label: 'Brightness Down', dataType: 'bool' },
+    ],
+    outputs: [{ id: 'controls', label: 'Controls', dataType: 'playercontrols' }],
+    defaultProperties: {
+      debounceMs: 30, volumeStep: 0.05, brightnessStep: 0.05,
+      repeatDelayMs: 400, repeatIntervalMs: 120,
+    },
+  },
+  {
+    type: 'PlayerParticles',
+    label: 'Player Particles',
+    category: 'show',
+    inputs: [
+      { id: 'enabled', label: 'Enabled', dataType: 'bool' },
+      { id: 'color', label: 'Color', dataType: 'color' },
+      { id: 'intensity', label: 'Intensity', dataType: 'float' },
+      { id: 'randomColor', label: 'Random Color', dataType: 'bool' },
+      { id: 'randomStyle', label: 'Random Style', dataType: 'bool' },
+    ],
+    outputs: [{ id: 'particleFx', label: 'Particle FX', dataType: 'playerparticles' }],
+    defaultProperties: {
+      enabled: false, style: 0, color: '#ff8000', intensity: 0.8,
+      randomColor: false, randomStyle: false,
+    },
+  },
+
   // ── Music Player — the live, decoder-driven pattern player ───────────────
   {
     // Runs a random show from a Pattern Collection: holds a random pattern for
@@ -2098,21 +2140,15 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'minTime',     label: 'Min Time',    dataType: 'float' },
       { id: 'maxTime',     label: 'Max Time',    dataType: 'float' },
       { id: 'transitionSec', label: 'Transition', dataType: 'float' },
-      { id: 'particles',   label: 'Particles',   dataType: 'bool' },
-      { id: 'particleColor', label: 'Particle Color', dataType: 'color' },
-      { id: 'randomColor', label: 'Random Color', dataType: 'bool' },
-      { id: 'particleIntensity', label: 'Particle Intensity', dataType: 'float' },
-      { id: 'randomStyle', label: 'Random Style', dataType: 'bool' },
+      { id: 'controls', label: 'Controls', dataType: 'playercontrols' },
+      { id: 'particleFx', label: 'Particle FX', dataType: 'playerparticles' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       minTime: 4, maxTime: 12, transitionSec: 1,
       // Transition styles come from a wired TransitionSet; unwired ⇒ crossfade.
-      // Beat-triggered particle overlay (needs a wired beat). Off by default.
-      // `randomColor`/`randomStyle` re-roll the burst's colour/style each beat
-      // instead of using the fixed swatch/slider below.
-      particles: false, randomColor: false, randomStyle: false,
-      particleColor: '#ff8000', particleStyle: 0, particleIntensity: 0.8, seed: 0,
+      // Controls and particle FX are supplied by their dedicated bundle nodes.
+      seed: 0,
     },
   },
   {
@@ -2953,6 +2989,8 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   ReactionDiffusion: 'Gray-Scott reaction-diffusion — organic spots & stripes.',
   GameOfLife: 'Conway’s Game of Life with fading trails.',
   PatternMaster: 'Random pattern/transition show from a Pattern Collection.',
+  PlayerControls: 'Maps buttons and knobs to Music Player transport, volume, and LED controls.',
+  PlayerParticles: 'Configures the Music Player\'s beat-triggered particle overlay.',
   CustomFormula: 'Per-pixel JS expression f(x, y, t) — with cx/cy/r/angle and FastLED shims.',
   Code: 'Paste raw FastLED C++ that writes into leds[].',
   FieldFormula: 'Per-pixel scalar field from an expression (cx/cy/r/angle, sin8/beatsin8…).',
@@ -3035,7 +3073,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
   field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'WaveSim', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldToFrame'],
-  show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'PatternMaster', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
+  show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'PlayerControls', 'PlayerParticles', 'PatternMaster', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
 /**
@@ -3088,6 +3126,8 @@ export const PORT_COLORS: Record<string, string> = {
   music: '#ffb74d',
   patternset: '#00e0a4',
   transitionset: '#b388ff',
+  playercontrols: '#ff8a65',
+  playerparticles: '#ce93d8',
 }
 
 /** Colour for a port's data type (used to tint node handles). */
@@ -3293,9 +3333,6 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   boost:      { control: 'slider', min: 0, max: 1, step: 0.01 },
   // Beat Flash overdrive — 1 = the pre-existing flash brightness, up to 2x hotter.
   intensity:  { control: 'slider', min: 0, max: 2, step: 0.05 },
-  // Show Engine beat-triggered particle overlay (17 motion styles, 0–16).
-  particleStyle:     { control: 'slider', min: 0, max: 16, step: 1 },
-  particleIntensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
   s:          { control: 'slider', min: 0, max: 1, step: 0.01 },
   v:          { control: 'slider', min: 0, max: 1, step: 0.01 },
   // Hue Shift's rotation amount, normalised 0–1 across the full 360° hue wheel.
@@ -3716,6 +3753,17 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   GameOfLife:        { speed: { control: 'slider', min: 1, max: 30,  step: 1 }, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   ReactionDiffusion: { speed: { control: 'slider', min: 1, max: 30,  step: 1 }, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   PatternMaster:     { seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
+  PlayerControls: {
+    debounceMs: { control: 'slider', min: 0, max: 250, step: 5 },
+    volumeStep: { control: 'slider', min: 0.01, max: 0.25, step: 0.01 },
+    brightnessStep: { control: 'slider', min: 0.01, max: 0.25, step: 0.01 },
+    repeatDelayMs: { control: 'slider', min: 0, max: 1000, step: 25 },
+    repeatIntervalMs: { control: 'slider', min: 25, max: 500, step: 5 },
+  },
+  PlayerParticles: {
+    style: { control: 'slider', min: 0, max: 16, step: 1 },
+    intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
+  },
   WaveSim: {
     speed:   { control: 'slider', min: 1, max: 12,    step: 1 },
     damping: { control: 'slider', min: 0.8, max: 0.999, step: 0.001 },
@@ -3879,12 +3927,20 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   Transition: {
     direction: 'Slide direction for the Wipe / Push styles.',
   },
-  PatternMaster: {
-    particles: 'Beat-triggered spark overlay over the show. Requires a wired beat input — with nothing wired, turning this on has no effect.',
-    particleColor: 'Spark colour for the beat-triggered particle overlay.',
-    randomColor: 'Pick a new spark colour on every beat instead of the fixed colour below.',
-    particleStyle: 'Spark motion style for the beat-triggered particle overlay.',
-    randomStyle: 'Pick a new spark motion style on every beat instead of the fixed style below.',
+  PlayerControls: {
+    debounceMs: 'Time an input must remain stable before a button press is accepted.',
+    volumeStep: 'Volume change applied by each Volume Up or Volume Down event.',
+    brightnessStep: 'Brightness change applied by each Brightness Up or Brightness Down event.',
+    repeatDelayMs: 'How long a step button is held before it begins repeating.',
+    repeatIntervalMs: 'Time between repeated changes while a step button remains held.',
+  },
+  PlayerParticles: {
+    enabled: 'Enables a particle burst on each wired Music Player beat.',
+    style: 'Spark motion style used for each burst (0–16).',
+    color: 'Fixed spark colour used when Random Color is off.',
+    intensity: 'Brightness of the additive particle overlay.',
+    randomColor: 'Pick a new spark colour on every beat instead of the fixed colour.',
+    randomStyle: 'Pick a new spark motion style on every beat instead of the fixed style.',
   },
   FFTAnalyzer: {
     bands: 'Resamples the raw spectrum to this many bins before averaging it into bass/mids/treble (also resizes the live meter). Higher = a sharper split between the three; lower = blurrier.',
@@ -3984,11 +4040,15 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
   PaletteFromImage: {
     count: 'Colors',
   },
-  PatternMaster: {
-    particles: 'use particles',
-    particleColor: 'particle color',
+  PlayerControls: {
+    debounceMs: 'debounce (ms)',
+    volumeStep: 'volume step',
+    brightnessStep: 'brightness step',
+    repeatDelayMs: 'repeat delay (ms)',
+    repeatIntervalMs: 'repeat interval (ms)',
+  },
+  PlayerParticles: {
     randomColor: 'use random color',
-    particleStyle: 'particle style',
     randomStyle: 'use random style',
   },
   ClockDisplay: {
@@ -4180,7 +4240,13 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   PatternMaster: [
     { key: 'timing', label: 'Timing', keys: ['minTime', 'maxTime', 'transitionSec'] },
     { key: 'randomness', label: 'Randomness', keys: ['seed'] },
-    { key: 'particles', label: 'Particles', keys: ['particles', 'randomColor', 'randomStyle', 'particleColor', 'particleStyle', 'particleIntensity'] },
+  ],
+  PlayerControls: [
+    { key: 'buttons', label: 'Buttons', keys: ['debounceMs', 'repeatDelayMs', 'repeatIntervalMs'] },
+    { key: 'steps', label: 'Steps', keys: ['volumeStep', 'brightnessStep'] },
+  ],
+  PlayerParticles: [
+    { key: 'appearance', label: 'Appearance', keys: ['enabled', 'style', 'color', 'intensity', 'randomColor', 'randomStyle'] },
   ],
   Array: [
     { key: 'position', label: 'Position', keys: ['offsetX', 'offsetY', 'angle', 'scale'] },
@@ -4657,13 +4723,13 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
         return ft === 'attractor'
     }
   }
-  if (nodeType === 'PatternMaster') {
-    const on = properties.particles === true
+  if (nodeType === 'PlayerParticles') {
+    const on = properties.enabled === true
     switch (key) {
-      case 'particleColor': return on && properties.randomColor !== true
+      case 'color': return on && properties.randomColor !== true
       case 'randomColor':
-      case 'particleIntensity': return on
-      case 'particleStyle': return on && properties.randomStyle !== true
+      case 'intensity': return on
+      case 'style': return on && properties.randomStyle !== true
       case 'randomStyle': return on
     }
   }

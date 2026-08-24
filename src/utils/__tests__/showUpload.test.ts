@@ -20,6 +20,30 @@ function node(
 }
 
 describe('buildShowPlayer', () => {
+  it('passes the Player Controls wiring into the generated SD player', () => {
+    const nodes = [
+      node('player', 'PatternMaster'),
+      node('controls', 'PlayerControls', {
+        debounceMs: 55, volumeStep: 0.06, brightnessStep: 0.07,
+        repeatDelayMs: 475, repeatIntervalMs: 135,
+      }),
+      node('pause', 'ButtonInput', { pin: 12, pullup: false }),
+    ]
+    const edges = [
+      { id: 'controls-player', source: 'controls', sourceHandle: 'controls', target: 'player', targetHandle: 'controls' },
+      { id: 'pause-controls', source: 'pause', sourceHandle: 'pressed', target: 'controls', targetHandle: 'playPause' },
+    ] as Edge[]
+
+    const sketch = buildShowPlayer(nodes, edges, {}, {
+      patternSet: [], bakedAudio: false, preferredTrack: '', genericPlayer: true,
+    })
+
+    expect(sketch).toContain('pinMode(12, INPUT);')
+    expect(sketch).toContain('digitalRead(12) == HIGH')
+    expect(sketch).toContain('now - changedAt >= 55')
+    expect(sketch).toContain('audio.pauseResume()')
+  })
+
   it('builds an unpaired-track Music Player for a PatternMaster collection', () => {
     const groups = {
       solid: {

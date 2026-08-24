@@ -25,11 +25,24 @@ interface PlayerTransportState {
   posMs: number
   playing: boolean
   volume: number
+  /** Monotonic command envelope published by a graph-level Player Controls
+   * bundle. The preview player consumes each serial exactly once. */
+  controlSerial: number
+  controlCommand: PreviewPlayerCommand | null
   setTransport: (t: ShowTransport) => void
   /** Release the player if this node currently owns it. */
   clearTransport: (nodeId: string) => void
   setPos: (posMs: number, playing: boolean) => void
   setVolume: (v: number) => void
+  dispatchControls: (command: PreviewPlayerCommand) => void
+}
+
+export interface PreviewPlayerCommand {
+  sourceId: string
+  playPause: boolean
+  previous: boolean
+  next: boolean
+  volume?: number
 }
 
 const VOLUME_KEY = 'design-studio-for-fastled-player-volume'
@@ -52,6 +65,8 @@ export const usePlayerTransport = create<PlayerTransportState>()((set) => ({
   posMs: 0,
   playing: false,
   volume: savedVolume(),
+  controlSerial: 0,
+  controlCommand: null,
   setTransport: (transport) => set({ transport }),
   clearTransport: (nodeId) =>
     set((s) =>
@@ -67,4 +82,8 @@ export const usePlayerTransport = create<PlayerTransportState>()((set) => ({
     }
     set({ volume: v })
   },
+  dispatchControls: (controlCommand) => set((state) => ({
+    controlCommand,
+    controlSerial: state.controlSerial + 1,
+  })),
 }))

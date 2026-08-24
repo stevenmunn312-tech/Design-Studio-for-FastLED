@@ -844,12 +844,36 @@ function workflowExample(node: NodeDefinition): ReferenceLiveExample {
       builder.add('mic', 'MicInput')
       builder.add('transitions', 'TransitionSet')
       builder.add('beat', 'BeatDetect')
+      builder.add('controls', 'PlayerControls')
+      builder.add('particles', 'PlayerParticles')
       builder.add('target', node.type)
       builder.wire('patterns', 'patternset', 'target', 'patternset')
       builder.wire('mic', 'audio', 'target', 'audio')
       builder.wire('mic', 'audio', 'beat', 'audio')
       builder.wire('beat', 'beat', 'target', 'beat')
       builder.wire('transitions', 'transitions', 'target', 'transitions')
+      builder.wire('controls', 'controls', 'target', 'controls')
+      builder.wire('particles', 'particleFx', 'target', 'particleFx')
+      break
+    case 'PlayerControls':
+      builder.add('play', 'ButtonInput')
+      builder.add('volume', 'PotInput')
+      builder.add('target', node.type)
+      builder.add('show', 'PatternMaster')
+      builder.wire('play', 'pressed', 'target', 'playPause')
+      builder.wire('volume', 'value', 'target', 'volume')
+      builder.wire('target', 'controls', 'show', 'controls')
+      break
+    case 'PlayerParticles':
+      builder.add('enabled', 'ButtonInput')
+      builder.add('colour', 'HueCycle')
+      builder.add('intensity', 'PotInput')
+      builder.add('target', node.type)
+      builder.add('show', 'PatternMaster')
+      builder.wire('enabled', 'pressed', 'target', 'enabled')
+      builder.wire('colour', 'color', 'target', 'color')
+      builder.wire('intensity', 'value', 'target', 'intensity')
+      builder.wire('target', 'particleFx', 'show', 'particleFx')
       break
   }
   return builder.finish(
@@ -1298,7 +1322,7 @@ export function buildGenericLiveExample(node: NodeDefinition): ReferenceLiveExam
   if (node.type === 'Comment') return commentExample(node)
   if (node.type === 'Transition') return transitionExample(node)
   if (node.type === 'Sequencer') return sequencerExample(node)
-  if (['MusicLibrary', 'PerformanceGenerator', 'SDCard', 'PatternCollection', 'PatternMaster', 'TransitionSet'].includes(node.type)) {
+  if (['MusicLibrary', 'PerformanceGenerator', 'SDCard', 'PatternCollection', 'PatternMaster', 'TransitionSet', 'PlayerControls', 'PlayerParticles'].includes(node.type)) {
     return workflowExample(node)
   }
   if (AUDIO_PATTERN_TYPES.has(node.type)) return audioPatternExample(node)

@@ -433,6 +433,7 @@ export default function LEDPreview() {
   const showPlaying = usePlayerTransport((s) => s.playing)
   const volume = usePlayerTransport((s) => s.volume)
   const setVolume = usePlayerTransport((s) => s.setVolume)
+  const controlSerial = usePlayerTransport((s) => s.controlSerial)
   const lastAudibleVolume = useRef(volume > 0 ? volume : 0.9)
 
   useEffect(() => {
@@ -937,6 +938,23 @@ export default function LEDPreview() {
   const onTogglePlay = () => (showMode ? transport.toggle() : toggleMusicPlayback())
   const onPrev = () => (showMode ? transport.prev() : prevTrack())
   const onNext = () => (showMode ? transport.next() : nextTrack())
+
+  // Simulated Button/Potentiometer/Encoder nodes feed the same semantic
+  // Player Controls bundle as generated firmware. Evaluation publishes a
+  // serialised command only when something changes, so each button edge is
+  // consumed once even though the preview renderer runs continuously.
+  useEffect(() => {
+    if (controlSerial === 0) return
+    const command = usePlayerTransport.getState().controlCommand
+    if (!command) return
+    if (command.volume != null) setVolume(command.volume)
+    if (command.previous) onPrev()
+    if (command.next) onNext()
+    if (command.playPause) onTogglePlay()
+  // The serial is the event boundary; the callbacks intentionally use the
+  // current transport/local-player state captured by this render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [controlSerial])
   const onSeek = (event: ChangeEvent<HTMLInputElement>) => {
     const ms = Number(event.target.value)
     if (showMode) {

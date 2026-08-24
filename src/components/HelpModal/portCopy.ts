@@ -16,6 +16,7 @@
 export const TYPE_GLYPH: Record<string, string> = {
   frame: '▦', palette: '≋', color: '●', audio: '⌁', float: '∿', bool: '◆',
   field: '⌖', music: '♫', image: '▥', dmx: '⎋', datetime: '◷', patternset: '◫', transitionset: '⇄', storage: '▤',
+  playercontrols: '⌘', playerparticles: '✦',
 }
 
 /**
@@ -41,6 +42,8 @@ export const OUTPUT_USE_CASES: Record<string, string> = {
   dmx: 'Its output is one live DMX universe, which DMX Channel decodes into individual slot values.',
   datetime: 'Its output carries a complete clock reading to Clock Display or other time-aware nodes over one wire.',
   storage: 'Its output identifies the configured storage provider for player and file workflows.',
+  playercontrols: 'Its output maps buttons, knobs, and encoders to Music Player transport, volume, LED power, and brightness.',
+  playerparticles: 'Its output configures the Music Player beat-particle overlay without adding another frame generator.',
 }
 
 export const PORT_DESCRIPTIONS: Record<string, string> = {
@@ -58,4 +61,6 @@ export const PORT_DESCRIPTIONS: Record<string, string> = {
   dmx: 'one live DMX universe of 512 channels',
   datetime: 'a complete date, time, and clock-health reading',
   storage: 'a configured storage provider such as SD, onboard flash, or USB',
+  playercontrols: 'a bundle of player commands and normalized volume/brightness values',
+  playerparticles: 'the beat-particle overlay style and intensity configuration',
 }

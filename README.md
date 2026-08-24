@@ -4,7 +4,7 @@
 
 Design Studio for FastLED is a live, node-based creative environment for LED strings, matrices, rings, corkscrew installations, and tiled panels. Connect patterns, palettes, signals, effects, audio analysis, and hardware output; watch the result move instantly; then generate or upload the same design as FastLED C++.
 
-**Public beta · 160 modules · 40 included patterns · Windows, macOS, and Linux packaging · MIT core**
+**Public beta · 162 modules · 40 included patterns · Windows, macOS, and Linux packaging · MIT core**
 
 [Check beta releases](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/releases) · [Run from source](#run-from-source) · [Help test hardware](#help-test-the-beta)
 
@@ -19,7 +19,7 @@ Design Studio for FastLED is a live, node-based creative environment for LED str
 What makes the Studio useful:
 
 - **Immediate visual feedback.** Adjust a speed, palette, blend, field, or particle control and see the result now.
-- **A deep creative toolbox.** Choose from 160 modules spanning patterns, simulations, color, fields, effects, audio, logic, show control, hardware input, and output.
+- **A deep creative toolbox.** Choose from 162 modules spanning patterns, simulations, color, fields, effects, audio, logic, show control, hardware input, and output.
 - **Preview-to-firmware parity.** The graph evaluator and C++ generator are designed together so the hardware result follows what you authored.
 - **Reusable creative building blocks.** Turn any patch into a Group, save it to the Pattern Library, organize it into shelves, and reuse it in future shows.
 - **A real performance workflow.** Stage Mode, the Performance Deck, music transport, spectrum views, transitions, and beat-driven particles turn patches into playable visuals.
@@ -101,11 +101,12 @@ This is the shortest route from an idea to hardware. Every frame-producing patte
 ### Build a generative show
 
 ```text
-Pattern → Group → Pattern Library → Pattern Collection
-        → Music Player → LED Output → LEDs
+Pattern → Group → Pattern Library → Pattern Collection ─┐
+Buttons / knobs → Player Controls ──────────────────────┼→ Music Player → LED Output → LEDs
+Player Particles ───────────────────────────────────────┘
 ```
 
-Save finished patterns as reusable Groups, collect the ones you want, and let Music Player choose timing and transitions while the decoder supplies live audio. Add an optional beat input to advance the show and trigger particle bursts. The preview and generated controller sketch share the same show structure.
+Save finished patterns as reusable Groups, collect the ones you want, and let Music Player choose timing and transitions while the decoder supplies live audio. Player Controls bundles physical play/pause, previous/next, volume, LED power, and brightness inputs into one Controls connection. Player Particles keeps the optional beat-overlay style, colour, randomisation, and intensity in a separate Particle FX connection. The preview and generated controller sketch share the same show structure.
 
 ### Author a music-synced SD show
 
@@ -157,7 +158,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 ## Feature map
 
 <details>
-<summary><strong>Show all 160 modules by category</strong></summary>
+<summary><strong>Show all 162 modules by category</strong></summary>
 
 - **Inputs:** Audio, Microphone, Line In, Button, Potentiometer, Encoder, Motion Sensor, Light Sensor, DMX / Art-Net, RTC Clock, MIDI, Storage
 - **Audio:** FFT Analyzer, Beat Detect, Percussion Detect, Audio Features, Audio → Hue
@@ -167,7 +168,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 - **Patterns:** Solid Color, Text, Clock Display, Circle, Line, Shape, Path, 3D Wireframe, Gradient Frame, Palette Gradient, Image, Noise, Plasma, Rainbow, Pride 2015, Pacifica, TwinkleFox, Scanner, Confetti, Juggle, Radial Burst, Spiral, Kaleidoscope, Fractal Noise, Gabor Noise, Blobs, Fire, Fire 2012, Particles, Formula Points, Flow Field, Starfield, Boids, Reaction Diffusion, Game of Life, Spectrum Bars, Spectrum Visualizer, Bass Pulse, Bass Rings, Midrange Waves, Midrange Bloom, Treble Sparks, Treble Prism, Audio Cascade, Beat Flash, Kick Shock, Vocal Aurora, Beat Kaleidoscope, Spectra Mosaic, Percussion Blobs, Ember Pulse, Turbulent Bloom, Gravity Well, Rain Ripples, Prism Storm, Audio Flow, Color Trails, AnimARTrix, Custom Formula, Code
 - **Fields:** Field Formula, Field Noise, Formula Field, Wave Sim, Distance Field, Frame → Field, Field Math, Field Warp, Field Rotate, Field Tile, Field → Frame
 - **Effects:** Blur 2D, Blend, Mask, Brightness, Fade to Black, Hue Shift, Gamma, Saturation, Color Boost, Transform, Array, Invert, Mirror, Trails, Frame Feedback, Frame Switch, Zones
-- **Show:** Music Library, Pattern Collection, Transitions, Music Player, Sequencer, Transition, Performance Generator, SD Card
+- **Show:** Music Library, Pattern Collection, Transitions, Music Player, Player Controls, Player Particles, Sequencer, Transition, Performance Generator, SD Card
 - **Output:** Amplifier, Board, LED Matrix
 - **Notes:** Comment
 

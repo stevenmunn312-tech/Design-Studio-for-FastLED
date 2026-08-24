@@ -367,6 +367,8 @@ function sourceNodeForType(dataType: string, nodeType: string, index: number): E
     image: { label: 'Image', category: 'pattern' },
     dmx: { label: 'DMX / Art-Net', category: 'input' },
     storage: { label: 'Storage', category: 'input' },
+    playercontrols: { label: 'Player Controls', category: 'input' },
+    playerparticles: { label: 'Player Particles', category: 'show' },
   }
   const fallbackPresets: Record<string, { label: string; category: NodeCategory }> = {
     audio: { label: 'FFT Analyzer', category: 'audio' },
@@ -382,6 +384,8 @@ function sourceNodeForType(dataType: string, nodeType: string, index: number): E
     image: { label: 'Image', category: 'pattern' },
     dmx: { label: 'DMX / Art-Net', category: 'input' },
     storage: { label: 'Storage', category: 'input' },
+    playercontrols: { label: 'Music Player', category: 'show' },
+    playerparticles: { label: 'Music Player', category: 'show' },
   }
   const preset = presets[dataType] ?? { label: 'Value Source', category: 'math' as NodeCategory }
   const fallback = fallbackPresets[dataType] ?? preset
@@ -627,7 +631,7 @@ function buildSpecialRecipe(node: NodeDefinition): ExampleRecipe | null {
     case 'PatternMaster':
       return {
         columns: [
-          [makeNode('collection', 'Pattern Collection', 'show'), makeNode('mic', 'Microphone', 'input'), makeNode('transitions', 'Transitions', 'show')],
+          [makeNode('collection', 'Pattern Collection', 'show'), makeNode('mic', 'Microphone', 'input'), makeNode('transitions', 'Transitions', 'show'), makeNode('controls', 'Player Controls', 'input'), makeNode('particles', 'Player Particles', 'show')],
           [makeNode('target', node.label, node.category, true)],
           [makeNode('sink', 'LED Matrix', 'output')],
         ],
@@ -635,10 +639,43 @@ function buildSpecialRecipe(node: NodeDefinition): ExampleRecipe | null {
           { from: 'collection', to: 'target' },
           { from: 'mic', to: 'target' },
           { from: 'transitions', to: 'target' },
+          { from: 'controls', to: 'target' },
+          { from: 'particles', to: 'target' },
           { from: 'target', to: 'sink' },
         ],
-        explanation: `${node.label} performs the live generative show, reading patterns from Pattern Collection and only reacting to audio when that audio is actually wired into the show graph.`,
-        result: 'A live multi-pattern show with dwell timing, transitions, and optional audio reactivity.',
+        explanation: `${node.label} performs the live generative show. Player Controls maps physical inputs to transport and LED commands, while Player Particles supplies the optional beat-overlay configuration.`,
+        result: 'A live multi-pattern show with dwell timing, transitions, physical controls, and optional audio reactivity.',
+      }
+    case 'PlayerControls':
+      return {
+        columns: [
+          [makeNode('buttons', 'Buttons', 'input'), makeNode('knobs', 'Potentiometers', 'input')],
+          [makeNode('target', node.label, node.category, true)],
+          [makeNode('player', 'Music Player', 'show')],
+        ],
+        edges: [
+          { from: 'buttons', to: 'target' },
+          { from: 'knobs', to: 'target' },
+          { from: 'target', to: 'player' },
+        ],
+        explanation: `${node.label} turns physical button, potentiometer, and encoder signals into one semantic Controls connection for Music Player.`,
+        result: 'Play/pause, previous/next, volume, LED power, and brightness controls over one wire.',
+      }
+    case 'PlayerParticles':
+      return {
+        columns: [
+          [makeNode('enabled', 'Button', 'input'), makeNode('colour', 'Colour', 'color'), makeNode('intensity', 'Potentiometer', 'input')],
+          [makeNode('target', node.label, node.category, true)],
+          [makeNode('player', 'Music Player', 'show')],
+        ],
+        edges: [
+          { from: 'enabled', to: 'target' },
+          { from: 'colour', to: 'target' },
+          { from: 'intensity', to: 'target' },
+          { from: 'target', to: 'player' },
+        ],
+        explanation: `${node.label} bundles the beat-overlay enable, colour, randomisation, style, and intensity settings into Particle FX for Music Player.`,
+        result: 'A configurable beat-particle overlay without crowding the Music Player node.',
       }
     case 'TransitionSet':
       return buildTransitionSetRecipe(node)
@@ -665,6 +702,8 @@ function buildExampleRecipe(node: NodeDefinition): ExampleRecipe {
     case 'patternset': return buildPatternSetRecipe(node)
     case 'music': return buildMusicRecipe(node)
     case 'transitionset': return buildTransitionSetRecipe(node)
+    case 'playercontrols':
+    case 'playerparticles':
     case 'frame':
     default:
       return buildFrameRecipe(node)

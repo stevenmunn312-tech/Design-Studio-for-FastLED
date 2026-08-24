@@ -990,6 +990,66 @@ function nodeLabel(node: StudioNode): string {
   return String(node.data.label ?? node.data.nodeType)
 }
 
+interface PlayerControlMappingIssue {
+  id: string
+  domain: 'volume' | 'brightness'
+  nodeIds: string[]
+  nodeLabel: string
+  message: string
+}
+
+/** Check conflicting mappings across a complete chained Player Controls domain. */
+function playerControlMappingIssues(nodes: StudioNode[], edges: StudioEdge[]): PlayerControlMappingIssue[] {
+  const controls = nodes.filter((node) => node.data.nodeType === 'PlayerControls')
+  const byId = new Map(controls.map((node) => [node.id, node]))
+  const neighbours = new Map(controls.map((node) => [node.id, new Set<string>()]))
+  for (const edge of edges) {
+    if (edge.targetHandle !== 'controlsIn' || !byId.has(edge.source) || !byId.has(edge.target)) continue
+    neighbours.get(edge.source)?.add(edge.target)
+    neighbours.get(edge.target)?.add(edge.source)
+  }
+
+  const issues: PlayerControlMappingIssue[] = []
+  const visited = new Set<string>()
+  for (const control of controls) {
+    if (visited.has(control.id)) continue
+    const component: string[] = []
+    const pending = [control.id]
+    visited.add(control.id)
+    while (pending.length > 0) {
+      const id = pending.pop()!
+      component.push(id)
+      for (const neighbour of neighbours.get(id) ?? []) {
+        if (visited.has(neighbour)) continue
+        visited.add(neighbour)
+        pending.push(neighbour)
+      }
+    }
+
+    const componentIds = new Set(component)
+    const wiredHandles = new Set(edges
+      .filter((edge) => componentIds.has(edge.target) && edge.targetHandle)
+      .map((edge) => edge.targetHandle as string))
+    for (const domain of ['volume', 'brightness'] as const) {
+      const stepHandles = domain === 'volume' ? ['volumeUp', 'volumeDown'] : ['brightnessUp', 'brightnessDown']
+      if (!wiredHandles.has(domain) || !stepHandles.some((handle) => wiredHandles.has(handle))) continue
+      const first = byId.get(component[0])!
+      issues.push({
+        id: `player-controls-${component.slice().sort().join('-')}-${domain}`,
+        domain,
+        nodeIds: component,
+        nodeLabel: nodeLabel(first),
+        message: `${domain === 'volume' ? 'Volume' : 'Brightness'} has both an absolute control and up/down buttons in the same Player Controls chain`,
+      })
+    }
+  }
+  return issues
+}
+
+export function findPlayerControlMappingWarnings(nodes: StudioNode[], edges: StudioEdge[]): string[] {
+  return playerControlMappingIssues(nodes, edges).map((issue) => `${issue.message} — the absolute control will override button changes`)
+}
+
 /**
  * Rich, continuously consumable validation for editor UI. `validateGraph`
  * intentionally keeps its compact string result for deploy callers; this
@@ -1429,6 +1489,19 @@ export function buildGraphDiagnostics(
     })
   }
 
+  for (const issue of playerControlMappingIssues(nodes, edges)) {
+    diagnostics.push({
+      id: issue.id,
+      severity: 'warning',
+      category: 'connection',
+      title: `${issue.domain === 'volume' ? 'Volume' : 'Brightness'} controls conflict`,
+      message: `${issue.message}. The absolute control will override button changes.`,
+      fix: `Disconnect either the absolute ${issue.domain} input or its up/down button inputs from this Player Controls chain.`,
+      nodeIds: issue.nodeIds,
+      nodeLabel: issue.nodeLabel,
+    })
+  }
+
   const perfGen = nodes.find((node) => node.data.nodeType === 'PerformanceGenerator')
   if (perfGen && incoming.has(`${perfGen.id}:patternset`)) {
     const link = edges.find((edge) => edge.target === perfGen.id && edge.targetHandle === 'patternset')
@@ -1519,6 +1592,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   warnings.push(...findScheduleIssues(nodes, edges).map((issue) => issue.message))
   warnings.push(...findPinRangeWarnings(nodes))
   warnings.push(...findBoardPinCompatibility(nodes, selectedFqbn).warnings)
+  warnings.push(...findPlayerControlMappingWarnings(nodes, edges))
 
   const power = estimatePowerLoad(nodes)
   if (power?.exceedsConfigured) {

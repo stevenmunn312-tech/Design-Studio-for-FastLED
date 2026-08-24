@@ -80,6 +80,23 @@ function transitionPool(nodes: StudioNode[], edges: StudioEdge[], master: Studio
   return ids.length ? ids : [0]
 }
 
+// PlayerParticles owns the beat-overlay appearance. Merely placing one on the
+// canvas does nothing: its typed wire into this Music Player is the feature
+// switch, matching every other graph dependency.
+function playerParticles(nodes: StudioNode[], edges: StudioEdge[], master: StudioNode) {
+  const link = edges.find((e) => e.target === master.id && e.targetHandle === 'particleFx')
+  const node = link && nodes.find((n) => n.id === link.source && nodeType(n) === 'PlayerParticles')
+  const p = node ? props(node) : {}
+  return {
+    enabled: !!node && p.enabled !== false,
+    style: Number(p.style ?? 0),
+    color: hexToRgb(String(p.color ?? '#ff8000')),
+    intensity: Number(p.intensity ?? 0.8),
+    randomStyle: !!p.randomStyle,
+    randomColor: !!p.randomColor,
+  }
+}
+
 // Resolve the PatternMaster + the collection feeding its patternset input.
 function showInfo(nodes: StudioNode[], edges: StudioEdge[]): ShowInfo | null {
   const outputIds = new Set(nodes.filter((n) => nodeType(n) === 'MatrixOutput').map((n) => n.id))
@@ -91,6 +108,7 @@ function showInfo(nodes: StudioNode[], edges: StudioEdge[]): ShowInfo | null {
   if (!collection) return null
   const patternIds = collection ? ((props(collection).patternIds as string[] | undefined) ?? []) : []
   const p = props(master)
+  const particleFx = playerParticles(nodes, edges, master)
   return {
     masterId: master.id,
     patternIds,
@@ -99,12 +117,12 @@ function showInfo(nodes: StudioNode[], edges: StudioEdge[]): ShowInfo | null {
     transitionSec: Number(p.transitionSec ?? 1),
     transitionIds: transitionPool(nodes, edges, master),
     beatWired: edges.some((e) => e.target === master.id && e.targetHandle === 'beat'),
-    particles: !!p.particles,
-    particleStyle: Number(p.particleStyle ?? 0),
-    particleColor: hexToRgb(String(p.particleColor ?? '#ff8000')),
-    particleIntensity: Number(p.particleIntensity ?? 0.8),
-    randomStyle: !!p.randomStyle,
-    randomColor: !!p.randomColor,
+    particles: particleFx.enabled,
+    particleStyle: particleFx.style,
+    particleColor: particleFx.color,
+    particleIntensity: particleFx.intensity,
+    randomStyle: particleFx.randomStyle,
+    randomColor: particleFx.randomColor,
     seed: Math.max(0, Math.round(Number(p.seed ?? 0))) >>> 0,
   }
 }
