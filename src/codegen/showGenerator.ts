@@ -25,6 +25,7 @@ import { buildXYTable } from '../state/xyLayout'
 import { compositionDims, outputRoutes } from '../state/outputRouting'
 import { outputCanvasDims } from '../state/ledOutputForm'
 import { controllerSettings, ledPropsWithController } from '../state/controllerSettings'
+import { amplifierIdleCpp } from './amplifierIdle'
 
 const nodeType = (n: StudioNode) => (n.data as { nodeType?: string }).nodeType
 const props = (n: StudioNode) => n.data.properties as Record<string, unknown>
@@ -315,6 +316,7 @@ export function generateShowSketch(
   const out = routedOutputs[0]
   const op = out ? props(out) : {}
   const controller = controllerSettings(nodes)
+  const amplifierIdle = amplifierIdleCpp(nodes)
   const multiOutput = routedOutputs.length > 1
   const dims = compositionDims(routedOutputs)
   // `width`/`height` are the matrix and panel forms' grid — a string and a
@@ -396,6 +398,7 @@ export function generateShowSketch(
     L.push(`#define DATA_PIN ${dataPin}`)
     if (SPI_CHIPSETS.has(hw.chipset)) L.push(`#define CLOCK_PIN ${hw.clockPin}`)
   }
+  L.push(...amplifierIdle.defines)
   L.push(`#define PATTERN_COUNT ${renderers.count}`)
   L.push('')
   // `leds` stays a static internal-RAM array even with PSRAM on (FastLED's
@@ -461,6 +464,7 @@ export function generateShowSketch(
   L.push('')
 
   L.push('void setup() {')
+  L.push(...amplifierIdle.setup)
   for (const a of psramAllocs) L.push(a)
   if (multiOutput) {
     for (const route of routes) {

@@ -45,6 +45,24 @@ describe('generateCpp', () => {
     expect(cpp).toContain('GRB')
   })
 
+  it('holds a configured I2S amplifier quiet in a normal LED-only sketch', () => {
+    const amplifier = node('amp', 'Amplifier', 'output', {
+      model: 'max98357a-i2s-amplifier',
+      i2sBclk: 14,
+      i2sLrc: 15,
+      i2sDout: 16,
+    })
+    const cpp = generateCpp([outputNode, amplifier], [])
+
+    expect(cpp).toContain('#define AMP_I2S_BCLK 14')
+    expect(cpp).toContain('#define AMP_I2S_LRC  15')
+    expect(cpp).toContain('#define AMP_I2S_DOUT 16')
+    expect(cpp).toContain('pinMode(AMP_I2S_BCLK, OUTPUT); digitalWrite(AMP_I2S_BCLK, LOW);')
+    expect(cpp).toContain('pinMode(AMP_I2S_LRC, OUTPUT);  digitalWrite(AMP_I2S_LRC, LOW);')
+    expect(cpp).toContain('pinMode(AMP_I2S_DOUT, OUTPUT); digitalWrite(AMP_I2S_DOUT, LOW);')
+    expect(cpp.indexOf('pinMode(AMP_I2S_BCLK')).toBeLessThan(cpp.indexOf('FastLED.addLeds<'))
+  })
+
   it('emits independently wired synchronized controllers with Board-wide brightness', () => {
     const patternA = node('pattern-a', 'SolidColor', 'pattern')
     const patternB = node('pattern-b', 'Plasma', 'pattern')

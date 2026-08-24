@@ -78,6 +78,22 @@ describe('generateStreamReceiverSketch', () => {
     expect(sketch).toContain('FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);')
   })
 
+  it('holds a configured I2S amplifier quiet while receiving LED frames', () => {
+    const amplifier = node('amp', 'Amplifier', 'output', {
+      model: 'max98357a-i2s-amplifier',
+      i2sBclk: 14,
+      i2sLrc: 15,
+      i2sDout: 16,
+    })
+    const sketch = generateStreamReceiverSketch([outputNode, amplifier])!
+
+    expect(sketch).toContain('#define AMP_I2S_BCLK 14')
+    expect(sketch).toContain('#define AMP_I2S_LRC  15')
+    expect(sketch).toContain('#define AMP_I2S_DOUT 16')
+    expect(sketch).toContain('pinMode(AMP_I2S_BCLK, OUTPUT); digitalWrite(AMP_I2S_BCLK, LOW);')
+    expect(sketch.indexOf('pinMode(AMP_I2S_BCLK')).toBeLessThan(sketch.indexOf('FastLED.addLeds<'))
+  })
+
   it('implements the Adalight sync + checksum handshake', () => {
     const sketch = generateStreamReceiverSketch([outputNode])!
     expect(sketch).toContain("'A', 'd', 'a'")

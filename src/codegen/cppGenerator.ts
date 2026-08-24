@@ -44,6 +44,7 @@ import {
 import { sanitizePin } from './hardwarePins'
 import { resolveWireframeMesh, meshBoundingRadius, WIREFRAME_FIT_MARGIN, WIREFRAME_CAM_FAR, WIREFRAME_CAM_NEAR } from '../state/wireframeModel'
 import { resolveAudioCapabilitySource } from '../state/audioCapabilities'
+import { amplifierIdleCpp } from './amplifierIdle'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -1333,6 +1334,7 @@ export function generateCpp(
   // a signal edge. Preserve the authored graph while the render graph below is
   // flattened and pruned to what reaches an LED output.
   const capabilityNodes = nodes
+  const amplifierIdle = amplifierIdleCpp(capabilityNodes)
 
   // Inline any Group nodes so the rest of the generator works on a flat graph.
   const flat = flattenGroups(nodes, edges, groups)
@@ -6105,6 +6107,7 @@ export function generateCpp(
     lines.push(`#define DATA_PIN ${dataPin}`)
     if (SPI_CHIPSETS.has(hw.chipset)) lines.push(`#define CLOCK_PIN ${hw.clockPin}`)
   }
+  lines.push(...amplifierIdle.defines)
   lines.push(``)
   if (multipleOutputs) {
     for (const route of outputConfigs) lines.push(`CRGB leds_${route.safeId}[${route.ledTotal}];`)
@@ -6294,6 +6297,7 @@ export function generateCpp(
   }
 
   lines.push(`void setup() {`)
+  lines.push(...amplifierIdle.setup)
   lines.push(...psramAllocs)
   lines.push(...pinSetupLines)
   lines.push(...setupLines)

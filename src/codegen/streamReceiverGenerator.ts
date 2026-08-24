@@ -4,6 +4,7 @@ import { sanitizePin } from './hardwarePins'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { ledPropsWithController } from '../state/controllerSettings'
 import { isLinearForm, outputForm, outputGridDims } from '../state/ledOutputForm'
+import { amplifierIdleCpp } from './amplifierIdle'
 
 // A tiny, generic Adalight-protocol receiver — flashed once, then the studio
 // pushes already-computed live-preview frames straight to it over serial at
@@ -51,6 +52,7 @@ export function generateStreamReceiverSketch(nodes: StudioNode[]): string | null
   const hw = ledHardwareFromProps(combined)
   const isHub75 = hw.chipset === HUB75_CHIPSET
   const hub75Hw = isHub75 ? hub75HardwareFromProps(combined, layout.width, layout.height) : null
+  const amplifierIdle = amplifierIdleCpp(nodes)
 
   const lines: string[] = []
   lines.push('// Design Studio for FastLED — generic live-stream receiver (Adalight protocol).')
@@ -65,6 +67,7 @@ export function generateStreamReceiverSketch(nodes: StudioNode[]): string | null
     lines.push(`#define DATA_PIN ${dataPin}`)
     if (SPI_CHIPSETS.has(hw.chipset)) lines.push(`#define CLOCK_PIN ${hw.clockPin}`)
   }
+  lines.push(...amplifierIdle.defines)
   lines.push(`#define WIDTH ${layout.width}`)
   lines.push(`#define HEIGHT ${layout.height}`)
   lines.push(`#define NUM_LEDS (WIDTH * HEIGHT)`)
@@ -78,6 +81,7 @@ export function generateStreamReceiverSketch(nodes: StudioNode[]): string | null
   if (isHub75) lines.push(...hub75GlobalsCpp(hub75Hw!))
   lines.push('')
   lines.push('void setup() {')
+  lines.push(...amplifierIdle.setup)
   lines.push(`  Serial.begin(${layout.baud});`)
   if (isHub75) lines.push(...hub75SetupCpp(hub75Hw!))
   else lines.push(...fastledSetupCpp(hw))

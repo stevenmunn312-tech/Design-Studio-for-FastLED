@@ -51,6 +51,22 @@ describe('showGenerator', () => {
     expect(cpp).toMatch(/render_p0[\s\S]*CRGB\(0, 0, 255\)[\s\S]*?\n\}/)
   })
 
+  it('holds a configured I2S amplifier quiet in a generated pattern show', () => {
+    const amplifier = node('amp', 'Amplifier', {
+      model: 'max98357a-i2s-amplifier',
+      i2sBclk: 14,
+      i2sLrc: 15,
+      i2sDout: 16,
+    })
+    const cpp = generateShowSketch([...nodes, amplifier], edges, groups)
+
+    expect(cpp).toContain('#define AMP_I2S_BCLK 14')
+    expect(cpp).toContain('#define AMP_I2S_LRC  15')
+    expect(cpp).toContain('#define AMP_I2S_DOUT 16')
+    expect(cpp).toContain('pinMode(AMP_I2S_BCLK, OUTPUT); digitalWrite(AMP_I2S_BCLK, LOW);')
+    expect(cpp.indexOf('pinMode(AMP_I2S_BCLK')).toBeLessThan(cpp.indexOf('FastLED.addLeds<'))
+  })
+
   describe('HUB75 (docs/development/design/hub75-output.md)', () => {
     const hub75Out = node('out', 'MatrixOutput', { width: 8, height: 8, chipset: 'HUB75' })
 
