@@ -20,6 +20,6 @@ Active backlog for the breaking `Hardware` line. The implemented two-view hardwa
 
 ## Bench findings
 
-- [ ] Retest MAX98357A audio with a replacement module before changing generator code. Prior elimination points to a faulty module: square waves play while varying samples do not, across cores, drivers, libraries, sample rates, and wiring checks. Confirm with a logic analyser or ESP32 internal DAC.
+- [x] Retest MAX98357A audio with a replacement module before changing generator code. The replacement-module test produced successful audio output; the earlier failure was at least partly due to wiring.
 - [ ] Report that fbuild can silently ignore a pinned `platform = espressif32@...` version.
 - [ ] Report the reproducible fbuild deploy/serial-port failure where shell `esptool` opens the same port successfully; use `arduino-cli` as the current workaround.
