@@ -15,6 +15,7 @@ import { inmp441SupportedForBoardProfile } from './state/micPinDefaults'
 import { selectedPhysicalBoardProfile } from './build/boardProfiles'
 import { usePatternLibrary } from './state/patternLibrary'
 import { useMusicStore } from './state/musicStore'
+import { isMusicLibraryRestoring, waitForMusicLibraryRestore } from './state/musicLibraryPersistence'
 import { useProjectStore } from './state/projectStore'
 import { readSharedWorkspace, clearShareHash } from './utils/shareGraph'
 import { pushSnapshot } from './state/snapshotHistory'
@@ -154,6 +155,11 @@ export default function App() {
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autosaveIdle = useRef<number | null>(null)
   const latestAutosaveState = useRef<ReturnType<typeof useGraphStore.getState> | null>(null)
+  // Effects below are live while the async project bootstrap is still reading
+  // from disk. Until loadGraph has installed that project, the graph and Music
+  // Library stores contain their module defaults; saving them during a dev
+  // reload would overwrite the real workspace with an empty music manifest.
+  const workspaceHydrated = useRef(false)
 
   // A share link takes priority over the autosaved workspace — loading one
   // is an explicit act (someone sent you a link), so it wins over whatever
@@ -173,7 +179,10 @@ export default function App() {
           trusted: false,
           performanceDeck: shared.performanceDeck,
         })
+        await waitForMusicLibraryRestore()
+        if (cancelled) return
         useProjectStore.getState().saveCurrentWorkspace({ ...shared, trusted: false })
+        workspaceHydrated.current = true
         useGraphStore.temporal.getState().clear()
         clearShareHash()
         useUiStore.getState().setStatus('Share link opened', 'success')
@@ -191,6 +200,9 @@ export default function App() {
         )
       if (!current) return
       useGraphStore.getState().loadGraph(current.workspace.nodes, current.workspace.edges, current.workspace)
+      await waitForMusicLibraryRestore()
+      if (cancelled) return
+      workspaceHydrated.current = true
       useGraphStore.temporal.getState().clear()
     }
     void init()
@@ -216,8 +228,10 @@ export default function App() {
     }
 
     const queueAutosave = () => {
-      const run = () => {
+      const run = async () => {
         autosaveIdle.current = null
+        await waitForMusicLibraryRestore()
+        if (!workspaceHydrated.current) return
         const state = latestAutosaveState.current
         if (state) useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(state))
       }
@@ -229,6 +243,7 @@ export default function App() {
     }
 
     const scheduleAutosave = (state = useGraphStore.getState()) => {
+      if (!workspaceHydrated.current) return
       latestAutosaveState.current = state
       cancelQueuedAutosave()
       autosaveTimer.current = setTimeout(() => {
@@ -264,7 +279,10 @@ export default function App() {
   // Flush the autosave immediately when the page is hidden/closed, so a reload
   // right after an edit doesn't lose work waiting on the debounce.
   useEffect(() => {
-    const flush = () => useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
+    const flush = () => {
+      if (!workspaceHydrated.current || isMusicLibraryRestoring()) return
+      useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
+    }
     const onVisibility = () => { if (document.visibilityState === 'hidden') flush() }
     window.addEventListener('pagehide', flush)
     document.addEventListener('visibilitychange', onVisibility)
