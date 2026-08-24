@@ -4,7 +4,8 @@ Every accommodation `backend/app.py` makes for the **fbuild** build engine, why 
 exists, and what it costs. Written to be usable as an upstream bug report as well as
 an internal record.
 
-- **Our fbuild version at time of writing:** 2.5.4 (`fbuild --version`)
+- **Current repository pin:** 2.5.18 (`backend/requirements.txt` and
+  `backend/constraints.txt`)
 - **Host:** Windows 11. Some issues below are Windows-specific and are marked as such.
 - **How we drive fbuild:** a persistent scaffold at `backend/.fbuild-project/` with one
   `[env:X]` per supported board, built with `fbuild build -e <env> -v --no-timestamp`
@@ -13,10 +14,9 @@ an internal record.
 
 > [!IMPORTANT]
 > **Verify before sending upstream.** Items marked *confirmed against 2.4.0* were
-> diagnosed on an older fbuild and have **not** been re-tested on 2.5.4. Several may
+> diagnosed on an older fbuild and have **not** been re-tested on 2.5.18. Several may
 > already be fixed. Re-check each one before reporting it, so the list stays credible.
-> See [Upstream fixes since 2.5.4](#upstream-fixes-since-254) — three of the eight
-> already have plausible fixes in later releases.
+> The upgrade record below explains which workarounds were already removed.
 
 ---
 
@@ -74,9 +74,9 @@ CRGB kelvinToRGB(uint16_t kelvin);   // <-- inserted here; CRGB unknown
 **Impact.** Affects any generated sketch that declares a FastLED-typed helper. Ours
 do routinely.
 
-**Workaround.** `_write_fbuild_main` writes a plain `main.cpp` (prepending
-`#include <Arduino.h>` when absent) rather than `main.ino`, which bypasses Arduino
-sketch preprocessing entirely. It also unlinks any stale `main.ino`.
+**Historical workaround.** `_write_fbuild_main` wrote a plain `main.cpp`
+(prepending `#include <Arduino.h>` when absent) rather than `main.ino`, bypassing
+Arduino sketch preprocessing entirely. It also unlinked any stale `main.ino`.
 
 **Note.** Arduino IDE and arduino-cli place inserted prototypes *after* the includes,
 so the same sketch compiles fine there. This looks like an ordering difference rather
@@ -84,16 +84,17 @@ than a deliberate design choice.
 
 **Resolved 2026-08-10.** Reported upstream as FastLED/fbuild#1275; fixed in fbuild
 2.5.16 by hoisting sketch `#include` directives into the prelude ahead of the
-auto-generated prototypes. `backend/requirements.txt`/`backend/constraints.txt` now
-pin `fbuild==2.5.16`, and `_write_fbuild_main` writes plain `main.ino` again — the
-`.cpp` workaround is gone. Not yet re-validated on real hardware since the revert
-(tracked in `todo.md`'s "Build engine maintenance" section).
+auto-generated prototypes. The repository now pins `fbuild==2.5.18`, and
+`_write_fbuild_main` writes plain `main.ino` again—the `.cpp` workaround is
+gone. The reverted path was hardware-validated on a classic ESP32 during the
+2026-08-16 bring-up recorded in the beta support matrix.
 
 ---
 
 ## 3. The project scaffold is shared, with no concurrency safety
 
-**Symptom.** fbuild builds against a single project directory holding one `src/main.cpp`.
+**Symptom.** fbuild builds against a single project directory holding one
+generated sketch source.
 Two overlapping runs interleave a source write with an in-flight build and corrupt each
 other's output.
 
@@ -183,7 +184,8 @@ problem is fixed* when RAM had merely stopped being measurable.
 
 ## 7. `deploy` is unimplemented for platforms fbuild can compile
 
-**Confirmed on 2.5.4** — the only item here verified against our current version.
+**Confirmed on 2.5.4** — a historical confirmation that still needs a focused
+2.5.18 re-test before an upstream report.
 
 **Symptom.** `fbuild deploy` fails with `not yet implemented` for Espressif8266, which
 fbuild compiles successfully.
@@ -268,13 +270,13 @@ registry. Worth a documentation note upstream, since the failure looks random.
 
 ---
 
-## Upstream fixes since 2.5.4
+## Upgrade record from 2.5.4
 
-We pin **`fbuild==2.5.4`** in `backend/requirements.txt` and `backend/constraints.txt`,
-so users get exactly what we test. As of 2026-08-07 the latest release is **2.5.14** —
-ten patch releases ahead, under visibly active development.
-
-Reading the 2.5.5 → 2.5.14 release notes against the list above:
+This repository now pins **`fbuild==2.5.18`**. The original audit was written
+against 2.5.4 and compared the 2.5.5–2.5.14 release notes; subsequent upgrades
+continued through 2.5.16 and 2.5.18. Keep the historical confirmations in the
+issue sections, but test every surviving workaround against 2.5.18 before
+calling it current.
 
 | Our issue | Upstream change | Version | Confidence |
 |---|---|---|---|
@@ -288,31 +290,23 @@ on linker overflow), §7 (ESP8266 deploy), or the `srcFilter`/transitive-`SPI` h
 Those are the items most likely to be genuinely unreported, and therefore the most
 valuable half of anything sent upstream.
 
-**Also relevant even though it isn't on our list:** 2.5.5–2.5.14 contains substantial
+**Also relevant even though it isn't on our list:** 2.5.5–2.5.14 added substantial
 RP2040/RP2350 work — PICOBOOT/picotool as the primary deployment transport (2.5.5),
 Pico 2 W UF2 hardening (2.5.6, 2.5.8), bundled Arduino-Pico library resolution
 (2.5.8, 2.5.11), Arduino-Pico network defines (2.5.10), and picotool device binding
-(2.5.14). Community members are already trying RP2040 boards; on 2.5.4 they may hit
-problems that are fixed upstream. This is the strongest single argument for scheduling
-the bump.
+(2.5.14). Those changes are included in the current 2.5.18 pin, though real
+RP2040/RP2350 hardware coverage is still required.
 
-### Suggested upgrade procedure
+### Re-verification procedure
 
-Not a bare version bump — the point is to find out which workarounds can be *deleted*.
-
-1. Bump `fbuild==2.5.14` in `backend/requirements.txt` **and** `backend/constraints.txt`.
-   (`backend/DEPENDENCIES.md` has the refresh procedure; the `Backend Dependency
-   Compatibility` workflow validates fresh installs on all three OSes.)
-2. For each issue above, remove its workaround and confirm whether it still reproduces.
-   Order by expected payoff: §2 (delete `_write_fbuild_main`'s `.cpp` trick) → §1
-   (try `lib_deps` instead of vendoring) → §8 (drop `_patch_fastled_sd_stub`).
-3. Re-run hardware validation on at least ESP32-S3 and ESP8266 before promoting —
-   see `docs/release/beta-hardware-validation.md`. An RP2040 pass would be new coverage
-   and directly answers the community question.
-4. Whatever still reproduces on 2.5.14 is a clean, current bug report.
-
-Do **not** bump casually alongside unrelated work. The build engine is the deploy path
-for every user, and a regression here is invisible until someone tries to flash a board.
+1. Remove one workaround at a time and test whether 2.5.18 still reproduces the
+   original failure.
+2. Run the focused helper tests and a clean dependency install on all three
+   desktop OS families.
+3. Re-run hardware validation on at least ESP32-S3 and ESP8266 before deleting
+   a deploy-path workaround. An RP2040 pass would add new coverage.
+4. Report only failures reproduced on 2.5.18 with the smallest remaining
+   workaround.
 
 ---
 

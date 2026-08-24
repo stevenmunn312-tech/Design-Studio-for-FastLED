@@ -23,7 +23,8 @@ What makes the Studio useful:
 - **Preview-to-firmware parity.** The graph evaluator and C++ generator are designed together so the hardware result follows what you authored.
 - **Reusable creative building blocks.** Turn any patch into a Group, save it to the Pattern Library, organize it into shelves, and reuse it in future shows.
 - **A real performance workflow.** Stage Mode, the Performance Deck, music transport, spectrum views, transitions, and beat-driven particles turn patches into playable visuals.
-- **Hardware-aware guardrails.** Graph Health, wiring diagnostics, board compatibility checks, power warnings, and measured flash/RAM capacity catch problems before upload.
+- **A hardware workbench, not a hidden settings popup.** Choose the exact board, add the parts you actually own, inspect board-aware pin assignments, and see the rig at a shared physical scale below the signal graph.
+- **Hardware-aware guardrails.** Graph Health, filtered GPIO pickers, wiring diagnostics, board compatibility checks, power warnings, and measured flash/RAM capacity catch problems before upload.
 - **A plan for the physical build.** The Build Diagram turns the graph into wiring: a scale controller with its real pin map, power distribution and fuses, exportable parts and connection lists, and printable assembly sheets.
 - **Shareable results.** Record the preview as a PNG, GIF, or WebM clip straight from the workspace.
 - **Your work stays portable.** Use named projects, Project Files, Graph JSON, share links, recovery snapshots, and standalone `.ino` exports.
@@ -75,15 +76,15 @@ You can also use the included launchers:
 - **macOS:** double-click `Start Design Studio for FastLED.command`; on first use, right-click it and choose **Open**
 - **Linux:** run `./start.sh`
 
-Without Python, visual authoring, live preview, projects, sharing, and code export still work. Direct hardware actions remain unavailable.
+Without Python, visual authoring, hardware configuration, live preview, projects, sharing, and code export still work. Compile, USB upload, serial monitoring, Live Stream, native file dialogs, and disk-backed sync remain unavailable.
 
 ## Your first five minutes
 
 1. Choose **Start with Juggle** or open **✦ Start** and pick a guided patch.
 2. Read the graph from left to right. Sources create signals or pixels; effects transform them; **LED Output** is the destination.
 3. Change a speed, palette, particle style, or effect amount and watch the preview react.
-4. Drag a module from the Node Library—or drag a wire onto empty canvas to see only compatible next nodes.
-5. Press **? Help** for shortcuts, upload guidance, illustrated examples, and searchable documentation for every module.
+4. Use **Add Hardware** in the lower workbench when you want to change the board, inputs, storage, audio output, or LED fixture. Use the Node Library—or drag a wire onto empty canvas—for signal-processing and pattern nodes.
+5. Press **? Help** for the hardware-workbench guide, shortcuts, upload guidance, illustrated examples, and searchable documentation for every module.
 
 For an even faster experiment, use the sidebar’s **Quick recipes**: *Live spectrum*, *Beat colour jump*, and *Percussion trails* place complete audio-reactive chains on the canvas with a tutorial note.
 
@@ -118,7 +119,16 @@ Analyze MP3s, generate a timed show, hand-edit its event timeline, audition it a
 
 ## From preview to hardware
 
-Configure the controller, size, LED chipset, color order, pins, brightness, physical layout, and optional power cap directly on **LED Output**. Then choose the workflow that fits the moment:
+The workspace deliberately separates the physical rig from its signal flow:
+
+- The lower **Hardware** workbench owns the exact board and the parts attached to it. Use **Add Hardware** for microphones, controls, sensors, RTC modules, SD cards, amplifiers/DACs, and LED strings, matrices, rings, or HUB75 panels.
+- Click a physical part to inspect its module identity and wiring. Pin pickers filter for suitable free GPIOs, call out conflicts and caution pins, and still allow an intentional custom GPIO.
+- The graph owns connections. Signal-carrying hardware appears there as a node; Board, SD Card, and amplifier/DAC stay workbench-only because they carry configuration rather than graph data.
+- The LED output node owns dimensions, frame routing, physical layout, color correction, dithering, and supersampling. The Board owns controller-wide brightness, power cap, overclock, PSRAM policy, and serial route.
+
+Changing boards retargets only pins Studio assigned; hand-picked pins are remembered per board. Use the board’s pinout button to verify headers, and use **View → Build Diagram** when you need the full pin-level assembly and power plan rather than the workbench overview.
+
+Select the workbench’s **Upload** tab for readiness, capacity, firmware actions, diagnostics, live streaming, and its embedded Output/Serial console. Choose the workflow that fits the moment:
 
 - **Upload** — compile and flash a standalone FastLED sketch.
 - **Re-upload last sketch** — resend the current project’s last upload without regenerating it.
@@ -127,7 +137,7 @@ Configure the controller, size, LED chipset, color order, pins, brightness, phys
 - **View Code / Export `.ino`** — inspect, modify, or build the generated sketch yourself.
 - **Upload show to SD** — provision the separate music-synced playback workflow.
 
-Graph Health continuously explains incomplete wiring, pin conflicts, output power, controller compatibility, show structure, and memory pressure. The live controller-capacity meter performs a real compile-only check against the selected board and reports measured flash/RAM use when the toolchain can provide it.
+Graph Health continuously explains incomplete wiring, pin conflicts, output power, controller compatibility, show structure, and memory pressure. **Check capacity** performs a real compile-only check against the selected board and reports measured flash/RAM use when the toolchain can provide it.
 
 When it is time to build the rig rather than the patch, switch to **View → Build Diagram** for a physical wiring workspace derived from the same graph: the selected controller drawn to scale with its real pin map, power distribution and fuse blocks, a parts list and connection list you can export as CSV, and printable assembly sheets.
 
@@ -171,7 +181,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 - **Show control:** reusable pattern collections, 16 transition styles, beat-driven particles, section-aware music shows, timeline editing, and performance controls.
 - **Physical layouts:** strips, serpentine matrices, tiled panels, multiple outputs, and custom XY maps. Only the exact combinations recorded in the support matrix count as supported today.
 - **DMX / Art-Net:** Art-Net preview plus Art-Net or DMX512 firmware paths. Hardware validation has not yet been recorded, so all modes remain experimental.
-- **Clock and schedules:** build-time, manual, NTP-backed, and battery-backed DS3231 clocks; time windows and scheduled triggers; digital/analog clock patterns. Hardware validation is still open for every clock path.
+- **Clock and schedules:** build-time, manual, NTP-backed, and battery-backed DS3231 clocks; time windows and scheduled triggers; digital/analog clock patterns. The DS3231 set/read/display path is validated on one classic ESP-32D DevKit v1 combination; other clock paths and boards remain experimental.
 
 </details>
 
@@ -196,8 +206,10 @@ Current recorded combinations include:
 | --- | --- |
 | ESP32-S3 · 16×16 WS2812B serpentine matrix · Windows 11 / Chrome · `fbuild` | Normal upload, Flash Wiring Test, sustained Live Stream, generative show, and an INMP441 audio-reactive show |
 | ESP8266 · 10×1 WS2812B strip · Windows 11 / Chrome · `arduino-cli` | Normal upload, Flash Wiring Test, and Live Stream |
+| Classic ESP32 Generic DevKit 38-pin · 16×16 WS2812B matrix · Windows 11 / Chrome · `fbuild` 2.5.16 | Normal live-graph upload |
+| Classic ESP-32D DevKit v1 30-pin · DS3231 · WS2812B matrix · Windows 11 / Chrome · `fbuild` | Set RTC from Studio, read it in firmware, and render Clock Display |
 
-Everything else—including other boards, browsers, operating-system combinations, chipsets, tiled/custom layouts, PSRAM modes, SD-show provisioning, DMX/Art-Net, and network clock paths—remains experimental until it appears in the [Beta support matrix](docs/release/beta-support-matrix.md).
+Every unrecorded combination—including other browsers and operating systems, most board/peripheral pairings, chipsets, tiled/custom layouts, PSRAM modes, SD-show provisioning, DMX/Art-Net, and network clock paths—remains experimental until it appears in the [Beta support matrix](docs/release/beta-support-matrix.md).
 
 ## Help test the beta
 

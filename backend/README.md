@@ -23,13 +23,9 @@ and `/api/engine`.
   Player, `ESP32-audioI2S` are vendored into `.fbuild-project/lib/` because the
   helper cannot rely on fbuild's registry dependency resolution to fetch them
   consistently (the workaround was introduced against fbuild 2.4.0 and is
-  retained with the currently pinned 2.5.4). The generated source is also
-  written as `main.cpp`, not `main.ino` (`_write_fbuild_main` in `app.py`) — fbuild's
-  `.ino`→`.cpp` preprocessing auto-inserts function prototypes *before* any
-  user `#include`s, which breaks on FastLED-typed helpers (e.g. `CRGB
-  kelvinToRGB(...)`) since `CRGB` isn't declared yet at that point. Writing
-  a plain `.cpp` (with `#include <Arduino.h>` prepended) skips that
-  preprocessing entirely. **Hardware-validated** on a real ESP32-S3
+  retained with the currently pinned 2.5.18). Generated source is written as
+  `main.ino`; fbuild 2.5.16 fixed the include/prototype ordering defect that
+  previously required a plain-CPP workaround. **Hardware-validated** on a real ESP32-S3
   (16×16 WS2812B matrix, GPIO6): fbuild compiled, flashed via `esptool`,
   and the uploaded pattern ran correctly.
 - **`arduino-cli`** (fallback) — the original engine. Needs the ESP32 core +
@@ -81,8 +77,9 @@ The studio talks to `http://localhost:8008` by default; override with the
 | GET | `/api/system-info` | Host OS information used by opt-in hardware-validation reports. |
 | GET | `/api/health` | Liveness, active engine, and arduino-cli/fbuild availability. |
 | GET / POST | `/api/engine` | Read or persist the active build engine. |
-| GET | `/api/serial/ports` | Connected serial boards/ports (`board list`). |
+| GET | `/api/serial/ports` | Connected serial ports plus USB identity metadata used by automatic native-USB/UART routing. |
 | GET | `/api/serial/monitor` | Read a bounded serial-monitor sample from a selected port. |
+| POST | `/api/rtc/set` | Write the computer's local date/time to a DS3231 through the selected board's serial command channel. |
 | POST | `/api/stream/start` | Open a serial port for live Adalight frame streaming. |
 | POST | `/api/stream/frame` | Send one packed live-preview frame to the open stream. |
 | POST | `/api/stream/stop` | Close the live-stream serial session. |
@@ -98,8 +95,11 @@ The studio talks to `http://localhost:8008` by default; override with the
 | POST | `/api/core/updates` | Check installed board cores for updates. |
 | POST | `/api/core/upgrade` | Upgrade selected installed board cores. |
 | POST | `/api/upload` | Compile a generated sketch and optionally upload it; streams logs. |
+| POST | `/api/build/cancel` | Cancel the active compile/upload process tree before it continues. |
 | POST | `/api/compile-check` | Compile without flashing and return flash/RAM capacity data. |
 | POST | `/api/upload-show` | Provisioner upload → SD transfer → music-show player upload. |
+| GET | `/api/removable-drives` | List candidate removable drives for direct SD-show copying. |
+| POST | `/api/sd-copy` | Copy packaged music/show content to a selected removable drive. |
 | GET / POST | `/api/patterns` | List or save helper-backed Pattern Library JSON files. |
 | DELETE | `/api/patterns/{pattern_id}` | Delete one helper-backed pattern. |
 | POST | `/api/patterns/reveal` | Reveal the native Pattern Library folder. |

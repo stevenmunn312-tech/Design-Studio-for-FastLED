@@ -8,6 +8,7 @@ const FIRST_PATCH_IMAGE = '/node-cards/graphs/juggle.svg'
 
 const TABS: { id: HelpTab; label: string }[] = [
   { id: 'quickstart', label: 'Quick Start' },
+  { id: 'hardware', label: 'Hardware' },
   { id: 'shortcuts', label: 'Shortcuts' },
   { id: 'nodes', label: 'Node Reference' },
   { id: 'upload', label: 'Upload & Export' },
@@ -107,7 +108,7 @@ function QuickStartTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>4</div>
             <div className={styles.stepText}>
-              <strong>Match your LEDs.</strong> Open <strong>✦ Setup…</strong> on the LED output and set the grid or strip size, chipset, layout, and pins. These settings control the preview dimensions and the generated firmware.
+              <strong>Match your LEDs.</strong> In the lower <strong>Hardware</strong> workbench, click the LED matrix to configure its wiring. Use the LED output node above for size, layout, routing, and rendering. Together these settings control the preview and generated firmware.
             </div>
           </div>
           <div className={styles.step}>
@@ -232,7 +233,7 @@ function QuickStartTab() {
           </div>
           <div className={styles.choiceCard}>
             <strong>Drive several outputs</strong>
-            <span>Add more than one LED output to run separate LED routes from one board, each with its own pins, size, layout, and render options. Master brightness and power remain controller-wide Board settings. The preview header selects which route you are watching.</span>
+            <span>Use <strong>Add Hardware → LED outputs</strong> to add separate LED routes from one board. Each has its own pins, size, layout, and render options; master brightness and power remain controller-wide Board settings. Click an output in the workbench to choose which route the side preview shows.</span>
           </div>
         </div>
         <div className={styles.note}>
@@ -253,6 +254,102 @@ function QuickStartTab() {
             <strong>Music-synced SD show</strong>
             <span>Drop tracks into Music Library — they analyse as they land — build the timeline in Performance Generator, add an <strong>SD Card</strong> part in the hardware view, then <strong>Upload</strong>. That writes the songs and shows to the card and flashes the player.</span>
           </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+function HardwareTab() {
+  return (
+    <>
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>The hardware workbench</div>
+        <div className={styles.lede}>
+          The lower pane is the physical side of the project. It shows the selected board and the parts connected to it at a shared real-world scale; the graph above shows the signal path that makes those parts useful.
+        </div>
+        <div className={styles.steps}>
+          <div className={styles.step}>
+            <div className={styles.stepNum}>1</div>
+            <div className={styles.stepText}>
+              <strong>Choose the board.</strong> Click the board, choose its family and exact profile, and use the eye button to inspect its reviewed pinout. The profile—not only the chip name—is what makes pin advice match the headers on the board in your hand.
+            </div>
+          </div>
+          <div className={styles.step}>
+            <div className={styles.stepNum}>2</div>
+            <div className={styles.stepText}>
+              <strong>Add what is on the bench.</strong> Use <strong>Add Hardware</strong> for inputs and sensors, storage, amplifiers or DACs, and LED strings, matrices, rings, or HUB75 panels. Studio assigns suitable starting pins where the board profile knows them.
+            </div>
+          </div>
+          <div className={styles.step}>
+            <div className={styles.stepNum}>3</div>
+            <div className={styles.stepText}>
+              <strong>Configure the wiring.</strong> Click a part to open its wiring inspector. Pin pickers prefer compatible, unoccupied GPIOs and label conflicts or caution pins; <strong>Other GPIO…</strong> remains available for deliberate hand wiring.
+            </div>
+          </div>
+          <div className={styles.step}>
+            <div className={styles.stepNum}>4</div>
+            <div className={styles.stepText}>
+              <strong>Connect the signal.</strong> Inputs, sensors, clocks, and LED outputs also appear as nodes in the graph. Wire those nodes normally. Board, SD Card, and amplifier/DAC parts stay only in the workbench because they carry configuration rather than a graph signal.
+            </div>
+          </div>
+          <div className={styles.step}>
+            <div className={styles.stepNum}>5</div>
+            <div className={styles.stepText}>
+              <strong>Deploy from the same pane.</strong> Select the <strong>Upload</strong> tab for readiness, capacity, firmware, diagnostics, live streaming, and the embedded Output/Serial console.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>One component, two views</div>
+        <div className={styles.definitionGrid}>
+          <div><strong>Hardware view</strong><span>Owns which physical parts exist, their exact module variants, board attachment, and wiring assignments.</span></div>
+          <div><strong>Graph view</strong><span>Owns signal flow. A microphone, sensor, RTC, or LED output appears here because it sends or receives data.</span></div>
+          <div><strong>LED output node</strong><span>Owns composition-facing choices such as dimensions, frame route, physical layout, colour correction, dithering, and supersampling.</span></div>
+          <div><strong>Board settings</strong><span>Apply once to every output: master brightness, clockless LED overclock, power cap, PSRAM policy, and—in supported ESP32 builds—serial routing.</span></div>
+        </div>
+        <div className={styles.note}>
+          Deleting a hardware-managed node from the graph disconnects it but leaves the physical part on the bench. To remove the part completely, right-click it in the hardware workbench and choose <strong>Remove</strong>.
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Changing boards and pins</div>
+        <div className={styles.choiceGrid}>
+          <div className={styles.choiceCard}>
+            <strong>Automatic retargeting</strong>
+            <span>When the board changes, Studio moves only assignments it originally chose. A GPIO you selected yourself is remembered for that part on that board.</span>
+          </div>
+          <div className={styles.choiceCard}>
+            <strong>PSRAM Auto</strong>
+            <span>Auto uses external render buffers only when the exact profile records a safe PSRAM interface. Use On or Off only when you need to override that evidence.</span>
+          </div>
+          <div className={styles.choiceCard}>
+            <strong>Serial Auto</strong>
+            <span>On native-USB ESP32 targets, Auto examines the selected port and chooses native USB or a UART bridge. Override it only when the device identity is ambiguous.</span>
+          </div>
+          <div className={styles.choiceCard}>
+            <strong>True-scale view</strong>
+            <span>Use −, +, and Fit to navigate the bench. Drag the horizontal divider to give the graph or hardware more room; the arrangement and zoom are preserved.</span>
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Hardware view versus Build Diagram</div>
+        <div className={styles.text}>
+          The workbench answers <em>what is connected to this board?</em> Its links are automatic and are not a wiring plan. <strong>View → Build Diagram</strong> answers <em>how should I assemble it?</em> with pin-level connections, power distribution, fuses, parts and connection lists, SVG export, and printable sheets.
+        </div>
+        <div className={styles.note}>
+          Profiled and catalogued hardware is still not a support promise. Graph Health reports compatibility issues, while the beta support matrix records the exact board, peripheral, LED, operating-system, browser, engine, and workflow combinations tested on real hardware.
         </div>
       </div>
     </>
@@ -380,7 +477,7 @@ function UploadTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>2</div>
             <div className={styles.tipText}>
-              <strong>Connect the board by USB</strong> and accept any operating-system permission prompt. Select the exact board and detected port in the <strong>LED output → Setup…</strong>.
+              <strong>Connect the board by USB</strong> and accept any operating-system permission prompt. Choose the exact board in the <strong>Hardware</strong> tab, then select its detected port from the board control in the <strong>Upload</strong> tab.
             </div>
           </div>
           <div className={styles.tip}>
@@ -397,7 +494,7 @@ function UploadTab() {
           </div>
         </div>
         <div className={styles.note}>
-          Open <strong>Upload… → Upload readiness</strong> for the current checklist. It identifies missing helper, engine, toolchain, board, port, graph, and capacity requirements and offers a repair action when one is available.
+          Open the hardware workbench&apos;s <strong>Upload</strong> tab and expand <strong>Upload readiness</strong> for the current checklist. It identifies missing helper, engine, toolchain, board, port, graph, and capacity requirements and offers a repair action when one is available.
         </div>
       </div>
 
@@ -409,13 +506,13 @@ function UploadTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>1</div>
             <div className={styles.stepText}>
-              Use <strong>✦ Setup…</strong> on the LED output to confirm the board, port, LED dimensions, chipset, layout, and pins.
+              In <strong>Hardware</strong>, confirm the exact board and click the LED output to inspect its pins. On the graph node, confirm LED dimensions, chipset, layout, routing, and render options.
             </div>
           </div>
           <div className={styles.step}>
             <div className={styles.stepNum}>2</div>
             <div className={styles.stepText}>
-              Open <strong>↑ Upload…</strong>. Check <strong>Upload readiness</strong> and the live flash/SRAM capacity reading. Resolve blocking items before continuing.
+              Select the workbench&apos;s <strong>Upload</strong> tab. Check <strong>Upload readiness</strong> and run <strong>Check capacity</strong> for a measured flash/RAM result. Resolve blocking items before continuing.
             </div>
           </div>
           <div className={styles.step}>
@@ -427,7 +524,7 @@ function UploadTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>4</div>
             <div className={styles.stepText}>
-              Click <strong>Upload</strong>. Status moves from <em>Compiling…</em> to <em>Uploading NN%</em> to <em>✓ Done</em>. Open <strong>⌗ Output / Serial</strong> for the full log; use <strong>Re-upload last sketch</strong> to repeat the current project's last successful upload without regenerating it.
+              Click <strong>Upload</strong>. Status moves from <em>Compiling…</em> to <em>Uploading NN%</em> to <em>✓ Done</em>. Read the embedded <strong>Output</strong> log below the actions, or switch it to <strong>Serial</strong>; use <strong>Re-upload last sketch</strong> to repeat the current project&apos;s last successful upload without regenerating it.
             </div>
           </div>
         </div>
@@ -438,7 +535,7 @@ function UploadTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>If an upload fails</div>
         <div className={styles.definitionGrid}>
-          <div><strong>Compile failed</strong><span>No firmware reached the board. Open Output / Serial, fix the reported graph, dependency, or capacity error, then compile again.</span></div>
+          <div><strong>Compile failed</strong><span>No firmware reached the board. Read the Upload tab&apos;s Output console, fix the reported graph, dependency, or capacity error, then compile again.</span></div>
           <div><strong>Upload failed</strong><span>The sketch compiled, but flashing failed. Recheck the selected port, USB cable, driver, permissions, and any board-specific download-mode steps.</span></div>
           <div><strong>Wrong colours or order</strong><span>Run Wiring Test and correct colour order, serpentine direction, panel layout, or custom XY map in the LED output.</span></div>
           <div><strong>Preview works, LEDs do not</strong><span>Confirm data and clock pins, common ground, external power, chipset, brightness, and power-limit settings before changing the graph.</span></div>
@@ -474,7 +571,7 @@ function UploadTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>If the SD card show does not play</div>
         <div className={styles.text}>
-          The player prints a status line every two seconds. Open <strong>Output / Serial</strong> and read the <code>sd=</code> field first — it separates a card problem from everything else, and you can attach the monitor at any time rather than having to catch the board booting.
+          The player prints a status line every two seconds. In the Upload tab&apos;s embedded console, select <strong>Serial</strong>, connect, and read the <code>sd=</code> field first — it separates a card problem from everything else, and you can attach the monitor at any time rather than having to catch the board booting.
         </div>
         <div className={styles.definitionGrid}>
           <div>
@@ -575,13 +672,13 @@ function UploadTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Board catalogue (out of the box)</div>
         <div className={styles.text}>
-          Studio ships around three dozen board targets, plus any custom board you add. They cover the <strong>ESP32</strong> family (S3, S2, C3, C6, H2, classic, DevKit v1), <strong>ESP8266</strong>, <strong>Arduino</strong> AVR and SAMD boards (Uno, Nano, Leonardo, Mega, Nano Every, Due, Zero, Nano 33 IoT, UNO R4 WiFi), <strong>Teensy</strong> LC through 4.1, <strong>RP2040/RP2350</strong> (Pico and Pico 2), five <strong>Adafruit</strong> SAMD21/SAMD51 boards, four <strong>STM32</strong> boards, and the <strong>nRF52840 DK</strong>. Use <strong>⚙ Board</strong> to choose which ones appear in your dropdown.
+          Studio ships dozens of exact board profiles and compile targets, plus any custom target you add. They cover the <strong>ESP32</strong> family (S3, S2, C3, C6, H2, classic, DevKit v1), <strong>ESP8266</strong>, <strong>Arduino</strong> AVR and SAMD boards, <strong>Teensy</strong>, <strong>RP2040/RP2350</strong>, <strong>Adafruit</strong> SAMD21/SAMD51 boards, <strong>STM32</strong>, and the <strong>nRF52840 DK</strong>. Choose the physical profile from the board in Hardware; use the Upload tab&apos;s board control for build engine, port, custom targets, and core updates.
         </div>
         <div className={styles.text}>
           A catalogue entry means Studio knows how to target the board; it does not mean every feature and LED configuration has been tested on it. Entries marked <em>experimental</em> in the list are the least proven.
         </div>
         <div className={styles.text}>
-          The recorded public-beta validation covers <strong>ESP32-S3 + 16×16 WS2812B matrix</strong> (normal Upload, Wiring Test, Stream Receiver + Live Stream, and a generative show — including one driven by an on-device INMP441 microphone) and <strong>ESP8266 + 10×1 WS2812B strip</strong> (normal Upload, Wiring Test, Stream Receiver + Live Stream). Treat other combinations as experimental until they appear in the <a className={styles.link} href={`${REPO_URL}/blob/main/docs/release/beta-support-matrix.md`} target="_blank" rel="noopener noreferrer">beta support matrix</a>.
+          Recorded public-beta validation includes <strong>ESP32-S3 + 16×16 WS2812B matrix</strong> across normal Upload, Wiring Test, Live Stream, generative show, and INMP441 audio; <strong>ESP8266 + 10×1 WS2812B strip</strong> across Upload, Wiring Test, and Live Stream; classic ESP32 matrix upload; and a classic ESP-32D DevKit v1 with DS3231 clock display. Treat every unrecorded combination as experimental and check the <a className={styles.link} href={`${REPO_URL}/blob/Hardware/docs/release/beta-support-matrix.md`} target="_blank" rel="noopener noreferrer">beta support matrix</a> for the exact scope.
         </div>
       </div>
     </>
@@ -717,6 +814,7 @@ export default function HelpModal() {
           tabIndex={0}
         >
           {helpTab === 'quickstart' && <QuickStartTab />}
+          {helpTab === 'hardware' && <HardwareTab />}
           {helpTab === 'shortcuts' && <ShortcutsTab />}
           {helpTab === 'nodes' && <NodeReference />}
           {helpTab === 'upload' && <UploadTab />}

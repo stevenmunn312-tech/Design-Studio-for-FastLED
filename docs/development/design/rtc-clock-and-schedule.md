@@ -1,6 +1,7 @@
 # RTC clock and scheduled triggers — design note
 
-Status: implemented (DS3231 source added 2026-08-02; hardware validation outstanding) · Owner: app ·
+Status: implemented; DS3231 set/read/Clock Display path hardware-validated on
+one classic ESP-32D DevKit v1 combination (2026-08-21) · Owner: app ·
 Date: 2026-08-02
 
 Gives a graph a wall clock: an installation can run one look during the day and

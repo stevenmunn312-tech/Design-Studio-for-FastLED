@@ -1,219 +1,148 @@
-# Hardware nodes — design note
+# Hardware nodes and the two-view model
 
-Status: proposed, not implemented · Owner: app · Date: 2026-08-17 ·
-Branch: `Hardware` (1.0.0, breaking)
+Status: implemented on `Hardware`; capability abstractions remain deferred ·
+Owner: app · Updated: 2026-08-24
 
-Makes the app model hardware the way the user does. You choose a board, you
-plug parts into it, and only then do you know what the thing can do. Today
-Studio has none of that order: a microphone can be dragged onto an empty canvas
-with no board anywhere, inventing pin defaults from an FQBN it does not really
-know.
+The current branch models each physical component once and presents it in the
+views where it has meaning. The user-facing workflow is in the
+[hardware workbench guide](../../user/hardware-workbench.md); this note records
+the implementation contract.
 
-Builds on [`board-node-architecture.md`](board-node-architecture.md), whose
-non-breaking half — the Board node, the capability model on
-`PhysicalBoardProfile`, the imported profiles and the pinout view — already
-shipped to the beta. This note is the breaking half.
+## One component, two views
 
-## The model: one component, two views
+- The **hardware workbench** shows the selected board and every attached part.
+  It owns physical existence, exact module identity, and wiring assignments.
+- The **graph** shows only parts that carry signal. It owns dataflow edges and
+  composition-facing properties.
 
-A component exists **once** and appears **twice**:
+Both views read and update the same root-graph node. Hardware-only nodes are not
+rendered on the graph, but remain persisted graph records so validation and
+generators have one source of truth.
 
-- The **hardware view** shows the physical thing: the board with its parts
-  arranged around it, connected automatically. This is where hardware comes
-  into existence.
-- The **graph view** shows only the parts that carry signal, as ordinary nodes
-  with ordinary ports.
+The app always renders graph and hardware panes together, separated by a
+resizable horizontal divider. The lower pane switches between **Hardware** and
+**Upload** tabs. Its camera supports pan, zoom, Fit, and anchor preservation
+across layout changes.
 
-This is the schematic-symbol and PCB-footprint split that EDA tools have used
-for decades. Neither view draws the other's edges, neither lies, and one object
-underlies both.
+## Hardware is created from the workbench
 
-The two panes share the canvas area, split by a resizeable divider.
+Hardware node types are hidden from the Node Library and canvas picker. The
+workbench's **Add Hardware** menu is the creation path for:
 
-## Decisions
+- signal inputs: INMP441 microphone, button, potentiometer, encoder, PIR motion,
+  ambient light, and RTC modules;
+- workbench-only fixtures: SD Card and amplifier/DAC modules; and
+- LED String, LED Matrix, LED Ring, and HUB75 Panel outputs.
 
-### Hardware comes into existence in the hardware view, not the node library
+Creation targets the root graph even while the user is editing a pattern group.
+The new part receives board-profile starting pins where available. GPIO
+allocation respects capability, existing uses, and the selected part option.
 
-There are no hardware nodes in the node library. You add a part in the hardware
-view; its node appears in the graph, already attached to the board, already
-carrying pins that suit that board, ready to connect.
+Changing boards retargets assignments made by Studio and preserves explicit
+user choices. User-selected pins are remembered by part and board so switching
+away and back restores the intended wiring.
 
-This is the decision that earns the whole design. Every pin bug found during
-hardware validation — the XIAO's GPIO39-42 underside pads, the SD chip-select
-on a flash pin, the amplifier's 26/25/22 silently disagreeing with 27/26/25 —
-exists because a hardware node could be created without a board. Sourcing parts
-through the hardware view makes every hardware node attached-by-construction to
-a known board with known-good pins. The class of bug stops being something
-validation catches and becomes something the model cannot express.
+## Which parts appear in the graph
 
-It also matches the real order of work: capabilities are unknowable until the
-user says what they are flashing.
+`isHardwareManagedSignalNodeType` defines the parts visible in both views:
 
-### The graph still ends at the output node
+- `MicInput`, `ButtonInput`, `PotInput`, and `EncoderInput`;
+- `MotionInput` and `LightInput`;
+- `RTCInput`; and
+- `MatrixOutput` (the implementation type behind all four LED-output forms).
 
-A frame plugs into an LED output exactly as it plugs into the LED Matrix today.
-Codegen, `outputRouting` and the composition canvas are unchanged.
+`Board`, `SDCard`, and `Amplifier` are hardware-only. They carry configuration,
+not graph data.
 
-Rejected: the frame terminating at the Board. It would need one frame input per
-attached output, turning the board into a signal hub for no gain, and it would
-invert a pipeline that already works.
+Deleting a hardware-managed signal node on the canvas removes its signal edges
+but retains the part. Removing it through the workbench deletes the root-graph
+record completely. This keeps a canvas edit from silently claiming a physical
+part was unplugged.
 
-### No attachment edges
+## Wiring ownership
 
-Parts do not connect to the Board with an edge on the graph canvas.
+Clicking a part opens `HardwarePartBody` in a workbench inspector. GPIO fields
+use `BoardPinPicker`, which filters by required capability, distinguishes
+recommended and caution pins, detects conflicts across root hardware, and
+allows an explicit custom GPIO.
 
-Rejected — and this supersedes the earlier draft of this note, which specified
-exactly that. Two reasons it was wrong:
+The workbench draws automatic semantic links between the board and parts. They
+confirm attachment; they are not editable graph edges and are not a complete
+wiring schematic. The Build Diagram remains responsible for pin-level
+connections, level shifting, power distribution, fusing, parts/connection
+exports, and print sheets.
 
-1. **The Board is a singleton, so the edge carries no information.** Every
-   hardware node is attached to the only board there is. Eight edges stating
-   something already true is spaghetti that tells the user nothing.
-2. **The two-view split does the job better.** Attachment is what the hardware
-   view *shows*; drawing it again on the signal canvas is the duplication that
-   made early mockups feel disconnected.
+## Board ownership
 
-If multi-board ever becomes real, attachment stops being implicit and the edge
-earns its place. That is the honest trigger for reintroducing it, rather than
-building it now for a case that does not exist.
+There is exactly one root Board node. It selects an exact physical profile and
+owns settings that generated firmware can apply only once:
 
-### Connections in the hardware view are automatic
+- master brightness;
+- global clockless-chipset overclock;
+- global power cap;
+- PSRAM policy/mode; and
+- serial route.
 
-The user does not draw wires there. Parts are laid out around the board and
-connected by the view itself, radially.
+Board/profile selection and the durable controller policy live with the
+project. The selected USB port, build engine, toolchain/core state, and current
+readiness remain desk-local deployment state.
 
-Rejected: a draggable second canvas. A second layout to arrange is a second
-layout to maintain, and the value here is confirmation — "yes, that is my
-board with my parts on it" — not composition.
+## LED outputs
 
-This is also what keeps the hardware view distinct from the **Build Diagram**,
-which stays what it is: the full physical document with pin-level wiring, power
-paths, level shifters and current budget. The hardware view answers "what is
-plugged in"; the Build Diagram answers "how do I wire it".
+One `MatrixOutput` implementation backs four physical forms exposed separately
+by **Add Hardware**. Each form has its own display label and renderer:
 
-### Some parts never appear in the graph
+- LED String;
+- LED Matrix;
+- LED Ring; and
+- HUB75 Panel.
 
-The Amplifier, SD Card and Board carry no signal. They live only in the
-hardware view.
+The physical form cannot be changed from the signal node. The workbench creates
+the object the user owns. Responsibilities are split as follows:
 
-Far from awkward, this is the clarifying consequence: the hardware view shows
-everything physical, the graph shows only what carries signal. Microphone,
-button, pot, encoder and the LED outputs appear in both.
+- the workbench inspector owns GPIO assignments and module identity;
+- the graph node owns size/count, chipset and colour order where applicable,
+  frame fit/crop route, matrix/panel/custom mapping, correction, dithering, and
+  supersampling; and
+- the Board owns brightness, power, overclock, and memory policy.
 
-### Parts take their pins from the board when created
+The output renders in its own shape in the graph and workbench. Clicking a
+workbench output also selects the route shown in the side preview. Multi-output
+firmware remains one synchronized sketch for one board.
 
-The payoff. A part is created with pins from the board profile's
-`commonPeripheralStartingPoints` — add a microphone with a XIAO selected and it
-gets GPIO 7/8/9; add the same part with a 38-pin DevKit and it gets 32/33/34.
+## Hardware part identity and rendering
 
-Changing the board retargets only pins the user has not edited, matching the
-existing rule in `micPinDefaults.ts`: edit a pin and the part is yours.
+Exact part options drive the label, pin roles, notes, thumbnail, and workbench
+render. Board and part assets carry verified dimensions. The workbench lays
+them out using a shared millimetre scale instead of normalizing every image to
+the same box.
 
-### Every part names its exact module
+Graph nodes use compact thumbnails only. The workbench is the recognition and
+relative-scale view. LED fixtures add live output previews, diffuser treatment,
+and sampled light spill without changing the underlying physical footprint.
 
-A dropdown per part — INMP441 for the microphone, MAX98357A for the amplifier —
-driving the pin roles, the thumbnail, and part-specific caveats.
+## Upload tab
 
-Naming the part is what makes its picture honest rather than decorative, and it
-forces assumptions into the open: the player generator has always assumed a
-MAX98357A and nothing in the UI ever said so.
+Deployment tools now live in the lower pane rather than on the LED output node.
+The Upload tab contains readiness, the explicit measured-capacity check,
+compile/upload/cancel, firmware reuse/export/view, diagnostics, validation
+reporting, Stream Receiver/Live Stream, and an embedded Output/Serial console.
 
-### Thumbnails in the graph, the real thing in the hardware view
+The console has filtered and verbose toolchain output plus a serial monitor with
+baud selection and connection controls. A compile log therefore stays visible
+in the same full-width workbench where the action was started.
 
-Graph nodes show a small module image in the existing preview slot — the one
-`NodePreview` occupies, with `WaveScope`'s `previewOffset` proving the
-handle-offset mechanism. The hardware view is where parts are drawn at a size
-worth looking at.
+## Deferred capability work
 
-Rejected: the graph node *becoming* the module image. A photoreal module is
-either too small to recognise or big enough to wreck the density that makes a
-node graph readable, and the output node already carries ~20 properties, the
-upload UI and a capacity meter competing for that space.
+The current microphone still provides the audio signal directly, and analysis
+nodes retain their existing ambient preview integration. The planned `Audio`
+capability node, decoder tap, line-in source, and explicit analysis-node audio
+ports are not implemented.
 
-### One Audio node, abstracting the source
+A Storage capability abstraction across SD, onboard flash, and USB is also not
+implemented. SD Card remains a concrete workbench-only part used by the
+music-synchronised player workflow.
 
-`Audio` is a capability node with a source dropdown and an honest empty state:
-*"No audio source connected. Add a microphone or another audio source in the
-hardware view."*
-
-| Source | Who plays it | Analysis | Requires |
-| --- | --- | --- | --- |
-| Microphone | something external | live | mic in |
-| Line in | something external | live | line-level in |
-| Decoder tap | the board | live | MCU-decoded playback |
-| Baked envelope | the board | offline | storage + an analysed show |
-
-It defaults to the only attached source when there is one, so the dropdown
-appears as a choice only when a choice exists.
-
-This is what earns the node: without it every new source means rewiring every
-graph that consumes audio, and a pattern can never be source-agnostic. With it,
-"react to audio" is one chain that works whether the signal is a microphone or a
-track playing off the card.
-
-Rejected: the microphone keeping an `audio` output and feeding FFT directly
-(today's shape). Simpler, and it makes "no audio source" unrepresentable and
-every source swap a rewire.
-
-### Analysis nodes never read audio ambiently
-
-`FFTAnalyzer`, `BeatDetect`, `PercussionDetect` and `AudioFeatures` consume the
-`Audio` node's output through ordinary ports rather than reading
-`useAudioStore.getState()`.
-
-This mirrors the reasoning recorded for the clock in
-[`rtc-clock-and-schedule.md`](rtc-clock-and-schedule.md): an ambient global is
-invisible to the cycle guard, to the group registry and to Graph Health's node
-attribution, and a patch can never feed it a synthetic source for testing.
-
-### LED outputs: one node, four sidebar entries
-
-Strip, matrix, ring and HUB75 panel are different objects to buy, and the
-sidebar should say so — "I bought a ring, where is the ring?" is a fair
-question a hidden dropdown answers badly.
-
-But all four share an identical port signature (`frame` in, `sdcard` in, nothing
-out). The node library's established bundling pattern uses one node with a
-variant property for identical signatures; Noise, Transition, Blend, and
-Particles follow it.
-
-Both: **one node type with a `form` property, presented as four entries** that
-each create it pre-set. Ring is a genuinely new form needing its own XY mapping
-— LED count, start angle and direction rather than width and height.
-
-Rejected: four node types. It buys discoverability a preset already buys, at
-the cost of four codegen paths and a break with the bundling convention.
-
-### Previews render in the graph, in the output's own shape
-
-A ring node draws a ring, a strip draws a strip. The current design can only
-draw a grid, which is a visual lie about the hardware.
-
-The side preview panel stays. It answers a different question — in-graph
-previews show "what is *this* output showing", the panel shows "what does the
-audience see" — and Stage mode, the composed multi-route view and recording all
-depend on it. Stage becomes the audience view: lights only.
-
-### Empty states name what is missing
-
-With no board or no audio source, capability nodes still exist and say what to
-add. Hiding them would teach the user the app is broken.
-
-### The hardware view owns existence; the graph owns connection
-
-Deleting a graph node disconnects the part; it does not unplug it. Removal
-happens in the hardware view.
-
-Otherwise deleting a node silently changes what firmware is generated, which is
-the same class of surprise as a stale pin default.
-
-## Open questions
-
-1. Does **Storage** get a capability node too (SD card / onboard flash / USB),
-   mirroring Audio? The show pipeline needs the distinction regardless.
-2. Do `MicInput` and `MatrixOutput` get renamed — `Microphone`, `LED Output` —
-   now that the latter covers four forms? Breaking either way.
-3. Should the hardware pane be open by default on a new project? Hardware-first
-   sequencing says yes; the 1280×720 supported minimum says it must collapse to
-   nothing.
-4. What happens to a graph with **two boards**? Out of scope for 1.0.0, but it
-   is the trigger that would bring attachment edges back.
+Multi-board graphs and a Raspberry Pi backend remain out of scope. Per-output
+native rendering is designed separately in
+[`per-output-native-render.md`](per-output-native-render.md).

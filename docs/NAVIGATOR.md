@@ -3,6 +3,13 @@
 Index of project documentation. See `CLAUDE.md` (repo root) for the
 build/architecture overview aimed at contributors.
 
+## User guides
+
+- [Hardware workbench](user/hardware-workbench.md)
+  — the current Hardware-branch workflow for choosing a board, adding physical
+    parts, assigning pins, connecting signal nodes, switching LED preview
+    routes, deploying firmware, and using the embedded Output/Serial console.
+
 ## Architecture
 
 - [Desktop viewport contract](architecture/desktop-viewport-contract.md)
@@ -62,16 +69,13 @@ build/architecture overview aimed at contributors.
     constant. All three are implemented; the note records their shared
     preview/codegen contract and remaining hardware-validation status.
   - [Board node and hardware capability model](development/design/board-node-architecture.md)
-    — proposed 1.0.0 refactor: a singleton Board node selecting a board
-    *profile* rather than a chip target, a capability model that separates
-    audio source from schedule source, and the `route` attachment between
-    outputs and the board.
+    — the implemented singleton Board/profile contract, board-wide controller
+    settings, automatic PSRAM and USB serial policies, plus the capability
+    abstractions still deferred.
   - [Hardware nodes](development/design/hardware-nodes.md)
-    — the `Hardware` branch's model: one component, two views. A hardware pane
-    shows the board with its parts and is the only place hardware comes into
-    existence; the graph shows just the parts that carry signal. Parts take
-    their pins from the board on creation, and a capability node (Audio, later
-    Storage) abstracts *what the board can do* from *which part does it*.
+    — the implemented one-component/two-view model: the workbench owns physical
+    existence and wiring, while the graph shows signal-carrying parts; it also
+    records the remaining Audio and Storage capability work.
 - [Plans](development/plans/)
   - [Hardware branch todo](development/plans/hardware-todo.md)
     — active hardware-line backlog and unresolved bench findings.

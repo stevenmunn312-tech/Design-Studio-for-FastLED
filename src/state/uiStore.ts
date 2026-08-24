@@ -24,7 +24,7 @@ export type StagePresentationStatus = 'idle' | 'requesting' | 'active' | 'unavai
 export type NewProjectDecision = 'yes' | 'no' | 'cancel'
 export type AppDialogTone = 'default' | 'danger'
 export type StartChoice = string | 'blank' | null
-export type HelpTab = 'quickstart' | 'shortcuts' | 'nodes' | 'upload' | 'about'
+export type HelpTab = 'quickstart' | 'hardware' | 'shortcuts' | 'nodes' | 'upload' | 'about'
 /** The bottom pane shows the bench, or the tools that flash it. */
 export type HardwarePaneTab = 'hardware' | 'upload'
 export type WorkspaceMode = 'design' | 'build'

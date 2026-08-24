@@ -147,9 +147,9 @@ describe('HelpModal session state', () => {
       const quickStart = view.getByRole('tab', { name: 'Quick Start' })
 
       fireEvent.keyDown(quickStart, { key: 'ArrowRight' })
-      expect(useUiStore.getState().helpTab).toBe('shortcuts')
+      expect(useUiStore.getState().helpTab).toBe('hardware')
 
-      fireEvent.keyDown(view.getByRole('tab', { name: 'Shortcuts' }), { key: 'ArrowLeft' })
+      fireEvent.keyDown(view.getByRole('tab', { name: 'Hardware' }), { key: 'ArrowLeft' })
       expect(useUiStore.getState().helpTab).toBe('quickstart')
 
       fireEvent.keyDown(view.getByRole('tab', { name: 'Quick Start' }), { key: 'End' })
@@ -203,12 +203,25 @@ describe('HelpModal session state', () => {
     expect(view.getAllByText(/View → Layout/).length).toBeGreaterThan(0)
   })
 
+  it('documents the Hardware-branch workbench and its ownership rules', () => {
+    const view = render(<HelpModal />)
+
+    fireEvent.click(view.getByRole('tab', { name: 'Hardware' }))
+
+    expect(view.getByText('The hardware workbench')).toBeTruthy()
+    expect(view.getByText('One component, two views')).toBeTruthy()
+    expect(view.getByText('Changing boards and pins')).toBeTruthy()
+    expect(view.getByText('Hardware view versus Build Diagram')).toBeTruthy()
+    expect(view.getByText(/Deleting a hardware-managed node/)).toBeTruthy()
+    expect(view.getByText(/embedded Output\/Serial console/)).toBeTruthy()
+  })
+
   it('describes the board catalogue by family rather than a stale fixed list', () => {
     const view = render(<HelpModal />)
 
     fireEvent.click(view.getByRole('tab', { name: 'Upload & Export' }))
 
-    const catalogue = view.getByText(/three dozen board targets/)
+    const catalogue = view.getByText(/dozens of exact board profiles and compile targets/)
     expect(catalogue).toBeTruthy()
     // Families that existed in the catalogue but were missing from the old
     // nine-board sentence.
