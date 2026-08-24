@@ -87,6 +87,18 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
       return pins ? { i2sWs: pins.i2sWs, i2sSck: pins.i2sSck, i2sSd: pins.i2sSd } : null
     },
   },
+  LineInput: {
+    keys: ['i2sMclk', 'i2sBclk', 'i2sLrclk', 'i2sDout'],
+    // The ESP32 GPIO matrix can route the three clocks to ordinary output
+    // pins and receive the ADC's DOUT on an input-capable pin. Unlike INMP441,
+    // no board profile currently carries a preferred PCM1802 quartet.
+    requests: [
+      { key: 'i2sMclk' },
+      { key: 'i2sBclk' },
+      { key: 'i2sLrclk' },
+      { key: 'i2sDout', capability: 'digitalInput' },
+    ],
+  },
   Amplifier: {
     keys: ['i2sBclk', 'i2sLrc', 'i2sDout'],
     peripheral: 'max98357',

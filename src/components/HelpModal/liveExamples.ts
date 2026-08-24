@@ -1017,6 +1017,26 @@ export const MICROPHONE_LIVE_EXAMPLE = namedExample(
   'Allow microphone access and play audio nearby. The Trails node preview should make bass feel broad, mids structured, and treble quick and bright.',
 )
 
+export const LINE_INPUT_LIVE_EXAMPLE = namedExample(
+  'LineInput',
+  'Analyse an external player through line in',
+  [
+    { key: 'line-in', type: 'LineInput', properties: { channel: 'Both', gain: 1 } },
+    { key: 'fft', type: 'FFTAnalyzer', properties: { smoothing: 0.7, gain: 1.15 } },
+    { key: 'bars', type: 'SpectrumBars', properties: { palette: 'party' } },
+    { key: 'trails', type: 'Trails', properties: { decay: 0.88 } },
+  ],
+  [
+    { source: 'line-in', sourceHandle: 'audio', target: 'fft', targetHandle: 'audio' },
+    { source: 'fft', sourceHandle: 'bass', target: 'bars', targetHandle: 'bass' },
+    { source: 'fft', sourceHandle: 'mids', target: 'bars', targetHandle: 'mids' },
+    { source: 'fft', sourceHandle: 'treble', target: 'bars', targetHandle: 'treble' },
+    { source: 'bars', sourceHandle: 'frame', target: 'trails', targetHandle: 'frame' },
+  ],
+  'Line In carries the PCM1802 signal into FFT Analyzer. Bass, mids, and treble shape Spectrum Bars independently before Trails gives fast hits a readable tail.',
+  'In browser preview, allow audio-input access and play the source nearby. On ESP32-S3 hardware, the LED Matrix reacts to the player connected to the PCM1802 RCA inputs.',
+)
+
 export const AUDIO_CAPABILITY_LIVE_EXAMPLE = namedExample(
   'Audio',
   'Choose attached hardware once, then analyse it',
@@ -1239,6 +1259,7 @@ export const RTC_CLOCK_LIVE_EXAMPLE = namedExample(
 const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   Audio: AUDIO_CAPABILITY_LIVE_EXAMPLE,
   MicInput: MICROPHONE_LIVE_EXAMPLE,
+  LineInput: LINE_INPUT_LIVE_EXAMPLE,
   ButtonInput: BUTTON_LIVE_EXAMPLE,
   PotInput: POTENTIOMETER_LIVE_EXAMPLE,
   EncoderInput: ENCODER_LIVE_EXAMPLE,
@@ -1284,9 +1305,9 @@ export function liveExampleForNode(node: NodeDefinition): ReferenceLiveExample {
   return NAMED_LIVE_EXAMPLES[node.type] ?? buildGenericLiveExample(node)
 }
 
-/** True when an example turns on the synthetic audio source after insertion. */
+/** True when an example starts the browser audio input after insertion. */
 export function exampleUsesMicrophone(example: LiveExampleSpec): boolean {
-  return example.nodes.some((node) => node.type === 'MicInput')
+  return example.nodes.some((node) => node.type === 'MicInput' || node.type === 'LineInput')
 }
 
 /** Resolve an edge's source data type; useful for quality checks and docs tooling. */

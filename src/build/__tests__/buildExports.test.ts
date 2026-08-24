@@ -117,4 +117,29 @@ describe('buildExports', () => {
       expect.objectContaining({ fromTerminal: 'GND', toTerminal: 'GND', purpose: 'Common ground reference' }),
     ]))
   })
+
+  it('exports the PCM1802 signal, 5 V, and common-ground wiring', () => {
+    const board = boardProfileById('espressif-esp32-s3-devkitc-1')
+    const manifest = buildHardwareManifest([
+      node('board', 'Board', { profileId: board?.id }),
+      node('line', 'LineInput', {
+        partId: 'pcm1802-line-in-adc',
+        i2sMclk: 15,
+        i2sBclk: 16,
+        i2sLrclk: 17,
+        i2sDout: 18,
+      }),
+    ], [], 'esp32:esp32:esp32s3')
+    const rows = buildConnectionRows(manifest.primaryItems, calculateElectricalPlan(
+      manifest,
+      ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }),
+      board,
+    ), board)
+
+    expect(rows.filter((row) => row.purpose === 'Signal')).toHaveLength(4)
+    expect(rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ fromTerminal: '5V / VIN', toTerminal: '5V', purpose: 'Module power' }),
+      expect.objectContaining({ fromTerminal: 'GND', toTerminal: 'GND', purpose: 'Common ground reference' }),
+    ]))
+  })
 })

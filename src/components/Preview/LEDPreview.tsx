@@ -893,7 +893,7 @@ export default function LEDPreview() {
 
   // The shared transport's `playing` flag also gates interaction sound effects.
   // Publish local-player activity without turning the track into an analysis
-  // source: live graph audio continues to come exclusively from the microphone.
+  // source: live graph audio continues to come from the browser capture input.
   useEffect(() => {
     if (!transport) usePlayerTransport.getState().setPos(musicCurrentTime * 1000, musicPlaying)
   }, [transport, musicCurrentTime, musicPlaying])

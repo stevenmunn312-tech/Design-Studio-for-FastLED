@@ -4765,6 +4765,12 @@ function createEvalNode(
         out = { audio: audioOverride ?? liveAudioSignal() }
         break
 
+      case 'LineInput':
+        // Browser preview uses the selected browser/OS capture device; the
+        // generated controller reads the physical PCM1802 line-level ADC.
+        out = { audio: audioOverride ?? liveAudioSignal() }
+        break
+
       case 'FFTAnalyzer': {
         const audioValue = input(id, 'audio', null)
         const audio = isAudioSignal(audioValue) ? audioValue : null

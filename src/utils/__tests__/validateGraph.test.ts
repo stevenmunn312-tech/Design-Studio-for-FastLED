@@ -21,7 +21,7 @@ describe('validateGraph', () => {
     const wires = [edge('audio-edge', 'audio', 'fft', 'audio')]
 
     expect(findAudioCapabilityErrors([audio], wires)).toEqual([
-      'Audio has no attached source — add a microphone or SD music player, or choose an available source',
+      'Audio has no attached source — add a microphone, line-in ADC, or SD music player, or choose an available source',
     ])
     expect(buildGraphDiagnostics([audio], wires)).toContainEqual(expect.objectContaining({
       id: 'audio-source',
@@ -34,6 +34,14 @@ describe('validateGraph', () => {
     expect(findAudioCapabilityErrors([audio, microphone], wires)).toEqual([])
     audio.data.properties.sourceId = 'mic'
     expect(findAudioCapabilityErrors([audio, microphone], wires)).toEqual([])
+  })
+
+  it('limits PCM1802 line-in firmware to ESP32-S3', () => {
+    const lineIn = node('line', 'LineInput')
+    expect(findBoardCompatibilityErrors([lineIn], 'esp32:esp32:esp32s3')).toEqual([])
+    expect(findBoardCompatibilityErrors([lineIn], 'esp32:esp32:esp32')).toContain(
+      'PCM1802 line-in firmware currently requires an ESP32-S3 board so Studio can generate its synchronized MCLK/BCLK/LRCLK receive path',
+    )
   })
 
   it('returns node-attributed diagnostics with a concrete fix', () => {

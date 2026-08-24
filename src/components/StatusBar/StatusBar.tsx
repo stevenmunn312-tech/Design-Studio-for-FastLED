@@ -17,10 +17,10 @@ export default function StatusBar() {
   const { statusText, statusLevel, fps, performanceMode, stageMode } = useUiStore()
   const nodeCount = useGraphStore((s) => s.nodes.length)
   const edgeCount = useGraphStore((s) => s.edges.length)
-  // "Audio" = the graph has analysis nodes; "live" = the microphone is actually
+  // "Audio" = the graph has analysis nodes; "live" = the browser input is actually
   // running. Reporting the first as the second told users a silent graph was
   // live, so the chip now distinguishes the two.
-  const hasAudio = useGraphStore((s) => s.nodes.some((n) => n.data.category === 'audio' || n.data.nodeType === 'MicInput'))
+  const hasAudio = useGraphStore((s) => s.nodes.some((n) => n.data.category === 'audio' || ['MicInput', 'LineInput'].includes(n.data.nodeType)))
   const micActive = useAudioStore((s) => s.micActive)
   const hasShow = useGraphStore((s) => s.nodes.some((n) => n.data.category === 'show'))
   const hasFrameSignal = useGraphStore((s) => {
@@ -76,8 +76,8 @@ export default function StatusBar() {
           <span
             className={styles.chip}
             title={micActive
-              ? 'Microphone is running — audio nodes are reading live input'
-              : 'Audio nodes are on the canvas but the microphone is not running'}
+              ? 'Browser audio input is running — audio nodes are reading live input'
+              : 'Audio nodes are on the canvas but the browser input is not running'}
           >
             {micActive ? 'Audio live' : 'Audio idle'}
           </span>

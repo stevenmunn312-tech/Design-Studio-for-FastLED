@@ -100,6 +100,22 @@ describe('HardwarePane', () => {
     expect(within(document.body).getByText('Default I2C bus')).toBeTruthy()
   })
 
+  it('adds PCM1802 line in with four distinct board-owned pins', () => {
+    render(<HardwarePane />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
+    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /Inputs/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /PCM1802 line-in ADC/ }))
+
+    const lineIn = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'LineInput')
+    expect(lineIn).toBeTruthy()
+    expect(lineIn!.data.properties.partId).toBe('pcm1802-line-in-adc')
+    const pins = ['i2sMclk', 'i2sBclk', 'i2sLrclk', 'i2sDout']
+      .map((key) => lineIn!.data.properties[key])
+    expect(new Set(pins).size).toBe(4)
+    expect(lineIn!.data.outputs).toEqual([{ id: 'audio', label: 'Audio', dataType: 'audio' }])
+  })
+
   it('opens a board-aware pin popup and reveals the signal node automatically', () => {
     render(<HardwarePane />)
 

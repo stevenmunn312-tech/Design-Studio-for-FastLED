@@ -45,6 +45,14 @@ const audioModule = (partId: string): HardwareManifestItem => ({
   facts: { partId },
 })
 
+const lineInput = (): HardwareManifestItem => ({
+  ...audioModule('pcm1802-line-in-adc'),
+  id: 'line:pcm1802',
+  kind: 'line-input',
+  sourceNodeId: 'line',
+  sourceNodeType: 'LineInput',
+})
+
 describe('audio module pads', () => {
   it('gives every pad its own position, however many the module has', () => {
     // The measured ratio tables only cover 3- and 5-pad parts, and an audio
@@ -78,6 +86,18 @@ describe('audio module pads', () => {
     expect(points[0].x).toBeCloseTo(10 + ((220 - (159 * 400 / 568)) / 2) + (31.5 * 159 / 568), 4)
     expect(points[6].x).toBeCloseTo(10 + ((220 - (159 * 400 / 568)) / 2) + (367.5 * 159 / 568), 4)
     expect(points[0].y).toBeCloseTo(20 + (545 * 159 / 568), 4)
+  })
+
+  it('maps PCM1802 clock, data, power, and ground to its six header pads', () => {
+    const item = lineInput()
+    const layout = { x: 0, y: 0, item } as never
+
+    expect(peripheralPadCount(item)).toBe(6)
+    expect([0, 1, 2, 3].map((index) => peripheralSignalPadIndex(item, index))).toEqual([2, 3, 4, 5])
+    expect(peripheralPowerPadIndex(item)).toBe(0)
+    expect(peripheralGroundPadIndex(item)).toBe(1)
+    expect(peripheralPowerNet(item)).toBe('v5')
+    expect(peripheralPadPoint(layout, 0).x).not.toBe(peripheralPadPoint(layout, 5).x)
   })
 })
 

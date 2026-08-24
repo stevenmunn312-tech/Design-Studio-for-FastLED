@@ -299,7 +299,7 @@ function NodeGraphCanvasInner() {
   }, [edges, nodes])
   const hasAudioGraph = useMemo(() => nodes.some((node) => {
     const data = node.data as { category?: string; nodeType?: string }
-    return data.category === 'audio' || data.nodeType === 'MicInput'
+    return data.category === 'audio' || data.nodeType === 'MicInput' || data.nodeType === 'LineInput'
   }), [nodes])
   const hasShowGraph = useMemo(() => nodes.some((node) => (node.data as { category?: string }).category === 'show'), [nodes])
   const hasPatternGraph = useMemo(() => nodes.some((node) => (node.data as { category?: string }).category === 'pattern'), [nodes])

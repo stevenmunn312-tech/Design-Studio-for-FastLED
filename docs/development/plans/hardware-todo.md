@@ -9,7 +9,7 @@ Active backlog for the breaking `Hardware` line. The implemented two-view hardwa
 - [x] Add an `Audio` capability node with a source dropdown over attached board capabilities, an honest empty state, and a sensible single-source default.
 - [x] Route `FFTAnalyzer`, `BeatDetect`, `PercussionDetect`, and `AudioFeatures` through explicit ports instead of ambient `useAudioStore.getState()` reads.
 - [x] Add a decoder tap so on-board playback can analyse PCM before the DAC and drive generative shows without a microphone.
-- [ ] Add line-in hardware/capability support for player modules that cannot expose decoded PCM.
+- [x] Add ESP32-S3 PCM1802 line-in hardware/capability support for player modules that cannot expose decoded PCM.
 
 ## Deferred model work
 

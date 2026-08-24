@@ -47,6 +47,18 @@ describe('audio capability sources', () => {
     expect(resolveAudioCapabilitySource([sd, player], '')?.id).toBe('decoder:sd-1')
   })
 
+  it('offers a concrete PCM1802 line-in capability', () => {
+    const lineIn = hardware('line-1', 'LineInput', { partId: 'pcm1802-line-in-adc' })
+    expect(audioCapabilitySources([lineIn])).toMatchObject([
+      {
+        id: 'line-1',
+        label: 'PCM1802 line-in ADC',
+        kind: 'line-in',
+      },
+    ])
+    expect(resolveAudioCapabilitySource([lineIn], '')?.node).toBe(lineIn)
+  })
+
   it('requires an explicit id when more than one source is available', () => {
     const first = hardware('mic-1', 'MicInput')
     const second = hardware('mic-2', 'MicInput')

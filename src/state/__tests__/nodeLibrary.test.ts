@@ -13,6 +13,23 @@ describe('nodeLibrary', () => {
     })
   })
 
+  it('keeps PCM1802 line in hardware-created and signal-carrying', () => {
+    const lineIn = NODE_LIBRARY.find((node) => node.type === 'LineInput')
+    expect(lineIn).toMatchObject({
+      label: 'Line In',
+      outputs: [{ id: 'audio', dataType: 'audio' }],
+      defaultProperties: { partId: 'pcm1802-line-in-adc', channel: 'Both' },
+    })
+    expect(isHardwareLibraryHiddenNodeType('LineInput')).toBe(true)
+    expect(isHardwareManagedSignalNodeType('LineInput')).toBe(true)
+    expect(gpioRequirementForProperty('LineInput', 'i2sDout', {})).toEqual({
+      capability: 'digitalInput', pullup: false,
+    })
+    expect(gpioRequirementForProperty('LineInput', 'i2sMclk', {})).toEqual({
+      capability: 'digitalOutput', pullup: false,
+    })
+  })
+
   it('gives Image nodes placement and transform defaults', () => {
     expect(NODE_LIBRARY.find((n) => n.type === 'Image')?.defaultProperties).toEqual({
       fit: 'stretch',

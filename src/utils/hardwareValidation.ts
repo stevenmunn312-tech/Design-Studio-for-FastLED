@@ -12,6 +12,7 @@ export type HardwareValidationAction =
   | 'live-stream'
   | 'generative-show'
   | 'microphone'
+  | 'line-input'
   | 'sd-show'
 
 export type ValidationResult = 'pass' | 'fail' | 'not-tested'
@@ -72,6 +73,7 @@ export interface HardwareValidationProfile {
   }
   peripherals: {
     microphone: string | null
+    lineInput: string | null
     sdCard: string | null
   }
   show: {
@@ -105,6 +107,7 @@ const ACTION_LABELS: Record<HardwareValidationAction, string> = {
   'live-stream': 'Serial live stream',
   'generative-show': 'Generative show',
   microphone: 'On-device microphone',
+  'line-input': 'PCM1802 line input',
   'sd-show': 'Music-synced SD show',
 }
 
@@ -251,6 +254,7 @@ function defaultAction(nodes: StudioNode[], edges: StudioEdge[]): HardwareValida
     return 'generative-show'
   }
   if (nodes.some((node) => nodeType(node) === 'MicInput')) return 'microphone'
+  if (nodes.some((node) => nodeType(node) === 'LineInput')) return 'line-input'
   return 'normal-upload'
 }
 
@@ -271,6 +275,7 @@ function featureList(nodes: StudioNode[], edges: StudioEdge[], matrixProps: Reco
   if (matrixProps.usePsram === true) features.push(`PSRAM (${String(matrixProps.psramMode ?? 'default')})`)
   if (matrixProps.supersample === true) features.push('2× supersampling')
   if (nodes.some((node) => nodeType(node) === 'MicInput')) features.push('INMP441/on-device microphone')
+  if (nodes.some((node) => nodeType(node) === 'LineInput')) features.push('PCM1802/on-device line input')
 
   if (master) {
     const transitionEdge = edges.find((edge) => edge.target === master.id && edge.targetHandle === 'transitions')
@@ -331,6 +336,7 @@ function findGaps(profile: Omit<HardwareValidationProfile, 'gaps' | 'checks'>): 
     ['Baked song envelopes', 'Baked song-envelope playback is awaiting hardware evidence.'],
     ['Group-input modulation', 'Collection-driven group-input modulation is awaiting hardware evidence.'],
     ['SD show provisioning/player', 'SD provisioning, file transfer, player flashing, playback, and sync are awaiting a full hardware record.'],
+    ['PCM1802/on-device line input', 'PCM1802 capture compiles for ESP32-S3 but still needs a dated end-to-end hardware record.'],
   ])
   for (const feature of profile.features) {
     if (feature.startsWith('PSRAM')) {
@@ -355,6 +361,7 @@ function makeChecks(profile: Omit<HardwareValidationProfile, 'gaps' | 'checks'>)
   ]
   if (profile.matrix.powerLimit) checks.push({ id: 'power-cap', label: 'Power cap', detail: 'The configured voltage/current cap visibly limited output as expected.' })
   if (profile.features.includes('INMP441/on-device microphone')) checks.push({ id: 'microphone', label: 'Microphone input', detail: 'Live audio drove the expected FFT/beat behavior on-device.' })
+  if (profile.features.includes('PCM1802/on-device line input')) checks.push({ id: 'line-input', label: 'PCM1802 line input', detail: 'Left, right, and stereo source material drove the expected FFT/beat behavior on-device without clipping or channel inversion.' })
   if (profile.action === 'wiring-test') {
     const foldedHub75 = profile.matrix.chipset === 'HUB75'
       && profile.matrix.layout === 'panels'
@@ -406,6 +413,8 @@ export function buildHardwareValidationProfile(options: {
   })
   const mic = nodes.find((node) => nodeType(node) === 'MicInput')
   const micProps = props(mic)
+  const lineInput = nodes.find((node) => nodeType(node) === 'LineInput')
+  const lineInputProps = props(lineInput)
   const sd = nodes.find((node) => nodeType(node) === 'SDCard')
   const sdProps = props(sd)
   const sdDefaults = sdSpiPinsForBoard(selectedPhysicalBoardProfile(nodes), selectedFqbn)
@@ -458,6 +467,9 @@ export function buildHardwareValidationProfile(options: {
     peripherals: {
       microphone: mic
         ? `WS ${Math.round(n(micProps.i2sWs, 39))} · SCK ${Math.round(n(micProps.i2sSck, 40))} · SD ${Math.round(n(micProps.i2sSd, 41))} · ${MIC_SAMPLE_RATE} Hz · ${String(micProps.channel ?? 'Left')} channel`
+        : null,
+      lineInput: lineInput
+        ? `MCLK ${Math.round(n(lineInputProps.i2sMclk, 15))} · BCLK ${Math.round(n(lineInputProps.i2sBclk, 16))} · LRCLK ${Math.round(n(lineInputProps.i2sLrclk, 17))} · DOUT ${Math.round(n(lineInputProps.i2sDout, 18))} · ${MIC_SAMPLE_RATE} Hz · ${String(lineInputProps.channel ?? 'Both')} channel`
         : null,
       sdCard: sd
         ? `CS ${Math.round(n(sdProps.sdCsPin, sdDefaults?.cs ?? 10))} · SCK ${Math.round(n(sdProps.sdSckPin, sdDefaults?.sck ?? 12))} · MOSI ${Math.round(n(sdProps.sdMosiPin, sdDefaults?.mosi ?? 11))} · MISO ${Math.round(n(sdProps.sdMisoPin, sdDefaults?.miso ?? 13))}`
@@ -520,6 +532,7 @@ export function formatHardwareValidationReport(submission: HardwareValidationSub
     ['PSRAM', m.psram ?? 'disabled'],
     ['Supersampling', m.supersample ? 'enabled' : 'disabled'],
     ['Microphone wiring', profile.peripherals.microphone ?? 'not present'],
+    ['Line-input wiring', profile.peripherals.lineInput ?? 'not present'],
     ['SD/audio wiring', profile.peripherals.sdCard ?? 'not present'],
     ['Show details', `${profile.show.patternCount} patterns · transitions ${profile.show.transitions.join(', ') || 'crossfade only'} · beat ${profile.show.beatTrigger ? 'wired' : 'unwired'} · particles ${profile.show.particleOverlay ? 'on' : 'off'} · group modulation ${profile.show.groupInputModulation ? 'on' : 'off'}`],
     ['Measured flash', profile.capacity.flash],

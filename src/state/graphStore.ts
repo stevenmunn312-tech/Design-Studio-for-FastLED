@@ -282,12 +282,12 @@ type HistorySlice = Pick<GraphState, 'nodes' | 'edges' | 'graphData'>
 // route or a live source, it is the controller the whole scene targets. A saved
 // pattern must stay board-agnostic, so grouping a selection never seals a board
 // choice inside it.
-const GROUP_EXCLUDED_TYPES = new Set(['MatrixOutput', 'Audio', 'MicInput', 'DMXInput', 'MusicLibrary', 'Board'])
+const GROUP_EXCLUDED_TYPES = new Set(['MatrixOutput', 'Audio', 'MicInput', 'LineInput', 'DMXInput', 'MusicLibrary', 'Board'])
 
 /** Nodes that represent one scene-wide hardware resource. Creation actions use
  *  this set as a final guard, so every UI path (click, drop, paste, duplicate)
  *  preserves the one-per-canvas invariant. */
-export const SINGLETON_NODE_TYPES = new Set(['MicInput', 'DMXInput'])
+export const SINGLETON_NODE_TYPES = new Set(['MicInput', 'LineInput', 'DMXInput'])
 
 export function canAddNodeType(nodes: StudioNode[], nodeType: string): boolean {
   return !SINGLETON_NODE_TYPES.has(nodeType) || !nodes.some((n) => n.data.nodeType === nodeType)

@@ -114,7 +114,7 @@ export default function BuildPrintSheets({
 }: BuildPrintSheetsProps) {
   const outputs = items.filter((item) => item.kind === 'matrix-output')
   const hasMicrophone = items.some((item) => item.kind === 'mic-input')
-  const hasControls = items.some((item) => item.kind === 'rtc-input' || item.kind === 'sd-card' || item.kind === 'button-input' || item.kind === 'pot-input' || item.kind === 'encoder-input')
+  const hasControls = items.some((item) => item.kind === 'line-input' || item.kind === 'rtc-input' || item.kind === 'sd-card' || item.kind === 'button-input' || item.kind === 'pot-input' || item.kind === 'encoder-input')
   const bands = outputs.length > 0 ? powerZoneBands(outputs, plan, POWER_LAYERS) : []
   const footer = [
     projectName ? `Project ${projectName}` : 'Design Studio for FastLED',

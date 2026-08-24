@@ -71,6 +71,17 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       { id: 'inmp441-i2s-microphone', label: 'INMP441' },
     ],
   },
+  LineInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'pcm1802-line-in-adc',
+        label: 'PCM1802 line-in ADC',
+        summary: 'Stereo RCA line in to I2S',
+        note: 'Connect a player module\'s line-level DAC output, not its bridge-tied speaker output, to the RCA inputs.',
+      },
+    ],
+  },
   RTCInput: {
     property: 'partId',
     options: [

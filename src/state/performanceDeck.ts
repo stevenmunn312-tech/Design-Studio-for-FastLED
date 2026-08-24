@@ -128,6 +128,7 @@ const STRUCTURAL_KEYS = new Set([
 // type since the same key name could mean something else on another node.
 const WIRING_KEYS: Record<string, Set<string>> = {
   MicInput: new Set(['i2sWs', 'i2sSck', 'i2sSd', 'channel']),
+  LineInput: new Set(['i2sMclk', 'i2sBclk', 'i2sLrclk', 'i2sDout', 'channel']),
   MatrixOutput: new Set(['chipset', 'colorOrder', 'dataPin', 'clockPin', 'serpentine']),
   ButtonInput: new Set(['pin']),
   PotInput: new Set(['pin']),

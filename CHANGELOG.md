@@ -15,6 +15,9 @@ versioning (`0.y.z`) until the first stable release.
 - Added an on-board player decoder tap that feeds decoded PCM into FastLED audio
   analysis before I2S/DAC output, with the baked show envelope retained as a
   startup and decoder-failure fallback.
+- Added ESP32-S3 PCM1802 stereo line-in hardware with four-wire I2S capture,
+  Audio capability discovery, board-aware pin assignment and validation,
+  generated FastLED analysis, and complete Build Diagram wiring/export support.
 
 ### Changed
 

@@ -28,8 +28,8 @@ an unknown device falls back to UART unless the user overrides it.
 
 Use **Add Hardware** in the workbench. The current categories are:
 
-- **Inputs** — microphone, button, potentiometer, encoder, PIR motion sensor,
-  ambient-light sensor, and RTC module;
+- **Inputs** — microphone, PCM1802 line-in ADC, button, potentiometer, encoder,
+  PIR motion sensor, ambient-light sensor, and RTC module;
 - **Storage** — supported microSD modules;
 - **Amplifiers & DACs** — the supported I2S DAC/amplifier and analog amplifier
   modules; and
@@ -41,7 +41,7 @@ board-appropriate starting pins.
 
 Some components appear in both views because they carry a signal:
 
-- microphone and input/sensor parts produce graph data;
+- microphone, line-in, and input/sensor parts produce graph data;
 - RTC produces a clock signal; and
 - an LED output consumes a frame.
 
@@ -66,6 +66,20 @@ Right-click a part for hardware actions. **Show in graph** is available for
 signal-carrying parts. Removing a node on the graph disconnects it but does not
 pretend the part vanished from the bench; use **Remove** in the
 workbench to remove it completely.
+
+### Connect a line-level player
+
+On an ESP32-S3 project, add **PCM1802 line-in ADC** when an external audio
+player cannot expose decoded PCM to Studio firmware. Connect the player's
+line-level left/right output to the breakout's RCA inputs, then configure MCLK,
+BCLK, LRCLK, DOUT, and the channel choice in the part inspector. Do not connect
+a bridge-tied speaker output to the RCA inputs.
+
+The part becomes an Audio source for FFT, beat, percussion, and feature nodes.
+Generated firmware samples the physical ADC; browser preview uses the selected
+browser/OS audio input because a web app cannot read the breakout directly.
+Other controller targets are rejected until their master-clock path is
+implemented and verified.
 
 ## Configure LED outputs
 

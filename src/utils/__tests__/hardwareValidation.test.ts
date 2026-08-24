@@ -50,6 +50,31 @@ describe('hardware validation profiles', () => {
     expect(profile.peripherals.microphone).not.toContain('16000 Hz')
   })
 
+  it('records PCM1802 wiring and exposes a dedicated unvalidated line-input path', () => {
+    const lineInput = node('line', 'LineInput', {
+      i2sMclk: 15,
+      i2sBclk: 16,
+      i2sLrclk: 17,
+      i2sDout: 18,
+      channel: 'Both',
+    })
+    const profile = buildHardwareValidationProfile({
+      nodes: [baselineMatrix, lineInput],
+      edges: [],
+      selectedFqbn: 'esp32:esp32:esp32s3',
+      helper: fbuild,
+      runtime: RECORDED_RUNTIME,
+    })
+
+    expect(profile.action).toBe('line-input')
+    expect(profile.peripherals.lineInput).toContain('MCLK 15 · BCLK 16 · LRCLK 17 · DOUT 18')
+    expect(profile.features).toContain('PCM1802/on-device line input')
+    expect(profile.gaps.map((gap) => gap.id)).toEqual(expect.arrayContaining([
+      'action-line-input', 'feature-pcm1802-on-device-line-input',
+    ]))
+    expect(profile.checks).toContainEqual(expect.objectContaining({ id: 'line-input' }))
+  })
+
   it('recognises the exact recorded normal-upload target', () => {
     const profile = buildHardwareValidationProfile({
       nodes: [baselineMatrix],

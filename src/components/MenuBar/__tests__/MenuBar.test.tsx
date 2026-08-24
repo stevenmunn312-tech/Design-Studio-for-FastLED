@@ -238,6 +238,19 @@ describe('MenuBar file menu', () => {
     expect((getByRole('button', { name: 'Toggle microphone preview input' }) as HTMLButtonElement).disabled).toBe(false)
   })
 
+  it('enables the browser audio input for PCM1802 hardware on ESP32-S3', () => {
+    useGraphStore.setState({
+      nodes: [{
+        id: 'line', type: 'studioNode', position: { x: 0, y: 0 },
+        data: { label: 'Line In', nodeType: 'LineInput', category: 'input', properties: {}, inputs: [], outputs: [] },
+      }, boardNodeForFqbn('esp32:esp32:esp32s3')] as never[],
+    })
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
+
+    const { getByRole } = render(<MenuBar />)
+    expect((getByRole('button', { name: 'Toggle microphone preview input' }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
   it('moves appearance toggles into a compact View menu', () => {
     const { getByRole, getByText, queryByRole } = render(<MenuBar />)
 

@@ -472,6 +472,25 @@ describe('showGenerator', () => {
       expect(cpp).not.toContain('constrain(0.5f')         // not the placeholder
     })
 
+    it('hosts PCM1802 capture for the same audio-reactive show path', () => {
+      const cpp = generateShowSketch([
+        ...showNodes(false),
+        micBoard,
+        node('line', 'LineInput', {
+          i2sMclk: 15,
+          i2sBclk: 16,
+          i2sLrclk: 17,
+          i2sDout: 18,
+          channel: 'Both',
+        }),
+      ], showEdges, audioGroups)
+
+      expect(cpp).toContain('class StudioPcm1802Input')
+      expect(cpp).toContain('#define LINE_IN_MCLK 15')
+      expect(cpp).toContain('_audioProcessor = FastLED.add(fl::make_shared<StudioPcm1802Input>());')
+      expect(cpp).toContain('_sum += _audioSpectrum[_i];')
+    })
+
     it('keeps audio silent when there is no MicInput', () => {
       const cpp = generateShowSketch(showNodes(false), showEdges, audioGroups)
       expect(cpp).not.toContain('driver/i2s.h')

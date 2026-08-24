@@ -43,7 +43,7 @@ export const OUTPUT_USE_CASES: Record<string, string> = {
 }
 
 export const PORT_DESCRIPTIONS: Record<string, string> = {
-  audio: 'a live microphone or analysed audio stream',
+  audio: 'a live microphone, line input, or analysed audio stream',
   bool: 'a true/false gate or one-frame trigger',
   color: 'a single RGB colour',
   field: 'a scalar value for every matrix coordinate',

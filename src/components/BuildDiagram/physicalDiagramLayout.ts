@@ -230,7 +230,7 @@ const PAD_X_RATIOS_SD_5V = [0.24, 0.3475, 0.45, 0.55, 0.6525, 0.755]
 const PAD_X_RATIOS_SD_3V3 = [0.135, 0.255, 0.3775, 0.5, 0.6225, 0.745, 0.87]
 
 /** Header-hole centres measured in each audio render's own pixel space. */
-const AMPLIFIER_PAD_GEOMETRY: Record<string, { xs: number[]; y: number }> = {
+const AUDIO_MODULE_PAD_GEOMETRY: Record<string, { xs: number[]; y: number }> = {
   'max98357a-i2s-amplifier': {
     xs: [31.5, 87.5, 143.5, 199.5, 255.5, 311.5, 367.5].map((x) => x / 400),
     y: 545 / 568,
@@ -247,6 +247,10 @@ const AMPLIFIER_PAD_GEOMETRY: Record<string, { xs: number[]; y: number }> = {
     xs: [128, 159, 190, 221, 252, 283, 314, 345, 376].map((x) => x / 504),
     y: 287 / 324,
   },
+  'pcm1802-line-in-adc': {
+    xs: [240, 270.5, 301.5, 331, 361.5, 392].map((x) => x / 632),
+    y: 445 / 464,
+  },
 }
 
 /**
@@ -262,20 +266,20 @@ function isThreeVoltSd(item: HardwareManifestItem) {
 
 /**
  * An audio module's pads come from the part catalogue rather than from another
- * hardcoded array here, because there are four of them and they agree on
+ * hardcoded array here, because the modules agree on
  * almost nothing: a MAX98357A has seven pads, a PAM8403 eleven, a PCM5102A six,
  * a UDA1334A nine, in four different orders. The catalogue already carries each
  * one's `pinLabelsLeftToRight`, measured off the part rather than guessed (see
  * the hardware render workflow in CLAUDE.md), so swapping the module on the
  * bench redraws the right pads for free.
  */
-function amplifierPads(item: HardwareManifestItem): string[] {
+function audioModulePads(item: HardwareManifestItem): string[] {
   const entry = partById(String(item.facts.partId ?? ''))
   return entry?.pinLabelsLeftToRight?.length ? entry.pinLabelsLeftToRight : ['VCC', 'SIG', 'GND']
 }
 
 export function peripheralPadCount(item: HardwareManifestItem) {
-  if (item.kind === 'amplifier') return amplifierPads(item).length
+  if (item.kind === 'amplifier' || item.kind === 'line-input') return audioModulePads(item).length
   return item.kind === 'sd-card'
     ? isThreeVoltSd(item) ? 7 : 6
     : item.kind === 'encoder-input' ? 5 : item.kind === 'rtc-input' ? 4 : 3
@@ -283,8 +287,8 @@ export function peripheralPadCount(item: HardwareManifestItem) {
 
 /** Silkscreen names on the module renders, indexed the same as the pads. */
 export function peripheralPadLabel(item: HardwareManifestItem, padIndex: number) {
-  if (item.kind === 'amplifier') {
-    const pads = amplifierPads(item)
+  if (item.kind === 'amplifier' || item.kind === 'line-input') {
+    const pads = audioModulePads(item)
     return pads[Math.min(Math.max(padIndex, 0), pads.length - 1)]
   }
   const labels = item.kind === 'sd-card'
@@ -304,29 +308,36 @@ export function peripheralPadLabel(item: HardwareManifestItem, padIndex: number)
 const AMP_POWER_LABELS = ['VIN', '+5V', 'VCC', '5V']
 const AMP_GROUND_LABEL = 'GND'
 
-function amplifierPadIndexByLabel(item: HardwareManifestItem, wanted: readonly string[]) {
-  const pads = amplifierPads(item)
+function audioModulePadIndexByLabel(item: HardwareManifestItem, wanted: readonly string[]) {
+  const pads = audioModulePads(item)
   const index = pads.findIndex((label) => wanted.includes(label.toUpperCase()))
   return index >= 0 ? index : 0
 }
 
 export function peripheralPowerPadIndex(item: HardwareManifestItem) {
-  if (item.kind === 'amplifier') return amplifierPadIndexByLabel(item, AMP_POWER_LABELS)
+  if (item.kind === 'amplifier' || item.kind === 'line-input') return audioModulePadIndexByLabel(item, AMP_POWER_LABELS)
   return item.kind === 'sd-card' ? (isThreeVoltSd(item) ? 4 : 1) : 0
 }
 
 export function peripheralGroundPadIndex(item: HardwareManifestItem) {
-  if (item.kind === 'amplifier') return amplifierPadIndexByLabel(item, [AMP_GROUND_LABEL])
+  if (item.kind === 'amplifier' || item.kind === 'line-input') return audioModulePadIndexByLabel(item, [AMP_GROUND_LABEL])
   return item.kind === 'sd-card' ? (isThreeVoltSd(item) ? 2 : 0) : peripheralPadCount(item) - 1
 }
 
 /** Manifest order for SD is CS, SCK, MOSI, MISO; the two module variants put
  * those pads in different physical orders. */
 export function peripheralSignalPadIndex(item: HardwareManifestItem, signalIndex: number) {
+  if (item.kind === 'line-input') {
+    const pads = audioModulePads(item).map((label) => label.toUpperCase())
+    const wanted = [['SCK', 'MCLK'], ['BCK', 'BCLK'], ['LRCK', 'LRCLK'], ['DOUT']]
+    const names = wanted[Math.min(Math.max(signalIndex, 0), wanted.length - 1)]
+    const index = pads.findIndex((label) => names.includes(label))
+    return index >= 0 ? index : Math.min(signalIndex + 1, pads.length - 1)
+  }
   if (item.kind === 'amplifier') {
     // The manifest pushes BCLK, LRC, DOUT (or the two DAC line-in pins); find
     // each on the module by the name it is silkscreened with.
-    const pads = amplifierPads(item).map((label) => label.toUpperCase())
+    const pads = audioModulePads(item).map((label) => label.toUpperCase())
     const wanted = item.facts.input === 'analog'
       ? [['LIN'], ['RIN']]
       : [['BCLK', 'BCK', 'SCK'], ['LRC', 'LCK', 'WSEL'], ['DIN']]
@@ -343,15 +354,15 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' {
   // Audio modules take the 5 V rail: a class-D amp's output power comes from
   // its supply, and 3.3 V would make it quiet rather than broken — the kind of
   // wrong that reads as a bad speaker.
-  if (item.kind === 'amplifier') return 'v5'
+  if (item.kind === 'amplifier' || item.kind === 'line-input') return 'v5'
   return item.kind === 'sd-card' && !isThreeVoltSd(item) ? 'v5' : 'v3v3'
 }
 
 export function peripheralPadPoint(layout: ItemLayout, padIndex: number) {
-  if (layout.item.kind === 'amplifier') {
+  if (layout.item.kind === 'amplifier' || layout.item.kind === 'line-input') {
     const partId = String(layout.item.facts.partId ?? '')
     const entry = partById(partId)
-    const geometry = AMPLIFIER_PAD_GEOMETRY[partId]
+    const geometry = AUDIO_MODULE_PAD_GEOMETRY[partId]
     if (geometry && entry?.render) {
       // The image uses `preserveAspectRatio="meet"`; derive the same fitted box
       // before mapping source-space pad measurements into the diagram.

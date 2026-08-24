@@ -143,22 +143,28 @@ export default function MenuBar() {
   const viewButtonRef = useRef<HTMLButtonElement>(null)
   const [fileMenuOpen, setFileMenuOpen] = useState(false)
   const [viewMenuOpen, setViewMenuOpen] = useState(false)
-  const hasMicNode = useGraphStore((s) =>
-    s.nodes.some((n) => (n.data as { nodeType?: string }).nodeType === 'MicInput')
+  const audioInputType = useGraphStore((s) =>
+    rootGraphNodes(s).find((n) => ['MicInput', 'LineInput'].includes(String((n.data as { nodeType?: string }).nodeType)))?.data.nodeType
   )
+  const hasMicNode = audioInputType === 'MicInput'
+  const hasLineInputNode = audioInputType === 'LineInput'
   const selectedBoardProfile = useGraphStore((s) => selectedPhysicalBoardProfile(rootGraphNodes(s)))
   const micSupported = inmp441SupportedForBoardProfile(selectedBoardProfile)
+  const lineInputSupported = selectedBoardProfile?.compatibleFqbns
+    .some((fqbn) => fqbn.startsWith('esp32:esp32:esp32s3')) === true
   const micActive = useAudioStore((s) => s.micActive)
   const startAudio = useAudioStore((s) => s.startAudio)
   const stopAudio = useAudioStore((s) => s.stopAudio)
   const showPlaying = useShowPlayback((s) => s.playing)
-  const micUnavailableMessage = !hasMicNode
+  const micUnavailableMessage = !hasMicNode && !hasLineInputNode
     ? 'Add a MicInput node to enable the microphone'
     : !selectedBoardProfile
       ? INMP441_NO_BOARD_MESSAGE
-      : !micSupported
-        ? INMP441_UNSUPPORTED_MESSAGE
-        : null
+      : hasLineInputNode && !lineInputSupported
+        ? 'PCM1802 line-in preview requires an ESP32-S3 board.'
+        : hasMicNode && !micSupported
+          ? INMP441_UNSUPPORTED_MESSAGE
+          : null
   const effectiveMicActive = micActive && micUnavailableMessage === null
   const deckOpen = usePerformanceDeckSession((s) => s.deckOpen)
   const toggleDeck = usePerformanceDeckSession((s) => s.toggleDeck)

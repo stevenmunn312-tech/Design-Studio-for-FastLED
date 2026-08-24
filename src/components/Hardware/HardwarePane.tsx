@@ -99,6 +99,8 @@ interface InputPartEntry {
   connectionSummary?: string
   /** Scene singletons — one microphone per board, but many buttons. */
   singleton?: boolean
+  /** Firmware families that can host this capture path. */
+  fqbnPrefix?: string
 }
 
 /**
@@ -159,6 +161,23 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     signalPort: 'audio',
     pinRequests: [],
     singleton: true,
+  },
+  {
+    nodeType: 'LineInput',
+    partId: 'line-in',
+    label: 'PCM1802 line-in ADC',
+    hint: 'Analyses line-level audio from an external player',
+    footprint: partDimensionsMm('pcm1802-line-in-adc', { width: 52, height: 38 }),
+    signalPort: 'audio',
+    pinRequests: [
+      { key: 'i2sMclk' },
+      { key: 'i2sBclk' },
+      { key: 'i2sLrclk' },
+      { key: 'i2sDout', capability: 'digitalInput' },
+    ],
+    properties: { partId: 'pcm1802-line-in-adc' },
+    singleton: true,
+    fqbnPrefix: 'esp32:esp32:esp32s3',
   },
   {
     nodeType: 'RTCInput',
@@ -865,6 +884,9 @@ export default function HardwarePane() {
    */
   const inputPartBlocker = (entry: InputPartEntry): string | null => {
     if (entry.singleton && hasPartOfType(entry.nodeType)) return `One ${entry.label.toLowerCase()} per board`
+    if (entry.fqbnPrefix && !selectedFqbn.startsWith(entry.fqbnPrefix)) {
+      return 'PCM1802 line-in capture currently requires an ESP32-S3 board'
+    }
     if (entry.pinRequests.length === 0) return null
     const assigned = assignPartPins(boardProfile, selectedFqbn, nodes, entry.pinRequests)
     return assigned.ok ? null : assigned.reason

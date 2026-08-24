@@ -1,7 +1,7 @@
 # Hardware nodes and the two-view model
 
-Status: implemented on `Hardware`; microphone and player-decoder Audio sources
-shipped, line-in deferred · Owner: app · Updated: 2026-08-24
+Status: implemented on `Hardware`; microphone, PCM1802 line-in, and
+player-decoder Audio sources shipped · Owner: app · Updated: 2026-08-24
 
 The current branch models each physical component once and presents it in the
 views where it has meaning. The user-facing workflow is in the
@@ -29,8 +29,8 @@ across layout changes.
 Hardware node types are hidden from the Node Library and canvas picker. The
 workbench's **Add Hardware** menu is the creation path for:
 
-- signal inputs: INMP441 microphone, button, potentiometer, encoder, PIR motion,
-  ambient light, and RTC modules;
+- signal inputs: INMP441 microphone, PCM1802 line-in ADC, button,
+  potentiometer, encoder, PIR motion, ambient light, and RTC modules;
 - workbench-only fixtures: SD Card and amplifier/DAC modules; and
 - LED String, LED Matrix, LED Ring, and HUB75 Panel outputs.
 
@@ -46,7 +46,7 @@ away and back restores the intended wiring.
 
 `isHardwareManagedSignalNodeType` defines the parts visible in both views:
 
-- `MicInput`, `ButtonInput`, `PotInput`, and `EncoderInput`;
+- `MicInput`, `LineInput`, `ButtonInput`, `PotInput`, and `EncoderInput`;
 - `MotionInput` and `LightInput`;
 - `RTCInput`; and
 - `MatrixOutput` (the implementation type behind all four LED-output forms).
@@ -132,16 +132,16 @@ The console has filtered and verbose toolchain output plus a serial monitor with
 baud selection and connection controls. A compile log therefore stays visible
 in the same full-width workbench where the action was started.
 
-## Deferred capability work
+## Audio capability and deferred work
 
 The graph now has an `Audio` capability node whose source picker is derived from
-attached board hardware. It discovers microphones and, when an SD Card and
-Performance Generator define the on-board player workflow, the player's decoder
-tap. A lone source is selected by default; with none it reports an empty state.
-Audio cables carry the live/recorded/baked signal payload through FFT, beat,
-percussion, feature, spectrum, group, preview, and firmware paths instead of
-letting analysis nodes read ambient browser state. Direct `MicInput` cables
-remain accepted for existing Hardware-line projects.
+attached board hardware. It discovers microphones, PCM1802 line-in ADCs and,
+when an SD Card and Performance Generator define the on-board player workflow,
+the player's decoder tap. A lone source is selected by default; with none it
+reports an empty state. Audio cables carry the live/recorded/baked signal
+payload through FFT, beat, percussion, feature, spectrum, group, preview, and
+firmware paths instead of letting analysis nodes read ambient browser state.
+Direct `MicInput` and `LineInput` cables are also accepted.
 
 Collection shows compile against the player-hosted audio globals. The pinned
 ESP32-audioI2S callback queues decoded PCM immediately before I2S/DAC output;
@@ -149,8 +149,13 @@ after the write is fed, FastLED's existing Processor derives EQ bands, beat, and
 BPM for the compiled patterns. The baked show envelope remains a startup and
 decoder-failure fallback rather than the primary on-device analysis source.
 
-Line-in hardware remains deferred for external player modules whose decoder is
-not running on the controller and therefore cannot expose this PCM callback.
+For external players whose decoder is not running on the controller, the
+ESP32-S3 firmware can capture the player's line-level DAC output through a
+PCM1802 breakout. The part owns MCLK, BCLK, LRCLK, and DOUT assignments, exposes
+left/right/both channel selection, appears in Build Diagram exports, and feeds
+the same FastLED audio processor as the microphone path. It must receive a
+line-level output, not a bridge-tied speaker output. Browser preview still uses
+the browser/OS audio source because it cannot sample the physical ADC.
 
 A Storage capability abstraction across SD, onboard flash, and USB is also not
 implemented. SD Card remains a concrete workbench-only part used by the

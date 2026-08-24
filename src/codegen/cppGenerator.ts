@@ -272,24 +272,33 @@ function audioEngineCpp(
   ws: number,
   sck: number,
   sd: number,
-  channel: 'Left' | 'Right',
+  channel: 'Left' | 'Right' | 'Both',
   gain: number,
   serialDebug = false,
+  source: 'microphone' | 'line-in' = 'microphone',
+  mclk = -1,
 ): string[] {
   const audioChannel = channel === 'Right'
     ? 'fl::audio::AudioChannel::Right'
-    : 'fl::audio::AudioChannel::Left'
-  const captureAdapter = audioCaptureAdapterCpp(backend, channel)
-  const createInput = backend === 'fastled-esp32'
+    : channel === 'Both'
+      ? 'fl::audio::AudioChannel::Both'
+      : 'fl::audio::AudioChannel::Left'
+  const captureAdapter = source === 'line-in'
+    ? pcm1802CaptureAdapterCpp(channel)
+    : audioCaptureAdapterCpp(backend, channel === 'Both' ? 'Left' : channel)
+  const createInput = source === 'line-in'
+    ? ['  _audioProcessor = FastLED.add(fl::make_shared<StudioPcm1802Input>());']
+    : backend === 'fastled-esp32'
     ? [`  auto config = fl::audio::Config::CreateInmp441(MIC_WS, MIC_SD, MIC_SCK, ${audioChannel});`, '  _audioProcessor = FastLED.add(config);']
     : backend === 'fastled-teensy'
       ? [`  auto config = fl::audio::Config::CreateTeensyI2S(fl::audio::TeensyI2S::I2SPort::I2S1, ${audioChannel}, 44100, 16, fl::audio::MicProfile::INMP441);`, '  _audioProcessor = FastLED.add(config);']
       : ['  _audioProcessor = FastLED.add(fl::make_shared<StudioInmp441Input>());']
   return [
-    '// ── FastLED INMP441 audio reactivity ───────────────────────────────────────',
+    `// ── FastLED ${source === 'line-in' ? 'PCM1802 line-in' : 'INMP441'} audio reactivity ─────────────────────────────────`,
     `#define MIC_WS    ${ws}`,
     `#define MIC_SCK   ${sck}`,
     `#define MIC_SD    ${sd}`,
+    `#define LINE_IN_MCLK ${mclk}`,
     `#define MIC_GAIN  ${gain.toFixed(3)}f`,
     `#define MIC_DEBUG ${serialDebug ? 1 : 0}   // print FastLED processor levels (~10×/sec)`,
     ...captureAdapter,
@@ -346,6 +355,112 @@ function audioEngineCpp(
     '  }',
     '#endif',
     '}',
+  ]
+}
+
+/** ESP32 PCM1802 capture with a controller-generated 256× sample-rate MCLK.
+ * FastLED's public ConfigI2S deliberately models three-wire MEMS microphones,
+ * so it cannot name the ADC's fourth clock. This adapter owns the receive
+ * channel and hands the same 16-bit mono Sample contract to FastLED's shared
+ * Processor. Both Arduino-ESP32 core generations used by Studio are emitted:
+ * IDF 5's channel API and IDF 4's legacy driver. */
+function pcm1802CaptureAdapterCpp(channel: 'Left' | 'Right' | 'Both'): string[] {
+  const channelMode = channel === 'Left' ? 0 : channel === 'Right' ? 1 : 2
+  return [
+    '',
+    `#define LINE_IN_CHANNEL ${channelMode}  // 0=left, 1=right, 2=stereo downmix`,
+    'class StudioPcm1802Input final : public fl::audio::IInput {',
+    ' public:',
+    '  void start() noexcept override {',
+    '#if ESP_IDF_VERSION_MAJOR >= 5',
+    '    i2s_chan_config_t channel = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);',
+    '    channel.dma_desc_num = 8;',
+    '    channel.dma_frame_num = SAMPLE_COUNT;',
+    '    if (i2s_new_channel(&channel, nullptr, &_rx) != ESP_OK) { _failed = true; return; }',
+    '    i2s_std_config_t config = {',
+    '      .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(44100),',
+    '      .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_24BIT, I2S_SLOT_MODE_STEREO),',
+    '      .gpio_cfg = {',
+    '        .mclk = (gpio_num_t)LINE_IN_MCLK, .bclk = (gpio_num_t)MIC_SCK,',
+    '        .ws = (gpio_num_t)MIC_WS, .dout = GPIO_NUM_NC, .din = (gpio_num_t)MIC_SD,',
+    '        .invert_flags = { .mclk_inv = false, .bclk_inv = false, .ws_inv = false },',
+    '      },',
+    '    };',
+    '    config.clk_cfg.mclk_multiple = I2S_MCLK_MULTIPLE_256;',
+    '    if (i2s_channel_init_std_mode(_rx, &config) != ESP_OK || i2s_channel_enable(_rx) != ESP_OK) {',
+    '      _failed = true; stop(); return;',
+    '    }',
+    '#else',
+    '    i2s_config_t config = {};',
+    '    config.mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX);',
+    '    config.sample_rate = 44100;',
+    '    config.bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT;',
+    '    config.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT;',
+    '    config.communication_format = I2S_COMM_FORMAT_STAND_I2S;',
+    '    config.intr_alloc_flags = ESP_INTR_FLAG_LEVEL1;',
+    '    config.dma_buf_count = 8;',
+    '    config.dma_buf_len = SAMPLE_COUNT;',
+    '    config.use_apll = true;',
+    '    config.tx_desc_auto_clear = false;',
+    '    config.fixed_mclk = 44100 * 256;',
+    '    config.mclk_multiple = I2S_MCLK_MULTIPLE_256;',
+    '    config.bits_per_chan = I2S_BITS_PER_CHAN_32BIT;',
+    '    if (i2s_driver_install(I2S_NUM_0, &config, 0, nullptr) != ESP_OK) { _failed = true; return; }',
+    '    _installed = true;',
+    '    i2s_pin_config_t pins = {',
+    '      .mck_io_num = LINE_IN_MCLK, .bck_io_num = MIC_SCK, .ws_io_num = MIC_WS,',
+    '      .data_out_num = I2S_PIN_NO_CHANGE, .data_in_num = MIC_SD,',
+    '    };',
+    '    if (i2s_set_pin(I2S_NUM_0, &pins) != ESP_OK) { _failed = true; stop(); return; }',
+    '#endif',
+    '  }',
+    '  void stop() noexcept override {',
+    '#if ESP_IDF_VERSION_MAJOR >= 5',
+    '    if (_rx) { i2s_channel_disable(_rx); i2s_del_channel(_rx); _rx = nullptr; }',
+    '#else',
+    '    if (_installed) { i2s_driver_uninstall(I2S_NUM_0); _installed = false; }',
+    '#endif',
+    '  }',
+    '  bool error(fl::string* msg = nullptr) noexcept override {',
+    '    if (_failed && msg) *msg = "PCM1802 I2S receive failed";',
+    '    return _failed;',
+    '  }',
+    '  fl::audio::Sample read() noexcept override {',
+    '    if (_failed) return fl::audio::Sample();',
+    '    size_t bytes = 0;',
+    '#if ESP_IDF_VERSION_MAJOR >= 5',
+    '    if (!_rx || i2s_channel_read(_rx, _raw, sizeof(_raw), &bytes, 0) != ESP_OK) return fl::audio::Sample();',
+    '#else',
+    '    if (!_installed || i2s_read(I2S_NUM_0, _raw, sizeof(_raw), &bytes, 0) != ESP_OK) return fl::audio::Sample();',
+    '#endif',
+    '    size_t frames = bytes / (sizeof(int32_t) * 2);',
+    '    if (!frames) return fl::audio::Sample();',
+    '    if (frames > SAMPLE_COUNT) frames = SAMPLE_COUNT;',
+    '    for (size_t i = 0; i < frames; ++i) {',
+    '      int32_t left = _raw[i * 2] >> 16;',
+    '      int32_t right = _raw[i * 2 + 1] >> 16;',
+    '#if LINE_IN_CHANNEL == 0',
+    '      _mono[i] = (fl::i16)left;',
+    '#elif LINE_IN_CHANNEL == 1',
+    '      _mono[i] = (fl::i16)right;',
+    '#else',
+    '      _mono[i] = (fl::i16)((left + right) / 2);',
+    '#endif',
+    '    }',
+    '    return fl::audio::Sample(fl::span<const fl::i16>(_mono, frames), millis());',
+    '  }',
+    ' private:',
+    '  static const size_t SAMPLE_COUNT = 512;',
+    '#if ESP_IDF_VERSION_MAJOR >= 5',
+    '  i2s_chan_handle_t _rx = nullptr;',
+    '#else',
+    '  bool _installed = false;',
+    '#endif',
+    '  int32_t _raw[SAMPLE_COUNT * 2];',
+    '  fl::i16 _mono[SAMPLE_COUNT];',
+    '  bool _failed = false;',
+    '};',
+    '',
   ]
 }
 
@@ -834,39 +949,49 @@ export function hub75SetupCpp(hw: Hub75Hardware): string[] {
 
 /**
  * The on-device FastLED audio processor for a graph that
- * contains a direct MicInput or an Audio capability backed by one, so a
+ * contains a direct MicInput/LineInput or an Audio capability backed by one, so a
  * controller sketch can host the engine once while compiled subgraphs refer
  * to `_audioBass`/`_audioMids`/`_audioTreble`/`_audioBeat`. Returns null when
- * the reachable graph has no microphone source. Mirrors the block generateCpp
- * inlines for a mic-bearing single-pattern sketch.
+ * the reachable graph has no physical capture source. Mirrors the block
+ * generateCpp inlines for a source-bearing single-pattern sketch.
  */
 export function audioEngineForGraph(
   nodes: StudioNode[],
   capabilityNodes: StudioNode[] = nodes,
 ): { preInclude: string[]; include: string; code: string[]; fqbn: string; backend: Inmp441FirmwareBackend } | null {
-  const directMic = nodes.find((n) => n.data.nodeType === 'MicInput')
-  const capabilityMic = nodes
+  const directSource = nodes.find((n) => n.data.nodeType === 'MicInput' || n.data.nodeType === 'LineInput')
+  const capabilitySource = nodes
     .filter((node) => node.data.nodeType === 'Audio')
     .map((node) => resolveAudioCapabilitySource(capabilityNodes, (node.data.properties as Record<string, unknown>).sourceId)?.node)
-    .find((node) => node?.data.nodeType === 'MicInput')
-  const micNode = directMic ?? capabilityMic
-  if (!micNode) return null
+    .find((node) => node?.data.nodeType === 'MicInput' || node?.data.nodeType === 'LineInput')
+  const sourceNode = directSource ?? capabilitySource
+  if (!sourceNode) return null
   // The Board node is the sole target authority. MatrixOutput's legacy board
   // field and the upload store are intentionally not consulted here.
   const fqbn = inmp441FqbnForBoardProfile(selectedPhysicalBoardProfile(capabilityNodes))
   const backend = fqbn ? inmp441FirmwareBackendForBoard(fqbn) : undefined
   if (!fqbn || !backend) return null
-  const p = micNode.data.properties as Record<string, unknown>
+  const lineInput = sourceNode.data.nodeType === 'LineInput'
+  // PCM1802's MCLK path is implemented against the ESP32 I2S peripheral. The
+  // UI and validation keep it off other families, but codegen stays defensive
+  // for imported/hand-authored workspaces.
+  if (lineInput && (!fqbn.startsWith('esp32:esp32:esp32s3') || backend !== 'fastled-esp32')) return null
+  const p = sourceNode.data.properties as Record<string, unknown>
   const fc = (v: unknown, d: number, min: number, max: number) => {
     const n = Number(v); return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : d
   }
-  const channel: 'Left' | 'Right' = String(p.channel ?? 'Left') === 'Right' ? 'Right' : 'Left'
+  const savedChannel = String(p.channel ?? (lineInput ? 'Both' : 'Left'))
+  const channel: 'Left' | 'Right' | 'Both' = savedChannel === 'Right'
+    ? 'Right'
+    : savedChannel === 'Both' && lineInput
+      ? 'Both'
+      : 'Left'
   return {
     // FastLED 3.10.5's SAMD ISR translation unit still names the SAMD21-style
     // PMUX/EIC symbols. Adafruit's SAMD51 CMSIS headers expose their equivalent
     // indexed forms; aliases here keep exported sketches compilable without
     // modifying the user's FastLED installation.
-    preInclude: backend === 'samd51-zero-i2s' ? [
+    preInclude: !lineInput && backend === 'samd51-zero-i2s' ? [
       '// The INMP441 + clockless LED path does not need SAMD hardware SPI.',
       '#define FASTLED_FORCE_SOFTWARE_SPI 1',
       '#if defined(__SAMD51__)',
@@ -880,19 +1005,32 @@ export function audioEngineForGraph(
       '#endif',
     ] : [],
     include: [
-      `// INMP441 capture feeds the same FastLED Processor contract as preview.`,
-      ...(backend === 'fastled-teensy' ? [
+      `// ${lineInput ? 'PCM1802 line-in' : 'INMP441'} capture feeds the same FastLED Processor contract as preview.`,
+      ...(lineInput ? [
+        '#include <esp_idf_version.h>',
+        '#if ESP_IDF_VERSION_MAJOR >= 5',
+        '#include <driver/i2s_std.h>',
+        '#else',
+        '#include <driver/i2s.h>',
+        '#endif',
+      ] : []),
+      ...(!lineInput && backend === 'fastled-teensy' ? [
         `// Keep the build system's library scanner aware of PJRC Audio sources.`,
         `#include <Audio.h>`,
       ] : []),
-      ...(backend === 'pico-i2s' ? [`#include <I2S.h>`] : []),
-      ...(backend === 'samd51-zero-i2s' ? [`#include <Adafruit_ZeroI2S.h>`] : []),
+      ...(!lineInput && backend === 'pico-i2s' ? [`#include <I2S.h>`] : []),
+      ...(!lineInput && backend === 'samd51-zero-i2s' ? [`#include <Adafruit_ZeroI2S.h>`] : []),
     ].join('\n'),
     code: audioEngineCpp(
       backend,
-      sanitizePin(p.i2sWs, 39), sanitizePin(p.i2sSck, 40), sanitizePin(p.i2sSd, 41), channel,
+      sanitizePin(lineInput ? p.i2sLrclk : p.i2sWs, lineInput ? 26 : 39),
+      sanitizePin(lineInput ? p.i2sBclk : p.i2sSck, lineInput ? 27 : 40),
+      sanitizePin(lineInput ? p.i2sDout : p.i2sSd, lineInput ? 25 : 41),
+      channel,
       fc(p.gain, MIC_DEFAULTS.gain, 0, MIC_MAX_GAIN),
       p.serialDebug === true,
+      lineInput ? 'line-in' : 'microphone',
+      lineInput ? sanitizePin(p.i2sMclk, 14) : -1,
     ),
     fqbn,
     backend,
@@ -1322,8 +1460,8 @@ export function generateCpp(
     }
   })
 
-  // A reachable direct MicInput or Audio capability backed by one turns on
-  // FastLED's INMP441 processor. `emitEngine` means this sketch hosts it;
+  // A reachable direct MicInput/LineInput or Audio capability backed by one
+  // turns on FastLED's audio processor. `emitEngine` means this sketch hosts it;
   // `useAudioGlobals` means a connected analyzer may reference the shared live
   // levels (or the host controller's `externalAudio`) instead of silence.
   // Everything below works from the nodes that actually feed an output — an
@@ -1933,6 +2071,11 @@ export function generateCpp(
       case 'MicInput':
         ln(`  // MicInput — FastLED auto-pumps the INMP441 processor; updateAudio() polls its outputs.`)
         ln(`  // Source gain is applied through fl::audio::Processor::setGain().`)
+        break
+
+      case 'LineInput':
+        ln(`  // LineInput — the PCM1802 adapter feeds stereo line-level PCM into FastLED's processor.`)
+        ln(`  // Channel selection/downmix happens before the shared FFT and detectors.`)
         break
 
       case 'ButtonInput': {

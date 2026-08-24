@@ -2344,6 +2344,26 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('_sum += _audioSpectrum[_i];')
   })
 
+  it('captures PCM1802 line in with synchronized MCLK on ESP32-S3', () => {
+    const lineIn = node('line-in', 'LineInput', 'hardware', {
+      i2sMclk: 15, i2sBclk: 16, i2sLrclk: 17, i2sDout: 18, channel: 'Both', gain: 1,
+    })
+    const audio = node('audio', 'Audio', 'input', { sourceId: 'line-in' })
+    const fft = node('fft', 'FFTAnalyzer', 'audio', {})
+    const bp = node('bp', 'BassPulse', 'pattern', {})
+    const cpp = generateCpp([micBoard, lineIn, audio, fft, bp, out], [
+      edge('e0', 'audio', 'fft', 'audio', 'audio'),
+      edge('e1', 'fft', 'bp', 'bass', 'bass'),
+      edge('e2', 'bp', 'out', 'frame', 'frame'),
+    ])
+
+    expect(cpp).toContain('#define LINE_IN_MCLK 15')
+    expect(cpp).toContain('class StudioPcm1802Input final : public fl::audio::IInput')
+    expect(cpp).toContain('I2S_MCLK_MULTIPLE_256')
+    expect(cpp).toContain('FastLED.add(fl::make_shared<StudioPcm1802Input>())')
+    expect(cpp).not.toContain('CreateInmp441')
+  })
+
   it('does not let one connected mic ambiently drive a different unwired analyzer', () => {
     const mic = node('mic', 'MicInput', 'hardware', {})
     const visualizer = node('sv', 'SpectrumVisualizer', 'pattern', {})

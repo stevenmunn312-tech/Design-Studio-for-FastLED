@@ -72,7 +72,7 @@ export function findAudioCapabilityErrors(
       edges.some((edge) => edge.source === node.id) &&
       !resolveAudioCapabilitySource(capabilityNodes, String(node.data.properties.sourceId ?? ''))
     )
-    .map((node) => `${nodeLabel(node)} has no attached source — add a microphone or SD music player, or choose an available source`)
+    .map((node) => `${nodeLabel(node)} has no attached source — add a microphone, line-in ADC, or SD music player, or choose an available source`)
 }
 
 function findRtcWarnings(nodes: StudioNode[]): string[] {
@@ -828,6 +828,9 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
   if (selectedFqbn && nodes.some((node) => node.data.nodeType === 'MicInput') && !inmp441SupportedForBoard(selectedFqbn)) {
     errors.push(INMP441_UNSUPPORTED_MESSAGE)
   }
+  if (selectedFqbn && nodes.some((node) => node.data.nodeType === 'LineInput') && !selectedFqbn.startsWith('esp32:esp32:esp32s3')) {
+    errors.push('PCM1802 line-in firmware currently requires an ESP32-S3 board so Studio can generate its synchronized MCLK/BCLK/LRCLK receive path')
+  }
   if (selectedFqbn && nodes.some((node) =>
     node.data.nodeType === 'DMXInput' && String((node.data.properties as Record<string, unknown>).inputMode ?? 'Art-Net') === 'DMX512'
   ) && !selectedFqbn.startsWith('esp32:')) {
@@ -1022,8 +1025,8 @@ export function buildGraphDiagnostics(
       severity: 'error',
       category: 'connection',
       title: 'Audio has no attached source',
-      message: 'This Audio signal is in use, but it does not resolve to a microphone in the Hardware graph.',
-      fix: 'Add a microphone in Hardware, then choose it from the Audio source list.',
+      message: 'This Audio signal is in use, but it does not resolve to attached audio hardware.',
+      fix: 'Add a microphone or line-in ADC in Hardware, or configure an SD player, then choose it from the Audio source list.',
       nodeIds: [audioNode.id],
       nodeLabel: nodeLabel(audioNode),
       propertyKey: 'sourceId',
@@ -1281,6 +1284,18 @@ export function buildGraphDiagnostics(
         title: 'Microphone is incompatible with the selected board',
         message: INMP441_UNSUPPORTED_MESSAGE,
         fix: 'Choose a board with INMP441 support in Board & Port, or remove the Microphone node.',
+        nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
+      })
+    }
+  }
+
+  if (options.selectedFqbn && !options.selectedFqbn.startsWith('esp32:esp32:esp32s3')) {
+    for (const node of nodes.filter((entry) => entry.data.nodeType === 'LineInput')) {
+      diagnostics.push({
+        id: `${node.id}-board`, severity: 'error', category: 'board',
+        title: 'Line in is incompatible with the selected board',
+        message: 'PCM1802 line-in firmware currently requires an ESP32-S3 board for its synchronized four-wire I2S receive path.',
+        fix: 'Choose an ESP32-S3 board in Board & Port, or remove the Line In hardware.',
         nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
       })
     }

@@ -8,7 +8,7 @@
 // supported by the generator works inside a show with no extra wiring.
 //
 // Implements the full 16-style transition pool (via a wired TransitionSet) and
-// the beat trigger (via the hosted microphone's _audioBeat). Remaining scope: a
+// the beat trigger (via the hosted audio input's _audioBeat). Remaining scope: a
 // single controller file — multi-file (.h-per-pattern) output is a follow-up.
 // The full transition pool, beat-triggered early advance, and particle overlay
 // were later hardware-validated on ESP32-S3 + INMP441 hardware.
@@ -179,7 +179,7 @@ function buildPattern(
   )
 
   // `externalAudio` lets the pattern's FFTAnalyzer/BeatDetect reference the
-  // controller-hosted mic globals (the controller emits the engine once).
+  // controller-hosted audio globals (the controller emits the engine once).
   // `aliasTerminalBuffer: false`: in a show every pattern renders through the
   // same `leds`, so a pattern whose terminal node aliased it would be clobbered
   // by the other pattern mid-transition (and a persistent-buffer node such as
@@ -346,15 +346,15 @@ export function generateShowSketch(
   // properties); the conversion happens here, at the show level.
   const usePsram = opts.psramAllowed !== false && controller.usePsram
 
-  // A MicInput on the canvas turns the controller into an audio host: it runs
-  // FastLED's INMP441 audio processor and the collected patterns' FFTAnalyzer/
-  // BeatDetect read the live band globals (externalAudio), so a mic-reactive
+  // A MicInput or LineInput on the canvas turns the controller into an audio
+  // host. Collected patterns' FFTAnalyzer/BeatDetect nodes read the live band
+  // globals (externalAudio), so an audio-reactive
   // pattern reacts on-device the same way it does in the live preview.
   const audio = audioEngineForGraph(nodes)
   const renderers = buildPatternRenderers(info.patternIds, groups, [], !!audio, audio ? { beat: '_audioBeat' } : {}, !!audio)
-  // A beat trigger needs a source on-device; the mic engine supplies _audioBeat.
+  // A beat trigger needs a source on-device; the audio engine supplies _audioBeat.
   const beatTrigger = info.beatWired && !!audio
-  // Particle overlay also rides the mic beat, so it needs the same source.
+  // Particle overlay also rides the audio beat, so it needs the same source.
   const particlesOn = info.particles && beatTrigger
   // A collection of one never transitions — the dwell simply never ends — so
   // the whole transition apparatus (showA/showB, the style pool, and the
@@ -489,12 +489,12 @@ export function generateShowSketch(
 
   // Controller: hold a random pattern for a random dwell, then transition (a
   // random style from the pool) into a new random one over transitionSec. A
-  // wired beat (mic) advances early once minTime has elapsed. Mirrors
+  // wired audio beat advances early once minTime has elapsed. Mirrors
   // evalPatternShow.
   const minMs = Math.round(info.minTime * 1000), maxMs = Math.round(info.maxTime * 1000)
   const transMs = Math.round(info.transitionSec * 1000)
   L.push('void loop() {')
-  if (audio) L.push('  updateAudio();   // refresh mic band levels once per frame')
+  if (audio) L.push('  updateAudio();   // refresh audio band levels once per frame')
   if (transitions) {
     L.push('  static uint8_t  cur = random8(PATTERN_COUNT), nxt = 0, transType = 0;')
     L.push('  static bool     transitioning = false;')

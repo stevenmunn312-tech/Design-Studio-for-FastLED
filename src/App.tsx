@@ -86,11 +86,12 @@ export default function App() {
   const setHardwarePaneRatio = useUiStore((s) => s.setHardwarePaneRatio)
   const startAudio = useAudioStore((s) => s.startAudio)
   const stopAudio = useAudioStore((s) => s.stopAudio)
-  const micNodeProps = useGraphStore((s) => {
-    const mic = s.nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MicInput')
-    return (mic?.data.properties as Record<string, unknown> | undefined) ?? null
-  })
-  const hasMicNode = micNodeProps !== null
+  const audioInputNode = useGraphStore((s) => rootGraphNodes(s).find((n) => {
+    const nodeType = (n.data as { nodeType?: string }).nodeType
+    return nodeType === 'MicInput' || nodeType === 'LineInput'
+  }))
+  const audioInputProps = (audioInputNode?.data.properties as Record<string, unknown> | undefined) ?? null
+  const hasAudioInputNode = audioInputProps !== null
   const selectedBoardProfile = useGraphStore((s) => selectedPhysicalBoardProfile(rootGraphNodes(s)))
   const showPreviewPlaying = useShowPlayback((s) => s.playing)
   const visibleGraphNodeCount = useGraphStore((s) => s.nodes.filter((node) => node.data.nodeType !== 'Board').length)
@@ -101,8 +102,10 @@ export default function App() {
   const cliPopupOpen = useUploadStore((s) => s.cliPopupOpen)
   const refreshHelper = useUploadStore((s) => s.refreshHelper)
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
-  const micSupported = inmp441SupportedForBoardProfile(selectedBoardProfile)
-  const hadMicNode = useRef(false)
+  const audioInputSupported = audioInputNode?.data.nodeType === 'LineInput'
+    ? selectedBoardProfile?.compatibleFqbns.some((fqbn) => fqbn.startsWith('esp32:esp32:esp32s3')) === true
+    : inmp441SupportedForBoardProfile(selectedBoardProfile)
+  const hadAudioInputNode = useRef(false)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
   const splitCanvasRef = useRef<HTMLDivElement | null>(null)
   const [stageCursorHidden, setStageCursorHidden] = useState(false)
@@ -319,35 +322,35 @@ export default function App() {
     if (visibleGraphNodeCount === 0) setHardwarePaneRatio(0.5)
   }, [setHardwarePaneRatio, visibleGraphNodeCount])
 
-  // Keep FastLED's processor gain in sync with the MicInput node.
+  // Keep the browser analysis gain in sync with the selected physical input.
   useEffect(() => {
     const engine = AudioEngine.instance
-    if (!micNodeProps) return
+    if (!audioInputProps) return
     engine.configureMic({
-      gain: Number(micNodeProps.gain ?? MIC_DEFAULTS.gain),
+      gain: Number(audioInputProps.gain ?? MIC_DEFAULTS.gain),
     })
-  }, [micNodeProps])
+  }, [audioInputProps])
 
-  // A show preview owns audio while it is playing: suspend the live mic so
+  // A show preview owns audio while it is playing: suspend the live input so
   // FFT/beat-driven previews reflect the baked song envelope instead.
   useEffect(() => {
     if (showPreviewPlaying) {
-      if (hadMicNode.current) stopAudio()
+      if (hadAudioInputNode.current) stopAudio()
       return
     }
-    if (hasMicNode && micSupported) {
-      hadMicNode.current = true
+    if (hasAudioInputNode && audioInputSupported) {
+      hadAudioInputNode.current = true
       startAudio().catch(() => {
-        setStatus('Microphone could not start. Check browser permission and the selected audio input.', 'error')
+        setStatus('Audio input could not start. Check browser permission and the selected input.', 'error')
       })
       return
     }
-    hadMicNode.current = false
+    hadAudioInputNode.current = false
     stopAudio()
-  }, [hasMicNode, micSupported, showPreviewPlaying, startAudio, stopAudio, setStatus])
+  }, [hasAudioInputNode, audioInputSupported, showPreviewPlaying, startAudio, stopAudio, setStatus])
 
   useEffect(() => () => {
-    if (hadMicNode.current) stopAudio()
+    if (hadAudioInputNode.current) stopAudio()
   }, [stopAudio])
 
   // Browser chrome and Stage are one presentation session. Browser-native Esc

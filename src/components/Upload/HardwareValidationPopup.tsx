@@ -24,6 +24,7 @@ const ACTIONS: HardwareValidationAction[] = [
   'live-stream',
   'generative-show',
   'microphone',
+  'line-input',
   'sd-show',
 ]
 

@@ -16,6 +16,13 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
   MicInput: [
     { key: 'channel', label: 'Channel', kind: 'select', options: ['Left', 'Right'] },
   ],
+  LineInput: [
+    { key: 'i2sMclk', label: 'SCK / MCLK', kind: 'pin' },
+    { key: 'i2sBclk', label: 'BCK', kind: 'pin' },
+    { key: 'i2sLrclk', label: 'LRCK / WS', kind: 'pin' },
+    { key: 'i2sDout', label: 'DOUT', kind: 'pin' },
+    { key: 'channel', label: 'Channel', kind: 'select', options: ['Both', 'Left', 'Right'] },
+  ],
   Amplifier: [
     { key: 'i2sBclk', label: 'BCLK', kind: 'pin' },
     { key: 'i2sLrc', label: 'LRC / WS', kind: 'pin' },

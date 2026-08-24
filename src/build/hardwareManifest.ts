@@ -56,7 +56,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -79,6 +79,7 @@ export interface HardwareManifest {
 const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'MatrixOutput',
   'MicInput',
+  'LineInput',
   'ButtonInput',
   'PotInput',
   'EncoderInput',
@@ -137,6 +138,12 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         push(node, `${baseLabel} I2S WS`, 'i2sWs', props.i2sWs)
         push(node, `${baseLabel} I2S SCK`, 'i2sSck', props.i2sSck)
         push(node, `${baseLabel} I2S SD`, 'i2sSd', props.i2sSd)
+        break
+      case 'LineInput':
+        push(node, `${baseLabel} I2S MCLK`, 'i2sMclk', props.i2sMclk)
+        push(node, `${baseLabel} I2S BCLK`, 'i2sBclk', props.i2sBclk)
+        push(node, `${baseLabel} I2S LRCLK`, 'i2sLrclk', props.i2sLrclk)
+        push(node, `${baseLabel} I2S DOUT`, 'i2sDout', props.i2sDout)
         break
       case 'DMXInput':
         if (String(props.inputMode ?? 'Art-Net') !== 'DMX512') break
@@ -356,6 +363,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
   const hardwareNodes = nodes.filter((node) =>
     node.data.nodeType === 'MatrixOutput'
     || node.data.nodeType === 'MicInput'
+    || node.data.nodeType === 'LineInput'
     || node.data.nodeType === 'ButtonInput'
     || node.data.nodeType === 'PotInput'
     || node.data.nodeType === 'EncoderInput'
@@ -390,6 +398,16 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         )
       case 'MicInput':
         return buildPeripheralItem(node, 'mic-input', 'INMP441 microphone input', pins)
+      case 'LineInput':
+        return {
+          ...buildPeripheralItem(node, 'line-input', 'PCM1802 stereo line-level ADC', pins),
+          supported: ['i2sMclk', 'i2sBclk', 'i2sLrclk', 'i2sDout']
+            .every((key) => pins.some((pin) => pin.propertyKey === key)),
+          facts: { partId: 'pcm1802-line-in-adc', input: 'stereo-line-level', output: 'i2s' },
+          reasons: pins.length === 4
+            ? undefined
+            : ['This line-in ADC has no complete MCLK/BCLK/LRCLK/DOUT pin set configured.'],
+        }
       case 'ButtonInput':
         return buildPeripheralItem(node, 'button-input', 'Momentary button input', pins)
       case 'PotInput':

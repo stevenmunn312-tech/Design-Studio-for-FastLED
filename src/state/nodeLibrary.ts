@@ -44,6 +44,27 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       serialDebug: false,
     },
   },
+  {
+    type: 'LineInput',
+    label: 'Line In',
+    category: 'input',
+    inputs: [],
+    outputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
+    // PCM1802 is a stereo line-level ADC rather than a microphone. It needs
+    // the controller to supply MCLK, BCLK and LRCLK while it returns PCM on
+    // DOUT. Hardware creation replaces these fallbacks with four free pins on
+    // the selected ESP32-S3 board.
+    defaultProperties: {
+      partId: 'pcm1802-line-in-adc',
+      i2sMclk: 14,
+      i2sBclk: 27,
+      i2sLrclk: 26,
+      i2sDout: 25,
+      channel: 'Both',
+      gain: 1,
+      serialDebug: false,
+    },
+  },
   // ── Show pipeline source ───────────────────────────────────────────────
   {
     // Music source for the pre-planned show pipeline. Double-click on the canvas
@@ -2793,6 +2814,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Audio: 'Selects an audio capability attached to the board and carries it into the graph.',
   AudioFeatures: 'Heuristic vocals, energy, and silence features from audio.',
   MicInput: 'Microphone — FastLED audio processing with configurable INMP441 I2S firmware.',
+  LineInput: 'Stereo line-level audio through a PCM1802 I2S ADC for external players.',
   AudioHue: 'Maps bass/mids/treble to a hue value.',
   // hardware
   ButtonInput: 'Reads a hardware button as a boolean.',
@@ -3601,6 +3623,13 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     i2sSck: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     i2sSd:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
+  LineInput: {
+    gain:      { control: 'slider', min: 0, max: MIC_MAX_GAIN, step: 0.05 },
+    i2sMclk:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    i2sBclk:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    i2sLrclk: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    i2sDout:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
   ButtonInput: {
     pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
@@ -3960,7 +3989,7 @@ export function propertyLabel(nodeType: string, key: string): string {
 // properties use expressions when their ordinary editor is a free-entry number;
 // bounded sliders stay deliberately simple and predictable.
 const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
-  'MatrixOutput', 'MicInput', 'ButtonInput', 'PotInput', 'EncoderInput',
+  'MatrixOutput', 'MicInput', 'LineInput', 'ButtonInput', 'PotInput', 'EncoderInput',
   'MotionInput', 'LightInput',
   'DMXInput', 'DMXChannel', 'RTCInput',
   'MidiInput', 'SDCard',
@@ -4071,6 +4100,11 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'i2s', label: 'I2S Pins', keys: ['i2sWs', 'i2sSck', 'i2sSd', 'channel'] },
     { key: 'debug', label: 'Debug', keys: ['serialDebug'] },
   ],
+  LineInput: [
+    { key: 'levels', label: 'Levels', keys: ['gain'] },
+    { key: 'i2s', label: 'I2S Pins', keys: ['i2sMclk', 'i2sBclk', 'i2sLrclk', 'i2sDout', 'channel'] },
+    { key: 'debug', label: 'Debug', keys: ['serialDebug'] },
+  ],
   SpectrumVisualizer: [
     { key: 'display', label: 'Display', keys: ['style', 'bands', 'palette'] },
     { key: 'response', label: 'Response', keys: ['gain', 'smoothing', 'tilt'] },
@@ -4164,6 +4198,7 @@ export function hasClampableInputs(nodeType: string, inputs: { id: string; dataT
 // node body owns its hardware controls.
 const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   MicInput: new Set(['i2sWs', 'i2sSck', 'i2sSd']),
+  LineInput: new Set(['i2sMclk', 'i2sBclk', 'i2sLrclk', 'i2sDout']),
   DMXInput: new Set(['dmxTxPin', 'dmxRxPin', 'dmxEnablePin']),
   ButtonInput: new Set(['pin']),
   PotInput: new Set(['pin']),
@@ -4210,6 +4245,9 @@ export function gpioRequirementForProperty(
     return { capability: 'digitalInput', pullup: false }
   }
   if (nodeType === 'MicInput' && key === 'i2sSd') {
+    return { capability: 'digitalInput', pullup: false }
+  }
+  if (nodeType === 'LineInput' && key === 'i2sDout') {
     return { capability: 'digitalInput', pullup: false }
   }
   if (nodeType === 'SDCard' && key === 'sdMisoPin') {

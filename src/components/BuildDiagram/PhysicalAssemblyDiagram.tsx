@@ -813,15 +813,15 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
   const { x, y, item } = layout
   // An audio module is drawn as the module that is on the bench — four parts
   // share this kind and they do not look remotely alike.
-  const amplifierRenderFile = item.kind === 'amplifier'
-    ? partRenderSrc(String(item.facts.partId ?? 'max98357a-i2s-amplifier'))
+  const audioModuleRenderFile = item.kind === 'amplifier' || item.kind === 'line-input'
+    ? partRenderSrc(String(item.facts.partId ?? (item.kind === 'line-input' ? 'pcm1802-line-in-adc' : 'max98357a-i2s-amplifier')))
     : null
   const render = item.kind === 'rtc-input' && item.facts.partId === 'jaycar-xc9044-rtc-module'
     ? { href: '/parts/jaycar-xc9044-rtc-module.webp', id: 'jaycar-xc9044-rtc-module' }
     : item.kind === 'sd-card' && item.facts.partId === 'microsd-breakout-3v3'
       ? { href: '/parts/microsd-breakout-3v3.webp', id: 'microsd-breakout-3v3' }
-      : amplifierRenderFile
-        ? { href: amplifierRenderFile, id: String(item.facts.partId) }
+      : audioModuleRenderFile
+        ? { href: audioModuleRenderFile, id: String(item.facts.partId) }
         : PERIPHERAL_RENDERS[item.kind]
   const padLabel = (index: number) => peripheralPadLabel(item, index)
   const powerPadIndex = peripheralPowerPadIndex(item)
@@ -1267,7 +1267,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
       aria-labelledby="physical-diagram-title physical-diagram-desc"
     >
       <title id="physical-diagram-title">Generated physical LED controller wiring diagram</title>
-      <desc id="physical-diagram-desc">Every visible wire terminates at a labelled controller, microphone, level-shifter, LED, protection, distribution, capacitor, or supply terminal.</desc>
+      <desc id="physical-diagram-desc">Every visible wire terminates at a labelled controller, audio input, level-shifter, LED, protection, distribution, capacitor, or supply terminal.</desc>
       <defs>
         <filter id="component-shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="5" stdDeviation="6" floodColor="#111" floodOpacity=".22" /></filter>
         <linearGradient id="supply-body" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#405248" /><stop offset="1" stopColor="#171d1a" /></linearGradient>

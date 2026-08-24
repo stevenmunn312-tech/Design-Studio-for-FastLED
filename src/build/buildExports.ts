@@ -66,10 +66,16 @@ export function buildConnectionRows(
     }
     if (item.kind === 'mic-input' || item.kind === 'pot-input' || item.kind === 'rtc-input') {
       rows.push({ from: controller, fromTerminal: '3V3', to: item.title, toTerminal: item.kind === 'mic-input' ? 'VDD' : '3V3', purpose: 'Logic power' })
-    } else if (item.kind === 'amplifier') {
+    } else if (item.kind === 'amplifier' || item.kind === 'line-input') {
       // A class-D amp's output power is its supply power, so 3.3 V here reads
       // as a weak speaker rather than as a wiring mistake.
-      rows.push({ from: controller, fromTerminal: '5V / VIN', to: item.title, toTerminal: 'VIN', purpose: 'Module power' })
+      rows.push({
+        from: controller,
+        fromTerminal: '5V / VIN',
+        to: item.title,
+        toTerminal: item.kind === 'line-input' ? '5V' : 'VIN',
+        purpose: 'Module power',
+      })
     } else if (item.kind === 'sd-card') {
       const supplyVoltage = Number(item.facts.supplyVoltage ?? 5)
       rows.push({

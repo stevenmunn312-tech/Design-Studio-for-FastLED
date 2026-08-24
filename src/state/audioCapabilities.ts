@@ -2,12 +2,11 @@ import type { StudioNode } from './graphStore'
 import { resolvePartIdentity } from './partOptions'
 
 /** A board-attached source that can provide PCM or analysed audio to the signal
- * graph. The decoder tap is software hosted by the SD-player workflow; line-in
- * joins this catalogue when its physical capture path is implemented. */
+ * graph. The decoder tap is software hosted by the SD-player workflow. */
 export interface AudioCapabilitySource {
   id: string
   label: string
-  kind: 'microphone' | 'decoder'
+  kind: 'microphone' | 'line-in' | 'decoder'
   node: StudioNode
 }
 
@@ -27,6 +26,16 @@ export function audioCapabilitySources(nodes: readonly StudioNode[]): AudioCapab
       }
     })
 
+  const lineInputs = nodes
+    .filter((node) => node.data.nodeType === 'LineInput')
+    .map((node) => ({
+      id: node.id,
+      label: resolvePartIdentity('LineInput', node.data.properties as Record<string, unknown>)?.option.label
+        ?? 'Line in',
+      kind: 'line-in' as const,
+      node,
+    }))
+
   // The software decoder is a real on-device source only in the SD-player
   // workflow. An SD card by itself is ordinary storage; a Performance
   // Generator is what says the board will decode music from it. Tie the stable
@@ -43,7 +52,7 @@ export function audioCapabilitySources(nodes: readonly StudioNode[]): AudioCapab
       }]
     : []
 
-  return [...microphones, ...decoder]
+  return [...microphones, ...lineInputs, ...decoder]
 }
 
 /** Resolve an authored source id. A lone attached source is the useful default

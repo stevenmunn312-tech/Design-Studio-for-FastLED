@@ -33,6 +33,27 @@ describe('hardwareManifest', () => {
     ])
   })
 
+  it('describes the complete PCM1802 line-in clock and data wiring', () => {
+    const manifest = buildHardwareManifest([
+      node('line', 'LineInput', {
+        partId: 'pcm1802-line-in-adc',
+        i2sMclk: 15, i2sBclk: 16, i2sLrclk: 17, i2sDout: 18,
+      }),
+    ], [], 'esp32:esp32:esp32s3')
+
+    expect(manifest.primaryItems[0]).toMatchObject({
+      kind: 'line-input',
+      supported: true,
+      facts: { partId: 'pcm1802-line-in-adc', input: 'stereo-line-level', output: 'i2s' },
+    })
+    expect(manifest.primaryItems[0].pins.map((pin) => [pin.propertyKey, pin.pin])).toEqual([
+      ['i2sMclk', 15],
+      ['i2sBclk', 16],
+      ['i2sLrclk', 17],
+      ['i2sDout', 18],
+    ])
+  })
+
   it('builds a shared manifest for outputs and MVP peripherals', () => {
     const manifest = buildHardwareManifest([
       node('out', 'MatrixOutput', { width: 16, height: 16, chipset: 'WS2812B', dataPin: 14 }),
