@@ -19,8 +19,8 @@ Active work only. Completed work belongs in [`CHANGELOG.md`](CHANGELOG.md), Git 
 
 ## Engineering follow-ups
 
-- [ ] Make `buildXYTable` reject or safely normalize negative dimensions instead of throwing `RangeError`; production callers currently clamp dimensions first.
-- [ ] Stop `publishStreamFrame` retaining a raw reference to a pooled evaluator frame; correctness currently relies on the render loop and sender never interleaving.
+- [x] Make `buildXYTable` reject or safely normalize negative dimensions instead of throwing `RangeError`; production callers currently clamp dimensions first.
+- [x] Stop `publishStreamFrame` retaining a raw reference to a pooled evaluator frame; correctness currently relies on the render loop and sender never interleaving.
 - [ ] Add dedicated authoring geometry for remaining non-matrix forms such as corkscrew layouts. Strip, ring, and custom mapping already exist; avoid describing the whole application as matrix-only.
 
 ## Active development line
