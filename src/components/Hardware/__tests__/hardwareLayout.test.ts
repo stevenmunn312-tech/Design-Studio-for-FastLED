@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   hardwareArrangement,
+  hardwareCaptionScale,
   mediaBandHeight,
   type HardwarePartBox,
   type HardwarePartLink,
@@ -27,6 +28,11 @@ const index = <T extends { id: string }>(parts: T[]) =>
   new Map(parts.map((part) => [part.id, part]))
 
 describe('hardware arrangement', () => {
+  it('scales captions with the resizeable hardware band', () => {
+    expect(hardwareCaptionScale(mediaBandHeight(452))).toBe(1)
+    expect(hardwareCaptionScale(mediaBandHeight(226))).toBeCloseTo(0.5)
+  })
+
   it('scales every part through one factor, so sizes stay in proportion', () => {
     const { parts, mmScale } = arrange([MIC, BOARD, STRIP], CHAIN)
     const byId = index(parts)

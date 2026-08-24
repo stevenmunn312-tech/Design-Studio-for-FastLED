@@ -104,6 +104,15 @@ export function mediaBandHeight(stageHeight: number): number {
 }
 
 /**
+ * Captions were designed at the full-height hardware band. When the resizeable
+ * pane makes that band smaller, keep the type in the same proportion as the
+ * physical parts instead of leaving a full-size label under a miniature part.
+ */
+export function hardwareCaptionScale(band: number): number {
+  return Math.min(1, Math.max(0, band / BAND_MAX))
+}
+
+/**
  * Arrange, then shrink to fit vertically. A single row always fits the band,
  * but the moment the layout stacks anything the arrangement is taller than the
  * band alone, so the band comes down until it is all in view. Width is left

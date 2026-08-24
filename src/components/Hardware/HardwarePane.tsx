@@ -57,6 +57,7 @@ import { useHardwareView } from './useHardwareView'
 import {
   hardwareArrangement,
   hardwareArrangementBounds,
+  hardwareCaptionScale,
   type HardwarePartBox,
   type HardwarePartLink,
 } from './hardwareLayout'
@@ -765,7 +766,11 @@ export default function HardwarePane() {
   const captionStyle = (id: string): CSSProperties | undefined => {
     const part = placed.get(id)
     if (!part) return undefined
-    return { left: part.captionX, top: part.captionY }
+    return {
+      left: part.captionX,
+      top: part.captionY,
+      '--hardware-caption-scale': hardwareCaptionScale(arrangement?.band ?? 0),
+    } as CSSProperties
   }
 
   useEffect(() => {
