@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { StudioNode } from '../../../state/graphStore'
 import HardwareValidationPopup from '../HardwareValidationPopup'
@@ -24,6 +24,36 @@ const matrix = {
 } as StudioNode
 
 describe('HardwareValidationPopup', () => {
+  it('portals above workspace chrome so the report actions cannot be clipped by the hardware pane', () => {
+    const clippedPane = document.createElement('div')
+    clippedPane.style.overflow = 'hidden'
+    clippedPane.style.position = 'relative'
+    clippedPane.style.zIndex = '1'
+    document.body.appendChild(clippedPane)
+
+    const { unmount } = render(
+      <HardwareValidationPopup
+        nodes={[matrix]}
+        edges={[]}
+        selectedFqbn="esp32:esp32:esp32s3"
+        helper={{ ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' }}
+        capacityResult={null}
+        initialAction="wiring-test"
+        onClose={vi.fn()}
+      />,
+      { container: clippedPane },
+    )
+
+    const dialog = screen.getByRole('dialog', { name: 'Hardware validation report' })
+    expect(dialog.parentElement?.parentElement).toBe(document.body)
+    expect(screen.getByRole('button', { name: 'Copy report' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Download JSON' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Review on GitHub…' })).toBeTruthy()
+
+    unmount()
+    clippedPane.remove()
+  })
+
   it('shows exact missing coverage and requires reviewed observations before GitHub submission', () => {
     const open = vi.spyOn(window, 'open').mockImplementation(() => null)
     const { getByRole, getByText } = render(

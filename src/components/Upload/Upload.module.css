@@ -721,9 +721,19 @@
 }
 
 .validationActions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   display: grid;
   grid-template-columns: 1fr 1fr 1.35fr;
   gap: 8px;
+  padding-top: 10px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, var(--bg-panel) 96%, black) 24%,
+    color-mix(in srgb, var(--bg-panel) 96%, black)
+  );
 }
 
 .validationActions > button {

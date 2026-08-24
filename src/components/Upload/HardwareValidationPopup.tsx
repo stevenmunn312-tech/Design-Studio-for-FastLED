@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { getSystemInfo, type BackendHealth, type CompileCheckResult, type SystemInfo } from '../../utils/backendClient'
@@ -128,7 +129,7 @@ export default function HardwareValidationPopup({
     window.open(hardwareValidationIssueUrl(report, profile), '_blank', 'noopener,noreferrer')
   }
 
-  return (
+  return createPortal(
     <div className={`${styles.overlay} ${styles.validationOverlay}`} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
       <div className={`${styles.popup} ${styles.validationPopup}`} role="dialog" aria-modal="true" aria-labelledby="hardware-validation-title">
         <div className={styles.popupHeader}>
@@ -241,6 +242,7 @@ export default function HardwareValidationPopup({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
