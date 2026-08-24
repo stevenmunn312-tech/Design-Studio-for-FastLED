@@ -32,19 +32,21 @@ describe('audio capability sources', () => {
     expect(resolveAudioCapabilitySource([], '')).toBeNull()
   })
 
-  it('offers the on-board decoder only for an SD-player workflow', () => {
+  it('offers the audio decoder only for an SD player with an amplifier', () => {
     const sd = hardware('sd-1', 'SDCard')
-    const player = hardware('performance-1', 'PerformanceGenerator')
+    const amp = hardware('amp-1', 'Amplifier', { model: 'MAX98357A' })
+    const player = hardware('player-1', 'PatternMaster')
     expect(audioCapabilitySources([sd])).toEqual([])
     expect(audioCapabilitySources([player])).toEqual([])
-    expect(audioCapabilitySources([sd, player])).toMatchObject([
+    expect(audioCapabilitySources([sd, player])).toEqual([])
+    expect(audioCapabilitySources([sd, amp, player])).toMatchObject([
       {
         id: 'decoder:sd-1',
-        label: 'On-board playback (decoder tap)',
+        label: 'Audio Decoder',
         kind: 'decoder',
       },
     ])
-    expect(resolveAudioCapabilitySource([sd, player], '')?.id).toBe('decoder:sd-1')
+    expect(resolveAudioCapabilitySource([sd, amp, player], '')?.id).toBe('decoder:sd-1')
   })
 
   it('offers a concrete PCM1802 line-in capability', () => {

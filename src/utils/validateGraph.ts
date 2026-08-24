@@ -681,7 +681,7 @@ export function findShowOutputFormErrors(nodes: StudioNode[], edges: StudioEdge[
       const form = outputForm(node.data.properties as Record<string, unknown>)
       const label = form === 'ring' ? 'ring' : 'corkscrew'
       const geometry = form === 'ring' ? 'circular' : 'helical'
-      const workflow = showDriven.has(node.id) ? 'Show Engine' : 'music-sync SD player'
+      const workflow = showDriven.has(node.id) ? 'Music Player' : 'music-sync SD player'
       return `${String(node.data.label ?? (form === 'ring' ? 'LED Ring' : 'LED Corkscrew'))}: a ${label} cannot be driven by the ${workflow} yet — its ${geometry} LED map is not generated for that firmware. Use a string or matrix output, or drive the ${label} from a normal pattern graph.`
     })
 }
@@ -1422,9 +1422,9 @@ export function buildGraphDiagnostics(
   if (master && !incoming.has(`${master.id}:patternset`)) {
     diagnostics.push({
       id: `${master.id}-patterns`, severity: 'warning', category: 'show',
-      title: 'Show Engine has no patterns',
-      message: 'No Pattern Collection is wired to the show engine.',
-      fix: 'Connect a Pattern Collection pattern-set output to the Show Engine.',
+      title: 'Music Player has no patterns',
+      message: 'No Pattern Collection is wired to the Music Player.',
+      fix: 'Connect a Pattern Collection pattern-set output to the Music Player.',
       nodeIds: [master.id], nodeLabel: nodeLabel(master),
     })
   }
@@ -1538,7 +1538,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
 
   const master = nodes.find(n => n.data.nodeType === 'PatternMaster')
   if (master && !incoming.has(`${master.id}:patternset`)) {
-    warnings.push('Show Engine has no Pattern Collection wired')
+    warnings.push('Music Player has no Pattern Collection wired')
   }
 
   // Music-sync generator: a wired Pattern Collection needs a direct music

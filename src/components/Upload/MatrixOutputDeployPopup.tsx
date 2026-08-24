@@ -78,6 +78,7 @@ export default function MatrixOutputDeployPopup({
   // A card is ordinary storage hardware until Performance Generator declares
   // that this graph is the offline music-show workflow.
   const hasSdShow = useMemo(() => sdShowConnected(nodes, edges), [nodes, edges])
+  const hasMusicPlayer = useMemo(() => hasSdShow && nodes.some((node) => node.data.nodeType === 'PatternMaster'), [hasSdShow, nodes])
 
   const board = boardByFqbn(selectedFqbn)
   const usingFbuild = helper?.engine === 'fbuild'
@@ -412,14 +413,14 @@ export default function MatrixOutputDeployPopup({
   // player. A standalone SD Card remains on the normal sketch path.
   const isShowUpload = hasSdShow
   const canUploadNow = isShowUpload
-    ? canShowUpload && readySongs > 0
+    ? canShowUpload && (readySongs > 0 || hasMusicPlayer)
     : canBuild
 
   const uploadTitle =
     busy ? status.message
     : isShowUpload
-      ? readySongs === 0
-        ? 'Analyse at least one song in the Music Library first'
+      ? readySongs === 0 && !hasMusicPlayer
+        ? 'Add a Music Player pattern collection, or analyse at least one song first'
         : blockingErrors.length > 0 ? blockingErrors.join('\n')
         : readinessIssues.length > 0 ? readinessIssues.join('\n')
         : cardReader
@@ -431,7 +432,7 @@ export default function MatrixOutputDeployPopup({
         : 'Compile & upload to the board'
 
   const uploadLabel =
-    status.phase === 'idle' ? (isShowUpload ? `♪ Upload show (${readySongs})` : '↑ Upload')
+    status.phase === 'idle' ? (isShowUpload ? (hasMusicPlayer ? '♪ Flash Music Player' : `♪ Upload show (${readySongs})`) : '↑ Upload')
     : status.phase === 'done' ? '✓ Done'
     : status.phase === 'error' ? '✗ Error'
     : status.message

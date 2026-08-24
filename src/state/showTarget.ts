@@ -1,7 +1,7 @@
 /**
  * Which LED output a music-sync show plays on.
  *
- * The answer comes off a wire: the Performance Generator's `frame` output into
+ * The answer comes off a wire: the Music Player or Performance Generator's `frame` output into
  * an LED output's `frame` input. Nothing renders through that edge — the SD
  * player drives the LEDs itself, from the card — but it is the only place the
  * destination can be *stated*, and stating it is the job.
@@ -45,7 +45,7 @@ export interface ShowTargetResolution<T> {
 }
 
 /**
- * The LED output a Performance Generator sends its show to.
+ * The LED output a Music Player or Performance Generator sends its show to.
  *
  * One output is the supported shape: the player allocates one `leds` array and
  * one controller. Two is a real thing to want and a real thing to build, but
@@ -56,7 +56,9 @@ export function resolveShowTarget<T extends ShowTargetNode>(
   nodes: T[],
   edges: ShowTargetEdge[],
 ): ShowTargetResolution<T> {
-  const generator = nodes.find((node) => node.data.nodeType === 'PerformanceGenerator')
+  const generator = nodes.find((node) =>
+    node.data.nodeType === 'PatternMaster' || node.data.nodeType === 'PerformanceGenerator',
+  )
   if (!generator) return { target: null, reached: [], problem: 'unconnected' }
 
   const reached = edges

@@ -248,7 +248,7 @@ function QuickStartTab() {
         <div className={styles.choiceGrid}>
           <div className={styles.choiceCard}>
             <strong>Self-running generative show</strong>
-            <span>Add saved patterns to Pattern Collection, connect it to Show Engine, then connect the engine's frame to the LED output. The engine chooses patterns and transitions while it runs.</span>
+            <span>Add saved patterns to Pattern Collection, connect it to Music Player, then connect the player&apos;s frame to the LED output. The player chooses patterns and transitions while music runs.</span>
           </div>
           <div className={styles.choiceCard}>
             <strong>Music-synced SD show</strong>

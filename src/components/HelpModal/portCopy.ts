@@ -15,7 +15,7 @@
 
 export const TYPE_GLYPH: Record<string, string> = {
   frame: '▦', palette: '≋', color: '●', audio: '⌁', float: '∿', bool: '◆',
-  field: '⌖', music: '♫', image: '▥', dmx: '⎋', datetime: '◷', patternset: '◫', transitionset: '⇄',
+  field: '⌖', music: '♫', image: '▥', dmx: '⎋', datetime: '◷', patternset: '◫', transitionset: '⇄', storage: '▤',
 }
 
 /**
@@ -34,12 +34,13 @@ export const OUTPUT_USE_CASES: Record<string, string> = {
   float: 'Its output is typically wired into sliders-as-inputs such as speed, amount, fade, scale, or brightness.',
   frame: 'Its frame can go straight to the LED output, or pass through Blend, Blur 2D, Transform, Fade, or Transition first.',
   palette: 'Its palette is typically sampled by Noise, Spectrum Bars, Field → Frame, or Palette Sampler.',
-  patternset: 'Its output is used by the Show Engine to run a reusable multi-pattern show.',
+  patternset: 'Its output is used by Music Player or Performance Generator to run a reusable multi-pattern show.',
   music: 'Its output is used by Performance Generator to create timed show events from analysed tracks.',
-  transitionset: 'Its output widens the pool of transitions — for the Show Engine live, or Performance Generator on export.',
+  transitionset: 'Its output widens the pool of transitions — for Music Player live, or Performance Generator on export.',
   image: 'Its output is the validated picture itself, ready for Palette from Image or another data-only consumer.',
   dmx: 'Its output is one live DMX universe, which DMX Channel decodes into individual slot values.',
   datetime: 'Its output carries a complete clock reading to Clock Display or other time-aware nodes over one wire.',
+  storage: 'Its output identifies the configured storage provider for player and file workflows.',
 }
 
 export const PORT_DESCRIPTIONS: Record<string, string> = {
@@ -56,4 +57,5 @@ export const PORT_DESCRIPTIONS: Record<string, string> = {
   image: 'an uploaded picture as raw pixel data',
   dmx: 'one live DMX universe of 512 channels',
   datetime: 'a complete date, time, and clock-health reading',
+  storage: 'a configured storage provider such as SD, onboard flash, or USB',
 }

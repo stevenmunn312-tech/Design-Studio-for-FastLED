@@ -366,6 +366,7 @@ function sourceNodeForType(dataType: string, nodeType: string, index: number): E
     transitionset: { label: 'Transitions', category: 'show' },
     image: { label: 'Image', category: 'pattern' },
     dmx: { label: 'DMX / Art-Net', category: 'input' },
+    storage: { label: 'Storage', category: 'input' },
   }
   const fallbackPresets: Record<string, { label: string; category: NodeCategory }> = {
     audio: { label: 'FFT Analyzer', category: 'audio' },
@@ -375,11 +376,12 @@ function sourceNodeForType(dataType: string, nodeType: string, index: number): E
     float: { label: 'Counter', category: 'signal' },
     frame: { label: 'Gradient Frame', category: 'pattern' },
     palette: { label: 'Custom Palette', category: 'color' },
-    patternset: { label: 'Show Engine', category: 'show' },
+    patternset: { label: 'Music Player', category: 'show' },
     music: { label: 'Music Library', category: 'show' },
     transitionset: { label: 'Performance Generator', category: 'show' },
     image: { label: 'Image', category: 'pattern' },
     dmx: { label: 'DMX / Art-Net', category: 'input' },
+    storage: { label: 'Storage', category: 'input' },
   }
   const preset = presets[dataType] ?? { label: 'Value Source', category: 'math' as NodeCategory }
   const fallback = fallbackPresets[dataType] ?? preset
@@ -549,7 +551,7 @@ function buildPatternSetRecipe(node: NodeDefinition): ExampleRecipe {
     columns: [
       sources.length > 0 ? sources : [makeNode('group', 'Group Pattern', 'pattern')],
       [makeNode('target', node.label, node.category, true)],
-      [makeNode('master', 'Show Engine', 'show')],
+      [makeNode('master', 'Music Player', 'show')],
       [makeNode('sink', 'LED Matrix', 'output')],
     ],
     edges: [
@@ -557,7 +559,7 @@ function buildPatternSetRecipe(node: NodeDefinition): ExampleRecipe {
       { from: 'target', to: 'master' },
       { from: 'master', to: 'sink' },
     ],
-    explanation: `${node.label} gathers reusable patterns. The Show Engine then performs the show from that collection.`,
+      explanation: `${node.label} gathers reusable patterns. Music Player then performs the show from that collection.`,
     result: 'A reusable pattern set for the generative show engine.',
   }
 }
@@ -566,13 +568,13 @@ function buildTransitionSetRecipe(node: NodeDefinition): ExampleRecipe {
   return {
     columns: [
       [makeNode('target', node.label, node.category, true)],
-      [makeNode('master', 'Show Engine', 'show'), makeNode('perf', 'Performance Generator', 'show')],
+      [makeNode('master', 'Music Player', 'show'), makeNode('perf', 'Performance Generator', 'show')],
     ],
     edges: [
       { from: 'target', to: 'master' },
       { from: 'target', to: 'perf' },
     ],
-    explanation: `${node.label} widens the pool of transition styles. Wire it into the Show Engine for a live generative show, or into Performance Generator for an exported music-synced one.`,
+      explanation: `${node.label} widens the pool of transition styles. Wire it into Music Player for a live generative show, or into Performance Generator for an exported music-synced one.`,
     result: 'A curated transition pool for show generation.',
   }
 }

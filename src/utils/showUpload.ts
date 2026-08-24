@@ -35,6 +35,13 @@ export function sdCardConnected(nodes: StudioNode[]): boolean {
   return nodes.some((n) => nodeType(n) === 'SDCard')
 }
 
+export function musicPlayerConnected(nodes: StudioNode[], edges: Edge[]): boolean {
+  return sdCardConnected(nodes)
+    && nodes.some((n) => nodeType(n) === 'Amplifier')
+    && !!resolveShowTarget(nodes, edges).target
+    && nodes.some((n) => nodeType(n) === 'PatternMaster')
+}
+
 /**
  * True only for the offline music-show workflow.
  *
@@ -49,7 +56,10 @@ export function sdCardConnected(nodes: StudioNode[]): boolean {
  * Pattern Master's frame reach a MatrixOutput before hijacking the sketch.
  */
 export function sdShowConnected(nodes: StudioNode[], edges: Edge[]): boolean {
-  return sdCardConnected(nodes) && !!resolveShowTarget(nodes, edges).target
+  return musicPlayerConnected(nodes, edges)
+    || (sdCardConnected(nodes)
+      && !!resolveShowTarget(nodes, edges).target
+      && nodes.some((n) => nodeType(n) === 'PerformanceGenerator'))
 }
 
 /** Number of songs ready (analysed) to upload. */
@@ -74,7 +84,7 @@ export function wiredPatternCollection(
   edges: Edge[],
 ): { ids: string[]; sectionTags: string[][] } {
   const empty = { ids: [], sectionTags: [] }
-  const gen = nodes.find((n) => nodeType(n) === 'PerformanceGenerator')
+  const gen = nodes.find((n) => nodeType(n) === 'PerformanceGenerator' || nodeType(n) === 'PatternMaster')
   if (!gen) return empty
   const link = edges.find((e) => e.target === gen.id && e.targetHandle === 'patternset')
   if (!link) return empty
@@ -99,14 +109,14 @@ export function buildShowPlayer(
   nodes: StudioNode[],
   edges: Edge[],
   groups: GroupRegistry,
-  opts: { patternSet?: string[]; bakedAudio: boolean; preferredTrack: string; fqbn?: string; psramAllowed?: boolean },
+  opts: { patternSet?: string[]; bakedAudio: boolean; preferredTrack: string; genericPlayer?: boolean; fqbn?: string; psramAllowed?: boolean },
 ): string {
   // A collection (version 2) show carries its pattern group ids in patternSet;
   // compile those subgraphs into render_pN() so the player draws the user's own
   // patterns instead of the built-in enum set. "Use group inputs" threads the
   // section energy, (normalised) speed, and palette into each pattern's
   // `energy`/`speed`/`palette` roles.
-  const pgProps = (nodes.find((n) => nodeType(n) === 'PerformanceGenerator')?.data as StudioNodeData | undefined)?.properties ?? {}
+  const pgProps = (nodes.find((n) => nodeType(n) === 'PerformanceGenerator' || nodeType(n) === 'PatternMaster')?.data as StudioNodeData | undefined)?.properties ?? {}
   const roleParams = pgProps.useGroupInputs ? ['energy', 'speed', 'palette'] : []
   const patternSet = opts.patternSet ?? []
   const renderers = patternSet.length > 0
@@ -119,6 +129,7 @@ export function buildShowPlayer(
     audioEnvelope: opts.bakedAudio && !!renderers,
     decoderTap,
     preferredTrack: opts.preferredTrack,
+    genericPlayer: opts.genericPlayer,
     psramAllowed: opts.psramAllowed,
   })
 }
@@ -146,8 +157,9 @@ export function buildShowPlayerForMeasurement(
   const { ids } = wiredPatternCollection(nodes, edges)
   return buildShowPlayer(nodes, edges, groups, {
     patternSet: ids,
-    bakedAudio: true,
+    bakedAudio: !musicPlayerConnected(nodes, edges),
     preferredTrack: '',
+    genericPlayer: musicPlayerConnected(nodes, edges),
     fqbn,
     psramAllowed,
   })
@@ -166,7 +178,9 @@ export function buildShowPayload(
   opts: { fqbn?: string; psramAllowed?: boolean; fqbnOpt?: string } = {},
 ): { player: string; files: ShowUploadFile[]; fqbnOpt?: string } | null {
   const done = entries.filter((e) => e.status === 'done' && e.show)
-  if (done.length === 0) return null
+  const genericPlayer = musicPlayerConnected(nodes, edges)
+  if (done.length === 0 && !genericPlayer) return null
+  const { ids: playerPatternSet } = wiredPatternCollection(nodes, edges)
 
   // A collection (version 2) show carries its pattern group ids in patternSet;
   // compile those subgraphs into render_pN() so the player draws the user's own
@@ -178,11 +192,12 @@ export function buildShowPayload(
   // earlier session is somebody else's song — and its show, so the result
   // looks like broken sync rather than the wrong file.
   const player = buildShowPlayer(nodes, edges, groups, {
-    patternSet: done[0].show!.patternSet,
+    patternSet: genericPlayer ? playerPatternSet : done[0].show!.patternSet,
     // Decoded PCM is primary; retain the analysed envelope as a fallback when
     // this show file carries one.
-    bakedAudio: !!done[0].show!.audio,
-    preferredTrack: safeTitle(done[0].show!.songTitle),
+    bakedAudio: !genericPlayer && !!done[0]?.show?.audio,
+    preferredTrack: genericPlayer ? '' : safeTitle(done[0].show!.songTitle),
+    genericPlayer,
     fqbn: opts.fqbn,
     psramAllowed: opts.psramAllowed,
   })

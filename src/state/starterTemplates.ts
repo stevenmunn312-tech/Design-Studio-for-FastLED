@@ -280,10 +280,10 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   template({
     id: 'generative-show',
     name: 'Generative Show',
-    description: 'Build a live show from reusable pattern groups, then let Show Engine choose and transition between them.',
+    description: 'Build a live show from reusable pattern groups, then let Music Player choose and transition between them.',
     completionSteps: [
       'Build a pattern, select its nodes, create a Group, then connect that Group frame to Pattern Collection.',
-      'Add at least two pattern groups; tune Show Engine dwell and transition timing.',
+      'Add at least two pattern groups; tune Music Player dwell and transition timing.',
       'Optionally add Transitions or a microphone beat before testing the show in the preview.',
       'Upload the controller sketch from the LED output once the collection has patterns.',
     ],
@@ -293,7 +293,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 2, row: 0 },
       tutorialNote(
         'guide', 0, -1,
-        'BUILD A SHOW\nGroup a pattern, then connect its Frame to Pattern Collection.\nAdd 2+ patterns for Show Engine.',
+      'BUILD A SHOW\nGroup a pattern, then connect its Frame to Pattern Collection.\nAdd 2+ patterns for Music Player.',
         TRY_COLOR,
       ),
     ],

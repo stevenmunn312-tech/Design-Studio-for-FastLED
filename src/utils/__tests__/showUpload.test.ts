@@ -20,6 +20,39 @@ function node(
 }
 
 describe('buildShowPlayer', () => {
+  it('builds an unpaired-track Music Player for a PatternMaster collection', () => {
+    const groups = {
+      solid: {
+        nodes: [node('color', 'SolidColor', { r: 12, g: 34, b: 56 }), node('out', 'GroupOutput')],
+        edges: [{ id: 'color-out', source: 'color', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' }],
+      },
+    } as GroupRegistry
+    const nodes = [
+      node('player', 'PatternMaster'),
+      node('collection', 'PatternCollection', { patternIds: ['solid'] }),
+      node('sd', 'SDCard'),
+      node('amp', 'Amplifier', { model: 'MAX98357A' }),
+      node('led', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ]
+    const edges = [
+      { id: 'collection-player', source: 'collection', sourceHandle: 'patternset', target: 'player', targetHandle: 'patternset' },
+      { id: 'player-led', source: 'player', sourceHandle: 'frame', target: 'led', targetHandle: 'frame' },
+    ] as Edge[]
+
+    const sketch = buildShowPlayer(nodes, edges, groups, {
+      patternSet: ['solid'],
+      bakedAudio: false,
+      preferredTrack: '',
+      genericPlayer: true,
+    })
+
+    expect(sketch).toContain('static const bool GENERIC_PLAYER = true;')
+    expect(sketch).toContain('Playing (generic)')
+    expect(sketch).toContain('No MP3 files found on the card')
+    expect(sketch).toContain('audioFadeTarget')
+    expect(sketch).toContain('leds[i].nscale8')
+  })
+
   it('compiles collection audio against the decoder tap even without a baked envelope', () => {
     const groups = {
       reactive: {

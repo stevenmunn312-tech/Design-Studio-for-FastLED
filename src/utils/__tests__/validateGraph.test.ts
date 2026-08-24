@@ -205,7 +205,7 @@ describe('validateGraph', () => {
     ]
     const wires = [edge('e1', 'pm', 'out', 'frame')]
     expect(findShowOutputFormErrors(ring, wires)).toEqual([
-      expect.stringMatching(/ring cannot be driven by the Show Engine/),
+      expect.stringMatching(/ring cannot be driven by the Music Player/),
     ])
 
     const strip = [ring[0], ring[1], node('out', 'MatrixOutput', { form: 'strip', ledCount: 60 })]
@@ -224,7 +224,7 @@ describe('validateGraph', () => {
       node('out', 'MatrixOutput', { form: 'corkscrew', ledCount: 120, corkscrewTurns: 6 }),
     ]
     expect(findShowOutputFormErrors(nodes, [edge('e1', 'pm', 'out', 'frame')])).toEqual([
-      expect.stringMatching(/corkscrew cannot be driven by the Show Engine.*helical LED map/),
+      expect.stringMatching(/corkscrew cannot be driven by the Music Player.*helical LED map/),
     ])
   })
 
@@ -571,7 +571,7 @@ describe('validateGraph', () => {
     const nodes = [node('pm', 'PatternMaster'), node('out', 'MatrixOutput')]
     const edges = [edge('e1', 'pm', 'out', 'frame')]
     const { warnings } = validateGraph(nodes, edges)
-    expect(warnings.some(w => w.includes('Show Engine'))).toBe(true)
+    expect(warnings.some(w => w.includes('Music Player'))).toBe(true)
   })
 
   it('does not warn about PatternMaster when a collection is wired', () => {
@@ -581,7 +581,7 @@ describe('validateGraph', () => {
       edge('e2', 'pm', 'out', 'frame'),
     ]
     const { warnings } = validateGraph(nodes, edges)
-    expect(warnings.some(w => w.includes('Show Engine'))).toBe(false)
+    expect(warnings.some(w => w.includes('Music Player'))).toBe(false)
   })
 
   function collection(id: string, patternIds: string[]): StudioNode {

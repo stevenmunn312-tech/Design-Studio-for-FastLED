@@ -855,7 +855,7 @@ function workflowExample(node: NodeDefinition): ReferenceLiveExample {
   return builder.finish(
     `Place ${node.label} in the real show workflow`,
     `${node.label}: ${description} This graph shows only the nodes that actually participate in that workflow; add pattern groups or analysed songs inside the featured node before expecting show content.`,
-    `${node.label} changes show authoring or export state rather than generating standalone pixels. Use its node body to add the required assets, then preview the show in Show Engine or Performance Generator.`,
+    `${node.label} changes show authoring or export state rather than generating standalone pixels. Use its node body to add the required assets, then preview the show in Music Player or Performance Generator.`,
     'workflow',
   )
 }
@@ -1256,6 +1256,18 @@ export const RTC_CLOCK_LIVE_EXAMPLE = namedExample(
   'The Clock Display node preview simulates a healthy DS3231 and shows the pinned documentation time. On hardware, it shows dashes until the connected module has trustworthy battery-backed time.',
 )
 
+const STORAGE_LIVE_EXAMPLE = namedExample(
+  'Storage',
+  'Configure a storage provider',
+  [
+    { key: 'storage', type: 'Storage' },
+    { key: 'color', type: 'SolidColor', properties: { r: 12, g: 34, b: 56 } },
+  ],
+  [],
+  'Storage is a capability used by player and file workflows. It records the configured provider without becoming part of the LED frame path.',
+  'The solid colour keeps the example previewable while Storage remains available to the player workflow.',
+)
+
 const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   Audio: AUDIO_CAPABILITY_LIVE_EXAMPLE,
   MicInput: MICROPHONE_LIVE_EXAMPLE,
@@ -1272,6 +1284,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   AudioHue: AUDIO_HUE_LIVE_EXAMPLE,
   RTCInput: RTC_CLOCK_LIVE_EXAMPLE,
   ClockDisplay: RTC_CLOCK_LIVE_EXAMPLE,
+  Storage: STORAGE_LIVE_EXAMPLE,
 }
 
 /** Build a varied, node-specific example for any library definition. */

@@ -86,7 +86,7 @@ describe('StudioNode', () => {
   it('shows an honest empty state when Audio has no attached source', () => {
     const { getByText, queryByRole } = renderNode(makeNode('Audio', { sourceId: '' }))
     expect(getByText('No audio source attached')).toBeTruthy()
-    expect(getByText('Add a microphone or line-in ADC, or configure an SD music player.')).toBeTruthy()
+    expect(getByText('Add a microphone, line-in ADC, or SD card player with an amplifier.')).toBeTruthy()
     expect(queryByRole('combobox', { name: 'Audio source' })).toBeNull()
   })
 

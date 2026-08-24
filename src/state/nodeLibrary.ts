@@ -2081,14 +2081,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
 
-  // ── Show Engine — the generative show engine (Phase 3) ─────────────────
+  // ── Music Player — the live, decoder-driven pattern player ───────────────
   {
     // Runs a random show from a Pattern Collection: holds a random pattern for
     // a random dwell (minTime…maxTime), then transitions (a random style from
     // the chosen pool) into another. A wired `beat` advances early (after
     // minTime). See docs/development/design/generative-pattern-show.md.
     type: 'PatternMaster',
-    label: 'Show Engine',
+    label: 'Music Player',
     category: 'show',
     inputs: [
       { id: 'patternset',  label: 'Patterns',    dataType: 'patternset' },
@@ -2986,8 +2986,8 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   FrameFeedback: 'Recursive delay — blend a faded prior output over the live input.',
   Transition: 'Transitions A→B — 16 styles: wipe, iris, push, blinds, spiral, zoom + more.',
   Sequencer: 'Crossfades through its inputs on a timer.',
-  PatternCollection: 'Absorbs pattern groups into a set for the Show Engine.',
-  TransitionSet: 'A pool of transition styles for the Show Engine / Performance Generator.',
+  PatternCollection: 'Absorbs pattern groups into a set for the Music Player or Performance Generator.',
+  TransitionSet: 'A pool of transition styles for the Music Player / Performance Generator.',
   // output
   Board: 'The controller board — exact model, its pins, and what it supports.',
   MatrixOutput: 'An LED output for strings, matrices, rings, corkscrews, and HUB75 panels.',

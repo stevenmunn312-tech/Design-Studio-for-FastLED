@@ -148,7 +148,7 @@ export function generatePlayerSketch(
   // in /music" can play a song left over from an earlier session — paired with
   // that song's show, which makes the mismatch look like a sync bug rather
   // than the wrong file.
-  opts: { audioEnvelope?: boolean; decoderTap?: boolean; preferredTrack?: string; psramAllowed?: boolean } = {},
+  opts: { audioEnvelope?: boolean; decoderTap?: boolean; preferredTrack?: string; genericPlayer?: boolean; psramAllowed?: boolean } = {},
 ): string {
   const raw = { ...DEFAULTS, ...cfg }
   const c = {
@@ -168,6 +168,7 @@ export function generatePlayerSketch(
   const collection = !!(renderers && renderers.count > 0)
   const bakedAudio = !!opts.audioEnvelope
   const decoderTap = collection && opts.decoderTap === true
+  const genericPlayer = collection && opts.genericPlayer === true
   const reactiveAudio = bakedAudio || decoderTap
   const internalDac = c.audioOutput === 'internalDac'
   // A stale saved toggle must never put ESP32-only allocation calls into a
@@ -509,6 +510,7 @@ ${isHub75 ? '' : `#define LED_DATA_PIN  ${c.ledDataPin}\n`}${clockPinDefine}#def
 // Safe title (no extension) of the track this sketch was built for. Empty when
 // the payload had none, in which case the loader falls back to scanning.
 static const char* PREFERRED_TRACK = ${JSON.stringify(opts.preferredTrack ?? '')};
+static const bool GENERIC_PLAYER = ${genericPlayer ? 'true' : 'false'};
 ${internalDac ? '' : `#define I2S_BCLK      ${c.i2sBclk}\n#define I2S_LRC       ${c.i2sLrc}\n#define I2S_DOUT      ${c.i2sDout}\n`}
 
 // ── Show file binary format ───────────────────────────────────────────────────
@@ -559,6 +561,7 @@ void audio_eof_mp3(const char* info) {
 ShowEvent* showEvents = nullptr;
 uint32_t   eventCount = 0;
 uint32_t   eventIdx   = 0;
+uint16_t   genericTrackIndex = 0;
 float      animSpeed  = 1.0f;
 uint8_t    patternId  = ${collection ? 0 : 2};        // active pattern${collection ? ' index' : ' (default: Plasma)'}
 uint8_t    prevPatternId = ${collection ? 0 : 2};     // outgoing pattern during a transition
@@ -837,6 +840,34 @@ bool startPlayback() {
   bool started = false;
   audioEnded = false;
   audioPosMs = 0;
+${genericPlayer ? `
+  if (GENERIC_PLAYER) {
+    File root = SD.open("/music");
+    File entry = root.openNextFile();
+    uint16_t seen = 0;
+    while (entry) {
+      String name = entry.name();
+      if ((name.endsWith(".mp3") || name.endsWith(".MP3")) && seen++ >= genericTrackIndex) {
+        String path = "/music/" + name;
+        if (audio.connecttoFS(SD, path.c_str())) {
+          showDurationMs = 0;
+          eventCount = 0;
+          eventIdx = 0;
+          Serial.printf("Playing (generic): %s\\n", path.c_str());
+          primeAudioDecoder();
+          return true;
+        }
+      }
+      entry = root.openNextFile();
+    }
+    if (genericTrackIndex != 0) {
+      genericTrackIndex = 0;
+      return startPlayback();
+    }
+    Serial.println("No MP3 files found on the card");
+    return false;
+  }
+` : ''}
   if (PREFERRED_TRACK[0]) {
     String mp3  = String("/music/") + PREFERRED_TRACK + ".mp3";
     String show = String("/shows/") + PREFERRED_TRACK + ".show";
@@ -1132,6 +1163,13 @@ void loop() {
   audio.loop();
 ${decoderTap ? '  updateDecoderAudio();  // drain PCM only after the decoder has fed I2S/DAC\n' : ''}
 
+${genericPlayer ? `  if (GENERIC_PLAYER && audioEnded) {
+    genericTrackIndex++;
+    startPlayback();
+    return;
+  }
+` : ''}
+
   // getAudioCurrentTime() is the library's own elapsed-playback-time tracker
   // (seconds) — use it directly rather than reconstructing position from
   // getFilePos()*8/getBitRate(): getBitRate() returns the *instantaneous*
@@ -1152,6 +1190,30 @@ ${decoderTap ? '  updateDecoderAudio();  // drain PCM only after the decoder has
 ${bakedAudio ? decoderTap
     ? '  if (!_decoderTapLive) updateShowAudio(posMs);  // startup/failure fallback\n'
     : '  updateShowAudio(posMs);   // song-synced FFT → pattern audio globals\n' : ''}
+${genericPlayer ? `  // Unknown tracks have no pre-baked event timeline. Rotate the
+  // collected patterns on a simple wall-clock cadence while their own audio
+  // nodes react to the live decoder signal.
+  if (GENERIC_PLAYER && ${collection ? renderers?.count ?? 0 : 0} > 1) {
+    uint8_t nextPattern = (uint8_t)((posMs / 8000UL) % ${collection ? renderers?.count ?? 1 : 1});
+    if (nextPattern != patternId) {
+      prevPatternId = patternId;
+      patternId = nextPattern;
+      transType = 0;
+      transStart = posMs;
+      transDurMs = 1000.0f;
+    }
+  }
+` : ''}
+${genericPlayer ? `  // Fade the player down during genuine silence. Release is slower
+  // than attack so short pauses do not make the LEDs flicker.
+  float audioEnergy = constrain((_audioBass + _audioMids + _audioTreble) / 3.0f, 0.0f, 1.0f);
+  float audioFadeTarget = audioEnergy <= 0.025f
+    ? 0.0f
+    : constrain((audioEnergy - 0.025f) / 0.18f, 0.0f, 1.0f);
+  static float audioFade = 0.0f;
+  float audioFadeRate = audioFadeTarget < audioFade ? 0.045f : 0.18f;
+  audioFade += (audioFadeTarget - audioFade) * audioFadeRate;
+` : ''}
   float t = posMs / 1000.0f;
   // Transition: while one is running, render the outgoing pattern into showA and
   // the incoming one into showB, then composite A→B into leds by its style.
@@ -1287,6 +1349,11 @@ ${bakedAudio ? decoderTap
       leds[yi * WIDTH + xi] += s;
     }
   }
+
+${genericPlayer ? `  for (int i = 0; i < NUM_LEDS; i++) {
+    leds[i].nscale8((uint8_t)constrain(audioFade * 255.0f, 0.0f, 255.0f));
+  }
+` : ''}
 
   ${isHub75 ? hub75BlitRowsCpp(hub75Hw!).map((line) => line.replace(/^ {2}/, '')).join('\n  ') : 'FastLED.show();'}
   FastLED.delay(16);  // ~60 fps

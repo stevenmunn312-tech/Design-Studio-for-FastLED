@@ -36,17 +36,20 @@ export function audioCapabilitySources(nodes: readonly StudioNode[]): AudioCapab
       node,
     }))
 
-  // The software decoder is a real on-device source only in the SD-player
-  // workflow. An SD card by itself is ordinary storage; a Performance
-  // Generator is what says the board will decode music from it. Tie the stable
-  // capability id to the card, which is the physical part that persists on the
-  // bench, while the player sketch taps the decoded PCM before I2S/DAC output.
+  // The software decoder is a real on-device source only in the Music Player
+  // workflow. Storage and an output device are both required: the card tells
+  // us where the music comes from and the amplifier tells us that this build
+  // is an audio player. Performance Generator remains the separate pre-baked
+  // show workflow, but is accepted here for backwards-compatible projects.
   const sdCard = nodes.find((node) => node.data.nodeType === 'SDCard')
-  const hasPlayer = nodes.some((node) => node.data.nodeType === 'PerformanceGenerator')
-  const decoder: AudioCapabilitySource[] = sdCard && hasPlayer
+  const hasAmplifier = nodes.some((node) => node.data.nodeType === 'Amplifier')
+  const hasPlayer = nodes.some((node) =>
+    node.data.nodeType === 'PatternMaster' || node.data.nodeType === 'PerformanceGenerator',
+  )
+  const decoder: AudioCapabilitySource[] = sdCard && hasAmplifier && hasPlayer
     ? [{
         id: `decoder:${sdCard.id}`,
-        label: 'On-board playback (decoder tap)',
+        label: 'Audio Decoder',
         kind: 'decoder',
         node: sdCard,
       }]
