@@ -36,7 +36,7 @@ import {
 import styles from './LEDPreview.module.css'
 import { frameAmbient } from '../../utils/signalVisual'
 import { idleFrame } from './idleFrame'
-import { publishStreamFrame } from '../../state/streamStore'
+import { publishOutputStreamFrame, publishStreamFrame, useStreamStore } from '../../state/streamStore'
 import { compositionDims, outputRoutes, routeFrame } from '../../state/outputRouting'
 import { exitStagePresentation } from '../../utils/stagePresentation'
 import { controllerSettings } from '../../state/controllerSettings'
@@ -218,6 +218,7 @@ export default function LEDPreview() {
   // Reused across frames by routeFrame so the routed/brightness-scaled frame
   // isn't reallocated every 60fps tick (the main preview-pipeline GC churn).
   const routeBufRef = useRef<Frame | null>(null)
+  const streamRouteBufRef = useRef<Frame | null>(null)
   const glRef       = useRef<WebGLLEDRenderer | null>(null)
   const tickRef     = useRef(0)
   const animRef     = useRef<number>(0)
@@ -588,7 +589,42 @@ export default function LEDPreview() {
         // the stream's width/height gate permanently disagree with the
         // receiver's correctly unclamped baked size, silently dropping every
         // frame forever (no error, fps stuck at 0) on any 1-row/1-col strip.
-        publishStreamFrame(frame, frame[0]?.length ?? 0, frame.length)
+        publishStreamFrame(frame, frame[0]?.length ?? 0, frame.length, selectedRoute?.id)
+
+        // Live Stream belongs to the LED output whose deploy tools flashed the
+        // receiver, not whichever output happens to be selected in the preview
+        // header. EvaluateGraphFull already produced every terminal, so route
+        // and publish that one separately when the two selections differ.
+        const streamState = useStreamStore.getState()
+        const streamOutputId = streamState.streaming ? streamState.layout?.outputId : undefined
+        if (streamOutputId && streamOutputId !== selectedRoute?.id) {
+          const streamRoute = routes.find((route) => route.id === streamOutputId)
+          if (streamRoute) {
+            const streamRendered = (outputs.get(streamRoute.id)?.frame as Frame | null | undefined) ?? null
+            let streamFrame = routeFrame(
+              streamRendered,
+              streamRoute,
+              composition.w,
+              composition.h,
+              streamRouteBufRef.current,
+            )
+            if (streamFrame) streamRouteBufRef.current = streamFrame
+            streamFrame = applyMasterBrightness(streamFrame, controller.brightness)
+            if (!streamFrame) {
+              streamFrame = clearOutputFrame(streamRouteBufRef.current, streamRoute.width, streamRoute.height)
+              streamRouteBufRef.current = streamFrame
+            }
+            streamFrame = applyShowPlaybackSignal(
+              streamFrame,
+              useShowPlayback.getState(),
+              streamRoute.width,
+              streamRoute.height,
+              groups,
+              trusted,
+            )
+            publishOutputStreamFrame(streamFrame, streamRoute.width, streamRoute.height, streamRoute.id)
+          }
+        }
 
         const bw = canvasBufWRef.current, bh = canvasBufHRef.current
         const drawStart = PERF_TELEMETRY ? performance.now() : 0

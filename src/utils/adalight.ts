@@ -50,7 +50,7 @@ export function buildAdalightPacket(frame: Frame, layout: PacketLayout): Uint8Ar
 /** The same packet from an already-packed row-major RGB buffer (3 bytes per
  *  pixel, `width * height * 3` long). The live-stream path uses this so it
  *  never has to hold a reference to a pooled evaluator `Frame` — see
- *  `publishStreamFrame` in streamStore.ts. Produces byte-for-byte the same
+ *  the packed-frame publishers in streamStore.ts. Produces byte-for-byte the same
  *  packet as the `Frame` overload above for equivalent pixels. */
 export function buildAdalightPacketFromRgb(rgb: Uint8ClampedArray, layout: PacketLayout): Uint8Array {
   const { width, height, serpentine } = layout

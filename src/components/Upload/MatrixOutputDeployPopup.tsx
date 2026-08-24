@@ -313,7 +313,7 @@ export default function MatrixOutputDeployPopup({
   const readinessIssues = readiness.filter((row) => row.state !== 'ready').map((row) => `${row.label}: ${row.detail}`)
   const hasReadinessIssues = readinessIssues.length > 0
 
-  const streamLayout = useMemo(() => streamLayoutForGraph(nodes), [nodes])
+  const streamLayout = useMemo(() => streamLayoutForGraph(nodes, nodeId), [nodes, nodeId])
   async function offerValidationAfter(action: HardwareValidationAction, operation: Promise<void> | void) {
     await operation
     if (useUploadStore.getState().status.phase !== 'done') return
@@ -329,7 +329,7 @@ export default function MatrixOutputDeployPopup({
   }
 
   function handleFlashReceiver() {
-    const sketch = generateStreamReceiverSketch(nodes)
+    const sketch = generateStreamReceiverSketch(nodes, nodeId)
     if (sketch) runUpload(sketch, usePsram ? psramChoice?.opt : undefined, { cache: false })
   }
   function handleFlashWiringTest() {

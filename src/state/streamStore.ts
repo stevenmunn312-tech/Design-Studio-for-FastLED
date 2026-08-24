@@ -23,28 +23,69 @@ let latestRgb: Uint8ClampedArray | null = null
 let latestW = 0
 let latestH = 0
 
-export function publishStreamFrame(frame: Frame, width: number, height: number) {
-  if (width <= 0 || height <= 0) {
-    latestRgb = null
-    latestW = 0
-    latestH = 0
-    return
-  }
+interface PackedOutputFrame {
+  bytes: Uint8ClampedArray
+  width: number
+  height: number
+}
+
+// A stream receiver is flashed for one concrete LED output. Keep the latest
+// packed frame per route so changing the output shown in the preview header
+// cannot silently send a different pattern/palette to that receiver.
+const latestOutputFrames = new Map<string, PackedOutputFrame>()
+
+function packFrame(
+  frame: Frame,
+  width: number,
+  height: number,
+  reuse: Uint8ClampedArray | null,
+): Uint8ClampedArray | null {
+  if (width <= 0 || height <= 0) return null
   const needed = width * height * 3
-  // Reused across ticks; reallocated only when the matrix is resized.
-  if (!latestRgb || latestRgb.length !== needed) latestRgb = new Uint8ClampedArray(needed)
+  const packed = reuse?.length === needed ? reuse : new Uint8ClampedArray(needed)
   let at = 0
   for (let y = 0; y < height; y++) {
     const row = frame[y]
     for (let x = 0; x < width; x++) {
       const px = row?.[x]
-      latestRgb[at++] = px?.r ?? 0
-      latestRgb[at++] = px?.g ?? 0
-      latestRgb[at++] = px?.b ?? 0
+      packed[at++] = px?.r ?? 0
+      packed[at++] = px?.g ?? 0
+      packed[at++] = px?.b ?? 0
     }
+  }
+  return packed
+}
+
+/** Publish the route drawn in the main preview. It remains the recorder's
+ * snapshot source and is also registered when it is the active stream route. */
+export function publishStreamFrame(frame: Frame, width: number, height: number, outputId?: string) {
+  latestRgb = packFrame(frame, width, height, latestRgb)
+  if (!latestRgb) {
+    latestRgb = null
+    latestW = 0
+    latestH = 0
+    if (outputId) latestOutputFrames.delete(outputId)
+    return
   }
   latestW = width
   latestH = height
+  const streamState = useStreamStore.getState()
+  if (outputId && streamState.streaming && streamState.layout?.outputId === outputId) {
+    const existing = latestOutputFrames.get(outputId)
+    const bytes = packFrame(frame, width, height, existing?.bytes ?? null)!
+    latestOutputFrames.set(outputId, { bytes, width, height })
+  }
+}
+
+/** Publish a non-selected route solely for its flashed stream receiver. */
+export function publishOutputStreamFrame(frame: Frame, width: number, height: number, outputId: string) {
+  if (width <= 0 || height <= 0) {
+    latestOutputFrames.delete(outputId)
+    return
+  }
+  const existing = latestOutputFrames.get(outputId)
+  const bytes = packFrame(frame, width, height, existing?.bytes ?? null)!
+  latestOutputFrames.set(outputId, { bytes, width, height })
 }
 
 /** The most recently rendered preview frame (post-brightness, post-show-
@@ -93,20 +134,26 @@ export const useStreamStore = create<StreamState>((set, get) => ({
     sentCount = 0
     lastFpsTick = performance.now()
     sendTimer = setInterval(() => {
-      if (inFlight || !latestRgb) return
+      if (inFlight) return
+      const published = layout.outputId
+        ? latestOutputFrames.get(layout.outputId)
+        : latestRgb
+          ? { bytes: latestRgb, width: latestW, height: latestH }
+          : undefined
+      if (!published) return
       // The matrix was resized/reconfigured since the receiver was flashed —
       // skip until the sizes line up again rather than sending a mismatched
       // packet (the receiver has NUM_LEDS baked in at flash time). Say so:
       // silently dropping every frame reads as "streaming, 0 fps" with no
       // explanation, which is exactly how an earlier 1-row-strip bug hid.
-      if (latestW !== layout.width || latestH !== layout.height) {
-        const message = `Matrix is now ${latestW}×${latestH} but the receiver was flashed for ${layout.width}×${layout.height} — re-flash the stream receiver, or restore the previous size.`
+      if (published.width !== layout.width || published.height !== layout.height) {
+        const message = `Matrix is now ${published.width}×${published.height} but the receiver was flashed for ${layout.width}×${layout.height} — re-flash the stream receiver, or restore the previous size.`
         if (get().error !== message) set({ error: message })
         return
       }
       if (get().error) set({ error: null })
       inFlight = true
-      const packet = buildAdalightPacketFromRgb(latestRgb, layout)
+      const packet = buildAdalightPacketFromRgb(published.bytes, layout)
       void sendStreamFrame(packet).then((ok) => {
         inFlight = false
         if (!ok) {

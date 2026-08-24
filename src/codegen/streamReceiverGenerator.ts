@@ -15,17 +15,31 @@ import { amplifierIdleCpp } from './amplifierIdle'
 // shows them. The frontend already resolves serpentine wiring into physical
 // strip order before sending, so the receiver writes bytes straight into
 // `leds[]` with no XY() remap of its own.
-export interface StreamLayout { width: number; height: number; serpentine: boolean; baud: number }
+export interface StreamLayout {
+  outputId: string
+  width: number
+  height: number
+  serpentine: boolean
+  baud: number
+}
+
+function streamOutputNode(nodes: StudioNode[], outputNodeId?: string): StudioNode | undefined {
+  if (outputNodeId) {
+    return nodes.find((node) => node.id === outputNodeId && node.data.nodeType === 'MatrixOutput')
+  }
+  return nodes.find((node) => node.data.nodeType === 'MatrixOutput')
+}
 
 /** Resolve the layout the receiver sketch (and the packet builder) must agree
  *  on, from the graph's MatrixOutput node. Returns null if there isn't one. */
-export function streamLayoutForGraph(nodes: StudioNode[]): StreamLayout | null {
-  const outputNode = nodes.find((n) => n.data.nodeType === 'MatrixOutput')
+export function streamLayoutForGraph(nodes: StudioNode[], outputNodeId?: string): StreamLayout | null {
+  const outputNode = streamOutputNode(nodes, outputNodeId)
   if (!outputNode) return null
   const p = outputNode.data.properties as Record<string, unknown>
   const grid = outputGridDims(p)
   const form = outputForm(p)
   return {
+    outputId: outputNode.id,
     width: grid.width,
     height: grid.height,
     // Per-pixel serpentine wiring is an addressable-strip concept — HUB75 has
@@ -41,10 +55,10 @@ export function streamLayoutForGraph(nodes: StudioNode[]): StreamLayout | null {
 }
 
 /** Generate the receiver `.ino` for the graph's MatrixOutput hardware config. */
-export function generateStreamReceiverSketch(nodes: StudioNode[]): string | null {
-  const outputNode = nodes.find((n) => n.data.nodeType === 'MatrixOutput')
+export function generateStreamReceiverSketch(nodes: StudioNode[], outputNodeId?: string): string | null {
+  const outputNode = streamOutputNode(nodes, outputNodeId)
   if (!outputNode) return null
-  const layout = streamLayoutForGraph(nodes)
+  const layout = streamLayoutForGraph(nodes, outputNode.id)
   if (!layout) return null
   const p = outputNode.data.properties as Record<string, unknown>
   const dataPin = sanitizePin(p.dataPin, 5)
@@ -58,7 +72,7 @@ export function generateStreamReceiverSketch(nodes: StudioNode[]): string | null
   lines.push('// Design Studio for FastLED — generic live-stream receiver (Adalight protocol).')
   lines.push('// Flash this once; the studio then pushes frames over serial at runtime')
   lines.push('// via the ✎ Live Stream control on the LED output. Re-flash only if')
-  lines.push('// the output geometry, chipset, pins, or serpentine wiring change.')
+  lines.push('// the output geometry, chipset, pins, color order/correction, or wiring change.')
   lines.push(...overclockDefineCpp(hw))
   lines.push('#include <FastLED.h>')
   if (isHub75) lines.push(...hub75IncludesCpp(hub75Hw!))
@@ -84,7 +98,12 @@ export function generateStreamReceiverSketch(nodes: StudioNode[]): string | null
   lines.push(...amplifierIdle.setup)
   lines.push(`  Serial.begin(${layout.baud});`)
   if (isHub75) lines.push(...hub75SetupCpp(hub75Hw!))
-  else lines.push(...fastledSetupCpp(hw))
+  // The browser publishes the same post-master-brightness frame it draws in
+  // the preview. Applying the Board brightness here as well scales every
+  // streamed channel twice and makes the physical colours diverge from that
+  // preview, especially at lower master levels. Keep the transport receiver
+  // neutral; color order/correction still belong to the physical controller.
+  else lines.push(...fastledSetupCpp(hw, { brightness: 255 }))
   lines.push('}')
   lines.push('')
   lines.push('// Returns -1 after READ_TIMEOUT_MS with nothing available instead of blocking')

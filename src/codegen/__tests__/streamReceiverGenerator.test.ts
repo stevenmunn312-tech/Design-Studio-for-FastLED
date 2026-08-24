@@ -20,7 +20,7 @@ describe('streamLayoutForGraph', () => {
 
   it('resolves width/height/serpentine from MatrixOutput', () => {
     const layout = streamLayoutForGraph([outputNode])
-    expect(layout).toEqual({ width: 8, height: 12, serpentine: false, baud: 921600 })
+    expect(layout).toEqual({ outputId: 'out', width: 8, height: 12, serpentine: false, baud: 921600 })
   })
 
   it('picks up serpentine when set', () => {
@@ -42,8 +42,19 @@ describe('streamLayoutForGraph', () => {
       form, ledCount: 120, width: 16, height: 16, serpentine: true,
     })
     expect(streamLayoutForGraph([out])).toEqual({
-      width: 120, height: 1, serpentine: false, baud: 921600,
+      outputId: 'out', width: 120, height: 1, serpentine: false, baud: 921600,
     })
+  })
+
+  it('resolves the explicitly selected LED output instead of silently using the first one', () => {
+    const second = node('ice-output', 'MatrixOutput', 'output', {
+      width: 24, height: 1, form: 'strip', ledCount: 24, chipset: 'WS2812B', colorOrder: 'RGB', dataPin: 18,
+    })
+
+    expect(streamLayoutForGraph([outputNode, second], 'ice-output')).toEqual({
+      outputId: 'ice-output', width: 24, height: 1, serpentine: false, baud: 921600,
+    })
+    expect(streamLayoutForGraph([outputNode, second], 'missing-output')).toBeNull()
   })
 })
 
@@ -76,6 +87,25 @@ describe('generateStreamReceiverSketch', () => {
   it('initialises FastLED with the configured chipset/order', () => {
     const sketch = generateStreamReceiverSketch([outputNode])!
     expect(sketch).toContain('FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);')
+  })
+
+  it('generates for the selected output hardware rather than the first output', () => {
+    const second = node('ice-output', 'MatrixOutput', 'output', {
+      width: 24, height: 1, form: 'strip', ledCount: 24, chipset: 'WS2812B', colorOrder: 'RGB', dataPin: 18,
+    })
+    const sketch = generateStreamReceiverSketch([outputNode, second], 'ice-output')!
+
+    expect(sketch).toContain('#define WIDTH 24')
+    expect(sketch).toContain('#define HEIGHT 1')
+    expect(sketch).toContain('#define DATA_PIN 18')
+    expect(sketch).toContain('FastLED.addLeds<WS2812B, DATA_PIN, RGB>(leds, NUM_LEDS);')
+    expect(sketch).not.toContain('#define DATA_PIN 5')
+  })
+
+  it('does not apply master brightness twice to already-adjusted stream pixels', () => {
+    const sketch = generateStreamReceiverSketch([outputNode])!
+    expect(sketch).toContain('FastLED.setBrightness(255);')
+    expect(sketch).not.toContain('FastLED.setBrightness(200);')
   })
 
   it('holds a configured I2S amplifier quiet while receiving LED frames', () => {

@@ -35,6 +35,12 @@ versioning (`0.y.z`) until the first stable release.
   detection from the selected port's USB identity, with explicit Native USB
   and UART bridge overrides for ambiguous devices.
 
+### Fixed
+
+- Live Stream now sends the palette and RGB frame for the LED output whose
+  receiver was flashed, even when another output is selected in the preview,
+  and no longer applies the Board master brightness a second time on-device.
+
 ## [0.7.0] - 2026-08-09
 
 ### Added

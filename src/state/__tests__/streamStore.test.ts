@@ -11,7 +11,7 @@ async function freshStore() {
   return import('../streamStore')
 }
 
-const LAYOUT = { width: 16, height: 16, baud: 921600, map: [] } as never
+const LAYOUT = { outputId: '', width: 16, height: 16, serpentine: false, baud: 921600 }
 
 function frame(width: number, height: number) {
   return Array.from({ length: height }, () =>
@@ -58,6 +58,26 @@ describe('streamStore', () => {
     const packet = sendStreamFrame.mock.calls[0][0]
     // Pixel (0,0) is the first RGB triple after the 6-byte Adalight header.
     expect([...packet.slice(6, 9)]).toEqual([10, 20, 30])
+  })
+
+  it('streams the flashed output route even when another route is selected in the preview', async () => {
+    const { useStreamStore, publishStreamFrame, publishOutputStreamFrame } = await freshStore()
+    const layout = { ...LAYOUT, outputId: 'ice-output' }
+    await useStreamStore.getState().start('COM3', layout)
+
+    const selectedPreview = frame(16, 16)
+    selectedPreview[0][0] = { r: 255, g: 0, b: 0 }
+    publishStreamFrame(selectedPreview, 16, 16, 'warm-output')
+
+    const streamedOutput = frame(16, 16)
+    streamedOutput[0][0] = { r: 3, g: 80, b: 220 }
+    publishOutputStreamFrame(streamedOutput, 16, 16, 'ice-output')
+
+    await vi.advanceTimersByTimeAsync(100)
+
+    expect(sendStreamFrame).toHaveBeenCalled()
+    const packet = sendStreamFrame.mock.calls[0][0]
+    expect([...packet.slice(6, 9)]).toEqual([3, 80, 220])
   })
 
   it('keeps snapshot copies stable while later frames are published', async () => {
