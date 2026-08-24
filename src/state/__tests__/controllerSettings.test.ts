@@ -28,10 +28,9 @@ describe('controllerSettings', () => {
       usePsram: true,
       psramPolicy: 'on',
       psramMode: 'opi',
-      // Off unless the Board says otherwise: enabling it moves where the
-      // user's serial output goes, so it is never inferred.
+      // A missing legacy false/default now adopts the safe automatic route.
       usbCdcOnBoot: false,
-      serialRoute: 'uart',
+      serialRoute: 'auto',
     })
     expect(ledPropsWithController({ brightness: 20, overclock: 1.7, dataPin: 5 }, nodes))
       .toEqual(expect.objectContaining({ brightness: 144, overclock: 1.25, dataPin: 5 }))
@@ -66,6 +65,37 @@ describe('controllerSettings', () => {
     expect(settings.usePsram).toBe(false)
   })
 
+  it('defaults missing legacy policies to Auto when the exact board can resolve them', () => {
+    const settings = controllerSettings([
+      node('board', 'Board', {
+        profileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
+        usePsram: false,
+        usbCdcOnBoot: false,
+      }),
+    ])
+
+    expect(settings).toMatchObject({
+      usePsram: true,
+      psramPolicy: 'auto',
+      psramMode: 'opi',
+      usbCdcOnBoot: false,
+      serialRoute: 'auto',
+    })
+  })
+
+  it('preserves affirmative legacy memory and native-USB overrides', () => {
+    const settings = controllerSettings([
+      node('board', 'Board', { usePsram: true, usbCdcOnBoot: true }),
+    ])
+
+    expect(settings).toMatchObject({
+      usePsram: true,
+      psramPolicy: 'on',
+      usbCdcOnBoot: true,
+      serialRoute: 'native',
+    })
+  })
+
   it('sums legacy output caps when no Board exists', () => {
     const settings = controllerSettings([
       node('out-a', 'MatrixOutput', { brightness: 180, powerLimit: true, volts: 5, milliamps: 2000 }),
@@ -74,5 +104,7 @@ describe('controllerSettings', () => {
     expect(settings.brightness).toBe(180)
     expect(settings.powerLimit).toBe(true)
     expect(settings.milliamps).toBe(5000)
+    expect(settings.psramPolicy).toBe('auto')
+    expect(settings.serialRoute).toBe('auto')
   })
 })

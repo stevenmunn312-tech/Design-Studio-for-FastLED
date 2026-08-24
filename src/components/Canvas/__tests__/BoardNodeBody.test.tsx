@@ -37,7 +37,10 @@ function reset(nodes: StudioNode[]) {
 }
 
 describe('BoardNodeBody', () => {
-  beforeEach(() => reset([boardNode('b1')]))
+  beforeEach(() => {
+    reset([boardNode('b1')])
+    useUploadStore.setState({ selectedFqbn: '', selectedPort: '', ports: [] } as never)
+  })
 
   it('starts unset and offers every populated board family', () => {
     render(<BoardNodeBody nodeId="b1" />)
@@ -93,6 +96,28 @@ describe('BoardNodeBody', () => {
     // Profiles list the specific FQBN first, the family fallback after, so
     // upload targets the closest match rather than the generic family.
     expect(useUploadStore.getState().selectedFqbn).toBe(xiao.compatibleFqbns[0])
+  })
+
+  it('shows Auto for missing legacy memory and serial policies when the board supports them', () => {
+    const profile = BOARD_PROFILES.find((p) => p.id === 'generic-esp32-s3-n16r8-44pin-dual-usbc')!
+    const legacyBoard = boardNode('b1', profile.id)
+    legacyBoard.data.properties = {
+      ...legacyBoard.data.properties,
+      usePsram: false,
+      usbCdcOnBoot: false,
+    }
+    reset([legacyBoard])
+    useUploadStore.setState({
+      selectedFqbn: profile.compatibleFqbns[0],
+      selectedPort: 'COM3',
+      ports: [{ address: 'COM3', label: 'USB-Enhanced-SERIAL CH343', vid: 0x1a86 }],
+    } as never)
+
+    render(<BoardNodeBody nodeId="b1" />)
+
+    expect((screen.getByLabelText('PSRAM policy') as HTMLSelectElement).value).toBe('auto')
+    expect((screen.getByLabelText('Serial route') as HTMLSelectElement).value).toBe('auto')
+    expect(screen.getByText(/Auto · UART bridge detected/)).toBeTruthy()
   })
 
   it('reports header-safe pin count and peripheral starting pins', () => {

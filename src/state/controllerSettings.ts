@@ -39,18 +39,21 @@ function psramPolicy(props: Record<string, unknown>): PsramPolicy {
   if (props.psramPolicy === 'auto' || props.psramPolicy === 'on' || props.psramPolicy === 'off') {
     return props.psramPolicy
   }
-  // Hardware saves from before the three-state control used a boolean. Treat
-  // it as an explicit choice so opening a project cannot silently change its
-  // memory layout; only newly-created Board nodes default to automatic.
-  return props.usePsram === true ? 'on' : 'off'
+  // Hardware saves from before the three-state control used a boolean. Keep
+  // an affirmative override, but treat the old false/default as Auto: the
+  // exact physical profile now has enough evidence to enable PSRAM safely
+  // where applicable, and otherwise Auto still resolves to off.
+  return props.usePsram === true ? 'on' : 'auto'
 }
 
 function serialRoute(props: Record<string, unknown>): SerialRoute {
   if (props.serialRoute === 'auto' || props.serialRoute === 'native' || props.serialRoute === 'uart') {
     return props.serialRoute
   }
-  // Same compatibility rule as PSRAM: preserve the old checkbox exactly.
-  return props.usbCdcOnBoot === true ? 'native' : 'uart'
+  // Preserve an affirmative legacy Native USB override. The old false/default
+  // becomes Auto so the selected port can distinguish native USB from a UART
+  // bridge; an unknown or unsupported target still falls back to UART.
+  return props.usbCdcOnBoot === true ? 'native' : 'auto'
 }
 
 function number(value: unknown, fallback: number, min: number, max: number): number {
@@ -68,8 +71,8 @@ export function controllerSettings(nodes: readonly StudioNode[]): ControllerSett
   const props = ((board ?? legacyOutput)?.data.properties ?? {}) as Record<string, unknown>
   const profileId = typeof props.profileId === 'string' ? props.profileId : ''
   const profile = boardProfileById(profileId)
-  const selectedPsramPolicy = board ? psramPolicy(props) : (props.usePsram === true ? 'on' : 'off')
-  const selectedSerialRoute = board ? serialRoute(props) : 'uart'
+  const selectedPsramPolicy = board ? psramPolicy(props) : (props.usePsram === true ? 'on' : 'auto')
+  const selectedSerialRoute = board ? serialRoute(props) : (props.usbCdcOnBoot === true ? 'native' : 'auto')
   const automaticPsram = !!profile?.memory?.psramMb && !!profile.psramMode
   const legacyCappedOutputs = legacyOutputs.filter((node) =>
     (node.data.properties as Record<string, unknown>).powerLimit === true)
