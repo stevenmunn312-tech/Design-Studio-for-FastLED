@@ -437,6 +437,35 @@ describe('generatePlayerSketch', () => {
     expect(ino).toContain('updateShowAudio(posMs)')                             // called each frame
   })
 
+  it('taps decoded PCM before I2S and prefers live FastLED analysis over the baked fallback', () => {
+    const renderers = {
+      buffers: [], helpers: [],
+      functions: ['void render_p0(uint32_t ms) { leds[0] = CRGB(_audioBass * 255, _audioBeat ? 255 : 0, 0); }'],
+      count: 1, params: [],
+    }
+    const ino = generatePlayerSketch({}, renderers, { audioEnvelope: true, decoderTap: true })
+
+    expect(ino).toContain('void audio_process_i2s(int16_t* outBuff, uint16_t validSamples')
+    expect(ino).toContain('if (continueI2S) *continueI2S = true;')
+    expect(ino).toContain('fl::make_shared<fl::audio::Processor>()')
+    expect(ino).toContain('_audioProcessor->update(sample);')
+    expect(ino).toContain('_audioSpectrum[b] = _audioProcessor->getEqBin(b >> 1);')
+    expect(ino).toContain('setupDecoderTap();')
+    expect(ino).toContain('if (!_decoderTapLive) updateShowAudio(posMs);')
+    expect(ino.indexOf('audio.loop();')).toBeLessThan(ino.indexOf('updateDecoderAudio();'))
+  })
+
+  it('undoes the classic ESP32 DAC bias before analysing tapped PCM', () => {
+    const renderers = {
+      buffers: [], helpers: [],
+      functions: ['void render_p0(uint32_t ms) { leds[0] = CRGB(_audioBass * 255, 0, 0); }'],
+      count: 1, params: [],
+    }
+    const ino = generatePlayerSketch({ audioOutput: 'internalDac' }, renderers, { decoderTap: true })
+    expect(ino).toContain('#define DECODER_TAP_INTERNAL_DAC 1')
+    expect(ino).toContain('(int32_t)(uint16_t)raw - 32768')
+  })
+
   it('omits the baked audio plumbing by default', () => {
     const renderers = {
       buffers: [], helpers: [],

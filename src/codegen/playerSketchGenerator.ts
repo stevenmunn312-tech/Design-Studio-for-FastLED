@@ -140,13 +140,15 @@ export function generatePlayerSketch(
   cfg: Partial<PlayerConfig> = {}, renderers?: PatternRenderers,
   // `audioEnvelope`: the .show carries a baked bass/mids/treble track (see
   // bakeEnvelope) and the collected patterns were compiled with externalAudio,
-  // so the player hosts the _audio* globals and feeds them from the track.
+  // so the player can retain it as a fallback. `decoderTap` feeds those same
+  // globals from ESP32-audioI2S's decoded PCM callback before the DAC; the
+  // envelope covers decoder startup or failure without replacing live PCM.
   // `preferredTrack`: the safe title this sketch was generated for, without
   // extension. The card outlives any single upload, so choosing "the first mp3
   // in /music" can play a song left over from an earlier session — paired with
   // that song's show, which makes the mismatch look like a sync bug rather
   // than the wrong file.
-  opts: { audioEnvelope?: boolean; preferredTrack?: string; psramAllowed?: boolean } = {},
+  opts: { audioEnvelope?: boolean; decoderTap?: boolean; preferredTrack?: string; psramAllowed?: boolean } = {},
 ): string {
   const raw = { ...DEFAULTS, ...cfg }
   const c = {
@@ -165,6 +167,8 @@ export function generatePlayerSketch(
   const numLeds = c.ledWidth * c.ledHeight
   const collection = !!(renderers && renderers.count > 0)
   const bakedAudio = !!opts.audioEnvelope
+  const decoderTap = collection && opts.decoderTap === true
+  const reactiveAudio = bakedAudio || decoderTap
   const internalDac = c.audioOutput === 'internalDac'
   // A stale saved toggle must never put ESP32-only allocation calls into a
   // sketch for a board with no PSRAM option. Capability and intent are both
@@ -568,13 +572,33 @@ uint32_t   burstStart = 0;        // ms the current particle burst began
 float      burstIntensity = 0.0f; // 0–1 spark brightness (0 = no burst)
 uint8_t    burstHue   = 0;        // spark hue
 uint8_t    burstStyle = 0;        // particle motion style (see PARTICLE_STYLES)
-${hasEnergy ? 'float      energy    = 0.0f;      // SET_ENERGY → energy group-input role\n' : ''}${hasSpeed ? 'float      speed     = 0.5f;      // SET_SPEED (normalised 0–1) → speed group-input role\n' : ''}${hasPalette ? 'CRGBPalette16 palette = RainbowColors_p;  // SET_PALETTE → palette group-input role\n' : ''}${bakedAudio ? `
-// Baked audio envelope (song-synced FFT), fed into the pattern audio globals.
-float     _audioBass = 0, _audioMids = 0, _audioTreble = 0;   // 0–1, current frame
-float     _audioSpectrum[32];        // coarse spectrum for BeatDetect/PercussionDetect
+${hasEnergy ? 'float      energy    = 0.0f;      // SET_ENERGY → energy group-input role\n' : ''}${hasSpeed ? 'float      speed     = 0.5f;      // SET_SPEED (normalised 0–1) → speed group-input role\n' : ''}${hasPalette ? 'CRGBPalette16 palette = RainbowColors_p;  // SET_PALETTE → palette group-input role\n' : ''}${reactiveAudio ? `
+// Shared audio contract consumed by compiled FFT/beat/percussion/features nodes.
+float     _audioBass = 0, _audioMids = 0, _audioTreble = 0, _audioBpm = 120;
+bool      _audioBeat = false;
+float     _audioSpectrum[32];
+` : ''}${bakedAudio ? `
+// Song-analysis envelope retained as a decoder startup/failure fallback.
 uint8_t*  audioEnv = nullptr;        // frameCount * 3 bytes (bass, mids, treble)
 uint32_t  audioEnvFrames = 0;
 uint8_t   audioEnvRate = 50;
+` : ''}
+${decoderTap ? `
+// ESP32-audioI2S calls audio_process_i2s() after decode/gain and immediately
+// before the samples are written to I2S. Queue complete mono blocks there,
+// then run FastLED's Processor after audio.loop() has handed the PCM to DMA so
+// FFT work cannot delay the write that keeps playback fed.
+#define DECODER_TAP_BLOCK_SAMPLES 512
+#define DECODER_TAP_BLOCKS 4
+#define DECODER_TAP_INTERNAL_DAC ${internalDac ? 1 : 0}
+static int16_t _decoderTapBlocks[DECODER_TAP_BLOCKS][DECODER_TAP_BLOCK_SAMPLES];
+static uint16_t _decoderTapFill = 0;
+static uint8_t _decoderTapWrite = 0, _decoderTapRead = 0, _decoderTapQueued = 0;
+static uint32_t _decoderTapLastMs = 0;
+static bool _decoderTapLive = false;
+static fl::shared_ptr<fl::audio::Processor> _audioProcessor;
+static volatile uint32_t _audioBeatCount = 0;
+static uint32_t _audioBeatSeen = 0;
 ` : ''}
 
 ${usePsram ? `${PSRAM_ALLOC_CPP}\n` : ''}
@@ -652,7 +676,12 @@ ${bakedAudio ? `
 // Drive the pattern audio globals from the baked envelope at the current audio
 // position (linear interpolation), so a pattern's FFTAnalyzer reacts in sync.
 void updateShowAudio(uint32_t ms) {
-  if (!audioEnv || audioEnvFrames == 0) { _audioBass = _audioMids = _audioTreble = 0; return; }
+  _audioBeat = false;
+  if (!audioEnv || audioEnvFrames == 0) {
+    _audioBass = _audioMids = _audioTreble = 0;
+    for (int b = 0; b < 32; b++) _audioSpectrum[b] = 0;
+    return;
+  }
   float fpos = ms * (audioEnvRate / 1000.0f);
   uint32_t i = (uint32_t)fpos;
   if (i >= audioEnvFrames) i = audioEnvFrames - 1;
@@ -665,6 +694,96 @@ void updateShowAudio(uint32_t ms) {
   // mids→mid, treble→high). Approximate — full baked spectrum is a follow-up.
   for (int b = 0; b < 32; b++)
     _audioSpectrum[b] = b < 6 ? _audioBass : (b < 16 ? _audioMids : _audioTreble);
+}
+` : ''}
+${decoderTap ? `
+// Decoded-PCM tap supplied by ESP32-audioI2S 3.0.12. continueI2S must be set
+// true: the library deliberately treats this hook as an opportunity to consume
+// audio without forwarding it, and defaults the flag to false before calling.
+void audio_process_i2s(int16_t* outBuff, uint16_t validSamples,
+                       uint8_t bitsPerSample, uint8_t channels,
+                       bool* continueI2S) {
+  if (continueI2S) *continueI2S = true;
+  if (!outBuff || bitsPerSample != 16 || channels == 0) return;
+
+  const uint8_t stride = channels;
+  const uint8_t mixedChannels = channels > 1 ? 2 : 1;
+  for (uint16_t frame = 0; frame < validSamples; frame++) {
+    int32_t mixed = 0;
+    for (uint8_t channel = 0; channel < mixedChannels; channel++) {
+      int16_t raw = outBuff[(uint32_t)frame * stride + channel];
+#if DECODER_TAP_INTERNAL_DAC
+      // Audio(true) has already biased signed PCM into the ESP32 DAC's unsigned
+      // range before this callback. Undo that bias for spectral analysis.
+      mixed += (int32_t)(uint16_t)raw - 32768;
+#else
+      mixed += raw;
+#endif
+    }
+
+    // One producer (audio.loop) and one consumer later in the same Arduino
+    // loop. Drop the oldest complete block if rendering fell behind playback.
+    if (_decoderTapFill == 0 && _decoderTapQueued == DECODER_TAP_BLOCKS) {
+      _decoderTapRead = (_decoderTapRead + 1) % DECODER_TAP_BLOCKS;
+      _decoderTapQueued--;
+    }
+    _decoderTapBlocks[_decoderTapWrite][_decoderTapFill++] =
+      (int16_t)(mixed / mixedChannels);
+    if (_decoderTapFill == DECODER_TAP_BLOCK_SAMPLES) {
+      _decoderTapFill = 0;
+      _decoderTapWrite = (_decoderTapWrite + 1) % DECODER_TAP_BLOCKS;
+      _decoderTapQueued++;
+    }
+  }
+}
+
+void setupDecoderTap() {
+  _audioProcessor = fl::make_shared<fl::audio::Processor>();
+  if (!_audioProcessor) return;
+  _audioProcessor->onBeat([] { _audioBeatCount = _audioBeatCount + 1; });
+  // FastLED detectors are lazy; register every value compiled patterns poll
+  // before the first queued PCM block is processed.
+  (void)_audioProcessor->getBassLevel();
+  (void)_audioProcessor->getMidLevel();
+  (void)_audioProcessor->getTrebleLevel();
+  (void)_audioProcessor->getBPM();
+  (void)_audioProcessor->getEqBin(0);
+}
+
+void updateDecoderAudio() {
+  if (!_audioProcessor) {
+    _decoderTapQueued = 0;
+    _decoderTapLive = false;
+    return;
+  }
+
+  bool processed = false;
+  while (_decoderTapQueued > 0) {
+    fl::audio::Sample sample(
+      fl::span<const fl::i16>(_decoderTapBlocks[_decoderTapRead], DECODER_TAP_BLOCK_SAMPLES),
+      millis());
+    _audioProcessor->update(sample);
+    _decoderTapRead = (_decoderTapRead + 1) % DECODER_TAP_BLOCKS;
+    _decoderTapQueued--;
+    processed = true;
+  }
+  if (processed) _decoderTapLastMs = millis();
+  _decoderTapLive = _decoderTapLastMs != 0 && millis() - _decoderTapLastMs < 250;
+
+  _audioBeat = false;
+  if (!_decoderTapLive) {
+${bakedAudio ? '    // updateShowAudio() applies the baked fallback later in this loop.\n' : '    _audioBass = _audioMids = _audioTreble = 0.0f;\n    _audioBpm = 120.0f;\n    for (int b = 0; b < 32; b++) _audioSpectrum[b] = 0.0f;\n'}    return;
+  }
+  _audioBass = _audioProcessor->getBassLevel();
+  _audioMids = _audioProcessor->getMidLevel();
+  _audioTreble = _audioProcessor->getTrebleLevel();
+  _audioBpm = _audioProcessor->getBPM();
+  uint32_t beatCount = _audioBeatCount;
+  _audioBeat = beatCount != _audioBeatSeen;
+  _audioBeatSeen = beatCount;
+  // FastLED exposes 16 normalized EQ bins; duplicate them into Studio's
+  // established 32-slot spectrum contract, matching the microphone engine.
+  for (int b = 0; b < 32; b++) _audioSpectrum[b] = _audioProcessor->getEqBin(b >> 1);
 }
 ` : ''}
 
@@ -973,6 +1092,7 @@ ${powerSetupLine}
   sdMounted = SD.begin(SD_CS);
   if (!sdMounted) Serial.println("ERR sd-mount-failed");
 
+${decoderTap ? '  setupDecoderTap();   // decoded PCM → FastLED audio analysis\n' : ''}
   ${internalDac ? '' : 'audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);'}
   audio.setVolume(${c.maxVolume});
 
@@ -1010,6 +1130,7 @@ void loop() {
   }
 
   audio.loop();
+${decoderTap ? '  updateDecoderAudio();  // drain PCM only after the decoder has fed I2S/DAC\n' : ''}
 
   // getAudioCurrentTime() is the library's own elapsed-playback-time tracker
   // (seconds) — use it directly rather than reconstructing position from
@@ -1028,7 +1149,9 @@ void loop() {
     applyEvent(showEvents[eventIdx]);
     eventIdx++;
   }
-${bakedAudio ? '  updateShowAudio(posMs);   // song-synced FFT → pattern audio globals\n' : ''}
+${bakedAudio ? decoderTap
+    ? '  if (!_decoderTapLive) updateShowAudio(posMs);  // startup/failure fallback\n'
+    : '  updateShowAudio(posMs);   // song-synced FFT → pattern audio globals\n' : ''}
   float t = posMs / 1000.0f;
   // Transition: while one is running, render the outgoing pattern into showA and
   // the incoming one into showB, then composite A→B into leds by its style.

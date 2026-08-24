@@ -32,6 +32,21 @@ describe('audio capability sources', () => {
     expect(resolveAudioCapabilitySource([], '')).toBeNull()
   })
 
+  it('offers the on-board decoder only for an SD-player workflow', () => {
+    const sd = hardware('sd-1', 'SDCard')
+    const player = hardware('performance-1', 'PerformanceGenerator')
+    expect(audioCapabilitySources([sd])).toEqual([])
+    expect(audioCapabilitySources([player])).toEqual([])
+    expect(audioCapabilitySources([sd, player])).toMatchObject([
+      {
+        id: 'decoder:sd-1',
+        label: 'On-board playback (decoder tap)',
+        kind: 'decoder',
+      },
+    ])
+    expect(resolveAudioCapabilitySource([sd, player], '')?.id).toBe('decoder:sd-1')
+  })
+
   it('requires an explicit id when more than one source is available', () => {
     const first = hardware('mic-1', 'MicInput')
     const second = hardware('mic-2', 'MicInput')

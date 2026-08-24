@@ -1,7 +1,7 @@
 # Hardware nodes and the two-view model
 
-Status: implemented on `Hardware`; microphone-backed Audio capability shipped,
-decoder and line-in sources deferred · Owner: app · Updated: 2026-08-24
+Status: implemented on `Hardware`; microphone and player-decoder Audio sources
+shipped, line-in deferred · Owner: app · Updated: 2026-08-24
 
 The current branch models each physical component once and presents it in the
 views where it has meaning. The user-facing workflow is in the
@@ -135,14 +135,22 @@ in the same full-width workbench where the action was started.
 ## Deferred capability work
 
 The graph now has an `Audio` capability node whose source picker is derived from
-attached board hardware. With one microphone it selects that source by default;
-with none it reports an empty state. Audio cables carry the live/recorded/baked
-signal payload through FFT, beat, percussion, feature, spectrum, group, preview,
-and firmware paths instead of letting analysis nodes read ambient browser state.
-Direct `MicInput` cables remain accepted for existing Hardware-line projects.
+attached board hardware. It discovers microphones and, when an SD Card and
+Performance Generator define the on-board player workflow, the player's decoder
+tap. A lone source is selected by default; with none it reports an empty state.
+Audio cables carry the live/recorded/baked signal payload through FFT, beat,
+percussion, feature, spectrum, group, preview, and firmware paths instead of
+letting analysis nodes read ambient browser state. Direct `MicInput` cables
+remain accepted for existing Hardware-line projects.
 
-Decoder tap and line-in sources are not implemented. On-board playback still
-drives generative analysis from the baked show envelope rather than decoded PCM.
+Collection shows compile against the player-hosted audio globals. The pinned
+ESP32-audioI2S callback queues decoded PCM immediately before I2S/DAC output;
+after the write is fed, FastLED's existing Processor derives EQ bands, beat, and
+BPM for the compiled patterns. The baked show envelope remains a startup and
+decoder-failure fallback rather than the primary on-device analysis source.
+
+Line-in hardware remains deferred for external player modules whose decoder is
+not running on the controller and therefore cannot expose this PCM callback.
 
 A Storage capability abstraction across SD, onboard flash, and USB is also not
 implemented. SD Card remains a concrete workbench-only part used by the

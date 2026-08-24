@@ -271,6 +271,15 @@ export interface PatternRenderers {
   params: string[]
 }
 
+/** Whether the compiled pattern collection reads the player's shared audio
+ * globals. Keeping this decision on the emitted code also covers audio nodes
+ * nested inside groups without maintaining a second graph traversal here. */
+export function patternRenderersUseAudio(renderers: PatternRenderers | undefined): boolean {
+  if (!renderers) return false
+  const audioGlobal = /\b_audio(?:Bass|Mids|Treble|Bpm|Beat|Spectrum)\b/
+  return [...renderers.helpers, ...renderers.functions].some((code) => audioGlobal.test(code))
+}
+
 export function buildPatternRenderers(
   patternIds: string[], groups: GroupRegistry, roleParams: string[] = [],
   externalAudio = false, audioExprOverrides: Record<string, string> = {}, nativeFastLedAudio = false,

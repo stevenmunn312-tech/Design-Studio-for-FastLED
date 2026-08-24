@@ -13,7 +13,7 @@ import type { StudioNode, StudioNodeData } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import type { MusicEntry } from '../state/musicStore'
 import { generatePlayerSketch, playerConfigFromGraph } from '../codegen/playerSketchGenerator'
-import { buildPatternRenderers } from '../codegen/showGenerator'
+import { buildPatternRenderers, patternRenderersUseAudio } from '../codegen/showGenerator'
 import { showFileToBinary } from '../codegen/performanceGenerator'
 import type { ShowUploadFile } from './backendClient'
 import { resolveShowTarget } from '../state/showTarget'
@@ -108,11 +108,16 @@ export function buildShowPlayer(
   // `energy`/`speed`/`palette` roles.
   const pgProps = (nodes.find((n) => nodeType(n) === 'PerformanceGenerator')?.data as StudioNodeData | undefined)?.properties ?? {}
   const roleParams = pgProps.useGroupInputs ? ['energy', 'speed', 'palette'] : []
-  const renderers = opts.patternSet && opts.patternSet.length > 0
-    ? buildPatternRenderers(opts.patternSet, groups, roleParams, opts.bakedAudio, { beat: '(flashLevel > 0.01f)' })
+  const patternSet = opts.patternSet ?? []
+  const renderers = patternSet.length > 0
+    ? buildPatternRenderers(patternSet, groups, roleParams, true, { beat: '_audioBeat' }, true)
     : undefined
+  // FastLED's audio processor is sizeable. Only link it when the compiled
+  // collection actually reads an audio global; ordinary shows stay lean.
+  const decoderTap = patternRenderersUseAudio(renderers)
   return generatePlayerSketch(playerConfigFromGraph(nodes, edges, opts.fqbn), renderers, {
     audioEnvelope: opts.bakedAudio && !!renderers,
+    decoderTap,
     preferredTrack: opts.preferredTrack,
     psramAllowed: opts.psramAllowed,
   })
@@ -174,8 +179,8 @@ export function buildShowPayload(
   // looks like broken sync rather than the wrong file.
   const player = buildShowPlayer(nodes, edges, groups, {
     patternSet: done[0].show!.patternSet,
-    // A baked audio envelope means the collected patterns should read the
-    // song's FFT (externalAudio) and the player hosts the audio globals.
+    // Decoded PCM is primary; retain the analysed envelope as a fallback when
+    // this show file carries one.
     bakedAudio: !!done[0].show!.audio,
     preferredTrack: safeTitle(done[0].show!.songTitle),
     fqbn: opts.fqbn,

@@ -176,7 +176,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 <details>
 <summary><strong>Advanced and experimental workflows</strong></summary>
 
-- **Audio reactive:** live microphone analysis, FFT bands, beat/percussion features, audio-driven color and pattern nodes, plus on-device INMP441 support for validated ESP32-S3 show configurations.
+- **Audio reactive:** live microphone analysis, FFT bands, beat/percussion features, audio-driven color and pattern nodes, on-device INMP441 support, and decoded-PCM analysis for SD-player collection shows.
 - **Fields and simulations:** scalar-field math and warping, reaction diffusion, Game of Life, particles, flow fields, boids, feedback, trails, image palettes, and custom formulas.
 - **Show control:** reusable pattern collections, 16 transition styles, beat-driven particles, section-aware music shows, timeline editing, and performance controls.
 - **Physical layouts:** strips, serpentine matrices, tiled panels, multiple outputs, and custom XY maps. Only the exact combinations recorded in the support matrix count as supported today.

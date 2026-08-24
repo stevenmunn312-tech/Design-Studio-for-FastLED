@@ -31,7 +31,7 @@ export default function AudioCapabilityBody({ nodeId, sourceId }: Props) {
     return (
       <div className={styles.empty} role="status">
         <strong>No audio source attached</strong>
-        <span>Add a microphone in Hardware.</span>
+        <span>Add a microphone, or configure an SD music player.</span>
       </div>
     )
   }

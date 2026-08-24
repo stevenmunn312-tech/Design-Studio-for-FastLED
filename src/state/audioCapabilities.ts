@@ -1,20 +1,20 @@
 import type { StudioNode } from './graphStore'
 import { resolvePartIdentity } from './partOptions'
 
-/** A physical source attached to the selected board that can provide PCM or
- * analysed audio to the signal graph. Decoder taps and line inputs join this
- * catalogue when their hardware paths are implemented. */
+/** A board-attached source that can provide PCM or analysed audio to the signal
+ * graph. The decoder tap is software hosted by the SD-player workflow; line-in
+ * joins this catalogue when its physical capture path is implemented. */
 export interface AudioCapabilitySource {
   id: string
   label: string
-  kind: 'microphone'
+  kind: 'microphone' | 'decoder'
   node: StudioNode
 }
 
 /** Discover audio sources from root hardware rather than maintaining a second
  * capability list on the graph node. */
 export function audioCapabilitySources(nodes: readonly StudioNode[]): AudioCapabilitySource[] {
-  return nodes
+  const microphones = nodes
     .filter((node) => node.data.nodeType === 'MicInput')
     .map((node) => {
       const properties = node.data.properties as Record<string, unknown>
@@ -26,6 +26,24 @@ export function audioCapabilitySources(nodes: readonly StudioNode[]): AudioCapab
         node,
       }
     })
+
+  // The software decoder is a real on-device source only in the SD-player
+  // workflow. An SD card by itself is ordinary storage; a Performance
+  // Generator is what says the board will decode music from it. Tie the stable
+  // capability id to the card, which is the physical part that persists on the
+  // bench, while the player sketch taps the decoded PCM before I2S/DAC output.
+  const sdCard = nodes.find((node) => node.data.nodeType === 'SDCard')
+  const hasPlayer = nodes.some((node) => node.data.nodeType === 'PerformanceGenerator')
+  const decoder: AudioCapabilitySource[] = sdCard && hasPlayer
+    ? [{
+        id: `decoder:${sdCard.id}`,
+        label: 'On-board playback (decoder tap)',
+        kind: 'decoder',
+        node: sdCard,
+      }]
+    : []
+
+  return [...microphones, ...decoder]
 }
 
 /** Resolve an authored source id. A lone attached source is the useful default

@@ -1,7 +1,7 @@
 # Board node and hardware capability model
 
-Status: board/profile architecture and microphone-backed Audio capability
-implemented on `Hardware`; broader capability sources remain deferred ·
+Status: board/profile architecture plus microphone and player-decoder Audio
+capabilities implemented on `Hardware`; broader sources remain deferred ·
 Owner: app · Updated: 2026-08-24
 
 The Board node is the root authority for the controller a project targets. The
@@ -126,9 +126,12 @@ Output/Serial console. It is no longer owned by an LED-output popup.
 The Board/profile model currently provides enough authority for:
 
 - an `Audio` graph capability that discovers attached microphone hardware,
-  defaults a lone source, and remains explicitly empty without one;
+  discovers the SD player's decoded-PCM tap, defaults a lone source, and
+  remains explicitly empty without one;
 - explicit Audio payloads through FFT, beat, percussion, feature, spectrum,
   group, recording, preview, and firmware paths;
+- decoded player PCM through FastLED's on-device analysis before I2S/DAC output,
+  with the baked show envelope retained as a fallback;
 - output-capable and input-capable GPIO selection;
 - board-specific LED, INMP441, MAX98357A, SD SPI, and default I²C assignments
   where reviewed;
@@ -140,7 +143,7 @@ The Board/profile model currently provides enough authority for:
 
 The following proposal slices remain open and must not be described as shipped:
 
-- decoder-tap and line-in hardware paths;
+- line-in hardware for external player modules that cannot expose decoded PCM;
 - a Storage capability over SD, onboard flash, and USB;
 - timed-sequence authoring beyond the existing RTC/ScheduleTrigger graph tools;
 - multi-board attachment; and

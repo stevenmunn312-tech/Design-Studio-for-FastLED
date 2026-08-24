@@ -72,7 +72,7 @@ export function findAudioCapabilityErrors(
       edges.some((edge) => edge.source === node.id) &&
       !resolveAudioCapabilitySource(capabilityNodes, String(node.data.properties.sourceId ?? ''))
     )
-    .map((node) => `${nodeLabel(node)} has no attached source — add a microphone in Hardware or choose an available source`)
+    .map((node) => `${nodeLabel(node)} has no attached source — add a microphone or SD music player, or choose an available source`)
 }
 
 function findRtcWarnings(nodes: StudioNode[]): string[] {

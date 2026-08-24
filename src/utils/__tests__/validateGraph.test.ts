@@ -21,7 +21,7 @@ describe('validateGraph', () => {
     const wires = [edge('audio-edge', 'audio', 'fft', 'audio')]
 
     expect(findAudioCapabilityErrors([audio], wires)).toEqual([
-      'Audio has no attached source — add a microphone in Hardware or choose an available source',
+      'Audio has no attached source — add a microphone or SD music player, or choose an available source',
     ])
     expect(buildGraphDiagnostics([audio], wires)).toContainEqual(expect.objectContaining({
       id: 'audio-source',

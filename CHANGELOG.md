@@ -12,6 +12,9 @@ versioning (`0.y.z`) until the first stable release.
 - Added an `Audio` capability node whose source picker is derived from attached
   board audio hardware, defaults a single microphone, and clearly reports when
   no source exists.
+- Added an on-board player decoder tap that feeds decoded PCM into FastLED audio
+  analysis before I2S/DAC output, with the baked show envelope retained as a
+  startup and decoder-failure fallback.
 
 ### Changed
 

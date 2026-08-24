@@ -2,7 +2,7 @@ import type { MusicEntry } from '../state/musicStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import { showFileToBinary } from '../codegen/performanceGenerator'
 import { generatePlayerSketch } from '../codegen/playerSketchGenerator'
-import { buildPatternRenderers } from '../codegen/showGenerator'
+import { buildPatternRenderers, patternRenderersUseAudio } from '../codegen/showGenerator'
 import type { PlayerConfig } from '../codegen/playerSketchGenerator'
 
 // Minimal ZIP builder — no external dependency required.
@@ -137,14 +137,18 @@ export async function exportShowPackage(
   }
 
   // Player sketch — collection (v2) shows compile their pattern subgraphs. A
-  // baked audio envelope makes those patterns song-reactive (externalAudio +
-  // the player hosts the audio globals fed from the track).
+  // decoder tap makes those patterns song-reactive from the actual PCM sent to
+  // the DAC. The baked envelope remains a startup/failure fallback.
   const patternSet = done[0]?.show!.patternSet
   const bakedAudio = !!done[0]?.show!.audio
   const renderers = patternSet && patternSet.length > 0
-    ? buildPatternRenderers(patternSet, groups, [], bakedAudio, { beat: '(flashLevel > 0.01f)' })
+    ? buildPatternRenderers(patternSet, groups, [], true, { beat: '_audioBeat' }, true)
     : undefined
-  const sketch = generatePlayerSketch(playerCfg, renderers, { audioEnvelope: bakedAudio && !!renderers })
+  const decoderTap = patternRenderersUseAudio(renderers)
+  const sketch = generatePlayerSketch(playerCfg, renderers, {
+    audioEnvelope: bakedAudio && !!renderers,
+    decoderTap,
+  })
   zipEntries.push({
     name: 'player/player.ino',
     data: enc.encode(sketch),
