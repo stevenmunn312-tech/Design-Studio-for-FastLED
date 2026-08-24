@@ -119,13 +119,18 @@ the import path.
 
 ## Boards
 
-### Imported and live (13)
+### Imported and live (63)
 
-Present in `public/boards/` and merged into `BOARD_PROFILES`.
+Every board folder in the Blender workspace has a usable `board.json`. Running
+`scripts/import-board-assets.py` imports all 63 manifests, writes all 63 WebP
+renders to `public/boards/`, and merges all 63 profiles into `BOARD_PROFILES`.
+There is no remaining board-render import backlog.
+
+The original 13-board batch remains live:
 
 - [x] adafruit-feather-esp32-s2
 - [x] adafruit-feather-esp32-s3
-- [x] adafruit-feather-esp32-v2 *(capability data only — no pin map, see below)*
+- [x] adafruit-feather-esp32-v2
 - [x] adafruit-qt-py-esp32-s2
 - [x] esp32-devkit-v1-30pin-esp32d
 - [x] esp32-generic-devkit-38pin
@@ -137,75 +142,39 @@ Present in `public/boards/` and merged into `BOARD_PROFILES`.
 - [x] lolin-s3-40pin-dual-usbc
 - [x] seeed-xiao-esp32s3
 
-### Modelled, awaiting import (15)
+### Requested 15-board import batch
 
-Blender folders exist but these were not present when the importer last ran.
-Re-running `scripts/import-board-assets.py` will report which have a usable
-`board.json` and which are rejected for thin GPIO coverage.
+Imported with render, catalogue entry, pin map, GPIO capability data, and
+peripheral defaults where the manifest provides them. Sparse or unresolved
+labels remain neutral rather than being treated as safe pins.
 
-- [ ] arduino-uno-r3-dip
-- [ ] esp32-c3-devkitm-1
-- [ ] esp32-c3-super-mini
-- [ ] esp32-c6-devkitc-1
-- [ ] esp32-c6-devkitm-1
-- [ ] esp32-c6-super-mini
-- [ ] esp32-h2-devkitm-1
-- [ ] esp32-h2-super-mini
-- [ ] esp8266-adafruit-feather-huzzah
-- [ ] esp8266-lolin-d1-mini
-- [ ] esp8266-nodemcu-v2-amica
-- [ ] esp8266-wemos-d1-r2
-- [ ] lolin-c3-mini
-- [ ] seeed-xiao-esp32c3
-- [ ] seeed-xiao-esp32c6
+- [x] arduino-uno-r3-dip
+- [x] esp32-c3-devkitm-1
+- [x] esp32-c3-super-mini
+- [x] esp32-c6-devkitc-1
+- [x] esp32-c6-devkitm-1
+- [x] esp32-c6-super-mini
+- [x] esp32-h2-devkitm-1
+- [x] esp32-h2-super-mini
+- [x] esp8266-adafruit-feather-huzzah
+- [x] esp8266-lolin-d1-mini
+- [x] esp8266-nodemcu-v2-amica
+- [x] esp8266-wemos-d1-r2
+- [x] lolin-c3-mini
+- [x] seeed-xiao-esp32c3
+- [x] seeed-xiao-esp32c6
 
-Each also needs a catalogue entry, a GPIO table and mic pin defaults, or the
-existing tests fail — see `uploadStore.ts`, `boardGpio.ts`,
-`micPinDefaults.ts`.
+The other 35 modelled boards in the workspace are also imported and live. The
+generated catalogue is the authoritative inventory; this document no longer
+duplicates that full list.
 
-### Known gaps
+### Data-quality safeguards
 
-- [ ] **adafruit-feather-esp32-v2 has no pin map.** Rejected by the importer at
-  4/23 pins resolving to a GPIO: it silkscreens aliases only (`SDA`, `D14`) and
-  its manifest has no `alias/GPIOn` entries to bridge them. Fix upstream in the
-  asset by adding a `safeGeneralPurpose` in that form.
-- [ ] **Six boards carry no pin-safety data**, so they give no positive pin
-  advice — reported by `UNLISTED_SAFETY_IDS`.
-
-### Boards still to model
-
-Every board in the upload catalogue gets a real model — no generic outlines. A
-board shown as a grey box in a view where every other board is a photograph
-reads as unfinished, and the point of the hardware view is recognising the part
-in your hand.
-
-Five catalogue entries are chip-family targets rather than specific boards
-(`esp32c3`, `esp32c6`, `esp32h2`, `nodemcuv2`, `arduino:avr:uno`) and are
-already covered by models awaiting import above.
-
-That leaves 28, grouped by family so they can be batched:
-
-**Teensy (7)**
-- [ ] Teensy 4.1 · [ ] Teensy 4.0 · [ ] Teensy 3.6 · [ ] Teensy 3.5
-- [ ] Teensy 3.1 / 3.2 · [ ] Teensy 3.0 · [ ] Teensy LC
-
-**Adafruit SAMD / nRF52 (6)**
-- [ ] Feather M0 (SAMD21) · [ ] QT Py M0 (SAMD21) · [ ] Feather M4 (SAMD51)
-- [ ] Grand Central M4 · [ ] Matrix Portal M4 · [ ] nRF52840 DK
-
-**Arduino (7)**
-- [ ] Nano · [ ] Leonardo · [ ] Mega · [ ] Nano Every
-- [ ] Nano 33 IoT · [ ] Zero · [ ] Due
-
-**STM32 (4)**
-- [ ] Blue Pill F103C8 · [ ] Black Pill F411CE
-- [ ] Nucleo F429ZI · [ ] Nucleo F439ZI
-
-**Other (4)**
-- [ ] ESP32 Wrover Module · [ ] RP2040 Pico · [ ] RP2350 Pico 2
-- [ ] Arduino UNO R4 WiFi
-
-Lowest priority of everything in this file — none of them is hardware
-validated, and the ESP32 family covers the boards actually being tested. Worth
-doing in family batches once the parts above are done, since a family shares
-most of its geometry.
+Imported does not mean hardware-validated. Profiles without a positive
+pin-safety allowlist report their pins as `unknown`, and generated pin maps keep
+the visible not-hand-checked caveat until verified against a physical board.
+Every imported profile with header pins now carries a conservative positive
+allowlist, and alias-heavy silkscreens carry explicit Arduino pin-number maps.
+The MatrixPortal M4 intentionally has no general-purpose header rail and is not
+reported as missing data. `UNLISTED_SAFETY_IDS`, `UNMAPPED_CAPABILITY_IDS`, and
+the board-profile validator keep these distinctions covered by tests.

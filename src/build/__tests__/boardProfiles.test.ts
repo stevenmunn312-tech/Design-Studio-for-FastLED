@@ -8,6 +8,7 @@ import {
   compatibleBoardProfilesForFqbn,
   isBoardProfileCompatibleWithFqbn,
   UNMAPPED_CAPABILITY_IDS,
+  UNLISTED_SAFETY_IDS,
   validateBoardProfiles,
 } from '../boardProfiles'
 import type { PhysicalBoardProfile } from '../boardProfiles'
@@ -92,6 +93,34 @@ describe('boardProfiles', () => {
 })
 
 describe('imported board profiles', () => {
+  it('includes the complete 15-board import batch with renders and pin maps', () => {
+    const importedBoardIds = [
+      'arduino-uno-r3-dip',
+      'esp32-c3-devkitm-1',
+      'esp32-c3-super-mini',
+      'esp32-c6-devkitc-1',
+      'esp32-c6-devkitm-1',
+      'esp32-c6-super-mini',
+      'esp32-h2-devkitm-1',
+      'esp32-h2-super-mini',
+      'esp8266-adafruit-feather-huzzah',
+      'esp8266-lolin-d1-mini',
+      'esp8266-nodemcu-v2-amica',
+      'esp8266-wemos-d1-r2',
+      'lolin-c3-mini',
+      'seeed-xiao-esp32c3',
+      'seeed-xiao-esp32c6',
+    ]
+
+    for (const id of importedBoardIds) {
+      const profile = boardProfileById(id)
+      expect(profile, id).toBeDefined()
+      expect(profile?.render?.file, id).toBe(`boards/${id}.webp`)
+      expect(profile?.pins?.length, id).toBeGreaterThan(0)
+      expect(profile?.compatibleFqbns.length, id).toBeGreaterThan(0)
+    }
+  })
+
   it('keeps the authored map when a generated one exists for the same board', () => {
     // Several manifests describe boards that already have a hand-checked map —
     // some confirmed against hardware in hand. The generated map must never
@@ -124,6 +153,10 @@ describe('imported board profiles', () => {
     expect(feather?.render?.file).toBe('boards/adafruit-feather-esp32-v2.webp')
     expect(feather?.pins?.some((pin) => pin.label === 'D14' && pin.gpio === 14)).toBe(true)
     expect(UNMAPPED_CAPABILITY_IDS).toEqual([])
+  })
+
+  it('has explicit positive pin advice for every board with header pins', () => {
+    expect(UNLISTED_SAFETY_IDS).toEqual([])
   })
 })
 

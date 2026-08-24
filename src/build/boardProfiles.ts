@@ -769,6 +769,9 @@ export function boardProfilesForFamily(familyId: string): PhysicalBoardProfile[]
  * the board asset, not something the app can infer.
  */
 export const UNLISTED_SAFETY_IDS: string[] = BOARD_PROFILES
+  // A board such as MatrixPortal can intentionally expose no general-purpose
+  // header rail. An empty allowlist is complete data in that case, not a gap.
+  .filter((p) => (p.pins?.length ?? 0) > 0)
   .filter((p) => p.pinSafety && p.pinSafety.safeGeneralPurpose.length === 0)
   .map((p) => p.id)
   .sort()
@@ -892,7 +895,12 @@ export function validateBoardProfiles(profiles: PhysicalBoardProfile[] = BOARD_P
     // safety data exists to prevent.
     const safety = profile.pinSafety
     if (safety) {
+      const exposedGpios = new Set(
+        (profile.pins ?? []).flatMap((pin) => pin.gpio === undefined ? [] : [pin.gpio]))
       for (const gpio of safety.safeGeneralPurpose) {
+        if ((profile.pins?.length ?? 0) > 0 && !exposedGpios.has(gpio)) {
+          issues.push(`${profile.id}: GPIO${gpio} is marked safe but has no board pin`)
+        }
         if (safety.boardReservedOrNotExposed[gpio] !== undefined) {
           issues.push(`${profile.id}: GPIO${gpio} is listed as both safe and board-reserved`)
         }
