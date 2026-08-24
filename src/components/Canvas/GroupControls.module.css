@@ -1,7 +1,7 @@
 .bar {
   position: absolute;
   bottom: 14px;
-  left: calc(var(--canvas-left-inset, 0px) + 12px);
+  right: calc(var(--canvas-right-inset, 0px) + 280px);
   z-index: 5;
   display: flex;
   align-items: center;
