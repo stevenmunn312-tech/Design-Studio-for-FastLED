@@ -18,7 +18,6 @@ import { partOptionProperty, partOptionsFor, resolvePartIdentity } from '../../s
 import PartIdentity from './PartIdentity'
 import { useUploadStore } from '../../state/uploadStore'
 import {
-  BOARD_PROFILE_FAMILIES,
   boardProfileById,
   boardProfileFamilyId,
   boardProfilesForFamily,
@@ -598,13 +597,8 @@ export default function HardwarePane() {
   )
 
   const boardFamilyId = boardProfile ? boardProfileFamilyId(boardProfile) : ''
-  const boardFamilyLabel = BOARD_PROFILE_FAMILIES.find((family) => family.id === boardFamilyId)?.label ?? 'Board'
   const leftInset = sidebarOpen ? sidebarWidth : 0
   const rightInset = previewPanelOpen ? previewWidth : 0
-  const toolbarStyle = useMemo(
-    () => ({ paddingLeft: `${leftInset + 16}px`, paddingRight: `${rightInset + 16}px` }),
-    [leftInset, rightInset],
-  )
   // The open submenu, with the row it flies out from — the row is the anchor,
   // so the submenu tracks it rather than guessing an offset.
   const [openSubmenu, setOpenSubmenu] = useState<{ id: string; anchor: HTMLElement } | null>(null)
@@ -1097,11 +1091,16 @@ export default function HardwarePane() {
 
   return (
     <section ref={sectionRef} className={styles.hardwarePane} aria-label="Hardware view">
-      <div className={styles.toolbar} style={toolbarStyle}>
+      <div className={styles.toolbar}>
         {/* Tabs across the whole pane rather than a side dock: the console is
             readable at full width and the board render stays big, which is
             what the old floating slide-over could never offer. */}
-        <div className={styles.paneTabs} role="tablist" aria-label="Hardware pane">
+        <div
+          className={styles.paneTabs}
+          style={{ left: `${leftInset + 16}px` }}
+          role="tablist"
+          aria-label="Hardware pane"
+        >
           <button
             type="button"
             role="tab"
@@ -1122,10 +1121,13 @@ export default function HardwarePane() {
           </button>
         </div>
         {paneTab === 'hardware' && (
-          /* Portalled, because the pane is overflow:hidden and only the lower
-             part of the window — a menu positioned inside it was clipped by the
-             pane rather than by the screen. */
-          <div ref={addMenuRef} className={styles.addMenuAnchor}>
+          /* Portalled so the cascading menu stays constrained to the viewport
+             even though its trigger now sits at the stage edge. */
+          <div
+            ref={addMenuRef}
+            className={styles.addMenuAnchor}
+            style={{ left: `${leftInset + 16}px` }}
+          >
             <button
               ref={addButtonRef}
               type="button"
@@ -1211,10 +1213,6 @@ export default function HardwarePane() {
             )}
           </div>
         )}
-        <div className={styles.boardMeta}>
-          <strong>{boardProfile.label}</strong>
-          <span>{boardFamilyLabel}</span>
-        </div>
       </div>
 
       {paneTab === 'upload' && <MatrixOutputDeployPopup inline />}

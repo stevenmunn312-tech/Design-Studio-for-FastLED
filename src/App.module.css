@@ -115,7 +115,9 @@
   position: relative;
   flex: 0 0 var(--hardware-pane-height, 0px);
   min-height: 0;
-  overflow: hidden;
+  /* The hardware stage clips its own world. This boundary stays visible so
+     the two pane tabs can project into the graph without restoring a header. */
+  overflow: visible;
 }
 
 .appPerformance .sidebarPanel,

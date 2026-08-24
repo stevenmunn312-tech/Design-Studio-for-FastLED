@@ -86,7 +86,7 @@ const BAND_MAX = 226
 /** Room under the band for the two-line caption, so labels never collide. */
 const CAPTION_BLOCK = 46
 /** Maximum rendered caption width; kept in sync with HardwarePane.module.css. */
-const CAPTION_MAX_WIDTH = 260
+const CAPTION_MAX_WIDTH = 220
 /** Slots are at least this wide, so captions clear their neighbours. */
 const SLOT_MIN_WIDTH = 150
 /** A run longer than this has its caption held near its start, not its middle. */
@@ -213,7 +213,10 @@ function arrangeAtBand(
       width: size.width,
       height: size.height,
       captionX: slotX + Math.min(slot.width, CAPTION_ANCHOR_MAX) / 2,
-      captionY: slotY + band + 8,
+      // Follow the rendered object's actual lower edge. Anchoring every label
+      // to the bottom of the shared band left a large void under short boards
+      // and modules; the tallest object still keeps the same eight-pixel gap.
+      captionY: slotY + (band - size.height) / 2 + size.height + 8,
     }
   })
 

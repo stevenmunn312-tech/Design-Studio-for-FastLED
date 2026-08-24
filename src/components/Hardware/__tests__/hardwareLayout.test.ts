@@ -76,6 +76,13 @@ describe('hardware arrangement', () => {
     expect(byId.get('board')!.height).toBeCloseTo(band)
   })
 
+  it('places every caption directly beneath its rendered part', () => {
+    const { parts } = arrange([MIC, BOARD, STRIP], CHAIN)
+    for (const part of parts) {
+      expect(part.captionY - (part.y + part.height)).toBeCloseTo(8)
+    }
+  })
+
   it('gives every run a bend by attaching at stepped heights, not flat centres', () => {
     const { links } = arrange([MIC, BOARD, STRIP], CHAIN)
     for (const link of links) {
