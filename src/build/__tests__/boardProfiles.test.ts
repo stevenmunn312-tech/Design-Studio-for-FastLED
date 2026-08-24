@@ -273,6 +273,7 @@ describe('module flash size', () => {
     // capacity meter both target half the real flash.
     for (const id of ['generic-esp32-s3-n16r8-44pin-dual-usbc', 'lolin-s3-40pin-dual-usbc']) {
       expect(boardProfileById(id)?.memory, id).toEqual({ flashMb: 16, psramMb: 8 })
+      expect(boardProfileById(id)?.psramMode, id).toBe('opi')
     }
   })
 

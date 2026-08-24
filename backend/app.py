@@ -1977,6 +1977,14 @@ def serial_ports():
                     "label": port.get("label") or addr,
                     "protocol": port.get("protocol", "serial"),
                     "boards": [{"name": b.get("name"), "fqbn": b.get("fqbn")} for b in boards],
+                    "vid": None,
+                    "pid": None,
+                    "serialNumber": None,
+                    "manufacturer": None,
+                    "product": None,
+                    "interface": None,
+                    "location": None,
+                    "hwid": None,
                 }
         except Exception:
             pass  # fall through to pyserial below
@@ -1994,8 +2002,31 @@ def serial_ports():
                 # Enrich a bare arduino-cli entry with the OS description.
                 if by_addr[key]["label"] in (p.device, None) and desc:
                     by_addr[key]["label"] = label
+                by_addr[key].update({
+                    "vid": getattr(p, "vid", None),
+                    "pid": getattr(p, "pid", None),
+                    "serialNumber": getattr(p, "serial_number", None),
+                    "manufacturer": getattr(p, "manufacturer", None),
+                    "product": getattr(p, "product", None),
+                    "interface": getattr(p, "interface", None),
+                    "location": getattr(p, "location", None),
+                    "hwid": getattr(p, "hwid", None),
+                })
             else:
-                by_addr[key] = {"address": p.device, "label": label, "protocol": "serial", "boards": []}
+                by_addr[key] = {
+                    "address": p.device,
+                    "label": label,
+                    "protocol": "serial",
+                    "boards": [],
+                    "vid": getattr(p, "vid", None),
+                    "pid": getattr(p, "pid", None),
+                    "serialNumber": getattr(p, "serial_number", None),
+                    "manufacturer": getattr(p, "manufacturer", None),
+                    "product": getattr(p, "product", None),
+                    "interface": getattr(p, "interface", None),
+                    "location": getattr(p, "location", None),
+                    "hwid": getattr(p, "hwid", None),
+                }
     except Exception:
         pass
 

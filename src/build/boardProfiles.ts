@@ -54,6 +54,11 @@ export interface PhysicalBoardProfile {
   pins?: PhysicalBoardPinProfile[]
   processor?: string
   memory?: { flashMb: number; psramMb: number }
+  /** PSRAM interface positively identified for this exact physical board.
+   *  Presence makes the Board node's automatic PSRAM policy safe to enable;
+   *  memory capacity alone is not enough because the build must select the
+   *  module's actual QSPI/OPI bus mode. */
+  psramMode?: 'opi' | 'qspi'
   pinSafety?: BoardPinSafety
   /** Prose safety commentary from the imported manifest. Displayed, never parsed. */
   safetyNotes?: string[]
@@ -477,6 +482,7 @@ const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
     // so without this the build, and the capacity meter reading it, target
     // 8MB on a 16MB part. Confirmed on the bench with esptool.
     memory: { flashMb: 16, psramMb: 8 },
+    psramMode: 'opi',
     moduleSilk: 'ESP32-S3-WROOM',
     previewSvg: boardSvg('Generic ESP32-S3 N16R8', '#ffd166', 'USB-C', 'Pinout verified'),
     notes: [
@@ -606,6 +612,7 @@ const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
     // so without this the build, and the capacity meter reading it, target
     // 8MB on a 16MB part. Confirmed on the bench with esptool.
     memory: { flashMb: 16, psramMb: 8 },
+    psramMode: 'opi',
     moduleSilk: 'ESP32-S3-WROOM',
     previewSvg: boardSvg('LOLIN S3', '#c9a0ff', 'USB-C', 'Pinout verified'),
     notes: [

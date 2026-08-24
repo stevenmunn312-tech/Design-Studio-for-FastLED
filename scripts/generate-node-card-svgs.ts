@@ -179,7 +179,7 @@ const truncate = (s: string, maxPx: number, pxPerChar: number) => {
 const EXCLUDED_KEYS = new Set([
   'font', 'image', 'animation', 'code', 'globalCode', 'clampInputs',
   'patternIds', 'patternSections', 'transitions', 'previewHidden', 'bypassed',
-  'showInMainPreview', 'usePsram', 'psramMode', 'width', 'height', 'paramId',
+  'showInMainPreview', 'usePsram', 'psramPolicy', 'psramMode', 'serialRoute', 'width', 'height', 'paramId',
 ])
 
 function editableEntries(def: NodeDefinition, props: Record<string, unknown>): Array<[string, unknown]> {

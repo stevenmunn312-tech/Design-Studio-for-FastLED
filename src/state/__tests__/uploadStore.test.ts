@@ -138,6 +138,27 @@ describe('uploadStore', () => {
       })
     })
 
+    it('automatically routes Serial to an Espressif native USB port', async () => {
+      const useUploadStore = await readyStore()
+      const { useGraphStore } = await import('../graphStore')
+      useGraphStore.setState({
+        nodes: [board({
+          profileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
+          serialRoute: 'auto',
+        })],
+      })
+      useUploadStore.setState({
+        ports: [{
+          address: 'COM7', label: 'COM7 (USB JTAG/serial debug unit)', protocol: 'serial',
+          boards: [], vid: 0x303a, pid: 0x1001,
+        }],
+      })
+
+      await useUploadStore.getState().runShowUpload(showPayload())
+
+      expect(mocks.uploadShow.mock.calls[0][0]).toMatchObject({ usbCdcOnBoot: true })
+    })
+
     it('writes the card directly, then flashes with nothing left to transfer', async () => {
       const useUploadStore = await readyStore()
       useUploadStore.getState().setCardReader(true)

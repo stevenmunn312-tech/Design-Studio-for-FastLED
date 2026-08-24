@@ -10,6 +10,7 @@ import { useStreamStore } from './streamStore'
 import { useGraphStore, rootGraphNodes } from './graphStore'
 import { selectedBoardFlashMb } from '../build/boardProfiles'
 import { controllerSettings } from './controllerSettings'
+import { resolveUsbCdcOnBoot } from './serialRouting'
 import { BOARD_GPIO_BY_FQBN, type BoardGpio } from './boardGpio'
 
 export type { BoardGpio, PinNote } from './boardGpio'
@@ -654,7 +655,10 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       const flashMb = selectedBoardFlashMb(rootNodes)
       // Only meaningful on a board that has both sockets; elsewhere the helper
       // ignores it, but there is no reason to send a claim we cannot make.
-      const usbCdcOnBoot = boardHasUsbCdc(selectedFqbn) && controllerSettings(rootNodes).usbCdcOnBoot
+      const controller = controllerSettings(rootNodes)
+      const selectedSerialPort = get().ports.find((port) => port.address === selectedPort)
+      const usbCdcOnBoot = boardHasUsbCdc(selectedFqbn)
+        && resolveUsbCdcOnBoot(controller.serialRoute, selectedSerialPort)
       await uploadSketch(code, fqbn, selectedPort, (chunk) => {
         const log = (get().log + chunk).slice(-60000)
         const status = parseStatus(log)
@@ -740,7 +744,10 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     // fall back to the generic board manifest.
     const rootNodes = rootGraphNodes(useGraphStore.getState())
     const flashMb = selectedBoardFlashMb(rootNodes)
-    const usbCdcOnBoot = boardHasUsbCdc(selectedFqbn) && controllerSettings(rootNodes).usbCdcOnBoot
+    const controller = controllerSettings(rootNodes)
+    const selectedSerialPort = get().ports.find((port) => port.address === selectedPort)
+    const usbCdcOnBoot = boardHasUsbCdc(selectedFqbn)
+      && resolveUsbCdcOnBoot(controller.serialRoute, selectedSerialPort)
     set({
       busy: true,
       consoleOpen: true,

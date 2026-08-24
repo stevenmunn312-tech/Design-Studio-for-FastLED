@@ -7,6 +7,15 @@ versioning (`0.y.z`) until the first stable release.
 
 ## [Unreleased]
 
+### Changed
+
+- PSRAM now defaults to an automatic policy that enables external render
+  buffers only for exact board profiles with a recorded PSRAM interface, while
+  retaining manual On/Off and QSPI/OPI controls.
+- Serial routing on native-USB ESP32 targets now defaults to automatic
+  detection from the selected port's USB identity, with explicit Native USB
+  and UART bridge overrides for ambiguous devices.
+
 ## [0.7.0] - 2026-08-09
 
 ### Added

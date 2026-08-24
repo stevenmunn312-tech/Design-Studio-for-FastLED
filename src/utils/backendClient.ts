@@ -27,6 +27,14 @@ export interface SerialPort {
   label: string
   protocol: string
   boards: { name?: string; fqbn?: string }[]
+  vid?: number | null
+  pid?: number | null
+  serialNumber?: string | null
+  manufacturer?: string | null
+  product?: string | null
+  interface?: string | null
+  location?: string | null
+  hwid?: string | null
 }
 
 /** Ping the helper. Returns its health, or null if it isn't reachable. */

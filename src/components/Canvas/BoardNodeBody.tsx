@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useGraphStore, useRootNodes } from '../../state/graphStore'
 import { boardHasUsbCdc, boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import { controllerSettings } from '../../state/controllerSettings'
+import { serialRouteSummary } from '../../state/serialRouting'
 import {
   BOARD_PROFILE_FAMILIES,
   boardProfileById,
@@ -31,6 +32,8 @@ export default function BoardNodeBody({ nodeId }: Props) {
   const setSelectedFqbn = useUploadStore((s) => s.setSelectedFqbn)
   const openPinout = useUploadStore((s) => s.openPinout)
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
+  const selectedPort = useUploadStore((s) => s.selectedPort)
+  const ports = useUploadStore((s) => s.ports)
 
   const profileId = useGraphStore((s) => {
     const node = s.nodes.find((n) => n.id === nodeId)
@@ -46,10 +49,12 @@ export default function BoardNodeBody({ nodeId }: Props) {
   const profile = useMemo(() => boardProfileById(profileId), [profileId])
   const boardTarget = boardByFqbn(selectedFqbn)
   const psramOptions = boardTarget?.psram
+  const psramSupported = !!psramOptions || !!profile?.psramMode
   const hasUsbCdc = boardHasUsbCdc(selectedFqbn)
   const graphNodes = useRootNodes()
   const settings = useMemo(() => controllerSettings(graphNodes), [graphNodes])
   const psramChoice = psramOptions?.find((option) => option.id === settings.psramMode) ?? psramOptions?.[0]
+  const serialPort = ports.find((port) => port.address === selectedPort)
   const familyId = profile ? boardProfileFamilyId(profile) : ''
   const familyBoards = useMemo(() => boardProfilesForFamily(familyId), [familyId])
 
@@ -228,19 +233,32 @@ export default function BoardNodeBody({ nodeId }: Props) {
           </div>
         )}
 
-        {psramOptions ? (
+        {psramSupported ? (
           <div className={styles.psramBlock}>
-            <label className={styles.checkField}>
-              <input type="checkbox" checked={settings.usePsram} aria-label="Use PSRAM"
-                onChange={(event) => updateNodeProperty(nodeId, 'usePsram', event.target.checked)} />
-              <span>Use PSRAM for render buffers</span>
+            <label className={styles.pickerField}>
+              <span className={styles.pickerLabel}>Render-buffer memory</span>
+              <select className={styles.picker} value={settings.psramPolicy} aria-label="PSRAM policy"
+                onChange={(event) => updateNodeProperty(nodeId, 'psramPolicy', event.target.value)}>
+                <option value="auto">Auto (recommended)</option>
+                <option value="on">PSRAM on</option>
+                <option value="off">PSRAM off</option>
+              </select>
             </label>
-            {settings.usePsram && psramOptions.length > 1 && (
+            {settings.psramPolicy === 'on' && psramOptions && psramOptions.length > 1 && (
               <select className={styles.picker} value={psramChoice?.id} aria-label="PSRAM type"
                 onChange={(event) => updateNodeProperty(nodeId, 'psramMode', event.target.value)}>
                 {psramOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
               </select>
             )}
+            <p className={styles.pending}>
+              {settings.psramPolicy === 'auto'
+                ? settings.usePsram
+                  ? `Auto detected ${profile?.memory?.psramMb ?? ''} MB ${settings.psramMode.toUpperCase()} PSRAM from this board profile.`
+                  : 'This profile does not identify a safe PSRAM interface, so Auto leaves it off.'
+                : settings.usePsram
+                  ? `Render buffers use ${psramChoice?.label ?? settings.psramMode.toUpperCase()} PSRAM.`
+                  : 'Render buffers stay in internal RAM.'}
+            </p>
           </div>
         ) : (
           <p className={styles.pending}>PSRAM is not available for this board target.</p>
@@ -248,16 +266,19 @@ export default function BoardNodeBody({ nodeId }: Props) {
 
         {hasUsbCdc && (
           <div className={styles.psramBlock}>
-            <label className={styles.checkField}>
-              <input type="checkbox" checked={settings.usbCdcOnBoot} aria-label="USB CDC on boot"
-                onChange={(event) => updateNodeProperty(nodeId, 'usbCdcOnBoot', event.target.checked)} />
-              <span>Serial over the native USB port</span>
+            <label className={styles.pickerField}>
+              <span className={styles.pickerLabel}>Serial connection</span>
+              <select className={styles.picker} value={settings.serialRoute} aria-label="Serial route"
+                onChange={(event) => updateNodeProperty(nodeId, 'serialRoute', event.target.value)}>
+                <option value="auto">Auto (recommended)</option>
+                <option value="native">Native USB</option>
+                <option value="uart">UART bridge</option>
+              </select>
             </label>
             <p className={styles.pending}>
-              This board has two USB sockets. Tick this if your cable is in the one wired
-              straight to the chip; leave it off for the socket with the separate USB-serial
-              chip. It decides where the serial monitor, RTC set, SD-show transfer and live
-              streaming talk — the wrong choice fails silently rather than reporting an error.
+              {serialRouteSummary(settings.serialRoute, serialPort)}. This decides where the
+              serial monitor, RTC set, SD-show transfer and live streaming talk. Use a manual
+              choice only when the USB device does not expose enough identity for Auto.
             </p>
           </div>
         )}

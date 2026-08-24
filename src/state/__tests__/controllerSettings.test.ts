@@ -26,13 +26,44 @@ describe('controllerSettings', () => {
       volts: 5,
       milliamps: 6000,
       usePsram: true,
+      psramPolicy: 'on',
       psramMode: 'opi',
       // Off unless the Board says otherwise: enabling it moves where the
       // user's serial output goes, so it is never inferred.
       usbCdcOnBoot: false,
+      serialRoute: 'uart',
     })
     expect(ledPropsWithController({ brightness: 20, overclock: 1.7, dataPin: 5 }, nodes))
       .toEqual(expect.objectContaining({ brightness: 144, overclock: 1.25, dataPin: 5 }))
+  })
+
+  it('automatically enables the PSRAM mode recorded by an exact physical profile', () => {
+    const settings = controllerSettings([
+      node('board', 'Board', {
+        profileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
+        psramPolicy: 'auto',
+        psramMode: 'qspi',
+        serialRoute: 'auto',
+      }),
+    ])
+
+    expect(settings).toMatchObject({
+      usePsram: true,
+      psramPolicy: 'auto',
+      psramMode: 'opi',
+      usbCdcOnBoot: false,
+      serialRoute: 'auto',
+    })
+  })
+
+  it('leaves automatic PSRAM off when the profile does not identify its interface', () => {
+    const settings = controllerSettings([
+      node('board', 'Board', {
+        profileId: 'espressif-esp32-s3-devkitc-1',
+        psramPolicy: 'auto',
+      }),
+    ])
+    expect(settings.usePsram).toBe(false)
   })
 
   it('sums legacy output caps when no Board exists', () => {

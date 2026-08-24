@@ -24,6 +24,7 @@ import CodeViewPopup from './CodeViewPopup'
 import HardwareValidationPopup from './HardwareValidationPopup'
 import styles from './Upload.module.css'
 import { controllerSettings } from '../../state/controllerSettings'
+import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
 
 type ReadinessState = 'ready' | 'checking' | 'missing'
 
@@ -71,8 +72,10 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
   const usingFbuild = helper?.engine === 'fbuild'
   const activeEngineReady = engineReady(helper)
   const psramOptions = board?.psram
+  const physicalProfile = selectedPhysicalBoardProfile(nodes)
+  const psramSupported = !!psramOptions || !!physicalProfile?.psramMode
   const controller = controllerSettings(nodes)
-  const usePsram = !!psramOptions && controller.usePsram
+  const usePsram = psramSupported && controller.usePsram
   const psramChoice = psramOptions?.find((o) => o.id === controller.psramMode) ?? psramOptions?.[0]
 
   // See CapacityWatcher: keyed on the codegen-relevant graph so a node drag
@@ -80,11 +83,11 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
   const codegenGraph = useCodegenGraph(nodes, edges)
   const code = useMemo(() => {
     const groups = getGroupRegistry()
-    const opts = { psramAllowed: !!psramOptions }
+    const opts = { psramAllowed: psramSupported }
     return isPatternShow(codegenGraph.nodes, codegenGraph.edges)
       ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)
       : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
-  }, [codegenGraph, psramOptions])
+  }, [codegenGraph, psramSupported])
 
   const portLabel = ports.find((p) => p.address === selectedPort)?.label ?? selectedPort
   const target = `${board?.label ?? 'No board'} · ${portLabel || 'no port'}`

@@ -4,6 +4,7 @@ import { allBoards, boardByFqbn, engineReady, useUploadStore } from '../../state
 import { estimateFirmwareRam } from '../../utils/validateGraph'
 import styles from './Upload.module.css'
 import { controllerSettings } from '../../state/controllerSettings'
+import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
 
 const EMPTY_CUSTOM_BOARD = { label: '', fqbn: '', core: '', boardUrl: '' }
 
@@ -72,7 +73,8 @@ export default function BoardPopup() {
   const target = `${board?.label ?? 'No board'} · ${portLabel || 'no port'}`
   const controller = controllerSettings(nodes)
   const psramOptions = board?.psram
-  const usePsram = !!psramOptions && controller.usePsram
+  const psramSupported = !!psramOptions || !!selectedPhysicalBoardProfile(nodes)?.psramMode
+  const usePsram = psramSupported && controller.usePsram
   const psramChoice = psramOptions?.find((option) => option.id === controller.psramMode) ?? psramOptions?.[0]
   const ram = useMemo(() => estimateFirmwareRam(nodes, edges), [nodes, edges])
 
@@ -322,7 +324,7 @@ export default function BoardPopup() {
         <div className={styles.sectionTitle}>Controller settings</div>
         <div className={styles.note}>
           Brightness {controller.brightness} · overclock {controller.overclock.toFixed(2)}× · power cap {controller.powerLimit ? `${controller.volts} V / ${controller.milliamps} mA` : 'off'}
-          {psramOptions ? ` · PSRAM ${usePsram ? (psramChoice?.label ?? controller.psramMode) : 'off'}` : ' · PSRAM unavailable'}.
+          {psramSupported ? ` · PSRAM ${usePsram ? (psramChoice?.label ?? controller.psramMode) : 'off'} (${controller.psramPolicy})` : ' · PSRAM unavailable'}.
           Edit these on the Board in Hardware.
         </div>
       </div>

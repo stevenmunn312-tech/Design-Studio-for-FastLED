@@ -17,6 +17,7 @@ import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { audioOutputMode } from '../state/audioOutput'
 import { resolveShowTarget, type ShowTargetNode, type ShowTargetEdge } from '../state/showTarget'
 import type { StudioNode } from '../state/graphStore'
+import { controllerSettings } from '../state/controllerSettings'
 
 export interface PlayerConfig {
   ledWidth:    number
@@ -94,6 +95,7 @@ export function playerConfigFromGraph(
 ): Partial<PlayerConfig> {
   const mo = resolveShowTarget(nodes as ShowTargetNode[], edges).target?.data.properties ?? {}
   const board = nodes.find((n) => n.data.nodeType === 'Board')?.data.properties ?? mo
+  const controller = controllerSettings(nodes as StudioNode[])
   const sd = nodes.find((n) => n.data.nodeType === 'SDCard')?.data.properties ?? {}
   const amp = nodes.find((n) => n.data.nodeType === 'Amplifier')?.data.properties ?? {}
   const num = (v: unknown, d: number) => (v === undefined || v === null ? d : Number(v))
@@ -119,7 +121,7 @@ export function playerConfigFromGraph(
     i2sLrc:     sanitizePin(amp.i2sLrc, DEFAULTS.i2sLrc),
     i2sDout:    sanitizePin(amp.i2sDout, DEFAULTS.i2sDout),
     maxVolume:  sanitizeVolume(amp.maxVolume),
-    usePsram:   board.usePsram === true,
+    usePsram:   controller.usePsram,
     hub75Props: mo,
   }
 }

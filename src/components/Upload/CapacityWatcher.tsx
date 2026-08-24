@@ -8,7 +8,8 @@ import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { buildShowPlayerForMeasurement, sdShowConnected } from '../../utils/showUpload'
 import { useCodegenGraph } from '../../utils/codegenGraph'
 import { controllerSettings } from '../../state/controllerSettings'
-import { selectedBoardFlashMb } from '../../build/boardProfiles'
+import { selectedBoardFlashMb, selectedPhysicalBoardProfile } from '../../build/boardProfiles'
+import { resolveUsbCdcOnBoot } from '../../state/serialRouting'
 
 /**
  * Keeps the capacity store pointed at what an Upload would actually build.
@@ -29,10 +30,12 @@ import { selectedBoardFlashMb } from '../../build/boardProfiles'
 export default function CapacityWatcher() {
   const nodes = useRootNodes()
   const edges = useRootEdges()
-  const { helper, installedCores, selectedFqbn } = useUploadStore(useShallow((s) => ({
+  const { helper, installedCores, selectedFqbn, selectedPort, ports } = useUploadStore(useShallow((s) => ({
     helper: s.helper,
     installedCores: s.installedCores,
     selectedFqbn: s.selectedFqbn,
+    selectedPort: s.selectedPort,
+    ports: s.ports,
   })))
   const setCapacityTarget = useCapacityStore((s) => s.setTarget)
 
@@ -57,10 +60,14 @@ export default function CapacityWatcher() {
    * use this same option so the measured internal-DRAM figure describes the
    * binary that will actually be flashed. */
   const psramOptions = board?.psram
+  const physicalProfile = selectedPhysicalBoardProfile(nodes)
+  const psramSupported = !!psramOptions || !!physicalProfile?.psramMode
   const controller = controllerSettings(nodes)
   // Which socket `Serial` uses is part of the build, so the check must measure
   // the same env the upload would flash.
-  const usbCdcOnBoot = boardHasUsbCdc(selectedFqbn) && controller.usbCdcOnBoot
+  const serialPort = ports.find((port) => port.address === selectedPort)
+  const usbCdcOnBoot = boardHasUsbCdc(selectedFqbn)
+    && resolveUsbCdcOnBoot(controller.serialRoute, serialPort)
   const psramChoice = psramOptions?.find((option) => option.id === controller.psramMode) ?? psramOptions?.[0]
   const fqbnWithOpt = controller.usePsram && psramChoice ? `${selectedFqbn}:${psramChoice.opt}` : selectedFqbn
 
@@ -81,14 +88,14 @@ export default function CapacityWatcher() {
   const capacityCode = useMemo(() => {
     const groups = getGroupRegistry()
     if (isShow) {
-      return buildShowPlayerForMeasurement(codegenGraph.nodes, codegenGraph.edges, groups, selectedFqbn, !!psramOptions)
+      return buildShowPlayerForMeasurement(codegenGraph.nodes, codegenGraph.edges, groups, selectedFqbn, psramSupported)
     }
     if (!hasFrameInput) return null
-    const opts = { psramAllowed: !!psramOptions }
+    const opts = { psramAllowed: psramSupported }
     return isPatternShow(codegenGraph.nodes, codegenGraph.edges)
       ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)
       : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
-  }, [codegenGraph, psramOptions, hasFrameInput, isShow, selectedFqbn])
+  }, [codegenGraph, psramSupported, hasFrameInput, isShow, selectedFqbn])
 
   // Published even with nothing to build: a skipped call would leave the
   // previous reading on screen describing a graph that no longer exists.

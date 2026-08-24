@@ -1,4 +1,8 @@
 import type { StudioNode } from './graphStore'
+import { boardProfileById } from '../build/boardProfiles'
+
+export type PsramPolicy = 'auto' | 'on' | 'off'
+export type SerialRoute = 'auto' | 'native' | 'uart'
 
 /** Project-wide firmware/output policy owned by the singleton Board node. */
 export interface ControllerSettings {
@@ -8,11 +12,12 @@ export interface ControllerSettings {
   volts: number
   milliamps: number
   usePsram: boolean
+  psramPolicy: PsramPolicy
   psramMode: string
-  /** Route the sketch's `Serial` to the board's native USB socket rather than
-   *  its UART bridge. A fact about which cable is plugged in, not a
-   *  preference — see `usbCdcBoards` for why it cannot be defaulted. */
+  /** Resolved compatibility value. Automatic routing is evaluated later,
+   *  against the selected port's USB identity. */
   usbCdcOnBoot: boolean
+  serialRoute: SerialRoute
 }
 
 export const DEFAULT_CONTROLLER_SETTINGS: ControllerSettings = {
@@ -22,11 +27,30 @@ export const DEFAULT_CONTROLLER_SETTINGS: ControllerSettings = {
   volts: 5,
   milliamps: 2000,
   usePsram: false,
+  psramPolicy: 'auto',
   psramMode: 'opi',
-  // Off matches both Arduino's own default and every build this app has made
-  // so far, so enabling it is a deliberate act rather than a silent move of
-  // where a user's serial output goes.
+  // `auto` has no port to inspect at this layer, so its compatibility value is
+  // false until the upload/capacity path resolves the current connection.
   usbCdcOnBoot: false,
+  serialRoute: 'auto',
+}
+
+function psramPolicy(props: Record<string, unknown>): PsramPolicy {
+  if (props.psramPolicy === 'auto' || props.psramPolicy === 'on' || props.psramPolicy === 'off') {
+    return props.psramPolicy
+  }
+  // Hardware saves from before the three-state control used a boolean. Treat
+  // it as an explicit choice so opening a project cannot silently change its
+  // memory layout; only newly-created Board nodes default to automatic.
+  return props.usePsram === true ? 'on' : 'off'
+}
+
+function serialRoute(props: Record<string, unknown>): SerialRoute {
+  if (props.serialRoute === 'auto' || props.serialRoute === 'native' || props.serialRoute === 'uart') {
+    return props.serialRoute
+  }
+  // Same compatibility rule as PSRAM: preserve the old checkbox exactly.
+  return props.usbCdcOnBoot === true ? 'native' : 'uart'
 }
 
 function number(value: unknown, fallback: number, min: number, max: number): number {
@@ -42,6 +66,11 @@ export function controllerSettings(nodes: readonly StudioNode[]): ControllerSett
   const legacyOutputs = board ? [] : nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
   const legacyOutput = legacyOutputs[0]
   const props = ((board ?? legacyOutput)?.data.properties ?? {}) as Record<string, unknown>
+  const profileId = typeof props.profileId === 'string' ? props.profileId : ''
+  const profile = boardProfileById(profileId)
+  const selectedPsramPolicy = board ? psramPolicy(props) : (props.usePsram === true ? 'on' : 'off')
+  const selectedSerialRoute = board ? serialRoute(props) : 'uart'
+  const automaticPsram = !!profile?.memory?.psramMb && !!profile.psramMode
   const legacyCappedOutputs = legacyOutputs.filter((node) =>
     (node.data.properties as Record<string, unknown>).powerLimit === true)
   const legacyMilliamps = legacyCappedOutputs.length > 0
@@ -54,10 +83,20 @@ export function controllerSettings(nodes: readonly StudioNode[]): ControllerSett
     powerLimit: board ? props.powerLimit === true : legacyCappedOutputs.length > 0,
     volts: number(props.volts, DEFAULT_CONTROLLER_SETTINGS.volts, 1, 60),
     milliamps: Math.round(number(legacyMilliamps ?? props.milliamps, DEFAULT_CONTROLLER_SETTINGS.milliamps, 100, 100000)),
-    usePsram: board ? props.usePsram === true : legacyOutputs.some((node) =>
-      (node.data.properties as Record<string, unknown>).usePsram === true),
-    psramMode: typeof props.psramMode === 'string' && props.psramMode ? props.psramMode : DEFAULT_CONTROLLER_SETTINGS.psramMode,
-    usbCdcOnBoot: props.usbCdcOnBoot === true,
+    usePsram: board
+      ? selectedPsramPolicy === 'on' || (selectedPsramPolicy === 'auto' && automaticPsram)
+      : legacyOutputs.some((node) => (node.data.properties as Record<string, unknown>).usePsram === true),
+    psramPolicy: selectedPsramPolicy,
+    psramMode: selectedPsramPolicy === 'auto' && profile?.psramMode
+      ? profile.psramMode
+      : typeof props.psramMode === 'string' && props.psramMode
+        ? props.psramMode
+        : DEFAULT_CONTROLLER_SETTINGS.psramMode,
+    // Auto is resolved against the selected, currently-connected port by the
+    // upload path. Keep this compatibility field deterministic for consumers
+    // that do not have port identity available.
+    usbCdcOnBoot: selectedSerialRoute === 'native',
+    serialRoute: selectedSerialRoute,
   }
 }
 

@@ -161,6 +161,12 @@ Moves: the board target and the PSRAM options. These are board-scoped and
 already sit awkwardly — the PSRAM toggle is rendered outside the generic property
 list precisely because its visibility depends on the selected board.
 
+PSRAM uses an `Auto / On / Off` policy. Auto is deliberately conservative: it
+enables external render buffers only when the exact physical profile records
+both PSRAM capacity and its QSPI/OPI interface. An FQBN merely exposing PSRAM
+menu choices is not proof that the selected module contains either variant.
+Legacy boolean saves are read as explicit On or Off choices.
+
 Stays: everything genuinely about the panel — size, chipset, colour order,
 layout, tiling, brightness, correction. The LED output is deliberately
 multi-instance, and three panels legitimately have three sizes.
@@ -187,6 +193,13 @@ Split on this line: the design owns what is true everywhere, the popup owns what
 is true on this machine right now. Board choice moves to the node. Serial port,
 core installation and the readiness checklist stay in the popup — the port is
 already stored per project rather than in the graph.
+
+The Board's serial policy is `Auto / Native USB / UART bridge`, but Auto is
+resolved at build/upload time from that desk-local selected port. The helper
+returns its USB VID/PID, manufacturer, product, interface, serial number,
+location and hardware id without opening the port. Known Espressif native USB
+and common CP210x/CH34x/FTDI/Prolific bridges resolve automatically; an unknown
+identity safely uses the UART build unless the user chooses a manual override.
 
 ### Raspberry Pi is deferred but accommodated
 
