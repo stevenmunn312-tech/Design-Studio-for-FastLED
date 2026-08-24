@@ -1,4 +1,4 @@
-import { useGraphStore } from '../../state/graphStore'
+import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { resolvePartIdentity } from '../../state/partOptions'
 import styles from './PartIdentity.module.css'
 
@@ -15,7 +15,7 @@ import styles from './PartIdentity.module.css'
  */
 export default function PartIdentity({ nodeId, nodeType }: { nodeId: string; nodeType: string }) {
   const properties = useGraphStore((s) => {
-    const node = s.nodes.find((n) => n.id === nodeId)
+    const node = rootGraphNodes(s).find((n) => n.id === nodeId)
     return (node?.data.properties ?? {}) as Record<string, unknown>
   })
 
@@ -43,15 +43,6 @@ export default function PartIdentity({ nodeId, nodeType }: { nodeId: string; nod
         <div className={styles.row}>
           <span className={styles.key}>Logic</span>
           <span className={styles.value}>{identity.entry.logicVoltage}</span>
-        </div>
-      )}
-
-      {identity.entry?.dimensionsMm && (
-        <div className={styles.row}>
-          <span className={styles.key}>Size</span>
-          <span className={styles.value}>
-            {identity.entry.dimensionsMm.width} × {identity.entry.dimensionsMm.height} mm
-          </span>
         </div>
       )}
 

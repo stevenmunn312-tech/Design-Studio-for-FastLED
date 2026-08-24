@@ -14,6 +14,7 @@ import WaveScope from './WaveScope'
 import ComplexWaveScope from './ComplexWaveScope'
 import NodePreview, { type PreviewKind } from './NodePreview'
 import HardwareLedPreview from '../Hardware/HardwareLedPreview'
+import BoardPinPicker from '../Hardware/BoardPinPicker'
 import { LED_CELL_FILL } from '../Hardware/ledPreviewGeometry'
 import { isLinearForm, outputForm, outputGridDims, ringDirection, ringStartAngle } from '../../state/ledOutputForm'
 import { partRenderForNodeType } from '../../state/partRenders'
@@ -25,7 +26,8 @@ import HardwareInputBody from './HardwareInputBody'
 import MidiInputBody from './MidiInputBody'
 import DmxInputBody from './DmxInputBody'
 import RtcInputBody from './RtcInputBody'
-import { pinDisplayLabel, pinSupports } from '../../state/boardGpio'
+import { pinSupports } from '../../state/boardGpio'
+import { isHardwareNodeType } from '../../state/hardware'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
 import {
@@ -42,6 +44,7 @@ import { stopWheelWhileFocused } from './wheelBehavior'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette, rgbToHex } from '../../state/customPalette'
 import { polinePalette, hexToRgb as polineHexToRgb } from '../../state/polinePalette'
 import type { Palette } from '../../state/ledColor'
+import { isHardwarePartField } from '../../state/partFields'
 import styles from './StudioNode.module.css'
 
 const MusicLibraryNodeBody = lazy(() => import('./MusicLibraryNodeBody'))
@@ -229,102 +232,6 @@ function SliderProperty({
   )
 }
 
-// Board-aware GPIO picker for every generated pin property (see
-// isGpioPinProperty). Built-in boards get a capability-filtered dropdown;
-// custom boards without a table, and existing incompatible values, retain a
-// bounded numeric editor so projects can still be inspected and corrected.
-function PinPickerField({
-  label,
-  nodeType,
-  propertyKey,
-  props,
-  value,
-  min,
-  max,
-  disabled,
-  onChange,
-}: {
-  label: string
-  nodeType: string
-  propertyKey: string
-  props: Record<string, unknown>
-  value: number
-  min: number
-  max: number
-  disabled: boolean
-  onChange: (value: number) => void
-}) {
-  const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
-  const gpio = boardGpioInfo(selectedFqbn)
-  const [customOpen, setCustomOpen] = useState(false)
-  const requirement = gpioRequirementForProperty(nodeType, propertyKey, props)
-
-  if (!gpio || !requirement || gpio.recommended.length === 0) {
-    return <SliderProperty label={label} value={value} min={min} max={max} step={1} disabled={disabled} onChange={onChange} />
-  }
-
-  const compatible = gpio.recommended.filter((pin) =>
-    pinSupports(pin, requirement.capability)
-    && (!requirement.pullup || pinSupports(pin, 'pullup'))
-  )
-  const isRecommended = compatible.some((pin) => pin.pin === value)
-  const legacyMax = Math.max(min, ...gpio.recommended.map((pin) => pin.pin), ...gpio.caution.map((pin) => pin.pin))
-  const boardMax = Math.min(max, gpio.maxPin ?? legacyMax)
-
-  if (customOpen || !isRecommended) {
-    return (
-      <span className={styles.gpioPickerWrap}>
-        <input
-          className={`nodrag ${styles.propInput}`}
-          type="number"
-          min={min}
-          max={boardMax}
-          step={1}
-          disabled={disabled}
-          value={value}
-          aria-label={`${label} value`}
-          onWheelCapture={stopWheelWhileFocused}
-          onChange={(e) => {
-            const n = Math.round(Number(e.target.value))
-            if (Number.isFinite(n)) onChange(Math.max(min, Math.min(boardMax, n)))
-          }}
-        />
-        <button
-          type="button"
-          className={`nodrag ${styles.gpioBackBtn}`}
-          disabled={disabled}
-          title="Pick from known-good pins for this board"
-          aria-label={`Choose ${label} from recommended pins`}
-          onClick={() => setCustomOpen(false)}
-        >
-          ☰
-        </button>
-      </span>
-    )
-  }
-
-  return (
-    <select
-      className={`nodrag ${styles.propSelect}`}
-      disabled={disabled}
-      value={String(value)}
-      aria-label={`${label} value`}
-      onWheelCapture={stopWheelWhileFocused}
-      onChange={(e) => {
-        if (e.target.value === '__custom__') { setCustomOpen(true); return }
-        onChange(Number(e.target.value))
-      }}
-    >
-      {compatible.map((pin) => (
-        <option key={pin.pin} value={pin.pin}>
-          {`${pinDisplayLabel(pin)}${pin.warning || pin.note ? ` — ${pin.warning ?? pin.note}` : ''}`}
-        </option>
-      ))}
-      <option value="__custom__">Other (type a number)…</option>
-    </select>
-  )
-}
-
 interface LivePropertyControlsProps {
   nodeId: string
   nodeType: string
@@ -374,8 +281,8 @@ const LivePropertyControls = memo(function LivePropertyControls({
   pinProperty,
   unpinProperty,
 }: LivePropertyControlsProps) {
-  // For the GPIO pin picker's dropdown + row-tooltip caveats (PinPickerField
-  // below reads the same store directly for its own render).
+  // Non-hardware nodes with generated pins (currently DMX) retain the shared
+  // picker here until they gain a physical part in the hardware workbench.
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
   const boardGpio = boardGpioInfo(selectedFqbn)
 
@@ -559,15 +466,16 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 ))}
               </select>
             ) : isGpioPin && meta?.control === 'slider' && typeof val === 'number' ? (
-              <PinPickerField
-                label={controlLabel}
+              <BoardPinPicker
+                nodeId={nodeId}
                 nodeType={nodeType}
                 propertyKey={key}
-                props={props}
+                properties={props}
                 value={typeof live === 'number' ? live : val}
                 min={meta.min}
                 max={meta.max}
                 disabled={disabled}
+                ariaLabel={`${controlLabel} value`}
                 onChange={(value) => updateNodeProperty(nodeId, key, value)}
               />
             ) : meta?.control === 'slider' && typeof val === 'number' ? (
@@ -1111,6 +1019,10 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       // dropdown here let the graph claim a part the bench did not have, which
       // is the one thing the two-view model exists to prevent.
       && k !== 'form'
+      // Physical wiring and hardware-specific selectors have one owner: the
+      // part's popup on the workbench, not a second editor on the graph node.
+      && !(isHardwareNodeType(d.nodeType)
+        && (isGpioPinProperty(d.nodeType, k) || isHardwarePartField(d.nodeType, k)))
       && !(isGroupInput && k === 'paramId')
       && !(hasRGB && (k === 'r' || k === 'g' || k === 'b'))
       // An inapplicable property is normally shown disabled, which reads as

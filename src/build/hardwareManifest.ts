@@ -215,23 +215,23 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         }
         break
       case 'SDCard':
-        push(node, `${baseLabel} CS pin`, 'sdCsPin', props.sdCsPin ?? sdSpiPins?.cs)
-        if (sdSpiPins) {
-          for (const [propertyKey, label, pin] of [
-            ['sdSckPin', `${baseLabel} SCK`, sdSpiPins.sck],
-            ['sdMosiPin', `${baseLabel} MOSI`, sdSpiPins.mosi],
-            ['sdMisoPin', `${baseLabel} MISO`, sdSpiPins.miso],
-          ] as const) {
-            uses.push({
-              label,
-              nodeId: node.id,
-              nodeType: node.data.nodeType,
-              propertyKey,
-              pin,
-              requirement: null,
-              boardDefault: true,
-            })
-          }
+        for (const [propertyKey, label, fallback] of [
+          ['sdCsPin', `${baseLabel} CS pin`, sdSpiPins?.cs],
+          ['sdSckPin', `${baseLabel} SCK`, sdSpiPins?.sck],
+          ['sdMosiPin', `${baseLabel} MOSI`, sdSpiPins?.mosi],
+          ['sdMisoPin', `${baseLabel} MISO`, sdSpiPins?.miso],
+        ] as const) {
+          const pin = Number(props[propertyKey] ?? fallback)
+          if (!Number.isFinite(pin)) continue
+          uses.push({
+            label,
+            nodeId: node.id,
+            nodeType: node.data.nodeType,
+            propertyKey,
+            pin,
+            requirement: gpioRequirementForProperty(node.data.nodeType, propertyKey, props),
+            boardDefault: fallback !== undefined && pin === fallback,
+          })
         }
         /*
          * The internal DAC has no Amplifier part — it *is* the output stage,

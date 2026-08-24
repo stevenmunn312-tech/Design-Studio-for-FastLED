@@ -103,6 +103,23 @@ describe('hardwareManifest', () => {
     })
   })
 
+  it('uses custom SD SPI assignments instead of the board defaults', () => {
+    const manifest = buildHardwareManifest([
+      node('board', 'Board', { profileId: 'esp32-devkit-v1-30pin-esp32d' }),
+      node('sd', 'SDCard', {
+        partId: 'microsd-module-5v',
+        sdCsPin: 15, sdSckPin: 14, sdMosiPin: 13, sdMisoPin: 12,
+      }),
+    ], [], 'esp32:esp32:esp32doit-devkit-v1')
+
+    expect(manifest.primaryItems[0].pins.map((pin) => [pin.propertyKey, pin.pin])).toEqual([
+      ['sdCsPin', 15],
+      ['sdSckPin', 14],
+      ['sdMosiPin', 13],
+      ['sdMisoPin', 12],
+    ])
+  })
+
   it('draws the audio module, which the bench had but the diagram did not', () => {
     // Its pins were already claimed by collectPinUses, which is exactly what
     // made the omission hard to spot: the wires were reserved and the part was

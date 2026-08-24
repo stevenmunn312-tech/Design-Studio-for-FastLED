@@ -32,7 +32,7 @@ import { assignPartPins, type PartPinRequest } from './partPinAssignment'
 import { micPinDefaultsForBoard, micPinIsDefault } from './micPinDefaults'
 import { outputForm } from './ledOutputForm'
 import { boardI2cDefault } from '../build/boardI2cDefaults'
-import { sdCsPinDefaultForBoard } from './sdPinDefaults'
+import { sdSpiPinsForBoard, type SdSpiPins } from './sdPinDefaults'
 
 /** Property holding the values the app last assigned, keyed by pin property. */
 export const ASSIGNED_PINS_KEY = 'assignedPins'
@@ -126,12 +126,25 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
     },
   },
   SDCard: {
-    keys: ['sdCsPin'],
+    keys: ['sdCsPin', 'sdSckPin', 'sdMisoPin', 'sdMosiPin'],
     fromProfile: (profile) => {
-      const sdCsPin = sdCsPinDefaultForBoard(profile)
-      return sdCsPin === null ? null : { sdCsPin }
+      const pins = sdSpiPinsForBoard(profile)
+      return pins ? sdPinProperties(pins) : null
+    },
+    fromFqbn: (fqbn) => {
+      const pins = sdSpiPinsForBoard(undefined, fqbn)
+      return pins ? sdPinProperties(pins) : null
     },
   },
+}
+
+function sdPinProperties(pins: SdSpiPins): Record<string, number> {
+  return {
+    sdCsPin: pins.cs,
+    sdSckPin: pins.sck,
+    sdMisoPin: pins.miso,
+    sdMosiPin: pins.mosi,
+  }
 }
 
 /**

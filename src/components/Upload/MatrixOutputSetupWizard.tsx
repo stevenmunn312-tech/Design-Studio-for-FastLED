@@ -8,6 +8,7 @@ import { estimatePowerLoad, findHub75TopologyDiagnosticErrors } from '../../util
 import { useModalFocus } from '../../hooks/useModalFocus'
 import styles from './Upload.module.css'
 import { controllerSettings } from '../../state/controllerSettings'
+import { useUiStore } from '../../state/uiStore'
 
 const STEPS = [
   { key: 'controller', title: 'Controller', blurb: 'Pick the board, port, and build path.' },
@@ -96,6 +97,13 @@ export default function MatrixOutputSetupWizard() {
 
   if (!nodeId) return null
   const matrixNodeId = nodeId
+  const openHardwareWiring = () => {
+    const ui = useUiStore.getState()
+    ui.setHardwarePaneTab('hardware')
+    if (ui.hardwarePaneRatio < 0.32) ui.setHardwarePaneRatio(0.5)
+    ui.setHardwareInspectorNodeId(matrixNodeId)
+    closeSetupWizard()
+  }
 
   function chooseBoard(fqbn: string) {
     if (!myBoards.includes(fqbn)) setMyBoards([...myBoards, fqbn])
@@ -382,27 +390,20 @@ export default function MatrixOutputSetupWizard() {
               </select>
             </label>
 
-            <div className={styles.dualFieldRow}>
-              <label className={styles.fieldBlock}>
-                <span className={styles.fieldLabel}>Data pin</span>
-                <input
-                  className={styles.textInput}
-                  type="number"
-                  value={dataPin}
-                  onChange={(e) => updateNodeProperty(matrixNodeId, 'dataPin', clampInt(e.target.value, dataPin, 0, 99))}
-                />
-              </label>
-              {spi && (
-                <label className={styles.fieldBlock}>
-                  <span className={styles.fieldLabel}>Clock pin</span>
-                  <input
-                    className={styles.textInput}
-                    type="number"
-                    value={clockPin}
-                    onChange={(e) => updateNodeProperty(matrixNodeId, 'clockPin', clampInt(e.target.value, clockPin, 0, 99))}
-                  />
-                </label>
-              )}
+            <div className={styles.wizardChecklistRow}>
+              <div>
+                <div className={styles.fieldLabel}>Hardware wiring</div>
+                <div className={styles.note}>
+                  Data GPIO {dataPin}{spi ? ` · Clock GPIO ${clockPin}` : ''}
+                </div>
+              </div>
+              <button
+                type="button"
+                className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
+                onClick={openHardwareWiring}
+              >
+                Edit in Hardware
+              </button>
             </div>
 
             <div className={styles.note}>

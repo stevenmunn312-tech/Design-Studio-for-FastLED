@@ -444,6 +444,70 @@
   text-align: left;
 }
 
+/* The workbench's wiring terminal follows the physical part that opened it.
+   FloatingMenu supplies viewport-safe fixed coordinates and scrolling. */
+.hardwareInspector {
+  position: fixed;
+  z-index: 1000;
+  width: min(328px, calc(100vw - 32px));
+  border: 1px solid color-mix(in srgb, var(--accent-output) 42%, var(--border-glow));
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent-output) 7%, transparent), transparent 54px),
+    color-mix(in srgb, var(--bg-panel) 98%, #05090d);
+  box-shadow: -14px 0 34px rgba(0, 0, 0, 0.34);
+  user-select: text;
+}
+
+.inspectorHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px 9px;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent-output) 24%, var(--divider));
+}
+
+.inspectorHeader > div {
+  display: grid;
+  gap: 2px;
+}
+
+.inspectorHeader span {
+  color: var(--accent-output);
+  font-family: var(--font-code);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.inspectorHeader strong {
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.inspectorClose {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.inspectorClose:hover { color: var(--text-primary); border-color: var(--accent-output); }
+.inspectorClose:focus-visible { outline: 2px solid var(--accent-output); outline-offset: 2px; }
+
+.inspectorBody {
+  padding: 8px 10px 12px;
+}
+
 .boardMenuHeader {
   display: flex;
   flex-direction: column;

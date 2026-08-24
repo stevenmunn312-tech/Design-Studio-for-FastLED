@@ -50,6 +50,7 @@ describe('HardwarePane', () => {
       sidebarOpen: false,
       previewPanelOpen: false,
       uiEffectsEnabled: true,
+      hardwareInspectorNodeId: null,
     })
   })
 
@@ -99,6 +100,82 @@ describe('HardwarePane', () => {
     expect(within(document.body).getByText('Default I2C bus')).toBeTruthy()
   })
 
+  it('opens a board-aware pin popup and reveals the signal node automatically', () => {
+    render(<HardwarePane />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
+    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /Inputs/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /Potentiometer/ }))
+
+    fireEvent.click(screen.getByTitle('Click to configure wiring · right-click for hardware actions'))
+
+    const inspector = screen.getByLabelText('Potentiometer hardware inspector')
+    expect(inspector).toBeTruthy()
+    expect((inspector as HTMLElement).style.position).toBe('fixed')
+    const picker = screen.getByLabelText('Pin') as HTMLSelectElement
+    expect(picker.tagName).toBe('SELECT')
+    expect(Array.from(picker.options).some((option) => option.textContent?.includes('ADC'))).toBe(true)
+    expect(screen.queryByRole('button', { name: 'Show signal node in graph' })).toBeNull()
+    expect(useUiStore.getState().nodeFlash.nodeId).toBe(
+      useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'PotInput')?.id,
+    )
+  })
+
+  it('keeps a hardware-only part caption to its identity', () => {
+    useGraphStore.setState({
+      nodes: [
+        ...useGraphStore.getState().nodes,
+        node('Amplifier', 'amp', {
+          model: 'MAX98357A', i2sBclk: 17, i2sLrc: 18, i2sDout: 16, maxVolume: 18,
+        }) as never,
+      ],
+    })
+
+    render(<HardwarePane />)
+
+    expect(screen.getByText('MAX98357A')).toBeTruthy()
+    expect(screen.queryByText('BCLK 17 · LRC 18 · DIN 16 · Click for options')).toBeNull()
+    expect(screen.queryByText(/Hardware only/)).toBeNull()
+  })
+
+  it('lifts the hardware inspector to use room above without scrolling', () => {
+    const offsetWidth = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(328)
+    const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(600)
+    useGraphStore.setState({
+      nodes: [
+        ...useGraphStore.getState().nodes,
+        node('Amplifier', 'amp', {
+          model: 'MAX98357A', i2sBclk: 17, i2sLrc: 18, i2sDout: 16, maxVolume: 18,
+        }) as never,
+      ],
+    })
+    try {
+      render(<HardwarePane />)
+      const part = screen.getByTitle('Click for options · right-click for hardware actions')
+      part.getBoundingClientRect = () => ({
+        left: 900,
+        top: 700,
+        right: 940,
+        bottom: 740,
+        width: 40,
+        height: 40,
+        x: 900,
+        y: 700,
+        toJSON: () => ({}),
+      })
+
+      fireEvent.click(part)
+
+      const panel = screen.getByLabelText('Amplifier hardware inspector') as HTMLElement
+      expect(panel.style.top).toBe('154px')
+      expect(panel.style.maxHeight).toBe('')
+      expect(panel.style.overflowY).toBe('')
+    } finally {
+      offsetWidth.mockRestore()
+      scrollHeight.mockRestore()
+    }
+  })
+
   it('offers zoom and fit controls for the bench', () => {
     render(<HardwarePane />)
 
@@ -117,7 +194,7 @@ describe('HardwarePane', () => {
   it('dismisses the board menu on any outside pointer down', () => {
     render(<HardwarePane />)
 
-    fireEvent.click(screen.getByTitle('Click or right-click to change boards'))
+    fireEvent.click(screen.getByTitle('Click for board options'))
     expect(within(document.body).getByLabelText('Board family')).toBeTruthy()
 
     fireEvent.pointerDown(document.body)
@@ -131,7 +208,7 @@ describe('HardwarePane', () => {
     try {
       render(<HardwarePane />)
 
-      const boardButton = screen.getByTitle('Click or right-click to change boards')
+      const boardButton = screen.getByTitle('Click for board options')
       boardButton.getBoundingClientRect = () => ({
         left: 500,
         top: 620,

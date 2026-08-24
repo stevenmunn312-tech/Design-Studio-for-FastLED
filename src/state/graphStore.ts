@@ -19,7 +19,12 @@ import type { SavedPattern } from './patternLibrary'
 import { isPatternContentTrusted, trustPatternContent } from './patternTrust'
 import { useNetworkCredentialsStore } from './networkCredentials'
 import { retargetedMicPins } from './micPinDefaults'
-import { retargetHardwarePins as retargetHardwarePinsFor, withAssignedPins } from './pinRetarget'
+import {
+  retargetHardwarePins as retargetHardwarePinsFor,
+  userPinsByBoard,
+  withAssignedPins,
+  USER_PINS_KEY,
+} from './pinRetarget'
 import { useNodeDefaults } from './nodeDefaults'
 import { useUiStore } from './uiStore'
 import { validateMatrixLayout } from './xyLayout'
@@ -27,7 +32,7 @@ import { isLinearForm, outputCanvasDims, outputForm } from './ledOutputForm'
 import { emptyBuildProfile, normalizeBuildProfile, type BuildProfile } from '../build/buildProfile'
 import { boardProfileById, selectedPhysicalBoardProfile } from '../build/boardProfiles'
 import { boardI2cDefault } from '../build/boardI2cDefaults'
-import { sdCsPinDefaultForBoard } from './sdPinDefaults'
+import { sdSpiPinsForBoard } from './sdPinDefaults'
 import { DEFAULT_BOARD_PROFILE_ID, isHardwareManagedSignalNodeType, isHardwareNodeType, isHardwareOnlyNodeType, ROOT_BOARD_NODE_ID } from './hardware'
 import { controllerSettings, DEFAULT_CONTROLLER_SETTINGS } from './controllerSettings'
 import {
@@ -320,7 +325,7 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
   const savedProfileId = (savedBoard?.data.properties as Record<string, unknown> | undefined)?.profileId
   const rtcDefaults = boardI2cDefault(typeof savedProfileId === 'string' ? savedProfileId : undefined)
   const savedProfile = typeof savedProfileId === 'string' ? boardProfileById(savedProfileId) : undefined
-  const sdCsDefault = sdCsPinDefaultForBoard(savedProfile)
+  const sdSpiDefaults = sdSpiPinsForBoard(savedProfile)
   const ampDefaults = savedProfile?.peripheralPins?.max98357
   const normalizedNodes = nodes.map((n) => {
     const data = n.data as StudioNodeData
@@ -341,15 +346,38 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
       properties.sdaPin ??= rtcDefaults?.sda.arduinoPin ?? 21
       properties.sclPin ??= rtcDefaults?.scl.arduinoPin ?? 22
     }
-    // The SD card used to carry one global ESP32-S3-oriented CS default (10),
-    // even in a project whose exact classic ESP32 board uses the core's GPIO5
-    // SS alias. Migrate that unstamped library value, while leaving any value
-    // already carrying pin provenance alone as a deliberate board choice.
-    if (nodeType === 'SDCard' && sdCsDefault !== null) {
+    // Older SD cards stored CS alone while SCK/MISO/MOSI were implicit core
+    // defaults. Make those existing wires explicit from the saved board, and
+    // repair the old global ESP32-S3 CS fallback on classic ESP32 projects.
+    if (nodeType === 'SDCard' && sdSpiDefaults) {
       const assigned = properties.assignedPins as Record<string, number> | undefined
       const legacyGlobalDefault = properties.sdCsPin === 10 && assigned?.sdCsPin === undefined
-      if (properties.sdCsPin === undefined || legacyGlobalDefault) {
-        Object.assign(properties, withAssignedPins(properties, { sdCsPin: sdCsDefault }, savedProfile?.id))
+      const legacyCustomCs = properties.sdCsPin !== undefined
+        && !legacyGlobalDefault
+        && assigned?.sdCsPin === undefined
+        && Number.isFinite(Number(properties.sdCsPin))
+      const missingPins = {
+        ...(properties.sdCsPin === undefined || legacyGlobalDefault ? { sdCsPin: sdSpiDefaults.cs } : {}),
+        ...(properties.sdSckPin === undefined ? { sdSckPin: sdSpiDefaults.sck } : {}),
+        ...(properties.sdMisoPin === undefined ? { sdMisoPin: sdSpiDefaults.miso } : {}),
+        ...(properties.sdMosiPin === undefined ? { sdMosiPin: sdSpiDefaults.mosi } : {}),
+      }
+      if (Object.keys(missingPins).length > 0) {
+        Object.assign(properties, withAssignedPins(properties, missingPins, savedProfile?.id))
+      }
+      // CS was the one editable SD wire in old projects. When it differs from
+      // the old library fallback and carries no assignment stamp, preserve it
+      // as this board's deliberate wiring rather than claiming it as a new
+      // app-owned default while backfilling the other three lines.
+      if (legacyCustomCs && savedProfile?.id) {
+        const memory = userPinsByBoard(properties)
+        properties[USER_PINS_KEY] = {
+          ...memory,
+          [savedProfile.id]: {
+            ...memory[savedProfile.id],
+            sdCsPin: Number(properties.sdCsPin),
+          },
+        }
       }
     }
     // The N16R8 profile once inherited the classic ESP32 amplifier tuple even

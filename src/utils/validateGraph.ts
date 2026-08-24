@@ -1308,7 +1308,7 @@ export function buildGraphDiagnostics(
         id: `${generator.id}-show-card`, severity: 'error', category: 'show',
         title: 'The music show has no SD Card',
         message: 'The player reads the song and its timed show file off the card while it runs, so a show without one has nothing to play.',
-        fix: 'Add an SD Card in the hardware view and set its CS pin.',
+        fix: 'Add an SD Card in the hardware view and set its SPI pins.',
         nodeIds: [generator.id], nodeLabel: nodeLabel(generator),
       })
     }

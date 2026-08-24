@@ -4,9 +4,15 @@ import { generatePlayerSketch, playerConfigFromGraph } from '../playerSketchGene
 import { TRANSITION_HELPER_CPP } from '../transitionHelperCpp'
 
 describe('generateProvisionerSketch', () => {
-  it('bakes the SD chip-select pin and chunk size into the sketch', () => {
-    const ino = generateProvisionerSketch({ sdCsPin: 21 })
+  it('bakes the complete SD SPI bus and chunk size into the sketch', () => {
+    const ino = generateProvisionerSketch({
+      sdCsPin: 21, sdSckPin: 18, sdMisoPin: 19, sdMosiPin: 23,
+    })
     expect(ino).toContain('#define SD_CS  21')
+    expect(ino).toContain('#define SD_SCK  18')
+    expect(ino).toContain('#define SD_MISO  19')
+    expect(ino).toContain('#define SD_MOSI  23')
+    expect(ino).toContain('SPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS)')
     expect(ino).toContain(`#define CHUNK      ${PROVISION_CHUNK}`)
   })
 
@@ -90,12 +96,13 @@ describe('playerConfigFromGraph', () => {
     const cfg = playerConfigFromGraph([
       generator,
       node('MatrixOutput', { width: 32, height: 8, chipset: 'SK6812', colorOrder: 'RGB', dataPin: 12 }),
-      node('SDCard', { sdCsPin: 21 }),
+      node('SDCard', { sdCsPin: 21, sdSckPin: 18, sdMisoPin: 19, sdMosiPin: 23 }),
       node('Amplifier', { i2sBclk: 5, i2sLrc: 6, i2sDout: 7, maxVolume: 12 }),
     ], showEdge)
     expect(cfg).toMatchObject({
       ledWidth: 32, ledHeight: 8, chipset: 'SK6812', colorOrder: 'RGB', ledDataPin: 12,
-      sdCsPin: 21, i2sBclk: 5, i2sLrc: 6, i2sDout: 7, maxVolume: 12,
+      sdCsPin: 21, sdSckPin: 18, sdMisoPin: 19, sdMosiPin: 23,
+      i2sBclk: 5, i2sLrc: 6, i2sDout: 7, maxVolume: 12,
     })
   })
 
@@ -122,6 +129,16 @@ describe('playerConfigFromGraph', () => {
     // A graph that never had one still generates a valid sketch.
     const cfg = playerConfigFromGraph([node('SDCard', { sdCsPin: 21 })])
     expect(cfg).toMatchObject({ sdCsPin: 21, i2sBclk: 26, i2sLrc: 25, i2sDout: 22 })
+  })
+
+  it('uses the selected board SPI defaults for an older SD card', () => {
+    const cfg = playerConfigFromGraph([
+      node('Board', { profileId: 'esp32-devkit-v1-30pin-esp32d' }),
+      node('SDCard', { sdCsPin: 5 }),
+    ], [], 'esp32:esp32:esp32')
+    expect(cfg).toMatchObject({
+      sdCsPin: 5, sdSckPin: 18, sdMisoPin: 19, sdMosiPin: 23,
+    })
   })
 
   it('falls back to defaults for missing nodes/props', () => {
@@ -155,12 +172,15 @@ describe('playerConfigFromGraph', () => {
 
   it('sanitizes SD/I2S pins and max volume read from saved graph properties', () => {
     const cfg = playerConfigFromGraph([
-      node('SDCard', { sdCsPin: -4.7 }),
+      node('SDCard', { sdCsPin: -4.7, sdSckPin: 19.6, sdMisoPin: 280, sdMosiPin: 'invalid' }),
       // Volume lives with the output now, not with the storage.
       node('Amplifier', { i2sBclk: 19.6, i2sLrc: 280, i2sDout: 'invalid', maxVolume: 99 }),
     ])
     expect(cfg).toMatchObject({
       sdCsPin: 0,
+      sdSckPin: 20,
+      sdMisoPin: 255,
+      sdMosiPin: 11,
       i2sBclk: 20,
       i2sLrc: 255,
       i2sDout: 22,
@@ -232,6 +252,9 @@ describe('generatePlayerSketch audio output', () => {
       ledClockPin: 290,
       chipset: 'APA102',
       sdCsPin: -10,
+      sdSckPin: 18.6,
+      sdMisoPin: 300,
+      sdMosiPin: Number.NaN,
       i2sBclk: 260,
       i2sLrc: 24.6,
       i2sDout: Number.NaN,
@@ -240,6 +263,10 @@ describe('generatePlayerSketch audio output', () => {
     expect(ino).toContain('#define LED_DATA_PIN  0')
     expect(ino).toContain('#define LED_CLOCK_PIN 255')
     expect(ino).toContain('#define SD_CS         0')
+    expect(ino).toContain('#define SD_SCK        19')
+    expect(ino).toContain('#define SD_MISO       255')
+    expect(ino).toContain('#define SD_MOSI       11')
+    expect(ino).toContain('SPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);')
     expect(ino).toContain('#define I2S_BCLK      255')
     expect(ino).toContain('#define I2S_LRC       25')
     expect(ino).toContain('#define I2S_DOUT      22')

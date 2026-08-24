@@ -479,7 +479,7 @@ function UploadTab() {
         <div className={styles.definitionGrid}>
           <div>
             <strong><code>sd=MISSING</code></strong>
-            <span>The card never mounted. Check it is seated, formatted <strong>FAT32</strong> (not exFAT — a 64&nbsp;GB card is usually exFAT out of the box, so reformat it), that the module has 3.3&nbsp;V power and a common ground, and that the CS pin on the SD Card part matches how it is wired. The board keeps retrying once a second, so reseating the card or fixing the wiring recovers it without a reset.</span>
+            <span>The card never mounted. Check it is seated, formatted <strong>FAT32</strong> (not exFAT — a 64&nbsp;GB card is usually exFAT out of the box, so reformat it), that the module has 3.3&nbsp;V power and a common ground, and that the CS, SCK, MOSI, and MISO pins on the SD Card part match how it is wired. The board keeps retrying once a second, so reseating the card or fixing the wiring recovers it without a reset.</span>
           </div>
           <div>
             <strong><code>sd=ok</code>, <code>audioPos</code> stuck at 0</strong>

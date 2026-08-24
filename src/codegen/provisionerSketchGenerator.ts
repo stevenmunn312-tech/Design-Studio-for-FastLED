@@ -29,12 +29,20 @@
 import { sanitizePin } from './hardwarePins'
 
 export interface ProvisionerConfig {
-  /** SD card chip-select pin (from the SDCard node). */
+  /** SD SPI pins from the SDCard hardware part. */
   sdCsPin: number
+  sdSckPin: number
+  sdMisoPin: number
+  sdMosiPin: number
 }
 
 // GPIO10 avoids colliding with MatrixOutput's default LED data pin (GPIO5).
-const DEFAULTS: ProvisionerConfig = { sdCsPin: 10 }
+const DEFAULTS: ProvisionerConfig = {
+  sdCsPin: 10,
+  sdSckPin: 12,
+  sdMisoPin: 13,
+  sdMosiPin: 11,
+}
 
 /** Transfer block size, in bytes — must match the host sender in the backend. */
 export const PROVISION_CHUNK = 4096
@@ -52,6 +60,9 @@ export function generateProvisionerSketch(cfg: Partial<ProvisionerConfig> = {}):
     ...DEFAULTS,
     ...cfg,
     sdCsPin: sanitizePin(cfg.sdCsPin, DEFAULTS.sdCsPin),
+    sdSckPin: sanitizePin(cfg.sdSckPin, DEFAULTS.sdSckPin),
+    sdMisoPin: sanitizePin(cfg.sdMisoPin, DEFAULTS.sdMisoPin),
+    sdMosiPin: sanitizePin(cfg.sdMosiPin, DEFAULTS.sdMosiPin),
   }
   return `// Design Studio for FastLED — SD Provisioner
 // Receives files over USB serial and writes them to the SD card, so the studio
@@ -62,6 +73,9 @@ export function generateProvisionerSketch(cfg: Partial<ProvisionerConfig> = {}):
 #include <SPI.h>
 
 #define SD_CS  ${c.sdCsPin}
+#define SD_SCK  ${c.sdSckPin}
+#define SD_MISO  ${c.sdMisoPin}
+#define SD_MOSI  ${c.sdMosiPin}
 #define CHUNK      ${PROVISION_CHUNK}
 #define LINE_TIMEOUT_MS      2000
 #define BLOCK_TIMEOUT_MS     3000
@@ -104,6 +118,7 @@ void setup() {
   Serial.begin(115200);
   while (!Serial) { /* wait for USB CDC */ }
   delay(200);
+  SPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
   if (!SD.begin(SD_CS)) { Serial.println("ERR sd-mount-failed"); for (;;) {} }
   Serial.println("READY");
 }

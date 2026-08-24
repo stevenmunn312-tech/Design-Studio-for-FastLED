@@ -13,6 +13,9 @@ type PartField =
   | { key: string; label: string; kind: 'number'; min: number; max: number }
 
 export const PART_FIELDS: Record<string, readonly PartField[]> = {
+  MicInput: [
+    { key: 'channel', label: 'Channel', kind: 'select', options: ['Left', 'Right'] },
+  ],
   Amplifier: [
     { key: 'i2sBclk', label: 'BCLK', kind: 'pin' },
     { key: 'i2sLrc', label: 'LRC / WS', kind: 'pin' },
@@ -23,5 +26,13 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
   // (state/audioOutput.ts) rather than set here.
   SDCard: [
     { key: 'sdCsPin', label: 'CS', kind: 'pin' },
+    { key: 'sdSckPin', label: 'SCK', kind: 'pin' },
+    { key: 'sdMosiPin', label: 'MOSI', kind: 'pin' },
+    { key: 'sdMisoPin', label: 'MISO', kind: 'pin' },
   ],
+}
+
+/** Non-pin settings whose single editing surface is the hardware popup. */
+export function isHardwarePartField(nodeType: string, key: string): boolean {
+  return PART_FIELDS[nodeType]?.some((field) => field.key === key) ?? false
 }

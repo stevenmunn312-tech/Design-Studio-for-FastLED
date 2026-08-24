@@ -9,7 +9,7 @@ import { create } from 'zustand'
 import { micPinDefaultsForSelectedBoard } from './micPinDefaults'
 import { useUploadStore } from './uploadStore'
 import { boardI2cDefault } from '../build/boardI2cDefaults'
-import { sdCsPinDefaultForBoard } from './sdPinDefaults'
+import { sdSpiPinsForBoard } from './sdPinDefaults'
 import type { PhysicalBoardProfile } from '../build/boardProfiles'
 
 const KEY = 'design-studio-for-fastled.node-defaults.v1'
@@ -137,7 +137,9 @@ export const useNodeDefaults = create<NodeDefaultsState>((set) => ({
  * Filtered on read rather than on save, so a default that already carries one
  * stops applying immediately instead of waiting to be re-saved.
  */
-const HARDWARE_OWNED_KEYS = new Set(['form', 'sdaPin', 'sclPin', 'sdCsPin'])
+const HARDWARE_OWNED_KEYS = new Set([
+  'form', 'sdaPin', 'sclPin', 'sdCsPin', 'sdSckPin', 'sdMisoPin', 'sdMosiPin',
+])
 
 function withoutHardwareOwned(override: Record<string, unknown> | undefined): Record<string, unknown> {
   if (!override) return {}
@@ -158,13 +160,18 @@ export function resolveDefaultProperties(
     ? state.micOverridesByFqbn[fqbn]
     : state.overrides[nodeType]
   const rtcPins = nodeType === 'RTCInput' ? boardI2cDefault(boardProfile?.id) : undefined
-  const sdCsPin = nodeType === 'SDCard' ? sdCsPinDefaultForBoard(boardProfile, fqbn) : null
+  const sdSpiPins = nodeType === 'SDCard' ? sdSpiPinsForBoard(boardProfile, fqbn) : null
   const boardDefault = nodeType === 'MicInput'
     ? micPinDefaultsForSelectedBoard(boardProfile)
     : rtcPins
       ? { sdaPin: rtcPins.sda.arduinoPin, sclPin: rtcPins.scl.arduinoPin }
-      : sdCsPin !== null
-        ? { sdCsPin }
+      : sdSpiPins
+        ? {
+            sdCsPin: sdSpiPins.cs,
+            sdSckPin: sdSpiPins.sck,
+            sdMisoPin: sdSpiPins.miso,
+            sdMosiPin: sdSpiPins.mosi,
+          }
         : undefined
   return sanitizeProperties(nodeType, {
     ...(libraryDefault ?? {}),

@@ -208,6 +208,8 @@ describe('StudioNode', () => {
     fireEvent.click(within(container).getByText('Levels'))
     expect(container.querySelectorAll('input[type="range"]')).toHaveLength(1)
     expect(container.textContent).not.toContain('AGC')
+    expect(within(container).queryByText('I2S Pins')).toBeNull()
+    expect(within(container).queryByLabelText('channel value')).toBeNull()
     expect(useGraphStore.getState().nodes[0].data.properties).not.toHaveProperty('agc')
   })
 
@@ -519,12 +521,13 @@ describe('StudioNode', () => {
       expect(within(container).queryByText('Layout')).toBeNull()
     })
 
-    it('still offers a panel its HUB75 wiring', () => {
+    it('does not expose a panel\'s HUB75 wiring in the graph view', () => {
       const { container } = renderNode(makeNode('MatrixOutput', { form: 'hub75', width: 64, height: 32 }))
       const keys = offeredKeys(container)
 
-      expect(keys).toContain('hub75R1Pin')
-      expect(keys).toContain('hub75ClkPin')
+      expect(keys).not.toContain('hub75R1Pin')
+      expect(keys).not.toContain('hub75ClkPin')
+      expect(within(container).queryByTitle('Pin assignments are owned by the hardware view')).toBeNull()
       // …and not the addressable-chain settings a scan panel has no use for.
       expect(keys).not.toContain('ledCount')
       expect(keys).not.toContain('colorOrder')
@@ -727,32 +730,18 @@ describe('StudioNode', () => {
     expect(getByText('0')).toBeTruthy()
   })
 
-  it('the GPIO pin picker filters each built-in board by the property capability', () => {
+  it('does not expose hardware-owned GPIO assignments in the graph view', () => {
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
     const withTable = renderNode(makeNode('MicInput', {
       gain: 1, i2sWs: 39, i2sSck: 40, i2sSd: 41, channel: 'Left', serialDebug: false,
     }))
-    // i2sWs/i2sSck/i2sSd live in the collapsible "I2S Pins" property group,
-    // which starts closed.
-    fireEvent.click(within(withTable.container).getByText('I2S Pins'))
-    const i2sWsSelect = Array.from(withTable.container.querySelectorAll('select'))
-      .find((s) => Array.from(s.options).some((o) => o.value === '39')) as HTMLSelectElement
-    expect(i2sWsSelect).toBeTruthy()
-    expect(i2sWsSelect.value).toBe('39')
-    expect(within(i2sWsSelect).getByText(/Common I2S WS default/)).toBeTruthy()
+    expect(within(withTable.container).queryByTitle('Pin assignments are owned by the hardware view')).toBeNull()
+    expect(withTable.container.querySelector('select[aria-label="I2S WS value"]')).toBeNull()
     withTable.unmount()
-    // The group-open state above persisted to localStorage — clear it so the
-    // next mount starts collapsed again instead of toggling it back shut.
-    localStorage.clear()
 
     useUploadStore.setState({ selectedFqbn: 'arduino:avr:uno' })
     const unoPot = renderNode(makeNode('PotInput', { pin: 14 }))
-    const analogSelect = unoPot.container.querySelector('select') as HTMLSelectElement
-    expect(analogSelect).toBeTruthy()
-    expect(analogSelect.value).toBe('14')
-    expect(Array.from(analogSelect.options).map((option) => option.value))
-      .toEqual(['14', '15', '16', '17', '18', '19', '__custom__'])
-    expect(within(analogSelect).getByText('A0 (14)')).toBeTruthy()
+    expect(within(unoPot.container).queryByTitle('Pin assignments are owned by the hardware view')).toBeNull()
   })
 
   it('flags the preview-only fallback on MidiInput, and only there', () => {
@@ -796,9 +785,8 @@ describe('StudioNode', () => {
     expect(rtc.getByText('DS3231 / I2C')).toBeTruthy()
     expect(rtc.getByText(/Preview simulates a healthy module/)).toBeTruthy()
     expect(rtc.queryByText(/default SDA\/SCL pins/i)).toBeNull()
-    fireEvent.click(rtc.getByText('DS3231 Wiring'))
-    expect(rtc.getByLabelText('SDA pin value')).toHaveProperty('value', '5')
-    expect(rtc.getByLabelText('SCL pin value')).toHaveProperty('value', '6')
+    expect(rtc.queryByTitle('Pin assignments are owned by the hardware view')).toBeNull()
+    expect(rtc.queryByLabelText('SDA pin value')).toBeNull()
     expect(rtc.getByRole('button', { name: 'Set from computer' })).toBeTruthy()
   })
 

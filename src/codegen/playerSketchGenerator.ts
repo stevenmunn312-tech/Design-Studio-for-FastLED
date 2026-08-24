@@ -18,6 +18,8 @@ import { audioOutputMode } from '../state/audioOutput'
 import { resolveShowTarget, type ShowTargetNode, type ShowTargetEdge } from '../state/showTarget'
 import type { StudioNode } from '../state/graphStore'
 import { controllerSettings } from '../state/controllerSettings'
+import { boardProfileById } from '../build/boardProfiles'
+import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
 
 export interface PlayerConfig {
   ledWidth:    number
@@ -33,6 +35,9 @@ export interface PlayerConfig {
   volts:       number
   milliamps:   number
   sdCsPin:     number
+  sdSckPin:    number
+  sdMisoPin:   number
+  sdMosiPin:   number
   audioOutput: string   // 'i2s' (external DAC) or 'internalDac' (ESP32 built-in DAC, GPIO25/26)
   i2sBclk:     number   // I2S bit clock pin (audioOutput === 'i2s' only)
   i2sLrc:      number   // I2S left/right clock, word select (audioOutput === 'i2s' only)
@@ -52,7 +57,7 @@ const DEFAULTS: PlayerConfig = {
   correction: 'none', dither: true, overclock: 1,
   powerLimit: false, volts: 5, milliamps: 2000,
   // GPIO10 avoids colliding with MatrixOutput's default LED data pin (GPIO5).
-  sdCsPin: 10,
+  sdCsPin: 10, sdSckPin: 12, sdMisoPin: 13, sdMosiPin: 11,
   audioOutput: 'i2s',
   i2sBclk: 26, i2sLrc: 25, i2sDout: 22,
   maxVolume: 18,
@@ -95,6 +100,8 @@ export function playerConfigFromGraph(
 ): Partial<PlayerConfig> {
   const mo = resolveShowTarget(nodes as ShowTargetNode[], edges).target?.data.properties ?? {}
   const board = nodes.find((n) => n.data.nodeType === 'Board')?.data.properties ?? mo
+  const profileId = typeof board.profileId === 'string' ? board.profileId : undefined
+  const sdDefaults = sdSpiPinsForBoard(profileId ? boardProfileById(profileId) : undefined, fqbn)
   const controller = controllerSettings(nodes as StudioNode[])
   const sd = nodes.find((n) => n.data.nodeType === 'SDCard')?.data.properties ?? {}
   const amp = nodes.find((n) => n.data.nodeType === 'Amplifier')?.data.properties ?? {}
@@ -113,7 +120,10 @@ export function playerConfigFromGraph(
     powerLimit:  board.powerLimit === true,
     volts:       num(board.volts, DEFAULTS.volts),
     milliamps:   num(board.milliamps, DEFAULTS.milliamps),
-    sdCsPin:    sanitizePin(sd.sdCsPin, DEFAULTS.sdCsPin),
+    sdCsPin:    sanitizePin(sd.sdCsPin, sdDefaults?.cs ?? DEFAULTS.sdCsPin),
+    sdSckPin:   sanitizePin(sd.sdSckPin, sdDefaults?.sck ?? DEFAULTS.sdSckPin),
+    sdMisoPin:  sanitizePin(sd.sdMisoPin, sdDefaults?.miso ?? DEFAULTS.sdMisoPin),
+    sdMosiPin:  sanitizePin(sd.sdMosiPin, sdDefaults?.mosi ?? DEFAULTS.sdMosiPin),
     // Derived from the parts present rather than read from a property — see
     // state/audioOutput.ts for why asking twice invites two answers.
     audioOutput: audioOutputMode(nodes as StudioNode[], fqbn),
@@ -144,6 +154,9 @@ export function generatePlayerSketch(
     ledDataPin: sanitizePin(raw.ledDataPin, DEFAULTS.ledDataPin),
     ledClockPin: sanitizePin(raw.ledClockPin, DEFAULTS.ledClockPin),
     sdCsPin: sanitizePin(raw.sdCsPin, DEFAULTS.sdCsPin),
+    sdSckPin: sanitizePin(raw.sdSckPin, DEFAULTS.sdSckPin),
+    sdMisoPin: sanitizePin(raw.sdMisoPin, DEFAULTS.sdMisoPin),
+    sdMosiPin: sanitizePin(raw.sdMosiPin, DEFAULTS.sdMosiPin),
     i2sBclk: sanitizePin(raw.i2sBclk, DEFAULTS.i2sBclk),
     i2sLrc: sanitizePin(raw.i2sLrc, DEFAULTS.i2sLrc),
     i2sDout: sanitizePin(raw.i2sDout, DEFAULTS.i2sDout),
@@ -476,6 +489,9 @@ ${isHub75 ? '' : `#define LED_DATA_PIN  ${c.ledDataPin}\n`}${clockPinDefine}#def
 #define HEIGHT        ${c.ledHeight}
 #define NUM_LEDS      ${numLeds}
 #define SD_CS         ${c.sdCsPin}
+#define SD_SCK        ${c.sdSckPin}
+#define SD_MISO       ${c.sdMisoPin}
+#define SD_MOSI       ${c.sdMosiPin}
 // Serial file transfer, so new shows reach a running board without a reflash.
 // Every wait is bounded — see provServiceSerial.
 // How often to look for a card that was missing at boot, or pulled and
@@ -953,6 +969,7 @@ ${powerSetupLine}
   // greeting and turns it into a real explanation (card seated? FAT32? CS pin?).
   // Said once here rather than on every retry, so it stays a greeting the host
   // can read instead of a stream it has to filter.
+  SPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
   sdMounted = SD.begin(SD_CS);
   if (!sdMounted) Serial.println("ERR sd-mount-failed");
 

@@ -84,17 +84,19 @@ describe('retargetHardwarePins', () => {
     expect(result.nodes[0].data.properties).toMatchObject({ sdaPin: 21, sclPin: 22 })
   })
 
-  it('moves an untouched SD CS property from the S3 default to ESP-32D GPIO5', () => {
+  it('moves an untouched SD SPI bus from the S3 defaults to ESP-32D VSPI', () => {
     const s3 = boardProfileById('generic-esp32-s3-n16r8-44pin-dual-usbc')!
     const esp32d = boardProfileById('esp32-devkit-v1-30pin-esp32d')!
     const nodes = [part('sd', 'SDCard', withAssignedPins(
-      { sdCsPin: 10 },
-      { sdCsPin: 10 },
+      { sdCsPin: 10, sdSckPin: 12, sdMisoPin: 13, sdMosiPin: 11 },
+      { sdCsPin: 10, sdSckPin: 12, sdMisoPin: 13, sdMosiPin: 11 },
       s3.id,
     ))]
 
     const result = retargetHardwarePins(nodes, esp32d, 'esp32:esp32:esp32', s3.id)
-    expect(result.nodes[0].data.properties.sdCsPin).toBe(5)
+    expect(result.nodes[0].data.properties).toMatchObject({
+      sdCsPin: 5, sdSckPin: 18, sdMisoPin: 19, sdMosiPin: 23,
+    })
   })
 
   it('moves a part the app placed', () => {

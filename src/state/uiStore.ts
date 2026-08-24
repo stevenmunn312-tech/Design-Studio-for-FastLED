@@ -187,6 +187,8 @@ interface UiState {
    *  tools that act on it. Persisted — it is a workspace preference, not a
    *  moment. */
   hardwarePaneTab: HardwarePaneTab
+  /** Hardware part whose physical wiring inspector is open. Session-only. */
+  hardwareInspectorNodeId: string | null
   /** Monotonic fit-view request consumed by the canvas. */
   fitViewRequest: { nonce: number; nodeIds?: string[] }
   /**
@@ -227,6 +229,7 @@ interface UiState {
   setStageWakeLockStatus: (status: StagePresentationStatus) => void
   setStageIdle: (idle: boolean) => void
   setHardwarePaneTab: (tab: HardwarePaneTab) => void
+  setHardwareInspectorNodeId: (nodeId: string | null) => void
   togglePerformanceMode: () => void
   setPerformanceMode: (active: boolean) => void
   toggleUiEffects: () => void
@@ -318,6 +321,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   draggingNodeType: null,
   viewCenter: { x: 300, y: 250 },
   hardwarePaneTab: (load<string>(HARDWARE_TAB_KEY, 'hardware') === 'upload' ? 'upload' : 'hardware') as HardwarePaneTab,
+  hardwareInspectorNodeId: null,
   fitViewRequest: { nonce: 0 },
   nodeFlash: { nodeId: null, nonce: 0 },
   theme: load<AppTheme>(THEME_KEY, 'dark'),
@@ -401,6 +405,7 @@ export const useUiStore = create<UiState>((set, get) => ({
     save(HARDWARE_TAB_KEY, hardwarePaneTab)
     set({ hardwarePaneTab })
   },
+  setHardwareInspectorNodeId: (hardwareInspectorNodeId) => set({ hardwareInspectorNodeId }),
   togglePerformanceMode: () => set((s) => ({ performanceMode: !s.performanceMode })),
   setPerformanceMode: (performanceMode) => set({ performanceMode }),
   toggleUiEffects: () => {

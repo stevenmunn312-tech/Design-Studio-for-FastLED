@@ -3,6 +3,7 @@ import { fireEvent, render } from '@testing-library/react'
 import MatrixOutputSetupWizard from '../MatrixOutputSetupWizard'
 import { useGraphStore } from '../../../state/graphStore'
 import { useUploadStore } from '../../../state/uploadStore'
+import { useUiStore } from '../../../state/uiStore'
 import { generateWiringDiagnosticSketch } from '../../../codegen/wiringDiagnosticGenerator'
 
 vi.mock('../../../codegen/wiringDiagnosticGenerator', () => ({
@@ -97,6 +98,20 @@ describe('MatrixOutputSetupWizard', () => {
     fireEvent.click(getByRole('button', { name: '🧪 Flash wiring test' }))
 
     expect(runUpload).toHaveBeenCalledWith('// wiring diagnostic', undefined, { cache: false })
+  })
+
+  it('shows LED pins read-only and routes editing to Hardware', () => {
+    useUiStore.setState({ hardwarePaneTab: 'upload', hardwareInspectorNodeId: null })
+    const { getByRole, getByText, queryByLabelText } = render(<MatrixOutputSetupWizard />)
+
+    fireEvent.click(getByRole('button', { name: /LEDs/ }))
+    expect(getByText('Data GPIO 5')).toBeTruthy()
+    expect(queryByLabelText('Data pin')).toBeNull()
+
+    fireEvent.click(getByRole('button', { name: 'Edit in Hardware' }))
+    expect(useUiStore.getState().hardwarePaneTab).toBe('hardware')
+    expect(useUiStore.getState().hardwareInspectorNodeId).toBe('matrix')
+    expect(useUploadStore.getState().closeSetupWizard).toHaveBeenCalled()
   })
 
   it('offers the dedicated topology mode for a folded HUB75 grid', () => {

@@ -483,12 +483,11 @@ describe('nodeLibrary', () => {
     expect(isPropertyEnabled('ClockDisplay', 'durationSec', { displayMode: 'Stopwatch' })).toBe(false)
   })
 
-  it('bounds Show duration, SD pin, and volume controls to their runtime ranges', () => {
+  it('bounds Show duration and SD SPI pins to their runtime ranges', () => {
     expect(propertyMeta('Sequencer', 'fade')).toEqual({ control: 'slider', min: 0, max: 20, step: 0.1 })
-    for (const key of ['sdCsPin', 'i2sBclk', 'i2sLrc', 'i2sDout']) {
+    for (const key of ['sdCsPin', 'sdSckPin', 'sdMisoPin', 'sdMosiPin']) {
       expect(propertyMeta('SDCard', key), key).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
     }
-    expect(propertyMeta('SDCard', 'maxVolume')).toEqual({ control: 'slider', min: 0, max: 21, step: 1 })
   })
 
   it('PerformanceGenerator exposes a frame output, which is where its show is going', () => {
@@ -598,9 +597,10 @@ describe('nodeLibrary', () => {
     expect(isGpioPinProperty('EncoderInput', 'pinSW')).toBe(true)
     expect(isGpioPinProperty('EncoderInput', 'resetOnPress')).toBe(false)
     expect(isGpioPinProperty('SDCard', 'sdCsPin')).toBe(true)
-    expect(isGpioPinProperty('SDCard', 'i2sBclk')).toBe(true)
-    expect(isGpioPinProperty('SDCard', 'i2sLrc')).toBe(true)
-    expect(isGpioPinProperty('SDCard', 'i2sDout')).toBe(true)
+    expect(isGpioPinProperty('SDCard', 'sdSckPin')).toBe(true)
+    expect(isGpioPinProperty('SDCard', 'sdMisoPin')).toBe(true)
+    expect(isGpioPinProperty('SDCard', 'sdMosiPin')).toBe(true)
+    expect(isGpioPinProperty('SDCard', 'i2sBclk')).toBe(false)
     expect(isGpioPinProperty('SDCard', 'maxVolume')).toBe(false)
     expect(isGpioPinProperty('MatrixOutput', 'dataPin')).toBe(true)
     expect(isGpioPinProperty('MatrixOutput', 'clockPin')).toBe(true)
@@ -628,6 +628,14 @@ describe('nodeLibrary', () => {
       pullup: false,
     })
     expect(gpioRequirementForProperty('MicInput', 'i2sSck', {})).toEqual({
+      capability: 'digitalOutput',
+      pullup: false,
+    })
+    expect(gpioRequirementForProperty('SDCard', 'sdMisoPin', {})).toEqual({
+      capability: 'digitalInput',
+      pullup: false,
+    })
+    expect(gpioRequirementForProperty('SDCard', 'sdMosiPin', {})).toEqual({
       capability: 'digitalOutput',
       pullup: false,
     })

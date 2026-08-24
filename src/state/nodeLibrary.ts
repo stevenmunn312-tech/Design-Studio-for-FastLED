@@ -2691,10 +2691,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
-    // The SD card + audio-output module. Holds only the SD/I2S pin config (the
-    // LED matrix config comes from the MatrixOutput node it connects to); its
-    // `sdcard` output plugs into MatrixOutput's `sdcard` input to enable the
-    // write-music-to-SD-then-flash upload flow.
+    // The SD storage module. Its SPI bus is configured here; audio output is a
+    // separate physical part and the LED config belongs to the LED output.
     type: 'SDCard',
     label: 'SD Card',
     category: 'show',
@@ -2707,10 +2705,13 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [],
     outputs: [],
     defaultProperties: {
-      // Library fallback for a graph with no exact board. Hardware creation
-      // and board retargeting replace it with the selected core's SS default
-      // (GPIO5 on the classic ESP-32D, GPIO10 on ESP32-S3).
+      // ESP32-S3 core fallback for a graph with no exact board. Hardware
+      // creation and board retargeting replace the complete bus with the
+      // selected board/core defaults.
       sdCsPin:     10,
+      sdSckPin:    12,
+      sdMisoPin:   13,
+      sdMosiPin:   11,
       // Audio output is no longer asked here. Adding an Amplifier part *is* the
       // statement that this build uses I2S, and a classic ESP32 with no amp
       // falls back to its built-in DAC — see state/audioOutput.ts. Volume moved
@@ -3611,10 +3612,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   SDCard: {
     sdCsPin:   { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
-    i2sBclk:   { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
-    i2sLrc:    { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
-    i2sDout:   { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
-    maxVolume: { control: 'slider', min: 0, max: 21, step: 1 },
+    sdSckPin:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    sdMisoPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    sdMosiPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
   // MIDI note/CC numbers are conventionally 0–127; MidiInputBody shows the
   // note name (e.g. "60 → C4") alongside the raw number.
@@ -3894,6 +3894,12 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
     startMinute: 'minute',
     startSecond: 'second',
   },
+  SDCard: {
+    sdCsPin: 'CS',
+    sdSckPin: 'SCK',
+    sdMisoPin: 'MISO',
+    sdMosiPin: 'MOSI',
+  },
   ScheduleTrigger: {
     scheduleMode: 'mode',
     dayMode: 'days',
@@ -4151,8 +4157,11 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   ButtonInput: new Set(['pin']),
   PotInput: new Set(['pin']),
   EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
+  MotionInput: new Set(['pin']),
+  LightInput: new Set(['pin']),
   RTCInput: new Set(['sdaPin', 'sclPin']),
-  SDCard: new Set(['sdCsPin', 'i2sBclk', 'i2sLrc', 'i2sDout']),
+  SDCard: new Set(['sdCsPin', 'sdSckPin', 'sdMisoPin', 'sdMosiPin']),
+  Amplifier: new Set(['i2sBclk', 'i2sLrc', 'i2sDout']),
   MatrixOutput: new Set([
     'dataPin', 'clockPin',
     'hub75R1Pin', 'hub75G1Pin', 'hub75B1Pin', 'hub75R2Pin', 'hub75G2Pin', 'hub75B2Pin',
@@ -4181,7 +4190,8 @@ export function gpioRequirementForProperty(
   if (!isGpioPinProperty(nodeType, key)) return null
   // An I2C bus pair is not an ordinary digital-output assignment.
   if (nodeType === 'RTCInput') return null
-  if (nodeType === 'PotInput') return { capability: 'analogInput', pullup: false }
+  if (nodeType === 'PotInput' || nodeType === 'LightInput') return { capability: 'analogInput', pullup: false }
+  if (nodeType === 'MotionInput') return { capability: 'digitalInput', pullup: false }
   if (nodeType === 'ButtonInput' || nodeType === 'EncoderInput') {
     return { capability: 'digitalInput', pullup: props.pullup !== false }
   }
@@ -4189,6 +4199,9 @@ export function gpioRequirementForProperty(
     return { capability: 'digitalInput', pullup: false }
   }
   if (nodeType === 'MicInput' && key === 'i2sSd') {
+    return { capability: 'digitalInput', pullup: false }
+  }
+  if (nodeType === 'SDCard' && key === 'sdMisoPin') {
     return { capability: 'digitalInput', pullup: false }
   }
   return { capability: 'digitalOutput', pullup: false }

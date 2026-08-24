@@ -763,14 +763,31 @@ describe('graphStore — loadGraph normalization', () => {
     expect(dataOf('mic').properties.gain).toBe(1)
   })
 
-  it('migrates the old global SD CS default to the exact ESP-32D default', () => {
+  it('migrates an old CS-only SD card to the exact board SPI defaults', () => {
     const board = node('board-root', 'Board', { profileId: 'esp32-devkit-v1-30pin-esp32d' })
     const sd = node('sd', 'SDCard', { sdCsPin: 10 })
     useGraphStore.getState().loadGraph([board, sd], [])
     expect(dataOf('sd').properties).toMatchObject({
       sdCsPin: 5,
-      assignedPins: { sdCsPin: 5 },
+      sdSckPin: 18,
+      sdMisoPin: 19,
+      sdMosiPin: 23,
+      assignedPins: { sdCsPin: 5, sdSckPin: 18, sdMisoPin: 19, sdMosiPin: 23 },
       assignedPinsBoard: 'esp32-devkit-v1-30pin-esp32d',
+    })
+  })
+
+  it('preserves an old custom SD CS assignment while adding the remaining bus', () => {
+    const profileId = 'esp32-devkit-v1-30pin-esp32d'
+    const board = node('board-root', 'Board', { profileId })
+    const sd = node('sd', 'SDCard', { sdCsPin: 21 })
+    useGraphStore.getState().loadGraph([board, sd], [])
+    expect(dataOf('sd').properties).toMatchObject({
+      sdCsPin: 21,
+      sdSckPin: 18,
+      sdMisoPin: 19,
+      sdMosiPin: 23,
+      userPinsByBoard: { [profileId]: { sdCsPin: 21 } },
     })
   })
 

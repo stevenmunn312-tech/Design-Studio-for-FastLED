@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import amplifierRender from '../../assets/components/max98357a-i2s-amplifier.webp'
 import ledSegmentRender from '../../assets/components/ws2812b-led.webp'
@@ -11,7 +11,7 @@ import { nextFreeLedDataPin } from '../../state/ledPinAssignment'
 import { assignPartPins, type PartPinRequest } from '../../state/partPinAssignment'
 import { withAssignedPins } from '../../state/pinRetarget'
 import { boardI2cDefault } from '../../build/boardI2cDefaults'
-import { sdCsPinDefaultForBoard } from '../../state/sdPinDefaults'
+import { sdSpiPinsForBoard } from '../../state/sdPinDefaults'
 import { partDimensionsMm, partRenderSrc, ringDiameterMm } from '../../state/partCatalogue'
 import { partRenderForNodeType } from '../../state/partRenders'
 import { partOptionProperty, partOptionsFor, resolvePartIdentity } from '../../state/partOptions'
@@ -32,6 +32,7 @@ import {
   INMP441_FOOTPRINT_MM,
   POT_MODULE_FOOTPRINT_MM,
   ROOT_BOARD_NODE_ID,
+  isHardwareManagedSignalNodeType,
   ledPitchMm,
   WS2812B_PITCH_MM,
   WS2812B_STRIP_WIDTH_MM,
@@ -384,17 +385,21 @@ export default function HardwarePane() {
   const uiEffectsEnabled = useUiStore((state) => state.uiEffectsEnabled)
   const paneTab = useUiStore((state) => state.hardwarePaneTab)
   const setPaneTab = useUiStore((state) => state.setHardwarePaneTab)
+  const inspectorNodeId = useUiStore((state) => state.hardwareInspectorNodeId)
+  const setInspectorNodeId = useUiStore((state) => state.setHardwareInspectorNodeId)
   const [addMenuOpen, setAddMenuOpen] = useState(false)
   const [boardMenu, setBoardMenu] = useState<{ anchor: PlacementBox } | null>(null)
   const [itemMenu, setItemMenu] = useState<
     { anchor: PlacementBox; kind: string; mode: 'actions' | 'settings' } | null
   >(null)
+  const [inspectorAnchor, setInspectorAnchor] = useState<PlacementBox | null>(null)
   const sectionRef = useRef<HTMLElement | null>(null)
   const stageRef = useRef<HTMLDivElement | null>(null)
   const boardCardRef = useRef<HTMLButtonElement | null>(null)
   const addMenuRef = useRef<HTMLDivElement | null>(null)
   const boardMenuRef = useRef<HTMLDivElement | null>(null)
   const itemMenuRef = useRef<HTMLDivElement | null>(null)
+  const inspectorMenuRef = useRef<HTMLDivElement | null>(null)
   const boardAnchorRef = useRef<{ x: number; y: number } | null>(null)
 
   const view = useHardwareView(stageRef)
@@ -565,6 +570,9 @@ export default function HardwarePane() {
       ? node.data.nodeType
       : null
   }, [itemMenu, nodes])
+  const inspectorNode = inspectorNodeId
+    ? nodes.find((candidate) => candidate.id === inspectorNodeId) ?? null
+    : null
 
   const revealNode = (nodeId: string, label: string) => {
     focusNode(nodeId)
@@ -572,6 +580,21 @@ export default function HardwarePane() {
     flashNode(nodeId)
     setStatus(`Showing ${label} in the graph`, 'info')
   }
+
+  const inspectPart = (nodeId: string, anchor: PlacementBox | null = null) => {
+    setPaneTab('hardware')
+    setInspectorAnchor(anchor)
+    setInspectorNodeId(nodeId)
+    const node = nodes.find((candidate) => candidate.id === nodeId)
+    if (node && isHardwareManagedSignalNodeType(node.data.nodeType)) {
+      revealNode(node.id, node.data.label)
+    }
+  }
+
+  const closeInspector = useCallback(() => {
+    setInspectorAnchor(null)
+    setInspectorNodeId(null)
+  }, [setInspectorNodeId])
 
   const hasPartOfType = (nodeType: string) =>
     inputParts.some((part) => part.entry.nodeType === nodeType)
@@ -599,7 +622,9 @@ export default function HardwarePane() {
 
   const boardFamilyId = boardProfile ? boardProfileFamilyId(boardProfile) : ''
   const leftInset = sidebarOpen ? sidebarWidth : 0
-  const rightInset = previewPanelOpen ? previewWidth : 0
+  const previewInset = previewPanelOpen ? previewWidth : 0
+  const inspectorOpen = paneTab === 'hardware' && inspectorNode !== null
+  const rightInset = previewInset
   // The open submenu, with the row it flies out from — the row is the anchor,
   // so the submenu tracks it rather than guessing an offset.
   const [openSubmenu, setOpenSubmenu] = useState<{ id: string; anchor: HTMLElement } | null>(null)
@@ -786,6 +811,7 @@ export default function HardwarePane() {
       }
       if (boardMenuRef.current && !boardMenuRef.current.contains(target)) setBoardMenu(null)
       if (itemMenuRef.current && !itemMenuRef.current.contains(target)) setItemMenu(null)
+      if (inspectorMenuRef.current && !inspectorMenuRef.current.contains(target)) closeInspector()
     }
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -793,6 +819,7 @@ export default function HardwarePane() {
         setOpenSubmenu(null)
         setBoardMenu(null)
         setItemMenu(null)
+        closeInspector()
       }
     }
     document.addEventListener('pointerdown', onPointerDown, { capture: true })
@@ -801,7 +828,7 @@ export default function HardwarePane() {
       document.removeEventListener('pointerdown', onPointerDown, { capture: true })
       document.removeEventListener('keydown', onKeyDown)
     }
-  }, [])
+  }, [closeInspector])
 
   if (!boardProfile) return null
 
@@ -821,6 +848,14 @@ export default function HardwarePane() {
 
   const openBoardMenu = (anchor?: DOMRect | null) => {
     setBoardMenu({ anchor: anchorBox(anchor ?? boardCardRef.current?.getBoundingClientRect() ?? null) })
+  }
+
+  const inspectorPartAnchor = (): PlacementBox => {
+    const part = inspectorNodeId
+      ? [...(sectionRef.current?.querySelectorAll<HTMLElement>('[data-hardware-node-id]') ?? [])]
+          .find((element) => element.dataset.hardwareNodeId === inspectorNodeId)
+      : null
+    return anchorBox(part?.getBoundingClientRect() ?? null)
   }
 
   /*
@@ -912,12 +947,17 @@ export default function HardwarePane() {
       ? partOptionsFor(entry.nodeType).find((option) => option.id === moduleId)
       : undefined
     const amp = boardProfile?.peripheralPins?.max98357
-    const sdCsPin = entry.nodeType === 'SDCard' ? sdCsPinDefaultForBoard(boardProfile, selectedFqbn) : null
+    const sdSpiPins = entry.nodeType === 'SDCard' ? sdSpiPinsForBoard(boardProfile, selectedFqbn) : null
     // Only a module with an I2S receiver gets the board's I2S trio. An analog
     // amplifier takes line level from the DAC, so handing it BCLK/LRC/DIN
     // would be three pin assignments for a connection it does not have.
-    const profilePins = sdCsPin !== null
-      ? { sdCsPin }
+    const profilePins = sdSpiPins
+      ? {
+          sdCsPin: sdSpiPins.cs,
+          sdSckPin: sdSpiPins.sck,
+          sdMisoPin: sdSpiPins.miso,
+          sdMosiPin: sdSpiPins.mosi,
+        }
       : entry.profilePins && amp && chosen?.input !== 'analog'
         ? Object.fromEntries(
           Object.entries(entry.profilePins).map(([key, field]) => [key, amp[field]]),
@@ -953,6 +993,7 @@ export default function HardwarePane() {
 
   // `kind` is the graph node id for every part now, input or output.
   const removeHardwareItem = (kind: string) => {
+    if (inspectorNodeId === kind) setInspectorNodeId(null)
     const fixture = fixtureParts.find((part) => part.node.id === kind)
     if (fixture) {
       removeNodeCompletely(fixture.node.id)
@@ -1280,17 +1321,18 @@ export default function HardwarePane() {
             <Fragment key={part.node.id}>
               <button
                 type="button"
+                data-hardware-node-id={part.node.id}
                 className={styles.part}
                 style={partStyle(part.partId)}
-                onClick={() => {
+                onClick={(event) => {
                   if (view.consumedByPan()) return
-                  revealNode(part.node.id, part.entry.label)
+                  inspectPart(part.node.id, anchorBox(event.currentTarget.getBoundingClientRect()))
                 }}
                 onContextMenu={(event) => {
                   event.preventDefault()
                   openItemMenu(part.node.id, (event.currentTarget as HTMLButtonElement).getBoundingClientRect())
                 }}
-                title="Click to show its node in the graph · right-click for hardware actions"
+                title="Click to configure wiring · right-click for hardware actions"
               >
                 <img
                   src={partRenderForNodeType(
@@ -1321,37 +1363,31 @@ export default function HardwarePane() {
               event.preventDefault()
               openBoardMenu((event.currentTarget as HTMLButtonElement).getBoundingClientRect())
             }}
-            title="Click or right-click to change boards"
+            title="Click for board options"
           >
             <img src={boardImageSrc(boardProfile)} alt={boardProfile.label} draggable={false} />
           </button>
           <span className={styles.caption} style={captionStyle(BOARD_PART_ID)}>
             <strong>{boardProfile.label}</strong>
-            <span>Click or right-click to change boards</span>
+            <span>Click for board options</span>
           </span>
 
           {fixtureParts.map((part) => (
             <Fragment key={part.node.id}>
               <button
                 type="button"
+                data-hardware-node-id={part.node.id}
                 className={`${styles.part} ${part.entry.render ? '' : styles.partPlaceholder}`}
                 style={partStyle(part.partId)}
                 onClick={(event) => {
                   if (view.consumedByPan()) return
-                  // The clicked part is the anchor. Passing nothing fell back
-                  // to the pane's corner, which read as the panel opening
-                  // nowhere near what you clicked.
-                  openItemMenu(
-                    part.node.id,
-                    (event.currentTarget as HTMLButtonElement).getBoundingClientRect(),
-                    'settings',
-                  )
+                  inspectPart(part.node.id, anchorBox(event.currentTarget.getBoundingClientRect()))
                 }}
                 onContextMenu={(event) => {
                   event.preventDefault()
                   openItemMenu(part.node.id, (event.currentTarget as HTMLButtonElement).getBoundingClientRect())
                 }}
-                title="Click for settings · right-click for hardware actions"
+                title="Click for options · right-click for hardware actions"
               >
                 {part.entry.render
                   ? <img src={part.entry.render} alt={part.entry.label} draggable={false} />
@@ -1359,9 +1395,6 @@ export default function HardwarePane() {
               </button>
               <span className={styles.caption} style={captionStyle(part.partId)}>
                 <strong>{String(part.node.data.properties.model ?? part.entry.label)}</strong>
-                <span>{part.node.data.nodeType === 'SDCard'
-                  ? `CS GPIO ${Number((part.node.data.properties as Record<string, unknown>).sdCsPin ?? 10)} — click to configure`
-                  : 'Hardware only — click to configure'}</span>
               </span>
             </Fragment>
           ))}
@@ -1391,6 +1424,7 @@ export default function HardwarePane() {
               })()}
               <button
                 type="button"
+                data-hardware-node-id={output.node.id}
                 className={[
                   styles.part,
                   output.isStrip ? styles.strip : styles.matrix,
@@ -1401,16 +1435,16 @@ export default function HardwarePane() {
                   previewOutputId === output.node.id ? styles.partSelected : '',
                 ].filter(Boolean).join(' ')}
                 style={outputStyle(output.partId, output.isStrip)}
-                onClick={() => {
+                onClick={(event) => {
                   if (view.consumedByPan()) return
                   setPreviewOutputId(output.node.id)
-                  revealNode(output.node.id, output.label)
+                  inspectPart(output.node.id, anchorBox(event.currentTarget.getBoundingClientRect()))
                 }}
                 onContextMenu={(event) => {
                   event.preventDefault()
                   openItemMenu(output.node.id, (event.currentTarget as HTMLButtonElement).getBoundingClientRect())
                 }}
-                title="Click to preview this output and show its node · right-click for hardware actions"
+                title="Click to preview and configure this output · right-click for hardware actions"
                 aria-label={output.ring
                   ? `${output.label}, ${output.ring.ledCount} LEDs on pin ${output.dataPin}`
                   : output.isStrip
@@ -1479,6 +1513,39 @@ export default function HardwarePane() {
         </div>
       </div>
 
+      {inspectorOpen && inspectorNode && (
+        <FloatingMenu
+          anchor={inspectorAnchor ?? inspectorPartAnchor()}
+          placement="beside"
+          align="start"
+          className={styles.hardwareInspector}
+          role="dialog"
+          ariaLabel={`${inspectorNode.data.label} hardware inspector`}
+          panelRef={(element) => { inspectorMenuRef.current = element }}
+        >
+          <div className={styles.inspectorHeader}>
+            <div>
+              <span>Hardware wiring</span>
+              <strong>{inspectorNode.data.label}</strong>
+            </div>
+            <button
+              type="button"
+              className={styles.inspectorClose}
+              onClick={closeInspector}
+              aria-label="Close hardware inspector"
+            >
+              ×
+            </button>
+          </div>
+          <div className={styles.inspectorBody}>
+            <HardwarePartBody
+              nodeId={inspectorNode.id}
+              nodeType={inspectorNode.data.nodeType}
+            />
+          </div>
+        </FloatingMenu>
+      )}
+
       {boardMenu && (
         <FloatingMenu
           anchor={boardMenu.anchor}
@@ -1515,6 +1582,29 @@ export default function HardwarePane() {
             <div className={styles.itemMenuSettings}>
               <PartIdentity nodeId={itemMenu.kind} nodeType={itemMenuIdentity} />
             </div>
+          )}
+          <button
+            type="button"
+            className={styles.itemMenuButton}
+            onClick={() => {
+              inspectPart(itemMenu.kind, itemMenu.anchor)
+              setItemMenu(null)
+            }}
+          >
+            Configure wiring
+          </button>
+          {nodes.some((node) => node.id === itemMenu.kind && isHardwareManagedSignalNodeType(node.data.nodeType)) && (
+            <button
+              type="button"
+              className={styles.itemMenuButton}
+              onClick={() => {
+                const node = nodes.find((candidate) => candidate.id === itemMenu.kind)
+                if (node) revealNode(node.id, node.data.label)
+                setItemMenu(null)
+              }}
+            >
+              Show in graph
+            </button>
           )}
           <button
             type="button"

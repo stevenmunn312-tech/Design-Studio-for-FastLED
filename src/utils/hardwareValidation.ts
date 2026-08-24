@@ -3,6 +3,8 @@ import type { BackendHealth, CompileCheckResult } from './backendClient'
 import { boardByFqbn } from '../state/uploadStore'
 import { MIC_SAMPLE_RATE } from '../audio/micAnalysis'
 import { controllerSettings } from '../state/controllerSettings'
+import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
+import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
 
 export type HardwareValidationAction =
   | 'normal-upload'
@@ -406,6 +408,7 @@ export function buildHardwareValidationProfile(options: {
   const micProps = props(mic)
   const sd = nodes.find((node) => nodeType(node) === 'SDCard')
   const sdProps = props(sd)
+  const sdDefaults = sdSpiPinsForBoard(selectedPhysicalBoardProfile(nodes), selectedFqbn)
   const master = nodes.find((node) => nodeType(node) === 'PatternMaster')
   const masterProps = props(master)
   const performance = nodes.find((node) => nodeType(node) === 'PerformanceGenerator')
@@ -457,11 +460,7 @@ export function buildHardwareValidationProfile(options: {
         ? `WS ${Math.round(n(micProps.i2sWs, 39))} · SCK ${Math.round(n(micProps.i2sSck, 40))} · SD ${Math.round(n(micProps.i2sSd, 41))} · ${MIC_SAMPLE_RATE} Hz · ${String(micProps.channel ?? 'Left')} channel`
         : null,
       sdCard: sd
-        ? `CS ${Math.round(n(sdProps.sdCsPin, 10))} · ${
-            sdProps.audioOutput === 'internalDac'
-              ? 'internal DAC (GPIO25/26)'
-              : `I2S BCLK ${Math.round(n(sdProps.i2sBclk, 26))} · LRC ${Math.round(n(sdProps.i2sLrc, 25))} · DOUT ${Math.round(n(sdProps.i2sDout, 22))}`
-          } · max volume ${Math.round(n(sdProps.maxVolume, 18))}`
+        ? `CS ${Math.round(n(sdProps.sdCsPin, sdDefaults?.cs ?? 10))} · SCK ${Math.round(n(sdProps.sdSckPin, sdDefaults?.sck ?? 12))} · MOSI ${Math.round(n(sdProps.sdMosiPin, sdDefaults?.mosi ?? 11))} · MISO ${Math.round(n(sdProps.sdMisoPin, sdDefaults?.miso ?? 13))}`
         : null,
     },
     show: {

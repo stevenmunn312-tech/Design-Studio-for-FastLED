@@ -73,9 +73,13 @@ describe('node defaults', () => {
     })
   })
 
-  it('uses the selected board core default for SD card CS', () => {
+  it('uses the selected board core defaults for the complete SD SPI bus', () => {
     useNodeDefaults.getState().setDefault('SDCard', { sdCsPin: 10 })
     const esp32d = boardProfileById('esp32-devkit-v1-30pin-esp32d')
-    expect(resolveDefaultProperties('SDCard', { sdCsPin: 10 }, esp32d)).toMatchObject({ sdCsPin: 5 })
+    expect(resolveDefaultProperties('SDCard', {
+      sdCsPin: 10, sdSckPin: 12, sdMisoPin: 13, sdMosiPin: 11,
+    }, esp32d)).toMatchObject({
+      sdCsPin: 5, sdSckPin: 18, sdMisoPin: 19, sdMosiPin: 23,
+    })
   })
 })
