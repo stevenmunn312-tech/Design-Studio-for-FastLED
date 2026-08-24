@@ -72,7 +72,8 @@ Data flows from the React Flow graph through Zustand, graph evaluation, preview/
 - Use plain `git`; do not use `cortex git`.
 - `main` is the frozen public-beta line. Do not change it unless the user explicitly requests a beta hotfix.
 - `Hardware` is the active breaking-development line and is authoritative. Never merge `main` and `Hardware` in either direction.
-- On either line, default to a focused `codex/` branch and draft pull request unless the user explicitly requests direct commits.
+- Work directly on `Hardware` by default. Use a focused `codex/` branch only when the user explicitly requests one.
+- On `main`, use a focused `codex/` branch and draft pull request unless the user explicitly requests a beta hotfix workflow.
 - Routine pull, branch, stage, commit, push, and draft-PR operations are pre-approved.
 - Do not force-push, rewrite shared history, delete branches, hard-reset, or discard user work without explicit approval.
 - AI-assisted commits use `Co-Authored-By: Codex <noreply@anthropic.com>`.
