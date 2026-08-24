@@ -1261,7 +1261,9 @@ export default function HardwarePane() {
         )}
       </div>
 
-      {paneTab === 'upload' && <MatrixOutputDeployPopup inline />}
+      {paneTab === 'upload' && (
+        <MatrixOutputDeployPopup inline leftInset={leftInset} rightInset={rightInset} />
+      )}
 
 
       <div

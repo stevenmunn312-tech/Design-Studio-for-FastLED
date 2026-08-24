@@ -368,15 +368,84 @@
 
 /* Something worth reading before flashing, but not a reason to stop — uneven
    parallel runs, for instance, which are a real build rather than a mistake. */
-/* The upload tools inside the hardware pane's Upload tab. Scrolls within the
-   pane rather than growing it, so the tab strip and the divider stay put. */
+/* The upload workbench stays inside the centre workspace, so both columns
+   respect the library and preview panels instead of becoming viewport-level
+   overlays. Controls scroll independently; output remains visible. */
 .inlineDeploy {
   height: 100%;
-  overflow-y: auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   padding: 12px clamp(12px, 3vw, 28px) 16px;
+  box-sizing: border-box;
+}
+
+.deployWorkbench {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: clamp(230px, 35%, 360px) minmax(0, 1fr);
+  gap: clamp(10px, 1.6vw, 18px);
+}
+
+.deployControls {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding-right: 3px;
+}
+
+.primaryActionDock {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 -3px;
+  padding: 6px 3px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 98%, #06110e), color-mix(in srgb, var(--bg-panel) 92%, transparent));
+  border-block: 1px solid color-mix(in srgb, var(--success) 16%, transparent);
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(8px);
+}
+
+.actionGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.actionGroupHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.actionGroupHeader strong {
+  color: #9ce8ff;
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.actionGroupHeader span {
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.35;
 }
 
 .streamNote {
@@ -397,16 +466,6 @@
   font-family: var(--font-code);
 }
 .powerRow.powerWarn { color: #ffcc00; }
-
-.outputBtn {
-  background: none;
-  color: var(--text-secondary);
-  font-size: 10px;
-}
-.outputBtn:hover {
-  color: var(--text-primary);
-  border-color: color-mix(in srgb, var(--accent-output) 26%, transparent);
-}
 
 /* ── Popups (Board / arduino-cli) ─────────────────────────────────────────── */
 .overlay {
@@ -489,7 +548,9 @@
 }
 
 .deployPopup {
-  width: min(540px, 94vw);
+  width: min(1100px, 94vw);
+  height: min(680px, 88vh);
+  overflow: hidden;
 }
 
 /* ── Opt-in public-beta hardware validation report ───────────────────────── */
@@ -1192,6 +1253,39 @@
   flex-direction: column;
   z-index: 110;
   animation: slideIn 0.18s ease-out;
+}
+
+.consoleEmbedded {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.025),
+    0 12px 28px rgba(0, 0, 0, 0.2);
+  z-index: auto;
+  animation: none;
+  overflow: hidden;
+}
+
+@media (max-width: 720px) {
+  .deployWorkbench {
+    grid-template-columns: minmax(220px, 46%) minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .inlineDeploy {
+    padding-inline: 8px;
+  }
+
+  .consoleHeader,
+  .serialToolbar {
+    flex-wrap: wrap;
+  }
 }
 @keyframes slideIn {
   from { transform: translateX(24px); opacity: 0; }

@@ -130,4 +130,10 @@ describe('OutputConsole', () => {
     fireEvent.click(getByRole('tab', { name: 'Serial' }))
     expect((getByRole('button', { name: 'Connect' }) as HTMLButtonElement).disabled).toBe(true)
   })
+
+  it('cannot be dismissed when embedded in the upload workbench', () => {
+    const { queryByTitle } = render(<OutputConsole embedded />)
+
+    expect(queryByTitle('Hide')).toBeNull()
+  })
 })

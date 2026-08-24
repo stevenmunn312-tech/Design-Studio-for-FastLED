@@ -28,10 +28,10 @@ function useCapacityFailureReport(): string {
     + (detail ? `${rule}\n${detail}\n` : '')
 }
 
-// Dismissible slide-over that streams the detailed compile/upload output. Opens
-// automatically on error; stays put otherwise so the user can pop it open from
-// the node's "Output" button.
-export default function OutputConsole() {
+// Streams the detailed compile/upload output. In the Upload workbench it is a
+// permanent right-hand surface; the standalone presentation remains available
+// to callers that still need it outside that workbench.
+export default function OutputConsole({ embedded = false }: { embedded?: boolean } = {}) {
   const {
     log, status, busy, selectedPort, serialLog, serialConnected, serialError, serialBaud,
     verboseOutput, setVerboseOutput,
@@ -75,7 +75,7 @@ export default function OutputConsole() {
     : copyState === 'failed' ? 'Copy failed' : 'Copy text'
 
   return (
-    <div className={styles.consolePanel} role="log" aria-label="Upload and serial output">
+    <div className={`${styles.consolePanel} ${embedded ? styles.consoleEmbedded : ''}`} role="log" aria-label="Upload and serial output">
       <div className={styles.consoleHeader}>
         <div className={styles.consoleTabs} role="tablist" aria-label="Output type">
           <button className={tab === 'output' ? styles.consoleTabActive : styles.consoleTab} onClick={() => setTab('output')} role="tab" aria-selected={tab === 'output'}>Output</button>
@@ -110,7 +110,7 @@ export default function OutputConsole() {
           {copyLabel}
         </button>
         <button className={styles.consoleBtn} onClick={tab === 'output' ? clearLog : clearSerialLog} disabled={tab === 'output' && busy} title="Clear">Clear</button>
-        <button className={styles.consoleBtn} onClick={closeConsole} title="Hide">×</button>
+        {!embedded && <button className={styles.consoleBtn} onClick={closeConsole} title="Hide">×</button>}
       </div>
       {tab === 'serial' && (
         <div className={styles.serialToolbar}>

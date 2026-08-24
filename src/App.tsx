@@ -43,7 +43,6 @@ const MatrixOutputSetupWizard = lazy(() => import('./components/Upload/MatrixOut
 const CapacityWatcher = lazy(() => import('./components/Upload/CapacityWatcher'))
 const MatrixOutputDeployPopup = lazy(() => import('./components/Upload/MatrixOutputDeployPopup'))
 const ArduinoCliPopup = lazy(() => import('./components/Upload/ArduinoCliPopup'))
-const OutputConsole = lazy(() => import('./components/Upload/OutputConsole'))
 const SdCardPrompt = lazy(() => import('./components/Upload/SdCardPrompt'))
 const AppDialogHost = lazy(() => import('./components/AppDialog/AppDialogHost'))
 const HelpModal = lazy(() => import('./components/HelpModal/HelpModal'))
@@ -100,7 +99,6 @@ export default function App() {
   const setupWizardOpen = useUploadStore((s) => s.setupWizardOpen)
   const deployPopupOpen = useUploadStore((s) => s.deployPopupOpen)
   const cliPopupOpen = useUploadStore((s) => s.cliPopupOpen)
-  const consoleOpen = useUploadStore((s) => s.consoleOpen)
   const refreshHelper = useUploadStore((s) => s.refreshHelper)
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
   const micSupported = inmp441SupportedForBoardProfile(selectedBoardProfile)
@@ -730,7 +728,6 @@ export default function App() {
         {boardPopupOpen && <BoardPopup />}
         {pinoutProfileId && <BoardPinoutPopup />}
         {cliPopupOpen && <ArduinoCliPopup />}
-        {consoleOpen && <OutputConsole />}
         {/* Renders only mid-upload, and reads its own flag — no App-level
             state to keep in step with the upload it belongs to. */}
         <SdCardPrompt />

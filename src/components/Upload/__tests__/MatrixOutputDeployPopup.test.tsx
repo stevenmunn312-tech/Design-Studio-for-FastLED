@@ -142,6 +142,16 @@ describe('MatrixOutputDeployPopup', () => {
     expect(queryByText('Browser uploads need the local helper running on this machine.')).toBeTruthy()
   })
 
+  it('keeps output visible beside the inline controls without a launcher button', () => {
+    const { getByRole, getByText, queryByRole } = render(<MatrixOutputDeployPopup inline />)
+
+    expect(getByRole('log', { name: 'Upload and serial output' })).toBeTruthy()
+    expect(queryByRole('button', { name: /Output \/ Serial/i })).toBeNull()
+    expect(getByText('Firmware')).toBeTruthy()
+    expect(getByText('Diagnostics')).toBeTruthy()
+    expect(getByText('Live control')).toBeTruthy()
+  })
+
   it('offers single-step fixes for missing core and missing port', () => {
     const installCore = vi.fn()
     const openBoardPopup = vi.fn()

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRootEdges, useRootNodes } from '../../state/graphStore'
 import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import { useCapacityStore } from '../../state/capacityStore'
+import { useUiStore } from '../../state/uiStore'
 import { summarizeCapacity } from '../../utils/capacityFormat'
 import {
   estimatePowerLoad,
@@ -36,6 +37,7 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
   const edges = useRootEdges()
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
   const openConsole = useUploadStore((s) => s.openConsole)
+  const setHardwarePaneTab = useUiStore((s) => s.setHardwarePaneTab)
 
   const capacityStatus = useCapacityStore((s) => s.status)
   const capacityResult = useCapacityStore((s) => s.result)
@@ -126,8 +128,11 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
           type="button"
           className={`${styles.item} ${styles.itemButton}`}
           data-level="bad"
-          onClick={openConsole}
-          title={`${capacity.text}\n\nClick to open the output log.${capacityResult?.log ? `\n\n${capacityResult.log.slice(-1500)}` : ''}`}
+          onClick={() => {
+            openConsole()
+            setHardwarePaneTab('upload')
+          }}
+          title={`${capacity.text}\n\nClick to show the upload output.${capacityResult?.log ? `\n\n${capacityResult.log.slice(-1500)}` : ''}`}
         >
           <em className={styles.label}>Fits</em>
           <strong>{capacity.text.replace(/^.*?·\s*/, '')}</strong>

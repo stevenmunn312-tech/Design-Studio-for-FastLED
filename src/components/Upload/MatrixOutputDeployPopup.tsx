@@ -22,6 +22,7 @@ import {
 } from '../../utils/hardwareValidation'
 import CodeViewPopup from './CodeViewPopup'
 import HardwareValidationPopup from './HardwareValidationPopup'
+import OutputConsole from './OutputConsole'
 import styles from './Upload.module.css'
 import { controllerSettings } from '../../state/controllerSettings'
 import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
@@ -40,7 +41,17 @@ const CAPACITY_LEVEL_CLASS = {
  * activity, and the bench is drawn right there. The floating dialog remains
  * for the times the pane is collapsed to nothing, which it is allowed to be.
  */
-export default function MatrixOutputDeployPopup({ inline = false }: { inline?: boolean } = {}) {
+interface MatrixOutputDeployPopupProps {
+  inline?: boolean
+  leftInset?: number
+  rightInset?: number
+}
+
+export default function MatrixOutputDeployPopup({
+  inline = false,
+  leftInset = 0,
+  rightInset = 0,
+}: MatrixOutputDeployPopupProps = {}) {
   const [readinessOpen, setReadinessOpen] = useState(false)
   const [validationAction, setValidationAction] = useState<HardwareValidationAction | null>(null)
   const nodes = useRootNodes()
@@ -50,7 +61,7 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
   const {
     helper, installedCores, selectedFqbn, selectedPort, ports, busy, status, codeViewOpen,
     refreshHelper, refreshPorts, installCore, activeOutputNodeId,
-    openBoardPopup, openCliPopup, openConsole, openCodeView, closeDeployPopup, openSetupWizard, runUpload, runLastUpload, runShowUpload, exportIno,
+    openBoardPopup, openCliPopup, openCodeView, closeDeployPopup, openSetupWizard, runUpload, runLastUpload, runShowUpload, exportIno,
     cancelUpload,
     cardReader, setCardReader,
   } = useUploadStore()
@@ -420,8 +431,8 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
 
   if (!outputNode) return null
 
-  const body = (
-    <>
+  const controls = (
+    <div className={styles.deployControls}>
         <div className={styles.popupHeader}>
           <div>
             <div className={styles.wizardKicker}>Upload</div>
@@ -535,29 +546,30 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
           </label>
         )}
 
-        <button
-          className={`${styles.wizardButtonBase} ${styles.uploadBtn} ${phaseClass}`}
-          disabled={!canUploadNow || !uploadReady || busy}
-          aria-busy={busy}
-          onClick={isShowUpload ? handleShowUpload : handleUpload}
-          title={uploadTitle}
-        >
-          <span className={busy ? styles.busyText : undefined}>{uploadLabel}</span>
-        </button>
-
-        {/* Only while something is running. A board compile is minutes long, and
-          * the commonest reason to want out of one is noticing the wrong board
-          * is selected — at which point waiting it out serves nobody. */}
-        {busy && (
+        <div className={styles.primaryActionDock}>
           <button
-            className={`${styles.wizardButtonBase} ${styles.cancelBuildBtn}`}
-            onClick={() => { void cancelUpload() }}
-            disabled={status.phase === 'cancelled'}
-            title="Stop the running build. Nothing is sent to the board."
+            className={`${styles.wizardButtonBase} ${styles.uploadBtn} ${phaseClass}`}
+            disabled={!canUploadNow || !uploadReady || busy}
+            aria-busy={busy}
+            onClick={isShowUpload ? handleShowUpload : handleUpload}
+            title={uploadTitle}
           >
-            {status.phase === 'cancelled' ? 'Cancelling…' : '✕ Cancel'}
+            <span className={busy ? styles.busyText : undefined}>{uploadLabel}</span>
           </button>
-        )}
+
+          {/* Only while something is running. A board compile is minutes long,
+            * and the commonest reason to want out is noticing the wrong board. */}
+          {busy && (
+            <button
+              className={`${styles.wizardButtonBase} ${styles.cancelBuildBtn}`}
+              onClick={() => { void cancelUpload() }}
+              disabled={status.phase === 'cancelled'}
+              title="Stop the running build. Nothing is sent to the board."
+            >
+              {status.phase === 'cancelled' ? 'Cancelling…' : '✕ Cancel'}
+            </button>
+          )}
+        </div>
 
         {blockingErrors.length > 0 && (
           <div className={styles.streamError}>
@@ -571,21 +583,12 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
           </div>
         )}
 
-        <div className={styles.validationCard}>
-          <div className={styles.validationCardText}>
-            <strong>Beta hardware coverage</strong>
-            <span>
-              {validationProfile.gaps.length > 0
-                ? `${validationProfile.gaps.length} missing test area${validationProfile.gaps.length === 1 ? '' : 's'} detected for this setup.`
-                : 'This setup matches a recorded path; repeat tests are still useful.'}
-            </span>
+        <section className={styles.actionGroup} aria-labelledby="firmware-actions-title">
+          <div className={styles.actionGroupHeader}>
+            <strong id="firmware-actions-title">Firmware</strong>
+            <span>Reuse, inspect, or export the generated sketch</span>
           </div>
-          <button className={styles.validationCardButton} onClick={() => setValidationAction(suggestedAction)}>
-            Review tests…
-          </button>
-        </div>
-
-        <div className={styles.deployActions}>
+          <div className={styles.deployActions}>
           <button
             className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
             disabled={busy || !hasLastSketch}
@@ -612,7 +615,15 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
           >
             {'</>'} View Code
           </button>
+          </div>
+        </section>
 
+        <section className={styles.actionGroup} aria-labelledby="diagnostic-actions-title">
+          <div className={styles.actionGroupHeader}>
+            <strong id="diagnostic-actions-title">Diagnostics</strong>
+            <span>Flash focused tests before trusting the full design</span>
+          </div>
+          <div className={styles.deployActions}>
           <button
             className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
             disabled={!uploadReady || blockingErrors.length > 0 || busy}
@@ -646,7 +657,29 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
               🧭 Flash HUB75 Topology
             </button>
           )}
+          </div>
 
+          <div className={styles.validationCard}>
+            <div className={styles.validationCardText}>
+              <strong>Beta hardware coverage</strong>
+              <span>
+                {validationProfile.gaps.length > 0
+                  ? `${validationProfile.gaps.length} missing test area${validationProfile.gaps.length === 1 ? '' : 's'} detected for this setup.`
+                  : 'This setup matches a recorded path; repeat tests are still useful.'}
+              </span>
+            </div>
+            <button className={styles.validationCardButton} onClick={() => setValidationAction(suggestedAction)}>
+              Review tests…
+            </button>
+          </div>
+        </section>
+
+        <section className={styles.actionGroup} aria-labelledby="live-actions-title">
+          <div className={styles.actionGroupHeader}>
+            <strong id="live-actions-title">Live control</strong>
+            <span>Prepare the receiver, then stream preview frames</span>
+          </div>
+          <div className={styles.deployActions}>
           <button
             className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
             disabled={!canBuild || !uploadReady || busy || streaming}
@@ -672,11 +705,8 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
           >
             {streaming ? `⏹ Streaming — ${streamFps} fps` : '📡 Live Stream'}
           </button>
-
-          <button className={`${styles.wizardButtonBase} ${styles.outputBtn}`} onClick={openConsole} title="Show build and serial output">
-            ⌗ Output / Serial
-          </button>
-        </div>
+          </div>
+        </section>
 
         {streamError && <div className={styles.streamError}>{streamError}</div>}
         {codeViewOpen && (
@@ -705,10 +735,26 @@ export default function MatrixOutputDeployPopup({ inline = false }: { inline?: b
             onClose={() => setValidationAction(null)}
           />
         )}
-    </>
+    </div>
   )
 
-  if (inline) return <div className={styles.inlineDeploy}>{body}</div>
+  const body = (
+    <div className={styles.deployWorkbench}>
+      {controls}
+      <OutputConsole embedded />
+    </div>
+  )
+
+  if (inline) {
+    return (
+      <div
+        className={styles.inlineDeploy}
+        style={{ marginLeft: leftInset, marginRight: rightInset }}
+      >
+        {body}
+      </div>
+    )
+  }
 
   return (
     <div className={styles.overlay} onMouseDown={(event) => { if (event.target === event.currentTarget) closeDeployPopup() }}>
