@@ -6,6 +6,7 @@ import { MIC_DEFAULTS, MIC_MAX_GAIN } from '../audio/micAnalysis'
 import { ANIMARTRIX_EFFECTS } from '../animartrix/catalog'
 import { MAX_PIN_NUMBER, type GpioCapability } from './boardGpio'
 import { EASE_TYPES } from './easing'
+import { DATE_TIME_TEXT_MODES } from './displayText'
 import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, outputForm } from './ledOutputForm'
 
@@ -1539,6 +1540,46 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       delayTime: 0.5,
     },
   },
+  // ── Text ────────────────────────────────────────────────────────────────
+  // The three nodes that produce a `string`. Auxiliary displays are the
+  // consumer (see docs/development/design/auxiliary-displays.md); formatting
+  // is a node rather than something a display does privately, so the decision
+  // about how a number reads is visible on the canvas instead of buried in a
+  // display's properties.
+  {
+    type: 'TextValue',
+    label: 'Text Value',
+    category: 'math',
+    inputs: [],
+    outputs: [{ id: 'text', label: 'Text', dataType: 'string' }],
+    defaultProperties: { text: 'HELLO' },
+  },
+  {
+    type: 'FormatNumber',
+    label: 'Format Number',
+    category: 'math',
+    inputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
+    outputs: [{ id: 'text', label: 'Text', dataType: 'string' }],
+    spliceInput: 'value',
+    defaultProperties: {
+      value: 0,
+      decimals: 0,
+      padWidth: 1,
+      showSign: false,
+      maxIntegerDigits: 6,
+      prefix: '',
+      suffix: '',
+    },
+  },
+  {
+    type: 'FormatDateTime',
+    label: 'Format Date/Time',
+    category: 'math',
+    inputs: [{ id: 'dateTime', label: 'DateTime', dataType: 'datetime' }],
+    outputs: [{ id: 'text', label: 'Text', dataType: 'string' }],
+    spliceInput: 'dateTime',
+    defaultProperties: { dateTimeFormat: 'HH:MM' },
+  },
   {
     // Scheduled trigger/window logic driven by RTCInput's clock/date fields.
     // `active` stays high while the schedule is in-range; `start`/`end` pulse
@@ -2920,6 +2961,9 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Not: 'Logical NOT of a boolean.',
   Compare: 'True when a > b.',
   Trigger: 'Debounce, Toggle, One Shot, Pulse Divider, or Trigger Delay on a bool.',
+  TextValue: 'A fixed line of text for a display to show.',
+  FormatNumber: 'Turns a number into display text with decimals, padding, and units.',
+  FormatDateTime: 'Turns a clock reading into display text such as HH:MM.',
   ScheduleTrigger: 'Time-of-day window/trigger driven by RTCInput clock and calendar fields.',
   BeatSin: 'Beat-synced sine oscillator — outputs a normalized low↔high value at a BPM.',
   Clock: 'BPM clock — phase/beat/bar/subdivision pulses; tap tempo, sync, and reset.',
@@ -3141,6 +3185,7 @@ export const PORT_COLORS: Record<string, string> = {
   transitionset: '#b388ff',
   playercontrols: '#ff8a65',
   playerparticles: '#ce93d8',
+  string: '#ff7bb0',
 }
 
 /** Colour for a port's data type (used to tint node handles). */
@@ -3151,6 +3196,13 @@ export function portColor(dataType: string): string {
 /**
  * Whether an output of `srcType` may connect to an input of `dstType`.
  * `float`/`bool` interconvert; every other type must match exactly.
+ *
+ * `string` is deliberately in the "match exactly" group. A number and a flag
+ * are the same quantity at two resolutions, so converting between them loses
+ * nothing a user would miss; turning a float into text is a decision about
+ * decimals, padding, and units, and an implicit conversion would make that
+ * decision somewhere nobody can see or change it. `FormatNumber` exists so the
+ * decision is a node on the canvas.
  */
 export function portsCompatible(srcType: string, dstType: string): boolean {
   if (srcType === dstType) return true
@@ -3219,6 +3271,13 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   vAlign:        { control: 'select', options: ['top', 'middle', 'bottom'] },
   displayMode:   { control: 'select', options: ['Digital HH:MM', 'Digital HH:MM:SS', 'Digital 12H', 'Digital + Date', 'Analog', 'Analog + Date', 'Stopwatch', 'Timer'] },
   scrollAxis:    { control: 'select', options: ['horizontal', 'vertical'] },
+  // Format Number / Format Date-Time authoring controls. The numeric bounds
+  // match normalizeNumberFormat in state/displayText.ts, which clamps to the
+  // same range for values that arrive from an import rather than the editor.
+  dateTimeFormat:   { control: 'select', options: DATE_TIME_TEXT_MODES },
+  decimals:         { control: 'slider', min: 0, max: 4, step: 1 },
+  padWidth:         { control: 'slider', min: 1, max: 8, step: 1 },
+  maxIntegerDigits: { control: 'slider', min: 1, max: 9, step: 1 },
   letterSpacing: { control: 'slider', min: 0, max: 4, step: 1 },
   tileSize:   { control: 'slider', min: 1, max: 16, step: 1 },
   turns:      { control: 'slider', min: 1, max: 6, step: 1 },
@@ -3880,6 +3939,13 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   previewPort: 'UDP port the local helper listens on for preview-side Art-Net packets.',
   dmxPort: 'ESP32 UART used by esp_dmx for DMX512 receive.',
   requireSync: 'Keeps the schedule inactive until the upstream RTC Clock reports a real NTP sync.',
+  dateTimeFormat: 'Which part of the clock reading the text shows. An invalid clock shows dashes, never a plausible time.',
+  decimals: 'Digits after the point. Rounding is half away from zero, matching the generated firmware exactly.',
+  padWidth: 'Minimum integer digits, zero-padded on the left, so a changing value does not shift on the display.',
+  maxIntegerDigits: 'Integer digits the field can hold. A value that needs more shows the overflow marker instead of a wrong number.',
+  showSign: 'Shows a + on positive values. Negatives always show their sign.',
+  prefix: 'Text placed before the number, such as a label or currency mark.',
+  suffix: 'Text placed after the number, such as a unit.',
   bypassed: "Skips this node's own effect entirely and passes the matching input straight through — a quick A/B mute without unwiring.",
   audioOutput: "'i2s' drives an external DAC/amp over the I2S pins below. 'internalDac' uses the classic ESP32's built-in DAC, fixed to GPIO25/26 — not available on ESP32-S3/S2/C3.",
   overclock: 'Clockless chipsets only — multiplies the FastLED output clock. 1 = stock timing.',

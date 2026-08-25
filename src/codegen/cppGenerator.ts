@@ -26,6 +26,10 @@ import {
 import { inputClampRange, bypassPort, CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, CORRECTION_OPTIONS, SPI_CHIPSETS, HUB75_CHIPSET, resolveNodeScalarExpressions } from '../state/nodeLibrary'
 import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
 import { isNodeFormulaValid } from '../state/formulaLang'
+import {
+  DISPLAY_TEXT_CPP_HELPERS, textValueCpp, formatNumberCpp, formatDateTimeCpp,
+} from './displayTextCpp'
+import { displayString, normalizeNumberFormat, asDateTimeTextMode } from '../state/displayText'
 import { particleRadius } from '../state/particleScale'
 import { buildXYTable, rotatePoint, tileRotationAt } from '../state/xyLayout'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette, type RGB } from '../state/customPalette'
@@ -1648,6 +1652,7 @@ export function generateCpp(
   const needsT = { v: false }
   const needsShims = { v: false }
   const needsPhi = { v: false }
+  const needsDisplayText = { v: false }
   const needsXyMap = { v: false }
   // Frame-producing nodes each render into their own CRGB buffer, so multiple
   // layers can coexist and be composited. Collected here, declared as globals.
@@ -4765,6 +4770,31 @@ export function generateCpp(
         break
       }
 
+      // ── Text ──────────────────────────────────────────────────────────
+      // Buffers and snprintf, never Arduino String: a display refreshed from
+      // loop() would otherwise reallocate once per LED frame. The formatting
+      // itself lives in codegen/displayTextCpp.ts, generated from the same
+      // state/displayText.ts the evaluator uses.
+      case 'TextValue': {
+        needsDisplayText.v = true
+        ln(textValueCpp(v('text'), displayString(p.text ?? '')))
+        break
+      }
+
+      case 'FormatNumber': {
+        needsDisplayText.v = true
+        for (const line of formatNumberCpp(v('text'), f('value', 'value', 0), normalizeNumberFormat(p))) ln(line)
+        break
+      }
+
+      case 'FormatDateTime': {
+        needsDisplayText.v = true
+        const dtUp = incoming.get(`${node.id}:dateTime`)
+        const dtExpr = dtUp ? `n_${safeId(dtUp.srcId)}_${dtUp.srcPort}` : null
+        for (const line of formatDateTimeCpp(v('text'), dtExpr, asDateTimeTextMode(p.dateTimeFormat))) ln(line)
+        break
+      }
+
       // Bundled trigger/edge utility — `triggerOp` picks the variant. Every
       // branch is a millis()-based static, mirroring the stateful `Trigger`
       // case in graphEvaluator.ts so preview and firmware timing match.
@@ -6152,6 +6182,11 @@ export function generateCpp(
 
   if (needsShims.v) {
     lines.push(CPP_SHIM_HELPERS)
+    lines.push(``)
+  }
+
+  if (needsDisplayText.v) {
+    lines.push(DISPLAY_TEXT_CPP_HELPERS)
     lines.push(``)
   }
 

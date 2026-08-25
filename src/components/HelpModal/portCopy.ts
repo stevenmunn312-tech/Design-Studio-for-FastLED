@@ -17,6 +17,7 @@ export const TYPE_GLYPH: Record<string, string> = {
   frame: '▦', palette: '≋', color: '●', audio: '⌁', float: '∿', bool: '◆',
   field: '⌖', music: '♫', image: '▥', dmx: '⎋', datetime: '◷', patternset: '◫', transitionset: '⇄', storage: '▤',
   playercontrols: '⌘', playerparticles: '✦',
+  string: '≡',
 }
 
 /**
@@ -44,6 +45,7 @@ export const OUTPUT_USE_CASES: Record<string, string> = {
   storage: 'Its output identifies the configured storage provider for player and file workflows.',
   playercontrols: 'Its output maps buttons, knobs, and encoders to Music Player transport, volume, LED power, and brightness.',
   playerparticles: 'Its output configures the Music Player beat-particle overlay without adding another frame generator.',
+  string: 'Its text is destined for an auxiliary display rather than the LEDs, so it does not feed a frame.',
 }
 
 export const PORT_DESCRIPTIONS: Record<string, string> = {
@@ -63,4 +65,5 @@ export const PORT_DESCRIPTIONS: Record<string, string> = {
   storage: 'a configured storage provider such as SD, onboard flash, or USB',
   playercontrols: 'a bundle of player commands and normalized volume/brightness values',
   playerparticles: 'the beat-particle overlay style and intensity configuration',
+  string: 'a bounded line of display text',
 }

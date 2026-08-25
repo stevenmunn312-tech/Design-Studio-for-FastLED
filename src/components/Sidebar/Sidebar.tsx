@@ -181,6 +181,7 @@ const RECIPE_CARDS: RecipeCard[] = [
 const TYPE_GLYPH: Record<string, string> = {
   frame: '▦', palette: '≋', color: '●', audio: '⌁', dmx: '◫', datetime: '◷', float: '∿', bool: '◆',
   field: '⌖', music: '♫', shows: '▶', sdcard: '▣', patternset: '◫', transitionset: '⇄',
+  string: '≡',
 }
 
 function moduleType(def: NodeDefinition) {

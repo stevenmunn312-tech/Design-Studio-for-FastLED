@@ -5,6 +5,10 @@ import { useHardwareInputStore } from './hardwareInputStore'
 import { useMidiStore } from './midiStore'
 import { blankDmxSnapshot, clampDmxChannel, clampDmxByte, type DmxSnapshot } from './dmx'
 import { rtcPreviewSnapshot, type RtcPreview } from './rtc'
+import {
+  displayString, formatNumberText, normalizeNumberFormat,
+  formatDateTimeText, asDateTimeTextMode, type DateTimeTextFields,
+} from './displayText'
 import { useUiStore } from './uiStore'
 import { asFont, textBlockLayout, textAlignMode, TEXT_LINE_GAP, type BitmapFont, DEFAULT_FONT } from './font'
 import { animatedImageFrame, asAnimatedImage, asImage, sampleImageToFrame, type ImageData } from './image'
@@ -6437,6 +6441,43 @@ function createEvalNode(
         const a = num(id, 'a', props, 'a', 0)
         const b = num(id, 'b', props, 'b', 0.5)
         out = { result: a > b }
+        break
+      }
+
+      // ── Text ──────────────────────────────────────────────────────────
+      // Every string these produce goes through state/displayText.ts, which
+      // the C++ generator imports too. Formatting decided in two places is
+      // formatting that disagrees, and a display disagreeing with its preview
+      // is the one defect this feature cannot ship with.
+      case 'TextValue': {
+        out = { text: displayString(props.text ?? '') }
+        break
+      }
+
+      case 'FormatNumber': {
+        const value = num(id, 'value', props, 'value', 0)
+        out = { text: displayString(formatNumberText(value, normalizeNumberFormat(props))) }
+        break
+      }
+
+      case 'FormatDateTime': {
+        // Reads the same DateTime bundle RTCInput publishes. With nothing
+        // wired there is no clock, so the mode's dashed mask is the honest
+        // reading rather than a fallback to the browser's own time.
+        const upstream = input(id, 'dateTime', null) as Partial<DateTimeTextFields> | null
+        const fields: DateTimeTextFields | null = upstream && typeof upstream === 'object'
+          ? {
+            hour: Number(upstream.hour ?? 0),
+            minute: Number(upstream.minute ?? 0),
+            second: Number(upstream.second ?? 0),
+            weekday: Number(upstream.weekday ?? 0),
+            day: Number(upstream.day ?? 1),
+            month: Number(upstream.month ?? 1),
+            year: Number(upstream.year ?? 1970),
+            valid: upstream.valid === true,
+          }
+          : null
+        out = { text: displayString(formatDateTimeText(fields, asDateTimeTextMode(props.dateTimeFormat))) }
         break
       }
 

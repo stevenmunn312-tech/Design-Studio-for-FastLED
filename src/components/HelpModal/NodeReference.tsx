@@ -369,6 +369,7 @@ function sourceNodeForType(dataType: string, nodeType: string, index: number): E
     storage: { label: 'Storage', category: 'input' },
     playercontrols: { label: 'Player Controls', category: 'input' },
     playerparticles: { label: 'Player Particles', category: 'show' },
+    string: { label: 'Text Value', category: 'math' },
   }
   const fallbackPresets: Record<string, { label: string; category: NodeCategory }> = {
     audio: { label: 'FFT Analyzer', category: 'audio' },
@@ -386,6 +387,7 @@ function sourceNodeForType(dataType: string, nodeType: string, index: number): E
     storage: { label: 'Storage', category: 'input' },
     playercontrols: { label: 'Music Player', category: 'show' },
     playerparticles: { label: 'Music Player', category: 'show' },
+    string: { label: 'Format Number', category: 'math' },
   }
   const preset = presets[dataType] ?? { label: 'Value Source', category: 'math' as NodeCategory }
   const fallback = fallbackPresets[dataType] ?? preset

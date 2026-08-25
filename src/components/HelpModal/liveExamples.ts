@@ -1303,6 +1303,50 @@ const STORAGE_LIVE_EXAMPLE = namedExample(
   'The solid colour keeps the example previewable while Storage remains available to the player workflow.',
 )
 
+// The three text nodes produce a `string`, which is bound for an auxiliary
+// display rather than the LED frame — see
+// docs/development/design/auxiliary-displays.md. Until display nodes exist
+// there is nothing downstream to wire them into, so each example follows the
+// Storage precedent: show the node doing its real job, and keep a frame
+// producer alongside so the article still previews something.
+const TEXT_VALUE_LIVE_EXAMPLE = namedExample(
+  'TextValue',
+  'Hold a fixed line of display text',
+  [
+    { key: 'text', type: 'TextValue', properties: { text: 'NOW PLAYING' } },
+    { key: 'color', type: 'SolidColor', properties: { r: 20, g: 40, b: 90 } },
+  ],
+  [],
+  'Text Value holds one fixed line for an auxiliary display to show. Its text output carries a bounded string, which never joins the LED frame path.',
+  'The solid colour keeps the example previewable while Text Value waits for a display to drive.',
+)
+
+const FORMAT_NUMBER_LIVE_EXAMPLE = namedExample(
+  'FormatNumber',
+  'Turn a live value into display text',
+  [
+    { key: 'bpm', type: 'BeatSin', properties: { bpm: 40, low: 90, high: 140 } },
+    { key: 'target', type: 'FormatNumber', properties: { decimals: 0, padWidth: 3, suffix: ' BPM' } },
+    { key: 'color', type: 'SolidColor', properties: { r: 90, g: 20, b: 40 } },
+  ],
+  [{ source: 'bpm', sourceHandle: 'value', target: 'target', targetHandle: 'value' }],
+  'Format Number decides how a number reads before a display shows it: decimals, zero padding, and a unit. Making that a node keeps the choice visible instead of hiding it inside a display setting.',
+  'The solid colour keeps the example previewable; Format Number produces text, not pixels.',
+)
+
+const FORMAT_DATE_TIME_LIVE_EXAMPLE = namedExample(
+  'FormatDateTime',
+  'Turn the clock into display text',
+  [
+    { key: 'rtc', type: 'RTCInput' },
+    { key: 'target', type: 'FormatDateTime', properties: { dateTimeFormat: 'HH:MM' } },
+    { key: 'color', type: 'SolidColor', properties: { r: 20, g: 90, b: 40 } },
+  ],
+  [{ source: 'rtc', sourceHandle: 'dateTime', target: 'target', targetHandle: 'dateTime' }],
+  'Format Date/Time reads the same DateTime bundle RTC Clock publishes. With no clock wired, or with a reading that is not valid, it shows dashes rather than a plausible time.',
+  'The solid colour keeps the example previewable while Format Date/Time produces a line of text.',
+)
+
 const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   Audio: AUDIO_CAPABILITY_LIVE_EXAMPLE,
   MicInput: MICROPHONE_LIVE_EXAMPLE,
@@ -1320,6 +1364,9 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   RTCInput: RTC_CLOCK_LIVE_EXAMPLE,
   ClockDisplay: RTC_CLOCK_LIVE_EXAMPLE,
   Storage: STORAGE_LIVE_EXAMPLE,
+  TextValue: TEXT_VALUE_LIVE_EXAMPLE,
+  FormatNumber: FORMAT_NUMBER_LIVE_EXAMPLE,
+  FormatDateTime: FORMAT_DATE_TIME_LIVE_EXAMPLE,
 }
 
 /** Build a varied, node-specific example for any library definition. */
