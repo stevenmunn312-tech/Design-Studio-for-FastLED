@@ -71,6 +71,22 @@ describe('hardwareManifest', () => {
     })
   })
 
+  it('reports every Button Bank row as an independently validated GPIO use', () => {
+    const bank = node('bank', 'ButtonBank', {
+      buttons: [
+        { id: 'play', label: 'Play / Pause', pin: 12, pullup: true },
+        { id: 'next', label: 'Next', pin: 13, pullup: false },
+      ],
+    })
+
+    expect(collectPinUses([bank])).toEqual([
+      expect.objectContaining({ propertyKey: 'buttons.play.pin', label: 'Play / Pause pin', pin: 12, requirement: { capability: 'digitalInput', pullup: true } }),
+      expect.objectContaining({ propertyKey: 'buttons.next.pin', label: 'Next pin', pin: 13, requirement: { capability: 'digitalInput', pullup: false } }),
+    ])
+    expect(buildHardwareManifest([bank], [], 'esp32:esp32:esp32s3').primaryItems[0])
+      .toMatchObject({ kind: 'button-input', subtitle: 'Momentary button bank', supported: true })
+  })
+
   it('describes a corkscrew by its chain geometry instead of stale matrix dimensions', () => {
     const manifest = buildHardwareManifest([
       node('out', 'MatrixOutput', {

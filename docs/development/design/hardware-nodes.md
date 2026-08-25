@@ -1,7 +1,7 @@
 # Hardware nodes and the two-view model
 
-Status: implemented on `Hardware`; microphone, PCM1802 line-in, and
-player-decoder Audio sources shipped · Owner: app · Updated: 2026-08-24
+Status: implemented on `Hardware`; microphone, PCM1802 line-in, player-decoder
+Audio sources, and self-growing button banks shipped · Owner: app · Updated: 2026-08-25
 
 The current branch models each physical component once and presents it in the
 views where it has meaning. The user-facing workflow is in the
@@ -29,7 +29,7 @@ across layout changes.
 Hardware node types are hidden from the Node Library and canvas picker. The
 workbench's **Add Hardware** menu is the creation path for:
 
-- signal inputs: INMP441 microphone, PCM1802 line-in ADC, button,
+- signal inputs: INMP441 microphone, PCM1802 line-in ADC, button, button bank,
   potentiometer, encoder, PIR motion, ambient light, and RTC modules;
 - workbench-only fixtures: SD Card and amplifier/DAC modules; and
 - LED String, LED Matrix, LED Ring, LED Corkscrew, and HUB75 Panel outputs.
@@ -46,7 +46,7 @@ away and back restores the intended wiring.
 
 `isHardwareManagedSignalNodeType` defines the parts visible in both views:
 
-- `MicInput`, `LineInput`, `ButtonInput`, `PotInput`, and `EncoderInput`;
+- `MicInput`, `LineInput`, `ButtonInput`, `ButtonBank`, `PotInput`, and `EncoderInput`;
 - `MotionInput` and `LightInput`;
 - `RTCInput`; and
 - `MatrixOutput` (the implementation type behind all five LED-output forms).
@@ -65,6 +65,18 @@ Clicking a part opens `HardwarePartBody` in a workbench inspector. GPIO fields
 use `BoardPinPicker`, which filters by required capability, distinguishes
 recommended and caution pins, detects conflicts across root hardware, and
 allows an explicit custom GPIO.
+
+`ButtonBank` is the compact graph form for several independent momentary
+buttons. Its final hollow output is a UI-only invitation. Connecting that
+socket materializes a stable boolean output, copies the destination input's
+label (for example **Play / Pause**), allocates a free board-compatible GPIO,
+and exposes another empty socket in the same undoable transaction. Disconnecting
+the noodle retains the row and its wiring. The graph shows the inherited name,
+preview press control, and assigned GPIO; the workbench inspector owns editing
+the name, pin, and per-button internal pull-up. Stable row ids keep edges intact
+when labels or pins change; removing a row there also removes the noodles fed
+by that output. Board retargeting tracks app-assigned and user-owned
+pins per row and restores hand wiring when returning to a board.
 
 The workbench draws automatic semantic links between the board and parts. They
 confirm attachment; they are not editable graph edges and are not a complete

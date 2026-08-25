@@ -752,6 +752,61 @@ describe('graphStore — loadGraph normalization', () => {
     expect(board.data.properties.serialRoute).toBe('auto')
   })
 
+  it('grows and names a Button Bank output when its trailing socket is connected', () => {
+    reset([node('bank', 'ButtonBank', { buttons: [] }), node('controls', 'PlayerControls')])
+
+    useGraphStore.getState().onConnect({
+      source: 'bank', sourceHandle: 'add-button', target: 'controls', targetHandle: 'playPause',
+    })
+
+    const state = useGraphStore.getState()
+    const bank = state.nodes.find((candidate) => candidate.id === 'bank')!
+    const buttons = bank.data.properties.buttons as Array<{ id: string; label: string; pullup: boolean }>
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0]).toMatchObject({ label: 'Play / Pause', pullup: true })
+    expect(bank.data.outputs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: `button-${buttons[0].id}`, label: 'Play / Pause' }),
+      expect.objectContaining({ id: 'add-button', label: 'Connect button…' }),
+    ]))
+    expect(state.edges).toContainEqual(expect.objectContaining({
+      source: 'bank', sourceHandle: `button-${buttons[0].id}`, target: 'controls', targetHandle: 'playPause',
+    }))
+  })
+
+  it('retains a Button Bank row after its noodle is disconnected', () => {
+    const buttons = [{ id: 'next', label: 'Next', pin: 12, pullup: true }]
+    reset(
+      [node('bank', 'ButtonBank', { buttons }), node('controls', 'PlayerControls')],
+      [edge('bank-next', 'bank', 'button-next', 'controls', 'next')],
+    )
+
+    useGraphStore.getState().removeEdge('bank-next')
+
+    expect(useGraphStore.getState().nodes.find((candidate) => candidate.id === 'bank')?.data.properties.buttons)
+      .toEqual(buttons)
+  })
+
+  it('removes a Button Bank row and every noodle fed by it explicitly', () => {
+    const buttons = [
+      { id: 'play', label: 'Play', pin: 12, pullup: true },
+      { id: 'next', label: 'Next', pin: 13, pullup: true },
+    ]
+    reset(
+      [node('bank', 'ButtonBank', { buttons }), node('controls', 'PlayerControls')],
+      [
+        edge('bank-play', 'bank', 'button-play', 'controls', 'playPause'),
+        edge('bank-next', 'bank', 'button-next', 'controls', 'next'),
+      ],
+    )
+
+    useGraphStore.getState().removeButtonBankEntry('bank', 'play')
+
+    const state = useGraphStore.getState()
+    expect(state.nodes.find((candidate) => candidate.id === 'bank')?.data.properties.buttons)
+      .toEqual([buttons[1]])
+    expect(state.edges.map((connection) => connection.id)).toEqual(['bank-next'])
+  })
+
   it('lets a migrated pre-Board project auto-enable profile-proven PSRAM', () => {
     const output = node('out', 'MatrixOutput', { usePsram: false, usbCdcOnBoot: false })
     useGraphStore.getState().loadGraph([output], [], {

@@ -6,6 +6,7 @@ import { useGraphStore } from '../../state/graphStore'
 import { usePreviewStore } from '../../state/previewStore'
 import { useUiStore } from '../../state/uiStore'
 import { familyMotion, signalFamily } from './noodleMotion'
+import { edgeDisplayColor } from './edgeDisplayColor'
 import styles from './GlowEdge.module.css'
 
 function formatSignalValue(value: unknown): string | null {
@@ -61,7 +62,7 @@ function GlowEdge({
   const signalEnergy = signal?.energy ?? 0
   const activity = Math.min(1, signalEnergy)
   const idleVisibility = 1 - Math.min(1, signalEnergy * 1.35)
-  const color = signal?.emissive || (typeof style?.stroke === 'string' && style.stroke) || CATEGORY_COLOR[category] || '#00bfff'
+  const color = edgeDisplayColor(signal?.emissive, sourceType, style?.stroke, CATEGORY_COLOR[category])
   const edgeData = data as {
     spliceArmed?: boolean
     splicePreview?: boolean

@@ -280,6 +280,29 @@ describe('generateCpp', () => {
     expect(generateCpp([noPull, bm, sc, outputNode], edges)).toContain('pinMode(7, INPUT);')
   })
 
+  it('emits independent Button Bank inputs using their stable output handles', () => {
+    const bank = node('bank', 'ButtonBank', 'input', {
+      buttons: [
+        { id: 'play', label: 'Play / Pause', pin: 12, pullup: true },
+        { id: 'next', label: 'Next', pin: 13, pullup: false },
+      ],
+    })
+    const bm = node('bm', 'BrightnessMod', 'composite', {})
+    const sc = node('sc', 'SolidColor', 'pattern', {})
+    const edges = [
+      edge('e1', 'bank', 'bm', 'button-play', 'brightness'),
+      edge('e2', 'sc', 'bm', 'frame', 'frame'),
+      edge('e3', 'bm', 'out', 'frame', 'frame'),
+    ]
+
+    const cpp = generateCpp([bank, bm, sc, outputNode], edges)
+
+    expect(cpp).toContain('pinMode(12, INPUT_PULLUP);')
+    expect(cpp).toContain('pinMode(13, INPUT);')
+    expect(cpp).toContain('digitalRead(12) == LOW')
+    expect(cpp).toContain('digitalRead(13) == LOW')
+  })
+
   it('emits setup() pinModes for all three EncoderInput pins, honouring pullup', () => {
     const enc = node('enc', 'EncoderInput', 'input', { pinA: 18, pinB: 19, pinSW: 21, pullup: true })
     const bm = node('bm', 'BrightnessMod', 'composite', {})

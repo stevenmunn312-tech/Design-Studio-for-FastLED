@@ -21,6 +21,7 @@ vi.mock('@xyflow/react', async (orig) => {
   const actual = await orig<typeof import('@xyflow/react')>()
   return {
     ...actual,
+    useUpdateNodeInternals: () => vi.fn(),
     Handle: ({ type, id, style, ...rest }: { type: string; id: string; style?: React.CSSProperties } & React.HTMLAttributes<HTMLSpanElement>) => (
       <span data-handle={`${type}:${id}`} style={style} {...rest} />
     ),
@@ -81,6 +82,36 @@ describe('StudioNode', () => {
     const { getByText } = renderNode(makeNode('SolidColor', { r: 255, g: 0, b: 128 }))
     expect(getByText('Solid Color')).toBeTruthy()   // header
     expect(getByText('Color')).toBeTruthy()          // input port label
+  })
+
+  it('renders named Button Bank rows and a trailing connection socket', () => {
+    const { getByText, getByRole, container } = renderNode(makeNode('ButtonBank', {
+      buttons: [{ id: 'play', label: 'Play / Pause', pin: 12, pullup: true }],
+    }))
+
+    expect(getByText('Play / Pause')).toBeTruthy()
+    expect(getByText('GPIO 12')).toBeTruthy()
+    expect(getByText('Connect button…')).toBeTruthy()
+    expect(getByRole('button', { name: 'Press Play / Pause' })).toBeTruthy()
+    const button = container.querySelector('[data-handle="source:button-play"]') as HTMLElement
+    const trailing = container.querySelector('[data-handle="source:add-button"]') as HTMLElement
+    expect(button).toBeTruthy()
+    expect(trailing).toBeTruthy()
+    expect(button.style.width).toBe('12px')
+    expect(button.style.height).toBe('12px')
+    expect(trailing.style.width).toBe('12px')
+    expect(trailing.style.height).toBe('12px')
+    expect(trailing.style.background).toBe(button.style.background)
+  })
+
+  it('visually distinguishes Player Controls button and potentiometer sockets', () => {
+    const { container } = renderNode(makeNode('PlayerControls', {}))
+    const button = container.querySelector('[data-handle="target:playPause"]') as HTMLElement
+    const potentiometer = container.querySelector('[data-handle="target:volume"]') as HTMLElement
+
+    expect(button.title).toBe('Play / Pause · bool')
+    expect(potentiometer.title).toBe('Volume · float')
+    expect(button.style.background).not.toBe(potentiometer.style.background)
   })
 
   it('shows an honest empty state when Audio has no attached source', () => {

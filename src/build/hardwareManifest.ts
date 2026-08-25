@@ -19,6 +19,7 @@ import { rtcI2cPinsForProfile } from '../state/rtcPins'
 import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
 import { resolvePartIdentity } from '../state/partOptions'
 import { LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, outputLedTotal } from '../state/ledOutputForm'
+import { normalizeButtonBankEntries } from '../state/buttonBank'
 
 export interface HardwarePinUse {
   label: string
@@ -82,6 +83,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'MicInput',
   'LineInput',
   'ButtonInput',
+  'ButtonBank',
   'PotInput',
   'EncoderInput',
   'RTCInput',
@@ -180,6 +182,18 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         break
       case 'ButtonInput':
         push(node, `${baseLabel} pin`, 'pin', props.pin)
+        break
+      case 'ButtonBank':
+        for (const button of normalizeButtonBankEntries(props.buttons)) {
+          uses.push({
+            label: `${button.label} pin`,
+            nodeId: node.id,
+            nodeType: node.data.nodeType,
+            propertyKey: `buttons.${button.id}.pin`,
+            pin: button.pin,
+            requirement: { capability: 'digitalInput', pullup: button.pullup },
+          })
+        }
         break
       case 'PotInput':
         push(node, `${baseLabel} pin`, 'pin', props.pin)
@@ -374,6 +388,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
     || node.data.nodeType === 'MicInput'
     || node.data.nodeType === 'LineInput'
     || node.data.nodeType === 'ButtonInput'
+    || node.data.nodeType === 'ButtonBank'
     || node.data.nodeType === 'PotInput'
     || node.data.nodeType === 'EncoderInput'
     || (node.data.nodeType === 'RTCInput'
@@ -419,6 +434,8 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         }
       case 'ButtonInput':
         return buildPeripheralItem(node, 'button-input', 'Momentary button input', pins)
+      case 'ButtonBank':
+        return buildPeripheralItem(node, 'button-input', 'Momentary button bank', pins)
       case 'PotInput':
         return buildPeripheralItem(node, 'pot-input', 'Analog potentiometer input', pins)
       case 'EncoderInput':

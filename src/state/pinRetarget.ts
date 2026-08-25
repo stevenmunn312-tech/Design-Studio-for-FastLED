@@ -33,6 +33,7 @@ import { micPinDefaultsForBoard, micPinIsDefault } from './micPinDefaults'
 import { outputForm } from './ledOutputForm'
 import { boardI2cDefault } from '../build/boardI2cDefaults'
 import { sdSpiPinsForBoard, type SdSpiPins } from './sdPinDefaults'
+import { normalizeButtonBankEntries, type ButtonBankEntry } from './buttonBank'
 
 /** Property holding the values the app last assigned, keyed by pin property. */
 export const ASSIGNED_PINS_KEY = 'assignedPins'
@@ -249,6 +250,72 @@ export interface RetargetResult {
   moved: number
 }
 
+/** Button Bank pins live in stable rows rather than top-level properties. */
+function retargetButtonBankPins(
+  inputNodes: StudioNode[],
+  profile: PhysicalBoardProfile | undefined,
+  fqbn: string,
+  previousBoard?: string,
+): RetargetResult {
+  const boardKey = profile?.id ?? fqbn
+  let nodes = inputNodes
+  let moved = 0
+
+  for (const bank of inputNodes.filter((node) => node.data.nodeType === 'ButtonBank')) {
+    const original = normalizeButtonBankEntries((bank.data.properties as Record<string, unknown>).buttons)
+    const resolved: ButtonBankEntry[] = []
+    let bankMoved = false
+
+    for (const [index, entry] of original.entries()) {
+      const leaving = entry.assignedBoard ?? previousBoard
+      const memory = { ...(entry.userPinsByBoard ?? {}) }
+      const wasAppAssigned = entry.assignedPin !== undefined && entry.pin === entry.assignedPin
+      if (leaving && leaving !== boardKey && !wasAppAssigned) memory[leaving] = entry.pin
+
+      const remembered = memory[boardKey]
+      let pin = remembered
+      let appAssigned = false
+      if (pin === undefined) {
+        const withoutCurrent = original.filter((_, candidateIndex) => candidateIndex !== index)
+        const claimNodes = nodes.map((node) => node.id === bank.id
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                properties: {
+                  ...node.data.properties,
+                  // Earlier rows use their newly-resolved pins; later rows
+                  // retain their current pins. Only this row is released.
+                  buttons: [...resolved, ...withoutCurrent.filter((candidate) =>
+                    !resolved.some((done) => done.id === candidate.id))],
+                },
+              },
+            }
+          : node)
+        const assignment = assignPartPins(profile, fqbn, claimNodes, [{ key: 'pin' }])
+        if (assignment.ok) {
+          pin = assignment.pins.pin
+          appAssigned = true
+        }
+      }
+      if (pin === undefined) pin = entry.pin
+      if (pin !== entry.pin) bankMoved = true
+      resolved.push({
+        ...entry,
+        pin,
+        assignedBoard: boardKey,
+        ...(appAssigned ? { assignedPin: pin } : { assignedPin: undefined }),
+        ...(Object.keys(memory).length > 0 ? { userPinsByBoard: memory } : { userPinsByBoard: undefined }),
+      })
+      nodes = nodes.map((node) => node.id === bank.id
+        ? { ...node, data: { ...node.data, properties: { ...node.data.properties, buttons: resolved } } }
+        : node)
+    }
+    if (bankMoved) moved += 1
+  }
+  return { nodes, moved }
+}
+
 /**
  * Move every part onto the newly selected board.
  *
@@ -265,7 +332,7 @@ export interface RetargetResult {
  * part routes around their wiring instead of landing on top of it.
  */
 export function retargetHardwarePins(
-  nodes: StudioNode[],
+  inputNodes: StudioNode[],
   profile: PhysicalBoardProfile | undefined,
   fqbn: string,
   /**
@@ -279,6 +346,8 @@ export function retargetHardwarePins(
    */
   previousBoard?: string,
 ): RetargetResult {
+  const bankResult = retargetButtonBankPins(inputNodes, profile, fqbn, previousBoard)
+  const nodes = bankResult.nodes
   /*
    * Memory is keyed on the *profile*, not the FQBN.
    *
@@ -404,11 +473,11 @@ export function retargetHardwarePins(
     })
   }
 
-  if (updates.size === 0) return { nodes, moved: 0 }
+  if (updates.size === 0) return { nodes, moved: bankResult.moved }
   return {
     // A part whose only change was recording what the user chose has not
     // moved, and saying so would be a status line about nothing.
-    moved: [...updates.values()].filter((update) => Object.keys(update.pins).length > 0).length,
+    moved: bankResult.moved + [...updates.values()].filter((update) => Object.keys(update.pins).length > 0).length,
     nodes: nodes.map((node) => {
       const update = updates.get(node.id)
       if (!update) return node

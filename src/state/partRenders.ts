@@ -41,6 +41,9 @@ export const PART_RENDER_BY_NODE_TYPE: Record<string, PartRender> = {
     src: partRenderSrc('ds3231-rtc-module') ?? '',
   },
   ButtonInput: { label: 'Button module', src: buttonRender },
+  // A bank is several instances of the same verified momentary-button part;
+  // the hardware view uses this render as its compact representative.
+  ButtonBank: { label: 'Button bank', src: buttonRender },
   PotInput: { label: 'Potentiometer module', src: potRender },
   EncoderInput: { label: 'Rotary encoder module', src: encoderRender },
   MotionInput: {

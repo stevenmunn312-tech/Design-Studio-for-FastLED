@@ -45,6 +45,7 @@ import { sanitizePin } from './hardwarePins'
 import { resolveWireframeMesh, meshBoundingRadius, WIREFRAME_FIT_MARGIN, WIREFRAME_CAM_FAR, WIREFRAME_CAM_NEAR } from '../state/wireframeModel'
 import { resolveAudioCapabilitySource } from '../state/audioCapabilities'
 import { amplifierIdleCpp } from './amplifierIdle'
+import { buttonBankHandle, normalizeButtonBankEntries } from '../state/buttonBank'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -2078,6 +2079,15 @@ export function generateCpp(
         const pin = sanitizePin(p.pin, 0)
         pinSetupLines.add(`  pinMode(${pin}, ${p.pullup === false ? 'INPUT' : 'INPUT_PULLUP'});`)
         ln(`  bool ${v('pressed')} = digitalRead(${pin}) == LOW;`)
+        break
+      }
+
+      case 'ButtonBank': {
+        for (const button of normalizeButtonBankEntries(p.buttons)) {
+          const pin = sanitizePin(button.pin, 0)
+          pinSetupLines.add(`  pinMode(${pin}, ${button.pullup ? 'INPUT_PULLUP' : 'INPUT'});`)
+          ln(`  bool ${v(buttonBankHandle(button.id))} = digitalRead(${pin}) == LOW;`)
+        }
         break
       }
 

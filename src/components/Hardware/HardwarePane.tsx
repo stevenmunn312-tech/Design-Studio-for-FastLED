@@ -13,6 +13,7 @@ import { withAssignedPins } from '../../state/pinRetarget'
 import { boardI2cDefault } from '../../build/boardI2cDefaults'
 import { sdSpiPinsForBoard } from '../../state/sdPinDefaults'
 import { partDimensionsMm, partRenderSrc, ringDiameterMm } from '../../state/partCatalogue'
+import { buttonBankHandle, normalizeButtonBankEntries } from '../../state/buttonBank'
 import { partRenderForNodeType } from '../../state/partRenders'
 import { partOptionProperty, partOptionsFor, resolvePartIdentity } from '../../state/partOptions'
 import PartIdentity from './PartIdentity'
@@ -220,6 +221,15 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     footprint: BUTTON_MODULE_FOOTPRINT_MM,
     signalPort: 'pressed',
     pinRequests: [{ key: 'pin' }],
+  },
+  {
+    nodeType: 'ButtonBank',
+    partId: 'button-bank',
+    label: 'Button bank',
+    hint: 'Connect outputs to add and name buttons',
+    footprint: BUTTON_MODULE_FOOTPRINT_MM,
+    signalPort: 'add-button',
+    pinRequests: [],
   },
   {
     nodeType: 'PotInput',
@@ -475,11 +485,14 @@ export default function HardwarePane() {
         if (!entry) return []
         const index = seen.get(entry.nodeType) ?? 0
         seen.set(entry.nodeType, index + 1)
+        const bankFirst = entry.nodeType === 'ButtonBank'
+          ? normalizeButtonBankEntries(props.buttons)[0]
+          : undefined
         return [{
           entry,
           node,
           partId: index === 0 ? entry.partId : `${entry.partId}-${node.id}`,
-          signalKey: `${node.id}:${entry.signalPort}`,
+          signalKey: `${node.id}:${bankFirst ? buttonBankHandle(bankFirst.id) : entry.signalPort}`,
         }]
       })
   }, [nodes])
@@ -672,6 +685,11 @@ export default function HardwarePane() {
    */
   const partPinSummary = (node: StudioNode, entry: InputPartEntry): string => {
     const props = node.data.properties as Record<string, unknown>
+    if (entry.nodeType === 'ButtonBank') {
+      const buttons = normalizeButtonBankEntries(props.buttons)
+      if (buttons.length === 0) return 'Connect outputs in the graph'
+      return `${buttons.length} button${buttons.length === 1 ? '' : 's'} · GPIO ${buttons.map((button) => button.pin).join(', ')}`
+    }
     const keys = entry.nodeType === MIC_NODE_TYPE
       ? ['i2sWs', 'i2sSck', 'i2sSd']
       : entry.pinRequests.map((request) => request.key)

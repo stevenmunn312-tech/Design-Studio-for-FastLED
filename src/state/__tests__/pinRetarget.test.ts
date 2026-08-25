@@ -71,6 +71,40 @@ describe('pin ownership', () => {
 })
 
 describe('retargetHardwarePins', () => {
+  it('retargets every app-assigned Button Bank row without collisions', () => {
+    const first = profile([2, 4, 5], undefined, 'first-board')
+    const second = profile([21, 33, 34], undefined, 'second-board')
+    const bank = part('bank', 'ButtonBank', {
+      buttons: [
+        { id: 'play', label: 'Play', pin: 2, pullup: true, assignedPin: 2, assignedBoard: first.id },
+        { id: 'next', label: 'Next', pin: 4, pullup: true, assignedPin: 4, assignedBoard: first.id },
+      ],
+    })
+
+    const result = retargetHardwarePins([bank], second, ESP32_S3, first.id)
+    const buttons = result.nodes[0].data.properties.buttons as Array<{ pin: number; assignedBoard: string }>
+
+    expect(buttons.map((button) => button.pin)).toEqual([21, 33])
+    expect(buttons.every((button) => button.assignedBoard === second.id)).toBe(true)
+    expect(result.moved).toBe(1)
+  })
+
+  it('restores a hand-wired Button Bank row when returning to its board', () => {
+    const first = profile([2, 4], undefined, 'first-board')
+    const second = profile([21, 33], undefined, 'second-board')
+    let nodes = [part('bank', 'ButtonBank', {
+      buttons: [{
+        id: 'play', label: 'Play', pin: 13, pullup: true,
+        assignedPin: 2, assignedBoard: first.id,
+      }],
+    })]
+
+    nodes = retargetHardwarePins(nodes, second, ESP32_S3, first.id).nodes
+    expect((nodes[0].data.properties.buttons as Array<{ pin: number }>)[0].pin).toBe(21)
+    nodes = retargetHardwarePins(nodes, first, 'esp32:esp32:esp32', second.id).nodes
+    expect((nodes[0].data.properties.buttons as Array<{ pin: number }>)[0].pin).toBe(13)
+  })
+
   it('moves board-owned RTC properties to the new board defaults', () => {
     const xiao = boardProfileById('seeed-xiao-esp32s3')!
     const devkit = boardProfileById('esp32-devkit-v1-30pin-esp32d')!

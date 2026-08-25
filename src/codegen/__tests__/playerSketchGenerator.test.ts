@@ -46,6 +46,23 @@ describe('playerSketchGenerator', () => {
       })
     })
 
+    it('resolves a named Button Bank row as a physical player button', () => {
+      const nodes = [
+        { id: 'master', data: { nodeType: 'PatternMaster', properties: {} } },
+        { id: 'controls', data: { nodeType: 'PlayerControls', properties: {} } },
+        { id: 'bank', data: { nodeType: 'ButtonBank', properties: {
+          buttons: [{ id: 'playPause', label: 'Play / Pause', pin: 12, pullup: false }],
+        } } },
+      ]
+      const edges = [
+        { source: 'controls', sourceHandle: 'controls', target: 'master', targetHandle: 'controls' },
+        { source: 'bank', sourceHandle: 'button-playPause', target: 'controls', targetHandle: 'playPause' },
+      ]
+
+      expect(playerControlsFromGraph(nodes, edges).bindings.playPause)
+        .toEqual({ kind: 'button', pin: 12, pullup: false })
+    })
+
     it('emits debounced transport, repeat adjustments, normalized pots, and brightness ceilings', () => {
       const sketch = generatePlayerSketch({ maxVolume: 17, ledBrightness: 143 }, undefined, {
         controls: {

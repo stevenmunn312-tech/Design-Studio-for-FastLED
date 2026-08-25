@@ -28,12 +28,20 @@ an unknown device falls back to UART unless the user overrides it.
 
 Use **Add Hardware** in the workbench. The current categories are:
 
-- **Inputs** — microphone, PCM1802 line-in ADC, button, potentiometer, encoder,
+- **Inputs** — microphone, PCM1802 line-in ADC, button, button bank, potentiometer, encoder,
   PIR motion sensor, ambient-light sensor, and RTC module;
 - **Storage** — supported microSD modules;
 - **Amplifiers & DACs** — the supported I2S DAC/amplifier and analog amplifier
   modules; and
 - **LED outputs** — LED String, LED Matrix, LED Ring, LED Corkscrew, and HUB75 Panel.
+
+A **Button Bank** starts with one hollow graph socket. Connect it to a named
+input such as **Next** or **Brightness Up**: the bank creates a button with that
+name, assigns a free GPIO, and leaves another empty socket ready. Use the
+on-node button to test it in preview. Click the bank in Hardware to change its
+GPIO or internal pull-up; unplugging a graph noodle does not erase the physical
+button or its wiring. Remove the row from that Hardware inspector when the
+physical button is no longer part of the build.
 
 Hardware entries are intentionally absent from the Node Library. Creating the
 part from the workbench means Studio knows which board owns it and can assign

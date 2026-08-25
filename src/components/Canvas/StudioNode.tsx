@@ -36,10 +36,12 @@ import FFTAnalyzerBody from './FFTAnalyzerBody'
 import AudioCapabilityBody from './AudioCapabilityBody'
 import StorageCapabilityBody from './StorageCapabilityBody'
 import HardwareInputBody from './HardwareInputBody'
+import ButtonBankBody from './ButtonBankBody'
 import MidiInputBody from './MidiInputBody'
 import DmxInputBody from './DmxInputBody'
 import RtcInputBody from './RtcInputBody'
 import { pinSupports } from '../../state/boardGpio'
+import { buttonBankOutputs } from '../../state/buttonBank'
 import { isHardwareNodeType } from '../../state/hardware'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
@@ -59,6 +61,7 @@ import { polinePalette, hexToRgb as polineHexToRgb } from '../../state/polinePal
 import type { Palette } from '../../state/ledColor'
 import { isHardwarePartField } from '../../state/partFields'
 import styles from './StudioNode.module.css'
+import { NODE_HANDLE_STYLE } from './nodeHandleStyle'
 
 const MusicLibraryNodeBody = lazy(() => import('./MusicLibraryNodeBody'))
 const PerformanceGeneratorBody = lazy(() => import('./PerformanceGeneratorBody'))
@@ -757,13 +760,6 @@ const CORKSCREW_PREVIEW_H = 150
 /** Tall enough that a run of tape reads as LEDs rather than as a rule. */
 const STRIP_PREVIEW_PX = 16
 
-const HANDLE_STYLE = {
-  width: 12,
-  height: 12,
-  borderRadius: '50%',
-  border: 'none',
-}
-
 // Group-input "roles" a Performance Generator show can drive (see the collection
 // -driven-performance design note). Setting a GroupInput's paramId to one of
 // these tags it for that show signal; keep in sync with the generator/codegen.
@@ -913,9 +909,12 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const bakeStatus = usePerformanceBakeStore((s) => s.byNode[id]?.status)
   const bakeLocked = (bakeStatus ?? usePerformanceBakeStore.getState().byNode[id]?.status ?? 'idle') !== 'idle'
   const categoryAccent = CATEGORY_ACCENT_VAR[d.category] ?? 'var(--accent-output)'
+  const rawProps = d.properties as Record<string, unknown>
   const inputs = (def?.inputs ?? d.inputs) as PortDef[]
-  const outputs = (def?.outputs ?? d.outputs) as PortDef[]
-  const rowCount = Math.max(inputs.length, outputs.length)
+  const outputs = (d.nodeType === 'ButtonBank'
+    ? buttonBankOutputs(rawProps.buttons)
+    : def?.outputs ?? d.outputs) as PortDef[]
+  const rowCount = d.nodeType === 'ButtonBank' ? 0 : Math.max(inputs.length, outputs.length)
 
   // Which of this node's input ports are wired, and to which upstream port. When
   // a port is wired the evaluator ignores the matching property, so its inline
@@ -953,7 +952,6 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
 
   // Inline property editors (Blender-style). A node with `r/g/b` shows one
   // colour swatch; `font` (an object) is left to the Inspector.
-  const rawProps = d.properties as Record<string, unknown>
   const props = useMemo(() => {
     // Layer the saved properties over the library defaults, so a property
     // added to the library after this node was saved still gets an editor
@@ -1017,7 +1015,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // convention) instead of the fixed category accent every other node uses.
   const accent = isComment && isHexColor(props.color) ? props.color : categoryAccent
   const editable = Object.entries(props).filter(
-    ([k]) => k !== 'font' && k !== 'image' && k !== 'animation' && k !== 'mesh' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden' && k !== 'bypassed' && k !== 'showInMainPreview' && k !== 'profileId' && k !== 'sourceId'
+    ([k]) => k !== 'font' && k !== 'image' && k !== 'animation' && k !== 'mesh' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden' && k !== 'bypassed' && k !== 'showInMainPreview' && k !== 'profileId' && k !== 'sourceId' && k !== 'buttons'
     // Pin provenance is bookkeeping, not a setting: which pins the app
     // assigned, which board for, and the user's own choices per board.
     // It was rendering as `[object Object]` rows on every hardware node.
@@ -1252,6 +1250,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {/* Hardware-input widgets are functional preview controls, not purely
             decorative FX, so keep them available even when UI FX are off. */}
         {isHardwareInput && <HardwareInputBody nodeId={id} nodeType={d.nodeType} resetOnPress={props.resetOnPress === true} />}
+        {d.nodeType === 'ButtonBank' && <ButtonBankBody nodeId={id} />}
         {d.nodeType === 'DMXInput' && <DmxInputBody nodeId={id} />}
         {d.nodeType === 'RTCInput' && <RtcInputBody nodeId={id} />}
         {showLiveNodeVisuals && d.nodeType === 'MidiInput' && <MidiInputBody note={Math.round(Number(props.note ?? 60))} cc={Math.round(Number(props.cc ?? 1))} />}
@@ -1389,7 +1388,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                     aria-disabled={micUnavailable}
                     aria-label={`Connect to ${displayName} ${input.label} input, ${input.dataType}. Press Enter or Space to ${sourceMap.has(input.id) ? 'replace the existing connection' : 'choose a source port'}.`}
                     onKeyDown={activateHandleFromKeyboard}
-                    style={{ ...HANDLE_STYLE, top: '50%', left: -8, background: inputColor, boxShadow: `0 0 6px ${inputColor}` }}
+                    style={{ ...NODE_HANDLE_STYLE, top: '50%', left: -8, background: inputColor, boxShadow: `0 0 6px ${inputColor}` }}
                   />
                   {sparkPortId === input.id && <span className={styles.spark} />}
                 </>
@@ -1408,7 +1407,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                   aria-disabled={micUnavailable}
                   aria-label={`Connect from ${displayName} ${output.label} output, ${output.dataType}. Press Enter or Space to choose a destination port.`}
                   onKeyDown={activateHandleFromKeyboard}
-                  style={{ ...HANDLE_STYLE, top: '50%', right: -8, background: outputColor, boxShadow: `0 0 6px ${outputColor}` }}
+                  style={{ ...NODE_HANDLE_STYLE, top: '50%', right: -8, background: outputColor, boxShadow: `0 0 6px ${outputColor}` }}
                 />
               )}
             </div>

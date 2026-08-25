@@ -46,6 +46,15 @@ import {
   deriveControlShape,
 } from './performanceDeck'
 import { restoreMusicLibrary, type PersistedMusicEntry } from './musicLibraryPersistence'
+import { useUploadStore } from './uploadStore'
+import { assignPartPins } from './partPinAssignment'
+import {
+  BUTTON_BANK_ADD_HANDLE,
+  buttonBankHandle,
+  buttonBankOutputs,
+  nextButtonBankEntryId,
+  normalizeButtonBankEntries,
+} from './buttonBank'
 
 export interface StudioNodeData extends Record<string, unknown> {
   label: string
@@ -209,6 +218,8 @@ interface GraphState {
   pruneOrphanGraphs: () => void
   /** Remove a single edge (a "noodle"), e.g. when unplugged onto empty space. */
   removeEdge: (id: string) => void
+  /** Remove one physical button row and every noodle fed by its stable handle. */
+  removeButtonBankEntry: (nodeId: string, entryId: string) => void
   /** Re-route an edge to a new connection when its end is dragged to a port. */
   reconnectNoodle: (oldEdge: StudioEdge, newConnection: Connection) => void
 
@@ -443,7 +454,9 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
       delete properties.wifiPassword
     }
     const inputs = def?.inputs ?? (Array.isArray(data.inputs) ? data.inputs : [])
-    const outputs = def?.outputs ?? (Array.isArray(data.outputs) ? data.outputs : [])
+    const outputs = nodeType === 'ButtonBank'
+      ? buttonBankOutputs(properties.buttons)
+      : def?.outputs ?? (Array.isArray(data.outputs) ? data.outputs : [])
     // A hardware-only part is hidden wherever it came from — a template, an
     // older save, a share link — rather than relying on every creation path to
     // remember. Board has always been forced this way; the rest join it.
@@ -495,6 +508,64 @@ function withAdoptedMirrorPin(
   return nodes.map((node) => node.id === target.id
     ? { ...node, data: { ...node.data, properties: { ...node.data.properties, dataPin: pin } } }
     : node)
+}
+
+/**
+ * Complete a Button Bank's trailing connection.
+ *
+ * The placeholder is never persisted into an edge. Finishing the gesture
+ * mints a stable output, copies the destination's human label, allocates a
+ * free GPIO for the selected board, and leaves the renderer to expose a fresh
+ * placeholder. Keeping this in the store makes the growth and the edge one
+ * undo step regardless of whether the drag started at the source or target.
+ */
+function materializeButtonBankConnection(
+  nodes: StudioNode[],
+  connection: Connection,
+): { nodes: StudioNode[]; connection: Connection } {
+  if (!connection.source || connection.sourceHandle !== BUTTON_BANK_ADD_HANDLE) return { nodes, connection }
+  const source = nodes.find((node) => node.id === connection.source)
+  if (!source || source.data.nodeType !== 'ButtonBank') return { nodes, connection }
+
+  const properties = source.data.properties as Record<string, unknown>
+  const entries = normalizeButtonBankEntries(properties.buttons)
+  const target = nodes.find((node) => node.id === connection.target)
+  const targetPort = (target?.data.inputs as Array<{ id: string; label: string }> | undefined)
+    ?.find((port) => port.id === connection.targetHandle)
+  const label = targetPort?.label?.trim() || `Button ${entries.length + 1}`
+  const id = nextButtonBankEntryId(entries, connection.targetHandle)
+  const root = nodes
+  const profile = selectedPhysicalBoardProfile(root)
+  const fqbn = useUploadStore.getState().selectedFqbn
+  const assigned = assignPartPins(
+    profile,
+    fqbn,
+    root,
+    [{ key: 'pin' }],
+  )
+  const nextEntries = [...entries, {
+    id,
+    label,
+    // -1 remains visibly invalid when a board has no free GPIO; it is safer
+    // than silently pretending GPIO0 was deliberately selected.
+    pin: assigned.ok ? assigned.pins.pin : -1,
+    pullup: true,
+    ...(assigned.ok ? { assignedPin: assigned.pins.pin, assignedBoard: profile?.id ?? fqbn } : {}),
+  }]
+  const nextNodes = nodes.map((node) => node.id === source.id
+    ? {
+        ...node,
+        data: {
+          ...node.data,
+          properties: { ...properties, buttons: nextEntries },
+          outputs: buttonBankOutputs(nextEntries),
+        },
+      }
+    : node)
+  return {
+    nodes: nextNodes,
+    connection: { ...connection, sourceHandle: buttonBankHandle(id) },
+  }
 }
 
 function createRootBoardNode(profileId = DEFAULT_BOARD_PROFILE_ID, settings = DEFAULT_CONTROLLER_SETTINGS): StudioNode {
@@ -1118,19 +1189,46 @@ export const useGraphStore = create<GraphState>()(
 
       onConnect: (connection) =>
         set((s) => {
-          const src = s.nodes.find((n) => n.id === connection.source)
-          const color = edgeStrokeForPort(src, connection.sourceHandle ?? undefined)
-          const replaced = connection.target && connection.targetHandle
-            ? s.edges.filter((e) => !(e.target === connection.target && e.targetHandle === connection.targetHandle))
+          const grown = materializeButtonBankConnection(s.nodes, connection)
+          const resolved = grown.connection
+          const src = grown.nodes.find((n) => n.id === resolved.source)
+          const color = edgeStrokeForPort(src, resolved.sourceHandle ?? undefined)
+          const replaced = resolved.target && resolved.targetHandle
+            ? s.edges.filter((e) => !(e.target === resolved.target && e.targetHandle === resolved.targetHandle))
             : s.edges
           // `reconnectable: 'target'` lets a noodle be unplugged/re-routed from
           // the input (target) end only — grab it at the input port and drag.
-          const edges = addEdge({ ...connection, type: 'glowEdge', reconnectable: 'target', style: { stroke: color } }, replaced)
-          return { edges, nodes: withAdoptedMirrorPin(s.nodes, edges, connection) }
+          const edges = addEdge({ ...resolved, type: 'glowEdge', reconnectable: 'target', style: { stroke: color } }, replaced)
+          return { edges, nodes: withAdoptedMirrorPin(grown.nodes, edges, resolved) }
         }),
 
       removeEdge: (id) =>
         set((s) => ({ edges: s.edges.filter((e) => e.id !== id) })),
+
+      removeButtonBankEntry: (nodeId, entryId) =>
+        set((s) => {
+          const handle = buttonBankHandle(entryId)
+          const removeFrom = (content: GraphContent): GraphContent => ({
+            nodes: content.nodes.map((node) => {
+              if (node.id !== nodeId || node.data.nodeType !== 'ButtonBank') return node
+              const properties = node.data.properties as Record<string, unknown>
+              const buttons = normalizeButtonBankEntries(properties.buttons)
+                .filter((button) => button.id !== entryId)
+              return {
+                ...node,
+                data: {
+                  ...node.data,
+                  properties: { ...properties, buttons },
+                  outputs: buttonBankOutputs(buttons),
+                },
+              }
+            }),
+            edges: content.edges.filter((edge) => !(edge.source === nodeId && edge.sourceHandle === handle)),
+          })
+          if (s.activeGraphId === ROOT_GRAPH_ID) return removeFrom({ nodes: s.nodes, edges: s.edges })
+          const root = s.graphData[ROOT_GRAPH_ID] ?? { nodes: [], edges: [] }
+          return { graphData: { ...s.graphData, [ROOT_GRAPH_ID]: removeFrom(root) } }
+        }),
 
       reconnectNoodle: (oldEdge, newConnection) =>
         set((s) => {
@@ -2367,8 +2465,18 @@ function editNodeIn(
   id: string,
   edit: (properties: Record<string, unknown>) => Record<string, unknown>,
 ): Partial<GraphState> {
-  const apply = (nodes: StudioNode[]) => nodes.map((n) =>
-    n.id === id ? { ...n, data: { ...n.data, properties: edit(n.data.properties) } } : n)
+  const apply = (nodes: StudioNode[]) => nodes.map((n) => {
+    if (n.id !== id) return n
+    const properties = edit(n.data.properties)
+    return {
+      ...n,
+      data: {
+        ...n.data,
+        properties,
+        ...(n.data.nodeType === 'ButtonBank' ? { outputs: buttonBankOutputs(properties.buttons) } : {}),
+      },
+    }
+  })
   if (s.nodes.some((n) => n.id === id)) return { nodes: apply(s.nodes) }
   const root = rootGraphNodes(s)
   if (root === s.nodes || !root.some((n) => n.id === id)) return { nodes: s.nodes }

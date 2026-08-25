@@ -44,6 +44,7 @@ import type { Frame, RGB } from '../graphEvaluator'
 import { waveSample, combineWaves } from '../wave'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import type { StudioNode, StudioEdge } from '../graphStore'
+import { useHardwareInputStore } from '../hardwareInputStore'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -4171,6 +4172,23 @@ describe('EncoderInput', () => {
     const enc = node('enc', 'EncoderInput', 'input', {})
     const { outputs } = evaluateGraphFull([enc], [], 0, W, H)
     expect(outputs.get('enc')).toEqual({ position: 0, pressed: false })
+  })
+})
+
+describe('ButtonBank', () => {
+  it('publishes independent preview values under stable row handles', () => {
+    const bank = node('bank', 'ButtonBank', 'input', {
+      buttons: [
+        { id: 'play', label: 'Play / Pause', pin: 12, pullup: true },
+        { id: 'next', label: 'Next', pin: 13, pullup: true },
+      ],
+    })
+    useHardwareInputStore.getState().setButton('bank:play', true)
+    useHardwareInputStore.getState().setButton('bank:next', false)
+
+    const { outputs } = evaluateGraphFull([bank], [], 0, W, H)
+
+    expect(outputs.get('bank')).toEqual({ 'button-play': true, 'button-next': false })
   })
 })
 

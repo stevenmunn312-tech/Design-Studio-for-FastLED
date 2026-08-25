@@ -198,10 +198,11 @@ describe('nodeLibrary', () => {
     expect(propertyDescription('Circle', 'nonexistentProp')).toBeUndefined()
   })
 
-  it('port colours: float/bool share a colour; distinct types differ', () => {
-    expect(portColor('float')).toBe(portColor('bool'))     // cross-compatible
+  it('port colours distinguish bool events from float controls despite compatibility', () => {
+    expect(portColor('float')).not.toBe(portColor('bool'))
     expect(portColor('frame')).not.toBe(portColor('color'))
     expect(portColor('palette')).not.toBe(portColor('audio'))
+    expect(portColor('patternset')).not.toBe(portColor('audio'))
     expect(portColor('mystery')).toBe(portColor('float'))  // unknown → default
   })
 

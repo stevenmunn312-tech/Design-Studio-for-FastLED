@@ -28,6 +28,7 @@ import { projectWireframeVertices, resolveWireframeMesh } from './wireframeModel
 import { resolveAudioCapabilitySource } from './audioCapabilities'
 import { resolveStorageCapabilitySource } from './storageCapabilities'
 import { usePlayerTransport } from './playerTransport'
+import { buttonBankHandle, normalizeButtonBankEntries } from './buttonBank'
 
 export type { RGB, Palette, Frame }
 export { getCodeErrorFromSandbox as getCodeError }
@@ -7237,6 +7238,16 @@ function createEvalNode(
       case 'ButtonInput':
         out = { pressed: useHardwareInputStore.getState().button.get(id) ?? false }
         break
+
+      case 'ButtonBank': {
+        const buttons = normalizeButtonBankEntries(props.buttons)
+        const live = useHardwareInputStore.getState().button
+        out = Object.fromEntries(buttons.map((button) => [
+          buttonBankHandle(button.id),
+          live.get(`${id}:${button.id}`) ?? false,
+        ]))
+        break
+      }
 
       case 'PotInput':
         out = { value: useHardwareInputStore.getState().pot.get(id) ?? 0.5 }

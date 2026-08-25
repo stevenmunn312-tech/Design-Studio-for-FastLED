@@ -10,6 +10,7 @@ import {
 import styles from './BoardNodeBody.module.css'
 import PartIdentity from '../Hardware/PartIdentity'
 import BoardPinPicker from '../Hardware/BoardPinPicker'
+import { normalizeButtonBankEntries } from '../../state/buttonBank'
 
 // A physical part's settings, shown in the hardware view rather than on its
 // signal node. Hardware-only parts and graph-visible inputs/outputs share this
@@ -33,6 +34,7 @@ function hardwareFieldLabel(nodeType: string, key: string, declared?: string): s
 
 export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Props) {
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
+  const removeButtonBankEntry = useGraphStore((s) => s.removeButtonBankEntry)
   const savedProps = useGraphStore((s) => {
     const node = rootGraphNodes(s).find((n) => n.id === nodeId)
     return (node?.data.properties ?? {}) as Record<string, unknown>
@@ -45,10 +47,68 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
     ...declaredFields.filter((field) => field.kind === 'pin').map((field) => field.key),
   ])].filter((key) => isPropertyEnabled(nodeType, key, props))
   const otherFields = declaredFields.filter((field) => field.kind !== 'pin')
+  const buttonEntries = nodeType === 'ButtonBank' ? normalizeButtonBankEntries(props.buttons) : []
+  const updateButton = (entryId: string, patch: Record<string, unknown>) => {
+    updateNodeProperty(nodeId, 'buttons', buttonEntries.map((entry) =>
+      entry.id === entryId ? { ...entry, ...patch } : entry))
+  }
 
   return (
     <div className={styles.body}>
       <PartIdentity nodeId={nodeId} nodeType={nodeType} />
+
+      {nodeType === 'ButtonBank' && (
+        <div className={styles.settingsSection} aria-label={`${nodeLabel} wiring`}>
+          <div className={styles.settingsHeader}>
+            <strong>Button wiring</strong>
+            <span>Names come from connected graph inputs. Pins and pull-ups describe the physical controls.</span>
+          </div>
+          {buttonEntries.length === 0 && (
+            <p className={styles.bankEmpty}>Connect the empty socket on the graph to add the first button.</p>
+          )}
+          {buttonEntries.map((entry) => (
+            <div className={styles.bankEntry} key={entry.id}>
+              <div className={styles.bankEntryHeader}>
+                <input
+                  className={`nodrag ${styles.picker}`}
+                  value={entry.label}
+                  aria-label={`${entry.label} name`}
+                  onChange={(event) => updateButton(entry.id, { label: event.target.value })}
+                />
+                <button
+                  type="button"
+                  className={styles.bankRemove}
+                  aria-label={`Remove ${entry.label}`}
+                  title={`Remove ${entry.label} and its connections`}
+                  onClick={() => removeButtonBankEntry(nodeId, entry.id)}
+                >
+                  ×
+                </button>
+              </div>
+              <label className={styles.settingField}>
+                <span>GPIO</span>
+                <BoardPinPicker
+                  nodeId={nodeId}
+                  nodeType={nodeType}
+                  propertyKey="pin"
+                  properties={{ pin: entry.pin, pullup: entry.pullup }}
+                  value={entry.pin}
+                  ariaLabel={`${entry.label} GPIO`}
+                  onChange={(pin) => updateButton(entry.id, { pin })}
+                />
+              </label>
+              <label className={styles.checkField}>
+                <input
+                  type="checkbox"
+                  checked={entry.pullup}
+                  onChange={(event) => updateButton(entry.id, { pullup: event.target.checked })}
+                />
+                Internal pull-up
+              </label>
+            </div>
+          ))}
+        </div>
+      )}
 
       {pinKeys.length > 0 && (
         <div className={styles.settingsSection} aria-label={`${nodeLabel} pin assignments`}>

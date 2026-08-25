@@ -2574,6 +2574,17 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { pin: 0, pullup: true },
   },
   {
+    type: 'ButtonBank',
+    label: 'Button Bank',
+    category: 'input',
+    inputs: [],
+    // The real outputs are derived from `buttons`. This trailing port is the
+    // invitation: completing a connection turns it into a named button and
+    // immediately grows another empty socket beneath it.
+    outputs: [{ id: 'add-button', label: 'Connect button…', dataType: 'bool' }],
+    defaultProperties: { buttons: [] },
+  },
+  {
     // HC-SR501 PIR module. One digital line that goes high while it sees
     // movement and stays high for the module's own hold time — the sensitivity
     // and hold are trimmer pots on the board, not properties here, because
@@ -2873,6 +2884,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   AudioHue: 'Maps bass/mids/treble to a hue value.',
   // hardware
   ButtonInput: 'Reads a hardware button as a boolean.',
+  ButtonBank: 'Grows named hardware-button outputs as you connect them.',
   MotionInput: 'Reads a PIR motion sensor as a boolean.',
   LightInput: 'Reads an LDR light sensor as a 0\u20131 value.',
   PotInput: 'Reads a potentiometer as a 0–1 value.',
@@ -3106,14 +3118,15 @@ export const CATEGORY_COLOR: Record<string, string> =
 export const CATEGORY_ACCENT_VAR: Record<string, string> =
   Object.fromEntries(CATEGORIES.map((c) => [c.id, `var(${c.accentVar})`]))
 
-// Port (handle) colour by data type, so ports that can connect share a colour.
-// `float` and `bool` share one — they interconnect (see portsCompatible).
+// Port (handle) colour by declared data type. Compatibility is related but not
+// identical: `float` and `bool` deliberately interconnect (see portsCompatible),
+// while distinct colours keep analog controls and button events readable.
 // Keyed by live port dataType — `nodeLibrary.test.ts` holds it to that. The
 // `shows` and `sdcard` entries lived on here after SD Card and Performance
 // Generator went portless, colouring handles that no longer exist.
 export const PORT_COLORS: Record<string, string> = {
   float: '#9aa0a6',
-  bool:  '#9aa0a6',
+  bool:  '#c6ff32',
   color: '#ffd24a',
   palette: '#ff5cf0',
   image: '#c6a0ff',
@@ -3124,7 +3137,7 @@ export const PORT_COLORS: Record<string, string> = {
   dmx: '#6bf8ff',
   datetime: '#d8ff63',
   music: '#ffb74d',
-  patternset: '#00e0a4',
+  patternset: '#38a6ff',
   transitionset: '#b388ff',
   playercontrols: '#ff8a65',
   playerparticles: '#ce93d8',
@@ -3693,6 +3706,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     i2sDout:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
   ButtonInput: {
+    pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
+  // ButtonBank stores pins inside its row collection, but the shared hardware
+  // picker still asks for the electrical contract under the logical `pin` key.
+  ButtonBank: {
     pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
   PotInput: {
@@ -4301,6 +4319,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   LineInput: new Set(['i2sMclk', 'i2sBclk', 'i2sLrclk', 'i2sDout']),
   DMXInput: new Set(['dmxTxPin', 'dmxRxPin', 'dmxEnablePin']),
   ButtonInput: new Set(['pin']),
+  ButtonBank: new Set(['pin']),
   PotInput: new Set(['pin']),
   EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
   MotionInput: new Set(['pin']),
@@ -4338,7 +4357,7 @@ export function gpioRequirementForProperty(
   if (nodeType === 'RTCInput') return null
   if (nodeType === 'PotInput' || nodeType === 'LightInput') return { capability: 'analogInput', pullup: false }
   if (nodeType === 'MotionInput') return { capability: 'digitalInput', pullup: false }
-  if (nodeType === 'ButtonInput' || nodeType === 'EncoderInput') {
+  if (nodeType === 'ButtonInput' || nodeType === 'ButtonBank' || nodeType === 'EncoderInput') {
     return { capability: 'digitalInput', pullup: props.pullup !== false }
   }
   if (nodeType === 'DMXInput' && key === 'dmxRxPin') {

@@ -44,6 +44,7 @@ import { runTidy } from '../../utils/tidyGraph'
 import { usePreviewStore } from '../../state/previewStore'
 import { playNoodleConnectSfx, playNoodleDisconnectSfx } from '../../audio/interactionSfx'
 import { isHardwareLibraryHiddenNodeType } from '../../state/hardware'
+import { BUTTON_BANK_ADD_HANDLE } from '../../state/buttonBank'
 import styles from './NodeGraphCanvas.module.css'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -506,10 +507,19 @@ function NodeGraphCanvasInner() {
         setStatus(`Added “${name}” to the collection`, 'success')
         return
       }
+      const growsButtonBank = connection.sourceHandle === BUTTON_BANK_ADD_HANDLE
+        && (getNode(connection.source ?? '')?.data as { nodeType?: string } | undefined)?.nodeType === 'ButtonBank'
       onConnect(connection)
+      const ceremonyConnection = growsButtonBank
+        ? useGraphStore.getState().edges.find((edge) =>
+            edge.source === connection.source
+            && edge.target === connection.target
+            && edge.targetHandle === connection.targetHandle
+            && edge.sourceHandle !== BUTTON_BANK_ADD_HANDLE) ?? connection
+        : connection
       // Spread the freshly-connected pair apart if the new noodle is too short.
       spreadNodes()
-      fireConnectionCeremony(connection)
+      fireConnectionCeremony(ceremonyConnection)
       playNoodleConnectSfx()
     },
     [onConnect, spreadNodes, fireConnectionCeremony, getNode, setStatus, addToCollection]

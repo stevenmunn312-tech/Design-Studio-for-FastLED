@@ -145,6 +145,38 @@
 .settingField { display: grid; gap: 5px; font-size: 10px; color: var(--text-secondary); }
 .settingField > span { display: flex; justify-content: space-between; gap: 12px; }
 .settingField input[type='range'] { width: 100%; }
+.bankEmpty {
+  margin: 0;
+  padding: 8px;
+  border: 1px dashed var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font: 9px/1.4 var(--font-code);
+}
+.bankEntry {
+  display: grid;
+  gap: 8px;
+  padding: 9px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--bg-input) 62%, transparent);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+}
+.bankEntryHeader { display: grid; grid-template-columns: 1fr 25px; gap: 6px; }
+.bankEntryHeader .picker { min-width: 0; }
+.bankRemove {
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.bankRemove:hover,
+.bankRemove:focus-visible {
+  border-color: var(--error);
+  color: var(--error);
+  outline: none;
+}
 .settingValue { display: inline-flex; align-items: center; gap: 5px; }
 .pinButton { padding: 0; border: 0; background: transparent; cursor: pointer; font-size: 10px; }
 

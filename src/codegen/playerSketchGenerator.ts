@@ -21,6 +21,7 @@ import { controllerSettings } from '../state/controllerSettings'
 import { boardProfileById } from '../build/boardProfiles'
 import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
 import { hexToRgb } from '../state/polinePalette'
+import { buttonBankEntryForHandle } from '../state/buttonBank'
 
 export interface PlayerConfig {
   ledWidth:    number
@@ -208,6 +209,9 @@ export function playerControlsFromGraph(nodes: ConfigNode[], edges: ShowTargetEd
       const props = source.data.properties
       if (source.data.nodeType === 'ButtonInput' && edge.sourceHandle === 'pressed') {
         result[action] = { kind: 'button', pin: sanitizePin(props.pin, 0), pullup: props.pullup !== false }
+      } else if (source.data.nodeType === 'ButtonBank') {
+        const button = buttonBankEntryForHandle(props.buttons, edge.sourceHandle)
+        if (button) result[action] = { kind: 'button', pin: sanitizePin(button.pin, 0), pullup: button.pullup }
       } else if (source.data.nodeType === 'PotInput' && edge.sourceHandle === 'value') {
         result[action] = { kind: 'pot', pin: sanitizePin(props.pin, 4) }
       } else if (source.data.nodeType === 'EncoderInput' && edge.sourceHandle === 'pressed') {
