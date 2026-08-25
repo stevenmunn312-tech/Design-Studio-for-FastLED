@@ -241,10 +241,10 @@ describe('generateCpp', () => {
     expect(cpp.match(/FastLED\.addLeds/g)).toHaveLength(2)
   })
 
-  it('emits the default hardware setup (brightness 200, no correction, dither untouched)', () => {
+  it('emits the default hardware setup (brightness 128, no correction, dither untouched)', () => {
     const cpp = generateCpp([outputNode], [])
     expect(cpp).toContain('FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);')
-    expect(cpp).toContain('FastLED.setBrightness(200);')
+    expect(cpp).toContain('FastLED.setBrightness(128);')
     expect(cpp).not.toContain('setCorrection')
     expect(cpp).not.toContain('setDither')
     expect(cpp).not.toContain('FASTLED_OVERCLOCK')
@@ -381,7 +381,7 @@ describe('generateCpp', () => {
     })
     const cpp = generateCpp([out], [])
     expect(cpp).toContain('FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);')
-    expect(cpp).toContain('FastLED.setBrightness(200);')
+    expect(cpp).toContain('FastLED.setBrightness(128);')
     expect(cpp).not.toContain('setCorrection')
   })
 
@@ -2877,7 +2877,7 @@ describe('HUB75 codegen (docs/development/design/hub75-output.md)', () => {
     expect(cpp).toContain('_hub75Cfg.setPixelColorDepthBits(8);')
     expect(cpp).toContain('dma_display = new MatrixPanel_I2S_DMA(_hub75Cfg);')
     expect(cpp).toContain('dma_display->begin();')
-    expect(cpp).toContain('dma_display->setBrightness8(200);')
+    expect(cpp).toContain('dma_display->setBrightness8(128);')
   })
 
   it('wires the real E pin when hub75WideScan is on', () => {

@@ -334,9 +334,9 @@ describe('playerSketchGenerator', () => {
       expect(sketch).not.toContain('#define LED_DATA_PIN')
       expect(sketch).not.toContain('FastLED.addLeds<')
       expect(sketch).not.toContain('FastLED.show();')
-      // The player's fixed startup brightness (180, overridden live by
+      // The controller's startup brightness (overridden live by
       // SET_BRIGHTNESS events) still applies to the HUB75 setup path.
-      expect(sketch).toContain('dma_display->setBrightness8(200);')
+      expect(sketch).toContain('dma_display->setBrightness8(128);')
       // Pattern rendering, transitions, beat flash, and the particle overlay
       // are untouched — still CRGB math into the shared `leds` buffer.
       expect(sketch).toContain('void renderPattern(uint8_t pid, float t)')
