@@ -9,6 +9,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Wires now meet a display's header where it actually is. Pad positions were
+  measured for audio modules only, so every other part fell back to a generic
+  placement and its wires met the picture wherever that landed. The measured
+  set now covers the OLEDs, both segment modules and the ST7789, and describes
+  a vertical header as well as a horizontal one — the MAX7219's runs down its
+  left edge.
 - Corrected the pads the Build Diagram draws on several modules. Pad names
   were hardcoded per part category and had drifted from the hardware: a DS3231
   was drawn with four pads reading 3V3/SDA/SCL/GND where the module has six

@@ -230,27 +230,57 @@ const PAD_X_RATIOS_SD_5V = [0.24, 0.3475, 0.45, 0.55, 0.6525, 0.755]
 const PAD_X_RATIOS_SD_3V3 = [0.135, 0.255, 0.3775, 0.5, 0.6225, 0.745, 0.87]
 
 /** Header-hole centres measured in each audio render's own pixel space. */
-const AUDIO_MODULE_PAD_GEOMETRY: Record<string, { xs: number[]; y: number }> = {
-  'max98357a-i2s-amplifier': {
-    xs: [31.5, 87.5, 143.5, 199.5, 255.5, 311.5, 367.5].map((x) => x / 400),
-    y: 545 / 568,
-  },
-  'pam8403-3w-stereo-amplifier': {
-    xs: [36, 69, 102, 135, 168, 201, 234, 267, 300, 333, 366].map((x) => x / 400),
-    y: 254 / 287,
-  },
-  'pcm5102a-i2s-dac': {
-    xs: [55, 113, 171, 229, 287, 345].map((x) => x / 400),
-    y: 837 / 883,
-  },
-  'uda1334a-i2s-dac': {
-    xs: [128, 159, 190, 221, 252, 283, 314, 345, 376].map((x) => x / 504),
-    y: 287 / 324,
-  },
-  'pcm1802-line-in-adc': {
-    xs: [240, 270.5, 301.5, 331, 361.5, 392].map((x) => x / 632),
-    y: 445 / 464,
-  },
+/*
+ * Where a module's pads actually sit on its render, as fractions of the source
+ * image.
+ *
+ * Measured off each render rather than assumed, because pads are not evenly
+ * spread across a board: a MAX98357A's header sits in the middle of a tall
+ * board, an SSD1306's runs the full width of a short one, and a MAX7219's runs
+ * *down* the left edge rather than across the bottom. Without a measurement the
+ * pads are distributed evenly across the whole picture and the wires meet the
+ * board wherever that lands.
+ *
+ * Points rather than a row of `x`s plus one shared `y`, which is what this
+ * held first: that shape cannot describe a vertical header, and the MAX7219 has
+ * one at each end.
+ *
+ * Figures come from scanning each render for its gold plating (or, on the
+ * Grove TM1637, its connector body) and were checked by drawing the result back
+ * over the picture. Re-measure if a render is replaced.
+ */
+type PadPoint = readonly [x: number, y: number]
+
+/** A horizontal header: one row of pads sharing a y. */
+function padRow(xs: readonly number[], width: number, y: number, height: number): PadPoint[] {
+  return xs.map((x) => [x / width, y / height] as PadPoint)
+}
+
+/** A vertical header: one column of pads sharing an x. */
+function padColumn(x: number, width: number, ys: readonly number[], height: number): PadPoint[] {
+  return ys.map((y) => [x / width, y / height] as PadPoint)
+}
+
+export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
+  'max98357a-i2s-amplifier': padRow([31.5, 87.5, 143.5, 199.5, 255.5, 311.5, 367.5], 400, 545, 568),
+  'pam8403-3w-stereo-amplifier':
+    padRow([36, 69, 102, 135, 168, 201, 234, 267, 300, 333, 366], 400, 254, 287),
+  'pcm5102a-i2s-dac': padRow([55, 113, 171, 229, 287, 345], 400, 837, 883),
+  'uda1334a-i2s-dac':
+    padRow([128, 159, 190, 221, 252, 283, 314, 345, 376], 504, 468, 504),
+
+  // Displays. The OLED and TFT headers run along the bottom edge; the
+  // MAX7219's runs down its left side, which is the IN end of a part built to
+  // be daisy-chained.
+  'sh1106-oled-128x64':
+    padRow([125.5, 155.5, 186.5, 216.5, 247, 277.5, 308], 434, 391.6, 412),
+  'ssd1306-oled-128x64':
+    padRow([80, 114.3, 148.6, 182.9, 217.1, 251.4, 285.7, 320], 400, 346.2, 366),
+  // A Grove part: four contacts inside a keyed connector rather than pads.
+  'tm1637-4digit-display': padRow([210, 240, 270, 300], 512, 252, 296),
+  'max7219-8digit-7segment': padColumn(17.5, 992, [33, 63, 93.5, 124, 153], 188),
+  'st7789-tft-240x240':
+    padRow([50.5, 81.5, 111.5, 142.5, 172.5, 203.5, 234, 264.5, 295, 325.5, 355.5, 386], 438, 416.6, 438),
 }
 
 /**
@@ -408,24 +438,25 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' {
 }
 
 export function peripheralPadPoint(layout: ItemLayout, padIndex: number) {
-  if (layout.item.kind === 'amplifier' || layout.item.kind === 'line-input') {
-    const partId = String(layout.item.facts.partId ?? '')
-    const entry = partById(partId)
-    const geometry = AUDIO_MODULE_PAD_GEOMETRY[partId]
-    if (geometry && entry?.render) {
-      // The image uses `preserveAspectRatio="meet"`; derive the same fitted box
-      // before mapping source-space pad measurements into the diagram.
-      const sourceAspect = entry.render.widthPx / entry.render.heightPx
-      const boxAspect = PERIPHERAL_RENDER_W / PERIPHERAL_RENDER_H
-      const renderWidth = sourceAspect > boxAspect ? PERIPHERAL_RENDER_W : PERIPHERAL_RENDER_H * sourceAspect
-      const renderHeight = sourceAspect > boxAspect ? PERIPHERAL_RENDER_W / sourceAspect : PERIPHERAL_RENDER_H
-      const offsetX = (PERIPHERAL_RENDER_W - renderWidth) / 2
-      const offsetY = (PERIPHERAL_RENDER_H - renderHeight) / 2
-      const xRatio = geometry.xs[Math.min(Math.max(padIndex, 0), geometry.xs.length - 1)]
-      return {
-        x: layout.x + offsetX + (xRatio * renderWidth),
-        y: layout.y + offsetY + (geometry.y * renderHeight),
-      }
+  // Any module with measured geometry uses it, whatever kind it is. Gating this
+  // on the audio kinds is why every other part's wires met its picture wherever
+  // an even spread happened to land.
+  const measuredPartId = String(layout.item.facts.partId ?? '')
+  const measured = MODULE_PAD_GEOMETRY[measuredPartId]
+  const measuredEntry = partById(measuredPartId)
+  if (measured && measuredEntry?.render) {
+    // The image uses `preserveAspectRatio="meet"`; derive the same fitted box
+    // before mapping source-space pad measurements into the diagram.
+    const sourceAspect = measuredEntry.render.widthPx / measuredEntry.render.heightPx
+    const boxAspect = PERIPHERAL_RENDER_W / PERIPHERAL_RENDER_H
+    const renderWidth = sourceAspect > boxAspect ? PERIPHERAL_RENDER_W : PERIPHERAL_RENDER_H * sourceAspect
+    const renderHeight = sourceAspect > boxAspect ? PERIPHERAL_RENDER_W / sourceAspect : PERIPHERAL_RENDER_H
+    const offsetX = (PERIPHERAL_RENDER_W - renderWidth) / 2
+    const offsetY = (PERIPHERAL_RENDER_H - renderHeight) / 2
+    const [xRatio, yRatio] = measured[Math.min(Math.max(padIndex, 0), measured.length - 1)]
+    return {
+      x: layout.x + offsetX + (xRatio * renderWidth),
+      y: layout.y + offsetY + (yRatio * renderHeight),
     }
   }
   if (layout.item.kind === 'rtc-input') {
