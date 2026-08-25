@@ -17,6 +17,7 @@ import {
 } from './boardProfiles'
 import { rtcI2cPinsForProfile } from '../state/rtcPins'
 import { segmentControllerFor } from '../state/segmentDisplay'
+import { isHardwareNodeType } from '../state/hardware'
 import { partById } from '../state/partCatalogue'
 import type { BusAssignment } from '../state/busTopology'
 import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
@@ -63,7 +64,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'segment-display' | 'info-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -96,6 +97,8 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'Amplifier',
   'MotionInput',
   'LightInput',
+  'SegmentDisplay',
+  'InfoDisplay',
 ])
 
 const BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS = new Set([
@@ -425,26 +428,31 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
     const props = node.data.properties as Record<string, unknown>
     return sum + outputLedTotal(props)
   }, 0)
-  const hardwareNodes = nodes.filter((node) =>
-    node.data.nodeType === 'MatrixOutput'
-    || node.data.nodeType === 'MicInput'
-    || node.data.nodeType === 'LineInput'
-    || node.data.nodeType === 'ButtonInput'
-    || node.data.nodeType === 'ButtonBank'
-    || node.data.nodeType === 'PotInput'
-    || node.data.nodeType === 'EncoderInput'
-    || (node.data.nodeType === 'RTCInput'
-      && String((node.data.properties as Record<string, unknown>).timeSource ?? 'Compile Time') === 'DS3231')
-    || node.data.nodeType === 'DMXInput'
-    || node.data.nodeType === 'SDCard'
-    // Left out until now, so a bench with an amplifier on it drew everything
-    // except the thing making the sound. Its pins were already claimed by
-    // `collectPinUses`, which is what made the omission hard to see: the wires
-    // were reserved, the part was not drawn.
-    || node.data.nodeType === 'Amplifier'
-    || node.data.nodeType === 'MotionInput'
-    || node.data.nodeType === 'LightInput'
-  )
+  /*
+   * What the diagram draws, derived rather than listed.
+   *
+   * This was a hand-maintained list of node types, and it fell behind twice for
+   * the same reason: `collectPinUses` reserved a part's wires while nothing
+   * drew the part, so the bench looked wired and the diagram silently omitted
+   * it. The amplifier went missing that way, and so did the displays.
+   *
+   * Every part the workbench owns belongs on a wiring diagram. Board is the one
+   * exclusion — it is the thing everything else is wired *to*, drawn as the
+   * controller rather than as a peripheral — and DMXInput is the one addition,
+   * since it is a graph-side input that still claims UART pins. An RTC on a
+   * non-DS3231 source claims no pins and is not a part on the bench, which
+   * `collectPinUses` already encodes, so it falls out here too.
+   */
+  const hardwareNodes = nodes.filter((node) => {
+    const nodeType = node.data.nodeType
+    if (nodeType === 'Board') return false
+    if (nodeType === 'DMXInput') return true
+    if (!isHardwareNodeType(nodeType)) return false
+    if (nodeType === 'RTCInput') {
+      return String((node.data.properties as Record<string, unknown>).timeSource ?? 'Compile Time') === 'DS3231'
+    }
+    return true
+  })
 
   const items = hardwareNodes.map((node) => {
     const pins = pinUsesByNodeId.get(node.id) ?? []
@@ -502,6 +510,40 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             ? undefined
             : [`${physicalBoard?.label ?? 'The selected board'} does not have complete RTC SDA/SCL properties.`],
         }
+      case 'SegmentDisplay': {
+        const props = node.data.properties as Record<string, unknown>
+        const partId = String(props.partId ?? 'tm1637-4digit-display')
+        const controller = segmentControllerFor(partById(partId)?.display?.controller)
+        return {
+          ...buildPeripheralItem(node, 'segment-display',
+            `${partById(partId)?.label ?? controller.id} 7-segment display`, pins),
+          supported: controller.pins.every((key) => pins.some((pin) => pin.propertyKey === key)),
+          facts: { partId, controller: controller.id, digits: controller.digits },
+          reasons: controller.pins.every((key) => pins.some((pin) => pin.propertyKey === key))
+            ? undefined
+            : [`This ${controller.id} has no complete ${controller.pins.join('/')} pin set configured.`],
+        }
+      }
+      case 'InfoDisplay': {
+        const props = node.data.properties as Record<string, unknown>
+        const partId = String(props.partId ?? 'sh1106-oled-128x64')
+        const entry = partById(partId)
+        const keys = ['csPin', 'dcPin', 'resetPin', 'sckPin', 'mosiPin']
+        const complete = keys.every((key) => pins.some((pin) => pin.propertyKey === key))
+        return {
+          ...buildPeripheralItem(node, 'info-display',
+            `${entry?.label ?? 'Monochrome OLED'} display`, pins),
+          supported: complete,
+          facts: {
+            partId,
+            controller: entry?.display?.controller ?? 'SH1106',
+            resolution: entry?.display?.resolutionPx?.join('x') ?? '128x64',
+          },
+          reasons: complete
+            ? undefined
+            : ['This OLED has no complete CS/DC/RESET/CLK/MOSI pin set configured.'],
+        }
+      }
       case 'SDCard': {
         const partId = String((node.data.properties as Record<string, unknown>).partId ?? 'microsd-module-5v')
         const spiPins = pins.filter((pin) => ['sdCsPin', 'sdSckPin', 'sdMosiPin', 'sdMisoPin'].includes(pin.propertyKey))

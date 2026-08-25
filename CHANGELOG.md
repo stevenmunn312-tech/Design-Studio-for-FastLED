@@ -9,6 +9,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- The Build Diagram now draws auxiliary displays. Its part list was
+  hand-maintained and had fallen behind twice the same way: pin collection
+  reserved a part's wires while nothing drew the part, so the bench looked
+  wired and the diagram silently omitted it. The list is now derived from
+  hardware ownership, so a part the workbench owns is a part the diagram
+  draws.
 - Displays now follow a board change. Without a pin-retarget plan a Segment or
   Info Display kept the pins it was given on the board being left — on an
   ESP32-S3 that could mean GPIO 32, which is wired to flash — and it never
