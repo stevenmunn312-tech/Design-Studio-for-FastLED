@@ -29,6 +29,12 @@ import { isNodeFormulaValid } from '../state/formulaLang'
 import {
   DISPLAY_TEXT_CPP_HELPERS, textValueCpp, formatNumberCpp, formatDateTimeCpp,
 } from './displayTextCpp'
+import {
+  SEGMENT_DISPLAY_CPP_HELPERS, segmentDisplayGlobalCpp, segmentDisplaySetupCpp,
+  segmentDisplayLoopCpp, type SegmentDisplayEmit,
+} from './segmentDisplayCpp'
+import { asSegmentMode, clampSegmentBrightness } from '../state/segmentDisplay'
+import { MAX_PIN_NUMBER } from '../state/boardGpio'
 import { displayString, normalizeNumberFormat, asDateTimeTextMode } from '../state/displayText'
 import { particleRadius } from '../state/particleScale'
 import { buildXYTable, rotatePoint, tileRotationAt } from '../state/xyLayout'
@@ -239,12 +245,28 @@ function topoSort(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
  * wired into it still has to be set up. With no output at all there is nothing
  * to walk back from, so the graph is left alone and validation reports it.
  */
+/**
+ * Auxiliary displays, which are evaluation and codegen terminals in their own
+ * right rather than steps toward an LED frame.
+ */
+const DISPLAY_TERMINAL_NODE_TYPES = new Set(['SegmentDisplay'])
+
 function reachableFromOutputs(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
   const outputs = nodes.filter((n) => n.data.nodeType === 'MatrixOutput')
   if (outputs.length === 0) return nodes
   // Board carries no ports — it is the target authority codegen reads as
   // configuration (selectedPhysicalBoardProfile), so it is never "unreachable".
-  const roots = [...outputs, ...nodes.filter((n) => n.data.nodeType === 'Board')]
+  //
+  // An auxiliary display is a root too. It is never upstream of an LED output
+  // and never will be, so walking back only from MatrixOutput would prune a
+  // configured display and everything feeding it straight out of the sketch —
+  // the part would sit dark on a board that compiled and uploaded cleanly,
+  // which is the failure the display plan rules out.
+  const roots = [
+    ...outputs,
+    ...nodes.filter((n) => n.data.nodeType === 'Board'),
+    ...nodes.filter((n) => DISPLAY_TERMINAL_NODE_TYPES.has(n.data.nodeType)),
+  ]
 
   const sources = new Map<string, string[]>()
   for (const e of edges) {
@@ -1654,6 +1676,7 @@ export function generateCpp(
   const needsShims = { v: false }
   const needsPhi = { v: false }
   const needsDisplayText = { v: false }
+  const segmentDisplays: SegmentDisplayEmit[] = []
   const needsXyMap = { v: false }
   // Frame-producing nodes each render into their own CRGB buffer, so multiple
   // layers can coexist and be composited. Collected here, declared as globals.
@@ -4765,6 +4788,29 @@ export function generateCpp(
         break
       }
 
+      case 'SegmentDisplay': {
+        const dtUp = incoming.get(`${node.id}:dateTime`)
+        const emit: SegmentDisplayEmit = {
+          id,
+          clkPin: intProp(p.clkPin, 18, 0, MAX_PIN_NUMBER),
+          dioPin: intProp(p.dioPin, 19, 0, MAX_PIN_NUMBER),
+          brightness: clampSegmentBrightness(p.brightness),
+          mode: asSegmentMode(p.segmentMode),
+          decimals: intProp(p.decimals, 0, 0, 3),
+          leadingZero: p.leadingZero === true,
+          showColon: p.showColon !== false,
+          valueExpr: f('value', 'value', 0),
+          dateTimeExpr: dtUp ? `n_${safeId(dtUp.srcId)}_${dtUp.srcPort}` : null,
+          enabledExpr: incoming.get(`${node.id}:enabled`)
+            ? boolExpr(node.id, 'enabled')
+            : (p.enabled === false ? 'false' : 'true'),
+        }
+        segmentDisplays.push(emit)
+        for (const line of segmentDisplaySetupCpp(emit)) setupLines.push(line)
+        for (const line of segmentDisplayLoopCpp(emit)) ln(line)
+        break
+      }
+
       case 'Compare': {
         const a = f('a', 'a', 0), b2 = f('b', 'b', 0.5)
         ln(`  bool ${v('result')} = (${a}) > (${b2});`)
@@ -6188,6 +6234,12 @@ export function generateCpp(
 
   if (needsDisplayText.v) {
     lines.push(DISPLAY_TEXT_CPP_HELPERS)
+    lines.push(``)
+  }
+
+  if (segmentDisplays.length > 0) {
+    lines.push(SEGMENT_DISPLAY_CPP_HELPERS)
+    for (const display of segmentDisplays) lines.push(segmentDisplayGlobalCpp(display))
     lines.push(``)
   }
 

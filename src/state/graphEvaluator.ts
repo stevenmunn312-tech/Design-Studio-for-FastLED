@@ -10,6 +10,10 @@ import {
   resolveTransportStatus, formatTransportTime, type ButtonEdgeState, type ScrubState,
 } from './transportBridge'
 import {
+  asSegmentMode, clampSegmentBrightness, renderSegmentNumber, renderSegmentClock,
+  renderSegmentIndex, segmentFrameText, BLANK_SEGMENT_FRAME, type SegmentFrame,
+} from './segmentDisplay'
+import {
   displayString, formatNumberText, normalizeNumberFormat,
   formatDateTimeText, asDateTimeTextMode, type DateTimeTextFields,
 } from './displayText'
@@ -4532,7 +4536,7 @@ export interface PlayerParticles {
   randomStyle: boolean
 }
 
-export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | AudioSignal | StorageSignal | PlayerControls | PlayerParticles | null
+export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | AudioSignal | StorageSignal | PlayerControls | PlayerParticles | SegmentFrame | null
 
 /** A reusable pattern group: a named subgraph that a `Group` node evaluates. */
 export interface GroupDef { nodes: StudioNode[]; edges: StudioEdge[] }
@@ -6831,6 +6835,52 @@ function createEvalNode(
           volumeOut: status.volume,
           patternIndex: status.patternIndex,
           patternCount: status.patternCount,
+        }
+        break
+      }
+
+      case 'SegmentDisplay': {
+        // A display is a terminal: it updates whether or not anything downstream
+        // reads it. The rendered characters come from state/segmentDisplay.ts,
+        // which the C++ generator also uses, so the module shows the same four
+        // digits on the bench as the node body shows here.
+        const enabled = incoming.has(`${id}:enabled`)
+          ? Boolean(input(id, 'enabled', true))
+          : props.enabled !== false
+        if (!enabled) {
+          out = { frame: null, segment: BLANK_SEGMENT_FRAME, text: '' }
+          break
+        }
+
+        const mode = asSegmentMode(props.segmentMode)
+        let segment: SegmentFrame
+        if (mode === 'Clock') {
+          const clock = input(id, 'dateTime', null) as
+            { hour?: number; minute?: number; valid?: boolean } | null
+          if (clock && clock.valid === true) {
+            // The colon blinks once a second, driven by wall-clock `t` like
+            // every other animation here rather than by a frame counter.
+            const blink = props.showColon === false ? false : Math.floor(t) % 2 === 0
+            segment = renderSegmentClock(Number(clock.hour ?? 0), Number(clock.minute ?? 0), blink)
+          } else {
+            // No trustworthy reading is dashes, never a plausible midnight.
+            segment = { digits: '----', colon: false, decimalAt: -1, lit: true }
+          }
+        } else if (mode === 'Index') {
+          segment = renderSegmentIndex(num(id, 'value', props, 'value', 0))
+        } else {
+          segment = renderSegmentNumber(num(id, 'value', props, 'value', 0), {
+            decimals: Number(props.decimals ?? 0),
+            leadingZero: props.leadingZero === true,
+          })
+        }
+        if (props.showColon === true && mode !== 'Clock') segment = { ...segment, colon: true }
+
+        out = {
+          frame: null,
+          segment,
+          text: segmentFrameText(segment),
+          brightness: clampSegmentBrightness(props.brightness),
         }
         break
       }

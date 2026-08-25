@@ -49,6 +49,13 @@ const BUS_ASSIGNMENTS: Record<string, Record<string, BusAssignment>> = {
     sdaPin: { kind: 'i2c', role: 'sda' },
     sclPin: { kind: 'i2c', role: 'scl' },
   },
+  // A TM1637 has two wires and no addresses, so it is not I2C however much the
+  // pin count suggests it. Two modules cannot share a pair — each needs its
+  // own — which is exactly what an exclusive role means.
+  SegmentDisplay: {
+    clkPin: { kind: 'none', role: 'exclusive' },
+    dioPin: { kind: 'none', role: 'exclusive' },
+  },
   SDCard: {
     sdCsPin: { kind: 'spi', role: 'cs' },
     sdSckPin: { kind: 'spi', role: 'sck' },

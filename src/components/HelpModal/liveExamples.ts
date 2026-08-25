@@ -1369,6 +1369,19 @@ const TRANSPORT_CONTROL_LIVE_EXAMPLE = namedExample(
   'The buttons drive the show; the status outputs carry text and numbers rather than pixels, so they wait for a display to drive.',
 )
 
+const SEGMENT_DISPLAY_LIVE_EXAMPLE = namedExample(
+  'SegmentDisplay',
+  'Show a live value on four digits',
+  [
+    { key: 'bpm', type: 'BeatSin', properties: { bpm: 30, low: 90, high: 140 } },
+    { key: 'target', type: 'SegmentDisplay', properties: { segmentMode: 'Number', decimals: 0 } },
+    { key: 'color', type: 'SolidColor', properties: { r: 90, g: 60, b: 10 } },
+  ],
+  [{ source: 'bpm', sourceHandle: 'value', target: 'target', targetHandle: 'value' }],
+  'Segment Display is a terminal like the LED output, not a step toward one: it updates whether or not anything else in the graph reads it. Add the module in the hardware workbench, then wire the value you want on the digits.',
+  'The solid colour keeps the LED preview meaningful; the four digits are a separate physical module rather than part of the frame.',
+)
+
 const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   Audio: AUDIO_CAPABILITY_LIVE_EXAMPLE,
   MicInput: MICROPHONE_LIVE_EXAMPLE,
@@ -1387,6 +1400,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   ClockDisplay: RTC_CLOCK_LIVE_EXAMPLE,
   Storage: STORAGE_LIVE_EXAMPLE,
   TransportControl: TRANSPORT_CONTROL_LIVE_EXAMPLE,
+  SegmentDisplay: SEGMENT_DISPLAY_LIVE_EXAMPLE,
   TextValue: TEXT_VALUE_LIVE_EXAMPLE,
   FormatNumber: FORMAT_NUMBER_LIVE_EXAMPLE,
   FormatDateTime: FORMAT_DATE_TIME_LIVE_EXAMPLE,

@@ -180,6 +180,10 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
           if (SPI_CHIPSETS.has(String(props.chipset ?? 'WS2812B'))) push(node, `${baseLabel} clock pin`, 'clockPin', props.clockPin)
         }
         break
+      case 'SegmentDisplay':
+        push(node, `${baseLabel} CLK`, 'clkPin', props.clkPin)
+        push(node, `${baseLabel} DIO`, 'dioPin', props.dioPin)
+        break
       case 'ButtonInput':
         push(node, `${baseLabel} pin`, 'pin', props.pin)
         break

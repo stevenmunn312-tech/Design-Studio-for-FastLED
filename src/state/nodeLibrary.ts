@@ -7,6 +7,7 @@ import { ANIMARTRIX_EFFECTS } from '../animartrix/catalog'
 import { MAX_PIN_NUMBER, type GpioCapability } from './boardGpio'
 import { EASE_TYPES } from './easing'
 import { DATE_TIME_TEXT_MODES } from './displayText'
+import { SEGMENT_DISPLAY_MODES, SEGMENT_BRIGHTNESS_MIN, SEGMENT_BRIGHTNESS_MAX } from './segmentDisplay'
 import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, outputForm } from './ledOutputForm'
 
@@ -2756,6 +2757,33 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { channel: 1, activeThreshold: 1 },
   },
   {
+    // TM1637 4-digit 7-segment module, added from the hardware workbench.
+    // Formatting is deliberately its own properties rather than a wired string:
+    // a segment module can draw digits, a colon and a decimal point and nothing
+    // else, so a general text input would accept text it cannot show.
+    // See docs/development/design/auxiliary-displays.md.
+    type: 'SegmentDisplay',
+    label: 'Segment Display',
+    category: 'output',
+    inputs: [
+      { id: 'value', label: 'Value', dataType: 'float' },
+      { id: 'dateTime', label: 'DateTime', dataType: 'datetime' },
+      { id: 'enabled', label: 'Enabled', dataType: 'bool' },
+    ],
+    outputs: [],
+    defaultProperties: {
+      partId: 'tm1637-4digit-display',
+      segmentMode: 'Number',
+      clkPin: 18,
+      dioPin: 19,
+      decimals: 0,
+      leadingZero: false,
+      showColon: true,
+      brightness: 4,
+      enabled: true,
+    },
+  },
+  {
     // Real-time clock fields. Preview uses the browser clock; generated
     // firmware keeps a software clock seeded from compile time, a manual start
     // date/time, or network/NTP sync when Wi-Fi is configured; it can also read
@@ -3002,6 +3030,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   FormatNumber: 'Turns a number into display text with decimals, padding, and units.',
   FormatDateTime: 'Turns a clock reading into display text such as HH:MM.',
   TransportControl: 'Drives the player and reads back what it is playing, for a display.',
+  SegmentDisplay: 'A TM1637 4-digit module showing a number, a clock, or an index.',
   ScheduleTrigger: 'Time-of-day window/trigger driven by RTCInput clock and calendar fields.',
   BeatSin: 'Beat-synced sine oscillator — outputs a normalized low↔high value at a BPM.',
   Clock: 'BPM clock — phase/beat/bar/subdivision pulses; tap tempo, sync, and reset.',
@@ -3316,6 +3345,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   decimals:         { control: 'slider', min: 0, max: 4, step: 1 },
   padWidth:         { control: 'slider', min: 1, max: 8, step: 1 },
   maxIntegerDigits: { control: 'slider', min: 1, max: 9, step: 1 },
+  segmentMode:      { control: 'select', options: SEGMENT_DISPLAY_MODES },
   letterSpacing: { control: 'slider', min: 0, max: 4, step: 1 },
   tileSize:   { control: 'slider', min: 1, max: 16, step: 1 },
   turns:      { control: 'slider', min: 1, max: 6, step: 1 },
@@ -3469,6 +3499,12 @@ const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
 // via speedRange.ts); the simulation patterns use a steps-per-second rate, and
 // `rate` is a 0–1 emission rate for Particles but a degrees/sec spin for Transform.
 export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
+  SegmentDisplay: {
+    clkPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    dioPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    brightness: { control: 'slider', min: SEGMENT_BRIGHTNESS_MIN, max: SEGMENT_BRIGHTNESS_MAX, step: 1 },
+    decimals: { control: 'slider', min: 0, max: 3, step: 1 },
+  },
   DMXInput: {
     inputMode: { control: 'select', options: ['Art-Net', 'DMX512'] },
     universe: { control: 'slider', min: 0, max: 32767, step: 1 },
@@ -3985,6 +4021,11 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   prefix: 'Text placed before the number, such as a label or currency mark.',
   suffix: 'Text placed after the number, such as a unit.',
   seek: 'Scrub position, 0-1. A seek is a change, so a parked slider does not drag playback back to it.',
+  segmentMode: 'What the four digits show: a number, a HH:MM clock, or a position in a collection.',
+  leadingZero: 'Pads the number with zeros so it stops shifting as its width changes.',
+  showColon: 'Lights the centre colon. A clock blinks it once a second; other modes hold it.',
+  clkPin: 'TM1637 clock line. Not I2C — the module has no address, so it cannot share these pins.',
+  dioPin: 'TM1637 data line. Not I2C — the module has no address, so it cannot share these pins.',
   bypassed: "Skips this node's own effect entirely and passes the matching input straight through — a quick A/B mute without unwiring.",
   audioOutput: "'i2s' drives an external DAC/amp over the I2S pins below. 'internalDac' uses the classic ESP32's built-in DAC, fixed to GPIO25/26 — not available on ESP32-S3/S2/C3.",
   overclock: 'Clockless chipsets only — multiplies the FastLED output clock. 1 = stock timing.',
@@ -4430,6 +4471,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   MotionInput: new Set(['pin']),
   LightInput: new Set(['pin']),
   RTCInput: new Set(['sdaPin', 'sclPin']),
+  SegmentDisplay: new Set(['clkPin', 'dioPin']),
   SDCard: new Set(['sdCsPin', 'sdSckPin', 'sdMisoPin', 'sdMosiPin']),
   Amplifier: new Set(['i2sBclk', 'i2sLrc', 'i2sDout']),
   MatrixOutput: new Set([

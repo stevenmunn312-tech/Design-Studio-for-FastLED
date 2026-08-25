@@ -9,6 +9,16 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Added the Segment Display part and node: a TM1637 four-digit module added
+  from the hardware workbench, showing a number, an HH:MM clock, or a position
+  in a collection. Preview and firmware render the digits through one shared
+  model, the driver is emitted inline so nothing has to be fetched or pinned,
+  and the module is rewritten only when the digits change or a refresh
+  interval passes.
+- Auxiliary displays are now code-generation terminals. Previously the sketch
+  kept only what fed an LED output, so a configured display and everything
+  wired into it would have been pruned away and left the part dark on a board
+  that compiled and uploaded cleanly.
 - Added the four launch display parts to the catalogue from verified Blender
   assets: TM1637 4-digit, SSD1306 128x64 OLED, ST7789 240x240 TFT, and
   ILI9341 320x240 with XPT2046 touch. Each carries its controller, panel

@@ -224,11 +224,11 @@ widgets, hover state, or physical pins.
 
 ### Phase 1 — hardware and persistence foundation
 
-- [ ] Add display part categories, exact options, verified catalogue entries,
+- [x] Add display part categories, exact options, verified catalogue entries,
   renders, dimensions, pin labels, voltage notes, and power expectations.
 - [ ] Extend the hardware workbench add menu, true-scale part rendering,
   settings inspector, remove/show-node actions, layout persistence, and tests.
-- [ ] Add display node types to the hardware-managed signal set and hardware
+- [x] Add display node types to the hardware-managed signal set and hardware
   library-hidden set. Ensure add/edit/delete operations always target root.
 - [ ] Prevent display parts from being grouped or saved into reusable patterns;
   derive this from hardware ownership where possible instead of maintaining a
@@ -254,7 +254,7 @@ widgets, hover state, or physical pins.
 - [ ] Create a registry-driven display layer (`DISPLAY_PARTS`, fixed-layout
   definitions, driver capability metadata, and later `DISPLAY_WIDGET_LIBRARY`)
   so preview, validation, help, and codegen read one inventory.
-- [ ] Add display nodes as evaluation terminals. A display must update even when
+- [x] Add display nodes as evaluation terminals. A display must update even when
   it is not upstream of an LED output; do not rely on the current
   `reachableFromOutputs` walk alone.
 - [ ] Split mixed source/sink display handling into deterministic stages:
@@ -279,10 +279,10 @@ widgets, hover state, or physical pins.
 
 ### Phase 3 — `SegmentDisplay`
 
-- [ ] Implement TM1637 first: defaults, properties, node body, evaluator,
+- [x] Implement TM1637 first: defaults, properties, node body, evaluator,
   deterministic formatter, firmware setup/update, brightness, colon/decimal,
   blank/error/overflow states, and help text.
-- [ ] Send updates only when the rendered digits change or a bounded refresh
+- [x] Send updates only when the rendered digits change or a bounded refresh
   interval expires; do not rewrite the module on every LED frame.
 - [ ] Add MAX7219 behind the same logical node contract after TM1637 passes,
   keeping controller-specific wiring and digit capacity in the part adapter.

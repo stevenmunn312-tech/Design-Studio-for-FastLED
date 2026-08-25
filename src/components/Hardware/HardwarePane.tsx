@@ -132,10 +132,29 @@ interface FixturePartEntry {
   profilePins?: Record<string, 'bclk' | 'lrc' | 'din'>
   /** Compact pin row shown beneath the physical module on the bench. */
   pinFields: readonly { key: string; label: string }[]
+  /** Pins to find on the board, for a part no board profile places for us. */
+  pinRequests?: readonly PartPinRequest[]
   singleton?: boolean
 }
 
 const FIXTURE_PARTS: readonly FixturePartEntry[] = [
+  {
+    // Signal-carrying, unlike the other two fixtures — it consumes a wired
+    // value — but it is drawn on the bench exactly like them: a module with a
+    // pin row, fed from the board. The graph half shows on the canvas because
+    // it is in the hardware-managed *signal* set.
+    nodeType: 'SegmentDisplay',
+    partId: 'segment-display',
+    label: 'Segment display',
+    hint: 'Four digits for a number, clock, or index',
+    footprint: partDimensionsMm('tm1637-4digit-display', { width: 42, height: 24 }),
+    render: partRenderSrc('tm1637-4digit-display') ?? undefined,
+    pinFields: [
+      { key: 'clkPin', label: 'CLK' },
+      { key: 'dioPin', label: 'DIO' },
+    ],
+    pinRequests: [{ key: 'clkPin' }, { key: 'dioPin' }],
+  },
   {
     nodeType: 'SDCard',
     partId: 'sdcard',
@@ -606,9 +625,16 @@ export default function HardwarePane() {
    * module, so the part looks itself up rather than inheriting the default's
    * picture.
    */
-  const fixtureParts = useMemo(() => nodes.flatMap((node) => {
+  const fixtureParts = useMemo(() => {
+    // Layout ids must be unique per part, not per type: SD Card and Amplifier
+    // are singletons, but a bench can carry several displays and they would
+    // otherwise stack on one another's coordinates.
+    const seen = new Map<string, number>()
+    return nodes.flatMap((node) => {
     const entry = FIXTURE_PARTS.find((candidate) => candidate.nodeType === node.data.nodeType)
     if (!entry) return []
+    const ordinal = seen.get(entry.nodeType) ?? 0
+    seen.set(entry.nodeType, ordinal + 1)
     const identity = resolvePartIdentity(node.data.nodeType, node.data.properties as Record<string, unknown>)
     const chosen = identity?.entry
     const pinFields = identity?.option.input === 'analog' ? [] : entry.pinFields
@@ -626,10 +652,11 @@ export default function HardwarePane() {
         render: (chosen && partRenderSrc(chosen.partId)) ?? entry.render,
       },
       node,
-      partId: entry.partId,
+      partId: ordinal === 0 ? entry.partId : `${entry.partId}-${node.id}`,
       pinSummary,
     }]
-  }), [nodes])
+    })
+  }, [nodes])
 
   /*
    * Show me the node for this part.
@@ -1061,6 +1088,13 @@ export default function HardwarePane() {
     // Only a module with an I2S receiver gets the board's I2S trio. An analog
     // amplifier takes line level from the DAC, so handing it BCLK/LRC/DIN
     // would be three pin assignments for a connection it does not have.
+    // A part the board profile does not place picks free GPIO the same way an
+    // input part does, so a second display lands on its own pins rather than
+    // silently colliding with the first.
+    const requested = entry.pinRequests?.length
+      ? assignPartPins(boardProfile, selectedFqbn, nodes, entry.pinRequests)
+      : null
+    if (requested && !requested.ok) return
     const profilePins = sdSpiPins
       ? {
           sdCsPin: sdSpiPins.cs,
@@ -1068,18 +1102,23 @@ export default function HardwarePane() {
           sdMisoPin: sdSpiPins.miso,
           sdMosiPin: sdSpiPins.mosi,
         }
-      : entry.profilePins && amp && chosen?.input !== 'analog'
-        ? Object.fromEntries(
-          Object.entries(entry.profilePins).map(([key, field]) => [key, amp[field]]),
-        )
-        : {}
+      : requested
+        ? requested.pins
+        : entry.profilePins && amp && chosen?.input !== 'analog'
+          ? Object.fromEntries(
+            Object.entries(entry.profilePins).map(([key, field]) => [key, amp[field]]),
+          )
+          : {}
+    // A fixture that carries signal has a graph half to show; one that does not
+    // stays hidden, which is the whole distinction the two sets encode.
+    const onCanvas = isHardwareManagedSignalNodeType(entry.nodeType)
     addNode({
       id: `${entry.nodeType}-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
       type: 'studioNode',
       position: { x: viewCenter.x, y: viewCenter.y },
-      hidden: true,
-      selectable: false,
-      draggable: false,
+      hidden: !onCanvas,
+      selectable: onCanvas,
+      draggable: onCanvas,
       data: {
         label: definition.label,
         nodeType: definition.type,
@@ -1196,6 +1235,7 @@ export default function HardwarePane() {
 
   const sdCardFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'SDCard')
   const amplifierFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'Amplifier')
+  const segmentDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'SegmentDisplay')
 
   const addMenuCategories: AddMenuCategory[] = [
     {
@@ -1225,6 +1265,12 @@ export default function HardwarePane() {
       label: 'Amplifiers & DACs',
       hint: 'How sound gets off the board',
       items: moduleItems('Amplifier', amplifierFixture),
+    },
+    {
+      id: 'displays',
+      label: 'Displays',
+      hint: 'Screens that show what the graph is doing',
+      items: moduleItems('SegmentDisplay', segmentDisplayFixture),
     },
     {
       id: 'led-outputs',

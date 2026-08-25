@@ -141,6 +141,21 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       },
     ],
   },
+  // One option, because one controller is implemented. MAX7219 is the planned
+  // second entry (display-todo.md slice B) and arrives with its own adapter —
+  // listing it now would be a claim the firmware cannot keep, which is the
+  // misrepresentation this whole module exists to prevent.
+  SegmentDisplay: {
+    property: 'partId',
+    options: [
+      {
+        id: 'tm1637-4digit-display',
+        label: 'TM1637 4-digit',
+        summary: 'Two-wire 7-segment with a colon',
+        note: 'Four digits and a centre colon, driven over CLK and DIO. Not I2C despite the two wires: the TM1637 has no addresses, so each module needs its own pair of pins.',
+      },
+    ],
+  },
 }
 
 export function partOptionsFor(nodeType: string): PartOption[] {
