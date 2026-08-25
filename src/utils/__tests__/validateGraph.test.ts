@@ -118,6 +118,58 @@ describe('validateGraph', () => {
     }))
   })
 
+  // findPinConflicts and buildGraphDiagnostics are two walks over the same pin
+  // data, and they drifted apart once already — the drawer kept calling a
+  // deliberately shared pin an error after deploy validation had stopped. They
+  // now share one helper, and this is the assertion that keeps them sharing it.
+  it.each([
+    ['a plain duplicate', [
+      node('mic', 'MicInput', { i2sWs: 5, i2sSck: 40, i2sSd: 41 }),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ], true],
+    ['two I2C clients sharing SDA and SCL', [
+      node('rtc-a', 'RTCInput', { timeSource: 'DS3231', sdaPin: 21, sclPin: 22 }),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ], false],
+    ['clean wiring', [
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ], false],
+  ] as Array<[string, StudioNode[], boolean]>)(
+    'deploy validation and the health drawer agree about %s',
+    (_case, nodes, expectConflict) => {
+      const conflicts = findPinConflicts(nodes, [])
+      const diagnostics = buildGraphDiagnostics(nodes, [])
+        .filter((issue) => issue.category === 'pins' && issue.severity === 'error')
+      expect(conflicts.length > 0).toBe(expectConflict)
+      expect(diagnostics.length > 0).toBe(expectConflict)
+    },
+  )
+
+  it('reports two I2C devices at one address rather than blaming their shared pins', () => {
+    const nodes = [
+      node('rtc-a', 'RTCInput', { timeSource: 'DS3231', sdaPin: 21, sclPin: 22 }),
+      node('rtc-b', 'RTCInput', { timeSource: 'DS3231', sdaPin: 21, sclPin: 22 }),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ]
+    const conflicts = findPinConflicts(nodes, [])
+    // The shared bus lines themselves are correct wiring and must not be named.
+    expect(conflicts.some((text) => text.includes('GPIO 21'))).toBe(false)
+    expect(conflicts).toContainEqual(expect.stringContaining('I2C address 0x68'))
+    expect(buildGraphDiagnostics(nodes, [])).toContainEqual(expect.objectContaining({
+      id: 'i2c-address-104', severity: 'error', category: 'pins',
+    }))
+  })
+
+  it('reports a chip select claimed twice as a select fault, not a generic duplicate', () => {
+    const nodes = [
+      node('sd', 'SDCard', { sdCsPin: 5, sdSckPin: 18, sdMosiPin: 23, sdMisoPin: 19 }),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ]
+    // An LED data pin is exclusive, so meeting a chip select on GPIO 5 is a
+    // real fault — and one whose repair is not "give them unique numbers".
+    expect(findPinConflicts(nodes, [])).toContainEqual(expect.stringContaining('GPIO 5'))
+  })
+
   it('reports each disconnected node separately', () => {
     const nodes = [node('a', 'Plasma'), node('b', 'Blur2D'), node('out', 'MatrixOutput')]
     const diagnostics = buildGraphDiagnostics(nodes, [], { selectedFqbn: 'esp32:esp32:esp32s3' })

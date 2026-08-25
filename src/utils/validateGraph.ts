@@ -12,6 +12,11 @@ import { boardGpioInfo } from '../state/uploadStore'
 import { MAX_PIN_NUMBER, pinSupports } from '../state/boardGpio'
 import { getNetworkCredentials } from '../state/networkCredentials'
 import { collectPinUses } from '../build/hardwareManifest'
+import {
+  findPinCollisions, findI2cAddressCollisions, pinCollisionMessage,
+  pinCollisionTitle, pinCollisionFix, addressCollisionMessage,
+  busAssignmentFor,
+} from '../state/busTopology'
 import { boardPinVerdict, boardProfileById } from '../build/boardProfiles'
 import type { PhysicalBoardProfile } from '../build/boardProfiles'
 import { inmp441SupportedForBoard, INMP441_UNSUPPORTED_MESSAGE } from '../state/micPinDefaults'
@@ -494,20 +499,40 @@ export function deliberatelySharedPinUses(nodes: StudioNode[], edges: StudioEdge
   )
 }
 
+/**
+ * I2C devices in the graph, paired with the pin uses that place them on a bus.
+ *
+ * Address collisions need the node as well as its pins, so this is assembled
+ * once and handed to the shared checker rather than re-derived by each walk.
+ */
+function i2cDevices(nodes: StudioNode[]) {
+  const uses = collectPinUses(nodes)
+  return nodes
+    .map((node) => ({
+      nodeId: node.id,
+      nodeType: node.data.nodeType,
+      props: node.data.properties as Record<string, unknown>,
+      uses: uses.filter((use) =>
+        use.nodeId === node.id && busAssignmentFor(use.nodeType, use.propertyKey).kind === 'i2c'),
+    }))
+    .filter((device) => device.uses.length > 0)
+}
+
+/**
+ * Pin faults for deploy validation.
+ *
+ * Bus-aware since displays made sharing normal: two I2C clients may share SDA
+ * and SCL, and two SPI clients may share SCK/MOSI/MISO, so the old "any GPIO
+ * claimed twice" rule would have reported correct wiring as broken. What each
+ * pin *is* lives in state/busTopology.ts; this function only formats the
+ * verdict.
+ */
 export function findPinConflicts(nodes: StudioNode[], edges: StudioEdge[] = []): string[] {
   const shared = deliberatelySharedPinUses(nodes, edges)
-  const byPin = new Map<number, string[]>()
-  for (const { label, pin, nodeId, propertyKey } of collectPinUses(nodes)) {
-    if (shared.has(`${nodeId}:${propertyKey}`)) continue
-    const labels = byPin.get(pin) ?? []
-    labels.push(label)
-    byPin.set(pin, labels)
-  }
-  const conflicts: string[] = []
-  for (const [pin, labels] of byPin) {
-    if (labels.length > 1) conflicts.push(`GPIO ${pin} is assigned to more than one pin: ${labels.join(', ')}`)
-  }
-  return conflicts.sort()
+  const uses = collectPinUses(nodes)
+  const conflicts = findPinCollisions(uses, shared).map(pinCollisionMessage)
+  const addresses = findI2cAddressCollisions(i2cDevices(nodes)).map(addressCollisionMessage)
+  return [...conflicts, ...addresses].sort()
 }
 
 /**
@@ -1125,24 +1150,29 @@ export function buildGraphDiagnostics(
     })
   }
 
+  // The same walk deploy validation uses. These were separate loops over the
+  // same data once and drifted apart, leaving this drawer calling a
+  // deliberately shared pin an error after findPinConflicts had stopped.
   const sharedPinUses = deliberatelySharedPinUses(nodes, edges)
-  const usesByPin = new Map<number, ReturnType<typeof collectPinUses>[number][]>()
-  for (const use of collectPinUses(nodes)) {
-    // A run wired in parallel with another shares its data pin on purpose.
-    if (sharedPinUses.has(`${use.nodeId}:${use.propertyKey}`)) continue
-    const uses = usesByPin.get(use.pin) ?? []
-    uses.push(use)
-    usesByPin.set(use.pin, uses)
-  }
-  for (const [pin, uses] of [...usesByPin].sort(([a], [b]) => a - b)) {
-    if (uses.length < 2) continue
+  for (const collision of findPinCollisions(collectPinUses(nodes), sharedPinUses)) {
+    const uses = collision.uses
     diagnostics.push({
-      id: `pin-${pin}`, severity: 'error', category: 'pins',
-      title: `GPIO ${pin} is assigned twice`,
+      id: `pin-${collision.pin}`, severity: 'error', category: 'pins',
+      title: pinCollisionTitle(collision),
       message: uses.map((use) => use.label).join(' · '),
-      fix: 'Assign a unique GPIO number to every listed hardware role.',
+      fix: pinCollisionFix(collision.reason),
       nodeIds: [...new Set(uses.map((use) => use.nodeId))],
       nodeLabel: uses.length === 2 ? uses.map((use) => use.label).join(' / ') : `${uses.length} pin roles`,
+    })
+  }
+  for (const collision of findI2cAddressCollisions(i2cDevices(nodes))) {
+    diagnostics.push({
+      id: `i2c-address-${collision.address}`, severity: 'error', category: 'pins',
+      title: `Two I2C devices answer to the same address`,
+      message: addressCollisionMessage(collision),
+      fix: 'Change the address on one device with its strap or solder jumper, or move it to a second I2C bus on different SDA/SCL pins.',
+      nodeIds: [...new Set(collision.uses.map((use) => use.nodeId))],
+      nodeLabel: 'I2C bus',
     })
   }
   findMirroredOutputMismatches(nodes, edges).forEach((message, index) => {
