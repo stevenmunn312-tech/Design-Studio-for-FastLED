@@ -10,6 +10,7 @@ import { DATE_TIME_TEXT_MODES } from './displayText'
 import { SEGMENT_DISPLAY_MODES, SEGMENT_BRIGHTNESS_MIN, SEGMENT_BRIGHTNESS_MAX, segmentControllerFor } from './segmentDisplay'
 import { partById } from './partCatalogue'
 import { INFO_DISPLAY_LAYOUTS } from './infoDisplay'
+import { OLED_ROTATIONS } from './oledSurface'
 import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, outputForm } from './ledOutputForm'
 
@@ -2784,6 +2785,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: {
       partId: 'sh1106-oled-128x64',
       infoLayout: 'Now Playing',
+      oledRotation: '0',
       csPin: 5,
       dcPin: 16,
       resetPin: 17,
@@ -3540,6 +3542,7 @@ const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
 // `rate` is a 0–1 emission rate for Particles but a degrees/sec spin for Transform.
 export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
   InfoDisplay: {
+    oledRotation: { control: 'select', options: OLED_ROTATIONS },
     csPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     dcPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     resetPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -4075,6 +4078,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   showColon: 'Lights the centre colon. A clock blinks it once a second; other modes hold it.',
   clkPin: 'TM1637 clock line. Not I2C — the module has no address, so it cannot share these pins.',
   infoLayout: 'Which fixed screen the panel shows. Ports stay the same, so changing it never breaks a cable.',
+  oledRotation: 'Turn the picture 180 degrees to match how the panel is bolted down. It does not rotate what the screen says.',
   dcPin: 'Data/command select. Exclusive to this panel — it cannot be shared with another SPI device.',
   resetPin: 'Panel reset. Exclusive to this panel.',
   dioPin: 'TM1637 data line. Not I2C — the module has no address, so it cannot share these pins.',

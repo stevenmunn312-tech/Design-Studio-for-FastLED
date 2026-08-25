@@ -1,7 +1,9 @@
 # Auxiliary displays — design note
 
-Status: in progress; the `string` signal, Transport Control and the TM1637
-Segment Display have shipped. No device has been validated on hardware · Owner: app ·
+Status: in progress; the `string` signal, Transport Control, the TM1637 and
+MAX7219 Segment Displays and the Info Display have shipped. The SH1106 OLED is
+the first device driven on real hardware: panel, font, refresh and mounted
+rotation confirmed on a bench, on an ESP32-S3 over 4-wire SPI · Owner: app ·
 Date: 2026-08-25
 
 Gives a build a second screen: a 7-segment module showing BPM, an OLED naming

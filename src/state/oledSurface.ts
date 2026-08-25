@@ -59,6 +59,37 @@ export function oledControllerFor(controller: string | undefined): OledControlle
 }
 
 /**
+ * How the panel is mounted, in degrees.
+ *
+ * A 1-bit OLED has no idea which way up it is bolted, so the controller is told
+ * to scan its rows and columns forwards or backwards. This is a physical fact
+ * about the build rather than anything the graph knows, which is why it is a
+ * property on the part and not a transform on the drawing: the content stays
+ * the same either way, and rotating it here would rotate the picture the reader
+ * sees along with the panel, which is exactly what nobody wants.
+ */
+export const OLED_ROTATIONS = ['0', '180'] as const
+export type OledRotation = (typeof OLED_ROTATIONS)[number]
+
+export function asOledRotation(value: unknown): OledRotation {
+  return String(value ?? '') === '180' ? '180' : '0'
+}
+
+/**
+ * Segment-remap and COM-scan commands for a rotation.
+ *
+ * `0xA0`/`0xC0` scan forwards, `0xA1`/`0xC8` scan both backwards, which is a
+ * 180-degree turn. Verified on a 1.3-inch SH1106: mounted header-down it reads
+ * correctly at 0, and the two-column window offset is the same either way — the
+ * pair does not move which columns the glass sees on this module.
+ */
+export function oledRotationCommands(rotation: OledRotation): { segmentRemap: number; comScan: number } {
+  return rotation === '180'
+    ? { segmentRemap: 0xa1, comScan: 0xc8 }
+    : { segmentRemap: 0xa0, comScan: 0xc0 }
+}
+
+/**
  * A page-major 1-bit framebuffer, laid out exactly as the controller wants it.
  *
  * One byte covers eight vertically stacked pixels, bit 0 at the top. Storing it

@@ -48,6 +48,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Added a mounted-rotation setting to the Info Display. A 1-bit OLED has no
+  idea which way up it is bolted, so the controller is told to scan forwards or
+  backwards; the setting turns the picture without turning what the screen
+  says. Both pairs were confirmed on a bench SH1106.
 - Added the MAX7219 8-digit module behind the existing Segment Display node.
   Digit count, brightness range, colon presence and pin set are now controller
   facts rather than module-wide constants, so one node contract covers a

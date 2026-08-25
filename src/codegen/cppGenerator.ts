@@ -42,7 +42,7 @@ import {
   infoDisplayLoopCpp, columnOffsetFor, type InfoDisplayEmit,
 } from './infoDisplayCpp'
 import { asInfoDisplayLayout, STATUS_MAX_INDICATORS } from '../state/infoDisplay'
-import { oledControllerFor } from '../state/oledSurface'
+import { oledControllerFor, oledRotationCommands, asOledRotation } from '../state/oledSurface'
 import { partById } from '../state/partCatalogue'
 import { displayString, normalizeNumberFormat, asDateTimeTextMode } from '../state/displayText'
 import { particleRadius } from '../state/particleScale'
@@ -4824,6 +4824,8 @@ export function generateCpp(
           sckPin: intProp(p.sckPin, 18, 0, MAX_PIN_NUMBER),
           mosiPin: intProp(p.mosiPin, 23, 0, MAX_PIN_NUMBER),
           columnOffset: columnOffsetFor(controller),
+          segmentRemap: oledRotationCommands(asOledRotation(p.oledRotation)).segmentRemap,
+          comScan: oledRotationCommands(asOledRotation(p.oledRotation)).comScan,
           layout: asInfoDisplayLayout(p.infoLayout),
           enabledExpr: incoming.get(`${node.id}:enabled`)
             ? boolExpr(node.id, 'enabled')

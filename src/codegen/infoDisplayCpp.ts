@@ -65,6 +65,9 @@ static const uint8_t _oledFont[${font.count} * OLED_FONT_W] = { ${font.table} };
 struct OledPanel {
   uint8_t cs, dc, rst, sck, mosi;
   uint8_t columnOffset;
+  // 0xA0/0xC0 scan forwards; 0xA1/0xC8 turn the panel 180 degrees. Which pair
+  // is right depends on how the module is bolted down, not on the controller.
+  uint8_t segmentRemap, comScan;
   uint8_t buf[OLED_W * OLED_PAGES];
   uint8_t last[OLED_W * OLED_PAGES];
   bool written;
@@ -88,9 +91,11 @@ static void _oledCommand(OledPanel &p, uint8_t value) {
 }
 
 static void _oledBegin(OledPanel &p, uint8_t cs, uint8_t dc, uint8_t rst,
-                       uint8_t sck, uint8_t mosi, uint8_t columnOffset) {
+                       uint8_t sck, uint8_t mosi, uint8_t columnOffset,
+                       uint8_t segmentRemap, uint8_t comScan) {
   p.cs = cs; p.dc = dc; p.rst = rst; p.sck = sck; p.mosi = mosi;
   p.columnOffset = columnOffset;
+  p.segmentRemap = segmentRemap; p.comScan = comScan;
   p.written = false; p.lastWriteMs = 0;
   for (uint16_t i = 0; i < sizeof(p.buf); i++) { p.buf[i] = 0; p.last[i] = 0; }
 
@@ -106,8 +111,8 @@ static void _oledBegin(OledPanel &p, uint8_t cs, uint8_t dc, uint8_t rst,
   _oledCommand(p, 0xD3); _oledCommand(p, 0x00);
   _oledCommand(p, 0x40);
   _oledCommand(p, 0xAD); _oledCommand(p, 0x8B);   // SH1106 charge pump; ignored by SSD1306
-  _oledCommand(p, 0xA1);              // segment remap
-  _oledCommand(p, 0xC8);              // scan direction
+  _oledCommand(p, p.segmentRemap);    // segment remap, per mounted rotation
+  _oledCommand(p, p.comScan);         // COM scan direction, likewise
   _oledCommand(p, 0xDA); _oledCommand(p, 0x12);
   _oledCommand(p, 0x81); _oledCommand(p, 0x80);   // contrast
   _oledCommand(p, 0xD9); _oledCommand(p, 0x22);
@@ -246,6 +251,9 @@ export interface InfoDisplayEmit {
   sckPin: number
   mosiPin: number
   columnOffset: number
+  /** Segment-remap and COM-scan commands for the mounted rotation. */
+  segmentRemap: number
+  comScan: number
   layout: InfoDisplayLayout
   enabledExpr: string
   titleExpr: string | null
@@ -266,7 +274,8 @@ export function infoDisplayGlobalCpp(display: InfoDisplayEmit): string {
 export function infoDisplaySetupCpp(display: InfoDisplayEmit): string[] {
   return [
     `  _oledBegin(_oled_${display.id}, ${display.csPin}, ${display.dcPin}, ${display.resetPin}, ` +
-      `${display.sckPin}, ${display.mosiPin}, ${display.columnOffset});`,
+      `${display.sckPin}, ${display.mosiPin}, ${display.columnOffset}, ` +
+      `0x${display.segmentRemap.toString(16)}, 0x${display.comScan.toString(16)});`,
   ]
 }
 

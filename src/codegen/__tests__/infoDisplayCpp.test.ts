@@ -65,7 +65,7 @@ describe('OLED helpers', () => {
 describe('generateCpp with an OLED', () => {
   it('configures the panel in setup and services it in the loop', () => {
     const src = generateCpp([outputNode, oled()], [])
-    expect(src).toContain('_oledBegin(_oled_oled, 5, 16, 17, 18, 23, 2);')
+    expect(src).toContain('_oledBegin(_oled_oled, 5, 16, 17, 18, 23, 2, 0xa0, 0xc0);')
     expect(src).toContain('_oledFlush(_oled_oled,')
     expect(src).toContain('static OledPanel _oled_oled;')
   })
@@ -75,8 +75,8 @@ describe('generateCpp with an OLED', () => {
   it('emits the offset the chosen module actually needs', () => {
     const sh = generateCpp([outputNode, oled({ partId: 'sh1106-oled-128x64' })], [])
     const ssd = generateCpp([outputNode, oled({ partId: 'ssd1306-oled-128x64' })], [])
-    expect(sh).toContain(`, ${OLED_CONTROLLERS.SH1106.columnOffset});`)
-    expect(ssd).toContain(`, ${OLED_CONTROLLERS.SSD1306.columnOffset});`)
+    expect(sh).toContain(`, ${OLED_CONTROLLERS.SH1106.columnOffset}, 0xa0, 0xc0);`)
+    expect(ssd).toContain(`, ${OLED_CONTROLLERS.SSD1306.columnOffset}, 0xa0, 0xc0);`)
     expect(OLED_CONTROLLERS.SH1106.columnOffset).not.toBe(OLED_CONTROLLERS.SSD1306.columnOffset)
   })
 
@@ -133,6 +133,14 @@ describe('generateCpp with an OLED', () => {
     const src = generateCpp(nodes, [edge('e', 'rtc', 'oled', 'dateTime', 'dateTime')])
     expect(src).toContain('n_rtc_dateTime.valid')
     expect(src).toContain('n_rtc_dateTime.hour')
+  })
+
+  // The fix for a panel bolted in upside down: the commands change, the
+  // drawing does not.
+  it('emits the reversed scan pair for a panel mounted at 180', () => {
+    const src = generateCpp([outputNode, oled({ oledRotation: '180' })], [])
+    expect(src).toContain('0xa1, 0xc8);')
+    expect(src).not.toContain('0xa0, 0xc0);')
   })
 
   it('honours a disabled panel', () => {
