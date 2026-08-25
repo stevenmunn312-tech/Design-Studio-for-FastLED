@@ -65,6 +65,7 @@ Data flows from the React Flow graph through Zustand, graph evaluation, preview/
 - Persisted project and pattern formats are compatibility-sensitive on the public-beta line.
 - GPIO pin-collision checks are bus-aware, not a flat duplicate-claim check. `src/state/busTopology.ts` declares each pin's bus kind and role in `BUS_ASSIGNMENTS` and derives bus *instance* from the pins themselves; both `validateGraph.ts` and the Graph Health diagnostics call its one `findPinCollisions` helper. A part that claims GPIO pins needs a row there.
 - Transport semantics live once in `src/state/transportBridge.ts` as pure functions: button debounce/rising-edge/auto-repeat, seek-as-change rather than value, and runtime-to-display status. `PlayerControls` and `TransportControl` both take their button rules from it so a press cannot mean two things; seek and status belong to `TransportControl` alone. Both publish the same `playercontrols` bundle, so a new bundle producer also needs a row in the player generator's `CONTROL_BUNDLE_NODE_TYPES`.
+- Code generation walks backward from roots only, in `reachableFromOutputs` (`src/codegen/cppGenerator.ts`): every `MatrixOutput`, the `Board` node, and auxiliary displays listed in `DISPLAY_TERMINAL_NODE_TYPES`. A display is never upstream of an LED output, so a new display node type needs a row in that set or it and everything feeding it get pruned as unreachable, leaving the part dark on a board that still compiles and uploads.
 
 <!-- END AUTO-MANAGED -->
 

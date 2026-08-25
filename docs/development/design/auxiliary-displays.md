@@ -1,6 +1,7 @@
 # Auxiliary displays — design note
 
-Status: planned; no slice implemented, no device validated · Owner: app ·
+Status: in progress; the `string` signal, Transport Control and the TM1637
+Segment Display have shipped. No device has been validated on hardware · Owner: app ·
 Date: 2026-08-25
 
 Gives a build a second screen: a 7-segment module showing BPM, an OLED naming
@@ -122,8 +123,8 @@ reason: an imported workspace is someone else's file.
 
 ### `string`
 
-Text is the one thing every display class needs and the graph cannot currently
-carry. `string` becomes a real port data type — its own colour, its own help
+Text is the one thing every display class needs and the graph could not carry.
+`string` is a real port data type — its own colour, its own help
 copy, and no implicit conversion. It connects to `string` only. `float` and
 `bool` interconvert with each other because a number and a flag are the same
 quantity at different resolutions; a string is not, and a silent
@@ -145,7 +146,7 @@ render.
 ### Bridge nodes
 
 `TextValue`, `FormatNumber`, and `FormatDateTime` turn a property, a `float`,
-and a `datetime` into a `string`. `FormatDateTime` reads the same value shape
+and a `datetime` into a `string`. All three have shipped. `FormatDateTime` reads the same value shape
 `RTCInput` already produces.
 
 `TransportControl` is the single bridge for play/pause, previous, next, seek,

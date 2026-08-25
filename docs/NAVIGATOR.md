@@ -77,10 +77,11 @@ build/architecture overview aimed at contributors.
     existence and wiring, while the graph shows signal-carrying parts; it also
     records the remaining Audio and Storage capability work.
   - [Auxiliary displays](development/design/auxiliary-displays.md)
-    — planned 7-segment/OLED/TFT peripherals as hardware-owned root parts: the
-    `string` signal, fixed display nodes versus the deferred freeform `Display`
-    document, the touch/evaluate/publish/flush frame order, bus-aware pin
-    sharing, and the evidence gates no device ships without.
+    — 7-segment/OLED/TFT peripherals as hardware-owned root parts: the `string`
+    signal and TM1637 Segment Display have shipped; OLED, TFT and the freeform
+    `Display` document are still planned. Records the touch/evaluate/publish/
+    flush frame order, bus-aware pin sharing, why a display is a codegen
+    terminal, and the evidence gates no device ships without.
 - [Plans](development/plans/)
   - [Hardware branch todo](development/plans/hardware-todo.md)
     — active hardware-line backlog and unresolved bench findings.
