@@ -67,6 +67,17 @@ device passes on hardware — which is why the OLED family leads with the SH1106
 rather than the more commonly cited SSD1306: a contract meant to be proven on
 hardware should be built against the hardware that exists.
 
+The 2.4-inch module states its native 240×320 portrait geometry. It is used
+in landscape, but rotation is a node property rather than part of the part —
+recording 320×240 in the catalogue would bake one orientation into the module
+itself and leave the other unrepresentable.
+
+Its header breaks touch out as T_CLK/T_DIN/T_DO alongside SCK/MOSI/MISO, so
+whether display and touch share one bus is something the user wires rather
+than something the module decides. Bus validation already derives the bus from
+the pins themselves, so both wirings are describable: same clock pin means one
+bus with unique chip selects, different clock pins mean two.
+
 The SH1106 on the bench is the 7-pin SPI variant rather than the 4-pin I²C
 one, so the two OLEDs will arrive on different transports. That is deliberate
 coverage rather than an inconvenience, and it is why the surface contract is
@@ -86,7 +97,7 @@ before building against it.
 | 3 | SH1106 128×64 SPI OLED (1.3-inch, 7-pin) | `InfoDisplay` | 4-wire SPI: CLK/MOSI shared, CS/DC/RES exclusive | Song title and progress, clock/date, current pattern, sensor/status readout. Leads the OLED slice because it is the device on the bench |
 | 4 | SSD1306 128×64 I²C OLED (0.96-inch) | `InfoDisplay` | I²C | Same layouts through the same 1-bit surface contract, once the module arrives |
 | 5 | ST7789 240×240 SPI TFT, no touch | `TransportDisplay` | SPI | Colour now-playing screen, album/pattern art, status dashboard, fixed gauges |
-| 6 | ST7789V 2.4-inch 320×240 SPI TFT + XPT2046 touch + microSD | `TransportDisplay`, then `Display` | Shared SPI with separate CS lines | Fixed play/pause/previous/next/volume UI; reference target for the custom UI builder |
+| 6 | ST7789V 2.4-inch 240×320 SPI TFT + XPT2046 touch + microSD (MSP2402 form) | `TransportDisplay`, then `Display` | Shared SPI with separate CS lines; touch breaks out T_CLK/T_DIN/T_DO so sharing is a wiring choice | Fixed play/pause/previous/next/volume UI; reference target for the custom UI builder |
 | 7 | ESP32-2432S028R integrated ILI9341/XPT2046 board profile | `Display` | Board-integrated | Low-cost end-to-end custom UI reference and repeatable validation target. The only ILI9341 on the bench, and a board rather than a part |
 | Later | GC9A01 240×240 round TFT | `TransportDisplay` / `Display` | SPI, module-specific touch if present | Circular gauge, clock face, compact effect controller |
 | Later | ST7796 480×320 touch TFT | `Display` | SPI/parallel, exact module dependent | Larger custom control surface after RAM and refresh budgets are proven |

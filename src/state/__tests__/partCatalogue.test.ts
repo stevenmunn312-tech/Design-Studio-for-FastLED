@@ -36,6 +36,26 @@ describe('part catalogue', () => {
     expect(displays['ssd1306-oled-128x64']).toMatchObject({ controller: 'SSD1306', resolutionPx: [128, 64] })
     expect(displays['sh1106-oled-128x64']).toMatchObject({ controller: 'SH1106G', resolutionPx: [128, 64] })
     expect(displays['st7789-tft-240x240']).toMatchObject({ controller: 'ST7789', resolutionPx: [240, 240] })
+    expect(displays['st7789v-xpt2046-touch-240x320'])
+      .toMatchObject({ controller: 'ST7789V', resolutionPx: [240, 320], touchController: 'XPT2046' })
+  })
+
+  // The 2.4-inch module is a 240x320 panel used in landscape, so the catalogue
+  // states its native portrait geometry and rotation stays a node property.
+  // Recording 320x240 here would bake one orientation into the part itself.
+  it('states native panel geometry rather than a chosen orientation', () => {
+    expect(displayResolution('st7789v-xpt2046-touch-240x320')).toEqual({ width: 240, height: 320 })
+  })
+
+  // Two ST7789 modules on the bench, one with touch and one without: the same
+  // driver family, and the difference is what the part declares.
+  it('separates the touch TFT from its non-touch sibling', () => {
+    const touch = partById('st7789v-xpt2046-touch-240x320')!.display!
+    const plain = partById('st7789-tft-240x240')!.display!
+    expect(touch.controller.startsWith('ST7789')).toBe(true)
+    expect(plain.controller.startsWith('ST7789')).toBe(true)
+    expect(touch.touchController).toBe('XPT2046')
+    expect(plain.touchController).toBeNull()
   })
 
   // The two 1-bit OLEDs share a resolution and a layout contract but not a

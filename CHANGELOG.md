@@ -9,6 +9,9 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Added the ST7789V 2.4-inch 240x320 touch TFT part, the module carrying the
+  display, XPT2046 touch and a microSD slot on one SPI bus. Every device the
+  plan names for launch is now modelled and catalogued.
 - Added the MAX7219 8-digit segment and SH1106 1.3-inch OLED display parts
   from verified assets. A part manifest that declares a board profile is now
   skipped by the part importer and reported, so an integrated display board is

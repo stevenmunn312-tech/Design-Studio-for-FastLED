@@ -680,6 +680,54 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 12.011
     }
   },
+  "st7789v-xpt2046-touch-240x320": {
+    "partId": "st7789v-xpt2046-touch-240x320",
+    "label": "ST7789V 2.4-inch 240x320 TFT with XPT2046 touch and SD",
+    "category": "display",
+    "dimensionsMm": {
+      "width": 77.18,
+      "height": 42.72
+    },
+    "manufacturer": "generic MSP2402-form module",
+    "logicVoltage": "3.3-5 V supply; 3.3 V SPI logic",
+    "pinLabelsLeftToRight": [
+      "VCC",
+      "GND",
+      "CS",
+      "RESET",
+      "DC",
+      "MOSI",
+      "SCK",
+      "LED",
+      "MISO",
+      "T_CLK",
+      "T_CS",
+      "T_DIN",
+      "T_DO",
+      "T_IRQ"
+    ],
+    "notes": [
+      "Common 2.4-inch 240x320 SPI TFT module using ST7789V with XPT2046 resistive touch and an onboard microSD slot.",
+      "The portrait physical board is rotated into 77.18 x 42.72 mm header-down render axes for the app hardware bench.",
+      "Display, touch and microSD share SPI data/clock lines and use separate chip-select signals.",
+      "Fourteen main header positions expose display and touch signals; the microSD chip-select pads are represented beside the socket."
+    ],
+    "display": {
+      "controller": "ST7789V",
+      "resolutionPx": [
+        240,
+        320
+      ],
+      "interface": "4-wire SPI shared with XPT2046 and microSD",
+      "touchController": "XPT2046"
+    },
+    "render": {
+      "file": "parts/st7789v-xpt2046-touch-240x320.webp",
+      "widthPx": 935,
+      "heightPx": 521,
+      "pxPerMm": 12.011
+    }
+  },
   "tm1637-4digit-display": {
     "partId": "tm1637-4digit-display",
     "label": "TM1637 4-digit 7-segment display",
