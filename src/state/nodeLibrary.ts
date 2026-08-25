@@ -4312,7 +4312,7 @@ export function hasClampableInputs(nodeType: string, inputs: { id: string; dataT
 
 // Every GPIO-typed property that should render as the board-aware pin picker
 // (StudioNode.tsx's PinPickerField) instead of a plain bounded slider. Mirrors
-// validateGraph.ts's collectPinUses except for MatrixOutput, whose specialised
+// hardwareManifest.ts's collectPinUses except for MatrixOutput, whose specialised
 // node body owns its hardware controls.
 const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   MicInput: new Set(['i2sWs', 'i2sSck', 'i2sSd']),

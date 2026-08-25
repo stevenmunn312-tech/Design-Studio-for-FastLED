@@ -840,7 +840,7 @@ function hub75CoordMapFromProps(
  *  `hub75WideScan` is on — the DMA library's own convention for "unused" is
  *  -1, matching its documented default pinout. Fallback pin numbers MUST
  *  match nodeLibrary.ts's MatrixOutput defaultProperties exactly (kept in
- *  sync by hand) — validateGraph.ts's collectPinUses reads the same library
+ *  sync by hand) — hardwareManifest.ts's collectPinUses reads the same library
  *  defaults to check pins that were never explicitly saved on an older node,
  *  so a mismatch here would let a codegen-only default escape validation
  *  again. Chosen as the exact intersection of valid, output-capable GPIOs
