@@ -158,7 +158,7 @@ describe('HardwarePane', () => {
     )
   })
 
-  it('keeps a hardware-only part caption to its identity', () => {
+  it('shows an amplifier identity with its assigned I2S pins below', () => {
     useGraphStore.setState({
       nodes: [
         ...useGraphStore.getState().nodes,
@@ -171,8 +171,28 @@ describe('HardwarePane', () => {
     render(<HardwarePane />)
 
     expect(screen.getByText('MAX98357A')).toBeTruthy()
-    expect(screen.queryByText('BCLK 17 · LRC 18 · DIN 16 · Click for options')).toBeNull()
+    expect(screen.getByText('BCLK 17 · LRC 18 · DIN 16')).toBeTruthy()
     expect(screen.queryByText(/Hardware only/)).toBeNull()
+  })
+
+  it('shows the assigned SPI pins below an SD module', () => {
+    useGraphStore.setState({
+      nodes: [
+        ...useGraphStore.getState().nodes,
+        node('SDCard', 'sd', {
+          partId: 'microsd-module-5v',
+          sdCsPin: 5,
+          sdSckPin: 18,
+          sdMisoPin: 19,
+          sdMosiPin: 23,
+        }) as never,
+      ],
+    })
+
+    render(<HardwarePane />)
+
+    expect(screen.getByText('microSD module (5 V)')).toBeTruthy()
+    expect(screen.getByText('CS 5 · SCK 18 · MISO 19 · MOSI 23')).toBeTruthy()
   })
 
   it('lifts the hardware inspector to use room above without scrolling', () => {

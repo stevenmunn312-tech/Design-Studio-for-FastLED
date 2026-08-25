@@ -71,6 +71,22 @@ describe('hardware arrangement', () => {
     expect(byId.get('board')!.x).toBeLessThan(byId.get('led-string')!.x)
   })
 
+  it('shrinks layout gaps with the band so zooming in does not spread parts apart', () => {
+    const tall = arrange([MIC, BOARD], [CHAIN[0]], { width: 1000, height: 452, offsetX: 0 })
+    const short = arrange([MIC, BOARD], [CHAIN[0]], { width: 1000, height: 104, offsetX: 0 })
+    const clearance = (parts: typeof tall.parts) => {
+      const byId = index(parts)
+      const mic = byId.get('mic')!
+      const board = byId.get('board')!
+      return board.x - (mic.x + mic.width)
+    }
+
+    // Comparing in full-band units models zooming each arrangement until the
+    // controller is the same visible size. Their whitespace should then match.
+    expect(clearance(short.parts) / short.band)
+      .toBeCloseTo(clearance(tall.parts) / tall.band, 1)
+  })
+
   it('centres each part in its own slot, whatever its height', () => {
     const { parts, band } = arrange([MIC, BOARD, STRIP], CHAIN)
     const byId = index(parts)

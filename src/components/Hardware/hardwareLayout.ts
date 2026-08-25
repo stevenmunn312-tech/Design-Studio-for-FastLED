@@ -87,7 +87,7 @@ const BAND_MAX = 226
 const CAPTION_BLOCK = 46
 /** Maximum rendered caption width; kept in sync with HardwarePane.module.css. */
 const CAPTION_MAX_WIDTH = 220
-/** Slots are at least this wide, so captions clear their neighbours. */
+/** Slots are at least this wide at the full-size band, so captions clear their neighbours. */
 const SLOT_MIN_WIDTH = 150
 /** A run longer than this has its caption held near its start, not its middle. */
 const CAPTION_ANCHOR_MAX = 320
@@ -144,21 +144,25 @@ export function hardwareArrangementBounds(
   arrangement: HardwareArrangement,
 ): HardwareArrangementBounds | null {
   if (!arrangement.parts.length) return null
+  const layoutScale = hardwareCaptionScale(arrangement.band)
+  const captionHalfWidth = CAPTION_MAX_WIDTH * layoutScale / 2
+  const captionBlock = CAPTION_BLOCK * layoutScale
   const left = Math.min(...arrangement.parts.map((part) =>
-    Math.min(part.x, part.captionX - CAPTION_MAX_WIDTH / 2)))
+    Math.min(part.x, part.captionX - captionHalfWidth)))
   const right = Math.max(...arrangement.parts.map((part) =>
-    Math.max(part.x + part.width, part.captionX + CAPTION_MAX_WIDTH / 2)))
+    Math.max(part.x + part.width, part.captionX + captionHalfWidth)))
   const top = Math.min(...arrangement.parts.map((part) => part.y))
   const bottom = Math.max(...arrangement.parts.map((part) =>
-    Math.max(part.y + part.height, part.captionY + CAPTION_BLOCK)))
+    Math.max(part.y + part.height, part.captionY + captionBlock)))
   return { x: left, y: top, width: right - left, height: bottom - top }
 }
 
 /** Full height of what was laid out, caption block included. */
 function arrangedHeight(arrangement: HardwareArrangement, band: number): number {
   if (!arrangement.parts.length) return 0
+  const captionBlock = CAPTION_BLOCK * hardwareCaptionScale(band)
   const top = Math.min(...arrangement.parts.map((part) => part.captionY - band))
-  const bottom = Math.max(...arrangement.parts.map((part) => part.captionY + CAPTION_BLOCK))
+  const bottom = Math.max(...arrangement.parts.map((part) => part.captionY + captionBlock))
   return bottom - top
 }
 
@@ -171,6 +175,7 @@ function arrangeAtBand(
 ): HardwareArrangement {
   const tallestMm = Math.max(1, ...parts.map((part) => part.heightMm))
   const mmScale = band / tallestMm
+  const layoutScale = hardwareCaptionScale(band)
 
   const drawn = new Map(parts.map((part) => [part.id, {
     width: part.widthMm * mmScale,
@@ -178,20 +183,29 @@ function arrangeAtBand(
   }]))
 
   // Slots are as wide as the part or its caption, whichever is wider, so the
-  // layout spaces columns to fit the labels rather than just the renders.
-  const boxHeight = band + CAPTION_BLOCK
+  // layout spaces columns to fit the labels rather than just the renders. The
+  // caption and its reserved space shrink with the hardware band; leaving the
+  // slot at its full 150 px width made a zoomed-in compact bench look as though
+  // its parts were metres apart.
+  const boxHeight = band + CAPTION_BLOCK * layoutScale
   const items: TidyItem[] = parts.map((part) => ({
     id: part.id,
     x: 0,
     y: 0,
-    width: Math.max(drawn.get(part.id)!.width, SLOT_MIN_WIDTH),
+    width: Math.max(drawn.get(part.id)!.width, SLOT_MIN_WIDTH * layoutScale),
     height: boxHeight,
   }))
   const edges: TidyEdge[] = links.map(({ source, target }) => ({ source, target }))
 
-  // Runs need room to read as wiring; scale the column gap with the pane.
-  const gapX = Math.max(28, Math.min(120, stage.width * 0.08))
-  const placed = tidyLayout(items, edges, { gapX, gapY: 28, grid: GRID })
+  // Runs need room to read as wiring. Every non-physical layout measurement
+  // follows the band scale so zooming a small arrangement back up preserves
+  // the intended density instead of magnifying fixed pixel gaps.
+  const gapX = Math.max(28, Math.min(120, stage.width * 0.08)) * layoutScale
+  const placed = tidyLayout(items, edges, {
+    gapX,
+    gapY: 28 * layoutScale,
+    grid: Math.max(1, GRID * layoutScale),
+  })
 
   // A single part has no edges, so nothing is connected and tidy returns
   // nothing to move — it belongs at the origin the centring below works from.

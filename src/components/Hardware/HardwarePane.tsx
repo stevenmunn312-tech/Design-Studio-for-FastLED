@@ -130,6 +130,8 @@ interface FixturePartEntry {
   render?: string
   /** Pins to read off the board profile, keyed property -> profile field. */
   profilePins?: Record<string, 'bclk' | 'lrc' | 'din'>
+  /** Compact pin row shown beneath the physical module on the bench. */
+  pinFields: readonly { key: string; label: string }[]
   singleton?: boolean
 }
 
@@ -143,6 +145,12 @@ const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     // one are different objects — and mixing them up destroys cards.
     footprint: partDimensionsMm('microsd-module-5v', { width: 24, height: 42 }),
     render: partRenderSrc('microsd-module-5v') ?? undefined,
+    pinFields: [
+      { key: 'sdCsPin', label: 'CS' },
+      { key: 'sdSckPin', label: 'SCK' },
+      { key: 'sdMisoPin', label: 'MISO' },
+      { key: 'sdMosiPin', label: 'MOSI' },
+    ],
     singleton: true,
   },
   {
@@ -153,6 +161,11 @@ const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     footprint: partDimensionsMm('max98357a-i2s-amplifier', MAX98357A_FOOTPRINT_MM),
     render: partRenderSrc('max98357a-i2s-amplifier') ?? amplifierRender,
     profilePins: { i2sBclk: 'bclk', i2sLrc: 'lrc', i2sDout: 'din' },
+    pinFields: [
+      { key: 'i2sBclk', label: 'BCLK' },
+      { key: 'i2sLrc', label: 'LRC' },
+      { key: 'i2sDout', label: 'DIN' },
+    ],
     singleton: true,
   },
 ]
@@ -598,6 +611,13 @@ export default function HardwarePane() {
     if (!entry) return []
     const identity = resolvePartIdentity(node.data.nodeType, node.data.properties as Record<string, unknown>)
     const chosen = identity?.entry
+    const pinFields = identity?.option.input === 'analog' ? [] : entry.pinFields
+    const props = node.data.properties as Record<string, unknown>
+    const pinSummary = pinFields
+      .map(({ key, label }) => ({ label, pin: Number(props[key]) }))
+      .filter(({ pin }) => Number.isFinite(pin))
+      .map(({ label, pin }) => `${label} ${pin}`)
+      .join(' · ')
     return [{
       entry: {
         ...entry,
@@ -607,6 +627,7 @@ export default function HardwarePane() {
       },
       node,
       partId: entry.partId,
+      pinSummary,
     }]
   }), [nodes])
 
@@ -1486,6 +1507,7 @@ export default function HardwarePane() {
               </button>
               <span className={styles.caption} style={captionStyle(part.partId)}>
                 <strong>{String(part.node.data.properties.model ?? part.entry.label)}</strong>
+                {part.pinSummary && <span>{part.pinSummary}</span>}
               </span>
             </Fragment>
           ))}
