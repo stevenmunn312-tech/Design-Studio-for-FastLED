@@ -235,7 +235,7 @@ widgets, hover state, or physical pins.
   second drifting exclusion list.
 - [ ] Add I²C/SPI fields to `PART_FIELDS`, exact-board default-pin assignment,
   board retargeting, GPIO requirements, and generated wiring manifests.
-- [ ] Replace the current “any duplicate GPIO conflicts” rule with bus-aware
+- [x] Replace the current “any duplicate GPIO conflicts” rule with bus-aware
   validation:
   - I²C clients may share SDA/SCL but must have compatible voltage/bus settings
     and unique addresses where the devices require them.

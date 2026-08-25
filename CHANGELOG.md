@@ -9,6 +9,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Added bus-aware pin validation: I2C clients may share SDA and SCL, and SPI
+  clients may share SCK, MOSI, and MISO, while chip selects, reset, and other
+  exclusive lines still conflict. Two devices answering one I2C address are now
+  reported as an address fault rather than as a fault in the pins they
+  correctly share, and deploy validation and the Graph Health drawer read the
+  same walk.
 - Added a `string` port type for auxiliary-display text, with Text Value,
   Format Number, and Format Date/Time nodes. Preview and generated firmware
   format through one shared model, so a display cannot read one thing in the
