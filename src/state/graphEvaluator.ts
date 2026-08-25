@@ -26,6 +26,7 @@ import {
 } from './displayText'
 import { useUiStore } from './uiStore'
 import { useGraphStore } from './graphStore'
+import { songInfoOutputs, resolveSongInfo } from './songInfo'
 import { asFont, textBlockLayout, textAlignMode, TEXT_LINE_GAP, type BitmapFont, DEFAULT_FONT } from './font'
 import { animatedImageFrame, asAnimatedImage, asImage, sampleImageToFrame, type ImageData } from './image'
 import { imagePaletteStops16, type ImagePaletteSource } from './imagePalette'
@@ -7071,7 +7072,23 @@ function createEvalNode(
         }
 
         const frame = evalPatternShow(key, ids, render, beat, o, t, W, H)
-        if (!runtime.ledEnabled) out = { frame: blankFrame(W, H) }
+        /*
+         * What the browser honestly knows about the track. Tag fields stay
+         * empty: the library has a filename and an analysis, not an ID3 frame,
+         * and the case this feature exists for is a card of files the app has
+         * never seen. Those are read by the player on the device.
+         */
+        const player = usePlayerTransport.getState()
+        const song = songInfoOutputs(resolveSongInfo({
+          title: player.transport?.title ?? '',
+          posMs: player.posMs,
+          durationMs: player.transport?.durationMs ?? 0,
+          playing: player.playing,
+          loaded: player.transport !== null,
+          volume: runtime.volume,
+        }))
+
+        if (!runtime.ledEnabled) out = { ...song, frame: blankFrame(W, H) }
         else if (runtime.brightness < 1) {
           const dimmed = cloneFrame(frame)
           for (const row of dimmed) for (const px of row) {
@@ -7079,8 +7096,8 @@ function createEvalNode(
             px.g *= runtime.brightness
             px.b *= runtime.brightness
           }
-          out = { frame: dimmed }
-        } else out = { frame }
+          out = { ...song, frame: dimmed }
+        } else out = { ...song, frame }
         break
       }
 

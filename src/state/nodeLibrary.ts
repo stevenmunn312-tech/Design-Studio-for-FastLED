@@ -10,6 +10,7 @@ import { DATE_TIME_TEXT_MODES } from './displayText'
 import { SEGMENT_DISPLAY_MODES, SEGMENT_BRIGHTNESS_MIN, SEGMENT_BRIGHTNESS_MAX, segmentControllerFor } from './segmentDisplay'
 import { partById } from './partCatalogue'
 import { INFO_DISPLAY_LAYOUTS } from './infoDisplay'
+import { SONG_INFO_PORTS } from './songInfo'
 import { OLED_ROTATIONS } from './oledSurface'
 import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, outputForm } from './ledOutputForm'
@@ -2225,7 +2226,13 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'maxTime',     label: 'Max Time',    dataType: 'float' },
       { id: 'transitionSec', label: 'Transition', dataType: 'float' },
     ],
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    outputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      // The player holds the music, so the player says what the music is. On a
+      // finished build the card may be full of files the app has never seen;
+      // these carry whatever tags those files turn out to have.
+      ...SONG_INFO_PORTS.map((port) => ({ id: port.id, label: port.label, dataType: port.dataType })),
+    ],
     defaultProperties: {
       minTime: 4, maxTime: 12, transitionSec: 1,
       // Transition styles come from a wired TransitionSet; unwired ⇒ crossfade.

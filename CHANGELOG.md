@@ -48,6 +48,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- The Music Player now reports what it is playing: title, artist, album,
+  genre, year, status, elapsed, duration, remaining, progress, volume and
+  bitrate. The player holds the music, so the player says what the music is —
+  which matters most for a card of files the app has never seen. The browser
+  fills in what it genuinely knows and leaves the tag fields empty rather than
+  guessing them from a filename.
 - Added a mounted-rotation setting to the Info Display. A 1-bit OLED has no
   idea which way up it is bolted, so the controller is told to scan forwards or
   backwards; the setting turns the picture without turning what the screen
