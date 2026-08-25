@@ -9,6 +9,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Added the four launch display parts to the catalogue from verified Blender
+  assets: TM1637 4-digit, SSD1306 128x64 OLED, ST7789 240x240 TFT, and
+  ILI9341 320x240 with XPT2046 touch. Each carries its controller, panel
+  resolution, interface, and touch controller imported from the asset rather
+  than declared in the app.
 - Added a Transport Control node that drives the player through the same
   command bundle Player Controls publishes, and reads the transport back as
   title, elapsed, duration, progress, pattern name, and pattern position — the

@@ -105,6 +105,25 @@ def read_part(part_dir: Path) -> dict | None:
     # The pixel geometry an LED output needs: form plus count or width/height.
     if data.get("ledLayout"):
         entry["ledLayout"] = data["ledLayout"]
+    # An auxiliary display's driver contract. Carried through for the same
+    # reason dimensionsMm is: a resolution typed into the app is a resolution
+    # that can disagree with the panel, and every fixed layout is computed
+    # from it.
+    display = data.get("display")
+    if display:
+        resolution = display.get("resolutionPx")
+        if (isinstance(resolution, list) and len(resolution) == 2
+                and all(isinstance(n, int) and n > 0 for n in resolution)
+                and display.get("controller") and display.get("interface")):
+            entry["display"] = {
+                "controller": display["controller"],
+                "resolutionPx": [resolution[0], resolution[1]],
+                "interface": display["interface"],
+                "touchController": display.get("touchController") or None,
+            }
+        else:
+            print(f"  ! {part_id}: display block is incomplete — skipped",
+                  file=sys.stderr)
 
     render = convert_render(part_id, part_dir, data.get("render") or {})
     if render:

@@ -40,6 +40,25 @@ export interface PartLedLayout {
   pitchMm?: number
 }
 
+/**
+ * The driver contract an auxiliary display's asset declares.
+ *
+ * Imported rather than hand-declared, for the same reason `dimensionsMm` is:
+ * the app used to carry these numbers from memory and got them wrong. A
+ * resolution typed into the app is a resolution that can disagree with the
+ * panel on the bench, and every fixed layout is computed from it.
+ */
+export interface PartDisplaySpec {
+  /** Exact controller, e.g. `SSD1306`, `ST7789`, `TM1637`. */
+  controller: string
+  /** Panel size in pixels. A 7-segment module reports digits x segments. */
+  resolutionPx: [number, number]
+  /** How the board talks to it, e.g. `I2C`, `SPI`, `CLK + DIO`. */
+  interface: string
+  /** Touch controller when one is fitted, else null. */
+  touchController: string | null
+}
+
 export interface PartCatalogueEntry {
   partId: string
   label: string
@@ -52,6 +71,8 @@ export interface PartCatalogueEntry {
   pinLabelsLeftToRight?: string[]
   notes?: string[]
   ledLayout?: PartLedLayout
+  /** Present exactly on the auxiliary-display parts. */
+  display?: PartDisplaySpec
   render?: PartRenderAsset
 }
 
@@ -73,6 +94,31 @@ export function partDimensionsMm(
 export function partRenderSrc(partId: string): string | null {
   const file = partById(partId)?.render?.file
   return file ? `/${file}` : null
+}
+
+/**
+ * Whether a catalogued part is an auxiliary display.
+ *
+ * Derived from the asset declaring a display spec rather than from a category
+ * string, so the two cannot drift apart — the same reasoning
+ * `isHardwareOnlyNodeType` uses in state/hardware.ts. A part either states its
+ * controller and resolution or it is not a display.
+ */
+export function isDisplayPart(partId: string): boolean {
+  return partById(partId)?.display !== undefined
+}
+
+/** Every catalogued display, in catalogue order. */
+export function catalogueDisplays(): PartCatalogueEntry[] {
+  return Object.values(PART_CATALOGUE).filter((entry) => entry.display !== undefined)
+}
+
+/** The panel geometry a fixed layout is computed against. */
+export function displayResolution(partId: string): { width: number; height: number } | null {
+  const spec = partById(partId)?.display
+  if (!spec) return null
+  const [width, height] = spec.resolutionPx
+  return { width, height }
 }
 
 /** Every catalogued ring, smallest first — the counts that were modelled. */

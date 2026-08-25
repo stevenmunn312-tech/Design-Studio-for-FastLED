@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   PART_CATALOGUE,
+  catalogueDisplays,
   catalogueRings,
+  displayResolution,
+  isDisplayPart,
   partById,
   partDimensionsMm,
   partRenderSrc,
@@ -21,6 +24,48 @@ describe('part catalogue', () => {
     // the board at about half its real length.
     expect(partById('max98357a-i2s-amplifier')!.dimensionsMm).toEqual({ width: 17.78, height: 25.4 })
     expect(partById('inmp441-i2s-microphone')!.dimensionsMm).toEqual({ width: 15, height: 10.5 })
+  })
+
+  it('carries the four launch displays with their driver contracts', () => {
+    const displays = Object.fromEntries(catalogueDisplays().map((entry) => [entry.partId, entry.display!]))
+    expect(Object.keys(displays).sort()).toEqual([
+      'ili9341-xpt2046-touch-320x240',
+      'ssd1306-oled-128x64',
+      'st7789-tft-240x240',
+      'tm1637-4digit-display',
+    ])
+    expect(displays['ssd1306-oled-128x64']).toMatchObject({ controller: 'SSD1306', resolutionPx: [128, 64] })
+    expect(displays['st7789-tft-240x240']).toMatchObject({ controller: 'ST7789', resolutionPx: [240, 240] })
+    expect(displays['tm1637-4digit-display']).toMatchObject({ controller: 'TM1637', resolutionPx: [4, 7] })
+  })
+
+  // The resolution every fixed layout is computed against. Typing it into the
+  // app is how it comes to disagree with the panel on the bench.
+  it('reads panel geometry from the asset rather than the app', () => {
+    expect(displayResolution('ssd1306-oled-128x64')).toEqual({ width: 128, height: 64 })
+    expect(displayResolution('ili9341-xpt2046-touch-320x240')).toEqual({ width: 320, height: 240 })
+    expect(displayResolution('max98357a-i2s-amplifier')).toBeNull()
+    expect(displayResolution('not-a-real-part')).toBeNull()
+  })
+
+  it('names the touch controller only where one is fitted', () => {
+    expect(partById('ili9341-xpt2046-touch-320x240')!.display!.touchController).toBe('XPT2046')
+    expect(partById('st7789-tft-240x240')!.display!.touchController).toBeNull()
+  })
+
+  // Derived from the asset declaring a spec, not from a category string, so the
+  // two cannot drift apart.
+  it('tells a display from every other part', () => {
+    expect(isDisplayPart('ssd1306-oled-128x64')).toBe(true)
+    expect(isDisplayPart('max98357a-i2s-amplifier')).toBe(false)
+    expect(isDisplayPart('ws2812b-ring-24')).toBe(false)
+    expect(isDisplayPart('not-a-real-part')).toBe(false)
+  })
+
+  it('states datasheet-verified display dimensions', () => {
+    // Adafruit 326 (0.96in OLED) and DFRobot DFR0665 (2.8in touch TFT).
+    expect(partById('ssd1306-oled-128x64')!.dimensionsMm).toEqual({ width: 29.2, height: 26.7 })
+    expect(partById('ili9341-xpt2046-touch-320x240')!.dimensionsMm).toEqual({ width: 80, height: 50 })
   })
 
   it('falls back for a part nobody has modelled yet', () => {

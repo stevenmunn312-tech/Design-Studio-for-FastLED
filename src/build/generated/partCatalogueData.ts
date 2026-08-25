@@ -151,6 +151,51 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 4.656
     }
   },
+  "ili9341-xpt2046-touch-320x240": {
+    "partId": "ili9341-xpt2046-touch-320x240",
+    "label": "ILI9341 2.8-inch 320x240 TFT with XPT2046 touch",
+    "category": "support",
+    "dimensionsMm": {
+      "width": 80.0,
+      "height": 50.0
+    },
+    "manufacturer": "DFRobot",
+    "logicVoltage": "3.3-5.5 V supply; SPI",
+    "pinLabelsLeftToRight": [
+      "VCC",
+      "GND",
+      "SCLK",
+      "MOSI",
+      "MISO",
+      "CS",
+      "RES",
+      "DC",
+      "BL",
+      "TOUCH_CS",
+      "INT",
+      "SDCS"
+    ],
+    "notes": [
+      "DFRobot DFR0665 form: ILI9341 display, XPT2046 resistive touch controller and microSD slot.",
+      "The landscape render corresponds to the app's 320x240 transport/custom-UI target.",
+      "Display, touch and microSD share SPI data lines and use separate chip-select signals."
+    ],
+    "display": {
+      "controller": "ILI9341",
+      "resolutionPx": [
+        320,
+        240
+      ],
+      "interface": "SPI",
+      "touchController": "XPT2046"
+    },
+    "render": {
+      "file": "parts/ili9341-xpt2046-touch-320x240.webp",
+      "widthPx": 968,
+      "heightPx": 608,
+      "pxPerMm": 12.0
+    }
+  },
   "inmp441-i2s-microphone": {
     "partId": "inmp441-i2s-microphone",
     "label": "INMP441 I2S microphone",
@@ -468,6 +513,129 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "file": "parts/speaker-4ohm-3w-40mm.webp",
       "widthPx": 488,
       "heightPx": 488,
+      "pxPerMm": 12.0
+    }
+  },
+  "ssd1306-oled-128x64": {
+    "partId": "ssd1306-oled-128x64",
+    "label": "SSD1306 0.96-inch 128x64 OLED",
+    "category": "support",
+    "dimensionsMm": {
+      "width": 29.2,
+      "height": 26.7
+    },
+    "manufacturer": "Adafruit",
+    "logicVoltage": "3.3 V / 5 V",
+    "pinLabelsLeftToRight": [
+      "GND",
+      "VIN",
+      "3V",
+      "CLK",
+      "DATA",
+      "RST",
+      "DC",
+      "CS"
+    ],
+    "notes": [
+      "Adafruit Product 326 STEMMA QT revision, configured for I2C by default.",
+      "I2C address is selectable between 0x3C and 0x3D; the app target is SSD1306 128x64 I2C.",
+      "The eight-pin edge header retains SPI-capable signals while the two side JST-SH sockets provide I2C."
+    ],
+    "display": {
+      "controller": "SSD1306",
+      "resolutionPx": [
+        128,
+        64
+      ],
+      "interface": "I2C (SPI-capable breakout)",
+      "touchController": null
+    },
+    "render": {
+      "file": "parts/ssd1306-oled-128x64.webp",
+      "widthPx": 400,
+      "heightPx": 366,
+      "pxPerMm": 13.425
+    }
+  },
+  "st7789-tft-240x240": {
+    "partId": "st7789-tft-240x240",
+    "label": "ST7789 1.3-inch 240x240 TFT",
+    "category": "support",
+    "dimensionsMm": {
+      "width": 35.8,
+      "height": 35.8
+    },
+    "manufacturer": "Adafruit",
+    "logicVoltage": "3.3 V logic; 3-5 V VIN",
+    "pinLabelsLeftToRight": [
+      "VIN",
+      "3V",
+      "GND",
+      "SCK",
+      "MOSI",
+      "CS",
+      "DC",
+      "RST",
+      "LITE",
+      "MISO",
+      "SDCS",
+      "SDDET"
+    ],
+    "notes": [
+      "Adafruit Product 4313 1.3-inch IPS TFT breakout with microSD and 240x240 ST7789 panel.",
+      "The screen shows a square now-playing dashboard to make the active area and colour response obvious.",
+      "No touch controller is fitted; this is the app's non-interactive colour-display target."
+    ],
+    "display": {
+      "controller": "ST7789",
+      "resolutionPx": [
+        240,
+        240
+      ],
+      "interface": "SPI",
+      "touchController": null
+    },
+    "render": {
+      "file": "parts/st7789-tft-240x240.webp",
+      "widthPx": 438,
+      "heightPx": 438,
+      "pxPerMm": 12.011
+    }
+  },
+  "tm1637-4digit-display": {
+    "partId": "tm1637-4digit-display",
+    "label": "TM1637 4-digit 7-segment display",
+    "category": "support",
+    "dimensionsMm": {
+      "width": 42.0,
+      "height": 24.0
+    },
+    "manufacturer": "Seeed Studio / Grove",
+    "logicVoltage": "3.3 V / 5 V",
+    "pinLabelsLeftToRight": [
+      "GND",
+      "VCC",
+      "DIO",
+      "CLK"
+    ],
+    "notes": [
+      "Grove 4-Digit Display form with a TM1637 two-wire controller and central colon.",
+      "The illuminated example reads 12:34 so all four digits and the colon are visible.",
+      "The physical Grove cable order is GND, VCC, DIO, CLK when read left to right in this render."
+    ],
+    "display": {
+      "controller": "TM1637",
+      "resolutionPx": [
+        4,
+        7
+      ],
+      "interface": "CLK + DIO",
+      "touchController": null
+    },
+    "render": {
+      "file": "parts/tm1637-4digit-display.webp",
+      "widthPx": 512,
+      "heightPx": 296,
       "pxPerMm": 12.0
     }
   },

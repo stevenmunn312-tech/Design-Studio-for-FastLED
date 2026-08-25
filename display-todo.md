@@ -209,7 +209,7 @@ widgets, hover state, or physical pins.
 - [x] Create `docs/development/design/auxiliary-displays.md` and link it from
   `docs/NAVIGATOR.md`. Record the data model, runtime ordering, supported
   generators, driver decision, bus rules, and measured constraints there.
-- [ ] Acquire/reference at least TM1637, SSD1306, ST7789, and
+- [x] Acquire/reference at least TM1637, SSD1306, ST7789, and
   ILI9341/XPT2046 hardware before claiming support.
 - [ ] Spike the simple-display backend and one LVGL 9.x TFT on the exact board
   profiles selected for launch. Pin known-good library tags after the spike.
