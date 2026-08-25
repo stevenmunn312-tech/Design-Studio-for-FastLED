@@ -4829,9 +4829,8 @@ function createEvalNode(
 
       // ── Audio ─────────────────────────────────────────────────────────
       case 'Audio': {
-        // The source property names concrete root hardware. A lone source is
-        // resolved as the default; an empty/ambiguous board stays honestly
-        // disconnected instead of silently listening to the browser mic.
+        // The source property names concrete root hardware. Empty is the
+        // explicit Disabled state and never silently selects the browser mic.
         const source = resolveAudioCapabilitySource(capabilityNodes, props.sourceId)
         out = { audio: source ? (audioOverride ?? liveAudioSignal()) : null }
         break
@@ -4842,18 +4841,6 @@ function createEvalNode(
         out = { storage: source ? { id: source.id, kind: source.kind, label: source.label } : null }
         break
       }
-
-      case 'MicInput':
-        // Backwards-compatible direct wiring. New patches normally go through
-        // Audio, but both paths carry the same explicit payload.
-        out = { audio: audioOverride ?? liveAudioSignal() }
-        break
-
-      case 'LineInput':
-        // Browser preview uses the selected browser/OS capture device; the
-        // generated controller reads the physical PCM1802 line-level ADC.
-        out = { audio: audioOverride ?? liveAudioSignal() }
-        break
 
       case 'FFTAnalyzer': {
         const audioValue = input(id, 'audio', null)

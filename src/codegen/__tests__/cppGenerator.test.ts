@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateCpp, audioEngineForGraph } from '../cppGenerator'
+import { generateCpp as generateCppImpl, audioEngineForGraph } from '../cppGenerator'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { DEFAULT_FONT, textColumns } from '../../state/font'
 import { corkscrewSampleMapForProps, ringSampleMapForProps } from '../../state/ledOutputForm'
@@ -17,6 +17,25 @@ function node(id: string, nodeType: string, category: string, props: Record<stri
 
 function edge(id: string, source: string, target: string, sh: string, th: string): StudioEdge {
   return { id, source, target, sourceHandle: sh, targetHandle: th } as unknown as StudioEdge
+}
+
+// Expand the old compact provider fixture spelling into the v1 graph contract:
+// physical provider in Hardware, Audio capability on the wired graph id.
+function generateCpp(...args: Parameters<typeof generateCppImpl>): ReturnType<typeof generateCppImpl> {
+  const [nodes, edges, ...rest] = args
+  const directProviderIds = new Set(nodes
+    .filter((entry) => ['MicInput', 'LineInput'].includes(entry.data.nodeType))
+    .filter((entry) => edges.some((connection) => connection.source === entry.id))
+    .map((entry) => entry.id))
+  const expanded = nodes.flatMap((entry) => {
+    if (!directProviderIds.has(entry.id)) return [entry]
+    const providerId = `${entry.id}-provider`
+    return [
+      { ...entry, id: providerId },
+      node(entry.id, 'Audio', 'input', { sourceId: providerId }),
+    ]
+  })
+  return generateCppImpl(expanded, edges, ...rest)
 }
 
 const outputNode = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, chipset: 'WS2812B', colorOrder: 'GRB', dataPin: 5 })
@@ -2750,13 +2769,14 @@ describe('generateCpp — INMP441 audio engine', () => {
 
 describe('audioEngineForGraph', () => {
   const micBoard = node('board', 'Board', 'hardware', { profileId: 'espressif-esp32-s3-devkitc-1' })
-  it('returns null when the graph has no MicInput', () => {
+  it('returns null when the graph has no enabled Audio capability', () => {
     expect(audioEngineForGraph([node('fft', 'FFTAnalyzer', 'audio', {})])).toBeNull()
   })
 
-  it('returns FastLED processor setup when a MicInput is present', () => {
+  it('returns FastLED processor setup when Audio selects a microphone', () => {
     const mic = node('mic', 'MicInput', 'hardware', { i2sWs: 39, i2sSck: 40, i2sSd: 41, channel: 'Right' })
-    const eng = audioEngineForGraph([micBoard, mic])!
+    const audio = node('audio', 'Audio', 'input', { sourceId: 'mic' })
+    const eng = audioEngineForGraph([audio], [micBoard, mic, audio])!
     expect(eng.include).toContain('same FastLED Processor contract as preview')
     expect(eng.backend).toBe('fastled-esp32')
     expect(eng.fqbn).toBe('esp32:esp32:esp32s3')

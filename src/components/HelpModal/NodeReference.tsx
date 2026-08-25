@@ -1111,7 +1111,7 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
         <div>
           <div className={styles.eyebrow}><i style={{ background: accent }} />Audio source</div>
           <h1>Microphone</h1>
-          <p>Capture live audio in the browser and configure an INMP441 I2S microphone for the generated ESP32 firmware.</p>
+          <p>Add an INMP441 microphone to Hardware, then select it from Audio for browser preview and generated firmware.</p>
         </div>
         <div className={styles.articleMeta}>0 inputs · 1 output · 6 properties</div>
       </header>
@@ -1125,8 +1125,8 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
         <section className={styles.overviewPanel}>
           <div className={styles.sectionKicker}>What it does</div>
           <h2>Overview</h2>
-          <p>The Microphone node is the starting point for audio-reactive patches. During editing it runs a browser port of FastLED's audio analysis over microphone samples; generated firmware uses FastLED's native INMP441 processor.</p>
-          <p>Its single <b>Audio</b> output carries the live signal to FFT Analyzer, Beat Detect, Percussion Detect, or any other audio-processing node.</p>
+          <p>The microphone is a physical Hardware provider. The graph-facing <b>Audio</b> node selects it and becomes the single starting point for audio-reactive patches.</p>
+          <p>Connect Audio to FFT Analyzer, Beat Detect, Percussion Detect, or any other audio-processing node. During editing Studio analyses browser microphone samples; generated firmware uses FastLED's native INMP441 processor.</p>
           <p>Gain maps to <b>FastLED Processor::setGain</b> in both preview and firmware. FastLED owns signal conditioning, adaptive band normalization, equalizer bins, and beat detection at its native 44.1 kHz rate; the I2S settings define the pins and left/right channel used on the ESP32.</p>
         </section>
       </div>

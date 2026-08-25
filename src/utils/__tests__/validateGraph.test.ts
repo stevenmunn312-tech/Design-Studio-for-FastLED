@@ -66,8 +66,6 @@ describe('validateGraph', () => {
 
     const microphone = node('mic', 'MicInput', { partId: 'inmp441' })
     expect(findAudioCapabilityErrors([audio, microphone], wires)).toEqual([])
-    audio.data.properties.sourceId = 'mic'
-    expect(findAudioCapabilityErrors([audio, microphone], wires)).toEqual([])
   })
 
   it('limits PCM1802 line-in firmware to ESP32-S3', () => {

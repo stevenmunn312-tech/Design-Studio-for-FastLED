@@ -781,10 +781,10 @@ describe('graphStore — loadGraph normalization', () => {
     expect(dataOf('board-root').properties.profileId).toBe('esp32-generic-devkit-38pin')
   })
 
-  it('removes the obsolete MicInput sample-rate property on load', () => {
+  it('does not migrate pre-v1 MicInput properties on load', () => {
     const mic = node('mic', 'MicInput', { sampleRate: 44100, gain: 1 })
     useGraphStore.getState().loadGraph([mic], [])
-    expect(dataOf('mic').properties).not.toHaveProperty('sampleRate')
+    expect(dataOf('mic').properties.sampleRate).toBe(44100)
     expect(dataOf('mic').properties.gain).toBe(1)
   })
 

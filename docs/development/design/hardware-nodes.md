@@ -143,12 +143,17 @@ in the same full-width workbench where the action was started.
 
 The graph now has an `Audio` capability node whose source picker is derived from
 attached board hardware. It discovers microphones, PCM1802 line-in ADCs and,
-when an SD Card and Performance Generator define the on-board player workflow,
-the player's decoder tap. A lone source is selected by default; with none it
-reports an empty state. Audio cables carry the live/recorded/baked signal
+when an SD Card, amplifier, and Music Player define the on-board player workflow,
+the player's decoder tap. The picker lists only Microphone, Line Input, and
+Audio Decoder, with Microphone as the default. Every choice is
+selectable before its Hardware provider exists; the node then stays disabled
+and explains how to enable that source. Adding the provider resolves the menu
+entry to its concrete hardware label, such as `Microphone - INMP441`. Audio
+cables carry the live/recorded/baked signal
 payload through FFT, beat, percussion, feature, spectrum, group, preview, and
 firmware paths instead of letting analysis nodes read ambient browser state.
-Direct `MicInput` and `LineInput` cables are also accepted.
+`MicInput` and `LineInput` remain concrete Hardware providers for wiring and
+code generation but do not appear as signal nodes or carry graph cables.
 
 Collection shows compile against the player-hosted audio globals. The pinned
 ESP32-audioI2S callback queues decoded PCM immediately before I2S/DAC output;

@@ -287,7 +287,7 @@ const GROUP_EXCLUDED_TYPES = new Set(['MatrixOutput', 'Audio', 'MicInput', 'Line
 /** Nodes that represent one scene-wide hardware resource. Creation actions use
  *  this set as a final guard, so every UI path (click, drop, paste, duplicate)
  *  preserves the one-per-canvas invariant. */
-export const SINGLETON_NODE_TYPES = new Set(['MicInput', 'LineInput', 'DMXInput'])
+export const SINGLETON_NODE_TYPES = new Set(['Audio', 'MicInput', 'LineInput', 'DMXInput'])
 
 export function canAddNodeType(nodes: StudioNode[], nodeType: string): boolean {
   return !SINGLETON_NODE_TYPES.has(nodeType) || !nodes.some((n) => n.data.nodeType === nodeType)
@@ -335,10 +335,6 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     const category: NodeCategory = def?.category ?? data.category
     const label = def?.label ?? data.label
     const properties = { ...data.properties }
-    // MicInput analysis used to expose a sample-rate field even though neither
-    // preview nor firmware honored it. FastLED's INMP441 pipeline owns the
-    // 44.1 kHz rate now, so strip the misleading legacy property on load.
-    if (nodeType === 'MicInput') delete properties.sampleRate
     // RTC pins became first-class node properties after the RTC hardware node
     // was introduced. Backfill older saves from their exact board so opening a
     // project exposes the same wiring it was already generating.
@@ -1640,7 +1636,7 @@ export const useGraphStore = create<GraphState>()(
           // Scene-level outputs/sources stay in the parent graph rather than being
           // sealed inside a reusable pattern. A surviving MatrixOutput is
           // auto-rewired to the new Group's frame output (it becomes an outgoing
-          // boundary edge); a surviving Audio/MicInput/MusicLibrary feeding
+          // boundary edge); a surviving Audio/MusicLibrary feeding
           // the selection is surfaced as an exposed Group input (an incoming edge).
           // This keeps the "make pattern → group → repeat" loop's sources/output
           // in place for the next pattern.

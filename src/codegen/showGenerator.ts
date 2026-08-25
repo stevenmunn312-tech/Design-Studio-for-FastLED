@@ -366,7 +366,7 @@ export function generateShowSketch(
   // properties); the conversion happens here, at the show level.
   const usePsram = opts.psramAllowed !== false && controller.usePsram
 
-  // A MicInput or LineInput on the canvas turns the controller into an audio
+  // A microphone or line-input provider selected by Audio turns the controller into an audio
   // host. Collected patterns' FFTAnalyzer/BeatDetect nodes read the live band
   // globals (externalAudio), so an audio-reactive
   // pattern reacts on-device the same way it does in the live preview.

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render } from '@testing-library/react'
+import { fireEvent, render } from '@testing-library/react'
 import { useGraphStore } from '../../../state/graphStore'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import PatternCollectionBody from '../PatternCollectionBody'
@@ -19,6 +19,7 @@ function nodeData(type: string, properties: Record<string, unknown>) {
 
 describe('node body wheel behavior', () => {
   beforeEach(() => {
+    localStorage.clear()
     vi.restoreAllMocks()
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
       createImageData: (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }),
@@ -51,8 +52,22 @@ describe('node body wheel behavior', () => {
   })
 
   it('lets wheel zoom pass through TransitionSet chips', () => {
-    const { container } = render(<TransitionSetBody nodeId="transitions" />)
+    const { container, getByRole } = render(<TransitionSetBody nodeId="transitions" />)
     expect(container.firstElementChild?.className).not.toContain('nowheel')
+    fireEvent.click(getByRole('button', { name: /Transitions.*1 selected/i }))
+    expect(container.querySelector('[aria-label="Scrub transition thumbnail progress"]')).toBeTruthy()
+  })
+
+  it('collapses the TransitionSet slider and catalogue by default', () => {
+    const { queryByLabelText, getByRole } = render(<TransitionSetBody nodeId="transitions" />)
+    const section = getByRole('button', { name: /Transitions.*1 selected/i })
+    expect(section.getAttribute('aria-expanded')).toBe('false')
+    expect(queryByLabelText('Scrub transition thumbnail progress')).toBeNull()
+
+    fireEvent.click(section)
+    expect(section.getAttribute('aria-expanded')).toBe('true')
+    expect(queryByLabelText('Scrub transition thumbnail progress')).toBeTruthy()
+    expect(document.body.textContent).not.toContain('Thumbnail preview')
   })
 
   it('lets wheel zoom pass through PatternCollection chips', () => {

@@ -70,7 +70,9 @@ function template(
       // Tutorial comments belong on the loaded canvas, but the gallery's tiny
       // graph map should stay focused on the actual signal path.
       nodes: options.nodeSpecs
-        .filter((spec) => spec.type !== 'Comment' && !isHardwareOnlyNodeType(spec.type))
+        .filter((spec) => spec.type !== 'Comment'
+          && !isHardwareOnlyNodeType(spec.type)
+          && !['MicInput', 'LineInput'].includes(spec.type))
         .map((spec) => {
           const def = LIBRARY_DEF.get(spec.type)
           if (!def) throw new Error(`Unknown template node type: ${spec.type}`)
@@ -125,11 +127,20 @@ function buildGraph(nodeSpecs: NodeSpec[], edgeSpecs: EdgeSpec[]): { nodes: Stud
       id: idFor(spec.id),
       type: 'studioNode',
       position: { x: spec.col * COL_W, y: ROW_Y + (spec.row ?? 0) * 180 },
+      hidden: ['MicInput', 'LineInput'].includes(spec.type),
+      selectable: !['MicInput', 'LineInput'].includes(spec.type),
+      draggable: !['MicInput', 'LineInput'].includes(spec.type),
       data: {
         label: def.label,
         nodeType: def.type,
         category: def.category,
-        properties: { ...resolveDefaultProperties(def.type, def.defaultProperties), ...(spec.properties ?? {}) },
+        properties: Object.fromEntries(Object.entries({
+          ...resolveDefaultProperties(def.type, def.defaultProperties),
+          ...(spec.properties ?? {}),
+        }).map(([key, value]) => [
+          key,
+          typeof value === 'string' && value.startsWith('$') ? idFor(value.slice(1)) : value,
+        ])),
         inputs: def.inputs,
         outputs: def.outputs,
       },
@@ -236,6 +247,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     ],
     nodeSpecs: [
       { id: 'mic', type: 'MicInput', col: 0 },
+      { id: 'audio', type: 'Audio', properties: { sourceId: '$mic' }, col: 0 },
       { id: 'spectrum', type: 'SpectrumVisualizer', col: 1 },
       { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 2 },
       tutorialNote(
@@ -244,7 +256,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       ),
     ],
     edgeSpecs: [
-      { source: 'mic', sourceHandle: 'audio', target: 'spectrum', targetHandle: 'audio' },
+      { source: 'audio', sourceHandle: 'audio', target: 'spectrum', targetHandle: 'audio' },
       { source: 'spectrum', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
     ],
   }),

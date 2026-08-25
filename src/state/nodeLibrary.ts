@@ -16,9 +16,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'input',
     inputs: [],
     outputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
-    // The concrete source id is chosen from root hardware by
-    // AudioCapabilityBody. Empty is meaningful when the board has no source.
-    defaultProperties: { sourceId: '' },
+    // The source kind is selectable before Hardware exists. Microphone is the
+    // discoverable default and resolves as soon as its provider is added.
+    defaultProperties: { sourceId: 'kind:microphone' },
   },
   {
     type: 'Storage',
@@ -2113,8 +2113,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'enabled', label: 'Enabled', dataType: 'bool' },
       { id: 'color', label: 'Color', dataType: 'color' },
       { id: 'intensity', label: 'Intensity', dataType: 'float' },
-      { id: 'randomColor', label: 'Random Color', dataType: 'bool' },
       { id: 'randomStyle', label: 'Random Style', dataType: 'bool' },
+      { id: 'randomColor', label: 'Random Color', dataType: 'bool' },
     ],
     outputs: [{ id: 'particleFx', label: 'Particle FX', dataType: 'playerparticles' }],
     defaultProperties: {
@@ -2133,15 +2133,15 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     label: 'Music Player',
     category: 'show',
     inputs: [
-      { id: 'patternset',  label: 'Patterns',    dataType: 'patternset' },
       { id: 'audio',       label: 'Audio',       dataType: 'audio' },
+      { id: 'controls',    label: 'Controls',    dataType: 'playercontrols' },
+      { id: 'patternset',  label: 'Patterns',    dataType: 'patternset' },
       { id: 'transitions', label: 'Transitions', dataType: 'transitionset' },
+      { id: 'particleFx',  label: 'Particle FX', dataType: 'playerparticles' },
       { id: 'beat',        label: 'Beat',        dataType: 'bool' },
       { id: 'minTime',     label: 'Min Time',    dataType: 'float' },
       { id: 'maxTime',     label: 'Max Time',    dataType: 'float' },
       { id: 'transitionSec', label: 'Transition', dataType: 'float' },
-      { id: 'controls', label: 'Controls', dataType: 'playercontrols' },
-      { id: 'particleFx', label: 'Particle FX', dataType: 'playerparticles' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
@@ -2865,11 +2865,11 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   FFTAnalyzer: 'Splits mic audio into bass/mids/treble; tilt boosts weak treble.',
   BeatDetect: 'Emits a beat pulse and estimated BPM from audio.',
   PercussionDetect: 'Heuristic kick, snare, and hi-hat envelopes from audio.',
-  Audio: 'Selects an audio capability attached to the board and carries it into the graph.',
+  Audio: 'Selects Microphone, Line input, or Audio decoder for audio reactivity.',
   Storage: 'Selects SD, onboard flash, or USB storage attached to the board.',
   AudioFeatures: 'Heuristic vocals, energy, and silence features from audio.',
-  MicInput: 'Microphone — FastLED audio processing with configurable INMP441 I2S firmware.',
-  LineInput: 'Stereo line-level audio through a PCM1802 I2S ADC for external players.',
+  MicInput: 'INMP441 Hardware provider selected through the Audio node.',
+  LineInput: 'PCM1802 Hardware provider selected through the Audio node.',
   AudioHue: 'Maps bass/mids/treble to a hue value.',
   // hardware
   ButtonInput: 'Reads a hardware button as a boolean.',
@@ -4246,7 +4246,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'steps', label: 'Steps', keys: ['volumeStep', 'brightnessStep'] },
   ],
   PlayerParticles: [
-    { key: 'appearance', label: 'Appearance', keys: ['enabled', 'style', 'color', 'intensity', 'randomColor', 'randomStyle'] },
+    { key: 'appearance', label: 'Appearance', keys: ['enabled', 'intensity', 'randomStyle', 'style', 'randomColor', 'color'] },
   ],
   Array: [
     { key: 'position', label: 'Position', keys: ['offsetX', 'offsetY', 'angle', 'scale'] },

@@ -100,6 +100,7 @@ export function tidyLiveExample(draft: DraftExample): ReferenceLiveExample {
     key: node.key,
     type: node.type,
     properties: node.properties,
+    sourceProvider: node.sourceProvider,
     dx: node.x - shiftX,
     dy: node.y - shiftY,
   }))
@@ -121,7 +122,18 @@ class ExampleBuilder {
   add(key: string, type: string, properties?: Record<string, unknown>): string {
     if (this.nodes.some((node) => node.key === key)) return key
     definition(type)
-    this.nodes.push({ key, type, dx: 0, dy: this.nodes.length * 120, properties, order: this.nodes.length })
+    const provider = type === 'MicInput' || type === 'LineInput'
+      ? { type, properties } as const
+      : undefined
+    this.nodes.push({
+      key,
+      type: provider ? 'Audio' : type,
+      dx: 0,
+      dy: this.nodes.length * 120,
+      properties: provider ? { sourceId: provider.type === 'MicInput' ? '$microphone' : '$line-in' } : properties,
+      sourceProvider: provider,
+      order: this.nodes.length,
+    })
     return key
   }
 
@@ -1066,12 +1078,11 @@ export const AUDIO_CAPABILITY_LIVE_EXAMPLE = namedExample(
   'Choose attached hardware once, then analyse it',
   [
     { key: 'mic', type: 'MicInput' },
-    { key: 'audio', type: 'Audio' },
     { key: 'fft', type: 'FFTAnalyzer', properties: { smoothing: 0.7, gain: 1.15 } },
     { key: 'bars', type: 'SpectrumBars', properties: { palette: 'party' } },
   ],
   [
-    { source: 'audio', sourceHandle: 'audio', target: 'fft', targetHandle: 'audio' },
+    { source: 'mic', sourceHandle: 'audio', target: 'fft', targetHandle: 'audio' },
     { source: 'fft', sourceHandle: 'bass', target: 'bars', targetHandle: 'bass' },
     { source: 'fft', sourceHandle: 'mids', target: 'bars', targetHandle: 'mids' },
     { source: 'fft', sourceHandle: 'treble', target: 'bars', targetHandle: 'treble' },
@@ -1344,7 +1355,7 @@ export function liveExampleForNode(node: NodeDefinition): ReferenceLiveExample {
 
 /** True when an example starts the browser audio input after insertion. */
 export function exampleUsesMicrophone(example: LiveExampleSpec): boolean {
-  return example.nodes.some((node) => node.type === 'MicInput' || node.type === 'LineInput')
+  return example.nodes.some((node) => node.sourceProvider?.type === 'MicInput' || node.sourceProvider?.type === 'LineInput')
 }
 
 /** Resolve an edge's source data type; useful for quality checks and docs tooling. */

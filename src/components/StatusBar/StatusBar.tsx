@@ -20,7 +20,7 @@ export default function StatusBar() {
   // "Audio" = the graph has analysis nodes; "live" = the browser input is actually
   // running. Reporting the first as the second told users a silent graph was
   // live, so the chip now distinguishes the two.
-  const hasAudio = useGraphStore((s) => s.nodes.some((n) => n.data.category === 'audio' || ['MicInput', 'LineInput'].includes(n.data.nodeType)))
+  const hasAudio = useGraphStore((s) => s.nodes.some((n) => n.data.category === 'audio' || n.data.nodeType === 'Audio'))
   const micActive = useAudioStore((s) => s.micActive)
   const hasShow = useGraphStore((s) => s.nodes.some((n) => n.data.category === 'show'))
   const hasFrameSignal = useGraphStore((s) => {

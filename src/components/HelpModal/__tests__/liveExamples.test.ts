@@ -11,10 +11,13 @@ describe('node-reference live examples', () => {
       const example = liveExampleForNode(featured)
       const byKey = new Map(example.nodes.map((node) => [node.key, node]))
 
-      expect(example.nodes.some((node) => node.type === featured.type), featured.type).toBe(true)
+      const featuresProvider = ['MicInput', 'LineInput'].includes(featured.type)
+        ? example.nodes.some((node) => node.type === 'Audio' && node.sourceProvider?.type === featured.type)
+        : example.nodes.some((node) => node.type === featured.type)
+      expect(featuresProvider, featured.type).toBe(true)
       expect(new Set(example.nodes.map((node) => node.key)).size, featured.type).toBe(example.nodes.length)
       expect(example.title, featured.type).not.toBe('')
-      expect(example.path, featured.type).toContain(featured.label)
+      expect(example.path, featured.type).toContain(['MicInput', 'LineInput'].includes(featured.type) ? 'Audio' : featured.label)
       expect(example.explanation, featured.type).toContain(featured.label)
       expect(example.previewDescription, featured.type).not.toBe('')
 

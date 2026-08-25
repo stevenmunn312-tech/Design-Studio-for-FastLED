@@ -62,17 +62,6 @@ interface NodeDefaultsState {
 const loadedOverrides = load()
 const loadedMicOverrides = load(MIC_KEY, 'MicInput')
 
-// Older releases had one global MicInput default. Preserve it by assigning it
-// to the board that is selected during migration; there is no older board key
-// from which a more precise association could be recovered.
-if (loadedOverrides.MicInput) {
-  const fqbn = useUploadStore.getState().selectedFqbn
-  if (!loadedMicOverrides[fqbn]) loadedMicOverrides[fqbn] = loadedOverrides.MicInput
-  delete loadedOverrides.MicInput
-  persist(loadedOverrides)
-  persist(loadedMicOverrides, MIC_KEY)
-}
-
 function targetFqbn(fqbn?: string): string {
   return fqbn ?? useUploadStore.getState().selectedFqbn
 }

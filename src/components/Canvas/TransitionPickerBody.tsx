@@ -8,6 +8,7 @@ const ALL_TRANSITIONS = (PROPERTY_META.transitionType as { options: readonly str
 const EMPTY: string[] = []
 const W = 16
 const H = 8
+const TRANSITION_SET_OPEN_KEY = 'design-studio-for-fastled.transitionSetOpen'
 
 function color(r: number, g: number, b: number) {
   return { r, g, b }
@@ -109,6 +110,13 @@ export function TransitionBody({ nodeId }: { nodeId: string }) {
 
 export function TransitionSetBody({ nodeId }: { nodeId: string }) {
   const [t, setT] = useState(0.5)
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem(TRANSITION_SET_OPEN_KEY) === 'true'
+    } catch {
+      return false
+    }
+  })
   const pool = useGraphStore(
     (s) => ((s.nodes.find((n) => n.id === nodeId)?.data.properties as { transitions?: string[] } | undefined)?.transitions) ?? EMPTY,
   )
@@ -121,43 +129,67 @@ export function TransitionSetBody({ nodeId }: { nodeId: string }) {
 
   const allOn = pool.length === ALL_TRANSITIONS.length
   const toggleAll = () => updateNodeProperty(nodeId, 'transitions', allOn ? [] : [...ALL_TRANSITIONS])
+  const toggleOpen = () => {
+    setOpen((current) => {
+      const next = !current
+      try {
+        localStorage.setItem(TRANSITION_SET_OPEN_KEY, String(next))
+      } catch {
+        // localStorage unavailable — the subsection still works this session.
+      }
+      return next
+    })
+  }
 
   return (
     <div className={`nodrag ${styles.wrap}`}>
-      <div className={styles.header}>
-        <span>Extra transitions ({pool.length})</span>
-        <button type="button" className={styles.allBtn} onClick={toggleAll}>
-          {allOn ? 'clear' : 'all'}
-        </button>
-      </div>
-      <input
-        className={`nowheel ${styles.scrub}`}
-        aria-label="Scrub transition thumbnail progress"
-        type="range"
-        min="0"
-        max="1"
-        step="0.01"
-        value={t}
-        onChange={(e) => setT(Number(e.target.value))}
-      />
-      <div className={styles.grid}>
-        {ALL_TRANSITIONS.map((type) => {
-          const included = pool.includes(type)
-          return (
-            <button
-              key={type}
-              type="button"
-              className={`${styles.card}${included ? ` ${styles.on}` : ''}`}
-              onClick={() => toggle(type)}
-              title={included ? `Remove ${type}` : `Add ${type}`}
-              aria-pressed={included}
-            >
-              <Thumb type={type} t={t} selected={included} />
-              <span>{type}</span>
+      <button
+        type="button"
+        className={styles.sectionToggle}
+        onClick={toggleOpen}
+        aria-expanded={open}
+      >
+        <span className={`${styles.sectionCaret}${open ? ` ${styles.sectionCaretOpen}` : ''}`}>▸</span>
+        <span>Transitions</span>
+        <span className={styles.sectionCount}>{pool.length} selected</span>
+      </button>
+      {open && (
+        <div className={styles.sectionContent}>
+          <div className={styles.setActions}>
+            <button type="button" className={styles.allBtn} onClick={toggleAll}>
+              {allOn ? 'clear' : 'all'}
             </button>
-          )
-        })}
-      </div>
+          </div>
+          <input
+            className={`nowheel ${styles.scrub}`}
+            aria-label="Scrub transition thumbnail progress"
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={t}
+            onChange={(e) => setT(Number(e.target.value))}
+          />
+          <div className={styles.grid}>
+            {ALL_TRANSITIONS.map((type) => {
+              const included = pool.includes(type)
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  className={`${styles.card}${included ? ` ${styles.on}` : ''}`}
+                  onClick={() => toggle(type)}
+                  title={included ? `Remove ${type}` : `Add ${type}`}
+                  aria-pressed={included}
+                >
+                  <Thumb type={type} t={t} selected={included} />
+                  <span>{type}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -61,6 +61,7 @@ import HardwareLink from './HardwareLink'
 import FloatingMenu from './FloatingMenu'
 import type { PlacementBox } from './floatingPlacement'
 import { useHardwareView } from './useHardwareView'
+import { resolveAudioCapabilitySource } from '../../state/audioCapabilities'
 import {
   hardwareArrangement,
   hardwareArrangementBounds,
@@ -160,7 +161,7 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     nodeType: MIC_NODE_TYPE,
     partId: 'mic',
     label: 'INMP441 microphone',
-    hint: 'Creates the microphone graph node',
+    hint: 'Available through the Audio node',
     // 15.0 x 10.5 from the asset's datasheet-checked part.json. The constant it
     // falls back to says 20.5 x 14.5 — a third larger, for the same picture.
     footprint: partDimensionsMm('inmp441-i2s-microphone', INMP441_FOOTPRINT_MM),
@@ -624,10 +625,25 @@ export default function HardwarePane() {
     : null
 
   const revealNode = (nodeId: string, label: string) => {
-    focusNode(nodeId)
-    requestFitView([nodeId])
-    flashNode(nodeId)
-    setStatus(`Showing ${label} in the graph`, 'info')
+    const hardwareNode = nodes.find((node) => node.id === nodeId)
+    const isAudioProvider = hardwareNode
+      && [MIC_NODE_TYPE, 'LineInput'].includes(hardwareNode.data.nodeType)
+    const audioNode = isAudioProvider
+      ? nodes.find((node) => node.data.nodeType === 'Audio'
+        && resolveAudioCapabilitySource(
+          nodes,
+          (node.data.properties as Record<string, unknown>).sourceId,
+        )?.id === hardwareNode.id)
+      : undefined
+    if (isAudioProvider && !audioNode) {
+      setStatus(`Add an Audio node to use ${label} in the graph`, 'info')
+      return
+    }
+    const targetId = audioNode?.id ?? nodeId
+    focusNode(targetId)
+    requestFitView([targetId])
+    flashNode(targetId)
+    setStatus(audioNode ? `Showing ${label} in Audio` : `Showing ${label} in the graph`, 'info')
   }
 
   const inspectPart = (nodeId: string, anchor: PlacementBox | null = null) => {
@@ -947,6 +963,9 @@ export default function HardwarePane() {
         x: viewCenter.x - 180,
         y: viewCenter.y - 120 + (inputParts.length * 60),
       },
+      hidden: [MIC_NODE_TYPE, 'LineInput'].includes(entry.nodeType),
+      selectable: ![MIC_NODE_TYPE, 'LineInput'].includes(entry.nodeType),
+      draggable: ![MIC_NODE_TYPE, 'LineInput'].includes(entry.nodeType),
       data: {
         label: definition.label,
         nodeType: definition.type,

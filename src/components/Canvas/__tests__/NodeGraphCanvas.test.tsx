@@ -169,6 +169,32 @@ describe('NodeGraphCanvas start screen', () => {
     ])
   })
 
+  it('folds a selected microphone source into its Audio node', () => {
+    useGraphStore.getState().loadGraph([
+      {
+        id: 'mic', type: 'studioNode', position: { x: 0, y: 0 },
+        data: {
+          nodeType: 'MicInput', label: 'Microphone', category: 'input',
+          properties: { partId: 'inmp441-i2s-microphone', gain: 1 }, inputs: [],
+          outputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
+        },
+      },
+      {
+        id: 'audio', type: 'studioNode', position: { x: 260, y: 0 },
+        data: {
+          nodeType: 'Audio', label: 'Audio', category: 'input', properties: { sourceId: 'mic' }, inputs: [],
+          outputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
+        },
+      },
+    ], [])
+
+    render(<NodeGraphCanvas />)
+
+    const renderedIds = (reactFlowProps.nodes as Array<{ id: string }>).map((node) => node.id)
+    expect(renderedIds).toContain('audio')
+    expect(renderedIds).not.toContain('mic')
+  })
+
   it('launches the audio first patch against the default classic ESP32 board', async () => {
     useUiStore.setState({ testSignal: true })
     localStorage.setItem('design-studio-for-fastled-test-signal', 'true')

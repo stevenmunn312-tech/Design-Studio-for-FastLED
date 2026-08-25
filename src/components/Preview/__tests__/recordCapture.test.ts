@@ -188,7 +188,8 @@ describe('captureSequence', () => {
     // The mock store is silent, so any reaction can only come from the timeline.
     const nodes = [
       node('fft', 'FFTAnalyzer', 'audio'),
-      node('mic', 'MicInput', 'input'),
+      node('mic-provider', 'MicInput', 'input'),
+      node('mic', 'Audio', 'audio', { sourceId: 'mic-provider' }),
       node('bars', 'SpectrumBars', 'pattern'),
       node('out', 'MatrixOutput', 'output', { width: 8, height: 8, brightness: 255 }),
     ]

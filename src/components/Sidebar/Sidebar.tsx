@@ -95,7 +95,8 @@ const RECIPE_CARDS: RecipeCard[] = [
     description: 'See how continuous microphone energy becomes pixels, then add memory with Trails.',
     actionLabel: 'Add guided patch',
     nodes: [
-      { key: 'mic', type: 'MicInput', dx: -340, dy: -80 },
+      { key: 'mic-hardware', type: 'MicInput', dx: -340, dy: -80 },
+      { key: 'mic', type: 'Audio', dx: -340, dy: -80, props: { sourceId: '$mic-hardware' } },
       { key: 'spectrum', type: 'SpectrumVisualizer', dx: -100, dy: -40 },
       { key: 'trails', type: 'Trails', dx: 180, dy: -20, props: { decay: 0.32 } },
       { key: 'out', type: 'MatrixOutput', dx: 400, dy: -20 },
@@ -120,7 +121,8 @@ const RECIPE_CARDS: RecipeCard[] = [
     description: 'Learn event-driven wiring: each detected beat captures and holds one new palette colour.',
     actionLabel: 'Add guided patch',
     nodes: [
-      { key: 'mic', type: 'MicInput', dx: -440, dy: -140 },
+      { key: 'mic-hardware', type: 'MicInput', dx: -440, dy: -140 },
+      { key: 'mic', type: 'Audio', dx: -440, dy: -140, props: { sourceId: '$mic-hardware' } },
       { key: 'beat', type: 'BeatDetect', dx: -220, dy: -140 },
       { key: 'rand', type: 'Random', dx: -440, dy: 40, props: { min: 0, max: 1 } },
       { key: 'hold', type: 'SampleHold', dx: -220, dy: 40 },
@@ -151,7 +153,8 @@ const RECIPE_CARDS: RecipeCard[] = [
     description: 'Split kick, snare, and hi-hat into separate controls, then turn their shockwaves into trails.',
     actionLabel: 'Add guided patch',
     nodes: [
-      { key: 'mic', type: 'MicInput', dx: -420, dy: -80 },
+      { key: 'mic-hardware', type: 'MicInput', dx: -420, dy: -80 },
+      { key: 'mic', type: 'Audio', dx: -420, dy: -80, props: { sourceId: '$mic-hardware' } },
       { key: 'percussion', type: 'PercussionDetect', dx: -200, dy: -80, props: { sensitivity: 0.62, decay: 0.55, separation: 0.7 } },
       { key: 'shock', type: 'KickShock', dx: 60, dy: -20, props: { palette: 'volcano', energy: 0.85, thickness: 1.25, spawnSpread: 0.25 } },
       { key: 'trails', type: 'Trails', dx: 300, dy: -20, props: { decay: 0.36 } },
@@ -770,16 +773,34 @@ function Sidebar() {
         id,
         type: 'studioNode',
         position: { x: viewCenter.x + spec.dx, y: viewCenter.y + spec.dy },
+        hidden: ['MicInput', 'LineInput'].includes(spec.type),
+        selectable: !['MicInput', 'LineInput'].includes(spec.type),
+        draggable: !['MicInput', 'LineInput'].includes(spec.type),
         data: {
           label: def.label,
           nodeType: def.type,
           category: def.category,
-          properties: resolveDefaultProperties(def.type, { ...def.defaultProperties, ...spec.props }),
+          properties: resolveDefaultProperties(def.type, Object.fromEntries(Object.entries({
+            ...def.defaultProperties,
+            ...spec.props,
+          }).map(([key, value]) => [
+            key,
+            typeof value === 'string' && value.startsWith('$')
+              ? nodeIdByKey.get(value.slice(1)) ?? ''
+              : value,
+          ]))),
           inputs: def.inputs,
           outputs: def.outputs,
         },
       })
       rememberRecent(spec.type)
+    }
+    for (const spec of recipe.nodes.filter((node) => node.type === 'Audio')) {
+      const audioId = nodeIdByKey.get(spec.key)
+      const sourceRef = typeof spec.props?.sourceId === 'string' && spec.props.sourceId.startsWith('$')
+        ? nodeIdByKey.get(spec.props.sourceId.slice(1))
+        : undefined
+      if (audioId && sourceRef) useGraphStore.getState().updateNodeProperty(audioId, 'sourceId', sourceRef)
     }
     for (const edge of recipe.edges) {
       const source = nodeIdByKey.get(edge.source)

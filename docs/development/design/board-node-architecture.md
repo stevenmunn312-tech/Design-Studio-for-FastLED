@@ -125,9 +125,10 @@ Output/Serial console. It is no longer owned by an LED-output popup.
 
 The Board/profile model currently provides enough authority for:
 
-- an `Audio` graph capability that discovers attached microphone and PCM1802
-  line-in hardware, discovers the SD player's decoded-PCM tap, defaults a lone
-  source, and remains explicitly empty without one;
+- a singleton `Audio` graph capability that discovers attached microphone and
+  PCM1802 line-in hardware plus the SD player's decoded-PCM tap, defaults to
+  Microphone, and keeps all three selectable source kinds visible with setup
+  guidance whenever the chosen Hardware provider is absent;
 - explicit Audio payloads through FFT, beat, percussion, feature, spectrum,
   group, recording, preview, and firmware paths;
 - decoded player PCM through FastLED's on-device analysis before I2S/DAC output,

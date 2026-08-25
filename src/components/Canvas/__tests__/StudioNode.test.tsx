@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, fireEvent, within, waitFor } from '@testing-library/react'
+import { act, render, fireEvent, within, waitFor } from '@testing-library/react'
 import type { NodeProps, Node } from '@xyflow/react'
 import StudioNode from '../StudioNode'
 import { useGraphStore } from '../../../state/graphStore'
@@ -84,24 +84,69 @@ describe('StudioNode', () => {
   })
 
   it('shows an honest empty state when Audio has no attached source', () => {
-    const { getByText, queryByRole } = renderNode(makeNode('Audio', { sourceId: '' }))
-    expect(getByText('No audio source attached')).toBeTruthy()
-    expect(getByText('Add a microphone, line-in ADC, or SD card player with an amplifier.')).toBeTruthy()
-    expect(queryByRole('combobox', { name: 'Audio source' })).toBeNull()
+    const { getByText, getByRole } = renderNode(makeNode('Audio', { sourceId: '' }))
+    expect(getByText('Audio reactivity is disabled.')).toBeTruthy()
+    expect(getByText('Add a microphone in the Hardware bench below to enable.')).toBeTruthy()
+    const source = getByRole('combobox', { name: 'Audio source' }) as HTMLSelectElement
+    expect(source.value).toBe('kind:microphone')
+    expect([...source.options].map((option) => option.text)).toEqual([
+      'Microphone',
+      'Line Input',
+      'Audio Decoder',
+    ])
+    expect([...source.options].every((option) => !option.disabled)).toBe(true)
   })
 
-  it('defaults Audio to the only attached hardware source', async () => {
+  it('keeps an unavailable source selected and explains how to enable it', async () => {
     const audio = makeNode('Audio', { sourceId: '' })
+    const { getByRole, getByText, queryByText } = renderNode(audio)
+    const source = getByRole('combobox', { name: 'Audio source' }) as HTMLSelectElement
+
+    fireEvent.change(source, { target: { value: 'kind:microphone' } })
+    await waitFor(() => expect(source.value).toBe('kind:microphone'))
+    expect(getByText('Audio reactivity is disabled.')).toBeTruthy()
+    expect(getByText('Add a microphone in the Hardware bench below to enable.')).toBeTruthy()
+
+    const selectedAudio = useGraphStore.getState().nodes.find((node) => node.id === audio.id)!
+    const mic = { ...makeNode('MicInput', { partId: 'inmp441-i2s-microphone' }), id: 'mic' } as StudioNodeT
+    act(() => useGraphStore.setState({ nodes: [selectedAudio, mic], edges: [] }))
+
+    await waitFor(() => {
+      expect([...source.options].map((option) => option.text)).toContain('Microphone - INMP441')
+      expect(queryByText('Audio reactivity is disabled.')).toBeNull()
+    })
+  })
+
+  it('resolves the default Microphone choice when hardware is already attached', () => {
+    const audio = makeNode('Audio', { sourceId: 'kind:microphone' })
     const mic = { ...makeNode('MicInput', { partId: 'inmp441-i2s-microphone' }), id: 'mic' } as StudioNodeT
     useGraphStore.setState({ nodes: [audio, mic], edges: [] })
     const props = { id: audio.id, data: audio.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
-    const { getByRole } = render(<StudioNode {...props} />)
+    const { getByRole, getByLabelText } = render(<StudioNode {...props} />)
 
-    expect((getByRole('combobox', { name: 'Audio source' }) as HTMLSelectElement).value).toBe('mic')
-    await waitFor(() => {
-      const saved = useGraphStore.getState().nodes.find((node) => node.id === audio.id)
-      expect(saved?.data.properties.sourceId).toBe('mic')
-    })
+    expect((getByRole('combobox', { name: 'Audio source' }) as HTMLSelectElement).value).toBe('kind:microphone')
+    expect([...((getByRole('combobox', { name: 'Audio source' }) as HTMLSelectElement).options)].map((option) => option.text)).toContain('Microphone - INMP441')
+    expect(getByLabelText('Microphone gain')).toBeTruthy()
+  })
+
+  it('incorporates the selected microphone controls into Audio', () => {
+    const audio = { ...makeNode('Audio', { sourceId: 'mic' }), id: 'audio' } as StudioNodeT
+    const mic = {
+      ...makeNode('MicInput', { partId: 'inmp441-i2s-microphone', gain: 1, serialDebug: false }),
+      id: 'mic',
+    } as StudioNodeT
+    const profile = BOARD_PROFILES.find((entry) => entry.compatibleFqbns.includes(useUploadStore.getState().selectedFqbn))!
+    const board = { ...makeNode('Board', { profileId: profile.id }), id: 'board' } as StudioNodeT
+    useGraphStore.setState({ nodes: [audio, mic, board], edges: [] })
+    const props = { id: audio.id, data: audio.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
+    const { getByRole, getByLabelText } = render(<StudioNode {...props} />)
+
+    expect(getByRole('img', { name: /microphone/i })).toBeTruthy()
+    fireEvent.change(getByLabelText('Microphone gain'), { target: { value: '3.4' } })
+    fireEvent.click(getByLabelText('Microphone serial debug'))
+
+    const saved = useGraphStore.getState().nodes.find((node) => node.id === 'mic')
+    expect(saved?.data.properties).toMatchObject({ gain: 3.4, serialDebug: true })
   })
 
   it('shows a colour swatch for r/g/b properties', () => {

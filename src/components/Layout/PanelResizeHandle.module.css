@@ -36,7 +36,10 @@
   position: relative;
   flex: 0 0 6px;
   width: 100%;
-  z-index: 11;
+  /* Side docks sit at 11. Keeping the horizontal divider beneath them clips
+     its paint and hit target to the graph/hardware workspace instead of
+     drawing across the Node Library and LED Preview. */
+  z-index: 10;
   cursor: row-resize;
   background:
     linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent-output) 50%, transparent), transparent);

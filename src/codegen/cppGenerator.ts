@@ -950,7 +950,7 @@ export function hub75SetupCpp(hw: Hub75Hardware): string[] {
 
 /**
  * The on-device FastLED audio processor for a graph that
- * contains a direct MicInput/LineInput or an Audio capability backed by one, so a
+ * contains an Audio capability backed by a physical capture provider, so a
  * controller sketch can host the engine once while compiled subgraphs refer
  * to `_audioBass`/`_audioMids`/`_audioTreble`/`_audioBeat`. Returns null when
  * the reachable graph has no physical capture source. Mirrors the block
@@ -960,12 +960,11 @@ export function audioEngineForGraph(
   nodes: StudioNode[],
   capabilityNodes: StudioNode[] = nodes,
 ): { preInclude: string[]; include: string; code: string[]; fqbn: string; backend: Inmp441FirmwareBackend } | null {
-  const directSource = nodes.find((n) => n.data.nodeType === 'MicInput' || n.data.nodeType === 'LineInput')
   const capabilitySource = nodes
     .filter((node) => node.data.nodeType === 'Audio')
     .map((node) => resolveAudioCapabilitySource(capabilityNodes, (node.data.properties as Record<string, unknown>).sourceId)?.node)
     .find((node) => node?.data.nodeType === 'MicInput' || node?.data.nodeType === 'LineInput')
-  const sourceNode = directSource ?? capabilitySource
+  const sourceNode = capabilitySource
   if (!sourceNode) return null
   // The Board node is the sole target authority. MatrixOutput's legacy board
   // field and the upload store are intentionally not consulted here.
@@ -1467,12 +1466,12 @@ export function generateCpp(
     }
   })
 
-  // A reachable direct MicInput/LineInput or Audio capability backed by one
-  // turns on FastLED's audio processor. `emitEngine` means this sketch hosts it;
+  // A reachable Audio capability backed by physical capture turns on FastLED's
+  // audio processor. `emitEngine` means this sketch hosts it;
   // `useAudioGlobals` means a connected analyzer may reference the shared live
   // levels (or the host controller's `externalAudio`) instead of silence.
   // Everything below works from the nodes that actually feed an output — an
-  // unwired MicInput must not emit the I2S engine any more than a parked Fire
+  // unused hardware providers must not emit the I2S engine any more than a parked Fire
   // node should emit a buffer and a simulation.
   const live = reachableFromOutputs(nodes, edges)
   const audio = audioEngineForGraph(live, capabilityNodes)
@@ -2073,16 +2072,6 @@ export function generateCpp(
 
       case 'Audio':
         ln(`  // Audio capability — the selected hardware source is hosted once by the sketch.`)
-        break
-
-      case 'MicInput':
-        ln(`  // MicInput — FastLED auto-pumps the INMP441 processor; updateAudio() polls its outputs.`)
-        ln(`  // Source gain is applied through fl::audio::Processor::setGain().`)
-        break
-
-      case 'LineInput':
-        ln(`  // LineInput — the PCM1802 adapter feeds stereo line-level PCM into FastLED's processor.`)
-        ln(`  // Channel selection/downmix happens before the shared FFT and detectors.`)
         break
 
       case 'ButtonInput': {

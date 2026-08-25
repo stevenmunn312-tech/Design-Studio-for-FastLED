@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType } from '../hardware'
-import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, isPropertyEnabled, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel } from '../nodeLibrary'
+import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, PROPERTY_GROUPS, isPropertyEnabled, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel } from '../nodeLibrary'
 import { EASE_TYPES } from '../easing'
 
 describe('nodeLibrary', () => {
@@ -25,8 +25,18 @@ describe('nodeLibrary', () => {
       outputs: [{ id: 'particleFx', dataType: 'playerparticles' }],
       defaultProperties: { enabled: false, style: 0, intensity: 0.8 },
     })
+    expect(particles?.inputs.map((input) => input.id)).toEqual([
+      'enabled', 'color', 'intensity', 'randomStyle', 'randomColor',
+    ])
+    expect(PROPERTY_GROUPS.PlayerParticles[0].keys).toEqual([
+      'enabled', 'intensity', 'randomStyle', 'style', 'randomColor', 'color',
+    ])
 
     const player = NODE_LIBRARY.find((n) => n.type === 'PatternMaster')!
+    expect(player.inputs.map((input) => input.id)).toEqual([
+      'audio', 'controls', 'patternset', 'transitions', 'particleFx',
+      'beat', 'minTime', 'maxTime', 'transitionSec',
+    ])
     expect(player.inputs).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'controls', dataType: 'playercontrols' }),
       expect.objectContaining({ id: 'particleFx', dataType: 'playerparticles' }),
@@ -42,7 +52,7 @@ describe('nodeLibrary', () => {
     const audio = NODE_LIBRARY.find((node) => node.type === 'Audio')
     expect(audio).toMatchObject({
       category: 'input',
-      defaultProperties: { sourceId: '' },
+      defaultProperties: { sourceId: 'kind:microphone' },
       outputs: [{ id: 'audio', dataType: 'audio' }],
     })
   })

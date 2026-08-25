@@ -357,8 +357,6 @@ function groupInputIsAudioTyped(node: StudioNode): boolean {
 export function isAudioReactiveSubgraph(nodes: StudioNode[]): boolean {
   return nodes.some((n) =>
     nodeCategory(n) === 'audio' ||
-    nodeType(n) === 'MicInput' ||
-    nodeType(n) === 'LineInput' ||
     nodeSubcategory(n) === 'Audio-Reactive' ||
     (nodeType(n) === 'GroupInput' && (AUDIO_ROLES.has(groupInputRole(n)) || groupInputIsAudioTyped(n))),
   )
@@ -382,8 +380,6 @@ export function scoreAudioCorrectness(nodes: StudioNode[], edges: StudioEdge[]):
     nodes
       .filter((n) =>
         nodeCategory(n) === 'audio' ||
-        nodeType(n) === 'MicInput' ||
-        nodeType(n) === 'LineInput' ||
         (nodeType(n) === 'GroupInput' && (AUDIO_ROLES.has(groupInputRole(n)) || groupInputIsAudioTyped(n))),
       )
       .map((n) => n.id),

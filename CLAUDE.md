@@ -94,6 +94,7 @@ Data flows from the React Flow graph through Zustand, graph evaluation, preview/
 ## Project-Specific Invariants
 
 - Public beta saves may exist outside the repository. On `main`, node types, property names, port ids, and persisted workspace shapes require compatibility or an explicit migration and release note. `Hardware` may intentionally break them.
+- `Hardware` is targeting the breaking LTS v1.0.0 release. Until v1.0.0 ships, do not preserve legacy graph shapes, compatibility paths, or migrations for pre-1.0 saves unless the user explicitly requests one; prefer removing superseded models cleanly. Treat the v1.0.0 format as the new compatibility baseline after release.
 - Do not use browser-preview tools to verify UI changes unless the user explicitly asks. Describe the change and let the user check it through their normal `npm run dev` workflow.
 - In user-facing copy, call `MatrixOutput` the **LED output** or use its concrete form label: **LED String**, **LED Matrix**, **LED Ring**, **LED Corkscrew**, or **HUB75 Panel**. `MatrixOutput` remains the code identifier.
 - New nodes normally require: a `NODE_LIBRARY` entry, evaluator case, codegen case, help/description entry, and focused tests. Preserve preview/firmware parity.

@@ -39,7 +39,7 @@ vi.mock('../codeSandboxRuntime', async (importOriginal) => {
   }
 })
 
-import { evaluateGraph, evaluateGraphFull, evaluateScalar, pruneEvaluatorState, prunePoolBuffers, resetEvaluatorState, getEvaluatorMemoryStats, renderParticleBurst, PARTICLE_LIFE_MS } from '../graphEvaluator'
+import { evaluateGraph as evaluateGraphImpl, evaluateGraphFull as evaluateGraphFullImpl, evaluateScalar, pruneEvaluatorState, prunePoolBuffers, resetEvaluatorState, getEvaluatorMemoryStats, renderParticleBurst, PARTICLE_LIFE_MS } from '../graphEvaluator'
 import type { Frame, RGB } from '../graphEvaluator'
 import { waveSample, combineWaves } from '../wave'
 import { NODE_LIBRARY } from '../nodeLibrary'
@@ -62,6 +62,29 @@ function node(id: string, nodeType: string, category: string, props: Record<stri
 
 function edge(id: string, source: string, sh: string, target: string, th: string): StudioEdge {
   return { id, source, target, sourceHandle: sh, targetHandle: th } as unknown as StudioEdge
+}
+
+// Audio is the only graph-facing source in v1. Tests keep the compact
+// `node(..., 'MicInput')` fixture spelling, then expand it into one hidden
+// provider plus the Audio capability that owns the original wired id.
+function withAudioCapabilities(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
+  return nodes.flatMap((entry) => {
+    const directlyWired = edges.some((connection) => connection.source === entry.id)
+    if (!directlyWired || !['MicInput', 'LineInput'].includes(entry.data.nodeType)) return [entry]
+    const providerId = `${entry.id}-provider`
+    return [
+      { ...entry, id: providerId },
+      node(entry.id, 'Audio', 'input', { sourceId: providerId }),
+    ]
+  })
+}
+
+function evaluateGraph(...args: Parameters<typeof evaluateGraphImpl>): ReturnType<typeof evaluateGraphImpl> {
+  return evaluateGraphImpl(withAudioCapabilities(args[0], args[1]), ...args.slice(1) as Parameters<typeof evaluateGraphImpl> extends [unknown, ...infer R] ? R : never)
+}
+
+function evaluateGraphFull(...args: Parameters<typeof evaluateGraphFullImpl>): ReturnType<typeof evaluateGraphFullImpl> {
+  return evaluateGraphFullImpl(withAudioCapabilities(args[0], args[1]), ...args.slice(1) as Parameters<typeof evaluateGraphFullImpl> extends [unknown, ...infer R] ? R : never)
 }
 
 // The noise algorithms (field/simplex/noise3d/worley/plasma) are bundled into a

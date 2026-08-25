@@ -157,7 +157,7 @@ export default function MenuBar() {
   const stopAudio = useAudioStore((s) => s.stopAudio)
   const showPlaying = useShowPlayback((s) => s.playing)
   const micUnavailableMessage = !hasMicNode && !hasLineInputNode
-    ? 'Add a MicInput node to enable the microphone'
+    ? 'Add a microphone in the Hardware bench below to enable'
     : !selectedBoardProfile
       ? INMP441_NO_BOARD_MESSAGE
       : hasLineInputNode && !lineInputSupported

@@ -10,6 +10,14 @@ function node(id: string, nodeType: string, properties: Record<string, unknown> 
 const edge = (id: string, s: string, sh: string, t: string, th: string) =>
   ({ id, source: s, sourceHandle: sh, target: t, targetHandle: th } as unknown as StudioEdge)
 
+function audioSource(id: string, providerType: 'MicInput' | 'LineInput', properties: Record<string, unknown>): StudioNode[] {
+  const providerId = `${id}-provider`
+  return [
+    node(providerId, providerType, properties),
+    node(id, 'Audio', { sourceId: providerId }),
+  ]
+}
+
 describe('showGenerator', () => {
   const micBoard = node('board', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1' })
   const groups = {
@@ -331,8 +339,8 @@ describe('showGenerator', () => {
     // No mic → no on-device beat source → no particle overlay.
     expect(generateShowSketch(base, wire, groups)).not.toContain('void particleOverlay(')
 
-    // Mic present → the controller hosts _audioBeat and overlays sparks on the beat.
-    const withMic = [...base, micBoard, node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
+    // Microphone selected by Audio → the controller hosts _audioBeat and overlays sparks on the beat.
+    const withMic = [...base, micBoard, ...audioSource('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
     const cpp = generateShowSketch(withMic, wire, groups)
     expect(cpp).toContain('void particleOverlay(')
     expect(cpp).toContain('static uint8_t  burstStyle = 3;')
@@ -349,7 +357,7 @@ describe('showGenerator', () => {
     const base = [node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }), pmRandom, particleFx,
       node('out', 'MatrixOutput', { width: 8, height: 8 }),
       micBoard,
-      node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
+      ...audioSource('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
     const wire = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame'),
       edge('efx', 'pfx', 'particleFx', 'pm', 'particleFx'),
       edge('eb', 'pm', 'beat', 'pm', 'beat')]
@@ -359,14 +367,14 @@ describe('showGenerator', () => {
   })
 
   it('adds a beat-triggered early advance only when a beat is wired and a mic hosts _audioBeat', () => {
-    // Beat wired but no MicInput → no on-device beat source, so time-based only.
+    // Beat wired but Audio disabled → no on-device beat source, so time-based only.
     const noMic = [...nodes]
     const beatEdge = [...edges, edge('eb', 'pm', 'beat', 'pm', 'beat')]
     expect(generateShowSketch(noMic, beatEdge, groups)).not.toContain('_audioBeat &&')
 
-    // Beat wired + a MicInput on the canvas → the controller hosts the engine
+    // Beat wired + Audio selecting microphone hardware → the controller hosts the engine
     // and uses _audioBeat to advance early after minTime.
-    const withMic = [...nodes, micBoard, node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
+    const withMic = [...nodes, micBoard, ...audioSource('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
     expect(generateShowSketch(withMic, beatEdge, groups)).toContain('_audioBeat && now - phaseStart >=')
   })
 
@@ -473,11 +481,11 @@ describe('showGenerator', () => {
       node('pc', 'PatternCollection', { patternIds: ['ga'] }),
       node('pm', 'PatternMaster', { minTime: 4, maxTime: 12, transitionSec: 1 }),
       node('out', 'MatrixOutput', { width: 8, height: 8 }),
-      ...(withMic ? [micBoard, node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })] : []),
+      ...(withMic ? [micBoard, ...audioSource('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })] : []),
     ]
     const showEdges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
 
-    it('hosts the audio engine and makes patterns read the live mic when a MicInput is present', () => {
+    it('hosts the audio engine and makes patterns read the selected live microphone', () => {
       const cpp = generateShowSketch(showNodes(true), showEdges, audioGroups)
       expect(cpp).toContain('fl::audio::Config::CreateInmp441')
       expect(cpp).toContain('_audioProcessor = FastLED.add(config);')
@@ -494,7 +502,7 @@ describe('showGenerator', () => {
       const cpp = generateShowSketch([
         ...showNodes(false),
         micBoard,
-        node('line', 'LineInput', {
+        ...audioSource('line', 'LineInput', {
           i2sMclk: 15,
           i2sBclk: 16,
           i2sLrclk: 17,
@@ -509,7 +517,7 @@ describe('showGenerator', () => {
       expect(cpp).toContain('_sum += _audioSpectrum[_i];')
     })
 
-    it('keeps audio silent when there is no MicInput', () => {
+    it('keeps audio silent when Audio has no selected source', () => {
       const cpp = generateShowSketch(showNodes(false), showEdges, audioGroups)
       expect(cpp).not.toContain('driver/i2s.h')
       expect(cpp).not.toContain('updateAudio()')

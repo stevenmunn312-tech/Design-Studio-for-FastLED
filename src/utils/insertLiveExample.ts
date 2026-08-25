@@ -13,6 +13,8 @@ export interface LiveExampleNodeSpec {
   dx: number
   dy: number
   properties?: Record<string, unknown>
+  /** Concrete hardware provider created/reused behind a graph-facing Audio node. */
+  sourceProvider?: { type: 'MicInput' | 'LineInput'; properties?: Record<string, unknown> }
 }
 
 export interface LiveExampleEdgeSpec {
@@ -41,6 +43,7 @@ export function insertLiveExample(
   origin: { x: number; y: number },
 ): LiveExampleResult {
   const state = useGraphStore.getState()
+  let existingNodes = state.nodes
   const temporal = useGraphStore.temporal
   const { pastStates } = temporal.getState()
   temporal.setState({
@@ -54,14 +57,61 @@ export function insertLiveExample(
   const addedNodes: StudioNode[] = []
   const reusedNodeTypes: string[] = []
 
+  const providerIdByType = new Map<string, string>()
+  for (const spec of example.nodes) {
+    const provider = spec.sourceProvider
+    if (!provider || providerIdByType.has(provider.type)) continue
+    const existing = existingNodes.find((node) => node.data.nodeType === provider.type)
+    if (existing) {
+      providerIdByType.set(provider.type, existing.id)
+      reusedNodeTypes.push(provider.type)
+      continue
+    }
+    const definition = NODE_LIBRARY.find((entry) => entry.type === provider.type)
+    if (!definition) continue
+    const id = `help-${stamp}-${provider.type.toLowerCase()}-hardware`
+    providerIdByType.set(provider.type, id)
+    addedNodes.push({
+      id,
+      type: 'studioNode',
+      position: origin,
+      hidden: true,
+      selectable: false,
+      draggable: false,
+      data: {
+        label: definition.label,
+        nodeType: definition.type,
+        category: definition.category,
+        properties: resolveDefaultProperties(definition.type, {
+          ...definition.defaultProperties,
+          ...provider.properties,
+        }),
+        inputs: definition.inputs,
+        outputs: definition.outputs,
+      },
+    })
+  }
+
   for (const spec of example.nodes) {
     const definition = NODE_LIBRARY.find((entry) => entry.type === spec.type)
     if (!definition) continue
 
+    const providerId = spec.sourceProvider ? providerIdByType.get(spec.sourceProvider.type) : undefined
     const existingSingleton = SINGLETON_NODE_TYPES.has(spec.type)
-      ? state.nodes.find((node) => node.data.nodeType === spec.type)
+      ? existingNodes.find((node) => node.data.nodeType === spec.type)
       : undefined
     if (existingSingleton) {
+      if (spec.type === 'Audio' && providerId) {
+        existingNodes = existingNodes.map((node) => node.id === existingSingleton.id
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                properties: { ...node.data.properties, sourceId: providerId },
+              },
+            }
+          : node)
+      }
       nodeIdByKey.set(spec.key, existingSingleton.id)
       reusedNodeTypes.push(spec.type)
       continue
@@ -81,6 +131,7 @@ export function insertLiveExample(
         properties: resolveDefaultProperties(definition.type, {
           ...definition.defaultProperties,
           ...spec.properties,
+          ...(providerId ? { sourceId: providerId } : {}),
         }),
         inputs: definition.inputs,
         outputs: definition.outputs,
@@ -88,7 +139,7 @@ export function insertLiveExample(
     })
   }
 
-  const allNodes = [...state.nodes, ...addedNodes]
+  const allNodes = [...existingNodes, ...addedNodes]
   const addedEdges: StudioEdge[] = []
   const skippedConnections: LiveExampleEdgeSpec[] = []
 
@@ -138,7 +189,7 @@ export function insertLiveExample(
 
   return {
     nodeIds: [...nodeIdByKey.values()],
-    addedNodeIds: addedNodes.map((node) => node.id),
+    addedNodeIds: addedNodes.filter((node) => !node.hidden).map((node) => node.id),
     reusedNodeTypes,
     skippedConnections,
   }

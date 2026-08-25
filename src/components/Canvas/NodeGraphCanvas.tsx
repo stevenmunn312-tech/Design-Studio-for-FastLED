@@ -140,7 +140,13 @@ function NodeGraphCanvasInner() {
       reconnectNoodle: s.reconnectNoodle,
     })))
   const nodes = useMemo(
-    () => allNodes.filter((node) => !isHardwareLibraryHiddenNodeType(String((node.data as { nodeType?: string }).nodeType ?? '')) || node.data.nodeType !== 'Board'),
+    () => allNodes.filter((node) => {
+      const nodeType = String((node.data as { nodeType?: string }).nodeType ?? '')
+      // Audio is the graph-facing capability. Its concrete microphone and
+      // line-input providers stay in root hardware for wiring and codegen.
+      return !isHardwareLibraryHiddenNodeType(nodeType)
+        || !['Board', 'MicInput', 'LineInput'].includes(nodeType)
+    }),
     [allNodes],
   )
   const visibleNodeIds = useMemo(() => new Set(nodes.map((node) => node.id)), [nodes])
@@ -299,7 +305,7 @@ function NodeGraphCanvasInner() {
   }, [edges, nodes])
   const hasAudioGraph = useMemo(() => nodes.some((node) => {
     const data = node.data as { category?: string; nodeType?: string }
-    return data.category === 'audio' || data.nodeType === 'MicInput' || data.nodeType === 'LineInput'
+    return data.category === 'audio' || data.nodeType === 'Audio'
   }), [nodes])
   const hasShowGraph = useMemo(() => nodes.some((node) => (node.data as { category?: string }).category === 'show'), [nodes])
   const hasPatternGraph = useMemo(() => nodes.some((node) => (node.data as { category?: string }).category === 'pattern'), [nodes])

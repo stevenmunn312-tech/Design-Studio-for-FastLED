@@ -141,7 +141,7 @@ function QuickStartTab() {
           </div>
           <div className={styles.choiceCard}>
             <strong>Add audio response</strong>
-            <span>Connect Microphone to FFT Analyzer or Beat Detect, then wire the resulting values into a pattern, math, or composite node. Allow microphone access when prompted.</span>
+            <span>Add a microphone in Hardware, select it in Audio, then connect Audio to FFT Analyzer or Beat Detect. Wire the resulting values into a pattern, math, or composite node and allow microphone access when prompted.</span>
           </div>
           <div className={styles.choiceCard}>
             <strong>Find the right node</strong>
