@@ -48,6 +48,13 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- The SD-card player sketch can now drive a display, and reads the track's own
+  tags to fill it. A finished build takes a card of music the app has never
+  seen, and the player scrapes title, artist, album, genre, year and bitrate
+  from the files themselves; a file with no tags falls back to its name. Wires
+  from Music Player to a display resolve to what the player reads on device, and
+  a port fed from something the player sketch cannot evaluate is reported rather
+  than silently left blank.
 - The Music Player now reports what it is playing: title, artist, album,
   genre, year, status, elapsed, duration, remaining, progress, volume and
   bitrate. The player holds the music, so the player says what the music is —

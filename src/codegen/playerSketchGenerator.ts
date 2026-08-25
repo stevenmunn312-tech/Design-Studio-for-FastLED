@@ -13,6 +13,12 @@ import type { PatternRenderers } from './showGenerator'
 import { STUDIO_PALETTES, customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCatalog'
 import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp, psramBufferDecl, PSRAM_ALLOC_CPP } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
+import { PLAYER_SONG_INFO_CPP } from './playerSongInfoCpp'
+import type { PlayerDisplays } from './playerDisplays'
+import { infoDisplayHelpersCpp, infoDisplayGlobalCpp, infoDisplaySetupCpp, infoDisplayLoopCpp } from './infoDisplayCpp'
+import {
+  SEGMENT_DISPLAY_CPP_HELPERS, segmentDisplayGlobalCpp, segmentDisplaySetupCpp, segmentDisplayLoopCpp,
+} from './segmentDisplayCpp'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { audioOutputMode } from '../state/audioOutput'
 import { resolveShowTarget, type ShowTargetNode, type ShowTargetEdge } from '../state/showTarget'
@@ -189,6 +195,11 @@ const CONTROL_ACTIONS: PlayerControlAction[] = [
 /** Resolve the physical parts feeding the Player Controls bundle wired into
  * Pattern Master. `controlsIn` may chain mapper nodes; the downstream mapper
  * wins when both layers assign the same action. */
+/** A node id as a C identifier, matching what the normal generator emits. */
+function safePlayerId(id: string): string {
+  return id.replace(/[^A-Za-z0-9_]/g, '_')
+}
+
 export function playerControlsFromGraph(nodes: ConfigNode[], edges: ShowTargetEdge[]): PlayerControlsConfig {
   const byId = new Map(nodes.map((node) => [node.id, node]))
   const master = nodes.find((node) => node.data.nodeType === 'PatternMaster')
@@ -289,7 +300,7 @@ export function generatePlayerSketch(
   // in /music" can play a song left over from an earlier session — paired with
   // that song's show, which makes the mismatch look like a sync bug rather
   // than the wrong file.
-  opts: { audioEnvelope?: boolean; decoderTap?: boolean; preferredTrack?: string; genericPlayer?: boolean; psramAllowed?: boolean; controls?: PlayerControlsConfig; particleFx?: PlayerParticlesConfig | null } = {},
+  opts: { audioEnvelope?: boolean; decoderTap?: boolean; preferredTrack?: string; genericPlayer?: boolean; psramAllowed?: boolean; controls?: PlayerControlsConfig; particleFx?: PlayerParticlesConfig | null; displays?: PlayerDisplays } = {},
 ): string {
   const raw = { ...DEFAULTS, ...cfg }
   const c = {
@@ -746,6 +757,80 @@ ${controlServiceLines}
 }
 ` : ''
 
+  /*
+   * Displays in the player sketch.
+   *
+   * The panel on a finished build is fed by the player rather than by a graph
+   * walk: this sketch is a template, and the thing it knows about is the track
+   * it is playing. `playerDisplaysFromGraph` has already turned each wire from
+   * Music Player into the expression that reads it here, so the same emitters
+   * the normal sketch uses can draw the same layouts.
+   */
+  const displays = opts.displays ?? { info: [], segment: [], unresolved: [] }
+  const hasInfoDisplays = displays.info.length > 0
+  const hasSegmentDisplays = displays.segment.length > 0
+  const hasDisplays = hasInfoDisplays || hasSegmentDisplays
+
+  const infoEmits = displays.info.map((display) => ({
+    id: safePlayerId(display.id),
+    csPin: display.csPin,
+    dcPin: display.dcPin,
+    resetPin: display.resetPin,
+    sckPin: display.sckPin,
+    mosiPin: display.mosiPin,
+    columnOffset: display.columnOffset,
+    segmentRemap: display.segmentRemap,
+    comScan: display.comScan,
+    layout: display.layout,
+    enabledExpr: display.enabled ? 'true' : 'false',
+    titleExpr: display.sources.title ?? null,
+    line2Expr: display.sources.line2 ?? null,
+    valueExpr: display.sources.value ?? '0.0f',
+    progressExpr: display.sources.progress ?? '0.0f',
+    playingExpr: display.sources.playing ?? 'false',
+    volumeExpr: display.sources.volume ?? '0.0f',
+    durationExpr: display.sources.duration ?? 'songDurationSec()',
+    dateTimeExpr: null,
+    indicatorExprs: [1, 2, 3, 4].map((i) => display.sources[`indicator${i}`] ?? 'false'),
+  }))
+
+  const segmentEmits = displays.segment.map((display) => ({
+    id: safePlayerId(display.id),
+    controller: display.controller,
+    digits: display.digits,
+    clkPin: display.clkPin,
+    dataPin: display.dataPin,
+    csPin: display.csPin,
+    brightness: display.brightness,
+    mode: display.mode,
+    decimals: display.decimals,
+    leadingZero: display.leadingZero,
+    showColon: display.showColon,
+    valueExpr: display.sources.value ?? '0.0f',
+    dateTimeExpr: null,
+    enabledExpr: display.enabled ? 'true' : 'false',
+  }))
+
+  const displayHelpersCpp = [
+    hasDisplays ? PLAYER_SONG_INFO_CPP : '',
+    hasInfoDisplays ? infoDisplayHelpersCpp() : '',
+    hasInfoDisplays ? infoEmits.map(infoDisplayGlobalCpp).join('\n') : '',
+    hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_HELPERS : '',
+    hasSegmentDisplays ? segmentEmits.map(segmentDisplayGlobalCpp).join('\n') : '',
+  ].filter(Boolean).join('\n')
+
+  const songOpen = (nameExpr: string) => (hasDisplays ? `songResetFromFile(${nameExpr});` : '')
+
+  const displaySetupCpp = [
+    ...infoEmits.flatMap(infoDisplaySetupCpp),
+    ...segmentEmits.flatMap(segmentDisplaySetupCpp),
+  ].join('\n')
+
+  const displayLoopCpp = [
+    ...infoEmits.flatMap(infoDisplayLoopCpp),
+    ...segmentEmits.flatMap(segmentDisplayLoopCpp),
+  ].join('\n')
+
   return `// Design Studio for FastLED — Music-Sync Player${collection ? ' (collection show)' : ''}
 // Generated by Design Studio for FastLED. Requires:
 //   - ESP32-audioI2S  (schreibfaul1/ESP32-audioI2S on GitHub)
@@ -843,6 +928,8 @@ void audio_eof_mp3(const char* info) {
   audioEnded = true;
   Serial.printf("[audio] EOF %s\\n", info);
 }
+
+${displayHelpersCpp}
 
 ShowEvent* showEvents = nullptr;
 uint32_t   eventCount = 0;
@@ -1139,6 +1226,7 @@ ${genericPlayer ? `
       if ((name.endsWith(".mp3") || name.endsWith(".MP3")) && seen++ >= genericTrackIndex) {
         String path = "/music/" + name;
         if (audio.connecttoFS(SD, path.c_str())) {
+          ${songOpen('name.c_str()')}
           showDurationMs = 0;
           eventCount = 0;
           eventIdx = 0;
@@ -1163,6 +1251,7 @@ ${genericPlayer ? `
     if (SD.exists(mp3.c_str()) && SD.exists(show.c_str())) {
       loadShowFile(show.c_str());
       if (audio.connecttoFS(SD, mp3.c_str())) {
+        ${songOpen('PREFERRED_TRACK')}
         Serial.printf("Playing: %s\\n", mp3.c_str());
         primeAudioDecoder();
         started = true;
@@ -1187,6 +1276,7 @@ ${genericPlayer ? `
         if (SD.exists(showPath.c_str())) {
           loadShowFile(showPath.c_str());
           if (audio.connecttoFS(SD, ("/music/" + name).c_str())) {
+            ${songOpen('name.c_str()')}
             Serial.printf("Playing (fallback): %s\\n", name.c_str());
             primeAudioDecoder();
             started = true;
@@ -1417,6 +1507,7 @@ ${decoderTap ? '  setupDecoderTap();   // decoded PCM → FastLED audio analysis
   ${internalDac ? '' : 'audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);'}
   audio.setVolume(${c.maxVolume});
 
+${displaySetupCpp ? displaySetupCpp + '\n' : ''}
   if (sdMounted) startPlayback();
 }
 
@@ -1433,7 +1524,7 @@ void loop() {
   if (provTransferring) return;
 
   sdRetryMount();
-${hasControls ? '  servicePlayerControls();\n' : ''}
+${hasControls ? '  servicePlayerControls();\n' : ''}${displayLoopCpp ? displayLoopCpp + '\n' : ''}
 
   // Heartbeat so a serial monitor can tell "still running, just quiet" apart
   // from "hung" — printed before audio.loop() so it keeps ticking even if

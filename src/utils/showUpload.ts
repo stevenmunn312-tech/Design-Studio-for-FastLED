@@ -13,6 +13,7 @@ import type { StudioNode, StudioNodeData } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import type { MusicEntry } from '../state/musicStore'
 import { generatePlayerSketch, playerConfigFromGraph, playerControlsFromGraph, playerParticlesFromGraph } from '../codegen/playerSketchGenerator'
+import { playerDisplaysFromGraph } from '../codegen/playerDisplays'
 import { buildPatternRenderers, patternRenderersUseAudio } from '../codegen/showGenerator'
 import { showFileToBinary } from '../codegen/performanceGenerator'
 import type { ShowUploadFile } from './backendClient'
@@ -133,6 +134,9 @@ export function buildShowPlayer(
     genericPlayer: opts.genericPlayer,
     psramAllowed: opts.psramAllowed,
     controls: playerControlsFromGraph(nodes, edges),
+    // The panel on a finished build is fed by the player itself, so each wire
+    // from Music Player is resolved to the expression that reads it on device.
+    displays: playerDisplaysFromGraph(nodes, edges),
     particleFx,
   })
 }
