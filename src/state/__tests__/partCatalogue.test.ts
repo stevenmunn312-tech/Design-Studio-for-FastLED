@@ -53,6 +53,16 @@ describe('part catalogue', () => {
     expect(partById('st7789-tft-240x240')!.display!.touchController).toBeNull()
   })
 
+  // The category is a label; the spec is the contract. They must agree, or a
+  // part is filed as a display the driver layer cannot drive, or driven as one
+  // the menu never offers.
+  it('files every display under the display category and vice versa', () => {
+    for (const entry of Object.values(PART_CATALOGUE)) {
+      expect(entry.display !== undefined, entry.partId).toBe(entry.category === 'display')
+    }
+    expect(catalogueDisplays().every((entry) => entry.category === 'display')).toBe(true)
+  })
+
   // Derived from the asset declaring a spec, not from a category string, so the
   // two cannot drift apart.
   it('tells a display from every other part', () => {

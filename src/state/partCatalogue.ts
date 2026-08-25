@@ -16,7 +16,7 @@ import { PART_CATALOGUE_DATA } from '../build/generated/partCatalogueData'
 
 export type PartCategory =
   | 'microphone' | 'amplifier' | 'storage' | 'led-output'
-  | 'input-control' | 'audio-source' | 'support'
+  | 'input-control' | 'audio-source' | 'support' | 'display'
 
 export interface PartRenderAsset {
   /** Path relative to the site root, e.g. `parts/max98357a-i2s-amplifier.webp`. */

@@ -154,7 +154,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
   "ili9341-xpt2046-touch-320x240": {
     "partId": "ili9341-xpt2046-touch-320x240",
     "label": "ILI9341 2.8-inch 320x240 TFT with XPT2046 touch",
-    "category": "support",
+    "category": "display",
     "dimensionsMm": {
       "width": 80.0,
       "height": 50.0
@@ -519,7 +519,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
   "ssd1306-oled-128x64": {
     "partId": "ssd1306-oled-128x64",
     "label": "SSD1306 0.96-inch 128x64 OLED",
-    "category": "support",
+    "category": "display",
     "dimensionsMm": {
       "width": 29.2,
       "height": 26.7
@@ -560,7 +560,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
   "st7789-tft-240x240": {
     "partId": "st7789-tft-240x240",
     "label": "ST7789 1.3-inch 240x240 TFT",
-    "category": "support",
+    "category": "display",
     "dimensionsMm": {
       "width": 35.8,
       "height": 35.8
@@ -605,7 +605,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
   "tm1637-4digit-display": {
     "partId": "tm1637-4digit-display",
     "label": "TM1637 4-digit 7-segment display",
-    "category": "support",
+    "category": "display",
     "dimensionsMm": {
       "width": 42.0,
       "height": 24.0

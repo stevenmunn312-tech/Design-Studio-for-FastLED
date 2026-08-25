@@ -43,7 +43,7 @@ WEBP_QUALITY = 82
 
 CATEGORIES = {
     "microphone", "amplifier", "storage", "led-output",
-    "input-control", "audio-source", "support",
+    "input-control", "audio-source", "support", "display",
 }
 
 
