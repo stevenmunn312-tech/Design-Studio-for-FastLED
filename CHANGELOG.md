@@ -9,6 +9,15 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Corrected the pads the Build Diagram draws on several modules. Pad names
+  were hardcoded per part category and had drifted from the hardware: a DS3231
+  was drawn with four pads reading 3V3/SDA/SCL/GND where the module has six
+  reading 32K/SQW/SCL/SDA/VCC/GND, so its data lines were labelled the wrong
+  way round and its supply wire was drawn to the 32K pad; an LDR was drawn
+  VCC/SIG/GND where the board is silkscreened S/VCC/GND, putting its supply on
+  the signal pad. Pads, supply, ground and each signal now come from the
+  catalogue's measured header, so the drawing matches the board in front of
+  you and a new module is correct the day its asset lands.
 - The Build Diagram draws each part as the exact module it is, resolved from
   the part the item names rather than a table keyed by category. Four audio
   modules shared one entry and were all drawn as a MAX98357A; displays had no

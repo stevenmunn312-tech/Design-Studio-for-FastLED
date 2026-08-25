@@ -273,55 +273,67 @@ function isThreeVoltSd(item: HardwareManifestItem) {
  * the hardware render workflow in CLAUDE.md), so swapping the module on the
  * bench redraws the right pads for free.
  */
-function audioModulePads(item: HardwareManifestItem): string[] {
+/*
+ * Every module's pads come from the part catalogue, not from arrays written out
+ * here.
+ *
+ * This started as an audio-only rule, for the honest reason that four amplifier
+ * modules agree on almost nothing — a MAX98357A has seven pads, a PAM8403
+ * eleven, a PCM5102A six, a UDA1334A nine, in four different orders. That is
+ * true of every other family too, and the hardcoded arrays left behind were
+ * wrong: a DS3231 was drawn with four pads reading 3V3/SDA/SCL/GND when the
+ * module has six reading 32K/SQW/SCL/SDA/VCC/GND, so its data lines were
+ * labelled the wrong way round and its supply pad was drawn on 32K. An LDR was
+ * drawn VCC/SIG/GND when the board is silkscreened S/VCC/GND, putting its
+ * signal on the supply pad.
+ *
+ * The catalogue carries each module's `pinLabelsLeftToRight` measured off the
+ * part, so deriving from it fixes those and means a new module draws correctly
+ * the day its asset lands.
+ */
+const UNCATALOGUED_PADS: Record<string, string[]> = {
+  // The three modules that predate the catalogue and have no `part.json` yet.
+  'button-input': ['VCC', 'SIG', 'GND'],
+  'pot-input': ['VCC', 'SIG', 'GND'],
+  'encoder-input': ['VCC', 'A', 'B', 'SW', 'GND'],
+}
+
+function peripheralPads(item: HardwareManifestItem): string[] {
   const entry = partById(String(item.facts.partId ?? ''))
-  return entry?.pinLabelsLeftToRight?.length ? entry.pinLabelsLeftToRight : ['VCC', 'SIG', 'GND']
+  if (entry?.pinLabelsLeftToRight?.length) return entry.pinLabelsLeftToRight
+  return UNCATALOGUED_PADS[item.kind] ?? ['VCC', 'SIG', 'GND']
+}
+
+function audioModulePads(item: HardwareManifestItem): string[] {
+  return peripheralPads(item)
 }
 
 export function peripheralPadCount(item: HardwareManifestItem) {
-  if (item.kind === 'amplifier' || item.kind === 'line-input') return audioModulePads(item).length
-  return item.kind === 'sd-card'
-    ? isThreeVoltSd(item) ? 7 : 6
-    : item.kind === 'encoder-input' ? 5 : item.kind === 'rtc-input' ? 4 : 3
+  return peripheralPads(item).length
 }
 
 /** Silkscreen names on the module renders, indexed the same as the pads. */
 export function peripheralPadLabel(item: HardwareManifestItem, padIndex: number) {
-  if (item.kind === 'amplifier' || item.kind === 'line-input') {
-    const pads = audioModulePads(item)
-    return pads[Math.min(Math.max(padIndex, 0), pads.length - 1)]
-  }
-  const labels = item.kind === 'sd-card'
-    ? isThreeVoltSd(item)
-      ? ['CD', 'MISO', 'GND', 'SCK', '3V3', 'MOSI', 'CS']
-      : ['GND', 'VCC', 'MISO', 'MOSI', 'SCK', 'CS']
-    : item.kind === 'encoder-input'
-    ? ['VCC', 'A', 'B', 'SW', 'GND']
-    : item.kind === 'rtc-input'
-      ? ['3V3', 'SDA', 'SCL', 'GND']
-    : ['VCC', 'SIG', 'GND']
-  return labels[Math.min(Math.max(padIndex, 0), labels.length - 1)]
+  const pads = peripheralPads(item)
+  return pads[Math.min(Math.max(padIndex, 0), pads.length - 1)]
 }
 
-// Supply and ground are found by name on an audio module — every catalogued one
-// labels them, and no two put them in the same place.
-const AMP_POWER_LABELS = ['VIN', '+5V', 'VCC', '5V']
-const AMP_GROUND_LABEL = 'GND'
+/** Supply and ground, found by the name printed beside the pad. */
+const POWER_PAD_LABELS = ['VIN', '+5V', '5V', 'VCC', '3V3', '3V', 'V+']
+const GROUND_PAD_LABELS = ['GND', 'G', '0V']
 
-function audioModulePadIndexByLabel(item: HardwareManifestItem, wanted: readonly string[]) {
-  const pads = audioModulePads(item)
-  const index = pads.findIndex((label) => wanted.includes(label.toUpperCase()))
-  return index >= 0 ? index : 0
+function padIndexByLabel(item: HardwareManifestItem, wanted: readonly string[], fallback: number) {
+  const pads = peripheralPads(item).map((label) => label.toUpperCase())
+  const index = pads.findIndex((label) => wanted.includes(label))
+  return index >= 0 ? index : fallback
 }
 
 export function peripheralPowerPadIndex(item: HardwareManifestItem) {
-  if (item.kind === 'amplifier' || item.kind === 'line-input') return audioModulePadIndexByLabel(item, AMP_POWER_LABELS)
-  return item.kind === 'sd-card' ? (isThreeVoltSd(item) ? 4 : 1) : 0
+  return padIndexByLabel(item, POWER_PAD_LABELS, 0)
 }
 
 export function peripheralGroundPadIndex(item: HardwareManifestItem) {
-  if (item.kind === 'amplifier' || item.kind === 'line-input') return audioModulePadIndexByLabel(item, [AMP_GROUND_LABEL])
-  return item.kind === 'sd-card' ? (isThreeVoltSd(item) ? 2 : 0) : peripheralPadCount(item) - 1
+  return padIndexByLabel(item, GROUND_PAD_LABELS, peripheralPadCount(item) - 1)
 }
 
 /** Manifest order for SD is CS, SCK, MOSI, MISO; the two module variants put
@@ -345,9 +357,40 @@ export function peripheralSignalPadIndex(item: HardwareManifestItem, signalIndex
     const index = pads.findIndex((label) => names.includes(label))
     return index >= 0 ? index : Math.min(signalIndex + 1, pads.length - 1)
   }
-  if (item.kind !== 'sd-card') return signalIndex + 1
-  const order = isThreeVoltSd(item) ? [6, 3, 5, 1] : [5, 4, 3, 2]
-  return order[Math.min(Math.max(signalIndex, 0), order.length - 1)]
+  /*
+   * Everything else finds its pad by the name printed beside it, using the
+   * order the manifest pushed the pins in. A module labels a line with the
+   * name its silkscreen uses, and those differ — a microSD breakout prints
+   * DO/DI where the module prints MISO/MOSI, an OLED prints CLK where the
+   * property is called sckPin.
+   */
+  const pads = peripheralPads(item).map((label) => label.toUpperCase())
+  const wanted = SIGNAL_PAD_NAMES[item.kind]?.[signalIndex]
+  if (wanted) {
+    const index = pads.findIndex((label) => wanted.includes(label))
+    if (index >= 0) return index
+  }
+  // No name matched: step past the supply pad rather than landing on it.
+  const power = peripheralPowerPadIndex(item)
+  const guess = signalIndex + (power === 0 ? 1 : 0)
+  return Math.min(Math.max(guess, 0), pads.length - 1)
+}
+
+/**
+ * Silkscreen names for each wired role, in the order `collectPinUses` pushes
+ * them. Kept beside the layout because it maps a *property* to what a board
+ * prints, which is a drawing concern rather than a wiring one.
+ */
+const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>> = {
+  'sd-card': [['CS'], ['SCK', 'CLK'], ['MOSI', 'DI'], ['MISO', 'DO']],
+  'info-display': [['CS'], ['DC'], ['RES', 'RST', 'RESET'], ['CLK', 'SCK', 'D0'], ['MOSI', 'DATA', 'DIN', 'D1']],
+  'segment-display': [['CLK', 'SCK'], ['DIO', 'DIN', 'DATA'], ['CS', 'LOAD']],
+  'rtc-input': [['SDA'], ['SCL']],
+  'motion-input': [['OUT', 'SIG']],
+  'light-input': [['S', 'SIG', 'OUT', 'AO', 'DO']],
+  'button-input': [['SIG']],
+  'pot-input': [['SIG']],
+  'encoder-input': [['A'], ['B'], ['SW']],
 }
 
 export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' {
@@ -355,6 +398,12 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' {
   // its supply, and 3.3 V would make it quiet rather than broken — the kind of
   // wrong that reads as a bad speaker.
   if (item.kind === 'amplifier' || item.kind === 'line-input') return 'v5'
+  // A module whose supply pad is printed 3V3 or 3V is asking for that rail;
+  // one printed VIN or 5V is asking for the other. The bare 3.3 V microSD
+  // breakout is the case that made this matter — feeding it 5 V destroys cards.
+  const supply = peripheralPadLabel(item, peripheralPowerPadIndex(item)).toUpperCase()
+  if (supply === '3V3' || supply === '3V') return 'v3v3'
+  if (supply === 'VIN' || supply === '5V' || supply === '+5V') return 'v5'
   return item.kind === 'sd-card' && !isThreeVoltSd(item) ? 'v5' : 'v3v3'
 }
 
