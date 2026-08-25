@@ -63,6 +63,7 @@ Data flows from the React Flow graph through Zustand, graph evaluation, preview/
 - Imported workspaces and patterns cross explicit trust boundaries before preview execution or external I/O.
 - Hardware belongs to the root graph and must be queried through root-graph selectors, not the currently open pattern group.
 - Persisted project and pattern formats are compatibility-sensitive on the public-beta line.
+- GPIO pin-collision checks are bus-aware, not a flat duplicate-claim check. `src/state/busTopology.ts` declares each pin's bus kind and role in `BUS_ASSIGNMENTS` and derives bus *instance* from the pins themselves; both `validateGraph.ts` and the Graph Health diagnostics call its one `findPinCollisions` helper. A part that claims GPIO pins needs a row there.
 
 <!-- END AUTO-MANAGED -->
 
