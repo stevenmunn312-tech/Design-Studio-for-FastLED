@@ -1299,7 +1299,7 @@ function ipAddressExpr(value: [number, number, number, number] | null): string {
  * Show-pipeline nodes have no `emit()` case here *by design* — they are handled
  * by a different generator, not missing from this one. Without this table the
  * `default:` branch below labelled them "not yet supported in code gen", which
- * two shipped starter templates (Generative Show, Music-synced SD Show) then
+ * two shipped starter templates (Music Player, Music-synced SD Show) then
  * baked into their exported `.ino` — telling users a hardware-validated
  * workflow was unfinished. Say where each one is actually handled instead.
  */

@@ -50,6 +50,49 @@ describe('starterTemplates', () => {
       .toEqual(['audio-spectrum'])
   })
 
+  it('builds the Music Player starter shown in the start gallery', () => {
+    const template = STARTER_TEMPLATES.find((entry) => entry.id === 'generative-show')!
+    expect(template.name).toBe('Music Player')
+
+    const { nodes, edges } = template.build()
+    const nodeByType = new Map(nodes.map((node) => [(node.data as StudioNodeData).nodeType, node]))
+    expect([...nodeByType.keys()]).toEqual(expect.arrayContaining([
+      'Audio',
+      'PlayerControls',
+      'PatternCollection',
+      'PatternMaster',
+      'MatrixOutput',
+      'Comment',
+    ]))
+
+    const comment = nodeByType.get('Comment')!
+    expect((comment.data as StudioNodeData).properties.text).toBe(
+      'BUILD A SHOW \nSpecify your board, audio source and music player hardware from the hardware bench below then add some patterns into the Pattern Collection.\nCheck that you have the correct GPIO\'s for your hardware then use the capacity checker to ensure the sketch will fit on your board and upload.',
+    )
+
+    const expectedEdges = [
+      ['Audio', 'audio', 'PatternMaster', 'audio'],
+      ['PlayerControls', 'controls', 'PatternMaster', 'controls'],
+      ['PatternCollection', 'patternset', 'PatternMaster', 'patternset'],
+      ['PatternMaster', 'frame', 'MatrixOutput', 'frame'],
+    ]
+    expect(edges.map((edge) => {
+      const source = nodes.find((node) => node.id === edge.source)!
+      const target = nodes.find((node) => node.id === edge.target)!
+      return [
+        (source.data as StudioNodeData).nodeType,
+        edge.sourceHandle,
+        (target.data as StudioNodeData).nodeType,
+        edge.targetHandle,
+      ]
+    })).toEqual(expectedEdges)
+
+    const { errors } = validateGraph(nodes, edges)
+    expect(errors).toEqual([
+      'Audio has no attached source — add a microphone, line-in ADC, or SD music player, or choose an available source',
+    ])
+  })
+
   it('puts every part the SD player drives on the bench, and wires the show to one of them', () => {
     // The player is a whole firmware for a whole board: it reads the card,
     // turns the song into sound, and drives the LEDs. If a part is not on the
@@ -96,11 +139,15 @@ describe('starterTemplates', () => {
         expect(portsCompatible(outPort!.dataType, inPort!.dataType)).toBe(true)
       }
 
-      // Loading a template shouldn't trip graph validation's hard errors
-      // (missing MatrixOutput, unconnected Frame input, etc). Warnings are
-      // fine — e.g. the show pipeline's Pattern Collection starts empty.
+      // Loading a template shouldn't trip unexpected graph validation errors
+      // (missing MatrixOutput, unconnected Frame input, etc). Music Player is
+      // deliberately incomplete until its audio hardware is added on the bench.
+      // Warnings are fine — e.g. its Pattern Collection also starts empty.
       const { errors } = validateGraph(nodes, edges)
-      expect(errors).toEqual([])
+      const unexpectedErrors = template.id === 'generative-show'
+        ? errors.filter((error) => !error.startsWith('Audio has no attached source'))
+        : errors
+      expect(unexpectedErrors).toEqual([])
     })
   }
 })
