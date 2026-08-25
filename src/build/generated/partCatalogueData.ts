@@ -256,6 +256,44 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 26.0
     }
   },
+  "max7219-8digit-7segment": {
+    "partId": "max7219-8digit-7segment",
+    "label": "MAX7219 8-digit 7-segment display",
+    "category": "display",
+    "dimensionsMm": {
+      "width": 82.0,
+      "height": 15.0
+    },
+    "manufacturer": "generic",
+    "logicVoltage": "5 V",
+    "pinLabelsLeftToRight": [
+      "VCC",
+      "GND",
+      "DIN",
+      "CS",
+      "CLK"
+    ],
+    "notes": [
+      "Common 82 mm eight-digit module built from two four-digit red common-cathode packages.",
+      "MAX7219 uses DIN, CLK and CS/LOAD; the opposite five-pin header provides DOUT for daisy chaining.",
+      "The illuminated proof reads 12345678 so every digit position is visible."
+    ],
+    "display": {
+      "controller": "MAX7219",
+      "resolutionPx": [
+        8,
+        7
+      ],
+      "interface": "SPI-like DIN + CLK + CS/LOAD",
+      "touchController": null
+    },
+    "render": {
+      "file": "parts/max7219-8digit-7segment.webp",
+      "widthPx": 992,
+      "heightPx": 188,
+      "pxPerMm": 12.0
+    }
+  },
   "max98357a-i2s-amplifier": {
     "partId": "max98357a-i2s-amplifier",
     "label": "MAX98357A I2S amplifier",
@@ -469,6 +507,43 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 408,
       "heightPx": 310,
       "pxPerMm": 12.0
+    }
+  },
+  "sh1106-oled-128x64": {
+    "partId": "sh1106-oled-128x64",
+    "label": "SH1106 1.3-inch 128x64 OLED",
+    "category": "display",
+    "dimensionsMm": {
+      "width": 35.4,
+      "height": 33.5
+    },
+    "manufacturer": "DLC Display / generic module form",
+    "logicVoltage": "3.3 V / 5 V",
+    "pinLabelsLeftToRight": [
+      "GND",
+      "VCC",
+      "SCL",
+      "SDA"
+    ],
+    "notes": [
+      "1.3-inch white SH1106G OLED module with a four-pin I2C interface.",
+      "The 29.42 x 14.70 mm active area distinguishes this larger panel from the 0.96-inch SSD1306 asset.",
+      "The proof face uses the same app information-display language as SSD1306 while retaining the larger glass and board."
+    ],
+    "display": {
+      "controller": "SH1106G",
+      "resolutionPx": [
+        128,
+        64
+      ],
+      "interface": "I2C",
+      "touchController": null
+    },
+    "render": {
+      "file": "parts/sh1106-oled-128x64.webp",
+      "widthPx": 433,
+      "heightPx": 410,
+      "pxPerMm": 12.006
     }
   },
   "sn74ahct125n-dip14": {

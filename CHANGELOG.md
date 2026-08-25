@@ -9,6 +9,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Added the MAX7219 8-digit segment and SH1106 1.3-inch OLED display parts
+  from verified assets. A part manifest that declares a board profile is now
+  skipped by the part importer and reported, so an integrated display board is
+  not offered as a module to attach to another board.
 - Added the Segment Display part and node: a TM1637 four-digit module added
   from the hardware workbench, showing a number, an HH:MM clock, or a position
   in a collection. Preview and firmware render the digits through one shared

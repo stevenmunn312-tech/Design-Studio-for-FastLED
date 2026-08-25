@@ -63,17 +63,26 @@ physical-hardware tests.
 
 The first row in each family is the reference device that establishes the
 driver contract. Closely related controllers follow only after the reference
-device passes on hardware.
+device passes on hardware — which is why the OLED family leads with the SH1106
+rather than the more commonly cited SSD1306: a contract meant to be proven on
+hardware should be built against the hardware that exists.
+
+Two rows changed after the modules were ordered. The 2.4-inch touch TFT is an
+ST7789V rather than an ILI9341, so one ST7789 driver now covers both it and the
+1.3-inch 240×240 module, and ILI9341 reaches the bench only inside the CYD
+board. Note that 2.4-inch 320×240 SPI modules are commonly ILI9341 and are
+sometimes mislabelled, so confirm the controller by reading its ID register
+before building against it.
 
 | Priority | Exact controller/module family | Proposed node | Bus / input | Primary use cases |
 | --- | --- | --- | --- | --- |
 | 1 | TM1637 4-digit 7-segment module, colon variant | `SegmentDisplay` | CLK + DIO | BPM, clock, countdown, score, active-pattern number, debug value |
 | 2 | MAX7219 8-digit 7-segment module | `SegmentDisplay` | SPI-like CLK/DIN/CS | Longer counters, elapsed/duration display, channel/value monitor |
-| 3 | SSD1306 128×64 I²C OLED | `InfoDisplay` | I²C | Song title and progress, clock/date, current pattern, sensor/status readout |
-| 4 | SH1106 128×64 I²C OLED | `InfoDisplay` | I²C | Same layouts as SSD1306 on the other common 1.3-inch controller |
+| 3 | SH1106 128×64 I²C OLED (1.3-inch) | `InfoDisplay` | I²C | Song title and progress, clock/date, current pattern, sensor/status readout. Leads the OLED slice because it is the device on the bench |
+| 4 | SSD1306 128×64 I²C OLED (0.96-inch) | `InfoDisplay` | I²C | Same layouts through the same 1-bit surface contract, once the module arrives |
 | 5 | ST7789 240×240 SPI TFT, no touch | `TransportDisplay` | SPI | Colour now-playing screen, album/pattern art, status dashboard, fixed gauges |
-| 6 | ILI9341 320×240 SPI TFT + XPT2046 touch | `TransportDisplay`, then `Display` | Shared SPI with separate CS lines | Fixed play/pause/previous/next/volume UI; reference target for the custom UI builder |
-| 7 | ESP32-2432S028R integrated ILI9341/XPT2046 board profile | `Display` | Board-integrated | Low-cost end-to-end custom UI reference and repeatable validation target |
+| 6 | ST7789V 2.4-inch 320×240 SPI TFT + XPT2046 touch + microSD | `TransportDisplay`, then `Display` | Shared SPI with separate CS lines | Fixed play/pause/previous/next/volume UI; reference target for the custom UI builder |
+| 7 | ESP32-2432S028R integrated ILI9341/XPT2046 board profile | `Display` | Board-integrated | Low-cost end-to-end custom UI reference and repeatable validation target. The only ILI9341 on the bench, and a board rather than a part |
 | Later | GC9A01 240×240 round TFT | `TransportDisplay` / `Display` | SPI, module-specific touch if present | Circular gauge, clock face, compact effect controller |
 | Later | ST7796 480×320 touch TFT | `Display` | SPI/parallel, exact module dependent | Larger custom control surface after RAM and refresh budgets are proven |
 
@@ -294,8 +303,11 @@ widgets, hover state, or physical pins.
 
 ### Phase 4 — `InfoDisplay` and pattern browser
 
-- [ ] Implement SSD1306 128×64 I²C first, then SH1106 through the same 1-bit
-  surface contract.
+- [ ] Implement SH1106 128×64 I²C first, then SSD1306 through the same 1-bit
+  surface contract. The SH1106 carries 132×64 of controller RAM behind a
+  128×64 panel, so its 2-column offset belongs in the contract rather than
+  being fixed up per device — driving one as the other shifts the image two
+  pixels and wraps rubbish down the edge, which reads as a wiring fault.
 - [ ] Reuse the bitmap glyph data in `src/state/font.ts` for text rasterisation
   so browser and firmware layouts share glyphs, alignment, spacing, truncation,
   and unsupported-character behaviour.
@@ -320,7 +332,8 @@ widgets, hover state, or physical pins.
 - [ ] Establish a panel adapter with ST7789 240×240 SPI, partial draw buffers,
   rotation, colour order, backlight, and deterministic refresh scheduling.
 - [ ] Implement the fixed Now Playing and Show Status layouts without touch.
-- [ ] Add ILI9341 320×240 and XPT2046 touch as the first interactive target.
+- [ ] Add the ST7789V 320×240 module and its XPT2046 touch as the first
+      interactive target.
   Display and touch may share SPI data/clock lines but use separate CS and
   transactions.
 - [ ] Route fixed transport actions and status through `TransportControl` so

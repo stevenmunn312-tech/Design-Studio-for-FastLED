@@ -26,17 +26,43 @@ describe('part catalogue', () => {
     expect(partById('inmp441-i2s-microphone')!.dimensionsMm).toEqual({ width: 15, height: 10.5 })
   })
 
-  it('carries the four launch displays with their driver contracts', () => {
+  // Not an exhaustive census: the catalogue grows as assets are modelled, and a
+  // list that churns on every one stops being read. These are the driver
+  // contracts the display slices are built against.
+  it('carries each modelled display with its driver contract', () => {
     const displays = Object.fromEntries(catalogueDisplays().map((entry) => [entry.partId, entry.display!]))
-    expect(Object.keys(displays).sort()).toEqual([
-      'ili9341-xpt2046-touch-320x240',
-      'ssd1306-oled-128x64',
-      'st7789-tft-240x240',
-      'tm1637-4digit-display',
-    ])
-    expect(displays['ssd1306-oled-128x64']).toMatchObject({ controller: 'SSD1306', resolutionPx: [128, 64] })
-    expect(displays['st7789-tft-240x240']).toMatchObject({ controller: 'ST7789', resolutionPx: [240, 240] })
     expect(displays['tm1637-4digit-display']).toMatchObject({ controller: 'TM1637', resolutionPx: [4, 7] })
+    expect(displays['max7219-8digit-7segment']).toMatchObject({ controller: 'MAX7219', resolutionPx: [8, 7] })
+    expect(displays['ssd1306-oled-128x64']).toMatchObject({ controller: 'SSD1306', resolutionPx: [128, 64] })
+    expect(displays['sh1106-oled-128x64']).toMatchObject({ controller: 'SH1106G', resolutionPx: [128, 64] })
+    expect(displays['st7789-tft-240x240']).toMatchObject({ controller: 'ST7789', resolutionPx: [240, 240] })
+  })
+
+  // The two 1-bit OLEDs share a resolution and a layout contract but not a
+  // controller, and the 2-column offset between them is the classic way one
+  // gets driven as the other.
+  it('tells the two OLED controllers apart at the same resolution', () => {
+    const ssd = partById('ssd1306-oled-128x64')!.display!
+    const sh = partById('sh1106-oled-128x64')!.display!
+    expect(ssd.resolutionPx).toEqual(sh.resolutionPx)
+    expect(ssd.controller).not.toBe(sh.controller)
+  })
+
+  // Every display declares a complete contract, whatever else lands.
+  it('gives every catalogued display a usable spec', () => {
+    for (const entry of catalogueDisplays()) {
+      const spec = entry.display!
+      expect(spec.controller, entry.partId).toBeTruthy()
+      expect(spec.interface, entry.partId).toBeTruthy()
+      expect(spec.resolutionPx, entry.partId).toHaveLength(2)
+      expect(spec.resolutionPx.every((n) => Number.isInteger(n) && n > 0), entry.partId).toBe(true)
+    }
+  })
+
+  // A board that carries a screen is not a module you attach to a board, so it
+  // must not arrive through the part catalogue at all.
+  it('keeps the integrated CYD board out of the part catalogue', () => {
+    expect(partById('esp32-2432s028r')).toBeUndefined()
   })
 
   // The resolution every fixed layout is computed against. Typing it into the

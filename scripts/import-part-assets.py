@@ -79,6 +79,17 @@ def read_part(part_dir: Path) -> dict | None:
     data = json.loads(manifest.read_text(encoding="utf-8"))
 
     part_id = data.get("partId") or part_dir.name
+
+    # A manifest declaring a board profile is a board that happens to carry a
+    # screen, not a module you attach to one. Importing it here would offer an
+    # ESP32 in the Add Hardware display menu as something to plug into a board.
+    # It belongs to the board catalogue instead, so this importer says so and
+    # leaves it alone rather than silently doing the wrong thing with it.
+    if data.get("boardProfileId"):
+        print(f"  - {part_id}: declares boardProfileId — belongs in the board "
+              f"catalogue, skipped here", file=sys.stderr)
+        return None
+
     dims = data.get("dimensionsMm") or {}
     width, height = dims.get("width"), dims.get("height")
     if not isinstance(width, (int, float)) or not isinstance(height, (int, float)):
