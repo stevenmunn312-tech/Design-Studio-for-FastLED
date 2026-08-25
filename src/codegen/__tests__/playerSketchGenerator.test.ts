@@ -46,6 +46,49 @@ describe('playerSketchGenerator', () => {
       })
     })
 
+    // Transport Control publishes the same bundle, so a graph wired through it
+    // must generate the same controls. Reading only Player Controls here meant
+    // a player sketch with no controls at all — a silent omission, which is
+    // exactly what the display plan rules out.
+    it('binds a Transport Control bundle like a Player Controls one', () => {
+      const nodes = [
+        { id: 'master', data: { nodeType: 'PatternMaster', properties: {} } },
+        { id: 'transport', data: { nodeType: 'TransportControl', properties: { debounceMs: 45 } } },
+        { id: 'play', data: { nodeType: 'ButtonInput', properties: { pin: 12, pullup: false } } },
+        { id: 'volume', data: { nodeType: 'PotInput', properties: { pin: 4 } } },
+      ]
+      const edges = [
+        { source: 'transport', sourceHandle: 'controls', target: 'master', targetHandle: 'controls' },
+        { source: 'play', sourceHandle: 'pressed', target: 'transport', targetHandle: 'playPause' },
+        { source: 'volume', sourceHandle: 'value', target: 'transport', targetHandle: 'volume' },
+      ]
+
+      const config = playerControlsFromGraph(nodes, edges)
+      expect(config.bindings.playPause).toEqual({ kind: 'button', pin: 12, pullup: false })
+      expect(config.bindings.volume).toEqual({ kind: 'pot', pin: 4 })
+      expect(config.debounceMs).toBe(45)
+    })
+
+    it('chains a Player Controls bundle through a Transport Control', () => {
+      const nodes = [
+        { id: 'master', data: { nodeType: 'PatternMaster', properties: {} } },
+        { id: 'base', data: { nodeType: 'PlayerControls', properties: {} } },
+        { id: 'transport', data: { nodeType: 'TransportControl', properties: {} } },
+        { id: 'prev', data: { nodeType: 'ButtonInput', properties: { pin: 5 } } },
+        { id: 'next', data: { nodeType: 'ButtonInput', properties: { pin: 6 } } },
+      ]
+      const edges = [
+        { source: 'base', sourceHandle: 'controls', target: 'transport', targetHandle: 'controlsIn' },
+        { source: 'transport', sourceHandle: 'controls', target: 'master', targetHandle: 'controls' },
+        { source: 'prev', sourceHandle: 'pressed', target: 'base', targetHandle: 'previous' },
+        { source: 'next', sourceHandle: 'pressed', target: 'transport', targetHandle: 'next' },
+      ]
+
+      const config = playerControlsFromGraph(nodes, edges)
+      expect(config.bindings.previous).toEqual({ kind: 'button', pin: 5, pullup: true })
+      expect(config.bindings.next).toEqual({ kind: 'button', pin: 6, pullup: true })
+    })
+
     it('resolves a named Button Bank row as a physical player button', () => {
       const nodes = [
         { id: 'master', data: { nodeType: 'PatternMaster', properties: {} } },

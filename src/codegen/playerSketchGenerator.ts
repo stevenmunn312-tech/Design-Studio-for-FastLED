@@ -178,6 +178,9 @@ const DEFAULT_CONTROL_SETTINGS: Omit<PlayerControlsConfig, 'bindings'> = {
   repeatIntervalMs: 120,
 }
 
+/** Node types that publish a `playercontrols` bundle into Pattern Master. */
+const CONTROL_BUNDLE_NODE_TYPES = new Set(['PlayerControls', 'TransportControl'])
+
 const CONTROL_ACTIONS: PlayerControlAction[] = [
   'playPause', 'previous', 'next', 'volume', 'volumeUp', 'volumeDown',
   'ledToggle', 'brightness', 'brightnessUp', 'brightnessDown',
@@ -192,7 +195,14 @@ export function playerControlsFromGraph(nodes: ConfigNode[], edges: ShowTargetEd
   const bundle = master && edges.find((edge) =>
     edge.target === master.id && edge.targetHandle === 'controls')
   const root = bundle ? byId.get(bundle.source) : undefined
-  if (!root || root.data.nodeType !== 'PlayerControls') return { bindings: {}, ...DEFAULT_CONTROL_SETTINGS }
+  // Transport Control publishes the same bundle Player Controls does — that is
+  // the point of it, so Pattern Master has one consumer and "next" has one
+  // meaning. Reading only Player Controls here would have generated a player
+  // with no controls at all for a graph wired through the newer node, which is
+  // the silent-omission failure the display plan rules out.
+  if (!root || !CONTROL_BUNDLE_NODE_TYPES.has(root.data.nodeType)) {
+    return { bindings: {}, ...DEFAULT_CONTROL_SETTINGS }
+  }
 
   const visit = (control: ConfigNode, seen: Set<string>): PlayerControlsConfig['bindings'] => {
     if (seen.has(control.id)) return {}
@@ -200,7 +210,7 @@ export function playerControlsFromGraph(nodes: ConfigNode[], edges: ShowTargetEd
     const result: PlayerControlsConfig['bindings'] = {}
     const inherited = edges.find((edge) => edge.target === control.id && edge.targetHandle === 'controlsIn')
     const parent = inherited ? byId.get(inherited.source) : undefined
-    if (parent?.data.nodeType === 'PlayerControls') Object.assign(result, visit(parent, seen))
+    if (parent && CONTROL_BUNDLE_NODE_TYPES.has(parent.data.nodeType)) Object.assign(result, visit(parent, seen))
 
     for (const action of CONTROL_ACTIONS) {
       const edge = edges.find((candidate) => candidate.target === control.id && candidate.targetHandle === action)

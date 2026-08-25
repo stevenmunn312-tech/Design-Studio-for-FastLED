@@ -1315,6 +1315,7 @@ const SHOW_PIPELINE_NOTES: Record<string, string> = {
   PerformanceGenerator: 'builds the timed .show file exported to the SD card; no equivalent in a normal sketch',
   SDCard: 'SD SPI storage configuration; emitted by the Player sketch (Upload show to SD)',
   PlayerControls: 'binds physical buttons/pots to transport, volume and brightness actions; serviced by the Player sketch (Upload show to SD), which is the only generator with a transport to control',
+  TransportControl: 'drives the transport and reads it back for a display; serviced by the Player sketch (Upload show to SD), which is the only generator with a transport to control',
   PatternCollection: 'resolved by the show controller generator once its Show Engine drives a LED output',
   TransitionSet: 'transition pool read by the Show Engine / Performance Generator, not emitted directly',
 }

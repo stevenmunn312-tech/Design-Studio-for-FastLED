@@ -6,10 +6,15 @@ import { useMidiStore } from './midiStore'
 import { blankDmxSnapshot, clampDmxChannel, clampDmxByte, type DmxSnapshot } from './dmx'
 import { rtcPreviewSnapshot, type RtcPreview } from './rtc'
 import {
+  buttonEdge, blankButtonEdgeState, normalizeButtonEdgeSettings, scrubCommit,
+  resolveTransportStatus, formatTransportTime, type ButtonEdgeState, type ScrubState,
+} from './transportBridge'
+import {
   displayString, formatNumberText, normalizeNumberFormat,
   formatDateTimeText, asDateTimeTextMode, type DateTimeTextFields,
 } from './displayText'
 import { useUiStore } from './uiStore'
+import { useGraphStore } from './graphStore'
 import { asFont, textBlockLayout, textAlignMode, TEXT_LINE_GAP, type BitmapFont, DEFAULT_FONT } from './font'
 import { animatedImageFrame, asAnimatedImage, asImage, sampleImageToFrame, type ImageData } from './image'
 import { imagePaletteStops16, type ImagePaletteSource } from './imagePalette'
@@ -158,15 +163,11 @@ interface Particle { x: number; y: number; vx: number; vy: number; life: number;
 const particleState = new Map<string, Particle[]>()
 const particleSeedState = new Map<string, string>()
 const patternShowState = new Map<string, ShowState>()
-interface PlayerButtonState {
-  raw: boolean
-  stable: boolean
-  changedAt: number
-  nextRepeatAt: number
-}
 interface PlayerControlsState {
   lastT: number
-  buttons: Record<string, PlayerButtonState>
+  buttons: Record<string, ButtonEdgeState>
+  /** Transport Control only: the last position its scrub published. */
+  scrub?: ScrubState
 }
 const playerControlsState = new Map<string, PlayerControlsState>()
 interface MusicPlayerRuntimeState {
@@ -4513,6 +4514,12 @@ export interface PlayerControls {
   ledToggle: boolean
   brightness?: number
   brightnessDelta: number
+  /**
+   * Absolute position a scrub is commanding, 0-1, present only on the frame it
+   * moved. A parked slider publishes nothing: see scrubCommit in
+   * state/transportBridge.ts for why a seek is a change rather than a value.
+   */
+  seek?: number
 }
 
 /** Beat-particle appearance carried independently of a rendered frame. */
@@ -6698,35 +6705,17 @@ function createEvalNode(
         let state = playerControlsState.get(key)
         if (!state || t < state.lastT) state = { lastT: t, buttons: {} }
         state.lastT = t
-        const debounceMs = Math.max(0, Number(props.debounceMs ?? 30))
-        const repeatDelayMs = Math.max(0, Number(props.repeatDelayMs ?? 400))
-        const repeatIntervalMs = Math.max(1, Number(props.repeatIntervalMs ?? 120))
-
+        // The edge rules live in state/transportBridge.ts so Transport Control
+        // uses the identical ones — a display's Next and a panel-mounted Next
+        // must not disagree about what a press is.
+        const edgeSettings = normalizeButtonEdgeSettings(props)
         const button = (port: string, repeat: boolean): boolean => {
-          const raw = Boolean(input(id, port, false))
           let bs = state!.buttons[port]
           if (!bs) {
-            bs = { raw: false, stable: false, changedAt: nowMs, nextRepeatAt: Infinity }
+            bs = blankButtonEdgeState(nowMs)
             state!.buttons[port] = bs
           }
-          if (raw !== bs.raw) {
-            bs.raw = raw
-            bs.changedAt = nowMs
-          }
-          let pulse = false
-          if (bs.stable !== bs.raw && nowMs - bs.changedAt >= debounceMs) {
-            bs.stable = bs.raw
-            if (bs.stable) {
-              pulse = true
-              bs.nextRepeatAt = nowMs + repeatDelayMs
-            } else {
-              bs.nextRepeatAt = Infinity
-            }
-          } else if (repeat && bs.stable && nowMs >= bs.nextRepeatAt) {
-            pulse = true
-            bs.nextRepeatAt += (Math.floor((nowMs - bs.nextRepeatAt) / repeatIntervalMs) + 1) * repeatIntervalMs
-          }
-          return pulse
+          return buttonEdge(bs, Boolean(input(id, port, false)), nowMs, repeat, edgeSettings)
         }
 
         const upstreamValue = input(id, 'controlsIn', null)
@@ -6757,6 +6746,92 @@ function createEvalNode(
         else if (upstream?.brightness != null) controls.brightness = clamp01(upstream.brightness)
         playerControlsState.set(key, state)
         out = { controls }
+        break
+      }
+
+      case 'TransportControl': {
+        // Commands out through the same `playercontrols` bundle Player Controls
+        // produces, so Pattern Master keeps exactly one consumer and "next"
+        // keeps one meaning. Status in from the live transport, which is the
+        // half the graph could not reach before.
+        const key = stateKey(id)
+        const nowMs = t * 1000
+        let state = playerControlsState.get(key)
+        if (!state || t < state.lastT) state = { lastT: t, buttons: {} }
+        state.lastT = t
+
+        const edgeSettings = normalizeButtonEdgeSettings(props)
+        const button = (port: string): boolean => {
+          let bs = state!.buttons[port]
+          if (!bs) {
+            bs = blankButtonEdgeState(nowMs)
+            state!.buttons[port] = bs
+          }
+          return buttonEdge(bs, Boolean(input(id, port, false)), nowMs, false, edgeSettings)
+        }
+
+        const upstreamValue = input(id, 'controlsIn', null)
+        const upstream = isPlayerControls(upstreamValue) ? upstreamValue : null
+        const controls: PlayerControls = {
+          playPause: Boolean(upstream?.playPause) || button('playPause'),
+          previous: Boolean(upstream?.previous) || button('previous'),
+          next: Boolean(upstream?.next) || button('next'),
+          volumeDelta: upstream?.volumeDelta ?? 0,
+          ledToggle: Boolean(upstream?.ledToggle),
+          brightnessDelta: upstream?.brightnessDelta ?? 0,
+        }
+        if (incoming.has(`${id}:volume`)) controls.volume = clamp01(Number(input(id, 'volume', 0)))
+        else if (upstream?.volume != null) controls.volume = clamp01(upstream.volume)
+        if (upstream?.brightness != null) controls.brightness = clamp01(upstream.brightness)
+
+        if (incoming.has(`${id}:seek`)) {
+          if (!state.scrub) state.scrub = { last: 0, seen: false }
+          const commit = scrubCommit(state.scrub, Number(input(id, 'seek', 0)))
+          if (commit !== null) controls.seek = commit
+        } else if (upstream?.seek != null) {
+          controls.seek = upstream.seek
+        }
+        playerControlsState.set(key, state)
+
+        // Which patterns are running, read without evaluating Pattern Master:
+        // its collection is a property, and its position is published state.
+        const master = nodes.find((entry) => (entry.data as { nodeType?: string }).nodeType === 'PatternMaster')
+        let patternNames: string[] = []
+        let patternIndex: number | null = null
+        if (master) {
+          const setEdge = incoming.get(`${master.id}:patternset`)
+          const collection = setEdge ? nodeMap.get(setEdge.srcId) : undefined
+          const ids = (collection?.data.properties as { patternIds?: string[] } | undefined)?.patternIds ?? []
+          const graphNames = useGraphStore.getState().graphs
+          patternNames = ids.map((gid) => graphNames[gid]?.name ?? '')
+          patternIndex = getPatternShowSelection(stateKey(master.id))?.currentIndex ?? null
+        }
+
+        const player = usePlayerTransport.getState()
+        const status = resolveTransportStatus({
+          title: player.transport?.title ?? '',
+          posMs: player.posMs,
+          durationMs: player.transport?.durationMs ?? 0,
+          playing: player.playing,
+          volume: player.volume,
+          patternIndex,
+          patternNames,
+        })
+
+        out = {
+          controls,
+          title: displayString(status.title),
+          elapsedText: displayString(formatTransportTime(status.elapsedSec)),
+          durationText: displayString(formatTransportTime(status.durationSec)),
+          patternName: displayString(status.patternName),
+          elapsed: status.elapsedSec,
+          duration: status.durationSec,
+          progress: status.progress,
+          playing: status.playing,
+          volumeOut: status.volume,
+          patternIndex: status.patternIndex,
+          patternCount: status.patternCount,
+        }
         break
       }
 

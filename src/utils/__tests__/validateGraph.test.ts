@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, estimatePowerLoad, estimateFirmwareRam, findMirroredOutputMismatches, findShowOutputFormErrors, findAudioCapabilityErrors, findPlayerControlMappingWarnings } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, estimatePowerLoad, estimateFirmwareRam, findMirroredOutputMismatches, findShowOutputFormErrors, findAudioCapabilityErrors, findPlayerControlMappingWarnings, findTransportBindingWarnings } from '../validateGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -168,6 +168,24 @@ describe('validateGraph', () => {
     // An LED data pin is exclusive, so meeting a chip select on GPIO 5 is a
     // real fault — and one whose repair is not "give them unique numbers".
     expect(findPinConflicts(nodes, [])).toContainEqual(expect.stringContaining('GPIO 5'))
+  })
+
+  // The plan's rule: a generator either emits a binding or blocks with an
+  // actionable diagnostic. Seek scrubs the preview but no generator can emit
+  // it, so wiring it must say so rather than working on screen and doing
+  // nothing on the device.
+  it('warns that a wired Seek has no firmware path yet', () => {
+    const nodes = [node('tc', 'TransportControl'), node('pot', 'PotInput', { pin: 4 })]
+    const wires = [edge('e1', 'pot', 'tc', 'seek')]
+    expect(findTransportBindingWarnings(nodes, wires)).toEqual([
+      expect.stringMatching(/Seek scrubs the browser preview but no generator can emit it/),
+    ])
+  })
+
+  it('stays quiet about Seek when nothing is wired to it', () => {
+    const nodes = [node('tc', 'TransportControl'), node('pot', 'PotInput', { pin: 4 })]
+    const wires = [edge('e1', 'pot', 'tc', 'volume')]
+    expect(findTransportBindingWarnings(nodes, wires)).toEqual([])
   })
 
   it('reports each disconnected node separately', () => {

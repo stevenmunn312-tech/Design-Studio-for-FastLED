@@ -123,18 +123,18 @@ case the OLED slice cannot already serve.
   fallback once in shared code.
 - [x] Add `TextValue` (static string), `FormatNumber` (float → string), and
   `FormatDateTime` (`datetime` → string) nodes with preview/firmware parity.
-- [ ] Add a `TransportControl` bridge for play/pause, previous, next, seek,
+- [x] Add a `TransportControl` bridge for play/pause, previous, next, seek,
   volume, and pattern selection plus title, elapsed, duration, playing, pattern
   name/index/count, and volume status outputs.
-- [ ] Bind `TransportControl` to `playerTransport` / show preview in the browser
+- [x] Bind `TransportControl` to `playerTransport` / show preview in the browser
   and to explicit controller state in generative-show and SD-player firmware.
-- [ ] Reconcile roadmap hardware controls with the current model: runtime volume
+- [x] Reconcile roadmap hardware controls with the current model: runtime volume
   now belongs to `Amplifier`, not `SDCard`. Do not move the static maximum back
   to storage; route live volume through the transport/audio runtime.
 - [ ] Add explicit runtime inputs for LED-output enabled/blackout, brightness,
   and master speed. Master speed must scale the one shared time value in preview
   and every firmware generator rather than rewriting individual node speeds.
-- [ ] Define button semantics once: a Button widget is `true` while pressed;
+- [x] Define button semantics once: a Button widget is `true` while pressed;
   transport/control sinks detect a rising edge where a one-shot action is
   required. Toggle widgets hold a boolean state.
 

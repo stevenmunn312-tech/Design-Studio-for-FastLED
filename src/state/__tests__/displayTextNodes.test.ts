@@ -33,12 +33,15 @@ function textOf(nodes: StudioNode[], edges: StudioEdge[], nodeId: string, tick =
 }
 
 describe('the string port type', () => {
-  it('is carried by the three text nodes and nothing else', () => {
-    const carriers = NODE_LIBRARY
-      .filter((n) => [...n.inputs, ...n.outputs].some((port) => port.dataType === 'string'))
-      .map((n) => n.type)
-      .sort()
-    expect(carriers).toEqual(['FormatDateTime', 'FormatNumber', 'TextValue'])
+  // Not an exhaustive census — every display node that lands will carry string
+  // too, and a list that churns on each one stops being read. What matters is
+  // that the three formatting nodes each publish exactly one string output.
+  it('is published by each of the three text nodes', () => {
+    for (const type of ['TextValue', 'FormatNumber', 'FormatDateTime']) {
+      const def = NODE_LIBRARY.find((n) => n.type === type)!
+      const strings = def.outputs.filter((port) => port.dataType === 'string')
+      expect(strings.map((port) => port.id), type).toEqual(['text'])
+    }
   })
 
   it('has its own colour rather than falling back to the float grey', () => {

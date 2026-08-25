@@ -2147,6 +2147,43 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
+    // The display-facing counterpart to Player Controls: the same command
+    // bundle out, so Pattern Master still has exactly one thing to consume and
+    // "next" keeps one meaning — plus the status a screen needs to show, which
+    // nothing in the graph could read before.
+    // See docs/development/design/auxiliary-displays.md.
+    type: 'TransportControl',
+    label: 'Transport Control',
+    category: 'show',
+    inputs: [
+      { id: 'controlsIn', label: 'Controls In', dataType: 'playercontrols' },
+      { id: 'playPause', label: 'Play / Pause', dataType: 'bool' },
+      { id: 'previous', label: 'Previous', dataType: 'bool' },
+      { id: 'next', label: 'Next', dataType: 'bool' },
+      { id: 'seek', label: 'Seek', dataType: 'float' },
+      { id: 'volume', label: 'Volume', dataType: 'float' },
+    ],
+    outputs: [
+      { id: 'controls', label: 'Controls', dataType: 'playercontrols' },
+      { id: 'title', label: 'Title', dataType: 'string' },
+      { id: 'elapsedText', label: 'Elapsed Text', dataType: 'string' },
+      { id: 'durationText', label: 'Duration Text', dataType: 'string' },
+      { id: 'patternName', label: 'Pattern Name', dataType: 'string' },
+      { id: 'elapsed', label: 'Elapsed', dataType: 'float' },
+      { id: 'duration', label: 'Duration', dataType: 'float' },
+      { id: 'progress', label: 'Progress', dataType: 'float' },
+      { id: 'playing', label: 'Playing', dataType: 'bool' },
+      { id: 'volumeOut', label: 'Volume Out', dataType: 'float' },
+      { id: 'patternIndex', label: 'Pattern Number', dataType: 'float' },
+      { id: 'patternCount', label: 'Pattern Count', dataType: 'float' },
+    ],
+    defaultProperties: {
+      debounceMs: 30,
+      repeatDelayMs: 400,
+      repeatIntervalMs: 120,
+    },
+  },
+  {
     type: 'PlayerParticles',
     label: 'Player Particles',
     category: 'show',
@@ -2964,6 +3001,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   TextValue: 'A fixed line of text for a display to show.',
   FormatNumber: 'Turns a number into display text with decimals, padding, and units.',
   FormatDateTime: 'Turns a clock reading into display text such as HH:MM.',
+  TransportControl: 'Drives the player and reads back what it is playing, for a display.',
   ScheduleTrigger: 'Time-of-day window/trigger driven by RTCInput clock and calendar fields.',
   BeatSin: 'Beat-synced sine oscillator — outputs a normalized low↔high value at a BPM.',
   Clock: 'BPM clock — phase/beat/bar/subdivision pulses; tap tempo, sync, and reset.',
@@ -3946,6 +3984,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   showSign: 'Shows a + on positive values. Negatives always show their sign.',
   prefix: 'Text placed before the number, such as a label or currency mark.',
   suffix: 'Text placed after the number, such as a unit.',
+  seek: 'Scrub position, 0-1. A seek is a change, so a parked slider does not drag playback back to it.',
   bypassed: "Skips this node's own effect entirely and passes the matching input straight through — a quick A/B mute without unwiring.",
   audioOutput: "'i2s' drives an external DAC/amp over the I2S pins below. 'internalDac' uses the classic ESP32's built-in DAC, fixed to GPIO25/26 — not available on ESP32-S3/S2/C3.",
   overclock: 'Clockless chipsets only — multiplies the FastLED output clock. 1 = stock timing.',

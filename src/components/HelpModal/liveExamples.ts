@@ -1347,6 +1347,28 @@ const FORMAT_DATE_TIME_LIVE_EXAMPLE = namedExample(
   'The solid colour keeps the example previewable while Format Date/Time produces a line of text.',
 )
 
+const TRANSPORT_CONTROL_LIVE_EXAMPLE = namedExample(
+  'TransportControl',
+  'Drive the player and read back what it plays',
+  [
+    { key: 'play', type: 'ButtonInput' },
+    { key: 'skip', type: 'ButtonInput' },
+    { key: 'level', type: 'PotInput' },
+    { key: 'target', type: 'TransportControl' },
+    { key: 'patterns', type: 'PatternCollection' },
+    { key: 'show', type: 'PatternMaster' },
+  ],
+  [
+    { source: 'play', sourceHandle: 'pressed', target: 'target', targetHandle: 'playPause' },
+    { source: 'skip', sourceHandle: 'pressed', target: 'target', targetHandle: 'next' },
+    { source: 'level', sourceHandle: 'value', target: 'target', targetHandle: 'volume' },
+    { source: 'target', sourceHandle: 'controls', target: 'show', targetHandle: 'controls' },
+    { source: 'patterns', sourceHandle: 'patternset', target: 'show', targetHandle: 'patternset' },
+  ],
+  'Transport Control sends the same command bundle Player Controls does, so Music Player still has one thing to obey. What it adds is the way back: title, elapsed, pattern name, and progress come out as wires a display can show.',
+  'The buttons drive the show; the status outputs carry text and numbers rather than pixels, so they wait for a display to drive.',
+)
+
 const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   Audio: AUDIO_CAPABILITY_LIVE_EXAMPLE,
   MicInput: MICROPHONE_LIVE_EXAMPLE,
@@ -1364,6 +1386,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   RTCInput: RTC_CLOCK_LIVE_EXAMPLE,
   ClockDisplay: RTC_CLOCK_LIVE_EXAMPLE,
   Storage: STORAGE_LIVE_EXAMPLE,
+  TransportControl: TRANSPORT_CONTROL_LIVE_EXAMPLE,
   TextValue: TEXT_VALUE_LIVE_EXAMPLE,
   FormatNumber: FORMAT_NUMBER_LIVE_EXAMPLE,
   FormatDateTime: FORMAT_DATE_TIME_LIVE_EXAMPLE,

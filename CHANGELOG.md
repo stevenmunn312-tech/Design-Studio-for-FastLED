@@ -9,6 +9,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Added a Transport Control node that drives the player through the same
+  command bundle Player Controls publishes, and reads the transport back as
+  title, elapsed, duration, progress, pattern name, and pattern position — the
+  status a display needs, which the graph could not reach before. Seek is a
+  change rather than a value, so a parked scrub does not drag playback back to
+  itself, and wiring it warns that no firmware generator can emit it yet.
 - Added bus-aware pin validation: I2C clients may share SDA and SCL, and SPI
   clients may share SCK, MOSI, and MISO, while chip selects, reset, and other
   exclusive lines still conflict. Two devices answering one I2C address are now
