@@ -514,19 +514,22 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
     "label": "SH1106 1.3-inch 128x64 OLED",
     "category": "display",
     "dimensionsMm": {
-      "width": 35.4,
-      "height": 33.5
+      "width": 35.5,
+      "height": 33.7
     },
-    "manufacturer": "DLC Display / generic module form",
+    "manufacturer": "generic SPI module form",
     "logicVoltage": "3.3 V / 5 V",
     "pinLabelsLeftToRight": [
       "GND",
       "VCC",
-      "SCL",
-      "SDA"
+      "CLK",
+      "MOSI",
+      "RES",
+      "DC",
+      "CS"
     ],
     "notes": [
-      "1.3-inch white SH1106G OLED module with a four-pin I2C interface.",
+      "1.3-inch white SH1106G OLED module with a seven-pin four-wire SPI interface.",
       "The 29.42 x 14.70 mm active area distinguishes this larger panel from the 0.96-inch SSD1306 asset.",
       "The proof face uses the same app information-display language as SSD1306 while retaining the larger glass and board."
     ],
@@ -536,14 +539,14 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
         128,
         64
       ],
-      "interface": "I2C",
+      "interface": "4-wire SPI",
       "touchController": null
     },
     "render": {
       "file": "parts/sh1106-oled-128x64.webp",
-      "widthPx": 433,
-      "heightPx": 410,
-      "pxPerMm": 12.006
+      "widthPx": 434,
+      "heightPx": 412,
+      "pxPerMm": 12.0
     }
   },
   "sn74ahct125n-dip14": {

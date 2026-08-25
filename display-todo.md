@@ -67,6 +67,11 @@ device passes on hardware — which is why the OLED family leads with the SH1106
 rather than the more commonly cited SSD1306: a contract meant to be proven on
 hardware should be built against the hardware that exists.
 
+The SH1106 on the bench is the 7-pin SPI variant rather than the 4-pin I²C
+one, so the two OLEDs will arrive on different transports. That is deliberate
+coverage rather than an inconvenience, and it is why the surface contract is
+defined independently of the bus.
+
 Two rows changed after the modules were ordered. The 2.4-inch touch TFT is an
 ST7789V rather than an ILI9341, so one ST7789 driver now covers both it and the
 1.3-inch 240×240 module, and ILI9341 reaches the bench only inside the CYD
@@ -78,7 +83,7 @@ before building against it.
 | --- | --- | --- | --- | --- |
 | 1 | TM1637 4-digit 7-segment module, colon variant | `SegmentDisplay` | CLK + DIO | BPM, clock, countdown, score, active-pattern number, debug value |
 | 2 | MAX7219 8-digit 7-segment module | `SegmentDisplay` | SPI-like CLK/DIN/CS | Longer counters, elapsed/duration display, channel/value monitor |
-| 3 | SH1106 128×64 I²C OLED (1.3-inch) | `InfoDisplay` | I²C | Song title and progress, clock/date, current pattern, sensor/status readout. Leads the OLED slice because it is the device on the bench |
+| 3 | SH1106 128×64 SPI OLED (1.3-inch, 7-pin) | `InfoDisplay` | 4-wire SPI: CLK/MOSI shared, CS/DC/RES exclusive | Song title and progress, clock/date, current pattern, sensor/status readout. Leads the OLED slice because it is the device on the bench |
 | 4 | SSD1306 128×64 I²C OLED (0.96-inch) | `InfoDisplay` | I²C | Same layouts through the same 1-bit surface contract, once the module arrives |
 | 5 | ST7789 240×240 SPI TFT, no touch | `TransportDisplay` | SPI | Colour now-playing screen, album/pattern art, status dashboard, fixed gauges |
 | 6 | ST7789V 2.4-inch 320×240 SPI TFT + XPT2046 touch + microSD | `TransportDisplay`, then `Display` | Shared SPI with separate CS lines | Fixed play/pause/previous/next/volume UI; reference target for the custom UI builder |
@@ -303,11 +308,16 @@ widgets, hover state, or physical pins.
 
 ### Phase 4 — `InfoDisplay` and pattern browser
 
-- [ ] Implement SH1106 128×64 I²C first, then SSD1306 through the same 1-bit
+- [ ] Implement SH1106 128×64 first, then SSD1306 through the same 1-bit
   surface contract. The SH1106 carries 132×64 of controller RAM behind a
   128×64 panel, so its 2-column offset belongs in the contract rather than
   being fixed up per device — driving one as the other shifts the image two
   pixels and wraps rubbish down the edge, which reads as a wiring fault.
+- [ ] Keep the transport separate from the surface contract. The module on the
+  bench is a 7-pin SPI SH1106 and the SSD1306 to come is 4-pin I²C, so the
+  1-bit layout, offset and page addressing must not assume either bus. This is
+  coverage rather than a complication: SPI exercises CLK/MOSI sharing with the
+  SD card and its own CS, and I²C exercises SDA/SCL sharing with the RTC.
 - [ ] Reuse the bitmap glyph data in `src/state/font.ts` for text rasterisation
   so browser and firmware layouts share glyphs, alignment, spacing, truncation,
   and unsupported-character behaviour.

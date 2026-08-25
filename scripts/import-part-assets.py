@@ -46,6 +46,14 @@ CATEGORIES = {
     "input-control", "audio-source", "support", "display",
 }
 
+# Spellings the modelling pipeline emits that mean an existing category. The
+# app's categories are singular ("microphone", "amplifier"), and normalising
+# here rather than editing each manifest keeps a re-export from quietly
+# reintroducing a category the app does not know.
+CATEGORY_ALIASES = {
+    "displays": "display",
+}
+
 
 def convert_render(part_id: str, part_dir: Path, render: dict) -> dict | None:
     """PNG -> WebP under public/parts. Returns the app-facing render record."""
@@ -96,7 +104,7 @@ def read_part(part_dir: Path) -> dict | None:
         print(f"  ! {part_id}: no usable dimensionsMm — skipped", file=sys.stderr)
         return None
 
-    category = data.get("category")
+    category = CATEGORY_ALIASES.get(data.get("category"), data.get("category"))
     if category not in CATEGORIES:
         print(f"  ! {part_id}: unknown category {category!r}", file=sys.stderr)
 
