@@ -306,7 +306,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { id: 'master', type: 'PatternMaster', col: 1, row: 1 },
       { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 2, row: 1 },
       tutorialNote(
-        'guide', 0, -1,
+        'guide', -1, 0,
         'BUILD A SHOW \nSpecify your board, audio source and music player hardware from the hardware bench below then add some patterns into the Pattern Collection.\nCheck that you have the correct GPIO\'s for your hardware then use the capacity checker to ensure the sketch will fit on your board and upload.',
         TRY_COLOR,
       ),

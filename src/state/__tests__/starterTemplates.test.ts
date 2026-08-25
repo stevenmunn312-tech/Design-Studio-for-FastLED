@@ -66,6 +66,9 @@ describe('starterTemplates', () => {
     ]))
 
     const comment = nodeByType.get('Comment')!
+    const audio = nodeByType.get('Audio')!
+    expect(comment.position.x).toBeLessThan(audio.position.x)
+    expect(comment.position.y).toBe(audio.position.y)
     expect((comment.data as StudioNodeData).properties.text).toBe(
       'BUILD A SHOW \nSpecify your board, audio source and music player hardware from the hardware bench below then add some patterns into the Pattern Collection.\nCheck that you have the correct GPIO\'s for your hardware then use the capacity checker to ensure the sketch will fit on your board and upload.',
     )

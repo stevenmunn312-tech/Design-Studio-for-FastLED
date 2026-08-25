@@ -10,6 +10,22 @@ interface StartFlowOptions {
   closeTemplates?: boolean
 }
 
+let startFlowGeneration = 0
+
+/** Let React Flow mount and measure a newly loaded graph before laying it out. */
+function tidyLoadedTemplate(generation: number) {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      // A newer starter or blank canvas supersedes this pending layout.
+      if (generation !== startFlowGeneration) return
+      runTidy()
+      // Loading a starter, including its automatic layout, begins a fresh
+      // workspace and should not create an Undo step.
+      useGraphStore.temporal.getState().clear()
+    })
+  })
+}
+
 function finishStartFlow(choice: string | 'blank', statusText: string, nodeIds?: string[], options?: StartFlowOptions) {
   const ui = useUiStore.getState()
   useGraphStore.temporal.getState().clear()
@@ -20,10 +36,11 @@ function finishStartFlow(choice: string | 'blank', statusText: string, nodeIds?:
 }
 
 export function startTemplate(template: StarterTemplate, options?: StartFlowOptions) {
+  const generation = ++startFlowGeneration
   const { nodes, edges } = template.build()
   useGraphStore.getState().loadGraph(nodes, edges)
-  runTidy()
   finishStartFlow(template.id, `Loaded "${template.name}" starter`, nodes.map((node) => node.id), options)
+  tidyLoadedTemplate(generation)
   if (template.activateMicrophone) {
     const ui = useUiStore.getState()
     if (ui.testSignal) ui.toggleTestSignal()
@@ -45,6 +62,7 @@ export function startTemplateById(id: string, options?: StartFlowOptions) {
 }
 
 export function startBlankCanvas(options?: StartFlowOptions) {
+  startFlowGeneration += 1
   useGraphStore.getState().loadGraph([], [])
   finishStartFlow('blank', 'Started with a blank canvas', undefined, options)
 }

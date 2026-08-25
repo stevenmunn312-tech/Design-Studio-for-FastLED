@@ -109,6 +109,9 @@ describe('NodeGraphCanvas start screen', () => {
     expect(useUiStore.getState().fitViewRequest.nodeIds).toHaveLength(3)
     expect(useGraphStore.getState().nodes.some((node) => node.data.nodeType === 'Comment')).toBe(true)
     await waitFor(() => {
+      expect(runTidyMock).toHaveBeenCalledOnce()
+    })
+    await waitFor(() => {
       expect(fitViewMock).toHaveBeenCalled()
     })
   })
