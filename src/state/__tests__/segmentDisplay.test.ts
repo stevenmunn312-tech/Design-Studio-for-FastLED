@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
-  SEGMENT_DIGITS,
+  SEGMENT_CONTROLLERS,
   SEGMENT_DISPLAY_MODES,
+  segmentControllerFor,
   asSegmentMode,
   clampSegmentBrightness,
   SEGMENT_BRIGHTNESS_MIN,
@@ -12,11 +13,18 @@ import {
   segmentFrameText,
   segmentBytes,
   SEGMENT_GLYPHS,
-  BLANK_SEGMENT_FRAME,
+  blankSegmentFrame,
 } from '../segmentDisplay'
+
+const TM = SEGMENT_CONTROLLERS.TM1637
+const MAX = SEGMENT_CONTROLLERS.MAX7219
+const SEGMENT_DIGITS = TM.digits
 
 const num = (value: number, decimals = 0, leadingZero = false) =>
   renderSegmentNumber(value, { decimals, leadingZero })
+
+const num8 = (value: number, decimals = 0, leadingZero = false) =>
+  renderSegmentNumber(value, { decimals, leadingZero, digits: MAX.digits })
 
 describe('segment modes', () => {
   it('falls back to a known mode', () => {
@@ -26,10 +34,29 @@ describe('segment modes', () => {
     expect(SEGMENT_DISPLAY_MODES).toContain('Index')
   })
 
-  it('clamps brightness to what the module has', () => {
-    expect(clampSegmentBrightness(99)).toBe(SEGMENT_BRIGHTNESS_MAX)
-    expect(clampSegmentBrightness(-5)).toBe(SEGMENT_BRIGHTNESS_MIN)
-    expect(clampSegmentBrightness('bright')).toBe(4)
+  // A 4 is half brightness on a TM1637 and a quarter on a MAX7219, so the
+  // ceiling has to come from the controller rather than one shared number.
+  it('clamps brightness to what each controller actually has', () => {
+    expect(clampSegmentBrightness(99, TM)).toBe(TM.brightnessMax)
+    expect(clampSegmentBrightness(99, MAX)).toBe(MAX.brightnessMax)
+    expect(TM.brightnessMax).not.toBe(MAX.brightnessMax)
+    expect(clampSegmentBrightness(-5, TM)).toBe(SEGMENT_BRIGHTNESS_MIN)
+    expect(clampSegmentBrightness('bright', TM)).toBe(4)
+    expect(SEGMENT_BRIGHTNESS_MAX).toBe(MAX.brightnessMax)
+  })
+
+  it('describes each controller by what it physically is', () => {
+    expect(TM).toMatchObject({ digits: 4, hasColon: true })
+    expect(MAX).toMatchObject({ digits: 8, hasColon: false })
+    expect(TM.pins).toEqual(['clkPin', 'dioPin'])
+    expect(MAX.pins).toEqual(['clkPin', 'dinPin', 'csPin'])
+  })
+
+  it('resolves a controller from its declared name', () => {
+    expect(segmentControllerFor('MAX7219').id).toBe('MAX7219')
+    expect(segmentControllerFor('TM1637').id).toBe('TM1637')
+    expect(segmentControllerFor('SSD1306').id).toBe('TM1637')
+    expect(segmentControllerFor(undefined).id).toBe('TM1637')
   })
 })
 
@@ -131,7 +158,8 @@ describe('renderSegmentIndex', () => {
 
 describe('segmentBytes', () => {
   it('writes nothing at all when the module is dark', () => {
-    expect(segmentBytes(BLANK_SEGMENT_FRAME)).toEqual([0, 0, 0, 0])
+    expect(segmentBytes(blankSegmentFrame(TM.digits))).toEqual([0, 0, 0, 0])
+    expect(segmentBytes(blankSegmentFrame(MAX.digits))).toEqual(new Array(8).fill(0))
   })
 
   it('maps digits through the shared glyph table', () => {
@@ -156,5 +184,43 @@ describe('segmentBytes', () => {
 
   it('always returns one byte per digit', () => {
     expect(segmentBytes(num(1)).length).toBe(SEGMENT_DIGITS)
+  })
+})
+
+describe('eight digits', () => {
+  it('fills the wider module', () => {
+    expect(num8(42).digits).toBe('      42')
+    expect(num8(42, 0, true).digits).toBe('00000042')
+    expect(num8(-42).digits).toBe('     -42')
+  })
+
+  // A number that overflows four digits fits eight, so the width has to be the
+  // controller's rather than a shared constant.
+  it('shows a value the narrow module has to refuse', () => {
+    expect(num(123456).digits).toBe('----')
+    expect(num8(123456).digits).toBe('  123456')
+  })
+
+  it('still refuses a value too wide even for eight', () => {
+    expect(num8(1234567890).digits).toBe('--------')
+  })
+
+  it('shows seconds where there is room and drops them where there is not', () => {
+    expect(renderSegmentClock(9, 5, false, MAX.digits, 30).digits).toBe('  090530')
+    expect(renderSegmentClock(9, 5, false, TM.digits, 30).digits).toBe('0905')
+  })
+
+  it('right-aligns an index across either width', () => {
+    expect(renderSegmentIndex(7, MAX.digits).digits).toBe('       7')
+    expect(renderSegmentIndex(7, TM.digits).digits).toBe('   7')
+  })
+
+  it('always fills exactly the controller width', () => {
+    for (const controller of [TM, MAX]) {
+      for (const value of [0, 7, -1, Number.NaN, 99999999]) {
+        const frame = renderSegmentNumber(value, { decimals: 0, leadingZero: false, digits: controller.digits })
+        expect(frame.digits.length, `${controller.id} ${value}`).toBe(controller.digits)
+      }
+    }
   })
 })

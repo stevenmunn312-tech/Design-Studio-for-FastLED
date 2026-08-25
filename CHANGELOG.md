@@ -9,6 +9,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Added the MAX7219 8-digit module behind the existing Segment Display node.
+  Digit count, brightness range, colon presence and pin set are now controller
+  facts rather than module-wide constants, so one node contract covers a
+  four-digit two-wire part and an eight-digit three-wire one. A MAX7219 can
+  share clock and data with other SPI devices given its own load line, while a
+  TM1637's two wires stay exclusive.
 - Added the Info Display node and a shared 1-bit OLED surface: a 128x64 panel
   showing a Now Playing, Clock, or Status screen, on either an SH1106 over SPI
   or an SSD1306 over I2C. The surface knows nothing about the bus, the

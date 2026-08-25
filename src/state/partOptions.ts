@@ -174,6 +174,12 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
         summary: 'Two-wire 7-segment with a colon',
         note: 'Four digits and a centre colon, driven over CLK and DIO. Not I2C despite the two wires: the TM1637 has no addresses, so each module needs its own pair of pins.',
       },
+      {
+        id: 'max7219-8digit-7segment',
+        label: 'MAX7219 8-digit',
+        summary: 'Eight digits on a shared SPI bus',
+        note: 'Eight digits and no colon, clocked as 16-bit frames over CLK and DIN with its own load line. It can share clock and data with other SPI devices given its own load pin, and its sixteen brightness steps are twice the TM1637 range.',
+      },
     ],
   },
 }

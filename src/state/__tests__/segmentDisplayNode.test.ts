@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { evaluateGraphFull, resetEvaluatorState } from '../graphEvaluator'
-import { NODE_LIBRARY } from '../nodeLibrary'
+import { NODE_LIBRARY, isPropertyEnabled } from '../nodeLibrary'
+import { partOptionsFor } from '../partOptions'
 import { isHardwareManagedSignalNodeType, isHardwareLibraryHiddenNodeType, isHardwareNodeType } from '../hardware'
 import { busAssignmentFor } from '../busTopology'
 import { collectPinUses } from '../../build/hardwareManifest'
@@ -31,7 +32,14 @@ function segmentOf(nodes: StudioNode[], edges: StudioEdge[] = [], tick = 0): Seg
 }
 
 const display = (props: Record<string, unknown> = {}) =>
-  node('seg', 'SegmentDisplay', 'output', { clkPin: 18, dioPin: 19, ...props })
+  node('seg', 'SegmentDisplay', 'output', {
+    partId: 'tm1637-4digit-display', clkPin: 18, dioPin: 19, ...props,
+  })
+
+const max7219 = (id = 'seg', props: Record<string, unknown> = {}) =>
+  node(id, 'SegmentDisplay', 'output', {
+    partId: 'max7219-8digit-7segment', clkPin: 18, dinPin: 23, csPin: 5, ...props,
+  })
 
 // A Manual RTC reads invalid until it is given a real seed, which would make
 // every clock assertion below pass through the dash branch instead.
@@ -136,5 +144,85 @@ describe('SegmentDisplay rendering', () => {
     for (const props of [{}, { value: 99999 }, { segmentMode: 'Index', value: -4 }, { segmentMode: 'Clock' }]) {
       expect(segmentOf([display(props)]).digits.length).toBe(4)
     }
+  })
+})
+
+describe('MAX7219 behind the same node', () => {
+  beforeEach(() => resetEvaluatorState())
+
+  it('is the same node type with a different module', () => {
+    expect(partOptionsFor('SegmentDisplay').map((option) => option.id))
+      .toEqual(['tm1637-4digit-display', 'max7219-8digit-7segment'])
+  })
+
+  it('claims its own three lines rather than the TM1637 pair', () => {
+    expect(collectPinUses([max7219()]).map((use) => use.propertyKey))
+      .toEqual(['clkPin', 'dinPin', 'csPin'])
+    expect(collectPinUses([display()]).map((use) => use.propertyKey))
+      .toEqual(['clkPin', 'dioPin'])
+  })
+
+  // The same property name means different things on the two controllers, so
+  // the role is resolved by the walk that knows which module the node is.
+  it('makes its clock shareable where the TM1637 keeps it exclusive', () => {
+    const [maxClk] = collectPinUses([max7219()])
+    expect(maxClk.bus).toEqual({ kind: 'spi', role: 'sck' })
+    const [tmClk] = collectPinUses([display()])
+    expect(tmClk.bus).toBeUndefined()
+    expect(busAssignmentFor('SegmentDisplay', 'clkPin').role).toBe('exclusive')
+  })
+
+  it('shares a bus with the SD card given its own load line', () => {
+    const sd = node('sd', 'SDCard', 'output', {
+      sdCsPin: 15, sdSckPin: 18, sdMosiPin: 23, sdMisoPin: 19,
+    })
+    expect(findPinConflicts([max7219(), sd], [])).toEqual([])
+  })
+
+  it('rejects two MAX7219s sharing a load line', () => {
+    const second = max7219('seg2', { clkPin: 18, dinPin: 23, csPin: 5 })
+    expect(findPinConflicts([max7219(), second], [])).toContainEqual(expect.stringContaining('GPIO 5'))
+  })
+
+  it('is happy with two on one bus given distinct load lines', () => {
+    const second = max7219('seg2', { clkPin: 18, dinPin: 23, csPin: 15 })
+    expect(findPinConflicts([max7219(), second], [])).toEqual([])
+  })
+
+  // A TM1637's two wires are its own, so a MAX7219 cannot join them.
+  it('still refuses to share a TM1637 clock', () => {
+    const tm = node('seg2', 'SegmentDisplay', 'output', {
+      partId: 'tm1637-4digit-display', clkPin: 18, dioPin: 22,
+    })
+    expect(findPinConflicts([max7219(), tm], [])).toContainEqual(expect.stringContaining('GPIO 18'))
+  })
+
+  it('renders across its eight digits', () => {
+    expect(segmentOf([max7219('seg', { value: 12345 })]).digits).toBe('   12345')
+  })
+
+  it('shows a value the four-digit module has to refuse', () => {
+    expect(segmentOf([display({ value: 12345 })]).digits).toBe('----')
+    expect(segmentOf([max7219('seg', { value: 12345 })]).digits).toBe('   12345')
+  })
+
+  // The module has no colon segment, so asking for one must not set a flag the
+  // driver would then try to write.
+  it('never reports a colon it does not have', () => {
+    const frame = segmentOf([max7219('seg', { segmentMode: 'Number', showColon: true })])
+    expect(frame.colon).toBe(false)
+  })
+
+  it('goes dark across the full eight digits', () => {
+    const frame = segmentOf([max7219('seg', { enabled: false })])
+    expect(frame.lit).toBe(false)
+    expect(frame.digits.length).toBe(8)
+  })
+
+  it('gates each controller to the pin fields it actually wires', () => {
+    expect(isPropertyEnabled('SegmentDisplay', 'dioPin', { partId: 'tm1637-4digit-display' })).toBe(true)
+    expect(isPropertyEnabled('SegmentDisplay', 'dinPin', { partId: 'tm1637-4digit-display' })).toBe(false)
+    expect(isPropertyEnabled('SegmentDisplay', 'csPin', { partId: 'max7219-8digit-7segment' })).toBe(true)
+    expect(isPropertyEnabled('SegmentDisplay', 'dioPin', { partId: 'max7219-8digit-7segment' })).toBe(false)
   })
 })

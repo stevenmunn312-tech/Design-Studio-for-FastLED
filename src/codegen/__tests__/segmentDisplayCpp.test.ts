@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { generateCpp } from '../cppGenerator'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { SEGMENT_DISPLAY_CPP_HELPERS } from '../segmentDisplayCpp'
-import { SEGMENT_GLYPHS, SEGMENT_DIGITS } from '../../state/segmentDisplay'
+import { SEGMENT_GLYPHS, SEGMENT_CONTROLLERS } from '../../state/segmentDisplay'
 
 function node(id: string, nodeType: string, category: string, props: Record<string, unknown> = {}): StudioNode {
   return {
@@ -22,7 +22,14 @@ const outputNode = node('out', 'MatrixOutput', 'output', {
 })
 
 const display = (props: Record<string, unknown> = {}) =>
-  node('seg', 'SegmentDisplay', 'output', { clkPin: 18, dioPin: 19, brightness: 4, ...props })
+  node('seg', 'SegmentDisplay', 'output', {
+    partId: 'tm1637-4digit-display', clkPin: 18, dioPin: 19, brightness: 4, ...props,
+  })
+
+const max7219 = (props: Record<string, unknown> = {}) =>
+  node('seg', 'SegmentDisplay', 'output', {
+    partId: 'max7219-8digit-7segment', clkPin: 18, dinPin: 23, csPin: 5, brightness: 8, ...props,
+  })
 
 describe('segment display helpers', () => {
   // A second glyph table typed from memory is how a `6` ends up missing its top
@@ -33,8 +40,9 @@ describe('segment display helpers', () => {
     expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain(expected)
   })
 
-  it('carries the shared digit count', () => {
-    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain(`#define SEG_DIGITS ${SEGMENT_DIGITS}`)
+  it('sizes its buffer for the widest controller', () => {
+    const widest = Math.max(...Object.values(SEGMENT_CONTROLLERS).map((c) => c.digits))
+    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain(`#define SEG_MAX_DIGITS ${widest}`)
   })
 
   // A bit-banged four-byte transfer every LED frame would cost more than the
@@ -56,7 +64,7 @@ describe('segment display helpers', () => {
 describe('generateCpp with a segment display', () => {
   it('configures the module in setup and services it in the loop', () => {
     const src = generateCpp([outputNode, display()], [])
-    expect(src).toContain('_segBegin(_seg_seg, 18, 19, 4);')
+    expect(src).toContain('_segBegin(_seg_seg, SEG_KIND_TM1637, 4, 18, 19,')
     expect(src).toContain('_segWrite(_seg_seg,')
     expect(src).toContain('static SegDisplay _seg_seg;')
   })
@@ -73,7 +81,7 @@ describe('generateCpp with a segment display', () => {
     const nodes = [outputNode, node('w', 'Wave', 'signal', { speed: 0.5 }), display()]
     const src = generateCpp(nodes, [edge('e', 'w', 'seg', 'value', 'value')])
     expect(src).toContain('n_w_value')
-    expect(src).toContain('_segNumber(_segBuf_seg, n_w_value')
+    expect(src).toContain('_segNumber(_segBuf_seg, 4, n_w_value')
   })
 
   it('leaves the driver out of a sketch with no display', () => {
@@ -83,11 +91,13 @@ describe('generateCpp with a segment display', () => {
   })
 
   it('emits the driver once for several displays', () => {
-    const second = node('seg2', 'SegmentDisplay', 'output', { clkPin: 21, dioPin: 22, brightness: 2 })
+    const second = node('seg2', 'SegmentDisplay', 'output', {
+      partId: 'tm1637-4digit-display', clkPin: 21, dioPin: 22, brightness: 2,
+    })
     const src = generateCpp([outputNode, display(), second], [])
     expect(src.split('static void _segBegin').length - 1).toBe(1)
-    expect(src).toContain('_segBegin(_seg_seg, 18, 19, 4);')
-    expect(src).toContain('_segBegin(_seg_seg2, 21, 22, 2);')
+    expect(src).toContain('_segBegin(_seg_seg, SEG_KIND_TM1637, 4, 18, 19,')
+    expect(src).toContain('_segBegin(_seg_seg2, SEG_KIND_TM1637, 4, 21, 22,')
   })
 
   it('renders each mode through its own helper', () => {
@@ -99,7 +109,7 @@ describe('generateCpp with a segment display', () => {
   // No trustworthy clock reading shows dashes, never a plausible midnight.
   it('dashes a clock with no reading rather than showing a time', () => {
     const src = generateCpp([outputNode, display({ segmentMode: 'Clock' })], [])
-    expect(src).toContain('_segAllDash(_segBuf_seg);')
+    expect(src).toContain('_segAllDash(_segBuf_seg, 4);')
   })
 
   it('reads a wired clock struct', () => {
@@ -112,17 +122,68 @@ describe('generateCpp with a segment display', () => {
   it('honours a disabled module', () => {
     const src = generateCpp([outputNode, display({ enabled: false })], [])
     expect(src).toContain('bool _segOn_seg = false;')
-    expect(src).toContain('_segBlankAll(_segBuf_seg);')
+    expect(src).toContain('_segBlankAll(_segBuf_seg, 4);')
   })
 
   it('clamps a hostile brightness rather than emitting it', () => {
-    const src = generateCpp([outputNode, display({ brightness: 999 })], [])
-    expect(src).toContain('_segBegin(_seg_seg, 18, 19, 7);')
+    // A TM1637 reads three brightness bits, a MAX7219 four, so the ceiling is
+    // the controller's rather than one shared number.
+    expect(generateCpp([outputNode, display({ brightness: 999 })], []))
+      .toContain('_segBegin(_seg_seg, SEG_KIND_TM1637, 4, 18, 19, 21, 7);')
+    expect(generateCpp([outputNode, max7219({ brightness: 999 })], []))
+      .toContain('_segBegin(_seg_seg, SEG_KIND_MAX7219, 8, 18, 23, 5, 15);')
   })
 
   // Wall-clock driven, like every other animation here.
   it('blinks the clock colon from millis rather than a frame counter', () => {
     const src = generateCpp([outputNode, display({ segmentMode: 'Clock', showColon: true })], [])
     expect(src).toContain('((millis() / 1000) % 2) == 0')
+  })
+})
+
+describe('MAX7219', () => {
+  it('wires its own three lines and eight digits', () => {
+    const src = generateCpp([outputNode, max7219()], [])
+    expect(src).toContain('_segBegin(_seg_seg, SEG_KIND_MAX7219, 8, 18, 23, 5, 8);')
+  })
+
+  // The MAX7219 numbers its segment bits the opposite way to the TM1637, so raw
+  // bytes would need a second reversed glyph table — one more place for a 6 to
+  // lose its top bar on one controller only. Code B has the chip decode instead.
+  it('drives digits through Code B decode rather than a second glyph table', () => {
+    const src = generateCpp([outputNode, max7219()], [])
+    expect(src).toContain('_maxSend(d, 0x09, 0xFF);')
+    expect(src).toContain('static uint8_t _maxCodeB(char c)')
+  })
+
+  it('sets its scan limit from the digit count', () => {
+    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('_maxSend(d, 0x0B, (uint8_t)(digits - 1));')
+  })
+
+  it('renders across eight digits', () => {
+    const src = generateCpp([outputNode, max7219()], [])
+    expect(src).toContain('_segNumber(_segBuf_seg, 8,')
+  })
+
+  // The module has no colon segment, so asking for one must not emit a write to
+  // a bit that does not exist.
+  it('never asks a colonless module for a colon', () => {
+    const src = generateCpp([outputNode, max7219({ segmentMode: 'Clock', showColon: true })], [])
+    expect(src).toContain('_segWrite(_seg_seg, _segBuf_seg, _segDec_seg, false,')
+  })
+
+  it('shows seconds where the TM1637 cannot', () => {
+    const src = generateCpp([outputNode, max7219({ segmentMode: 'Clock' })], [])
+    expect(src).toMatch(/_segClock\(_segBuf_seg, 8, .*\.second\)|_segClock\(_segBuf_seg, 8, 0, 0, 0\)/)
+  })
+
+  it('shares one driver with a TM1637 in the same sketch', () => {
+    const tm = node('seg2', 'SegmentDisplay', 'output', {
+      partId: 'tm1637-4digit-display', clkPin: 21, dioPin: 22,
+    })
+    const src = generateCpp([outputNode, max7219(), tm], [])
+    expect(src.split('static void _segBegin').length - 1).toBe(1)
+    expect(src).toContain('SEG_KIND_MAX7219')
+    expect(src).toContain('SEG_KIND_TM1637')
   })
 })

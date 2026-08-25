@@ -9,10 +9,11 @@ import { CATEGORY_COLOR, NODE_LIBRARY } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { nextFreeLedDataPin } from '../../state/ledPinAssignment'
 import { assignPartPins, type PartPinRequest } from '../../state/partPinAssignment'
+import { segmentControllerFor } from '../../state/segmentDisplay'
 import { withAssignedPins } from '../../state/pinRetarget'
 import { boardI2cDefault } from '../../build/boardI2cDefaults'
 import { sdSpiPinsForBoard } from '../../state/sdPinDefaults'
-import { partDimensionsMm, partRenderSrc, ringDiameterMm } from '../../state/partCatalogue'
+import { partById, partDimensionsMm, partRenderSrc, ringDiameterMm } from '../../state/partCatalogue'
 import { buttonBankHandle, normalizeButtonBankEntries } from '../../state/buttonBank'
 import { partRenderForNodeType } from '../../state/partRenders'
 import { partOptionProperty, partOptionsFor, resolvePartIdentity } from '../../state/partOptions'
@@ -135,6 +136,23 @@ interface FixturePartEntry {
   /** Pins to find on the board, for a part no board profile places for us. */
   pinRequests?: readonly PartPinRequest[]
   singleton?: boolean
+}
+
+/**
+ * The pins one exact module wires, where a node type covers several.
+ *
+ * A TM1637 has CLK and DIO; a MAX7219 has CLK, DIN and a load line. Asking the
+ * board for the wrong pair would place pins the generated sketch never drives
+ * and leave the one it does unassigned, so the request follows the chosen
+ * module rather than the node type.
+ */
+const SEGMENT_PIN_LABELS: Record<string, string> = {
+  clkPin: 'CLK', dioPin: 'DIO', dinPin: 'DIN', csPin: 'LOAD',
+}
+
+function modulePinKeys(nodeType: string, moduleId: string | undefined): readonly string[] | null {
+  if (nodeType !== 'SegmentDisplay') return null
+  return segmentControllerFor(partById(String(moduleId ?? ''))?.display?.controller).pins
 }
 
 const FIXTURE_PARTS: readonly FixturePartEntry[] = [
@@ -659,7 +677,12 @@ export default function HardwarePane() {
     seen.set(entry.nodeType, ordinal + 1)
     const identity = resolvePartIdentity(node.data.nodeType, node.data.properties as Record<string, unknown>)
     const chosen = identity?.entry
-    const pinFields = identity?.option.input === 'analog' ? [] : entry.pinFields
+    const moduleKeys = modulePinKeys(entry.nodeType, identity?.option.id)
+    const pinFields = identity?.option.input === 'analog'
+      ? []
+      : moduleKeys
+        ? moduleKeys.map((key) => ({ key, label: SEGMENT_PIN_LABELS[key] ?? key }))
+        : entry.pinFields
     const props = node.data.properties as Record<string, unknown>
     const pinSummary = pinFields
       .map(({ key, label }) => ({ label, pin: Number(props[key]) }))
@@ -1113,8 +1136,12 @@ export default function HardwarePane() {
     // A part the board profile does not place picks free GPIO the same way an
     // input part does, so a second display lands on its own pins rather than
     // silently colliding with the first.
-    const requested = entry.pinRequests?.length
-      ? assignPartPins(boardProfile, selectedFqbn, nodes, entry.pinRequests)
+    const moduleKeys = modulePinKeys(entry.nodeType, moduleId)
+    const pinRequests = moduleKeys
+      ? moduleKeys.map((key) => ({ key }))
+      : entry.pinRequests
+    const requested = pinRequests?.length
+      ? assignPartPins(boardProfile, selectedFqbn, nodes, pinRequests)
       : null
     if (requested && !requested.ok) return
     const profilePins = sdSpiPins

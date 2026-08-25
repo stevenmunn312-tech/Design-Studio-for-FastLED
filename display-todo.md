@@ -309,7 +309,7 @@ widgets, hover state, or physical pins.
   blank/error/overflow states, and help text.
 - [x] Send updates only when the rendered digits change or a bounded refresh
   interval expires; do not rewrite the module on every LED frame.
-- [ ] Add MAX7219 behind the same logical node contract after TM1637 passes,
+- [x] Add MAX7219 behind the same logical node contract after TM1637 passes,
   keeping controller-specific wiring and digit capacity in the part adapter.
 - [ ] Test negative values, rounding, leading zero, decimal placement, NaN,
   overflow, clock rollover, disabled state, low brightness, and multiple

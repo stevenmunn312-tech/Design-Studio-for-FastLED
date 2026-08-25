@@ -33,7 +33,7 @@ import {
   SEGMENT_DISPLAY_CPP_HELPERS, segmentDisplayGlobalCpp, segmentDisplaySetupCpp,
   segmentDisplayLoopCpp, type SegmentDisplayEmit,
 } from './segmentDisplayCpp'
-import { asSegmentMode, clampSegmentBrightness } from '../state/segmentDisplay'
+import { asSegmentMode, clampSegmentBrightness, segmentControllerFor } from '../state/segmentDisplay'
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
 import {
   infoDisplayHelpersCpp, infoDisplayGlobalCpp, infoDisplaySetupCpp,
@@ -4835,11 +4835,16 @@ export function generateCpp(
 
       case 'SegmentDisplay': {
         const dtUp = incoming.get(`${node.id}:dateTime`)
+        const segCtl = segmentControllerFor(partById(String(p.partId ?? ''))?.display?.controller)
+        const isMax = segCtl.id === 'MAX7219'
         const emit: SegmentDisplayEmit = {
           id,
+          controller: isMax ? 'MAX7219' : 'TM1637',
+          digits: segCtl.digits,
           clkPin: intProp(p.clkPin, 18, 0, MAX_PIN_NUMBER),
-          dioPin: intProp(p.dioPin, 19, 0, MAX_PIN_NUMBER),
-          brightness: clampSegmentBrightness(p.brightness),
+          dataPin: isMax ? intProp(p.dinPin, 19, 0, MAX_PIN_NUMBER) : intProp(p.dioPin, 19, 0, MAX_PIN_NUMBER),
+          csPin: intProp(p.csPin, 21, 0, MAX_PIN_NUMBER),
+          brightness: clampSegmentBrightness(p.brightness, segCtl),
           mode: asSegmentMode(p.segmentMode),
           decimals: intProp(p.decimals, 0, 0, 3),
           leadingZero: p.leadingZero === true,

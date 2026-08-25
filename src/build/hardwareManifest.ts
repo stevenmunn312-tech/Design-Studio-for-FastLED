@@ -16,6 +16,9 @@ import {
   type PhysicalBoardProfile,
 } from './boardProfiles'
 import { rtcI2cPinsForProfile } from '../state/rtcPins'
+import { segmentControllerFor } from '../state/segmentDisplay'
+import { partById } from '../state/partCatalogue'
+import type { BusAssignment } from '../state/busTopology'
 import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
 import { resolvePartIdentity } from '../state/partOptions'
 import { LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, outputLedTotal } from '../state/ledOutputForm'
@@ -28,6 +31,8 @@ export interface HardwarePinUse {
   propertyKey: string
   pin: number
   requirement: GpioPropertyRequirement | null
+  /** Bus role, where the property name alone cannot resolve it. */
+  bus?: BusAssignment
   /** Exact physical pad for a board-owned fixed peripheral alias. */
   boardPinId?: string
   /** True when the board/core owns this assignment rather than a node field. */
@@ -122,6 +127,20 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
   const sdSpiPins = sdSpiPinsForBoard(selectedPhysicalBoardProfile(nodes), selectedFqbn)
   const matrixOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
   const matrixOrdinal = new Map(matrixOutputs.map((node, index) => [node.id, index + 1]))
+  const pushBus = (
+    node: StudioNode, label: string, propertyKey: string, value: unknown, bus: BusAssignment,
+  ) => {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return
+    uses.push({
+      label,
+      nodeId: node.id,
+      nodeType: node.data.nodeType,
+      propertyKey,
+      pin: value,
+      requirement: gpioRequirementForProperty(node.data.nodeType, propertyKey, node.data.properties as Record<string, unknown>),
+      bus,
+    })
+  }
   const push = (node: StudioNode, label: string, propertyKey: string, value: unknown) => {
     if (typeof value !== 'number' || !Number.isFinite(value)) return
     const nodeType = node.data.nodeType
@@ -187,10 +206,22 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         push(node, `${baseLabel} SCK`, 'sckPin', props.sckPin)
         push(node, `${baseLabel} MOSI`, 'mosiPin', props.mosiPin)
         break
-      case 'SegmentDisplay':
-        push(node, `${baseLabel} CLK`, 'clkPin', props.clkPin)
-        push(node, `${baseLabel} DIO`, 'dioPin', props.dioPin)
+      case 'SegmentDisplay': {
+        // Which pins exist depends on the module. A TM1637's two wires are its
+        // own; a MAX7219 clocks a shift register that other SPI devices may
+        // share, so its roles are resolved here — the only walk that knows
+        // which module the node is — and carried on the use itself.
+        const segment = segmentControllerFor(partById(String(props.partId ?? ''))?.display?.controller)
+        if (segment.id === 'MAX7219') {
+          pushBus(node, `${baseLabel} CLK`, 'clkPin', props.clkPin, { kind: 'spi', role: 'sck' })
+          pushBus(node, `${baseLabel} DIN`, 'dinPin', props.dinPin, { kind: 'spi', role: 'mosi' })
+          pushBus(node, `${baseLabel} LOAD/CS`, 'csPin', props.csPin, { kind: 'spi', role: 'cs' })
+        } else {
+          push(node, `${baseLabel} CLK`, 'clkPin', props.clkPin)
+          push(node, `${baseLabel} DIO`, 'dioPin', props.dioPin)
+        }
         break
+      }
       case 'ButtonInput':
         push(node, `${baseLabel} pin`, 'pin', props.pin)
         break

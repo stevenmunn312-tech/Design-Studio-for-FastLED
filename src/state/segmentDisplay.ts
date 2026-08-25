@@ -1,6 +1,6 @@
 // What a 7-segment module actually shows.
 //
-// Four characters and a colon, and that is the whole vocabulary. The evaluator
+// Digits and, on some modules, a colon: that is the whole vocabulary. The evaluator
 // draws this into the node body, the workbench draws it on the bench, and the
 // C++ generator writes the same characters to the TM1637 — so the layout is
 // decided once here rather than three times.
@@ -9,10 +9,49 @@
 // and a mode rather than a `string`. A general text input would accept words it
 // has no glyphs for, and the honest place to refuse that is the port type.
 
-import { scaleAndRound, DISPLAY_TEXT_NO_READING } from './displayText'
+import { scaleAndRound } from './displayText'
 
-/** Digits a TM1637 module has. The only width this module renders. */
-export const SEGMENT_DIGITS = 4
+/**
+ * What a segment controller physically is.
+ *
+ * Digit count and brightness range are controller facts, not module-wide
+ * constants: a TM1637 has four digits and eight brightness steps, a MAX7219
+ * has eight and sixteen. Keeping them here is what lets one node contract
+ * cover both, which is the plan's rule about controller-specific wiring and
+ * digit capacity living in the part adapter.
+ */
+export interface SegmentController {
+  id: string
+  digits: number
+  /** A centre colon segment, which only the TM1637 form has. */
+  hasColon: boolean
+  brightnessMax: number
+  /** Node property keys this controller wires, in header order. */
+  pins: readonly string[]
+}
+
+export const SEGMENT_CONTROLLERS: Record<string, SegmentController> = {
+  TM1637: {
+    id: 'TM1637', digits: 4, hasColon: true, brightnessMax: 7,
+    pins: ['clkPin', 'dioPin'],
+  },
+  MAX7219: {
+    id: 'MAX7219', digits: 8, hasColon: false, brightnessMax: 15,
+    pins: ['clkPin', 'dinPin', 'csPin'],
+  },
+}
+
+export const DEFAULT_SEGMENT_CONTROLLER = SEGMENT_CONTROLLERS.TM1637
+
+/** The controller a declared controller string names, or the default. */
+export function segmentControllerFor(controller: string | undefined): SegmentController {
+  if (!controller) return DEFAULT_SEGMENT_CONTROLLER
+  const upper = controller.toUpperCase()
+  for (const key of Object.keys(SEGMENT_CONTROLLERS)) {
+    if (upper.startsWith(key)) return SEGMENT_CONTROLLERS[key]
+  }
+  return DEFAULT_SEGMENT_CONTROLLER
+}
 
 export const SEGMENT_DISPLAY_MODES = ['Number', 'Clock', 'Index'] as const
 export type SegmentDisplayMode = (typeof SEGMENT_DISPLAY_MODES)[number]
@@ -24,20 +63,31 @@ export function asSegmentMode(value: unknown): SegmentDisplayMode {
     : 'Number'
 }
 
-/** TM1637 brightness steps. 0 is dimmest-on; the module has no darker level. */
+/** 0 is dimmest-on; neither controller has a darker level short of off. */
 export const SEGMENT_BRIGHTNESS_MIN = 0
-export const SEGMENT_BRIGHTNESS_MAX = 7
+/** The widest range any controller offers, for a property slider's bound. */
+export const SEGMENT_BRIGHTNESS_MAX = 15
 
-export function clampSegmentBrightness(value: unknown): number {
+/**
+ * Bound a brightness to what `controller` actually accepts.
+ *
+ * A 4 means half brightness on a TM1637 and a quarter on a MAX7219, so the
+ * ceiling has to come from the controller rather than from one shared number —
+ * emitting 12 to a TM1637 would set three bits it does not read.
+ */
+export function clampSegmentBrightness(
+  value: unknown,
+  controller: SegmentController = DEFAULT_SEGMENT_CONTROLLER,
+): number {
   const n = Math.round(Number(value))
-  if (!Number.isFinite(n)) return 4
-  return Math.min(SEGMENT_BRIGHTNESS_MAX, Math.max(SEGMENT_BRIGHTNESS_MIN, n))
+  if (!Number.isFinite(n)) return Math.min(4, controller.brightnessMax)
+  return Math.min(controller.brightnessMax, Math.max(SEGMENT_BRIGHTNESS_MIN, n))
 }
 
 /**
  * What the module displays this frame.
  *
- * `digits` is always exactly `SEGMENT_DIGITS` characters — a space is a blank
+ * `digits` is always exactly the controller's digit count — a space is a blank
  * digit — so a caller never has to think about padding. `decimalAt` is the
  * digit index carrying a decimal point, or -1.
  */
@@ -49,23 +99,27 @@ export interface SegmentFrame {
   lit: boolean
 }
 
-export const BLANK_SEGMENT_FRAME: SegmentFrame = {
-  digits: '    ', colon: false, decimalAt: -1, lit: false,
+export function blankSegmentFrame(digits = DEFAULT_SEGMENT_CONTROLLER.digits): SegmentFrame {
+  return { digits: ' '.repeat(digits), colon: false, decimalAt: -1, lit: false }
 }
 
 /**
- * Overflow marker.
+ * A field of dashes, the width of the module.
  *
- * `----` is the segment-display convention for a reading that will not fit, and
- * every character in it exists on a 7-segment digit. Truncating to the low four
- * digits instead would show a confidently wrong number, which on a display
- * whose whole job is to be read at a glance is the worst available outcome.
+ * The segment convention for a reading that will not fit or does not exist.
+ * Truncating to the low digits instead would show a confidently wrong number,
+ * which on a display whose whole job is to be read at a glance is the worst
+ * available outcome.
  */
-const SEGMENT_OVERFLOW = '----'
+function dashes(digits: number): SegmentFrame {
+  return { digits: '-'.repeat(digits), colon: false, decimalAt: -1, lit: true }
+}
 
 export interface SegmentNumberOptions {
   decimals: number
   leadingZero: boolean
+  /** Width of the module. Defaults to the TM1637's four. */
+  digits?: number
 }
 
 /**
@@ -76,26 +130,25 @@ export interface SegmentNumberOptions {
  * read 12.4 in another.
  */
 export function renderSegmentNumber(value: number, options: SegmentNumberOptions): SegmentFrame {
+  const width = Math.max(1, Math.round(options.digits ?? DEFAULT_SEGMENT_CONTROLLER.digits))
   const decimals = Math.min(3, Math.max(0, Math.round(options.decimals) || 0))
   const scaled = scaleAndRound(value, decimals)
-  if (scaled === null) {
-    // A module with four digits cannot spell the shared no-reading marker, so
-    // it shows the dashes it can draw.
-    return { digits: DISPLAY_TEXT_NO_READING.padStart(SEGMENT_DIGITS, '-').slice(0, SEGMENT_DIGITS), colon: false, decimalAt: -1, lit: true }
-  }
+  // A segment module cannot spell the shared no-reading marker, so it shows the
+  // dashes it can draw.
+  if (scaled === null) return dashes(width)
 
   const negative = scaled < 0
   const magnitude = Math.abs(scaled)
   const body = String(magnitude)
   // Digits available for the number itself, after a minus sign takes one.
-  const room = SEGMENT_DIGITS - (negative ? 1 : 0)
-  if (body.length > room) return { digits: SEGMENT_OVERFLOW, colon: false, decimalAt: -1, lit: true }
+  const room = width - (negative ? 1 : 0)
+  if (body.length > room) return dashes(width)
 
   const padded = options.leadingZero ? body.padStart(room, '0') : body
   const text = (negative ? '-' : '') + padded
-  const digits = text.padStart(SEGMENT_DIGITS, ' ')
+  const digits = text.padStart(width, ' ')
   // The point sits after the last whole digit, counted from the right.
-  const decimalAt = decimals > 0 ? SEGMENT_DIGITS - 1 - decimals : -1
+  const decimalAt = decimals > 0 ? width - 1 - decimals : -1
   return { digits, colon: false, decimalAt, lit: true }
 }
 
@@ -107,11 +160,21 @@ export function renderSegmentNumber(value: number, options: SegmentNumberOptions
  * once-a-second pulse a clock is expected to have; a caller that wants a steady
  * colon passes true.
  */
-export function renderSegmentClock(hour: number, minute: number, colonOn: boolean): SegmentFrame {
-  const hh = Math.abs(Math.round(Number.isFinite(hour) ? hour : 0)) % 100
-  const mm = Math.abs(Math.round(Number.isFinite(minute) ? minute : 0)) % 100
-  const digits = `${String(hh).padStart(2, '0')}${String(mm).padStart(2, '0')}`
-  return { digits, colon: colonOn, decimalAt: -1, lit: true }
+export function renderSegmentClock(
+  hour: number,
+  minute: number,
+  colonOn: boolean,
+  digits = DEFAULT_SEGMENT_CONTROLLER.digits,
+  second = 0,
+): SegmentFrame {
+  const pair = (value: number) =>
+    String(Math.abs(Math.round(Number.isFinite(value) ? value : 0)) % 100).padStart(2, '0')
+  // Six digits of clock only fit where there are six digits. On a four-digit
+  // module the seconds are the part nobody reads at a glance, so they go.
+  const body = digits >= 6
+    ? `${pair(hour)}${pair(minute)}${pair(second)}`
+    : `${pair(hour)}${pair(minute)}`
+  return { digits: body.padStart(digits, ' ').slice(-digits), colon: colonOn, decimalAt: -1, lit: true }
 }
 
 /**
@@ -121,10 +184,14 @@ export function renderSegmentClock(hour: number, minute: number, colonOn: boolea
  * numbers without one of them becoming unreadable, and the number people look
  * at is which one is playing.
  */
-export function renderSegmentIndex(index: number): SegmentFrame {
+export function renderSegmentIndex(
+  index: number,
+  digits = DEFAULT_SEGMENT_CONTROLLER.digits,
+): SegmentFrame {
   const n = Math.round(Number.isFinite(index) ? index : 0)
-  if (n < 0 || n > 9999) return { digits: SEGMENT_OVERFLOW, colon: false, decimalAt: -1, lit: true }
-  return { digits: String(n).padStart(SEGMENT_DIGITS, ' '), colon: false, decimalAt: -1, lit: true }
+  const body = String(Math.abs(n))
+  if (n < 0 || body.length > digits) return dashes(digits)
+  return { digits: body.padStart(digits, ' '), colon: false, decimalAt: -1, lit: true }
 }
 
 /** A frame as one readable string, for a node body or a test. */
@@ -154,9 +221,10 @@ export const SEGMENT_GLYPHS: Record<string, number> = {
 
 /** Segment bytes for a frame, decimal point and colon already applied. */
 export function segmentBytes(frame: SegmentFrame): number[] {
-  if (!frame.lit) return new Array(SEGMENT_DIGITS).fill(0)
+  const width = frame.digits.length
+  if (!frame.lit) return new Array(width).fill(0)
   const bytes: number[] = []
-  for (let i = 0; i < SEGMENT_DIGITS; i++) {
+  for (let i = 0; i < width; i++) {
     let byte = SEGMENT_GLYPHS[frame.digits[i]] ?? 0
     if (i === frame.decimalAt) byte |= 0x80
     // The TM1637 carries the colon on the second digit's high bit.

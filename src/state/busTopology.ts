@@ -66,6 +66,12 @@ const BUS_ASSIGNMENTS: Record<string, Record<string, BusAssignment>> = {
   SegmentDisplay: {
     clkPin: { kind: 'none', role: 'exclusive' },
     dioPin: { kind: 'none', role: 'exclusive' },
+    // MAX7219 lines. Its clock and data are a real shift-register bus that
+    // other devices may share, which is why they cannot be judged by property
+    // name alone — the same `clkPin` is exclusive on a TM1637. A pin use
+    // carries its resolved role from collectPinUses for exactly this case.
+    dinPin: { kind: 'spi', role: 'mosi' },
+    csPin: { kind: 'spi', role: 'cs' },
   },
   SDCard: {
     sdCsPin: { kind: 'spi', role: 'cs' },
@@ -132,6 +138,14 @@ export interface BusPinUse {
   nodeType: string
   propertyKey: string
   pin: number
+  /**
+   * Role resolved by the collector, where the property name alone cannot say.
+   *
+   * A `SegmentDisplay`'s `clkPin` is an exclusive two-wire clock on a TM1637
+   * and a shareable shift-register clock on a MAX7219. Only the node's chosen
+   * module distinguishes them, and `collectPinUses` is the walk that has it.
+   */
+  bus?: BusAssignment
 }
 
 export type PinCollisionReason =
@@ -183,7 +197,7 @@ export function findPinCollisions(
   const collisions: PinCollision[] = []
   for (const [pin, pinUses] of [...byPin].sort(([a], [b]) => a - b)) {
     if (pinUses.length < 2) continue
-    const assignments = pinUses.map((use) => busAssignmentFor(use.nodeType, use.propertyKey))
+    const assignments = pinUses.map((use) => use.bus ?? busAssignmentFor(use.nodeType, use.propertyKey))
 
     const allShareable = assignments.every((a) => isShareableRole(a.role))
     if (!allShareable) {
@@ -228,8 +242,9 @@ export function findI2cAddressCollisions(
   for (const device of devices) {
     const address = i2cAddressFor(device.nodeType, device.props)
     if (address === null) continue
-    const sda = device.uses.find((use) => busAssignmentFor(use.nodeType, use.propertyKey).role === 'sda')
-    const scl = device.uses.find((use) => busAssignmentFor(use.nodeType, use.propertyKey).role === 'scl')
+    const role = (use: BusPinUse) => use.bus ?? busAssignmentFor(use.nodeType, use.propertyKey)
+    const sda = device.uses.find((use) => role(use).role === 'sda')
+    const scl = device.uses.find((use) => role(use).role === 'scl')
     if (!sda || !scl) continue
 
     const key = `${sda.pin}:${scl.pin}:${address}`

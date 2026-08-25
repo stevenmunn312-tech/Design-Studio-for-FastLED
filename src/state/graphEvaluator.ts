@@ -11,7 +11,8 @@ import {
 } from './transportBridge'
 import {
   asSegmentMode, clampSegmentBrightness, renderSegmentNumber, renderSegmentClock,
-  renderSegmentIndex, segmentFrameText, BLANK_SEGMENT_FRAME, type SegmentFrame,
+  renderSegmentIndex, segmentFrameText, blankSegmentFrame, segmentControllerFor,
+  type SegmentFrame,
 } from './segmentDisplay'
 import {
   asInfoDisplayLayout, renderInfoDisplay, blankInfoData, STATUS_MAX_INDICATORS,
@@ -6918,8 +6919,9 @@ function createEvalNode(
         const enabled = incoming.has(`${id}:enabled`)
           ? Boolean(input(id, 'enabled', true))
           : props.enabled !== false
+        const segCtl = segmentControllerFor(partById(String(props.partId ?? ''))?.display?.controller)
         if (!enabled) {
-          out = { frame: null, segment: BLANK_SEGMENT_FRAME, text: '' }
+          out = { frame: null, segment: blankSegmentFrame(segCtl.digits), text: '' }
           break
         }
 
@@ -6927,31 +6929,35 @@ function createEvalNode(
         let segment: SegmentFrame
         if (mode === 'Clock') {
           const clock = input(id, 'dateTime', null) as
-            { hour?: number; minute?: number; valid?: boolean } | null
+            { hour?: number; minute?: number; second?: number; valid?: boolean } | null
           if (clock && clock.valid === true) {
             // The colon blinks once a second, driven by wall-clock `t` like
             // every other animation here rather than by a frame counter.
             const blink = props.showColon === false ? false : Math.floor(t) % 2 === 0
-            segment = renderSegmentClock(Number(clock.hour ?? 0), Number(clock.minute ?? 0), blink)
+            segment = renderSegmentClock(
+              Number(clock.hour ?? 0), Number(clock.minute ?? 0),
+              blink && segCtl.hasColon, segCtl.digits, Number(clock.second ?? 0),
+            )
           } else {
             // No trustworthy reading is dashes, never a plausible midnight.
-            segment = { digits: '----', colon: false, decimalAt: -1, lit: true }
+            segment = { digits: '-'.repeat(segCtl.digits), colon: false, decimalAt: -1, lit: true }
           }
         } else if (mode === 'Index') {
-          segment = renderSegmentIndex(num(id, 'value', props, 'value', 0))
+          segment = renderSegmentIndex(num(id, 'value', props, 'value', 0), segCtl.digits)
         } else {
           segment = renderSegmentNumber(num(id, 'value', props, 'value', 0), {
             decimals: Number(props.decimals ?? 0),
             leadingZero: props.leadingZero === true,
+            digits: segCtl.digits,
           })
         }
-        if (props.showColon === true && mode !== 'Clock') segment = { ...segment, colon: true }
+        if (props.showColon === true && mode !== 'Clock' && segCtl.hasColon) segment = { ...segment, colon: true }
 
         out = {
           frame: null,
           segment,
           text: segmentFrameText(segment),
-          brightness: clampSegmentBrightness(props.brightness),
+          brightness: clampSegmentBrightness(props.brightness, segCtl),
         }
         break
       }
