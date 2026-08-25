@@ -37,6 +37,16 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- New Project now creates a blank project directly instead of opening a Save As
+  dialog after the user chooses to continue without saving the previous project.
+- Opening a project file or recent project no longer asks whether to save when
+  the current graph contains only its automatic Board node.
+- Open Project File now launches its file picker directly from the menu click,
+  preventing browsers from silently blocking it after an asynchronous fallback.
+- Save Project File As now opens the platform save dialog directly from the
+  menu click, preserving the browser permission needed to choose both the file
+  name and save location; helper-backed Windows dialogs are explicitly owned
+  and topmost so they cannot wait invisibly behind the app.
 - Live Stream now sends the palette and RGB frame for the LED output whose
   receiver was flashed, even when another output is selected in the preview,
   and no longer applies the Board master brightness a second time on-device.

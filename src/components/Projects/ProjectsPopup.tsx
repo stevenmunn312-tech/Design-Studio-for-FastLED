@@ -3,13 +3,7 @@ import { useUiStore } from '../../state/uiStore'
 import { useGraphStore } from '../../state/graphStore'
 import { useProjectStore } from '../../state/projectStore'
 import { captureWorkspace, blankWorkspace } from '../../state/workspacePersistence'
-import {
-  buildProjectSnapshot,
-  nextDefaultProjectName,
-  serializeProject,
-  suggestProjectFileName,
-} from '../../utils/projectFileIO'
-import { saveProjectWithFallbacks } from '../../utils/projectDialogs'
+import { nextDefaultProjectName } from '../../utils/projectFileIO'
 import styles from './ProjectsPopup.module.css'
 
 function relativeTime(timestamp: number): string {
@@ -57,42 +51,16 @@ export default function ProjectsPopup() {
     closeProjects()
   }
 
-  const createBlankProjectWithFileDialog = async (saveCurrentFirst: boolean) => {
+  const createBlankProject = (saveCurrentFirst: boolean) => {
     const defaultName = nextDefaultProjectName(projects.map((project) => project.name))
-    const draft = buildProjectSnapshot(blankWorkspace(), { name: defaultName })
-    try {
-      // After the yes/no/cancel prompt resolves, browsers may drop the user
-      // activation needed for showSaveFilePicker(). The helper-backed dialog
-      // does not have that limitation, so prefer it for new-project creation.
-      const saved = await saveProjectWithFallbacks(draft, 'dialog-first')
-      if (!saved) throw new Error('No save dialog available')
-      if (saveCurrentFirst && currentProject) {
-        useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
-      }
-      const project = useProjectStore.getState().upsertProject(saved)
-      useGraphStore.getState().loadGraph([], [])
-      useGraphStore.temporal.getState().clear()
-      setStatus(`Created project "${project.name}"`, 'success')
-      closeProjects()
-      return
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return
-      const blob = new Blob([serializeProject(draft)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = suggestProjectFileName(draft.name)
-      a.click()
-      URL.revokeObjectURL(url)
-      if (saveCurrentFirst && currentProject) {
-        useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
-      }
-      const project = useProjectStore.getState().upsertProject(draft)
-      useGraphStore.getState().loadGraph([], [])
-      useGraphStore.temporal.getState().clear()
-      setStatus(`Created project "${project.name}"`, 'success')
-      closeProjects()
+    if (saveCurrentFirst && currentProject) {
+      useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
     }
+    const project = createProject(defaultName, blankWorkspace())
+    useGraphStore.getState().loadGraph([], [])
+    useGraphStore.temporal.getState().clear()
+    setStatus(`Created project "${project.name}"`, 'success')
+    closeProjects()
   }
 
   const createBlank = () => {
@@ -101,7 +69,7 @@ export default function ProjectsPopup() {
         ? await requestNewProjectDecision(currentProject.name, 'creating a new project', 'a new blank project')
         : 'no'
       if (decision === 'cancel') return
-      await createBlankProjectWithFileDialog(decision === 'yes')
+      createBlankProject(decision === 'yes')
     })()
   }
 

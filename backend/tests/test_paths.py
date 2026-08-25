@@ -2,8 +2,30 @@
 never escape the patterns/projects folder, saves must land only inside it,
 and re-saving under a new name must not orphan the old file."""
 import json
+from types import SimpleNamespace
 
 import app
+
+
+def test_windows_save_dialog_is_owned_and_topmost(tmp_path, monkeypatch):
+    captured = {}
+
+    def fake_run(command, **kwargs):
+        captured["command"] = command
+        captured["env"] = kwargs["env"]
+        return SimpleNamespace(stdout=str(tmp_path / "My Show.fastled-project.json"))
+
+    monkeypatch.setattr(app.subprocess, "run", fake_run)
+
+    chosen = app._show_windows_save_dialog(tmp_path, "My Show.fastled-project.json")
+
+    script = captured["command"][-1]
+    assert "$owner.TopMost = $true" in script
+    assert "$dialog.ShowDialog($owner)" in script
+    assert "$owner.Dispose()" in script
+    assert captured["env"]["FLS_DIALOG_INITIAL_DIR"] == str(tmp_path)
+    assert captured["env"]["FLS_DIALOG_FILE_NAME"] == "My Show.fastled-project.json"
+    assert chosen == str(tmp_path / "My Show.fastled-project.json")
 
 
 def test_sanitize_filename_strips_path_traversal():

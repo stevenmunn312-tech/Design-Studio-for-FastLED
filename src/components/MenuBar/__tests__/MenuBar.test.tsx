@@ -31,6 +31,7 @@ const authoredNodeIds = () => authoredNodes().map((node) => node.id)
 
 const defaultRequestNewProjectDecision = useUiStore.getState().requestNewProjectDecision
 const defaultResolveNewProjectDecision = useUiStore.getState().resolveNewProjectDecision
+const defaultRequestPrompt = useUiStore.getState().requestPrompt
 
 function project(id: string, name: string, nodeId: string, updatedAt: number): SavedProject {
   return {
@@ -59,21 +60,6 @@ function boardNodeForFqbn(fqbn: string) {
   }
 }
 
-function mockSavePicker(filename: string, onWrite?: (data: string) => void) {
-  ;(window as Window & {
-    showSaveFilePicker?: () => Promise<{
-      name: string
-      createWritable: () => Promise<{ write: (data: string) => Promise<void>; close: () => Promise<void> }>
-    }>
-  }).showSaveFilePicker = vi.fn().mockResolvedValue({
-    name: filename,
-    createWritable: async () => ({
-      write: async (data: string) => { onWrite?.(data) },
-      close: async () => {},
-    }),
-  })
-}
-
 describe('MenuBar file menu', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -100,6 +86,7 @@ describe('MenuBar file menu', () => {
       newProjectPrompt: { open: false, projectName: '', actionLabel: 'creating a new project', destinationLabel: 'a new blank project' },
       requestNewProjectDecision: defaultRequestNewProjectDecision,
       resolveNewProjectDecision: defaultResolveNewProjectDecision,
+      requestPrompt: defaultRequestPrompt,
     })
     useAudioStore.setState({ micActive: false, active: false })
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
@@ -355,7 +342,7 @@ describe('MenuBar file menu', () => {
     expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha', 'continuing', 'project "pg"')
   })
 
-  it('creates a default New Project through the save dialog when no project is open', async () => {
+  it('creates a default New Project without opening a save dialog when no project is open', async () => {
     useProjectStore.setState({ projects: [], currentProjectId: '' })
     useGraphStore.setState({
       nodes: [],
@@ -364,8 +351,6 @@ describe('MenuBar file menu', () => {
       graphs: { root: { id: 'root', name: 'Main' } },
       activeGraphId: 'root',
     })
-    mockSavePicker('New Project.fastled-project.json')
-
     const { getByRole, getByText } = render(<MenuBar />)
     fireEvent.click(getByRole('button', { name: 'File menu' }))
     fireEvent.click(getByText('New Project'))
@@ -376,6 +361,7 @@ describe('MenuBar file menu', () => {
     const current = useProjectStore.getState().projects.find((entry) => entry.id === useProjectStore.getState().currentProjectId)
     expect(current?.name).toBe('New Project')
     expect(authoredNodes()).toEqual([])
+    expect((window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker).toBeUndefined()
   })
 
   it('supports the yes path before creating a new project', async () => {
@@ -395,8 +381,6 @@ describe('MenuBar file menu', () => {
       graphs: { root: { id: 'root', name: 'Main' } },
       activeGraphId: 'root',
     })
-    mockSavePicker('New Project.fastled-project.json')
-
     const { getByRole, getByText } = render(<MenuBar />)
     fireEvent.click(getByRole('button', { name: 'File menu' }))
     fireEvent.click(getByText('New Project'))
@@ -428,8 +412,6 @@ describe('MenuBar file menu', () => {
       graphs: { root: { id: 'root', name: 'Main' } },
       activeGraphId: 'root',
     })
-    mockSavePicker('New Project(1).fastled-project.json')
-
     const { getByRole, getByText } = render(<MenuBar />)
     fireEvent.click(getByRole('button', { name: 'File menu' }))
     fireEvent.click(getByText('New Project'))
@@ -439,9 +421,10 @@ describe('MenuBar file menu', () => {
     })
     expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha', 'creating a new project', 'a new blank project')
     const current = useProjectStore.getState().projects.find((entry) => entry.id === useProjectStore.getState().currentProjectId)
-    expect(current?.name).toBe('New Project(1)')
+    expect(current?.name).toBe('New Project')
     expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['alpha-node'])
     expect(authoredNodes()).toEqual([])
+    expect((window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker).toBeUndefined()
   })
 
   it('supports the cancel path before creating a new project', () => {
@@ -472,7 +455,7 @@ describe('MenuBar file menu', () => {
     expect((window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker).toBeUndefined()
   })
 
-  it('opens a project file through the native picker', async () => {
+  it('opens a project file through the file input while the menu click is active', async () => {
     const alpha = project('alpha', 'alpha', 'alpha-node', 200)
     const pg = project('pg', 'pg', 'pg-node', 100)
     const requestNewProjectDecision = vi.fn().mockResolvedValue('yes')
@@ -491,14 +474,19 @@ describe('MenuBar file menu', () => {
       activeGraphId: 'root',
     })
 
-    ;(window as Window & { showOpenFilePicker?: () => Promise<Array<{ name: string; getFile: () => Promise<File> }>> }).showOpenFilePicker = vi.fn().mockResolvedValue([{
-      name: 'pg.fastled-project.json',
-      getFile: async () => new File([JSON.stringify(pg)], 'pg.fastled-project.json', { type: 'application/json' }),
-    }])
-
-    const { getByRole, getByText } = render(<MenuBar />)
+    const { container, getByRole, getByText } = render(<MenuBar />)
+    const input = container.querySelector<HTMLInputElement>('input[accept=".json,.fastled-project.json"]')
+    expect(input).toBeTruthy()
+    const inputClick = vi.spyOn(input!, 'click')
     fireEvent.click(getByRole('button', { name: 'File menu' }))
     fireEvent.click(getByText('Open Project File…'))
+    expect(inputClick).toHaveBeenCalledOnce()
+
+    fireEvent.change(input!, {
+      target: {
+        files: [new File([JSON.stringify(pg)], 'pg.fastled-project.json', { type: 'application/json' })],
+      },
+    })
 
     await waitFor(() => {
       expect(useProjectStore.getState().currentProjectId).toBe(pg.id)
@@ -506,6 +494,35 @@ describe('MenuBar file menu', () => {
     expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha', 'continuing', 'project "pg"')
     expect(authoredNodeIds()).toEqual(['pg-node'])
     expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['scratch'])
+  })
+
+  it('opens a project file without a save prompt when the current graph only has its automatic Board node', async () => {
+    const alpha = project('alpha', 'alpha', 'alpha-node', 200)
+    const pg = project('pg', 'pg', 'pg-node', 100)
+    const requestNewProjectDecision = vi.fn()
+    useUiStore.setState({ requestNewProjectDecision })
+    useProjectStore.setState({ projects: [alpha], currentProjectId: alpha.id })
+    useGraphStore.setState({
+      nodes: [boardNodeForFqbn('esp32:esp32:esp32s3')] as never[],
+      edges: [],
+      graphData: {},
+      graphs: { root: { id: 'root', name: 'Main' } },
+      activeGraphId: 'root',
+    })
+
+    const { container, getByRole, getByText } = render(<MenuBar />)
+    const input = container.querySelector<HTMLInputElement>('input[accept=".json,.fastled-project.json"]')
+    fireEvent.click(getByRole('button', { name: 'File menu' }))
+    fireEvent.click(getByText('Open Project File…'))
+    fireEvent.change(input!, {
+      target: {
+        files: [new File([JSON.stringify(pg)], 'pg.fastled-project.json', { type: 'application/json' })],
+      },
+    })
+
+    await waitFor(() => expect(useProjectStore.getState().currentProjectId).toBe(pg.id))
+    expect(requestNewProjectDecision).not.toHaveBeenCalled()
+    expect(authoredNodeIds()).toEqual(['pg-node'])
   })
 
   it('supports cancel before opening a recent project', () => {
@@ -631,11 +648,26 @@ describe('MenuBar file menu', () => {
       expect(useProjectStore.getState().currentProjectId).toBe('helper-copy-id')
     })
 
-    expect(showSaveFilePicker).toHaveBeenCalled()
     expect(fetchMock).toHaveBeenCalledWith('http://localhost:8008/api/projects/dialog/save', expect.objectContaining({
       method: 'POST',
     }))
+    expect(showSaveFilePicker).toHaveBeenCalled()
     expect(useProjectStore.getState().projects.find((entry) => entry.id === 'helper-copy-id')?.name).toBe('helper-copy')
+  })
+
+  it('cancels Save As without falling through when the location picker is canceled', async () => {
+    const alpha = project('alpha', 'alpha', 'alpha-node', 200)
+    const showSaveFilePicker = vi.fn().mockRejectedValue(new DOMException('Canceled', 'AbortError'))
+    useProjectStore.setState({ projects: [alpha], currentProjectId: alpha.id })
+    ;(window as Window & { showSaveFilePicker?: typeof showSaveFilePicker }).showSaveFilePicker = showSaveFilePicker
+
+    const { getByRole, getByText } = render(<MenuBar />)
+    fireEvent.click(getByRole('button', { name: 'File menu' }))
+    fireEvent.click(getByText('Save Project File As…'))
+
+    await waitFor(() => expect(showSaveFilePicker).toHaveBeenCalled())
+    expect(fetch).not.toHaveBeenCalled()
+    expect(useProjectStore.getState().currentProjectId).toBe(alpha.id)
   })
 
   it('shares the current project as a hardware-agnostic pattern, stripping Matrix Output', async () => {

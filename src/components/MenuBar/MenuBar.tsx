@@ -25,7 +25,7 @@ import {
   serializeProject,
   suggestProjectFileName,
 } from '../../utils/projectFileIO'
-import { openProjectWithFallbacks, saveProjectWithFallbacks } from '../../utils/projectDialogs'
+import { saveProjectWithFallbacks } from '../../utils/projectDialogs'
 import { runTidy } from '../../utils/tidyGraph'
 import { buildShareUrl } from '../../utils/shareGraph'
 import { openCommunityTab, postToCommunityTab, suggestPatternFileName } from '../../utils/communityUpload'
@@ -390,9 +390,16 @@ export default function MenuBar() {
     return true
   }
 
+  const hasAuthoredWorkspaceContent = () => {
+    const state = useGraphStore.getState()
+    const hasAuthoredNode = (node: StudioNode) => node.data.nodeType !== 'Board'
+    return state.nodes.some(hasAuthoredNode)
+      || Object.values(state.graphData).some((graph) => graph.nodes.some(hasAuthoredNode))
+  }
+
   const confirmReplaceUnsavedWorkspace = async (message: string) => {
     if (currentProject) return true
-    if (useGraphStore.getState().nodes.every((node) => node.data.nodeType === 'Board')) return true
+    if (!hasAuthoredWorkspaceContent()) return true
     return requestConfirm({
       title: 'Replace current workspace?',
       message,
@@ -403,6 +410,7 @@ export default function MenuBar() {
   }
 
   const confirmProjectChange = async (destinationLabel: string) => {
+    if (!hasAuthoredWorkspaceContent()) return 'no'
     if (currentProject) {
       return requestNewProjectDecision(currentProject.name, 'continuing', destinationLabel)
     }
@@ -422,41 +430,15 @@ export default function MenuBar() {
     return true
   }
 
-  const createNewProjectWithFileDialog = async (saveCurrentFirst: boolean) => {
+  const createNewBlankProject = (saveCurrentFirst: boolean) => {
     const defaultName = nextDefaultProjectName(projects.map((project) => project.name))
-    const draft = buildProjectSnapshot(blankWorkspace(), { name: defaultName })
-    try {
-      // After the yes/no/cancel prompt resolves, browsers may drop the user
-      // activation needed for showSaveFilePicker(). The helper-backed dialog
-      // does not have that limitation, so prefer it for new-project creation.
-      const saved = await saveProjectWithFallbacks(draft, 'dialog-first')
-      if (!saved) throw new Error('No save dialog available')
-      if (saveCurrentFirst && currentProject) {
-        useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
-      }
-      const project = useProjectStore.getState().upsertProject(saved)
-      useGraphStore.getState().loadGraph([], [])
-      useGraphStore.temporal.getState().clear()
-      setStatus(`Created project "${project.name}"`, 'success')
-      return true
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return false
-      const blob = new Blob([serializeProject(draft)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = suggestProjectFileName(draft.name)
-      a.click()
-      URL.revokeObjectURL(url)
-      if (saveCurrentFirst && currentProject) {
-        useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
-      }
-      const project = useProjectStore.getState().upsertProject(draft)
-      useGraphStore.getState().loadGraph([], [])
-      useGraphStore.temporal.getState().clear()
-      setStatus(`Created project "${project.name}"`, 'success')
-      return true
+    if (saveCurrentFirst && currentProject) {
+      useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
     }
+    const project = useProjectStore.getState().createProject(defaultName, blankWorkspace())
+    useGraphStore.getState().loadGraph([], [])
+    useGraphStore.temporal.getState().clear()
+    setStatus(`Created project "${project.name}"`, 'success')
   }
 
   const openParsedProject = async (
@@ -486,7 +468,7 @@ export default function MenuBar() {
         ? await requestNewProjectDecision(currentProject.name, 'creating a new project', 'a new blank project')
         : 'no'
       if (decision === 'cancel') return
-      await createNewProjectWithFileDialog(decision === 'yes')
+      createNewBlankProject(decision === 'yes')
     })()
   }
 
@@ -499,8 +481,12 @@ export default function MenuBar() {
       name: currentProject ? `${currentProject.name} Copy` : `Project ${projects.length + 1}`,
       duplicate: true,
     })
+    setStatus('Opening Save Project As dialog…', 'info')
     void (async () => {
       try {
+        // Start the platform picker directly from the menu click. Any awaited
+        // app prompt here consumes browser user activation and causes Chromium
+        // to block the dialog that chooses both the file name and location.
         const saved = await saveProjectWithFallbacks(draft)
         if (!saved) throw new Error('No save dialog available')
         const project = useProjectStore.getState().upsertProject(saved)
@@ -515,35 +501,17 @@ export default function MenuBar() {
         a.click()
         URL.revokeObjectURL(url)
         const project = useProjectStore.getState().upsertProject(draft)
-        setStatus(`Saved as "${project.name}"`, 'success')
+        setStatus(`Downloaded "${project.name}" to the browser's download location`, 'info')
       }
     })()
   }
 
   const handleOpenProject = () => {
     closeMenus()
-    void (async () => {
-      try {
-        const picked = await openProjectWithFallbacks()
-        if (picked) {
-          const decision = await confirmProjectChange(`project "${picked.fallbackName}"`)
-          if (decision === 'cancel') return
-          try {
-            await openParsedProject(picked.text, picked.fallbackName, {
-              saveCurrentFirst: decision === 'yes',
-              confirmedReplace: true,
-            })
-          } catch {
-            setStatus('Failed to open project file — invalid file', 'error')
-          }
-          return
-        }
-        handleOpenProjectFallback()
-      } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return
-        handleOpenProjectFallback()
-      }
-    })()
+    // Open the input picker during the click event itself. Waiting for the
+    // native/helper strategies first consumes browser user activation, after
+    // which the fallback click is silently blocked in several browsers.
+    handleOpenProjectFallback()
   }
 
   const handleOpenRecentProject = (projectId: string) => {

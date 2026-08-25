@@ -3336,13 +3336,25 @@ def _show_windows_save_dialog(initial_dir: Path, initial_file: str) -> str | Non
     }
     script = (
         "Add-Type -AssemblyName System.Windows.Forms; "
+        # Give the dialog a real topmost owner. Without one, Windows can place
+        # this helper-process dialog behind the browser/desktop shell; the API
+        # request then waits forever while the menu action appears to do
+        # nothing.
+        "$owner = New-Object System.Windows.Forms.Form; "
+        "$owner.TopMost = $true; "
+        "$owner.ShowInTaskbar = $false; "
+        "$owner.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None; "
+        "$owner.Width = 1; $owner.Height = 1; "
+        "$owner.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen; "
         "$dialog = New-Object System.Windows.Forms.SaveFileDialog; "
         "$dialog.InitialDirectory = $env:FLS_DIALOG_INITIAL_DIR; "
         "$dialog.FileName = $env:FLS_DIALOG_FILE_NAME; "
         "$dialog.Filter = 'Design Studio for FastLED Project (*.fastled-project.json)|*.fastled-project.json|All Files (*.*)|*.*'; "
         "$dialog.AddExtension = $true; "
         "$dialog.DefaultExt = 'fastled-project.json'; "
-        "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.Write($dialog.FileName) }"
+        "$owner.Show(); $owner.Activate(); "
+        "try { if ($dialog.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.Write($dialog.FileName) } } "
+        "finally { $owner.Close(); $owner.Dispose() }"
     )
     res = subprocess.run(
         ["powershell", "-NoProfile", "-STA", "-Command", script],
