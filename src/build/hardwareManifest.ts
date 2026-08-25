@@ -383,6 +383,15 @@ function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number,
 }
 
 function buildPeripheralItem(node: StudioNode, kind: HardwareManifestItem['kind'], subtitle: string, pinUses: HardwarePinUse[]): HardwareManifestItem {
+  /*
+   * Every peripheral names the exact module it is, resolved the same way both
+   * views resolve it. Consumers that need a picture, a size or a datasheet
+   * caveat then have one key to look it up by, rather than each keeping its own
+   * table of which render belongs to which kind — which is how the Build
+   * Diagram came to draw four different audio modules as a MAX98357A and to
+   * draw a display as nothing at all.
+   */
+  const identity = resolvePartIdentity(node.data.nodeType, node.data.properties as Record<string, unknown>)
   return {
     id: `${kind}:${node.id}`,
     kind,
@@ -392,7 +401,7 @@ function buildPeripheralItem(node: StudioNode, kind: HardwareManifestItem['kind'
     sourceNodeType: node.data.nodeType,
     supported: true,
     pins: pinUses,
-    facts: {},
+    facts: identity ? { partId: identity.option.id } : {},
   }
 }
 

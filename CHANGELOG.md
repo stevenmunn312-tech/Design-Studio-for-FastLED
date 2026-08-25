@@ -9,6 +9,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- The Build Diagram draws each part as the exact module it is, resolved from
+  the part the item names rather than a table keyed by category. Four audio
+  modules shared one entry and were all drawn as a MAX98357A; displays had no
+  entry and were drawn as bare pin stubs.
 - The Build Diagram now draws auxiliary displays. Its part list was
   hand-maintained and had fallen behind twice the same way: pin collection
   reserved a part's wires while nothing drew the part, so the bench looked

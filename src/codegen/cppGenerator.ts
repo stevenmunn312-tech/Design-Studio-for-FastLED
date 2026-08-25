@@ -35,6 +35,8 @@ import {
 } from './segmentDisplayCpp'
 import { asSegmentMode, clampSegmentBrightness, segmentControllerFor } from '../state/segmentDisplay'
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
+import { NODE_LIBRARY } from '../state/nodeLibrary'
+import { isHardwareManagedSignalNodeType } from '../state/hardware'
 import {
   infoDisplayHelpersCpp, infoDisplayGlobalCpp, infoDisplaySetupCpp,
   infoDisplayLoopCpp, columnOffsetFor, type InfoDisplayEmit,
@@ -253,10 +255,20 @@ function topoSort(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
  * to walk back from, so the graph is left alone and validation reports it.
  */
 /**
- * Auxiliary displays, which are evaluation and codegen terminals in their own
- * right rather than steps toward an LED frame.
+ * Auxiliary displays, which are codegen terminals in their own right rather
+ * than steps toward an LED frame.
+ *
+ * Derived rather than listed. A workbench-owned part that carries signal but
+ * publishes no output port is, by definition, something the graph feeds and
+ * nothing reads — which is exactly what a terminal is. Listing them instead
+ * meant a new display could be added everywhere else and still be pruned out
+ * of the sketch, dark on a board that compiled and uploaded cleanly.
  */
-const DISPLAY_TERMINAL_NODE_TYPES = new Set(['SegmentDisplay', 'InfoDisplay'])
+const DISPLAY_TERMINAL_NODE_TYPES = new Set(
+  NODE_LIBRARY
+    .filter((def) => isHardwareManagedSignalNodeType(def.type) && def.outputs.length === 0)
+    .map((def) => def.type),
+)
 
 function reachableFromOutputs(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
   const outputs = nodes.filter((n) => n.data.nodeType === 'MatrixOutput')

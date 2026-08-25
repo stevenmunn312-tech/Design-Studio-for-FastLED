@@ -798,31 +798,37 @@ function MicrophoneGraphic({ layout, connections, selected }: { layout: ItemLayo
   )
 }
 
-const PERIPHERAL_RENDERS: Partial<Record<HardwareManifestItem['kind'], { href: string; id: string }>> = {
-  'button-input': { href: buttonModuleRender, id: 'button-module' },
-  'pot-input': { href: potentiometerModuleRender, id: 'potentiometer-module' },
-  'encoder-input': { href: encoderModuleRender, id: 'encoder-module' },
-  'rtc-input': { href: '/parts/ds3231-rtc-module.webp', id: 'ds3231-rtc-module' },
-  'sd-card': { href: '/parts/microsd-module-5v.webp', id: 'microsd-module-5v' },
-  amplifier: { href: '/parts/max98357a-i2s-amplifier.webp', id: 'max98357a-i2s-amplifier' },
-  'motion-input': { href: '/parts/hc-sr501-pir-sensor.webp', id: 'hc-sr501-pir-sensor' },
-  'light-input': { href: '/parts/photosensitive-ldr-module.webp', id: 'photosensitive-ldr-module' },
+/*
+ * Modules that predate the catalogue and are still bundled imports rather than
+ * `public/parts` assets. Everything else resolves from the part id the item
+ * already carries, which is why this list is three entries rather than one per
+ * kind — and why adding a part no longer means adding a picture here.
+ */
+const BUNDLED_RENDERS: Record<string, { href: string; id: string }> = {
+  ButtonInput: { href: buttonModuleRender, id: 'button-module' },
+  ButtonBank: { href: buttonModuleRender, id: 'button-module' },
+  PotInput: { href: potentiometerModuleRender, id: 'potentiometer-module' },
+  EncoderInput: { href: encoderModuleRender, id: 'encoder-module' },
+}
+
+/**
+ * The picture for one manifest item.
+ *
+ * Derived from the exact module the item names, not from its kind. A kind is a
+ * category — four different audio modules share `amplifier`, two OLEDs share
+ * `info-display` — so a table keyed by kind can only ever draw one of them, and
+ * a kind nobody added a row for draws nothing. Both happened.
+ */
+function peripheralRender(item: HardwareManifestItem): { href: string; id: string } | null {
+  const partId = String(item.facts.partId ?? '')
+  const catalogued = partId ? partRenderSrc(partId) : null
+  if (catalogued) return { href: catalogued, id: partId }
+  return BUNDLED_RENDERS[item.sourceNodeType ?? ''] ?? null
 }
 
 function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; connections: PhysicalDiagramConnection[]; selected: boolean }) {
   const { x, y, item } = layout
-  // An audio module is drawn as the module that is on the bench — four parts
-  // share this kind and they do not look remotely alike.
-  const audioModuleRenderFile = item.kind === 'amplifier' || item.kind === 'line-input'
-    ? partRenderSrc(String(item.facts.partId ?? (item.kind === 'line-input' ? 'pcm1802-line-in-adc' : 'max98357a-i2s-amplifier')))
-    : null
-  const render = item.kind === 'rtc-input' && item.facts.partId === 'jaycar-xc9044-rtc-module'
-    ? { href: '/parts/jaycar-xc9044-rtc-module.webp', id: 'jaycar-xc9044-rtc-module' }
-    : item.kind === 'sd-card' && item.facts.partId === 'microsd-breakout-3v3'
-      ? { href: '/parts/microsd-breakout-3v3.webp', id: 'microsd-breakout-3v3' }
-      : audioModuleRenderFile
-        ? { href: audioModuleRenderFile, id: String(item.facts.partId) }
-        : PERIPHERAL_RENDERS[item.kind]
+  const render = peripheralRender(item)
   const padLabel = (index: number) => peripheralPadLabel(item, index)
   const powerPadIndex = peripheralPowerPadIndex(item)
   const groundPadIndex = peripheralGroundPadIndex(item)
