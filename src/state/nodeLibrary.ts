@@ -8,6 +8,7 @@ import { MAX_PIN_NUMBER, type GpioCapability } from './boardGpio'
 import { EASE_TYPES } from './easing'
 import { DATE_TIME_TEXT_MODES } from './displayText'
 import { SEGMENT_DISPLAY_MODES, SEGMENT_BRIGHTNESS_MIN, SEGMENT_BRIGHTNESS_MAX } from './segmentDisplay'
+import { INFO_DISPLAY_LAYOUTS } from './infoDisplay'
 import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, outputForm } from './ledOutputForm'
 
@@ -2757,6 +2758,40 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { channel: 1, activeThreshold: 1 },
   },
   {
+    // A 1-bit OLED showing one of three fixed layouts. Its ports are declared
+    // and stable: changing the layout property never adds or removes one, so a
+    // cable cannot break by switching what the panel shows.
+    // See docs/development/design/auxiliary-displays.md.
+    type: 'InfoDisplay',
+    label: 'Info Display',
+    category: 'output',
+    inputs: [
+      { id: 'title', label: 'Title', dataType: 'string' },
+      { id: 'line2', label: 'Line 2', dataType: 'string' },
+      { id: 'value', label: 'Value', dataType: 'float' },
+      { id: 'progress', label: 'Progress', dataType: 'float' },
+      { id: 'playing', label: 'Playing', dataType: 'bool' },
+      { id: 'volume', label: 'Volume', dataType: 'float' },
+      { id: 'dateTime', label: 'DateTime', dataType: 'datetime' },
+      { id: 'indicator1', label: 'Indicator 1', dataType: 'bool' },
+      { id: 'indicator2', label: 'Indicator 2', dataType: 'bool' },
+      { id: 'indicator3', label: 'Indicator 3', dataType: 'bool' },
+      { id: 'indicator4', label: 'Indicator 4', dataType: 'bool' },
+      { id: 'enabled', label: 'Enabled', dataType: 'bool' },
+    ],
+    outputs: [],
+    defaultProperties: {
+      partId: 'sh1106-oled-128x64',
+      infoLayout: 'Now Playing',
+      csPin: 5,
+      dcPin: 16,
+      resetPin: 17,
+      sckPin: 18,
+      mosiPin: 23,
+      enabled: true,
+    },
+  },
+  {
     // TM1637 4-digit 7-segment module, added from the hardware workbench.
     // Formatting is deliberately its own properties rather than a wired string:
     // a segment module can draw digits, a colon and a decimal point and nothing
@@ -3031,6 +3066,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   FormatDateTime: 'Turns a clock reading into display text such as HH:MM.',
   TransportControl: 'Drives the player and reads back what it is playing, for a display.',
   SegmentDisplay: 'A TM1637 4-digit module showing a number, a clock, or an index.',
+  InfoDisplay: 'A 128x64 OLED showing a now-playing, clock, or status screen.',
   ScheduleTrigger: 'Time-of-day window/trigger driven by RTCInput clock and calendar fields.',
   BeatSin: 'Beat-synced sine oscillator — outputs a normalized low↔high value at a BPM.',
   Clock: 'BPM clock — phase/beat/bar/subdivision pulses; tap tempo, sync, and reset.',
@@ -3346,6 +3382,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   padWidth:         { control: 'slider', min: 1, max: 8, step: 1 },
   maxIntegerDigits: { control: 'slider', min: 1, max: 9, step: 1 },
   segmentMode:      { control: 'select', options: SEGMENT_DISPLAY_MODES },
+  infoLayout:       { control: 'select', options: INFO_DISPLAY_LAYOUTS },
   letterSpacing: { control: 'slider', min: 0, max: 4, step: 1 },
   tileSize:   { control: 'slider', min: 1, max: 16, step: 1 },
   turns:      { control: 'slider', min: 1, max: 6, step: 1 },
@@ -3499,6 +3536,13 @@ const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
 // via speedRange.ts); the simulation patterns use a steps-per-second rate, and
 // `rate` is a 0–1 emission rate for Particles but a degrees/sec spin for Transform.
 export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
+  InfoDisplay: {
+    csPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    dcPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    resetPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    sckPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    mosiPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
   SegmentDisplay: {
     clkPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     dioPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -4025,6 +4069,9 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   leadingZero: 'Pads the number with zeros so it stops shifting as its width changes.',
   showColon: 'Lights the centre colon. A clock blinks it once a second; other modes hold it.',
   clkPin: 'TM1637 clock line. Not I2C — the module has no address, so it cannot share these pins.',
+  infoLayout: 'Which fixed screen the panel shows. Ports stay the same, so changing it never breaks a cable.',
+  dcPin: 'Data/command select. Exclusive to this panel — it cannot be shared with another SPI device.',
+  resetPin: 'Panel reset. Exclusive to this panel.',
   dioPin: 'TM1637 data line. Not I2C — the module has no address, so it cannot share these pins.',
   bypassed: "Skips this node's own effect entirely and passes the matching input straight through — a quick A/B mute without unwiring.",
   audioOutput: "'i2s' drives an external DAC/amp over the I2S pins below. 'internalDac' uses the classic ESP32's built-in DAC, fixed to GPIO25/26 — not available on ESP32-S3/S2/C3.",
@@ -4472,6 +4519,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   LightInput: new Set(['pin']),
   RTCInput: new Set(['sdaPin', 'sclPin']),
   SegmentDisplay: new Set(['clkPin', 'dioPin']),
+  InfoDisplay: new Set(['csPin', 'dcPin', 'resetPin', 'sckPin', 'mosiPin']),
   SDCard: new Set(['sdCsPin', 'sdSckPin', 'sdMisoPin', 'sdMosiPin']),
   Amplifier: new Set(['i2sBclk', 'i2sLrc', 'i2sDout']),
   MatrixOutput: new Set([

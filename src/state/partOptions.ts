@@ -145,6 +145,26 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
   // second entry (display-todo.md slice B) and arrives with its own adapter —
   // listing it now would be a claim the firmware cannot keep, which is the
   // misrepresentation this whole module exists to prevent.
+  // Two modules, two controllers, two buses — the difference is real and the
+  // menu has to state it. The SH1106 on the bench is the 7-pin SPI variant;
+  // the SSD1306 is the 4-pin I2C one.
+  InfoDisplay: {
+    property: 'partId',
+    options: [
+      {
+        id: 'sh1106-oled-128x64',
+        label: 'SH1106 1.3-inch',
+        summary: '128x64 white OLED over 4-wire SPI',
+        note: 'The 1.3-inch SH1106 has 132 columns of controller RAM behind a 128-column panel, so its window starts two columns in. Driving it as an SSD1306 shifts the image two pixels and wraps the remainder down the edge.',
+      },
+      {
+        id: 'ssd1306-oled-128x64',
+        label: 'SSD1306 0.96-inch',
+        summary: '128x64 white OLED over I2C',
+        note: 'The 0.96-inch SSD1306 answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices.',
+      },
+    ],
+  },
   SegmentDisplay: {
     property: 'partId',
     options: [

@@ -139,6 +139,28 @@ interface FixturePartEntry {
 
 const FIXTURE_PARTS: readonly FixturePartEntry[] = [
   {
+    // Two modules behind one node: the SH1106 on SPI and the SSD1306 on I2C.
+    // Its footprint and render resolve per chosen module through
+    // resolvePartIdentity, so picking the other one redraws the bench.
+    nodeType: 'InfoDisplay',
+    partId: 'info-display',
+    label: 'Info display',
+    hint: 'A 128x64 OLED screen',
+    footprint: partDimensionsMm('sh1106-oled-128x64', { width: 35.5, height: 33.7 }),
+    render: partRenderSrc('sh1106-oled-128x64') ?? undefined,
+    pinFields: [
+      { key: 'csPin', label: 'CS' },
+      { key: 'dcPin', label: 'DC' },
+      { key: 'resetPin', label: 'RES' },
+      { key: 'sckPin', label: 'CLK' },
+      { key: 'mosiPin', label: 'MOSI' },
+    ],
+    pinRequests: [
+      { key: 'csPin' }, { key: 'dcPin' }, { key: 'resetPin' },
+      { key: 'sckPin' }, { key: 'mosiPin' },
+    ],
+  },
+  {
     // Signal-carrying, unlike the other two fixtures — it consumes a wired
     // value — but it is drawn on the bench exactly like them: a module with a
     // pin row, fed from the board. The graph half shows on the canvas because
@@ -1236,6 +1258,7 @@ export default function HardwarePane() {
   const sdCardFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'SDCard')
   const amplifierFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'Amplifier')
   const segmentDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'SegmentDisplay')
+  const infoDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'InfoDisplay')
 
   const addMenuCategories: AddMenuCategory[] = [
     {
@@ -1270,7 +1293,10 @@ export default function HardwarePane() {
       id: 'displays',
       label: 'Displays',
       hint: 'Screens that show what the graph is doing',
-      items: moduleItems('SegmentDisplay', segmentDisplayFixture),
+      items: [
+        ...moduleItems('SegmentDisplay', segmentDisplayFixture),
+        ...moduleItems('InfoDisplay', infoDisplayFixture),
+      ],
     },
     {
       id: 'led-outputs',

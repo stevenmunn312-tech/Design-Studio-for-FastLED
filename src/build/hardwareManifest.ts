@@ -180,6 +180,13 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
           if (SPI_CHIPSETS.has(String(props.chipset ?? 'WS2812B'))) push(node, `${baseLabel} clock pin`, 'clockPin', props.clockPin)
         }
         break
+      case 'InfoDisplay':
+        push(node, `${baseLabel} CS`, 'csPin', props.csPin)
+        push(node, `${baseLabel} DC`, 'dcPin', props.dcPin)
+        push(node, `${baseLabel} RESET`, 'resetPin', props.resetPin)
+        push(node, `${baseLabel} SCK`, 'sckPin', props.sckPin)
+        push(node, `${baseLabel} MOSI`, 'mosiPin', props.mosiPin)
+        break
       case 'SegmentDisplay':
         push(node, `${baseLabel} CLK`, 'clkPin', props.clkPin)
         push(node, `${baseLabel} DIO`, 'dioPin', props.dioPin)

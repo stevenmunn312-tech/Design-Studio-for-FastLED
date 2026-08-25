@@ -1382,6 +1382,23 @@ const SEGMENT_DISPLAY_LIVE_EXAMPLE = namedExample(
   'The solid colour keeps the LED preview meaningful; the four digits are a separate physical module rather than part of the frame.',
 )
 
+const INFO_DISPLAY_LIVE_EXAMPLE = namedExample(
+  'InfoDisplay',
+  'Put a status screen on the bench',
+  [
+    { key: 'label', type: 'TextValue', properties: { text: 'SHOW RUNNING' } },
+    { key: 'level', type: 'PotInput' },
+    { key: 'target', type: 'InfoDisplay', properties: { infoLayout: 'Status' } },
+    { key: 'color', type: 'SolidColor', properties: { r: 20, g: 70, b: 90 } },
+  ],
+  [
+    { source: 'label', sourceHandle: 'text', target: 'target', targetHandle: 'title' },
+    { source: 'level', sourceHandle: 'value', target: 'target', targetHandle: 'progress' },
+  ],
+  'Info Display is a terminal like the LED output: it updates whether or not anything downstream reads it. Add the OLED in the hardware workbench, pick one of its fixed layouts, and wire the text and values that layout shows.',
+  'The solid colour keeps the LED preview meaningful; the OLED is a separate 128x64 panel rather than part of the frame.',
+)
+
 const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   Audio: AUDIO_CAPABILITY_LIVE_EXAMPLE,
   MicInput: MICROPHONE_LIVE_EXAMPLE,
@@ -1401,6 +1418,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   Storage: STORAGE_LIVE_EXAMPLE,
   TransportControl: TRANSPORT_CONTROL_LIVE_EXAMPLE,
   SegmentDisplay: SEGMENT_DISPLAY_LIVE_EXAMPLE,
+  InfoDisplay: INFO_DISPLAY_LIVE_EXAMPLE,
   TextValue: TEXT_VALUE_LIVE_EXAMPLE,
   FormatNumber: FORMAT_NUMBER_LIVE_EXAMPLE,
   FormatDateTime: FORMAT_DATE_TIME_LIVE_EXAMPLE,

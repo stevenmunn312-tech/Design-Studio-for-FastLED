@@ -9,6 +9,13 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Added the Info Display node and a shared 1-bit OLED surface: a 128x64 panel
+  showing a Now Playing, Clock, or Status screen, on either an SH1106 over SPI
+  or an SSD1306 over I2C. The surface knows nothing about the bus, the
+  controller's column offset lives in its descriptor rather than being fixed up
+  per device, and text rasterises through the same bitmap font the LED Text
+  node draws with. The panel is pushed only when its pixels change or a refresh
+  interval passes.
 - Added the ST7789V 2.4-inch 240x320 touch TFT part, the module carrying the
   display, XPT2046 touch and a microSD slot on one SPI bus. Every device the
   plan names for launch is now modelled and catalogued.

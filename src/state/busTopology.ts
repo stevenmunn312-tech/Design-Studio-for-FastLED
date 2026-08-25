@@ -49,6 +49,17 @@ const BUS_ASSIGNMENTS: Record<string, Record<string, BusAssignment>> = {
     sdaPin: { kind: 'i2c', role: 'sda' },
     sclPin: { kind: 'i2c', role: 'scl' },
   },
+  // An SPI OLED shares its clock and data with any other device on the same
+  // host, but its select, data/command and reset lines are its own. Three
+  // exclusive pins rather than one is what separates a four-wire panel from a
+  // two-wire module.
+  InfoDisplay: {
+    sckPin: { kind: 'spi', role: 'sck' },
+    mosiPin: { kind: 'spi', role: 'mosi' },
+    csPin: { kind: 'spi', role: 'cs' },
+    dcPin: { kind: 'spi', role: 'exclusive' },
+    resetPin: { kind: 'spi', role: 'exclusive' },
+  },
   // A TM1637 has two wires and no addresses, so it is not I2C however much the
   // pin count suggests it. Two modules cannot share a pair — each needs its
   // own — which is exactly what an exclusive role means.

@@ -35,6 +35,13 @@ import {
 } from './segmentDisplayCpp'
 import { asSegmentMode, clampSegmentBrightness } from '../state/segmentDisplay'
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
+import {
+  infoDisplayHelpersCpp, infoDisplayGlobalCpp, infoDisplaySetupCpp,
+  infoDisplayLoopCpp, columnOffsetFor, type InfoDisplayEmit,
+} from './infoDisplayCpp'
+import { asInfoDisplayLayout, STATUS_MAX_INDICATORS } from '../state/infoDisplay'
+import { oledControllerFor } from '../state/oledSurface'
+import { partById } from '../state/partCatalogue'
 import { displayString, normalizeNumberFormat, asDateTimeTextMode } from '../state/displayText'
 import { particleRadius } from '../state/particleScale'
 import { buildXYTable, rotatePoint, tileRotationAt } from '../state/xyLayout'
@@ -249,7 +256,7 @@ function topoSort(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
  * Auxiliary displays, which are evaluation and codegen terminals in their own
  * right rather than steps toward an LED frame.
  */
-const DISPLAY_TERMINAL_NODE_TYPES = new Set(['SegmentDisplay'])
+const DISPLAY_TERMINAL_NODE_TYPES = new Set(['SegmentDisplay', 'InfoDisplay'])
 
 function reachableFromOutputs(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
   const outputs = nodes.filter((n) => n.data.nodeType === 'MatrixOutput')
@@ -1677,6 +1684,7 @@ export function generateCpp(
   const needsPhi = { v: false }
   const needsDisplayText = { v: false }
   const segmentDisplays: SegmentDisplayEmit[] = []
+  const infoDisplays: InfoDisplayEmit[] = []
   const needsXyMap = { v: false }
   // Frame-producing nodes each render into their own CRGB buffer, so multiple
   // layers can coexist and be composited. Collected here, declared as globals.
@@ -4788,6 +4796,43 @@ export function generateCpp(
         break
       }
 
+      case 'InfoDisplay': {
+        needsDisplayText.v = true
+        const dtUp = incoming.get(`${node.id}:dateTime`)
+        const strExpr = (port: string): string | null => {
+          const up = incoming.get(`${node.id}:${port}`)
+          return up ? `n_${safeId(up.srcId)}_${up.srcPort}` : null
+        }
+        const controller = oledControllerFor(partById(String(p.partId ?? ''))?.display?.controller)
+        const emit: InfoDisplayEmit = {
+          id,
+          csPin: intProp(p.csPin, 5, 0, MAX_PIN_NUMBER),
+          dcPin: intProp(p.dcPin, 16, 0, MAX_PIN_NUMBER),
+          resetPin: intProp(p.resetPin, 17, 0, MAX_PIN_NUMBER),
+          sckPin: intProp(p.sckPin, 18, 0, MAX_PIN_NUMBER),
+          mosiPin: intProp(p.mosiPin, 23, 0, MAX_PIN_NUMBER),
+          columnOffset: columnOffsetFor(controller),
+          layout: asInfoDisplayLayout(p.infoLayout),
+          enabledExpr: incoming.get(`${node.id}:enabled`)
+            ? boolExpr(node.id, 'enabled')
+            : (p.enabled === false ? 'false' : 'true'),
+          titleExpr: strExpr('title'),
+          line2Expr: strExpr('line2'),
+          valueExpr: f('value', 'value', 0),
+          progressExpr: `constrain(${f('progress', 'progress', 0)}, 0.0f, 1.0f)`,
+          playingExpr: incoming.get(`${node.id}:playing`) ? boolExpr(node.id, 'playing') : 'false',
+          volumeExpr: f('volume', 'volume', 0),
+          durationExpr: f('duration', 'duration', 0),
+          dateTimeExpr: dtUp ? `n_${safeId(dtUp.srcId)}_${dtUp.srcPort}` : null,
+          indicatorExprs: Array.from({ length: STATUS_MAX_INDICATORS }, (_, i) =>
+            incoming.get(`${node.id}:indicator${i + 1}`) ? boolExpr(node.id, `indicator${i + 1}`) : 'false'),
+        }
+        infoDisplays.push(emit)
+        for (const line of infoDisplaySetupCpp(emit)) setupLines.push(line)
+        for (const line of infoDisplayLoopCpp(emit)) ln(line)
+        break
+      }
+
       case 'SegmentDisplay': {
         const dtUp = incoming.get(`${node.id}:dateTime`)
         const emit: SegmentDisplayEmit = {
@@ -6240,6 +6285,12 @@ export function generateCpp(
   if (segmentDisplays.length > 0) {
     lines.push(SEGMENT_DISPLAY_CPP_HELPERS)
     for (const display of segmentDisplays) lines.push(segmentDisplayGlobalCpp(display))
+    lines.push(``)
+  }
+
+  if (infoDisplays.length > 0) {
+    lines.push(infoDisplayHelpersCpp())
+    for (const display of infoDisplays) lines.push(infoDisplayGlobalCpp(display))
     lines.push(``)
   }
 

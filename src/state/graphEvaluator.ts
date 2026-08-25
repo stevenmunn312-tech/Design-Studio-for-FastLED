@@ -14,6 +14,12 @@ import {
   renderSegmentIndex, segmentFrameText, BLANK_SEGMENT_FRAME, type SegmentFrame,
 } from './segmentDisplay'
 import {
+  asInfoDisplayLayout, renderInfoDisplay, blankInfoData, STATUS_MAX_INDICATORS,
+  type InfoDisplayData,
+} from './infoDisplay'
+import { oledControllerFor, OLED_CONTROLLERS, oledLine, type OledSurface } from './oledSurface'
+import { partById } from './partCatalogue'
+import {
   displayString, formatNumberText, normalizeNumberFormat,
   formatDateTimeText, asDateTimeTextMode, type DateTimeTextFields,
 } from './displayText'
@@ -4536,7 +4542,7 @@ export interface PlayerParticles {
   randomStyle: boolean
 }
 
-export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | AudioSignal | StorageSignal | PlayerControls | PlayerParticles | SegmentFrame | null
+export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | AudioSignal | StorageSignal | PlayerControls | PlayerParticles | SegmentFrame | OledSurface | null
 
 /** A reusable pattern group: a named subgraph that a `Group` node evaluates. */
 export interface GroupDef { nodes: StudioNode[]; edges: StudioEdge[] }
@@ -6836,6 +6842,71 @@ function createEvalNode(
           patternIndex: status.patternIndex,
           patternCount: status.patternCount,
         }
+        break
+      }
+
+      case 'InfoDisplay': {
+        // A terminal like the segment display: it updates whether or not
+        // anything downstream reads it. The pixels come from state/infoDisplay.ts
+        // so the node body, the workbench and the firmware all draw the same
+        // 128x64 picture.
+        const enabled = incoming.has(`${id}:enabled`)
+          ? Boolean(input(id, 'enabled', true))
+          : props.enabled !== false
+        const controller = oledControllerFor(partById(String(props.partId ?? ''))?.display?.controller)
+          ?? OLED_CONTROLLERS.SH1106
+        const layout = asInfoDisplayLayout(props.infoLayout)
+
+        if (!enabled) {
+          out = { lit: false, layout, surface: null }
+          break
+        }
+
+        let payload: InfoDisplayData
+        if (layout === 'Clock') {
+          const clock = input(id, 'dateTime', null) as RtcPreview | null
+          payload = {
+            layout: 'Clock',
+            data: clock && clock.valid
+              ? {
+                timeText: `${String(clock.hour).padStart(2, '0')}:${String(clock.minute).padStart(2, '0')}`,
+                dateText: `${clock.year}-${String(clock.month).padStart(2, '0')}-${String(clock.day).padStart(2, '0')}`,
+                valid: true,
+                synced: clock.synced === true && clock.stale !== true,
+              }
+              : blankInfoData('Clock').data as { timeText: string; dateText: string; valid: boolean; synced: boolean },
+          }
+        } else if (layout === 'Status') {
+          const indicators: boolean[] = []
+          for (let i = 1; i <= STATUS_MAX_INDICATORS; i++) {
+            indicators.push(Boolean(input(id, `indicator${i}`, false)))
+          }
+          payload = {
+            layout: 'Status',
+            data: {
+              line1: oledLine(input(id, 'title', '')),
+              line2: oledLine(input(id, 'line2', '')),
+              value: oledLine(formatNumberText(num(id, 'value', props, 'value', 0), normalizeNumberFormat(props))),
+              progress: clamp01(num(id, 'progress', props, 'progress', 0)),
+              indicators,
+            },
+          }
+        } else {
+          const duration = num(id, 'duration', props, 'duration', 0)
+          payload = {
+            layout: 'Now Playing',
+            data: {
+              title: oledLine(input(id, 'title', '')),
+              elapsedSec: num(id, 'value', props, 'value', 0),
+              durationSec: duration,
+              progress: clamp01(num(id, 'progress', props, 'progress', 0)),
+              playing: Boolean(input(id, 'playing', false)),
+              volume: clamp01(num(id, 'volume', props, 'volume', 0)),
+            },
+          }
+        }
+
+        out = { lit: true, layout, surface: renderInfoDisplay(controller, payload) }
         break
       }
 

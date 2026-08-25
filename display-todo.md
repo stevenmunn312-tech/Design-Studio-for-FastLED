@@ -319,22 +319,26 @@ widgets, hover state, or physical pins.
 
 ### Phase 4 — `InfoDisplay` and pattern browser
 
-- [ ] Implement SH1106 128×64 first, then SSD1306 through the same 1-bit
+- [x] Implement SH1106 128×64 first, then SSD1306 through the same 1-bit
   surface contract. The SH1106 carries 132×64 of controller RAM behind a
   128×64 panel, so its 2-column offset belongs in the contract rather than
   being fixed up per device — driving one as the other shifts the image two
   pixels and wraps rubbish down the edge, which reads as a wiring fault.
-- [ ] Keep the transport separate from the surface contract. The module on the
+- [x] Keep the transport separate from the surface contract. The module on the
   bench is a 7-pin SPI SH1106 and the SSD1306 to come is 4-pin I²C, so the
   1-bit layout, offset and page addressing must not assume either bus. This is
   coverage rather than a complication: SPI exercises CLK/MOSI sharing with the
   SD card and its own CS, and I²C exercises SDA/SCL sharing with the RTC.
-- [ ] Reuse the bitmap glyph data in `src/state/font.ts` for text rasterisation
+- [x] Reuse the bitmap glyph data in `src/state/font.ts` for text rasterisation
   so browser and firmware layouts share glyphs, alignment, spacing, truncation,
   and unsupported-character behaviour.
-- [ ] Implement the four fixed OLED layouts listed above using shared pure
+- [x] Implement the Now Playing, Clock and Status layouts using shared pure
   layout helpers rather than separate preview and C++ geometry guesses.
-- [ ] Add dirty-region/value checks or a bounded refresh rate so I²C display
+- [ ] Add the Pattern Browser layout once the runtime pattern-selection
+  contract and baked thumbnails below exist. It was held back deliberately:
+  shipping it before those would mean a layout that previews and cannot be
+  generated.
+- [x] Add dirty-region/value checks or a bounded refresh rate so I²C display
   traffic does not stall LED rendering.
 - [ ] Implement a runtime pattern-selection contract shared by encoder input,
   OLED browser, generative show, and SD player. Define wrapping, confirmation,
