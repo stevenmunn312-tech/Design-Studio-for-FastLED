@@ -35,7 +35,7 @@ import { isLinearForm, outputCanvasDims, outputForm, outputLedTotal } from '../s
 import { getNetworkCredentials } from '../state/networkCredentials'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
 import { rtcI2cPinsForProfile } from '../state/rtcPins'
-import { controllerSettings, ledPropsWithController } from '../state/controllerSettings'
+import { controllerSettings, ledPropsWithController, DEFAULT_CONTROLLER_SETTINGS } from '../state/controllerSettings'
 import {
   inmp441FirmwareBackendForBoard,
   inmp441FqbnForBoardProfile,
@@ -691,8 +691,10 @@ export interface LedHardware {
 
 /** Resolve + sanitise a MatrixOutput node's LED hardware properties. Enum-ish
  *  strings are validated against the nodeLibrary option lists (they end up in
- *  C++ template arguments), numerics clamped; missing values keep the exact
- *  pre-quick-wins behaviour (brightness 200, no correction, dither on). */
+ *  C++ template arguments), numerics clamped; missing values fall back to the
+ *  shipped defaults (DEFAULT_CONTROLLER_SETTINGS.brightness, no correction,
+ *  dither on) — read the constant rather than repeating it, so changing the
+ *  default cannot leave this path emitting the old one. */
 export function ledHardwareFromProps(p: Record<string, unknown>): LedHardware {
   const pick = (v: unknown, options: readonly string[], def: string) =>
     options.includes(String(v)) ? String(v) : def
@@ -706,7 +708,7 @@ export function ledHardwareFromProps(p: Record<string, unknown>): LedHardware {
     // be flashed as WS2812B because a stale chipset string disagreed with it.
     chipset:    outputForm(p) === 'hub75' ? HUB75_CHIPSET : pick(p.chipset, CHIPSET_OPTIONS, 'WS2812B'),
     colorOrder: pick(p.colorOrder, COLOR_ORDER_OPTIONS, 'GRB'),
-    brightness: Math.round(num(p.brightness, 200, 0, 255)),
+    brightness: Math.round(num(p.brightness, DEFAULT_CONTROLLER_SETTINGS.brightness, 0, 255)),
     correction: pick(p.correction, CORRECTION_OPTIONS, 'none'),
     dither:     p.dither !== false,
     overclock:  num(p.overclock, 1, 1, 2),
@@ -872,7 +874,7 @@ export function hub75HardwareFromProps(p: Record<string, unknown>, width: number
       lat: sanitizePin(p.hub75LatPin, 17), oe: sanitizePin(p.hub75OePin, 18), clk: sanitizePin(p.hub75ClkPin, 0),
     },
     colorDepthBits: Math.round(num(p.hub75ColorDepthBits, 8, 1, 8)),
-    brightness: Math.round(num(p.brightness, 200, 0, 255)),
+    brightness: Math.round(num(p.brightness, DEFAULT_CONTROLLER_SETTINGS.brightness, 0, 255)),
   }
 }
 

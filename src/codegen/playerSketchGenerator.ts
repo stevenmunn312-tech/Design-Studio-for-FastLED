@@ -17,7 +17,7 @@ import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { audioOutputMode } from '../state/audioOutput'
 import { resolveShowTarget, type ShowTargetNode, type ShowTargetEdge } from '../state/showTarget'
 import type { StudioNode } from '../state/graphStore'
-import { controllerSettings } from '../state/controllerSettings'
+import { controllerSettings, DEFAULT_CONTROLLER_SETTINGS } from '../state/controllerSettings'
 import { boardProfileById } from '../build/boardProfiles'
 import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
 import { hexToRgb } from '../state/polinePalette'
@@ -64,7 +64,7 @@ const DEFAULTS: PlayerConfig = {
   audioOutput: 'i2s',
   i2sBclk: 26, i2sLrc: 25, i2sDout: 22,
   maxVolume: 18,
-  ledBrightness: 200,
+  ledBrightness: DEFAULT_CONTROLLER_SETTINGS.brightness,
   usePsram: false,
   hub75Props: {},
 }
