@@ -32,7 +32,8 @@ import { imagePaletteStops16, type ImagePaletteSource } from './imagePalette'
 import { waveSample, combineWaves } from './wave'
 import { polinePalette, hexToRgb } from './polinePalette'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette } from './customPalette'
-import { inputClampRange, bypassPort, resolveNodeScalarExpressions } from './nodeLibrary'
+import { inputClampRange, bypassPort, resolveNodeScalarExpressions, NODE_LIBRARY } from './nodeLibrary'
+import { isHardwareManagedSignalNodeType } from './hardware'
 import { makeShims, SHIM_NAMES } from './fastledShims'
 import { compileNodeFormula, type FormulaFn } from './formulaLang'
 import { createBeatDetectorState, denormalizeBeatParam, updateBeatDetectorFromSpectrum } from '../audio/beatDetection'
@@ -7753,7 +7754,18 @@ export function evaluateScalarSeries(
 // nodes: the terminals (they define the rendered frame) and BeatDetect, whose
 // one-frame beat pulse triggers the preview loop's early publish — sampling it
 // only on publish frames would miss most beats.
-const HOT_NODE_TYPES = new Set(['GroupOutput', 'MatrixOutput', 'BeatDetect'])
+const HOT_NODE_TYPES = new Set<string>([
+  'GroupOutput', 'BeatDetect',
+  // Every display, by the same rule codegen uses for its walk roots: a
+  // workbench-owned part that carries signal and publishes no output is
+  // something the graph feeds and nothing reads. Left out, a display and
+  // everything wired into it were skipped on non-publish frames, so a wired
+  // progress bar crawled at the ~8 fps preview cadence instead of following
+  // its input. MatrixOutput arrives through this rule too.
+  ...NODE_LIBRARY
+    .filter((def) => isHardwareManagedSignalNodeType(def.type) && def.outputs.length === 0)
+    .map((def) => def.type),
+])
 
 // Single-entry cache of the "hot" node set — the upstream closure of the
 // terminals and beat emitters — recomputed only when the graph arrays change

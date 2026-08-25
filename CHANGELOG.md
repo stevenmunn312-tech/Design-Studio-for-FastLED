@@ -9,6 +9,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Displays are evaluated every preview frame rather than at the slower
+  publish cadence. They were treated as code-generation terminals but not as
+  evaluation ones, so a display and everything wired into it were skipped on
+  most frames and a wired progress bar crawled while its input moved
+  smoothly.
 - Wires now meet a display's header where it actually is. Pad positions were
   measured for audio modules only, so every other part fell back to a generic
   placement and its wires met the picture wherever that landed. The measured
