@@ -7,6 +7,15 @@ versioning (`0.y.z`) until the first stable release.
 
 ## [Unreleased]
 
+### Fixed
+
+- Displays now follow a board change. Without a pin-retarget plan a Segment or
+  Info Display kept the pins it was given on the board being left — on an
+  ESP32-S3 that could mean GPIO 32, which is wired to flash — and it never
+  entered the claimed set, so parts that did retarget were assigned its pins on
+  top of it. One omission produced both faults, and both looked like wiring
+  mistakes.
+
 ### Added
 
 - Added the MAX7219 8-digit module behind the existing Segment Display node.

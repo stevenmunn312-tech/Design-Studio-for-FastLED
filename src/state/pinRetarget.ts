@@ -32,6 +32,7 @@ import { assignPartPins, type PartPinRequest } from './partPinAssignment'
 import { micPinDefaultsForBoard, micPinIsDefault } from './micPinDefaults'
 import { outputForm } from './ledOutputForm'
 import { boardI2cDefault } from '../build/boardI2cDefaults'
+import { segmentControllerForProps } from './nodeLibrary'
 import { sdSpiPinsForBoard, type SdSpiPins } from './sdPinDefaults'
 import { normalizeButtonBankEntries, type ButtonBankEntry } from './buttonBank'
 
@@ -61,6 +62,15 @@ export function userPinsByBoard(properties: Record<string, unknown>): PinsByBoar
 interface PartPinPlan {
   /** Pin properties this part carries, in assignment order. */
   keys: string[]
+  /**
+   * Keys for one exact module, where a node type covers several.
+   *
+   * A Segment Display is a TM1637's CLK and DIO or a MAX7219's CLK, DIN and
+   * load line. Retargeting the union would hand out pins the generated sketch
+   * never drives, and retargeting the wrong pair would leave the real ones
+   * pointing at the board being left.
+   */
+  keysFor?: (properties: Record<string, unknown>) => string[]
   peripheral?: 'inmp441' | 'max98357'
   /** Field order matching `keys`, for reading the profile's peripheral entry. */
   peripheralFields?: string[]
@@ -137,6 +147,26 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
         ? { sdaPin: defaults.sda.arduinoPin, sclPin: defaults.scl.arduinoPin }
         : null
     },
+  },
+  /*
+   * Displays retarget like every other part, and the reason is worth stating:
+   * without a plan here a display is invisible to this walk twice over. It
+   * keeps the pins it was given on the board being left — pointing at pads the
+   * new board may not bring out — and it never enters `claimed`, so the parts
+   * that *do* retarget are handed its pins on top of it. One omission, two
+   * faults, and both look like wiring mistakes rather than software ones.
+   */
+  SegmentDisplay: {
+    keys: ['clkPin', 'dioPin', 'dinPin', 'csPin'],
+    keysFor: (properties) => [...segmentControllerForProps(properties).pins],
+    requests: [{ key: 'clkPin' }, { key: 'dioPin' }, { key: 'dinPin' }, { key: 'csPin' }],
+  },
+  InfoDisplay: {
+    keys: ['csPin', 'dcPin', 'resetPin', 'sckPin', 'mosiPin'],
+    requests: [
+      { key: 'csPin' }, { key: 'dcPin' }, { key: 'resetPin' },
+      { key: 'sckPin' }, { key: 'mosiPin' },
+    ],
   },
   SDCard: {
     keys: ['sdCsPin', 'sdSckPin', 'sdMisoPin', 'sdMosiPin'],
@@ -227,6 +257,21 @@ export function isPinAppOwned(
   // and all three stop following the board.
   if (nodeType === 'MicInput') return micPinIsDefault(properties, key)
   return true
+}
+
+/** The pin keys this node actually wires, module included. */
+function planKeys(plan: PartPinPlan, properties: Record<string, unknown>): string[] {
+  return plan.keysFor ? plan.keysFor(properties) : plan.keys
+}
+
+/** The allocation requests for the keys this node actually wires. */
+function planRequests(
+  plan: PartPinPlan,
+  properties: Record<string, unknown>,
+): PartPinRequest[] | undefined {
+  if (!plan.requests) return undefined
+  const keys = new Set(planKeys(plan, properties))
+  return plan.requests.filter((request) => keys.has(request.key))
 }
 
 function peripheralPins(
@@ -379,7 +424,7 @@ export function retargetHardwarePins(
      * is what pinned an edited pin across every board.
      */
     if (stampedFor === boardKey) {
-      for (const key of plan.keys) {
+      for (const key of planKeys(plan, properties)) {
         if (!isPinAppOwned(node.data.nodeType, properties, key, boardKey)) {
           const pin = Number(properties[key])
           if (Number.isFinite(pin)) out[key] = pin
@@ -416,7 +461,7 @@ export function retargetHardwarePins(
     const memory = userPinsByBoard(properties)
     if (typeof leaving === 'string' && leaving !== boardKey) {
       const chosen: Record<string, number> = {}
-      for (const key of plan.keys) {
+      for (const key of planKeys(plan, properties)) {
         if (!isPinAppOwned(node.data.nodeType, properties, key, leaving, leaving)) {
           const pin = Number(properties[key])
           if (Number.isFinite(pin)) chosen[key] = pin
@@ -429,7 +474,7 @@ export function retargetHardwarePins(
 
     // Their earlier choices for the board being arrived at win outright.
     const mine = ownedNow(node)
-    const movable = plan.keys.filter((key) =>
+    const movable = planKeys(plan, properties).filter((key) =>
       mine[key] === undefined
       && isPinAppOwned(node.data.nodeType, properties, key, boardKey, leaving))
     if (movable.length === 0 && Object.keys(mine).length === 0) continue
@@ -441,7 +486,7 @@ export function retargetHardwarePins(
       // Only the movable subset, and only when the board actually says
       // something different from what is already there.
       next = Object.fromEntries(movable.map((key) => [key, next![key]]))
-    } else if (plan.requests) {
+    } else if (planRequests(plan, properties)?.length) {
       const assigned = assignPartPins(
         profile,
         fqbn,
@@ -450,7 +495,7 @@ export function retargetHardwarePins(
         // not be handed back the pin it already holds and every board change
         // would shuffle parts that had no reason to move.
         [...nodes.filter((other) => other.id !== node.id), ...claimedAsNodes(claimed)],
-        plan.requests.filter((request) => movable.includes(request.key)),
+        (planRequests(plan, properties) ?? []).filter((request) => movable.includes(request.key)),
       )
       next = assigned.ok ? assigned.pins : null
     }
