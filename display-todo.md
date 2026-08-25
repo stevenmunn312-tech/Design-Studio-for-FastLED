@@ -115,13 +115,13 @@ case the OLED slice cannot already serve.
 
 ### Shared signal types and bridge nodes
 
-- [ ] Add `string` as a real port data type with a port colour, accessible-port
+- [x] Add `string` as a real port data type with a port colour, accessible-port
   labelling, connection checks, group boundary support, preview value handling,
   and C++ code generation.
-- [ ] Represent generated strings with bounded UTF-8 buffers. Define maximum
+- [x] Represent generated strings with bounded UTF-8 buffers. Define maximum
   bytes, truncation/ellipsis behaviour, supported glyphs, and invalid-character
   fallback once in shared code.
-- [ ] Add `TextValue` (static string), `FormatNumber` (float → string), and
+- [x] Add `TextValue` (static string), `FormatNumber` (float → string), and
   `FormatDateTime` (`datetime` → string) nodes with preview/firmware parity.
 - [ ] Add a `TransportControl` bridge for play/pause, previous, next, seek,
   volume, and pattern selection plus title, elapsed, duration, playing, pattern
@@ -206,7 +206,7 @@ widgets, hover state, or physical pins.
 
 ### Phase 0 — design spike and acceptance budget
 
-- [ ] Create `docs/development/design/auxiliary-displays.md` and link it from
+- [x] Create `docs/development/design/auxiliary-displays.md` and link it from
   `docs/NAVIGATOR.md`. Record the data model, runtime ordering, supported
   generators, driver decision, bus rules, and measured constraints there.
 - [ ] Acquire/reference at least TM1637, SSD1306, ST7789, and

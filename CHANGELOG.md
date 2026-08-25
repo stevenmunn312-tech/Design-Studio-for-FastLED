@@ -9,6 +9,14 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Added a `string` port type for auxiliary-display text, with Text Value,
+  Format Number, and Format Date/Time nodes. Preview and generated firmware
+  format through one shared model, so a display cannot read one thing in the
+  browser and another on the bench; generated code uses fixed buffers and
+  `snprintf` rather than an Arduino `String` refreshed once per LED frame.
+- Added the auxiliary displays design note recording the data model, frame
+  ordering, generator rules, bus-sharing rules, driver candidates, and the
+  measurement gates no display family ships without.
 - Added LED Corkscrew as a dedicated output form with chain length, turns,
   starting angle, winding direction, diameter, and height controls; an
   unwrapped-cylinder authoring canvas; a depth-aware physical preview; and one
