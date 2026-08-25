@@ -231,6 +231,15 @@ touch control can drive real graph logic rather than only the hardcoded
 transport actions. Until that path exists for a given generator, an unsupported
 binding blocks with a diagnostic naming what is missing.
 
+The SD player is at that interim stage now. It resolves a display's inputs
+against the Music Player's own output ports — title, artist, elapsed and the
+rest — because those are what the player can answer from the file it is
+holding, and it collects anything wired from another source as unresolved. That
+is deliberately narrower than the IR: it covers the case a finished build
+actually has, which is a panel reporting the track, and it does not pretend to
+evaluate a Wave or a Math node inside a template that has no graph in it. The
+IR replaces it rather than being layered on top.
+
 The control-graph IR is built once and reused by all three generators. The
 alternative — display-specific graph evaluation copy-pasted into each — is how
 the generators drift apart, and the drift shows up as a display that reads
