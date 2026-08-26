@@ -4,6 +4,7 @@ import CapacityWatcher from '../CapacityWatcher'
 import { useGraphStore } from '../../../state/graphStore'
 import { useUploadStore } from '../../../state/uploadStore'
 import { useCapacityStore } from '../../../state/capacityStore'
+import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 
 const output = {
   id: 'matrix',
@@ -85,6 +86,78 @@ describe('CapacityWatcher', () => {
     expect(check).not.toHaveBeenCalled()
     check.mockRestore()
     setTarget.mockRestore()
+  })
+
+  /*
+   * Thumbnails are flash, and this is the thing that measures flash.
+   *
+   * The bake lives outside `generateCpp` — a text emitter has no way to know
+   * whether the workspace is trusted — so every caller that wants the real
+   * figure has to do it. Leaving it out here would understate a Pattern
+   * Browser build by one 256-byte table per pattern, on exactly the build most
+   * likely to be near the ceiling.
+   */
+  describe('a Pattern Browser is measured with its pictures', () => {
+    const nodeOf = (id: string, nodeType: string, properties: Record<string, unknown> = {}) => {
+      const def = NODE_LIBRARY.find((entry) => entry.type === nodeType)
+      return {
+        id,
+        type: 'studioNode',
+        position: { x: 0, y: 0 },
+        data: {
+          label: nodeType, nodeType, category: 'output', properties,
+          inputs: def?.inputs ?? [], outputs: def?.outputs ?? [],
+        },
+      }
+    }
+
+    function setBrowserGraph() {
+      useGraphStore.setState({
+        nodes: [
+          pattern,
+          output,
+          nodeOf('coll', 'PatternCollection', { patternIds: ['white'] }),
+          nodeOf('master', 'PatternMaster'),
+          nodeOf('brw', 'InfoDisplay', {
+            partId: 'sh1106-oled-128x64', infoLayout: 'Pattern Browser',
+            csPin: 1, dcPin: 2, resetPin: 5, sckPin: 6, mosiPin: 7,
+          }),
+        ] as never[],
+        edges: [
+          { id: 'e', source: 'sc', target: 'matrix', sourceHandle: 'frame', targetHandle: 'frame' },
+          { id: 'e1', source: 'coll', target: 'master', sourceHandle: 'patternset', targetHandle: 'patternset' },
+          { id: 'e2', source: 'master', target: 'brw', sourceHandle: 'patternSelect', targetHandle: 'patternSelect' },
+        ] as never[],
+        selectedNodeId: null,
+        // The registry is read off graphData, so the pattern group lives here.
+        graphData: {
+          white: {
+            nodes: [
+              nodeOf('c', 'SolidColor', { r: 255, g: 255, b: 255 }),
+              nodeOf('o', 'GroupOutput'),
+            ],
+            edges: [{ id: 'ge', source: 'c', target: 'o', sourceHandle: 'frame', targetHandle: 'frame' }],
+          },
+        } as never,
+        graphs: {
+          root: { id: 'root', name: 'Main' },
+          white: { id: 'white', name: 'White' },
+        },
+        activeGraphId: 'root',
+        trusted: true,
+      })
+    }
+
+    it('measures the baked table, not a sketch without it', () => {
+      setBrowserGraph()
+      const setTarget = vi.spyOn(useCapacityStore.getState(), 'setTarget')
+      render(<CapacityWatcher />)
+
+      const { code } = setTarget.mock.calls[0][0]
+      expect(code).toContain('THUMB_COUNT_master')
+      expect(code).toContain('PROGMEM')
+      setTarget.mockRestore()
+    })
   })
 
   describe('SD shows measure the player', () => {

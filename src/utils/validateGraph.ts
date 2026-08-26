@@ -12,6 +12,7 @@ import { boardGpioInfo } from '../state/uploadStore'
 import { MAX_PIN_NUMBER, pinSupports } from '../state/boardGpio'
 import { getNetworkCredentials } from '../state/networkCredentials'
 import { collectPinUses } from '../build/hardwareManifest'
+import { browserThumbnailIssues } from './browserThumbnails'
 import { playerDisplaysFromGraph } from '../codegen/playerDisplays'
 import {
   findPinCollisions, findI2cAddressCollisions, pinCollisionMessage,
@@ -1140,6 +1141,13 @@ export function findDisplayGeneratorIssues(
       + 'Export it through Upload show to SD, which does drive displays, or remove the display before exporting a show.',
     )
     return { errors, warnings }
+  }
+
+  // A collection too big to picture bakes nothing, and the panel then says
+  // "NO PATTERNS" — the same thing it says for a browser wired to nobody. The
+  // difference matters and only this message carries it.
+  for (const { display, issue } of browserThumbnailIssues(nodes, edges)) {
+    errors.push(`${nodeLabel(display)}: ${issue}`)
   }
 
   if (master) {

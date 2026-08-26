@@ -7,11 +7,15 @@
 // it says so on the panel rather than drawing a blank square.
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { bakeBrowserThumbnails, browserPlayer, playerPatternIds, patternBrowsers } from '../browserThumbnails'
+import {
+  bakeBrowserThumbnails, browserPlayer, playerPatternIds, patternBrowsers,
+  browserThumbnailIssues,
+} from '../browserThumbnails'
+import { findDisplayGeneratorIssues } from '../validateGraph'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { resetEvaluatorState, type GroupRegistry } from '../../state/graphEvaluator'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
-import { THUMBNAIL_BYTES } from '../../state/patternThumbnail'
+import { THUMBNAIL_BYTES, MAX_THUMBNAILS } from '../../state/patternThumbnail'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, props: Record<string, unknown> = {}): StudioNode {
@@ -187,5 +191,62 @@ describe('the generated sketch', () => {
     expect(block).not.toContain('_selUpdate(')
     expect(block).not.toContain('_selEncoderSteps(')
     expect(block).toContain('_sel_master.highlight')
+  })
+})
+
+/*
+ * The cap has to be *said*.
+ *
+ * An over-budget collection bakes nothing, and the panel then reads
+ * "NO PATTERNS" — indistinguishable from a browser wired to nobody. The bake
+ * cannot explain that: it runs at upload, behind a trust decision, and its
+ * only move is to skip. So the reason is derived from the count instead, where
+ * validation can reach it.
+ */
+describe('an over-budget collection', () => {
+  const many = (n: number) => node('coll', 'PatternCollection', {
+    patternIds: Array.from({ length: n }, (_, i) => `p${i}`),
+  })
+  const graphOf = (collection: StudioNode) => ({
+    nodes: [output, collection, master, browserNode()],
+    edges: [
+      edge('e1', 'coll', 'patternset', 'master', 'patternset'),
+      edge('e2', 'master', 'patternSelect', 'brw', 'patternSelect'),
+    ],
+  })
+
+  it('says nothing while the collection fits', () => {
+    const { nodes, edges } = graphOf(many(MAX_THUMBNAILS))
+    expect(browserThumbnailIssues(nodes, edges)).toEqual([])
+  })
+
+  it('names the browser and the cost in bytes', () => {
+    const { nodes, edges } = graphOf(many(MAX_THUMBNAILS + 1))
+    const issues = browserThumbnailIssues(nodes, edges)
+    expect(issues).toHaveLength(1)
+    expect(issues[0].display.id).toBe('brw')
+    expect(issues[0].issue).toContain(String(MAX_THUMBNAILS))
+    expect(issues[0].issue).toContain('bytes')
+  })
+
+  // Deploy validation is where a user meets it, so the seam is checked rather
+  // than assumed: the helper existing is not the same as it being called.
+  it('reaches the user through deploy validation', () => {
+    const { nodes, edges } = graphOf(many(MAX_THUMBNAILS + 1))
+    const { errors } = findDisplayGeneratorIssues(nodes, edges)
+    expect(errors.join(' ')).toContain('baked thumbnails')
+  })
+
+  // Counting patterns, not evaluating them: an untrusted workspace still gets
+  // the explanation.
+  it('needs no evaluation to say so', () => {
+    const { nodes, edges } = graphOf(many(MAX_THUMBNAILS + 1))
+    expect(browserThumbnailIssues(nodes, edges)).toHaveLength(1)
+    expect(bakeBrowserThumbnails(nodes, edges, GROUPS, false)).toEqual({})
+  })
+
+  it('says nothing about a browser wired to no player', () => {
+    const nodes = [output, many(MAX_THUMBNAILS + 1), master, browserNode()]
+    expect(browserThumbnailIssues(nodes, [])).toEqual([])
   })
 })

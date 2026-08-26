@@ -11,6 +11,7 @@
 // nobody was allowed to render.
 
 import { bakePatternThumbnails } from './bakePatternThumbnails'
+import { thumbnailBudgetIssue } from '../state/patternThumbnail'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { ThumbnailEmit } from '../codegen/patternThumbnailCpp'
@@ -54,6 +55,29 @@ export function playerPatternIds(
 export function patternBrowsers(nodes: readonly StudioNode[]): StudioNode[] {
   return nodes.filter((node) => node.data.nodeType === 'InfoDisplay'
     && asInfoDisplayLayout((node.data.properties as { infoLayout?: unknown }).infoLayout) === 'Pattern Browser')
+}
+
+/**
+ * Why a Pattern Browser in this graph cannot have its pictures baked.
+ *
+ * Separate from the bake, and deliberately free of it: this counts patterns,
+ * where the bake evaluates them. That means validation can say so without a
+ * trust decision and without rendering anything, and it means the reason
+ * reaches the user at all — `bakeBrowserThumbnails` can only skip the browser,
+ * after which the panel says "NO PATTERNS" and nothing explains why.
+ */
+export function browserThumbnailIssues(
+  nodes: readonly StudioNode[],
+  edges: readonly StudioEdge[],
+): { display: StudioNode; issue: string }[] {
+  const issues: { display: StudioNode; issue: string }[] = []
+  for (const display of patternBrowsers(nodes)) {
+    const player = browserPlayer(display, nodes, edges)
+    if (!player) continue
+    const issue = thumbnailBudgetIssue(playerPatternIds(player, nodes, edges).length)
+    if (issue) issues.push({ display, issue })
+  }
+  return issues
 }
 
 /**
