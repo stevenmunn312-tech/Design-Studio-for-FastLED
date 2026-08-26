@@ -12,6 +12,7 @@ import { boardGpioInfo } from '../state/uploadStore'
 import { MAX_PIN_NUMBER, pinSupports } from '../state/boardGpio'
 import { getNetworkCredentials } from '../state/networkCredentials'
 import { collectPinUses } from '../build/hardwareManifest'
+import { playerDisplaysFromGraph } from '../codegen/playerDisplays'
 import {
   findPinCollisions, findI2cAddressCollisions, pinCollisionMessage,
   pinCollisionTitle, pinCollisionFix, addressCollisionMessage,
@@ -1071,6 +1072,64 @@ function playerControlMappingIssues(nodes: StudioNode[], edges: StudioEdge[]): P
   return issues
 }
 
+/**
+ * Displays the selected build cannot actually drive.
+ *
+ * The rule this enforces is the display plan's blunt one: a generator either
+ * emits a display and its bindings or it says why not. What it must never do is
+ * build successfully and leave the part dark, because the first thing anyone
+ * does then is doubt their wiring — and the wiring is fine.
+ *
+ * Two ways that happens. A generator with no display support at all will drop
+ * the part outright. And the SD player, which does support displays, runs a
+ * fixed template rather than a compiled graph, so it can read the Music Player
+ * it is built around and nothing else; a display fed from a Wave has no value
+ * to show there however reasonable the wire looks on the canvas.
+ */
+/** Auxiliary displays, for the checks that ask what a build can draw. */
+const DISPLAY_NODE_TYPES = new Set(['InfoDisplay', 'SegmentDisplay'])
+
+export function findDisplayGeneratorIssues(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+): { errors: string[]; warnings: string[] } {
+  const displays = nodes.filter((node) => DISPLAY_NODE_TYPES.has(node.data.nodeType))
+  if (displays.length === 0) return { errors: [], warnings: [] }
+
+  const names = displays.map((node) => nodeLabel(node))
+  const errors: string[] = []
+  const warnings: string[] = []
+
+  // A Performance Generator driving the output means the show-controller
+  // sketch, which has no display support.
+  const showEngine = nodes.find((node) => node.data.nodeType === 'PerformanceGenerator')
+  const master = nodes.find((node) => node.data.nodeType === 'PatternMaster')
+  const showDriven = showEngine
+    && edges.some((edge) => edge.source === showEngine.id
+      && (edge.sourceHandle ?? '') === 'frame'
+      && (edge.targetHandle ?? '') === 'frame')
+
+  if (showDriven) {
+    errors.push(
+      `A generated show controller cannot drive a display yet, so ${names.join(', ')} would not be built into the firmware. `
+      + 'Drive the LED output from Music Player instead, or remove the display before exporting a show.',
+    )
+    return { errors, warnings }
+  }
+
+  if (master) {
+    for (const issue of playerDisplaysFromGraph(nodes as never, edges as never).unresolved) {
+      const display = nodes.find((node) => node.id === issue.display)
+      warnings.push(
+        `${display ? nodeLabel(display) : 'A display'}: ${issue.port} is wired to ${issue.source}, which the SD player sketch cannot read. `
+        + 'On the device that value stays blank — wire it to a Music Player output, or drive the display from a normal sketch.',
+      )
+    }
+  }
+
+  return { errors, warnings }
+}
+
 export function findPlayerControlMappingWarnings(nodes: StudioNode[], edges: StudioEdge[]): string[] {
   return playerControlMappingIssues(nodes, edges).map((issue) => `${issue.message} — the absolute control will override button changes`)
 }
@@ -1623,6 +1682,9 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   warnings.push(...findPinRangeWarnings(nodes))
   warnings.push(...findBoardPinCompatibility(nodes, selectedFqbn).warnings)
   warnings.push(...findPlayerControlMappingWarnings(nodes, edges))
+  const displayIssues = findDisplayGeneratorIssues(nodes, edges)
+  errors.push(...displayIssues.errors)
+  warnings.push(...displayIssues.warnings)
 
   const power = estimatePowerLoad(nodes)
   if (power?.exceedsConfigured) {

@@ -48,6 +48,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Graph Health now says when a display the build cannot drive is on the canvas.
+  A show controller has no display support at all and would drop the part, and
+  the SD player runs a fixed template, so a display port fed from a Wave or a
+  Math node has nothing to read there. Either case used to build successfully
+  and leave the screen dark, which sends you looking at wiring that is fine.
 - The SD-card player sketch can now drive a display, and reads the track's own
   tags to fill it. A finished build takes a card of music the app has never
   seen, and the player scrapes title, artist, album, genre, year and bitrate
