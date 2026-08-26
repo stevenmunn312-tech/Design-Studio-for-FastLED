@@ -21,6 +21,13 @@ function sanitizeProperties(nodeType: string, properties: Record<string, unknown
   // versions exposed a sample-rate field which never controlled either path,
   // so do not let a saved personal default bring it back on new nodes.
   if (nodeType === 'MicInput') delete sanitized.sampleRate
+  // Master brightness is the Board's, on FastLED's 0-255. The LED output
+  // briefly offered its own slider, which resolved through the shared 0-1
+  // `brightness` meta — so a personal default saved from it puts a frame-scale
+  // value on every new output, where the Board migration reads it as 0-255 and
+  // 0.85 becomes 1. Removing the control is not enough on its own: the saved
+  // default outlives the project that created it.
+  if (nodeType === 'MatrixOutput') delete sanitized.brightness
   return sanitized
 }
 

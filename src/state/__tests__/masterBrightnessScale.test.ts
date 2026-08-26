@@ -7,7 +7,7 @@
 // preview and a strip showing only its strongest channel: two symptoms that
 // looked nothing like each other and were one number.
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { controllerSettings, DEFAULT_CONTROLLER_SETTINGS } from '../controllerSettings'
 import { propertyGroupsFor, propertyMeta, NODE_LIBRARY } from '../nodeLibrary'
 import type { StudioNode } from '../graphStore'
@@ -89,5 +89,45 @@ describe('a graph with a Board', () => {
   it('takes the Board at its word, including a deliberately tiny value', () => {
     // Only the legacy path guesses at scale. A Board value is already 0-255.
     expect(controllerSettings([node('board', 'Board', { brightness: 1 })]).brightness).toBe(1)
+  })
+})
+
+// Removing the control is not enough on its own. "Set Default" persists a
+// node type's properties to localStorage, which outlives the project that
+// created them — so a default saved from the old 0-1 slider puts a frame-scale
+// brightness on every new LED output, in a brand new project, forever.
+describe('a personal default saved from the old slider', () => {
+  const KEY = 'design-studio-for-fastled.node-defaults.v1'
+
+  // These reload the module to exercise its load-time sanitise, so the registry
+  // has to be put back or a later test in this file gets a half-reset one.
+  beforeEach(() => localStorage.clear())
+  afterEach(() => {
+    localStorage.clear()
+    vi.resetModules()
+  })
+
+  it('does not survive onto new LED outputs', async () => {
+    localStorage.setItem(KEY, JSON.stringify({
+      MatrixOutput: { brightness: 0.85, chipset: 'WS2812B', colorOrder: 'GRB' },
+    }))
+    vi.resetModules()
+    const { useNodeDefaults } = await import('../nodeDefaults')
+    const saved = useNodeDefaults.getState().overrides.MatrixOutput
+
+    expect(saved, 'the rest of the saved default must survive').toMatchObject({
+      chipset: 'WS2812B', colorOrder: 'GRB',
+    })
+    expect(saved).not.toHaveProperty('brightness')
+  })
+
+  it('leaves other node types alone', async () => {
+    localStorage.setItem(KEY, JSON.stringify({
+      BrightnessMod: { brightness: 0.85 },
+    }))
+    vi.resetModules()
+    const { useNodeDefaults } = await import('../nodeDefaults')
+    // BrightnessMod's brightness is its own 0-3 frame scale, not the Board's.
+    expect(useNodeDefaults.getState().overrides.BrightnessMod).toMatchObject({ brightness: 0.85 })
   })
 })
