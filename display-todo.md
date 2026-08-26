@@ -100,7 +100,7 @@ before building against it.
 | 1 | TM1637 4-digit 7-segment module, colon variant | `SegmentDisplay` | CLK + DIO | BPM, clock, countdown, score, active-pattern number, debug value |
 | 2 | MAX7219 8-digit 7-segment module | `SegmentDisplay` | SPI-like CLK/DIN/CS | Longer counters, elapsed/duration display, channel/value monitor |
 | 3 | SH1106 128×64 SPI OLED (1.3-inch, 7-pin) | `InfoDisplay` | 4-wire SPI: CLK/MOSI shared, CS/DC/RES exclusive | Song title and progress, clock/date, current pattern, sensor/status readout. Leads the OLED slice because it is the device on the bench |
-| 4 | SSD1306 128×64 I²C OLED (0.96-inch) | `InfoDisplay` | I²C | Same layouts through the same 1-bit surface contract, once the module arrives |
+| 4 | SSD1306 128×64 I²C OLED (0.96-inch) | `InfoDisplay` | I²C | Same layouts through the same 1-bit surface contract. The transport is written and tested; the module has not been on a bench |
 | 5 | ST7789 240×240 SPI TFT, no touch | `TransportDisplay` | SPI | Colour now-playing screen, album/pattern art, status dashboard, fixed gauges |
 | 6 | ST7789V 2.4-inch 240×320 SPI TFT + XPT2046 touch + microSD (MSP2402 form) | `TransportDisplay`, then `Display` | Shared SPI with separate CS lines; touch breaks out T_CLK/T_DIN/T_DO so sharing is a wiring choice | Fixed play/pause/previous/next/volume UI; reference target for the custom UI builder |
 | 7 | ESP32-2432S028R integrated ILI9341/XPT2046 board profile | `Display` | Board-integrated | Low-cost end-to-end custom UI reference and repeatable validation target. The only ILI9341 on the bench, and a board rather than a part |
@@ -334,6 +334,13 @@ widgets, hover state, or physical pins.
   128×64 panel, so its 2-column offset belongs in the contract rather than
   being fixed up per device — driving one as the other shifts the image two
   pixels and wraps rubbish down the edge, which reads as a wiring fault.
+  The SSD1306's transport shipped later than its part option, and for a while
+  choosing it produced a sketch that bit-banged SPI at a module with no CS, DC
+  or reset pin: a successful build and a dark panel. The surface contract was
+  already bus-independent; the driver was not. It is now — one `OledPanel`, one
+  command sequence, one flush, with only `_oledCommand` and `_oledPage`
+  branching. See
+  [one surface, two transports](docs/development/design/auxiliary-displays.md#one-surface-two-transports).
 - [x] Keep the transport separate from the surface contract. The module on the
   bench is a 7-pin SPI SH1106 and the SSD1306 to come is 4-pin I²C, so the
   1-bit layout, offset and page addressing must not assume either bus. This is
@@ -368,14 +375,25 @@ widgets, hover state, or physical pins.
   because the player owns the cursor, and the SD player's encoder stops being a
   special case. See
   [who owns the selection](docs/development/design/generative-pattern-show.md#who-owns-the-selection).
-- [ ] Bake Pattern Collection thumbnails during export/codegen:
+- [x] Bake Pattern Collection thumbnails during export/codegen:
   - evaluate each group at a deterministic representative tick and dimensions;
   - downsample/dither to the target 1-bit thumbnail size with one shared helper;
   - store bytes in PROGMEM, not RAM;
-  - cap count and total flash cost, with a clear validation message;
-  - show the same baked result in the browser preview.
-- [ ] Test title truncation, empty collection, one/many patterns, encoder wrap,
+  - cap count and total flash cost, with a clear validation message. The cap
+    landed before the message did, and the two are not the same thing: an
+    over-budget collection bakes nothing, so the panel read "NO PATTERNS" —
+    exactly what a browser wired to nobody reads. `browserThumbnailIssues`
+    derives the reason from the pattern count rather than from the bake, so
+    validation can say it without evaluating anything or asking about trust;
+  - show the same baked result in the browser preview. There is no browser
+    preview of the OLED surface, deliberately — see the note in `CLAUDE.md`;
+    the shared `renderInfoDisplay` blits the same baked bytes the firmware
+    does, which is where the parity actually lives.
+- [x] Test title truncation, empty collection, one/many patterns, encoder wrap,
   I²C address settings, OLED+RTC bus sharing, and thumbnail flash estimates.
+  The last three arrived with the I²C transport: an OLED and a DS3231 on one
+  SDA/SCL pair is accepted, two panels on one strap is not, and a Pattern
+  Browser is measured with its baked table rather than without it.
 
 ### Phase 5 — fixed `TransportDisplay`
 

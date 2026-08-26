@@ -4,8 +4,9 @@ Status: in progress; the `string` signal, the Music Player's song-information
 outputs, the TM1637 and MAX7219 Segment Displays and the Info Display have
 shipped. The SH1106 OLED is
 the first device driven on real hardware: panel, font, refresh and mounted
-rotation confirmed on a bench, on an ESP32-S3 over 4-wire SPI · Owner: app ·
-Date: 2026-08-25
+rotation confirmed on a bench, on an ESP32-S3 over 4-wire SPI. The SSD1306's I²C
+transport is written and tested but has not been on a bench · Owner: app ·
+Date: 2026-08-27
 
 Gives a build a second screen: a 7-segment module showing BPM, an OLED naming
 the pattern the encoder is about to select, a colour TFT running a now-playing
@@ -310,6 +311,45 @@ alternative — display-specific graph evaluation copy-pasted into each — is h
 the generators drift apart, and the drift shows up as a display that reads
 correctly in a normal sketch and wrongly in a show.
 
+## One surface, two transports
+
+An SH1106 and an SSD1306 draw the same picture. The 1-bit layout, the page
+addressing, the glyphs and the column offset are identical, and the only thing
+that differs is how the bytes get to the glass: the module on the bench is a
+7-pin SPI SH1106 and the SSD1306 is a 4-pin I²C one.
+
+`src/state/oledSurface.ts` therefore splits two facts that are easy to conflate:
+
+- **Controller** is silicon. It carries the column offset — an SH1106 has 132
+  columns of RAM behind a 128-column panel, so its window starts two columns in.
+  Drive one as the other and the image sits two pixels off with the remainder
+  wrapped down the edge, which reads as a wiring fault and costs an evening.
+- **Transport** is the module. `OLED_TRANSPORT_PINS` names the pins each header
+  brings out, and `oledTransportFor` derives which one a part is from the
+  catalogue entry's declared interface rather than from a second hand-kept list.
+
+That split is what one node covering both modules rests on. The node carries
+both headers, `isPropertyEnabled` offers only the chosen module's, and
+`collectPinUses` reserves only those — the SPI set held for a 4-pin panel would
+be five pins nothing drives, handed to no other part.
+
+The generated driver follows the same shape. One `OledPanel`, one command
+sequence, one dirty-region flush; `_oledCommand` and `_oledPage` branch on the
+transport and nothing else does. There is deliberately no second layout
+implementation to keep in parity.
+
+A 4-pin panel has no reset line and no chip select, so it is not begun the way
+an SPI one is: it resets itself at power-up, and its address — 0x3C or 0x3D, a
+solder blob on the module — is a property rather than a wire.
+
+**One `Wire`, because the sketch starts one.** Two I²C pairs is legal wiring on
+an ESP32 and undrivable by every generator here, each of which emits a single
+`Wire.begin`. The device on the other pair never answers, which from the outside
+looks exactly like a bad joint. So a build whose I²C parts name different SDA and
+SCL pins is a validation error, the retarget puts an I²C display on the board's
+own I²C bus rather than on two free pins, and the bus is started once for
+whatever is on it rather than by whichever part is set up first.
+
 ## Bus rules
 
 Today `findPinConflicts` in `src/utils/validateGraph.ts` treats any GPIO claimed
@@ -346,7 +386,7 @@ default branch.
 | Family | Candidate | Why | What the spike has to settle |
 | --- | --- | --- | --- |
 | TM1637 / MAX7219 7-segment | A small dedicated driver per controller | No graphics stack is warranted for eight digits | Whether one logical node contract covers both controllers with wiring and digit capacity confined to the part adapter |
-| SSD1306 / SH1106 1-bit OLED | U8g2 | Smallest footprint for 1-bit, broad device coverage, and its device list is the reference for what "supported" can mean | Whether Studio's own `font.ts` glyphs rasterise through it, or whether the layout helpers draw pixels directly |
+| SSD1306 / SH1106 1-bit OLED | ~~U8g2~~ — settled: an inline driver, `src/codegen/infoDisplayCpp.ts` | A page-addressed 1-bit panel is a short, stable protocol over either bus, and bundling it keeps the display slices off the optional-library staging path: nothing to fetch, nothing to pin, nothing to fail without a network. It also lets the emitted glyph table be generated from `font.ts`, so preview and panel cannot disagree | Settled |
 | ST7789 / ILI9341 colour TFT | LovyanGFX | Runtime configuration suits per-project generation; a build-flag-configured driver fights a generator that emits one sketch per project | Draw-buffer size, partial-update scheduling, and coexistence with SD on the same host |
 | XPT2046 touch | Panel driver's own touch support | Sharing the driver's transaction handling is safer than a second SPI client racing it | Calibration stability per module, and whether it survives LED refresh load |
 | Custom UI | LVGL 9.x | The only candidate that is an actual widget toolkit | Whether a minimal `lv_conf.h` fits the launch board profiles at all |
