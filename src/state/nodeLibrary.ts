@@ -15,6 +15,7 @@ import {
   OLED_ROTATIONS, OLED_TRANSPORT_PINS, OLED_I2C_ADDRESS_OPTIONS, DEFAULT_OLED_I2C_ADDRESS,
   oledAddressLabel, oledTransportFor, type OledTransport,
 } from './oledSurface'
+import { LED_OUTPUT_RUNTIME_PORTS } from './ledOutputRuntime'
 import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, outputForm } from './ledOutputForm'
 
@@ -2512,6 +2513,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'output',
     inputs: [
       { id: 'frame',  label: 'Frame',   dataType: 'frame' },
+      // Blackout and dimming as wires, so a button and a knob on the bench
+      // reach the fixture in a build with no Music Player in it. Unwired means
+      // lit and undimmed — see state/ledOutputRuntime.ts.
+      ...LED_OUTPUT_RUNTIME_PORTS,
     ],
     outputs: [],
     defaultProperties: {

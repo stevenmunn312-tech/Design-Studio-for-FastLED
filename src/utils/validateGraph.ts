@@ -1128,6 +1128,81 @@ function splitI2cBusErrors(nodes: StudioNode[]): string[] {
   ]
 }
 
+/**
+ * Which generator this graph would actually be built by.
+ *
+ * Mirrors the upload path's own order: `sdShowConnected` (`utils/showUpload.ts`)
+ * is tested before `isPatternShow`, so the same Music Player graph is an SD
+ * player build when a card and an amplifier are present and a pattern show when
+ * they are not. Checking the graph shape without that order said no to graphs
+ * that would have built fine, and an error nobody can act on teaches people to
+ * ignore the drawer.
+ *
+ * One walk because two checks need it — what can draw a display, and what can
+ * honour an LED output's run-time controls. They were about to be two copies.
+ */
+export type SelectedGenerator = 'sketch' | 'show' | 'player'
+
+export function selectedGenerator(nodes: StudioNode[], edges: StudioEdge[]): SelectedGenerator {
+  const master = nodes.find((node) => node.data.nodeType === 'PatternMaster')
+  const showEngine = nodes.find((node) => node.data.nodeType === 'PerformanceGenerator')
+
+  const drivesOutput = (source: StudioNode | undefined): boolean => !!source && edges.some((edge) =>
+    edge.source === source.id
+    && (edge.sourceHandle ?? '') === 'frame'
+    && (edge.targetHandle ?? '') === 'frame'
+    && nodes.some((node) => node.id === edge.target && node.data.nodeType === 'MatrixOutput'))
+
+  const collectionFeeds = (target: StudioNode | undefined): boolean => !!target && edges.some((edge) =>
+    edge.target === target.id
+    && (edge.targetHandle ?? '') === 'patternset'
+    && nodes.some((node) => node.id === edge.source && node.data.nodeType === 'PatternCollection'))
+
+  if (nodes.some((node) => node.data.nodeType === 'SDCard')
+    && nodes.some((node) => node.data.nodeType === 'Amplifier')
+    && drivesOutput(master)) return 'player'
+  if (drivesOutput(master) && collectionFeeds(master)) return 'show'
+  if (drivesOutput(showEngine)) return 'show'
+  return 'sketch'
+}
+
+/**
+ * LED-output blackout and dimming a show or player build would silently drop.
+ *
+ * `cppGenerator` emits these controls from the wired expression, because a
+ * normal sketch evaluates the whole graph. The show and player generators do
+ * not: they render collected patterns and a fixed transport, with no way to
+ * evaluate an arbitrary node feeding an output's `enabled` pin. Emitting
+ * nothing there would flash firmware that ignores a physical blackout button,
+ * which is the same failure as a display left dark — the user's next move is
+ * to suspect the wiring.
+ *
+ * The SD player has a real route for this and the message names it: Player
+ * Controls' LED On/Off and Brightness reach the same place through the
+ * transport bundle the player already reads.
+ */
+export function findOutputRuntimeIssues(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+): { errors: string[] } {
+  const generator = selectedGenerator(nodes, edges)
+  if (generator === 'sketch') return { errors: [] }
+
+  const wired = nodes.filter((node) => node.data.nodeType === 'MatrixOutput'
+    && edges.some((edge) => edge.target === node.id
+      && (edge.targetHandle === 'enabled' || edge.targetHandle === 'brightness')))
+  if (wired.length === 0) return { errors: [] }
+
+  const names = wired.map((node) => nodeLabel(node)).join(', ')
+  return {
+    errors: [generator === 'player'
+      ? `${names}: a music-player build cannot read Enabled or Brightness wired to the LED output. `
+        + 'Wire the button or knob to Player Controls (LED On / Off, Brightness) instead — it reaches the same place through the transport the player already reads.'
+      : `${names}: a generated show controller cannot read Enabled or Brightness wired to the LED output, so the firmware would ignore them. `
+        + 'Export it through Upload show to SD and drive them from Player Controls, or remove the wires before exporting a show.'],
+  }
+}
+
 export function findDisplayGeneratorIssues(
   nodes: StudioNode[],
   edges: StudioEdge[],
@@ -1146,34 +1221,7 @@ export function findDisplayGeneratorIssues(
   //   normal sketch      cppGenerator          draws displays
   //   SD player          playerSketchGenerator draws displays
   //   pattern show       showGenerator         does not
-  //
-  // The show generator is reached only when a Music Player show is *not* also
-  // an SD player build, because sdShowConnected is tested first. Checking the
-  // graph shape alone said no to a graph that would have built fine, which is
-  // as bad as the silence it replaced — an error nobody can act on teaches
-  // people to ignore the drawer.
-  const showEngine = nodes.find((node) => node.data.nodeType === 'PerformanceGenerator')
-  const drivesOutput = (source: StudioNode | undefined): boolean => !!source && edges.some((edge) =>
-    edge.source === source.id
-    && (edge.sourceHandle ?? '') === 'frame'
-    && (edge.targetHandle ?? '') === 'frame'
-    && nodes.some((node) => node.id === edge.target && node.data.nodeType === 'MatrixOutput'))
-
-  const collectionFeeds = (target: StudioNode | undefined): boolean => !!target && edges.some((edge) =>
-    edge.target === target.id
-    && (edge.targetHandle ?? '') === 'patternset'
-    && nodes.some((node) => node.id === edge.source && node.data.nodeType === 'PatternCollection'))
-
-  // Mirrors isPatternShow in codegen/showGenerator.ts: a Music Player with a
-  // collection behind it and its frame reaching an output is a show. But
-  // sdShowConnected is tested first, so the same graph with an SD card and an
-  // amplifier is an SD player build instead, and that generator does draw.
-  const sdPlayer = nodes.some((node) => node.data.nodeType === 'SDCard')
-    && nodes.some((node) => node.data.nodeType === 'Amplifier')
-    && drivesOutput(master)
-  const patternShow = drivesOutput(master) && collectionFeeds(master) && !sdPlayer
-
-  if (drivesOutput(showEngine) || patternShow) {
+  if (selectedGenerator(nodes, edges) === 'show') {
     errors.push(
       `A generated show controller cannot drive a display yet, so ${names.join(', ')} would not be built into the firmware. `
       + 'Export it through Upload show to SD, which does drive displays, or remove the display before exporting a show.',
@@ -1758,6 +1806,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   const displayIssues = findDisplayGeneratorIssues(nodes, edges)
   errors.push(...displayIssues.errors)
   warnings.push(...displayIssues.warnings)
+  errors.push(...findOutputRuntimeIssues(nodes, edges).errors)
 
   const power = estimatePowerLoad(nodes)
   if (power?.exceedsConfigured) {

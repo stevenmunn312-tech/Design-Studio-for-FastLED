@@ -13,6 +13,7 @@ import {
   renderSegmentIndex, segmentFrameText, blankSegmentFrame, segmentControllerFor,
   type SegmentFrame,
 } from './segmentDisplay'
+import { resolveLedOutputRuntime, applyLedOutputRuntime } from './ledOutputRuntime'
 import {
   asInfoDisplayLayout, renderInfoDisplay, blankInfoData, STATUS_MAX_INDICATORS,
   type InfoDisplayData,
@@ -7675,9 +7676,20 @@ function createEvalNode(
         break
 
       // ── Output ─────────────────────────────────────────────────────────
-      case 'MatrixOutput':
-        out = { frame: input(id, 'frame', null) }
+      case 'MatrixOutput': {
+        // Blackout and dimming, applied here rather than at the preview so the
+        // main matrix, every per-output preview, an offline recording and the
+        // live stream all see one answer. `applyLedOutputRuntime` copies rather
+        // than scaling in place: this frame is the upstream node's pooled
+        // buffer, shared with a second output and with node previews.
+        const frame = input(id, 'frame', null) as Frame | null
+        const runtime = resolveLedOutputRuntime(
+          incoming.has(`${id}:enabled`) ? input(id, 'enabled', true) : undefined,
+          incoming.has(`${id}:brightness`) ? input(id, 'brightness', 1) : undefined,
+        )
+        out = { frame: frame ? applyLedOutputRuntime(frame, runtime) : null }
         break
+      }
 
       // Canvas-only annotation — no ports, nothing to evaluate.
       case 'Comment':

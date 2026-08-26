@@ -37,6 +37,7 @@ import { asSegmentMode, clampSegmentBrightness, segmentControllerFor } from '../
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
 import { NODE_LIBRARY, oledTransportForProps } from '../state/nodeLibrary'
 import { isHardwareManagedSignalNodeType } from '../state/hardware'
+import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp } from './ledOutputRuntimeCpp'
 import { patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
 import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './patternSelectionCpp'
 import type { BrowserThumbnails } from '../utils/browserThumbnails'
@@ -1751,6 +1752,25 @@ export function generateCpp(
       frameBufs.add(safeId(up.srcId))
       return `buf_${safeId(up.srcId)}`
     }
+    /*
+     * This output's blackout and dimming wires, for `ledOutputRuntimeCpp`.
+     *
+     * Null where nothing is wired, so an output nobody has touched emits
+     * nothing at all and its sketch is byte-for-byte the one it always was.
+     * The properties are not consulted: unlike brightness on the Board, these
+     * exist only as cables — a stored value would be a second, invisible
+     * dimmer disagreeing with the visible one.
+     */
+    const outputRuntimeEmit = (target: StudioNode, array: string, count: string) => ({
+      id: safeId(target.id),
+      array,
+      count,
+      enabledExpr: incoming.has(`${target.id}:enabled`) ? boolExpr(target.id, 'enabled') : null,
+      brightnessExpr: incoming.has(`${target.id}:brightness`)
+        ? floatExpr(target.id, 'brightness', props(target), 'brightness', 1)
+        : null,
+    })
+
     // A statement that seeds `fbuf` from a frame input (or black if unwired).
     const seedFrom = (port: string) => {
       const s = srcBuf(port)
@@ -6138,6 +6158,7 @@ export function generateCpp(
         }
         const src = srcBuf('frame')
         if (isHub75) {
+          for (const line of hub75OutputRuntimeCpp(outputRuntimeEmit(node, '', ''), hw.brightness)) ln(line)
           if (!src) {
             ln(`  dma_display->clearScreen();`)
           } else {
@@ -6178,6 +6199,7 @@ export function generateCpp(
             ln(`    ${leds}[${xy}] = _c;`)
             ln(`  }`)
           }
+          for (const line of ledOutputRuntimeCpp(outputRuntimeEmit(node, leds, String(route.ledTotal)))) ln(line)
           break
         }
         if (!src) {
@@ -6202,6 +6224,7 @@ export function generateCpp(
         } else if (src !== `buf_${aliasedTerminalId}`) {
           ln(`  ::memmove(leds, ${src}, sizeof(CRGB) * NUM_LEDS);`)
         }
+        for (const line of ledOutputRuntimeCpp(outputRuntimeEmit(node, 'leds', String(physLeds)))) ln(line)
         ln(`  FastLED.show();`)
         break
       }
