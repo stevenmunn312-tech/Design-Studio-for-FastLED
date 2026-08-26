@@ -355,10 +355,19 @@ widgets, hover state, or physical pins.
   selection, encoder counts-per-detent, and what happens when the collection
   changes. The generative show reads it, which fixed a running show restarting
   at a random pattern whenever its collection was edited.
-- [ ] Emit the shared half of that contract — wrapping, confirmation, the
-  active/highlight split — into generated firmware once the Pattern Browser
-  gives it an input to read. Collection reconciliation stays browser-only: on
-  a device the collection is fixed at compile time.
+- [x] Emit the shared half of that contract — wrapping, confirmation, the
+  active/highlight split — into generated firmware. Collection reconciliation
+  stays browser-only: on a device the collection is fixed at compile time.
+- [ ] Move the selection onto the player, where it belongs. The first build put
+  `Select`/`Confirm` on the Info Display, so the panel owned the cursor and
+  confirming changed what the screen said while the LEDs carried on. Player
+  Controls gains Pattern Selection / Previous Pattern / Next Pattern / Confirm
+  beside the volume and brightness inputs it already has; Music Player gains
+  one `Pattern Select` output carrying the whole selection; the Info Display
+  consumes that and stops deciding anything. Confirm then drives playback
+  because the player owns the cursor, and the SD player's encoder stops being a
+  special case. See
+  [who owns the selection](docs/development/design/generative-pattern-show.md#who-owns-the-selection).
 - [ ] Bake Pattern Collection thumbnails during export/codegen:
   - evaluate each group at a deterministic representative tick and dimensions;
   - downsample/dither to the target 1-bit thumbnail size with one shared helper;

@@ -105,6 +105,66 @@ the Pattern Browser gives them an input to read — emitting them before there i
 a caller would be a second definition of the same rules, which is the thing this
 module exists to prevent.
 
+### Who owns the selection
+
+The player. Not the panel.
+
+The first build of the Pattern Browser put `Select` and `Confirm` on the Info
+Display and let it keep its own cursor. It worked as a picture and failed as a
+model: the display knew which pattern you had chosen and nothing else did, so
+confirming changed what the panel *said* while the LEDs carried on with the
+show's own rotation. A display describing something the hardware is not doing
+is the exact failure this project keeps designing against, and pointing the
+ports at the display is what caused it.
+
+The same rule that settled Transport Control settles this. The player holds the
+patterns, so the player owns which one is playing. Controls control it. The
+display displays it.
+
+```
+Encoder ─┐
+Buttons ─┼─► Player Controls ──playercontrols──► Music Player ──patternselect──► Info Display
+         ┘                                            │
+                                                    frame
+                                                      ▼
+                                                  LED output
+```
+
+**Player Controls** grows the physical half, beside the volume and brightness
+inputs it already carries. That is what the node is for: it is where physical
+inputs become intent. A knob is not a selection and a button is not a command
+until something says so, and having one node say it is what stops a display, a
+player and a firmware generator each deciding separately what a press meant.
+
+| Input | Type | Physical source |
+| --- | --- | --- |
+| Pattern Selection | `float` | rotary encoder position |
+| Previous Pattern | `bool` | button |
+| Next Pattern | `bool` | button |
+| Confirm | `bool` | encoder push, or a button |
+
+Buttons and an encoder both arriving is deliberate, not redundant: a panel
+build may have three buttons and no encoder, and the `playercontrols` bundle
+already carries both shapes for the transport (`next` beside `volumeUp`).
+
+**Music Player** grows one output, `Pattern Select`, carrying the whole
+selection — active, highlight, ordinal, count, and whether a browse is open.
+Technically it is I/O: the commands arrive on `controls` and the resulting
+selection leaves on `patternselect`, which is what makes the round trip
+visible on the canvas rather than hidden in a display's private state.
+
+**Info Display** loses `Patterns`, `Select` and `Confirm` and gains one
+`Pattern Select` input. The panel stops deciding anything. It also stops
+needing its own wire to the collection: the selection names the player, and the
+player already has the patterns, so the thumbnails bake against that collection
+rather than a second one the display was pointed at separately.
+
+The rest follows from that. Confirming drives playback because the player owns
+the cursor it is confirming. Two panels wired to one player agree, because
+there is one cursor rather than two. And the SD player's encoder stops being a
+special case: it reaches the selection the same way every other control does,
+through the bundle it already builds.
+
 ### Physical player controls
 
 `PlayerControls` is the semantic boundary between physical inputs and playback.
