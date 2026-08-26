@@ -126,7 +126,12 @@ export function playerDisplaysFromGraph(nodes: ConfigNode[], edges: ConfigEdge[]
       const controller = oledControllerFor(partById(partId)?.display?.controller)
       const rotation = oledRotationCommands(asOledRotation(props.oledRotation))
       const sources: Record<string, string> = {}
-      for (const port of ['title', 'line2', 'value', 'progress', 'playing', 'volume',
+      // `select` and `confirm` are listed so a wired encoder is *reported*
+      // rather than ignored. Only Music Player outputs resolve here, so they
+      // come back unresolved and the caller says the SD player cannot read
+      // them — the panel then browses nothing rather than silently not
+      // responding to a knob the user can see is connected.
+      for (const port of ['title', 'line2', 'value', 'progress', 'playing', 'volume', 'select', 'confirm',
         ...Array.from({ length: STATUS_MAX_INDICATORS }, (_, i) => `indicator${i + 1}`)]) {
         const expression = resolvePort(node.id, port, edges, byId, unresolved)
         if (expression) sources[port] = expression

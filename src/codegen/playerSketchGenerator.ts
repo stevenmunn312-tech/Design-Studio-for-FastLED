@@ -16,6 +16,9 @@ import { sanitizePin } from './hardwarePins'
 import { PLAYER_SONG_INFO_CPP } from './playerSongInfoCpp'
 import type { PlayerDisplays } from './playerDisplays'
 import { infoDisplayHelpersCpp, INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp, infoDisplaySetupCpp, infoDisplayLoopCpp } from './infoDisplayCpp'
+import { patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
+import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './patternSelectionCpp'
+import type { BrowserThumbnails } from '../utils/browserThumbnails'
 import {
   SEGMENT_DISPLAY_CPP_HELPERS, SEGMENT_DISPLAY_CPP_FORWARD, segmentDisplayGlobalCpp,
   segmentDisplaySetupCpp, segmentDisplayLoopCpp,
@@ -296,7 +299,7 @@ export function generatePlayerSketch(
   // in /music" can play a song left over from an earlier session — paired with
   // that song's show, which makes the mismatch look like a sync bug rather
   // than the wrong file.
-  opts: { audioEnvelope?: boolean; decoderTap?: boolean; preferredTrack?: string; genericPlayer?: boolean; psramAllowed?: boolean; controls?: PlayerControlsConfig; particleFx?: PlayerParticlesConfig | null; displays?: PlayerDisplays } = {},
+  opts: { audioEnvelope?: boolean; decoderTap?: boolean; preferredTrack?: string; genericPlayer?: boolean; psramAllowed?: boolean; controls?: PlayerControlsConfig; particleFx?: PlayerParticlesConfig | null; displays?: PlayerDisplays; thumbnails?: BrowserThumbnails } = {},
 ): string {
   const raw = { ...DEFAULTS, ...cfg }
   const c = {
@@ -752,6 +755,12 @@ ${controlServiceLines}
   const hasSegmentDisplays = displays.segment.length > 0
   const hasDisplays = hasInfoDisplays || hasSegmentDisplays
 
+  const browserEmits = displays.info
+    .filter((display) => display.layout === 'Pattern Browser')
+    // `sourceId` is the graph node id the thumbnails were baked against;
+    // `id` is the C identifier. Keeping both is what lets one map serve both
+    // generators without either guessing at the other's naming.
+    .map((display) => ({ id: safePlayerId(display.id), sourceId: display.id }))
   const infoEmits = displays.info.map((display) => ({
     id: safePlayerId(display.id),
     csPin: display.csPin,
@@ -773,6 +782,19 @@ ${controlServiceLines}
     durationExpr: display.sources.duration ?? 'songDurationSec()',
     dateTimeExpr: null,
     indicatorExprs: [1, 2, 3, 4].map((i) => display.sources[`indicator${i}`] ?? 'false'),
+    // infoDisplayLoopCpp is shared with the normal generator and emits browser
+    // calls for this layout, so the definitions behind them have to be emitted
+    // here too. Teaching one generator and not the other is what broke a build.
+    ...(display.layout === 'Pattern Browser'
+      ? {
+        browser: {
+          tableStem: safePlayerId(display.id),
+          selVar: `_sel_${safePlayerId(display.id)}`,
+          encoderPositionExpr: display.sources.select ?? null,
+          confirmExpr: display.sources.confirm ?? null,
+        },
+      }
+      : {}),
   }))
 
   const segmentEmits = displays.segment.map((display) => ({
@@ -796,6 +818,11 @@ ${controlServiceLines}
     hasDisplays ? PLAYER_SONG_INFO_CPP : '',
     hasInfoDisplays ? infoDisplayHelpersCpp() : '',
     hasInfoDisplays ? infoEmits.map(infoDisplayGlobalCpp).join('\n') : '',
+    browserEmits.length > 0 ? PATTERN_SELECTION_CPP : '',
+    browserEmits.length > 0 ? THUMBNAIL_DRAW_CPP : '',
+    browserEmits.map((display) => patternThumbnailTableCpp(
+      display.id, opts.thumbnails?.[display.sourceId] ?? [])).join('\n'),
+    browserEmits.map((display) => `static PatternSel _sel_${display.id};`).join('\n'),
     hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_HELPERS : '',
     hasSegmentDisplays ? segmentEmits.map(segmentDisplayGlobalCpp).join('\n') : '',
   ].filter(Boolean).join('\n')
@@ -804,6 +831,7 @@ ${controlServiceLines}
 
   const displaySetupCpp = [
     ...infoEmits.flatMap(infoDisplaySetupCpp),
+    ...browserEmits.map((display) => `  _selBegin(_sel_${display.id});`),
     ...segmentEmits.flatMap(segmentDisplaySetupCpp),
   ].join('\n')
 
@@ -844,7 +872,7 @@ ${isHub75 ? hub75IncludesCpp(hub75Hw!).join('\n') + '\n' : ''}#include <SD.h>
 // defined, so a helper taking one by reference fails on a line nothing
 // in this generator wrote.
 ${[...fastLedDecls].join('\n')}
-${hasInfoDisplays ? INFO_DISPLAY_CPP_FORWARD + '\n' : ''}${hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_FORWARD + '\n' : ''}
+${hasInfoDisplays ? INFO_DISPLAY_CPP_FORWARD + '\n' : ''}${hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_FORWARD + '\n' : ''}${browserEmits.length > 0 ? PATTERN_SELECTION_CPP_FORWARD + '\n' : ''}
 // ── Pin config ────────────────────────────────────────────────────────────────
 ${isHub75 ? '' : `#define LED_DATA_PIN  ${c.ledDataPin}\n`}${clockPinDefine}#define WIDTH         ${c.ledWidth}
 #define HEIGHT        ${c.ledHeight}

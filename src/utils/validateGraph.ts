@@ -1100,19 +1100,44 @@ export function findDisplayGeneratorIssues(
   const errors: string[] = []
   const warnings: string[] = []
 
-  // A Performance Generator driving the output means the show-controller
-  // sketch, which has no display support.
-  const showEngine = nodes.find((node) => node.data.nodeType === 'PerformanceGenerator')
   const master = nodes.find((node) => node.data.nodeType === 'PatternMaster')
-  const showDriven = showEngine
-    && edges.some((edge) => edge.source === showEngine.id
-      && (edge.sourceHandle ?? '') === 'frame'
-      && (edge.targetHandle ?? '') === 'frame')
 
-  if (showDriven) {
+  // Three generators, not two, and only one of them cannot draw.
+  //
+  //   normal sketch      cppGenerator          draws displays
+  //   SD player          playerSketchGenerator draws displays
+  //   pattern show       showGenerator         does not
+  //
+  // The show generator is reached only when a Music Player show is *not* also
+  // an SD player build, because sdShowConnected is tested first. Checking the
+  // graph shape alone said no to a graph that would have built fine, which is
+  // as bad as the silence it replaced — an error nobody can act on teaches
+  // people to ignore the drawer.
+  const showEngine = nodes.find((node) => node.data.nodeType === 'PerformanceGenerator')
+  const drivesOutput = (source: StudioNode | undefined): boolean => !!source && edges.some((edge) =>
+    edge.source === source.id
+    && (edge.sourceHandle ?? '') === 'frame'
+    && (edge.targetHandle ?? '') === 'frame'
+    && nodes.some((node) => node.id === edge.target && node.data.nodeType === 'MatrixOutput'))
+
+  const collectionFeeds = (target: StudioNode | undefined): boolean => !!target && edges.some((edge) =>
+    edge.target === target.id
+    && (edge.targetHandle ?? '') === 'patternset'
+    && nodes.some((node) => node.id === edge.source && node.data.nodeType === 'PatternCollection'))
+
+  // Mirrors isPatternShow in codegen/showGenerator.ts: a Music Player with a
+  // collection behind it and its frame reaching an output is a show. But
+  // sdShowConnected is tested first, so the same graph with an SD card and an
+  // amplifier is an SD player build instead, and that generator does draw.
+  const sdPlayer = nodes.some((node) => node.data.nodeType === 'SDCard')
+    && nodes.some((node) => node.data.nodeType === 'Amplifier')
+    && drivesOutput(master)
+  const patternShow = drivesOutput(master) && collectionFeeds(master) && !sdPlayer
+
+  if (drivesOutput(showEngine) || patternShow) {
     errors.push(
       `A generated show controller cannot drive a display yet, so ${names.join(', ')} would not be built into the firmware. `
-      + 'Drive the LED output from Music Player instead, or remove the display before exporting a show.',
+      + 'Export it through Upload show to SD, which does drive displays, or remove the display before exporting a show.',
     )
     return { errors, warnings }
   }

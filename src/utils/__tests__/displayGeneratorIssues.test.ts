@@ -91,3 +91,55 @@ describe('displays a build cannot drive', () => {
     expect(issues.errors[0]).toContain('Segment Display')
   })
 })
+
+// The hole this check had: it looked only for a Performance Generator, so the
+// other show shape — a Music Player fed by a Pattern Collection — fell straight
+// through to a build that succeeded with the panel dark. Found on a bench with
+// the graph already wired, one step before flashing it.
+describe('a Music Player show', () => {
+  const master = node('master', 'PatternMaster')
+  const collection = node('coll', 'PatternCollection', { patternIds: ['a', 'b'] })
+  const out = node('out', 'MatrixOutput')
+  const display = node('oled', 'InfoDisplay', { infoLayout: 'Pattern Browser' })
+
+  const showEdges = [
+    edge('e1', 'coll', 'patternset', 'master', 'patternset'),
+    edge('e2', 'master', 'frame', 'out', 'frame'),
+  ]
+
+  it('refuses a display it cannot build', () => {
+    const { errors } = findDisplayGeneratorIssues([master, collection, out, display], showEdges)
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toContain('Info Display')
+    // Names the way out rather than only the refusal.
+    expect(errors[0]).toMatch(/Upload show to SD/)
+  })
+
+  it('is quiet when the Music Player has no collection behind it', () => {
+    // Without one it is not a show, so it compiles as a normal sketch, which
+    // does drive displays.
+    const { errors } = findDisplayGeneratorIssues(
+      [master, out, display], [edge('e2', 'master', 'frame', 'out', 'frame')])
+    expect(errors).toEqual([])
+  })
+
+  it('is quiet when the Music Player does not reach an output', () => {
+    const { errors } = findDisplayGeneratorIssues(
+      [master, collection, out, display], [edge('e1', 'coll', 'patternset', 'master', 'patternset')])
+    expect(errors).toEqual([])
+  })
+
+  it('is quiet with no display in the graph at all', () => {
+    expect(findDisplayGeneratorIssues([master, collection, out], showEdges).errors).toEqual([])
+  })
+
+  // The same graph plus an SD card and an amplifier is an SD player build,
+  // because sdShowConnected is tested before the show path — and that
+  // generator does drive displays. Refusing it would be an error nobody can
+  // act on, which teaches people to ignore the drawer.
+  it('allows the same shape once it is an SD player build', () => {
+    const nodes = [master, collection, out, display,
+      node('sd', 'SDCard'), node('amp', 'Amplifier', { model: 'MAX98357A' })]
+    expect(findDisplayGeneratorIssues(nodes, showEdges).errors).toEqual([])
+  })
+})
