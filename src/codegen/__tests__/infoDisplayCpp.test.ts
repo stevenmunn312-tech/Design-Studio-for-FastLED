@@ -2,9 +2,10 @@ import { describe, it, expect } from 'vitest'
 import { generateCpp } from '../cppGenerator'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { infoDisplayHelpersCpp } from '../infoDisplayCpp'
+import { cppStringLiteral } from '../../state/displayText'
 import { INFO_LAYOUT, infoRowY } from '../../state/infoDisplay'
 import { OLED_CONTROLLERS } from '../../state/oledSurface'
-import { FONT_W, FONT_H } from '../../state/font'
+import { FONT_W, FONT_H, DEFAULT_FONT } from '../../state/font'
 
 function node(id: string, nodeType: string, category: string, props: Record<string, unknown> = {}): StudioNode {
   return {
@@ -38,8 +39,19 @@ describe('OLED helpers', () => {
   // A glyph table typed out again is a glyph that differs from the preview.
   it('generates its glyph table rather than restating it', () => {
     expect(helpers).toContain('static const uint8_t _oledFont[')
-    // The digits and letters the shared font defines are all present.
-    expect(helpers).toMatch(/static const char _oledChars\[\] = "[^"]*A[^"]*"/)
+    // Derived from the font, not restated: every glyph it defines must reach
+    // the emitted charset, so adding one cannot silently miss the firmware.
+    const expected = cppStringLiteral(
+      Object.keys(DEFAULT_FONT.glyphs).filter((ch) => ch.length === 1).sort().join(''),
+    )
+    expect(helpers).toContain(`static const char _oledChars[] = ${expected};`)
+  })
+
+  // The font contains a double quote and a question mark. Emitted raw, the
+  // first ends the C++ string early and the second forms a trigraph.
+  it('escapes the charset it emits', () => {
+    expect(helpers).toContain('\\"')
+    expect(helpers).not.toMatch(/_oledChars\[\] = "[^\n]*[^\\]"[^;\n]/)
   })
 
   // The offset is the whole reason the flush is page-by-page rather than a

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { DEFAULT_FONT } from '../font'
 import {
   DISPLAY_TEXT_MAX_BYTES,
   DISPLAY_TEXT_BUFFER_BYTES,
@@ -82,9 +83,22 @@ describe('coerceGlyphs', () => {
   })
 
   it('replaces what the shared font cannot draw', () => {
-    // '#' and '@' have no glyph in the 3x5 font.
-    expect(coerceGlyphs('A#B@')).toBe(`A${DISPLAY_TEXT_GLYPH_FALLBACK}B${DISPLAY_TEXT_GLYPH_FALLBACK}`)
+    // Taken from the font rather than hardcoded: '#' used to stand for
+    // "undrawable" here and quietly stopped meaning that the day it got a
+    // glyph, which is a test asserting nothing.
+    const missing = ['@', '~', '^', '|'].filter((ch) => !(ch in DEFAULT_FONT.glyphs))
+    expect(missing.length, 'the font now draws everything this test relied on').toBeGreaterThan(0)
+    for (const ch of missing) {
+      expect(coerceGlyphs(`A${ch}B`)).toBe(`A${DISPLAY_TEXT_GLYPH_FALLBACK}B`)
+    }
     expect(coerceGlyphs('café')).toBe(`CAF${DISPLAY_TEXT_GLYPH_FALLBACK}`)
+  })
+
+  // Titles come from a stranger's ID3 tags, so the punctuation in them has to
+  // survive: an elapsed/duration row read "0:00?7:49" before '/' had a glyph.
+  it('draws the punctuation a track title actually contains', () => {
+    expect(coerceGlyphs("0:00/7:49")).toBe('0:00/7:49')
+    expect(coerceGlyphs("DON'T STOP (REMIX) & MORE")).toBe("DON'T STOP (REMIX) & MORE")
   })
 })
 

@@ -43,6 +43,16 @@ export const FONT: Record<string, number[]> = {
   '8': [7, 5, 7, 5, 7], '9': [7, 5, 7, 1, 7],
   '!': [2, 2, 2, 0, 2], '.': [0, 0, 0, 0, 2], '-': [0, 0, 7, 0, 0],
   '?': [7, 1, 2, 0, 2], ':': [0, 2, 0, 2, 0],
+  // Punctuation a *title* contains, as opposed to one someone typed into a
+  // Text node. Track names arrive from a stranger's ID3 tags full of
+  // apostrophes, commas and brackets, and every glyph missing here renders as
+  // a question mark — an elapsed/duration row read "0:00?7:49" on a bench
+  // before '/' existed.
+  '/': [1, 1, 2, 4, 4], "'": [2, 2, 0, 0, 0], ',': [0, 0, 0, 2, 4],
+  '(': [1, 2, 2, 2, 1], ')': [4, 2, 2, 2, 4], '&': [2, 5, 2, 5, 3],
+  '+': [0, 2, 7, 2, 0], '_': [0, 0, 0, 0, 7], '*': [0, 5, 2, 5, 0],
+  '=': [0, 7, 0, 7, 0], '"': [5, 5, 0, 0, 0], ';': [0, 2, 0, 2, 4],
+  '#': [5, 7, 5, 7, 5], '%': [5, 1, 2, 4, 5],
 }
 
 /** The built-in 3×5 font as a BitmapFont. */

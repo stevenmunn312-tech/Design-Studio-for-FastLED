@@ -144,8 +144,12 @@ describe('text', () => {
   })
 
   it('folds to the glyphs the shared font can draw', () => {
-    // Lower case folds up; '#' has no glyph and becomes the fallback.
-    expect(fitOledText('ab#', 124)).toBe('AB?')
+    // Lower case folds up; '@' has no glyph and becomes the fallback.
+    expect(fitOledText('ab@', 124)).toBe('AB?')
+  })
+
+  it('keeps the separator an elapsed/duration row needs', () => {
+    expect(fitOledText('0:00/7:49', 124)).toBe('0:00/7:49')
   })
 
   it('returns nothing when the field cannot hold one glyph', () => {
