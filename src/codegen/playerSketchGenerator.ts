@@ -723,21 +723,6 @@ void applyPlayerBrightness() {
   ${isHub75 ? 'dma_display->setBrightness8(value);' : 'FastLED.setBrightness(value);'}
 }
 
-uint16_t playerTrackCount() {
-  File root = SD.open("/music");
-  if (!root) return 0;
-  uint16_t count = 0;
-  File entry = root.openNextFile();
-  while (entry) {
-    String name = entry.name();
-    if (name.endsWith(".mp3") || name.endsWith(".MP3")) count++;
-    entry.close();
-    entry = root.openNextFile();
-  }
-  root.close();
-  return count;
-}
-
 void changePlayerTrack(int8_t direction) {
   uint16_t count = playerTrackCount();
   if (!count) return;
@@ -1211,6 +1196,134 @@ void primeAudioDecoder() {
   }
 }
 
+// ── Walking the card's music ────────────────────────────────────────────────
+// Albums live in folders. Everyone keeps them that way, so /music is walked
+// depth-first rather than read as a flat list — a card whose songs sit in
+// "Artist - Album" folders used to look completely empty to this sketch.
+//
+// Two guards are for real cards rather than tidy ones. Depth is bounded
+// because every level holds an open directory handle, and RAM here belongs to
+// the decoder. Dot-files are skipped because a card written on a macOS machine
+// carries a "._Track.mp3" stub beside every song; counting those as tracks
+// makes every other Next land on something that cannot be decoded.
+#define MUSIC_MAX_DEPTH 4
+
+// The core's SD library reports a bare name on some versions and a full path on
+// others, so the leaf is taken rather than assumed.
+static String _musicLeaf(const String &name) {
+  int slash = name.lastIndexOf('/');
+  return slash >= 0 ? name.substring(slash + 1) : name;
+}
+
+static bool _musicIsMp3(const String &leaf) {
+  return leaf.endsWith(".mp3") || leaf.endsWith(".MP3");
+}
+
+/*
+ * Depth-first walk of dir, in one of three modes.
+ *
+ * seen counts every MP3 passed, so a caller can total the library. With
+ * wantLeaf set the walk stops at that filename wherever it is nested; with
+ * wanted >= 0 it stops at the first MP3 whose running index reaches it; with
+ * neither it walks the lot and only the count is useful. Returns true when it
+ * stopped on a track, which is then in outPath (full) and outLeaf (name).
+ */
+static bool _musicWalk(const char *dir, uint16_t &seen, int32_t wanted, const char *wantLeaf,
+                       String &outPath, String &outLeaf, uint8_t depth) {
+  File folder = SD.open(dir);
+  if (!folder) return false;
+  bool found = false;
+  File entry = folder.openNextFile();
+  while (entry && !found) {
+    String leaf = _musicLeaf(String(entry.name()));
+    bool isDir = entry.isDirectory();
+    entry.close();
+    if (leaf.length() && !leaf.startsWith(".")) {
+      String path = String(dir) + "/" + leaf;
+      if (isDir) {
+        if (depth + 1 < MUSIC_MAX_DEPTH) {
+          found = _musicWalk(path.c_str(), seen, wanted, wantLeaf, outPath, outLeaf, depth + 1);
+        }
+      } else if (_musicIsMp3(leaf)) {
+        bool hit = wantLeaf ? leaf.equalsIgnoreCase(wantLeaf)
+                            : (wanted >= 0 && (int32_t)seen >= wanted);
+        if (hit) { outPath = path; outLeaf = leaf; found = true; }
+        seen++;
+      }
+    }
+    if (!found) entry = folder.openNextFile();
+  }
+  folder.close();
+  return found;
+}
+
+// Every MP3 on the card, however deeply nested.
+uint16_t playerTrackCount() {
+  uint16_t seen = 0;
+  String path, leaf;
+  _musicWalk("/music", seen, -1, nullptr, path, leaf, 0);
+  return seen;
+}
+
+// The index-th MP3 in walk order. Order is the filesystem's, which is stable
+// for a given card — that is what lets Next mean the same thing twice.
+static bool musicTrackAt(uint16_t index, String &outPath, String &outLeaf) {
+  uint16_t seen = 0;
+  return _musicWalk("/music", seen, (int32_t)index, nullptr, outPath, outLeaf, 0);
+}
+
+/*
+ * What the walk actually saw, printed when it found nothing playable.
+ *
+ * "No MP3s here" is a dead end on a card the user can see is full. Listing the
+ * entries and what each was taken for turns it into a diagnosis: a folder
+ * skipped for depth, a name the filesystem reported differently than expected,
+ * or an extension that is not .mp3 at all.
+ */
+static void musicDumpDir(const char *dir, uint8_t depth, uint16_t &printed) {
+  File folder = SD.open(dir);
+  if (!folder) { Serial.printf("  [unopenable] %s\\n", dir); return; }
+  if (!folder.isDirectory()) { Serial.printf("  [not a folder] %s\\n", dir); folder.close(); return; }
+  File entry = folder.openNextFile();
+  while (entry && printed < 60) {
+    String raw = String(entry.name());
+    String leaf = _musicLeaf(raw);
+    bool isDir = entry.isDirectory();
+    entry.close();
+    for (uint8_t i = 0; i <= depth; i++) Serial.print("  ");
+    Serial.printf("%s%s%s\\n", leaf.c_str(), isDir ? "/" : "",
+                  isDir ? "" : (_musicIsMp3(leaf) ? "   <- mp3"
+                                : (leaf.startsWith(".") ? "   (dot-file, skipped)" : "   (not .mp3)")));
+    printed++;
+    if (isDir && !leaf.startsWith(".")) {
+      String path = String(dir) + "/" + leaf;
+      if (depth + 1 < MUSIC_MAX_DEPTH) musicDumpDir(path.c_str(), depth + 1, printed);
+      else Serial.printf("  [too deep, not walked] %s\\n", path.c_str());
+    }
+    entry = folder.openNextFile();
+  }
+  folder.close();
+}
+
+static void musicDumpCard() {
+  Serial.println("--- the card as this sketch sees it ---");
+  // What the card is, before what is on it: a mount that reports ok can still
+  // be a type or a format this library cannot walk.
+  Serial.printf("  cardType=%d size=%lluMB total=%lluMB used=%lluMB\\n",
+                (int)SD.cardType(),
+                SD.cardSize() / (1024ULL * 1024ULL),
+                SD.totalBytes() / (1024ULL * 1024ULL),
+                SD.usedBytes() / (1024ULL * 1024ULL));
+  Serial.printf("  exists(\\"/music\\")=%d  exists(\\"/MUSIC\\")=%d\\n",
+                SD.exists("/music") ? 1 : 0, SD.exists("/MUSIC") ? 1 : 0);
+  // From the root rather than from /music: if /music will not open, the useful
+  // question is what the root holds and under what name.
+  uint16_t printed = 0;
+  musicDumpDir("/", 0, printed);
+  if (printed == 0) Serial.println("  (nothing enumerated at all, even at the root)");
+  Serial.println("--- end ---");
+}
+
 bool startPlayback() {
   bool started = false;
   audioEnded = false;
@@ -1218,36 +1331,41 @@ bool startPlayback() {
 ${hasControls ? '  playerPaused = false;\n' : ''}
 ${genericPlayer ? `
   if (GENERIC_PLAYER) {
-    File root = SD.open("/music");
-    File entry = root.openNextFile();
-    uint16_t seen = 0;
-    while (entry) {
-      String name = entry.name();
-      if ((name.endsWith(".mp3") || name.endsWith(".MP3")) && seen++ >= genericTrackIndex) {
-        String path = "/music/" + name;
-        if (audio.connecttoFS(SD, path.c_str())) {
-          ${songOpen('name.c_str()')}
-          showDurationMs = 0;
-          eventCount = 0;
-          eventIdx = 0;
-          Serial.printf("Playing (generic): %s\\n", path.c_str());
-          primeAudioDecoder();
-          return true;
-        }
+    uint16_t total = playerTrackCount();
+    // Walks forward from the wanted index and wraps, so a single unreadable
+    // file costs one track rather than the rest of the card. Bounded by the
+    // total, so a card of nothing but broken files still ends.
+    for (uint16_t tries = 0; tries < total; tries++) {
+      String path, leaf;
+      uint16_t index = (uint16_t)((genericTrackIndex + tries) % total);
+      if (!musicTrackAt(index, path, leaf)) continue;
+      if (audio.connecttoFS(SD, path.c_str())) {
+        genericTrackIndex = index;
+        ${songOpen('leaf.c_str()')}
+        showDurationMs = 0;
+        eventCount = 0;
+        eventIdx = 0;
+        Serial.printf("Playing (generic): %s\\n", path.c_str());
+        primeAudioDecoder();
+        return true;
       }
-      entry = root.openNextFile();
+      Serial.printf("ERR audio-open-failed: %s\\n", path.c_str());
     }
-    if (genericTrackIndex != 0) {
-      genericTrackIndex = 0;
-      return startPlayback();
-    }
-    Serial.println("No MP3 files found on the card");
+    Serial.println("No playable MP3 found on the card");
+    musicDumpCard();
     return false;
   }
 ` : ''}
   if (PREFERRED_TRACK[0]) {
     String mp3  = String("/music/") + PREFERRED_TRACK + ".mp3";
     String show = String("/shows/") + PREFERRED_TRACK + ".show";
+    if (!SD.exists(mp3.c_str())) {
+      // Filed into an album folder rather than dropped at the top level.
+      uint16_t seen = 0;
+      String found, leaf;
+      String wanted = String(PREFERRED_TRACK) + ".mp3";
+      if (_musicWalk("/music", seen, -1, wanted.c_str(), found, leaf, 0)) mp3 = found;
+    }
     if (SD.exists(mp3.c_str()) && SD.exists(show.c_str())) {
       loadShowFile(show.c_str());
       if (audio.connecttoFS(SD, mp3.c_str())) {
@@ -1267,26 +1385,26 @@ ${genericPlayer ? `
   // — an .mp3 left on the card by an earlier session has no show of its own,
   // and playing it would run the wrong audio against whatever show did load.
   if (!started) {
-    File root = SD.open("/music");
-    File entry = root.openNextFile();
-    while (entry) {
-      String name = entry.name();
-      if (name.endsWith(".mp3") || name.endsWith(".MP3")) {
-        String showPath = "/shows/" + name.substring(0, name.lastIndexOf('.')) + ".show";
-        if (SD.exists(showPath.c_str())) {
-          loadShowFile(showPath.c_str());
-          if (audio.connecttoFS(SD, ("/music/" + name).c_str())) {
-            ${songOpen('name.c_str()')}
-            Serial.printf("Playing (fallback): %s\\n", name.c_str());
-            primeAudioDecoder();
-            started = true;
-            break;
-          }
-          Serial.printf("ERR audio-open-failed: %s\\n", name.c_str());
-        }
-        Serial.printf("Skipping %s — no matching show\\n", name.c_str());
+    // The show is named for the track's own filename, wherever the track is
+    // filed — an album folder does not get its own /shows subtree.
+    uint16_t total = playerTrackCount();
+    for (uint16_t i = 0; i < total && !started; i++) {
+      String path, leaf;
+      if (!musicTrackAt(i, path, leaf)) break;
+      String showPath = "/shows/" + leaf.substring(0, leaf.lastIndexOf('.')) + ".show";
+      if (!SD.exists(showPath.c_str())) {
+        Serial.printf("Skipping %s — no matching show\\n", leaf.c_str());
+        continue;
       }
-      entry = root.openNextFile();
+      loadShowFile(showPath.c_str());
+      if (audio.connecttoFS(SD, path.c_str())) {
+        ${songOpen('leaf.c_str()')}
+        Serial.printf("Playing (fallback): %s\\n", path.c_str());
+        primeAudioDecoder();
+        started = true;
+      } else {
+        Serial.printf("ERR audio-open-failed: %s\\n", path.c_str());
+      }
     }
   }
   if (!started) Serial.println("No playable track found on the card");

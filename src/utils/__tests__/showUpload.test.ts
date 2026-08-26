@@ -72,7 +72,11 @@ describe('buildShowPlayer', () => {
 
     expect(sketch).toContain('static const bool GENERIC_PLAYER = true;')
     expect(sketch).toContain('Playing (generic)')
-    expect(sketch).toContain('No MP3 files found on the card')
+    // An unpaired player plays whatever is on the card, so it needs the walk
+    // rather than a flat listing, and it has to say so when it finds nothing.
+    expect(sketch).toContain('musicTrackAt(')
+    expect(sketch).toContain('No playable MP3 found on the card')
+    expect(sketch).toContain('musicDumpCard();')
     expect(sketch).toContain('audioFadeTarget')
     expect(sketch).toContain('leds[i].nscale8')
   })
