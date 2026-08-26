@@ -12,7 +12,10 @@
 
 import { DEFAULT_FONT, FONT_H, FONT_W } from '../state/font'
 import { INFO_LAYOUT, STATUS_MAX_INDICATORS, infoRowY, BROWSER_LAYOUT, type InfoDisplayLayout } from '../state/infoDisplay'
-import { OLED_LETTER_SPACING, OLED_PAGE_HEIGHT, type OledController } from '../state/oledSurface'
+import {
+  OLED_LETTER_SPACING, OLED_PAGE_HEIGHT,
+  type OledController, type OledTransport,
+} from '../state/oledSurface'
 import { cppStringLiteral } from '../state/displayText'
 
 /**
@@ -75,8 +78,26 @@ export function infoDisplayHelpersCpp(): string {
 static const char _oledChars[] = ${font.chars};
 static const uint8_t _oledFont[${font.count} * OLED_FONT_W] = { ${font.table} };
 
+// Which wires carry the bytes. The layout, the page addressing and the column
+// offset above are identical either way — mirroring the split in
+// src/state/oledSurface.ts, where the surface knows nothing about the bus.
+#define OLED_SPI 0
+#define OLED_I2C 1
+// Control byte prefixes an I2C write: 0x00 says the payload is commands,
+// 0x40 says it is display RAM. SPI says the same thing with the D/C line.
+#define OLED_I2C_CMD  0x00
+#define OLED_I2C_DATA 0x40
+// Split so one page never exceeds the Wire library's transmit buffer, which is
+// 32 bytes on AVR and only larger elsewhere. 16 payload bytes plus the control
+// byte fits every implementation.
+#define OLED_I2C_CHUNK 16
+
 struct OledPanel {
+  uint8_t transport;
+  // SPI wires. A 4-pin I2C module has none of these.
   uint8_t cs, dc, rst, sck, mosi;
+  // I2C. The address is a solder blob on the module: 0x3C or 0x3D.
+  uint8_t addr;
   uint8_t columnOffset;
   // 0xA0/0xC0 scan forwards; 0xA1/0xC8 turn the panel 180 degrees. Which pair
   // is right depends on how the module is bolted down, not on the controller.
@@ -97,27 +118,38 @@ static void _oledSpiByte(OledPanel &p, uint8_t value) {
 }
 
 static void _oledCommand(OledPanel &p, uint8_t value) {
+  if (p.transport == OLED_I2C) {
+    Wire.beginTransmission(p.addr);
+    Wire.write((uint8_t)OLED_I2C_CMD);
+    Wire.write(value);
+    Wire.endTransmission();
+    return;
+  }
   digitalWrite(p.dc, LOW);
   digitalWrite(p.cs, LOW);
   _oledSpiByte(p, value);
   digitalWrite(p.cs, HIGH);
 }
 
-static void _oledBegin(OledPanel &p, uint8_t cs, uint8_t dc, uint8_t rst,
-                       uint8_t sck, uint8_t mosi, uint8_t columnOffset,
-                       uint8_t segmentRemap, uint8_t comScan) {
-  p.cs = cs; p.dc = dc; p.rst = rst; p.sck = sck; p.mosi = mosi;
-  p.columnOffset = columnOffset;
-  p.segmentRemap = segmentRemap; p.comScan = comScan;
-  p.written = false; p.lastWriteMs = 0;
-  for (uint16_t i = 0; i < sizeof(p.buf); i++) { p.buf[i] = 0; p.last[i] = 0; }
+/** One page of display RAM, however this panel is wired. */
+static void _oledPage(OledPanel &p, const uint8_t *page) {
+  if (p.transport == OLED_I2C) {
+    for (uint8_t x = 0; x < OLED_W; x += OLED_I2C_CHUNK) {
+      Wire.beginTransmission(p.addr);
+      Wire.write((uint8_t)OLED_I2C_DATA);
+      for (uint8_t i = 0; i < OLED_I2C_CHUNK; i++) Wire.write(page[x + i]);
+      Wire.endTransmission();
+    }
+    return;
+  }
+  digitalWrite(p.dc, HIGH);
+  digitalWrite(p.cs, LOW);
+  for (uint8_t x = 0; x < OLED_W; x++) _oledSpiByte(p, page[x]);
+  digitalWrite(p.cs, HIGH);
+}
 
-  pinMode(cs, OUTPUT); pinMode(dc, OUTPUT); pinMode(rst, OUTPUT);
-  pinMode(sck, OUTPUT); pinMode(mosi, OUTPUT);
-  digitalWrite(cs, HIGH); digitalWrite(sck, LOW);
-
-  digitalWrite(rst, LOW); delay(10); digitalWrite(rst, HIGH); delay(10);
-
+/** The controller setup both transports share, once the wires are up. */
+static void _oledInit(OledPanel &p) {
   _oledCommand(p, 0xAE);              // display off
   _oledCommand(p, 0xD5); _oledCommand(p, 0x80);
   _oledCommand(p, 0xA8); _oledCommand(p, 0x3F);
@@ -133,6 +165,43 @@ static void _oledBegin(OledPanel &p, uint8_t cs, uint8_t dc, uint8_t rst,
   _oledCommand(p, 0xA4);              // resume from RAM
   _oledCommand(p, 0xA6);              // normal, not inverted
   _oledCommand(p, 0xAF);              // display on
+}
+
+/** Fields neither transport can do without, so neither begin can forget them. */
+static void _oledCommon(OledPanel &p, uint8_t transport, uint8_t columnOffset,
+                        uint8_t segmentRemap, uint8_t comScan) {
+  p.transport = transport;
+  p.columnOffset = columnOffset;
+  p.segmentRemap = segmentRemap; p.comScan = comScan;
+  p.written = false; p.lastWriteMs = 0;
+  for (uint16_t i = 0; i < sizeof(p.buf); i++) { p.buf[i] = 0; p.last[i] = 0; }
+}
+
+static void _oledBeginSpi(OledPanel &p, uint8_t cs, uint8_t dc, uint8_t rst,
+                          uint8_t sck, uint8_t mosi, uint8_t columnOffset,
+                          uint8_t segmentRemap, uint8_t comScan) {
+  _oledCommon(p, OLED_SPI, columnOffset, segmentRemap, comScan);
+  p.cs = cs; p.dc = dc; p.rst = rst; p.sck = sck; p.mosi = mosi;
+  p.addr = 0;
+
+  pinMode(cs, OUTPUT); pinMode(dc, OUTPUT); pinMode(rst, OUTPUT);
+  pinMode(sck, OUTPUT); pinMode(mosi, OUTPUT);
+  digitalWrite(cs, HIGH); digitalWrite(sck, LOW);
+
+  digitalWrite(rst, LOW); delay(10); digitalWrite(rst, HIGH); delay(10);
+  _oledInit(p);
+}
+
+// No reset line and no chip select: a 4-pin module brings out power, ground and
+// the two bus wires, and resets itself from its own RC network at power-up.
+// Wire.begin() is the sketch's, not this panel's — every I2C device on the
+// board shares one bus, so one place starts it.
+static void _oledBeginI2c(OledPanel &p, uint8_t addr, uint8_t columnOffset,
+                          uint8_t segmentRemap, uint8_t comScan) {
+  _oledCommon(p, OLED_I2C, columnOffset, segmentRemap, comScan);
+  p.cs = 0; p.dc = 0; p.rst = 0; p.sck = 0; p.mosi = 0;
+  p.addr = addr;
+  _oledInit(p);
 }
 
 // Page-addressed, one page at a time. The column offset is the whole reason
@@ -155,10 +224,7 @@ static void _oledFlush(OledPanel &p, bool lit) {
     _oledCommand(p, (uint8_t)(0xB0 + page));
     _oledCommand(p, (uint8_t)(0x00 | (p.columnOffset & 0x0F)));
     _oledCommand(p, (uint8_t)(0x10 | ((p.columnOffset >> 4) & 0x0F)));
-    digitalWrite(p.dc, HIGH);
-    digitalWrite(p.cs, LOW);
-    for (uint8_t x = 0; x < OLED_W; x++) _oledSpiByte(p, p.buf[(page * OLED_W) + x]);
-    digitalWrite(p.cs, HIGH);
+    _oledPage(p, &p.buf[page * OLED_W]);
   }
 }
 
@@ -258,11 +324,15 @@ static void _oledTime(char *dst, size_t dstSize, float seconds) {
 
 export interface InfoDisplayEmit {
   id: string
+  /** Which wires carry the bytes; the layout is the same either way. */
+  transport: OledTransport
   csPin: number
   dcPin: number
   resetPin: number
   sckPin: number
   mosiPin: number
+  /** I2C only. The pins are the sketch's shared bus, not this panel's. */
+  address: number
   columnOffset: number
   /** Segment-remap and COM-scan commands for the mounted rotation. */
   segmentRemap: number
@@ -301,10 +371,16 @@ export function infoDisplayGlobalCpp(display: InfoDisplayEmit): string {
 }
 
 export function infoDisplaySetupCpp(display: InfoDisplayEmit): string[] {
+  const rotation = `0x${display.segmentRemap.toString(16)}, 0x${display.comScan.toString(16)}`
+  if (display.transport === 'i2c') {
+    return [
+      `  _oledBeginI2c(_oled_${display.id}, 0x${display.address.toString(16)}, ` +
+        `${display.columnOffset}, ${rotation});`,
+    ]
+  }
   return [
-    `  _oledBegin(_oled_${display.id}, ${display.csPin}, ${display.dcPin}, ${display.resetPin}, ` +
-      `${display.sckPin}, ${display.mosiPin}, ${display.columnOffset}, ` +
-      `0x${display.segmentRemap.toString(16)}, 0x${display.comScan.toString(16)});`,
+    `  _oledBeginSpi(_oled_${display.id}, ${display.csPin}, ${display.dcPin}, ${display.resetPin}, ` +
+      `${display.sckPin}, ${display.mosiPin}, ${display.columnOffset}, ${rotation});`,
   ]
 }
 

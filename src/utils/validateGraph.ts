@@ -1090,6 +1090,44 @@ function playerControlMappingIssues(nodes: StudioNode[], edges: StudioEdge[]): P
 /** Auxiliary displays, for the checks that ask what a build can draw. */
 const DISPLAY_NODE_TYPES = new Set(['InfoDisplay', 'SegmentDisplay'])
 
+/**
+ * I2C parts that cannot share the one bus the generated sketch starts.
+ *
+ * Two SDA/SCL pairs is legal wiring — an ESP32 has a second I2C host — but
+ * every generator emits a single `Wire.begin`, so the devices on the other pair
+ * simply never answer. That failure looks exactly like a bad solder joint from
+ * the outside, which is why it is an error here rather than something to
+ * discover with a multimeter.
+ *
+ * Reported only when a display is involved: an RTC is the sole other I2C part,
+ * and one of it cannot disagree with itself.
+ */
+function splitI2cBusErrors(nodes: StudioNode[]): string[] {
+  const devices = i2cDevices(nodes)
+  if (!devices.some((device) => DISPLAY_NODE_TYPES.has(device.nodeType))) return []
+
+  const buses = new Map<string, string[]>()
+  for (const device of devices) {
+    const role = (use: { nodeType: string; propertyKey: string }) =>
+      busAssignmentFor(use.nodeType, use.propertyKey).role
+    const sda = device.uses.find((use) => role(use) === 'sda')
+    const scl = device.uses.find((use) => role(use) === 'scl')
+    if (!sda || !scl) continue
+    const key = `${sda.pin}/${scl.pin}`
+    const named = nodes.find((node) => node.id === device.nodeId)
+    buses.set(key, [...(buses.get(key) ?? []), named ? nodeLabel(named) : device.nodeType])
+  }
+  if (buses.size < 2) return []
+
+  const described = [...buses]
+    .map(([pins, names]) => `${names.join(' and ')} on SDA ${pins.split('/')[0]} / SCL ${pins.split('/')[1]}`)
+    .join('; ')
+  return [
+    `The generated sketch starts one I2C bus, but this build has ${buses.size}: ${described}. `
+    + 'Put every I2C part on the same SDA and SCL pins — sharing them is correct, and only the addresses have to differ.',
+  ]
+}
+
 export function findDisplayGeneratorIssues(
   nodes: StudioNode[],
   edges: StudioEdge[],
@@ -1142,6 +1180,8 @@ export function findDisplayGeneratorIssues(
     )
     return { errors, warnings }
   }
+
+  errors.push(...splitI2cBusErrors(nodes))
 
   // A collection too big to picture bakes nothing, and the panel then says
   // "NO PATTERNS" — the same thing it says for a browser wired to nobody. The

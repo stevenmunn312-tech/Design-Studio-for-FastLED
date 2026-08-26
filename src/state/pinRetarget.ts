@@ -32,7 +32,8 @@ import { assignPartPins, type PartPinRequest } from './partPinAssignment'
 import { micPinDefaultsForBoard, micPinIsDefault } from './micPinDefaults'
 import { outputForm } from './ledOutputForm'
 import { boardI2cDefault } from '../build/boardI2cDefaults'
-import { segmentControllerForProps } from './nodeLibrary'
+import { oledTransportForProps, segmentControllerForProps } from './nodeLibrary'
+import { OLED_TRANSPORT_PINS } from './oledSurface'
 import { sdSpiPinsForBoard, type SdSpiPins } from './sdPinDefaults'
 import { normalizeButtonBankEntries, type ButtonBankEntry } from './buttonBank'
 
@@ -85,7 +86,11 @@ interface PartPinPlan {
    * was on a board that cannot reach those pins.
    */
   fromFqbn?: (fqbn: string) => Record<string, number> | null
-  fromProfile?: (profile: PhysicalBoardProfile | undefined) => Record<string, number> | null
+  fromProfile?: (
+    profile: PhysicalBoardProfile | undefined,
+    /** The node's own settings, for a plan whose answer depends on the module. */
+    properties: Record<string, unknown>,
+  ) => Record<string, number> | null
 }
 
 export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
@@ -162,10 +167,29 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
     requests: [{ key: 'clkPin' }, { key: 'dioPin' }, { key: 'dinPin' }, { key: 'csPin' }],
   },
   InfoDisplay: {
-    keys: ['csPin', 'dcPin', 'resetPin', 'sckPin', 'mosiPin'],
+    keys: [...OLED_TRANSPORT_PINS.spi, ...OLED_TRANSPORT_PINS.i2c],
+    // The chosen module's wires, and no others: retargeting an I2C SSD1306
+    // must not go looking for three free pins it has no header for.
+    keysFor: (properties) => [...OLED_TRANSPORT_PINS[oledTransportForProps(properties)]],
+    /*
+     * An I2C module belongs on the board's I2C bus, not on two free pins.
+     * Allocating from the general pool would put the OLED and the DS3231 on
+     * different pairs — two buses the generated sketch has one `Wire` for —
+     * and the second device would simply never answer. Returning null for an
+     * SPI module lets it fall through to the requests below, which is where
+     * four wires that go anywhere output-capable belong.
+     */
+    fromProfile: (profile, properties) => {
+      if (oledTransportForProps(properties) !== 'i2c') return null
+      const defaults = boardI2cDefault(profile?.id)
+      return defaults
+        ? { sdaPin: defaults.sda.arduinoPin, sclPin: defaults.scl.arduinoPin }
+        : null
+    },
     requests: [
       { key: 'csPin' }, { key: 'dcPin' }, { key: 'resetPin' },
       { key: 'sckPin' }, { key: 'mosiPin' },
+      { key: 'sdaPin' }, { key: 'sclPin' },
     ],
   },
   SDCard: {
@@ -481,7 +505,7 @@ export function retargetHardwarePins(
 
     let next: Record<string, number> | null = movable.length === 0
       ? {}
-      : peripheralPins(plan, profile) ?? plan.fromProfile?.(profile) ?? plan.fromFqbn?.(fqbn) ?? null
+      : peripheralPins(plan, profile) ?? plan.fromProfile?.(profile, properties) ?? plan.fromFqbn?.(fqbn) ?? null
     if (next && movable.length > 0) {
       // Only the movable subset, and only when the board actually says
       // something different from what is already there.

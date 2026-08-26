@@ -10,6 +10,7 @@ import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { nextFreeLedDataPin } from '../../state/ledPinAssignment'
 import { assignPartPins, type PartPinRequest } from '../../state/partPinAssignment'
 import { segmentControllerFor } from '../../state/segmentDisplay'
+import { OLED_TRANSPORT_PINS, oledTransportFor } from '../../state/oledSurface'
 import { withAssignedPins } from '../../state/pinRetarget'
 import { boardI2cDefault } from '../../build/boardI2cDefaults'
 import { sdSpiPinsForBoard } from '../../state/sdPinDefaults'
@@ -146,13 +147,20 @@ interface FixturePartEntry {
  * and leave the one it does unassigned, so the request follows the chosen
  * module rather than the node type.
  */
-const SEGMENT_PIN_LABELS: Record<string, string> = {
-  clkPin: 'CLK', dioPin: 'DIO', dinPin: 'DIN', csPin: 'LOAD',
+const MODULE_PIN_LABELS: Record<string, string> = {
+  clkPin: 'CLK', dioPin: 'DIO', dinPin: 'DIN', csPin: 'CS',
+  dcPin: 'DC', resetPin: 'RES', sckPin: 'CLK', mosiPin: 'MOSI',
+  sdaPin: 'SDA', sclPin: 'SCL',
 }
 
 function modulePinKeys(nodeType: string, moduleId: string | undefined): readonly string[] | null {
+  const entry = partById(String(moduleId ?? ''))
+  // A 7-pin SPI SH1106 and a 4-pin I2C SSD1306 are one node with two headers.
+  // Asking the board for the union would reserve five pins for a module with
+  // two, and drawing it would label wires the module does not bring out.
+  if (nodeType === 'InfoDisplay') return OLED_TRANSPORT_PINS[oledTransportFor(entry?.display?.interface)]
   if (nodeType !== 'SegmentDisplay') return null
-  return segmentControllerFor(partById(String(moduleId ?? ''))?.display?.controller).pins
+  return segmentControllerFor(entry?.display?.controller).pins
 }
 
 const FIXTURE_PARTS: readonly FixturePartEntry[] = [
@@ -681,7 +689,7 @@ export default function HardwarePane() {
     const pinFields = identity?.option.input === 'analog'
       ? []
       : moduleKeys
-        ? moduleKeys.map((key) => ({ key, label: SEGMENT_PIN_LABELS[key] ?? key }))
+        ? moduleKeys.map((key) => ({ key, label: MODULE_PIN_LABELS[key] ?? key }))
         : entry.pinFields
     const props = node.data.properties as Record<string, unknown>
     const pinSummary = pinFields

@@ -53,12 +53,18 @@ const BUS_ASSIGNMENTS: Record<string, Record<string, BusAssignment>> = {
   // host, but its select, data/command and reset lines are its own. Three
   // exclusive pins rather than one is what separates a four-wire panel from a
   // two-wire module.
+  //
+  // Both transports are declared because one node covers both modules. Only the
+  // chosen one contributes pin uses — `collectPinUses` asks the part which it
+  // is — so the unused set here never fires rather than fabricating a claim.
   InfoDisplay: {
     sckPin: { kind: 'spi', role: 'sck' },
     mosiPin: { kind: 'spi', role: 'mosi' },
     csPin: { kind: 'spi', role: 'cs' },
     dcPin: { kind: 'spi', role: 'exclusive' },
     resetPin: { kind: 'spi', role: 'exclusive' },
+    sdaPin: { kind: 'i2c', role: 'sda' },
+    sclPin: { kind: 'i2c', role: 'scl' },
   },
   // A TM1637 has two wires and no addresses, so it is not I2C however much the
   // pin count suggests it. Two modules cannot share a pair — each needs its
@@ -109,7 +115,13 @@ const BUS_ASSIGNMENTS: Record<string, Record<string, BusAssignment>> = {
  * Fixed rather than a user field, following the part-options rule that a
  * dropdown is offered only where a choice genuinely exists: a DS3231 answers on
  * 0x68 and nothing the user does changes that. A part whose address *is*
- * strappable gets a `PART_FIELDS` entry and reads it from `props` here.
+ * strappable declares an `i2cAddress` property and is read from `props` here —
+ * the SSD1306 OLED, whose 0x3C/0x3D is a solder blob on the module.
+ *
+ * A part carries the property whether or not its chosen module is on I2C, so an
+ * SPI OLED still answers here. That is harmless: `findI2cAddressCollisions`
+ * only judges a device that contributed SDA and SCL pin uses, and an SPI module
+ * contributes neither.
  */
 export function i2cAddressFor(nodeType: string, props: Record<string, unknown>): number | null {
   // A strappable part carries its own setting; the fixed-address parts below

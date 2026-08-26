@@ -35,7 +35,7 @@ import {
 } from './segmentDisplayCpp'
 import { asSegmentMode, clampSegmentBrightness, segmentControllerFor } from '../state/segmentDisplay'
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
-import { NODE_LIBRARY } from '../state/nodeLibrary'
+import { NODE_LIBRARY, oledTransportForProps } from '../state/nodeLibrary'
 import { isHardwareManagedSignalNodeType } from '../state/hardware'
 import { patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
 import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './patternSelectionCpp'
@@ -45,7 +45,9 @@ import {
   infoDisplayLoopCpp, columnOffsetFor, type InfoDisplayEmit,
 } from './infoDisplayCpp'
 import { asInfoDisplayLayout, STATUS_MAX_INDICATORS } from '../state/infoDisplay'
-import { oledControllerFor, oledRotationCommands, asOledRotation } from '../state/oledSurface'
+import {
+  oledControllerFor, oledRotationCommands, asOledRotation, asOledAddress,
+} from '../state/oledSurface'
 import { partById } from '../state/partCatalogue'
 import { displayString, normalizeNumberFormat, asDateTimeTextMode } from '../state/displayText'
 import { particleRadius } from '../state/particleScale'
@@ -1576,6 +1578,12 @@ export function generateCpp(
   })()
   const emitRtcHelpers = sorted.some((n) => n.data.nodeType === 'RTCInput')
   const needsDs3231 = sorted.some((n) => n.data.nodeType === 'RTCInput' && String(props(n).timeSource ?? 'Compile Time') === 'DS3231')
+  // Everything sharing the board's one `Wire` bus. A 4-pin OLED joins the
+  // DS3231 on it, which is why `Wire.begin` is started once below rather than
+  // by whichever part happens to be set up first.
+  const i2cOleds = sorted.filter((n) => n.data.nodeType === 'InfoDisplay'
+    && oledTransportForProps(props(n)) === 'i2c')
+  const needsWire = needsDs3231 || i2cOleds.length > 0
   const dmxInputs = sorted.filter((n) => n.data.nodeType === 'DMXInput')
   const needsArtNet = dmxInputs.some((n) => String(props(n).inputMode ?? 'Art-Net') === 'Art-Net')
   const needsDmx512 = dmxInputs.some((n) => String(props(n).inputMode ?? 'Art-Net') === 'DMX512')
@@ -1676,20 +1684,30 @@ export function generateCpp(
   // A Set so two nodes reading the same pin don't emit it twice.
   const pinSetupLines = new Set<string>()
   const setupLines: string[] = []
-  if (needsDs3231) {
-    const rtcBoard = selectedPhysicalBoardProfile(nodes)
-    const rtcPins = rtcI2cPinsForProfile(rtcBoard)
-    const rtcNode = sorted.find((node) => node.data.nodeType === 'RTCInput'
-      && String(props(node).timeSource ?? 'Compile Time') === 'DS3231')
-    const rtcProps = rtcNode ? props(rtcNode) : {}
-    const sdaPin = sanitizePin(rtcProps.sdaPin, rtcPins?.sda.arduinoPin ?? 21)
-    const sclPin = sanitizePin(rtcProps.sclPin, rtcPins?.scl.arduinoPin ?? 22)
-    const supportsExplicitWirePins = rtcBoard?.targetFamilies.some((family) =>
+  if (needsWire) {
+    /*
+     * One bus, started once, before any device on it.
+     *
+     * The pins come from the DS3231 where there is one and from the first I2C
+     * display otherwise. A build whose devices name different pairs cannot be
+     * served by one `Wire` — `findDisplayGeneratorIssues` reports that as an
+     * error rather than letting the second device quietly never answer.
+     */
+    const i2cBoard = selectedPhysicalBoardProfile(nodes)
+    const boardPins = rtcI2cPinsForProfile(i2cBoard)
+    const busNode = sorted.find((node) => node.data.nodeType === 'RTCInput'
+      && String(props(node).timeSource ?? 'Compile Time') === 'DS3231') ?? i2cOleds[0]
+    const busProps = busNode ? props(busNode) : {}
+    const sdaPin = sanitizePin(busProps.sdaPin, boardPins?.sda.arduinoPin ?? 21)
+    const sclPin = sanitizePin(busProps.sclPin, boardPins?.scl.arduinoPin ?? 22)
+    const supportsExplicitWirePins = i2cBoard?.targetFamilies.some((family) =>
       family === 'esp8266' || family.startsWith('esp32'))
-    setupLines.push(rtcPins && supportsExplicitWirePins
-      ? `  Wire.begin(${sdaPin}, ${sclPin});  // DS3231 I2C pins from the RTC node`
-      : `  Wire.begin();  // DS3231 on the board's default SDA/SCL pins`)
-    setupLines.push(`  Serial.begin(115200);  // accepts deliberate FLS_RTC_SET commands from Studio`)
+    setupLines.push(boardPins && supportsExplicitWirePins
+      ? `  Wire.begin(${sdaPin}, ${sclPin});  // I2C pins from the parts on the bus`
+      : `  Wire.begin();  // I2C parts on the board's default SDA/SCL pins`)
+    if (needsDs3231) {
+      setupLines.push(`  Serial.begin(115200);  // accepts deliberate FLS_RTC_SET commands from Studio`)
+    }
   }
   // File-scope lines contributed by Code nodes (helpers, persistent vars, etc.),
   // emitted between the buffer declarations and setup().
@@ -4823,13 +4841,16 @@ export function generateCpp(
           return up ? `n_${safeId(up.srcId)}_${up.srcPort}` : null
         }
         const controller = oledControllerFor(partById(String(p.partId ?? ''))?.display?.controller)
+        const transport = oledTransportForProps(p)
         const emit: InfoDisplayEmit = {
           id,
+          transport,
           csPin: intProp(p.csPin, 5, 0, MAX_PIN_NUMBER),
           dcPin: intProp(p.dcPin, 16, 0, MAX_PIN_NUMBER),
           resetPin: intProp(p.resetPin, 17, 0, MAX_PIN_NUMBER),
           sckPin: intProp(p.sckPin, 18, 0, MAX_PIN_NUMBER),
           mosiPin: intProp(p.mosiPin, 23, 0, MAX_PIN_NUMBER),
+          address: asOledAddress(p.i2cAddress),
           columnOffset: columnOffsetFor(controller),
           segmentRemap: oledRotationCommands(asOledRotation(p.oledRotation)).segmentRemap,
           comScan: oledRotationCommands(asOledRotation(p.oledRotation)).comScan,
@@ -6221,7 +6242,7 @@ export function generateCpp(
   if (audio) lines.push(...audio.preInclude)
   lines.push(`#include <FastLED.h>`)
   if (isHub75) lines.push(...hub75IncludesCpp(hub75Hw!))
-  if (needsDs3231) lines.push(`#include <Wire.h>`)
+  if (needsWire) lines.push(`#include <Wire.h>`)
   if (needsWifi) {
     lines.push(`#if defined(ESP32)`)
     lines.push(`#include <WiFi.h>`)

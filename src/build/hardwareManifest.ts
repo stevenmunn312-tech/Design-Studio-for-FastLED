@@ -4,6 +4,7 @@ import {
   SPI_CHIPSETS,
   gpioRequirementForProperty,
   libraryDefaults,
+  oledTransportForProps,
   type GpioPropertyRequirement,
 } from '../state/nodeLibrary'
 import { boardByFqbn } from '../state/uploadStore'
@@ -17,6 +18,7 @@ import {
 } from './boardProfiles'
 import { rtcI2cPinsForProfile } from '../state/rtcPins'
 import { segmentControllerFor } from '../state/segmentDisplay'
+import { OLED_TRANSPORT_PINS, asOledAddress, oledAddressLabel } from '../state/oledSurface'
 import { isHardwareNodeType } from '../state/hardware'
 import { partById } from '../state/partCatalogue'
 import type { BusAssignment } from '../state/busTopology'
@@ -202,13 +204,23 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
           if (SPI_CHIPSETS.has(String(props.chipset ?? 'WS2812B'))) push(node, `${baseLabel} clock pin`, 'clockPin', props.clockPin)
         }
         break
-      case 'InfoDisplay':
+      case 'InfoDisplay': {
+        // Which wires exist depends on the module: a 7-pin SPI SH1106 has a
+        // select, a data/command and a reset line, and a 4-pin I2C SSD1306 has
+        // none of the three. Reserving all seven would hold five pins the
+        // sketch never drives and hand the next part a bus it should share.
+        if (oledTransportForProps(props) === 'i2c') {
+          push(node, `${baseLabel} SDA`, 'sdaPin', props.sdaPin)
+          push(node, `${baseLabel} SCL`, 'sclPin', props.sclPin)
+          break
+        }
         push(node, `${baseLabel} CS`, 'csPin', props.csPin)
         push(node, `${baseLabel} DC`, 'dcPin', props.dcPin)
         push(node, `${baseLabel} RESET`, 'resetPin', props.resetPin)
         push(node, `${baseLabel} SCK`, 'sckPin', props.sckPin)
         push(node, `${baseLabel} MOSI`, 'mosiPin', props.mosiPin)
         break
+      }
       case 'SegmentDisplay': {
         // Which pins exist depends on the module. A TM1637's two wires are its
         // own; a MAX7219 clocks a shift register that other SPI devices may
@@ -537,8 +549,10 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const props = node.data.properties as Record<string, unknown>
         const partId = String(props.partId ?? 'sh1106-oled-128x64')
         const entry = partById(partId)
-        const keys = ['csPin', 'dcPin', 'resetPin', 'sckPin', 'mosiPin']
+        const transport = oledTransportForProps(props)
+        const keys = OLED_TRANSPORT_PINS[transport]
         const complete = keys.every((key) => pins.some((pin) => pin.propertyKey === key))
+        const labels = transport === 'i2c' ? 'SDA/SCL' : 'CS/DC/RESET/CLK/MOSI'
         return {
           ...buildPeripheralItem(node, 'info-display',
             `${entry?.label ?? 'Monochrome OLED'} display`, pins),
@@ -547,10 +561,16 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             partId,
             controller: entry?.display?.controller ?? 'SH1106',
             resolution: entry?.display?.resolutionPx?.join('x') ?? '128x64',
+            transport,
+            // Only meaningful on I2C, and omitted rather than reported as a
+            // default the SPI module does not answer to.
+            ...(transport === 'i2c'
+              ? { i2cAddress: oledAddressLabel(asOledAddress(props.i2cAddress)) }
+              : {}),
           },
           reasons: complete
             ? undefined
-            : ['This OLED has no complete CS/DC/RESET/CLK/MOSI pin set configured.'],
+            : [`This OLED has no complete ${labels} pin set configured.`],
         }
       }
       case 'SDCard': {

@@ -11,7 +11,10 @@ import { SEGMENT_DISPLAY_MODES, SEGMENT_BRIGHTNESS_MIN, SEGMENT_BRIGHTNESS_MAX, 
 import { partById } from './partCatalogue'
 import { INFO_DISPLAY_LAYOUTS } from './infoDisplay'
 import { SONG_INFO_PORTS } from './songInfo'
-import { OLED_ROTATIONS } from './oledSurface'
+import {
+  OLED_ROTATIONS, OLED_TRANSPORT_PINS, OLED_I2C_ADDRESS_OPTIONS, DEFAULT_OLED_I2C_ADDRESS,
+  oledAddressLabel, oledTransportFor, type OledTransport,
+} from './oledSurface'
 import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, outputForm } from './ledOutputForm'
 
@@ -2774,11 +2777,17 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       partId: 'sh1106-oled-128x64',
       infoLayout: 'Now Playing',
       oledRotation: '0',
+      // Both transports' pins are declared, and `isPropertyEnabled` shows only
+      // the chosen module's. Keeping the other set means switching module and
+      // back does not lose the wiring you already entered.
       csPin: 5,
       dcPin: 16,
       resetPin: 17,
       sckPin: 18,
       mosiPin: 23,
+      sdaPin: 21,
+      sclPin: 22,
+      i2cAddress: oledAddressLabel(DEFAULT_OLED_I2C_ADDRESS),
       enabled: true,
     },
   },
@@ -3531,11 +3540,16 @@ const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
 export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
   InfoDisplay: {
     oledRotation: { control: 'select', options: OLED_ROTATIONS },
+    // Hex, because that is what the module's silkscreen and its datasheet
+    // print. A decimal 60 beside a board marked 0x3C helps nobody.
+    i2cAddress: { control: 'select', options: OLED_I2C_ADDRESS_OPTIONS },
     csPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     dcPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     resetPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     sckPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     mosiPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    sdaPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    sclPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
   SegmentDisplay: {
     clkPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -4521,7 +4535,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   LightInput: new Set(['pin']),
   RTCInput: new Set(['sdaPin', 'sclPin']),
   SegmentDisplay: new Set(['clkPin', 'dioPin', 'dinPin', 'csPin']),
-  InfoDisplay: new Set(['csPin', 'dcPin', 'resetPin', 'sckPin', 'mosiPin']),
+  InfoDisplay: new Set(Object.values(OLED_TRANSPORT_PINS).flat()),
   SDCard: new Set(['sdCsPin', 'sdSckPin', 'sdMisoPin', 'sdMosiPin']),
   Amplifier: new Set(['i2sBclk', 'i2sLrc', 'i2sDout']),
   MatrixOutput: new Set([
@@ -4737,12 +4751,28 @@ export function segmentControllerForProps(properties: Record<string, unknown>) {
   return segmentControllerFor(partById(String(properties.partId ?? ''))?.display?.controller)
 }
 
+/** Every pin property either OLED transport wires, for the gate below. */
+const OLED_PIN_PROPERTIES = new Set(Object.values(OLED_TRANSPORT_PINS).flat())
+
+/** The transport a node's chosen OLED module ships on. */
+export function oledTransportForProps(properties: Record<string, unknown>): OledTransport {
+  return oledTransportFor(partById(String(properties.partId ?? ''))?.display?.interface)
+}
+
 export function isPropertyEnabled(nodeType: string, key: string, properties: Record<string, unknown>): boolean {
   // A segment module wires the pins its controller has and no others. Showing a
   // live DIO field beside a MAX7219 would invite wiring a pin the generated
   // sketch never drives.
   if (nodeType === 'SegmentDisplay' && SEGMENT_PIN_PROPERTIES.has(key)) {
     return segmentControllerForProps(properties).pins.includes(key)
+  }
+  // The same rule one transport further out: a 4-pin I2C OLED has no CS, DC or
+  // reset line to wire, and a 7-pin SPI one answers to no address. Offering
+  // either would describe wiring the module does not have.
+  if (nodeType === 'InfoDisplay') {
+    const transport = oledTransportForProps(properties)
+    if (OLED_PIN_PROPERTIES.has(key)) return OLED_TRANSPORT_PINS[transport].includes(key)
+    if (key === 'i2cAddress') return transport === 'i2c'
   }
   if (nodeType === 'DMXInput') {
     const artnet = String(properties.inputMode ?? 'Art-Net') === 'Art-Net'

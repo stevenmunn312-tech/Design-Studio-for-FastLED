@@ -49,8 +49,52 @@ describe('displays in the player sketch', () => {
     const displays = playerDisplaysFromGraph(nodes, edges)
     const sketch = generatePlayerSketch({}, undefined, { displays })
     expect(sketch).toContain('static OledPanel _oled_oled;')
-    expect(sketch).toContain('_oledBegin(_oled_oled, 1, 2, 5, 6, 7, 2, 0xa0, 0xc0);')
+    expect(sketch).toContain('_oledBeginSpi(_oled_oled, 1, 2, 5, 6, 7, 2, 0xa0, 0xc0);')
     expect(sketch).toContain('_oledFlush(_oled_oled,')
+  })
+
+  /*
+   * The player sketch draws displays too, and it had no I2C bus at all — so a
+   * 4-pin panel here would have emitted a call to a Wire nothing included and
+   * nothing started. Teaching one generator and not the other is the mistake
+   * this build has already made once.
+   */
+  describe('a 4-pin panel', () => {
+    const bus = {
+      id: 'oled',
+      data: {
+        nodeType: 'InfoDisplay',
+        properties: {
+          partId: 'ssd1306-oled-128x64', infoLayout: 'Now Playing', oledRotation: '0',
+          sdaPin: 21, sclPin: 22, i2cAddress: '0x3D',
+        },
+      },
+    }
+    const sketch = () => generatePlayerSketch({}, undefined, {
+      displays: playerDisplaysFromGraph([master, bus], edges),
+    })
+
+    it('resolves as I2C rather than as four wires', () => {
+      const displays = playerDisplaysFromGraph([master, bus], edges)
+      expect(displays.info[0]).toMatchObject({ transport: 'i2c', address: 0x3d, sdaPin: 21, sclPin: 22 })
+    })
+
+    it('brings in Wire, starts it, and begins the panel on it', () => {
+      const src = sketch()
+      expect(src).toContain('#include <Wire.h>')
+      expect(src).toContain('Wire.begin(21, 22);')
+      expect(src).toContain('_oledBeginI2c(_oled_oled, 0x3d, 0, 0xa0, 0xc0);')
+      // The call, not the driver's definition of it, which sits far above.
+      expect(src.indexOf('Wire.begin(21, 22);'))
+        .toBeLessThan(src.indexOf('_oledBeginI2c(_oled_oled'))
+    })
+
+    it('leaves Wire out of a player driving an SPI panel', () => {
+      const src = generatePlayerSketch({}, undefined, {
+        displays: playerDisplaysFromGraph(nodes, edges),
+      })
+      expect(src).not.toContain('#include <Wire.h>')
+    })
   })
 
   it('reads the track tags the file carried', () => {

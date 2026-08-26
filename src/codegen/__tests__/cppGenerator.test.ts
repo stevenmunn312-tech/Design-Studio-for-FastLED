@@ -3391,7 +3391,7 @@ describe('RTCInput (codegen)', () => {
     const rtc = node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' })
     const cpp = generateCpp([rtc], [])
     expect(cpp).toContain('#include <Wire.h>')
-    expect(cpp).toContain("Wire.begin();  // DS3231 on the board's default SDA/SCL pins")
+    expect(cpp).toContain("Wire.begin();  // I2C parts on the board's default SDA/SCL pins")
     expect(cpp).toContain('bool _rtcReadDs3231(_RtcDateTime &out, bool &oscillatorStopped)')
     expect(cpp).toContain('Wire.beginTransmission(0x68);')
     expect(cpp).toContain('oscillatorStopped = (Wire.read() & 0x80u) != 0;')
@@ -3409,14 +3409,14 @@ describe('RTCInput (codegen)', () => {
     const board = node('board', 'Board', 'input', { profileId: 'seeed-xiao-esp32s3' })
     const rtc = node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' })
     const cpp = generateCpp([board, rtc], [])
-    expect(cpp).toContain('Wire.begin(5, 6);  // DS3231 I2C pins from the RTC node')
+    expect(cpp).toContain('Wire.begin(5, 6);  // I2C pins from the parts on the bus')
   })
 
   it('uses editable RTC pin properties on Espressif targets', () => {
     const board = node('board', 'Board', 'input', { profileId: 'seeed-xiao-esp32s3' })
     const rtc = node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231', sdaPin: 7, sclPin: 8 })
     const cpp = generateCpp([board, rtc], [])
-    expect(cpp).toContain('Wire.begin(7, 8);  // DS3231 I2C pins from the RTC node')
+    expect(cpp).toContain('Wire.begin(7, 8);  // I2C pins from the parts on the bus')
   })
 })
 

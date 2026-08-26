@@ -787,11 +787,13 @@ ${controlServiceLines}
     .map((display) => ({ id: safePlayerId(display.id), sourceId: display.id }))
   const infoEmits = displays.info.map((display) => ({
     id: safePlayerId(display.id),
+    transport: display.transport,
     csPin: display.csPin,
     dcPin: display.dcPin,
     resetPin: display.resetPin,
     sckPin: display.sckPin,
     mosiPin: display.mosiPin,
+    address: display.address,
     columnOffset: display.columnOffset,
     segmentRemap: display.segmentRemap,
     comScan: display.comScan,
@@ -862,7 +864,16 @@ ${controlServiceLines}
 
   const songOpen = (nameExpr: string) => (hasDisplays ? `songResetFromFile(${nameExpr});` : '')
 
+  // A 4-pin OLED needs the bus started before it is addressed. The player
+  // sketch has no other I2C part, so its pins are the display's own — and two
+  // displays disagreeing about them is refused in validation rather than
+  // leaving the second one dark.
+  const i2cDisplays = displays.info.filter((display) => display.transport === 'i2c')
+  const i2cIncludeCpp = i2cDisplays.length > 0 ? '\n#include <Wire.h>' : ''
   const displaySetupCpp = [
+    ...(i2cDisplays.length > 0
+      ? [`  Wire.begin(${i2cDisplays[0].sdaPin}, ${i2cDisplays[0].sclPin});  // I2C displays`]
+      : []),
     ...infoEmits.flatMap(infoDisplaySetupCpp),
     ...(browserEmits.length > 0 ? [`  _selBegin(_sel_${PLAYER_SELECTION_STEM});`] : []),
     ...segmentEmits.flatMap(segmentDisplaySetupCpp),
@@ -896,8 +907,7 @@ ${overclockDefines}// The audio header MUST come before <FastLED.h>. FastLED shi
 #include <Audio.h>       // ESP32-audioI2S
 #include <FastLED.h>
 ${isHub75 ? hub75IncludesCpp(hub75Hw!).join('\n') + '\n' : ''}#include <SD.h>
-#include <SPI.h>
-
+#include <SPI.h>${i2cIncludeCpp}
 // Explicit FastLED-typed declarations keep the Arduino preprocessor from
 // inventing its own before <FastLED.h>, which breaks CRGB names. The
 // display structs are forward-declared here for the same reason: the

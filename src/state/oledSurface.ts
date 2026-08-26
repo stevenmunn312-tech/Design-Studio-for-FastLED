@@ -59,6 +59,81 @@ export function oledControllerFor(controller: string | undefined): OledControlle
 }
 
 /**
+ * How the panel's bytes get to it.
+ *
+ * The surface above knows nothing about this, and that is the point: the same
+ * layout, the same page addressing and the same column offset reach an SH1106
+ * over four-wire SPI and an SSD1306 over I2C. Only the byte-shipping differs.
+ *
+ * Transport is a fact about the *module*, not the controller silicon — SSD1306
+ * breakouts exist in both forms — so it is read from the catalogue entry's
+ * declared interface rather than from `OLED_CONTROLLERS`.
+ */
+export type OledTransport = 'spi' | 'i2c'
+
+/**
+ * The node pin properties each transport wires.
+ *
+ * One list, read by the property editor, the pin collector, the retarget plans
+ * and the bench's pin row, so a module cannot offer a field the generated
+ * sketch never drives.
+ */
+export const OLED_TRANSPORT_PINS: Record<OledTransport, readonly string[]> = {
+  spi: ['csPin', 'dcPin', 'resetPin', 'sckPin', 'mosiPin'],
+  i2c: ['sdaPin', 'sclPin'],
+}
+
+/**
+ * The transport a catalogued part's declared interface names.
+ *
+ * Matched on the leading token, because a breakout may mention what it *could*
+ * do after saying what it is: the Adafruit SSD1306 declares
+ * "I2C (SPI-capable breakout)" and ships strapped for I2C. Anything that does
+ * not lead with I2C is treated as SPI, which is the four-wire default and the
+ * safer wrong answer — an unexpected SPI panel stays dark, an unexpected I2C
+ * one could drive a bus another device is on.
+ *
+ * `oledTransportsMatchCatalogue` in the tests pins both shipped modules to the
+ * answer they need, so a re-imported catalogue that rewords an interface fails
+ * there rather than on a bench.
+ */
+export function oledTransportFor(declaredInterface: string | undefined): OledTransport {
+  return /^\s*i2c/i.test(declaredInterface ?? '') ? 'i2c' : 'spi'
+}
+
+/**
+ * The addresses a 128x64 OLED can be strapped to.
+ *
+ * Two, selected by a resistor or a solder blob on the module: 0x3C by default,
+ * 0x3D when the strap is moved. It is a real choice the user makes with a
+ * soldering iron, so unlike the DS3231's fixed 0x68 it is a property.
+ */
+export const OLED_I2C_ADDRESSES = [0x3c, 0x3d] as const
+export const DEFAULT_OLED_I2C_ADDRESS = OLED_I2C_ADDRESSES[0]
+
+/** An address as its module's silkscreen and datasheet print it. */
+export function oledAddressLabel(address: number): string {
+  return `0x${address.toString(16).toUpperCase()}`
+}
+
+/**
+ * The dropdown's options, and the form the property is stored in.
+ *
+ * Stored as the printed label rather than a number so what the workspace holds
+ * is what the user picked, and so a decimal 60 never appears beside a board
+ * marked 0x3C. `asOledAddress` reads either back.
+ */
+export const OLED_I2C_ADDRESS_OPTIONS = OLED_I2C_ADDRESSES.map(oledAddressLabel)
+
+export function asOledAddress(value: unknown): number {
+  // `Number('0x3C')` is 60, so the label parses without a second code path.
+  const address = Number(value)
+  return (OLED_I2C_ADDRESSES as readonly number[]).includes(address)
+    ? address
+    : DEFAULT_OLED_I2C_ADDRESS
+}
+
+/**
  * How the panel is mounted, in degrees.
  *
  * A 1-bit OLED has no idea which way up it is bolted, so the controller is told

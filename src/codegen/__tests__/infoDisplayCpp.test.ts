@@ -77,7 +77,7 @@ describe('OLED helpers', () => {
 describe('generateCpp with an OLED', () => {
   it('configures the panel in setup and services it in the loop', () => {
     const src = generateCpp([outputNode, oled()], [])
-    expect(src).toContain('_oledBegin(_oled_oled, 5, 16, 17, 18, 23, 2, 0xa0, 0xc0);')
+    expect(src).toContain('_oledBeginSpi(_oled_oled, 5, 16, 17, 18, 23, 2, 0xa0, 0xc0);')
     expect(src).toContain('_oledFlush(_oled_oled,')
     expect(src).toContain('static OledPanel _oled_oled;')
   })
@@ -111,11 +111,14 @@ describe('generateCpp with an OLED', () => {
   })
 
   it('emits the driver once for two panels', () => {
+    // An SPI SH1106 and an I2C SSD1306 in one build: one driver, two panels,
+    // and each begun through the transport its module actually has.
     const second = node('oled2', 'InfoDisplay', 'output', {
-      partId: 'ssd1306-oled-128x64', csPin: 15, dcPin: 4, resetPin: 2, sckPin: 18, mosiPin: 23,
+      partId: 'ssd1306-oled-128x64', sdaPin: 21, sclPin: 22,
     })
     const src = generateCpp([outputNode, oled(), second], [])
-    expect(src.split('static void _oledBegin').length - 1).toBe(1)
+    expect(src.split('struct OledPanel {').length - 1).toBe(1)
+    expect(src.split('static void _oledInit').length - 1).toBe(1)
     expect(src).toContain('_oled_oled')
     expect(src).toContain('_oled_oled2')
   })
@@ -163,5 +166,69 @@ describe('generateCpp with an OLED', () => {
   it('clamps progress rather than letting a bar overflow its box', () => {
     const src = generateCpp([outputNode, oled({ infoLayout: 'Status' })], [])
     expect(src).toMatch(/_oledBar\(_oled_oled, \d+, \d+, \d+, \d+, constrain\(/)
+  })
+})
+
+/*
+ * The 4-pin module.
+ *
+ * Its part option shipped before its driver did, so choosing it produced a
+ * sketch that bit-banged SPI at a module with no CS, DC or reset pin: a
+ * successful build and a dark panel, which is the one outcome the display
+ * plan says a generator must never produce.
+ */
+describe('generateCpp with an I2C OLED', () => {
+  const i2c = (props: Record<string, unknown> = {}) => node('oled', 'InfoDisplay', 'output', {
+    partId: 'ssd1306-oled-128x64', sdaPin: 21, sclPin: 22, ...props,
+  })
+
+  it('begins the panel on the bus rather than on four wires', () => {
+    const src = generateCpp([outputNode, i2c()], [])
+    expect(src).toContain('_oledBeginI2c(_oled_oled, 0x3c, 0, 0xa0, 0xc0);')
+    expect(src).not.toContain('_oledBeginSpi(_oled_oled')
+  })
+
+  it('brings in Wire and starts it before the panel is addressed', () => {
+    const src = generateCpp([outputNode, i2c()], [])
+    expect(src).toContain('#include <Wire.h>')
+    // The call, not the driver's definition of it, which sits far above.
+    expect(src.indexOf('Wire.begin();')).toBeLessThan(src.indexOf('_oledBeginI2c(_oled_oled'))
+  })
+
+  // The explicit-pin form needs a board that can route Wire anywhere, which is
+  // why this one names a profile and the tests above take the generic default.
+  it('starts the bus on the pins the panel was wired to', () => {
+    const board = node('board', 'Board', 'input', { profileId: 'seeed-xiao-esp32s3' })
+    expect(generateCpp([board, outputNode, i2c({ sdaPin: 8, sclPin: 9 })], []))
+      .toContain('Wire.begin(8, 9);')
+  })
+
+  it('honours the strap the module was set to', () => {
+    expect(generateCpp([outputNode, i2c({ i2cAddress: '0x3D' })], []))
+      .toContain('_oledBeginI2c(_oled_oled, 0x3d,')
+  })
+
+  // The DS3231 and the panel are one bus with two addresses, so one begin.
+  it('starts one bus for a panel and a clock together', () => {
+    const rtc = node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231', sdaPin: 21, sclPin: 22 })
+    const src = generateCpp([outputNode, i2c(), rtc], [])
+    // `Wire.beginTransmission` is not a second bus start, so match the call.
+    expect(src.split(/Wire\.begin\(\d*(?:, \d+)?\);/).length - 1).toBe(1)
+    expect(src.split('#include <Wire.h>').length - 1).toBe(1)
+  })
+
+  // The layout is the surface's, not the bus's: the same picture reaches both
+  // modules, and only the byte-shipping differs.
+  it('draws the same layout as the SPI panel', () => {
+    const spi = generateCpp([outputNode, oled({ infoLayout: 'Status' })], [])
+    const bus = generateCpp([outputNode, i2c({ infoLayout: 'Status' })], [])
+    const body = (src: string) => src.slice(src.indexOf('{ // Info Display'), src.indexOf('_oledFlush('))
+    expect(body(bus)).toBe(body(spi))
+  })
+
+  // A build with only an SPI panel has no bus to start, and pulling Wire in
+  // would cost flash for a peripheral nothing touches.
+  it('leaves Wire out of a build with nothing on the bus', () => {
+    expect(generateCpp([outputNode, oled()], [])).not.toContain('#include <Wire.h>')
   })
 })

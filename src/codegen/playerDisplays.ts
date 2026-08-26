@@ -13,7 +13,11 @@
 import {
   asInfoDisplayLayout, STATUS_MAX_INDICATORS, type InfoDisplayLayout,
 } from '../state/infoDisplay'
-import { oledControllerFor, asOledRotation, oledRotationCommands } from '../state/oledSurface'
+import {
+  oledControllerFor, asOledRotation, oledRotationCommands, asOledAddress,
+  type OledTransport,
+} from '../state/oledSurface'
+import { oledTransportForProps } from '../state/nodeLibrary'
 import { asSegmentMode, segmentControllerFor, clampSegmentBrightness, type SegmentDisplayMode } from '../state/segmentDisplay'
 import { partById } from '../state/partCatalogue'
 import { PLAYER_SONG_EXPRESSIONS } from './playerSongInfoCpp'
@@ -35,11 +39,17 @@ export interface PlayerInfoDisplay {
   id: string
   partId: string
   layout: InfoDisplayLayout
+  /** Which wires carry the bytes; the layout is the same either way. */
+  transport: OledTransport
   csPin: number
   dcPin: number
   resetPin: number
   sckPin: number
   mosiPin: number
+  /** I2C only: the pins the sketch starts `Wire` on, and the module's strap. */
+  sdaPin: number
+  sclPin: number
+  address: number
   columnOffset: number
   segmentRemap: number
   comScan: number
@@ -135,11 +145,15 @@ export function playerDisplaysFromGraph(nodes: ConfigNode[], edges: ConfigEdge[]
         id: node.id,
         partId,
         layout: asInfoDisplayLayout(props.infoLayout),
+        transport: oledTransportForProps(props),
         csPin: intProp(props.csPin, 5),
         dcPin: intProp(props.dcPin, 16),
         resetPin: intProp(props.resetPin, 17),
         sckPin: intProp(props.sckPin, 18),
         mosiPin: intProp(props.mosiPin, 23),
+        sdaPin: intProp(props.sdaPin, 21),
+        sclPin: intProp(props.sclPin, 22),
+        address: asOledAddress(props.i2cAddress),
         columnOffset: controller?.columnOffset ?? 0,
         segmentRemap: rotation.segmentRemap,
         comScan: rotation.comScan,
