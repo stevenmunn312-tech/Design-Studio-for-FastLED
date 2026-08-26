@@ -1,4 +1,5 @@
-import { evaluateGraph, type Frame, type GroupRegistry } from '../../state/graphEvaluator'
+import { evaluateGraphFull, type Frame, type GroupRegistry } from '../../state/graphEvaluator'
+import { masterSpeedFromOutputs, MASTER_SPEED_DEFAULT } from '../../state/masterSpeed'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import { idleFrame } from './idleFrame'
 import { compositionDims, outputRoutes, routeFrame } from '../../state/outputRouting'
@@ -189,18 +190,35 @@ export async function captureSequence(opts: CaptureOptions): Promise<Uint8Clampe
     : nodes
 
   const frames: Uint8ClampedArray[] = []
+  // tick/60 = seconds, so one captured frame is this many ticks apart. Warm-up
+  // frames occupy the seconds before the clip, so the recorded window still
+  // begins at a whole number of frames from the warmed-up state.
+  const tickStep = 60 / fps
+  /*
+   * Master Speed, accumulated exactly as the live preview accumulates it:
+   * `tick += step * speed`, using the speed the previous frame resolved. A
+   * recording that ignored the knob would play back at a different rate from
+   * the preview it was captured from, which is the kind of silent disagreement
+   * the shared helper exists to prevent. See state/masterSpeed.ts.
+   */
+  let tick = 0
+  let speed = MASTER_SPEED_DEFAULT
   for (let i = 0; i < warmup + renderCount; i++) {
     if (opts.isCancelled?.()) return null
-    // tick/60 = seconds, so frame i of an fps-rate capture sits at i/fps sec.
-    // Warm-up frames occupy the seconds before the clip, so the recorded window
-    // still begins at a whole number of frames from the warmed-up state.
-    const tick = (i * 60) / fps
+    if (i > 0) tick += tickStep * speed
     // Warm-up frames sit before the recorded window, so they hold the clip's
     // opening audio rather than running off the front of the timeline.
     const audio = audioTimeline
       ? audioTimeline[Math.min(audioTimeline.length - 1, Math.max(0, i - warmup))] ?? null
       : null
-    const rendered = evaluateGraph(evaluationNodes, edges, tick, composition.w, composition.h, groups, prefix, new Set(), {}, audio, trusted)
+    // The full form for its outputs map, and `auxNodes: false` so the work is
+    // the reachable set this always evaluated — Master Speed is a sink, so it
+    // is in that set rather than an extra pass.
+    const pass = evaluateGraphFull(
+      evaluationNodes, edges, tick, composition.w, composition.h, groups, false, trusted, prefix, audio,
+    )
+    speed = masterSpeedFromOutputs(evaluationNodes, pass.outputs)
+    const rendered = pass.frame
     const routed = route ? routeFrame(rendered, route, composition.w, composition.h) : rendered
     // Same order as LEDPreview's loop: route → master brightness → idle
     // fallback (undimmed; it isn't real output) → show-playback overlay.

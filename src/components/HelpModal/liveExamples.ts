@@ -1377,6 +1377,19 @@ const INFO_DISPLAY_LIVE_EXAMPLE = namedExample(
   'The solid colour keeps the LED preview meaningful; the OLED is a separate 128x64 panel rather than part of the frame.',
 )
 
+const MASTER_SPEED_LIVE_EXAMPLE = namedExample(
+  'MasterSpeed',
+  'Put one knob on the whole show',
+  [
+    { key: 'rate', type: 'PotInput' },
+    { key: 'target', type: 'MasterSpeed', properties: { speed: 1 } },
+    { key: 'wave', type: 'Plasma', properties: { speed: 0.4 } },
+  ],
+  [{ source: 'rate', sourceHandle: 'value', target: 'target', targetHandle: 'speed' }],
+  'Master Speed scales the one clock every animated module reads, so a graph with a dozen different speeds keeps all of them in their existing relationships. It is a terminal like the LED output: nothing reads it, it changes what time is. Leave it unwired to use its own slider, or wire a knob for a speed control on the bench.',
+  'The plasma keeps its own 0.4 speed; the knob multiplies the clock underneath it rather than rewriting that number.',
+)
+
 const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   Audio: AUDIO_CAPABILITY_LIVE_EXAMPLE,
   MicInput: MICROPHONE_LIVE_EXAMPLE,
@@ -1396,6 +1409,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   Storage: STORAGE_LIVE_EXAMPLE,
   SegmentDisplay: SEGMENT_DISPLAY_LIVE_EXAMPLE,
   InfoDisplay: INFO_DISPLAY_LIVE_EXAMPLE,
+  MasterSpeed: MASTER_SPEED_LIVE_EXAMPLE,
   TextValue: TEXT_VALUE_LIVE_EXAMPLE,
   FormatNumber: FORMAT_NUMBER_LIVE_EXAMPLE,
   FormatDateTime: FORMAT_DATE_TIME_LIVE_EXAMPLE,

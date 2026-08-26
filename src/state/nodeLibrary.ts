@@ -16,6 +16,7 @@ import {
   oledAddressLabel, oledTransportFor, type OledTransport,
 } from './oledSurface'
 import { LED_OUTPUT_RUNTIME_PORTS } from './ledOutputRuntime'
+import { MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './masterSpeed'
 import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, outputForm } from './ledOutputForm'
 
@@ -2797,6 +2798,28 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
+    /*
+     * One knob on the one shared time value.
+     *
+     * A sink rather than a source: it publishes nothing, it changes how fast
+     * the clock every animated node already reads runs. Scaling `t` once is
+     * what keeps a graph's dozen individual speeds in their existing
+     * relationships, and what covers a node written next year without teaching
+     * it anything.
+     *
+     * Unlike the LED output's blackout and dimming, the property is real and
+     * used: this node is visible on the canvas, so a slider set to 0.5 with
+     * nothing wired is a setting the user can see, not a hidden second dimmer.
+     * See state/masterSpeed.ts.
+     */
+    type: 'MasterSpeed',
+    label: 'Master Speed',
+    category: 'output',
+    inputs: [{ id: 'speed', label: 'Speed', dataType: 'float' }],
+    outputs: [],
+    defaultProperties: { speed: MASTER_SPEED_DEFAULT },
+  },
+  {
     // TM1637 4-digit 7-segment module, added from the hardware workbench.
     // Formatting is deliberately its own properties rather than a wired string:
     // a segment module can draw digits, a colon and a decimal point and nothing
@@ -3073,6 +3096,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   FormatDateTime: 'Turns a clock reading into display text such as HH:MM.',
   SegmentDisplay: 'A 4 or 8-digit 7-segment module showing a number, clock, or index.',
   InfoDisplay: 'A 128x64 OLED showing a now-playing, clock, status, or pattern-browser screen.',
+  MasterSpeed: 'Scales animation time for the whole graph. 1 is normal, 0 freezes it.',
   ScheduleTrigger: 'Time-of-day window/trigger driven by RTCInput clock and calendar fields.',
   BeatSin: 'Beat-synced sine oscillator — outputs a normalized low↔high value at a BPM.',
   Clock: 'BPM clock — phase/beat/bar/subdivision pulses; tap tempo, sync, and reset.',
@@ -3555,6 +3579,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     mosiPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     sdaPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     sclPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
+  MasterSpeed: {
+    speed: { control: 'slider', min: MASTER_SPEED_MIN, max: MASTER_SPEED_MAX, step: 0.01 },
   },
   SegmentDisplay: {
     clkPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },

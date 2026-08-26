@@ -14,6 +14,7 @@ import {
   type SegmentFrame,
 } from './segmentDisplay'
 import { resolveLedOutputRuntime, applyLedOutputRuntime } from './ledOutputRuntime'
+import { clampMasterSpeed, MASTER_SPEED_DEFAULT } from './masterSpeed'
 import {
   asInfoDisplayLayout, renderInfoDisplay, blankInfoData, STATUS_MAX_INDICATORS,
   type InfoDisplayData,
@@ -39,7 +40,6 @@ import { waveSample, combineWaves } from './wave'
 import { polinePalette, hexToRgb } from './polinePalette'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette } from './customPalette'
 import { inputClampRange, bypassPort, resolveNodeScalarExpressions, NODE_LIBRARY } from './nodeLibrary'
-import { isHardwareManagedSignalNodeType } from './hardware'
 import { makeShims, SHIM_NAMES } from './fastledShims'
 import { compileNodeFormula, type FormulaFn } from './formulaLang'
 import { createBeatDetectorState, denormalizeBeatParam, updateBeatDetectorFromSpectrum } from '../audio/beatDetection'
@@ -7691,6 +7691,14 @@ function createEvalNode(
         break
       }
 
+      // Published rather than applied here: the clock this would scale is the
+      // one this pass is already running on, so the value is read by whatever
+      // owns the clock — the preview loop, a recording — and takes effect on
+      // the next frame. See state/masterSpeed.ts on why that lag is the point.
+      case 'MasterSpeed':
+        out = { speed: clampMasterSpeed(num(id, 'speed', props, 'speed', MASTER_SPEED_DEFAULT)) }
+        break
+
       // Canvas-only annotation — no ports, nothing to evaluate.
       case 'Comment':
         out = {}
@@ -7794,15 +7802,20 @@ export function evaluateScalarSeries(
 // one-frame beat pulse triggers the preview loop's early publish — sampling it
 // only on publish frames would miss most beats.
 const HOT_NODE_TYPES = new Set<string>([
-  'GroupOutput', 'BeatDetect',
-  // Every display, by the same rule codegen uses for its walk roots: a
-  // workbench-owned part that carries signal and publishes no output is
-  // something the graph feeds and nothing reads. Left out, a display and
-  // everything wired into it were skipped on non-publish frames, so a wired
-  // progress bar crawled at the ~8 fps preview cadence instead of following
-  // its input. MatrixOutput arrives through this rule too.
+  'BeatDetect',
+  /*
+   * Every sink: a node the graph feeds and nothing reads.
+   *
+   * Ports alone say it — inputs and no outputs — which covers `GroupOutput`,
+   * `MatrixOutput`, both displays and Master Speed without naming any of them.
+   * The rule used to be narrower (workbench-owned parts only) and each new
+   * terminal had to remember to qualify; a sink that is not in this set is
+   * skipped on non-publish frames, so a wired progress bar crawled at the
+   * ~8 fps preview cadence instead of following its input, and a speed knob
+   * would only be read eight times a second.
+   */
   ...NODE_LIBRARY
-    .filter((def) => isHardwareManagedSignalNodeType(def.type) && def.outputs.length === 0)
+    .filter((def) => def.outputs.length === 0 && def.inputs.length > 0)
     .map((def) => def.type),
 ])
 
@@ -7869,12 +7882,20 @@ export function evaluateGraphFull(
   // logic — appended last so existing positional callers keep working
   // unchanged, defaulting to trusted (todo.md's P0 trust-boundary item).
   trusted = true,
+  // An offline render needs both of these and needs the outputs map too — it
+  // reads Master Speed from the same pass rather than running a second one,
+  // which would double-advance every stateful node. Trailing and defaulted, so
+  // the live preview's call is unchanged.
+  instancePrefix = '',
+  audioOverride: AudioOverride | null = null,
 ): { frame: Frame | null; outputs: Map<string, Record<string, unknown>> } {
   maybePruneEvaluatorState()
   advanceFramePool()
   const outputs = new Map<string, Record<string, unknown>>()
   if (nodes.length === 0) return { frame: null, outputs }
-  const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, '', new Set(), {}, null, null, trusted)
+  const evalNode = createEvalNode(
+    nodes, edges, tick, gridW, gridH, groups, instancePrefix, new Set(), {}, audioOverride, null, trusted,
+  )
   const hot = auxNodes ? null : hotNodeIds(nodes, edges)
   for (const n of nodes) {
     if (hot && !hot.has(n.id)) continue

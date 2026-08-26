@@ -164,9 +164,22 @@ case the OLED slice cannot already serve.
 - [x] Reconcile roadmap hardware controls with the current model: runtime volume
   now belongs to `Amplifier`, not `SDCard`. Do not move the static maximum back
   to storage; route live volume through the transport/audio runtime.
-- [ ] Add explicit runtime inputs for LED-output enabled/blackout, brightness,
+- [x] Add explicit runtime inputs for LED-output enabled/blackout, brightness,
   and master speed. Master speed must scale the one shared time value in preview
   and every firmware generator rather than rewriting individual node speeds.
+  Enabled and Brightness are per LED output rather than per project: two
+  outputs are two fixtures, and a stage wash and a monitor strip do not have to
+  be dark together. Master speed is one `MasterSpeed` node, because one shared
+  clock cannot be scaled per output.
+  Both are accumulated rather than multiplied — `t * speed` would jump every
+  animation in the build the instant the knob moved — and both read the speed
+  the previous frame resolved, since a control computed from scaled time could
+  not be turned back up from a freeze.
+  Two generators refuse rather than emit. A music player animates on the
+  track's own position, so scaling it would slide the LEDs off the music: that
+  is correct behaviour, not a gap. The show generator's clock also times how
+  long each pattern holds, so it needs a second accumulated clock before it can
+  honour a speed knob — that one *is* a gap, and is the remaining work here.
 - [x] Define button semantics once: a Button widget is `true` while pressed;
   transport/control sinks detect a rising edge where a one-shot action is
   required. Toggle widgets hold a boolean state.

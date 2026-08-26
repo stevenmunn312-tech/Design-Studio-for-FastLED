@@ -1181,6 +1181,25 @@ export function selectedGenerator(nodes: StudioNode[], edges: StudioEdge[]): Sel
  * Controls' LED On/Off and Brightness reach the same place through the
  * transport bundle the player already reads.
  */
+/**
+ * Master Speed in a build whose clock is not the sketch's own.
+ *
+ * A music player's animation time *is* the track position — patterns are
+ * synced to what is playing. Scaling that would slide the LEDs off the music,
+ * so refusing here is the correct behaviour rather than a missing feature. The
+ * show generator's clock also drives pattern dwell, which is a duration in
+ * seconds and has no business speeding up with the animation, so it needs a
+ * second accumulated clock before it can honour this.
+ */
+function masterSpeedGeneratorErrors(nodes: StudioNode[], generator: SelectedGenerator): string[] {
+  const knobs = nodes.filter((node) => node.data.nodeType === 'MasterSpeed')
+  if (knobs.length === 0 || generator === 'sketch') return []
+  const names = knobs.map((node) => nodeLabel(node)).join(', ')
+  return [generator === 'player'
+    ? `${names}: a music-player build animates on the track's own position, so scaling time would slide the LEDs off the music. Remove it, or drive the patterns from a normal sketch.`
+    : `${names}: a generated show controller cannot scale animation time yet — its clock also times how long each pattern holds. Remove it before exporting a show.`]
+}
+
 export function findOutputRuntimeIssues(
   nodes: StudioNode[],
   edges: StudioEdge[],
@@ -1188,19 +1207,22 @@ export function findOutputRuntimeIssues(
   const generator = selectedGenerator(nodes, edges)
   if (generator === 'sketch') return { errors: [] }
 
+  const speedErrors = masterSpeedGeneratorErrors(nodes, generator)
+
   const wired = nodes.filter((node) => node.data.nodeType === 'MatrixOutput'
     && edges.some((edge) => edge.target === node.id
       && (edge.targetHandle === 'enabled' || edge.targetHandle === 'brightness')))
-  if (wired.length === 0) return { errors: [] }
+  if (wired.length === 0) return { errors: speedErrors }
 
+  const errors: string[] = []
   const names = wired.map((node) => nodeLabel(node)).join(', ')
-  return {
-    errors: [generator === 'player'
-      ? `${names}: a music-player build cannot read Enabled or Brightness wired to the LED output. `
-        + 'Wire the button or knob to Player Controls (LED On / Off, Brightness) instead — it reaches the same place through the transport the player already reads.'
-      : `${names}: a generated show controller cannot read Enabled or Brightness wired to the LED output, so the firmware would ignore them. `
-        + 'Export it through Upload show to SD and drive them from Player Controls, or remove the wires before exporting a show.'],
-  }
+  errors.push(generator === 'player'
+    ? `${names}: a music-player build cannot read Enabled or Brightness wired to the LED output. `
+      + 'Wire the button or knob to Player Controls (LED On / Off, Brightness) instead — it reaches the same place through the transport the player already reads.'
+    : `${names}: a generated show controller cannot read Enabled or Brightness wired to the LED output, so the firmware would ignore them. `
+      + 'Export it through Upload show to SD and drive them from Player Controls, or remove the wires before exporting a show.')
+
+  return { errors: [...errors, ...speedErrors] }
 }
 
 export function findDisplayGeneratorIssues(

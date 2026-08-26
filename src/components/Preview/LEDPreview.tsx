@@ -40,6 +40,7 @@ import { publishOutputStreamFrame, publishStreamFrame, useStreamStore } from '..
 import { compositionDims, outputRoutes, routeFrame } from '../../state/outputRouting'
 import { exitStagePresentation } from '../../utils/stagePresentation'
 import { controllerSettings } from '../../state/controllerSettings'
+import { masterSpeedFromOutputs, masterSpeedOriginShift } from '../../state/masterSpeed'
 
 // Statically replaced at build time, so the telemetry branches (phase timers +
 // the per-frame context object for the dev HUD) are dead-code-stripped in prod.
@@ -563,6 +564,19 @@ export default function LEDPreview() {
         // the same here and pick the route selected in the preview header.
         const composition = compositionDims(hardwareNodes, rootGraphEdges(state))
         const { outputs } = evaluateGraphFull(graphNodes, graphEdges, tick, composition.w, composition.h, groups, fullPass, trusted)
+        /*
+         * Master Speed, applied by sliding the animation clock's origin rather
+         * than by multiplying the elapsed time. `t * speed` would double every
+         * animation on the spot the moment the knob moved; advancing the origin
+         * by `gap * (1 - speed)` changes how fast time runs from here on, which
+         * is what a speed control is. It is the same move the pause above
+         * makes, which slides the origin by the interval spent paused.
+         *
+         * Read from the pass that just ran, so it lands on the next frame. See
+         * state/masterSpeed.ts on why the control cannot run on its own output.
+         */
+        const masterSpeed = masterSpeedFromOutputs(graphNodes, outputs)
+        if (masterSpeed !== 1) startTime.current += masterSpeedOriginShift(gapMs, masterSpeed)
         const evalMs = PERF_TELEMETRY ? performance.now() - evalStart : 0
         const routes = outputRoutes(graphNodes)
         const selectedRoute = routes.find((route) => route.id === activeOutputIdRef.current) ?? routes[0]

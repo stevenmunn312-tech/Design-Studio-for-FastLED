@@ -36,8 +36,11 @@ import {
 import { asSegmentMode, clampSegmentBrightness, segmentControllerFor } from '../state/segmentDisplay'
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
 import { NODE_LIBRARY, oledTransportForProps } from '../state/nodeLibrary'
-import { isHardwareManagedSignalNodeType } from '../state/hardware'
 import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp } from './ledOutputRuntimeCpp'
+import { masterClockLoopCpp, masterSpeedUpdateCpp, type MasterSpeedEmit } from './masterSpeedCpp'
+import {
+  clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX,
+} from '../state/masterSpeed'
 import { patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
 import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './patternSelectionCpp'
 import type { BrowserThumbnails } from '../utils/browserThumbnails'
@@ -270,9 +273,18 @@ function topoSort(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
  * meant a new display could be added everywhere else and still be pruned out
  * of the sketch, dark on a board that compiled and uploaded cleanly.
  */
-const DISPLAY_TERMINAL_NODE_TYPES = new Set(
+/*
+ * Every sink in the library: a node the graph feeds and nothing reads.
+ *
+ * Ports alone say it, so displays, `MatrixOutput` and Master Speed all arrive
+ * here without being named. The rule was narrower once — workbench-owned parts
+ * only — and a sink outside that class would be walked back from nothing and
+ * pruned out of the sketch along with everything feeding it, which is how a
+ * configured display used to vanish from a build.
+ */
+const SINK_NODE_TYPES = new Set(
   NODE_LIBRARY
-    .filter((def) => isHardwareManagedSignalNodeType(def.type) && def.outputs.length === 0)
+    .filter((def) => def.outputs.length === 0 && def.inputs.length > 0)
     .map((def) => def.type),
 )
 
@@ -290,7 +302,7 @@ function reachableFromOutputs(nodes: StudioNode[], edges: StudioEdge[]): StudioN
   const roots = [
     ...outputs,
     ...nodes.filter((n) => n.data.nodeType === 'Board'),
-    ...nodes.filter((n) => DISPLAY_TERMINAL_NODE_TYPES.has(n.data.nodeType)),
+    ...nodes.filter((n) => SINK_NODE_TYPES.has(n.data.nodeType)),
   ]
 
   const sources = new Map<string, string[]>()
@@ -1585,6 +1597,24 @@ export function generateCpp(
   const i2cOleds = sorted.filter((n) => n.data.nodeType === 'InfoDisplay'
     && oledTransportForProps(props(n)) === 'i2c')
   const needsWire = needsDs3231 || i2cOleds.length > 0
+  /*
+   * Master Speed, if the graph has one.
+   *
+   * A knob with nothing wired to it is a constant and needs no feedback; a
+   * wired one is resolved at the foot of the loop for the next pass, because
+   * its source is emitted below the clock and may itself read `t`. Same rule
+   * the browser follows — see state/masterSpeed.ts.
+   */
+  const speedNode = sorted.find((n) => n.data.nodeType === 'MasterSpeed')
+  const masterSpeedEmit: MasterSpeedEmit = {
+    present: !!speedNode,
+    speedExpr: speedNode && incoming.has(`${speedNode.id}:speed`)
+      ? floatExpr(speedNode.id, 'speed', props(speedNode), 'speed', MASTER_SPEED_DEFAULT)
+      : null,
+    initial: clampMasterSpeed(speedNode ? props(speedNode).speed : MASTER_SPEED_DEFAULT),
+    min: MASTER_SPEED_MIN,
+    max: MASTER_SPEED_MAX,
+  }
   const dmxInputs = sorted.filter((n) => n.data.nodeType === 'DMXInput')
   const needsArtNet = dmxInputs.some((n) => String(props(n).inputMode ?? 'Art-Net') === 'Art-Net')
   const needsDmx512 = dmxInputs.some((n) => String(props(n).inputMode ?? 'Art-Net') === 'DMX512')
@@ -6233,6 +6263,12 @@ export function generateCpp(
         // Canvas-only annotation — no ports, nothing to emit.
         break
 
+      case 'MasterSpeed':
+        // Emitted by the loop's clock, not here: it changes what `t` is rather
+        // than computing anything of its own. Its wired source still has to be
+        // emitted, which is why it is a walk root above.
+        break
+
       case 'PerformanceGenerator':
         // Its `frame` names the LED output the show plays on, so it can be
         // wired into one — but a *normal* sketch has no audio transport and no
@@ -6577,8 +6613,9 @@ export function generateCpp(
   lines.push(`void loop() {`)
   if (emitEngine) lines.push(`  updateAudio();`)
   if (needsDs3231) lines.push(`  _rtcHandleSerialSet();`)
-  if (needsT.v) lines.push(`  float t = millis() / 1000.0f;`)
+  if (needsT.v) lines.push(...masterClockLoopCpp(masterSpeedEmit))
   lines.push(...loopLines)
+  if (needsT.v) lines.push(...masterSpeedUpdateCpp(masterSpeedEmit))
   if (multipleOutputs || !sorted.some((n) => n.data.nodeType === 'MatrixOutput')) {
     lines.push(`  FastLED.show();`)
   }

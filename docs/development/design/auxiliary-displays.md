@@ -237,11 +237,41 @@ the widget would make "press" mean different things on different displays.
 
 ### Master controls
 
-LED-output enabled/blackout, master brightness, and master speed become explicit
-runtime inputs. Master speed scales the one shared time value that preview and
-every generator already read — it does not rewrite per-node speeds. The LED
-preview is wall-clock driven and stays that way; a display refreshing at its own
-rate must not be able to move animation time.
+LED-output enabled/blackout, brightness, and master speed are explicit runtime
+inputs. The LED preview is wall-clock driven and stays that way; a display
+refreshing at its own rate must not be able to move animation time.
+
+Enabled and Brightness sit on the LED output itself, one pair per output, because
+two outputs are two fixtures — a stage wash and a monitor strip do not have to be
+dark together. They multiply with the Board's static brightness and with a
+player's own dimming, and every factor is a cable on the canvas rather than a
+hidden global. `src/state/ledOutputRuntime.ts` holds the rule; the evaluator
+applies it so the main matrix, per-output previews, offline recordings and the
+live stream cannot disagree, and `ledOutputRuntimeCpp.ts` applies it after the
+blit, where every geometry branch has converged on the physical array.
+
+Master speed is one `MasterSpeed` node, because the shared clock it scales is
+one clock and cannot be per output. It scales that clock rather than rewriting
+per-node speeds, so a graph's dozen individual rates keep their relationships
+and a node written next year is covered without being taught anything.
+
+Both are **accumulated, never multiplied**. `t * speed` looks equivalent and is
+not: moving the knob from 1 to 2 would double `t` on the spot and every
+animation in the build would leap. Time advances by `dt * speed` instead — the
+browser slides its clock's origin, which is the mechanism the pause already
+uses; the firmware keeps a `_tAnim` accumulator in place of `millis() / 1000`.
+
+Both read the speed the **previous** frame resolved. That is a requirement, not
+a shortcut: a control computed from scaled time could not be turned back up out
+of a freeze, and in firmware the clock is emitted above the nodes that would
+compute the speed. One frame of lag on a knob is imperceptible.
+
+Two generators refuse rather than emit. A music player's animation time *is* the
+track position — patterns are synced to what is playing — so scaling it would
+slide the LEDs off the music; that refusal is correct behaviour. The show
+generator's clock also times how long each pattern holds, a duration in seconds
+with no business speeding up with the animation, so it needs a second
+accumulated clock before it can honour a speed knob.
 
 ## Runtime ordering
 
