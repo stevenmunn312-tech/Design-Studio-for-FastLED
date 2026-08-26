@@ -16,6 +16,18 @@ import {
   PATTERN_BROWSE_TIMEOUT_MS, ENCODER_COUNTS_PER_STEP, ENCODER_RESEAT_COUNTS,
 } from '../state/patternSelection'
 
+/**
+ * Forward declaration for the sketch preamble.
+ *
+ * The Arduino .ino preprocessor hoists a prototype for every function above
+ * all user type definitions, so `_selUpdate(PatternSel &s, ...)` names a type
+ * that does not exist yet and the build fails on a line no generator wrote.
+ * The third struct to need this after OledPanel and SegDisplay — which is why
+ * the test asserting it now derives the rule from the emitted source rather
+ * than listing the structs by hand.
+ */
+export const PATTERN_SELECTION_CPP_FORWARD = 'struct PatternSel;'
+
 export const PATTERN_SELECTION_CPP = `// ── Pattern selection ───────────────────────────────────────────────────────
 // Mirrors state/patternSelection.ts. active is what is running; highlight is
 // what you are looking at. They are the same until the encoder moves, and

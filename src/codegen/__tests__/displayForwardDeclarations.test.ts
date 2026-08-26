@@ -18,7 +18,7 @@ import { generatePlayerSketch } from '../playerSketchGenerator'
 import { playerDisplaysFromGraph } from '../playerDisplays'
 import { INFO_DISPLAY_CPP_FORWARD } from '../infoDisplayCpp'
 import { SEGMENT_DISPLAY_CPP_FORWARD } from '../segmentDisplayCpp'
-import type { StudioNode } from '../../state/graphStore'
+import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 const node = (id: string, nodeType: string, properties: Record<string, unknown> = {}) => ({
   id, type: 'studioNode', position: { x: 0, y: 0 },
@@ -35,6 +35,14 @@ const oled = node('oled', 'InfoDisplay', {
 const segment = node('seg', 'SegmentDisplay', {
   partId: 'tm1637-4digit-display', clkPin: 18, dioPin: 19, brightness: 4,
 })
+const collection = node('coll', 'PatternCollection', { patternIds: [] })
+const browser = node('brw', 'InfoDisplay', {
+  partId: 'sh1106-oled-128x64', infoLayout: 'Pattern Browser',
+  csPin: 1, dcPin: 2, resetPin: 5, sckPin: 6, mosiPin: 7,
+})
+const browserWire = {
+  id: 'bw', source: 'coll', target: 'brw', sourceHandle: 'patternset', targetHandle: 'patternset',
+} as unknown as StudioEdge
 
 /** Offset of the first function *definition* — where ctags starts hoisting. */
 function firstFunctionAt(src: string): number {
@@ -76,6 +84,41 @@ describe('normal sketches', () => {
     const src = generateCpp([output, oled, segment], [])
     expect(src).toContain('struct OledPanel {')
     expect(src).toContain('struct SegDisplay {')
+  })
+})
+
+// The rule, derived rather than listed.
+//
+// The three hand-written assertions above each landed after a build broke, and
+// the third struct (PatternSel) still slipped through because nobody thought to
+// add a fourth row. This reads the emitted sketch instead: any struct defined
+// in it that a function takes by reference must be named before the first
+// function definition, whatever that struct turns out to be.
+describe('every struct a function takes by reference', () => {
+  const graphs: Array<[string, () => string]> = [
+    ['info display', () => generateCpp([output, oled], [])],
+    ['segment display', () => generateCpp([output, segment], [])],
+    ['pattern browser', () => generateCpp([output, collection, browser], [browserWire])],
+    ['all of them', () => generateCpp([output, oled, segment, collection, browser], [browserWire])],
+  ]
+
+  it.each(graphs)('is declared before any function in a %s sketch', (_label, build) => {
+    const src = build()
+    const firstFn = firstFunctionAt(src)
+    // Structs this sketch defines, and which appear as a by-reference parameter.
+    const defined = [...src.matchAll(/^struct\s+(\w+)\s*\{/gm)].map((m) => m[1])
+    // String.raw, because in a plain template literal `\b` is a backspace
+    // character and `\s` is just an s — the regex then matches nothing and the
+    // check passes vacuously. Emitted C++ bit us the same way twice tonight.
+    const byReference = defined.filter((name) => new RegExp(String.raw`\b${name}\s*&`).test(src))
+    expect(byReference.length, 'no by-reference struct params found — the check would pass vacuously')
+      .toBeGreaterThan(0)
+
+    for (const name of byReference) {
+      const declared = src.indexOf(`struct ${name};`)
+      expect(declared, `struct ${name}; is never forward-declared`).toBeGreaterThan(-1)
+      expect(declared, `struct ${name}; must precede every function definition`).toBeLessThan(firstFn)
+    }
   })
 })
 

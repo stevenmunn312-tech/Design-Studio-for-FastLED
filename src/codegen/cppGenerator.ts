@@ -37,6 +37,9 @@ import { asSegmentMode, clampSegmentBrightness, segmentControllerFor } from '../
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
 import { NODE_LIBRARY } from '../state/nodeLibrary'
 import { isHardwareManagedSignalNodeType } from '../state/hardware'
+import { patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
+import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './patternSelectionCpp'
+import type { BrowserThumbnails } from '../utils/browserThumbnails'
 import {
   infoDisplayHelpersCpp, INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp, infoDisplaySetupCpp,
   infoDisplayLoopCpp, columnOffsetFor, type InfoDisplayEmit,
@@ -1374,7 +1377,11 @@ export function generateCpp(
   // a pattern-show body is not (every pattern renders through the same `leds`,
   // and a persistent-buffer node such as Trails would be clobbered by the
   // other pattern mid-transition), so showGenerator passes false.
-  opts: { externalAudio?: boolean; nativeFastLedAudio?: boolean; groupInputExprs?: Record<string, string>; psramAllowed?: boolean; aliasTerminalBuffer?: boolean } = {},
+  // `thumbnails`: baked Pattern Browser pictures, keyed by Info Display id.
+  // Handed in rather than baked here — baking evaluates patterns, and a text
+  // emitter has no business doing that, nor any way to know whether the
+  // workspace has been trusted. See utils/browserThumbnails.ts.
+  opts: { externalAudio?: boolean; nativeFastLedAudio?: boolean; groupInputExprs?: Record<string, string>; psramAllowed?: boolean; aliasTerminalBuffer?: boolean; thumbnails?: BrowserThumbnails } = {},
 ): string {
   if (nodes.length === 0) return '// No nodes in graph\n'
 
@@ -1696,6 +1703,7 @@ export function generateCpp(
   const needsDisplayText = { v: false }
   const segmentDisplays: SegmentDisplayEmit[] = []
   const infoDisplays: InfoDisplayEmit[] = []
+  const browserTables: { id: string; entries: BrowserThumbnails[string] }[] = []
   const needsXyMap = { v: false }
   // Frame-producing nodes each render into their own CRGB buffer, so multiple
   // layers can coexist and be composited. Collected here, declared as globals.
@@ -4839,6 +4847,22 @@ export function generateCpp(
           dateTimeExpr: dtUp ? `n_${safeId(dtUp.srcId)}_${dtUp.srcPort}` : null,
           indicatorExprs: Array.from({ length: STATUS_MAX_INDICATORS }, (_, i) =>
             incoming.get(`${node.id}:indicator${i + 1}`) ? boolExpr(node.id, `indicator${i + 1}`) : 'false'),
+          ...(asInfoDisplayLayout(p.infoLayout) === 'Pattern Browser'
+            ? {
+              browser: {
+                tableStem: id,
+                selVar: `_sel_${id}`,
+                // The encoder's own running count, which the contract turns
+                // into detents. A step per frame is not what the knob asked for.
+                encoderPositionExpr: incoming.get(`${node.id}:select`) ? f('select', 'select', 0) : null,
+                confirmExpr: incoming.get(`${node.id}:confirm`) ? boolExpr(node.id, 'confirm') : null,
+              },
+            }
+            : {}),
+        }
+        if (emit.browser) {
+          browserTables.push({ id, entries: opts.thumbnails?.[node.id] ?? [] })
+          setupLines.push(`  _selBegin(_sel_${id});`)
         }
         infoDisplays.push(emit)
         for (const line of infoDisplaySetupCpp(emit)) setupLines.push(line)
@@ -6226,6 +6250,10 @@ export function generateCpp(
   // generator never wrote.
   if (infoDisplays.length > 0) lines.push(INFO_DISPLAY_CPP_FORWARD)
   if (segmentDisplays.length > 0) lines.push(SEGMENT_DISPLAY_CPP_FORWARD)
+  if (nodes.some((n) => n.data.nodeType === 'InfoDisplay'
+    && asInfoDisplayLayout((n.data.properties as { infoLayout?: unknown }).infoLayout) === 'Pattern Browser')) {
+    lines.push(PATTERN_SELECTION_CPP_FORWARD)
+  }
   lines.push(``)
   if (ss) {
     lines.push(`#define SS       ${supersample}          // supersample factor: render at SS×, downscale`)
@@ -6315,6 +6343,19 @@ export function generateCpp(
   if (infoDisplays.length > 0) {
     lines.push(infoDisplayHelpersCpp())
     for (const display of infoDisplays) lines.push(infoDisplayGlobalCpp(display))
+    lines.push(``)
+  }
+
+  // Emitted only for a Pattern Browser. A table nothing reads is flash a build
+  // with no browser should not be paying for, and a player sketch with a real
+  // collection already runs into the high eighties as a percentage.
+  if (browserTables.length > 0) {
+    lines.push(PATTERN_SELECTION_CPP)
+    lines.push(THUMBNAIL_DRAW_CPP)
+    for (const table of browserTables) {
+      lines.push(patternThumbnailTableCpp(table.id, table.entries))
+      lines.push(`static PatternSel _sel_${table.id};`)
+    }
     lines.push(``)
   }
 

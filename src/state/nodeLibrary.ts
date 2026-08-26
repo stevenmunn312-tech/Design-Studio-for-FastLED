@@ -2730,9 +2730,11 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { channel: 1, activeThreshold: 1 },
   },
   {
-    // A 1-bit OLED showing one of three fixed layouts. Its ports are declared
+    // A 1-bit OLED showing one of a few fixed layouts. Its ports are declared
     // and stable: changing the layout property never adds or removes one, so a
-    // cable cannot break by switching what the panel shows.
+    // cable cannot break by switching what the panel shows. A port only one
+    // layout reads is normal here — `dateTime` is the Clock's, and the three
+    // below belong to the Pattern Browser.
     // See docs/development/design/auxiliary-displays.md.
     type: 'InfoDisplay',
     label: 'Info Display',
@@ -2749,6 +2751,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'indicator2', label: 'Indicator 2', dataType: 'bool' },
       { id: 'indicator3', label: 'Indicator 3', dataType: 'bool' },
       { id: 'indicator4', label: 'Indicator 4', dataType: 'bool' },
+      // Pattern Browser: what to browse, what turns, and what commits.
+      { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
+      { id: 'select', label: 'Select', dataType: 'float' },
+      { id: 'confirm', label: 'Confirm', dataType: 'bool' },
       { id: 'enabled', label: 'Enabled', dataType: 'bool' },
     ],
     outputs: [],
@@ -3040,7 +3046,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   FormatNumber: 'Turns a number into display text with decimals, padding, and units.',
   FormatDateTime: 'Turns a clock reading into display text such as HH:MM.',
   SegmentDisplay: 'A 4 or 8-digit 7-segment module showing a number, clock, or index.',
-  InfoDisplay: 'A 128x64 OLED showing a now-playing, clock, or status screen.',
+  InfoDisplay: 'A 128x64 OLED showing a now-playing, clock, status, or pattern-browser screen.',
   ScheduleTrigger: 'Time-of-day window/trigger driven by RTCInput clock and calendar fields.',
   BeatSin: 'Beat-synced sine oscillator — outputs a normalized low↔high value at a BPM.',
   Clock: 'BPM clock — phase/beat/bar/subdivision pulses; tap tempo, sync, and reset.',

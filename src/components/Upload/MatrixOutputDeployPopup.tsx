@@ -6,6 +6,7 @@ import { useStreamStore } from '../../state/streamStore'
 import { useMusicStore } from '../../state/musicStore'
 import { useProjectStore } from '../../state/projectStore'
 import { useCapacityStore } from '../../state/capacityStore'
+import { bakeBrowserThumbnails } from '../../utils/browserThumbnails'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph } from '../../codegen/streamReceiverGenerator'
@@ -95,7 +96,15 @@ export default function MatrixOutputDeployPopup({
   const codegenGraph = useCodegenGraph(nodes, edges)
   function generateCurrentCode() {
     const groups = getGroupRegistry()
-    const opts = { psramAllowed: psramSupported }
+    // Baked here rather than inside the generator: baking evaluates patterns,
+    // and only this side knows whether the workspace has been trusted.
+    const opts = {
+      psramAllowed: psramSupported,
+      thumbnails: bakeBrowserThumbnails(
+        codegenGraph.nodes, codegenGraph.edges, groups,
+        useGraphStore.getState().trusted, useGraphStore.getState().graphs,
+      ),
+    }
     return isPatternShow(codegenGraph.nodes, codegenGraph.edges)
       ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)
       : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)

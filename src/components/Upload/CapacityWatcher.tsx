@@ -1,8 +1,9 @@
 import { useEffect, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { getGroupRegistry, useRootEdges, useRootNodes } from '../../state/graphStore'
+import { getGroupRegistry, useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
 import { boardByFqbn, boardHasUsbCdc, engineReady, useUploadStore } from '../../state/uploadStore'
 import { useCapacityStore } from '../../state/capacityStore'
+import { bakeBrowserThumbnails } from '../../utils/browserThumbnails'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { buildShowPlayerForMeasurement, sdShowConnected } from '../../utils/showUpload'
@@ -91,7 +92,16 @@ export default function CapacityWatcher() {
       return buildShowPlayerForMeasurement(codegenGraph.nodes, codegenGraph.edges, groups, selectedFqbn, psramSupported)
     }
     if (!hasFrameInput) return null
-    const opts = { psramAllowed: psramSupported }
+    // Thumbnails are flash, and this is the thing that measures flash — leaving
+    // them out understates a Pattern Browser build, which is exactly the build
+    // most likely to be near the ceiling.
+    const opts = {
+      psramAllowed: psramSupported,
+      thumbnails: bakeBrowserThumbnails(
+        codegenGraph.nodes, codegenGraph.edges, groups,
+        useGraphStore.getState().trusted, useGraphStore.getState().graphs,
+      ),
+    }
     return isPatternShow(codegenGraph.nodes, codegenGraph.edges)
       ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)
       : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
