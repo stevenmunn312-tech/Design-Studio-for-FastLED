@@ -1071,28 +1071,6 @@ function playerControlMappingIssues(nodes: StudioNode[], edges: StudioEdge[]): P
   return issues
 }
 
-/**
- * Transport Control bindings no generator can honour yet.
- *
- * The display plan's rule is that a generator either emits a binding or blocks
- * with an actionable diagnostic — never quietly drops it. `seek` is the case
- * that exists today: the evaluator scrubs the browser preview, but no firmware
- * generator has a seek to call, so a pot wired to it would work on screen and
- * do nothing on the device. Saying so is the whole point.
- */
-export function findTransportBindingWarnings(nodes: StudioNode[], edges: StudioEdge[]): string[] {
-  const warnings: string[] = []
-  for (const node of nodes) {
-    if (node.data.nodeType !== 'TransportControl') continue
-    const seekWired = edges.some((edge) => edge.target === node.id && edge.targetHandle === 'seek')
-    if (!seekWired) continue
-    warnings.push(
-      `${nodeLabel(node)}: Seek scrubs the browser preview but no generator can emit it yet, so it will do nothing on the device — leave it unwired until firmware seek lands, or drive position from the show itself`,
-    )
-  }
-  return warnings
-}
-
 export function findPlayerControlMappingWarnings(nodes: StudioNode[], edges: StudioEdge[]): string[] {
   return playerControlMappingIssues(nodes, edges).map((issue) => `${issue.message} — the absolute control will override button changes`)
 }
@@ -1645,7 +1623,6 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   warnings.push(...findPinRangeWarnings(nodes))
   warnings.push(...findBoardPinCompatibility(nodes, selectedFqbn).warnings)
   warnings.push(...findPlayerControlMappingWarnings(nodes, edges))
-  warnings.push(...findTransportBindingWarnings(nodes, edges))
 
   const power = estimatePowerLoad(nodes)
   if (power?.exceedsConfigured) {

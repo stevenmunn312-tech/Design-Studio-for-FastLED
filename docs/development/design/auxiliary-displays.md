@@ -1,7 +1,8 @@
 # Auxiliary displays — design note
 
-Status: in progress; the `string` signal, Transport Control, the TM1637 and
-MAX7219 Segment Displays and the Info Display have shipped. The SH1106 OLED is
+Status: in progress; the `string` signal, the Music Player's song-information
+outputs, the TM1637 and MAX7219 Segment Displays and the Info Display have
+shipped. The SH1106 OLED is
 the first device driven on real hardware: panel, font, refresh and mounted
 rotation confirmed on a bench, on an ESP32-S3 over 4-wire SPI · Owner: app ·
 Date: 2026-08-25
@@ -151,13 +152,33 @@ render.
 and a `datetime` into a `string`. All three have shipped. `FormatDateTime` reads the same value shape
 `RTCInput` already produces.
 
-`TransportControl` is the single bridge for play/pause, previous, next, seek,
-volume, and pattern selection, with title, elapsed, duration, playing, pattern
-name/index/count, and volume coming back out. It binds to `playerTransport` and
-the show preview in the browser, and to explicit controller state in
-generative-show and SD-player firmware. A touch `TransportDisplay` invokes this
-bridge. It does not get its own player implementation — two player
-implementations would be two definitions of what "next" means.
+The transport is split the way the appliance is. You have a music player; you
+need something to control it; a user puts music in; the player plays it and
+says what it is playing. So `PlayerControls` sends commands — play/pause,
+previous, next, volume, brightness — through the `playercontrols` bundle, and
+`PatternMaster` (Music Player) reports back: title, artist, album, genre, year,
+status, playing, elapsed, duration, remaining, progress, volume, bitrate. One
+list, `SONG_INFO_PORTS` in `src/state/songInfo.ts`, defines those ports and the
+field behind each, so a port cannot exist with nothing filling it.
+
+A single `TransportControl` node that both commanded and reported shipped first
+and was removed. It put the song information on a node beside the player rather
+than on the player, which meant two nodes could claim to be the transport, and
+the browser was the only thing that could answer "what is playing" — exactly
+backwards for the case that matters most: a finished build with a card of files
+the app has never seen. The device reads those tags; the browser cannot.
+
+Which is why the empty fields are deliberate. In the browser, artist and album
+stay blank because a filename is not an ID3 frame, and a wrong name on a screen
+is worse than a blank row — a blank row is obviously blank. This is not one
+value computed two ways that could disagree; it is a value that only exists
+where the music does. On the device, `audio_id3data` and `audio_bitrate` fill
+them as the file reports them, and `songReset()` clears them at every track
+open so a file with no artist tag cannot wear the previous track's artist.
+
+A touch `TransportDisplay` reads and commands through the same two ends. It
+does not get its own player implementation — two player implementations would
+be two definitions of what "next" means.
 
 Runtime volume belongs to `Amplifier`, not `SDCard`. The static maximum stays
 where storage can see it; live volume routes through the transport/audio

@@ -148,11 +148,14 @@ case the OLED slice cannot already serve.
   fallback once in shared code.
 - [x] Add `TextValue` (static string), `FormatNumber` (float → string), and
   `FormatDateTime` (`datetime` → string) nodes with preview/firmware parity.
-- [x] Add a `TransportControl` bridge for play/pause, previous, next, seek,
-  volume, and pattern selection plus title, elapsed, duration, playing, pattern
-  name/index/count, and volume status outputs.
-- [x] Bind `TransportControl` to `playerTransport` / show preview in the browser
-  and to explicit controller state in generative-show and SD-player firmware.
+- [x] Split the transport across the two nodes that already model the appliance:
+  `PlayerControls` commands the player, and `PatternMaster` (Music Player)
+  reports title, artist, album, genre, year, status, elapsed, duration,
+  remaining, progress, volume, and bitrate through `SONG_INFO_PORTS`. A single
+  `TransportControl` node doing both shipped first and was removed: the thing
+  holding the music is the thing that knows what the music is.
+- [x] Fill those outputs on the device from the file's own tags, so a card the
+  app has never seen still names its tracks on a display.
 - [x] Reconcile roadmap hardware controls with the current model: runtime volume
   now belongs to `Amplifier`, not `SDCard`. Do not move the static maximum back
   to storage; route live volume through the transport/audio runtime.
@@ -169,9 +172,9 @@ case the OLED slice cannot already serve.
   `dateTime: datetime`. Its formatting mode and exact module are properties.
 - [ ] `InfoDisplay` consumes stable typed ports for its selected fixed layout;
   do not add/remove ports when a label changes.
-- [ ] `TransportDisplay` consumes the transport/status contract. A touch module
-  invokes the same transport runtime used by `TransportControl`; it does not
-  invent a second player implementation.
+- [ ] `TransportDisplay` consumes the same contract: song information in from
+  Music Player, commands out through the `playercontrols` bundle Player Controls
+  already publishes. A touch module does not invent a second player.
 - [ ] Each fixed node has a compact browser preview body that shows what the
   physical screen will render at its real aspect ratio.
 
@@ -361,9 +364,10 @@ widgets, hover state, or physical pins.
       interactive target.
   Display and touch may share SPI data/clock lines but use separate CS and
   transactions.
-- [ ] Route fixed transport actions and status through `TransportControl` so
-  browser preview, generated normal sketches, generative shows, and SD players
-  agree on edge handling, seek limits, volume, and pattern selection.
+- [ ] Route fixed transport actions through the `playercontrols` bundle and read
+  status from Music Player, so browser preview, generated normal sketches,
+  generative shows, and SD players agree on edge handling, volume, and pattern
+  selection.
 - [ ] Add calibration/rotation handling for touch and persist the exact module's
   calibration only where it is stable. Provide a generated touch self-test.
 - [ ] Bake colour pattern thumbnails/art into flash with explicit size limits;

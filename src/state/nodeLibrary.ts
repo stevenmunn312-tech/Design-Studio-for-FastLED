@@ -2152,43 +2152,6 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
-    // The display-facing counterpart to Player Controls: the same command
-    // bundle out, so Pattern Master still has exactly one thing to consume and
-    // "next" keeps one meaning — plus the status a screen needs to show, which
-    // nothing in the graph could read before.
-    // See docs/development/design/auxiliary-displays.md.
-    type: 'TransportControl',
-    label: 'Transport Control',
-    category: 'show',
-    inputs: [
-      { id: 'controlsIn', label: 'Controls In', dataType: 'playercontrols' },
-      { id: 'playPause', label: 'Play / Pause', dataType: 'bool' },
-      { id: 'previous', label: 'Previous', dataType: 'bool' },
-      { id: 'next', label: 'Next', dataType: 'bool' },
-      { id: 'seek', label: 'Seek', dataType: 'float' },
-      { id: 'volume', label: 'Volume', dataType: 'float' },
-    ],
-    outputs: [
-      { id: 'controls', label: 'Controls', dataType: 'playercontrols' },
-      { id: 'title', label: 'Title', dataType: 'string' },
-      { id: 'elapsedText', label: 'Elapsed Text', dataType: 'string' },
-      { id: 'durationText', label: 'Duration Text', dataType: 'string' },
-      { id: 'patternName', label: 'Pattern Name', dataType: 'string' },
-      { id: 'elapsed', label: 'Elapsed', dataType: 'float' },
-      { id: 'duration', label: 'Duration', dataType: 'float' },
-      { id: 'progress', label: 'Progress', dataType: 'float' },
-      { id: 'playing', label: 'Playing', dataType: 'bool' },
-      { id: 'volumeOut', label: 'Volume Out', dataType: 'float' },
-      { id: 'patternIndex', label: 'Pattern Number', dataType: 'float' },
-      { id: 'patternCount', label: 'Pattern Count', dataType: 'float' },
-    ],
-    defaultProperties: {
-      debounceMs: 30,
-      repeatDelayMs: 400,
-      repeatIntervalMs: 120,
-    },
-  },
-  {
     type: 'PlayerParticles',
     label: 'Player Particles',
     category: 'show',
@@ -3076,7 +3039,6 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   TextValue: 'A fixed line of text for a display to show.',
   FormatNumber: 'Turns a number into display text with decimals, padding, and units.',
   FormatDateTime: 'Turns a clock reading into display text such as HH:MM.',
-  TransportControl: 'Drives the player and reads back what it is playing, for a display.',
   SegmentDisplay: 'A 4 or 8-digit 7-segment module showing a number, clock, or index.',
   InfoDisplay: 'A 128x64 OLED showing a now-playing, clock, or status screen.',
   ScheduleTrigger: 'Time-of-day window/trigger driven by RTCInput clock and calendar fields.',
@@ -4079,7 +4041,6 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   showSign: 'Shows a + on positive values. Negatives always show their sign.',
   prefix: 'Text placed before the number, such as a label or currency mark.',
   suffix: 'Text placed after the number, such as a unit.',
-  seek: 'Scrub position, 0-1. A seek is a change, so a parked slider does not drag playback back to it.',
   segmentMode: 'What the four digits show: a number, a HH:MM clock, or a position in a collection.',
   leadingZero: 'Pads the number with zeros so it stops shifting as its width changes.',
   showColon: 'Lights the centre colon. A clock blinks it once a second; other modes hold it.',

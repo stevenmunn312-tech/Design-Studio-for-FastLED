@@ -145,6 +145,13 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Changed
 
+- Removed the Transport Control node. It both commanded the player and reported
+  what was playing, which left two nodes claiming to be the transport and put
+  the song information beside the player rather than on it. The model now
+  follows the appliance: Music Player holds the music and says what it is
+  playing, Player Controls controls it. Everything Transport Control offered is
+  available across those two, except its browser-only Seek, which no firmware
+  generator could emit.
 - FFT, beat, percussion, audio-feature, and spectrum analysis now consume the
   payload carried by their Audio connection in preview, recording, group/show,
   and generated-firmware paths instead of reading ambient audio state.

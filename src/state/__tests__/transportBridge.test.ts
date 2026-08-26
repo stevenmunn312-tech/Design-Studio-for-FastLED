@@ -4,10 +4,6 @@ import {
   blankButtonEdgeState,
   normalizeButtonEdgeSettings,
   DEFAULT_BUTTON_EDGE_SETTINGS,
-  scrubCommit,
-  SCRUB_EPSILON,
-  resolveTransportStatus,
-  blankTransportStatus,
   formatTransportTime,
   type ButtonEdgeState,
 } from '../transportBridge'
@@ -89,99 +85,6 @@ describe('buttonEdge', () => {
     const state = blankButtonEdgeState(0)
     buttonEdge(state, true, 0, false, s)
     expect(buttonEdge(state, true, 1000, false, s)).toBe(true)
-  })
-})
-
-describe('scrubCommit', () => {
-  // A parked slider publishes its value every frame. Treating that as a seek
-  // would drag playback back to the same spot forever.
-  it('does not seek while the control is parked', () => {
-    const state = { last: 0, seen: false }
-    expect(scrubCommit(state, 0.5)).toBeNull()
-    expect(scrubCommit(state, 0.5)).toBeNull()
-    expect(scrubCommit(state, 0.5)).toBeNull()
-  })
-
-  it('never seeks on the first reading', () => {
-    // A graph that loads with its slider at 0.5 has not asked for anything.
-    expect(scrubCommit({ last: 0, seen: false }, 0.5)).toBeNull()
-  })
-
-  it('seeks when the control moves', () => {
-    const state = { last: 0, seen: false }
-    scrubCommit(state, 0.2)
-    expect(scrubCommit(state, 0.7)).toBeCloseTo(0.7)
-  })
-
-  it('ignores jitter below the threshold', () => {
-    const state = { last: 0, seen: false }
-    scrubCommit(state, 0.5)
-    expect(scrubCommit(state, 0.5 + SCRUB_EPSILON / 2)).toBeNull()
-    expect(scrubCommit(state, 0.5 + SCRUB_EPSILON * 2)).not.toBeNull()
-  })
-
-  it('clamps out-of-range and rejects non-finite input', () => {
-    const state = { last: 0, seen: false }
-    scrubCommit(state, 0)
-    expect(scrubCommit(state, 5)).toBe(1)
-    expect(scrubCommit(state, Number.NaN)).toBeNull()
-  })
-})
-
-describe('resolveTransportStatus', () => {
-  it('reports nothing playing for an empty transport', () => {
-    expect(resolveTransportStatus({})).toEqual(blankTransportStatus())
-  })
-
-  it('converts milliseconds to seconds and derives progress', () => {
-    const status = resolveTransportStatus({ posMs: 30_000, durationMs: 120_000 })
-    expect(status.elapsedSec).toBe(30)
-    expect(status.durationSec).toBe(120)
-    expect(status.progress).toBe(0.25)
-  })
-
-  // A bar that overflows its widget is a rendering bug on a device with no room
-  // to absorb it.
-  it('never lets progress exceed one', () => {
-    const status = resolveTransportStatus({ posMs: 200_000, durationMs: 120_000 })
-    expect(status.progress).toBe(1)
-    expect(status.elapsedSec).toBe(120)
-  })
-
-  it('reports zero progress rather than dividing by an unknown duration', () => {
-    const status = resolveTransportStatus({ posMs: 30_000, durationMs: 0 })
-    expect(status.progress).toBe(0)
-    expect(status.elapsedSec).toBe(30)
-  })
-
-  it('presents the pattern position one-based for display', () => {
-    const status = resolveTransportStatus({ patternIndex: 0, patternNames: ['Fire', 'Rain', 'Waves'] })
-    expect(status.patternIndex).toBe(1)
-    expect(status.patternName).toBe('Fire')
-    expect(status.patternCount).toBe(3)
-  })
-
-  it('reports no pattern rather than a phantom first one', () => {
-    const status = resolveTransportStatus({ patternIndex: null, patternNames: ['Fire'] })
-    expect(status.patternIndex).toBe(0)
-    expect(status.patternName).toBe('')
-    expect(status.patternCount).toBe(1)
-  })
-
-  it('clamps an index past the end of the collection', () => {
-    const status = resolveTransportStatus({ patternIndex: 9, patternNames: ['Fire', 'Rain'] })
-    expect(status.patternIndex).toBe(2)
-    expect(status.patternName).toBe('Rain')
-  })
-
-  it('clamps volume to its range', () => {
-    expect(resolveTransportStatus({ volume: 3 }).volume).toBe(1)
-    expect(resolveTransportStatus({ volume: -1 }).volume).toBe(0)
-    expect(resolveTransportStatus({ volume: Number.NaN }).volume).toBe(0)
-  })
-
-  it('treats a missing playing flag as not playing', () => {
-    expect(resolveTransportStatus({ playing: null }).playing).toBe(false)
   })
 })
 
