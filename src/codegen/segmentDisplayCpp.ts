@@ -33,6 +33,19 @@ const BLANK = `0x${SEGMENT_GLYPHS[' '].toString(16).padStart(2, '0')}`
  * transports are bit-banged, so rewriting every frame would spend more time
  * clocking digits than rendering the pixels they report on.
  */
+/**
+ * Forward declaration for the top of a sketch, above the includes' first
+ * function.
+ *
+ * The Arduino .ino preprocessor hoists a prototype for every function it finds
+ * to a point above all user type definitions, so `struct SegDisplay` — declared with
+ * the helpers, far down the file — is not yet a name when the prototype for a
+ * helper taking one by reference arrives. The build then fails on a line the
+ * generator never wrote. The same trap already cost the FastLED declarations
+ * that sit beside this one in the emitted preamble.
+ */
+export const SEGMENT_DISPLAY_CPP_FORWARD = 'struct SegDisplay;'
+
 export const SEGMENT_DISPLAY_CPP_HELPERS = `// ── Segment displays ────────────────────────────────────────────────────────
 // Mirrors src/state/segmentDisplay.ts so a module shows what the preview does.
 #define SEG_MAX_DIGITS ${MAX_DIGITS}

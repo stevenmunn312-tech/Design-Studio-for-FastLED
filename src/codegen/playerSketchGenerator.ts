@@ -15,9 +15,10 @@ import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75Hardwar
 import { sanitizePin } from './hardwarePins'
 import { PLAYER_SONG_INFO_CPP } from './playerSongInfoCpp'
 import type { PlayerDisplays } from './playerDisplays'
-import { infoDisplayHelpersCpp, infoDisplayGlobalCpp, infoDisplaySetupCpp, infoDisplayLoopCpp } from './infoDisplayCpp'
+import { infoDisplayHelpersCpp, INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp, infoDisplaySetupCpp, infoDisplayLoopCpp } from './infoDisplayCpp'
 import {
-  SEGMENT_DISPLAY_CPP_HELPERS, segmentDisplayGlobalCpp, segmentDisplaySetupCpp, segmentDisplayLoopCpp,
+  SEGMENT_DISPLAY_CPP_HELPERS, SEGMENT_DISPLAY_CPP_FORWARD, segmentDisplayGlobalCpp,
+  segmentDisplaySetupCpp, segmentDisplayLoopCpp,
 } from './segmentDisplayCpp'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { audioOutputMode } from '../state/audioOutput'
@@ -852,9 +853,13 @@ ${isHub75 ? hub75IncludesCpp(hub75Hw!).join('\n') + '\n' : ''}#include <SD.h>
 #include <SPI.h>
 
 // Explicit FastLED-typed declarations keep the Arduino preprocessor from
-// inventing its own before <FastLED.h>, which breaks CRGB names.
+// inventing its own before <FastLED.h>, which breaks CRGB names. The
+// display structs are forward-declared here for the same reason: the
+// preprocessor hoists helper prototypes above the point those types are
+// defined, so a helper taking one by reference fails on a line nothing
+// in this generator wrote.
 ${[...fastLedDecls].join('\n')}
-
+${hasInfoDisplays ? INFO_DISPLAY_CPP_FORWARD + '\n' : ''}${hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_FORWARD + '\n' : ''}
 // ── Pin config ────────────────────────────────────────────────────────────────
 ${isHub75 ? '' : `#define LED_DATA_PIN  ${c.ledDataPin}\n`}${clockPinDefine}#define WIDTH         ${c.ledWidth}
 #define HEIGHT        ${c.ledHeight}

@@ -30,7 +30,7 @@ import {
   DISPLAY_TEXT_CPP_HELPERS, textValueCpp, formatNumberCpp, formatDateTimeCpp,
 } from './displayTextCpp'
 import {
-  SEGMENT_DISPLAY_CPP_HELPERS, segmentDisplayGlobalCpp, segmentDisplaySetupCpp,
+  SEGMENT_DISPLAY_CPP_HELPERS, SEGMENT_DISPLAY_CPP_FORWARD, segmentDisplayGlobalCpp, segmentDisplaySetupCpp,
   segmentDisplayLoopCpp, type SegmentDisplayEmit,
 } from './segmentDisplayCpp'
 import { asSegmentMode, clampSegmentBrightness, segmentControllerFor } from '../state/segmentDisplay'
@@ -38,7 +38,7 @@ import { MAX_PIN_NUMBER } from '../state/boardGpio'
 import { NODE_LIBRARY } from '../state/nodeLibrary'
 import { isHardwareManagedSignalNodeType } from '../state/hardware'
 import {
-  infoDisplayHelpersCpp, infoDisplayGlobalCpp, infoDisplaySetupCpp,
+  infoDisplayHelpersCpp, INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp, infoDisplaySetupCpp,
   infoDisplayLoopCpp, columnOffsetFor, type InfoDisplayEmit,
 } from './infoDisplayCpp'
 import { asInfoDisplayLayout, STATUS_MAX_INDICATORS } from '../state/infoDisplay'
@@ -6220,6 +6220,12 @@ export function generateCpp(
     lines.push(`#endif`)
   }
   if (audio) lines.push(audio.include)
+  // Above every function, because the Arduino .ino preprocessor hoists a
+  // prototype for each one to a point above where these types are defined.
+  // A helper taking one by reference then fails to compile on a line this
+  // generator never wrote.
+  if (infoDisplays.length > 0) lines.push(INFO_DISPLAY_CPP_FORWARD)
+  if (segmentDisplays.length > 0) lines.push(SEGMENT_DISPLAY_CPP_FORWARD)
   lines.push(``)
   if (ss) {
     lines.push(`#define SS       ${supersample}          // supersample factor: render at SS×, downscale`)
