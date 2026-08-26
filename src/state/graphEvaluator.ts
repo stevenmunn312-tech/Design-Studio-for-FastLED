@@ -25,6 +25,10 @@ import {
 } from './displayText'
 import { useUiStore } from './uiStore'
 import { songInfoOutputs, resolveSongInfo } from './songInfo'
+import {
+  blankPatternSelection, blankPatternCursor, reconcilePatternCursor, updatePatternSelection,
+  patternSelectionView, type PatternSelectionState, type PatternCursor,
+} from './patternSelection'
 import { asFont, textBlockLayout, textAlignMode, TEXT_LINE_GAP, type BitmapFont, DEFAULT_FONT } from './font'
 import { animatedImageFrame, asAnimatedImage, asImage, sampleImageToFrame, type ImageData } from './image'
 import { imagePaletteStops16, type ImagePaletteSource } from './imagePalette'
@@ -3839,8 +3843,15 @@ export function compositeTransition(
 }
 
 interface ShowState {
-  cur: number; nxt: number; phase: 'hold' | 'trans'
-  start: number; dwell: number; trans: string; lastBeat: boolean; n: number
+  /** Which pattern is running, through the shared selection contract. */
+  sel: PatternSelectionState
+  /** The pattern a running transition is heading for. */
+  next: PatternCursor
+  /** The collection as last seen, so a reader can resolve the selection
+   *  without re-deriving it from the graph. */
+  ids: readonly string[]
+  phase: 'hold' | 'trans'
+  start: number; dwell: number; trans: string; lastBeat: boolean
   seed: number
   /** The most recent beat-triggered particle burst, if any — style/colour are
    *  rolled once when the burst starts (randomStyle/randomColor) so they stay
@@ -3851,6 +3862,10 @@ export interface PatternShowSelection {
   currentIndex: number
   nextIndex: number
   transitioning: boolean
+  /** The pattern a browser is looking at, which is the current one unless
+   *  something is browsing away from it. */
+  highlightIndex: number
+  browsing: boolean
 }
 interface ShowOpts {
   minTime: number; maxTime: number; transSec: number; pool: string[]; beatEnabled: boolean
@@ -3864,10 +3879,13 @@ interface ShowOpts {
 export function getPatternShowSelection(key: string): PatternShowSelection | null {
   const st = patternShowState.get(key)
   if (!st) return null
+  const view = patternSelectionView(st.sel, st.ids)
   return {
-    currentIndex: st.cur,
-    nextIndex: st.nxt,
+    currentIndex: view.activeIndex,
+    nextIndex: st.next.index,
     transitioning: st.phase === 'trans',
+    highlightIndex: view.highlightIndex,
+    browsing: view.browsing,
   }
 }
 
@@ -4022,11 +4040,24 @@ function evalPatternShow(
   const pickDwell = () => o.minTime + rnd() * Math.max(0, o.maxTime - o.minTime)
 
   let st = patternShowState.get(key)
-  if (!st || st.n !== n || st.seed !== o.seed) {
+  if (!st || st.seed !== o.seed) {
+    // Only a new show or a re-seeded one starts over. A collection that gained
+    // or lost a pattern used to land here too, which restarted the dwell and
+    // jumped to a random pattern — editing the collection of a running show
+    // interrupted the show.
     seededRngState.delete(`${key}:show`)
-    st = { cur: Math.min(st?.cur ?? Math.floor(rnd() * n), n - 1), nxt: 0,
-           phase: 'hold', start: t, dwell: pickDwell(), trans: 'crossfade', lastBeat: beat, n, seed: o.seed }
+    st = { sel: blankPatternSelection(), next: blankPatternCursor(), ids,
+           phase: 'hold', start: t, dwell: pickDwell(), trans: 'crossfade', lastBeat: beat, seed: o.seed }
+    updatePatternSelection(st.sel, { ids, nowMs: t * 1000, setActive: Math.floor(rnd() * n) })
   }
+
+  // Every frame, because the collection can change under a running show. The
+  // contract keeps playing the same pattern through a reorder and hands a
+  // deleted pattern's slot to whatever took it.
+  updatePatternSelection(st.sel, { ids, nowMs: t * 1000 })
+  reconcilePatternCursor(st.next, ids)
+  st.ids = ids
+  const cur = st.sel.active.index
 
   const beatEdge = o.beatEnabled && beat && !st.lastBeat
   st.lastBeat = beat
@@ -4046,7 +4077,9 @@ function evalPatternShow(
     const timeUp = t >= st.start + st.dwell
     const beatTrig = beatEdge && t >= st.start + o.minTime
     if (timeUp || beatTrig) {
-      st.nxt = (st.cur + 1 + Math.floor(rnd() * (n - 1))) % n   // uniform, ≠ cur
+      const target = (cur + 1 + Math.floor(rnd() * (n - 1))) % n   // uniform, ≠ cur
+      st.next.index = target
+      st.next.id = ids[target]
       st.trans = o.pool.length ? o.pool[Math.floor(rnd() * o.pool.length)] : 'crossfade'
       st.phase = 'trans'
       st.start = t
@@ -4056,15 +4089,17 @@ function evalPatternShow(
   let frame: Frame
   if (st.phase === 'trans') {
     const prog = o.transSec <= 0 ? 1 : Math.min(1, (t - st.start) / o.transSec)
-    frame = compositeTransition(st.trans, render(ids[st.cur]), render(ids[st.nxt]), prog, W, H)
+    frame = compositeTransition(st.trans, render(ids[cur]), render(ids[st.next.index]), prog, W, H)
     if (prog >= 1) {
-      st.cur = st.nxt
+      // The show's own advance goes through the contract, so a display naming
+      // the pattern and the show playing it cannot disagree.
+      updatePatternSelection(st.sel, { ids, nowMs: t * 1000, setActive: st.next.index })
       st.phase = 'hold'
       st.start = t
       st.dwell = pickDwell()
     }
   } else {
-    frame = render(ids[st.cur])
+    frame = render(ids[cur])
   }
 
   // Overlay a beat-triggered particle burst additively (pre-brightness), the

@@ -52,6 +52,59 @@ Player Particles --------------------particleFx----┘          ^
                                                     transition pool + beat triggers
 ```
 
+### Which pattern is playing
+
+`src/state/patternSelection.ts` is the one definition of *which pattern*, and it
+exists because four things need to agree about it and none of them can see each
+other: an encoder turning on a panel, the OLED Pattern Browser drawing what it
+selected, this show advancing on its own, and the SD player doing the same on a
+device with no app attached.
+
+The model is a browser sitting over a player. **Active** is the pattern that is
+running. **Highlight** is the one you are looking at. They are the same until
+something moves the highlight, and they converge again when you either confirm
+it or stop touching it for `PATTERN_BROWSE_TIMEOUT_MS`. Without that split,
+scrolling past a pattern would play it — which is how you get a strobe you never
+asked for while hunting for something else.
+
+The rules the four callers would otherwise each invent:
+
+- **Wrapping.** Past the end goes to the start, and before the start goes to the
+  end. A shaft that keeps turning and does nothing reads as broken, and an
+  encoder has no ends to hit.
+- **Confirmation.** A press commits the highlight. Confirming what is already
+  playing is not a change but still ends the browse, which is what a press means
+  when you land back where you started.
+- **Ordering.** An auto-advance and a press landing on the same frame resolve in
+  the user's favour, rather than by whichever branch happens to run first.
+- **The collection changing underneath.** A cursor carries both an id and an
+  index, and each covers the other's blind spot. The id survives a reorder, so
+  dragging a pattern up the list does not change what is on the LEDs. The index
+  survives a deletion, so removing the running pattern hands its slot to
+  whatever took it rather than dumping the show back at the top.
+
+That last rule is why this landed as shared code rather than as a helper inside
+the show. The show's state used to be keyed on the pattern *count*, so adding or
+removing one pattern restarted the whole show at a random pattern with a fresh
+dwell — editing a collection interrupted the show you were editing it for.
+
+An encoder's running count is not a step: the generated decoder counts every A/B
+transition, so one detent of a KY-040 is four counts, and stepping per count
+scrolls four patterns per click. `encoderSteps` divides by a caller-supplied
+`ENCODER_COUNTS_PER_STEP`, because the browser's encoder body produces mouse
+drag rather than quadrature and the two are genuinely different units. It also
+ignores the first reading — a graph that loads with its encoder parked at 37 has
+not asked for anything — and treats a jump beyond `ENCODER_RESEAT_COUNTS` as a
+re-seat rather than travel, which is what Reset On Press slamming the count to
+zero looks like.
+
+**Firmware.** On a device the collection is fixed at compile time, so
+reconciliation is browser-only by construction; wrapping, confirmation and the
+active/highlight split are the shared half. Those land in generated code when
+the Pattern Browser gives them an input to read — emitting them before there is
+a caller would be a second definition of the same rules, which is the thing this
+module exists to prevent.
+
 ### Physical player controls
 
 `PlayerControls` is the semantic boundary between physical inputs and playback.

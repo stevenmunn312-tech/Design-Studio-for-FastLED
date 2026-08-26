@@ -57,6 +57,11 @@ chosen from a property, and changing that property does not add or remove ports.
 This matters because a port is what a cable attaches to: a node whose ports move
 when a label changes is a node whose cables silently break.
 
+The Info Display's Pattern Browser layout reads the shared selection contract
+rather than tracking an index of its own — active versus highlighted, wrapping,
+confirm, and what happens when the collection changes are defined once in
+[the generative pattern show note](generative-pattern-show.md#which-pattern-is-playing).
+
 **The freeform `Display` node** is the only node with widget-derived dynamic
 ports, and it is deliberately last. It owns a `displayId` and derives its ports
 from the widgets in the matching `DisplayDocument`.

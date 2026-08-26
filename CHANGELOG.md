@@ -9,6 +9,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Editing a Pattern Collection no longer interrupts the show playing it.
+  The show's state was keyed on the pattern count, so adding or removing one
+  pattern restarted the whole show at a random pattern with a fresh dwell —
+  building a collection meant repeatedly interrupting the thing you were
+  building it for. A reorder now keeps playing the same pattern, and removing
+  the playing one hands its slot to whatever took it.
 - Displays are evaluated every preview frame rather than at the slower
   publish cadence. They were treated as code-generation terminals but not as
   evaluation ones, so a display and everything wired into it were skipped on

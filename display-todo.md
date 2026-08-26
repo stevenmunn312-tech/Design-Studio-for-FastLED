@@ -343,9 +343,15 @@ widgets, hover state, or physical pins.
   generated.
 - [x] Add dirty-region/value checks or a bounded refresh rate so I²C display
   traffic does not stall LED rendering.
-- [ ] Implement a runtime pattern-selection contract shared by encoder input,
-  OLED browser, generative show, and SD player. Define wrapping, confirmation,
-  active-vs-highlighted selection, and behaviour when the collection changes.
+- [x] Define the runtime pattern-selection contract once in
+  `src/state/patternSelection.ts`: wrapping, confirmation, active-vs-highlighted
+  selection, encoder counts-per-detent, and what happens when the collection
+  changes. The generative show reads it, which fixed a running show restarting
+  at a random pattern whenever its collection was edited.
+- [ ] Emit the shared half of that contract — wrapping, confirmation, the
+  active/highlight split — into generated firmware once the Pattern Browser
+  gives it an input to read. Collection reconciliation stays browser-only: on
+  a device the collection is fixed at compile time.
 - [ ] Bake Pattern Collection thumbnails during export/codegen:
   - evaluate each group at a deterministic representative tick and dimensions;
   - downsample/dither to the target 1-bit thumbnail size with one shared helper;
