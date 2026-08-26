@@ -712,7 +712,6 @@ describe('StudioNode', () => {
         width: 16,
         height: 16,
         chipset: 'WS2812B',
-        brightness: 200,
         overclock: 1,
         powerLimit: true,
         volts: 5,
@@ -725,7 +724,11 @@ describe('StudioNode', () => {
 
       const keys = [...powerHeader.parentElement!.querySelectorAll('[class*="propKey"]')]
         .map((key) => key.textContent ?? '')
-      expect(keys).toEqual(['brightness', 'overclock', 'powerLimit', 'volts', 'milliamps'])
+      expect(keys).toEqual(['overclock', 'powerLimit', 'volts', 'milliamps'])
+      // Master brightness is the Board's, on FastLED's 0-255. Offered here too
+      // it fell through to the shared 0-1 meta and wrote a frame scale into the
+      // field the Board migration reads as 0-255 — 0.85 became 1.
+      expect(keys).not.toContain('brightness')
     })
   })
 

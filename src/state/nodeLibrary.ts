@@ -4360,7 +4360,12 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     ] },
     { key: 'layout', label: 'Layout', keys: ['layout', 'tilesX', 'tilesY', 'tileSerpentine', 'tileRotations', 'customXYMap'] },
     { key: 'rendering', label: 'Rendering', keys: ['supersample', 'correction', 'dither'] },
-    { key: 'power', label: 'Power', keys: ['brightness', 'overclock', 'powerLimit', 'volts', 'milliamps'] },
+    // No 'brightness' here: master brightness is the Board's, on FastLED's
+    // native 0-255. Offered on the output too it resolved through the shared
+    // 0-1 `brightness` meta, so the slider wrote a frame-scale value into the
+    // field the Board migration reads as 0-255 — 0.85 became 1, and every
+    // load re-applied it. Two controls, two scales, one property name.
+    { key: 'power', label: 'Power', keys: ['overclock', 'powerLimit', 'volts', 'milliamps'] },
   ],
   Image: [
     { key: 'transform', label: 'Transform', keys: ['fit', 'positionX', 'positionY', 'rotation', 'flipX', 'flipY', 'zoom', 'cropX', 'cropY'] },
