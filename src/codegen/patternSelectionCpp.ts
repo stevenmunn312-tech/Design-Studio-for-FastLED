@@ -109,5 +109,20 @@ static bool _selUpdate(PatternSel &s, uint16_t count, uint32_t now, int steps, b
   return false;
 }
 
+/*
+ * The show's own advance, by index.
+ *
+ * Goes through the selection rather than assigning a pattern id directly, so a
+ * dwell-driven change and a confirmed one move the same cursor. While someone
+ * is browsing the highlight is left alone — the show carries on underneath and
+ * the panel keeps showing what you are looking at.
+ */
+static void _selSetActive(PatternSel &s, uint16_t count, uint16_t index) {
+  if (count == 0) return;
+  if (index >= count) index = (uint16_t)(count - 1);
+  s.active = index;
+  if (s.browseUntilMs == 0) s.highlight = index;
+}
+
 static bool _selBrowsing(const PatternSel &s) { return s.browseUntilMs != 0; }
 `

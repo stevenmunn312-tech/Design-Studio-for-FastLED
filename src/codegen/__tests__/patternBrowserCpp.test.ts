@@ -31,10 +31,7 @@ const emit = (over: Partial<InfoDisplayEmit> = {}): InfoDisplayEmit => ({
   titleExpr: null, line2Expr: null, valueExpr: '0.0f', progressExpr: '0.0f',
   playingExpr: 'false', volumeExpr: '0.0f', durationExpr: '0.0f',
   dateTimeExpr: null, indicatorExprs: [],
-  browser: {
-    tableStem: 'br', selVar: '_sel_br',
-    encoderPositionExpr: 'n_enc_position', confirmExpr: '_encPressed',
-  },
+  browser: { tableStem: 'br', selVar: '_sel_br' },
   ...over,
 })
 
@@ -124,17 +121,21 @@ describe('the emitted layout', () => {
     expect(src).toContain(`${BROWSER_LAYOUT.textX}, ${infoRowY(1)}`)
   })
 
-  it('drives the selection from the encoder it was given', () => {
-    expect(loop()).toContain('_selEncoderSteps(_sel_br, (long)lroundf(n_enc_position))')
-    expect(loop()).toContain('_selUpdate(_sel_br, THUMB_COUNT_br,')
+  // The panel draws the selection; the player advances it, from the controls
+  // bundle. A display that also stepped it would be a second opinion about
+  // what a click meant — which is the bug this refactor removed.
+  it('reads the selection rather than advancing it', () => {
+    const src = loop()
+    expect(src).not.toContain('_selUpdate(')
+    expect(src).not.toContain('_selEncoderSteps(')
+    expect(src).toContain('_sel_br.highlight')
+    expect(src).toContain('_oledThumb(')
   })
 
-  it('still draws with no encoder wired, just without stepping', () => {
-    const src = loop({
-      browser: { tableStem: 'br', selVar: '_sel_br', encoderPositionExpr: null, confirmExpr: null },
-    })
-    expect(src).toContain('_selUpdate(_sel_br, THUMB_COUNT_br, _oledNow_br, 0, false)')
-    expect(src).toContain('_oledThumb(')
+  it('names the player\'s selection, so two panels read one cursor', () => {
+    const src = loop({ browser: { tableStem: 'shared', selVar: '_sel_shared' } })
+    expect(src).toContain('_sel_shared.highlight')
+    expect(src).toContain('THUMB_COUNT_shared')
   })
 
   it('says so rather than drawing an empty frame for an empty collection', () => {

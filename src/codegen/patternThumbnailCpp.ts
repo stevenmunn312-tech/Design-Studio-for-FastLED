@@ -58,7 +58,19 @@ export function patternThumbnailTableCpp(id: string, entries: readonly Thumbnail
 #define THUMB_H_${s}      ${THUMBNAIL_H}
 #define THUMB_BYTES_${s}  ${THUMBNAIL_BYTES}
 #define THUMB_COUNT_${s}  ${count}
-${count === 0 ? `// The collection is empty, so there is nothing to bake.` : `
+${count === 0 ? `// Nothing baked. The readers still exist and answer emptily, because the
+// layout that calls them is emitted either way — a table that defines only its
+// sizes leaves the panel calling functions that were never written, which is a
+// build failure rather than the blank screen it should be.
+static void _thumbName_${s}_read(char *dst, size_t dstSize, uint16_t index) {
+  (void)index;
+  if (dstSize) dst[0] = 0;
+}
+
+static uint8_t _thumbByte_${s}(uint16_t index, uint16_t offset) {
+  (void)index; (void)offset;
+  return 0;
+}` : `
 static const uint8_t _thumbData_${s}[THUMB_COUNT_${s}][THUMB_BYTES_${s}] PROGMEM = {
 ${entries.map((entry) => `  {\n${byteRows(entry.thumbnail.data).join('\n')}\n  },`).join('\n')}
 };

@@ -7,7 +7,7 @@
 // it says so on the panel rather than drawing a blank square.
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { bakeBrowserThumbnails, browserPatternIds, patternBrowsers } from '../browserThumbnails'
+import { bakeBrowserThumbnails, browserPlayer, playerPatternIds, patternBrowsers } from '../browserThumbnails'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { resetEvaluatorState, type GroupRegistry } from '../../state/graphEvaluator'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
@@ -48,9 +48,18 @@ const output = node('out', 'MatrixOutput', {
 })
 const collection = node('coll', 'PatternCollection', { patternIds: ['white', 'dark'] })
 
+const master = node('master', 'PatternMaster')
+
+// Collection -> player -> panel. The panel names the player, not the
+// collection: one wire, and no way to picture a different set from the one
+// being selected.
 const graph = (extraNodes: StudioNode[] = [], extraEdges: StudioEdge[] = []) => ({
-  nodes: [output, collection, browserNode(), ...extraNodes],
-  edges: [edge('e1', 'coll', 'patternset', 'brw', 'patternset'), ...extraEdges],
+  nodes: [output, collection, master, browserNode(), ...extraNodes],
+  edges: [
+    edge('e1', 'coll', 'patternset', 'master', 'patternset'),
+    edge('e2', 'master', 'patternSelect', 'brw', 'patternSelect'),
+    ...extraEdges,
+  ],
 })
 
 describe('finding the browsers in a graph', () => {
@@ -59,12 +68,18 @@ describe('finding the browsers in a graph', () => {
     expect(patternBrowsers(nodes).map((n) => n.id)).toEqual(['brw'])
   })
 
-  // Two browsers can show different collections, so guessing from whatever
-  // collection is in the graph would give the second one the first's patterns.
-  it('reads each browser from its own wire, not from the graph at large', () => {
+  it('finds the player a browser reads, and the patterns behind it', () => {
     const { nodes, edges } = graph()
-    expect(browserPatternIds(browserNode(), nodes, edges)).toEqual(['white', 'dark'])
-    expect(browserPatternIds(node('lonely', 'InfoDisplay', {}), nodes, edges)).toEqual([])
+    const player = browserPlayer(browserNode(), nodes, edges)
+    expect(player?.id).toBe('master')
+    expect(playerPatternIds(player!, nodes, edges)).toEqual(['white', 'dark'])
+  })
+
+  // Without a player there is no selection to display, so there is nothing to
+  // bake a picture of either.
+  it('finds no player for an unwired browser', () => {
+    const { nodes, edges } = graph()
+    expect(browserPlayer(node('lonely', 'InfoDisplay', {}), nodes, edges)).toBeUndefined()
   })
 })
 
@@ -76,18 +91,24 @@ describe('baking for a graph', () => {
     const baked = bakeBrowserThumbnails(nodes, edges, GROUPS, true, {
       white: { name: 'WHITEOUT' }, dark: { name: 'NIGHT' },
     })
-    expect(baked.brw.map((entry) => entry.name)).toEqual(['WHITEOUT', 'NIGHT'])
-    expect(baked.brw[0].thumbnail.data).toHaveLength(THUMBNAIL_BYTES)
+    expect(baked.master.map((entry) => entry.name)).toEqual(['WHITEOUT', 'NIGHT'])
+    expect(baked.master[0].thumbnail.data).toHaveLength(THUMBNAIL_BYTES)
   })
 
   it('falls back to the group id when the graph has no name for it', () => {
     const { nodes, edges } = graph()
-    expect(bakeBrowserThumbnails(nodes, edges, GROUPS, true).brw.map((e) => e.name))
+    expect(bakeBrowserThumbnails(nodes, edges, GROUPS, true).master.map((e) => e.name))
       .toEqual(['white', 'dark'])
   })
 
   it('bakes nothing for a graph with no browser', () => {
-    expect(bakeBrowserThumbnails([output, collection], [], GROUPS, true)).toEqual({})
+    expect(bakeBrowserThumbnails([output, collection, master], [], GROUPS, true)).toEqual({})
+  })
+
+  // A panel wired to nothing has no selection to show, so baking for it would
+  // be pictures of a collection it was never pointed at.
+  it('bakes nothing for a browser with no player', () => {
+    expect(bakeBrowserThumbnails([output, collection, browserNode()], [], GROUPS, true)).toEqual({})
   })
 
   // Trust is the caller's to know, and an untrusted workspace must not get its
@@ -104,16 +125,19 @@ describe('baking for a graph', () => {
         edges: [edge('e', 'f', 'frame', 'o', 'frame')],
       },
     } as unknown as GroupRegistry
-    const nodes = [output, node('coll', 'PatternCollection', { patternIds: ['formula'] }), browserNode()]
-    const edges = [edge('e1', 'coll', 'patternset', 'brw', 'patternset')]
+    const nodes = [output, node('coll', 'PatternCollection', { patternIds: ['formula'] }), master, browserNode()]
+    const edges = [
+      edge('e1', 'coll', 'patternset', 'master', 'patternset'),
+      edge('e2', 'master', 'patternSelect', 'brw', 'patternSelect'),
+    ]
     const lit = (entry: { thumbnail: { data: Uint8Array } }) =>
       Array.from(entry.thumbnail.data).reduce((n, b) => n + b, 0)
 
-    const trusted = bakeBrowserThumbnails(nodes, edges, groups, true).brw[0]
+    const trusted = bakeBrowserThumbnails(nodes, edges, groups, true).master[0]
     expect(lit(trusted), 'the formula must draw when trusted').toBeGreaterThan(0)
 
     resetEvaluatorState()
-    expect(lit(bakeBrowserThumbnails(nodes, edges, groups, false).brw[0])).toBe(0)
+    expect(lit(bakeBrowserThumbnails(nodes, edges, groups, false).master[0])).toBe(0)
   })
 })
 
@@ -130,10 +154,11 @@ describe('the generated sketch', () => {
     const src = generateCpp(nodes, edges, GROUPS, {
       thumbnails: bakeBrowserThumbnails(nodes, edges, GROUPS, true),
     })
-    expect(src).toContain('#define THUMB_COUNT_brw  2')
+    // Named for the player, because the player owns the selection.
+    expect(src).toContain('#define THUMB_COUNT_master  2')
     expect(src).toContain('#define SEL_BROWSE_MS')
-    expect(src).toContain('static PatternSel _sel_brw;')
-    expect(src).toContain('_selBegin(_sel_brw);')
+    expect(src).toContain('static PatternSel _sel_master;')
+    expect(src).toContain('_selBegin(_sel_master);')
     expect(src).toContain('_oledThumb(')
   })
 
@@ -148,31 +173,19 @@ describe('the generated sketch', () => {
   // table and "NO PATTERNS", rather than a blank square that looks like a bug.
   it('still builds when nothing was baked for it', () => {
     const src = build()
-    expect(src).toContain('#define THUMB_COUNT_brw  0')
+    expect(src).toContain('#define THUMB_COUNT_master  0')
     expect(src).toContain('"NO PATTERNS"')
   })
 
-  it('drives the selection from a wired encoder and press', () => {
-    const encoder = node('enc', 'EncoderInput', { pinA: 8, pinB: 9, pinSW: 10 })
-    const src = generateCpp(
-      [output, collection, browserNode(), encoder],
-      [
-        edge('e1', 'coll', 'patternset', 'brw', 'patternset'),
-        edge('e2', 'enc', 'position', 'brw', 'select'),
-        edge('e3', 'enc', 'pressed', 'brw', 'confirm'),
-      ],
-      GROUPS,
-    )
-    expect(src).toContain('_selEncoderSteps(_sel_brw,')
-    expect(src).toContain('_selUpdate(_sel_brw,')
-    // The press reaches the contract as the confirm argument rather than being
-    // folded into the step count.
-    expect(src).toContain(
-      '_selUpdate(_sel_brw, THUMB_COUNT_brw, _oledNow_brw, '
-      + '_selEncoderSteps(_sel_brw, (long)lroundf(n_enc_position)), n_enc_pressed);')
-  })
-
-  it('still draws with no encoder wired, just without stepping', () => {
-    expect(build()).toContain('_selUpdate(_sel_brw, THUMB_COUNT_brw, _oledNow_brw, 0, false)')
+  // The panel reads; it does not step. The encoder reaches the selection
+  // through Player Controls, which is where physical inputs become intent.
+  it('leaves the panel reading rather than deciding', () => {
+    const src = build()
+    // Scoped to the display's own block: the contract still *defines*
+    // _selUpdate, it just is not the panel that calls it.
+    const block = src.slice(src.indexOf('{ // Info Display'))
+    expect(block).not.toContain('_selUpdate(')
+    expect(block).not.toContain('_selEncoderSteps(')
+    expect(block).toContain('_sel_master.highlight')
   })
 })

@@ -20,18 +20,30 @@ import { asInfoDisplayLayout } from '../state/infoDisplay'
 export type BrowserThumbnails = Record<string, ThumbnailEmit[]>
 
 /**
- * The pattern ids a Pattern Browser is pointed at.
+ * The player a Pattern Browser reads, or undefined when it is not wired to one.
  *
- * Read from its own `patternset` wire rather than from whatever collection
- * happens to be in the graph: two browsers can show different collections, and
- * guessing would silently give the second one the first one's patterns.
+ * A panel no longer names its own collection: it names the player that owns
+ * the selection, and the player already has the patterns. One wire instead of
+ * two, and no way to point the picture at a different collection from the one
+ * being selected.
  */
-export function browserPatternIds(
+export function browserPlayer(
   display: StudioNode,
   nodes: readonly StudioNode[],
   edges: readonly StudioEdge[],
+): StudioNode | undefined {
+  const wire = edges.find((edge) => edge.target === display.id && edge.targetHandle === 'patternSelect')
+  if (!wire) return undefined
+  return nodes.find((node) => node.id === wire.source && node.data.nodeType === 'PatternMaster')
+}
+
+/** The pattern ids behind a player, through its own collection wire. */
+export function playerPatternIds(
+  player: StudioNode,
+  nodes: readonly StudioNode[],
+  edges: readonly StudioEdge[],
 ): string[] {
-  const wire = edges.find((edge) => edge.target === display.id && edge.targetHandle === 'patternset')
+  const wire = edges.find((edge) => edge.target === player.id && edge.targetHandle === 'patternset')
   if (!wire) return []
   const collection = nodes.find((node) => node.id === wire.source)
   const ids = (collection?.data.properties as { patternIds?: string[] } | undefined)?.patternIds
@@ -60,13 +72,15 @@ export function bakeBrowserThumbnails(
 ): BrowserThumbnails {
   const out: BrowserThumbnails = {}
   for (const display of patternBrowsers(nodes)) {
-    const ids = browserPatternIds(display, nodes, edges)
+    const player = browserPlayer(display, nodes, edges)
+    if (!player) continue
+    const ids = playerPatternIds(player, nodes, edges)
     const baked = bakePatternThumbnails(ids, groups, trusted)
     // An over-budget collection bakes nothing and the panel says so, rather
     // than shipping half a set of pictures — the patterns without one would
     // look broken rather than like the ones that ran out of flash.
     if (baked.issue) continue
-    out[display.id] = baked.thumbnails.map((entry) => ({
+    out[player.id] = baked.thumbnails.map((entry) => ({
       name: graphNames[entry.groupId]?.name ?? entry.groupId,
       thumbnail: entry.thumbnail,
     }))

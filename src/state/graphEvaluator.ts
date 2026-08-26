@@ -24,10 +24,12 @@ import {
   formatDateTimeText, asDateTimeTextMode, type DateTimeTextFields,
 } from './displayText'
 import { useUiStore } from './uiStore'
+import { useGraphStore } from './graphStore'
 import { songInfoOutputs, resolveSongInfo } from './songInfo'
 import {
   blankPatternSelection, blankPatternCursor, reconcilePatternCursor, updatePatternSelection,
-  patternSelectionView, type PatternSelectionState, type PatternCursor,
+  patternSelectionView, encoderSteps, blankPatternSelectValue,
+  type PatternSelectionState, type PatternCursor, type PatternSelectValue,
 } from './patternSelection'
 import { asFont, textBlockLayout, textAlignMode, TEXT_LINE_GAP, type BitmapFont, DEFAULT_FONT } from './font'
 import { animatedImageFrame, asAnimatedImage, asImage, sampleImageToFrame, type ImageData } from './image'
@@ -181,8 +183,19 @@ const patternShowState = new Map<string, ShowState>()
 interface PlayerControlsState {
   lastT: number
   buttons: Record<string, ButtonEdgeState>
+  /**
+   * Detent accumulation for the pattern encoder.
+   *
+   * The running count becomes whole steps here, where the encoder is read, so
+   * the player downstream receives a decision rather than a raw reading and
+   * cannot form its own opinion about what a click was.
+   */
+  patternEncoder?: PatternSelectionState
 }
 const playerControlsState = new Map<string, PlayerControlsState>()
+/** One selection per Music Player. The player owns which pattern is playing;
+ *  a panel reads it and decides nothing. */
+const patternSelectionState = new Map<string, PatternSelectionState>()
 interface MusicPlayerRuntimeState {
   ledEnabled: boolean
   brightness: number
@@ -448,6 +461,7 @@ function stateMaps(): StateMap[] {
     fireHeat, flashLevel, counterVals, intervalLast, smoothState, holdState,
     envState, dmxChannelState, trailState, frameFeedbackState, fftLevels, beatLevels, clockState, clockDisplayState, fireRngState,
     seededRngState, triggerState, scheduleState, particleState, particleSeedState, patternShowState,
+    patternSelectionState,
     playerControlsState, musicPlayerRuntimeState,
     percussionLevels, audioFeatureLevels,
     rdState, golState, waveSimState, flowState, colorTrailsState, spectrumVisualizerState, starState, boidState, sparkState, fire2012Heat,
@@ -4033,6 +4047,10 @@ export function renderParticleBurst(
 function evalPatternShow(
   key: string, ids: string[], render: (groupId: string) => Frame,
   beat: boolean, o: ShowOpts, t: number, W = DEFAULT_W, H = DEFAULT_H,
+  // The player's selection, so its own advance and a user's confirm move the
+  // same cursor. Without this the show kept a private one and a confirmed
+  // pattern changed only what the panel said.
+  selection?: PatternSelectionState,
 ): Frame {
   const n = ids.length
   if (n === 0) return blankFrame(W, H)
@@ -4046,7 +4064,7 @@ function evalPatternShow(
     // jumped to a random pattern — editing the collection of a running show
     // interrupted the show.
     seededRngState.delete(`${key}:show`)
-    st = { sel: blankPatternSelection(), next: blankPatternCursor(), ids,
+    st = { sel: selection ?? blankPatternSelection(), next: blankPatternCursor(), ids,
            phase: 'hold', start: t, dwell: pickDwell(), trans: 'crossfade', lastBeat: beat, seed: o.seed }
     updatePatternSelection(st.sel, { ids, nowMs: t * 1000, setActive: Math.floor(rnd() * n) })
   }
@@ -4054,6 +4072,7 @@ function evalPatternShow(
   // Every frame, because the collection can change under a running show. The
   // contract keeps playing the same pattern through a reorder and hands a
   // deleted pattern's slot to whatever took it.
+  if (selection && st.sel !== selection) st.sel = selection
   updatePatternSelection(st.sel, { ids, nowMs: t * 1000 })
   reconcilePatternCursor(st.next, ids)
   st.ids = ids
@@ -4558,6 +4577,16 @@ export interface PlayerControls {
   ledToggle: boolean
   brightness?: number
   brightnessDelta: number
+  /**
+   * Pattern-selection intent, from Player Controls.
+   *
+   * `patternSteps` is whole detents already — the encoder's running count is
+   * turned into steps where the encoder is read, so the player receives a
+   * decision rather than a raw reading and cannot disagree with the panel
+   * about what a click was.
+   */
+  patternSteps: number
+  patternConfirm: boolean
 }
 
 /** Beat-particle appearance carried independently of a rendered frame. */
@@ -4570,7 +4599,7 @@ export interface PlayerParticles {
   randomStyle: boolean
 }
 
-export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | AudioSignal | StorageSignal | PlayerControls | PlayerParticles | SegmentFrame | OledSurface | null
+export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | AudioSignal | StorageSignal | PlayerControls | PlayerParticles | SegmentFrame | OledSurface | PatternSelectValue | null
 
 /** A reusable pattern group: a named subgraph that a `Group` node evaluates. */
 export interface GroupDef { nodes: StudioNode[]; edges: StudioEdge[] }
@@ -6766,6 +6795,15 @@ function createEvalNode(
         const previous = button('previous', false)
         const next = button('next', false)
         const ledToggle = button('ledToggle', false)
+
+        // Buttons step by one; the encoder steps by however many detents it
+        // turned. Both, because a panel may have three buttons and no encoder.
+        let patternSteps = (button('patternNext', true) ? 1 : 0) - (button('patternPrevious', true) ? 1 : 0)
+        if (incoming.has(`${id}:patternSelect`)) {
+          if (!state.patternEncoder) state.patternEncoder = blankPatternSelection()
+          patternSteps += encoderSteps(state.patternEncoder, Number(input(id, 'patternSelect', 0)))
+        }
+
         const controls: PlayerControls = {
           playPause: Boolean(upstream?.playPause) || playPause,
           previous: Boolean(upstream?.previous) || previous,
@@ -6777,6 +6815,8 @@ function createEvalNode(
           brightnessDelta: (upstream?.brightnessDelta ?? 0)
             + (brightnessUp ? Math.max(0, Number(props.brightnessStep ?? 0.05)) : 0)
             - (brightnessDown ? Math.max(0, Number(props.brightnessStep ?? 0.05)) : 0),
+          patternSteps: (upstream?.patternSteps ?? 0) + patternSteps,
+          patternConfirm: Boolean(upstream?.patternConfirm) || button('patternConfirm', false),
         }
         if (incoming.has(`${id}:volume`)) controls.volume = clamp01(Number(input(id, 'volume', 0)))
         else if (upstream?.volume != null) controls.volume = clamp01(upstream.volume)
@@ -6980,7 +7020,7 @@ function createEvalNode(
         const controlsValue = input(id, 'controls', null)
         const controls: PlayerControls = isPlayerControls(controlsValue) ? controlsValue : {
           playPause: false, previous: false, next: false, volumeDelta: 0,
-          ledToggle: false, brightnessDelta: 0,
+          ledToggle: false, brightnessDelta: 0, patternSteps: 0, patternConfirm: false,
         }
         const existingRuntime = musicPlayerRuntimeState.get(key)
         const previousVolume = existingRuntime?.volume
@@ -7010,7 +7050,22 @@ function createEvalNode(
           })
         }
 
-        const frame = evalPatternShow(key, ids, render, beat, o, t, W, H)
+        // One selection per player. The show's own advance goes through it
+        // too (inside evalPatternShow), so a confirmed pattern and a
+        // dwell-driven one cannot disagree about what is running.
+        let selection = patternSelectionState.get(key)
+        if (!selection) {
+          selection = blankPatternSelection()
+          patternSelectionState.set(key, selection)
+        }
+        updatePatternSelection(selection, {
+          ids,
+          nowMs: t * 1000,
+          step: controls.patternSteps,
+          confirm: controls.patternConfirm,
+        })
+
+        const frame = evalPatternShow(key, ids, render, beat, o, t, W, H, selection)
         /*
          * What the browser honestly knows about the track. Tag fields stay
          * empty: the library has a filename and an analysis, not an ID3 frame,
@@ -7027,7 +7082,23 @@ function createEvalNode(
           volume: runtime.volume,
         }))
 
-        if (!runtime.ledEnabled) out = { ...song, frame: blankFrame(W, H) }
+        // Read *after* the show has run: its own advance moves the same cursor,
+        // and publishing the pre-show snapshot left the panel a frame behind
+        // the LEDs on the first frame of every collection.
+        const selectionView = patternSelectionView(selection, ids)
+        const graphNames = useGraphStore.getState().graphs
+        const patternSelect: PatternSelectValue = ids.length > 0
+          ? {
+            ids,
+            names: ids.map((gid) => graphNames[gid]?.name ?? ''),
+            activeIndex: selectionView.activeIndex,
+            highlightIndex: selectionView.highlightIndex,
+            count: selectionView.count,
+            browsing: selectionView.browsing,
+          }
+          : blankPatternSelectValue()
+
+        if (!runtime.ledEnabled) out = { ...song, patternSelect, frame: blankFrame(W, H) }
         else if (runtime.brightness < 1) {
           const dimmed = cloneFrame(frame)
           for (const row of dimmed) for (const px of row) {
@@ -7035,8 +7106,8 @@ function createEvalNode(
             px.g *= runtime.brightness
             px.b *= runtime.brightness
           }
-          out = { ...song, frame: dimmed }
-        } else out = { ...song, frame }
+          out = { ...song, patternSelect, frame: dimmed }
+        } else out = { ...song, patternSelect, frame }
         break
       }
 

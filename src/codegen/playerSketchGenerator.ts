@@ -19,6 +19,9 @@ import { infoDisplayHelpersCpp, INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp, 
 import { patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
 import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './patternSelectionCpp'
 import type { BrowserThumbnails } from '../utils/browserThumbnails'
+
+/** The player's own selection. A player sketch has exactly one show. */
+const PLAYER_SELECTION_STEM = 'player'
 import {
   SEGMENT_DISPLAY_CPP_HELPERS, SEGMENT_DISPLAY_CPP_FORWARD, segmentDisplayGlobalCpp,
   segmentDisplaySetupCpp, segmentDisplayLoopCpp,
@@ -155,6 +158,10 @@ export type PlayerControlAction =
   | 'playPause' | 'previous' | 'next'
   | 'volume' | 'volumeUp' | 'volumeDown'
   | 'ledToggle' | 'brightness' | 'brightnessUp' | 'brightnessDown'
+  // Choosing a pattern arrives the same way every other physical intent does,
+  // through Player Controls. That is what stops the SD player's encoder being
+  // a special case with its own wiring.
+  | 'patternSelect' | 'patternPrevious' | 'patternNext' | 'patternConfirm'
 
 export type PlayerControlSource =
   | { kind: 'button'; pin: number; pullup: boolean }
@@ -190,6 +197,7 @@ const DEFAULT_CONTROL_SETTINGS: Omit<PlayerControlsConfig, 'bindings'> = {
 
 const CONTROL_ACTIONS: PlayerControlAction[] = [
   'playPause', 'previous', 'next', 'volume', 'volumeUp', 'volumeDown',
+  'patternSelect', 'patternPrevious', 'patternNext', 'patternConfirm',
   'ledToggle', 'brightness', 'brightnessUp', 'brightnessDown',
 ]
 
@@ -340,7 +348,10 @@ export function generatePlayerSketch(
     }
     return [`  pinMode(${source.pin}, ${source.pullup ? 'INPUT_PULLUP' : 'INPUT'});`]
   }))].join('\n')
-  const oneShots = new Set<PlayerControlAction>(['playPause', 'previous', 'next', 'ledToggle'])
+  const oneShots = new Set<PlayerControlAction>([
+    'playPause', 'previous', 'next', 'ledToggle',
+    'patternPrevious', 'patternNext', 'patternConfirm',
+  ])
   const repeats = new Set<PlayerControlAction>(['volumeUp', 'volumeDown', 'brightnessUp', 'brightnessDown'])
   const controlButtonDecls = controlEntries
     .filter(([action, source]) => (oneShots.has(action) || repeats.has(action))
@@ -351,6 +362,8 @@ export function generatePlayerSketch(
     .filter(([, source]) => source.kind === 'encoderPosition')
     .map(([action]) => `ControlEncoder _encoder_${action};`)
     .join('\n')
+  const patternEncoder = controlEntries.find(([action, source]) =>
+    action === 'patternSelect' && source.kind === 'encoderPosition')
   const digitalReadCpp = (source: PlayerControlSource): string =>
     source.kind === 'button' || source.kind === 'encoderButton'
       ? `digitalRead(${source.pin}) == ${source.pullup ? 'LOW' : 'HIGH'}`
@@ -366,6 +379,11 @@ export function generatePlayerSketch(
         previous: 'changePlayerTrack(-1);',
         next: 'changePlayerTrack(1);',
         ledToggle: 'ledsEnabled = !ledsEnabled; applyPlayerBrightness();',
+        // The player owns the cursor, so confirming here changes what renders
+        // rather than only what the panel says.
+        patternPrevious: `_selUpdate(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, now, -1, false);`,
+        patternNext: `_selUpdate(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, now, 1, false);`,
+        patternConfirm: `_selUpdate(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, now, 0, true);`,
       }
       return [`  if (_control_${action}.update(${digitalReadCpp(source)}, now, false)) { ${body[action]} }`]
     }
@@ -737,6 +755,12 @@ void changePlayerTrack(int8_t direction) {
 
 void servicePlayerControls() {
   uint32_t now = millis();
+${patternEncoder ? `  // Detents into the one selection the player owns.
+  {
+    int _patternStep = ${encoderReadCpp(patternEncoder[0], patternEncoder[1])};
+    if (_patternStep != 0) _selUpdate(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, now, _patternStep, false);
+  }
+` : ''}
 ${controlServiceLines}
 }
 ` : ''
@@ -788,10 +812,11 @@ ${controlServiceLines}
     ...(display.layout === 'Pattern Browser'
       ? {
         browser: {
-          tableStem: safePlayerId(display.id),
-          selVar: `_sel_${safePlayerId(display.id)}`,
-          encoderPositionExpr: display.sources.select ?? null,
-          confirmExpr: display.sources.confirm ?? null,
+          // Named for the player, since the player owns the selection. In a
+          // player sketch there is exactly one, which is why this can be a
+          // fixed name rather than resolved from a wire.
+          tableStem: PLAYER_SELECTION_STEM,
+          selVar: `_sel_${PLAYER_SELECTION_STEM}`,
         },
       }
       : {}),
@@ -818,11 +843,19 @@ ${controlServiceLines}
     hasDisplays ? PLAYER_SONG_INFO_CPP : '',
     hasInfoDisplays ? infoDisplayHelpersCpp() : '',
     hasInfoDisplays ? infoEmits.map(infoDisplayGlobalCpp).join('\n') : '',
-    browserEmits.length > 0 ? PATTERN_SELECTION_CPP : '',
+    browserEmits.length > 0
+      ? `#define PATTERN_COUNT ${collection ? renderers?.count ?? 0 : 0}\n` + PATTERN_SELECTION_CPP
+      : '',
     browserEmits.length > 0 ? THUMBNAIL_DRAW_CPP : '',
-    browserEmits.map((display) => patternThumbnailTableCpp(
-      display.id, opts.thumbnails?.[display.sourceId] ?? [])).join('\n'),
-    browserEmits.map((display) => `static PatternSel _sel_${display.id};`).join('\n'),
+    // One table and one selection, named for the player rather than for any
+    // panel: a player sketch has exactly one show, and two panels wired to it
+    // must read one cursor.
+    browserEmits.length > 0
+      // Keyed by the player in the bake, and a player sketch has exactly one
+      // show — so the sole entry is it, whatever node id it was baked under.
+      ? patternThumbnailTableCpp(PLAYER_SELECTION_STEM, Object.values(opts.thumbnails ?? {})[0] ?? [])
+      : '',
+    browserEmits.length > 0 ? `static PatternSel _sel_${PLAYER_SELECTION_STEM};` : '',
     hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_HELPERS : '',
     hasSegmentDisplays ? segmentEmits.map(segmentDisplayGlobalCpp).join('\n') : '',
   ].filter(Boolean).join('\n')
@@ -831,7 +864,7 @@ ${controlServiceLines}
 
   const displaySetupCpp = [
     ...infoEmits.flatMap(infoDisplaySetupCpp),
-    ...browserEmits.map((display) => `  _selBegin(_sel_${display.id});`),
+    ...(browserEmits.length > 0 ? [`  _selBegin(_sel_${PLAYER_SELECTION_STEM});`] : []),
     ...segmentEmits.flatMap(segmentDisplaySetupCpp),
   ].join('\n')
 
@@ -1754,7 +1787,11 @@ ${genericPlayer ? `  // Unknown tracks have no pre-baked event timeline. Rotate 
   // nodes react to the live decoder signal.
   if (GENERIC_PLAYER && ${collection ? renderers?.count ?? 0 : 0} > 1) {
     uint8_t nextPattern = (uint8_t)((posMs / 8000UL) % ${collection ? renderers?.count ?? 1 : 1});
-    if (nextPattern != patternId) {
+${browserEmits.length > 0 ? `    // Through the selection, so a confirmed pattern and a dwell-driven one
+    // move the same cursor — and a confirm actually changes what renders.
+    _selSetActive(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, nextPattern);
+    nextPattern = (uint8_t)_sel_${PLAYER_SELECTION_STEM}.active;
+` : ''}    if (nextPattern != patternId) {
       prevPatternId = patternId;
       patternId = nextPattern;
       transType = 0;

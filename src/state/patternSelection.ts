@@ -106,6 +106,35 @@ export interface PatternSelectionInput {
   setActive?: number | null
 }
 
+/**
+ * What a Music Player publishes on its `patternSelect` port.
+ *
+ * The whole selection, not a cursor: a panel needs the names to print and the
+ * ids to bake thumbnails against, and taking both from here is what stops it
+ * needing its own wire to the collection. One player, one selection, however
+ * many panels are reading it.
+ */
+export interface PatternSelectValue {
+  /** The collection in order, so a reader can bake or resolve against it. */
+  ids: readonly string[]
+  names: readonly string[]
+  activeIndex: number
+  highlightIndex: number
+  count: number
+  browsing: boolean
+}
+
+export function blankPatternSelectValue(): PatternSelectValue {
+  return { ids: [], names: [], activeIndex: -1, highlightIndex: -1, count: 0, browsing: false }
+}
+
+/** Whether a port value is a published selection. */
+export function isPatternSelect(value: unknown): value is PatternSelectValue {
+  return !!value && typeof value === 'object'
+    && Array.isArray((value as PatternSelectValue).ids)
+    && typeof (value as PatternSelectValue).activeIndex === 'number'
+}
+
 export function blankPatternCursor(): PatternCursor {
   return { id: '', index: -1 }
 }

@@ -284,12 +284,15 @@ export interface InfoDisplayEmit {
    * different collections, so neither the table nor the selection is shared.
    */
   browser?: {
+    /**
+     * The player that owns this selection.
+     *
+     * Named for the player rather than the panel because two panels wired to
+     * one player must read one cursor — and because the panel no longer
+     * decides anything, so it has nothing of its own to name.
+     */
     tableStem: string
     selVar: string
-    /** Running encoder count, or null when nothing is wired to turn it. */
-    encoderPositionExpr: string | null
-    /** Rising-edge press that commits the highlight. */
-    confirmExpr: string | null
   }
 }
 
@@ -371,12 +374,10 @@ export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
     const stem = b?.tableStem ?? display.id
     const sel = b?.selVar ?? `_sel_${display.id}`
     const count = `THUMB_COUNT_${stem}`
-    const steps = b?.encoderPositionExpr
-      ? `_selEncoderSteps(${sel}, (long)lroundf(${b.encoderPositionExpr}))`
-      : '0'
     lines.push(
-      `      uint32_t _oledNow_${display.id} = millis();`,
-      `      _selUpdate(${sel}, ${count}, _oledNow_${display.id}, ${steps}, ${b?.confirmExpr ?? 'false'});`,
+      // No _selUpdate here. The player advances the selection, from the
+      // controls bundle; this panel reads it. A display that also stepped it
+      // would be a second opinion about what a click meant.
       `      if (${count} == 0) {`,
       `        _oledText(${p}, ${m}, ${infoRowY(1)}, "NO PATTERNS");`,
       `      } else {`,

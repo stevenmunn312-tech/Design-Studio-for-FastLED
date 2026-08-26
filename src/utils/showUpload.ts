@@ -9,9 +9,11 @@
 // files through it.
 
 import type { Edge } from '@xyflow/react'
+import { useGraphStore } from '../state/graphStore'
 import type { StudioNode, StudioNodeData } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import type { MusicEntry } from '../state/musicStore'
+import { bakeBrowserThumbnails } from './browserThumbnails'
 import { generatePlayerSketch, playerConfigFromGraph, playerControlsFromGraph, playerParticlesFromGraph } from '../codegen/playerSketchGenerator'
 import { playerDisplaysFromGraph } from '../codegen/playerDisplays'
 import { buildPatternRenderers, patternRenderersUseAudio } from '../codegen/showGenerator'
@@ -137,6 +139,13 @@ export function buildShowPlayer(
     // The panel on a finished build is fed by the player itself, so each wire
     // from Music Player is resolved to the expression that reads it on device.
     displays: playerDisplaysFromGraph(nodes, edges),
+    // Baked here rather than in the generator: baking evaluates patterns, and
+    // only this side knows whether the workspace has been trusted. Without it
+    // a Pattern Browser builds and says NO PATTERNS.
+    thumbnails: bakeBrowserThumbnails(
+      nodes, edges, groups,
+      useGraphStore.getState().trusted, useGraphStore.getState().graphs,
+    ),
     particleFx,
   })
 }

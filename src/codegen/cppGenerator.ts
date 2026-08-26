@@ -4850,19 +4850,18 @@ export function generateCpp(
           ...(asInfoDisplayLayout(p.infoLayout) === 'Pattern Browser'
             ? {
               browser: {
-                tableStem: id,
-                selVar: `_sel_${id}`,
-                // The encoder's own running count, which the contract turns
-                // into detents. A step per frame is not what the knob asked for.
-                encoderPositionExpr: incoming.get(`${node.id}:select`) ? f('select', 'select', 0) : null,
-                confirmExpr: incoming.get(`${node.id}:confirm`) ? boolExpr(node.id, 'confirm') : null,
+                // Named for the player that owns the selection, not for this
+                // panel: two panels on one player must read one cursor.
+                tableStem: safeId(incoming.get(`${node.id}:patternSelect`)?.srcId ?? node.id),
+                selVar: `_sel_${safeId(incoming.get(`${node.id}:patternSelect`)?.srcId ?? node.id)}`,
               },
             }
             : {}),
         }
         if (emit.browser) {
-          browserTables.push({ id, entries: opts.thumbnails?.[node.id] ?? [] })
-          setupLines.push(`  _selBegin(_sel_${id});`)
+          const player = incoming.get(`${node.id}:patternSelect`)?.srcId ?? node.id
+          browserTables.push({ id: emit.browser.tableStem, entries: opts.thumbnails?.[player] ?? [] })
+          setupLines.push(`  _selBegin(${emit.browser.selVar});`)
         }
         infoDisplays.push(emit)
         for (const line of infoDisplaySetupCpp(emit)) setupLines.push(line)

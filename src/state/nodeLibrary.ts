@@ -2144,6 +2144,13 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'brightness', label: 'Brightness', dataType: 'float' },
       { id: 'brightnessUp', label: 'Brightness Up', dataType: 'bool' },
       { id: 'brightnessDown', label: 'Brightness Down', dataType: 'bool' },
+      // Choosing a pattern is a physical intent like any other here. An
+      // encoder and buttons both, because a panel may have three buttons and
+      // no encoder — the same reason `next` sits beside `volumeUp`.
+      { id: 'patternSelect', label: 'Pattern Selection', dataType: 'float' },
+      { id: 'patternPrevious', label: 'Previous Pattern', dataType: 'bool' },
+      { id: 'patternNext', label: 'Next Pattern', dataType: 'bool' },
+      { id: 'patternConfirm', label: 'Confirm', dataType: 'bool' },
     ],
     outputs: [{ id: 'controls', label: 'Controls', dataType: 'playercontrols' }],
     defaultProperties: {
@@ -2195,6 +2202,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // finished build the card may be full of files the app has never seen;
       // these carry whatever tags those files turn out to have.
       ...SONG_INFO_PORTS.map((port) => ({ id: port.id, label: port.label, dataType: port.dataType })),
+      // Technically I/O: commands arrive on `controls` and the resulting
+      // selection leaves here, which is what makes the round trip visible on
+      // the canvas instead of hidden in a display's private state.
+      { id: 'patternSelect', label: 'Pattern Select', dataType: 'patternselect' },
     ],
     defaultProperties: {
       minTime: 4, maxTime: 12, transitionSec: 1,
@@ -2751,10 +2762,11 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'indicator2', label: 'Indicator 2', dataType: 'bool' },
       { id: 'indicator3', label: 'Indicator 3', dataType: 'bool' },
       { id: 'indicator4', label: 'Indicator 4', dataType: 'bool' },
-      // Pattern Browser: what to browse, what turns, and what commits.
-      { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
-      { id: 'select', label: 'Select', dataType: 'float' },
-      { id: 'confirm', label: 'Confirm', dataType: 'bool' },
+      // Pattern Browser. One input, from the player that owns the selection —
+      // the panel displays it rather than deciding it, and does not need its
+      // own wire to the collection because the selection names the player and
+      // the player already has the patterns.
+      { id: 'patternSelect', label: 'Pattern Select', dataType: 'patternselect' },
       { id: 'enabled', label: 'Enabled', dataType: 'bool' },
     ],
     outputs: [],
@@ -3265,6 +3277,7 @@ export const PORT_COLORS: Record<string, string> = {
   datetime: '#d8ff63',
   music: '#ffb74d',
   patternset: '#38a6ff',
+  patternselect: '#7fd1ff',
   transitionset: '#b388ff',
   playercontrols: '#ff8a65',
   playerparticles: '#ce93d8',

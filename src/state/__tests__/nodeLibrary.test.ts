@@ -16,6 +16,10 @@ describe('nodeLibrary', () => {
       ['next', 'bool'], ['volume', 'float'], ['volumeUp', 'bool'],
       ['volumeDown', 'bool'], ['ledToggle', 'bool'], ['brightness', 'float'],
       ['brightnessUp', 'bool'], ['brightnessDown', 'bool'],
+      // Choosing a pattern is a physical intent like any other, so it arrives
+      // here rather than on the panel that shows the result.
+      ['patternSelect', 'float'], ['patternPrevious', 'bool'],
+      ['patternNext', 'bool'], ['patternConfirm', 'bool'],
     ])
 
     const particles = NODE_LIBRARY.find((n) => n.type === 'PlayerParticles')
