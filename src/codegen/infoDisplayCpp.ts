@@ -11,7 +11,7 @@
 // layout module is that the panel matches its preview.
 
 import { DEFAULT_FONT, FONT_H, FONT_W } from '../state/font'
-import { INFO_LAYOUT, STATUS_MAX_INDICATORS, infoRowY, type InfoDisplayLayout } from '../state/infoDisplay'
+import { INFO_LAYOUT, STATUS_MAX_INDICATORS, infoRowY, BROWSER_LAYOUT, type InfoDisplayLayout } from '../state/infoDisplay'
 import { OLED_LETTER_SPACING, OLED_PAGE_HEIGHT, type OledController } from '../state/oledSurface'
 import { cppStringLiteral } from '../state/displayText'
 
@@ -278,6 +278,19 @@ export interface InfoDisplayEmit {
   durationExpr: string
   dateTimeExpr: string | null
   indicatorExprs: readonly string[]
+  /**
+   * Pattern Browser only: the identifier stem of the thumbnail table this
+   * browser reads, and the PatternSel driving it. Two browsers can show
+   * different collections, so neither the table nor the selection is shared.
+   */
+  browser?: {
+    tableStem: string
+    selVar: string
+    /** Running encoder count, or null when nothing is wired to turn it. */
+    encoderPositionExpr: string | null
+    /** Rising-edge press that commits the highlight. */
+    confirmExpr: string | null
+  }
 }
 
 export function infoDisplayGlobalCpp(display: InfoDisplayEmit): string {
@@ -304,6 +317,8 @@ export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
   const m = INFO_LAYOUT.margin
   const inner = 128 - (m * 2)
   const bar = INFO_LAYOUT.barHeight
+  // The browser's text column is narrower: the picture takes the left edge.
+  const browserInner = 128 - BROWSER_LAYOUT.textX - m
   const text = (expr: string | null) => expr ?? '""'
 
   const lines = [
@@ -351,6 +366,46 @@ export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
       lines.push(`      _oledIndicator(${p}, ${x}, ${infoRowY(2)}, ${expr}, ${INFO_LAYOUT.indicatorSize});`)
     })
     lines.push(`      _oledBar(${p}, ${m}, ${infoRowY(3) + 2}, ${inner}, ${bar}, ${display.progressExpr});`)
+  } else if (display.layout === 'Pattern Browser') {
+    const b = display.browser
+    const stem = b?.tableStem ?? display.id
+    const sel = b?.selVar ?? `_sel_${display.id}`
+    const count = `THUMB_COUNT_${stem}`
+    const steps = b?.encoderPositionExpr
+      ? `_selEncoderSteps(${sel}, (long)lroundf(${b.encoderPositionExpr}))`
+      : '0'
+    lines.push(
+      `      uint32_t _oledNow_${display.id} = millis();`,
+      `      _selUpdate(${sel}, ${count}, _oledNow_${display.id}, ${steps}, ${b?.confirmExpr ?? 'false'});`,
+      `      if (${count} == 0) {`,
+      `        _oledText(${p}, ${m}, ${infoRowY(1)}, "NO PATTERNS");`,
+      `      } else {`,
+      `        uint16_t _oledSel_${display.id} = ${sel}.highlight;`,
+      // Every coordinate from BROWSER_LAYOUT rather than written out again.
+      `        _oledThumb(${p}, ${BROWSER_LAYOUT.thumbX}, ${BROWSER_LAYOUT.thumbY}, ` +
+        `THUMB_W_${stem}, THUMB_H_${stem}, _thumbByte_${stem}, _oledSel_${display.id});`,
+      `        char _oledName_${display.id}[40];`,
+      `        _thumbName_${stem}_read(_oledName_${display.id}, sizeof(_oledName_${display.id}), _oledSel_${display.id});`,
+      `        _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), _oledName_${display.id}, ${browserInner});`,
+      `        _oledText(${p}, ${BROWSER_LAYOUT.textX}, ${infoRowY(0)}, _oledBuf_${display.id});`,
+      `        snprintf(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), "%u/%u", ` +
+        `(unsigned)(_oledSel_${display.id} + 1), (unsigned)${count});`,
+      `        _oledText(${p}, ${BROWSER_LAYOUT.textX}, ${infoRowY(1)}, _oledBuf_${display.id});`,
+      // A word, not a glyph: the shared 3x5 font has no tick or triangle.
+      `        _oledText(${p}, ${BROWSER_LAYOUT.textX}, ${infoRowY(2)}, ` +
+        `_selBrowsing(${sel}) ? "SELECT?" : "PLAYING");`,
+      `        if (_selBrowsing(${sel})) {`,
+      // Without this the panel confidently describes something the LEDs are not
+      // doing, which is the whole reason active and highlight are separate.
+      `          _oledHLine(${p}, ${m}, ${infoRowY(4)}, ${inner});`,
+      `          _thumbName_${stem}_read(_oledName_${display.id}, sizeof(_oledName_${display.id}), ${sel}.active);`,
+      `          char _oledPlaying_${display.id}[48];`,
+      `          snprintf(_oledPlaying_${display.id}, sizeof(_oledPlaying_${display.id}), "PLAYING %s", _oledName_${display.id});`,
+      `          _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), _oledPlaying_${display.id}, ${inner});`,
+      `          _oledText(${p}, ${m}, ${infoRowY(5)}, _oledBuf_${display.id});`,
+      `        }`,
+      `      }`,
+    )
   } else {
     lines.push(
       `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), ${text(display.titleExpr)}, ${inner});`,
