@@ -62,6 +62,45 @@ rather than tracking an index of its own — active versus highlighted, wrapping
 confirm, and what happens when the collection changes are defined once in
 [the generative pattern show note](generative-pattern-show.md#which-pattern-is-playing).
 
+### Which displays get a design surface
+
+The freeform editor is for the **larger touch panels only**. Segment modules and
+the small OLEDs get a fixed set of layouts chosen from a dropdown on the node,
+and nothing else.
+
+Three reasons, and the first is the one that settles it: you cannot pick a
+widget on a screen you cannot touch. A drag-and-drop UI whose output has no
+pointer is a layout tool, not an interface — every interactive widget in the
+palette above is dead on a panel with no touch controller, which leaves labels
+and readouts, which is what a preset already is.
+
+Second, a 4-digit 7-segment module and a 128x64 one-bit panel have no room to
+design in. Every pixel is load-bearing at that size, and a hand-placed layout on
+one is reliably worse than a preset that was tuned once against the real glyph
+metrics. The constraint is doing the design work; exposing it as freedom mostly
+exposes the ways it can go wrong.
+
+Third, the freeform path costs a widget palette, a persisted document format,
+LVGL codegen and asset baking. That is repaid on a screen big enough to be worth
+designing and not on one that shows four digits.
+
+So the tiers are:
+
+| Display | What the user picks |
+| --- | --- |
+| Segment (TM1637, MAX7219) | A mode from a dropdown |
+| Info Display (SH1106, SSD1306) | A layout from a dropdown, with presets bindable to buttons |
+| Touch TFT (ST7789V + XPT2046, CYD) | Fixed layouts first, then the freeform editor |
+
+Segment modes are `Number`, `Clock` and `Index` today, with a timer/countdown
+and an elapsed/duration mode to come. Two notes on those. A wall clock needs a
+time source rather than a board feature, so "hardware dependent" is expressed as
+an unwired `dateTime` showing dashes and validation saying an RTC is wanted — a
+display that invents midnight is worse than one that admits it does not know.
+And a *duration* is not a wall clock even though both read `M:SS`: one counts
+from zero and the other rolls over at 24 hours, so it is a separate mode rather
+than a flag on Clock.
+
 **The freeform `Display` node** is the only node with widget-derived dynamic
 ports, and it is deliberately last. It owns a `displayId` and derives its ports
 from the widgets in the matching `DisplayDocument`.

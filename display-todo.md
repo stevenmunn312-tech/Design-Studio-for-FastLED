@@ -44,6 +44,11 @@ physical-hardware tests.
   `rootGraphEdges` for reads and root-scoped writes.
 - Fixed display nodes have stable, declared ports. Only the freeform `Display`
   node has widget-derived dynamic ports.
+- The freeform editor targets the larger touch panels only. Segment modules and
+  the small OLEDs get a dropdown of fixed layouts and nothing else: you cannot
+  pick a widget on a screen you cannot touch, so every interactive widget in the
+  palette is dead there, and what is left is what a preset already is. See
+  [auxiliary displays](docs/development/design/auxiliary-displays.md#which-displays-get-a-design-surface).
 - Custom UI widget ids, not editable labels or array positions, are persisted as
   port ids. Renaming or moving a widget must never break a cable.
 - The first custom UI is one fixed-resolution screen with integer pixel
