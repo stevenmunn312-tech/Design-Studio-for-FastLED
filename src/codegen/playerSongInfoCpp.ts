@@ -65,7 +65,12 @@ void audio_id3data(const char *info) {
   if (!strncasecmp(info, "Title", keyLen) && keyLen == 5)        _songSet(songTitle, value);
   else if (!strncasecmp(info, "Artist", keyLen) && keyLen == 6)  _songSet(songArtist, value);
   else if (!strncasecmp(info, "Album", keyLen) && keyLen == 5)   _songSet(songAlbum, value);
+  // ID3v2 names the genre frame TCON, which the library reports as
+  // "ContentType"; only the older ID3v1 path says "Genre". Matching just the
+  // latter left the field blank on virtually every modern file — verified
+  // against ESP32-audioI2S 3.0.12, which emits both spellings.
   else if (!strncasecmp(info, "Genre", keyLen) && keyLen == 5)   _songSet(songGenre, value);
+  else if (!strncasecmp(info, "ContentType", keyLen) && keyLen == 11) _songSet(songGenre, value);
   else if (!strncasecmp(info, "Year", keyLen) && keyLen == 4)    _songSet(songYear, value);
 }
 
