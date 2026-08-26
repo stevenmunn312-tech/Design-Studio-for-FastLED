@@ -285,7 +285,11 @@ describe('playerSketchGenerator', () => {
       expect(sketch).toContain('sdRetryMount();')
       // Releases the bus first: begin() against stale driver state can keep
       // failing even once the card is seated.
-      expect(sketch).toMatch(/SD\.end\(\);\n\s*if \(!SD\.begin\(SD_CS\)\) return;/)
+      expect(sketch).toMatch(/SD\.end\(\);\n\s*if \(!sdMountBestEffort\(\)\) return;/)
+      // And retries at the speed the header parser needs, not the cautious
+      // default that could not feed it — see sdMountBestEffort.
+      expect(sketch).toContain('if (SD.begin(SD_CS, SPI, 20000000)) return true;')
+      expect(sketch).toContain('return SD.begin(SD_CS, SPI, 4000000);')
       // ...and picks up playback once the card turns up, since setup() could
       // not have started any.
       expect(sketch).toMatch(/sdMounted = true;\n[^]*?startPlayback\(\);/)

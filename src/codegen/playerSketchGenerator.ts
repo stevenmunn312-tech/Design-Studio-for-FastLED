@@ -1430,6 +1430,27 @@ ${genericPlayer ? `
 bool sdMounted = false;
 
 /*
+ * Mount as fast as the wiring will take, falling back to the safe default.
+ *
+ * ESP32-audioI2S gives itself 2.5 seconds to parse a file's header and then
+ * abandons the file — quietly, because its log_e is compiled out at the
+ * default log level. A track with embedded album art puts that art in front of
+ * the audio: 400 KB of ID3 is ordinary, and at the arduino-esp32 default of
+ * 4 MHz reading it takes about as long as the whole budget. The symptom is a
+ * file that opens, reports its tags, and then never plays, which reads as a
+ * dead decoder rather than a slow disk.
+ *
+ * 20 MHz first because a soldered card takes it comfortably; 4 MHz after,
+ * because a breadboarded one may not, and a slow mount beats no mount.
+ */
+static bool sdMountBestEffort() {
+  if (SD.begin(SD_CS, SPI, 20000000)) return true;
+  SD.end();
+  return SD.begin(SD_CS, SPI, 4000000);
+}
+
+
+/*
  * Keep trying to mount the card, and start playing when it appears.
  *
  * This used to be an infinite spin on a failed mount, which meant a card that
@@ -1449,7 +1470,7 @@ void sdRetryMount() {
   // Release the bus first: begin() on a half-initialised card can keep
   // failing against stale driver state even once the card is seated.
   SD.end();
-  if (!SD.begin(SD_CS)) return;
+  if (!sdMountBestEffort()) return;
 
   sdMounted = true;
   Serial.println("SD card mounted");
@@ -1618,7 +1639,7 @@ ${hasControls ? `${controlPinSetup}\n  applyPlayerBrightness();` : ''}
   // Said once here rather than on every retry, so it stays a greeting the host
   // can read instead of a stream it has to filter.
   SPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
-  sdMounted = SD.begin(SD_CS);
+  sdMounted = sdMountBestEffort();
   if (!sdMounted) Serial.println("ERR sd-mount-failed");
 
 ${decoderTap ? '  setupDecoderTap();   // decoded PCM → FastLED audio analysis\n' : ''}

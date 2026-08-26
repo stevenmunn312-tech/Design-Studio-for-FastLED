@@ -110,7 +110,11 @@ static bool songPlaying() { return audio.isRunning(); }
 
 static const char *songStatus() {
   if (songPlaying()) return "PLAYING";
-  return songTitle[0] ? "PAUSED" : "STOPPED";
+  if (!songTitle[0]) return "STOPPED";
+  // A track that never produced a sample was not paused by anyone — it failed
+  // to start. Reporting PAUSED there sends people hunting for a stuck button
+  // when the decoder gave up on the file.
+  return songElapsedSec() > 0.0f ? "PAUSED" : "STOPPED";
 }
 `
 
