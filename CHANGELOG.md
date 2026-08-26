@@ -9,6 +9,15 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- A Segment Display keeps a whole digit in front of the decimal point. A
+  value under 1 lit the point on an otherwise blank digit, so 0.4 read as a
+  dot with nothing before it — which on a module whose whole job is to be read
+  at a glance looks like a fault rather than a number.
+- A Segment Display in Index mode shows dashes for a reading that is not a
+  number, the same as Number mode already did. It folded one to 0 and showed a
+  confident first-pattern instead, and only in the browser: the generated
+  firmware rounded before checking, and rounding a NaN is not obliged to land
+  anywhere in particular.
 - Editing a Pattern Collection no longer interrupts the show playing it.
   The show's state was keyed on the pattern count, so adding or removing one
   pattern restarted the whole show at a random pattern with a fresh dwell —

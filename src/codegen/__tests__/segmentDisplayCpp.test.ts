@@ -187,3 +187,109 @@ describe('MAX7219', () => {
     expect(src).toContain('SEG_KIND_TM1637')
   })
 })
+
+// The plan's Phase 3 edge-case list on the generated side. The characters
+// themselves are the shared renderer's job and are tested in
+// state/__tests__/segmentDisplay.test.ts; what matters here is that the emitted
+// C++ carries the same rules and that two modules stay independent.
+describe('segment display edge cases', () => {
+  it('keeps a whole digit in front of the decimal point', () => {
+    // The %0*lu is the fix for a value under 1 lighting the point on an
+    // otherwise blank digit, which on the bench reads as a fault.
+    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('"%0*lu", decimals + 1, magnitude')
+  })
+
+  it('guards a non-finite reading before rounding it, in both modes', () => {
+    // lroundf on a NaN is unspecified, so folding first would let the firmware
+    // disagree with the browser about a reading neither of them has.
+    const body = (fn: string) => {
+      const start = SEGMENT_DISPLAY_CPP_HELPERS.indexOf(`static void ${fn}(`)
+      expect(start, fn).toBeGreaterThan(-1)
+      // Up to the next function declaration, so an assertion cannot be
+      // satisfied by a mention in a neighbouring helper's comment.
+      const end = SEGMENT_DISPLAY_CPP_HELPERS.indexOf('static void ', start + 1)
+      return SEGMENT_DISPLAY_CPP_HELPERS.slice(start, end < 0 ? undefined : end)
+    }
+    const index = body('_segIndex')
+    expect(index).toContain('static void _segIndex(char *out, uint8_t digits, float value)')
+    expect(index.indexOf('if (!isfinite(value))')).toBeLessThan(index.indexOf('long index = lroundf('))
+    expect(body('_segNumber')).toContain('if (!isfinite(value)) { _segAllDash(out, digits); return; }')
+  })
+
+  it('hands Index mode the raw value rather than a pre-rounded long', () => {
+    const src = generateCpp([outputNode, display({ segmentMode: 'Index', value: 3 })], [])
+    expect(src).toContain('_segIndex(_segBuf_seg, 4, 3);')
+    // The cast only ever existed at the call site, where it rounded before the
+    // helper could check the reading was a number at all.
+    expect(src).not.toContain('(long)lroundf(')
+  })
+
+  it('refuses a negative index rather than dropping its sign', () => {
+    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('if (index < 0 || len > digits) { _segAllDash(out, digits); return; }')
+  })
+
+  // 0 is the dimmest *on* level on both controllers. Anything treating it as
+  // falsy and reaching for a default makes the bottom of the slider
+  // unreachable on hardware only.
+  it('emits a zero brightness rather than substituting a default', () => {
+    expect(generateCpp([outputNode, display({ brightness: 0 })], []))
+      .toContain('_segBegin(_seg_seg, SEG_KIND_TM1637, 4, 18, 19, 21, 0);')
+    expect(generateCpp([outputNode, max7219({ brightness: 0 })], []))
+      .toContain('_segBegin(_seg_seg, SEG_KIND_MAX7219, 8, 18, 23, 5, 0);')
+  })
+
+  it('keeps a dimmest-on module out of shutdown', () => {
+    // TM1637: 0x88 is display-on plus brightness bits; 0x80 is display-off.
+    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('lit ? (uint8_t)(0x88 | (d.brightness & 0x07)) : (uint8_t)0x80')
+    // MAX7219: shutdown is register 0x0C, never the intensity register.
+    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('if (!lit) { _maxSend(d, 0x0C, 0x00); return; }')
+  })
+
+  it('rolls each clock field within its two digits', () => {
+    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('abs(hour) % 100')
+    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('abs(minute) % 100')
+    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('abs(second) % 100')
+  })
+
+  describe('two modules in one sketch', () => {
+    const pair = () => [
+      outputNode,
+      node('a', 'SegmentDisplay', 'output', {
+        partId: 'tm1637-4digit-display', clkPin: 18, dioPin: 19,
+        segmentMode: 'Number', value: 42, brightness: 1,
+      }),
+      node('b', 'SegmentDisplay', 'output', {
+        partId: 'max7219-8digit-7segment', clkPin: 12, dinPin: 13, csPin: 14,
+        segmentMode: 'Index', value: 7, brightness: 9,
+      }),
+    ]
+
+    it('gives each its own state, buffer and setup call', () => {
+      const src = generateCpp(pair(), [])
+      expect(src).toContain('static SegDisplay _seg_a;')
+      expect(src).toContain('static SegDisplay _seg_b;')
+      expect(src).toContain('char _segBuf_a[SEG_MAX_DIGITS + 1];')
+      expect(src).toContain('char _segBuf_b[SEG_MAX_DIGITS + 1];')
+      expect(src).toContain('_segBegin(_seg_a, SEG_KIND_TM1637, 4, 18, 19, 21, 1);')
+      expect(src).toContain('_segBegin(_seg_b, SEG_KIND_MAX7219, 8, 12, 13, 14, 9);')
+    })
+
+    it('renders each through the helper its own mode names', () => {
+      const src = generateCpp(pair(), [])
+      expect(src).toContain('_segNumber(_segBuf_a, 4,')
+      expect(src).toContain('_segIndex(_segBuf_b, 8,')
+    })
+
+    it('writes each on its own change rather than sharing a deadline', () => {
+      const src = generateCpp(pair(), [])
+      expect(src).toContain('_segWrite(_seg_a,')
+      expect(src).toContain('_segWrite(_seg_b,')
+    })
+
+    it('still emits the shared driver exactly once', () => {
+      const src = generateCpp(pair(), [])
+      expect(src.split('static void _segWrite(').length - 1).toBe(1)
+      expect(src.split('#define SEG_MAX_DIGITS').length - 1).toBe(1)
+    })
+  })
+})

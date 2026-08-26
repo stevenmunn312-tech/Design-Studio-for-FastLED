@@ -228,7 +228,9 @@ static void _segNumber(char *out, uint8_t digits, float value, int decimals,
   bool negative = scaled < 0;
   unsigned long magnitude = (unsigned long)(negative ? -scaled : scaled);
   char body[16];
-  int len = snprintf(body, sizeof(body), "%lu", magnitude);
+  // Zero-padded to at least one whole digit, matching renderSegmentNumber: a
+  // value under 1 would otherwise put the decimal point on a blank digit.
+  int len = snprintf(body, sizeof(body), "%0*lu", decimals + 1, magnitude);
   int room = digits - (negative ? 1 : 0);
   if (len > room) { _segAllDash(out, digits); return; }
 
@@ -260,7 +262,12 @@ static void _segClock(char *out, uint8_t digits, int hour, int minute, int secon
   for (int i = 0; i < len && start + i >= 0; i++) out[start + i] = body[i];
 }
 
-static void _segIndex(char *out, uint8_t digits, long index) {
+static void _segIndex(char *out, uint8_t digits, float value) {
+  // Guarded before the rounding, not after: lroundf on a NaN is unspecified,
+  // so folding first would let this disagree with the browser about a reading
+  // neither of them has.
+  if (!isfinite(value)) { _segAllDash(out, digits); return; }
+  long index = lroundf(value);
   char body[16];
   snprintf(body, sizeof(body), "%ld", index < 0 ? -index : index);
   int len = (int)strlen(body);
@@ -331,7 +338,7 @@ export function segmentDisplayLoopCpp(display: SegmentDisplayEmit): string[] {
   } else if (display.mode === 'Index') {
     lines.push(
       `    } else {`,
-      `      _segIndex(${v}, ${digits}, (long)lroundf(${display.valueExpr ?? '0'}));`,
+      `      _segIndex(${v}, ${digits}, ${display.valueExpr ?? '0'});`,
     )
   } else {
     lines.push(

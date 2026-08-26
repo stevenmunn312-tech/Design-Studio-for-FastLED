@@ -319,9 +319,11 @@ widgets, hover state, or physical pins.
   interval expires; do not rewrite the module on every LED frame.
 - [x] Add MAX7219 behind the same logical node contract after TM1637 passes,
   keeping controller-specific wiring and digit capacity in the part adapter.
-- [ ] Test negative values, rounding, leading zero, decimal placement, NaN,
+- [x] Test negative values, rounding, leading zero, decimal placement, NaN,
   overflow, clock rollover, disabled state, low brightness, and multiple
-  segment displays.
+  segment displays. Two of those cases were wrong: a value under 1 lit the
+  decimal point on a blank digit, and Index mode folded a non-finite reading
+  to 0 in the browser while the firmware's lroundf was free to do otherwise.
 - [ ] Compile on every board family advertised for the part and record at least
   one physical support row before marking it supported.
 

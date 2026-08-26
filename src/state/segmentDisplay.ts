@@ -139,7 +139,10 @@ export function renderSegmentNumber(value: number, options: SegmentNumberOptions
 
   const negative = scaled < 0
   const magnitude = Math.abs(scaled)
-  const body = String(magnitude)
+  // At least one whole digit before the point. Without it a value under 1 puts
+  // the decimal point on a blank digit — the module shows a dot with nothing in
+  // front of it, which reads as a fault rather than as "nought point four".
+  const body = String(magnitude).padStart(decimals + 1, '0')
   // Digits available for the number itself, after a minus sign takes one.
   const room = width - (negative ? 1 : 0)
   if (body.length > room) return dashes(width)
@@ -188,7 +191,12 @@ export function renderSegmentIndex(
   index: number,
   digits = DEFAULT_SEGMENT_CONTROLLER.digits,
 ): SegmentFrame {
-  const n = Math.round(Number.isFinite(index) ? index : 0)
+  // A reading that is not a number is dashes, the same as in Number mode.
+  // Folding it to 0 would put a confident "1" on a module whose input is
+  // broken, and the firmware's lroundf on a NaN is not obliged to agree with
+  // whatever the browser folded to.
+  if (!Number.isFinite(index)) return dashes(digits)
+  const n = Math.round(index)
   const body = String(Math.abs(n))
   if (n < 0 || body.length > digits) return dashes(digits)
   return { digits: body.padStart(digits, ' '), colon: false, decimalAt: -1, lit: true }

@@ -226,3 +226,102 @@ describe('MAX7219 behind the same node', () => {
     expect(isPropertyEnabled('SegmentDisplay', 'dioPin', { partId: 'max7219-8digit-7segment' })).toBe(false)
   })
 })
+
+// The plan's Phase 3 edge-case list at the node level. The pure renderers are
+// covered in segmentDisplay.test.ts; these check that a wired graph reaches
+// them with what it claims to, and that two modules on one bench stay separate.
+describe('SegmentDisplay edge cases', () => {
+  beforeEach(() => resetEvaluatorState())
+
+  const brightnessOf = (nodes: StudioNode[], edges: StudioEdge[] = [], id = 'seg') =>
+    evaluateGraphFull(nodes, edges, 0, 8, 8).outputs.get(id)?.brightness as number
+
+  const frameOf = (nodes: StudioNode[], edges: StudioEdge[], id: string) =>
+    evaluateGraphFull(nodes, edges, 0, 8, 8).outputs.get(id)?.segment as SegmentFrame
+
+  it('dashes a wired reading that is not a number', () => {
+    // Overflowed down a cable rather than handed in as a literal, so it
+    // arrives the way it would from a real graph.
+    const huge = node('huge', 'Math', 'math', { mathOp: 'multiply', a: 1e308, b: 10 })
+    const wires = [edge('e1', 'huge', 'result', 'seg', 'value')]
+    expect(frameOf([huge, display()], wires, 'seg').digits).toBe('----')
+    // Index mode used to fold this to 0 and show a confident "1st pattern".
+    expect(frameOf([huge, display({ segmentMode: 'Index' })], wires, 'seg').digits).toBe('----')
+  })
+
+  it('dashes a reading too wide for the module rather than truncating', () => {
+    expect(segmentOf([display({ value: 12345 })]).digits).toBe('----')
+    expect(segmentOf([display({ segmentMode: 'Index', value: 12345 })]).digits).toBe('----')
+  })
+
+  it('keeps a whole digit in front of a wired sub-one value', () => {
+    expect(segmentOf([display({ value: 0.4, decimals: 1 })]).digits).toBe('  04')
+  })
+
+  it('shows midnight rather than blanking on a zero hour', () => {
+    const rtc = node('rtc', 'RTCInput', 'input', {
+      ...SEEDED_CLOCK, startHour: 0, startMinute: 0, startSecond: 0,
+    })
+    const frame = frameOf(
+      [rtc, display({ segmentMode: 'Clock' })],
+      [edge('e1', 'rtc', 'dateTime', 'seg', 'dateTime')],
+      'seg',
+    )
+    expect(frame.digits).toBe('0000')
+    expect(frame.lit).toBe(true)
+  })
+
+  describe('brightness', () => {
+    // 0 is the dimmest *on* level. Anything treating it as falsy and reaching
+    // for a default makes the bottom of the slider unreachable.
+    it('publishes a zero rather than a default', () => {
+      expect(brightnessOf([display({ brightness: 0 })])).toBe(0)
+    })
+
+    it('bounds each controller to the bits it reads', () => {
+      expect(brightnessOf([display({ brightness: 15 })])).toBe(7)
+      expect(brightnessOf([max7219('seg', { brightness: 15 })])).toBe(15)
+    })
+
+    it('falls back only when the property is missing', () => {
+      expect(brightnessOf([display()])).toBe(4)
+    })
+  })
+
+  describe('two modules on one bench', () => {
+    const pair = () => [
+      node('a', 'SegmentDisplay', 'output', {
+        partId: 'tm1637-4digit-display', clkPin: 18, dioPin: 19,
+        segmentMode: 'Number', value: 42, brightness: 1,
+      }),
+      node('b', 'SegmentDisplay', 'output', {
+        partId: 'max7219-8digit-7segment', clkPin: 12, dinPin: 13, csPin: 14,
+        segmentMode: 'Index', value: 7, brightness: 9,
+      }),
+    ]
+
+    it('renders each from its own properties', () => {
+      const nodes = pair()
+      expect(frameOf(nodes, [], 'a').digits).toBe('  42')
+      expect(frameOf(nodes, [], 'b').digits).toBe('       7')
+    })
+
+    it('keeps their brightnesses apart', () => {
+      const nodes = pair()
+      const outputs = evaluateGraphFull(nodes, [], 0, 8, 8).outputs
+      expect(outputs.get('a')?.brightness).toBe(1)
+      expect(outputs.get('b')?.brightness).toBe(9)
+    })
+
+    it('lets one go dark without dimming the other', () => {
+      const nodes = pair()
+      nodes[0].data.properties.enabled = false
+      expect(frameOf(nodes, [], 'a').lit).toBe(false)
+      expect(frameOf(nodes, [], 'b').lit).toBe(true)
+    })
+
+    it('claims two separate sets of pins without conflict', () => {
+      expect(findPinConflicts(pair(), [])).toEqual([])
+    })
+  })
+})

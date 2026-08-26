@@ -224,3 +224,128 @@ describe('eight digits', () => {
     }
   })
 })
+
+// The plan's Phase 3 edge-case list, for the cases the happy path never
+// reaches. Most of these are the ways a module lies confidently: showing a
+// truncated number, a folded NaN, or a plausible midnight is worse on a display
+// whose whole job is to be read at a glance than showing nothing readable.
+describe('edge cases', () => {
+  describe('negatives', () => {
+    it('zero-pads inside the minus sign rather than around it', () => {
+      expect(renderSegmentNumber(-5, { decimals: 0, leadingZero: true }).digits).toBe('-005')
+    })
+
+    it('refuses a negative whose minus sign leaves no room', () => {
+      // Four digits, three of them usable once the sign takes one.
+      expect(renderSegmentNumber(-999, { decimals: 0, leadingZero: false }).digits).toBe('-999')
+      expect(renderSegmentNumber(-1000, { decimals: 0, leadingZero: false }).digits).toBe('----')
+    })
+
+    it('keeps the decimal point where a sign has shifted the digits', () => {
+      const frame = renderSegmentNumber(-1.5, { decimals: 1, leadingZero: false })
+      expect(frame.digits).toBe(' -15')
+      expect(segmentFrameText(frame)).toBe(' -1.5')
+    })
+
+    it('renders a rounded-away negative as a plain zero', () => {
+      // -0.04 scales to -0, and -0 is not less than 0, so no sign is drawn.
+      expect(segmentFrameText(renderSegmentNumber(-0.04, { decimals: 1, leadingZero: false }))).toBe('  0.0')
+    })
+  })
+
+  describe('readings that are not numbers', () => {
+    it('dashes rather than folding, in every mode', () => {
+      for (const value of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+        expect(renderSegmentNumber(value, { decimals: 0, leadingZero: false }).digits).toBe('----')
+        // Folding to 0 here would put a confident "1st pattern" on a module
+        // whose input is broken, and lroundf on a NaN is not obliged to fold
+        // the same way the browser does.
+        expect(renderSegmentIndex(value).digits).toBe('----')
+      }
+    })
+
+    it('still lights the module while showing dashes', () => {
+      expect(renderSegmentNumber(Number.NaN, { decimals: 0, leadingZero: false }).lit).toBe(true)
+      expect(renderSegmentIndex(Number.NaN).lit).toBe(true)
+    })
+  })
+
+  describe('clock rollover', () => {
+    it('shows midnight rather than treating zero as nothing', () => {
+      const frame = renderSegmentClock(0, 0, true)
+      expect(frame.digits).toBe('0000')
+      expect(frame.lit).toBe(true)
+      expect(frame.colon).toBe(true)
+    })
+
+    it('rolls from the last minute of the day to the first', () => {
+      expect(renderSegmentClock(23, 59, true).digits).toBe('2359')
+      expect(renderSegmentClock(0, 0, true).digits).toBe('0000')
+    })
+
+    it('rolls the seconds field on a module wide enough to show it', () => {
+      expect(renderSegmentClock(23, 59, false, MAX.digits, 59).digits).toBe('  235959')
+      expect(renderSegmentClock(0, 0, false, MAX.digits, 0).digits).toBe('  000000')
+    })
+
+    it('keeps each field two digits wide whatever it is handed', () => {
+      // The contract is width, not calendar sense: a field that overflowed its
+      // two digits would shift every other digit and make the whole row wrong.
+      expect(renderSegmentClock(123, 456, false).digits).toBe('2356')
+    })
+  })
+
+  describe('decimal placement', () => {
+    // The point is a segment on a digit, not a character between digits. With
+    // nothing padded in front of it, a value under 1 lit the dot on an
+    // otherwise blank digit — on the bench that reads as a fault, not as
+    // "nought point four".
+    it('keeps a whole digit in front of the point', () => {
+      expect(segmentFrameText(renderSegmentNumber(0.4, { decimals: 1, leadingZero: false }))).toBe('  0.4')
+      expect(segmentFrameText(renderSegmentNumber(0.05, { decimals: 2, leadingZero: false }))).toBe(' 0.05')
+      expect(segmentFrameText(renderSegmentNumber(0, { decimals: 3, leadingZero: false }))).toBe('0.000')
+    })
+
+    it('keeps the sign outside that whole digit', () => {
+      expect(segmentFrameText(renderSegmentNumber(-0.4, { decimals: 1, leadingZero: false }))).toBe(' -0.4')
+    })
+
+    it('refuses a precision that leaves no room for the sign', () => {
+      // Three decimals fill all four digits; a negative has nowhere to put its
+      // minus, so dashes rather than a number missing its sign.
+      expect(renderSegmentNumber(-0.5, { decimals: 3, leadingZero: false }).digits).toBe('----')
+      expect(renderSegmentNumber(0.5, { decimals: 3, leadingZero: false }).digits).toBe('0500')
+    })
+
+    it('has room for both on a wider module', () => {
+      expect(segmentFrameText(renderSegmentNumber(-0.5, { decimals: 3, leadingZero: false, digits: MAX.digits })))
+        .toBe('   -0.500')
+    })
+  })
+
+  describe('brightness', () => {
+    // 0 is the dimmest *on* level, not off. Anything that treats it as falsy
+    // and substitutes a default makes the dim end of the slider unreachable.
+    it('keeps a zero rather than substituting a default', () => {
+      expect(clampSegmentBrightness(0, TM)).toBe(0)
+      expect(clampSegmentBrightness(0, MAX)).toBe(0)
+    })
+
+    it('falls back only when there is no reading at all', () => {
+      expect(clampSegmentBrightness(undefined, TM)).toBe(4)
+      expect(clampSegmentBrightness(Number.NaN, TM)).toBe(4)
+      expect(clampSegmentBrightness('nonsense', MAX)).toBe(4)
+    })
+
+    it('bounds each controller to the bits it actually reads', () => {
+      expect(clampSegmentBrightness(15, TM)).toBe(TM.brightnessMax)
+      expect(clampSegmentBrightness(15, MAX)).toBe(MAX.brightnessMax)
+      expect(clampSegmentBrightness(-3, TM)).toBe(0)
+    })
+
+    it('lights every digit at the dimmest level, which is not the same as dark', () => {
+      const frame = renderSegmentNumber(8, { decimals: 0, leadingZero: false })
+      expect(segmentBytes(frame).some((byte) => byte !== 0)).toBe(true)
+    })
+  })
+})
