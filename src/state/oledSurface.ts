@@ -242,6 +242,32 @@ export function drawIndicator(surface: OledSurface, x: number, y: number, on: bo
 }
 
 /**
+ * Blit a page-major 1-bit bitmap at (x, y).
+ *
+ * `data` is packed the way this surface is — one byte per eight stacked rows,
+ * bit 0 at the top — so a source whose height is a whole number of pages,
+ * landing on a page boundary, is a straight byte copy per column on the
+ * device. That is the reason a pattern thumbnail is 32 tall rather than 30.
+ * Anywhere else it still draws; it just costs a shift per pixel.
+ */
+export function drawBitmap(
+  surface: OledSurface,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  data: Uint8Array,
+): void {
+  for (let sy = 0; sy < height; sy++) {
+    const index = Math.floor(sy / OLED_PAGE_HEIGHT) * width
+    const bit = 1 << (sy % OLED_PAGE_HEIGHT)
+    for (let sx = 0; sx < width; sx++) {
+      if ((data[index + sx] ?? 0) & bit) setPixel(surface, x + sx, y + sy)
+    }
+  }
+}
+
+/**
  * The surface as one row of text per pixel row, `#` lit and `.` dark.
  *
  * For tests and debugging. Comparing rendered rows is how a layout regression

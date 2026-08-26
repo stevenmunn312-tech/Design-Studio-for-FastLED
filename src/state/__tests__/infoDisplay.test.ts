@@ -7,7 +7,10 @@ import {
   blankInfoData,
   infoRowY,
   renderInfoDisplay,
+  BROWSER_LAYOUT,
+  type PatternBrowserData,
 } from '../infoDisplay'
+import { THUMBNAIL_W, THUMBNAIL_H } from '../patternThumbnail'
 import { OLED_CONTROLLERS, getPixel, oledSurfaceRows, type OledSurface } from '../oledSurface'
 
 const sh1106 = OLED_CONTROLLERS.SH1106
@@ -36,15 +39,16 @@ const nowPlaying = (over: Partial<Parameters<typeof renderInfoDisplay>[1] extend
   })
 
 describe('layout selection', () => {
-  it('offers the three implemented layouts', () => {
-    expect([...INFO_DISPLAY_LAYOUTS]).toEqual(['Now Playing', 'Clock', 'Status'])
+  it('offers the implemented layouts', () => {
+    expect([...INFO_DISPLAY_LAYOUTS]).toEqual(['Now Playing', 'Clock', 'Status', 'Pattern Browser'])
   })
 
-  // The Pattern Browser needs the runtime selection contract and baked
-  // thumbnails, so offering it here would mean a layout that previews and
-  // cannot be generated.
-  it('does not offer the Pattern Browser yet', () => {
-    expect(INFO_DISPLAY_LAYOUTS as readonly string[]).not.toContain('Pattern Browser')
+  // The Pattern Browser was held back until the runtime selection contract and
+  // baked thumbnails existed, because offering it sooner would have meant a
+  // layout that previews and cannot be generated. It reads both rather than
+  // tracking an index or drawing an icon of its own.
+  it('offers the Pattern Browser now that it can be generated', () => {
+    expect(INFO_DISPLAY_LAYOUTS as readonly string[]).toContain('Pattern Browser')
   })
 
   it('falls back to a known layout for unknown input', () => {
@@ -162,7 +166,12 @@ describe('Status', () => {
 describe('blank data', () => {
   it('renders every layout with nothing wired', () => {
     for (const layout of INFO_DISPLAY_LAYOUTS) {
-      const surface = renderInfoDisplay(sh1106, blankInfoData(layout))
+      const blank = blankInfoData(layout)
+      // Asserted, because the default branch quietly returns a Now Playing
+      // struct: a layout added to the list but never wired into the dispatcher
+      // passed this test by rendering a different layout entirely.
+      expect(blank.layout, `${layout} has no blank data of its own`).toBe(layout)
+      const surface = renderInfoDisplay(sh1106, blank)
       expect(withinPanel(surface), layout).toBe(true)
     }
   })
@@ -182,5 +191,80 @@ describe('controller independence', () => {
     const a = renderInfoDisplay(OLED_CONTROLLERS.SH1106, data)
     const b = renderInfoDisplay(OLED_CONTROLLERS.SSD1306, data)
     expect(Array.from(a.data)).toEqual(Array.from(b.data))
+  })
+})
+
+describe('Pattern Browser', () => {
+  const thumb = (fill: number) => {
+    const data = new Uint8Array((THUMBNAIL_W * THUMBNAIL_H) / 8)
+    data.fill(fill)
+    return { width: THUMBNAIL_W, height: THUMBNAIL_H, data }
+  }
+
+  const browser = (over: Partial<PatternBrowserData> = {}) => renderInfoDisplay(sh1106, {
+    layout: 'Pattern Browser',
+    data: {
+      name: 'EMBER PULSE', ordinal: 3, count: 12,
+      thumbnail: thumb(0xff), browsing: false, activeName: 'FIRE 2', ...over,
+    },
+  })
+
+  it('draws the picture, the name and the ordinal', () => {
+    expect(litCount(browser())).toBeGreaterThan(100)
+    expect(withinPanel(browser())).toBe(true)
+  })
+
+  it('puts the picture on a page boundary so the device blit is a byte copy', () => {
+    expect(BROWSER_LAYOUT.thumbY % 8).toBe(0)
+    expect(THUMBNAIL_H % 8).toBe(0)
+  })
+
+  it('keeps the text clear of the picture', () => {
+    expect(BROWSER_LAYOUT.textX).toBeGreaterThanOrEqual(BROWSER_LAYOUT.thumbX + THUMBNAIL_W)
+  })
+
+  it('actually blits the thumbnail it was given', () => {
+    const lit = litCount(browser({ thumbnail: thumb(0xff) }))
+    const dark = litCount(browser({ thumbnail: thumb(0x00) }))
+    expect(lit - dark).toBe(THUMBNAIL_W * THUMBNAIL_H)
+  })
+
+  // Several patterns legitimately render black, so a missing picture has to
+  // look different from a dark one or a failed bake reads as a working pattern.
+  it('outlines an empty frame when a pattern has no thumbnail', () => {
+    const none = litCount(browser({ thumbnail: null }))
+    const black = litCount(browser({ thumbnail: thumb(0x00) }))
+    expect(none).toBeGreaterThan(black)
+  })
+
+  // The highlight/active split is the point of the contract, and it is
+  // invisible unless the panel says which one it is showing.
+  it('distinguishes looking at a pattern from playing it', () => {
+    const rows = (b: boolean) => oledSurfaceRows(browser({ browsing: b })).join('\n')
+    expect(rows(true)).not.toBe(rows(false))
+  })
+
+  it('names what is still playing while you browse away from it', () => {
+    // Without that line the panel confidently describes something the LEDs are
+    // not doing.
+    const browsing = litCount(browser({ browsing: true, activeName: 'FIRE 2' }))
+    const shorter = litCount(browser({ browsing: true, activeName: '' }))
+    expect(browsing).toBeGreaterThan(shorter)
+  })
+
+  it('says so rather than drawing an empty frame for an empty collection', () => {
+    const empty = browser({ count: 0, ordinal: 0, name: '', thumbnail: null })
+    expect(litCount(empty)).toBeGreaterThan(0)
+    expect(litCount(empty)).toBeLessThan(litCount(browser()))
+    expect(withinPanel(empty)).toBe(true)
+  })
+
+  it('fits a long pattern name rather than overrunning the panel', () => {
+    expect(withinPanel(browser({ name: 'A'.repeat(200) }))).toBe(true)
+    expect(withinPanel(browser({ browsing: true, activeName: 'B'.repeat(200) }))).toBe(true)
+  })
+
+  it('survives a three-digit collection', () => {
+    expect(withinPanel(browser({ ordinal: 128, count: 256 }))).toBe(true)
   })
 })
