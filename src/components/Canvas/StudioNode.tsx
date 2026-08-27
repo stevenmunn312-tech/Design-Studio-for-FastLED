@@ -73,6 +73,7 @@ const PolineEditorBody = lazy(() => import('./PaletteEditorBody').then((m) => ({
 const ImageNodeBody = lazy(() => import('./ImageNodeBody'))
 const BoardNodeBody = lazy(() => import('./BoardNodeBody'))
 const Wireframe3DNodeBody = lazy(() => import('./Wireframe3DNodeBody'))
+const TransportDisplayNodeBody = lazy(() => import('./TransportDisplayNodeBody'))
 
 type PortDef = { id: string; label: string; dataType: string }
 
@@ -1420,6 +1421,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           {d.nodeType === 'Image' && <ImageNodeBody nodeId={id} />}
           {d.nodeType === 'Board' && <BoardNodeBody nodeId={id} />}
           {d.nodeType === 'Wireframe3D' && props.model === 'custom' && <Wireframe3DNodeBody nodeId={id} />}
+          {d.nodeType === 'TransportDisplay' && <TransportDisplayNodeBody nodeId={id} />}
 
           {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
           {d.nodeType === 'Transition' && <TransitionPickerBody nodeId={id} />}

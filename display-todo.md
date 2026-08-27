@@ -203,7 +203,9 @@ case the OLED slice cannot already serve.
   the evaluator and by `playerDisplaysFromGraph` for the SD player. The outbound
   half waits on touch, and is the step that trips the sink trap above.
 - [ ] Each fixed node has a compact browser preview body that shows what the
-  physical screen will render at its real aspect ratio.
+  physical screen will render at its real aspect ratio. Transport Display now
+  paints its evaluated RGB565 surface into a compact true-ratio canvas; Segment
+  Display and Info Display still need their node bodies.
 
 ### Freeform `Display` node
 
