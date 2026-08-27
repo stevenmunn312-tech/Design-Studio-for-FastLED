@@ -89,11 +89,14 @@ describe('displays in the player sketch', () => {
         .toBeLessThan(src.indexOf('_oledBeginI2c(_oled_oled'))
     })
 
-    it('leaves Wire out of a player driving an SPI panel', () => {
+    // Declared, not started — see the matching note in infoDisplayCpp.test.ts.
+    // The player generator had the same gating and the same latent failure.
+    it('declares Wire but does not start it for an SPI panel', () => {
       const src = generatePlayerSketch({}, undefined, {
         displays: playerDisplaysFromGraph(nodes, edges),
       })
-      expect(src).not.toContain('#include <Wire.h>')
+      expect(src).toContain('#include <Wire.h>')
+      expect(src).not.toContain('Wire.begin(')
     })
   })
 

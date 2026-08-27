@@ -226,9 +226,17 @@ describe('generateCpp with an I2C OLED', () => {
     expect(body(bus)).toBe(body(spi))
   })
 
-  // A build with only an SPI panel has no bus to start, and pulling Wire in
-  // would cost flash for a peripheral nothing touches.
-  it('leaves Wire out of a build with nothing on the bus', () => {
-    expect(generateCpp([outputNode, oled()], [])).not.toContain('#include <Wire.h>')
+  // A build with only an SPI panel has no bus to start — but it still has to
+  // declare one, and this test used to assert the opposite.
+  //
+  // That is how the panel on the bench shipped a sketch that would not compile.
+  // The shared driver branches on transport at runtime, so its Wire calls are
+  // compiled whichever module is fitted; omitting the header left `Wire` an
+  // undeclared name and the build failed on a line no generator wrote. The
+  // header follows the driver, and starting the bus follows the device.
+  it('declares Wire but does not start it with nothing on the bus', () => {
+    const src = generateCpp([outputNode, oled()], [])
+    expect(src).toContain('#include <Wire.h>')
+    expect(src).not.toContain('Wire.begin(')
   })
 })
