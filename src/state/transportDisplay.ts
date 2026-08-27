@@ -27,7 +27,7 @@ import {
 import { formatTransportTime } from './transportBridge'
 import { DISPLAY_TEXT_NO_READING, displayString } from './displayText'
 
-export const TRANSPORT_DISPLAY_LAYOUTS = ['Now Playing', 'Fixed Transport', 'Show Status'] as const
+export const TRANSPORT_DISPLAY_LAYOUTS = ['Now Playing', 'Fixed Transport', 'Show Status', 'Diagnostics'] as const
 export type TransportDisplayLayout = (typeof TRANSPORT_DISPLAY_LAYOUTS)[number]
 
 export function asTransportDisplayLayout(value: unknown): TransportDisplayLayout {
@@ -576,12 +576,75 @@ export function drawTransportShowStatus(surface: TftSurface, data: TransportShow
   drawTftBar(surface, g.brightness, data.brightness, c.text, c.track, c.outline)
 }
 
+// ── Diagnostics ─────────────────────────────────────────────────────────────────────────────
+
+export interface TransportDiagnosticsData {
+  touchAvailable: boolean
+  pressed: boolean
+  x: number
+  y: number
+}
+
+export interface DiagnosticsGeometry {
+  title: TftField
+  panel: TftField
+  touch: TftField
+  coordinates: TftField
+  swatches: TftRect[]
+}
+
+export function diagnosticsGeometry(width: number, height: number): DiagnosticsGeometry {
+  const inner = width - (M.margin * 2)
+  const headingH = tftTextHeight(M.headingScale)
+  const bodyH = tftTextHeight(M.bodyScale)
+  const swatchGap = M.rowGap
+  const swatchW = Math.floor((inner - (swatchGap * 3)) / 4)
+  const swatchY = M.margin + headingH + (M.rowGap * 2)
+  const swatchH = Math.max(28, Math.floor(height * 0.2))
+  const touchY = swatchY + swatchH + (M.rowGap * 2)
+  return {
+    title: field(M.margin, M.margin, inner, M.headingScale, 'center'),
+    panel: field(M.margin, touchY, inner, M.bodyScale, 'center'),
+    touch: field(M.margin, touchY + bodyH + M.rowGap, inner, M.headingScale, 'center'),
+    coordinates: field(M.margin, touchY + bodyH + M.rowGap + headingH + M.rowGap, inner, M.bodyScale, 'center'),
+    swatches: Array.from({ length: 4 }, (_, i) => ({
+      x: M.margin + (i * (swatchW + swatchGap)), y: swatchY, w: swatchW, h: swatchH,
+    })),
+  }
+}
+
+export function diagnosticsTouchText(data: TransportDiagnosticsData): string {
+  if (!data.touchAvailable) return 'NO TOUCH'
+  return data.pressed ? 'TOUCH DOWN' : 'TOUCH READY'
+}
+
+export function diagnosticsCoordinateText(data: TransportDiagnosticsData): string {
+  return data.touchAvailable && data.pressed
+    ? `X ${Math.round(data.x)}  Y ${Math.round(data.y)}`
+    : 'PRESS THE PANEL'
+}
+
+export function drawTransportDiagnostics(surface: TftSurface, data: TransportDiagnosticsData): void {
+  const g = diagnosticsGeometry(surface.width, surface.height)
+  const c = TRANSPORT_COLORS
+  const swatches = [rgb565(255, 0, 0), rgb565(0, 255, 0), rgb565(0, 96, 255), rgb565(255, 255, 255)]
+  drawTftField(surface, g.title, 'DISPLAY TEST', c.text, c.background)
+  g.swatches.forEach((rect, i) => {
+    fillTftRect(surface, rect.x, rect.y, rect.w, rect.h, swatches[i])
+    drawTftRect(surface, rect.x, rect.y, rect.w, rect.h, c.outline)
+  })
+  drawTftField(surface, g.panel, `${surface.width} X ${surface.height}`, c.dim, c.background)
+  drawTftField(surface, g.touch, diagnosticsTouchText(data), data.pressed ? c.on : c.accent, c.background)
+  drawTftField(surface, g.coordinates, diagnosticsCoordinateText(data), c.text, c.background)
+}
+
 // ── Rendering ───────────────────────────────────────────────────────────────
 
 export type TransportDisplayData =
   | { layout: 'Now Playing'; data: TransportNowPlayingData }
   | { layout: 'Fixed Transport'; data: TransportFixedData }
   | { layout: 'Show Status'; data: TransportShowStatusData }
+  | { layout: 'Diagnostics'; data: TransportDiagnosticsData }
 
 /** Render any layout onto a fresh surface for `controller` mounted at `rotation`. */
 export function renderTransportDisplay(
@@ -595,6 +658,7 @@ export function renderTransportDisplay(
     case 'Now Playing': drawTransportNowPlaying(surface, input.data); break
     case 'Fixed Transport': drawTransportFixed(surface, input.data); break
     case 'Show Status': drawTransportShowStatus(surface, input.data); break
+    case 'Diagnostics': drawTransportDiagnostics(surface, input.data); break
   }
   return surface
 }
@@ -612,6 +676,9 @@ export function blankTransportData(layout: TransportDisplayLayout): TransportDis
         bpm: 0, beat: 0, outputEnabled: false, brightness: 0,
       },
     }
+  }
+  if (layout === 'Diagnostics') {
+    return { layout, data: { touchAvailable: false, pressed: false, x: 0, y: 0 } }
   }
   return {
     layout: 'Now Playing',

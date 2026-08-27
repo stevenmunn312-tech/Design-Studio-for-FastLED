@@ -22,7 +22,7 @@ import {
 } from './tftDisplayCpp'
 import { patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
 import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './patternSelectionCpp'
-import { TFT_TOUCH_CPP_HELPERS, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit } from './tftTouchCpp'
+import { TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit } from './tftTouchCpp'
 import type { BrowserThumbnails } from '../utils/browserThumbnails'
 import type { TransportArtworks } from '../utils/transportArtworks'
 import { transportArtworkTableCpp } from './transportArtworkCpp'
@@ -903,6 +903,7 @@ ${touchEmits.flatMap(tftTouchServiceCpp).join('\n')}
     beatExpr: display.sources.beat ?? '0.0f',
     outputEnabledExpr: display.sources.outputEnabled ?? 'true',
     brightnessExpr: display.sources.brightness ?? '1.0f',
+    diagnosticTouch: display.layout === 'Diagnostics' && display.touch !== null,
     ...(display.layout === 'Now Playing' && playerArtworks.length > 0
       ? { artwork: { tableStem: PLAYER_SELECTION_STEM, count: playerArtworks.length } }
       : {}),
@@ -932,6 +933,7 @@ ${touchEmits.flatMap(tftTouchServiceCpp).join('\n')}
       ? transportArtworkTableCpp(PLAYER_SELECTION_STEM, playerArtworks)
       : '',
     touchEmits.length > 0 ? TFT_TOUCH_CPP_HELPERS : '',
+    touchEmits.length > 0 ? touchEmits.map(tftTouchGlobalCpp).join('\n') : '',
     hasTftDisplays ? tftEmits.map(tftDisplayGlobalCpp).join('\n') : '',
   ].filter(Boolean).join('\n')
 

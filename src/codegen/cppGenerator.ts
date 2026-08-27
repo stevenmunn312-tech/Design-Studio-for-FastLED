@@ -58,6 +58,9 @@ import {
 import { asTransportDisplayLayout } from '../state/transportDisplay'
 import { asTftRotation, TFT_CONTROLLERS } from '../state/tftSurface'
 import {
+  TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit,
+} from './tftTouchCpp'
+import {
   oledRotationCommands, asOledRotation, asOledAddress,
 } from '../state/oledSurface'
 import { partById } from '../state/partCatalogue'
@@ -1762,6 +1765,7 @@ export function generateCpp(
   const segmentDisplays: SegmentDisplayEmit[] = []
   const infoDisplays: InfoDisplayEmit[] = []
   const tftDisplays: TftDisplayEmit[] = []
+  const diagnosticTouches: TftTouchEmit[] = []
   const browserTables: { id: string; entries: BrowserThumbnails[string] }[] = []
   const artworkTables = new Map<string, Uint8Array[]>()
   const needsXyMap = { v: false }
@@ -4957,11 +4961,16 @@ export function generateCpp(
           const up = incoming.get(`${node.id}:${port}`)
           return up ? `n_${safeId(up.srcId)}_${up.srcPort}` : null
         }
+        const layout = asTransportDisplayLayout(p.tftLayout)
+        const controller = tftControllerForProps(p) ?? TFT_CONTROLLERS.ST7789
+        const rotation = asTftRotation(p.tftRotation)
+        const touchCapable = Boolean(partById(String(p.partId ?? ''))?.display?.touchController)
+        const diagnosticTouch = layout === 'Diagnostics' && touchCapable
         const emit: TftDisplayEmit = {
           id,
-          controller: tftControllerForProps(p) ?? TFT_CONTROLLERS.ST7789,
-          rotation: asTftRotation(p.tftRotation),
-          layout: asTransportDisplayLayout(p.tftLayout),
+          controller,
+          rotation,
+          layout,
           csPin: intProp(p.csPin, 5, 0, MAX_PIN_NUMBER),
           dcPin: intProp(p.dcPin, 16, 0, MAX_PIN_NUMBER),
           resetPin: intProp(p.resetPin, 17, 0, MAX_PIN_NUMBER),
@@ -4988,6 +4997,7 @@ export function generateCpp(
             ? boolExpr(node.id, 'outputEnabled')
             : 'false',
           brightnessExpr: `constrain(${f('brightness', 'brightness', 0)}, 0.0f, 1.0f)`,
+          diagnosticTouch,
         }
         if (emit.layout === 'Now Playing') {
           const player = incoming.get(`${node.id}:patternSelect`)?.srcId
@@ -5001,6 +5011,25 @@ export function generateCpp(
           }
         }
         tftDisplays.push(emit)
+        if (diagnosticTouch) {
+          const touch: TftTouchEmit = {
+            id, controller, rotation, layout, enabled: p.enabled !== false,
+            touch: {
+              csPin: intProp(p.touchCsPin, 15, 0, MAX_PIN_NUMBER),
+              irqPin: intProp(p.touchIrqPin, 2, 0, MAX_PIN_NUMBER),
+              sckPin: intProp(p.touchSckPin, 18, 0, MAX_PIN_NUMBER),
+              mosiPin: intProp(p.touchMosiPin, 23, 0, MAX_PIN_NUMBER),
+              misoPin: intProp(p.touchMisoPin, 19, 0, MAX_PIN_NUMBER),
+              xMin: intProp(p.touchXMin, 200, 0, 4095),
+              xMax: intProp(p.touchXMax, 3900, 0, 4095),
+              yMin: intProp(p.touchYMin, 200, 0, 4095),
+              yMax: intProp(p.touchYMax, 3900, 0, 4095),
+            },
+          }
+          diagnosticTouches.push(touch)
+          setupLines.push(...tftTouchSetupCpp(touch))
+          for (const line of tftTouchServiceCpp(touch)) ln(line)
+        }
         for (const line of tftDisplaySetupCpp(emit)) setupLines.push(line)
         for (const line of tftDisplayLoopCpp(emit)) ln(line)
         break
@@ -6498,6 +6527,8 @@ export function generateCpp(
 
   if (tftDisplays.length > 0) {
     lines.push(tftDisplayHelpersCpp())
+    if (diagnosticTouches.length > 0) lines.push(TFT_TOUCH_CPP_HELPERS)
+    for (const touch of diagnosticTouches) lines.push(tftTouchGlobalCpp(touch))
     for (const display of tftDisplays) lines.push(tftDisplayGlobalCpp(display))
     for (const [id, artworks] of artworkTables) lines.push(transportArtworkTableCpp(id, artworks))
     lines.push(``)

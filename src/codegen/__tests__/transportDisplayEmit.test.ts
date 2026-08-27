@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { generateCpp } from '../cppGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
-import { fixedTransportGeometry, nowPlayingGeometry, showStatusGeometry } from '../../state/transportDisplay'
+import { diagnosticsGeometry, fixedTransportGeometry, nowPlayingGeometry, showStatusGeometry } from '../../state/transportDisplay'
 import { TFT_CONTROLLERS, tftMadctl, tftRotatedSize, tftWindowOrigin } from '../../state/tftSurface'
 import { TFT_DISPLAY_CPP_FORWARD } from '../tftDisplayCpp'
 
@@ -115,6 +115,22 @@ describe('what the loop draws', () => {
     const g = fixedTransportGeometry(240, 240)
     expect(src).toContain(`_tftRect(_tft_tft, ${g.previous.rect.x}, ${g.previous.rect.y}, ${g.previous.rect.w}, ${g.previous.rect.h},`)
     expect(src).toContain('const char *_tftState_tft = _tftPlaying_tft ? "PAUSE" : "PLAY";')
+  })
+
+  it('emits the display and live touch self-test through the normal sketch path', () => {
+    const src = build({ partId: TOUCH, tftLayout: 'Diagnostics', tftRotation: '90' })
+    const g = diagnosticsGeometry(320, 240)
+    expect(src).toContain('"DISPLAY TEST"')
+    expect(src).toContain(`${g.touch.x}, ${g.touch.y}, ${g.touch.w}, ${g.touch.h}, ${g.touch.scale},`)
+    expect(src).toContain('static bool _touchDown_tft = false;')
+    expect(src).toContain('_xptPoint(15, 2, 18, 23, 19, 200, 3900, 200, 3900, 240, 320, 1,')
+    expect(src.indexOf('_touchDown_tft = _xptPoint')).toBeLessThan(src.indexOf('{ // Transport Display'))
+  })
+
+  it('labels Diagnostics as non-touch on the plain panel', () => {
+    const src = build({ partId: PLAIN, tftLayout: 'Diagnostics' })
+    expect(src).toContain('"NO TOUCH"')
+    expect(src).not.toContain('_xptPoint(')
   })
 
   it('reads a wired string port from the node that publishes it', () => {

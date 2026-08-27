@@ -61,8 +61,8 @@ describe('the panel the evaluator draws', () => {
     expect(evaluate({ tftLayout: 'Show Status' })?.layout).toBe('Show Status')
   })
 
-  it('falls back to Now Playing for a layout it does not have', () => {
-    expect(evaluate({ tftLayout: 'Diagnostics' })?.layout).toBe('Now Playing')
+  it('renders the Diagnostics self-test layout', () => {
+    expect(evaluate({ tftLayout: 'Diagnostics' })?.layout).toBe('Diagnostics')
   })
 
   it('renders the interactive Fixed Transport layout', () => {

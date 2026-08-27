@@ -7009,7 +7009,17 @@ function createEvalNode(
         }
 
         let payload: TransportDisplayData
-        if (layout === 'Show Status') {
+        if (layout === 'Diagnostics') {
+          payload = {
+            layout: 'Diagnostics',
+            data: {
+              touchAvailable: touchCapable,
+              pressed,
+              x: touch?.x ?? 0,
+              y: touch?.y ?? 0,
+            },
+          }
+        } else if (layout === 'Show Status') {
           payload = {
             layout: 'Show Status',
             data: {

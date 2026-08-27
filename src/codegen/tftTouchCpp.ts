@@ -22,6 +22,10 @@ export interface TftTouchEmit {
   }
 }
 
+export function tftTouchGlobalCpp(display: TftTouchEmit): string {
+  return `static bool _touchDown_${display.id} = false; static int16_t _touchX_${display.id} = 0, _touchY_${display.id} = 0;`
+}
+
 export const TFT_TOUCH_CPP_HELPERS = `// ── XPT2046 touch ────────────────────────────────────────────────────────────
 static uint16_t _xptRead12(uint8_t cs, uint8_t sck, uint8_t mosi, uint8_t miso, uint8_t command) {
   digitalWrite(cs, LOW);
@@ -76,8 +80,8 @@ export function tftTouchServiceCpp(display: TftTouchEmit): string[] {
   const rotation = ({ '0': 0, '90': 1, '180': 2, '270': 3 } as const)[display.rotation]
   const regions = transportTouchRegions(display.controller, display.rotation, display.layout)
   const lines = [
-    `  { int16_t ${pointX} = 0, ${pointY} = 0;`,
-    `    bool ${down} = ${display.enabled ? '' : 'false && '}_xptPoint(${t.csPin}, ${t.irqPin}, ${t.sckPin}, ${t.mosiPin}, ${t.misoPin}, `
+    `  {`,
+    `    ${down} = ${display.enabled ? '' : 'false && '}_xptPoint(${t.csPin}, ${t.irqPin}, ${t.sckPin}, ${t.mosiPin}, ${t.misoPin}, `
       + `${t.xMin}, ${t.xMax}, ${t.yMin}, ${t.yMax}, ${display.controller.width}, ${display.controller.height}, ${rotation}, ${pointX}, ${pointY});`,
     `    static bool _touchPrev_${id} = false;`,
   ]

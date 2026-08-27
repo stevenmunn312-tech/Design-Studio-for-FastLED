@@ -83,14 +83,14 @@ function rectsOf(geometry: object): Array<[string, TftRect]> {
 describe('layout selection', () => {
   // Diagnostics remains generated-only; these are the three user-selectable
   // layouts that preview and emit through both firmware paths.
-  it('offers the three layouts that can be generated', () => {
-    expect([...TRANSPORT_DISPLAY_LAYOUTS]).toEqual(['Now Playing', 'Fixed Transport', 'Show Status'])
+  it('offers the four layouts that can be generated', () => {
+    expect([...TRANSPORT_DISPLAY_LAYOUTS]).toEqual(['Now Playing', 'Fixed Transport', 'Show Status', 'Diagnostics'])
   })
 
   it('falls back to Now Playing for anything else', () => {
     expect(asTransportDisplayLayout('Show Status')).toBe('Show Status')
     expect(asTransportDisplayLayout('Fixed Transport')).toBe('Fixed Transport')
-    expect(asTransportDisplayLayout('Diagnostics')).toBe('Now Playing')
+    expect(asTransportDisplayLayout('Diagnostics')).toBe('Diagnostics')
     expect(asTransportDisplayLayout(undefined)).toBe('Now Playing')
   })
 })

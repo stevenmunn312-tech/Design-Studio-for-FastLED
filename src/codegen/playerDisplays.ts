@@ -255,7 +255,9 @@ export function playerDisplaysFromGraph(nodes: ConfigNode[], edges: ConfigEdge[]
         sckPin: intProp(props.sckPin, 18),
         mosiPin: intProp(props.mosiPin, 23),
         backlightPin: intProp(props.backlightPin, 4),
-        touch: part?.display?.touchController && displayControlsPlayer(node.id, edges, byId)
+        touch: part?.display?.touchController
+          && (asTransportDisplayLayout(props.tftLayout) === 'Diagnostics'
+            || displayControlsPlayer(node.id, edges, byId))
           ? {
             csPin: intProp(props.touchCsPin, 15),
             irqPin: intProp(props.touchIrqPin, 2),

@@ -491,10 +491,9 @@ widget, font and image limits before Phase 7 is frozen.
     exactly what a browser wired to nobody reads. `browserThumbnailIssues`
     derives the reason from the pattern count rather than from the bake, so
     validation can say it without evaluating anything or asking about trust;
-  - show the same baked result in the browser preview. There is no browser
-    preview of the OLED surface, deliberately — see the note in `CLAUDE.md`;
-    the shared `renderInfoDisplay` blits the same baked bytes the firmware
-    does, which is where the parity actually lives.
+  - show the same baked result in the browser preview. The Info Display node
+    paints the complete OLED surface at the panel's real aspect ratio; the
+    shared `renderInfoDisplay` blits the same baked bytes the firmware does.
 - [x] Test title truncation, empty collection, one/many patterns, encoder wrap,
   I²C address settings, OLED+RTC bus sharing, and thumbnail flash estimates.
   The last three arrived with the I²C transport: an OLED and a DS3231 on one
@@ -558,8 +557,11 @@ freeform widgets must reuse rather than rediscover.
   still valid as a read-only display.
 - [ ] Add calibration/rotation handling for touch and persist the exact module's
   calibration only where it is stable. Provide a generated touch self-test.
-  Calibration properties, clamping and all four rotations are implemented;
-  the self-test and bench-derived per-module values remain.
+  Calibration properties, clamping, all four rotations, and the generated
+  Diagnostics layout are implemented. Diagnostics paints colour swatches and
+  panel geometry on every TFT, and reports live mounted X/Y coordinates on an
+  XPT2046 module in both normal and player sketches even when Controls is not
+  wired. Bench-derived per-module calibration values remain.
 - [x] Bake colour pattern thumbnails/art into flash with explicit size limits;
   optionally place large assets on the existing SD capability only through an
   explicit storage policy. The fixed 96×96 RGB565 path is complete:

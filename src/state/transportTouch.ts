@@ -65,6 +65,7 @@ export function transportTouchRegions(
   layout: TransportDisplayLayout,
 ): TransportTouchRegion[] {
   const { width, height } = tftRotatedSize(controller, rotation)
+  if (layout === 'Diagnostics') return []
   if (layout === 'Show Status') {
     const g = showStatusGeometry(width, height)
     return [

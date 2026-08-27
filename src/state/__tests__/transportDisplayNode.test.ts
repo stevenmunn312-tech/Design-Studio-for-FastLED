@@ -63,7 +63,11 @@ describe('TransportDisplay registration', () => {
     const rendered = new Set(TRANSPORT_DISPLAY_LAYOUTS.flatMap(
       (layout) => Object.keys(blankTransportData(layout).data),
     ))
-    expect([...rendered].filter((field) => !ports.has(field))).toEqual(['artwork'])
+    // Artwork and diagnostic touch readings are derived runtime state rather
+    // than graph inputs; every user-supplied display field still needs a port.
+    expect([...rendered].filter((field) => !ports.has(field))).toEqual([
+      'artwork', 'touchAvailable', 'pressed', 'x', 'y',
+    ])
   })
 
   it('declares the fixed layout payload ports', () => {

@@ -38,7 +38,7 @@ import {
 } from '../state/tftSurface'
 import {
   TRANSPORT_ARTWORK_H, TRANSPORT_ARTWORK_W, TRANSPORT_BEAT_COUNT, TRANSPORT_COLORS,
-  fixedTransportGeometry, nowPlayingGeometry, showStatusGeometry,
+  diagnosticsGeometry, fixedTransportGeometry, nowPlayingGeometry, showStatusGeometry,
   type TransportDisplayLayout,
 } from '../state/transportDisplay'
 
@@ -633,6 +633,8 @@ export interface TftDisplayEmit {
   beatExpr: string
   outputEnabledExpr: string
   brightnessExpr: string
+  /** Whether Diagnostics can read a live XPT2046 point. */
+  diagnosticTouch?: boolean
   /**
    * Now Playing only: the identifier stem of the baked artwork this panel
    * blits, when a picture was baked for it.
@@ -859,6 +861,41 @@ function fixedTransportLoop(display: TftDisplayEmit, width: number, height: numb
   return lines
 }
 
+function diagnosticsLoop(display: TftDisplayEmit, width: number, height: number): string[] {
+  const p = `_tft_${display.id}`
+  const id = display.id
+  const g = diagnosticsGeometry(width, height)
+  const colors = ['0xf800', '0x07e0', '0x031f', '0xffff']
+  const lines = [
+    `      if (_tftFull_${id}) {`,
+    `        _tftField(${p}, ${fieldArgs(g.title)}, "DISPLAY TEST", TFT_C_TEXT, TFT_C_BG);`,
+    ...g.swatches.flatMap((rect, i) => [
+      `        _tftFillRect(${p}, ${rectArgs(rect)}, ${colors[i]});`,
+      `        _tftRect(${p}, ${rectArgs(rect)}, TFT_C_OUTLINE);`,
+    ]),
+    `        _tftField(${p}, ${fieldArgs(g.panel)}, "${width} X ${height}", TFT_C_DIM, TFT_C_BG);`,
+    `      }`,
+  ]
+  if (display.diagnosticTouch) {
+    lines.push(
+      `      const char *_tftTouch_${id} = _touchDown_${id} ? "TOUCH DOWN" : "TOUCH READY";`,
+      `      if (_tftTextDirty(${p}, 0, _tftTouch_${id}) || _tftFull_${id}) _tftField(${p}, ${fieldArgs(g.touch)}, _tftTouch_${id}, _touchDown_${id} ? TFT_C_ON : TFT_C_ACCENT, TFT_C_BG);`,
+      `      char _tftXY_${id}[24];`,
+      `      if (_touchDown_${id}) snprintf(_tftXY_${id}, sizeof(_tftXY_${id}), "X %d  Y %d", _touchX_${id}, _touchY_${id});`,
+      `      else snprintf(_tftXY_${id}, sizeof(_tftXY_${id}), "PRESS THE PANEL");`,
+      `      if (_tftTextDirty(${p}, 1, _tftXY_${id}) || _tftFull_${id}) _tftField(${p}, ${fieldArgs(g.coordinates)}, _tftXY_${id}, TFT_C_TEXT, TFT_C_BG);`,
+    )
+  } else {
+    lines.push(
+      `      if (_tftFull_${id}) {`,
+      `        _tftField(${p}, ${fieldArgs(g.touch)}, "NO TOUCH", TFT_C_ACCENT, TFT_C_BG);`,
+      `        _tftField(${p}, ${fieldArgs(g.coordinates)}, "PRESS THE PANEL", TFT_C_TEXT, TFT_C_BG);`,
+      `      }`,
+    )
+  }
+  return lines
+}
+
 /**
  * Per-frame layout and repaint.
  *
@@ -874,8 +911,10 @@ function fixedTransportLoop(display: TftDisplayEmit, width: number, height: numb
 export function tftDisplayLoopCpp(display: TftDisplayEmit): string[] {
   const id = display.id
   const size = tftRotatedSize(display.controller, display.rotation)
-  const body = display.layout === 'Show Status'
-    ? showStatusLoop(display, size.width, size.height)
+  const body = display.layout === 'Diagnostics'
+    ? diagnosticsLoop(display, size.width, size.height)
+    : display.layout === 'Show Status'
+      ? showStatusLoop(display, size.width, size.height)
     : display.layout === 'Fixed Transport'
       ? fixedTransportLoop(display, size.width, size.height)
       : nowPlayingLoop(display, size.width, size.height)

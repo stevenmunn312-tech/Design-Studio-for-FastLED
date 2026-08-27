@@ -189,6 +189,16 @@ describe('XPT2046 player controls', () => {
       .not.toContain('static uint16_t _xptRead12(')
   })
 
+  it('samples an unwired touch panel when Diagnostics is the selected self-test', () => {
+    const src = sketch([
+      node('m', 'PatternMaster'),
+      node('tft', 'TransportDisplay', { partId: TOUCH, tftLayout: 'Diagnostics' }),
+    ])
+    expect(src).toContain('static uint16_t _xptRead12(')
+    expect(src).toContain('static bool _touchDown_tft = false;')
+    expect(src).toContain('"TOUCH READY"')
+  })
+
   it('routes every visible Fixed Transport button through player actions', () => {
     const fixedGraph = graph.map((candidate) => candidate.id === 'tft'
       ? node('tft', 'TransportDisplay', { ...candidate.data.properties, tftLayout: 'Fixed Transport' })
