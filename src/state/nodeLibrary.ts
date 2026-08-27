@@ -2814,7 +2814,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'playing', label: 'Playing', dataType: 'bool' },
       { id: 'volume', label: 'Volume', dataType: 'float' },
       { id: 'patternName', label: 'Pattern Name', dataType: 'string' },
-      { id: 'artwork', label: 'Artwork', dataType: 'image' },
+      // No artwork port yet, deliberately. The layout renders artwork from
+      // baked RGB565 bytes, and an `image` port carries live `ImageData`
+      // capped at IMAGE_MAX_DIM. Bridging the two needs a scaler, and a
+      // scaler that ran in the browser would need a twin in C++ — the second
+      // implementation the baked-thumbnail rule exists to prevent. The port
+      // returns with the artwork baker, which display-todo.md tracks
+      // separately; until then both preview and firmware draw the same empty
+      // frame, which is at least the same empty frame.
       { id: 'patternIndex', label: 'Pattern Index', dataType: 'float' },
       { id: 'patternCount', label: 'Pattern Count', dataType: 'float' },
       { id: 'section', label: 'Section', dataType: 'string' },

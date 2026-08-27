@@ -8,6 +8,7 @@ import { NODE_LIBRARY, isPropertyEnabled, libraryDefaults } from '../nodeLibrary
 import { PART_FIELDS } from '../partFields'
 import { partOptionsFor } from '../partOptions'
 import { retargetHardwarePins } from '../pinRetarget'
+import { blankTransportData, TRANSPORT_DISPLAY_LAYOUTS } from '../transportDisplay'
 
 const PLAIN = 'st7789-tft-240x240'
 const TOUCH = 'st7789v-xpt2046-touch-240x320'
@@ -34,11 +35,41 @@ describe('TransportDisplay registration', () => {
     expect(isHardwareLibraryHiddenNodeType(def.type)).toBe(true)
   })
 
+  // The mismatch this pins was real: the node shipped an `artwork` port of
+  // dataType `image`, which carries live ImageData capped at IMAGE_MAX_DIM,
+  // while the layout renders artwork from baked RGB565 bytes. Nothing bridges
+  // those without a scaler, and a scaler in the browser needs a twin in C++.
+  // Deriving the check from what the layouts actually render is what stops a
+  // port being declared for a field nothing draws.
+  it('declares no port the layouts cannot render', () => {
+    const def = NODE_LIBRARY.find((entry) => entry.type === 'TransportDisplay')!
+    const rendered = new Set(TRANSPORT_DISPLAY_LAYOUTS.flatMap(
+      (layout) => Object.keys(blankTransportData(layout).data),
+    ))
+    // `enabled` switches the panel rather than feeding a layout field.
+    const fed = def.inputs.map((port) => port.id).filter((id) => id !== 'enabled')
+    expect(fed.length).toBeGreaterThan(0)
+    for (const port of fed) {
+      expect(rendered.has(port), `${port} is a port no layout renders`).toBe(true)
+    }
+  })
+
+  // The reverse direction is deliberately allowed to differ, and only here:
+  // the layouts render artwork, and no port feeds it until the baker lands.
+  it('renders exactly one field that has no port yet', () => {
+    const def = NODE_LIBRARY.find((entry) => entry.type === 'TransportDisplay')!
+    const ports = new Set(def.inputs.map((port) => port.id))
+    const rendered = new Set(TRANSPORT_DISPLAY_LAYOUTS.flatMap(
+      (layout) => Object.keys(blankTransportData(layout).data),
+    ))
+    expect([...rendered].filter((field) => !ports.has(field))).toEqual(['artwork'])
+  })
+
   it('declares the fixed layout payload ports', () => {
     const def = NODE_LIBRARY.find((entry) => entry.type === 'TransportDisplay')!
     expect(def.inputs.map((port) => port.id)).toEqual([
       'title', 'artist', 'elapsedSec', 'durationSec', 'progress', 'playing', 'volume',
-      'patternName', 'artwork', 'patternIndex', 'patternCount', 'section', 'bpm', 'beat',
+      'patternName', 'patternIndex', 'patternCount', 'section', 'bpm', 'beat',
       'outputEnabled', 'brightness', 'enabled',
     ])
     expect(def.defaultProperties).toMatchObject({
