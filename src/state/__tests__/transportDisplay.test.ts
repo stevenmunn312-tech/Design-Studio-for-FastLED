@@ -10,6 +10,8 @@ import {
   MAX_TRANSPORT_ARTWORKS,
   asTransportDisplayLayout,
   blankTransportData,
+  diagnosticsGeometry,
+  diagnosticsRawCoordinateText,
   drawTransportFixed,
   drawTransportNowPlaying,
   fixedTransportGeometry,
@@ -81,8 +83,7 @@ function rectsOf(geometry: object): Array<[string, TftRect]> {
 }
 
 describe('layout selection', () => {
-  // Diagnostics remains generated-only; these are the three user-selectable
-  // layouts that preview and emit through both firmware paths.
+  // Every fixed layout previews and emits through both firmware paths.
   it('offers the four layouts that can be generated', () => {
     expect([...TRANSPORT_DISPLAY_LAYOUTS]).toEqual(['Now Playing', 'Fixed Transport', 'Show Status', 'Diagnostics'])
   })
@@ -92,6 +93,26 @@ describe('layout selection', () => {
     expect(asTransportDisplayLayout('Fixed Transport')).toBe('Fixed Transport')
     expect(asTransportDisplayLayout('Diagnostics')).toBe('Diagnostics')
     expect(asTransportDisplayLayout(undefined)).toBe('Now Playing')
+  })
+})
+
+describe('diagnostics', () => {
+  it.each(MOUNTED_SIZES)('keeps both mapped and raw readings on a $key panel', ({ width, height }) => {
+    const g = diagnosticsGeometry(width, height)
+    expect(g.rawCoordinates.y).toBeGreaterThan(g.coordinates.y)
+    expect(g.rawCoordinates.y + g.rawCoordinates.h).toBeLessThanOrEqual(height)
+  })
+
+  it('labels raw readings according to what the current runtime can know', () => {
+    expect(diagnosticsRawCoordinateText({
+      touchAvailable: true, pressed: true, x: 12, y: 34, rawX: 321, rawY: 3789,
+    })).toBe('RAW 321  3789')
+    expect(diagnosticsRawCoordinateText({
+      touchAvailable: true, pressed: true, x: 12, y: 34,
+    })).toBe('RAW DEVICE ONLY')
+    expect(diagnosticsRawCoordinateText({
+      touchAvailable: true, pressed: false, x: 0, y: 0,
+    })).toBe('RAW --  --')
   })
 })
 

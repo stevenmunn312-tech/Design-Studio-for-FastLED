@@ -23,7 +23,7 @@ export interface TftTouchEmit {
 }
 
 export function tftTouchGlobalCpp(display: TftTouchEmit): string {
-  return `static bool _touchDown_${display.id} = false; static int16_t _touchX_${display.id} = 0, _touchY_${display.id} = 0;`
+  return `static bool _touchDown_${display.id} = false; static int16_t _touchX_${display.id} = 0, _touchY_${display.id} = 0; static uint16_t _touchRawX_${display.id} = 0, _touchRawY_${display.id} = 0;`
 }
 
 export const TFT_TOUCH_CPP_HELPERS = `// ── XPT2046 touch ────────────────────────────────────────────────────────────
@@ -42,10 +42,11 @@ static uint16_t _xptRead12(uint8_t cs, uint8_t sck, uint8_t mosi, uint8_t miso, 
 
 static bool _xptPoint(uint8_t cs, uint8_t irq, uint8_t sck, uint8_t mosi, uint8_t miso,
                       int rawXMin, int rawXMax, int rawYMin, int rawYMax,
-                      int nativeW, int nativeH, uint8_t rotation, int16_t &x, int16_t &y) {
+                      int nativeW, int nativeH, uint8_t rotation, int16_t &x, int16_t &y,
+                      uint16_t &rawX, uint16_t &rawY) {
   if (irq != 255 && digitalRead(irq) != LOW) return false;
-  uint16_t rawX = _xptRead12(cs, sck, mosi, miso, 0xD0);
-  uint16_t rawY = _xptRead12(cs, sck, mosi, miso, 0x90);
+  rawX = _xptRead12(cs, sck, mosi, miso, 0xD0);
+  rawY = _xptRead12(cs, sck, mosi, miso, 0x90);
   if (rawXMax <= rawXMin || rawYMax <= rawYMin) return false;
   int px = constrain((long)(rawX - rawXMin) * (nativeW - 1) / (rawXMax - rawXMin), 0L, (long)nativeW - 1);
   int py = constrain((long)(rawY - rawYMin) * (nativeH - 1) / (rawYMax - rawYMin), 0L, (long)nativeH - 1);
@@ -76,13 +77,15 @@ export function tftTouchServiceCpp(display: TftTouchEmit): string[] {
   const id = display.id
   const pointX = `_touchX_${id}`
   const pointY = `_touchY_${id}`
+  const rawX = `_touchRawX_${id}`
+  const rawY = `_touchRawY_${id}`
   const down = `_touchDown_${id}`
   const rotation = ({ '0': 0, '90': 1, '180': 2, '270': 3 } as const)[display.rotation]
   const regions = transportTouchRegions(display.controller, display.rotation, display.layout)
   const lines = [
     `  {`,
     `    ${down} = ${display.enabled ? '' : 'false && '}_xptPoint(${t.csPin}, ${t.irqPin}, ${t.sckPin}, ${t.mosiPin}, ${t.misoPin}, `
-      + `${t.xMin}, ${t.xMax}, ${t.yMin}, ${t.yMax}, ${display.controller.width}, ${display.controller.height}, ${rotation}, ${pointX}, ${pointY});`,
+      + `${t.xMin}, ${t.xMax}, ${t.yMin}, ${t.yMax}, ${display.controller.width}, ${display.controller.height}, ${rotation}, ${pointX}, ${pointY}, ${rawX}, ${rawY});`,
     `    static bool _touchPrev_${id} = false;`,
   ]
   for (const region of regions) {

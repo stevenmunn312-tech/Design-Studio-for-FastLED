@@ -197,6 +197,7 @@ describe('XPT2046 player controls', () => {
     expect(src).toContain('static uint16_t _xptRead12(')
     expect(src).toContain('static bool _touchDown_tft = false;')
     expect(src).toContain('"TOUCH READY"')
+    expect(src).toContain('"RAW %u  %u", _touchRawX_tft, _touchRawY_tft')
   })
 
   it('routes every visible Fixed Transport button through player actions', () => {

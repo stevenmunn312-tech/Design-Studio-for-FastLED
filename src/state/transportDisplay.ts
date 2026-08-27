@@ -583,6 +583,9 @@ export interface TransportDiagnosticsData {
   pressed: boolean
   x: number
   y: number
+  /** Raw ADC values exist only on the physical XPT2046 diagnostic path. */
+  rawX?: number
+  rawY?: number
 }
 
 export interface DiagnosticsGeometry {
@@ -590,6 +593,7 @@ export interface DiagnosticsGeometry {
   panel: TftField
   touch: TftField
   coordinates: TftField
+  rawCoordinates: TftField
   swatches: TftRect[]
 }
 
@@ -607,6 +611,7 @@ export function diagnosticsGeometry(width: number, height: number): DiagnosticsG
     panel: field(M.margin, touchY, inner, M.bodyScale, 'center'),
     touch: field(M.margin, touchY + bodyH + M.rowGap, inner, M.headingScale, 'center'),
     coordinates: field(M.margin, touchY + bodyH + M.rowGap + headingH + M.rowGap, inner, M.bodyScale, 'center'),
+    rawCoordinates: field(M.margin, touchY + bodyH + M.rowGap + headingH + (M.rowGap * 2) + bodyH, inner, M.bodyScale, 'center'),
     swatches: Array.from({ length: 4 }, (_, i) => ({
       x: M.margin + (i * (swatchW + swatchGap)), y: swatchY, w: swatchW, h: swatchH,
     })),
@@ -624,6 +629,13 @@ export function diagnosticsCoordinateText(data: TransportDiagnosticsData): strin
     : 'PRESS THE PANEL'
 }
 
+export function diagnosticsRawCoordinateText(data: TransportDiagnosticsData): string {
+  if (!data.touchAvailable) return 'NO RAW INPUT'
+  if (!data.pressed) return 'RAW --  --'
+  if (data.rawX == null || data.rawY == null) return 'RAW DEVICE ONLY'
+  return `RAW ${Math.round(data.rawX)}  ${Math.round(data.rawY)}`
+}
+
 export function drawTransportDiagnostics(surface: TftSurface, data: TransportDiagnosticsData): void {
   const g = diagnosticsGeometry(surface.width, surface.height)
   const c = TRANSPORT_COLORS
@@ -636,6 +648,7 @@ export function drawTransportDiagnostics(surface: TftSurface, data: TransportDia
   drawTftField(surface, g.panel, `${surface.width} X ${surface.height}`, c.dim, c.background)
   drawTftField(surface, g.touch, diagnosticsTouchText(data), data.pressed ? c.on : c.accent, c.background)
   drawTftField(surface, g.coordinates, diagnosticsCoordinateText(data), c.text, c.background)
+  drawTftField(surface, g.rawCoordinates, diagnosticsRawCoordinateText(data), c.dim, c.background)
 }
 
 // ── Rendering ───────────────────────────────────────────────────────────────

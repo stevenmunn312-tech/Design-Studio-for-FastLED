@@ -884,12 +884,17 @@ function diagnosticsLoop(display: TftDisplayEmit, width: number, height: number)
       `      if (_touchDown_${id}) snprintf(_tftXY_${id}, sizeof(_tftXY_${id}), "X %d  Y %d", _touchX_${id}, _touchY_${id});`,
       `      else snprintf(_tftXY_${id}, sizeof(_tftXY_${id}), "PRESS THE PANEL");`,
       `      if (_tftTextDirty(${p}, 1, _tftXY_${id}) || _tftFull_${id}) _tftField(${p}, ${fieldArgs(g.coordinates)}, _tftXY_${id}, TFT_C_TEXT, TFT_C_BG);`,
+      `      char _tftRaw_${id}[24];`,
+      `      if (_touchDown_${id}) snprintf(_tftRaw_${id}, sizeof(_tftRaw_${id}), "RAW %u  %u", _touchRawX_${id}, _touchRawY_${id});`,
+      `      else snprintf(_tftRaw_${id}, sizeof(_tftRaw_${id}), "RAW --  --");`,
+      `      if (_tftTextDirty(${p}, 2, _tftRaw_${id}) || _tftFull_${id}) _tftField(${p}, ${fieldArgs(g.rawCoordinates)}, _tftRaw_${id}, TFT_C_DIM, TFT_C_BG);`,
     )
   } else {
     lines.push(
       `      if (_tftFull_${id}) {`,
       `        _tftField(${p}, ${fieldArgs(g.touch)}, "NO TOUCH", TFT_C_ACCENT, TFT_C_BG);`,
       `        _tftField(${p}, ${fieldArgs(g.coordinates)}, "PRESS THE PANEL", TFT_C_TEXT, TFT_C_BG);`,
+      `        _tftField(${p}, ${fieldArgs(g.rawCoordinates)}, "NO RAW INPUT", TFT_C_DIM, TFT_C_BG);`,
       `      }`,
     )
   }

@@ -561,7 +561,9 @@ freeform widgets must reuse rather than rediscover.
   Diagnostics layout are implemented. Diagnostics paints colour swatches and
   panel geometry on every TFT, and reports live mounted X/Y coordinates on an
   XPT2046 module in both normal and player sketches even when Controls is not
-  wired. Bench-derived per-module calibration values remain.
+  wired. It also reports the raw ADC pair needed to derive the four calibration
+  edges rather than hiding those samples behind the configured mapping.
+  Bench-derived per-module calibration values remain.
 - [x] Bake colour pattern thumbnails/art into flash with explicit size limits;
   optionally place large assets on the existing SD capability only through an
   explicit storage policy. The fixed 96×96 RGB565 path is complete:

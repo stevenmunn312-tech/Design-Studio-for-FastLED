@@ -123,13 +123,17 @@ describe('what the loop draws', () => {
     expect(src).toContain('"DISPLAY TEST"')
     expect(src).toContain(`${g.touch.x}, ${g.touch.y}, ${g.touch.w}, ${g.touch.h}, ${g.touch.scale},`)
     expect(src).toContain('static bool _touchDown_tft = false;')
+    expect(src).toContain('static uint16_t _touchRawX_tft = 0, _touchRawY_tft = 0;')
     expect(src).toContain('_xptPoint(15, 2, 18, 23, 19, 200, 3900, 200, 3900, 240, 320, 1,')
+    expect(src).toContain('"RAW %u  %u", _touchRawX_tft, _touchRawY_tft')
+    expect(src).toContain(`${g.rawCoordinates.x}, ${g.rawCoordinates.y}, ${g.rawCoordinates.w}, ${g.rawCoordinates.h}, ${g.rawCoordinates.scale},`)
     expect(src.indexOf('_touchDown_tft = _xptPoint')).toBeLessThan(src.indexOf('{ // Transport Display'))
   })
 
   it('labels Diagnostics as non-touch on the plain panel', () => {
     const src = build({ partId: PLAIN, tftLayout: 'Diagnostics' })
     expect(src).toContain('"NO TOUCH"')
+    expect(src).toContain('"NO RAW INPUT"')
     expect(src).not.toContain('_xptPoint(')
   })
 
