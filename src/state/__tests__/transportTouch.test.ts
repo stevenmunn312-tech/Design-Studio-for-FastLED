@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nowPlayingGeometry, showStatusGeometry } from '../transportDisplay'
+import { fixedTransportGeometry, nowPlayingGeometry, showStatusGeometry } from '../transportDisplay'
 import { TFT_CONTROLLERS, tftRotatedSize, type TftRotation } from '../tftSurface'
 import {
   DEFAULT_XPT2046_CALIBRATION, mapTransportTouch, touchRegionAt, transportTouchRegions,
@@ -59,6 +59,16 @@ describe('fixed-layout touch regions', () => {
     expect(transportTouchRegions(panel, '0', 'Show Status')).toEqual([
       { action: 'ledToggle', rect: g.output },
       { action: 'brightness', rect: g.brightness, valueAxis: 'x' },
+    ])
+  })
+
+  it('maps every Fixed Transport button and its volume bar', () => {
+    const g = fixedTransportGeometry(240, 320)
+    expect(transportTouchRegions(panel, '0', 'Fixed Transport')).toEqual([
+      { action: 'previous', rect: g.previous.rect },
+      { action: 'playPause', rect: g.playPause.rect },
+      { action: 'next', rect: g.next.rect },
+      { action: 'volume', rect: g.volume, valueAxis: 'x' },
     ])
   })
 

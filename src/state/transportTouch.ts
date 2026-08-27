@@ -5,7 +5,7 @@
 // Hit regions come from the layout geometry itself: the visible control and
 // the thing that responds can therefore never drift apart.
 
-import { nowPlayingGeometry, showStatusGeometry, type TransportDisplayLayout } from './transportDisplay'
+import { fixedTransportGeometry, nowPlayingGeometry, showStatusGeometry, type TransportDisplayLayout } from './transportDisplay'
 import { tftRotatedSize, type TftController, type TftRect, type TftRotation } from './tftSurface'
 
 export interface TouchCalibration {
@@ -49,7 +49,7 @@ export function mapTransportTouch(
   }
 }
 
-export type TransportTouchAction = 'playPause' | 'volume' | 'ledToggle' | 'brightness'
+export type TransportTouchAction = 'playPause' | 'previous' | 'next' | 'volume' | 'ledToggle' | 'brightness'
 
 export interface TransportTouchRegion {
   action: TransportTouchAction
@@ -70,6 +70,15 @@ export function transportTouchRegions(
     return [
       { action: 'ledToggle', rect: g.output },
       { action: 'brightness', rect: g.brightness, valueAxis: 'x' },
+    ]
+  }
+  if (layout === 'Fixed Transport') {
+    const g = fixedTransportGeometry(width, height)
+    return [
+      { action: 'previous', rect: g.previous.rect },
+      { action: 'playPause', rect: g.playPause.rect },
+      { action: 'next', rect: g.next.rect },
+      { action: 'volume', rect: g.volume, valueAxis: 'x' },
     ]
   }
   const g = nowPlayingGeometry(width, height)

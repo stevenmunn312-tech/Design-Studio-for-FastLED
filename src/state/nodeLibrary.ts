@@ -3159,7 +3159,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   FormatDateTime: 'Turns a clock reading into display text such as HH:MM.',
   SegmentDisplay: 'A 4 or 8-digit 7-segment module showing a number, clock, or index.',
   InfoDisplay: 'A 128x64 OLED showing a now-playing, clock, status, or pattern-browser screen.',
-  TransportDisplay: 'A colour TFT showing a fixed now-playing or show-status transport screen.',
+  TransportDisplay: 'A colour TFT showing now-playing, touch transport, or show-status controls.',
   MasterSpeed: 'Scales animation time for the whole graph. 1 is normal, 0 freezes it.',
   ScheduleTrigger: 'Time-of-day window/trigger driven by RTCInput clock and calendar fields.',
   BeatSin: 'Beat-synced sine oscillator — outputs a normalized low↔high value at a BPM.',
@@ -3632,7 +3632,7 @@ const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
 // `rate` is a 0–1 emission rate for Particles but a degrees/sec spin for Transform.
 export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
   TransportDisplay: {
-    tftLayout: { control: 'select', options: ['Now Playing', 'Show Status'] },
+    tftLayout: { control: 'select', options: ['Now Playing', 'Fixed Transport', 'Show Status'] },
     tftRotation: { control: 'select', options: ['0', '90', '180', '270'] },
     touchXMin: { control: 'slider', min: 0, max: 4095, step: 1 },
     touchXMax: { control: 'slider', min: 0, max: 4095, step: 1 },

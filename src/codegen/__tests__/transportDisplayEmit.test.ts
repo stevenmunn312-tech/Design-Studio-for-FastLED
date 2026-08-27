@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { generateCpp } from '../cppGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
-import { nowPlayingGeometry, showStatusGeometry } from '../../state/transportDisplay'
+import { fixedTransportGeometry, nowPlayingGeometry, showStatusGeometry } from '../../state/transportDisplay'
 import { TFT_CONTROLLERS, tftMadctl, tftRotatedSize, tftWindowOrigin } from '../../state/tftSurface'
 import { TFT_DISPLAY_CPP_FORWARD } from '../tftDisplayCpp'
 
@@ -108,6 +108,13 @@ describe('what the loop draws', () => {
     const g = showStatusGeometry(240, 240)
     expect(src).toContain(`${g.bpm.x}, ${g.bpm.y}, ${g.bpm.w}, ${g.bpm.h}, ${g.bpm.scale},`)
     expect(src).toContain(`_tftIndicator(_tft_tft, ${g.beats.x} + (i * ${g.beatSize + g.beatGap}),`)
+  })
+
+  it('emits Fixed Transport through the normal sketch path', () => {
+    const src = build({ tftLayout: 'Fixed Transport' })
+    const g = fixedTransportGeometry(240, 240)
+    expect(src).toContain(`_tftRect(_tft_tft, ${g.previous.rect.x}, ${g.previous.rect.y}, ${g.previous.rect.w}, ${g.previous.rect.h},`)
+    expect(src).toContain('const char *_tftState_tft = _tftPlaying_tft ? "PAUSE" : "PLAY";')
   })
 
   it('reads a wired string port from the node that publishes it', () => {

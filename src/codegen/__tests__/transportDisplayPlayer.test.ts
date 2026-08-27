@@ -4,7 +4,7 @@ import { generatePlayerSketch } from '../playerSketchGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { TFT_DISPLAY_CPP_FORWARD } from '../tftDisplayCpp'
-import { nowPlayingGeometry } from '../../state/transportDisplay'
+import { fixedTransportGeometry, nowPlayingGeometry } from '../../state/transportDisplay'
 
 const PLAIN = 'st7789-tft-240x240'
 const TOUCH = 'st7789v-xpt2046-touch-240x320'
@@ -173,6 +173,18 @@ describe('XPT2046 player controls', () => {
   it('does not carry touch code for an unwired touch panel', () => {
     expect(sketch([node('tft', 'TransportDisplay', { partId: TOUCH })]))
       .not.toContain('static uint16_t _xptRead12(')
+  })
+
+  it('routes every visible Fixed Transport button through player actions', () => {
+    const fixedGraph = graph.map((candidate) => candidate.id === 'tft'
+      ? node('tft', 'TransportDisplay', { ...candidate.data.properties, tftLayout: 'Fixed Transport' })
+      : candidate)
+    const src = sketch(fixedGraph, wires)
+    const g = fixedTransportGeometry(320, 240)
+    expect(src).toContain(`_touchX_tft >= ${g.previous.rect.x} && _touchX_tft < ${g.previous.rect.x + g.previous.rect.w}`)
+    expect(src).toContain('changePlayerTrack(-1);')
+    expect(src).toContain('changePlayerTrack(1);')
+    expect(src).toContain('if (audio.pauseResume()) playerPaused = !playerPaused;')
   })
 })
 

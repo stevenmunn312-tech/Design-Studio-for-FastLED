@@ -27,7 +27,7 @@ import {
 import { formatTransportTime } from './transportBridge'
 import { DISPLAY_TEXT_NO_READING, displayString } from './displayText'
 
-export const TRANSPORT_DISPLAY_LAYOUTS = ['Now Playing', 'Show Status'] as const
+export const TRANSPORT_DISPLAY_LAYOUTS = ['Now Playing', 'Fixed Transport', 'Show Status'] as const
 export type TransportDisplayLayout = (typeof TRANSPORT_DISPLAY_LAYOUTS)[number]
 
 export function asTransportDisplayLayout(value: unknown): TransportDisplayLayout {
@@ -286,6 +286,88 @@ export function drawTransportNowPlaying(surface: TftSurface, data: TransportNowP
   drawTftBar(surface, g.volume, data.volume, c.text, c.track, c.outline)
 }
 
+// ── Fixed Transport ─────────────────────────────────────────────────────────
+
+export interface TransportFixedData {
+  title: string
+  patternName: string
+  playing: boolean
+  volume: number
+}
+
+export interface TransportButtonGeometry {
+  rect: TftRect
+  label: TftField
+}
+
+export interface FixedTransportGeometry {
+  title: TftField
+  pattern: TftField
+  previous: TransportButtonGeometry
+  playPause: TransportButtonGeometry
+  next: TransportButtonGeometry
+  volumeLabel: TftField
+  volume: TftRect
+}
+
+/** Three finger-sized transport buttons and one absolute volume control. */
+export function fixedTransportGeometry(width: number, height: number): FixedTransportGeometry {
+  const inner = width - (M.margin * 2)
+  const headingH = tftTextHeight(M.headingScale)
+  const bodyH = tftTextHeight(M.bodyScale)
+  const titleY = M.margin
+  const patternY = titleY + headingH + M.rowGap
+  const volumeY = height - M.margin - M.barHeight
+  const volumeLabelW = tftTextWidth(VOLUME_LABEL, M.bodyScale)
+  const volumeX = M.margin + volumeLabelW + M.rowGap
+  const buttonsTop = patternY + bodyH + (M.rowGap * 2)
+  const buttonsBottom = volumeY - (M.rowGap * 2)
+  const buttonH = Math.max(44, Math.min(64, buttonsBottom - buttonsTop))
+  const buttonY = buttonsTop + Math.max(0, Math.floor((buttonsBottom - buttonsTop - buttonH) / 2))
+  const gap = M.rowGap
+  const buttonW = Math.floor((inner - (gap * 2)) / 3)
+  const widths = [buttonW, buttonW, inner - (buttonW * 2) - (gap * 2)]
+  const xs = [M.margin, M.margin + buttonW + gap, M.margin + (buttonW * 2) + (gap * 2)]
+  const button = (index: number): TransportButtonGeometry => {
+    const rect = { x: xs[index], y: buttonY, w: widths[index], h: buttonH }
+    return {
+      rect,
+      label: field(rect.x + 2, rect.y + Math.floor((rect.h - bodyH) / 2), rect.w - 4, M.bodyScale, 'center'),
+    }
+  }
+  return {
+    title: field(M.margin, titleY, inner, M.headingScale, 'center'),
+    pattern: field(M.margin, patternY, inner, M.bodyScale, 'center'),
+    previous: button(0), playPause: button(1), next: button(2),
+    volumeLabel: field(M.margin, volumeY + 1, volumeLabelW, M.bodyScale, 'left'),
+    volume: { x: volumeX, y: volumeY, w: width - M.margin - volumeX, h: M.barHeight },
+  }
+}
+
+function drawTransportButton(
+  surface: TftSurface,
+  button: TransportButtonGeometry,
+  label: string,
+  active = false,
+): void {
+  const c = TRANSPORT_COLORS
+  fillTftRect(surface, button.rect.x, button.rect.y, button.rect.w, button.rect.h, active ? c.accent : c.track)
+  drawTftRect(surface, button.rect.x, button.rect.y, button.rect.w, button.rect.h, active ? c.text : c.outline)
+  drawTftField(surface, button.label, label, active ? c.background : c.text, active ? c.accent : c.track)
+}
+
+export function drawTransportFixed(surface: TftSurface, data: TransportFixedData): void {
+  const g = fixedTransportGeometry(surface.width, surface.height)
+  const c = TRANSPORT_COLORS
+  drawTftField(surface, g.title, displayString(data.title), c.text, c.background)
+  drawTftField(surface, g.pattern, displayString(data.patternName), c.accent, c.background)
+  drawTransportButton(surface, g.previous, 'PREV')
+  drawTransportButton(surface, g.playPause, data.playing ? 'PAUSE' : 'PLAY', data.playing)
+  drawTransportButton(surface, g.next, 'NEXT')
+  drawTftField(surface, g.volumeLabel, VOLUME_LABEL, c.dim, c.background)
+  drawTftBar(surface, g.volume, data.volume, c.text, c.track, c.outline)
+}
+
 // ── Show Status ─────────────────────────────────────────────────────────────
 
 export interface TransportShowStatusData {
@@ -447,6 +529,7 @@ export function drawTransportShowStatus(surface: TftSurface, data: TransportShow
 
 export type TransportDisplayData =
   | { layout: 'Now Playing'; data: TransportNowPlayingData }
+  | { layout: 'Fixed Transport'; data: TransportFixedData }
   | { layout: 'Show Status'; data: TransportShowStatusData }
 
 /** Render any layout onto a fresh surface for `controller` mounted at `rotation`. */
@@ -459,6 +542,7 @@ export function renderTransportDisplay(
   clearTftSurface(surface, TRANSPORT_COLORS.background)
   switch (input.layout) {
     case 'Now Playing': drawTransportNowPlaying(surface, input.data); break
+    case 'Fixed Transport': drawTransportFixed(surface, input.data); break
     case 'Show Status': drawTransportShowStatus(surface, input.data); break
   }
   return surface
@@ -466,6 +550,9 @@ export function renderTransportDisplay(
 
 /** Blank data per layout, for an unwired node or a dark panel. */
 export function blankTransportData(layout: TransportDisplayLayout): TransportDisplayData {
+  if (layout === 'Fixed Transport') {
+    return { layout, data: { title: '', patternName: '', playing: false, volume: 0 } }
+  }
   if (layout === 'Show Status') {
     return {
       layout,

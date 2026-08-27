@@ -10,7 +10,9 @@ import {
   MAX_TRANSPORT_ARTWORKS,
   asTransportDisplayLayout,
   blankTransportData,
+  drawTransportFixed,
   drawTransportNowPlaying,
+  fixedTransportGeometry,
   nowPlayingGeometry,
   nowPlayingStateText,
   nowPlayingTimes,
@@ -23,6 +25,7 @@ import {
   transportArtworkBudgetIssue,
   transportArtworkFlashCost,
   type TransportNowPlayingData,
+  type TransportFixedData,
   type TransportShowStatusData,
 } from '../transportDisplay'
 import {
@@ -55,6 +58,10 @@ const showStatus = (over: Partial<TransportShowStatusData> = {}): TransportShowS
   bpm: 128, beat: 2, outputEnabled: true, brightness: 0.6, ...over,
 })
 
+const fixedTransport = (over: Partial<TransportFixedData> = {}): TransportFixedData => ({
+  title: 'MIDNIGHT DRIVE', patternName: 'FIRE 2', playing: true, volume: 0.75, ...over,
+})
+
 function litCount(surface: TftSurface): number {
   let n = 0
   for (let y = 0; y < surface.height; y++) {
@@ -74,16 +81,16 @@ function rectsOf(geometry: object): Array<[string, TftRect]> {
 }
 
 describe('layout selection', () => {
-  // Two, and only the two the fixed software path implements. Fixed Transport
-  // and Diagnostics wait on touch, and offering either now would mean a layout
-  // that previews and cannot be driven.
-  it('offers the two layouts that can be generated', () => {
-    expect([...TRANSPORT_DISPLAY_LAYOUTS]).toEqual(['Now Playing', 'Show Status'])
+  // Diagnostics remains generated-only; these are the three user-selectable
+  // layouts that preview and emit through both firmware paths.
+  it('offers the three layouts that can be generated', () => {
+    expect([...TRANSPORT_DISPLAY_LAYOUTS]).toEqual(['Now Playing', 'Fixed Transport', 'Show Status'])
   })
 
   it('falls back to Now Playing for anything else', () => {
     expect(asTransportDisplayLayout('Show Status')).toBe('Show Status')
-    expect(asTransportDisplayLayout('Fixed Transport')).toBe('Now Playing')
+    expect(asTransportDisplayLayout('Fixed Transport')).toBe('Fixed Transport')
+    expect(asTransportDisplayLayout('Diagnostics')).toBe('Now Playing')
     expect(asTransportDisplayLayout(undefined)).toBe('Now Playing')
   })
 })
@@ -114,6 +121,28 @@ describe('geometry across every mounted size', () => {
       expect(rect.x + rect.w, `${name} right edge`).toBeLessThanOrEqual(width)
       expect(rect.y + rect.h, `${name} bottom edge`).toBeLessThanOrEqual(height)
       expect(rect.w, `${name}.w`).toBeGreaterThan(0)
+    }
+  })
+
+  it.each(MOUNTED_SIZES)('keeps Fixed Transport inside a $key panel', ({ width, height }) => {
+    const g = fixedTransportGeometry(width, height)
+    for (const [name, rect] of [
+      ['title', g.title], ['pattern', g.pattern], ['previous', g.previous.rect],
+      ['playPause', g.playPause.rect], ['next', g.next.rect],
+      ['volumeLabel', g.volumeLabel], ['volume', g.volume],
+    ] as Array<[string, TftRect]>) {
+      expect(rect.x, `${name}.x`).toBeGreaterThanOrEqual(0)
+      expect(rect.y, `${name}.y`).toBeGreaterThanOrEqual(0)
+      expect(rect.x + rect.w, `${name} right edge`).toBeLessThanOrEqual(width)
+      expect(rect.y + rect.h, `${name} bottom edge`).toBeLessThanOrEqual(height)
+    }
+  })
+
+  it.each(MOUNTED_SIZES)('gives every transport button a finger-sized target on $key', ({ width, height }) => {
+    const g = fixedTransportGeometry(width, height)
+    for (const button of [g.previous, g.playPause, g.next]) {
+      expect(button.rect.w).toBeGreaterThanOrEqual(44)
+      expect(button.rect.h).toBeGreaterThanOrEqual(44)
     }
   })
 
@@ -240,6 +269,22 @@ describe('rendering', () => {
     clearTftSurface(surface, TRANSPORT_COLORS.background)
     drawTransportNowPlaying(surface, nowPlaying())
     expect(litCount(surface)).toBeGreaterThan(0)
+  })
+
+  it.each(MOUNTED_SIZES)('draws Fixed Transport on a $key panel', ({ width, height }) => {
+    const surface = createTftSurface(width, height)
+    clearTftSurface(surface, TRANSPORT_COLORS.background)
+    drawTransportFixed(surface, fixedTransport())
+    expect(litCount(surface)).toBeGreaterThan(0)
+  })
+
+  it('highlights the active pause button', () => {
+    const g = fixedTransportGeometry(240, 240)
+    const surface = renderTransportDisplay(st7789, '0', {
+      layout: 'Fixed Transport', data: fixedTransport({ playing: true }),
+    })
+    expect(getTftPixel(surface, g.playPause.rect.x + 2, g.playPause.rect.y + 2))
+      .toBe(TRANSPORT_COLORS.accent)
   })
 
   it('renders through a controller and its mounted rotation', () => {

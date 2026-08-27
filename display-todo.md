@@ -520,6 +520,10 @@ freeform widgets must reuse rather than rediscover.
   evaluator and emitted as literals by both generators that draw displays.
   The geometry is a function rather than flat constants, because rotation gives
   one layout three sizes to satisfy.
+- [x] Add Fixed Transport once touch exists: three finger-sized Previous,
+  Play/Pause and Next buttons plus an absolute Volume bar. The browser surface,
+  both firmware generators and XPT2046 hit testing resolve the same geometry;
+  player firmware routes the buttons through its existing transport actions.
 - [x] Add the ST7789V 320×240 module and its XPT2046 touch as the first
       interactive target.
   Display and touch may share SPI data/clock lines but use separate CS and

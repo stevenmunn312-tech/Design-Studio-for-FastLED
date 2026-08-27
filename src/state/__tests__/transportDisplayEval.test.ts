@@ -56,7 +56,11 @@ describe('the panel the evaluator draws', () => {
   })
 
   it('falls back to Now Playing for a layout it does not have', () => {
-    expect(evaluate({ tftLayout: 'Fixed Transport' })?.layout).toBe('Now Playing')
+    expect(evaluate({ tftLayout: 'Diagnostics' })?.layout).toBe('Now Playing')
+  })
+
+  it('renders the interactive Fixed Transport layout', () => {
+    expect(evaluate({ tftLayout: 'Fixed Transport' })?.layout).toBe('Fixed Transport')
   })
 
   // Rotation is a fact about how the module was bolted down, not about the

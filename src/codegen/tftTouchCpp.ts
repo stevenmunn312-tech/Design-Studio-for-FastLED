@@ -85,6 +85,10 @@ export function tftTouchServiceCpp(display: TftTouchEmit): string[] {
     const hit = `(${inside(pointX, pointY, region.rect)})`
     if (region.action === 'playPause') {
       lines.push(`    if (${down} && !_touchPrev_${id} && ${hit}) { if (audio.pauseResume()) playerPaused = !playerPaused; }`)
+    } else if (region.action === 'previous') {
+      lines.push(`    if (${down} && !_touchPrev_${id} && ${hit}) { changePlayerTrack(-1); }`)
+    } else if (region.action === 'next') {
+      lines.push(`    if (${down} && !_touchPrev_${id} && ${hit}) { changePlayerTrack(1); }`)
     } else if (region.action === 'ledToggle') {
       lines.push(`    if (${down} && !_touchPrev_${id} && ${hit}) { ledsEnabled = !ledsEnabled; applyPlayerBrightness(); }`)
     } else if (region.action === 'volume') {

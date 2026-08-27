@@ -6939,6 +6939,16 @@ function createEvalNode(
               brightness: clamp01(num(id, 'brightness', props, 'brightness', 0)),
             },
           }
+        } else if (layout === 'Fixed Transport') {
+          payload = {
+            layout: 'Fixed Transport',
+            data: {
+              title: tftLine(input(id, 'title', '')),
+              patternName: tftLine(input(id, 'patternName', '')),
+              playing: Boolean(input(id, 'playing', false)),
+              volume: clamp01(num(id, 'volume', props, 'volume', 0)),
+            },
+          }
         } else {
           payload = {
             layout: 'Now Playing',

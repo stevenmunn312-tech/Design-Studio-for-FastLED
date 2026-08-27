@@ -38,7 +38,7 @@ import {
 } from '../state/tftSurface'
 import {
   TRANSPORT_ARTWORK_H, TRANSPORT_ARTWORK_W, TRANSPORT_BEAT_COUNT, TRANSPORT_COLORS,
-  nowPlayingGeometry, showStatusGeometry,
+  fixedTransportGeometry, nowPlayingGeometry, showStatusGeometry,
   type TransportDisplayLayout,
 } from '../state/transportDisplay'
 
@@ -85,13 +85,18 @@ const SHOW_STATUS_TEXT_SLOTS = {
 } as const
 const SHOW_STATUS_VALUE_SLOTS = { beat: 0, brightness: 1 } as const
 
+const FIXED_TRANSPORT_TEXT_SLOTS = { title: 0, pattern: 1, state: 2 } as const
+const FIXED_TRANSPORT_VALUE_SLOTS = { volume: 0 } as const
+
 const TFT_TEXT_SLOTS = Math.max(
   Object.keys(NOW_PLAYING_TEXT_SLOTS).length,
   Object.keys(SHOW_STATUS_TEXT_SLOTS).length,
+  Object.keys(FIXED_TRANSPORT_TEXT_SLOTS).length,
 )
 const TFT_VALUE_SLOTS = Math.max(
   Object.keys(NOW_PLAYING_VALUE_SLOTS).length,
   Object.keys(SHOW_STATUS_VALUE_SLOTS).length,
+  Object.keys(FIXED_TRANSPORT_VALUE_SLOTS).length,
 )
 
 /**
@@ -807,6 +812,49 @@ function showStatusLoop(display: TftDisplayEmit, width: number, height: number):
   return lines
 }
 
+function fixedTransportLoop(display: TftDisplayEmit, width: number, height: number): string[] {
+  const p = `_tft_${display.id}`
+  const id = display.id
+  const g = fixedTransportGeometry(width, height)
+  const s = FIXED_TRANSPORT_TEXT_SLOTS
+  const v = FIXED_TRANSPORT_VALUE_SLOTS
+  const text = (expr: string | null) => expr ?? '""'
+  const button = (
+    name: string,
+    geometry: typeof g.previous,
+    labelExpr: string,
+    activeExpr = 'false',
+    condition = `_tftFull_${id}`,
+  ) => [
+    `      if (${condition}) {`,
+    `        bool _tftActive_${name}_${id} = ${activeExpr};`,
+    `        _tftFillRect(${p}, ${rectArgs(geometry.rect)}, _tftActive_${name}_${id} ? TFT_C_ACCENT : TFT_C_TRACK);`,
+    `        _tftRect(${p}, ${rectArgs(geometry.rect)}, _tftActive_${name}_${id} ? TFT_C_TEXT : TFT_C_OUTLINE);`,
+    `        _tftField(${p}, ${fieldArgs(geometry.label)}, ${labelExpr}, `
+      + `_tftActive_${name}_${id} ? TFT_C_BG : TFT_C_TEXT, _tftActive_${name}_${id} ? TFT_C_ACCENT : TFT_C_TRACK);`,
+    `      }`,
+  ]
+  const lines = [
+    `      const char *_tftTitle_${id} = ${text(display.titleExpr)};`,
+    `      if (_tftTextDirty(${p}, ${s.title}, _tftTitle_${id}) || _tftFull_${id}) `
+      + `_tftField(${p}, ${fieldArgs(g.title)}, _tftTitle_${id}, TFT_C_TEXT, TFT_C_BG);`,
+    `      const char *_tftPattern_${id} = ${text(display.patternNameExpr)};`,
+    `      if (_tftTextDirty(${p}, ${s.pattern}, _tftPattern_${id}) || _tftFull_${id}) `
+      + `_tftField(${p}, ${fieldArgs(g.pattern)}, _tftPattern_${id}, TFT_C_ACCENT, TFT_C_BG);`,
+    ...button('prev', g.previous, '"PREV"'),
+    ...button('next', g.next, '"NEXT"'),
+    `      bool _tftPlaying_${id} = ${display.playingExpr};`,
+    `      const char *_tftState_${id} = _tftPlaying_${id} ? "PAUSE" : "PLAY";`,
+    `      bool _tftStateDirty_${id} = _tftTextDirty(${p}, ${s.state}, _tftState_${id});`,
+    ...button('play', g.playPause, `_tftState_${id}`, `_tftPlaying_${id}`, `_tftStateDirty_${id} || _tftFull_${id}`),
+    `      if (_tftFull_${id}) _tftField(${p}, ${fieldArgs(g.volumeLabel)}, "VOL", TFT_C_DIM, TFT_C_BG);`,
+    `      float _tftVol_${id} = ${display.volumeExpr};`,
+    `      if (_tftValueDirty(${p}, ${v.volume}, _tftBarFill(${g.volume.w}, _tftVol_${id})) || _tftFull_${id}) `
+      + `_tftBar(${p}, ${rectArgs(g.volume)}, _tftVol_${id}, TFT_C_TEXT, TFT_C_TRACK, TFT_C_OUTLINE);`,
+  ]
+  return lines
+}
+
 /**
  * Per-frame layout and repaint.
  *
@@ -824,7 +872,9 @@ export function tftDisplayLoopCpp(display: TftDisplayEmit): string[] {
   const size = tftRotatedSize(display.controller, display.rotation)
   const body = display.layout === 'Show Status'
     ? showStatusLoop(display, size.width, size.height)
-    : nowPlayingLoop(display, size.width, size.height)
+    : display.layout === 'Fixed Transport'
+      ? fixedTransportLoop(display, size.width, size.height)
+      : nowPlayingLoop(display, size.width, size.height)
 
   return [
     `  { // Transport Display`,

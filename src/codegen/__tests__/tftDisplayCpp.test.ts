@@ -17,7 +17,7 @@ import {
 } from '../../state/tftSurface'
 import {
   TRANSPORT_ARTWORK_H, TRANSPORT_ARTWORK_W, TRANSPORT_COLORS,
-  nowPlayingGeometry, showStatusGeometry,
+  fixedTransportGeometry, nowPlayingGeometry, showStatusGeometry,
 } from '../../state/transportDisplay'
 
 const st7789 = TFT_CONTROLLERS.ST7789
@@ -182,6 +182,7 @@ describe('setup', () => {
 
 describe('the loop', () => {
   const nowPlaying = tftDisplayLoopCpp(emit()).join('\n')
+  const fixedTransport = tftDisplayLoopCpp(emit({ layout: 'Fixed Transport' })).join('\n')
   const showStatus = tftDisplayLoopCpp(emit({ layout: 'Show Status' })).join('\n')
 
   // Every coordinate comes from the shared geometry, resolved for this panel's
@@ -199,6 +200,14 @@ describe('the loop', () => {
     expect(showStatus).toContain(`${g.beats.x} + (i * ${g.beats.w === 0 ? 0 : g.beatSize + g.beatGap})`)
   })
 
+  it('emits Fixed Transport buttons from the shared geometry', () => {
+    const g = fixedTransportGeometry(240, 240)
+    expect(fixedTransport).toContain(`_tftRect(_tft_tft1, ${g.previous.rect.x}, ${g.previous.rect.y}, ${g.previous.rect.w}, ${g.previous.rect.h},`)
+    expect(fixedTransport).toContain(`_tftRect(_tft_tft1, ${g.playPause.rect.x}, ${g.playPause.rect.y}, ${g.playPause.rect.w}, ${g.playPause.rect.h},`)
+    expect(fixedTransport).toContain('"PREV"')
+    expect(fixedTransport).toContain('"NEXT"')
+  })
+
   it('resolves the geometry for the size the panel is mounted at', () => {
     const rotated = tftDisplayLoopCpp(emit({ controller: st7789v, rotation: '90' })).join('\n')
     const g = nowPlayingGeometry(320, 240)
@@ -209,7 +218,7 @@ describe('the loop', () => {
   // Short-circuiting past the dirty check leaves the cache stale behind a full
   // repaint, and the next pass then reports a change that already happened.
   it('always evaluates change detection, even on a full repaint', () => {
-    for (const src of [nowPlaying, showStatus]) {
+    for (const src of [nowPlaying, fixedTransport, showStatus]) {
       expect(src).toMatch(/_tftTextDirty\([^)]*\) \|\| _tftFull_/)
       expect(src).not.toMatch(/_tftFull_\w+ \|\| _tft(Text|Value)Dirty/)
     }
@@ -217,7 +226,7 @@ describe('the loop', () => {
 
   // Two fields sharing a slot would each report the other dirty forever, and
   // the panel would repaint both every pass for the rest of the run.
-  it.each([['Now Playing', nowPlaying], ['Show Status', showStatus]])(
+  it.each([['Now Playing', nowPlaying], ['Fixed Transport', fixedTransport], ['Show Status', showStatus]])(
     'gives every %s field its own cache slot', (_layout, src) => {
       const used = (pattern: RegExp) => [...src.matchAll(pattern)].map((m) => m[1])
       for (const slots of [used(/_tftTextDirty\(_tft_tft1, (\d+),/g), used(/_tftValueDirty\(_tft_tft1, (\d+),/g)]) {
