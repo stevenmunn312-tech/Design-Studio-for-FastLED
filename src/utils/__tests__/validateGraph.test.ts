@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, estimatePowerLoad, estimateFirmwareRam, findMirroredOutputMismatches, findShowOutputFormErrors, findAudioCapabilityErrors, findPlayerControlMappingWarnings } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, estimatePowerLoad, estimateFirmwareRam, findMirroredOutputMismatches, findShowOutputFormErrors, findAudioCapabilityErrors, findPlayerControlMappingWarnings, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
+import { OLED_PANEL_RAM_BYTES } from '../../codegen/infoDisplayCpp'
+import { SEGMENT_DISPLAY_RAM_BYTES } from '../../codegen/segmentDisplayCpp'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -1204,6 +1206,55 @@ describe('validateGraph', () => {
       ]
       expect(estimateFirmwareRam(nodes, [edge('e1', 'sc', 'out', 'frame')])!.paletteBytes).toBe(0)
     })
+
+    it('counts an Info Display panel buffer, wired or not', () => {
+      // A display is a sink, so it is never in the walk back from MatrixOutput
+      // — and it is emitted whether or not anything feeds it, because the part
+      // is on the bench. Two page-major frames each is the bulk of it.
+      const nodes = [
+        node('sc', 'SolidColor'),
+        node('out', 'MatrixOutput', { width: 4, height: 4 }),
+        node('oled', 'InfoDisplay', { partId: 'sh1106-oled-128x64' }),
+      ]
+      const ram = estimateFirmwareRam(nodes, [edge('e1', 'sc', 'out', 'frame')])!
+      expect(ram.displayBytes).toBe(OLED_PANEL_RAM_BYTES)
+      expect(OLED_PANEL_RAM_BYTES).toBeGreaterThan(2 * 128 * 8)
+      expect(ram.internalBytes).toBe(48 + OLED_PANEL_RAM_BYTES)
+    })
+
+    it('counts every display on the bench, segment modules included', () => {
+      const nodes = [
+        node('sc', 'SolidColor'),
+        node('out', 'MatrixOutput', { width: 4, height: 4 }),
+        node('oledA', 'InfoDisplay', { partId: 'sh1106-oled-128x64' }),
+        node('oledB', 'InfoDisplay', { partId: 'ssd1306-oled-128x64' }),
+        node('seg', 'SegmentDisplay', { partId: 'tm1637-4digit-display' }),
+      ]
+      const ram = estimateFirmwareRam(nodes, [edge('e1', 'sc', 'out', 'frame')])!
+      expect(ram.displayBytes).toBe(2 * OLED_PANEL_RAM_BYTES + SEGMENT_DISPLAY_RAM_BYTES)
+    })
+
+    it('leaves the display cost in internal RAM when buffers move to PSRAM', () => {
+      const nodes = [
+        node('sc', 'SolidColor'), node('fd', 'Fade'),
+        node('out', 'MatrixOutput', { width: 4, height: 4, usePsram: true }),
+        node('oled', 'InfoDisplay', { partId: 'sh1106-oled-128x64' }),
+      ]
+      const edges = [edge('e1', 'sc', 'fd', 'frame'), edge('e2', 'fd', 'out', 'frame')]
+      const ram = estimateFirmwareRam(nodes, edges)!
+      expect(ram.psramBytes).toBe(48)
+      expect(ram.internalBytes).toBe(48 + OLED_PANEL_RAM_BYTES)
+    })
+
+    it('has a RAM figure for every display in the library', () => {
+      // The node-type -> struct map is the one part of this that cannot be
+      // derived. A third panel with no entry would be measured as free.
+      for (const nodeType of DISPLAY_NODE_TYPES) {
+        expect(DISPLAY_RAM_BYTES_BY_NODE_TYPE[nodeType]).toBeGreaterThan(0)
+      }
+      expect([...DISPLAY_NODE_TYPES].sort()).toEqual(['InfoDisplay', 'SegmentDisplay'])
+    })
+
 
     it('offloads frame/field buffers to PSRAM when usePsram is on', () => {
       const nodes = [node('sc', 'SolidColor'), node('fd', 'Fade'), node('out', 'MatrixOutput', { width: 4, height: 4, usePsram: true })]

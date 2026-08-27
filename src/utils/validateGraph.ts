@@ -14,6 +14,8 @@ import { getNetworkCredentials } from '../state/networkCredentials'
 import { collectPinUses } from '../build/hardwareManifest'
 import { browserThumbnailIssues } from './browserThumbnails'
 import { playerDisplaysFromGraph } from '../codegen/playerDisplays'
+import { OLED_PANEL_RAM_BYTES } from '../codegen/infoDisplayCpp'
+import { SEGMENT_DISPLAY_RAM_BYTES } from '../codegen/segmentDisplayCpp'
 import {
   findPinCollisions, findI2cAddressCollisions, pinCollisionMessage,
   pinCollisionTitle, pinCollisionFix, addressCollisionMessage,
@@ -23,6 +25,9 @@ import { boardPinVerdict, boardProfileById } from '../build/boardProfiles'
 import type { PhysicalBoardProfile } from '../build/boardProfiles'
 import { inmp441SupportedForBoard, INMP441_UNSUPPORTED_MESSAGE } from '../state/micPinDefaults'
 import { controllerSettings } from '../state/controllerSettings'
+import { isHardwareManagedSignalNodeType } from '../state/hardware'
+import { partOptionsFor } from '../state/partOptions'
+import { partById } from '../state/partCatalogue'
 import { resolveAudioCapabilitySource } from '../state/audioCapabilities'
 import { resolveStorageCapabilitySource } from '../state/storageCapabilities'
 
@@ -310,6 +315,13 @@ export interface FirmwareRamEstimate {
    *  tables plus one `pal_<id>` per palette-building node. 48 bytes each, and
    *  always internal: codegen never PSRAM-allocates them. */
   paletteBytes: number
+  /** The per-panel globals auxiliary displays declare — an Info Display's two
+   *  page-major frames dominate this, a Segment Display's digit cache is tens
+   *  of bytes. Always internal, and counted whether or not the display is
+   *  wired: a display is a sink, so codegen emits it either way. Flash is not
+   *  counted here — the font tables and any baked thumbnails are PROGMEM and
+   *  the compile-capacity check measures those for real. */
+  displayBytes: number
   /** Whether the Board's `usePsram` is on (frame/field buffers move to PSRAM). */
   usesPsram: boolean
   /** RAM that must fit in the MCU's internal SRAM regardless of PSRAM. */
@@ -326,6 +338,46 @@ const OUTPUT_DATATYPES_BY_NODE_TYPE = new Map(
 const PALETTE_INPUT_PORTS_BY_NODE_TYPE = new Map(
   NODE_LIBRARY.map((def) => [def.type, def.inputs.filter((i) => i.dataType === 'palette').map((i) => i.id)])
 )
+
+/**
+ * Internal RAM each auxiliary display's global costs, by node type.
+ *
+ * The figures live with the structs that define them; this is only the routing
+ * from a node type to its emitter, and it is the one part of this that cannot
+ * be derived — two panels are two different structs. `validateGraph.test.ts`
+ * holds it against `DISPLAY_NODE_TYPES` so a third panel cannot be added and
+ * silently measured as free. When the planned `DISPLAY_PARTS` registry lands,
+ * this map is the first thing it should absorb.
+ */
+export const DISPLAY_RAM_BYTES_BY_NODE_TYPE: Record<string, number> = {
+  InfoDisplay: OLED_PANEL_RAM_BYTES,
+  SegmentDisplay: SEGMENT_DISPLAY_RAM_BYTES,
+}
+
+/**
+ * Every auxiliary display in the library, for the RAM figure above and for the
+ * checks that ask what a build can draw.
+ *
+ * Derived, not listed: a workbench-owned node whose catalogued modules carry a
+ * display spec is a display. The catalogue is the honest signal — "a sink the
+ * bench owns" would sweep in the LED output, and "no outputs" would drop the
+ * touch panel that is meant to arrive next, since its whole point is sending
+ * something back.
+ */
+export const DISPLAY_NODE_TYPES = new Set(
+  NODE_LIBRARY
+    .filter((def) => isHardwareManagedSignalNodeType(def.type)
+      && partOptionsFor(def.type).some((option) => !!partById(option.id)?.display))
+    .map((def) => def.type),
+)
+
+/** Internal RAM the displays present in `nodes` add to the sketch. */
+function displayRamBytes(nodes: StudioNode[]): number {
+  return nodes.reduce(
+    (sum, n) => sum + (DISPLAY_RAM_BYTES_BY_NODE_TYPE[n.data.nodeType] ?? 0),
+    0,
+  )
+}
 
 /** `sizeof(CRGBPalette16)` — 16 CRGB entries. */
 const PALETTE_BYTES = 48
@@ -467,12 +519,17 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): F
   }
   const paletteBytes = (namedPalettes.size + builderPalettes) * PALETTE_BYTES
 
+  // Displays are sinks, so they are not in `reachable` and never will be —
+  // they are walked *from*, not to. Count them over the whole graph instead.
+  const displayBytes = displayRamBytes(nodes)
+
   const ledsArrayBytes = ledCount * 3
   const usesPsram = controllerSettings(nodes).usePsram
   const psramBytes = usesPsram ? frameBufferBytes + fieldBufferBytes : 0
-  const internalBytes = ledsArrayBytes + statefulBytes + paletteBytes + (usesPsram ? 0 : frameBufferBytes + fieldBufferBytes)
+  const internalBytes = ledsArrayBytes + statefulBytes + paletteBytes + displayBytes
+    + (usesPsram ? 0 : frameBufferBytes + fieldBufferBytes)
 
-  return { ledCount, ledsArrayBytes, frameBufferBytes, fieldBufferBytes, statefulBytes, paletteBytes, usesPsram, internalBytes, psramBytes }
+  return { ledCount, ledsArrayBytes, frameBufferBytes, fieldBufferBytes, statefulBytes, paletteBytes, displayBytes, usesPsram, internalBytes, psramBytes }
 }
 
 // A conservative "worth a heads-up" threshold for classic ESP32-class internal
@@ -1074,23 +1131,6 @@ function playerControlMappingIssues(nodes: StudioNode[], edges: StudioEdge[]): P
 }
 
 /**
- * Displays the selected build cannot actually drive.
- *
- * The rule this enforces is the display plan's blunt one: a generator either
- * emits a display and its bindings or it says why not. What it must never do is
- * build successfully and leave the part dark, because the first thing anyone
- * does then is doubt their wiring — and the wiring is fine.
- *
- * Two ways that happens. A generator with no display support at all will drop
- * the part outright. And the SD player, which does support displays, runs a
- * fixed template rather than a compiled graph, so it can read the Music Player
- * it is built around and nothing else; a display fed from a Wave has no value
- * to show there however reasonable the wire looks on the canvas.
- */
-/** Auxiliary displays, for the checks that ask what a build can draw. */
-const DISPLAY_NODE_TYPES = new Set(['InfoDisplay', 'SegmentDisplay'])
-
-/**
  * I2C parts that cannot share the one bus the generated sketch starts.
  *
  * Two SDA/SCL pairs is legal wiring — an ESP32 has a second I2C host — but
@@ -1225,6 +1265,20 @@ export function findOutputRuntimeIssues(
   return { errors: [...errors, ...speedErrors] }
 }
 
+/**
+ * Displays the selected build cannot actually drive.
+ *
+ * The rule this enforces is the display plan's blunt one: a generator either
+ * emits a display and its bindings or it says why not. What it must never do is
+ * build successfully and leave the part dark, because the first thing anyone
+ * does then is doubt their wiring — and the wiring is fine.
+ *
+ * Two ways that happens. A generator with no display support at all will drop
+ * the part outright. And the SD player, which does support displays, runs a
+ * fixed template rather than a compiled graph, so it can read the Music Player
+ * it is built around and nothing else; a display fed from a Wave has no value
+ * to show there however reasonable the wire looks on the canvas.
+ */
 export function findDisplayGeneratorIssues(
   nodes: StudioNode[],
   edges: StudioEdge[],

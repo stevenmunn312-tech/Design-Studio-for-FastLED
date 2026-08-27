@@ -46,6 +46,30 @@ const BLANK = `0x${SEGMENT_GLYPHS[' '].toString(16).padStart(2, '0')}`
  */
 export const SEGMENT_DISPLAY_CPP_FORWARD = 'struct SegDisplay;'
 
+/**
+ * Internal RAM one `static SegDisplay` costs the sketch.
+ *
+ * Beside the struct it measures, for the same reason the OLED panel's figure
+ * is: `last` is one char per digit at the widest catalogued controller, and the
+ * rest is six pin/mode bytes, two flags, an int and a uint32 with the padding
+ * their alignment forces. Tens of bytes rather than the OLED's thousands — kept
+ * anyway so "a display costs nothing" stops being the answer.
+ *
+ * Sized for a 32-bit target like the OLED figure beside it; an AVR's packed
+ * struct and 2-byte int come out six bytes under.
+ */
+export const SEGMENT_DISPLAY_RAM_BYTES = (() => {
+  const bytes = 6 + MAX_DIGITS          // kind, digits, clk, data, cs, brightness + last[]
+  const withDecimal = align(bytes, 4) + 4        // int lastDecimal
+  const withFlags = withDecimal + 2              // lastColon, written
+  return align(withFlags, 4) + 4                 // uint32_t lastWriteMs
+})()
+
+function align(bytes: number, to: number): number {
+  return Math.ceil(bytes / to) * to
+}
+
+
 export const SEGMENT_DISPLAY_CPP_HELPERS = `// ── Segment displays ────────────────────────────────────────────────────────
 // Mirrors src/state/segmentDisplay.ts so a module shows what the preview does.
 #define SEG_MAX_DIGITS ${MAX_DIGITS}

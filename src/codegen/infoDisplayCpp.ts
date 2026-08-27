@@ -59,13 +59,53 @@ function fontTableCpp(): { chars: string; table: string; count: number } {
  */
 export const INFO_DISPLAY_CPP_FORWARD = 'struct OledPanel;'
 
+/**
+ * Panel geometry the emitted sketch is fixed to. Both catalogued controllers
+ * are 128x64 — the SH1106 differs only in how much of its wider controller RAM
+ * the glass shows, which is `columnOffset`, not a different buffer. A panel of
+ * another size would need this and the surface contract moved together.
+ */
+const OLED_WIDTH = 128
+const OLED_HEIGHT = 64
+const OLED_PAGE_COUNT = OLED_HEIGHT / OLED_PAGE_HEIGHT
+
+/** transport, cs/dc/rst/sck/mosi, addr, columnOffset, segmentRemap, comScan, written. */
+const OLED_PANEL_BYTE_MEMBERS = 11
+
+function alignTo4(bytes: number): number {
+  return Math.ceil(bytes / 4) * 4
+}
+
+/**
+ * Internal RAM one `static OledPanel` costs the sketch.
+ *
+ * It lives here rather than in the RAM estimator because the struct below is
+ * what it measures: `buf` and `last` are a full page-major frame each — the
+ * second is what lets the panel skip a page that did not change — plus the
+ * eleven byte-sized members and the 4-byte `lastWriteMs` after them. Two
+ * kilobytes is not noise on an MCU that has 320 of them, and it was previously
+ * counted as nothing at all.
+ *
+ * Flash is not counted here or anywhere in that estimate: the font table and
+ * any baked thumbnails are PROGMEM, and the compile-capacity check measures
+ * the real figure.
+ *
+ * Sized for a 32-bit target, which is what the RAM warning is calibrated
+ * against. An AVR packs its structs and has a 2-byte int, so it would come out
+ * a few bytes under — irrelevant beside the two frames, and academic anyway
+ * since two of those do not fit in an Uno's entire SRAM.
+ */
+export const OLED_PANEL_RAM_BYTES =
+  alignTo4(OLED_PANEL_BYTE_MEMBERS + 2 * OLED_WIDTH * OLED_PAGE_COUNT) + 4
+
+
 export function infoDisplayHelpersCpp(): string {
   const font = fontTableCpp()
   return `// ── 1-bit OLED (SH1106 / SSD1306) ───────────────────────────────────────────
 // Mirrors src/state/oledSurface.ts and src/state/infoDisplay.ts so the panel
 // draws what the preview drew.
-#define OLED_W        128
-#define OLED_H        64
+#define OLED_W        ${OLED_WIDTH}
+#define OLED_H        ${OLED_HEIGHT}
 #define OLED_PAGE_H   ${OLED_PAGE_HEIGHT}
 #define OLED_PAGES    (OLED_H / OLED_PAGE_H)
 #define OLED_FONT_W   ${FONT_W}
