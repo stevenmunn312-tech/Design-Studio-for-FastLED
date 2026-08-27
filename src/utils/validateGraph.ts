@@ -352,6 +352,12 @@ const PALETTE_INPUT_PORTS_BY_NODE_TYPE = new Map(
 export const DISPLAY_RAM_BYTES_BY_NODE_TYPE: Record<string, number> = {
   InfoDisplay: OLED_PANEL_RAM_BYTES,
   SegmentDisplay: SEGMENT_DISPLAY_RAM_BYTES,
+  // Provisional until the TFT driver's partial-buffer cost is integrated.
+  // Full-frame RGB565 deliberately over-counts; a RAM budget must fail safe.
+  TransportDisplay: Math.max(...partOptionsFor('TransportDisplay').map((option) => {
+    const resolution = partById(option.id)?.display?.resolutionPx
+    return resolution ? resolution[0] * resolution[1] * 2 : 0
+  })),
 }
 
 /**
@@ -1289,6 +1295,15 @@ export function findDisplayGeneratorIssues(
   const names = displays.map((node) => nodeLabel(node))
   const errors: string[] = []
   const warnings: string[] = []
+
+  const pendingTransportDisplays = displays.filter((node) => node.data.nodeType === 'TransportDisplay')
+  if (pendingTransportDisplays.length > 0) {
+    errors.push(
+      `${pendingTransportDisplays.map((node) => nodeLabel(node)).join(', ')} cannot be built yet because `
+      + 'Transport Display firmware support is not available. Remove the colour display before building.',
+    )
+    return { errors, warnings }
+  }
 
   const master = nodes.find((node) => node.data.nodeType === 'PatternMaster')
 

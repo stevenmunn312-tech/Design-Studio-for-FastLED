@@ -1234,6 +1234,12 @@ describe('validateGraph', () => {
       expect(ram.displayBytes).toBe(2 * OLED_PANEL_RAM_BYTES + SEGMENT_DISPLAY_RAM_BYTES)
     })
 
+    it('provisionally budgets a full RGB565 frame for a Transport Display', () => {
+      // The larger catalogued module is 240x320. Until the driver's partial
+      // buffer lands, the safe estimate is one complete two-byte pixel frame.
+      expect(DISPLAY_RAM_BYTES_BY_NODE_TYPE.TransportDisplay).toBe(240 * 320 * 2)
+    })
+
     it('leaves the display cost in internal RAM when buffers move to PSRAM', () => {
       const nodes = [
         node('sc', 'SolidColor'), node('fd', 'Fade'),
@@ -1252,7 +1258,7 @@ describe('validateGraph', () => {
       for (const nodeType of DISPLAY_NODE_TYPES) {
         expect(DISPLAY_RAM_BYTES_BY_NODE_TYPE[nodeType]).toBeGreaterThan(0)
       }
-      expect([...DISPLAY_NODE_TYPES].sort()).toEqual(['InfoDisplay', 'SegmentDisplay'])
+      expect([...DISPLAY_NODE_TYPES].sort()).toEqual(['InfoDisplay', 'SegmentDisplay', 'TransportDisplay'])
     })
 
 

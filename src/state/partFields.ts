@@ -37,6 +37,20 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
     { key: 'sdMosiPin', label: 'MOSI', kind: 'pin' },
     { key: 'sdMisoPin', label: 'MISO', kind: 'pin' },
   ],
+  TransportDisplay: [
+    { key: 'sckPin', label: 'SCK', kind: 'pin' },
+    { key: 'mosiPin', label: 'MOSI', kind: 'pin' },
+    { key: 'misoPin', label: 'MISO', kind: 'pin' },
+    { key: 'csPin', label: 'CS', kind: 'pin' },
+    { key: 'dcPin', label: 'DC', kind: 'pin' },
+    { key: 'resetPin', label: 'RESET', kind: 'pin' },
+    { key: 'backlightPin', label: 'BACKLIGHT', kind: 'pin' },
+    { key: 'touchCsPin', label: 'TOUCH CS', kind: 'pin' },
+    { key: 'touchIrqPin', label: 'TOUCH IRQ', kind: 'pin' },
+    { key: 'touchSckPin', label: 'TOUCH SCK', kind: 'pin' },
+    { key: 'touchMosiPin', label: 'TOUCH MOSI', kind: 'pin' },
+    { key: 'touchMisoPin', label: 'TOUCH MISO', kind: 'pin' },
+  ],
 }
 
 /** Non-pin settings whose single editing surface is the hardware popup. */

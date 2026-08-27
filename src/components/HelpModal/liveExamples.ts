@@ -1377,6 +1377,23 @@ const INFO_DISPLAY_LIVE_EXAMPLE = namedExample(
   'The solid colour keeps the LED preview meaningful; the OLED is a separate 128x64 panel rather than part of the frame.',
 )
 
+const TRANSPORT_DISPLAY_LIVE_EXAMPLE = namedExample(
+  'TransportDisplay',
+  'Put a colour transport screen on the bench',
+  [
+    { key: 'title', type: 'TextValue', properties: { text: 'MIDNIGHT DRIVE' } },
+    { key: 'progress', type: 'BeatSin', properties: { bpm: 12, low: 0, high: 1 } },
+    { key: 'target', type: 'TransportDisplay', properties: { tftLayout: 'Now Playing' } },
+    { key: 'color', type: 'SolidColor', properties: { r: 20, g: 55, b: 95 } },
+  ],
+  [
+    { source: 'title', sourceHandle: 'text', target: 'target', targetHandle: 'title' },
+    { source: 'progress', sourceHandle: 'value', target: 'target', targetHandle: 'progress' },
+  ],
+  'Transport Display is a colour-screen terminal for a fixed now-playing or show-status layout. Add the exact TFT module in the hardware workbench, then wire the text and values its selected layout shows.',
+  'The solid colour keeps the LED preview meaningful; the TFT is a separate physical display and firmware support is still being integrated.',
+)
+
 const MASTER_SPEED_LIVE_EXAMPLE = namedExample(
   'MasterSpeed',
   'Put one knob on the whole show',
@@ -1409,6 +1426,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   Storage: STORAGE_LIVE_EXAMPLE,
   SegmentDisplay: SEGMENT_DISPLAY_LIVE_EXAMPLE,
   InfoDisplay: INFO_DISPLAY_LIVE_EXAMPLE,
+  TransportDisplay: TRANSPORT_DISPLAY_LIVE_EXAMPLE,
   MasterSpeed: MASTER_SPEED_LIVE_EXAMPLE,
   TextValue: TEXT_VALUE_LIVE_EXAMPLE,
   FormatNumber: FORMAT_NUMBER_LIVE_EXAMPLE,

@@ -35,6 +35,7 @@ describe('the Build Diagram draws every part on the bench', () => {
     expect(bench.length).toBeGreaterThan(8)
     expect(bench).toContain('SegmentDisplay')
     expect(bench).toContain('InfoDisplay')
+    expect(bench).toContain('TransportDisplay')
     expect(bench).toContain('Amplifier')
   })
 
@@ -68,6 +69,21 @@ describe('the Build Diagram draws every part on the bench', () => {
     expect(oled.pins.map((pin) => pin.propertyKey).sort())
       .toEqual(['csPin', 'dcPin', 'mosiPin', 'resetPin', 'sckPin'])
     expect(oled.supported).toBe(true)
+  })
+
+  it('names and wires the selected colour display module', () => {
+    const tft = buildHardwareManifest(
+      [node('tft', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320' })], [], FQBN,
+    ).items.find((entry) => entry.sourceNodeId === 'tft')!
+    expect(tft.kind).toBe('transport-display')
+    expect(tft.facts).toMatchObject({
+      controller: 'ST7789V', resolution: '240x320', touchController: 'XPT2046',
+    })
+    expect(tft.pins.map((pin) => pin.propertyKey).sort()).toEqual([
+      'backlightPin', 'csPin', 'dcPin', 'misoPin', 'mosiPin', 'resetPin', 'sckPin',
+      'touchCsPin', 'touchIrqPin', 'touchMisoPin', 'touchMosiPin', 'touchSckPin',
+    ])
+    expect(tft.supported).toBe(true)
   })
 
   // The board is what everything else is wired to, drawn as the controller.

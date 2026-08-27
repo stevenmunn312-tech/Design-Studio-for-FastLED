@@ -5,7 +5,7 @@ import ledSegmentRender from '../../assets/components/ws2812b-led.webp'
 import { useGraphStore, useRootEdges, useRootNodes, type StudioNode } from '../../state/graphStore'
 import { usePreviewStore } from '../../state/previewStore'
 import { useUiStore } from '../../state/uiStore'
-import { CATEGORY_COLOR, NODE_LIBRARY } from '../../state/nodeLibrary'
+import { CATEGORY_COLOR, NODE_LIBRARY, transportDisplayPinKeysForProps } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { nextFreeLedDataPin } from '../../state/ledPinAssignment'
 import { assignPartPins, type PartPinRequest } from '../../state/partPinAssignment'
@@ -150,7 +150,9 @@ interface FixturePartEntry {
 const MODULE_PIN_LABELS: Record<string, string> = {
   clkPin: 'CLK', dioPin: 'DIO', dinPin: 'DIN', csPin: 'CS',
   dcPin: 'DC', resetPin: 'RES', sckPin: 'CLK', mosiPin: 'MOSI',
-  sdaPin: 'SDA', sclPin: 'SCL',
+  misoPin: 'MISO', backlightPin: 'LITE', sdaPin: 'SDA', sclPin: 'SCL',
+  touchCsPin: 'T_CS', touchIrqPin: 'T_IRQ', touchSckPin: 'T_CLK',
+  touchMosiPin: 'T_DIN', touchMisoPin: 'T_DO',
 }
 
 function modulePinKeys(nodeType: string, moduleId: string | undefined): readonly string[] | null {
@@ -159,11 +161,32 @@ function modulePinKeys(nodeType: string, moduleId: string | undefined): readonly
   // Asking the board for the union would reserve five pins for a module with
   // two, and drawing it would label wires the module does not bring out.
   if (nodeType === 'InfoDisplay') return OLED_TRANSPORT_PINS[oledTransportFor(entry?.display?.interface)]
+  if (nodeType === 'TransportDisplay') return transportDisplayPinKeysForProps({ partId: moduleId })
   if (nodeType !== 'SegmentDisplay') return null
   return segmentControllerFor(entry?.display?.controller).pins
 }
 
 const FIXTURE_PARTS: readonly FixturePartEntry[] = [
+  {
+    nodeType: 'TransportDisplay',
+    partId: 'transport-display',
+    label: 'Transport display',
+    hint: 'A colour now-playing or show-status screen',
+    footprint: partDimensionsMm('st7789-tft-240x240', { width: 35.8, height: 35.8 }),
+    render: partRenderSrc('st7789-tft-240x240') ?? undefined,
+    pinFields: [
+      { key: 'sckPin', label: 'SCK' },
+      { key: 'mosiPin', label: 'MOSI' },
+      { key: 'csPin', label: 'CS' },
+      { key: 'dcPin', label: 'DC' },
+      { key: 'resetPin', label: 'RESET' },
+      { key: 'backlightPin', label: 'LITE' },
+    ],
+    pinRequests: [
+      { key: 'sckPin' }, { key: 'mosiPin' }, { key: 'csPin' },
+      { key: 'dcPin' }, { key: 'resetPin' }, { key: 'backlightPin' },
+    ],
+  },
   {
     // Two modules behind one node: the SH1106 on SPI and the SSD1306 on I2C.
     // Its footprint and render resolve per chosen module through
@@ -1294,6 +1317,7 @@ export default function HardwarePane() {
   const amplifierFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'Amplifier')
   const segmentDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'SegmentDisplay')
   const infoDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'InfoDisplay')
+  const transportDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'TransportDisplay')
 
   const addMenuCategories: AddMenuCategory[] = [
     {
@@ -1331,6 +1355,7 @@ export default function HardwarePane() {
       items: [
         ...moduleItems('SegmentDisplay', segmentDisplayFixture),
         ...moduleItems('InfoDisplay', infoDisplayFixture),
+        ...moduleItems('TransportDisplay', transportDisplayFixture),
       ],
     },
     {
