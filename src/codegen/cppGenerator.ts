@@ -280,17 +280,18 @@ function topoSort(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
  * of the sketch, dark on a board that compiled and uploaded cleanly.
  */
 /*
- * Every sink in the library: a node the graph feeds and nothing reads.
+ * Every terminal in the library.
  *
- * Ports alone say it, so displays, `MatrixOutput` and Master Speed all arrive
- * here without being named. The rule was narrower once — workbench-owned parts
+ * Ordinary sinks are inputs with no outputs. Output-category nodes with inputs
+ * remain terminals when they publish touch intent, so displays, `MatrixOutput`
+ * and Master Speed all arrive here without being named. The rule was narrower once — workbench-owned parts
  * only — and a sink outside that class would be walked back from nothing and
  * pruned out of the sketch along with everything feeding it, which is how a
  * configured display used to vanish from a build.
  */
-const SINK_NODE_TYPES = new Set(
+const TERMINAL_NODE_TYPES = new Set(
   NODE_LIBRARY
-    .filter((def) => def.outputs.length === 0 && def.inputs.length > 0)
+    .filter((def) => def.inputs.length > 0 && (def.outputs.length === 0 || def.category === 'output'))
     .map((def) => def.type),
 )
 
@@ -308,7 +309,7 @@ function reachableFromOutputs(nodes: StudioNode[], edges: StudioEdge[]): StudioN
   const roots = [
     ...outputs,
     ...nodes.filter((n) => n.data.nodeType === 'Board'),
-    ...nodes.filter((n) => SINK_NODE_TYPES.has(n.data.nodeType)),
+    ...nodes.filter((n) => TERMINAL_NODE_TYPES.has(n.data.nodeType)),
   ]
 
   const sources = new Map<string, string[]>()

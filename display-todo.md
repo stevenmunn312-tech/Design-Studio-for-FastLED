@@ -520,7 +520,7 @@ freeform widgets must reuse rather than rediscover.
   evaluator and emitted as literals by both generators that draw displays.
   The geometry is a function rather than flat constants, because rotation gives
   one layout three sizes to satisfy.
-- [ ] Add the ST7789V 320×240 module and its XPT2046 touch as the first
+- [x] Add the ST7789V 320×240 module and its XPT2046 touch as the first
       interactive target.
   Display and touch may share SPI data/clock lines but use separate CS and
   transactions.
@@ -530,13 +530,24 @@ freeform widgets must reuse rather than rediscover.
   inputs-and-no-outputs, so a display that gains an output drops out of both in
   one step — pruned from the sketch along with everything feeding it, and
   evaluated at only the ~8 fps publish cadence. Neither symptom names the port
-  that caused it.
+  that caused it. The terminal rule now derives from output category plus
+  inputs (or an ordinary output-less sink), so adding `controls` cannot remove
+  the panel. Raw touch coordinates use four-edge calibration, rotate through
+  the same mounted geometry as the TFT, and fixed hit regions derive from the
+  visible layout fields. Player sketches sample XPT2046 over a small software-
+  SPI transaction, so the separately broken-out header works on the display
+  bus or on its own pins.
 - [ ] Route fixed transport actions through the `playercontrols` bundle and read
   status from Music Player, so browser preview, generated normal sketches,
   generative shows, and SD players agree on edge handling, volume, and pattern
-  selection.
+  selection. The SD-player slice is done: a Transport Display wired through
+  Player Controls emits play/pause and volume from Now Playing, or LED toggle
+  and brightness from Show Status. Browser touch, normal sketches and the
+  generative-show control graph remain here rather than being implied complete.
 - [ ] Add calibration/rotation handling for touch and persist the exact module's
   calibration only where it is stable. Provide a generated touch self-test.
+  Calibration properties, clamping and all four rotations are implemented;
+  the self-test and bench-derived per-module values remain.
 - [ ] Bake colour pattern thumbnails/art into flash with explicit size limits;
   optionally place large assets on the existing SD capability only through an
   explicit storage policy. The limits and the blit path exist

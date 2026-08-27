@@ -1391,7 +1391,7 @@ const TRANSPORT_DISPLAY_LIVE_EXAMPLE = namedExample(
     { source: 'progress', sourceHandle: 'value', target: 'target', targetHandle: 'progress' },
   ],
   'Transport Display is a colour-screen terminal for a fixed now-playing or show-status layout. Add the exact TFT module in the hardware workbench, then wire the text and values its selected layout shows.',
-  'The solid colour keeps the LED preview meaningful; the TFT is a separate physical display and firmware support is still being integrated.',
+  'The solid colour keeps the LED preview meaningful; the TFT is a separate physical display. On the ST7789V/XPT2046 module, wire Controls through Player Controls to use the visible transport or level controls in player firmware.',
 )
 
 const MASTER_SPEED_LIVE_EXAMPLE = namedExample(

@@ -99,11 +99,12 @@ describe('hardware registries stay in step', () => {
     ])
   })
 
-  // A display that carries signal but publishes nothing is a terminal; if it
-  // is not treated as one, codegen prunes it and the part sits dark.
-  it('treats every output-less signal part as a terminal', () => {
+  // A display remains a terminal after touch gives it an output; if category
+  // is ignored, codegen prunes it and the part sits dark.
+  it('treats output-category signal parts as terminals even with outputs', () => {
     const terminals = NODE_LIBRARY
-      .filter((def) => isHardwareManagedSignalNodeType(def.type) && def.outputs.length === 0)
+      .filter((def) => isHardwareManagedSignalNodeType(def.type)
+        && def.inputs.length > 0 && (def.outputs.length === 0 || def.category === 'output'))
       .map((def) => def.type)
     expect(terminals).toContain('MatrixOutput')
     expect(terminals).toContain('SegmentDisplay')

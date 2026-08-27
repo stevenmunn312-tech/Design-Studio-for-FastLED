@@ -136,6 +136,46 @@ describe('the emitted player sketch', () => {
   })
 })
 
+describe('XPT2046 player controls', () => {
+  const graph = [
+    node('tft', 'TransportDisplay', {
+      partId: TOUCH, tftRotation: '90', touchCsPin: 15, touchIrqPin: 2,
+      touchSckPin: 18, touchMosiPin: 23, touchMisoPin: 19,
+      touchXMin: 321, touchXMax: 3789, touchYMin: 245, touchYMax: 3821,
+    }),
+    node('pc', 'PlayerControls'),
+    node('m', 'PatternMaster'),
+  ]
+  const wires = [
+    edge('touch-controls', 'tft', 'controls', 'pc', 'controlsIn'),
+    edge('player-controls', 'pc', 'controls', 'm', 'controls'),
+  ]
+
+  it('only enables touch when its controls bundle reaches the player', () => {
+    expect(resolve(graph, wires).tft[0].touch).toMatchObject({
+      csPin: 15, irqPin: 2, sckPin: 18, mosiPin: 23, misoPin: 19,
+      xMin: 321, xMax: 3789, yMin: 245, yMax: 3821,
+    })
+    expect(resolve(graph, []).tft[0].touch).toBeNull()
+    expect(resolve([node('plain', 'TransportDisplay', { partId: PLAIN })]).tft[0].touch).toBeNull()
+  })
+
+  it('emits the software-SPI sampler, calibrated rotation, and visible hit regions', () => {
+    const src = sketch(graph, wires)
+    const g = nowPlayingGeometry(320, 240)
+    expect(src).toContain('static uint16_t _xptRead12(')
+    expect(src).toContain('_xptPoint(15, 2, 18, 23, 19, 321, 3789, 245, 3821, 240, 320, 1,')
+    expect(src).toContain(`_touchX_tft >= ${g.state.x} && _touchX_tft < ${g.state.x + g.state.w}`)
+    expect(src).toContain('if (audio.pauseResume()) playerPaused = !playerPaused;')
+    expect(src).toContain(`(_touchX_tft - ${g.volume.x}) / ${g.volume.w - 1}.0f`)
+  })
+
+  it('does not carry touch code for an unwired touch panel', () => {
+    expect(sketch([node('tft', 'TransportDisplay', { partId: TOUCH })]))
+      .not.toContain('static uint16_t _xptRead12(')
+  })
+})
+
 describe('a player driving every display at once', () => {
   const src = sketch([
     node('m', 'PatternMaster'),

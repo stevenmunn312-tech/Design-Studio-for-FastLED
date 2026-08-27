@@ -1315,6 +1315,22 @@ export function findDisplayGeneratorIssues(
 
   errors.push(...splitI2cBusErrors(nodes))
 
+  for (const display of displays.filter((node) => node.data.nodeType === 'TransportDisplay')) {
+    const props = display.data.properties as Record<string, unknown>
+    if (!partById(String(props.partId ?? ''))?.display?.touchController) continue
+    const raw = (key: string, fallback: number) => {
+      const value = Number(props[key] ?? fallback)
+      return Number.isFinite(value) ? value : fallback
+    }
+    const xMin = raw('touchXMin', 200)
+    const xMax = raw('touchXMax', 3900)
+    const yMin = raw('touchYMin', 200)
+    const yMax = raw('touchYMax', 3900)
+    if (xMin < 0 || xMax > 4095 || xMin >= xMax || yMin < 0 || yMax > 4095 || yMin >= yMax) {
+      errors.push(`${nodeLabel(display)} has invalid touch calibration. Each minimum must be below its maximum and all four raw XPT2046 values must be between 0 and 4095.`)
+    }
+  }
+
   // A collection too big to picture bakes nothing, and the panel then says
   // "NO PATTERNS" — the same thing it says for a browser wired to nobody. The
   // difference matters and only this message carries it.

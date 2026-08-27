@@ -178,7 +178,7 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
         id: 'st7789v-xpt2046-touch-240x320',
         label: 'ST7789V 2.4-inch + touch',
         summary: '240x320 colour TFT with XPT2046 touch',
-        note: 'The XPT2046 touch controller exposes its own SPI pins, so it can share the display bus or be wired to a separate SPI bus. Touch interaction is reserved for a later release.',
+        note: 'The XPT2046 touch controller exposes its own SPI pins, so it can share the display bus or use a separate bus. Wire the display controls output through Player Controls to make the fixed layout interactive in a music-player build.',
       },
     ],
   },

@@ -22,6 +22,7 @@ import {
 } from './tftDisplayCpp'
 import { patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
 import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './patternSelectionCpp'
+import { TFT_TOUCH_CPP_HELPERS, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit } from './tftTouchCpp'
 import type { BrowserThumbnails } from '../utils/browserThumbnails'
 
 /** The player's own selection. A player sketch has exactly one show. */
@@ -335,8 +336,15 @@ export function generatePlayerSketch(
   const genericPlayer = collection && opts.genericPlayer === true
   const controls = opts.controls ?? { bindings: {}, ...DEFAULT_CONTROL_SETTINGS }
   const particleFx = opts.particleFx?.enabled ? opts.particleFx : null
+  const displays = opts.displays ?? { info: [], segment: [], tft: [], unresolved: [] }
+  const touchEmits: TftTouchEmit[] = displays.tft
+    .filter((display) => display.touch !== null)
+    .map((display) => ({
+      id: safePlayerId(display.id), controller: display.controller, rotation: display.rotation,
+      layout: display.layout, enabled: display.enabled, touch: display.touch!,
+    }))
   const controlEntries = Object.entries(controls.bindings) as Array<[PlayerControlAction, PlayerControlSource]>
-  const hasControls = controlEntries.length > 0
+  const hasControls = controlEntries.length > 0 || touchEmits.length > 0
   const reactiveAudio = bakedAudio || decoderTap
   const internalDac = c.audioOutput === 'internalDac'
   // A stale saved toggle must never put ESP32-only allocation calls into a
@@ -766,6 +774,7 @@ ${patternEncoder ? `  // Detents into the one selection the player owns.
   }
 ` : ''}
 ${controlServiceLines}
+${touchEmits.flatMap(tftTouchServiceCpp).join('\n')}
 }
 ` : ''
 
@@ -778,7 +787,6 @@ ${controlServiceLines}
    * Music Player into the expression that reads it here, so the same emitters
    * the normal sketch uses can draw the same layouts.
    */
-  const displays = opts.displays ?? { info: [], segment: [], tft: [], unresolved: [] }
   const hasInfoDisplays = displays.info.length > 0
   const hasSegmentDisplays = displays.segment.length > 0
   const hasTftDisplays = displays.tft.length > 0
@@ -903,6 +911,7 @@ ${controlServiceLines}
     hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_HELPERS : '',
     hasSegmentDisplays ? segmentEmits.map(segmentDisplayGlobalCpp).join('\n') : '',
     hasTftDisplays ? tftDisplayHelpersCpp() : '',
+    touchEmits.length > 0 ? TFT_TOUCH_CPP_HELPERS : '',
     hasTftDisplays ? tftEmits.map(tftDisplayGlobalCpp).join('\n') : '',
   ].filter(Boolean).join('\n')
 
@@ -922,6 +931,7 @@ ${controlServiceLines}
     ...(browserEmits.length > 0 ? [`  _selBegin(_sel_${PLAYER_SELECTION_STEM});`] : []),
     ...segmentEmits.flatMap(segmentDisplaySetupCpp),
     ...tftEmits.flatMap(tftDisplaySetupCpp),
+    ...touchEmits.flatMap(tftTouchSetupCpp),
   ].join('\n')
 
   const displayLoopCpp = [

@@ -372,24 +372,19 @@ as roots, and the preview's terminal set gains them alongside `GroupOutput` and
 
 A display must update even in a graph with no LED output at all.
 
-Both terminal registries are **derived** from exactly one rule — inputs and no
-outputs — so `SINK_NODE_TYPES` in `src/codegen/cppGenerator.ts` and
-`HOT_NODE_TYPES` in `src/state/graphEvaluator.ts` pick up each new display
-without a row. That is the right shape, and it has one sharp edge.
+Both terminal registries are **derived** from exactly one rule: an ordinary
+input-bearing node with no outputs is a terminal, and so is any input-bearing
+node in the output category. `TERMINAL_NODE_TYPES` in
+`src/codegen/cppGenerator.ts` and `HOT_NODE_TYPES` in
+`src/state/graphEvaluator.ts` therefore pick up each display without a row.
 
-**Adding an output port to a display silently un-terminals it.** A v1
-`TransportDisplay` has inputs and no outputs, so it is in both sets. The moment
-touch gains it an output port — the very next step planned for this node — it
-stops matching the rule, drops out of both, and two things happen at once that
-look unrelated: `reachableFromOutputs` prunes it and everything feeding it
-straight out of the sketch, so the panel sits dark on a board that compiled and
-uploaded cleanly; and the preview evaluates it only on publish frames, so what
-is left crawls at roughly 8 fps. Neither failure names the port that caused it.
-
-The fix is not to add rows to the two sets — that reintroduces the hand-kept
-lists these replaced. It is to widen the derived rule to cover a node that is
-workbench-owned and carries signal regardless of whether it answers back, and to
-do it in the same commit that adds the port.
+The second clause arrived with touch. `TransportDisplay` gained a
+`playercontrols` output, and the former inputs-and-no-outputs rule would have
+silently removed it from both sets: `reachableFromOutputs` would prune the
+panel and everything feeding it out of a cleanly compiling sketch, while the
+preview would evaluate it only on publish frames at roughly 8 fps. Deriving the
+wider rule rather than adding the display to two hand-kept lists keeps the trap
+closed for the freeform interactive display too.
 
 ### Scheduling
 

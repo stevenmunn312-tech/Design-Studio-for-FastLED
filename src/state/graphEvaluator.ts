@@ -6913,9 +6913,14 @@ function createEvalNode(
         const controller = tftControllerForProps(props) ?? TFT_CONTROLLERS.ST7789
         const rotation = asTftRotation(props.tftRotation)
         const layout = asTransportDisplayLayout(props.tftLayout)
+        const controls: PlayerControls = {
+          playPause: false, previous: false, next: false,
+          volumeDelta: 0, ledToggle: false, brightnessDelta: 0,
+          patternSteps: 0, patternConfirm: false,
+        }
 
         if (!enabled) {
-          out = { lit: false, layout, surface: null }
+          out = { lit: false, layout, surface: null, controls }
           break
         }
 
@@ -6954,7 +6959,7 @@ function createEvalNode(
           }
         }
 
-        out = { lit: true, layout, surface: renderTransportDisplay(controller, rotation, payload) }
+        out = { lit: true, layout, surface: renderTransportDisplay(controller, rotation, payload), controls }
         break
       }
 
@@ -7871,8 +7876,10 @@ const HOT_NODE_TYPES = new Set<string>([
   /*
    * Every sink: a node the graph feeds and nothing reads.
    *
-   * Ports alone say it — inputs and no outputs — which covers `GroupOutput`,
-   * `MatrixOutput`, both displays and Master Speed without naming any of them.
+   * Ports/category say it: ordinary sinks have inputs and no outputs, while an
+   * output-category node with inputs remains a terminal even when it publishes
+   * touch intent. That covers `GroupOutput`, `MatrixOutput`, every display and
+   * Master Speed without naming any of them.
    * The rule used to be narrower (workbench-owned parts only) and each new
    * terminal had to remember to qualify; a sink that is not in this set is
    * skipped on non-publish frames, so a wired progress bar crawled at the
@@ -7880,7 +7887,7 @@ const HOT_NODE_TYPES = new Set<string>([
    * would only be read eight times a second.
    */
   ...NODE_LIBRARY
-    .filter((def) => def.outputs.length === 0 && def.inputs.length > 0)
+    .filter((def) => def.inputs.length > 0 && (def.outputs.length === 0 || def.category === 'output'))
     .map((def) => def.type),
 ])
 

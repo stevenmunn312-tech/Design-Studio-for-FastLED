@@ -97,6 +97,17 @@ export interface PlayerTransportDisplay {
   sckPin: number
   mosiPin: number
   backlightPin: number
+  touch: null | {
+    csPin: number
+    irqPin: number
+    sckPin: number
+    mosiPin: number
+    misoPin: number
+    xMin: number
+    xMax: number
+    yMin: number
+    yMax: number
+  }
   enabled: boolean
   sources: Record<string, string>
 }
@@ -119,6 +130,34 @@ export interface PlayerDisplays {
 function intProp(value: unknown, fallback: number): number {
   const n = Math.round(Number(value))
   return Number.isFinite(n) ? Math.max(0, Math.min(255, n)) : fallback
+}
+
+function touchRawProp(value: unknown, fallback: number): number {
+  const n = Math.round(Number(value))
+  return Number.isFinite(n) ? Math.max(0, Math.min(4095, n)) : fallback
+}
+
+/** Whether this display's control bundle reaches the Music Player through the
+ * same Player Controls chain as physical buttons and encoders. */
+function displayControlsPlayer(
+  displayId: string,
+  edges: ConfigEdge[],
+  byId: Map<string, ConfigNode>,
+): boolean {
+  const pending = [displayId]
+  const seen = new Set<string>()
+  while (pending.length) {
+    const id = pending.pop()!
+    if (seen.has(id)) continue
+    seen.add(id)
+    for (const edge of edges) {
+      if (edge.source !== id || edge.sourceHandle !== 'controls') continue
+      const target = byId.get(edge.target)
+      if (target?.data.nodeType === 'PatternMaster' && edge.targetHandle === 'controls') return true
+      if (target?.data.nodeType === 'PlayerControls' && edge.targetHandle === 'controlsIn') pending.push(target.id)
+    }
+  }
+  return false
 }
 
 /**
@@ -193,6 +232,7 @@ export function playerDisplaysFromGraph(nodes: ConfigNode[], edges: ConfigEdge[]
 
     if (node.data.nodeType === 'TransportDisplay') {
       const partId = String(props.partId ?? 'st7789-tft-240x240')
+      const part = partById(partId)
       const sources: Record<string, string> = {}
       // Every port the layouts render. A player sketch can only honour the
       // ones the music itself knows; anything else wired here is reported
@@ -215,6 +255,19 @@ export function playerDisplaysFromGraph(nodes: ConfigNode[], edges: ConfigEdge[]
         sckPin: intProp(props.sckPin, 18),
         mosiPin: intProp(props.mosiPin, 23),
         backlightPin: intProp(props.backlightPin, 4),
+        touch: part?.display?.touchController && displayControlsPlayer(node.id, edges, byId)
+          ? {
+            csPin: intProp(props.touchCsPin, 15),
+            irqPin: intProp(props.touchIrqPin, 2),
+            sckPin: intProp(props.touchSckPin, 18),
+            mosiPin: intProp(props.touchMosiPin, 23),
+            misoPin: intProp(props.touchMisoPin, 19),
+            xMin: touchRawProp(props.touchXMin, 200),
+            xMax: touchRawProp(props.touchXMax, 3900),
+            yMin: touchRawProp(props.touchYMin, 200),
+            yMax: touchRawProp(props.touchYMax, 3900),
+          }
+          : null,
         enabled: props.enabled !== false,
         sources,
       })

@@ -91,6 +91,21 @@ describe('the panel the evaluator draws', () => {
   it('is lit by default', () => {
     expect(evaluate({})?.lit).toBe(true)
   })
+
+  it('publishes an inert player-controls bundle until a preview touch source exists', () => {
+    const value = evaluate({}) as unknown as { controls: Record<string, unknown> }
+    expect(value.controls).toEqual({
+      playPause: false, previous: false, next: false,
+      volumeDelta: 0, ledToggle: false, brightnessDelta: 0,
+      patternSteps: 0, patternConfirm: false,
+    })
+  })
+
+  it('remains in the hot set after gaining its controls output', () => {
+    const tft = node('tft', 'TransportDisplay', { partId: PLAIN })
+    const { outputs } = evaluateGraphFull([output, tft], [], 1.5, 8, 8, {}, false)
+    expect(outputs.has('tft')).toBe(true)
+  })
 })
 
 describe('what the ports feed', () => {

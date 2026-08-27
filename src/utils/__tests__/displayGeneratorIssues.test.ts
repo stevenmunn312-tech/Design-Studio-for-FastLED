@@ -103,6 +103,17 @@ describe('displays a build cannot drive', () => {
     expect(issues.warnings).toEqual([])
   })
 
+  it('rejects an inverted XPT2046 calibration before upload', () => {
+    const transport = node('transport', 'TransportDisplay', {
+      partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Now Playing',
+      touchXMin: 3900, touchXMax: 200, touchYMin: 200, touchYMax: 3900,
+    })
+    const issues = findDisplayGeneratorIssues([out(), transport], [])
+    expect(issues.errors).toHaveLength(1)
+    expect(issues.errors[0]).toContain('invalid touch calibration')
+    expect(issues.errors[0]).toContain('0 and 4095')
+  })
+
   // showGenerator.ts draws no displays, by design, so the refusal is about
   // which generator the graph selected rather than about the panel.
   it('still refuses one on a graph that would export as a show', () => {

@@ -2801,8 +2801,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   },
   {
     // Fixed colour layouts for the transport appliance. Every layout keeps
-    // the same stable port set, and the node intentionally has no outputs:
-    // until touch actions arrive it is a terminal and must stay in the graph.
+    // the same stable port set. Touch-capable modules publish the same control
+    // bundle Player Controls chains, while a panel without touch publishes an
+    // inert bundle. Output-category terminals remain evaluator/codegen roots
+    // even when they publish controls; see the derived terminal rules.
     type: 'TransportDisplay',
     label: 'Transport Display',
     category: 'output',
@@ -2832,7 +2834,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'brightness', label: 'Brightness', dataType: 'float' },
       { id: 'enabled', label: 'Enabled', dataType: 'bool' },
     ],
-    outputs: [],
+    outputs: [{ id: 'controls', label: 'Controls', dataType: 'playercontrols' }],
     defaultProperties: {
       partId: 'st7789-tft-240x240',
       tftLayout: 'Now Playing',
@@ -2851,6 +2853,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       touchSckPin: 18,
       touchMosiPin: 23,
       touchMisoPin: 19,
+      touchXMin: 200,
+      touchXMax: 3900,
+      touchYMin: 200,
+      touchYMax: 3900,
       enabled: true,
     },
   },
@@ -3628,6 +3634,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   TransportDisplay: {
     tftLayout: { control: 'select', options: ['Now Playing', 'Show Status'] },
     tftRotation: { control: 'select', options: ['0', '90', '180', '270'] },
+    touchXMin: { control: 'slider', min: 0, max: 4095, step: 1 },
+    touchXMax: { control: 'slider', min: 0, max: 4095, step: 1 },
+    touchYMin: { control: 'slider', min: 0, max: 4095, step: 1 },
+    touchYMax: { control: 'slider', min: 0, max: 4095, step: 1 },
   },
   InfoDisplay: {
     oledRotation: { control: 'select', options: OLED_ROTATIONS },
@@ -4913,6 +4923,9 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     && (TRANSPORT_DISPLAY_BASE_PINS.includes(key as never)
       || TRANSPORT_DISPLAY_TOUCH_PINS.includes(key as never))) {
     return transportDisplayPinKeysForProps(properties).includes(key)
+  }
+  if (nodeType === 'TransportDisplay' && key.startsWith('touch') && !key.endsWith('Pin')) {
+    return Boolean(partById(String(properties.partId ?? ''))?.display?.touchController)
   }
   if (nodeType === 'DMXInput') {
     const artnet = String(properties.inputMode ?? 'Art-Net') === 'Art-Net'

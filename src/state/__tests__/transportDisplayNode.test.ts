@@ -26,11 +26,11 @@ function display(id: string, over: Record<string, unknown> = {}): StudioNode {
 }
 
 describe('TransportDisplay registration', () => {
-  it('is a workbench-owned output-less signal terminal', () => {
+  it('is a workbench-owned signal terminal with a player-controls output', () => {
     const def = NODE_LIBRARY.find((entry) => entry.type === 'TransportDisplay')!
     expect(def.label).toBe('Transport Display')
     expect(def.category).toBe('output')
-    expect(def.outputs).toEqual([])
+    expect(def.outputs).toEqual([{ id: 'controls', label: 'Controls', dataType: 'playercontrols' }])
     expect(isHardwareManagedSignalNodeType(def.type)).toBe(true)
     expect(isHardwareLibraryHiddenNodeType(def.type)).toBe(true)
   })
@@ -96,6 +96,10 @@ describe('TransportDisplay wiring', () => {
       expect(isPropertyEnabled('TransportDisplay', key, { partId: TOUCH }), key).toBe(true)
     }
     expect(isPropertyEnabled('TransportDisplay', 'backlightPin', { partId: PLAIN })).toBe(true)
+    for (const key of ['touchXMin', 'touchXMax', 'touchYMin', 'touchYMax']) {
+      expect(isPropertyEnabled('TransportDisplay', key, { partId: PLAIN }), key).toBe(false)
+      expect(isPropertyEnabled('TransportDisplay', key, { partId: TOUCH }), key).toBe(true)
+    }
   })
 
   it('claims only the plain module SPI and control lines', () => {
