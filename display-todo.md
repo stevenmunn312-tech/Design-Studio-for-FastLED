@@ -560,15 +560,20 @@ freeform widgets must reuse rather than rediscover.
   calibration only where it is stable. Provide a generated touch self-test.
   Calibration properties, clamping and all four rotations are implemented;
   the self-test and bench-derived per-module values remain.
-- [ ] Bake colour pattern thumbnails/art into flash with explicit size limits;
+- [x] Bake colour pattern thumbnails/art into flash with explicit size limits;
   optionally place large assets on the existing SD capability only through an
-  explicit storage policy. The limits and the blit path exist
+  explicit storage policy. The fixed 96×96 RGB565 path is complete:
   (`TRANSPORT_ARTWORK_BYTES`, `MAX_TRANSPORT_ARTWORKS`,
-  `transportArtworkBudgetIssue`, `_tftArt`); the baker does not. The node
-  deliberately has **no** artwork port until it does: an `image` port carries
-  live `ImageData` capped at `IMAGE_MAX_DIM`, and bridging that to baked RGB565
-  needs a scaler, which would need a C++ twin to keep preview and panel in
-  parity. Both sides draw the same empty frame instead.
+  `transportArtworkBudgetIssue`, `_tftArt`). `TransportDisplay` reads the
+  player-owned `patternSelect` metadata, `bakeTransportArtworks.ts` evaluates
+  each collected pattern once at a fixed tick and downsamples it in the browser,
+  and `transportArtworkCpp.ts` emits the finished big-endian bytes into one
+  indexed PROGMEM table. Preview caches and draws those same RGB565 bytes;
+  firmware changes the picture when the active index changes. The eight-image
+  / 144 KB ceiling is validated before upload and included in capacity builds.
+  There is still deliberately no live `image` port: that signal carries
+  `ImageData`, not a baked collection asset. Larger SD-backed assets remain a
+  separate, explicit future storage policy rather than an automatic fallback.
 - [ ] Verify TFT + SD card + touch on the same SPI host, audio playback, LED
   refresh, cold boot, reconnect/upload, and one-hour interaction soak.
 

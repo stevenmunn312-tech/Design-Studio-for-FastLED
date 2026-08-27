@@ -22,7 +22,9 @@ import {
 } from './infoDisplay'
 import { OLED_CONTROLLERS, oledLine, type OledSurface } from './oledSurface'
 import {
-  asTransportDisplayLayout, renderTransportDisplay,
+  asTransportDisplayLayout, renderTransportDisplay, transportArtworkFromFrame,
+  TRANSPORT_ARTWORK_H, TRANSPORT_ARTWORK_SUPERSAMPLE, TRANSPORT_ARTWORK_TICK_SEC,
+  TRANSPORT_ARTWORK_W,
   type TransportDisplayData,
 } from './transportDisplay'
 import { TFT_CONTROLLERS, asTftRotation, tftLine, type TftSurface } from './tftSurface'
@@ -37,7 +39,7 @@ import { useGraphStore } from './graphStore'
 import { songInfoOutputs, resolveSongInfo } from './songInfo'
 import {
   blankPatternSelection, blankPatternCursor, reconcilePatternCursor, updatePatternSelection,
-  patternSelectionView, encoderSteps, blankPatternSelectValue,
+  patternSelectionView, encoderSteps, blankPatternSelectValue, isPatternSelect,
   type PatternSelectionState, type PatternCursor, type PatternSelectValue,
 } from './patternSelection'
 import { asFont, textBlockLayout, textAlignMode, TEXT_LINE_GAP, type BitmapFont, DEFAULT_FONT } from './font'
@@ -202,6 +204,12 @@ interface PlayerControlsState {
 }
 const playerControlsState = new Map<string, PlayerControlsState>()
 const transportDisplayTouchState = new Map<string, { pressed: boolean }>()
+const transportArtworkCache = new Map<string, {
+  nodes: StudioNode[]
+  edges: StudioEdge[]
+  trusted: boolean
+  artwork: Uint8Array
+}>()
 /** One selection per Music Player. The player owns which pattern is playing;
  *  a panel reads it and decides nothing. */
 const patternSelectionState = new Map<string, PatternSelectionState>()
@@ -6976,6 +6984,33 @@ function createEvalNode(
             },
           }
         } else {
+          const selection = input(id, 'patternSelect', null)
+          const pattern = isPatternSelect(selection) && selection.activeIndex >= 0
+            ? selection.ids[selection.activeIndex]
+            : ''
+          let artwork: Uint8Array | null = null
+          const definition = pattern ? groups[pattern] : undefined
+          if (definition && !groupStack.has(pattern)) {
+            const cached = transportArtworkCache.get(pattern)
+            if (cached && cached.nodes === definition.nodes && cached.edges === definition.edges
+              && cached.trusted === trusted) {
+              artwork = cached.artwork
+            } else {
+              const frame = evaluateGraph(
+                definition.nodes, definition.edges, TRANSPORT_ARTWORK_TICK_SEC,
+                TRANSPORT_ARTWORK_W * TRANSPORT_ARTWORK_SUPERSAMPLE,
+                TRANSPORT_ARTWORK_H * TRANSPORT_ARTWORK_SUPERSAMPLE,
+                groups, `${instancePrefix}tft-art/${pattern}/`,
+                new Set([...groupStack, pattern]), {}, null, trusted, capabilityNodes,
+              )
+              if (frame) {
+                artwork = transportArtworkFromFrame(frame)
+                transportArtworkCache.set(pattern, {
+                  nodes: definition.nodes, edges: definition.edges, trusted, artwork,
+                })
+              }
+            }
+          }
           payload = {
             layout: 'Now Playing',
             data: {
@@ -6986,11 +7021,10 @@ function createEvalNode(
               progress: clamp01(num(id, 'progress', props, 'progress', 0)),
               playing: Boolean(input(id, 'playing', false)),
               volume: clamp01(num(id, 'volume', props, 'volume', 0)),
-              patternName: tftLine(input(id, 'patternName', '')),
-              // Null until the artwork baker exists. The layout draws its empty
-              // frame, which is exactly what the generated sketch draws too —
-              // see the note on the node's missing artwork port.
-              artwork: null,
+              patternName: tftLine(input(id, 'patternName', isPatternSelect(selection)
+                ? selection.names[selection.activeIndex] ?? ''
+                : '')),
+              artwork,
             },
           }
         }

@@ -7,6 +7,7 @@ import { useMusicStore } from '../../state/musicStore'
 import { useProjectStore } from '../../state/projectStore'
 import { useCapacityStore } from '../../state/capacityStore'
 import { bakeBrowserThumbnails } from '../../utils/browserThumbnails'
+import { bakeDisplayArtworks } from '../../utils/transportArtworks'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph } from '../../codegen/streamReceiverGenerator'
@@ -103,6 +104,10 @@ export default function MatrixOutputDeployPopup({
       thumbnails: bakeBrowserThumbnails(
         codegenGraph.nodes, codegenGraph.edges, groups,
         useGraphStore.getState().trusted, useGraphStore.getState().graphs,
+      ),
+      artworks: bakeDisplayArtworks(
+        codegenGraph.nodes, codegenGraph.edges, groups,
+        useGraphStore.getState().trusted,
       ),
     }
     return isPatternShow(codegenGraph.nodes, codegenGraph.edges)

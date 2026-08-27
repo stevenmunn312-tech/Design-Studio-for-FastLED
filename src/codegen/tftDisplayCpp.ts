@@ -78,7 +78,7 @@ const TFT_SLOT_CHARS = 32
 const NOW_PLAYING_TEXT_SLOTS = {
   title: 0, artist: 1, pattern: 2, elapsed: 3, duration: 4, state: 5,
 } as const
-const NOW_PLAYING_VALUE_SLOTS = { progress: 0, volume: 1 } as const
+const NOW_PLAYING_VALUE_SLOTS = { progress: 0, volume: 1, artwork: 2 } as const
 
 const SHOW_STATUS_TEXT_SLOTS = {
   pattern: 0, ordinal: 1, section: 2, bpm: 3, output: 4,
@@ -641,7 +641,7 @@ export interface TftDisplayEmit {
    * pattern with no baked art should look like, rather than a black square
    * indistinguishable from art that renders black.
    */
-  artwork?: { tableStem: string }
+  artwork?: { tableStem: string; count: number }
 }
 
 export function tftDisplayGlobalCpp(display: TftDisplayEmit): string {
@@ -678,22 +678,26 @@ function nowPlayingLoop(display: TftDisplayEmit, width: number, height: number):
   const text = (expr: string | null) => expr ?? '""'
   const lines: string[] = []
 
-  // Artwork is not a field: it is either a picture that was baked once, or a
-  // frame. Neither changes while the sketch runs, so it is drawn only on a
-  // full repaint rather than compared every pass.
-  lines.push(`      if (_tftFull_${id}) {`)
+  // Artwork follows the active pattern. Cache the clamped table index like a
+  // bar's filled-pixel count so a selection change repaints exactly once.
   if (display.artwork) {
     lines.push(
+      `      long _tftArtIndex_${id} = _tftWhole(${display.patternIndexExpr});`,
+      `      if (_tftArtIndex_${id} < 0) _tftArtIndex_${id} = 0;`,
+      `      if (_tftArtIndex_${id} >= ${display.artwork.count}) _tftArtIndex_${id} = ${display.artwork.count - 1};`,
+      `      if (_tftValueDirty(${p}, ${v.artwork}, _tftArtIndex_${id}) || _tftFull_${id}) {`,
       `        _tftArt(${p}, ${g.artwork.x}, ${g.artwork.y}, `
-        + `${TRANSPORT_ARTWORK_W}, ${TRANSPORT_ARTWORK_H}, _artData_${display.artwork.tableStem});`,
+        + `${TRANSPORT_ARTWORK_W}, ${TRANSPORT_ARTWORK_H}, _artData_${display.artwork.tableStem}[_tftArtIndex_${id}]);`,
+      `      }`,
     )
   } else {
     lines.push(
+      `      if (_tftFull_${id}) {`,
       `        _tftFillRect(${p}, ${rectArgs(g.artwork)}, TFT_C_BG);`,
       `        _tftRect(${p}, ${rectArgs(g.artwork)}, TFT_C_FRAME);`,
+      `      }`,
     )
   }
-  lines.push(`      }`)
 
   lines.push(
     `      const char *_tftTitle_${id} = ${text(display.titleExpr)};`,

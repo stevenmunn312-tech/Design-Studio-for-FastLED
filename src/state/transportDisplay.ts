@@ -83,8 +83,59 @@ export const TRANSPORT_BEAT_COUNT = 4
 export const TRANSPORT_ARTWORK_W = 96
 export const TRANSPORT_ARTWORK_H = 96
 
+/** Render larger before averaging so one-pixel pattern features survive. */
+export const TRANSPORT_ARTWORK_SUPERSAMPLE = 2
+
+/** Fixed export tick, for reproducible artwork across builds. */
+export const TRANSPORT_ARTWORK_TICK_SEC = 2.5
+
 /** Flash one baked artwork costs: RGB565, two bytes a pixel. */
 export const TRANSPORT_ARTWORK_BYTES = TRANSPORT_ARTWORK_W * TRANSPORT_ARTWORK_H * 2
+
+interface ArtworkRgbLike { r: number; g: number; b: number }
+type ArtworkFrameLike = readonly (readonly ArtworkRgbLike[])[]
+
+/** A black, correctly-sized picture for a missing pattern group. */
+export function blankTransportArtwork(): Uint8Array {
+  return new Uint8Array(TRANSPORT_ARTWORK_BYTES)
+}
+
+/**
+ * Downsample a rendered pattern into the exact big-endian RGB565 bytes sent
+ * to the panel. Conversion lives only here; firmware blits these bytes.
+ */
+export function transportArtworkFromFrame(
+  frame: ArtworkFrameLike,
+  scale = TRANSPORT_ARTWORK_SUPERSAMPLE,
+): Uint8Array {
+  const out = blankTransportArtwork()
+  const step = Math.max(1, Math.round(scale))
+  let at = 0
+  for (let y = 0; y < TRANSPORT_ARTWORK_H; y++) {
+    for (let x = 0; x < TRANSPORT_ARTWORK_W; x++) {
+      let r = 0
+      let g = 0
+      let b = 0
+      let count = 0
+      for (let sy = 0; sy < step; sy++) {
+        const row = frame[(y * step) + sy]
+        if (!row) continue
+        for (let sx = 0; sx < step; sx++) {
+          const pixel = row[(x * step) + sx]
+          if (!pixel) continue
+          r += pixel.r
+          g += pixel.g
+          b += pixel.b
+          count++
+        }
+      }
+      const color = count > 0 ? rgb565(r / count, g / count, b / count) : 0
+      out[at++] = (color >> 8) & 0xff
+      out[at++] = color & 0xff
+    }
+  }
+  return out
+}
 
 /**
  * How many baked artworks a build will carry.

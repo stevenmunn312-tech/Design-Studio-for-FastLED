@@ -113,6 +113,20 @@ describe('the emitted player sketch', () => {
     expect(src).toContain('songPlaying()')
   })
 
+  it('carries baked artwork and follows the player selection', () => {
+    const displays = resolve([node('tft', 'TransportDisplay', { partId: PLAIN })])
+    const artwork = new Uint8Array(96 * 96 * 2)
+    artwork[0] = 0xf8
+    const baked = generatePlayerSketch({}, undefined, {
+      displays,
+      artworks: { player: [artwork] },
+    })
+    expect(baked).toContain('#define ART_COUNT_player 1')
+    expect(baked).toContain('static PatternSel _sel_player;')
+    expect(baked).toContain('_artData_player[_tftArtIndex_tft]')
+    expect(baked).toContain('_tftArtIndex_tft = _tftWhole(_sel_player.active)')
+  })
+
   it('shows a wired title from the player', () => {
     const wired = sketch(
       [node('m', 'PatternMaster'), node('tft', 'TransportDisplay', { partId: PLAIN })],

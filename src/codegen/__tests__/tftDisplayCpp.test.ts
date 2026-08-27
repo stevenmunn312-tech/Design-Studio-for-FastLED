@@ -257,8 +257,8 @@ describe('the loop', () => {
   })
 
   it('blits a baked table when there is one, by its own stem', () => {
-    const src = tftDisplayLoopCpp(emit({ artwork: { tableStem: 'coll7' } })).join('\n')
-    expect(src).toContain(`_artData_coll7);`)
+    const src = tftDisplayLoopCpp(emit({ artwork: { tableStem: 'coll7', count: 3 } })).join('\n')
+    expect(src).toContain(`_artData_coll7[_tftArtIndex_tft1]);`)
     expect(src).toContain(`${TRANSPORT_ARTWORK_W}, ${TRANSPORT_ARTWORK_H},`)
     expect(src).not.toContain('TFT_C_FRAME')
   })

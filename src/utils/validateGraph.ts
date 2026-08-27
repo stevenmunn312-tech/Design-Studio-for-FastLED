@@ -13,6 +13,7 @@ import { MAX_PIN_NUMBER, pinSupports } from '../state/boardGpio'
 import { getNetworkCredentials } from '../state/networkCredentials'
 import { collectPinUses } from '../build/hardwareManifest'
 import { browserThumbnailIssues } from './browserThumbnails'
+import { transportArtworkIssues } from './transportArtworks'
 import { displayControlsPlayer, playerDisplaysFromGraph } from '../codegen/playerDisplays'
 import { OLED_PANEL_RAM_BYTES } from '../codegen/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../codegen/segmentDisplayCpp'
@@ -1350,6 +1351,9 @@ export function findDisplayGeneratorIssues(
   // "NO PATTERNS" — the same thing it says for a browser wired to nobody. The
   // difference matters and only this message carries it.
   for (const { display, issue } of browserThumbnailIssues(nodes, edges)) {
+    errors.push(`${nodeLabel(display)}: ${issue}`)
+  }
+  for (const { display, issue } of transportArtworkIssues(nodes, edges)) {
     errors.push(`${nodeLabel(display)}: ${issue}`)
   }
 

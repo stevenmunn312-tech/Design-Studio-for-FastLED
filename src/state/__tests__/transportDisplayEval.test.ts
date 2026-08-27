@@ -1,5 +1,5 @@
 import { beforeEach, describe, it, expect } from 'vitest'
-import { evaluateGraphFull, resetEvaluatorState } from '../graphEvaluator'
+import { evaluateGraphFull, resetEvaluatorState, type GroupRegistry } from '../graphEvaluator'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import type { StudioNode, StudioEdge } from '../graphStore'
 import { TRANSPORT_COLORS, fixedTransportGeometry, nowPlayingGeometry, showStatusGeometry } from '../transportDisplay'
@@ -174,6 +174,29 @@ describe('what the ports feed', () => {
     const surface = evaluate({ tftLayout: 'Now Playing' })?.surface
     expect(surface).toBeTruthy()
     expect(litCount(surface!)).toBeGreaterThan(0)
+  })
+
+  it('draws the active player pattern as baked RGB565 artwork', () => {
+    const tft = node('tft', 'TransportDisplay', { partId: PLAIN, tftLayout: 'Now Playing' })
+    const collection = node('collection', 'PatternCollection', { patternIds: ['red'] })
+    const player = node('player', 'PatternMaster')
+    const groups = {
+      red: {
+        nodes: [node('red', 'SolidColor', { r: 255, g: 0, b: 0 }), node('group-out', 'GroupOutput')],
+        edges: [edge('group-frame', 'red', 'frame', 'group-out', 'frame')],
+      },
+    } as unknown as GroupRegistry
+    const result = evaluateGraphFull(
+      [output, collection, player, tft],
+      [
+        edge('collection-player', 'collection', 'patternset', 'player', 'patternset'),
+        edge('player-tft', 'player', 'patternSelect', 'tft', 'patternSelect'),
+      ],
+      1.5, 8, 8, groups,
+    )
+    const surface = result.outputs.get('tft')?.surface as TftSurface
+    const art = nowPlayingGeometry(240, 240).artwork
+    expect(getTftPixel(surface, art.x + 1, art.y + 1)).toBe(0xf800)
   })
 
   it('shows a wired title', () => {

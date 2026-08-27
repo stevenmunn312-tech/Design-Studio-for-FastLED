@@ -4,6 +4,7 @@ import { getGroupRegistry, useGraphStore, useRootEdges, useRootNodes } from '../
 import { boardByFqbn, boardHasUsbCdc, engineReady, useUploadStore } from '../../state/uploadStore'
 import { useCapacityStore } from '../../state/capacityStore'
 import { bakeBrowserThumbnails } from '../../utils/browserThumbnails'
+import { bakeDisplayArtworks } from '../../utils/transportArtworks'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { buildShowPlayerForMeasurement, sdShowConnected } from '../../utils/showUpload'
@@ -100,6 +101,10 @@ export default function CapacityWatcher() {
       thumbnails: bakeBrowserThumbnails(
         codegenGraph.nodes, codegenGraph.edges, groups,
         useGraphStore.getState().trusted, useGraphStore.getState().graphs,
+      ),
+      artworks: bakeDisplayArtworks(
+        codegenGraph.nodes, codegenGraph.edges, groups,
+        useGraphStore.getState().trusted,
       ),
     }
     return isPatternShow(codegenGraph.nodes, codegenGraph.edges)

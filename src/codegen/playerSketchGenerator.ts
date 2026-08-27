@@ -24,6 +24,8 @@ import { patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnail
 import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './patternSelectionCpp'
 import { TFT_TOUCH_CPP_HELPERS, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit } from './tftTouchCpp'
 import type { BrowserThumbnails } from '../utils/browserThumbnails'
+import type { TransportArtworks } from '../utils/transportArtworks'
+import { transportArtworkTableCpp } from './transportArtworkCpp'
 
 /** The player's own selection. A player sketch has exactly one show. */
 const PLAYER_SELECTION_STEM = 'player'
@@ -312,7 +314,7 @@ export function generatePlayerSketch(
   // in /music" can play a song left over from an earlier session — paired with
   // that song's show, which makes the mismatch look like a sync bug rather
   // than the wrong file.
-  opts: { audioEnvelope?: boolean; decoderTap?: boolean; preferredTrack?: string; genericPlayer?: boolean; psramAllowed?: boolean; controls?: PlayerControlsConfig; particleFx?: PlayerParticlesConfig | null; displays?: PlayerDisplays; thumbnails?: BrowserThumbnails } = {},
+  opts: { audioEnvelope?: boolean; decoderTap?: boolean; preferredTrack?: string; genericPlayer?: boolean; psramAllowed?: boolean; controls?: PlayerControlsConfig; particleFx?: PlayerParticlesConfig | null; displays?: PlayerDisplays; thumbnails?: BrowserThumbnails; artworks?: TransportArtworks } = {},
 ): string {
   const raw = { ...DEFAULTS, ...cfg }
   const c = {
@@ -798,13 +800,16 @@ ${touchEmits.flatMap(tftTouchServiceCpp).join('\n')}
     // `id` is the C identifier. Keeping both is what lets one map serve both
     // generators without either guessing at the other's naming.
     .map((display) => ({ id: safePlayerId(display.id), sourceId: display.id }))
+  const playerArtworks = Object.values(opts.artworks ?? {})[0] ?? []
+  const hasTftArtwork = displays.tft.some((display) => display.layout === 'Now Playing')
+    && playerArtworks.length > 0
   const hasPatternControls = controlEntries.some(([action]) =>
     action === 'patternSelect' || action === 'patternPrevious'
     || action === 'patternNext' || action === 'patternConfirm')
   // The player cursor belongs to the player, not to whichever panel happens
   // to show it. Physical pattern controls need the same state even when there
   // is no OLED Pattern Browser in the build.
-  const hasPatternSelection = browserEmits.length > 0 || hasPatternControls
+  const hasPatternSelection = browserEmits.length > 0 || hasPatternControls || hasTftArtwork
   const infoEmits = displays.info.map((display) => ({
     id: safePlayerId(display.id),
     transport: display.transport,
@@ -889,13 +894,18 @@ ${touchEmits.flatMap(tftTouchServiceCpp).join('\n')}
     volumeExpr: display.sources.volume ?? '(audio.getVolume() / 21.0f)',
     // A player sketch has no show model, so Show Status can only report what
     // it is told. Zero patterns is what makes the panel say NO PATTERNS.
-    patternIndexExpr: display.sources.patternIndex ?? '0.0f',
-    patternCountExpr: display.sources.patternCount ?? '0.0f',
+    patternIndexExpr: display.sources.patternIndex
+      ?? (hasPatternSelection ? `_sel_${PLAYER_SELECTION_STEM}.active` : '0.0f'),
+    patternCountExpr: display.sources.patternCount
+      ?? (hasPatternSelection ? 'PATTERN_COUNT' : '0.0f'),
     sectionExpr: display.sources.section ?? null,
     bpmExpr: display.sources.bpm ?? '0.0f',
     beatExpr: display.sources.beat ?? '0.0f',
     outputEnabledExpr: display.sources.outputEnabled ?? 'true',
     brightnessExpr: display.sources.brightness ?? '1.0f',
+    ...(display.layout === 'Now Playing' && playerArtworks.length > 0
+      ? { artwork: { tableStem: PLAYER_SELECTION_STEM, count: playerArtworks.length } }
+      : {}),
   }))
 
   const displayHelpersCpp = [
@@ -918,6 +928,9 @@ ${touchEmits.flatMap(tftTouchServiceCpp).join('\n')}
     hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_HELPERS : '',
     hasSegmentDisplays ? segmentEmits.map(segmentDisplayGlobalCpp).join('\n') : '',
     hasTftDisplays ? tftDisplayHelpersCpp() : '',
+    hasTftDisplays && playerArtworks.length > 0
+      ? transportArtworkTableCpp(PLAYER_SELECTION_STEM, playerArtworks)
+      : '',
     touchEmits.length > 0 ? TFT_TOUCH_CPP_HELPERS : '',
     hasTftDisplays ? tftEmits.map(tftDisplayGlobalCpp).join('\n') : '',
   ].filter(Boolean).join('\n')

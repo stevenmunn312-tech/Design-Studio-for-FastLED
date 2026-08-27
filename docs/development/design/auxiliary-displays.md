@@ -532,22 +532,24 @@ touch and an SD card. It is the first display driver here to need an `#include`,
 which `TFT_DISPLAY_CPP_INCLUDES` states rather than leaving the preamble and the
 driver to disagree about.
 
-### Artwork has no port yet
+### Artwork is player-owned baked data, not a live image port
 
-The layouts render artwork from baked RGB565 bytes. The obvious wiring — an
-`image` port — carries live `ImageData` capped at `IMAGE_MAX_DIM`, and bridging
-those needs a scaler. A scaler that ran in the browser would need a twin in C++
-to keep the panel matching its preview, which is the second implementation the
-baked-thumbnail rule exists to prevent; wiring it through only the browser would
-be worse still, since art in the preview and an empty frame on the bench is the
-exact parity failure this feature is judged on.
+The layouts render artwork from baked RGB565 bytes. `patternSelect` tells the
+panel which player-owned collection and active index it is showing; it does not
+carry pixels. `bakeTransportArtworks.ts` evaluates each collected pattern at the
+fixed 2.5-second tick, renders at 2×, box-downsamples to 96×96 and packs the
+finished big-endian RGB565 bytes. `transportArtworkCpp.ts` emits one indexed
+PROGMEM table per player, and `_tftArt` blits the selected row verbatim. The
+browser preview caches and draws the result of the same conversion, so there is
+no device-side scaler or colour converter to drift from it.
 
-So the port was removed and both sides draw the same empty frame. It returns
-with the artwork baker, which follows pattern thumbnails: rendered in the browser
-at export, blitted on the device, no second implementation. `_tftArt` is already
-there waiting for it. `transportDisplayNode.test.ts` derives the check rather
-than restating the port list, so a port declared for a field no layout renders
-fails there.
+There is deliberately still no `image` input. That signal carries live
+`ImageData` capped at `IMAGE_MAX_DIM`; treating it as a baked collection asset
+would either need a second C++ scaler or make preview and firmware disagree.
+Eight artworks cost 144 KB and are the explicit flash ceiling. An over-budget
+collection is rejected before upload and included in the capacity build rather
+than silently shipping only its first pictures. Larger assets may later use SD,
+but only through an explicit storage policy.
 
 ## Bus rules
 

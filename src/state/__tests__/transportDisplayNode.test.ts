@@ -46,16 +46,17 @@ describe('TransportDisplay registration', () => {
     const rendered = new Set(TRANSPORT_DISPLAY_LAYOUTS.flatMap(
       (layout) => Object.keys(blankTransportData(layout).data),
     ))
-    // `enabled` switches the panel rather than feeding a layout field.
-    const fed = def.inputs.map((port) => port.id).filter((id) => id !== 'enabled')
+    // `enabled` switches the panel; `patternSelect` supplies collection
+    // metadata to the baker rather than becoming a visible field itself.
+    const fed = def.inputs.map((port) => port.id)
+      .filter((id) => id !== 'enabled' && id !== 'patternSelect')
     expect(fed.length).toBeGreaterThan(0)
     for (const port of fed) {
       expect(rendered.has(port), `${port} is a port no layout renders`).toBe(true)
     }
   })
 
-  // The reverse direction is deliberately allowed to differ, and only here:
-  // the layouts render artwork, and no port feeds it until the baker lands.
+  // Artwork is fed by the selection metadata rather than by a live image port.
   it('renders exactly one field that has no port yet', () => {
     const def = NODE_LIBRARY.find((entry) => entry.type === 'TransportDisplay')!
     const ports = new Set(def.inputs.map((port) => port.id))
@@ -69,7 +70,7 @@ describe('TransportDisplay registration', () => {
     const def = NODE_LIBRARY.find((entry) => entry.type === 'TransportDisplay')!
     expect(def.inputs.map((port) => port.id)).toEqual([
       'title', 'artist', 'elapsedSec', 'durationSec', 'progress', 'playing', 'volume',
-      'patternName', 'patternIndex', 'patternCount', 'section', 'bpm', 'beat',
+      'patternName', 'patternSelect', 'patternIndex', 'patternCount', 'section', 'bpm', 'beat',
       'outputEnabled', 'brightness', 'enabled',
     ])
     expect(def.defaultProperties).toMatchObject({

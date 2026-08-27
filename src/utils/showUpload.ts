@@ -14,6 +14,7 @@ import type { StudioNode, StudioNodeData } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import type { MusicEntry } from '../state/musicStore'
 import { bakeBrowserThumbnails } from './browserThumbnails'
+import { bakeDisplayArtworks } from './transportArtworks'
 import { generatePlayerSketch, playerConfigFromGraph, playerControlsFromGraph, playerParticlesFromGraph } from '../codegen/playerSketchGenerator'
 import { playerDisplaysFromGraph } from '../codegen/playerDisplays'
 import { buildPatternRenderers, patternRenderersUseAudio } from '../codegen/showGenerator'
@@ -145,6 +146,9 @@ export function buildShowPlayer(
     thumbnails: bakeBrowserThumbnails(
       nodes, edges, groups,
       useGraphStore.getState().trusted, useGraphStore.getState().graphs,
+    ),
+    artworks: bakeDisplayArtworks(
+      nodes, edges, groups, useGraphStore.getState().trusted,
     ),
     particleFx,
   })

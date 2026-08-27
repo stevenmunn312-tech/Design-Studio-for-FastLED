@@ -44,6 +44,8 @@ import {
 import { patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
 import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './patternSelectionCpp'
 import type { BrowserThumbnails } from '../utils/browserThumbnails'
+import type { TransportArtworks } from '../utils/transportArtworks'
+import { transportArtworkTableCpp } from './transportArtworkCpp'
 import {
   infoDisplayHelpersCpp, INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp, infoDisplaySetupCpp,
   infoDisplayLoopCpp, columnOffsetFor, type InfoDisplayEmit,
@@ -1403,7 +1405,7 @@ export function generateCpp(
   // Handed in rather than baked here — baking evaluates patterns, and a text
   // emitter has no business doing that, nor any way to know whether the
   // workspace has been trusted. See utils/browserThumbnails.ts.
-  opts: { externalAudio?: boolean; nativeFastLedAudio?: boolean; groupInputExprs?: Record<string, string>; psramAllowed?: boolean; aliasTerminalBuffer?: boolean; thumbnails?: BrowserThumbnails } = {},
+  opts: { externalAudio?: boolean; nativeFastLedAudio?: boolean; groupInputExprs?: Record<string, string>; psramAllowed?: boolean; aliasTerminalBuffer?: boolean; thumbnails?: BrowserThumbnails; artworks?: TransportArtworks } = {},
 ): string {
   if (nodes.length === 0) return '// No nodes in graph\n'
 
@@ -1761,6 +1763,7 @@ export function generateCpp(
   const infoDisplays: InfoDisplayEmit[] = []
   const tftDisplays: TftDisplayEmit[] = []
   const browserTables: { id: string; entries: BrowserThumbnails[string] }[] = []
+  const artworkTables = new Map<string, Uint8Array[]>()
   const needsXyMap = { v: false }
   // Frame-producing nodes each render into their own CRGB buffer, so multiple
   // layers can coexist and be composited. Collected here, declared as globals.
@@ -4985,10 +4988,17 @@ export function generateCpp(
             ? boolExpr(node.id, 'outputEnabled')
             : 'false',
           brightnessExpr: `constrain(${f('brightness', 'brightness', 0)}, 0.0f, 1.0f)`,
-          // No artwork table: nothing bakes colour art yet, so the layout
-          // draws its empty frame — the same frame the preview draws. Emitting
-          // a reference to a table no generator writes would be a sketch that
-          // names a symbol it never declares.
+        }
+        if (emit.layout === 'Now Playing') {
+          const player = incoming.get(`${node.id}:patternSelect`)?.srcId
+            ?? incoming.get(`${node.id}:patternIndex`)?.srcId
+            ?? incoming.get(`${node.id}:patternName`)?.srcId
+          const artworks = player ? opts.artworks?.[player] : undefined
+          if (player && artworks && artworks.length > 0) {
+            const tableStem = safeId(player)
+            emit.artwork = { tableStem, count: artworks.length }
+            artworkTables.set(tableStem, artworks)
+          }
         }
         tftDisplays.push(emit)
         for (const line of tftDisplaySetupCpp(emit)) setupLines.push(line)
@@ -6489,6 +6499,7 @@ export function generateCpp(
   if (tftDisplays.length > 0) {
     lines.push(tftDisplayHelpersCpp())
     for (const display of tftDisplays) lines.push(tftDisplayGlobalCpp(display))
+    for (const [id, artworks] of artworkTables) lines.push(transportArtworkTableCpp(id, artworks))
     lines.push(``)
   }
 
