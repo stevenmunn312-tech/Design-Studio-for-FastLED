@@ -120,50 +120,6 @@ def test_write_fbuild_ini_emits_a_section_per_board_and_psram_variant(tmp_path, 
     assert "board_build.partitions" not in uno_section
 
 
-def test_patch_fastled_sd_stub_replaces_file_contents(tmp_path, monkeypatch):
-    # Regression: FastLED unconditionally compiles fl/build/fl.system.sd+.cpp
-    # into its own library archive (meant to be tree-shaken by the linker when
-    # unused), and that file needs SPI -> SD -> SDFS -> SdFat. On at least one
-    # real toolchain (ESP8266's bundled framework) fbuild's dependency scanner
-    # never resolves SPI's include path for a vendored *local* library, and
-    # neither lib_deps, a library.json `dependencies` entry, nor its
-    # `build.srcFilter` change what fbuild actually compiles for FastLED
-    # (confirmed empirically: every srcFilter rewrite, inclusion or exclusion,
-    # compiled the identical file set). The file's own contents are the only
-    # lever that works, and this project never calls FastLED's own SD/
-    # filesystem API, so stubbing it out costs nothing.
-    lib_dir = tmp_path / "FastLED"
-    monkeypatch.setattr(app, "_FBUILD_LIB_DIR", lib_dir)
-    build_dir = lib_dir / "src" / "fl" / "build"
-    build_dir.mkdir(parents=True)
-    target = build_dir / "fl.system.sd+.cpp"
-    target.write_text('#include "fl/system/sd/_build.cpp.hpp"\n', encoding="utf-8")
-
-    app._patch_fastled_sd_stub()
-
-    assert target.read_text(encoding="utf-8") == app._FASTLED_SD_STUB
-
-
-def test_patch_fastled_sd_stub_is_idempotent(tmp_path, monkeypatch):
-    lib_dir = tmp_path / "FastLED"
-    monkeypatch.setattr(app, "_FBUILD_LIB_DIR", lib_dir)
-    build_dir = lib_dir / "src" / "fl" / "build"
-    build_dir.mkdir(parents=True)
-    target = build_dir / "fl.system.sd+.cpp"
-    target.write_text(app._FASTLED_SD_STUB, encoding="utf-8")
-
-    app._patch_fastled_sd_stub()  # must not raise or otherwise disturb an already-patched file
-
-    assert target.read_text(encoding="utf-8") == app._FASTLED_SD_STUB
-
-
-def test_patch_fastled_sd_stub_is_a_noop_before_fastled_is_vendored(tmp_path, monkeypatch):
-    # Called from _ensure_fbuild_project even on a fresh clone attempt that
-    # failed — the target file may not exist yet, and that must not raise.
-    monkeypatch.setattr(app, "_FBUILD_LIB_DIR", tmp_path / "FastLED")
-    app._patch_fastled_sd_stub()
-
-
 def test_patch_fastled_samd51_disables_unused_generic_i2s_backend(tmp_path, monkeypatch):
     lib_dir = tmp_path / "FastLED"
     monkeypatch.setattr(app, "_FBUILD_LIB_DIR", lib_dir)

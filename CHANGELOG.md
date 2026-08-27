@@ -165,6 +165,14 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Changed
 
+- The upload helper pins fbuild 2.5.21 and no longer stubs out FastLED's SD
+  unity file. That patch existed because the file included `SPI.h`
+  unconditionally while fbuild never put `SPI` on the include path for a
+  vendored local library, so every ESP8266 build failed on a file nothing in
+  this project calls. FastLED has since put `SPI` in the guard that admits the
+  Arduino SD backend, and has renamed the file besides — so the patch was
+  aiming at a path that no longer exists on a fresh clone, which is a workaround
+  that can only mislead. ESP8266 and ESP32-S3 both build with the real file.
 - Removed the Transport Control node. It both commanded the player and reported
   what was playing, which left two nodes claiming to be the transport and put
   the song information beside the player rather than on it. The model now

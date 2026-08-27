@@ -4,7 +4,7 @@ Every accommodation `backend/app.py` makes for the **fbuild** build engine, why 
 exists, and what it costs. Written to be usable as an upstream bug report as well as
 an internal record.
 
-- **Current repository pin:** 2.5.18 (`backend/requirements.txt` and
+- **Current repository pin:** 2.5.21 (`backend/requirements.txt` and
   `backend/constraints.txt`)
 - **Host:** Windows 11. Some issues below are Windows-specific and are marked as such.
 - **How we drive fbuild:** a persistent scaffold at `backend/.fbuild-project/` with one
@@ -14,7 +14,7 @@ an internal record.
 
 > [!IMPORTANT]
 > **Verify before sending upstream.** Items marked *confirmed against 2.4.0* were
-> diagnosed on an older fbuild and have **not** been re-tested on 2.5.18. Several may
+> diagnosed on an older fbuild and have **not** been re-tested on 2.5.21. Several may
 > already be fixed. Re-check each one before reporting it, so the list stays credible.
 > The upgrade record below explains which workarounds were already removed.
 
@@ -31,7 +31,7 @@ an internal record.
 | 5 | No size summary on hard linker overflow | 2.4.0 | Parse `ld` + `Memory:` lines | Likely (by design) |
 | 6 | ESP32 RAM percentage impossible (>100%) on success | 2.4.0 | Discard RAM figure over 100% | Re-verify |
 | 7 | `deploy` unimplemented for some compilable platforms | **2.5.4** | Fall back to arduino-cli | Yes |
-| 8 | Dep scanner misses transitive `SPI` in a vendored lib | 2.4.0 | Stub out the offending file | Re-verify |
+| 8 | Dep scanner misses transitive `SPI` in a vendored lib | 2.4.0 | Stub out the offending file | **No — FastLED guarded it in #3815, workaround removed 2026-08-27** |
 
 ---
 
@@ -84,7 +84,7 @@ than a deliberate design choice.
 
 **Resolved 2026-08-10.** Reported upstream as FastLED/fbuild#1275; fixed in fbuild
 2.5.16 by hoisting sketch `#include` directives into the prelude ahead of the
-auto-generated prototypes. The repository now pins `fbuild==2.5.18`, and
+auto-generated prototypes. The repository pinned `fbuild==2.5.18` at the time, and
 `_write_fbuild_main` writes plain `main.ino` again—the `.cpp` workaround is
 gone. The reverted path was hardware-validated on a classic ESP32 during the
 2026-08-16 bring-up recorded in the beta support matrix.
@@ -185,7 +185,7 @@ problem is fixed* when RAM had merely stopped being measurable.
 ## 7. `deploy` is unimplemented for platforms fbuild can compile
 
 **Confirmed on 2.5.4** — a historical confirmation that still needs a focused
-2.5.18 re-test before an upstream report.
+2.5.21 re-test before an upstream report.
 
 **Symptom.** `fbuild deploy` fails with `not yet implemented` for Espressif8266, which
 fbuild compiles successfully.
@@ -221,15 +221,30 @@ additionally pulls in `SdFat`, which isn't bundled at all.
 a vendored local library at all, since every rewrite, positive or negative, compiled the
 identical file set.
 
-**Workaround.** `_patch_fastled_sd_stub` overwrites that one file in the vendored clone
-with a comment. Studio never uses FastLED's SD/filesystem API (SD/audio goes through
-ESP32-audioI2S), so this costs nothing, and it is applied to all boards rather than only
-the one it was found on.
+**Workaround, now removed.** `_patch_fastled_sd_stub` overwrote that one file in the
+vendored clone with a comment. Studio never uses FastLED's SD/filesystem API (SD/audio
+goes through ESP32-audioI2S), so it cost nothing, and it was applied to all boards rather
+than only the one it was found on.
+
+**Resolved 2026-08-27 — by the FastLED half, not the fbuild half.** FastLED
+[#3815](https://github.com/FastLED/FastLED/pull/3815) (`2026-08-01`) added `SPI` to the
+guard that admits the Arduino SD backend, so the block that needs it no longer compiles
+on a platform where it is absent. Its comment describes this failure exactly. Re-verified
+on `2.5.21` with the real file restored: `esp8266_esp8266_nodemcuv2` and
+`esp32_esp32_esp32s3` both build, and the compiler's own `.d` file for that translation
+unit shows `<SPI.h>` was never reached.
+
+Two things worth keeping in view. The fbuild half is **not** demonstrated fixed — nothing
+proves the include path would resolve today; what changed is that FastLED stopped needing
+it. And FastLED [#4010](https://github.com/FastLED/FastLED/pull/4010) (`2026-08-23`) moved
+the filesystem subsystem to `fl/fs/`, renaming the file to
+`src/fl/build/fl.fs.sd+.cpp` — so on any clone vendored after that date the patch was
+already a silent no-op, which is its own argument for deleting rather than repointing it.
 
 **Upstream asks.**
-- *FastLED:* consider restoring an opt-out for the SD unity file — relying on linker
-  tree-shaking assumes every toolchain resolves the include graph first, which is exactly
-  what fails here.
+- *FastLED:* satisfied by #3815. The general form still stands: relying on linker
+  tree-shaking assumes every toolchain resolves the include graph first, which is
+  exactly what failed here.
 - *fbuild:* honour `library.json` `srcFilter` / `dependencies` for local libraries, and
   resolve transitive framework libraries that use the legacy flat layout.
 
@@ -272,10 +287,10 @@ registry. Worth a documentation note upstream, since the failure looks random.
 
 ## Upgrade record from 2.5.4
 
-This repository now pins **`fbuild==2.5.18`**. The original audit was written
+This repository now pins **`fbuild==2.5.21`**. The original audit was written
 against 2.5.4 and compared the 2.5.5–2.5.14 release notes; subsequent upgrades
-continued through 2.5.16 and 2.5.18. Keep the historical confirmations in the
-issue sections, but test every surviving workaround against 2.5.18 before
+continued through 2.5.16, 2.5.18 and 2.5.21. Keep the historical confirmations in
+the issue sections, but test every surviving workaround against 2.5.21 before
 calling it current.
 
 | Our issue | Upstream change | Version | Confidence |
@@ -284,28 +299,45 @@ calling it current.
 | §1 `lib_deps` | "Honored `lib_deps` on Teensy/STM32; warned on inert `lib_ldf_mode`" | 2.5.6 | Partial — platform-scoped, not the general registry path |
 | §1 / §8 local libs | "Fixed resolution of named local dependencies" | 2.5.12 | Plausible — directly touches vendored-lib resolution |
 | §1 / §8 local libs | "Resolved relative local dependency roots" | 2.5.13 | Plausible — same area |
+| §8 transitive `SPI` | LDF seeds from every compiled TU, and treats `__has_include` as undecidable ([#1375](https://github.com/FastLED/fbuild/pull/1375), [#1376](https://github.com/FastLED/fbuild/pull/1376), closing [#1337](https://github.com/FastLED/fbuild/issues/1337) / the [#1214](https://github.com/FastLED/fbuild/issues/1214) class) | 2.5.21 | Not the cause of our fix — see §8; FastLED's own guard is |
 
 **No upstream change found** for §4 (no size line on a no-op build), §5 (no size summary
 on linker overflow), §7 (ESP8266 deploy), or the `srcFilter`/transitive-`SPI` half of §8.
 Those are the items most likely to be genuinely unreported, and therefore the most
 valuable half of anything sent upstream.
 
+The same is true of both open bench findings, re-checked against 2.5.21 on `2026-08-27`.
+A pinned `platform = espressif32@<version>` is still discarded by
+`Platform::from_platform_str`, which lowercases the value and substring-matches it, so
+everything after the `@` is dropped with no warning — and
+`parse_platform_packages_entry` returns `None` for a bare registry version pin as well, so
+both spellings of a version pin are silently inert. The URL forms
+(`platform_packages = platform-espressif32@<URL>#<sha>` and
+`framework-arduinoespressif32@<URL>#<sha>`, FastLED/fbuild#672) *are* honoured for ESP32
+and are the supported way to pin a core. For the deploy/serial-port failure, nothing in
+2.5.19–2.5.21 touches the path: the only commits reaching `fbuild-deploy/src/esp32`,
+`fbuild-serial` or `cli/deploy.rs` are the platform-facade refactor. Two hypotheses to
+eliminate before reporting it, since neither has been tested: fbuild's ESP32 deploy baud
+is per-board and high (921600 on `esp32s3`, 460800 on classic ESP32/C3/C6, against shell
+esptool's 115200 default, and `fbuild deploy -b <baud>` exists), and fbuild spawns
+`esptool` as a bare name off the caller's `PATH` rather than the interpreter's.
+
 **Also relevant even though it isn't on our list:** 2.5.5–2.5.14 added substantial
 RP2040/RP2350 work — PICOBOOT/picotool as the primary deployment transport (2.5.5),
 Pico 2 W UF2 hardening (2.5.6, 2.5.8), bundled Arduino-Pico library resolution
 (2.5.8, 2.5.11), Arduino-Pico network defines (2.5.10), and picotool device binding
-(2.5.14). Those changes are included in the current 2.5.18 pin, though real
+(2.5.14). Those changes are included in the current 2.5.21 pin, though real
 RP2040/RP2350 hardware coverage is still required.
 
 ### Re-verification procedure
 
-1. Remove one workaround at a time and test whether 2.5.18 still reproduces the
+1. Remove one workaround at a time and test whether 2.5.21 still reproduces the
    original failure.
 2. Run the focused helper tests and a clean dependency install on all three
    desktop OS families.
 3. Re-run hardware validation on at least ESP32-S3 and ESP8266 before deleting
    a deploy-path workaround. An RP2040 pass would add new coverage.
-4. Report only failures reproduced on 2.5.18 with the smallest remaining
+4. Report only failures reproduced on 2.5.21 with the smallest remaining
    workaround.
 
 ---
