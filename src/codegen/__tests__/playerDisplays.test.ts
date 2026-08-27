@@ -96,7 +96,8 @@ describe('displays in the player sketch', () => {
         displays: playerDisplaysFromGraph(nodes, edges),
       })
       expect(src).toContain('#include <Wire.h>')
-      expect(src).not.toContain('Wire.begin(')
+      // The call, not the driver comment that mentions it.
+      expect(src).not.toMatch(/^\s*Wire\.begin\(/m)
     })
   })
 

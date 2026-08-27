@@ -237,6 +237,7 @@ describe('generateCpp with an I2C OLED', () => {
   it('declares Wire but does not start it with nothing on the bus', () => {
     const src = generateCpp([outputNode, oled()], [])
     expect(src).toContain('#include <Wire.h>')
-    expect(src).not.toContain('Wire.begin(')
+    // The call, not the driver comment that mentions it.
+    expect(src).not.toMatch(/^\s*Wire\.begin\(/m)
   })
 })
