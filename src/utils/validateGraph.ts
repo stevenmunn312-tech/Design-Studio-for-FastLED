@@ -16,6 +16,7 @@ import { browserThumbnailIssues } from './browserThumbnails'
 import { playerDisplaysFromGraph } from '../codegen/playerDisplays'
 import { OLED_PANEL_RAM_BYTES } from '../codegen/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../codegen/segmentDisplayCpp'
+import { TFT_PANEL_RAM_BYTES } from '../codegen/tftDisplayCpp'
 import {
   findPinCollisions, findI2cAddressCollisions, pinCollisionMessage,
   pinCollisionTitle, pinCollisionFix, addressCollisionMessage,
@@ -352,12 +353,13 @@ const PALETTE_INPUT_PORTS_BY_NODE_TYPE = new Map(
 export const DISPLAY_RAM_BYTES_BY_NODE_TYPE: Record<string, number> = {
   InfoDisplay: OLED_PANEL_RAM_BYTES,
   SegmentDisplay: SEGMENT_DISPLAY_RAM_BYTES,
-  // Provisional until the TFT driver's partial-buffer cost is integrated.
-  // Full-frame RGB565 deliberately over-counts; a RAM budget must fail safe.
-  TransportDisplay: Math.max(...partOptionsFor('TransportDisplay').map((option) => {
-    const resolution = partById(option.id)?.display?.resolutionPx
-    return resolution ? resolution[0] * resolution[1] * 2 : 0
-  })),
+  // The real figure now the driver exists, and it is far below the full-frame
+  // estimate that stood here: the colour panel keeps no framebuffer at all.
+  // 240x240 is 115 KB and 240x320 is 153 KB, neither of which fits beside
+  // FastLED and audio, so each field caches the text or the integer it last
+  // drew and repaints only when that changes. Hundreds of bytes rather than
+  // the OLED's thousands, on fifty times the pixels.
+  TransportDisplay: TFT_PANEL_RAM_BYTES,
 }
 
 /**
@@ -1295,15 +1297,6 @@ export function findDisplayGeneratorIssues(
   const names = displays.map((node) => nodeLabel(node))
   const errors: string[] = []
   const warnings: string[] = []
-
-  const pendingTransportDisplays = displays.filter((node) => node.data.nodeType === 'TransportDisplay')
-  if (pendingTransportDisplays.length > 0) {
-    errors.push(
-      `${pendingTransportDisplays.map((node) => nodeLabel(node)).join(', ')} cannot be built yet because `
-      + 'Transport Display firmware support is not available. Remove the colour display before building.',
-    )
-    return { errors, warnings }
-  }
 
   const master = nodes.find((node) => node.data.nodeType === 'PatternMaster')
 

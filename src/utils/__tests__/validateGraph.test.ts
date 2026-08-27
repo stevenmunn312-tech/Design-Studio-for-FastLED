@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, estimatePowerLoad, estimateFirmwareRam, findMirroredOutputMismatches, findShowOutputFormErrors, findAudioCapabilityErrors, findPlayerControlMappingWarnings, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
 import { OLED_PANEL_RAM_BYTES } from '../../codegen/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../../codegen/segmentDisplayCpp'
+import { TFT_PANEL_RAM_BYTES } from '../../codegen/tftDisplayCpp'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -1234,10 +1235,15 @@ describe('validateGraph', () => {
       expect(ram.displayBytes).toBe(2 * OLED_PANEL_RAM_BYTES + SEGMENT_DISPLAY_RAM_BYTES)
     })
 
-    it('provisionally budgets a full RGB565 frame for a Transport Display', () => {
-      // The larger catalogued module is 240x320. Until the driver's partial
-      // buffer lands, the safe estimate is one complete two-byte pixel frame.
-      expect(DISPLAY_RAM_BYTES_BY_NODE_TYPE.TransportDisplay).toBe(240 * 320 * 2)
+    it('budgets a Transport Display at what the driver actually costs', () => {
+      // The provisional figure here was a full 240x320 RGB565 frame — 153,600
+      // bytes — chosen to fail safe before the driver existed. The driver
+      // keeps no framebuffer at all: neither 115 KB nor 153 KB fits beside
+      // FastLED and audio, so each field caches the text or the integer it
+      // last drew. Hundreds of bytes, on fifty times the OLED's pixels.
+      expect(DISPLAY_RAM_BYTES_BY_NODE_TYPE.TransportDisplay).toBe(TFT_PANEL_RAM_BYTES)
+      expect(DISPLAY_RAM_BYTES_BY_NODE_TYPE.TransportDisplay).toBeLessThan(OLED_PANEL_RAM_BYTES)
+      expect(DISPLAY_RAM_BYTES_BY_NODE_TYPE.TransportDisplay).toBeGreaterThan(0)
     })
 
     it('leaves the display cost in internal RAM when buffers move to PSRAM', () => {

@@ -91,15 +91,29 @@ describe('displays a build cannot drive', () => {
     expect(issues.errors[0]).toContain('Segment Display')
   })
 
-  it('refuses a Transport Display until its firmware driver is integrated', () => {
+  // The refusal that used to stand here is gone: a normal sketch draws the
+  // colour panel now. The show generator still cannot, which the case below
+  // covers along with every other display.
+  it('builds a Transport Display into a normal sketch', () => {
     const transport = node('transport', 'TransportDisplay', {
       partId: 'st7789-tft-240x240', tftLayout: 'Now Playing',
     })
     const issues = findDisplayGeneratorIssues([out(), transport], [])
+    expect(issues.errors).toEqual([])
     expect(issues.warnings).toEqual([])
+  })
+
+  // showGenerator.ts draws no displays, by design, so the refusal is about
+  // which generator the graph selected rather than about the panel.
+  it('still refuses one on a graph that would export as a show', () => {
+    const transport = node('transport', 'TransportDisplay', {
+      partId: 'st7789-tft-240x240', tftLayout: 'Now Playing',
+    })
+    const nodes = [out(), transport, node('pg', 'PerformanceGenerator')]
+    const issues = findDisplayGeneratorIssues(nodes, [edge('e', 'pg', 'frame', 'out', 'frame')])
     expect(issues.errors).toHaveLength(1)
     expect(issues.errors[0]).toContain('Transport Display')
-    expect(issues.errors[0]).toContain('firmware support is not available')
+    expect(issues.errors[0]).toContain('cannot drive a display')
   })
 })
 
