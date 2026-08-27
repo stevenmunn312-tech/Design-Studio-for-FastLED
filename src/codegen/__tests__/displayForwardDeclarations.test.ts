@@ -147,9 +147,23 @@ describe('the SD player sketch', () => {
     declaredBeforeAnyFunction(src, SEGMENT_DISPLAY_CPP_FORWARD)
   })
 
+  it('names the colour panel struct before any function that takes one', () => {
+    const src = generatePlayerSketch({}, undefined, { displays: displays([tft]) })
+    declaredBeforeAnyFunction(src, TFT_DISPLAY_CPP_FORWARD)
+  })
+
+  // Both generators draw displays, and teaching only one of them is what
+  // produced a sketch calling functions that did not exist.
+  it('defines the struct it forward-declared, as the normal sketch does', () => {
+    const src = generatePlayerSketch({}, undefined, { displays: displays([tft]) })
+    expect(src).toContain('struct TftPanel {')
+    expect(src).toContain('_tftBegin(')
+  })
+
   it('declares nothing for a player with no display', () => {
     const src = generatePlayerSketch({}, undefined, {})
     expect(src).not.toContain(INFO_DISPLAY_CPP_FORWARD)
     expect(src).not.toContain(SEGMENT_DISPLAY_CPP_FORWARD)
+    expect(src).not.toContain(TFT_DISPLAY_CPP_FORWARD)
   })
 })

@@ -16,6 +16,10 @@ import { sanitizePin } from './hardwarePins'
 import { PLAYER_SONG_INFO_CPP } from './playerSongInfoCpp'
 import type { PlayerDisplays } from './playerDisplays'
 import { infoDisplayHelpersCpp, INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp, infoDisplaySetupCpp, infoDisplayLoopCpp } from './infoDisplayCpp'
+import {
+  tftDisplayHelpersCpp, TFT_DISPLAY_CPP_FORWARD, tftDisplayGlobalCpp,
+  tftDisplaySetupCpp, tftDisplayLoopCpp, type TftDisplayEmit,
+} from './tftDisplayCpp'
 import { patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
 import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './patternSelectionCpp'
 import type { BrowserThumbnails } from '../utils/browserThumbnails'
@@ -774,10 +778,11 @@ ${controlServiceLines}
    * Music Player into the expression that reads it here, so the same emitters
    * the normal sketch uses can draw the same layouts.
    */
-  const displays = opts.displays ?? { info: [], segment: [], unresolved: [] }
+  const displays = opts.displays ?? { info: [], segment: [], tft: [], unresolved: [] }
   const hasInfoDisplays = displays.info.length > 0
   const hasSegmentDisplays = displays.segment.length > 0
-  const hasDisplays = hasInfoDisplays || hasSegmentDisplays
+  const hasTftDisplays = displays.tft.length > 0
+  const hasDisplays = hasInfoDisplays || hasSegmentDisplays || hasTftDisplays
 
   const browserEmits = displays.info
     .filter((display) => display.layout === 'Pattern Browser')
@@ -841,6 +846,43 @@ ${controlServiceLines}
     enabledExpr: display.enabled ? 'true' : 'false',
   }))
 
+  // The player sketch is a fixed template, so a colour panel's ports come from
+  // the player rather than from arbitrary wiring. What the music itself knows
+  // is filled in here; anything else defaults to a literal and is reported as
+  // unresolved in validation, never left as a silently blank field.
+  const tftEmits: TftDisplayEmit[] = displays.tft.map((display) => ({
+    id: safePlayerId(display.id),
+    controller: display.controller,
+    rotation: display.rotation,
+    layout: display.layout,
+    csPin: display.csPin,
+    dcPin: display.dcPin,
+    resetPin: display.resetPin,
+    sckPin: display.sckPin,
+    mosiPin: display.mosiPin,
+    backlightPin: display.backlightPin,
+    enabledExpr: display.enabled ? 'true' : 'false',
+    titleExpr: display.sources.title ?? null,
+    artistExpr: display.sources.artist ?? null,
+    patternNameExpr: display.sources.patternName ?? null,
+    // The player knows its own transport without being wired to itself, which
+    // is why these fall back to the sketch's own readings rather than to zero.
+    elapsedExpr: display.sources.elapsedSec ?? 'songElapsedSec()',
+    durationExpr: display.sources.durationSec ?? 'songDurationSec()',
+    progressExpr: display.sources.progress ?? 'songProgress()',
+    playingExpr: display.sources.playing ?? 'songPlaying()',
+    volumeExpr: display.sources.volume ?? '(audio.getVolume() / 21.0f)',
+    // A player sketch has no show model, so Show Status can only report what
+    // it is told. Zero patterns is what makes the panel say NO PATTERNS.
+    patternIndexExpr: display.sources.patternIndex ?? '0.0f',
+    patternCountExpr: display.sources.patternCount ?? '0.0f',
+    sectionExpr: display.sources.section ?? null,
+    bpmExpr: display.sources.bpm ?? '0.0f',
+    beatExpr: display.sources.beat ?? '0.0f',
+    outputEnabledExpr: display.sources.outputEnabled ?? 'true',
+    brightnessExpr: display.sources.brightness ?? '1.0f',
+  }))
+
   const displayHelpersCpp = [
     hasDisplays ? PLAYER_SONG_INFO_CPP : '',
     hasInfoDisplays ? infoDisplayHelpersCpp() : '',
@@ -860,6 +902,8 @@ ${controlServiceLines}
     browserEmits.length > 0 ? `static PatternSel _sel_${PLAYER_SELECTION_STEM};` : '',
     hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_HELPERS : '',
     hasSegmentDisplays ? segmentEmits.map(segmentDisplayGlobalCpp).join('\n') : '',
+    hasTftDisplays ? tftDisplayHelpersCpp() : '',
+    hasTftDisplays ? tftEmits.map(tftDisplayGlobalCpp).join('\n') : '',
   ].filter(Boolean).join('\n')
 
   const songOpen = (nameExpr: string) => (hasDisplays ? `songResetFromFile(${nameExpr});` : '')
@@ -877,11 +921,13 @@ ${controlServiceLines}
     ...infoEmits.flatMap(infoDisplaySetupCpp),
     ...(browserEmits.length > 0 ? [`  _selBegin(_sel_${PLAYER_SELECTION_STEM});`] : []),
     ...segmentEmits.flatMap(segmentDisplaySetupCpp),
+    ...tftEmits.flatMap(tftDisplaySetupCpp),
   ].join('\n')
 
   const displayLoopCpp = [
     ...infoEmits.flatMap(infoDisplayLoopCpp),
     ...segmentEmits.flatMap(segmentDisplayLoopCpp),
+    ...tftEmits.flatMap(tftDisplayLoopCpp),
   ].join('\n')
 
   return `// Design Studio for FastLED — Music-Sync Player${collection ? ' (collection show)' : ''}
@@ -915,7 +961,7 @@ ${isHub75 ? hub75IncludesCpp(hub75Hw!).join('\n') + '\n' : ''}#include <SD.h>
 // defined, so a helper taking one by reference fails on a line nothing
 // in this generator wrote.
 ${[...fastLedDecls].join('\n')}
-${hasInfoDisplays ? INFO_DISPLAY_CPP_FORWARD + '\n' : ''}${hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_FORWARD + '\n' : ''}${browserEmits.length > 0 ? PATTERN_SELECTION_CPP_FORWARD + '\n' : ''}
+${hasInfoDisplays ? INFO_DISPLAY_CPP_FORWARD + '\n' : ''}${hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasTftDisplays ? TFT_DISPLAY_CPP_FORWARD + '\n' : ''}${browserEmits.length > 0 ? PATTERN_SELECTION_CPP_FORWARD + '\n' : ''}
 // ── Pin config ────────────────────────────────────────────────────────────────
 ${isHub75 ? '' : `#define LED_DATA_PIN  ${c.ledDataPin}\n`}${clockPinDefine}#define WIDTH         ${c.ledWidth}
 #define HEIGHT        ${c.ledHeight}

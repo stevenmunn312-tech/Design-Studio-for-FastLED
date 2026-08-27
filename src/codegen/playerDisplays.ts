@@ -17,7 +17,9 @@ import {
   asOledRotation, oledRotationCommands, asOledAddress,
   type OledTransport,
 } from '../state/oledSurface'
-import { oledControllerForProps, oledTransportForProps } from '../state/nodeLibrary'
+import { oledControllerForProps, oledTransportForProps, tftControllerForProps } from '../state/nodeLibrary'
+import { asTransportDisplayLayout, type TransportDisplayLayout } from '../state/transportDisplay'
+import { asTftRotation, TFT_CONTROLLERS, type TftController, type TftRotation } from '../state/tftSurface'
 import { asSegmentMode, segmentControllerFor, clampSegmentBrightness, type SegmentDisplayMode } from '../state/segmentDisplay'
 import { partById } from '../state/partCatalogue'
 import { PLAYER_SONG_EXPRESSIONS } from './playerSongInfoCpp'
@@ -75,9 +77,34 @@ export interface PlayerSegmentDisplay {
   sources: Record<string, string>
 }
 
+/**
+ * One colour panel in a player sketch.
+ *
+ * The controller and rotation travel as resolved objects rather than as a part
+ * id, because everything downstream — window origin, MADCTL, the size the
+ * layout resolves against — is derived from them, and re-resolving in the
+ * generator is how the two halves would come to disagree.
+ */
+export interface PlayerTransportDisplay {
+  id: string
+  partId: string
+  layout: TransportDisplayLayout
+  controller: TftController
+  rotation: TftRotation
+  csPin: number
+  dcPin: number
+  resetPin: number
+  sckPin: number
+  mosiPin: number
+  backlightPin: number
+  enabled: boolean
+  sources: Record<string, string>
+}
+
 export interface PlayerDisplays {
   info: PlayerInfoDisplay[]
   segment: PlayerSegmentDisplay[]
+  tft: PlayerTransportDisplay[]
   /**
    * Ports wired to something this sketch cannot evaluate.
    *
@@ -128,6 +155,7 @@ export function playerDisplaysFromGraph(nodes: ConfigNode[], edges: ConfigEdge[]
   const unresolved: PlayerDisplays['unresolved'] = []
   const info: PlayerInfoDisplay[] = []
   const segment: PlayerSegmentDisplay[] = []
+  const tft: PlayerTransportDisplay[] = []
 
   for (const node of nodes) {
     const props = node.data.properties
@@ -163,6 +191,36 @@ export function playerDisplaysFromGraph(nodes: ConfigNode[], edges: ConfigEdge[]
       continue
     }
 
+    if (node.data.nodeType === 'TransportDisplay') {
+      const partId = String(props.partId ?? 'st7789-tft-240x240')
+      const sources: Record<string, string> = {}
+      // Every port the layouts render. A player sketch can only honour the
+      // ones the music itself knows; anything else wired here is reported
+      // unresolved rather than emitted as a panel that shows nothing.
+      for (const port of ['title', 'artist', 'elapsedSec', 'durationSec', 'progress',
+        'playing', 'volume', 'patternName', 'patternIndex', 'patternCount',
+        'section', 'bpm', 'beat', 'outputEnabled', 'brightness', 'enabled']) {
+        const expression = resolvePort(node.id, port, edges, byId, unresolved)
+        if (expression) sources[port] = expression
+      }
+      tft.push({
+        id: node.id,
+        partId,
+        layout: asTransportDisplayLayout(props.tftLayout),
+        controller: tftControllerForProps(props) ?? TFT_CONTROLLERS.ST7789,
+        rotation: asTftRotation(props.tftRotation),
+        csPin: intProp(props.csPin, 5),
+        dcPin: intProp(props.dcPin, 16),
+        resetPin: intProp(props.resetPin, 17),
+        sckPin: intProp(props.sckPin, 18),
+        mosiPin: intProp(props.mosiPin, 23),
+        backlightPin: intProp(props.backlightPin, 4),
+        enabled: props.enabled !== false,
+        sources,
+      })
+      continue
+    }
+
     if (node.data.nodeType === 'SegmentDisplay') {
       const partId = String(props.partId ?? 'tm1637-4digit-display')
       const controller = segmentControllerFor(partById(partId)?.display?.controller)
@@ -191,5 +249,5 @@ export function playerDisplaysFromGraph(nodes: ConfigNode[], edges: ConfigEdge[]
     }
   }
 
-  return { info, segment, unresolved }
+  return { info, segment, tft, unresolved }
 }
