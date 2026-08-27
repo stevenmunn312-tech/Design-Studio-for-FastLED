@@ -5,6 +5,7 @@ import {
   gpioRequirementForProperty,
   libraryDefaults,
   oledTransportForProps,
+  transportDisplayPinKeysForProps,
   type GpioPropertyRequirement,
 } from '../state/nodeLibrary'
 import { boardByFqbn } from '../state/uploadStore'
@@ -66,7 +67,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'segment-display' | 'info-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -101,6 +102,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'LightInput',
   'SegmentDisplay',
   'InfoDisplay',
+  'TransportDisplay',
 ])
 
 const BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS = new Set([
@@ -219,6 +221,18 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         push(node, `${baseLabel} RESET`, 'resetPin', props.resetPin)
         push(node, `${baseLabel} SCK`, 'sckPin', props.sckPin)
         push(node, `${baseLabel} MOSI`, 'mosiPin', props.mosiPin)
+        break
+      }
+      case 'TransportDisplay': {
+        const labels: Record<string, string> = {
+          sckPin: 'SCK', mosiPin: 'MOSI', misoPin: 'MISO', csPin: 'CS', dcPin: 'DC',
+          resetPin: 'RESET', backlightPin: 'BACKLIGHT', touchCsPin: 'TOUCH CS',
+          touchIrqPin: 'TOUCH IRQ', touchSckPin: 'TOUCH SCK',
+          touchMosiPin: 'TOUCH MOSI', touchMisoPin: 'TOUCH MISO',
+        }
+        for (const key of transportDisplayPinKeysForProps(props)) {
+          push(node, `${baseLabel} ${labels[key]}`, key, props[key])
+        }
         break
       }
       case 'SegmentDisplay': {
@@ -571,6 +585,27 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           reasons: complete
             ? undefined
             : [`This OLED has no complete ${labels} pin set configured.`],
+        }
+      }
+      case 'TransportDisplay': {
+        const props = node.data.properties as Record<string, unknown>
+        const partId = String(props.partId ?? 'st7789-tft-240x240')
+        const entry = partById(partId)
+        const keys = transportDisplayPinKeysForProps(props)
+        const complete = keys.every((key) => pins.some((pin) => pin.propertyKey === key))
+        return {
+          ...buildPeripheralItem(node, 'transport-display', `${entry?.label ?? 'Colour TFT'} display`, pins),
+          supported: complete,
+          facts: {
+            partId,
+            controller: entry?.display?.controller ?? 'ST7789',
+            resolution: entry?.display?.resolutionPx?.join('x') ?? '240x240',
+            transport: entry?.display?.interface ?? 'SPI',
+            touchController: entry?.display?.touchController ?? null,
+          },
+          reasons: complete
+            ? undefined
+            : ['This colour display does not have its complete SPI pin set configured.'],
         }
       }
       case 'SDCard': {

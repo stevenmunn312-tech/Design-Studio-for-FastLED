@@ -165,6 +165,23 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       },
     ],
   },
+  TransportDisplay: {
+    property: 'partId',
+    options: [
+      {
+        id: 'st7789-tft-240x240',
+        label: 'ST7789 1.3-inch',
+        summary: '240x240 colour TFT over SPI',
+        note: 'A square 240x240 colour display with no touch controller.',
+      },
+      {
+        id: 'st7789v-xpt2046-touch-240x320',
+        label: 'ST7789V 2.4-inch + touch',
+        summary: '240x320 colour TFT with XPT2046 touch',
+        note: 'The XPT2046 touch controller exposes its own SPI pins, so it can share the display bus or be wired to a separate SPI bus. Touch interaction is reserved for a later release.',
+      },
+    ],
+  },
   SegmentDisplay: {
     property: 'partId',
     options: [

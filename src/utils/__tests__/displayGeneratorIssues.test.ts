@@ -90,6 +90,17 @@ describe('displays a build cannot drive', () => {
     const issues = findDisplayGeneratorIssues(nodes, [edge('e', 'pg', 'frame', 'out', 'frame')])
     expect(issues.errors[0]).toContain('Segment Display')
   })
+
+  it('refuses a Transport Display until its firmware driver is integrated', () => {
+    const transport = node('transport', 'TransportDisplay', {
+      partId: 'st7789-tft-240x240', tftLayout: 'Now Playing',
+    })
+    const issues = findDisplayGeneratorIssues([out(), transport], [])
+    expect(issues.warnings).toEqual([])
+    expect(issues.errors).toHaveLength(1)
+    expect(issues.errors[0]).toContain('Transport Display')
+    expect(issues.errors[0]).toContain('firmware support is not available')
+  })
 })
 
 // The hole this check had: it looked only for a Performance Generator, so the

@@ -4,7 +4,7 @@
 
 Design Studio for FastLED is a live, node-based creative environment for LED strings, matrices, rings, corkscrew installations, and tiled panels. Connect patterns, palettes, signals, effects, audio analysis, and hardware output; watch the result move instantly; then generate or upload the same design as FastLED C++.
 
-**Public beta · 169 modules · 40 included patterns · Windows, macOS, and Linux packaging · MIT core**
+**Public beta · 170 modules · 40 included patterns · Windows, macOS, and Linux packaging · MIT core**
 
 [Check beta releases](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/releases) · [Run from source](#run-from-source) · [Help test hardware](#help-test-the-beta)
 
@@ -19,7 +19,7 @@ Design Studio for FastLED is a live, node-based creative environment for LED str
 What makes the Studio useful:
 
 - **Immediate visual feedback.** Adjust a speed, palette, blend, field, or particle control and see the result now.
-- **A deep creative toolbox.** Choose from 169 modules spanning patterns, simulations, color, fields, effects, audio, logic, show control, hardware input, and output.
+- **A deep creative toolbox.** Choose from 170 modules spanning patterns, simulations, color, fields, effects, audio, logic, show control, hardware input, and output.
 - **Preview-to-firmware parity.** The graph evaluator and C++ generator are designed together so the hardware result follows what you authored.
 - **Reusable creative building blocks.** Turn any patch into a Group, save it to the Pattern Library, organize it into shelves, and reuse it in future shows.
 - **A real performance workflow.** Stage Mode, the Performance Deck, music transport, spectrum views, transitions, and beat-driven particles turn patches into playable visuals.
@@ -158,7 +158,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 ## Feature map
 
 <details>
-<summary><strong>Show all 169 modules by category</strong></summary>
+<summary><strong>Show all 170 modules by category</strong></summary>
 
 - **Inputs:** Audio, Microphone, Line In, Button, Button Bank, Potentiometer, Encoder, Motion Sensor, Light Sensor, DMX / Art-Net, RTC Clock, MIDI, Storage
 - **Audio:** FFT Analyzer, Beat Detect, Percussion Detect, Audio Features, Audio → Hue
@@ -169,7 +169,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 - **Fields:** Field Formula, Field Noise, Formula Field, Wave Sim, Distance Field, Frame → Field, Field Math, Field Warp, Field Rotate, Field Tile, Field → Frame
 - **Effects:** Blur 2D, Blend, Mask, Brightness, Fade to Black, Hue Shift, Gamma, Saturation, Color Boost, Transform, Array, Invert, Mirror, Trails, Frame Feedback, Frame Switch, Zones
 - **Show:** Music Library, Pattern Collection, Transitions, Music Player, Player Controls, Player Particles, Sequencer, Transition, Performance Generator, SD Card
-- **Output:** Amplifier, Board, Info Display, LED Matrix, Master Speed, Segment Display
+- **Output:** Amplifier, Board, Info Display, LED Matrix, Master Speed, Segment Display, Transport Display
 - **Notes:** Comment
 
 </details>

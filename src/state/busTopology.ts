@@ -66,6 +66,23 @@ const BUS_ASSIGNMENTS: Record<string, Record<string, BusAssignment>> = {
     sdaPin: { kind: 'i2c', role: 'sda' },
     sclPin: { kind: 'i2c', role: 'scl' },
   },
+  TransportDisplay: {
+    sckPin: { kind: 'spi', role: 'sck' },
+    mosiPin: { kind: 'spi', role: 'mosi' },
+    misoPin: { kind: 'spi', role: 'miso' },
+    csPin: { kind: 'spi', role: 'cs' },
+    dcPin: { kind: 'spi', role: 'exclusive' },
+    resetPin: { kind: 'spi', role: 'exclusive' },
+    backlightPin: { kind: 'spi', role: 'exclusive' },
+    // The touch header is a second describable SPI bus. Giving it the same
+    // pin values as the display joins the buses; different clock/data values
+    // keep it separate. Select and interrupt remain device-owned either way.
+    touchCsPin: { kind: 'spi', role: 'cs' },
+    touchIrqPin: { kind: 'spi', role: 'exclusive' },
+    touchSckPin: { kind: 'spi', role: 'sck' },
+    touchMosiPin: { kind: 'spi', role: 'mosi' },
+    touchMisoPin: { kind: 'spi', role: 'miso' },
+  },
   // A TM1637 has two wires and no addresses, so it is not I2C however much the
   // pin count suggests it. Two modules cannot share a pair — each needs its
   // own — which is exactly what an exclusive role means.

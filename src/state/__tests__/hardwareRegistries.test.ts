@@ -96,8 +96,6 @@ describe('hardware registries stay in step', () => {
       .filter((partId) => !offered.has(partId))
     expect(missing, 'catalogued displays no node offers').toEqual([
       'ili9341-xpt2046-touch-320x240',
-      'st7789-tft-240x240',
-      'st7789v-xpt2046-touch-240x320',
     ])
   })
 
@@ -110,5 +108,6 @@ describe('hardware registries stay in step', () => {
     expect(terminals).toContain('MatrixOutput')
     expect(terminals).toContain('SegmentDisplay')
     expect(terminals).toContain('InfoDisplay')
+    expect(terminals).toContain('TransportDisplay')
   })
 })

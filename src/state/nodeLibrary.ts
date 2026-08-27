@@ -2799,6 +2799,54 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
+    // Fixed colour layouts for the transport appliance. Every layout keeps
+    // the same stable port set, and the node intentionally has no outputs:
+    // until touch actions arrive it is a terminal and must stay in the graph.
+    type: 'TransportDisplay',
+    label: 'Transport Display',
+    category: 'output',
+    inputs: [
+      { id: 'title', label: 'Title', dataType: 'string' },
+      { id: 'artist', label: 'Artist', dataType: 'string' },
+      { id: 'elapsedSec', label: 'Elapsed', dataType: 'float' },
+      { id: 'durationSec', label: 'Duration', dataType: 'float' },
+      { id: 'progress', label: 'Progress', dataType: 'float' },
+      { id: 'playing', label: 'Playing', dataType: 'bool' },
+      { id: 'volume', label: 'Volume', dataType: 'float' },
+      { id: 'patternName', label: 'Pattern Name', dataType: 'string' },
+      { id: 'artwork', label: 'Artwork', dataType: 'image' },
+      { id: 'patternIndex', label: 'Pattern Index', dataType: 'float' },
+      { id: 'patternCount', label: 'Pattern Count', dataType: 'float' },
+      { id: 'section', label: 'Section', dataType: 'string' },
+      { id: 'bpm', label: 'BPM', dataType: 'float' },
+      { id: 'beat', label: 'Beat', dataType: 'float' },
+      { id: 'outputEnabled', label: 'Output Enabled', dataType: 'bool' },
+      { id: 'brightness', label: 'Brightness', dataType: 'float' },
+      { id: 'enabled', label: 'Enabled', dataType: 'bool' },
+    ],
+    outputs: [],
+    defaultProperties: {
+      partId: 'st7789-tft-240x240',
+      tftLayout: 'Now Playing',
+      tftRotation: '0',
+      sckPin: 18,
+      mosiPin: 23,
+      misoPin: 19,
+      csPin: 5,
+      dcPin: 16,
+      resetPin: 17,
+      backlightPin: 4,
+      touchCsPin: 15,
+      touchIrqPin: 2,
+      // Sharing is the useful default; the separately broken-out touch header
+      // can be moved to another SPI bus without changing the model.
+      touchSckPin: 18,
+      touchMosiPin: 23,
+      touchMisoPin: 19,
+      enabled: true,
+    },
+  },
+  {
     /*
      * One knob on the one shared time value.
      *
@@ -3097,6 +3145,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   FormatDateTime: 'Turns a clock reading into display text such as HH:MM.',
   SegmentDisplay: 'A 4 or 8-digit 7-segment module showing a number, clock, or index.',
   InfoDisplay: 'A 128x64 OLED showing a now-playing, clock, status, or pattern-browser screen.',
+  TransportDisplay: 'A colour TFT showing a fixed now-playing or show-status transport screen.',
   MasterSpeed: 'Scales animation time for the whole graph. 1 is normal, 0 freezes it.',
   ScheduleTrigger: 'Time-of-day window/trigger driven by RTCInput clock and calendar fields.',
   BeatSin: 'Beat-synced sine oscillator — outputs a normalized low↔high value at a BPM.',
@@ -3568,6 +3617,10 @@ const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
 // via speedRange.ts); the simulation patterns use a steps-per-second rate, and
 // `rate` is a 0–1 emission rate for Particles but a degrees/sec spin for Transform.
 export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
+  TransportDisplay: {
+    tftLayout: { control: 'select', options: ['Now Playing', 'Show Status'] },
+    tftRotation: { control: 'select', options: ['0', '90', '180', '270'] },
+  },
   InfoDisplay: {
     oledRotation: { control: 'select', options: OLED_ROTATIONS },
     // Hex, because that is what the module's silkscreen and its datasheet
@@ -4569,6 +4622,10 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   RTCInput: new Set(['sdaPin', 'sclPin']),
   SegmentDisplay: new Set(['clkPin', 'dioPin', 'dinPin', 'csPin']),
   InfoDisplay: new Set(Object.values(OLED_TRANSPORT_PINS).flat()),
+  TransportDisplay: new Set([
+    'sckPin', 'mosiPin', 'misoPin', 'csPin', 'dcPin', 'resetPin', 'backlightPin',
+    'touchCsPin', 'touchIrqPin', 'touchSckPin', 'touchMosiPin', 'touchMisoPin',
+  ]),
   SDCard: new Set(['sdCsPin', 'sdSckPin', 'sdMisoPin', 'sdMosiPin']),
   Amplifier: new Set(['i2sBclk', 'i2sLrc', 'i2sDout']),
   MatrixOutput: new Set([
@@ -4614,6 +4671,10 @@ export function gpioRequirementForProperty(
     return { capability: 'digitalInput', pullup: false }
   }
   if (nodeType === 'SDCard' && key === 'sdMisoPin') {
+    return { capability: 'digitalInput', pullup: false }
+  }
+  if (nodeType === 'TransportDisplay'
+    && (key === 'misoPin' || key === 'touchMisoPin' || key === 'touchIrqPin')) {
     return { capability: 'digitalInput', pullup: false }
   }
   return { capability: 'digitalOutput', pullup: false }
@@ -4797,6 +4858,22 @@ export function oledControllerForProps(properties: Record<string, unknown>): Ole
   return oledControllerFor(partById(String(properties.partId ?? ''))?.display?.controller)
 }
 
+const TRANSPORT_DISPLAY_BASE_PINS = [
+  'sckPin', 'mosiPin', 'csPin', 'dcPin', 'resetPin', 'backlightPin',
+] as const
+const TRANSPORT_DISPLAY_TOUCH_PINS = [
+  'misoPin', 'touchCsPin', 'touchIrqPin', 'touchSckPin', 'touchMosiPin', 'touchMisoPin',
+] as const
+
+/** Pins physically present for the selected catalogued colour-display module. */
+export function transportDisplayPinKeysForProps(properties: Record<string, unknown>): string[] {
+  const display = partById(String(properties.partId ?? ''))?.display
+  if (!display?.interface.toLowerCase().includes('spi')) return []
+  return display.touchController
+    ? [...TRANSPORT_DISPLAY_BASE_PINS, ...TRANSPORT_DISPLAY_TOUCH_PINS]
+    : [...TRANSPORT_DISPLAY_BASE_PINS]
+}
+
 export function isPropertyEnabled(nodeType: string, key: string, properties: Record<string, unknown>): boolean {
   // A segment module wires the pins its controller has and no others. Showing a
   // live DIO field beside a MAX7219 would invite wiring a pin the generated
@@ -4811,6 +4888,11 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     const transport = oledTransportForProps(properties)
     if (OLED_PIN_PROPERTIES.has(key)) return OLED_TRANSPORT_PINS[transport].includes(key)
     if (key === 'i2cAddress') return transport === 'i2c'
+  }
+  if (nodeType === 'TransportDisplay'
+    && (TRANSPORT_DISPLAY_BASE_PINS.includes(key as never)
+      || TRANSPORT_DISPLAY_TOUCH_PINS.includes(key as never))) {
+    return transportDisplayPinKeysForProps(properties).includes(key)
   }
   if (nodeType === 'DMXInput') {
     const artnet = String(properties.inputMode ?? 'Art-Net') === 'Art-Net'

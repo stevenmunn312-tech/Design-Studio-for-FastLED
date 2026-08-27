@@ -32,7 +32,7 @@ import { assignPartPins, type PartPinRequest } from './partPinAssignment'
 import { micPinDefaultsForBoard, micPinIsDefault } from './micPinDefaults'
 import { outputForm } from './ledOutputForm'
 import { boardI2cDefault } from '../build/boardI2cDefaults'
-import { oledTransportForProps, segmentControllerForProps } from './nodeLibrary'
+import { oledTransportForProps, segmentControllerForProps, transportDisplayPinKeysForProps } from './nodeLibrary'
 import { OLED_TRANSPORT_PINS } from './oledSurface'
 import { sdSpiPinsForBoard, type SdSpiPins } from './sdPinDefaults'
 import { normalizeButtonBankEntries, type ButtonBankEntry } from './buttonBank'
@@ -190,6 +190,20 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
       { key: 'csPin' }, { key: 'dcPin' }, { key: 'resetPin' },
       { key: 'sckPin' }, { key: 'mosiPin' },
       { key: 'sdaPin' }, { key: 'sclPin' },
+    ],
+  },
+  TransportDisplay: {
+    keys: [
+      'sckPin', 'mosiPin', 'misoPin', 'csPin', 'dcPin', 'resetPin', 'backlightPin',
+      'touchCsPin', 'touchIrqPin', 'touchSckPin', 'touchMosiPin', 'touchMisoPin',
+    ],
+    keysFor: transportDisplayPinKeysForProps,
+    requests: [
+      { key: 'sckPin' }, { key: 'mosiPin' }, { key: 'misoPin', capability: 'digitalInput' },
+      { key: 'csPin' }, { key: 'dcPin' }, { key: 'resetPin' }, { key: 'backlightPin' },
+      { key: 'touchCsPin' }, { key: 'touchIrqPin', capability: 'digitalInput' },
+      { key: 'touchSckPin' }, { key: 'touchMosiPin' },
+      { key: 'touchMisoPin', capability: 'digitalInput' },
     ],
   },
   SDCard: {
