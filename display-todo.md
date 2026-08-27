@@ -30,9 +30,11 @@ In this document, **LED output** means the existing `MatrixOutput` node and
 | D | Fixed-layout colour TFT transport/status screen | Slice A; transport runtime bridge |
 | E | Freeform custom UI editor and LVGL code generation | Proven Slice D driver/runtime; its own design gate |
 
-Slices B–D are real deliverables. Slice E must not block them and should only
-start after a fixed TFT has passed compile, preview-parity, performance, and
-physical-hardware tests.
+Slices B–D are real deliverables. Slice E must not block them. Freeze its data,
+port, theme and widget contracts while they are still cheap to change, but do
+not build the editor until the fixed TFT software path exists and one
+representative panel/touch/LVGL bench spike has supplied the memory, refresh and
+touch budgets. Full soak testing and support claims may follow later.
 
 ## Decisions to preserve
 
@@ -49,14 +51,18 @@ physical-hardware tests.
   pick a widget on a screen you cannot touch, so every interactive widget in the
   palette is dead there, and what is left is what a preset already is. See
   [auxiliary displays](docs/development/design/auxiliary-displays.md#which-displays-get-a-design-surface).
-- Custom UI widget ids, not editable labels or array positions, are persisted as
-  port ids. Renaming or moving a widget must never break a cable.
+- Custom UI port ids derive from widget id plus a registry-owned role, never an
+  editable label or array position. Renaming or moving a widget must never break
+  a cable, and the model must permit zero, one or multiple roles per widget.
 - The first custom UI is one fixed-resolution screen with integer pixel
-  geometry, snapping, minimum sizes, and no overlap. Responsive layouts,
-  arbitrary scripts, and user-authored C++ are not v1 features.
+  geometry, snapping, touch-aware minimum sizes, one theme-owned background and
+  a non-overlapping widget layer. Responsive layouts, arbitrary scripts, and
+  user-authored C++ are not v1 features.
 - Touch state is sampled before graph evaluation; graph-to-widget values are
-  applied afterward. A feedback cable from a display output back to an input on
-  the same display is either rejected or explicitly defined as a one-tick delay.
+  applied afterward. A registry-declared synchronized control may close its
+  `out → graph → set` path and is explicitly one tick: sampled touch leaves this
+  tick and authoritative state is published after evaluation. Every other
+  feedback path through one Display is rejected or requires a visible `Delay`.
 - Generated loop code uses fixed buffers / `const char *` and `snprintf`, not
   repeatedly allocated Arduino `String` values.
 - Driver and LVGL dependencies are pinned to tested tags. Do not follow a
@@ -186,9 +192,9 @@ case the OLED slice cannot already serve.
 
 ### Fixed nodes
 
-- [ ] `SegmentDisplay` consumes `value: float`, `enabled: bool`, and optionally
+- [x] `SegmentDisplay` consumes `value: float`, `enabled: bool`, and optionally
   `dateTime: datetime`. Its formatting mode and exact module are properties.
-- [ ] `InfoDisplay` consumes stable typed ports for its selected fixed layout;
+- [x] `InfoDisplay` consumes stable typed ports for its selected fixed layout;
   do not add/remove ports when a label changes.
 - [ ] `TransportDisplay` consumes the same contract: song information in from
   Music Player, commands out through the `playercontrols` bundle Player Controls
@@ -201,24 +207,54 @@ case the OLED slice cannot already serve.
 The node owns `displayId` and derives its graph ports from widgets in the
 corresponding persisted `DisplayDocument`.
 
+The launch palette is a control-surface kit for music, LED and live-show
+hardware, not a generic LVGL catalogue. Domain behaviour still belongs in the
+graph: a transport strip is a template made from ordinary widgets whose ports
+wire through `PlayerControls`, not a second player hidden inside a display.
+
 Initial widget palette:
 
 | Widget | Direction | Port type | v1 semantics |
 | --- | --- | --- | --- |
-| Label | graph → display | `string` | One or two lines, fixed font/size/alignment |
+| Text | graph → display | `string` | Static fallback or live one/two-line text, fixed font/size/alignment |
 | Numeric readout | graph → display | `float` | Precision, prefix/suffix, min/max formatting |
-| Progress bar | graph → display | `float` | Clamped 0–1 value |
-| Status light | graph → display | `bool` | Off/on colours and optional text |
-| Colour swatch | graph → display | `color` | Solid colour preview |
-| Static image | none | none | Validated, size-limited, baked asset |
-| Button | display → graph | `bool` | True while pressed |
-| Toggle | display → graph | `bool` | Persistent on/off value |
-| Slider | display → graph | `float` | Min/max/step and initial value |
-| Knob | display → graph | `float` | Rotary form of Slider; same value contract |
+| Timecode | graph → display | `float` | Seconds rendered as `M:SS` or `H:MM:SS`; distinct from wall-clock `datetime` |
+| Progress | graph → display | `float` | Clamped 0–1 track/show progress |
+| Value meter | graph → display | `float` | Horizontal/vertical ranged bar with optional warning zones |
+| Status indicator | graph → display | `bool` | Light, badge, icon or short off/on label |
+| Colour swatch | graph → display | `color` | Solid colour preview with optional RGB/hex caption |
+| Pattern browser | graph → display | `patternselect` | Active/highlighted pattern, ordinal, browse state and baked thumbnail |
+| Image / icon | none | none | Validated lookup id for a size-limited baked asset |
+| Button | display → graph | `bool` | True while pressed; text, icon or text+icon presentation |
+| Toggle | display ↔ graph | `bool` | Local latch when unwired; optional authoritative state input when synchronized controls land |
+| Slider | display ↔ graph | `float` | Horizontal/vertical min/max/step control; primary continuous touch input |
+| Dial | display ↔ graph | `float` | Slider value contract with vertical-drag touch interaction, not circular tracing |
 
-Defer charts, arbitrary text input/keyboards, dropdowns, multi-screen
-navigation, animations, bidirectional controls, containers, and custom event
-scripts until the one-screen typed-port model is proven.
+The first runtime may ship Toggle, Slider and Dial as output-only controls, but
+the document and port model must reserve graph-authoritative state now. A
+control that changes from a physical button cannot leave a touch Toggle or
+volume Slider displaying the old value. While touched, the user owns the
+value; on release, a wired authoritative input wins again.
+
+The next palette, after the one-screen runtime is proven, is Colour Picker,
+Choice Strip, Step Control, XY Pad, Launch Pad and Arc Gauge. Colour Picker
+emits `color`; XY Pad and Launch Pad are the reason the schema must not assume
+one port per widget. Defer charts/spectrum histories, arbitrary text input and
+keyboards, dropdowns, multi-screen navigation, animations, containers, custom
+event scripts and arbitrary LVGL properties.
+
+Templates are declarative groups of these widgets, never new runtime
+behaviours. Ship at least Now Playing, Minimal Transport, Pattern Deck, LED
+Performance, Audio Reactor, Diagnostics and DMX Monitor. Inserting one mints
+the same visible typed ports as placing its widgets individually.
+
+The first release has exactly two visual layers: one screen background from
+the theme (solid, gradient or validated baked image), then a non-overlapping
+widget layer. This permits authored skins without introducing arbitrary z-order
+or containers. `DisplayTheme` owns background, surfaces, text, accent/warning/
+success colours, approved fonts and sizes, corner/border treatment, and default/
+pressed/active/disabled widget states. The editor may show graph-type-coloured
+input/output notches in Design mode; generated screens and Run mode do not.
 
 Draft persisted shape (names may change in the design note, ownership should
 not):
@@ -244,11 +280,31 @@ interface DisplayWidget {
 }
 ```
 
-Derive an outer port id from the stable widget id (for example
-`widget:<id>:value`). The document does not store cables, live values, selected
-widgets, hover state, or physical pins.
+Derive every outer port id from the stable widget id and a stable role. A
+single-port readout may use `widget:<id>:value`; a synchronized control reserves
+`widget:<id>:out` and `widget:<id>:set`; a later multi-axis control may use
+`widget:<id>:x` and `widget:<id>:y`. Roles come from the widget registry, never
+from editable labels or array positions. Changing a widget to an incompatible
+port shape is create-new/delete-old and requires the same wired-edge
+confirmation as deleting it.
+
+The document does not store cables, live values, touch/selection/hover state or
+physical pins. Asset properties store validated lookup ids, never paths or text
+that can become a generated identifier.
 
 ## Implementation checklist
+
+The sequencing boundary is the fixed TFT, not every unchecked box in this
+file. Freeze the custom-UI schema, port roles, theme/asset model and widget
+registry contract now, while no workspace has persisted them. Continue
+implementation through the fixed `TransportDisplay` software path before
+building the freeform editor. Do not persist the earlier one-value-port model
+and migrate it later.
+
+Most physical support rows and soak tests may follow the software work, but one
+representative ST7789/XPT2046/LVGL spike is a design input rather than a release
+formality: its measured heap, draw buffer, asset cost and touch latency set the
+widget, font and image limits before Phase 7 is frozen.
 
 ### Phase 0 — design spike and acceptance budget
 
@@ -272,15 +328,26 @@ widgets, hover state, or physical pins.
 
 - [x] Add display part categories, exact options, verified catalogue entries,
   renders, dimensions, pin labels, voltage notes, and power expectations.
-- [ ] Extend the hardware workbench add menu, true-scale part rendering,
-  settings inspector, remove/show-node actions, layout persistence, and tests.
+- [x] Extend the hardware workbench add menu, true-scale part rendering,
+  settings inspector, remove/show-node actions, layout persistence, and tests
+  for the shipped Segment Display and Info Display families. Transport Display
+  joins the same path in Phase 5 rather than reopening this contract.
 - [x] Add display node types to the hardware-managed signal set and hardware
   library-hidden set. Ensure add/edit/delete operations always target root.
-- [ ] Prevent display parts from being grouped or saved into reusable patterns;
+- [x] Prevent display parts from being grouped or saved into reusable patterns;
   derive this from hardware ownership where possible instead of maintaining a
-  second drifting exclusion list.
-- [ ] Add I²C/SPI fields to `PART_FIELDS`, exact-board default-pin assignment,
-  board retargeting, GPIO requirements, and generated wiring manifests.
+  second drifting exclusion list. The list existed and had already drifted: it
+  named MatrixOutput, MicInput, LineInput and Board and missed the other nine
+  parts, so grouping a selection containing a Pot Input or an Info Display
+  sealed a bench part inside a pattern group. `isGroupExcludedNodeType` now
+  derives from `isHardwareNodeType` plus the three scene-level sources that are
+  not parts, and `saveGroupToLibrary` strips whatever an older group still
+  carries. Pasting into an open group was the remaining door and is closed the
+  same way.
+- [x] Add I²C/SPI fields to `PART_FIELDS`, exact-board default-pin assignment,
+  board retargeting, GPIO requirements, and generated wiring manifests for the
+  shipped segment/OLED modules. The transport-aware pin plans select only the
+  chosen module's actual header; TFT/touch fields extend this in Phase 5.
 - [x] Replace the current “any duplicate GPIO conflicts” rule with bus-aware
   validation:
   - I²C clients may share SDA/SCL but must have compatible voltage/bus settings
@@ -291,7 +358,9 @@ widgets, hover state, or physical pins.
     exclusive unless a driver contract explicitly says otherwise.
 - [ ] Add optional `displayDocuments` to workspace persistence, project
   autosave, JSON import/export, sharing, undo/orphan cleanup, and migrations.
-  Missing data must load as an empty registry for old workspaces.
+  Missing data must load as an empty registry for old workspaces. Start this
+  only after the role-based port, background/theme and asset-id contracts above
+  are frozen; persistence is the point at which those choices become expensive.
 - [ ] Validate imported documents and assets with hard limits. Widget metadata
   is declarative and must never be treated as executable code or raw C++.
 
@@ -299,7 +368,8 @@ widgets, hover state, or physical pins.
 
 - [ ] Create a registry-driven display layer (`DISPLAY_PARTS`, fixed-layout
   definitions, driver capability metadata, and later `DISPLAY_WIDGET_LIBRARY`)
-  so preview, validation, help, and codegen read one inventory.
+  so preview, validation, help, and codegen read one inventory. Widget entries
+  declare zero or more stable port roles, not one assumed `value` port.
 - [x] Add display nodes as evaluation terminals. A display must update even when
   it is not upstream of an LED output; do not rely on the current
   `reachableFromOutputs` walk alone.
@@ -309,19 +379,36 @@ widgets, hover state, or physical pins.
 - [ ] Build a small control-graph IR for float/bool/string/status paths. Reuse
   it from normal sketch, generative-show, and SD-player generators instead of
   copy/pasting display-specific graph evaluation into each generator.
-- [ ] Add shared display setup/loop/global helpers alongside the existing LED,
-  HUB75, audio, and RTC helpers. Keep panel/touch configuration out of node
-  emit cases.
+- [x] Add shared display setup/loop/global helpers for Segment Display and Info
+  Display alongside the existing LED, HUB75, audio, and RTC helpers. Controller
+  quirks and transport setup stay in their adapters rather than node emit
+  cases; TFT/LVGL add new adapters through the same boundary.
 - [ ] Extend the helper's lazy optional-library staging with include markers,
   pinned fetches, cache recovery, clear error messages, and both fbuild and
   Arduino CLI coverage.
 - [ ] Update `THIRD_PARTY_NOTICES.md` and desktop dependency notices for every
-  shipped driver/runtime library.
+  shipped driver/runtime library. Nothing to add yet, and that is the point of
+  checking: the TM1637, MAX7219, SH1106 and SSD1306 drivers are all written
+  inline against `Wire` and `digitalWrite`, so no shipped display pulls in a
+  third-party library. The first entry arrives with the TFT panel/LVGL
+  dependencies in Phase 5/7.
 - [ ] Update firmware RAM estimation for OLED buffers, TFT/LVGL draw buffers,
   widget heap, fonts, images, and thumbnails. The actual compile-capacity check
-  remains authoritative.
-- [ ] Add validation errors when a selected action/generator cannot represent a
-  display. Never generate a successful sketch that simply leaves the part dark.
+  remains authoritative. The shipped half is in: `estimateFirmwareRam` now
+  reports `displayBytes`, and a display is counted whether or not anything is
+  wired to it, because a sink is emitted either way — it is never in the walk
+  back from the LED output, which is why it was worth nothing before. Each
+  figure lives beside the struct it measures (`OLED_PANEL_RAM_BYTES`,
+  `SEGMENT_DISPLAY_RAM_BYTES`) rather than being restated in the estimator, and
+  `DISPLAY_NODE_TYPES` is derived from the catalogue — a workbench-owned node
+  whose modules carry a display spec — so it holds when the touch panel arrives
+  with outputs of its own. Fonts and thumbnails are deliberately *not* counted:
+  they are PROGMEM, and this estimate is internal RAM only. TFT draw buffers
+  and widget heap join when there is something to measure.
+- [x] Add validation errors when a selected action/generator cannot represent a
+  shipped display, plus unresolved-binding warnings for the interim player
+  path. Never generate a successful sketch that simply leaves the part dark;
+  extend the same derived display set when Transport Display and Display land.
 
 ### Phase 3 — `SegmentDisplay`
 
@@ -364,10 +451,10 @@ widgets, hover state, or physical pins.
   and unsupported-character behaviour.
 - [x] Implement the Now Playing, Clock and Status layouts using shared pure
   layout helpers rather than separate preview and C++ geometry guesses.
-- [ ] Add the Pattern Browser layout once the runtime pattern-selection
-  contract and baked thumbnails below exist. It was held back deliberately:
-  shipping it before those would mean a layout that previews and cannot be
-  generated.
+- [x] Add the Pattern Browser layout once the runtime pattern-selection
+  contract and baked thumbnails below exist. It now renders through the shared
+  one-bit surface and emits the same selection/thumbnail contract in normal and
+  player sketches.
 - [x] Add dirty-region/value checks or a bounded refresh rate so I²C display
   traffic does not stall LED rendering.
 - [x] Define the runtime pattern-selection contract once in
@@ -378,7 +465,7 @@ widgets, hover state, or physical pins.
 - [x] Emit the shared half of that contract — wrapping, confirmation, the
   active/highlight split — into generated firmware. Collection reconciliation
   stays browser-only: on a device the collection is fixed at compile time.
-- [ ] Move the selection onto the player, where it belongs. The first build put
+- [x] Move the selection onto the player, where it belongs. The first build put
   `Select`/`Confirm` on the Info Display, so the panel owned the cursor and
   confirming changed what the screen said while the LEDs carried on. Player
   Controls gains Pattern Selection / Previous Pattern / Next Pattern / Confirm
@@ -410,6 +497,11 @@ widgets, hover state, or physical pins.
 
 ### Phase 5 — fixed `TransportDisplay`
 
+Complete the software path in this phase before starting the editor. It is the
+reference implementation for panel setup, dirty updates, touch sampling,
+calibration, player-control routing, artwork budgets and generator support that
+freeform widgets must reuse rather than rediscover.
+
 - [ ] Establish a panel adapter with ST7789 240×240 SPI, partial draw buffers,
   rotation, colour order, backlight, and deterministic refresh scheduling.
 - [ ] Implement the fixed Now Playing and Show Status layouts without touch.
@@ -437,38 +529,65 @@ widgets, hover state, or physical pins.
   undo expectations without pretending widgets are React Flow nodes.
 - [ ] Define and version `DisplayDocument` and `DisplayWidget` schemas. At
   minimum store display/module id, resolution/orientation, grid, theme,
-  widgets, stable ids, integer bounds, type, and validated properties.
+  widgets, stable ids, integer bounds, type, validated properties and validated
+  asset lookup ids. Theme owns the one screen background; widgets occupy the
+  non-overlapping layer above it.
 - [ ] Build `DISPLAY_WIDGET_LIBRARY` entries with label, direction, port type,
-  defaults, minimum size, allowed display classes, preview renderer, LVGL
-  emitter, property inspector metadata, and validation.
+  stable port-role definitions, defaults, minimum visual and touch size,
+  allowed display classes, preview renderer, LVGL emitter, property inspector
+  metadata, state styling, asset slots and validation. Launch entries are Text,
+  Numeric Readout, Timecode, Progress, Value Meter, Status Indicator, Colour
+  Swatch, Pattern Browser, Image/Icon, Button, Toggle, Slider and Dial.
 - [ ] Implement add, select, multi-select, drag, keyboard nudge, resize, snap,
   align/distribute, duplicate, delete, copy/paste, undo/redo, zoom/fit, and
-  non-overlap collision feedback.
+  non-overlap collision feedback. Prioritise add/select/drag/resize/snap and
+  undo before multi-select/alignment/copy workflows.
 - [ ] Make every editor action keyboard reachable and announce widget type,
   bounds, port direction/type, selection, and validation errors.
 - [ ] Auto-mint/remove dynamic ports on the outer `Display` node. Removing a
   wired widget requires confirmation and removes its edges atomically. Changing
   a widget to a different port type is create-new/delete-old, not an in-place
-  type mutation.
+  type mutation. Port ids derive from widget id plus registry role (`value`,
+  `out`, `set`, and later `x`/`y`), never label or array position.
 - [ ] Add a read-only “run” preview mode that accepts pointer/touch input and a
   design mode that never fires graph actions accidentally.
 - [ ] Use a shared widget theme/token model for DOM preview and LVGL codegen.
   Pixel-perfect parity is not required, but bounds, text wrapping, state,
-  values, and interaction semantics are.
+  values, and interaction semantics are. Include default, pressed, active,
+  inactive and disabled states, plus solid/gradient/baked-image backgrounds.
+- [ ] Add a validated asset registry/import boundary for the external design
+  pack. Registry entries expose stable id, kind, dimensions, tintability,
+  source format, allowed display classes and estimated flash cost. Cover the
+  canonical semantic glyphs, all launch/follow-on palette thumbnails, theme
+  tokens, supported-size backgrounds, themed player controls and starter-
+  template previews; source working-folder paths must never enter a workspace.
+- [ ] Enforce touch-first geometry per target rather than only visual minimums:
+  approximately 48×48 px primary targets and 6–8 px separation on the 320×240
+  reference screen, with Slider hit regions wider than their visible tracks.
+- [ ] Add declarative templates for Now Playing, Minimal Transport, Pattern
+  Deck, LED Performance, Audio Reactor, Diagnostics and DMX Monitor. Templates
+  insert ordinary widgets and mint ordinary visible ports; they do not gain
+  private runtime behaviour.
+- [ ] Show graph-type-coloured input/output notches in Design mode so direction
+  and type remain legible; hide editor-only notches in Run mode and firmware.
 
 ### Phase 7 — custom UI runtime and LVGL codegen
 
 - [ ] Add a display runtime store keyed by `displayId/widgetId` for touch values,
-  graph-driven values, dirty state, and preview diagnostics. Keep per-frame
-  reads imperative so React does not rerender the entire app at animation rate.
+  graph-driven values by stable role, dirty state, touch ownership and preview
+  diagnostics. Keep per-frame reads imperative so React does not rerender the
+  entire app at animation rate.
 - [ ] Add an evaluator case for the dynamic `Display` node that publishes input
-  widget values and returns sampled output widget values using the ordering
-  contract above.
+  widget values and returns sampled output roles using the ordering contract
+  above; do not assume one value per widget.
 - [ ] Reject instantaneous graph cycles through one Display node, or add a
   visible `Delay` requirement; do not rely on evaluator recursion guards to
-  define user-facing behaviour by accident.
+  define user-facing behaviour by accident. The sole implicit exception is a
+  registry-declared synchronized control's paired `out → graph → set` loop,
+  whose one-tick ordering is part of that widget contract and tested directly.
 - [ ] Generate deterministic LVGL object setup, styles, event callbacks, bounded
-  value buffers, and change-only updates from `DisplayDocument`.
+  value buffers, role-based bindings, and change-only updates from
+  `DisplayDocument`.
 - [ ] Configure LVGL tick/handler timing from monotonic milliseconds so LED
   animation remains wall-clock driven and high-refresh displays cannot speed it
   up.
@@ -477,7 +596,13 @@ widgets, hover state, or physical pins.
   heap features.
 - [ ] Emit static images/fonts into PROGMEM and validate asset size before
   generation. No widget label, asset name, or imported text may become an
-  unsanitised C++ identifier or literal.
+  unsanitised C++ identifier or literal. Bake only used glyph sizes, tints and
+  states from vector/token sources; template preview screenshots are never
+  firmware assets.
+- [ ] Implement synchronized Toggle/Slider/Dial as a bounded two-role contract:
+  `out` carries touch intent and optional `set` carries graph-authoritative
+  state. The finger owns the value while pressed; the wired graph value wins
+  again on release. An unwired `set` leaves the control locally owned.
 - [ ] Support arbitrary scalar/control wiring in normal sketches first. Then
   embed the shared control-graph IR in generative-show and SD-player firmware so
   touch can drive real graph logic rather than only hardcoded transport actions.
@@ -489,18 +614,20 @@ widgets, hover state, or physical pins.
 - [ ] Add focused registry/default/property tests and update node-card/help
   generation for every graph-visible display/control node.
 - [ ] Add evaluator parity tests for formatted text, fixed layouts, widget
-  outputs, update ordering, group/string propagation, and cycle handling.
+  role outputs, synchronized-control ownership/release, update ordering,
+  group/string propagation, and cycle handling.
 - [ ] Add C++ generator tests for normal, generative-show, SD-player, diagnostic,
   and stream-receiver paths, including “configured display is not omitted”.
 - [ ] Add workspace migration/import/export/orphan/undo tests for display
-  documents and widget-derived ports.
+  documents, role-derived ports, asset ids and wired-widget deletion.
 - [ ] Add hardware workbench tests for exact module identity, root-scoped edits,
   repeated displays, part layout, pin retargeting, shared-bus rules, and delete.
 - [ ] Add backend tests for optional dependency fetch/stage/cache recovery and
   pinned versions.
 - [ ] Add visual snapshots for each fixed layout and custom widget state at every
-  supported resolution/orientation. Visual snapshots complement, not replace,
-  semantic tests.
+  supported resolution/orientation, including pressed/active/disabled states,
+  every launch theme token and each template. Visual snapshots complement, not
+  replace, semantic tests.
 - [ ] Run `npm run lint`, `npm test`, and `npm run build`; compile representative
   generated sketches through both supported build engines.
 - [ ] Add the user workflow to the hardware workbench guide and display-node
@@ -534,7 +661,15 @@ under `src/codegen/__tests__/`, state/evaluator/persistence coverage under
 - A display remains visible/configurable in the hardware pane while any pattern
   group is being edited.
 - Preview and firmware use the same numeric formatting, glyphs, truncation,
-  widget bounds, input clamps, button edges, pattern index, and time source.
+  widget bounds, input clamps, button edges, port roles, synchronized-control
+  ownership, pattern index, and time source.
+- Design-mode port notches, selection handles and collision feedback never
+  become persisted screen content or generated firmware objects.
+- A synchronized control cannot report stale local state after its wired
+  authoritative value changes; touch ownership is temporary and ends on
+  release.
+- Launch templates are ordinary validated documents assembled from registered
+  widgets and gain no hidden transport, player or graph behaviour.
 - Adding a display cannot silently change LED wiring, master brightness, audio
   volume, pattern order, or selected board.
 - Pin/address/bus conflicts are detected before upload with a repair-oriented
@@ -552,6 +687,9 @@ under `src/codegen/__tests__/`, state/evaluator/persistence coverage under
 
 - Multiple custom UI screens and navigation stacks.
 - Overlapping/free-z-order widgets and freeform vector drawing.
+- Charts, waveform/spectrum histories, animated marquees, XY Pad, Launch Pad,
+  Choice Strip, Step Control, Colour Picker and Arc Gauge until the launch
+  palette and one-screen runtime meet their performance gates.
 - Arbitrary LVGL properties, custom callbacks, embedded C/C++, or JavaScript.
 - On-device keyboard/text entry.
 - Video playback on TFTs or using a TFT as another LED output.

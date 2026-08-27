@@ -112,12 +112,68 @@ without drawing a UI, and they ship first because they can.
 
 ### Port identity
 
-An outer port id on the freeform node derives from the widget's stable id —
-`widget:<id>:value` — never from its editable label and never from its position
-in the widget array. Renaming a widget or dragging it up the list must not break
-a cable. Changing a widget to a different port type is a create-new/delete-old
+Every outer port id on the freeform node derives from the widget's stable id and
+a stable role declared by the widget registry — never from its editable label
+and never from its position in the widget array. A one-port readout may use
+`widget:<id>:value`; a synchronized control reserves `widget:<id>:out` and
+`widget:<id>:set`; a later multi-axis control may use `widget:<id>:x` and
+`widget:<id>:y`. Renaming or reordering a widget must not break a cable, and the
+model must not assume that every widget has exactly one port.
+
+Changing a widget to an incompatible port shape is a create-new/delete-old
 operation, not an in-place type mutation, because the old cable was type-checked
-against the old type and there is no honest way to carry it across.
+against the old role and there is no honest way to carry it across. Removing a
+wired widget requires confirmation and removes its edges atomically.
+
+### A control-surface palette, not an LVGL catalogue
+
+The freeform UI is for music, LEDs and live-show hardware. Its launch palette is
+Text (`string` in), Numeric Readout (`float` in), Timecode (`float` seconds in),
+Progress (`float` 0–1 in), Value Meter (`float` in), Status Indicator (`bool`
+in), Colour Swatch (`color` in), Pattern Browser (`patternselect` in),
+Image/Icon (no port), Button (`bool` out), Toggle (`bool` out with reserved
+state input), Slider (`float` out with reserved state input), and Dial (the same
+value contract with vertical-drag touch interaction).
+
+Button is one semantic widget with text, icon, or text-plus-icon presentation;
+there are not separate transport or image-button behaviours. Now Playing,
+Minimal Transport, Pattern Deck, LED Performance, Audio Reactor, Diagnostics
+and DMX Monitor are templates composed from ordinary widgets. A template mints
+the same visible typed ports as placing those widgets individually and never
+gets a private player or graph runtime.
+
+Colour Picker, Choice Strip, Step Control, XY Pad, Launch Pad and Arc Gauge are
+the next palette after the one-screen runtime is proven. They are named now so
+the registry and port-role model leave room for `color`, indexed and multi-role
+outputs without making them launch requirements. Charts, waveform/spectrum
+histories and animated marquees wait on measured display bandwidth.
+
+The first editor has two visual layers: one background owned by `DisplayTheme`
+(solid, gradient or validated baked image), then one non-overlapping widget
+layer. The theme also owns surfaces, text, accent/warning/success colours,
+approved font faces and sizes, corner/border treatment, and default, pressed,
+active, inactive and disabled states. This permits authored skins without
+opening arbitrary z-order or containers. Graph-type-coloured port notches are
+an editor-only Design-mode aid and never become generated screen content.
+
+### Asset library contract
+
+Documents store validated asset ids, never source paths. The asset registry
+resolves each id to its kind, intrinsic size, tintability, vector/raster source,
+allowed display classes and estimated generated flash cost. The required design
+library is a canonical semantic-glyph set, palette thumbnails for every launch
+and named follow-on widget, theme tokens, optional theme-owned backgrounds at
+the supported screen sizes, and reference previews for every starter template.
+The themed player-control art is the same kind of registered source material,
+not a second widget catalogue.
+
+Default, pressed, active, inactive and disabled appearances are token-driven.
+The importer/code generator bakes only the sizes, colours and states used by a
+document instead of storing a complete raster matrix for every theme. Template
+previews are design references only: inserting a template still creates
+ordinary widgets, and generated firmware never embeds the preview screenshot.
+External source-art working folders and their manifests are build-time handoff
+inputs; neither a saved workspace nor generated C++ may depend on those paths.
 
 ### The persisted document
 
@@ -235,6 +291,14 @@ A Button widget reads `true` while pressed. A Toggle holds a boolean. Where a
 sink needs a one-shot action it detects the rising edge itself. Defining this at
 the widget would make "press" mean different things on different displays.
 
+Toggle, Slider and Dial also reserve an optional graph-authoritative `set`
+input beside their touch-intent `out` output. The first runtime may implement
+the output-only form first, but persistence and port identity must not freeze
+that limitation. With `set` wired, the finger owns the value while pressed and
+the graph value wins again on release; with it unwired, the widget owns its
+local state. This prevents a physical button or another control changing the
+real player/output while the touchscreen continues displaying stale state.
+
 ### Master controls
 
 LED-output enabled/blackout, brightness, and master speed are explicit runtime
@@ -289,9 +353,13 @@ happened to put the read.
 
 A cable from a display's output back to an input on the same display is a cycle
 across one node. It is rejected with a diagnostic, or it requires a visible
-`Delay` and is defined as one tick. What it must not be is whatever the
-evaluator's recursion guard happens to do — that would be user-facing behaviour
-decided by accident.
+`Delay` and is defined as one tick. The sole implicit exception is a
+registry-declared synchronized control's paired `out → graph → set` loop: touch
+is sampled at the start of the tick and its authoritative `set` value is
+published after evaluation, so that loop is explicitly one tick and does not
+depend on recursion order. Every other feedback path stays rejected. What none
+of them may be is whatever the evaluator's recursion guard happens to do — that
+would be user-facing behaviour decided by accident.
 
 ### Displays are terminals
 
@@ -454,15 +522,20 @@ guides; the physical compile stays authoritative.
 ## Deferred, and why
 
 Multiple screens and navigation stacks, overlapping widgets, freeform drawing,
-arbitrary LVGL properties, embedded C/C++ or JavaScript, on-device text entry,
-video on a TFT, SquareLine project import, remote/network UI, e-paper, and large
-RGB/HDMI panels.
+containers, arbitrary LVGL properties, embedded C/C++ or JavaScript, on-device
+text entry, charts and waveform/spectrum histories, animated marquees, the
+second-wave Colour Picker/Choice Strip/Step Control/XY Pad/Launch Pad/Arc Gauge
+palette, video on a TFT, SquareLine project import, remote/network UI, e-paper,
+and large RGB/HDMI panels.
 
-The custom UI editor in particular must not gate the fixed displays. It starts
-only after a fixed TFT has passed compile, preview parity, performance, and
-physical hardware tests — the freeform editor is where this feature is most
-likely to consume the schedule, and the useful deliverables are the ones that
-ship before it.
+The custom UI editor in particular must not gate the fixed displays. Its schema,
+port roles, widget registry and theme/asset contracts are frozen while no saved
+document depends on them, but editor implementation starts only after the fixed
+TFT software path exists and one representative panel/touch/LVGL bench spike
+has supplied real memory, refresh and touch budgets. Full soak tests and support
+claims may follow, but nominal MCU compatibility is not enough to freeze widget
+limits. The freeform editor is where this feature is most likely to consume the
+schedule, and the useful fixed-display deliverables still ship before it.
 
 E-paper and RGB/HDMI stay out because they are different runtime classes, not
 because they are exotic. Character LCDs stay out because they would add a third
