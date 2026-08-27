@@ -23,7 +23,7 @@ and `/api/engine`.
   Player, `ESP32-audioI2S` are vendored into `.fbuild-project/lib/` because the
   helper cannot rely on fbuild's registry dependency resolution to fetch them
   consistently (the workaround was introduced against fbuild 2.4.0 and is
-  retained with the currently pinned 2.5.18). Generated source is written as
+  retained with the currently pinned 2.5.21). Generated source is written as
   `main.ino`; fbuild 2.5.16 fixed the include/prototype ordering defect that
   previously required a plain-CPP workaround. **Hardware-validated** on a real ESP32-S3
   (16×16 WS2812B matrix, GPIO6): fbuild compiled, flashed via `esptool`,

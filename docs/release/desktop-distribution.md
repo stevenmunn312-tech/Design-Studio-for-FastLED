@@ -71,7 +71,7 @@ On 2026-07-17, a Windows x86-64 bundle was built and launch-smoked locally:
 - packaged Design Studio for FastLED shell returned HTTP 200;
 - `/api/desktop/status` identified the frozen launcher;
 - bundled `fbuild 2.5.0` and `esptool 5.3.1` executed successfully in the
-  original packaging smoke; the current dependency set pins `fbuild 2.5.18`
+  original packaging smoke; the current dependency set pins `fbuild 2.5.21`
   and `esptool 5.3.1`, so release candidates must repeat this check;
 - output was a 61 MB ZIP / 168 MB unpacked one-folder bundle.
 
@@ -117,5 +117,5 @@ received the wrong CPU slice). The current workflow still compiles `fbuild` and
 `fbuild-daemon` from the exact `v2.5.4` source tag on each Mac runner, verifies
 that source before the build, and replaces only those two wheel-provided tools
 before packaging. This means the macOS bundle currently substitutes 2.5.4
-tools even though the Python dependency set pins 2.5.18; reconcile and re-smoke
+tools even though the Python dependency set pins 2.5.21; reconcile and re-smoke
 that exception before treating a new macOS package as a release candidate.
