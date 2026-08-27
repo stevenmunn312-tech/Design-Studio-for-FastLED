@@ -14,10 +14,10 @@ import {
   asInfoDisplayLayout, STATUS_MAX_INDICATORS, type InfoDisplayLayout,
 } from '../state/infoDisplay'
 import {
-  oledControllerFor, asOledRotation, oledRotationCommands, asOledAddress,
+  asOledRotation, oledRotationCommands, asOledAddress,
   type OledTransport,
 } from '../state/oledSurface'
-import { oledTransportForProps } from '../state/nodeLibrary'
+import { oledControllerForProps, oledTransportForProps } from '../state/nodeLibrary'
 import { asSegmentMode, segmentControllerFor, clampSegmentBrightness, type SegmentDisplayMode } from '../state/segmentDisplay'
 import { partById } from '../state/partCatalogue'
 import { PLAYER_SONG_EXPRESSIONS } from './playerSongInfoCpp'
@@ -133,7 +133,7 @@ export function playerDisplaysFromGraph(nodes: ConfigNode[], edges: ConfigEdge[]
     const props = node.data.properties
     if (node.data.nodeType === 'InfoDisplay') {
       const partId = String(props.partId ?? 'sh1106-oled-128x64')
-      const controller = oledControllerFor(partById(partId)?.display?.controller)
+      const controller = oledControllerForProps(node.data.properties)
       const rotation = oledRotationCommands(asOledRotation(props.oledRotation))
       const sources: Record<string, string> = {}
       for (const port of ['title', 'line2', 'value', 'progress', 'playing', 'volume',

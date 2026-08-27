@@ -35,7 +35,7 @@ import {
 } from './segmentDisplayCpp'
 import { asSegmentMode, clampSegmentBrightness, segmentControllerFor } from '../state/segmentDisplay'
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
-import { NODE_LIBRARY, oledTransportForProps } from '../state/nodeLibrary'
+import { NODE_LIBRARY, oledControllerForProps, oledTransportForProps } from '../state/nodeLibrary'
 import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp } from './ledOutputRuntimeCpp'
 import { masterClockLoopCpp, masterSpeedUpdateCpp, type MasterSpeedEmit } from './masterSpeedCpp'
 import {
@@ -50,7 +50,7 @@ import {
 } from './infoDisplayCpp'
 import { asInfoDisplayLayout, STATUS_MAX_INDICATORS } from '../state/infoDisplay'
 import {
-  oledControllerFor, oledRotationCommands, asOledRotation, asOledAddress,
+  oledRotationCommands, asOledRotation, asOledAddress,
 } from '../state/oledSurface'
 import { partById } from '../state/partCatalogue'
 import { displayString, normalizeNumberFormat, asDateTimeTextMode } from '../state/displayText'
@@ -4890,7 +4890,7 @@ export function generateCpp(
           const up = incoming.get(`${node.id}:${port}`)
           return up ? `n_${safeId(up.srcId)}_${up.srcPort}` : null
         }
-        const controller = oledControllerFor(partById(String(p.partId ?? ''))?.display?.controller)
+        const controller = oledControllerForProps(p)
         const transport = oledTransportForProps(p)
         const emit: InfoDisplayEmit = {
           id,

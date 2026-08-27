@@ -13,7 +13,8 @@ import { INFO_DISPLAY_LAYOUTS } from './infoDisplay'
 import { SONG_INFO_PORTS } from './songInfo'
 import {
   OLED_ROTATIONS, OLED_TRANSPORT_PINS, OLED_I2C_ADDRESS_OPTIONS, DEFAULT_OLED_I2C_ADDRESS,
-  oledAddressLabel, oledTransportFor, type OledTransport,
+  oledAddressLabel, oledControllerFor, oledTransportFor,
+  type OledController, type OledTransport,
 } from './oledSurface'
 import { LED_OUTPUT_RUNTIME_PORTS } from './ledOutputRuntime'
 import { MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './masterSpeed'
@@ -4789,6 +4790,11 @@ const OLED_PIN_PROPERTIES = new Set(Object.values(OLED_TRANSPORT_PINS).flat())
 /** The transport a node's chosen OLED module ships on. */
 export function oledTransportForProps(properties: Record<string, unknown>): OledTransport {
   return oledTransportFor(partById(String(properties.partId ?? ''))?.display?.interface)
+}
+
+/** The OLED controller a node's chosen module drives, or null if it drives none. */
+export function oledControllerForProps(properties: Record<string, unknown>): OledController | null {
+  return oledControllerFor(partById(String(properties.partId ?? ''))?.display?.controller)
 }
 
 export function isPropertyEnabled(nodeType: string, key: string, properties: Record<string, unknown>): boolean {

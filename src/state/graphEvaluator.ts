@@ -19,7 +19,7 @@ import {
   asInfoDisplayLayout, renderInfoDisplay, blankInfoData, STATUS_MAX_INDICATORS,
   type InfoDisplayData,
 } from './infoDisplay'
-import { oledControllerFor, OLED_CONTROLLERS, oledLine, type OledSurface } from './oledSurface'
+import { OLED_CONTROLLERS, oledLine, type OledSurface } from './oledSurface'
 import { partById } from './partCatalogue'
 import {
   displayString, formatNumberText, normalizeNumberFormat,
@@ -39,7 +39,7 @@ import { imagePaletteStops16, type ImagePaletteSource } from './imagePalette'
 import { waveSample, combineWaves } from './wave'
 import { polinePalette, hexToRgb } from './polinePalette'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette } from './customPalette'
-import { inputClampRange, bypassPort, resolveNodeScalarExpressions, NODE_LIBRARY } from './nodeLibrary'
+import { inputClampRange, bypassPort, oledControllerForProps, resolveNodeScalarExpressions, NODE_LIBRARY } from './nodeLibrary'
 import { makeShims, SHIM_NAMES } from './fastledShims'
 import { compileNodeFormula, type FormulaFn } from './formulaLang'
 import { createBeatDetectorState, denormalizeBeatParam, updateBeatDetectorFromSpectrum } from '../audio/beatDetection'
@@ -6836,7 +6836,7 @@ function createEvalNode(
         const enabled = incoming.has(`${id}:enabled`)
           ? Boolean(input(id, 'enabled', true))
           : props.enabled !== false
-        const controller = oledControllerFor(partById(String(props.partId ?? ''))?.display?.controller)
+        const controller = oledControllerForProps(props)
           ?? OLED_CONTROLLERS.SH1106
         const layout = asInfoDisplayLayout(props.infoLayout)
 
