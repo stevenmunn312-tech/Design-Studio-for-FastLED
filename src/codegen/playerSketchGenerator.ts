@@ -798,6 +798,13 @@ ${touchEmits.flatMap(tftTouchServiceCpp).join('\n')}
     // `id` is the C identifier. Keeping both is what lets one map serve both
     // generators without either guessing at the other's naming.
     .map((display) => ({ id: safePlayerId(display.id), sourceId: display.id }))
+  const hasPatternControls = controlEntries.some(([action]) =>
+    action === 'patternSelect' || action === 'patternPrevious'
+    || action === 'patternNext' || action === 'patternConfirm')
+  // The player cursor belongs to the player, not to whichever panel happens
+  // to show it. Physical pattern controls need the same state even when there
+  // is no OLED Pattern Browser in the build.
+  const hasPatternSelection = browserEmits.length > 0 || hasPatternControls
   const infoEmits = displays.info.map((display) => ({
     id: safePlayerId(display.id),
     transport: display.transport,
@@ -895,7 +902,7 @@ ${touchEmits.flatMap(tftTouchServiceCpp).join('\n')}
     hasDisplays ? PLAYER_SONG_INFO_CPP : '',
     hasInfoDisplays ? infoDisplayHelpersCpp() : '',
     hasInfoDisplays ? infoEmits.map(infoDisplayGlobalCpp).join('\n') : '',
-    browserEmits.length > 0
+    hasPatternSelection
       ? `#define PATTERN_COUNT ${collection ? renderers?.count ?? 0 : 0}\n` + PATTERN_SELECTION_CPP
       : '',
     browserEmits.length > 0 ? THUMBNAIL_DRAW_CPP : '',
@@ -907,7 +914,7 @@ ${touchEmits.flatMap(tftTouchServiceCpp).join('\n')}
       // show — so the sole entry is it, whatever node id it was baked under.
       ? patternThumbnailTableCpp(PLAYER_SELECTION_STEM, Object.values(opts.thumbnails ?? {})[0] ?? [])
       : '',
-    browserEmits.length > 0 ? `static PatternSel _sel_${PLAYER_SELECTION_STEM};` : '',
+    hasPatternSelection ? `static PatternSel _sel_${PLAYER_SELECTION_STEM};` : '',
     hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_HELPERS : '',
     hasSegmentDisplays ? segmentEmits.map(segmentDisplayGlobalCpp).join('\n') : '',
     hasTftDisplays ? tftDisplayHelpersCpp() : '',
@@ -928,7 +935,7 @@ ${touchEmits.flatMap(tftTouchServiceCpp).join('\n')}
       ? [`  Wire.begin(${i2cDisplays[0].sdaPin}, ${i2cDisplays[0].sclPin});  // I2C displays`]
       : []),
     ...infoEmits.flatMap(infoDisplaySetupCpp),
-    ...(browserEmits.length > 0 ? [`  _selBegin(_sel_${PLAYER_SELECTION_STEM});`] : []),
+    ...(hasPatternSelection ? [`  _selBegin(_sel_${PLAYER_SELECTION_STEM});`] : []),
     ...segmentEmits.flatMap(segmentDisplaySetupCpp),
     ...tftEmits.flatMap(tftDisplaySetupCpp),
     ...touchEmits.flatMap(tftTouchSetupCpp),
@@ -971,7 +978,7 @@ ${isHub75 ? hub75IncludesCpp(hub75Hw!).join('\n') + '\n' : ''}#include <SD.h>
 // defined, so a helper taking one by reference fails on a line nothing
 // in this generator wrote.
 ${[...fastLedDecls].join('\n')}
-${hasInfoDisplays ? INFO_DISPLAY_CPP_FORWARD + '\n' : ''}${hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasTftDisplays ? TFT_DISPLAY_CPP_FORWARD + '\n' : ''}${browserEmits.length > 0 ? PATTERN_SELECTION_CPP_FORWARD + '\n' : ''}
+${hasInfoDisplays ? INFO_DISPLAY_CPP_FORWARD + '\n' : ''}${hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasTftDisplays ? TFT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasPatternSelection ? PATTERN_SELECTION_CPP_FORWARD + '\n' : ''}
 // ── Pin config ────────────────────────────────────────────────────────────────
 ${isHub75 ? '' : `#define LED_DATA_PIN  ${c.ledDataPin}\n`}${clockPinDefine}#define WIDTH         ${c.ledWidth}
 #define HEIGHT        ${c.ledHeight}
@@ -1853,7 +1860,7 @@ ${genericPlayer ? `  // Unknown tracks have no pre-baked event timeline. Rotate 
   // nodes react to the live decoder signal.
   if (GENERIC_PLAYER && ${collection ? renderers?.count ?? 0 : 0} > 1) {
     uint8_t nextPattern = (uint8_t)((posMs / 8000UL) % ${collection ? renderers?.count ?? 1 : 1});
-${browserEmits.length > 0 ? `    // Through the selection, so a confirmed pattern and a dwell-driven one
+${hasPatternSelection ? `    // Through the selection, so a confirmed pattern and a dwell-driven one
     // move the same cursor — and a confirm actually changes what renders.
     _selSetActive(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, nextPattern);
     nextPattern = (uint8_t)_sel_${PLAYER_SELECTION_STEM}.active;

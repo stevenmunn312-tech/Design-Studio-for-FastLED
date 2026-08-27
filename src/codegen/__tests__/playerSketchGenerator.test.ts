@@ -111,6 +111,26 @@ describe('playerSketchGenerator', () => {
       expect(sketch).toContain('dma_display->setBrightness8(value);')
       expect(sketch).toContain('showBrightness = constrain(ev.params[0] / 255.0f')
     })
+
+    it('emits the player selection state for pattern controls without an OLED browser', () => {
+      const renderers = {
+        buffers: [], helpers: [],
+        functions: ['void render_p0(uint32_t ms) { (void)ms; }'],
+        count: 1, params: [],
+      }
+      const sketch = generatePlayerSketch({}, renderers, {
+        controls: {
+          bindings: { patternNext: { kind: 'button', pin: 7, pullup: true } },
+          debounceMs: 30, volumeStep: 0.05, brightnessStep: 0.05,
+          repeatDelayMs: 400, repeatIntervalMs: 120,
+        },
+      })
+
+      expect(sketch).toContain('struct PatternSel;')
+      expect(sketch).toContain('static PatternSel _sel_player;')
+      expect(sketch).toContain('_selBegin(_sel_player);')
+      expect(sketch).toContain('_selUpdate(_sel_player, PATTERN_COUNT, now, 1, false);')
+    })
   })
 
   describe('Player Particles', () => {
