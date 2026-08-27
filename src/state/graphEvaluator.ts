@@ -22,6 +22,10 @@ import {
 } from './infoDisplay'
 import { OLED_CONTROLLERS, oledLine, type OledSurface } from './oledSurface'
 import {
+  thumbnailFromFrame, THUMBNAIL_H, THUMBNAIL_SUPERSAMPLE, THUMBNAIL_TICK_SEC,
+  THUMBNAIL_W, type PatternThumbnail,
+} from './patternThumbnail'
+import {
   asTransportDisplayLayout, renderTransportDisplay, transportArtworkFromFrame,
   TRANSPORT_ARTWORK_H, TRANSPORT_ARTWORK_SUPERSAMPLE, TRANSPORT_ARTWORK_TICK_SEC,
   TRANSPORT_ARTWORK_W,
@@ -209,6 +213,12 @@ const transportArtworkCache = new Map<string, {
   edges: StudioEdge[]
   trusted: boolean
   artwork: Uint8Array
+}>()
+const patternThumbnailCache = new Map<string, {
+  nodes: StudioNode[]
+  edges: StudioEdge[]
+  trusted: boolean
+  thumbnail: PatternThumbnail
 }>()
 /** One selection per Music Player. The player owns which pattern is playing;
  *  a panel reads it and decides nothing. */
@@ -478,7 +488,7 @@ function stateMaps(): StateMap[] {
     fireHeat, flashLevel, counterVals, intervalLast, smoothState, holdState,
     envState, dmxChannelState, trailState, frameFeedbackState, fftLevels, beatLevels, clockState, clockDisplayState, fireRngState,
     seededRngState, triggerState, scheduleState, particleState, particleSeedState, patternShowState,
-    patternSelectionState,
+    patternSelectionState, transportArtworkCache, patternThumbnailCache,
     playerControlsState, transportDisplayTouchState, musicPlayerRuntimeState,
     percussionLevels, audioFeatureLevels,
     rdState, golState, waveSimState, flowState, colorTrailsState, spectrumVisualizerState, starState, boidState, sparkState, fire2012Heat,
@@ -6862,7 +6872,47 @@ function createEvalNode(
         }
 
         let payload: InfoDisplayData
-        if (layout === 'Clock') {
+        if (layout === 'Pattern Browser') {
+          const selection = input(id, 'patternSelect', null)
+          const chosen = isPatternSelect(selection) ? selection.highlightIndex : -1
+          const pattern = isPatternSelect(selection) && chosen >= 0 ? selection.ids[chosen] : ''
+          let thumbnail: PatternThumbnail | null = null
+          const definition = pattern ? groups[pattern] : undefined
+          if (definition && !groupStack.has(pattern)) {
+            const cached = patternThumbnailCache.get(pattern)
+            if (cached && cached.nodes === definition.nodes && cached.edges === definition.edges
+              && cached.trusted === trusted) {
+              thumbnail = cached.thumbnail
+            } else {
+              const frame = evaluateGraph(
+                definition.nodes, definition.edges, THUMBNAIL_TICK_SEC,
+                THUMBNAIL_W * THUMBNAIL_SUPERSAMPLE,
+                THUMBNAIL_H * THUMBNAIL_SUPERSAMPLE,
+                groups, `${instancePrefix}oled-thumb/${pattern}/`,
+                new Set([...groupStack, pattern]), {}, null, trusted, capabilityNodes,
+              )
+              if (frame) {
+                thumbnail = thumbnailFromFrame(frame)
+                patternThumbnailCache.set(pattern, {
+                  nodes: definition.nodes, edges: definition.edges, trusted, thumbnail,
+                })
+              }
+            }
+          }
+          payload = {
+            layout: 'Pattern Browser',
+            data: {
+              name: isPatternSelect(selection) ? selection.names[chosen] ?? '' : '',
+              ordinal: chosen >= 0 ? chosen + 1 : 0,
+              count: isPatternSelect(selection) ? selection.count : 0,
+              thumbnail,
+              browsing: isPatternSelect(selection) && selection.browsing,
+              activeName: isPatternSelect(selection)
+                ? selection.names[selection.activeIndex] ?? ''
+                : '',
+            },
+          }
+        } else if (layout === 'Clock') {
           const clock = input(id, 'dateTime', null) as RtcPreview | null
           payload = {
             layout: 'Clock',

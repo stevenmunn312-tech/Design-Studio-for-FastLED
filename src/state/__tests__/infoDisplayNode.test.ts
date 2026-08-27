@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { evaluateGraphFull, resetEvaluatorState } from '../graphEvaluator'
+import { evaluateGraphFull, resetEvaluatorState, type GroupRegistry } from '../graphEvaluator'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { isHardwareManagedSignalNodeType, isHardwareLibraryHiddenNodeType } from '../hardware'
 import { busAssignmentFor, isShareableRole } from '../busTopology'
@@ -8,6 +8,8 @@ import { findPinConflicts } from '../../utils/validateGraph'
 import { partOptionsFor } from '../partOptions'
 import { getPixel, type OledSurface } from '../oledSurface'
 import type { StudioNode, StudioEdge } from '../graphStore'
+import { BROWSER_LAYOUT } from '../infoDisplay'
+import { THUMBNAIL_H, THUMBNAIL_W } from '../patternThumbnail'
 
 function node(id: string, nodeType: string, category: string, props: Record<string, unknown> = {}): StudioNode {
   const def = NODE_LIBRARY.find((n) => n.type === nodeType)
@@ -30,8 +32,8 @@ const oled = (props: Record<string, unknown> = {}) => node('oled', 'InfoDisplay'
   partId: 'sh1106-oled-128x64', csPin: 5, dcPin: 16, resetPin: 17, sckPin: 18, mosiPin: 23, ...props,
 })
 
-function panelOf(nodes: StudioNode[], edges: StudioEdge[] = []) {
-  const out = evaluateGraphFull(nodes, edges, 0, 8, 8).outputs.get('oled') ?? {}
+function panelOf(nodes: StudioNode[], edges: StudioEdge[] = [], groups: GroupRegistry = {}) {
+  const out = evaluateGraphFull(nodes, edges, 0, 8, 8, groups).outputs.get('oled') ?? {}
   return { lit: out.lit as boolean, surface: out.surface as OledSurface | null }
 }
 
@@ -143,9 +145,39 @@ describe('InfoDisplay rendering', () => {
   })
 
   it('renders each layout differently', () => {
-    const counts = ['Now Playing', 'Clock', 'Status']
+    const counts = ['Now Playing', 'Pattern Browser', 'Clock', 'Status']
       .map((infoLayout) => litCount(panelOf([oled({ infoLayout })]).surface!))
     expect(new Set(counts).size).toBe(counts.length)
+  })
+
+  it('renders the highlighted player pattern in the Pattern Browser preview', () => {
+    const collection = node('collection', 'PatternCollection', 'show', { patternIds: ['white'] })
+    const player = node('player', 'PatternMaster', 'show')
+    const groups = {
+      white: {
+        nodes: [
+          node('white', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 }),
+          node('group-out', 'GroupOutput', 'output'),
+        ],
+        edges: [edge('group-frame', 'white', 'frame', 'group-out', 'frame')],
+      },
+    } as unknown as GroupRegistry
+    const surface = panelOf(
+      [collection, player, oled({ infoLayout: 'Pattern Browser' })],
+      [
+        edge('collection-player', 'collection', 'patternset', 'player', 'patternset'),
+        edge('player-oled', 'player', 'patternSelect', 'oled', 'patternSelect'),
+      ],
+      groups,
+    ).surface!
+
+    let thumbnailPixels = 0
+    for (let y = BROWSER_LAYOUT.thumbY; y < BROWSER_LAYOUT.thumbY + THUMBNAIL_H; y++) {
+      for (let x = BROWSER_LAYOUT.thumbX; x < BROWSER_LAYOUT.thumbX + THUMBNAIL_W; x++) {
+        if (getPixel(surface, x, y)) thumbnailPixels++
+      }
+    }
+    expect(thumbnailPixels).toBe(THUMBNAIL_W * THUMBNAIL_H)
   })
 
   it('falls back to a known layout for an unknown one', () => {
