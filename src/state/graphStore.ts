@@ -46,6 +46,12 @@ import {
   deriveControlShape,
 } from './performanceDeck'
 import { restoreMusicLibrary, type PersistedMusicEntry } from './musicLibraryPersistence'
+import {
+  normalizeDisplayDocument,
+  normalizeDisplayDocuments,
+  type DisplayDocument,
+  type DisplayDocumentRegistry,
+} from './displayDocument'
 import { useUploadStore } from './uploadStore'
 import { assignPartPins } from './partPinAssignment'
 import {
@@ -92,6 +98,7 @@ export interface WorkspaceExtras {
   /** JSON-safe Music Library metadata. Audio bytes are stored separately in
    *  IndexedDB so project autosaves do not exceed localStorage quotas. */
   musicLibrary?: PersistedMusicEntry[]
+  displayDocuments?: DisplayDocumentRegistry
 }
 
 interface GraphState {
@@ -136,6 +143,10 @@ interface GraphState {
    *  they were pinned in, and a live performance surface isn't naturally
    *  scoped to a pattern group's subgraph. */
   performanceDeck: PerformanceDeckConfig
+  /** Declarative custom-display documents live beside, not inside, graphData. */
+  displayDocuments: DisplayDocumentRegistry
+  setDisplayDocument: (document: DisplayDocument) => void
+  removeDisplayDocument: (displayId: string) => void
   pinProperty: (nodeId: string, propertyKey: string) => void
   unpinProperty: (pinId: string) => void
   renamePin: (pinId: string, label: string) => void
@@ -279,7 +290,7 @@ interface GraphState {
  * group-shaped edits (create/instantiate/absorb) restore their subgraph on
  * undo instead of leaving it for the orphan sweep.
  */
-type HistorySlice = Pick<GraphState, 'nodes' | 'edges' | 'graphData'>
+type HistorySlice = Pick<GraphState, 'nodes' | 'edges' | 'graphData' | 'displayDocuments'>
 
 // Legacy node types folded into bundled nodes (Noise / Math / Transition /
 // Blend), mapped to the bundle plus the variant property that selects the old
@@ -986,6 +997,18 @@ export const useGraphStore = create<GraphState>()(
         })),
 
       performanceDeck: blankDeckConfig(),
+      displayDocuments: {},
+      setDisplayDocument: (document) => set((s) => {
+        const normalized = normalizeDisplayDocument(document)
+        if (!normalized) return {}
+        return { displayDocuments: { ...s.displayDocuments, [normalized.displayId]: normalized } }
+      }),
+      removeDisplayDocument: (displayId) => set((s) => {
+        if (!s.displayDocuments[displayId]) return {}
+        const displayDocuments = { ...s.displayDocuments }
+        delete displayDocuments[displayId]
+        return { displayDocuments }
+      }),
       panicActive: false,
       panicRestoreValues: null,
 
@@ -1545,6 +1568,7 @@ export const useGraphStore = create<GraphState>()(
             // links, and JSON imports created before this field all fall
             // back safely rather than throwing.
             performanceDeck: normalizeDeckConfig(workspace?.performanceDeck),
+            displayDocuments: normalizeDisplayDocuments(workspace?.displayDocuments),
             panicActive: false,
             panicRestoreValues: null,
           }
@@ -2304,7 +2328,12 @@ export const useGraphStore = create<GraphState>()(
       limit: 100,
       // Track graph content — the active graph plus every stored one — and not
       // UI selection state
-      partialize: (s): HistorySlice => ({ nodes: s.nodes, edges: s.edges, graphData: s.graphData }),
+      partialize: (s): HistorySlice => ({
+        nodes: s.nodes,
+        edges: s.edges,
+        graphData: s.graphData,
+        displayDocuments: s.displayDocuments,
+      }),
       // Treat states as equal (don't snapshot) while any node is mid-drag —
       // but remember the state from just before the drag started, since the
       // eventual post-drag push needs it (see preDragHistoryState above).
@@ -2319,6 +2348,7 @@ export const useGraphStore = create<GraphState>()(
           return true
         }
         if (past.graphData !== current.graphData) return false
+        if (past.displayDocuments !== current.displayDocuments) return false
         if (past.nodes === current.nodes && past.edges === current.edges) return true
         // A pure selection change (no drag, no edit) isn't an undoable graph
         // edit — see the partialize comment above.

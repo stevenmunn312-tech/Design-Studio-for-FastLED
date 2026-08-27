@@ -1,6 +1,7 @@
 import type { SavedProject } from '../state/projectStore'
 import type { PersistedWorkspace } from '../state/workspacePersistence'
 import { cloneWorkspace } from '../state/workspacePersistence'
+import { normalizeDisplayDocuments } from '../state/displayDocument'
 
 interface FilePickerAcceptType {
   description?: string
@@ -59,6 +60,14 @@ function isWorkspace(value: unknown): value is PersistedWorkspace {
   if (!value || typeof value !== 'object') return false
   const workspace = value as Partial<PersistedWorkspace>
   return Array.isArray(workspace.nodes) && Array.isArray(workspace.edges)
+}
+
+function normalizeImportedWorkspace(workspace: PersistedWorkspace): PersistedWorkspace {
+  return {
+    ...cloneWorkspace(workspace),
+    trusted: false,
+    displayDocuments: normalizeDisplayDocuments(workspace.displayDocuments),
+  }
 }
 
 export function projectFileBaseName(name: string): string {
@@ -131,7 +140,7 @@ export function parseProjectFile(text: string, fallbackName: string): SavedProje
       name: derivedName,
       createdAt: now,
       updatedAt: now,
-      workspace: { ...cloneWorkspace(parsed), trusted: false },
+      workspace: normalizeImportedWorkspace(parsed),
     }
   }
 
@@ -149,7 +158,7 @@ export function parseProjectFile(text: string, fallbackName: string): SavedProje
     name: trimProjectName(typeof candidate.name === 'string' ? candidate.name : derivedName) || derivedName,
     createdAt: typeof candidate.createdAt === 'number' ? candidate.createdAt : now,
     updatedAt: typeof candidate.updatedAt === 'number' ? candidate.updatedAt : now,
-    workspace: { ...cloneWorkspace(candidate.workspace), trusted: false },
+    workspace: normalizeImportedWorkspace(candidate.workspace),
     uploadTarget: normalizeUploadTarget(candidate.uploadTarget),
   }
 }

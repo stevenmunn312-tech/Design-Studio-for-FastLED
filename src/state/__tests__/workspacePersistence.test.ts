@@ -25,6 +25,7 @@ describe('captureWorkspace', () => {
       },
       trusted: true,
       performanceDeck: undefined,
+      displayDocuments: {},
     })
     expect(workspace.buildProfile).toEqual({
       version: 1,
@@ -45,6 +46,7 @@ describe('captureWorkspace', () => {
       buildProfile: undefined,
       trusted: true,
       performanceDeck: deck,
+      displayDocuments: {},
     })
     expect(workspace.performanceDeck).toEqual(deck)
   })
@@ -52,6 +54,7 @@ describe('captureWorkspace', () => {
   it('omits performanceDeck when the source state has none (undefined passthrough)', () => {
     const workspace = captureWorkspace({
       nodes: [], edges: [], graphData: {}, graphs: {}, activeGraphId: 'root', buildProfile: undefined, trusted: true, performanceDeck: undefined,
+      displayDocuments: {},
     })
     expect(workspace.performanceDeck).toBeUndefined()
   })
@@ -68,6 +71,7 @@ describe('captureWorkspace', () => {
     })
     const workspace = captureWorkspace({
       nodes: [], edges: [], graphData: {}, graphs: {}, activeGraphId: 'root', buildProfile: undefined, trusted: true, performanceDeck: undefined,
+      displayDocuments: {},
     })
 
     expect(workspace.musicLibrary).toEqual([expect.objectContaining({
@@ -88,6 +92,31 @@ describe('PersistedWorkspace round-tripping', () => {
 
   it('blankWorkspace has no performanceDeck field', () => {
     expect(blankWorkspace().performanceDeck).toBeUndefined()
+  })
+
+  it('captures and clones the optional custom-display registry', () => {
+    const displayDocuments = {
+      panel: {
+        schemaVersion: 1 as const,
+        displayId: 'panel',
+        designSize: { width: 320, height: 240 },
+        orientation: '0' as const,
+        gridSize: 8,
+        theme: {
+          background: { kind: 'solid' as const, color: '#000000' },
+          surfaceColor: '#111111', textColor: '#ffffff', accentColor: '#00aaff',
+          warningColor: '#ffaa00', successColor: '#00aa66', inactiveColor: '#777777', disabledColor: '#333333',
+          font: 'sans' as const, fontSize: 16, cornerRadius: 4, borderWidth: 1,
+        },
+        widgets: [],
+      },
+    }
+    const workspace = captureWorkspace({
+      nodes: [], edges: [], graphData: {}, graphs: {}, activeGraphId: 'root',
+      buildProfile: undefined, trusted: true, performanceDeck: undefined, displayDocuments,
+    })
+    expect(workspace.displayDocuments).toEqual(displayDocuments)
+    expect(workspace.displayDocuments).not.toBe(displayDocuments)
   })
 
   it('a workspace with performanceDeck round-trips through cloneWorkspace unchanged', () => {

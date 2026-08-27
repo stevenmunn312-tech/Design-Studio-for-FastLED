@@ -179,10 +179,16 @@ export default function App() {
           buildProfile: shared.buildProfile,
           trusted: false,
           performanceDeck: shared.performanceDeck,
+          displayDocuments: shared.displayDocuments,
         })
         await waitForMusicLibraryRestore()
         if (cancelled) return
-        useProjectStore.getState().saveCurrentWorkspace({ ...shared, trusted: false })
+        useProjectStore.getState().saveCurrentWorkspace({
+          ...shared,
+          trusted: false,
+          // loadGraph has already normalized this external declarative data.
+          displayDocuments: useGraphStore.getState().displayDocuments,
+        })
         workspaceHydrated.current = true
         useGraphStore.temporal.getState().clear()
         clearShareHash()

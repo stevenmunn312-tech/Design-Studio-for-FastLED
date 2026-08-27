@@ -3,6 +3,7 @@ import type { PerformanceDeckConfig } from './performanceDeck'
 import type { BuildProfile } from '../build/buildProfile'
 import { captureMusicLibrary } from './musicLibraryPersistence'
 import type { PersistedMusicEntry } from './musicLibraryPersistence'
+import type { DisplayDocumentRegistry } from './displayDocument'
 
 /** The full workspace shape that needs to persist across autosave, project
  *  switches, JSON export/import, and rolling recovery snapshots. */
@@ -26,6 +27,9 @@ export interface PersistedWorkspace {
   /** Music Library analysis/show metadata. The corresponding audio blobs are
    *  browser-local IndexedDB records keyed by each entry id. */
   musicLibrary?: PersistedMusicEntry[]
+  /** Declarative custom-display documents, keyed by their stable display id.
+   * Missing means an empty registry for workspaces saved before this field. */
+  displayDocuments?: DisplayDocumentRegistry
 }
 
 export function blankWorkspace(): PersistedWorkspace {
@@ -37,7 +41,7 @@ export function cloneWorkspace(workspace: PersistedWorkspace): PersistedWorkspac
 }
 
 export function captureWorkspace(
-  state: Pick<PersistedWorkspace, 'nodes' | 'edges' | 'graphData' | 'graphs' | 'activeGraphId' | 'buildProfile' | 'trusted' | 'performanceDeck'>
+  state: Pick<PersistedWorkspace, 'nodes' | 'edges' | 'graphData' | 'graphs' | 'activeGraphId' | 'buildProfile' | 'trusted' | 'performanceDeck' | 'displayDocuments'>
 ): PersistedWorkspace {
   return cloneWorkspace({
     nodes: state.nodes,
@@ -48,6 +52,7 @@ export function captureWorkspace(
     buildProfile: state.buildProfile,
     trusted: state.trusted,
     performanceDeck: state.performanceDeck,
+    displayDocuments: state.displayDocuments,
     musicLibrary: captureMusicLibrary(),
   })
 }

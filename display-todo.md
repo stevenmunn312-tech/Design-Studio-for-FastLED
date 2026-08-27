@@ -367,6 +367,10 @@ widget, font and image limits before Phase 7 is frozen.
   Missing data must load as an empty registry for old workspaces. Start this
   only after the role-based port, background/theme and asset-id contracts above
   are frozen; persistence is the point at which those choices become expensive.
+  The versioned registry now round-trips through workspace capture, projects,
+  JSON import/export and share links; load/import normalize it, missing data is
+  empty, and store updates participate in undo. Orphan cleanup remains paired
+  with the future `Display` node, because no graph node owns a document yet.
 - [ ] Validate imported documents and assets with hard limits. Widget metadata
   is declarative and must never be treated as executable code or raw C++.
 
@@ -587,11 +591,15 @@ freeform widgets must reuse rather than rediscover.
   signal `graphData` and declarative `displayDocuments` separate. Reuse the
   existing enter/exit gesture, breadcrumbs, fit-view request, and per-document
   undo expectations without pretending widgets are React Flow nodes.
-- [ ] Define and version `DisplayDocument` and `DisplayWidget` schemas. At
+- [x] Define and version `DisplayDocument` and `DisplayWidget` schemas. At
   minimum store display/module id, resolution/orientation, grid, theme,
   widgets, stable ids, integer bounds, type, validated properties and validated
   asset lookup ids. Theme owns the one screen background; widgets occupy the
   non-overlapping layer above it.
+  `src/state/displayDocument.ts` freezes schema version 1, the 13 launch widget
+  identities, the single background/theme contract and bounded declarative
+  values. Its normalizer rejects unknown schema/widget types, unsafe ids and
+  nested property data before any future preview or emitter can read them.
 - [ ] Build `DISPLAY_WIDGET_LIBRARY` entries with label, direction, port type,
   stable port-role definitions, defaults, minimum visual and touch size,
   allowed display classes, preview renderer, LVGL emitter, property inspector

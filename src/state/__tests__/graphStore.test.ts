@@ -36,6 +36,7 @@ function reset(nodes: StudioNode[] = [], edges: StudioEdge[] = []) {
     buildProfile: undefined,
     trusted: true,
     performanceDeck: { pins: [], scenes: [], midiBindings: [], keyBindings: [] },
+    displayDocuments: {},
     panicActive: false,
     panicRestoreValues: null,
   })
@@ -1042,6 +1043,61 @@ describe('graphStore — loadGraph normalization', () => {
     expect(s.graphs['grp-1'].name).toBe('My Pattern')
     // The registry the preview/evaluator reads now includes the group again.
     expect(getGroupRegistry()['grp-1']).toBeDefined()
+  })
+})
+
+describe('graphStore — custom display documents', () => {
+  const displayDocument = {
+    schemaVersion: 1 as const,
+    displayId: 'panel',
+    designSize: { width: 320, height: 240 },
+    orientation: '0' as const,
+    gridSize: 8,
+    theme: {
+      background: { kind: 'solid' as const, color: '#000000' },
+      surfaceColor: '#111111', textColor: '#ffffff', accentColor: '#00aaff',
+      warningColor: '#ffaa00', successColor: '#00aa66', inactiveColor: '#777777', disabledColor: '#333333',
+      font: 'sans' as const, fontSize: 16, cornerRadius: 4, borderWidth: 1,
+    },
+    widgets: [],
+  }
+
+  beforeEach(() => reset())
+
+  it('defaults missing workspace data to an empty registry and normalizes loaded data', () => {
+    useGraphStore.getState().loadGraph([], [])
+    expect(useGraphStore.getState().displayDocuments).toEqual({})
+
+    useGraphStore.getState().loadGraph([], [], {
+      displayDocuments: {
+        untrustedKey: { ...displayDocument, orientation: 'invalid' as never },
+        old: { ...displayDocument, schemaVersion: 2 as never, displayId: 'old' },
+      },
+    })
+    expect(Object.keys(useGraphStore.getState().displayDocuments)).toEqual(['panel'])
+    expect(useGraphStore.getState().displayDocuments.panel.orientation).toBe('0')
+  })
+
+  it('adds and removes a document through undo-aware store actions', () => {
+    vi.useFakeTimers()
+    try {
+      useGraphStore.temporal.getState().clear()
+      useGraphStore.getState().setDisplayDocument(displayDocument)
+      vi.advanceTimersByTime(400)
+      expect(useGraphStore.getState().displayDocuments.panel).toEqual(displayDocument)
+      expect(useGraphStore.temporal.getState().pastStates).toHaveLength(1)
+
+      useGraphStore.temporal.getState().undo()
+      expect(useGraphStore.getState().displayDocuments).toEqual({})
+      useGraphStore.temporal.getState().redo()
+      expect(useGraphStore.getState().displayDocuments.panel).toEqual(displayDocument)
+
+      useGraphStore.getState().removeDisplayDocument('panel')
+      vi.advanceTimersByTime(400)
+      expect(useGraphStore.getState().displayDocuments).toEqual({})
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 
