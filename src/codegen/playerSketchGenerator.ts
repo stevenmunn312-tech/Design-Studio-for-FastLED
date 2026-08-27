@@ -944,7 +944,11 @@ ${touchEmits.flatMap(tftTouchServiceCpp).join('\n')}
   // displays disagreeing about them is refused in validation rather than
   // leaving the second one dark.
   const i2cDisplays = displays.info.filter((display) => display.transport === 'i2c')
-  const i2cIncludeCpp = i2cDisplays.length > 0 ? '\n#include <Wire.h>' : ''
+  // The header follows the driver, not the transport: the shared OLED driver
+  // compiles its Wire branch whichever bus the panel is on, so a sketch with
+  // only an SPI panel still has to declare it. Starting the bus below stays
+  // gated on there actually being an I2C device with pins to start it on.
+  const i2cIncludeCpp = hasInfoDisplays ? '\n#include <Wire.h>' : ''
   const displaySetupCpp = [
     ...(i2cDisplays.length > 0
       ? [`  Wire.begin(${i2cDisplays[0].sdaPin}, ${i2cDisplays[0].sclPin});  // I2C displays`]

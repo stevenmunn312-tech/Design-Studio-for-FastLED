@@ -1610,6 +1610,21 @@ export function generateCpp(
     && oledTransportForProps(props(n)) === 'i2c')
   const needsWire = needsDs3231 || i2cOleds.length > 0
   /*
+   * The header follows the driver, not the transport.
+   *
+   * `infoDisplayHelpersCpp` emits one `OledPanel` carrying both transports and
+   * branches on `p.transport` at runtime, so its `Wire` calls are compiled even
+   * in a build whose only panel is SPI. Gating the include on the transport
+   * produced a sketch that called `Wire` without declaring it, and nothing
+   * caught it: the tests assert on strings, and the one graph that fails is the
+   * SH1106 on the bench — the 7-pin SPI variant, in a build with no I2C device
+   * to drag the header in behind it.
+   *
+   * Starting the bus stays a separate question. A build with no I2C device has
+   * no pins to start one with, so `needsWire` above still gates `Wire.begin`.
+   */
+  const needsWireHeader = needsWire || sorted.some((n) => n.data.nodeType === 'InfoDisplay')
+  /*
    * Master Speed, if the graph has one.
    *
    * A knob with nothing wired to it is a constant and needs no feedback; a
@@ -6396,7 +6411,7 @@ export function generateCpp(
   if (audio) lines.push(...audio.preInclude)
   lines.push(`#include <FastLED.h>`)
   if (isHub75) lines.push(...hub75IncludesCpp(hub75Hw!))
-  if (needsWire) lines.push(`#include <Wire.h>`)
+  if (needsWireHeader) lines.push(`#include <Wire.h>`)
   // The colour panel is driven through the Arduino SPI library rather than
   // bit-banged: a 240x240 frame is 115 KB, which no software loop ships in
   // time. The OLED beside it needs no include for exactly the opposite reason.
