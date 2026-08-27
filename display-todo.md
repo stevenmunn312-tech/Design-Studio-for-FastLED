@@ -200,8 +200,9 @@ case the OLED slice cannot already serve.
   Music Player, commands out through the `playercontrols` bundle Player Controls
   already publishes. A touch module does not invent a second player.
   The inbound half is done — stable typed ports for both layouts, resolved by
-  the evaluator and by `playerDisplaysFromGraph` for the SD player. The outbound
-  half waits on touch, and is the step that trips the sink trap above.
+  the evaluator and by `playerDisplaysFromGraph` for the SD player. Browser
+  touch and the SD-player outbound path are done; normal-sketch and generative-
+  show routing remain, and are the reason this contract is not yet complete.
 - [x] Each fixed node has a compact browser preview body that shows what the
   physical screen will render at its real aspect ratio. Transport Display
   paints its evaluated RGB565 surface, Info Display paints the page-major OLED
@@ -548,8 +549,11 @@ freeform widgets must reuse rather than rediscover.
   generative shows, and SD players agree on edge handling, volume, and pattern
   selection. The SD-player slice is done: a Transport Display wired through
   Player Controls emits play/pause and volume from Now Playing, or LED toggle
-  and brightness from Show Status. Browser touch, normal sketches and the
-  generative-show control graph remain here rather than being implied complete.
+  and brightness from Show Status. Browser touch is also done: the node preview
+  publishes button edges and held absolute sliders through the same
+  `playercontrols` bundle using the firmware's shared hit geometry. Normal
+  sketches and the generative-show control graph remain here rather than being
+  implied complete.
 - [ ] Add calibration/rotation handling for touch and persist the exact module's
   calibration only where it is stable. Provide a generated touch self-test.
   Calibration properties, clamping and all four rotations are implemented;

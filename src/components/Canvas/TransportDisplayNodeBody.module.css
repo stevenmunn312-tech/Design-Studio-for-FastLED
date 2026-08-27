@@ -13,3 +13,8 @@
   box-shadow: inset 0 0 0 1px #08090b, 0 4px 12px rgb(0 0 0 / 35%);
   image-rendering: pixelated;
 }
+
+.touchScreen {
+  cursor: pointer;
+  touch-action: none;
+}

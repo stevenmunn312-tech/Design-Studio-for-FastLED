@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useGraphStore } from '../../state/graphStore'
 import { usePreviewStore } from '../../state/previewStore'
 import { tftControllerForProps } from '../../state/nodeLibrary'
 import { asTftRotation, rgb565Components, TFT_CONTROLLERS, tftRotatedSize, type TftSurface } from '../../state/tftSurface'
+import { partById } from '../../state/partCatalogue'
+import { useTransportDisplayTouchStore } from '../../state/transportDisplayTouchStore'
 import styles from './TransportDisplayNodeBody.module.css'
 
 function isTftSurface(value: unknown): value is TftSurface {
@@ -18,12 +20,27 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
   const props = useGraphStore((state) => state.nodes.find((node) => node.id === nodeId)?.data.properties)
   const live = usePreviewStore((state) => state.outputs.get(nodeId)?.surface)
   const surface = isTftSurface(live) ? live : null
+  const setTouch = useTransportDisplayTouchStore((state) => state.setTouch)
+  const releaseTouch = useTransportDisplayTouchStore((state) => state.releaseTouch)
+  const touchCapable = Boolean(partById(String((props as Record<string, unknown> | undefined)?.partId ?? ''))?.display?.touchController)
   const fallbackSize = useMemo(() => tftRotatedSize(
     tftControllerForProps((props ?? {}) as Record<string, unknown>) ?? TFT_CONTROLLERS.ST7789,
     asTftRotation((props as Record<string, unknown> | undefined)?.tftRotation),
   ), [props])
   const width = surface?.width ?? fallbackSize.width
   const height = surface?.height ?? fallbackSize.height
+
+  const updateTouch = useCallback((clientX: number, clientY: number) => {
+    const canvas = canvasRef.current
+    if (!canvas || !touchCapable) return
+    const rect = canvas.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) return
+    setTouch(nodeId, {
+      pressed: true,
+      x: Math.max(0, Math.min(width - 1, Math.floor((clientX - rect.left) * width / rect.width))),
+      y: Math.max(0, Math.min(height - 1, Math.floor((clientY - rect.top) * height / rect.height))),
+    })
+  }, [height, nodeId, setTouch, touchCapable, width])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -46,11 +63,21 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
     <div className={styles.wrap}>
       <canvas
         ref={canvasRef}
-        className={styles.screen}
+        className={`nodrag ${styles.screen} ${touchCapable ? styles.touchScreen : ''}`}
         width={width}
         height={height}
         role="img"
         aria-label={`Transport display preview, ${width} by ${height} pixels`}
+        onPointerDown={(event) => {
+          if (!touchCapable) return
+          event.currentTarget.setPointerCapture(event.pointerId)
+          updateTouch(event.clientX, event.clientY)
+        }}
+        onPointerMove={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) updateTouch(event.clientX, event.clientY)
+        }}
+        onPointerUp={() => releaseTouch(nodeId)}
+        onPointerCancel={() => releaseTouch(nodeId)}
       />
     </div>
   )

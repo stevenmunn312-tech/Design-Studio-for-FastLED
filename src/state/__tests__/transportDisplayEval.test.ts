@@ -1,9 +1,10 @@
-import { describe, it, expect } from 'vitest'
-import { evaluateGraphFull } from '../graphEvaluator'
+import { beforeEach, describe, it, expect } from 'vitest'
+import { evaluateGraphFull, resetEvaluatorState } from '../graphEvaluator'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import type { StudioNode, StudioEdge } from '../graphStore'
-import { TRANSPORT_COLORS, nowPlayingGeometry, showStatusGeometry } from '../transportDisplay'
+import { TRANSPORT_COLORS, fixedTransportGeometry, nowPlayingGeometry, showStatusGeometry } from '../transportDisplay'
 import { getTftPixel, type TftSurface } from '../tftSurface'
+import { useTransportDisplayTouchStore } from '../transportDisplayTouchStore'
 
 const PLAIN = 'st7789-tft-240x240'
 const TOUCH = 'st7789v-xpt2046-touch-240x320'
@@ -50,6 +51,11 @@ function litCount(surface: TftSurface): number {
 }
 
 describe('the panel the evaluator draws', () => {
+  beforeEach(() => {
+    resetEvaluatorState()
+    useTransportDisplayTouchStore.getState().clear()
+  })
+
   it('renders the selected layout', () => {
     expect(evaluate({ tftLayout: 'Now Playing' })?.layout).toBe('Now Playing')
     expect(evaluate({ tftLayout: 'Show Status' })?.layout).toBe('Show Status')
@@ -96,13 +102,64 @@ describe('the panel the evaluator draws', () => {
     expect(evaluate({})?.lit).toBe(true)
   })
 
-  it('publishes an inert player-controls bundle until a preview touch source exists', () => {
+  it('publishes an inert player-controls bundle without a preview touch', () => {
     const value = evaluate({}) as unknown as { controls: Record<string, unknown> }
     expect(value.controls).toEqual({
       playPause: false, previous: false, next: false,
       volumeDelta: 0, ledToggle: false, brightnessDelta: 0,
       patternSteps: 0, patternConfirm: false,
     })
+  })
+
+  it('publishes a fixed transport button once per browser touch', () => {
+    const g = fixedTransportGeometry(240, 320)
+    useTransportDisplayTouchStore.getState().setTouch('tft', {
+      pressed: true,
+      x: g.next.rect.x + 1,
+      y: g.next.rect.y + 1,
+    })
+
+    const first = evaluate({ partId: TOUCH, tftLayout: 'Fixed Transport' }) as unknown as { controls: Record<string, unknown> }
+    const held = evaluate({ partId: TOUCH, tftLayout: 'Fixed Transport' }) as unknown as { controls: Record<string, unknown> }
+    expect(first.controls.next).toBe(true)
+    expect(held.controls.next).toBe(false)
+  })
+
+  it('chains browser touch through the Player Controls bundle', () => {
+    const g = fixedTransportGeometry(240, 320)
+    useTransportDisplayTouchStore.getState().setTouch('tft', {
+      pressed: true,
+      x: g.playPause.rect.x + 1,
+      y: g.playPause.rect.y + 1,
+    })
+    const tft = node('tft', 'TransportDisplay', { partId: TOUCH, tftLayout: 'Fixed Transport' })
+    const playerControls = node('pc', 'PlayerControls')
+    const result = evaluateGraphFull(
+      [output, tft, playerControls],
+      [edge('controls', 'tft', 'controls', 'pc', 'controlsIn')],
+      1.5, 8, 8,
+    )
+
+    expect((result.outputs.get('pc')?.controls as Record<string, unknown>).playPause).toBe(true)
+  })
+
+  it('publishes absolute sliders while the browser touch is held', () => {
+    const g = showStatusGeometry(240, 320)
+    useTransportDisplayTouchStore.getState().setTouch('tft', {
+      pressed: true,
+      x: g.brightness.x + Math.floor((g.brightness.w - 1) / 2),
+      y: g.brightness.y + 1,
+    })
+
+    const value = evaluate({ partId: TOUCH, tftLayout: 'Show Status' }) as unknown as { controls: Record<string, unknown> }
+    expect(value.controls.brightness).toBeCloseTo(0.5, 1)
+  })
+
+  it('keeps a non-touch module inert even if stale browser input exists', () => {
+    useTransportDisplayTouchStore.getState().setTouch('tft', { pressed: true, x: 1, y: 1 })
+    const value = evaluate({ partId: PLAIN, tftLayout: 'Now Playing' }) as unknown as { controls: Record<string, unknown> }
+    expect(value.controls.playPause).toBe(false)
+    expect(value.controls.volume).toBeUndefined()
   })
 
   it('remains in the hot set after gaining its controls output', () => {

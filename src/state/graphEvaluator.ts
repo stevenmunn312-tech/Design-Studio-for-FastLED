@@ -2,6 +2,7 @@ import type { StudioNode, StudioEdge } from './graphStore'
 import { useAudioStore } from './audioStore'
 import { useDmxStore } from './dmxStore'
 import { useHardwareInputStore } from './hardwareInputStore'
+import { useTransportDisplayTouchStore } from './transportDisplayTouchStore'
 import { useMidiStore } from './midiStore'
 import { blankDmxSnapshot, clampDmxChannel, clampDmxByte, type DmxSnapshot } from './dmx'
 import { rtcPreviewSnapshot, type RtcPreview } from './rtc'
@@ -25,6 +26,7 @@ import {
   type TransportDisplayData,
 } from './transportDisplay'
 import { TFT_CONTROLLERS, asTftRotation, tftLine, type TftSurface } from './tftSurface'
+import { touchRegionAt, transportTouchRegions } from './transportTouch'
 import { partById } from './partCatalogue'
 import {
   displayString, formatNumberText, normalizeNumberFormat,
@@ -199,6 +201,7 @@ interface PlayerControlsState {
   patternEncoder?: PatternSelectionState
 }
 const playerControlsState = new Map<string, PlayerControlsState>()
+const transportDisplayTouchState = new Map<string, { pressed: boolean }>()
 /** One selection per Music Player. The player owns which pattern is playing;
  *  a panel reads it and decides nothing. */
 const patternSelectionState = new Map<string, PatternSelectionState>()
@@ -468,7 +471,7 @@ function stateMaps(): StateMap[] {
     envState, dmxChannelState, trailState, frameFeedbackState, fftLevels, beatLevels, clockState, clockDisplayState, fireRngState,
     seededRngState, triggerState, scheduleState, particleState, particleSeedState, patternShowState,
     patternSelectionState,
-    playerControlsState, musicPlayerRuntimeState,
+    playerControlsState, transportDisplayTouchState, musicPlayerRuntimeState,
     percussionLevels, audioFeatureLevels,
     rdState, golState, waveSimState, flowState, colorTrailsState, spectrumVisualizerState, starState, boidState, sparkState, fire2012Heat,
     kickShockState, kaleidoPunch, percussionBlobsState, emberBurst,
@@ -545,7 +548,7 @@ export function getEvaluatorMemoryStats(): {
     fftLevels: fftLevels.size, beatLevels: beatLevels.size, percussionLevels: percussionLevels.size,
     audioFeatureLevels: audioFeatureLevels.size, particleState: particleState.size,
     particleSeedState: particleSeedState.size, patternShowState: patternShowState.size,
-    playerControlsState: playerControlsState.size, musicPlayerRuntimeState: musicPlayerRuntimeState.size,
+    playerControlsState: playerControlsState.size, transportDisplayTouchState: transportDisplayTouchState.size, musicPlayerRuntimeState: musicPlayerRuntimeState.size,
     rdState: rdState.size, golState: golState.size, waveSimState: waveSimState.size,
     flowState: flowState.size, colorTrailsState: colorTrailsState.size,
     spectrumVisualizerState: spectrumVisualizerState.size, starState: starState.size,
@@ -6918,6 +6921,29 @@ function createEvalNode(
           volumeDelta: 0, ledToggle: false, brightnessDelta: 0,
           patternSteps: 0, patternConfirm: false,
         }
+        const touchKey = stateKey(id)
+        const touch = useTransportDisplayTouchStore.getState().touches.get(id)
+        const touchCapable = Boolean(partById(String(props.partId ?? ''))?.display?.touchController)
+        const pressed = enabled && touchCapable && Boolean(touch?.pressed)
+        const previousTouch = transportDisplayTouchState.get(touchKey) ?? { pressed: false }
+        const hit = pressed && touch
+          ? touchRegionAt(touch, transportTouchRegions(controller, rotation, layout))
+          : null
+
+        // Firmware publishes momentary actions only on the touch-down edge and
+        // absolute sliders for as long as the finger stays down. Do the same
+        // here so chaining through Player Controls cannot fire a button every
+        // evaluator tick while it is held.
+        if (hit?.action === 'volume' && hit.value != null) controls.volume = hit.value
+        if (hit?.action === 'brightness' && hit.value != null) controls.brightness = hit.value
+        if (pressed && !previousTouch.pressed && hit) {
+          if (hit.action === 'playPause') controls.playPause = true
+          else if (hit.action === 'previous') controls.previous = true
+          else if (hit.action === 'next') controls.next = true
+          else if (hit.action === 'ledToggle') controls.ledToggle = true
+        }
+        previousTouch.pressed = pressed
+        transportDisplayTouchState.set(touchKey, previousTouch)
 
         if (!enabled) {
           out = { lit: false, layout, surface: null, controls }
