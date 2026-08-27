@@ -35,7 +35,7 @@ import {
 } from './segmentDisplayCpp'
 import { asSegmentMode, clampSegmentBrightness, segmentControllerFor } from '../state/segmentDisplay'
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
-import { NODE_LIBRARY, oledControllerForProps, oledTransportForProps } from '../state/nodeLibrary'
+import { NODE_LIBRARY, oledControllerForProps, oledTransportForProps, tftControllerForProps } from '../state/nodeLibrary'
 import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp } from './ledOutputRuntimeCpp'
 import { masterClockLoopCpp, masterSpeedUpdateCpp, type MasterSpeedEmit } from './masterSpeedCpp'
 import {
@@ -49,6 +49,12 @@ import {
   infoDisplayLoopCpp, columnOffsetFor, type InfoDisplayEmit,
 } from './infoDisplayCpp'
 import { asInfoDisplayLayout, STATUS_MAX_INDICATORS } from '../state/infoDisplay'
+import {
+  tftDisplayHelpersCpp, TFT_DISPLAY_CPP_FORWARD, TFT_DISPLAY_CPP_INCLUDES,
+  tftDisplayGlobalCpp, tftDisplaySetupCpp, tftDisplayLoopCpp, type TftDisplayEmit,
+} from './tftDisplayCpp'
+import { asTransportDisplayLayout } from '../state/transportDisplay'
+import { asTftRotation, TFT_CONTROLLERS } from '../state/tftSurface'
 import {
   oledRotationCommands, asOledRotation, asOledAddress,
 } from '../state/oledSurface'
@@ -1752,6 +1758,7 @@ export function generateCpp(
   const needsDisplayText = { v: false }
   const segmentDisplays: SegmentDisplayEmit[] = []
   const infoDisplays: InfoDisplayEmit[] = []
+  const tftDisplays: TftDisplayEmit[] = []
   const browserTables: { id: string; entries: BrowserThumbnails[string] }[] = []
   const needsXyMap = { v: false }
   // Frame-producing nodes each render into their own CRGB buffer, so multiple
@@ -4940,6 +4947,54 @@ export function generateCpp(
         break
       }
 
+      case 'TransportDisplay': {
+        needsDisplayText.v = true
+        const strExpr = (port: string): string | null => {
+          const up = incoming.get(`${node.id}:${port}`)
+          return up ? `n_${safeId(up.srcId)}_${up.srcPort}` : null
+        }
+        const emit: TftDisplayEmit = {
+          id,
+          controller: tftControllerForProps(p) ?? TFT_CONTROLLERS.ST7789,
+          rotation: asTftRotation(p.tftRotation),
+          layout: asTransportDisplayLayout(p.tftLayout),
+          csPin: intProp(p.csPin, 5, 0, MAX_PIN_NUMBER),
+          dcPin: intProp(p.dcPin, 16, 0, MAX_PIN_NUMBER),
+          resetPin: intProp(p.resetPin, 17, 0, MAX_PIN_NUMBER),
+          sckPin: intProp(p.sckPin, 18, 0, MAX_PIN_NUMBER),
+          mosiPin: intProp(p.mosiPin, 23, 0, MAX_PIN_NUMBER),
+          backlightPin: intProp(p.backlightPin, 4, 0, MAX_PIN_NUMBER),
+          enabledExpr: incoming.get(`${node.id}:enabled`)
+            ? boolExpr(node.id, 'enabled')
+            : (p.enabled === false ? 'false' : 'true'),
+          titleExpr: strExpr('title'),
+          artistExpr: strExpr('artist'),
+          patternNameExpr: strExpr('patternName'),
+          elapsedExpr: f('elapsedSec', 'elapsedSec', 0),
+          durationExpr: f('durationSec', 'durationSec', 0),
+          progressExpr: `constrain(${f('progress', 'progress', 0)}, 0.0f, 1.0f)`,
+          playingExpr: incoming.get(`${node.id}:playing`) ? boolExpr(node.id, 'playing') : 'false',
+          volumeExpr: `constrain(${f('volume', 'volume', 0)}, 0.0f, 1.0f)`,
+          patternIndexExpr: f('patternIndex', 'patternIndex', 0),
+          patternCountExpr: f('patternCount', 'patternCount', 0),
+          sectionExpr: strExpr('section'),
+          bpmExpr: f('bpm', 'bpm', 0),
+          beatExpr: f('beat', 'beat', 0),
+          outputEnabledExpr: incoming.get(`${node.id}:outputEnabled`)
+            ? boolExpr(node.id, 'outputEnabled')
+            : 'false',
+          brightnessExpr: `constrain(${f('brightness', 'brightness', 0)}, 0.0f, 1.0f)`,
+          // No artwork table: nothing bakes colour art yet, so the layout
+          // draws its empty frame — the same frame the preview draws. Emitting
+          // a reference to a table no generator writes would be a sketch that
+          // names a symbol it never declares.
+        }
+        tftDisplays.push(emit)
+        for (const line of tftDisplaySetupCpp(emit)) setupLines.push(line)
+        for (const line of tftDisplayLoopCpp(emit)) ln(line)
+        break
+      }
+
       case 'SegmentDisplay': {
         const dtUp = incoming.get(`${node.id}:dateTime`)
         const segCtl = segmentControllerFor(partById(String(p.partId ?? ''))?.display?.controller)
@@ -6302,6 +6357,10 @@ export function generateCpp(
   lines.push(`#include <FastLED.h>`)
   if (isHub75) lines.push(...hub75IncludesCpp(hub75Hw!))
   if (needsWire) lines.push(`#include <Wire.h>`)
+  // The colour panel is driven through the Arduino SPI library rather than
+  // bit-banged: a 240x240 frame is 115 KB, which no software loop ships in
+  // time. The OLED beside it needs no include for exactly the opposite reason.
+  if (tftDisplays.length > 0) lines.push(TFT_DISPLAY_CPP_INCLUDES)
   if (needsWifi) {
     lines.push(`#if defined(ESP32)`)
     lines.push(`#include <WiFi.h>`)
@@ -6329,6 +6388,7 @@ export function generateCpp(
   // generator never wrote.
   if (infoDisplays.length > 0) lines.push(INFO_DISPLAY_CPP_FORWARD)
   if (segmentDisplays.length > 0) lines.push(SEGMENT_DISPLAY_CPP_FORWARD)
+  if (tftDisplays.length > 0) lines.push(TFT_DISPLAY_CPP_FORWARD)
   if (nodes.some((n) => n.data.nodeType === 'InfoDisplay'
     && asInfoDisplayLayout((n.data.properties as { infoLayout?: unknown }).infoLayout) === 'Pattern Browser')) {
     lines.push(PATTERN_SELECTION_CPP_FORWARD)
@@ -6422,6 +6482,12 @@ export function generateCpp(
   if (infoDisplays.length > 0) {
     lines.push(infoDisplayHelpersCpp())
     for (const display of infoDisplays) lines.push(infoDisplayGlobalCpp(display))
+    lines.push(``)
+  }
+
+  if (tftDisplays.length > 0) {
+    lines.push(tftDisplayHelpersCpp())
+    for (const display of tftDisplays) lines.push(tftDisplayGlobalCpp(display))
     lines.push(``)
   }
 

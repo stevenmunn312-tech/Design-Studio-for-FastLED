@@ -18,6 +18,7 @@ import { generatePlayerSketch } from '../playerSketchGenerator'
 import { playerDisplaysFromGraph } from '../playerDisplays'
 import { INFO_DISPLAY_CPP_FORWARD } from '../infoDisplayCpp'
 import { SEGMENT_DISPLAY_CPP_FORWARD } from '../segmentDisplayCpp'
+import { TFT_DISPLAY_CPP_FORWARD } from '../tftDisplayCpp'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 const node = (id: string, nodeType: string, properties: Record<string, unknown> = {}) => ({
@@ -39,6 +40,10 @@ const collection = node('coll', 'PatternCollection', { patternIds: [] })
 const browser = node('brw', 'InfoDisplay', {
   partId: 'sh1106-oled-128x64', infoLayout: 'Pattern Browser',
   csPin: 1, dcPin: 2, resetPin: 5, sckPin: 6, mosiPin: 7,
+})
+const tft = node('tft', 'TransportDisplay', {
+  partId: 'st7789-tft-240x240', tftLayout: 'Now Playing',
+  csPin: 15, dcPin: 2, resetPin: 4, sckPin: 14, mosiPin: 13, backlightPin: 27,
 })
 const browserWire = {
   id: 'bw', source: 'coll', target: 'brw', sourceHandle: 'patternset', targetHandle: 'patternset',
@@ -67,6 +72,10 @@ describe('normal sketches', () => {
     declaredBeforeAnyFunction(generateCpp([output, segment], []), SEGMENT_DISPLAY_CPP_FORWARD)
   })
 
+  it('names the colour panel struct before any function that takes one', () => {
+    declaredBeforeAnyFunction(generateCpp([output, tft], []), TFT_DISPLAY_CPP_FORWARD)
+  })
+
   it('names both when both are on the bench', () => {
     const src = generateCpp([output, oled, segment], [])
     declaredBeforeAnyFunction(src, INFO_DISPLAY_CPP_FORWARD)
@@ -77,13 +86,15 @@ describe('normal sketches', () => {
     const src = generateCpp([output], [])
     expect(src).not.toContain(INFO_DISPLAY_CPP_FORWARD)
     expect(src).not.toContain(SEGMENT_DISPLAY_CPP_FORWARD)
+    expect(src).not.toContain(TFT_DISPLAY_CPP_FORWARD)
   })
 
   // A forward declaration is only worth anything if the definition follows it.
   it('still defines the struct it forward-declared', () => {
-    const src = generateCpp([output, oled, segment], [])
+    const src = generateCpp([output, oled, segment, tft], [])
     expect(src).toContain('struct OledPanel {')
     expect(src).toContain('struct SegDisplay {')
+    expect(src).toContain('struct TftPanel {')
   })
 })
 
@@ -99,7 +110,8 @@ describe('every struct a function takes by reference', () => {
     ['info display', () => generateCpp([output, oled], [])],
     ['segment display', () => generateCpp([output, segment], [])],
     ['pattern browser', () => generateCpp([output, collection, browser], [browserWire])],
-    ['all of them', () => generateCpp([output, oled, segment, collection, browser], [browserWire])],
+    ['transport display', () => generateCpp([output, tft], [])],
+    ['all of them', () => generateCpp([output, oled, segment, tft, collection, browser], [browserWire])],
   ]
 
   it.each(graphs)('is declared before any function in a %s sketch', (_label, build) => {
