@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { findDisplayGeneratorIssues } from '../validateGraph'
+import { buildGraphDiagnostics, findDisplayGeneratorIssues } from '../validateGraph'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
@@ -101,6 +101,75 @@ describe('displays a build cannot drive', () => {
     const issues = findDisplayGeneratorIssues([out(), transport], [])
     expect(issues.errors).toEqual([])
     expect(issues.warnings).toEqual([])
+  })
+
+  it('allows an unwired touch panel to stay read-only in a normal sketch', () => {
+    const transport = node('transport', 'TransportDisplay', {
+      partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Now Playing',
+    })
+    expect(findDisplayGeneratorIssues([out(), transport], [])).toEqual({ errors: [], warnings: [] })
+  })
+
+  it('blocks touch controls a normal sketch would silently ignore', () => {
+    const transport = node('transport', 'TransportDisplay', {
+      partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Fixed Transport',
+    })
+    const controls = node('controls', 'PlayerControls')
+    const issues = findDisplayGeneratorIssues(
+      [out(), transport, controls],
+      [edge('touch', 'transport', 'controls', 'controls', 'controlsIn')],
+    )
+    expect(issues.errors).toHaveLength(1)
+    expect(issues.errors[0]).toContain('normal sketch does not sample XPT2046 touch yet')
+    expect(issues.errors[0]).toContain('read-only display')
+  })
+
+  it('surfaces the same ignored-touch failure in live Graph Health', () => {
+    const transport = node('transport', 'TransportDisplay', {
+      partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Fixed Transport',
+    })
+    const controls = node('controls', 'PlayerControls')
+    const diagnostics = buildGraphDiagnostics(
+      [out(), transport, controls],
+      [edge('touch', 'transport', 'controls', 'controls', 'controlsIn')],
+    )
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      id: 'display-generator-error-0',
+      severity: 'error',
+      nodeIds: ['transport'],
+      message: expect.stringContaining('normal sketch does not sample XPT2046 touch yet'),
+    }))
+  })
+
+  it('blocks an incomplete touch chain in a player build', () => {
+    const transport = node('transport', 'TransportDisplay', {
+      partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Fixed Transport',
+    })
+    const master = node('master', 'PatternMaster')
+    const controls = node('controls', 'PlayerControls')
+    const nodes = [out(), transport, master, controls, node('sd', 'SDCard'), node('amp', 'Amplifier')]
+    const wires = [
+      edge('frame', 'master', 'frame', 'out', 'frame'),
+      edge('touch', 'transport', 'controls', 'controls', 'controlsIn'),
+    ]
+    const issues = findDisplayGeneratorIssues(nodes, wires)
+    expect(issues.errors).toHaveLength(1)
+    expect(issues.errors[0]).toContain('does not reach Music Player through Player Controls')
+  })
+
+  it('accepts a touch chain that reaches Music Player in a player build', () => {
+    const transport = node('transport', 'TransportDisplay', {
+      partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Fixed Transport',
+    })
+    const master = node('master', 'PatternMaster')
+    const controls = node('controls', 'PlayerControls')
+    const nodes = [out(), transport, master, controls, node('sd', 'SDCard'), node('amp', 'Amplifier')]
+    const wires = [
+      edge('frame', 'master', 'frame', 'out', 'frame'),
+      edge('touch', 'transport', 'controls', 'controls', 'controlsIn'),
+      edge('player', 'controls', 'controls', 'master', 'controls'),
+    ]
+    expect(findDisplayGeneratorIssues(nodes, wires).errors).toEqual([])
   })
 
   it('rejects an inverted XPT2046 calibration before upload', () => {

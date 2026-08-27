@@ -553,7 +553,9 @@ freeform widgets must reuse rather than rediscover.
   publishes button edges and held absolute sliders through the same
   `playercontrols` bundle using the firmware's shared hit geometry. Normal
   sketches and the generative-show control graph remain here rather than being
-  implied complete.
+  implied complete. Until they land, deploy validation and Graph Health block a
+  wired touch output those generators would ignore; an unwired touch panel is
+  still valid as a read-only display.
 - [ ] Add calibration/rotation handling for touch and persist the exact module's
   calibration only where it is stable. Provide a generated touch self-test.
   Calibration properties, clamping and all four rotations are implemented;
@@ -655,8 +657,12 @@ freeform widgets must reuse rather than rediscover.
 - [ ] Support arbitrary scalar/control wiring in normal sketches first. Then
   embed the shared control-graph IR in generative-show and SD-player firmware so
   touch can drive real graph logic rather than only hardcoded transport actions.
-- [ ] Block unsupported show-mode bindings with an actionable diagnostic until
-  the corresponding control-graph path exists.
+- [x] Block unsupported generator bindings with an actionable diagnostic until
+  the corresponding control-graph path exists. Generated shows already refuse
+  displays because that generator cannot draw them; normal sketches now refuse
+  a wired XPT2046 Controls output they cannot sample, and SD-player builds
+  refuse incomplete chains that never reach Music Player. Read-only panels stay
+  valid. The same messages appear in deploy validation and live Graph Health.
 
 ### Phase 8 — tests, documentation, and release evidence
 

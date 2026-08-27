@@ -139,7 +139,7 @@ function touchRawProp(value: unknown, fallback: number): number {
 
 /** Whether this display's control bundle reaches the Music Player through the
  * same Player Controls chain as physical buttons and encoders. */
-function displayControlsPlayer(
+export function displayControlsPlayer(
   displayId: string,
   edges: ConfigEdge[],
   byId: Map<string, ConfigNode>,

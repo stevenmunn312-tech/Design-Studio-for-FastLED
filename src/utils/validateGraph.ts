@@ -13,7 +13,7 @@ import { MAX_PIN_NUMBER, pinSupports } from '../state/boardGpio'
 import { getNetworkCredentials } from '../state/networkCredentials'
 import { collectPinUses } from '../build/hardwareManifest'
 import { browserThumbnailIssues } from './browserThumbnails'
-import { playerDisplaysFromGraph } from '../codegen/playerDisplays'
+import { displayControlsPlayer, playerDisplaysFromGraph } from '../codegen/playerDisplays'
 import { OLED_PANEL_RAM_BYTES } from '../codegen/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../codegen/segmentDisplayCpp'
 import { TFT_PANEL_RAM_BYTES } from '../codegen/tftDisplayCpp'
@@ -1299,13 +1299,15 @@ export function findDisplayGeneratorIssues(
   const warnings: string[] = []
 
   const master = nodes.find((node) => node.data.nodeType === 'PatternMaster')
+  const generator = selectedGenerator(nodes, edges)
+  const nodeById = new Map(nodes.map((node) => [node.id, node]))
 
   // Three generators, not two, and only one of them cannot draw.
   //
   //   normal sketch      cppGenerator          draws displays
   //   SD player          playerSketchGenerator draws displays
   //   pattern show       showGenerator         does not
-  if (selectedGenerator(nodes, edges) === 'show') {
+  if (generator === 'show') {
     errors.push(
       `A generated show controller cannot drive a display yet, so ${names.join(', ')} would not be built into the firmware. `
       + 'Export it through Upload show to SD, which does drive displays, or remove the display before exporting a show.',
@@ -1318,6 +1320,19 @@ export function findDisplayGeneratorIssues(
   for (const display of displays.filter((node) => node.data.nodeType === 'TransportDisplay')) {
     const props = display.data.properties as Record<string, unknown>
     if (!partById(String(props.partId ?? ''))?.display?.touchController) continue
+    const controlsWired = edges.some((edge) => edge.source === display.id && edge.sourceHandle === 'controls')
+    if (controlsWired && generator === 'sketch') {
+      errors.push(
+        `${nodeLabel(display)} has its Controls output wired, but a normal sketch does not sample XPT2046 touch yet. `
+        + 'Disconnect Controls to use the panel as a read-only display, or export a music-player build through Upload show to SD.',
+      )
+    } else if (controlsWired && generator === 'player'
+      && !displayControlsPlayer(display.id, edges as never, nodeById as never)) {
+      errors.push(
+        `${nodeLabel(display)} has its Controls output wired, but that chain does not reach Music Player through Player Controls. `
+        + 'Complete the control chain so the player sketch samples touch, or disconnect Controls to use the panel as read-only.',
+      )
+    }
     const raw = (key: string, fallback: number) => {
       const value = Number(props[key] ?? fallback)
       return Number.isFinite(value) ? value : fallback
@@ -1811,6 +1826,36 @@ export function buildGraphDiagnostics(
       nodeLabel: issue.nodeLabel,
     })
   }
+
+  // Keep the live drawer aligned with deploy validation. Display-generator
+  // mismatches are especially misleading because the screen itself may still
+  // render while a field stays blank or every touch is ignored.
+  const liveDisplayIssues = findDisplayGeneratorIssues(nodes, edges)
+  const displayNodeIds = nodes.filter((node) => DISPLAY_NODE_TYPES.has(node.data.nodeType)).map((node) => node.id)
+  liveDisplayIssues.errors.forEach((message, index) => diagnostics.push({
+    id: `display-generator-error-${index}`,
+    severity: 'error',
+    category: 'connection',
+    title: 'Display firmware cannot honour this setup',
+    message,
+    fix: 'Follow the wiring or export-path change named in the message before deploying.',
+    nodeIds: displayNodeIds,
+    nodeLabel: displayNodeIds.length === 1
+      ? nodeLabel(nodes.find((node) => node.id === displayNodeIds[0])!)
+      : 'Displays',
+  }))
+  liveDisplayIssues.warnings.forEach((message, index) => diagnostics.push({
+    id: `display-generator-warning-${index}`,
+    severity: 'warning',
+    category: 'connection',
+    title: 'Display firmware will leave a value blank',
+    message,
+    fix: 'Wire the value to a source the selected generator can read, or choose a compatible export path.',
+    nodeIds: displayNodeIds,
+    nodeLabel: displayNodeIds.length === 1
+      ? nodeLabel(nodes.find((node) => node.id === displayNodeIds[0])!)
+      : 'Displays',
+  }))
 
   const perfGen = nodes.find((node) => node.data.nodeType === 'PerformanceGenerator')
   if (perfGen && incoming.has(`${perfGen.id}:patternset`)) {
