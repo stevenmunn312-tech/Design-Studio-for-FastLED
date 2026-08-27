@@ -20,6 +20,11 @@ import {
   type InfoDisplayData,
 } from './infoDisplay'
 import { OLED_CONTROLLERS, oledLine, type OledSurface } from './oledSurface'
+import {
+  asTransportDisplayLayout, renderTransportDisplay,
+  type TransportDisplayData,
+} from './transportDisplay'
+import { TFT_CONTROLLERS, asTftRotation, tftLine, type TftSurface } from './tftSurface'
 import { partById } from './partCatalogue'
 import {
   displayString, formatNumberText, normalizeNumberFormat,
@@ -39,7 +44,7 @@ import { imagePaletteStops16, type ImagePaletteSource } from './imagePalette'
 import { waveSample, combineWaves } from './wave'
 import { polinePalette, hexToRgb } from './polinePalette'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette } from './customPalette'
-import { inputClampRange, bypassPort, oledControllerForProps, resolveNodeScalarExpressions, NODE_LIBRARY } from './nodeLibrary'
+import { inputClampRange, bypassPort, oledControllerForProps, tftControllerForProps, resolveNodeScalarExpressions, NODE_LIBRARY } from './nodeLibrary'
 import { makeShims, SHIM_NAMES } from './fastledShims'
 import { compileNodeFormula, type FormulaFn } from './formulaLang'
 import { createBeatDetectorState, denormalizeBeatParam, updateBeatDetectorFromSpectrum } from '../audio/beatDetection'
@@ -4600,7 +4605,7 @@ export interface PlayerParticles {
   randomStyle: boolean
 }
 
-export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | AudioSignal | StorageSignal | PlayerControls | PlayerParticles | SegmentFrame | OledSurface | PatternSelectValue | null
+export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | AudioSignal | StorageSignal | PlayerControls | PlayerParticles | SegmentFrame | OledSurface | TftSurface | PatternSelectValue | null
 
 /** A reusable pattern group: a named subgraph that a `Group` node evaluates. */
 export interface GroupDef { nodes: StudioNode[]; edges: StudioEdge[] }
@@ -6890,6 +6895,66 @@ function createEvalNode(
         }
 
         out = { lit: true, layout, surface: renderInfoDisplay(controller, payload) }
+        break
+      }
+
+      case 'TransportDisplay': {
+        // A terminal like the OLED beside it, and it draws through
+        // state/transportDisplay.ts for the same reason: the node body, the
+        // workbench and the firmware all resolve one geometry, so the colour
+        // panel matches the picture the editor showed.
+        //
+        // Rotation is read here rather than baked into the part, because it is
+        // a fact about how the module was bolted down. A 240x320 panel mounted
+        // on its side is a 320x240 surface, and the layout has to be told.
+        const enabled = incoming.has(`${id}:enabled`)
+          ? Boolean(input(id, 'enabled', true))
+          : props.enabled !== false
+        const controller = tftControllerForProps(props) ?? TFT_CONTROLLERS.ST7789
+        const rotation = asTftRotation(props.tftRotation)
+        const layout = asTransportDisplayLayout(props.tftLayout)
+
+        if (!enabled) {
+          out = { lit: false, layout, surface: null }
+          break
+        }
+
+        let payload: TransportDisplayData
+        if (layout === 'Show Status') {
+          payload = {
+            layout: 'Show Status',
+            data: {
+              patternName: tftLine(input(id, 'patternName', '')),
+              patternIndex: num(id, 'patternIndex', props, 'patternIndex', 0),
+              patternCount: num(id, 'patternCount', props, 'patternCount', 0),
+              section: tftLine(input(id, 'section', '')),
+              bpm: num(id, 'bpm', props, 'bpm', 0),
+              beat: num(id, 'beat', props, 'beat', 0),
+              outputEnabled: Boolean(input(id, 'outputEnabled', false)),
+              brightness: clamp01(num(id, 'brightness', props, 'brightness', 0)),
+            },
+          }
+        } else {
+          payload = {
+            layout: 'Now Playing',
+            data: {
+              title: tftLine(input(id, 'title', '')),
+              artist: tftLine(input(id, 'artist', '')),
+              elapsedSec: num(id, 'elapsedSec', props, 'elapsedSec', 0),
+              durationSec: num(id, 'durationSec', props, 'durationSec', 0),
+              progress: clamp01(num(id, 'progress', props, 'progress', 0)),
+              playing: Boolean(input(id, 'playing', false)),
+              volume: clamp01(num(id, 'volume', props, 'volume', 0)),
+              patternName: tftLine(input(id, 'patternName', '')),
+              // Null until the artwork baker exists. The layout draws its empty
+              // frame, which is exactly what the generated sketch draws too —
+              // see the note on the node's missing artwork port.
+              artwork: null,
+            },
+          }
+        }
+
+        out = { lit: true, layout, surface: renderTransportDisplay(controller, rotation, payload) }
         break
       }
 

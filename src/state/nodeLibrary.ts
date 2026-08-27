@@ -16,6 +16,7 @@ import {
   oledAddressLabel, oledControllerFor, oledTransportFor,
   type OledController, type OledTransport,
 } from './oledSurface'
+import { tftControllerFor, type TftController } from './tftSurface'
 import { LED_OUTPUT_RUNTIME_PORTS } from './ledOutputRuntime'
 import { MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './masterSpeed'
 import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
@@ -4863,6 +4864,18 @@ export function oledTransportForProps(properties: Record<string, unknown>): Oled
 /** The OLED controller a node's chosen module drives, or null if it drives none. */
 export function oledControllerForProps(properties: Record<string, unknown>): OledController | null {
   return oledControllerFor(partById(String(properties.partId ?? ''))?.display?.controller)
+}
+
+/**
+ * The colour controller a node's chosen module drives, or null if it drives
+ * none.
+ *
+ * The twin of `oledControllerForProps`, and resolved through the catalogue for
+ * the same reason: which silicon is behind the glass is a fact about the part,
+ * not a second property for the user to keep in step with their module choice.
+ */
+export function tftControllerForProps(properties: Record<string, unknown>): TftController | null {
+  return tftControllerFor(partById(String(properties.partId ?? ''))?.display?.controller)
 }
 
 const TRANSPORT_DISPLAY_BASE_PINS = [
