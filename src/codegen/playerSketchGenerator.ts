@@ -1877,13 +1877,42 @@ ${particleFx && genericPlayer && decoderTap ? `  // Player Particles turns the l
 ${genericPlayer ? `  // Unknown tracks have no pre-baked event timeline. Rotate the
   // collected patterns on a simple wall-clock cadence while their own audio
   // nodes react to the live decoder signal.
+  //
+  // The cadence steps from wherever the cursor already is, rather than being
+  // computed as posMs / dwell % count. An absolute index can only ever land
+  // where the clock says, so a confirmed pattern was overwritten on the very
+  // next loop: the press selected, and nothing changed. Stepping relatively
+  // means a confirm sticks, keeps a full dwell of its own, and decides what
+  // comes after it.
   if (GENERIC_PLAYER && ${collection ? renderers?.count ?? 0 : 0} > 1) {
-    uint8_t nextPattern = (uint8_t)((posMs / 8000UL) % ${collection ? renderers?.count ?? 1 : 1});
+    const uint32_t rotateMs = 8000UL;
+    static uint32_t rotatedAtMs = 0;
+    // A track change rewinds posMs. Without this the unsigned difference
+    // below wraps to something enormous and forces a spurious advance.
+    if (posMs < rotatedAtMs) rotatedAtMs = posMs;
 ${hasPatternSelection ? `    // Through the selection, so a confirmed pattern and a dwell-driven one
-    // move the same cursor — and a confirm actually changes what renders.
-    _selSetActive(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, nextPattern);
-    nextPattern = (uint8_t)_sel_${PLAYER_SELECTION_STEM}.active;
-` : ''}    if (nextPattern != patternId) {
+    // move the same cursor - and a confirm actually changes what renders.
+    static uint16_t rotatedFrom = 0xFFFF;
+    uint16_t selActive = _sel_${PLAYER_SELECTION_STEM}.active;
+    // Any move the show did not make is a confirm, and restarts the dwell so
+    // a chosen pattern gets a whole window instead of the tail of one.
+    // Confirming what is already playing moves nothing, and so extends
+    // nothing - which is what that press means.
+    if (selActive != rotatedFrom) { rotatedFrom = selActive; rotatedAtMs = posMs; }
+    if (posMs - rotatedAtMs >= rotateMs) {
+      rotatedAtMs = posMs;
+      _selSetActive(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT,
+                    (uint16_t)((selActive + 1) % PATTERN_COUNT));
+      rotatedFrom = _sel_${PLAYER_SELECTION_STEM}.active;
+    }
+    uint8_t nextPattern = (uint8_t)_sel_${PLAYER_SELECTION_STEM}.active;
+` : `    static uint8_t rotateIndex = 0;
+    if (posMs - rotatedAtMs >= rotateMs) {
+      rotatedAtMs = posMs;
+      rotateIndex = (uint8_t)((rotateIndex + 1) % ${collection ? renderers?.count ?? 1 : 1});
+    }
+    uint8_t nextPattern = rotateIndex;
+`}    if (nextPattern != patternId) {
       prevPatternId = patternId;
       patternId = nextPattern;
       transType = 0;

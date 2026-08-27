@@ -131,6 +131,37 @@ describe('playerSketchGenerator', () => {
       expect(sketch).toContain('_selBegin(_sel_player);')
       expect(sketch).toContain('_selUpdate(_sel_player, PATTERN_COUNT, now, 1, false);')
     })
+
+    it('rotates the generic player relative to the cursor, so a confirm survives', () => {
+      // The rotation used to be posMs / dwell % count, an index derived purely
+      // from the clock. It was pushed into the selection every loop, so the
+      // instant a confirm cleared the browse flag the next iteration put the
+      // clock's own choice back: the press selected and nothing changed.
+      const renderers = {
+        buffers: [], helpers: [],
+        functions: ['void render_p0(uint32_t ms) { (void)ms; }',
+                    'void render_p1(uint32_t ms) { (void)ms; }'],
+        count: 2, params: [],
+      }
+      const sketch = generatePlayerSketch({}, renderers, {
+        genericPlayer: true,
+        controls: {
+          bindings: { patternConfirm: { kind: 'button', pin: 7, pullup: true } },
+          debounceMs: 30, volumeStep: 0.05, brightnessStep: 0.05,
+          repeatDelayMs: 400, repeatIntervalMs: 120,
+        },
+      })
+
+      expect(sketch).not.toContain('posMs / 8000UL')
+      // Steps from where the cursor is, so a confirmed pattern decides what
+      // plays next rather than the clock overruling it.
+      expect(sketch).toContain('(uint16_t)((selActive + 1) % PATTERN_COUNT)')
+      // A move the show did not make restarts the dwell, giving a confirmed
+      // pattern a whole window rather than the tail of someone else's.
+      expect(sketch).toContain('if (selActive != rotatedFrom) { rotatedFrom = selActive; rotatedAtMs = posMs; }')
+      // posMs rewinds on a track change; the unsigned difference would wrap.
+      expect(sketch).toContain('if (posMs < rotatedAtMs) rotatedAtMs = posMs;')
+    })
   })
 
   describe('Player Particles', () => {
