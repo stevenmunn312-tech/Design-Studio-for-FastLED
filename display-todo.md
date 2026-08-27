@@ -199,6 +199,9 @@ case the OLED slice cannot already serve.
 - [ ] `TransportDisplay` consumes the same contract: song information in from
   Music Player, commands out through the `playercontrols` bundle Player Controls
   already publishes. A touch module does not invent a second player.
+  The inbound half is done — stable typed ports for both layouts, resolved by
+  the evaluator and by `playerDisplaysFromGraph` for the SD player. The outbound
+  half waits on touch, and is the step that trips the sink trap above.
 - [ ] Each fixed node has a compact browser preview body that shows what the
   physical screen will render at its real aspect ratio.
 
@@ -502,13 +505,32 @@ reference implementation for panel setup, dirty updates, touch sampling,
 calibration, player-control routing, artwork budgets and generator support that
 freeform widgets must reuse rather than rediscover.
 
-- [ ] Establish a panel adapter with ST7789 240×240 SPI, partial draw buffers,
+- [x] Establish a panel adapter with ST7789 240×240 SPI, partial updates,
   rotation, colour order, backlight, and deterministic refresh scheduling.
-- [ ] Implement the fixed Now Playing and Show Status layouts without touch.
+  Not "partial draw buffers" as this line first said: 240×240 is 115 KB and
+  240×320 is 153 KB, so the device holds no frame at all. The browser surface
+  keeps a real dirty box; the firmware caches each field's last-drawn text or
+  integer and repaints only what changed. Both draw the same pixels from the
+  same geometry — only the decision about when to ship bytes differs, and only
+  one side has the RAM to make it the other way. The background is painted once
+  at setup rather than on the refresh deadline, because a full-screen fill
+  would stall the LED loop visibly. Pacing is wall-clock, never a frame count.
+- [x] Implement the fixed Now Playing and Show Status layouts without touch.
+  Shared pure helpers in `src/state/transportDisplay.ts`, drawn by the
+  evaluator and emitted as literals by both generators that draw displays.
+  The geometry is a function rather than flat constants, because rotation gives
+  one layout three sizes to satisfy.
 - [ ] Add the ST7789V 320×240 module and its XPT2046 touch as the first
       interactive target.
   Display and touch may share SPI data/clock lines but use separate CS and
   transactions.
+  The module is catalogued and one ST7789 driver already covers both panels, so
+  what is left here is touch alone. Before adding a touch *output* port, read
+  the sink trap in the design note: both terminal registries are derived from
+  inputs-and-no-outputs, so a display that gains an output drops out of both in
+  one step — pruned from the sketch along with everything feeding it, and
+  evaluated at only the ~8 fps publish cadence. Neither symptom names the port
+  that caused it.
 - [ ] Route fixed transport actions through the `playercontrols` bundle and read
   status from Music Player, so browser preview, generated normal sketches,
   generative shows, and SD players agree on edge handling, volume, and pattern
@@ -517,7 +539,13 @@ freeform widgets must reuse rather than rediscover.
   calibration only where it is stable. Provide a generated touch self-test.
 - [ ] Bake colour pattern thumbnails/art into flash with explicit size limits;
   optionally place large assets on the existing SD capability only through an
-  explicit storage policy.
+  explicit storage policy. The limits and the blit path exist
+  (`TRANSPORT_ARTWORK_BYTES`, `MAX_TRANSPORT_ARTWORKS`,
+  `transportArtworkBudgetIssue`, `_tftArt`); the baker does not. The node
+  deliberately has **no** artwork port until it does: an `image` port carries
+  live `ImageData` capped at `IMAGE_MAX_DIM`, and bridging that to baked RGB565
+  needs a scaler, which would need a C++ twin to keep preview and panel in
+  parity. Both sides draw the same empty frame instead.
 - [ ] Verify TFT + SD card + touch on the same SPI host, audio playback, LED
   refresh, cold boot, reconnect/upload, and one-hour interaction soak.
 

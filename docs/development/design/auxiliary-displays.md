@@ -372,6 +372,25 @@ as roots, and the preview's terminal set gains them alongside `GroupOutput` and
 
 A display must update even in a graph with no LED output at all.
 
+Both terminal registries are **derived** from exactly one rule — inputs and no
+outputs — so `SINK_NODE_TYPES` in `src/codegen/cppGenerator.ts` and
+`HOT_NODE_TYPES` in `src/state/graphEvaluator.ts` pick up each new display
+without a row. That is the right shape, and it has one sharp edge.
+
+**Adding an output port to a display silently un-terminals it.** A v1
+`TransportDisplay` has inputs and no outputs, so it is in both sets. The moment
+touch gains it an output port — the very next step planned for this node — it
+stops matching the rule, drops out of both, and two things happen at once that
+look unrelated: `reachableFromOutputs` prunes it and everything feeding it
+straight out of the sketch, so the panel sits dark on a board that compiled and
+uploaded cleanly; and the preview evaluates it only on publish frames, so what
+is left crawls at roughly 8 fps. Neither failure names the port that caused it.
+
+The fix is not to add rows to the two sets — that reintroduces the hand-kept
+lists these replaced. It is to widen the derived rule to cover a node that is
+workbench-owned and carries signal regardless of whether it answers back, and to
+do it in the same commit that adds the port.
+
 ### Scheduling
 
 Display work is scheduled independently of LED animation. A 320×240 SPI panel
@@ -447,6 +466,93 @@ looks exactly like a bad joint. So a build whose I²C parts name different SDA a
 SCL pins is a validation error, the retarget puts an I²C display on the board's
 own I²C bus rather than on two free pins, and the bus is started once for
 whatever is on it rather than by whichever part is set up first.
+
+## The same split in colour
+
+`src/state/tftSurface.ts` is the RGB565 twin of the 1-bit surface above, and it
+keeps that module's two rules for the same reasons. It knows nothing about the
+bus, and the controller's own geometry lives on its descriptor.
+
+The colour analogue of the SH1106's column offset is worse, because it moves
+with rotation. An ST7789 driving a 240×240 panel has 240×320 of frame memory
+behind it, so a rotation that scans rows backwards addresses the glass eighty
+rows in. Every ST7789 library carries that as a four-row table. `tftWindowOrigin`
+derives it instead, from one sentence — mirroring an axis does not move the
+glass, it renumbers the memory behind it — and the known values fall out. A
+table is how the next module's fifth case gets it wrong.
+
+Both descriptors state **native portrait** size. Rotation is a fact about how the
+module was bolted down, not about the part, so recording the 2.4-inch module as
+320×240 would bake one orientation into the catalogue and leave the other
+unrepresentable. The layouts resolve against the mounted size instead.
+
+`ST7789V` starts with `ST7789`. A shortest-prefix controller lookup hands the
+240×320 module the 240×240 descriptor and draws every layout eighty rows short,
+so `tftControllerFor` matches the longest name first.
+
+**The layout geometry is a function, not a table of constants.** This is the one
+place the colour modules depart from `INFO_LAYOUT`, and the reason is arithmetic:
+a 1-bit panel is always 128×64, but a colour one resolves against 240×240,
+240×320 and 320×240 depending on rotation. `nowPlayingGeometry(w, h)` and
+`showStatusGeometry(w, h)` resolve once, the evaluator draws from them, and the
+generator calls the same functions with the mounted size and emits the resulting
+literals. Flat constants would have meant writing every number out again per
+size.
+
+### Refresh, without a framebuffer
+
+240×240 is 115 KB of pixels and 240×320 is 153 KB. Neither fits beside FastLED
+and an audio pipeline on an ESP32, so the driver keeps no framebuffer at all.
+That forces the two halves apart, and the split is deliberate:
+
+- The **browser** surface keeps a real dirty bounding box. It has the memory,
+  and a single rectangle over-sends when two changes are far apart but can never
+  under-send.
+- The **firmware** caches, per field, the text or the integer it last drew, and
+  repaints a field when that changes. With nothing to diff against, this is the
+  only dirty model available to it.
+
+Both draw the same pixels from the same geometry. Only the decision about *when*
+to ship bytes differs, and only one of the two has the RAM to make it the other
+way. Do not "unify" this.
+
+Two consequences worth stating, because both look like bugs:
+
+**The background is painted once, at setup.** A full-screen fill is 115 KB across
+the bus; doing it on a refresh deadline would stall the LED loop long enough to
+see. The deadline repaints fields instead, which is what recovers a panel that
+was unplugged and came back. Every field erases its own cell before drawing, so
+the ground never needs laying again — and a cell sized from the previous string
+would leave the tail of a longer one behind, which is why the geometry states
+the cell rather than the text.
+
+**Pacing is wall-clock, never a frame count.** An LED loop's rate depends on the
+strip length and what else is running, so a frame-counted panel updates at a
+different speed on every build.
+
+Unlike the bit-banged OLED, this driver uses hardware SPI with
+`beginTransaction`/`endTransaction` around every burst — both because 115 KB does
+not travel by software loop, and because the 2.4-inch module shares its bus with
+touch and an SD card. It is the first display driver here to need an `#include`,
+which `TFT_DISPLAY_CPP_INCLUDES` states rather than leaving the preamble and the
+driver to disagree about.
+
+### Artwork has no port yet
+
+The layouts render artwork from baked RGB565 bytes. The obvious wiring — an
+`image` port — carries live `ImageData` capped at `IMAGE_MAX_DIM`, and bridging
+those needs a scaler. A scaler that ran in the browser would need a twin in C++
+to keep the panel matching its preview, which is the second implementation the
+baked-thumbnail rule exists to prevent; wiring it through only the browser would
+be worse still, since art in the preview and an empty frame on the bench is the
+exact parity failure this feature is judged on.
+
+So the port was removed and both sides draw the same empty frame. It returns
+with the artwork baker, which follows pattern thumbnails: rendered in the browser
+at export, blitted on the device, no second implementation. `_tftArt` is already
+there waiting for it. `transportDisplayNode.test.ts` derives the check rather
+than restating the port list, so a port declared for a field no layout renders
+fails there.
 
 ## Bus rules
 
