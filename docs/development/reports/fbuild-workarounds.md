@@ -307,6 +307,8 @@ Those are the items most likely to be genuinely unreported, and therefore the mo
 valuable half of anything sent upstream.
 
 The same is true of both open bench findings, re-checked against 2.5.21 on `2026-08-27`.
+The first is now filed as
+[FastLED/fbuild#1407](https://github.com/FastLED/fbuild/issues/1407).
 A pinned `platform = espressif32@<version>` is still discarded by
 `Platform::from_platform_str`, which lowercases the value and substring-matches it, so
 everything after the `@` is dropped with no warning — and
