@@ -83,6 +83,18 @@ describe('TransportDisplay wiring', () => {
     })], [])).toEqual([])
   })
 
+  it('shares one SPI host with touch and an SD card given unique selects', () => {
+    const sd = {
+      id: 'sd', type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        label: 'SD Card', nodeType: 'SDCard', category: 'output',
+        properties: { sdSckPin: 18, sdMosiPin: 23, sdMisoPin: 19, sdCsPin: 13 },
+        inputs: [], outputs: [],
+      },
+    } as unknown as StudioNode
+    expect(findPinConflicts([display('touch', { partId: TOUCH }), sd], [])).toEqual([])
+  })
+
   it('keeps display and touch chip selects exclusive', () => {
     const conflicts = findPinConflicts([display('touch', { partId: TOUCH, touchCsPin: 5 })], [])
     expect(conflicts).toContainEqual(expect.stringContaining('GPIO 5'))
