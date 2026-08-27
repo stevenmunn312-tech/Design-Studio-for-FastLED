@@ -27,9 +27,9 @@ an internal record.
 | 1 | `lib_deps` registry resolution not implemented | 2.4.0 | Vendor libraries by `git clone` | Re-verify |
 | 2 | `.ino` prototype insertion breaks FastLED-typed helpers | 2.4.0 | Write `main.cpp` instead | **No — fixed upstream in 2.5.16, workaround removed 2026-08-10** |
 | 3 | Shared scaffold corrupts under concurrent builds | 2.4.0 | External process-wide lock | Likely (design-level) |
-| 4 | No size line on a no-op incremental build | 2.4.0 | Read fbuild's own size cache | Re-verify |
+| 4 | No size line on a no-op incremental build | 2.4.0 | Read fbuild's own size cache | **No — our #1277, fixed in 2.5.16, workaround removed 2026-08-27** |
 | 5 | No size summary on hard linker overflow | 2.4.0 | Parse `ld` + `Memory:` lines | Likely (by design) |
-| 6 | ESP32 RAM percentage impossible (>100%) on success | 2.4.0 | Discard RAM figure over 100% | Re-verify |
+| 6 | ESP32 RAM percentage impossible (>100%) on success | 2.4.0 | Discard RAM figure over 100% | Fixed in 2.5.17; guard kept as a sanity check |
 | 7 | `deploy` unimplemented for some compilable platforms | **2.5.4** | Fall back to arduino-cli | Yes |
 | 8 | Dep scanner misses transitive `SPI` in a vendored lib | 2.4.0 | Stub out the offending file | **No — FastLED guarded it in #3815, workaround removed 2026-08-27** |
 
@@ -131,8 +131,24 @@ a repeat check on an unchanged sketch returned no numbers at all.
 `max_flash` / `total_ram` / `max_ram`.
 
 **Upstream ask.** Reprint the cached size summary on a no-op build, or provide a
-`fbuild size -e <env>` query command. We are currently reading a dotfile that is
-presumably a private implementation detail.
+`fbuild size -e <env>` query command. We were reading a dotfile that is presumably a
+private implementation detail.
+
+**Resolved 2026-08-27 — from our own report.** Filed as
+[FastLED/fbuild#1277](https://github.com/FastLED/fbuild/issues/1277) (`2026-08-07`) and
+fixed by [#1287](https://github.com/FastLED/fbuild/pull/1287) in 2.5.16. It has since
+been factored into the shared `assemble_fast_path_result`, whose doc comment names our
+issue, so every orchestrator with a fast path reprints rather than the seven the original
+fix touched. Confirmed on an ESP32-S3 no-op build under 2.5.21:
+
+```
+No-op fingerprint matched; reusing existing ESP32 artifacts.
+Flash: 710.52KB / 8.00MB (8.7%)
+RAM:   74.72KB / 320.00KB (23.4%)
+```
+
+`_fbuild_cached_size` and its call-site fallback are removed. The `fbuild size --json`
+query is still worth having, but nothing depends on it now.
 
 ---
 
@@ -174,6 +190,16 @@ by definition fits.
 (`_fbuild_size_report`, `_fbuild_size_bytes_report`, and the `allow_over_100=False` guard
 in `_fbuild_cached_size`). A real over-capacity build is still caught by exit code and
 the overflow markers.
+
+**Fixed upstream 2026-08-27, guard retained deliberately.** The cause was Berkeley
+`size` output lumping flash-resident `.flash.rodata` into the `data` column beside
+RAM-resident `.dram0.data`; [#1297](https://github.com/FastLED/fbuild/pull/1297) switched
+to SysV `size -A` and classifies by section, landing in 2.5.17. Not our report —
+[#1261](https://github.com/FastLED/fbuild/issues/1261) was found independently on an
+ESP32-C6. The same 2.5.21 no-op output above shows a sane `RAM: 23.4%` where this used to
+read 409%. The over-100% discard stays anyway: it is a sanity check on a number shown to
+users, not compensation for a missing feature, and it costs nothing while the bug is
+absent.
 
 **Downstream consequence worth noting.** This guard is why our capacity meter always
 reports flash *and* RAM together, including `n/a`. Showing whichever metric happened to

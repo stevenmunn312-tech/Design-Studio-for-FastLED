@@ -229,47 +229,6 @@ def test_fbuild_size_bytes_report_drops_impossible_ram_percentage():
     assert report["ram"] is None
 
 
-def test_fbuild_cached_size_reads_the_persisted_size_cache_file(tmp_path, monkeypatch):
-    monkeypatch.setattr(app, "_FBUILD_PROJECT_DIR", tmp_path)
-    cache_dir = tmp_path / ".fbuild" / "build" / "esp32_esp32_esp32s3" / "release"
-    cache_dir.mkdir(parents=True)
-    (cache_dir / ".firmware_size_cache.json").write_text(
-        '{"size_info": {"total_flash": 688819, "max_flash": 8388608, '
-        '"total_ram": 30000, "max_ram": 327680}}'
-    )
-
-    result = app._fbuild_cached_size("esp32_esp32_esp32s3")
-
-    assert result == {
-        "flash": {"usedBytes": 688819, "limitBytes": 8388608, "percent": 8},
-        "ram": {"usedBytes": 30000, "limitBytes": 327680, "percent": 9},
-    }
-
-
-def test_fbuild_cached_size_drops_impossible_ram_percentage(tmp_path, monkeypatch):
-    monkeypatch.setattr(app, "_FBUILD_PROJECT_DIR", tmp_path)
-    cache_dir = tmp_path / ".fbuild" / "build" / "esp32_esp32_esp32s3" / "release"
-    cache_dir.mkdir(parents=True)
-    (cache_dir / ".firmware_size_cache.json").write_text(
-        '{"size_info": {"total_flash": 665410, "max_flash": 8388608, '
-        '"total_ram": 1340869, "max_ram": 327680}}'
-    )
-
-    result = app._fbuild_cached_size("esp32_esp32_esp32s3")
-
-    assert result["flash"]["percent"] == 8
-    assert result["ram"] is None
-
-
-def test_fbuild_cached_size_returns_none_when_file_is_missing(tmp_path, monkeypatch):
-    monkeypatch.setattr(app, "_FBUILD_PROJECT_DIR", tmp_path)
-    assert app._fbuild_cached_size("esp32_esp32_esp32s3") is None
-
-
-# Captured verbatim from a real hard DRAM overflow on ESP32-S3 (fbuild 2.5.1,
-# xtensa-esp-elf-gcc 14.2.0) — the linker fails before fbuild ever gets to
-# print its own "Flash:"/"RAM:" summary line, so `_fbuild_overflow_estimate`
-# is the only source of a percentage in this case.
 _REAL_DRAM_OVERFLOW_LOG = [
     "Board: Espressif ESP32-S3-DevKitC-1-N8 (8 MB QD, No PSRAM) / ESP32S3 @ 240MHz\n",
     "Memory: 8.00MB Flash, 320.00KB RAM\n",

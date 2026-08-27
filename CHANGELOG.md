@@ -165,6 +165,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Changed
 
+- The capacity meter reads its flash and RAM figures from fbuild's own output
+  rather than from a private cache file beside the build. fbuild used to print
+  no size line at all when an incremental build decided nothing had changed —
+  the common case for a meter that re-checks an unchanged sketch — so the
+  helper reached into `.firmware_size_cache.json` to get the numbers back. That
+  was reported upstream and fixed, so the reach-in is gone.
 - The upload helper pins fbuild 2.5.21 and no longer stubs out FastLED's SD
   unity file. That patch existed because the file included `SPI.h`
   unconditionally while fbuild never put `SPI` on the include path for a

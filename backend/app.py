@@ -1388,43 +1388,6 @@ def _fbuild_size_bytes_report(lines):
     return result
 
 
-def _fbuild_cached_size(env: str) -> dict | None:
-    """Read fbuild's own persisted size-cache file for `env`, as a fallback
-    when a completed build's stdout had no parseable size line.
-
-    fbuild only reprints "Flash:"/"RAM:" when it actually reruns the linker —
-    an incremental build that decides nothing changed since the last run
-    reuses the prior binary and skips that line entirely, even though the
-    artifact (and this cache, which fbuild keeps next to it) is still
-    perfectly current. Without this fallback, a repeat capacity check on an
-    unchanged sketch silently comes back with no numbers at all."""
-    path = _FBUILD_PROJECT_DIR / ".fbuild" / "build" / env / "release" / ".firmware_size_cache.json"
-    try:
-        info = json.loads(path.read_text()).get("size_info")
-    except Exception:
-        return None
-    if not isinstance(info, dict):
-        return None
-
-    def metric(used_key: str, max_key: str, allow_over_100: bool) -> dict | None:
-        used, limit = info.get(used_key), info.get(max_key)
-        if not isinstance(used, int) or not isinstance(limit, int) or limit <= 0:
-            return None
-        pct = used / limit * 100
-        # Same "impossible ESP32 RAM" guard as `_fbuild_size_report`: some
-        # successful builds report `total_ram` including sections that are
-        # not the board's usable internal SRAM (e.g. >100%), which would be a
-        # misleading headroom figure.
-        if not allow_over_100 and pct > 100:
-            return None
-        return {"usedBytes": used, "limitBytes": limit, "percent": round(pct)}
-
-    return {
-        "flash": metric("total_flash", "max_flash", allow_over_100=False),
-        "ram": metric("total_ram", "max_ram", allow_over_100=False),
-    }
-
-
 # A genuine flash/RAM overflow is usually a *hard linker failure* — ld refuses
 # to produce an .elf at all, so fbuild never reaches the step that prints its
 # own "Flash:"/"RAM:" summary. There's still real data in that failure,
@@ -2851,16 +2814,11 @@ def compile_check(payload: dict = Body(...)):
         # skips fbuild's own "Flash:"/"RAM:" line entirely — fall back to its
         # persisted size-cache file rather than reporting an empty result for
         # a build that actually succeeded.
-        if rc == 0 and sizes.get("flash") is None:
-            env = _fbuild_env_for_fqbn(fqbn, flash_mb, usb_cdc)
-            cached = _fbuild_cached_size(env) if env else None
-            if cached:
-                sizes = cached
         # A genuine overflow is usually a hard linker failure with no size
         # summary at all (see `_fbuild_overflow_estimate`) — derive the actual
         # over-100% percentage from the linker's own error instead of leaving
         # the frontend with nothing but "won't fit".
-        elif rc != 0 and sizes.get("flash") is None and sizes.get("ram") is None:
+        if rc != 0 and sizes.get("flash") is None and sizes.get("ram") is None:
             estimate = _fbuild_overflow_estimate(lines)
             if estimate.get("flash") or estimate.get("ram"):
                 sizes = estimate
