@@ -286,14 +286,31 @@ type HistorySlice = Pick<GraphState, 'nodes' | 'edges' | 'graphData'>
 // behaviour. Graphs exported before consolidation still reference the old
 // types; upgrade them on import so they keep working and gain the inline
 // variant dropdown.
-// Scene-level outputs/sources are left behind in the parent graph when
-// encapsulating a selection into a group. MatrixOutput can have several root
-// routes; scene-wide hardware/time sources remain singletons in the root graph.
-// `Board` is here for a slightly different reason than the rest: it is not a
-// route or a live source, it is the controller the whole scene targets. A saved
-// pattern must stay board-agnostic, so grouping a selection never seals a board
-// choice inside it.
-const GROUP_EXCLUDED_TYPES = new Set(['MatrixOutput', 'Audio', 'MicInput', 'LineInput', 'DMXInput', 'MusicLibrary', 'Board'])
+// Scene-level sources that are not bench parts but still stay in the parent
+// graph when a selection is encapsulated: each is one resource the whole scene
+// shares, so a reusable pattern that sealed one inside could not be dropped
+// twice.
+//
+// Every *hardware* part is excluded too, but derived rather than listed. The
+// hand-written version of this set named MatrixOutput, MicInput, LineInput and
+// Board and silently missed the other nine — grouping a selection containing a
+// Pot Input or an Info Display sealed a bench part inside a pattern group,
+// which is exactly where the root-graph-only invariant says hardware can never
+// live. Deriving it from ownership means a new part joins by being registered
+// as hardware, which is the one place it cannot be forgotten.
+const GROUP_EXCLUDED_SCENE_TYPES = new Set(['Audio', 'DMXInput', 'MusicLibrary'])
+
+/**
+ * Node types a `createGroup` selection leaves behind in the parent graph, and
+ * that a saved library pattern must never carry.
+ *
+ * Hardware parts belong to the bench and so to the root graph; the scene
+ * sources above belong to the scene. Neither can be sealed inside a pattern
+ * meant to be dropped into any workspace, on any board.
+ */
+export function isGroupExcludedNodeType(nodeType: string): boolean {
+  return isHardwareNodeType(nodeType) || GROUP_EXCLUDED_SCENE_TYPES.has(nodeType)
+}
 
 /** Nodes that represent one scene-wide hardware resource. Creation actions use
  *  this set as a final guard, so every UI path (click, drop, paste, duplicate)
@@ -1390,7 +1407,16 @@ export const useGraphStore = create<GraphState>()(
         set((s) => {
           if (!s.clipboard || s.clipboard.nodes.length === 0) return s
           const { nodes: copied, edges: copiedEdges } = s.clipboard
-          const pastable = copied.filter((n) => canAddNodeType(s.nodes, n.data.nodeType))
+          // A pattern group is not the bench. Copying a Pot Input or an Info
+          // Display in the root graph and pasting it inside a group would put a
+          // hardware part somewhere the root-graph-only invariant says it cannot
+          // be — the one door left open after `createGroup` learned to leave
+          // them behind. Scene-level sources are refused for the same reason a
+          // group never seals one inside.
+          const inRootGraph = s.activeGraphId === ROOT_GRAPH_ID
+          const pastable = copied.filter((n) =>
+            canAddNodeType(s.nodes, n.data.nodeType)
+            && (inRootGraph || !isGroupExcludedNodeType(n.data.nodeType)))
           if (pastable.length === 0) return s
           const pastableIds = new Set(pastable.map((n) => n.id))
 
@@ -1731,15 +1757,16 @@ export const useGraphStore = create<GraphState>()(
         set((s) => {
           groupId = uniqueId(groupId, new Set(Object.keys(s.graphs)))
           const idSet = new Set(nodeIds)
-          // Scene-level outputs/sources stay in the parent graph rather than being
-          // sealed inside a reusable pattern. A surviving MatrixOutput is
-          // auto-rewired to the new Group's frame output (it becomes an outgoing
-          // boundary edge); a surviving Audio/MusicLibrary feeding
-          // the selection is surfaced as an exposed Group input (an incoming edge).
-          // This keeps the "make pattern → group → repeat" loop's sources/output
-          // in place for the next pattern.
+          // Bench parts and scene-level sources stay in the parent graph rather
+          // than being sealed inside a reusable pattern. A surviving MatrixOutput
+          // is auto-rewired to the new Group's frame output (it becomes an
+          // outgoing boundary edge); a surviving Audio/MusicLibrary, or a
+          // surviving Pot Input or Info Display, feeding the selection is
+          // surfaced as an exposed Group input (an incoming edge). This keeps the
+          // "make pattern → group → repeat" loop's sources/output in place for
+          // the next pattern, and keeps hardware where hardware lives.
           for (const n of s.nodes)
-            if (idSet.has(n.id) && GROUP_EXCLUDED_TYPES.has(n.data.nodeType as string))
+            if (idSet.has(n.id) && isGroupExcludedNodeType(n.data.nodeType as string))
               idSet.delete(n.id)
           const selected = s.nodes.filter((n) => idSet.has(n.id))
           if (selected.length === 0) return s

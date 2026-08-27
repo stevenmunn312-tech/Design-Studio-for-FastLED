@@ -6,7 +6,7 @@
 // Pattern Master) read the same store.
 
 import { create } from 'zustand'
-import { useGraphStore } from './graphStore'
+import { isGroupExcludedNodeType, useGraphStore } from './graphStore'
 import type { StudioNode, StudioEdge } from './graphStore'
 import { listPatterns, savePatternToDisk, deletePatternFromDisk } from '../utils/backendClient'
 import {
@@ -365,9 +365,28 @@ export function saveGroupToLibrary(
     name,
     inputs: (node.data.inputs as Port[] | undefined) ?? [],
     outputs: (node.data.outputs as Port[] | undefined) ?? [],
-    subgraph: { nodes: sub.nodes, edges: sub.edges },
+    subgraph: stripUnsharablePartsFromSubgraph(sub),
   }, options)
   return { name, replaced: !!replaced }
+}
+
+/** Drop bench parts and scene-level sources from a subgraph about to be saved
+ *  as a library pattern, along with every edge that touched one.
+ *
+ *  `createGroup` already leaves these behind, so a group made today cannot
+ *  contain one. A group made before that rule existed can, and so can a group
+ *  restored from an older workspace — and a pattern is the one artefact that
+ *  travels to a bench with different parts on it. Stripping here rather than
+ *  refusing the save keeps the useful half of the pattern. */
+function stripUnsharablePartsFromSubgraph(sub: { nodes: StudioNode[]; edges: StudioEdge[] }) {
+  const excluded = new Set(
+    sub.nodes.filter((n) => isGroupExcludedNodeType(String(n.data.nodeType ?? ''))).map((n) => n.id),
+  )
+  if (excluded.size === 0) return { nodes: sub.nodes, edges: sub.edges }
+  return {
+    nodes: sub.nodes.filter((n) => !excluded.has(n.id)),
+    edges: sub.edges.filter((e) => !excluded.has(e.source ?? '') && !excluded.has(e.target ?? '')),
+  }
 }
 
 interface PatternSyncJournal {

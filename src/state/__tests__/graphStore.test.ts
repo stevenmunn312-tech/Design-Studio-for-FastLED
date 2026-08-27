@@ -418,6 +418,45 @@ describe('graphStore — grouping', () => {
     expect(s.graphData[gid].nodes.some((n) => n.data.nodeType === 'GroupInput')).toBe(true)
   })
 
+  it('leaves every bench part behind when grouping, not just the four once listed', () => {
+    // The exclusion set used to be hand-written and named MatrixOutput,
+    // MicInput, LineInput and Board only, so grouping a selection containing
+    // any other part sealed it inside a pattern group — the one place the
+    // root-graph-only invariant says hardware can never live.
+    const parts = ['PotInput', 'EncoderInput', 'ButtonInput', 'ButtonBank', 'RTCInput',
+      'MotionInput', 'LightInput', 'SegmentDisplay', 'InfoDisplay']
+    reset([node('sc', 'SolidColor'), ...parts.map((type) => node(type.toLowerCase(), type))])
+
+    const gid = useGraphStore.getState().createGroup('Everything', ['sc', ...parts.map((t) => t.toLowerCase())])
+    const s = useGraphStore.getState()
+
+    for (const type of parts) {
+      expect(s.nodes.find((n) => n.id === type.toLowerCase())).toBeTruthy()
+      expect(s.graphData[gid].nodes.some((n) => n.data.nodeType === type)).toBe(false)
+    }
+    expect(s.graphData[gid].nodes.some((n) => n.data.nodeType === 'SolidColor')).toBe(true)
+  })
+
+  it('refuses to paste a bench part into a pattern group', () => {
+    reset([node('sc', 'SolidColor'), node('pot', 'PotInput'), node('oled', 'InfoDisplay')])
+    const gid = useGraphStore.getState().createGroup('Blue', ['sc'])
+
+    useGraphStore.setState({ nodes: useGraphStore.getState().nodes.map((n) => ({ ...n, selected: n.id !== `groupnode-${gid}` })) })
+    useGraphStore.getState().copySelection()
+    useGraphStore.getState().enterGraph(gid)
+    useGraphStore.getState().pasteNode({ x: 100, y: 100 })
+
+    const inGroup = useGraphStore.getState().nodes
+    expect(inGroup.some((n) => n.data.nodeType === 'PotInput')).toBe(false)
+    expect(inGroup.some((n) => n.data.nodeType === 'InfoDisplay')).toBe(false)
+
+    // The same clipboard still pastes in the root graph, where the bench is.
+    useGraphStore.getState().enterGraph(ROOT_GRAPH_ID)
+    useGraphStore.getState().pasteNode({ x: 100, y: 100 })
+    expect(useGraphStore.getState().nodes.filter((n) => n.data.nodeType === 'InfoDisplay')).toHaveLength(2)
+  })
+
+
   it('enterGraph swaps the active graph and back', async () => {
     reset([node('sc', 'SolidColor', { r: 0, g: 0, b: 255 })], [])
     const gid = useGraphStore.getState().createGroup('Blue', ['sc'])
@@ -683,6 +722,31 @@ describe('graphStore — grouping', () => {
     const result = saveGroupToLibrary(`groupnode-${gid}`)
     expect(result).toEqual({ name: 'MyPattern', replaced: false })
     expect(usePatternLibrary.getState().patterns.some((p) => p.name === 'MyPattern')).toBe(true)
+  })
+
+  it('saveGroupToLibrary strips a bench part an older group still carries', async () => {
+    const { saveGroupToLibrary, usePatternLibrary } = await import('../patternLibrary')
+    // createGroup leaves parts behind now, but a group built before that rule
+    // — or restored from an older workspace — can still hold one, and a
+    // pattern is the artefact that travels to a bench with different parts.
+    reset([node('sc', 'SolidColor')], [])
+    const gid = useGraphStore.getState().createGroup('Legacy', ['sc'])
+    useGraphStore.setState((state) => ({
+      graphData: {
+        ...state.graphData,
+        [gid]: {
+          nodes: [...state.graphData[gid].nodes, node('pot', 'PotInput')],
+          edges: [...state.graphData[gid].edges, edge('e-pot', 'pot', 'value', 'sc', 'r')],
+        },
+      },
+    }))
+    usePatternLibrary.setState({ patterns: [] })
+
+    saveGroupToLibrary(`groupnode-${gid}`)
+    const saved = usePatternLibrary.getState().patterns.find((p) => p.name === 'Legacy')!
+    expect(saved.subgraph.nodes.some((n) => n.data.nodeType === 'PotInput')).toBe(false)
+    expect(saved.subgraph.edges.some((e) => e.id === 'e-pot')).toBe(false)
+    expect(saved.subgraph.nodes.some((n) => n.data.nodeType === 'SolidColor')).toBe(true)
   })
 })
 
