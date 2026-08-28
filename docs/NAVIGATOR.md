@@ -86,6 +86,11 @@ build/architecture overview aimed at contributors.
     `Display` document are still planned. Records the touch/evaluate/publish/
     flush frame order, bus-aware pin sharing, why a display is a codegen
     terminal, and the evidence gates no device ships without.
+  - [Simple displays](development/design/simple-displays.md)
+    — what a small non-touch panel shows and how it is told: one `Display`
+    input whose plugged-in source picks the layout, the three-tier split that
+    leaves touch panels for later, and what an unwired panel says instead of
+    sitting blank.
 - [Plans](development/plans/)
   - [Stereo side-string VU meters](development/plans/vu-meter.md)
     — implementation plan for paired vertical left/right LED strings, the

@@ -201,6 +201,53 @@ Particles frame generator.
   on-drop trigger options when an audio source is wired; time-based (min/max
   dwell) otherwise.
 
+## Pattern Slideshow
+
+Status: added 2026-08-29.
+
+The same show, without music. `PatternCollection -> PatternSlideshow ->
+MatrixOutput` runs a collection on a timer for people who want slow, relaxing
+patterns on a wall and have no card, no amplifier and no interest in a
+transport.
+
+The engine for this already existed and had no node. `showGenerator.ts` has
+always played a collection with dwell and transitions and needed neither SD nor
+audio, but the only way to reach it was a Music Player with no card attached —
+a node labelled **Music Player**, whose every port is music, standing in for the
+music-free case. Nobody would find that, so nobody did.
+
+**What is different from Music Player**, and why:
+
+- **Order is a choice.** Random or sequential. The generative show is random by
+  design; a slideshow of patterns you arranged in an order you liked should be
+  able to play them in it.
+- **One interval, not a min/max pair.** The randomised dwell exists to keep a
+  beat-driven show from feeling metronomic. A slideshow has no beat to feel
+  metronomic against.
+- **Transitions are optional, with a fade built in.** Off means a cut. On with
+  nothing wired means a fade, rather than requiring a `TransitionSet` to get the
+  one transition everybody wants first.
+- **Audio is live-only and off by default.** A music-free player has no decoder
+  to tap, so its `audio` accepts a microphone or a line input and nothing else.
+  Reactivity is an explicit switch because the whole point of the mode is slow
+  relaxing patterns, which should not twitch at room noise unless asked.
+- **Pattern changes are immediate.** No highlight-then-confirm. The Slideshow
+  still owns a `PatternSelectionState` for the same reasons the player does — a
+  reorder must not change what is playing, and a deletion hands its slot to the
+  new occupant — but a control that says "next" moves what is running, not a
+  cursor waiting on a confirm. There is no separate active/highlight split to
+  show, which is what the browser layout's `SELECT?` row exists for.
+
+**The generator moves with it.** `isPatternShow` keys on `PatternSlideshow`
+rather than on a Music Player that happens to lack a card, so the three
+generators are told apart by which node is present rather than by which hardware
+is absent. A Music Player is now the SD-player workflow only: without a card it
+is an incomplete build, and validation says so and names the Slideshow.
+
+It publishes a `display` output like the other sources — see [simple
+displays](simple-displays.md) — which is what a small OLED or a segment module
+plugs into to say which pattern is running.
+
 ## Codegen target
 
 Today `cppGenerator` emits a single flat `loop()`. The show needs:
