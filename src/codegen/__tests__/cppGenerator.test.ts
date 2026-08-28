@@ -2518,7 +2518,7 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('_audioProcessor->setGain(MIC_GAIN);')
     expect(cpp).toContain('_audioProcessor->getBassLevel()')
     expect(cpp).toContain('_audioProcessor->getEqBin(i >> 1)')
-    expect(cpp).toContain('_audioLeftLevel = _audioRightLevel = constrain(')
+    expect(cpp).toContain('_audioLeftLevel = _audioRightLevel = max(_audioBass, max(_audioMids, _audioTreble));')
     expect(cpp).toContain('void setupAudio()')
     expect(cpp).toContain('void updateAudio()')
     // wired into the lifecycle

@@ -4972,7 +4972,10 @@ function createEvalNode(
         const levels = resolveStereoLevels(audio ?? {})
         const key = stateKey(id)
         const provider = incoming.get(`${id}:audio`)
-        const settings = stereoVuSettings(props, `${key}:${provider?.srcId ?? 'unwired'}`)
+        const settings = {
+          ...stereoVuSettings(props, `${key}:${provider?.srcId ?? 'unwired'}`),
+          palette: pal(id, 'paletteIn', props, 'palette', 'party'),
+        }
         const rendered = renderStereoVu({
           active: Boolean(audio && (audio.active || audio.micActive)),
           left: levels.left,

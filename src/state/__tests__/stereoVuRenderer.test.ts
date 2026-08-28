@@ -216,4 +216,28 @@ describe('StereoVuMeter evaluator integration', () => {
     expect(frame.active).toBe(false)
     expect(frame.left.every((pixel) => pixel.r + pixel.g + pixel.b === 0)).toBe(true)
   })
+
+  it('renders a palette supplied through the typed Palette input', () => {
+    const nodes = [
+      node('mic', 'MicInput'),
+      node('audio', 'Audio', { sourceId: 'mic' }),
+      node('custom', 'CustomPalette', {
+        colors: ['#ff0000', '#0000ff'], positions: [0, 1],
+      }),
+      node('vu', 'StereoVuMeter', {
+        attackMs: 0, releaseMs: 0, noiseGate: 0, responseCurve: 1,
+        brightness: 1, ledCount: 8, visualizationMode: 'Palette Fill',
+        visualizationPolicy: 'Manual', palette: 'party',
+      }),
+    ]
+    const edges = [
+      { id: 'audio-vu', source: 'audio', sourceHandle: 'audio', target: 'vu', targetHandle: 'audio' },
+      { id: 'palette-vu', source: 'custom', sourceHandle: 'palette', target: 'vu', targetHandle: 'paletteIn' },
+    ] as StudioEdge[]
+    evaluateGraphFull(nodes, edges, 0, 8, 8, {}, false, true, '', audio)
+    const frame = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, false, true, '', audio)
+      .outputs.get('vu')?.vu as StereoVuFrame
+    expect(frame.left[0]).toEqual({ r: 255, g: 0, b: 0 })
+    expect(frame.left[5].b).toBeGreaterThan(frame.left[5].r)
+  })
 })

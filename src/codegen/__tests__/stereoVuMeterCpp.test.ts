@@ -122,6 +122,18 @@ describe('normal sketch Stereo VU Meter generation', () => {
     expect(cpp).toContain('float _vuLeftHistory_side_vu[VU_LEDS_side_vu]')
     expect(cpp).toContain('StereoVuState _vuState_side_vu = {}')
   })
+
+  it('uses a wired custom palette in generated firmware', () => {
+    const custom = node('custom-palette', 'CustomPalette', 'color', {
+      colors: ['#ff0000', '#0000ff'], positions: [0, 1],
+    })
+    const cpp = generateCpp(
+      [board, lineIn, audio, output, custom, meter({ visualizationMode: 'Palette Fill' })],
+      [audioWire, edge('palette-vu', 'custom-palette', 'side-vu', 'palette', 'paletteIn')],
+    )
+    expect(cpp).toContain('CRGBPalette16 pal_custom_palette(')
+    expect(cpp).toContain('pal_custom_palette, (bool)_audioProcessor, _audioLeftLevel')
+  })
 })
 
 describe.skipIf(process.env.STEREO_VU_COMPILE !== '1')('Stereo VU Meter ESP32-S3 compile proof', () => {

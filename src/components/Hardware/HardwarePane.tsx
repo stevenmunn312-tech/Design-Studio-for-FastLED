@@ -58,6 +58,7 @@ import HardwarePartBody from '../Canvas/HardwarePartBody'
 import MatrixOutputDeployPopup from '../Upload/MatrixOutputDeployPopup'
 import BoardNodeBody from '../Canvas/BoardNodeBody'
 import HardwareLedPreview from './HardwareLedPreview'
+import HardwareVuRailPreview from './HardwareVuRailPreview'
 import { LED_CELL_FILL } from './ledPreviewGeometry'
 import HardwareLedSpill from './HardwareLedSpill'
 import HardwareLink from './HardwareLink'
@@ -65,6 +66,7 @@ import FloatingMenu from './FloatingMenu'
 import type { PlacementBox } from './floatingPlacement'
 import { useHardwareView } from './useHardwareView'
 import { resolveAudioCapabilitySource } from '../../state/audioCapabilities'
+import { automaticStereoVuLedCount, VU_LED_COUNT_CUSTOM_KEY } from '../../state/stereoVuSizing'
 import {
   hardwareArrangement,
   hardwareArrangementBounds,
@@ -75,6 +77,7 @@ import {
 import styles from './HardwarePane.module.css'
 
 const MIC_NODE_TYPE = 'MicInput'
+const WS2812B_RENDER_ASPECT = 1273 / 505
 
 /**
  * The parts that carry signal into the board, and so exist in both views: a
@@ -172,7 +175,7 @@ const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     partId: 'stereo-vu-meter',
     label: 'Stereo VU Meter',
     hint: 'Paired vertical addressable strings for left/right audio level',
-    footprint: { width: 28, height: 600 },
+    footprint: { width: 110, height: 600 },
     render: ledSegmentRender,
     pinFields: [
       { key: 'leftDataPin', label: 'LEFT DATA' },
@@ -737,8 +740,8 @@ export default function HardwarePane() {
       .join(' · ')
     const footprint = entry.nodeType === 'StereoVuMeter'
       ? {
-          width: 28,
-          height: Math.max(1, Math.round(Number(props.ledCount ?? 60))) * WS2812B_PITCH_MM,
+          width: 110,
+          height: Math.max(1, Math.round(Number(props.ledCount ?? 16))) * WS2812B_PITCH_MM,
         }
       : chosen?.dimensionsMm ?? entry.footprint
     return [{
@@ -1215,8 +1218,15 @@ export default function HardwarePane() {
     const onCanvas = isHardwareManagedSignalNodeType(entry.nodeType)
     const nodeId = `${entry.nodeType}-${Date.now()}-${Math.round(Math.random() * 1e6)}`
     const targetOutputId = entry.nodeType === 'StereoVuMeter'
-      ? nodes.find((node) => node.data.nodeType === LED_OUTPUT_NODE_TYPE)?.id ?? ''
+      ? nodes.find((node) => node.data.nodeType === LED_OUTPUT_NODE_TYPE
+          && ['matrix', 'hub75'].includes(outputForm(node.data.properties)))?.id ?? ''
       : undefined
+    const vuSizing = targetOutputId !== undefined
+      ? {
+          ledCount: automaticStereoVuLedCount(nodes, targetOutputId),
+          [VU_LED_COUNT_CUSTOM_KEY]: false,
+        }
+      : {}
     addNode({
       id: nodeId,
       type: 'studioNode',
@@ -1236,6 +1246,7 @@ export default function HardwarePane() {
           ),
           ...(moduleProperty && moduleId ? { [moduleProperty]: moduleId } : {}),
           ...(targetOutputId !== undefined ? { targetOutputId } : {}),
+          ...vuSizing,
         },
         inputs: definition.inputs,
         outputs: definition.outputs,
@@ -1703,15 +1714,32 @@ export default function HardwarePane() {
                       const direction = String(
                         part.node.data.properties[`${side.toLowerCase()}Direction`] ?? 'Bottom',
                       )
+                      const ledCount = Math.max(1, Math.round(Number(part.node.data.properties.ledCount ?? 16)))
+                      const tileLengthPx = Math.max(2, WS2812B_PITCH_MM * (arrangement?.mmScale ?? 1))
+                      const tapeWidthPx = tileLengthPx / WS2812B_RENDER_ASPECT
                       return (
-                        <span className={styles.vuRailWrap} key={side}>
+                        <span
+                          className={`${styles.vuRailWrap} ${side === 'Left' ? styles.vuRailWrapLeft : styles.vuRailWrapRight}`}
+                          style={{ '--vu-tape-width': `${tapeWidthPx}px` } as CSSProperties}
+                          key={side}
+                        >
                           <span className={styles.vuSideLabel}>{side === 'Left' ? 'L' : 'R'}</span>
-                          <span
-                            className={styles.vuRail}
-                            style={{
-                              backgroundImage: `url(${ledSegmentRender})`,
-                              backgroundSize: `100% ${Math.max(2, WS2812B_PITCH_MM * (arrangement?.mmScale ?? 1))}px`,
-                            }}
+                          <span className={styles.vuRail}>
+                            <span
+                              className={styles.vuRailTape}
+                              style={{
+                                width: ledCount * tileLengthPx,
+                                height: tapeWidthPx,
+                                backgroundImage: `url(${ledSegmentRender})`,
+                                backgroundSize: `${tileLengthPx}px ${tapeWidthPx}px`,
+                              }}
+                            />
+                          </span>
+                          <HardwareVuRailPreview
+                            nodeId={part.node.id}
+                            side={side.toLowerCase() as 'left' | 'right'}
+                            count={ledCount}
+                            dataIn={direction === 'Top' ? 'Top' : 'Bottom'}
                           />
                           <span className={`${styles.vuDataIn} ${direction === 'Top' ? styles.vuDataInTop : styles.vuDataInBottom}`}>
                             DIN
@@ -1790,14 +1818,14 @@ export default function HardwarePane() {
                   nodeId={output.node.id}
                   cols={output.cols}
                   rows={output.rows}
-                  cellFill={output.isStrip ? 1 : LED_CELL_FILL}
+                  cellFill={LED_CELL_FILL}
                   ring={output.ring}
                   corkscrew={output.corkscrew}
                   className={styles.ledPreview}
                 />
                 {/* The diffuser registers one dome per LED against a grid,
                     which a ring's circle of emitters does not have. */}
-                {!output.isRing && !output.isCorkscrew && (
+                {!output.isStrip && !output.isRing && !output.isCorkscrew && (
                   <span
                     className={styles.lens}
                     style={lensStyle(output.partId, output.form)}

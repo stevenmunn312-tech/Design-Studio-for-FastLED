@@ -126,14 +126,14 @@ const validMode = (value: string): StereoVuMode => (
 )
 
 export function stereoVuSettings(properties: Record<string, unknown>, instanceKey = ''): StereoVuSettings {
-  const policy = String(properties.visualizationPolicy ?? 'Manual')
+  const policy = String(properties.visualizationPolicy ?? 'Shuffle')
   return {
     ledCount: Math.max(1, Math.min(1024, Math.round(Number(properties.ledCount ?? 60) || 60))),
     enabled: properties.enabled !== false,
     mode: validMode(String(properties.visualizationMode ?? 'Classic Ladder')),
     policy: ['Manual', 'Timed cycle', 'Beat cycle', 'Shuffle'].includes(policy)
       ? policy as StereoVuPolicy
-      : 'Manual',
+      : 'Shuffle',
     cycleIntervalSec: Math.max(0.25, Number(properties.cycleInterval ?? 8) || 8),
     palette: String(properties.palette ?? 'party'),
     leftColor: hexToRgb(String(properties.leftColor ?? '#20ff70')),

@@ -165,6 +165,23 @@ describe('Music Player Stereo VU fixture', () => {
     expect(cpp).toContain('audio_process_i2s(')
     expect(cpp).toContain('_stereoVuRender(_vuState_side_vu')
   })
+
+  it('bakes a wired custom palette into fixed-template sketches', () => {
+    const custom = node('custom', 'CustomPalette', {
+      colors: ['#ff0000', '#0000ff'], positions: [0, 1],
+    })
+    const meters = stereoVuEmitsFromGraph(
+      [node('audio', 'Audio', { sourceId: 'music' }), custom, meter],
+      [
+        edge('audio-vu', 'audio', 'out', 'side-vu', 'audio'),
+        edge('palette-vu', 'custom', 'palette', 'side-vu', 'paletteIn'),
+      ],
+      { active: '_decoderTapLive', left: '_audioLeftLevel', right: '_audioRightLevel', beat: '_audioBeat' },
+    )
+    const cpp = generatePlayerSketch({}, renderers, { stereoVuMeters: meters })
+    expect(cpp).toContain('const CRGBPalette16 _vuPalette_side_vu(')
+    expect(cpp).toContain('_vuPalette_side_vu, _decoderTapLive, _audioLeftLevel')
+  })
 })
 
 describe.skipIf(process.env.STEREO_VU_FIXED_COMPILE !== '1')('fixed-generator ESP32-S3 compile proofs', () => {

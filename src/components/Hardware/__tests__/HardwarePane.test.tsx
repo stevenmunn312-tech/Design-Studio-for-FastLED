@@ -154,6 +154,8 @@ describe('HardwarePane', () => {
     const meters = useGraphStore.getState().nodes.filter((entry) => entry.data.nodeType === 'StereoVuMeter')
     expect(meters).toHaveLength(1)
     expect(meters[0].data.properties.targetOutputId).toBe('out')
+    expect(meters[0].data.properties.ledCount).toBe(16)
+    expect(meters[0].data.properties._ledCountCustom).toBe(false)
     expect(meters[0].data.properties.leftDataPin).not.toBe(meters[0].data.properties.rightDataPin)
     expect(useGraphStore.getState().edges).toEqual(expect.arrayContaining([
       expect.objectContaining({
@@ -165,6 +167,17 @@ describe('HardwarePane', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
     fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /LED outputs/ }))
     expect((screen.getByRole('menuitem', { name: /Stereo VU Meter/ }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('adds a standalone Stereo VU Meter with 16 LEDs per side', () => {
+    render(<HardwarePane />)
+    fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
+    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /LED outputs/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /Stereo VU Meter/ }))
+
+    const meter = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'StereoVuMeter')!
+    expect(meter.data.properties.targetOutputId).toBe('')
+    expect(meter.data.properties.ledCount).toBe(16)
   })
 
   it('adds and auto-wires the Stereo VU Meter in the root graph while a group is open', () => {

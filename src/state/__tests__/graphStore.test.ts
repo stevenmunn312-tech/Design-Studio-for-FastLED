@@ -1046,6 +1046,32 @@ describe('graphStore — loadGraph normalization', () => {
   })
 })
 
+describe('graphStore — Stereo VU sizing', () => {
+  beforeEach(() => reset())
+
+  it('tracks its target matrix height until its count is customised', () => {
+    reset([
+      node('out', 'MatrixOutput', { form: 'matrix', width: 16, height: 24 }),
+      node('vu', 'StereoVuMeter', { targetOutputId: 'out', ledCount: 24, _ledCountCustom: false }),
+    ])
+
+    useGraphStore.getState().updateNodeProperty('out', 'height', 32)
+    expect(useGraphStore.getState().nodes.find((entry) => entry.id === 'vu')!.data.properties.ledCount).toBe(32)
+
+    useGraphStore.getState().updateNodeProperty('vu', 'ledCount', 20)
+    useGraphStore.getState().updateNodeProperties('out', { width: 64, height: 64 })
+    const properties = useGraphStore.getState().nodes.find((entry) => entry.id === 'vu')!.data.properties
+    expect(properties.ledCount).toBe(20)
+    expect(properties._ledCountCustom).toBe(true)
+  })
+
+  it('uses 16 LEDs when its target is removed', () => {
+    reset([node('vu', 'StereoVuMeter', { targetOutputId: '', ledCount: 60, _ledCountCustom: false })])
+    useGraphStore.getState().updateNodeProperty('vu', 'targetOutputId', '')
+    expect(useGraphStore.getState().nodes[0].data.properties.ledCount).toBe(16)
+  })
+})
+
 describe('graphStore — custom display documents', () => {
   const displayDocument = {
     schemaVersion: 1 as const,

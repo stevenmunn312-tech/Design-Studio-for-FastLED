@@ -61,6 +61,7 @@ import {
   nextButtonBankEntryId,
   normalizeButtonBankEntries,
 } from './buttonBank'
+import { syncAutomaticStereoVuLedCounts, VU_LED_COUNT_CUSTOM_KEY } from './stereoVuSizing'
 
 export interface StudioNodeData extends Record<string, unknown> {
   label: string
@@ -471,6 +472,7 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
       // than leave a saved node pointing at a value its dropdown has dropped.
       if (properties.layout === 'strip') properties.layout = 'matrix'
     }
+    if (nodeType === 'StereoVuMeter') properties[VU_LED_COUNT_CUSTOM_KEY] ??= false
     // Wi-Fi SSID/password used to be ordinary node properties (persisted into
     // project files and share links). They now live browser-local only in
     // networkCredentials.ts — migrate any already-saved values across, then
@@ -494,7 +496,7 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
       : {}
     return { ...n, ...hidden, data: { ...data, nodeType, label, category, properties, inputs, outputs } }
   })
-  return { nodes: normalizedNodes, edges: edges.map((e) => ({ ...e })) }
+  return { nodes: syncAutomaticStereoVuLedCounts(normalizedNodes), edges: edges.map((e) => ({ ...e })) }
 }
 
 /**
@@ -1501,17 +1503,15 @@ export const useGraphStore = create<GraphState>()(
         }),
 
       updateNodeProperty: (id, key, value) =>
-        set((s) => editNodeIn(s, id, (properties) => ({ ...properties, [key]: value }))),
+        set((s) => editNodePropertyAndSyncVu(s, id, { [key]: value }, key === 'ledCount')),
 
       updateNodeProperties: (id, updates) =>
-        set((s) => editNodeIn(s, id, (current) => {
-          const properties = { ...current }
-          for (const [key, value] of Object.entries(updates)) {
-            if (value === undefined) delete properties[key]
-            else properties[key] = value
-          }
-          return properties
-        })),
+        set((s) => editNodePropertyAndSyncVu(
+          s,
+          id,
+          updates,
+          Object.prototype.hasOwnProperty.call(updates, 'ledCount'),
+        )),
 
       retargetHardwarePins: (fqbn, previousBoard) => {
         let moved = 0
@@ -2560,6 +2560,42 @@ function editNodeIn(
   const root = rootGraphNodes(s)
   if (root === s.nodes || !root.some((n) => n.id === id)) return { nodes: s.nodes }
   return withRootNodes(s, apply(root))
+}
+
+function editNodePropertyAndSyncVu(
+  s: GraphScope,
+  id: string,
+  updates: Record<string, unknown>,
+  ledCountWasEdited: boolean,
+): Partial<GraphState> {
+  const root = rootGraphNodes(s)
+  const target = s.nodes.find((node) => node.id === id) ?? root.find((node) => node.id === id)
+  const edited = editNodeIn(s, id, (current) => {
+    const properties = { ...current }
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === undefined) delete properties[key]
+      else properties[key] = value
+    }
+    if (target?.data.nodeType === 'StereoVuMeter' && ledCountWasEdited) {
+      properties[VU_LED_COUNT_CUSTOM_KEY] = true
+    }
+    return properties
+  })
+  const editedRoot = s.activeGraphId === ROOT_GRAPH_ID
+    ? (edited.nodes ?? s.nodes)
+    : (edited.graphData?.[ROOT_GRAPH_ID]?.nodes ?? root)
+  const syncedRoot = syncAutomaticStereoVuLedCounts(editedRoot)
+  if (s.activeGraphId === ROOT_GRAPH_ID) return { ...edited, nodes: syncedRoot }
+  if (!edited.graphData && syncedRoot === root) return edited
+  const graphData = edited.graphData ?? s.graphData
+  const rootContent = graphData[ROOT_GRAPH_ID] ?? { nodes: root, edges: [] }
+  return {
+    ...edited,
+    graphData: {
+      ...graphData,
+      [ROOT_GRAPH_ID]: { ...rootContent, nodes: syncedRoot },
+    },
+  }
 }
 
 /**

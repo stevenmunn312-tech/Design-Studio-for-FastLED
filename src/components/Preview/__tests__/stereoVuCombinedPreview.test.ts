@@ -19,7 +19,20 @@ describe('combined Stereo VU preview', () => {
       node('vu', 'StereoVuMeter', { targetOutputId: 'out-b', swapChannels: true }),
     ]
     expect(combinedStereoVuFixture(nodes, 'out-a')).toBeNull()
-    expect(combinedStereoVuFixture(nodes, 'out-b')).toEqual({ id: 'vu', swapChannels: true })
+    expect(combinedStereoVuFixture(nodes, 'out-b')).toEqual({ id: 'vu', swapChannels: true, ledCount: 16, standalone: false })
+  })
+
+  it('shows the meter by itself when the project has no LED output', () => {
+    const nodes = [node('vu', 'StereoVuMeter', { ledCount: 24 })]
+    expect(combinedStereoVuFixture(nodes, '')).toEqual({ id: 'vu', swapChannels: false, ledCount: 24, standalone: true })
+  })
+
+  it('stays standalone when an unrelated LED String exists', () => {
+    const nodes = [
+      node('strip', 'MatrixOutput', { form: 'strip', ledCount: 60 }),
+      node('vu', 'StereoVuMeter', { targetOutputId: '', ledCount: 16 }),
+    ]
+    expect(combinedStereoVuFixture(nodes, 'strip')?.standalone).toBe(true)
   })
 
   it('keeps logical pixel zero at the visual bottom for any string length', () => {

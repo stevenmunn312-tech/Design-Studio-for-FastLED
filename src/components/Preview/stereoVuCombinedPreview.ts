@@ -1,9 +1,12 @@
 import type { StudioNode } from '../../state/graphStore'
 import type { RGB } from '../../state/ledColor'
+import { renderGridFrame } from './frameCanvas'
 
 export interface CombinedStereoVuFixture {
   id: string
   swapChannels: boolean
+  ledCount: number
+  standalone: boolean
 }
 
 /** Find the root-owned fixture assigned to the route currently on screen. */
@@ -11,13 +14,19 @@ export function combinedStereoVuFixture(
   nodes: StudioNode[],
   outputId: string,
 ): CombinedStereoVuFixture | null {
-  if (!outputId) return null
-  const fixture = nodes.find((node) => (
-    node.data.nodeType === 'StereoVuMeter'
-    && String(node.data.properties.targetOutputId ?? '') === outputId
+  const hasMatrix = nodes.some((node) => node.data.nodeType === 'MatrixOutput'
+    && ['matrix', 'hub75'].includes(String(node.data.properties.form ?? 'matrix')))
+  const fixture = nodes.find((node) => node.data.nodeType === 'StereoVuMeter' && (
+    (outputId && String(node.data.properties.targetOutputId ?? '') === outputId)
+    || (!hasMatrix && String(node.data.properties.targetOutputId ?? '') === '')
   ))
   return fixture
-    ? { id: fixture.id, swapChannels: fixture.data.properties.swapChannels === true }
+    ? {
+        id: fixture.id,
+        swapChannels: fixture.data.properties.swapChannels === true,
+        ledCount: Math.max(1, Math.round(Number(fixture.data.properties.ledCount ?? 16))),
+        standalone: !hasMatrix && String(fixture.data.properties.targetOutputId ?? '') === '',
+      }
     : null
 }
 
@@ -45,11 +54,14 @@ export function drawStereoVuRail(canvas: HTMLCanvasElement | null, pixels: RGB[]
   const ctx = canvas.getContext('2d')
   if (!ctx) return
   ctx.clearRect(0, 0, canvas.width, canvas.height)
-  ctx.fillStyle = '#020405'
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
-  for (const segment of stereoVuRailSegments(pixels, canvas.height)) {
-    const { r, g, b } = segment.color
-    ctx.fillStyle = `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`
-    ctx.fillRect(0, segment.y, canvas.width, segment.height)
-  }
+  if (pixels.length === 0) return
+  const pixel = canvas.height / pixels.length
+  const railFrame = [...pixels].reverse().map((color) => [color])
+  ctx.save()
+  ctx.translate((canvas.width - pixel) / 2, 0)
+  // The main live matrix uses the WebGL standard shader, whose bright emitter
+  // is ~0.58 of a cell. The Canvas fallback's photographic core is larger, so
+  // scale this auxiliary column to the shader's on-screen package size.
+  renderGridFrame(ctx, railFrame, pixel, 0.55)
+  ctx.restore()
 }

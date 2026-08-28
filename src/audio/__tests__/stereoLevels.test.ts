@@ -50,6 +50,19 @@ describe('stereo VU levels', () => {
       .toEqual({ left: 0.6, right: 0.6, channelCount: 1 })
   })
 
+  it('uses adaptive microphone bands instead of the quieter raw capture RMS', () => {
+    expect(resolveStereoLevels({
+      micActive: true,
+      nativeFastLed: true,
+      leftLevel: 0.45,
+      rightLevel: 0.45,
+      channelCount: 1,
+      micBass: 1,
+      micMids: 0.9,
+      micTreble: 0.8,
+    })).toEqual({ left: 1, right: 1, channelCount: 1 })
+  })
+
   it('clamps invalid and out-of-range payload levels', () => {
     expect(resolveStereoLevels({ leftLevel: -1, rightLevel: 4, channelCount: 2 }))
       .toEqual({ left: 0, right: 1, channelCount: 2 })

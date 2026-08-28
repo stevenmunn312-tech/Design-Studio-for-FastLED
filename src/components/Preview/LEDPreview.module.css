@@ -459,6 +459,10 @@
   gap: 22px;
 }
 
+.canvasBayVuOnly {
+  gap: 38px;
+}
+
 .vuRail {
   position: relative;
   z-index: 1;
@@ -476,7 +480,7 @@
 .vuRail > span {
   position: absolute;
   left: 50%;
-  top: -20px;
+  bottom: -20px;
   transform: translateX(-50%);
   white-space: nowrap;
 }
@@ -484,10 +488,11 @@
 .vuRail canvas {
   display: block;
   max-height: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
+  border-radius: 3px;
   background: #020405;
-  box-shadow: 0 0 18px rgba(0, 240, 255, 0.08);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 18px rgba(0, 240, 255, 0.08);
   image-rendering: pixelated;
 }
 
@@ -496,7 +501,7 @@
 }
 
 .panelStage .vuRail > span {
-  top: -23px;
+  bottom: -23px;
 }
 
 .canvasFrame {

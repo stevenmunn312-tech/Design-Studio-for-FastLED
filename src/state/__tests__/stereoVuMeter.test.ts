@@ -4,7 +4,7 @@ import { boardProfileById } from '../../build/boardProfiles'
 import { validateGraph } from '../../utils/validateGraph'
 import { busAssignmentFor, findPinCollisions } from '../busTopology'
 import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType } from '../hardware'
-import { NODE_LIBRARY, gpioRequirementForProperty } from '../nodeLibrary'
+import { NODE_LIBRARY, gpioRequirementForProperty, propertyLabel } from '../nodeLibrary'
 import { retargetHardwarePins, withAssignedPins } from '../pinRetarget'
 import type { StudioEdge, StudioNode } from '../graphStore'
 
@@ -34,20 +34,25 @@ describe('Stereo VU Meter hardware contract', () => {
     expect(definition).toMatchObject({
       label: 'Stereo VU Meter',
       category: 'output',
-      inputs: [{ id: 'audio', dataType: 'audio' }],
+      inputs: [
+        { id: 'audio', dataType: 'audio' },
+        { id: 'paletteIn', dataType: 'palette' },
+      ],
       outputs: [],
       defaultProperties: {
-        ledCount: 60,
+        ledCount: 16,
         leftDirection: 'Bottom',
         rightDirection: 'Bottom',
         chipset: 'WS2812B',
         colorOrder: 'GRB',
+        visualizationPolicy: 'Shuffle',
         visualizationMode: 'Classic Ladder',
         enabled: true,
       },
     })
     expect(isHardwareManagedSignalNodeType('StereoVuMeter')).toBe(true)
     expect(isHardwareLibraryHiddenNodeType('StereoVuMeter')).toBe(true)
+    expect(propertyLabel('StereoVuMeter', 'visualizationPolicy')).toBe('mode')
   })
 
   it('claims two exclusive output-capable LED pins', () => {

@@ -39,7 +39,12 @@ function ledSprite(kind: 'spill' | 'core', r: number, g: number, b: number): HTM
   return sprite
 }
 
-export function renderGridFrame(ctx: CanvasRenderingContext2D, frame: Frame, pixel: number) {
+export function renderGridFrame(
+  ctx: CanvasRenderingContext2D,
+  frame: Frame,
+  pixel: number,
+  emitterScale = 1,
+) {
   const gridH = frame.length
   const gridW = frame[0]?.length ?? 0
   const width = gridW * pixel
@@ -65,7 +70,7 @@ export function renderGridFrame(ctx: CanvasRenderingContext2D, frame: Frame, pix
       if (brightness < 0.012) continue
       const cx = (x + 0.5) * pixel
       const cy = (y + 0.5) * pixel
-      const size = pixel * (1.4 + brightness * 1.8)
+      const size = pixel * (1.4 + brightness * 1.8) * emitterScale
       ctx.globalAlpha = 0.18 + brightness * 0.3
       ctx.drawImage(ledSprite('spill', r, g, b), cx - size / 2, cy - size / 2, size, size)
     }
@@ -79,7 +84,7 @@ export function renderGridFrame(ctx: CanvasRenderingContext2D, frame: Frame, pix
       if (brightness < 0.012) continue
       const cx = (x + 0.5) * pixel
       const cy = (y + 0.5) * pixel
-      const size = Math.max(1.6, pixel * (0.52 + brightness * 0.42))
+      const size = Math.max(1.6, pixel * (0.52 + brightness * 0.42) * emitterScale)
       ctx.globalAlpha = 0.72 + brightness * 0.28
       ctx.drawImage(ledSprite('core', r, g, b), cx - size / 2, cy - size / 2, size, size)
 
@@ -87,7 +92,7 @@ export function renderGridFrame(ctx: CanvasRenderingContext2D, frame: Frame, pix
         ctx.globalAlpha = (brightness - 0.66) * 1.5
         ctx.fillStyle = '#fff'
         ctx.beginPath()
-        ctx.arc(cx, cy, Math.max(0.35, pixel * 0.045), 0, Math.PI * 2)
+        ctx.arc(cx, cy, Math.max(0.35, pixel * 0.045 * emitterScale), 0, Math.PI * 2)
         ctx.fill()
       }
     }

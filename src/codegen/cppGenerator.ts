@@ -437,7 +437,7 @@ function audioEngineCpp(
       '  _audioRightLevel = _lineInput ? _lineInput->rightLevel() : 0.0f;',
     ] : [
       '  // A one-channel microphone intentionally drives both VU channels.',
-      '  _audioLeftLevel = _audioRightLevel = constrain((_audioBass + _audioMids + _audioTreble) / 3.0f, 0.0f, 1.0f);',
+      '  _audioLeftLevel = _audioRightLevel = max(_audioBass, max(_audioMids, _audioTreble));',
     ]),
     '  _audioBpm = _audioProcessor->getBPM();',
     '  uint32_t beatCount = _audioBeatCount;',
@@ -1626,21 +1626,6 @@ export function generateCpp(
   }
 
   const sorted = topoSort(live, edges)
-  const stereoVuMeters: StereoVuEmit[] = sorted
-    .filter((node) => node.data.nodeType === 'StereoVuMeter' && hasExplicitAudioInput(node.id))
-    .map((node) => {
-      const p = props(node)
-      return {
-        id: safeId(node.id),
-        properties: p,
-        leftPin: sanitizePin(p.leftDataPin, 5),
-        rightPin: sanitizePin(p.rightDataPin, 6),
-        activeExpr: p.enabled === false ? 'false' : emitEngine ? '(bool)_audioProcessor' : 'true',
-        leftExpr: '_audioLeftLevel',
-        rightExpr: '_audioRightLevel',
-        beatExpr: '_audioBeat',
-      }
-    })
 
   /*
    * The node feeding the output used to fill its own `buf_` and then have the
@@ -1799,6 +1784,23 @@ export function generateCpp(
     }
     return fastledPalette(String(nodeProps.palette ?? 'rainbow'))
   }
+
+  const stereoVuMeters: StereoVuEmit[] = sorted
+    .filter((node) => node.data.nodeType === 'StereoVuMeter' && hasExplicitAudioInput(node.id))
+    .map((node) => {
+      const p = props(node)
+      return {
+        id: safeId(node.id),
+        properties: p,
+        leftPin: sanitizePin(p.leftDataPin, 5),
+        rightPin: sanitizePin(p.rightDataPin, 6),
+        activeExpr: p.enabled === false ? 'false' : emitEngine ? '(bool)_audioProcessor' : 'true',
+        leftExpr: '_audioLeftLevel',
+        rightExpr: '_audioRightLevel',
+        beatExpr: '_audioBeat',
+        paletteExpr: paletteExpr(node.id, 'paletteIn', p),
+      }
+    })
 
   const loopLines: string[] = []
   // pinMode(...) calls contributed by hardware-input nodes, emitted in setup().

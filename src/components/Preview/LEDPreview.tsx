@@ -50,8 +50,8 @@ const PERF_TELEMETRY = import.meta.env.DEV
 
 const MAX_CANVAS_PX = 448
 const STAGE_CANVAS_PX = 840
-const VU_RAIL_WIDTH = 20
-const STAGE_VU_RAIL_WIDTH = 28
+const VU_RAIL_WIDTH = 28
+const STAGE_VU_RAIL_WIDTH = 56
 const VU_COMPOSITION_GUTTER = 22
 const BYTES_PER_MIB = 1024 * 1024
 const MEMORY_SAMPLE_INTERVAL_MS = 30_000
@@ -285,17 +285,19 @@ export default function LEDPreview() {
   const activeOutput = useGraphStore((s) => s.nodes.find((node) => node.id === activeOutputId && node.data.nodeType === 'MatrixOutput'))
   const combinedVuKey = useGraphStore((s) => {
     const fixture = combinedStereoVuFixture(rootGraphNodes(s), activeOutputId)
-    return fixture ? `${fixture.id}|${fixture.swapChannels ? 1 : 0}` : ''
+    return fixture ? `${fixture.id}|${fixture.swapChannels ? 1 : 0}|${fixture.ledCount}|${fixture.standalone ? 1 : 0}` : ''
   })
-  const [combinedVuId = '', combinedVuSwapFlag = '0'] = combinedVuKey.split('|')
+  const [combinedVuId = '', combinedVuSwapFlag = '0', combinedVuCountFlag = '16', standaloneVuFlag = '0'] = combinedVuKey.split('|')
   const combinedVuSwap = combinedVuSwapFlag === '1'
+  const combinedVuCount = Math.max(1, Number(combinedVuCountFlag) || 16)
+  const standaloneVu = combinedVuId !== '' && standaloneVuFlag === '1'
   // Real matrix dimensions — used for the canvas/WebGL buffer size, the
   // frame passed to the renderers, and the on-screen W×H readout, so a
   // strip layout (e.g. 10×1) never grows a phantom extra row/column. Only
   // the pixel-scale math below (`pixelScaleW/H`) floors to 2, so a thin
   // strip's LEDs aren't blown up to fill the whole available height/width.
-  const gridW = Math.max(1, Math.min(64, selectedRouteSummary?.width ?? 16))
-  const gridH = Math.max(1, Math.min(64, selectedRouteSummary?.height ?? 16))
+  const gridW = Math.max(1, Math.min(64, selectedRouteSummary?.width ?? 1))
+  const gridH = Math.max(1, Math.min(240, selectedRouteSummary?.height ?? combinedVuCount))
   const pixelScaleW = Math.max(2, gridW)
   const pixelScaleH = Math.max(2, gridH)
   // Panel-tile grid (MatrixOutput layout==='panels') — 0 when there's nothing
@@ -343,6 +345,10 @@ export default function LEDPreview() {
     availableCanvasH > 0 ? availableCanvasH / pixelScaleH : stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX,
   )
   const pixel = Math.max(1, windowedPixelLimit)
+  // One VU rail is one matrix column. Keep the larger width above only as
+  // reserved composition space; the visible black substrate follows the
+  // current matrix cell pitch as the panel is resized.
+  const vuCanvasWidth = Math.max(2, Math.min(railWidth, Math.round(pixel)))
   // Integer drawing-buffer size — floor the *canvas* dimensions, not the per-LED
   // pixel size. Flooring `pixel` and then multiplying by the grid scales the
   // rounding loss with resolution (~1px lost per LED × 64 ≈ a 14% shrink at
@@ -1016,7 +1022,7 @@ export default function LEDPreview() {
             <span className={styles.liveDot} aria-hidden="true" />
             <span className={styles.stageTitle}>Live output</span>
             <span className={styles.stageMeta}>
-              {gridW}×{gridH} · {fps} FPS · Memory Used: {memoryMb === null ? 'Unavailable' : `${memoryMb} MiB`}
+              {standaloneVu ? `${combinedVuCount} LEDs per side` : `${gridW}×${gridH}`} · {fps} FPS · Memory Used: {memoryMb === null ? 'Unavailable' : `${memoryMb} MiB`}
             </span>
           </div>
         ) : (
@@ -1069,7 +1075,7 @@ export default function LEDPreview() {
                 <i aria-hidden="true" /> Record
               </button>
               <span className={styles.canvasHudChip}>{previewStyleLabel(effectivePreviewStyle)}</span>
-              <span className={styles.canvasHudChip}>{hasFrameSignal ? 'Signal live' : 'Signal idle'}</span>
+              <span className={styles.canvasHudChip}>{hasFrameSignal || combinedVuId ? 'Signal live' : 'Signal idle'}</span>
               <span className={styles.canvasHudChip}>
                 {showMode ? 'Show sync' : audioVisualizerLive ? 'Audio reactive' : 'Workbench'}
               </span>
@@ -1083,14 +1089,14 @@ export default function LEDPreview() {
         className={`${styles.canvasWrap} ${effectivePreview3d ? styles.canvasWrap3d : ''}`}
       >
         {import.meta.env.DEV && <DevPerformanceHud />}
-        <div className={`${styles.canvasBay} ${combinedVuId ? styles.canvasBayWithVu : ''}`}>
+        <div className={`${styles.canvasBay} ${combinedVuId ? styles.canvasBayWithVu : ''} ${standaloneVu ? styles.canvasBayVuOnly : ''}`}>
           {combinedVuId && (
             <div className={styles.vuRail} aria-label={combinedVuSwap ? 'Left rail, driven by right audio channel' : 'Left audio rail'}>
               <span>{combinedVuSwap ? 'L · R ch' : 'L'}</span>
-              <canvas ref={leftVuCanvasRef} width={railWidth} height={canvasBufH} />
+              <canvas ref={leftVuCanvasRef} width={vuCanvasWidth} height={canvasBufH} />
             </div>
           )}
-          <div className={styles.canvasFrame}>
+          {!standaloneVu && <div className={styles.canvasFrame}>
             {uiEffectsEnabled && (
               <div className={styles.ambilight} aria-hidden="true">
                 <i /><i /><i /><i />
@@ -1125,15 +1131,15 @@ export default function LEDPreview() {
                 />
               )}
             </div>
-          </div>
+          </div>}
           {combinedVuId && (
             <div className={styles.vuRail} aria-label={combinedVuSwap ? 'Right rail, driven by left audio channel' : 'Right audio rail'}>
               <span>{combinedVuSwap ? 'R · L ch' : 'R'}</span>
-              <canvas ref={rightVuCanvasRef} width={railWidth} height={canvasBufH} />
+              <canvas ref={rightVuCanvasRef} width={vuCanvasWidth} height={canvasBufH} />
             </div>
           )}
         </div>
-        {!hasFrameSignal && (
+        {!hasFrameSignal && !combinedVuId && (
           <div className={styles.standbyHud} aria-live="polite">
             <span><i aria-hidden="true" /> Signal standby</span>
             <small>Patch a frame into output</small>

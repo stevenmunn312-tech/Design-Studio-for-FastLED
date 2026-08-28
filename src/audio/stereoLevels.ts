@@ -27,6 +27,8 @@ export function normalizedRmsLevel(samples: ArrayLike<number>, gain = 1): number
 }
 
 export interface StereoLevelSource {
+  micActive?: boolean
+  nativeFastLed?: boolean
   leftLevel?: number
   rightLevel?: number
   channelCount?: number
@@ -72,6 +74,24 @@ function finiteLevel(value: unknown): number | null {
 export function resolveStereoLevels(source: StereoLevelSource): StereoLevels {
   const left = finiteLevel(source.leftLevel)
   const right = finiteLevel(source.rightLevel)
+  // The device microphone path exposes FastLED's adaptively-normalized bands,
+  // not a fixed raw-RMS channel meter. Use the same mono value in the browser
+  // so a loud mic moment reaches full scale in both runtimes. Raw left/right
+  // levels remain authoritative for music analysis and true stereo line-in.
+  if (source.micActive && source.nativeFastLed === true) {
+    const micBands = [source.micBass, source.micMids, source.micTreble]
+      .map(finiteLevel)
+      .filter((value): value is number => value != null)
+    if (micBands.length > 0) {
+      // A level meter follows the dominant band. Averaging three normalized
+      // bands held a loud bass- or treble-led passage near one third scale.
+      const mono = Math.max(...micBands)
+      return { left: mono, right: mono, channelCount: 1 }
+    }
+  }
+  if (source.channelCount === 2 && left != null && right != null) {
+    return { left, right, channelCount: 2 }
+  }
   if (left != null && right != null) {
     return {
       left,

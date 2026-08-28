@@ -5,6 +5,11 @@ import {
   stereoVuShuffleOrder,
 } from '../state/stereoVuMeter'
 import { paletteCppRef, resolvePaletteId } from '../state/paletteCatalog'
+import {
+  customPaletteStops16,
+  hexToRgb as customHexToRgb,
+  normalizeCustomPalette,
+} from '../state/customPalette'
 import type { StudioEdge, StudioNode } from '../state/graphStore'
 import { sanitizePin } from './hardwarePins'
 
@@ -19,6 +24,8 @@ export interface StereoVuEmit {
   leftExpr: string
   rightExpr: string
   beatExpr: string
+  paletteExpr?: string
+  paletteDeclaration?: string
 }
 
 export interface StereoVuExpressions {
@@ -36,6 +43,7 @@ export function stereoVuEmitsFromGraph(
   edges: Array<Pick<StudioEdge, 'source' | 'target' | 'targetHandle'>>,
   expressions: StereoVuExpressions,
 ): StereoVuEmit[] {
+  const nodeById = new Map(nodes.map((node) => [node.id, node]))
   const audioIds = new Set(nodes
     .filter((node) => node.data.nodeType === 'Audio')
     .map((node) => node.id))
@@ -46,8 +54,25 @@ export function stereoVuEmitsFromGraph(
     .filter((node) => node.data.nodeType === 'StereoVuMeter' && wiredMeters.has(node.id))
     .map((node) => {
       const properties = node.data.properties as Record<string, unknown>
+      const safeMeterId = node.id.replace(/[^a-zA-Z0-9_]/g, '_')
+      const paletteEdge = edges.find((edge) => edge.target === node.id && edge.targetHandle === 'paletteIn')
+      const paletteSource = paletteEdge ? nodeById.get(paletteEdge.source) : undefined
+      let paletteExpr: string | undefined
+      let paletteDeclaration: string | undefined
+      if (paletteSource?.data.nodeType === 'CustomPalette') {
+        const paletteProperties = paletteSource.data.properties as Record<string, unknown>
+        const local = normalizeCustomPalette(paletteProperties.colors, paletteProperties.positions)
+        const stops = customPaletteStops16(local.colors.map(customHexToRgb), local.positions)
+        paletteExpr = `_vuPalette_${safeMeterId}`
+        paletteDeclaration = `const CRGBPalette16 ${paletteExpr}(${stops
+          .map((color) => `CRGB(${color.r}, ${color.g}, ${color.b})`)
+          .join(', ')});`
+      } else if (paletteSource) {
+        const paletteProperties = paletteSource.data.properties as Record<string, unknown>
+        paletteExpr = paletteCppRef(resolvePaletteId(String(paletteProperties.palette ?? 'rainbow').toLowerCase()))
+      }
       return {
-        id: node.id.replace(/[^a-zA-Z0-9_]/g, '_'),
+        id: safeMeterId,
         properties,
         leftPin: sanitizePin(properties.leftDataPin, 5),
         rightPin: sanitizePin(properties.rightDataPin, 6),
@@ -55,6 +80,8 @@ export function stereoVuEmitsFromGraph(
         leftExpr: expressions.left,
         rightExpr: expressions.right,
         beatExpr: expressions.beat,
+        paletteExpr,
+        paletteDeclaration,
       }
     })
 }
@@ -77,7 +104,7 @@ export function stereoVuGlobalCpp(emit: StereoVuEmit): string {
   const left = hexToRgb(String(emit.properties.leftColor ?? '#20ff70'))
   const right = hexToRgb(String(emit.properties.rightColor ?? '#20a0ff'))
   const shuffle = stereoVuShuffleOrder(emit.id).join(', ')
-  return `// Stereo VU Meter ${emit.id}: state is per fixture, so peaks, history and policy never leak.
+  return `${emit.paletteDeclaration ? `${emit.paletteDeclaration}\n` : ''}// Stereo VU Meter ${emit.id}: state is per fixture, so peaks, history and policy never leak.
 #define VU_LEDS_${emit.id} ${s.ledCount}
 #define VU_LEFT_PIN_${emit.id} ${emit.leftPin}
 #define VU_RIGHT_PIN_${emit.id} ${emit.rightPin}
@@ -98,7 +125,7 @@ const StereoVuConfig _vuConfig_${emit.id} = {
 }
 
 export function stereoVuLoopCpp(emit: StereoVuEmit): string {
-  const palette = paletteCppRef(stereoVuPaletteId(emit.properties))
+  const palette = emit.paletteExpr ?? paletteCppRef(stereoVuPaletteId(emit.properties))
   return `  _stereoVuRender(_vuState_${emit.id}, _vuConfig_${emit.id},
     _vuLeftHistory_${emit.id}, _vuRightHistory_${emit.id}, _vuLeft_${emit.id}, _vuRight_${emit.id},
     ${palette}, ${emit.activeExpr}, ${emit.leftExpr}, ${emit.rightExpr}, ${emit.beatExpr}, millis());`
