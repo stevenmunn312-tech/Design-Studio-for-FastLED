@@ -5,6 +5,8 @@ import {
   stereoVuShuffleOrder,
 } from '../state/stereoVuMeter'
 import { paletteCppRef, resolvePaletteId } from '../state/paletteCatalog'
+import type { StudioEdge, StudioNode } from '../state/graphStore'
+import { sanitizePin } from './hardwarePins'
 
 export const STEREO_VU_CPP_FORWARD = 'struct StereoVuConfig;\nstruct StereoVuState;'
 
@@ -17,6 +19,44 @@ export interface StereoVuEmit {
   leftExpr: string
   rightExpr: string
   beatExpr: string
+}
+
+export interface StereoVuExpressions {
+  active: string
+  left: string
+  right: string
+  beat: string
+}
+
+/** Fixed-template generators do not walk sinks through generateCpp. Resolve
+ * only fixtures with an explicit Audio wire, preserving the same activation
+ * boundary as the normal sketch generator. */
+export function stereoVuEmitsFromGraph(
+  nodes: StudioNode[],
+  edges: Array<Pick<StudioEdge, 'source' | 'target' | 'targetHandle'>>,
+  expressions: StereoVuExpressions,
+): StereoVuEmit[] {
+  const audioIds = new Set(nodes
+    .filter((node) => node.data.nodeType === 'Audio')
+    .map((node) => node.id))
+  const wiredMeters = new Set(edges
+    .filter((edge) => edge.targetHandle === 'audio' && audioIds.has(edge.source))
+    .map((edge) => edge.target))
+  return nodes
+    .filter((node) => node.data.nodeType === 'StereoVuMeter' && wiredMeters.has(node.id))
+    .map((node) => {
+      const properties = node.data.properties as Record<string, unknown>
+      return {
+        id: node.id.replace(/[^a-zA-Z0-9_]/g, '_'),
+        properties,
+        leftPin: sanitizePin(properties.leftDataPin, 5),
+        rightPin: sanitizePin(properties.rightDataPin, 6),
+        activeExpr: properties.enabled === false ? 'false' : expressions.active,
+        leftExpr: expressions.left,
+        rightExpr: expressions.right,
+        beatExpr: expressions.beat,
+      }
+    })
 }
 
 const floatLit = (value: number): string => {

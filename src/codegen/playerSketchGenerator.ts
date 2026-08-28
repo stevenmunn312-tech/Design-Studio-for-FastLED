@@ -42,6 +42,10 @@ import { boardProfileById } from '../build/boardProfiles'
 import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
 import { hexToRgb } from '../state/polinePalette'
 import { buttonBankEntryForHandle } from '../state/buttonBank'
+import {
+  STEREO_VU_CPP_FORWARD, STEREO_VU_CPP_HELPERS, stereoVuGlobalCpp,
+  stereoVuLoopCpp, type StereoVuEmit,
+} from './stereoVuMeterCpp'
 
 export interface PlayerConfig {
   ledWidth:    number
@@ -314,7 +318,13 @@ export function generatePlayerSketch(
   // in /music" can play a song left over from an earlier session — paired with
   // that song's show, which makes the mismatch look like a sync bug rather
   // than the wrong file.
-  opts: { audioEnvelope?: boolean; decoderTap?: boolean; preferredTrack?: string; genericPlayer?: boolean; psramAllowed?: boolean; controls?: PlayerControlsConfig; particleFx?: PlayerParticlesConfig | null; displays?: PlayerDisplays; thumbnails?: BrowserThumbnails; artworks?: TransportArtworks } = {},
+  opts: {
+    audioEnvelope?: boolean; decoderTap?: boolean; preferredTrack?: string
+    genericPlayer?: boolean; psramAllowed?: boolean; controls?: PlayerControlsConfig
+    particleFx?: PlayerParticlesConfig | null; displays?: PlayerDisplays
+    thumbnails?: BrowserThumbnails; artworks?: TransportArtworks
+    stereoVuMeters?: StereoVuEmit[]
+  } = {},
 ): string {
   const raw = { ...DEFAULTS, ...cfg }
   const c = {
@@ -334,7 +344,9 @@ export function generatePlayerSketch(
   const numLeds = c.ledWidth * c.ledHeight
   const collection = !!(renderers && renderers.count > 0)
   const bakedAudio = !!opts.audioEnvelope
-  const decoderTap = collection && opts.decoderTap === true
+  const stereoVuMeters = opts.stereoVuMeters ?? []
+  const hasStereoVu = stereoVuMeters.length > 0
+  const decoderTap = (collection && opts.decoderTap === true) || hasStereoVu
   const genericPlayer = collection && opts.genericPlayer === true
   const controls = opts.controls ?? { bindings: {}, ...DEFAULT_CONTROL_SETTINGS }
   const particleFx = opts.particleFx?.enabled ? opts.particleFx : null
@@ -436,7 +448,23 @@ export function generatePlayerSketch(
   const ledSetupLines = isHub75
     ? hub75SetupCpp(hub75Hw!).join('\n')
     : fastledSetupCpp(hw, { dataPinMacro: 'LED_DATA_PIN', clockPinMacro: 'LED_CLOCK_PIN', brightness: c.ledBrightness }).join('\n')
-  const powerSetupLine = c.powerLimit && !isHub75
+  const stereoVuSetupLines = stereoVuMeters.flatMap((meter) => {
+    const meterHw = ledHardwareFromProps(meter.properties)
+    return [
+      ...fastledSetupCpp(meterHw, {
+        dataPinMacro: `VU_LEFT_PIN_${meter.id}`, brightness: null,
+        ledCountMacro: `VU_LEDS_${meter.id}`, ledsName: `_vuLeft_${meter.id}`,
+        controllerName: `_vuLeftController_${meter.id}`,
+      }),
+      ...fastledSetupCpp(meterHw, {
+        dataPinMacro: `VU_RIGHT_PIN_${meter.id}`, brightness: null,
+        ledCountMacro: `VU_LEDS_${meter.id}`, ledsName: `_vuRight_${meter.id}`,
+        controllerName: `_vuRightController_${meter.id}`,
+      }),
+      ...(isHub75 ? [`  FastLED.setBrightness(${c.ledBrightness});`] : []),
+    ]
+  }).join('\n')
+  const powerSetupLine = c.powerLimit && (!isHub75 || hasStereoVu)
     ? `  FastLED.setMaxPowerInVoltsAndMilliamps(${Math.max(1, Math.round(c.volts))}, ${Math.max(100, Math.round(c.milliamps))});`
     : ''
 
@@ -755,7 +783,7 @@ void applyPlayerVolume() {
 void applyPlayerBrightness() {
   float level = ledsEnabled ? playerBrightness * showBrightness : 0.0f;
   uint8_t value = (uint8_t)lroundf(constrain(level, 0.0f, 1.0f) * ${c.ledBrightness});
-  ${isHub75 ? 'dma_display->setBrightness8(value);' : 'FastLED.setBrightness(value);'}
+  ${isHub75 ? `dma_display->setBrightness8(value);${hasStereoVu ? ' FastLED.setBrightness(value);' : ''}` : 'FastLED.setBrightness(value);'}
 }
 
 void changePlayerTrack(int8_t direction) {
@@ -910,6 +938,8 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
   }))
 
   const displayHelpersCpp = [
+    hasStereoVu ? STEREO_VU_CPP_HELPERS : '',
+    hasStereoVu ? stereoVuMeters.map(stereoVuGlobalCpp).join('\n') : '',
     hasDisplays ? PLAYER_SONG_INFO_CPP : '',
     hasInfoDisplays ? infoDisplayHelpersCpp() : '',
     hasInfoDisplays ? infoEmits.map(infoDisplayGlobalCpp).join('\n') : '',
@@ -997,7 +1027,7 @@ ${isHub75 ? hub75IncludesCpp(hub75Hw!).join('\n') + '\n' : ''}#include <SD.h>
 // defined, so a helper taking one by reference fails on a line nothing
 // in this generator wrote.
 ${[...fastLedDecls].join('\n')}
-${hasInfoDisplays ? INFO_DISPLAY_CPP_FORWARD + '\n' : ''}${hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasTftDisplays ? TFT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasPatternSelection ? PATTERN_SELECTION_CPP_FORWARD + '\n' : ''}
+${hasInfoDisplays ? INFO_DISPLAY_CPP_FORWARD + '\n' : ''}${hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasTftDisplays ? TFT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasPatternSelection ? PATTERN_SELECTION_CPP_FORWARD + '\n' : ''}${hasStereoVu ? STEREO_VU_CPP_FORWARD + '\n' : ''}
 // ── Pin config ────────────────────────────────────────────────────────────────
 ${isHub75 ? '' : `#define LED_DATA_PIN  ${c.ledDataPin}\n`}${clockPinDefine}#define WIDTH         ${c.ledWidth}
 #define HEIGHT        ${c.ledHeight}
@@ -1089,6 +1119,7 @@ uint8_t    burstStyle = 0;        // particle motion style (see PARTICLE_STYLES)
 ${hasEnergy ? 'float      energy    = 0.0f;      // SET_ENERGY → energy group-input role\n' : ''}${hasSpeed ? 'float      speed     = 0.5f;      // SET_SPEED (normalised 0–1) → speed group-input role\n' : ''}${hasPalette ? 'CRGBPalette16 palette = RainbowColors_p;  // SET_PALETTE → palette group-input role\n' : ''}${reactiveAudio ? `
 // Shared audio contract consumed by compiled FFT/beat/percussion/features nodes.
 float     _audioBass = 0, _audioMids = 0, _audioTreble = 0, _audioBpm = 120;
+float     _audioLeftLevel = 0, _audioRightLevel = 0;
 bool      _audioBeat = false;
 float     _audioSpectrum[32];
 ` : ''}${bakedAudio ? `
@@ -1110,6 +1141,8 @@ static uint16_t _decoderTapFill = 0;
 static uint8_t _decoderTapWrite = 0, _decoderTapRead = 0, _decoderTapQueued = 0;
 static uint32_t _decoderTapLastMs = 0;
 static bool _decoderTapLive = false;
+static volatile uint64_t _decoderLeftSquares = 0, _decoderRightSquares = 0;
+static volatile uint32_t _decoderLevelFrames = 0;
 static fl::shared_ptr<fl::audio::Processor> _audioProcessor;
 static volatile uint32_t _audioBeatCount = 0;
 static uint32_t _audioBeatSeen = 0;
@@ -1222,18 +1255,23 @@ void audio_process_i2s(int16_t* outBuff, uint16_t validSamples,
 
   const uint8_t stride = channels;
   const uint8_t mixedChannels = channels > 1 ? 2 : 1;
+  uint64_t leftSquares = 0, rightSquares = 0;
   for (uint16_t frame = 0; frame < validSamples; frame++) {
-    int32_t mixed = 0;
+    int32_t stereo[2] = { 0, 0 };
     for (uint8_t channel = 0; channel < mixedChannels; channel++) {
       int16_t raw = outBuff[(uint32_t)frame * stride + channel];
 #if DECODER_TAP_INTERNAL_DAC
       // Audio(true) has already biased signed PCM into the ESP32 DAC's unsigned
       // range before this callback. Undo that bias for spectral analysis.
-      mixed += (int32_t)(uint16_t)raw - 32768;
+      stereo[channel] = (int32_t)(uint16_t)raw - 32768;
 #else
-      mixed += raw;
+      stereo[channel] = raw;
 #endif
     }
+    if (mixedChannels == 1) stereo[1] = stereo[0];
+    leftSquares += (uint64_t)((int64_t)stereo[0] * stereo[0]);
+    rightSquares += (uint64_t)((int64_t)stereo[1] * stereo[1]);
+    int32_t mixed = mixedChannels == 1 ? stereo[0] : (stereo[0] + stereo[1]) / 2;
 
     // One producer (audio.loop) and one consumer later in the same Arduino
     // loop. Drop the oldest complete block if rendering fell behind playback.
@@ -1242,13 +1280,18 @@ void audio_process_i2s(int16_t* outBuff, uint16_t validSamples,
       _decoderTapQueued--;
     }
     _decoderTapBlocks[_decoderTapWrite][_decoderTapFill++] =
-      (int16_t)(mixed / mixedChannels);
+      (int16_t)mixed;
     if (_decoderTapFill == DECODER_TAP_BLOCK_SAMPLES) {
       _decoderTapFill = 0;
       _decoderTapWrite = (_decoderTapWrite + 1) % DECODER_TAP_BLOCKS;
       _decoderTapQueued++;
     }
   }
+  // Publish one short-window RMS accumulator. sqrtf stays in the main loop so
+  // the callback returns to decoder/I2S DMA with only adds and multiplies.
+  _decoderLeftSquares = leftSquares;
+  _decoderRightSquares = rightSquares;
+  _decoderLevelFrames = validSamples;
 }
 
 void setupDecoderTap() {
@@ -1284,8 +1327,17 @@ void updateDecoderAudio() {
   if (processed) _decoderTapLastMs = millis();
   _decoderTapLive = _decoderTapLastMs != 0 && millis() - _decoderTapLastMs < 250;
 
+  uint32_t levelFrames = _decoderLevelFrames;
+  if (levelFrames > 0) {
+    uint64_t leftSquares = _decoderLeftSquares, rightSquares = _decoderRightSquares;
+    _decoderLevelFrames = 0;
+    _audioLeftLevel = constrain(sqrtf((double)leftSquares / levelFrames) / 32768.0f, 0.0f, 1.0f);
+    _audioRightLevel = constrain(sqrtf((double)rightSquares / levelFrames) / 32768.0f, 0.0f, 1.0f);
+  }
+
   _audioBeat = false;
   if (!_decoderTapLive) {
+    _audioLeftLevel = _audioRightLevel = 0.0f;
 ${bakedAudio ? '    // updateShowAudio() applies the baked fallback later in this loop.\n' : '    _audioBass = _audioMids = _audioTreble = 0.0f;\n    _audioBpm = 120.0f;\n    for (int b = 0; b < 32; b++) _audioSpectrum[b] = 0.0f;\n'}    return;
   }
   _audioBass = _audioProcessor->getBassLevel();
@@ -1299,6 +1351,14 @@ ${bakedAudio ? '    // updateShowAudio() applies the baked fallback later in thi
   // established 32-slot spectrum contract, matching the microphone engine.
   for (int b = 0; b < 32; b++) _audioSpectrum[b] = _audioProcessor->getEqBin(b >> 1);
 }
+
+void resetDecoderTapLevels() {
+  _decoderLeftSquares = _decoderRightSquares = 0;
+  _decoderLevelFrames = 0;
+  _audioLeftLevel = _audioRightLevel = 0.0f;
+  _decoderTapLastMs = 0;
+  _decoderTapLive = false;
+}
 ` : ''}
 
 ${controlSupportCpp}
@@ -1309,7 +1369,7 @@ void applyEvent(const ShowEvent& ev) {
     case CMD_SET_PATTERN:    patternId  = (uint8_t)ev.params[0]; break;
     case CMD_SET_PALETTE:    paletteId  = (uint8_t)ev.params[0];${hasPalette ? ' palette = paletteFromId(paletteId);' : ''} break;
     case CMD_SET_SPEED:      animSpeed  = ev.params[0];${hasSpeed ? ' speed = constrain(ev.params[0] * 0.5f, 0.0f, 1.0f);' : ''} break;
-    case CMD_SET_BRIGHTNESS:${hasControls ? ' showBrightness = constrain(ev.params[0] / 255.0f, 0.0f, 1.0f); applyPlayerBrightness();' : ` ${isHub75 ? 'dma_display->setBrightness8((uint8_t)ev.params[0]);' : 'FastLED.setBrightness((uint8_t)ev.params[0]);'}`} break;
+    case CMD_SET_BRIGHTNESS:${hasControls ? ' showBrightness = constrain(ev.params[0] / 255.0f, 0.0f, 1.0f); applyPlayerBrightness();' : ` ${isHub75 ? `dma_display->setBrightness8((uint8_t)ev.params[0]);${hasStereoVu ? ' FastLED.setBrightness((uint8_t)ev.params[0]);' : ''}` : 'FastLED.setBrightness((uint8_t)ev.params[0]);'}`} break;
     case CMD_BEAT_FLASH:
       flashLevel = ev.params[0] / 255.0f;
       flashDecay = expf(-16.0f / (60.0f + ((ev.paramCount > 1 ? ev.params[1] : 22.0f) / 255.0f) * 240.0f));
@@ -1338,7 +1398,7 @@ void applyEvent(const ShowEvent& ev) {
  * would keep reporting "no playable track" until the board was power-cycled.
  */
 void primeAudioDecoder() {
-  // ESP32-audioI2S parses local-file headers only when audio.loop() runs and
+${decoderTap ? '  resetDecoderTapLevels();  // clear capture for the new source; VU state remains intact\n' : ''}  // ESP32-audioI2S parses local-file headers only when audio.loop() runs and
   // abandons that phase after 2.5 seconds. A complex first LED frame can take
   // long enough to starve those calls. Prime until playback time advances,
   // bounded so a bad file or disconnected I2S device cannot wedge setup.
@@ -1784,6 +1844,7 @@ void setup() {
 ${psramAllocs.join('\n')}
 
 ${ledSetupLines}
+${stereoVuSetupLines}
 ${powerSetupLine}
 ${hasControls ? `${controlPinSetup}\n  applyPlayerBrightness();` : ''}
 
@@ -2072,7 +2133,9 @@ ${genericPlayer ? `  for (int i = 0; i < NUM_LEDS; i++) {
   }
 ` : ''}
 
-  ${isHub75 ? hub75BlitRowsCpp(hub75Hw!).map((line) => line.replace(/^ {2}/, '')).join('\n  ') : 'FastLED.show();'}
+${stereoVuMeters.map(stereoVuLoopCpp).join('\n')}
+  ${isHub75 ? hub75BlitRowsCpp(hub75Hw!).map((line) => line.replace(/^ {2}/, '')).join('\n  ') : ''}
+  ${!isHub75 || hasStereoVu ? 'FastLED.show();' : ''}
   FastLED.delay(16);  // ~60 fps
 }
 `

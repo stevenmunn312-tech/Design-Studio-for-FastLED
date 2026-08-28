@@ -21,6 +21,7 @@ import { buildPatternRenderers, patternRenderersUseAudio } from '../codegen/show
 import { showFileToBinary } from '../codegen/performanceGenerator'
 import type { ShowUploadFile } from './backendClient'
 import { resolveShowTarget } from '../state/showTarget'
+import { stereoVuEmitsFromGraph } from '../codegen/stereoVuMeterCpp'
 
 const nodeType = (n: StudioNode) => (n.data as StudioNodeData).nodeType
 
@@ -127,9 +128,14 @@ export function buildShowPlayer(
     ? buildPatternRenderers(patternSet, groups, roleParams, true, { beat: '_audioBeat' }, true)
     : undefined
   const particleFx = playerParticlesFromGraph(nodes, edges)
+  const stereoVuMeters = stereoVuEmitsFromGraph(nodes, edges, {
+    active: '_decoderTapLive', left: '_audioLeftLevel', right: '_audioRightLevel', beat: '_audioBeat',
+  })
   // FastLED's audio processor is sizeable. Link it when a compiled pattern
   // consumes audio or Player Particles needs live beat events.
-  const decoderTap = patternRenderersUseAudio(renderers) || particleFx?.enabled === true
+  const decoderTap = patternRenderersUseAudio(renderers)
+    || particleFx?.enabled === true
+    || stereoVuMeters.length > 0
   return generatePlayerSketch(playerConfigFromGraph(nodes, edges, opts.fqbn), renderers, {
     audioEnvelope: opts.bakedAudio && !!renderers,
     decoderTap,
@@ -151,6 +157,7 @@ export function buildShowPlayer(
       nodes, edges, groups, useGraphStore.getState().trusted,
     ),
     particleFx,
+    stereoVuMeters,
   })
 }
 

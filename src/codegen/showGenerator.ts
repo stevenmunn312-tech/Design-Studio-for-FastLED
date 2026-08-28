@@ -47,6 +47,10 @@ import { patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnail
 import { transportArtworkTableCpp } from './transportArtworkCpp'
 import type { BrowserThumbnails } from '../utils/browserThumbnails'
 import type { TransportArtworks } from '../utils/transportArtworks'
+import {
+  STEREO_VU_CPP_FORWARD, STEREO_VU_CPP_HELPERS, stereoVuEmitsFromGraph,
+  stereoVuGlobalCpp, stereoVuLoopCpp,
+} from './stereoVuMeterCpp'
 
 const nodeType = (n: StudioNode) => (n.data as { nodeType?: string }).nodeType
 const props = (n: StudioNode) => n.data.properties as Record<string, unknown>
@@ -620,6 +624,21 @@ export function generateShowSketch(
   // globals (externalAudio), so an audio-reactive
   // pattern reacts on-device the same way it does in the live preview.
   const audio = audioEngineForGraph(nodes)
+  const stereoVuMeters = stereoVuEmitsFromGraph(nodes, edges, {
+    active: audio ? '(bool)_audioProcessor' : 'false',
+    left: audio ? '_audioLeftLevel' : '0.0f',
+    right: audio ? '_audioRightLevel' : '0.0f',
+    beat: audio ? '_audioBeat' : 'false',
+  }).map((meter) => multiOutput ? {
+    ...meter,
+    properties: {
+      ...meter.properties,
+      // Multi-output shows pre-scale each route and leave FastLED's shared
+      // master at 255. Fold the Board ceiling into this fixture's own scale so
+      // its brightness order remains fixture × Board, as in a single route.
+      brightness: (Number(meter.properties.brightness ?? 0.65) || 0) * controller.brightness / 255,
+    },
+  } : meter)
   const renderers = buildPatternRenderers(info.patternIds, groups, [], !!audio, audio ? { beat: '_audioBeat' } : {}, !!audio)
   // A beat trigger needs a source on-device; the audio engine supplies _audioBeat.
   const beatTrigger = info.beatWired && !!audio
@@ -662,6 +681,7 @@ export function generateShowSketch(
   L.push('// line nothing in this generator wrote.')
   for (const decl of fastLedDecls) L.push(decl)
   for (const decl of displays.forwards) L.push(decl)
+  if (stereoVuMeters.length > 0) L.push(STEREO_VU_CPP_FORWARD)
   L.push('')
   L.push(`#define WIDTH    ${width}`)
   L.push(`#define HEIGHT   ${height}`)
@@ -716,6 +736,12 @@ export function generateShowSketch(
   L.push('')
   L.push('')
   if (audio) { for (const line of audio.code) L.push(line); L.push('') }
+  if (stereoVuMeters.length > 0) {
+    L.push(STEREO_VU_CPP_HELPERS)
+    L.push('')
+    for (const meter of stereoVuMeters) L.push(stereoVuGlobalCpp(meter))
+    L.push('')
+  }
   if (transitions) { L.push(transitionHelperCpp(info.transitionIds)); L.push('') }
   else if (particlesOn) { L.push(PARTICLE_HASH_CPP); L.push('') }
   if (particlesOn) { L.push(PARTICLE_OVERLAY_CPP); L.push('') }
@@ -769,7 +795,21 @@ export function generateShowSketch(
   } else {
     for (const s of fastledSetupCpp(hw)) L.push(s)
   }
-  if (controller.powerLimit && !isHub75) {
+  for (const meter of stereoVuMeters) {
+    const meterHw = ledHardwareFromProps(ledPropsWithController(meter.properties, nodes))
+    for (const s of fastledSetupCpp(meterHw, {
+      dataPinMacro: `VU_LEFT_PIN_${meter.id}`, brightness: null,
+      ledCountMacro: `VU_LEDS_${meter.id}`, ledsName: `_vuLeft_${meter.id}`,
+      controllerName: `_vuLeftController_${meter.id}`,
+    })) L.push(s)
+    for (const s of fastledSetupCpp(meterHw, {
+      dataPinMacro: `VU_RIGHT_PIN_${meter.id}`, brightness: null,
+      ledCountMacro: `VU_LEDS_${meter.id}`, ledsName: `_vuRight_${meter.id}`,
+      controllerName: `_vuRightController_${meter.id}`,
+    })) L.push(s)
+  }
+  if (isHub75 && stereoVuMeters.length > 0) L.push(`  FastLED.setBrightness(${controller.brightness});`)
+  if (controller.powerLimit && (!isHub75 || stereoVuMeters.length > 0)) {
     L.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${controller.volts}, ${controller.milliamps});`)
   }
   L.push(info.seed ? `  random16_set_seed(${info.seed}u);` : '  randomSeed(analogRead(A0));')
@@ -862,9 +902,11 @@ export function generateShowSketch(
       }
     }
   }
+  for (const meter of stereoVuMeters) L.push(stereoVuLoopCpp(meter))
   if (isHub75) {
     L.push(...hub75BlitRowsCpp(hub75Hw!))
-  } else {
+  }
+  if (!isHub75 || stereoVuMeters.length > 0) {
     L.push('  FastLED.show();')
   }
   // After the frame has shipped, never before it. A panel repaint is worth

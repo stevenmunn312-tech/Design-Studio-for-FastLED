@@ -183,10 +183,10 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 
 ### Phase 4 — Preserve stereo in Music Player and baked-show paths
 
-- [ ] Extend the decoded-PCM tap in `src/codegen/playerSketchGenerator.ts` to measure left and right before its current mono mix.
-- [ ] Mirror mono decoded files to both VU levels.
-- [ ] Keep decoder playback/DMA work higher priority than metering and pattern rendering.
-- [ ] Retain the existing mono FastLED Processor feed for FFT/beat/features.
+- [x] Extend the decoded-PCM tap in `src/codegen/playerSketchGenerator.ts` to measure left and right before its current mono mix.
+- [x] Mirror mono decoded files to both VU levels.
+- [x] Keep decoder playback/DMA work higher priority than metering and pattern rendering.
+- [x] Retain the existing mono FastLED Processor feed for FFT/beat/features.
 - [ ] Extend song decoding/analysis so a baked fallback can retain left/right level envelopes.
 - [ ] Version the show-file audio trailer rather than changing the existing three-byte frame layout in place.
 - [ ] Make the player accept legacy mono envelopes and mirror them.
@@ -275,16 +275,16 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 
 ### Phase 10 — Integrate generative-show and Music Player generators
 
-- [ ] Teach `src/codegen/showGenerator.ts` to discover and emit the root-owned fixture in a generative show.
-- [ ] Teach `src/codegen/playerSketchGenerator.ts` to emit it in the SD Music Player template.
-- [ ] Reuse one renderer/helper contract rather than copying visualization logic into each template.
-- [ ] Ensure each generator declares every helper, type, include, global, setup call, and loop call it references.
-- [ ] Confirm a show transition changes the matrix pattern without resetting VU peaks or trails.
-- [ ] Confirm player track changes reset only audio-source state that genuinely must reset.
-- [ ] Confirm LED power/brightness controls affect the main output and side meters consistently.
-- [ ] Add emitted-symbol and emitted-include coverage for the new helpers.
-- [ ] Add generator tests for microphone, PCM1802, live decoder tap, baked fallback, and no-audio cases.
-- [ ] Compile at least one sketch from each generator path on the reference board.
+- [x] Teach `src/codegen/showGenerator.ts` to discover and emit the root-owned fixture in a generative show.
+- [x] Teach `src/codegen/playerSketchGenerator.ts` to emit it in the SD Music Player template.
+- [x] Reuse one renderer/helper contract rather than copying visualization logic into each template.
+- [x] Ensure each generator declares every helper, type, include, global, setup call, and loop call it references.
+- [x] Confirm a show transition changes the matrix pattern without resetting VU peaks or trails.
+- [x] Confirm player track changes reset only audio-source state that genuinely must reset.
+- [x] Confirm LED power/brightness controls affect the main output and side meters consistently.
+- [x] Add emitted-symbol and emitted-include coverage for the new helpers.
+- [x] Add generator tests for microphone, PCM1802, live decoder tap, baked fallback, and no-audio cases.
+- [x] Compile at least one sketch from each generator path on the reference board.
 
 ### Phase 11 — Validation, capacity, electrical safety, and diagnostics
 
@@ -346,7 +346,7 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 - [x] Both rails preview vertically beside the selected matrix and use the shared renderer output consumed by generated firmware.
 - [ ] At least twelve selectable visualizations ship, plus Manual, Timed cycle, Beat cycle, and seeded Shuffle policies.
 - [ ] Animation ballistics are elapsed-time based and remain consistent across frame rates.
-- [ ] Normal sketches, generative shows, and Music Player sketches all support the fixture.
+- [x] Normal sketches, generative shows, and Music Player sketches all support the fixture.
 - [ ] Both strings refresh in synchronization with the main addressable LED output.
 - [ ] GPIO collision, board capability, RAM, LED count, and power validation include both strings.
 - [x] Wiring Test identifies Left and Right and verifies physical direction.
@@ -382,7 +382,7 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 - [x] **Slice C:** Shared renderer plus all twelve preview modes and golden vectors.
 - [ ] **Slice D:** Normal sketch code generation and generated-sketch compile proof.
 - [x] **Slice E:** Combined matrix/Stage preview and Wiring Test support.
-- [ ] **Slice F:** Generative-show and Music Player live decoder integration.
+- [x] **Slice F:** Generative-show and Music Player live decoder integration.
 - [ ] **Slice G:** Versioned baked-stereo fallback, legacy compatibility, documentation, and full bench evidence.
 
 Each slice should finish with focused tests and a working vertical path before the next slice begins. Do not land a property or UI choice until its evaluator, generator, validation, persistence, and test behavior are all defined.
