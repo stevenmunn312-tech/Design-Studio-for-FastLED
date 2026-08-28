@@ -6,7 +6,7 @@ Add a paired stereo VU-meter fixture to Design Studio for FastLED: one vertical 
 
 The feature must work in browser preview and generated firmware, provide at least ten genuinely different visualizations, coexist with the main LED output, and remain off when its Audio input is missing or inactive.
 
-This document is the implementation plan and progress ledger. Slice A and Slice B are complete; later rendering, firmware, combined-preview, player, and baked-stereo work remains tracked below.
+This document is the implementation plan and progress ledger. Slice A, Slice B, and Slice C are complete; later firmware, combined-preview, player, and baked-stereo work remains tracked below.
 
 ## Recommended product shape
 
@@ -203,7 +203,7 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 - [x] Add it to the **LED outputs** section of Add Hardware.
 - [x] Reuse the verified LED-string visual twice in the hardware bench; do not add a hand-drawn placeholder part.
 - [x] Draw both rails at true pitch/length and label Left and Right plus their data-in ends.
-- [ ] Add a compact graph node body showing two vertical live meters and the active mode.
+- [x] Add a compact graph node body showing two vertical live meters and the active mode.
 - [x] Implement unambiguous auto-wiring to an existing Audio node; otherwise leave a clear empty socket and guidance.
 - [x] Add target-output selection using root-graph LED outputs.
 - [x] Ensure deleting/disconnecting on the canvas follows the repository's hardware ownership rules.
@@ -225,38 +225,38 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 
 ### Phase 7 — Implement one shared visualization model
 
-- [ ] Create a small pure TypeScript model for level conditioning, peak state, mode cycling, and per-LED color output.
+- [x] Create a small pure TypeScript model for level conditioning, peak state, mode cycling, and per-LED color output.
 - [ ] Create the matching C++ emitter/helper with the same state variables, timing, clamps, palette sampling, and seeded mode order.
-- [ ] Keep per-instance state namespaced so two fixtures cannot share peaks, trails, or cycle state.
-- [ ] Reset state on evaluator reset, source change, fixture disable, and relevant geometry changes.
-- [ ] Make every mode deterministic at a supplied time/audio sequence.
-- [ ] Implement Classic Ladder.
-- [ ] Implement Palette Fill.
-- [ ] Implement Solid Channel.
-- [ ] Implement Segmented Blocks.
-- [ ] Implement Peak Cap.
-- [ ] Implement Falling Comet.
-- [ ] Implement Center Burst.
-- [ ] Implement Frame-Inward.
-- [ ] Implement Dot Runner.
-- [ ] Implement History Trail.
-- [ ] Implement Stereo Balance.
-- [ ] Implement Beat Spark.
-- [ ] Implement Manual, Timed cycle, Beat cycle, and seeded Shuffle policies.
+- [x] Keep per-instance state namespaced so two fixtures cannot share peaks, trails, or cycle state.
+- [x] Reset state on evaluator reset, source change, fixture disable, and relevant geometry changes.
+- [x] Make every mode deterministic at a supplied time/audio sequence.
+- [x] Implement Classic Ladder.
+- [x] Implement Palette Fill.
+- [x] Implement Solid Channel.
+- [x] Implement Segmented Blocks.
+- [x] Implement Peak Cap.
+- [x] Implement Falling Comet.
+- [x] Implement Center Burst.
+- [x] Implement Frame-Inward.
+- [x] Implement Dot Runner.
+- [x] Implement History Trail.
+- [x] Implement Stereo Balance.
+- [x] Implement Beat Spark.
+- [x] Implement Manual, Timed cycle, Beat cycle, and seeded Shuffle policies.
 - [ ] Add golden-vector tests that compare TypeScript and emitted C++ expectations for representative timestamps.
-- [ ] Add edge-case tests for 1, 2, odd, and even LED counts.
+- [x] Add edge-case tests for 1, 2, odd, and even LED counts.
 
 ### Phase 8 — Integrate browser preview and Stage Mode
 
-- [ ] Evaluate `StereoVuMeter` as a hot sink every animation tick, not only on low-rate published frames.
-- [ ] Store left/right rendered rails without mutating shared frames or other output buffers.
+- [x] Evaluate `StereoVuMeter` as a hot sink every animation tick, not only on low-rate published frames.
+- [x] Store left/right rendered rails without mutating shared frames or other output buffers.
 - [ ] Show the two rails vertically beside the selected target matrix in the main preview.
 - [ ] Preserve the existing multi-output Route selector and only flank the configured target.
 - [ ] Show the rails in Stage Mode and full-screen preview.
-- [ ] Respect left/right physical data direction in the standalone and combined previews.
+- [x] Respect left/right physical data direction in the standalone preview; combined-preview support remains below.
 - [ ] Keep visual Left on screen-left even when channel swap is enabled; channel labels should explain the swap.
 - [ ] Scale long strings without making the matrix preview unusably small.
-- [ ] Show a clear inactive/no-audio state rather than fabricated motion.
+- [x] Show a clear inactive/no-audio state rather than fabricated motion.
 - [ ] Add UI tests for target selection, layout, mono mirroring, stereo separation, and inactive audio.
 - [ ] Profile preview cost with History Trail and two long strings at 60 fps.
 
@@ -379,7 +379,7 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 
 - [x] **Slice A:** Stereo level contract, browser levels, PCM1802 levels, mono fallback, and unit tests.
 - [x] **Slice B:** Fixture registration, Hardware UI, pins/manifests/retargeting, and validation.
-- [ ] **Slice C:** Shared renderer plus all twelve preview modes and golden vectors.
+- [x] **Slice C:** Shared renderer plus all twelve preview modes and golden vectors.
 - [ ] **Slice D:** Normal sketch code generation and generated-sketch compile proof.
 - [ ] **Slice E:** Combined matrix/Stage preview and Wiring Test support.
 - [ ] **Slice F:** Generative-show and Music Player live decoder integration.

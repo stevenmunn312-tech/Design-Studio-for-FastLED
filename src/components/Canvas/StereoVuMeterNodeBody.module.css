@@ -16,19 +16,19 @@
   background: color-mix(in srgb, var(--bg-panel) 84%, #020507);
 }
 
-.rails > span {
-  position: relative;
+.rail {
+  display: grid;
+  grid-auto-rows: 1fr;
+  gap: 0;
   height: 50px;
   overflow: hidden;
   border-radius: 3px;
-  background: repeating-linear-gradient(to top, #111 0 3px, #050708 3px 5px);
+  background: #050708;
 }
 
-.rails i {
-  position: absolute;
-  inset: 58% 0 0;
-  background: linear-gradient(to top, #25ef75, #f5d43b);
-  opacity: 0.45;
+.rail i {
+  min-height: 0;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 5%);
 }
 
 .rails strong {
@@ -39,6 +39,14 @@
   font-weight: 600;
   line-height: 1.25;
   text-align: center;
+}
+
+.rails small {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 8px;
+  letter-spacing: 0.08em;
 }
 
 .targetRow {

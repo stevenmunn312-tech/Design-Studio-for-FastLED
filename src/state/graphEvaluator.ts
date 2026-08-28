@@ -72,6 +72,10 @@ import { resolveAudioCapabilitySource } from './audioCapabilities'
 import { resolveStorageCapabilitySource } from './storageCapabilities'
 import { usePlayerTransport } from './playerTransport'
 import { buttonBankHandle, normalizeButtonBankEntries } from './buttonBank'
+import { resolveStereoLevels } from '../audio/stereoLevels'
+import {
+  renderStereoVu, stereoVuSettings, type StereoVuFrame, type StereoVuState,
+} from './stereoVuMeter'
 
 export type { RGB, Palette, Frame }
 export { getCodeErrorFromSandbox as getCodeError }
@@ -242,6 +246,7 @@ const musicPlayerRuntimeState = new Map<string, MusicPlayerRuntimeState>()
  * darkens both, and each then remembers its own state from there.
  */
 const ledOutputLatchState = new Map<string, LedOutputLatch>()
+const stereoVuState = new Map<string, StereoVuState>()
 
 interface RDState { u: Float32Array; v: Float32Array; un: Float32Array; vn: Float32Array; w: number; h: number; seed: number }
 const rdState = new Map<string, RDState>()
@@ -502,7 +507,7 @@ function stateMaps(): StateMap[] {
     seededRngState, triggerState, scheduleState, particleState, particleSeedState, patternShowState,
     patternSelectionState, transportArtworkCache, patternThumbnailCache,
     playerControlsState, transportDisplayTouchState, musicPlayerRuntimeState,
-    ledOutputLatchState,
+    ledOutputLatchState, stereoVuState,
     percussionLevels, audioFeatureLevels,
     rdState, golState, waveSimState, flowState, colorTrailsState, spectrumVisualizerState, starState, boidState, sparkState, fire2012Heat,
     kickShockState, kaleidoPunch, percussionBlobsState, emberBurst,
@@ -580,7 +585,7 @@ export function getEvaluatorMemoryStats(): {
     audioFeatureLevels: audioFeatureLevels.size, particleState: particleState.size,
     particleSeedState: particleSeedState.size, patternShowState: patternShowState.size,
     playerControlsState: playerControlsState.size, transportDisplayTouchState: transportDisplayTouchState.size, musicPlayerRuntimeState: musicPlayerRuntimeState.size,
-    ledOutputLatchState: ledOutputLatchState.size,
+    ledOutputLatchState: ledOutputLatchState.size, stereoVuState: stereoVuState.size,
     rdState: rdState.size, golState: golState.size, waveSimState: waveSimState.size,
     flowState: flowState.size, colorTrailsState: colorTrailsState.size,
     spectrumVisualizerState: spectrumVisualizerState.size, starState: starState.size,
@@ -4645,7 +4650,7 @@ export interface PlayerParticles {
   randomStyle: boolean
 }
 
-export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | AudioSignal | StorageSignal | PlayerControls | PlayerParticles | SegmentFrame | OledSurface | TftSurface | PatternSelectValue | null
+export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | AudioSignal | StorageSignal | PlayerControls | PlayerParticles | SegmentFrame | OledSurface | TftSurface | PatternSelectValue | StereoVuFrame | null
 
 /** A reusable pattern group: a named subgraph that a `Group` node evaluates. */
 export interface GroupDef { nodes: StudioNode[]; edges: StudioEdge[] }
@@ -4958,6 +4963,27 @@ function createEvalNode(
         // explicit Disabled state and never silently selects the browser mic.
         const source = resolveAudioCapabilitySource(capabilityNodes, props.sourceId)
         out = { audio: source ? (audioOverride ?? liveAudioSignal()) : null }
+        break
+      }
+
+      case 'StereoVuMeter': {
+        const audioValue = input(id, 'audio', null)
+        const audio = isAudioSignal(audioValue) ? audioValue : null
+        const levels = resolveStereoLevels(audio ?? {})
+        const key = stateKey(id)
+        const provider = incoming.get(`${id}:audio`)
+        const settings = stereoVuSettings(props, `${key}:${provider?.srcId ?? 'unwired'}`)
+        const rendered = renderStereoVu({
+          active: Boolean(audio && (audio.active || audio.micActive)),
+          left: levels.left,
+          right: levels.right,
+          beat: Boolean(audio?.beat),
+          timeSec: t,
+        }, settings, stereoVuState.get(key))
+        stereoVuState.set(key, rendered.state)
+        // A sink has no cable outputs, but evaluated presentation data is
+        // still published for its compact node body and later combined view.
+        out = { vu: rendered.frame }
         break
       }
 
