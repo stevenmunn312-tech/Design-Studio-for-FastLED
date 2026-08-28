@@ -118,7 +118,7 @@ describe('HardwarePane', () => {
     const part = container.querySelector('[aria-label^="LED Corkscrew"]')
     expect(part).toBeTruthy()
     expect(part!.querySelector('svg[viewBox="0 0 1 1"] polyline')).toBeTruthy()
-    expect(part!.querySelectorAll('svg[viewBox="0 0 1 1"] rect')).toHaveLength(120)
+    expect(part!.querySelectorAll('svg[viewBox="0 0 1 1"] > g')).toHaveLength(120)
   })
 
   it('adds PCM1802 line in with four distinct board-owned pins', () => {

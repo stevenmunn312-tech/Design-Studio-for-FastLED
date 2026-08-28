@@ -513,7 +513,7 @@ describe('StudioNode', () => {
   it('renders a frame thumbnail (not a wave scope) for a frame node', () => {
     const { container } = renderNode(makeNode('SolidColor', { r: 1, g: 2, b: 3 }))
     expect(container.querySelector('svg polyline')).toBeNull()  // not a wave scope
-    expect(container.querySelectorAll('svg rect')).toHaveLength(16 * 16)
+    expect(container.querySelectorAll('svg > g')).toHaveLength(16 * 16)
   })
 
   it('sizes the frame preview to the matrix aspect ratio', () => {
@@ -652,7 +652,10 @@ describe('StudioNode', () => {
       const { container } = renderNode(makeNode('MatrixOutput', {
         form: 'ring', ledCount: 12, ringStartAngle: 0, ringDirection: 'cw',
       }))
-      const rects = Array.from(container.querySelectorAll('svg[viewBox="0 0 1 1"] rect'))
+      // The package, not the bloom around it: the last shape in each emitter.
+      const rects = Array.from(
+        container.querySelectorAll('svg[viewBox="0 0 1 1"] > g > rect:last-child'),
+      )
       expect(rects).toHaveLength(12)
       const centres = rects.map((rect) => ({
         x: Number(rect.getAttribute('x')) + (Number(rect.getAttribute('width')) / 2),
@@ -669,7 +672,7 @@ describe('StudioNode', () => {
       const { container } = renderNode(makeNode('MatrixOutput', { form: 'strip', ledCount: 30 }))
       const svg = container.querySelector('svg[viewBox="0 0 30 1"]')
       expect(svg).toBeTruthy()
-      expect(svg!.querySelectorAll('rect')).toHaveLength(30)
+      expect(svg!.querySelectorAll(':scope > g')).toHaveLength(30)
     })
 
     it('offers and previews dedicated corkscrew geometry', () => {
@@ -681,7 +684,7 @@ describe('StudioNode', () => {
       const helix = container.querySelector('svg[viewBox="0 0 1 1"]')
       expect(helix).toBeTruthy()
       expect(helix!.querySelector('polyline')).toBeTruthy()
-      expect(helix!.querySelectorAll('rect')).toHaveLength(30)
+      expect(helix!.querySelectorAll(':scope > g')).toHaveLength(30)
 
       const keys = offeredKeys(container)
       expect(keys).toEqual(expect.arrayContaining([

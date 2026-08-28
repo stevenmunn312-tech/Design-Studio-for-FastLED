@@ -1,6 +1,19 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { usePreviewStore } from '../../state/previewStore'
+import { WS2812B_EMITTER } from '../../state/hardware'
+import { TAPE_GLOW } from './ledPreviewGeometry'
 import type { StereoVuFrame } from '../../state/stereoVuMeter'
+
+/*
+ * The rail is the same tape stood on end: `.vuRailTape` rotates the render a
+ * quarter turn, so the emitter's along-tile axis runs down the rail and its
+ * across-tile axis runs across it. The quarter turn takes the render's own +y
+ * to screen -x, which is why the across-centre is mirrored rather than used as
+ * measured — a tenth of the rail's width, but derived rather than eyeballed.
+ */
+const RAIL = { along: WS2812B_EMITTER.along, across: WS2812B_EMITTER.across }
+const ALONG = WS2812B_EMITTER.centreAlong
+const ACROSS = 1 - WS2812B_EMITTER.centreAcross
 
 export default function HardwareVuRailPreview({
   nodeId,
@@ -20,7 +33,7 @@ export default function HardwareVuRailPreview({
    *  LED that is really there rather than the next one along. */
   run?: { cells: Array<{ index: number; slot: number }>; span: number } | null
 }) {
-  const refs = useRef<Array<SVGRectElement | null>>([])
+  const refs = useRef<Array<SVGElement | null>>([])
   // Rows in draw order. Unbroken, a row is its own position on the rail.
   const rows = useMemo(
     () => run?.cells ?? Array.from({ length: count }, (_, index) => ({ index, slot: index })),
@@ -51,16 +64,30 @@ export default function HardwareVuRailPreview({
   return (
     <svg viewBox={`0 0 1 ${span}`} preserveAspectRatio="none" aria-hidden="true">
       {rows.map((cell, row) => (
-        <rect
+        <g
           key={cell.index}
           ref={(element) => { refs.current[row] = element }}
-          x="0.22"
-          y={cell.slot + 0.22}
-          width="0.56"
-          height="0.56"
-          rx="0.12"
           fill="rgb(0 0 0)"
-        />
+        >
+          {TAPE_GLOW.map((layer, index) => (
+            <rect
+              key={index}
+              x={ACROSS - (RAIL.across * layer.across / 2)}
+              y={cell.slot + ALONG - (RAIL.along * layer.along / 2)}
+              width={RAIL.across * layer.across}
+              height={RAIL.along * layer.along}
+              rx={RAIL.across * layer.across * 0.5}
+              fillOpacity={layer.opacity}
+            />
+          ))}
+          <rect
+            x={ACROSS - (RAIL.across / 2)}
+            y={cell.slot + ALONG - (RAIL.along / 2)}
+            width={RAIL.across}
+            height={RAIL.along}
+            rx={Math.min(RAIL.across, RAIL.along) * 0.22}
+          />
+        </g>
       ))}
     </svg>
   )

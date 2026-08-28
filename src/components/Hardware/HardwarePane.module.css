@@ -154,6 +154,7 @@
   z-index: 1;
   width: var(--vu-tape-width);
   height: 100%;
+  overflow: visible;
   transform: translateX(-50%);
   mix-blend-mode: screen;
   pointer-events: none;
@@ -249,11 +250,29 @@
   );
 }
 
+/*
+ * A strip carries no background and no filter of its own. Both were here, and
+ * both stopped the LEDs throwing light: a CSS filter clips its subtree to the
+ * filter region and isolates it from the backdrop, so the bloom could not
+ * leave the tape's own box and `screen` had only the tape to blend with. The
+ * filter was also the shape that leaks renderer memory in Chromium when the
+ * subtree repaints every frame, which this one does.
+ *
+ * The photograph and its shadow live in `.stripTape` underneath instead, where
+ * a mask for a broken run can clip the tape without touching the light.
+ */
 .strip {
+  overflow: visible;
+}
+
+.stripTape {
+  position: absolute;
+  inset: 0;
   background-repeat: repeat-x;
   background-position: left center;
   border-radius: 2px;
-  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.16));
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.16);
+  pointer-events: none;
 }
 
 /*
@@ -671,13 +690,18 @@
  * the reason `src/dev/animationFilterGuard.ts` exists. Any glow or diffusion
  * has to come from the drawn geometry, not from a filter over it.
  */
+/*
+ * `overflow: visible` because a lit LED throws light past the edges of the tape
+ * it is mounted on — clipping the bloom to the part's own box is the one thing
+ * that stops a strip reading as lit rather than as printed.
+ */
 .ledPreview {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  overflow: visible;
   mix-blend-mode: screen;
-  opacity: 0.92;
   pointer-events: none;
   border-radius: inherit;
 }

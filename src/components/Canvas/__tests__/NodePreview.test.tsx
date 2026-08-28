@@ -29,12 +29,15 @@ describe('NodePreview', () => {
     const { container } = render(<NodePreview nodeId="n" kind="frame" port="frame" cols={32} rows={8} />)
     expect(container.querySelector('canvas')).toBeNull()
     expect(container.querySelector('img')).toBeNull()
-    expect(container.querySelectorAll('svg rect')).toHaveLength(32 * 8)
+    // One group per emitter; the shapes inside it are the package and the
+    // light coming off it, which is a drawing detail rather than a count.
+    expect(container.querySelectorAll('svg > g')).toHaveLength(32 * 8)
   })
 
   it('draws frame pixels as gapped LED emitters, like the LED output does', () => {
     const { container } = render(<NodePreview nodeId="n" kind="frame" port="frame" cols={2} rows={1} />)
-    const cell = container.querySelector('rect')!
+    // The package itself, which follows the bloom layers inside its group.
+    const cell = container.querySelector('svg > g > rect:last-child')!
     // Half-cell emitters, centred in their cell — the gap is what makes a
     // source node read as the same panel the output node draws.
     expect(cell.getAttribute('width')).toBe(String(LED_CELL_FILL))
@@ -51,7 +54,7 @@ describe('NodePreview', () => {
       )
     })
     // 200/100/50 x 128/255, rounded.
-    expect(container.querySelector('rect')?.getAttribute('fill')).toBe('rgb(100 50 25)')
+    expect(container.querySelector('svg > g')?.getAttribute('fill')).toBe('rgb(100 50 25)')
   })
 
   it('shows the frame thumbnail undimmed at full master brightness', () => {
@@ -59,7 +62,7 @@ describe('NodePreview', () => {
     act(() => {
       usePreviewStore.getState().setOutputs(new Map([['n', { frame: [[{ r: 200, g: 100, b: 50 }]] }]]), 255)
     })
-    expect(container.querySelector('rect')?.getAttribute('fill')).toBe('rgb(200 100 50)')
+    expect(container.querySelector('svg > g')?.getAttribute('fill')).toBe('rgb(200 100 50)')
   })
 
   it('caps a large panel’s cell count without changing its shape', () => {

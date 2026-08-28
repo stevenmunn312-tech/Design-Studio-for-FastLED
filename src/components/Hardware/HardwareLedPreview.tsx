@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { usePreviewStore } from '../../state/previewStore'
 import type { Frame } from '../../state/graphEvaluator'
 import { corkscrewAngleAt, type CorkscrewDirection, type RingDirection } from '../../state/ledOutputForm'
+import { PANEL_GLOW, TAPE_GLOW } from './ledPreviewGeometry'
 
 /** Half the width of one LED on a ring, in bounding-box fractions — a 5050
  *  package against the ~76 mm circle a 24-LED ring describes. */
@@ -47,6 +48,7 @@ export default function HardwareLedPreview({
   cols,
   rows,
   cellFill = 1,
+  emitter,
   ring,
   corkscrew,
   run,
@@ -68,6 +70,15 @@ export default function HardwareLedPreview({
    *  real tape so its cells fill completely; a panel draws its own LEDs, and a
    *  5050 package on a 10 mm grid covers about half its cell. */
   cellFill?: number
+  /**
+   * Where the emitter sits inside one cell, when the cell is a photograph of a
+   * real part rather than bare board: the tape's 5050 package is a quarter of
+   * the pitch wide, two thirds of its width tall, and offset past the resistor.
+   * Lighting a centred `cellFill` square of that tile lights the wrong parts of
+   * it. Omitted, the cell lights centred and square, which is what a panel
+   * drawing its own emitters over blank PCB wants.
+   */
+  emitter?: { centreAlong: number; centreAcross: number; along: number; across: number }
   /** Draw the LEDs around a circle instead of on a grid, and read the frame
    *  through the ring's own XY mapping. A ring should look like a ring — a row
    *  of cells is a picture of a part the user did not buy. */
@@ -84,7 +95,7 @@ export default function HardwareLedPreview({
   className?: string
 }) {
   const wrapRef = useRef<SVGSVGElement | null>(null)
-  const cellRefs = useRef<Array<SVGRectElement | null>>([])
+  const cellRefs = useRef<Array<SVGElement | null>>([])
   const previousRef = useRef<Uint32Array>(new Uint32Array(0))
   const onScreenRef = useRef(true)
 
@@ -143,6 +154,65 @@ export default function HardwareLedPreview({
   const cells = useMemo(
     () => Array.from({ length: count }, (_, index) => index),
     [count],
+  )
+
+  /*
+   * One emitter, as a box within its cell. Without a measured emitter this is
+   * the centred `cellFill` square a panel has always drawn.
+   */
+  const lamp = useMemo(() => {
+    const along = emitter?.along ?? cellFill
+    const across = emitter?.across ?? cellFill
+    return {
+      x: (emitter?.centreAlong ?? 0.5) - (along / 2),
+      y: (emitter?.centreAcross ?? 0.5) - (across / 2),
+      width: along,
+      height: across,
+    }
+  }, [cellFill, emitter])
+
+  /*
+   * A lit LED as two shapes: the package itself, and a softer, larger surround
+   * for the light coming off it. Both sit inside a `<g>` and set no fill of
+   * their own, so they inherit it and the paint loop still writes one
+   * attribute per LED — the halo cannot fall out of step with the core, and a
+   * frame still costs one `setAttribute` per emitter.
+   *
+   * A surround rather than a blur, for the same reason the rest of this file
+   * avoids filters: this content changes every frame, and a filter over it
+   * leaks renderer memory in Chromium.
+   */
+  // Tape is drawn over a photograph of a real PCB, so its light has to land on
+  // that PCB; a panel's neighbours are a millimetre away and a bloom that wide
+  // would wash it out.
+  const glow = emitter ? TAPE_GLOW : PANEL_GLOW
+
+  const Lamp = ({ x, y, width, height }: {
+    x: number
+    y: number
+    width: number
+    height: number
+  }) => (
+    <>
+      {glow.map((layer, index) => (
+        <rect
+          key={index}
+          x={x - (width * (layer.along - 1) / 2)}
+          y={y - (height * (layer.across - 1) / 2)}
+          width={width * layer.along}
+          height={height * layer.across}
+          rx={height * layer.across * 0.5}
+          fillOpacity={layer.opacity}
+        />
+      ))}
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        rx={Math.min(width, height) * 0.22}
+      />
+    </>
   )
 
   useEffect(() => {
@@ -229,16 +299,18 @@ export default function HardwareLedPreview({
         aria-hidden="true"
       >
         {ringCells.map((cell, index) => (
-          <rect
+          <g
             key={index}
             ref={(element) => { cellRefs.current[index] = element }}
-            x={cell.cx - RING_LED_RADIUS}
-            y={cell.cy - RING_LED_RADIUS}
-            width={RING_LED_RADIUS * 2}
-            height={RING_LED_RADIUS * 2}
-            rx={RING_LED_RADIUS * 0.36}
             fill="rgb(0 0 0)"
-          />
+          >
+            <Lamp
+              x={cell.cx - RING_LED_RADIUS}
+              y={cell.cy - RING_LED_RADIUS}
+              width={RING_LED_RADIUS * 2}
+              height={RING_LED_RADIUS * 2}
+            />
+          </g>
         ))}
       </svg>
     )
@@ -264,17 +336,19 @@ export default function HardwareLedPreview({
           opacity="0.8"
         />
         {corkscrewCells.painted.map((cell) => (
-          <rect
+          <g
             key={cell.index}
             ref={(element) => { cellRefs.current[cell.index] = element }}
-            x={cell.cx - (CORKSCREW_LED_RADIUS_X * cell.scale)}
-            y={cell.cy - (CORKSCREW_LED_RADIUS_Y * cell.scale)}
-            width={CORKSCREW_LED_RADIUS_X * 2 * cell.scale}
-            height={CORKSCREW_LED_RADIUS_Y * 2 * cell.scale}
-            rx={CORKSCREW_LED_RADIUS_Y * 0.5}
             fill="rgb(0 0 0)"
             opacity={cell.opacity}
-          />
+          >
+            <Lamp
+              x={cell.cx - (CORKSCREW_LED_RADIUS_X * cell.scale)}
+              y={cell.cy - (CORKSCREW_LED_RADIUS_Y * cell.scale)}
+              width={CORKSCREW_LED_RADIUS_X * 2 * cell.scale}
+              height={CORKSCREW_LED_RADIUS_Y * 2 * cell.scale}
+            />
+          </g>
         ))}
       </svg>
     )
@@ -291,16 +365,13 @@ export default function HardwareLedPreview({
         aria-hidden="true"
       >
         {run.cells.map((cell, index) => (
-          <rect
+          <g
             key={cell.index}
             ref={(element) => { cellRefs.current[index] = element }}
-            x={cell.slot + ((1 - cellFill) / 2)}
-            y={(1 - cellFill) / 2}
-            width={cellFill}
-            height={cellFill}
-            rx={cellFill * 0.18}
             fill="rgb(0 0 0)"
-          />
+          >
+            <Lamp x={lamp.x + cell.slot} y={lamp.y} width={lamp.width} height={lamp.height} />
+          </g>
         ))}
       </svg>
     )
@@ -316,16 +387,18 @@ export default function HardwareLedPreview({
       aria-hidden="true"
     >
       {cells.map((index) => (
-        <rect
+        <g
           key={index}
           ref={(element) => { cellRefs.current[index] = element }}
-          x={(index % cols) + ((1 - cellFill) / 2)}
-          y={Math.floor(index / cols) + ((1 - cellFill) / 2)}
-          width={cellFill}
-          height={cellFill}
-          rx={cellFill * 0.18}
           fill="rgb(0 0 0)"
-        />
+        >
+          <Lamp
+            x={lamp.x + (index % cols)}
+            y={lamp.y + Math.floor(index / cols)}
+            width={lamp.width}
+            height={lamp.height}
+          />
+        </g>
       ))}
     </svg>
   )

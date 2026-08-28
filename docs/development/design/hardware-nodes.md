@@ -134,6 +134,26 @@ firmware remains one synchronized sketch for one board.
 Exact part options drive the label, pin roles, notes, thumbnail, and workbench
 render. Board and part assets carry verified dimensions.
 
+Where a part is drawn over a photograph of itself, the light has to come out of
+the thing in the picture. `WS2812B_EMITTER` locates the 5050 package within the
+tape render as fractions of one tile — it sits right of centre, past the
+current-limiting resistor, about a quarter of the pitch wide against two thirds
+of the tape's width — so lighting a centred half-tile square, which is what a
+plain cell fraction gives, lights the pads and the resistor instead of the LED.
+The rail rotates the same tile a quarter turn and swaps the axes accordingly. A
+panel takes no emitter: it draws its own LEDs over bare board, where centred is
+correct. Every form draws a lit LED as one group holding the package and
+the bloom around it, all inheriting a single fill, so a frame still costs one
+attribute write per emitter and the glow can never drift out of step with the
+LED. Tape takes the full bloom and a panel one soft layer (`TAPE_GLOW` and
+`PANEL_GLOW`): a real WS2812B blows its package out to white and throws its
+colour about a pitch in every direction, which is what makes tape read as lit
+rather than printed, while the same bloom on a 10 mm panel grid would only wash
+the panel out. It is stacked layers rather than a blur for the reason the rest
+of that file avoids filters — the content changes every frame — and the preview
+overflows its part's box on purpose, because light lands past the edge of the
+tape it is mounted on.
+
 Graph nodes use compact thumbnails only. The workbench is the recognition view:
 what it owes the user is "this is the module you are holding", not a measurable
 ratio between two of them. LED fixtures add live output previews, diffuser

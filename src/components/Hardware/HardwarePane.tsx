@@ -30,16 +30,17 @@ import {
 import {
   BUTTON_MODULE_FOOTPRINT_MM,
   DEFAULT_BOARD_PROFILE_ID,
-  MAX98357A_FOOTPRINT_MM,
   ENCODER_MODULE_FOOTPRINT_MM,
   INMP441_FOOTPRINT_MM,
-  POT_MODULE_FOOTPRINT_MM,
-  ROOT_BOARD_NODE_ID,
   isHardwareManagedSignalNodeType,
   ledPitchMm,
+  MAX98357A_FOOTPRINT_MM,
+  POT_MODULE_FOOTPRINT_MM,
+  ROOT_BOARD_NODE_ID,
+  type PartFootprintMm,
+  WS2812B_EMITTER,
   WS2812B_PITCH_MM,
   WS2812B_STRIP_WIDTH_MM,
-  type PartFootprintMm,
 } from '../../state/hardware'
 import {
   corkscrewDiameterMm,
@@ -997,18 +998,31 @@ export default function HardwarePane() {
    * a panel tiles both axes, and either way one tile is one real LED rather
    * than a texture stretched to fit.
    */
-  const outputStyle = (partId: string, isStrip: boolean): CSSProperties | undefined => {
+  const outputStyle = (partId: string): CSSProperties | undefined => {
     const part = placed.get(partId)
     if (!part || !arrangement) return undefined
-    const tile = WS2812B_PITCH_MM * part.mmScale
     const box = { left: part.x, top: part.y, width: part.width, height: part.height }
     // A strip is a photograph of real tape, tiled one segment per LED. A panel
     // is not tape: squeezing that 2.6:1 segment into a square cell distorted it
     // into noise, so a panel draws its own emitters over bare PCB instead — and
     // so does a ring, over a round board.
-    if (!isStrip) return box
+    return box
+  }
+
+  /*
+   * The tape a strip is drawn on, as its own layer beneath the emitters.
+   *
+   * Not the button's own background, because then the button carries the mask
+   * that cuts a broken run's middle out — and a mask clips its whole subtree
+   * and isolates it from the backdrop, which takes the LEDs' bloom with it. A
+   * lit strip has to throw light onto the bench, so only the photograph is
+   * masked and the emitters above it are left alone.
+   */
+  const stripTapeStyle = (partId: string): CSSProperties | undefined => {
+    const part = placed.get(partId)
+    if (!part) return undefined
+    const tile = WS2812B_PITCH_MM * part.mmScale
     const tape: CSSProperties = {
-      ...box,
       backgroundImage: `url(${ledSegmentRender})`,
       backgroundSize: `${tile}px 100%`,
     }
@@ -1957,7 +1971,7 @@ export default function HardwarePane() {
                   // is chosen — the preview header no longer carries a picker.
                   previewOutputId === output.node.id ? styles.partSelected : '',
                 ].filter(Boolean).join(' ')}
-                style={outputStyle(output.partId, output.isStrip)}
+                style={outputStyle(output.partId)}
                 onClick={(event) => {
                   if (view.consumedByPan()) return
                   setPreviewOutputId(output.node.id)
@@ -1976,11 +1990,23 @@ export default function HardwarePane() {
                     ? `${output.label}, ${output.cols} LEDs on pin ${output.dataPin}`
                     : `${output.label}, ${output.cols} by ${output.rows} on pin ${output.dataPin}`}
               >
+                {output.isStrip && (
+                  <span
+                    className={styles.stripTape}
+                    style={stripTapeStyle(output.partId)}
+                    aria-hidden="true"
+                  />
+                )}
                 <HardwareLedPreview
                   nodeId={output.node.id}
                   cols={output.cols}
                   rows={output.rows}
                   cellFill={LED_CELL_FILL}
+                  // Only tape is drawn over a photograph of itself, so only
+                  // tape needs the package located within the picture. A panel
+                  // draws its own emitters over bare board, where a centred
+                  // cell is exactly right.
+                  emitter={output.isStrip ? WS2812B_EMITTER : undefined}
                   ring={output.ring}
                   corkscrew={output.corkscrew}
                   run={brokenRuns.get(output.partId) ?? null}

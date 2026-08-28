@@ -93,6 +93,29 @@ export const WS2812B_PITCH_MM = 21.75
 export const WS2812B_STRIP_WIDTH_MM = 8.41
 
 /**
+ * Where the emitter sits inside that tile, as fractions of it.
+ *
+ * Measured off the same render as the two figures above, because it has to
+ * agree with the picture it is drawn over: the 5050 package sits right of
+ * centre, past the current-limiting resistor, and is about a quarter of the
+ * pitch wide against two thirds of the tape's width. Lighting a centred half
+ * of the tile — which is what a plain cell fraction gives — lights the
+ * resistor and the solder pads instead of the LED.
+ *
+ * Fractions rather than millimetres so a run drawn broken, rotated into a VU
+ * rail, or scaled to any pitch registers the same way. Re-measure with the
+ * pitch above if the render is replaced.
+ */
+export const WS2812B_EMITTER = {
+  /** Centre of the package along the tile, and across it. */
+  centreAlong: 0.562,
+  centreAcross: 0.449,
+  /** Its extent on each of those axes. */
+  along: 0.236,
+  across: 0.653,
+}
+
+/**
  * Pitch of a WS2812B matrix panel, which is a different object from a cut strip
  * even though it uses the same LED: panels are built on a fixed grid rather than
  * a tape you cut to length. 10 mm is the common flexible-panel spacing — a 16x16
