@@ -51,11 +51,6 @@ describe('segment display helpers', () => {
     expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('if (!changed && (now - d.lastWriteMs) < SEG_REFRESH_MS) return;')
   })
 
-  it('rounds the way the shared model does, in double', () => {
-    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('double product = (double)value * scale;')
-    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('floor(product + 0.5)')
-  })
-
   it('needs no external driver library', () => {
     expect(SEGMENT_DISPLAY_CPP_HELPERS).not.toContain('#include')
   })
@@ -78,10 +73,10 @@ describe('generateCpp with a segment display', () => {
   })
 
   it('keeps what feeds a display alive too', () => {
-    const nodes = [outputNode, node('w', 'Wave', 'signal', { speed: 0.5 }), display()]
-    const src = generateCpp(nodes, [edge('e', 'w', 'seg', 'value', 'value')])
-    expect(src).toContain('n_w_value')
-    expect(src).toContain('_segNumber(_segBuf_seg, 4, n_w_value')
+    const nodes = [outputNode, node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' }), display()]
+    const src = generateCpp(nodes, [edge('e', 'rtc', 'seg', 'display', 'display')])
+    expect(src).toContain('n_rtc_dateTime')
+    expect(src).toContain('_segClock(_segBuf_seg, 4, n_rtc_dateTime.hour')
   })
 
   it('leaves the driver out of a sketch with no display', () => {
@@ -100,23 +95,22 @@ describe('generateCpp with a segment display', () => {
     expect(src).toContain('_segBegin(_seg_seg2, SEG_KIND_TM1637, 4, 21, 22,')
   })
 
-  it('renders each mode through its own helper', () => {
-    expect(generateCpp([outputNode, display({ segmentMode: 'Number' })], [])).toContain('_segNumber(')
-    expect(generateCpp([outputNode, display({ segmentMode: 'Index' })], [])).toContain('_segIndex(')
-    expect(generateCpp([outputNode, display({ segmentMode: 'Clock' })], [])).toContain('_segClock(')
+  // A normal sketch has one source it can answer for, so the module shows the
+  // time or it shows dashes.
+  it('renders the mode the wire implies', () => {
+    const nodes = [outputNode, node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' }), display()]
+    expect(generateCpp(nodes, [edge('e', 'rtc', 'seg', 'display', 'display')])).toContain('_segClock(')
+    // Unplugged: dashes, which is this module's way of saying it is waiting.
+    expect(generateCpp([outputNode, display()], [])).toContain('_segAllDash(_segBuf_seg, 4);')
   })
 
   // No trustworthy clock reading shows dashes, never a plausible midnight.
-  it('dashes a clock with no reading rather than showing a time', () => {
-    const src = generateCpp([outputNode, display({ segmentMode: 'Clock' })], [])
-    expect(src).toContain('_segAllDash(_segBuf_seg, 4);')
-  })
-
-  it('reads a wired clock struct', () => {
-    const nodes = [outputNode, node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' }), display({ segmentMode: 'Clock' })]
-    const src = generateCpp(nodes, [edge('e', 'rtc', 'seg', 'dateTime', 'dateTime')])
+  it('reads a wired clock struct and dashes what it cannot trust', () => {
+    const nodes = [outputNode, node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' }), display()]
+    const src = generateCpp(nodes, [edge('e', 'rtc', 'seg', 'display', 'display')])
     expect(src).toContain('n_rtc_dateTime.valid')
     expect(src).toContain('n_rtc_dateTime.hour')
+    expect(src).toContain('_segAllDash(_segBuf_seg, 4);')
   })
 
   it('honours a disabled module', () => {
@@ -136,7 +130,8 @@ describe('generateCpp with a segment display', () => {
 
   // Wall-clock driven, like every other animation here.
   it('blinks the clock colon from millis rather than a frame counter', () => {
-    const src = generateCpp([outputNode, display({ segmentMode: 'Clock', showColon: true })], [])
+    const nodes = [outputNode, node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' }), display({ showColon: true })]
+    const src = generateCpp(nodes, [edge('e', 'rtc', 'seg', 'display', 'display')])
     expect(src).toContain('((millis() / 1000) % 2) == 0')
   })
 })
@@ -162,19 +157,21 @@ describe('MAX7219', () => {
 
   it('renders across eight digits', () => {
     const src = generateCpp([outputNode, max7219()], [])
-    expect(src).toContain('_segNumber(_segBuf_seg, 8,')
+    expect(src).toContain('_segAllDash(_segBuf_seg, 8);')
   })
 
   // The module has no colon segment, so asking for one must not emit a write to
   // a bit that does not exist.
   it('never asks a colonless module for a colon', () => {
-    const src = generateCpp([outputNode, max7219({ segmentMode: 'Clock', showColon: true })], [])
+    const nodes = [outputNode, node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' }), max7219({ showColon: true })]
+    const src = generateCpp(nodes, [edge('e', 'rtc', 'seg', 'display', 'display')])
     expect(src).toContain('_segWrite(_seg_seg, _segBuf_seg, _segDec_seg, false,')
   })
 
   it('shows seconds where the TM1637 cannot', () => {
-    const src = generateCpp([outputNode, max7219({ segmentMode: 'Clock' })], [])
-    expect(src).toMatch(/_segClock\(_segBuf_seg, 8, .*\.second\)|_segClock\(_segBuf_seg, 8, 0, 0, 0\)/)
+    const nodes = [outputNode, node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' }), max7219()]
+    const src = generateCpp(nodes, [edge('e', 'rtc', 'seg', 'display', 'display')])
+    expect(src).toMatch(/_segClock\(_segBuf_seg, 8, .*\.second\)/)
   })
 
   it('shares one driver with a TM1637 in the same sketch', () => {
@@ -193,13 +190,7 @@ describe('MAX7219', () => {
 // state/__tests__/segmentDisplay.test.ts; what matters here is that the emitted
 // C++ carries the same rules and that two modules stay independent.
 describe('segment display edge cases', () => {
-  it('keeps a whole digit in front of the decimal point', () => {
-    // The %0*lu is the fix for a value under 1 lighting the point on an
-    // otherwise blank digit, which on the bench reads as a fault.
-    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('"%0*lu", decimals + 1, magnitude')
-  })
-
-  it('guards a non-finite reading before rounding it, in both modes', () => {
+  it('guards a non-finite reading before rounding it', () => {
     // lroundf on a NaN is unspecified, so folding first would let the firmware
     // disagree with the browser about a reading neither of them has.
     const body = (fn: string) => {
@@ -213,15 +204,12 @@ describe('segment display edge cases', () => {
     const index = body('_segIndex')
     expect(index).toContain('static void _segIndex(char *out, uint8_t digits, float value)')
     expect(index.indexOf('if (!isfinite(value))')).toBeLessThan(index.indexOf('long index = lroundf('))
-    expect(body('_segNumber')).toContain('if (!isfinite(value)) { _segAllDash(out, digits); return; }')
   })
 
-  it('hands Index mode the raw value rather than a pre-rounded long', () => {
-    const src = generateCpp([outputNode, display({ segmentMode: 'Index', value: 3 })], [])
-    expect(src).toContain('_segIndex(_segBuf_seg, 4, 3);')
-    // The cast only ever existed at the call site, where it rounded before the
-    // helper could check the reading was a number at all.
-    expect(src).not.toContain('(long)lroundf(')
+  // The cast only ever existed at the call site, where it rounded before the
+  // helper could check the reading was a number at all.
+  it('never pre-rounds a reading at the call site', () => {
+    expect(generateCpp([outputNode, display()], [])).not.toContain('(long)lroundf(')
   })
 
   it('refuses a negative index rather than dropping its sign', () => {
@@ -274,10 +262,10 @@ describe('segment display edge cases', () => {
       expect(src).toContain('_segBegin(_seg_b, SEG_KIND_MAX7219, 8, 12, 13, 14, 9);')
     })
 
-    it('renders each through the helper its own mode names', () => {
+    it('renders each at its own width', () => {
       const src = generateCpp(pair(), [])
-      expect(src).toContain('_segNumber(_segBuf_a, 4,')
-      expect(src).toContain('_segIndex(_segBuf_b, 8,')
+      expect(src).toContain('_segAllDash(_segBuf_a, 4);')
+      expect(src).toContain('_segAllDash(_segBuf_b, 8);')
     })
 
     it('writes each on its own change rather than sharing a deadline', () => {

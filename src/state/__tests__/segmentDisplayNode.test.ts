@@ -61,10 +61,11 @@ describe('SegmentDisplay ownership', () => {
     expect(isHardwareLibraryHiddenNodeType('SegmentDisplay')).toBe(true)
   })
 
-  it('consumes values and produces none', () => {
+  it('takes one content input and produces nothing', () => {
     const def = NODE_LIBRARY.find((n) => n.type === 'SegmentDisplay')!
     expect(def.outputs).toEqual([])
-    expect(def.inputs.map((port) => port.id)).toEqual(['value', 'dateTime', 'enabled'])
+    expect(def.inputs.map((port) => port.id)).toEqual(['display', 'enabled'])
+    expect(def.defaultProperties).not.toHaveProperty('segmentMode')
   })
 })
 
@@ -96,9 +97,11 @@ describe('SegmentDisplay pins', () => {
 describe('SegmentDisplay rendering', () => {
   beforeEach(() => resetEvaluatorState())
 
-  it('shows a wired value', () => {
-    const nodes = [node('m', 'Math', 'math', { mathOp: 'add', a: 40, b: 2 }), display()]
-    expect(segmentOf(nodes, [edge('e', 'm', 'result', 'seg', 'value')]).digits).toBe('  42')
+  // A module that cannot spell "waiting for a signal" says it the way it
+  // already says "no reading I trust".
+  it('shows dashes with nothing plugged in', () => {
+    expect(segmentOf([display()]).digits).toBe('----')
+    expect(segmentOf([display()]).lit).toBe(true)
   })
 
   it('goes dark when disabled, writing nothing rather than blanks', () => {
@@ -112,25 +115,22 @@ describe('SegmentDisplay rendering', () => {
   })
 
   it('shows dashes for a clock with no reading rather than midnight', () => {
-    const frame = segmentOf([display({ segmentMode: 'Clock' })])
+    const nodes = [node('rtc', 'RTCInput', 'input', { timeSource: 'Manual', startYear: 0 }), display()]
+    const frame = segmentOf(nodes, [edge('e', 'rtc', 'display', 'seg', 'display')])
     expect(frame.digits).toBe('----')
     expect(frame.digits).not.toBe('0000')
   })
 
   it('reads a wired clock', () => {
-    const nodes = [node('rtc', 'RTCInput', 'input', SEEDED_CLOCK), display({ segmentMode: 'Clock' })]
-    const frame = segmentOf(nodes, [edge('e', 'rtc', 'dateTime', 'seg', 'dateTime')])
+    const nodes = [node('rtc', 'RTCInput', 'input', SEEDED_CLOCK), display()]
+    const frame = segmentOf(nodes, [edge('e', 'rtc', 'display', 'seg', 'display')])
     expect(frame.digits).toBe('0905')
-  })
-
-  it('renders a position in Index mode', () => {
-    expect(segmentOf([display({ segmentMode: 'Index', value: 3 })]).digits).toBe('   3')
   })
 
   // Wall-clock driven, like every other animation here.
   it('blinks the clock colon on the seconds rather than on frames', () => {
-    const nodes = [node('rtc', 'RTCInput', 'input', SEEDED_CLOCK), display({ segmentMode: 'Clock', showColon: true })]
-    const wires = [edge('e', 'rtc', 'dateTime', 'seg', 'dateTime')]
+    const nodes = [node('rtc', 'RTCInput', 'input', SEEDED_CLOCK), display({ showColon: true })]
+    const wires = [edge('e', 'rtc', 'display', 'seg', 'display')]
     // The evaluator's tick is a frame count and `t` is tick/60 seconds, so a
     // second of blink is 60 ticks apart — ticks 0 and 1 are 16 ms and would
     // land in the same half whatever the code did.
@@ -141,7 +141,7 @@ describe('SegmentDisplay rendering', () => {
   })
 
   it('always publishes exactly four digits', () => {
-    for (const props of [{}, { value: 99999 }, { segmentMode: 'Index', value: -4 }, { segmentMode: 'Clock' }]) {
+    for (const props of [{}, { showColon: false }, { brightness: 0 }]) {
       expect(segmentOf([display(props)]).digits.length).toBe(4)
     }
   })
@@ -198,19 +198,18 @@ describe('MAX7219 behind the same node', () => {
   })
 
   it('renders across its eight digits', () => {
-    expect(segmentOf([max7219('seg', { value: 12345 })]).digits).toBe('   12345')
-  })
-
-  it('shows a value the four-digit module has to refuse', () => {
-    expect(segmentOf([display({ value: 12345 })]).digits).toBe('----')
-    expect(segmentOf([max7219('seg', { value: 12345 })]).digits).toBe('   12345')
+    const nodes = [node('rtc', 'RTCInput', 'input', SEEDED_CLOCK), max7219('seg')]
+    const frame = segmentOf(nodes, [edge('e', 'rtc', 'display', 'seg', 'display')])
+    // Eight digits have room for the seconds a four-digit module has to drop.
+    expect(frame.digits.length).toBe(8)
+    expect(frame.digits.trim().length).toBeGreaterThan(4)
   })
 
   // The module has no colon segment, so asking for one must not set a flag the
   // driver would then try to write.
   it('never reports a colon it does not have', () => {
-    const frame = segmentOf([max7219('seg', { segmentMode: 'Number', showColon: true })])
-    expect(frame.colon).toBe(false)
+    const nodes = [node('rtc', 'RTCInput', 'input', SEEDED_CLOCK), max7219('seg', { showColon: true })]
+    expect(segmentOf(nodes, [edge('e', 'rtc', 'display', 'seg', 'display')]).colon).toBe(false)
   })
 
   it('goes dark across the full eight digits', () => {
@@ -239,23 +238,20 @@ describe('SegmentDisplay edge cases', () => {
   const frameOf = (nodes: StudioNode[], edges: StudioEdge[], id: string) =>
     evaluateGraphFull(nodes, edges, 0, 8, 8).outputs.get(id)?.segment as SegmentFrame
 
-  it('dashes a wired reading that is not a number', () => {
-    // Overflowed down a cable rather than handed in as a literal, so it
-    // arrives the way it would from a real graph.
-    const huge = node('huge', 'Math', 'math', { mathOp: 'multiply', a: 1e308, b: 10 })
-    const wires = [edge('e1', 'huge', 'result', 'seg', 'value')]
-    expect(frameOf([huge, display()], wires, 'seg').digits).toBe('----')
-    // Index mode used to fold this to 0 and show a confident "1st pattern".
-    expect(frameOf([huge, display({ segmentMode: 'Index' })], wires, 'seg').digits).toBe('----')
-  })
-
-  it('dashes a reading too wide for the module rather than truncating', () => {
-    expect(segmentOf([display({ value: 12345 })]).digits).toBe('----')
-    expect(segmentOf([display({ segmentMode: 'Index', value: 12345 })]).digits).toBe('----')
-  })
-
-  it('keeps a whole digit in front of a wired sub-one value', () => {
-    expect(segmentOf([display({ value: 0.4, decimals: 1 })]).digits).toBe('  04')
+  it('dashes a collection too wide for the module rather than truncating', () => {
+    // A slideshow's ordinal is the one number that can outgrow four digits.
+    const ids = Array.from({ length: 12345 }, (_, i) => `p${i}`)
+    const collection = node('coll', 'PatternCollection', 'show', { patternIds: ids })
+    const show = node('show', 'PatternSlideshow', 'show')
+    const frame = frameOf(
+      [collection, show, display()],
+      [
+        edge('e1', 'coll', 'patternset', 'show', 'patternset'),
+        edge('e2', 'show', 'display', 'seg', 'display'),
+      ],
+      'seg',
+    )
+    expect(frame.digits.length).toBe(4)
   })
 
   it('shows midnight rather than blanking on a zero hour', () => {
@@ -263,8 +259,8 @@ describe('SegmentDisplay edge cases', () => {
       ...SEEDED_CLOCK, startHour: 0, startMinute: 0, startSecond: 0,
     })
     const frame = frameOf(
-      [rtc, display({ segmentMode: 'Clock' })],
-      [edge('e1', 'rtc', 'dateTime', 'seg', 'dateTime')],
+      [rtc, display()],
+      [edge('e1', 'rtc', 'display', 'seg', 'display')],
       'seg',
     )
     expect(frame.digits).toBe('0000')
@@ -291,19 +287,17 @@ describe('SegmentDisplay edge cases', () => {
   describe('two modules on one bench', () => {
     const pair = () => [
       node('a', 'SegmentDisplay', 'output', {
-        partId: 'tm1637-4digit-display', clkPin: 18, dioPin: 19,
-        segmentMode: 'Number', value: 42, brightness: 1,
+        partId: 'tm1637-4digit-display', clkPin: 18, dioPin: 19, brightness: 1,
       }),
       node('b', 'SegmentDisplay', 'output', {
-        partId: 'max7219-8digit-7segment', clkPin: 12, dinPin: 13, csPin: 14,
-        segmentMode: 'Index', value: 7, brightness: 9,
+        partId: 'max7219-8digit-7segment', clkPin: 12, dinPin: 13, csPin: 14, brightness: 9,
       }),
     ]
 
-    it('renders each from its own properties', () => {
+    it('renders each at its own width', () => {
       const nodes = pair()
-      expect(frameOf(nodes, [], 'a').digits).toBe('  42')
-      expect(frameOf(nodes, [], 'b').digits).toBe('       7')
+      expect(frameOf(nodes, [], 'a').digits).toBe('----')
+      expect(frameOf(nodes, [], 'b').digits).toBe('--------')
     })
 
     it('keeps their brightnesses apart', () => {

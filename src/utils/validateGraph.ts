@@ -1426,7 +1426,6 @@ export function findDisplayGeneratorIssues(
   const errors: string[] = []
   const warnings: string[] = []
 
-  const master = nodes.find((node) => node.data.nodeType === 'PatternMaster')
   const generator = selectedGenerator(nodes, edges)
   const nodeById = new Map(nodes.map((node) => [node.id, node]))
 
@@ -1502,17 +1501,30 @@ export function findDisplayGeneratorIssues(
   // template itself knows, so both can be handed a wire they cannot read. Same
   // walk, same message shape, and the table is the generator's own — a show
   // controller reports every song wire, because it has no song.
-  if (master && (generator === 'player' || generator === 'show')) {
+  if (generator === 'player' || generator === 'show') {
     const template = generator === 'show'
-      ? { expressions: SHOW_DISPLAY_EXPRESSIONS, label: 'show controller sketch', fix: 'a Music Player output a show can answer for' }
-      : { expressions: undefined, label: 'SD player sketch', fix: 'a Music Player output' }
+      ? {
+        expressions: SHOW_DISPLAY_EXPRESSIONS,
+        kinds: ['slideshow'] as const,
+        label: 'show controller sketch',
+        fix: 'the Pattern Slideshow this show runs on',
+      }
+      : {
+        expressions: undefined,
+        kinds: ['player'] as const,
+        label: 'SD player sketch',
+        fix: 'the Music Player this build plays from',
+      }
     for (const issue of playerDisplaysFromGraph(
-      nodes as never, edges as never, { expressions: template.expressions },
+      nodes as never, edges as never, { expressions: template.expressions, kinds: template.kinds },
     ).unresolved) {
       const display = nodes.find((node) => node.id === issue.display)
+      // A simple panel has one content input, so name it as one thing rather
+      // than as a port id nobody typed.
+      const what = issue.port === 'display' ? 'its Display input' : issue.port
       warnings.push(
-        `${display ? nodeLabel(display) : 'A display'}: ${issue.port} is wired to ${issue.source}, which the ${template.label} cannot read. `
-        + `On the device that value stays blank — wire it to ${template.fix}, or drive the display from a normal sketch.`,
+        `${display ? nodeLabel(display) : 'A display'}: ${what} is wired to ${issue.source}, which the ${template.label} cannot read. `
+        + `On the device that panel stays blank — wire it to ${template.fix}, or drive the display from a normal sketch.`,
       )
     }
   }

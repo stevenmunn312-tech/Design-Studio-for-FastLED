@@ -117,16 +117,18 @@ describe('CapacityWatcher', () => {
           pattern,
           output,
           nodeOf('coll', 'PatternCollection', { patternIds: ['white'] }),
-          nodeOf('master', 'PatternMaster'),
+          nodeOf('master', 'PatternSlideshow'),
           nodeOf('brw', 'InfoDisplay', {
-            partId: 'sh1106-oled-128x64', infoLayout: 'Pattern Browser',
+            partId: 'sh1106-oled-128x64',
             csPin: 1, dcPin: 2, resetPin: 5, sckPin: 6, mosiPin: 7,
           }),
         ] as never[],
+        // Collection -> slideshow -> output, with the panel on the slideshow's
+        // Display wire: that is what makes this a show build with a browser.
         edges: [
-          { id: 'e', source: 'sc', target: 'matrix', sourceHandle: 'frame', targetHandle: 'frame' },
+          { id: 'e', source: 'master', target: 'matrix', sourceHandle: 'frame', targetHandle: 'frame' },
           { id: 'e1', source: 'coll', target: 'master', sourceHandle: 'patternset', targetHandle: 'patternset' },
-          { id: 'e2', source: 'master', target: 'brw', sourceHandle: 'patternSelect', targetHandle: 'patternSelect' },
+          { id: 'e2', source: 'master', target: 'brw', sourceHandle: 'display', targetHandle: 'display' },
         ] as never[],
         selectedNodeId: null,
         // The registry is read off graphData, so the pattern group lives here.
@@ -154,7 +156,9 @@ describe('CapacityWatcher', () => {
       render(<CapacityWatcher />)
 
       const { code } = setTarget.mock.calls[0][0]
-      expect(code).toContain('THUMB_COUNT_master')
+      // Named for the show's one selection, not for the panel: two panels on
+      // one show must read one table.
+      expect(code).toContain('THUMB_COUNT_show')
       expect(code).toContain('PROGMEM')
       setTarget.mockRestore()
     })

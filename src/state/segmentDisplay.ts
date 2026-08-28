@@ -9,7 +9,7 @@
 // and a mode rather than a `string`. A general text input would accept words it
 // has no glyphs for, and the honest place to refuse that is the port type.
 
-import { scaleAndRound } from './displayText'
+import type { DisplaySignalKind } from './displaySignal'
 
 /**
  * What a segment controller physically is.
@@ -53,14 +53,27 @@ export function segmentControllerFor(controller: string | undefined): SegmentCon
   return DEFAULT_SEGMENT_CONTROLLER
 }
 
-export const SEGMENT_DISPLAY_MODES = ['Number', 'Clock', 'Index'] as const
+/**
+ * What the digits show, decided by what is plugged into `Display`.
+ *
+ * Not a property, and not a free number: a bare reading wired from anywhere in
+ * the graph is a custom-UI capability. Four digits can say the time, a
+ * position in a track, or a position in a collection, and each of those has
+ * exactly one source that means it.
+ */
+export const SEGMENT_DISPLAY_MODES = ['Waiting', 'Clock', 'Elapsed', 'Index'] as const
 export type SegmentDisplayMode = (typeof SEGMENT_DISPLAY_MODES)[number]
 
-export function asSegmentMode(value: unknown): SegmentDisplayMode {
-  const mode = String(value ?? '')
-  return (SEGMENT_DISPLAY_MODES as readonly string[]).includes(mode)
-    ? (mode as SegmentDisplayMode)
-    : 'Number'
+const MODE_BY_KIND: Record<DisplaySignalKind, SegmentDisplayMode> = {
+  clock: 'Clock',
+  // M:SS of the running track, using the colon the TM1637 already has. The
+  // only thing four digits can say well about a player.
+  player: 'Elapsed',
+  slideshow: 'Index',
+}
+
+export function segmentModeForKind(kind: DisplaySignalKind): SegmentDisplayMode {
+  return MODE_BY_KIND[kind]
 }
 
 /** 0 is dimmest-on; neither controller has a darker level short of off. */
@@ -106,54 +119,17 @@ export function blankSegmentFrame(digits = DEFAULT_SEGMENT_CONTROLLER.digits): S
 /**
  * A field of dashes, the width of the module.
  *
- * The segment convention for a reading that will not fit or does not exist.
- * Truncating to the low digits instead would show a confidently wrong number,
- * which on a display whose whole job is to be read at a glance is the worst
- * available outcome.
+ * The segment convention for a reading that will not fit or does not exist —
+ * and, because a segment module cannot render words, its form of "waiting for
+ * a signal" too. Truncating to the low digits instead would show a confidently
+ * wrong number, which on a display whose whole job is to be read at a glance
+ * is the worst available outcome.
  */
-function dashes(digits: number): SegmentFrame {
+export function segmentDashes(digits = DEFAULT_SEGMENT_CONTROLLER.digits): SegmentFrame {
   return { digits: '-'.repeat(digits), colon: false, decimalAt: -1, lit: true }
 }
 
-export interface SegmentNumberOptions {
-  decimals: number
-  leadingZero: boolean
-  /** Width of the module. Defaults to the TM1637's four. */
-  digits?: number
-}
-
-/**
- * Render a number across the four digits.
- *
- * Rounding goes through `scaleAndRound` — the same function `FormatNumber` and
- * the generated firmware use — so a value that reads 12.3 in one place cannot
- * read 12.4 in another.
- */
-export function renderSegmentNumber(value: number, options: SegmentNumberOptions): SegmentFrame {
-  const width = Math.max(1, Math.round(options.digits ?? DEFAULT_SEGMENT_CONTROLLER.digits))
-  const decimals = Math.min(3, Math.max(0, Math.round(options.decimals) || 0))
-  const scaled = scaleAndRound(value, decimals)
-  // A segment module cannot spell the shared no-reading marker, so it shows the
-  // dashes it can draw.
-  if (scaled === null) return dashes(width)
-
-  const negative = scaled < 0
-  const magnitude = Math.abs(scaled)
-  // At least one whole digit before the point. Without it a value under 1 puts
-  // the decimal point on a blank digit — the module shows a dot with nothing in
-  // front of it, which reads as a fault rather than as "nought point four".
-  const body = String(magnitude).padStart(decimals + 1, '0')
-  // Digits available for the number itself, after a minus sign takes one.
-  const room = width - (negative ? 1 : 0)
-  if (body.length > room) return dashes(width)
-
-  const padded = options.leadingZero ? body.padStart(room, '0') : body
-  const text = (negative ? '-' : '') + padded
-  const digits = text.padStart(width, ' ')
-  // The point sits after the last whole digit, counted from the right.
-  const decimalAt = decimals > 0 ? width - 1 - decimals : -1
-  return { digits, colon: false, decimalAt, lit: true }
-}
+const dashes = segmentDashes
 
 /**
  * Render `HH:MM` across the four digits.

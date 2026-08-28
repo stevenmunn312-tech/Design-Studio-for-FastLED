@@ -44,23 +44,30 @@ const solid = () => ({
 const IDS = ['a', 'b', 'c']
 const GROUPS = Object.fromEntries(IDS.map((id) => [id, solid()])) as unknown as GroupRegistry
 
-/** Collection -> player -> panel, encoder and press through Player Controls. */
-function benchGraph() {
+/**
+ * Collection -> engine -> panel, encoder and press through Player Controls.
+ *
+ * The engine is a parameter because the two templates that draw a browser are
+ * reached by different nodes: a Slideshow builds the show controller, a Music
+ * Player the SD player. The panel is the same node either way — what it shows
+ * is decided by what is plugged into its one Display input.
+ */
+function benchGraph(engine: 'PatternMaster' | 'PatternSlideshow' = 'PatternMaster') {
   const nodes = [
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4, chipset: 'WS2812B', colorOrder: 'GRB' }),
     node('coll', 'PatternCollection', { patternIds: IDS }),
     node('ctl', 'PlayerControls', {}),
-    node('master', 'PatternMaster', {}),
+    node('master', engine, {}),
     node('enc', 'EncoderInput', { pinA: 8, pinB: 9, pinSW: 10, pullup: true }),
     node('brw', 'InfoDisplay', {
-      partId: 'sh1106-oled-128x64', infoLayout: 'Pattern Browser',
+      partId: 'sh1106-oled-128x64',
       csPin: 1, dcPin: 2, resetPin: 5, sckPin: 6, mosiPin: 7,
     }),
   ]
   const edges = [
     edge('e1', 'coll', 'patternset', 'master', 'patternset'),
     edge('e2', 'ctl', 'controls', 'master', 'controls'),
-    edge('e3', 'master', 'patternSelect', 'brw', 'patternSelect'),
+    edge('e3', 'master', 'display', 'brw', 'display'),
     edge('e4', 'enc', 'position', 'ctl', 'patternSelect'),
     edge('e5', 'enc', 'pressed', 'ctl', 'patternConfirm'),
     edge('e6', 'master', 'frame', 'out', 'frame'),
@@ -94,26 +101,22 @@ function undefinedSymbols(src: string): string[] {
   return [...new Set(missing)]
 }
 
-describe('a normal sketch with a Pattern Browser', () => {
-  it('defines every stem-composed symbol it uses', () => {
+describe('a normal sketch', () => {
+  // It composes none of these at all: a browser is the Slideshow's screen and
+  // a Slideshow builds the show controller, so the normal generator has no
+  // selection cursor and no thumbnail table to name.
+  it('composes no stem-based symbol, and so cannot leave one undefined', () => {
     const { nodes, edges } = benchGraph()
-    const src = generateCpp(nodes, edges, GROUPS, {
-      thumbnails: bakeBrowserThumbnails(nodes, edges, GROUPS, true),
-    })
-    expect(src).toContain('_sel_')   // the check must have something to check
+    const src = generateCpp(nodes, edges, GROUPS)
+    expect(src).not.toContain('_sel_')
+    expect(src).not.toContain('THUMB_COUNT_')
     expect(undefinedSymbols(src)).toEqual([])
-  })
-
-  it('defines them with nothing baked, too', () => {
-    const { nodes, edges } = benchGraph()
-    expect(undefinedSymbols(generateCpp(nodes, edges, GROUPS))).toEqual([])
   })
 })
 
 describe('the generative show controller', () => {
-  // benchGraph is already a show: collection -> Music Player -> output.
   it('defines every stem-composed symbol it uses', () => {
-    const { nodes, edges } = benchGraph()
+    const { nodes, edges } = benchGraph('PatternSlideshow')
     const src = generateShowSketch(nodes, edges, GROUPS, {
       thumbnails: bakeBrowserThumbnails(nodes, edges, GROUPS, true),
     })
@@ -122,14 +125,14 @@ describe('the generative show controller', () => {
   })
 
   it('defines them with nothing baked, too', () => {
-    const { nodes, edges } = benchGraph()
+    const { nodes, edges } = benchGraph('PatternSlideshow')
     expect(undefinedSymbols(generateShowSketch(nodes, edges, GROUPS))).toEqual([])
   })
 
   // One show per controller sketch, so the panel and the table land on the
   // same stem rather than two that happen to agree.
   it('uses exactly one selection', () => {
-    const { nodes, edges } = benchGraph()
+    const { nodes, edges } = benchGraph('PatternSlideshow')
     const src = generateShowSketch(nodes, edges, GROUPS, {
       thumbnails: bakeBrowserThumbnails(nodes, edges, GROUPS, true),
     })

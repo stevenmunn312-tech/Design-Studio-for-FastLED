@@ -53,12 +53,18 @@ displays join it rather than acquiring a parallel rule that can drift.
 ## Two kinds of display node
 
 **Fixed nodes** — `SegmentDisplay`, `InfoDisplay`, `TransportDisplay` — have
-stable, declared ports like every other node in `NODE_LIBRARY`. Their layout is
-chosen from a property, and changing that property does not add or remove ports.
-This matters because a port is what a cable attaches to: a node whose ports move
-when a label changes is a node whose cables silently break.
+stable, declared ports like every other node in `NODE_LIBRARY`. A port is what a
+cable attaches to: a node whose ports move when a label changes is a node whose
+cables silently break.
 
-The Info Display's Pattern Browser layout reads the shared selection contract
+The two **simple** panels went further than stable ports and now have a single
+content input, `Display`, with no layout property at all — what is plugged in
+decides what the panel shows. That model, and what an unwired panel says instead
+of sitting blank, is in [simple displays](simple-displays.md); the rest of this
+note is about the parts themselves. `TransportDisplay` is a tier-3 panel and
+still resolves per port.
+
+The Info Display's Pattern Browser screen reads the shared selection contract
 rather than tracking an index of its own — active versus highlighted, wrapping,
 confirm, and what happens when the collection changes are defined once in
 [the generative pattern show note](generative-pattern-show.md#which-pattern-is-playing).
@@ -66,8 +72,7 @@ confirm, and what happens when the collection changes are defined once in
 ### Which displays get a design surface
 
 The freeform editor is for the **larger touch panels only**. Segment modules and
-the small OLEDs get a fixed set of layouts chosen from a dropdown on the node,
-and nothing else.
+the small OLEDs get one predetermined screen per source, and nothing else.
 
 Three reasons, and the first is the one that settles it: you cannot pick a
 widget on a screen you cannot touch. A drag-and-drop UI whose output has no

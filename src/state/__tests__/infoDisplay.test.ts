@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest'
 import {
   INFO_DISPLAY_LAYOUTS,
   INFO_LAYOUT,
-  STATUS_MAX_INDICATORS,
-  asInfoDisplayLayout,
+  infoLayoutForKind,
   blankInfoData,
   infoRowY,
   renderInfoDisplay,
   BROWSER_LAYOUT,
+  type NowPlayingData,
   type PatternBrowserData,
 } from '../infoDisplay'
 import { THUMBNAIL_W, THUMBNAIL_H } from '../patternThumbnail'
@@ -29,7 +29,7 @@ function withinPanel(surface: OledSurface): boolean {
     && oledSurfaceRows(surface).every((row) => row.length === surface.width)
 }
 
-const nowPlaying = (over: Partial<Parameters<typeof renderInfoDisplay>[1] extends { data: infer D } ? D : never> = {}) =>
+const nowPlaying = (over: Partial<NowPlayingData> = {}) =>
   renderInfoDisplay(sh1106, {
     layout: 'Now Playing',
     data: {
@@ -39,8 +39,8 @@ const nowPlaying = (over: Partial<Parameters<typeof renderInfoDisplay>[1] extend
   })
 
 describe('layout selection', () => {
-  it('offers the implemented layouts', () => {
-    expect([...INFO_DISPLAY_LAYOUTS]).toEqual(['Now Playing', 'Clock', 'Status', 'Pattern Browser'])
+  it('offers one layout per source, plus the one for no source at all', () => {
+    expect([...INFO_DISPLAY_LAYOUTS]).toEqual(['Waiting', 'Clock', 'Now Playing', 'Pattern Browser'])
   })
 
   // The Pattern Browser was held back until the runtime selection contract and
@@ -51,10 +51,12 @@ describe('layout selection', () => {
     expect(INFO_DISPLAY_LAYOUTS as readonly string[]).toContain('Pattern Browser')
   })
 
-  it('falls back to a known layout for unknown input', () => {
-    expect(asInfoDisplayLayout('nonsense')).toBe('Now Playing')
-    expect(asInfoDisplayLayout(undefined)).toBe('Now Playing')
-    expect(asInfoDisplayLayout('Clock')).toBe('Clock')
+  // Not parsed from a property. The wire decides, so a layout cannot exist
+  // that no source produces and a source cannot exist that no layout draws.
+  it('takes its layout from the source plugged in', () => {
+    expect(infoLayoutForKind('clock')).toBe('Clock')
+    expect(infoLayoutForKind('player')).toBe('Now Playing')
+    expect(infoLayoutForKind('slideshow')).toBe('Pattern Browser')
   })
 
   it('spaces rows so four fit the panel', () => {
@@ -129,37 +131,18 @@ describe('Clock', () => {
   })
 })
 
-describe('Status', () => {
-  const status = (over: Record<string, unknown> = {}) => renderInfoDisplay(sh1106, {
-    layout: 'Status',
-    data: {
-      line1: 'SHOW RUNNING', line2: 'PATTERN FIRE', value: '42',
-      progress: 0.5, indicators: [true, false, true, false], ...over,
-    },
-  } as never)
+describe('Waiting', () => {
+  // A blank OLED and a dead OLED look identical on a bench, so the panel with
+  // nothing plugged in says which one it is.
+  const waiting = () => renderInfoDisplay(sh1106, { layout: 'Waiting' })
 
-  it('draws both rows, the value, the bar and the indicators', () => {
-    expect(litCount(status())).toBeGreaterThan(60)
-    expect(withinPanel(status())).toBe(true)
+  it('draws something rather than nothing', () => {
+    expect(litCount(waiting())).toBeGreaterThan(60)
+    expect(withinPanel(waiting())).toBe(true)
   })
 
-  it('distinguishes an on indicator from an off one', () => {
-    const allOn = litCount(status({ indicators: [true, true, true, true] }))
-    const allOff = litCount(status({ indicators: [false, false, false, false] }))
-    expect(allOn).toBeGreaterThan(allOff)
-  })
-
-  // A layout that silently drops the fifth indicator is worse than one that
-  // never offered it, so the cap is explicit and asserted.
-  it('caps the indicators rather than overflowing the row', () => {
-    const four = litCount(status({ indicators: [true, true, true, true] }))
-    const eight = litCount(status({ indicators: new Array(8).fill(true) }))
-    expect(eight).toBe(four)
-    expect(STATUS_MAX_INDICATORS).toBe(4)
-  })
-
-  it('survives no indicators at all', () => {
-    expect(withinPanel(status({ indicators: [] }))).toBe(true)
+  it('is what a panel with no source shows', () => {
+    expect(blankInfoData('Waiting')).toEqual({ layout: 'Waiting' })
   })
 })
 
@@ -187,7 +170,7 @@ describe('controller independence', () => {
   // The layout is the same picture on both panels; only the column window into
   // controller RAM differs, and that belongs to the driver.
   it('draws identical pixels on SH1106 and SSD1306', () => {
-    const data = blankInfoData('Status')
+    const data = blankInfoData('Clock')
     const a = renderInfoDisplay(OLED_CONTROLLERS.SH1106, data)
     const b = renderInfoDisplay(OLED_CONTROLLERS.SSD1306, data)
     expect(Array.from(a.data)).toEqual(Array.from(b.data))

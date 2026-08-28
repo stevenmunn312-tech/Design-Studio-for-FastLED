@@ -54,18 +54,15 @@ describe('InfoDisplay ownership', () => {
   it('consumes values and produces none', () => {
     const def = NODE_LIBRARY.find((n) => n.type === 'InfoDisplay')!
     expect(def.outputs).toEqual([])
-    expect(def.inputs.some((port) => port.dataType === 'string')).toBe(true)
+    expect(def.inputs.some((port) => port.dataType === 'display')).toBe(true)
   })
 
-  // A port is what a cable attaches to, so switching the screen must not move
-  // one. Every layout reads the same declared ports.
-  it('declares one stable port set for every layout', () => {
+  // One content input and no layout property. The port set is stable by
+  // construction rather than by discipline: there is nothing to switch.
+  it('declares one content input and nothing layout-specific', () => {
     const def = NODE_LIBRARY.find((n) => n.type === 'InfoDisplay')!
-    const ids = def.inputs.map((port) => port.id)
-    expect(ids).toContain('title')
-    expect(ids).toContain('dateTime')
-    expect(ids).toContain('indicator4')
-    expect(new Set(ids).size).toBe(ids.length)
+    expect(def.inputs.map((port) => port.id)).toEqual(['display', 'enabled'])
+    expect(def.defaultProperties).not.toHaveProperty('infoLayout')
   })
 
   it('offers both OLED modules as exact choices', () => {
@@ -137,22 +134,23 @@ describe('InfoDisplay rendering', () => {
     expect(surface).toBeNull()
   })
 
-  it('shows wired text on the status screen', () => {
-    const nodes = [node('t', 'TextValue', 'math', { text: 'RUNNING' }), oled({ infoLayout: 'Status' })]
-    const bare = panelOf([oled({ infoLayout: 'Status' })])
-    const wired = panelOf(nodes, [edge('e', 't', 'text', 'oled', 'title')])
-    expect(litCount(wired.surface!)).toBeGreaterThan(litCount(bare.surface!))
+  // Unwired says so. A blank panel and a dead panel look identical on a bench.
+  it('says it is waiting when nothing is plugged in', () => {
+    expect(litCount(panelOf([oled()]).surface!)).toBeGreaterThan(60)
   })
 
-  it('renders each layout differently', () => {
-    const counts = ['Now Playing', 'Pattern Browser', 'Clock', 'Status']
-      .map((infoLayout) => litCount(panelOf([oled({ infoLayout })]).surface!))
-    expect(new Set(counts).size).toBe(counts.length)
+  it('shows the clock a wired RTC gives it', () => {
+    const waiting = panelOf([oled()])
+    const clock = panelOf(
+      [node('rtc', 'RTCInput', 'input'), oled()],
+      [edge('e', 'rtc', 'display', 'oled', 'display')],
+    )
+    expect(litCount(clock.surface!)).not.toBe(litCount(waiting.surface!))
   })
 
-  it('renders the highlighted player pattern in the Pattern Browser preview', () => {
+  it('renders the highlighted pattern in the Pattern Browser preview', () => {
     const collection = node('collection', 'PatternCollection', 'show', { patternIds: ['white'] })
-    const player = node('player', 'PatternMaster', 'show')
+    const player = node('player', 'PatternSlideshow', 'show')
     const groups = {
       white: {
         nodes: [
@@ -163,10 +161,10 @@ describe('InfoDisplay rendering', () => {
       },
     } as unknown as GroupRegistry
     const surface = panelOf(
-      [collection, player, oled({ infoLayout: 'Pattern Browser' })],
+      [collection, player, oled()],
       [
         edge('collection-player', 'collection', 'patternset', 'player', 'patternset'),
-        edge('player-oled', 'player', 'patternSelect', 'oled', 'patternSelect'),
+        edge('player-oled', 'player', 'display', 'oled', 'display'),
       ],
       groups,
     ).surface!
@@ -180,12 +178,6 @@ describe('InfoDisplay rendering', () => {
     expect(thumbnailPixels).toBe(THUMBNAIL_W * THUMBNAIL_H)
   })
 
-  it('falls back to a known layout for an unknown one', () => {
-    const unknown = litCount(panelOf([oled({ infoLayout: 'nonsense' })]).surface!)
-    const fallback = litCount(panelOf([oled({ infoLayout: 'Now Playing' })]).surface!)
-    expect(unknown).toBe(fallback)
-  })
-
   // The panel picture is identical on both controllers; only the column window
   // into controller RAM differs, and that belongs to the driver.
   it('draws the same pixels whichever module is chosen', () => {
@@ -195,7 +187,12 @@ describe('InfoDisplay rendering', () => {
   })
 
   it('shows a clock with no reading as such rather than as midnight', () => {
-    const { surface } = panelOf([oled({ infoLayout: 'Clock' })])
+    // An RTC whose source is unreadable still picks the Clock screen; what it
+    // cannot do is put a plausible time on it.
+    const { surface } = panelOf(
+      [node('rtc', 'RTCInput', 'input', { timeSource: 'Manual', startYear: 0 }), oled()],
+      [edge('e', 'rtc', 'display', 'oled', 'display')],
+    )
     expect(litCount(surface!)).toBeGreaterThan(0)
   })
 })

@@ -677,8 +677,10 @@ describe('displays in a show controller', () => {
   ]
   const baseEdges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
 
+  // Unwired: a panel on the bench that nothing is plugged into, which is a
+  // legitimate state and draws the waiting screen.
   const oled = node('oled', 'InfoDisplay', {
-    partId: 'sh1106-oled-128x64', infoLayout: 'Status',
+    partId: 'sh1106-oled-128x64',
     csPin: 1, dcPin: 22, resetPin: 5, sckPin: 6, mosiPin: 7,
   })
   const segment = node('seg', 'SegmentDisplay', {
@@ -688,8 +690,9 @@ describe('displays in a show controller', () => {
     partId: 'st7789-tft-240x240', tftLayout: 'Show Status',
     csPin: 15, dcPin: 2, resetPin: 4, sckPin: 14, mosiPin: 13, backlightPin: 27,
   })
+  // The same node wired to the Slideshow, which is what makes it a browser.
   const browser = node('brw', 'InfoDisplay', {
-    partId: 'sh1106-oled-128x64', infoLayout: 'Pattern Browser',
+    partId: 'sh1106-oled-128x64',
     csPin: 1, dcPin: 22, resetPin: 5, sckPin: 6, mosiPin: 7,
   })
 
@@ -766,7 +769,7 @@ describe('displays in a show controller', () => {
   })
 
   describe('the pattern browser', () => {
-    const wire = edge('e3', 'pm', 'patternSelect', 'brw', 'patternSelect')
+    const wire = edge('e3', 'pm', 'display', 'brw', 'display')
 
     it('carries the selection and the picture table on one stem', () => {
       const cpp = build([browser], [wire])

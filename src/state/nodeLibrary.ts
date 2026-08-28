@@ -7,9 +7,8 @@ import { ANIMARTRIX_EFFECTS } from '../animartrix/catalog'
 import { MAX_PIN_NUMBER, type GpioCapability } from './boardGpio'
 import { EASE_TYPES } from './easing'
 import { DATE_TIME_TEXT_MODES } from './displayText'
-import { SEGMENT_DISPLAY_MODES, SEGMENT_BRIGHTNESS_MIN, SEGMENT_BRIGHTNESS_MAX, segmentControllerFor } from './segmentDisplay'
+import { SEGMENT_BRIGHTNESS_MIN, SEGMENT_BRIGHTNESS_MAX, segmentControllerFor } from './segmentDisplay'
 import { partById } from './partCatalogue'
-import { INFO_DISPLAY_LAYOUTS } from './infoDisplay'
 import { SONG_INFO_PORTS } from './songInfo'
 import { PATTERN_SLIDESHOW_ORDERS } from './patternSlideshow'
 import {
@@ -2214,6 +2213,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // selection leaves here, which is what makes the round trip visible on
       // the canvas instead of hidden in a display's private state.
       { id: 'patternSelect', label: 'Pattern Select', dataType: 'patternselect' },
+      // Everything a simple panel needs, in one envelope. The per-field ports
+      // above stay for a custom UI to read one at a time.
+      { id: 'display', label: 'Display', dataType: 'display' },
     ],
     defaultProperties: {
       minTime: 4, maxTime: 12, transitionSec: 1,
@@ -2298,6 +2300,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       // Published for a panel to read, exactly as the player publishes its own.
       { id: 'patternSelect', label: 'Pattern Select', dataType: 'patternselect' },
+      { id: 'display', label: 'Display', dataType: 'display' },
     ],
     defaultProperties: {
       order: 'Random',
@@ -2839,38 +2842,21 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { channel: 1, activeThreshold: 1 },
   },
   {
-    // A 1-bit OLED showing one of a few fixed layouts. Its ports are declared
-    // and stable: changing the layout property never adds or removes one, so a
-    // cable cannot break by switching what the panel shows. A port only one
-    // layout reads is normal here — `dateTime` is the Clock's, and the three
-    // below belong to the Pattern Browser.
-    // See docs/development/design/auxiliary-displays.md.
+    // A 1-bit OLED with one content input and no layout property: what is
+    // plugged into `Display` decides what it shows, one layout per source. The
+    // port set is therefore stable by construction rather than by discipline,
+    // and a panel wired to nothing says so rather than sitting blank.
+    // See docs/development/design/simple-displays.md.
     type: 'InfoDisplay',
     label: 'Info Display',
     category: 'output',
     inputs: [
-      { id: 'title', label: 'Title', dataType: 'string' },
-      { id: 'line2', label: 'Line 2', dataType: 'string' },
-      { id: 'value', label: 'Value', dataType: 'float' },
-      { id: 'progress', label: 'Progress', dataType: 'float' },
-      { id: 'playing', label: 'Playing', dataType: 'bool' },
-      { id: 'volume', label: 'Volume', dataType: 'float' },
-      { id: 'dateTime', label: 'DateTime', dataType: 'datetime' },
-      { id: 'indicator1', label: 'Indicator 1', dataType: 'bool' },
-      { id: 'indicator2', label: 'Indicator 2', dataType: 'bool' },
-      { id: 'indicator3', label: 'Indicator 3', dataType: 'bool' },
-      { id: 'indicator4', label: 'Indicator 4', dataType: 'bool' },
-      // Pattern Browser. One input, from the player that owns the selection —
-      // the panel displays it rather than deciding it, and does not need its
-      // own wire to the collection because the selection names the player and
-      // the player already has the patterns.
-      { id: 'patternSelect', label: 'Pattern Select', dataType: 'patternselect' },
+      { id: 'display', label: 'Display', dataType: 'display' },
       { id: 'enabled', label: 'Enabled', dataType: 'bool' },
     ],
     outputs: [],
     defaultProperties: {
       partId: 'sh1106-oled-128x64',
-      infoLayout: 'Now Playing',
       oledRotation: '0',
       // Both transports' pins are declared, and `isPropertyEnabled` shows only
       // the chosen module's. Keeping the other set means switching module and
@@ -2966,23 +2952,21 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { speed: MASTER_SPEED_DEFAULT },
   },
   {
-    // TM1637 4-digit 7-segment module, added from the hardware workbench.
-    // Formatting is deliberately its own properties rather than a wired string:
-    // a segment module can draw digits, a colon and a decimal point and nothing
-    // else, so a general text input would accept text it cannot show.
-    // See docs/development/design/auxiliary-displays.md.
+    // A 7-segment module, added from the hardware workbench. Like the OLED it
+    // takes one `Display` input and shows what the source implies: an RTC's
+    // time, a player's elapsed position, a slideshow's ordinal. A raw number
+    // from anywhere in the graph is a custom-UI capability, not this.
+    // See docs/development/design/simple-displays.md.
     type: 'SegmentDisplay',
     label: 'Segment Display',
     category: 'output',
     inputs: [
-      { id: 'value', label: 'Value', dataType: 'float' },
-      { id: 'dateTime', label: 'DateTime', dataType: 'datetime' },
+      { id: 'display', label: 'Display', dataType: 'display' },
       { id: 'enabled', label: 'Enabled', dataType: 'bool' },
     ],
     outputs: [],
     defaultProperties: {
       partId: 'tm1637-4digit-display',
-      segmentMode: 'Number',
       clkPin: 18,
       dioPin: 19,
       dinPin: 19,
@@ -3017,6 +3001,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'year', label: 'Year', dataType: 'float' },
       { id: 'secondsOfDay', label: 'Seconds Today', dataType: 'float' },
       { id: 'weekend', label: 'Weekend', dataType: 'bool' },
+      { id: 'display', label: 'Display', dataType: 'display' },
     ],
     defaultProperties: {
       timeSource: 'Compile Time',
@@ -3465,6 +3450,7 @@ export const PORT_COLORS: Record<string, string> = {
   music: '#ffb74d',
   patternset: '#38a6ff',
   patternselect: '#7fd1ff',
+  display: '#ffe066',
   transitionset: '#b388ff',
   playercontrols: '#ff8a65',
   playerparticles: '#ce93d8',
@@ -3564,8 +3550,6 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   decimals:         { control: 'slider', min: 0, max: 4, step: 1 },
   padWidth:         { control: 'slider', min: 1, max: 8, step: 1 },
   maxIntegerDigits: { control: 'slider', min: 1, max: 9, step: 1 },
-  segmentMode:      { control: 'select', options: SEGMENT_DISPLAY_MODES },
-  infoLayout:       { control: 'select', options: INFO_DISPLAY_LAYOUTS },
   letterSpacing: { control: 'slider', min: 0, max: 4, step: 1 },
   tileSize:   { control: 'slider', min: 1, max: 16, step: 1 },
   turns:      { control: 'slider', min: 1, max: 6, step: 1 },
@@ -4297,11 +4281,9 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   showSign: 'Shows a + on positive values. Negatives always show their sign.',
   prefix: 'Text placed before the number, such as a label or currency mark.',
   suffix: 'Text placed after the number, such as a unit.',
-  segmentMode: 'What the four digits show: a number, a HH:MM clock, or a position in a collection.',
   leadingZero: 'Pads the number with zeros so it stops shifting as its width changes.',
   showColon: 'Lights the centre colon. A clock blinks it once a second; other modes hold it.',
   clkPin: 'TM1637 clock line. Not I2C — the module has no address, so it cannot share these pins.',
-  infoLayout: 'Which fixed screen the panel shows. Ports stay the same, so changing it never breaks a cable.',
   oledRotation: 'Turn the picture 180 degrees to match how the panel is bolted down. It does not rotate what the screen says.',
   dcPin: 'Data/command select. Exclusive to this panel — it cannot be shared with another SPI device.',
   resetPin: 'Panel reset. Exclusive to this panel.',

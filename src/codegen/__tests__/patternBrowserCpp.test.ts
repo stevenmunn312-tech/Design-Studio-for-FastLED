@@ -30,7 +30,7 @@ const emit = (over: Partial<InfoDisplayEmit> = {}): InfoDisplayEmit => ({
   layout: 'Pattern Browser', enabledExpr: 'true',
   titleExpr: null, line2Expr: null, valueExpr: '0.0f', progressExpr: '0.0f',
   playingExpr: 'false', volumeExpr: '0.0f', durationExpr: '0.0f',
-  dateTimeExpr: null, indicatorExprs: [],
+  dateTimeExpr: null,
   browser: { tableStem: 'br', selVar: '_sel_br' },
   ...over,
 })

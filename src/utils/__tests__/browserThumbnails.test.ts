@@ -43,7 +43,7 @@ const GROUPS = {
 } as unknown as GroupRegistry
 
 const browserNode = (over: Record<string, unknown> = {}) => node('brw', 'InfoDisplay', {
-  partId: 'sh1106-oled-128x64', infoLayout: 'Pattern Browser',
+  partId: 'sh1106-oled-128x64',
   csPin: 1, dcPin: 2, resetPin: 5, sckPin: 6, mosiPin: 7, ...over,
 })
 
@@ -52,7 +52,7 @@ const output = node('out', 'MatrixOutput', {
 })
 const collection = node('coll', 'PatternCollection', { patternIds: ['white', 'dark'] })
 
-const master = node('master', 'PatternMaster')
+const master = node('master', 'PatternSlideshow')
 
 // Collection -> player -> panel. The panel names the player, not the
 // collection: one wire, and no way to picture a different set from the one
@@ -61,15 +61,17 @@ const graph = (extraNodes: StudioNode[] = [], extraEdges: StudioEdge[] = []) => 
   nodes: [output, collection, master, browserNode(), ...extraNodes],
   edges: [
     edge('e1', 'coll', 'patternset', 'master', 'patternset'),
-    edge('e2', 'master', 'patternSelect', 'brw', 'patternSelect'),
+    edge('e2', 'master', 'display', 'brw', 'display'),
     ...extraEdges,
   ],
 })
 
 describe('finding the browsers in a graph', () => {
-  it('picks out only Info Displays set to Pattern Browser', () => {
-    const nodes = [browserNode(), node('other', 'InfoDisplay', { infoLayout: 'Clock' }), output]
-    expect(patternBrowsers(nodes).map((n) => n.id)).toEqual(['brw'])
+  // The layout is not a property to read: a panel is a browser when the thing
+  // plugged into it is the thing that rotates patterns.
+  it('picks out only the Info Displays a slideshow feeds', () => {
+    const { nodes, edges } = graph([node('other', 'InfoDisplay', {})])
+    expect(patternBrowsers(nodes, edges).map((n) => n.id)).toEqual(['brw'])
   })
 
   it('finds the player a browser reads, and the patterns behind it', () => {
@@ -132,7 +134,7 @@ describe('baking for a graph', () => {
     const nodes = [output, node('coll', 'PatternCollection', { patternIds: ['formula'] }), master, browserNode()]
     const edges = [
       edge('e1', 'coll', 'patternset', 'master', 'patternset'),
-      edge('e2', 'master', 'patternSelect', 'brw', 'patternSelect'),
+      edge('e2', 'master', 'display', 'brw', 'display'),
     ]
     const lit = (entry: { thumbnail: { data: Uint8Array } }) =>
       Array.from(entry.thumbnail.data).reduce((n, b) => n + b, 0)
@@ -148,49 +150,15 @@ describe('baking for a graph', () => {
 describe('the generated sketch', () => {
   beforeEach(() => resetEvaluatorState())
 
-  const build = (extra: { thumbnails?: ReturnType<typeof bakeBrowserThumbnails> } = {}) => {
+  // A browser is the Slideshow's screen, and a Slideshow builds the show
+  // controller — so a *normal* sketch can never contain one, and pays for
+  // neither the table nor the selection contract. What the show emits is
+  // covered in showGenerator.test.ts, next to the rest of that template.
+  it('emits none of it from the normal generator', () => {
     const { nodes, edges } = graph()
-    return generateCpp(nodes, edges, GROUPS, extra)
-  }
-
-  it('emits the table, the contract and the selection it drives', () => {
-    const { nodes, edges } = graph()
-    const src = generateCpp(nodes, edges, GROUPS, {
-      thumbnails: bakeBrowserThumbnails(nodes, edges, GROUPS, true),
-    })
-    // Named for the player, because the player owns the selection.
-    expect(src).toContain('#define THUMB_COUNT_master  2')
-    expect(src).toContain('#define SEL_BROWSE_MS')
-    expect(src).toContain('static PatternSel _sel_master;')
-    expect(src).toContain('_selBegin(_sel_master);')
-    expect(src).toContain('_oledThumb(')
-  })
-
-  // A table nothing reads is flash a build with no browser should not pay for.
-  it('emits none of it for a graph with no browser', () => {
-    const src = generateCpp([output, node('clock', 'InfoDisplay', { infoLayout: 'Clock' })], [], GROUPS)
+    const src = generateCpp(nodes, edges, GROUPS)
     expect(src).not.toContain('PatternSel')
     expect(src).not.toContain('THUMB_COUNT')
-  })
-
-  // The honest outcome for a collection nobody was allowed to render: an empty
-  // table and "NO PATTERNS", rather than a blank square that looks like a bug.
-  it('still builds when nothing was baked for it', () => {
-    const src = build()
-    expect(src).toContain('#define THUMB_COUNT_master  0')
-    expect(src).toContain('"NO PATTERNS"')
-  })
-
-  // The panel reads; it does not step. The encoder reaches the selection
-  // through Player Controls, which is where physical inputs become intent.
-  it('leaves the panel reading rather than deciding', () => {
-    const src = build()
-    // Scoped to the display's own block: the contract still *defines*
-    // _selUpdate, it just is not the panel that calls it.
-    const block = src.slice(src.indexOf('{ // Info Display'))
-    expect(block).not.toContain('_selUpdate(')
-    expect(block).not.toContain('_selEncoderSteps(')
-    expect(block).toContain('_sel_master.highlight')
   })
 })
 
@@ -211,7 +179,7 @@ describe('an over-budget collection', () => {
     nodes: [output, collection, master, browserNode()],
     edges: [
       edge('e1', 'coll', 'patternset', 'master', 'patternset'),
-      edge('e2', 'master', 'patternSelect', 'brw', 'patternSelect'),
+      edge('e2', 'master', 'display', 'brw', 'display'),
     ],
   })
 

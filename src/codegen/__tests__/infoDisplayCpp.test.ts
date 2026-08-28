@@ -98,10 +98,10 @@ describe('generateCpp with an OLED', () => {
   })
 
   it('keeps what feeds a display alive too', () => {
-    const nodes = [outputNode, node('t', 'TextValue', 'math', { text: 'HELLO' }), oled({ infoLayout: 'Status' })]
-    const src = generateCpp(nodes, [edge('e', 't', 'oled', 'text', 'title')])
-    expect(src).toContain('n_t_text')
-    expect(src).toContain('_oledFit(_oledBuf_oled, sizeof(_oledBuf_oled), n_t_text,')
+    const nodes = [outputNode, node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' }), oled()]
+    const src = generateCpp(nodes, [edge('e', 'rtc', 'oled', 'display', 'display')])
+    expect(src).toContain('n_rtc_dateTime')
+    expect(src).toContain('n_rtc_dateTime.hour')
   })
 
   it('leaves the driver out of a sketch with no OLED', () => {
@@ -123,31 +123,33 @@ describe('generateCpp with an OLED', () => {
     expect(src).toContain('_oled_oled2')
   })
 
-  it('renders each layout through its own geometry', () => {
-    expect(generateCpp([outputNode, oled({ infoLayout: 'Now Playing' })], [])).toContain('"PLAY" : "PAUSE"')
-    expect(generateCpp([outputNode, oled({ infoLayout: 'Clock' })], [])).toContain('"NO CLOCK"')
-    expect(generateCpp([outputNode, oled({ infoLayout: 'Status' })], [])).toContain('_oledIndicator(')
+  // A normal sketch has one source it can answer for, so it draws one of two
+  // screens: the clock, or the one that says nothing is plugged in.
+  it('renders the screen the wire implies', () => {
+    const clock = [outputNode, node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' }), oled()]
+    expect(generateCpp(clock, [edge('e', 'rtc', 'oled', 'display', 'display')])).toContain('"NO CLOCK"')
+
+    const waiting = generateCpp([outputNode, oled()], [])
+    expect(waiting).toContain('"WAITING FOR A SIGNAL"')
+    expect(waiting).not.toContain('"NO CLOCK"')
   })
 
   // Geometry comes from the shared layout module, so a margin cannot be typed
   // twice and disagree.
   it('emits the shared layout geometry rather than its own', () => {
-    const src = generateCpp([outputNode, oled({ infoLayout: 'Now Playing' })], [])
-    expect(src).toContain(`_oledText(_oled_oled, ${INFO_LAYOUT.margin}, ${infoRowY(0)},`)
-    expect(src).toContain(`${128 - (INFO_LAYOUT.margin * 2)}, ${INFO_LAYOUT.barHeight},`)
+    const nodes = [outputNode, node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' }), oled()]
+    const src = generateCpp(nodes, [edge('e', 'rtc', 'oled', 'display', 'display')])
+    expect(src).toContain(`_oledHLine(_oled_oled, ${INFO_LAYOUT.margin}, ${infoRowY(2) + 1},`)
+    expect(src).toContain(`_oledText(_oled_oled, ${INFO_LAYOUT.margin}, ${infoRowY(3)},`)
   })
 
   // No trustworthy reading says so, rather than showing a plausible time.
-  it('dashes a clock with no reading', () => {
-    const src = generateCpp([outputNode, oled({ infoLayout: 'Clock' })], [])
-    expect(src).toContain('"--:--"')
-  })
-
-  it('reads a wired clock struct', () => {
-    const nodes = [outputNode, node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' }), oled({ infoLayout: 'Clock' })]
-    const src = generateCpp(nodes, [edge('e', 'rtc', 'oled', 'dateTime', 'dateTime')])
+  it('reads a wired clock struct, and dashes a reading it cannot trust', () => {
+    const nodes = [outputNode, node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' }), oled()]
+    const src = generateCpp(nodes, [edge('e', 'rtc', 'oled', 'display', 'display')])
     expect(src).toContain('n_rtc_dateTime.valid')
     expect(src).toContain('n_rtc_dateTime.hour')
+    expect(src).toContain('"--:--"')
   })
 
   // The fix for a panel bolted in upside down: the commands change, the
@@ -163,9 +165,13 @@ describe('generateCpp with an OLED', () => {
     expect(src).toContain('bool _oledOn_oled = false;')
   })
 
-  it('clamps progress rather than letting a bar overflow its box', () => {
-    const src = generateCpp([outputNode, oled({ infoLayout: 'Status' })], [])
-    expect(src).toMatch(/_oledBar\(_oled_oled, \d+, \d+, \d+, \d+, constrain\(/)
+  // In the driver rather than at one call site, so every generator that draws
+  // a bar gets it — the player's progress comes from its own expression and
+  // never passes through a normal sketch's clamp.
+  it('clamps a progress bar in the primitive that draws it', () => {
+    const src = generateCpp([outputNode, oled()], [])
+    expect(src).toContain('if (!isfinite(v) || v < 0) v = 0;')
+    expect(src).toContain('if (v > 1) v = 1;')
   })
 })
 
@@ -220,8 +226,8 @@ describe('generateCpp with an I2C OLED', () => {
   // The layout is the surface's, not the bus's: the same picture reaches both
   // modules, and only the byte-shipping differs.
   it('draws the same layout as the SPI panel', () => {
-    const spi = generateCpp([outputNode, oled({ infoLayout: 'Status' })], [])
-    const bus = generateCpp([outputNode, i2c({ infoLayout: 'Status' })], [])
+    const spi = generateCpp([outputNode, oled()], [])
+    const bus = generateCpp([outputNode, i2c()], [])
     const body = (src: string) => src.slice(src.indexOf('{ // Info Display'), src.indexOf('_oledFlush('))
     expect(body(bus)).toBe(body(spi))
   })

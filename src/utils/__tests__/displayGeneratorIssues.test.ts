@@ -48,53 +48,43 @@ describe('displays a build cannot drive', () => {
   })
 
   it('accepts a display fed from the Music Player', () => {
-    const nodes = [out(), oled(), node('master', 'PatternMaster')]
+    const nodes = [out(), oled(), node('master', 'PatternMaster'),
+      node('sd', 'SDCard'), node('amp', 'Amplifier')]
     const wires = [
       edge('e1', 'master', 'frame', 'out', 'frame'),
-      edge('e2', 'master', 'title', 'oled', 'title'),
-      edge('e3', 'master', 'progress', 'oled', 'progress'),
+      edge('e2', 'master', 'display', 'oled', 'display'),
     ]
     expect(findDisplayGeneratorIssues(nodes, wires)).toEqual({ errors: [], warnings: [] })
   })
 
-  // The player sketch is a template, not a compiled graph. A Wave is a perfectly
-  // reasonable wire on the canvas and has no value to read there.
-  it('warns about a port the player sketch cannot read', () => {
+  // The player sketch is a template, not a compiled graph. A Wave is a
+  // perfectly reasonable wire on the canvas and is not a display source at all.
+  it('warns about a source the player sketch cannot read', () => {
     const nodes = [out(), oled(), node('master', 'PatternMaster'), node('w', 'Wave'),
       node('sd', 'SDCard'), node('amp', 'Amplifier')]
     const wires = [
       edge('e1', 'master', 'frame', 'out', 'frame'),
-      edge('e2', 'w', 'result', 'oled', 'progress'),
+      edge('e2', 'w', 'result', 'oled', 'display'),
     ]
     const issues = findDisplayGeneratorIssues(nodes, wires)
     expect(issues.errors).toEqual([])
     expect(issues.warnings).toHaveLength(1)
-    expect(issues.warnings[0]).toContain('progress')
     expect(issues.warnings[0]).toContain('Wave')
     expect(issues.warnings[0]).toContain('stays blank')
   })
 
-  it('names every unreadable port rather than only the first', () => {
-    const nodes = [out(), oled(), node('master', 'PatternMaster'), node('w', 'Wave'),
+  it('names every panel it cannot feed rather than only the first', () => {
+    const second = node('oled2', 'InfoDisplay', {
+      partId: 'ssd1306-oled-128x64', sdaPin: 21, sclPin: 22,
+    })
+    const nodes = [out(), oled(), second, node('master', 'PatternMaster'), node('w', 'Wave'),
       node('sd', 'SDCard'), node('amp', 'Amplifier')]
     const wires = [
       edge('e1', 'master', 'frame', 'out', 'frame'),
-      edge('e2', 'w', 'result', 'oled', 'progress'),
-      edge('e3', 'w', 'result', 'oled', 'value'),
+      edge('e2', 'w', 'result', 'oled', 'display'),
+      edge('e3', 'w', 'result', 'oled2', 'display'),
     ]
     expect(findDisplayGeneratorIssues(nodes, wires).warnings).toHaveLength(2)
-  })
-
-  it('says nothing about a wire a normal sketch will compile', () => {
-    const nodes = [out(), oled(), node('master', 'PatternMaster'), node('w', 'Wave')]
-    const wires = [
-      edge('e1', 'master', 'frame', 'out', 'frame'),
-      edge('e2', 'w', 'result', 'oled', 'progress'),
-    ]
-    // No card, no collection: this graph builds through generateCpp, which
-    // evaluates the Wave like any other node. Warning here would be a false
-    // alarm about the one generator that has no template limits at all.
-    expect(findDisplayGeneratorIssues(nodes, wires)).toEqual({ errors: [], warnings: [] })
   })
 
   it('covers a segment display too', () => {
@@ -103,7 +93,7 @@ describe('displays a build cannot drive', () => {
       node('sd', 'SDCard'), node('amp', 'Amplifier')]
     const wires = [
       edge('e1', 'master', 'frame', 'out', 'frame'),
-      edge('e2', 'w', 'result', 'seg', 'value'),
+      edge('e2', 'w', 'result', 'seg', 'display'),
     ]
     const issues = findDisplayGeneratorIssues(nodes, wires)
     expect(issues.warnings[0]).toContain('Segment Display')
@@ -320,14 +310,12 @@ describe('a Pattern Slideshow show', () => {
   // walk and the same message the player gets, with the show's own table. The
   // wire has to come from a Music Player, because the Slideshow has no song
   // port to offer: sitting one in a show graph is how the case still arises.
-  it('warns about a song port the show controller cannot read', () => {
-    const nowPlaying = node('oled2', 'InfoDisplay', {
-      partId: 'sh1106-oled-128x64', infoLayout: 'Now Playing',
-    })
+  it('warns about a source the show controller cannot read', () => {
+    const nowPlaying = node('oled2', 'InfoDisplay', { partId: 'sh1106-oled-128x64' })
     const player = node('player', 'PatternMaster')
     const issues = findDisplayGeneratorIssues(
       [master, collection, out, nowPlaying, player],
-      [...showEdges, edge('t', 'player', 'title', 'oled2', 'title')],
+      [...showEdges, edge('t', 'player', 'display', 'oled2', 'display')],
     )
     expect(issues.errors).toEqual([])
     expect(issues.warnings).toHaveLength(1)

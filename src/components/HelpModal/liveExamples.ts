@@ -1369,31 +1369,27 @@ const FORMAT_DATE_TIME_LIVE_EXAMPLE = namedExample(
 
 const SEGMENT_DISPLAY_LIVE_EXAMPLE = namedExample(
   'SegmentDisplay',
-  'Show a live value on four digits',
+  'Put the time on four digits',
   [
-    { key: 'bpm', type: 'BeatSin', properties: { bpm: 30, low: 90, high: 140 } },
-    { key: 'target', type: 'SegmentDisplay', properties: { segmentMode: 'Number', decimals: 0 } },
+    { key: 'rtc', type: 'RTCInput' },
+    { key: 'target', type: 'SegmentDisplay' },
     { key: 'color', type: 'SolidColor', properties: { r: 90, g: 60, b: 10 } },
   ],
-  [{ source: 'bpm', sourceHandle: 'value', target: 'target', targetHandle: 'value' }],
-  'Segment Display is a terminal like the LED output, not a step toward one: it updates whether or not anything else in the graph reads it. Add the module in the hardware workbench, then wire the value you want on the digits.',
+  [{ source: 'rtc', sourceHandle: 'display', target: 'target', targetHandle: 'display' }],
+  'Segment Display is a terminal like the LED output, not a step toward one: it updates whether or not anything else in the graph reads it. It takes one Display wire and shows what the source implies — an RTC gives it the time, a Music Player the elapsed position, a Pattern Slideshow the pattern number. Unplugged, it shows dashes.',
   'The solid colour keeps the LED preview meaningful; the four digits are a separate physical module rather than part of the frame.',
 )
 
 const INFO_DISPLAY_LIVE_EXAMPLE = namedExample(
   'InfoDisplay',
-  'Put a status screen on the bench',
+  'Put a clock on the bench',
   [
-    { key: 'label', type: 'TextValue', properties: { text: 'SHOW RUNNING' } },
-    { key: 'level', type: 'PotInput' },
-    { key: 'target', type: 'InfoDisplay', properties: { infoLayout: 'Status' } },
+    { key: 'rtc', type: 'RTCInput' },
+    { key: 'target', type: 'InfoDisplay' },
     { key: 'color', type: 'SolidColor', properties: { r: 20, g: 70, b: 90 } },
   ],
-  [
-    { source: 'label', sourceHandle: 'text', target: 'target', targetHandle: 'title' },
-    { source: 'level', sourceHandle: 'value', target: 'target', targetHandle: 'progress' },
-  ],
-  'Info Display is a terminal like the LED output: it updates whether or not anything downstream reads it. Add the OLED in the hardware workbench, pick one of its fixed layouts, and wire the text and values that layout shows.',
+  [{ source: 'rtc', sourceHandle: 'display', target: 'target', targetHandle: 'display' }],
+  'Info Display is a terminal like the LED output: it updates whether or not anything downstream reads it. It has one Display input and no layout to choose — what you plug in decides the screen. An RTC makes it a clock, a Music Player makes it a now-playing panel, a Pattern Slideshow makes it a pattern browser. Wired to nothing it says so, rather than sitting blank.',
   'The solid colour keeps the LED preview meaningful; the OLED is a separate 128x64 panel rather than part of the frame.',
 )
 

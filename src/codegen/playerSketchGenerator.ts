@@ -886,8 +886,6 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     csPin: display.csPin,
     brightness: display.brightness,
     mode: display.mode,
-    decimals: display.decimals,
-    leadingZero: display.leadingZero,
     showColon: display.showColon,
     valueExpr: display.sources.value ?? '0.0f',
     dateTimeExpr: null,

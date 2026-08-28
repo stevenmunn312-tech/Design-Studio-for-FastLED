@@ -10,7 +10,7 @@ import {
   buttonEdge, blankButtonEdgeState, normalizeButtonEdgeSettings, type ButtonEdgeState,
 } from './transportBridge'
 import {
-  asSegmentMode, clampSegmentBrightness, renderSegmentNumber, renderSegmentClock,
+  clampSegmentBrightness, segmentDashes, renderSegmentClock,
   renderSegmentIndex, segmentFrameText, blankSegmentFrame, segmentControllerFor,
   type SegmentFrame,
 } from './segmentDisplay'
@@ -20,7 +20,7 @@ import {
 } from './ledOutputRuntime'
 import { clampMasterSpeed, MASTER_SPEED_DEFAULT } from './masterSpeed'
 import {
-  asInfoDisplayLayout, renderInfoDisplay, blankInfoData, STATUS_MAX_INDICATORS,
+  infoLayoutForKind, renderInfoDisplay, blankInfoData,
   type InfoDisplayData,
 } from './infoDisplay'
 import { OLED_CONTROLLERS, oledLine, type OledSurface } from './oledSurface'
@@ -45,6 +45,7 @@ import { useUiStore } from './uiStore'
 import { useGraphStore } from './graphStore'
 import { songInfoOutputs, resolveSongInfo } from './songInfo'
 import { slideshowSettings, type PatternSlideshowOrder } from './patternSlideshow'
+import { isDisplaySignal, type DisplaySignal } from './displaySignal'
 import {
   blankPatternSelection, blankPatternCursor, reconcilePatternCursor, updatePatternSelection,
   patternSelectionView, encoderSteps, blankPatternSelectValue, isPatternSelect,
@@ -4711,7 +4712,7 @@ export interface PlayerParticles {
   randomStyle: boolean
 }
 
-export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | AudioSignal | StorageSignal | PlayerControls | PlayerParticles | SegmentFrame | OledSurface | TftSurface | PatternSelectValue | StereoVuFrame | null
+export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | AudioSignal | StorageSignal | PlayerControls | PlayerParticles | SegmentFrame | OledSurface | TftSurface | PatternSelectValue | DisplaySignal | StereoVuFrame | null
 
 /** A reusable pattern group: a named subgraph that a `Group` node evaluates. */
 export interface GroupDef { nodes: StudioNode[]; edges: StudioEdge[] }
@@ -6968,12 +6969,18 @@ function createEvalNode(
         // anything downstream reads it. The pixels come from state/infoDisplay.ts
         // so the node body, the workbench and the firmware all draw the same
         // 128x64 picture.
+        //
+        // One content input. What is plugged in picks the layout, so there is
+        // no property to disagree with the wire and no port that only one
+        // layout reads. See docs/development/design/simple-displays.md.
         const enabled = incoming.has(`${id}:enabled`)
           ? Boolean(input(id, 'enabled', true))
           : props.enabled !== false
         const controller = oledControllerForProps(props)
           ?? OLED_CONTROLLERS.SH1106
-        const layout = asInfoDisplayLayout(props.infoLayout)
+        const signalValue = input(id, 'display', null)
+        const signal = isDisplaySignal(signalValue) ? signalValue : null
+        const layout = signal ? infoLayoutForKind(signal.kind) : 'Waiting'
 
         if (!enabled) {
           out = { lit: false, layout, surface: null }
@@ -6981,10 +6988,13 @@ function createEvalNode(
         }
 
         let payload: InfoDisplayData
-        if (layout === 'Pattern Browser') {
-          const selection = input(id, 'patternSelect', null)
-          const chosen = isPatternSelect(selection) ? selection.highlightIndex : -1
-          const pattern = isPatternSelect(selection) && chosen >= 0 ? selection.ids[chosen] : ''
+        if (!signal) {
+          // Unwired says so. A blank panel and a dead panel look identical.
+          payload = { layout: 'Waiting' }
+        } else if (signal.kind === 'slideshow') {
+          const selection = signal.selection
+          const chosen = selection.highlightIndex
+          const pattern = chosen >= 0 ? selection.ids[chosen] : ''
           let thumbnail: PatternThumbnail | null = null
           const definition = pattern ? groups[pattern] : undefined
           if (definition && !groupStack.has(pattern)) {
@@ -7011,55 +7021,41 @@ function createEvalNode(
           payload = {
             layout: 'Pattern Browser',
             data: {
-              name: isPatternSelect(selection) ? selection.names[chosen] ?? '' : '',
+              name: selection.names[chosen] ?? '',
               ordinal: chosen >= 0 ? chosen + 1 : 0,
-              count: isPatternSelect(selection) ? selection.count : 0,
+              count: selection.count,
               thumbnail,
-              browsing: isPatternSelect(selection) && selection.browsing,
-              activeName: isPatternSelect(selection)
-                ? selection.names[selection.activeIndex] ?? ''
-                : '',
+              browsing: selection.browsing,
+              activeName: selection.names[selection.activeIndex] ?? '',
             },
           }
-        } else if (layout === 'Clock') {
-          const clock = input(id, 'dateTime', null) as RtcPreview | null
+        } else if (signal.kind === 'clock') {
+          const clock = signal.clock
           payload = {
             layout: 'Clock',
-            data: clock && clock.valid
+            data: clock.valid
               ? {
                 timeText: `${String(clock.hour).padStart(2, '0')}:${String(clock.minute).padStart(2, '0')}`,
                 dateText: `${clock.year}-${String(clock.month).padStart(2, '0')}-${String(clock.day).padStart(2, '0')}`,
                 valid: true,
                 synced: clock.synced === true && clock.stale !== true,
               }
-              : blankInfoData('Clock').data as { timeText: string; dateText: string; valid: boolean; synced: boolean },
-          }
-        } else if (layout === 'Status') {
-          const indicators: boolean[] = []
-          for (let i = 1; i <= STATUS_MAX_INDICATORS; i++) {
-            indicators.push(Boolean(input(id, `indicator${i}`, false)))
-          }
-          payload = {
-            layout: 'Status',
-            data: {
-              line1: oledLine(input(id, 'title', '')),
-              line2: oledLine(input(id, 'line2', '')),
-              value: oledLine(formatNumberText(num(id, 'value', props, 'value', 0), normalizeNumberFormat(props))),
-              progress: clamp01(num(id, 'progress', props, 'progress', 0)),
-              indicators,
-            },
+              : (blankInfoData('Clock') as { layout: 'Clock'; data: { timeText: string; dateText: string; valid: boolean; synced: boolean } }).data,
           }
         } else {
-          const duration = num(id, 'duration', props, 'duration', 0)
+          // One envelope carrying a whole SongInfo, so there is no per-field
+          // port to forget — which is what left the panel unable to show a
+          // track length in preview while the device could.
+          const song = signal.song
           payload = {
             layout: 'Now Playing',
             data: {
-              title: oledLine(input(id, 'title', '')),
-              elapsedSec: num(id, 'value', props, 'value', 0),
-              durationSec: duration,
-              progress: clamp01(num(id, 'progress', props, 'progress', 0)),
-              playing: Boolean(input(id, 'playing', false)),
-              volume: clamp01(num(id, 'volume', props, 'volume', 0)),
+              title: oledLine(song.title),
+              elapsedSec: song.elapsedSec,
+              durationSec: song.durationSec,
+              progress: clamp01(song.progress),
+              playing: song.playing,
+              volume: clamp01(song.volume),
             },
           }
         }
@@ -7207,6 +7203,10 @@ function createEvalNode(
         // reads it. The rendered characters come from state/segmentDisplay.ts,
         // which the C++ generator also uses, so the module shows the same four
         // digits on the bench as the node body shows here.
+        //
+        // One content input, like the OLED. A segment module cannot spell
+        // "waiting for a signal", so dashes are its form of the same statement
+        // — which is already what it shows for a reading it does not trust.
         const enabled = incoming.has(`${id}:enabled`)
           ? Boolean(input(id, 'enabled', true))
           : props.enabled !== false
@@ -7216,33 +7216,40 @@ function createEvalNode(
           break
         }
 
-        const mode = asSegmentMode(props.segmentMode)
+        const signalValue = input(id, 'display', null)
+        const signal = isDisplaySignal(signalValue) ? signalValue : null
         let segment: SegmentFrame
-        if (mode === 'Clock') {
-          const clock = input(id, 'dateTime', null) as
-            { hour?: number; minute?: number; second?: number; valid?: boolean } | null
-          if (clock && clock.valid === true) {
+        if (!signal) {
+          segment = segmentDashes(segCtl.digits)
+        } else if (signal.kind === 'clock') {
+          const clock = signal.clock
+          if (clock.valid) {
             // The colon blinks once a second, driven by wall-clock `t` like
             // every other animation here rather than by a frame counter.
             const blink = props.showColon === false ? false : Math.floor(t) % 2 === 0
             segment = renderSegmentClock(
-              Number(clock.hour ?? 0), Number(clock.minute ?? 0),
-              blink && segCtl.hasColon, segCtl.digits, Number(clock.second ?? 0),
+              clock.hour, clock.minute,
+              blink && segCtl.hasColon, segCtl.digits, clock.second,
             )
           } else {
             // No trustworthy reading is dashes, never a plausible midnight.
-            segment = { digits: '-'.repeat(segCtl.digits), colon: false, decimalAt: -1, lit: true }
+            segment = segmentDashes(segCtl.digits)
           }
-        } else if (mode === 'Index') {
-          segment = renderSegmentIndex(num(id, 'value', props, 'value', 0), segCtl.digits)
+        } else if (signal.kind === 'player') {
+          // Elapsed as M:SS through the clock renderer, because minutes and
+          // seconds on a colon module are the same two pairs a clock draws.
+          const elapsed = Math.max(0, Math.floor(signal.song.elapsedSec))
+          const blink = props.showColon === false ? false : true
+          segment = renderSegmentClock(
+            Math.floor(elapsed / 60), elapsed % 60,
+            blink && segCtl.hasColon, segCtl.digits, 0,
+          )
         } else {
-          segment = renderSegmentNumber(num(id, 'value', props, 'value', 0), {
-            decimals: Number(props.decimals ?? 0),
-            leadingZero: props.leadingZero === true,
-            digits: segCtl.digits,
-          })
+          const selection = signal.selection
+          segment = selection.count > 0
+            ? renderSegmentIndex(selection.activeIndex + 1, segCtl.digits)
+            : segmentDashes(segCtl.digits)
         }
-        if (props.showColon === true && mode !== 'Clock' && segCtl.hasColon) segment = { ...segment, colon: true }
 
         out = {
           frame: null,
@@ -7356,14 +7363,20 @@ function createEvalNode(
          * never seen. Those are read by the player on the device.
          */
         const player = usePlayerTransport.getState()
-        const song = songInfoOutputs(resolveSongInfo({
+        const songInfo = resolveSongInfo({
           title: player.transport?.title ?? '',
           posMs: player.posMs,
           durationMs: player.transport?.durationMs ?? 0,
           playing: player.playing,
           loaded: player.transport !== null,
           volume: runtime.volume,
-        }))
+        })
+        // The per-field ports and the envelope come from one reading, so a
+        // panel and a custom UI cannot be told different things.
+        const song = {
+          ...songInfoOutputs(songInfo),
+          display: { kind: 'player', song: songInfo } satisfies DisplaySignal,
+        }
 
         // Read *after* the show has run: its own advance moves the same cursor,
         // and publishing the pre-show snapshot left the panel a frame behind
@@ -7468,7 +7481,11 @@ function createEvalNode(
           }
           : blankPatternSelectValue()
 
-        out = { frame, patternSelect }
+        out = {
+          frame,
+          patternSelect,
+          display: { kind: 'slideshow', selection: patternSelect } satisfies DisplaySignal,
+        }
         break
       }
 
@@ -7940,6 +7957,9 @@ function createEvalNode(
         const rtc = rtcPreviewSnapshot(props, t)
         out = {
           dateTime: rtc,
+          // The same reading, addressed to a panel. One wire instead of the
+          // handful a clock screen would otherwise need.
+          display: { kind: 'clock', clock: rtc } satisfies DisplaySignal,
           valid: rtc.valid,
           synced: rtc.synced,
           stale: rtc.stale,

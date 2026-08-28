@@ -15,7 +15,7 @@ import { thumbnailBudgetIssue } from '../state/patternThumbnail'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { ThumbnailEmit } from '../codegen/patternThumbnailCpp'
-import { asInfoDisplayLayout } from '../state/infoDisplay'
+import { DISPLAY_SOURCE_NODE_TYPES } from '../state/displaySignal'
 
 /** Baked thumbnails per Info Display node id. */
 export type BrowserThumbnails = Record<string, ThumbnailEmit[]>
@@ -33,9 +33,10 @@ export function browserPlayer(
   nodes: readonly StudioNode[],
   edges: readonly StudioEdge[],
 ): StudioNode | undefined {
-  const wire = edges.find((edge) => edge.target === display.id && edge.targetHandle === 'patternSelect')
+  const wire = edges.find((edge) => edge.target === display.id && edge.targetHandle === 'display')
   if (!wire) return undefined
-  return nodes.find((node) => node.id === wire.source && node.data.nodeType === 'PatternMaster')
+  return nodes.find((node) => node.id === wire.source
+    && DISPLAY_SOURCE_NODE_TYPES[node.data.nodeType] === 'slideshow')
 }
 
 /** The pattern ids behind a player, through its own collection wire. */
@@ -51,10 +52,18 @@ export function playerPatternIds(
   return Array.isArray(ids) ? ids : []
 }
 
-/** Every Info Display in `nodes` whose layout is the Pattern Browser. */
-export function patternBrowsers(nodes: readonly StudioNode[]): StudioNode[] {
+/**
+ * Every Info Display showing a pattern browser.
+ *
+ * Which is every Info Display fed by something that rotates patterns — the
+ * layout is not a property to read, it is what the wire implies.
+ */
+export function patternBrowsers(
+  nodes: readonly StudioNode[],
+  edges: readonly StudioEdge[],
+): StudioNode[] {
   return nodes.filter((node) => node.data.nodeType === 'InfoDisplay'
-    && asInfoDisplayLayout((node.data.properties as { infoLayout?: unknown }).infoLayout) === 'Pattern Browser')
+    && browserPlayer(node, nodes, edges) !== undefined)
 }
 
 /**
@@ -71,7 +80,7 @@ export function browserThumbnailIssues(
   edges: readonly StudioEdge[],
 ): { display: StudioNode; issue: string }[] {
   const issues: { display: StudioNode; issue: string }[] = []
-  for (const display of patternBrowsers(nodes)) {
+  for (const display of patternBrowsers(nodes, edges)) {
     const player = browserPlayer(display, nodes, edges)
     if (!player) continue
     const issue = thumbnailBudgetIssue(playerPatternIds(player, nodes, edges).length)
@@ -95,7 +104,7 @@ export function bakeBrowserThumbnails(
   graphNames: Record<string, { name?: string }> = {},
 ): BrowserThumbnails {
   const out: BrowserThumbnails = {}
-  for (const display of patternBrowsers(nodes)) {
+  for (const display of patternBrowsers(nodes, edges)) {
     const player = browserPlayer(display, nodes, edges)
     if (!player) continue
     const ids = playerPatternIds(player, nodes, edges)

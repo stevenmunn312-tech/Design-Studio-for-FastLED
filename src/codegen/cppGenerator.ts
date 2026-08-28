@@ -33,7 +33,7 @@ import {
   SEGMENT_DISPLAY_CPP_HELPERS, SEGMENT_DISPLAY_CPP_FORWARD, segmentDisplayGlobalCpp, segmentDisplaySetupCpp,
   segmentDisplayLoopCpp, type SegmentDisplayEmit,
 } from './segmentDisplayCpp'
-import { asSegmentMode, clampSegmentBrightness, segmentControllerFor } from '../state/segmentDisplay'
+import { clampSegmentBrightness, segmentControllerFor } from '../state/segmentDisplay'
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
 import { NODE_LIBRARY, oledControllerForProps, oledTransportForProps, tftControllerForProps } from '../state/nodeLibrary'
 import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp } from './ledOutputRuntimeCpp'
@@ -46,16 +46,13 @@ import { masterClockLoopCpp, masterSpeedUpdateCpp, type MasterSpeedEmit } from '
 import {
   clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX,
 } from '../state/masterSpeed'
-import { patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
-import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './patternSelectionCpp'
-import type { BrowserThumbnails } from '../utils/browserThumbnails'
 import type { TransportArtworks } from '../utils/transportArtworks'
 import { transportArtworkTableCpp } from './transportArtworkCpp'
 import {
   infoDisplayHelpersCpp, INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp, infoDisplaySetupCpp,
   infoDisplayLoopCpp, columnOffsetFor, type InfoDisplayEmit,
 } from './infoDisplayCpp'
-import { asInfoDisplayLayout, STATUS_MAX_INDICATORS } from '../state/infoDisplay'
+import { DISPLAY_SOURCE_NODE_TYPES } from '../state/displaySignal'
 import {
   tftDisplayHelpersCpp, TFT_DISPLAY_CPP_FORWARD, TFT_DISPLAY_CPP_INCLUDES,
   tftDisplayGlobalCpp, tftDisplaySetupCpp, tftDisplayLoopCpp, type TftDisplayEmit,
@@ -1452,11 +1449,13 @@ export function generateCpp(
   // a pattern-show body is not (every pattern renders through the same `leds`,
   // and a persistent-buffer node such as Trails would be clobbered by the
   // other pattern mid-transition), so showGenerator passes false.
-  // `thumbnails`: baked Pattern Browser pictures, keyed by Info Display id.
+  // A Pattern Browser cannot occur here: it is the Slideshow's screen, and a
+  // Slideshow builds the show controller. So no thumbnail table, no selection
+  // cursor, and no flash spent on either.
   // Handed in rather than baked here — baking evaluates patterns, and a text
   // emitter has no business doing that, nor any way to know whether the
   // workspace has been trusted. See utils/browserThumbnails.ts.
-  opts: { externalAudio?: boolean; nativeFastLedAudio?: boolean; groupInputExprs?: Record<string, string>; psramAllowed?: boolean; aliasTerminalBuffer?: boolean; thumbnails?: BrowserThumbnails; artworks?: TransportArtworks } = {},
+  opts: { externalAudio?: boolean; nativeFastLedAudio?: boolean; groupInputExprs?: Record<string, string>; psramAllowed?: boolean; aliasTerminalBuffer?: boolean; artworks?: TransportArtworks } = {},
 ): string {
   if (nodes.length === 0) return '// No nodes in graph\n'
 
@@ -1851,7 +1850,6 @@ export function generateCpp(
   // Panels that sample XPT2046, whether to report coordinates on a
   // Diagnostics screen or to publish a control bundle from their buttons.
   const tftTouches: TftTouchEmit[] = []
-  const browserTables: { id: string; entries: BrowserThumbnails[string] }[] = []
   const artworkTables = new Map<string, Uint8Array[]>()
   const needsXyMap = { v: false }
   // Frame-producing nodes each render into their own CRGB buffer, so multiple
@@ -4999,11 +4997,18 @@ export function generateCpp(
 
       case 'InfoDisplay': {
         needsDisplayText.v = true
-        const dtUp = incoming.get(`${node.id}:dateTime`)
-        const strExpr = (port: string): string | null => {
-          const up = incoming.get(`${node.id}:${port}`)
-          return up ? `n_${safeId(up.srcId)}_${up.srcPort}` : null
-        }
+        // One content input, and a normal sketch has exactly one source it can
+        // answer for: an RTC. A player or a slideshow plugged in here builds a
+        // different generator, which validation reports before upload; the
+        // panel draws its waiting screen rather than a blank one.
+        const displayUp = incoming.get(`${node.id}:display`)
+        const displaySource = displayUp && nodeMap.get(displayUp.srcId)
+        const kind = displaySource
+          ? DISPLAY_SOURCE_NODE_TYPES[String(displaySource.data.nodeType ?? '')]
+          : undefined
+        const clockExpr = kind === 'clock' && displayUp
+          ? `n_${safeId(displayUp.srcId)}_dateTime`
+          : null
         const controller = oledControllerForProps(p)
         const transport = oledTransportForProps(p)
         const emit: InfoDisplayEmit = {
@@ -5018,35 +5023,18 @@ export function generateCpp(
           columnOffset: columnOffsetFor(controller),
           segmentRemap: oledRotationCommands(asOledRotation(p.oledRotation)).segmentRemap,
           comScan: oledRotationCommands(asOledRotation(p.oledRotation)).comScan,
-          layout: asInfoDisplayLayout(p.infoLayout),
+          layout: clockExpr ? 'Clock' : 'Waiting',
           enabledExpr: incoming.get(`${node.id}:enabled`)
             ? boolExpr(node.id, 'enabled')
             : (p.enabled === false ? 'false' : 'true'),
-          titleExpr: strExpr('title'),
-          line2Expr: strExpr('line2'),
-          valueExpr: f('value', 'value', 0),
-          progressExpr: `constrain(${f('progress', 'progress', 0)}, 0.0f, 1.0f)`,
-          playingExpr: incoming.get(`${node.id}:playing`) ? boolExpr(node.id, 'playing') : 'false',
-          volumeExpr: f('volume', 'volume', 0),
-          durationExpr: f('duration', 'duration', 0),
-          dateTimeExpr: dtUp ? `n_${safeId(dtUp.srcId)}_${dtUp.srcPort}` : null,
-          indicatorExprs: Array.from({ length: STATUS_MAX_INDICATORS }, (_, i) =>
-            incoming.get(`${node.id}:indicator${i + 1}`) ? boolExpr(node.id, `indicator${i + 1}`) : 'false'),
-          ...(asInfoDisplayLayout(p.infoLayout) === 'Pattern Browser'
-            ? {
-              browser: {
-                // Named for the player that owns the selection, not for this
-                // panel: two panels on one player must read one cursor.
-                tableStem: safeId(incoming.get(`${node.id}:patternSelect`)?.srcId ?? node.id),
-                selVar: `_sel_${safeId(incoming.get(`${node.id}:patternSelect`)?.srcId ?? node.id)}`,
-              },
-            }
-            : {}),
-        }
-        if (emit.browser) {
-          const player = incoming.get(`${node.id}:patternSelect`)?.srcId ?? node.id
-          browserTables.push({ id: emit.browser.tableStem, entries: opts.thumbnails?.[player] ?? [] })
-          setupLines.push(`  _selBegin(${emit.browser.selVar});`)
+          titleExpr: null,
+          line2Expr: null,
+          valueExpr: '0.0f',
+          progressExpr: '0.0f',
+          playingExpr: 'false',
+          volumeExpr: '0.0f',
+          durationExpr: '0.0f',
+          dateTimeExpr: clockExpr,
         }
         infoDisplays.push(emit)
         for (const line of infoDisplaySetupCpp(emit)) setupLines.push(line)
@@ -5150,7 +5138,15 @@ export function generateCpp(
       }
 
       case 'SegmentDisplay': {
-        const dtUp = incoming.get(`${node.id}:dateTime`)
+        // Same one input as the OLED, same one source a normal sketch has.
+        const displayUp = incoming.get(`${node.id}:display`)
+        const displaySource = displayUp && nodeMap.get(displayUp.srcId)
+        const segKind = displaySource
+          ? DISPLAY_SOURCE_NODE_TYPES[String(displaySource.data.nodeType ?? '')]
+          : undefined
+        const segClockExpr = segKind === 'clock' && displayUp
+          ? `n_${safeId(displayUp.srcId)}_dateTime`
+          : null
         const segCtl = segmentControllerFor(partById(String(p.partId ?? ''))?.display?.controller)
         const isMax = segCtl.id === 'MAX7219'
         const emit: SegmentDisplayEmit = {
@@ -5161,12 +5157,10 @@ export function generateCpp(
           dataPin: isMax ? intProp(p.dinPin, 19, 0, MAX_PIN_NUMBER) : intProp(p.dioPin, 19, 0, MAX_PIN_NUMBER),
           csPin: intProp(p.csPin, 21, 0, MAX_PIN_NUMBER),
           brightness: clampSegmentBrightness(p.brightness, segCtl),
-          mode: asSegmentMode(p.segmentMode),
-          decimals: intProp(p.decimals, 0, 0, 3),
-          leadingZero: p.leadingZero === true,
+          mode: segClockExpr ? 'Clock' : 'Waiting',
           showColon: p.showColon !== false,
-          valueExpr: f('value', 'value', 0),
-          dateTimeExpr: dtUp ? `n_${safeId(dtUp.srcId)}_${dtUp.srcPort}` : null,
+          valueExpr: '0.0f',
+          dateTimeExpr: segClockExpr,
           enabledExpr: incoming.get(`${node.id}:enabled`)
             ? boolExpr(node.id, 'enabled')
             : (p.enabled === false ? 'false' : 'true'),
@@ -6606,10 +6600,6 @@ export function generateCpp(
   if (segmentDisplays.length > 0) lines.push(SEGMENT_DISPLAY_CPP_FORWARD)
   if (tftDisplays.length > 0) lines.push(TFT_DISPLAY_CPP_FORWARD)
   if (stereoVuMeters.length > 0) lines.push(STEREO_VU_CPP_FORWARD)
-  if (nodes.some((n) => n.data.nodeType === 'InfoDisplay'
-    && asInfoDisplayLayout((n.data.properties as { infoLayout?: unknown }).infoLayout) === 'Pattern Browser')) {
-    lines.push(PATTERN_SELECTION_CPP_FORWARD)
-  }
   lines.push(``)
   if (ss) {
     lines.push(`#define SS       ${supersample}          // supersample factor: render at SS×, downscale`)
@@ -6722,19 +6712,6 @@ export function generateCpp(
 
   if (stereoVuMeters.length > 0) {
     lines.push(STEREO_VU_CPP_HELPERS)
-    lines.push(``)
-  }
-
-  // Emitted only for a Pattern Browser. A table nothing reads is flash a build
-  // with no browser should not be paying for, and a player sketch with a real
-  // collection already runs into the high eighties as a percentage.
-  if (browserTables.length > 0) {
-    lines.push(PATTERN_SELECTION_CPP)
-    lines.push(THUMBNAIL_DRAW_CPP)
-    for (const table of browserTables) {
-      lines.push(patternThumbnailTableCpp(table.id, table.entries))
-      lines.push(`static PatternSel _sel_${table.id};`)
-    }
     lines.push(``)
   }
 

@@ -18,16 +18,35 @@ function edge(id: string, s: string, sh: string, t: string, th: string): StudioE
   return { id, source: s, target: t, sourceHandle: sh, targetHandle: th } as unknown as StudioEdge
 }
 
+// Two patterns and a one-second interval, so the panels have something that
+// visibly changes between publishes: the slideshow advances, and the browser
+// screen and the ordinal on the digits follow it.
+const GROUPS = {
+  'grp-a': {
+    nodes: [node('sc', 'SolidColor', { r: 0, g: 0, b: 40 }), node('go', 'GroupOutput')],
+    edges: [edge('eg', 'sc', 'frame', 'go', 'frame')],
+  },
+  'grp-b': {
+    nodes: [node('sc', 'SolidColor', { r: 0, g: 0, b: 200 }), node('go', 'GroupOutput')],
+    edges: [edge('eg', 'sc', 'frame', 'go', 'frame')],
+  },
+}
+
 const graph = () => ({
   nodes: [
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4 }),
-    node('w', 'Wave', { speed: 0.5 }),
-    node('oled', 'InfoDisplay', { partId: 'sh1106-oled-128x64', infoLayout: 'Status' }),
+    node('coll', 'PatternCollection', { patternIds: ['grp-a', 'grp-b'] }),
+    node('w', 'PatternSlideshow', {
+      order: 'Sequential', interval: 1, transitionsEnabled: false,
+    }),
+    node('oled', 'InfoDisplay', { partId: 'sh1106-oled-128x64' }),
     node('seg', 'SegmentDisplay', { partId: 'tm1637-4digit-display', clkPin: 18, dioPin: 19 }),
   ],
   edges: [
-    edge('e1', 'w', 'result', 'oled', 'progress'),
-    edge('e2', 'w', 'result', 'seg', 'value'),
+    edge('e0', 'coll', 'patternset', 'w', 'patternset'),
+    edge('e1', 'w', 'display', 'oled', 'display'),
+    edge('e2', 'w', 'display', 'seg', 'display'),
+    edge('e3', 'w', 'frame', 'out', 'frame'),
   ],
 })
 
@@ -40,25 +59,26 @@ const graph = () => ({
 describe('displays are evaluated every frame', () => {
   it.each(['oled', 'seg'])('evaluates %s on a non-publish frame', (id) => {
     const { nodes, edges } = graph()
-    expect(evaluateGraphFull(nodes, edges, 30, 8, 8, {}, false).outputs.has(id)).toBe(true)
+    expect(evaluateGraphFull(nodes, edges, 30, 8, 8, GROUPS, false).outputs.has(id)).toBe(true)
   })
 
   it('keeps what feeds a display hot too', () => {
     const { nodes, edges } = graph()
-    expect(evaluateGraphFull(nodes, edges, 30, 8, 8, {}, false).outputs.has('w')).toBe(true)
+    expect(evaluateGraphFull(nodes, edges, 30, 8, 8, GROUPS, false).outputs.has('w')).toBe(true)
   })
 
-  // The point of being hot: the drawn pixels follow the input between publishes.
-  it('redraws a wired progress bar as its input moves', () => {
+  // The point of being hot: the drawn pixels follow the source between
+  // publishes rather than crawling at the publish cadence.
+  it('redraws the panel as the source moves', () => {
     const { nodes, edges } = graph()
     const lit = (tick: number) => {
-      const surface = evaluateGraphFull(nodes, edges, tick, 8, 8, {}, false)
+      const surface = evaluateGraphFull(nodes, edges, tick, 8, 8, GROUPS, false)
         .outputs.get('oled')?.surface as OledSurface
       return surface.data.reduce((sum, byte) => sum + byte.toString(2).split('1').length - 1, 0)
     }
-    // A Wave sweeps -1..1 across its period and `progress` clamps to 0..1, so
-    // sample the half that actually moves the bar.
-    const counts = [10, 20, 30].map(lit)
+    // One interval is 60 ticks, so the second sample is a pattern later: a
+    // different name, a different ordinal and a different picture.
+    const counts = [10, 130].map(lit)
     expect(new Set(counts).size).toBeGreaterThan(1)
   })
 

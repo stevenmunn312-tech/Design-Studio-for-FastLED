@@ -1,6 +1,6 @@
 # Simple displays — design note
 
-Status: in progress · Owner: app · Date: 2026-08-29
+Status: implemented for tier 1 (InfoDisplay, SegmentDisplay) · Owner: app · Date: 2026-08-29
 
 What a small, non-touch display shows, and how it is told. Decided 2026-08-27,
 scoped 2026-08-29. The companion half of this note is [Pattern
@@ -88,7 +88,7 @@ discriminated union whose `kind` *is* the layout choice:
 
 ```ts
 type DisplaySignal =
-  | { kind: 'clock';     clock: RtcReading }
+  | { kind: 'clock';     clock: RtcPreview }
   | { kind: 'player';    song: SongInfo }
   | { kind: 'slideshow'; selection: PatternSelectValue }
 ```
@@ -120,11 +120,12 @@ question: **which kind is plugged in, and can this generator honour that kind?**
 | `playerSketchGenerator` (SD player) | `player` |
 | `showGenerator` (slideshow) | `slideshow` |
 
-Anything else is a validation error naming the display, the source and the
-generator the graph would actually build with — the same failure the old
-`unresolved` list existed to prevent, asked once instead of per port. A display
-wired to a Music Player in a normal sketch is the case this catches: a normal
-sketch has no decoder, so that panel would compile and then show nothing.
+Anything else comes back unresolved, and `findDisplayGeneratorIssues` turns that
+into a warning naming the panel, the source and the generator the graph would
+actually build with — the same failure the old per-port `unresolved` list existed
+to prevent, asked once instead of once per port. The panel still compiles and
+still draws: it shows its waiting screen, which is the honest thing for a panel
+whose source this sketch cannot read.
 
 The `duration` gap disappears with the per-field ports. A Now Playing panel
 could never show a track length in preview, because `InfoDisplay` had no

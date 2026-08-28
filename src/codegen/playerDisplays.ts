@@ -19,9 +19,10 @@
 // what each port is fed by, and report anything that cannot be honoured rather
 // than emitting a display that quietly shows nothing.
 
+import { infoLayoutForKind, type InfoDisplayLayout } from '../state/infoDisplay'
 import {
-  asInfoDisplayLayout, STATUS_MAX_INDICATORS, type InfoDisplayLayout,
-} from '../state/infoDisplay'
+  DISPLAY_SOURCE_LABELS, DISPLAY_SOURCE_NODE_TYPES, type DisplaySignalKind,
+} from '../state/displaySignal'
 import {
   asOledRotation, oledRotationCommands, asOledAddress,
   type OledTransport,
@@ -29,7 +30,7 @@ import {
 import { oledControllerForProps, oledTransportForProps, tftControllerForProps } from '../state/nodeLibrary'
 import { asTransportDisplayLayout, type TransportDisplayLayout } from '../state/transportDisplay'
 import { asTftRotation, TFT_CONTROLLERS, type TftController, type TftRotation } from '../state/tftSurface'
-import { asSegmentMode, segmentControllerFor, clampSegmentBrightness, type SegmentDisplayMode } from '../state/segmentDisplay'
+import { segmentModeForKind, segmentControllerFor, clampSegmentBrightness, type SegmentDisplayMode } from '../state/segmentDisplay'
 import { partById } from '../state/partCatalogue'
 import { PLAYER_SONG_EXPRESSIONS } from './playerSongInfoCpp'
 
@@ -79,8 +80,6 @@ export interface PlayerSegmentDisplay {
   dataPin: number
   csPin: number
   brightness: number
-  decimals: number
-  leadingZero: boolean
   showColon: boolean
   enabled: boolean
   sources: Record<string, string>
@@ -231,6 +230,46 @@ export interface TemplateDisplayOptions {
    * unaffected — it only reports coordinates.
    */
   transportTouch?: boolean
+  /**
+   * Which `Display` sources this template can honour.
+   *
+   * A simple panel's content is one wire, so "can this generator draw this
+   * panel" is one question: is the thing plugged in something this sketch has.
+   * The player has a track, the show has a rotation, and neither has the
+   * other's — so a panel wired across is reported here rather than emitted
+   * blank.
+   */
+  kinds?: readonly DisplaySignalKind[]
+}
+
+/**
+ * Resolve a simple display's one content input to the source kind behind it.
+ *
+ * Null means the panel draws its waiting screen: either nothing is plugged in,
+ * which is a legitimate state a panel states outright, or something is that
+ * this generator cannot answer for — which is reported.
+ */
+function resolveDisplayKind(
+  displayId: string,
+  edges: ConfigEdge[],
+  byId: Map<string, ConfigNode>,
+  unresolved: PlayerDisplays['unresolved'],
+  kinds: readonly DisplaySignalKind[],
+): DisplaySignalKind | null {
+  const edge = edges.find((e) => e.target === displayId && e.targetHandle === 'display')
+  if (!edge) return null
+  const source = byId.get(edge.source)
+  if (!source) return null
+  const kind = DISPLAY_SOURCE_NODE_TYPES[source.data.nodeType]
+  if (!kind) {
+    unresolved.push({ display: displayId, port: 'display', source: source.data.nodeType })
+    return null
+  }
+  if (!kinds.includes(kind)) {
+    unresolved.push({ display: displayId, port: 'display', source: DISPLAY_SOURCE_LABELS[kind] })
+    return null
+  }
+  return kind
 }
 
 /**
@@ -269,6 +308,7 @@ export function playerDisplaysFromGraph(
   options: TemplateDisplayOptions = {},
 ): PlayerDisplays {
   const expressions = options.expressions ?? PLAYER_SONG_EXPRESSIONS
+  const kinds = options.kinds ?? ['player']
   const transportTouch = options.transportTouch !== false
   const byId = new Map(nodes.map((node) => [node.id, node]))
   const unresolved: PlayerDisplays['unresolved'] = []
@@ -282,16 +322,24 @@ export function playerDisplaysFromGraph(
       const partId = String(props.partId ?? 'sh1106-oled-128x64')
       const controller = oledControllerForProps(node.data.properties)
       const rotation = oledRotationCommands(asOledRotation(props.oledRotation))
-      const sources: Record<string, string> = {}
-      for (const port of ['title', 'line2', 'value', 'progress', 'playing', 'volume',
-        ...Array.from({ length: STATUS_MAX_INDICATORS }, (_, i) => `indicator${i + 1}`)]) {
-        const expression = resolvePort(node.id, port, edges, byId, unresolved, expressions)
-        if (expression) sources[port] = expression
-      }
+      const kind = resolveDisplayKind(node.id, edges, byId, unresolved, kinds)
+      // One envelope in, so the fields come from the generator's own table
+      // rather than one wire at a time. Nothing to forget, and nothing that
+      // resolves in preview and not here.
+      const sources: Record<string, string> = kind === 'player'
+        ? {
+          title: expressions.title,
+          value: expressions.elapsed,
+          duration: expressions.duration,
+          progress: expressions.progress,
+          playing: expressions.playing,
+          volume: expressions.volume,
+        }
+        : {}
       info.push({
         id: node.id,
         partId,
-        layout: asInfoDisplayLayout(props.infoLayout),
+        layout: kind ? infoLayoutForKind(kind) : 'Waiting',
         transport: oledTransportForProps(props),
         csPin: intProp(props.csPin, 5),
         dcPin: intProp(props.dcPin, 16),
@@ -360,23 +408,22 @@ export function playerDisplaysFromGraph(
       const partId = String(props.partId ?? 'tm1637-4digit-display')
       const controller = segmentControllerFor(partById(partId)?.display?.controller)
       const isMax = controller.id === 'MAX7219'
-      const sources: Record<string, string> = {}
-      for (const port of ['value', 'enabled']) {
-        const expression = resolvePort(node.id, port, edges, byId, unresolved, expressions)
-        if (expression) sources[port] = expression
-      }
+      const kind = resolveDisplayKind(node.id, edges, byId, unresolved, kinds)
+      // A segment module reads one number, and which number is the kind:
+      // elapsed seconds from a player, an ordinal from a show.
+      const sources: Record<string, string> = kind === 'player'
+        ? { value: expressions.elapsed }
+        : {}
       segment.push({
         id: node.id,
         partId,
         controller: isMax ? 'MAX7219' : 'TM1637',
         digits: controller.digits,
-        mode: asSegmentMode(props.segmentMode),
+        mode: kind ? segmentModeForKind(kind) : 'Waiting',
         clkPin: intProp(props.clkPin, 18),
         dataPin: isMax ? intProp(props.dinPin, 19) : intProp(props.dioPin, 19),
         csPin: intProp(props.csPin, 21),
         brightness: clampSegmentBrightness(props.brightness, controller),
-        decimals: intProp(props.decimals, 0),
-        leadingZero: props.leadingZero === true,
         showColon: props.showColon !== false && controller.hasColon,
         enabled: props.enabled !== false,
         sources,

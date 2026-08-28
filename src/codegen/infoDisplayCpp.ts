@@ -11,7 +11,8 @@
 // layout module is that the panel matches its preview.
 
 import { DEFAULT_FONT, FONT_H, FONT_W } from '../state/font'
-import { INFO_LAYOUT, STATUS_MAX_INDICATORS, infoRowY, BROWSER_LAYOUT, type InfoDisplayLayout } from '../state/infoDisplay'
+import { INFO_LAYOUT, infoRowY, BROWSER_LAYOUT, type InfoDisplayLayout } from '../state/infoDisplay'
+import { DISPLAY_WAITING_TEXT } from '../state/displaySignal'
 import {
   OLED_LETTER_SPACING, OLED_PAGE_HEIGHT,
   type OledController, type OledTransport,
@@ -349,10 +350,6 @@ static void _oledBar(OledPanel &p, int x, int y, int w, int h, float value) {
   if (filled > 0) _oledFill(p, x + 1, y + 1, filled, h - 2);
 }
 
-static void _oledIndicator(OledPanel &p, int x, int y, bool on, int size) {
-  if (on) _oledFill(p, x, y, size, size);
-  else _oledRect(p, x, y, size, size);
-}
 
 // Elapsed/duration as M:SS, matching formatTransportTime().
 static void _oledTime(char *dst, size_t dstSize, float seconds) {
@@ -387,7 +384,6 @@ export interface InfoDisplayEmit {
   volumeExpr: string
   durationExpr: string
   dateTimeExpr: string | null
-  indicatorExprs: readonly string[]
   /**
    * Pattern Browser only: the identifier stem of the thumbnail table this
    * browser reads, and the PatternSel driving it. Two browsers can show
@@ -470,21 +466,15 @@ export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
       `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), _oledH_${display.id}, ${inner});`,
       `      _oledText(${p}, ${m}, ${infoRowY(3)}, _oledBuf_${display.id});`,
     )
-  } else if (display.layout === 'Status') {
+  } else if (display.layout === 'Waiting') {
+    // Nothing plugged in, said outright. A blank panel and a dead panel look
+    // identical on a bench, and the second row names the user's next move.
     lines.push(
-      `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), ${text(display.titleExpr)}, ${inner});`,
-      `      _oledText(${p}, ${m}, ${infoRowY(0)}, _oledBuf_${display.id});`,
-      `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), ${text(display.line2Expr)}, ${inner});`,
-      `      _oledText(${p}, ${m}, ${infoRowY(1)}, _oledBuf_${display.id});`,
-      `      char _oledV_${display.id}[16];`,
-      `      snprintf(_oledV_${display.id}, sizeof(_oledV_${display.id}), "%ld", (long)lroundf(${display.valueExpr}));`,
-      `      _oledText(${p}, OLED_W - ${m} - _oledTextWidth(_oledV_${display.id}), ${infoRowY(2)}, _oledV_${display.id});`,
+      `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), "${DISPLAY_WAITING_TEXT}", ${inner});`,
+      `      _oledText(${p}, max(${m}, (OLED_W - _oledTextWidth(_oledBuf_${display.id})) / 2), ${infoRowY(1)}, _oledBuf_${display.id});`,
+      `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), "WIRE A SOURCE TO DISPLAY", ${inner});`,
+      `      _oledText(${p}, max(${m}, (OLED_W - _oledTextWidth(_oledBuf_${display.id})) / 2), ${infoRowY(3)}, _oledBuf_${display.id});`,
     )
-    display.indicatorExprs.slice(0, STATUS_MAX_INDICATORS).forEach((expr, i) => {
-      const x = m + (i * (INFO_LAYOUT.indicatorSize + 2))
-      lines.push(`      _oledIndicator(${p}, ${x}, ${infoRowY(2)}, ${expr}, ${INFO_LAYOUT.indicatorSize});`)
-    })
-    lines.push(`      _oledBar(${p}, ${m}, ${infoRowY(3) + 2}, ${inner}, ${bar}, ${display.progressExpr});`)
   } else if (display.layout === 'Pattern Browser') {
     const b = display.browser
     const stem = b?.tableStem ?? display.id

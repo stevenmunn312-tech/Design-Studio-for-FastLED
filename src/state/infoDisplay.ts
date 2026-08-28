@@ -15,21 +15,34 @@
 
 import {
   createOledSurface, clearOledSurface, drawOledText, drawProgressBar, drawHLine,
-  drawIndicator, drawBitmap, drawRect, fitOledText, oledTextWidth,
+  drawBitmap, drawRect, fitOledText, oledTextWidth,
   type OledController, type OledSurface,
 } from './oledSurface'
+import { DISPLAY_WAITING_TEXT, type DisplaySignalKind } from './displaySignal'
 import { FONT_H } from './font'
 import { formatTransportTime } from './transportBridge'
 import { THUMBNAIL_W, THUMBNAIL_H, type PatternThumbnail } from './patternThumbnail'
 
-export const INFO_DISPLAY_LAYOUTS = ['Now Playing', 'Clock', 'Status', 'Pattern Browser'] as const
+/**
+ * The screens a panel can show, one per source it can be plugged into, plus
+ * the one it shows when it is plugged into nothing.
+ *
+ * Not a property. `infoLayoutForKind` is the only way to pick one, so a layout
+ * cannot exist that no source produces, and a source cannot exist that no
+ * layout draws.
+ */
+export const INFO_DISPLAY_LAYOUTS = ['Waiting', 'Clock', 'Now Playing', 'Pattern Browser'] as const
 export type InfoDisplayLayout = (typeof INFO_DISPLAY_LAYOUTS)[number]
 
-export function asInfoDisplayLayout(value: unknown): InfoDisplayLayout {
-  const layout = String(value ?? '')
-  return (INFO_DISPLAY_LAYOUTS as readonly string[]).includes(layout)
-    ? (layout as InfoDisplayLayout)
-    : 'Now Playing'
+const LAYOUT_BY_KIND: Record<DisplaySignalKind, InfoDisplayLayout> = {
+  clock: 'Clock',
+  player: 'Now Playing',
+  slideshow: 'Pattern Browser',
+}
+
+/** The screen a plugged-in source produces. */
+export function infoLayoutForKind(kind: DisplaySignalKind): InfoDisplayLayout {
+  return LAYOUT_BY_KIND[kind]
 }
 
 /**
@@ -43,7 +56,6 @@ export const INFO_LAYOUT = {
   /** Baseline pitch: glyph height plus a row of breathing space. */
   lineHeight: FONT_H + 3,
   barHeight: 7,
-  indicatorSize: 5,
 } as const
 
 /** Top-left y of row `index`, counting from the content area. */
@@ -67,19 +79,30 @@ export interface ClockData {
   synced: boolean
 }
 
-export interface StatusData {
-  line1: string
-  line2: string
-  value: string
-  progress: number
-  indicators: readonly boolean[]
-}
-
 export type InfoDisplayData =
+  | { layout: 'Waiting' }
   | { layout: 'Now Playing'; data: NowPlayingData }
   | { layout: 'Clock'; data: ClockData }
-  | { layout: 'Status'; data: StatusData }
   | { layout: 'Pattern Browser'; data: PatternBrowserData }
+
+/**
+ * Nothing is plugged in, and the panel says so.
+ *
+ * A blank OLED and a dead OLED look identical on a bench. Two rows rather than
+ * one because the second names the port to look at, which is the whole of the
+ * user's next move.
+ */
+export function drawWaiting(surface: OledSurface): void {
+  const { margin } = INFO_LAYOUT
+  const inner = surface.width - (margin * 2)
+  const centred = (text: string, row: number) => {
+    const fitted = fitOledText(text, inner)
+    const x = Math.max(margin, ((surface.width - oledTextWidth(fitted)) / 2) | 0)
+    drawOledText(surface, x, infoRowY(row), fitted)
+  }
+  centred(DISPLAY_WAITING_TEXT, 1)
+  centred('WIRE A SOURCE TO DISPLAY', 3)
+}
 
 /**
  * Now Playing: title, transport state, elapsed/duration, and a progress bar.
@@ -204,65 +227,44 @@ export function drawClock(surface: OledSurface, data: ClockData): void {
   drawOledText(surface, margin, infoRowY(3), fitOledText(health, inner))
 }
 
-/**
- * Status: two text rows, a value, a bar, and up to four indicators.
- *
- * Four is the cap because five 5px markers plus their gaps no longer fit beside
- * the value on a 128px row, and a layout that silently drops the fifth is worse
- * than one that never offers it.
- */
-export const STATUS_MAX_INDICATORS = 4
-
-export function drawStatus(surface: OledSurface, data: StatusData): void {
-  const { margin, indicatorSize } = INFO_LAYOUT
-  const inner = surface.width - (margin * 2)
-
-  drawOledText(surface, margin, infoRowY(0), fitOledText(data.line1, inner))
-  drawOledText(surface, margin, infoRowY(1), fitOledText(data.line2, inner))
-
-  const valueWidth = oledTextWidth(data.value)
-  drawOledText(surface, surface.width - margin - valueWidth, infoRowY(2), data.value)
-
-  const indicators = data.indicators.slice(0, STATUS_MAX_INDICATORS)
-  for (let i = 0; i < indicators.length; i++) {
-    drawIndicator(surface, margin + (i * (indicatorSize + 2)), infoRowY(2), indicators[i], indicatorSize)
-  }
-
-  drawProgressBar(surface, margin, infoRowY(3) + 2, inner, INFO_LAYOUT.barHeight, data.progress)
-}
-
 /** Render any layout onto a fresh surface for `controller`. */
 export function renderInfoDisplay(controller: OledController, input: InfoDisplayData): OledSurface {
   const surface = createOledSurface(controller)
   clearOledSurface(surface)
   switch (input.layout) {
+    case 'Waiting': drawWaiting(surface); break
     case 'Now Playing': drawNowPlaying(surface, input.data); break
     case 'Clock': drawClock(surface, input.data); break
-    case 'Status': drawStatus(surface, input.data); break
     case 'Pattern Browser': drawPatternBrowser(surface, input.data); break
   }
   return surface
 }
 
-/** Blank data per layout, for an unwired node or a disabled panel. */
+/**
+ * Blank data for a layout whose source is plugged in but has nothing to say.
+ *
+ * A panel with nothing plugged in is not this: it draws `Waiting`, because
+ * "no source" and "a source with no reading" are different facts and a bench
+ * needs to tell them apart.
+ */
 export function blankInfoData(layout: InfoDisplayLayout): InfoDisplayData {
   switch (layout) {
     case 'Clock':
       return { layout, data: { timeText: '--:--', dateText: '', valid: false, synced: false } }
-    case 'Status':
-      return { layout, data: { line1: '', line2: '', value: '', progress: 0, indicators: [] } }
     case 'Pattern Browser':
-      // Count 0 rather than a blank name: an unwired browser has no collection,
-      // which the layout says outright instead of drawing an empty frame that
-      // reads as a pattern with no picture.
+      // Count 0 rather than a blank name: a browser with no collection says so
+      // outright instead of drawing an empty frame that reads as a pattern
+      // with no picture.
       return {
         layout,
         data: { name: '', ordinal: 0, count: 0, thumbnail: null, browsing: false, activeName: '' },
       }
-    default:
+    case 'Now Playing':
       return {
-        layout: 'Now Playing',
+        layout,
         data: { title: '', elapsedSec: 0, durationSec: 0, progress: 0, playing: false, volume: 0 },
       }
+    default:
+      return { layout: 'Waiting' }
   }
 }

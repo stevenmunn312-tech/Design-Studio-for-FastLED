@@ -8,7 +8,7 @@ const oled = {
   data: {
     nodeType: 'InfoDisplay',
     properties: {
-      partId: 'sh1106-oled-128x64', infoLayout: 'Now Playing', oledRotation: '0',
+      partId: 'sh1106-oled-128x64', oledRotation: '0',
       csPin: 1, dcPin: 2, resetPin: 5, sckPin: 6, mosiPin: 7,
     },
   },
@@ -23,25 +23,29 @@ describe('displays in the player sketch', () => {
    * this the display was simply absent from the player sketch.
    */
   const nodes = [master, oled]
-  const edges = [
-    wire('master', 'title', 'oled', 'title'),
-    wire('master', 'artist', 'oled', 'line2'),
-    wire('master', 'elapsed', 'oled', 'value'),
-    wire('master', 'progress', 'oled', 'progress'),
-    wire('master', 'playing', 'oled', 'playing'),
-    wire('master', 'volume', 'oled', 'volume'),
-  ]
+  // One wire. What is plugged in picks the screen, and the fields behind it
+  // come from the template's own table rather than one cable at a time.
+  const edges = [wire('master', 'display', 'oled', 'display')]
 
-  it('resolves each wire to what the player reads on device', () => {
+  it('resolves the one wire to what the player reads on device', () => {
     const displays = playerDisplaysFromGraph(nodes, edges)
     expect(displays.info).toHaveLength(1)
+    expect(displays.info[0].layout).toBe('Now Playing')
     expect(displays.info[0].sources).toMatchObject({
       title: 'songTitle',
-      line2: 'songArtist',
       value: 'songElapsedSec()',
       progress: 'songProgress()',
       playing: 'songPlaying()',
+      // The field a per-port panel could never be wired to, because the port
+      // did not exist: the preview showed x:xx/0:00 while the device knew.
+      duration: 'songDurationSec()',
     })
+    expect(displays.unresolved).toEqual([])
+  })
+
+  it('draws its waiting screen with nothing plugged in', () => {
+    const displays = playerDisplaysFromGraph(nodes, [])
+    expect(displays.info[0].layout).toBe('Waiting')
     expect(displays.unresolved).toEqual([])
   })
 
@@ -107,7 +111,6 @@ describe('displays in the player sketch', () => {
     expect(sketch).toContain('void audio_id3data(const char *info)')
     expect(sketch).toContain('void audio_bitrate(const char *info)')
     expect(sketch).toContain('_oledFit(_oledBuf_oled, sizeof(_oledBuf_oled), songTitle,')
-    expect(sketch).toContain('songArtist')
   })
 
   // A file with no artist tag never calls back, and without the reset it would
@@ -148,13 +151,15 @@ describe('displays in the player sketch', () => {
       id: 'seg',
       data: {
         nodeType: 'SegmentDisplay',
-        properties: { partId: 'tm1637-4digit-display', segmentMode: 'Number', clkPin: 18, dioPin: 19 },
+        properties: { partId: 'tm1637-4digit-display', clkPin: 18, dioPin: 19 },
       },
     }
-    const displays = playerDisplaysFromGraph([master, seg], [wire('master', 'elapsed', 'seg', 'value')])
+    const displays = playerDisplaysFromGraph([master, seg], [wire('master', 'display', 'seg', 'display')])
     const sketch = generatePlayerSketch({}, undefined, { displays })
     expect(sketch).toContain('static SegDisplay _seg_seg;')
-    expect(sketch).toContain('_segNumber(_segBuf_seg, 4, songElapsedSec()')
+    // M:SS of the running track, through the same renderer a clock uses.
+    expect(displays.segment[0].mode).toBe('Elapsed')
+    expect(sketch).toContain('long _segSec_seg = (long)(songElapsedSec());')
   })
 
   /*
@@ -162,10 +167,21 @@ describe('displays in the player sketch', () => {
    * to read here. Naming it is what stops the sketch building successfully with
    * a panel wired to something it will never show.
    */
-  it('reports a port it cannot honour rather than emitting a blank', () => {
+  it('reports a source it cannot honour rather than emitting a blank', () => {
     const wave = { id: 'w', data: { nodeType: 'Wave', properties: {} } }
-    const displays = playerDisplaysFromGraph([master, oled, wave], [wire('w', 'result', 'oled', 'progress')])
-    expect(displays.unresolved).toEqual([{ display: 'oled', port: 'progress', source: 'Wave' }])
+    const displays = playerDisplaysFromGraph([master, oled, wave], [wire('w', 'result', 'oled', 'display')])
+    expect(displays.unresolved).toEqual([{ display: 'oled', port: 'display', source: 'Wave' }])
+    expect(displays.info[0].layout).toBe('Waiting')
+  })
+
+  // A slideshow's screen is the show controller's to draw. The player has no
+  // rotation to report, so it says so rather than emitting a blank panel.
+  it('reports a source that belongs to the other template', () => {
+    const show = { id: 'show', data: { nodeType: 'PatternSlideshow', properties: {} } }
+    const displays = playerDisplaysFromGraph([master, oled, show], [wire('show', 'display', 'oled', 'display')])
+    expect(displays.unresolved).toEqual([
+      { display: 'oled', port: 'display', source: 'Pattern Slideshow' },
+    ])
   })
 
   it('honours the mounted rotation', () => {

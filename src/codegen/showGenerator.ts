@@ -366,7 +366,7 @@ function showDisplaysCpp(
 ): ShowDisplayEmission {
   const displays = playerDisplaysFromGraph(
     nodes as never, edges as never,
-    { expressions: SHOW_DISPLAY_EXPRESSIONS, transportTouch: false },
+    { expressions: SHOW_DISPLAY_EXPRESSIONS, transportTouch: false, kinds: ['slideshow'] },
   )
   const hasInfo = displays.info.length > 0
   const hasSegment = displays.segment.length > 0
@@ -422,8 +422,6 @@ function showDisplaysCpp(
     csPin: display.csPin,
     brightness: display.brightness,
     mode: display.mode,
-    decimals: display.decimals,
-    leadingZero: display.leadingZero,
     showColon: display.showColon,
     valueExpr: display.sources.value ?? '0.0f',
     dateTimeExpr: null,

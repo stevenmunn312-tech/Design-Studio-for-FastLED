@@ -12,7 +12,7 @@
 // off the optional-library staging path: nothing to fetch, nothing to pin,
 // nothing to fail without a network.
 
-import { SEGMENT_GLYPHS, SEGMENT_CONTROLLERS } from '../state/segmentDisplay'
+import { SEGMENT_GLYPHS, SEGMENT_CONTROLLERS, type SegmentDisplayMode } from '../state/segmentDisplay'
 
 const MAX_DIGITS = Math.max(...Object.values(SEGMENT_CONTROLLERS).map((c) => c.digits))
 
@@ -236,7 +236,7 @@ static void _segWrite(SegDisplay &d, const char *text, int decimalAt, bool colon
 }
 
 // ── Rendering ───────────────────────────────────────────────────────────────
-// Mirrors renderSegmentNumber / renderSegmentClock / renderSegmentIndex. These
+// Mirrors renderSegmentClock / renderSegmentIndex. These
 // produce characters rather than segment bytes, so one renderer feeds both
 // controllers and each maps characters to its own wire format above.
 
@@ -248,39 +248,6 @@ static void _segBlankAll(char *out, uint8_t digits) {
 static void _segAllDash(char *out, uint8_t digits) {
   for (uint8_t i = 0; i < digits; i++) out[i] = '-';
   out[digits] = 0;
-}
-
-static void _segNumber(char *out, uint8_t digits, float value, int decimals,
-                       bool leadingZero, int *decimalAt) {
-  *decimalAt = -1;
-  if (!isfinite(value)) { _segAllDash(out, digits); return; }
-  if (decimals < 0) decimals = 0;
-  if (decimals > 3) decimals = 3;
-  double scale = 1.0;
-  for (int i = 0; i < decimals; i++) scale *= 10.0;
-  // Half away from zero, matching scaleAndRound() in state/displayText.ts.
-  double product = (double)value * scale;
-  long scaled = (long)(product < 0 ? -floor(-product + 0.5) : floor(product + 0.5));
-
-  bool negative = scaled < 0;
-  unsigned long magnitude = (unsigned long)(negative ? -scaled : scaled);
-  char body[16];
-  // Zero-padded to at least one whole digit, matching renderSegmentNumber: a
-  // value under 1 would otherwise put the decimal point on a blank digit.
-  int len = snprintf(body, sizeof(body), "%0*lu", decimals + 1, magnitude);
-  int room = digits - (negative ? 1 : 0);
-  if (len > room) { _segAllDash(out, digits); return; }
-
-  for (uint8_t i = 0; i < digits; i++) out[i] = ' ';
-  out[digits] = 0;
-  int pad = leadingZero ? room : len;
-  int start = digits - pad;
-  for (int i = 0; i < pad; i++) {
-    int from = i - (pad - len);
-    out[start + i] = from >= 0 ? body[from] : '0';
-  }
-  if (negative && start - 1 >= 0) out[start - 1] = '-';
-  if (decimals > 0) *decimalAt = digits - 1 - decimals;
 }
 
 static void _segClock(char *out, uint8_t digits, int hour, int minute, int second) {
@@ -326,9 +293,7 @@ export interface SegmentDisplayEmit {
   /** Load/CS. Unused by the TM1637, which has no select line. */
   csPin: number
   brightness: number
-  mode: 'Number' | 'Clock' | 'Index'
-  decimals: number
-  leadingZero: boolean
+  mode: SegmentDisplayMode
   showColon: boolean
   valueExpr: string | null
   dateTimeExpr: string | null
@@ -377,18 +342,30 @@ export function segmentDisplayLoopCpp(display: SegmentDisplayEmit): string[] {
       `    } else {`,
       `      _segIndex(${v}, ${digits}, ${display.valueExpr ?? '0'});`,
     )
-  } else {
+  } else if (display.mode === 'Elapsed') {
+    // M:SS through the clock renderer, because minutes and seconds on a colon
+    // module are the same two pairs a clock draws.
     lines.push(
       `    } else {`,
-      `      _segNumber(${v}, ${digits}, ${display.valueExpr ?? '0'}, ${display.decimals}, ` +
-        `${display.leadingZero ? 'true' : 'false'}, &${d});`,
+      `      long _segSec_${display.id} = (long)(${display.valueExpr ?? '0'});`,
+      `      if (_segSec_${display.id} < 0) _segSec_${display.id} = 0;`,
+      `      _segClock(${v}, ${digits}, (int)(_segSec_${display.id} / 60), (int)(_segSec_${display.id} % 60), 0);`,
+    )
+  } else {
+    // Nothing plugged in. A segment module cannot spell it, so it says the
+    // same thing in the vocabulary it has.
+    lines.push(
+      `    } else {`,
+      `      _segAllDash(${v}, ${digits});`,
     )
   }
 
   const colon = display.showColon && display.controller === 'TM1637'
   const colonExpr = display.mode === 'Clock' && colon
     ? '((millis() / 1000) % 2) == 0'
-    : colon ? 'true' : 'false'
+    // Elapsed keeps a steady colon: a blinking one on a running clock reads as
+    // the second hand, and on a track position it reads as a fault.
+    : colon && display.mode !== 'Waiting' ? 'true' : 'false'
   lines.push(
     `    }`,
     `    _segWrite(_seg_${display.id}, ${v}, ${d}, ${colonExpr}, ${on});`,
