@@ -221,6 +221,34 @@
     0 10px 20px rgba(0, 0, 0, 0.35);
 }
 
+/*
+ * The break in a run whose middle was removed: strokes across the gap that
+ * overhang both edges of the part, the mechanical-drawing convention for a
+ * long object shown short. Without them the gap reads as two separate strips
+ * rather than one strip drawn short.
+ *
+ * A gradient rather than an SVG: CSS measures a gradient angle on screen, so a
+ * stroke stays a diagonal however narrow the gap becomes, where a stretched
+ * viewBox would flatten it to a vertical line. Positioned in world coordinates
+ * as a sibling of the part, because the part masks its own middle away to make
+ * the gap and a mask takes the element's children with it.
+ */
+.breakMark {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    var(--break-angle, 74deg),
+    transparent 0 var(--break-pitch, 6px),
+    color-mix(in srgb, var(--text-secondary) 76%, transparent)
+      var(--break-pitch, 6px)
+      calc(var(--break-pitch, 6px) + var(--break-stroke, 1px)),
+    transparent
+      calc(var(--break-pitch, 6px) + var(--break-stroke, 1px))
+      calc((var(--break-pitch, 6px) * 2) + var(--break-stroke, 1px))
+  );
+}
+
 .strip {
   background-repeat: repeat-x;
   background-position: left center;
@@ -267,7 +295,7 @@
   align-items: center;
   gap: 2px;
   width: max-content;
-  max-width: 220px;
+  max-width: 180px;
   transform: translateX(-50%) scale(var(--hardware-caption-scale));
   transform-origin: top center;
   color: var(--text-secondary);
@@ -276,6 +304,23 @@
   text-align: center;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
   pointer-events: none;
+}
+
+/*
+ * A label above its part hangs from the part's upper edge and grows upwards;
+ * one beside the board grows leftwards from its right edge. Both keep the same
+ * scale variable, so a caption is one size on screen wherever it is anchored.
+ */
+.captionAbove {
+  transform: translate(-50%, -100%) scale(var(--hardware-caption-scale));
+  transform-origin: bottom center;
+}
+
+.captionLeft {
+  align-items: flex-end;
+  text-align: right;
+  transform: translate(-100%, -50%) scale(var(--hardware-caption-scale));
+  transform-origin: right center;
 }
 
 .caption strong {

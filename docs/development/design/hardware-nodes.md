@@ -132,13 +132,93 @@ firmware remains one synchronized sketch for one board.
 ## Hardware part identity and rendering
 
 Exact part options drive the label, pin roles, notes, thumbnail, and workbench
-render. Board and part assets carry verified dimensions. The workbench lays
-them out using a shared millimetre scale instead of normalizing every image to
-the same box.
+render. Board and part assets carry verified dimensions.
 
-Graph nodes use compact thumbnails only. The workbench is the recognition and
-relative-scale view. LED fixtures add live output previews, diffuser treatment,
-and sampled light spill without changing the underlying physical footprint.
+Graph nodes use compact thumbnails only. The workbench is the recognition view:
+what it owes the user is "this is the module you are holding", not a measurable
+ratio between two of them. LED fixtures add live output previews, diffuser
+treatment, and sampled light spill.
+
+### Size is compressed, not shared
+
+One millimetre scale across every part spans twenty to one the moment a panel
+and a microphone share a bench, and neither framing it allows is usable: fit
+the panel and the controller is four pixels wide, size the controller and the
+panel is off the stage. Each part is therefore drawn at its own scale, taken
+from the cube root of its size (`SCALE_COMPRESSION` in `hardwareLayout.ts`), so
+a 320 mm panel reads at roughly one and a half times a 63 mm controller instead
+of five times it.
+
+The compression is one factor per part, so no part is distorted — a strip stays
+as long and thin as a strip is — and the ordering holds, so a physically larger
+part still draws larger. What is given up is the literal ratio, which was never
+measurable off a screen and which the bench cannot offer a comparison for
+anyway: there is only ever one board on it. Do not reintroduce a single shared
+`mmScale`; anything drawn in physical units on a part (an LED pitch, a diffuser
+tile) reads that part's own `mmScale` from its `PlacedPart`.
+
+### Runs are sized by their emitters, and drawn broken
+
+A run of repeated emitters — a strip, a VU rail — is the one part whose
+compressed size is the wrong answer, because the diagonal it is derived from is
+dominated by a length that is a fact about how much tape was bought. Compressed
+that way, a metre of 8 mm tape draws a hairline: true to its own aspect and a
+picture of nothing. So a run is scaled by its *emitter* instead, and its length
+is bounded separately by drawing it **broken** — the mechanical-drawing
+convention for a long part shown short: both ends at true pitch, the middle
+removed, two strokes across the cut, and the real count in the caption. Breaking
+cannot substitute for the emitter scale, because removing emitters does not make
+the remaining ones any bigger.
+
+A two-dimensional panel is not broken: its size is bounded and its shape is
+information.
+
+`hardwareLayout.ts` owns the cut. The drawn box, the tape photograph behind it
+and the live emitters over it all read that one answer, so the picture and the
+geometry cannot drift apart, and a broken run's cells name the emitters they
+really are: the LED after the break is LED 59, not the LED that would sit there
+had the run been drawn whole. The cut is deliberately independent of the band —
+every length in it scales with the band together — so the shrink-to-fit pass
+cannot make a run gain or lose emitters as it narrows the bench around it.
+
+### The bench is a bus, not a dataflow column
+
+Parts sit in two rows: everything that feeds the board above it, everything the
+board drives below it. Which row a part belongs in is read off the runs rather
+than declared, so nothing has to tell the layout what a part is.
+
+Runs between them are orthogonal — down out of a part, along a horizontal lane
+in the channel between the rows, and down into the next, turning rounded square
+corners. The shape is the one a wiring or network diagram uses, and it is what
+lets the bench spread sideways: adding a part widens the arrangement instead of
+lengthening a diagonal across it, which puts the pane's spare horizontal space
+to use rather than growing a column down the middle of it.
+
+Each run gets a lane of its own rather than sharing a trunk. A network bus draws
+one line for many devices because it really is one wire; these are not — every
+run is a different pin, and stacking them on one line would say they were
+joined. Lanes are ordered left to right, which reads as a fan; crossings still
+occur where a wide row fans out of a narrow board, and cannot be removed while
+every run leaves the same part.
+
+Labels go on the outside: a part in the upper row labels above itself, one in
+the lower row below, so the channel between them is left to the wiring. The
+board is the one part wired on both sides, so its label sits beside it.
+
+### Captions hold their size and drop detail
+
+Captions live inside the panned and zoomed world, so left alone they are
+multiplied by zoom twice over — dust at a fit-everything view, a billboard when
+you close in on a pin. They are counter-scaled to one readable size on screen
+instead, and where a part becomes too small to label the detail drops rather
+than the type: pin summary first, then the name. The layout reserves slot
+height by the same rule, so a dense bench stops paying height for labels it is
+never going to draw.
+
+The measurement is the *slot* a part was given, not the part's own render: a
+label's problem is its neighbour's label, and the slot is the width it has to
+itself. A row therefore also sizes its slots for the labels they will carry, so
+a 45 px module with a long pin summary is not placed hard against the next one.
 
 ## Upload tab
 

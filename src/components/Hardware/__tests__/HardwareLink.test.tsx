@@ -9,6 +9,14 @@ const baseProps = {
   y1: 20,
   x2: 200,
   y2: 80,
+  // The bench's own shape: down out of a part, along a lane, down into the next.
+  points: [
+    { x: 10, y: 20 },
+    { x: 10, y: 50 },
+    { x: 200, y: 50 },
+    { x: 200, y: 80 },
+  ],
+  corner: 10,
   label: 'Board to LEDs',
 }
 
@@ -23,6 +31,21 @@ describe('HardwareLink', () => {
     expect(container.querySelector('path')?.getAttribute('stroke-width')).toBe('0.6')
     expect([...container.querySelectorAll('circle')].map((circle) => circle.getAttribute('r')))
       .toEqual(['0.8', '0.8'])
+  })
+
+  it('draws the route the layout gave it, with rounded square corners', () => {
+    const { container } = render(
+      <svg>
+        <HardwareLink {...baseProps} effects={false} visualScale={1} />
+      </svg>,
+    )
+
+    const d = container.querySelector('path')?.getAttribute('d') ?? ''
+    // Two corners, each a quadratic between two straight runs — no bezier
+    // sweeping diagonally between the endpoints.
+    expect(d.match(/Q/g)).toHaveLength(2)
+    expect(d.startsWith('M 10 20')).toBe(true)
+    expect(d.endsWith('L 200 80')).toBe(true)
   })
 
   it('scales every animated layer, including dashes, packets and endpoints', () => {

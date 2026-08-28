@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import amplifierRender from '../../assets/components/max98357a-i2s-amplifier.webp'
 import ledSegmentRender from '../../assets/components/ws2812b-led.webp'
 import { useGraphStore, useRootEdges, useRootNodes, type StudioNode } from '../../state/graphStore'
@@ -70,9 +70,14 @@ import { automaticStereoVuLedCount, VU_LED_COUNT_CUSTOM_KEY } from '../../state/
 import {
   hardwareArrangement,
   hardwareArrangementBounds,
-  hardwareCaptionScale,
+  hardwareCaptionDetail,
+  hardwareCaptionWorldScale,
+  runCells,
+  type CaptionDetail,
   type HardwarePartBox,
   type HardwarePartLink,
+  type HardwarePartRun,
+  type PlacedLink,
 } from './hardwareLayout'
 import styles from './HardwarePane.module.css'
 
@@ -477,7 +482,7 @@ function InputLink({ signalKey, dataType, effects, label, link, visualScale }: {
   dataType?: string
   effects: boolean
   label: string
-  link: { source: string; target: string; x1: number; y1: number; x2: number; y2: number }
+  link: PlacedLink
   visualScale: number
 }) {
   const signal = usePreviewStore((state) => state.signals.get(signalKey))
@@ -506,7 +511,7 @@ function OutputLink({ signalKey, effects, label, link, visualScale }: {
   signalKey: string | null
   effects: boolean
   label: string
-  link: { source: string; target: string; x1: number; y1: number; x2: number; y2: number }
+  link: PlacedLink
   visualScale: number
 }) {
   const signal = usePreviewStore((state) => (signalKey ? state.signals.get(signalKey) : undefined))
@@ -670,6 +675,12 @@ export default function HardwarePane() {
               direction: corkscrewDirection(props),
             }
             : null,
+          // Tape is a line of emitters, so the bench may draw it broken rather
+          // than let a 60-LED run leave the stage. A corkscrew is the same tape
+          // but wound: its length is already bounded by the cylinder it is on.
+          run: isStrip
+            ? { axis: 'x' as const, units: cols, unitMm: WS2812B_PITCH_MM }
+            : null,
           widthMm: isStrip
             ? cols * WS2812B_PITCH_MM
             : isRing
@@ -738,11 +749,11 @@ export default function HardwarePane() {
       .filter(({ pin }) => Number.isFinite(pin))
       .map(({ label, pin }) => `${label} ${pin}`)
       .join(' · ')
-    const footprint = entry.nodeType === 'StereoVuMeter'
-      ? {
-          width: 110,
-          height: Math.max(1, Math.round(Number(props.ledCount ?? 16))) * WS2812B_PITCH_MM,
-        }
+    const vuLedCount = entry.nodeType === 'StereoVuMeter'
+      ? Math.max(1, Math.round(Number(props.ledCount ?? 16)))
+      : null
+    const footprint = vuLedCount
+      ? { width: 110, height: vuLedCount * WS2812B_PITCH_MM }
       : chosen?.dimensionsMm ?? entry.footprint
     return [{
       entry: {
@@ -754,6 +765,11 @@ export default function HardwarePane() {
       node,
       partId: ordinal === 0 ? entry.partId : `${entry.partId}-${node.id}`,
       pinSummary,
+      // A rail stands on end, so an unbroken one sets the height every other
+      // part is scaled against — the case the break was written for.
+      run: vuLedCount
+        ? { axis: 'y' as const, units: vuLedCount, unitMm: WS2812B_PITCH_MM }
+        : null,
     }]
     })
   }, [nodes])
@@ -888,7 +904,12 @@ export default function HardwarePane() {
       links.push({ source: part.partId, target: BOARD_PART_ID })
     }
     for (const output of ledOutputs) {
-      parts.push({ id: output.partId, widthMm: output.widthMm, heightMm: output.heightMm })
+      parts.push({
+        id: output.partId,
+        widthMm: output.widthMm,
+        heightMm: output.heightMm,
+        run: output.run ?? undefined,
+      })
       links.push({ source: BOARD_PART_ID, target: output.partId })
     }
     for (const part of fixtureParts) {
@@ -896,6 +917,7 @@ export default function HardwarePane() {
         id: part.partId,
         widthMm: part.entry.footprint.width,
         heightMm: part.entry.footprint.height,
+        run: (part.run as HardwarePartRun | null) ?? undefined,
       })
       links.push({ source: BOARD_PART_ID, target: part.partId })
     }
@@ -916,6 +938,19 @@ export default function HardwarePane() {
     () => (arrangement ? hardwareArrangementBounds(arrangement) : null),
     [arrangement],
   )
+  /*
+   * The emitters each broken run actually draws. Taken from the layout's own
+   * cut, so the box it was given, the tape photo behind it and the live cells
+   * over it are three views of one decision rather than three that agree only
+   * while nobody edits one of them.
+   */
+  const brokenRuns = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof runCells>>()
+    for (const part of arrangement?.parts ?? []) {
+      if (part.broken) map.set(part.id, runCells(part.broken))
+    }
+    return map
+  }, [arrangement])
 
   /*
    * Link styling was copied from graph noodles, where every width is expressed
@@ -925,6 +960,9 @@ export default function HardwarePane() {
    * and preserves the original noodle weight there; denser arrangements scale
    * every wire layer down with the parts. The world's pan/zoom transform then
    * scales both together a second, shared time.
+   *
+   * The anchor's scale, not a part's: a wire belongs to the bench rather than
+   * to either end of it, and each part now draws at its own compressed scale.
    */
   const linkVisualScale = arrangement ? arrangement.mmScale / 4 : 1
 
@@ -962,15 +1000,29 @@ export default function HardwarePane() {
   const outputStyle = (partId: string, isStrip: boolean): CSSProperties | undefined => {
     const part = placed.get(partId)
     if (!part || !arrangement) return undefined
-    const tile = WS2812B_PITCH_MM * arrangement.mmScale
+    const tile = WS2812B_PITCH_MM * part.mmScale
     const box = { left: part.x, top: part.y, width: part.width, height: part.height }
     // A strip is a photograph of real tape, tiled one segment per LED. A panel
     // is not tape: squeezing that 2.6:1 segment into a square cell distorted it
     // into noise, so a panel draws its own emitters over bare PCB instead — and
     // so does a ring, over a round board.
-    return isStrip
-      ? { ...box, backgroundImage: `url(${ledSegmentRender})`, backgroundSize: `${tile}px 100%` }
-      : box
+    if (!isStrip) return box
+    const tape: CSSProperties = {
+      ...box,
+      backgroundImage: `url(${ledSegmentRender})`,
+      backgroundSize: `${tile}px 100%`,
+    }
+    const broken = part.broken
+    const run = brokenRuns.get(partId)
+    if (!broken || !run) return tape
+    // Take the removed middle out of the tape as well as the emitters: a break
+    // is a gap in the part, not a dark patch on an unbroken one. The tiles
+    // either side stay on the same whole-LED grid, because the gap is measured
+    // in whole LEDs.
+    const from = (broken.head / run.span) * 100
+    const to = ((broken.head + broken.gap) / run.span) * 100
+    const cut = `linear-gradient(90deg, #000 0 ${from}%, transparent ${from}% ${to}%, #000 ${to}% 100%)`
+    return { ...tape, maskImage: cut, WebkitMaskImage: cut }
   }
 
   /*
@@ -990,7 +1042,7 @@ export default function HardwarePane() {
     // and one dome lands on one emitter. `.lens` tiles from the box origin for
     // the same reason — centred tiling puts the domes half a pitch out on any
     // even-sided panel, which is every panel anyone buys.
-    const tile = ledPitchMm(form) * arrangement.mmScale
+    const tile = ledPitchMm(form) * part.mmScale
     return { backgroundSize: form === 'strip' ? `${tile}px 100%` : `${tile}px ${tile}px` }
   }
 
@@ -1017,6 +1069,54 @@ export default function HardwarePane() {
     }
   }
 
+  /*
+   * Where the two strokes that mark a break are drawn, in world coordinates.
+   *
+   * A sibling of the part rather than a child of it: the part masks its own
+   * middle away to make the gap, and a mask takes the element's children with
+   * it. Without the strokes a gap reads as two separate strips rather than one
+   * strip drawn short, which is the entire job of the convention.
+   */
+  const placedBreak = (partId: string) => placed.get(partId)?.broken ?? null
+
+  const runBreakStyle = (partId: string): CSSProperties | null => {
+    const part = placed.get(partId)
+    const run = brokenRuns.get(partId)
+    if (!part?.broken || !run) return null
+    const acrossX = part.broken.axis === 'x'
+    const unit = (acrossX ? part.width : part.height) / run.span
+    const start = part.broken.head * unit
+    const size = part.broken.gap * unit
+    // Overhanging the run is part of the convention — a break mark crosses the
+    // object and continues past both of its edges.
+    const box = acrossX
+      ? {
+        left: part.x + start,
+        top: part.y - (part.height * 0.4),
+        width: size,
+        height: part.height * 1.8,
+      }
+      : {
+        left: part.x - (part.width * 0.08),
+        top: part.y + start,
+        width: part.width * 1.16,
+        height: size,
+      }
+    // Space the strokes by the dimension they run along, not by the width of
+    // the gap: pitched off a narrow gap they close into a solid hatch that
+    // reads as damage rather than as a cut.
+    const across = acrossX ? box.height : box.width
+    return {
+      ...box,
+      // CSS gradient angles are measured on screen, not in the element's own
+      // squashed coordinates, so a stroke stays a diagonal however thin the gap
+      // is — which is why this is not an SVG with a stretched viewBox.
+      '--break-angle': acrossX ? '74deg' : '16deg',
+      '--break-pitch': `${Math.max(2, across * 0.3)}px`,
+      '--break-stroke': `${Math.max(0.75, across * 0.035)}px`,
+    } as CSSProperties
+  }
+
   /* Captions hang under the band on the layout's own anchor, so a long run
      keeps its label near its start rather than off screen at its midpoint. */
   const captionStyle = (id: string): CSSProperties | undefined => {
@@ -1025,8 +1125,53 @@ export default function HardwarePane() {
     return {
       left: part.captionX,
       top: part.captionY,
-      '--hardware-caption-scale': hardwareCaptionScale(arrangement?.band ?? 0),
+      '--hardware-caption-scale': hardwareCaptionWorldScale(
+        arrangement?.uiScale ?? 0,
+        view.transform.k,
+      ),
     } as CSSProperties
+  }
+
+  /*
+   * A part's label, drawn at one size on screen whatever the zoom, carrying
+   * only as much as the part is big enough to be labelled with. Zooming out is
+   * how you see the whole bench, so that is exactly where a full two-line
+   * caption under every part turns into a wall of overlapping type; the pin
+   * line goes first, then the name, and closing back in brings both back.
+   *
+   * A call rather than a component, so React keeps one element identity for a
+   * caption across a zoom instead of remounting all of them per frame.
+   */
+  const renderCaption = (id: string, name: ReactNode, detail?: ReactNode) => {
+    const part = placed.get(id)
+    // Dropping a caption is a decision about how big something looks, so it
+    // needs a stage that has actually been measured. Until one is, the layout
+    // is arranging parts into a placeholder box and every part in it is
+    // nominally too small to label.
+    const measured = stageBox.width > 0 && stageBox.height > 0
+    // Against the slot the part was given, not the part: a label's problem is
+    // its neighbour's label, and the slot is the width it has to itself. The
+    // part's own render is the wrong measurement — a narrow module in a wide
+    // slot has room for its pin line, and two wide modules with wide labels do
+    // not stop overlapping just because both renders are large.
+    const level: CaptionDetail = part && measured
+      ? hardwareCaptionDetail(part.slotWidth * view.transform.k)
+      : 'full'
+    if (level === 'none') return null
+    const anchor = part?.captionAnchor ?? 'below'
+    return (
+      <span
+        className={[
+          styles.caption,
+          anchor === 'above' ? styles.captionAbove : '',
+          anchor === 'left' ? styles.captionLeft : '',
+        ].filter(Boolean).join(' ')}
+        style={captionStyle(id)}
+      >
+        <strong>{name}</strong>
+        {level === 'full' && detail ? <span>{detail}</span> : null}
+      </span>
+    )
   }
 
   useEffect(() => {
@@ -1662,10 +1807,7 @@ export default function HardwarePane() {
                   draggable={false}
                 />
               </button>
-              <span className={styles.caption} style={captionStyle(part.partId)}>
-                <strong>{part.entry.label}</strong>
-                <span>{partPinSummary(part.node, part.entry)}</span>
-              </span>
+              {renderCaption(part.partId, part.entry.label, partPinSummary(part.node, part.entry))}
             </Fragment>
           ))}
 
@@ -1686,10 +1828,7 @@ export default function HardwarePane() {
           >
             <img src={boardImageSrc(boardProfile)} alt={boardProfile.label} draggable={false} />
           </button>
-          <span className={styles.caption} style={captionStyle(BOARD_PART_ID)}>
-            <strong>{boardProfile.label}</strong>
-            <span>Click for board options</span>
-          </span>
+          {renderCaption(BOARD_PART_ID, boardProfile.label, 'Click for board options')}
 
           {fixtureParts.map((part) => (
             <Fragment key={part.node.id}>
@@ -1715,8 +1854,20 @@ export default function HardwarePane() {
                         part.node.data.properties[`${side.toLowerCase()}Direction`] ?? 'Bottom',
                       )
                       const ledCount = Math.max(1, Math.round(Number(part.node.data.properties.ledCount ?? 16)))
-                      const tileLengthPx = Math.max(2, WS2812B_PITCH_MM * (arrangement?.mmScale ?? 1))
+                      const tileLengthPx = Math.max(
+                        2,
+                        WS2812B_PITCH_MM * (placed.get(part.partId)?.mmScale ?? 1),
+                      )
                       const tapeWidthPx = tileLengthPx / WS2812B_RENDER_ASPECT
+                      // A rail long enough to be drawn broken fills its box
+                      // with the slots the break left, not with the LEDs it
+                      // has — the count is what the caption is for.
+                      const railRun = brokenRuns.get(part.partId) ?? null
+                      const railSpan = railRun?.span ?? ledCount
+                      const railCut = railRun && placedBreak(part.partId)
+                      const tapeMask = railCut
+                        ? `linear-gradient(90deg, #000 0 ${(railCut.head / railSpan) * 100}%, transparent ${(railCut.head / railSpan) * 100}% ${((railCut.head + railCut.gap) / railSpan) * 100}%, #000 ${((railCut.head + railCut.gap) / railSpan) * 100}% 100%)`
+                        : undefined
                       return (
                         <span
                           className={`${styles.vuRailWrap} ${side === 'Left' ? styles.vuRailWrapLeft : styles.vuRailWrapRight}`}
@@ -1728,10 +1879,15 @@ export default function HardwarePane() {
                             <span
                               className={styles.vuRailTape}
                               style={{
-                                width: ledCount * tileLengthPx,
+                                width: railSpan * tileLengthPx,
                                 height: tapeWidthPx,
                                 backgroundImage: `url(${ledSegmentRender})`,
                                 backgroundSize: `${tileLengthPx}px ${tapeWidthPx}px`,
+                                // The tape is rotated a quarter turn into the
+                                // rail, so its own x axis runs down the rail
+                                // and the cut lands where the emitters stop.
+                                maskImage: tapeMask,
+                                WebkitMaskImage: tapeMask,
                               }}
                             />
                           </span>
@@ -1740,6 +1896,7 @@ export default function HardwarePane() {
                             side={side.toLowerCase() as 'left' | 'right'}
                             count={ledCount}
                             dataIn={direction === 'Top' ? 'Top' : 'Bottom'}
+                            run={railRun}
                           />
                           <span className={`${styles.vuDataIn} ${direction === 'Top' ? styles.vuDataInTop : styles.vuDataInBottom}`}>
                             DIN
@@ -1752,10 +1909,15 @@ export default function HardwarePane() {
                   ? <img src={part.entry.render} alt={part.entry.label} draggable={false} />
                   : <span className={styles.placeholderLabel}>{part.entry.label}</span>}
               </button>
-              <span className={styles.caption} style={captionStyle(part.partId)}>
-                <strong>{String(part.node.data.properties.model ?? part.entry.label)}</strong>
-                {part.pinSummary && <span>{part.pinSummary}</span>}
-              </span>
+              {(() => {
+                const mark = runBreakStyle(part.partId)
+                return mark ? <span className={styles.breakMark} style={mark} aria-hidden="true" /> : null
+              })()}
+              {renderCaption(
+                part.partId,
+                String(part.node.data.properties.model ?? part.entry.label),
+                part.pinSummary || undefined,
+              )}
             </Fragment>
           ))}
 
@@ -1821,6 +1983,7 @@ export default function HardwarePane() {
                   cellFill={LED_CELL_FILL}
                   ring={output.ring}
                   corkscrew={output.corkscrew}
+                  run={brokenRuns.get(output.partId) ?? null}
                   className={styles.ledPreview}
                 />
                 {/* The diffuser registers one dome per LED against a grid,
@@ -1833,13 +1996,18 @@ export default function HardwarePane() {
                   />
                 )}
               </button>
-              <span className={styles.caption} style={captionStyle(output.partId)}>
-                <strong>{output.label}</strong>
-                <span>
+              {(() => {
+                const mark = runBreakStyle(output.partId)
+                return mark ? <span className={styles.breakMark} style={mark} aria-hidden="true" /> : null
+              })()}
+              {renderCaption(
+                output.partId,
+                output.label,
+                <>
                   {output.isStrip || output.isRing || output.isCorkscrew ? `${output.cols} LEDs` : `${output.cols}x${output.rows}`}
                   {output.form === 'hub75' ? ' on its signal ribbon' : ` on pin ${output.dataPin}`}
-                </span>
-              </span>
+                </>,
+              )}
             </Fragment>
           ))}
         </div>

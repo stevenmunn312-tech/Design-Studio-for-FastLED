@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
-import { getBezierPath, Position } from '@xyflow/react'
 import { familyMotion, signalFamily } from '../Canvas/noodleMotion'
+import { orthogonalLinkPath } from './hardwareLayout'
 import styles from './HardwareLink.module.css'
 
 interface HardwareLinkProps {
@@ -16,6 +16,10 @@ interface HardwareLinkProps {
   y1: number
   x2: number
   y2: number
+  /** Every corner of the run, both ends included, from the layout. */
+  points: Array<{ x: number; y: number }>
+  /** Radius the corners are rounded to. */
+  corner: number
   effects: boolean
   label: string
   /**
@@ -37,27 +41,27 @@ function scaledDash(dash: string, scale: number): string {
 }
 
 /**
- * One run between two parts, drawn as the same noodle the graph canvas draws:
- * halo, bloom, white carrier, animated dashed core and travelling packets, on
- * the same bezier `GlowEdge` uses so a run between parts the layout stacked
- * curves exactly as it would between two nodes.
+ * One run between two parts: halo, bloom, white carrier, animated dashed core
+ * and travelling packets, exactly the noodle the graph canvas draws — but along
+ * the bench's orthogonal route rather than a bezier.
+ *
+ * The canvas curves because a node may sit anywhere and a curve is the readable
+ * way between two arbitrary points. The bench places its parts in rows, so its
+ * runs are cable: down out of a part, along a lane, and down into the next,
+ * turning square corners. Every layer here reads the one path string, so the
+ * motion, the packets and the glow all follow the route without knowing its
+ * shape.
  *
  * Renders a `<g>` into the arrangement's shared overlay, so its geometry comes
  * from the layout rather than from measuring its own box.
  */
 export default function HardwareLink({
-  dataType, color, emissive, energy = 0, x1, y1, x2, y2, effects, label, visualScale = 1,
+  dataType, color, emissive, energy = 0, x1, y1, x2, y2, points, corner,
+  effects, label, visualScale = 1,
 }: HardwareLinkProps) {
   const motion = familyMotion(signalFamily(dataType))
   const scale = Number.isFinite(visualScale) && visualScale > 0 ? visualScale : 1
-  const [path] = getBezierPath({
-    sourceX: x1,
-    sourceY: y1,
-    sourcePosition: Position.Right,
-    targetX: x2,
-    targetY: y2,
-    targetPosition: Position.Left,
-  })
+  const path = orthogonalLinkPath(points, corner)
 
   const stroke = emissive || color
   const activity = Math.min(1, energy)
@@ -72,6 +76,7 @@ export default function HardwareLink({
           stroke={stroke}
           strokeWidth={2.4 * scale}
           strokeLinecap="round"
+          strokeLinejoin="round"
           strokeOpacity={0.58 + activity * 0.28}
         />
         <circle cx={x1} cy={y1} r={3.2 * scale} fill={stroke} opacity={0.82} />
@@ -88,6 +93,7 @@ export default function HardwareLink({
         fill="none"
         stroke={stroke}
         strokeWidth={motion.outerWidth * scale}
+        strokeLinejoin="round"
         strokeOpacity={motion.outerOpacity + activity * 0.055}
       />
       {/* Mid bloom */}
@@ -96,6 +102,7 @@ export default function HardwareLink({
         fill="none"
         stroke={stroke}
         strokeWidth={motion.midWidth * scale}
+        strokeLinejoin="round"
         strokeOpacity={motion.midOpacity + activity * 0.08}
       />
       {/* Neutral carrier keeps a dark run legible, fading back as the live
@@ -107,6 +114,7 @@ export default function HardwareLink({
         stroke="rgba(255 255 255 / 0.78)"
         strokeWidth={(motion.coreWidth + 2) * scale}
         strokeLinecap="round"
+        strokeLinejoin="round"
         strokeOpacity={0.08 + idleVisibility * 0.12}
       />
       {/* Core — animated dash */}
@@ -117,6 +125,7 @@ export default function HardwareLink({
         stroke={stroke}
         strokeWidth={motion.coreWidth * scale}
         strokeLinecap="round"
+        strokeLinejoin="round"
         strokeDasharray={scaledDash(motion.dash, scale)}
         strokeOpacity={0.62 + activity * 0.24}
         style={{

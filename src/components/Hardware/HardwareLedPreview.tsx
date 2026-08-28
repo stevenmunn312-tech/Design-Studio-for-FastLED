@@ -49,6 +49,7 @@ export default function HardwareLedPreview({
   cellFill = 1,
   ring,
   corkscrew,
+  run,
   style,
   className,
 }: {
@@ -74,6 +75,11 @@ export default function HardwareLedPreview({
   /** Draw one physical chain as a front-on helix. Its colours still arrive in
    *  wire order; only the fixed emitter positions change. */
   corkscrew?: CorkscrewGeometry | null
+  /** A run the bench drew broken: which real emitter each drawn cell shows and
+   *  the slot it occupies, over `span` slots. The removed middle is a slot
+   *  range nothing is drawn in, so both ends keep the pitch an unbroken run
+   *  would have had and the colours stay the colours of the LEDs they name. */
+  run?: { cells: Array<{ index: number; slot: number }>; span: number } | null
   style?: CSSProperties
   className?: string
 }) {
@@ -82,7 +88,7 @@ export default function HardwareLedPreview({
   const previousRef = useRef<Uint32Array>(new Uint32Array(0))
   const onScreenRef = useRef(true)
 
-  const count = ring?.ledCount ?? corkscrew?.ledCount ?? cols * rows
+  const count = run ? run.cells.length : ring?.ledCount ?? corkscrew?.ledCount ?? cols * rows
 
   /*
    * A ring's LEDs, laid out on a unit-square viewBox. Angles match
@@ -177,8 +183,16 @@ export default function HardwareLedPreview({
         // A routed frame is already in the output's physical grid. Rings are a
         // one-row frame in wire order; their SVG positions below turn that row
         // into the configured circle without sampling it again.
-        const srcY = Math.min(srcH - 1, Math.floor(Math.floor(index / cols) * srcH / rows))
-        const srcX = Math.min(srcW - 1, Math.floor((index % cols) * srcW / cols))
+        // A broken run names its emitters outright rather than deriving them
+        // from a position: the cell after the break is LED 47, not the LED that
+        // would sit there if the run had been drawn whole.
+        const cell = run?.cells[index]
+        const srcY = cell
+          ? 0
+          : Math.min(srcH - 1, Math.floor(Math.floor(index / cols) * srcH / rows))
+        const srcX = cell
+          ? Math.min(srcW - 1, cell.index)
+          : Math.min(srcW - 1, Math.floor((index % cols) * srcW / cols))
         const pixel = frame[Math.min(srcH - 1, srcY)]?.[Math.min(srcW - 1, srcX)]
         if (!pixel) continue
         const r = Math.max(0, Math.min(255, Math.round(pixel.r * scale)))
@@ -202,7 +216,7 @@ export default function HardwareLedPreview({
     }
     read(usePreviewStore.getState())
     return usePreviewStore.subscribe(read)
-  }, [cols, corkscrew, count, nodeId, port, ring, rows])
+  }, [cols, corkscrew, count, nodeId, port, ring, rows, run])
 
   if (ringCells) {
     return (
@@ -260,6 +274,32 @@ export default function HardwareLedPreview({
             rx={CORKSCREW_LED_RADIUS_Y * 0.5}
             fill="rgb(0 0 0)"
             opacity={cell.opacity}
+          />
+        ))}
+      </svg>
+    )
+  }
+
+  if (run) {
+    return (
+      <svg
+        ref={wrapRef}
+        className={className}
+        style={style}
+        viewBox={`0 0 ${run.span} 1`}
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        {run.cells.map((cell, index) => (
+          <rect
+            key={cell.index}
+            ref={(element) => { cellRefs.current[index] = element }}
+            x={cell.slot + ((1 - cellFill) / 2)}
+            y={(1 - cellFill) / 2}
+            width={cellFill}
+            height={cellFill}
+            rx={cellFill * 0.18}
+            fill="rgb(0 0 0)"
           />
         ))}
       </svg>
