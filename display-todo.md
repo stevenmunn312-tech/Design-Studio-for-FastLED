@@ -175,7 +175,10 @@ case the OLED slice cannot already serve.
   and every firmware generator rather than rewriting individual node speeds.
   Enabled and Brightness are per LED output rather than per project: two
   outputs are two fixtures, and a stage wash and a monitor strip do not have to
-  be dark together. Master speed is one `MasterSpeed` node, because one shared
+  be dark together. A third port, Controls, takes the `playercontrols` bundle
+  and latches its toggle/delta per output; the three combine rather than
+  override, which is what makes a touch panel routable in a normal sketch (see
+  Phase 5). Master speed is one `MasterSpeed` node, because one shared
   clock cannot be scaled per output.
   Both are accumulated rather than multiplied — `t * speed` would jump every
   animation in the build the instant the knob moved — and both read the speed
@@ -555,31 +558,43 @@ freeform widgets must reuse rather than rediscover.
   visible layout fields. Player sketches sample XPT2046 over a small software-
   SPI transaction, so the separately broken-out header works on the display
   bus or on its own pins.
-- [ ] Route fixed transport actions through the `playercontrols` bundle and read
+- [x] Route fixed transport actions through the `playercontrols` bundle and read
   status from Music Player, so browser preview, generated normal sketches,
   generative shows, and SD players agree on edge handling, volume, and pattern
-  selection. The SD-player slice is done: a Transport Display wired through
-  Player Controls emits play/pause and volume from Now Playing, or LED toggle
-  and brightness from Show Status. Browser touch is also done: the node preview
-  publishes button edges and held absolute sliders through the same
-  `playercontrols` bundle using the firmware's shared hit geometry.
-  The generative show is now resolved rather than pending, and the answer is
-  that it has nothing to command: a show rotates patterns and holds no music,
-  so play/pause, previous, next and volume have no destination in it. It draws
-  the panel and reports the running pattern from its own cursor; a wired
-  Controls output is refused there, and the XPT2046 service is not emitted at
-  all except for Diagnostics, because it calls player transport functions a
-  show controller does not define.
-  What remains is the normal sketch, and it needs a decision before it needs
-  code. A sketch has no transport either, so only Show Status's LED toggle and
-  brightness mean anything — and the bundle's only consumers are
-  `PlayerControls.controlsIn` and `PatternMaster.controls`, neither of which
-  leads anywhere in a plain sketch. Giving those two actions a destination is a
-  port contract (`MatrixOutput` gaining a `controls` input, or a node that
-  unpacks the bundle into `bool`/`float`), not a generator change. Until it
-  lands, deploy validation and Graph Health block a wired touch output a normal
-  sketch would ignore; an unwired touch panel is still valid as a read-only
-  display.
+  selection. The SD-player slice: a Transport Display wired through Player
+  Controls emits play/pause and volume from Now Playing, or LED toggle and
+  brightness from Show Status. Browser touch: the node preview publishes button
+  edges and held absolute sliders through the same bundle using the firmware's
+  shared hit geometry.
+  The generative show resolved to *nothing to command*: a show rotates patterns
+  and holds no music, and drops the LED-output runtime too, so play/pause,
+  previous, next, volume, blackout and dimming all have no destination in it.
+  It draws the panel and reports the running pattern from its own cursor; a
+  wired Controls output is refused there, and the XPT2046 service is not
+  emitted outside Diagnostics, because it would call player transport functions
+  a show controller does not define.
+  The normal sketch needed a port contract before it needed a generator, and
+  the contract chosen was `MatrixOutput` gaining a **`controls`** input. That
+  is the honest destination: a sketch has no transport, but it does have
+  fixtures, and blackout and dimming are exactly what a Show Status panel
+  offers. The bundle is not a value there — it carries a toggle and a delta —
+  so an output keeps a latch (`applyLedControls` /
+  `composeLedOutputRuntime` in `state/ledOutputRuntime.ts`, mirrored by
+  `ledOutputLatchCpp`), and the three ports combine (ANDed, multiplied) rather
+  than overriding one another. `PlayerControls` gained its first emit case in a
+  normal sketch to build the bundle from ordinary wires, and
+  `tftTouchServiceCpp` gained a *sink* so the panel's hit geometry stays
+  resolved once whether the press lands on a player transport or in a bundle.
+  Validation now asks whether a chain reaches something the selected generator
+  can act on (`controlChainSinks`) rather than whether the generator can sample
+  touch at all; an unwired touch panel is still valid as a read-only display.
+  Deliberately still open, and out of this slice: a panel cannot *read back*
+  the latch it just changed, so a Show Status screen shows OUTPUT OFF while the
+  fixture is lit unless something else is wired to its `outputEnabled` input.
+  Closing that means either an output publishing its resolved runtime — which
+  would give a sink an output and drop it from both terminal registries, the
+  trap this file warns about twice — or the synchronized-control `set` contract
+  frozen for Phase 6/7. It belongs with the latter.
 - [ ] Add calibration/rotation handling for touch and persist the exact module's
   calibration only where it is stable. Provide a generated touch self-test.
   Calibration properties, clamping, all four rotations, and the generated

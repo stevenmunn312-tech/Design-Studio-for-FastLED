@@ -37,6 +37,11 @@ import { asSegmentMode, clampSegmentBrightness, segmentControllerFor } from '../
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
 import { NODE_LIBRARY, oledControllerForProps, oledTransportForProps, tftControllerForProps } from '../state/nodeLibrary'
 import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp } from './ledOutputRuntimeCpp'
+import {
+  PLAYER_CONTROLS_CPP, playerControlsServiceCpp,
+  ledOutputLatchGlobalCpp, ledOutputLatchCpp,
+} from './playerControlsCpp'
+import { normalizeButtonEdgeSettings } from '../state/transportBridge'
 import { masterClockLoopCpp, masterSpeedUpdateCpp, type MasterSpeedEmit } from './masterSpeedCpp'
 import {
   clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX,
@@ -1385,7 +1390,6 @@ const SHOW_PIPELINE_NOTES: Record<string, string> = {
   MusicLibrary: 'song source for the music-sync SD show; the Player sketch (Upload show to SD) consumes it, not this sketch',
   PerformanceGenerator: 'builds the timed .show file exported to the SD card; no equivalent in a normal sketch',
   SDCard: 'SD SPI storage configuration; emitted by the Player sketch (Upload show to SD)',
-  PlayerControls: 'binds physical buttons/pots to transport, volume and brightness actions; serviced by the Player sketch (Upload show to SD), which is the only generator with a transport to control',
   PatternCollection: 'resolved by the show controller generator once its Show Engine drives a LED output',
   TransitionSet: 'transition pool read by the Show Engine / Performance Generator, not emitted directly',
 }
@@ -1780,7 +1784,12 @@ export function generateCpp(
   const segmentDisplays: SegmentDisplayEmit[] = []
   const infoDisplays: InfoDisplayEmit[] = []
   const tftDisplays: TftDisplayEmit[] = []
-  const diagnosticTouches: TftTouchEmit[] = []
+  // Nodes producing a `playercontrols` bundle, and outputs latching one.
+  const playerControlNodes: string[] = []
+  const ledLatchOutputs: string[] = []
+  // Panels that sample XPT2046, whether to report coordinates on a
+  // Diagnostics screen or to publish a control bundle from their buttons.
+  const tftTouches: TftTouchEmit[] = []
   const browserTables: { id: string; entries: BrowserThumbnails[string] }[] = []
   const artworkTables = new Map<string, Uint8Array[]>()
   const needsXyMap = { v: false }
@@ -1821,15 +1830,29 @@ export function generateCpp(
      * exist only as cables — a stored value would be a second, invisible
      * dimmer disagreeing with the visible one.
      */
-    const outputRuntimeEmit = (target: StudioNode, array: string, count: string) => ({
-      id: safeId(target.id),
-      array,
-      count,
-      enabledExpr: incoming.has(`${target.id}:enabled`) ? boolExpr(target.id, 'enabled') : null,
-      brightnessExpr: incoming.has(`${target.id}:brightness`)
+    const outputRuntimeEmit = (target: StudioNode, array: string, count: string) => {
+      const stem = safeId(target.id)
+      const wiredEnabled = incoming.has(`${target.id}:enabled`) ? boolExpr(target.id, 'enabled') : null
+      const wiredBrightness = incoming.has(`${target.id}:brightness`)
         ? floatExpr(target.id, 'brightness', props(target), 'brightness', 1)
-        : null,
-    })
+        : null
+      // A latched bundle is one more factor, combined the way
+      // composeLedOutputRuntime combines it: ANDed for blackout, multiplied for
+      // level. Neither port needs a precedence rule that way — an unwired one
+      // contributes its identity and vanishes from the expression.
+      const latched = incoming.has(`${target.id}:controls`)
+      return {
+        id: stem,
+        array,
+        count,
+        enabledExpr: latched
+          ? (wiredEnabled ? `(${wiredEnabled}) && _ledOn_${stem}` : `_ledOn_${stem}`)
+          : wiredEnabled,
+        brightnessExpr: latched
+          ? (wiredBrightness ? `(${wiredBrightness}) * _ledLevel_${stem}` : `_ledLevel_${stem}`)
+          : wiredBrightness,
+      }
+    }
 
     // A statement that seeds `fbuf` from a frame input (or black if unwired).
     const seedFrom = (port: string) => {
@@ -4981,6 +5004,13 @@ export function generateCpp(
         const rotation = asTftRotation(p.tftRotation)
         const touchCapable = Boolean(partById(String(p.partId ?? ''))?.display?.touchController)
         const diagnosticTouch = layout === 'Diagnostics' && touchCapable
+        // A panel samples touch for either of two reasons: to report raw
+        // coordinates on the Diagnostics screen, or because something is
+        // listening to its buttons. The second is new — until an LED output
+        // could latch a bundle there was nothing in a normal sketch for a
+        // press to reach, and validation refused the wire instead.
+        const publishesControls = touchCapable
+          && edges.some((e) => e.source === node.id && e.sourceHandle === 'controls')
         const emit: TftDisplayEmit = {
           id,
           controller,
@@ -5026,7 +5056,7 @@ export function generateCpp(
           }
         }
         tftDisplays.push(emit)
-        if (diagnosticTouch) {
+        if (diagnosticTouch || publishesControls) {
           const touch: TftTouchEmit = {
             id, controller, rotation, layout, enabled: p.enabled !== false,
             touch: {
@@ -5041,9 +5071,17 @@ export function generateCpp(
               yMax: intProp(p.touchYMax, 3900, 0, 4095),
             },
           }
-          diagnosticTouches.push(touch)
+          tftTouches.push(touch)
           setupLines.push(...tftTouchSetupCpp(touch))
-          for (const line of tftTouchServiceCpp(touch)) ln(line)
+          if (publishesControls) {
+            // The panel publishes the same bundle a Player Controls node does,
+            // resolved from the same hit geometry the browser preview uses.
+            playerControlNodes.push(id)
+            ln(`  PlayerControlsValue ${v('controls')};`)
+            for (const line of tftTouchServiceCpp(touch, { kind: 'bundle', variable: v('controls') })) ln(line)
+          } else {
+            for (const line of tftTouchServiceCpp(touch)) ln(line)
+          }
         }
         for (const line of tftDisplaySetupCpp(emit)) setupLines.push(line)
         for (const line of tftDisplayLoopCpp(emit)) ln(line)
@@ -5728,6 +5766,47 @@ export function generateCpp(
         break
       }
 
+      /*
+       * Physical intent, bundled once.
+       *
+       * The player sketch builds this from a fixed table of GPIO bindings
+       * because it is a template. Here the inputs are ordinary wires the
+       * generator already has expressions for — a Button, a pot, an encoder,
+       * a touch panel — so all this case adds is the edge rules, and those
+       * come from the same module the evaluator reads.
+       */
+      case 'PlayerControls': {
+        const wired = (port: string) => incoming.has(`${node.id}:${port}`)
+        // Repeat exactly where the evaluator repeats: an adjustment ramps
+        // while held, an action fires once per press however long you lean on
+        // it. Getting this backwards makes a blackout button strobe.
+        const BUTTONS: Array<[string, boolean]> = [
+          ['playPause', false], ['previous', false], ['next', false],
+          ['volumeUp', true], ['volumeDown', true],
+          ['ledToggle', false],
+          ['brightnessUp', true], ['brightnessDown', true],
+          ['patternPrevious', true], ['patternNext', true],
+          ['patternConfirm', false],
+        ]
+        const upstream = incoming.get(`${node.id}:controlsIn`)
+        for (const line of playerControlsServiceCpp({
+          id,
+          variable: v('controls'),
+          upstream: upstream ? `n_${safeId(upstream.srcId)}_${upstream.srcPort}` : null,
+          buttons: BUTTONS
+            .filter(([port]) => wired(port))
+            .map(([port, repeat]) => ({ port, expr: boolExpr(node.id, port), repeat })),
+          volumeExpr: wired('volume') ? f('volume', 'volume', 0) : null,
+          brightnessExpr: wired('brightness') ? f('brightness', 'brightness', 0) : null,
+          patternPositionExpr: wired('patternSelect') ? f('patternSelect', 'patternSelect', 0) : null,
+          settings: normalizeButtonEdgeSettings(p),
+          volumeStep: Math.max(0, Number(p.volumeStep ?? 0.05)),
+          brightnessStep: Math.max(0, Number(p.brightnessStep ?? 0.05)),
+        })) ln(line)
+        playerControlNodes.push(id)
+        break
+      }
+
       case 'Sequencer': {
         const ob = ownBuf()
         const interval = Number(p.interval ?? 4), fade = Number(p.fade ?? 1)
@@ -6296,6 +6375,16 @@ export function generateCpp(
           ln(`  // ${cppComment(String(leader?.data.label ?? 'the first output'))} on the same pin — same wire, same pixels.`)
           break
         }
+        // Before anything reads _ledOn_/_ledLevel_ below. Topological order
+        // puts the node that built the bundle earlier in the same loop body,
+        // so it is a local in scope here.
+        const controlsWire = incoming.get(`${node.id}:controls`)
+        if (controlsWire) {
+          ledLatchOutputs.push(id)
+          for (const line of ledOutputLatchCpp({
+            id, controls: `n_${safeId(controlsWire.srcId)}_${controlsWire.srcPort}`,
+          })) ln(line)
+        }
         const src = srcBuf('frame')
         if (isHub75) {
           for (const line of hub75OutputRuntimeCpp(outputRuntimeEmit(node, '', ''), hw.brightness)) ln(line)
@@ -6540,10 +6629,19 @@ export function generateCpp(
     lines.push(``)
   }
 
+  if (playerControlNodes.length > 0) {
+    lines.push(PLAYER_CONTROLS_CPP)
+    // Latch state is per output rather than per bundle: two fixtures wired to
+    // one Player Controls both go dark on a press, and each then remembers its
+    // own level from there.
+    for (const output of ledLatchOutputs) lines.push(ledOutputLatchGlobalCpp(output))
+    lines.push(``)
+  }
+
   if (tftDisplays.length > 0) {
     lines.push(tftDisplayHelpersCpp())
-    if (diagnosticTouches.length > 0) lines.push(TFT_TOUCH_CPP_HELPERS)
-    for (const touch of diagnosticTouches) lines.push(tftTouchGlobalCpp(touch))
+    if (tftTouches.length > 0) lines.push(TFT_TOUCH_CPP_HELPERS)
+    for (const touch of tftTouches) lines.push(tftTouchGlobalCpp(touch))
     for (const display of tftDisplays) lines.push(tftDisplayGlobalCpp(display))
     for (const [id, artworks] of artworkTables) lines.push(transportArtworkTableCpp(id, artworks))
     lines.push(``)

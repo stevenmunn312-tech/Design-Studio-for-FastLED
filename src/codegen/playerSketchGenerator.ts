@@ -776,7 +776,7 @@ ${patternEncoder ? `  // Detents into the one selection the player owns.
   }
 ` : ''}
 ${controlServiceLines}
-${touchEmits.flatMap(tftTouchServiceCpp).join('\n')}
+${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
 }
 ` : ''
 

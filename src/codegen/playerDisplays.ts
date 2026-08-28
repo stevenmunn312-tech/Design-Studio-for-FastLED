@@ -146,14 +146,30 @@ function touchRawProp(value: unknown, fallback: number): number {
   return Number.isFinite(n) ? Math.max(0, Math.min(4095, n)) : fallback
 }
 
-/** Whether this display's control bundle reaches the Music Player through the
- * same Player Controls chain as physical buttons and encoders. */
-export function displayControlsPlayer(
-  displayId: string,
+/** What a `playercontrols` chain can end at. */
+export type ControlChainSink =
+  /** Music Player's transport: play/pause, track, volume, pattern selection. */
+  | 'player'
+  /** An LED output's blackout and dimming latch. */
+  | 'output'
+
+/**
+ * Every sink a control bundle reaches, following Player Controls links.
+ *
+ * One walk for both, because "does this wire go anywhere" is one question with
+ * two answers now. A panel wired to an LED output is serviced by a normal
+ * sketch; one wired to Music Player is serviced by the SD player; one wired to
+ * both is serviced by whichever generator the graph selects. Answering only
+ * the player half is what made a touch panel look unroutable in a plain sketch
+ * for as long as an LED output had nothing to receive it on.
+ */
+export function controlChainSinks(
+  sourceId: string,
   edges: ConfigEdge[],
   byId: Map<string, ConfigNode>,
-): boolean {
-  const pending = [displayId]
+): Set<ControlChainSink> {
+  const found = new Set<ControlChainSink>()
+  const pending = [sourceId]
   const seen = new Set<string>()
   while (pending.length) {
     const id = pending.pop()!
@@ -162,11 +178,22 @@ export function displayControlsPlayer(
     for (const edge of edges) {
       if (edge.source !== id || edge.sourceHandle !== 'controls') continue
       const target = byId.get(edge.target)
-      if (target?.data.nodeType === 'PatternMaster' && edge.targetHandle === 'controls') return true
+      if (target?.data.nodeType === 'PatternMaster' && edge.targetHandle === 'controls') found.add('player')
+      if (target?.data.nodeType === 'MatrixOutput' && edge.targetHandle === 'controls') found.add('output')
       if (target?.data.nodeType === 'PlayerControls' && edge.targetHandle === 'controlsIn') pending.push(target.id)
     }
   }
-  return false
+  return found
+}
+
+/** Whether this display's control bundle reaches the Music Player through the
+ * same Player Controls chain as physical buttons and encoders. */
+export function displayControlsPlayer(
+  displayId: string,
+  edges: ConfigEdge[],
+  byId: Map<string, ConfigNode>,
+): boolean {
+  return controlChainSinks(displayId, edges, byId).has('player')
 }
 
 /*

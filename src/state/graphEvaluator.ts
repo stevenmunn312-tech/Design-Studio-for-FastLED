@@ -14,7 +14,10 @@ import {
   renderSegmentIndex, segmentFrameText, blankSegmentFrame, segmentControllerFor,
   type SegmentFrame,
 } from './segmentDisplay'
-import { resolveLedOutputRuntime, applyLedOutputRuntime } from './ledOutputRuntime'
+import {
+  resolveLedOutputRuntime, applyLedOutputRuntime, composeLedOutputRuntime,
+  blankLedOutputLatch, applyLedControls, type LedOutputLatch,
+} from './ledOutputRuntime'
 import { clampMasterSpeed, MASTER_SPEED_DEFAULT } from './masterSpeed'
 import {
   asInfoDisplayLayout, renderInfoDisplay, blankInfoData, STATUS_MAX_INDICATORS,
@@ -230,6 +233,15 @@ interface MusicPlayerRuntimeState {
   controls: PlayerControls
 }
 const musicPlayerRuntimeState = new Map<string, MusicPlayerRuntimeState>()
+
+/**
+ * What each LED output remembers between presses on its `controls` wire.
+ *
+ * Per output instance, like every other stateful node here, because two
+ * fixtures wired to one Player Controls are two fixtures: pressing blackout
+ * darkens both, and each then remembers its own state from there.
+ */
+const ledOutputLatchState = new Map<string, LedOutputLatch>()
 
 interface RDState { u: Float32Array; v: Float32Array; un: Float32Array; vn: Float32Array; w: number; h: number; seed: number }
 const rdState = new Map<string, RDState>()
@@ -490,6 +502,7 @@ function stateMaps(): StateMap[] {
     seededRngState, triggerState, scheduleState, particleState, particleSeedState, patternShowState,
     patternSelectionState, transportArtworkCache, patternThumbnailCache,
     playerControlsState, transportDisplayTouchState, musicPlayerRuntimeState,
+    ledOutputLatchState,
     percussionLevels, audioFeatureLevels,
     rdState, golState, waveSimState, flowState, colorTrailsState, spectrumVisualizerState, starState, boidState, sparkState, fire2012Heat,
     kickShockState, kaleidoPunch, percussionBlobsState, emberBurst,
@@ -567,6 +580,7 @@ export function getEvaluatorMemoryStats(): {
     audioFeatureLevels: audioFeatureLevels.size, particleState: particleState.size,
     particleSeedState: particleSeedState.size, patternShowState: patternShowState.size,
     playerControlsState: playerControlsState.size, transportDisplayTouchState: transportDisplayTouchState.size, musicPlayerRuntimeState: musicPlayerRuntimeState.size,
+    ledOutputLatchState: ledOutputLatchState.size,
     rdState: rdState.size, golState: golState.size, waveSimState: waveSimState.size,
     flowState: flowState.size, colorTrailsState: colorTrailsState.size,
     spectrumVisualizerState: spectrumVisualizerState.size, starState: starState.size,
@@ -7883,10 +7897,23 @@ function createEvalNode(
         // than scaling in place: this frame is the upstream node's pooled
         // buffer, shared with a second output and with node previews.
         const frame = input(id, 'frame', null) as Frame | null
-        const runtime = resolveLedOutputRuntime(
+        const wired = resolveLedOutputRuntime(
           incoming.has(`${id}:enabled`) ? input(id, 'enabled', true) : undefined,
           incoming.has(`${id}:brightness`) ? input(id, 'brightness', 1) : undefined,
         )
+        // A bundle carries a toggle and a delta, so it needs somewhere to
+        // toggle and to nudge. Folded once per pass: node outputs are memoised
+        // above, so a second output reading the same Player Controls sees the
+        // same single-frame press rather than a second one.
+        const key = stateKey(id)
+        let latch = ledOutputLatchState.get(key)
+        if (!latch) {
+          latch = blankLedOutputLatch()
+          ledOutputLatchState.set(key, latch)
+        }
+        const controlsValue = input(id, 'controls', null)
+        if (isPlayerControls(controlsValue)) applyLedControls(latch, controlsValue)
+        const runtime = composeLedOutputRuntime(wired, latch)
         out = { frame: frame ? applyLedOutputRuntime(frame, runtime) : null }
         break
       }

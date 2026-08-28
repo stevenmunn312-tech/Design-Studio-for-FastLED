@@ -72,7 +72,60 @@ function inside(x: string, y: string, rect: { x: number; y: number; w: number; h
   return `${x} >= ${rect.x} && ${x} < ${rect.x + rect.w} && ${y} >= ${rect.y} && ${y} < ${rect.y + rect.h}`
 }
 
-export function tftTouchServiceCpp(display: TftTouchEmit): string[] {
+/**
+ * Where a press goes once the panel has decided what was pressed.
+ *
+ * Two sinks, because two generators have different things to press *on*. The
+ * player calls its own transport directly, which is why this file could hard-
+ * code those calls for as long as the player was the only generator sampling
+ * touch. A normal sketch has no transport at all: its panel publishes the same
+ * `playercontrols` bundle a Player Controls node does, and whatever is wired
+ * downstream decides what that means — today an LED output's blackout and
+ * dimming latch.
+ *
+ * Parameterising the sink rather than the whole function keeps the part that
+ * matters — which rectangle is which action — resolved once from the shared
+ * geometry. A second copy of the hit test is how the panel and the thing that
+ * responds drift apart.
+ */
+export type TftTouchSink =
+  /** Call the player sketch's own transport functions. */
+  | { kind: 'player' }
+  /** Fill a PlayerControlsValue local, as codegen/playerControlsCpp.ts defines it. */
+  | { kind: 'bundle'; variable: string }
+
+function sinkStatements(
+  sink: TftTouchSink,
+  action: string,
+  valueExpr: string | null,
+): string | null {
+  if (sink.kind === 'player') {
+    switch (action) {
+      case 'playPause': return 'if (audio.pauseResume()) playerPaused = !playerPaused;'
+      case 'previous': return 'changePlayerTrack(-1);'
+      case 'next': return 'changePlayerTrack(1);'
+      case 'ledToggle': return 'ledsEnabled = !ledsEnabled; applyPlayerBrightness();'
+      case 'volume': return `playerVolume = ${valueExpr}; applyPlayerVolume();`
+      case 'brightness': return `playerBrightness = ${valueExpr}; applyPlayerBrightness();`
+      default: return null
+    }
+  }
+  const v = sink.variable
+  switch (action) {
+    case 'playPause': return `${v}.playPause = true;`
+    case 'previous': return `${v}.previous = true;`
+    case 'next': return `${v}.next = true;`
+    case 'ledToggle': return `${v}.ledToggle = true;`
+    case 'volume': return `${v}.hasVolume = true; ${v}.volume = ${valueExpr};`
+    case 'brightness': return `${v}.hasBrightness = true; ${v}.brightness = ${valueExpr};`
+    default: return null
+  }
+}
+
+export function tftTouchServiceCpp(
+  display: TftTouchEmit,
+  sink: TftTouchSink = { kind: 'player' },
+): string[] {
   const t = display.touch
   const id = display.id
   const pointX = `_touchX_${id}`
@@ -90,19 +143,17 @@ export function tftTouchServiceCpp(display: TftTouchEmit): string[] {
   ]
   for (const region of regions) {
     const hit = `(${inside(pointX, pointY, region.rect)})`
-    if (region.action === 'playPause') {
-      lines.push(`    if (${down} && !_touchPrev_${id} && ${hit}) { if (audio.pauseResume()) playerPaused = !playerPaused; }`)
-    } else if (region.action === 'previous') {
-      lines.push(`    if (${down} && !_touchPrev_${id} && ${hit}) { changePlayerTrack(-1); }`)
-    } else if (region.action === 'next') {
-      lines.push(`    if (${down} && !_touchPrev_${id} && ${hit}) { changePlayerTrack(1); }`)
-    } else if (region.action === 'ledToggle') {
-      lines.push(`    if (${down} && !_touchPrev_${id} && ${hit}) { ledsEnabled = !ledsEnabled; applyPlayerBrightness(); }`)
-    } else if (region.action === 'volume') {
-      lines.push(`    if (${down} && ${hit}) { playerVolume = constrain((${pointX} - ${region.rect.x}) / ${Math.max(1, region.rect.w - 1)}.0f, 0.0f, 1.0f); applyPlayerVolume(); }`)
-    } else if (region.action === 'brightness') {
-      lines.push(`    if (${down} && ${hit}) { playerBrightness = constrain((${pointX} - ${region.rect.x}) / ${Math.max(1, region.rect.w - 1)}.0f, 0.0f, 1.0f); applyPlayerBrightness(); }`)
-    }
+    const value = region.valueAxis === 'x'
+      ? `constrain((${pointX} - ${region.rect.x}) / ${Math.max(1, region.rect.w - 1)}.0f, 0.0f, 1.0f)`
+      : null
+    const body = sinkStatements(sink, region.action, value)
+    if (!body) continue
+    // A momentary action fires on the touch-down edge; an absolute slider
+    // tracks for as long as the finger stays down. The evaluator publishes
+    // them the same way, so chaining a panel through Player Controls cannot
+    // fire a button every tick it is held in one place and not the other.
+    const guard = region.valueAxis === 'x' ? '' : `!_touchPrev_${id} && `
+    lines.push(`    if (${down} && ${guard}${hit}) { ${body} }`)
   }
   lines.push(`    _touchPrev_${id} = ${down};`, `  }`)
   return lines

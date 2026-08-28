@@ -549,7 +549,7 @@ function showDisplaysCpp(
       ...(usesSelection && patternCount > 0
         ? [`  _selSetActive(${selVar}, PATTERN_COUNT, ${SHOW_PATTERN_INDEX});`]
         : []),
-      ...touchEmits.flatMap(tftTouchServiceCpp),
+      ...touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)),
       ...infoEmits.flatMap(infoDisplayLoopCpp),
       ...segmentEmits.flatMap(segmentDisplayLoopCpp),
       ...tftEmits.flatMap(tftDisplayLoopCpp),

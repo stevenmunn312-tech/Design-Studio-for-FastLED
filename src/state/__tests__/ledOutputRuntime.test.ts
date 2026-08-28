@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest'
 import {
   LED_OUTPUT_RUNTIME_PORTS, LED_OUTPUT_RUNTIME_DEFAULT,
   resolveLedOutputRuntime, isLedOutputPassThrough, applyLedOutputRuntime,
+  blankLedOutputLatch, applyLedControls, composeLedOutputRuntime,
 } from '../ledOutputRuntime'
+import { resetEvaluatorState } from '../graphEvaluator'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { evaluateGraphFull } from '../graphEvaluator'
 import { findOutputRuntimeIssues, selectedGenerator } from '../../utils/validateGraph'
@@ -211,7 +213,7 @@ describe('what a show or player build cannot honour', () => {
     const { nodes, edges } = showGraph()
     const { errors } = findOutputRuntimeIssues(nodes, edges)
     expect(errors.join(' ')).toContain('show controller')
-    expect(errors.join(' ')).toContain('Enabled or Brightness')
+    expect(errors.join(' ')).toContain('Enabled, Brightness or Controls')
   })
 
   // The player has a real route for this, so the message names it rather than
@@ -235,5 +237,229 @@ describe('what a show or player build cannot honour', () => {
       [white, pot, output()],
       [frameEdge, edge('eb', 'p', 'value', 'out', 'brightness')],
     ).errors).toEqual([])
+  })
+})
+
+
+/*
+ * The bundle: a toggle and a delta, which only mean anything against something
+ * that remembers the last press.
+ */
+describe('latching a control bundle', () => {
+  const bundle = (over: Partial<Parameters<typeof applyLedControls>[1]> = {}) => ({
+    ledToggle: false, brightnessDelta: 0, ...over,
+  })
+
+  it('starts lit and undimmed', () => {
+    expect(blankLedOutputLatch()).toEqual({ enabled: true, brightness: 1 })
+  })
+
+  it('flips blackout on each press', () => {
+    const latch = blankLedOutputLatch()
+    applyLedControls(latch, bundle({ ledToggle: true }))
+    expect(latch.enabled).toBe(false)
+    applyLedControls(latch, bundle({ ledToggle: true }))
+    expect(latch.enabled).toBe(true)
+  })
+
+  it('ignores a frame with nothing pressed', () => {
+    const latch = blankLedOutputLatch()
+    applyLedControls(latch, bundle())
+    expect(latch).toEqual({ enabled: true, brightness: 1 })
+  })
+
+  it('nudges the level by a delta and clamps at both ends', () => {
+    const latch = blankLedOutputLatch()
+    applyLedControls(latch, bundle({ brightnessDelta: -0.25 }))
+    expect(latch.brightness).toBeCloseTo(0.75)
+    applyLedControls(latch, bundle({ brightnessDelta: -5 }))
+    expect(latch.brightness).toBe(0)
+    applyLedControls(latch, bundle({ brightnessDelta: 5 }))
+    expect(latch.brightness).toBe(1)
+  })
+
+  it('takes an absolute level as it is', () => {
+    const latch = blankLedOutputLatch()
+    applyLedControls(latch, bundle({ brightness: 0.3 }))
+    expect(latch.brightness).toBeCloseTo(0.3)
+  })
+
+  // Absolute before relative, matching PatternMaster: a wired knob sets the
+  // level and the buttons then nudge it, rather than the knob undoing a press.
+  it('applies an absolute before the delta in the same frame', () => {
+    const latch = blankLedOutputLatch()
+    applyLedControls(latch, bundle({ brightness: 0.5, brightnessDelta: 0.25 }))
+    expect(latch.brightness).toBeCloseTo(0.75)
+  })
+
+  // An unplugged analog pin reads NaN. A fixture must not go dark for it.
+  it('ignores a non-finite reading rather than blacking out', () => {
+    const latch = blankLedOutputLatch()
+    applyLedControls(latch, bundle({ brightness: NaN, brightnessDelta: NaN }))
+    expect(latch.brightness).toBe(1)
+  })
+})
+
+describe('combining the wires with the latch', () => {
+  // ANDed and multiplied rather than one overriding the other, so neither port
+  // needs a precedence rule to explain and an unwired one simply vanishes.
+  it('is the identity when nothing has been pressed', () => {
+    expect(composeLedOutputRuntime({ enabled: true, brightness: 0.5 }, blankLedOutputLatch()))
+      .toEqual({ enabled: true, brightness: 0.5 })
+  })
+
+  it('multiplies the two levels', () => {
+    const composed = composeLedOutputRuntime(
+      { enabled: true, brightness: 0.5 }, { enabled: true, brightness: 0.5 },
+    )
+    expect(composed.brightness).toBeCloseTo(0.25)
+  })
+
+  // A blackout button a wired Enabled could veto is not a blackout button.
+  it('is dark if either side is dark', () => {
+    expect(composeLedOutputRuntime({ enabled: false, brightness: 1 }, { enabled: true, brightness: 1 }).enabled)
+      .toBe(false)
+    expect(composeLedOutputRuntime({ enabled: true, brightness: 1 }, { enabled: false, brightness: 1 }).enabled)
+      .toBe(false)
+  })
+})
+
+/*
+ * End to end in the preview: a contact closes, Player Controls edges it, and
+ * the fixture goes dark. The bench case ledOutputRuntime.ts was written for —
+ * "a build that has no Music Player anywhere" — with the bundle as the route.
+ */
+describe('a button reaching the output through Player Controls', () => {
+  const controls = node('ctl', 'PlayerControls', {
+    debounceMs: 0, brightnessStep: 0.05, repeatDelayMs: 400, repeatIntervalMs: 120,
+  })
+  const button = node('b', 'ButtonInput', { pin: 4, pullup: true })
+  const wires = [
+    frameEdge,
+    edge('e1', 'b', 'pressed', 'ctl', 'ledToggle'),
+    edge('e2', 'ctl', 'controls', 'out', 'controls'),
+  ]
+
+  /** One pass at `t`, returning the output's pixels. */
+  function pass(nodes: StudioNode[], edges: StudioEdge[], t: number): Frame | null {
+    const { outputs } = evaluateGraphFull(nodes, edges, t, 4, 4)
+    return (outputs.get('out')?.frame as Frame | null) ?? null
+  }
+
+  it('leaves the fixture lit with the contact open', () => {
+    resetEvaluatorState()
+    // pullup: pressed is digitalRead == LOW, which an unwired preview reads false.
+    expect(pass([white, button, controls, output()], wires, 0)?.[0][0])
+      .toEqual({ r: 255, g: 255, b: 255 })
+  })
+
+  it('carries an absolute level from a knob straight through', () => {
+    resetEvaluatorState()
+    const knob = node('k', 'PotInput', { pin: 4 })
+    const frame = pass(
+      [white, knob, controls, output()],
+      [frameEdge, edge('e1', 'k', 'value', 'ctl', 'brightness'), edge('e2', 'ctl', 'controls', 'out', 'controls')],
+      0,
+    )
+    // PotInput previews at 0.5, and the latch takes it as the level.
+    expect(frame?.[0][0].r).toBeCloseTo(127.5, 1)
+  })
+
+  // Two fixtures, one Player Controls: both go dark, and each keeps its own
+  // state from there. Node outputs are memoised per pass, so the second output
+  // sees the same single press rather than a second one.
+  it('gives each output its own latch', () => {
+    resetEvaluatorState()
+    const second = node('out2', 'MatrixOutput', {
+      form: 'matrix', width: 4, height: 4, chipset: 'WS2812B', colorOrder: 'GRB', dataPin: 6,
+    })
+    const knob = node('k', 'PotInput', { pin: 4 })
+    const { outputs } = evaluateGraphFull(
+      [white, knob, controls, output(), second],
+      [
+        frameEdge, edge('e2', 'c', 'frame', 'out2', 'frame'),
+        edge('e3', 'k', 'value', 'ctl', 'brightness'),
+        edge('e4', 'ctl', 'controls', 'out', 'controls'),
+      ],
+      0, 4, 4,
+    )
+    // Only the wired output dims; the other keeps full level.
+    expect((outputs.get('out')?.frame as Frame)[0][0].r).toBeCloseTo(127.5, 1)
+    expect((outputs.get('out2')?.frame as Frame)[0][0]).toEqual({ r: 255, g: 255, b: 255 })
+  })
+
+  // The composition rule, through the graph rather than through the helper.
+  it('multiplies a wired Brightness by the latched level', () => {
+    resetEvaluatorState()
+    const knob = node('k', 'PotInput', { pin: 4 })
+    const knob2 = node('k2', 'PotInput', { pin: 5 })
+    const frame = pass(
+      [white, knob, knob2, controls, output()],
+      [
+        frameEdge,
+        edge('e1', 'k', 'value', 'ctl', 'brightness'),
+        edge('e2', 'ctl', 'controls', 'out', 'controls'),
+        edge('e3', 'k2', 'value', 'out', 'brightness'),
+      ],
+      0,
+    )
+    // 0.5 from the wire times 0.5 from the latch.
+    expect(frame?.[0][0].r).toBeCloseTo(63.75, 1)
+  })
+})
+
+describe('the emitted sketch, for a bundle', () => {
+  const controls = node('ctl', 'PlayerControls', {})
+  const button = node('b', 'ButtonInput', { pin: 12, pullup: true })
+  const wires = [
+    frameEdge,
+    edge('e1', 'b', 'pressed', 'ctl', 'ledToggle'),
+    edge('e2', 'ctl', 'controls', 'out', 'controls'),
+  ]
+
+  it('emits the bundle, its debounce, and the output latch', () => {
+    const src = generateCpp([white, button, controls, output()], wires)
+    expect(src).toContain('struct PlayerControlsValue')
+    expect(src).toContain('struct CtlEdge')
+    expect(src).toContain('static bool _ledOn_out = true; static float _ledLevel_out = 1.0f;')
+    expect(src).toContain('static CtlEdge _pcE_ctl_ledToggle;')
+    expect(src).toContain('if (n_ctl_controls.ledToggle) _ledOn_out = !_ledOn_out;')
+  })
+
+  // The firmware mirror of composeLedOutputRuntime: the latch is a factor, not
+  // an override, so the wired expression is still in there beside it.
+  it('reads the latch through the same runtime block the wires use', () => {
+    const src = generateCpp([white, button, controls, output()], wires)
+    expect(src).toContain('if (!(_ledOn_out))')
+    expect(src).toContain('constrain(_ledLevel_out, 0.0f, 1.0f)')
+  })
+
+  it('multiplies a wired Brightness by the latched level', () => {
+    const knob = node('k', 'PotInput', { pin: 34 })
+    const src = generateCpp(
+      [white, button, knob, controls, output()],
+      [...wires, edge('e3', 'k', 'value', 'out', 'brightness')],
+    )
+    expect(src).toContain('* _ledLevel_out')
+  })
+
+  // An output nobody has wired a bundle to generates the sketch it always did.
+  it('emits none of it for an output with no Controls wire', () => {
+    const src = generateCpp([white, output()], [frameEdge])
+    expect(src).not.toContain('PlayerControlsValue')
+    expect(src).not.toContain('_ledOn_out')
+    expect(src).not.toContain('CtlEdge')
+  })
+
+  // Repeat where the evaluator repeats: an adjustment ramps while held, an
+  // action fires once per press. Backwards, a blackout button strobes.
+  it('repeats an adjustment button and not an action', () => {
+    const up = node('u', 'ButtonInput', { pin: 13, pullup: true })
+    const src = generateCpp(
+      [white, button, up, controls, output()],
+      [...wires, edge('e3', 'u', 'pressed', 'ctl', 'brightnessUp')],
+    )
+    expect(src).toMatch(/_pcE_ctl_ledToggle\.update\([^)]*, false,/)
+    expect(src).toMatch(/_pcE_ctl_brightnessUp\.update\([^)]*, true,/)
   })
 })

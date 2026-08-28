@@ -222,3 +222,80 @@ describe('beside the other displays', () => {
     expect(src).toContain('static const char _oledChars[]')
   })
 })
+
+
+/*
+ * The panel as a control surface in a normal sketch.
+ *
+ * Until an LED output could latch a bundle there was nothing here for a press
+ * to reach, so validation refused the wire and the generator emitted no touch
+ * sampling at all. Both halves changed together: the panel publishes the same
+ * `playercontrols` bundle a Player Controls node does, resolved from the same
+ * hit geometry the browser preview uses.
+ */
+describe('a touch panel driving an LED output', () => {
+  const wire = (id: string, sc: string, sh: string, t: string, th: string): StudioEdge =>
+    ({ id, source: sc, target: t, sourceHandle: sh, targetHandle: th }) as unknown as StudioEdge
+  const panel = (layout: string) => node('tft', 'TransportDisplay', {
+    partId: 'st7789v-xpt2046-touch-240x320', tftLayout: layout,
+    csPin: 15, dcPin: 2, resetPin: 4, sckPin: 14, mosiPin: 13, backlightPin: 27,
+    touchCsPin: 21, touchIrqPin: 22, touchSckPin: 14, touchMosiPin: 13, touchMisoPin: 12,
+  })
+  const solid = node('c', 'SolidColor', { r: 255, g: 255, b: 255 })
+  const out = node('out', 'MatrixOutput', {
+    form: 'matrix', width: 4, height: 4, chipset: 'WS2812B', colorOrder: 'GRB', dataPin: 5,
+  })
+  const frameWire = wire('ef', 'c', 'frame', 'out', 'frame')
+
+  const build = (layout = 'Show Status') => generateCpp(
+    [solid, panel(layout), out],
+    [frameWire, wire('t', 'tft', 'controls', 'out', 'controls')],
+  )
+
+  it('samples the controller and publishes a bundle', () => {
+    const src = build()
+    expect(src).toContain('struct PlayerControlsValue')
+    expect(src).toContain('PlayerControlsValue n_tft_controls;')
+    expect(src).toContain('_xptPoint(')
+  })
+
+  it('writes the layout actions into that bundle rather than a player transport', () => {
+    const src = build()
+    expect(src).toContain('n_tft_controls.ledToggle = true;')
+    expect(src).toContain('n_tft_controls.hasBrightness = true;')
+    // The player's own transport functions have no definition in a normal
+    // sketch; reaching for one is the failure this parameterisation prevents.
+    for (const symbol of ['changePlayerTrack', 'applyPlayerBrightness', 'audio.pauseResume']) {
+      expect(src).not.toContain(symbol)
+    }
+  })
+
+  it('feeds the output latch from it', () => {
+    const src = build()
+    expect(src).toContain('if (n_tft_controls.ledToggle) _ledOn_out = !_ledOn_out;')
+  })
+
+  // A momentary action fires on the touch-down edge; an absolute slider tracks
+  // while the finger stays down. The evaluator publishes them the same way, so
+  // a held finger cannot fire a button every tick in one and not the other.
+  it('edges the buttons and tracks the sliders', () => {
+    const src = build('Fixed Transport')
+    expect(src).toMatch(/if \(_touchDown_tft && !_touchPrev_tft && \([^)]*\)\) \{ n_tft_controls\.playPause = true; \}/)
+    expect(src).toMatch(/if \(_touchDown_tft && \([^)]*\)\) \{ n_tft_controls\.hasVolume = true;/)
+  })
+
+  // A read-only panel is still valid, and still costs nothing.
+  it('samples nothing for a panel whose Controls output is unwired', () => {
+    const src = generateCpp([solid, panel('Show Status'), out], [frameWire])
+    expect(src).not.toContain('_xptPoint(')
+    expect(src).not.toContain('PlayerControlsValue')
+  })
+
+  // Diagnostics reports coordinates whether or not anything listens, which is
+  // the point of it — you use it to find the calibration numbers.
+  it('still samples for Diagnostics with nothing wired', () => {
+    const src = generateCpp([solid, panel('Diagnostics'), out], [frameWire])
+    expect(src).toContain('_xptPoint(')
+    expect(src).not.toContain('PlayerControlsValue')
+  })
+})

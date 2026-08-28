@@ -163,7 +163,7 @@ describe('NodeGraphCanvas start screen', () => {
     expect(reactFlowProps['aria-label']).toBe('Node graph editor')
     expect(reactFlowProps.nodes).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'source', ariaLabel: 'Solid Color node. 1 input, 1 output.' }),
-      expect.objectContaining({ id: 'output', ariaLabel: 'LED Matrix node. 3 inputs, 0 outputs.' }),
+      expect.objectContaining({ id: 'output', ariaLabel: 'LED Matrix node. 4 inputs, 0 outputs.' }),
     ]))
     expect(reactFlowProps.edges).toEqual([
       expect.objectContaining({

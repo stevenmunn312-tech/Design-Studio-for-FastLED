@@ -138,8 +138,64 @@ describe('displays a build cannot drive', () => {
       [edge('touch', 'transport', 'controls', 'controls', 'controlsIn')],
     )
     expect(issues.errors).toHaveLength(1)
-    expect(issues.errors[0]).toContain('normal sketch does not sample XPT2046 touch yet')
+    // Not "cannot sample touch" any more — it can. The chain simply ends at a
+    // Player Controls with nothing after it, so the press reaches nothing.
+    expect(issues.errors[0]).toContain('does not reach anything a normal sketch can act on')
     expect(issues.errors[0]).toContain('read-only display')
+  })
+
+  /*
+   * The route that used to not exist.
+   *
+   * A normal sketch samples XPT2046 now and publishes the panel's presses as
+   * the same `playercontrols` bundle a Player Controls node does; an LED
+   * output latches the LED half of it. So the question stopped being whether
+   * the generator can read touch and became whether the chain ends anywhere it
+   * can act on.
+   */
+  it('accepts a touch panel wired through to an LED output', () => {
+    const transport = node('transport', 'TransportDisplay', {
+      partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Show Status',
+    })
+    const controls = node('controls', 'PlayerControls')
+    const issues = findDisplayGeneratorIssues(
+      [out(), transport, controls],
+      [
+        edge('touch', 'transport', 'controls', 'controls', 'controlsIn'),
+        edge('latch', 'controls', 'controls', 'out', 'controls'),
+      ],
+    )
+    expect(issues.errors).toEqual([])
+  })
+
+  it('accepts one wired straight to the output, with no Player Controls between', () => {
+    const transport = node('transport', 'TransportDisplay', {
+      partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Show Status',
+    })
+    const issues = findDisplayGeneratorIssues(
+      [out(), transport],
+      [edge('latch', 'transport', 'controls', 'out', 'controls')],
+    )
+    expect(issues.errors).toEqual([])
+  })
+
+  // Music Player is not somewhere a *normal* sketch can act on: it renders as
+  // a black fill there, so a chain ending at one still reaches nothing.
+  it('still refuses a chain that only reaches a Music Player in a plain sketch', () => {
+    const transport = node('transport', 'TransportDisplay', {
+      partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Fixed Transport',
+    })
+    const master = node('master', 'PatternMaster')
+    const controls = node('controls', 'PlayerControls')
+    const issues = findDisplayGeneratorIssues(
+      [out(), transport, controls, master],
+      [
+        edge('touch', 'transport', 'controls', 'controls', 'controlsIn'),
+        edge('cmd', 'controls', 'controls', 'master', 'controls'),
+      ],
+    )
+    expect(issues.errors).toHaveLength(1)
+    expect(issues.errors[0]).toContain('does not reach anything a normal sketch can act on')
   })
 
   it('surfaces the same ignored-touch failure in live Graph Health', () => {
@@ -155,7 +211,7 @@ describe('displays a build cannot drive', () => {
       id: 'display-generator-error-0',
       severity: 'error',
       nodeIds: ['transport'],
-      message: expect.stringContaining('normal sketch does not sample XPT2046 touch yet'),
+      message: expect.stringContaining('does not reach anything a normal sketch can act on'),
     }))
   })
 

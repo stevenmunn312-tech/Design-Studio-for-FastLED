@@ -314,6 +314,38 @@ applies it so the main matrix, per-output previews, offline recordings and the
 live stream cannot disagree, and `ledOutputRuntimeCpp.ts` applies it after the
 blit, where every geometry branch has converged on the physical array.
 
+A third port, **Controls**, takes the `playercontrols` bundle. It is not a
+value like the other two: it carries a *toggle* and a *delta*, which only mean
+anything against something that remembers the last press. That something is a
+per-output latch — `blankLedOutputLatch` / `applyLedControls` in the same
+module, mirrored by `ledOutputLatchCpp` in `codegen/playerControlsCpp.ts`.
+
+The three combine rather than override each other: ANDed for blackout,
+multiplied for level, in `composeLedOutputRuntime`. That is the rule this
+section already states for every other factor, and it means neither port needs
+a precedence story — an unwired one contributes its identity and disappears. A
+blackout button a wired Enabled could veto is not a blackout button, which is
+why blackout is the AND and not the multiply.
+
+An LED output reads exactly three fields of the bundle: `ledToggle`,
+`brightnessDelta` and an optional absolute `brightness`. A fixture has no
+opinion about play/pause, previous, next, volume or which pattern is
+highlighted; those travel down the same wire to a Music Player and are ignored
+here. `LedControlSignal` names the three, structurally rather than importing
+the evaluator's `PlayerControls`, so the honest statement of what an output
+does with a bundle is in the type.
+
+This is what a touch panel needed to be routable in a normal sketch. Before it,
+`PlayerControls` had no emit case there at all — the bundle's only consumers
+were the Music Player, which a normal sketch renders as a black fill, and
+another Player Controls. A press had nowhere to land, so validation refused the
+wire. It now lands on a fixture. `codegen/playerControlsCpp.ts` emits the
+bundle from ordinary graph wires (the debounce and repeat numbers read from
+`state/transportBridge.ts`, the detent size from `state/patternSelection.ts`),
+and `tftTouchServiceCpp` takes a **sink** — the player's own transport
+functions, or a bundle local — so which rectangle is which action stays
+resolved once from the shared geometry rather than copied per generator.
+
 Master speed is one `MasterSpeed` node, because the shared clock it scales is
 one clock and cannot be per output. It scales that clock rather than rewriting
 per-node speeds, so a graph's dozen individual rates keep their relationships
@@ -439,12 +471,18 @@ does, so a Pattern Browser and the pixels cannot come to disagree about which
 pattern is playing.
 
 Drawing is not commanding, and the two are separately gated. A show has no
-transport for play/pause, previous, next or volume to reach, so a wired Controls
-output is refused there just as it is in a normal sketch — and the touch service
-is not emitted at all, because it calls the player's own transport functions and
-a sketch without them would fail to compile on a line no generator wrote. A
-Diagnostics panel still samples touch, since it only reports coordinates. An
-unwired touch panel stays valid as a read-only display.
+transport for play/pause, previous, next or volume to reach, and no LED-output
+runtime either — it drops Enabled, Brightness and Controls alike — so a wired
+Controls output is refused there, and its touch service is not emitted at all
+outside Diagnostics, because it would call player transport functions a show
+controller does not define. A normal sketch is the case that changed: it now
+samples the panel and publishes the bundle, so the question there is not
+whether the generator can read touch but whether the chain ends somewhere it
+can act on. `controlChainSinks` answers that in one walk — an LED output's
+latch is somewhere, a Music Player in a plain sketch is not. A Diagnostics
+panel still samples touch whatever is wired, since reporting coordinates is
+how you find the calibration numbers. An unwired touch panel stays valid as a
+read-only display.
 
 Which generator a graph would *actually* build with therefore has to be exact.
 `selectedGenerator` mirrors the upload path's order, and both arms of

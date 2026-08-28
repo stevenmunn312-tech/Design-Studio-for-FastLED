@@ -14,7 +14,9 @@ import { getNetworkCredentials } from '../state/networkCredentials'
 import { collectPinUses } from '../build/hardwareManifest'
 import { browserThumbnailIssues } from './browserThumbnails'
 import { transportArtworkIssues } from './transportArtworks'
-import { displayControlsPlayer, playerDisplaysFromGraph, SHOW_DISPLAY_EXPRESSIONS } from '../codegen/playerDisplays'
+import {
+  controlChainSinks, displayControlsPlayer, playerDisplaysFromGraph, SHOW_DISPLAY_EXPRESSIONS,
+} from '../codegen/playerDisplays'
 import { OLED_PANEL_RAM_BYTES } from '../codegen/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../codegen/segmentDisplayCpp'
 import { TFT_PANEL_RAM_BYTES } from '../codegen/tftDisplayCpp'
@@ -1269,17 +1271,21 @@ export function findOutputRuntimeIssues(
 
   const speedErrors = masterSpeedGeneratorErrors(nodes, generator)
 
+  // `controls` joins the other two: it is the same run-time control of the
+  // same output, latched rather than read directly, and a generator that drops
+  // Enabled drops it for exactly the same reason.
+  const RUNTIME_PORTS = new Set(['enabled', 'brightness', 'controls'])
   const wired = nodes.filter((node) => node.data.nodeType === 'MatrixOutput'
     && edges.some((edge) => edge.target === node.id
-      && (edge.targetHandle === 'enabled' || edge.targetHandle === 'brightness')))
+      && RUNTIME_PORTS.has(String(edge.targetHandle))))
   if (wired.length === 0) return { errors: speedErrors }
 
   const errors: string[] = []
   const names = wired.map((node) => nodeLabel(node)).join(', ')
   errors.push(generator === 'player'
-    ? `${names}: a music-player build cannot read Enabled or Brightness wired to the LED output. `
-      + 'Wire the button or knob to Player Controls (LED On / Off, Brightness) instead — it reaches the same place through the transport the player already reads.'
-    : `${names}: a generated show controller cannot read Enabled or Brightness wired to the LED output, so the firmware would ignore them. `
+    ? `${names}: a music-player build cannot read Enabled, Brightness or Controls wired to the LED output. `
+      + 'Wire the button or knob to Player Controls (LED On / Off, Brightness) and on to Music Player instead — it reaches the same place through the transport the player already reads.'
+    : `${names}: a generated show controller cannot read Enabled, Brightness or Controls wired to the LED output, so the firmware would ignore them. `
       + 'Export it through Upload show to SD and drive them from Player Controls, or remove the wires before exporting a show.')
 
   return { errors: [...errors, ...speedErrors] }
@@ -1330,10 +1336,17 @@ export function findDisplayGeneratorIssues(
     const props = display.data.properties as Record<string, unknown>
     if (!partById(String(props.partId ?? ''))?.display?.touchController) continue
     const controlsWired = edges.some((edge) => edge.source === display.id && edge.sourceHandle === 'controls')
-    if (controlsWired && generator === 'sketch') {
+    // A normal sketch samples the panel and publishes its bundle now, so the
+    // question is no longer whether the generator can read touch but whether
+    // the chain ends anywhere it can act on. An LED output's blackout and
+    // dimming latch is that somewhere; Music Player is not, because a normal
+    // sketch renders a Music Player as a black fill.
+    if (controlsWired && generator === 'sketch'
+      && !controlChainSinks(display.id, edges as never, nodeById as never).has('output')) {
       errors.push(
-        `${nodeLabel(display)} has its Controls output wired, but a normal sketch does not sample XPT2046 touch yet. `
-        + 'Disconnect Controls to use the panel as a read-only display, or export a music-player build through Upload show to SD.',
+        `${nodeLabel(display)} has its Controls output wired, but the chain does not reach anything a normal sketch can act on. `
+        + "Wire it through to an LED output's Controls input to drive blackout and brightness, "
+        + 'disconnect it to use the panel as a read-only display, or export a music-player build through Upload show to SD.',
       )
     } else if (controlsWired && generator === 'show') {
       // Not "not yet": a generative show has nothing for play/pause, previous,
