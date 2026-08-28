@@ -59,7 +59,32 @@ export function bakeEnvelope(analysis: SongAnalysis, rateHz = ENVELOPE_RATE_HZ):
     treble[k] = a.treble + (b.treble - a.treble) * f
   }
   agcNormalize(bass, mids, treble, rateHz)
-  return { rateHz, bass, mids, treble }
+  const levels = analysis.channelLevels
+  if (!levels?.length) return { rateHz, bass, mids, treble }
+
+  const leftLevel: number[] = new Array(frameCount)
+  const rightLevel: number[] = new Array(frameCount)
+  let li = 0
+  for (let k = 0; k < frameCount; k++) {
+    const tms = (k / rateHz) * 1000
+    while (li < levels.length - 1 && levels[li + 1].t <= tms) li++
+    const a = levels[li]
+    const b = levels[Math.min(levels.length - 1, li + 1)]
+    const span = b.t - a.t
+    const f = span > 0 ? Math.max(0, Math.min(1, (tms - a.t) / span)) : 0
+    leftLevel[k] = Math.max(0, Math.min(1, a.left + (b.left - a.left) * f))
+    rightLevel[k] = Math.max(0, Math.min(1, a.right + (b.right - a.right) * f))
+  }
+  return {
+    version: 2,
+    rateHz,
+    bass,
+    mids,
+    treble,
+    leftLevel,
+    rightLevel,
+    channelCount: analysis.channelCount === 2 ? 2 : 1,
+  }
 }
 
 // ── Palette map: mood → palette name ─────────────────────────────────────────
@@ -595,9 +620,15 @@ export const SHOW_TRANSITIONS = Object.keys(TRANSITION_IDS)
 export function showFileToBinary(show: ShowFile): ArrayBuffer {
   const headerBytes = 4 + 1 + 2 + 4 + 4   // magic + version + bpm + duration + count
   const eventBytes  = show.events.length * (4 + 1 + 1 + 4 * 3)  // worst case 3 params (PARTICLE_BURST)
-  // Optional trailing audio envelope: rate(1) + frameCount(4) + 3 bytes/frame.
+  // Legacy envelope: rate(1) + frameCount(4) + 3 bytes/frame. Version 2 uses
+  // AENV(4) + version(1) + rate(1) + channels(1) + frameCount(4) + 5 bytes/frame.
   const env = show.audio
-  const envBytes = env ? 1 + 4 + env.bass.length * 3 : 0
+  const envFrames = env?.bass.length ?? 0
+  const stereoEnv = !!env
+    && env.version === 2
+    && env.leftLevel?.length === envFrames
+    && env.rightLevel?.length === envFrames
+  const envBytes = env ? (stereoEnv ? 11 + envFrames * 5 : 5 + envFrames * 3) : 0
   const buf = new ArrayBuffer(headerBytes + eventBytes + envBytes)
   const view = new DataView(buf)
   let off = 0
@@ -632,18 +663,28 @@ export function showFileToBinary(show: ShowFile): ArrayBuffer {
     for (const p of params) { view.setFloat32(off, p, true); off += 4 }
   }
 
-  // Audio envelope block (after all events): rate(1) + frameCount(4) + per frame
-  // 3 bytes (bass, mids, treble) as 0–255. Old players simply stop after the
-  // events and ignore this trailing data.
+  // Audio envelope block after all events. Untagged legacy files retain their
+  // exact 3-byte frame layout. New files use a tagged/versioned five-byte frame
+  // so the two channel levels can evolve without overloading the old format.
   if (env) {
     const n = env.bass.length
+    if (stereoEnv) {
+      view.setUint8(off++, 0x41); view.setUint8(off++, 0x45) // "AENV"
+      view.setUint8(off++, 0x4E); view.setUint8(off++, 0x56)
+      view.setUint8(off++, 2)
+    }
     view.setUint8(off++, env.rateHz)
+    if (stereoEnv) view.setUint8(off++, env.channelCount === 2 ? 2 : 1)
     view.setUint32(off, n, true); off += 4
     const q = (v: number) => Math.max(0, Math.min(255, Math.round(v * 255)))
     for (let i = 0; i < n; i++) {
       view.setUint8(off++, q(env.bass[i]))
       view.setUint8(off++, q(env.mids[i]))
       view.setUint8(off++, q(env.treble[i]))
+      if (stereoEnv) {
+        view.setUint8(off++, q(env.leftLevel![i]))
+        view.setUint8(off++, q(env.rightLevel![i]))
+      }
     }
   }
 

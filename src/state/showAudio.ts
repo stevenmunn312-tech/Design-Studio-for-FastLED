@@ -5,6 +5,7 @@
 // react to the song identically in the preview and on-device.
 import type { AudioEnvelope } from '../types/showFile'
 import type { AudioOverride } from './graphEvaluator'
+import { resolveStereoLevels } from '../audio/stereoLevels'
 
 export const SPECTRUM_BINS = 32
 // Coarse band → bin split. MUST match playerSketchGenerator's `_audioSpectrum`
@@ -21,15 +22,26 @@ function clamp01(v: number): number {
 export function sampleEnvelope(
   env: AudioEnvelope,
   ms: number,
-): { bass: number; mids: number; treble: number } {
+): { bass: number; mids: number; treble: number; leftLevel: number; rightLevel: number; channelCount: 1 | 2 } {
   const n = env.bass.length
-  if (n === 0) return { bass: 0, mids: 0, treble: 0 }
+  if (n === 0) return { bass: 0, mids: 0, treble: 0, leftLevel: 0, rightLevel: 0, channelCount: 1 }
   const pos = (ms / 1000) * env.rateHz
   const i = Math.max(0, Math.min(n - 1, Math.floor(pos)))
   const j = Math.min(n - 1, i + 1)
   const frac = pos - i
   const lerp = (a: number[]) => a[i] + (a[j] - a[i]) * frac
-  return { bass: clamp01(lerp(env.bass)), mids: clamp01(lerp(env.mids)), treble: clamp01(lerp(env.treble)) }
+  const bass = clamp01(lerp(env.bass))
+  const mids = clamp01(lerp(env.mids))
+  const treble = clamp01(lerp(env.treble))
+  const levels = resolveStereoLevels({
+    leftLevel: env.leftLevel?.length === n ? lerp(env.leftLevel) : undefined,
+    rightLevel: env.rightLevel?.length === n ? lerp(env.rightLevel) : undefined,
+    channelCount: env.channelCount,
+    bass,
+    mids,
+    treble,
+  })
+  return { bass, mids, treble, leftLevel: levels.left, rightLevel: levels.right, channelCount: levels.channelCount }
 }
 
 /** Build the coarse 32-bin spectrum the firmware fills from the three bands. */
@@ -54,7 +66,7 @@ export function showAudioSpectrum(env: AudioEnvelope | undefined, ms: number): n
 export function showAudioOverride(env: AudioEnvelope | undefined, ms: number): AudioOverride | null {
   const spectrum = showAudioSpectrum(env, ms)
   if (!env || !spectrum) return null
-  const { bass, mids, treble } = sampleEnvelope(env, ms)
+  const { bass, mids, treble, leftLevel, rightLevel, channelCount } = sampleEnvelope(env, ms)
   return {
     active: true,
     micActive: true,
@@ -66,5 +78,8 @@ export function showAudioOverride(env: AudioEnvelope | undefined, ms: number): A
     micTreble: treble,
     spectrum,
     detectorSpectrum: spectrum,
+    leftLevel,
+    rightLevel,
+    channelCount,
   }
 }

@@ -9,6 +9,10 @@ build/architecture overview aimed at contributors.
   — the current Hardware-branch workflow for choosing a board, adding physical
     parts, assigning pins, connecting signal nodes, switching LED preview
     routes, deploying firmware, and using the embedded Output/Serial console.
+- [Stereo VU Meter](user/stereo-vu-meter.md)
+  — adding and wiring paired side strings, stereo/mono source behavior, all
+    twelve visualizations, direction/current safety, baked fallback compatibility,
+    and the bench-evidence checklist.
 
 ## Architecture
 

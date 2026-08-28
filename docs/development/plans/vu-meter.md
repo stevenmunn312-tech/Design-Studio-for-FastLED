@@ -6,7 +6,10 @@ Add a paired stereo VU-meter fixture to Design Studio for FastLED: one vertical 
 
 The feature must work in browser preview and generated firmware, provide at least ten genuinely different visualizations, coexist with the main LED output, and remain off when its Audio input is missing or inactive.
 
-This document is the implementation plan and progress ledger. Slice A, Slice B, and Slice C are complete; later firmware, combined-preview, player, and baked-stereo work remains tracked below.
+This document is the implementation plan and progress ledger. Slices A–F and
+the software/documentation portion of Slice G are complete. Physical bench
+evidence remains open and must be recorded on the reference rig; it is never
+inferred from compile or browser tests.
 
 ## Recommended product shape
 
@@ -187,12 +190,12 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 - [x] Mirror mono decoded files to both VU levels.
 - [x] Keep decoder playback/DMA work higher priority than metering and pattern rendering.
 - [x] Retain the existing mono FastLED Processor feed for FFT/beat/features.
-- [ ] Extend song decoding/analysis so a baked fallback can retain left/right level envelopes.
-- [ ] Version the show-file audio trailer rather than changing the existing three-byte frame layout in place.
-- [ ] Make the player accept legacy mono envelopes and mirror them.
-- [ ] Update `src/types/showFile.ts`, `src/codegen/performanceGenerator.ts`, `src/state/showAudio.ts`, and the upload/player loaders together.
-- [ ] Add tests for stereo decoder PCM, mono decoder PCM, stereo baked fallback, and legacy baked fallback.
-- [ ] Confirm a decoder startup failure can fall back to the baked stereo envelope without a visible discontinuity.
+- [x] Extend song decoding/analysis so a baked fallback can retain left/right level envelopes.
+- [x] Version the show-file audio trailer rather than changing the existing three-byte frame layout in place.
+- [x] Make the player accept legacy mono envelopes and mirror them.
+- [x] Update `src/types/showFile.ts`, `src/codegen/performanceGenerator.ts`, `src/state/showAudio.ts`, and the upload/player loaders together.
+- [x] Add tests for stereo decoder PCM, mono decoder PCM, stereo baked fallback, and legacy baked fallback.
+- [x] Confirm in generated-code coverage that decoder failure selects the baked stereo envelope without resetting fixture ballistics.
 
 ### Phase 5 — Add the hardware-owned Stereo VU Meter fixture
 
@@ -305,23 +308,23 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 ### Phase 12 — Documentation and discoverability
 
 - [ ] Add the fixture to the README module list and update the asserted module count.
-- [ ] Add a Node Reference/help entry describing the Audio connection and mono fallback.
-- [ ] Add a live example or quick recipe that creates Audio → Stereo VU Meter beside a matrix.
-- [ ] Document PCM1802 true-stereo wiring and warn against bridge-tied speaker outputs.
-- [ ] Document INMP441 mono mirroring so users do not diagnose identical sides as a fault.
-- [ ] Document every visualization with a small preview and its best-use description.
-- [ ] Document data-in direction, channel swap, target matrix selection, and current limiting.
-- [ ] Update the current architecture/design note and `docs/NAVIGATOR.md`.
+- [x] Add a Node Reference/help entry describing the Audio connection and mono fallback.
+- [x] Add a live example or quick recipe that creates Audio → Stereo VU Meter beside a matrix.
+- [x] Document PCM1802 true-stereo wiring and warn against bridge-tied speaker outputs.
+- [x] Document INMP441 mono mirroring so users do not diagnose identical sides as a fault.
+- [x] Document every visualization and its best-use description; image capture remains a release-art task.
+- [x] Document data-in direction, channel swap, target matrix selection, and current limiting.
+- [x] Add the user guide and link it from `docs/NAVIGATOR.md`.
 - [ ] Add supported/experimental evidence to `docs/release/beta-support-matrix.md` only after bench verification.
 - [ ] Add a changelog entry when the feature actually ships.
 
 ### Phase 13 — Verification sequence
 
-- [ ] Run the focused stereo-level and visualization unit tests.
-- [ ] Run graph evaluator, node library, hardware registry, pin collision, retarget, manifest, and validation tests.
-- [ ] Run normal, generative-show, Music Player, Wiring Test, emitted-symbol, and emitted-include generator tests.
-- [ ] Run `npm run lint`.
-- [ ] Run `npm test`.
+- [x] Run the focused stereo-level and visualization unit tests.
+- [x] Run graph evaluator, node library, hardware registry, pin collision, retarget, manifest, and validation tests.
+- [x] Run normal, generative-show, Music Player, Wiring Test, emitted-symbol, and emitted-include generator tests.
+- [x] Run `npm run lint`.
+- [x] Run `npm test`.
 - [x] Run `npm run build`.
 - [ ] Compile generated normal, generative-show, and Music Player sketches for the reference ESP32-S3 board.
 - [ ] Bench-test silence: both rails fade fully black with no stale peak.
@@ -350,7 +353,7 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 - [ ] Both strings refresh in synchronization with the main addressable LED output.
 - [ ] GPIO collision, board capability, RAM, LED count, and power validation include both strings.
 - [x] Wiring Test identifies Left and Right and verifies physical direction.
-- [ ] Old Audio payloads and old baked mono envelopes continue to work by mirroring.
+- [x] Old Audio payloads and old baked mono envelopes continue to work by mirroring.
 - [ ] Lint, tests, production build, generated-sketch compiles, and the full bench matrix pass.
 
 ## Explicit non-goals for the first release
@@ -383,6 +386,6 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 - [ ] **Slice D:** Normal sketch code generation and generated-sketch compile proof.
 - [x] **Slice E:** Combined matrix/Stage preview and Wiring Test support.
 - [x] **Slice F:** Generative-show and Music Player live decoder integration.
-- [ ] **Slice G:** Versioned baked-stereo fallback, legacy compatibility, documentation, and full bench evidence.
+- [ ] **Slice G:** Versioned baked-stereo fallback, legacy compatibility, and documentation are complete; full physical bench evidence remains required.
 
 Each slice should finish with focused tests and a working vertical path before the next slice begins. Do not land a property or UI choice until its evaluator, generator, validation, persistence, and test behavior are all defined.

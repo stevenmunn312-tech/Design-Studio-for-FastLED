@@ -1124,9 +1124,12 @@ bool      _audioBeat = false;
 float     _audioSpectrum[32];
 ` : ''}${bakedAudio ? `
 // Song-analysis envelope retained as a decoder startup/failure fallback.
-uint8_t*  audioEnv = nullptr;        // frameCount * 3 bytes (bass, mids, treble)
+uint8_t*  audioEnv = nullptr;        // frameCount * stride bytes
 uint32_t  audioEnvFrames = 0;
 uint8_t   audioEnvRate = 50;
+uint8_t   audioEnvStride = 3;        // legacy: B/M/T; v2: B/M/T/L/R
+uint8_t   audioEnvChannels = 1;
+uint8_t   audioEnvVersion = 1;
 ` : ''}
 ${decoderTap ? `
 // ESP32-audioI2S calls audio_process_i2s() after decode/gain and immediately
@@ -1205,15 +1208,38 @@ bool loadShowFile(const char* path) {
     }
   }
 ${bakedAudio ? `
-  // Trailing audio envelope: rate(1) + frameCount(4) + 3 bytes/frame.
+  // Audio trailer. Legacy files are untagged B/M/T frames. Version 2 starts
+  // with AENV and adds explicit channel count plus left/right RMS bytes.
   if (f.available() >= 5) {
-    audioEnvRate = f.read();
-    uint8_t cb[4]; f.read(cb, 4);
-    audioEnvFrames = ((uint32_t)cb[0])|((uint32_t)cb[1]<<8)|((uint32_t)cb[2]<<16)|((uint32_t)cb[3]<<24);
     if (audioEnv) free(audioEnv);
-    audioEnv = (uint8_t*)malloc(audioEnvFrames * 3);
-    if (audioEnv) f.read(audioEnv, audioEnvFrames * 3);
-    else audioEnvFrames = 0;
+    audioEnv = nullptr;
+    audioEnvFrames = 0;
+    audioEnvStride = 3;
+    audioEnvChannels = 1;
+    audioEnvVersion = 1;
+    uint32_t trailerStart = f.position();
+    uint8_t tag[4]; f.read(tag, 4);
+    bool tagged = tag[0]=='A' && tag[1]=='E' && tag[2]=='N' && tag[3]=='V';
+    if (tagged && f.available() >= 7) {
+      audioEnvVersion = f.read();
+      audioEnvRate = f.read();
+      audioEnvChannels = f.read() == 2 ? 2 : 1;
+      audioEnvStride = audioEnvVersion == 2 ? 5 : 0;
+    } else {
+      f.seek(trailerStart);
+      audioEnvRate = f.read();
+    }
+    uint8_t cb[4];
+    if (audioEnvStride && f.read(cb, 4) == 4) {
+      uint32_t frames = ((uint32_t)cb[0])|((uint32_t)cb[1]<<8)|((uint32_t)cb[2]<<16)|((uint32_t)cb[3]<<24);
+      uint32_t remaining = (uint32_t)f.available();
+      if (audioEnvRate > 0 && frames <= remaining / audioEnvStride) {
+        audioEnv = (uint8_t*)malloc(frames * audioEnvStride);
+        if (audioEnv && f.read(audioEnv, frames * audioEnvStride) == frames * audioEnvStride)
+          audioEnvFrames = frames;
+        else { if (audioEnv) free(audioEnv); audioEnv = nullptr; }
+      }
+    }
   }
 ` : ''}  f.close();
   eventIdx = 0;
@@ -1226,6 +1252,7 @@ void updateShowAudio(uint32_t ms) {
   _audioBeat = false;
   if (!audioEnv || audioEnvFrames == 0) {
     _audioBass = _audioMids = _audioTreble = 0;
+    _audioLeftLevel = _audioRightLevel = 0;
     for (int b = 0; b < 32; b++) _audioSpectrum[b] = 0;
     return;
   }
@@ -1234,9 +1261,18 @@ void updateShowAudio(uint32_t ms) {
   if (i >= audioEnvFrames) i = audioEnvFrames - 1;
   uint32_t j = (i + 1 < audioEnvFrames) ? i + 1 : i;
   float frac = fpos - (float)i;
-  _audioBass   = (audioEnv[i*3+0] + (audioEnv[j*3+0] - audioEnv[i*3+0]) * frac) / 255.0f;
-  _audioMids   = (audioEnv[i*3+1] + (audioEnv[j*3+1] - audioEnv[i*3+1]) * frac) / 255.0f;
-  _audioTreble = (audioEnv[i*3+2] + (audioEnv[j*3+2] - audioEnv[i*3+2]) * frac) / 255.0f;
+  uint32_t ib = i * audioEnvStride, jb = j * audioEnvStride;
+  _audioBass   = (audioEnv[ib+0] + (audioEnv[jb+0] - audioEnv[ib+0]) * frac) / 255.0f;
+  _audioMids   = (audioEnv[ib+1] + (audioEnv[jb+1] - audioEnv[ib+1]) * frac) / 255.0f;
+  _audioTreble = (audioEnv[ib+2] + (audioEnv[jb+2] - audioEnv[ib+2]) * frac) / 255.0f;
+  if (audioEnvStride >= 5) {
+    _audioLeftLevel = (audioEnv[ib+3] + (audioEnv[jb+3] - audioEnv[ib+3]) * frac) / 255.0f;
+    _audioRightLevel = (audioEnv[ib+4] + (audioEnv[jb+4] - audioEnv[ib+4]) * frac) / 255.0f;
+    if (audioEnvChannels != 2) _audioRightLevel = _audioLeftLevel;
+  } else {
+    // One legacy fallback rule: the mean mono bands drive both rails.
+    _audioLeftLevel = _audioRightLevel = (_audioBass + _audioMids + _audioTreble) / 3.0f;
+  }
   // Coarse spectrum so BeatDetect/PercussionDetect still respond (bass→low bins,
   // mids→mid, treble→high). Approximate — full baked spectrum is a follow-up.
   for (int b = 0; b < 32; b++)

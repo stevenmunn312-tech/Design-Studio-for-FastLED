@@ -136,7 +136,7 @@ async function analyzeViaWorker(
 // ── Public API ────────────────────────────────────────────────────────────────
 export async function analyzeSong(file: File, onProgress?: (p: number) => void): Promise<SongAnalysis> {
   const decodeStart = performance.now()
-  const { mono, sampleRate, durationMs } = await decodeToMono(file, SAMPLE_RATE)
+  const { mono, sampleRate, durationMs, channelLevels, channelCount } = await decodeToMono(file, SAMPLE_RATE)
   recordPerfTask('musicDecode', performance.now() - decodeStart)
   // Decode is the only main-thread stage we can measure; the WASM passes run in
   // the worker as one opaque call, so progress jumps to "done" when it resolves.
@@ -146,7 +146,7 @@ export async function analyzeSong(file: File, onProgress?: (p: number) => void):
     const analyzeStart = performance.now()
     const analysis = await analyzeViaWorker(mono, sampleRate, durationMs, title)
     recordPerfTask('musicAnalyze', performance.now() - analyzeStart, { mode: 'worker' })
-    return analysis
+    return { ...analysis, channelLevels, channelCount }
   } catch (err) {
     const message = formatWorkerError(err)
     console.warn(`Essentia worker failed; retrying on the main thread. ${message}`)
@@ -154,6 +154,6 @@ export async function analyzeSong(file: File, onProgress?: (p: number) => void):
     const analyzeStart = performance.now()
     const analysis = await analyzeDecodedSong(mono, sampleRate, durationMs, title)
     recordPerfTask('musicAnalyze', performance.now() - analyzeStart, { mode: 'main-thread' })
-    return analysis
+    return { ...analysis, channelLevels, channelCount }
   }
 }

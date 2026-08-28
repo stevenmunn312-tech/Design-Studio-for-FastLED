@@ -113,15 +113,33 @@ describe('Music Player Stereo VU fixture', () => {
     expect(cpp.match(new RegExp(STEREO_GLOBAL_MARKER.replace(/[{}]/g, '\\$&'), 'g'))).toHaveLength(1)
   })
 
-  it('renders live decoder levels before one synchronized show and leaves baked mono fallback inactive for Slice G', () => {
+  it('parses stereo and legacy baked fallbacks without resetting fixture state', () => {
+    const fallbackMeters = stereoVuEmitsFromGraph(
+      [node('audio', 'Audio', { sourceId: 'music' }), meter],
+      [edge('audio-vu', 'audio', 'out', 'side-vu', 'audio')],
+      { active: '(_decoderTapLive || audioEnvFrames > 0)', left: '_audioLeftLevel', right: '_audioRightLevel', beat: '_audioBeat' },
+    )
     const cpp = generatePlayerSketch({}, renderers, {
-      stereoVuMeters: playerMeters, audioEnvelope: true,
+      stereoVuMeters: fallbackMeters, audioEnvelope: true,
     })
-    expect(cpp).toContain('paldef_party, _decoderTapLive, _audioLeftLevel, _audioRightLevel, _audioBeat, millis()')
+    expect(cpp).toContain("tag[0]=='A' && tag[1]=='E' && tag[2]=='N' && tag[3]=='V'")
+    expect(cpp).toContain('audioEnvStride = audioEnvVersion == 2 ? 5 : 0;')
+    expect(cpp).toContain('_audioLeftLevel = (audioEnv[ib+3]')
+    expect(cpp).toContain('_audioLeftLevel = _audioRightLevel = (_audioBass + _audioMids + _audioTreble) / 3.0f;')
+    expect(cpp).toContain('paldef_party, (_decoderTapLive || audioEnvFrames > 0), _audioLeftLevel, _audioRightLevel, _audioBeat, millis()')
     expect(cpp.indexOf('_stereoVuRender(_vuState_side_vu')).toBeLessThan(cpp.lastIndexOf('FastLED.show();'))
     expect(cpp).toContain('if (!_decoderTapLive) updateShowAudio(posMs);')
-    expect(cpp).not.toContain('_audioLeftLevel = _audioBass')
     expect(cpp.match(/FastLED\.show\(\);/g)).toHaveLength(1)
+  })
+
+  it('activates the baked fallback through the real upload assembly path', () => {
+    const nodes = [...baseNodes, node('audio', 'Audio', { sourceId: 'music' }), meter]
+    const edges = [...baseEdges, edge('audio-vu', 'audio', 'out', 'side-vu', 'audio')]
+    const cpp = buildShowPlayer(nodes, edges, groups, {
+      patternSet: ['pattern'], bakedAudio: true, preferredTrack: 'Track', genericPlayer: false,
+    })
+    expect(cpp).toContain('(_decoderTapLive || audioEnvFrames > 0)')
+    expect(cpp).toContain('if (!_decoderTapLive) updateShowAudio(posMs);')
   })
 
   it('omits the fixture and decoder tap without an explicit Audio wire', () => {
@@ -163,9 +181,17 @@ describe.skipIf(process.env.STEREO_VU_FIXED_COMPILE !== '1')('fixed-generator ES
       [edge('audio-vu', 'audio', 'out', 'side-vu', 'audio')],
       { active: '_decoderTapLive', left: '_audioLeftLevel', right: '_audioRightLevel', beat: '_audioBeat' },
     )
+    const fallbackMeters = stereoVuEmitsFromGraph(
+      [node('audio', 'Audio', { sourceId: 'music' }), meter],
+      [edge('audio-vu', 'audio', 'out', 'side-vu', 'audio')],
+      { active: '(_decoderTapLive || audioEnvFrames > 0)', left: '_audioLeftLevel', right: '_audioRightLevel', beat: '_audioBeat' },
+    )
     const sketches = [
       ['Stereo VU generative show', generateShowSketch(showNodes, showEdges, groups)],
       ['Stereo VU music player', generatePlayerSketch({}, renderers, { stereoVuMeters: playerMeters })],
+      ['Stereo VU baked fallback player', generatePlayerSketch({}, renderers, {
+        stereoVuMeters: fallbackMeters, audioEnvelope: true,
+      })],
     ] as const
     const directory = mkdtempSync(path.join(os.tmpdir(), 'stereo-vu-fixed-proof-'))
     const proof = [

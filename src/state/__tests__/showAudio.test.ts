@@ -53,5 +53,28 @@ describe('showAudio envelope sampling', () => {
     expect(o.micTreble).toBeCloseTo(0.8)
     expect(o.detectorSpectrum[0]).toBeCloseTo(0.4) // bass bin
     expect(o.detectorSpectrum[SPECTRUM_BINS - 1]).toBeCloseTo(0.8) // treble bin
+    expect(o.leftLevel).toBeCloseTo(0.6)
+    expect(o.rightLevel).toBeCloseTo(0.6)
+    expect(o.channelCount).toBe(1)
+  })
+
+  it('retains baked stereo levels and labels mono mirrors honestly', () => {
+    const stereo = showAudioOverride({
+      version: 2, rateHz: 10,
+      bass: [0.2, 0.2], mids: [0.3, 0.3], treble: [0.4, 0.4],
+      leftLevel: [0.8, 0.6], rightLevel: [0.2, 0.4], channelCount: 2,
+    }, 50)!
+    expect(stereo.leftLevel).toBeCloseTo(0.7)
+    expect(stereo.rightLevel).toBeCloseTo(0.3)
+    expect(stereo.channelCount).toBe(2)
+
+    const mono = showAudioOverride({
+      version: 2, rateHz: 10,
+      bass: [0], mids: [0], treble: [0],
+      leftLevel: [0.45], rightLevel: [0.45], channelCount: 1,
+    }, 0)!
+    expect(mono.leftLevel).toBeCloseTo(0.45)
+    expect(mono.rightLevel).toBeCloseTo(0.45)
+    expect(mono.channelCount).toBe(1)
   })
 })

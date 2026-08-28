@@ -129,7 +129,8 @@ export function buildShowPlayer(
     : undefined
   const particleFx = playerParticlesFromGraph(nodes, edges)
   const stereoVuMeters = stereoVuEmitsFromGraph(nodes, edges, {
-    active: '_decoderTapLive', left: '_audioLeftLevel', right: '_audioRightLevel', beat: '_audioBeat',
+    active: opts.bakedAudio ? '(_decoderTapLive || audioEnvFrames > 0)' : '_decoderTapLive',
+    left: '_audioLeftLevel', right: '_audioRightLevel', beat: '_audioBeat',
   })
   // FastLED's audio processor is sizeable. Link it when a compiled pattern
   // consumes audio or Player Particles needs live beat events.
@@ -137,7 +138,7 @@ export function buildShowPlayer(
     || particleFx?.enabled === true
     || stereoVuMeters.length > 0
   return generatePlayerSketch(playerConfigFromGraph(nodes, edges, opts.fqbn), renderers, {
-    audioEnvelope: opts.bakedAudio && !!renderers,
+    audioEnvelope: opts.bakedAudio && (!!renderers || stereoVuMeters.length > 0),
     decoderTap,
     preferredTrack: opts.preferredTrack,
     genericPlayer: opts.genericPlayer,

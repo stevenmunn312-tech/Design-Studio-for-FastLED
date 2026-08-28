@@ -43,10 +43,16 @@ export interface ShowFile {
 }
 
 export interface AudioEnvelope {
+  /** Version 2 is a tagged trailer carrying stereo VU levels. Omitted means
+   * the legacy untagged three-band trailer. */
+  version?: 2
   rateHz: number         // frames per second (e.g. 50)
   bass: number[]         // 0–1, one entry per frame
   mids: number[]         // 0–1
   treble: number[]       // 0–1
+  leftLevel?: number[]   // 0–1 short-window RMS; absent in legacy envelopes
+  rightLevel?: number[]  // 0–1; mirrors left for mono sources
+  channelCount?: 1 | 2
 }
 
 // ── Song analysis output from musicAnalyzer ───────────────────────────────────
@@ -65,6 +71,14 @@ export interface EnergyPoint {
   overall: number        // 0-1
 }
 
+/** Lightweight channel envelope retained beside the mono musical analysis.
+ * It is deliberately not a second FFT path. */
+export interface StereoLevelPoint {
+  t: number
+  left: number
+  right: number
+}
+
 export interface SongSection {
   startMs: number
   endMs: number
@@ -77,6 +91,8 @@ export interface SongAnalysis {
   durationMs: number
   beats: BeatInfo
   energy: EnergyPoint[]  // sampled every ~100ms
+  channelLevels?: StereoLevelPoint[]
+  channelCount?: 1 | 2
   sections: SongSection[]
   mood: {
     energy: number       // 0-1 (calm → energetic)

@@ -2,7 +2,7 @@
 // Shared utilities for the Essentia.js offline analyzer: decoding a file to
 // mono PCM and deriving labelled song sections from a normalised energy envelope.
 
-import type { EnergyPoint, SongSection } from '../types/showFile'
+import type { EnergyPoint, SongSection, StereoLevelPoint } from '../types/showFile'
 
 export const ENERGY_HOP_MS = 100
 
@@ -10,6 +10,8 @@ export interface DecodedAudio {
   mono:       Float32Array
   sampleRate: number
   durationMs: number
+  channelLevels: StereoLevelPoint[]
+  channelCount: 1 | 2
 }
 
 const MIX_CHUNK_SAMPLES = 131_072
@@ -21,7 +23,39 @@ function yieldToMainThread(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
 
-/** Decode an audio File to a mono Float32Array at the requested sample rate. */
+/** Measure short-window channel RMS without running a second FFT analysis. */
+export function extractStereoLevelEnvelope(
+  left: ArrayLike<number>,
+  right: ArrayLike<number>,
+  sampleRate: number,
+  channelCount: 1 | 2,
+): StereoLevelPoint[] {
+  const hop = Math.max(1, Math.round(sampleRate * ENERGY_HOP_MS / 1000))
+  const length = Math.min(left.length, channelCount === 2 ? right.length : left.length)
+  const result: StereoLevelPoint[] = []
+  for (let start = 0; start < length; start += hop) {
+    const end = Math.min(length, start + hop)
+    let leftSquares = 0
+    let rightSquares = 0
+    for (let i = start; i < end; i++) {
+      const l = Math.max(-1, Math.min(1, Number(left[i]) || 0))
+      const r = channelCount === 2
+        ? Math.max(-1, Math.min(1, Number(right[i]) || 0))
+        : l
+      leftSquares += l * l
+      rightSquares += r * r
+    }
+    const count = Math.max(1, end - start)
+    result.push({
+      t: (start / sampleRate) * 1000,
+      left: Math.sqrt(leftSquares / count),
+      right: Math.sqrt(rightSquares / count),
+    })
+  }
+  return result
+}
+
+/** Decode an audio File to mono PCM plus a lightweight channel-level track. */
 export async function decodeToMono(file: File, sampleRate = 44100): Promise<DecodedAudio> {
   const arrayBuffer = await file.arrayBuffer()
   const ctx = new AudioContext({ sampleRate })
@@ -33,11 +67,19 @@ export async function decodeToMono(file: File, sampleRate = 44100): Promise<Deco
   }
 
   const { length, numberOfChannels } = audioBuffer
+  const leftChannel = audioBuffer.getChannelData(0)
+  const rightChannel = numberOfChannels > 1 ? audioBuffer.getChannelData(1) : leftChannel
+  const channelCount: 1 | 2 = numberOfChannels > 1 ? 2 : 1
+  const channelLevels = extractStereoLevelEnvelope(
+    leftChannel, rightChannel, audioBuffer.sampleRate, channelCount,
+  )
   if (numberOfChannels === 1) {
     return {
-      mono: audioBuffer.getChannelData(0).slice(),
+      mono: leftChannel.slice(),
       sampleRate: audioBuffer.sampleRate,
       durationMs: audioBuffer.duration * 1000,
+      channelLevels,
+      channelCount,
     }
   }
   const mono = new Float32Array(length)
@@ -64,7 +106,13 @@ export async function decodeToMono(file: File, sampleRate = 44100): Promise<Deco
     }
   }
 
-  return { mono, sampleRate: audioBuffer.sampleRate, durationMs: audioBuffer.duration * 1000 }
+  return {
+    mono,
+    sampleRate: audioBuffer.sampleRate,
+    durationMs: audioBuffer.duration * 1000,
+    channelLevels,
+    channelCount,
+  }
 }
 
 /**

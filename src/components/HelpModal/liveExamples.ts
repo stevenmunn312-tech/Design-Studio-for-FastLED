@@ -1313,7 +1313,7 @@ const STEREO_VU_METER_LIVE_EXAMPLE = namedExample(
   ],
   [{ source: 'audio', sourceHandle: 'audio', target: 'target', targetHandle: 'audio' }],
   'Stereo VU Meter is a hardware-owned terminal: one explicit Audio cable drives paired left/right addressable strings while the ordinary LED output keeps rendering the main frame. Add the fixture from Hardware, then choose which LED output it visually flanks.',
-  'The LED Matrix preview stays a calm solid colour. The separate Stereo VU Meter node represents the two side rails; its live visualization arrives with the shared renderer slice.',
+  'The LED Matrix preview stays a calm solid colour while the separate Stereo VU Meter node shows both live rails. Mono sources intentionally move both sides together; stereo sources can move them independently.',
 )
 
 // The three text nodes produce a `string`, which is bound for an auxiliary

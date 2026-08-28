@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { detectSections, normalizeEnergy } from '../songAnalysisCommon'
+import { detectSections, extractStereoLevelEnvelope, normalizeEnergy } from '../songAnalysisCommon'
 import type { EnergyPoint } from '../../types/showFile'
 
 // Build an energy envelope sampled every 100ms with a constant `overall` level.
@@ -22,6 +22,19 @@ describe('normalizeEnergy', () => {
     const pts = envelope([0, 0, 0])
     normalizeEnergy(pts)
     expect(pts.every(p => p.overall === 0)).toBe(true)
+  })
+})
+
+describe('extractStereoLevelEnvelope', () => {
+  it('retains independent stereo RMS and mirrors mono without an FFT pass', () => {
+    const stereo = extractStereoLevelEnvelope([1, 1, 0, 0], [0, 0, 0.5, 0.5], 20, 2)
+    expect(stereo).toEqual([
+      { t: 0, left: 1, right: 0 },
+      { t: 100, left: 0, right: 0.5 },
+    ])
+    const mono = extractStereoLevelEnvelope([0.25, -0.25], [], 20, 1)
+    expect(mono[0].left).toBeCloseTo(0.25)
+    expect(mono[0].right).toBeCloseTo(0.25)
   })
 })
 

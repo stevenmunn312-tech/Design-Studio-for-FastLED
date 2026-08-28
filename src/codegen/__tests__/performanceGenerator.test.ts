@@ -455,6 +455,35 @@ describe('bakeEnvelope + baked audio', () => {
     expect(view.byteLength).toBe(off + frames * 3)      // 3 bytes/frame, nothing trailing
     expect(view.getUint8(off + 50 * 3)).toBe(255)       // frame 50 bass (1.0) → 255
   })
+
+  it('writes a tagged version-2 trailer with independent stereo levels', () => {
+    const stereoAnalysis: SongAnalysis = {
+      ...withEnergy,
+      channelCount: 2,
+      channelLevels: [
+        { t: 0, left: 0.8, right: 0.2 },
+        { t: 2000, left: 0.4, right: 0.6 },
+      ],
+    }
+    const show = generateShow(stereoAnalysis)
+    expect(show.audio).toMatchObject({ version: 2, channelCount: 2 })
+    expect(show.audio!.leftLevel![0]).toBeCloseTo(0.8)
+    expect(show.audio!.rightLevel![0]).toBeCloseTo(0.2)
+
+    const view = new DataView(showFileToBinary(show))
+    let off = 15
+    const count = view.getUint32(11, true)
+    for (let i = 0; i < count; i++) { off += 5; const pc = view.getUint8(off); off += 1 + pc * 4 }
+    expect(String.fromCharCode(...new Uint8Array(view.buffer, off, 4))).toBe('AENV')
+    off += 4
+    expect(view.getUint8(off++)).toBe(2)
+    expect(view.getUint8(off++)).toBe(50)
+    expect(view.getUint8(off++)).toBe(2)
+    const frames = view.getUint32(off, true); off += 4
+    expect(view.byteLength).toBe(off + frames * 5)
+    expect(view.getUint8(off + 3)).toBeCloseTo(Math.round(0.8 * 255), 0)
+    expect(view.getUint8(off + 4)).toBeCloseTo(Math.round(0.2 * 255), 0)
+  })
 })
 
 describe('showFileToBinary — version 2 collection shows', () => {
