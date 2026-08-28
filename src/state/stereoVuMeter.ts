@@ -164,7 +164,8 @@ function hash(value: string): number {
   return result >>> 0
 }
 
-function shuffledModes(key: string): number[] {
+/** Deterministic mode order shared with generated firmware. */
+export function stereoVuShuffleOrder(key: string): number[] {
   const result = STEREO_VU_MODES.map((_, index) => index)
   let seed = hash(key || 'StereoVuMeter') || 1
   for (let i = result.length - 1; i > 0; i--) {
@@ -203,7 +204,7 @@ export function blankStereoVuState(settings: StereoVuSettings, timeSec = 0): Ste
     previousBeat: false,
     policyMode: STEREO_VU_MODES.indexOf(settings.mode),
     policyAt: timeSec,
-    shuffleOrder: shuffledModes(settings.instanceKey),
+    shuffleOrder: stereoVuShuffleOrder(settings.instanceKey),
   }
 }
 

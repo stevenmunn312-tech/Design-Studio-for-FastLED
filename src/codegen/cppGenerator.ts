@@ -90,6 +90,14 @@ import { resolveWireframeMesh, meshBoundingRadius, WIREFRAME_FIT_MARGIN, WIREFRA
 import { resolveAudioCapabilitySource } from '../state/audioCapabilities'
 import { amplifierIdleCpp } from './amplifierIdle'
 import { buttonBankHandle, normalizeButtonBankEntries } from '../state/buttonBank'
+import {
+  STEREO_VU_CPP_FORWARD,
+  STEREO_VU_CPP_HELPERS,
+  stereoVuGlobalCpp,
+  stereoVuLoopCpp,
+  stereoVuPaletteId,
+  type StereoVuEmit,
+} from './stereoVuMeterCpp'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -1618,6 +1626,21 @@ export function generateCpp(
   }
 
   const sorted = topoSort(live, edges)
+  const stereoVuMeters: StereoVuEmit[] = sorted
+    .filter((node) => node.data.nodeType === 'StereoVuMeter' && hasExplicitAudioInput(node.id))
+    .map((node) => {
+      const p = props(node)
+      return {
+        id: safeId(node.id),
+        properties: p,
+        leftPin: sanitizePin(p.leftDataPin, 5),
+        rightPin: sanitizePin(p.rightDataPin, 6),
+        activeExpr: p.enabled === false ? 'false' : emitEngine ? '(bool)_audioProcessor' : 'true',
+        leftExpr: '_audioLeftLevel',
+        rightExpr: '_audioRightLevel',
+        beatExpr: '_audioBeat',
+      }
+    })
 
   /*
    * The node feeding the output used to fill its own `buf_` and then have the
@@ -6490,7 +6513,14 @@ export function generateCpp(
           ln(`  ::memmove(leds, ${src}, sizeof(CRGB) * NUM_LEDS);`)
         }
         for (const line of ledOutputRuntimeCpp(outputRuntimeEmit(node, 'leds', String(physLeds)))) ln(line)
-        ln(`  FastLED.show();`)
+        if (stereoVuMeters.length === 0) ln(`  FastLED.show();`)
+        break
+      }
+
+      case 'StereoVuMeter': {
+        const meter = stereoVuMeters.find((candidate) => candidate.id === id)
+        if (meter) ln(stereoVuLoopCpp(meter))
+        else ln(`  // Stereo VU Meter omitted: no reachable, resolved Audio connection.`)
         break
       }
 
@@ -6569,6 +6599,7 @@ export function generateCpp(
   if (infoDisplays.length > 0) lines.push(INFO_DISPLAY_CPP_FORWARD)
   if (segmentDisplays.length > 0) lines.push(SEGMENT_DISPLAY_CPP_FORWARD)
   if (tftDisplays.length > 0) lines.push(TFT_DISPLAY_CPP_FORWARD)
+  if (stereoVuMeters.length > 0) lines.push(STEREO_VU_CPP_FORWARD)
   if (nodes.some((n) => n.data.nodeType === 'InfoDisplay'
     && asInfoDisplayLayout((n.data.properties as { infoLayout?: unknown }).infoLayout) === 'Pattern Browser')) {
     lines.push(PATTERN_SELECTION_CPP_FORWARD)
@@ -6683,6 +6714,11 @@ export function generateCpp(
     lines.push(``)
   }
 
+  if (stereoVuMeters.length > 0) {
+    lines.push(STEREO_VU_CPP_HELPERS)
+    lines.push(``)
+  }
+
   // Emitted only for a Pattern Browser. A table nothing reads is flash a build
   // with no browser should not be paying for, and a player sketch with a real
   // collection already runs into the high eighties as a percentage.
@@ -6789,6 +6825,9 @@ export function generateCpp(
     lines.push(``)
   }
 
+
+  for (const meter of stereoVuMeters) usedPalettes.add(stereoVuPaletteId(meter.properties))
+
   if (emitRtcHelpers) {
     lines.push(...rtcHelperCpp())
   }
@@ -6834,6 +6873,9 @@ export function generateCpp(
   lines.push(...customPaletteDeclarationsCpp(usedPalettes))
   lines.push(``)
 
+  for (const meter of stereoVuMeters) lines.push(stereoVuGlobalCpp(meter))
+  if (stereoVuMeters.length > 0) lines.push(``)
+
   // File-scope code from Code nodes (helpers, persistent vars, palettes).
   if (globalLines.length) {
     lines.push(...globalLines)
@@ -6861,6 +6903,27 @@ export function generateCpp(
   } else {
     lines.push(...fastledSetupCpp(hw, (ss || ringMap || corkscrewMap) ? { ledCountMacro: physLeds } : {}))
   }
+  for (const meter of stereoVuMeters) {
+    const meterHw = ledHardwareFromProps(meter.properties)
+    lines.push(...fastledSetupCpp(meterHw, {
+      dataPinMacro: `VU_LEFT_PIN_${meter.id}`,
+      brightness: null,
+      ledCountMacro: `VU_LEDS_${meter.id}`,
+      ledsName: `_vuLeft_${meter.id}`,
+      controllerName: `_vuLeftController_${meter.id}`,
+    }))
+    lines.push(...fastledSetupCpp(meterHw, {
+      dataPinMacro: `VU_RIGHT_PIN_${meter.id}`,
+      brightness: null,
+      ledCountMacro: `VU_LEDS_${meter.id}`,
+      ledsName: `_vuRight_${meter.id}`,
+      controllerName: `_vuRightController_${meter.id}`,
+    }))
+  }
+  if (stereoVuMeters.length > 0) {
+    lines.push(`  // The fixture scales its own pixels first; the Board's FastLED master brightness`)
+    lines.push(`  // and global power limiter then apply to the matrix and both rails together.`)
+  }
   // HUB75 has no FastLED CLEDController registered, so setMaxPowerInVoltsAndMilliamps
   // would have nothing to throttle.
   if (powerLimit && !isHub75) lines.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${volts}, ${milliamps});`)
@@ -6874,7 +6937,7 @@ export function generateCpp(
   if (needsT.v) lines.push(...masterClockLoopCpp(masterSpeedEmit))
   lines.push(...loopLines)
   if (needsT.v) lines.push(...masterSpeedUpdateCpp(masterSpeedEmit))
-  if (multipleOutputs || !sorted.some((n) => n.data.nodeType === 'MatrixOutput')) {
+  if (multipleOutputs || stereoVuMeters.length > 0 || !sorted.some((n) => n.data.nodeType === 'MatrixOutput')) {
     lines.push(`  FastLED.show();`)
   }
   lines.push(`  FastLED.delay(16);  // ~60 fps`)
