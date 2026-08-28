@@ -13,19 +13,31 @@ import {
 
 const BOARD: HardwarePartBox = { id: 'board', widthMm: 25.6, heightMm: 55 }
 const MIC: HardwarePartBox = { id: 'mic', widthMm: 20.5, heightMm: 14.5 }
-const STRIP: HardwarePartBox = { id: 'led-string', widthMm: 1305, heightMm: 8.41 }
+/** One WS2812B pitch, which is every part of that LED: a panel's grid, a
+ *  string drawn as one row of it, a VU rail as one column. */
+const PITCH_MM = 10
+const STRIP: HardwarePartBox = {
+  id: 'led-string',
+  widthMm: 60 * PITCH_MM,
+  heightMm: PITCH_MM,
+}
+/** A 16x8 panel of the same LED. */
+const PANEL: HardwarePartBox = {
+  id: 'panel',
+  widthMm: 16 * PITCH_MM,
+  heightMm: 8 * PITCH_MM,
+  emitterMm: PITCH_MM,
+}
 
 const STAGE = { width: 1000, height: 400, offsetX: 0 }
 
-/** WS2812B tape: 60 LEDs at a 21.75 mm pitch on 8.41 mm ribbon. */
-const PITCH_MM = 21.75
 const RUN_STRIP: HardwarePartBox = {
   ...STRIP,
   run: { axis: 'x', units: 60, unitMm: PITCH_MM },
 }
 const VU_RAIL: HardwarePartBox = {
   id: 'vu',
-  widthMm: 110,
+  widthMm: 6 * PITCH_MM,
   heightMm: 60 * PITCH_MM,
   run: { axis: 'y', units: 60, unitMm: PITCH_MM },
 }
@@ -377,11 +389,51 @@ describe('hardware arrangement', () => {
     expect(strip.width).toBeLessThan(STRIP.widthMm * strip.mmScale)
   })
 
+  /*
+   * Every WS2812B is the same component, so the bench draws it the same size
+   * wherever it appears. A run is the one part that can drift: its own
+   * compressed scale comes from a diagonal its length dominates, so it takes
+   * the emitter size the panel beside it has already settled.
+   */
+  it.each([
+    { what: 'a string', id: 'led-string', run: RUN_STRIP },
+    { what: 'a VU rail', id: 'vu', run: VU_RAIL },
+  ])('draws one LED of $what the size a panel of the same LED draws one', ({ id, run }) => {
+    const { parts } = arrange([BOARD, PANEL, run], [
+      { source: 'board', target: 'panel' },
+      { source: 'board', target: id },
+    ])
+    const byId = index(parts)
+    // Emitter to emitter, each through its own part's scale: the panel draws
+    // sixteen LEDs across its width, the run one per pitch.
+    const panelEmitter = byId.get('panel')!.width / 16
+    expect(byId.get(id)!.mmScale * PITCH_MM).toBeCloseTo(panelEmitter, 6)
+  })
+
+  it('does not take its emitter from a panel built on a different LED', () => {
+    // A HUB75 panel is a genuinely denser part — 4 mm pixels against 10 — and
+    // matching a string to it would draw the string as the part it is not.
+    const hub75: HardwarePartBox = {
+      id: 'panel',
+      widthMm: 64 * 4,
+      heightMm: 32 * 4,
+      emitterMm: 4,
+    }
+    const { parts } = arrange([BOARD, hub75, RUN_STRIP], [
+      { source: 'board', target: 'panel' },
+      { source: 'board', target: 'led-string' },
+    ])
+    const byId = index(parts)
+
+    expect(byId.get('led-string')!.mmScale * PITCH_MM)
+      .toBeGreaterThan(byId.get('panel')!.width / 64)
+  })
+
   it('leaves a run that already fits alone', () => {
     const short: HardwarePartBox = {
       id: 'led-string',
       widthMm: 4 * PITCH_MM,
-      heightMm: 8.41,
+      heightMm: PITCH_MM,
       run: { axis: 'x', units: 4, unitMm: PITCH_MM },
     }
     const { parts } = arrange([BOARD, short], [CHAIN[1]])

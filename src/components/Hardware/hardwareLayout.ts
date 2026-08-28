@@ -53,6 +53,14 @@ export interface HardwarePartBox {
   widthMm: number
   heightMm: number
   run?: HardwarePartRun
+  /**
+   * The pitch this part draws its LEDs on, when it draws them on a grid. A run
+   * carries the same figure on its `run`; this is how a part that is *not* a
+   * run declares one, so a run can be drawn at the size the bench already draws
+   * that LED at. Left unset by anything without a grid of emitters — a board, a
+   * module, a ring.
+   */
+  emitterMm?: number
 }
 
 /** Where a run was cut, measured in emitters. */
@@ -219,13 +227,17 @@ const SCALE_COMPRESSION = 1 / 3
  * The smallest an emitter may be drawn before a run stops being a picture of
  * LEDs.
  *
- * This is what sizes a run, because a run's compressed size is derived from a
- * diagonal its length dominates, and a metre of 8 mm tape compressed that way
- * draws a hairline: correct to its own aspect ratio and a picture of nothing.
- * What is recognisable about tape is its emitters, so the emitter is what the
- * scale is set from, and the cross-section follows it. Breaking cannot help
- * here — it removes emitters without making the remaining ones any bigger —
- * so length is bounded separately, below.
+ * A run cannot be sized the way every other part is, because its compressed
+ * size comes from a diagonal its length dominates: a metre of tape compressed
+ * that way draws a hairline, correct to its own aspect ratio and a picture of
+ * nothing. What is recognisable about a run is its emitters, so the emitter is
+ * what its scale is set from and the cross-section follows. Breaking cannot
+ * help here — it removes emitters without making the remaining ones any bigger
+ * — so length is bounded separately, below.
+ *
+ * This figure is the fallback. Where the bench already draws that same LED on a
+ * panel, the run takes its size from there instead, so one component is one
+ * size; see `partScale`.
  *
  * Held as a share of the band rather than as a pixel count, so that it shrinks
  * with everything else. A fixed floor would make a run the one thing the
@@ -487,10 +499,19 @@ function arrangeAtBand(
   const partScale = new Map(parts.map((part) => {
     const scale = normalise * rawScale(part)
     if (!part.run) return [part.id, scale]
-    // A run is drawn at whatever scale keeps one emitter visible; the break
-    // below is what stops the length that implies from leaving the stage.
+    // The same LED, drawn the same size. A panel on the bench has already
+    // settled how big this emitter is, and a string whose LEDs draw three times
+    // a panel's reads as a different component rather than as the same one in a
+    // different shape. Equal pitches, so matching the scale matches the emitter.
+    const twin = Math.max(0, ...parts
+      .filter((other) => !other.run && other.emitterMm === part.run?.unitMm)
+      .map((other) => normalise * rawScale(other)))
+    // Nothing to match: a run is then drawn at whatever scale keeps one emitter
+    // visible, and the break below stops the length that implies leaving the
+    // stage. Where there is a twin it wins outright — a run beside a panel is
+    // legible exactly when that panel is, which is the comparison being made.
     const minEmitter = band * RUN_MIN_EMITTER_BANDS
-    return [part.id, Math.max(scale, minEmitter / Math.max(0.001, part.run.unitMm))]
+    return [part.id, twin || Math.max(scale, minEmitter / Math.max(0.001, part.run.unitMm))]
   }))
   const mmScale = partScale.get(anchorId) ?? normalise
 

@@ -1,19 +1,16 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { usePreviewStore } from '../../state/previewStore'
-import { WS2812B_EMITTER } from '../../state/hardware'
-import { TAPE_GLOW } from './ledPreviewGeometry'
+import { EMITTER_GLOW, LED_CELL_FILL } from './ledPreviewGeometry'
 import type { StereoVuFrame } from '../../state/stereoVuMeter'
 
 /*
- * The rail is the same tape stood on end: `.vuRailTape` rotates the render a
- * quarter turn, so the emitter's along-tile axis runs down the rail and its
- * across-tile axis runs across it. The quarter turn takes the render's own +y
- * to screen -x, which is why the across-centre is mirrored rather than used as
- * measured — a tenth of the rail's width, but derived rather than eyeballed.
+ * A rail is a one-column panel: its box is one LED pitch wide and one pitch per
+ * LED tall, so a cell is square and its emitter is the same centred fraction of
+ * it that `HardwareLedPreview` draws on a matrix. Both rails and every other
+ * part therefore light the same shape — this file only differs in reading the
+ * meter's own left/right frame instead of a routed one.
  */
-const RAIL = { along: WS2812B_EMITTER.along, across: WS2812B_EMITTER.across }
-const ALONG = WS2812B_EMITTER.centreAlong
-const ACROSS = 1 - WS2812B_EMITTER.centreAcross
+const INSET = (1 - LED_CELL_FILL) / 2
 
 export default function HardwareVuRailPreview({
   nodeId,
@@ -69,23 +66,23 @@ export default function HardwareVuRailPreview({
           ref={(element) => { refs.current[row] = element }}
           fill="rgb(0 0 0)"
         >
-          {TAPE_GLOW.map((layer, index) => (
+          {EMITTER_GLOW.map((layer, index) => (
             <rect
               key={index}
-              x={ACROSS - (RAIL.across * layer.across / 2)}
-              y={cell.slot + ALONG - (RAIL.along * layer.along / 2)}
-              width={RAIL.across * layer.across}
-              height={RAIL.along * layer.along}
-              rx={RAIL.across * layer.across * 0.5}
+              x={0.5 - (LED_CELL_FILL * layer.along / 2)}
+              y={cell.slot + 0.5 - (LED_CELL_FILL * layer.across / 2)}
+              width={LED_CELL_FILL * layer.along}
+              height={LED_CELL_FILL * layer.across}
+              rx={LED_CELL_FILL * layer.across * 0.5}
               fillOpacity={layer.opacity}
             />
           ))}
           <rect
-            x={ACROSS - (RAIL.across / 2)}
-            y={cell.slot + ALONG - (RAIL.along / 2)}
-            width={RAIL.across}
-            height={RAIL.along}
-            rx={Math.min(RAIL.across, RAIL.along) * 0.22}
+            x={INSET}
+            y={cell.slot + INSET}
+            width={LED_CELL_FILL}
+            height={LED_CELL_FILL}
+            rx={LED_CELL_FILL * 0.22}
           />
         </g>
       ))}

@@ -2,7 +2,6 @@ import { act, render } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import HardwareLedPreview from '../HardwareLedPreview'
 import { usePreviewStore } from '../../../state/previewStore'
-import { WS2812B_EMITTER } from '../../../state/hardware'
 
 function publish(previewFrame: unknown, brightness = 255) {
   act(() => {
@@ -68,29 +67,10 @@ describe('HardwareLedPreview', () => {
     expect(emitters(container)).toEqual(['rgb(10 0 0)', 'rgb(30 0 0)'])
   })
 
-  it('lights the package where the render puts it, not the middle of the tile', () => {
-    const { container } = render(
-      <HardwareLedPreview
-        nodeId="output"
-        cols={1}
-        rows={1}
-        emitter={WS2812B_EMITTER}
-      />,
-    )
-
-    // The 5050 sits right of centre, past the resistor, and is about a quarter
-    // of the pitch wide. A centred half-tile block lights the pads instead.
-    // The package is the last shape in its group; the bloom layers precede it.
-    const core = container.querySelector('svg > g > rect:last-child')!
-    expect(Number(core.getAttribute('width'))).toBeCloseTo(WS2812B_EMITTER.along)
-    expect(Number(core.getAttribute('x')) + (WS2812B_EMITTER.along / 2))
-      .toBeCloseTo(WS2812B_EMITTER.centreAlong)
-    expect(Number(core.getAttribute('y')) + (WS2812B_EMITTER.across / 2))
-      .toBeCloseTo(WS2812B_EMITTER.centreAcross)
-  })
-
-  it('lights a centred square when no emitter was measured for the part', () => {
-    // A panel draws its own LEDs over bare board, where centred is correct.
+  it('lights a centred square cell, whatever the part', () => {
+    // Every part draws its own LEDs over bare board — a string is a one-row
+    // panel — so there is one emitter position and it is the middle of the
+    // cell. The package is the last shape in its group; the bloom precedes it.
     const { container } = render(
       <HardwareLedPreview nodeId="output" cols={1} rows={1} cellFill={0.5} />,
     )
@@ -99,6 +79,7 @@ describe('HardwareLedPreview', () => {
     expect(core.getAttribute('x')).toBe('0.25')
     expect(core.getAttribute('y')).toBe('0.25')
     expect(core.getAttribute('width')).toBe('0.5')
+    expect(core.getAttribute('height')).toBe('0.5')
   })
 
   it('clears the LEDs when the output loses its frame route', () => {

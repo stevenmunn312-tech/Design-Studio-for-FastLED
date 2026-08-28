@@ -4,8 +4,9 @@
  * A 5050 package on a 10 mm pitch covers about half its cell, and that gap is
  * what makes a panel read as discrete LEDs rather than a screen. Shared so the
  * LED output node, the hardware bay and a source node's frame thumbnail all
- * draw the same emitter — a strip laid over a photo of real tape overrides it
- * to 1, because there the tape supplies the gaps.
+ * draw the same emitter. Every part draws its own emitters now — a string and a
+ * VU rail are a one-row and a one-column panel — so there is one answer rather
+ * than one per kind of board.
  */
 export const LED_CELL_FILL = 0.5
 
@@ -34,7 +35,7 @@ export function thumbGrid(w: number, h: number): { cols: number; rows: number } 
  * The light coming off a lit LED, as layers stacked around the package.
  *
  * A real WS2812B blows its own package out to white and throws its colour into
- * a bloom about a pitch wide, spilling well past the edges of the tape. These
+ * a bloom about a pitch wide, spilling well past the edges of the board. These
  * layers stand in for that falloff. A blur is the obvious way to draw it and is
  * exactly what must not be used: this content changes every frame, and a filter
  * over content that changes every frame leaks renderer memory in Chromium —
@@ -50,20 +51,14 @@ export interface EmitterGlowLayer {
 }
 
 /**
- * Tape gets the full stack: its light lands on a photographed PCB beside it and
- * has to look like light landing on a PCB.
+ * One soft layer, for every part.
+ *
+ * Emitters sit on a grid where the next LED is a pitch away, so a bloom much
+ * wider than the package simply washes the board out, and the diffuser above it
+ * already supplies the dome. A second, wider stack existed for the strip while
+ * it was drawn over a photograph of tape and its light had to land on that
+ * photograph; nothing is drawn over a picture any more.
  */
-export const TAPE_GLOW: readonly EmitterGlowLayer[] = [
-  { along: 5, across: 3.2, opacity: 0.1 },
-  { along: 3, across: 2.2, opacity: 0.18 },
-  { along: 1.8, across: 1.5, opacity: 0.34 },
-]
-
-/**
- * A panel keeps one soft layer. It draws its own emitters on a fixed grid where
- * the next LED is a millimetre away, so a bloom a pitch wide would simply wash
- * the panel out, and the diffuser above it already supplies the dome.
- */
-export const PANEL_GLOW: readonly EmitterGlowLayer[] = [
+export const EMITTER_GLOW: readonly EmitterGlowLayer[] = [
   { along: 1.8, across: 1.44, opacity: 0.34 },
 ]

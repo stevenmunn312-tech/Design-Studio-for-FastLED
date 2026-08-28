@@ -1,7 +1,6 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import amplifierRender from '../../assets/components/max98357a-i2s-amplifier.webp'
-import ledSegmentRender from '../../assets/components/ws2812b-led.webp'
 import { useGraphStore, useRootEdges, useRootNodes, type StudioNode } from '../../state/graphStore'
 import { usePreviewStore } from '../../state/previewStore'
 import { useUiStore } from '../../state/uiStore'
@@ -38,9 +37,7 @@ import {
   POT_MODULE_FOOTPRINT_MM,
   ROOT_BOARD_NODE_ID,
   type PartFootprintMm,
-  WS2812B_EMITTER,
   WS2812B_PITCH_MM,
-  WS2812B_STRIP_WIDTH_MM,
 } from '../../state/hardware'
 import {
   corkscrewDiameterMm,
@@ -83,7 +80,15 @@ import {
 import styles from './HardwarePane.module.css'
 
 const MIC_NODE_TYPE = 'MicInput'
-const WS2812B_RENDER_ASPECT = 1273 / 505
+
+/*
+ * The box the two VU rails hang in, across the channels. Each rail is one pitch
+ * of board and the rest is the space between a left and a right channel: enough
+ * that the pair reads as two strings mounted side by side rather than as one
+ * wide panel with its middle missing. `.vuPair` divides this box; the meter has
+ * no board of its own, so nothing else measures it.
+ */
+const VU_PAIR_WIDTH_MM = WS2812B_PITCH_MM * 6
 
 /**
  * The parts that carry signal into the board, and so exist in both views: a
@@ -181,8 +186,7 @@ const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     partId: 'stereo-vu-meter',
     label: 'Stereo VU Meter',
     hint: 'Paired vertical addressable strings for left/right audio level',
-    footprint: { width: 110, height: 600 },
-    render: ledSegmentRender,
+    footprint: { width: VU_PAIR_WIDTH_MM, height: 600 },
     pinFields: [
       { key: 'leftDataPin', label: 'LEFT DATA' },
       { key: 'rightDataPin', label: 'RIGHT DATA' },
@@ -658,6 +662,9 @@ export default function HardwarePane() {
           isStrip,
           isRing,
           isCorkscrew,
+          pitchMm: pitch,
+          /** Emitters on a grid, at `pitchMm` — a panel or a string, not a ring. */
+          gridded: !isRing && !isCorkscrew,
           label: LED_OUTPUT_FORM_LABELS[form],
           cols,
           rows,
@@ -676,26 +683,25 @@ export default function HardwarePane() {
               direction: corkscrewDirection(props),
             }
             : null,
-          // Tape is a line of emitters, so the bench may draw it broken rather
-          // than let a 60-LED run leave the stage. A corkscrew is the same tape
-          // but wound: its length is already bounded by the cylinder it is on.
+          // A string is a line of emitters, so the bench may draw it broken
+          // rather than let a 60-LED run leave the stage. A corkscrew is the
+          // same run but wound: its length is already bounded by the cylinder.
           run: isStrip
-            ? { axis: 'x' as const, units: cols, unitMm: WS2812B_PITCH_MM }
+            ? { axis: 'x' as const, units: cols, unitMm: pitch }
             : null,
-          widthMm: isStrip
-            ? cols * WS2812B_PITCH_MM
-            : isRing
-              ? ringMm
-              : isCorkscrew
-                ? corkscrewDiameterMm(props)
-                : cols * pitch,
-          heightMm: isStrip
-            ? WS2812B_STRIP_WIDTH_MM
-            : isRing
-              ? ringMm
-              : isCorkscrew
-                ? corkscrewHeightMm(props)
-                : rows * pitch,
+          // A string asks for nothing of its own here: its grid is already
+          // `N x 1`, so the plain `cols x rows` of square cells every panel is
+          // sized by draws it as the one-row panel it is.
+          widthMm: isRing
+            ? ringMm
+            : isCorkscrew
+              ? corkscrewDiameterMm(props)
+              : cols * pitch,
+          heightMm: isRing
+            ? ringMm
+            : isCorkscrew
+              ? corkscrewHeightMm(props)
+              : rows * pitch,
           dataPin: Number(props.dataPin ?? 0),
           signalKey: feed ? `${feed.source}:${feed.sourceHandle ?? 'frame'}` : null,
         }
@@ -754,7 +760,7 @@ export default function HardwarePane() {
       ? Math.max(1, Math.round(Number(props.ledCount ?? 16)))
       : null
     const footprint = vuLedCount
-      ? { width: 110, height: vuLedCount * WS2812B_PITCH_MM }
+      ? { width: VU_PAIR_WIDTH_MM, height: vuLedCount * WS2812B_PITCH_MM }
       : chosen?.dimensionsMm ?? entry.footprint
     return [{
       entry: {
@@ -910,6 +916,10 @@ export default function HardwarePane() {
         widthMm: output.widthMm,
         heightMm: output.heightMm,
         run: output.run ?? undefined,
+        // A panel says how big its LED is drawn, so a string of the same LED
+        // can be drawn to match. A ring and a corkscrew place their emitters
+        // around their own shape rather than on a pitch, so they say nothing.
+        emitterMm: output.gridded ? output.pitchMm : undefined,
       })
       links.push({ source: BOARD_PART_ID, target: output.partId })
     }
@@ -994,49 +1004,13 @@ export default function HardwarePane() {
   }
 
   /*
-   * One tile per LED, drawn at true scale: a strip repeats along its length,
-   * a panel tiles both axes, and either way one tile is one real LED rather
-   * than a texture stretched to fit.
+   * The box the layout gave a part, at true scale: exactly one square cell per
+   * LED, so a string is one row of them and a panel is a grid of them.
    */
   const outputStyle = (partId: string): CSSProperties | undefined => {
     const part = placed.get(partId)
-    if (!part || !arrangement) return undefined
-    const box = { left: part.x, top: part.y, width: part.width, height: part.height }
-    // A strip is a photograph of real tape, tiled one segment per LED. A panel
-    // is not tape: squeezing that 2.6:1 segment into a square cell distorted it
-    // into noise, so a panel draws its own emitters over bare PCB instead — and
-    // so does a ring, over a round board.
-    return box
-  }
-
-  /*
-   * The tape a strip is drawn on, as its own layer beneath the emitters.
-   *
-   * Not the button's own background, because then the button carries the mask
-   * that cuts a broken run's middle out — and a mask clips its whole subtree
-   * and isolates it from the backdrop, which takes the LEDs' bloom with it. A
-   * lit strip has to throw light onto the bench, so only the photograph is
-   * masked and the emitters above it are left alone.
-   */
-  const stripTapeStyle = (partId: string): CSSProperties | undefined => {
-    const part = placed.get(partId)
     if (!part) return undefined
-    const tile = WS2812B_PITCH_MM * part.mmScale
-    const tape: CSSProperties = {
-      backgroundImage: `url(${ledSegmentRender})`,
-      backgroundSize: `${tile}px 100%`,
-    }
-    const broken = part.broken
-    const run = brokenRuns.get(partId)
-    if (!broken || !run) return tape
-    // Take the removed middle out of the tape as well as the emitters: a break
-    // is a gap in the part, not a dark patch on an unbroken one. The tiles
-    // either side stay on the same whole-LED grid, because the gap is measured
-    // in whole LEDs.
-    const from = (broken.head / run.span) * 100
-    const to = ((broken.head + broken.gap) / run.span) * 100
-    const cut = `linear-gradient(90deg, #000 0 ${from}%, transparent ${from}% ${to}%, #000 ${to}% 100%)`
-    return { ...tape, maskImage: cut, WebkitMaskImage: cut }
+    return { left: part.x, top: part.y, width: part.width, height: part.height }
   }
 
   /*
@@ -1051,13 +1025,13 @@ export default function HardwarePane() {
    */
   const lensStyle = (partId: string, form: LedOutputForm): CSSProperties | undefined => {
     const part = placed.get(partId)
-    if (!part || !arrangement) return undefined
+    if (!part) return undefined
     // The same pitch the part was sized at, so the tile divides its box exactly
     // and one dome lands on one emitter. `.lens` tiles from the box origin for
     // the same reason — centred tiling puts the domes half a pitch out on any
     // even-sided panel, which is every panel anyone buys.
     const tile = ledPitchMm(form) * part.mmScale
-    return { backgroundSize: form === 'strip' ? `${tile}px 100%` : `${tile}px ${tile}px` }
+    return { backgroundSize: `${tile}px ${tile}px` }
   }
 
   /*
@@ -1084,15 +1058,34 @@ export default function HardwarePane() {
   }
 
   /*
+   * The gradient that takes a broken run's middle out of a layer drawn across
+   * its whole box — the bare board, and the diffuser over it. The emitters need
+   * none: they are drawn per slot and simply leave the gap empty.
+   *
+   * On those layers rather than on the part itself, because a mask clips its
+   * whole subtree and isolates it from the backdrop. Over the live cells that
+   * would take the LEDs' bloom with it, and a run that cannot throw light onto
+   * the bench reads as printed rather than as lit.
+   */
+  const runCutMask = (partId: string): string | undefined => {
+    const part = placed.get(partId)
+    const run = brokenRuns.get(partId)
+    if (!part?.broken || !run) return undefined
+    const from = (part.broken.head / run.span) * 100
+    const to = ((part.broken.head + part.broken.gap) / run.span) * 100
+    // A string runs across its box and a VU rail runs down one.
+    const angle = part.broken.axis === 'x' ? '90deg' : '180deg'
+    return `linear-gradient(${angle}, #000 0 ${from}%, transparent ${from}% ${to}%, #000 ${to}% 100%)`
+  }
+
+  /*
    * Where the two strokes that mark a break are drawn, in world coordinates.
    *
-   * A sibling of the part rather than a child of it: the part masks its own
-   * middle away to make the gap, and a mask takes the element's children with
-   * it. Without the strokes a gap reads as two separate strips rather than one
-   * strip drawn short, which is the entire job of the convention.
+   * A sibling of the part rather than a child of it: the layers that make the
+   * gap are masked, and a mask takes the element's children with it. Without
+   * the strokes a gap reads as two separate strings rather than one string
+   * drawn short, which is the entire job of the convention.
    */
-  const placedBreak = (partId: string) => placed.get(partId)?.broken ?? null
-
   const runBreakStyle = (partId: string): CSSProperties | null => {
     const part = placed.get(partId)
     const run = brokenRuns.get(partId)
@@ -1849,7 +1842,10 @@ export default function HardwarePane() {
               <button
                 type="button"
                 data-hardware-node-id={part.node.id}
-                className={`${styles.part} ${part.entry.render ? '' : styles.partPlaceholder}`}
+                // A meter draws its own two rail boards, so the placeholder
+                // card that stands in for a missing picture would be a third
+                // board behind them.
+                className={`${styles.part} ${part.entry.render || part.entry.nodeType === 'StereoVuMeter' ? '' : styles.partPlaceholder}`}
                 style={partStyle(part.partId)}
                 onClick={(event) => {
                   if (view.consumedByPan()) return
@@ -1868,49 +1864,46 @@ export default function HardwarePane() {
                         part.node.data.properties[`${side.toLowerCase()}Direction`] ?? 'Bottom',
                       )
                       const ledCount = Math.max(1, Math.round(Number(part.node.data.properties.ledCount ?? 16)))
-                      const tileLengthPx = Math.max(
+                      // A rail is a one-column matrix on the same pitch a
+                      // string is: one square cell per LED, so the board is one
+                      // tile wide and its diffuser tiles square over it.
+                      const tilePx = Math.max(
                         2,
                         WS2812B_PITCH_MM * (placed.get(part.partId)?.mmScale ?? 1),
                       )
-                      const tapeWidthPx = tileLengthPx / WS2812B_RENDER_ASPECT
                       // A rail long enough to be drawn broken fills its box
                       // with the slots the break left, not with the LEDs it
                       // has — the count is what the caption is for.
                       const railRun = brokenRuns.get(part.partId) ?? null
-                      const railSpan = railRun?.span ?? ledCount
-                      const railCut = railRun && placedBreak(part.partId)
-                      const tapeMask = railCut
-                        ? `linear-gradient(90deg, #000 0 ${(railCut.head / railSpan) * 100}%, transparent ${(railCut.head / railSpan) * 100}% ${((railCut.head + railCut.gap) / railSpan) * 100}%, #000 ${((railCut.head + railCut.gap) / railSpan) * 100}% 100%)`
-                        : undefined
+                      const railMask = runCutMask(part.partId)
                       return (
                         <span
                           className={`${styles.vuRailWrap} ${side === 'Left' ? styles.vuRailWrapLeft : styles.vuRailWrapRight}`}
-                          style={{ '--vu-tape-width': `${tapeWidthPx}px` } as CSSProperties}
+                          style={{ '--vu-rail-width': `${tilePx}px` } as CSSProperties}
                           key={side}
                         >
                           <span className={styles.vuSideLabel}>{side === 'Left' ? 'L' : 'R'}</span>
-                          <span className={styles.vuRail}>
-                            <span
-                              className={styles.vuRailTape}
-                              style={{
-                                width: railSpan * tileLengthPx,
-                                height: tapeWidthPx,
-                                backgroundImage: `url(${ledSegmentRender})`,
-                                backgroundSize: `${tileLengthPx}px ${tapeWidthPx}px`,
-                                // The tape is rotated a quarter turn into the
-                                // rail, so its own x axis runs down the rail
-                                // and the cut lands where the emitters stop.
-                                maskImage: tapeMask,
-                                WebkitMaskImage: tapeMask,
-                              }}
-                            />
-                          </span>
+                          <span
+                            className={`${styles.vuRail} ${styles.matrix}`}
+                            style={{ maskImage: railMask, WebkitMaskImage: railMask }}
+                          />
                           <HardwareVuRailPreview
                             nodeId={part.node.id}
                             side={side.toLowerCase() as 'left' | 'right'}
                             count={ledCount}
                             dataIn={direction === 'Top' ? 'Top' : 'Bottom'}
                             run={railRun}
+                          />
+                          {/* Over the live cells, as on a panel — and cut by
+                              the same break, so no dome hangs over the gap. */}
+                          <span
+                            className={`${styles.lens} ${styles.vuRailLens}`}
+                            style={{
+                              backgroundSize: `${tilePx}px ${tilePx}px`,
+                              maskImage: railMask,
+                              WebkitMaskImage: railMask,
+                            }}
+                            aria-hidden="true"
                           />
                           <span className={`${styles.vuDataIn} ${direction === 'Top' ? styles.vuDataInTop : styles.vuDataInBottom}`}>
                             DIN
@@ -1991,9 +1984,15 @@ export default function HardwarePane() {
                     : `${output.label}, ${output.cols} by ${output.rows} on pin ${output.dataPin}`}
               >
                 {output.isStrip && (
+                  // A string's board is a layer of its own rather than the
+                  // button's background: only this layer and the diffuser are
+                  // cut where a long run was drawn broken.
                   <span
-                    className={styles.stripTape}
-                    style={stripTapeStyle(output.partId)}
+                    className={`${styles.stripBoard} ${styles.matrix}`}
+                    style={{
+                      maskImage: runCutMask(output.partId),
+                      WebkitMaskImage: runCutMask(output.partId),
+                    }}
                     aria-hidden="true"
                   />
                 )}
@@ -2002,11 +2001,6 @@ export default function HardwarePane() {
                   cols={output.cols}
                   rows={output.rows}
                   cellFill={LED_CELL_FILL}
-                  // Only tape is drawn over a photograph of itself, so only
-                  // tape needs the package located within the picture. A panel
-                  // draws its own emitters over bare board, where a centred
-                  // cell is exactly right.
-                  emitter={output.isStrip ? WS2812B_EMITTER : undefined}
                   ring={output.ring}
                   corkscrew={output.corkscrew}
                   run={brokenRuns.get(output.partId) ?? null}
@@ -2014,10 +2008,14 @@ export default function HardwarePane() {
                 />
                 {/* The diffuser registers one dome per LED against a grid,
                     which a ring's circle of emitters does not have. */}
-                {!output.isStrip && !output.isRing && !output.isCorkscrew && (
+                {!output.isRing && !output.isCorkscrew && (
                   <span
                     className={styles.lens}
-                    style={lensStyle(output.partId, output.form)}
+                    style={{
+                      ...lensStyle(output.partId, output.form),
+                      maskImage: runCutMask(output.partId),
+                      WebkitMaskImage: runCutMask(output.partId),
+                    }}
                     aria-hidden="true"
                   />
                 )}

@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react'
 import { usePreviewStore } from '../../state/previewStore'
 import type { Frame } from '../../state/graphEvaluator'
 import { corkscrewAngleAt, type CorkscrewDirection, type RingDirection } from '../../state/ledOutputForm'
-import { PANEL_GLOW, TAPE_GLOW } from './ledPreviewGeometry'
+import { EMITTER_GLOW } from './ledPreviewGeometry'
 
 /** Half the width of one LED on a ring, in bounding-box fractions — a 5050
  *  package against the ~76 mm circle a 24-LED ring describes. */
@@ -48,7 +48,6 @@ export default function HardwareLedPreview({
   cols,
   rows,
   cellFill = 1,
-  emitter,
   ring,
   corkscrew,
   run,
@@ -66,19 +65,10 @@ export default function HardwareLedPreview({
    *  caps its cell count — in which case the frame is sampled down into it. */
   cols: number
   rows: number
-  /** Fraction of each cell the emitter covers. A strip is drawn over a photo of
-   *  real tape so its cells fill completely; a panel draws its own LEDs, and a
-   *  5050 package on a 10 mm grid covers about half its cell. */
+  /** Fraction of each cell the emitter covers, centred in it. A 5050 package on
+   *  a 10 mm grid covers about half its cell, and that gap is what makes a run
+   *  read as discrete LEDs rather than as a bar. */
   cellFill?: number
-  /**
-   * Where the emitter sits inside one cell, when the cell is a photograph of a
-   * real part rather than bare board: the tape's 5050 package is a quarter of
-   * the pitch wide, two thirds of its width tall, and offset past the resistor.
-   * Lighting a centred `cellFill` square of that tile lights the wrong parts of
-   * it. Omitted, the cell lights centred and square, which is what a panel
-   * drawing its own emitters over blank PCB wants.
-   */
-  emitter?: { centreAlong: number; centreAcross: number; along: number; across: number }
   /** Draw the LEDs around a circle instead of on a grid, and read the frame
    *  through the ring's own XY mapping. A ring should look like a ring — a row
    *  of cells is a picture of a part the user did not buy. */
@@ -157,19 +147,17 @@ export default function HardwareLedPreview({
   )
 
   /*
-   * One emitter, as a box within its cell. Without a measured emitter this is
-   * the centred `cellFill` square a panel has always drawn.
+   * One emitter, as a box within its cell: the centred `cellFill` square every
+   * part draws. It was once offset per part, to land on the package in a
+   * photograph of real tape — nothing is drawn over a photograph now, so a cell
+   * is bare board and centred is where the LED is.
    */
-  const lamp = useMemo(() => {
-    const along = emitter?.along ?? cellFill
-    const across = emitter?.across ?? cellFill
-    return {
-      x: (emitter?.centreAlong ?? 0.5) - (along / 2),
-      y: (emitter?.centreAcross ?? 0.5) - (across / 2),
-      width: along,
-      height: across,
-    }
-  }, [cellFill, emitter])
+  const lamp = useMemo(() => ({
+    x: 0.5 - (cellFill / 2),
+    y: 0.5 - (cellFill / 2),
+    width: cellFill,
+    height: cellFill,
+  }), [cellFill])
 
   /*
    * A lit LED as two shapes: the package itself, and a softer, larger surround
@@ -182,11 +170,6 @@ export default function HardwareLedPreview({
    * avoids filters: this content changes every frame, and a filter over it
    * leaks renderer memory in Chromium.
    */
-  // Tape is drawn over a photograph of a real PCB, so its light has to land on
-  // that PCB; a panel's neighbours are a millimetre away and a bloom that wide
-  // would wash it out.
-  const glow = emitter ? TAPE_GLOW : PANEL_GLOW
-
   const Lamp = ({ x, y, width, height }: {
     x: number
     y: number
@@ -194,7 +177,7 @@ export default function HardwareLedPreview({
     height: number
   }) => (
     <>
-      {glow.map((layer, index) => (
+      {EMITTER_GLOW.map((layer, index) => (
         <rect
           key={index}
           x={x - (width * (layer.along - 1) / 2)}

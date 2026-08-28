@@ -134,25 +134,35 @@ firmware remains one synchronized sketch for one board.
 Exact part options drive the label, pin roles, notes, thumbnail, and workbench
 render. Board and part assets carry verified dimensions.
 
-Where a part is drawn over a photograph of itself, the light has to come out of
-the thing in the picture. `WS2812B_EMITTER` locates the 5050 package within the
-tape render as fractions of one tile — it sits right of centre, past the
-current-limiting resistor, about a quarter of the pitch wide against two thirds
-of the tape's width — so lighting a centred half-tile square, which is what a
-plain cell fraction gives, lights the pads and the resistor instead of the LED.
-The rail rotates the same tile a quarter turn and swaps the axes accordingly. A
-panel takes no emitter: it draws its own LEDs over bare board, where centred is
-correct. Every form draws a lit LED as one group holding the package and
-the bloom around it, all inheriting a single fill, so a frame still costs one
-attribute write per emitter and the glow can never drift out of step with the
-LED. Tape takes the full bloom and a panel one soft layer (`TAPE_GLOW` and
-`PANEL_GLOW`): a real WS2812B blows its package out to white and throws its
-colour about a pitch in every direction, which is what makes tape read as lit
-rather than printed, while the same bloom on a 10 mm panel grid would only wash
-the panel out. It is stacked layers rather than a blur for the reason the rest
-of that file avoids filters — the content changes every frame — and the preview
-overflows its part's box on purpose, because light lands past the edge of the
-tape it is mounted on.
+An LED part is drawn as its own emitters on bare board, never over a photograph
+of itself. A string is a matrix one row high and a VU rail is one column of the
+same thing, so one pitch (`WS2812B_PITCH_MM`) gives a run both its length and
+its square cells, and `LED_CELL_FILL` answers where the LED sits in a cell once
+for every part: the middle of it.
+
+A photograph of real tape used to be drawn under a string and a rail, and it
+cost a second geometry everywhere. The light had to come out of the thing in the
+picture, so an emitter had to be located within the render — right of centre,
+past the current-limiting resistor, about a quarter of the pitch wide against
+two thirds of the tape's width — and the rail had to rotate that tile a quarter
+turn and swap its axes; the bloom needed a second, wider stack so it landed on
+the photographed PCB; and the render's own pitch could not be re-tiled, so a
+panel squeezing that 2.6:1 segment into a square cell turned into noise. A drawn
+LED lands on drawn board by construction, and all of it is gone. The trade is
+that a string is drawn one pitch tall rather than at tape's real 8 mm width: a
+run's length already dominates its box, and square cells are what make it read
+as the row of LEDs it is.
+
+Every form draws a lit LED as one group holding the package and the bloom around
+it, all inheriting a single fill, so a frame costs one attribute write per
+emitter and the glow can never drift out of step with the LED. `EMITTER_GLOW` is
+that bloom — one soft layer, for every part: a real WS2812B blows its package
+out to white and throws its colour about a pitch in every direction, but on a
+grid where the next LED is a pitch away anything wider only washes the board
+out, and the diffuser above already supplies the dome. It is stacked layers
+rather than a blur for the reason the rest of that file avoids filters — the
+content changes every frame — and the preview overflows its part's box on
+purpose, because light lands past the edge of the board it is mounted on.
 
 Graph nodes use compact thumbnails only. The workbench is the recognition view:
 what it owes the user is "this is the module you are holding", not a measurable
@@ -179,27 +189,44 @@ tile) reads that part's own `mmScale` from its `PlacedPart`.
 
 ### Runs are sized by their emitters, and drawn broken
 
-A run of repeated emitters — a strip, a VU rail — is the one part whose
+A run of repeated emitters — a string, a VU rail — is the one part whose
 compressed size is the wrong answer, because the diagonal it is derived from is
 dominated by a length that is a fact about how much tape was bought. Compressed
-that way, a metre of 8 mm tape draws a hairline: true to its own aspect and a
-picture of nothing. So a run is scaled by its *emitter* instead, and its length
-is bounded separately by drawing it **broken** — the mechanical-drawing
-convention for a long part shown short: both ends at true pitch, the middle
-removed, two strokes across the cut, and the real count in the caption. Breaking
-cannot substitute for the emitter scale, because removing emitters does not make
-the remaining ones any bigger.
+that way, a metre of tape draws a hairline: true to its own aspect and a picture
+of nothing. So a run is scaled by its *emitter* instead, and its length is
+bounded separately by drawing it **broken** — the mechanical-drawing convention
+for a long part shown short: both ends at true pitch, the middle removed, two
+strokes across the cut, and the real count in the caption. Breaking cannot
+substitute for the emitter scale, because removing emitters does not make the
+remaining ones any bigger.
+
+How big that emitter is drawn is not a free choice either. Every WS2812B on the
+bench is the same component, so a panel already settles the size of one, and a
+run of the same LED takes its scale from that panel rather than from a floor of
+its own (`emitterMm` on a part box, matched in `partScale`). Otherwise a string
+beside a 32x32 panel drew LEDs three times the panel's and read as a different
+component. The floor (`RUN_MIN_EMITTER_BANDS`) remains for the bench that has no
+panel to match, and a part built on a different LED — a HUB75 panel's 4 mm pixel
+— is deliberately not a match: it is a denser part, and that difference is the
+thing worth seeing.
 
 A two-dimensional panel is not broken: its size is bounded and its shape is
 information.
 
-`hardwareLayout.ts` owns the cut. The drawn box, the tape photograph behind it
-and the live emitters over it all read that one answer, so the picture and the
+`hardwareLayout.ts` owns the cut. The drawn box, the bare board behind it and
+the live emitters over it all read that one answer, so the picture and the
 geometry cannot drift apart, and a broken run's cells name the emitters they
 really are: the LED after the break is LED 59, not the LED that would sit there
 had the run been drawn whole. The cut is deliberately independent of the band —
 every length in it scales with the band together — so the shrink-to-fit pass
 cannot make a run gain or lose emitters as it narrows the bench around it.
+
+The gap is masked into the board layer and the diffuser over it, never into the
+part itself: a mask clips its whole subtree and isolates it from the backdrop,
+which over the live cells would take the LEDs' bloom with it and leave a lit run
+looking printed. The emitters need no mask at all — they are drawn per slot and
+simply leave the gap empty — and the two strokes across the cut are a sibling of
+the part for the same reason.
 
 ### The bench is a bus, not a dataflow column
 

@@ -375,9 +375,29 @@ describe('HardwarePane', () => {
    * got a diffuser tiled at addressable tape's 10 mm.
    */
   it.each([
-    { form: 'matrix', props: { form: 'matrix', width: 16, height: 8 }, cols: 16, rows: 8 },
-    { form: 'hub75', props: { form: 'hub75', chipset: 'HUB75', width: 64, height: 32 }, cols: 64, rows: 32 },
-  ])('tiles the $form diffuser at one dome per LED', ({ props, cols, rows }) => {
+    {
+      form: 'matrix',
+      props: { form: 'matrix', width: 16, height: 8 },
+      cols: 16,
+      rows: 8,
+      label: '[aria-label*=" by "]',
+    },
+    {
+      form: 'hub75',
+      props: { form: 'hub75', chipset: 'HUB75', width: 64, height: 32 },
+      cols: 64,
+      rows: 32,
+      label: '[aria-label*=" by "]',
+    },
+    // A string is a panel one row high, and takes the same diffuser for it.
+    {
+      form: 'strip',
+      props: { form: 'strip', ledCount: 24 },
+      cols: 24,
+      rows: 1,
+      label: '[aria-label*=" LEDs on pin "]',
+    },
+  ])('tiles the $form diffuser at one dome per LED', ({ props, cols, rows, label }) => {
     useGraphStore.setState({
       nodes: [
         node('Board', ROOT_BOARD_NODE_ID, { profileId: DEFAULT_BOARD_PROFILE_ID }) as never,
@@ -387,9 +407,9 @@ describe('HardwarePane', () => {
     })
     const { container } = render(<HardwarePane />)
 
-    // Matched on the grid wording, since the label names the form
-    // ("LED Matrix, 16 by 8 on pin 5" / "HUB75 Panel, 64 by 32 on its ...").
-    const part = container.querySelector<HTMLElement>('[aria-label*=" by "]')
+    // Matched on the label's own wording, since it names the form
+    // ("LED Matrix, 16 by 8 on pin 5" / "LED String, 24 LEDs on pin 5").
+    const part = container.querySelector<HTMLElement>(label)
     const lens = part?.querySelector<HTMLElement>('span[style*="background-size"]')
     // Layout needs a measured bench; skip rather than assert on a zero-sized one.
     if (!part?.style.width || !lens) return

@@ -126,24 +126,23 @@
   min-width: 0;
 }
 
+/*
+ * A rail's bare PCB — one LED pitch wide, one pitch per LED tall, so the live
+ * cells above it and the diffuser inside it both land one per LED. It carries
+ * `.matrix` as well for the board itself, because a rail is a one-column panel
+ * and there is no second answer for what a panel looks like.
+ *
+ * Sized rather than stretched to the wrap: the wrap only says where on the
+ * meter this rail hangs, and the labels beside it are positioned from the same
+ * centre line.
+ */
 .vuRail {
   position: absolute;
-  inset: 0;
-  overflow: visible;
-  border-radius: 2px;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.26);
-}
-
-.vuRailTape {
-  position: absolute;
+  top: 0;
+  bottom: 0;
   left: 50%;
-  top: 50%;
-  display: block;
-  transform: translate(-50%, -50%) rotate(90deg);
-  transform-origin: center;
-  background-repeat: repeat-x;
-  background-position: left center;
-  border-radius: 2px;
+  width: var(--vu-rail-width);
+  transform: translateX(-50%);
 }
 
 .vuRailWrap > svg {
@@ -152,7 +151,7 @@
   bottom: 0;
   left: 50%;
   z-index: 1;
-  width: var(--vu-tape-width);
+  width: var(--vu-rail-width);
   height: 100%;
   overflow: visible;
   transform: translateX(-50%);
@@ -163,7 +162,8 @@
 .vuSideLabel,
 .vuDataIn {
   position: absolute;
-  z-index: 2;
+  /* Above the rail's own diffuser, which is the layer directly beneath. */
+  z-index: 3;
   left: 50%;
   transform: translateX(-50%);
   padding: 1px 3px;
@@ -203,16 +203,12 @@
 }
 
 /*
- * The strip tiles its render at one tile per LED, cropped by the layout rather
- * than squashed — shrinking it would draw the LEDs at a pitch no strip is sold
- * in.
- */
-/* Panels tile on both axes; the strip is a ribbon so it repeats on one. */
-/*
- * A panel's bare PCB. Unlike the strip it carries no photograph: the LED render
- * is a 2.6:1 strip segment, and squeezing it into a square cell turned a panel
- * into noise. The emitters are drawn instead, so what is lit is exactly what is
- * drawn, and the diffuser above supplies the dome.
+ * Bare PCB, for every gridded part: a panel, a string drawn as one row of it,
+ * and a VU rail drawn as one column. Nothing is drawn over a photograph of a
+ * part — a photograph of tape had to be squeezed into a square cell to serve a
+ * panel and turned it into noise, and a strip photographed at one pitch cannot
+ * be re-tiled at another. The emitters are drawn instead, so what is lit is
+ * exactly what is drawn, and the diffuser above supplies the dome.
  */
 .matrix {
   border-radius: 3px;
@@ -251,27 +247,23 @@
 }
 
 /*
- * A strip carries no background and no filter of its own. Both were here, and
- * both stopped the LEDs throwing light: a CSS filter clips its subtree to the
- * filter region and isolates it from the backdrop, so the bloom could not
- * leave the tape's own box and `screen` had only the tape to blend with. The
- * filter was also the shape that leaks renderer memory in Chromium when the
- * subtree repaints every frame, which this one does.
- *
- * The photograph and its shadow live in `.stripTape` underneath instead, where
- * a mask for a broken run can clip the tape without touching the light.
+ * A string is a `.matrix` one row high, and adds only this: its light has to be
+ * free to leave a box that is one LED tall, where a panel's stays well inside
+ * its own. It carries no filter of its own for the same reason nothing else
+ * here does — a filter clips its subtree to the filter region, isolates it from
+ * the backdrop, and leaks renderer memory when the subtree repaints every
+ * frame, which this one does.
  */
 .strip {
   overflow: visible;
 }
 
-.stripTape {
+/* The board a string's LEDs sit on. `.matrix` supplies the board; this only
+   places it under the light, where a mask for a broken run can cut it without
+   touching the emitters above. */
+.stripBoard {
   position: absolute;
   inset: 0;
-  background-repeat: repeat-x;
-  background-position: left center;
-  border-radius: 2px;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.16);
   pointer-events: none;
 }
 
@@ -741,6 +733,18 @@
     rgba(0, 0, 0, 0.46) 74%,
     rgba(0, 0, 0, 0.62) 100%
   );
+}
+
+/*
+ * The diffuser over a VU rail: the same domes on the same pitch, narrowed to
+ * the rail's own board and lifted above the live cells the way a panel's sits
+ * above its own. Declared after `.lens` so it wins the properties they share.
+ */
+.vuRailLens {
+  left: 50%;
+  width: var(--vu-rail-width);
+  transform: translateX(-50%);
+  z-index: 2;
 }
 
 /*

@@ -80,49 +80,21 @@ export interface PartFootprintMm {
 export const INMP441_FOOTPRINT_MM: PartFootprintMm = { width: 20.5, height: 14.5 }
 
 /**
- * The strip render is one LED segment, cropped pad-group to pad-group so that
- * it tiles: one tile is one LED, and the seam falls mid-pad the way a real cut
- * point does.
+ * The pitch one WS2812B occupies, wherever it is drawn.
  *
- * Both figures come from calibrating the render against the WS2812B's 5.0 mm
- * 5050 package (58.5 px/mm), not from a stock density — the modelled segment is
- * a little longer than 60 LEDs/m, and matching the picture keeps every LED
- * drawn an LED that exists. Re-measure these if the render is replaced.
- */
-export const WS2812B_PITCH_MM = 21.75
-export const WS2812B_STRIP_WIDTH_MM = 8.41
-
-/**
- * Where the emitter sits inside that tile, as fractions of it.
+ * 10 mm is the common flexible-panel spacing — a 16x16 is 160x160 mm — and a
+ * string and a VU rail are drawn as a one-row and a one-column panel of that
+ * same LED, so they take that same pitch. An LED is an LED: one drawn twice the
+ * size of another on the same bench reads as a different component rather than
+ * as a longer run. One figure therefore gives a run its length and, because such
+ * a run is one pitch across, its square cells.
  *
- * Measured off the same render as the two figures above, because it has to
- * agree with the picture it is drawn over: the 5050 package sits right of
- * centre, past the current-limiting resistor, and is about a quarter of the
- * pitch wide against two thirds of the tape's width. Lighting a centred half
- * of the tile — which is what a plain cell fraction gives — lights the
- * resistor and the solder pads instead of the LED.
- *
- * Fractions rather than millimetres so a run drawn broken, rotated into a VU
- * rail, or scaled to any pitch registers the same way. Re-measure with the
- * pitch above if the render is replaced.
+ * Real tape is cut to a longer pitch than a panel's, so a string draws shorter
+ * than the length of tape it stands for. That is deliberate: a run's length is
+ * already bounded by drawing it broken, and what the bench is actually read for
+ * is which LEDs are lit — which is a comparison between emitters.
  */
-export const WS2812B_EMITTER = {
-  /** Centre of the package along the tile, and across it. */
-  centreAlong: 0.562,
-  centreAcross: 0.449,
-  /** Its extent on each of those axes. */
-  along: 0.236,
-  across: 0.653,
-}
-
-/**
- * Pitch of a WS2812B matrix panel, which is a different object from a cut strip
- * even though it uses the same LED: panels are built on a fixed grid rather than
- * a tape you cut to length. 10 mm is the common flexible-panel spacing — a 16x16
- * is 160x160 mm — so a matrix reads as a square board beside the strip's long
- * ribbon rather than both being drawn as the same tape.
- */
-export const WS2812B_MATRIX_PITCH_MM = 10
+export const WS2812B_PITCH_MM = 10
 
 // Ring diameters are no longer derived. `N x pitch = pi x D` predicted 76 mm
 // for a 24-LED ring that measures 65.5, and was wrong at both ends of the
@@ -131,25 +103,26 @@ export const WS2812B_MATRIX_PITCH_MM = 10
 
 /**
  * HUB75 scan panels are sold by pixel pitch, and P4 (4 mm) is the common indoor
- * part — a 64x32 P4 is 256x128 mm. Much denser than addressable tape, which is
- * the point of drawing every part at true scale: a panel and a strip are not
- * the same object at different zooms.
+ * part — a 64x32 P4 is 256x128 mm. Much denser than a WS2812B, which is the
+ * point of giving it its own pitch: a HUB75 panel and an addressable panel are
+ * not the same object at different zooms.
  */
 export const HUB75_PITCH_MM = 4
 
 /**
  * The physical LED pitch a form is laid out on.
  *
- * One answer for both the part's real-world size on the bench and the tile its
- * diffuser is drawn at. They were computed separately once, and a HUB75 panel
- * sized on its own 4 mm pitch got a diffuser tiled at addressable tape's 10 mm
- * — a dome every two and a half LEDs. A ring never asks: its LEDs follow a
- * circumference rather than a grid, and it draws no diffuser at all.
+ * One answer for both the part's size on the bench and the tile its diffuser is
+ * drawn at. They were computed separately once, and a HUB75 panel sized on its
+ * own 4 mm pitch got a diffuser tiled at the WS2812B's 10 mm — a dome every two
+ * and a half LEDs. Only HUB75 differs: it is a genuinely denser part, sold by
+ * pixel pitch, and drawing it on the WS2812B grid would lose the one thing that
+ * distinguishes the two. A ring never asks: its LEDs follow a circumference
+ * rather than a grid, and it draws no diffuser at all.
  */
 export function ledPitchMm(form: LedOutputForm): number {
-  if (form === 'strip') return WS2812B_PITCH_MM
   if (form === 'hub75') return HUB75_PITCH_MM
-  return WS2812B_MATRIX_PITCH_MM
+  return WS2812B_PITCH_MM
 }
 
 /**
