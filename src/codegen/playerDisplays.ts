@@ -24,7 +24,7 @@ import {
   DISPLAY_SOURCE_LABELS, DISPLAY_SOURCE_NODE_TYPES, type DisplaySignalKind,
 } from '../state/displaySignal'
 import {
-  asOledRotation, oledRotationCommands, asOledAddress,
+  asOledRotation, oledRotationCommands, asOledAddress, OLED_CONTROLLERS,
   type OledTransport,
 } from '../state/oledSurface'
 import { oledControllerForProps, oledTransportForProps, tftControllerForProps } from '../state/nodeLibrary'
@@ -62,6 +62,9 @@ export interface PlayerInfoDisplay {
   sdaPin: number
   sclPin: number
   address: number
+  /** The glass this module has, which is what its layout resolves against. */
+  width: number
+  height: number
   columnOffset: number
   segmentRemap: number
   comScan: number
@@ -349,6 +352,8 @@ export function playerDisplaysFromGraph(
         sdaPin: intProp(props.sdaPin, 21),
         sclPin: intProp(props.sclPin, 22),
         address: asOledAddress(props.i2cAddress),
+        width: controller?.width ?? OLED_CONTROLLERS.SH1106.width,
+        height: controller?.height ?? OLED_CONTROLLERS.SH1106.height,
         columnOffset: controller?.columnOffset ?? 0,
         segmentRemap: rotation.segmentRemap,
         comScan: rotation.comScan,

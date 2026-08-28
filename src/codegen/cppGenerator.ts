@@ -63,7 +63,7 @@ import {
   TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit,
 } from './tftTouchCpp'
 import {
-  oledRotationCommands, asOledRotation, asOledAddress,
+  oledRotationCommands, asOledRotation, asOledAddress, OLED_CONTROLLERS,
 } from '../state/oledSurface'
 import { partById } from '../state/partCatalogue'
 import { displayString, normalizeNumberFormat, asDateTimeTextMode } from '../state/displayText'
@@ -5020,6 +5020,8 @@ export function generateCpp(
           sckPin: intProp(p.sckPin, 18, 0, MAX_PIN_NUMBER),
           mosiPin: intProp(p.mosiPin, 23, 0, MAX_PIN_NUMBER),
           address: asOledAddress(p.i2cAddress),
+          width: controller?.width ?? OLED_CONTROLLERS.SH1106.width,
+          height: controller?.height ?? OLED_CONTROLLERS.SH1106.height,
           columnOffset: columnOffsetFor(controller),
           segmentRemap: oledRotationCommands(asOledRotation(p.oledRotation)).segmentRemap,
           comScan: oledRotationCommands(asOledRotation(p.oledRotation)).comScan,

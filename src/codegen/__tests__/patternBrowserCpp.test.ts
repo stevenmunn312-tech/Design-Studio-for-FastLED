@@ -2,7 +2,7 @@
 //
 // The bytes are baked in the browser and blitted verbatim, so what matters
 // here is that the emitted code reads the *shared* constants — geometry from
-// BROWSER_LAYOUT/infoRowY, timings from patternSelection — rather than
+// the browser geometry, timings from patternSelection — rather than
 // restating them. A coordinate typed twice is a coordinate that disagrees.
 
 import { describe, it, expect } from 'vitest'
@@ -13,7 +13,7 @@ import { THUMBNAIL_W, THUMBNAIL_H, THUMBNAIL_BYTES, blankThumbnail } from '../..
 import {
   PATTERN_BROWSE_TIMEOUT_MS, ENCODER_COUNTS_PER_STEP, ENCODER_RESEAT_COUNTS,
 } from '../../state/patternSelection'
-import { BROWSER_LAYOUT, infoRowY } from '../../state/infoDisplay'
+import { browserGeometry } from '../../state/infoDisplay'
 
 const lit = (fill: number) => {
   const data = new Uint8Array(THUMBNAIL_BYTES)
@@ -26,7 +26,7 @@ const table = (n: number) => patternThumbnailTableCpp('br',
 
 const emit = (over: Partial<InfoDisplayEmit> = {}): InfoDisplayEmit => ({
   id: 'br', transport: 'spi', csPin: 1, dcPin: 2, resetPin: 5, sckPin: 6, mosiPin: 7,
-  address: 0x3c, columnOffset: 2, segmentRemap: 0xa0, comScan: 0xc0,
+  address: 0x3c, width: 128, height: 64, columnOffset: 2, segmentRemap: 0xa0, comScan: 0xc0,
   layout: 'Pattern Browser', enabledExpr: 'true',
   titleExpr: null, line2Expr: null, valueExpr: '0.0f', progressExpr: '0.0f',
   playingExpr: 'false', volumeExpr: '0.0f', durationExpr: '0.0f',
@@ -116,9 +116,10 @@ describe('the emitted selection contract', () => {
 describe('the emitted layout', () => {
   it('places the picture and text from the shared geometry', () => {
     const src = loop()
-    expect(src).toContain(`_oledThumb(_oled_br, ${BROWSER_LAYOUT.thumbX}, ${BROWSER_LAYOUT.thumbY}, `)
-    expect(src).toContain(`${BROWSER_LAYOUT.textX}, ${infoRowY(0)}`)
-    expect(src).toContain(`${BROWSER_LAYOUT.textX}, ${infoRowY(1)}`)
+    const g = browserGeometry(128, 64)
+    expect(src).toContain(`_oledThumb(_oled_br, ${g.thumb.x}, ${g.thumb.y}, `)
+    expect(src).toContain(`${g.name.x}, ${g.name.y}`)
+    expect(src).toContain(`${g.ordinal.x}, ${g.ordinal.y}`)
   })
 
   // The panel draws the selection; the player advances it, from the controls

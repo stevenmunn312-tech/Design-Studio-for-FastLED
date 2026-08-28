@@ -46,10 +46,12 @@ export function infoLayoutForKind(kind: DisplaySignalKind): InfoDisplayLayout {
 }
 
 /**
- * Layout geometry, in pixels from the top-left.
+ * What the layouts are drawn from, in pixels.
  *
- * Exported so the generator emits these exact numbers rather than restating
- * them. A margin typed twice is a margin that disagrees.
+ * Preferred rather than fixed: `lineHeight` is the pitch a panel with room
+ * uses, and a shorter one tightens toward `FONT_H + 1`. Exported so the
+ * generator resolves the same numbers rather than restating them — a margin
+ * typed twice is a margin that disagrees.
  */
 export const INFO_LAYOUT = {
   margin: 2,
@@ -58,9 +60,44 @@ export const INFO_LAYOUT = {
   barHeight: 7,
 } as const
 
-/** Top-left y of row `index`, counting from the content area. */
-export function infoRowY(index: number): number {
-  return INFO_LAYOUT.margin + (index * INFO_LAYOUT.lineHeight)
+export interface InfoRect {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+/** A row of text: a box whose height is one glyph. */
+export interface InfoField {
+  x: number
+  y: number
+  w: number
+}
+
+/**
+ * The pitch a layout's rows get on a panel of this height.
+ *
+ * Resolved rather than constant, which is the whole point of the geometry
+ * functions below: `infoRowY(i)` counted down from the top at a fixed pitch, so
+ * a shorter module drew its bottom rows past the glass and nothing said so.
+ * Every catalogued OLED is 128x64 today and gets exactly the pitch it always
+ * had — the preferred one — because the fit only ever tightens.
+ *
+ * `reserve` is space the layout needs *below* its last row, which only the
+ * progress bar has.
+ */
+export function infoRowPitch(height: number, rows: number, reserve = 0): number {
+  const usable = height - INFO_LAYOUT.margin - reserve
+  const fit = Math.floor(usable / Math.max(1, rows))
+  // A row still has to hold a glyph and a pixel of air under it. Below that the
+  // layout has run out of panel, which the geometry says by dropping rows
+  // rather than by overlapping them.
+  return Math.max(FONT_H + 1, Math.min(INFO_LAYOUT.lineHeight, fit))
+}
+
+/** Whether a row at `y` is wholly on a panel of this height. */
+function fits(y: number, height: number, rowHeight = FONT_H): boolean {
+  return y + rowHeight <= height
 }
 
 export interface NowPlayingData {
@@ -85,50 +122,94 @@ export type InfoDisplayData =
   | { layout: 'Clock'; data: ClockData }
   | { layout: 'Pattern Browser'; data: PatternBrowserData }
 
+export interface WaitingGeometry {
+  message: InfoField
+  /** Dropped on a panel with no room for a second row. */
+  hint: InfoField | null
+}
+
 /**
  * Nothing is plugged in, and the panel says so.
  *
  * A blank OLED and a dead OLED look identical on a bench. Two rows rather than
  * one because the second names the port to look at, which is the whole of the
- * user's next move.
+ * user's next move — and on a panel too short for both, the message is the one
+ * that survives.
  */
-export function drawWaiting(surface: OledSurface): void {
+export function waitingGeometry(width: number, height: number): WaitingGeometry {
   const { margin } = INFO_LAYOUT
-  const inner = surface.width - (margin * 2)
-  const centred = (text: string, row: number) => {
-    const fitted = fitOledText(text, inner)
-    const x = Math.max(margin, ((surface.width - oledTextWidth(fitted)) / 2) | 0)
-    drawOledText(surface, x, infoRowY(row), fitted)
+  const inner = width - (margin * 2)
+  const pitch = infoRowPitch(height, 4)
+  const hintY = margin + (pitch * 3)
+  return {
+    message: { x: margin, y: margin + pitch, w: inner },
+    hint: fits(hintY, height) ? { x: margin, y: hintY, w: inner } : null,
   }
-  centred(DISPLAY_WAITING_TEXT, 1)
-  centred('WIRE A SOURCE TO DISPLAY', 3)
+}
+
+export function drawWaiting(surface: OledSurface): void {
+  const g = waitingGeometry(surface.width, surface.height)
+  const centred = (field: InfoField, text: string) => {
+    const fitted = fitOledText(text, field.w)
+    const x = Math.max(field.x, ((surface.width - oledTextWidth(fitted)) / 2) | 0)
+    drawOledText(surface, x, field.y, fitted)
+  }
+  centred(g.message, DISPLAY_WAITING_TEXT)
+  if (g.hint) centred(g.hint, 'WIRE A SOURCE TO DISPLAY')
+}
+
+export interface NowPlayingGeometry {
+  title: InfoField
+  state: InfoField
+  /** Right-aligned against the panel edge; x is the field's left bound. */
+  times: InfoField
+  bar: InfoRect
+  /** Dropped on a panel with no room under the bar. */
+  volume: InfoField | null
 }
 
 /**
  * Now Playing: title, transport state, elapsed/duration, and a progress bar.
  *
+ * The bar reserves its own height below the row it sits on, so the volume row
+ * under it is placed against a panel that has already accounted for it.
+ */
+export function nowPlayingGeometry(width: number, height: number): NowPlayingGeometry {
+  const { margin, barHeight } = INFO_LAYOUT
+  const inner = width - (margin * 2)
+  const pitch = infoRowPitch(height, 4, barHeight)
+  const row = (index: number) => margin + (index * pitch)
+  const volumeY = row(3) + barHeight
+  return {
+    title: { x: margin, y: row(0), w: inner },
+    state: { x: margin, y: row(1), w: inner },
+    times: { x: margin, y: row(1), w: inner },
+    bar: { x: margin, y: row(2) + 1, w: inner, h: barHeight },
+    volume: fits(volumeY, height) ? { x: margin, y: volumeY, w: inner } : null,
+  }
+}
+
+/**
  * The title is fitted to the panel rather than clipped, so a long track name
  * ends in an ellipsis at a glyph boundary instead of a half-drawn letter.
  */
 export function drawNowPlaying(surface: OledSurface, data: NowPlayingData): void {
-  const { margin } = INFO_LAYOUT
-  const inner = surface.width - (margin * 2)
+  const g = nowPlayingGeometry(surface.width, surface.height)
 
-  drawOledText(surface, margin, infoRowY(0), fitOledText(data.title, inner))
+  drawOledText(surface, g.title.x, g.title.y, fitOledText(data.title, g.title.w))
 
   // Play state as a word rather than a glyph: the shared 3x5 font has no
   // triangle, and inventing one here would be a glyph the firmware lacks.
-  const state = data.playing ? 'PLAY' : 'PAUSE'
-  drawOledText(surface, margin, infoRowY(1), state)
+  drawOledText(surface, g.state.x, g.state.y, data.playing ? 'PLAY' : 'PAUSE')
 
   const times = `${formatTransportTime(data.elapsedSec)}/${formatTransportTime(data.durationSec)}`
-  const timesWidth = oledTextWidth(times)
-  drawOledText(surface, surface.width - margin - timesWidth, infoRowY(1), times)
+  drawOledText(surface, g.times.x + g.times.w - oledTextWidth(times), g.times.y, times)
 
-  drawProgressBar(surface, margin, infoRowY(2) + 1, inner, INFO_LAYOUT.barHeight, data.progress)
+  drawProgressBar(surface, g.bar.x, g.bar.y, g.bar.w, g.bar.h, data.progress)
 
+  if (!g.volume) return
   const volume = `VOL ${Math.round(Math.max(0, Math.min(1, data.volume)) * 100)}`
-  drawOledText(surface, margin, infoRowY(3) + INFO_LAYOUT.barHeight, fitOledText(volume, inner))
+  drawOledText(surface, g.volume.x, g.volume.y, fitOledText(volume, g.volume.w))
 }
 
 
@@ -170,12 +251,47 @@ export interface PatternBrowserData {
  * what is. Without that line, scrolling away from the playing pattern leaves a
  * panel confidently describing something the LEDs are not doing.
  */
-export function drawPatternBrowser(surface: OledSurface, data: PatternBrowserData): void {
+export interface BrowserGeometry {
+  thumb: InfoRect
+  name: InfoField
+  ordinal: InfoField
+  status: InfoField
+  /** The row "NO PATTERNS" goes on, which is the text column's second. */
+  empty: InfoField
+  /**
+   * The strip naming what is *running* while you browse away from it, and the
+   * rule above it. Null on a panel with no room: the split is worth showing,
+   * but not at the cost of a half-drawn row over the picture.
+   */
+  playing: { rule: InfoRect; label: InfoField } | null
+}
+
+export function browserGeometry(width: number, height: number): BrowserGeometry {
   const { margin } = INFO_LAYOUT
-  const inner = surface.width - BROWSER_LAYOUT.textX - margin
+  const textX = BROWSER_LAYOUT.textX
+  const column = width - textX - margin
+  const inner = width - (margin * 2)
+  const pitch = infoRowPitch(height, 6)
+  const row = (index: number) => margin + (index * pitch)
+  const ruleY = row(4)
+  const labelY = row(5)
+  return {
+    thumb: { x: BROWSER_LAYOUT.thumbX, y: BROWSER_LAYOUT.thumbY, w: THUMBNAIL_W, h: THUMBNAIL_H },
+    name: { x: textX, y: row(0), w: column },
+    ordinal: { x: textX, y: row(1), w: column },
+    status: { x: textX, y: row(2), w: column },
+    empty: { x: margin, y: row(1), w: inner },
+    playing: fits(labelY, height)
+      ? { rule: { x: margin, y: ruleY, w: inner, h: 1 }, label: { x: margin, y: labelY, w: inner } }
+      : null,
+  }
+}
+
+export function drawPatternBrowser(surface: OledSurface, data: PatternBrowserData): void {
+  const g = browserGeometry(surface.width, surface.height)
 
   if (data.count <= 0) {
-    drawOledText(surface, margin, infoRowY(1), 'NO PATTERNS')
+    drawOledText(surface, g.empty.x, g.empty.y, 'NO PATTERNS')
     return
   }
 
@@ -183,25 +299,25 @@ export function drawPatternBrowser(surface: OledSurface, data: PatternBrowserDat
   // bake reads as a missing picture rather than as a pattern that renders
   // black — which several legitimately do.
   if (data.thumbnail) {
-    drawBitmap(surface, BROWSER_LAYOUT.thumbX, BROWSER_LAYOUT.thumbY,
+    drawBitmap(surface, g.thumb.x, g.thumb.y,
                data.thumbnail.width, data.thumbnail.height, data.thumbnail.data)
   } else {
-    drawRect(surface, BROWSER_LAYOUT.thumbX, BROWSER_LAYOUT.thumbY, THUMBNAIL_W, THUMBNAIL_H)
+    drawRect(surface, g.thumb.x, g.thumb.y, g.thumb.w, g.thumb.h)
   }
 
-  drawOledText(surface, BROWSER_LAYOUT.textX, infoRowY(0), fitOledText(data.name, inner))
+  drawOledText(surface, g.name.x, g.name.y, fitOledText(data.name, g.name.w))
 
   const ordinal = `${data.ordinal}/${data.count}`
-  drawOledText(surface, BROWSER_LAYOUT.textX, infoRowY(1), fitOledText(ordinal, inner))
+  drawOledText(surface, g.ordinal.x, g.ordinal.y, fitOledText(ordinal, g.ordinal.w))
 
   // A word, not a glyph: the shared 3x5 font has no tick or triangle, and
   // inventing one here would be a glyph the firmware does not have.
-  drawOledText(surface, BROWSER_LAYOUT.textX, infoRowY(2), data.browsing ? 'SELECT?' : 'PLAYING')
+  drawOledText(surface, g.status.x, g.status.y, data.browsing ? 'SELECT?' : 'PLAYING')
 
-  if (!data.browsing) return
-  drawHLine(surface, margin, infoRowY(4), surface.width - (margin * 2))
-  const playing = fitOledText(`PLAYING ${data.activeName}`, surface.width - (margin * 2))
-  drawOledText(surface, margin, infoRowY(5), playing)
+  if (!data.browsing || !g.playing) return
+  drawHLine(surface, g.playing.rule.x, g.playing.rule.y, g.playing.rule.w)
+  const playing = fitOledText(`PLAYING ${data.activeName}`, g.playing.label.w)
+  drawOledText(surface, g.playing.label.x, g.playing.label.y, playing)
 }
 
 /**
@@ -211,20 +327,41 @@ export function drawPatternBrowser(surface: OledSurface, data: PatternBrowserDat
  * time anyway — is a display confidently reporting a time nobody should act on,
  * which is the failure the dashed masks elsewhere exist to prevent.
  */
-export function drawClock(surface: OledSurface, data: ClockData): void {
+export interface ClockGeometry {
+  time: InfoField
+  date: InfoField
+  /** Dropped with the health row it underlines. */
+  rule: InfoRect | null
+  health: InfoField | null
+}
+
+export function clockGeometry(width: number, height: number): ClockGeometry {
   const { margin } = INFO_LAYOUT
-  const inner = surface.width - (margin * 2)
+  const inner = width - (margin * 2)
+  const pitch = infoRowPitch(height, 4)
+  const row = (index: number) => margin + (index * pitch)
+  const healthY = row(3)
+  const shown = fits(healthY, height)
+  return {
+    time: { x: margin, y: row(0), w: inner },
+    date: { x: margin, y: row(1), w: inner },
+    rule: shown ? { x: margin, y: row(2) + 1, w: inner, h: 1 } : null,
+    health: shown ? { x: margin, y: healthY, w: inner } : null,
+  }
+}
 
-  const timeWidth = oledTextWidth(data.timeText)
-  drawOledText(surface, Math.max(margin, (surface.width - timeWidth) / 2 | 0), infoRowY(0), data.timeText)
+export function drawClock(surface: OledSurface, data: ClockData): void {
+  const g = clockGeometry(surface.width, surface.height)
+  const centred = (field: InfoField, text: string) =>
+    drawOledText(surface, Math.max(field.x, (surface.width - oledTextWidth(text)) / 2 | 0), field.y, text)
 
-  const dateWidth = oledTextWidth(data.dateText)
-  drawOledText(surface, Math.max(margin, (surface.width - dateWidth) / 2 | 0), infoRowY(1), data.dateText)
+  centred(g.time, data.timeText)
+  centred(g.date, data.dateText)
 
-  drawHLine(surface, margin, infoRowY(2) + 1, inner)
-
+  if (g.rule) drawHLine(surface, g.rule.x, g.rule.y, g.rule.w)
+  if (!g.health) return
   const health = !data.valid ? 'NO CLOCK' : data.synced ? 'SYNCED' : 'NOT SYNCED'
-  drawOledText(surface, margin, infoRowY(3), fitOledText(health, inner))
+  drawOledText(surface, g.health.x, g.health.y, fitOledText(health, g.health.w))
 }
 
 /** Render any layout onto a fresh surface for `controller`. */

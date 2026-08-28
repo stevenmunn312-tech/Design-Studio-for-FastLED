@@ -3,7 +3,7 @@ import { generateCpp } from '../cppGenerator'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { infoDisplayHelpersCpp } from '../infoDisplayCpp'
 import { cppStringLiteral } from '../../state/displayText'
-import { INFO_LAYOUT, infoRowY } from '../../state/infoDisplay'
+import { INFO_LAYOUT, clockGeometry } from '../../state/infoDisplay'
 import { OLED_CONTROLLERS } from '../../state/oledSurface'
 import { FONT_W, FONT_H, DEFAULT_FONT } from '../../state/font'
 
@@ -77,7 +77,9 @@ describe('OLED helpers', () => {
 describe('generateCpp with an OLED', () => {
   it('configures the panel in setup and services it in the loop', () => {
     const src = generateCpp([outputNode, oled()], [])
-    expect(src).toContain('_oledBeginSpi(_oled_oled, 5, 16, 17, 18, 23, 2, 0xa0, 0xc0);')
+    // ...128, 64 being the panel's own glass, which is what it addresses and
+    // flushes rather than a sketch-wide constant.
+    expect(src).toContain('_oledBeginSpi(_oled_oled, 5, 16, 17, 18, 23, 128, 64, 2, 0xa0, 0xc0);')
     expect(src).toContain('_oledFlush(_oled_oled,')
     expect(src).toContain('static OledPanel _oled_oled;')
   })
@@ -139,8 +141,12 @@ describe('generateCpp with an OLED', () => {
   it('emits the shared layout geometry rather than its own', () => {
     const nodes = [outputNode, node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' }), oled()]
     const src = generateCpp(nodes, [edge('e', 'rtc', 'oled', 'display', 'display')])
-    expect(src).toContain(`_oledHLine(_oled_oled, ${INFO_LAYOUT.margin}, ${infoRowY(2) + 1},`)
-    expect(src).toContain(`_oledText(_oled_oled, ${INFO_LAYOUT.margin}, ${infoRowY(3)},`)
+    // Resolved for this panel's own size, by the function the preview draws
+    // from — not a constant either side could restate differently.
+    const g = clockGeometry(128, 64)
+    expect(src).toContain(`_oledHLine(_oled_oled, ${g.rule!.x}, ${g.rule!.y}, ${g.rule!.w});`)
+    expect(src).toContain(`_oledText(_oled_oled, ${g.health!.x}, ${g.health!.y},`)
+    expect(g.rule!.x).toBe(INFO_LAYOUT.margin)
   })
 
   // No trustworthy reading says so, rather than showing a plausible time.
@@ -190,7 +196,7 @@ describe('generateCpp with an I2C OLED', () => {
 
   it('begins the panel on the bus rather than on four wires', () => {
     const src = generateCpp([outputNode, i2c()], [])
-    expect(src).toContain('_oledBeginI2c(_oled_oled, 0x3c, 0, 0xa0, 0xc0);')
+    expect(src).toContain('_oledBeginI2c(_oled_oled, 0x3c, 128, 64, 0, 0xa0, 0xc0);')
     expect(src).not.toContain('_oledBeginSpi(_oled_oled')
   })
 

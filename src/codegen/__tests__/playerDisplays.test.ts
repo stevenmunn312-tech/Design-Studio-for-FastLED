@@ -53,7 +53,7 @@ describe('displays in the player sketch', () => {
     const displays = playerDisplaysFromGraph(nodes, edges)
     const sketch = generatePlayerSketch({}, undefined, { displays })
     expect(sketch).toContain('static OledPanel _oled_oled;')
-    expect(sketch).toContain('_oledBeginSpi(_oled_oled, 1, 2, 5, 6, 7, 2, 0xa0, 0xc0);')
+    expect(sketch).toContain('_oledBeginSpi(_oled_oled, 1, 2, 5, 6, 7, 128, 64, 2, 0xa0, 0xc0);')
     expect(sketch).toContain('_oledFlush(_oled_oled,')
   })
 
@@ -87,7 +87,7 @@ describe('displays in the player sketch', () => {
       const src = sketch()
       expect(src).toContain('#include <Wire.h>')
       expect(src).toContain('Wire.begin(21, 22);')
-      expect(src).toContain('_oledBeginI2c(_oled_oled, 0x3d, 0, 0xa0, 0xc0);')
+      expect(src).toContain('_oledBeginI2c(_oled_oled, 0x3d, 128, 64, 0, 0xa0, 0xc0);')
       // The call, not the driver's definition of it, which sits far above.
       expect(src.indexOf('Wire.begin(21, 22);'))
         .toBeLessThan(src.indexOf('_oledBeginI2c(_oled_oled'))

@@ -4,13 +4,18 @@ import {
   INFO_LAYOUT,
   infoLayoutForKind,
   blankInfoData,
-  infoRowY,
+  infoRowPitch,
+  nowPlayingGeometry,
+  clockGeometry,
+  browserGeometry,
+  waitingGeometry,
   renderInfoDisplay,
   BROWSER_LAYOUT,
   type NowPlayingData,
   type PatternBrowserData,
 } from '../infoDisplay'
 import { THUMBNAIL_W, THUMBNAIL_H } from '../patternThumbnail'
+import { FONT_H } from '../font'
 import { OLED_CONTROLLERS, getPixel, oledSurfaceRows, type OledSurface } from '../oledSurface'
 
 const sh1106 = OLED_CONTROLLERS.SH1106
@@ -59,9 +64,75 @@ describe('layout selection', () => {
     expect(infoLayoutForKind('slideshow')).toBe('Pattern Browser')
   })
 
-  it('spaces rows so four fit the panel', () => {
-    expect(infoRowY(0)).toBe(INFO_LAYOUT.margin)
-    expect(infoRowY(3) + INFO_LAYOUT.barHeight).toBeLessThanOrEqual(sh1106.height)
+})
+
+/*
+ * Rows are resolved against the panel, not counted down from the top at a
+ * fixed pitch. The old `infoRowY(i)` did the latter, so a shorter module drew
+ * its bottom rows past the glass and nothing said so — the same shape of bug
+ * the TFT avoided by resolving geometry per panel from the start.
+ */
+describe('rows resolved from the panel', () => {
+  const SHORT = 32
+
+  it('gives a panel with room the pitch it always had', () => {
+    expect(infoRowPitch(64, 4)).toBe(INFO_LAYOUT.lineHeight)
+    expect(infoRowPitch(64, 4, INFO_LAYOUT.barHeight)).toBe(INFO_LAYOUT.lineHeight)
+    // Which is to say: today's panels are laid out exactly as before.
+    const g = nowPlayingGeometry(128, 64)
+    expect(g.title.y).toBe(INFO_LAYOUT.margin)
+    expect(g.state.y).toBe(INFO_LAYOUT.margin + INFO_LAYOUT.lineHeight)
+  })
+
+  it('tightens rather than overflowing a shorter one', () => {
+    expect(infoRowPitch(SHORT, 4, INFO_LAYOUT.barHeight)).toBeLessThan(INFO_LAYOUT.lineHeight)
+  })
+
+  it.each([
+    ['now playing', (w: number, h: number) => {
+      const g = nowPlayingGeometry(w, h)
+      return [g.title.y, g.state.y, g.bar.y + g.bar.h, g.volume?.y]
+    }],
+    ['clock', (w: number, h: number) => {
+      const g = clockGeometry(w, h)
+      return [g.time.y, g.date.y, g.rule?.y, g.health?.y]
+    }],
+    ['browser', (w: number, h: number) => {
+      const g = browserGeometry(w, h)
+      return [g.name.y, g.ordinal.y, g.status.y, g.playing?.rule.y, g.playing?.label.y]
+    }],
+    ['waiting', (w: number, h: number) => {
+      const g = waitingGeometry(w, h)
+      return [g.message.y, g.hint?.y]
+    }],
+  ] as const)('keeps every %s row on the glass, at either height', (_name, rows) => {
+    for (const height of [64, SHORT]) {
+      for (const y of rows(128, height)) {
+        if (y == null) continue      // a row the layout dropped for want of room
+        expect(y + FONT_H, `${_name} @${height}`).toBeLessThanOrEqual(height)
+      }
+    }
+  })
+
+  // Dropped, not squeezed: a row that will not fit is absent from the geometry,
+  // so the emitter leaves it out of the sketch too rather than the two sides
+  // disagreeing about a half-drawn line.
+  it('drops the rows a short panel has no room for', () => {
+    // A half-height module still fits Now Playing, tightened — the browser's
+    // sixth row is the first thing to go, and a 16-row strip keeps only the
+    // one line that says what is wrong.
+    expect(browserGeometry(128, SHORT).playing).toBeNull()
+    expect(nowPlayingGeometry(128, 16).volume).toBeNull()
+    expect(waitingGeometry(128, 16).hint).toBeNull()
+    // And keeps them where there is room.
+    expect(nowPlayingGeometry(128, SHORT).volume).not.toBeNull()
+    expect(nowPlayingGeometry(128, 64).volume).not.toBeNull()
+    expect(browserGeometry(128, 64).playing).not.toBeNull()
+  })
+
+  it('resolves the text column against the panel it is on', () => {
+    expect(browserGeometry(128, 64).name.w).toBeLessThan(browserGeometry(160, 64).name.w)
+    expect(nowPlayingGeometry(128, 64).title.w).toBe(128 - (INFO_LAYOUT.margin * 2))
   })
 })
 

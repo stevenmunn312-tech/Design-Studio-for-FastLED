@@ -11,7 +11,10 @@
 // layout module is that the panel matches its preview.
 
 import { DEFAULT_FONT, FONT_H, FONT_W } from '../state/font'
-import { INFO_LAYOUT, infoRowY, BROWSER_LAYOUT, type InfoDisplayLayout } from '../state/infoDisplay'
+import {
+  browserGeometry, clockGeometry, nowPlayingGeometry, waitingGeometry,
+  type InfoDisplayLayout,
+} from '../state/infoDisplay'
 import { DISPLAY_WAITING_TEXT } from '../state/displaySignal'
 import {
   OLED_LETTER_SPACING, OLED_PAGE_HEIGHT,
@@ -61,17 +64,21 @@ function fontTableCpp(): { chars: string; table: string; count: number } {
 export const INFO_DISPLAY_CPP_FORWARD = 'struct OledPanel;'
 
 /**
- * Panel geometry the emitted sketch is fixed to. Both catalogued controllers
- * are 128x64 — the SH1106 differs only in how much of its wider controller RAM
- * the glass shows, which is `columnOffset`, not a different buffer. A panel of
- * another size would need this and the surface contract moved together.
+ * The largest panel the shared struct is sized for.
+ *
+ * Every catalogued controller is 128x64 today, and the SH1106 differs only in
+ * how much of its wider controller RAM the glass shows — `columnOffset`, not a
+ * different buffer. A *smaller* module now needs nothing here: the panel
+ * carries its own width and page count, and the layout resolves against them.
+ * A larger one raises these two numbers and costs every panel the difference,
+ * which is why they are a ceiling rather than a per-panel allocation.
  */
-const OLED_WIDTH = 128
-const OLED_HEIGHT = 64
-const OLED_PAGE_COUNT = OLED_HEIGHT / OLED_PAGE_HEIGHT
+const OLED_MAX_WIDTH = 128
+const OLED_MAX_HEIGHT = 64
+const OLED_MAX_PAGES = OLED_MAX_HEIGHT / OLED_PAGE_HEIGHT
 
-/** transport, cs/dc/rst/sck/mosi, addr, columnOffset, segmentRemap, comScan, written. */
-const OLED_PANEL_BYTE_MEMBERS = 11
+/** transport, cs/dc/rst/sck/mosi, addr, columnOffset, segmentRemap, comScan, w, h, pages, written. */
+const OLED_PANEL_BYTE_MEMBERS = 14
 
 function alignTo4(bytes: number): number {
   return Math.ceil(bytes / 4) * 4
@@ -97,7 +104,7 @@ function alignTo4(bytes: number): number {
  * since two of those do not fit in an Uno's entire SRAM.
  */
 export const OLED_PANEL_RAM_BYTES =
-  alignTo4(OLED_PANEL_BYTE_MEMBERS + 2 * OLED_WIDTH * OLED_PAGE_COUNT) + 4
+  alignTo4(OLED_PANEL_BYTE_MEMBERS + 2 * OLED_MAX_WIDTH * OLED_MAX_PAGES) + 4
 
 
 export function infoDisplayHelpersCpp(): string {
@@ -105,10 +112,12 @@ export function infoDisplayHelpersCpp(): string {
   return `// ── 1-bit OLED (SH1106 / SSD1306) ───────────────────────────────────────────
 // Mirrors src/state/oledSurface.ts and src/state/infoDisplay.ts so the panel
 // draws what the preview drew.
-#define OLED_W        ${OLED_WIDTH}
-#define OLED_H        ${OLED_HEIGHT}
+// A ceiling for the shared buffer, not the panel: each OledPanel carries its
+// own w/h/pages, so a smaller module addresses and flushes only its own glass.
+#define OLED_MAX_W    ${OLED_MAX_WIDTH}
+#define OLED_MAX_H    ${OLED_MAX_HEIGHT}
 #define OLED_PAGE_H   ${OLED_PAGE_HEIGHT}
-#define OLED_PAGES    (OLED_H / OLED_PAGE_H)
+#define OLED_MAX_PAGES (OLED_MAX_H / OLED_PAGE_H)
 #define OLED_FONT_W   ${FONT_W}
 #define OLED_FONT_H   ${FONT_H}
 #define OLED_SPACING  ${OLED_LETTER_SPACING}
@@ -143,8 +152,11 @@ struct OledPanel {
   // 0xA0/0xC0 scan forwards; 0xA1/0xC8 turn the panel 180 degrees. Which pair
   // is right depends on how the module is bolted down, not on the controller.
   uint8_t segmentRemap, comScan;
-  uint8_t buf[OLED_W * OLED_PAGES];
-  uint8_t last[OLED_W * OLED_PAGES];
+  // This panel's own glass. Everything below addresses through these rather
+  // than through the ceiling the buffer is sized to.
+  uint8_t w, h, pages;
+  uint8_t buf[OLED_MAX_W * OLED_MAX_PAGES];
+  uint8_t last[OLED_MAX_W * OLED_MAX_PAGES];
   bool written;
   uint32_t lastWriteMs;
 };
@@ -175,17 +187,19 @@ static void _oledCommand(OledPanel &p, uint8_t value) {
 /** One page of display RAM, however this panel is wired. */
 static void _oledPage(OledPanel &p, const uint8_t *page) {
   if (p.transport == OLED_I2C) {
-    for (uint8_t x = 0; x < OLED_W; x += OLED_I2C_CHUNK) {
+    for (uint8_t x = 0; x < p.w; x += OLED_I2C_CHUNK) {
+      uint8_t run = (uint8_t)(p.w - x);
+      if (run > OLED_I2C_CHUNK) run = OLED_I2C_CHUNK;
       Wire.beginTransmission(p.addr);
       Wire.write((uint8_t)OLED_I2C_DATA);
-      for (uint8_t i = 0; i < OLED_I2C_CHUNK; i++) Wire.write(page[x + i]);
+      for (uint8_t i = 0; i < run; i++) Wire.write(page[x + i]);
       Wire.endTransmission();
     }
     return;
   }
   digitalWrite(p.dc, HIGH);
   digitalWrite(p.cs, LOW);
-  for (uint8_t x = 0; x < OLED_W; x++) _oledSpiByte(p, page[x]);
+  for (uint8_t x = 0; x < p.w; x++) _oledSpiByte(p, page[x]);
   digitalWrite(p.cs, HIGH);
 }
 
@@ -193,13 +207,17 @@ static void _oledPage(OledPanel &p, const uint8_t *page) {
 static void _oledInit(OledPanel &p) {
   _oledCommand(p, 0xAE);              // display off
   _oledCommand(p, 0xD5); _oledCommand(p, 0x80);
-  _oledCommand(p, 0xA8); _oledCommand(p, 0x3F);
+  // Multiplex ratio is the row count, so it comes from the panel rather than
+  // from a constant: a 32-row module driven at 0x3F scans rows it does not have.
+  _oledCommand(p, 0xA8); _oledCommand(p, (uint8_t)(p.h - 1));
   _oledCommand(p, 0xD3); _oledCommand(p, 0x00);
   _oledCommand(p, 0x40);
   _oledCommand(p, 0xAD); _oledCommand(p, 0x8B);   // SH1106 charge pump; ignored by SSD1306
   _oledCommand(p, p.segmentRemap);    // segment remap, per mounted rotation
   _oledCommand(p, p.comScan);         // COM scan direction, likewise
-  _oledCommand(p, 0xDA); _oledCommand(p, 0x12);
+  // COM pin layout follows the same fact: alternative for a 64-row panel,
+  // sequential for a 32-row one, and getting it wrong interleaves the image.
+  _oledCommand(p, 0xDA); _oledCommand(p, (uint8_t)(p.h > 32 ? 0x12 : 0x02));
   _oledCommand(p, 0x81); _oledCommand(p, 0x80);   // contrast
   _oledCommand(p, 0xD9); _oledCommand(p, 0x22);
   _oledCommand(p, 0xDB); _oledCommand(p, 0x35);
@@ -209,9 +227,15 @@ static void _oledInit(OledPanel &p) {
 }
 
 /** Fields neither transport can do without, so neither begin can forget them. */
-static void _oledCommon(OledPanel &p, uint8_t transport, uint8_t columnOffset,
-                        uint8_t segmentRemap, uint8_t comScan) {
+static void _oledCommon(OledPanel &p, uint8_t transport, uint8_t w, uint8_t h,
+                        uint8_t columnOffset, uint8_t segmentRemap, uint8_t comScan) {
   p.transport = transport;
+  // Clamped to what the shared buffer can hold: a panel wider or taller than
+  // the ceiling would index past both frames, and a corrupted neighbour is
+  // harder to spot than a clipped picture.
+  p.w = w > OLED_MAX_W ? OLED_MAX_W : w;
+  p.h = h > OLED_MAX_H ? OLED_MAX_H : h;
+  p.pages = (uint8_t)((p.h + OLED_PAGE_H - 1) / OLED_PAGE_H);
   p.columnOffset = columnOffset;
   p.segmentRemap = segmentRemap; p.comScan = comScan;
   p.written = false; p.lastWriteMs = 0;
@@ -219,9 +243,9 @@ static void _oledCommon(OledPanel &p, uint8_t transport, uint8_t columnOffset,
 }
 
 static void _oledBeginSpi(OledPanel &p, uint8_t cs, uint8_t dc, uint8_t rst,
-                          uint8_t sck, uint8_t mosi, uint8_t columnOffset,
-                          uint8_t segmentRemap, uint8_t comScan) {
-  _oledCommon(p, OLED_SPI, columnOffset, segmentRemap, comScan);
+                          uint8_t sck, uint8_t mosi, uint8_t w, uint8_t h,
+                          uint8_t columnOffset, uint8_t segmentRemap, uint8_t comScan) {
+  _oledCommon(p, OLED_SPI, w, h, columnOffset, segmentRemap, comScan);
   p.cs = cs; p.dc = dc; p.rst = rst; p.sck = sck; p.mosi = mosi;
   p.addr = 0;
 
@@ -237,9 +261,9 @@ static void _oledBeginSpi(OledPanel &p, uint8_t cs, uint8_t dc, uint8_t rst,
 // the two bus wires, and resets itself from its own RC network at power-up.
 // Wire.begin() is the sketch's, not this panel's — every I2C device on the
 // board shares one bus, so one place starts it.
-static void _oledBeginI2c(OledPanel &p, uint8_t addr, uint8_t columnOffset,
-                          uint8_t segmentRemap, uint8_t comScan) {
-  _oledCommon(p, OLED_I2C, columnOffset, segmentRemap, comScan);
+static void _oledBeginI2c(OledPanel &p, uint8_t addr, uint8_t w, uint8_t h,
+                          uint8_t columnOffset, uint8_t segmentRemap, uint8_t comScan) {
+  _oledCommon(p, OLED_I2C, w, h, columnOffset, segmentRemap, comScan);
   p.cs = 0; p.dc = 0; p.rst = 0; p.sck = 0; p.mosi = 0;
   p.addr = addr;
   _oledInit(p);
@@ -251,33 +275,35 @@ static void _oledBeginI2c(OledPanel &p, uint8_t addr, uint8_t columnOffset,
 // shifts the image two pixels and wraps the remainder down the edge.
 static void _oledFlush(OledPanel &p, bool lit) {
   uint32_t now = millis();
+  uint16_t used = (uint16_t)p.w * (uint16_t)p.pages;
   bool changed = !p.written;
-  for (uint16_t i = 0; i < sizeof(p.buf) && !changed; i++) changed = p.buf[i] != p.last[i];
+  for (uint16_t i = 0; i < used && !changed; i++) changed = p.buf[i] != p.last[i];
   if (!changed && (now - p.lastWriteMs) < OLED_REFRESH_MS) return;
-  for (uint16_t i = 0; i < sizeof(p.buf); i++) p.last[i] = p.buf[i];
+  for (uint16_t i = 0; i < used; i++) p.last[i] = p.buf[i];
   p.written = true;
   p.lastWriteMs = now;
 
   if (!lit) { _oledCommand(p, 0xAE); return; }
   _oledCommand(p, 0xAF);
 
-  for (uint8_t page = 0; page < OLED_PAGES; page++) {
+  for (uint8_t page = 0; page < p.pages; page++) {
     _oledCommand(p, (uint8_t)(0xB0 + page));
     _oledCommand(p, (uint8_t)(0x00 | (p.columnOffset & 0x0F)));
     _oledCommand(p, (uint8_t)(0x10 | ((p.columnOffset >> 4) & 0x0F)));
-    _oledPage(p, &p.buf[page * OLED_W]);
+    _oledPage(p, &p.buf[page * p.w]);
   }
 }
 
 // ── Drawing ─────────────────────────────────────────────────────────────────
 
 static void _oledClear(OledPanel &p) {
-  for (uint16_t i = 0; i < sizeof(p.buf); i++) p.buf[i] = 0;
+  uint16_t used = (uint16_t)p.w * (uint16_t)p.pages;
+  for (uint16_t i = 0; i < used; i++) p.buf[i] = 0;
 }
 
 static void _oledPixel(OledPanel &p, int x, int y) {
-  if (x < 0 || x >= OLED_W || y < 0 || y >= OLED_H) return;
-  p.buf[((y / OLED_PAGE_H) * OLED_W) + x] |= (uint8_t)(1 << (y % OLED_PAGE_H));
+  if (x < 0 || x >= p.w || y < 0 || y >= p.h) return;
+  p.buf[((y / OLED_PAGE_H) * p.w) + x] |= (uint8_t)(1 << (y % OLED_PAGE_H));
 }
 
 static int _oledGlyphIndex(char c) {
@@ -375,6 +401,9 @@ export interface InfoDisplayEmit {
   segmentRemap: number
   comScan: number
   layout: InfoDisplayLayout
+  /** The glass this panel actually has, which is what the layout resolves against. */
+  width: number
+  height: number
   enabledExpr: string
   titleExpr: string | null
   line2Expr: string | null
@@ -411,29 +440,29 @@ export function infoDisplaySetupCpp(display: InfoDisplayEmit): string[] {
   if (display.transport === 'i2c') {
     return [
       `  _oledBeginI2c(_oled_${display.id}, 0x${display.address.toString(16)}, ` +
-        `${display.columnOffset}, ${rotation});`,
+        `${display.width}, ${display.height}, ${display.columnOffset}, ${rotation});`,
     ]
   }
   return [
     `  _oledBeginSpi(_oled_${display.id}, ${display.csPin}, ${display.dcPin}, ${display.resetPin}, ` +
-      `${display.sckPin}, ${display.mosiPin}, ${display.columnOffset}, ${rotation});`,
+      `${display.sckPin}, ${display.mosiPin}, ${display.width}, ${display.height}, ` +
+      `${display.columnOffset}, ${rotation});`,
   ]
 }
 
 /**
  * Per-frame layout and flush.
  *
- * Every coordinate here comes from `INFO_LAYOUT` and `infoRowY` rather than
- * being written out again, so the emitted geometry cannot drift from the
- * preview's.
+ * Every coordinate here is *resolved* by the same geometry functions the
+ * preview draws from, against this panel's own size, rather than written out
+ * again — so a shorter module cannot lay itself out one way here and another
+ * way on the glass. A row the geometry says does not fit is not emitted at
+ * all, which is how the two sides agree about a dropped row rather than one of
+ * them drawing past the bottom.
  */
 export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
   const p = `_oled_${display.id}`
-  const m = INFO_LAYOUT.margin
-  const inner = 128 - (m * 2)
-  const bar = INFO_LAYOUT.barHeight
-  // The browser's text column is narrower: the picture takes the left edge.
-  const browserInner = 128 - BROWSER_LAYOUT.textX - m
+  const { width, height } = display
   const text = (expr: string | null) => expr ?? '""'
 
   const lines = [
@@ -446,6 +475,7 @@ export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
 
   if (display.layout === 'Clock') {
     const dt = display.dateTimeExpr
+    const g = clockGeometry(width, height)
     lines.push(
       `      char _oledT_${display.id}[16]; char _oledD_${display.id}[16];`,
       `      bool _oledValid_${display.id} = ${dt ? `${dt}.valid` : 'false'};`,
@@ -458,75 +488,88 @@ export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
       `        snprintf(_oledT_${display.id}, sizeof(_oledT_${display.id}), "--:--");`,
       `        _oledD_${display.id}[0] = 0;`,
       `      }`,
-      `      _oledText(${p}, max(${m}, (OLED_W - _oledTextWidth(_oledT_${display.id})) / 2), ${infoRowY(0)}, _oledT_${display.id});`,
-      `      _oledText(${p}, max(${m}, (OLED_W - _oledTextWidth(_oledD_${display.id})) / 2), ${infoRowY(1)}, _oledD_${display.id});`,
-      `      _oledHLine(${p}, ${m}, ${infoRowY(2) + 1}, ${inner});`,
+      `      _oledText(${p}, max(${g.time.x}, (${width} - _oledTextWidth(_oledT_${display.id})) / 2), ${g.time.y}, _oledT_${display.id});`,
+      `      _oledText(${p}, max(${g.date.x}, (${width} - _oledTextWidth(_oledD_${display.id})) / 2), ${g.date.y}, _oledD_${display.id});`,
+    )
+    if (g.rule) lines.push(`      _oledHLine(${p}, ${g.rule.x}, ${g.rule.y}, ${g.rule.w});`)
+    if (g.health) lines.push(
       `      const char *_oledH_${display.id} = !_oledValid_${display.id} ? "NO CLOCK" : ` +
         `(${dt ? `(${dt}.synced && !${dt}.stale)` : 'false'} ? "SYNCED" : "NOT SYNCED");`,
-      `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), _oledH_${display.id}, ${inner});`,
-      `      _oledText(${p}, ${m}, ${infoRowY(3)}, _oledBuf_${display.id});`,
+      `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), _oledH_${display.id}, ${g.health.w});`,
+      `      _oledText(${p}, ${g.health.x}, ${g.health.y}, _oledBuf_${display.id});`,
     )
   } else if (display.layout === 'Waiting') {
     // Nothing plugged in, said outright. A blank panel and a dead panel look
     // identical on a bench, and the second row names the user's next move.
+    const g = waitingGeometry(width, height)
     lines.push(
-      `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), "${DISPLAY_WAITING_TEXT}", ${inner});`,
-      `      _oledText(${p}, max(${m}, (OLED_W - _oledTextWidth(_oledBuf_${display.id})) / 2), ${infoRowY(1)}, _oledBuf_${display.id});`,
-      `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), "WIRE A SOURCE TO DISPLAY", ${inner});`,
-      `      _oledText(${p}, max(${m}, (OLED_W - _oledTextWidth(_oledBuf_${display.id})) / 2), ${infoRowY(3)}, _oledBuf_${display.id});`,
+      `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), "${DISPLAY_WAITING_TEXT}", ${g.message.w});`,
+      `      _oledText(${p}, max(${g.message.x}, (${width} - _oledTextWidth(_oledBuf_${display.id})) / 2), ${g.message.y}, _oledBuf_${display.id});`,
+    )
+    if (g.hint) lines.push(
+      `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), "WIRE A SOURCE TO DISPLAY", ${g.hint.w});`,
+      `      _oledText(${p}, max(${g.hint.x}, (${width} - _oledTextWidth(_oledBuf_${display.id})) / 2), ${g.hint.y}, _oledBuf_${display.id});`,
     )
   } else if (display.layout === 'Pattern Browser') {
     const b = display.browser
     const stem = b?.tableStem ?? display.id
     const sel = b?.selVar ?? `_sel_${display.id}`
     const count = `THUMB_COUNT_${stem}`
+    const g = browserGeometry(width, height)
     lines.push(
       // No _selUpdate here. The player advances the selection, from the
       // controls bundle; this panel reads it. A display that also stepped it
       // would be a second opinion about what a click meant.
       `      if (${count} == 0) {`,
-      `        _oledText(${p}, ${m}, ${infoRowY(1)}, "NO PATTERNS");`,
+      `        _oledText(${p}, ${g.empty.x}, ${g.empty.y}, "NO PATTERNS");`,
       `      } else {`,
       `        uint16_t _oledSel_${display.id} = ${sel}.highlight;`,
       // Every coordinate from BROWSER_LAYOUT rather than written out again.
-      `        _oledThumb(${p}, ${BROWSER_LAYOUT.thumbX}, ${BROWSER_LAYOUT.thumbY}, ` +
+      `        _oledThumb(${p}, ${g.thumb.x}, ${g.thumb.y}, ` +
         `THUMB_W_${stem}, THUMB_H_${stem}, _thumbByte_${stem}, _oledSel_${display.id});`,
       `        char _oledName_${display.id}[40];`,
       `        _thumbName_${stem}_read(_oledName_${display.id}, sizeof(_oledName_${display.id}), _oledSel_${display.id});`,
-      `        _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), _oledName_${display.id}, ${browserInner});`,
-      `        _oledText(${p}, ${BROWSER_LAYOUT.textX}, ${infoRowY(0)}, _oledBuf_${display.id});`,
+      `        _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), _oledName_${display.id}, ${g.name.w});`,
+      `        _oledText(${p}, ${g.name.x}, ${g.name.y}, _oledBuf_${display.id});`,
       `        snprintf(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), "%u/%u", ` +
         `(unsigned)(_oledSel_${display.id} + 1), (unsigned)${count});`,
-      `        _oledText(${p}, ${BROWSER_LAYOUT.textX}, ${infoRowY(1)}, _oledBuf_${display.id});`,
+      `        _oledText(${p}, ${g.ordinal.x}, ${g.ordinal.y}, _oledBuf_${display.id});`,
       // A word, not a glyph: the shared 3x5 font has no tick or triangle.
-      `        _oledText(${p}, ${BROWSER_LAYOUT.textX}, ${infoRowY(2)}, ` +
+      `        _oledText(${p}, ${g.status.x}, ${g.status.y}, ` +
         `_selBrowsing(${sel}) ? "SELECT?" : "PLAYING");`,
+    )
+    // Without this the panel confidently describes something the LEDs are not
+    // doing, which is the whole reason active and highlight are separate — but
+    // a panel with no room for it says less rather than drawing over the
+    // picture.
+    if (g.playing) lines.push(
       `        if (_selBrowsing(${sel})) {`,
-      // Without this the panel confidently describes something the LEDs are not
-      // doing, which is the whole reason active and highlight are separate.
-      `          _oledHLine(${p}, ${m}, ${infoRowY(4)}, ${inner});`,
+      `          _oledHLine(${p}, ${g.playing.rule.x}, ${g.playing.rule.y}, ${g.playing.rule.w});`,
       `          _thumbName_${stem}_read(_oledName_${display.id}, sizeof(_oledName_${display.id}), ${sel}.active);`,
       `          char _oledPlaying_${display.id}[48];`,
       `          snprintf(_oledPlaying_${display.id}, sizeof(_oledPlaying_${display.id}), "PLAYING %s", _oledName_${display.id});`,
-      `          _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), _oledPlaying_${display.id}, ${inner});`,
-      `          _oledText(${p}, ${m}, ${infoRowY(5)}, _oledBuf_${display.id});`,
+      `          _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), _oledPlaying_${display.id}, ${g.playing.label.w});`,
+      `          _oledText(${p}, ${g.playing.label.x}, ${g.playing.label.y}, _oledBuf_${display.id});`,
       `        }`,
-      `      }`,
     )
+    lines.push(`      }`)
   } else {
+    const g = nowPlayingGeometry(width, height)
     lines.push(
-      `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), ${text(display.titleExpr)}, ${inner});`,
-      `      _oledText(${p}, ${m}, ${infoRowY(0)}, _oledBuf_${display.id});`,
-      `      _oledText(${p}, ${m}, ${infoRowY(1)}, (${display.playingExpr}) ? "PLAY" : "PAUSE");`,
+      `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), ${text(display.titleExpr)}, ${g.title.w});`,
+      `      _oledText(${p}, ${g.title.x}, ${g.title.y}, _oledBuf_${display.id});`,
+      `      _oledText(${p}, ${g.state.x}, ${g.state.y}, (${display.playingExpr}) ? "PLAY" : "PAUSE");`,
       `      char _oledE_${display.id}[12]; char _oledD_${display.id}[12]; char _oledTimes_${display.id}[26];`,
       `      _oledTime(_oledE_${display.id}, sizeof(_oledE_${display.id}), ${display.valueExpr});`,
       `      _oledTime(_oledD_${display.id}, sizeof(_oledD_${display.id}), ${display.durationExpr});`,
       `      snprintf(_oledTimes_${display.id}, sizeof(_oledTimes_${display.id}), "%s/%s", _oledE_${display.id}, _oledD_${display.id});`,
-      `      _oledText(${p}, OLED_W - ${m} - _oledTextWidth(_oledTimes_${display.id}), ${infoRowY(1)}, _oledTimes_${display.id});`,
-      `      _oledBar(${p}, ${m}, ${infoRowY(2) + 1}, ${inner}, ${bar}, ${display.progressExpr});`,
+      `      _oledText(${p}, ${g.times.x + g.times.w} - _oledTextWidth(_oledTimes_${display.id}), ${g.times.y}, _oledTimes_${display.id});`,
+      `      _oledBar(${p}, ${g.bar.x}, ${g.bar.y}, ${g.bar.w}, ${g.bar.h}, ${display.progressExpr});`,
+    )
+    if (g.volume) lines.push(
       `      snprintf(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), "VOL %d", ` +
         `(int)lroundf(constrain(${display.volumeExpr}, 0.0f, 1.0f) * 100));`,
-      `      _oledText(${p}, ${m}, ${infoRowY(3) + bar}, _oledBuf_${display.id});`,
+      `      _oledText(${p}, ${g.volume.x}, ${g.volume.y}, _oledBuf_${display.id});`,
     )
   }
 

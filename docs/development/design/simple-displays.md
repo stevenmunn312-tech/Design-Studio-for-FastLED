@@ -134,9 +134,45 @@ could never show a track length in preview, because `InfoDisplay` had no
 back to `songDurationSec()` on the device. One envelope carrying a whole
 `SongInfo` has no port to forget.
 
+## One layout, resolved per panel
+
+A layout is not a set of coordinates; it is a function of the panel it is being
+drawn on. `waitingGeometry(w, h)`, `clockGeometry(w, h)`, `nowPlayingGeometry(w, h)`
+and `browserGeometry(w, h)` each resolve their rows against the glass in front
+of them, and both halves read the same function — the preview draws from it and
+the generator emits the numbers it returns, against that panel's declared size.
+This is the shape [transportDisplay.ts](../../../src/state/transportDisplay.ts)
+has had from the start; the OLED counted rows down from the top at a fixed
+pitch instead, so a shorter module would have drawn its bottom rows past the
+edge and nothing would have said so.
+
+Two rules make it work:
+
+- **Pitch tightens, never stretches.** `infoRowPitch` takes the preferred
+  line height when the panel has room and squeezes toward one glyph plus a
+  pixel when it does not, so every catalogued 128x64 module is laid out exactly
+  as before and a 128x32 one packs instead of overflowing.
+- **A row that will not fit is dropped, not squeezed.** The geometry returns
+  `null` for it — the volume row under a progress bar, the browser's "what is
+  actually playing" strip, the waiting screen's second line — and the emitter
+  leaves it out of the sketch entirely. Both sides agree about the absence
+  rather than one of them drawing a half-row.
+
+The driver moved with it: an `OledPanel` carries its own `w`/`h`/`pages` and
+addresses through them, the shared buffer is sized to a ceiling rather than to
+*the* panel size, and the multiplex-ratio and COM-pin commands come from the
+panel's height — a 32-row module driven at a 64-row ratio scans rows it does
+not have. Adding a smaller OLED is now a catalogue entry.
+
+What this deliberately does *not* do is spread a layout to fill a taller panel.
+Now Playing occupies the top of a 128x64 module today and still does; using the
+rest of the glass is a visual decision, not a fitting one.
+
 ## Open
 
 - The size boundary between tiers 1 and 2.
+- Whether a taller panel should spread its rows rather than leave the bottom
+  empty.
 - Tier 2: the `Custom UI` input, the authoring surface, and what a predetermined
   layout adds when it has the room (album art, more rows).
 - Where the TFT's Diagnostics screen lives once tier 3 is designed.

@@ -394,6 +394,8 @@ function showDisplaysCpp(
     sckPin: display.sckPin,
     mosiPin: display.mosiPin,
     address: display.address,
+    width: display.width,
+    height: display.height,
     columnOffset: display.columnOffset,
     segmentRemap: display.segmentRemap,
     comScan: display.comScan,
