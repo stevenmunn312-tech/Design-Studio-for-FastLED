@@ -140,6 +140,33 @@ describe('generateWiringDiagnosticSketch', () => {
     expect(sketch).not.toContain('AMP_I2S_')
   })
 
+  it('identifies a targeted Stereo VU fixture and verifies each configured direction', () => {
+    const vu = node('vu', 'StereoVuMeter', 'output', {
+      targetOutputId: 'out', ledCount: 36, leftDataPin: 6, rightDataPin: 7,
+      chipset: 'WS2812B', colorOrder: 'GRB', leftDirection: 'Top', rightDirection: 'Bottom',
+    })
+    const sketch = generateWiringDiagnosticSketch([outputNode, vu], 'out')!
+    expect(sketch).toContain('#define VU_LED_COUNT 36')
+    expect(sketch).toContain('#define VU_LEFT_PIN 6')
+    expect(sketch).toContain('#define VU_RIGHT_PIN 7')
+    expect(sketch).toContain('#define VU_LEFT_REVERSED 1')
+    expect(sketch).toContain('#define VU_RIGHT_REVERSED 0')
+    expect(sketch).toContain('FastLED.addLeds<WS2812B, VU_LEFT_PIN, GRB>(vuLeft, VU_LED_COUNT)')
+    expect(sketch).toContain('FastLED.addLeds<WS2812B, VU_RIGHT_PIN, GRB>(vuRight, VU_LED_COUNT)')
+    expect(sketch).toContain('drawVuRail(vuLeft, VU_LEFT_REVERSED, CRGB(64, 0, 0), now)')
+    expect(sketch).toContain('drawVuRail(vuRight, VU_RIGHT_REVERSED, CRGB(0, 0, 64), now)')
+    expect(sketch).toContain('physical = reversed ? VU_LED_COUNT - 1 - logical : logical')
+    expect(sketch).toContain('FastLED.setBrightness(DIAG_BRIGHTNESS);')
+    expect(sketch.match(/FastLED\.show\(\);/g)).toHaveLength(1)
+  })
+
+  it('does not test a Stereo VU fixture assigned to another output route', () => {
+    const vu = node('vu', 'StereoVuMeter', 'output', { targetOutputId: 'other', ledCount: 36 })
+    const sketch = generateWiringDiagnosticSketch([outputNode, vu], 'out')!
+    expect(sketch).not.toContain('VU_LED_COUNT')
+    expect(sketch).not.toContain('drawVuWiringDiagnostic')
+  })
+
   describe('HUB75 (docs/development/design/hub75-output.md)', () => {
     const hub75Out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, chipset: 'HUB75' })
 

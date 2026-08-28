@@ -17,6 +17,13 @@ function matrixOutputNode(nodes: StudioNode[], outputNodeId?: string): StudioNod
     ?? nodes.find((n) => n.data.nodeType === 'MatrixOutput')
 }
 
+function targetedStereoVuNode(nodes: StudioNode[], outputNodeId: string): StudioNode | undefined {
+  return nodes.find((node) => (
+    node.data.nodeType === 'StereoVuMeter'
+    && String(node.data.properties.targetOutputId ?? '') === outputNodeId
+  ))
+}
+
 export type WiringDiagnosticMode = 'cycle' | 'hub75-panel-topology'
 
 /** Generate a standalone hardware-wiring diagnostic sketch from the current
@@ -33,6 +40,14 @@ export function generateWiringDiagnosticSketch(
   if (!outputNode) return null
 
   const p = outputNode.data.properties as Record<string, unknown>
+  const vuNode = targetedStereoVuNode(nodes, outputNode.id)
+  const vuProps = vuNode?.data.properties as Record<string, unknown> | undefined
+  const vuCount = vuProps ? intProp(vuProps.ledCount, 60, 1, 1024) : 0
+  const vuLeftPin = vuProps ? sanitizePin(vuProps.leftDataPin, 5) : 0
+  const vuRightPin = vuProps ? sanitizePin(vuProps.rightDataPin, 6) : 0
+  const vuHw = vuProps ? ledHardwareFromProps(ledPropsWithController(vuProps, nodes)) : null
+  const vuLeftReversed = vuProps?.leftDirection === 'Top'
+  const vuRightReversed = vuProps?.rightDirection === 'Top'
   const controller = controllerSettings(nodes)
   const amplifierIdle = amplifierIdleCpp(nodes)
   const grid = outputGridDims(p)
@@ -75,6 +90,11 @@ export function generateWiringDiagnosticSketch(
   lines.push('// The sketch cycles through: RGB color-order solids, brightness/current-limit')
   lines.push('// bars, an orientation gradient, panel numbering, a logical XY chase, and a')
   lines.push('// direct physical-index chase for dead-pixel / chain-order checks.')
+  if (vuNode) {
+    lines.push('// The paired VU fixture is tested too: Left is red, Right is blue, and')
+    lines.push('// each white-tipped chase must travel bottom-to-top. A reversed chase means')
+    lines.push('// that rail\'s configured data-in position (Top/Bottom) does not match the build.')
+  }
   if (hub75TopologyAvailable) {
     lines.push('// HUB75 folded-grid mode adds per-panel X/Y axes, fixed-colour corners,')
     lines.push('// grid coordinates, configured rotation, chain ordinal, and chain arrows.')
@@ -102,8 +122,20 @@ export function generateWiringDiagnosticSketch(
   }
   lines.push(`#define DIAG_MODE_MS ${modeMs}`)
   lines.push(`#define DIAG_CHASE_MS ${chaseMs}`)
+  if (vuNode) {
+    lines.push('#define DIAG_BRIGHTNESS 64')
+    lines.push(`#define VU_LED_COUNT ${vuCount}`)
+    lines.push(`#define VU_LEFT_PIN ${vuLeftPin}`)
+    lines.push(`#define VU_RIGHT_PIN ${vuRightPin}`)
+    lines.push(`#define VU_LEFT_REVERSED ${vuLeftReversed ? 1 : 0}`)
+    lines.push(`#define VU_RIGHT_REVERSED ${vuRightReversed ? 1 : 0}`)
+  }
   lines.push('')
   lines.push('CRGB leds[NUM_LEDS];')
+  if (vuNode) {
+    lines.push('CRGB vuLeft[VU_LED_COUNT];')
+    lines.push('CRGB vuRight[VU_LED_COUNT];')
+  }
   if (isHub75) lines.push(...hub75GlobalsCpp(hub75Hw!))
   lines.push('')
   if (xyTable) {
@@ -303,18 +335,54 @@ export function generateWiringDiagnosticSketch(
   lines.push('  drawNumber(0, 0, physical, CRGB::White);')
   lines.push('}')
   lines.push('')
+  if (vuNode) {
+    lines.push('void drawVuRail(CRGB* pixels, bool reversed, const CRGB& sideColor, uint32_t now) {')
+    lines.push('  fill_solid(pixels, VU_LED_COUNT, CRGB::Black);')
+    lines.push('  uint16_t logical = (uint16_t)((now / DIAG_CHASE_MS) % VU_LED_COUNT);')
+    lines.push('  uint16_t physical = reversed ? VU_LED_COUNT - 1 - logical : logical;')
+    lines.push('  for (uint16_t i = 0; i < VU_LED_COUNT; i++) pixels[i] = sideColor;')
+    lines.push('  pixels[physical] = CRGB::White;')
+    lines.push('  if (logical > 0) {')
+    lines.push('    uint16_t trailLogical = logical - 1;')
+    lines.push('    uint16_t trailPhysical = reversed ? VU_LED_COUNT - 1 - trailLogical : trailLogical;')
+    lines.push('    pixels[trailPhysical] = CRGB(qadd8(sideColor.r, 48), qadd8(sideColor.g, 48), qadd8(sideColor.b, 48));')
+    lines.push('  }')
+    lines.push('}')
+    lines.push('')
+    lines.push('void drawVuWiringDiagnostic(uint32_t now) {')
+    lines.push('  uint8_t identify = (uint8_t)((now / DIAG_MODE_MS) % 3);')
+    lines.push('  if (identify == 0 || identify == 2) drawVuRail(vuLeft, VU_LEFT_REVERSED, CRGB(64, 0, 0), now);')
+    lines.push('  else fill_solid(vuLeft, VU_LED_COUNT, CRGB::Black);')
+    lines.push('  if (identify == 1 || identify == 2) drawVuRail(vuRight, VU_RIGHT_REVERSED, CRGB(0, 0, 64), now);')
+    lines.push('  else fill_solid(vuRight, VU_LED_COUNT, CRGB::Black);')
+    lines.push('}')
+    lines.push('')
+  }
   lines.push('void setup() {')
   lines.push(...amplifierIdle.setup)
   if (isHub75) lines.push(...hub75SetupCpp(hub75Hw!))
   else lines.push(...fastledSetupCpp(hw))
+  if (vuNode && vuHw) {
+    lines.push(...fastledSetupCpp(vuHw, {
+      dataPinMacro: 'VU_LEFT_PIN', brightness: null, ledCountMacro: 'VU_LED_COUNT',
+      ledsName: 'vuLeft', controllerName: '_vuLeftController',
+    }))
+    lines.push(...fastledSetupCpp(vuHw, {
+      dataPinMacro: 'VU_RIGHT_PIN', brightness: null, ledCountMacro: 'VU_LED_COUNT',
+      ledsName: 'vuRight', controllerName: '_vuRightController',
+    }))
+    lines.push('  // Conservative bench level across the matrix and both side rails.')
+    lines.push('  FastLED.setBrightness(DIAG_BRIGHTNESS);')
+  }
   // HUB75 has no FastLED CLEDController registered, so setMaxPowerInVoltsAndMilliamps
   // would have nothing to throttle — mirrors cppGenerator.ts's same gate.
-  if (powerLimit && !isHub75) lines.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${volts}, ${milliamps});`)
+  if (powerLimit && (!isHub75 || vuNode)) lines.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${volts}, ${milliamps});`)
   lines.push('}')
   lines.push('')
   lines.push('void loop() {')
   lines.push('  uint32_t now = millis();')
   lines.push('  bool blink = ((now / 240) & 1) == 0;')
+  if (vuNode) lines.push('  drawVuWiringDiagnostic(now);')
   if (topologyOnly) {
     lines.push('  drawHub75PanelTopology(blink);')
   } else {
@@ -337,7 +405,8 @@ export function generateWiringDiagnosticSketch(
   }
   if (isHub75) {
     lines.push(...hub75BlitRowsCpp(hub75Hw!, 'leds[(uint16_t)_y * WIDTH + _x]'))
-  } else {
+  }
+  if (!isHub75 || vuNode) {
     lines.push('  FastLED.show();')
   }
   lines.push('  FastLED.delay(16);')

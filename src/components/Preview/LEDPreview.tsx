@@ -41,6 +41,8 @@ import { compositionDims, outputRoutes, routeFrame } from '../../state/outputRou
 import { exitStagePresentation } from '../../utils/stagePresentation'
 import { controllerSettings } from '../../state/controllerSettings'
 import { masterSpeedFromOutputs, masterSpeedOriginShift } from '../../state/masterSpeed'
+import type { StereoVuFrame } from '../../state/stereoVuMeter'
+import { combinedStereoVuFixture, drawStereoVuRail } from './stereoVuCombinedPreview'
 
 // Statically replaced at build time, so the telemetry branches (phase timers +
 // the per-frame context object for the dev HUD) are dead-code-stripped in prod.
@@ -48,6 +50,9 @@ const PERF_TELEMETRY = import.meta.env.DEV
 
 const MAX_CANVAS_PX = 448
 const STAGE_CANVAS_PX = 840
+const VU_RAIL_WIDTH = 20
+const STAGE_VU_RAIL_WIDTH = 28
+const VU_COMPOSITION_GUTTER = 22
 const BYTES_PER_MIB = 1024 * 1024
 const MEMORY_SAMPLE_INTERVAL_MS = 30_000
 const PREVIEW_PUBLISH_INTERVAL_MS = 125
@@ -216,6 +221,8 @@ function clearOutputFrame(reuse: Frame | null, width: number, height: number): F
 export default function LEDPreview() {
   const canvasWrapRef = useRef<HTMLDivElement>(null)
   const canvasRef   = useRef<HTMLCanvasElement>(null)
+  const leftVuCanvasRef = useRef<HTMLCanvasElement>(null)
+  const rightVuCanvasRef = useRef<HTMLCanvasElement>(null)
   // Reused across frames by routeFrame so the routed/brightness-scaled frame
   // isn't reallocated every 60fps tick (the main preview-pipeline GC churn).
   const routeBufRef = useRef<Frame | null>(null)
@@ -276,6 +283,12 @@ export default function LEDPreview() {
     if (activeOutputId !== previewOutputId) setPreviewOutputId(activeOutputId)
   }, [activeOutputId, previewOutputId, setPreviewOutputId])
   const activeOutput = useGraphStore((s) => s.nodes.find((node) => node.id === activeOutputId && node.data.nodeType === 'MatrixOutput'))
+  const combinedVuKey = useGraphStore((s) => {
+    const fixture = combinedStereoVuFixture(rootGraphNodes(s), activeOutputId)
+    return fixture ? `${fixture.id}|${fixture.swapChannels ? 1 : 0}` : ''
+  })
+  const [combinedVuId = '', combinedVuSwapFlag = '0'] = combinedVuKey.split('|')
+  const combinedVuSwap = combinedVuSwapFlag === '1'
   // Real matrix dimensions — used for the canvas/WebGL buffer size, the
   // frame passed to the renderers, and the on-screen W×H readout, so a
   // strip layout (e.g. 10×1) never grows a phantom extra row/column. Only
@@ -320,7 +333,9 @@ export default function LEDPreview() {
   const uiEffectsEnabled = useUiStore((s) => s.uiEffectsEnabled)
   const fps = useUiStore((s) => s.fps)
   const memoryMb = useUiStore((s) => s.memoryMb)
-  const availableCanvasW = Math.max(0, canvasWrapSize.width - canvasWrapSize.padX)
+  const railWidth = stageMode ? STAGE_VU_RAIL_WIDTH : VU_RAIL_WIDTH
+  const vuReservedWidth = combinedVuId ? railWidth * 2 + VU_COMPOSITION_GUTTER * 2 : 0
+  const availableCanvasW = Math.max(0, canvasWrapSize.width - canvasWrapSize.padX - vuReservedWidth)
   const availableCanvasH = Math.max(0, canvasWrapSize.height - canvasWrapSize.padY)
   const windowedPixelLimit = Math.min(
     stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX,
@@ -339,14 +354,16 @@ export default function LEDPreview() {
   const gridWRef = useRef(gridW)
   const gridHRef = useRef(gridH)
   const activeOutputIdRef = useRef(activeOutputId)
+  const combinedVuIdRef = useRef(combinedVuId)
   const pixelRef = useRef(pixel)
   const canvasBufWRef = useRef(canvasBufW)
   const canvasBufHRef = useRef(canvasBufH)
   useEffect(() => {
     gridWRef.current = gridW; gridHRef.current = gridH; pixelRef.current = pixel
     activeOutputIdRef.current = activeOutputId
+    combinedVuIdRef.current = combinedVuId
     canvasBufWRef.current = canvasBufW; canvasBufHRef.current = canvasBufH
-  }, [gridW, gridH, activeOutputId, pixel, canvasBufW, canvasBufH])
+  }, [gridW, gridH, activeOutputId, combinedVuId, pixel, canvasBufW, canvasBufH])
 
   // Panel-boundary gridlines: a thin static overlay redrawn only when the
   // tile grid or canvas size changes (not on every animation frame like the
@@ -595,6 +612,10 @@ export default function LEDPreview() {
         frame = applyShowPlaybackSignal(frame, useShowPlayback.getState(), gW, gH, groups, trusted)
         const showMs = PERF_TELEMETRY ? performance.now() - showStart : 0
 
+        const vuFrame = combinedVuIdRef.current
+          ? outputs.get(combinedVuIdRef.current)?.vu as StereoVuFrame | undefined
+          : undefined
+
         // Feed the live-stream send-loop the exact matrix frame the preview
         // just computed — cheap (a reference store, not a copy) since the
         // stream sends at its own throttled rate independent of this 60fps loop.
@@ -652,6 +673,10 @@ export default function LEDPreview() {
             canvas.width = bw; canvas.height = bh
           }
           renderPreviewFrame(ctx, frame, px, previewStyleRef.current)
+        }
+        if (visible && combinedVuIdRef.current) {
+          drawStereoVuRail(leftVuCanvasRef.current, vuFrame?.left ?? [])
+          drawStereoVuRail(rightVuCanvasRef.current, vuFrame?.right ?? [])
         }
         const drawMs = PERF_TELEMETRY ? performance.now() - drawStart : 0
 
@@ -1058,7 +1083,13 @@ export default function LEDPreview() {
         className={`${styles.canvasWrap} ${effectivePreview3d ? styles.canvasWrap3d : ''}`}
       >
         {import.meta.env.DEV && <DevPerformanceHud />}
-        <div className={styles.canvasBay}>
+        <div className={`${styles.canvasBay} ${combinedVuId ? styles.canvasBayWithVu : ''}`}>
+          {combinedVuId && (
+            <div className={styles.vuRail} aria-label={combinedVuSwap ? 'Left rail, driven by right audio channel' : 'Left audio rail'}>
+              <span>{combinedVuSwap ? 'L · R ch' : 'L'}</span>
+              <canvas ref={leftVuCanvasRef} width={railWidth} height={canvasBufH} />
+            </div>
+          )}
           <div className={styles.canvasFrame}>
             {uiEffectsEnabled && (
               <div className={styles.ambilight} aria-hidden="true">
@@ -1095,6 +1126,12 @@ export default function LEDPreview() {
               )}
             </div>
           </div>
+          {combinedVuId && (
+            <div className={styles.vuRail} aria-label={combinedVuSwap ? 'Right rail, driven by left audio channel' : 'Right audio rail'}>
+              <span>{combinedVuSwap ? 'R · L ch' : 'R'}</span>
+              <canvas ref={rightVuCanvasRef} width={railWidth} height={canvasBufH} />
+            </div>
+          )}
         </div>
         {!hasFrameSignal && (
           <div className={styles.standbyHud} aria-live="polite">

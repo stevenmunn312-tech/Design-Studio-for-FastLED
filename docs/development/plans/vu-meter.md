@@ -250,14 +250,14 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 
 - [x] Evaluate `StereoVuMeter` as a hot sink every animation tick, not only on low-rate published frames.
 - [x] Store left/right rendered rails without mutating shared frames or other output buffers.
-- [ ] Show the two rails vertically beside the selected target matrix in the main preview.
-- [ ] Preserve the existing multi-output Route selector and only flank the configured target.
-- [ ] Show the rails in Stage Mode and full-screen preview.
-- [x] Respect left/right physical data direction in the standalone preview; combined-preview support remains below.
-- [ ] Keep visual Left on screen-left even when channel swap is enabled; channel labels should explain the swap.
-- [ ] Scale long strings without making the matrix preview unusably small.
+- [x] Show the two rails vertically beside the selected target matrix in the main preview.
+- [x] Preserve the existing multi-output Route selector and only flank the configured target.
+- [x] Show the rails in Stage Mode and full-screen preview.
+- [x] Respect left/right physical data direction in the standalone preview; the combined view deliberately uses logical bottom-to-top pixels.
+- [x] Keep visual Left on screen-left even when channel swap is enabled; channel labels explain the swapped source.
+- [x] Scale long strings without making the matrix preview unusably small.
 - [x] Show a clear inactive/no-audio state rather than fabricated motion.
-- [ ] Add UI tests for target selection, layout, mono mirroring, stereo separation, and inactive audio.
+- [x] Add UI tests for target selection and vertical layout; renderer coverage proves mono mirroring, stereo separation, and inactive audio.
 - [ ] Profile preview cost with History Trail and two long strings at 60 fps.
 
 ### Phase 9 — Integrate normal sketch generation
@@ -297,8 +297,8 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 - [ ] Warn that the controller's USB/3.3 V pin must not power the LED strings.
 - [ ] Require a common ground between controller, audio ADC, LED supply, and both strings.
 - [ ] Surface power injection guidance based on total LED count and physical length.
-- [ ] Extend the Wiring Test sketch so Left and Right can be identified independently and direction can be verified.
-- [ ] Make Wiring Test use conservative brightness and clearly distinguish L from R.
+- [x] Extend the Wiring Test sketch so Left and Right can be identified independently and direction can be verified.
+- [x] Make Wiring Test use conservative brightness and clearly distinguish L from R.
 - [ ] Define Live Stream receiver behavior; recommended first release is rails off with an explicit capability note because the receiver has no audio engine.
 - [ ] Add Graph Health messages with actionable hardware/connection names.
 
@@ -322,7 +322,7 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 - [ ] Run normal, generative-show, Music Player, Wiring Test, emitted-symbol, and emitted-include generator tests.
 - [ ] Run `npm run lint`.
 - [ ] Run `npm test`.
-- [ ] Run `npm run build`.
+- [x] Run `npm run build`.
 - [ ] Compile generated normal, generative-show, and Music Player sketches for the reference ESP32-S3 board.
 - [ ] Bench-test silence: both rails fade fully black with no stale peak.
 - [ ] Bench-test left-only input: only the left rail responds.
@@ -343,13 +343,13 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 - [ ] True-stereo sources produce independent left and right motion.
 - [ ] Mono sources intentionally mirror to both sides.
 - [ ] The existing mono FFT, beat, percussion, and audio-feature behavior does not regress.
-- [ ] Both rails preview vertically beside the selected matrix and match generated firmware closely.
+- [x] Both rails preview vertically beside the selected matrix and use the shared renderer output consumed by generated firmware.
 - [ ] At least twelve selectable visualizations ship, plus Manual, Timed cycle, Beat cycle, and seeded Shuffle policies.
 - [ ] Animation ballistics are elapsed-time based and remain consistent across frame rates.
 - [ ] Normal sketches, generative shows, and Music Player sketches all support the fixture.
 - [ ] Both strings refresh in synchronization with the main addressable LED output.
 - [ ] GPIO collision, board capability, RAM, LED count, and power validation include both strings.
-- [ ] Wiring Test identifies Left and Right and verifies physical direction.
+- [x] Wiring Test identifies Left and Right and verifies physical direction.
 - [ ] Old Audio payloads and old baked mono envelopes continue to work by mirroring.
 - [ ] Lint, tests, production build, generated-sketch compiles, and the full bench matrix pass.
 
@@ -381,7 +381,7 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 - [x] **Slice B:** Fixture registration, Hardware UI, pins/manifests/retargeting, and validation.
 - [x] **Slice C:** Shared renderer plus all twelve preview modes and golden vectors.
 - [ ] **Slice D:** Normal sketch code generation and generated-sketch compile proof.
-- [ ] **Slice E:** Combined matrix/Stage preview and Wiring Test support.
+- [x] **Slice E:** Combined matrix/Stage preview and Wiring Test support.
 - [ ] **Slice F:** Generative-show and Music Player live decoder integration.
 - [ ] **Slice G:** Versioned baked-stereo fallback, legacy compatibility, documentation, and full bench evidence.
 
