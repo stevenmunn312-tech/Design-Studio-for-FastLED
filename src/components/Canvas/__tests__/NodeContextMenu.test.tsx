@@ -70,6 +70,21 @@ describe('NodeContextMenu', () => {
     expect(getByText('Delete')).toBeTruthy()
   })
 
+  it('deletes an LED output and its hardware counterpart', () => {
+    const { getByText } = render(
+      <NodeContextMenu
+        nodeId="output"
+        x={120}
+        y={140}
+        onClose={() => {}}
+      />
+    )
+
+    fireEvent.click(getByText('Delete'))
+
+    expect(useGraphStore.getState().nodes.map((node) => node.id)).toEqual(['solid'])
+  })
+
   it('loads a saved node preset from the menu', () => {
     useNodePresets.getState().savePreset('SolidColor', 'Hot pink', { r: 255, g: 0, b: 180 })
     const { getByText } = render(

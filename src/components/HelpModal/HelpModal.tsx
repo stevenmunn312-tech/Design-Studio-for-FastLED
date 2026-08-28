@@ -313,7 +313,7 @@ function HardwareTab() {
           <div><strong>Board settings</strong><span>Apply once to every output: master brightness, clockless LED overclock, power cap, PSRAM policy, and—in supported ESP32 builds—serial routing.</span></div>
         </div>
         <div className={styles.note}>
-          Deleting a hardware-managed node from the graph disconnects it but leaves the physical part on the bench. To remove the part completely, right-click it in the hardware workbench and choose <strong>Remove</strong>.
+          Delete or Backspace disconnects a hardware-managed node while leaving the physical part on the bench. To remove both views, use <strong>Delete</strong> in the node's right-click menu, or right-click the part in the hardware workbench and choose <strong>Remove</strong>.
         </div>
       </div>
 

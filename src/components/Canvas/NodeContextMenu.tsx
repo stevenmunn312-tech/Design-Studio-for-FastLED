@@ -21,7 +21,7 @@ interface Props {
 }
 
 export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
-  const { duplicateNode, deleteNode, disconnectNode, copyNode, ungroupNode, createGroup, updateNodeProperties } = useGraphStore()
+  const { duplicateNode, removeNodeCompletely, disconnectNode, copyNode, ungroupNode, createGroup, updateNodeProperties } = useGraphStore()
   const requestConfirm = useUiStore((s) => s.requestConfirm)
   const requestPrompt = useUiStore((s) => s.requestPrompt)
   const setStatus = useUiStore((s) => s.setStatus)
@@ -238,7 +238,7 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
         </>
       )}
       <div className={styles.divider} />
-      <button className={`${styles.item} ${styles.danger}`} onClick={() => act(() => deleteNode(nodeId))}>
+      <button className={`${styles.item} ${styles.danger}`} onClick={() => act(() => removeNodeCompletely(nodeId))}>
         Delete
       </button>
     </div>,
