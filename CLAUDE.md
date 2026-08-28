@@ -86,7 +86,7 @@ Data flows from the React Flow graph through Zustand, graph evaluation, preview/
 - On `main`, use a focused `codex/` branch and draft pull request unless the user explicitly requests a beta hotfix workflow.
 - Routine pull, branch, stage, commit, push, and draft-PR operations are pre-approved.
 - Do not force-push, rewrite shared history, delete branches, hard-reset, or discard user work without explicit approval.
-- AI-assisted commits use `Co-Authored-By: Codex <noreply@anthropic.com>`.
+- AI-assisted commits carry a `Co-Authored-By:` trailer naming the assistant that wrote them; Claude Code signs as `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`.
 
 <!-- END AUTO-MANAGED -->
 
