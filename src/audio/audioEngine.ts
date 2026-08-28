@@ -6,6 +6,7 @@ import {
   MIC_SAMPLE_RATE,
   MIC_SPECTRUM_BARS,
 } from './micAnalysis'
+import { levelsFromSampleChannels } from './stereoLevels'
 
 const FFT_SIZE = MIC_FFT_SIZE
 export const NUM_SPECTRUM_BARS = MIC_SPECTRUM_BARS
@@ -21,6 +22,7 @@ export const MIC_CAPTURE_CONSTRAINTS: MediaTrackConstraints = {
   echoCancellation: false,
   noiseSuppression: false,
   autoGainControl: false,
+  channelCount: { ideal: 2 },
 }
 
 export interface AudioData {
@@ -40,6 +42,9 @@ export interface AudioData {
   micTreble: number
   micSpectrum: number[]
   micDetectorSpectrum: number[]
+  leftLevel: number
+  rightLevel: number
+  channelCount: 1 | 2
 }
 
 // Mirrors FastLED Processor::setGain. Signal conditioning, adaptive band
@@ -58,8 +63,14 @@ export class AudioEngine {
   private ctx: AudioContext | null = null
   private analyser: AnalyserNode | null = null
   private micSource: AudioNode | null = null
+  private channelSplitter: ChannelSplitterNode | null = null
+  private leftAnalyser: AnalyserNode | null = null
+  private rightAnalyser: AnalyserNode | null = null
   private stream: MediaStream | null = null
   private timeBuf: Float32Array | null = null
+  private leftTimeBuf: Float32Array | null = null
+  private rightTimeBuf: Float32Array | null = null
+  private inputChannelCount: 1 | 2 = 1
   private analyzer: FastLedAudioAnalyzer | null = null
   private listeners = new Set<(data: AudioData) => void>()
   private rafId = 0
@@ -104,7 +115,21 @@ export class AudioEngine {
     this.analyser.smoothingTimeConstant = 0
     this.micSource = this.ctx.createMediaStreamSource(this.stream)
     this.micSource.connect(this.analyser)
+    this.channelSplitter = this.ctx.createChannelSplitter(2)
+    this.leftAnalyser = this.ctx.createAnalyser()
+    this.rightAnalyser = this.ctx.createAnalyser()
+    for (const channelAnalyser of [this.leftAnalyser, this.rightAnalyser]) {
+      channelAnalyser.fftSize = FFT_SIZE
+      channelAnalyser.smoothingTimeConstant = 0
+    }
+    this.micSource.connect(this.channelSplitter)
+    this.channelSplitter.connect(this.leftAnalyser, 0)
+    this.channelSplitter.connect(this.rightAnalyser, 1)
     this.timeBuf = new Float32Array(FFT_SIZE)
+    this.leftTimeBuf = new Float32Array(FFT_SIZE)
+    this.rightTimeBuf = new Float32Array(FFT_SIZE)
+    const reportedChannels = this.stream.getAudioTracks()[0]?.getSettings().channelCount
+    this.inputChannelCount = reportedChannels != null && reportedChannels >= 2 ? 2 : 1
     this.analyzer = new FastLedAudioAnalyzer(FFT_SIZE)
     this.active = true
     await this.ctx.resume()
@@ -118,11 +143,20 @@ export class AudioEngine {
     this.rafId = 0
     this.micSource?.disconnect()
     this.analyser?.disconnect()
+    this.channelSplitter?.disconnect()
+    this.leftAnalyser?.disconnect()
+    this.rightAnalyser?.disconnect()
     this.stream?.getTracks().forEach(t => t.stop())
     this.analyser = null
     this.micSource = null
+    this.channelSplitter = null
+    this.leftAnalyser = null
+    this.rightAnalyser = null
     this.stream = null
     this.timeBuf = null
+    this.leftTimeBuf = null
+    this.rightTimeBuf = null
+    this.inputChannelCount = 1
     this.analyzer = null
     this.active = false
     this.ctx?.close()
@@ -144,6 +178,9 @@ export class AudioEngine {
       micTreble: 0,
       micSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
       micDetectorSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
+      leftLevel: 0,
+      rightLevel: 0,
+      channelCount: 1,
     })
   }
 
@@ -154,7 +191,8 @@ export class AudioEngine {
 
   private tick = () => {
     this.rafId = requestAnimationFrame(this.tick)
-    if (!this.analyser || !this.timeBuf || !this.analyzer) {
+    if (!this.analyser || !this.timeBuf || !this.analyzer
+      || !this.leftAnalyser || !this.rightAnalyser || !this.leftTimeBuf || !this.rightTimeBuf) {
       cancelAnimationFrame(this.rafId)
       this.rafId = 0
       return
@@ -163,10 +201,18 @@ export class AudioEngine {
     const sampleRate = this.ctx?.sampleRate ?? MIC_SAMPLE_RATE
 
     this.analyser.getFloatTimeDomainData(this.timeBuf)
+    this.leftAnalyser.getFloatTimeDomainData(this.leftTimeBuf)
+    this.rightAnalyser.getFloatTimeDomainData(this.rightTimeBuf)
     this.specFlip = 1 - this.specFlip
     const spectrum = this.specBufs[this.specFlip]
     spectrum.length = NUM_SPECTRUM_BARS
     const result = this.analyzer.process(this.timeBuf, sampleRate, now, this.micConfig.gain, spectrum)
+    const channelLevels = levelsFromSampleChannels(
+      this.leftTimeBuf,
+      this.rightTimeBuf,
+      this.inputChannelCount,
+      this.micConfig.gain,
+    )
 
     this.emit({
       active: true,
@@ -185,6 +231,9 @@ export class AudioEngine {
       micTreble: result.treble,
       micSpectrum: spectrum,
       micDetectorSpectrum: spectrum,
+      leftLevel: channelLevels.left,
+      rightLevel: channelLevels.right,
+      channelCount: channelLevels.channelCount,
     })
   }
 

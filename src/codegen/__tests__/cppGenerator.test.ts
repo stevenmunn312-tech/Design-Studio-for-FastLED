@@ -2454,8 +2454,36 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('#define LINE_IN_MCLK 15')
     expect(cpp).toContain('class StudioPcm1802Input final : public fl::audio::IInput')
     expect(cpp).toContain('I2S_MCLK_MULTIPLE_256')
-    expect(cpp).toContain('FastLED.add(fl::make_shared<StudioPcm1802Input>())')
+    expect(cpp).toContain('_lineInput = fl::make_shared<StudioPcm1802Input>()')
+    expect(cpp).toContain('_audioProcessor = FastLED.add(_lineInput)')
+    expect(cpp).toContain('uint64_t leftSquares = 0, rightSquares = 0;')
+    expect(cpp).toContain('_leftLevel = normalizedLevel(leftSquares, frames);')
+    expect(cpp).toContain('_rightLevel = normalizedLevel(rightSquares, frames);')
+    expect(cpp).toContain('_audioLeftLevel = _lineInput ? _lineInput->leftLevel() : 0.0f;')
+    expect(cpp).toContain('_audioRightLevel = _lineInput ? _lineInput->rightLevel() : 0.0f;')
     expect(cpp).not.toContain('CreateInmp441')
+  })
+
+  it('mirrors a selected PCM1802 side but keeps Both as true stereo', () => {
+    const lineGraph = (channel: 'Left' | 'Right' | 'Both') => {
+      const lineIn = node('line-in', 'LineInput', 'hardware', {
+        i2sMclk: 15, i2sBclk: 16, i2sLrclk: 17, i2sDout: 18, channel, gain: 1,
+      })
+      const audio = node('audio', 'Audio', 'input', { sourceId: 'line-in' })
+      const fft = node('fft', 'FFTAnalyzer', 'audio', {})
+      const bp = node('bp', 'BassPulse', 'pattern', {})
+      return generateCpp([micBoard, lineIn, audio, fft, bp, out], [
+        edge('e0', 'audio', 'fft', 'audio', 'audio'),
+        edge('e1', 'fft', 'bp', 'bass', 'bass'),
+        edge('e2', 'bp', 'out', 'frame', 'frame'),
+      ])
+    }
+
+    expect(lineGraph('Left')).toContain('#define LINE_IN_CHANNEL 0')
+    expect(lineGraph('Left')).toContain('_rightLevel = _leftLevel;')
+    expect(lineGraph('Right')).toContain('#define LINE_IN_CHANNEL 1')
+    expect(lineGraph('Right')).toContain('_leftLevel = _rightLevel;')
+    expect(lineGraph('Both')).toContain('#define LINE_IN_CHANNEL 2')
   })
 
   it('does not let one connected mic ambiently drive a different unwired analyzer', () => {
@@ -2490,6 +2518,7 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('_audioProcessor->setGain(MIC_GAIN);')
     expect(cpp).toContain('_audioProcessor->getBassLevel()')
     expect(cpp).toContain('_audioProcessor->getEqBin(i >> 1)')
+    expect(cpp).toContain('_audioLeftLevel = _audioRightLevel = constrain(')
     expect(cpp).toContain('void setupAudio()')
     expect(cpp).toContain('void updateAudio()')
     // wired into the lifecycle

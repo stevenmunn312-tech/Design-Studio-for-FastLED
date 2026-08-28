@@ -4597,6 +4597,11 @@ export interface AudioSignal {
   spectrum: number[]
   detectorSpectrum: number[]
   previewSpectrum?: number[]
+  /** Lightweight channel RMS for stereo VU fixtures. Missing fields are a
+   * legacy/mono payload and resolve through audio/stereoLevels.ts. */
+  leftLevel?: number
+  rightLevel?: number
+  channelCount?: 1 | 2
 }
 
 /** Provider identity carried by the Storage capability port. */

@@ -28,6 +28,9 @@ export interface AudioSample {
   spectrum: number[]
   detectorSpectrum: number[]
   previewSpectrum?: number[]
+  leftLevel?: number
+  rightLevel?: number
+  channelCount?: 1 | 2
 }
 
 export type RecordedAudioFrame = AudioOverride & { previewSpectrum?: number[] }
@@ -49,6 +52,9 @@ export function silentAudioFrame(): RecordedAudioFrame {
     spectrum: silentBins(),
     detectorSpectrum: silentBins(),
     previewSpectrum: silentBins(),
+    leftLevel: 0,
+    rightLevel: 0,
+    channelCount: 1,
   }
 }
 
@@ -71,6 +77,9 @@ export function snapshotAudio(audio: AudioSample): RecordedAudioFrame {
     spectrum: [...(audio.spectrum ?? [])],
     detectorSpectrum: [...(audio.detectorSpectrum ?? [])],
     previewSpectrum: audio.previewSpectrum ? [...audio.previewSpectrum] : undefined,
+    leftLevel: audio.leftLevel,
+    rightLevel: audio.rightLevel,
+    channelCount: audio.channelCount,
   }
 }
 

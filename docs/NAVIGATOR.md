@@ -83,6 +83,10 @@ build/architecture overview aimed at contributors.
     flush frame order, bus-aware pin sharing, why a display is a codegen
     terminal, and the evidence gates no device ships without.
 - [Plans](development/plans/)
+  - [Stereo side-string VU meters](development/plans/vu-meter.md)
+    — implementation plan for paired vertical left/right LED strings, the
+    backward-compatible stereo-level path, twelve visualizations, generator
+    integration, electrical validation, and staged bench evidence.
   - [Hardware branch todo](development/plans/hardware-todo.md)
     — active hardware-line backlog and unresolved bench findings.
   - [Hardware renders](development/plans/hardware-renders.md)

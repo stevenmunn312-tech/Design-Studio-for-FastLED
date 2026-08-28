@@ -18,6 +18,9 @@ interface AudioState {
   micTreble: number
   micSpectrum: number[]
   micDetectorSpectrum: number[]
+  leftLevel: number
+  rightLevel: number
+  channelCount: 1 | 2
   startAudio: () => Promise<void>
   stopAudio: () => void
 }
@@ -43,6 +46,9 @@ export const useAudioStore = create<AudioState>()((set) => {
       micTreble: data.micTreble,
       micSpectrum: data.micSpectrum,
       micDetectorSpectrum: data.micDetectorSpectrum,
+      leftLevel: data.leftLevel,
+      rightLevel: data.rightLevel,
+      channelCount: data.channelCount,
     })
   })
 
@@ -63,6 +69,9 @@ export const useAudioStore = create<AudioState>()((set) => {
     micTreble: 0,
     micSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
     micDetectorSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
+    leftLevel: 0,
+    rightLevel: 0,
+    channelCount: 1,
 
     startAudio: async () => {
       await engine.start()
@@ -91,6 +100,9 @@ export const useAudioStore = create<AudioState>()((set) => {
         micTreble: 0,
         micSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
         micDetectorSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
+        leftLevel: 0,
+        rightLevel: 0,
+        channelCount: 1,
       })
     },
   }

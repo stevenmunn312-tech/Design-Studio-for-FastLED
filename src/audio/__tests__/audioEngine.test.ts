@@ -22,6 +22,7 @@ describe('audioEngine FFT helpers', () => {
       echoCancellation: false,
       noiseSuppression: false,
       autoGainControl: false,
+      channelCount: { ideal: 2 },
     })
   })
 
