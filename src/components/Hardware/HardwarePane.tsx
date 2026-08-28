@@ -168,6 +168,20 @@ function modulePinKeys(nodeType: string, moduleId: string | undefined): readonly
 
 const FIXTURE_PARTS: readonly FixturePartEntry[] = [
   {
+    nodeType: 'StereoVuMeter',
+    partId: 'stereo-vu-meter',
+    label: 'Stereo VU Meter',
+    hint: 'Paired vertical addressable strings for left/right audio level',
+    footprint: { width: 28, height: 600 },
+    render: ledSegmentRender,
+    pinFields: [
+      { key: 'leftDataPin', label: 'LEFT DATA' },
+      { key: 'rightDataPin', label: 'RIGHT DATA' },
+    ],
+    pinRequests: [{ key: 'leftDataPin' }, { key: 'rightDataPin' }],
+    singleton: true,
+  },
+  {
     nodeType: 'TransportDisplay',
     partId: 'transport-display',
     label: 'Transport display',
@@ -510,6 +524,7 @@ function OutputLink({ signalKey, effects, label, link, visualScale }: {
 
 export default function HardwarePane() {
   const addNode = useGraphStore((state) => state.addNode)
+  const connectRoot = useGraphStore((state) => state.connectRoot)
   const removeNodeCompletely = useGraphStore((state) => state.removeNodeCompletely)
   // The bench is the project's hardware, which lives in the root graph — so it
   // stays visible and editable while a pattern group is open on the canvas.
@@ -720,11 +735,17 @@ export default function HardwarePane() {
       .filter(({ pin }) => Number.isFinite(pin))
       .map(({ label, pin }) => `${label} ${pin}`)
       .join(' · ')
+    const footprint = entry.nodeType === 'StereoVuMeter'
+      ? {
+          width: 28,
+          height: Math.max(1, Math.round(Number(props.ledCount ?? 60))) * WS2812B_PITCH_MM,
+        }
+      : chosen?.dimensionsMm ?? entry.footprint
     return [{
       entry: {
         ...entry,
         label: identity?.option.label ?? entry.label,
-        footprint: chosen?.dimensionsMm ?? entry.footprint,
+        footprint,
         render: (chosen && partRenderSrc(chosen.partId)) ?? entry.render,
       },
       node,
@@ -1192,8 +1213,12 @@ export default function HardwarePane() {
     // A fixture that carries signal has a graph half to show; one that does not
     // stays hidden, which is the whole distinction the two sets encode.
     const onCanvas = isHardwareManagedSignalNodeType(entry.nodeType)
+    const nodeId = `${entry.nodeType}-${Date.now()}-${Math.round(Math.random() * 1e6)}`
+    const targetOutputId = entry.nodeType === 'StereoVuMeter'
+      ? nodes.find((node) => node.data.nodeType === LED_OUTPUT_NODE_TYPE)?.id ?? ''
+      : undefined
     addNode({
-      id: `${entry.nodeType}-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+      id: nodeId,
       type: 'studioNode',
       position: { x: viewCenter.x, y: viewCenter.y },
       hidden: !onCanvas,
@@ -1210,14 +1235,29 @@ export default function HardwarePane() {
             boardProfile?.id ?? selectedFqbn,
           ),
           ...(moduleProperty && moduleId ? { [moduleProperty]: moduleId } : {}),
+          ...(targetOutputId !== undefined ? { targetOutputId } : {}),
         },
         inputs: definition.inputs,
         outputs: definition.outputs,
       },
     } as never)
+    const audioNodes = nodes.filter((node) => node.data.nodeType === 'Audio')
+    if (entry.nodeType === 'StereoVuMeter' && audioNodes.length === 1) {
+      connectRoot({
+        source: audioNodes[0].id,
+        sourceHandle: 'audio',
+        target: nodeId,
+        targetHandle: 'audio',
+      })
+    }
     setAddMenuOpen(false)
     setOpenSubmenu(null)
-    setStatus(`Added ${entry.label}`, 'success')
+    setStatus(
+      entry.nodeType === 'StereoVuMeter' && audioNodes.length === 1
+        ? `Added ${entry.label} and connected Audio`
+        : `Added ${entry.label}`,
+      'success',
+    )
   }
 
   // `kind` is the graph node id for every part now, input or output.
@@ -1318,6 +1358,20 @@ export default function HardwarePane() {
   const segmentDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'SegmentDisplay')
   const infoDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'InfoDisplay')
   const transportDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'TransportDisplay')
+  const stereoVuFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'StereoVuMeter')
+  const stereoVuBlocker = stereoVuFixture
+    ? stereoVuFixture.singleton && hasPartOfType(stereoVuFixture.nodeType)
+      ? 'One stereo VU meter per board'
+      : (() => {
+          const assigned = assignPartPins(
+            boardProfile,
+            selectedFqbn,
+            nodes,
+            stereoVuFixture.pinRequests ?? [],
+          )
+          return assigned.ok ? null : assigned.reason
+        })()
+    : 'Stereo VU Meter is unavailable'
 
   const addMenuCategories: AddMenuCategory[] = [
     {
@@ -1362,7 +1416,16 @@ export default function HardwarePane() {
       id: 'led-outputs',
       label: 'LED outputs',
       hint: 'What the patterns light up',
-      items: LED_OUTPUT_ENTRIES.map((entry) => {
+      items: [
+        ...(stereoVuFixture ? [{
+          key: stereoVuFixture.partId,
+          label: stereoVuFixture.label,
+          hint: stereoVuFixture.hint,
+          disabled: stereoVuBlocker !== null,
+          disabledReason: stereoVuBlocker,
+          onSelect: () => addFixturePart(stereoVuFixture),
+        }] : []),
+        ...LED_OUTPUT_ENTRIES.map((entry) => {
         const needsDataPin = entry.form !== 'hub75'
         const blocked = needsDataPin && nextLedPin === null
         return {
@@ -1373,7 +1436,8 @@ export default function HardwarePane() {
           disabledReason: blocked ? 'No free GPIO on this board' : null,
           onSelect: () => addLedOutput(entry),
         }
-      }),
+        }),
+      ],
     },
   ].filter((category) => category.items.length > 0)
 
@@ -1633,7 +1697,30 @@ export default function HardwarePane() {
                 }}
                 title="Click for options · right-click for hardware actions"
               >
-                {part.entry.render
+                {part.entry.nodeType === 'StereoVuMeter' ? (
+                  <span className={styles.vuPair} aria-label="Stereo VU Meter paired LED strings">
+                    {(['Left', 'Right'] as const).map((side) => {
+                      const direction = String(
+                        part.node.data.properties[`${side.toLowerCase()}Direction`] ?? 'Bottom',
+                      )
+                      return (
+                        <span className={styles.vuRailWrap} key={side}>
+                          <span className={styles.vuSideLabel}>{side === 'Left' ? 'L' : 'R'}</span>
+                          <span
+                            className={styles.vuRail}
+                            style={{
+                              backgroundImage: `url(${ledSegmentRender})`,
+                              backgroundSize: `100% ${Math.max(2, WS2812B_PITCH_MM * (arrangement?.mmScale ?? 1))}px`,
+                            }}
+                          />
+                          <span className={`${styles.vuDataIn} ${direction === 'Top' ? styles.vuDataInTop : styles.vuDataInBottom}`}>
+                            DIN
+                          </span>
+                        </span>
+                      )
+                    })}
+                  </span>
+                ) : part.entry.render
                   ? <img src={part.entry.render} alt={part.entry.label} draggable={false} />
                   : <span className={styles.placeholderLabel}>{part.entry.label}</span>}
               </button>

@@ -156,7 +156,9 @@ export function busAssignmentFor(nodeType: string, propertyKey: string): BusAssi
   // LED data and clock lines are their own thing: FastLED drives them directly
   // rather than through a shared SPI peripheral, so a second device on the same
   // pins is a collision even for an SPI chipset.
-  if (nodeType === 'MatrixOutput') return { kind: 'led', role: 'exclusive' }
+  if (nodeType === 'MatrixOutput' || nodeType === 'StereoVuMeter') {
+    return { kind: 'led', role: 'exclusive' }
+  }
   return { kind: 'none', role: 'exclusive' }
 }
 

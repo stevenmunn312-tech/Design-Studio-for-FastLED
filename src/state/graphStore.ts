@@ -181,6 +181,7 @@ interface GraphState {
   onNodesChange: (changes: NodeChange[]) => void
   onEdgesChange: (changes: EdgeChange[]) => void
   onConnect: (connection: Connection) => void
+  connectRoot: (connection: Connection) => void
   /** Add a node. With `centreOnDrop`, the node's `position` is treated as the
    *  point its *centre* should land on once measured (used by click-to-add so
    *  the node appears vertically centred on the drop point rather than hanging
@@ -326,7 +327,7 @@ export function isGroupExcludedNodeType(nodeType: string): boolean {
 /** Nodes that represent one scene-wide hardware resource. Creation actions use
  *  this set as a final guard, so every UI path (click, drop, paste, duplicate)
  *  preserves the one-per-canvas invariant. */
-export const SINGLETON_NODE_TYPES = new Set(['Audio', 'MicInput', 'LineInput', 'DMXInput'])
+export const SINGLETON_NODE_TYPES = new Set(['Audio', 'MicInput', 'LineInput', 'DMXInput', 'StereoVuMeter'])
 
 export function canAddNodeType(nodes: StudioNode[], nodeType: string): boolean {
   return !SINGLETON_NODE_TYPES.has(nodeType) || !nodes.some((n) => n.data.nodeType === nodeType)
@@ -1240,6 +1241,27 @@ export const useGraphStore = create<GraphState>()(
           // the input (target) end only — grab it at the input port and drag.
           const edges = addEdge({ ...resolved, type: 'glowEdge', reconnectable: 'target', style: { stroke: color } }, replaced)
           return { edges, nodes: withAdoptedMirrorPin(grown.nodes, edges, resolved) }
+        }),
+
+      connectRoot: (connection) =>
+        set((s) => {
+          const nodes = rootGraphNodes(s)
+          const rootEdges = rootGraphEdges(s)
+          const grown = materializeButtonBankConnection(nodes, connection)
+          const resolved = grown.connection
+          const src = grown.nodes.find((n) => n.id === resolved.source)
+          const color = edgeStrokeForPort(src, resolved.sourceHandle ?? undefined)
+          const replaced = resolved.target && resolved.targetHandle
+            ? rootEdges.filter((edge) => !(edge.target === resolved.target && edge.targetHandle === resolved.targetHandle))
+            : rootEdges
+          const edges = addEdge(
+            { ...resolved, type: 'glowEdge', reconnectable: 'target', style: { stroke: color } },
+            replaced,
+          )
+          return withRootContent(s, {
+            edges,
+            nodes: withAdoptedMirrorPin(grown.nodes, edges, resolved),
+          })
         }),
 
       removeEdge: (id) =>

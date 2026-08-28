@@ -76,6 +76,7 @@ const Wireframe3DNodeBody = lazy(() => import('./Wireframe3DNodeBody'))
 const TransportDisplayNodeBody = lazy(() => import('./TransportDisplayNodeBody'))
 const InfoDisplayNodeBody = lazy(() => import('./InfoDisplayNodeBody'))
 const SegmentDisplayNodeBody = lazy(() => import('./SegmentDisplayNodeBody'))
+const StereoVuMeterNodeBody = lazy(() => import('./StereoVuMeterNodeBody'))
 
 type PortDef = { id: string; label: string; dataType: string }
 
@@ -1039,6 +1040,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       // dropdown here let the graph claim a part the bench did not have, which
       // is the one thing the two-view model exists to prevent.
       && k !== 'form'
+      && !(d.nodeType === 'StereoVuMeter' && k === 'targetOutputId')
       // Physical wiring and hardware-specific selectors have one owner: the
       // part's popup on the workbench, not a second editor on the graph node.
       && !(isHardwareNodeType(d.nodeType)
@@ -1426,6 +1428,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           {d.nodeType === 'TransportDisplay' && <TransportDisplayNodeBody nodeId={id} />}
           {d.nodeType === 'InfoDisplay' && <InfoDisplayNodeBody nodeId={id} />}
           {d.nodeType === 'SegmentDisplay' && <SegmentDisplayNodeBody nodeId={id} />}
+          {d.nodeType === 'StereoVuMeter' && <StereoVuMeterNodeBody nodeId={id} />}
 
           {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
           {d.nodeType === 'Transition' && <TransitionPickerBody nodeId={id} />}

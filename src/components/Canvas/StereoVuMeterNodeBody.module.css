@@ -1,0 +1,60 @@
+.body {
+  display: grid;
+  gap: 7px;
+  margin-top: 4px;
+}
+
+.rails {
+  display: grid;
+  grid-template-columns: 12px 1fr 12px;
+  align-items: end;
+  gap: 8px;
+  min-height: 64px;
+  padding: 7px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent-output) 28%, var(--border-subtle));
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--bg-panel) 84%, #020507);
+}
+
+.rails > span {
+  position: relative;
+  height: 50px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: repeating-linear-gradient(to top, #111 0 3px, #050708 3px 5px);
+}
+
+.rails i {
+  position: absolute;
+  inset: 58% 0 0;
+  background: linear-gradient(to top, #25ef75, #f5d43b);
+  opacity: 0.45;
+}
+
+.rails strong {
+  align-self: center;
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.targetRow {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.targetRow select {
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font: inherit;
+}

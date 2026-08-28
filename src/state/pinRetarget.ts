@@ -115,6 +115,10 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
       { key: 'i2sDout', capability: 'digitalInput' },
     ],
   },
+  StereoVuMeter: {
+    keys: ['leftDataPin', 'rightDataPin'],
+    requests: [{ key: 'leftDataPin' }, { key: 'rightDataPin' }],
+  },
   Amplifier: {
     keys: ['i2sBclk', 'i2sLrc', 'i2sDout'],
     peripheral: 'max98357',

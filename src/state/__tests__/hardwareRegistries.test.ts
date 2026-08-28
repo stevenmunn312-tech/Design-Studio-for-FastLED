@@ -110,5 +110,6 @@ describe('hardware registries stay in step', () => {
     expect(terminals).toContain('SegmentDisplay')
     expect(terminals).toContain('InfoDisplay')
     expect(terminals).toContain('TransportDisplay')
+    expect(terminals).toContain('StereoVuMeter')
   })
 })

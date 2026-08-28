@@ -1303,6 +1303,19 @@ const STORAGE_LIVE_EXAMPLE = namedExample(
   'The solid colour keeps the example previewable while Storage remains available to the player workflow.',
 )
 
+const STEREO_VU_METER_LIVE_EXAMPLE = namedExample(
+  'StereoVuMeter',
+  'Add stereo level rails beside an LED frame',
+  [
+    { key: 'audio', type: 'Audio' },
+    { key: 'target', type: 'StereoVuMeter', properties: { visualizationMode: 'Classic Ladder' } },
+    { key: 'color', type: 'SolidColor', properties: { r: 18, g: 42, b: 72 } },
+  ],
+  [{ source: 'audio', sourceHandle: 'audio', target: 'target', targetHandle: 'audio' }],
+  'Stereo VU Meter is a hardware-owned terminal: one explicit Audio cable drives paired left/right addressable strings while the ordinary LED output keeps rendering the main frame. Add the fixture from Hardware, then choose which LED output it visually flanks.',
+  'The LED Matrix preview stays a calm solid colour. The separate Stereo VU Meter node represents the two side rails; its live visualization arrives with the shared renderer slice.',
+)
+
 // The three text nodes produce a `string`, which is bound for an auxiliary
 // display rather than the LED frame — see
 // docs/development/design/auxiliary-displays.md. Until display nodes exist
@@ -1427,6 +1440,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   SegmentDisplay: SEGMENT_DISPLAY_LIVE_EXAMPLE,
   InfoDisplay: INFO_DISPLAY_LIVE_EXAMPLE,
   TransportDisplay: TRANSPORT_DISPLAY_LIVE_EXAMPLE,
+  StereoVuMeter: STEREO_VU_METER_LIVE_EXAMPLE,
   MasterSpeed: MASTER_SPEED_LIVE_EXAMPLE,
   TextValue: TEXT_VALUE_LIVE_EXAMPLE,
   FormatNumber: FORMAT_NUMBER_LIVE_EXAMPLE,

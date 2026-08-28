@@ -137,6 +137,68 @@ describe('HardwarePane', () => {
     expect(lineIn!.data.outputs).toEqual([{ id: 'audio', label: 'Audio', dataType: 'audio' }])
   })
 
+  it('adds one paired Stereo VU Meter, assigns two pins, targets the LED output, and auto-wires Audio', () => {
+    useGraphStore.setState({
+      nodes: [
+        ...useGraphStore.getState().nodes,
+        node('Audio', 'audio') as never,
+        node('MatrixOutput', 'out', { form: 'matrix', width: 16, height: 16, dataPin: 5 }) as never,
+      ],
+    })
+    const { container } = render(<HardwarePane />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
+    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /LED outputs/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /Stereo VU Meter/ }))
+
+    const meters = useGraphStore.getState().nodes.filter((entry) => entry.data.nodeType === 'StereoVuMeter')
+    expect(meters).toHaveLength(1)
+    expect(meters[0].data.properties.targetOutputId).toBe('out')
+    expect(meters[0].data.properties.leftDataPin).not.toBe(meters[0].data.properties.rightDataPin)
+    expect(useGraphStore.getState().edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        source: 'audio', sourceHandle: 'audio', target: meters[0].id, targetHandle: 'audio',
+      }),
+    ]))
+    expect(container.querySelector('[aria-label="Stereo VU Meter paired LED strings"]')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
+    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /LED outputs/ }))
+    expect((screen.getByRole('menuitem', { name: /Stereo VU Meter/ }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('adds and auto-wires the Stereo VU Meter in the root graph while a group is open', () => {
+    const rootNodes = [
+      node('Board', ROOT_BOARD_NODE_ID, { profileId: DEFAULT_BOARD_PROFILE_ID }) as never,
+      node('Audio', 'audio') as never,
+      node('MatrixOutput', 'out', { form: 'matrix', width: 16, height: 16, dataPin: 5 }) as never,
+    ]
+    useGraphStore.setState({
+      nodes: [],
+      edges: [],
+      activeGraphId: 'pattern',
+      graphs: {
+        [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' },
+        pattern: { id: 'pattern', name: 'Pattern' },
+      },
+      graphData: { [ROOT_GRAPH_ID]: { nodes: rootNodes, edges: [] } },
+    })
+    render(<HardwarePane />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
+    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /LED outputs/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /Stereo VU Meter/ }))
+
+    const state = useGraphStore.getState()
+    const root = rootGraphNodes(state)
+    const meter = root.find((entry) => entry.data.nodeType === 'StereoVuMeter')
+    expect(meter).toBeTruthy()
+    expect(state.nodes).toEqual([])
+    expect(state.graphData[ROOT_GRAPH_ID].edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: 'audio', target: meter!.id, targetHandle: 'audio' }),
+    ]))
+  })
+
   it('opens a board-aware pin popup and reveals the signal node automatically', () => {
     render(<HardwarePane />)
 

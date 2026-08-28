@@ -89,6 +89,7 @@ export interface HardwareManifest {
 
 const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'MatrixOutput',
+  'StereoVuMeter',
   'MicInput',
   'LineInput',
   'ButtonInput',
@@ -205,6 +206,10 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
           push(node, `${baseLabel} data pin`, 'dataPin', props.dataPin)
           if (SPI_CHIPSETS.has(String(props.chipset ?? 'WS2812B'))) push(node, `${baseLabel} clock pin`, 'clockPin', props.clockPin)
         }
+        break
+      case 'StereoVuMeter':
+        push(node, `${baseLabel} left data pin`, 'leftDataPin', props.leftDataPin)
+        push(node, `${baseLabel} right data pin`, 'rightDataPin', props.rightDataPin)
         break
       case 'InfoDisplay': {
         // Which wires exist depends on the module: a 7-pin SPI SH1106 has a
@@ -408,6 +413,45 @@ function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number,
   }
 }
 
+function buildStereoVuMeterItems(node: StudioNode, pinUses: HardwarePinUse[]): HardwareManifestItem[] {
+  const props = node.data.properties as Record<string, unknown>
+  const ledCount = Math.max(1, Math.round(Number(props.ledCount ?? 60)))
+  const chipset = String(props.chipset ?? 'WS2812B')
+  const supported = BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS.has(chipset)
+  const pairCap = props.powerLimit === true ? Math.max(0, Number(props.milliamps ?? 0)) : null
+  return (['left', 'right'] as const).map((side) => {
+    const propertyKey = `${side}DataPin`
+    const direction = String(props[`${side}Direction`] ?? 'Bottom')
+    return {
+      id: `output:${node.id}:${side}`,
+      kind: 'matrix-output',
+      title: `${nodeLabel(node)} — ${side === 'left' ? 'Left' : 'Right'}`,
+      subtitle: `${ledCount}-LED ${chipset} vertical rail; data-in at ${direction.toLowerCase()}`,
+      sourceNodeId: node.id,
+      sourceNodeType: node.data.nodeType,
+      supported,
+      pins: pinUses.filter((pin) => pin.propertyKey === propertyKey),
+      facts: {
+        pixelCount: ledCount,
+        width: 1,
+        height: ledCount,
+        form: 'strip',
+        layout: 'strip',
+        side,
+        dataIn: direction,
+        chipset,
+        colorOrder: String(props.colorOrder ?? 'GRB'),
+        nominalVoltage: 5,
+        desiredCurrentCapMa: pairCap == null ? null : Math.round(pairCap / 2),
+        pairedFixtureId: node.id,
+      },
+      reasons: supported
+        ? undefined
+        : [`${chipset} is outside the reviewed clockless Stereo VU Meter wiring profile.`],
+    }
+  })
+}
+
 function buildPeripheralItem(node: StudioNode, kind: HardwareManifestItem['kind'], subtitle: string, pinUses: HardwarePinUse[]): HardwareManifestItem {
   /*
    * Every peripheral names the exact module it is, resolved the same way both
@@ -505,6 +549,8 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             ? Math.round(settings.milliamps * outputLedTotal(node.data.properties as Record<string, unknown>) / totalPixels)
             : null,
         )
+      case 'StereoVuMeter':
+        return buildStereoVuMeterItems(node, pins)
       case 'MicInput':
         return buildPeripheralItem(node, 'mic-input', 'INMP441 microphone input', pins)
       case 'LineInput':
@@ -645,7 +691,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
       default:
         return buildUnsupportedItem(node, pins)
     }
-  })
+  }).flat()
 
   const controller: HardwareManifestItem = {
     id: 'controller',

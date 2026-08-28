@@ -2637,6 +2637,43 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       hub75ColorDepthBits: 8,
     },
   },
+  {
+    type: 'StereoVuMeter',
+    label: 'Stereo VU Meter',
+    category: 'output',
+    inputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
+    outputs: [],
+    defaultProperties: {
+      targetOutputId: '',
+      ledCount: 60,
+      leftDataPin: 5,
+      rightDataPin: 6,
+      leftDirection: 'Bottom',
+      rightDirection: 'Bottom',
+      swapChannels: false,
+      chipset: 'WS2812B',
+      colorOrder: 'GRB',
+      brightness: 0.65,
+      powerLimit: true,
+      milliamps: 1800,
+      visualizationPolicy: 'Manual',
+      visualizationMode: 'Classic Ladder',
+      cycleInterval: 8,
+      palette: 'party',
+      leftColor: '#20ff70',
+      rightColor: '#20a0ff',
+      gain: 1,
+      noiseGate: 0.02,
+      responseCurve: 0.6,
+      attackMs: 35,
+      releaseMs: 280,
+      peakHoldMs: 350,
+      peakFall: 0.7,
+      trailAmount: 0.72,
+      beatAccent: 0.7,
+      enabled: true,
+    },
+  },
 
   // ── Inputs ─────────────────────────────────────────────────────────────
   {
@@ -3278,6 +3315,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   // output
   Board: 'The controller board — exact model, its pins, and what it supports.',
   MatrixOutput: 'An LED output for strings, matrices, rings, corkscrews, and HUB75 panels.',
+  StereoVuMeter: 'A paired left/right addressable-string VU meter driven by one Audio connection.',
   // note
   Comment: 'A sticky note for the canvas — no ports, just text and color.',
 }
@@ -3432,6 +3470,9 @@ export const ADDRESSABLE_CHIPSET_OPTIONS = CHIPSET_OPTIONS.filter((chipset) => c
 /** SPI (clocked) chipsets — need a `clockPin` alongside the data pin, and the
  *  FASTLED_OVERCLOCK define doesn't apply to them. */
 export const SPI_CHIPSETS: ReadonlySet<string> = new Set(['APA102', 'APA102HD', 'WS2801', 'HD108'])
+export const CLOCKLESS_CHIPSET_OPTIONS = ADDRESSABLE_CHIPSET_OPTIONS.filter(
+  (chipset) => !SPI_CHIPSETS.has(chipset),
+)
 
 /** HUB75 scan-panel matrices (docs/development/design/hub75-output.md) — driven
  *  over a 13-14 signal ribbon via a DMA library, not a FastLED addLeds<>() pin
@@ -3780,6 +3821,31 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     routeY: { control: 'slider', min: 0, max: 63, step: 1 },
     tilesX: { control: 'slider', min: 1, max: 8, step: 1 },
     tilesY: { control: 'slider', min: 1, max: 8, step: 1 },
+  },
+  StereoVuMeter: {
+    ledCount: { control: 'slider', min: 1, max: MAX_LED_RUN, step: 1 },
+    leftDataPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    rightDataPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    leftDirection: { control: 'select', options: ['Bottom', 'Top'] },
+    rightDirection: { control: 'select', options: ['Bottom', 'Top'] },
+    chipset: { control: 'select', options: CLOCKLESS_CHIPSET_OPTIONS },
+    visualizationPolicy: { control: 'select', options: ['Manual', 'Timed cycle', 'Beat cycle', 'Shuffle'] },
+    visualizationMode: { control: 'select', options: [
+      'Classic Ladder', 'Palette Fill', 'Solid Channel', 'Segmented Blocks',
+      'Peak Cap', 'Falling Comet', 'Center Burst', 'Frame-Inward',
+      'Dot Runner', 'History Trail', 'Stereo Balance', 'Beat Spark',
+    ] },
+    cycleInterval: { control: 'slider', min: 1, max: 120, step: 1 },
+    gain: { control: 'slider', min: 0.1, max: 8, step: 0.05 },
+    noiseGate: { control: 'slider', min: 0, max: 0.25, step: 0.005 },
+    responseCurve: { control: 'slider', min: 0.2, max: 2, step: 0.05 },
+    attackMs: { control: 'slider', min: 0, max: 500, step: 5 },
+    releaseMs: { control: 'slider', min: 20, max: 3000, step: 10 },
+    peakHoldMs: { control: 'slider', min: 0, max: 3000, step: 10 },
+    peakFall: { control: 'slider', min: 0.1, max: 4, step: 0.05 },
+    trailAmount: { control: 'slider', min: 0, max: 1, step: 0.01 },
+    beatAccent: { control: 'slider', min: 0, max: 1, step: 0.01 },
+    milliamps: { control: 'slider', min: 100, max: 20000, step: 100 },
   },
   // Saturation's amount is 0–2 (1 = unchanged), not the shared 0–1 opacity.
   Saturation: {
@@ -4220,6 +4286,13 @@ export const FORMULA_LANG_HELP = 'Variables: x, y, t, cx, cy, r, angle, W, H, a,
 
 /** Per-node overrides for property names whose meaning collides across nodes. */
 export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, string>> = {
+  StereoVuMeter: {
+    targetOutputId: 'The LED matrix or HUB75 panel these rails visually flank. Empty keeps the fixture standalone.',
+    leftDirection: 'Where the left string data enters. The renderer keeps visual left on screen-left and reverses physical LED order as needed.',
+    rightDirection: 'Where the right string data enters. The renderer keeps visual right on screen-right and reverses physical LED order as needed.',
+    swapChannels: 'Swaps audio channels without swapping the physical left/right rail placement.',
+    milliamps: 'Current cap shared by both side strings.',
+  },
   RTCInput: {
     timeSource: 'Compile Time seeds from the sketch build stamp; Manual uses the fields below; NTP syncs over Wi-Fi; DS3231 reads a battery-backed clock using the SDA/SCL properties initialized from the selected board.',
     sdaPin: 'DS3231 I2C data pin. Studio fills this from the selected physical board’s Arduino Wire default.',
@@ -4306,6 +4379,29 @@ export function propertyDescription(nodeType: string, key: string): string | und
 
 /** Per-node overrides for a property's displayed label (defaults to the raw key). */
 export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
+  StereoVuMeter: {
+    targetOutputId: 'target LED output',
+    ledCount: 'LEDs per side',
+    leftDataPin: 'left data pin',
+    rightDataPin: 'right data pin',
+    leftDirection: 'left data-in',
+    rightDirection: 'right data-in',
+    swapChannels: 'swap channels',
+    visualizationPolicy: 'mode policy',
+    visualizationMode: 'visualization',
+    cycleInterval: 'cycle interval (s)',
+    leftColor: 'left color',
+    rightColor: 'right color',
+    noiseGate: 'noise gate',
+    responseCurve: 'response curve',
+    attackMs: 'attack (ms)',
+    releaseMs: 'release (ms)',
+    peakHoldMs: 'peak hold (ms)',
+    peakFall: 'peak fall',
+    trailAmount: 'trail amount',
+    beatAccent: 'beat accent',
+    milliamps: 'pair current cap (mA)',
+  },
   DMXInput: {
     inputMode: 'firmware source',
     previewPort: 'preview UDP port',
@@ -4500,6 +4596,18 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     // load re-applied it. Two controls, two scales, one property name.
     { key: 'power', label: 'Power', keys: ['overclock', 'powerLimit', 'volts', 'milliamps'] },
   ],
+  StereoVuMeter: [
+    { key: 'mounting', label: 'Mounting', keys: ['targetOutputId', 'leftDirection', 'rightDirection', 'swapChannels'] },
+    { key: 'wiring', label: 'Wiring', keys: ['ledCount', 'chipset', 'colorOrder', 'leftDataPin', 'rightDataPin'] },
+    { key: 'visualization', label: 'Visualization', keys: [
+      'visualizationPolicy', 'visualizationMode', 'cycleInterval', 'palette', 'leftColor', 'rightColor',
+    ] },
+    { key: 'response', label: 'Response', keys: [
+      'gain', 'noiseGate', 'responseCurve', 'attackMs', 'releaseMs', 'peakHoldMs', 'peakFall',
+      'trailAmount', 'beatAccent',
+    ] },
+    { key: 'power', label: 'Power', keys: ['brightness', 'powerLimit', 'milliamps', 'enabled'] },
+  ],
   Image: [
     { key: 'transform', label: 'Transform', keys: ['fit', 'positionX', 'positionY', 'rotation', 'flipX', 'flipY', 'zoom', 'cropX', 'cropY'] },
     { key: 'color', label: 'Color', keys: ['brightness', 'saturation', 'contrast', 'hueShift', 'gamma', 'monochrome', 'paletteLevels', 'dithering'] },
@@ -4648,6 +4756,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
     'hub75APin', 'hub75BPin', 'hub75CPin', 'hub75DPin', 'hub75EPin',
     'hub75ClkPin', 'hub75LatPin', 'hub75OePin',
   ]),
+  StereoVuMeter: new Set(['leftDataPin', 'rightDataPin']),
 }
 
 export function isGpioPinProperty(nodeType: string, key: string): boolean {
@@ -4963,6 +5072,10 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   }
   if (nodeType === 'PerformanceGenerator' && key === 'fixedPalette') {
     return String(properties.paletteMode ?? 'mood') === 'fixed'
+  }
+  if (nodeType === 'StereoVuMeter') {
+    if (key === 'cycleInterval') return properties.visualizationPolicy !== 'Manual'
+    if (key === 'milliamps') return properties.powerLimit === true
   }
   if (nodeType === 'Image') {
     // Playback controls only apply once an animation (not a still) is loaded.

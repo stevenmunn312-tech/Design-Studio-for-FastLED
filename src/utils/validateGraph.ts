@@ -107,6 +107,25 @@ export function findStorageCapabilityErrors(
     .map((node) => `${nodeLabel(node)} has no attached storage provider — add a board or SD card, or choose an available provider`)
 }
 
+export function findStereoVuMeterErrors(nodes: StudioNode[], edges: StudioEdge[]): string[] {
+  return nodes.flatMap((node) => {
+    if (node.data.nodeType !== 'StereoVuMeter') return []
+    const props = node.data.properties as Record<string, unknown>
+    if (props.enabled === false) return []
+    const label = nodeLabel(node)
+    const errors: string[] = []
+    if (!edges.some((edge) => edge.target === node.id && edge.targetHandle === 'audio')) {
+      errors.push(`${label} has no Audio input connected — connect an Audio node or disable the fixture`)
+    }
+    const targetOutputId = String(props.targetOutputId ?? '')
+    if (targetOutputId && !nodes.some((candidate) =>
+      candidate.id === targetOutputId && candidate.data.nodeType === 'MatrixOutput')) {
+      errors.push(`${label} targets an LED output that no longer exists — choose another target or use Standalone`)
+    }
+    return errors
+  })
+}
+
 function findRtcWarnings(nodes: StudioNode[]): string[] {
   return nodes.flatMap((node) => {
     if (node.data.nodeType !== 'RTCInput') return []
@@ -1488,6 +1507,31 @@ export function buildGraphDiagnostics(
     })
   }
 
+  for (const meter of nodes.filter((node) => node.data.nodeType === 'StereoVuMeter')) {
+    const props = meter.data.properties as Record<string, unknown>
+    if (props.enabled === false) continue
+    if (!incoming.has(`${meter.id}:audio`)) {
+      diagnostics.push({
+        id: `${meter.id}-audio`, severity: 'error', category: 'connection',
+        title: 'Stereo VU Meter has no Audio input',
+        message: 'The paired side strings stay black until an Audio node is connected.',
+        fix: 'Connect Audio to the meter’s Audio socket, or disable the fixture.',
+        nodeIds: [meter.id], nodeLabel: nodeLabel(meter),
+      })
+    }
+    const targetOutputId = String(props.targetOutputId ?? '')
+    if (targetOutputId && !nodes.some((node) =>
+      node.id === targetOutputId && node.data.nodeType === 'MatrixOutput')) {
+      diagnostics.push({
+        id: `${meter.id}-target`, severity: 'error', category: 'connection',
+        title: 'Stereo VU Meter target is missing',
+        message: 'The selected LED output was removed or is no longer available.',
+        fix: 'Choose another target LED output, or select Standalone.',
+        nodeIds: [meter.id], nodeLabel: nodeLabel(meter), propertyKey: 'targetOutputId',
+      })
+    }
+  }
+
   // The same walk deploy validation uses. These were separate loops over the
   // same data once and drifted apart, leaving this drawer calling a
   // deliberately shared pin an error after findPinConflicts had stopped.
@@ -1979,6 +2023,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   errors.push(...findShowRequirementErrors(nodes, edges, selectedFqbn))
   errors.push(...findAudioCapabilityErrors(nodes, edges))
   errors.push(...findStorageCapabilityErrors(nodes, edges))
+  errors.push(...findStereoVuMeterErrors(nodes, edges))
 
   errors.push(...findHub75ConfigErrors(nodes))
   errors.push(...findScalarExpressionErrors(nodes))

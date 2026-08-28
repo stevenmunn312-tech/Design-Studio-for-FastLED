@@ -6,7 +6,7 @@ Add a paired stereo VU-meter fixture to Design Studio for FastLED: one vertical 
 
 The feature must work in browser preview and generated firmware, provide at least ten genuinely different visualizations, coexist with the main LED output, and remain off when its Audio input is missing or inactive.
 
-This document is a plan only. No repository implementation is included.
+This document is the implementation plan and progress ledger. Slice A and Slice B are complete; later rendering, firmware, combined-preview, player, and baked-stereo work remains tracked below.
 
 ## Recommended product shape
 
@@ -196,32 +196,32 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 
 ### Phase 5 — Add the hardware-owned Stereo VU Meter fixture
 
-- [ ] Add the `StereoVuMeter` node definition with one Audio input and no outputs.
-- [ ] Add safe default properties and property controls.
-- [ ] Mark it hardware-managed and hidden from the normal node library.
-- [ ] Ensure it always lives in and writes to the root graph, even while editing a group.
-- [ ] Add it to the **LED outputs** section of Add Hardware.
-- [ ] Reuse the verified LED-string visual twice in the hardware bench; do not add a hand-drawn placeholder part.
-- [ ] Draw both rails at true pitch/length and label Left and Right plus their data-in ends.
+- [x] Add the `StereoVuMeter` node definition with one Audio input and no outputs.
+- [x] Add safe default properties and property controls.
+- [x] Mark it hardware-managed and hidden from the normal node library.
+- [x] Ensure it always lives in and writes to the root graph, even while editing a group.
+- [x] Add it to the **LED outputs** section of Add Hardware.
+- [x] Reuse the verified LED-string visual twice in the hardware bench; do not add a hand-drawn placeholder part.
+- [x] Draw both rails at true pitch/length and label Left and Right plus their data-in ends.
 - [ ] Add a compact graph node body showing two vertical live meters and the active mode.
-- [ ] Implement unambiguous auto-wiring to an existing Audio node; otherwise leave a clear empty socket and guidance.
-- [ ] Add target-output selection using root-graph LED outputs.
-- [ ] Ensure deleting/disconnecting on the canvas follows the repository's hardware ownership rules.
+- [x] Implement unambiguous auto-wiring to an existing Audio node; otherwise leave a clear empty socket and guidance.
+- [x] Add target-output selection using root-graph LED outputs.
+- [x] Ensure deleting/disconnecting on the canvas follows the repository's hardware ownership rules.
 - [ ] Add focused tests for creation, root ownership, auto-wiring, deletion behavior, defaults, and property editing.
 
 ### Phase 6 — Register pins, buses, manifests, retargeting, and parts
 
-- [ ] Add left/right data-pin GPIO requirements in `src/state/nodeLibrary.ts`.
-- [ ] Add each data pin as an exclusive LED-data use in `src/state/busTopology.ts`.
-- [ ] Add both pins and their labels to `src/build/hardwareManifest.ts`.
-- [ ] Add a two-pin retarget plan in `src/state/pinRetarget.ts` so board changes preserve claims and assign valid replacements.
-- [ ] Add the fixture to the Hardware Pane fixture/render tables.
-- [ ] Update `src/state/__tests__/hardwareRegistries.test.ts` so a missed registration fails centrally.
-- [ ] Verify collisions against the main matrix, microphone/line-in, SD card, displays, controls, and the other VU side.
-- [ ] Verify unsupported or reserved pins are rejected for the selected board.
-- [ ] Add both strings to Build Diagram wiring instructions and the downloadable hardware manifest.
-- [ ] Include shared ground, logic-level guidance, data resistor guidance, and data-in direction in the wiring output.
-- [ ] Ensure board retargeting never assigns both strings the same pin.
+- [x] Add left/right data-pin GPIO requirements in `src/state/nodeLibrary.ts`.
+- [x] Add each data pin as an exclusive LED-data use in `src/state/busTopology.ts`.
+- [x] Add both pins and their labels to `src/build/hardwareManifest.ts`.
+- [x] Add a two-pin retarget plan in `src/state/pinRetarget.ts` so board changes preserve claims and assign valid replacements.
+- [x] Add the fixture to the Hardware Pane fixture/render tables.
+- [x] Update `src/state/__tests__/hardwareRegistries.test.ts` so a missed registration fails centrally.
+- [x] Verify collisions against the main matrix, microphone/line-in, SD card, displays, controls, and the other VU side.
+- [x] Verify unsupported or reserved pins are rejected for the selected board.
+- [x] Add both strings to Build Diagram wiring instructions and the downloadable hardware manifest.
+- [x] Include shared ground, logic-level guidance, data resistor guidance, and data-in direction in the wiring output.
+- [x] Ensure board retargeting never assigns both strings the same pin.
 
 ### Phase 7 — Implement one shared visualization model
 
@@ -378,7 +378,7 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 ## Suggested implementation slices
 
 - [x] **Slice A:** Stereo level contract, browser levels, PCM1802 levels, mono fallback, and unit tests.
-- [ ] **Slice B:** Fixture registration, Hardware UI, pins/manifests/retargeting, and validation.
+- [x] **Slice B:** Fixture registration, Hardware UI, pins/manifests/retargeting, and validation.
 - [ ] **Slice C:** Shared renderer plus all twelve preview modes and golden vectors.
 - [ ] **Slice D:** Normal sketch code generation and generated-sketch compile proof.
 - [ ] **Slice E:** Combined matrix/Stage preview and Wiring Test support.

@@ -8,6 +8,7 @@ export const ROOT_BOARD_NODE_ID = 'board-root'
 // view, which is the half of the two-view model that says what is on the bench.
 const HARDWARE_MANAGED_SIGNAL_NODE_TYPES = new Set([
   'MicInput', 'LineInput', 'ButtonInput', 'ButtonBank', 'PotInput', 'EncoderInput', 'RTCInput', 'MatrixOutput',
+  'StereoVuMeter',
   'MotionInput', 'LightInput',
   // Auxiliary displays. Signal-carrying — they consume values and text — but
   // owned by the bench like any other physical part, so they live in the root
@@ -20,6 +21,7 @@ const HARDWARE_MANAGED_SIGNAL_NODE_TYPES = new Set([
 // carry an output the bench does not.
 const HARDWARE_LIBRARY_HIDDEN_NODE_TYPES = new Set([
   'Board', 'MicInput', 'LineInput', 'ButtonInput', 'ButtonBank', 'PotInput', 'EncoderInput', 'RTCInput', 'MatrixOutput',
+  'StereoVuMeter',
   'MotionInput', 'LightInput',
   'SegmentDisplay', 'InfoDisplay', 'TransportDisplay',
   // Carry no signal, so they have no business on the signal canvas at all —
