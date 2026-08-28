@@ -15,6 +15,7 @@
 import { describe, it, expect } from 'vitest'
 import { generateCpp } from '../cppGenerator'
 import { generatePlayerSketch } from '../playerSketchGenerator'
+import { generateShowSketch } from '../showGenerator'
 import { playerDisplaysFromGraph } from '../playerDisplays'
 import { bakeBrowserThumbnails } from '../../utils/browserThumbnails'
 import { blankThumbnail } from '../../state/patternThumbnail'
@@ -106,6 +107,34 @@ describe('a normal sketch with a Pattern Browser', () => {
   it('defines them with nothing baked, too', () => {
     const { nodes, edges } = benchGraph()
     expect(undefinedSymbols(generateCpp(nodes, edges, GROUPS))).toEqual([])
+  })
+})
+
+describe('the generative show controller', () => {
+  // benchGraph is already a show: collection -> Music Player -> output.
+  it('defines every stem-composed symbol it uses', () => {
+    const { nodes, edges } = benchGraph()
+    const src = generateShowSketch(nodes, edges, GROUPS, {
+      thumbnails: bakeBrowserThumbnails(nodes, edges, GROUPS, true),
+    })
+    expect(src).toContain('_sel_')
+    expect(undefinedSymbols(src)).toEqual([])
+  })
+
+  it('defines them with nothing baked, too', () => {
+    const { nodes, edges } = benchGraph()
+    expect(undefinedSymbols(generateShowSketch(nodes, edges, GROUPS))).toEqual([])
+  })
+
+  // One show per controller sketch, so the panel and the table land on the
+  // same stem rather than two that happen to agree.
+  it('uses exactly one selection', () => {
+    const { nodes, edges } = benchGraph()
+    const src = generateShowSketch(nodes, edges, GROUPS, {
+      thumbnails: bakeBrowserThumbnails(nodes, edges, GROUPS, true),
+    })
+    const stems = new Set([...src.matchAll(/\b_sel_([A-Za-z0-9_]+)\b/g)].map((m) => m[1]))
+    expect([...stems]).toHaveLength(1)
   })
 })
 

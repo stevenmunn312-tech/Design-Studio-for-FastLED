@@ -15,6 +15,7 @@
 import { describe, it, expect } from 'vitest'
 import { generateCpp } from '../cppGenerator'
 import { generatePlayerSketch } from '../playerSketchGenerator'
+import { generateShowSketch } from '../showGenerator'
 import { playerDisplaysFromGraph } from '../playerDisplays'
 import { INFO_DISPLAY_CPP_FORWARD } from '../infoDisplayCpp'
 import { SEGMENT_DISPLAY_CPP_FORWARD } from '../segmentDisplayCpp'
@@ -48,6 +49,24 @@ const tft = node('tft', 'TransportDisplay', {
 const browserWire = {
   id: 'bw', source: 'coll', target: 'brw', sourceHandle: 'patternset', targetHandle: 'patternset',
 } as unknown as StudioEdge
+
+/** A generative show: collection -> Music Player -> output. */
+const showCollection = node('coll', 'PatternCollection', { patternIds: ['g0'] })
+const master = node('master', 'PatternMaster', {})
+const showEdges = [
+  { id: 's1', source: 'coll', target: 'master', sourceHandle: 'patternset', targetHandle: 'patternset' },
+  { id: 's2', source: 'master', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' },
+  { id: 's3', source: 'master', target: 'brw', sourceHandle: 'patternSelect', targetHandle: 'patternSelect' },
+] as unknown as StudioEdge[]
+const showGroups = {
+  g0: {
+    nodes: [node('sc', 'SolidColor', { r: 0, g: 0, b: 255 }), node('go', 'GroupOutput')],
+    edges: [{ id: 'e', source: 'sc', target: 'go', sourceHandle: 'frame', targetHandle: 'frame' }],
+  },
+}
+const showSketch = (displays: StudioNode[]) => generateShowSketch(
+  [output, showCollection, master, ...displays], showEdges, showGroups as never,
+)
 
 /** Offset of the first function *definition* — where ctags starts hoisting. */
 function firstFunctionAt(src: string): number {
@@ -131,6 +150,43 @@ describe('every struct a function takes by reference', () => {
       expect(declared, `struct ${name}; is never forward-declared`).toBeGreaterThan(-1)
       expect(declared, `struct ${name}; must precede every function definition`).toBeLessThan(firstFn)
     }
+  })
+})
+
+describe('the show controller sketch', () => {
+  it('names the panel struct before any function that takes one', () => {
+    declaredBeforeAnyFunction(showSketch([oled]), INFO_DISPLAY_CPP_FORWARD)
+  })
+
+  it('names the segment struct before any function that takes one', () => {
+    declaredBeforeAnyFunction(showSketch([segment]), SEGMENT_DISPLAY_CPP_FORWARD)
+  })
+
+  it('names the colour panel struct before any function that takes one', () => {
+    declaredBeforeAnyFunction(showSketch([tft]), TFT_DISPLAY_CPP_FORWARD)
+  })
+
+  // The third generator to draw, and the same rule derived rather than listed:
+  // every struct it defines and passes by reference must be named up top.
+  it('declares every by-reference struct before any function', () => {
+    const src = showSketch([oled, segment, tft, browser])
+    const firstFn = firstFunctionAt(src)
+    const defined = [...src.matchAll(/^struct\s+(\w+)\s*\{/gm)].map((m) => m[1])
+    const byReference = defined.filter((name) => new RegExp(String.raw`\b${name}\s*&`).test(src))
+    expect(byReference.length, 'no by-reference struct params found — the check would pass vacuously')
+      .toBeGreaterThan(0)
+    for (const name of byReference) {
+      const declared = src.indexOf(`struct ${name};`)
+      expect(declared, `struct ${name}; is never forward-declared`).toBeGreaterThan(-1)
+      expect(declared, `struct ${name}; must precede every function definition`).toBeLessThan(firstFn)
+    }
+  })
+
+  it('declares nothing for a show with no display', () => {
+    const src = showSketch([])
+    expect(src).not.toContain(INFO_DISPLAY_CPP_FORWARD)
+    expect(src).not.toContain(SEGMENT_DISPLAY_CPP_FORWARD)
+    expect(src).not.toContain(TFT_DISPLAY_CPP_FORWARD)
   })
 })
 

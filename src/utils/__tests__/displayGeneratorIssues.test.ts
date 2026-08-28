@@ -33,14 +33,13 @@ describe('displays a build cannot drive', () => {
     expect(findDisplayGeneratorIssues([out(), oled()], [])).toEqual({ errors: [], warnings: [] })
   })
 
-  // The show-controller sketch has no display support at all, so the part would
-  // be dropped from the firmware entirely.
-  it('blocks a display when a show controller drives the output', () => {
+  // A Show Engine's product is a timed .show file on a card. Without a card
+  // there is nothing to write it to, so the graph exports through the normal
+  // sketch generator — which draws the panel.
+  it('leaves a card-less Show Engine graph to the normal sketch', () => {
     const nodes = [out(), oled(), node('pg', 'PerformanceGenerator')]
-    const issues = findDisplayGeneratorIssues(nodes, [edge('e', 'pg', 'frame', 'out', 'frame')])
-    expect(issues.errors).toHaveLength(1)
-    expect(issues.errors[0]).toContain('Info Display')
-    expect(issues.errors[0]).toContain('would not be built into the firmware')
+    expect(findDisplayGeneratorIssues(nodes, [edge('e', 'pg', 'frame', 'out', 'frame')]))
+      .toEqual({ errors: [], warnings: [] })
   })
 
   it('leaves an unwired show controller alone', () => {
@@ -61,7 +60,8 @@ describe('displays a build cannot drive', () => {
   // The player sketch is a template, not a compiled graph. A Wave is a perfectly
   // reasonable wire on the canvas and has no value to read there.
   it('warns about a port the player sketch cannot read', () => {
-    const nodes = [out(), oled(), node('master', 'PatternMaster'), node('w', 'Wave')]
+    const nodes = [out(), oled(), node('master', 'PatternMaster'), node('w', 'Wave'),
+      node('sd', 'SDCard'), node('amp', 'Amplifier')]
     const wires = [
       edge('e1', 'master', 'frame', 'out', 'frame'),
       edge('e2', 'w', 'result', 'oled', 'progress'),
@@ -75,7 +75,8 @@ describe('displays a build cannot drive', () => {
   })
 
   it('names every unreadable port rather than only the first', () => {
-    const nodes = [out(), oled(), node('master', 'PatternMaster'), node('w', 'Wave')]
+    const nodes = [out(), oled(), node('master', 'PatternMaster'), node('w', 'Wave'),
+      node('sd', 'SDCard'), node('amp', 'Amplifier')]
     const wires = [
       edge('e1', 'master', 'frame', 'out', 'frame'),
       edge('e2', 'w', 'result', 'oled', 'progress'),
@@ -84,11 +85,28 @@ describe('displays a build cannot drive', () => {
     expect(findDisplayGeneratorIssues(nodes, wires).warnings).toHaveLength(2)
   })
 
+  it('says nothing about a wire a normal sketch will compile', () => {
+    const nodes = [out(), oled(), node('master', 'PatternMaster'), node('w', 'Wave')]
+    const wires = [
+      edge('e1', 'master', 'frame', 'out', 'frame'),
+      edge('e2', 'w', 'result', 'oled', 'progress'),
+    ]
+    // No card, no collection: this graph builds through generateCpp, which
+    // evaluates the Wave like any other node. Warning here would be a false
+    // alarm about the one generator that has no template limits at all.
+    expect(findDisplayGeneratorIssues(nodes, wires)).toEqual({ errors: [], warnings: [] })
+  })
+
   it('covers a segment display too', () => {
     const seg = node('seg', 'SegmentDisplay', { partId: 'tm1637-4digit-display' })
-    const nodes = [out(), seg, node('pg', 'PerformanceGenerator')]
-    const issues = findDisplayGeneratorIssues(nodes, [edge('e', 'pg', 'frame', 'out', 'frame')])
-    expect(issues.errors[0]).toContain('Segment Display')
+    const nodes = [out(), seg, node('master', 'PatternMaster'), node('w', 'Wave'),
+      node('sd', 'SDCard'), node('amp', 'Amplifier')]
+    const wires = [
+      edge('e1', 'master', 'frame', 'out', 'frame'),
+      edge('e2', 'w', 'result', 'seg', 'value'),
+    ]
+    const issues = findDisplayGeneratorIssues(nodes, wires)
+    expect(issues.warnings[0]).toContain('Segment Display')
   })
 
   // The refusal that used to stand here is gone: a normal sketch draws the
@@ -183,17 +201,14 @@ describe('displays a build cannot drive', () => {
     expect(issues.errors[0]).toContain('0 and 4095')
   })
 
-  // showGenerator.ts draws no displays, by design, so the refusal is about
-  // which generator the graph selected rather than about the panel.
-  it('still refuses one on a graph that would export as a show', () => {
+  it('accepts a colour panel on a Show Engine writing to a card', () => {
     const transport = node('transport', 'TransportDisplay', {
       partId: 'st7789-tft-240x240', tftLayout: 'Now Playing',
     })
-    const nodes = [out(), transport, node('pg', 'PerformanceGenerator')]
-    const issues = findDisplayGeneratorIssues(nodes, [edge('e', 'pg', 'frame', 'out', 'frame')])
-    expect(issues.errors).toHaveLength(1)
-    expect(issues.errors[0]).toContain('Transport Display')
-    expect(issues.errors[0]).toContain('cannot drive a display')
+    // With a card this is the player sketch, which draws displays.
+    const nodes = [out(), transport, node('pg', 'PerformanceGenerator'), node('sd', 'SDCard')]
+    expect(findDisplayGeneratorIssues(nodes, [edge('e', 'pg', 'frame', 'out', 'frame')]).errors)
+      .toEqual([])
   })
 })
 
@@ -212,12 +227,53 @@ describe('a Music Player show', () => {
     edge('e2', 'master', 'frame', 'out', 'frame'),
   ]
 
-  it('refuses a display it cannot build', () => {
-    const { errors } = findDisplayGeneratorIssues([master, collection, out, display], showEdges)
+  it('builds a display into the show controller', () => {
+    // The refusal that stood here is gone: showGenerator emits the panel and
+    // reports the running pattern from the show's own cursor.
+    expect(findDisplayGeneratorIssues([master, collection, out, display], showEdges))
+      .toEqual({ errors: [], warnings: [] })
+  })
+
+  // Drawing is not commanding. A show rotates patterns and plays no music, so
+  // there is nothing for play/pause, previous, next or volume to reach.
+  it('refuses a touch panel wired to control it', () => {
+    const transport = node('transport', 'TransportDisplay', {
+      partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Fixed Transport',
+    })
+    const controls = node('controls', 'PlayerControls')
+    const { errors } = findDisplayGeneratorIssues(
+      [master, collection, out, transport, controls],
+      [...showEdges,
+        edge('touch', 'transport', 'controls', 'controls', 'controlsIn'),
+        edge('cmd', 'controls', 'controls', 'master', 'controls')],
+    )
     expect(errors).toHaveLength(1)
-    expect(errors[0]).toContain('Info Display')
-    // Names the way out rather than only the refusal.
-    expect(errors[0]).toMatch(/Upload show to SD/)
+    expect(errors[0]).toContain('no transport to command')
+    expect(errors[0]).toContain('read-only display')
+  })
+
+  it('leaves an unwired touch panel valid as a read-only display', () => {
+    const transport = node('transport', 'TransportDisplay', {
+      partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Show Status',
+    })
+    expect(findDisplayGeneratorIssues([master, collection, out, transport], showEdges).errors)
+      .toEqual([])
+  })
+
+  // A show has no song, so every song wire is a port it cannot read — the same
+  // walk and the same message the player gets, with the show's own table.
+  it('warns about a song port the show controller cannot read', () => {
+    const nowPlaying = node('oled2', 'InfoDisplay', {
+      partId: 'sh1106-oled-128x64', infoLayout: 'Now Playing',
+    })
+    const issues = findDisplayGeneratorIssues(
+      [master, collection, out, nowPlaying],
+      [...showEdges, edge('t', 'master', 'title', 'oled2', 'title')],
+    )
+    expect(issues.errors).toEqual([])
+    expect(issues.warnings).toHaveLength(1)
+    expect(issues.warnings[0]).toContain('show controller sketch cannot read')
+    expect(issues.warnings[0]).toContain('stays blank')
   })
 
   it('is quiet when the Music Player has no collection behind it', () => {

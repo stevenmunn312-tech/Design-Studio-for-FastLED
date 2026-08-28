@@ -26,6 +26,27 @@ import { compositionDims, outputRoutes } from '../state/outputRouting'
 import { outputCanvasDims } from '../state/ledOutputForm'
 import { controllerSettings, ledPropsWithController } from '../state/controllerSettings'
 import { amplifierIdleCpp } from './amplifierIdle'
+import { playerDisplaysFromGraph, SHOW_DISPLAY_EXPRESSIONS } from './playerDisplays'
+import {
+  infoDisplayHelpersCpp, INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp,
+  infoDisplaySetupCpp, infoDisplayLoopCpp, type InfoDisplayEmit,
+} from './infoDisplayCpp'
+import {
+  SEGMENT_DISPLAY_CPP_HELPERS, SEGMENT_DISPLAY_CPP_FORWARD, segmentDisplayGlobalCpp,
+  segmentDisplaySetupCpp, segmentDisplayLoopCpp, type SegmentDisplayEmit,
+} from './segmentDisplayCpp'
+import {
+  tftDisplayHelpersCpp, TFT_DISPLAY_CPP_FORWARD, TFT_DISPLAY_CPP_INCLUDES,
+  tftDisplayGlobalCpp, tftDisplaySetupCpp, tftDisplayLoopCpp, type TftDisplayEmit,
+} from './tftDisplayCpp'
+import {
+  TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit,
+} from './tftTouchCpp'
+import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './patternSelectionCpp'
+import { patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
+import { transportArtworkTableCpp } from './transportArtworkCpp'
+import type { BrowserThumbnails } from '../utils/browserThumbnails'
+import type { TransportArtworks } from '../utils/transportArtworks'
 
 const nodeType = (n: StudioNode) => (n.data as { nodeType?: string }).nodeType
 const props = (n: StudioNode) => n.data.properties as Record<string, unknown>
@@ -315,11 +336,239 @@ export function buildPatternRenderers(
   }
 }
 
+/**
+ * One show, one collection, one cursor.
+ *
+ * Same reasoning as the player's stem: a controller sketch runs exactly one
+ * show, so two panels wired to it must read one selection and one thumbnail
+ * table. Stem-composed symbol names (_sel_show, THUMB_COUNT_show) are derived
+ * from this by both the emitting and the referencing code.
+ */
+const SHOW_SELECTION_STEM = 'show'
+
+/** The show's running pattern index, readable from anywhere in the sketch. */
+const SHOW_PATTERN_INDEX = 'showPatternIndex'
+
+interface ShowDisplayEmission {
+  /** Extra include lines the drivers need. */
+  includes: string[]
+  /** Struct forward declarations, ahead of the preprocessor's prototypes. */
+  forwards: string[]
+  /** Driver helpers, tables and per-display globals, at file scope. */
+  helpers: string[]
+  /** Lines for setup(). */
+  setup: string[]
+  /** Lines for loop(), after the frame has been shipped. */
+  loop: string[]
+}
+
+const NO_SHOW_DISPLAYS: ShowDisplayEmission = {
+  includes: [], forwards: [], helpers: [], setup: [], loop: [],
+}
+
+/**
+ * Build the display half of a show controller sketch.
+ *
+ * The controller is a fixed template like the SD player, so it resolves a
+ * display's ports through the same walk rather than through the node-by-node
+ * emission a normal sketch does. What differs is only the expression table it
+ * hands in — `SHOW_DISPLAY_EXPRESSIONS`, empty because a show has no music to
+ * answer for — and that there is no transport for a Controls wire to reach, so
+ * a touch panel in a show is a Diagnostics screen or a read-only one. Both
+ * differences are one argument each rather than a branch on the generator.
+ */
+function showDisplaysCpp(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  patternCount: number,
+  opts: { thumbnails?: BrowserThumbnails; artworks?: TransportArtworks },
+): ShowDisplayEmission {
+  const displays = playerDisplaysFromGraph(
+    nodes as never, edges as never,
+    { expressions: SHOW_DISPLAY_EXPRESSIONS, transportTouch: false },
+  )
+  const hasInfo = displays.info.length > 0
+  const hasSegment = displays.segment.length > 0
+  const hasTft = displays.tft.length > 0
+  if (!hasInfo && !hasSegment && !hasTft) return NO_SHOW_DISPLAYS
+
+  const browsers = displays.info.filter((display) => display.layout === 'Pattern Browser')
+  // Keyed by the browser's own node id in the bake; a controller sketch has
+  // exactly one show, so whichever browser was baked, the pictures are of the
+  // collection this sketch is rendering.
+  const thumbnails = Object.values(opts.thumbnails ?? {})[0] ?? []
+  const artworks = Object.values(opts.artworks ?? {})[0] ?? []
+  const hasArtwork = displays.tft.some((display) => display.layout === 'Now Playing')
+    && artworks.length > 0
+  // The cursor exists for anything that has to know which pattern is running.
+  const usesSelection = browsers.length > 0 || hasArtwork
+  const selVar = `_sel_${SHOW_SELECTION_STEM}`
+
+  const infoEmits: InfoDisplayEmit[] = displays.info.map((display) => ({
+    id: safeId(display.id),
+    transport: display.transport,
+    csPin: display.csPin,
+    dcPin: display.dcPin,
+    resetPin: display.resetPin,
+    sckPin: display.sckPin,
+    mosiPin: display.mosiPin,
+    address: display.address,
+    columnOffset: display.columnOffset,
+    segmentRemap: display.segmentRemap,
+    comScan: display.comScan,
+    layout: display.layout,
+    enabledExpr: display.enabled ? 'true' : 'false',
+    titleExpr: display.sources.title ?? null,
+    line2Expr: display.sources.line2 ?? null,
+    valueExpr: display.sources.value ?? '0.0f',
+    progressExpr: display.sources.progress ?? '0.0f',
+    playingExpr: display.sources.playing ?? 'false',
+    volumeExpr: display.sources.volume ?? '0.0f',
+    durationExpr: display.sources.duration ?? '0.0f',
+    dateTimeExpr: null,
+    indicatorExprs: [1, 2, 3, 4].map((i) => display.sources[`indicator${i}`] ?? 'false'),
+    ...(display.layout === 'Pattern Browser'
+      ? { browser: { tableStem: SHOW_SELECTION_STEM, selVar } }
+      : {}),
+  }))
+
+  const segmentEmits: SegmentDisplayEmit[] = displays.segment.map((display) => ({
+    id: safeId(display.id),
+    controller: display.controller,
+    digits: display.digits,
+    clkPin: display.clkPin,
+    dataPin: display.dataPin,
+    csPin: display.csPin,
+    brightness: display.brightness,
+    mode: display.mode,
+    decimals: display.decimals,
+    leadingZero: display.leadingZero,
+    showColon: display.showColon,
+    valueExpr: display.sources.value ?? '0.0f',
+    dateTimeExpr: null,
+    enabledExpr: display.enabled ? 'true' : 'false',
+  }))
+
+  const tftEmits: TftDisplayEmit[] = displays.tft.map((display) => ({
+    id: safeId(display.id),
+    controller: display.controller,
+    rotation: display.rotation,
+    layout: display.layout,
+    csPin: display.csPin,
+    dcPin: display.dcPin,
+    resetPin: display.resetPin,
+    sckPin: display.sckPin,
+    mosiPin: display.mosiPin,
+    backlightPin: display.backlightPin,
+    enabledExpr: display.enabled ? 'true' : 'false',
+    titleExpr: display.sources.title ?? null,
+    artistExpr: display.sources.artist ?? null,
+    patternNameExpr: display.sources.patternName ?? null,
+    // No music, so none of these have a reading behind them. Zero rather than
+    // a player accessor that does not exist in this sketch.
+    elapsedExpr: display.sources.elapsedSec ?? '0.0f',
+    durationExpr: display.sources.durationSec ?? '0.0f',
+    progressExpr: display.sources.progress ?? '0.0f',
+    playingExpr: display.sources.playing ?? 'false',
+    volumeExpr: display.sources.volume ?? '0.0f',
+    // The one thing a show controller genuinely knows, supplied without a
+    // wire: a Show Status panel dropped into a generative show reports the
+    // running pattern out of the collection with nothing else to configure.
+    patternIndexExpr: display.sources.patternIndex ?? SHOW_PATTERN_INDEX,
+    patternCountExpr: display.sources.patternCount ?? 'PATTERN_COUNT',
+    sectionExpr: display.sources.section ?? null,
+    bpmExpr: display.sources.bpm ?? '0.0f',
+    beatExpr: display.sources.beat ?? '0.0f',
+    outputEnabledExpr: display.sources.outputEnabled ?? 'true',
+    brightnessExpr: display.sources.brightness ?? '1.0f',
+    diagnosticTouch: display.layout === 'Diagnostics' && display.touch !== null,
+    ...(display.layout === 'Now Playing' && artworks.length > 0
+      ? { artwork: { tableStem: SHOW_SELECTION_STEM, count: artworks.length } }
+      : {}),
+  }))
+
+  const touchEmits: TftTouchEmit[] = displays.tft
+    .filter((display) => display.touch !== null)
+    .map((display) => ({
+      id: safeId(display.id),
+      controller: display.controller,
+      rotation: display.rotation,
+      layout: display.layout,
+      enabled: display.enabled,
+      touch: display.touch!,
+    }))
+
+  // The header follows the driver, not the transport: the shared OLED driver
+  // compiles its Wire branch whichever bus the panel is on, so an SPI-only
+  // build still has to declare it. Starting the bus stays gated on there
+  // actually being an I2C device with pins to start it on.
+  const i2cDisplays = displays.info.filter((display) => display.transport === 'i2c')
+
+  return {
+    includes: [
+      ...(hasInfo ? ['#include <Wire.h>'] : []),
+      ...(hasTft ? [TFT_DISPLAY_CPP_INCLUDES] : []),
+    ],
+    forwards: [
+      ...(hasInfo ? [INFO_DISPLAY_CPP_FORWARD] : []),
+      ...(hasSegment ? [SEGMENT_DISPLAY_CPP_FORWARD] : []),
+      ...(hasTft ? [TFT_DISPLAY_CPP_FORWARD] : []),
+      ...(usesSelection ? [PATTERN_SELECTION_CPP_FORWARD] : []),
+    ],
+    helpers: [
+      hasInfo ? infoDisplayHelpersCpp() : '',
+      hasInfo ? infoEmits.map(infoDisplayGlobalCpp).join('\n') : '',
+      // PATTERN_COUNT is already defined by the controller above, so the
+      // selection reads it rather than restating it.
+      usesSelection ? PATTERN_SELECTION_CPP : '',
+      usesSelection ? `static PatternSel ${selVar};` : '',
+      browsers.length > 0 ? THUMBNAIL_DRAW_CPP : '',
+      browsers.length > 0 ? patternThumbnailTableCpp(SHOW_SELECTION_STEM, thumbnails) : '',
+      hasSegment ? SEGMENT_DISPLAY_CPP_HELPERS : '',
+      hasSegment ? segmentEmits.map(segmentDisplayGlobalCpp).join('\n') : '',
+      hasTft ? tftDisplayHelpersCpp() : '',
+      hasArtwork ? transportArtworkTableCpp(SHOW_SELECTION_STEM, artworks) : '',
+      touchEmits.length > 0 ? TFT_TOUCH_CPP_HELPERS : '',
+      touchEmits.length > 0 ? touchEmits.map(tftTouchGlobalCpp).join('\n') : '',
+      hasTft ? tftEmits.map(tftDisplayGlobalCpp).join('\n') : '',
+    ].filter(Boolean),
+    setup: [
+      ...(i2cDisplays.length > 0
+        ? [`  Wire.begin(${i2cDisplays[0].sdaPin}, ${i2cDisplays[0].sclPin});  // I2C displays`]
+        : []),
+      ...infoEmits.flatMap(infoDisplaySetupCpp),
+      ...(usesSelection ? [`  _selBegin(${selVar});`] : []),
+      ...segmentEmits.flatMap(segmentDisplaySetupCpp),
+      ...tftEmits.flatMap(tftDisplaySetupCpp),
+      ...touchEmits.flatMap(tftTouchSetupCpp),
+    ],
+    loop: [
+      // The show's own advance goes through the selection, exactly as the SD
+      // player's does, so a panel and the pixels never disagree about which
+      // pattern is running.
+      ...(usesSelection && patternCount > 0
+        ? [`  _selSetActive(${selVar}, PATTERN_COUNT, ${SHOW_PATTERN_INDEX});`]
+        : []),
+      ...touchEmits.flatMap(tftTouchServiceCpp),
+      ...infoEmits.flatMap(infoDisplayLoopCpp),
+      ...segmentEmits.flatMap(segmentDisplayLoopCpp),
+      ...tftEmits.flatMap(tftDisplayLoopCpp),
+    ],
+  }
+}
+
 export function generateShowSketch(
   nodes: StudioNode[], edges: StudioEdge[], groups: GroupRegistry = {},
   // `psramAllowed` mirrors generateCpp's option: the upload UI passes false
-  // when the selected board has no PSRAM support.
-  opts: { psramAllowed?: boolean } = {},
+  // when the selected board has no PSRAM support. `thumbnails`/`artworks` are
+  // the baked Pattern Browser pictures and Now Playing art, handed in for the
+  // same reason generateCpp takes them: baking evaluates patterns, and a text
+  // emitter has no way to know whether the workspace has been trusted.
+  opts: {
+    psramAllowed?: boolean
+    thumbnails?: BrowserThumbnails
+    artworks?: TransportArtworks
+  } = {},
 ): string {
   const info = showInfo(nodes, edges)
   if (!info) return generateCpp(nodes, edges, groups, opts)
@@ -380,6 +629,10 @@ export function generateShowSketch(
   // the whole transition apparatus (showA/showB, the style pool, and the
   // compositing switch) is left out rather than emitted unreachable.
   const transitions = renderers.count > 1
+  // Displays are not upstream of an LED output and never will be, so they
+  // arrive here rather than through the pattern walk. A show controller is a
+  // fixed template, so their ports resolve the same way the SD player's do.
+  const displays = showDisplaysCpp(nodes, edges, renderers.count, opts)
   const fastLedDecls = new Set<string>()
   if (transitions) fastLedDecls.add('void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt);')
   if (particlesOn) fastLedDecls.add('void particleOverlay(uint32_t burstStart, uint8_t burstStyle, uint8_t burstR, uint8_t burstG, uint8_t burstB, float burstIntensity, uint32_t posMs);')
@@ -399,10 +652,16 @@ export function generateShowSketch(
   L.push('#include <FastLED.h>')
   if (isHub75) L.push(...hub75IncludesCpp(hub75Hw!))
   if (audio) L.push(audio.include)
+  for (const include of displays.includes) L.push(include)
   L.push('')
   L.push('// Explicit FastLED-typed declarations keep the Arduino preprocessor')
   L.push('// from injecting its own before <FastLED.h>, which breaks CRGB names.')
+  L.push('// The display structs are forward-declared here for the same reason:')
+  L.push('// the preprocessor hoists helper prototypes above the point those')
+  L.push('// types are defined, so a helper taking one by reference fails on a')
+  L.push('// line nothing in this generator wrote.')
   for (const decl of fastLedDecls) L.push(decl)
+  for (const decl of displays.forwards) L.push(decl)
   L.push('')
   L.push(`#define WIDTH    ${width}`)
   L.push(`#define HEIGHT   ${height}`)
@@ -473,6 +732,15 @@ export function generateShowSketch(
 
   for (const fn of renderers.functions) { L.push(fn); L.push('') }
 
+  if (displays.helpers.length > 0) {
+    // The running pattern, published for the panels. A file-scope global
+    // rather than the loop's own `cur` because a single-pattern show has no
+    // `cur` at all, and because a display helper reads it from outside loop().
+    L.push(`static uint8_t ${SHOW_PATTERN_INDEX} = 0;`)
+    L.push('')
+    for (const helper of displays.helpers) { L.push(helper); L.push('') }
+  }
+
   // Pattern dispatch table (renders pattern i into `leds`).
   L.push('void renderPattern(uint8_t i, uint32_t ms) {')
   L.push('  switch (i) {')
@@ -506,6 +774,7 @@ export function generateShowSketch(
   }
   L.push(info.seed ? `  random16_set_seed(${info.seed}u);` : '  randomSeed(analogRead(A0));')
   if (audio) L.push('  setupAudio();')
+  for (const line of displays.setup) L.push(line)
   L.push('}')
   L.push('')
 
@@ -561,6 +830,13 @@ export function generateShowSketch(
     L.push('    if (p >= 1.0f) { cur = nxt; transitioning = false; phaseStart = now; dwell = random16(' + minMs + ', ' + maxMs + '); }')
     L.push('  }')
     L.push('')
+    if (displays.helpers.length > 0) {
+      // Mid-transition the outgoing pattern is still the one running: a panel
+      // that renamed itself the instant a crossfade began would be ahead of
+      // what anyone can see on the fixture.
+      L.push(`  ${SHOW_PATTERN_INDEX} = cur;`)
+      L.push('')
+    }
   }
   if (particlesOn) {
     L.push(`  particleOverlay(burstStart, burstStyle, burstColor.r, burstColor.g, burstColor.b, ${info.particleIntensity}f, now);`)
@@ -591,6 +867,12 @@ export function generateShowSketch(
   } else {
     L.push('  FastLED.show();')
   }
+  // After the frame has shipped, never before it. A panel repaint is worth
+  // several LED frames of SPI time, and the acceptance gate for displays is no
+  // regression to wall-clock LED timing — so the pixels go out first and the
+  // panels catch up in the slack. Each of these is already change-gated, so a
+  // steady display costs a comparison per loop.
+  for (const line of displays.loop) L.push(line)
   L.push('  FastLED.delay(16);')
   L.push('}')
 

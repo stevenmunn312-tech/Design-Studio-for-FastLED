@@ -409,14 +409,49 @@ touch control can drive real graph logic rather than only the hardcoded
 transport actions. Until that path exists for a given generator, an unsupported
 binding blocks with a diagnostic naming what is missing.
 
-The SD player is at that interim stage now. It resolves a display's inputs
-against the Music Player's own output ports — title, artist, elapsed and the
-rest — because those are what the player can answer from the file it is
-holding, and it collects anything wired from another source as unresolved. That
-is deliberately narrower than the IR: it covers the case a finished build
-actually has, which is a panel reporting the track, and it does not pretend to
-evaluate a Wave or a Math node inside a template that has no graph in it. The
-IR replaces it rather than being layered on top.
+Both template generators are at that interim stage now. They resolve a
+display's inputs against the Music Player's own output ports — title, artist,
+elapsed and the rest — and collect anything wired from another source as
+unresolved. That is deliberately narrower than the IR: it covers the case a
+finished build actually has, which is a panel reporting what the firmware is
+doing, and it does not pretend to evaluate a Wave or a Math node inside a
+template that has no graph in it. The IR replaces it rather than being layered
+on top.
+
+One walk serves both, in `codegen/playerDisplays.ts`, parameterised by the
+expression table the generator hands it. That table is the whole difference.
+The SD player's names the accessors that read the file it is holding. The show
+controller's, `SHOW_DISPLAY_EXPRESSIONS`, is **empty**, and the emptiness is the
+statement: a generative show rotates patterns and holds no music, so there is
+no title, no elapsed time and no volume anywhere in that sketch. Every song
+wire into a panel there is reported unresolved rather than filled with a
+plausible zero — the same rule the browser follows when it leaves artist blank
+instead of guessing it from a filename. Branching on the generator inside the
+resolver would have made a third template a third branch; handing the table in
+makes it a table.
+
+What the show controller *does* know it supplies with no wiring at all. Which
+pattern is running, and how many there are, come from the show's own state:
+`showPatternIndex` and `PATTERN_COUNT`, so a Show Status panel dropped into a
+generative show reports "3/8" out of the box. Its rotation goes through
+`_selSetActive` on the single `_sel_show` cursor, exactly as the SD player's
+does, so a Pattern Browser and the pixels cannot come to disagree about which
+pattern is playing.
+
+Drawing is not commanding, and the two are separately gated. A show has no
+transport for play/pause, previous, next or volume to reach, so a wired Controls
+output is refused there just as it is in a normal sketch — and the touch service
+is not emitted at all, because it calls the player's own transport functions and
+a sketch without them would fail to compile on a line no generator wrote. A
+Diagnostics panel still samples touch, since it only reports coordinates. An
+unwired touch panel stays valid as a read-only display.
+
+Which generator a graph would *actually* build with therefore has to be exact.
+`selectedGenerator` mirrors the upload path's order, and both arms of
+`sdShowConnected` matter: a Show Engine writing a timed show to a card builds
+the **player** sketch, and the same graph without a card builds an ordinary
+one. Neither mattered while every generator but the normal one refused displays
+outright. Both do now that all three draw.
 
 The control-graph IR is built once and reused by all three generators. The
 alternative — display-specific graph evaluation copy-pasted into each — is how

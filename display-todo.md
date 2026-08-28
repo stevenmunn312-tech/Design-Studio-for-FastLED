@@ -389,6 +389,14 @@ widget, font and image limits before Phase 7 is frozen.
 - [ ] Build a small control-graph IR for float/bool/string/status paths. Reuse
   it from normal sketch, generative-show, and SD-player generators instead of
   copy/pasting display-specific graph evaluation into each generator.
+  The copy/paste this guards against was avoided when the show controller
+  learned to draw: it reuses `playerDisplaysFromGraph` rather than growing a
+  second resolver, parameterised by the expression table the generator hands
+  in. The show's table is empty on purpose — it has no music to answer for — so
+  every song wire is reported unresolved through the one path. That is still
+  the interim stage the IR replaces, not the IR: it resolves a wire to a named
+  accessor and cannot evaluate a Wave or a Math node. What it does settle is
+  the shape, which is a table per generator rather than a branch per generator.
 - [x] Add shared display setup/loop/global helpers for Segment Display and Info
   Display alongside the existing LED, HUB75, audio, and RTC helpers. Controller
   quirks and transport setup stay in their adapters rather than node emit
@@ -554,11 +562,24 @@ freeform widgets must reuse rather than rediscover.
   Player Controls emits play/pause and volume from Now Playing, or LED toggle
   and brightness from Show Status. Browser touch is also done: the node preview
   publishes button edges and held absolute sliders through the same
-  `playercontrols` bundle using the firmware's shared hit geometry. Normal
-  sketches and the generative-show control graph remain here rather than being
-  implied complete. Until they land, deploy validation and Graph Health block a
-  wired touch output those generators would ignore; an unwired touch panel is
-  still valid as a read-only display.
+  `playercontrols` bundle using the firmware's shared hit geometry.
+  The generative show is now resolved rather than pending, and the answer is
+  that it has nothing to command: a show rotates patterns and holds no music,
+  so play/pause, previous, next and volume have no destination in it. It draws
+  the panel and reports the running pattern from its own cursor; a wired
+  Controls output is refused there, and the XPT2046 service is not emitted at
+  all except for Diagnostics, because it calls player transport functions a
+  show controller does not define.
+  What remains is the normal sketch, and it needs a decision before it needs
+  code. A sketch has no transport either, so only Show Status's LED toggle and
+  brightness mean anything — and the bundle's only consumers are
+  `PlayerControls.controlsIn` and `PatternMaster.controls`, neither of which
+  leads anywhere in a plain sketch. Giving those two actions a destination is a
+  port contract (`MatrixOutput` gaining a `controls` input, or a node that
+  unpacks the bundle into `bool`/`float`), not a generator change. Until it
+  lands, deploy validation and Graph Health block a wired touch output a normal
+  sketch would ignore; an unwired touch panel is still valid as a read-only
+  display.
 - [ ] Add calibration/rotation handling for touch and persist the exact module's
   calibration only where it is stable. Provide a generated touch self-test.
   Calibration properties, clamping, all four rotations, and the generated

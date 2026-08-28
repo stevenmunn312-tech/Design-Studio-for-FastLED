@@ -649,3 +649,141 @@ describe('show sketch weight', () => {
     expect(cpp).toContain('compositeTransition(transType, leds, showA, showB, p);')
   })
 })
+
+// The third generator to draw a display. Before this, a show controller with a
+// panel on the bench was refused at validation — the graph could not be
+// exported at all rather than exported with the part dark. What it draws is
+// deliberately narrower than the SD player: a show is rotating patterns, not
+// holding a file, so it answers for the pattern and for nothing musical.
+describe('displays in a show controller', () => {
+  const groups = {
+    g0: { nodes: [node('sc', 'SolidColor', { r: 0, g: 0, b: 255 }), node('go', 'GroupOutput')],
+      edges: [edge('e', 'sc', 'frame', 'go', 'frame')] },
+    g1: { nodes: [node('sc', 'SolidColor', { r: 255, g: 0, b: 0 }), node('go', 'GroupOutput')],
+      edges: [edge('e', 'sc', 'frame', 'go', 'frame')] },
+  } as unknown as GroupRegistry
+  const base = [
+    node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
+    node('pm', 'PatternMaster', { minTime: 4, maxTime: 12, transitionSec: 1 }),
+    node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' }),
+  ]
+  const baseEdges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
+
+  const oled = node('oled', 'InfoDisplay', {
+    partId: 'sh1106-oled-128x64', infoLayout: 'Status',
+    csPin: 1, dcPin: 22, resetPin: 5, sckPin: 6, mosiPin: 7,
+  })
+  const segment = node('seg', 'SegmentDisplay', {
+    partId: 'tm1637-4digit-display', clkPin: 32, dioPin: 33, brightness: 4,
+  })
+  const status = node('tft', 'TransportDisplay', {
+    partId: 'st7789-tft-240x240', tftLayout: 'Show Status',
+    csPin: 15, dcPin: 2, resetPin: 4, sckPin: 14, mosiPin: 13, backlightPin: 27,
+  })
+  const browser = node('brw', 'InfoDisplay', {
+    partId: 'sh1106-oled-128x64', infoLayout: 'Pattern Browser',
+    csPin: 1, dcPin: 22, resetPin: 5, sckPin: 6, mosiPin: 7,
+  })
+
+  const build = (extra: ReturnType<typeof node>[], extraEdges: ReturnType<typeof edge>[] = []) =>
+    generateShowSketch([...base, ...extra], [...baseEdges, ...extraEdges], groups)
+
+  it('emits nothing display-shaped for a show with no display', () => {
+    const cpp = build([])
+    expect(cpp).not.toContain('struct OledPanel')
+    expect(cpp).not.toContain('struct TftPanel')
+    expect(cpp).not.toContain('struct SegDisplay')
+    expect(cpp).not.toContain('showPatternIndex')
+  })
+
+  it('builds each display family into the controller', () => {
+    const cpp = build([oled, segment, status])
+    expect(cpp).toContain('struct OledPanel {')
+    expect(cpp).toContain('struct SegDisplay {')
+    expect(cpp).toContain('struct TftPanel {')
+    // Configured in setup, serviced in loop.
+    expect(cpp).toContain('_oledBeginSpi(_oled_oled,')
+    expect(cpp).toContain('_segBegin(_seg_seg,')
+    expect(cpp).toContain('_tftBegin(_tft_tft,')
+  })
+
+  /*
+   * A show controller has no music anywhere in it. The player accessors the SD
+   * player falls back to (songTitle, songElapsedSec(), audio.getVolume()) do
+   * not exist here, and reaching for one would fail on a line no generator
+   * wrote — the failure mode this whole family of tests exists for.
+   */
+  it('never reaches for a player accessor it does not define', () => {
+    const cpp = build([oled, status])
+    for (const symbol of ['songTitle', 'songElapsedSec(', 'songProgress(', 'audio.getVolume(',
+      'playerVolume', 'playerBrightness', 'changePlayerTrack']) {
+      expect(cpp, `${symbol} has no definition in a show controller`).not.toContain(symbol)
+    }
+  })
+
+  // The one thing a show genuinely knows, and it needs no wiring to say it.
+  it('reports the running pattern from the show itself', () => {
+    const cpp = build([status])
+    expect(cpp).toContain('static uint8_t showPatternIndex = 0;')
+    // Published where the show decides it, and read by the panel.
+    expect(cpp).toContain('  showPatternIndex = cur;')
+    expect(cpp).toContain('_tftWhole(showPatternIndex)')
+    expect(cpp).toContain('_tftWhole(PATTERN_COUNT)')
+  })
+
+  // A collection of one never transitions, so the loop has no `cur` to read.
+  it('holds the index at zero for a single-pattern show', () => {
+    const single = [
+      node('pc', 'PatternCollection', { patternIds: ['g0'] }),
+      ...base.slice(1),
+    ]
+    const cpp = generateShowSketch([...single, status], baseEdges, groups)
+    expect(cpp).toContain('static uint8_t showPatternIndex = 0;')
+    expect(cpp).not.toContain('showPatternIndex = cur;')
+  })
+
+  /*
+   * Pixels first. A 240x320 panel repaint is worth several LED frames of SPI
+   * time and the acceptance gate for displays is no regression to wall-clock
+   * LED timing, so the frame ships and the panels catch up in the slack.
+   */
+  it('flushes the panels after the frame has shipped', () => {
+    const cpp = build([oled, status])
+    const show = cpp.indexOf('FastLED.show();')
+    const panel = cpp.indexOf('// Info Display')
+    const delay = cpp.indexOf('FastLED.delay(16);')
+    expect(show).toBeGreaterThan(-1)
+    expect(panel).toBeGreaterThan(show)
+    expect(delay).toBeGreaterThan(panel)
+  })
+
+  describe('the pattern browser', () => {
+    const wire = edge('e3', 'pm', 'patternSelect', 'brw', 'patternSelect')
+
+    it('carries the selection and the picture table on one stem', () => {
+      const cpp = build([browser], [wire])
+      expect(cpp).toContain('static PatternSel _sel_show;')
+      expect(cpp).toContain('#define THUMB_COUNT_show')
+      expect(cpp).toContain('  _selBegin(_sel_show);')
+    })
+
+    // Through the selection rather than around it, so the panel and the
+    // pixels cannot disagree about which pattern is running.
+    it('routes the show rotation through the same cursor', () => {
+      const cpp = build([browser], [wire])
+      expect(cpp).toContain('_selSetActive(_sel_show, PATTERN_COUNT, showPatternIndex);')
+    })
+
+    // The honest outcome for a browser whose collection was never baked: an
+    // empty table and NO PATTERNS, not a blank square.
+    it('emits an empty table when nothing was baked', () => {
+      expect(build([browser], [wire])).toContain('#define THUMB_COUNT_show  0')
+    })
+
+    it('leaves the selection out of a show that has no use for one', () => {
+      const cpp = build([oled])
+      expect(cpp).not.toContain('struct PatternSel')
+      expect(cpp).not.toContain('_sel_show')
+    })
+  })
+})

@@ -21,9 +21,10 @@
 import { describe, it, expect } from 'vitest'
 import { generateCpp } from '../cppGenerator'
 import { generatePlayerSketch } from '../playerSketchGenerator'
+import { generateShowSketch } from '../showGenerator'
 import { playerDisplaysFromGraph } from '../playerDisplays'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
-import type { StudioNode } from '../../state/graphStore'
+import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, over: Record<string, unknown> = {}): StudioNode {
   const def = NODE_LIBRARY.find((entry) => entry.type === nodeType)!
@@ -50,6 +51,28 @@ const segment = node('seg', 'SegmentDisplay', {
   partId: 'tm1637-4digit-display', clkPin: 32, dioPin: 33, brightness: 4,
 })
 const tft = node('tft', 'TransportDisplay', { tftLayout: 'Now Playing' })
+
+/** The collection -> Music Player -> output pipeline a show controller needs. */
+const showNodes = [
+  node('coll', 'PatternCollection', { patternIds: ['g0'] }),
+  node('master', 'PatternMaster', {}),
+]
+const showEdges = [
+  { id: 's1', source: 'coll', target: 'master', sourceHandle: 'patternset', targetHandle: 'patternset' },
+  { id: 's2', source: 'master', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' },
+] as unknown as StudioEdge[]
+// GroupOutput is a canvas terminal rather than a NODE_LIBRARY entry, so the
+// strict helper above cannot build one.
+const bare = (id: string, nodeType: string, properties: Record<string, unknown> = {}) => ({
+  id, type: 'studioNode', position: { x: 0, y: 0 },
+  data: { label: nodeType, nodeType, category: 'pattern', properties, inputs: [], outputs: [] },
+}) as unknown as StudioNode
+const showGroups = {
+  g0: {
+    nodes: [bare('sc', 'SolidColor', { r: 0, g: 0, b: 255 }), bare('go', 'GroupOutput')],
+    edges: [{ id: 'e', source: 'sc', target: 'go', sourceHandle: 'frame', targetHandle: 'frame' }],
+  },
+}
 
 /**
  * Library globals a generated sketch may reach for, and the header behind each.
@@ -98,6 +121,22 @@ describe('normal sketches', () => {
 
   it.each(graphs)('declares what it uses with %s', (label, nodes) => {
     expectDeclaresWhatItUses(generateCpp(nodes, []), `a sketch with ${label}`)
+  })
+})
+
+describe('the show controller sketch', () => {
+  const graphs: Array<[string, StudioNode[]]> = [
+    ['an SPI OLED alone', [spiOled]],
+    ['an I2C OLED alone', [i2cOled]],
+    ['a colour panel alone', [tft]],
+    ['every display at once', [tft, spiOled, segment]],
+  ]
+
+  it.each(graphs)('declares what it uses with %s', (label, displays) => {
+    const source = generateShowSketch(
+      [output, ...showNodes, ...displays], showEdges, showGroups as never,
+    )
+    expectDeclaresWhatItUses(source, `a show sketch with ${label}`)
   })
 })
 

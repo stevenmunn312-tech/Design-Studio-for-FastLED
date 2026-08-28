@@ -1,10 +1,19 @@
-// Which displays a player sketch drives, and what feeds them.
+// Which displays a template sketch drives, and what feeds them.
 //
-// The player sketch is a fixed template rather than a compiled graph, so a
-// display's inputs cannot come from arbitrary wiring the way they do in a
-// normal sketch. What they can come from is the player itself: the node that
-// holds the music is the node that knows the title, and a wire from Music
-// Player to a display is a request to show that.
+// Two generators are fixed templates rather than compiled graphs — the SD
+// player and the generative show controller — so a display's inputs cannot
+// come from arbitrary wiring the way they do in a normal sketch. What they can
+// come from is the template itself: the node that holds the music is the node
+// that knows the title, and a wire from Music Player to a display is a request
+// to show that.
+//
+// Which of those wires a template can honour differs, and that is the only
+// thing that differs. The player is holding a file and can answer for the
+// track; the show controller is rotating patterns and has no music at all, so
+// it honours none of them and every song wire is reported unresolved. Passing
+// the expression table in rather than branching on the generator is what keeps
+// one resolver serving both: a third template supplies its own table and
+// inherits the pin, layout and controller resolution unchanged.
 //
 // Resolution mirrors `playerControlsFromGraph`: walk the edges once, decide
 // what each port is fed by, and report anything that cannot be honoured rather
@@ -160,8 +169,45 @@ export function displayControlsPlayer(
   return false
 }
 
+/*
+ * What a generative show controller can answer for a display, and what it cannot.
+ *
+ * Deliberately empty, and the emptiness is the statement. A generative show
+ * rotates patterns; it is not holding a file, so there is no title, no artist,
+ * no elapsed time and no volume anywhere in the sketch. Wiring one of Music
+ * Player's song outputs to a panel in a show is therefore reported unresolved
+ * rather than filled with a plausible zero — the same rule the browser follows
+ * when it leaves artist blank instead of guessing it from a filename.
+ *
+ * What the controller *does* know it supplies without a wire, below: which
+ * pattern is running and how many there are. Those come from the show's own
+ * state rather than from a port, because they are the show, not the music.
+ */
+export const SHOW_DISPLAY_EXPRESSIONS: Record<string, string> = {}
+
+/** What a template generator can answer for, and what it can act on. */
+export interface TemplateDisplayOptions {
+  /**
+   * Music Player output handle -> the C++ expression that reads it here.
+   *
+   * Defaults to the SD player's table. A generator hands in its own rather
+   * than being branched on, so an unlisted handle is reported unresolved by
+   * the same path for every template.
+   */
+  expressions?: Record<string, string>
+  /**
+   * Whether a wired Controls output reaches a transport this template has.
+   *
+   * False for a generator with nothing to control: the touch service calls
+   * the player's own transport functions, so emitting it into a sketch that
+   * has none produces C++ that names undefined symbols. Diagnostics touch is
+   * unaffected — it only reports coordinates.
+   */
+  transportTouch?: boolean
+}
+
 /**
- * Resolve one display input to a player-side expression.
+ * Resolve one display input to a template-side expression.
  *
  * Only Music Player is a source here. Anything else is reported unresolved
  * rather than guessed at.
@@ -172,6 +218,7 @@ function resolvePort(
   edges: ConfigEdge[],
   byId: Map<string, ConfigNode>,
   unresolved: PlayerDisplays['unresolved'],
+  expressions: Record<string, string>,
 ): string | null {
   const edge = edges.find((e) => e.target === displayId && e.targetHandle === port)
   if (!edge) return null
@@ -181,7 +228,7 @@ function resolvePort(
     unresolved.push({ display: displayId, port, source: source.data.nodeType })
     return null
   }
-  const expression = PLAYER_SONG_EXPRESSIONS[String(edge.sourceHandle ?? '')]
+  const expression = expressions[String(edge.sourceHandle ?? '')]
   if (!expression) {
     unresolved.push({ display: displayId, port, source: `Music Player.${edge.sourceHandle}` })
     return null
@@ -189,7 +236,13 @@ function resolvePort(
   return expression
 }
 
-export function playerDisplaysFromGraph(nodes: ConfigNode[], edges: ConfigEdge[]): PlayerDisplays {
+export function playerDisplaysFromGraph(
+  nodes: ConfigNode[],
+  edges: ConfigEdge[],
+  options: TemplateDisplayOptions = {},
+): PlayerDisplays {
+  const expressions = options.expressions ?? PLAYER_SONG_EXPRESSIONS
+  const transportTouch = options.transportTouch !== false
   const byId = new Map(nodes.map((node) => [node.id, node]))
   const unresolved: PlayerDisplays['unresolved'] = []
   const info: PlayerInfoDisplay[] = []
@@ -205,7 +258,7 @@ export function playerDisplaysFromGraph(nodes: ConfigNode[], edges: ConfigEdge[]
       const sources: Record<string, string> = {}
       for (const port of ['title', 'line2', 'value', 'progress', 'playing', 'volume',
         ...Array.from({ length: STATUS_MAX_INDICATORS }, (_, i) => `indicator${i + 1}`)]) {
-        const expression = resolvePort(node.id, port, edges, byId, unresolved)
+        const expression = resolvePort(node.id, port, edges, byId, unresolved, expressions)
         if (expression) sources[port] = expression
       }
       info.push({
@@ -240,7 +293,7 @@ export function playerDisplaysFromGraph(nodes: ConfigNode[], edges: ConfigEdge[]
       for (const port of ['title', 'artist', 'elapsedSec', 'durationSec', 'progress',
         'playing', 'volume', 'patternName', 'patternIndex', 'patternCount',
         'section', 'bpm', 'beat', 'outputEnabled', 'brightness', 'enabled']) {
-        const expression = resolvePort(node.id, port, edges, byId, unresolved)
+        const expression = resolvePort(node.id, port, edges, byId, unresolved, expressions)
         if (expression) sources[port] = expression
       }
       tft.push({
@@ -257,7 +310,7 @@ export function playerDisplaysFromGraph(nodes: ConfigNode[], edges: ConfigEdge[]
         backlightPin: intProp(props.backlightPin, 4),
         touch: part?.display?.touchController
           && (asTransportDisplayLayout(props.tftLayout) === 'Diagnostics'
-            || displayControlsPlayer(node.id, edges, byId))
+            || (transportTouch && displayControlsPlayer(node.id, edges, byId)))
           ? {
             csPin: intProp(props.touchCsPin, 15),
             irqPin: intProp(props.touchIrqPin, 2),
@@ -282,7 +335,7 @@ export function playerDisplaysFromGraph(nodes: ConfigNode[], edges: ConfigEdge[]
       const isMax = controller.id === 'MAX7219'
       const sources: Record<string, string> = {}
       for (const port of ['value', 'enabled']) {
-        const expression = resolvePort(node.id, port, edges, byId, unresolved)
+        const expression = resolvePort(node.id, port, edges, byId, unresolved, expressions)
         if (expression) sources[port] = expression
       }
       segment.push({

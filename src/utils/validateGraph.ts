@@ -14,7 +14,7 @@ import { getNetworkCredentials } from '../state/networkCredentials'
 import { collectPinUses } from '../build/hardwareManifest'
 import { browserThumbnailIssues } from './browserThumbnails'
 import { transportArtworkIssues } from './transportArtworks'
-import { displayControlsPlayer, playerDisplaysFromGraph } from '../codegen/playerDisplays'
+import { displayControlsPlayer, playerDisplaysFromGraph, SHOW_DISPLAY_EXPRESSIONS } from '../codegen/playerDisplays'
 import { OLED_PANEL_RAM_BYTES } from '../codegen/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../codegen/segmentDisplayCpp'
 import { TFT_PANEL_RAM_BYTES } from '../codegen/tftDisplayCpp'
@@ -1187,6 +1187,13 @@ function splitI2cBusErrors(nodes: StudioNode[]): string[] {
  * that would have built fine, and an error nobody can act on teaches people to
  * ignore the drawer.
  *
+ * `sdShowConnected` has two arms and only one was mirrored here, so a Show
+ * Engine writing a timed show to a card — which builds the *player* sketch —
+ * was reported as a show controller, and the same graph without a card, which
+ * builds an ordinary sketch, was reported as one too. Neither mattered while
+ * every generator but the normal one refused displays outright; both do now
+ * that all three draw.
+ *
  * One walk because two checks need it — what can draw a display, and what can
  * honour an LED output's run-time controls. They were about to be two copies.
  */
@@ -1207,11 +1214,15 @@ export function selectedGenerator(nodes: StudioNode[], edges: StudioEdge[]): Sel
     && (edge.targetHandle ?? '') === 'patternset'
     && nodes.some((node) => node.id === edge.source && node.data.nodeType === 'PatternCollection'))
 
-  if (nodes.some((node) => node.data.nodeType === 'SDCard')
+  const hasCard = nodes.some((node) => node.data.nodeType === 'SDCard')
+  if (hasCard
     && nodes.some((node) => node.data.nodeType === 'Amplifier')
     && drivesOutput(master)) return 'player'
+  // A Show Engine's output is a timed `.show` file on a card, played back by
+  // the player sketch. Without the card there is nothing to write it to and
+  // the graph exports as an ordinary sketch.
+  if (hasCard && drivesOutput(showEngine)) return 'player'
   if (drivesOutput(master) && collectionFeeds(master)) return 'show'
-  if (drivesOutput(showEngine)) return 'show'
   return 'sketch'
 }
 
@@ -1295,7 +1306,6 @@ export function findDisplayGeneratorIssues(
   const displays = nodes.filter((node) => DISPLAY_NODE_TYPES.has(node.data.nodeType))
   if (displays.length === 0) return { errors: [], warnings: [] }
 
-  const names = displays.map((node) => nodeLabel(node))
   const errors: string[] = []
   const warnings: string[] = []
 
@@ -1303,19 +1313,17 @@ export function findDisplayGeneratorIssues(
   const generator = selectedGenerator(nodes, edges)
   const nodeById = new Map(nodes.map((node) => [node.id, node]))
 
-  // Three generators, not two, and only one of them cannot draw.
+  // All three generators draw a configured display now:
   //
-  //   normal sketch      cppGenerator          draws displays
-  //   SD player          playerSketchGenerator draws displays
-  //   pattern show       showGenerator         does not
-  if (generator === 'show') {
-    errors.push(
-      `A generated show controller cannot drive a display yet, so ${names.join(', ')} would not be built into the firmware. `
-      + 'Export it through Upload show to SD, which does drive displays, or remove the display before exporting a show.',
-    )
-    return { errors, warnings }
-  }
-
+  //   normal sketch      cppGenerator          emits it from the node walk
+  //   SD player          playerSketchGenerator resolves it against the player
+  //   pattern show       showGenerator         resolves it against the show
+  //
+  // What still separates them is what each has to *say*. The player is holding
+  // a file; the show is rotating patterns and has no music at all; a normal
+  // sketch has neither and evaluates the wire itself. Those differences show
+  // up below as unresolved ports and as a transport a Controls wire can reach,
+  // not as a generator that leaves the part dark.
   errors.push(...splitI2cBusErrors(nodes))
 
   for (const display of displays.filter((node) => node.data.nodeType === 'TransportDisplay')) {
@@ -1326,6 +1334,15 @@ export function findDisplayGeneratorIssues(
       errors.push(
         `${nodeLabel(display)} has its Controls output wired, but a normal sketch does not sample XPT2046 touch yet. `
         + 'Disconnect Controls to use the panel as a read-only display, or export a music-player build through Upload show to SD.',
+      )
+    } else if (controlsWired && generator === 'show') {
+      // Not "not yet": a generative show has nothing for play/pause, previous,
+      // next or volume to mean. It draws the panel and reports which pattern
+      // is running; commanding a transport needs a build that has one.
+      errors.push(
+        `${nodeLabel(display)} has its Controls output wired, but a generated show controller has no transport to command — `
+        + 'it rotates patterns and plays no music. Disconnect Controls to use the panel as a read-only display, '
+        + 'or export a music-player build through Upload show to SD.',
       )
     } else if (controlsWired && generator === 'player'
       && !displayControlsPlayer(display.id, edges as never, nodeById as never)) {
@@ -1357,12 +1374,21 @@ export function findDisplayGeneratorIssues(
     errors.push(`${nodeLabel(display)}: ${issue}`)
   }
 
-  if (master) {
-    for (const issue of playerDisplaysFromGraph(nodes as never, edges as never).unresolved) {
+  // Both template generators resolve a display's ports against what the
+  // template itself knows, so both can be handed a wire they cannot read. Same
+  // walk, same message shape, and the table is the generator's own — a show
+  // controller reports every song wire, because it has no song.
+  if (master && (generator === 'player' || generator === 'show')) {
+    const template = generator === 'show'
+      ? { expressions: SHOW_DISPLAY_EXPRESSIONS, label: 'show controller sketch', fix: 'a Music Player output a show can answer for' }
+      : { expressions: undefined, label: 'SD player sketch', fix: 'a Music Player output' }
+    for (const issue of playerDisplaysFromGraph(
+      nodes as never, edges as never, { expressions: template.expressions },
+    ).unresolved) {
       const display = nodes.find((node) => node.id === issue.display)
       warnings.push(
-        `${display ? nodeLabel(display) : 'A display'}: ${issue.port} is wired to ${issue.source}, which the SD player sketch cannot read. `
-        + 'On the device that value stays blank — wire it to a Music Player output, or drive the display from a normal sketch.',
+        `${display ? nodeLabel(display) : 'A display'}: ${issue.port} is wired to ${issue.source}, which the ${template.label} cannot read. `
+        + `On the device that value stays blank — wire it to ${template.fix}, or drive the display from a normal sketch.`,
       )
     }
   }
