@@ -262,8 +262,11 @@ export function detectValidationRuntime(userAgent = typeof navigator === 'undefi
 function defaultAction(nodes: StudioNode[], edges: StudioEdge[]): HardwareValidationAction {
   const output = nodes.find((node) => nodeType(node) === 'MatrixOutput')
   if (output && edges.some((edge) => edge.target === output.id && edge.targetHandle === 'sdcard')) return 'sd-show'
-  const master = nodes.find((node) => nodeType(node) === 'PatternMaster')
-  if (master && output && edges.some((edge) => edge.source === master.id && edge.target === output.id && edge.targetHandle === 'frame')) {
+  // Either node driving the output runs a collection on the device, which is
+  // what this action exercises.
+  const engine = nodes.find((node) =>
+    nodeType(node) === 'PatternSlideshow' || nodeType(node) === 'PatternMaster')
+  if (engine && output && edges.some((edge) => edge.source === engine.id && edge.target === output.id && edge.targetHandle === 'frame')) {
     return 'generative-show'
   }
   if (nodes.some((node) => nodeType(node) === 'MicInput')) return 'microphone'

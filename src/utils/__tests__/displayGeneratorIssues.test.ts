@@ -269,11 +269,11 @@ describe('displays a build cannot drive', () => {
 })
 
 // The hole this check had: it looked only for a Performance Generator, so the
-// other show shape — a Music Player fed by a Pattern Collection — fell straight
-// through to a build that succeeded with the panel dark. Found on a bench with
-// the graph already wired, one step before flashing it.
-describe('a Music Player show', () => {
-  const master = node('master', 'PatternMaster')
+// other show shape — a collection played on a timer — fell straight through to
+// a build that succeeded with the panel dark. Found on a bench with the graph
+// already wired, one step before flashing it.
+describe('a Pattern Slideshow show', () => {
+  const master = node('master', 'PatternSlideshow')
   const collection = node('coll', 'PatternCollection', { patternIds: ['a', 'b'] })
   const out = node('out', 'MatrixOutput')
   const display = node('oled', 'InfoDisplay', { infoLayout: 'Pattern Browser' })
@@ -317,14 +317,17 @@ describe('a Music Player show', () => {
   })
 
   // A show has no song, so every song wire is a port it cannot read — the same
-  // walk and the same message the player gets, with the show's own table.
+  // walk and the same message the player gets, with the show's own table. The
+  // wire has to come from a Music Player, because the Slideshow has no song
+  // port to offer: sitting one in a show graph is how the case still arises.
   it('warns about a song port the show controller cannot read', () => {
     const nowPlaying = node('oled2', 'InfoDisplay', {
       partId: 'sh1106-oled-128x64', infoLayout: 'Now Playing',
     })
+    const player = node('player', 'PatternMaster')
     const issues = findDisplayGeneratorIssues(
-      [master, collection, out, nowPlaying],
-      [...showEdges, edge('t', 'master', 'title', 'oled2', 'title')],
+      [master, collection, out, nowPlaying, player],
+      [...showEdges, edge('t', 'player', 'title', 'oled2', 'title')],
     )
     expect(issues.errors).toEqual([])
     expect(issues.warnings).toHaveLength(1)

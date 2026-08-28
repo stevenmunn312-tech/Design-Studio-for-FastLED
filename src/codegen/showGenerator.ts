@@ -19,9 +19,9 @@ import { customPaletteDeclarationsCpp } from '../state/paletteCatalog'
 import { generateCpp, audioEngineForGraph, psramBufferDecl, PSRAM_ALLOC_CPP, ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp } from './cppGenerator'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { SHOW_TRANSITIONS } from './performanceGenerator'
-import { transitionHelperCpp, PARTICLE_HASH_CPP, PARTICLE_OVERLAY_CPP } from './transitionHelperCpp'
-import { hexToRgb } from '../state/polinePalette'
+import { transitionHelperCpp } from './transitionHelperCpp'
 import { buildXYTable } from '../state/xyLayout'
+import { slideshowSettings, type PatternSlideshowOrder } from '../state/patternSlideshow'
 import { compositionDims, outputRoutes } from '../state/outputRouting'
 import { outputCanvasDims } from '../state/ledOutputForm'
 import { controllerSettings, ledPropsWithController } from '../state/controllerSettings'
@@ -56,13 +56,17 @@ const nodeType = (n: StudioNode) => (n.data as { nodeType?: string }).nodeType
 const props = (n: StudioNode) => n.data.properties as Record<string, unknown>
 const safeId = (id: string) => id.replace(/[^a-zA-Z0-9_]/g, '_')
 
-/** Whether the graph contains the connected collection → master → output
- * pipeline required by the generative-show exporter. A stray PatternMaster
- * must not hijack an otherwise ordinary sketch export. */
+/** Whether the graph contains the connected collection → slideshow → output
+ * pipeline required by the generative-show exporter. A stray Pattern Slideshow
+ * must not hijack an otherwise ordinary sketch export.
+ *
+ * This keys on `PatternSlideshow` rather than on a Music Player with no card
+ * attached: the three generators are told apart by which node is present, not
+ * by which hardware is absent. */
 export function isPatternShow(nodes: StudioNode[], edges: StudioEdge[]): boolean {
   const outputs = new Set(nodes.filter((n) => nodeType(n) === 'MatrixOutput').map((n) => n.id))
   return nodes.some((master) => {
-    if (nodeType(master) !== 'PatternMaster') return false
+    if (nodeType(master) !== 'PatternSlideshow') return false
     const reachesOutput = edges.some((e) =>
       e.source === master.id && e.sourceHandle === 'frame' &&
       outputs.has(e.target) && e.targetHandle === 'frame')
@@ -75,22 +79,13 @@ export function isPatternShow(nodes: StudioNode[], edges: StudioEdge[]): boolean
 interface ShowInfo {
   masterId: string
   patternIds: string[]
-  minTime: number
-  maxTime: number
+  /** Seconds one pattern holds. A slideshow has one interval, not a range. */
+  intervalSec: number
   transitionSec: number
   /** Transition style ids (0–15) the show draws from at random. */
   transitionIds: number[]
-  /** Whether a beat is wired into the Pattern Master (advances early on beat). */
-  beatWired: boolean
-  /** Beat-triggered particle overlay params (particles off ⇒ no overlay). */
-  particles: boolean
-  particleStyle: number
-  particleColor: { r: number; g: number; b: number }
-  particleIntensity: number
-  /** Re-roll the burst's style/colour each beat instead of using the fixed
-   *  particleStyle/particleColor above. */
-  randomStyle: boolean
-  randomColor: boolean
+  /** Walk the collection in order, or pick from it at random. */
+  order: PatternSlideshowOrder
   seed: number
 }
 
@@ -105,50 +100,32 @@ function transitionPool(nodes: StudioNode[], edges: StudioEdge[], master: Studio
   return ids.length ? ids : [0]
 }
 
-// PlayerParticles owns the beat-overlay appearance. Merely placing one on the
-// canvas does nothing: its typed wire into this Music Player is the feature
-// switch, matching every other graph dependency.
-function playerParticles(nodes: StudioNode[], edges: StudioEdge[], master: StudioNode) {
-  const link = edges.find((e) => e.target === master.id && e.targetHandle === 'particleFx')
-  const node = link && nodes.find((n) => n.id === link.source && nodeType(n) === 'PlayerParticles')
-  const p = node ? props(node) : {}
-  return {
-    enabled: !!node && p.enabled !== false,
-    style: Number(p.style ?? 0),
-    color: hexToRgb(String(p.color ?? '#ff8000')),
-    intensity: Number(p.intensity ?? 0.8),
-    randomStyle: !!p.randomStyle,
-    randomColor: !!p.randomColor,
-  }
-}
-
-// Resolve the PatternMaster + the collection feeding its patternset input.
+// Resolve the Pattern Slideshow + the collection feeding its patternset input.
+//
+// The beat-triggered early advance and the particle overlay are not read here
+// and are not emitted below. Both ride an audio beat, and a slideshow is the
+// mode for patterns that should hold still; where they still belong is the
+// Music Player, whose own sketch keeps them.
 function showInfo(nodes: StudioNode[], edges: StudioEdge[]): ShowInfo | null {
   const outputIds = new Set(nodes.filter((n) => nodeType(n) === 'MatrixOutput').map((n) => n.id))
-  const master = nodes.find((n) => nodeType(n) === 'PatternMaster' && edges.some((e) =>
+  const master = nodes.find((n) => nodeType(n) === 'PatternSlideshow' && edges.some((e) =>
     e.source === n.id && e.sourceHandle === 'frame' && outputIds.has(e.target) && e.targetHandle === 'frame'))
   if (!master) return null
   const setEdge = edges.find((e) => e.target === master.id && e.targetHandle === 'patternset')
   const collection = setEdge && nodes.find((n) => n.id === setEdge.source && nodeType(n) === 'PatternCollection')
   if (!collection) return null
   const patternIds = collection ? ((props(collection).patternIds as string[] | undefined) ?? []) : []
-  const p = props(master)
-  const particleFx = playerParticles(nodes, edges, master)
+  // The evaluator reads the same resolver, so a preview that fades for a second
+  // and a device that cuts cannot be built from one graph.
+  const settings = slideshowSettings(props(master))
   return {
     masterId: master.id,
     patternIds,
-    minTime: Number(p.minTime ?? 4),
-    maxTime: Number(p.maxTime ?? 12),
-    transitionSec: Number(p.transitionSec ?? 1),
-    transitionIds: transitionPool(nodes, edges, master),
-    beatWired: edges.some((e) => e.target === master.id && e.targetHandle === 'beat'),
-    particles: particleFx.enabled,
-    particleStyle: particleFx.style,
-    particleColor: particleFx.color,
-    particleIntensity: particleFx.intensity,
-    randomStyle: particleFx.randomStyle,
-    randomColor: particleFx.randomColor,
-    seed: Math.max(0, Math.round(Number(p.seed ?? 0))) >>> 0,
+    intervalSec: settings.intervalSec,
+    transitionSec: settings.transitionSec,
+    transitionIds: settings.transitionSec > 0 ? transitionPool(nodes, edges, master) : [0],
+    order: settings.order,
+    seed: settings.seed >>> 0,
   }
 }
 
@@ -640,10 +617,6 @@ export function generateShowSketch(
     },
   } : meter)
   const renderers = buildPatternRenderers(info.patternIds, groups, [], !!audio, audio ? { beat: '_audioBeat' } : {}, !!audio)
-  // A beat trigger needs a source on-device; the audio engine supplies _audioBeat.
-  const beatTrigger = info.beatWired && !!audio
-  // Particle overlay also rides the audio beat, so it needs the same source.
-  const particlesOn = info.particles && beatTrigger
   // A collection of one never transitions — the dwell simply never ends — so
   // the whole transition apparatus (showA/showB, the style pool, and the
   // compositing switch) is left out rather than emitted unreachable.
@@ -654,7 +627,6 @@ export function generateShowSketch(
   const displays = showDisplaysCpp(nodes, edges, renderers.count, opts)
   const fastLedDecls = new Set<string>()
   if (transitions) fastLedDecls.add('void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt);')
-  if (particlesOn) fastLedDecls.add('void particleOverlay(uint32_t burstStart, uint8_t burstStyle, uint8_t burstR, uint8_t burstG, uint8_t burstB, float burstIntensity, uint32_t posMs);')
   for (const block of [...renderers.helpers, ...renderers.functions]) {
     const proto = cppPrototype(block)
     if (proto && /CRGB(?:Palette16)?/.test(proto)) fastLedDecls.add(proto)
@@ -743,8 +715,6 @@ export function generateShowSketch(
     L.push('')
   }
   if (transitions) { L.push(transitionHelperCpp(info.transitionIds)); L.push('') }
-  else if (particlesOn) { L.push(PARTICLE_HASH_CPP); L.push('') }
-  if (particlesOn) { L.push(PARTICLE_OVERLAY_CPP); L.push('') }
   for (const h of renderers.helpers) { L.push(h); L.push('') }
 
   if (multiOutput) {
@@ -818,46 +788,34 @@ export function generateShowSketch(
   L.push('}')
   L.push('')
 
-  // Controller: hold a random pattern for a random dwell, then transition (a
-  // random style from the pool) into a new random one over transitionSec. A
-  // wired audio beat advances early once minTime has elapsed. Mirrors
-  // evalPatternShow.
-  const minMs = Math.round(info.minTime * 1000), maxMs = Math.round(info.maxTime * 1000)
+  // Controller: hold a pattern for the interval, then transition into the next
+  // one over transitionSec. Which one is "next" is the order the node states.
+  // Mirrors evalPatternShow.
+  const dwellMs = Math.round(info.intervalSec * 1000)
   const transMs = Math.round(info.transitionSec * 1000)
+  // Sequential starts at the top of the collection, because a slideshow whose
+  // order was chosen deliberately should begin where the list does.
+  const sequential = info.order === 'Sequential'
+  const firstPattern = sequential ? '0' : 'random8(PATTERN_COUNT)'
+  const nextPattern = sequential
+    ? '(cur + 1) % PATTERN_COUNT'
+    : '(cur + 1 + random8(PATTERN_COUNT - 1)) % PATTERN_COUNT'
   L.push('void loop() {')
   if (audio) L.push('  updateAudio();   // refresh audio band levels once per frame')
   if (transitions) {
-    L.push('  static uint8_t  cur = random8(PATTERN_COUNT), nxt = 0, transType = 0;')
+    L.push(`  static uint8_t  cur = ${firstPattern}, nxt = 0, transType = 0;`)
     L.push('  static bool     transitioning = false;')
-    L.push('  static uint32_t phaseStart = 0, dwell = 0;')
-  }
-  if (particlesOn) {
-    L.push('  static uint32_t burstStart = 0; static bool prevBeat = false;')
-    L.push(`  static uint8_t  burstStyle = ${info.particleStyle};`)
-    L.push(`  static CRGB     burstColor = CRGB(${info.particleColor.r}, ${info.particleColor.g}, ${info.particleColor.b});`)
+    L.push('  static uint32_t phaseStart = 0;')
   }
   L.push('  uint32_t now = millis();')
-  if (particlesOn) {
-    L.push('  if (_audioBeat && !prevBeat) {   // spawn a burst on each beat')
-    L.push('    burstStart = now;')
-    if (info.randomStyle) L.push('    burstStyle = random8(17);')
-    if (info.randomColor) L.push('    burstColor = CHSV(random8(), 255, 255);')
-    L.push('  }')
-    L.push('  prevBeat = _audioBeat;')
-  }
   if (!transitions) {
     L.push('  renderPattern(0, now);   // the collection holds a single pattern')
     L.push('')
   } else {
-    L.push(`  if (dwell == 0) dwell = random16(${minMs}, ${maxMs});`)
-    L.push('')
     L.push('  if (!transitioning) {')
     L.push('    renderPattern(cur, now);')
-    L.push('    bool timeUp = now - phaseStart >= dwell;')
-    if (beatTrigger) L.push(`    bool beatTrig = _audioBeat && now - phaseStart >= ${minMs};`)
-    const advance = beatTrigger ? '(timeUp || beatTrig)' : 'timeUp'
-    L.push(`    if (${advance}) {`)
-    L.push('      nxt = (cur + 1 + random8(PATTERN_COUNT - 1)) % PATTERN_COUNT;')
+    L.push(`    if (now - phaseStart >= ${dwellMs}) {`)
+    L.push(`      nxt = ${nextPattern};`)
     L.push('      transType = TRANS_POOL[random8(TRANS_POOL_N)];')
     L.push('      transitioning = true; phaseStart = now;')
     L.push('    }')
@@ -867,7 +825,7 @@ export function generateShowSketch(
     L.push('    renderPattern(cur, now); ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);  // outgoing')
     L.push('    renderPattern(nxt, now); ::memmove(showB, leds, sizeof(CRGB) * NUM_LEDS);  // incoming')
     L.push('    compositeTransition(transType, leds, showA, showB, p);')
-    L.push('    if (p >= 1.0f) { cur = nxt; transitioning = false; phaseStart = now; dwell = random16(' + minMs + ', ' + maxMs + '); }')
+    L.push('    if (p >= 1.0f) { cur = nxt; transitioning = false; phaseStart = now; }')
     L.push('  }')
     L.push('')
     if (displays.helpers.length > 0) {
@@ -877,9 +835,6 @@ export function generateShowSketch(
       L.push(`  ${SHOW_PATTERN_INDEX} = cur;`)
       L.push('')
     }
-  }
-  if (particlesOn) {
-    L.push(`  particleOverlay(burstStart, burstStyle, burstColor.r, burstColor.g, burstColor.b, ${info.particleIntensity}f, now);`)
   }
   if (multiOutput) {
     for (const route of routes) {

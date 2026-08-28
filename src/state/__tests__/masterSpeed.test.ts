@@ -175,9 +175,10 @@ describe('the emitted sketch', () => {
 
 describe('builds whose clock is not the sketch\'s own', () => {
   const master = node('master', 'PatternMaster')
+  const slideshow = node('master', 'PatternSlideshow')
   const collection = node('coll', 'PatternCollection', { patternIds: ['a'] })
   const knob = node('spd', 'MasterSpeed', { speed: 0.5 })
-  const showNodes = [master, collection, output, knob]
+  const showNodes = [slideshow, collection, output, knob]
   const showEdges = [
     edge('e1', 'coll', 'patternset', 'master', 'patternset'),
     edge('e2', 'master', 'frame', 'out', 'frame'),
@@ -188,7 +189,7 @@ describe('builds whose clock is not the sketch\'s own', () => {
    * so scaling it would slide the LEDs off the music.
    */
   it('refuses a player build, because its time is the music\'s', () => {
-    const player = [...showNodes, node('sd', 'SDCard'), node('amp', 'Amplifier')]
+    const player = [master, collection, output, knob, node('sd', 'SDCard'), node('amp', 'Amplifier')]
     const { errors } = findOutputRuntimeIssues(player, showEdges)
     expect(errors.join(' ')).toContain('track')
     expect(errors.join(' ')).toContain('music')
@@ -206,6 +207,6 @@ describe('builds whose clock is not the sketch\'s own', () => {
   })
 
   it('says nothing about a show with no knob in it', () => {
-    expect(findOutputRuntimeIssues([master, collection, output], showEdges).errors).toEqual([])
+    expect(findOutputRuntimeIssues([slideshow, collection, output], showEdges).errors).toEqual([])
   })
 })

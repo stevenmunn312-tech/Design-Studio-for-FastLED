@@ -29,7 +29,7 @@ const groups = {
 
 const baseNodes = [
   node('collection', 'PatternCollection', { patternIds: ['pattern'] }),
-  node('master', 'PatternMaster', { minTime: 4, maxTime: 8, transitionSec: 1 }),
+  node('master', 'PatternSlideshow', { interval: 8, transitionSec: 1 }),
   node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4, chipset: 'WS2812B', colorOrder: 'GRB' }),
 ]
 const baseEdges = [

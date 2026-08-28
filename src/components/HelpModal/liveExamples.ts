@@ -867,6 +867,13 @@ function workflowExample(node: NodeDefinition): ReferenceLiveExample {
       builder.wire('controls', 'controls', 'target', 'controls')
       builder.wire('particles', 'particleFx', 'target', 'particleFx')
       break
+    case 'PatternSlideshow':
+      // Deliberately bare beside the Music Player's example: a collection, an
+      // interval and the LEDs is the whole workflow.
+      builder.add('patterns', 'PatternCollection')
+      builder.add('target', node.type)
+      builder.wire('patterns', 'patternset', 'target', 'patternset')
+      break
     case 'PlayerControls':
       builder.add('play', 'ButtonInput')
       builder.add('volume', 'PotInput')

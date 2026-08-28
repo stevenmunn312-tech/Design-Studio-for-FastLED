@@ -28,7 +28,7 @@ describe('showGenerator', () => {
   }
   const nodes = [
     node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
-    node('pm', 'PatternMaster', { minTime: 4, maxTime: 12, transitionSec: 1 }),
+    node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1 }),
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' }),
   ]
   const edges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
@@ -36,7 +36,7 @@ describe('showGenerator', () => {
   it('detects a pattern show', () => {
     expect(isPatternShow(nodes, edges)).toBe(true)
     expect(isPatternShow([node('x', 'SolidColor')], [])).toBe(false)
-    expect(isPatternShow([...nodes, node('stray', 'PatternMaster')], [])).toBe(false)
+    expect(isPatternShow([...nodes, node('stray', 'PatternSlideshow')], [])).toBe(false)
   })
 
   it('emits a render function per pattern and a controller', () => {
@@ -132,7 +132,7 @@ describe('showGenerator', () => {
   it('emits a fixed controller seed when the Show Engine seed is nonzero', () => {
     const seeded = [
       node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
-      node('pm', 'PatternMaster', { minTime: 4, maxTime: 12, transitionSec: 1, seed: 77 }),
+      node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1, seed: 77 }),
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' }),
     ]
     const cpp = generateShowSketch(seeded, edges, groups)
@@ -187,7 +187,7 @@ describe('showGenerator', () => {
     }
     const tempNodes = [
       node('pc', 'PatternCollection', { patternIds: ['gt'] }),
-      node('pm', 'PatternMaster', { minTime: 4, maxTime: 12, transitionSec: 1 }),
+      node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1 }),
       node('out', 'MatrixOutput', { width: 8, height: 8 }),
     ]
     const tempEdges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
@@ -274,7 +274,7 @@ describe('showGenerator', () => {
   })
 
   it('handles a Pattern Master with no patterns', () => {
-    const lone = [node('pc', 'PatternCollection', { patternIds: [] }), node('pm', 'PatternMaster', {}), node('out', 'MatrixOutput', {})]
+    const lone = [node('pc', 'PatternCollection', { patternIds: [] }), node('pm', 'PatternSlideshow', {}), node('out', 'MatrixOutput', {})]
     const loneEdges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
     const cpp = generateShowSketch(lone, loneEdges, {})
     expect(cpp).toContain('no patterns')
@@ -325,57 +325,62 @@ describe('showGenerator', () => {
     expect(cpp).toContain('transType = TRANS_POOL[random8(TRANS_POOL_N)];')
   })
 
-  it('emits a beat-triggered particle overlay only with particles on, a beat wired, and a mic', () => {
-    const pmParticles = node('pm', 'PatternMaster', { minTime: 4, maxTime: 12, transitionSec: 1 })
+  it('holds each pattern for the one interval it was given', () => {
+    // One number, not a range. The randomised min/max dwell exists to keep a
+    // beat-driven show from feeling metronomic, and a slideshow has no beat to
+    // feel metronomic against — so there is no random16() call to pick one.
+    const cpp = generateShowSketch(nodes, edges, groups)
+    expect(cpp).toContain('if (now - phaseStart >= 8000) {')
+    expect(cpp).not.toContain('random16(')
+  })
+
+  it('walks the collection in order when the slideshow says sequential', () => {
+    const ordered = [
+      node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
+      node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1, order: 'Sequential' }),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' }),
+    ]
+    const cpp = generateShowSketch(ordered, edges, groups)
+    // Starts at the top of the list, then walks it: a slideshow whose order was
+    // chosen deliberately should begin where the list does.
+    expect(cpp).toContain('static uint8_t  cur = 0, nxt = 0, transType = 0;')
+    expect(cpp).toContain('nxt = (cur + 1) % PATTERN_COUNT;')
+    expect(cpp).not.toContain('random8(PATTERN_COUNT')
+
+    // Random remains the default and picks anything except what is showing.
+    const random = generateShowSketch(nodes, edges, groups)
+    expect(random).toContain('static uint8_t  cur = random8(PATTERN_COUNT), nxt = 0, transType = 0;')
+    expect(random).toContain('nxt = (cur + 1 + random8(PATTERN_COUNT - 1)) % PATTERN_COUNT;')
+  })
+
+  it('cuts rather than fades when transitions are switched off', () => {
+    const cut = [
+      node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
+      node('pm', 'PatternSlideshow', { interval: 8, transitionsEnabled: false, transitionSec: 1.5 }),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' }),
+    ]
+    // A zero-length transition is already a cut on both sides, so "off" needs
+    // no second code path — it needs the duration the resolver reports.
+    expect(generateShowSketch(cut, edges, groups)).toContain('float p = 0 > 0 ?')
+  })
+
+  it('has no beat advance and no particle overlay to emit', () => {
+    // Both ride an audio beat, and both moved to the Music Player with the
+    // music. A slideshow has no beat input to wire, and wiring Player
+    // Particles at it changes nothing in the sketch.
     const particleFx = node('pfx', 'PlayerParticles', {
       enabled: true, style: 3, color: '#3366cc', intensity: 0.9,
     })
-    const base = [node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }), pmParticles, particleFx,
-      node('out', 'MatrixOutput', { width: 8, height: 8 })]
-    const wire = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame'),
-      edge('efx', 'pfx', 'particleFx', 'pm', 'particleFx'),
-      edge('eb', 'pm', 'beat', 'pm', 'beat')]
-
-    // No mic → no on-device beat source → no particle overlay.
-    expect(generateShowSketch(base, wire, groups)).not.toContain('void particleOverlay(')
-
-    // Microphone selected by Audio → the controller hosts _audioBeat and overlays sparks on the beat.
-    const withMic = [...base, micBoard, ...audioSource('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
-    const cpp = generateShowSketch(withMic, wire, groups)
-    expect(cpp).toContain('void particleOverlay(')
-    expect(cpp).toContain('static uint8_t  burstStyle = 3;')
-    expect(cpp).toContain('static CRGB     burstColor = CRGB(51, 102, 204);')
-    expect(cpp).toContain('burstStart = now;')
-    expect(cpp).toContain('particleOverlay(burstStart, burstStyle, burstColor.r, burstColor.g, burstColor.b, 0.9f, now);')
-  })
-
-  it('rolls a random style/colour per beat when randomStyle/randomColor are on', () => {
-    const pmRandom = node('pm', 'PatternMaster', { minTime: 4, maxTime: 12, transitionSec: 1 })
-    const particleFx = node('pfx', 'PlayerParticles', {
-      enabled: true, randomStyle: true, randomColor: true, intensity: 0.9,
-    })
-    const base = [node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }), pmRandom, particleFx,
-      node('out', 'MatrixOutput', { width: 8, height: 8 }),
-      micBoard,
+    const withMic = [...nodes, particleFx, micBoard,
       ...audioSource('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
-    const wire = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame'),
-      edge('efx', 'pfx', 'particleFx', 'pm', 'particleFx'),
-      edge('eb', 'pm', 'beat', 'pm', 'beat')]
-    const cpp = generateShowSketch(base, wire, groups)
-    expect(cpp).toContain('burstStyle = random8(17);')
-    expect(cpp).toContain('burstColor = CHSV(random8(), 255, 255);')
-  })
+    const wire = [...edges, edge('efx', 'pfx', 'particleFx', 'pm', 'particleFx')]
+    const cpp = generateShowSketch(withMic, wire, groups)
 
-  it('adds a beat-triggered early advance only when a beat is wired and a mic hosts _audioBeat', () => {
-    // Beat wired but Audio disabled → no on-device beat source, so time-based only.
-    const noMic = [...nodes]
-    const beatEdge = [...edges, edge('eb', 'pm', 'beat', 'pm', 'beat')]
-    expect(generateShowSketch(noMic, beatEdge, groups)).not.toContain('_audioBeat &&')
-
-    // Beat wired + Audio selecting microphone hardware → the controller hosts the engine
-    // and uses _audioBeat to advance early after minTime.
-    const withMic = [...nodes, micBoard, ...audioSource('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
-    expect(generateShowSketch(withMic, beatEdge, groups)).toContain('_audioBeat && now - phaseStart >=')
+    expect(cpp).not.toContain('void particleOverlay(')
+    expect(cpp).not.toContain('_audioBeat &&')
+    // The audio engine itself stays: patterns inside the collection still read
+    // the microphone when the slideshow is reactive.
+    expect(cpp).toContain('void updateAudio()')
   })
 
   describe('buildPatternRenderers — group-input roles', () => {
@@ -479,7 +484,7 @@ describe('showGenerator', () => {
     } as unknown as GroupRegistry
     const showNodes = (withMic: boolean) => [
       node('pc', 'PatternCollection', { patternIds: ['ga'] }),
-      node('pm', 'PatternMaster', { minTime: 4, maxTime: 12, transitionSec: 1 }),
+      node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1 }),
       node('out', 'MatrixOutput', { width: 8, height: 8 }),
       ...(withMic ? [micBoard, ...audioSource('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })] : []),
     ]
@@ -566,7 +571,7 @@ describe('show sketch output geometry', () => {
   }
   const wiring = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
   const show = (props: Record<string, unknown>) => generateShowSketch(
-    [node('pc', 'PatternCollection', { patternIds: ['g0'] }), node('pm', 'PatternMaster', {}), node('out', 'MatrixOutput', props)],
+    [node('pc', 'PatternCollection', { patternIds: ['g0'] }), node('pm', 'PatternSlideshow', {}), node('out', 'MatrixOutput', props)],
     wiring, groups,
   )
 
@@ -593,7 +598,7 @@ describe('show sketch weight', () => {
     g1: { nodes: [node('nz', 'Noise', { palette: 'ocean' }), node('go', 'GroupOutput')],
           edges: [edge('e', 'nz', 'frame', 'go', 'frame')] },
   }
-  const master = node('pm', 'PatternMaster', {})
+  const master = node('pm', 'PatternSlideshow', {})
   const out = node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 })
   const wiring = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
   const show = (patternIds: string[], extraNodes: StudioNode[] = [], extraEdges: StudioEdge[] = []) => generateShowSketch(
@@ -667,7 +672,7 @@ describe('displays in a show controller', () => {
   } as unknown as GroupRegistry
   const base = [
     node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
-    node('pm', 'PatternMaster', { minTime: 4, maxTime: 12, transitionSec: 1 }),
+    node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1 }),
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' }),
   ]
   const baseEdges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]

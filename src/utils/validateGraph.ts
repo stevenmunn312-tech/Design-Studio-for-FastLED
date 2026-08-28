@@ -32,7 +32,7 @@ import { controllerSettings } from '../state/controllerSettings'
 import { isHardwareManagedSignalNodeType } from '../state/hardware'
 import { partOptionsFor } from '../state/partOptions'
 import { partById } from '../state/partCatalogue'
-import { resolveAudioCapabilitySource } from '../state/audioCapabilities'
+import { resolveAudioCapabilitySource, selectedAudioCapabilityKind } from '../state/audioCapabilities'
 import { resolveStorageCapabilitySource } from '../state/storageCapabilities'
 
 export interface ValidationResult {
@@ -1112,6 +1112,97 @@ interface PlayerControlMappingIssue {
   message: string
 }
 
+interface ShowEngineIssue {
+  id: string
+  severity: 'error' | 'warning'
+  title: string
+  message: string
+  fix: string
+  nodeIds: string[]
+  nodeLabel: string
+}
+
+/**
+ * The two nodes that run a collection, and the hardware each one needs.
+ *
+ * They used to be one node: a Music Player with no card attached *was* the
+ * music-free show, which meant the difference between the two workflows was
+ * invisible on the canvas and the failure — a player with nothing to play —
+ * looked like a working graph. Now each says what it is, so each can be told
+ * what it is missing.
+ */
+function showEngineIssues(nodes: StudioNode[], edges: StudioEdge[]): ShowEngineIssue[] {
+  const issues: ShowEngineIssue[] = []
+  const reachesOutput = (node: StudioNode): boolean => edges.some((edge) =>
+    edge.source === node.id
+    && (edge.sourceHandle ?? '') === 'frame'
+    && (edge.targetHandle ?? '') === 'frame'
+    && nodes.some((target) => target.id === edge.target && target.data.nodeType === 'MatrixOutput'))
+
+  for (const master of nodes.filter((node) => node.data.nodeType === 'PatternMaster')) {
+    if (!reachesOutput(master)) continue
+    const hasCard = nodes.some((node) => node.data.nodeType === 'SDCard')
+    const hasAmplifier = nodes.some((node) => node.data.nodeType === 'Amplifier')
+    if (hasCard && hasAmplifier) continue
+    const missing = !hasCard && !hasAmplifier
+      ? 'an SD card and an amplifier'
+      : !hasCard ? 'an SD card' : 'an amplifier'
+    issues.push({
+      id: `${master.id}-player-hardware`,
+      severity: 'error',
+      title: `Music Player has no music to play — this build is missing ${missing}`,
+      message: 'A Music Player decodes audio from a card and drives an amplifier. Without both, '
+        + 'the build has no decoder, and the sketch renders this node as a black fill.',
+      fix: 'Add the missing part in the Hardware bench, or swap the Music Player for a '
+        + 'Pattern Slideshow, which runs the same collection on a timer and needs neither.',
+      nodeIds: [master.id],
+      nodeLabel: nodeLabel(master),
+    })
+  }
+
+  for (const slideshow of nodes.filter((node) => node.data.nodeType === 'PatternSlideshow')) {
+    const collectionEdge = edges.find((edge) =>
+      edge.target === slideshow.id && (edge.targetHandle ?? '') === 'patternset')
+    if (!collectionEdge) {
+      issues.push({
+        id: `${slideshow.id}-patterns`,
+        severity: 'warning',
+        title: 'Pattern Slideshow has no patterns',
+        message: 'No Pattern Collection is wired to the Pattern Slideshow.',
+        fix: 'Connect a Pattern Collection pattern-set output to the Pattern Slideshow.',
+        nodeIds: [slideshow.id],
+        nodeLabel: nodeLabel(slideshow),
+      })
+    }
+
+    // A slideshow hosts no decoder, so the decoder source has nothing to tap.
+    // Caught here rather than on a bench, where it presents as a mic that never
+    // hears anything.
+    const audioEdge = edges.find((edge) =>
+      edge.target === slideshow.id && (edge.targetHandle ?? '') === 'audio')
+    const audioNode = audioEdge
+      && nodes.find((node) => node.id === audioEdge.source && node.data.nodeType === 'Audio')
+    if (audioNode) {
+      const kind = selectedAudioCapabilityKind(
+        nodes, (audioNode.data.properties as Record<string, unknown>).sourceId)
+      if (kind === 'decoder') {
+        issues.push({
+          id: `${slideshow.id}-audio-decoder`,
+          severity: 'error',
+          title: 'Pattern Slideshow cannot listen to the Audio Decoder',
+          message: 'The decoder is the Music Player’s own audio. A slideshow plays no files, '
+            + 'so there is no decoded stream for it to analyse.',
+          fix: 'Set the Audio node to Microphone or Line Input, or use a Music Player instead.',
+          nodeIds: [slideshow.id, audioNode.id],
+          nodeLabel: nodeLabel(audioNode),
+        })
+      }
+    }
+  }
+
+  return issues
+}
+
 /** Check conflicting mappings across a complete chained Player Controls domain. */
 function playerControlMappingIssues(nodes: StudioNode[], edges: StudioEdge[]): PlayerControlMappingIssue[] {
   const controls = nodes.filter((node) => node.data.nodeType === 'PlayerControls')
@@ -1202,11 +1293,9 @@ function splitI2cBusErrors(nodes: StudioNode[]): string[] {
  * Which generator this graph would actually be built by.
  *
  * Mirrors the upload path's own order: `sdShowConnected` (`utils/showUpload.ts`)
- * is tested before `isPatternShow`, so the same Music Player graph is an SD
- * player build when a card and an amplifier are present and a pattern show when
- * they are not. Checking the graph shape without that order said no to graphs
- * that would have built fine, and an error nobody can act on teaches people to
- * ignore the drawer.
+ * is tested before `isPatternShow`. Checking the graph shape without that order
+ * said no to graphs that would have built fine, and an error nobody can act on
+ * teaches people to ignore the drawer.
  *
  * `sdShowConnected` has two arms and only one was mirrored here, so a Show
  * Engine writing a timed show to a card — which builds the *player* sketch —
@@ -1222,6 +1311,7 @@ export type SelectedGenerator = 'sketch' | 'show' | 'player'
 
 export function selectedGenerator(nodes: StudioNode[], edges: StudioEdge[]): SelectedGenerator {
   const master = nodes.find((node) => node.data.nodeType === 'PatternMaster')
+  const slideshow = nodes.find((node) => node.data.nodeType === 'PatternSlideshow')
   const showEngine = nodes.find((node) => node.data.nodeType === 'PerformanceGenerator')
 
   const drivesOutput = (source: StudioNode | undefined): boolean => !!source && edges.some((edge) =>
@@ -1243,7 +1333,9 @@ export function selectedGenerator(nodes: StudioNode[], edges: StudioEdge[]): Sel
   // the player sketch. Without the card there is nothing to write it to and
   // the graph exports as an ordinary sketch.
   if (hasCard && drivesOutput(showEngine)) return 'player'
-  if (drivesOutput(master) && collectionFeeds(master)) return 'show'
+  // The show sketch is the Slideshow's, keyed on the node being present rather
+  // than on a Music Player that happens to have no card attached.
+  if (drivesOutput(slideshow) && collectionFeeds(slideshow)) return 'show'
   return 'sketch'
 }
 
@@ -1901,6 +1993,14 @@ export function buildGraphDiagnostics(
     })
   }
 
+  for (const issue of showEngineIssues(nodes, edges)) {
+    diagnostics.push({
+      id: issue.id, severity: issue.severity, category: 'show',
+      title: issue.title, message: issue.message, fix: issue.fix,
+      nodeIds: issue.nodeIds, nodeLabel: issue.nodeLabel,
+    })
+  }
+
   for (const issue of playerControlMappingIssues(nodes, edges)) {
     diagnostics.push({
       id: issue.id,
@@ -2060,6 +2160,11 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   const master = nodes.find(n => n.data.nodeType === 'PatternMaster')
   if (master && !incoming.has(`${master.id}:patternset`)) {
     warnings.push('Music Player has no Pattern Collection wired')
+  }
+
+  for (const issue of showEngineIssues(nodes, edges)) {
+    if (issue.severity === 'error') errors.push(`${issue.title}. ${issue.fix}`)
+    else warnings.push(issue.title)
   }
 
   // Music-sync generator: a wired Pattern Collection needs a direct music

@@ -305,6 +305,13 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { id: 'collection', type: 'PatternCollection', col: 0, row: 2 },
       { id: 'master', type: 'PatternMaster', col: 1, row: 1 },
       { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 2, row: 1 },
+      // Bench parts, hidden on the canvas, and what make this a *player*: the
+      // card the music comes from and the module that turns it into sound.
+      // Without both there is no decoder, and a Music Player with nothing to
+      // play is the failure this starter used to ship with. Swap either for
+      // your own module on the bench.
+      { id: 'sd', type: 'SDCard', col: 3, row: 0 },
+      { id: 'amp', type: 'Amplifier', col: 3, row: 1 },
       tutorialNote(
         'guide', -1, 0,
         'BUILD A SHOW \nSpecify your board, audio source and music player hardware from the hardware bench below then add some patterns into the Pattern Collection.\nCheck that you have the correct GPIO\'s for your hardware then use the capacity checker to ensure the sketch will fit on your board and upload.',
@@ -356,6 +363,31 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     edgeSpecs: [
       { source: 'lib', sourceHandle: 'music', target: 'perf', targetHandle: 'music' },
       { source: 'perf', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+    ],
+  }),
+  template({
+    id: 'pattern-slideshow',
+    name: 'Pattern Slideshow',
+    description: 'Cycle a collection of patterns on a timer — no music, no card, nothing to plug in but the LEDs.',
+    completionSteps: [
+      'Build a pattern, select its nodes, create a Group, then connect that Group frame to Pattern Collection.',
+      'Add a few pattern groups and set the interval and order on the Pattern Slideshow.',
+      'Optionally add a Microphone or Line Input in the Hardware bench and turn on audio reactivity.',
+      'Check the LED output pins and capacity, then upload the sketch.',
+    ],
+    nodeSpecs: [
+      { id: 'collection', type: 'PatternCollection', col: 0, row: 0 },
+      { id: 'show', type: 'PatternSlideshow', col: 1, row: 0 },
+      { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 2, row: 0 },
+      tutorialNote(
+        'guide', 0, -1,
+        'SLIDESHOW \nAdd patterns to the collection and they play in turn.\nNo card, no amplifier, no music — set an interval and go.',
+        TRY_COLOR,
+      ),
+    ],
+    edgeSpecs: [
+      { source: 'collection', sourceHandle: 'patternset', target: 'show', targetHandle: 'patternset' },
+      { source: 'show', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
     ],
   }),
 ]

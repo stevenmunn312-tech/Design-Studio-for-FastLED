@@ -57,7 +57,9 @@ export function resolveShowTarget<T extends ShowTargetNode>(
   edges: ShowTargetEdge[],
 ): ShowTargetResolution<T> {
   const generator = nodes.find((node) =>
-    node.data.nodeType === 'PatternMaster' || node.data.nodeType === 'PerformanceGenerator',
+    node.data.nodeType === 'PatternMaster'
+    || node.data.nodeType === 'PatternSlideshow'
+    || node.data.nodeType === 'PerformanceGenerator',
   )
   if (!generator) return { target: null, reached: [], problem: 'unconnected' }
 

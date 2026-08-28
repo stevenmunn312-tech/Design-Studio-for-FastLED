@@ -190,10 +190,14 @@ describe('the emitted sketch', () => {
 })
 
 describe('what a show or player build cannot honour', () => {
+  // The two engines, sharing one node id so the same edges describe both: a
+  // Slideshow builds the show controller, a Music Player with a card and an
+  // amplifier builds the player.
+  const slideshow = node('master', 'PatternSlideshow')
   const master = node('master', 'PatternMaster')
   const collection = node('coll', 'PatternCollection', { patternIds: ['a'] })
   const showGraph = () => ({
-    nodes: [master, collection, output(), node('b', 'ButtonInput', { pin: 4 })],
+    nodes: [slideshow, collection, output(), node('b', 'ButtonInput', { pin: 4 })],
     edges: [
       edge('e1', 'coll', 'patternset', 'master', 'patternset'),
       edge('e2', 'master', 'frame', 'out', 'frame'),
@@ -220,7 +224,7 @@ describe('what a show or player build cannot honour', () => {
   // just saying no.
   it('points a player build at Player Controls', () => {
     const { nodes, edges } = showGraph()
-    const player = [...nodes, node('sd', 'SDCard'), node('amp', 'Amplifier')]
+    const player = [master, ...nodes.slice(1), node('sd', 'SDCard'), node('amp', 'Amplifier')]
     const { errors } = findOutputRuntimeIssues(player, edges)
     expect(selectedGenerator(player, edges)).toBe('player')
     expect(errors.join(' ')).toContain('Player Controls')

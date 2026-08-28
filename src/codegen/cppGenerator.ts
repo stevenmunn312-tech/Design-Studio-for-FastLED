@@ -5819,11 +5819,15 @@ export function generateCpp(
         break
       }
 
-      case 'PatternMaster': {
-        // The generative pattern-show controller is Phase 4 (per-pattern .h +
-        // controller .ino); for now keep the sketch valid with a black fill.
+      case 'PatternMaster':
+      case 'PatternSlideshow': {
+        // Neither belongs in a flat sketch: a Music Player needs the SD-player
+        // template and a Slideshow builds the show controller. Reaching here
+        // means the graph selected the ordinary generator anyway — which
+        // validation reports — so keep the sketch valid with a black fill
+        // rather than emitting a show that was never asked for.
         const ob = ownBuf()
-        ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // Pattern Master — show codegen is Phase 4`)
+        ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // ${node.data.nodeType} — not this generator's node`)
         break
       }
 

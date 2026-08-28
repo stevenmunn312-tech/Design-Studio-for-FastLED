@@ -177,7 +177,7 @@ function activeStagePatternName(
     return libraryPatternNameForGroup(groupIdOf(sourceNode), graphs, libraryPatternIds, libraryNameCounts)
   }
 
-  if (nodeTypeOf(sourceNode) === 'PatternMaster') {
+  if (nodeTypeOf(sourceNode) === 'PatternMaster' || nodeTypeOf(sourceNode) === 'PatternSlideshow') {
     const setEdge = edges.find((edge) => edge.target === sourceNode.id && edge.targetHandle === 'patternset')
     const collection = nodes.find((node) => node.id === setEdge?.source && nodeTypeOf(node) === 'PatternCollection')
     const patternIds = ((collection?.data.properties as { patternIds?: string[] } | undefined)?.patternIds) ?? []

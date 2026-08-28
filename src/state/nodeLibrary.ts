@@ -11,6 +11,7 @@ import { SEGMENT_DISPLAY_MODES, SEGMENT_BRIGHTNESS_MIN, SEGMENT_BRIGHTNESS_MAX, 
 import { partById } from './partCatalogue'
 import { INFO_DISPLAY_LAYOUTS } from './infoDisplay'
 import { SONG_INFO_PORTS } from './songInfo'
+import { PATTERN_SLIDESHOW_ORDERS } from './patternSlideshow'
 import {
   OLED_ROTATIONS, OLED_TRANSPORT_PINS, OLED_I2C_ADDRESS_OPTIONS, DEFAULT_OLED_I2C_ADDRESS,
   oledAddressLabel, oledControllerFor, oledTransportFor,
@@ -2261,6 +2262,52 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [{ id: 'transitions', label: 'Transitions', dataType: 'transitionset' }],
     defaultProperties: { transitions: [] },
   },
+  {
+    /*
+     * The same show as the Music Player, without the music.
+     *
+     * `showGenerator.ts` never needed a card, an amplifier or a decoder, but
+     * the only way to reach it was a Music Player with no card attached — a
+     * node whose every port is music, standing in for the music-free case. So
+     * the workflow existed and was undiscoverable. This node is the way in, and
+     * `isPatternShow` keys on it, so the three generators are told apart by
+     * which node is present rather than by which hardware is absent.
+     *
+     * What differs from the player is what a slideshow actually needs: one
+     * interval rather than a randomised min/max pair (the randomisation exists
+     * to keep a beat-driven show from feeling metronomic, and there is no beat
+     * here), an explicit order, transitions that default to a fade without
+     * requiring a TransitionSet, and reactivity off unless asked for — the
+     * point of the mode is slow patterns that do not twitch at room noise.
+     * See docs/development/design/generative-pattern-show.md#pattern-slideshow.
+     */
+    type: 'PatternSlideshow',
+    label: 'Pattern Slideshow',
+    category: 'show',
+    inputs: [
+      // Live sources only. A music-free player hosts no decoder to tap, which
+      // `findAudioSourceIssues` enforces rather than leaving it to fail on a
+      // bench.
+      { id: 'audio',       label: 'Audio',       dataType: 'audio' },
+      { id: 'controls',    label: 'Controls',    dataType: 'playercontrols' },
+      { id: 'patternset',  label: 'Patterns',    dataType: 'patternset' },
+      { id: 'transitions', label: 'Transitions', dataType: 'transitionset' },
+      { id: 'interval',    label: 'Interval',    dataType: 'float' },
+    ],
+    outputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      // Published for a panel to read, exactly as the player publishes its own.
+      { id: 'patternSelect', label: 'Pattern Select', dataType: 'patternselect' },
+    ],
+    defaultProperties: {
+      order: 'Random',
+      interval: 20,
+      transitionsEnabled: true,
+      transitionSec: 1.5,
+      audioReactive: false,
+      seed: 0,
+    },
+  },
 
   // ── Custom Formula ────────────────────────────────────────────────────
   {
@@ -3278,6 +3325,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   ReactionDiffusion: 'Gray-Scott reaction-diffusion — organic spots & stripes.',
   GameOfLife: 'Conway’s Game of Life with fading trails.',
   PatternMaster: 'Random pattern/transition show from a Pattern Collection.',
+  PatternSlideshow: 'Plays a Pattern Collection on a timer — the show without the music.',
   PlayerControls: 'Maps buttons and knobs to Music Player transport, volume, and LED controls.',
   PlayerParticles: 'Configures the Music Player\'s beat-triggered particle overlay.',
   CustomFormula: 'Per-pixel JS expression f(x, y, t) — with cx/cy/r/angle and FastLED shims.',
@@ -4127,6 +4175,12 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   GameOfLife:        { speed: { control: 'slider', min: 1, max: 30,  step: 1 }, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   ReactionDiffusion: { speed: { control: 'slider', min: 1, max: 30,  step: 1 }, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   PatternMaster:     { seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
+  PatternSlideshow: {
+    order: { control: 'select', options: PATTERN_SLIDESHOW_ORDERS },
+    interval: { control: 'slider', min: 1, max: 300, step: 1 },
+    transitionSec: { control: 'slider', min: 0, max: 10, step: 0.1 },
+    seed: { control: 'slider', min: 0, max: 9999, step: 1 },
+  },
   PlayerControls: {
     debounceMs: { control: 'slider', min: 0, max: 250, step: 5 },
     volumeStep: { control: 'slider', min: 0.01, max: 0.25, step: 0.01 },
@@ -4677,6 +4731,12 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   PatternMaster: [
     { key: 'timing', label: 'Timing', keys: ['minTime', 'maxTime', 'transitionSec'] },
+    { key: 'randomness', label: 'Randomness', keys: ['seed'] },
+  ],
+  PatternSlideshow: [
+    { key: 'timing', label: 'Timing', keys: ['order', 'interval'] },
+    { key: 'transitions', label: 'Transitions', keys: ['transitionsEnabled', 'transitionSec'] },
+    { key: 'audio', label: 'Audio', keys: ['audioReactive'] },
     { key: 'randomness', label: 'Randomness', keys: ['seed'] },
   ],
   PlayerControls: [

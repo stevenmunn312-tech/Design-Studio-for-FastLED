@@ -33,7 +33,7 @@ const BEGINNER_NODE_TYPES = new Set([
   'HueCycle', 'HSVToRGB', 'PaletteSelector',
   'SolidColor', 'Text', 'GradientFrame', 'Noise', 'Rainbow', 'Fire2012', 'SpectrumBars', 'SpectrumVisualizer', 'ColorTrails', 'Animartrix',
   'Brightness', 'Fade', 'HueShift', 'Trails', 'Blend', 'Transition',
-  'PatternCollection', 'PatternMaster', 'PerformanceGenerator', 'SDCard',
+  'PatternCollection', 'PatternMaster', 'PatternSlideshow', 'PerformanceGenerator', 'SDCard',
   'MatrixOutput',
 ])
 
@@ -72,6 +72,7 @@ const INTENT_TAGS: Record<string, string[]> = {
   Transition: ['composite', 'scene'],
   PatternCollection: ['show', 'playlist'],
   PatternMaster: ['show', 'performance'],
+  PatternSlideshow: ['show', 'playlist', 'ambient', 'no music'],
   PerformanceGenerator: ['show', 'music-sync'],
   SDCard: ['show', 'offline'],
   MatrixOutput: ['hardware', 'terminal'],

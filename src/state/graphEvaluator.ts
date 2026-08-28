@@ -44,6 +44,7 @@ import {
 import { useUiStore } from './uiStore'
 import { useGraphStore } from './graphStore'
 import { songInfoOutputs, resolveSongInfo } from './songInfo'
+import { slideshowSettings, type PatternSlideshowOrder } from './patternSlideshow'
 import {
   blankPatternSelection, blankPatternCursor, reconcilePatternCursor, updatePatternSelection,
   patternSelectionView, encoderSteps, blankPatternSelectValue, isPatternSelect,
@@ -3932,6 +3933,12 @@ interface ShowOpts {
   particles: boolean; particleStyle: number; particleColor: RGB; particleIntensity: number
   randomStyle: boolean; randomColor: boolean
   seed: number
+  /**
+   * How the next pattern is chosen. Absent means random, which is what the
+   * generative show has always done; a Pattern Slideshow can ask for the
+   * order its collection is actually in.
+   */
+  order?: PatternSlideshowOrder
 }
 
 /** Read the current selection of a live PatternMaster by its evaluator state key.
@@ -4090,6 +4097,57 @@ export function renderParticleBurst(
   return ov
 }
 
+/**
+ * Rasterise one collected pattern (a group) to a frame.
+ *
+ * Shared by the two nodes that run a collection — the Music Player and the
+ * Pattern Slideshow — because "what a collected pattern is" must not be two
+ * answers. Namespaced per pattern so stateful nodes in a reused group do not
+ * clash, and the workspace's trust is passed straight through: an untrusted
+ * show must not run formula or Code nodes just because they sit inside a
+ * collected pattern group.
+ */
+interface CollectedPatternCtx {
+  groups: GroupRegistry
+  groupStack: ReadonlySet<string>
+  instancePrefix: string
+  nodeId: string
+  tick: number
+  W: number
+  H: number
+  trusted: boolean
+  capabilityNodes: readonly StudioNode[]
+  audioOverride: AudioOverride | null
+  /** Live audio for the patterns inside, or null when they get none. */
+  audio: AudioSignal | null
+}
+
+function renderCollectedPattern(gid: string, ctx: CollectedPatternCtx): Frame {
+  const def = ctx.groups[gid]
+  if (!def || ctx.groupStack.has(gid)) return blankFrame(ctx.W, ctx.H)
+  const groupInputs: Record<string, PortValue> = ctx.audio
+    ? semanticAudioInputs({
+        micBass: clamp01(Number(ctx.audio.bass ?? ctx.audio.micBass ?? 0)),
+        micMids: clamp01(Number(ctx.audio.mids ?? ctx.audio.micMids ?? 0)),
+        micTreble: clamp01(Number(ctx.audio.treble ?? ctx.audio.micTreble ?? 0)),
+      })
+    : {}
+  if (ctx.audio) {
+    for (const groupNode of def.nodes) {
+      if (String(groupNode.data.nodeType ?? '') !== 'GroupInput') continue
+      const paramId = String((groupNode.data.properties as { paramId?: string } | undefined)?.paramId ?? '')
+      const outputType = ((groupNode.data.outputs as { dataType?: string }[] | undefined)?.[0]?.dataType) ?? ''
+      if (paramId && outputType === 'audio') groupInputs[paramId] = ctx.audio
+    }
+  }
+  return evaluateGraph(
+    def.nodes, def.edges, ctx.tick, ctx.W, ctx.H, ctx.groups,
+    `${ctx.instancePrefix}${ctx.nodeId}/${gid}/`,
+    new Set([...ctx.groupStack, gid]), groupInputs, ctx.audioOverride,
+    ctx.trusted, ctx.capabilityNodes,
+  ) ?? blankFrame(ctx.W, ctx.H)
+}
+
 function evalPatternShow(
   key: string, ids: string[], render: (groupId: string) => Frame,
   beat: boolean, o: ShowOpts, t: number, W = DEFAULT_W, H = DEFAULT_H,
@@ -4100,6 +4158,7 @@ function evalPatternShow(
 ): Frame {
   const n = ids.length
   if (n === 0) return blankFrame(W, H)
+  const sequential = o.order === 'Sequential'
   const rnd = () => seededRandom(`${key}:show`, o.seed)
   const pickDwell = () => o.minTime + rnd() * Math.max(0, o.maxTime - o.minTime)
 
@@ -4112,7 +4171,7 @@ function evalPatternShow(
     seededRngState.delete(`${key}:show`)
     st = { sel: selection ?? blankPatternSelection(), next: blankPatternCursor(), ids,
            phase: 'hold', start: t, dwell: pickDwell(), trans: 'crossfade', lastBeat: beat, seed: o.seed }
-    updatePatternSelection(st.sel, { ids, nowMs: t * 1000, setActive: Math.floor(rnd() * n) })
+    updatePatternSelection(st.sel, { ids, nowMs: t * 1000, setActive: sequential ? 0 : Math.floor(rnd() * n) })
   }
 
   // Every frame, because the collection can change under a running show. The
@@ -4142,7 +4201,9 @@ function evalPatternShow(
     const timeUp = t >= st.start + st.dwell
     const beatTrig = beatEdge && t >= st.start + o.minTime
     if (timeUp || beatTrig) {
-      const target = (cur + 1 + Math.floor(rnd() * (n - 1))) % n   // uniform, ≠ cur
+      // Sequential walks the collection in the order it was arranged; random
+      // picks uniformly from everything except what is already showing.
+      const target = sequential ? (cur + 1) % n : (cur + 1 + Math.floor(rnd() * (n - 1))) % n
       st.next.index = target
       st.next.id = ids[target]
       st.trans = o.pool.length ? o.pool[Math.floor(rnd() * o.pool.length)] : 'crossfade'
@@ -7214,37 +7275,10 @@ function createEvalNode(
         const audioSignal = input(id, 'audio', null)
         const audio = isAudioSignal(audioSignal) ? audioSignal : null
         const beat = input(id, 'beat', false) as boolean
-        const liveGroupAudio = audio
-          ? semanticAudioInputs({
-              micBass: clamp01(Number(audio.bass ?? audio.micBass ?? 0)),
-              micMids: clamp01(Number(audio.mids ?? audio.micMids ?? 0)),
-              micTreble: clamp01(Number(audio.treble ?? audio.micTreble ?? 0)),
-            })
-          : {}
-        // Rasterise a collected pattern (a group) to a frame, the same way the
-        // Group case does — namespaced per pattern so stateful nodes don't clash.
-        const render = (gid: string): Frame => {
-          const def = groups[gid]
-          if (!def || groupStack.has(gid)) return blankFrame(W, H)
-          const groupInputs: Record<string, PortValue> = { ...liveGroupAudio }
-          if (audio) {
-            for (const groupNode of def.nodes) {
-              if (String(groupNode.data.nodeType ?? '') !== 'GroupInput') continue
-              const paramId = String((groupNode.data.properties as { paramId?: string } | undefined)?.paramId ?? '')
-              const outputType = ((groupNode.data.outputs as { dataType?: string }[] | undefined)?.[0]?.dataType) ?? ''
-              if (paramId && outputType === 'audio') groupInputs[paramId] = audio
-            }
-          }
-          return evaluateGraph(
-            def.nodes, def.edges, tick, W, H, groups,
-            `${instancePrefix}${id}/${gid}/`,
-            new Set([...groupStack, gid]), groupInputs, audioOverride,
-            // A collected pattern is part of the same workspace, so it inherits
-            // this graph's trust — an untrusted show must not run formula/Code
-            // nodes just because they sit inside a collected pattern group.
-            trusted, capabilityNodes,
-          ) ?? blankFrame(W, H)
-        }
+        const render = (gid: string): Frame => renderCollectedPattern(gid, {
+          groups, groupStack, instancePrefix, nodeId: id, tick, W, H,
+          trusted, capabilityNodes, audioOverride, audio,
+        })
         // Transitions come from a wired TransitionSet (the same node type feeds
         // PerformanceGenerator); with nothing wired the show just crossfades.
         const wiredPool = input(id, 'transitions', null) as string[] | null
@@ -7357,6 +7391,84 @@ function createEvalNode(
           }
           out = { ...song, patternSelect, frame: dimmed }
         } else out = { ...song, patternSelect, frame }
+        break
+      }
+
+      case 'PatternSlideshow': {
+        // The same show as the Music Player with the music taken out. What is
+        // shared is shared outright: one collected-pattern renderer, one
+        // `evalPatternShow`, one selection contract. What differs is only what
+        // a slideshow needs — a single interval, a stated order, and audio it
+        // ignores unless asked.
+        const ids = (input(id, 'patternset', null) as string[] | null) ?? []
+        const settings = slideshowSettings(
+          props,
+          incoming.has(`${id}:interval`) ? num(id, 'interval', props, 'interval', 20) : null,
+        )
+        const audioSignal = input(id, 'audio', null)
+        // Reactivity is a switch, not a consequence of wiring: a slideshow with
+        // a microphone attached holds still until it is asked to react, because
+        // the mode exists for patterns that should not twitch at room noise.
+        const audio = settings.audioReactive && isAudioSignal(audioSignal) ? audioSignal : null
+        const render = (gid: string): Frame => renderCollectedPattern(gid, {
+          groups, groupStack, instancePrefix, nodeId: id, tick, W, H,
+          trusted, capabilityNodes, audioOverride, audio,
+        })
+        const wiredPool = input(id, 'transitions', null) as string[] | null
+        const pool = wiredPool && wiredPool.length ? wiredPool : ['crossfade']
+        const key = stateKey(id)
+
+        let selection = patternSelectionState.get(key)
+        if (!selection) {
+          selection = blankPatternSelection()
+          patternSelectionState.set(key, selection)
+        }
+        // No confirm step. A slideshow has no split between what you are
+        // looking at and what is playing to show anybody, so a step *is* the
+        // change — which is what `confirm` on the same update means.
+        const controlsValue = input(id, 'controls', null)
+        const controls = isPlayerControls(controlsValue) ? controlsValue : null
+        const steps = controls ? Math.trunc(controls.patternSteps) : 0
+        updatePatternSelection(selection, {
+          ids,
+          nowMs: t * 1000,
+          step: steps,
+          confirm: steps !== 0 || controls?.patternConfirm === true,
+        })
+
+        const frame = evalPatternShow(key, ids, render, false, {
+          minTime: settings.intervalSec,
+          maxTime: settings.intervalSec,
+          transSec: settings.transitionSec,
+          pool,
+          beatEnabled: false,
+          particles: false,
+          particleStyle: 0,
+          particleColor: { r: 0, g: 0, b: 0 },
+          particleIntensity: 0,
+          randomStyle: false,
+          randomColor: false,
+          seed: settings.seed,
+          order: settings.order,
+        }, t, W, H, selection)
+
+        // Read after the show has run, for the same reason the player does:
+        // its own advance moves this cursor, and publishing the pre-show
+        // snapshot leaves a panel a frame behind the LEDs.
+        const view = patternSelectionView(selection, ids)
+        const graphNames = useGraphStore.getState().graphs
+        const patternSelect: PatternSelectValue = ids.length > 0
+          ? {
+            ids,
+            names: ids.map((gid) => graphNames[gid]?.name ?? ''),
+            activeIndex: view.activeIndex,
+            highlightIndex: view.highlightIndex,
+            count: view.count,
+            browsing: view.browsing,
+          }
+          : blankPatternSelectValue()
+
+        out = { frame, patternSelect }
         break
       }
 
