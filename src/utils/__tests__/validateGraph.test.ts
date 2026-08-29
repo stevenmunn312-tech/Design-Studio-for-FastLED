@@ -71,6 +71,29 @@ describe('validateGraph', () => {
     expect(findAudioCapabilityErrors([audio, microphone], wires)).toEqual([])
   })
 
+  it('accepts an enabled standalone Stereo VU Meter as the physical LED output', () => {
+    const meter = node('vu', 'StereoVuMeter', {
+      targetOutputId: '', enabled: true, leftDataPin: 5, rightDataPin: 6,
+    })
+    const audioWire = edge('audio-vu', 'audio-source', meter.id, 'audio')
+
+    expect(validateGraph([meter], [audioWire]).errors).not.toContain('Missing MatrixOutput node')
+    expect(buildGraphDiagnostics([meter], [audioWire])).not.toContainEqual(expect.objectContaining({
+      id: 'missing-MatrixOutput',
+    }))
+  })
+
+  it('does not count a disabled standalone Stereo VU Meter as an active output', () => {
+    const meter = node('vu', 'StereoVuMeter', {
+      targetOutputId: '', enabled: false, leftDataPin: 5, rightDataPin: 6,
+    })
+
+    expect(validateGraph([meter], []).errors).toContain('Missing MatrixOutput node')
+    expect(buildGraphDiagnostics([meter], [])).toContainEqual(expect.objectContaining({
+      id: 'missing-MatrixOutput',
+    }))
+  })
+
   it('limits PCM1802 line-in firmware to ESP32-S3', () => {
     const lineIn = node('line', 'LineInput')
     expect(findBoardCompatibilityErrors([lineIn], 'esp32:esp32:esp32s3')).toEqual([])
@@ -1035,6 +1058,27 @@ describe('validateGraph', () => {
       expect(power.requiredSupplyMa).toBe(20000)
       expect(power.requiredSupplyWattage).toBe(100)
       expect(power.exceedsConfigured).toBe(false)
+    })
+
+    it('counts both rails of a standalone Stereo VU Meter', () => {
+      const power = estimatePowerLoad([node('vu', 'StereoVuMeter', {
+        ledCount: 16, enabled: true, targetOutputId: '',
+      })])!
+
+      expect(power.ledCount).toBe(32)
+      expect(power.worstCaseMa).toBe(32 * 60)
+      expect(power.requiredSupplyMa).toBe(3000)
+      expect(power.requiredSupplyWattage).toBe(15)
+    })
+
+    it('sums VU rails with a primary LED output', () => {
+      const power = estimatePowerLoad([
+        node('out', 'MatrixOutput', { width: 8, height: 8 }),
+        node('vu', 'StereoVuMeter', { ledCount: 20, enabled: true, targetOutputId: 'out' }),
+      ])!
+
+      expect(power.ledCount).toBe(64 + 40)
+      expect(power.worstCaseMa).toBe((64 + 40) * 60)
     })
 
     it('flags when worst-case draw exceeds the configured power cap', () => {

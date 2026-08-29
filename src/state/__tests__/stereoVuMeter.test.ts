@@ -6,6 +6,7 @@ import { busAssignmentFor, findPinCollisions } from '../busTopology'
 import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType } from '../hardware'
 import { NODE_LIBRARY, gpioRequirementForProperty, propertyLabel } from '../nodeLibrary'
 import { retargetHardwarePins, withAssignedPins } from '../pinRetarget'
+import { syncAutomaticStereoVuLedCounts, VU_LED_COUNT_CUSTOM_KEY } from '../stereoVuSizing'
 import type { StudioEdge, StudioNode } from '../graphStore'
 
 const S3_PROFILE = 'esp32-s3-devkitc-1'
@@ -124,5 +125,16 @@ describe('Stereo VU Meter hardware contract', () => {
     expect(validateGraph([output, meter({ targetOutputId: 'gone' })], [audioEdge]).errors).toContain(
       'Stereo VU Meter targets an LED output that no longer exists — choose another target or use Standalone',
     )
+  })
+
+  it('normalizes a removed matrix target to Standalone without discarding a custom rail length', () => {
+    const normalized = syncAutomaticStereoVuLedCounts([meter({
+      targetOutputId: 'removed-output',
+      ledCount: 42,
+      [VU_LED_COUNT_CUSTOM_KEY]: true,
+    })])[0]
+
+    expect(normalized.data.properties.targetOutputId).toBe('')
+    expect(normalized.data.properties.ledCount).toBe(42)
   })
 })

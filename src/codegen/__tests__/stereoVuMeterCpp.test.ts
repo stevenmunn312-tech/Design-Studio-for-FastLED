@@ -85,6 +85,15 @@ describe('normal sketch Stereo VU Meter generation', () => {
     expect(cpp.match(/FastLED\.show\(\);/g)).toHaveLength(1)
   })
 
+  it('generates the two VU rails without requiring a MatrixOutput controller', () => {
+    const cpp = generateCpp([board, lineIn, audio, meter({ targetOutputId: '' })], [audioWire])
+
+    expect(cpp).toContain('FastLED.addLeds<WS2812B, VU_LEFT_PIN_side_vu, GRB>')
+    expect(cpp).toContain('FastLED.addLeds<WS2812B, VU_RIGHT_PIN_side_vu, GRB>')
+    expect(cpp).toContain('_stereoVuRender(_vuState_side_vu')
+    expect(cpp.match(/FastLED\.show\(\);/g)).toHaveLength(1)
+  })
+
   it('omits an unwired fixture and its controllers instead of sampling ambient audio', () => {
     const cpp = generateCpp([board, lineIn, audio, output, meter()], [])
     expect(cpp).not.toContain('VU_LEDS_side_vu')

@@ -671,8 +671,12 @@ function removeNodeAndEdges(
   performanceDeck: PerformanceDeckConfig,
   removedIds: Set<string>,
 ) {
+  const remainingNodes = nodes.filter((node) => !removedIds.has(node.id))
   return {
-    nodes: nodes.filter((node) => !removedIds.has(node.id)),
+    // Matrix removal turns an attached VU fixture into a standalone fixture.
+    // Normalising here prevents the target picker from displaying Standalone
+    // while validation still sees the deleted matrix id.
+    nodes: syncAutomaticStereoVuLedCounts(remainingNodes),
     edges: edges.filter((edge) => !removedIds.has(edge.source ?? '') && !removedIds.has(edge.target ?? '')),
     selectedNodeId: selectedNodeId && removedIds.has(selectedNodeId) ? null : selectedNodeId,
     performanceDeck: {

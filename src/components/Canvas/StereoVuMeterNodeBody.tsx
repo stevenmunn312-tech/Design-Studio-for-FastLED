@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { rootGraphNodes, useGraphStore, useRootNodes } from '../../state/graphStore'
 import { LED_OUTPUT_FORM_LABELS, outputForm } from '../../state/ledOutputForm'
 import { usePreviewStore } from '../../state/previewStore'
@@ -27,6 +27,13 @@ export default function StereoVuMeterNodeBody({ nodeId }: { nodeId: string }) {
     [rootNodes],
   )
   const targetOutputId = String(node?.data.properties.targetOutputId ?? '')
+  const targetExists = !targetOutputId || outputs.some((output) => output.id === targetOutputId)
+  useEffect(() => {
+    // Old saves and an already-open project can retain the id of a matrix that
+    // was removed before graph normalisation learned this rule. The picker has
+    // always displayed that state as Standalone, so make the stored value agree.
+    if (targetOutputId && !targetExists) updateNodeProperty(nodeId, 'targetOutputId', '')
+  }, [nodeId, targetExists, targetOutputId, updateNodeProperty])
   const mode = String(node?.data.properties.visualizationMode ?? 'Classic Ladder')
   const live = usePreviewStore((state) => state.outputs.get(nodeId)?.vu) as StereoVuFrame | undefined
   const ledCount = Math.max(1, Math.round(Number(node?.data.properties.ledCount ?? 60)))
@@ -49,7 +56,7 @@ export default function StereoVuMeterNodeBody({ nodeId }: { nodeId: string }) {
         <select
           className="nodrag"
           aria-label="Stereo VU Meter target LED output"
-          value={outputs.some((output) => output.id === targetOutputId) ? targetOutputId : ''}
+          value={targetExists ? targetOutputId : ''}
           onChange={(event) => updateNodeProperty(nodeId, 'targetOutputId', event.target.value)}
         >
           <option value="">Standalone</option>

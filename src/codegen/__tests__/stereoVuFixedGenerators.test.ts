@@ -6,7 +6,7 @@ import path from 'node:path'
 import { generateShowSketch, type PatternRenderers } from '../showGenerator'
 import { generatePlayerSketch } from '../playerSketchGenerator'
 import { stereoVuEmitsFromGraph } from '../stereoVuMeterCpp'
-import { buildShowPlayer } from '../../utils/showUpload'
+import { buildShowPlayer, musicPlayerConnected, sdShowConnected } from '../../utils/showUpload'
 import type { GroupRegistry } from '../../state/graphEvaluator'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 
@@ -140,6 +140,33 @@ describe('Music Player Stereo VU fixture', () => {
     })
     expect(cpp).toContain('(_decoderTapLive || audioEnvFrames > 0)')
     expect(cpp).toContain('if (!_decoderTapLive) updateShowAudio(posMs);')
+  })
+
+  it('builds a VU-only Music Player without inventing a matrix controller', () => {
+    const standaloneMeter = node('side-vu', 'StereoVuMeter', {
+      ...meter.data.properties,
+      targetOutputId: '',
+    })
+    const nodes = [
+      node('master', 'PatternMaster'),
+      node('sd', 'SDCard'),
+      node('amp', 'Amplifier'),
+      node('audio', 'Audio', { sourceId: 'decoder' }),
+      standaloneMeter,
+    ]
+    const edges = [edge('audio-vu', 'audio', 'audio', 'side-vu', 'audio')]
+
+    expect(musicPlayerConnected(nodes, edges)).toBe(true)
+    expect(sdShowConnected(nodes, edges)).toBe(true)
+
+    const cpp = buildShowPlayer(nodes, edges, groups, {
+      patternSet: [], bakedAudio: false, preferredTrack: '', genericPlayer: true,
+    })
+
+    expect(cpp).not.toContain('#define LED_DATA_PIN')
+    expect(cpp).not.toContain('FastLED.addLeds<WS2812B, LED_DATA_PIN')
+    expect(cpp).toContain('FastLED.addLeds<WS2812B, VU_LEFT_PIN_side_vu, GRB>')
+    expect(cpp).toContain('FastLED.addLeds<WS2812B, VU_RIGHT_PIN_side_vu, GRB>')
   })
 
   it('omits the fixture and decoder tap without an explicit Audio wire', () => {

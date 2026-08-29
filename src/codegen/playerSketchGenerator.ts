@@ -51,6 +51,8 @@ import {
 } from './stereoVuMeterCpp'
 
 export interface PlayerConfig {
+  /** False when the player's only physical pixels are standalone VU rails. */
+  hasPrimaryLedOutput: boolean
   ledWidth:    number
   ledHeight:   number
   ledDataPin:  number
@@ -82,6 +84,7 @@ export interface PlayerConfig {
 }
 
 const DEFAULTS: PlayerConfig = {
+  hasPrimaryLedOutput: true,
   ledWidth: 16, ledHeight: 16, ledDataPin: 18, ledClockPin: 6,
   chipset: 'WS2812B', colorOrder: 'GRB',
   correction: 'none', dither: true, overclock: 1,
@@ -121,15 +124,16 @@ interface ConfigNode { id: string; data: { nodeType: string; properties: Record<
  * The LED output is *not* found that loosely. It is the output the generator's
  * `frame` edge reaches (`resolveShowTarget`) — it used to be the first
  * MatrixOutput in array order, which chose silently on any bench with two and
- * invented a 16x16 WS2812B on GPIO18 on a bench with none. An unresolved target
- * is a validation error (`findShowTargetErrors`) and `sdShowConnected` is false,
- * so this function is not reached for a real upload; the `?? {}` below only
- * ever supplies defaults to a build that is already blocked.
+ * invented a 16x16 WS2812B on GPIO18 on a bench with none. A standalone VU
+ * fixture is the deliberate no-matrix case: the fallback dimensions remain an
+ * internal render canvas, while `hasPrimaryLedOutput` prevents a controller for
+ * that imaginary matrix from reaching the sketch.
  */
 export function playerConfigFromGraph(
   nodes: ConfigNode[], edges: ShowTargetEdge[] = [], fqbn = '',
 ): Partial<PlayerConfig> {
-  const mo = resolveShowTarget(nodes as ShowTargetNode[], edges).target?.data.properties ?? {}
+  const target = resolveShowTarget(nodes as ShowTargetNode[], edges).target
+  const mo = target?.data.properties ?? {}
   const board = nodes.find((n) => n.data.nodeType === 'Board')?.data.properties ?? mo
   const profileId = typeof board.profileId === 'string' ? board.profileId : undefined
   const sdDefaults = sdSpiPinsForBoard(profileId ? boardProfileById(profileId) : undefined, fqbn)
@@ -139,6 +143,7 @@ export function playerConfigFromGraph(
   const num = (v: unknown, d: number) => (v === undefined || v === null ? d : Number(v))
   const str = (v: unknown, d: string) => (v === undefined || v === null ? d : String(v))
   return {
+    hasPrimaryLedOutput: !!target,
     ledWidth:    num(mo.width, DEFAULTS.ledWidth),
     ledHeight:   num(mo.height, DEFAULTS.ledHeight),
     ledDataPin:  sanitizePin(mo.dataPin, DEFAULTS.ledDataPin),
@@ -443,15 +448,19 @@ export function generatePlayerSketch(
     chipset: c.chipset, colorOrder: c.colorOrder, correction: c.correction,
     dither: c.dither, overclock: c.overclock, clockPin: c.ledClockPin,
   })
-  const isHub75 = hw.chipset === HUB75_CHIPSET
+  const isHub75 = c.hasPrimaryLedOutput && hw.chipset === HUB75_CHIPSET
   const hub75Hw = isHub75
     ? { ...hub75HardwareFromProps(c.hub75Props, c.ledWidth, c.ledHeight), brightness: c.ledBrightness }
     : null
   const overclockDefines = overclockDefineCpp(hw).map((l) => `${l}\n`).join('')
-  const clockPinDefine = !isHub75 && SPI_CHIPSETS.has(hw.chipset) ? `#define LED_CLOCK_PIN ${hw.clockPin}\n` : ''
-  const ledSetupLines = isHub75
-    ? hub75SetupCpp(hub75Hw!).join('\n')
-    : fastledSetupCpp(hw, { dataPinMacro: 'LED_DATA_PIN', clockPinMacro: 'LED_CLOCK_PIN', brightness: c.ledBrightness }).join('\n')
+  const clockPinDefine = c.hasPrimaryLedOutput && !isHub75 && SPI_CHIPSETS.has(hw.chipset)
+    ? `#define LED_CLOCK_PIN ${hw.clockPin}\n`
+    : ''
+  const ledSetupLines = !c.hasPrimaryLedOutput
+    ? ''
+    : isHub75
+      ? hub75SetupCpp(hub75Hw!).join('\n')
+      : fastledSetupCpp(hw, { dataPinMacro: 'LED_DATA_PIN', clockPinMacro: 'LED_CLOCK_PIN', brightness: c.ledBrightness }).join('\n')
   const stereoVuSetupLines = stereoVuMeters.flatMap((meter) => {
     const meterHw = ledHardwareFromProps(meter.properties)
     return [
@@ -1052,7 +1061,7 @@ ${isHub75 ? hub75IncludesCpp(hub75Hw!).join('\n') + '\n' : ''}#include <SD.h>
 ${[...fastLedDecls].join('\n')}
 ${hasInfoDisplays ? INFO_DISPLAY_CPP_FORWARD + '\n' : ''}${hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasTftDisplays ? TFT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasPatternSelection ? PATTERN_SELECTION_CPP_FORWARD + '\n' : ''}${hasStereoVu ? STEREO_VU_CPP_FORWARD + '\n' : ''}
 // ── Pin config ────────────────────────────────────────────────────────────────
-${isHub75 ? '' : `#define LED_DATA_PIN  ${c.ledDataPin}\n`}${clockPinDefine}#define WIDTH         ${c.ledWidth}
+${c.hasPrimaryLedOutput && !isHub75 ? `#define LED_DATA_PIN  ${c.ledDataPin}\n` : ''}${clockPinDefine}#define WIDTH         ${c.ledWidth}
 #define HEIGHT        ${c.ledHeight}
 #define NUM_LEDS      ${numLeds}
 #define SD_CS         ${c.sdCsPin}

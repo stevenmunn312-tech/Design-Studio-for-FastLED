@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { ROOT_GRAPH_ID, useGraphStore } from '../../../state/graphStore'
 import { usePreviewStore } from '../../../state/previewStore'
@@ -41,6 +41,23 @@ describe('StereoVuMeterNodeBody', () => {
     fireEvent.change(select, { target: { value: 'out-a' } })
     expect(useGraphStore.getState().nodes.find((node) => node.id === 'vu')?.data.properties.targetOutputId)
       .toBe('out-a')
+  })
+
+  it('persists the displayed Standalone fallback when a saved target is missing', async () => {
+    useGraphStore.setState((state) => ({
+      nodes: state.nodes
+        .filter((node) => node.id !== 'out-a')
+        .map((node) => node.id === 'vu'
+          ? { ...node, data: { ...node.data, properties: { ...node.data.properties, targetOutputId: 'removed' } } }
+          : node),
+    }))
+
+    render(<StereoVuMeterNodeBody nodeId="vu" />)
+
+    expect((screen.getByLabelText('Stereo VU Meter target LED output') as HTMLSelectElement).value).toBe('')
+    await waitFor(() => expect(
+      useGraphStore.getState().nodes.find((node) => node.id === 'vu')?.data.properties.targetOutputId,
+    ).toBe(''))
   })
 
   it('paints evaluated left and right rails and reports the active mode', () => {

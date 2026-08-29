@@ -3,6 +3,10 @@ import { isPortlessNodeType, NODE_LIBRARY, supportsScalarExpression } from '../s
 import { isLinearForm, outputForm, outputLedTotal } from '../state/ledOutputForm'
 import { audioOutputMissing } from '../state/audioOutput'
 import { resolveShowTarget } from '../state/showTarget'
+import {
+  DEFAULT_STANDALONE_VU_LED_COUNT,
+  isActiveStandaloneStereoVuMeter,
+} from '../state/stereoVuSizing'
 import { evaluateScalarExpression } from '../state/scalarExpression'
 import { isNodeFormulaValid } from '../state/formulaLang'
 import { isValidRtcDateTime } from '../state/rtc'
@@ -307,13 +311,23 @@ export function outputLedCount(node: StudioNode): number {
 
 export function estimatePowerLoad(nodes: StudioNode[]): PowerEstimate | null {
   const outputs = ledDrivingOutputs(nodes)
-  if (outputs.length === 0) return null
-  const ledCount = outputs.reduce((sum, output) => sum + outputLedCount(output), 0)
+  // A VU fixture is two physical addressable runs. It remains real load when
+  // it is the only output; omitting it made Board claim no supply was needed
+  // for the exact standalone topology the generator supports.
+  const vuMeters = nodes.filter((node) =>
+    node.data.nodeType === 'StereoVuMeter'
+    && (node.data.properties as Record<string, unknown>).enabled !== false)
+  if (outputs.length === 0 && vuMeters.length === 0) return null
+  const vuLedCount = vuMeters.reduce((sum, meter) => {
+    const count = Math.round(Number((meter.data.properties as Record<string, unknown>).ledCount ?? DEFAULT_STANDALONE_VU_LED_COUNT))
+    return sum + (Math.max(1, Number.isFinite(count) ? count : DEFAULT_STANDALONE_VU_LED_COUNT) * 2)
+  }, 0)
+  const ledCount = outputs.reduce((sum, output) => sum + outputLedCount(output), 0) + vuLedCount
   const worstCaseMa = outputs.reduce((sum, output) => {
     const props = output.data.properties as Record<string, unknown>
     const rate = outputForm(props) === 'hub75' ? MA_PER_HUB75_PIXEL_WORST_CASE : MA_PER_LED_WORST_CASE
     return sum + (outputLedCount(output) * rate)
-  }, 0)
+  }, vuLedCount * MA_PER_LED_WORST_CASE)
   const controller = controllerSettings(nodes)
   const configuredMa = controller.powerLimit ? controller.milliamps : null
   const recommendedMa = Math.ceil(worstCaseMa / 100) * 100
@@ -1338,9 +1352,10 @@ export function selectedGenerator(nodes: StudioNode[], edges: StudioEdge[]): Sel
     && nodes.some((node) => node.id === edge.source && node.data.nodeType === 'PatternCollection'))
 
   const hasCard = nodes.some((node) => node.data.nodeType === 'SDCard')
+  const hasStandaloneVuOutput = nodes.some(isActiveStandaloneStereoVuMeter)
   if (hasCard
     && nodes.some((node) => node.data.nodeType === 'Amplifier')
-    && drivesOutput(master)) return 'player'
+    && (drivesOutput(master) || (!!master && hasStandaloneVuOutput))) return 'player'
   // A Show Engine's output is a timed `.show` file on a card, played back by
   // the player sketch. Without the card there is nothing to write it to and
   // the graph exports as an ordinary sketch.
@@ -1572,6 +1587,7 @@ export function buildGraphDiagnostics(
   const terminalName = target === 'group' ? 'Group Output' : 'LED output'
   const terminals = nodes.filter((node) => node.data.nodeType === terminalType)
   const terminal = terminals[0]
+  const hasStandaloneVuOutput = target === 'matrix' && nodes.some(isActiveStandaloneStereoVuMeter)
   const incoming = new Set(edges.filter((edge) => edge.target && edge.targetHandle).map((edge) => `${edge.target}:${edge.targetHandle}`))
 
   if (nodes.length === 0) {
@@ -1585,7 +1601,7 @@ export function buildGraphDiagnostics(
     return diagnostics
   }
 
-  if (!terminal) {
+  if (!terminal && !hasStandaloneVuOutput) {
     diagnostics.push({
       id: `missing-${terminalType}`, severity: 'error', category: 'connection',
       title: `${terminalName} is missing`,
@@ -2123,12 +2139,12 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   const errors: string[] = [], warnings: string[] = []
   if (nodes.length === 0) { errors.push('No nodes in graph'); return { errors, warnings } }
 
-  const hasOutput = nodes.some(n => n.data.nodeType === 'MatrixOutput')
+  const outputs = nodes.filter(n => n.data.nodeType === 'MatrixOutput')
+  const hasOutput = outputs.length > 0 || nodes.some(isActiveStandaloneStereoVuMeter)
   if (!hasOutput) errors.push('Missing MatrixOutput node')
 
   const incoming = new Set(edges.filter(e => e.target && e.targetHandle).map(e => `${e.target}:${e.targetHandle}`))
-  if (hasOutput) {
-    const outputs = nodes.filter(n => n.data.nodeType === 'MatrixOutput')
+  if (outputs.length > 0) {
     for (const [index, out] of outputs.entries()) {
       /*
        * A frame is the only thing that reaches an LED output — the SD card is a

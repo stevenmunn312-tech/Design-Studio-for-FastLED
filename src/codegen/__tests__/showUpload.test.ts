@@ -100,6 +100,7 @@ describe('playerConfigFromGraph', () => {
       node('Amplifier', { i2sBclk: 5, i2sLrc: 6, i2sDout: 7, maxVolume: 12 }),
     ], showEdge)
     expect(cfg).toMatchObject({
+      hasPrimaryLedOutput: true,
       ledWidth: 32, ledHeight: 8, chipset: 'SK6812', colorOrder: 'RGB', ledDataPin: 12,
       sdCsPin: 21, sdSckPin: 18, sdMisoPin: 19, sdMosiPin: 23,
       i2sBclk: 5, i2sLrc: 6, i2sDout: 7, maxVolume: 12,
@@ -142,9 +143,10 @@ describe('playerConfigFromGraph', () => {
   })
 
   it('falls back to defaults for missing nodes/props', () => {
-    // Reached only by a graph validation has already blocked: with no show
-    // target `sdShowConnected` is false, so no real upload gets here.
+    // Defaults remain the internal render canvas for a VU-only player, but the
+    // missing primary target must not turn them into a phantom LED controller.
     const cfg = playerConfigFromGraph([])
+    expect(cfg.hasPrimaryLedOutput).toBe(false)
     expect(cfg.ledWidth).toBe(16)
     expect(cfg.chipset).toBe('WS2812B')
     expect(cfg.sdCsPin).toBe(10)

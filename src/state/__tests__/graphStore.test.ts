@@ -1182,6 +1182,18 @@ describe('graphStore — hardware while a group is open', () => {
     expect(rootGraphNodes(useGraphStore.getState()).map((n) => n.id)).toEqual(['board-root'])
   })
 
+  it('turns a VU meter standalone when its selected matrix is removed', () => {
+    reset([
+      node('out', 'MatrixOutput'),
+      node('vu', 'StereoVuMeter', { targetOutputId: 'out', ledCount: 16 }),
+    ])
+
+    useGraphStore.getState().removeNodeCompletely('out')
+
+    expect(useGraphStore.getState().nodes.find((entry) => entry.id === 'vu')?.data.properties.targetOutputId)
+      .toBe('')
+  })
+
   it('leaves a non-hardware node added inside a group in that group', () => {
     enterAGroup([node('board-root', 'Board')])
     useGraphStore.getState().addNode(node('plasma', 'Plasma'))

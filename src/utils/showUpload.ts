@@ -24,6 +24,7 @@ import { resolveShowTarget } from '../state/showTarget'
 import { stereoVuEmitsFromGraph } from '../codegen/stereoVuMeterCpp'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
 import { wiredPatternCollection } from '../state/patternCollectionWiring'
+import { isActiveStandaloneStereoVuMeter } from '../state/stereoVuSizing'
 
 export { wiredPatternCollection } from '../state/patternCollectionWiring'
 
@@ -45,9 +46,11 @@ export function sdCardConnected(nodes: StudioNode[]): boolean {
 }
 
 export function musicPlayerConnected(nodes: StudioNode[], edges: Edge[]): boolean {
+  // A standalone VU pair is itself the physical light output. It needs no
+  // frame edge because it renders decoded stereo levels rather than frames.
   return sdCardConnected(nodes)
     && nodes.some((n) => nodeType(n) === 'Amplifier')
-    && !!resolveShowTarget(nodes, edges).target
+    && (!!resolveShowTarget(nodes, edges).target || nodes.some(isActiveStandaloneStereoVuMeter))
     && nodes.some((n) => nodeType(n) === 'PatternMaster')
 }
 
