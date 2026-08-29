@@ -141,7 +141,7 @@ export function stereoVuSettings(properties: Record<string, unknown>, instanceKe
     gain: Math.max(0, Number(properties.gain ?? 1) || 0),
     noiseGate: clamp01(Number(properties.noiseGate ?? 0.02)),
     responseCurve: Math.max(0.05, Number(properties.responseCurve ?? 0.6) || 0.6),
-    attackMs: Math.max(0, Number(properties.attackMs ?? 35) || 0),
+    attackMs: Math.max(0, Number(properties.attackMs ?? 10) || 0),
     releaseMs: Math.max(0, Number(properties.releaseMs ?? 280) || 0),
     peakHoldMs: Math.max(0, Number(properties.peakHoldMs ?? 350) || 0),
     peakFallPerSec: Math.max(0, Number(properties.peakFall ?? 0.7) || 0),

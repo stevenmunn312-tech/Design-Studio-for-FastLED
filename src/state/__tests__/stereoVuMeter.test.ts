@@ -48,6 +48,7 @@ describe('Stereo VU Meter hardware contract', () => {
         visualizationPolicy: 'Shuffle',
         visualizationMode: 'Classic Ladder',
         cycleInterval: 20,
+        attackMs: 10,
         enabled: true,
       },
     })

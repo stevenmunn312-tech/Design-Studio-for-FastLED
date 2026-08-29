@@ -56,6 +56,7 @@ const VU_COMPOSITION_GUTTER = 22
 const BYTES_PER_MIB = 1024 * 1024
 const MEMORY_SAMPLE_INTERVAL_MS = 30_000
 const PREVIEW_PUBLISH_INTERVAL_MS = 125
+const VU_PREVIEW_PUBLISH_INTERVAL_MS = 1000 / 30
 
 interface PerformanceWithMemory extends Performance {
   memory?: { usedJSHeapSize: number }
@@ -247,6 +248,10 @@ export default function LEDPreview() {
   // full 60 fps cadence. Bounding their publish rate prevents a busy graph
   // from queuing UI work faster than React and the canvas thumbnails can draw.
   const lastPreviewPublish = useRef(0)
+  // The paired VU is perceived against live audio, so its tiny presentation
+  // payload gets a dedicated 30 fps path instead of inheriting the general
+  // node-preview throttle above.
+  const lastVuPreviewPublish = useRef(0)
   const reportedPreviewErrors = useRef(new Set<string>())
   const lastFrameNow = useRef(0)
   const pauseStartedAt = useRef(0)
@@ -287,6 +292,8 @@ export default function LEDPreview() {
     if (activeOutputId !== previewOutputId) setPreviewOutputId(activeOutputId)
   }, [activeOutputId, previewOutputId, setPreviewOutputId])
   const activeOutput = useGraphStore((s) => s.nodes.find((node) => node.id === activeOutputId && node.data.nodeType === 'MatrixOutput'))
+  const vuMeterId = useGraphStore((s) => rootGraphNodes(s)
+    .find((node) => node.data.nodeType === 'StereoVuMeter')?.id ?? '')
   const combinedVuKey = useGraphStore((s) => {
     const fixture = combinedStereoVuFixture(rootGraphNodes(s), activeOutputId)
     return fixture ? `${fixture.id}|${fixture.swapChannels ? 1 : 0}|${fixture.ledCount}|${fixture.standalone ? 1 : 0}` : ''
@@ -365,6 +372,7 @@ export default function LEDPreview() {
   const gridHRef = useRef(gridH)
   const activeOutputIdRef = useRef(activeOutputId)
   const combinedVuIdRef = useRef(combinedVuId)
+  const vuMeterIdRef = useRef(vuMeterId)
   const pixelRef = useRef(pixel)
   const canvasBufWRef = useRef(canvasBufW)
   const canvasBufHRef = useRef(canvasBufH)
@@ -372,8 +380,9 @@ export default function LEDPreview() {
     gridWRef.current = gridW; gridHRef.current = gridH; pixelRef.current = pixel
     activeOutputIdRef.current = activeOutputId
     combinedVuIdRef.current = combinedVuId
+    vuMeterIdRef.current = vuMeterId
     canvasBufWRef.current = canvasBufW; canvasBufHRef.current = canvasBufH
-  }, [gridW, gridH, activeOutputId, combinedVuId, pixel, canvasBufW, canvasBufH])
+  }, [gridW, gridH, activeOutputId, combinedVuId, vuMeterId, pixel, canvasBufW, canvasBufH])
 
   // Panel-boundary gridlines: a thin static overlay redrawn only when the
   // tile grid or canvas size changes (not on every animation frame like the
@@ -562,7 +571,9 @@ export default function LEDPreview() {
         // drops to that rate — stateful nodes are wall-clock based and resume
         // seamlessly when the panel reopens.
         const visible = previewVisibleRef.current
-        if (now - lastStep.current < (visible ? STEP : PREVIEW_PUBLISH_INTERVAL_MS)) {
+        const hasLiveVu = Boolean(vuMeterIdRef.current) && uiEffectsEnabledRef.current && !analyzingMusicRef.current
+        const hiddenStep = hasLiveVu ? VU_PREVIEW_PUBLISH_INTERVAL_MS : PREVIEW_PUBLISH_INTERVAL_MS
+        if (now - lastStep.current < (visible ? STEP : hiddenStep)) {
           animRef.current = requestAnimationFrame(loop)
           return
         }
@@ -591,6 +602,8 @@ export default function LEDPreview() {
         // the every-frame pass covers the terminal chain and beat emitters.
         const previewsOn = uiEffectsEnabledRef.current && !analyzingMusicRef.current
         const fullPass = previewsOn && now - lastPreviewPublish.current >= PREVIEW_PUBLISH_INTERVAL_MS
+        const vuPass = previewsOn && Boolean(vuMeterIdRef.current)
+          && now - lastVuPreviewPublish.current >= VU_PREVIEW_PUBLISH_INTERVAL_MS
         const evalStart = PERF_TELEMETRY ? performance.now() : 0
         // Firmware renders once on a shared logical composition canvas, then
         // fits/crops each terminal's source frame into its physical route. Do
@@ -723,7 +736,8 @@ export default function LEDPreview() {
         // otherwise keep React/store work to ~8 fps while the matrix stays at 60.
         const hasBeat = Array.from(outputs.values()).some((output) => output.beat === true)
         const publishStart = PERF_TELEMETRY ? performance.now() : 0
-        if (fullPass || (previewsOn && hasBeat)) {
+        const publishedGeneralPreview = fullPass || (previewsOn && hasBeat)
+        if (publishedGeneralPreview) {
           if (!fullPass) {
             // A beat fired on a hot-only frame: carry the previous auxiliary
             // outputs forward so their previews don't blank until the next
@@ -748,6 +762,16 @@ export default function LEDPreview() {
           }
           usePreviewStore.getState().setOutputs(outputs, controller.brightness)
           lastPreviewPublish.current = now
+        }
+        if (vuPass) {
+          const vu = outputs.get(vuMeterIdRef.current)?.vu as StereoVuFrame | undefined
+          if (vu) {
+            // A general publish above already carried this exact hot frame.
+            // Otherwise update only the meter, avoiding a 30 fps rebuild of
+            // every node preview and signal visual in previewStore.
+            if (!publishedGeneralPreview) usePreviewStore.getState().setStereoVu(vuMeterIdRef.current, vu)
+            lastVuPreviewPublish.current = now
+          }
         }
         // Phase timings and the context object are dev-HUD-only; in production
         // recordPerfFrame is a no-op, so skip building its payload entirely.

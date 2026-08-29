@@ -17,6 +17,10 @@ interface PreviewState {
    *  and neither can be dimmed twice. */
   brightness: number
   setOutputs: (outputs: Map<string, Record<string, unknown>>, brightness?: number) => void
+  /** Publish the hot Stereo VU presentation without rebuilding every node's
+   * preview snapshot. The VU renderer owns this value (it is not pooled), so it
+   * is safe to retain directly until the next meter frame. */
+  setStereoVu: (nodeId: string, vu: unknown) => void
   clear: () => void
 }
 
@@ -82,6 +86,13 @@ export const usePreviewStore = create<PreviewState>((set) => ({
     frameCopies.clear()
     set({ outputs: new Map(), signals: new Map(), brightness: 255 })
   },
+  setStereoVu: (nodeId, vu) => set((state) => {
+    const previous = state.outputs.get(nodeId)
+    if (previous?.vu === vu) return state
+    const outputs = new Map(state.outputs)
+    outputs.set(nodeId, { ...previous, vu })
+    return { outputs }
+  }),
   setOutputs: (outputs, brightness) => set((state) => {
     const stableOutputs = new Map<string, Record<string, unknown>>()
     const signals = new Map<string, SignalVisual>()

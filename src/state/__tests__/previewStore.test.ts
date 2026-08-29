@@ -37,4 +37,15 @@ describe('previewStore frame copies', () => {
     publish({ a: { frame: frame() } })
     expect(published('a')).not.toBe(before)
   })
+
+  it('publishes a live Stereo VU frame without replacing other node previews', () => {
+    publish({ vu: { status: 'ready' }, matrix: { frame: frame() } })
+    const matrixBefore = usePreviewStore.getState().outputs.get('matrix')
+    const vu = { active: true, left: [{ r: 1, g: 2, b: 3 }], right: [] }
+
+    usePreviewStore.getState().setStereoVu('vu', vu)
+
+    expect(usePreviewStore.getState().outputs.get('vu')).toEqual({ status: 'ready', vu })
+    expect(usePreviewStore.getState().outputs.get('matrix')).toBe(matrixBefore)
+  })
 })

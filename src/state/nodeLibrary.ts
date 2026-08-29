@@ -2718,7 +2718,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       gain: 1,
       noiseGate: 0.02,
       responseCurve: 0.6,
-      attackMs: 35,
+      attackMs: 10,
       releaseMs: 280,
       peakHoldMs: 350,
       peakFall: 0.7,
