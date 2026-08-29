@@ -71,6 +71,7 @@ import { evalAnimartrix, disposeAnimartrixState } from '../animartrix/preview'
 import { applyEase } from './easing'
 import { projectWireframeVertices, resolveWireframeMesh } from './wireframeModel'
 import { resolveAudioCapabilitySource } from './audioCapabilities'
+import { useDecoderAudioStore } from './decoderAudioStore'
 import { resolveStorageCapabilitySource } from './storageCapabilities'
 import { usePlayerTransport } from './playerTransport'
 import { buttonBankHandle, normalizeButtonBankEntries } from './buttonBank'
@@ -4754,8 +4755,8 @@ function isPlayerParticles(value: PortValue): value is PlayerParticles {
     && typeof candidate.intensity === 'number'
 }
 
-function liveAudioSignal(): AudioSignal {
-  return useAudioStore.getState()
+function liveAudioSignal(kind: 'microphone' | 'line-in' | 'decoder'): AudioSignal {
+  return kind === 'decoder' ? useDecoderAudioStore.getState() : useAudioStore.getState()
 }
 
 function semanticAudioInputs(audio: Pick<AudioOverride, 'micBass' | 'micMids' | 'micTreble'>): Record<string, PortValue> {
@@ -5028,10 +5029,11 @@ function createEvalNode(
 
       // ── Audio ─────────────────────────────────────────────────────────
       case 'Audio': {
-        // The source property names concrete root hardware. Empty is the
-        // explicit Disabled state and never silently selects the browser mic.
+        // One authored choice maps both environments: microphone/line-in use
+        // browser capture in-app and their physical input on hardware; decoder
+        // uses the in-app music player here and the hardware player there.
         const source = resolveAudioCapabilitySource(capabilityNodes, props.sourceId)
-        out = { audio: source ? (audioOverride ?? liveAudioSignal()) : null }
+        out = { audio: source ? (audioOverride ?? liveAudioSignal(source.kind)) : null }
         break
       }
 

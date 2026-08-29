@@ -238,6 +238,23 @@ describe('MenuBar file menu', () => {
     expect((getByRole('button', { name: 'Toggle microphone preview input' }) as HTMLButtonElement).disabled).toBe(false)
   })
 
+  it('keeps computer microphone capture off while Audio Decoder is selected', async () => {
+    useGraphStore.setState({
+      nodes: [{
+        id: 'audio', type: 'studioNode', position: { x: 0, y: 0 },
+        data: { label: 'Audio', nodeType: 'Audio', category: 'input', properties: { sourceId: 'kind:decoder' }, inputs: [], outputs: [] },
+      }] as never[],
+    })
+    useAudioStore.setState({ micActive: true, active: true })
+
+    const { getByRole } = render(<MenuBar />)
+    const message = 'Audio source is set to Audio Decoder. Preview listens to the in-app music player.'
+    const mic = getByRole('button', { name: message }) as HTMLButtonElement
+
+    expect(mic.disabled).toBe(true)
+    await waitFor(() => expect(useAudioStore.getState().micActive).toBe(false))
+  })
+
   it('moves appearance toggles into a compact View menu', () => {
     const { getByRole, getByText, queryByRole } = render(<MenuBar />)
 

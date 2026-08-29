@@ -188,7 +188,22 @@ describe('StudioNode', () => {
 
     expect((getByRole('combobox', { name: 'Audio source' }) as HTMLSelectElement).value).toBe('kind:microphone')
     expect([...((getByRole('combobox', { name: 'Audio source' }) as HTMLSelectElement).options)].map((option) => option.text)).toContain('Microphone - INMP441')
+    expect(getByLabelText('Audio source routing').textContent).toContain('In appComputer microphone')
+    expect(getByLabelText('Audio source routing').textContent).toContain('ExternalINMP441 on hardware')
     expect(getByLabelText('Microphone gain')).toBeTruthy()
+  })
+
+  it('shows that Audio Decoder maps the in-app player to the hardware player', () => {
+    const audio = makeNode('Audio', { sourceId: 'kind:decoder' })
+    const sd = { ...makeNode('SDCard', {}), id: 'sd' } as StudioNodeT
+    const amp = { ...makeNode('Amplifier', {}), id: 'amp' } as StudioNodeT
+    const player = { ...makeNode('PatternMaster', {}), id: 'player' } as StudioNodeT
+    useGraphStore.setState({ nodes: [audio, sd, amp, player], edges: [] })
+    const props = { id: audio.id, data: audio.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
+    const { getByLabelText } = render(<StudioNode {...props} />)
+
+    expect(getByLabelText('Audio source routing').textContent).toContain('In appIn-app Music Player')
+    expect(getByLabelText('Audio source routing').textContent).toContain('ExternalMusic Player on hardware')
   })
 
   it('incorporates the selected microphone controls into Audio', () => {

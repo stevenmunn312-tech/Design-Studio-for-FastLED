@@ -4,6 +4,8 @@ import {
   audioCapabilityIntent,
   audioCapabilityOptions,
   audioCapabilitySources,
+  graphAudioCapabilityKind,
+  graphAudioCapabilitySource,
   resolveAudioCapabilitySource,
   selectedAudioCapabilityKind,
 } from '../audioCapabilities'
@@ -56,6 +58,20 @@ describe('audio capability sources', () => {
       },
     ])
     expect(resolveAudioCapabilitySource([sd, amp, player], 'decoder:sd-1')?.id).toBe('decoder:sd-1')
+  })
+
+  it('maps one decoder choice to the Music Player capability', () => {
+    const sd = hardware('sd-1', 'SDCard')
+    const amp = hardware('amp-1', 'Amplifier')
+    const player = hardware('player-1', 'PatternMaster')
+    const audio = hardware('audio-1', 'Audio', { sourceId: 'kind:decoder' })
+    const nodes = [audio, sd, amp, player]
+
+    expect(graphAudioCapabilityKind(nodes)).toBe('decoder')
+    expect(graphAudioCapabilitySource(nodes)).toMatchObject({
+      kind: 'decoder',
+      label: 'Music Player',
+    })
   })
 
   it('offers a concrete PCM1802 line-in capability', () => {

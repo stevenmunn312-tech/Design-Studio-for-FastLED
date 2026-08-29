@@ -50,6 +50,16 @@ export default function AudioCapabilityBody({ nodeId, sourceId }: Props) {
   const gain = Number.isFinite(storedGain)
     ? Math.max(0, Math.min(MIC_MAX_GAIN, storedGain))
     : 1
+  const inAppSource = selectedKind === 'decoder'
+    ? 'In-app Music Player'
+    : selectedKind === 'line-in'
+      ? 'Computer audio input'
+      : 'Computer microphone'
+  const externalSource = selectedKind === 'decoder'
+    ? selected ? 'Music Player on hardware' : 'Hardware Music Player not configured'
+    : selectedKind === 'line-in'
+      ? selected ? `${selected.label} on hardware` : 'Line input hardware not configured'
+      : selected ? `${selected.label} on hardware` : 'Microphone hardware not configured'
 
   return (
     <div className={styles.body}>
@@ -71,6 +81,11 @@ export default function AudioCapabilityBody({ nodeId, sourceId }: Props) {
           ))}
         </select>
       </label>
+
+      <div className={styles.sourceRoute} aria-label="Audio source routing">
+        <span><b>In app</b>{inAppSource}</span>
+        <span><b>External</b>{externalSource}</span>
+      </div>
 
       {!selected && (
         <div className={styles.disabledState} role="status">

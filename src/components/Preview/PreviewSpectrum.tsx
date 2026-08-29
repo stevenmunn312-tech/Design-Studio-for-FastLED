@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAudioStore } from '../../state/audioStore'
+import { useDecoderAudioStore } from '../../state/decoderAudioStore'
+import type { AudioCapabilityKind } from '../../state/audioCapabilities'
 import {
   SPECTRUM_VISUALIZER_STYLES,
   resampleSpectrum,
@@ -360,15 +362,17 @@ function drawStyle(
 export default function PreviewSpectrum({
   audioVisualizerLive,
   spectrumOverride,
+  audioSourceKind,
   mode,
 }: {
   audioVisualizerLive: boolean
   spectrumOverride?: number[] | null
+  audioSourceKind?: AudioCapabilityKind | null
   mode: SpectrumVisualizerMode
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const propsRef = useRef({ audioVisualizerLive, spectrumOverride })
-  propsRef.current = { audioVisualizerLive, spectrumOverride }
+  const propsRef = useRef({ audioVisualizerLive, spectrumOverride, audioSourceKind })
+  propsRef.current = { audioVisualizerLive, spectrumOverride, audioSourceKind }
   const [autoIndex, setAutoIndex] = useState(0)
   const effectiveStyle: SpectrumVisualizerStyle = mode === 'auto'
     ? SPECTRUM_VISUALIZER_STYLES[autoIndex]
@@ -418,8 +422,9 @@ export default function PreviewSpectrum({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     clearCanvas(ctx, width, height)
 
-    const { audioVisualizerLive: live, spectrumOverride: override } = propsRef.current
-    const source = override?.length ? override : useAudioStore.getState().previewSpectrum
+    const { audioVisualizerLive: live, spectrumOverride: override, audioSourceKind: sourceKind } = propsRef.current
+    const liveSource = sourceKind === 'decoder' ? useDecoderAudioStore.getState() : useAudioStore.getState()
+    const source = override?.length ? override : liveSource.previewSpectrum
     const values = smoothed(resampleSpectrum(live ? source : [], NUM_BANDS))
     const now = performance.now()
     const dt = Math.min(0.1, Math.max(0, (now - lastPaintRef.current) / 1000))

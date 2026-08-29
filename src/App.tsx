@@ -4,6 +4,7 @@ import { rootGraphNodes, useGraphStore } from './state/graphStore'
 import { useAudioStore } from './state/audioStore'
 import { useShowPlayback } from './state/showPlayback'
 import { AudioEngine } from './audio/audioEngine'
+import { graphAudioCapabilitySource } from './state/audioCapabilities'
 import { MIC_DEFAULTS } from './audio/micAnalysis'
 import MenuBar from './components/MenuBar/MenuBar'
 import Sidebar from './components/Sidebar/Sidebar'
@@ -91,10 +92,10 @@ export default function App() {
   const setHardwarePaneRatio = useUiStore((s) => s.setHardwarePaneRatio)
   const startAudio = useAudioStore((s) => s.startAudio)
   const stopAudio = useAudioStore((s) => s.stopAudio)
-  const audioInputNode = useGraphStore((s) => rootGraphNodes(s).find((n) => {
-    const nodeType = (n.data as { nodeType?: string }).nodeType
-    return nodeType === 'MicInput' || nodeType === 'LineInput'
-  }))
+  const audioInputNode = useGraphStore((s) => {
+    const source = graphAudioCapabilitySource(rootGraphNodes(s))
+    return source?.kind === 'microphone' || source?.kind === 'line-in' ? source.node : undefined
+  })
   const audioInputProps = (audioInputNode?.data.properties as Record<string, unknown> | undefined) ?? null
   const hasAudioInputNode = audioInputProps !== null
   const selectedBoardProfile = useGraphStore((s) => selectedPhysicalBoardProfile(rootGraphNodes(s)))

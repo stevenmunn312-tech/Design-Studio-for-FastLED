@@ -96,6 +96,28 @@
   color: #f1f5f3;
 }
 
+.sourceRoute {
+  display: grid;
+  gap: 4px;
+  padding: 7px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--bg-panel) 88%, transparent);
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.sourceRoute span {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 7px;
+}
+
+.sourceRoute b {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
 .empty,
 .disabledState {
   display: grid;

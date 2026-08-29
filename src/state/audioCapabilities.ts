@@ -104,6 +104,38 @@ export function resolveAudioCapabilitySource(
   return kind ? sources.find((source) => source.kind === kind) ?? null : null
 }
 
+/** Resolve the root graph's one Audio capability. Older in-memory fixtures
+ * that still expose a concrete microphone/line-input node directly fall back
+ * to that provider, keeping preview controls useful while they are normalized. */
+export function graphAudioCapabilitySource(
+  nodes: readonly StudioNode[],
+): AudioCapabilitySource | null {
+  const capability = nodes.find((node) => node.data.nodeType === 'Audio')
+  if (capability) {
+    return resolveAudioCapabilitySource(
+      nodes,
+      (capability.data.properties as Record<string, unknown>).sourceId,
+    )
+  }
+  return audioCapabilitySources(nodes).find((source) => source.kind !== 'decoder') ?? null
+}
+
+/** The authored source intent, even when its external provider has not been
+ * added yet. This prevents UI from turning on the computer mic while the user
+ * has explicitly chosen the in-app decoder path. */
+export function graphAudioCapabilityKind(
+  nodes: readonly StudioNode[],
+): AudioCapabilityKind | null {
+  const capability = nodes.find((node) => node.data.nodeType === 'Audio')
+  if (capability) {
+    return selectedAudioCapabilityKind(
+      nodes,
+      (capability.data.properties as Record<string, unknown>).sourceId,
+    )
+  }
+  return graphAudioCapabilitySource(nodes)?.kind ?? null
+}
+
 /** Stable source menu: unavailable providers stay visible so the Audio node
  * also teaches where each source is configured. */
 export function audioCapabilityOptions(nodes: readonly StudioNode[]): AudioCapabilityOption[] {

@@ -294,6 +294,13 @@ firmware paths instead of letting analysis nodes read ambient browser state.
 `MicInput` and `LineInput` remain concrete Hardware providers for wiring and
 code generation but do not appear as signal nodes or carry graph cables.
 
+The selected source names the same role in both environments, not the same
+physical device. **Microphone** listens to the computer's microphone in the app
+and the attached microphone on hardware. **Audio Decoder** listens to the
+in-app music player in preview and the on-device Music Player's decoder tap on
+hardware. This keeps preview useful without pretending the browser can sample
+an attached controller's peripherals.
+
 Collection shows compile against the player-hosted audio globals. The pinned
 ESP32-audioI2S callback queues decoded PCM immediately before I2S/DAC output;
 after the write is fed, FastLED's existing Processor derives EQ bands, beat, and

@@ -16,9 +16,31 @@ const mockAudio = vi.hoisted(() => ({
   detectorSpectrum: Array(32).fill(0),
 }))
 
+const mockDecoderAudio = vi.hoisted(() => ({
+  active: false,
+  nativeFastLed: true,
+  micActive: false,
+  bass: 0,
+  mids: 0,
+  treble: 0,
+  micBass: 0,
+  micMids: 0,
+  micTreble: 0,
+  beat: false,
+  bpm: 120,
+  spectrum: Array(32).fill(0),
+  detectorSpectrum: Array(32).fill(0),
+}))
+
 vi.mock('../audioStore', () => ({
   useAudioStore: {
     getState: () => mockAudio,
+  },
+}))
+
+vi.mock('../decoderAudioStore', () => ({
+  useDecoderAudioStore: {
+    getState: () => mockDecoderAudio,
   },
 }))
 
@@ -605,6 +627,31 @@ describe('evaluateGraph', () => {
     expect(empty.get('fft-empty')?.bass).toBe(0)
     mockAudio.active = false
     mockAudio.detectorSpectrum = Array(32).fill(0)
+  })
+
+  it('Audio Decoder reads the in-app player bus instead of the computer microphone', () => {
+    mockAudio.active = true
+    mockAudio.detectorSpectrum = Array(32).fill(0.1)
+    mockDecoderAudio.active = true
+    mockDecoderAudio.detectorSpectrum = Array(32).fill(0.7)
+    const audio = node('audio-decoder', 'Audio', 'input', { sourceId: 'kind:decoder' })
+    const sd = node('sd-decoder', 'SDCard', 'hardware')
+    const amp = node('amp-decoder', 'Amplifier', 'hardware')
+    const player = node('player-decoder', 'PatternMaster', 'show')
+    const fft = node('fft-decoder', 'FFTAnalyzer', 'audio', { smoothing: 0 })
+
+    const outputs = evaluateGraphFull(
+      [audio, sd, amp, player, fft],
+      [edge('decoder-edge', 'audio-decoder', 'audio', 'fft-decoder', 'audio')],
+      0, W, H,
+    ).outputs
+
+    expect(outputs.get('audio-decoder')?.audio).toBe(mockDecoderAudio)
+    expect(outputs.get('fft-decoder')?.bass).toBeCloseTo(0.7)
+    mockAudio.active = false
+    mockAudio.detectorSpectrum = Array(32).fill(0)
+    mockDecoderAudio.active = false
+    mockDecoderAudio.detectorSpectrum = Array(32).fill(0)
   })
 
   it('FFTAnalyzer derives its bands from the raw spectrum, not the store\'s pre-computed levels', () => {

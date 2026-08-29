@@ -6,6 +6,7 @@ import type { LayoutPresetId } from '../../state/layoutPresets'
 import { rootGraphNodes, useGraphStore, useTemporalStore, ROOT_GRAPH_ID, reachableGroupRegistry } from '../../state/graphStore'
 import { usePerformanceDeckSession } from '../../state/performanceDeckSessionStore'
 import { useAudioStore } from '../../state/audioStore'
+import { graphAudioCapabilityKind, graphAudioCapabilitySource } from '../../state/audioCapabilities'
 import { useShowPlayback } from '../../state/showPlayback'
 import { useProjectStore } from '../../state/projectStore'
 import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
@@ -143,9 +144,8 @@ export default function MenuBar() {
   const viewButtonRef = useRef<HTMLButtonElement>(null)
   const [fileMenuOpen, setFileMenuOpen] = useState(false)
   const [viewMenuOpen, setViewMenuOpen] = useState(false)
-  const audioInputType = useGraphStore((s) =>
-    rootGraphNodes(s).find((n) => ['MicInput', 'LineInput'].includes(String((n.data as { nodeType?: string }).nodeType)))?.data.nodeType
-  )
+  const audioInputType = useGraphStore((s) => graphAudioCapabilitySource(rootGraphNodes(s))?.node.data.nodeType)
+  const audioSourceKind = useGraphStore((s) => graphAudioCapabilityKind(rootGraphNodes(s)))
   const hasMicNode = audioInputType === 'MicInput'
   const hasLineInputNode = audioInputType === 'LineInput'
   const selectedBoardProfile = useGraphStore((s) => selectedPhysicalBoardProfile(rootGraphNodes(s)))
@@ -156,7 +156,9 @@ export default function MenuBar() {
   const startAudio = useAudioStore((s) => s.startAudio)
   const stopAudio = useAudioStore((s) => s.stopAudio)
   const showPlaying = useShowPlayback((s) => s.playing)
-  const micUnavailableMessage = !hasMicNode && !hasLineInputNode
+  const micUnavailableMessage = audioSourceKind === 'decoder'
+    ? 'Audio source is set to Audio Decoder. Preview listens to the in-app music player.'
+    : !hasMicNode && !hasLineInputNode
     ? 'Add a microphone in the Hardware bench below to enable'
     : !selectedBoardProfile
       ? INMP441_NO_BOARD_MESSAGE

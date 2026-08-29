@@ -1,5 +1,8 @@
 import type { AudioOverride } from '../../state/graphEvaluator'
 import { useAudioStore } from '../../state/audioStore'
+import { useDecoderAudioStore } from '../../state/decoderAudioStore'
+import { graphAudioCapabilityKind } from '../../state/audioCapabilities'
+import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { SPECTRUM_BINS } from '../../state/showAudio'
 
 // Live-audio capture for the preview recorder.
@@ -145,8 +148,13 @@ export interface RecordAudioOptions {
  *  off, the evaluator's own silent / test-signal fallbacks are already
  *  deterministic, so listening would just add a wait for nothing. */
 export function liveAudioAvailable(): boolean {
-  const audio = useAudioStore.getState()
+  const audio = selectedLiveAudio()
   return audio.active || audio.micActive
+}
+
+function selectedLiveAudio(): AudioSample {
+  const kind = graphAudioCapabilityKind(rootGraphNodes(useGraphStore.getState()))
+  return kind === 'decoder' ? useDecoderAudioStore.getState() : useAudioStore.getState()
 }
 
 // Grace period past the clip duration, to let a final capture frame that no
@@ -164,7 +172,7 @@ const LISTEN_GRACE_MS = 250
  */
 export function recordAudioTimeline(opts: RecordAudioOptions): Promise<RecordedAudioFrame[] | null> {
   const { fps, frameCount } = opts
-  const read = opts.read ?? (() => useAudioStore.getState())
+  const read = opts.read ?? selectedLiveAudio
   const timeline = createAudioTimeline(fps, frameCount)
   const totalMs = (frameCount * 1000) / fps
 

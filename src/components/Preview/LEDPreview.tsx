@@ -16,6 +16,8 @@ import { applyShowPlaybackSignal } from './showPlaybackSignal'
 import RecordPopup from './RecordPopup'
 import { isDiffusedStyle, previewStyleLabel, type PreviewStyle } from './previewStyles'
 import { graphConsumesAudio } from './previewAudioUsage'
+import { graphAudioCapabilityKind } from '../../state/audioCapabilities'
+import { useDecoderAudioStore } from '../../state/decoderAudioStore'
 import PreviewSpectrum from './PreviewSpectrum'
 import {
   nextSpectrumVisualizerMode,
@@ -274,6 +276,7 @@ export default function LEDPreview() {
   // "Signal idle" / standby overlay.
   const hasFrameSignal = graphHasFrameSignal || playbackShow !== null
   const graphAudioVisualizerLive = useGraphStore((s) => graphConsumesAudio(s.nodes, s.edges))
+  const graphAudioSourceKind = useGraphStore((s) => graphAudioCapabilityKind(rootGraphNodes(s)))
   const playbackSpectrum = playbackShow ? showAudioSpectrum(playbackShow.audio, playbackPosMs) : null
   const audioVisualizerLive = graphAudioVisualizerLive || !!playbackSpectrum
   // Every LED output is an explicit Frame route. Keep the preview focused
@@ -474,6 +477,15 @@ export default function LEDPreview() {
   const setVolume = usePlayerTransport((s) => s.setVolume)
   const controlSerial = usePlayerTransport((s) => s.controlSerial)
   const lastAudibleVolume = useRef(volume > 0 ? volume : 0.9)
+
+  // Audio Decoder means the browser-side decoder in this player, just as the
+  // same authored choice means the Music Player's decoder tap in firmware.
+  useEffect(() => {
+    const player = playerRef.current
+    if (!player || graphAudioSourceKind !== 'decoder') return
+    useDecoderAudioStore.getState().attachPlayer(player)
+    return () => useDecoderAudioStore.getState().detachPlayer(player)
+  }, [graphAudioSourceKind])
 
   useEffect(() => {
     const canvasWrap = canvasWrapRef.current
@@ -886,7 +898,12 @@ export default function LEDPreview() {
     if (playerRef.current) playerRef.current.volume = volume
   }, [volume, currentTrack])
 
-  const openFilePicker = () => fileInputRef.current?.click()
+  const openFilePicker = () => {
+    // If this element has ever been wrapped for decoder analysis its audible
+    // output remains routed through that AudioContext, even after Mic is chosen.
+    useDecoderAudioStore.getState().resumePlayer()
+    fileInputRef.current?.click()
+  }
 
   const clearMusic = () => {
     const player = playerRef.current
@@ -908,6 +925,7 @@ export default function LEDPreview() {
   }
 
   const onPickMusic = (event: ChangeEvent<HTMLInputElement>) => {
+    useDecoderAudioStore.getState().resumePlayer()
     const files = Array.from(event.target.files ?? [])
     if (!files.length) return
     const added = files.map((file) => ({
@@ -960,6 +978,7 @@ export default function LEDPreview() {
       return
     }
     setMusicError(null)
+    useDecoderAudioStore.getState().resumePlayer()
     player.play().catch(() => setMusicError('This audio file could not be played in the browser.'))
   }
 
@@ -1013,8 +1032,8 @@ export default function LEDPreview() {
   const progressPct = durationMs > 0 ? Math.max(0, Math.min(100, (positionMs / durationMs) * 100)) : 0
 
   // The shared transport's `playing` flag also gates interaction sound effects.
-  // Publish local-player activity without turning the track into an analysis
-  // source: live graph audio continues to come from the browser capture input.
+  // Decoder analysis is attached directly to this element above; this effect
+  // only publishes its transport position and play state.
   useEffect(() => {
     if (!transport) usePlayerTransport.getState().setPos(musicCurrentTime * 1000, musicPlaying)
   }, [transport, musicCurrentTime, musicPlaying])
@@ -1214,6 +1233,7 @@ export default function LEDPreview() {
           <PreviewSpectrum
             audioVisualizerLive={audioVisualizerLive}
             spectrumOverride={playbackSpectrum}
+            audioSourceKind={graphAudioSourceKind}
             mode={stageMode ? spectrumVisualizerMode : 'bars'}
           />
           <div className={styles.musicControls}>
