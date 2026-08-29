@@ -241,7 +241,7 @@ Read [SECURITY.md](SECURITY.md) for the full policy and private vulnerability-re
 ## Browser and desktop scope
 
 - Designed for desktop at `1440 × 900`; supported minimum `1280 × 720`.
-- Modern Chromium, Firefox, and Safari can author and preview; exact tested combinations are listed in the support matrix.
+- Modern ES2022-capable Chromium, Firefox, and Safari can author and preview; exact tested combinations are listed in the support matrix.
 - The installable PWA can reopen core authoring and preview offline after its first successful load.
 - Upload, Live Stream, device discovery, native file dialogs, and disk-backed sync require the local helper on the same machine.
 

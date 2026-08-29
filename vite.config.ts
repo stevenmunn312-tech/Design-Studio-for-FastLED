@@ -37,6 +37,7 @@ export default defineConfig(() => {
     // worker format — the default 'iife' can't code-split a worker.
     worker: { format: 'es' },
     build: {
+      target: 'es2022',
       rollupOptions: {
         output: {
           manualChunks(id) {
