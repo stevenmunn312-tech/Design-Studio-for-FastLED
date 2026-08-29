@@ -14,10 +14,15 @@ export function combinedStereoVuFixture(
   nodes: StudioNode[],
   outputId: string,
 ): CombinedStereoVuFixture | null {
-  const hasMatrix = nodes.some((node) => node.data.nodeType === 'MatrixOutput'
-    && ['matrix', 'hub75'].includes(String(node.data.properties.form ?? 'matrix')))
+  const isMatrixOutput = (node: StudioNode) => node.data.nodeType === 'MatrixOutput'
+    && ['matrix', 'hub75'].includes(String(node.data.properties.form ?? 'matrix'))
+  const hasMatrix = nodes.some(isMatrixOutput)
+  const selectedOutputIsMatrix = nodes.some((node) => node.id === outputId && isMatrixOutput(node))
   const fixture = nodes.find((node) => node.data.nodeType === 'StereoVuMeter' && (
     (outputId && String(node.data.properties.targetOutputId ?? '') === outputId)
+    // Standalone is a hardware-routing choice, not a reason to hide the rails
+    // from an available matrix composition in Preview or Stage.
+    || (selectedOutputIsMatrix && String(node.data.properties.targetOutputId ?? '') === '')
     || (!hasMatrix && String(node.data.properties.targetOutputId ?? '') === '')
   ))
   return fixture

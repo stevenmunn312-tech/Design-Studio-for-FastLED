@@ -27,6 +27,27 @@ describe('combined Stereo VU preview', () => {
     expect(combinedStereoVuFixture(nodes, '')).toEqual({ id: 'vu', swapChannels: false, ledCount: 24, standalone: true })
   })
 
+  it('flanks a matrix when the meter has no explicit target', () => {
+    const nodes = [
+      node('matrix', 'MatrixOutput', { form: 'matrix' }),
+      node('vu', 'StereoVuMeter', { targetOutputId: '', ledCount: 20 }),
+    ]
+    expect(combinedStereoVuFixture(nodes, 'matrix')).toEqual({
+      id: 'vu',
+      swapChannels: false,
+      ledCount: 20,
+      standalone: false,
+    })
+  })
+
+  it('flanks a HUB75 matrix when the meter has no explicit target', () => {
+    const nodes = [
+      node('panel', 'MatrixOutput', { form: 'hub75' }),
+      node('vu', 'StereoVuMeter', { targetOutputId: '' }),
+    ]
+    expect(combinedStereoVuFixture(nodes, 'panel')?.standalone).toBe(false)
+  })
+
   it('stays standalone when an unrelated LED String exists', () => {
     const nodes = [
       node('strip', 'MatrixOutput', { form: 'strip', ledCount: 60 }),
