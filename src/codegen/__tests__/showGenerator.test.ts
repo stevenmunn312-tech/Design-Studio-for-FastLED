@@ -59,6 +59,30 @@ describe('showGenerator', () => {
     expect(cpp).toMatch(/render_p0[\s\S]*CRGB\(0, 0, 255\)[\s\S]*?\n\}/)
   })
 
+  it('fades an audio-reactive slideshow to true black during silence', () => {
+    const reactiveNodes = [
+      node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
+      node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1, audioReactive: true }),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' }),
+      micBoard,
+      ...audioSource('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 }),
+    ]
+    const reactiveEdges = [
+      edge('e1', 'pc', 'patternset', 'pm', 'patternset'),
+      edge('e2', 'pm', 'frame', 'out', 'frame'),
+      edge('ea', 'mic', 'audio', 'pm', 'audio'),
+    ]
+    const cpp = generateShowSketch(reactiveNodes, reactiveEdges, groups)
+
+    expect(cpp).toContain('float _slideshowEnergy = constrain((_audioBass + _audioMids + _audioTreble) / 3.0f')
+    expect(cpp).toContain('float _slideshowFadeTarget = _slideshowEnergy <= 0.025f ? 0.0f : 1.0f;')
+    expect(cpp).toContain('if (_slideshowFade8 == 0) fill_solid(leds, NUM_LEDS, CRGB::Black);')
+    expect(cpp).toContain('leds[_i].nscale8_video(_slideshowFade8);')
+
+    const nonReactive = generateShowSketch(nodes, edges, groups)
+    expect(nonReactive).not.toContain('_slideshowFadeTarget')
+  })
+
   it('scales only the pattern animation clock with Master Speed', () => {
     const cpp = generateShowSketch(
       [...nodes, node('speed', 'MasterSpeed', { speed: 0.5 })], edges, groups,

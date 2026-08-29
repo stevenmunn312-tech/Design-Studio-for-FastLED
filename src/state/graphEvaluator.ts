@@ -44,7 +44,7 @@ import {
 import { useUiStore } from './uiStore'
 import { useGraphStore } from './graphStore'
 import { songInfoOutputs, resolveSongInfo } from './songInfo'
-import { slideshowSettings, type PatternSlideshowOrder } from './patternSlideshow'
+import { advanceSlideshowSilenceFade, slideshowSettings, type PatternSlideshowOrder } from './patternSlideshow'
 import { isDisplaySignal, type DisplaySignal } from './displaySignal'
 import {
   blankPatternSelection, blankPatternCursor, reconcilePatternCursor, updatePatternSelection,
@@ -204,6 +204,7 @@ interface Particle { x: number; y: number; vx: number; vy: number; life: number;
 const particleState = new Map<string, Particle[]>()
 const particleSeedState = new Map<string, string>()
 const patternShowState = new Map<string, ShowState>()
+const patternSlideshowFadeState = new Map<string, { level: number; lastT: number }>()
 interface PlayerControlsState {
   lastT: number
   buttons: Record<string, ButtonEdgeState>
@@ -507,7 +508,7 @@ function stateMaps(): StateMap[] {
   return _stateMaps ??= [
     fireHeat, flashLevel, counterVals, intervalLast, smoothState, holdState,
     envState, dmxChannelState, trailState, frameFeedbackState, fftLevels, beatLevels, clockState, clockDisplayState, fireRngState,
-    seededRngState, triggerState, scheduleState, particleState, particleSeedState, patternShowState,
+    seededRngState, triggerState, scheduleState, particleState, particleSeedState, patternShowState, patternSlideshowFadeState,
     patternSelectionState, transportArtworkCache, patternThumbnailCache,
     playerControlsState, transportDisplayTouchState, musicPlayerRuntimeState,
     ledOutputLatchState, stereoVuState,
@@ -586,7 +587,7 @@ export function getEvaluatorMemoryStats(): {
     trailState: trailState.size, frameFeedbackState: frameFeedbackState.size,
     fftLevels: fftLevels.size, beatLevels: beatLevels.size, percussionLevels: percussionLevels.size,
     audioFeatureLevels: audioFeatureLevels.size, particleState: particleState.size,
-    particleSeedState: particleSeedState.size, patternShowState: patternShowState.size,
+    particleSeedState: particleSeedState.size, patternShowState: patternShowState.size, patternSlideshowFadeState: patternSlideshowFadeState.size,
     playerControlsState: playerControlsState.size, transportDisplayTouchState: transportDisplayTouchState.size, musicPlayerRuntimeState: musicPlayerRuntimeState.size,
     ledOutputLatchState: ledOutputLatchState.size, stereoVuState: stereoVuState.size,
     rdState: rdState.size, golState: golState.size, waveSimState: waveSimState.size,
@@ -7460,7 +7461,7 @@ function createEvalNode(
           confirm: steps !== 0 || controls?.patternConfirm === true,
         })
 
-        const frame = evalPatternShow(key, ids, render, false, {
+        let frame = evalPatternShow(key, ids, render, false, {
           minTime: settings.intervalSec,
           maxTime: settings.intervalSec,
           transSec: settings.transitionSec,
@@ -7475,6 +7476,31 @@ function createEvalNode(
           seed: settings.seed,
           order: settings.order,
         }, elapsedT, W, H, selection)
+
+        if (settings.audioReactive) {
+          const energy = audio
+            ? (audio.micBass + audio.micMids + audio.micTreble) / 3
+            : 0
+          const previousFade = patternSlideshowFadeState.get(key) ?? { level: 1, lastT: elapsedT }
+          const level = advanceSlideshowSilenceFade(
+            previousFade.level,
+            energy,
+            Math.max(0, elapsedT - previousFade.lastT),
+          )
+          patternSlideshowFadeState.set(key, { level, lastT: elapsedT })
+          if (level <= 0) frame = blankFrame(W, H)
+          else if (level < 1) {
+            const dimmed = cloneFrame(frame)
+            for (const row of dimmed) for (const pixel of row) {
+              pixel.r *= level
+              pixel.g *= level
+              pixel.b *= level
+            }
+            frame = dimmed
+          }
+        } else {
+          patternSlideshowFadeState.delete(key)
+        }
 
         // Read after the show has run, for the same reason the player does:
         // its own advance moves this cursor, and publishing the pre-show

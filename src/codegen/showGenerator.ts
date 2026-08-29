@@ -21,7 +21,13 @@ import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { SHOW_TRANSITIONS } from './performanceGenerator'
 import { transitionHelperCpp } from './transitionHelperCpp'
 import { buildXYTable } from '../state/xyLayout'
-import { slideshowSettings, type PatternSlideshowOrder } from '../state/patternSlideshow'
+import {
+  SLIDESHOW_SILENCE_FADE_IN_SEC,
+  SLIDESHOW_SILENCE_FADE_OUT_SEC,
+  SLIDESHOW_SILENCE_THRESHOLD,
+  slideshowSettings,
+  type PatternSlideshowOrder,
+} from '../state/patternSlideshow'
 import { compositionDims, outputRoutes } from '../state/outputRouting'
 import { outputCanvasDims } from '../state/ledOutputForm'
 import { controllerSettings, ledPropsWithController } from '../state/controllerSettings'
@@ -91,6 +97,8 @@ interface ShowInfo {
   transitionIds: number[]
   /** Walk the collection in order, or pick from it at random. */
   order: PatternSlideshowOrder
+  /** Whether silence should fade the rendered collection to black. */
+  audioReactive: boolean
   seed: number
 }
 
@@ -130,6 +138,7 @@ function showInfo(nodes: StudioNode[], edges: StudioEdge[]): ShowInfo | null {
     transitionSec: settings.transitionSec,
     transitionIds: settings.transitionSec > 0 ? transitionPool(nodes, edges, master) : [0],
     order: settings.order,
+    audioReactive: settings.audioReactive,
     seed: settings.seed >>> 0,
   }
 }
@@ -613,6 +622,11 @@ export function generateShowSketch(
   // globals (externalAudio), so an audio-reactive
   // pattern reacts on-device the same way it does in the live preview.
   const audio = audioEngineForGraph(nodes)
+  const slideshowAudioConnected = edges.some((edge) =>
+    edge.target === info.masterId
+    && edge.targetHandle === 'audio'
+    && nodes.some((node) => node.id === edge.source && nodeType(node) === 'Audio'))
+  const slideshowAudioAvailable = info.audioReactive && slideshowAudioConnected && !!audio
   const stereoVuMeters = stereoVuEmitsFromGraph(nodes, edges, {
     active: audio ? '(bool)_audioProcessor' : 'false',
     left: audio ? '_audioLeftLevel' : '0.0f',
@@ -863,6 +877,23 @@ export function generateShowSketch(
       L.push(`  ${SHOW_PATTERN_INDEX} = cur;`)
       L.push('')
     }
+  }
+  if (info.audioReactive) {
+    L.push('  // Audio-reactive slideshows fade the pattern to true black during silence.')
+    L.push(`  float _slideshowEnergy = ${slideshowAudioAvailable ? 'constrain((_audioBass + _audioMids + _audioTreble) / 3.0f, 0.0f, 1.0f)' : '0.0f'};`)
+    L.push(`  float _slideshowFadeTarget = _slideshowEnergy <= ${SLIDESHOW_SILENCE_THRESHOLD.toFixed(3)}f ? 0.0f : 1.0f;`)
+    L.push('  static float _slideshowFade = 1.0f;')
+    L.push('  static uint32_t _slideshowFadeLastMs = now;')
+    L.push('  float _slideshowFadeDt = (now - _slideshowFadeLastMs) / 1000.0f;')
+    L.push('  _slideshowFadeLastMs = now;')
+    L.push(`  float _slideshowFadeSec = _slideshowFadeTarget < _slideshowFade ? ${SLIDESHOW_SILENCE_FADE_OUT_SEC.toFixed(3)}f : ${SLIDESHOW_SILENCE_FADE_IN_SEC.toFixed(3)}f;`)
+    L.push('  float _slideshowFadeStep = _slideshowFadeDt / _slideshowFadeSec;')
+    L.push('  if (_slideshowFadeTarget < _slideshowFade) _slideshowFade = max(_slideshowFadeTarget, _slideshowFade - _slideshowFadeStep);')
+    L.push('  else _slideshowFade = min(_slideshowFadeTarget, _slideshowFade + _slideshowFadeStep);')
+    L.push('  uint8_t _slideshowFade8 = (uint8_t)(_slideshowFade * 255.0f + 0.5f);')
+    L.push('  if (_slideshowFade8 == 0) fill_solid(leds, NUM_LEDS, CRGB::Black);')
+    L.push('  else if (_slideshowFade8 < 255) for (int _i = 0; _i < NUM_LEDS; _i++) leds[_i].nscale8_video(_slideshowFade8);')
+    L.push('')
   }
   if (multiOutput) {
     for (const route of routes) {

@@ -22,6 +22,29 @@ export function asSlideshowOrder(value: unknown): PatternSlideshowOrder {
 /** Shortest interval worth offering: below this a slideshow is a strobe. */
 export const SLIDESHOW_MIN_INTERVAL_SEC = 1
 
+/** Average bass/mids/treble level at or below which the room is silent. */
+export const SLIDESHOW_SILENCE_THRESHOLD = 0.025
+/** Seconds for an audio-reactive slideshow to reach black after silence. */
+export const SLIDESHOW_SILENCE_FADE_OUT_SEC = 0.5
+/** Seconds to restore full brightness when sound returns. */
+export const SLIDESHOW_SILENCE_FADE_IN_SEC = 0.25
+
+/** Advance the audio-reactive silence envelope by real elapsed time. */
+export function advanceSlideshowSilenceFade(
+  level: number,
+  audioEnergy: number,
+  elapsedSec: number,
+): number {
+  const current = Number.isFinite(level) ? Math.max(0, Math.min(1, level)) : 1
+  const energy = Number.isFinite(audioEnergy) ? Math.max(0, audioEnergy) : 0
+  const target = energy <= SLIDESHOW_SILENCE_THRESHOLD ? 0 : 1
+  const duration = target < current ? SLIDESHOW_SILENCE_FADE_OUT_SEC : SLIDESHOW_SILENCE_FADE_IN_SEC
+  const step = Math.max(0, Number.isFinite(elapsedSec) ? elapsedSec : 0) / duration
+  return target < current
+    ? Math.max(target, current - step)
+    : Math.min(target, current + step)
+}
+
 export interface SlideshowSettings {
   order: PatternSlideshowOrder
   /** Seconds one pattern holds. One number, not a range: see the design note. */

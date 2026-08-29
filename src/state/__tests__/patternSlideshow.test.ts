@@ -7,9 +7,9 @@
 // immediately because there is no browse/confirm split to show.
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { evaluateGraph, getPatternShowSelection, resetEvaluatorState } from '../graphEvaluator'
+import { evaluateGraph, getPatternShowSelection, resetEvaluatorState, type AudioSignal } from '../graphEvaluator'
 import { NODE_LIBRARY } from '../nodeLibrary'
-import { slideshowSettings, asSlideshowOrder } from '../patternSlideshow'
+import { advanceSlideshowSilenceFade, slideshowSettings, asSlideshowOrder } from '../patternSlideshow'
 import { validateGraph } from '../../utils/validateGraph'
 import { useHardwareInputStore } from '../hardwareInputStore'
 import { ENCODER_COUNTS_PER_STEP } from '../patternSelection'
@@ -52,6 +52,7 @@ const GROUPS = Object.fromEntries(IDS.map((id, i) => [id, solidGroup((i + 1) * 1
 function runSlideshow(props: Record<string, unknown>, seconds: number, extra: {
   nodes?: StudioNode[]
   edges?: StudioEdge[]
+  audioOverride?: AudioSignal | null
 } = {}) {
   const nodes = [
     node('coll', 'PatternCollection', { patternIds: IDS }),
@@ -64,7 +65,10 @@ function runSlideshow(props: Record<string, unknown>, seconds: number, extra: {
     edge('e2', 'show', 'frame', 'out', 'frame'),
     ...(extra.edges ?? []),
   ]
-  return evaluateGraph(nodes, edges, seconds * 60, 4, 4, GROUPS)
+  return evaluateGraph(
+    nodes, edges, seconds * 60, 4, 4, GROUPS,
+    '', new Set(), {}, extra.audioOverride ?? null, true, nodes, seconds * 60,
+  )
 }
 
 const playingIndex = () => getPatternShowSelection('show')!.currentIndex
@@ -98,6 +102,14 @@ describe('slideshowSettings', () => {
     expect(slideshowSettings({}).audioReactive).toBe(false)
     expect(asSlideshowOrder('Sequential')).toBe('Sequential')
     expect(asSlideshowOrder('nonsense')).toBe('Random')
+  })
+
+  it('uses real elapsed time to fade down on silence and restore on sound', () => {
+    const halfDark = advanceSlideshowSilenceFade(1, 0, 0.25)
+    expect(halfDark).toBe(0.5)
+    expect(advanceSlideshowSilenceFade(halfDark, 0, 0.25)).toBe(0)
+    expect(advanceSlideshowSilenceFade(0, 0.5, 0.125)).toBe(0.5)
+    expect(advanceSlideshowSilenceFade(0.5, 0.5, 0.125)).toBe(1)
   })
 })
 
@@ -149,6 +161,38 @@ describe('a running Pattern Slideshow', () => {
     expect(playingIndex()).toBe(1)
     expect(getPatternShowSelection('show')!.browsing).toBe(false)
     expect(getPatternShowSelection('show')!.highlightIndex).toBe(1)
+  })
+
+  it('fades the rendered pattern to black during silence only in audio-reactive mode', () => {
+    const provider = node('mic-provider', 'MicInput')
+    const audioNode = node('audio', 'Audio', { sourceId: 'mic-provider' })
+    const silent: AudioSignal = {
+      active: true,
+      micActive: true,
+      micBass: 0,
+      micMids: 0,
+      micTreble: 0,
+      spectrum: [],
+      detectorSpectrum: [],
+    }
+    const extra = {
+      nodes: [provider, audioNode],
+      edges: [edge('ea', 'audio', 'audio', 'show', 'audio')],
+      audioOverride: silent,
+    }
+    const props = { audioReactive: true, order: 'Sequential', interval: 9999, transitionsEnabled: false }
+
+    const lit = runSlideshow(props, 0, extra)!
+    const halfway = runSlideshow(props, 0.25, extra)!
+    const black = runSlideshow(props, 0.5, extra)!
+
+    expect(lit[0][0].b).toBe(10)
+    expect(halfway[0][0].b).toBe(5)
+    expect(black[0][0]).toEqual({ r: 0, g: 0, b: 0 })
+
+    resetEvaluatorState()
+    const unchanged = runSlideshow({ ...props, audioReactive: false }, 1, extra)!
+    expect(unchanged[0][0].b).toBe(10)
   })
 })
 
