@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { enterStagePresentation, exitStagePresentation } from '../stagePresentation'
+import { enterStagePresentation, exitStagePresentation, toggleStageFullscreen } from '../stagePresentation'
 import { useUiStore } from '../../state/uiStore'
 
 describe('stage presentation', () => {
@@ -32,7 +32,21 @@ describe('stage presentation', () => {
     }
   })
 
-  it('enters fullscreen Stage from the initiating action', async () => {
+  it('enters Stage without requesting fullscreen', async () => {
+    const requestFullscreen = vi.fn()
+    Object.defineProperty(document.documentElement, 'requestFullscreen', {
+      configurable: true,
+      value: requestFullscreen,
+    })
+
+    await enterStagePresentation()
+
+    expect(requestFullscreen).not.toHaveBeenCalled()
+    expect(useUiStore.getState().stageMode).toBe(true)
+    expect(useUiStore.getState().stageFullscreenStatus).toBe('idle')
+  })
+
+  it('enters fullscreen from its separate Stage action', async () => {
     const requestFullscreen = vi.fn(async () => {
       Object.defineProperty(document, 'fullscreenElement', {
         configurable: true,
@@ -43,8 +57,9 @@ describe('stage presentation', () => {
       configurable: true,
       value: requestFullscreen,
     })
+    useUiStore.setState({ stageMode: true })
 
-    await enterStagePresentation()
+    await toggleStageFullscreen()
 
     expect(requestFullscreen).toHaveBeenCalledWith({ navigationUI: 'hide' })
     expect(useUiStore.getState().stageMode).toBe(true)
@@ -56,11 +71,30 @@ describe('stage presentation', () => {
       configurable: true,
       value: vi.fn().mockRejectedValue(new DOMException('Denied', 'NotAllowedError')),
     })
+    useUiStore.setState({ stageMode: true })
 
-    await enterStagePresentation()
+    await toggleStageFullscreen()
 
     expect(useUiStore.getState().stageMode).toBe(true)
     expect(useUiStore.getState().stageFullscreenStatus).toBe('unavailable')
+  })
+
+  it('exits fullscreen without exiting Stage', async () => {
+    const exitFullscreen = vi.fn(async () => {
+      Object.defineProperty(document, 'fullscreenElement', { configurable: true, value: null })
+    })
+    Object.defineProperty(document, 'fullscreenElement', {
+      configurable: true,
+      value: document.documentElement,
+    })
+    Object.defineProperty(document, 'exitFullscreen', { configurable: true, value: exitFullscreen })
+    useUiStore.setState({ stageMode: true, stageFullscreenStatus: 'active' })
+
+    await toggleStageFullscreen()
+
+    expect(exitFullscreen).toHaveBeenCalledOnce()
+    expect(useUiStore.getState().stageMode).toBe(true)
+    expect(useUiStore.getState().stageFullscreenStatus).toBe('idle')
   })
 
   it('exits both Stage and browser fullscreen', async () => {

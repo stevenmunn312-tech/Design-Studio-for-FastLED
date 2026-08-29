@@ -1,15 +1,23 @@
 import { useUiStore } from '../state/uiStore'
 
-/** Enter Stage immediately, then progressively enhance it with browser fullscreen.
- *
- * Keep the request in the click/key event's call stack: the Fullscreen API needs
- * transient user activation and moving it into a React effect makes that timing
- * browser-dependent. Stage still works in-window when the API is unavailable or
- * the browser declines the request.
- */
+/** Enter the windowed Stage layout. Fullscreen is a separate, explicit action. */
 export async function enterStagePresentation(): Promise<void> {
   const ui = useUiStore.getState()
   ui.setStageMode(true)
+  ui.setStageFullscreenStatus(
+    typeof document !== 'undefined' && document.fullscreenElement ? 'active' : 'idle',
+  )
+}
+
+/** Toggle browser fullscreen without entering or leaving Stage itself.
+ *
+ * Keep the request in the button event's call stack: the Fullscreen API needs
+ * transient user activation and moving it into a React effect makes that timing
+ * browser-dependent.
+ */
+export async function toggleStageFullscreen(): Promise<void> {
+  const ui = useUiStore.getState()
+  if (!ui.stageMode) return
 
   if (typeof document === 'undefined') {
     ui.setStageFullscreenStatus('unavailable')
@@ -17,7 +25,18 @@ export async function enterStagePresentation(): Promise<void> {
   }
 
   if (document.fullscreenElement) {
-    ui.setStageFullscreenStatus('active')
+    if (!document.exitFullscreen) {
+      ui.setStageFullscreenStatus('unavailable')
+      return
+    }
+    try {
+      await document.exitFullscreen()
+      if (useUiStore.getState().stageMode && !document.fullscreenElement) {
+        useUiStore.getState().setStageFullscreenStatus('idle')
+      }
+    } catch {
+      // The browser may already be unwinding fullscreen (for example after Esc).
+    }
     return
   }
 
@@ -31,8 +50,8 @@ export async function enterStagePresentation(): Promise<void> {
   try {
     await requestFullscreen.call(document.documentElement, { navigationUI: 'hide' })
 
-    // A quick second press can exit Stage while the browser prompt is still
-    // resolving. Do not strand the page fullscreen after that race.
+    // Exiting Stage while the browser prompt is resolving must not strand the
+    // page fullscreen after that race.
     if (!useUiStore.getState().stageMode) {
       if (document.fullscreenElement) await document.exitFullscreen()
       return

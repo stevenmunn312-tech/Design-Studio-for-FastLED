@@ -40,12 +40,14 @@ import { frameAmbient } from '../../utils/signalVisual'
 import { idleFrame } from './idleFrame'
 import { publishOutputStreamFrame, publishStreamFrame, useStreamStore } from '../../state/streamStore'
 import { compositionDims, outputRoutes, routeFrame } from '../../state/outputRouting'
-import { exitStagePresentation } from '../../utils/stagePresentation'
+import type { LedOutputForm } from '../../state/ledOutputForm'
+import { exitStagePresentation, toggleStageFullscreen } from '../../utils/stagePresentation'
 import { controllerSettings } from '../../state/controllerSettings'
 import { masterSpeedFromOutputs, masterSpeedOriginShift } from '../../state/masterSpeed'
 import type { StereoVuFrame } from '../../state/stereoVuMeter'
 import { combinedStereoVuFixture, drawStereoVuRail } from './stereoVuCombinedPreview'
 import { previewGridDimensions } from './previewGrid'
+import { fullscreenMatrixDimensions, resampleFullscreenFrame } from './fullscreenMatrix'
 
 // Statically replaced at build time, so the telemetry branches (phase timers +
 // the per-frame context object for the dev HUD) are dead-code-stripped in prod.
@@ -282,9 +284,9 @@ export default function LEDPreview() {
   // Every LED output is an explicit Frame route. Keep the preview focused
   // on one route at a time while the evaluator still computes all terminals.
   const outputRouteKey = useGraphStore((s) => JSON.stringify(outputRoutes(s.nodes).map((route) => ({
-    id: route.id, label: route.label, width: route.width, height: route.height,
+    id: route.id, label: route.label, form: route.form, width: route.width, height: route.height,
   }))))
-  const previewRoutes = useMemo<Array<{ id: string; label: string; width: number; height: number }>>(
+  const previewRoutes = useMemo<Array<{ id: string; label: string; form: LedOutputForm; width: number; height: number }>>(
     () => JSON.parse(outputRouteKey),
     [outputRouteKey],
   )
@@ -306,16 +308,12 @@ export default function LEDPreview() {
   const combinedVuSwap = combinedVuSwapFlag === '1'
   const combinedVuCount = Math.max(1, Number(combinedVuCountFlag) || 16)
   const standaloneVu = combinedVuId !== '' && standaloneVuFlag === '1'
-  // Real matrix dimensions — used for the canvas/WebGL buffer size, the
-  // frame passed to the renderers, and the on-screen W×H readout, so a
-  // strip layout (e.g. 10×1) never grows a phantom extra row/column. Only
-  // the pixel-scale math below (`pixelScaleW/H`) floors to 2, so a thin
-  // strip's LEDs aren't blown up to fill the whole available height/width.
+  // Real hardware dimensions. Fullscreen may derive a denser display-only grid
+  // later, but routing, streaming, firmware parity and the W×H readout stay on
+  // these physical values.
   const previewGrid = previewGridDimensions(selectedRouteSummary, combinedVuCount, standaloneVu)
   const gridW = previewGrid.width
   const gridH = previewGrid.height
-  const pixelScaleW = Math.max(2, gridW)
-  const pixelScaleH = Math.max(2, gridH)
   // Panel-tile grid (MatrixOutput layout==='panels') — 0 when there's nothing
   // to draw gridlines for. Select primitives, not the memoised object itself
   // (matching gridW/gridH's use of matrixDims below): a store selector must
@@ -332,11 +330,14 @@ export default function LEDPreview() {
   const stageMode = useUiStore((s) => s.stageMode)
   const stageFullscreenStatus = useUiStore((s) => s.stageFullscreenStatus)
   const stageWakeLockStatus = useUiStore((s) => s.stageWakeLockStatus)
-  // Stage is the audience view: once nobody has touched the pointer for a
-  // couple of seconds, everything that is not a lit LED gets out of the way.
-  // Pointer movement brings it all back, so the way out is always one nudge
-  // away and Esc/F10 keep working regardless.
-  const stageQuiet = useUiStore((s) => s.stageMode && s.stageIdle)
+  const stageFullscreen = stageMode && stageFullscreenStatus === 'active'
+  const stageMatrixFullscreen = stageFullscreen
+    && !standaloneVu
+    && (!selectedRouteSummary || selectedRouteSummary.form === 'matrix' || selectedRouteSummary.form === 'hub75')
+  // Windowed Stage is the operator view and never auto-hides its controls.
+  // Fullscreen has a dedicated matrix-only layout; this idle flag remains for
+  // any transient Stage chrome added there later.
+  const stageQuiet = useUiStore((s) => stageFullscreen && s.stageIdle)
   const previewPanelOpen = useUiStore((s) => s.previewPanelOpen)
   const evaluationRunning = useUiStore((s) => s.evaluationRunning)
   // Stage-mode pattern name, derived inside a selector that returns a plain
@@ -352,15 +353,23 @@ export default function LEDPreview() {
   const fps = useUiStore((s) => s.fps)
   const memoryMb = useUiStore((s) => s.memoryMb)
   const railWidth = stageMode ? STAGE_VU_RAIL_WIDTH : VU_RAIL_WIDTH
-  const vuReservedWidth = combinedVuId ? railWidth * 2 + VU_COMPOSITION_GUTTER * 2 : 0
+  const vuReservedWidth = combinedVuId && !stageMatrixFullscreen ? railWidth * 2 + VU_COMPOSITION_GUTTER * 2 : 0
   const availableCanvasW = Math.max(0, canvasWrapSize.width - canvasWrapSize.padX - vuReservedWidth)
   const availableCanvasH = Math.max(0, canvasWrapSize.height - canvasWrapSize.padY)
-  const windowedPixelLimit = Math.min(
-    stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX,
-    availableCanvasW > 0 ? availableCanvasW / pixelScaleW : stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX,
-    availableCanvasH > 0 ? availableCanvasH / pixelScaleH : stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX,
+  const fullscreenGrid = stageMatrixFullscreen && availableCanvasW > 0 && availableCanvasH > 0
+    ? fullscreenMatrixDimensions(availableCanvasW, availableCanvasH)
+    : null
+  const renderGridW = fullscreenGrid?.width ?? gridW
+  const renderGridH = fullscreenGrid?.height ?? gridH
+  const pixelScaleW = Math.max(2, renderGridW)
+  const pixelScaleH = Math.max(2, renderGridH)
+  const fallbackPixelLimit = stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX
+  const pixelLimit = Math.min(
+    stageFullscreen ? Number.MAX_SAFE_INTEGER : fallbackPixelLimit,
+    availableCanvasW > 0 ? availableCanvasW / pixelScaleW : fallbackPixelLimit,
+    availableCanvasH > 0 ? availableCanvasH / pixelScaleH : fallbackPixelLimit,
   )
-  const pixel = Math.max(1, windowedPixelLimit)
+  const pixel = Math.max(1, pixelLimit)
   // One VU rail is one matrix column. Keep the larger width above only as
   // reserved composition space; the visible black substrate follows the
   // current matrix cell pitch as the panel is resized.
@@ -371,10 +380,14 @@ export default function LEDPreview() {
   // 64×64), so a denser matrix visibly shrinks. Flooring the product keeps the
   // preview the same physical size at any resolution, with the per-LED size left
   // fractional (the canvas 2D fills and the WebGL shader both handle that).
-  const canvasBufW = Math.max(1, Math.floor(gridW * pixel))
-  const canvasBufH = Math.max(1, Math.floor(gridH * pixel))
+  const canvasBufW = Math.max(1, Math.floor(renderGridW * pixel))
+  const canvasBufH = Math.max(1, Math.floor(renderGridH * pixel))
   const gridWRef = useRef(gridW)
   const gridHRef = useRef(gridH)
+  const renderGridWRef = useRef(renderGridW)
+  const renderGridHRef = useRef(renderGridH)
+  const stageMatrixFullscreenRef = useRef(stageMatrixFullscreen)
+  const fullscreenFrameRef = useRef<Frame | null>(null)
   const activeOutputIdRef = useRef(activeOutputId)
   const combinedVuIdRef = useRef(combinedVuId)
   const vuMeterIdRef = useRef(vuMeterId)
@@ -383,11 +396,14 @@ export default function LEDPreview() {
   const canvasBufHRef = useRef(canvasBufH)
   useEffect(() => {
     gridWRef.current = gridW; gridHRef.current = gridH; pixelRef.current = pixel
+    renderGridWRef.current = renderGridW; renderGridHRef.current = renderGridH
+    stageMatrixFullscreenRef.current = stageMatrixFullscreen
+    if (!stageMatrixFullscreen) fullscreenFrameRef.current = null
     activeOutputIdRef.current = activeOutputId
     combinedVuIdRef.current = combinedVuId
     vuMeterIdRef.current = vuMeterId
     canvasBufWRef.current = canvasBufW; canvasBufHRef.current = canvasBufH
-  }, [gridW, gridH, activeOutputId, combinedVuId, vuMeterId, pixel, canvasBufW, canvasBufH])
+  }, [gridW, gridH, renderGridW, renderGridH, stageMatrixFullscreen, activeOutputId, combinedVuId, vuMeterId, pixel, canvasBufW, canvasBufH])
 
   // Panel-boundary gridlines: a thin static overlay redrawn only when the
   // tile grid or canvas size changes (not on every animation frame like the
@@ -399,7 +415,7 @@ export default function LEDPreview() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    if (tileLayoutTilesX <= 0 || tileLayoutTilesY <= 0) return
+    if (stageMatrixFullscreen || tileLayoutTilesX <= 0 || tileLayoutTilesY <= 0) return
     const tilesX = tileLayoutTilesX, tilesY = tileLayoutTilesY
     const tileW = canvasBufW / tilesX
     const tileH = canvasBufH / tilesY
@@ -417,7 +433,7 @@ export default function LEDPreview() {
       ctx.lineTo(canvasBufW, y)
     }
     ctx.stroke()
-  }, [tileLayoutTilesX, tileLayoutTilesY, canvasBufW, canvasBufH])
+  }, [stageMatrixFullscreen, tileLayoutTilesX, tileLayoutTilesY, canvasBufW, canvasBufH])
 
   const preview3d = useUiStore((s) => s.preview3d)
   const previewStyle = useUiStore((s) => s.previewStyle)
@@ -709,18 +725,29 @@ export default function LEDPreview() {
         }
 
         const bw = canvasBufWRef.current, bh = canvasBufHRef.current
+        const displayW = renderGridWRef.current, displayH = renderGridHRef.current
+        let displayFrame = frame
+        if (stageMatrixFullscreenRef.current) {
+          displayFrame = resampleFullscreenFrame(
+            frame,
+            displayW,
+            displayH,
+            fullscreenFrameRef.current,
+          )
+          if (displayFrame !== frame) fullscreenFrameRef.current = displayFrame
+        }
         const drawStart = PERF_TELEMETRY ? performance.now() : 0
         // Nothing shows the matrix canvas while the panel is hidden — skip the
         // draw (evaluation still ran above so node previews stay live).
         if (visible && useWebGL && glRef.current) {
-          glRef.current.render(frame, gW, gH, px, previewStyleRef.current)
+          glRef.current.render(displayFrame, displayW, displayH, px, previewStyleRef.current)
         } else if (visible && ctx) {
           if (canvas.width !== bw || canvas.height !== bh) {
             canvas.width = bw; canvas.height = bh
           }
-          renderPreviewFrame(ctx, frame, px, previewStyleRef.current)
+          renderPreviewFrame(ctx, displayFrame, px, previewStyleRef.current)
         }
-        if (visible && combinedVuIdRef.current) {
+        if (visible && combinedVuIdRef.current && !stageMatrixFullscreenRef.current) {
           drawStereoVuRail(leftVuCanvasRef.current, vuFrame?.left ?? [])
           drawStereoVuRail(rightVuCanvasRef.current, vuFrame?.right ?? [])
         }
@@ -729,8 +756,8 @@ export default function LEDPreview() {
         // Sample the matrix itself for an Ambilight-style spill. Updating CSS
         // variables directly at 10 fps avoids making the full preview React
         // tree re-render just to animate decorative light.
-        if (visible && uiEffectsEnabledRef.current && frameCount.current % 6 === 0 && canvasWrapRef.current) {
-          const ambient = frameAmbient(frame)
+        if (visible && !stageMatrixFullscreenRef.current && uiEffectsEnabledRef.current && frameCount.current % 6 === 0 && canvasWrapRef.current) {
+          const ambient = frameAmbient(displayFrame)
           const wrap = canvasWrapRef.current
           wrap.style.setProperty('--ambient-nw', ambient.colors[0])
           wrap.style.setProperty('--ambient-ne', ambient.colors[1])
@@ -1070,7 +1097,7 @@ export default function LEDPreview() {
   }
 
   return (
-    <div className={`${styles.panel} ${stageMode ? styles.panelStage : ''} ${performanceMode ? styles.panelPerformance : ''}`}>
+    <div className={`${styles.panel} ${stageMode ? styles.panelStage : ''} ${stageFullscreen ? styles.panelStageFullscreen : ''} ${stageMatrixFullscreen ? styles.panelStageMatrixFullscreen : ''} ${performanceMode ? styles.panelPerformance : ''}`}>
       <div
         className={`${styles.header} ${stageMode ? styles.headerStage : ''} ${stageQuiet ? styles.stageChromeQuiet : ''}`}
         inert={stageQuiet}
@@ -1115,6 +1142,22 @@ export default function LEDPreview() {
               </span>
               <button
                 type="button"
+                className={styles.fullscreenStageBtn}
+                onClick={() => void toggleStageFullscreen()}
+                aria-pressed={stageFullscreenStatus === 'active'}
+                disabled={stageFullscreenStatus === 'requesting'}
+                title={stageFullscreenStatus === 'active' ? 'Exit fullscreen and keep Stage open' : 'Show Stage fullscreen'}
+              >
+                {stageFullscreenStatus === 'requesting'
+                  ? 'Going Fullscreen'
+                  : stageFullscreenStatus === 'active'
+                    ? 'Exit Fullscreen'
+                    : stageFullscreenStatus === 'unavailable'
+                      ? 'Retry Fullscreen'
+                      : 'Fullscreen'}
+              </button>
+              <button
+                type="button"
                 className={styles.exitStageBtn}
                 onClick={() => void exitStagePresentation()}
                 title="Exit Stage (Esc or F10)"
@@ -1146,7 +1189,7 @@ export default function LEDPreview() {
         ref={canvasWrapRef}
         className={`${styles.canvasWrap} ${effectivePreview3d ? styles.canvasWrap3d : ''}`}
       >
-        {import.meta.env.DEV && <DevPerformanceHud />}
+        {import.meta.env.DEV && !stageFullscreen && <DevPerformanceHud />}
         <div className={`${styles.canvasBay} ${combinedVuId ? styles.canvasBayWithVu : ''} ${standaloneVu ? styles.canvasBayVuOnly : ''}`}>
           {combinedVuId && (
             <div className={styles.vuRail} aria-label={combinedVuSwap ? 'Left rail, driven by right audio channel' : 'Left audio rail'}>
@@ -1179,7 +1222,7 @@ export default function LEDPreview() {
                 onPointerUp={onRotateUp}
                 onPointerCancel={onRotateUp}
               />
-              {tileLayout && (
+              {tileLayout && !stageMatrixFullscreen && (
                 <canvas
                   ref={tileGridCanvasRef}
                   width={canvasBufW}
@@ -1204,9 +1247,8 @@ export default function LEDPreview() {
           </div>
         )}
       </div>
-      {/* Spectrum and transport are workbench furniture; on stage they leave
-          with everything else once the room goes quiet. The standby HUD stays,
-          because it is the only thing that explains a black stage. */}
+      {/* Windowed Stage keeps this operator panel visible. Explicit fullscreen
+          removes it through panelStageFullscreen so the output owns the screen. */}
       <div className={`${styles.visualizer} ${stageQuiet ? styles.stageChromeQuiet : ''}`} inert={stageQuiet}>
           {uiEffectsEnabled && <div className={styles.visualizerGlow} />}
           {uiEffectsEnabled && <div className={styles.visualizerGrid} />}

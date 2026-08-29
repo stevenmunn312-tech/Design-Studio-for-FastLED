@@ -70,6 +70,7 @@ export default function App() {
   const previewPanelOpen = useUiStore((s) => s.previewPanelOpen)
   const workspaceMode = useUiStore((s) => s.workspaceMode)
   const stageMode = useUiStore((s) => s.stageMode)
+  const stageFullscreenStatus = useUiStore((s) => s.stageFullscreenStatus)
   const performanceMode = useUiStore((s) => s.performanceMode)
   const deckOpen = usePerformanceDeckSession((s) => s.deckOpen)
   const uiEffectsEnabled = useUiStore((s) => s.uiEffectsEnabled)
@@ -380,10 +381,8 @@ export default function App() {
     if (hadAudioInputNode.current) stopAudio()
   }, [stopAudio])
 
-  // Browser chrome and Stage are one presentation session. Browser-native Esc
-  // exits fullscreen first; mirror that exit into the app so the editor returns
-  // instead of leaving a windowed Stage behind. A rejected/unsupported request
-  // deliberately remains in windowed Stage as a graceful fallback.
+  // Fullscreen is an optional layer over Stage. Browser-native Esc removes that
+  // layer while leaving the windowed Stage layout running.
   useEffect(() => {
     const onFullscreenChange = () => {
       const state = useUiStore.getState()
@@ -391,11 +390,7 @@ export default function App() {
         if (state.stageMode) state.setStageFullscreenStatus('active')
         return
       }
-      if (state.stageMode && state.stageFullscreenStatus === 'active') {
-        state.setStageMode(false)
-        state.setStageFullscreenStatus('idle')
-        state.setStageWakeLockStatus('idle')
-      }
+      if (state.stageMode) state.setStageFullscreenStatus('idle')
     }
     document.addEventListener('fullscreenchange', onFullscreenChange)
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
@@ -455,19 +450,16 @@ export default function App() {
     }
   }, [stageMode])
 
-  // A screensaver should disappear as an interface when nobody is touching it.
-  // Pointer movement brings the cursor back immediately; two quiet seconds hide
-  // it again. Keyboard focus remains visible and all controls stay operable.
-  //
-  // The same two seconds now take the Stage chrome with the cursor, because
-  // Stage is the audience view and an audience should see lights, not a
-  // telemetry strip. Published to uiStore so the preview panel can follow it.
+  // Windowed Stage is an operator view, so its controls and cursor stay put.
+  // Once the user explicitly goes fullscreen, two quiet seconds hide only the
+  // cursor; the fullscreen layout itself already removes the operator chrome.
   useEffect(() => {
     const setIdle = (idle: boolean) => {
       setStageCursorHidden(idle)
       useUiStore.getState().setStageIdle(idle)
     }
-    if (!stageMode) {
+    const stageFullscreen = stageMode && stageFullscreenStatus === 'active'
+    if (!stageFullscreen) {
       setIdle(false)
       return
     }
@@ -486,7 +478,7 @@ export default function App() {
       window.removeEventListener('pointerdown', wakeCursor)
       useUiStore.getState().setStageIdle(false)
     }
-  }, [stageMode])
+  }, [stageMode, stageFullscreenStatus])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -506,6 +498,10 @@ export default function App() {
           return
         }
         if (useUiStore.getState().stageMode) {
+          // In fullscreen, the first Escape belongs to the browser. Stage stays
+          // open and a second Escape returns to the editor.
+          const fullscreenStatus = useUiStore.getState().stageFullscreenStatus
+          if (document.fullscreenElement || fullscreenStatus === 'active' || fullscreenStatus === 'requesting') return
           void exitStagePresentation()
           return
         }

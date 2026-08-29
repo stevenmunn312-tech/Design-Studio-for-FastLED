@@ -383,7 +383,7 @@ function ShortcutsTab() {
           <div className={styles.kbd}><span className={styles.key}>Del</span><span className={styles.key}>Backspace</span></div>
           <div className={styles.shortcutDesc}>Delete selected node(s)</div>
           <div className={styles.kbd}><span className={styles.key}>Esc</span></div>
-          <div className={styles.shortcutDesc}>Closes one layer at a time, in this order: this dialog or an open menu, the Performance Deck, Stage mode, the Build Diagram, Performance mode, and finally the canvas selection</div>
+          <div className={styles.shortcutDesc}>Closes one layer at a time, in this order: this dialog or an open menu, the Performance Deck, Stage fullscreen, Stage mode, the Build Diagram, Performance mode, and finally the canvas selection</div>
           <div className={styles.kbd}><span className={styles.key}>?</span></div>
           <div className={styles.shortcutDesc}>Open this Help dialog (F1 also works)</div>
           <div className={styles.kbd}><span className={styles.key}>Ctrl/Cmd</span><span className={styles.key}>K</span></div>

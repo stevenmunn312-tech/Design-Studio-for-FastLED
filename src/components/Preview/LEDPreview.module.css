@@ -127,16 +127,8 @@
   backdrop-filter: blur(16px);
 }
 
-/*
- * Stage gone quiet: the audience view is lights, so everything that is not a
- * lit LED fades out along with the cursor after two idle seconds. Pointer
- * movement brings it straight back, and the elements are `inert` while hidden
- * so a faded Exit button cannot be tabbed to or clicked through.
- *
- * Opacity and visibility only — the elements keep their space, so nothing
- * reflows when the chrome comes and goes and the matrix never resizes under
- * the audience. Honours reduced motion by simply not animating.
- */
+/* Fullscreen may quiet transient chrome after pointer inactivity. Windowed
+ * Stage deliberately never receives this class: it is the operator view. */
 .stageChromeQuiet {
   opacity: 0;
   visibility: hidden;
@@ -216,6 +208,7 @@
   box-shadow: 0 0 9px color-mix(in srgb, var(--success) 68%, transparent);
 }
 
+.fullscreenStageBtn,
 .exitStageBtn {
   display: inline-flex;
   align-items: center;
@@ -232,6 +225,23 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
+}
+
+.fullscreenStageBtn {
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--border-glow));
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+.fullscreenStageBtn:hover,
+.fullscreenStageBtn:focus-visible {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 17%, transparent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.fullscreenStageBtn:disabled {
+  cursor: wait;
+  opacity: 0.68;
 }
 
 .exitStageBtn:hover,
@@ -1467,4 +1477,76 @@
   .brandWrap {
     display: none;
   }
+}
+
+/* Explicit browser fullscreen is the audience view: remove the operator
+ * header and the complete spectrum/transport/branding rail, then give the LED
+ * output the whole viewport. The canvas measurement follows this grid change,
+ * so matrix and HUB75 outputs grow to the largest aspect-correct rectangle
+ * that fits rather than retaining the former two-column size. */
+.panelStage.panelStageFullscreen {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.panelStageFullscreen .header,
+.panelStageFullscreen .visualizer {
+  display: none;
+}
+
+.panelStage.panelStageFullscreen .canvasWrap {
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 0;
+  padding: clamp(18px, 2.5vmin, 32px);
+}
+
+.panelStageFullscreen .canvasFrameHeader {
+  display: none;
+}
+
+/* A matrix/HUB75 audience view is the pattern itself, not a photograph of a
+ * panel. Scale the temporary integer LED grid to the browser viewport and
+ * remove every physical-preview treatment. The underlying output dimensions
+ * and evaluated hardware frame are untouched. */
+.panelStage.panelStageMatrixFullscreen .canvasWrap {
+  padding: 0;
+  perspective: none;
+}
+
+.panelStageMatrixFullscreen .canvasBay,
+.panelStageMatrixFullscreen .canvasFrame,
+.panelStageMatrixFullscreen .canvasStack,
+.panelStageMatrixFullscreen .canvas {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+}
+
+.panelStageMatrixFullscreen .canvasBay {
+  gap: 0;
+}
+
+.panelStageMatrixFullscreen .canvasFrame,
+.panelStageMatrixFullscreen .canvasStack {
+  display: block;
+}
+
+.panelStageMatrixFullscreen .canvasStack {
+  transform: none !important;
+  cursor: default !important;
+}
+
+.panelStageMatrixFullscreen .canvasFrame::before,
+.panelStageMatrixFullscreen .canvasFrame::after,
+.panelStageMatrixFullscreen .ambilight,
+.panelStageMatrixFullscreen .vuRail {
+  display: none;
+}
+
+.panelStageMatrixFullscreen .canvas {
+  border-radius: 0;
+  box-shadow: none;
 }

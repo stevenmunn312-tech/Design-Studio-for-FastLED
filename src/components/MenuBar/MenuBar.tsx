@@ -931,7 +931,7 @@ export default function MenuBar() {
           }}
           aria-label="Toggle stage mode"
           aria-pressed={stageMode}
-          title={stageMode ? 'Exit Stage (Esc or F10)' : 'Enter fullscreen Stage (F10)'}
+          title={stageMode ? 'Exit Stage (Esc or F10)' : 'Enter Stage (F10)'}
         >
           Stage
         </button>
