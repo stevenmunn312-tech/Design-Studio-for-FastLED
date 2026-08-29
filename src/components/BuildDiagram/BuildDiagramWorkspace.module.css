@@ -754,9 +754,7 @@
   position: relative;
   flex: 1;
   min-height: 0;
-  overflow: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--border-glow) 74%, transparent);
   border-radius: 22px;
   background:
@@ -765,16 +763,14 @@
   cursor: grab;
 }
 
-.diagramViewport::-webkit-scrollbar {
-  display: none;
-}
-
 .diagramViewport:active {
   cursor: grabbing;
 }
 
 .diagramSurface {
   position: relative;
+  width: 100%;
+  height: 100%;
   padding: 18px;
   box-sizing: border-box;
 }

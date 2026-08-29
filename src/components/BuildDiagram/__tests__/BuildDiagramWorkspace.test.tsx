@@ -56,6 +56,29 @@ function inputNode(id: string, nodeType: 'ButtonInput' | 'PotInput' | 'EncoderIn
   }
 }
 
+function stereoVuMeterNode() {
+  return {
+    id: 'vu',
+    type: 'studioNode',
+    position: { x: 0, y: 0 },
+    data: {
+      label: 'Stereo VU Meter',
+      nodeType: 'StereoVuMeter',
+      category: 'output',
+      properties: {
+        ledCount: 60,
+        chipset: 'WS2812B',
+        leftDataPin: 17,
+        rightDataPin: 18,
+        leftDirection: 'Bottom',
+        rightDirection: 'Bottom',
+      },
+      inputs: [],
+      outputs: [],
+    },
+  }
+}
+
 function sdCardNode() {
   return {
     id: 'sd',
@@ -941,10 +964,6 @@ describe('BuildDiagramWorkspace', () => {
     expect(queryByText('Visible')).toBeNull()
     expect(queryByText('Graph hardware in, complete recommended wiring out.')).toBeNull()
 
-    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
-      callback(0)
-      return 1
-    })
     Object.defineProperties(viewport, {
       clientLeft: { configurable: true, value: 2 },
       clientTop: { configurable: true, value: 2 },
@@ -964,17 +983,23 @@ describe('BuildDiagramWorkspace', () => {
       y: 0,
       toJSON: () => ({}),
     })
-    viewportElement.scrollLeft = 300
-    viewportElement.scrollTop = 200
+
+    viewportElement.setPointerCapture = vi.fn()
+    viewportElement.hasPointerCapture = vi.fn(() => true)
+    viewportElement.releasePointerCapture = vi.fn()
+    fireEvent.pointerDown(viewportElement, { button: 0, pointerId: 7, clientX: 120, clientY: 130 })
+    fireEvent.pointerMove(viewportElement, { pointerId: 7, clientX: 150, clientY: 170 })
+    expect(canvas?.getAttribute('style')).toContain('translate(30px, 40px)')
+    fireEvent.pointerUp(viewportElement, { pointerId: 7 })
+    fireEvent.click(getByText('Reset view'))
+    expect(canvas?.getAttribute('style')).toContain('translate(0px, 0px)')
 
     fireEvent.wheel(viewport as Element, { deltaY: -100, clientX: 102, clientY: 102 })
     expect(getByText('Zoom 115%')).toBeTruthy()
-    expect(viewportElement.scrollLeft).toBeCloseTo(357.3)
-    expect(viewportElement.scrollTop).toBeCloseTo(242.3)
+    expect(canvas?.getAttribute('style')).toContain('translate(-12.3px, -12.3px) scale(1.15)')
     fireEvent.wheel(viewport as Element, { deltaY: 100, clientX: 102, clientY: 102 })
     expect(getByText('Zoom 100%')).toBeTruthy()
-    expect(viewportElement.scrollLeft).toBeCloseTo(300)
-    expect(viewportElement.scrollTop).toBeCloseTo(200)
+    expect(canvas?.getAttribute('style')).toContain('translate(0px, 0px) scale(1)')
 
     fireEvent.click(getByText('Zoom in'))
     expect(getByText('Zoom 115%')).toBeTruthy()
@@ -1003,6 +1028,25 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram?.querySelector('[data-output-card="output:out"] > rect')?.getAttribute('width')).toBe('184')
     expect(diagram?.textContent).toContain('RECOMMENDED POWER SUPPLY5 V · 40A · 200 W')
     expect(diagram?.querySelector('[data-uncapped-current-ceiling]')).toBeNull()
+  })
+
+  it('keeps long power labels, the shared-net callout, and the legend inside the sheet', () => {
+    useGraphStore.setState({ nodes: [stereoVuMeterNode()] as never[] })
+    selectDevKit()
+    const { container } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+
+    const feedLabels = Array.from(diagram?.querySelectorAll('[data-power-feed-label]') ?? [])
+    expect(feedLabels.length).toBeGreaterThanOrEqual(2)
+    for (const label of feedLabels) {
+      expect(Number(label.getAttribute('x')) + Number(label.getAttribute('textLength'))).toBeLessThanOrEqual(1092)
+      expect(label.getAttribute('lengthAdjust')).toBe('spacingAndGlyphs')
+    }
+
+    const calloutLines = Array.from(diagram?.querySelectorAll('[data-common-net-callout] tspan') ?? [])
+    expect(calloutLines).toHaveLength(3)
+    expect(calloutLines.every((line) => (line.textContent?.length ?? 0) <= 92)).toBe(true)
+    expect(diagram?.querySelector('g[transform^="translate(620 "]')?.textContent).toContain('SHARED NET — SEE CALLOUT')
   })
 
   it('preserves explicit complete-build and current-view export scope', () => {

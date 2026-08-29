@@ -34,7 +34,7 @@ import {
 } from './diagramSections'
 import { physicalAssemblyDiagramHeight } from './physicalDiagramLayout'
 import { inlineSvgImages } from './svgExport'
-import { scrollOffsetForPointerZoom } from './viewportZoom'
+import { panOffsetForPointerZoom } from './viewportZoom'
 import styles from './BuildDiagramWorkspace.module.css'
 
 interface DiagramConnection {
@@ -52,7 +52,8 @@ interface DiagramConnection {
   unresolvedReason?: string
 }
 
-type ViewportPanState = { pointerId: number; startX: number; startY: number; startScrollLeft: number; startScrollTop: number }
+type DiagramPan = { x: number; y: number }
+type ViewportPanState = { pointerId: number; startX: number; startY: number; startPan: DiagramPan }
 
 const MIN_ZOOM = 0.55
 const MAX_ZOOM = 1.8
@@ -336,6 +337,7 @@ export default function BuildDiagramWorkspace() {
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH)
   const [detailPaneWidth, setDetailPaneWidth] = useState(DEFAULT_DETAIL_WIDTH)
   const [diagramZoom, setDiagramZoom] = useState(1)
+  const [diagramPan, setDiagramPan] = useState<DiagramPan>({ x: 0, y: 0 })
   const [printSheetsMounted, setPrintSheetsMounted] = useState(false)
   const [sectionId, setSectionId] = useState<BuildSectionId>(DEFAULT_SECTION_ID)
   const viewportRef = useRef<HTMLDivElement | null>(null)
@@ -717,28 +719,30 @@ export default function BuildDiagramWorkspace() {
         : 'The exported reference includes the selected board confidence, calculation ruleset, connections, and parts plan.'
 
   const canvasWidth = 1120
-  const scaledCanvasWidth = canvasWidth * diagramZoom
-  const scaledCanvasHeight = canvasHeight * diagramZoom
-
   const updateViewport = (nextZoom: number, focusRect?: { x: number; y: number; width: number; height: number }) => {
     const viewport = viewportRef.current
+    const canvas = diagramCanvasRef.current
     const zoom = clampZoom(nextZoom)
     setDiagramZoom(zoom)
-    if (!viewport) return
-    window.requestAnimationFrame(() => {
-      if (focusRect) {
-        const targetWidth = focusRect.width * zoom
-        const targetHeight = focusRect.height * zoom
-        const targetLeft = (focusRect.x * zoom) - ((viewport.clientWidth - targetWidth) / 2)
-        const targetTop = (focusRect.y * zoom) - ((viewport.clientHeight - targetHeight) / 2)
-        viewport.scrollLeft = Math.max(0, targetLeft)
-        viewport.scrollTop = Math.max(0, targetTop)
-        return
-      }
-      const centerX = ((viewport.scrollLeft + (viewport.clientWidth / 2)) / Math.max(diagramZoom, 0.001)) * zoom
-      const centerY = ((viewport.scrollTop + (viewport.clientHeight / 2)) / Math.max(diagramZoom, 0.001)) * zoom
-      viewport.scrollLeft = Math.max(0, centerX - (viewport.clientWidth / 2))
-      viewport.scrollTop = Math.max(0, centerY - (viewport.clientHeight / 2))
+    if (!viewport || !canvas) return
+    if (focusRect) {
+      setDiagramPan({
+        x: (viewport.clientWidth / 2) - canvas.offsetLeft - ((focusRect.x + (focusRect.width / 2)) * zoom),
+        y: (viewport.clientHeight / 2) - canvas.offsetTop - ((focusRect.y + (focusRect.height / 2)) * zoom),
+      })
+      return
+    }
+    setDiagramPan({
+      x: panOffsetForPointerZoom({
+        panOffset: diagramPan.x,
+        pointerOffset: viewport.clientWidth / 2,
+        contentOrigin: canvas.offsetLeft,
+      }, diagramZoom, zoom),
+      y: panOffsetForPointerZoom({
+        panOffset: diagramPan.y,
+        pointerOffset: viewport.clientHeight / 2,
+        contentOrigin: canvas.offsetTop,
+      }, diagramZoom, zoom),
     })
   }
 
@@ -778,16 +782,12 @@ export default function BuildDiagramWorkspace() {
   }
 
   const resetView = () => {
-    const viewport = viewportRef.current
     setDiagramZoom(1)
-    if (!viewport) return
-    window.requestAnimationFrame(() => {
-      viewport.scrollLeft = 0
-      viewport.scrollTop = 0
-    })
+    setDiagramPan({ x: 0, y: 0 })
   }
 
   const startViewportPan = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return
     const viewport = viewportRef.current
     if (!viewport) return
     const target = event.target as Element
@@ -799,8 +799,7 @@ export default function BuildDiagramWorkspace() {
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-      startScrollLeft: viewport.scrollLeft,
-      startScrollTop: viewport.scrollTop,
+      startPan: diagramPan,
     }
     viewport.setPointerCapture(event.pointerId)
   }
@@ -809,8 +808,10 @@ export default function BuildDiagramWorkspace() {
     const viewport = viewportRef.current
     const panState = panStateRef.current
     if (!viewport || !panState || panState.pointerId !== event.pointerId) return
-    viewport.scrollLeft = panState.startScrollLeft - (event.clientX - panState.startX)
-    viewport.scrollTop = panState.startScrollTop - (event.clientY - panState.startY)
+    setDiagramPan({
+      x: panState.startPan.x + (event.clientX - panState.startX),
+      y: panState.startPan.y + (event.clientY - panState.startY),
+    })
   }
 
   const stopViewportPan = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -829,33 +830,29 @@ export default function BuildDiagramWorkspace() {
     if (!viewport || !canvas) return
 
     const viewportRect = viewport.getBoundingClientRect()
-    // scrollLeft/Top are measured from the viewport's inner edge, while the
-    // client coordinates include its border. The canvas itself also begins
-    // after the surface's fixed padding. Convert through those two origins so
-    // the diagram coordinate under the cursor does not drift as it scales.
+    // Client coordinates include the viewport border. Convert to its inner
+    // coordinate system, then preserve the diagram point beneath that cursor.
     const pointerX = event.clientX - viewportRect.left - viewport.clientLeft
     const pointerY = event.clientY - viewportRect.top - viewport.clientTop
     const nextZoom = clampZoom(diagramZoom + (event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP))
-    const nextScrollLeft = scrollOffsetForPointerZoom({
-      scrollOffset: viewport.scrollLeft,
+    const nextPanX = panOffsetForPointerZoom({
+      panOffset: diagramPan.x,
       pointerOffset: pointerX,
       contentOrigin: canvas.offsetLeft,
     }, diagramZoom, nextZoom)
-    const nextScrollTop = scrollOffsetForPointerZoom({
-      scrollOffset: viewport.scrollTop,
+    const nextPanY = panOffsetForPointerZoom({
+      panOffset: diagramPan.y,
       pointerOffset: pointerY,
       contentOrigin: canvas.offsetTop,
     }, diagramZoom, nextZoom)
     setDiagramZoom(nextZoom)
-    window.requestAnimationFrame(() => {
-      viewport.scrollLeft = nextScrollLeft
-      viewport.scrollTop = nextScrollTop
-    })
+    setDiagramPan({ x: nextPanX, y: nextPanY })
   }
 
   useEffect(() => {
     if (!exactBoard) {
       setDiagramZoom(1)
+      setDiagramPan({ x: 0, y: 0 })
       return
     }
     fitVisible()
@@ -1021,7 +1018,12 @@ export default function BuildDiagramWorkspace() {
             </p>
           </div>
           <div className={styles.diagramToolbar}>
-            <span className={styles.zoomPill}>Zoom {Math.round(diagramZoom * 100)}%</span>
+            <span
+              className={styles.zoomPill}
+              title="Drag empty space with the left mouse button to move. Scroll to zoom at the cursor."
+            >
+              Zoom {Math.round(diagramZoom * 100)}%
+            </span>
             <button type="button" className={styles.smallButton} aria-label="Zoom out" title="Zoom out" onClick={() => updateViewport(diagramZoom - ZOOM_STEP)}>
               <span aria-hidden="true">-</span><i className={styles.visuallyHidden}>Zoom out</i>
             </button>
@@ -1078,14 +1080,14 @@ export default function BuildDiagramWorkspace() {
             onPointerCancel={stopViewportPan}
             onWheel={handleViewportWheel}
           >
-            <div className={styles.diagramSurface} style={{ minWidth: `${scaledCanvasWidth}px`, minHeight: `${scaledCanvasHeight}px` }}>
+            <div className={styles.diagramSurface}>
               <div
                 ref={diagramCanvasRef}
                 className={styles.diagramCanvas}
                 style={{
                   width: `${canvasWidth}px`,
                   height: `${canvasHeight}px`,
-                  transform: `scale(${diagramZoom})`,
+                  transform: `translate(${diagramPan.x}px, ${diagramPan.y}px) scale(${diagramZoom})`,
                 }}
                 data-pan-surface="true"
                 data-build-export-root="current-view"

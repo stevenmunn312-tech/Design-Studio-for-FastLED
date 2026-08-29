@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { scrollOffsetForPointerZoom } from '../viewportZoom'
+import { panOffsetForPointerZoom } from '../viewportZoom'
 
 describe('Build Diagram pointer-focused zoom', () => {
   it('keeps the diagram coordinate under the pointer fixed across zoom levels', () => {
@@ -7,35 +7,35 @@ describe('Build Diagram pointer-focused zoom', () => {
     const nextZoom = 1
     const pointerOffset = 240
     const contentOrigin = 18
-    const scrollOffset = 310
+    const panOffset = -310
     const diagramCoordinate = (
-      scrollOffset + pointerOffset - contentOrigin
+      pointerOffset - contentOrigin - panOffset
     ) / currentZoom
 
-    const nextScrollOffset = scrollOffsetForPointerZoom({
-      scrollOffset,
+    const nextPanOffset = panOffsetForPointerZoom({
+      panOffset,
       pointerOffset,
       contentOrigin,
     }, currentZoom, nextZoom)
 
     expect(
-      (nextScrollOffset + pointerOffset - contentOrigin) / nextZoom,
+      (pointerOffset - contentOrigin - nextPanOffset) / nextZoom,
     ).toBeCloseTo(diagramCoordinate)
   })
 
   it('accounts for the unscaled padding before the canvas', () => {
-    expect(scrollOffsetForPointerZoom({
-      scrollOffset: 300,
+    expect(panOffsetForPointerZoom({
+      panOffset: 0,
       pointerOffset: 100,
       contentOrigin: 18,
-    }, 1, 1.15)).toBeCloseTo(357.3)
+    }, 1, 1.15)).toBeCloseTo(-12.3)
   })
 
-  it('does not request negative scrolling at the top or left edge', () => {
-    expect(scrollOffsetForPointerZoom({
-      scrollOffset: 0,
+  it('allows free panning beyond the former scroll boundaries', () => {
+    expect(panOffsetForPointerZoom({
+      panOffset: 0,
       pointerOffset: 100,
       contentOrigin: 18,
-    }, 1, 0.55)).toBe(0)
+    }, 1, 0.55)).toBeCloseTo(36.9)
   })
 })

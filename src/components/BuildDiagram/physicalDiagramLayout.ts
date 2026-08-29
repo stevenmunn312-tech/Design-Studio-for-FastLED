@@ -15,7 +15,7 @@ export type ItemLayout = {
 export const POWER_SECTION_GAP = 120
 
 /** Shared-net callout box, and the gap it keeps below the last hardware row. */
-export const COMMON_NET_CALLOUT_HEIGHT = 52
+export const COMMON_NET_CALLOUT_HEIGHT = 88
 export const COMMON_NET_CALLOUT_GAP = 12
 /** Strip along the bottom edge that the wire-colour legend owns. */
 export const DIAGRAM_LEGEND_BAND = 46

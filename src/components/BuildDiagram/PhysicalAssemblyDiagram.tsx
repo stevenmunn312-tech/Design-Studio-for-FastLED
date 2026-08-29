@@ -35,6 +35,7 @@ import {
   levelShifterSupplyPoint,
   levelShifterTerminalPoint,
   COMMON_NET_CALLOUT_GAP,
+  COMMON_NET_CALLOUT_HEIGHT,
   diagramContentBottom,
   feedCombLaneY,
   feedIndexForFuseSlot,
@@ -945,6 +946,8 @@ const FEED_RUN_END = 900
 const LED_TERMINAL_X = FEED_RUN_END - 16
 const CAPACITOR_X = FEED_RUN_END - 2
 const FEED_LABEL_X = 748
+const FEED_LABEL_MAX_WIDTH = 344
+const APPROX_WIRE_LABEL_CHARACTER_WIDTH = 6.6
 
 function laneGeometry(feedCount: number) {
   const pitch = Math.round(Math.min(
@@ -1112,6 +1115,8 @@ function PowerDistributionSections({ plan, bands }: { plan: ElectricalPlanSummar
           const fuseText = injection.fuse.ratingMa ? formatAmps(injection.fuse.ratingMa) : 'RATED'
           const wireText = injection.conductor ? `AWG ${injection.conductor.awg}` : 'WIRE TBD'
           const destination = `${injection.outputTitle} · ${injection.role.toUpperCase()} @ ${injection.positionMm} mm`
+          const feedLabel = `${destination} · ${formatAmps(injection.designCurrentMa)} · ${wireText} · 500 mm`
+          const fitFeedLabel = feedLabel.length * APPROX_WIRE_LABEL_CHARACTER_WIDTH > FEED_LABEL_MAX_WIDTH
           const block = blocks.find((candidate) => index >= candidate.firstFeedIndex && index < candidate.firstFeedIndex + candidate.assignedFeedCount)!
           const localIndex = index - block.firstFeedIndex
           const { slot, isRightColumn, columnRank } = fuseSlotForFeed(localIndex, block.assignedFeedCount)
@@ -1170,7 +1175,16 @@ function PowerDistributionSections({ plan, bands }: { plan: ElectricalPlanSummar
             />
             {/* Both captions sit above the pair: the gap below it belongs to the
                 next feed, and the capacitor owns the space beside the wires. */}
-            <text x={FEED_LABEL_X} y={rowY - 36} className={styles.physicalWireLabel}>{destination} · {formatAmps(injection.designCurrentMa)} · {wireText} · 500 mm</text>
+            <text
+              data-power-feed-label={injection.id}
+              x={FEED_LABEL_X}
+              y={rowY - 36}
+              textLength={fitFeedLabel ? FEED_LABEL_MAX_WIDTH : undefined}
+              lengthAdjust={fitFeedLabel ? 'spacingAndGlyphs' : undefined}
+              className={styles.physicalWireLabel}
+            >
+              {feedLabel}
+            </text>
             <g data-terminal={`${injection.id}-capacitor`}>
               <image
                 data-component-render="panasonic-eeufr0j102b-1000uf"
@@ -1454,7 +1468,9 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
       {layouts.length > 0 && (
         <CommonNetCallout
           x={320}
-          y={showPowerDistribution ? powerSectionY - 78 : diagramContentBottom(items, layers) + COMMON_NET_CALLOUT_GAP}
+          y={showPowerDistribution
+            ? powerSectionY - COMMON_NET_CALLOUT_HEIGHT - COMMON_NET_CALLOUT_GAP
+            : diagramContentBottom(items, layers) + COMMON_NET_CALLOUT_GAP}
           width={776}
           powerBelow={showPowerDistribution}
         />
@@ -1488,7 +1504,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
         <text x="16" y="45" className={styles.physicalLegendMeta}>{items.length + 1} graph devices · {connections.length} GPIO routes</text>
         <text x="16" y="60" className={styles.physicalLegendMeta}>{plan.ruleSetVersion}</text>
       </g>
-      <g transform={`translate(674 ${canvasHeight - 22})`}>
+      <g transform={`translate(620 ${canvasHeight - 22})`}>
         <line x1="0" y1="0" x2="28" y2="0" className={styles.powerWire} /><WireLabel x={36} y={4}>+5V</WireLabel>
         <line x1="80" y1="0" x2="108" y2="0" className={styles.groundWire} /><WireLabel x={116} y={4}>GND</WireLabel>
         <line x1="166" y1="0" x2="194" y2="0" className={styles.signalWire} /><WireLabel x={202} y={4}>SIGNAL</WireLabel>

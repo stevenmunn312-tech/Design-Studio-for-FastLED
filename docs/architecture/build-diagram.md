@@ -136,8 +136,9 @@ so there is nothing to wire to.
 - Target authoring size: `1440x900`; supported minimum: `1280x720`.
 - Left panel: generic controller-family outline, horizontal reviewed-pinout
   picker, compact graph-hardware action rows, and power summary.
-- Centre: generated wiring diagram with hidden scrollbars, left-drag panning
-  from empty canvas space, and cursor-centred mouse-wheel zoom.
+- Centre: generated wiring diagram in a non-scrolling viewport, with left-drag
+  panning from empty canvas space and cursor-centred wheel or trackpad-pinch
+  zoom.
 - Right panel: idle on first load, then exact-board notes, generated readiness,
   connections, BOM, and export controls after a board or hardware selection.
 - Panels scroll independently and the diagram remains the priority below the
