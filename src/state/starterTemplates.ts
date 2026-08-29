@@ -2,6 +2,10 @@ import { NODE_LIBRARY, portColor } from './nodeLibrary'
 import { resolveDefaultProperties } from './nodeDefaults'
 import { LED_OUTPUT_FORM_LABELS, outputForm } from './ledOutputForm'
 import { isHardwareOnlyNodeType } from './hardware'
+import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
+import { retargetHardwarePins } from './pinRetarget'
+import { audioCapabilityIntent } from './audioCapabilities'
+import { estimatePowerLoad } from '../utils/validateGraph'
 import type { StudioNode, StudioEdge } from './graphStore'
 
 export interface StarterTemplate {
@@ -169,6 +173,48 @@ function buildGraph(nodeSpecs: NodeSpec[], edgeSpecs: EdgeSpec[]): { nodes: Stud
   return { nodes, edges }
 }
 
+/**
+ * Build a starter against the board already selected for this project.
+ *
+ * Starters replace the signal graph, but the Board node describes the bench
+ * the project is running on. Keeping it also gives every new hardware part to
+ * one coordinated allocator, so fixed peripheral buses are claimed before a
+ * general-purpose LED pin is selected around them.
+ */
+export function buildBoardAwareStarter(
+  starter: StarterTemplate,
+  currentNodes: StudioNode[],
+  selectedFqbn: string,
+): { nodes: StudioNode[]; edges: StudioEdge[] } {
+  const built = starter.build()
+  const board = currentNodes.find((node) => node.data.nodeType === 'Board')
+  const profile = selectedPhysicalBoardProfile(currentNodes)
+  const fqbn = profile?.compatibleFqbns[0] ?? selectedFqbn
+  const nodes = board ? [...built.nodes, board] : built.nodes
+  const retargeted = retargetHardwarePins(nodes, profile, fqbn).nodes
+  const power = estimatePowerLoad(retargeted)
+  if (!board || !power) return { ...built, nodes: retargeted }
+
+  // A guided starter should be electrically coherent on first load. Cap at
+  // its calculated full-white ceiling; the Board presents the corresponding
+  // supply nameplate with the electrical plan's 20% continuous headroom.
+  const powered = retargeted.map((node) => node.id === board.id
+    ? {
+        ...node,
+        data: {
+          ...node.data,
+          properties: {
+            ...node.data.properties,
+            powerLimit: true,
+            volts: 5,
+            milliamps: power.recommendedMa,
+          },
+        },
+      }
+    : node)
+  return { ...built, nodes: powered }
+}
+
 export const STARTER_TEMPLATES: StarterTemplate[] = [
   template({
     id: 'juggle',
@@ -300,7 +346,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       'Check the hardware GPIOs and capacity before uploading the sketch from the LED output.',
     ],
     nodeSpecs: [
-      { id: 'audio', type: 'Audio', col: 0, row: 0 },
+      { id: 'audio', type: 'Audio', properties: { sourceId: audioCapabilityIntent('decoder') }, col: 0, row: 0 },
       { id: 'controls', type: 'PlayerControls', col: 0, row: 1 },
       { id: 'collection', type: 'PatternCollection', col: 0, row: 2 },
       { id: 'master', type: 'PatternMaster', col: 1, row: 1 },

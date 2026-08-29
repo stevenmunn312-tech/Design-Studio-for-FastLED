@@ -40,7 +40,7 @@ import ButtonBankBody from './ButtonBankBody'
 import MidiInputBody from './MidiInputBody'
 import DmxInputBody from './DmxInputBody'
 import RtcInputBody from './RtcInputBody'
-import { pinSupports } from '../../state/boardGpio'
+import { pinSupports, pinWarningForCapability } from '../../state/boardGpio'
 import { buttonBankOutputs } from '../../state/buttonBank'
 import { isHardwareNodeType } from '../../state/hardware'
 import { usePreviewStore } from '../../state/previewStore'
@@ -458,7 +458,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 ? `Pin ${val} doesn't support ${gpioRequirement.capability === 'analogInput' ? 'analog input' : gpioRequirement.capability === 'digitalInput' ? 'digital input' : 'digital output'}`
                 : gpioRequirement.pullup && !pinSupports(gpioPin, 'pullup')
                   ? `Pin ${val} has no internal pull-up`
-                  : gpioPin.warning ?? gpioPin.note
+                  : pinWarningForCapability(gpioPin, gpioRequirement.capability) ?? gpioPin.note
         const rowTitle = wired
           ? 'Driven by connection'
           : gated

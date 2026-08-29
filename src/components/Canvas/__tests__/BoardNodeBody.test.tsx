@@ -30,6 +30,18 @@ function boardNode(id: string, profileId = ''): StudioNode {
   } as unknown as StudioNode
 }
 
+function matrixNode(id: string): StudioNode {
+  return {
+    id,
+    type: 'studioNode',
+    position: { x: 0, y: 0 },
+    data: {
+      label: 'LED Matrix', nodeType: 'MatrixOutput', category: 'output',
+      properties: { form: 'matrix', width: 16, height: 16 }, inputs: [], outputs: [],
+    },
+  } as unknown as StudioNode
+}
+
 function reset(nodes: StudioNode[]) {
   useGraphStore.setState({
     nodes, edges: [], selectedNodeId: null, activeGraphId: ROOT_GRAPH_ID, trusted: true,
@@ -139,6 +151,23 @@ describe('BoardNodeBody', () => {
     const mic = xiao.peripheralPins?.inmp441
     expect(mic).toBeTruthy()
     expect(screen.getByText(new RegExp(`Mic → WS ${mic!.wsLrclk}`))).toBeTruthy()
+  })
+
+  it('shows the continuous power supply required by the LED load', () => {
+    const board = boardNode('b1')
+    board.data.properties = {
+      ...board.data.properties,
+      powerLimit: true,
+      volts: 5,
+      milliamps: 15400,
+    }
+    reset([board, matrixNode('out')])
+
+    render(<BoardNodeBody nodeId="b1" />)
+
+    expect(screen.getByLabelText('Required power supply')).toBeTruthy()
+    expect(screen.getByText('5 V · at least 20 A · 100 W continuous')).toBeTruthy()
+    expect(screen.getByText(/20% operating headroom/)).toBeTruthy()
   })
 
   it('says outright when a board carries no pin-safety data', () => {

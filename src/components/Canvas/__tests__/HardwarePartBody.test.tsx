@@ -76,7 +76,7 @@ describe('HardwarePartBody', () => {
     expect(queryByText('Size')).toBeNull()
   })
 
-  it('does not repeat a selected pin caution below its dropdown', () => {
+  it('does not show an analog-only ADC2 caveat for a digital I2S pin', () => {
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
     setPart('Amplifier')
     useGraphStore.setState({
@@ -93,7 +93,7 @@ describe('HardwarePartBody', () => {
       <HardwarePartBody nodeId="part" nodeType="Amplifier" />,
     )
     const picker = getByLabelText('BCLK') as HTMLSelectElement
-    expect(picker.selectedOptions[0].textContent).toContain('ADC2 shares hardware with Wi-Fi')
+    expect(picker.selectedOptions[0].textContent).not.toContain('ADC2 shares hardware with Wi-Fi')
     expect(queryByText((text, element) =>
       element?.tagName === 'SPAN' && text.includes('ADC2 shares hardware with Wi-Fi'))).toBeNull()
   })

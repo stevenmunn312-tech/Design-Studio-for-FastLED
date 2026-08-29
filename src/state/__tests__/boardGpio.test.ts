@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BOARD_GPIO_BY_FQBN, pinSupports, type PinNote } from '../boardGpio'
+import { BOARD_GPIO_BY_FQBN, pinSupports, pinWarningForCapability, type PinNote } from '../boardGpio'
 import { BOARDS, boardGpioInfo } from '../uploadStore'
 
 describe('board GPIO capability catalogue', () => {
@@ -33,7 +33,8 @@ describe('board GPIO capability catalogue', () => {
   it('marks classic ESP32 ADC2 pins with their Wi-Fi conflict', () => {
     const adc2 = boardGpioInfo('esp32:esp32:esp32')!.recommended.find((pin) => pin.pin === 25)!
     expect(pinSupports(adc2, 'analogInput')).toBe(true)
-    expect(adc2.warning).toMatch(/ADC2 shares hardware with Wi-Fi/)
+    expect(pinWarningForCapability(adc2, 'analogInput')).toMatch(/ADC2 shares hardware with Wi-Fi/)
+    expect(pinWarningForCapability(adc2, 'digitalOutput')).toBeUndefined()
   })
 
   it('models the 30-pin ESP-32D DevKit header, which omits GPIO0', () => {

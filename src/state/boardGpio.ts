@@ -9,6 +9,8 @@ export interface PinNote {
   note?: string
   /** A caveat worth surfacing in graph validation (ADC2/Wi-Fi, boot straps). */
   warning?: string
+  /** A caveat that applies only when the pad is used as an analog input. */
+  analogWarning?: string
   capabilities?: readonly GpioCapability[]
 }
 
@@ -38,6 +40,7 @@ interface BoardPinsOptions {
   labels?: Readonly<Record<number, string>>
   notes?: Readonly<Record<number, string>>
   warnings?: Readonly<Record<number, string>>
+  analogWarnings?: Readonly<Record<number, string>>
   unavailable?: Readonly<Record<number, string>>
 }
 
@@ -50,6 +53,7 @@ function boardPins({
   labels = {},
   notes = {},
   warnings = {},
+  analogWarnings = {},
   unavailable = {},
 }: BoardPinsOptions): BoardGpio {
   const analogSet = new Set(analog)
@@ -78,6 +82,7 @@ function boardPins({
       label: labels[pin],
       note: notes[pin],
       warning: warnings[pin],
+      analogWarning: analogWarnings[pin],
       capabilities,
     }
   })
@@ -93,6 +98,15 @@ function analogLabels(pins: readonly number[], start = 0): Record<number, string
 }
 
 const ADC2_WIFI = 'ADC2 shares hardware with Wi-Fi — analogRead may fail while Wi-Fi is active'
+
+/** Return only caveats that apply to the role this pin is performing. */
+export function pinWarningForCapability(pin: PinNote, capability?: GpioCapability): string | undefined {
+  const warnings = [
+    pin.warning,
+    capability === 'analogInput' ? pin.analogWarning : undefined,
+  ].filter((warning): warning is string => Boolean(warning))
+  return warnings.length > 0 ? warnings.join('. ') : undefined
+}
 
 const ESP32_S3_ANALOG = range(1, 20)
 const ESP32_S3_GPIO = boardPins({
@@ -113,11 +127,11 @@ const ESP32_S3_GPIO = boardPins({
   warnings: {
     0: 'Boot-strapping pin — must be high at boot',
     3: 'Strapping pin — check the required boot level',
-    ...Object.fromEntries(range(11, 20).map((pin) => [pin, ADC2_WIFI])),
     ...Object.fromEntries(range(33, 37).map((pin) => [pin, 'Often connected to octal flash/PSRAM — check your module'])),
     45: 'Strapping pin — check the required boot level',
     46: 'Strapping pin and input-only',
   },
+  analogWarnings: Object.fromEntries(range(11, 20).map((pin) => [pin, ADC2_WIFI])),
   unavailable: {
     ...Object.fromEntries(range(22, 25).map((pin) => [pin, 'Not present as general GPIO on ESP32-S3'])),
     ...Object.fromEntries(range(26, 32).map((pin) => [pin, 'Connected to integrated flash/PSRAM on common modules'])),
@@ -138,12 +152,12 @@ const ESP32_PINS: BoardPinsOptions = {
     39: 'Input-only; no internal pull resistor',
   },
   warnings: {
-    ...Object.fromEntries([0, 2, 4, ...range(12, 15), 25, 26, 27].map((pin) => [pin, ADC2_WIFI])),
-    0: `Boot-strapping pin — must be high at boot. ${ADC2_WIFI}`,
-    2: `Strapping pin; often tied to the onboard LED. ${ADC2_WIFI}`,
-    12: `Strapping pin sets flash voltage — usually must be low at boot. ${ADC2_WIFI}`,
-    15: `Strapping pin — check the required boot level. ${ADC2_WIFI}`,
+    0: 'Boot-strapping pin — must be high at boot',
+    2: 'Strapping pin; often tied to the onboard LED',
+    12: 'Strapping pin sets flash voltage — usually must be low at boot',
+    15: 'Strapping pin — check the required boot level',
   },
+  analogWarnings: Object.fromEntries([0, 2, 4, ...range(12, 15), 25, 26, 27].map((pin) => [pin, ADC2_WIFI])),
   unavailable: Object.fromEntries([
     ...range(6, 11).map((pin) => [pin, 'Connected to integrated SPI flash — not usable']),
     ...[20, 24, 28, 29, 30, 31, 37, 38].map((pin) => [pin, 'Not broken out on most ESP32 modules']),
@@ -180,7 +194,7 @@ const ESP32_DEVKIT_V1_GPIO = boardPins({
   },
   warnings: {
     ...ESP32_PINS.warnings,
-    2: `Strapping pin; drives the on-board blue LED. ${ADC2_WIFI}`,
+    2: 'Strapping pin; drives the on-board blue LED',
   },
   unavailable: Object.fromEntries([
     [0, 'Wired to the BOOT button only — no header pad on the 30-pin DevKit v1'],
@@ -197,11 +211,11 @@ const ESP32_S2_GPIO = boardPins({
   notes: { 46: 'Input-only; no internal pull resistor' },
   warnings: {
     0: 'Boot-strapping pin — check the required boot level',
-    ...Object.fromEntries(range(11, 20).map((pin) => [pin, ADC2_WIFI])),
     ...Object.fromEntries(range(39, 42).map((pin) => [pin, 'Default JTAG pin — avoid when hardware debugging'])),
     45: 'Strapping pin — check the required boot level',
     46: 'Strapping pin and input-only',
   },
+  analogWarnings: Object.fromEntries(range(11, 20).map((pin) => [pin, ADC2_WIFI])),
   unavailable: Object.fromEntries(range(22, 32).map((pin) => [
     pin,
     pin >= 26 ? 'Connected to integrated flash/PSRAM on common modules' : 'Not present on ESP32-S2',
@@ -213,10 +227,10 @@ const ESP32_C3_GPIO = boardPins({
   analog: range(0, 5),
   warnings: {
     2: 'Strapping pin — check the required boot level',
-    5: ADC2_WIFI,
     8: 'Strapping pin — check the required boot level',
     9: 'Boot-strapping pin — check the required boot level',
   },
+  analogWarnings: { 5: ADC2_WIFI },
   notes: {
     18: 'Native USB D− on boards using USB-JTAG',
     19: 'Native USB D+ on boards using USB-JTAG',

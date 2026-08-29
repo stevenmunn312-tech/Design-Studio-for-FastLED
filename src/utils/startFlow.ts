@@ -1,9 +1,10 @@
-import { useGraphStore } from '../state/graphStore'
+import { rootGraphNodes, useGraphStore } from '../state/graphStore'
 import { useAudioStore } from '../state/audioStore'
-import { STARTER_TEMPLATES, type StarterTemplate } from '../state/starterTemplates'
+import { STARTER_TEMPLATES, buildBoardAwareStarter, type StarterTemplate } from '../state/starterTemplates'
 import { useUiStore } from '../state/uiStore'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
 import { inmp441SupportedForBoardProfile } from '../state/micPinDefaults'
+import { useUploadStore } from '../state/uploadStore'
 import { runTidy } from './tidyGraph'
 
 interface StartFlowOptions {
@@ -37,9 +38,19 @@ function finishStartFlow(choice: string | 'blank', statusText: string, nodeIds?:
 
 export function startTemplate(template: StarterTemplate, options?: StartFlowOptions) {
   const generation = ++startFlowGeneration
-  const { nodes, edges } = template.build()
+  const graph = useGraphStore.getState()
+  const { nodes, edges } = buildBoardAwareStarter(
+    template,
+    rootGraphNodes(graph),
+    useUploadStore.getState().selectedFqbn,
+  )
   useGraphStore.getState().loadGraph(nodes, edges)
-  finishStartFlow(template.id, `Loaded "${template.name}" starter`, nodes.map((node) => node.id), options)
+  finishStartFlow(
+    template.id,
+    `Loaded "${template.name}" starter`,
+    nodes.filter((node) => !node.hidden).map((node) => node.id),
+    options,
+  )
   tidyLoadedTemplate(generation)
   if (template.activateMicrophone) {
     const ui = useUiStore.getState()

@@ -9,7 +9,13 @@
 
 import type { StudioNode } from './graphStore'
 import type { PhysicalBoardProfile } from '../build/boardProfiles'
-import { BOARD_GPIO_BY_FQBN, pinSupports, type GpioCapability, type PinNote } from './boardGpio'
+import {
+  BOARD_GPIO_BY_FQBN,
+  pinSupports,
+  pinWarningForCapability,
+  type GpioCapability,
+  type PinNote,
+} from './boardGpio'
 import { claimedPins } from './ledPinAssignment'
 
 /** One pin a part needs, and what it has to be able to do. */
@@ -93,22 +99,21 @@ export function assignPartPins(
     ? [...pool]
     : (BOARD_GPIO_BY_FQBN[fqbn]?.recommended ?? []).map((note) => note.pin)
 
-  /*
-   * Pins the board flags a caveat on go last, never out.
-   *
-   * ADC2 is the case that matters: on an ESP32-S3 analog covers GPIO1-20, but
-   * 11-20 are ADC2 and stop converting the moment Wi-Fi is up. A potentiometer
-   * put there works on the bench and dies silently in the install, so a clean
-   * pin is preferred whenever one exists — while still offering a warned pin
-   * rather than refusing, since a board with only ADC2 left can still be wired
-   * by someone who knows.
-   */
-  const clean = candidates.filter((pin) => !notes.get(pin)?.warning)
-  const warned = candidates.filter((pin) => notes.get(pin)?.warning)
-  const ordered = [...clean, ...warned]
-
   const pins: Record<string, number> = {}
   for (const request of requests) {
+    // A caveat is role-specific. ADC2 is a poor automatic choice for an
+    // analog input while Wi-Fi is active, but it is an ordinary GPIO for I2S,
+    // SPI, and LED data. Keep applicable caveats last without penalising a
+    // perfectly safe digital use of the same pad.
+    const clean = candidates.filter((pin) => {
+      const note = notes.get(pin)
+      return !note || !pinWarningForCapability(note, request.capability)
+    })
+    const warned = candidates.filter((pin) => {
+      const note = notes.get(pin)
+      return Boolean(note && pinWarningForCapability(note, request.capability))
+    })
+    const ordered = [...clean, ...warned]
     const pin = ordered.find((candidate) =>
       Number.isFinite(candidate)
       && !taken.has(candidate)

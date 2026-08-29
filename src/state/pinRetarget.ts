@@ -32,7 +32,12 @@ import { assignPartPins, type PartPinRequest } from './partPinAssignment'
 import { micPinDefaultsForBoard, micPinIsDefault } from './micPinDefaults'
 import { outputForm } from './ledOutputForm'
 import { boardI2cDefault } from '../build/boardI2cDefaults'
-import { oledTransportForProps, segmentControllerForProps, transportDisplayPinKeysForProps } from './nodeLibrary'
+import {
+  SPI_CHIPSETS,
+  oledTransportForProps,
+  segmentControllerForProps,
+  transportDisplayPinKeysForProps,
+} from './nodeLibrary'
 import { OLED_TRANSPORT_PINS } from './oledSurface'
 import { sdSpiPinsForBoard, type SdSpiPins } from './sdPinDefaults'
 import { normalizeButtonBankEntries, type ButtonBankEntry } from './buttonBank'
@@ -94,6 +99,16 @@ interface PartPinPlan {
 }
 
 export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
+  MatrixOutput: {
+    keys: ['dataPin', 'clockPin'],
+    keysFor: (properties) => SPI_CHIPSETS.has(String(properties.chipset ?? 'WS2812B'))
+      ? ['dataPin', 'clockPin']
+      : ['dataPin'],
+    requests: [
+      { key: 'dataPin', capability: 'digitalOutput' },
+      { key: 'clockPin', capability: 'digitalOutput' },
+    ],
+  },
   MicInput: {
     keys: ['i2sWs', 'i2sSck', 'i2sSd'],
     peripheral: 'inmp441',

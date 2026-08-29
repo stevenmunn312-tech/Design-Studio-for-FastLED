@@ -3,6 +3,7 @@ import { useGraphStore, useRootNodes } from '../../state/graphStore'
 import { boardHasUsbCdc, boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import { controllerSettings } from '../../state/controllerSettings'
 import { serialRouteSummary } from '../../state/serialRouting'
+import { estimatePowerLoad } from '../../utils/validateGraph'
 import {
   BOARD_PROFILE_FAMILIES,
   boardProfileById,
@@ -53,6 +54,7 @@ export default function BoardNodeBody({ nodeId }: Props) {
   const hasUsbCdc = boardHasUsbCdc(selectedFqbn)
   const graphNodes = useRootNodes()
   const settings = useMemo(() => controllerSettings(graphNodes), [graphNodes])
+  const power = useMemo(() => estimatePowerLoad(graphNodes), [graphNodes])
   const psramChoice = psramOptions?.find((option) => option.id === settings.psramMode) ?? psramOptions?.[0]
   const serialPort = ports.find((port) => port.address === selectedPort)
   const familyId = profile ? boardProfileFamilyId(profile) : ''
@@ -230,6 +232,20 @@ export default function BoardNodeBody({ nodeId }: Props) {
                 aria-label="Power cap milliamps"
                 onChange={(event) => updateNodeProperty(nodeId, 'milliamps', Number(event.target.value))} />
             </label>
+          </div>
+        )}
+
+        {power && (
+          <div className={styles.powerRequirement} aria-label="Required power supply">
+            <span>Required power supply</span>
+            <strong>
+              5 V · at least {Number((power.requiredSupplyMa / 1000).toFixed(1))} A ·{' '}
+              {power.requiredSupplyWattage} W continuous
+            </strong>
+            <small>
+              Includes 20% operating headroom. LED wiring and fuses must still
+              cover the {Number((power.worstCaseMa / 1000).toFixed(2))} A full-white ceiling.
+            </small>
           </div>
         )}
 

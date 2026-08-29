@@ -8,8 +8,11 @@ import {
   type ConductorRecommendation,
   type FuseRecommendation,
 } from './electricalRules'
+import {
+  DEFAULT_SUPPLY_HEADROOM_PERCENT,
+  recommendedSupplyCurrentMa,
+} from './powerSupplySizing'
 
-const DEFAULT_SUPPLY_HEADROOM_PERCENT = 20
 const WS2812_WORST_CASE_MA_PER_PIXEL = 60
 const DEFAULT_LED_DENSITY_PER_METER = 60
 const DEFAULT_FEED_CABLE_LENGTH_MM = 500
@@ -138,23 +141,6 @@ export interface OwnedBranchCheck {
   issues: ElectricalPlanIssue[]
 }
 
-function roundToStep(value: number, step: number): number {
-  return Math.ceil(value / step) * step
-}
-
-function recommendSupplyCurrent(psuSizingCurrentMa: number): number {
-  const targetCurrentMa = psuSizingCurrentMa * (1 + (DEFAULT_SUPPLY_HEADROOM_PERCENT / 100))
-  if (targetCurrentMa <= 10000) return roundToStep(targetCurrentMa, 1000)
-
-  const lowerTenAmps = Math.floor(targetCurrentMa / 10000) * 10000
-  const roundedCurrentMa = targetCurrentMa - lowerTenAmps < 2000
-    ? lowerTenAmps
-    : lowerTenAmps + 10000
-
-  // Never recommend a nameplate current below the cap-aware operating budget.
-  return Math.max(roundToStep(psuSizingCurrentMa, 1000), roundedCurrentMa)
-}
-
 function formatRuleCurrent(valueMa: number): string {
   return valueMa >= 1000
     ? `${Number((valueMa / 1000).toFixed(2))} A`
@@ -255,7 +241,7 @@ function groupSupplies(outputs: OutputElectricalPlan[]): SupplyRecommendation[] 
       }
       supply.designCurrentMa += injection.designCurrentMa
       supply.psuSizingCurrentMa += injectionPsuSizingCurrentMa
-      supply.recommendedCurrentMa = recommendSupplyCurrent(supply.psuSizingCurrentMa)
+      supply.recommendedCurrentMa = recommendedSupplyCurrentMa(supply.psuSizingCurrentMa)
       supply.recommendedWattage = Number(((supply.recommendedCurrentMa / 1000) * output.nominalVoltage).toFixed(1))
       if (!supply.outputIds.includes(output.itemId)) supply.outputIds.push(output.itemId)
       if (!supply.outputTitles.includes(output.title)) supply.outputTitles.push(output.title)
@@ -327,8 +313,8 @@ export function calculateElectricalPlan(
     const psuSizingCurrentMa = operatingCurrentCapMa != null && operatingCurrentCapMa > 0
       ? Math.min(designCurrentMa, operatingCurrentCapMa)
       : designCurrentMa
-    const recommendedSupplyCurrentMa = recommendSupplyCurrent(psuSizingCurrentMa)
-    const recommendedSupplyWattage = Number(((recommendedSupplyCurrentMa / 1000) * nominalVoltage).toFixed(1))
+    const recommendedSupplyMa = recommendedSupplyCurrentMa(psuSizingCurrentMa)
+    const recommendedSupplyWattage = Number(((recommendedSupplyMa / 1000) * nominalVoltage).toFixed(1))
 
     outputPlans.push({
       itemId: item.id,
@@ -344,7 +330,7 @@ export function calculateElectricalPlan(
       designCurrentMa,
       operatingCurrentCapMa,
       psuSizingCurrentMa,
-      recommendedSupplyCurrentMa,
+      recommendedSupplyCurrentMa: recommendedSupplyMa,
       recommendedSupplyWattage,
       recommendedFeedCount,
       pixelsPerFeed,

@@ -199,4 +199,25 @@
   border-radius: 3px;
 }
 
+.powerRequirement {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent-output) 36%, transparent);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--accent-output) 8%, transparent);
+}
+
+.powerRequirement > span,
+.powerRequirement > small {
+  color: var(--text-secondary);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.powerRequirement > strong {
+  color: var(--text-primary);
+  font: 10px/1.35 var(--font-code);
+}
+
 .psramBlock { display: grid; gap: 7px; }

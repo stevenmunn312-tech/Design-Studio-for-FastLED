@@ -58,10 +58,9 @@ describe('board-aware MicInput pin defaults', () => {
       if (!pins) continue
       const { errors, warnings } = findBoardPinCompatibility([micNode({ ...pins })], board.fqbn)
       expect(errors, board.label).toEqual([])
-      // ADC2/Wi-Fi only affects analogRead; INMP441 uses these pads as digital
-      // I2S, so retain that general catalogue warning without treating it as
-      // invalid microphone wiring. Boot/USB/reserved-pin warnings still fail.
-      expect(warnings.filter((warning) => !warning.includes('ADC2 shares hardware')), board.label).toEqual([])
+      // ADC2/Wi-Fi only affects analogRead; INMP441 uses digital I2S, so that
+      // analog-only caveat must not appear for otherwise safe microphone pins.
+      expect(warnings, board.label).toEqual([])
     }
   })
 

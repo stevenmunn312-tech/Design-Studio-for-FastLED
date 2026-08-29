@@ -978,6 +978,23 @@ describe('validateGraph', () => {
       expect(result.errors).toEqual([])
       expect(result.warnings).toEqual([expect.stringMatching(/ADC2 shares hardware with Wi-Fi/)])
     })
+
+    it('does not apply the ESP32 analogRead caveat to digital buses', () => {
+      const result = findBoardPinCompatibility([
+        node('amp', 'Amplifier', { i2sBclk: 27, i2sLrc: 14, i2sDout: 22 }),
+        node('sd', 'SDCard', { sdCsPin: 5, sdSckPin: 18, sdMisoPin: 19, sdMosiPin: 23 }),
+      ], 'esp32:esp32:esp32')
+      expect(result).toEqual({ errors: [], warnings: [] })
+    })
+
+    it('retains non-analog caveats for digital uses of a dual-caveat pin', () => {
+      const result = findBoardPinCompatibility(
+        [node('out', 'MatrixOutput', { dataPin: 2 })],
+        'esp32:esp32:esp32',
+      )
+      expect(result.warnings).toEqual([expect.stringMatching(/Strapping pin/)])
+      expect(result.warnings[0]).not.toContain('ADC2 shares hardware')
+    })
   })
 
   describe('findMatrixLayoutErrors', () => {
@@ -1015,6 +1032,8 @@ describe('validateGraph', () => {
       expect(power.ledCount).toBe(256)
       expect(power.worstCaseMa).toBe(256 * 60)
       expect(power.configuredMa).toBeNull()
+      expect(power.requiredSupplyMa).toBe(20000)
+      expect(power.requiredSupplyWattage).toBe(100)
       expect(power.exceedsConfigured).toBe(false)
     })
 
@@ -1023,6 +1042,8 @@ describe('validateGraph', () => {
       const power = estimatePowerLoad(nodes)!
       expect(power.configuredMa).toBe(2000)
       expect(power.worstCaseMa).toBe(15360)
+      expect(power.requiredSupplyMa).toBe(3000)
+      expect(power.requiredSupplyWattage).toBe(15)
       expect(power.exceedsConfigured).toBe(true)
     })
 

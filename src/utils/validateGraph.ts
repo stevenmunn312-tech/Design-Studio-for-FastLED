@@ -27,6 +27,8 @@ import {
 } from '../state/busTopology'
 import { boardPinVerdict, boardProfileById } from '../build/boardProfiles'
 import type { PhysicalBoardProfile } from '../build/boardProfiles'
+import { recommendedSupplyCurrentMa } from '../build/powerSupplySizing'
+import { pinWarningForCapability } from '../state/boardGpio'
 import { inmp441SupportedForBoard, INMP441_UNSUPPORTED_MESSAGE } from '../state/micPinDefaults'
 import { controllerSettings } from '../state/controllerSettings'
 import { isHardwareManagedSignalNodeType } from '../state/hardware'
@@ -254,6 +256,9 @@ export interface PowerEstimate {
   configuredMa: number | null
   /** Worst-case draw rounded up to a sane PSU-shopping figure. */
   recommendedMa: number
+  /** Standard continuous 5 V supply size, including electrical-plan headroom. */
+  requiredSupplyMa: number
+  requiredSupplyWattage: number
   /** True once a configured cap exists and falls short of a sane safety margin
    *  below worst case (see `POWER_CAP_MIN_COVERAGE`) — not simply "any cap
    *  below the theoretical full-white max", since FastLED's power capping is
@@ -312,11 +317,17 @@ export function estimatePowerLoad(nodes: StudioNode[]): PowerEstimate | null {
   const controller = controllerSettings(nodes)
   const configuredMa = controller.powerLimit ? controller.milliamps : null
   const recommendedMa = Math.ceil(worstCaseMa / 100) * 100
+  const supplySizingMa = configuredMa != null && configuredMa > 0
+    ? Math.min(worstCaseMa, configuredMa)
+    : worstCaseMa
+  const requiredSupplyMa = recommendedSupplyCurrentMa(supplySizingMa)
   return {
     ledCount,
     worstCaseMa,
     configuredMa,
     recommendedMa,
+    requiredSupplyMa,
+    requiredSupplyWattage: Number(((requiredSupplyMa / 1000) * 5).toFixed(1)),
     exceedsConfigured: configuredMa != null && configuredMa < worstCaseMa * POWER_CAP_MIN_COVERAGE,
   }
 }
@@ -740,7 +751,8 @@ export function findBoardPinCompatibility(nodes: StudioNode[], selectedFqbn: str
       errors.push(`${use.label} uses pin ${use.pin}, which has no internal pull-up on the selected board`)
       continue
     }
-    if (pin.warning) warnings.push(`${use.label} uses pin ${use.pin}: ${pin.warning}`)
+    const warning = pinWarningForCapability(pin, use.requirement.capability)
+    if (warning) warnings.push(`${use.label} uses pin ${use.pin}: ${warning}`)
   }
   return { errors: errors.sort(), warnings: warnings.sort() }
 }

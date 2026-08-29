@@ -35,13 +35,11 @@ describe('hardware registries stay in step', () => {
   })
 
   /*
-   * LED outputs and DMX are exempt deliberately. An LED data pin is allocated
-   * by its own path (ledPinAssignment), and a DMX input is a network or UART
-   * role rather than a part whose pins the board picks. Both are exclusions
-   * with a reason, which is the point of naming them rather than leaving the
-   * check loose enough to pass.
+   * DMX is exempt deliberately: it is a network or UART role rather than a
+   * part whose pins the board picks. LED outputs participate here as well as
+   * in their add-node allocator so a whole starter is allocated atomically.
    */
-  const RETARGET_EXEMPT = new Set(['MatrixOutput', 'DMXInput'])
+  const RETARGET_EXEMPT = new Set(['DMXInput'])
 
   it.each(hardwareTypes.filter((type) => !RETARGET_EXEMPT.has(type) && pinKeys(type).length > 0))(
     'gives %s a pin-retarget plan',

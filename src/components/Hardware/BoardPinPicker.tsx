@@ -6,7 +6,7 @@ import {
   isPropertyEnabled,
   propertyLabel,
 } from '../../state/nodeLibrary'
-import { pinDisplayLabel, pinSupports } from '../../state/boardGpio'
+import { pinDisplayLabel, pinSupports, pinWarningForCapability } from '../../state/boardGpio'
 import { boardGpioInfo, useUploadStore } from '../../state/uploadStore'
 import styles from './BoardPinPicker.module.css'
 
@@ -80,7 +80,7 @@ export default function BoardPinPicker({
     ? 'Custom board: enter the GPIO number from its pinout.'
     : !selected
       ? `GPIO ${value} is not listed for this board.`
-      : selected.warning ?? selected.note
+      : pinWarningForCapability(selected, requirement?.capability) ?? selected.note
 
   if (!gpio || compatible.length === 0 || customOpen || !isRecommended) {
     return (
@@ -137,7 +137,7 @@ export default function BoardPinPicker({
       >
         {compatible.map((pin) => (
           <option key={pin.pin} value={pin.pin}>
-            {`${pinDisplayLabel(pin)}${pin.warning || pin.note ? ` — ${pin.warning ?? pin.note}` : ''}`}
+            {`${pinDisplayLabel(pin)}${pinWarningForCapability(pin, requirement?.capability) || pin.note ? ` — ${pinWarningForCapability(pin, requirement?.capability) ?? pin.note}` : ''}`}
           </option>
         ))}
         <option value="__custom__">Other GPIO…</option>

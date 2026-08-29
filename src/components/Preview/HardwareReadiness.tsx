@@ -98,7 +98,7 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
       <span className={styles.item} data-level={powerLevel} title={
         capped
           ? `Worst case ${amps.toFixed(2)} A across ${power.ledCount} LEDs, capped at ${(power.configuredMa! / 1000).toFixed(2)} A`
-          : `Worst case ${amps.toFixed(2)} A if every one of ${power.ledCount} LEDs showed white at once. A supply of about ${(power.recommendedMa / 1000).toFixed(1)} A covers it.`
+          : `Worst case ${amps.toFixed(2)} A if every one of ${power.ledCount} LEDs showed white at once. Use at least a ${(power.requiredSupplyMa / 1000).toFixed(1)} A continuous supply.`
       }>
         <em className={styles.label}>Power</em>
         <strong>{amps < 10 ? amps.toFixed(2) : amps.toFixed(1)} A</strong>

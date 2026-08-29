@@ -1,10 +1,16 @@
 import { describe, it, expect } from 'vitest'
-import { STARTER_TEMPLATES } from '../starterTemplates'
+import { STARTER_TEMPLATES, buildBoardAwareStarter } from '../starterTemplates'
 import { useNodeDefaults } from '../nodeDefaults'
 import { outputForm } from '../ledOutputForm'
 import { NODE_LIBRARY, portsCompatible } from '../nodeLibrary'
-import { validateGraph } from '../../utils/validateGraph'
-import type { StudioNodeData } from '../graphStore'
+import {
+  buildGraphDiagnostics,
+  findBoardPinCompatibility,
+  findExactBoardPinIssues,
+  findPinConflicts,
+  validateGraph,
+} from '../../utils/validateGraph'
+import type { StudioNode, StudioNodeData } from '../graphStore'
 
 const LIBRARY_DEF = new Map(NODE_LIBRARY.map((d) => [d.type, d]))
 
@@ -90,10 +96,44 @@ describe('starterTemplates', () => {
       ]
     })).toEqual(expectedEdges)
 
-    const { errors } = validateGraph(nodes, edges)
-    expect(errors).toEqual([
-      'Audio has no attached source — add a microphone, line-in ADC, or SD music player, or choose an available source',
-    ])
+    expect(audio.data.properties.sourceId).toBe('kind:decoder')
+    expect(validateGraph(nodes, edges).errors).toEqual([])
+  })
+
+  it.each([
+    ['Generic ESP32', 'esp32-generic-devkit-38pin', 'esp32:esp32:esp32'],
+    ['Generic ESP32-S3', 'generic-esp32-s3-n16r8-44pin-dual-usbc', 'esp32:esp32:esp32s3'],
+  ])('loads Music Player with compatible, unique defaults on %s', (_, profileId, fqbn) => {
+    const template = STARTER_TEMPLATES.find((entry) => entry.id === 'generative-show')!
+    const board = {
+      id: 'board-root',
+      type: 'studioNode',
+      position: { x: 0, y: 0 },
+      data: {
+        nodeType: 'Board',
+        label: 'Board',
+        category: 'output',
+        properties: { profileId },
+        inputs: [],
+        outputs: [],
+      },
+    } as unknown as StudioNode
+    const { nodes, edges } = buildBoardAwareStarter(template, [board], fqbn)
+
+    const loadedBoard = nodes.find((node) => node.data.nodeType === 'Board')!
+    expect(loadedBoard.id).toBe(board.id)
+    expect(loadedBoard.data.properties).toMatchObject({
+      powerLimit: true,
+      volts: 5,
+      milliamps: 15400,
+    })
+    expect(findPinConflicts(nodes)).toEqual([])
+    expect(findBoardPinCompatibility(nodes, fqbn)).toEqual({ errors: [], warnings: [] })
+    expect(findExactBoardPinIssues(nodes)).toEqual({ errors: [], warnings: [] })
+    expect(validateGraph(nodes, edges, fqbn).errors).toEqual([])
+    const diagnostics = buildGraphDiagnostics(nodes, edges, { selectedFqbn: fqbn })
+    expect(diagnostics.filter((diagnostic) => diagnostic.severity === 'error')).toEqual([])
+    expect(diagnostics.filter((diagnostic) => diagnostic.severity === 'warning')).toEqual([])
   })
 
   it('puts every part the SD player drives on the bench, and wires the show to one of them', () => {
@@ -142,15 +182,11 @@ describe('starterTemplates', () => {
         expect(portsCompatible(outPort!.dataType, inPort!.dataType)).toBe(true)
       }
 
-      // Loading a template shouldn't trip unexpected graph validation errors
-      // (missing MatrixOutput, unconnected Frame input, etc). Music Player is
-      // deliberately incomplete until its audio hardware is added on the bench.
-      // Warnings are fine — e.g. its Pattern Collection also starts empty.
+      // Loading a template shouldn't trip graph validation errors (missing
+      // MatrixOutput, unconnected Frame input, unresolved audio source, etc).
+      // Warnings are fine — e.g. a deliberately conservative power estimate.
       const { errors } = validateGraph(nodes, edges)
-      const unexpectedErrors = template.id === 'generative-show'
-        ? errors.filter((error) => !error.startsWith('Audio has no attached source'))
-        : errors
-      expect(unexpectedErrors).toEqual([])
+      expect(errors).toEqual([])
     })
   }
 })
