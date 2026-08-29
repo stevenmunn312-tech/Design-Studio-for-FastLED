@@ -23,6 +23,9 @@ import type { ShowUploadFile } from './backendClient'
 import { resolveShowTarget } from '../state/showTarget'
 import { stereoVuEmitsFromGraph } from '../codegen/stereoVuMeterCpp'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
+import { wiredPatternCollection } from '../state/patternCollectionWiring'
+
+export { wiredPatternCollection } from '../state/patternCollectionWiring'
 
 const nodeType = (n: StudioNode) => (n.data as StudioNodeData).nodeType
 
@@ -74,33 +77,6 @@ export function readySongCount(entries: MusicEntry[]): number {
 }
 
 const safeTitle = (s: string) => s.replace(/[^a-zA-Z0-9_\- ]/g, '_')
-
-/**
- * The Pattern Collection wired into a Performance Generator's `patternset`
- * input: its ordered group ids and each pattern's section tags (aligned by
- * index; `[]` = eligible in any section). Both empty when none is wired, which
- * is the built-in enum-pattern flow.
- *
- * Pure over a graph rather than reading the store, because two callers need it
- * against different graphs: show generation uses the live one, while the
- * capacity meter measures a filtered copy that ignores node positions.
- */
-export function wiredPatternCollection(
-  nodes: StudioNode[],
-  edges: Edge[],
-): { ids: string[]; sectionTags: string[][] } {
-  const empty = { ids: [], sectionTags: [] }
-  const gen = nodes.find((n) => nodeType(n) === 'PerformanceGenerator' || nodeType(n) === 'PatternMaster')
-  if (!gen) return empty
-  const link = edges.find((e) => e.target === gen.id && e.targetHandle === 'patternset')
-  if (!link) return empty
-  const coll = nodes.find((n) => n.id === link.source && nodeType(n) === 'PatternCollection')
-  if (!coll) return empty
-  const props = coll.data.properties as { patternIds?: string[]; patternSections?: Record<string, string[]> }
-  const ids = props.patternIds ?? []
-  const sections = props.patternSections ?? {}
-  return { ids, sectionTags: ids.map((id) => sections[id] ?? []) }
-}
 
 /**
  * Generate the player sketch for a given pattern set.

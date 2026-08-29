@@ -3,7 +3,7 @@ import type { SongAnalysis, ShowFile } from '../types/showFile'
 import { generateShow } from '../codegen/performanceGenerator'
 import type { PerformanceOptions } from '../codegen/performanceGenerator'
 import { useGraphStore } from './graphStore'
-import { wiredPatternCollection } from '../utils/showUpload'
+import { wiredPatternCollection } from './patternCollectionWiring'
 import { recordPerfTask } from '../dev/perfMonitor'
 import {
   loadMusicFile,
@@ -16,10 +16,9 @@ import {
  * The Pattern Collection wired into a Performance Generator's `patternset`
  * input, resolved against the active graph.
  *
- * The resolution itself lives in `showUpload.ts` so the capacity meter can run
- * it over its own filtered copy of the graph — two definitions of "which
- * patterns are in this show" is exactly how the meter and the upload end up
- * measuring different things.
+ * The pure resolution helper also serves upload and capacity measurement over
+ * their filtered graph copies. Two definitions of "which patterns are in this
+ * show" is exactly how measurement and upload end up disagreeing.
  */
 function wiredCollection(): { ids: string[]; sectionTags: string[][] } {
   const { nodes, edges } = useGraphStore.getState()

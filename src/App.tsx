@@ -59,6 +59,11 @@ const STAGE_CURSOR_IDLE_MS = 2_000
 const MIN_GRAPH_PANE_HEIGHT = 180
 const MIN_HARDWARE_PANE_HEIGHT = 0
 
+interface IdleWindow {
+  requestIdleCallback?: Window['requestIdleCallback']
+  cancelIdleCallback?: Window['cancelIdleCallback']
+}
+
 export default function App() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen)
   const previewPanelOpen = useUiStore((s) => s.previewPanelOpen)
@@ -110,6 +115,21 @@ export default function App() {
   const splitCanvasRef = useRef<HTMLDivElement | null>(null)
   const [stageCursorHidden, setStageCursorHidden] = useState(false)
   const [splitCanvasHeight, setSplitCanvasHeight] = useState(0)
+  const [capacityWatcherReady, setCapacityWatcherReady] = useState(false)
+
+  // CapacityWatcher assembles the exact firmware text used by a later manual
+  // capacity check. It must remain mounted after startup so stale readings are
+  // detected, but it does not need to compete with the editor's first paint.
+  useEffect(() => {
+    const ready = () => setCapacityWatcherReady(true)
+    const idleWindow = window as unknown as IdleWindow
+    if (idleWindow.requestIdleCallback && idleWindow.cancelIdleCallback) {
+      const requestId = idleWindow.requestIdleCallback(ready, { timeout: 1000 })
+      return () => idleWindow.cancelIdleCallback?.(requestId)
+    }
+    const timeoutId = window.setTimeout(ready, 150)
+    return () => window.clearTimeout(timeoutId)
+  }, [])
 
   // Probe the upload helper once on mount (the Vite plugin should have spawned it).
   useEffect(() => { refreshHelper() }, [refreshHelper])
@@ -731,7 +751,7 @@ export default function App() {
         {/* Headless. Drives the live capacity check from here rather than a
             node body or the hardware pane, because both can be hidden and the
             measurement should not stop when the view does. */}
-        <CapacityWatcher />
+        {capacityWatcherReady && <CapacityWatcher />}
         {setupWizardOpen && <MatrixOutputSetupWizard />}
         {deployPopupOpen && <MatrixOutputDeployPopup />}
         {boardPopupOpen && <BoardPopup />}

@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config'
+import type { Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { uploadHelper } from './vite-plugin-upload-helper'
@@ -8,6 +9,28 @@ const crossOriginIsolationHeaders = {
   'Cross-Origin-Embedder-Policy': 'credentialless',
 }
 const namedLocalHosts = ['design-studio-for-fastled.localhost', 'design-studio-for-fastled.localtest.me']
+const APP_CHUNK_WARNING_KIB = 750
+
+/**
+ * Vite has one global chunk threshold, but this app has one deliberate
+ * exception: Essentia's third-party WASM module is a 2.5 MB lazy asset loaded
+ * only for song analysis. Keep a tighter warning budget for every application
+ * chunk instead of raising the global limit and losing regression coverage.
+ */
+function applicationChunkBudget(): Plugin {
+  return {
+    name: 'application-chunk-budget',
+    generateBundle(_options, bundle) {
+      for (const output of Object.values(bundle)) {
+        if (output.type !== 'chunk' || output.fileName.includes('essentia-wasm')) continue
+        const sizeKib = Buffer.byteLength(output.code, 'utf8') / 1024
+        if (sizeKib > APP_CHUNK_WARNING_KIB) {
+          this.warn(`${output.fileName} is ${sizeKib.toFixed(1)} KiB; application chunks should stay below ${APP_CHUNK_WARNING_KIB} KiB`)
+        }
+      }
+    },
+  }
+}
 
 export default defineConfig(() => {
   const isTest = process.env.VITEST === 'true'
@@ -38,9 +61,22 @@ export default defineConfig(() => {
     worker: { format: 'es' },
     build: {
       target: 'es2022',
+      // The third-party Essentia WASM chunk is expected at ~2.5 MB and already
+      // lazy/excluded from the base PWA precache. applicationChunkBudget keeps
+      // the actionable 750 KiB ceiling on every other JavaScript chunk.
+      chunkSizeWarningLimit: 2600,
       rollupOptions: {
         output: {
           manualChunks(id) {
+            const moduleId = id.replaceAll('\\', '/')
+            // Large, stable application domains benefit from independent
+            // caching and keep the startup entry from becoming one monolith.
+            // These are eager core dependencies, not pretend lazy routes: the
+            // browser can fetch them in parallel while retaining them across
+            // UI-only releases.
+            if (moduleId.includes('/src/build/generated/')) return 'hardware-catalog'
+            if (moduleId.includes('/src/state/graphEvaluator.ts')) return 'graph-runtime'
+            if (moduleId.includes('/src/state/nodeLibrary.ts')) return 'node-catalog'
             if (!id.includes('node_modules')) return
             if (id.includes('@xyflow/react')) return 'xyflow'
             if (id.includes('react') || id.includes('zustand') || id.includes('zundo')) return 'react-vendor'
@@ -49,6 +85,7 @@ export default defineConfig(() => {
       },
     },
     plugins: [
+      applicationChunkBudget(),
       react(),
       // Vitest doesn't need the helper auto-spawner or PWA service-worker plugin,
       // and skipping them avoids stray open handles during test shutdown.

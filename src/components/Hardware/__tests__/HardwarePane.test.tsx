@@ -323,18 +323,18 @@ describe('HardwarePane', () => {
     expect(screen.getByRole('button', { name: 'Fit view' }).parentElement?.style.right).toBe('332px')
   })
 
-  it('dismisses the board menu on any outside pointer down', () => {
+  it('dismisses the board menu on any outside pointer down', async () => {
     render(<HardwarePane />)
 
     fireEvent.click(screen.getByTitle('Click for board options'))
-    expect(within(document.body).getByLabelText('Board family')).toBeTruthy()
+    expect(await within(document.body).findByLabelText('Board family')).toBeTruthy()
 
     fireEvent.pointerDown(document.body)
 
     expect(within(document.body).queryByLabelText('Board family')).toBeNull()
   })
 
-  it('opens the board menu beside the board so the full panel can fit', () => {
+  it('opens the board menu beside the board so the full panel can fit', async () => {
     const offsetWidth = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(360)
     const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(520)
     try {
@@ -355,7 +355,7 @@ describe('HardwarePane', () => {
 
       fireEvent.click(boardButton)
 
-      const familySelect = within(document.body).getByLabelText('Board family')
+      const familySelect = await within(document.body).findByLabelText('Board family')
       const panel = familySelect.closest('[style]') as HTMLElement | null
 
       expect(panel?.style.left).toBe('566px')

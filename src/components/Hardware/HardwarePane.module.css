@@ -552,6 +552,14 @@
   box-shadow: 0 -5px 14px color-mix(in srgb, var(--accent-output) 10%, transparent);
 }
 
+.lazyPanelStatus {
+  padding: 18px;
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: var(--fs-caption);
+  text-align: center;
+}
+
 .partPlaceholder {
   border-radius: 3px;
   background-color: #12171d;

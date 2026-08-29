@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import amplifierRender from '../../assets/components/max98357a-i2s-amplifier.webp'
 import { useGraphStore, useRootEdges, useRootNodes, type StudioNode } from '../../state/graphStore'
@@ -53,8 +53,6 @@ import {
   type LedOutputForm,
 } from '../../state/ledOutputForm'
 import HardwarePartBody from '../Canvas/HardwarePartBody'
-import MatrixOutputDeployPopup from '../Upload/MatrixOutputDeployPopup'
-import BoardNodeBody from '../Canvas/BoardNodeBody'
 import HardwareLedPreview from './HardwareLedPreview'
 import HardwareVuRailPreview from './HardwareVuRailPreview'
 import { LED_CELL_FILL } from './ledPreviewGeometry'
@@ -78,6 +76,9 @@ import {
   type PlacedLink,
 } from './hardwareLayout'
 import styles from './HardwarePane.module.css'
+
+const MatrixOutputDeployPopup = lazy(() => import('../Upload/MatrixOutputDeployPopup'))
+const BoardNodeBody = lazy(() => import('../Canvas/BoardNodeBody'))
 
 const MIC_NODE_TYPE = 'MicInput'
 
@@ -1731,7 +1732,9 @@ export default function HardwarePane() {
       </div>
 
       {paneTab === 'upload' && (
-        <MatrixOutputDeployPopup inline leftInset={leftInset} rightInset={rightInset} />
+        <Suspense fallback={<div className={styles.lazyPanelStatus} role="status">Loading upload tools…</div>}>
+          <MatrixOutputDeployPopup inline leftInset={leftInset} rightInset={rightInset} />
+        </Suspense>
       )}
 
 
@@ -2114,7 +2117,9 @@ export default function HardwarePane() {
             <strong>Board</strong>
             <span>{boardProfilesForFamily(boardFamilyId).length} options in this family</span>
           </div>
-          <BoardNodeBody nodeId={boardNodeId} />
+          <Suspense fallback={<div className={styles.lazyPanelStatus} role="status">Loading board settings…</div>}>
+            <BoardNodeBody nodeId={boardNodeId} />
+          </Suspense>
         </FloatingMenu>
       )}
 
