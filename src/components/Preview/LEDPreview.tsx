@@ -43,6 +43,7 @@ import { controllerSettings } from '../../state/controllerSettings'
 import { masterSpeedFromOutputs, masterSpeedOriginShift } from '../../state/masterSpeed'
 import type { StereoVuFrame } from '../../state/stereoVuMeter'
 import { combinedStereoVuFixture, drawStereoVuRail } from './stereoVuCombinedPreview'
+import { previewGridDimensions } from './previewGrid'
 
 // Statically replaced at build time, so the telemetry branches (phase timers +
 // the per-frame context object for the dev HUD) are dead-code-stripped in prod.
@@ -307,8 +308,9 @@ export default function LEDPreview() {
   // strip layout (e.g. 10×1) never grows a phantom extra row/column. Only
   // the pixel-scale math below (`pixelScaleW/H`) floors to 2, so a thin
   // strip's LEDs aren't blown up to fill the whole available height/width.
-  const gridW = Math.max(1, Math.min(64, selectedRouteSummary?.width ?? 1))
-  const gridH = Math.max(1, Math.min(240, selectedRouteSummary?.height ?? combinedVuCount))
+  const previewGrid = previewGridDimensions(selectedRouteSummary, combinedVuCount, standaloneVu)
+  const gridW = previewGrid.width
+  const gridH = previewGrid.height
   const pixelScaleW = Math.max(2, gridW)
   const pixelScaleH = Math.max(2, gridH)
   // Panel-tile grid (MatrixOutput layout==='panels') — 0 when there's nothing
