@@ -59,6 +59,29 @@ describe('showGenerator', () => {
     expect(cpp).toMatch(/render_p0[\s\S]*CRGB\(0, 0, 255\)[\s\S]*?\n\}/)
   })
 
+  it('scales only the pattern animation clock with Master Speed', () => {
+    const cpp = generateShowSketch(
+      [...nodes, node('speed', 'MasterSpeed', { speed: 0.5 })], edges, groups,
+    )
+
+    expect(cpp).toContain('const float _showAnimSpeed = 0.5000f;')
+    expect(cpp).toContain('_showAnimSec += ((now - _showAnimLastMs) / 1000.0f) * _showAnimSpeed;')
+    expect(cpp).toContain('uint32_t animNow = (uint32_t)(_showAnimSec * 1000.0f);')
+    expect(cpp).toContain('renderPattern(cur, animNow);')
+    expect(cpp).toContain('renderPattern(nxt, animNow);')
+    // Dwell and transition progress remain real elapsed durations.
+    expect(cpp).toContain('if (now - phaseStart >= 8000) {')
+    expect(cpp).toContain('float p = 1000 > 0 ? (float)(now - phaseStart) / 1000 : 1.0f;')
+    expect(cpp).toContain('phaseStart = now;')
+  })
+
+  it('keeps the original direct millis clock when there is no Master Speed node', () => {
+    const cpp = generateShowSketch(nodes, edges, groups)
+    expect(cpp).toContain('renderPattern(cur, now);')
+    expect(cpp).not.toContain('_showAnimSec')
+    expect(cpp).not.toContain('animNow')
+  })
+
   it('holds a configured I2S amplifier quiet in a generated pattern show', () => {
     const amplifier = node('amp', 'Amplifier', {
       model: 'max98357a-i2s-amplifier',

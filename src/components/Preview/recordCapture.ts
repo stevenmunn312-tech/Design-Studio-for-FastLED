@@ -202,10 +202,14 @@ export async function captureSequence(opts: CaptureOptions): Promise<Uint8Clampe
    * the shared helper exists to prevent. See state/masterSpeed.ts.
    */
   let tick = 0
+  let elapsedTick = 0
   let speed = MASTER_SPEED_DEFAULT
   for (let i = 0; i < warmup + renderCount; i++) {
     if (opts.isCancelled?.()) return null
-    if (i > 0) tick += tickStep * speed
+    if (i > 0) {
+      tick += tickStep * speed
+      elapsedTick += tickStep
+    }
     // Warm-up frames sit before the recorded window, so they hold the clip's
     // opening audio rather than running off the front of the timeline.
     const audio = audioTimeline
@@ -215,7 +219,7 @@ export async function captureSequence(opts: CaptureOptions): Promise<Uint8Clampe
     // the reachable set this always evaluated — Master Speed is a sink, so it
     // is in that set rather than an extra pass.
     const pass = evaluateGraphFull(
-      evaluationNodes, edges, tick, composition.w, composition.h, groups, false, trusted, prefix, audio,
+      evaluationNodes, edges, tick, composition.w, composition.h, groups, false, trusted, prefix, audio, elapsedTick,
     )
     speed = masterSpeedFromOutputs(evaluationNodes, pass.outputs)
     const rendered = pass.frame

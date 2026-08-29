@@ -367,12 +367,25 @@ a shortcut: a control computed from scaled time could not be turned back up out
 of a freeze, and in firmware the clock is emitted above the nodes that would
 compute the speed. One frame of lag on a knob is imperceptible.
 
-Two generators refuse rather than emit. A music player's animation time *is* the
-track position — patterns are synced to what is playing — so scaling it would
-slide the LEDs off the music; that refusal is correct behaviour. The show
-generator's clock also times how long each pattern holds, a duration in seconds
-with no business speeding up with the animation, so it needs a second
-accumulated clock before it can honour a speed knob.
+The music-player generator still refuses Master Speed. Its animation time *is*
+the track position — patterns are synced to what is playing — so scaling it
+would slide the LEDs off the music; that refusal is correct behaviour.
+
+The Pattern Slideshow generator has two clocks instead. `now = millis()` remains
+the real elapsed clock for interval expiry, transition progress and
+`phaseStart`. When Master Speed is present, `_showAnimSec` accumulates only
+`dt * speed`, and the resulting `animNow` is the timestamp passed to every
+`renderPattern` call. At speed zero the current pattern's motion freezes, but
+the slideshow still reaches its next interval, crosses the transition in its
+configured number of seconds, and continues through the collection. With no
+Master Speed node the generator keeps its old direct `now` path and emits no
+extra clock state.
+
+The fixed show template currently honours Master Speed's own slider. A graph
+wired into its Speed input is rejected before export because the template does
+not emit an arbitrary root control graph; silently baking the visible slider
+while ignoring that wire would be worse than refusing it. Normal sketches and
+the browser preview continue to support the wired form.
 
 ## Runtime ordering
 

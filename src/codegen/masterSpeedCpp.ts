@@ -68,3 +68,31 @@ export function masterSpeedUpdateCpp(emit: MasterSpeedEmit): string[] {
     `  _tSpeed = constrain(${emit.speedExpr}, ${emit.min.toFixed(1)}f, ${emit.max.toFixed(1)}f);  // for the next pass`,
   ]
 }
+
+/**
+ * A show controller's animation clock, kept separate from its wall clock.
+ *
+ * `now` continues to own slideshow dwell and transition progress. Only the
+ * millisecond value handed to collected pattern renderers comes from this
+ * accumulator, so freezing Master Speed cannot freeze the slideshow itself.
+ * Show controllers currently pass an unwired/constant emit; accepting the
+ * full shape here keeps the clock rule shared with a normal sketch.
+ */
+export function masterShowClockLoopCpp(emit: MasterSpeedEmit, wallMsExpr = 'now'): string[] {
+  if (!emit.present) return []
+
+  const lines = [
+    '  // Master Speed scales pattern animation only. Slideshow timing keeps',
+    '  // using the real millis() clock in now.',
+    '  static float _showAnimSec = 0.0f;',
+    '  static uint32_t _showAnimLastMs = 0;',
+  ]
+  if (emit.speedExpr) lines.push(`  static float _showAnimSpeed = ${emit.initial.toFixed(4)}f;`)
+  else lines.push(`  const float _showAnimSpeed = ${emit.initial.toFixed(4)}f;`)
+  lines.push(
+    `  if (_showAnimLastMs) _showAnimSec += ((${wallMsExpr} - _showAnimLastMs) / 1000.0f) * _showAnimSpeed;`,
+    `  _showAnimLastMs = ${wallMsExpr};`,
+    '  uint32_t animNow = (uint32_t)(_showAnimSec * 1000.0f);',
+  )
+  return lines
+}

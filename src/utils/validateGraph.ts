@@ -1359,18 +1359,26 @@ export function selectedGenerator(nodes: StudioNode[], edges: StudioEdge[]): Sel
  *
  * A music player's animation time *is* the track position — patterns are
  * synced to what is playing. Scaling that would slide the LEDs off the music,
- * so refusing here is the correct behaviour rather than a missing feature. The
- * show generator's clock also drives pattern dwell, which is a duration in
- * seconds and has no business speeding up with the animation, so it needs a
- * second accumulated clock before it can honour this.
+ * so refusing here is the correct behaviour rather than a missing feature. A
+ * show controller has separate wall and animation clocks, so its own Master
+ * Speed slider is safe: dwell and transitions continue on elapsed seconds.
+ * Its fixed template still cannot evaluate an arbitrary graph wired into the
+ * speed input, and refusing that wire is better than silently baking the
+ * slider value instead.
  */
-function masterSpeedGeneratorErrors(nodes: StudioNode[], generator: SelectedGenerator): string[] {
+function masterSpeedGeneratorErrors(
+  nodes: StudioNode[], edges: StudioEdge[], generator: SelectedGenerator,
+): string[] {
   const knobs = nodes.filter((node) => node.data.nodeType === 'MasterSpeed')
   if (knobs.length === 0 || generator === 'sketch') return []
   const names = knobs.map((node) => nodeLabel(node)).join(', ')
-  return [generator === 'player'
-    ? `${names}: a music-player build animates on the track's own position, so scaling time would slide the LEDs off the music. Remove it, or drive the patterns from a normal sketch.`
-    : `${names}: a generated show controller cannot scale animation time yet — its clock also times how long each pattern holds. Remove it before exporting a show.`]
+  if (generator === 'player') {
+    return [`${names}: a music-player build animates on the track's own position, so scaling time would slide the LEDs off the music. Remove it, or drive the patterns from a normal sketch.`]
+  }
+  const wired = knobs.filter((node) => edges.some((edge) =>
+    edge.target === node.id && (edge.targetHandle ?? '') === 'speed'))
+  if (wired.length === 0) return []
+  return [`${wired.map((node) => nodeLabel(node)).join(', ')}: a generated show controller can use Master Speed's own slider, but cannot evaluate a wire feeding Speed. Remove that wire and set the slider before exporting the show.`]
 }
 
 export function findOutputRuntimeIssues(
@@ -1380,7 +1388,7 @@ export function findOutputRuntimeIssues(
   const generator = selectedGenerator(nodes, edges)
   if (generator === 'sketch') return { errors: [] }
 
-  const speedErrors = masterSpeedGeneratorErrors(nodes, generator)
+  const speedErrors = masterSpeedGeneratorErrors(nodes, edges, generator)
 
   // `controls` joins the other two: it is the same run-time control of the
   // same output, latched rather than read directly, and a generator that drops

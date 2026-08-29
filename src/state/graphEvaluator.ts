@@ -4114,6 +4114,8 @@ interface CollectedPatternCtx {
   instancePrefix: string
   nodeId: string
   tick: number
+  /** Unscaled elapsed tick for any real-time scheduler nested in the group. */
+  elapsedTick: number
   W: number
   H: number
   trusted: boolean
@@ -4145,7 +4147,7 @@ function renderCollectedPattern(gid: string, ctx: CollectedPatternCtx): Frame {
     def.nodes, def.edges, ctx.tick, ctx.W, ctx.H, ctx.groups,
     `${ctx.instancePrefix}${ctx.nodeId}/${gid}/`,
     new Set([...ctx.groupStack, gid]), groupInputs, ctx.audioOverride,
-    ctx.trusted, ctx.capabilityNodes,
+    ctx.trusted, ctx.capabilityNodes, ctx.elapsedTick,
   ) ?? blankFrame(ctx.W, ctx.H)
 }
 
@@ -4858,8 +4860,13 @@ function createEvalNode(
   trusted = true,
   // Root hardware remains authoritative while evaluating nested groups.
   capabilityNodes: readonly StudioNode[] = nodes,
+  // Unscaled wall-clock tick. Most nodes intentionally read the animation
+  // clock above; Pattern Slideshow alone uses this for dwell and transitions
+  // so Master Speed changes motion without changing elapsed durations.
+  elapsedTick = tick,
 ) {
   const t = tick / 60   // seconds at assumed 60 fps
+  const elapsedT = elapsedTick / 60
 
   // State maps are module-level and keyed by node id; prefix with the group
   // instance path so two instances of the same group don't share state.
@@ -7284,6 +7291,7 @@ function createEvalNode(
         const beat = input(id, 'beat', false) as boolean
         const render = (gid: string): Frame => renderCollectedPattern(gid, {
           groups, groupStack, instancePrefix, nodeId: id, tick, W, H,
+          elapsedTick: tick,
           trusted, capabilityNodes, audioOverride, audio,
         })
         // Transitions come from a wired TransitionSet (the same node type feeds
@@ -7425,6 +7433,7 @@ function createEvalNode(
         const audio = settings.audioReactive && isAudioSignal(audioSignal) ? audioSignal : null
         const render = (gid: string): Frame => renderCollectedPattern(gid, {
           groups, groupStack, instancePrefix, nodeId: id, tick, W, H,
+          elapsedTick,
           trusted, capabilityNodes, audioOverride, audio,
         })
         const wiredPool = input(id, 'transitions', null) as string[] | null
@@ -7444,7 +7453,7 @@ function createEvalNode(
         const steps = controls ? Math.trunc(controls.patternSteps) : 0
         updatePatternSelection(selection, {
           ids,
-          nowMs: t * 1000,
+          nowMs: elapsedT * 1000,
           step: steps,
           confirm: steps !== 0 || controls?.patternConfirm === true,
         })
@@ -7463,7 +7472,7 @@ function createEvalNode(
           randomColor: false,
           seed: settings.seed,
           order: settings.order,
-        }, t, W, H, selection)
+        }, elapsedT, W, H, selection)
 
         // Read after the show has run, for the same reason the player does:
         // its own advance moves this cursor, and publishing the pre-show
@@ -8019,7 +8028,7 @@ function createEvalNode(
           // A subgraph is part of the same workspace, so it inherits this
           // graph's trust — otherwise an untrusted import could run its
           // formula/Code nodes simply by nesting them inside a group.
-          trusted, capabilityNodes,
+          trusted, capabilityNodes, elapsedTick,
         ) ?? blankFrame(W, H)
         out = { frame }
         break
@@ -8129,10 +8138,13 @@ export function evaluateGraph(
   trusted = true,
   // Root physical sources used by Audio capability nodes in nested groups.
   capabilityNodes: readonly StudioNode[] = nodes,
+  // Real elapsed time can differ from animation time when Master Speed is
+  // active. Appended so existing callers keep the one-clock behaviour.
+  elapsedTick = tick,
 ): Frame | null {
   maybePruneEvaluatorState()
   if (nodes.length === 0) return null
-  const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, instancePrefix, groupStack, groupInputs, audioOverride, null, trusted, capabilityNodes)
+  const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, instancePrefix, groupStack, groupInputs, audioOverride, null, trusted, capabilityNodes, elapsedTick)
   // Render only what reaches an explicit terminal: a GroupOutput inside a group
   // subgraph, or a MatrixOutput at the root, each passing through its `frame`
   // input. A graph with no terminal previews nothing — the canvas falls back to
@@ -8283,13 +8295,16 @@ export function evaluateGraphFull(
   // the live preview's call is unchanged.
   instancePrefix = '',
   audioOverride: AudioOverride | null = null,
+  // Separate wall clock for schedulers that must not follow Master Speed.
+  // Defaulting to `tick` preserves every non-preview/direct evaluator caller.
+  elapsedTick = tick,
 ): { frame: Frame | null; outputs: Map<string, Record<string, unknown>> } {
   maybePruneEvaluatorState()
   advanceFramePool()
   const outputs = new Map<string, Record<string, unknown>>()
   if (nodes.length === 0) return { frame: null, outputs }
   const evalNode = createEvalNode(
-    nodes, edges, tick, gridW, gridH, groups, instancePrefix, new Set(), {}, audioOverride, null, trusted,
+    nodes, edges, tick, gridW, gridH, groups, instancePrefix, new Set(), {}, audioOverride, null, trusted, nodes, elapsedTick,
   )
   const hot = auxNodes ? null : hotNodeIds(nodes, edges)
   for (const n of nodes) {

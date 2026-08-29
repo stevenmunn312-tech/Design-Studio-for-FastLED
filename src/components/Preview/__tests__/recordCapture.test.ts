@@ -234,4 +234,36 @@ describe('captureSequence', () => {
     expect(seen).toHaveLength(8)
     expect(frames).toHaveLength(5)
   })
+
+  it('keeps Pattern Slideshow intervals on capture time when Master Speed freezes animation', async () => {
+    const groups = {
+      a: {
+        nodes: [node('solid-a', 'SolidColor', 'pattern', { r: 0, g: 0, b: 40 }), node('go-a', 'GroupOutput', 'output')],
+        edges: [edge('ga', 'solid-a', 'frame', 'go-a', 'frame')],
+      },
+      b: {
+        nodes: [node('solid-b', 'SolidColor', 'pattern', { r: 0, g: 0, b: 200 }), node('go-b', 'GroupOutput', 'output')],
+        edges: [edge('gb', 'solid-b', 'frame', 'go-b', 'frame')],
+      },
+    }
+    const nodes = [
+      node('collection', 'PatternCollection', 'show', { patternIds: ['a', 'b'] }),
+      node('show', 'PatternSlideshow', 'show', {
+        order: 'Sequential', interval: 1, transitionsEnabled: false,
+      }),
+      node('speed', 'MasterSpeed', 'output', { speed: 0 }),
+      node('out', 'MatrixOutput', 'output', { width: 2, height: 2 }),
+    ]
+    const edges = [
+      edge('e1', 'collection', 'patternset', 'show', 'patternset'),
+      edge('e2', 'show', 'frame', 'out', 'frame'),
+    ]
+    const frames = await captureSequence({
+      nodes, edges, groups, trusted: true,
+      gridW: 2, gridH: 2, fps: 10, durationSec: 2, seamlessLoop: false,
+    })
+
+    expect(frames).toHaveLength(20)
+    expect(frames![0][2]).toBeLessThan(frames!.at(-1)![2])
+  })
 })

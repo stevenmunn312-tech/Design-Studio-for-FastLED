@@ -237,6 +237,14 @@ music-free case. Nobody would find that, so nobody did.
   new occupant — but a control that says "next" moves what is running, not a
   cursor waiting on a confirm. There is no separate active/highlight split to
   show, which is what the browser layout's `SELECT?` row exists for.
+- **Master Speed changes motion, not the programme.** Slideshow intervals and
+  transition durations are wall-clock seconds. The preview and generated
+  controller keep an unscaled elapsed clock for those decisions and pass a
+  separate accumulated animation clock into collected patterns. A speed of
+  zero therefore freezes motion inside the current/outgoing/incoming patterns
+  without freezing the changeover itself. The generated controller supports
+  the Master Speed node's slider; a wire feeding Speed remains a validation
+  error until the fixed controller template can emit that root control graph.
 
 **The generator moves with it.** `isPatternShow` keys on `PatternSlideshow`
 rather than on a Music Player that happens to lack a card, so the three

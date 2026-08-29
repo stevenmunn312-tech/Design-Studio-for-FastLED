@@ -4,7 +4,7 @@ import {
   clampMasterSpeed, masterSpeedFromOutputs, masterSpeedOriginShift,
 } from '../masterSpeed'
 import { NODE_LIBRARY } from '../nodeLibrary'
-import { evaluateGraphFull } from '../graphEvaluator'
+import { evaluateGraphFull, getPatternShowSelection, resetEvaluatorState } from '../graphEvaluator'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { findOutputRuntimeIssues } from '../../utils/validateGraph'
 import type { StudioNode, StudioEdge } from '../graphStore'
@@ -195,11 +195,18 @@ describe('builds whose clock is not the sketch\'s own', () => {
     expect(errors.join(' ')).toContain('music')
   })
 
-  // The show's clock also times how long each pattern holds, which is a
-  // duration in seconds and has no business speeding up with the animation.
-  it('refuses a show build, and says what its clock also does', () => {
-    const { errors } = findOutputRuntimeIssues(showNodes, showEdges)
-    expect(errors.join(' ')).toContain('how long each pattern holds')
+  it('accepts the Master Speed slider in a Pattern Slideshow build', () => {
+    expect(findOutputRuntimeIssues(showNodes, showEdges).errors).toEqual([])
+  })
+
+  it('still refuses a wired show speed that the fixed controller cannot evaluate', () => {
+    const pot = node('p', 'PotInput', { pin: 4 })
+    const { errors } = findOutputRuntimeIssues(
+      [...showNodes, pot],
+      [...showEdges, edge('es', 'p', 'value', 'spd', 'speed')],
+    )
+    expect(errors.join(' ')).toContain("Master Speed's own slider")
+    expect(errors.join(' ')).toContain('wire feeding Speed')
   })
 
   it('says nothing about a normal sketch, which honours it', () => {
@@ -208,5 +215,71 @@ describe('builds whose clock is not the sketch\'s own', () => {
 
   it('says nothing about a show with no knob in it', () => {
     expect(findOutputRuntimeIssues([slideshow, collection, output], showEdges).errors).toEqual([])
+  })
+})
+
+describe('Pattern Slideshow preview clocks', () => {
+  const solidGroup = (blue: number) => ({
+    nodes: [node('solid', 'SolidColor', { r: 0, g: 0, b: blue }), node('group-out', 'GroupOutput')],
+    edges: [edge('eg', 'solid', 'frame', 'group-out', 'frame')],
+  })
+  const groups = { a: solidGroup(10), b: solidGroup(20) }
+
+  it('renders collected animations from the scaled clock, not elapsed time', () => {
+    resetEvaluatorState()
+    const animatedGroups = {
+      animated: {
+        nodes: [
+          node('hue', 'HueCycle', { rate: 1, s: 1, v: 1 }),
+          node('solid', 'SolidColor'),
+          node('group-out', 'GroupOutput'),
+        ],
+        edges: [
+          edge('eh', 'hue', 'color', 'solid', 'color'),
+          edge('eg', 'solid', 'frame', 'group-out', 'frame'),
+        ],
+      },
+    }
+    const show = node('show', 'PatternSlideshow', { interval: 999 })
+    const collection = node('coll', 'PatternCollection', { patternIds: ['animated'] })
+    const nodes = [show, collection, output, node('spd', 'MasterSpeed', { speed: 0 })]
+    const edges = [
+      edge('e1', 'coll', 'patternset', 'show', 'patternset'),
+      edge('e2', 'show', 'frame', 'out', 'frame'),
+    ]
+
+    const openingFrame = evaluateGraphFull(nodes, edges, 0, 4, 4, animatedGroups, true, true, '', null, 0).frame
+    // Evaluator frames are pooled, so retain pixel values rather than a frame
+    // reference that a later pass may recycle.
+    const opening = { ...openingFrame![0][0] }
+    const elapsedFrame = evaluateGraphFull(nodes, edges, 0, 4, 4, animatedGroups, true, true, '', null, 60).frame
+    const elapsedOnly = { ...elapsedFrame![0][0] }
+    const animatedFrame = evaluateGraphFull(nodes, edges, 15, 4, 4, animatedGroups, true, true, '', null, 60).frame
+    const animated = { ...animatedFrame![0][0] }
+    expect(elapsedOnly).toEqual(opening)
+    expect(animated).not.toEqual(opening)
+  })
+
+  it('advances dwell on real elapsed time even when animation time is frozen', () => {
+    resetEvaluatorState()
+    const show = node('show', 'PatternSlideshow', {
+      order: 'Sequential', interval: 1, transitionsEnabled: false,
+    })
+    const collection = node('coll', 'PatternCollection', { patternIds: ['a', 'b'] })
+    const knob = node('spd', 'MasterSpeed', { speed: 0 })
+    const nodes = [show, collection, output, knob]
+    const edges = [
+      edge('e1', 'coll', 'patternset', 'show', 'patternset'),
+      edge('e2', 'show', 'frame', 'out', 'frame'),
+    ]
+
+    evaluateGraphFull(nodes, edges, 0, 4, 4, groups, true, true, '', null, 0)
+    expect(getPatternShowSelection('show')?.currentIndex).toBe(0)
+    // Animation tick stays at zero (Master Speed freeze); elapsed tick passes
+    // the one-second dwell and completes the zero-length transition.
+    evaluateGraphFull(nodes, edges, 0, 4, 4, groups, true, true, '', null, 66)
+    const pass = evaluateGraphFull(nodes, edges, 0, 4, 4, groups, true, true, '', null, 72)
+    expect(getPatternShowSelection('show')?.currentIndex).toBe(1)
+    expect(pass.frame?.[0]?.[0]?.b).toBe(20)
   })
 })

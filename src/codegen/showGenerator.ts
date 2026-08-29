@@ -52,6 +52,10 @@ import {
   STEREO_VU_CPP_FORWARD, STEREO_VU_CPP_HELPERS, stereoVuEmitsFromGraph,
   stereoVuGlobalCpp, stereoVuLoopCpp,
 } from './stereoVuMeterCpp'
+import { masterShowClockLoopCpp, type MasterSpeedEmit } from './masterSpeedCpp'
+import {
+  clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MAX, MASTER_SPEED_MIN,
+} from '../state/masterSpeed'
 
 const nodeType = (n: StudioNode) => (n.data as { nodeType?: string }).nodeType
 const props = (n: StudioNode) => n.data.properties as Record<string, unknown>
@@ -625,6 +629,17 @@ export function generateShowSketch(
     },
   } : meter)
   const renderers = buildPatternRenderers(info.patternIds, groups, [], !!audio, audio ? { beat: '_audioBeat' } : {}, !!audio)
+  const speedNode = nodes.find((node) => nodeType(node) === 'MasterSpeed')
+  // The fixed show template can honour the node's own slider without pulling
+  // an arbitrary root control graph into the controller. Validation refuses a
+  // wired speed until that broader control graph has an emitter here.
+  const masterSpeedEmit: MasterSpeedEmit = {
+    present: !!speedNode,
+    speedExpr: null,
+    initial: clampMasterSpeed(speedNode ? props(speedNode).speed : MASTER_SPEED_DEFAULT),
+    min: MASTER_SPEED_MIN,
+    max: MASTER_SPEED_MAX,
+  }
   // A collection of one never transitions — the dwell simply never ends — so
   // the whole transition apparatus (showA/showB, the style pool, and the
   // compositing switch) is left out rather than emitted unreachable.
@@ -819,12 +834,14 @@ export function generateShowSketch(
     L.push('  static uint32_t phaseStart = 0;')
   }
   L.push('  uint32_t now = millis();')
+  L.push(...masterShowClockLoopCpp(masterSpeedEmit))
+  const patternNow = masterSpeedEmit.present ? 'animNow' : 'now'
   if (!transitions) {
-    L.push('  renderPattern(0, now);   // the collection holds a single pattern')
+    L.push(`  renderPattern(0, ${patternNow});   // the collection holds a single pattern`)
     L.push('')
   } else {
     L.push('  if (!transitioning) {')
-    L.push('    renderPattern(cur, now);')
+    L.push(`    renderPattern(cur, ${patternNow});`)
     L.push(`    if (now - phaseStart >= ${dwellMs}) {`)
     L.push(`      nxt = ${nextPattern};`)
     L.push('      transType = TRANS_POOL[random8(TRANS_POOL_N)];')
@@ -833,8 +850,8 @@ export function generateShowSketch(
     L.push('  } else {')
     L.push(`    float p = ${transMs} > 0 ? (float)(now - phaseStart) / ${transMs} : 1.0f;`)
     L.push('    if (p >= 1.0f) p = 1.0f;')
-    L.push('    renderPattern(cur, now); ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);  // outgoing')
-    L.push('    renderPattern(nxt, now); ::memmove(showB, leds, sizeof(CRGB) * NUM_LEDS);  // incoming')
+    L.push(`    renderPattern(cur, ${patternNow}); ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);  // outgoing`)
+    L.push(`    renderPattern(nxt, ${patternNow}); ::memmove(showB, leds, sizeof(CRGB) * NUM_LEDS);  // incoming`)
     L.push('    compositeTransition(transType, leds, showA, showB, p);')
     L.push('    if (p >= 1.0f) { cur = nxt; transitioning = false; phaseStart = now; }')
     L.push('  }')

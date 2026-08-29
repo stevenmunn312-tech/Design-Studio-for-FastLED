@@ -238,6 +238,10 @@ export default function LEDPreview() {
   // Wall-clock time base so the preview animates at real-time speed regardless
   // of the display refresh rate (matching the firmware's millis()-based timing).
   const startTime     = useRef(0)
+  // Pattern Slideshow owns real elapsed durations even while Master Speed
+  // slides startTime above. Pause shifts both origins; speed shifts only the
+  // animation origin.
+  const elapsedStartTime = useRef(0)
   const lastStep      = useRef(0)
   // React-driven node previews and signal lighting do not need the matrix's
   // full 60 fps cadence. Bounding their publish rate prevents a busy graph
@@ -541,11 +545,16 @@ export default function LEDPreview() {
           // Remove the paused wall-clock interval from animation time so
           // stateful effects continue from the exact frame where they stopped.
           if (startTime.current !== 0) startTime.current += now - pauseStartedAt.current
+          if (elapsedStartTime.current !== 0) elapsedStartTime.current += now - pauseStartedAt.current
           pauseStartedAt.current = 0
           lastStep.current = now
           lastFrameNow.current = now
         }
-        if (startTime.current === 0) { startTime.current = now; lastStep.current = now }
+        if (startTime.current === 0) {
+          startTime.current = now
+          elapsedStartTime.current = now
+          lastStep.current = now
+        }
         // Gate to ~60fps off the wall clock: on high-refresh displays this skips
         // the extra rAF callbacks instead of advancing time faster than real.
         // With the preview panel closed, node previews (published at the
@@ -562,6 +571,7 @@ export default function LEDPreview() {
         lastFrameNow.current = now
         // t = tick / 60 = seconds elapsed, matching the firmware's millis()/1000.
         const tick = (now - startTime.current) / STEP
+        const elapsedTick = (now - elapsedStartTime.current) / STEP
         tickRef.current = tick
         const gW = gridWRef.current, gH = gridHRef.current, px = pixelRef.current
         // Read the graph straight from the store each frame — the loop runs at
@@ -586,7 +596,10 @@ export default function LEDPreview() {
         // fits/crops each terminal's source frame into its physical route. Do
         // the same here and pick the route selected in the preview header.
         const composition = compositionDims(hardwareNodes, rootGraphEdges(state))
-        const { outputs } = evaluateGraphFull(graphNodes, graphEdges, tick, composition.w, composition.h, groups, fullPass, trusted)
+        const { outputs } = evaluateGraphFull(
+          graphNodes, graphEdges, tick, composition.w, composition.h,
+          groups, fullPass, trusted, '', null, elapsedTick,
+        )
         /*
          * Master Speed, applied by sliding the animation clock's origin rather
          * than by multiplying the elapsed time. `t * speed` would double every
