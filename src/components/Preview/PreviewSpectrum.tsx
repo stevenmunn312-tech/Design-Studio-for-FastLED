@@ -16,6 +16,7 @@ const AUTO_CHANGE_MS = 14_000
 const STYLE_FADE_MS = 560
 const HISTORY_INTERVAL_MS = 70
 const HISTORY_DEPTH = 34
+const LIVE_PAINT_INTERVAL_MS = 1000 / 30
 
 const clamp01 = (value: unknown) =>
   Math.max(0, Math.min(1, typeof value === 'number' && Number.isFinite(value) ? value : 0))
@@ -392,6 +393,8 @@ export default function PreviewSpectrum({
     startedAt: number
   } | null>(null)
   const animationFrameRef = useRef<number | null>(null)
+  const livePaintFrameRef = useRef<number | null>(null)
+  const lastLivePaintRef = useRef(0)
 
   useEffect(() => {
     if (mode !== 'auto') return
@@ -425,14 +428,19 @@ export default function PreviewSpectrum({
     const { audioVisualizerLive: live, spectrumOverride: override, audioSourceKind: sourceKind } = propsRef.current
     const liveSource = sourceKind === 'decoder' ? useDecoderAudioStore.getState() : useAudioStore.getState()
     const source = override?.length ? override : liveSource.previewSpectrum
-    const values = smoothed(resampleSpectrum(live ? source : [], NUM_BANDS))
+    // This is the music player's own meter, so an active selected bus is
+    // sufficient to animate it. `audioVisualizerLive` additionally covers
+    // baked show playback and graph-routed sources, but graph reachability must
+    // not suppress a Decoder stream that the player is visibly playing.
+    const sourceLive = live || liveSource.active || liveSource.micActive
+    const values = smoothed(resampleSpectrum(sourceLive ? source : [], NUM_BANDS))
     const now = performance.now()
     const dt = Math.min(0.1, Math.max(0, (now - lastPaintRef.current) / 1000))
     lastPaintRef.current = now
     const peaks = peaksRef.current
     const holds = peakHoldsRef.current
     for (let i = 0; i < NUM_BANDS; i++) {
-      if (!live) {
+      if (!sourceLive) {
         peaks[i] = 0
         holds[i] = 0
       } else if (values[i] >= peaks[i]) {
@@ -484,17 +492,24 @@ export default function PreviewSpectrum({
     const observer = new ResizeObserver(() => paintRef.current())
     observer.observe(canvas)
     paintRef.current()
-    let lastSpectrum: number[] | null = null
-    const unsubscribe = useAudioStore.subscribe((state) => {
-      if (propsRef.current.spectrumOverride?.length) return
-      if (state.previewSpectrum === lastSpectrum) return
-      lastSpectrum = state.previewSpectrum
-      paintRef.current()
-    })
+    let disposed = false
+    const pollLiveSpectrum = (now: number) => {
+      if (disposed) return
+      // Read-only polling deliberately stays outside both audio stores'
+      // subscriber chains. The LED evaluator can consume Decoder frames at
+      // 60 fps without waiting for this decorated canvas to finish painting.
+      if (now - lastLivePaintRef.current >= LIVE_PAINT_INTERVAL_MS) {
+        lastLivePaintRef.current = now
+        paintRef.current()
+      }
+      livePaintFrameRef.current = window.requestAnimationFrame(pollLiveSpectrum)
+    }
+    livePaintFrameRef.current = window.requestAnimationFrame(pollLiveSpectrum)
     return () => {
+      disposed = true
       observer.disconnect()
-      unsubscribe()
       if (animationFrameRef.current !== null) window.cancelAnimationFrame(animationFrameRef.current)
+      if (livePaintFrameRef.current !== null) window.cancelAnimationFrame(livePaintFrameRef.current)
     }
   }, [])
 
@@ -508,7 +523,7 @@ export default function PreviewSpectrum({
       previousStyleRef.current = effectiveStyle
     }
     paintRef.current()
-  }, [audioVisualizerLive, spectrumOverride, effectiveStyle])
+  }, [audioVisualizerLive, spectrumOverride, audioSourceKind, effectiveStyle])
 
   return (
     <canvas
