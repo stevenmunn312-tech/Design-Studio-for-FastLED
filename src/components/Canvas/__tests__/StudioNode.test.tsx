@@ -84,7 +84,7 @@ describe('StudioNode', () => {
     expect(getByText('Color')).toBeTruthy()          // input port label
   })
 
-  it('minimizes to the header, preserves port handles, restores, and deletes', () => {
+  it('minimizes to the header and node type, preserves port handles, restores, and deletes', () => {
     const node = makeNode('SolidColor', { r: 255, g: 0, b: 128 })
     const view = renderNode(node)
 
@@ -94,6 +94,9 @@ describe('StudioNode', () => {
 
     view.rerender(<StudioNode {...({ id: minimized.id, data: minimized.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>)} />)
     expect(view.queryByText('Color')).toBeNull()
+    expect(view.getByText('FRAME · SHAPES & TEXT')).toBeTruthy()
+    expect(view.getByLabelText('Node type: FRAME · SHAPES & TEXT')).toBeTruthy()
+    expect(view.getByText('Fills the matrix with one color.')).toBeTruthy()
     expect(view.container.querySelector('[data-handle="source:frame"]')).toBeTruthy()
 
     fireEvent.click(view.getByRole('button', { name: 'Restore Solid Color node' }))

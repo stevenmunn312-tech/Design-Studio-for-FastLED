@@ -168,10 +168,6 @@
   box-shadow: 0 4px 12px color-mix(in srgb, var(--node-accent) 18%, transparent);
 }
 
-.nodeMinimized .header {
-  border-radius: var(--node-radius);
-}
-
 .headerTitle {
   min-width: 0;
   overflow: hidden;
@@ -235,6 +231,38 @@
 .headerAction:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+.minimizedInfo {
+  min-height: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 4px 8px;
+  border-top: 1px solid color-mix(in srgb, var(--node-accent) 24%, var(--divider));
+  border-radius: 0 0 var(--node-radius) var(--node-radius);
+  background: color-mix(in srgb, var(--bg-node) 90%, var(--node-accent) 10%);
+}
+
+.minimizedType {
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.minimizedDescription {
+  display: -webkit-box;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--text-secondary) 92%, white 8%);
+  font-size: 10px;
+  line-height: 1.25;
+  opacity: 0.82;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .headerTag,

@@ -5,7 +5,7 @@ import { rootGraphEdges, rootGraphNodes, useGraphStore } from '../../state/graph
 import { compositionDims } from '../../state/outputRouting'
 import type { StudioEdge, StudioNodeData } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { NODE_LIBRARY, CATEGORY_ACCENT_VAR, portColor, propertyMeta, propertyDescription, propertyLabel, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression, isGpioPinProperty, gpioRequirementForProperty } from '../../state/nodeLibrary'
+import { NODE_LIBRARY, NODE_DESCRIPTIONS, CATEGORY_ACCENT_VAR, portColor, propertyMeta, propertyDescription, propertyLabel, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression, isGpioPinProperty, gpioRequirementForProperty } from '../../state/nodeLibrary'
 import { isPinnableProperty } from '../../state/performanceDeck'
 import { useUploadStore, boardGpioInfo } from '../../state/uploadStore'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../../state/scalarExpression'
@@ -1196,6 +1196,11 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const headerCode = moduleCode(d.nodeType)
   const nodeTag = id.slice(-3).toUpperCase()
   const displayName = nodeDisplayLabel(d.nodeType, props, d.label)
+  const minimizedType = (outputs[0]?.dataType ?? inputs[0]?.dataType ?? 'control').toUpperCase()
+  const minimizedTypeLine = def?.subcategory
+    ? `${minimizedType} · ${def.subcategory.toUpperCase()}`
+    : minimizedType
+  const minimizedDescription = NODE_DESCRIPTIONS[d.nodeType] ?? d.label
   const showLiveNodeVisuals = uiEffectsEnabled
 
   useEffect(() => {
@@ -1322,6 +1327,14 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           </button>
         </span>
       </div>
+      {minimized && (
+        <div className={styles.minimizedInfo}>
+          <span className={styles.minimizedType} aria-label={`Node type: ${minimizedTypeLine}`}>
+            {minimizedTypeLine}
+          </span>
+          <span className={styles.minimizedDescription}>{minimizedDescription}</span>
+        </div>
+      )}
       {!minimized && <div className={styles.body}>
         {micUnavailable && (
           <div className={styles.hardwareUnsupported} role="status">
