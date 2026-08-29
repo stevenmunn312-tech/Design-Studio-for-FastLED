@@ -50,7 +50,7 @@ import type { TransportArtworks } from '../utils/transportArtworks'
 import { transportArtworkTableCpp } from './transportArtworkCpp'
 import {
   infoDisplayHelpersCpp, INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp, infoDisplaySetupCpp,
-  infoDisplayLoopCpp, columnOffsetFor, type InfoDisplayEmit,
+  infoDisplayLoopCpp, infoDisplayStartupStageBatchCpp, columnOffsetFor, type InfoDisplayEmit,
 } from './infoDisplayCpp'
 import { DISPLAY_SOURCE_NODE_TYPES } from '../state/displaySignal'
 import {
@@ -1455,7 +1455,7 @@ export function generateCpp(
   // Handed in rather than baked here — baking evaluates patterns, and a text
   // emitter has no business doing that, nor any way to know whether the
   // workspace has been trusted. See utils/browserThumbnails.ts.
-  opts: { externalAudio?: boolean; nativeFastLedAudio?: boolean; groupInputExprs?: Record<string, string>; psramAllowed?: boolean; aliasTerminalBuffer?: boolean; artworks?: TransportArtworks } = {},
+  opts: { externalAudio?: boolean; nativeFastLedAudio?: boolean; groupInputExprs?: Record<string, string>; psramAllowed?: boolean; aliasTerminalBuffer?: boolean; artworks?: TransportArtworks; bootLabel?: string } = {},
 ): string {
   if (nodes.length === 0) return '// No nodes in graph\n'
 
@@ -1463,6 +1463,8 @@ export function generateCpp(
   // a signal edge. Preserve the authored graph while the render graph below is
   // flattened and pruned to what reaches an LED output.
   const capabilityNodes = nodes
+  const bootTitle = opts.bootLabel?.trim() || 'FASTLED BUILD'
+  const bootDevice = selectedPhysicalBoardProfile(capabilityNodes)?.label ?? 'FASTLED CONTROLLER'
   const amplifierIdle = amplifierIdleCpp(capabilityNodes)
 
   // Inline any Group nodes so the rest of the generator works on a flat graph.
@@ -5037,6 +5039,7 @@ export function generateCpp(
           volumeExpr: '0.0f',
           durationExpr: '0.0f',
           dateTimeExpr: clockExpr,
+          boot: { project: bootTitle, device: bootDevice },
         }
         infoDisplays.push(emit)
         for (const line of infoDisplaySetupCpp(emit)) setupLines.push(line)
@@ -6871,6 +6874,8 @@ export function generateCpp(
   lines.push(...psramAllocs)
   lines.push(...pinSetupLines)
   lines.push(...setupLines)
+  lines.push(...infoDisplayStartupStageBatchCpp(infoDisplays, 1))
+  lines.push(...infoDisplayStartupStageBatchCpp(infoDisplays, 2))
   if (multipleOutputs) {
     for (const route of outputConfigs) {
       lines.push(...fastledSetupCpp(route.hardware, {
@@ -6912,7 +6917,11 @@ export function generateCpp(
   // HUB75 has no FastLED CLEDController registered, so setMaxPowerInVoltsAndMilliamps
   // would have nothing to throttle.
   if (powerLimit && !isHub75) lines.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${volts}, ${milliamps});`)
+  lines.push(...infoDisplayStartupStageBatchCpp(infoDisplays, 3))
+  lines.push(...infoDisplayStartupStageBatchCpp(infoDisplays, 4))
   if (emitEngine) lines.push(`  setupAudio();`)
+  lines.push(...infoDisplayStartupStageBatchCpp(infoDisplays, 5))
+  lines.push(...infoDisplayStartupStageBatchCpp(infoDisplays, 6))
   lines.push(`}`)
   lines.push(``)
 

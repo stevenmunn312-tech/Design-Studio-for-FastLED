@@ -15,7 +15,10 @@ import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75Hardwar
 import { sanitizePin } from './hardwarePins'
 import { PLAYER_SONG_INFO_CPP } from './playerSongInfoCpp'
 import type { PlayerDisplays } from './playerDisplays'
-import { infoDisplayHelpersCpp, INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp, infoDisplaySetupCpp, infoDisplayLoopCpp } from './infoDisplayCpp'
+import {
+  infoDisplayHelpersCpp, INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp,
+  infoDisplaySetupCpp, infoDisplayLoopCpp, infoDisplayStartupStageBatchCpp,
+} from './infoDisplayCpp'
 import {
   tftDisplayHelpersCpp, TFT_DISPLAY_CPP_FORWARD, tftDisplayGlobalCpp,
   tftDisplaySetupCpp, tftDisplayLoopCpp, type TftDisplayEmit,
@@ -324,6 +327,7 @@ export function generatePlayerSketch(
     particleFx?: PlayerParticlesConfig | null; displays?: PlayerDisplays
     thumbnails?: BrowserThumbnails; artworks?: TransportArtworks
     stereoVuMeters?: StereoVuEmit[]
+    bootLabel?: string; deviceLabel?: string
   } = {},
 ): string {
   const raw = { ...DEFAULTS, ...cfg }
@@ -792,7 +796,7 @@ void changePlayerTrack(int8_t direction) {
   genericTrackIndex = (uint16_t)((genericTrackIndex + count + direction) % count);
   audio.stopSong();
   playerPaused = false;
-  startPlayback();
+  playbackReady = startPlayback();
 }
 
 void servicePlayerControls() {
@@ -862,6 +866,15 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     volumeExpr: display.sources.volume ?? '0.0f',
     durationExpr: display.sources.duration ?? 'songDurationSec()',
     dateTimeExpr: null,
+    boot: {
+      project: opts.bootLabel?.trim() || 'FASTLED BUILD',
+      device: opts.deviceLabel?.trim() || 'ESP32 PLAYER',
+      // The player already knows these states and retries both paths. The
+      // fault card therefore clears itself when a card is inserted or a later
+      // transfer supplies a playable track.
+      faultExpr: '!sdMounted ? "NO SD CARD" : (!playbackReady ? "NO PLAYABLE TRACK" : nullptr)',
+      faultHintExpr: '!sdMounted ? "CHECK CARD/WIRING" : "CHECK /MUSIC FILES"',
+    },
     indicatorExprs: [1, 2, 3, 4].map((i) => display.sources[`indicator${i}`] ?? 'false'),
     // infoDisplayLoopCpp is shared with the normal generator and emits browser
     // calls for this layout, so the definitions behind them have to be emitted
@@ -892,6 +905,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     valueExpr: display.sources.value ?? '0.0f',
     dateTimeExpr: null,
     enabledExpr: display.enabled ? 'true' : 'false',
+    faultCodeExpr: '!sdMounted ? SEG_FAULT_SD_CARD : (!playbackReady ? SEG_FAULT_NO_TRACK : SEG_FAULT_NONE)',
   }))
 
   // The player sketch is a fixed template, so a colour panel's ports come from
@@ -990,6 +1004,15 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     ...touchEmits.flatMap(tftTouchSetupCpp),
   ].join('\n')
 
+  const playerEarlyStagesCpp = [1, 2, 3, 4]
+    .flatMap((step) => infoDisplayStartupStageBatchCpp(infoEmits, step))
+    .join('\n')
+  const playerServicesStageCpp = infoDisplayStartupStageBatchCpp(infoEmits, 5, 'CHECKING').join('\n')
+  const contentStageLines = infoDisplayStartupStageBatchCpp(infoEmits, 6)
+  const playerContentStageCpp = contentStageLines.length > 0
+    ? ['  if (playbackReady) {', ...contentStageLines, '  }'].join('\n')
+    : ''
+
   const displayLoopCpp = [
     ...infoEmits.flatMap(infoDisplayLoopCpp),
     ...segmentEmits.flatMap(segmentDisplayLoopCpp),
@@ -1084,6 +1107,9 @@ Audio audio${internalDac ? '(true)' : ''};  // true = internal DAC on GPIO25/26;
 uint32_t audioPosMs = 0;      // elapsed playback time, never read-ahead bytes
 uint32_t showDurationMs = 0;  // header duration; also the EOF event boundary
 bool audioEnded = false;
+// True only after the decoder accepted a playable file. Kept separately from
+// pause/EOF so the OLED can distinguish a quiet player from a broken one.
+bool playbackReady = false;
 
 // ESP32-audioI2S reports pin, decoder, allocation, and sync failures only
 // through weak callbacks. Without these, a failed decoder merely leaves
@@ -1723,7 +1749,7 @@ void sdRetryMount() {
 
   sdMounted = true;
   Serial.println("SD card mounted");
-  startPlayback();
+  playbackReady = startPlayback();
 }
 
 static bool     provTransferring = false;
@@ -1817,7 +1843,7 @@ void provServiceSerial() {
   if (provTransferring && millis() - provLastCommandMs > PROV_SESSION_TIMEOUT_MS) {
     Serial.println("ERR session-timeout");
     provEndSession();
-    startPlayback();
+    playbackReady = startPlayback();
   }
 
   if (!Serial.available()) return;
@@ -1864,7 +1890,7 @@ void provServiceSerial() {
     // link to, and dropping back before the reply lands turns it into garbage.
     Serial.println("BYE");
     provEndSession();
-    startPlayback();   // the card changed underneath us; pick a track again
+    playbackReady = startPlayback();   // the card changed underneath us; pick a track again
     return;
   }
 }
@@ -1884,6 +1910,10 @@ ${stereoVuSetupLines}
 ${powerSetupLine}
 ${hasControls ? `${controlPinSetup}\n  applyPlayerBrightness();` : ''}
 
+${displaySetupCpp ? displaySetupCpp + '\n' : ''}
+${playerEarlyStagesCpp ? playerEarlyStagesCpp + '\n' : ''}
+${playerServicesStageCpp ? playerServicesStageCpp + '\n' : ''}
+
   // The protocol's own wording, not a human sentence: the host reads this
   // greeting and turns it into a real explanation (card seated? FAT32? CS pin?).
   // Said once here rather than on every retry, so it stays a greeting the host
@@ -1896,8 +1926,8 @@ ${decoderTap ? '  setupDecoderTap();   // decoded PCM → FastLED audio analysis
   ${internalDac ? '' : 'audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);'}
   audio.setVolume(${c.maxVolume});
 
-${displaySetupCpp ? displaySetupCpp + '\n' : ''}
-  if (sdMounted) startPlayback();
+  if (sdMounted) playbackReady = startPlayback();
+${playerContentStageCpp ? playerContentStageCpp + '\n' : ''}
 }
 
 // ── Loop ──────────────────────────────────────────────────────────────────────
@@ -1936,7 +1966,7 @@ ${decoderTap ? '  updateDecoderAudio();  // drain PCM only after the decoder has
 
 ${genericPlayer ? `  if (GENERIC_PLAYER && audioEnded) {
     genericTrackIndex++;
-    startPlayback();
+    playbackReady = startPlayback();
     return;
   }
 ` : ''}

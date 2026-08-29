@@ -716,6 +716,11 @@ describe('displays in a show controller', () => {
     expect(cpp).toContain('_oledBeginSpi(_oled_oled,')
     expect(cpp).toContain('_segBegin(_seg_seg,')
     expect(cpp).toContain('_tftBegin(_tft_tft,')
+    expect(cpp).toContain('"Design Studio for FastLED"')
+    expect(cpp).toContain('"STARTING 3/6"')
+    expect(cpp).toContain('"FASTLED"')
+    expect(cpp).toContain('"READY 6/6"')
+    expect(cpp.match(/delay\(500\);/g)).toHaveLength(6)
   })
 
   /*
@@ -761,7 +766,9 @@ describe('displays in a show controller', () => {
   it('flushes the panels after the frame has shipped', () => {
     const cpp = build([oled, status])
     const show = cpp.indexOf('FastLED.show();')
-    const panel = cpp.indexOf('// Info Display')
+    // The first lifecycle paint is intentionally in setup(); the last Info
+    // Display block is the per-frame service whose ordering this test guards.
+    const panel = cpp.lastIndexOf('{ // Info Display')
     const delay = cpp.indexOf('FastLED.delay(16);')
     expect(show).toBeGreaterThan(-1)
     expect(panel).toBeGreaterThan(show)

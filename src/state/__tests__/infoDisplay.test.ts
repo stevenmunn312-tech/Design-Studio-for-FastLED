@@ -9,7 +9,9 @@ import {
   clockGeometry,
   browserGeometry,
   waitingGeometry,
+  bootStatusGeometry,
   renderInfoDisplay,
+  renderInfoBootStatus,
   BROWSER_LAYOUT,
   type NowPlayingData,
   type PatternBrowserData,
@@ -104,6 +106,10 @@ describe('rows resolved from the panel', () => {
     ['waiting', (w: number, h: number) => {
       const g = waitingGeometry(w, h)
       return [g.message.y, g.hint?.y]
+    }],
+    ['boot status', (w: number, h: number) => {
+      const g = bootStatusGeometry(w, h)
+      return [g.title.y, g.subtitle?.y, g.rule?.y, g.state.y, g.detail?.y, g.meta?.y]
     }],
   ] as const)('keeps every %s row on the glass, at either height', (_name, rows) => {
     for (const height of [64, SHORT]) {
@@ -214,6 +220,33 @@ describe('Waiting', () => {
 
   it('is what a panel with no source shows', () => {
     expect(blankInfoData('Waiting')).toEqual({ layout: 'Waiting' })
+  })
+})
+
+describe('Boot and fault status', () => {
+  const status = (state: 'STARTING 3/6' | 'READY 6/6' | 'FAULT 5/6 MEDIA') => renderInfoBootStatus(sh1106, {
+    subtitle: 'AURORA WALL',
+    state,
+    detail: state.startsWith('FAULT') ? 'NO SD CARD' : 'FASTLED',
+    meta: state.startsWith('FAULT') ? 'CHECK CARD/WIRING' : 'STARTED',
+  })
+
+  it('renders project, device and lifecycle state inside the panel', () => {
+    for (const state of ['STARTING 3/6', 'READY 6/6', 'FAULT 5/6 MEDIA'] as const) {
+      expect(litCount(status(state))).toBeGreaterThan(50)
+      expect(withinPanel(status(state))).toBe(true)
+    }
+  })
+
+  it('makes a persistent fault visibly different from a successful boot', () => {
+    expect(oledSurfaceRows(status('FAULT 5/6 MEDIA'))).not.toEqual(oledSurfaceRows(status('READY 6/6')))
+  })
+
+  it('keeps the state when a short panel has no room for identity rows', () => {
+    const g = bootStatusGeometry(128, 16)
+    expect(g.state.y + FONT_H).toBeLessThanOrEqual(16)
+    expect(g.detail).toBeNull()
+    expect(g.meta).toBeNull()
   })
 })
 

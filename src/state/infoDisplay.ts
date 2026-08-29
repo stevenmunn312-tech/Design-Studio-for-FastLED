@@ -116,6 +116,87 @@ export interface ClockData {
   synced: boolean
 }
 
+/** Fixed product identity at the top of every lifecycle card. */
+export const INFO_BOOT_TITLE = 'Design Studio for FastLED'
+
+/** Minimum time each generated setup milestone remains readable. */
+export const INFO_BOOT_STAGE_MIN_MS = 500
+
+/**
+ * Device-lifecycle information shown before the wired source takes over, or
+ * for as long as a runtime fault remains. This is deliberately not another
+ * `InfoDisplayLayout`: boot and faults are an appliance overlay, not graph
+ * content and not another source a cable can select.
+ */
+export interface InfoBootStatusData {
+  subtitle: string
+  state: string
+  detail: string
+  meta: string
+}
+
+export interface BootStatusGeometry {
+  title: InfoField
+  subtitle: InfoField | null
+  rule: InfoRect | null
+  state: InfoField
+  detail: InfoField | null
+  meta: InfoField | null
+}
+
+/**
+ * A compact appliance card for startup and runtime failures.
+ *
+ * Rows disappear from the bottom on a short panel. The state itself never
+ * disappears: on a tiny screen, knowing STARTING/READY/FAULT matters more than
+ * the project identity or diagnostic detail around it.
+ */
+export function bootStatusGeometry(width: number, height: number): BootStatusGeometry {
+  const { margin } = INFO_LAYOUT
+  const inner = width - (margin * 2)
+  const pitch = infoRowPitch(height, 6)
+  const row = (index: number) => margin + (index * pitch)
+  const field = (index: number): InfoField | null =>
+    fits(row(index), height) ? { x: margin, y: row(index), w: inner } : null
+  return {
+    title: { x: margin, y: row(0), w: inner },
+    subtitle: field(1),
+    rule: fits(row(2), height, 1) ? { x: margin, y: row(2), w: inner, h: 1 } : null,
+    // A 16-row display has room for rows 0 and 1 only. Put the state in that
+    // second surviving row and let the device identity be the first detail to
+    // go; the 32/64-row panels still get the full ordering below.
+    state: height < row(3) + FONT_H
+      ? { x: margin, y: row(1), w: inner }
+      : { x: margin, y: row(3), w: inner },
+    detail: field(4),
+    meta: field(5),
+  }
+}
+
+/** Draw the same boot/fault card the generated OLED firmware emits. */
+export function drawBootStatus(surface: OledSurface, data: InfoBootStatusData): void {
+  const g = bootStatusGeometry(surface.width, surface.height)
+  const centred = (field: InfoField, text: string) => {
+    const fitted = fitOledText(text, field.w)
+    const x = Math.max(field.x, ((surface.width - oledTextWidth(fitted)) / 2) | 0)
+    drawOledText(surface, x, field.y, fitted)
+  }
+  centred(g.title, INFO_BOOT_TITLE)
+  if (g.subtitle && g.subtitle.y !== g.state.y) centred(g.subtitle, data.subtitle)
+  if (g.rule) drawHLine(surface, g.rule.x, g.rule.y, g.rule.w)
+  centred(g.state, data.state)
+  if (g.detail) centred(g.detail, data.detail)
+  if (g.meta) centred(g.meta, data.meta)
+}
+
+/** Render a lifecycle card on the same controller surface as normal content. */
+export function renderInfoBootStatus(controller: OledController, data: InfoBootStatusData): OledSurface {
+  const surface = createOledSurface(controller)
+  clearOledSurface(surface)
+  drawBootStatus(surface, data)
+  return surface
+}
+
 export type InfoDisplayData =
   | { layout: 'Waiting' }
   | { layout: 'Now Playing'; data: NowPlayingData }

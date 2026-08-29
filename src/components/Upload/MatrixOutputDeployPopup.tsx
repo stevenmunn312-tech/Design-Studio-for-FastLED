@@ -60,6 +60,8 @@ export default function MatrixOutputDeployPopup({
   const edges = useRootEdges()
   const entries = useMusicStore((s) => s.entries)
   const currentProjectId = useProjectStore((s) => s.currentProjectId)
+  const projectName = useProjectStore((s) =>
+    s.projects.find((project) => project.id === s.currentProjectId)?.name ?? '')
   const {
     helper, installedCores, selectedFqbn, selectedPort, ports, busy, status, codeViewOpen,
     refreshHelper, refreshPorts, installCore, activeOutputNodeId,
@@ -101,6 +103,7 @@ export default function MatrixOutputDeployPopup({
     // and only this side knows whether the workspace has been trusted.
     const opts = {
       psramAllowed: psramSupported,
+      bootLabel: projectName,
       thumbnails: bakeBrowserThumbnails(
         codegenGraph.nodes, codegenGraph.edges, groups,
         useGraphStore.getState().trusted, useGraphStore.getState().graphs,
@@ -114,7 +117,7 @@ export default function MatrixOutputDeployPopup({
       ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)
       : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
   }
-  const code = useMemo(generateCurrentCode, [codegenGraph, psramSupported])
+  const code = useMemo(generateCurrentCode, [codegenGraph, psramSupported, projectName])
 
   const portLabel = ports.find((p) => p.address === selectedPort)?.label ?? selectedPort
   const target = `${board?.label ?? 'No board'} · ${portLabel || 'no port'}`
@@ -376,6 +379,7 @@ export default function MatrixOutputDeployPopup({
         fqbn: selectedFqbn,
         psramAllowed: !!psramOptions,
         fqbnOpt: usePsram ? psramChoice?.opt : undefined,
+        projectName,
       })
       if (payload) await offerValidationAfter('sd-show', runShowUpload(payload))
     })()

@@ -54,6 +54,12 @@ describe('segment display helpers', () => {
   it('needs no external driver library', () => {
     expect(SEGMENT_DISPLAY_CPP_HELPERS).not.toContain('#include')
   })
+
+  it('supports the E prefix on both controller transports', () => {
+    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain("if (c == 'E') return _segE;")
+    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain("if (c == 'E') { value = _segMaxE; return true; }")
+    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('_maxSend(d, 0x09, decodeMask);')
+  })
 })
 
 describe('generateCpp with a segment display', () => {

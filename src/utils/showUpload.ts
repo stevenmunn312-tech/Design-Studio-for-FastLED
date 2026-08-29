@@ -22,6 +22,7 @@ import { showFileToBinary } from '../codegen/performanceGenerator'
 import type { ShowUploadFile } from './backendClient'
 import { resolveShowTarget } from '../state/showTarget'
 import { stereoVuEmitsFromGraph } from '../codegen/stereoVuMeterCpp'
+import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
 
 const nodeType = (n: StudioNode) => (n.data as StudioNodeData).nodeType
 
@@ -114,7 +115,7 @@ export function buildShowPlayer(
   nodes: StudioNode[],
   edges: Edge[],
   groups: GroupRegistry,
-  opts: { patternSet?: string[]; bakedAudio: boolean; preferredTrack: string; genericPlayer?: boolean; fqbn?: string; psramAllowed?: boolean },
+  opts: { patternSet?: string[]; bakedAudio: boolean; preferredTrack: string; genericPlayer?: boolean; fqbn?: string; psramAllowed?: boolean; projectName?: string },
 ): string {
   // A collection (version 2) show carries its pattern group ids in patternSet;
   // compile those subgraphs into render_pN() so the player draws the user's own
@@ -159,6 +160,8 @@ export function buildShowPlayer(
     ),
     particleFx,
     stereoVuMeters,
+    bootLabel: opts.projectName,
+    deviceLabel: selectedPhysicalBoardProfile(nodes)?.label,
   })
 }
 
@@ -180,6 +183,7 @@ export function buildShowPlayerForMeasurement(
   groups: GroupRegistry = {},
   fqbn = '',
   psramAllowed = false,
+  projectName = '',
 ): string | null {
   if (!sdShowConnected(nodes, edges)) return null
   const { ids } = wiredPatternCollection(nodes, edges)
@@ -190,6 +194,7 @@ export function buildShowPlayerForMeasurement(
     genericPlayer: musicPlayerConnected(nodes, edges),
     fqbn,
     psramAllowed,
+    projectName,
   })
 }
 
@@ -203,7 +208,7 @@ export function buildShowPayload(
   edges: Edge[],
   entries: MusicEntry[],
   groups: GroupRegistry = {},
-  opts: { fqbn?: string; psramAllowed?: boolean; fqbnOpt?: string } = {},
+  opts: { fqbn?: string; psramAllowed?: boolean; fqbnOpt?: string; projectName?: string } = {},
 ): { player: string; files: ShowUploadFile[]; fqbnOpt?: string } | null {
   const done = entries.filter((e) => e.status === 'done' && e.show)
   const genericPlayer = musicPlayerConnected(nodes, edges)
@@ -228,6 +233,7 @@ export function buildShowPayload(
     genericPlayer,
     fqbn: opts.fqbn,
     psramAllowed: opts.psramAllowed,
+    projectName: opts.projectName,
   })
 
   const files: ShowUploadFile[] = []

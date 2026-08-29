@@ -57,6 +57,36 @@ describe('displays in the player sketch', () => {
     expect(sketch).toContain('_oledFlush(_oled_oled,')
   })
 
+  it('shows boot identity and keeps real player failures on screen until recovery', () => {
+    const displays = playerDisplaysFromGraph(nodes, edges)
+    const sketch = generatePlayerSketch({}, undefined, {
+      displays,
+      bootLabel: 'Aurora Wall',
+      deviceLabel: 'XIAO ESP32S3',
+    })
+    expect(sketch).toContain('"Design Studio for FastLED"')
+    expect(sketch).toContain('"Aurora Wall"')
+    expect(sketch).toContain('"XIAO ESP32S3"')
+    expect(sketch).toContain('"STARTING 3/6"')
+    expect(sketch).toContain('"FASTLED"')
+    expect(sketch).toContain('"STARTED"')
+    expect(sketch).toContain('"FAULT 5/6 MEDIA"')
+    expect(sketch).toContain('"READY 6/6"')
+    expect(sketch.match(/delay\(500\);/g)).toHaveLength(6)
+    expect(sketch).toContain('!sdMounted ? "NO SD CARD"')
+    expect(sketch).toContain('!playbackReady ? "NO PLAYABLE TRACK"')
+    expect(sketch).toContain('"CHECK CARD/WIRING"')
+    expect(sketch).toContain('"CHECK /MUSIC FILES"')
+    // The panel is initialised before the potentially slow card mount, so
+    // STARTING is useful rather than appearing only after startup completed.
+    expect(sketch.indexOf('_oledBeginSpi(_oled_oled')).toBeLessThan(sketch.indexOf('sdMounted = sdMountBestEffort();'))
+    expect(sketch.indexOf('"STARTING 5/6"')).toBeLessThan(sketch.indexOf('sdMounted = sdMountBestEffort();'))
+    // Every retry records whether it actually found a playable file, allowing
+    // the fault card to clear itself after an insertion or serial transfer.
+    expect(sketch).toContain('playbackReady = startPlayback();')
+    expect(sketch.indexOf('bool playbackReady = false;')).toBeLessThan(sketch.indexOf('const char *_oledFault_oled'))
+  })
+
   /*
    * The player sketch draws displays too, and it had no I2C bus at all — so a
    * 4-pin panel here would have emitted a call to a Wire nothing included and
@@ -160,6 +190,10 @@ describe('displays in the player sketch', () => {
     // M:SS of the running track, through the same renderer a clock uses.
     expect(displays.segment[0].mode).toBe('Elapsed')
     expect(sketch).toContain('long _segSec_seg = (long)(songElapsedSec());')
+    expect(sketch).toContain('!sdMounted ? SEG_FAULT_SD_CARD')
+    expect(sketch).toContain('!playbackReady ? SEG_FAULT_NO_TRACK')
+    expect(sketch).toContain('_segFaultCode(_segBuf_seg, 4, _segFault_seg);')
+    expect(sketch).toContain('((_segFault_seg == SEG_FAULT_NONE) && (true))')
   })
 
   /*

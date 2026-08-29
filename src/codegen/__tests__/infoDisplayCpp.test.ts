@@ -84,6 +84,26 @@ describe('generateCpp with an OLED', () => {
     expect(src).toContain('static OledPanel _oled_oled;')
   })
 
+  it('holds six titled startup stages before handing off to graph content', () => {
+    const board = node('board', 'Board', 'input', { profileId: 'seeed-xiao-esp32s3' })
+    const src = generateCpp([board, outputNode, oled()], [], {}, { bootLabel: 'Aurora "Wall"' })
+    expect(src).toContain('"Aurora \\"Wall\\""')
+    expect(src).toContain('"Seeed Studio XIAO ESP32S3"')
+    expect(src).toContain('"Design Studio for FastLED"')
+    expect(src).toContain('"STARTING 1/6"')
+    expect(src).toContain('"STARTING 3/6"')
+    expect(src).toContain('"READY 6/6"')
+    for (const stage of ['DISPLAY', 'MEMORY', 'FASTLED', 'HARDWARE', 'SERVICES', 'CONTENT']) {
+      expect(src).toContain(`"${stage}"`)
+    }
+    expect(src).toContain('"FIRMWARE STARTED"')
+    expect(src.match(/delay\(500\);/g)).toHaveLength(6)
+    // Every lifecycle stage is completed in setup before loop() hands the
+    // panel to its graph-selected content.
+    expect(src.indexOf('"STARTING 1/6"')).toBeLessThan(src.indexOf('void loop()'))
+    expect(src.indexOf('"READY 6/6"')).toBeLessThan(src.indexOf('void loop()'))
+  })
+
   // The SH1106's 132-column RAM sits behind a 128-column panel; the SSD1306's
   // do not. Emitting one offset for both shifts one of them two pixels.
   it('emits the offset the chosen module actually needs', () => {

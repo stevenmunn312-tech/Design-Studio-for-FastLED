@@ -14,6 +14,8 @@ import {
   segmentBytes,
   SEGMENT_GLYPHS,
   blankSegmentFrame,
+  SEGMENT_FAULT_CODES,
+  renderSegmentFault,
 } from '../segmentDisplay'
 
 const TM = SEGMENT_CONTROLLERS.TM1637
@@ -91,6 +93,23 @@ describe('renderSegmentIndex', () => {
   it('refuses a position it cannot show', () => {
     expect(renderSegmentIndex(99999).digits).toBe('----')
     expect(renderSegmentIndex(-1).digits).toBe('----')
+  })
+})
+
+describe('segment fault codes', () => {
+  it('uses stable, readable four-character codes', () => {
+    expect(renderSegmentFault(SEGMENT_FAULT_CODES.NO_SD_CARD).digits).toBe('E001')
+    expect(renderSegmentFault(SEGMENT_FAULT_CODES.NO_PLAYABLE_TRACK).digits).toBe('E002')
+  })
+
+  it('right-aligns the same code on a wider module and never lights the colon', () => {
+    const frame = renderSegmentFault(SEGMENT_FAULT_CODES.NO_SD_CARD, MAX.digits)
+    expect(frame.digits).toBe('    E001')
+    expect(frame.colon).toBe(false)
+  })
+
+  it('maps the E through the shared segment glyph table', () => {
+    expect(segmentBytes(renderSegmentFault(SEGMENT_FAULT_CODES.NO_SD_CARD))[0]).toBe(SEGMENT_GLYPHS.E)
   })
 })
 

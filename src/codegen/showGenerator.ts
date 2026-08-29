@@ -25,11 +25,12 @@ import { slideshowSettings, type PatternSlideshowOrder } from '../state/patternS
 import { compositionDims, outputRoutes } from '../state/outputRouting'
 import { outputCanvasDims } from '../state/ledOutputForm'
 import { controllerSettings, ledPropsWithController } from '../state/controllerSettings'
+import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
 import { amplifierIdleCpp } from './amplifierIdle'
 import { playerDisplaysFromGraph, SHOW_DISPLAY_EXPRESSIONS } from './playerDisplays'
 import {
   infoDisplayHelpersCpp, INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp,
-  infoDisplaySetupCpp, infoDisplayLoopCpp, type InfoDisplayEmit,
+  infoDisplaySetupCpp, infoDisplayLoopCpp, infoDisplayStartupStageBatchCpp, type InfoDisplayEmit,
 } from './infoDisplayCpp'
 import {
   SEGMENT_DISPLAY_CPP_HELPERS, SEGMENT_DISPLAY_CPP_FORWARD, segmentDisplayGlobalCpp,
@@ -341,10 +342,12 @@ interface ShowDisplayEmission {
   setup: string[]
   /** Lines for loop(), after the frame has been shipped. */
   loop: string[]
+  /** OLEDs that receive the shared six-stage startup sequence. */
+  info: InfoDisplayEmit[]
 }
 
 const NO_SHOW_DISPLAYS: ShowDisplayEmission = {
-  includes: [], forwards: [], helpers: [], setup: [], loop: [],
+  includes: [], forwards: [], helpers: [], setup: [], loop: [], info: [],
 }
 
 /**
@@ -362,7 +365,7 @@ function showDisplaysCpp(
   nodes: StudioNode[],
   edges: StudioEdge[],
   patternCount: number,
-  opts: { thumbnails?: BrowserThumbnails; artworks?: TransportArtworks },
+  opts: { thumbnails?: BrowserThumbnails; artworks?: TransportArtworks; bootLabel?: string },
 ): ShowDisplayEmission {
   const displays = playerDisplaysFromGraph(
     nodes as never, edges as never,
@@ -384,6 +387,8 @@ function showDisplaysCpp(
   // The cursor exists for anything that has to know which pattern is running.
   const usesSelection = browsers.length > 0 || hasArtwork
   const selVar = `_sel_${SHOW_SELECTION_STEM}`
+  const bootTitle = opts.bootLabel?.trim() || 'FASTLED BUILD'
+  const bootDevice = selectedPhysicalBoardProfile(nodes)?.label ?? 'FASTLED CONTROLLER'
 
   const infoEmits: InfoDisplayEmit[] = displays.info.map((display) => ({
     id: safeId(display.id),
@@ -409,6 +414,7 @@ function showDisplaysCpp(
     volumeExpr: display.sources.volume ?? '0.0f',
     durationExpr: display.sources.duration ?? '0.0f',
     dateTimeExpr: null,
+    boot: { project: bootTitle, device: bootDevice },
     indicatorExprs: [1, 2, 3, 4].map((i) => display.sources[`indicator${i}`] ?? 'false'),
     ...(display.layout === 'Pattern Browser'
       ? { browser: { tableStem: SHOW_SELECTION_STEM, selVar } }
@@ -535,6 +541,7 @@ function showDisplaysCpp(
       ...segmentEmits.flatMap(segmentDisplayLoopCpp),
       ...tftEmits.flatMap(tftDisplayLoopCpp),
     ],
+    info: infoEmits,
   }
 }
 
@@ -549,6 +556,7 @@ export function generateShowSketch(
     psramAllowed?: boolean
     thumbnails?: BrowserThumbnails
     artworks?: TransportArtworks
+    bootLabel?: string
   } = {},
 ): string {
   const info = showInfo(nodes, edges)
@@ -785,6 +793,9 @@ export function generateShowSketch(
   L.push(info.seed ? `  random16_set_seed(${info.seed}u);` : '  randomSeed(analogRead(A0));')
   if (audio) L.push('  setupAudio();')
   for (const line of displays.setup) L.push(line)
+  for (let step = 1; step <= 6; step++) {
+    for (const line of infoDisplayStartupStageBatchCpp(displays.info, step)) L.push(line)
+  }
   L.push('}')
   L.push('')
 

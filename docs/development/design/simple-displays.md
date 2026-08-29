@@ -63,6 +63,39 @@ digits of scrolling text.
 `enabled` is unchanged and still means unlit. Unlit and waiting are different
 states and look different.
 
+### Boot and faults are an appliance overlay
+
+An OLED paints a lifecycle card before its wired source takes over. The fixed
+title is `Design Studio for FastLED`, followed by the current Studio project.
+Setup reports six numbered checkpoints: `DISPLAY`, `MEMORY`, `FASTLED`,
+`HARDWARE`, `SERVICES`, and `CONTENT`. Every checkpoint is painted on all
+enabled OLEDs before a shared 500 ms hold, so each message remains readable for
+at least half a second without making a multi-panel build wait once per panel.
+The Display checkpoint names the exact physical board; the final card reads
+`READY 6/6`, `CONTENT`, and `FIRMWARE STARTED`. This is not a fourth
+`DisplaySignal` kind: boot is device lifecycle, not content a cable selects, so
+it never adds a port or competes with the source wire.
+
+A runtime fault replaces that card for as long as the failing condition is
+true. Faults must come from state the generated appliance can genuinely
+observe and must clear when that state recovers. The SD player currently names
+two at checkpoint 5 (`FAULT 5/6 MEDIA`): `NO SD CARD` while its retrying mount
+has nowhere to read, and `NO PLAYABLE TRACK` when the card mounted but no file
+could be opened. Inserting a card or completing a serial transfer retries
+playback and clears the panel without a reset. Validation errors and
+browser-only Graph Health findings are not baked into this overlay; a device
+cannot honestly re-observe them at runtime.
+
+A segment display mirrors those same observable player faults with a stable
+four-character code: `E001` means the SD card is unavailable or failed to
+mount, and `E002` means the card mounted but no playable track could be opened.
+The code is right-aligned on an eight-digit module, its colon stays dark, and
+normal clock/elapsed/index output resumes as soon as the fault clears.
+
+The immediate setup paint is emitted only when Enabled is the literal `true`.
+A literal `false` stays dark, while a dynamically wired Enabled value waits for
+the first evaluated loop rather than being guessed during setup.
+
 ### What this removes
 
 - **The `Status` layout** and the four `indicator` inputs, along with `title` /

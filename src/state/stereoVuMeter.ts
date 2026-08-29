@@ -134,7 +134,7 @@ export function stereoVuSettings(properties: Record<string, unknown>, instanceKe
     policy: ['Manual', 'Timed cycle', 'Beat cycle', 'Shuffle'].includes(policy)
       ? policy as StereoVuPolicy
       : 'Shuffle',
-    cycleIntervalSec: Math.max(0.25, Number(properties.cycleInterval ?? 8) || 8),
+    cycleIntervalSec: Math.max(0.25, Number(properties.cycleInterval ?? 20) || 20),
     palette: String(properties.palette ?? 'party'),
     leftColor: hexToRgb(String(properties.leftColor ?? '#20ff70')),
     rightColor: hexToRgb(String(properties.rightColor ?? '#20a0ff')),

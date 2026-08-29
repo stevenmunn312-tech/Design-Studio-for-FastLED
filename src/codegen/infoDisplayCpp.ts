@@ -12,6 +12,7 @@
 
 import { DEFAULT_FONT, FONT_H, FONT_W } from '../state/font'
 import {
+  INFO_BOOT_STAGE_MIN_MS, INFO_BOOT_TITLE, bootStatusGeometry,
   browserGeometry, clockGeometry, nowPlayingGeometry, waitingGeometry,
   type InfoDisplayLayout,
 } from '../state/infoDisplay'
@@ -414,6 +415,17 @@ export interface InfoDisplayEmit {
   durationExpr: string
   dateTimeExpr: string | null
   /**
+   * The appliance card shown during boot and whenever `faultExpr` returns a
+   * message. These are generator-owned facts, not another graph-selected
+   * layout. `faultExpr` is a C++ `const char *` expression or `nullptr`.
+   */
+  boot?: {
+    project: string
+    device: string
+    faultExpr?: string
+    faultHintExpr?: string
+  }
+  /**
    * Pattern Browser only: the identifier stem of the thumbnail table this
    * browser reads, and the PatternSel driving it. Two browsers can show
    * different collections, so neither the table nor the selection is shared.
@@ -435,19 +447,114 @@ export function infoDisplayGlobalCpp(display: InfoDisplayEmit): string {
   return `static OledPanel _oled_${display.id};`
 }
 
+/** Draw one startup/fault card using the geometry the browser-side renderer owns. */
+function infoBootDrawCpp(
+  display: InfoDisplayEmit,
+  stateExpr: string,
+  detailExpr: string,
+  metaExpr: string,
+): string[] {
+  if (!display.boot) return []
+  const p = `_oled_${display.id}`
+  const buf = `_oledBuf_${display.id}`
+  const g = bootStatusGeometry(display.width, display.height)
+  const centred = (field: { x: number; y: number; w: number }, value: string) => [
+    `      _oledFit(${buf}, sizeof(${buf}), ${value}, ${field.w});`,
+    `      _oledText(${p}, max(${field.x}, (${display.width} - _oledTextWidth(${buf})) / 2), ${field.y}, ${buf});`,
+  ]
+  const lines = [
+    ...centred(g.title, cppStringLiteral(INFO_BOOT_TITLE)),
+  ]
+  if (g.subtitle && g.subtitle.y !== g.state.y) {
+    lines.push(...centred(g.subtitle, cppStringLiteral(display.boot.project)))
+  }
+  if (g.rule) lines.push(`      _oledHLine(${p}, ${g.rule.x}, ${g.rule.y}, ${g.rule.w});`)
+  lines.push(...centred(g.state, stateExpr))
+  if (g.detail) lines.push(...centred(g.detail, detailExpr))
+  if (g.meta) lines.push(...centred(g.meta, metaExpr))
+  return lines
+}
+
 export function infoDisplaySetupCpp(display: InfoDisplayEmit): string[] {
   const rotation = `0x${display.segmentRemap.toString(16)}, 0x${display.comScan.toString(16)}`
-  if (display.transport === 'i2c') {
-    return [
+  const begin = display.transport === 'i2c'
+    ? [
       `  _oledBeginI2c(_oled_${display.id}, 0x${display.address.toString(16)}, ` +
         `${display.width}, ${display.height}, ${display.columnOffset}, ${rotation});`,
     ]
-  }
+    : [
+      `  _oledBeginSpi(_oled_${display.id}, ${display.csPin}, ${display.dcPin}, ${display.resetPin}, ` +
+        `${display.sckPin}, ${display.mosiPin}, ${display.width}, ${display.height}, ` +
+        `${display.columnOffset}, ${rotation});`,
+    ]
+
+  return begin
+}
+
+export interface InfoDisplayStage {
+  step: number
+  total: number
+  label: string
+  status: string
+}
+
+/** The fixed setup sequence shared by every generator that can own an OLED. */
+export const INFO_DISPLAY_STARTUP_STAGES = [
+  { label: 'DISPLAY', status: 'STARTED' },
+  { label: 'MEMORY', status: 'ALLOCATED' },
+  { label: 'FASTLED', status: 'STARTED' },
+  { label: 'HARDWARE', status: 'STARTED' },
+  { label: 'SERVICES', status: 'READY' },
+  { label: 'CONTENT', status: 'FIRMWARE STARTED' },
+] as const
+
+/** Paint one completed setup milestone. The batch helper below owns the hold. */
+export function infoDisplayStageCpp(display: InfoDisplayEmit, stage: InfoDisplayStage): string[] {
+  // A literal false means the hardware toggle disabled this panel. A dynamic
+  // Enabled wire is not safe to read during setup because its graph expression
+  // is computed in loop(), so it gets its first content frame there.
+  if (!display.boot || display.enabledExpr !== 'true') return []
+  const final = stage.step >= stage.total
+  const state = `${final ? 'READY' : 'STARTING'} ${stage.step}/${stage.total}`
+  const meta = stage.step === 1 ? display.boot.device : stage.status
   return [
-    `  _oledBeginSpi(_oled_${display.id}, ${display.csPin}, ${display.dcPin}, ${display.resetPin}, ` +
-      `${display.sckPin}, ${display.mosiPin}, ${display.width}, ${display.height}, ` +
-      `${display.columnOffset}, ${rotation});`,
+    `  { // Info Display stage ${stage.step}/${stage.total}`,
+    `    char _oledBuf_${display.id}[40];`,
+    `    _oledClear(_oled_${display.id});`,
+    ...infoBootDrawCpp(
+      display,
+      cppStringLiteral(state),
+      cppStringLiteral(stage.label),
+      cppStringLiteral(meta),
+    ),
+    `    _oledFlush(_oled_${display.id}, true);`,
+    `  }`,
   ]
+}
+
+/** Update every OLED first, then hold the stage once so panels stay in sync. */
+export function infoDisplayStageBatchCpp(
+  displays: readonly InfoDisplayEmit[],
+  stage: InfoDisplayStage,
+): string[] {
+  const lines = displays.flatMap((display) => infoDisplayStageCpp(display, stage))
+  return lines.length > 0 ? [...lines, `  delay(${INFO_BOOT_STAGE_MIN_MS});`] : []
+}
+
+/** Paint one of the six named setup stages, with an optional runtime-specific status. */
+export function infoDisplayStartupStageBatchCpp(
+  displays: readonly InfoDisplayEmit[],
+  step: number,
+  status?: string,
+): string[] {
+  const definition = INFO_DISPLAY_STARTUP_STAGES[step - 1]
+  if (!definition) return []
+  return infoDisplayStageBatchCpp(displays, {
+    step,
+    total: INFO_DISPLAY_STARTUP_STAGES.length,
+    label: definition.label,
+    status: status ?? definition.status,
+  })
 }
 
 /**
@@ -472,6 +579,22 @@ export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
     `    if (_oledOn_${display.id}) {`,
     `      char _oledBuf_${display.id}[40];`,
   ]
+
+  if (display.boot?.faultExpr) {
+    const faultExpr = display.boot.faultExpr
+    const hintExpr = display.boot.faultHintExpr ?? '"CHECK SERIAL LOG"'
+    lines.push(
+      `      const char *_oledFault_${display.id} = ${faultExpr};`,
+      `      if (_oledFault_${display.id}) {`,
+      ...infoBootDrawCpp(
+        display,
+        '"FAULT 5/6 MEDIA"',
+        `_oledFault_${display.id}`,
+        hintExpr,
+      ),
+      `      } else {`,
+    )
+  }
 
   if (display.layout === 'Clock') {
     const dt = display.dateTimeExpr
@@ -572,6 +695,8 @@ export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
       `      _oledText(${p}, ${g.volume.x}, ${g.volume.y}, _oledBuf_${display.id});`,
     )
   }
+
+  if (display.boot?.faultExpr) lines.push(`      }`)
 
   lines.push(
     `    }`,

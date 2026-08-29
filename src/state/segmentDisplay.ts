@@ -116,6 +116,24 @@ export function blankSegmentFrame(digits = DEFAULT_SEGMENT_CONTROLLER.digits): S
   return { digits: ' '.repeat(digits), colon: false, decimalAt: -1, lit: false }
 }
 
+/** Stable appliance fault numbers shared with generated player firmware. */
+export const SEGMENT_FAULT_CODES = {
+  NO_SD_CARD: 1,
+  NO_PLAYABLE_TRACK: 2,
+} as const
+
+export type SegmentFaultCode = (typeof SEGMENT_FAULT_CODES)[keyof typeof SEGMENT_FAULT_CODES]
+
+/** Render a compact four-character error code, right-aligned on wider modules. */
+export function renderSegmentFault(
+  code: SegmentFaultCode,
+  digits = DEFAULT_SEGMENT_CONTROLLER.digits,
+): SegmentFrame {
+  const body = `E${String(code).padStart(3, '0')}`
+  if (body.length > digits) return segmentDashes(digits)
+  return { digits: body.padStart(digits, ' '), colon: false, decimalAt: -1, lit: true }
+}
+
 /**
  * A field of dashes, the width of the module.
  *

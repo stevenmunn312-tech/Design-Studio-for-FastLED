@@ -12,7 +12,9 @@
 // off the optional-library staging path: nothing to fetch, nothing to pin,
 // nothing to fail without a network.
 
-import { SEGMENT_GLYPHS, SEGMENT_CONTROLLERS, type SegmentDisplayMode } from '../state/segmentDisplay'
+import {
+  SEGMENT_FAULT_CODES, SEGMENT_GLYPHS, SEGMENT_CONTROLLERS, type SegmentDisplayMode,
+} from '../state/segmentDisplay'
 
 const MAX_DIGITS = Math.max(...Object.values(SEGMENT_CONTROLLERS).map((c) => c.digits))
 
@@ -24,6 +26,16 @@ function tm1637GlyphTable(): string {
 
 const DASH = `0x${SEGMENT_GLYPHS['-'].toString(16).padStart(2, '0')}`
 const BLANK = `0x${SEGMENT_GLYPHS[' '].toString(16).padStart(2, '0')}`
+const E_GLYPH = `0x${SEGMENT_GLYPHS.E.toString(16).padStart(2, '0')}`
+
+/** Convert the shared A..G bit order to MAX7219's G..A raw-segment order. */
+function max7219RawGlyph(glyph: number): number {
+  let raw = 0
+  for (let bit = 0; bit < 7; bit++) raw |= ((glyph >> bit) & 1) << (6 - bit)
+  return raw
+}
+
+const MAX_E_GLYPH = `0x${max7219RawGlyph(SEGMENT_GLYPHS.E).toString(16).padStart(2, '0')}`
 
 /**
  * Shared struct, rendering and refresh policy for any segment module.
@@ -75,6 +87,9 @@ export const SEGMENT_DISPLAY_CPP_HELPERS = `// ── Segment displays ───
 #define SEG_MAX_DIGITS ${MAX_DIGITS}
 #define SEG_KIND_TM1637 0
 #define SEG_KIND_MAX7219 1
+#define SEG_FAULT_NONE 0
+#define SEG_FAULT_SD_CARD ${SEGMENT_FAULT_CODES.NO_SD_CARD}
+#define SEG_FAULT_NO_TRACK ${SEGMENT_FAULT_CODES.NO_PLAYABLE_TRACK}
 // Longest gap between writes when nothing changed, so a module that was
 // unplugged and returned redraws itself without the loop polling it.
 #define SEG_REFRESH_MS 1000
@@ -82,6 +97,8 @@ export const SEGMENT_DISPLAY_CPP_HELPERS = `// ── Segment displays ───
 static const uint8_t _segDigitGlyph[10] = { ${tm1637GlyphTable()} };
 static const uint8_t _segDash  = ${DASH};
 static const uint8_t _segBlank = ${BLANK};
+static const uint8_t _segE = ${E_GLYPH};
+static const uint8_t _segMaxE = ${MAX_E_GLYPH};
 
 struct SegDisplay {
   uint8_t kind;
@@ -135,6 +152,7 @@ static void _tmByte(SegDisplay &d, uint8_t value) {
 static uint8_t _tmSegments(char c) {
   if (c >= '0' && c <= '9') return _segDigitGlyph[c - '0'];
   if (c == '-') return _segDash;
+  if (c == 'E') return _segE;
   return _segBlank;
 }
 
@@ -182,13 +200,28 @@ static uint8_t _maxCodeB(char c) {
   return 0x0F;   // blank
 }
 
+// Error codes need an E, which Code B cannot decode. Select raw mode for that
+// digit only; the remaining digits stay in the chip's reliable Code B mode.
+static bool _maxRawGlyph(char c, uint8_t &value) {
+  if (c == 'E') { value = _segMaxE; return true; }
+  return false;
+}
+
 static void _maxFlush(SegDisplay &d, const char *text, int decimalAt, bool lit) {
   if (!lit) { _maxSend(d, 0x0C, 0x00); return; }   // shutdown
   _maxSend(d, 0x0C, 0x01);
   _maxSend(d, 0x0A, (uint8_t)(d.brightness & 0x0F));
+  uint8_t decodeMask = 0;
+  for (uint8_t i = 0; i < d.digits; i++) {
+    uint8_t raw = 0;
+    if (!_maxRawGlyph(text[d.digits - 1 - i], raw)) decodeMask |= (uint8_t)(1u << i);
+  }
+  _maxSend(d, 0x09, decodeMask);
   // Digit 1 is the rightmost, so the buffer is written in reverse.
   for (uint8_t i = 0; i < d.digits; i++) {
-    uint8_t value = _maxCodeB(text[d.digits - 1 - i]);
+    const char c = text[d.digits - 1 - i];
+    uint8_t raw = 0;
+    uint8_t value = _maxRawGlyph(c, raw) ? raw : _maxCodeB(c);
     if ((int)(d.digits - 1 - i) == decimalAt) value |= 0x80;
     _maxSend(d, (uint8_t)(i + 1), value);
   }
@@ -250,6 +283,15 @@ static void _segAllDash(char *out, uint8_t digits) {
   out[digits] = 0;
 }
 
+static void _segFaultCode(char *out, uint8_t digits, uint16_t code) {
+  char body[8];
+  snprintf(body, sizeof(body), "E%03u", (unsigned)(code % 1000u));
+  int len = (int)strlen(body);
+  if (len > digits) { _segAllDash(out, digits); return; }
+  _segBlankAll(out, digits);
+  for (int i = 0; i < len; i++) out[digits - len + i] = body[i];
+}
+
 static void _segClock(char *out, uint8_t digits, int hour, int minute, int second) {
   char body[16];
   // Seconds only fit where there are six digits; on four they are the part
@@ -298,6 +340,8 @@ export interface SegmentDisplayEmit {
   valueExpr: string | null
   dateTimeExpr: string | null
   enabledExpr: string
+  /** Zero for healthy, otherwise one of the generated SEG_FAULT_* values. */
+  faultCodeExpr?: string | null
 }
 
 export function segmentDisplayGlobalCpp(display: SegmentDisplayEmit): string {
@@ -317,15 +361,24 @@ export function segmentDisplayLoopCpp(display: SegmentDisplayEmit): string[] {
   const v = `_segBuf_${display.id}`
   const d = `_segDec_${display.id}`
   const on = `_segOn_${display.id}`
+  const fault = `_segFault_${display.id}`
   const digits = display.digits
   const lines = [
     `  { // Segment Display`,
     `    char ${v}[SEG_MAX_DIGITS + 1];`,
     `    int ${d} = -1;`,
     `    bool ${on} = ${display.enabledExpr};`,
+    ...(display.faultCodeExpr ? [`    uint16_t ${fault} = (uint16_t)(${display.faultCodeExpr});`] : []),
     `    if (!${on}) {`,
     `      _segBlankAll(${v}, ${digits});`,
   ]
+
+  if (display.faultCodeExpr) {
+    lines.push(
+      `    } else if (${fault} != SEG_FAULT_NONE) {`,
+      `      _segFaultCode(${v}, ${digits}, ${fault});`,
+    )
+  }
 
   if (display.mode === 'Clock') {
     const dt = display.dateTimeExpr
@@ -361,11 +414,14 @@ export function segmentDisplayLoopCpp(display: SegmentDisplayEmit): string[] {
   }
 
   const colon = display.showColon && display.controller === 'TM1637'
-  const colonExpr = display.mode === 'Clock' && colon
+  const baseColonExpr = display.mode === 'Clock' && colon
     ? '((millis() / 1000) % 2) == 0'
     // Elapsed keeps a steady colon: a blinking one on a running clock reads as
     // the second hand, and on a track position it reads as a fault.
     : colon && display.mode !== 'Waiting' ? 'true' : 'false'
+  const colonExpr = display.faultCodeExpr && baseColonExpr !== 'false'
+    ? `((${fault} == SEG_FAULT_NONE) && (${baseColonExpr}))`
+    : baseColonExpr
   lines.push(
     `    }`,
     `    _segWrite(_seg_${display.id}, ${v}, ${d}, ${colonExpr}, ${on});`,

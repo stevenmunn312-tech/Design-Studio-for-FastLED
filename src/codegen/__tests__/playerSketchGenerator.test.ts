@@ -361,7 +361,7 @@ describe('playerSketchGenerator', () => {
       // listening at whatever rate BAUD raised it to, and reordering these two
       // turns the reply it is waiting on into garbage.
       expect(sketch).toMatch(
-        /Serial\.println\("BYE"\);\n\s*provEndSession\(\);\n\s*startPlayback\(\);/,
+        /Serial\.println\("BYE"\);\n\s*provEndSession\(\);\n\s*playbackReady = startPlayback\(\);/,
       )
       // The heartbeat is line-based like the protocol's own replies, so it
       // must not interleave with them.

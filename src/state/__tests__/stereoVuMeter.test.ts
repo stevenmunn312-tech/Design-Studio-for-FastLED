@@ -47,12 +47,14 @@ describe('Stereo VU Meter hardware contract', () => {
         colorOrder: 'GRB',
         visualizationPolicy: 'Shuffle',
         visualizationMode: 'Classic Ladder',
+        cycleInterval: 20,
         enabled: true,
       },
     })
     expect(isHardwareManagedSignalNodeType('StereoVuMeter')).toBe(true)
     expect(isHardwareLibraryHiddenNodeType('StereoVuMeter')).toBe(true)
     expect(propertyLabel('StereoVuMeter', 'visualizationPolicy')).toBe('mode')
+    expect(propertyLabel('StereoVuMeter', 'cycleInterval')).toBe('interval')
   })
 
   it('claims two exclusive output-capable LED pins', () => {

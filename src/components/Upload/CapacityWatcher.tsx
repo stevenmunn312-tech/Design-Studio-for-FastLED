@@ -12,6 +12,7 @@ import { useCodegenGraph } from '../../utils/codegenGraph'
 import { controllerSettings } from '../../state/controllerSettings'
 import { selectedBoardFlashMb, selectedPhysicalBoardProfile } from '../../build/boardProfiles'
 import { resolveUsbCdcOnBoot } from '../../state/serialRouting'
+import { useProjectStore } from '../../state/projectStore'
 
 /**
  * Keeps the capacity store pointed at what an Upload would actually build.
@@ -40,6 +41,8 @@ export default function CapacityWatcher() {
     ports: s.ports,
   })))
   const setCapacityTarget = useCapacityStore((s) => s.setTarget)
+  const projectName = useProjectStore((s) =>
+    s.projects.find((project) => project.id === s.currentProjectId)?.name ?? '')
 
   const board = boardByFqbn(selectedFqbn)
   const usingFbuild = helper?.engine === 'fbuild'
@@ -90,7 +93,9 @@ export default function CapacityWatcher() {
   const capacityCode = useMemo(() => {
     const groups = getGroupRegistry()
     if (isShow) {
-      return buildShowPlayerForMeasurement(codegenGraph.nodes, codegenGraph.edges, groups, selectedFqbn, psramSupported)
+      return buildShowPlayerForMeasurement(
+        codegenGraph.nodes, codegenGraph.edges, groups, selectedFqbn, psramSupported, projectName,
+      )
     }
     if (!hasFrameInput) return null
     // Thumbnails are flash, and this is the thing that measures flash — leaving
@@ -98,6 +103,7 @@ export default function CapacityWatcher() {
     // most likely to be near the ceiling.
     const opts = {
       psramAllowed: psramSupported,
+      bootLabel: projectName,
       thumbnails: bakeBrowserThumbnails(
         codegenGraph.nodes, codegenGraph.edges, groups,
         useGraphStore.getState().trusted, useGraphStore.getState().graphs,
@@ -110,7 +116,7 @@ export default function CapacityWatcher() {
     return isPatternShow(codegenGraph.nodes, codegenGraph.edges)
       ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)
       : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
-  }, [codegenGraph, psramSupported, hasFrameInput, isShow, selectedFqbn])
+  }, [codegenGraph, psramSupported, hasFrameInput, isShow, selectedFqbn, projectName])
 
   // Published even with nothing to build: a skipped call would leave the
   // previous reading on screen describing a graph that no longer exists.
