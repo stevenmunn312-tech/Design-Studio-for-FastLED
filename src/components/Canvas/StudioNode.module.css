@@ -69,6 +69,10 @@
   animation: nodePopin 0.2s ease-out;
 }
 
+.nodeMinimized {
+  min-height: 32px;
+}
+
 .signalAura {
   --signal-emissive: rgb(0 0 0);
   --signal-energy: 0;
@@ -164,6 +168,10 @@
   box-shadow: 0 4px 12px color-mix(in srgb, var(--node-accent) 18%, transparent);
 }
 
+.nodeMinimized .header {
+  border-radius: var(--node-radius);
+}
+
 .headerTitle {
   min-width: 0;
   overflow: hidden;
@@ -180,6 +188,53 @@
   font-family: var(--font-code);
   font-size: 8px;
   letter-spacing: 0.08em;
+}
+
+.headerActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 6px;
+}
+
+.headerAction {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.14);
+  color: rgba(0, 0, 0, 0.82);
+  font-family: var(--font-code);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.headerAction:hover,
+.headerAction:focus-visible {
+  background: rgba(0, 0, 0, 0.28);
+  color: #000;
+  outline: none;
+}
+
+.headerAction:focus-visible {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
+}
+
+.headerDelete:hover,
+.headerDelete:focus-visible {
+  background: color-mix(in srgb, var(--danger, #d31f3c) 78%, transparent);
+  color: #fff;
+}
+
+.headerAction:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .headerTag,

@@ -1,10 +1,13 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { fireEvent, render } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, waitFor } from '@testing-library/react'
 import NodeContextMenu from '../NodeContextMenu'
 import { useGraphStore } from '../../../state/graphStore'
 import { useNodePresets } from '../../../state/nodePresets'
 import { usePatternLibrary } from '../../../state/patternLibrary'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
+
+const runTidyMock = vi.hoisted(() => vi.fn())
+vi.mock('../../../utils/tidyGraph', () => ({ runTidy: runTidyMock }))
 
 function seedSelectedNodes() {
   const solid = NODE_LIBRARY.find((n) => n.type === 'SolidColor')!
@@ -50,6 +53,7 @@ describe('NodeContextMenu', () => {
     localStorage.clear()
     useNodePresets.setState({ presets: [] })
     usePatternLibrary.setState({ patterns: [] })
+    runTidyMock.mockClear()
     seedSelectedNodes()
   })
 
@@ -66,8 +70,30 @@ describe('NodeContextMenu', () => {
     expect(getByText('Copy')).toBeTruthy()
     expect(getByText('Duplicate')).toBeTruthy()
     expect(getByText('Disconnect All')).toBeTruthy()
+    expect(getByText('Minimize All')).toBeTruthy()
     expect(getByText('Group 2 Nodes…')).toBeTruthy()
     expect(getByText('Delete')).toBeTruthy()
+  })
+
+  it('minimizes and maximizes every node, tidying the whole graph after each resize', async () => {
+    const view = render(
+      <NodeContextMenu
+        nodeId="solid"
+        x={120}
+        y={140}
+        onClose={() => {}}
+      />
+    )
+
+    fireEvent.click(view.getByText('Minimize All'))
+    expect(useGraphStore.getState().nodes.every((node) => node.data.minimized === true)).toBe(true)
+    expect(view.getByText('Maximize All')).toBeTruthy()
+    await waitFor(() => expect(runTidyMock).toHaveBeenCalledWith({ scope: 'all' }))
+
+    fireEvent.click(view.getByText('Maximize All'))
+    expect(useGraphStore.getState().nodes.every((node) => node.data.minimized === false)).toBe(true)
+    expect(view.getByText('Minimize All')).toBeTruthy()
+    await waitFor(() => expect(runTidyMock).toHaveBeenCalledTimes(2))
   })
 
   it('deletes an LED output and its hardware counterpart', () => {

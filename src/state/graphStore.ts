@@ -68,6 +68,8 @@ export interface StudioNodeData extends Record<string, unknown> {
   nodeType: string
   category: NodeCategory
   properties: Record<string, unknown>
+  /** Canvas-only presentation state; collapsed nodes keep their graph ports. */
+  minimized?: boolean
 }
 
 export type StudioNode = Node<StudioNodeData>
@@ -207,6 +209,8 @@ interface GraphState {
   clearSelection: () => void
   updateNodeProperty: (id: string, key: string, value: unknown) => void
   updateNodeProperties: (id: string, updates: Record<string, unknown>) => void
+  setNodeMinimized: (id: string, minimized: boolean) => void
+  setAllNodesMinimized: (minimized: boolean) => void
   /** Move every hardware part's app-assigned pins onto `fqbn`'s board,
    *  leaving pins the user has edited exactly where they are. */
   retargetHardwarePins: (fqbn: string, previousBoard?: string) => number
@@ -1512,6 +1516,20 @@ export const useGraphStore = create<GraphState>()(
           updates,
           Object.prototype.hasOwnProperty.call(updates, 'ledCount'),
         )),
+
+      setNodeMinimized: (id, minimized) =>
+        set((s) => ({
+          nodes: s.nodes.map((node) => node.id === id
+            ? { ...node, data: { ...node.data, minimized } }
+            : node),
+        })),
+
+      setAllNodesMinimized: (minimized) =>
+        set((s) => ({
+          nodes: s.nodes.map((node) => node.data.minimized === minimized
+            ? node
+            : { ...node, data: { ...node.data, minimized } }),
+        })),
 
       retargetHardwarePins: (fqbn, previousBoard) => {
         let moved = 0

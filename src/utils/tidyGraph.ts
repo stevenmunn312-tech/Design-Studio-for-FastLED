@@ -18,11 +18,16 @@ const HISTORY_LIMIT = 100 // graphStore's zundo `limit`
 
 const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
 
+interface RunTidyOptions {
+  /** Ignore a multi-selection and arrange the complete active graph. */
+  scope?: 'auto' | 'all'
+}
+
 /** Tidy the graph and report via the status bar. Returns how many nodes moved. */
-export function runTidy(): number {
+export function runTidy(options: RunTidyOptions = {}): number {
   const s = useGraphStore.getState()
   const selected = s.nodes.filter((n) => n.selected)
-  const scoped = selected.length >= 2
+  const scoped = options.scope !== 'all' && selected.length >= 2
   const scope = scoped ? selected : s.nodes
   const requestFitView = useUiStore.getState().requestFitView
   const fitNodeIds = scope.map((n) => n.id)

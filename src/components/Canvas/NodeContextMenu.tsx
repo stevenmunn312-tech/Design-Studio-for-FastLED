@@ -11,6 +11,7 @@ import {
 import { saveGroupToLibrary, usePatternLibrary } from '../../state/patternLibrary'
 import { useUiStore } from '../../state/uiStore'
 import CreateGroupDialog, { type CreateGroupResult } from './CreateGroupDialog'
+import { runTidy } from '../../utils/tidyGraph'
 import styles from './NodeContextMenu.module.css'
 
 interface Props {
@@ -21,7 +22,7 @@ interface Props {
 }
 
 export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
-  const { duplicateNode, removeNodeCompletely, disconnectNode, copyNode, ungroupNode, createGroup, updateNodeProperties } = useGraphStore()
+  const { duplicateNode, removeNodeCompletely, disconnectNode, copyNode, ungroupNode, createGroup, updateNodeProperties, setAllNodesMinimized } = useGraphStore()
   const requestConfirm = useUiStore((s) => s.requestConfirm)
   const requestPrompt = useUiStore((s) => s.requestPrompt)
   const setStatus = useUiStore((s) => s.setStatus)
@@ -40,6 +41,7 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
   const presets = useMemo(() => presetsForNodeType(nodeType, nodePresets), [nodeType, nodePresets])
   const selectedIds = useMemo(() => nodes.filter((n) => n.selected).map((n) => n.id), [nodes])
   const isMultiSelected = selectedIds.length > 1 && selectedIds.includes(nodeId)
+  const allNodesMinimized = nodes.length > 0 && nodes.every((entry) => entry.data.minimized === true)
   const [showGroupDialog, setShowGroupDialog] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -120,6 +122,16 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
     setStatus('Reset node settings', 'success')
   }
 
+  const handleToggleAllNodes = () => {
+    setAllNodesMinimized(!allNodesMinimized)
+    // StudioNode replaces full-height port rows with compact header handles.
+    // Allow React and React Flow two frames to commit and remeasure that DOM
+    // before calculating the layout from each node's new measured height.
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => runTidy({ scope: 'all' }))
+    })
+  }
+
   // Mirrors GroupControls' "⊞ Group" dialog flow so grouping + saving to the
   // library can happen in one action from a multi-selection's right-click menu,
   // instead of select → group → reopen the node menu → Save to Library.
@@ -194,6 +206,9 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
       </button>
       <button className={styles.item} onClick={() => act(() => disconnectNode(nodeId))}>
         Disconnect All
+      </button>
+      <button className={styles.item} onClick={() => act(handleToggleAllNodes)}>
+        {allNodesMinimized ? 'Maximize All' : 'Minimize All'}
       </button>
       {isMultiSelected && (
         <button className={styles.item} onClick={() => setShowGroupDialog(true)}>

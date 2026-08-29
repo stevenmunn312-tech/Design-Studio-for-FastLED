@@ -1,5 +1,5 @@
 import { lazy, memo, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { Handle, Position } from '@xyflow/react'
+import { Handle, Position, useUpdateNodeInternals } from '@xyflow/react'
 import type { NodeProps, Node } from '@xyflow/react'
 import { rootGraphEdges, rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { compositionDims } from '../../state/outputRouting'
@@ -848,6 +848,7 @@ function incomingKeyFor(edges: StudioEdge[], nodeId: string): string {
 function StudioNode({ id, data, selected }: StudioNodeProps) {
   const d = data as StudioNodeData
   const nodeRef = useRef<HTMLDivElement>(null)
+  const updateNodeInternals = useUpdateNodeInternals()
   const signalAuraRef = useRef<HTMLSpanElement>(null)
   const signalMeterRef = useRef<HTMLSpanElement>(null)
   const def = useMemo(() => NODE_LIBRARY.find((entry) => entry.type === d.nodeType), [d.nodeType])
@@ -898,6 +899,8 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const gridH = useGraphStore((s) => Math.max(1, Math.min(128, compositionDims(rootGraphNodes(s), rootGraphEdges(s)).h)))
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
+  const setNodeMinimized = useGraphStore((s) => s.setNodeMinimized)
+  const removeNodeCompletely = useGraphStore((s) => s.removeNodeCompletely)
   const setGroupInputRole = useGraphStore((s) => s.setGroupInputRole)
   const pinProperty = useGraphStore((s) => s.pinProperty)
   const unpinProperty = useGraphStore((s) => s.unpinProperty)
@@ -914,6 +917,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const bakeLocked = (bakeStatus ?? usePerformanceBakeStore.getState().byNode[id]?.status ?? 'idle') !== 'idle'
   const categoryAccent = CATEGORY_ACCENT_VAR[d.category] ?? 'var(--accent-output)'
   const rawProps = d.properties as Record<string, unknown>
+  const minimized = d.minimized === true
   const inputs = (def?.inputs ?? d.inputs) as PortDef[]
   const outputs = (d.nodeType === 'ButtonBank'
     ? buttonBankOutputs(rawProps.buttons)
@@ -1205,10 +1209,18 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     })
   }, [showLiveNodeVisuals, signalKey])
 
+  // Collapsing swaps the normal row handles for compact header handles. Tell
+  // React Flow to remeasure them after the DOM has committed so every noodle
+  // stays attached to its original port while the node changes height.
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => updateNodeInternals(id))
+    return () => window.cancelAnimationFrame(frame)
+  }, [id, minimized, updateNodeInternals])
+
   return (
     <div
       ref={nodeRef}
-      className={`${styles.node} ${categoryClass} ${performanceMode ? styles.nodePerformance : ''} ${selected ? styles.nodeSelected : ''} ${focusState === 'dim' ? styles.nodeDim : focusState === 'active' ? styles.nodePath : ''} ${previewKind === 'frame' ? styles.nodeFrameSource : ''} ${flashing ? styles.nodeFlash : ''} ${isMusicLibrary && musicLibraryAnalyzing ? styles.nodeMusicAnalyzing : ''} ${micUnavailable ? styles.nodeDisabled : ''}`}
+      className={`${styles.node} ${minimized ? styles.nodeMinimized : ''} ${categoryClass} ${performanceMode ? styles.nodePerformance : ''} ${selected ? styles.nodeSelected : ''} ${focusState === 'dim' ? styles.nodeDim : focusState === 'active' ? styles.nodePath : ''} ${previewKind === 'frame' ? styles.nodeFrameSource : ''} ${flashing ? styles.nodeFlash : ''} ${isMusicLibrary && musicLibraryAnalyzing ? styles.nodeMusicAnalyzing : ''} ${micUnavailable ? styles.nodeDisabled : ''}`}
       style={{
         width: isMusicLibrary ? 300 : isCode ? 320 : isPerfGen ? 300 : isComment ? 260 : undefined,
         '--node-accent': accent,
@@ -1216,6 +1228,56 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     >
       <span ref={signalAuraRef} className={styles.signalAura} aria-hidden="true" />
       <div className={styles.header} style={{ background: accent }}>
+        {minimized && inputs.map((input, index) => {
+          const inputColor = portColor(input.dataType)
+          return (
+            <Handle
+              key={`compact-input-${input.id}`}
+              type="target"
+              position={Position.Left}
+              id={input.id}
+              title={`${input.label} · ${input.dataType}`}
+              role="button"
+              tabIndex={micUnavailable ? -1 : 0}
+              isConnectable={!micUnavailable}
+              aria-disabled={micUnavailable}
+              aria-label={`Connect to ${displayName} ${input.label} input, ${input.dataType}. Press Enter or Space to ${sourceMap.has(input.id) ? 'replace the existing connection' : 'choose a source port'}.`}
+              onKeyDown={activateHandleFromKeyboard}
+              style={{
+                ...NODE_HANDLE_STYLE,
+                top: `${((index + 1) / (inputs.length + 1)) * 100}%`,
+                left: -8,
+                background: inputColor,
+                boxShadow: `0 0 6px ${inputColor}`,
+              }}
+            />
+          )
+        })}
+        {minimized && outputs.map((output, index) => {
+          const outputColor = portColor(output.dataType)
+          return (
+            <Handle
+              key={`compact-output-${output.id}`}
+              type="source"
+              position={Position.Right}
+              id={output.id}
+              title={`${output.label} · ${output.dataType}`}
+              role="button"
+              tabIndex={micUnavailable ? -1 : 0}
+              isConnectable={!micUnavailable}
+              aria-disabled={micUnavailable}
+              aria-label={`Connect from ${displayName} ${output.label} output, ${output.dataType}. Press Enter or Space to choose a destination port.`}
+              onKeyDown={activateHandleFromKeyboard}
+              style={{
+                ...NODE_HANDLE_STYLE,
+                top: `${((index + 1) / (outputs.length + 1)) * 100}%`,
+                right: -8,
+                background: outputColor,
+                boxShadow: `0 0 6px ${outputColor}`,
+              }}
+            />
+          )
+        })}
         <span className={styles.headerTitle}>{displayName}</span>
         <span className={styles.headerMeta}>
           <span className={styles.headerTag}>{categoryTag}</span>
@@ -1228,8 +1290,39 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
             </span>
           )}
         </span>
+        <span className={styles.headerActions}>
+          <button
+            type="button"
+            className={`nodrag nopan ${styles.headerAction}`}
+            onPointerDown={(event) => event.stopPropagation()}
+            onDoubleClick={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation()
+              setNodeMinimized(id, !minimized)
+            }}
+            title={minimized ? 'Restore node' : 'Minimize node'}
+            aria-label={`${minimized ? 'Restore' : 'Minimize'} ${displayName} node`}
+          >
+            {minimized ? '□' : '−'}
+          </button>
+          <button
+            type="button"
+            className={`nodrag nopan ${styles.headerAction} ${styles.headerDelete}`}
+            disabled={d.nodeType === 'Board'}
+            onPointerDown={(event) => event.stopPropagation()}
+            onDoubleClick={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation()
+              removeNodeCompletely(id)
+            }}
+            title={d.nodeType === 'Board' ? 'The controller board cannot be deleted' : 'Delete node'}
+            aria-label={`Delete ${displayName} node`}
+          >
+            ×
+          </button>
+        </span>
       </div>
-      <div className={styles.body}>
+      {!minimized && <div className={styles.body}>
         {micUnavailable && (
           <div className={styles.hardwareUnsupported} role="status">
             {micUnavailableMessage}
@@ -1493,7 +1586,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
             ⓘ {PREVIEW_NOTES[d.nodeType].text}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   )
 }

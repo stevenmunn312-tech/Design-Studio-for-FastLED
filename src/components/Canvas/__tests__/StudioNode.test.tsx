@@ -84,6 +84,34 @@ describe('StudioNode', () => {
     expect(getByText('Color')).toBeTruthy()          // input port label
   })
 
+  it('minimizes to the header, preserves port handles, restores, and deletes', () => {
+    const node = makeNode('SolidColor', { r: 255, g: 0, b: 128 })
+    const view = renderNode(node)
+
+    fireEvent.click(view.getByRole('button', { name: 'Minimize Solid Color node' }))
+    const minimized = useGraphStore.getState().nodes[0]
+    expect(minimized.data.minimized).toBe(true)
+
+    view.rerender(<StudioNode {...({ id: minimized.id, data: minimized.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>)} />)
+    expect(view.queryByText('Color')).toBeNull()
+    expect(view.container.querySelector('[data-handle="source:frame"]')).toBeTruthy()
+
+    fireEvent.click(view.getByRole('button', { name: 'Restore Solid Color node' }))
+    const restored = useGraphStore.getState().nodes[0]
+    expect(restored.data.minimized).toBe(false)
+
+    view.rerender(<StudioNode {...({ id: restored.id, data: restored.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>)} />)
+    expect(view.getByText('Color')).toBeTruthy()
+
+    fireEvent.click(view.getByRole('button', { name: 'Delete Solid Color node' }))
+    expect(useGraphStore.getState().nodes).toHaveLength(0)
+  })
+
+  it('keeps the controller board delete control disabled', () => {
+    const { getByRole } = renderNode(makeNode('Board', { profileId: '' }))
+    expect((getByRole('button', { name: 'Delete Board node' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
   it('renders named Button Bank rows and a trailing connection socket', () => {
     const { getByText, getByRole, container } = renderNode(makeNode('ButtonBank', {
       buttons: [{ id: 'play', label: 'Play / Pause', pin: 12, pullup: true }],
