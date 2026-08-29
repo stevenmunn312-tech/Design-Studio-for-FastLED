@@ -34,6 +34,7 @@ import {
 } from './diagramSections'
 import { physicalAssemblyDiagramHeight } from './physicalDiagramLayout'
 import { inlineSvgImages } from './svgExport'
+import { scrollOffsetForPointerZoom } from './viewportZoom'
 import styles from './BuildDiagramWorkspace.module.css'
 
 interface DiagramConnection {
@@ -338,6 +339,7 @@ export default function BuildDiagramWorkspace() {
   const [printSheetsMounted, setPrintSheetsMounted] = useState(false)
   const [sectionId, setSectionId] = useState<BuildSectionId>(DEFAULT_SECTION_ID)
   const viewportRef = useRef<HTMLDivElement | null>(null)
+  const diagramCanvasRef = useRef<HTMLDivElement | null>(null)
   const panStateRef = useRef<ViewportPanState | null>(null)
 
   const primaryItems = manifest.primaryItems
@@ -823,18 +825,31 @@ export default function BuildDiagramWorkspace() {
     if (event.deltaY === 0) return
     event.preventDefault()
     const viewport = viewportRef.current
-    if (!viewport) return
+    const canvas = diagramCanvasRef.current
+    if (!viewport || !canvas) return
 
     const viewportRect = viewport.getBoundingClientRect()
-    const pointerX = event.clientX - viewportRect.left
-    const pointerY = event.clientY - viewportRect.top
-    const contentX = (viewport.scrollLeft + pointerX) / Math.max(diagramZoom, 0.001)
-    const contentY = (viewport.scrollTop + pointerY) / Math.max(diagramZoom, 0.001)
+    // scrollLeft/Top are measured from the viewport's inner edge, while the
+    // client coordinates include its border. The canvas itself also begins
+    // after the surface's fixed padding. Convert through those two origins so
+    // the diagram coordinate under the cursor does not drift as it scales.
+    const pointerX = event.clientX - viewportRect.left - viewport.clientLeft
+    const pointerY = event.clientY - viewportRect.top - viewport.clientTop
     const nextZoom = clampZoom(diagramZoom + (event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP))
+    const nextScrollLeft = scrollOffsetForPointerZoom({
+      scrollOffset: viewport.scrollLeft,
+      pointerOffset: pointerX,
+      contentOrigin: canvas.offsetLeft,
+    }, diagramZoom, nextZoom)
+    const nextScrollTop = scrollOffsetForPointerZoom({
+      scrollOffset: viewport.scrollTop,
+      pointerOffset: pointerY,
+      contentOrigin: canvas.offsetTop,
+    }, diagramZoom, nextZoom)
     setDiagramZoom(nextZoom)
     window.requestAnimationFrame(() => {
-      viewport.scrollLeft = Math.max(0, (contentX * nextZoom) - pointerX)
-      viewport.scrollTop = Math.max(0, (contentY * nextZoom) - pointerY)
+      viewport.scrollLeft = nextScrollLeft
+      viewport.scrollTop = nextScrollTop
     })
   }
 
@@ -1065,6 +1080,7 @@ export default function BuildDiagramWorkspace() {
           >
             <div className={styles.diagramSurface} style={{ minWidth: `${scaledCanvasWidth}px`, minHeight: `${scaledCanvasHeight}px` }}>
               <div
+                ref={diagramCanvasRef}
                 className={styles.diagramCanvas}
                 style={{
                   width: `${canvasWidth}px`,

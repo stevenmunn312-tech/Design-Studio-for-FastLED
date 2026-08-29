@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render } from '@testing-library/react'
 import BuildDiagramWorkspace from '../BuildDiagramWorkspace'
 import { ROOT_GRAPH_ID, useGraphStore } from '../../../state/graphStore'
@@ -116,6 +116,10 @@ function selectEsp32DevKitV1() {
 }
 
 describe('BuildDiagramWorkspace', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   beforeEach(() => {
     useGraphStore.setState({
       // Every root graph carries a Board node; it starts with no exact profile
@@ -928,16 +932,49 @@ describe('BuildDiagramWorkspace', () => {
     const { container, getByLabelText, getByRole, getByText, queryByText } = render(<BuildDiagramWorkspace />)
     const workspace = getByLabelText('Build Diagram workspace')
     const viewport = container.querySelector('[data-pan-surface="true"]')?.parentElement?.parentElement
+    const canvas = container.querySelector('[data-pan-surface="true"]')
     expect(viewport).toBeTruthy()
+    expect(canvas).toBeTruthy()
+    const viewportElement = viewport as HTMLElement
     expect(getByRole('heading', { name: 'Wiring Diagram' })).toBeTruthy()
     expect(getByRole('button', { name: 'Back to Design' })).toBeTruthy()
     expect(queryByText('Visible')).toBeNull()
     expect(queryByText('Graph hardware in, complete recommended wiring out.')).toBeNull()
 
-    fireEvent.wheel(viewport as Element, { deltaY: -100, clientX: 100, clientY: 100 })
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0)
+      return 1
+    })
+    Object.defineProperties(viewport, {
+      clientLeft: { configurable: true, value: 2 },
+      clientTop: { configurable: true, value: 2 },
+    })
+    Object.defineProperties(canvas, {
+      offsetLeft: { configurable: true, value: 18 },
+      offsetTop: { configurable: true, value: 18 },
+    })
+    vi.spyOn(viewport as Element, 'getBoundingClientRect').mockReturnValue({
+      bottom: 600,
+      height: 600,
+      left: 0,
+      right: 800,
+      top: 0,
+      width: 800,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    })
+    viewportElement.scrollLeft = 300
+    viewportElement.scrollTop = 200
+
+    fireEvent.wheel(viewport as Element, { deltaY: -100, clientX: 102, clientY: 102 })
     expect(getByText('Zoom 115%')).toBeTruthy()
-    fireEvent.wheel(viewport as Element, { deltaY: 100, clientX: 100, clientY: 100 })
+    expect(viewportElement.scrollLeft).toBeCloseTo(357.3)
+    expect(viewportElement.scrollTop).toBeCloseTo(242.3)
+    fireEvent.wheel(viewport as Element, { deltaY: 100, clientX: 102, clientY: 102 })
     expect(getByText('Zoom 100%')).toBeTruthy()
+    expect(viewportElement.scrollLeft).toBeCloseTo(300)
+    expect(viewportElement.scrollTop).toBeCloseTo(200)
 
     fireEvent.click(getByText('Zoom in'))
     expect(getByText('Zoom 115%')).toBeTruthy()
