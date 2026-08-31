@@ -155,6 +155,15 @@ describe('imported board profiles', () => {
     expect(UNMAPPED_CAPABILITY_IDS).toEqual([])
   })
 
+  it('imports integrated controller/display packages as boards, not plug-in parts', () => {
+    const cyd = boardProfileById('esp32-2432s028r')
+    expect(cyd).toBeTruthy()
+    expect(cyd?.render?.file).toBe('boards/esp32-2432s028r.webp')
+    expect(cyd?.compatibleFqbns).toContain('esp32:esp32:esp32')
+    expect(cyd?.pins).toHaveLength(9)
+    expect(boardPinForGpio(cyd, 35)?.label).toBe('GPIO35')
+  })
+
   it('has explicit positive pin advice for every board with header pins', () => {
     expect(UNLISTED_SAFETY_IDS).toEqual([])
   })

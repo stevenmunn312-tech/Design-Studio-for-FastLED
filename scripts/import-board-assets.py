@@ -3,9 +3,14 @@
 
 Reads each `<asset-root>/<profile-id>/board.json`, normalises it, converts the
 raw Cycles PNG render to WebP, and emits a generated TypeScript module that
-`boardProfiles.ts` merges into its hand-authored profiles.
+`boardProfiles.ts` merges into its hand-authored profiles. A package stored in
+the Parts tree is also accepted when its `part.json` explicitly declares a
+`boardProfileId`; this keeps integrated controller/display boards out of the
+plug-in part catalogue without losing them from the board picker.
 
-    python scripts/import-board-assets.py "C:/Users/User/Desktop/Blender Assets/Boards"
+    python scripts/import-board-assets.py \
+        "C:/Users/User/Desktop/Blender Assets/Boards" \
+        "C:/Users/User/Desktop/Blender Assets/Parts"
 
 Why a merge rather than a wholesale generation: the existing profiles carry
 hand-checked pin maps and anchors that are covered by tests and, for several
@@ -529,24 +534,44 @@ def ts_literal(value, indent: int = 2) -> str:
 def main() -> int:
     if len(sys.argv) < 2:
         return int(bool(sys.exit(__doc__)))
-    root = Path(sys.argv[1])
-    if not root.is_dir():
-        sys.exit(f"Not a directory: {root}")
+    roots = [Path(arg) for arg in sys.argv[1:]]
+    for root in roots:
+        if not root.is_dir():
+            sys.exit(f"Not a directory: {root}")
 
     imported: dict[str, dict] = {}
     profiles: dict[str, dict] = {}
     skipped: list[str] = []
 
-    for folder in sorted(p for p in root.iterdir() if p.is_dir()):
+    folders = sorted(
+        (folder for root in roots for folder in root.iterdir() if folder.is_dir()),
+        key=lambda folder: (folder.name, str(folder.parent)),
+    )
+    for folder in folders:
         manifest = folder / "board.json"
+        is_board_profile_part = False
         if not manifest.is_file():
-            skipped.append(f"{folder.name}: no board.json")
-            continue
+            manifest = folder / "part.json"
+            if not manifest.is_file():
+                skipped.append(f"{folder.name}: no board.json")
+                continue
+            is_board_profile_part = True
         try:
             board = json.loads(manifest.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            skipped.append(f"{folder.name}: unparseable board.json ({exc})")
+            skipped.append(f"{folder.name}: unparseable {manifest.name} ({exc})")
             continue
+
+        if is_board_profile_part:
+            if not board.get("boardProfileId"):
+                skipped.append(f"{folder.name}: part.json does not declare boardProfileId")
+                continue
+            labels = board.get("pinLabelsLeftToRight")
+            if isinstance(labels, list):
+                # The integrated CYD package has one expansion header across
+                # the bottom of its USB-down render. Present it to the same
+                # conservative pin-map generator used for board manifests.
+                board = {**board, "rails": {"bottom": labels}}
 
         profile_id = board.get("boardProfileId") or board.get("profileId") or folder.name
         entry: dict = {}

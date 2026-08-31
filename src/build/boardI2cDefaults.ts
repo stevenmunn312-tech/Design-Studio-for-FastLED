@@ -39,6 +39,7 @@ export const BOARD_I2C_DEFAULTS: Readonly<Record<string, BoardI2cDefault>> = {
   'espressif-esp32-s3-devkitc-1': pins(8, 9),
   'esp32-generic-devkit-38pin': pins(21, 22),
   'esp32-devkit-v1-30pin-esp32d': pins(21, 22),
+  'esp32-2432s028r': pins(21, 22),
   'lolin-s3-40pin-dual-usbc': pins(42, 41),
   'seeed-xiao-esp32s3': pins(5, 6),
   'adafruit-feather-esp32-s2': pins(3, 4),
