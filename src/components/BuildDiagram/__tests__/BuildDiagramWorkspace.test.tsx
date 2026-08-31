@@ -95,6 +95,28 @@ function sdCardNode() {
   }
 }
 
+function amplifierNode() {
+  return {
+    id: 'amp',
+    type: 'studioNode',
+    position: { x: 0, y: 0 },
+    data: {
+      label: 'MAX98357A I2S amplifier',
+      nodeType: 'Amplifier',
+      category: 'output',
+      properties: {
+        partId: 'max98357a-i2s-amplifier',
+        model: 'MAX98357A',
+        i2sBclk: 17,
+        i2sLrc: 18,
+        i2sDout: 16,
+      },
+      inputs: [],
+      outputs: [],
+    },
+  }
+}
+
 function spiDisplayNode() {
   return {
     id: 'display',
@@ -757,6 +779,19 @@ describe('BuildDiagramWorkspace', () => {
       .toBeLessThan(Number(diagram?.querySelector('[data-terminal="controller-usb"] circle')?.getAttribute('r')))
     expect(diagram?.querySelector('[data-net-stub-for="sd-card:sd-power"]')?.getAttribute('data-net-stub')).toBe('v5')
     expect(diagram?.querySelector('[data-net-stub-for="sd-card:sd-ground"]')).toBeTruthy()
+  })
+
+  it('keeps every amplifier and SD-card wire in a separate controller corridor', () => {
+    useGraphStore.setState({ nodes: [boardNode(), amplifierNode(), sdCardNode()] as never[] })
+    selectBoard('generic-esp32-s3-n16r8-44pin-dual-usbc')
+    const { container } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+    const routes = Array.from(diagram?.querySelectorAll<SVGPathElement>('path[data-control-corridor]') ?? [])
+    const corridorXs = routes.map((route) => Number(/H(-?[\d.]+)V/.exec(route.getAttribute('d') ?? '')?.[1]))
+
+    expect(routes).toHaveLength(7)
+    expect(corridorXs.every(Number.isFinite)).toBe(true)
+    expect(new Set(corridorXs).size).toBe(routes.length)
   })
 
   it('gives every control signal its own lane, ordered so no climb crosses another run', () => {

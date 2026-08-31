@@ -488,8 +488,8 @@ const BUS_LANE_X = 266
 const BUS_LANE_SPACING = 6
 const BUS_LANE_COUNT = 5
 const CONTROL_CORRIDOR_X = 296
-const CONTROL_CORRIDOR_SPACING = 8
-const CONTROL_CORRIDOR_COUNT = 5
+const CONTROL_CORRIDOR_SPACING = 6
+const LEFT_CONTROL_CORRIDOR_X = 56
 
 /**
  * A left-rail pin has to get around the board to reach anything on the right,
@@ -637,17 +637,53 @@ function assignControlLanes(
   return lanes
 }
 
+/**
+ * One controller-edge corridor per control wire, grouped by the rail the wire
+ * actually leaves.
+ *
+ * The peripheral-lane index cannot double as this slot: it restarts on every
+ * module row and, historically, wrapped after five. A MAX98357A plus an SD card
+ * already carries six signals off the left rail of the generic S3 board, so
+ * that wrap drew BCLK and an SD signal on exactly the same vertical. Ranking
+ * each rail from the bottom up also nests the exits: lower pins take the inner
+ * corridors while higher pins travel outside them without crossing.
+ */
+function assignControlCorridors(
+  peripheralLayouts: ItemLayout[],
+  controllerConnections: PhysicalDiagramConnection[],
+  boardProfile: PhysicalBoardProfile,
+) {
+  const peripheralIds = new Set(peripheralLayouts.map((layout) => layout.item.id))
+  const bySide: Record<ControllerTerminalPoint['side'], Array<{ connection: PhysicalDiagramConnection; point: ControllerTerminalPoint }>> = {
+    left: [],
+    right: [],
+  }
+  controllerConnections.forEach((connection, index) => {
+    if (!peripheralIds.has(connection.itemId)) return
+    const point = controllerConnectionPoint(connection, index, controllerConnections.length, boardProfile)
+    bySide[point.side].push({ connection, point })
+  })
+
+  const slots = new Map<string, number>()
+  for (const entries of Object.values(bySide)) {
+    entries
+      .sort((a, b) => b.point.y - a.point.y)
+      .forEach(({ connection }, slot) => slots.set(connection.id, slot))
+  }
+  return slots
+}
+
 function routeToControlPad(
   point: ControllerTerminalPoint,
   pad: { x: number; y: number },
   laneY: number,
-  laneIndex: number,
+  corridorSlot: number,
 ) {
   // Left-side pins exit past the board edge before dropping; the USB block
   // and the board render both sit between the header and the lanes.
   const corridorX = point.side === 'right'
-    ? CONTROL_CORRIDOR_X + ((laneIndex % CONTROL_CORRIDOR_COUNT) * CONTROL_CORRIDOR_SPACING)
-    : 56 - ((laneIndex % 5) * 7)
+    ? CONTROL_CORRIDOR_X + (corridorSlot * CONTROL_CORRIDOR_SPACING)
+    : LEFT_CONTROL_CORRIDOR_X - (corridorSlot * CONTROL_CORRIDOR_SPACING)
   return `M${point.x} ${point.y}H${corridorX}V${laneY}H${pad.x}V${pad.y}`
 }
 
@@ -1337,6 +1373,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
     busLanes.get(connection.id) ?? fallback
   const detourBaseY = controllerDetourBaseY(controllerRender(boardProfile))
   const topBandY = controllerTopBandY(controllerRender(boardProfile))
+  const controlCorridors = assignControlCorridors(peripheralLayouts, controllerConnections, boardProfile)
   /**
    * Left-rail lanes ordered by how far each wire has to travel, not by the
    * order its connection happens to appear in.
@@ -1452,7 +1489,8 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
               const controllerPoint = controllerConnectionPoint(connection, controllerIndex, controllerConnections.length, boardProfile)
               const pad = peripheralPadPoint(layout, peripheralSignalPadIndex(layout.item, index))
               const lane = controlLanes.get(connection.id)
-              if (!lane) return null
+              const corridorSlot = controlCorridors.get(connection.id)
+              if (!lane || corridorSlot === undefined) return null
               const presentation = signalPresentation(connection)
               const active = selectedItemId === 'controller' || selectedItemId === layout.item.id
               return <path
@@ -1460,7 +1498,8 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
                 data-wire={connection.id}
                 data-signal-role={presentation.role}
                 data-control-lane={lane.index}
-                d={routeToControlPad(controllerPoint, pad, lane.y, lane.index)}
+                data-control-corridor={corridorSlot}
+                d={routeToControlPad(controllerPoint, pad, lane.y, corridorSlot)}
                 className={active ? styles.signalWire : styles.dimWire}
                 style={active ? { stroke: presentation.color } : undefined}
               />
