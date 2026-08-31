@@ -95,6 +95,29 @@ function sdCardNode() {
   }
 }
 
+function spiDisplayNode() {
+  return {
+    id: 'display',
+    type: 'studioNode',
+    position: { x: 0, y: 0 },
+    data: {
+      label: 'Info Display',
+      nodeType: 'InfoDisplay',
+      category: 'output',
+      properties: {
+        partId: 'sh1106-oled-128x64',
+        csPin: 15,
+        dcPin: 16,
+        resetPin: 17,
+        sckPin: 18,
+        mosiPin: 23,
+      },
+      inputs: [],
+      outputs: [],
+    },
+  }
+}
+
 // The exact board lives on the Board node — the bench's own record of which
 // controller is in the build — so a test selects one by putting it there.
 function boardNode(profileId = '', extra: Record<string, unknown> = {}) {
@@ -687,7 +710,7 @@ describe('BuildDiagramWorkspace', () => {
   })
 
   it('draws the SD card module with the ESP-32D SPI bus in the build diagram', () => {
-    useGraphStore.setState({ nodes: [boardNode(), matrixNode(), sdCardNode()] as never[] })
+    useGraphStore.setState({ nodes: [boardNode(), matrixNode(), sdCardNode(), spiDisplayNode()] as never[] })
     selectEsp32DevKitV1()
     const { container, getByText } = render(<BuildDiagramWorkspace />)
     const diagram = container.querySelector('svg[data-build-export="current-view"]')
@@ -702,6 +725,36 @@ describe('BuildDiagramWorkspace', () => {
     ]) {
       expect(diagram?.querySelector(`[data-wire="${wire}"]`), wire).toBeTruthy()
     }
+
+    const spiRoles = {
+      'sd-card:sd:sdCsPin': 'cs',
+      'sd-card:sd:sdSckPin': 'sck',
+      'sd-card:sd:sdMosiPin': 'mosi',
+      'sd-card:sd:sdMisoPin': 'miso',
+    }
+    const spiColours = Object.entries(spiRoles).map(([wire, role]) => {
+      const route = diagram?.querySelector<SVGPathElement>(`[data-wire="${wire}"]`)
+      expect(route?.getAttribute('data-signal-role')).toBe(role)
+      return route?.style.stroke
+    })
+    expect(new Set(spiColours).size).toBe(4)
+
+    // Shared bus roles keep one colour even when they terminate on different
+    // modules. The terminal centre uses that same colour as the complete run.
+    const sdMosi = diagram?.querySelector<SVGPathElement>('[data-wire="sd-card:sd:sdMosiPin"]')
+    const displayMosi = diagram?.querySelector<SVGPathElement>('[data-wire="info-display:display:mosiPin"]')
+    const displayMosiTerminal = diagram?.querySelector<SVGCircleElement>('[data-terminal="info-display:display-info-display:display:mosiPin"] circle')
+    const controllerMosiTerminal = diagram?.querySelector<SVGCircleElement>('[data-terminal="controller-info-display:display:mosiPin"] circle')
+    expect(displayMosi?.getAttribute('data-signal-role')).toBe('mosi')
+    expect(displayMosi?.style.stroke).toBe(sdMosi?.style.stroke)
+    expect(displayMosiTerminal?.style.fill).toBe(displayMosi?.style.stroke)
+    expect(controllerMosiTerminal?.style.fill).toBe(displayMosi?.style.stroke)
+
+    // Coloured overlays sit inside the rendered plated rings instead of
+    // painting over them edge-to-edge.
+    expect(Number(displayMosiTerminal?.getAttribute('r'))).toBeLessThan(5)
+    expect(Number(controllerMosiTerminal?.getAttribute('r')))
+      .toBeLessThan(Number(diagram?.querySelector('[data-terminal="controller-usb"] circle')?.getAttribute('r')))
     expect(diagram?.querySelector('[data-net-stub-for="sd-card:sd-power"]')?.getAttribute('data-net-stub')).toBe('v5')
     expect(diagram?.querySelector('[data-net-stub-for="sd-card:sd-ground"]')).toBeTruthy()
   })

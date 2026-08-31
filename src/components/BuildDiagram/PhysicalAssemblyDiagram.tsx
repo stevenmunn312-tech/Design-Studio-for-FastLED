@@ -339,6 +339,85 @@ function connectionPinLabel(connection: PhysicalDiagramConnection) {
   return connection.pinLabel.replace('GPIO', 'IO')
 }
 
+type SignalPresentation = {
+  role: string
+  color: string
+}
+
+/**
+ * Electrical roles own their colours. A MOSI run therefore stays magenta on
+ * the controller, the wire, and every SPI module instead of changing colour
+ * just because it belongs to a different item.
+ */
+const SIGNAL_ROLE_COLORS = {
+  bclk: '#176fd1',
+  ws: '#df811c',
+  dout: '#a33db8',
+  sck: '#176fd1',
+  mosi: '#c23b9d',
+  miso: '#0f8b8d',
+  cs: '#df811c',
+  dc: '#7a3fb5',
+  reset: '#d34f3f',
+  irq: '#9a6700',
+  sda: '#00866a',
+  scl: '#4358dc',
+  backlight: '#b47800',
+  'control-a': '#0f8b8d',
+  'control-b': '#4358dc',
+  'control-switch': '#7a3fb5',
+} as const
+
+const EXCLUSIVE_SIGNAL_COLORS = [
+  '#24963e',
+  '#176fd1',
+  '#c23b9d',
+  '#df811c',
+  '#0f8b8d',
+  '#7a3fb5',
+  '#b45f06',
+  '#2f7f9f',
+]
+
+function stableSignalColor(value: string) {
+  let hash = 0
+  for (const character of value) hash = ((hash * 31) + character.charCodeAt(0)) >>> 0
+  return EXCLUSIVE_SIGNAL_COLORS[hash % EXCLUSIVE_SIGNAL_COLORS.length]
+}
+
+function connectionPropertyKey(connection: PhysicalDiagramConnection) {
+  return connection.id.slice(connection.id.lastIndexOf(':') + 1).toLowerCase()
+}
+
+function signalPresentation(connection: PhysicalDiagramConnection): SignalPresentation {
+  const key = connectionPropertyKey(connection)
+
+  // I2S uses the same physical idea as a clocked bus, but keeping its familiar
+  // BCLK/WS/DOUT labels makes the audio wiring easier to follow.
+  if (key === 'i2ssck') return { role: 'bclk', color: SIGNAL_ROLE_COLORS.bclk }
+  if (key === 'i2sws') return { role: 'ws', color: SIGNAL_ROLE_COLORS.ws }
+  if (key === 'i2ssd') return { role: 'dout', color: SIGNAL_ROLE_COLORS.dout }
+
+  if (key.includes('mosi') || key === 'dinpin') return { role: 'mosi', color: SIGNAL_ROLE_COLORS.mosi }
+  if (key.includes('miso')) return { role: 'miso', color: SIGNAL_ROLE_COLORS.miso }
+  if (key.includes('sck') || key === 'clkpin' || key === 'clockpin') return { role: 'sck', color: SIGNAL_ROLE_COLORS.sck }
+  if (key.includes('cs')) return { role: 'cs', color: SIGNAL_ROLE_COLORS.cs }
+  if (key === 'dcpin') return { role: 'dc', color: SIGNAL_ROLE_COLORS.dc }
+  if (key.includes('reset')) return { role: 'reset', color: SIGNAL_ROLE_COLORS.reset }
+  if (key.includes('irq')) return { role: 'irq', color: SIGNAL_ROLE_COLORS.irq }
+  if (key === 'sdapin') return { role: 'sda', color: SIGNAL_ROLE_COLORS.sda }
+  if (key === 'sclpin') return { role: 'scl', color: SIGNAL_ROLE_COLORS.scl }
+  if (key.includes('backlight')) return { role: 'backlight', color: SIGNAL_ROLE_COLORS.backlight }
+  if (key === 'pina') return { role: 'control-a', color: SIGNAL_ROLE_COLORS['control-a'] }
+  if (key === 'pinb') return { role: 'control-b', color: SIGNAL_ROLE_COLORS['control-b'] }
+  if (key === 'pinsw') return { role: 'control-switch', color: SIGNAL_ROLE_COLORS['control-switch'] }
+
+  // Exclusive GPIO runs (LED data, buttons, HUB75 channels, etc.) are coloured
+  // by their full connection id so neighbouring wires remain distinct without
+  // implying that unrelated pins form a shared bus.
+  return { role: key.replace(/pin$/, '') || 'signal', color: stableSignalColor(connection.id) }
+}
+
 function controllerConnectionY(index: number, count: number) {
   if (count <= 1) return 350
   return 252 + ((194 * index) / (count - 1))
@@ -522,12 +601,6 @@ function routeFromLevelShifterOutput(
   return `M${point.x} ${point.y}H${levelShifterEntryX(outputIndex)}V${levelShifterDetourY(outputIndex)}H${corridorX}V${targetY}H${targetX}`
 }
 
-const CONTROL_WIRE_CLASSES = [styles.controlWireA, styles.controlWireB, styles.controlWireC]
-
-function controlWireClass(moduleIndex: number) {
-  return CONTROL_WIRE_CLASSES[moduleIndex % CONTROL_WIRE_CLASSES.length]
-}
-
 /**
  * Control signals leave the controller, drop to their own lane below the module
  * row, run across, and climb into their pad.
@@ -636,6 +709,13 @@ function microphoneSignalPresentation(connection: PhysicalDiagramConnection): {
   return null
 }
 
+const PHOTO_TERMINAL_FILL_RATIO = 0.58
+const MODULE_TERMINAL_FILL_RADIUS = 3
+
+function controllerTerminalFillRadius(render: ControllerRender) {
+  return Math.max(2.5, controllerTerminalRadius(render) * PHOTO_TERMINAL_FILL_RATIO)
+}
+
 function LedPixels({ x, y, width, height }: { x: number; y: number; width: number; height: number }) {
   const columns = 4
   const rows = 4
@@ -664,6 +744,7 @@ function ControllerGraphic({ boardProfile, connections, selected }: { boardProfi
     const ground = controllerPowerPoint('ground', boardProfile)
     const usb = controllerPowerPoint('usb', boardProfile)
     const padRadius = controllerTerminalRadius(render)
+    const padFillRadius = controllerTerminalFillRadius(render)
     return (
       <g className={selected ? styles.physicalSelected : undefined} data-controller-render={boardProfile.id}>
         <image
@@ -677,20 +758,22 @@ function ControllerGraphic({ boardProfile, connections, selected }: { boardProfi
         />
         <text x={render.x + (render.width / 2)} y={render.y + render.height + 24} textAnchor="middle" className={styles.physicalComponentLabel}>{render.shortLabel}</text>
         <g data-terminal="controller-3v3">
-          <circle cx={power3v3.x} cy={power3v3.y} r={padRadius} className={styles.controllerPowerTerminal} />
+          <circle cx={power3v3.x} cy={power3v3.y} r={padFillRadius} className={styles.controllerPowerTerminal} />
           <title>3V3</title>
         </g>
         {connections.map((connection, index) => {
           const point = controllerConnectionPoint(connection, index, connections.length, boardProfile)
+          const presentation = signalPresentation(connection)
           return (
-            <g key={connection.id} data-terminal={`controller-${connection.id}`} data-board-anchor={connection.boardAnchorId}>
+            <g key={connection.id} data-terminal={`controller-${connection.id}`} data-board-anchor={connection.boardAnchorId} data-signal-role={presentation.role}>
               <circle
                 cx={point.x}
                 cy={point.y}
-                r={padRadius}
+                r={point.mapped ? padFillRadius : padRadius}
                 className={point.mapped
-                  ? microphoneSignalPresentation(connection)?.terminalClassName ?? styles.controllerSignalTerminal
+                  ? `${microphoneSignalPresentation(connection)?.terminalClassName ?? styles.controllerSignalTerminal} ${styles.photoTerminalFill}`
                   : styles.controllerUnmappedTerminal}
+                style={point.mapped ? { fill: presentation.color } : undefined}
               />
               {!point.mapped && (
                 <text x={point.x + 11} y={point.y + 4} className={styles.controllerUnmappedLabel}>
@@ -702,7 +785,7 @@ function ControllerGraphic({ boardProfile, connections, selected }: { boardProfi
           )
         })}
         <g data-terminal="controller-gnd">
-          <circle cx={ground.x} cy={ground.y} r={padRadius} className={styles.controllerGroundTerminal} />
+          <circle cx={ground.x} cy={ground.y} r={padFillRadius} className={styles.controllerGroundTerminal} />
           <title>GND</title>
         </g>
         <g data-terminal="controller-usb">
@@ -766,7 +849,7 @@ function MicrophoneGraphic({ layout, connections, selected }: { layout: ItemLayo
   const terminal = (role: MicrophoneTerminalRole, className: string, label: string) => {
     const point = microphoneTerminalPoint(layout, role)
     return <g data-terminal={`${item.id}-${role}`} data-microphone-role={role}>
-      <circle cx={point.x} cy={point.y} r="5" className={className} />
+      <circle cx={point.x} cy={point.y} r={MODULE_TERMINAL_FILL_RADIUS} className={`${className} ${styles.photoTerminalFill}`} />
       <title>{label}</title>
     </g>
   }
@@ -789,7 +872,7 @@ function MicrophoneGraphic({ layout, connections, selected }: { layout: ItemLayo
         if (!presentation) return null
         const point = microphoneTerminalPoint(layout, presentation.role)
         return <g key={connection.id} data-terminal={`${item.id}-${connection.id}`} data-microphone-role={presentation.role}>
-          <circle cx={point.x} cy={point.y} r="5" className={presentation.terminalClassName} />
+          <circle cx={point.x} cy={point.y} r={MODULE_TERMINAL_FILL_RADIUS} className={`${presentation.terminalClassName} ${styles.photoTerminalFill}`} />
           <title>{presentation.label} · {connection.pinLabel}</title>
         </g>
       })}
@@ -852,15 +935,16 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
       {/* The layout maps semantic power, signal, and ground roles onto the
           photographed pad order for each module variant. */}
       <g data-terminal={`${item.id}-3v3`}>
-        <circle cx={peripheralPadPoint(layout, powerPadIndex).x} cy={peripheralPadPoint(layout, powerPadIndex).y} r="5" className={styles.peripheralPowerTerminal} />
+        <circle cx={peripheralPadPoint(layout, powerPadIndex).x} cy={peripheralPadPoint(layout, powerPadIndex).y} r={MODULE_TERMINAL_FILL_RADIUS} className={`${styles.peripheralPowerTerminal} ${styles.photoTerminalFill}`} />
         <title>{powerNet === 'v5' ? 'VCC · 5V' : 'VCC · 3V3'}</title>
       </g>
       {connections.map((connection, index) => {
         const padIndex = peripheralSignalPadIndex(item, index)
         const point = peripheralPadPoint(layout, padIndex)
+        const presentation = signalPresentation(connection)
         return (
-          <g key={connection.id} data-terminal={`${item.id}-${connection.id}`}>
-            <circle cx={point.x} cy={point.y} r="5" className={styles.peripheralSignalTerminal} />
+          <g key={connection.id} data-terminal={`${item.id}-${connection.id}`} data-signal-role={presentation.role}>
+            <circle cx={point.x} cy={point.y} r={MODULE_TERMINAL_FILL_RADIUS} className={`${styles.peripheralSignalTerminal} ${styles.photoTerminalFill}`} style={{ fill: presentation.color }} />
             <title>{padLabel(padIndex)} · {connectionPinLabel(connection)}</title>
           </g>
         )
@@ -869,8 +953,8 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
         <circle
           cx={peripheralPadPoint(layout, groundPadIndex).x}
           cy={peripheralPadPoint(layout, groundPadIndex).y}
-          r="5"
-          className={styles.peripheralGroundTerminal}
+          r={MODULE_TERMINAL_FILL_RADIUS}
+          className={`${styles.peripheralGroundTerminal} ${styles.photoTerminalFill}`}
         />
         <title>GND</title>
       </g>
@@ -878,8 +962,9 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
   )
 }
 
-function OutputGraphic({ layout, selected, plan, powerPlanBelow }: { layout: ItemLayout; selected: boolean; plan?: OutputElectricalPlan; powerPlanBelow: boolean }) {
+function OutputGraphic({ layout, connection, selected, plan, powerPlanBelow }: { layout: ItemLayout; connection?: PhysicalDiagramConnection; selected: boolean; plan?: OutputElectricalPlan; powerPlanBelow: boolean }) {
   const { x, y, width, item } = layout
+  const presentation = connection ? signalPresentation(connection) : { role: 'data', color: '#24963e' }
   return (
     <g data-output-card={item.id} className={selected ? styles.physicalSelected : undefined}>
       <text x={x + (width / 2)} y={y - 32} textAnchor="middle" className={styles.physicalComponentLabel}>{item.title}</text>
@@ -888,8 +973,9 @@ function OutputGraphic({ layout, selected, plan, powerPlanBelow }: { layout: Ite
       <rect x={x + 18} y={y + 12} width={width - 30} height="140" fill="#15191a" stroke="#515759" />
       <LedPixels x={x + ((width - 128) / 2)} y={y + 18} width={128} height={128} />
       {[['DIN', 66]].map(([label, offset]) => (
-        <g key={label} data-terminal={`${item.id}-${String(label).toLowerCase()}`}>
-          <circle cx={x} cy={y + Number(offset)} r="6" fill="#3dab5b" stroke="#d9a14a" strokeWidth="2" />
+        <g key={label} data-terminal={`${item.id}-${String(label).toLowerCase()}`} data-signal-role={presentation.role}>
+          <circle cx={x} cy={y + Number(offset)} r="6" fill="#d9a14a" />
+          <circle cx={x} cy={y + Number(offset)} r={MODULE_TERMINAL_FILL_RADIUS} fill={presentation.color} />
           <text x={x + 14} y={y + Number(offset) + 4} className={styles.physicalPinLabel}>{label}</text>
         </g>
       ))}
@@ -1331,21 +1417,24 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
           if (!connection) return null
           const controllerIndex = controllerConnections.indexOf(connection)
           const controllerPoint = controllerConnectionPoint(connection, controllerIndex, controllerConnections.length, boardProfile)
-          const wireClass = selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.signalWire : styles.dimWire
+          const presentation = signalPresentation(connection)
+          const active = selectedItemId === 'controller' || selectedItemId === layout.item.id
+          const wireClass = active ? styles.signalWire : styles.dimWire
+          const wireStyle = active ? { stroke: presentation.color } : undefined
           // Without the shifter layer there is nothing to route through, so the
           // data run goes straight from the controller pin to the panel.
           if (!layers.levelShifter) {
-            return <path key={layout.item.id} data-wire={`${layout.item.id}-data-in`} d={routeFromController(controllerPoint, layout.x, layout.y + 66, busLane(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), detourBaseY, topBandY)} className={wireClass} />
+            return <path key={layout.item.id} data-wire={`${layout.item.id}-data-in`} data-signal-role={presentation.role} d={routeFromController(controllerPoint, layout.x, layout.y + 66, busLane(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), detourBaseY, topBandY)} className={wireClass} style={wireStyle} />
           }
           const inputPoint = levelShifterTerminalPoint(index, 'a')
           const outputPoint = levelShifterTerminalPoint(index, 'y')
           return <g key={layout.item.id}>
-            <path data-wire={`${layout.item.id}-data-in`} d={routeFromController(controllerPoint, 350, inputPoint.y, busLane(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), detourBaseY, topBandY)} className={wireClass} />
-            <path data-wire={`${layout.item.id}-level-shifter-input`} d={routeToLevelShifterInput(index, inputPoint)} className={wireClass} />
-            <path data-wire={`${layout.item.id}-conditioned-data`} d={routeFromLevelShifterOutput(index, outputPoint, layout.x, layout.y + 66)} className={wireClass} />
+            <path data-wire={`${layout.item.id}-data-in`} data-signal-role={presentation.role} d={routeFromController(controllerPoint, 350, inputPoint.y, busLane(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), detourBaseY, topBandY)} className={wireClass} style={wireStyle} />
+            <path data-wire={`${layout.item.id}-level-shifter-input`} data-signal-role={presentation.role} d={routeToLevelShifterInput(index, inputPoint)} className={wireClass} style={wireStyle} />
+            <path data-wire={`${layout.item.id}-conditioned-data`} data-signal-role={presentation.role} d={routeFromLevelShifterOutput(index, outputPoint, layout.x, layout.y + 66)} className={wireClass} style={wireStyle} />
           </g>
         })}
-        {peripheralLayouts.map((layout, layoutIndex) => {
+        {peripheralLayouts.map((layout) => {
           const peripheralConnections = connections.filter((connection) => connection.itemId === layout.item.id)
           const vccPad = peripheralPadPoint(layout, peripheralPowerPadIndex(layout.item))
           const groundPad = peripheralPadPoint(layout, peripheralGroundPadIndex(layout.item))
@@ -1364,12 +1453,16 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
               const pad = peripheralPadPoint(layout, peripheralSignalPadIndex(layout.item, index))
               const lane = controlLanes.get(connection.id)
               if (!lane) return null
+              const presentation = signalPresentation(connection)
+              const active = selectedItemId === 'controller' || selectedItemId === layout.item.id
               return <path
                 key={connection.id}
                 data-wire={connection.id}
+                data-signal-role={presentation.role}
                 data-control-lane={lane.index}
                 d={routeToControlPad(controllerPoint, pad, lane.y, lane.index)}
-                className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? controlWireClass(layoutIndex) : styles.dimWire}
+                className={active ? styles.signalWire : styles.dimWire}
+                style={active ? { stroke: presentation.color } : undefined}
               />
             })}
             <NetStub x={groundPad.x} y={groundPad.y} kind="gnd" direction="down" lead={PERIPHERAL_STUB_LEAD} wireId={`${layout.item.id}-ground`} />
@@ -1494,7 +1587,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
             header strip carries only the terminals that sheet actually uses. */}
         <ControllerGraphic boardProfile={boardProfile} connections={layers.signalWires ? controllerConnections : []} selected={selectedItemId === 'controller'} />
       </g>
-      {outputLayouts.map((layout) => <g key={layout.item.id} role="button" tabIndex={0} aria-label={`Select ${layout.item.title}`} onClick={() => onSelectItem(layout.item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelectItem(layout.item.id) }} className={styles.physicalClickable}><OutputGraphic layout={layout} selected={selectedItemId === layout.item.id} plan={plan.outputs.find((entry) => entry.itemId === layout.item.id)} powerPlanBelow={showPowerDistribution} /></g>)}
+      {outputLayouts.map((layout) => <g key={layout.item.id} role="button" tabIndex={0} aria-label={`Select ${layout.item.title}`} onClick={() => onSelectItem(layout.item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelectItem(layout.item.id) }} className={styles.physicalClickable}><OutputGraphic layout={layout} connection={outputConnections.find((entry) => entry.itemId === layout.item.id)} selected={selectedItemId === layout.item.id} plan={plan.outputs.find((entry) => entry.itemId === layout.item.id)} powerPlanBelow={showPowerDistribution} /></g>)}
       {microphoneLayout && <g role="button" tabIndex={0} aria-label={`Select ${microphoneLayout.item.title}`} onClick={() => onSelectItem(microphoneLayout.item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelectItem(microphoneLayout.item.id) }} className={styles.physicalClickable}><MicrophoneGraphic layout={microphoneLayout} connections={micConnections} selected={selectedItemId === microphoneLayout.item.id} /></g>}
       {peripheralLayouts.map((layout) => <g key={layout.item.id} role="button" tabIndex={0} aria-label={`Select ${layout.item.title}`} onClick={() => onSelectItem(layout.item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelectItem(layout.item.id) }} className={styles.physicalClickable}><InputGraphic layout={layout} connections={connections.filter((connection) => connection.itemId === layout.item.id)} selected={selectedItemId === layout.item.id} /></g>)}
 

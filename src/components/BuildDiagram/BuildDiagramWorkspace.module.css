@@ -1247,17 +1247,14 @@
   pointer-events: none;
 }
 
-.controllerSignalTerminal,
 .controllerUnmappedTerminal,
-.controllerPowerTerminal,
-.controllerGroundTerminal,
 .controllerUsbTerminal {
   stroke-width: 2.5;
 }
 
 .controllerSignalTerminal {
   fill: #24963e;
-  stroke: #d9f4dc;
+  stroke: none;
 }
 
 .controllerUnmappedTerminal {
@@ -1275,12 +1272,12 @@
 
 .controllerPowerTerminal {
   fill: #d62f42;
-  stroke: #ffd1d7;
+  stroke: none;
 }
 
 .controllerGroundTerminal {
   fill: #171b1d;
-  stroke: #f2c766;
+  stroke: none;
 }
 
 .controllerUsbTerminal {
@@ -1448,25 +1445,6 @@
   stroke-linecap: round;
 }
 
-/* One hue per control module so neighbouring lanes stay traceable. */
-.controlWireA {
-  fill: none;
-  stroke: #0f8b8d;
-  stroke-width: 4;
-}
-
-.controlWireB {
-  fill: none;
-  stroke: #4358dc;
-  stroke-width: 4;
-}
-
-.controlWireC {
-  fill: none;
-  stroke: #7a3fb5;
-  stroke-width: 4;
-}
-
 /* Control-module pads: matched to the gold pad rings in the renders. */
 .peripheralPowerTerminal {
   fill: #d84938;
@@ -1484,6 +1462,12 @@
   fill: #202425;
   stroke: #f2c766;
   stroke-width: 2;
+}
+
+/* The artwork already draws each plated gold ring. These overlays colour only
+   the drilled centre so the real pad remains visible around the net colour. */
+.photoTerminalFill {
+  stroke: none;
 }
 
 .netStubLabel {
