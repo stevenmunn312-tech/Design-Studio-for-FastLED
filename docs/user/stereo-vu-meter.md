@@ -16,8 +16,12 @@ the main LED output remains an independent frame output.
    each rail.
 
 No Audio cable means no inferred or ambient input: the rails remain black and
-Graph Health explains what is missing. An inactive provider also fades to
-black instead of holding a stale level.
+Graph Health explains what is missing. An inactive provider turns the rails
+black and clears retained peaks and trails instead of holding a stale level.
+If browser microphone permission is denied, capture remains inactive, the
+rails remain black, and Studio reports that permission or the selected input
+must be checked; changing fixture settings never prompts for permission by
+itself.
 
 ## Stereo and mono sources
 
@@ -36,6 +40,26 @@ black instead of holding a stale level.
 Channel swap changes which signal drives each physical rail; it does not swap
 their positions in the preview. The labels identify the source channel after a
 swap.
+
+For PCM1802, the Line Input **Both** choice preserves true stereo for the VU
+rails and downmixes only the existing mono analyzer path. Choosing **Left** or
+**Right** selects that channel for the mono analyzer and deliberately mirrors
+the same selected level onto both VU rails. This is source selection, not a
+channel-isolation fault.
+
+## Level contract and parity
+
+Live browser and PCM1802 firmware levels are short-window RMS values in the
+range 0–1. Both use 512 samples at 44.1 kHz (about 11.6 ms), a 0.006 normalized
+noise gate, and 0.25 RMS as full scale before the fixture gain and response
+controls. Non-finite or negative inputs become zero; over-range input clips to
+one.
+
+The first release has no separate clipping diagnostic flag. Red pixels at the
+top of Classic Ladder are part of the visualization and must not be treated as
+evidence that the ADC clipped. The parity target for shared golden inputs is
+within 0.01 for conditioned levels and within 2 per RGB channel after integer
+rounding. Silence and a stopped or unavailable source must resolve to black.
 
 ## Visualizations
 
@@ -76,9 +100,20 @@ pin. Put a data resistor near each controller output and use a logic-level
 shifter when the LED voltage and cable length require it. Follow Build Diagram
 power-injection guidance for the combined LED count and physical run.
 
-The configured brightness and pair current cap cover both strings together.
-Treat the worst case as every LED on both rails displaying white; decorative
-animations are not a power budget.
+The fixture brightness is applied to VU pixels first. Board/global FastLED
+brightness is applied at output second, so the two controls combine
+multiplicatively. Player brightness controls modify that global stage, and the
+configured current cap is enforced by FastLED at final output. The pair current
+cap covers both strings together. Treat the worst case as every LED on both
+rails displaying white; decorative animations are not a power budget.
+
+## Live Stream behavior
+
+The Adalight Live Stream receiver accepts pixels only for the selected main LED
+output and contains no audio engine. Stereo VU rails therefore stay off in Live
+Stream mode; the Upload panel and generated receiver sketch state this
+explicitly. Use the normal generated firmware to drive the main output and
+audio-reactive rails together.
 
 ## Baked-envelope compatibility
 

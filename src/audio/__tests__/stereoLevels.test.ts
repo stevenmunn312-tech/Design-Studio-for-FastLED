@@ -7,7 +7,35 @@ import {
   VU_RMS_REFERENCE,
 } from '../stereoLevels'
 
+const FIXTURE_SIZE = 512
+const silence = () => new Float32Array(FIXTURE_SIZE)
+const tone = (amplitude: number) => Float32Array.from(
+  { length: FIXTURE_SIZE },
+  (_, i) => amplitude * Math.sin((2 * Math.PI * 8 * i) / FIXTURE_SIZE),
+)
+const impulse = () => {
+  const samples = silence()
+  samples[0] = 1
+  return samples
+}
+
 describe('stereo VU levels', () => {
+  it('covers the fixed silence, steady, impulse, channel-isolation, mono, and clipping fixtures', () => {
+    expect(levelsFromSampleChannels(silence(), silence(), 2)).toEqual({ left: 0, right: 0, channelCount: 2 })
+    expect(normalizedRmsLevel(tone(0.2))).toBeGreaterThan(0.5)
+    expect(normalizedRmsLevel(impulse())).toBeGreaterThan(0)
+
+    const leftOnly = levelsFromSampleChannels(tone(0.2), silence(), 2)
+    const rightOnly = levelsFromSampleChannels(silence(), tone(0.2), 2)
+    expect(leftOnly.left).toBeGreaterThan(0)
+    expect(leftOnly.right).toBe(0)
+    expect(rightOnly.left).toBe(0)
+    expect(rightOnly.right).toBeGreaterThan(0)
+
+    const mono = levelsFromSampleChannels(tone(0.2), silence(), 1)
+    expect(mono.left).toBe(mono.right)
+    expect(normalizedRmsLevel(new Float32Array(FIXTURE_SIZE).fill(2))).toBe(1)
+  })
   it('maps the documented RMS reference to full scale', () => {
     expect(normalizedRmsLevel(new Float32Array(64).fill(VU_RMS_REFERENCE))).toBe(1)
   })

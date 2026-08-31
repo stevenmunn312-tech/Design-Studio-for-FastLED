@@ -50,6 +50,29 @@ describe('audioEngine FFT helpers', () => {
     }
   })
 
+  it('stays inactive and publishes silence when microphone permission is denied', async () => {
+    const original = navigator.mediaDevices
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia: vi.fn(() => Promise.reject(new DOMException('Denied', 'NotAllowedError'))) },
+    })
+    const engine = AudioEngine.instance
+    const updates: Array<{ active: boolean; leftLevel: number; rightLevel: number; channelCount: 1 | 2 }> = []
+    const unsubscribe = engine.subscribe((data) => updates.push(data))
+    engine.stop()
+    try {
+      await expect(engine.start()).rejects.toMatchObject({ name: 'NotAllowedError' })
+      expect(engine.active).toBe(false)
+      expect(updates.at(-1)).toMatchObject({
+        active: false, leftLevel: 0, rightLevel: 0, channelCount: 1,
+      })
+    } finally {
+      unsubscribe()
+      engine.stop()
+      Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: original })
+    }
+  })
+
   it('uses FastLED INMP441 default sample rate', () => {
     expect(MIC_SAMPLE_RATE).toBe(44_100)
   })

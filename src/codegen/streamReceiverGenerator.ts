@@ -30,6 +30,16 @@ function streamOutputNode(nodes: StudioNode[], outputNodeId?: string): StudioNod
   return nodes.find((node) => node.data.nodeType === 'MatrixOutput')
 }
 
+/** Capabilities deliberately omitted by the pixel-only Adalight receiver. */
+export function streamReceiverCapabilityNotes(nodes: StudioNode[]): string[] {
+  if (!nodes.some((node) =>
+    node.data.nodeType === 'StereoVuMeter'
+    && (node.data.properties as Record<string, unknown>).enabled !== false)) return []
+  return [
+    'Live Stream sends only the selected LED output. Stereo VU rails stay off because the receiver has no audio engine.',
+  ]
+}
+
 /** Resolve the layout the receiver sketch (and the packet builder) must agree
  *  on, from the graph's MatrixOutput node. Returns null if there isn't one. */
 export function streamLayoutForGraph(nodes: StudioNode[], outputNodeId?: string): StreamLayout | null {
@@ -73,6 +83,9 @@ export function generateStreamReceiverSketch(nodes: StudioNode[], outputNodeId?:
   lines.push('// Flash this once; the studio then pushes frames over serial at runtime')
   lines.push('// via the ✎ Live Stream control on the LED output. Re-flash only if')
   lines.push('// the output geometry, chipset, pins, color order/correction, or wiring change.')
+  if (streamReceiverCapabilityNotes(nodes).length > 0) {
+    lines.push('// Stereo VU rails intentionally stay off: this pixel receiver has no audio engine.')
+  }
   lines.push(...overclockDefineCpp(hw))
   lines.push('#include <FastLED.h>')
   if (isHub75) lines.push(...hub75IncludesCpp(hub75Hw!))

@@ -23,6 +23,7 @@ vi.mock('../../../codegen/showGenerator', () => ({
 vi.mock('../../../codegen/streamReceiverGenerator', () => ({
   generateStreamReceiverSketch: vi.fn(() => '// stream receiver'),
   streamLayoutForGraph: vi.fn(() => ({ width: 16, height: 16, map: [0] })),
+  streamReceiverCapabilityNotes: vi.fn(() => []),
 }))
 
 vi.mock('../../../codegen/wiringDiagnosticGenerator', () => ({

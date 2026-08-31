@@ -10,7 +10,7 @@ import { bakeBrowserThumbnails } from '../../utils/browserThumbnails'
 import { bakeDisplayArtworks } from '../../utils/transportArtworks'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
-import { generateStreamReceiverSketch, streamLayoutForGraph } from '../../codegen/streamReceiverGenerator'
+import { generateStreamReceiverSketch, streamLayoutForGraph, streamReceiverCapabilityNotes } from '../../codegen/streamReceiverGenerator'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
 import { readySongCount, buildShowPayload, sdShowConnected } from '../../utils/showUpload'
 import { findPinConflicts, findMatrixLayoutErrors, findMirroredOutputMismatches, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowOutputFormErrors, findShowRequirementErrors } from '../../utils/validateGraph'
@@ -134,6 +134,7 @@ export default function MatrixOutputDeployPopup({
   // Uneven parallel runs are worth saying and never worth blocking — a star
   // with half-length arms is a real build, not a misconfiguration.
   const mirrorNotes = useMemo(() => findMirroredOutputMismatches(nodes, edges), [nodes, edges])
+  const liveStreamNotes = useMemo(() => streamReceiverCapabilityNotes(nodes), [nodes])
   const outputResourceErrors = useMemo(() => findOutputResourceErrors(nodes), [nodes])
   const boardCompatibilityErrors = useMemo(
     () => findBoardCompatibilityErrors(nodes, selectedFqbn),
@@ -732,6 +733,11 @@ export default function MatrixOutputDeployPopup({
             {streaming ? `⏹ Streaming — ${streamFps} fps` : '📡 Live Stream'}
           </button>
           </div>
+          {liveStreamNotes.length > 0 && (
+            <div className={styles.streamNote}>
+              {liveStreamNotes.map((note) => <div key={note}>{note}</div>)}
+            </div>
+          )}
         </section>
 
         {streamError && <div className={styles.streamError}>{streamError}</div>}

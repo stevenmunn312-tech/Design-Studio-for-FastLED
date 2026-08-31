@@ -157,6 +157,27 @@ describe('stereo VU renderer', () => {
     expect([0.1, 1.1, 2.1].map((time) => renderAt(shuffleA, 0.5, 0.5, false, time).frame.mode))
       .toEqual([0.1, 1.1, 2.1].map((time) => renderAt(shuffleB, 0.5, 0.5, false, time).frame.mode))
   })
+
+  it('keeps History Trail rendering for two 1024-pixel rails inside a 60 fps frame budget', () => {
+    const config = settings({ ledCount: 1024, visualizationMode: 'History Trail' })
+    let state = blankStereoVuState(config, 0)
+    const frames = 120
+    const started = performance.now()
+    for (let i = 0; i < frames; i++) {
+      const rendered = renderStereoVu({
+        active: true,
+        left: (i % 60) / 60,
+        right: 1 - (i % 60) / 60,
+        beat: i % 30 === 0,
+        timeSec: i / 60,
+      }, config, state)
+      state = rendered.state
+    }
+    const averageMs = (performance.now() - started) / frames
+
+    expect(state.leftHistory).toHaveLength(1024)
+    expect(averageMs).toBeLessThan(1000 / 60)
+  })
 })
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {

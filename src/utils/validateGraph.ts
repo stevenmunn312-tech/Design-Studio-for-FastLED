@@ -1,5 +1,10 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
-import { isPortlessNodeType, NODE_LIBRARY, supportsScalarExpression } from '../state/nodeLibrary'
+import {
+  CLOCKLESS_CHIPSET_OPTIONS,
+  isPortlessNodeType,
+  NODE_LIBRARY,
+  supportsScalarExpression,
+} from '../state/nodeLibrary'
 import { isLinearForm, outputForm, outputLedTotal } from '../state/ledOutputForm'
 import { audioOutputMissing } from '../state/audioOutput'
 import { resolveShowTarget } from '../state/showTarget'
@@ -122,6 +127,16 @@ export function findStereoVuMeterErrors(nodes: StudioNode[], edges: StudioEdge[]
     const errors: string[] = []
     if (!edges.some((edge) => edge.target === node.id && edge.targetHandle === 'audio')) {
       errors.push(`${label} has no Audio input connected — connect an Audio node or disable the fixture`)
+    }
+    for (const [key, side] of [['leftDataPin', 'left'], ['rightDataPin', 'right']] as const) {
+      const pin = props[key]
+      if (typeof pin !== 'number' || !isValidPinNumber(pin)) {
+        errors.push(`${label} ${side} data pin is missing or invalid — choose a whole-number GPIO from 0–${MAX_PIN_NUMBER}`)
+      }
+    }
+    const chipset = String(props.chipset ?? 'WS2812B')
+    if (!(CLOCKLESS_CHIPSET_OPTIONS as readonly string[]).includes(chipset)) {
+      errors.push(`${label} uses unsupported chipset ${chipset} — choose a clockless addressable chipset for both rails`)
     }
     const targetOutputId = String(props.targetOutputId ?? '')
     if (targetOutputId && !nodes.some((candidate) =>
@@ -378,6 +393,17 @@ export interface FirmwareRamEstimate {
   psramBytes: number
 }
 
+export interface LedRefreshEstimate {
+  /** Addressable pixels sent by the synchronized FastLED refresh. */
+  ledCount: number
+  /** Independent data controllers participating in that refresh. */
+  controllerCount: number
+  /** Conservative serialized wire-time upper bound. */
+  estimatedMicros: number
+  /** Wire-only ceiling before rendering/audio work is included. */
+  maxWireFps: number
+}
+
 const OUTPUT_DATATYPES_BY_NODE_TYPE = new Map(
   NODE_LIBRARY.map((def) => [def.type, new Set(def.outputs.map((o) => o.dataType))])
 )
@@ -456,6 +482,45 @@ const STATEFUL_EXTRA_BYTES_PER_LED: Record<string, number> = {
 // `Particles` case in cppGenerator.ts): 6 floats + 3 uint8 per slot.
 const PARTICLE_BYTES_PER_SLOT = 27
 const PARTICLE_POOL_SIZE = (mode: string) => (mode === 'swarm' ? 40 : 120)
+// Two float history arrays plus the aligned StereoVuState emitted by
+// stereoVuMeterCpp.ts. The two CRGB rail arrays are counted as physical LED
+// storage below, not as state.
+const STEREO_VU_STATE_BYTES = 48
+const STEREO_VU_HISTORY_BYTES_PER_LED = 8
+
+function emittedStereoVuMeters(nodes: StudioNode[], edges: readonly StudioEdge[]): StudioNode[] {
+  return nodes.filter((node) =>
+    node.data.nodeType === 'StereoVuMeter'
+    && edges.some((edge) => edge.target === node.id && edge.targetHandle === 'audio'))
+}
+
+/**
+ * Conservative FastLED wire-time estimate. Clockless LEDs take about 30 µs
+ * per RGB pixel plus a short reset/latch interval per controller. FastLED can
+ * parallelize some controllers on some MCUs, so this intentionally reports a
+ * portable serialized upper bound rather than promising a board-specific FPS.
+ * HUB75 is continuously refreshed by DMA and is excluded from this wire time.
+ */
+export function estimateLedRefreshTime(nodes: StudioNode[], edges: StudioEdge[]): LedRefreshEstimate | null {
+  const addressableOutputs = leadingOutputRoutes(nodes, edges).filter((route) =>
+    outputForm(route.node.data.properties as Record<string, unknown>) !== 'hub75')
+  const meters = emittedStereoVuMeters(nodes, edges)
+  const outputLeds = addressableOutputs.reduce((sum, route) => sum + outputLedCount(route.node), 0)
+  const vuLeds = meters.reduce((sum, meter) => {
+    const count = Math.round(Number((meter.data.properties as Record<string, unknown>).ledCount ?? DEFAULT_STANDALONE_VU_LED_COUNT))
+    return sum + Math.max(1, Number.isFinite(count) ? count : DEFAULT_STANDALONE_VU_LED_COUNT) * 2
+  }, 0)
+  const ledCount = outputLeds + vuLeds
+  const controllerCount = addressableOutputs.length + meters.length * 2
+  if (ledCount === 0 || controllerCount === 0) return null
+  const estimatedMicros = ledCount * 30 + controllerCount * 300
+  return {
+    ledCount,
+    controllerCount,
+    estimatedMicros,
+    maxWireFps: Math.floor(1_000_000 / estimatedMicros),
+  }
+}
 
 /**
  * Rough RAM budget for the generated sketch: the physical `leds` array plus
@@ -466,15 +531,21 @@ const PARTICLE_POOL_SIZE = (mode: string) => (mode === 'swarm' ? 40 : 120)
  */
 export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): FirmwareRamEstimate | null {
   const outputs = ledDrivingOutputs(nodes)
-  if (outputs.length === 0) return null
+  const stereoVuMeters = emittedStereoVuMeters(nodes, edges)
+  if (outputs.length === 0 && stereoVuMeters.length === 0) return null
   const { w, h } = compositionDims(nodes, edges)
   // Runs wired in parallel off one pin share a single `leds` array, so RAM
   // counts them once — unlike power, which counts every physical run because
   // each one is a real panel on the PSU.
   const controllers = new Set(leadingOutputRoutes(nodes, edges).map((route) => route.id))
-  const ledCount = outputs
+  const outputLedCountTotal = outputs
     .filter((output) => controllers.has(output.id))
     .reduce((sum, output) => sum + outputLedCount(output), 0)
+  const stereoVuLedCount = stereoVuMeters.reduce((sum, meter) => {
+    const count = Math.round(Number((meter.data.properties as Record<string, unknown>).ledCount ?? DEFAULT_STANDALONE_VU_LED_COUNT))
+    return sum + Math.max(1, Number.isFinite(count) ? count : DEFAULT_STANDALONE_VU_LED_COUNT) * 2
+  }, 0)
+  const ledCount = outputLedCountTotal + stereoVuLedCount
   const renderLedCount = w * h
 
   // Only nodes that actually feed the terminal frame get a buffer in the
@@ -487,7 +558,7 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): F
   }
   const byId = new Map(nodes.map((n) => [n.id, n]))
   const reachable = new Set<string>()
-  const stack = outputs.map((output) => output.id)
+  const stack = [...outputs.map((output) => output.id), ...stereoVuMeters.map((meter) => meter.id)]
   while (stack.length) {
     const id = stack.pop()!
     if (reachable.has(id)) continue
@@ -546,6 +617,11 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): F
       statefulBytes += renderLedCount * 3 * (delay + 1)
     }
   }
+  statefulBytes += stereoVuMeters.reduce((sum, meter) => {
+    const count = Math.round(Number((meter.data.properties as Record<string, unknown>).ledCount ?? DEFAULT_STANDALONE_VU_LED_COUNT))
+    const safeCount = Math.max(1, Number.isFinite(count) ? count : DEFAULT_STANDALONE_VU_LED_COUNT)
+    return sum + STEREO_VU_STATE_BYTES + safeCount * STEREO_VU_HISTORY_BYTES_PER_LED
+  }, 0)
 
   // Palette globals. Codegen declares one shared `paldef_<name>` per distinct
   // named palette a sketch references, plus one `pal_<id>` per palette-building

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateStreamReceiverSketch, streamLayoutForGraph } from '../streamReceiverGenerator'
+import { generateStreamReceiverSketch, streamLayoutForGraph, streamReceiverCapabilityNotes } from '../streamReceiverGenerator'
 import type { StudioNode } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, category: string, props: Record<string, unknown> = {}): StudioNode {
@@ -87,6 +87,17 @@ describe('generateStreamReceiverSketch', () => {
   it('initialises FastLED with the configured chipset/order', () => {
     const sketch = generateStreamReceiverSketch([outputNode])!
     expect(sketch).toContain('FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);')
+  })
+
+  it('makes the pixel-only Stereo VU limitation explicit in the sketch and UI note', () => {
+    const vu = node('vu', 'StereoVuMeter', 'output', { enabled: true })
+    expect(streamReceiverCapabilityNotes([outputNode, vu])).toEqual([
+      'Live Stream sends only the selected LED output. Stereo VU rails stay off because the receiver has no audio engine.',
+    ])
+    expect(generateStreamReceiverSketch([outputNode, vu])).toContain(
+      '// Stereo VU rails intentionally stay off: this pixel receiver has no audio engine.',
+    )
+    expect(streamReceiverCapabilityNotes([outputNode, node('off', 'StereoVuMeter', 'output', { enabled: false })])).toEqual([])
   })
 
   it('generates for the selected output hardware rather than the first output', () => {

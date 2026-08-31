@@ -6,14 +6,17 @@ Add a paired stereo VU-meter fixture to Design Studio for FastLED: one vertical 
 
 The feature must work in browser preview and generated firmware, provide at least ten genuinely different visualizations, coexist with the main LED output, and remain off when its Audio input is missing or inactive.
 
-This document is the implementation plan and progress ledger. Slices A–F and
-the software/documentation portion of Slice G are complete. Physical bench
-evidence remains open and must be recorded on the reference rig; it is never
+This document is the implementation plan and progress ledger. **169 of 186
+checklist items are complete.** The core fixture, stereo audio paths, previews,
+all three firmware generators and their ESP32-S3 compile proofs, baked fallback,
+wiring output, capacity checks, performance guard, and user documentation are
+complete. Remaining work is the cross-language renderer parity harness, release
+evidence, and the physical bench matrix. Physical bench evidence is never
 inferred from compile or browser tests.
 
 ## Recommended product shape
 
-Use one new hardware-owned root-graph sink, provisionally named **Stereo VU Meter** (`StereoVuMeter`). It represents the pair of physical LED strings as one fixture and owns both data pins.
+Use one new hardware-owned root-graph sink named **Stereo VU Meter** (`StereoVuMeter`). It represents the pair of physical LED strings as one fixture and owns both data pins.
 
 - It has one `audio` input and no outputs.
 - It is added from **Hardware → LED outputs** and appears on the root graph because it carries a signal.
@@ -136,53 +139,53 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 
 - [ ] Record the reference controller, PCM1802 module, LED chipset, color order, LEDs per side, data voltage, and power supply.
 - [ ] Record whether each physical string's data-in is at the top or bottom.
-- [ ] Decide whether the first release supports only WS2812-class clockless strings or a precisely listed clockless chipset subset.
-- [ ] Confirm that both sides use the same LED count for version one.
-- [ ] Confirm **Stereo VU Meter** as the user-facing name and `StereoVuMeter` as the internal node type.
-- [ ] Confirm that the fixture uses an explicit Audio wire and is not enabled by an ambient category scan.
-- [ ] Confirm that Add Hardware may auto-wire only when exactly one Audio source node makes the choice unambiguous.
-- [ ] Confirm silence behavior: fade both strings to black rather than retaining stale levels.
-- [ ] Define behavior when no target matrix exists: allow standalone node preview, but require a target only for combined frame preview.
-- [ ] Add the final design note to the repository documentation before implementation and link it from `docs/NAVIGATOR.md`.
+- [x] Decide whether the first release supports only WS2812-class clockless strings or a precisely listed clockless chipset subset.
+- [x] Confirm that both sides use the same LED count for version one.
+- [x] Confirm **Stereo VU Meter** as the user-facing name and `StereoVuMeter` as the internal node type.
+- [x] Confirm that the fixture uses an explicit Audio wire and is not enabled by an ambient category scan.
+- [x] Confirm that Add Hardware may auto-wire only when exactly one Audio source node makes the choice unambiguous.
+- [x] Confirm silence behavior: fade both strings to black rather than retaining stale levels.
+- [x] Define behavior when no target matrix exists: allow standalone node preview, but require a target only for combined frame preview.
+- [x] Add the final design note to the repository documentation before implementation and link it from `docs/NAVIGATOR.md`.
 
 ### Phase 1 — Specify stereo level semantics
 
-- [ ] Define the normalized level range and exact RMS/peak measurement window.
-- [ ] Define the noise gate, gain, response curve, attack, release, peak hold, and peak fall equations.
-- [ ] Define the time source and reset behavior used by both browser and firmware.
-- [ ] Define mono fallback once: if left/right are absent, derive one level and mirror it.
-- [ ] Define silence/inactive behavior and the time required to reach black.
-- [ ] Decide whether clipping is exposed as a runtime flag for red tip indication and diagnostics.
-- [ ] Define how invalid values, NaN, and out-of-range levels are clamped.
-- [ ] Create fixed waveform fixtures for silence, steady tones, impulses, left-only, right-only, equal stereo, and clipping.
-- [ ] Document acceptable preview/firmware tolerance against those fixtures.
+- [x] Define the normalized level range and exact RMS/peak measurement window.
+- [x] Define the noise gate, gain, response curve, attack, release, peak hold, and peak fall equations.
+- [x] Define the time source and reset behavior used by both browser and firmware.
+- [x] Define mono fallback once: if left/right are absent, derive one level and mirror it.
+- [x] Define silence/inactive behavior and the time required to reach black.
+- [x] Decide whether clipping is exposed as a runtime flag for red tip indication and diagnostics.
+- [x] Define how invalid values, NaN, and out-of-range levels are clamped.
+- [x] Create fixed waveform fixtures for silence, steady tones, impulses, left-only, right-only, equal stereo, and clipping.
+- [x] Document acceptable preview/firmware tolerance against those fixtures.
 
 ### Phase 2 — Extend browser and shared audio state without breaking mono analysis
 
-- [ ] Extend `src/audio/audioEngine.ts` audio data with optional left/right level and channel metadata.
-- [ ] Preserve the current FastLED-style mono analyzer as the sole source of bass, mids, treble, spectrum, beat, and BPM.
-- [ ] Split browser input into left/right time-domain streams when the device supplies two channels.
-- [ ] Mirror channel zero when the browser supplies only one channel.
-- [ ] Avoid running two unnecessary full FFT analyzers; calculate the stereo VU envelope with the smaller dedicated level path.
-- [ ] Update `src/state/audioStore.ts` defaults, start/stop behavior, and subscriptions.
-- [ ] Extend `AudioSignal` and `AudioOverride` in `src/state/graphEvaluator.ts` with backward-compatible optional stereo fields.
-- [ ] Add a shared resolver that returns safe left/right levels for new and legacy audio payloads.
-- [ ] Update recording, playback override, pattern-rating, show-preview, and test fixtures that construct Audio payloads.
-- [ ] Confirm microphone permission denial leaves the fixture black and does not destabilize preview.
-- [ ] Add tests for actual stereo, mono mirroring, inactive audio, clipping, and start/stop reset.
+- [x] Extend `src/audio/audioEngine.ts` audio data with optional left/right level and channel metadata.
+- [x] Preserve the current FastLED-style mono analyzer as the sole source of bass, mids, treble, spectrum, beat, and BPM.
+- [x] Split browser input into left/right time-domain streams when the device supplies two channels.
+- [x] Mirror channel zero when the browser supplies only one channel.
+- [x] Avoid running two unnecessary full FFT analyzers; calculate the stereo VU envelope with the smaller dedicated level path.
+- [x] Update `src/state/audioStore.ts` defaults, start/stop behavior, and subscriptions.
+- [x] Extend `AudioSignal` and `AudioOverride` in `src/state/graphEvaluator.ts` with backward-compatible optional stereo fields.
+- [x] Add a shared resolver that returns safe left/right levels for new and legacy audio payloads.
+- [x] Update recording, playback override, pattern-rating, show-preview, and test fixtures that construct Audio payloads.
+- [x] Confirm microphone permission denial leaves the fixture black and does not destabilize preview.
+- [x] Add tests for actual stereo, mono mirroring, inactive audio, clipping, and start/stop reset.
 
 ### Phase 3 — Preserve stereo in firmware capture paths
 
-- [ ] Add `_audioLeftLevel` and `_audioRightLevel` (or an equivalent small contract) beside the existing mono `_audio*` globals.
-- [ ] Keep the existing PCM1802 mono downmix feeding the FastLED Processor so current audio-reactive patterns do not change.
-- [ ] Calculate PCM1802 left/right levels from the raw interleaved samples before downmixing.
-- [ ] Make the PCM1802 capture adapter expose the newest channel levels safely to the main loop.
-- [ ] Mirror the selected INMP441 channel into both VU levels.
-- [ ] Preserve channel choice for mono pattern analysis; do not reinterpret the existing Line In “Both/Left/Right” property silently.
-- [ ] Decide and document VU behavior when Line In is configured to Left or Right only; recommended behavior is to mirror the selected channel.
-- [ ] Add firmware-generation tests proving left-only and right-only PCM samples remain distinct for the VU path.
-- [ ] Add serial diagnostics for left/right meter levels behind the existing debug option.
-- [ ] Verify no duplicate I2S driver or second full FFT pipeline is emitted.
+- [x] Add `_audioLeftLevel` and `_audioRightLevel` (or an equivalent small contract) beside the existing mono `_audio*` globals.
+- [x] Keep the existing PCM1802 mono downmix feeding the FastLED Processor so current audio-reactive patterns do not change.
+- [x] Calculate PCM1802 left/right levels from the raw interleaved samples before downmixing.
+- [x] Make the PCM1802 capture adapter expose the newest channel levels safely to the main loop.
+- [x] Mirror the selected INMP441 channel into both VU levels.
+- [x] Preserve channel choice for mono pattern analysis; do not reinterpret the existing Line In “Both/Left/Right” property silently.
+- [x] Decide and document VU behavior when Line In is configured to Left or Right only; recommended behavior is to mirror the selected channel.
+- [x] Add firmware-generation tests proving left/right PCM sample accumulation remains distinct for Both, while Left/Right selections mirror the selected side.
+- [x] Add serial diagnostics for left/right meter levels behind the existing debug option.
+- [x] Verify no duplicate I2S driver or second full FFT pipeline is emitted.
 
 ### Phase 4 — Preserve stereo in Music Player and baked-show paths
 
@@ -210,7 +213,7 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 - [x] Implement unambiguous auto-wiring to an existing Audio node; otherwise leave a clear empty socket and guidance.
 - [x] Add target-output selection using root-graph LED outputs.
 - [x] Ensure deleting/disconnecting on the canvas follows the repository's hardware ownership rules.
-- [ ] Add focused tests for creation, root ownership, auto-wiring, deletion behavior, defaults, and property editing.
+- [x] Add focused tests for creation, root ownership, auto-wiring, deletion behavior, defaults, and property editing.
 
 ### Phase 6 — Register pins, buses, manifests, retargeting, and parts
 
@@ -229,7 +232,7 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 ### Phase 7 — Implement one shared visualization model
 
 - [x] Create a small pure TypeScript model for level conditioning, peak state, mode cycling, and per-LED color output.
-- [ ] Create the matching C++ emitter/helper with the same state variables, timing, clamps, palette sampling, and seeded mode order.
+- [x] Create the matching C++ emitter/helper with the same state variables, timing, clamps, palette sampling, and seeded mode order.
 - [x] Keep per-instance state namespaced so two fixtures cannot share peaks, trails, or cycle state.
 - [x] Reset state on evaluator reset, source change, fixture disable, and relevant geometry changes.
 - [x] Make every mode deterministic at a supplied time/audio sequence.
@@ -261,20 +264,20 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 - [x] Scale long strings without making the matrix preview unusably small.
 - [x] Show a clear inactive/no-audio state rather than fabricated motion.
 - [x] Add UI tests for target selection and vertical layout; renderer coverage proves mono mirroring, stereo separation, and inactive audio.
-- [ ] Profile preview cost with History Trail and two long strings at 60 fps.
+- [x] Profile preview cost with History Trail and two long strings at 60 fps.
 
 ### Phase 9 — Integrate normal sketch generation
 
-- [ ] Discover only reachable, Audio-wired `StereoVuMeter` sinks during code generation.
-- [ ] Emit two independent CRGB arrays with stable, collision-free symbol names.
-- [ ] Register both strings with FastLED using their own data pins and shared chipset/color order settings.
-- [ ] Update stereo levels once per loop before rendering the VU fixture.
-- [ ] Render both rails after audio update and before the one synchronized final show call.
-- [ ] Keep the main LED output's buffer, route geometry, blackout, and brightness behavior unchanged.
-- [ ] Decide how global/master brightness combines with the fixture brightness and document the order.
-- [ ] Ensure an inactive/unresolved Audio source emits black rails or a validation error, never stale pixels.
-- [ ] Add normal-generator snapshots for each visualization and both physical directions.
-- [ ] Compile representative generated sketches for the reference ESP32-S3 target.
+- [x] Discover only reachable, Audio-wired `StereoVuMeter` sinks during code generation.
+- [x] Emit two independent CRGB arrays with stable, collision-free symbol names.
+- [x] Register both strings with FastLED using their own data pins and shared chipset/color order settings.
+- [x] Update stereo levels once per loop before rendering the VU fixture.
+- [x] Render both rails after audio update and before the one synchronized final show call.
+- [x] Keep the main LED output's buffer, route geometry, blackout, and brightness behavior unchanged.
+- [x] Decide how global/master brightness combines with the fixture brightness and document the order.
+- [x] Ensure an inactive/unresolved Audio source emits black rails or a validation error, never stale pixels.
+- [x] Add normal-generator snapshots for each visualization and both physical directions.
+- [x] Compile representative generated sketches for the reference ESP32-S3 target.
 
 ### Phase 10 — Integrate generative-show and Music Player generators
 
@@ -291,23 +294,23 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 
 ### Phase 11 — Validation, capacity, electrical safety, and diagnostics
 
-- [ ] Reject missing, duplicate, invalid, input-only, reserved, or bus-conflicting data pins.
-- [ ] Warn when the fixture has no Audio connection or its selected provider is unavailable.
-- [ ] Warn when the target output was deleted or is no longer a matrix/panel.
-- [ ] Reject unsupported clocked chipsets in the first release rather than silently mis-driving them.
-- [ ] Add both strings to physical LED count, RAM, power, and frame-time estimates.
-- [ ] Calculate worst-case current for both strings together and include the configured brightness/current cap.
-- [ ] Warn that the controller's USB/3.3 V pin must not power the LED strings.
-- [ ] Require a common ground between controller, audio ADC, LED supply, and both strings.
-- [ ] Surface power injection guidance based on total LED count and physical length.
+- [x] Reject missing, duplicate, invalid, input-only, reserved, or bus-conflicting data pins.
+- [x] Warn when the fixture has no Audio connection or its selected provider is unavailable.
+- [x] Warn when the target output was deleted or is no longer a matrix/panel.
+- [x] Reject unsupported clocked chipsets in the first release rather than silently mis-driving them.
+- [x] Add both strings to physical LED count, RAM, power, and frame-time estimates.
+- [x] Calculate worst-case current for both strings together and include the configured brightness/current cap.
+- [x] Warn that the controller's USB/3.3 V pin must not power the LED strings.
+- [x] Require a common ground between controller, audio ADC, LED supply, and both strings.
+- [x] Surface power injection guidance based on total LED count and physical length.
 - [x] Extend the Wiring Test sketch so Left and Right can be identified independently and direction can be verified.
 - [x] Make Wiring Test use conservative brightness and clearly distinguish L from R.
-- [ ] Define Live Stream receiver behavior; recommended first release is rails off with an explicit capability note because the receiver has no audio engine.
-- [ ] Add Graph Health messages with actionable hardware/connection names.
+- [x] Define Live Stream receiver behavior; first release keeps rails off with an explicit capability note because the receiver has no audio engine.
+- [x] Add Graph Health messages with actionable hardware/connection names.
 
 ### Phase 12 — Documentation and discoverability
 
-- [ ] Add the fixture to the README module list and update the asserted module count.
+- [x] Add the fixture to the README module list and update the asserted module count.
 - [x] Add a Node Reference/help entry describing the Audio connection and mono fallback.
 - [x] Add a live example or quick recipe that creates Audio → Stereo VU Meter beside a matrix.
 - [x] Document PCM1802 true-stereo wiring and warn against bridge-tied speaker outputs.
@@ -326,7 +329,7 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 - [x] Run `npm run lint`.
 - [x] Run `npm test`.
 - [x] Run `npm run build`.
-- [ ] Compile generated normal, generative-show, and Music Player sketches for the reference ESP32-S3 board.
+- [x] Compile generated normal, generative-show, and Music Player sketches for the reference ESP32-S3 board.
 - [ ] Bench-test silence: both rails fade fully black with no stale peak.
 - [ ] Bench-test left-only input: only the left rail responds.
 - [ ] Bench-test right-only input: only the right rail responds.
@@ -341,17 +344,17 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 
 ## Acceptance criteria
 
-- [ ] A user can add one paired Stereo VU Meter fixture from Hardware and configure both strings in one place.
-- [ ] The fixture is visibly and explicitly connected to the same Audio source used by the sketch.
-- [ ] True-stereo sources produce independent left and right motion.
-- [ ] Mono sources intentionally mirror to both sides.
-- [ ] The existing mono FFT, beat, percussion, and audio-feature behavior does not regress.
+- [x] A user can add one paired Stereo VU Meter fixture from Hardware and configure both strings in one place.
+- [x] The fixture is visibly and explicitly connected to the same Audio source used by the sketch.
+- [x] True-stereo sources produce independent left and right motion.
+- [x] Mono sources intentionally mirror to both sides.
+- [x] The existing mono FFT, beat, percussion, and audio-feature behavior does not regress.
 - [x] Both rails preview vertically beside the selected matrix and use the shared renderer output consumed by generated firmware.
-- [ ] At least twelve selectable visualizations ship, plus Manual, Timed cycle, Beat cycle, and seeded Shuffle policies.
-- [ ] Animation ballistics are elapsed-time based and remain consistent across frame rates.
+- [x] At least twelve selectable visualizations ship, plus Manual, Timed cycle, Beat cycle, and seeded Shuffle policies.
+- [x] Animation ballistics are elapsed-time based and remain consistent across frame rates.
 - [x] Normal sketches, generative shows, and Music Player sketches all support the fixture.
-- [ ] Both strings refresh in synchronization with the main addressable LED output.
-- [ ] GPIO collision, board capability, RAM, LED count, and power validation include both strings.
+- [x] Both strings refresh in synchronization with the main addressable LED output.
+- [x] GPIO collision, board capability, RAM, LED count, and power validation include both strings.
 - [x] Wiring Test identifies Left and Right and verifies physical direction.
 - [x] Old Audio payloads and old baked mono envelopes continue to work by mirroring.
 - [ ] Lint, tests, production build, generated-sketch compiles, and the full bench matrix pass.
@@ -383,9 +386,9 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 - [x] **Slice A:** Stereo level contract, browser levels, PCM1802 levels, mono fallback, and unit tests.
 - [x] **Slice B:** Fixture registration, Hardware UI, pins/manifests/retargeting, and validation.
 - [x] **Slice C:** Shared renderer plus all twelve preview modes and golden vectors.
-- [ ] **Slice D:** Normal sketch code generation and generated-sketch compile proof.
+- [x] **Slice D:** Normal sketch code generation and generated-sketch compile proof.
 - [x] **Slice E:** Combined matrix/Stage preview and Wiring Test support.
 - [x] **Slice F:** Generative-show and Music Player live decoder integration.
-- [ ] **Slice G:** Versioned baked-stereo fallback, legacy compatibility, and documentation are complete; full physical bench evidence remains required.
+- [x] **Slice G:** Versioned baked-stereo fallback, legacy compatibility, and documentation are complete; full physical bench evidence remains required.
 
 Each slice should finish with focused tests and a working vertical path before the next slice begins. Do not land a property or UI choice until its evaluator, generator, validation, persistence, and test behavior are all defined.

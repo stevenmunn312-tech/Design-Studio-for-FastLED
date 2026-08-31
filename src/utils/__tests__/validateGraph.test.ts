@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, estimatePowerLoad, estimateFirmwareRam, findMirroredOutputMismatches, findShowOutputFormErrors, findAudioCapabilityErrors, findPlayerControlMappingWarnings, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, estimatePowerLoad, estimateFirmwareRam, estimateLedRefreshTime, findMirroredOutputMismatches, findShowOutputFormErrors, findAudioCapabilityErrors, findPlayerControlMappingWarnings, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
 import { OLED_PANEL_RAM_BYTES } from '../../codegen/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../../codegen/segmentDisplayCpp'
 import { TFT_PANEL_RAM_BYTES } from '../../codegen/tftDisplayCpp'
@@ -92,6 +92,25 @@ describe('validateGraph', () => {
     expect(buildGraphDiagnostics([meter], [])).toContainEqual(expect.objectContaining({
       id: 'missing-MatrixOutput',
     }))
+  })
+
+  it('rejects missing or malformed Stereo VU Meter GPIOs before generation', () => {
+    const meter = node('vu', 'StereoVuMeter', {
+      targetOutputId: '', enabled: true, leftDataPin: undefined, rightDataPin: 5.5,
+    })
+    const errors = validateGraph([meter], [edge('audio-vu', 'audio-source', meter.id, 'audio')]).errors
+
+    expect(errors).toContainEqual(expect.stringMatching(/left data pin is missing or invalid/))
+    expect(errors).toContainEqual(expect.stringMatching(/right data pin is missing or invalid/))
+  })
+
+  it('rejects a clocked chipset imported into a Stereo VU Meter', () => {
+    const meter = node('vu', 'StereoVuMeter', {
+      targetOutputId: '', enabled: true, leftDataPin: 5, rightDataPin: 6, chipset: 'APA102',
+    })
+    const errors = validateGraph([meter], [edge('audio-vu', 'audio-source', meter.id, 'audio')]).errors
+
+    expect(errors).toContain('StereoVuMeter uses unsupported chipset APA102 — choose a clockless addressable chipset for both rails')
   })
 
   it('limits PCM1802 line-in firmware to ESP32-S3', () => {
@@ -1149,6 +1168,24 @@ describe('validateGraph', () => {
       expect(estimateFirmwareRam([node('sc', 'SolidColor')], [])).toBeNull()
     })
 
+    it('budgets both Stereo VU rails and their history state without a MatrixOutput', () => {
+      const meter = node('vu', 'StereoVuMeter', {
+        enabled: true, ledCount: 16, leftDataPin: 5, rightDataPin: 6, palette: 'rainbow',
+      })
+      const ram = estimateFirmwareRam([meter], [edge('audio-vu', 'audio', meter.id, 'audio')])!
+
+      expect(ram.ledCount).toBe(32)
+      expect(ram.ledsArrayBytes).toBe(96)
+      expect(ram.statefulBytes).toBe(48 + 16 * 8)
+      expect(ram.paletteBytes).toBe(48)
+      expect(ram.internalBytes).toBe(320)
+    })
+
+    it('does not budget an unwired Stereo VU Meter that codegen will omit', () => {
+      const meter = node('vu', 'StereoVuMeter', { enabled: true, ledCount: 16 })
+      expect(estimateFirmwareRam([meter], [])).toBeNull()
+    })
+
     // The node feeding a plain single output renders into `leds` itself, so a
     // one-node chain needs no frame buffer at all beyond the leds array.
     it('counts only the leds array when the one node feeding it renders in place', () => {
@@ -1365,6 +1402,43 @@ describe('validateGraph', () => {
       const edges = [edge('e1', 'sc', 'out', 'frame')]
       const { warnings } = validateGraph(nodes, edges)
       expect(warnings.some(w => w.includes('internal RAM'))).toBe(false)
+    })
+  })
+
+  describe('estimateLedRefreshTime', () => {
+    it('includes both VU rails and each physical controller in the wire-time bound', () => {
+      const nodes = [
+        node('pattern', 'SolidColor'),
+        node('out', 'MatrixOutput', { width: 8, height: 8, chipset: 'WS2812B' }),
+        node('vu', 'StereoVuMeter', { ledCount: 20, leftDataPin: 5, rightDataPin: 6 }),
+      ]
+      const edges = [
+        edge('frame-out', 'pattern', 'out', 'frame'),
+        edge('audio-vu', 'audio', 'vu', 'audio'),
+      ]
+
+      expect(estimateLedRefreshTime(nodes, edges)).toEqual({
+        ledCount: 104,
+        controllerCount: 3,
+        estimatedMicros: 4020,
+        maxWireFps: 248,
+      })
+    })
+
+    it('estimates a standalone wired Stereo VU Meter and excludes an unwired one', () => {
+      const meter = node('vu', 'StereoVuMeter', { ledCount: 30 })
+      expect(estimateLedRefreshTime([meter], [edge('audio-vu', 'audio', 'vu', 'audio')])).toEqual({
+        ledCount: 60,
+        controllerCount: 2,
+        estimatedMicros: 2400,
+        maxWireFps: 416,
+      })
+      expect(estimateLedRefreshTime([meter], [])).toBeNull()
+    })
+
+    it('excludes HUB75 DMA refresh from the addressable-LED wire estimate', () => {
+      const panel = node('out', 'MatrixOutput', { width: 64, height: 32, chipset: 'HUB75' })
+      expect(estimateLedRefreshTime([panel], [])).toBeNull()
     })
   })
 

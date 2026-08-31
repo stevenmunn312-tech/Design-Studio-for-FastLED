@@ -7,6 +7,7 @@ import { summarizeCapacity } from '../../utils/capacityFormat'
 import {
   estimatePowerLoad,
   estimateFirmwareRam,
+  estimateLedRefreshTime,
   findPinConflicts,
   findExactBoardPinIssues,
 } from '../../utils/validateGraph'
@@ -61,6 +62,7 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
 
   const power = useMemo(() => estimatePowerLoad(nodes), [nodes])
   const ram = useMemo(() => estimateFirmwareRam(nodes, edges), [nodes, edges])
+  const refresh = useMemo(() => estimateLedRefreshTime(nodes, edges), [nodes, edges])
   const pinTrouble = useMemo(() => {
     const conflicts = findPinConflicts(nodes, edges)
     const exact = findExactBoardPinIssues(nodes)
@@ -81,6 +83,7 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
   const capped = power.configuredMa !== null
   const powerLevel = power.exceedsConfigured ? 'warn' : 'ok'
   const internalKb = ram ? Math.round(ram.internalBytes / 1024) : null
+  const refreshMs = refresh ? refresh.estimatedMicros / 1000 : null
 
   const pinLevel = pinTrouble.errors > 0 ? 'bad' : pinTrouble.warnings > 0 ? 'warn' : 'ok'
   const pinText = pinTrouble.errors > 0
@@ -157,10 +160,16 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
         </span>
       )}
 
-      <span className={styles.item} data-level={pinLevel} title="Pin conflicts, and pins the chosen board cannot reach">
+      <span className={styles.item} data-level={pinLevel} title={refresh
+        ? `Pin conflicts and board reachability. Conservative synchronized addressable-LED wire time: ${refreshMs!.toFixed(2)} ms (${refresh.ledCount} LEDs across ${refresh.controllerCount} controllers; rendering and audio work are additional).`
+        : 'Pin conflicts, and pins the chosen board cannot reach'}>
         <em className={styles.label}>Pins</em>
         <strong>{pinText}</strong>
-        {internalKb !== null && <span className={styles.note}>{internalKb} KB RAM</span>}
+        {internalKb !== null && (
+          <span className={styles.note}>
+            {internalKb} KB RAM{refreshMs !== null ? ` · ${refreshMs.toFixed(1)} ms wire` : ''}
+          </span>
+        )}
       </span>
     </div>
   )

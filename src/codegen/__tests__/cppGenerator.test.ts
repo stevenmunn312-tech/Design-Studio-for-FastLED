@@ -2457,6 +2457,10 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('_lineInput = fl::make_shared<StudioPcm1802Input>()')
     expect(cpp).toContain('_audioProcessor = FastLED.add(_lineInput)')
     expect(cpp).toContain('uint64_t leftSquares = 0, rightSquares = 0;')
+    expect(cpp).toContain('int32_t left = _raw[i * 2] >> 16;')
+    expect(cpp).toContain('int32_t right = _raw[i * 2 + 1] >> 16;')
+    expect(cpp).toContain('leftSquares += (uint64_t)((int64_t)left * left);')
+    expect(cpp).toContain('rightSquares += (uint64_t)((int64_t)right * right);')
     expect(cpp).toContain('_leftLevel = normalizedLevel(leftSquares, frames);')
     expect(cpp).toContain('_rightLevel = normalizedLevel(rightSquares, frames);')
     expect(cpp).toContain('_audioLeftLevel = _lineInput ? _lineInput->leftLevel() : 0.0f;')
@@ -2464,7 +2468,7 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).not.toContain('CreateInmp441')
   })
 
-  it('mirrors a selected PCM1802 side but keeps Both as true stereo', () => {
+  it('keeps PCM1802 left/right sample accumulation distinct for Both and mirrors a selected side', () => {
     const lineGraph = (channel: 'Left' | 'Right' | 'Both') => {
       const lineIn = node('line-in', 'LineInput', 'hardware', {
         i2sMclk: 15, i2sBclk: 16, i2sLrclk: 17, i2sDout: 18, channel, gain: 1,
@@ -2483,7 +2487,10 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(lineGraph('Left')).toContain('_rightLevel = _leftLevel;')
     expect(lineGraph('Right')).toContain('#define LINE_IN_CHANNEL 1')
     expect(lineGraph('Right')).toContain('_leftLevel = _rightLevel;')
-    expect(lineGraph('Both')).toContain('#define LINE_IN_CHANNEL 2')
+    const both = lineGraph('Both')
+    expect(both).toContain('#define LINE_IN_CHANNEL 2')
+    expect(both.indexOf('leftSquares +=')).toBeLessThan(both.indexOf('_leftLevel = normalizedLevel(leftSquares, frames);'))
+    expect(both.indexOf('rightSquares +=')).toBeLessThan(both.indexOf('_rightLevel = normalizedLevel(rightSquares, frames);'))
   })
 
   it('does not let one connected mic ambiently drive a different unwired analyzer', () => {
