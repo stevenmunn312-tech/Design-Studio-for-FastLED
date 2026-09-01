@@ -56,7 +56,7 @@ function inputNode(id: string, nodeType: 'ButtonInput' | 'PotInput' | 'EncoderIn
   }
 }
 
-function stereoVuMeterNode() {
+function stereoVuMeterNode(leftDataPin = 17, rightDataPin = 18) {
   return {
     id: 'vu',
     type: 'studioNode',
@@ -68,8 +68,8 @@ function stereoVuMeterNode() {
       properties: {
         ledCount: 60,
         chipset: 'WS2812B',
-        leftDataPin: 17,
-        rightDataPin: 18,
+        leftDataPin,
+        rightDataPin,
         leftDirection: 'Bottom',
         rightDirection: 'Bottom',
       },
@@ -117,7 +117,7 @@ function amplifierNode() {
   }
 }
 
-function spiDisplayNode() {
+function spiDisplayNode(extra: Record<string, unknown> = {}) {
   return {
     id: 'display',
     type: 'studioNode',
@@ -133,6 +133,7 @@ function spiDisplayNode() {
         resetPin: 17,
         sckPin: 18,
         mosiPin: 23,
+        ...extra,
       },
       inputs: [],
       outputs: [],
@@ -458,7 +459,7 @@ describe('BuildDiagramWorkspace', () => {
     // runs in to the series resistor at x=350. The drop clears the board's own
     // bottom edge (104 + 426) plus its caption — it used to be a fixed 542,
     // which is mid-caption on this board and far too deep for a shorter one.
-    expect(outputWirePath).toMatch(/H58V570H266V342H350$/)
+    expect(outputWirePath).toMatch(/H66V570H266V342H350$/)
     expect(diagram?.querySelector('[data-component-render="330ohm-blue-axial-resistor"]')).toBeTruthy()
     expect(diagram?.querySelector('[data-component-render="sn74ahct125n-dip14"]')).toBeTruthy()
     expect(diagram?.querySelector('[data-component-render="inmp441-breakout"]')).toBeTruthy()
@@ -470,6 +471,19 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram?.querySelector('[data-terminal="level-shifter-1-y1"]')?.textContent).toContain('P3 Y1')
     expect(diagram?.querySelector('[data-wire="output:out-level-shifter-input"]')?.getAttribute('d')).toMatch(/H465$/)
     expect(diagram?.querySelector('[data-wire="output:out-conditioned-data"]')?.getAttribute('d')).toMatch(/^M465 367/)
+    // The component photograph is above the harness, so each route gets a
+    // short foreground lead from its exact terminal centre to just beyond the
+    // image edge. Without it, the photo hid the last 12 units and made the
+    // correctly positioned wire appear detached from the DIP pin.
+    const shifterImage = diagram?.querySelector('[data-component-render="sn74ahct125n-dip14"]')
+    const inputLead = diagram?.querySelector('[data-level-shifter-pin-lead="level-shifter-1-a1"]')
+    const outputLead = diagram?.querySelector('[data-level-shifter-pin-lead="level-shifter-1-y1"]')
+    expect(inputLead?.getAttribute('d')).toBe('M35 66H19')
+    expect(outputLead?.getAttribute('d')).toBe('M35 91H19')
+    expect((shifterImage?.compareDocumentPosition(inputLead!) ?? 0) & 4).toBe(4)
+    expect(diagram?.querySelector('[data-level-shifter-pin-lead="level-shifter-1-vcc"]')?.getAttribute('d')).toBe('M147 41H161')
+    expect(diagram?.querySelector('[data-level-shifter-pin-lead="level-shifter-1-gnd"]')?.getAttribute('d')).toBe('M35 190H19')
+    expect(diagram?.querySelector('[data-level-shifter-pin-lead="level-shifter-1-oe1"]')?.getAttribute('d')).toBe('M35 41H19')
     expect(diagram?.querySelector('[data-terminal="controller-mic-input:mic:i2sSck"]')?.getAttribute('data-board-anchor')).toBe('j3-8')
     expect(diagram?.querySelector('[data-terminal="controller-mic-input:mic:i2sWs"]')?.getAttribute('data-board-anchor')).toBe('j3-9')
     expect(diagram?.querySelector('[data-terminal="controller-mic-input:mic:i2sSd"]')?.getAttribute('data-board-anchor')).toBe('j3-7')
@@ -772,9 +786,10 @@ describe('BuildDiagramWorkspace', () => {
     expect(displayMosiTerminal?.style.fill).toBe(displayMosi?.style.stroke)
     expect(controllerMosiTerminal?.style.fill).toBe(displayMosi?.style.stroke)
 
-    // Coloured overlays sit inside the rendered plated rings instead of
-    // painting over them edge-to-edge.
-    expect(Number(displayMosiTerminal?.getAttribute('r'))).toBeLessThan(5)
+    // Module overlays fill the complete drilled centre while the photographed
+    // plated annulus remains visible around it. Controller artwork has its own
+    // profile-scaled fill radius and likewise stays inside its metal ring.
+    expect(Number(displayMosiTerminal?.getAttribute('r'))).toBe(5)
     expect(Number(controllerMosiTerminal?.getAttribute('r')))
       .toBeLessThan(Number(diagram?.querySelector('[data-terminal="controller-usb"] circle')?.getAttribute('r')))
     expect(diagram?.querySelector('[data-net-stub-for="sd-card:sd-power"]')?.getAttribute('data-net-stub')).toBe('v5')
@@ -792,6 +807,84 @@ describe('BuildDiagramWorkspace', () => {
     expect(routes).toHaveLength(7)
     expect(corridorXs.every(Number.isFinite)).toBe(true)
     expect(new Set(corridorXs).size).toBe(routes.length)
+  })
+
+  it('keeps complete-build signal wires out of each other\'s channels', () => {
+    useGraphStore.setState({
+      nodes: [
+        matrixNode(14),
+        stereoVuMeterNode(6, 7),
+        amplifierNode(),
+        sdCardNode(),
+        spiDisplayNode({ csPin: 4, dcPin: 8, resetPin: 9, sckPin: 15, mosiPin: 3 }),
+        microphoneNode(),
+        inputNode('button', 'ButtonInput', { pin: 2 }),
+        inputNode('pot', 'PotInput', { pin: 1 }),
+        inputNode('encoder', 'EncoderInput', { pinA: 43, pinB: 44, pinSW: 47 }),
+      ] as never[],
+    })
+    selectBoard('generic-esp32-s3-n16r8-44pin-dual-usbc')
+    const { container } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+    const paths = Array.from(diagram?.querySelectorAll<SVGPathElement>([
+      'path[data-signal-role]',
+      'path[data-wire-role="bclk"]',
+      'path[data-wire-role="ws"]',
+      'path[data-wire-role="dout"]',
+    ].join(',')) ?? [])
+
+    const segments = paths.flatMap((path) => {
+      const wire = path.getAttribute('data-wire') ?? ''
+      let x = 0
+      let y = 0
+      const own: Array<{ wire: string; axis: 'h' | 'v'; fixed: number; start: number; end: number }> = []
+      for (const match of (path.getAttribute('d') ?? '').matchAll(/([MHV])(-?[\d.]+)(?:[ ,](-?[\d.]+))?/g)) {
+        const command = match[1]
+        const first = Number(match[2])
+        if (command === 'M') {
+          x = first
+          y = Number(match[3])
+        } else if (command === 'H') {
+          own.push({ wire, axis: 'h', fixed: y, start: Math.min(x, first), end: Math.max(x, first) })
+          x = first
+        } else {
+          own.push({ wire, axis: 'v', fixed: x, start: Math.min(y, first), end: Math.max(y, first) })
+          y = first
+        }
+      }
+      return own
+    })
+    const overlaps = segments.flatMap((segment, index) => segments.slice(index + 1)
+      .filter((other) => segment.wire !== other.wire
+        && segment.axis === other.axis
+        && Math.abs(segment.fixed - other.fixed) < 6
+        && Math.min(segment.end, other.end) > Math.max(segment.start, other.start))
+      .map((other) => [segment, other]))
+
+    expect(overlaps).toEqual([])
+
+    // Every left-rail connection must leave through a vertical corridor to
+    // the left of the board image. These corridors previously began at x=90
+    // while this board begins at x=74, so its artwork hid the first lanes.
+    const controller = diagram?.querySelector('[data-controller-render]')
+    const controllerImage = controller?.querySelector('image')
+    const boardLeft = Number(controllerImage?.getAttribute('x'))
+    const boardMid = boardLeft + (Number(controllerImage?.getAttribute('width')) / 2)
+    const leftTerminals = Array.from(controller?.querySelectorAll<SVGGElement>('g[data-terminal][data-signal-role]') ?? [])
+      .filter((terminal) => Number(terminal.querySelector('circle')?.getAttribute('cx')) < boardMid)
+    const leftCorridors = leftTerminals.map((terminal) => {
+      const circle = terminal.querySelector('circle')
+      const terminalX = Number(circle?.getAttribute('cx'))
+      const terminalY = Number(circle?.getAttribute('cy'))
+      const route = paths.find((path) => {
+        const start = /^M(-?[\d.]+) (-?[\d.]+)H/.exec(path.getAttribute('d') ?? '')
+        return Math.abs(Number(start?.[1]) - terminalX) < 0.01
+          && Math.abs(Number(start?.[2]) - terminalY) < 0.01
+      })
+      return Number(/H(-?[\d.]+)/.exec(route?.getAttribute('d') ?? '')?.[1])
+    })
+    expect(leftCorridors.length).toBeGreaterThan(0)
+    expect(leftCorridors.every((x) => Number.isFinite(x) && x < boardLeft)).toBe(true)
   })
 
   it('gives every control signal its own lane, ordered so no climb crosses another run', () => {
@@ -1116,6 +1209,25 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram?.querySelector('[data-output-card="output:out"] > rect')?.getAttribute('width')).toBe('184')
     expect(diagram?.textContent).toContain('RECOMMENDED POWER SUPPLY5 V · 40A · 200 W')
     expect(diagram?.querySelector('[data-uncapped-current-ceiling]')).toBeNull()
+  })
+
+  it('draws LED strings and both VU rails as single four-LED rows', () => {
+    const strip = matrixNode(14, 1, 16, 'strip', { form: 'strip', ledCount: 16 })
+    useGraphStore.setState({ nodes: [strip, stereoVuMeterNode()] as never[] })
+    selectDevKit()
+    const { container } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+    const rows = diagram?.querySelectorAll('[data-led-preview="single-row"]') ?? []
+
+    expect(rows).toHaveLength(3)
+    for (const row of rows) {
+      expect(row.querySelectorAll(':scope > g')).toHaveLength(4)
+      expect(new Set(Array.from(row.querySelectorAll(':scope > g')).map((led) => /translate\([^ ]+ ([^)]+)\)/.exec(led.getAttribute('transform') ?? '')?.[1])).size).toBe(1)
+      const backgrounds = row.closest('[data-output-card]')?.querySelectorAll(':scope > rect') ?? []
+      expect(backgrounds[0]?.getAttribute('height')).toBe('96')
+      expect(backgrounds[1]?.getAttribute('height')).toBe('48')
+    }
+    expect(diagram?.querySelector('[data-led-preview="4x4"]')).toBeNull()
   })
 
   it('keeps long power labels, the shared-net callout, and the legend inside the sheet', () => {

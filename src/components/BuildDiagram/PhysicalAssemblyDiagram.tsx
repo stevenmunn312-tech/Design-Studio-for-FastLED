@@ -484,12 +484,12 @@ function controllerPowerPoint(
  * the way down to the module lanes, so they need 296..328 — clear of that block
  * (ends x=291) and of the series resistors (start x=350).
  */
-const BUS_LANE_X = 266
-const BUS_LANE_SPACING = 6
-const BUS_LANE_COUNT = 5
-const CONTROL_CORRIDOR_X = 296
-const CONTROL_CORRIDOR_SPACING = 6
-const LEFT_CONTROL_CORRIDOR_X = 56
+const RIGHT_CONTROLLER_LANE_X = 266
+// Keep the whole left fan outside the controller slot. Starting this at x=90
+// put the first few vertical corridors inside the widest board artwork
+// (which begins at x=74), so the render painted those wires out of sight.
+const LEFT_CONTROLLER_LANE_X = CONTROLLER_SLOT_X - 8
+const CONTROLLER_LANE_SPACING = 6
 
 /**
  * A left-rail pin has to get around the board to reach anything on the right,
@@ -536,21 +536,22 @@ function routeFromController(
   point: ControllerTerminalPoint,
   targetX: number,
   targetY: number,
-  laneIndex: number,
+  rightSlot: number,
   leftSlot: number,
+  leftLaneCount: number,
   detourBaseY: number,
   topBandY: number | undefined,
 ) {
-  const rightLane = BUS_LANE_X + ((laneIndex % BUS_LANE_COUNT) * BUS_LANE_SPACING)
+  const rightLane = RIGHT_CONTROLLER_LANE_X + (rightSlot * CONTROLLER_LANE_SPACING)
   if (point.side === 'right') return `M${point.x} ${point.y}H${rightLane}V${targetY}H${targetX}`
-  const laneSlot = leftSlot % 6
-  const leftLane = 58 - (laneSlot * 6)
+  const laneSlot = leftSlot
+  const leftLane = LEFT_CONTROLLER_LANE_X - (laneSlot * CONTROLLER_LANE_SPACING)
   // Cross above the board when there's a band for it and the target is up
   // there too; otherwise drop under the board as before. Deeper lanes sit
   // nearer the board on top so the fan stays nested either way.
   const overTheTop = topBandY !== undefined && targetY < topBandY + 40
   const bandY = overTheTop
-    ? topBandY + ((5 - laneSlot) * 7)
+    ? topBandY + ((leftLaneCount - 1 - laneSlot) * 7)
     : detourBaseY + (laneSlot * 7)
   return `M${point.x} ${point.y}H${leftLane}V${bandY}H${rightLane}V${targetY}H${targetX}`
 }
@@ -564,6 +565,24 @@ function routeFromController(
  * close. Each output now owns its own corridor and detour lane.
  */
 const LS_CORRIDOR_SPACING = 12
+const LEVEL_SHIFTER_RENDER_X = 23
+const LEVEL_SHIFTER_RENDER_WIDTH = 134
+const LEVEL_SHIFTER_PIN_LEAD_OVERLAP = 4
+
+/**
+ * The main harness is intentionally painted behind component photographs, but
+ * that also hides the last few units of a route where it meets a DIP leg. This
+ * short overlaid lead restores only the physical pin connection on top of the
+ * photograph without pulling the complete harness over the package body.
+ */
+function levelShifterPinLeadPath(point: LevelShifterTerminalPoint, chipY: number) {
+  const x = point.x - LEVEL_SHIFTER_X
+  const y = point.y - chipY
+  const outsideImageX = point.side === 'left'
+    ? LEVEL_SHIFTER_RENDER_X - LEVEL_SHIFTER_PIN_LEAD_OVERLAP
+    : LEVEL_SHIFTER_RENDER_X + LEVEL_SHIFTER_RENDER_WIDTH + LEVEL_SHIFTER_PIN_LEAD_OVERLAP
+  return `M${x} ${y}H${outsideImageX}`
+}
 
 /** Between the series resistors (end x=390) and the chip body (starts x=453). */
 function levelShifterEntryX(outputIndex: number) {
@@ -587,7 +606,11 @@ function levelShifterDetourY(outputIndex: number) {
 
 function routeToLevelShifterInput(outputIndex: number, point: LevelShifterTerminalPoint) {
   if (point.side === 'left') return `M390 ${point.y}H${point.x}`
-  return `M390 ${point.y}H${levelShifterEntryX(outputIndex)}V${levelShifterDetourY(outputIndex)}H${levelShifterWrapX(outputIndex)}V${point.y}H${point.x}`
+  // Leave the resistor vertically before wrapping under the chip. Travelling
+  // right first can reuse the exact Y channel of a previous channel's output
+  // (Y2 and A3 are level on this DIP), drawing two different wires on top of
+  // each other between the entry corridors.
+  return `M390 ${point.y}V${levelShifterDetourY(outputIndex)}H${levelShifterWrapX(outputIndex)}V${point.y}H${point.x}`
 }
 
 function routeFromLevelShifterOutput(
@@ -642,34 +665,26 @@ function assignControlLanes(
  * actually leaves.
  *
  * The peripheral-lane index cannot double as this slot: it restarts on every
- * module row and, historically, wrapped after five. A MAX98357A plus an SD card
- * already carries six signals off the left rail of the generic S3 board, so
- * that wrap drew BCLK and an SD signal on exactly the same vertical. Ranking
- * each rail from the bottom up also nests the exits: lower pins take the inner
- * corridors while higher pins travel outside them without crossing.
+ * module row and, historically, wrapped after five. Left-side control wires
+ * also share the output/microphone lane map so those independently rendered
+ * families cannot interleave less than one wire stroke apart. Right-side
+ * controls keep their own corridor beyond the bus band.
  */
 function assignControlCorridors(
   peripheralLayouts: ItemLayout[],
   controllerConnections: PhysicalDiagramConnection[],
   boardProfile: PhysicalBoardProfile,
+  leftLaneSlots: ReadonlyMap<string, number>,
+  rightLaneSlots: ReadonlyMap<string, number>,
 ) {
   const peripheralIds = new Set(peripheralLayouts.map((layout) => layout.item.id))
-  const bySide: Record<ControllerTerminalPoint['side'], Array<{ connection: PhysicalDiagramConnection; point: ControllerTerminalPoint }>> = {
-    left: [],
-    right: [],
-  }
+  const slots = new Map<string, number>()
   controllerConnections.forEach((connection, index) => {
     if (!peripheralIds.has(connection.itemId)) return
     const point = controllerConnectionPoint(connection, index, controllerConnections.length, boardProfile)
-    bySide[point.side].push({ connection, point })
+    const slot = (point.side === 'left' ? leftLaneSlots : rightLaneSlots).get(connection.id)
+    if (slot !== undefined) slots.set(connection.id, slot)
   })
-
-  const slots = new Map<string, number>()
-  for (const entries of Object.values(bySide)) {
-    entries
-      .sort((a, b) => b.point.y - a.point.y)
-      .forEach(({ connection }, slot) => slots.set(connection.id, slot))
-  }
   return slots
 }
 
@@ -682,8 +697,8 @@ function routeToControlPad(
   // Left-side pins exit past the board edge before dropping; the USB block
   // and the board render both sit between the header and the lanes.
   const corridorX = point.side === 'right'
-    ? CONTROL_CORRIDOR_X + (corridorSlot * CONTROL_CORRIDOR_SPACING)
-    : LEFT_CONTROL_CORRIDOR_X - (corridorSlot * CONTROL_CORRIDOR_SPACING)
+    ? RIGHT_CONTROLLER_LANE_X + (corridorSlot * CONTROLLER_LANE_SPACING)
+    : LEFT_CONTROLLER_LANE_X - (corridorSlot * CONTROLLER_LANE_SPACING)
   return `M${point.x} ${point.y}H${corridorX}V${laneY}H${pad.x}V${pad.y}`
 }
 
@@ -746,19 +761,21 @@ function microphoneSignalPresentation(connection: PhysicalDiagramConnection): {
 }
 
 const PHOTO_TERMINAL_FILL_RATIO = 0.58
-const MODULE_TERMINAL_FILL_RADIUS = 3
+// The photographed modules already contain the plated annulus. Fill the full
+// drilled centre while leaving that rasterised metal ring visible around it.
+const MODULE_TERMINAL_FILL_RADIUS = 5
 
 function controllerTerminalFillRadius(render: ControllerRender) {
   return Math.max(2.5, controllerTerminalRadius(render) * PHOTO_TERMINAL_FILL_RATIO)
 }
 
-function LedPixels({ x, y, width, height }: { x: number; y: number; width: number; height: number }) {
+function LedPixels({ x, y, width, height, singleRow = false }: { x: number; y: number; width: number; height: number; singleRow?: boolean }) {
   const columns = 4
-  const rows = 4
+  const rows = singleRow ? 1 : 4
   const gapX = width / columns
   const gapY = height / rows
   return (
-    <g data-led-preview="4x4">
+    <g data-led-preview={singleRow ? 'single-row' : '4x4'}>
       {Array.from({ length: columns * rows }, (_, index) => {
         const column = index % columns
         const row = Math.floor(index / columns)
@@ -999,16 +1016,20 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
 }
 
 function OutputGraphic({ layout, connection, selected, plan, powerPlanBelow }: { layout: ItemLayout; connection?: PhysicalDiagramConnection; selected: boolean; plan?: OutputElectricalPlan; powerPlanBelow: boolean }) {
-  const { x, y, width, item } = layout
+  const { x, y, width, height, item } = layout
   const presentation = connection ? signalPresentation(connection) : { role: 'data', color: '#24963e' }
+  const singleRow = item.facts.form === 'strip'
+  const dataOffset = singleRow ? 34 : 66
   return (
     <g data-output-card={item.id} className={selected ? styles.physicalSelected : undefined}>
       <text x={x + (width / 2)} y={y - 32} textAnchor="middle" className={styles.physicalComponentLabel}>{item.title}</text>
       <text x={x + (width / 2)} y={y - 14} textAnchor="middle" className={styles.physicalMetaLabel}>{item.subtitle}</text>
-      <rect x={x} y={y} width={width} height="174" rx="8" fill="#202426" stroke={selected ? '#1fa5ad' : '#0f1213'} strokeWidth={selected ? 4 : 2} />
-      <rect x={x + 18} y={y + 12} width={width - 30} height="140" fill="#15191a" stroke="#515759" />
-      <LedPixels x={x + ((width - 128) / 2)} y={y + 18} width={128} height={128} />
-      {[['DIN', 66]].map(([label, offset]) => (
+      <rect x={x} y={y} width={width} height={height} rx="8" fill="#202426" stroke={selected ? '#1fa5ad' : '#0f1213'} strokeWidth={selected ? 4 : 2} />
+      <rect x={x + 18} y={y + (singleRow ? 10 : 12)} width={width - 30} height={singleRow ? 48 : 140} fill="#15191a" stroke="#515759" />
+      {singleRow
+        ? <LedPixels x={x + ((width - 128) / 2)} y={y + 18} width={128} height={32} singleRow />
+        : <LedPixels x={x + ((width - 128) / 2)} y={y + 18} width={128} height={128} />}
+      {[['DIN', dataOffset]].map(([label, offset]) => (
         <g key={label} data-terminal={`${item.id}-${String(label).toLowerCase()}`} data-signal-role={presentation.role}>
           <circle cx={x} cy={y + Number(offset)} r="6" fill="#d9a14a" />
           <circle cx={x} cy={y + Number(offset)} r={MODULE_TERMINAL_FILL_RADIUS} fill={presentation.color} />
@@ -1016,12 +1037,16 @@ function OutputGraphic({ layout, connection, selected, plan, powerPlanBelow }: {
         </g>
       ))}
       {plan?.operatingCurrentCapMa != null && (
-        <text data-operating-current-cap={plan.operatingCurrentCapMa} x={x + (width / 2)} y={y + 158} textAnchor="middle" className={styles.physicalCurrentCapLabel}>CURRENT LIMIT {formatAmps(plan.operatingCurrentCapMa)}</text>
+        <text data-operating-current-cap={plan.operatingCurrentCapMa} x={x + (width / 2)} y={y + (singleRow ? 74 : 158)} textAnchor="middle" className={styles.physicalCurrentCapLabel}>CURRENT LIMIT {formatAmps(plan.operatingCurrentCapMa)}</text>
       )}
       {/* Only points down the sheet when the PSU zones are actually on it. */}
-      {plan && <text x={x + (width / 2)} y={y + (plan.operatingCurrentCapMa != null ? 170 : 167)} textAnchor="middle" className={styles.physicalBoardSubSilk}>{plan.recommendedFeedCount} FUSED FEEDS · {powerPlanBelow ? 'PSU PLAN BELOW' : 'SEE POWER SECTION'}</text>}
+      {plan && <text x={x + (width / 2)} y={y + (singleRow ? 88 : plan.operatingCurrentCapMa != null ? 170 : 167)} textAnchor="middle" className={styles.physicalBoardSubSilk}>{plan.recommendedFeedCount} FUSED FEEDS · {powerPlanBelow ? 'PSU PLAN BELOW' : 'SEE POWER SECTION'}</text>}
     </g>
   )
+}
+
+function outputDataTerminalY(layout: ItemLayout) {
+  return layout.y + (layout.item.facts.form === 'strip' ? 34 : 66)
 }
 
 /**
@@ -1365,15 +1390,8 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
   const usesThreeVolt = !!microphoneLayout
     || peripheralLayouts.some((layout) => peripheralPowerNet(layout.item) === 'v3v3')
   const controlLanes = assignControlLanes(peripheralLayouts, connections)
-  // Dense lane index over just the wires that use the bus band, so the five
-  // lanes are spent on real users rather than on gaps left by control wires
-  // that route through their own corridor.
-  const busLanes = new Map([...outputConnections, ...micConnections].map((connection, index) => [connection.id, index]))
-  const busLane = (connection: PhysicalDiagramConnection, fallback: number) =>
-    busLanes.get(connection.id) ?? fallback
   const detourBaseY = controllerDetourBaseY(controllerRender(boardProfile))
   const topBandY = controllerTopBandY(controllerRender(boardProfile))
-  const controlCorridors = assignControlCorridors(peripheralLayouts, controllerConnections, boardProfile)
   /**
    * Left-rail lanes ordered by how far each wire has to travel, not by the
    * order its connection happens to appear in.
@@ -1383,18 +1401,33 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
    * it. Ranking by distance from the band the wires are heading for puts the
    * longest run in the outermost lane, and the fan nests instead of crossing.
    */
-  const leftLaneSlots = new Map(
-    controllerConnections
-      .map((connection, index) => ({
-        connection,
-        point: controllerConnectionPoint(connection, index, controllerConnections.length, boardProfile),
-      }))
-      .filter(({ point }) => point.side === 'left')
+  const controllerLaneEntries = controllerConnections.map((connection, index) => ({
+    connection,
+    point: controllerConnectionPoint(connection, index, controllerConnections.length, boardProfile),
+  }))
+  const laneSlots = (side: ControllerTerminalPoint['side']) => new Map(
+    controllerLaneEntries
+      .filter(({ point }) => point.side === side)
+      .sort((a, b) => (topBandY === undefined ? b.point.y - a.point.y : a.point.y - b.point.y))
+      .map(({ connection }, rank) => [connection.id, rank] as const)
+  )
+  const leftLaneSlots = laneSlots('left')
+  // Every output/microphone route eventually descends on the controller's
+  // right, even when its pad is on the left rail. Right-rail peripherals use
+  // the same pool, so no component family can claim a corridor another family
+  // is already occupying.
+  const busConnectionIds = new Set([...outputConnections, ...micConnections].map((connection) => connection.id))
+  const rightLaneSlots = new Map(
+    controllerLaneEntries
+      .filter(({ connection, point }) => point.side === 'right' || busConnectionIds.has(connection.id))
       .sort((a, b) => (topBandY === undefined ? b.point.y - a.point.y : a.point.y - b.point.y))
       .map(({ connection }, rank) => [connection.id, rank] as const)
   )
   const leftLaneSlot = (connection: PhysicalDiagramConnection, fallback: number) =>
     leftLaneSlots.get(connection.id) ?? fallback
+  const rightLaneSlot = (connection: PhysicalDiagramConnection, fallback: number) =>
+    rightLaneSlots.get(connection.id) ?? fallback
+  const controlCorridors = assignControlCorridors(peripheralLayouts, controllerConnections, boardProfile, leftLaneSlots, rightLaneSlots)
   const canvasHeight = physicalAssemblyDiagramHeight(items, plan, layers)
   const viewTop = crop?.y ?? 0
   const viewHeight = crop?.height ?? canvasHeight
@@ -1435,7 +1468,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
             const presentation = microphoneSignalPresentation(connection)
             if (!presentation) return null
             const target = microphoneTerminalPoint(microphoneLayout, presentation.role)
-            return <path key={connection.id} data-wire={connection.id} data-wire-role={presentation.role} d={routeFromController(controllerPoint, target.x, target.y, busLane(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), detourBaseY, topBandY)} className={presentation.wireClassName} />
+            return <path key={connection.id} data-wire={connection.id} data-wire-role={presentation.role} d={routeFromController(controllerPoint, target.x, target.y, rightLaneSlot(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), leftLaneSlots.size, detourBaseY, topBandY)} className={presentation.wireClassName} />
           })}
           {/*
             L/R selects the channel by being tied to ground, so it carries the
@@ -1461,14 +1494,14 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
           // Without the shifter layer there is nothing to route through, so the
           // data run goes straight from the controller pin to the panel.
           if (!layers.levelShifter) {
-            return <path key={layout.item.id} data-wire={`${layout.item.id}-data-in`} data-signal-role={presentation.role} d={routeFromController(controllerPoint, layout.x, layout.y + 66, busLane(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), detourBaseY, topBandY)} className={wireClass} style={wireStyle} />
+            return <path key={layout.item.id} data-wire={`${layout.item.id}-data-in`} data-signal-role={presentation.role} d={routeFromController(controllerPoint, layout.x, outputDataTerminalY(layout), rightLaneSlot(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), leftLaneSlots.size, detourBaseY, topBandY)} className={wireClass} style={wireStyle} />
           }
           const inputPoint = levelShifterTerminalPoint(index, 'a')
           const outputPoint = levelShifterTerminalPoint(index, 'y')
           return <g key={layout.item.id}>
-            <path data-wire={`${layout.item.id}-data-in`} data-signal-role={presentation.role} d={routeFromController(controllerPoint, 350, inputPoint.y, busLane(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), detourBaseY, topBandY)} className={wireClass} style={wireStyle} />
+            <path data-wire={`${layout.item.id}-data-in`} data-signal-role={presentation.role} d={routeFromController(controllerPoint, 350, inputPoint.y, rightLaneSlot(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), leftLaneSlots.size, detourBaseY, topBandY)} className={wireClass} style={wireStyle} />
             <path data-wire={`${layout.item.id}-level-shifter-input`} data-signal-role={presentation.role} d={routeToLevelShifterInput(index, inputPoint)} className={wireClass} style={wireStyle} />
-            <path data-wire={`${layout.item.id}-conditioned-data`} data-signal-role={presentation.role} d={routeFromLevelShifterOutput(index, outputPoint, layout.x, layout.y + 66)} className={wireClass} style={wireStyle} />
+            <path data-wire={`${layout.item.id}-conditioned-data`} data-signal-role={presentation.role} d={routeFromLevelShifterOutput(index, outputPoint, layout.x, outputDataTerminalY(layout))} className={wireClass} style={wireStyle} />
           </g>
         })}
         {peripheralLayouts.map((layout) => {
@@ -1559,11 +1592,22 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
         ))}
         {Array.from({ length: Math.ceil(outputLayouts.length / 4) }, (_, chipIndex) => {
           const chipY = levelShifterChipY(chipIndex * 4)
+          const usedChannels = Math.min(4, outputLayouts.length - (chipIndex * 4))
           const vccPoint = levelShifterSupplyPoint(chipIndex, 'vcc')
           const groundPoint = levelShifterSupplyPoint(chipIndex, 'gnd')
           return <g key={`level-shifter-${chipIndex}`} transform={`translate(${LEVEL_SHIFTER_X} ${chipY})`}>
             <text x={LEVEL_SHIFTER_WIDTH / 2} y="-14" textAnchor="middle" className={styles.physicalComponentLabel}>74AHCT125 DIP-14 level shifter {chipIndex + 1}</text>
-            <image data-component-render="sn74ahct125n-dip14" href={levelShifterRender} x="23" y="0" width="134" height={LEVEL_SHIFTER_HEIGHT} preserveAspectRatio="xMidYMid meet" className={styles.physicalBoardRender} />
+            <image data-component-render="sn74ahct125n-dip14" href={levelShifterRender} x={LEVEL_SHIFTER_RENDER_X} y="0" width={LEVEL_SHIFTER_RENDER_WIDTH} height={LEVEL_SHIFTER_HEIGHT} preserveAspectRatio="xMidYMid meet" className={styles.physicalBoardRender} />
+            <path
+              data-level-shifter-pin-lead={`level-shifter-${chipIndex + 1}-vcc`}
+              d={levelShifterPinLeadPath(vccPoint, chipY)}
+              className={styles.powerWire}
+            />
+            <path
+              data-level-shifter-pin-lead={`level-shifter-${chipIndex + 1}-gnd`}
+              d={levelShifterPinLeadPath(groundPoint, chipY)}
+              className={styles.groundWire}
+            />
             <g data-terminal={`level-shifter-${chipIndex + 1}-vcc`}>
               <circle cx={vccPoint.x - LEVEL_SHIFTER_X} cy={vccPoint.y - chipY} r="6" fill="#d84938" stroke="#ffd1d7" strokeWidth="2" />
               <text x={vccPoint.x - LEVEL_SHIFTER_X - 12} y={vccPoint.y - chipY + 4} textAnchor="end" className={styles.physicalChipLabel}>P14 VCC</text>
@@ -1576,12 +1620,37 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
               const inputPin = [2, 5, 9, 12][channelIndex]
               const outputPin = [3, 6, 8, 11][channelIndex]
               const oePin = [1, 4, 10, 13][channelIndex]
+              const outputLayout = outputLayouts[outputIndex]
+              const connection = outputLayout && outputConnections.find((entry) => entry.itemId === outputLayout.item.id)
+              const presentation = connection && signalPresentation(connection)
+              const active = selectedItemId === 'controller' || selectedItemId === outputLayout?.item.id
+              const signalLeadClass = active ? styles.signalWire : styles.dimWire
+              const signalLeadStyle = active && presentation ? { stroke: presentation.color } : undefined
               const terminal = (point: LevelShifterTerminalPoint, label: string) => {
                 const x = point.x - LEVEL_SHIFTER_X
                 const y = point.y - chipY
                 return <><circle cx={x} cy={y} r="5" fill="#d2d5d1" stroke="#465054" strokeWidth="2" /><text x={x + (point.side === 'left' ? 12 : -12)} y={y + 4} textAnchor={point.side === 'left' ? 'start' : 'end'} className={styles.physicalChipLabel}>{label}</text></>
               }
               return <g key={channelIndex}>
+                {channelIndex < usedChannels && <>
+                  <path
+                    data-level-shifter-pin-lead={`level-shifter-${chipIndex + 1}-a${channelIndex + 1}`}
+                    d={levelShifterPinLeadPath(inputPoint, chipY)}
+                    className={signalLeadClass}
+                    style={signalLeadStyle}
+                  />
+                  <path
+                    data-level-shifter-pin-lead={`level-shifter-${chipIndex + 1}-y${channelIndex + 1}`}
+                    d={levelShifterPinLeadPath(outputPoint, chipY)}
+                    className={signalLeadClass}
+                    style={signalLeadStyle}
+                  />
+                  <path
+                    data-level-shifter-pin-lead={`level-shifter-${chipIndex + 1}-oe${channelIndex + 1}`}
+                    d={levelShifterPinLeadPath(oePoint, chipY)}
+                    className={styles.groundWire}
+                  />
+                </>}
                 <g data-terminal={`level-shifter-${chipIndex + 1}-a${channelIndex + 1}`}>{terminal(inputPoint, `P${inputPin} A${channelIndex + 1}`)}</g>
                 <g data-terminal={`level-shifter-${chipIndex + 1}-y${channelIndex + 1}`}>{terminal(outputPoint, `P${outputPin} Y${channelIndex + 1}`)}</g>
                 <g data-terminal={`level-shifter-${chipIndex + 1}-oe${channelIndex + 1}`}>{terminal(oePoint, `P${oePin} /OE${channelIndex + 1}`)}</g>

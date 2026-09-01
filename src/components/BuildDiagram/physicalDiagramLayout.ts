@@ -503,6 +503,8 @@ export function peripheralPadPoint(layout: ItemLayout, padIndex: number) {
 }
 
 export const OUTPUT_CARD_HEIGHT = 174
+/** Compact card used by one-dimensional LED strings and VU-meter rails. */
+export const OUTPUT_STRIP_CARD_HEIGHT = 96
 /**
  * Each card carries a title and a subtitle above it, so the pitch has to clear
  * the card body *and* those two lines. At the old 212 the second output's title
@@ -563,13 +565,13 @@ export function levelShifterSupplyPoint(
 export function itemLayouts(items: HardwareManifestItem[]): ItemLayout[] {
   const outputs = items.filter((item) => item.kind === 'matrix-output')
   const peripherals = items.filter((item) => item.kind !== 'matrix-output' && item.kind !== 'mic-input')
-  const layouts: ItemLayout[] = outputs.map((item, index) => ({
-    item,
-    x: 820,
-    y: 92 + (index * OUTPUT_CARD_PITCH),
-    width: 184,
-    height: OUTPUT_CARD_HEIGHT,
-  }))
+  let outputY = 92
+  const layouts: ItemLayout[] = outputs.map((item) => {
+    const height = item.facts?.form === 'strip' ? OUTPUT_STRIP_CARD_HEIGHT : OUTPUT_CARD_HEIGHT
+    const layout = { item, x: 820, y: outputY, width: 184, height }
+    outputY += height + OUTPUT_CARD_LABEL_HEIGHT + 14
+    return layout
+  })
   const microphone = items.find((item) => item.kind === 'mic-input')
   if (microphone) layouts.push({ item: microphone, x: 350, y: 62, width: 205, height: 160 })
   const peripheralY = Math.max(500, LEVEL_SHIFTER_Y + (Math.ceil(outputs.length / 4) * (LEVEL_SHIFTER_HEIGHT + LEVEL_SHIFTER_GAP)) + 24)
