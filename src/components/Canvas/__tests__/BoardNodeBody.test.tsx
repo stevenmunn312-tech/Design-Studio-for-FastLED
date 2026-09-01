@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import BoardNodeBody from '../BoardNodeBody'
 import { useGraphStore, ROOT_GRAPH_ID } from '../../../state/graphStore'
+import { controllerSettings } from '../../../state/controllerSettings'
 import { useUploadStore } from '../../../state/uploadStore'
 import {
   BOARD_PROFILES,
@@ -168,6 +169,38 @@ describe('BoardNodeBody', () => {
     expect(screen.getByLabelText('Required power supply')).toBeTruthy()
     expect(screen.getByText('5 V · at least 20 A · 100 W continuous')).toBeTruthy()
     expect(screen.getByText(/20% operating headroom/)).toBeTruthy()
+  })
+
+  it('accepts a current cap whose first digit falls below the minimum', () => {
+    // Clamping a controlled number field on every keystroke rewrote "3" to the
+    // 100 mA minimum before the next digit arrived, so 3000 could not be typed
+    // at all. The clamp now runs on blur rather than mid-word.
+    const board = boardNode('b1')
+    board.data.properties = { ...board.data.properties, powerLimit: true, volts: 5, milliamps: 2000 }
+    reset([board, matrixNode('out')])
+    render(<BoardNodeBody nodeId="b1" />)
+
+    const field = screen.getByLabelText('Power cap milliamps') as HTMLInputElement
+    fireEvent.change(field, { target: { value: '3' } })
+    expect(field.value).toBe('3')
+    fireEvent.change(field, { target: { value: '30' } })
+    fireEvent.change(field, { target: { value: '300' } })
+    fireEvent.change(field, { target: { value: '3000' } })
+    fireEvent.blur(field)
+
+    expect(controllerSettings(useGraphStore.getState().nodes).milliamps).toBe(3000)
+  })
+
+  it('still clamps an out-of-range current cap once the field is left', () => {
+    const board = boardNode('b1')
+    board.data.properties = { ...board.data.properties, powerLimit: true, volts: 5, milliamps: 2000 }
+    reset([board, matrixNode('out')])
+    render(<BoardNodeBody nodeId="b1" />)
+
+    const field = screen.getByLabelText('Power cap milliamps') as HTMLInputElement
+    fireEvent.change(field, { target: { value: '7' } })
+    fireEvent.blur(field)
+    expect(controllerSettings(useGraphStore.getState().nodes).milliamps).toBe(100)
   })
 
   it('says outright when a board carries no pin-safety data', () => {

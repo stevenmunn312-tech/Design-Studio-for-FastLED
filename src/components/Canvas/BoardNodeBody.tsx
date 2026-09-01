@@ -4,6 +4,7 @@ import { boardHasUsbCdc, boardByFqbn, useUploadStore } from '../../state/uploadS
 import { controllerSettings } from '../../state/controllerSettings'
 import { serialRouteSummary } from '../../state/serialRouting'
 import { estimatePowerLoad } from '../../utils/validateGraph'
+import ClampedNumberInput from './ClampedNumberInput'
 import {
   BOARD_PROFILE_FAMILIES,
   boardProfileById,
@@ -222,15 +223,17 @@ export default function BoardNodeBody({ nodeId }: Props) {
           <div className={styles.numberRow}>
             <label>
               <span>Volts</span>
-              <input type="number" min={3} max={24} step={1} value={settings.volts}
-                aria-label="Power cap volts"
-                onChange={(event) => updateNodeProperty(nodeId, 'volts', Number(event.target.value))} />
+              <ClampedNumberInput
+                value={settings.volts} min={3} max={24} step={1}
+                ariaLabel="Power cap volts"
+                onCommit={(next) => updateNodeProperty(nodeId, 'volts', next)} />
             </label>
             <label>
               <span>Milliamps</span>
-              <input type="number" min={100} max={100000} step={100} value={settings.milliamps}
-                aria-label="Power cap milliamps"
-                onChange={(event) => updateNodeProperty(nodeId, 'milliamps', Number(event.target.value))} />
+              <ClampedNumberInput
+                value={settings.milliamps} min={100} max={100000} step={100}
+                ariaLabel="Power cap milliamps"
+                onCommit={(next) => updateNodeProperty(nodeId, 'milliamps', next)} />
             </label>
           </div>
         )}
