@@ -360,6 +360,8 @@ because a support promise cannot be derived from compile or browser evidence.
 | Main output | 16x16 WS2812B matrix, 256 LEDs |
 | Supply | 5 V 5 A, cap set to 3000 mA |
 | Test material | The ten generated tracks in `tmp/vu-bench/`, plus real music |
+| Host | Windows 11 Home (build 10.0.26200), Chrome 152.0.7977.64 |
+| Build engine | `fbuild` 2.5.21 |
 
 ### Results
 
@@ -399,15 +401,13 @@ Two defects were found by this bench that no compile or browser test had:
 A third, unrelated: the power-cap field clamped on every keystroke, so a 3000 mA
 cap could not be typed. Fixed in `48498cc9`.
 
-### Still outstanding
+### Still open
 
-The run is a full support row in
-[the beta support matrix](../../release/beta-support-matrix.md): Chrome
-152.0.7977.64 and `fbuild` 2.5.21 on Windows 11 Home (build 10.0.26200), both
-read from the bench machine immediately afterwards.
+This run is a full support row in
+[the beta support matrix](../../release/beta-support-matrix.md).
 
 The cross-language golden-vector harness in Phase 7 remains open; it is a parity
-test, not a bench item, and the changelog entry waits for the feature to ship.
+test, not a bench item. The changelog entry waits for the feature to ship.
 
 ## Acceptance criteria
 
