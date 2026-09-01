@@ -249,7 +249,8 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 - [x] Implement Stereo Balance.
 - [x] Implement Beat Spark.
 - [x] Implement Manual, Timed cycle, Beat cycle, and seeded Shuffle policies.
-- [ ] Add golden-vector tests that compare TypeScript and emitted C++ expectations for representative timestamps.
+- [x] Add golden-vector tests freezing the TypeScript renderer across all twelve modes at representative timestamps (`src/state/__tests__/stereoVuGolden.test.ts`, vectors in `stereoVuGolden.vectors.json`).
+- [ ] Replay those same vectors through the emitted C++ and compare within the documented tolerance. Needs a host C++ compiler, which the bench machine does not have; the vector fixture is deliberately a standalone module so a replay harness can import it rather than restate it.
 - [x] Add edge-case tests for 1, 2, odd, and even LED counts.
 
 ### Phase 8 — Integrate browser preview and Stage Mode
@@ -406,8 +407,9 @@ cap could not be typed. Fixed in `48498cc9`.
 This run is a full support row in
 [the beta support matrix](../../release/beta-support-matrix.md).
 
-The cross-language golden-vector harness in Phase 7 remains open; it is a parity
-test, not a bench item. The changelog entry waits for the feature to ship.
+The TypeScript half of the golden-vector harness is in place. Replaying those
+vectors through the emitted C++ still needs a host compiler, which this bench
+machine does not have. The changelog entry waits for the feature to ship.
 
 ## Acceptance criteria
 
