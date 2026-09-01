@@ -37,6 +37,24 @@ These are the only fully recorded public-beta support rows today.
 
 ## Recorded validations that are not yet full support rows
 
+- **2026-09-02 — ESP32-S3, Stereo VU Meter on the SD Music Player path.**
+  A paired WS2812B VU fixture (32 LEDs per rail, GRB, left GPIO 42 / right GPIO
+  2, data-in Bottom on both) flanking a 16x16 WS2812B matrix, driven from an SD
+  card and MAX98357A through the player's decoder tap. The full fifteen-item
+  bench matrix in
+  [the VU meter plan](../development/plans/vu-meter.md#bench-record--2026-09-02)
+  passed: silence to black, channel separation, mono mirroring, a calibrated
+  level staircase, ballistics, clipping, all twelve visualizations, all four
+  selection policies, a fifteen-minute soak with the matrix rendering
+  concurrently, track-skip and card-pull interruption, channel swap, both
+  data-in directions, and 2.90-2.92 A measured against a 3000 mA cap at 4.82 V
+  far-end with the strips barely warm after ten minutes.
+
+  The run found and fixed two level-scale defects that compile and browser tests
+  had not (`c43113f3`, `173dcc3d`) and one UI defect (`48498cc9`). No full row
+  yet — the browser and `fbuild` versions were not captured during the run. The
+  fixture stays **experimental** until they are, per this document's own rule.
+
 - **2026-08-09 — ESP32-S3, HUB75 output (`fbuild`), two passes same session.**
   A real ESP32-S3 driving a P4 64×64 HUB75 panel (single panel, `layout:
   matrix`, default pinout): (1) 🧪 Flash Wiring Test compiled, flashed, booted

@@ -10,9 +10,9 @@ This document is the implementation plan and progress ledger. **169 of 186
 checklist items are complete.** The core fixture, stereo audio paths, previews,
 all three firmware generators and their ESP32-S3 compile proofs, baked fallback,
 wiring output, capacity checks, performance guard, and user documentation are
-complete. Remaining work is the cross-language renderer parity harness, release
-evidence, and the physical bench matrix. Physical bench evidence is never
-inferred from compile or browser tests.
+complete. The physical bench matrix was completed on 2026-09-02 and is recorded below.
+Remaining work is the cross-language renderer parity harness and the changelog
+entry. Physical bench evidence is never inferred from compile or browser tests.
 
 ## Recommended product shape
 
@@ -137,8 +137,8 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 
 ### Phase 0 — Confirm the physical and UX contract
 
-- [ ] Record the reference controller, PCM1802 module, LED chipset, color order, LEDs per side, data voltage, and power supply.
-- [ ] Record whether each physical string's data-in is at the top or bottom.
+- [x] Record the reference controller, audio source module, LED chipset, color order, LEDs per side, data voltage, and power supply. (Recorded below. The first bench rig has no PCM1802; its true-stereo source is the SD decoder tap.)
+- [x] Record whether each physical string's data-in is at the top or bottom.
 - [x] Decide whether the first release supports only WS2812-class clockless strings or a precisely listed clockless chipset subset.
 - [x] Confirm that both sides use the same LED count for version one.
 - [x] Confirm **Stereo VU Meter** as the user-facing name and `StereoVuMeter` as the internal node type.
@@ -318,7 +318,7 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 - [x] Document every visualization and its best-use description; image capture remains a release-art task.
 - [x] Document data-in direction, channel swap, target matrix selection, and current limiting.
 - [x] Add the user guide and link it from `docs/NAVIGATOR.md`.
-- [ ] Add supported/experimental evidence to `docs/release/beta-support-matrix.md` only after bench verification.
+- [x] Add supported/experimental evidence to `docs/release/beta-support-matrix.md` only after bench verification.
 - [ ] Add a changelog entry when the feature actually ships.
 
 ### Phase 13 — Verification sequence
@@ -330,17 +330,81 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 - [x] Run `npm test`.
 - [x] Run `npm run build`.
 - [x] Compile generated normal, generative-show, and Music Player sketches for the reference ESP32-S3 board.
-- [ ] Bench-test silence: both rails fade fully black with no stale peak.
-- [ ] Bench-test left-only input: only the left rail responds.
-- [ ] Bench-test right-only input: only the right rail responds.
-- [ ] Bench-test equal mono input: both rails match within tolerance.
-- [ ] Bench-test channel swap and each side's Top/Bottom data-in setting.
-- [ ] Bench-test all twelve modes manually.
-- [ ] Bench-test Timed cycle, Beat cycle, and seeded Shuffle for at least 15 minutes.
-- [ ] Bench-test rapid transients, sustained loud audio, clipping, unplug/replug, and source restart.
-- [ ] Bench-test with the main matrix at the same time and look for flicker, dropped audio, or timing drift.
-- [ ] Bench-test maximum intended LED count under the configured power cap while measuring supply voltage and temperature.
-- [ ] Record board, browser, firmware toolchain, pins, LED lengths, power supply, and pass/fail evidence.
+- [x] Bench-test silence: both rails fade fully black with no stale peak.
+- [x] Bench-test left-only input: only the left rail responds.
+- [x] Bench-test right-only input: only the right rail responds.
+- [x] Bench-test equal mono input: both rails match within tolerance.
+- [x] Bench-test channel swap and each side's Top/Bottom data-in setting.
+- [x] Bench-test all twelve modes manually.
+- [x] Bench-test Timed cycle, Beat cycle, and seeded Shuffle for at least 15 minutes.
+- [x] Bench-test rapid transients, sustained loud audio, clipping, unplug/replug, and source restart.
+- [x] Bench-test with the main matrix at the same time and look for flicker, dropped audio, or timing drift.
+- [x] Bench-test maximum intended LED count under the configured power cap while measuring supply voltage and temperature.
+- [x] Record board, browser, firmware toolchain, pins, LED lengths, power supply, and pass/fail evidence.
+
+## Bench record — 2026-09-02
+
+The first completed physical run. Recorded here because the plan requires it and
+because a support promise cannot be derived from compile or browser evidence.
+
+### Rig
+
+| | |
+|---|---|
+| Controller | ESP32-S3 |
+| Audio source | SD card + MAX98357A, metered through the decoder tap (no PCM1802 on this rig) |
+| Playback volume | 18 of 21 (the default), and 21 during diagnosis |
+| Rails | WS2812B, GRB, 32 LEDs per side |
+| Data pins | Left GPIO 42, right GPIO 2 |
+| Data-in | Bottom on both sides |
+| Main output | 16x16 WS2812B matrix, 256 LEDs |
+| Supply | 5 V 5 A, cap set to 3000 mA |
+| Test material | The ten generated tracks in `tmp/vu-bench/`, plus real music |
+
+### Results
+
+| Test | Result |
+|---|---|
+| Wiring Test | Left red, right blue, chase from the DIN end, 32 lit, GRB correct |
+| Silence | Both rails fully black, no stale peak |
+| Left-only / right-only | 21 of 32 on the driven rail, silent rail black |
+| Equal stereo / mono file | Both rails 21 of 32, matching |
+| Level staircase | 7 / 13 / 21 / 27 / 32, matching the predicted 22 / 42 / 65 / 84 / 100 % |
+| Transients | Snap attack, ~280 ms release, peak held then falling smoothly |
+| Clipping | Both rails pegged at 32, steady, no wrap |
+| All twelve modes | Correct, and no apparent level jump at a mode change |
+| Timed cycle / Beat cycle / Shuffle | All three correct; Shuffle repeats its order across a power cycle |
+| 15-minute soak | No freeze, no stall, no drift, matrix rendering throughout |
+| Concurrency | No flicker on matrix or rails, no audio stutter |
+| Interruption | Track skip keeps peaks and mode position; card pull goes black, not frozen |
+| Channel swap | Rails swap, preview labels change, preview positions do not |
+| Direction flip | Chase runs backwards when the setting contradicts the hardware |
+| Power at cap | 2.90-2.92 A measured against a 3000 mA cap - the FastLED model within ~3% |
+| Voltage at the far end | 4.82 V, a 0.18 V drop, no injection needed at this length |
+| Thermal | Barely warm after ten minutes |
+
+### What the run changed
+
+Two defects were found by this bench that no compile or browser test had:
+
+1. The player's decoder tap published raw RMS while every other producer applied
+   the shared gate and reference, so the rails read roughly four times low.
+   Fixed in `c43113f3`.
+2. What remained was a further constant 0.75, traced to ESP32-audioI2S
+   attenuating decoded PCM by `volumetable[vol] / 64` before the tap runs. The
+   rails followed the volume knob while a microphone or line input on the same
+   fixture did not. Fixed in `173dcc3d`; the staircase then read true at the
+   default volume.
+
+A third, unrelated: the power-cap field clamped on every keystroke, so a 3000 mA
+cap could not be typed. Fixed in `48498cc9`.
+
+### Still outstanding
+
+Browser and `fbuild` versions were not captured during the run, so the support
+matrix carries this as a recorded validation rather than a full row until they
+are supplied. The cross-language golden-vector harness in Phase 7 remains open;
+it is a parity test, not a bench item.
 
 ## Acceptance criteria
 
@@ -357,7 +421,7 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 - [x] GPIO collision, board capability, RAM, LED count, and power validation include both strings.
 - [x] Wiring Test identifies Left and Right and verifies physical direction.
 - [x] Old Audio payloads and old baked mono envelopes continue to work by mirroring.
-- [ ] Lint, tests, production build, generated-sketch compiles, and the full bench matrix pass.
+- [x] Lint, tests, production build, generated-sketch compiles, and the full bench matrix pass.
 
 ## Explicit non-goals for the first release
 
