@@ -401,10 +401,13 @@ cap could not be typed. Fixed in `48498cc9`.
 
 ### Still outstanding
 
-Browser and `fbuild` versions were not captured during the run, so the support
-matrix carries this as a recorded validation rather than a full row until they
-are supplied. The cross-language golden-vector harness in Phase 7 remains open;
-it is a parity test, not a bench item.
+The run is a full support row in
+[the beta support matrix](../../release/beta-support-matrix.md): Chrome
+152.0.7977.64 and `fbuild` 2.5.21 on Windows 11 Home (build 10.0.26200), both
+read from the bench machine immediately afterwards.
+
+The cross-language golden-vector harness in Phase 7 remains open; it is a parity
+test, not a bench item, and the changelog entry waits for the feature to ship.
 
 ## Acceptance criteria
 

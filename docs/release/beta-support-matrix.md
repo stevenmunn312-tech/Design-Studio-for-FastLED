@@ -32,28 +32,11 @@ the exact environment and path that were exercised. Everything else stays
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP8266 | WS2812B | 10x1 | Strip (non-matrix) | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Generate a live-graph sketch, compile, flash, and run it on hardware | Validation `hw-f57928b9` (`2026-07-25`): color order, orientation, and power cap passed |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP8266 | WS2812B | 10x1 | Strip (non-matrix) | `arduino-cli` | 🧪 Flash Wiring Test | Flash the standalone wiring-diagnostic sketch and confirm LEDs display correctly | Validation `hw-7adaec6f` (`2026-07-25`): full diagnostic sequence passed |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP8266 | WS2812B | 10x1 | Strip (non-matrix) | `arduino-cli` | ⚡ Flash Stream Receiver + 📡 Live Stream | Flash the Adalight stream receiver once, then push live-preview frames to the board over serial | Validation `hw-b0b34ed3` (`2026-07-25`): passed after the one-row frame-dimension fix |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.64 | ESP32-S3 + microSD + MAX98357A | WS2812B | 16x16 matrix plus paired 32x1 VU rails | Single rectangular matrix (serpentine) flanked by a Stereo VU Meter fixture (left GPIO 42, right GPIO 2, data-in Bottom both sides) | `fbuild` 2.5.21 | USB flash via `esptool` through the helper's normal Upload path | Generate the SD Music Player sketch with a Stereo VU Meter, compile, flash, and run the full fifteen-item bench matrix: silence, channel separation, mono mirroring, a calibrated level staircase, ballistics, clipping, all twelve visualizations, all four selection policies, a fifteen-minute soak with the matrix rendering concurrently, track-skip and card-pull interruption, channel swap, both data-in directions, and power draw at the cap | [Bench record (`2026-09-02`)](../development/plans/vu-meter.md#bench-record--2026-09-02): all fifteen passed; 2.90-2.92 A measured against a 3000 mA cap at 4.82 V far-end, strips barely warm after ten minutes. Found and fixed two level-scale defects (`c43113f3`, `173dcc3d`) that compile and browser tests could not see |
 
 These are the only fully recorded public-beta support rows today.
 
 ## Recorded validations that are not yet full support rows
-
-- **2026-09-02 — ESP32-S3, Stereo VU Meter on the SD Music Player path.**
-  A paired WS2812B VU fixture (32 LEDs per rail, GRB, left GPIO 42 / right GPIO
-  2, data-in Bottom on both) flanking a 16x16 WS2812B matrix, driven from an SD
-  card and MAX98357A through the player's decoder tap. The full fifteen-item
-  bench matrix in
-  [the VU meter plan](../development/plans/vu-meter.md#bench-record--2026-09-02)
-  passed: silence to black, channel separation, mono mirroring, a calibrated
-  level staircase, ballistics, clipping, all twelve visualizations, all four
-  selection policies, a fifteen-minute soak with the matrix rendering
-  concurrently, track-skip and card-pull interruption, channel swap, both
-  data-in directions, and 2.90-2.92 A measured against a 3000 mA cap at 4.82 V
-  far-end with the strips barely warm after ten minutes.
-
-  The run found and fixed two level-scale defects that compile and browser tests
-  had not (`c43113f3`, `173dcc3d`) and one UI defect (`48498cc9`). No full row
-  yet — the browser and `fbuild` versions were not captured during the run. The
-  fixture stays **experimental** until they are, per this document's own rule.
 
 - **2026-08-09 — ESP32-S3, HUB75 output (`fbuild`), two passes same session.**
   A real ESP32-S3 driving a P4 64×64 HUB75 panel (single panel, `layout:
