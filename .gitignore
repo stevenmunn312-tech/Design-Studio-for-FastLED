@@ -60,3 +60,7 @@ __pycache__/
 # Private long-term/exploratory roadmap — kept out of the public repo because
 # it references confidential unreleased upstream (FastLED) work.
 /roadmap-private.md
+
+# Project-local scratch: experiments that need to outlive a single command but
+# are not repo content (e.g. generated bench audio for hardware testing).
+/tmp/
