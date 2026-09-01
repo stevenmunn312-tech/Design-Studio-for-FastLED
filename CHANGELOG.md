@@ -9,6 +9,20 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- The Music Player's VU rails report the music rather than the listening level.
+  Two separate faults stacked here, and only a bench found either. The decoder
+  tap published a raw RMS while every other producer of a channel level applied
+  the shared noise gate and full-scale reference, so the rails read roughly four
+  times low. Underneath that, ESP32-audioI2S attenuates decoded PCM by the
+  playback volume before the tap can see it, so the rails shrank when the
+  listener turned the music down while a microphone or line input on the same
+  fixture kept metering its source — one fixture meaning two different things
+  depending on where its audio came from.
+- The Board power-cap fields accept a number whose first digit is below the
+  minimum. Both were controlled inputs re-clamped on every keystroke, so typing
+  toward a 3000 mA cap was rewritten to the 100 mA minimum before the second
+  digit arrived and the value simply could not be reached.
+
 - A Segment Display keeps a whole digit in front of the decimal point. A
   value under 1 lit the point on an otherwise blank digit, so 0.4 read as a
   dot with nothing before it — which on a module whose whole job is to be read
@@ -62,6 +76,17 @@ versioning (`0.y.z`) until the first stable release.
   mistakes.
 
 ### Added
+
+- **Stereo VU Meter.** A paired addressable-LED fixture for the left and right
+  sides of a matrix frame, added from Hardware and driven by one explicit Audio
+  wire. Twelve visualizations — Classic Ladder, Palette Fill, Solid Channel,
+  Segmented Blocks, Peak Cap, Falling Comet, Center Burst, Frame-Inward, Dot
+  Runner, History Trail, Stereo Balance and Beat Spark — with Manual, Timed
+  cycle, Beat cycle and seeded Shuffle selection. True-stereo sources drive the
+  rails independently; mono sources mirror one measured channel to both rather
+  than pretending to separation they do not have. Works in normal sketches,
+  generative shows and the SD Music Player, and validated end to end on
+  hardware: see the [bench record](docs/development/plans/vu-meter.md).
 
 - Graph Health now says when a display the build cannot drive is on the canvas.
   A show controller has no display support at all and would drop the part, and

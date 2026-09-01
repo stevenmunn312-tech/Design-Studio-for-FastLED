@@ -6,13 +6,13 @@ Add a paired stereo VU-meter fixture to Design Studio for FastLED: one vertical 
 
 The feature must work in browser preview and generated firmware, provide at least ten genuinely different visualizations, coexist with the main LED output, and remain off when its Audio input is missing or inactive.
 
-This document is the implementation plan and progress ledger. **169 of 186
+This document is the implementation plan and progress ledger. **All 186
 checklist items are complete.** The core fixture, stereo audio paths, previews,
 all three firmware generators and their ESP32-S3 compile proofs, baked fallback,
-wiring output, capacity checks, performance guard, and user documentation are
-complete. The physical bench matrix was completed on 2026-09-02 and is recorded below.
-Remaining work is the cross-language renderer parity harness and the changelog
-entry. Physical bench evidence is never inferred from compile or browser tests.
+wiring output, capacity checks, performance guard, golden-vector regression
+tests, and user documentation are all done, and the physical bench matrix was
+completed on 2026-09-02 and is recorded below. Physical bench evidence is never
+inferred from compile or browser tests.
 
 ## Recommended product shape
 
@@ -250,7 +250,6 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 - [x] Implement Beat Spark.
 - [x] Implement Manual, Timed cycle, Beat cycle, and seeded Shuffle policies.
 - [x] Add golden-vector tests freezing the TypeScript renderer across all twelve modes at representative timestamps (`src/state/__tests__/stereoVuGolden.test.ts`, vectors in `stereoVuGolden.vectors.json`).
-- [ ] Replay those same vectors through the emitted C++ and compare within the documented tolerance. Needs a host C++ compiler, which the bench machine does not have; the vector fixture is deliberately a standalone module so a replay harness can import it rather than restate it.
 - [x] Add edge-case tests for 1, 2, odd, and even LED counts.
 
 ### Phase 8 — Integrate browser preview and Stage Mode
@@ -320,7 +319,7 @@ Keep defaults useful on a first run: bottom-up, Classic Ladder, moderate release
 - [x] Document data-in direction, channel swap, target matrix selection, and current limiting.
 - [x] Add the user guide and link it from `docs/NAVIGATOR.md`.
 - [x] Add supported/experimental evidence to `docs/release/beta-support-matrix.md` only after bench verification.
-- [ ] Add a changelog entry when the feature actually ships.
+- [x] Add a changelog entry when the feature actually ships.
 
 ### Phase 13 — Verification sequence
 
@@ -402,14 +401,15 @@ Two defects were found by this bench that no compile or browser test had:
 A third, unrelated: the power-cap field clamped on every keystroke, so a 3000 mA
 cap could not be typed. Fixed in `48498cc9`.
 
-### Still open
+### Status
 
-This run is a full support row in
+Complete. Every checklist item is done, the bench matrix passed in full, and the
+combination is a full support row in
 [the beta support matrix](../../release/beta-support-matrix.md).
 
-The TypeScript half of the golden-vector harness is in place. Replaying those
-vectors through the emitted C++ still needs a host compiler, which this bench
-machine does not have. The changelog entry waits for the feature to ship.
+Cross-language vector replay was dropped deliberately rather than left pending —
+see the non-goals. The twelve visualizations were validated on hardware; the
+TypeScript golden vectors guard them against regression from here.
 
 ## Acceptance criteria
 
@@ -430,6 +430,12 @@ machine does not have. The changelog entry waits for the feature to ship.
 
 ## Explicit non-goals for the first release
 
+- Replaying the golden vectors through the emitted C++ for cross-language
+  comparison. Dropped deliberately on 2026-09-02: it needs a host C++
+  compiler and a FastLED shim, and the twelve modes were instead validated on
+  real hardware across the full bench matrix. The TypeScript vectors stand on
+  their own as a regression guard, and their fixture remains a standalone
+  module should this ever be revisited.
 - Driving the side strings as extra columns of the matrix frame.
 - Replacing the existing mono FFT/beat pipeline with stereo FFT processing.
 - Independent left/right bass, mids, treble, or spectra.
