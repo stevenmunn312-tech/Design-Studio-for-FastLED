@@ -13,6 +13,7 @@ import type { PatternRenderers } from './showGenerator'
 import { STUDIO_PALETTES, customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCatalog'
 import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp, psramBufferDecl, PSRAM_ALLOC_CPP } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
+import { vuNormalizedLevelCpp } from './stereoLevelCpp'
 import { PLAYER_SONG_INFO_CPP } from './playerSongInfoCpp'
 import type { PlayerDisplays } from './playerDisplays'
 import {
@@ -1378,6 +1379,8 @@ void setupDecoderTap() {
   (void)_audioProcessor->getEqBin(0);
 }
 
+${vuNormalizedLevelCpp().join('\n')}
+
 void updateDecoderAudio() {
   if (!_audioProcessor) {
     _decoderTapQueued = 0;
@@ -1402,8 +1405,8 @@ void updateDecoderAudio() {
   if (levelFrames > 0) {
     uint64_t leftSquares = _decoderLeftSquares, rightSquares = _decoderRightSquares;
     _decoderLevelFrames = 0;
-    _audioLeftLevel = constrain(sqrtf((double)leftSquares / levelFrames) / 32768.0f, 0.0f, 1.0f);
-    _audioRightLevel = constrain(sqrtf((double)rightSquares / levelFrames) / 32768.0f, 0.0f, 1.0f);
+    _audioLeftLevel = _vuNormalizedLevel(leftSquares, levelFrames);
+    _audioRightLevel = _vuNormalizedLevel(rightSquares, levelFrames);
   }
 
   _audioBeat = false;

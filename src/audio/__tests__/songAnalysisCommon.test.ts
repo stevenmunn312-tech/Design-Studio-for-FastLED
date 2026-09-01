@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { detectSections, extractStereoLevelEnvelope, normalizeEnergy } from '../songAnalysisCommon'
+import { conditionRmsLevel } from '../stereoLevels'
 import type { EnergyPoint } from '../../types/showFile'
 
 // Build an energy envelope sampled every 100ms with a constant `overall` level.
@@ -26,15 +27,25 @@ describe('normalizeEnergy', () => {
 })
 
 describe('extractStereoLevelEnvelope', () => {
-  it('retains independent stereo RMS and mirrors mono without an FFT pass', () => {
-    const stereo = extractStereoLevelEnvelope([1, 1, 0, 0], [0, 0, 0.5, 0.5], 20, 2)
-    expect(stereo).toEqual([
-      { t: 0, left: 1, right: 0 },
-      { t: 100, left: 0, right: 0.5 },
-    ])
-    const mono = extractStereoLevelEnvelope([0.25, -0.25], [], 20, 1)
-    expect(mono[0].left).toBeCloseTo(0.25)
-    expect(mono[0].right).toBeCloseTo(0.25)
+  it('retains independent channels and mirrors mono without an FFT pass', () => {
+    const stereo = extractStereoLevelEnvelope([1, 1, 0, 0], [0, 0, 0.125, -0.125], 20, 2)
+    expect(stereo).toHaveLength(2)
+    expect(stereo[0]).toEqual({ t: 0, left: 1, right: 0 })
+    expect(stereo[1].t).toBe(100)
+    expect(stereo[1].left).toBe(0)
+    expect(stereo[1].right).toBeCloseTo(conditionRmsLevel(0.125), 6)
+
+    const mono = extractStereoLevelEnvelope([0.125, -0.125], [], 20, 1)
+    expect(mono[0].left).toBeCloseTo(conditionRmsLevel(0.125), 6)
+    expect(mono[0].right).toBe(mono[0].left)
+  })
+
+  it('bakes meter levels rather than raw RMS, so the fallback matches the live tap', () => {
+    // The baked envelope stands in for the decoder tap on the same rails. A
+    // scale change on fallback would read on the bench as a fault, not a
+    // fallback, so both sides owe the fixture the same conditioned 0..1.
+    expect(extractStereoLevelEnvelope([0.25, -0.25], [], 20, 1)[0].left).toBe(1)
+    expect(extractStereoLevelEnvelope([0.003, -0.003], [], 20, 1)[0].left).toBe(0)
   })
 })
 

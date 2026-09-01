@@ -102,7 +102,8 @@ describe('Music Player Stereo VU fixture', () => {
     expect(cpp).toContain('rightSquares += (uint64_t)((int64_t)stereo[1] * stereo[1])')
     expect(cpp).toContain('mixedChannels == 1 ? stereo[0] : (stereo[0] + stereo[1]) / 2')
     expect(cpp.indexOf('audio.loop();')).toBeLessThan(cpp.indexOf('updateDecoderAudio();'))
-    expect(cpp).toContain('sqrtf((double)leftSquares / levelFrames)')
+    expect(cpp).toContain('_audioLeftLevel = _vuNormalizedLevel(leftSquares, levelFrames);')
+    expect(cpp).toContain('_audioRightLevel = _vuNormalizedLevel(rightSquares, levelFrames);')
   })
 
   it('keeps fixture state across tracks while clearing only decoder capture state', () => {

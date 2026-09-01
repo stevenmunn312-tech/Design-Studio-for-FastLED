@@ -3,6 +3,7 @@
 // mono PCM and deriving labelled song sections from a normalised energy envelope.
 
 import type { EnergyPoint, SongSection, StereoLevelPoint } from '../types/showFile'
+import { conditionRmsLevel } from './stereoLevels'
 
 export const ENERGY_HOP_MS = 100
 
@@ -23,7 +24,14 @@ function yieldToMainThread(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
 
-/** Measure short-window channel RMS without running a second FFT analysis. */
+/**
+ * Measure short-window channel RMS without running a second FFT analysis.
+ *
+ * The result is a meter level on the fixture's 0..1 scale, not a raw RMS: a
+ * baked envelope and a live decoder tap drive the same rails on the same
+ * device, and a fallback that changed scale when decoding stalled would read
+ * as a fault rather than as a fallback.
+ */
 export function extractStereoLevelEnvelope(
   left: ArrayLike<number>,
   right: ArrayLike<number>,
@@ -48,8 +56,8 @@ export function extractStereoLevelEnvelope(
     const count = Math.max(1, end - start)
     result.push({
       t: (start / sampleRate) * 1000,
-      left: Math.sqrt(leftSquares / count),
-      right: Math.sqrt(rightSquares / count),
+      left: conditionRmsLevel(Math.sqrt(leftSquares / count)),
+      right: conditionRmsLevel(Math.sqrt(rightSquares / count)),
     })
   }
   return result

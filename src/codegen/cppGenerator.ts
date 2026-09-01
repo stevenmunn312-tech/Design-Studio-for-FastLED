@@ -19,6 +19,7 @@ import { customPaletteDeclarationsCpp, paletteCppRef, resolvePaletteId } from '.
 import { audioFlowExpr } from '../state/audioFlowRange'
 import { SPEED_MAX, SCALE_MAX, NOISE_SPEED_MAX, NOISE_SCALE_MAX, FORMULA_FIELD_SPEED_MAX, rateCpp } from '../state/speedRange'
 import { denormalizeBeatParam, FLUX_GAIN } from '../audio/beatDetection'
+import { vuNormalizedLevelCpp } from './stereoLevelCpp'
 import {
   MIC_DEFAULTS,
   MIC_MAX_GAIN,
@@ -563,14 +564,9 @@ function pcm1802CaptureAdapterCpp(channel: 'Left' | 'Right' | 'Both'): string[] 
     '    return fl::audio::Sample(fl::span<const fl::i16>(_mono, frames), millis());',
     '  }',
     ' private:',
-    '  // Keep this in step with audio/stereoLevels.ts: normalized PCM RMS,',
-    '  // a -44.4 dBFS gate (0.006), and 0.25 RMS as the full meter reference.',
-    '  static float normalizedLevel(uint64_t squares, size_t frames) noexcept {',
-    '    if (!frames) return 0.0f;',
-    '    float rms = sqrtf((float)squares / (float)frames) / 32768.0f;',
-    '    float level = (rms - 0.006f) * MIC_GAIN / (0.25f - 0.006f);',
-    '    return level <= 0.0f ? 0.0f : (level >= 1.0f ? 1.0f : level);',
-    '  }',
+    ...vuNormalizedLevelCpp({
+      name: 'normalizedLevel', indent: '  ', qualifier: 'static ', gainExpr: 'MIC_GAIN',
+    }),
     '  static const size_t SAMPLE_COUNT = 512;',
     '#if ESP_IDF_VERSION_MAJOR >= 5',
     '  i2s_chan_handle_t _rx = nullptr;',

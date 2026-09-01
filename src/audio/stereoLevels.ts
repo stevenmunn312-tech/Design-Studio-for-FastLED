@@ -10,6 +10,21 @@ export const VU_RMS_REFERENCE = 0.25
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value))
 
+/**
+ * The one place a raw RMS becomes a meter level. Every producer of a
+ * `leftLevel`/`rightLevel` — browser capture, browser decoder preview, the
+ * offline bake, and both firmware capture paths — owes the fixture the same
+ * 0..1 scale, so the conversion lives here rather than being restated at each
+ * measurement site. `src/codegen/stereoLevelCpp.ts` emits the C++ half from
+ * these same constants.
+ */
+export function conditionRmsLevel(rms: number, gain = 1): number {
+  if (!Number.isFinite(rms) || rms <= VU_RMS_NOISE_GATE) return 0
+  const usable = rms - VU_RMS_NOISE_GATE
+  const range = VU_RMS_REFERENCE - VU_RMS_NOISE_GATE
+  return clamp01(usable * Math.max(0, Number.isFinite(gain) ? gain : 1) / range)
+}
+
 /** Convert a block of normalized PCM samples to a gated 0..1 RMS level. */
 export function normalizedRmsLevel(samples: ArrayLike<number>, gain = 1): number {
   if (samples.length === 0) return 0
@@ -20,10 +35,7 @@ export function normalizedRmsLevel(samples: ArrayLike<number>, gain = 1): number
     const normalized = Math.max(-1, Math.min(1, sample))
     squares += normalized * normalized
   }
-  const rms = Math.sqrt(squares / samples.length)
-  const usable = Math.max(0, rms - VU_RMS_NOISE_GATE)
-  const range = VU_RMS_REFERENCE - VU_RMS_NOISE_GATE
-  return clamp01(usable * Math.max(0, Number.isFinite(gain) ? gain : 1) / range)
+  return conditionRmsLevel(Math.sqrt(squares / samples.length), gain)
 }
 
 export interface StereoLevelSource {
