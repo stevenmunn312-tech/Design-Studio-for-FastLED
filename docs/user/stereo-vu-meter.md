@@ -30,7 +30,12 @@ itself.
   signal, never directly from a bridge-tied speaker output.
 - **Audio Decoder** measures decoded left/right PCM before the existing mono
   FFT mix. If decoding is starting or fails, a versioned baked envelope keeps
-  the rails moving in song time.
+  the rails moving in song time. The decoder library attenuates that PCM by the
+  playback volume before the meter can see it, so the player undoes exactly
+  that factor: the rails report the music, not the listening level, and match
+  what a microphone or line input on the same fixture would report. Recovered
+  level is coarse at very low volume settings, where most of the resolution has
+  already been discarded.
 - **INMP441**, mono browser input, and mono music files intentionally mirror one
   measured channel onto both rails. Identical motion is expected, not a wiring
   fault.

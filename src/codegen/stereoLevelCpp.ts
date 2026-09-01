@@ -24,11 +24,20 @@ export interface VuNormalizedLevelOptions {
   qualifier?: string
   /** A capture-side gain macro, or null where the fixture supplies the only gain. */
   gainExpr?: string | null
+  /**
+   * Multiplies the measured RMS before the gate, for a path whose samples have
+   * already been attenuated by something other than the source. The gate is
+   * defined against program level, so this cannot be folded into `gainExpr`,
+   * which scales the level after the gate has been subtracted.
+   */
+  rmsScaleExpr?: string | null
 }
 
 /** Emit `squares`/`frames` -> conditioned 0..1 meter level. */
 export function vuNormalizedLevelCpp(options: VuNormalizedLevelOptions = {}): string[] {
-  const { name = '_vuNormalizedLevel', indent = '', qualifier = '', gainExpr = null } = options
+  const {
+    name = '_vuNormalizedLevel', indent = '', qualifier = '', gainExpr = null, rmsScaleExpr = null,
+  } = options
   const gain = gainExpr ? ` * ${gainExpr}` : ''
   return [
     `${indent}// Keep this in step with audio/stereoLevels.ts: normalized PCM RMS,`,
@@ -36,6 +45,7 @@ export function vuNormalizedLevelCpp(options: VuNormalizedLevelOptions = {}): st
     `${indent}${qualifier}float ${name}(uint64_t squares, size_t frames) noexcept {`,
     `${indent}  if (!frames) return 0.0f;`,
     `${indent}  float rms = sqrtf((float)squares / (float)frames) / 32768.0f;`,
+    ...(rmsScaleExpr ? [`${indent}  rms *= ${rmsScaleExpr};`] : []),
     `${indent}  float level = (rms - ${GATE})${gain} / (${REFERENCE} - ${GATE});`,
     `${indent}  return level <= 0.0f ? 0.0f : (level >= 1.0f ? 1.0f : level);`,
     `${indent}}`,

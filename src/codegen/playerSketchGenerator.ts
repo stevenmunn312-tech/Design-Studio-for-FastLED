@@ -357,6 +357,13 @@ export function generatePlayerSketch(
   const stereoVuMeters = opts.stereoVuMeters ?? []
   const hasStereoVu = stereoVuMeters.length > 0
   const decoderTap = (collection && opts.decoderTap === true) || hasStereoVu
+  // ESP32-audioI2S's own volumetable, mirrored so the meter can undo the gain
+  // the decoder applies before the tap sees a sample. The player only changes
+  // volume at runtime when it has controls, so setup can state the starting
+  // factor as a constant rather than looking it up on the device.
+  const DECODER_VOLUME_TABLE = [0, 1, 2, 3, 4, 6, 8, 10, 12, 14, 17, 20, 23, 27, 30, 34, 38, 43, 48, 52, 58, 64]
+  const startingAttenuation = DECODER_VOLUME_TABLE[Math.max(0, Math.min(21, c.maxVolume))]
+  const decoderVolumeComp = `${startingAttenuation ? (64 / startingAttenuation).toFixed(4) : '1.0000'}f`
   const genericPlayer = collection && opts.genericPlayer === true
   const controls = opts.controls ?? { bindings: {}, ...DEFAULT_CONTROL_SETTINGS }
   const particleFx = opts.particleFx?.enabled ? opts.particleFx : null
@@ -791,8 +798,12 @@ bool playerPaused = false;
 bool startPlayback();
 
 void applyPlayerVolume() {
-  audio.setVolume((uint8_t)lroundf(playerVolume * ${c.maxVolume}));
-}
+  uint8_t step = (uint8_t)lroundf(playerVolume * ${c.maxVolume});
+  if (step > 21) step = 21;
+  audio.setVolume(step);
+${decoderTap ? `  uint8_t attenuated = DECODER_VOLUME_TABLE[step];
+  _decoderVolumeComp = attenuated ? 64.0f / (float)attenuated : 1.0f;
+` : ''}}
 
 void applyPlayerBrightness() {
   float level = ledsEnabled ? playerBrightness * showBrightness : 0.0f;
@@ -1180,6 +1191,19 @@ static uint16_t _decoderTapFill = 0;
 static uint8_t _decoderTapWrite = 0, _decoderTapRead = 0, _decoderTapQueued = 0;
 static uint32_t _decoderTapLastMs = 0;
 static bool _decoderTapLive = false;
+// ESP32-audioI2S attenuates decoded PCM in Gain() before it calls
+// audio_process_i2s(), by volumetable[vol] / 64 from its own 22-entry table.
+// The tap therefore measures output level, not program level: the rails shrank
+// when the listener turned the music down, while a microphone or line input on
+// the same fixture kept metering its source. Undo exactly that factor.
+//
+// The mono FFT feed is deliberately left uncompensated. It rides FastLED's
+// adaptive normalization and so has no absolute scale to preserve; a meter
+// does. Recovered program level is coarse at very low volume settings, where
+// the library's >> 6 has already discarded most of the resolution.
+static const uint8_t DECODER_VOLUME_TABLE[22] =
+  {0,1,2,3,4,6,8,10,12,14,17,20,23,27,30,34,38,43,48,52,58,64};
+float _decoderVolumeComp = 1.0f;
 static volatile uint64_t _decoderLeftSquares = 0, _decoderRightSquares = 0;
 static volatile uint32_t _decoderLevelFrames = 0;
 static fl::shared_ptr<fl::audio::Processor> _audioProcessor;
@@ -1379,7 +1403,7 @@ void setupDecoderTap() {
   (void)_audioProcessor->getEqBin(0);
 }
 
-${vuNormalizedLevelCpp().join('\n')}
+${vuNormalizedLevelCpp({ rmsScaleExpr: '_decoderVolumeComp' }).join('\n')}
 
 void updateDecoderAudio() {
   if (!_audioProcessor) {
@@ -1937,6 +1961,8 @@ ${playerServicesStageCpp ? playerServicesStageCpp + '\n' : ''}
 ${decoderTap ? '  setupDecoderTap();   // decoded PCM → FastLED audio analysis\n' : ''}
   ${internalDac ? '' : 'audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);'}
   audio.setVolume(${c.maxVolume});
+${decoderTap ? `  _decoderVolumeComp = ${decoderVolumeComp};   // undo the library gain the tap would otherwise measure
+` : ''}
 
   if (sdMounted) playbackReady = startPlayback();
 ${playerContentStageCpp ? playerContentStageCpp + '\n' : ''}

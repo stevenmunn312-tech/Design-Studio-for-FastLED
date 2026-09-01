@@ -46,6 +46,16 @@ describe('vuNormalizedLevelCpp', () => {
     expect(cpp).toContain('float _vuNormalizedLevel(uint64_t squares, size_t frames) noexcept {')
   })
 
+  it('scales the RMS before the gate, not the level after it', () => {
+    // A path whose samples are already attenuated has to be corrected against
+    // the same reference the gate is defined on. Folding it into gainExpr
+    // would scale a level from which the gate had already been subtracted.
+    const cpp = vuNormalizedLevelCpp({ rmsScaleExpr: '_comp' }).join('\n')
+    expect(cpp.indexOf('rms *= _comp;')).toBeGreaterThan(cpp.indexOf('float rms ='))
+    expect(cpp.indexOf('rms *= _comp;')).toBeLessThan(cpp.indexOf('float level ='))
+    expect(vuNormalizedLevelCpp().join('\n')).not.toContain('rms *=')
+  })
+
   it('reproduces the PCM1802 member function, gain macro included', () => {
     const cpp = vuNormalizedLevelCpp({
       name: 'normalizedLevel', indent: '  ', qualifier: 'static ', gainExpr: 'MIC_GAIN',
@@ -85,6 +95,50 @@ describe('firmware capture paths share one meter scale', () => {
     )
     expect(cpp).toContain(`float level = (rms - ${VU_RMS_NOISE_GATE}f) * MIC_GAIN`)
     expect(cpp).not.toMatch(RAW_LEVEL_ASSIGNMENT)
+  })
+
+  it('undoes the decoder library volume attenuation so the rails meter program level', () => {
+    // ESP32-audioI2S scales decoded PCM by volumetable[vol]/64 before the tap
+    // runs, so without this the rails followed the volume knob while a mic or
+    // line input on the same fixture did not. Bench-measured at volume 18:
+    // 48/64 = 0.75, which is what the rails read low by.
+    const meters = stereoVuEmitsFromGraph(
+      [node('audio', 'Audio', { sourceId: 'music' }), meter],
+      [edge('audio-vu', 'audio', 'out', 'side-vu', 'audio')],
+      { active: '_decoderTapLive', left: '_audioLeftLevel', right: '_audioRightLevel', beat: '_audioBeat' },
+    )
+    const cpp = generatePlayerSketch({}, renderers, { stereoVuMeters: meters })
+    expect(cpp).toContain('{0,1,2,3,4,6,8,10,12,14,17,20,23,27,30,34,38,43,48,52,58,64}')
+    expect(cpp).toContain('rms *= _decoderVolumeComp;')
+    // Setup states the starting factor outright: the default volume of 18 maps
+    // to volumetable[18] = 48, so the tap sees 48/64 and owes the meter 64/48.
+    expect(cpp).toContain('_decoderVolumeComp = 1.3333f;')
+    expect(cpp.indexOf('float _decoderVolumeComp')).toBeLessThan(cpp.indexOf('rms *= _decoderVolumeComp;'))
+  })
+
+  it('keeps the compensation in step when controls change volume at runtime', () => {
+    const meters = stereoVuEmitsFromGraph(
+      [node('audio', 'Audio', { sourceId: 'music' }), meter],
+      [edge('audio-vu', 'audio', 'out', 'side-vu', 'audio')],
+      { active: '_decoderTapLive', left: '_audioLeftLevel', right: '_audioRightLevel', beat: '_audioBeat' },
+    )
+    const cpp = generatePlayerSketch(
+      {},
+      renderers,
+      {
+        stereoVuMeters: meters,
+        controls: {
+          bindings: { volume: { kind: 'pot', pin: 4 } },
+          debounceMs: 25, volumeStep: 0.05, brightnessStep: 0.05,
+          repeatDelayMs: 400, repeatIntervalMs: 120,
+        },
+      },
+    )
+    expect(cpp).toContain('_decoderVolumeComp = attenuated ? 64.0f / (float)attenuated : 1.0f;')
+    // A volume knob that moved the rails but not the compensation would put the
+    // inconsistency straight back.
+    expect(cpp.indexOf('audio.setVolume(step);')).toBeLessThan(cpp.indexOf('_decoderVolumeComp = attenuated'))
+    expect(cpp.indexOf('float _decoderVolumeComp')).toBeLessThan(cpp.indexOf('_decoderVolumeComp = attenuated'))
   })
 
   it('conditions the decoder tap through the same conversion', () => {
