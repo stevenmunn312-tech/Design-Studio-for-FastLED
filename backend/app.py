@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import codecs
 import contextlib
+import functools
 import io
 import json
 import os
@@ -1210,6 +1211,46 @@ def _iter_stream_lines(stream):
         yield pending + "\n"
 
 
+def _format_duration(seconds: float) -> str:
+    """Elapsed wall-clock the way a person would say it: `8.4s`, `1m 04s`,
+    `1h 02m 03s`. Sub-minute keeps a decimal (the difference between a 2s and a
+    9s flash is worth seeing); above that the seconds are padded, so successive
+    runs line up against each other in the log."""
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    minutes, secs = divmod(int(round(seconds)), 60)
+    if minutes < 60:
+        return f"{minutes}m {secs:02d}s"
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours}h {minutes:02d}m {secs:02d}s"
+
+
+def _reports_total_time(compile_upload):
+    """Wrap a compile/upload generator so every run ends with one
+    `[time] total ...` line, whichever engine ran it.
+
+    Both engines already time their own phases in `_run_phase`, but the number
+    people ask for is the whole thing, and neither tool prints it. Wrapping
+    here rather than emitting at each `return` is what keeps the two paths from
+    drifting: the fbuild path alone has seven exits (lock timeout, no board
+    mapping, overflow, compile failure, compile-only, deploy, engine gap), and
+    any one left un-instrumented would be a run that silently reported no time.
+
+    The clock starts before the fbuild build lock is acquired, so a build that
+    spent two minutes queued behind another says so -- that wait is part of
+    what the user sat through. `busy` is the one phase with nothing to report:
+    it never compiled or flashed anything, and a duration printed beside
+    "DID NOT RUN" would read as a build that took that long."""
+    @functools.wraps(compile_upload)
+    def timed(*args, **kwargs):
+        started = time.monotonic()
+        rc, phase = yield from compile_upload(*args, **kwargs)
+        if phase != "busy":
+            yield f"  [time] total {_format_duration(time.monotonic() - started)}\n"
+        return rc, phase
+    return timed
+
+
 def _run_phase(label, args, sink=None, cwd=None, tool_env=None):
     """Run one build-tool phase (arduino-cli or fbuild), yielding its output
     lines; returns the exit code. If `sink` (a list) is given, each output line
@@ -1217,6 +1258,7 @@ def _run_phase(label, args, sink=None, cwd=None, tool_env=None):
     parse the flash/RAM size report)."""
     _begin_build_run()
     yield f"\n=== {label} ===\n$ {' '.join(args)}\n"
+    started = time.monotonic()
     try:
         proc = subprocess.Popen(
             args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -1238,6 +1280,7 @@ def _run_phase(label, args, sink=None, cwd=None, tool_env=None):
         _fbuild_build_lock.touch()
         yield line
     proc.wait()
+    elapsed = time.monotonic() - started
     _register_build(None)
     if _build_was_cancelled():
         # Said before the exit code, and in a form `parseStatus` checks first:
@@ -1246,7 +1289,7 @@ def _run_phase(label, args, sink=None, cwd=None, tool_env=None):
         # their mind about.
         yield "\n*** CANCELLED *** Stopped at your request — nothing was sent to the board.\n"
         return proc.returncode
-    yield f"[{label} exit code: {proc.returncode}]\n"
+    yield f"[{label} exit code: {proc.returncode} · {_format_duration(elapsed)}]\n"
     return proc.returncode
 
 
@@ -1286,6 +1329,7 @@ def _looks_like_overflow(lines):
     return any(marker in text for marker in _OVERFLOW_MARKERS)
 
 
+@_reports_total_time
 def _compile_upload(label, sketch_dir, fqbn, port):
     """Compile, then (if a port is given) upload a sketch. Returns
     (exit code, phase) where phase is "compile" or "upload" — the phase the
@@ -1476,6 +1520,7 @@ def _drain_compile(gen):
         return lines, stop.value
 
 
+@_reports_total_time
 def _compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None, usb_cdc=False):
     """fbuild-engine counterpart to `_compile_upload` — same (rc, phase)
     contract, so callers don't need to know which engine ran.

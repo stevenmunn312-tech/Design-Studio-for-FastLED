@@ -147,6 +147,41 @@ describe('parseStatus', () => {
     expect(s.message).toBe('Done · flash 96% ⚠')
   })
 
+  it('reports how long the whole run took, whichever engine ran it', () => {
+    // Both engines end a run with the same `[time] total …` line, so this has
+    // no engine-specific branch to test — only that the total reaches the
+    // status alongside the size report.
+    const log =
+      '=== Sketch · compile ===\n  [size] flash 62% · ram 40%\n[Sketch · compile exit code: 0 · 1m 51s]\n' +
+      '=== Sketch · upload ===\n[Sketch · upload exit code: 0 · 12.6s]\n' +
+      '  [time] total 2m 04s\n\nUpload complete.\n'
+    const s = parseStatus(log)
+    expect(s.phase).toBe('done')
+    expect(s.elapsed).toBe('2m 04s')
+    expect(s.message).toBe('Done · flash 62% · 2m 04s')
+  })
+
+  it('reports the last total when a run builds more than once', () => {
+    // A show upload flashes the player and then pushes files through it, so
+    // the finished log carries the build's total plus the run's own.
+    const log =
+      '  [time] total 3m 12s\n=== Player · upload ===\n  [time] total 3m 40s\n' +
+      'All done — songs/shows are on the card and the player is flashed.\n'
+    expect(parseStatus(log).elapsed).toBe('3m 40s')
+  })
+
+  it('leaves the timing off a run that has not finished', () => {
+    const s = parseStatus('=== Sketch · compile ===\n  [size] flash 62%\n')
+    expect(s.phase).toBe('compiling')
+    expect(s.elapsed).toBeUndefined()
+  })
+
+  it('does not mistake a phase exit-code duration for a failure', () => {
+    // The exit-code line now carries its own duration; the failure rule keys
+    // on the code, so a successful phase that took 1m must stay a success.
+    expect(parseStatus('[Sketch · compile exit code: 0 · 1m 07s]\n').phase).not.toBe('error')
+  })
+
   it('names a refused build rather than reporting a generic error', () => {
     // Builds share one project directory and are serialized, so a request can
     // be refused with nothing compiled. Saying "Error — see output" sends the

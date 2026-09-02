@@ -17,7 +17,7 @@
  */
 
 /** Lines that always survive, whatever else they look like. */
-const ALWAYS_KEEP = /error|\*\*\*|\[size|\[waiting\]|\[retry\]|\[engine-gap\]|exit code|^\s*===|^\$ /i
+const ALWAYS_KEEP = /error|\*\*\*|\[size|\[time\]|\[waiting\]|\[retry\]|\[engine-gap\]|exit code|^\s*===|^\$ /i
 
 /** Toolchain noise: the diagnostic itself, and the source echo beneath it. */
 const NOISE = [

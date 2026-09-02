@@ -88,6 +88,13 @@ versioning (`0.y.z`) until the first stable release.
   generative shows and the SD Music Player, and validated end to end on
   hardware: see the [bench record](docs/development/plans/vu-meter.md).
 
+- Uploads report how long they took. Each phase's exit line carries its own
+  duration and the run ends with one total, so a build that felt slow can be
+  read rather than guessed at — and the two engines can finally be compared on
+  the same sketch. The total also lands on the Output console's status once the
+  upload finishes. Both fbuild and arduino-cli get it from the same place, so
+  neither engine reports it differently from the other.
+
 - Graph Health now says when a display the build cannot drive is on the canvas.
   A show controller has no display support at all and would drop the part, and
   the SD player runs a fixed template, so a display port fed from a Wave or a

@@ -215,7 +215,17 @@ export function engineReady(helper: BackendHealth | null | undefined): boolean {
 
 // ── Live upload status ────────────────────────────────────────────────────────
 export type UploadPhase = 'idle' | 'compiling' | 'uploading' | 'done' | 'error' | 'working' | 'cancelled'
-export interface UploadStatus { phase: UploadPhase; percent?: number; message: string }
+export interface UploadStatus {
+  phase: UploadPhase
+  percent?: number
+  message: string
+  /** How long the whole compile+upload took, already formatted by the helper
+   *  (`8.4s`, `1m 04s`). Present once a run has finished — both engines report
+   *  it the same way, so nothing here needs to know which one ran. A failed
+   *  run's total is in the log but not here: the pill has one line, and what
+   *  went wrong matters more there than how long it took to go wrong. */
+  elapsed?: string
+}
 
 const IDLE: UploadStatus = { phase: 'idle', message: '' }
 
@@ -262,8 +272,13 @@ export function parseStatus(log: string): UploadStatus {
   // shown alongside the later phases; `[size-warning]` flags a tight fit.
   const sizeM = [...log.matchAll(/\[size\] flash (\d+)%/g)].pop()
   const sizeTag = sizeM ? ` · flash ${sizeM[1]}%${/\[size-warning\]/.test(log) ? ' ⚠' : ''}` : ''
+  // How long the run took, as the helper formatted it (`[time] total 1m 04s`).
+  // The last one wins: a show upload builds and flashes the player before it
+  // starts pushing files, so a completed run can carry more than one.
+  const timeM = [...log.matchAll(/\[time\] total ([^\n]+)/g)].pop()
+  const elapsed = timeM ? timeM[1].trim() : undefined
   if (/Upload complete|All done|ready\.\n/i.test(log)) {
-    return { phase: 'done', message: `Done${sizeTag}` }
+    return { phase: 'done', message: `Done${sizeTag}${elapsed ? ` · ${elapsed}` : ''}`, elapsed }
   }
   const upIdx = log.lastIndexOf('upload ===')
   if (upIdx >= 0) {
