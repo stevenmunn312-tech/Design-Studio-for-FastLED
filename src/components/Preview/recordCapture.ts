@@ -2,7 +2,7 @@ import { evaluateGraphFull, type Frame, type GroupRegistry } from '../../state/g
 import { masterSpeedFromOutputs, MASTER_SPEED_DEFAULT } from '../../state/masterSpeed'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import { idleFrame } from './idleFrame'
-import { compositionDims, outputRoutes, routeFrame } from '../../state/outputRouting'
+import { outputRenderPasses, outputRenderPassFor, outputRoutes, routeFrame } from '../../state/outputRouting'
 import { applyShowPlaybackSignal } from './showPlaybackSignal'
 import type { RecordedAudioFrame } from './recordAudio'
 import type { ShowFile } from '../../types/showFile'
@@ -175,7 +175,8 @@ export async function captureSequence(opts: CaptureOptions): Promise<Uint8Clampe
   // back to the caller's gridW/gridH in that same case. Without this, a
   // 32x32 capture request would evaluate at 16x16 and then read a phantom
   // 32x32 region out of it, leaving 3/4 of the packed frame black.
-  const composition = route ? compositionDims(nodes, edges) : { w: gridW, h: gridH }
+  const renderPass = route ? outputRenderPassFor(route, outputRenderPasses(nodes, edges)) : null
+  const composition = renderPass ? { w: renderPass.width, h: renderPass.height } : { w: gridW, h: gridH }
   const brightness = masterBrightnessScale(controllerSettings(nodes).brightness)
   // The routed frame's true shape. gridW/gridH is the caller's expectation and
   // only applies when there is no route to size against.
@@ -219,7 +220,8 @@ export async function captureSequence(opts: CaptureOptions): Promise<Uint8Clampe
     // the reachable set this always evaluated — Master Speed is a sink, so it
     // is in that set rather than an extra pass.
     const pass = evaluateGraphFull(
-      evaluationNodes, edges, tick, composition.w, composition.h, groups, false, trusted, prefix, audio, elapsedTick,
+      evaluationNodes, edges, tick, composition.w, composition.h, groups, false, trusted,
+      `${prefix}${renderPass?.key ?? `${composition.w}x${composition.h}`}/`, audio, elapsedTick,
     )
     speed = masterSpeedFromOutputs(evaluationNodes, pass.outputs)
     const rendered = pass.frame

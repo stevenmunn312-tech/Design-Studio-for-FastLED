@@ -20,7 +20,7 @@ import {
   type RingDirection,
 } from './ledOutputForm'
 
-export type OutputRouteMode = 'fit' | 'crop'
+export type OutputRouteMode = 'native' | 'fit' | 'crop'
 
 export interface OutputRoute {
   node: StudioNode
@@ -137,11 +137,13 @@ export function outputRoutes(nodes: StudioNode[]): OutputRoute[] {
         height: grid.height,
         canvasW: canvas.width,
         canvasH: canvas.height,
-        // A chain has no 2 x 2 block to average down, and no viewport to offset
-        // within — it takes the whole composition either way.
+        // A chain has no 2 x 2 block to average down. It still renders natively
+        // by default; explicit fit/crop opt it into a shared composition.
         dataPin: int(props.dataPin, 5, 0, 255),
         supersample: linear ? 1 : props.supersample === true ? 2 : 1,
-        routeMode: linear ? 'fit' : props.routeMode === 'crop' ? 'crop' : 'fit',
+        routeMode: props.routeMode === 'fit' || props.routeMode === 'crop'
+          ? props.routeMode
+          : 'native',
         routeX: int(props.routeX, 0, 0, 63),
         routeY: int(props.routeY, 0, 0, 63),
         ring: form === 'ring'
@@ -259,11 +261,62 @@ export function compositionDims(nodes: StudioNode[], edges?: FrameFeedEdge[]): {
       (mirrorLeaders?.get(route.id) ?? route.id) === route.id
       && edges.some((edge) => edge.target === route.id && (edge.targetHandle ?? 'frame') === 'frame'))
     : routes
-  const sizing = connected.length > 0 ? connected : routes
+  const candidates = connected.length > 0 ? connected : routes
+  // Native routes do not vote on a shared canvas. Keep the all-native fallback
+  // for canvas/expression callers that still need one representative size.
+  const shared = candidates.filter((route) => route.routeMode !== 'native')
+  const sizing = shared.length > 0 ? shared : candidates
   return {
     w: Math.max(...sizing.map((route) => route.canvasW * route.supersample)),
     h: Math.max(...sizing.map((route) => route.canvasH * route.supersample)),
   }
+}
+
+/** One graph-evaluator/codegen pass shared by every output that needs the same
+ * render grid. Native routes vote only for their own shape; fit/crop routes all
+ * use the explicit shared composition canvas. */
+export interface OutputRenderPass {
+  key: string
+  width: number
+  height: number
+  routes: OutputRoute[]
+}
+
+export function outputRenderPasses(
+  nodes: StudioNode[],
+  edges: readonly FrameFeedEdge[] = [],
+): OutputRenderPass[] {
+  const routes = outputRoutes(nodes)
+  if (routes.length === 0) return []
+  const shared = compositionDims(nodes, [...edges])
+  const connected = routes.filter((route) => edges.some((edge) =>
+    edge.target === route.id && (edge.targetHandle ?? 'frame') === 'frame'))
+  // An unwired output has no raster to produce and must not add a render pass.
+  // If the graph is still being assembled and none are wired, retain the old
+  // all-routes fallback so previews and expressions have useful dimensions.
+  const plannedRoutes = connected.length > 0 ? connected : routes
+  const passes = new Map<string, OutputRenderPass>()
+  for (const route of plannedRoutes) {
+    const width = route.routeMode === 'native'
+      ? route.canvasW * route.supersample
+      : shared.w
+    const height = route.routeMode === 'native'
+      ? route.canvasH * route.supersample
+      : shared.h
+    const key = `${width}x${height}`
+    const pass = passes.get(key)
+    if (pass) pass.routes.push(route)
+    else passes.set(key, { key, width, height, routes: [route] })
+  }
+  return [...passes.values()]
+}
+
+export function outputRenderPassFor(
+  route: OutputRoute,
+  passes: readonly OutputRenderPass[],
+): OutputRenderPass {
+  return passes.find((pass) => pass.routes.some((candidate) => candidate.id === route.id))
+    ?? { key: `${route.canvasW * route.supersample}x${route.canvasH * route.supersample}`, width: route.canvasW * route.supersample, height: route.canvasH * route.supersample, routes: [route] }
 }
 
 /** Map a logical composition frame into one output's local grid. `fit` scales

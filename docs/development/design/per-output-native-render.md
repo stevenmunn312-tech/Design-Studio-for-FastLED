@@ -1,6 +1,6 @@
 # Per-output native rendering
 
-**Status:** decided, not implemented. Decided 2026-08-18 from the bench.
+**Status:** implemented. Decided 2026-08-18 from the bench; implemented 2026-09-02.
 
 ## The problem
 
@@ -96,6 +96,22 @@ the hardware view will eventually need to express both.
 
 CLAUDE.md's standing rule. A preview-only fix would look correct and quietly
 disagree with what gets flashed, which is worse than the visible bug.
+
+## Implementation
+
+`src/state/outputRouting.ts` owns the pass plan. `native` is the default route
+mode; native routes are grouped by supersampled render dimensions, while
+explicit `fit` and `crop` routes share the composition canvas. The live preview
+evaluates those passes under stable shape-keyed state namespaces, publishes
+ordinary node thumbnails from the focused output's pass, and publishes each LED
+output's physical preview from its own pass.
+
+For a normal generated sketch, mixed native shapes use one templated render
+body. Each distinct shape instantiates a pass, which namespaces function-local
+static evaluator state. The global `buf_` and `field_` arrays are declared once
+at the largest pass's pixel count and the loop invokes each pass sequentially
+before one `FastLED.show()`, so adding a differently shaped output does not add
+a second set of intermediate render buffers.
 
 ## Not this
 

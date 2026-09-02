@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes, routeFrame } from '../outputRouting'
+import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRenderPasses, outputRoutes, routeFrame } from '../outputRouting'
 import type { StudioNode } from '../graphStore'
 
 function output(id: string, properties: Record<string, unknown>): StudioNode {
@@ -10,6 +10,25 @@ function output(id: string, properties: Record<string, unknown>): StudioNode {
 }
 
 describe('multi-output routing', () => {
+  it('defaults separate outputs to native rendering and groups equal shapes', () => {
+    const nodes = [
+      output('strip', { form: 'strip', ledCount: 60, dataPin: 5 }),
+      output('matrix-a', { form: 'matrix', width: 16, height: 16, dataPin: 6 }),
+      output('matrix-b', { form: 'matrix', width: 16, height: 16, dataPin: 7 }),
+    ]
+    const passes = outputRenderPasses(nodes, [
+      { source: 'pattern', target: 'strip', targetHandle: 'frame' },
+      { source: 'pattern', target: 'matrix-a', targetHandle: 'frame' },
+      { source: 'pattern', target: 'matrix-b', targetHandle: 'frame' },
+    ])
+
+    expect(outputRoutes(nodes).map((route) => route.routeMode)).toEqual(['native', 'native', 'native'])
+    expect(passes.map((pass) => [pass.key, pass.routes.map((route) => route.id)])).toEqual([
+      ['60x1', ['strip']],
+      ['16x16', ['matrix-a', 'matrix-b']],
+    ])
+  })
+
   it('uses the largest supersampled route as the composition canvas', () => {
     const nodes = [output('a', { width: 8, height: 16 }), output('b', { width: 16, height: 8, supersample: true })]
     expect(compositionDims(nodes)).toEqual({ w: 32, h: 16 })
@@ -25,6 +44,7 @@ describe('multi-output routing', () => {
     ]
     const edges = [{ target: 'matrix', targetHandle: 'frame' }]
     expect(compositionDims(nodes, edges)).toEqual({ w: 16, h: 16 })
+    expect(outputRenderPasses(nodes, edges).map((pass) => pass.key)).toEqual(['16x16'])
   })
 
   it('still sizes from every route when none are wired yet', () => {
@@ -201,11 +221,11 @@ describe('routing per LED output form', () => {
     ]])
   })
 
-  it('ignores supersample and crop settings a chain inherited from another form', () => {
+  it('ignores supersampling on a chain but honours an explicit shared-canvas crop', () => {
     const route = outputRoutes([output('s', {
       form: 'strip', ledCount: 30, supersample: true, routeMode: 'crop', routeX: 5,
     })])[0]
     expect(route.supersample).toBe(1)
-    expect(route.routeMode).toBe('fit')
+    expect(route.routeMode).toBe('crop')
   })
 })

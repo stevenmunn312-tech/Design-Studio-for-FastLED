@@ -113,6 +113,72 @@ describe('generateCpp', () => {
     expect(cpp.match(/FastLED\.show\(\);/g)).toHaveLength(1)
   })
 
+  it('renders a 60x1 strip and 16x16 matrix in native passes with one reusable buffer set', () => {
+    const fire = node('fire', 'Fire', 'pattern', { seed: 42 })
+    const strip = node('strip', 'MatrixOutput', 'output', {
+      form: 'strip', ledCount: 60, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB',
+    })
+    const matrix = node('matrix', 'MatrixOutput', 'output', {
+      form: 'matrix', width: 16, height: 16, dataPin: 6, chipset: 'WS2812B', colorOrder: 'GRB',
+    })
+    const cpp = generateCpp(
+      [fire, strip, matrix],
+      [edge('es', 'fire', 'strip', 'frame', 'frame'), edge('em', 'fire', 'matrix', 'frame', 'frame')],
+    )
+
+    // The maximum pass is 256 pixels, not the old 60x16 composition.
+    expect(cpp).toContain('#define WIDTH    16')
+    expect(cpp).toContain('#define HEIGHT   16')
+    expect(cpp).toContain('#define NUM_LEDS (WIDTH * HEIGHT)')
+    expect(cpp).toContain('CRGB buf_fire[NUM_LEDS];')
+    expect(cpp).not.toContain('60 * 16')
+
+    // One emitted body, two shape-specialised calls. Function-local statics
+    // are namespaced by the template pass rather than shared across shapes.
+    expect(cpp.match(/float renderOutputPass\(float t\) \{/g)).toHaveLength(1)
+    expect(cpp).toContain('renderOutputPass<0, 60, 1>')
+    expect(cpp).toContain('renderOutputPass<1, 16, 16>')
+    expect(cpp).toContain('static uint8_t _fireHeat_fire[RENDER_HEIGHT][RENDER_WIDTH]')
+    expect(cpp).toContain('if constexpr (RENDER_PASS == 0)')
+    expect(cpp).toContain('if constexpr (RENDER_PASS == 1)')
+    expect(cpp.match(/\/\/ Fire pattern/g)).toHaveLength(1)
+    expect(cpp.match(/FastLED\.show\(\);/g)).toHaveLength(1)
+  })
+
+  it('renders identical native output shapes in one firmware pass', () => {
+    const pattern = node('solid', 'SolidColor', 'pattern')
+    const outputs = [5, 6].map((dataPin, index) => node(`matrix-${index}`, 'MatrixOutput', 'output', {
+      form: 'matrix', width: 16, height: 16, dataPin, chipset: 'WS2812B', colorOrder: 'GRB',
+    }))
+    const cpp = generateCpp(
+      [pattern, ...outputs],
+      outputs.map((output, index) => edge(`e${index}`, 'solid', output.id, 'frame', 'frame')),
+    )
+
+    expect(cpp.match(/renderOutputPass<\d+, 16, 16>/g)).toHaveLength(1)
+    expect(cpp).toContain('if constexpr (RENDER_PASS == 0)')
+    expect(cpp).not.toContain('RENDER_PASS == 1')
+  })
+
+  it('keeps persistent evaluator pixels pass-local without duplicating intermediate buffers', () => {
+    const solid = node('solid', 'SolidColor', 'pattern')
+    const trails = node('trails', 'Trails', 'effect')
+    const strip = node('strip', 'MatrixOutput', 'output', { form: 'strip', ledCount: 60, dataPin: 5 })
+    const matrix = node('matrix', 'MatrixOutput', 'output', { form: 'matrix', width: 16, height: 16, dataPin: 6 })
+    const cpp = generateCpp(
+      [solid, trails, strip, matrix],
+      [
+        edge('seed', 'solid', 'trails', 'frame', 'frame'),
+        edge('strip-feed', 'trails', 'strip', 'frame', 'frame'),
+        edge('matrix-feed', 'trails', 'matrix', 'frame', 'frame'),
+      ],
+    )
+
+    expect(cpp).toContain('static CRGB _passState_trails[RENDER_LEDS];')
+    expect(cpp.match(/CRGB buf_trails\[NUM_LEDS\];/g)).toHaveLength(1)
+    expect(cpp).toContain('::memmove(buf_trails, _passState_trails, sizeof(CRGB) * RENDER_LEDS);')
+  })
+
   // ── LED output forms ───────────────────────────────────────────────────────
   // A string used to be its own node type with no `case` in this generator at
   // all, so a strip-only graph compiled to a "not yet supported" comment. It is

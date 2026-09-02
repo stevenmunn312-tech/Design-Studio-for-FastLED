@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties } from 'react'
-import { useGraphStore, getGroupRegistry, matrixTileLayout, rootGraphEdges, rootGraphNodes, type GraphMeta, type StudioEdge, type StudioNode } from '../../state/graphStore'
+import { useGraphStore, getGroupRegistry, matrixTileLayout, rootGraphNodes, type GraphMeta, type StudioEdge, type StudioNode } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audioStore'
 import { evaluateGraphFull, getPatternShowSelection, type Frame } from '../../state/graphEvaluator'
@@ -39,7 +39,7 @@ import styles from './LEDPreview.module.css'
 import { frameAmbient } from '../../utils/signalVisual'
 import { idleFrame } from './idleFrame'
 import { publishOutputStreamFrame, publishStreamFrame, useStreamStore } from '../../state/streamStore'
-import { compositionDims, outputRoutes, routeFrame } from '../../state/outputRouting'
+import { outputRenderPasses, outputRoutes, routeFrame } from '../../state/outputRouting'
 import type { LedOutputForm } from '../../state/ledOutputForm'
 import { exitStagePresentation, toggleStageFullscreen } from '../../utils/stagePresentation'
 import { controllerSettings } from '../../state/controllerSettings'
@@ -635,14 +635,40 @@ export default function LEDPreview() {
         const vuPass = previewsOn && Boolean(vuMeterIdRef.current)
           && now - lastVuPreviewPublish.current >= VU_PREVIEW_PUBLISH_INTERVAL_MS
         const evalStart = PERF_TELEMETRY ? performance.now() : 0
-        // Firmware renders once on a shared logical composition canvas, then
-        // fits/crops each terminal's source frame into its physical route. Do
-        // the same here and pick the route selected in the preview header.
-        const composition = compositionDims(hardwareNodes, rootGraphEdges(state))
-        const { outputs } = evaluateGraphFull(
-          graphNodes, graphEdges, tick, composition.w, composition.h,
-          groups, fullPass, trusted, '', null, elapsedTick,
-        )
+        const routes = outputRoutes(graphNodes)
+        const selectedRoute = routes.find((route) => route.id === activeOutputIdRef.current) ?? routes[0]
+        const passes = outputRenderPasses(graphNodes, graphEdges)
+        const selectedPass = passes.find((pass) => pass.routes.some((route) => route.id === selectedRoute?.id))
+        const currentStreamState = useStreamStore.getState()
+        const requestedStreamOutputId = currentStreamState.streaming ? currentStreamState.layout?.outputId : undefined
+        // Evaluate the focused route last. Evaluator frames live for two pass
+        // generations; this keeps the outputs published to node thumbnails
+        // valid while every other shape is routed immediately into owned
+        // physical buffers. Identical shapes share this one pass.
+        const orderedPasses = selectedPass
+          ? [...passes.filter((pass) => pass !== selectedPass), selectedPass]
+          : passes
+        let outputs = new Map<string, Record<string, unknown>>()
+        const routedByOutput = new Map<string, Frame | null>()
+        let sawBeat = false
+        for (const pass of orderedPasses) {
+          const result = evaluateGraphFull(
+            graphNodes, graphEdges, tick, pass.width, pass.height,
+            groups, pass === selectedPass && fullPass, trusted,
+            `__output_pass_${pass.key}/`, null, elapsedTick,
+          )
+          const passBeat = Array.from(result.outputs.values()).some((output) => output.beat === true)
+          sawBeat ||= passBeat
+          for (const route of pass.routes) {
+            if (route.id !== selectedRoute?.id && route.id !== requestedStreamOutputId && !fullPass && !passBeat) continue
+            const source = result.outputs.get(route.id)?.frame as Frame | null | undefined
+            const reuse = route.id === selectedRoute?.id
+              ? routeBufRef.current
+              : route.id === requestedStreamOutputId ? streamRouteBufRef.current : null
+            routedByOutput.set(route.id, routeFrame(source ?? null, route, pass.width, pass.height, reuse))
+          }
+          if (pass === selectedPass || outputs.size === 0) outputs = result.outputs
+        }
         /*
          * Master Speed, applied by sliding the animation clock's origin rather
          * than by multiplying the elapsed time. `t * speed` would double every
@@ -657,12 +683,8 @@ export default function LEDPreview() {
         const masterSpeed = masterSpeedFromOutputs(graphNodes, outputs)
         if (masterSpeed !== 1) startTime.current += masterSpeedOriginShift(gapMs, masterSpeed)
         const evalMs = PERF_TELEMETRY ? performance.now() - evalStart : 0
-        const routes = outputRoutes(graphNodes)
-        const selectedRoute = routes.find((route) => route.id === activeOutputIdRef.current) ?? routes[0]
-        const rendered = selectedRoute
-          ? (outputs.get(selectedRoute.id)?.frame as Frame | null | undefined) ?? null
-          : null
-        let frame = selectedRoute ? routeFrame(rendered, selectedRoute, composition.w, composition.h, routeBufRef.current) : null
+        const selectedRouted = selectedRoute ? routedByOutput.get(selectedRoute.id) ?? null : null
+        let frame = selectedRouted
         if (frame) routeBufRef.current = frame
         frame = applyMasterBrightness(frame, controller.brightness)
         if (!frame && selectedRoute) {
@@ -693,19 +715,13 @@ export default function LEDPreview() {
         // receiver, not whichever output happens to be selected in the preview
         // header. EvaluateGraphFull already produced every terminal, so route
         // and publish that one separately when the two selections differ.
-        const streamState = useStreamStore.getState()
+        const streamState = currentStreamState
         const streamOutputId = streamState.streaming ? streamState.layout?.outputId : undefined
         if (streamOutputId && streamOutputId !== selectedRoute?.id) {
           const streamRoute = routes.find((route) => route.id === streamOutputId)
           if (streamRoute) {
-            const streamRendered = (outputs.get(streamRoute.id)?.frame as Frame | null | undefined) ?? null
-            let streamFrame = routeFrame(
-              streamRendered,
-              streamRoute,
-              composition.w,
-              composition.h,
-              streamRouteBufRef.current,
-            )
+            const streamRendered = routedByOutput.get(streamRoute.id) ?? null
+            let streamFrame = streamRendered
             if (streamFrame) streamRouteBufRef.current = streamFrame
             streamFrame = applyMasterBrightness(streamFrame, controller.brightness)
             if (!streamFrame) {
@@ -775,7 +791,7 @@ export default function LEDPreview() {
 
         // Beat pulses last one evaluation frame, so publish them immediately;
         // otherwise keep React/store work to ~8 fps while the matrix stays at 60.
-        const hasBeat = Array.from(outputs.values()).some((output) => output.beat === true)
+        const hasBeat = sawBeat
         const publishStart = PERF_TELEMETRY ? performance.now() : 0
         const publishedGeneralPreview = fullPass || (previewsOn && hasBeat)
         if (publishedGeneralPreview) {
@@ -794,11 +810,17 @@ export default function LEDPreview() {
           // baked in here — HardwareLedPreview applies it on paint, so an
           // output and the node feeding it dim by the same value.
           for (const route of routes) {
+            const source = routedByOutput.get(route.id)
+            if (source === undefined) {
+              const previous = usePreviewStore.getState().outputs.get(route.id)
+              if (previous) outputs.set(route.id, previous)
+              continue
+            }
             const ports = outputs.get(route.id) ?? {}
-            const source = ports.frame as Frame | null | undefined
             outputs.set(route.id, {
               ...ports,
-              previewFrame: routeFrame(source ?? null, route, composition.w, composition.h),
+              frame: source,
+              previewFrame: source,
             })
           }
           usePreviewStore.getState().setOutputs(outputs, controller.brightness)

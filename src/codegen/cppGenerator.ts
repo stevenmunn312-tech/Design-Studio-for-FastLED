@@ -72,7 +72,7 @@ import { particleRadius } from '../state/particleScale'
 import { buildXYTable, rotatePoint, tileRotationAt } from '../state/xyLayout'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette, type RGB } from '../state/customPalette'
 import { animartrixCppLines } from '../animartrix/codegen'
-import { compositionDims, corkscrewMapFor, leadingOutputRoutes, outputMirrorLeaders, outputRoutes, ringMapFor } from '../state/outputRouting'
+import { compositionDims, corkscrewMapFor, leadingOutputRoutes, outputMirrorLeaders, outputRenderPasses, outputRoutes, ringMapFor } from '../state/outputRouting'
 import { isLinearForm, outputCanvasDims, outputForm, outputLedTotal } from '../state/ledOutputForm'
 import { getNetworkCredentials } from '../state/networkCredentials'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
@@ -1508,6 +1508,15 @@ export function generateCpp(
     return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : def
   }
   const composition = compositionDims(nodes, edges)
+  const leaderIds = new Set(outputNodes.map((node) => node.id))
+  const renderPasses = outputRenderPasses(nodes, edges)
+    .map((pass) => ({ ...pass, routes: pass.routes.filter((route) => leaderIds.has(route.id)) }))
+    .filter((pass) => pass.routes.length > 0)
+  const nativeMultiRender = multipleOutputs && renderPasses.some((pass) =>
+    pass.routes.some((route) => route.routeMode === 'native'))
+  const largestRenderPass = renderPasses.reduce((largest, pass) =>
+    pass.width * pass.height > largest.width * largest.height ? pass : largest,
+  renderPasses[0] ?? { key: '16x16', width: 16, height: 16, routes: [] })
   // What the single output physically is (src/state/ledOutputForm.ts). A string
   // renders on its own 1 x N grid, a ring on the square its circle is inscribed
   // in, a matrix or panel on its panel — so the render canvas comes from the
@@ -1515,8 +1524,8 @@ export function generateCpp(
   const singleForm = outputNode ? outputForm(rawProps(outputNode)) : 'matrix'
   const singleLinear = !multipleOutputs && isLinearForm(singleForm)
   const singleCanvas = outputNode ? outputCanvasDims(rawProps(outputNode)) : { width: 16, height: 16 }
-  const width      = multipleOutputs ? composition.w : singleCanvas.width
-  const height     = multipleOutputs ? composition.h : singleCanvas.height
+  const width      = multipleOutputs ? (nativeMultiRender ? largestRenderPass.width : composition.w) : singleCanvas.width
+  const height     = multipleOutputs ? (nativeMultiRender ? largestRenderPass.height : composition.h) : singleCanvas.height
   const expressionScale = !multipleOutputs && !singleLinear && outputNode && rawProps(outputNode).supersample === true ? 2 : 1
   const props = (n: StudioNode) => resolveNodeScalarExpressions(
     n.data.nodeType as string,
@@ -1575,8 +1584,11 @@ export function generateCpp(
   // Per-node render buffers in external PSRAM (ESP32 family; see PSRAM_ALLOC_CPP).
   const usePsram = opts.psramAllowed !== false && controller.usePsram
 
+  const passIndexByRoute = new Map<string, number>()
+  renderPasses.forEach((pass, index) => pass.routes.forEach((route) => passIndexByRoute.set(route.id, index)))
   const outputConfigs = leadingOutputRoutes(nodes, edges).map((route) => {
     const p = props(route.node)
+    const pass = renderPasses[passIndexByRoute.get(route.id) ?? 0] ?? largestRenderPass
     return {
       ...route,
       safeId: safeId(route.id),
@@ -1585,12 +1597,11 @@ export function generateCpp(
       xyTable: buildXYTable(route.width, route.height, p),
       /** Physical LEDs on this route: a panel's grid, or a chain's length. */
       ledTotal: outputLedTotal(p),
-      // Built against the emitted WIDTH/HEIGHT, which is the shared composition
-      // canvas whenever there is more than one output — a ring beside a bigger
-      // matrix reads that canvas, not the smaller square its own circumference
-      // asked for.
-      ringMap: ringMapFor(route, composition.w, composition.h),
-      corkscrewMap: corkscrewMapFor(route, composition.w, composition.h),
+      passIndex: passIndexByRoute.get(route.id) ?? 0,
+      renderWidth: pass.width,
+      renderHeight: pass.height,
+      ringMap: ringMapFor(route, pass.width, pass.height),
+      corkscrewMap: corkscrewMapFor(route, pass.width, pass.height),
     }
   })
 
@@ -1858,6 +1869,10 @@ export function generateCpp(
   // Stateful feedback history buffers stay as static internal RAM even when
   // MatrixOutput moves ordinary render buffers into PSRAM.
   const feedbackHistoryBufs = new Map<string, number>()
+  // Buffers whose previous pixels are evaluator state rather than disposable
+  // intermediates. Native passes get one correctly-sized copy per template
+  // instance; ordinary buf_ arrays remain the one sequentially reused set.
+  const persistentFrameStateBufs = new Set<string>()
 
   function emit(node: StudioNode): void {
     const id = safeId(node.id)
@@ -4273,16 +4288,19 @@ export function generateCpp(
       // brighter. Mirrors the evaluator's Trails case.
       case 'Trails': {
         const ob = ownBuf()
+        const state = nativeMultiRender ? `_passState_${id}` : ob
+        if (nativeMultiRender) persistentFrameStateBufs.add(id)
         const src = srcBuf('frame')
         if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black);`); break }
         const decay = f('decay', 'decay', 0.15)
         ln(`  { // Trails: fadeToBlackBy(decay^3) then re-lighten from the input (per-channel max)`)
         ln(`    float _decay = constrain(${decay},0.0f,1.0f); _decay = _decay*_decay*_decay;`)
-        ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)(_decay*255.0f));`)
+        ln(`    fadeToBlackBy(${state}, NUM_LEDS, (uint8_t)(_decay*255.0f));`)
         ln(`    for(int _i=0;_i<NUM_LEDS;_i++){`)
-        ln(`      if(${src}[_i].r>${ob}[_i].r)${ob}[_i].r=${src}[_i].r;`)
-        ln(`      if(${src}[_i].g>${ob}[_i].g)${ob}[_i].g=${src}[_i].g;`)
-        ln(`      if(${src}[_i].b>${ob}[_i].b)${ob}[_i].b=${src}[_i].b;}`)
+        ln(`      if(${src}[_i].r>${state}[_i].r)${state}[_i].r=${src}[_i].r;`)
+        ln(`      if(${src}[_i].g>${state}[_i].g)${state}[_i].g=${src}[_i].g;`)
+        ln(`      if(${src}[_i].b>${state}[_i].b)${state}[_i].b=${src}[_i].b;}`)
+        if (nativeMultiRender) ln(`    ::memmove(${ob}, ${state}, sizeof(CRGB) * NUM_LEDS);`)
         ln(`  }`)
         break
       }
@@ -6206,6 +6224,8 @@ export function generateCpp(
         needsT.v = true
         const ob = ownBuf()
         const src = srcBuf('frame')
+        const codeBuffer = nativeMultiRender && !src ? `_passState_${id}` : ob
+        if (nativeMultiRender && !src) persistentFrameStateBufs.add(id)
         const global = String(p.globalCode ?? '').trim()
         const code = String(p.code ?? '')
         if (global) {
@@ -6215,8 +6235,9 @@ export function generateCpp(
         }
         ln(`  {`)
         if (src) ln(`    ::memmove(${ob}, ${src}, sizeof(CRGB) * NUM_LEDS);`)
-        ln(`    CRGB* leds = ${ob}; (void)leds;`)
+        ln(`    CRGB* leds = ${codeBuffer}; (void)leds;`)
         for (const line of code.split('\n')) ln(`    ${line}`)
+        if (nativeMultiRender && !src) ln(`    ::memmove(${ob}, ${codeBuffer}, sizeof(CRGB) * NUM_LEDS);`)
         ln(`  }`)
         break
       }
@@ -6435,6 +6456,12 @@ export function generateCpp(
           ln(`  // ${cppComment(String(leader?.data.label ?? 'the first output'))} on the same pin — same wire, same pixels.`)
           break
         }
+        const multiRoute = multipleOutputs
+          ? outputConfigs.find((candidate) => candidate.id === node.id)!
+          : null
+        if (nativeMultiRender && multiRoute) {
+          ln(`  if constexpr (RENDER_PASS == ${multiRoute.passIndex}) {`)
+        }
         // Before anything reads _ledOn_/_ledLevel_ below. Topological order
         // puts the node that built the bundle earlier in the same loop body,
         // so it is a local in scope here.
@@ -6456,7 +6483,7 @@ export function generateCpp(
           break
         }
         if (multipleOutputs) {
-          const route = outputConfigs.find((candidate) => candidate.id === node.id)!
+          const route = multiRoute!
           const leds = `leds_${route.safeId}`
           const xy = route.xyTable ? `XY_${route.safeId}(_x, _y)` : `_y * ${route.width} + _x`
           if (!src) {
@@ -6470,6 +6497,21 @@ export function generateCpp(
             ln(`  for (int _i = 0; _i < ${route.corkscrewMap.length}; _i++) {`)
             ln(`    CRGB _c = ${src}[pgm_read_word(&_corkscrewmap_${route.safeId}[_i])]; _c.nscale8_video(${route.hardware.brightness});`)
             ln(`    ${leds}[_i] = _c;`)
+            ln(`  }`)
+          } else if (route.routeMode === 'native' && route.supersample > 1) {
+            const ssFactor = route.supersample
+            ln(`  for (int _y = 0; _y < ${route.height}; _y++) for (int _x = 0; _x < ${route.width}; _x++) {`)
+            ln(`    uint16_t _r = 0, _g = 0, _b = 0;`)
+            ln(`    for (int _sy = 0; _sy < ${ssFactor}; _sy++) for (int _sx = 0; _sx < ${ssFactor}; _sx++) {`)
+            ln(`      CRGB _p = ${src}[(_y * ${ssFactor} + _sy) * WIDTH + (_x * ${ssFactor} + _sx)]; _r += _p.r; _g += _p.g; _b += _p.b;`)
+            ln(`    }`)
+            ln(`    CRGB _c(_r / ${ssFactor * ssFactor}, _g / ${ssFactor * ssFactor}, _b / ${ssFactor * ssFactor}); _c.nscale8_video(${route.hardware.brightness});`)
+            ln(`    ${leds}[${xy}] = _c;`)
+            ln(`  }`)
+          } else if (route.routeMode === 'native') {
+            ln(`  for (int _y = 0; _y < ${route.height}; _y++) for (int _x = 0; _x < ${route.width}; _x++) {`)
+            ln(`    CRGB _c = ${src}[_y * WIDTH + _x]; _c.nscale8_video(${route.hardware.brightness});`)
+            ln(`    ${leds}[${xy}] = _c;`)
             ln(`  }`)
           } else if (route.routeMode === 'crop') {
             ln(`  for (int _y = 0; _y < ${route.height}; _y++) for (int _x = 0; _x < ${route.width}; _x++) {`)
@@ -6489,6 +6531,7 @@ export function generateCpp(
             ln(`  }`)
           }
           for (const line of ledOutputRuntimeCpp(outputRuntimeEmit(node, leds, String(route.ledTotal)))) ln(line)
+          if (nativeMultiRender) ln(`  }`)
           break
         }
         if (!src) {
@@ -6662,8 +6705,10 @@ export function generateCpp(
     if (ps) { lines.push(ps.decl); psramAllocs.push(ps.alloc) }
     else lines.push(d)
   }
-  for (const [id, capacity] of feedbackHistoryBufs) {
-    lines.push(`CRGB _fb_${id}[${capacity}][NUM_LEDS];`)
+  if (!nativeMultiRender) {
+    for (const [id, capacity] of feedbackHistoryBufs) {
+      lines.push(`CRGB _fb_${id}[${capacity}][NUM_LEDS];`)
+    }
   }
   lines.push(``)
   if (usePsram) {
@@ -6723,7 +6768,7 @@ export function generateCpp(
     lines.push(``)
   }
 
-  if (needsXyMap.v) {
+  if (needsXyMap.v && !nativeMultiRender) {
     lines.push(`// Row-major coordinate map for FastLED 3.10+'s blur2d (buffers are always`)
     lines.push(`// row-major; serpentine wiring is remapped only at MatrixOutput).`)
     lines.push(`fl::XYMap _xyMap = fl::XYMap::constructRectangularGrid(WIDTH, HEIGHT);`)
@@ -6865,6 +6910,39 @@ export function generateCpp(
     lines.push(...globalLines)
   }
 
+  if (nativeMultiRender) {
+    // One source render body, instantiated once per distinct shape. Template
+    // instantiation gives every pass its own function-local static evaluator
+    // state, while buf_/field_ remain one maximum-sized global set reused by
+    // the calls in sequence.
+    const renderBody = loopLines.map((line) => line
+      .replace(/\bNUM_LEDS\b/g, 'RENDER_LEDS')
+      .replace(/\bWIDTH\b/g, 'RENDER_WIDTH')
+      .replace(/\bHEIGHT\b/g, 'RENDER_HEIGHT'))
+    // Explicit template prototype keeps Arduino's .ino preprocessor from
+    // inventing a non-template overload above the definition.
+    lines.push(`template<uint8_t RENDER_PASS, int RENDER_WIDTH, int RENDER_HEIGHT>`)
+    lines.push(`float renderOutputPass(float t);`)
+    lines.push(`template<uint8_t RENDER_PASS, int RENDER_WIDTH, int RENDER_HEIGHT>`)
+    lines.push(`float renderOutputPass(float t) {`)
+    lines.push(`  static constexpr int RENDER_LEDS = RENDER_WIDTH * RENDER_HEIGHT;`)
+    for (const id of persistentFrameStateBufs) {
+      lines.push(`  static CRGB _passState_${id}[RENDER_LEDS];`)
+    }
+    for (const [id, capacity] of feedbackHistoryBufs) {
+      lines.push(`  static CRGB _fb_${id}[${capacity}][RENDER_LEDS];`)
+    }
+    if (needsXyMap.v) {
+      lines.push(`  static fl::XYMap _xyMap = fl::XYMap::constructRectangularGrid(RENDER_WIDTH, RENDER_HEIGHT);`)
+    }
+    lines.push(...renderBody)
+    lines.push(`  return ${masterSpeedEmit.speedExpr
+      ? `constrain(${masterSpeedEmit.speedExpr}, ${masterSpeedEmit.min.toFixed(1)}f, ${masterSpeedEmit.max.toFixed(1)}f)`
+      : `${masterSpeedEmit.initial.toFixed(4)}f`};`)
+    lines.push(`}`)
+    lines.push(``)
+  }
+
   lines.push(`void setup() {`)
   lines.push(...amplifierIdle.setup)
   lines.push(...psramAllocs)
@@ -6925,8 +7003,16 @@ export function generateCpp(
   if (emitEngine) lines.push(`  updateAudio();`)
   if (needsDs3231) lines.push(`  _rtcHandleSerialSet();`)
   if (needsT.v) lines.push(...masterClockLoopCpp(masterSpeedEmit))
-  lines.push(...loopLines)
-  if (needsT.v) lines.push(...masterSpeedUpdateCpp(masterSpeedEmit))
+  if (nativeMultiRender) {
+    renderPasses.forEach((pass, index) => {
+      const call = `renderOutputPass<${index}, ${pass.width}, ${pass.height}>(${needsT.v ? 't' : '0.0f'})`
+      if (index === 0 && masterSpeedEmit.speedExpr && needsT.v) lines.push(`  _tSpeed = ${call};  // resolved for the next frame`)
+      else lines.push(`  ${call};`)
+    })
+  } else {
+    lines.push(...loopLines)
+    if (needsT.v) lines.push(...masterSpeedUpdateCpp(masterSpeedEmit))
+  }
   if (multipleOutputs || stereoVuMeters.length > 0 || !sorted.some((n) => n.data.nodeType === 'MatrixOutput')) {
     lines.push(`  FastLED.show();`)
   }

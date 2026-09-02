@@ -2629,9 +2629,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // (row-major) -> physical LED index. Only used when layout is 'custom'.
       customXYMap: '',
       // The Frame cable into each LED output is an explicit hardware route.
-      // Fit scales the shared composition canvas to this output; crop takes a
-      // wrapped viewport beginning at routeX/routeY.
-      routeMode: 'fit',
+      // Native renders the graph at this output's own geometry. Fit/crop opt
+      // into the shared composition canvas for intentional multi-panel work.
+      routeMode: 'native',
       routeX: 0,
       routeY: 0,
       // Render the graph at 2× the matrix resolution and average each 2×2 block
@@ -3851,7 +3851,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     corkscrewHeightMm: { control: 'slider', min: 10, max: 4000, step: 10 },
     // 'strip' is gone: a run of tape is a `form` now, not a wiring order.
     layout: { control: 'select', options: ['matrix', 'panels', 'custom'] },
-    routeMode: { control: 'select', options: ['fit', 'crop'] },
+    routeMode: { control: 'select', options: ['native', 'fit', 'crop'] },
     routeX: { control: 'slider', min: 0, max: 63, step: 1 },
     routeY: { control: 'slider', min: 0, max: 63, step: 1 },
     tilesX: { control: 'slider', min: 1, max: 8, step: 1 },
