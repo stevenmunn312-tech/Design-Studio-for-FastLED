@@ -34,7 +34,7 @@ an internal record.
 | 6 | ESP32 RAM percentage impossible (>100%) on success | 2.4.0 | Discard RAM figure over 100% | Fixed in 2.5.17; guard kept as a sanity check |
 | 7 | `deploy` unimplemented for some compilable platforms | **2.5.4** | Fall back to arduino-cli | Yes |
 | 8 | Dep scanner misses transitive `SPI` in a vendored lib | 2.4.0 | Stub out the offending file | **No — FastLED guarded it in #3815, workaround removed 2026-08-27** |
-| 9 | A no-op build costs three minutes on ESP32 (0.4s on AVR) | **2.5.21** | None — measured, not worked around | Yes |
+| 9 | ESP32 no-op build costs 181.5s (AVR and ESP8266: 0.4s) | **2.5.21** | None — measured, not worked around | Yes |
 
 ---
 
@@ -352,25 +352,32 @@ I/O, our 4,506-file vendored FastLED tree, and the size of the target. Timing a 
 a small environment in *this* scaffold separates them — same host, same `lib/`, same
 fbuild 2.5.21, only the environment differs:
 
-| Environment | Objects in the build tree | Populate | No-op |
-|---|---|---|---|
-| `arduino_avr_uno` | 56 | 26.2s | **0.4s** |
-| `esp32_esp32_esp32s3_opi` | 255 | (full build ~6m) | **181.5s** |
+| Environment | Objects in the build tree | Populate | No-op | fbuild's own line |
+|---|---|---|---|---|
+| `arduino_avr_uno` | 56 | 26.2s | **0.4s** | `reusing existing AVR artifacts` |
+| `esp8266_esp8266_nodemcuv2` | 113 | 39.0s | **0.4s** | `reusing existing ESP8266 artifacts` |
+| `esp32_esp32_esp32s3_opi` | 255 | (full build ~6m) | **181.5s** | `reusing existing ESP32 artifacts` |
 
-Both print the same `No-op fingerprint matched; reusing existing … artifacts` line. That
-eliminates the first two candidates outright: Windows and the FastLED tree are identical
-across those two rows and the AVR no-op is sub-second.
+That eliminates Windows I/O and the FastLED tree outright: both are identical across all
+three rows, and two of the three no-ops are sub-second.
 
-It also rules out simple proportionality to translation-unit count. 4.6x the objects
-costs 450x the time — 7 ms per object on AVR against 712 ms per object on ESP32-S3. The
-cost tracks the *platform*, not the project. For scale, the ESP32 framework package tree
-is 10,059 files, and fbuild's own store (`~/.fbuild/prod/`) holds roughly 287,000: 102,503
-under `cache`, 49,612 under `zccache` — the fingerprint store, judging by the
-`.project.zccache_fp.stamp_cache.json` written into each build directory — and 134,932
-under `tmp`, which looks like leaked scratch rather than anything load-bearing.
+It also rules out any scaling curve. Doubling the object count (56 to 113) does not move
+the no-op at all — 0.4s either way — and ESP8266 is no toy target: a 2.33 MB image and a
+39s populate. The cost appears only on ESP32, where it is 450x the AVR figure. Note that
+fbuild names the platform in its own reuse message, so this is a per-platform code path,
+and only one of them is slow.
 
-Not yet separated: whether this is specific to the ESP32 platform or general to any
-large-framework target. An ESP8266 or STM32 no-op in the same scaffold would tell.
+The ESP32 build directory is also the only one carrying `.firmware_bin_cache.json` and
+`.firmware_size_cache.json` (the mechanism added upstream for issue #4 above), and its
+`compile_commands.json` is 5.04 MB against ESP8266's 680 KB and AVR's 79 KB. The shared
+fingerprint stamp cache is the same size in all three (~1.336 MB), so it is not the
+differentiator. Offered as a pointer, not a diagnosis: nothing was written to disk during
+the 181.5s, so whatever it is, it is checking rather than regenerating.
+
+For completeness on scale: the ESP32 framework package tree is 10,059 files, and fbuild's
+own store (`~/.fbuild/prod/`) holds roughly 287,000 — 102,503 under `cache`, 49,612 under
+`zccache`, and 134,932 under `tmp`, which looks like leaked scratch rather than anything
+load-bearing.
 
 **A separate upstream regression, visible in the same history.** fbuild's *cold* time on
 that benchmark stepped up sharply and has stayed there, while warm was unaffected:
@@ -391,10 +398,10 @@ out of the incremental path and into the cold one. Not our issue — we never se
 build in normal use — but it is bisectable to one commit pair from upstream's own data,
 and worth naming alongside the ask below.
 
-**Upstream ask.** Make the no-op path proportional to what changed. A fingerprint match
-that takes three minutes to establish gives back none of what a fingerprint cache is
-for; whatever it is doing per translation unit (255 of them here) or per vendored file
-(5,497) is work the cache exists to avoid. Worth reporting with the log above, which is
+**Upstream ask.** Look at the ESP32 branch of the artifact-reuse path specifically. The
+AVR and ESP8266 branches establish the same fingerprint match on the same project, same
+host and same version in 0.4s; the ESP32 one takes 181.5s without writing anything, which
+gives back none of what a fingerprint cache is for. Worth reporting with the log above, which is
 self-contained: fbuild states both the no-op match and its own elapsed time.
 
 ---
