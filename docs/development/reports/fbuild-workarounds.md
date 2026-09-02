@@ -30,7 +30,7 @@ an internal record.
 | 2 | `.ino` prototype insertion breaks FastLED-typed helpers | 2.4.0 | Write `main.cpp` instead | **No — fixed upstream in 2.5.16, workaround removed 2026-08-10** |
 | 3 | Shared scaffold corrupts under concurrent builds | 2.4.0 | External process-wide lock | Likely (design-level) |
 | 4 | No size line on a no-op incremental build | 2.4.0 | Read fbuild's own size cache | **No — our #1277, fixed in 2.5.16, workaround removed 2026-08-27** |
-| 5 | No size summary on hard linker overflow | 2.4.0 | Parse `ld` + `Memory:` lines | Likely (by design) |
+| 5 | No size summary on hard linker overflow | **2.5.21** | Parse `ld` + `Memory:` lines | Yes — re-confirmed 2026-09-03 |
 | 6 | ESP32 RAM percentage impossible (>100%) on success | 2.4.0 | Discard RAM figure over 100% | **No — fixed in 2.5.17, guard removed 2026-09-03 (it hid #11)** |
 | 7 | `deploy` unimplemented for some compilable platforms | **2.5.21** | Fall back to arduino-cli | Yes — re-confirmed 2026-09-03 |
 | 8 | Dep scanner misses transitive `SPI` in a vendored lib | 2.4.0 | Stub out the offending file | **No — FastLED guarded it in #3815, workaround removed 2026-08-27** |
@@ -205,6 +205,32 @@ largest byte count.
 **Assessment.** Probably not a bug so much as an unfilled gap — but surfacing "you are at
 112% of RAM" instead of "build failed" is a large UX difference, and fbuild already has
 both numbers in hand.
+
+**Re-confirmed on 2.5.21 (2026-09-03).** A deliberate DRAM overflow on an ESP32-S3 — 400 KB
+of `.bss` on a 320 KB part, in a project with no libraries — fails in 198s with exit 1 and
+**no `Flash:` or `RAM:` line anywhere in the log**:
+
+```text
+Board: Espressif ESP32-S3-DevKitC-1-N8 / ESP32S3 @ 240MHz
+Memory: 16.00MB Flash, 320.00KB RAM
+Compiled 1/1 files
+build error: build failed: ESP32 link failed:
+ld.exe: firmware.elf section `.dram0.bss' will not fit in region `dram0_0_seg'
+ld.exe: DRAM segment data does not fit.
+ld.exe: region `dram0_0_seg' overflowed by 136760 bytes
+collect2.exe: error: ld returned 1 exit status
+```
+
+Both inputs the workaround needs are still present and still shaped the same way, and
+`_fbuild_overflow_estimate` was run against this exact log to prove it end to end:
+
+```text
+_fbuild_size_report        -> {'flash': None, 'ram': None}
+_fbuild_overflow_estimate  -> ram 464440 / 327680 bytes = 142%
+```
+
+327,680 (the `Memory:` budget) + 136,760 (ld's overflow) = 464,440. So the user is told
+"142% of RAM" rather than "build failed", which is the whole point of the workaround.
 
 ---
 
