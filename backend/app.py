@@ -1139,14 +1139,65 @@ PROVISION_BAUD = 921600  # negotiated after the handshake; falls back to 115200
 _TOOLCHAIN_ENV = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
 
 
-def _make_sketch(name: str, ino: str):
-    """Write `ino` to a temp <name>/<name>.ino (arduino-cli needs the folder name
-    to match the sketch). Returns (work_dir, sketch_dir); caller removes work_dir."""
+# One reused directory per sketch name, so arduino-cli can find its own build
+# cache again. It keys that cache on a hash of the *sketch path*
+# (`~/.cache/arduino/sketches/<hash>` — `%LOCALAPPDATA%\arduino\sketches` on
+# Windows), so the old `tempfile.mkdtemp()` per build meant every compile was a
+# cache miss: the whole of FastLED rebuilt every time, and the result left
+# behind. Measured on this machine before the change, that cache held 215
+# directories and 16 GB, none of it ever reused.
+#
+# Only the compiled core survived across builds, in a separate path-independent
+# cache — which is why arduino-cli was still faster than a cold fbuild but never
+# got faster on a second run of the same design.
+_SKETCH_DIR_ROOT = _DATA_DIR / "sketches"
+
+# A shared directory needs a guard: a capacity check and an upload can run at
+# once, and two builds writing different sketches into one folder would flash a
+# binary built from the other one's source. Held for the whole compile, keyed by
+# sketch name.
+_sketch_dir_locks: dict[str, threading.Lock] = {}
+_sketch_dir_locks_guard = threading.Lock()
+
+
+def _sketch_dir_lock(name: str) -> threading.Lock:
+    with _sketch_dir_locks_guard:
+        return _sketch_dir_locks.setdefault(name, threading.Lock())
+
+
+@contextlib.contextmanager
+def _sketch_workspace(name: str, ino: str):
+    """Yield the <name>/<name>.ino directory to compile `ino` from (arduino-cli
+    needs the folder name to match the sketch).
+
+    Normally that is the reused per-name directory, whose stable path is what
+    lets arduino-cli hit its build cache. The sketch is written only if it
+    differs, so a re-upload of an unchanged design doesn't invalidate the cached
+    sketch object either.
+
+    When another build already holds the directory, this falls back to a private
+    temp directory and removes it afterwards — the pre-cache behaviour. Losing
+    the cache costs a slow build; sharing the directory would cost a wrong one,
+    and a second build waiting for the first would take just as long as the cold
+    build it was trying to avoid."""
+    lock = _sketch_dir_lock(name)
+    if lock.acquire(blocking=False):
+        try:
+            sketch_dir = _SKETCH_DIR_ROOT / name
+            sketch_dir.mkdir(parents=True, exist_ok=True)
+            _write_if_changed(sketch_dir / f"{name}.ino", ino)
+            yield sketch_dir
+        finally:
+            lock.release()
+        return
     work = Path(tempfile.mkdtemp(prefix="fls_"))
-    sketch_dir = work / name
-    sketch_dir.mkdir()
-    (sketch_dir / f"{name}.ino").write_text(ino, encoding="utf-8")
-    return work, sketch_dir
+    try:
+        sketch_dir = work / name
+        sketch_dir.mkdir()
+        (sketch_dir / f"{name}.ino").write_text(ino, encoding="utf-8")
+        yield sketch_dir
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
 
 
 # The build currently running, so a user who picked the wrong board can stop it
@@ -2903,14 +2954,10 @@ def upload(payload: dict = Body(...)):
             yield from _upload_result_lines(rc, phase, port)
         return StreamingResponse(stream(), media_type="text/plain")
 
-    work, sketch_dir = _make_sketch(SKETCH, ino)
-
     def stream():
-        try:
+        with _sketch_workspace(SKETCH, ino) as sketch_dir:
             rc, phase = yield from _compile_upload("Sketch", sketch_dir, fqbn, port)
             yield from _upload_result_lines(rc, phase, port)
-        finally:
-            shutil.rmtree(work, ignore_errors=True)
 
     return StreamingResponse(stream(), media_type="text/plain")
 
@@ -2964,12 +3011,9 @@ def compile_check(payload: dict = Body(...)):
             if estimate.get("flash") or estimate.get("ram"):
                 sizes = estimate
     else:
-        work, sketch_dir = _make_sketch(SKETCH, ino)
-        try:
+        with _sketch_workspace(SKETCH, ino) as sketch_dir:
             lines, (rc, phase) = _drain_compile(_compile_upload("Capacity check", sketch_dir, fqbn, ""))
             sizes = _size_bytes_report(lines)
-        finally:
-            shutil.rmtree(work, ignore_errors=True)
 
     ok = rc == 0
     # Nothing was compiled: the request waited out `_FBUILD_LOCK_TIMEOUT_S`
@@ -3050,66 +3094,62 @@ async def upload_show(
         data = await uf.read()
         payloads.append((paths[i] if i < len(paths) else f"/{uf.filename}", data))
 
-    def _build_flash(label, ino, work_slot, target_port=None):
-        """Compile+flash one sketch (provisioner or player) through the active
-        engine. `work_slot` is a single-item list used as an out-param for the
-        arduino-cli temp dir, so the caller's `finally` can clean it up.
-        `target_port` of "" compiles without flashing."""
+    def _build_flash(label, ino, target_port=None):
+        """Compile+flash one sketch through the active engine. `target_port` of
+        "" compiles without flashing.
+
+        The player gets its own sketch workspace (named from the label), so its
+        build cache and an ordinary sketch's never displace each other — they
+        are different programs that happen to be built by the same helper."""
         use_port = port if target_port is None else target_port
         if engine == "fbuild":
             if label.startswith("Player"):
                 yield from _ensure_fbuild_audio_lib()
             return (yield from _compile_upload_fbuild(label, ino, fqbn, use_port, flash_mb, usb_cdc))
-        work, sketch_dir = _make_sketch(label.split()[0].lower(), ino)
-        work_slot[0] = work
-        return (yield from _compile_upload(label, sketch_dir, fqbn, use_port))
+        with _sketch_workspace(label.split()[0].lower(), ino) as sketch_dir:
+            return (yield from _compile_upload(label, sketch_dir, fqbn, use_port))
 
     def stream():
-        play_work: list = [None]
-        try:
-            if not port:
-                yield "[error] a serial port is required to write the SD card\n"
-                return
-            # Flash the player first, then push the files through it.
-            #
-            # The player is by far the likeliest build to fail — every collected
-            # pattern contributes static render buffers, and a classic ESP32
-            # runs out of DRAM well before it runs out of flash. Building it
-            # first means a design that could never fit costs one compile to
-            # discover, with the board and the card both untouched. The old
-            # order learned the same thing only after flashing a provisioner
-            # over the user's firmware and pushing a multi-megabyte song across
-            # the wire: twelve minutes to find out (observed 2026-08-16).
-            #
-            # It also means a failed transfer is now cheap to retry — the board
-            # is already running the receiver, so nothing needs rebuilding.
-            rc, phase = yield from _build_flash("Player", player, play_work)
-            if rc != 0:
-                yield (f"\n*** Player build failed (exit {rc}) — nothing was flashed "
-                       "and the card was not touched ***\n"
-                       "  Remove patterns from the collection or reduce the matrix size,\n"
-                       "  then try again.\n"
-                       if phase == "compile" else
-                       f"\n*** Player flash failed (exit {rc}) — if it couldn't connect, put "
-                       "the board in download mode (hold BOOT, tap RST) and retry ***\n")
-                return
-            if not payloads:
-                # The card-reader path already wrote the files; this call is
-                # only here to flash the player.
-                yield "\nAll done — the player is flashed.\n"
-                return
-            # The transfer owns the port for minutes on a full song, so keep
-            # `board list` off it for the whole time — not just during esptool.
-            with _flashing():
-                ok = yield from _serial_send(port, payloads)
-            if not ok:
-                yield ("\n*** SD transfer failed — the player is flashed, so retrying "
-                       "sends the files again without another build ***\n")
-                return
-            yield "\nAll done — songs/shows are on the card and the player is flashed.\n"
-        finally:
-            if play_work[0]:
-                shutil.rmtree(play_work[0], ignore_errors=True)
+        if not port:
+            yield "[error] a serial port is required to write the SD card\n"
+            return
+        # Flash the player first, then push the files through it.
+        #
+        # The player is by far the likeliest build to fail — every collected
+        # pattern contributes static render buffers, and a classic ESP32
+        # runs out of DRAM well before it runs out of flash. Building it
+        # first means a design that could never fit costs one compile to
+        # discover, with the board and the card both untouched. The old
+        # order learned the same thing only after flashing a provisioner
+        # over the user's firmware and pushing a multi-megabyte song across
+        # the wire: twelve minutes to find out (observed 2026-08-16).
+        #
+        # It also means a failed transfer is now cheap to retry — the board
+        # is already running the receiver, so nothing needs rebuilding.
+        rc, phase = yield from _build_flash("Player", player)
+        if rc != 0:
+            yield (f"\n*** Player build failed (exit {rc}) — nothing was flashed "
+                   "and the card was not touched ***\n"
+                   "  Remove patterns from the collection or reduce the matrix size,\n"
+                   "  then try again.\n"
+                   if phase == "compile" else
+                   f"\n*** Player flash failed (exit {rc}) — if it couldn't connect, put "
+                   "the board in download mode (hold BOOT, tap RST) and retry ***\n")
+            return
+        if not payloads:
+            # The card-reader path already wrote the files; this call is
+            # only here to flash the player.
+            yield "\nAll done — the player is flashed.\n"
+            return
+        # The transfer owns the port for minutes on a full song, so keep
+        # `board list` off it for the whole time — not just during esptool.
+        with _flashing():
+            ok = yield from _serial_send(port, payloads)
+        if not ok:
+            yield ("\n*** SD transfer failed — the player is flashed, so retrying "
+                   "sends the files again without another build ***\n")
+            return
+        yield "\nAll done — songs/shows are on the card and the player is flashed.\n"
 
     return StreamingResponse(stream(), media_type="text/plain")
 

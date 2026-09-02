@@ -9,6 +9,14 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- arduino-cli reuses its build cache between compiles. Each build got a fresh
+  `tempfile.mkdtemp()` directory, and arduino-cli keys its cache on a hash of
+  the sketch path, so every compile was a guaranteed miss that rebuilt the whole
+  of FastLED and then left the result behind — 215 stale directories and 16 GB
+  of them on the machine this was found on. Builds now run from one reused
+  directory per sketch name, with a private throwaway directory as the fallback
+  when a second build is already using it.
+
 - An fbuild re-upload no longer rebuilds work it already has. The helper
   rewrote the generated sketch on every run and re-patched the vendored FastLED
   headers on every helper start, both with the bytes already on disk — and

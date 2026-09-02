@@ -28,11 +28,10 @@ def test_compile_check_returns_measured_sizes_on_success(client, monkeypatch):
     assert data["error"] is None
 
 
-def test_compile_check_flags_overflow_on_arduino_cli(client, monkeypatch):
+def test_compile_check_flags_overflow_on_arduino_cli(client, monkeypatch, tmp_path):
     monkeypatch.setattr(app, "_active_engine", lambda: "arduino-cli")
     monkeypatch.setattr(app, "_ARDUINO_CLI", "/fake/arduino-cli")
-    monkeypatch.setattr(app, "_make_sketch", lambda name, ino: ("/tmp/fake_work", "/tmp/fake_work/sketch"))
-    monkeypatch.setattr(app.shutil, "rmtree", lambda *a, **k: None)
+    monkeypatch.setattr(app, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
 
     def fake_compile_upload(label, sketch_dir, fqbn, port):
         assert port == ""
@@ -49,15 +48,14 @@ def test_compile_check_flags_overflow_on_arduino_cli(client, monkeypatch):
     assert "too large" in data["error"].lower()
 
 
-def test_compile_check_surfaces_the_over_100_percent_usage_on_overflow(client, monkeypatch):
+def test_compile_check_surfaces_the_over_100_percent_usage_on_overflow(client, monkeypatch, tmp_path):
     # The toolchain often still prints its usage line before the linker
     # rejects an over-capacity build — surfacing that percentage (even over
     # 100%) is what lets the frontend show "flash 122%" instead of a bare
     # "won't fit", so the size-report regexes must not be gated on success.
     monkeypatch.setattr(app, "_active_engine", lambda: "arduino-cli")
     monkeypatch.setattr(app, "_ARDUINO_CLI", "/fake/arduino-cli")
-    monkeypatch.setattr(app, "_make_sketch", lambda name, ino: ("/tmp/fake_work", "/tmp/fake_work/sketch"))
-    monkeypatch.setattr(app.shutil, "rmtree", lambda *a, **k: None)
+    monkeypatch.setattr(app, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
 
     def fake_compile_upload(label, sketch_dir, fqbn, port):
         assert port == ""
