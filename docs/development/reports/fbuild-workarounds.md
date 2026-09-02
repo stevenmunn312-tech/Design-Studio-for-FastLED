@@ -414,6 +414,28 @@ own store (`~/.fbuild/prod/`) holds roughly 287,000 — 102,503 under `cache`, 4
 `zccache`, and 134,932 under `tmp`, which looks like leaked scratch rather than anything
 load-bearing.
 
+**And it needs no project at all (2026-09-03).** The cost survives emptying the project
+completely. A throwaway directory with the same environment, no `lib/`, and a three-line
+`digitalWrite` blink — no FastLED anywhere — still pays it:
+
+| Project | Files in `lib/` | No-op |
+|---|---|---|
+| This scaffold, vendored FastLED | 4,506 | 181.5s |
+| Same, `ci`/`examples`/`tests`/`docs`/`.git` pruned | 3,158 | 163.7s |
+| Bare blink, no libraries at all | 0 | **161.2s** |
+
+So everything the project contributes is a ~20s spread on top of a ~161s floor. That
+retires the theory that our vendored tree is the load, and makes the minimal reproduction
+a blink sketch rather than anything of ours — which is what the upstream report should
+carry.
+
+It does not retire the resolver-walk theory, only rescopes it: the ESP32 Arduino framework
+tree is 10,059 files and is identical for every ESP32 project, so a per-build walk of *it*
+would look exactly like a fixed floor no amount of emptying the project reduces.
+[#214](https://github.com/FastLED/fbuild/issues/214) wired the library-selection cache into
+teensy and stm32 — two of our three fast controls — and names no ESP32 follow-up. Worth
+looking at first; not proven.
+
 **A separate upstream regression, visible in the same history.** fbuild's *cold* time on
 that benchmark stepped up sharply and has stayed there, while warm was unaffected:
 
