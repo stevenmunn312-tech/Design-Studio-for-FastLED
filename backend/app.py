@@ -671,6 +671,30 @@ def _fbuild_env_for_fqbn(
     return _env_id(base, None, None, usb_cdc)
 
 
+def _write_if_changed(path: Path, text: str) -> bool:
+    """Write `text` to `path` only when it differs from what is already there.
+    True if the file was actually written.
+
+    Every build tool downstream of the fbuild project scaffold decides what to
+    recompile from mtimes, so rewriting a file with the bytes it already has
+    costs a rebuild and buys nothing. Two writers here used to do exactly that
+    on every run — the sketch (`_write_fbuild_main`) and the vendored FastLED
+    patches (`_patch_fastled_samd51_build`) — which is why a re-upload of an
+    unchanged design still recompiled its largest translation unit, relinked,
+    and rebuilt whichever FastLED objects include a patched header.
+
+    Reading the file back to compare is far cheaper than the compile a
+    needless touch triggers; an unreadable or missing file just falls through
+    to the write."""
+    try:
+        if path.read_text(encoding="utf-8") == text:
+            return False
+    except (OSError, UnicodeDecodeError):
+        pass
+    path.write_text(text, encoding="utf-8")
+    return True
+
+
 def _write_fbuild_ini() -> None:
     lines: list[str] = []
     for base_fqbn, meta in _PIO_BOARDS.items():
@@ -820,6 +844,12 @@ def _patch_fastled_samd51_build() -> None:
     core's ``I2S`` peripheral macro expands inside that header token. Studio's
     SAMD51 code uses its own ZeroI2S adapter, so disable that unused generic
     backend on SAMD51 only.
+
+    Every write here goes through `_write_if_changed`. This runs once per
+    helper process, against a vendored tree that is almost always already
+    patched, and these are headers: rewriting one with its own bytes rebuilt
+    every FastLED object that includes it on the next build — three of them on
+    an ESP32-S3 re-upload that had changed nothing at all.
     """
     isr = _FBUILD_LIB_DIR / "src" / "platforms" / "arm" / "samd" / "isr_samd.hpp"
     if isr.exists():
@@ -827,7 +857,7 @@ def _patch_fastled_samd51_build() -> None:
         text = text.replace("PORT_PMUX_PMUXO_A", "PORT_PMUX_PMUXO(0)")
         text = text.replace("PORT_PMUX_PMUXE_A", "PORT_PMUX_PMUXE(0)")
         text = text.replace("NVIC_DisableIRQ(EIC_IRQn)", "NVIC_DisableIRQ(EIC_0_IRQn)")
-        isr.write_text(text, encoding="utf-8")
+        _write_if_changed(isr, text)
 
     quad = _FBUILD_LIB_DIR / "src" / "platforms" / "arm" / "d51" / "spi_hw_4_samd51.cpp.hpp"
     if quad.exists():
@@ -842,7 +872,7 @@ def _patch_fastled_samd51_build() -> None:
                 "}\n"
             )
             text = text[:start] + stub + text[end:]
-            quad.write_text(text, encoding="utf-8")
+            _write_if_changed(quad, text)
 
     audio = _FBUILD_LIB_DIR / "src" / "fl" / "audio" / "audio_input.cpp.hpp"
     if audio.exists():
@@ -863,7 +893,7 @@ def _patch_fastled_samd51_build() -> None:
             "  #elif FL_HAS_INCLUDE(<Arduino.h>)"
         )
         if old in text:
-            audio.write_text(text.replace(old, new), encoding="utf-8")
+            _write_if_changed(audio, text.replace(old, new))
 
     arduino_audio = _FBUILD_LIB_DIR / "src" / "platforms" / "arduino" / "audio_input.hpp"
     if arduino_audio.exists():
@@ -901,7 +931,7 @@ def _patch_fastled_samd51_build() -> None:
             "#include <I2S.h>",
             "// Generic Arduino I2S include disabled by the Studio build helper.",
         )
-        arduino_audio.write_text(text, encoding="utf-8")
+        _write_if_changed(arduino_audio, text)
 
     # The generated SAMD51 sketches use clockless LEDs and explicitly select
     # FastLED's software-SPI fallback. Honour that selection before FastLED's
@@ -915,7 +945,7 @@ def _patch_fastled_samd51_build() -> None:
                 "#elif defined(FL_IS_SAM) || defined(FL_IS_SAMD)",
                 "#elif (defined(FL_IS_SAM) || defined(FL_IS_SAMD)) && !defined(FASTLED_FORCE_SOFTWARE_SPI)",
             )
-            dispatcher.write_text(text, encoding="utf-8")
+            _write_if_changed(dispatcher, text)
 
 
 _fbuild_audio_lib_ready = False
@@ -1058,7 +1088,12 @@ def _write_fbuild_main(ino: str) -> None:
     # (FastLED/fbuild#1275: sketch #includes are now hoisted into the prelude
     # ahead of the generated prototypes), so plain `.ino` generation is restored
     # here — requirements.txt/constraints.txt pin fbuild>=2.5.16.
-    (_FBUILD_SRC_DIR / "main.ino").write_text(ino, encoding="utf-8")
+    #
+    # Written only when the sketch actually differs (see `_write_if_changed`):
+    # this is the project's largest translation unit, and touching it for an
+    # identical re-upload cost a full recompile and relink of a firmware image
+    # that was already sitting there.
+    _write_if_changed(_FBUILD_SRC_DIR / "main.ino", ino)
     old_cpp = _FBUILD_SRC_DIR / "main.cpp"
     if old_cpp.exists():
         old_cpp.unlink()

@@ -9,6 +9,14 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- An fbuild re-upload no longer rebuilds work it already has. The helper
+  rewrote the generated sketch on every run and re-patched the vendored FastLED
+  headers on every helper start, both with the bytes already on disk — and
+  fbuild decides what to recompile from mtimes, so an unchanged design still
+  recompiled its largest translation unit, relinked, and rebuilt every FastLED
+  object that includes a patched header. Both writers now skip a write that
+  would change nothing.
+
 - The Music Player's VU rails report the music rather than the listening level.
   Two separate faults stacked here, and only a bench found either. The decoder
   tap published a raw RMS while every other producer of a channel level applied
