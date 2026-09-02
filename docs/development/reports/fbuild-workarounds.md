@@ -330,6 +330,43 @@ timestamps:
   the image (696,608 bytes to 270,131), so 115200 costs about 21s against 921600 — an
   eighth of what the no-op check costs.
 
+**What upstream's own benchmark says.** fbuild publishes a nightly Arduino Uno
+benchmark (`bench/blink`, `arduino:avr:uno`, Linux x86_64, median of 3 trials,
+[manifest](https://raw.githubusercontent.com/FastLED/fbuild/benchmark-stats/manifest.json),
+[history](https://raw.githubusercontent.com/FastLED/fbuild/benchmark-stats/history.jsonl)).
+Its *warm* case is defined as "a subsequent rebuild with no source changes immediately
+following the cold build" — precisely the run measured above. On 2026-09-02, same fbuild
+2.5.21 we pin:
+
+| Project | Platform / host | No-change rebuild |
+|---|---|---|
+| `bench/blink`, upstream nightly | AVR Uno, Linux | **46.5 ms** |
+| this helper's scaffold | ESP32-S3, Windows | **181,500 ms** |
+
+So the no-op path is not slow in itself — it is ~3,900x slower here. Three things differ
+and none has been isolated yet: 255 translation units against a handful, a `lib/` of
+5,497 files against none, and Windows file I/O against Linux. The upstream benchmark is
+structurally unable to show this, because a single-file Blink has nothing to scale with.
+
+**A separate upstream regression, visible in the same history.** fbuild's *cold* time on
+that benchmark stepped up sharply and has stayed there, while warm was unaffected:
+
+| Date | Commit | fbuild cold | fbuild warm |
+|---|---|---|---|
+| 2026-07-22 | `96a128ed` | 79.8 ms | 51.2 ms |
+| 2026-07-23 | `d4b20d26` | 342.7 ms | 50.5 ms |
+| 2026-07-24 | `4ae24016` | 372.2 ms | 51.7 ms |
+| 2026-07-25 | `fb5224a4` | **2,515.9 ms** | 46.0 ms |
+| 2026-09-02 | `cab2098e` | 2,627.0 ms | 46.5 ms |
+
+Two steps, the second decisive: a 6.8x cold regression landed between `4ae24016` and
+`fb5224a4` on 2026-07-25 and has held for the 40 nightly runs since, which is what turned
+fbuild from the fastest cold builder on that chart (79.8 ms against arduino-cli's ~680 ms)
+into the slowest. Warm improving slightly across the same boundary suggests work moved
+out of the incremental path and into the cold one. Not our issue — we never see a cold
+build in normal use — but it is bisectable to one commit pair from upstream's own data,
+and worth naming alongside the ask below.
+
 **Upstream ask.** Make the no-op path proportional to what changed. A fingerprint match
 that takes three minutes to establish gives back none of what a fingerprint cache is
 for; whatever it is doing per translation unit (255 of them here) or per vendored file
