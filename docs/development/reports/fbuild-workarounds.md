@@ -26,15 +26,17 @@ an internal record.
 
 | # | Issue | Version confirmed | Our workaround | Still needed? |
 |---|-------|-------------------|----------------|---------------|
-| 1 | `lib_deps` registry resolution not implemented | 2.4.0 | Vendor libraries by `git clone` | Re-verify |
+| 1 | `lib_deps` registry resolution not implemented | 2.4.0 | Vendor libraries by `git clone` | **Fixed in 2.5.21 — vendoring kept for FastLED alone, see below** |
 | 2 | `.ino` prototype insertion breaks FastLED-typed helpers | 2.4.0 | Write `main.cpp` instead | **No — fixed upstream in 2.5.16, workaround removed 2026-08-10** |
 | 3 | Shared scaffold corrupts under concurrent builds | 2.4.0 | External process-wide lock | Likely (design-level) |
 | 4 | No size line on a no-op incremental build | 2.4.0 | Read fbuild's own size cache | **No — our #1277, fixed in 2.5.16, workaround removed 2026-08-27** |
 | 5 | No size summary on hard linker overflow | 2.4.0 | Parse `ld` + `Memory:` lines | Likely (by design) |
-| 6 | ESP32 RAM percentage impossible (>100%) on success | 2.4.0 | Discard RAM figure over 100% | Fixed in 2.5.17; guard kept as a sanity check |
-| 7 | `deploy` unimplemented for some compilable platforms | **2.5.4** | Fall back to arduino-cli | Yes |
+| 6 | ESP32 RAM percentage impossible (>100%) on success | 2.4.0 | Discard RAM figure over 100% | **No — fixed in 2.5.17, guard removed 2026-09-03 (it hid #11)** |
+| 7 | `deploy` unimplemented for some compilable platforms | **2.5.21** | Fall back to arduino-cli | Yes — re-confirmed 2026-09-03 |
 | 8 | Dep scanner misses transitive `SPI` in a vendored lib | 2.4.0 | Stub out the offending file | **No — FastLED guarded it in #3815, workaround removed 2026-08-27** |
 | 9 | ESP32 no-op build costs 181.5s (AVR, ESP8266, STM32: 0.4s) | **2.5.21** | None — measured, not worked around | Yes |
+| 10 | Every directory in `lib/` is compiled, used or not | **2.5.21** | Hide unused libraries for the run | Yes — re-confirmed 2026-09-03 |
+| 11 | A build over the board's limits reports success | **2.5.21** | Refuse it on the measured percentage | Yes |
 
 ---
 
@@ -59,6 +61,32 @@ are vendored this way:
 
 **Cost.** A first-run `git clone` inside the user's build log, no version pinning via
 the manifest, and a hand-rolled cache-validity check per library.
+
+**Fixed in 2.5.21, verified 2026-09-03.** A throwaway project declaring
+`lib_deps = fastled/FastLED` now resolves and builds:
+
+```text
+$ fbuild <project> sync
+fbuild sync: wrote <project>\platformio.lock
+$ fbuild <project> build -e uno --no-timestamp
+Compiled 25/25 files
+Flash: 3.60KB / 31.50KB (11.4%)
+build succeeded in 26.0s
+```
+
+**Workaround kept anyway, for one reason.** We do not merely fetch FastLED, we *patch*
+it: `_patch_fastled_samd51_build` edits four vendored headers to fix SAMD51 compile
+errors upstream has not landed yet. A registry-resolved library is not ours to edit, so
+FastLED stays vendored until those patches are unnecessary. The four libraries we never
+patch (ESP32-audioI2S, esp_dmx, HUB75, ZeroI2S/ZeroDMA) could move to `lib_deps` — worth
+doing, and blocked on nothing but issue #10 below, which is what the local `lib/`
+currently costs us.
+
+**Note for anyone driving fbuild by hand.** The daemon binds to the project directory it
+was first started in, so `fbuild build` run from another directory is answered against
+the *original* project's config (`invalid environment 'uno': config error: environment
+'uno' not found`, in 0.0s). Pass the project directory positionally — `fbuild <dir> build
+-e <env>` — as these probes do.
 
 ---
 
@@ -200,9 +228,11 @@ RAM-resident `.dram0.data`; [#1297](https://github.com/FastLED/fbuild/pull/1297)
 to SysV `size -A` and classifies by section, landing in 2.5.17. Not our report —
 [#1261](https://github.com/FastLED/fbuild/issues/1261) was found independently on an
 ESP32-C6. The same 2.5.21 no-op output above shows a sane `RAM: 23.4%` where this used to
-read 409%. The over-100% discard stays anyway: it is a sanity check on a number shown to
-users, not compensation for a missing feature, and it costs nothing while the bug is
-absent.
+read 409%. **The discard is removed (2026-09-03).** Keeping it "as a cheap sanity check" turned out
+to be the wrong call, and issue #11 below is why: on AVR an over-100% RAM figure from a
+successful build is *real*, and the guard was throwing away the only evidence that the
+firmware could not run. The percentage is now reported, and a successful build measuring
+over its own limits is refused outright.
 
 **Downstream consequence worth noting.** This guard is why our capacity meter always
 reports flash *and* RAM together, including `n/a`. Showing whichever metric happened to
@@ -409,6 +439,66 @@ same host and same version in 0.4s — STM32 while carrying 232 objects to ESP32
 ESP32 branch takes 181.5s and writes nothing, which gives back none of what a fingerprint
 cache is for. Worth reporting with the log above, which is
 self-contained: fbuild states both the no-op match and its own elapsed time.
+
+---
+
+## 10. Every directory under `lib/` is compiled, whether the sketch uses it or not
+
+**Symptom.** fbuild compiles every local library directory in the project, not the ones
+the sketch's include graph reaches. Re-confirmed on 2.5.21 (2026-09-03) with an AVR build
+of a plain FastLED blink, every vendored library present:
+
+```text
+build error: build failed: local library 'Adafruit_ZeroDMA' compilation failed:
+lib/Adafruit_ZeroDMA/Adafruit_ZeroDMA.cpp:30:10: fatal error: malloc.h: No such file or directory
+```
+
+Nothing in that sketch includes `Adafruit_ZeroDMA`. It is a SAMD51 library being compiled
+for an ATmega328P because it happens to sit in `lib/`.
+
+**Impact.** Hardware-specific libraries contaminate unrelated targets: one cached ESP32
+or SAMD library makes every other board's build fail.
+
+**Workaround.** `_fbuild_libraries_for_sketch` renames every optional library out of
+`lib/` for the duration of a build and back afterwards, keyed on the include markers the
+sketch actually contains. FastLED is the one permanent resident.
+
+**Upstream ask.** Compile the libraries the include graph reaches. Issue #205's
+"eager compilation of all framework libraries" describes this for *framework* libraries
+and was solved with the LDF-style scanner; local `lib/` directories appear not to go
+through it.
+
+---
+
+## 11. A build over the board's limits reports success
+
+**Symptom.** fbuild links, emits a `.hex`, and reports `build succeeded` for firmware
+that cannot fit the target. On an Arduino Uno (31.50KB flash, 2.00KB RAM), 2.5.21:
+
+```text
+Flash: 42.64KB / 31.50KB (135.4%)
+RAM:   41.20KB / 2.00KB (2059.8%)
+Artifact: ...\firmware.hex (119.95KB)
+build succeeded in 1.2s (flash: 43662 bytes, ram: 42184 bytes)
+```
+
+Exit code 0. The sketch is fourteen static arrays; nothing exotic.
+
+**Impact.** This is the one that could put bad firmware on a board. The upload path
+treats a successful compile as proof the design fits — arduino-cli earns that by
+refusing to link an over-capacity image, and `_compile_upload` says so in as many words.
+Under fbuild the compile succeeds, no linker overflow marker is printed for
+`_looks_like_overflow` to find, and the only evidence is a percentage. Which, until
+today, we were discarding for RAM (issue #6).
+
+**Workaround.** `_over_capacity` treats a successful build measuring over 100% of flash
+or RAM as the overflow it is: the run stops with the same `[size-error]` the linker path
+produces, nothing is flashed, and the capacity meter reports it as an overflow rather
+than a bare failure.
+
+**Upstream ask.** Fail the build. A tool that reports success for an image 135% of flash
+has broken the contract every caller downstream depends on, and it already has both
+numbers in hand at the moment it prints them.
 
 ---
 

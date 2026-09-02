@@ -140,3 +140,64 @@ def test_a_concurrent_build_gets_a_private_directory(tmp_path, monkeypatch):
     # The shared one is reusable again once released.
     with app._sketch_workspace("fastled_pattern", "third\n") as again:
         assert again == held
+
+
+def test_a_build_that_linked_over_capacity_is_refused(monkeypatch, tmp_path):
+    """fbuild reports "build succeeded" for an image that cannot fit the board.
+
+    Measured on 2.5.21 with an Arduino Uno (31.50KB flash, 2.00KB RAM) and a
+    sketch of static arrays: 135.4% of flash, 2059.8% of RAM, a .hex on disk and
+    exit code 0. arduino-cli refuses to link that, which is why the upload path
+    treats a successful compile as proof it fits -- so the fbuild path has to
+    catch it from the numbers instead, or it would flash the board with it.
+    """
+    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
+    monkeypatch.setattr(app, "_fbuild_project_ready", True)
+    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda *a, **k: "arduino_avr_uno")
+
+    def fake_phase(label, args, sink=None, cwd=None, tool_env=None):
+        for line in (
+            "Board: Arduino Uno / ATMEGA328P @ 16MHz\n",
+            "Memory: 31.50KB Flash, 2.00KB RAM\n",
+            "Flash: 42.64KB / 31.50KB (135.4%)\n",
+            "RAM:   41.20KB / 2.00KB (2059.8%)\n",
+            "build succeeded in 1.2s (flash: 43662 bytes, ram: 42184 bytes)\n",
+        ):
+            if sink is not None:
+                sink.append(line)
+            yield line
+        return 0
+    monkeypatch.setattr(app, "_run_phase", fake_phase)
+
+    lines, (rc, phase) = app._drain_compile(
+        app._compile_upload_fbuild("Sketch", "void setup(){}", "arduino:avr:uno", "COM5"))
+    log = "".join(lines)
+
+    assert rc != 0 and phase == "compile"
+    # The frontend keys its "Won't fit" message on this tag.
+    assert "[size-error]" in log
+    assert "flash 135%" in log and "ram 2059%" in log
+    # Nothing may reach the board: the upload phase never starts.
+    assert "upload" not in log.lower()
+
+
+def test_a_build_that_fits_still_uploads(monkeypatch):
+    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
+    monkeypatch.setattr(app, "_fbuild_project_ready", True)
+    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda *a, **k: "arduino_avr_uno")
+
+    def fake_phase(label, args, sink=None, cwd=None, tool_env=None):
+        for line in ("Flash: 4.75KB / 31.50KB (15.1%)\n", "RAM: 444 bytes / 2.00KB (21.7%)\n"):
+            if sink is not None:
+                sink.append(line)
+            yield line
+        return 0
+    monkeypatch.setattr(app, "_run_phase", fake_phase)
+
+    lines, (rc, phase) = app._drain_compile(
+        app._compile_upload_fbuild("Sketch", "void setup(){}", "arduino:avr:uno", "COM5"))
+
+    assert (rc, phase) == (0, "upload")
+    assert "[size-error]" not in "".join(lines)

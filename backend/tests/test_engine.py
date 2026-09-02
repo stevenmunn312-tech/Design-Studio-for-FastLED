@@ -196,14 +196,26 @@ def test_fbuild_size_report_keeps_sane_ram_percentage():
     assert report == {"flash": 14, "ram": 17}
 
 
-def test_fbuild_size_report_ignores_impossible_successful_esp32_ram_percentage():
+def test_fbuild_size_report_keeps_an_over_100_percent_reading():
+    # This used to be discarded, because fbuild's ESP32 RAM line counted
+    # sections that were not the board's SRAM (fixed upstream in 2.5.17). The
+    # discard hid the worse case: fbuild reports "build succeeded" for an AVR
+    # image at 2059.8% of RAM, and the percentage is the only evidence there is.
     report = app._fbuild_size_report([
         "Flash: 665.41KB / 8.00MB (8.1%)\n",
         "RAM:   1.28MB / 320.00KB (409.2%)\n",
         "build succeeded in 150.2s (flash: 681375 bytes, ram: 1340869 bytes)\n",
     ])
 
-    assert report == {"flash": 8, "ram": None}
+    assert report == {"flash": 8, "ram": 409}
+
+
+def test_over_capacity_names_each_metric_past_its_limit():
+    assert app._over_capacity({"flash": 135, "ram": 2059}) == ["flash", "ram"]
+    assert app._over_capacity({"flash": 8, "ram": 409}) == ["ram"]
+    assert app._over_capacity({"flash": 98, "ram": 87}) == []
+    # A metric fbuild did not report cannot be over its limit.
+    assert app._over_capacity({"flash": None, "ram": None}) == []
 
 
 def test_size_bytes_report_extracts_used_limit_and_percent():
@@ -231,14 +243,14 @@ def test_fbuild_size_bytes_report_converts_units_to_bytes():
     assert report["ram"] == {"usedBytes": 367, "percent": 18, "limitBytes": round(2.00 * 1024)}
 
 
-def test_fbuild_size_bytes_report_drops_impossible_ram_percentage():
+def test_fbuild_size_bytes_report_keeps_an_over_100_percent_reading():
     report = app._fbuild_size_bytes_report([
         "Flash: 665.41KB / 8.00MB (8.1%)\n",
         "RAM:   1.28MB / 320.00KB (409.2%)\n",
     ])
 
     assert report["flash"]["percent"] == 8
-    assert report["ram"] is None
+    assert report["ram"]["percent"] == 409
 
 
 _REAL_DRAM_OVERFLOW_LOG = [

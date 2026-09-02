@@ -1477,17 +1477,18 @@ def _fbuild_size_report(lines):
     text = "".join(lines)
     flash = _FBUILD_FLASH_RE.search(text)
     ram = _FBUILD_RAM_RE.search(text)
-    ram_pct = int(float(ram.group(1))) if ram else None
-    # fbuild's ESP32 RAM line can include sections that are not the board's
-    # usable internal SRAM. We have seen successful ESP32-S3 builds report
-    # "RAM: 1.28MB / 320.00KB (409.2%)", so treating that as upload headroom is
-    # misleading. A real over-capacity build is still caught by the compile exit
-    # code and overflow markers above.
-    if ram_pct is not None and ram_pct > 100:
-        ram_pct = None
+    # An over-100% figure is reported, not discarded. fbuild's ESP32 RAM line
+    # used to include sections that are not the board's usable internal SRAM
+    # ("RAM: 1.28MB / 320.00KB (409.2%)" from a build that fitted), and this
+    # returned None rather than mislead. That upstream bug is fixed (2.5.17,
+    # verified on 2.5.21), and the guard turned out to hide the opposite and
+    # worse case: on AVR, fbuild reports "build succeeded" for an image at
+    # 135.4% of flash and 2059.8% of RAM, and discarding the RAM figure took
+    # away the loudest evidence that the firmware cannot run. `_over_capacity`
+    # below is what acts on it.
     return {
         "flash": int(float(flash.group(1))) if flash else None,
-        "ram": ram_pct,
+        "ram": int(float(ram.group(1))) if ram else None,
     }
 
 
@@ -1536,14 +1537,13 @@ def _size_unit_to_bytes(value: float, unit: str) -> int:
 def _fbuild_size_bytes_report(lines):
     """Byte-level counterpart to `_fbuild_size_report` — returns
     {"flash": {"usedBytes", "limitBytes", "percent"} | None, "ram": ... | None}.
-    Applies the same impossible-RAM-percentage guard as `_fbuild_size_report`."""
+    Reports an over-100% figure rather than dropping it, for the reason given in
+    `_fbuild_size_report`."""
     text = "".join(lines)
     result: dict = {"flash": None, "ram": None}
     for m in _FBUILD_BYTES_RE.finditer(text):
         kind = m.group(1).lower()
         pct = float(m.group(6))
-        if kind == "ram" and pct > 100:
-            continue
         result[kind] = {
             "usedBytes": _size_unit_to_bytes(float(m.group(2)), m.group(3)),
             "limitBytes": _size_unit_to_bytes(float(m.group(4)), m.group(5)),
@@ -1561,6 +1561,28 @@ def _fbuild_size_bytes_report(lines):
 # instead of a bare "won't fit".
 _LD_OVERFLOW_RE = re.compile(r"region [`']([\w.]+)' overflowed by (\d+) bytes", re.I)
 _FBUILD_MEMORY_RE = re.compile(r"Memory:\s*([\d.]+)\s*(\w+)\s*Flash,\s*([\d.]+)\s*(\w+)\s*RAM", re.I)
+
+
+def _over_capacity(report) -> list[str]:
+    """Which of flash/RAM a *successful* fbuild build reported over 100%.
+
+    A build tool refusing to link an image that cannot fit is the size gate the
+    whole upload path leans on -- arduino-cli enforces it, and `_compile_upload`
+    says so. fbuild does not: on an Arduino Uno (31.50KB flash, 2.00KB RAM) it
+    reports
+
+        Flash: 42.64KB / 31.50KB (135.4%)
+        RAM:   41.20KB / 2.00KB (2059.8%)
+        build succeeded in 1.2s
+
+    and emits a .hex, exit code 0. Nothing downstream would have caught that:
+    the linker printed no overflow marker for `_looks_like_overflow` to find,
+    and the percentages were the only evidence there was. So a successful build
+    that measures over 100% is treated as the overflow it is."""
+    return [
+        kind for kind in ("flash", "ram")
+        if report.get(kind) is not None and report[kind] > 100
+    ]
 
 
 def _fbuild_overflow_estimate(lines):
@@ -1678,6 +1700,18 @@ def _compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None, usb_cdc=False)
             return rc, "compile"
 
         report = _fbuild_size_report(compile_lines)
+        over = _over_capacity(report)
+        if over:
+            measured = ", ".join(f"{kind} {report[kind]}%" for kind in over)
+            yield (
+                f"\n=== \u2717 Too big for {fqbn} ===\n"
+                f"  The build linked, but it does not fit: {measured}.\n"
+                "  Try fewer patterns in the collection, a smaller matrix, or fewer\n"
+                "  heavy nodes (Image / audio / field) - or pick a board (or ESP32\n"
+                "  partition scheme) with more space.\n"
+                "  [size-error] won't fit on this board\n"
+            )
+            return -1, "compile"
         if report["flash"] is not None:
             ram = f" · ram {report['ram']}%" if report["ram"] is not None else ""
             yield f"  [size] flash {report['flash']}%{ram}\n"
@@ -3023,7 +3057,13 @@ def compile_check(payload: dict = Body(...)):
     # been built at all, next to an Upload that then succeeded. It is a
     # not-measured state, so the frontend retries rather than showing a verdict.
     busy = not ok and phase == "busy"
-    overflow = not ok and not busy and _looks_like_overflow(lines)
+    # Either kind of evidence: the linker refusing to produce an image, or a
+    # build that succeeded while measuring over its own board limits (see
+    # `_over_capacity`) -- the second prints no linker marker at all.
+    measured_over = any(
+        (sizes.get(kind) or {}).get("percent", 0) > 100 for kind in ("flash", "ram")
+    )
+    overflow = not ok and not busy and (_looks_like_overflow(lines) or measured_over)
     if ok:
         error = None
     elif busy:
