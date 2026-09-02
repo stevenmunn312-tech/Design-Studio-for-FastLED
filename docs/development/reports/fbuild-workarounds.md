@@ -34,7 +34,7 @@ an internal record.
 | 6 | ESP32 RAM percentage impossible (>100%) on success | 2.4.0 | Discard RAM figure over 100% | Fixed in 2.5.17; guard kept as a sanity check |
 | 7 | `deploy` unimplemented for some compilable platforms | **2.5.4** | Fall back to arduino-cli | Yes |
 | 8 | Dep scanner misses transitive `SPI` in a vendored lib | 2.4.0 | Stub out the offending file | **No — FastLED guarded it in #3815, workaround removed 2026-08-27** |
-| 9 | A no-op build costs three minutes | **2.5.21** | None — measured, not worked around | Yes |
+| 9 | A no-op build costs three minutes on ESP32 (0.4s on AVR) | **2.5.21** | None — measured, not worked around | Yes |
 
 ---
 
@@ -343,10 +343,34 @@ following the cold build" — precisely the run measured above. On 2026-09-02, s
 | `bench/blink`, upstream nightly | AVR Uno, Linux | **46.5 ms** |
 | this helper's scaffold | ESP32-S3, Windows | **181,500 ms** |
 
-So the no-op path is not slow in itself — it is ~3,900x slower here. Three things differ
-and none has been isolated yet: 255 translation units against a handful, a `lib/` of
-5,497 files against none, and Windows file I/O against Linux. The upstream benchmark is
-structurally unable to show this, because a single-file Blink has nothing to scale with.
+So the no-op path is not slow in itself — it is ~3,900x slower here. The upstream
+benchmark is structurally unable to show this, because a single-file Blink has nothing to
+scale with.
+
+**Isolated locally (2026-09-03).** Three candidates could explain that gap: Windows file
+I/O, our 4,506-file vendored FastLED tree, and the size of the target. Timing a no-op for
+a small environment in *this* scaffold separates them — same host, same `lib/`, same
+fbuild 2.5.21, only the environment differs:
+
+| Environment | Objects in the build tree | Populate | No-op |
+|---|---|---|---|
+| `arduino_avr_uno` | 56 | 26.2s | **0.4s** |
+| `esp32_esp32_esp32s3_opi` | 255 | (full build ~6m) | **181.5s** |
+
+Both print the same `No-op fingerprint matched; reusing existing … artifacts` line. That
+eliminates the first two candidates outright: Windows and the FastLED tree are identical
+across those two rows and the AVR no-op is sub-second.
+
+It also rules out simple proportionality to translation-unit count. 4.6x the objects
+costs 450x the time — 7 ms per object on AVR against 712 ms per object on ESP32-S3. The
+cost tracks the *platform*, not the project. For scale, the ESP32 framework package tree
+is 10,059 files, and fbuild's own store (`~/.fbuild/prod/`) holds roughly 287,000: 102,503
+under `cache`, 49,612 under `zccache` — the fingerprint store, judging by the
+`.project.zccache_fp.stamp_cache.json` written into each build directory — and 134,932
+under `tmp`, which looks like leaked scratch rather than anything load-bearing.
+
+Not yet separated: whether this is specific to the ESP32 platform or general to any
+large-framework target. An ESP8266 or STM32 no-op in the same scaffold would tell.
 
 **A separate upstream regression, visible in the same history.** fbuild's *cold* time on
 that benchmark stepped up sharply and has stayed there, while warm was unaffected:
