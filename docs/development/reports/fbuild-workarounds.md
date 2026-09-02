@@ -34,6 +34,7 @@ an internal record.
 | 6 | ESP32 RAM percentage impossible (>100%) on success | 2.4.0 | Discard RAM figure over 100% | Fixed in 2.5.17; guard kept as a sanity check |
 | 7 | `deploy` unimplemented for some compilable platforms | **2.5.4** | Fall back to arduino-cli | Yes |
 | 8 | Dep scanner misses transitive `SPI` in a vendored lib | 2.4.0 | Stub out the offending file | **No — FastLED guarded it in #3815, workaround removed 2026-08-27** |
+| 9 | A no-op build costs three minutes | **2.5.21** | None — measured, not worked around | Yes |
 
 ---
 
@@ -275,6 +276,65 @@ already a silent no-op, which is its own argument for deleting rather than repoi
   exactly what failed here.
 - *fbuild:* honour `library.json` `srcFilter` / `dependencies` for local libraries, and
   resolve transitive framework libraries that use the legacy flat layout.
+
+---
+
+## 9. A build with nothing to do still takes three minutes
+
+**Symptom.** On an unchanged project, fbuild recognises there is no work and says so —
+then spends three minutes reaching that conclusion. Its own timer reports it:
+
+```text
+$ fbuild build -e esp32_esp32_esp32s3_opi -v --no-timestamp
+Board: Espressif ESP32-S3-DevKitC-1-N8 (8 MB QD, No PSRAM) / ESP32S3 @ 240MHz
+No-op fingerprint matched; reusing existing ESP32 artifacts.
+Flash: 732.27KB / 16.00MB (4.5%)
+RAM:   79.40KB / 320.00KB (24.8%)
+build succeeded in 181.5s (flash: 749848 bytes, ram: 81308 bytes)
+```
+
+Confirmed by the build tree: no object file, archive, `.elf` or `.bin` under
+`.fbuild/build/esp32_esp32_esp32s3_opi/` was written by that run or the one before it.
+Nothing was compiled, linked, or emitted. The 181.5s is entirely the decision.
+
+**Impact.** It is the dominant cost of an fbuild upload, and it does not shrink with the
+size of the change. Measured on 2026-09-02/03, same host, same sketch, same board
+(ESP32-S3 N16R8, `PSRAM=opi`), through the helper's own phase timing:
+
+| Engine | Second build | Re-upload (nothing changed) |
+|---|---|---|
+| arduino-cli | 26.7s | 26.8s |
+| fbuild | 3m 31s | 3m 40s |
+
+The fbuild re-upload breaks down as 3m 09s compile phase — 181.5s of it fbuild's own
+no-op check — plus a 30.6s deploy, of which 24.0s is the firmware write at the pinned
+115200 baud. Roughly 97% of a run that compiled nothing was spent deciding so.
+
+For scale, the project fbuild is checking: 255 translation units in that environment,
+and a `lib/` holding 5,497 files — 4,506 of them a full FastLED clone whose `ci/`,
+`examples/`, `tests/`, `docs/` and `.git` directories PlatformIO never needs.
+
+**Workaround.** None. This is not something the helper can accommodate; it is reported
+here because it is the single largest remaining cost of choosing fbuild over
+arduino-cli, and because the numbers above are the report.
+
+**Not the cause.** Two candidates were eliminated first, both by the same build-tree
+timestamps:
+
+- *Our own file writes.* The helper used to rewrite the generated sketch on every run
+  and re-patch the vendored FastLED headers on every helper start, both with bytes
+  already on disk. Both now go through `_write_if_changed` (2026-09-02), and fbuild
+  fingerprints content rather than mtimes in any case — the no-op above is what
+  a correctly-cached project looks like.
+- *The flash baud.* Real, but small: see the deploy experiment below. esptool compresses
+  the image (696,608 bytes to 270,131), so 115200 costs about 21s against 921600 — an
+  eighth of what the no-op check costs.
+
+**Upstream ask.** Make the no-op path proportional to what changed. A fingerprint match
+that takes three minutes to establish gives back none of what a fingerprint cache is
+for; whatever it is doing per translation unit (255 of them here) or per vendored file
+(5,497) is work the cache exists to avoid. Worth reporting with the log above, which is
+self-contained: fbuild states both the no-op match and its own elapsed time.
 
 ---
 
