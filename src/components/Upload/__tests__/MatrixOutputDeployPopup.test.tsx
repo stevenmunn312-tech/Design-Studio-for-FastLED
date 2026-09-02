@@ -154,6 +154,25 @@ describe('MatrixOutputDeployPopup', () => {
     expect(getByText('Live control')).toBeTruthy()
   })
 
+  it('keeps setup left of an inline upload-engine selector', () => {
+    const setEngine = vi.fn()
+    useUploadStore.setState({
+      helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: true },
+      setEngine,
+    })
+
+    const { getByRole } = render(<MatrixOutputDeployPopup inline />)
+    const enginePicker = getByRole('group', { name: 'Upload engine' })
+    const setupButton = getByRole('button', { name: '✦ Setup…' })
+    const engineButtons = Array.from(enginePicker.querySelectorAll('button'))
+
+    expect(setupButton.parentElement).toBe(enginePicker.parentElement)
+    expect(engineButtons.map((button) => button.textContent)).toEqual(['fbuild', 'arduino-cli'])
+
+    fireEvent.click(getByRole('button', { name: 'arduino-cli' }))
+    expect(setEngine).toHaveBeenCalledWith('arduino-cli')
+  })
+
   it('offers single-step fixes for missing core and missing port', () => {
     const installCore = vi.fn()
     const openBoardPopup = vi.fn()

@@ -66,7 +66,7 @@ export default function MatrixOutputDeployPopup({
     helper, installedCores, selectedFqbn, selectedPort, ports, busy, status, codeViewOpen,
     refreshHelper, refreshPorts, installCore, activeOutputNodeId,
     openBoardPopup, openCliPopup, openCodeView, closeDeployPopup, openSetupWizard, runUpload, runLastUpload, runShowUpload, exportIno,
-    cancelUpload,
+    cancelUpload, setEngine,
     cardReader, setCardReader,
   } = useUploadStore()
   const hasLastSketch = useUploadStore((s) => !!(currentProjectId && s.lastSketchByProject[currentProjectId]))
@@ -473,8 +473,8 @@ export default function MatrixOutputDeployPopup({
           )}
         </div>
 
-        <div className={styles.targetRow}>
-          <div className={styles.targetBig}>{target}</div>
+        <div className={`${styles.targetBig} ${styles.deployTarget}`}>{target}</div>
+        <div className={styles.targetActionRow}>
           {/* The guided setup used to hang off the output node's strip, which
               was its only way in. Moving upload here without it would have
               quietly removed the wizard from the app. */}
@@ -485,6 +485,34 @@ export default function MatrixOutputDeployPopup({
           >
             ✦ Setup…
           </button>
+
+          <div className={styles.uploadEnginePicker} role="group" aria-label="Upload engine">
+            <span className={styles.uploadEngineLabel}>Engine</span>
+            <div className={styles.consoleTabs}>
+              <button
+                type="button"
+                className={usingFbuild ? styles.consoleTabActive : styles.consoleTab}
+                disabled={busy || !helper?.fbuild}
+                onClick={() => { void setEngine('fbuild') }}
+                title={helper?.fbuild
+                  ? 'Use fbuild for compiling and uploading'
+                  : 'fbuild is not available on this machine'}
+              >
+                fbuild
+              </button>
+              <button
+                type="button"
+                className={!usingFbuild && helper ? styles.consoleTabActive : styles.consoleTab}
+                disabled={busy || !helper?.arduinoCli}
+                onClick={() => { void setEngine('arduino-cli') }}
+                title={helper?.arduinoCli
+                  ? 'Use arduino-cli for compiling and uploading'
+                  : 'arduino-cli is not available on this machine'}
+              >
+                arduino-cli
+              </button>
+            </div>
+          </div>
         </div>
         {hasFrameInput && (
           /* The check compiles the whole design against the board, so it runs

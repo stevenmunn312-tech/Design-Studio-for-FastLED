@@ -400,6 +400,39 @@
   padding-right: 3px;
 }
 
+.targetBig.deployTarget {
+  margin-top: 0;
+  text-align: left;
+}
+
+.targetActionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.targetActionRow .setupBtn {
+  flex: 0 0 auto;
+}
+
+.uploadEnginePicker {
+  min-width: 0;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.uploadEngineLabel {
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .primaryActionDock {
   position: sticky;
   top: 0;
