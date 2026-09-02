@@ -14,7 +14,7 @@ Active backlog for the breaking `Hardware` line. The implemented two-view hardwa
 ## Deferred model work
 
 - [x] Add a Storage capability abstraction covering SD, onboard flash, and USB.
-- [ ] Implement per-output native rendering so differently shaped outputs do not distort one shared composition. Keep preview and firmware changes together; see [`per-output-native-render.md`](../design/per-output-native-render.md).
+- [x] Implement per-output native rendering so differently shaped outputs do not distort one shared composition. Keep preview and firmware changes together; see [`per-output-native-render.md`](../design/per-output-native-render.md).
 - [ ] Support two-board graphs if the product needs attachment edges again.
 - [ ] Add a Raspberry Pi codegen backend after the controller model is stable; this remains outside the initial hardware release.
 
