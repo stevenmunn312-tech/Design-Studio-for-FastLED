@@ -97,6 +97,29 @@ describe('BoardNodeBody', () => {
     expect(useUploadStore.getState().selectedFqbn).toBe(firstPico.compatibleFqbns[0])
   })
 
+  it('keeps the selected family visible while a pattern graph is open', () => {
+    const rootBoard = boardNode('b1')
+    useGraphStore.setState({
+      nodes: [],
+      edges: [],
+      activeGraphId: 'pattern-1',
+      graphData: {
+        [ROOT_GRAPH_ID]: { nodes: [rootBoard], edges: [] },
+      },
+      trusted: true,
+    } as never)
+    render(<BoardNodeBody nodeId="b1" />)
+
+    fireEvent.change(screen.getByLabelText('Board family'), { target: { value: 'esp32-s3' } })
+
+    const firstS3 = boardProfilesForFamily('esp32-s3')[0]
+    const storedRoot = useGraphStore.getState().graphData[ROOT_GRAPH_ID].nodes
+    const properties = storedRoot[0].data.properties as Record<string, unknown>
+    expect(properties.profileId).toBe(firstS3.id)
+    expect((screen.getByLabelText('Board family') as HTMLSelectElement).value).toBe('esp32-s3')
+    expect((screen.getByLabelText('Controller board') as HTMLSelectElement).value).toBe(firstS3.id)
+  })
+
   it('records the profile and mirrors its closest FQBN into the upload target', () => {
     const xiao = BOARD_PROFILES.find((p) => p.id === 'seeed-xiao-esp32s3')!
     render(<BoardNodeBody nodeId="b1" />)

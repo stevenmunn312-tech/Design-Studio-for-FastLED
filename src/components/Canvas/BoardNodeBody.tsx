@@ -36,24 +36,26 @@ export default function BoardNodeBody({ nodeId }: Props) {
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
   const selectedPort = useUploadStore((s) => s.selectedPort)
   const ports = useUploadStore((s) => s.ports)
+  const graphNodes = useRootNodes()
 
-  const profileId = useGraphStore((s) => {
-    const node = s.nodes.find((n) => n.id === nodeId)
+  const profileId = useMemo(() => {
+    const node = graphNodes.find((n) => n.id === nodeId)
     const props = node?.data.properties as Record<string, unknown> | undefined
     return typeof props?.profileId === 'string' ? props.profileId : ''
-  })
+  }, [graphNodes, nodeId])
 
   // One board per sketch is a fact of codegen, not a preference — a second
   // Board node has no meaning, so say so rather than silently letting one win.
-  const boardNodeCount = useGraphStore(
-    (s) => s.nodes.filter((n) => n.data.nodeType === 'Board').length)
+  const boardNodeCount = useMemo(
+    () => graphNodes.filter((n) => n.data.nodeType === 'Board').length,
+    [graphNodes],
+  )
 
   const profile = useMemo(() => boardProfileById(profileId), [profileId])
   const boardTarget = boardByFqbn(selectedFqbn)
   const psramOptions = boardTarget?.psram
   const psramSupported = !!psramOptions || !!profile?.psramMode
   const hasUsbCdc = boardHasUsbCdc(selectedFqbn)
-  const graphNodes = useRootNodes()
   const settings = useMemo(() => controllerSettings(graphNodes), [graphNodes])
   const power = useMemo(() => estimatePowerLoad(graphNodes), [graphNodes])
   const psramChoice = psramOptions?.find((option) => option.id === settings.psramMode) ?? psramOptions?.[0]
