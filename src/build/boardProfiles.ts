@@ -723,6 +723,11 @@ export interface BoardProfileFamily {
 
 const BOARD_PROFILE_FAMILY_DEFINITIONS: readonly BoardProfileFamily[] = [
   { id: 'esp32', label: 'ESP32' },
+  { id: 'esp32-s2', label: 'ESP32-S2' },
+  { id: 'esp32-s3', label: 'ESP32-S3' },
+  { id: 'esp32-c3', label: 'ESP32-C3' },
+  { id: 'esp32-c6', label: 'ESP32-C6' },
+  { id: 'esp32-h2', label: 'ESP32-H2' },
   { id: 'esp8266', label: 'ESP8266' },
   { id: 'teensy', label: 'Teensy' },
   { id: 'rp', label: 'RP2040 / RP2350' },
@@ -735,12 +740,21 @@ const BOARD_PROFILE_FAMILY_DEFINITIONS: readonly BoardProfileFamily[] = [
   { id: 'other', label: 'Other' },
 ]
 
-/** Broad controller family used by the Board node's first selector. This is
- * intentionally coarser than BuildTargetFamily: ESP32-S2/S3/C3/C6/H2 all
- * belong under one user-facing ESP32 family. */
+const ESP32_VARIANT_FAMILY_IDS: readonly BuildTargetFamily[] = [
+  'esp32-s2',
+  'esp32-s3',
+  'esp32-c3',
+  'esp32-c6',
+  'esp32-h2',
+]
+
+/** Controller family used by the Board node's first selector. ESP32 variants
+ * stay separate because their pinouts and peripheral capabilities differ. */
 export function boardProfileFamilyId(profile: PhysicalBoardProfile): string {
   const fqbn = profile.compatibleFqbns[0]?.toLowerCase() ?? ''
-  if (fqbn.startsWith('esp32:')) return 'esp32'
+  if (fqbn.startsWith('esp32:')) {
+    return ESP32_VARIANT_FAMILY_IDS.find((family) => profile.targetFamilies.includes(family)) ?? 'esp32'
+  }
   if (fqbn.startsWith('esp8266:')) return 'esp8266'
   if (fqbn.startsWith('teensy:')) return 'teensy'
   if (fqbn.startsWith('rp2040:') || fqbn.includes('nanorp2040')) return 'rp'

@@ -14,9 +14,9 @@ import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import type { StudioNode } from '../../../state/graphStore'
 
 // The Board node names an exact board rather than a chip target. Selecting
-// "ESP32" identifies silicon and leaves the header layout ambiguous — two
-// DevKit profiles claim that FQBN — which is how a pin can validate against the
-// chip and still not exist on any header the user can reach.
+// An ESP32 variant identifies silicon and leaves the header layout ambiguous —
+// two DevKit profiles can claim that FQBN — which is how a pin can validate
+// against the chip and still not exist on any header the user can reach.
 
 function boardNode(id: string, profileId = ''): StudioNode {
   const def = NODE_LIBRARY.find((n) => n.type === 'Board')
@@ -101,7 +101,7 @@ describe('BoardNodeBody', () => {
     const xiao = BOARD_PROFILES.find((p) => p.id === 'seeed-xiao-esp32s3')!
     render(<BoardNodeBody nodeId="b1" />)
 
-    fireEvent.change(screen.getByLabelText('Board family'), { target: { value: 'esp32' } })
+    fireEvent.change(screen.getByLabelText('Board family'), { target: { value: 'esp32-s3' } })
     fireEvent.change(screen.getByLabelText('Controller board'), { target: { value: xiao.id } })
 
     const props = useGraphStore.getState().nodes[0].data.properties as Record<string, unknown>
@@ -138,7 +138,7 @@ describe('BoardNodeBody', () => {
     reset([boardNode('b1', xiao.id)])
     render(<BoardNodeBody nodeId="b1" />)
 
-    expect((screen.getByLabelText('Board family') as HTMLSelectElement).value).toBe('esp32')
+    expect((screen.getByLabelText('Board family') as HTMLSelectElement).value).toBe('esp32-s3')
 
     const safe = xiao.pinSafety?.safeGeneralPurpose ?? []
     expect(safe.length).toBeGreaterThan(0)

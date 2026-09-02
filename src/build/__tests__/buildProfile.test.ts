@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { ensureBuildProfile, normalizeBuildProfile } from '../buildProfile'
+import { ensureBuildProfile, normalizeBuildProfile, targetFamilyFromFqbn } from '../buildProfile'
 
 describe('buildProfile', () => {
+  it('recognizes ESP32 variants in generic and vendor-specific FQBNs', () => {
+    expect(targetFamilyFromFqbn('esp32:esp32:esp32s3')).toBe('esp32-s3')
+    expect(targetFamilyFromFqbn('esp32:esp32:lolin_s2_mini')).toBe('esp32-s2')
+    expect(targetFamilyFromFqbn('esp32:esp32:lolin_c3_mini')).toBe('esp32-c3')
+    expect(targetFamilyFromFqbn('esp32:esp32:esp32')).toBe('esp32')
+  })
+
   it('keeps a valid export mode when normalizing build profile data', () => {
     expect(normalizeBuildProfile({
       version: 1,

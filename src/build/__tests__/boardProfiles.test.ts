@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   BOARD_PROFILES,
+  BOARD_PROFILE_FAMILIES,
   boardPinForGpio,
   boardProfileById,
+  boardProfileFamilyId,
+  boardProfilesForFamily,
   selectedBoardFlashMb,
   boardPinVerdict,
   compatibleBoardProfilesForFqbn,
@@ -35,6 +38,31 @@ function fixture(overrides: Partial<PhysicalBoardProfile> = {}): PhysicalBoardPr
 }
 
 describe('boardProfiles', () => {
+  it('splits ESP32 boards into their silicon variants', () => {
+    expect(BOARD_PROFILE_FAMILIES.filter((family) => family.id.startsWith('esp32')))
+      .toEqual([
+        { id: 'esp32', label: 'ESP32' },
+        { id: 'esp32-s2', label: 'ESP32-S2' },
+        { id: 'esp32-s3', label: 'ESP32-S3' },
+        { id: 'esp32-c3', label: 'ESP32-C3' },
+        { id: 'esp32-c6', label: 'ESP32-C6' },
+        { id: 'esp32-h2', label: 'ESP32-H2' },
+      ])
+
+    expect(boardProfileFamilyId(boardProfileById('seeed-xiao-esp32s3')!)).toBe('esp32-s3')
+    expect(boardProfileFamilyId(boardProfileById('lolin-c3-mini')!)).toBe('esp32-c3')
+    expect(boardProfilesForFamily('esp32')).toContainEqual(
+      expect.objectContaining({ id: 'esp32-generic-devkit-38pin' }),
+    )
+
+    const esp32Boards = BOARD_PROFILES.filter((profile) =>
+      profile.compatibleFqbns[0]?.startsWith('esp32:'),
+    )
+    expect(esp32Boards.every((profile) =>
+      boardProfilesForFamily(boardProfileFamilyId(profile)).includes(profile),
+    )).toBe(true)
+  })
+
   it('validates the built-in physical board registry', () => {
     expect(validateBoardProfiles()).toEqual([])
   })

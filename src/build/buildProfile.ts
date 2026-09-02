@@ -306,12 +306,15 @@ export function normalizeBuildProfile(value: unknown): BuildProfile | undefined 
 export function targetFamilyFromFqbn(fqbn: string): BuildTargetFamily {
   if (!fqbn) return 'unknown'
   const text = fqbn.toLowerCase()
-  if (text.includes('esp32s3')) return 'esp32-s3'
-  if (text.includes('esp32s2')) return 'esp32-s2'
-  if (text.includes('esp32c3')) return 'esp32-c3'
-  if (text.includes('esp32c6')) return 'esp32-c6'
-  if (text.includes('esp32h2')) return 'esp32-h2'
-  if (text.includes('esp32')) return 'esp32'
+  if (text.startsWith('esp32:') || text.includes('esp32')) {
+    const boardId = text.split(':').at(-1) ?? text
+    if (/esp32s3|(?:^|[_-])s3(?:[_-]|$)/.test(boardId)) return 'esp32-s3'
+    if (/esp32s2|(?:^|[_-])s2(?:[_-]|$)/.test(boardId)) return 'esp32-s2'
+    if (/esp32c3|(?:^|[_-])c3(?:[_-]|$)/.test(boardId)) return 'esp32-c3'
+    if (/esp32c6|(?:^|[_-])c6(?:[_-]|$)/.test(boardId)) return 'esp32-c6'
+    if (/esp32h2|(?:^|[_-])h2(?:[_-]|$)/.test(boardId)) return 'esp32-h2'
+    return 'esp32'
+  }
   if (text.includes('esp8266')) return 'esp8266'
   if (text.includes('rpipico2') || text.includes('rp2040')) return 'rp2040'
   if (text.includes('teensy')) return 'teensy'
