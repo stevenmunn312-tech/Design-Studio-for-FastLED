@@ -351,8 +351,22 @@ Ours is also measured in a stable project directory (`backend/.fbuild-project`),
 fresh temporary one, so #1347's tempdir mechanism does not apply to it.
 
 What *does* corroborate #1347 from our bench: the cold build of the bare blink project
-above — three lines, no libraries, a fresh temp directory — took **736s**, which is the
-same "~4s per file on Windows" wall #1347 describes.
+above — three lines, no libraries, a fresh temp directory — took **736s**.
+
+Upstream's reading of that number (2026-09-03, on #1347) was "it's the espressif download
+and it's about as long to install as platformio. after that the build is fast." Half right,
+and checking it produced a better number than the one it explained. Nothing was downloaded:
+the Espressif packages here date from 2026-05-26 and fbuild's own `cache/toolchains/` and
+`cache/platforms/` from 2026-08-18, while the directories written during that build were
+`~/.fbuild/prod/cache/core/<hash>/` — compiled core artifacts, with 18 then 36 concurrent
+`xtensa-esp-elf-gcc` processes observed. So it was a one-time *compile* into the shared
+core cache, comparable in cost to an install.
+
+What follows it is the useful measurement. A second brand-new project directory, same
+environment, core cache now warm, reports `Compiled 1/1 files` and no download/install line
+anywhere — and still takes **233.0s** to compile that one file and link a blink. Against
+the 161.2s no-op for the same project, ~160s of every ESP32 build here is fixed cost that
+no amount of caching removes.
 
 **Symptom.** On an unchanged project, fbuild recognises there is no work and says so —
 then spends three minutes reaching that conclusion. Its own timer reports it:
