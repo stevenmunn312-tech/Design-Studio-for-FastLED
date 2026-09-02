@@ -37,6 +37,21 @@ the exact environment and path that were exercised. Everything else stays
 
 These are the only fully recorded public-beta support rows today.
 
+### ESP32 upload-engine recommendation
+
+For new ESP32 uploads, Studio defaults to and recommends `arduino-cli`. fbuild 2.5.21
+has a confirmed unresolved ESP32 no-op delay: on the recorded Windows/ESP32-S3 bench,
+an unchanged build spent 181.5 seconds deciding that no compilation was needed, making
+the full re-upload 3m 40s versus 26.8s with arduino-cli. fbuild remains available in
+Board & Port as an explicit **experimental workflow choice** because it manages its own
+toolchains and may still suit users who accept that latency. See the
+[fbuild workaround report](../development/reports/fbuild-workarounds.md#9-a-build-with-nothing-to-do-still-takes-three-minutes).
+
+This recommendation does not retroactively invalidate the fbuild hardware rows above,
+and it does not promote unrecorded arduino-cli/board combinations to supported status.
+The rows remain evidence for exactly the engine, board, host, browser, layout, and action
+they name.
+
 ## Recorded validations that are not yet full support rows
 
 - **2026-08-09 — ESP32-S3, HUB75 output (`fbuild`), two passes same session.**
@@ -120,8 +135,9 @@ Unless a future row says otherwise, treat the following as experimental:
 - Tiled panels and custom XY maps (non-rectangular layouts) — strip layout has
   recorded 10x1 ESP8266 plus 60x1 and 65x1 ESP32-S3 validations only for their
   exact rows and actions above.
-- `arduino-cli` as an upload engine, beyond the recorded ESP8266 +
-  strip-layout row above.
+- `arduino-cli` hardware combinations beyond the recorded rows above. It is the
+  recommended ESP32 workflow because of fbuild's repeat-upload latency, but that
+  operational recommendation is not a substitute for a dated hardware-validation row.
 - PSRAM modes except OPI on the exact ESP32-S3 + 60x1 normal-upload/live-stream
   and 65x1 microphone/live-stream rows above.
 - Baked song envelopes and collection-driven modulation in the music-show

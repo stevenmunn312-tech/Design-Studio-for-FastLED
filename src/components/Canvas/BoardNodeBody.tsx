@@ -77,8 +77,15 @@ export default function BoardNodeBody({ nodeId }: Props) {
     chooseBoard(firstBoard?.id ?? '')
   }
 
-  const safeCount = profile?.pinSafety?.safeGeneralPurpose.length ?? 0
   const peripherals = profile?.peripheralPins
+  const psramSummary = settings.psramPolicy === 'auto'
+    ? settings.usePsram
+      ? `Auto detected ${profile?.memory?.psramMb ?? ''} MB ${settings.psramMode.toUpperCase()} PSRAM from this board profile.`
+      : 'This profile does not identify a safe PSRAM interface, so Auto leaves it off.'
+    : settings.usePsram
+      ? `Render buffers use ${psramChoice?.label ?? settings.psramMode.toUpperCase()} PSRAM.`
+      : 'Render buffers stay in internal RAM.'
+  const serialSummary = `${serialRouteSummary(settings.serialRoute, serialPort)}. This decides where the serial monitor, RTC set, SD-show transfer and live streaming talk. Use a manual choice only when the USB device does not expose enough identity for Auto.`
 
   return (
     <div className={`${styles.body} nodrag`}>
@@ -133,14 +140,6 @@ export default function BoardNodeBody({ nodeId }: Props) {
 
       {profile && (
         <div className={styles.detail}>
-          <div className={styles.row}>
-            <span className={styles.key}>Made by</span>
-            <span className={styles.value}>{profile.manufacturer}</span>
-          </div>
-          <div className={styles.row}>
-            <span className={styles.key}>Source</span>
-            <span className={styles.value}>{profile.confidence.replace(/-/g, ' ')}</span>
-          </div>
           {profile.processor && (
             <div className={styles.row}>
               <span className={styles.key}>Chip</span>
@@ -148,37 +147,9 @@ export default function BoardNodeBody({ nodeId }: Props) {
             </div>
           )}
 
-          {profile.pinSafety ? (
-            <div className={styles.row}>
-              <span className={styles.key}>Free pins</span>
-              <span className={styles.value}>{safeCount} on the header</span>
-            </div>
-          ) : (
-            // Distinguish "checked, and here is the answer" from "never
-            // checked". Silence would read as the former.
-            <p className={styles.pending}>
-              No pin-safety data yet for this board — validation falls back to
-              chip-level rules.
-            </p>
-          )}
-
-          {peripherals && (
+          {peripherals?.fastLedData && (
             <ul className={styles.peripherals}>
-              {peripherals.fastLedData && (
-                <li>LED data → GPIO{peripherals.fastLedData.recommendedDefault}</li>
-              )}
-              {peripherals.inmp441 && (
-                <li>
-                  Mic → WS {peripherals.inmp441.wsLrclk} · SCK{' '}
-                  {peripherals.inmp441.sckBclk} · SD {peripherals.inmp441.sdDout}
-                </li>
-              )}
-              {peripherals.max98357 && (
-                <li>
-                  Amp → BCLK {peripherals.max98357.bclk} · LRC{' '}
-                  {peripherals.max98357.lrc} · DIN {peripherals.max98357.din}
-                </li>
-              )}
+              <li>LED data → GPIO{peripherals.fastLedData.recommendedDefault}</li>
             </ul>
           )}
         </div>
@@ -187,7 +158,6 @@ export default function BoardNodeBody({ nodeId }: Props) {
       <div className={styles.settingsSection}>
         <div className={styles.settingsHeader}>
           <strong>Controller Settings</strong>
-          <span>One policy for every LED output</span>
         </div>
 
         <label className={styles.settingField}>
@@ -259,6 +229,7 @@ export default function BoardNodeBody({ nodeId }: Props) {
             <label className={styles.pickerField}>
               <span className={styles.pickerLabel}>Render-buffer memory</span>
               <select className={styles.picker} value={settings.psramPolicy} aria-label="PSRAM policy"
+                title={psramSummary}
                 onChange={(event) => updateNodeProperty(nodeId, 'psramPolicy', event.target.value)}>
                 <option value="auto">Auto (recommended)</option>
                 <option value="on">PSRAM on</option>
@@ -271,15 +242,6 @@ export default function BoardNodeBody({ nodeId }: Props) {
                 {psramOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
               </select>
             )}
-            <p className={styles.pending}>
-              {settings.psramPolicy === 'auto'
-                ? settings.usePsram
-                  ? `Auto detected ${profile?.memory?.psramMb ?? ''} MB ${settings.psramMode.toUpperCase()} PSRAM from this board profile.`
-                  : 'This profile does not identify a safe PSRAM interface, so Auto leaves it off.'
-                : settings.usePsram
-                  ? `Render buffers use ${psramChoice?.label ?? settings.psramMode.toUpperCase()} PSRAM.`
-                  : 'Render buffers stay in internal RAM.'}
-            </p>
           </div>
         ) : (
           <p className={styles.pending}>PSRAM is not available for this board target.</p>
@@ -290,17 +252,13 @@ export default function BoardNodeBody({ nodeId }: Props) {
             <label className={styles.pickerField}>
               <span className={styles.pickerLabel}>Serial connection</span>
               <select className={styles.picker} value={settings.serialRoute} aria-label="Serial route"
+                title={serialSummary}
                 onChange={(event) => updateNodeProperty(nodeId, 'serialRoute', event.target.value)}>
                 <option value="auto">Auto (recommended)</option>
                 <option value="native">Native USB</option>
                 <option value="uart">UART bridge</option>
               </select>
             </label>
-            <p className={styles.pending}>
-              {serialRouteSummary(settings.serialRoute, serialPort)}. This decides where the
-              serial monitor, RTC set, SD-show transfer and live streaming talk. Use a manual
-              choice only when the USB device does not expose enough identity for Auto.
-            </p>
           </div>
         )}
       </div>

@@ -12,11 +12,18 @@ Project/Pattern Library sync remain unavailable until the helper is online.
 
 ## Build engines
 
-Two engines are supported; the helper picks one automatically (`fbuild` when
-available, else `arduino-cli`) and reports the active choice at `/api/health`
-and `/api/engine`.
+Two engines are supported; the helper picks one automatically (`arduino-cli`
+when available, otherwise `fbuild`) and reports the active choice at
+`/api/health` and `/api/engine`. A saved explicit choice wins while that engine
+remains available.
 
-- **`fbuild`** (preferred) — FastLED's own PlatformIO-compatible build tool.
+- **`arduino-cli`** (recommended for ESP32) — the original engine. It needs the
+  ESP32 core + FastLED library installed per board (via the Arduino IDE, or
+  `arduino-cli core install esp32:esp32` / `arduino-cli lib install FastLED`).
+  It is the default while fbuild 2.5.21's confirmed ESP32 no-op check can take
+  roughly three minutes on an unchanged build.
+- **`fbuild`** (explicit experimental choice for ESP32) — FastLED's own
+  PlatformIO-compatible build tool.
   It manages its own toolchains/frameworks per board (downloaded on first use
   into `.fbuild-project/`, a persistent scaffold this helper generates), so
   there's no per-board core install step. FastLED and, for the music-sync
@@ -27,10 +34,8 @@ and `/api/engine`.
   `main.ino`; fbuild 2.5.16 fixed the include/prototype ordering defect that
   previously required a plain-CPP workaround. **Hardware-validated** on a real ESP32-S3
   (16×16 WS2812B matrix, GPIO6): fbuild compiled, flashed via `esptool`,
-  and the uploaded pattern ran correctly.
-- **`arduino-cli`** (fallback) — the original engine. Needs the ESP32 core +
-  FastLED library installed per board (via the Arduino IDE, or
-  `arduino-cli core install esp32:esp32` / `arduino-cli lib install FastLED`).
+  and the uploaded pattern ran correctly. That validation does not resolve the
+  no-op delay, so fbuild is no longer the recommended ESP32 workflow.
 
 ## Prerequisites
 
@@ -47,7 +52,7 @@ and `/api/engine`.
 - `pip install -r backend/requirements.txt` gets you `fbuild` and `esptool`
   (fbuild shells out to `esptool` to convert `firmware.elf` → `firmware.bin`
   for ESP32 targets).
-- If you'd rather use the `arduino-cli` fallback: [`arduino-cli`](https://arduino.github.io/arduino-cli/)
+- For the recommended ESP32 path, install [`arduino-cli`](https://arduino.github.io/arduino-cli/)
   on your `PATH` (or set `ARDUINO_CLI=/path/to/arduino-cli`) — installing the
   Arduino IDE also works, its bundled CLI and config are picked up
   automatically — plus the ESP32 core + FastLED library (see above).

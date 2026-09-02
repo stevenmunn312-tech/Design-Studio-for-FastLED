@@ -21,8 +21,6 @@ import PartIdentity from './PartIdentity'
 import { useUploadStore } from '../../state/uploadStore'
 import {
   boardProfileById,
-  boardProfileFamilyId,
-  boardProfilesForFamily,
   selectedPhysicalBoardProfile,
   type PhysicalBoardProfile,
 } from '../../build/boardProfiles'
@@ -875,7 +873,6 @@ export default function HardwarePane() {
     [],
   )
 
-  const boardFamilyId = boardProfile ? boardProfileFamilyId(boardProfile) : ''
   const leftInset = sidebarOpen ? sidebarWidth : 0
   const previewInset = previewPanelOpen ? previewWidth : 0
   const inspectorOpen = paneTab === 'hardware' && inspectorNode !== null
@@ -2115,7 +2112,6 @@ export default function HardwarePane() {
         >
           <div className={styles.boardMenuHeader}>
             <strong>Board</strong>
-            <span>{boardProfilesForFamily(boardFamilyId).length} options in this family</span>
           </div>
           <Suspense fallback={<div className={styles.lazyPanelStatus} role="status">Loading board settings…</div>}>
             <BoardNodeBody nodeId={boardNodeId} />

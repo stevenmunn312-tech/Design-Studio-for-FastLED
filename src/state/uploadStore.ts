@@ -66,8 +66,8 @@ export interface Board {
 // which already treats "all boards except ESP32-S3" as experimental. A few
 // entries carry an extra inline caveat where the exact arduino-cli FQBN or
 // fbuild/PlatformIO board id couldn't be verified against a real toolchain in
-// this environment; fbuild (the preferred engine) is expected to work for all
-// of them via `_PIO_BOARDS` in `backend/app.py` — arduino-cli fallback may not
+// this environment; fbuild is expected to work for all of them via
+// `_PIO_BOARDS` in `backend/app.py` — arduino-cli may not
 // for the STM32/Zero entries flagged below.
 export const BOARDS: Board[] = [
   { label: 'ESP32-S3',      fqbn: 'esp32:esp32:esp32s3',   core: 'esp32:esp32',   thirdParty: true,

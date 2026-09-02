@@ -4,11 +4,10 @@ A tiny FastAPI service the browser app talks to so it can compile and upload
 sketches to a board over USB — the browser can't launch a local CLI itself.
 Mirrors the proven setup from the Matrix Studio backend.
 
-Two build engines are supported: `fbuild` (FastLED's own PlatformIO-compatible
-build tool — preferred when installed, since it manages its own toolchains and
-needs no per-board core install) and `arduino-cli` (the original engine, kept
-as a fallback). `_active_engine()` picks one; `/api/engine` lets the UI query
-or override the choice.
+Two build engines are supported: `arduino-cli` (the default when installed)
+and `fbuild` (FastLED's own PlatformIO-compatible build tool, available as an
+explicit experimental choice). `_active_engine()` picks one; `/api/engine`
+lets the UI query or override the choice.
 
 Run (from the repo root):
 
@@ -161,8 +160,9 @@ _refresh_cli()
 # own PlatformIO-compatible build tool. It removes most of arduino-cli's
 # lifecycle management (per-board core install, FastLED lib install) — a board
 # just needs one `[env:X]` section in `platformio.ini` and fbuild downloads its
-# own toolchain/framework on first use. Preferred engine when present; falls
-# back to arduino-cli otherwise (see `_active_engine`).
+# own toolchain/framework on first use. It remains available as an explicit
+# experimental choice, but arduino-cli is the default while fbuild's confirmed
+# ESP32 no-op delay is unresolved (see `_active_engine`).
 _FBUILD_BIN: str | None = None
 _ESPTOOL_BIN: str | None = None
 
@@ -217,14 +217,14 @@ _refresh_fbuild()
 
 def _active_engine() -> str:
     """Which build engine to use. A saved `engine` preference wins if that
-    engine is actually available; otherwise prefer fbuild (fewer moving parts)
-    and fall back to arduino-cli."""
+    engine is actually available; otherwise prefer arduino-cli. fbuild remains
+    the automatic fallback when it is the only installed engine."""
     saved = _load_config().get("engine")
     if saved == "fbuild" and _FBUILD_BIN:
         return "fbuild"
     if saved == "arduino-cli" and _ARDUINO_CLI:
         return "arduino-cli"
-    return "fbuild" if _FBUILD_BIN else "arduino-cli"
+    return "arduino-cli" if _ARDUINO_CLI else ("fbuild" if _FBUILD_BIN else "arduino-cli")
 
 
 # ── fbuild project scaffold ───────────────────────────────────────────────────

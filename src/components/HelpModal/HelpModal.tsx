@@ -483,13 +483,13 @@ function UploadTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>3</div>
             <div className={styles.tipText}>
-              <strong>Let the build engine prepare.</strong> Studio prefers <strong>fbuild</strong>, which downloads its board toolchain on the first compile. This may take longer than later builds.
+              <strong>Let the build engine prepare.</strong> Studio recommends <strong>arduino-cli</strong> for ESP32 targets while fbuild's confirmed no-op delay remains unresolved.
             </div>
           </div>
           <div className={styles.tip}>
             <div className={styles.tipIcon}>4</div>
             <div className={styles.tipText}>
-              <strong>If Studio uses arduino-cli instead,</strong> install the board core and FastLED library. The helper can locate or download <code>arduino-cli</code>, but its libraries and cores are managed separately.
+              <strong>For arduino-cli,</strong> install the board core and FastLED library. The helper can locate or download <code>arduino-cli</code>, but its libraries and cores are managed separately. <strong>fbuild</strong> remains available in Board &amp; Port as an explicit experimental choice and manages its own toolchains.
             </div>
           </div>
         </div>

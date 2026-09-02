@@ -152,29 +152,35 @@ describe('BoardNodeBody', () => {
     render(<BoardNodeBody nodeId="b1" />)
 
     expect((screen.getByLabelText('PSRAM policy') as HTMLSelectElement).value).toBe('auto')
-    expect((screen.getByLabelText('Serial route') as HTMLSelectElement).value).toBe('auto')
-    expect(screen.getByText(/Auto · UART bridge detected/)).toBeTruthy()
+    const serialPicker = screen.getByLabelText('Serial route') as HTMLSelectElement
+    expect(serialPicker.value).toBe('auto')
+    expect(serialPicker.title).toMatch(/Auto · UART bridge detected/)
+    expect(screen.queryByText(/Auto · UART bridge detected/)).toBeNull()
   })
 
-  it('reports header-safe pin count and peripheral starting pins', () => {
+  it('keeps board metadata and peripheral pin summaries out of the editor', () => {
     const xiao = BOARD_PROFILES.find((p) => p.id === 'seeed-xiao-esp32s3')!
     reset([boardNode('b1', xiao.id)])
     render(<BoardNodeBody nodeId="b1" />)
 
     expect((screen.getByLabelText('Board family') as HTMLSelectElement).value).toBe('esp32-s3')
+    expect(screen.queryByText('Made by')).toBeNull()
+    expect(screen.queryByText('Source')).toBeNull()
+    expect(screen.queryByText('Free pins')).toBeNull()
+    expect(screen.queryByText(/^Mic →/)).toBeNull()
+    expect(screen.queryByText(/^Amp →/)).toBeNull()
+  })
 
-    const safe = xiao.pinSafety?.safeGeneralPurpose ?? []
-    expect(safe.length).toBeGreaterThan(0)
-    expect(screen.getByText(`${safe.length} on the header`)).toBeTruthy()
+  it('moves memory guidance into the memory dropdown tooltip', () => {
+    const profile = BOARD_PROFILES.find((p) => p.id === 'generic-esp32-s3-n16r8-44pin-dual-usbc')!
+    reset([boardNode('b1', profile.id)])
+    useUploadStore.setState({ selectedFqbn: profile.compatibleFqbns[0] } as never)
 
-    // The XIAO is the board this whole capability model came from: GPIO39-42
-    // exist on the S3 die but reach only underside pads here, so they must
-    // never appear in the header-safe allowlist.
-    for (const pad of [39, 40, 41, 42]) expect(safe).not.toContain(pad)
+    render(<BoardNodeBody nodeId="b1" />)
 
-    const mic = xiao.peripheralPins?.inmp441
-    expect(mic).toBeTruthy()
-    expect(screen.getByText(new RegExp(`Mic → WS ${mic!.wsLrclk}`))).toBeTruthy()
+    const picker = screen.getByLabelText('PSRAM policy') as HTMLSelectElement
+    expect(picker.title).toMatch(/Auto detected 8 MB OPI PSRAM/)
+    expect(screen.queryByText(/Auto detected 8 MB OPI PSRAM/)).toBeNull()
   })
 
   it('shows the continuous power supply required by the LED load', () => {

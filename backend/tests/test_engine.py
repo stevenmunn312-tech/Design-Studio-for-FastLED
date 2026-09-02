@@ -7,11 +7,11 @@ import time
 import app
 
 
-def test_active_engine_prefers_fbuild_when_no_saved_preference(monkeypatch):
+def test_active_engine_prefers_arduino_cli_when_no_saved_preference(monkeypatch):
     monkeypatch.setattr(app, "_load_config", lambda: {})
     monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
     monkeypatch.setattr(app, "_ARDUINO_CLI", "/fake/arduino-cli")
-    assert app._active_engine() == "fbuild"
+    assert app._active_engine() == "arduino-cli"
 
 
 def test_active_engine_falls_back_to_arduino_cli_when_fbuild_missing(monkeypatch):
@@ -21,11 +21,25 @@ def test_active_engine_falls_back_to_arduino_cli_when_fbuild_missing(monkeypatch
     assert app._active_engine() == "arduino-cli"
 
 
+def test_active_engine_falls_back_to_fbuild_when_arduino_cli_missing(monkeypatch):
+    monkeypatch.setattr(app, "_load_config", lambda: {})
+    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
+    monkeypatch.setattr(app, "_ARDUINO_CLI", None)
+    assert app._active_engine() == "fbuild"
+
+
 def test_active_engine_honours_saved_preference_when_available(monkeypatch):
     monkeypatch.setattr(app, "_load_config", lambda: {"engine": "arduino-cli"})
     monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
     monkeypatch.setattr(app, "_ARDUINO_CLI", "/fake/arduino-cli")
     assert app._active_engine() == "arduino-cli"
+
+
+def test_active_engine_honours_explicit_fbuild_choice_when_available(monkeypatch):
+    monkeypatch.setattr(app, "_load_config", lambda: {"engine": "fbuild"})
+    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
+    monkeypatch.setattr(app, "_ARDUINO_CLI", "/fake/arduino-cli")
+    assert app._active_engine() == "fbuild"
 
 
 def test_active_engine_ignores_saved_preference_when_unavailable(monkeypatch):

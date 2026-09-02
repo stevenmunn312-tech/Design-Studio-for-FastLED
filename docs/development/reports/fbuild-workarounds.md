@@ -391,6 +391,15 @@ and a `lib/` holding 5,497 files — 4,506 of them a full FastLED clone whose `c
 here because it is the single largest remaining cost of choosing fbuild over
 arduino-cli, and because the numbers above are the report.
 
+**Upload-engine policy while unresolved (2026-09-03).** Studio now defaults to and
+recommends `arduino-cli` for ESP32 targets. `fbuild` remains selectable in Board & Port
+as an explicit experimental choice for users who value its self-managed toolchains over
+repeat-upload latency. Existing saved engine choices are still honoured when the chosen
+engine is installed; when no choice has been saved, the helper selects `arduino-cli` if
+available and falls back to fbuild only when it is the sole installed engine. This is a
+workflow recommendation, not a rewrite of the dated hardware evidence: the exact fbuild
+combinations recorded in the beta support matrix remain valid observations.
+
 **Not the cause.** Two candidates were eliminated first, both by the same build-tree
 timestamps:
 
@@ -651,8 +660,9 @@ containing the helper interpreter's pinned `esptool` executable to the deploy pr
 forwards the requesting client's `PATH` to its long-lived daemon
 ([FastLED/fbuild#1234](https://github.com/FastLED/fbuild/issues/1234)),
 so the daemon's bare `esptool` spawn resolves to that exact installation. The upload log
-prints both controlled values before deploying. Non-ESP32 fbuild deploys are unchanged,
-and selecting the `arduino-cli` engine remains the supported fallback.
+prints both controlled values before deploying. Non-ESP32 fbuild deploys are unchanged;
+`arduino-cli` is now the recommended ESP32 engine while this fbuild path remains available
+for explicit experimental use.
 
 Focused unit coverage proves that the ESP32 command contains `-b 115200`, that the first
 `PATH` entry is the pinned executable's directory, and that a missing pinned executable
@@ -704,8 +714,9 @@ Deploy: succeeded (full flash), exit 0
 The controlled path therefore **does not reproduce the original serial-port failure on
 fbuild 2.5.21**. Because baud and executable binding were changed together, this proves
 the combined path but does not assign the old failure to either variable individually.
-The reliable 115200/pinned-esptool path remains in the helper, `arduino-cli` remains the
-fallback, and—per the reporting gate—no upstream issue report was prepared.
+The reliable 115200/pinned-esptool path remains in the helper for users who explicitly
+choose fbuild, `arduino-cli` is the recommended ESP32 path, and—per the reporting gate—no
+upstream issue report was prepared.
 
 **Also relevant even though it isn't on our list:** 2.5.5–2.5.14 added substantial
 RP2040/RP2350 work — PICOBOOT/picotool as the primary deployment transport (2.5.5),
