@@ -21,9 +21,10 @@
  * - **Runs are a bus, not a diagonal.** Inputs sit in a row above the board and
  *   everything the board drives sits in a row below it. Each run leaves a part
  *   vertically, travels its own horizontal lane in the channel between the
- *   rows, and turns square corners. Adding a part widens the bench rather than
- *   lengthening a diagonal across it, which is what puts the pane's spare
- *   horizontal space to use. See `routeBus`.
+ *   rows, then comes down the flank of the board and plugs into its side, where
+ *   a dev board's headers actually are. Every corner is square. Adding a part
+ *   widens the bench rather than lengthening a diagonal across it, which is
+ *   what puts the pane's spare horizontal space to use. See `routeBus`.
  *
  * Pure, so it is testable without mounting the pane.
  */
@@ -664,15 +665,28 @@ function arrangeAtBand(
       'below',
     )
   }
+  // Planned before the board is placed, because its caption is placed beside it
+  // and the bundle coming down that flank is what the caption has to clear.
+  const runs = planBus(
+    links,
+    new Map([
+      ...placedParts.map((part) => [part.id, { x: part.x, width: part.width }] as const),
+      [anchorId, { x: anchorX, width: anchorBox.width }] as const,
+    ]),
+    anchorId,
+  )
+
   const anchorPart = parts.find((part) => part.id === anchorId)
   if (anchorPart) {
-    // The board is the one part with wiring on both sides, so its label cannot
-    // go above or below it without sitting inside a bundle. It goes beside it.
+    // The board is wired on both flanks, so its label cannot go beside it
+    // without clearing the lanes first — and it cannot go above or below it,
+    // where the channels are. It sits outside the left-hand bundle.
     place(
       anchorPart,
       anchorX,
       anchorY,
-      anchorX - (CAPTION_GAP * 2 * layoutScale),
+      anchorX - busBundleWidth(runs, 'left', { laneMargin, laneStep })
+        - (CAPTION_GAP * 2 * layoutScale),
       CAPTION_MAX_WIDTH * captionScale,
       'left',
     )
@@ -680,7 +694,7 @@ function arrangeAtBand(
 
   return {
     parts: placedParts,
-    links: routeBus(links, placedParts, anchorId, {
+    links: routeBus(runs, placedParts, anchorId, {
       laneMargin,
       laneStep,
       corner: LINK_CORNER * layoutScale,
@@ -693,97 +707,215 @@ function arrangeAtBand(
 }
 
 /**
+ * How a single run leaves the board, before any of it is measured in pixels.
+ *
+ * Split out from the routing itself because the board's caption has to know the
+ * answer too: the label sits beside the board, and the bundle of runs down that
+ * side is what it has to clear.
+ */
+interface BusRun {
+  link: HardwarePartLink
+  /** True when the run feeds the board, false when the board drives it. */
+  inbound: boolean
+  /** Which edge of the board the run plugs into. */
+  side: 'left' | 'right'
+  /** Lane index outward from the board's flank, within this side. */
+  flank: number
+  /** Lane index outward from the board in the channel, within this side. */
+  lane: number
+  /** Slot down that edge the run plugs into, counted from the board's top. */
+  port: number
+  /** Slots on that edge, so a port can be spread along it. */
+  ports: number
+}
+
+/**
+ * Decide which edge each run leaves by, and in what order.
+ *
+ * A run takes the side of the board its part is already on, so nothing crosses
+ * the board to reach a header on the far side of it. Within a side, runs are
+ * ordered by how far away their part is, and that one ordering settles all
+ * three of a run's lanes — but not all in the same direction, which is the
+ * whole difficulty:
+ *
+ * - **Flank, nearest innermost.** The stretch beside the board nests, so an
+ *   outer run's reach into the edge passes beyond the end of every lane inside
+ *   it rather than through them.
+ * - **Port, nearest closest to its own row.** Forced by the flank order: a run
+ *   coming down an outer flank has to plug in past the ports of everything
+ *   inside it, or its last stretch crosses their lanes.
+ * - **Channel lane, nearest *outermost*.** The opposite order, and this is the
+ *   one that is easy to get wrong. A far run's lane has to cross the bench over
+ *   the top of every nearer part, so it must travel in the lane closest to the
+ *   board — above where the nearer runs have already turned down into their
+ *   parts. Give the nearest run the innermost lane instead and every longer run
+ *   crosses it.
+ *
+ * Feeds and driven parts index independently: they use opposite halves of the
+ * edge and opposite channels, so they never share a stretch to collide in.
+ *
+ * Takes horizontal extents only, so it can be answered before the board's
+ * caption is placed and again while the runs are being drawn.
+ */
+function planBus(
+  links: HardwarePartLink[],
+  boxes: Map<string, { x: number; width: number }>,
+  anchorId: string,
+): BusRun[] {
+  const anchor = boxes.get(anchorId)
+  if (!anchor) return []
+  const anchorCentre = anchor.x + anchor.width / 2
+  const otherEnd = (link: HardwarePartLink) =>
+    link.source === anchorId ? link.target : link.source
+  const centreOf = (id: string) => {
+    const box = boxes.get(id)!
+    return box.x + box.width / 2
+  }
+  // Only runs with one end on the board: the bench draws the board's wiring,
+  // and a run between two other parts has no lane to travel in.
+  const live = links.filter((link) =>
+    boxes.has(link.source) && boxes.has(link.target)
+    && (link.source === anchorId) !== (link.target === anchorId))
+
+  const reach = (link: HardwarePartLink) => Math.abs(centreOf(otherEnd(link)) - anchorCentre)
+  const nearestFirst = (group: HardwarePartLink[]) =>
+    [...group].sort((a, b) => reach(a) - reach(b))
+
+  const runs: BusRun[] = []
+  for (const side of ['left', 'right'] as const) {
+    const here = live.filter((link) =>
+      (centreOf(otherEnd(link)) <= anchorCentre ? 'left' : 'right') === side)
+    const inbound = nearestFirst(here.filter((link) => link.target === anchorId))
+    const outbound = nearestFirst(here.filter((link) => link.source === anchorId))
+    const ports = inbound.length + outbound.length
+    // Feeds take the upper half of the edge and everything driven takes the
+    // lower half, so a run never has to pass the ports of the other direction
+    // to reach its own.
+    inbound.forEach((link, index) => {
+      runs.push({
+        link,
+        inbound: true,
+        side,
+        flank: index,
+        lane: inbound.length - 1 - index,
+        port: index,
+        ports,
+      })
+    })
+    outbound.forEach((link, index) => {
+      runs.push({
+        link,
+        inbound: false,
+        side,
+        flank: index,
+        lane: outbound.length - 1 - index,
+        port: inbound.length + (outbound.length - 1 - index),
+        ports,
+      })
+    })
+  }
+  return runs
+}
+
+/** Outward reach of one side's lane bundle, or zero where that side is bare. */
+function busBundleWidth(
+  runs: BusRun[],
+  side: 'left' | 'right',
+  geometry: { laneMargin: number; laneStep: number },
+): number {
+  const lanes = runs
+    .filter((run) => run.side === side)
+    .reduce((most, run) => Math.max(most, run.flank + 1), 0)
+  return lanes > 0 ? geometry.laneMargin + (lanes - 1) * geometry.laneStep : 0
+}
+
+/**
  * Route every run as a bus: out of one part, along a horizontal lane of its
- * own, and down into the other, turning square corners.
+ * own, down the side of the board and into its edge, turning square corners.
  *
  * This is the shape a wiring or network diagram uses, and it is what lets the
  * bench spread sideways — parts sit in rows and the runs travel in the channel
  * between them, so adding a part widens the bench rather than lengthening a
  * diagonal across it.
  *
+ * The board is wired on its sides rather than its ends, because that is where a
+ * dev board's headers are: a run drops out of its part, crosses the channel,
+ * comes down the flank of the board and plugs into the header it lands on. The
+ * ends of the board stay clear, which is also what the on-board detail — the
+ * USB connector, the antenna — needs to stay readable.
+ *
  * Each run gets a lane to itself rather than sharing a trunk. A network bus can
  * draw one line for many devices because it really is one wire; these are not.
  * Every run here is a different pin, and stacking them on one line would say
  * they were joined.
  *
- * Lanes are ordered left to right, which puts the longest runs on the outermost
- * lanes and reads as a fan. Crossings still occur where a wide row fans out of
- * a narrow board — they are right-angled and legible, and cannot be removed
- * entirely when every run leaves from the same part.
+ * Crossings still occur in the channel where a wide row fans into a narrow
+ * board — they are right-angled and legible, and cannot be removed entirely
+ * when every run leaves from the same part.
  */
 function routeBus(
-  links: HardwarePartLink[],
+  runs: BusRun[],
   parts: PlacedPart[],
   anchorId: string,
   geometry: { laneMargin: number; laneStep: number; corner: number },
 ): PlacedLink[] {
   const byId = new Map(parts.map((part) => [part.id, part]))
-  const live = links.filter((link) => byId.has(link.source) && byId.has(link.target))
   const anchor = byId.get(anchorId)
   if (!anchor) return []
 
-  const centreOf = (part: PlacedPart) => part.x + part.width / 2
-  const order = (group: HardwarePartLink[], other: (link: HardwarePartLink) => string) =>
-    [...group].sort((a, b) => {
-      const left = byId.get(other(a))
-      const right = byId.get(other(b))
-      return (left ? centreOf(left) : 0) - (right ? centreOf(right) : 0)
-    })
-
-  /* Fan the board's own end across its edge in the same left-to-right order as
-     the parts, so nothing crosses in the short stretch beside the board. */
-  const edgeX = (index: number, count: number) =>
-    anchor.x + anchor.width * ((index + 1) / (count + 1))
-
   const routed: PlacedLink[] = []
+  for (const run of runs) {
+    const part = byId.get(run.inbound ? run.link.source : run.link.target)
+    if (!part) continue
+    const partX = part.x + part.width / 2
+    // Where the run plugs into the board, and the lane it comes down to reach
+    // that point — clear of the board's own outline either way.
+    const edgeX = run.side === 'left' ? anchor.x : anchor.x + anchor.width
+    const flank = geometry.laneMargin + run.flank * geometry.laneStep
+    const sideX = run.side === 'left' ? anchor.x - flank : edgeX + flank
+    const portY = anchor.y + anchor.height * ((run.port + 1) / (run.ports + 1))
+    const channel = geometry.laneMargin + run.lane * geometry.laneStep
 
-  order(live.filter((link) => link.target === anchorId), (link) => link.source)
-    .forEach((link, index, all) => {
-      const from = byId.get(link.source)!
-      const laneY = anchor.y - geometry.laneMargin - (index * geometry.laneStep)
-      const startX = centreOf(from)
-      const startY = from.y + from.height
-      const endX = edgeX(index, all.length)
+    if (run.inbound) {
+      const startY = part.y + part.height
+      const laneY = anchor.y - channel
       routed.push({
-        source: link.source,
-        target: link.target,
-        x1: startX,
+        source: run.link.source,
+        target: run.link.target,
+        x1: partX,
         y1: startY,
-        x2: endX,
-        y2: anchor.y,
+        x2: edgeX,
+        y2: portY,
         corner: geometry.corner,
         points: [
-          { x: startX, y: startY },
-          { x: startX, y: laneY },
-          { x: endX, y: laneY },
-          { x: endX, y: anchor.y },
+          { x: partX, y: startY },
+          { x: partX, y: laneY },
+          { x: sideX, y: laneY },
+          { x: sideX, y: portY },
+          { x: edgeX, y: portY },
         ],
       })
-    })
+      continue
+    }
 
-  order(live.filter((link) => link.source === anchorId), (link) => link.target)
-    .forEach((link, index, all) => {
-      const to = byId.get(link.target)!
-      const laneY = anchor.y + anchor.height + geometry.laneMargin + (index * geometry.laneStep)
-      const startX = edgeX(index, all.length)
-      const startY = anchor.y + anchor.height
-      const endX = centreOf(to)
-      routed.push({
-        source: link.source,
-        target: link.target,
-        x1: startX,
-        y1: startY,
-        x2: endX,
-        y2: to.y,
-        corner: geometry.corner,
-        points: [
-          { x: startX, y: startY },
-          { x: startX, y: laneY },
-          { x: endX, y: laneY },
-          { x: endX, y: to.y },
-        ],
-      })
+    const laneY = anchor.y + anchor.height + channel
+    routed.push({
+      source: run.link.source,
+      target: run.link.target,
+      x1: edgeX,
+      y1: portY,
+      x2: partX,
+      y2: part.y,
+      corner: geometry.corner,
+      points: [
+        { x: edgeX, y: portY },
+        { x: sideX, y: portY },
+        { x: sideX, y: laneY },
+        { x: partX, y: laneY },
+        { x: partX, y: part.y },
+      ],
     })
+  }
 
   return routed
 }

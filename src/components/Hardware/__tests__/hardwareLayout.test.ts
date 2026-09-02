@@ -248,20 +248,124 @@ describe('hardware arrangement', () => {
     }
   })
 
-  it('leaves and arrives on the edge facing the channel', () => {
+  it('leaves a part on the edge facing the channel', () => {
     const { parts, links } = arrange([MIC, BOARD, STRIP], CHAIN)
     const byId = index(parts)
-    const board = byId.get('board')!
     const mic = byId.get('mic')!
     const strip = byId.get('led-string')!
 
     const incoming = links.find((link) => link.target === 'board')!
     expect(incoming.y1).toBeCloseTo(mic.y + mic.height)
-    expect(incoming.y2).toBeCloseTo(board.y)
 
     const outgoing = links.find((link) => link.source === 'board')!
-    expect(outgoing.y1).toBeCloseTo(board.y + board.height)
     expect(outgoing.y2).toBeCloseTo(strip.y)
+  })
+
+  it('plugs into the flanks of the board, not its ends', () => {
+    const { parts, links } = arrange([MIC, BOARD, STRIP], CHAIN)
+    const byId = index(parts)
+    const board = byId.get('board')!
+
+    // Where a dev board's headers are. The ends stay clear, which is what the
+    // detail drawn on the board needs to stay readable.
+    const onAFlank = (x: number) =>
+      Math.min(Math.abs(x - board.x), Math.abs(x - (board.x + board.width)))
+
+    const incoming = links.find((link) => link.target === 'board')!
+    expect(onAFlank(incoming.x2)).toBeCloseTo(0)
+    expect(incoming.y2).toBeGreaterThan(board.y)
+    expect(incoming.y2).toBeLessThan(board.y + board.height)
+
+    const outgoing = links.find((link) => link.source === 'board')!
+    expect(onAFlank(outgoing.x1)).toBeCloseTo(0)
+    expect(outgoing.y1).toBeGreaterThan(board.y)
+    expect(outgoing.y1).toBeLessThan(board.y + board.height)
+  })
+
+  it('takes the side of the board its part already sits on', () => {
+    const left: HardwarePartBox = { ...STRIP, id: 'led-string-left' }
+    const right: HardwarePartBox = { ...STRIP, id: 'led-string-right' }
+    const { parts, links } = arrange(
+      [MIC, BOARD, left, right],
+      [
+        { source: 'mic', target: 'board' },
+        { source: 'board', target: 'led-string-left' },
+        { source: 'board', target: 'led-string-right' },
+      ],
+    )
+    const byId = index(parts)
+    const board = byId.get('board')!
+    // Nothing crosses the board to reach a header on the far side of it.
+    for (const link of links.filter((run) => run.source === 'board')) {
+      const part = byId.get(link.target)!
+      const partLeft = part.x + part.width / 2 <= board.x + board.width / 2
+      expect(link.x1).toBeCloseTo(partLeft ? board.x : board.x + board.width)
+    }
+  })
+
+  it('routes a full bench without one run crossing another', () => {
+    // Derived rather than eyeballed: the ordering rules in `planBus` exist to
+    // make this true, and a bench wide enough to have a near and a far part on
+    // both flanks is what exercises all three of them at once.
+    const outputs = ['matrix', 'amp', 'tft', 'strip', 'panel']
+      .map((id) => ({ ...STRIP, id }))
+    const inputs = ['mic', 'mic-2', 'mic-3'].map((id) => ({ ...MIC, id }))
+    const { links } = arrange(
+      [...inputs, BOARD, ...outputs],
+      [
+        ...inputs.map((part) => ({ source: part.id, target: 'board' })),
+        ...outputs.map((part) => ({ source: 'board', target: part.id })),
+      ],
+    )
+    expect(links).toHaveLength(inputs.length + outputs.length)
+
+    const segments = links.map((link) => link.points
+      .slice(1)
+      .map((to, index) => ({ from: link.points[index], to })))
+    const spans = (a: number, b: number) => [Math.min(a, b), Math.max(a, b)] as const
+    const overlap = (a: readonly [number, number], b: readonly [number, number]) =>
+      a[0] <= b[1] + 1e-6 && b[0] <= a[1] + 1e-6
+
+    for (let a = 0; a < segments.length; a++) {
+      for (let b = a + 1; b < segments.length; b++) {
+        for (const one of segments[a]) {
+          for (const other of segments[b]) {
+            // Two axis-aligned segments meet only where both spans overlap.
+            const crossed = overlap(spans(one.from.x, one.to.x), spans(other.from.x, other.to.x))
+              && overlap(spans(one.from.y, one.to.y), spans(other.from.y, other.to.y))
+            if (crossed) {
+              throw new Error(
+                `${links[a].source}->${links[a].target} crosses ${links[b].source}->${links[b].target}`
+                + ` at (${one.from.x},${one.from.y})-(${one.to.x},${one.to.y})`,
+              )
+            }
+          }
+        }
+      }
+    }
+  })
+
+  it("keeps the board's caption clear of the bundle down its flank", () => {
+    const left: HardwarePartBox = { ...STRIP, id: 'led-string-left' }
+    const second: HardwarePartBox = { ...STRIP, id: 'led-string-left-2' }
+    const { parts, links } = arrange(
+      [MIC, BOARD, left, second],
+      [
+        { source: 'mic', target: 'board' },
+        { source: 'board', target: 'led-string-left' },
+        { source: 'board', target: 'led-string-left-2' },
+      ],
+    )
+    const byId = index(parts)
+    const board = byId.get('board')!
+    // The lanes running down the left flank: beside the board, not past it.
+    const flank = links
+      .flatMap((link) => link.points)
+      .filter((point) =>
+        point.x < board.x && point.y > board.y && point.y < board.y + board.height)
+      .map((point) => point.x)
+    expect(flank.length).toBeGreaterThan(0)
+    expect(board.captionX).toBeLessThan(Math.min(...flank))
   })
 
   it('drops out of a part vertically and travels in the channel between', () => {
