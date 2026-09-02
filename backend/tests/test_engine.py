@@ -44,6 +44,18 @@ def test_active_engine_returns_arduino_cli_when_neither_installed(monkeypatch):
     assert app._active_engine() == "arduino-cli"
 
 
+def test_find_interpreter_esptool_uses_python_scripts_directory(tmp_path, monkeypatch):
+    scripts = tmp_path / "Scripts"
+    scripts.mkdir()
+    executable = scripts / ("esptool.exe" if app.os.name == "nt" else "esptool")
+    executable.write_bytes(b"tool")
+    monkeypatch.setattr(app.sysconfig, "get_path", lambda name: str(scripts))
+    monkeypatch.setattr(app.sys, "executable", str(tmp_path / "python"))
+    monkeypatch.delattr(app.sys, "frozen", raising=False)
+
+    assert app._find_interpreter_esptool() == str(executable)
+
+
 def test_parse_fqbn_splits_base_and_psram_option():
     assert app._parse_fqbn("esp32:esp32:esp32s3") == ("esp32:esp32:esp32s3", None)
     assert app._parse_fqbn("esp32:esp32:esp32s3:PSRAM=opi") == ("esp32:esp32:esp32s3", "opi")
@@ -296,7 +308,7 @@ def test_compile_upload_fbuild_serializes_concurrent_builds(monkeypatch):
     max_active = 0
     guard = threading.Lock()
 
-    def fake_run_phase(label, args, sink=None, cwd=None):
+    def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
         nonlocal active, max_active
         with guard:
             active += 1
@@ -398,7 +410,7 @@ def test_compile_upload_fbuild_vendors_hub75_lib_only_when_sketch_needs_it(monke
     calls = []
     monkeypatch.setattr(app, "_ensure_fbuild_hub75_lib", lambda: calls.append(1) or iter(()))
 
-    def fake_run_phase(label, args, sink=None, cwd=None):
+    def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
         if sink is not None:
             sink.append("Flash: 1.00KB / 10.00KB (10.0%)\n")
         yield "ok\n"
@@ -496,7 +508,7 @@ def test_compile_upload_fbuild_points_at_arduino_cli_when_deployer_is_missing(mo
     monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: "esp8266_esp8266_nodemcuv2")
     monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
 
-    def fake_run_phase(label, args, sink=None, cwd=None):
+    def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
         if "deploy" in args:
             line = "deploy error: deploy failed: deployer for Espressif8266 not yet implemented\n"
             if sink is not None:
@@ -523,7 +535,7 @@ def test_compile_upload_fbuild_stays_silent_on_other_upload_failures(monkeypatch
     monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: "esp32_esp32_esp32s3")
     monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
 
-    def fake_run_phase(label, args, sink=None, cwd=None):
+    def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
         if "deploy" in args:
             line = "esptool.py: could not open port 'COM7': PermissionError\n"
             if sink is not None:
@@ -540,6 +552,80 @@ def test_compile_upload_fbuild_stays_silent_on_other_upload_failures(monkeypatch
     lines = list(app._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", "COM7"))
 
     assert not any("arduino-cli" in line for line in lines)
+
+
+def test_compile_upload_fbuild_esp32_binds_slow_esptool_experiment(tmp_path, monkeypatch):
+    """The bench experiment must control both suspected deploy variables.
+
+    fbuild's daemon receives the caller's PATH as of 2.5.21, so a directory
+    prepend is enough to bind its bare ``esptool`` spawn without duplicating
+    fbuild's board-specific flash layout in this helper.
+    """
+    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(
+        app,
+        "_fbuild_env_for_fqbn",
+        lambda fqbn, flash_mb=None, usb_cdc=False: "esp32_esp32_esp32s3",
+    )
+    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
+    scripts = tmp_path / "python-scripts"
+    esptool = scripts / ("esptool.exe" if app.os.name == "nt" else "esptool")
+    monkeypatch.setattr(app, "_ESPTOOL_BIN", str(esptool))
+    deploy_calls = []
+
+    def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
+        if "deploy" in args:
+            deploy_calls.append((args, tool_env))
+        if sink is not None:
+            sink.append("Flash: 1.00KB / 10.00KB (10.0%)\n")
+        yield "ok\n"
+        return 0
+
+    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+
+    lines = list(
+        app._compile_upload_fbuild(
+            "Test", "void setup(){}", "esp32:esp32:esp32s3", "COM7"
+        )
+    )
+
+    assert len(deploy_calls) == 1
+    args, tool_env = deploy_calls[0]
+    assert args[args.index("-b") + 1] == "115200"
+    assert tool_env["PATH"].split(app.os.pathsep)[0] == str(scripts)
+    assert any(
+        "baud 115200" in line and str(esptool) in line
+        for line in lines
+    )
+
+
+def test_compile_upload_fbuild_esp32_keeps_arduino_cli_fallback_when_esptool_missing(monkeypatch):
+    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(
+        app,
+        "_fbuild_env_for_fqbn",
+        lambda fqbn, flash_mb=None, usb_cdc=False: "esp32_esp32_esp32s3",
+    )
+    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
+    monkeypatch.setattr(app, "_ESPTOOL_BIN", None)
+
+    def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
+        if "deploy" in args:
+            raise AssertionError("deploy must not run without the pinned esptool")
+        if sink is not None:
+            sink.append("Flash: 1.00KB / 10.00KB (10.0%)\n")
+        yield "ok\n"
+        return 0
+
+    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+
+    lines = list(
+        app._compile_upload_fbuild(
+            "Test", "void setup(){}", "esp32:esp32:esp32s3", "COM7"
+        )
+    )
+
+    assert any("Switch to the arduino-cli engine" in line for line in lines)
 
 
 def test_drain_compile_collects_lines_and_return_value():

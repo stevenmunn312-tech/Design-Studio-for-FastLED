@@ -34,6 +34,7 @@ import socket
 import stat
 import subprocess
 import sys
+import sysconfig
 import tarfile
 import tempfile
 import time
@@ -162,6 +163,7 @@ _refresh_cli()
 # own toolchain/framework on first use. Preferred engine when present; falls
 # back to arduino-cli otherwise (see `_active_engine`).
 _FBUILD_BIN: str | None = None
+_ESPTOOL_BIN: str | None = None
 
 
 def _find_fbuild() -> str | None:
@@ -175,8 +177,38 @@ def _find_fbuild() -> str | None:
 
 
 def _refresh_fbuild() -> None:
-    global _FBUILD_BIN
+    global _FBUILD_BIN, _ESPTOOL_BIN
     _FBUILD_BIN = _find_fbuild()
+    _ESPTOOL_BIN = _find_interpreter_esptool()
+
+
+def _find_interpreter_esptool() -> str | None:
+    """Resolve the esptool installed with this helper's Python runtime.
+
+    fbuild 2.5.21 still spawns ``esptool`` by bare name. It forwards the
+    requesting client's PATH to its long-lived daemon (FastLED/fbuild#1234),
+    so putting this exact directory first binds that spawn to the esptool from
+    our pinned requirements instead of whichever unrelated copy happens to be
+    on the machine-wide PATH. Frozen desktop builds carry the executable in
+    their sibling ``tools`` directory rather than a Python scripts directory.
+    """
+    executable = "esptool.exe" if os.name == "nt" else "esptool"
+    candidates = []
+    if getattr(sys, "frozen", False):
+        candidates.append(Path(sys.executable).resolve().parent / "tools" / executable)
+    try:
+        scripts = sysconfig.get_path("scripts")
+    except (AttributeError, KeyError, TypeError):
+        scripts = None
+    if scripts:
+        candidates.append(Path(scripts) / executable)
+    # A venv on POSIX and some Windows Python layouts put console scripts
+    # directly beside the interpreter.
+    candidates.append(Path(sys.executable).resolve().parent / executable)
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate)
+    return None
 
 
 _refresh_fbuild()
@@ -1178,7 +1210,7 @@ def _iter_stream_lines(stream):
         yield pending + "\n"
 
 
-def _run_phase(label, args, sink=None, cwd=None):
+def _run_phase(label, args, sink=None, cwd=None, tool_env=None):
     """Run one build-tool phase (arduino-cli or fbuild), yielding its output
     lines; returns the exit code. If `sink` (a list) is given, each output line
     is also appended to it so the caller can inspect the phase output (e.g. to
@@ -1188,7 +1220,9 @@ def _run_phase(label, args, sink=None, cwd=None):
     try:
         proc = subprocess.Popen(
             args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            bufsize=0, env=_TOOLCHAIN_ENV, cwd=cwd,
+            bufsize=0,
+            env=tool_env if tool_env is not None else _TOOLCHAIN_ENV,
+            cwd=cwd,
         )
     except Exception as e:
         yield f"[error] failed to launch {args[0]}: {e}\n"
@@ -1527,6 +1561,33 @@ def _compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None, usb_cdc=False)
         if not port:
             yield "  (no port selected — compiled only)\n"
             return 0, "compile"
+        deploy_args = [
+            _FBUILD_BIN, "deploy", "-e", env, "-p", port,
+            "--skip-build", "--no-timestamp",
+        ]
+        deploy_env = None
+        if env.startswith("esp32_"):
+            # Focused 2.5.21 deploy-path experiment. The two remaining
+            # differences from the shell esptool control were fbuild's high
+            # per-board baud and its bare-name tool lookup. Hold both constant:
+            # use esptool's default 115200 and put the executable installed with
+            # this helper's interpreter first on PATH. fbuild#1234 carries the
+            # requesting PATH through to the daemon that performs the spawn.
+            if not _ESPTOOL_BIN:
+                yield (
+                    "  [engine-gap] The pinned esptool executable is missing, so the "
+                    "fbuild ESP32 deploy experiment cannot run. Switch to the "
+                    "arduino-cli engine and try again.\n"
+                )
+                return -1, "upload"
+            deploy_args.extend(["-b", "115200"])
+            deploy_env = {
+                **_TOOLCHAIN_ENV,
+                "PATH": str(Path(_ESPTOOL_BIN).parent)
+                + os.pathsep
+                + _TOOLCHAIN_ENV.get("PATH", ""),
+            }
+            yield f"  [deploy experiment] baud 115200 · esptool {_ESPTOOL_BIN}\n"
         # esptool (spawned fresh by each `deploy`) intermittently loses the race
         # against Windows fully releasing the port after a *previous* flash's
         # hard reset (or another brief holder, e.g. the frontend's live serial
@@ -1539,8 +1600,8 @@ def _compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None, usb_cdc=False)
             upload_lines = []
             with _flashing():   # keeps `board list` off the port — see serial_ports()
                 rc = yield from _run_phase(
-                    f"{label} · upload", [_FBUILD_BIN, "deploy", "-e", env, "-p", port, "--skip-build", "--no-timestamp"],
-                    sink=upload_lines, cwd=_FBUILD_PROJECT_DIR,
+                    f"{label} · upload", deploy_args,
+                    sink=upload_lines, cwd=_FBUILD_PROJECT_DIR, tool_env=deploy_env,
                 )
             if rc == 0:
                 break

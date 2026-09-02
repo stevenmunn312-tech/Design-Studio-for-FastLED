@@ -10,6 +10,8 @@ an internal record.
 - **How we drive fbuild:** a persistent scaffold at `backend/.fbuild-project/` with one
   `[env:X]` per supported board, built with `fbuild build -e <env> -v --no-timestamp`
   and flashed with `fbuild deploy -e <env> -p <port> --skip-build --no-timestamp`.
+  The focused ESP32 experiment additionally passes `-b 115200` and binds the pinned
+  interpreter-side `esptool` through the caller `PATH`; see the dated result below.
   See `_compile_upload_fbuild` in [`backend/app.py`](../../../backend/app.py).
 
 > [!IMPORTANT]
@@ -345,10 +347,72 @@ both spellings of a version pin are silently inert. The URL forms
 and are the supported way to pin a core. For the deploy/serial-port failure, nothing in
 2.5.19–2.5.21 touches the path: the only commits reaching `fbuild-deploy/src/esp32`,
 `fbuild-serial` or `cli/deploy.rs` are the platform-facade refactor. Two hypotheses to
-eliminate before reporting it, since neither has been tested: fbuild's ESP32 deploy baud
-is per-board and high (921600 on `esp32s3`, 460800 on classic ESP32/C3/C6, against shell
-esptool's 115200 default, and `fbuild deploy -b <baud>` exists), and fbuild spawns
-`esptool` as a bare name off the caller's `PATH` rather than the interpreter's.
+eliminate before reporting it were fbuild's high per-board ESP32 deploy baud and its
+bare-name `esptool` spawn. The focused experiment below now controls both.
+
+### ESP32 deploy-path experiment (2026-09-02)
+
+The helper's fbuild ESP32 upload path now adds `-b 115200` and prepends the directory
+containing the helper interpreter's pinned `esptool` executable to the deploy process's
+`PATH`. This keeps fbuild responsible for the board-specific flash layout; fbuild 2.5.21
+forwards the requesting client's `PATH` to its long-lived daemon
+([FastLED/fbuild#1234](https://github.com/FastLED/fbuild/issues/1234)),
+so the daemon's bare `esptool` spawn resolves to that exact installation. The upload log
+prints both controlled values before deploying. Non-ESP32 fbuild deploys are unchanged,
+and selecting the `arduino-cli` engine remains the supported fallback.
+
+Focused unit coverage proves that the ESP32 command contains `-b 115200`, that the first
+`PATH` entry is the pinned executable's directory, and that a missing pinned executable
+stops before deploy with the existing `arduino-cli` fallback guidance. The complete
+backend suite result was `157 passed in 2.44s` (`python -m pytest backend/tests -q`).
+
+Exact local observations on Windows 11 Home 10.0.26200:
+
+```text
+fbuild 2.5.21
+Python: C:\Espressif\tools\python\python.exe
+interpreter scripts: C:\Espressif\tools\python\Scripts
+esptool executable: C:\Espressif\tools\python\Scripts\esptool.exe
+esptool version reported through fbuild: esptool v5.3.1
+pyserial enumeration: no ports found
+arduino-cli board list: {"detected_ports": []}
+```
+
+With no device attached, a non-destructive control against the nonexistent `COM255`
+proved that fbuild accepted the baud override and reached the pinned esptool 5.3.1 path:
+
+```text
+$ $env:PATH = 'C:\Espressif\tools\python\Scripts;' + $env:PATH
+$ fbuild deploy -e esp32_esp32_esp32s3 -p COM255 -b 115200 --skip-build -v --no-timestamp
+A fatal error occurred: Could not open COM255, the port is busy or doesn't exist.
+(could not open port 'COM255': FileNotFoundError(2, 'The system cannot find the file specified.', None, 2))
+Hint: Check if the port is correct and ESP connectedesptool v5.3.1
+Serial port COM255:
+esptool failed (exit code 2)
+```
+
+The attached-board run followed immediately on the same host and completed successfully:
+
+```text
+Target: esp32:esp32:esp32s3:PSRAM=opi
+Port: COM3
+fbuild: 2.5.21
+esptool: C:\Espressif\tools\python\Scripts\esptool.exe (v5.3.1)
+Deploy command: fbuild deploy -e esp32_esp32_esp32s3_opi -p COM3 --skip-build --no-timestamp -b 115200
+Detected chip: ESP32-S3 QFN56 revision v0.2, embedded 8MB octal PSRAM
+Compile: exit 0; 749848 bytes flash, 81308 bytes RAM; 414.8s
+Bootloader: 18736 bytes (12222 compressed), written in 1.3s; hash verified
+Partitions: 3072 bytes (146 compressed), written in 0.0s; hash verified
+Firmware: 696608 bytes (270131 compressed), written in 24.0s; hash verified
+Reset: hard reset via RTS
+Deploy: succeeded (full flash), exit 0
+```
+
+The controlled path therefore **does not reproduce the original serial-port failure on
+fbuild 2.5.21**. Because baud and executable binding were changed together, this proves
+the combined path but does not assign the old failure to either variable individually.
+The reliable 115200/pinned-esptool path remains in the helper, `arduino-cli` remains the
+fallback, and—per the reporting gate—no upstream issue report was prepared.
 
 **Also relevant even though it isn't on our list:** 2.5.5–2.5.14 added substantial
 RP2040/RP2350 work — PICOBOOT/picotool as the primary deployment transport (2.5.5),
