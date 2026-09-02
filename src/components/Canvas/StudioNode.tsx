@@ -753,6 +753,9 @@ const LivePropertyControls = memo(function LivePropertyControls({
 // Body content width = --node-width (240) − 2×--space-1 (8) horizontal padding.
 // Frame previews fill this width and keep the matrix aspect ratio.
 const BODY_CONTENT_W = 224
+/** Keep wide one-row previews legible and bounded. This is also the cap used
+ *  by every generic frame thumbnail below. */
+const FRAME_PREVIEW_MAX_AXIS = 128
 /** How long a node announces itself after the hardware view jumps to it.
  *  Long enough to catch the eye having just moved, short enough not to linger
  *  as if it were a selection state. Must match `.nodeFlash`'s duration. */
@@ -761,8 +764,6 @@ const FLASH_MS = 1100
  *  dominate a node that already carries the upload UI and a capacity meter. */
 const RING_PREVIEW_PX = 116
 const CORKSCREW_PREVIEW_H = 150
-/** Tall enough that a run of tape reads as LEDs rather than as a rule. */
-const STRIP_PREVIEW_PX = 16
 
 // Group-input "roles" a Performance Generator show can drive (see the collection
 // -driven-performance design note). Setting a GroupInput's paramId to one of
@@ -895,8 +896,8 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // Matrix dimensions (from MatrixOutput) set the frame-preview aspect ratio.
   // The matrix a preview thumbnail is drawn for is the project's, not the
   // active graph's — inside a pattern group there is no LED output to read.
-  const gridW = useGraphStore((s) => Math.max(1, Math.min(128, compositionDims(rootGraphNodes(s), rootGraphEdges(s)).w)))
-  const gridH = useGraphStore((s) => Math.max(1, Math.min(128, compositionDims(rootGraphNodes(s), rootGraphEdges(s)).h)))
+  const gridW = useGraphStore((s) => Math.max(1, Math.min(FRAME_PREVIEW_MAX_AXIS, compositionDims(rootGraphNodes(s), rootGraphEdges(s)).w)))
+  const gridH = useGraphStore((s) => Math.max(1, Math.min(FRAME_PREVIEW_MAX_AXIS, compositionDims(rootGraphNodes(s), rootGraphEdges(s)).h)))
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
   const setNodeMinimized = useGraphStore((s) => s.setNodeMinimized)
@@ -1144,6 +1145,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           direction: ringDirection(rawProps),
         },
         corkscrew: null,
+        frameThumbnail: false,
       }
     }
     if (form === 'corkscrew') {
@@ -1162,15 +1164,25 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           startAngle: corkscrewStartAngle(rawProps),
           direction: corkscrewDirection(rawProps),
         },
+        frameThumbnail: false,
       }
     }
     if (form === 'strip') {
-      // A 300:1 box is a hairline. A run is drawn at a readable height and
-      // reads as a run because it is one row, not because it is one pixel tall.
-      // Keep the shared half-cell emitter geometry: filling each cell joins
-      // neighbouring LEDs into colour bands and makes this preview disagree
-      // with the source-node and hardware-bay previews of the same frame.
-      return { cols: grid.width, rows: 1, height: STRIP_PREVIEW_PX, width: null, cellFill: LED_CELL_FILL, ring: null, corkscrew: null }
+      // A string is already the same one-row frame shown by its upstream node.
+      // Use the generic thumbnail's axis cap, aspect ratio and wrapper as well
+      // as its emitter renderer; otherwise a long run becomes tall capsules
+      // here while the exact same pixels are small dots at the source.
+      const cols = Math.min(FRAME_PREVIEW_MAX_AXIS, grid.width)
+      return {
+        cols,
+        rows: 1,
+        height: Math.round(BODY_CONTENT_W / cols),
+        width: null,
+        cellFill: LED_CELL_FILL,
+        ring: null,
+        corkscrew: null,
+        frameThumbnail: true,
+      }
     }
     return {
       cols: grid.width,
@@ -1180,6 +1192,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       cellFill: LED_CELL_FILL,
       ring: null,
       corkscrew: null,
+      frameThumbnail: false,
     }
   }, [d.nodeType, rawProps])
   // Per-node opt-out of the live preview thumbnail (a small toggle button on
@@ -1453,23 +1466,34 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
             </button>
           ) : (
             <div className={styles.previewWrap}>
-              <div
-                className={`${styles.outputShape} ${outputShape.ring ? styles.outputShapeRing : ''} ${outputShape.corkscrew ? styles.outputShapeCorkscrew : ''}`}
-                style={{
-                  height: outputShape.height,
-                  width: outputShape.width ?? undefined,
-                }}
-              >
-                <HardwareLedPreview
+              {outputShape.frameThumbnail ? (
+                <NodePreview
                   nodeId={id}
+                  kind="frame"
+                  port="previewFrame"
+                  height={outputShape.height}
                   cols={outputShape.cols}
                   rows={outputShape.rows}
-                  cellFill={outputShape.cellFill}
-                  ring={outputShape.ring}
-                  corkscrew={outputShape.corkscrew}
-                  className={styles.outputShapeLeds}
                 />
-              </div>
+              ) : (
+                <div
+                  className={`${styles.outputShape} ${outputShape.ring ? styles.outputShapeRing : ''} ${outputShape.corkscrew ? styles.outputShapeCorkscrew : ''}`}
+                  style={{
+                    height: outputShape.height,
+                    width: outputShape.width ?? undefined,
+                  }}
+                >
+                  <HardwareLedPreview
+                    nodeId={id}
+                    cols={outputShape.cols}
+                    rows={outputShape.rows}
+                    cellFill={outputShape.cellFill}
+                    ring={outputShape.ring}
+                    corkscrew={outputShape.corkscrew}
+                    className={styles.outputShapeLeds}
+                  />
+                </div>
+              )}
               <button
                 type="button"
                 className={`nodrag ${styles.previewToggle}`}
