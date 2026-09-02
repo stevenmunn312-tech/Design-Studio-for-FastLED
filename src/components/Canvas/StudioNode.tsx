@@ -1167,7 +1167,10 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     if (form === 'strip') {
       // A 300:1 box is a hairline. A run is drawn at a readable height and
       // reads as a run because it is one row, not because it is one pixel tall.
-      return { cols: grid.width, rows: 1, height: STRIP_PREVIEW_PX, width: null, cellFill: 1, ring: null, corkscrew: null }
+      // Keep the shared half-cell emitter geometry: filling each cell joins
+      // neighbouring LEDs into colour bands and makes this preview disagree
+      // with the source-node and hardware-bay previews of the same frame.
+      return { cols: grid.width, rows: 1, height: STRIP_PREVIEW_PX, width: null, cellFill: LED_CELL_FILL, ring: null, corkscrew: null }
     }
     return {
       cols: grid.width,

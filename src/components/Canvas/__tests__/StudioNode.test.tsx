@@ -719,6 +719,13 @@ describe('StudioNode', () => {
       const svg = container.querySelector('svg[viewBox="0 0 30 1"]')
       expect(svg).toBeTruthy()
       expect(svg!.querySelectorAll(':scope > g')).toHaveLength(30)
+
+      // A string uses the same discrete, centred emitter geometry as source
+      // thumbnails and the hardware bay. Full-cell packages merge adjacent
+      // LEDs into solid bands and make one frame look different at its sink.
+      const core = svg!.querySelector(':scope > g > rect:last-child')!
+      expect(core.getAttribute('x')).toBe('0.25')
+      expect(core.getAttribute('width')).toBe('0.5')
     })
 
     it('offers and previews dedicated corkscrew geometry', () => {
