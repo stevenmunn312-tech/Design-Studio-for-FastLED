@@ -34,9 +34,9 @@ an internal record.
 | 6 | ESP32 RAM percentage impossible (>100%) on success | 2.4.0 | Discard RAM figure over 100% | **No — fixed in 2.5.17, guard removed 2026-09-03 (it hid #11)** |
 | 7 | `deploy` unimplemented for some compilable platforms | **2.5.21** | Fall back to arduino-cli | Yes — re-confirmed 2026-09-03 |
 | 8 | Dep scanner misses transitive `SPI` in a vendored lib | 2.4.0 | Stub out the offending file | **No — FastLED guarded it in #3815, workaround removed 2026-08-27** |
-| 9 | ESP32 no-op build costs 181.5s (AVR, ESP8266, STM32: 0.4s) | **2.5.21** | None — measured, not worked around | Yes |
-| 10 | Every directory in `lib/` is compiled, used or not | **2.5.21** | Hide unused libraries for the run | Yes — re-confirmed 2026-09-03 |
-| 11 | A build over the board's limits reports success | **2.5.21** | Refuse it on the measured percentage | Yes |
+| 9 | ESP32 no-op build costs 181.5s (AVR, ESP8266, STM32: 0.4s) | **2.5.21** | None — measured, not worked around | Yes — [#1411](https://github.com/FastLED/fbuild/issues/1411) |
+| 10 | Every directory in `lib/` is compiled, used or not | **2.5.21** | Hide unused libraries for the run | Yes — [#1410](https://github.com/FastLED/fbuild/issues/1410) |
+| 11 | A build over the board's limits reports success | **2.5.21** | Refuse it on the measured percentage | Yes — [#1409](https://github.com/FastLED/fbuild/issues/1409) |
 
 ---
 
@@ -311,6 +311,23 @@ already a silent no-op, which is its own argument for deleting rather than repoi
 
 ## 9. A build with nothing to do still takes three minutes
 
+**Reported upstream 2026-09-03 as [#1411](https://github.com/FastLED/fbuild/issues/1411).**
+
+**Adjacent but not the same as [#1347](https://github.com/FastLED/fbuild/issues/1347)**
+(open, upstream's own): ESP32 integration suites blowing a 900s cap on Windows because
+zccache `persist_failed` — tempdir nondeterminism in DWARF debug paths — makes every
+framework rebuild *cold*, at ~4s per file over ~1500 files. That is a cache **miss**
+turning warm builds cold. Ours is a cache **hit**: fbuild prints `No-op fingerprint
+matched; reusing existing ESP32 artifacts`, writes nothing at all, and still takes 161s.
+The distinction is worth holding onto, because the two would be closed by different fixes.
+
+Ours is also measured in a stable project directory (`backend/.fbuild-project`), not a
+fresh temporary one, so #1347's tempdir mechanism does not apply to it.
+
+What *does* corroborate #1347 from our bench: the cold build of the bare blink project
+above — three lines, no libraries, a fresh temp directory — took **736s**, which is the
+same "~4s per file on Windows" wall #1347 describes.
+
 **Symptom.** On an unchanged project, fbuild recognises there is no work and says so —
 then spends three minutes reaching that conclusion. Its own timer reports it:
 
@@ -466,6 +483,8 @@ self-contained: fbuild states both the no-op match and its own elapsed time.
 
 ## 10. Every directory under `lib/` is compiled, whether the sketch uses it or not
 
+**Reported upstream 2026-09-03 as [#1410](https://github.com/FastLED/fbuild/issues/1410).**
+
 **Symptom.** fbuild compiles every local library directory in the project, not the ones
 the sketch's include graph reaches. Re-confirmed on 2.5.21 (2026-09-03) with an AVR build
 of a plain FastLED blink, every vendored library present:
@@ -493,6 +512,8 @@ through it.
 ---
 
 ## 11. A build over the board's limits reports success
+
+**Reported upstream 2026-09-03 as [#1409](https://github.com/FastLED/fbuild/issues/1409).**
 
 **Symptom.** fbuild links, emits a `.hex`, and reports `build succeeded` for firmware
 that cannot fit the target. On an Arduino Uno (31.50KB flash, 2.00KB RAM), 2.5.21:
