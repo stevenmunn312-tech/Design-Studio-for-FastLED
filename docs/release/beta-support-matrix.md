@@ -33,6 +33,7 @@ the exact environment and path that were exercised. Everything else stays
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP8266 | WS2812B | 10x1 | Strip (non-matrix) | `arduino-cli` | 🧪 Flash Wiring Test | Flash the standalone wiring-diagnostic sketch and confirm LEDs display correctly | Validation `hw-7adaec6f` (`2026-07-25`): full diagnostic sequence passed |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP8266 | WS2812B | 10x1 | Strip (non-matrix) | `arduino-cli` | ⚡ Flash Stream Receiver + 📡 Live Stream | Flash the Adalight stream receiver once, then push live-preview frames to the board over serial | Validation `hw-b0b34ed3` (`2026-07-25`): passed after the one-row frame-dimension fix |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.64 | ESP32-S3 + microSD + MAX98357A | WS2812B | 16x16 matrix plus paired 32x1 VU rails | Single rectangular matrix (serpentine) flanked by a Stereo VU Meter fixture (left GPIO 42, right GPIO 2, data-in Bottom both sides) | `fbuild` 2.5.21 | USB flash via `esptool` through the helper's normal Upload path | Generate the SD Music Player sketch with a Stereo VU Meter, compile, flash, and run the full fifteen-item bench matrix: silence, channel separation, mono mirroring, a calibrated level staircase, ballistics, clipping, all twelve visualizations, all four selection policies, a fifteen-minute soak with the matrix rendering concurrently, track-skip and card-pull interruption, channel swap, both data-in directions, and power draw at the cap | [Bench record (`2026-09-02`)](../development/plans/vu-meter.md#bench-record--2026-09-02): all fifteen passed; 2.90-2.92 A measured against a 3000 mA cap at 4.82 V far-end, strips barely warm after ten minutes. Found and fixed two level-scale defects (`c43113f3`, `173dcc3d`) that compile and browser tests could not see |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 (Generic N16R8, 44-pin dual USB-C) + photosensitive LDR module (KS6026 form) | WS2812B | 32x1 | LED string (non-matrix, non-serpentine) | `fbuild` 2.5.21 | USB flash via `esptool` through the helper's normal Upload path | Generate a live-graph sketch whose `Light Sensor` on GPIO2/ADC1 drives LED output brightness through Map Range and Smooth; compile, flash, and verify the strip tracks light across covered, normal room light, and direct torch | [Input-peripheral bench record (`2026-09-02`)](../development/reports/input-peripheral-bench.md#ldr-light-sensor--2026-09-02): all three light conditions passed; ADC measured across the full range with a probe sketch using the same `analogRead(pin) / 4095.0f` expression the generator emits |
 
 These are the only fully recorded public-beta support rows today.
 
@@ -136,6 +137,11 @@ Unless a future row says otherwise, treat the following as experimental:
   - **Helper-backed Art-Net preview** is browser + helper only and never
     touches a board, so it graduates with the Art-Net firmware run rather than
     as its own row. Note that preview holds exactly one live universe.
+- **Input peripherals other than the recorded LDR row above** — Button,
+  Potentiometer, Encoder, and PIR Motion have no hardware record of any
+  kind. `PotInput` shares the LDR's ADC path and pin-capability rule, so the
+  GPIO2/ADC1 result is suggestive for it, but resemblance is not a pass. See
+  [input-peripheral bench records](../development/reports/input-peripheral-bench.md).
 - **Wi-Fi-dependent firmware generally**, including NTP time sync for the RTC
   Clock node — no board has confirmed a real network connection, and neither
   the software clock's drift nor an actual NTP sync has been validated.

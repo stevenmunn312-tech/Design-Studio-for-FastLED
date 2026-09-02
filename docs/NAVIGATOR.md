@@ -110,6 +110,11 @@ build/architecture overview aimed at contributors.
     and firmware generator: preview/firmware divergences (a `Kaleidoscope`
     codegen stub, `Mod` by zero, frame-rate-coupled timing), unbounded
     property values, and node-metadata improvements.
+  - [Input peripheral bench records](development/reports/input-peripheral-bench.md)
+    — hardware validation for the `input` node category: the LDR light-sensor
+    run with its measured ADC range, which input nodes still have no record,
+    and the failure signatures (loose ground reads as a dead feature, a
+    dark-room calibration is 30x wrong for a lit one).
   - [fbuild workarounds](development/reports/fbuild-workarounds.md)
     — every accommodation the upload helper makes for the fbuild build engine,
     with symptoms, code references, and version-verification status; written to
