@@ -34,7 +34,7 @@ an internal record.
 | 6 | ESP32 RAM percentage impossible (>100%) on success | 2.4.0 | Discard RAM figure over 100% | Fixed in 2.5.17; guard kept as a sanity check |
 | 7 | `deploy` unimplemented for some compilable platforms | **2.5.4** | Fall back to arduino-cli | Yes |
 | 8 | Dep scanner misses transitive `SPI` in a vendored lib | 2.4.0 | Stub out the offending file | **No — FastLED guarded it in #3815, workaround removed 2026-08-27** |
-| 9 | ESP32 no-op build costs 181.5s (AVR and ESP8266: 0.4s) | **2.5.21** | None — measured, not worked around | Yes |
+| 9 | ESP32 no-op build costs 181.5s (AVR, ESP8266, STM32: 0.4s) | **2.5.21** | None — measured, not worked around | Yes |
 
 ---
 
@@ -356,16 +356,21 @@ fbuild 2.5.21, only the environment differs:
 |---|---|---|---|---|
 | `arduino_avr_uno` | 56 | 26.2s | **0.4s** | `reusing existing AVR artifacts` |
 | `esp8266_esp8266_nodemcuv2` | 113 | 39.0s | **0.4s** | `reusing existing ESP8266 artifacts` |
+| `STMicroelectronics_stm32_blackpill_f411ce` | 232 | 71.3s | **0.4s** | `reusing existing STM32 artifacts` |
 | `esp32_esp32_esp32s3_opi` | 255 | (full build ~6m) | **181.5s** | `reusing existing ESP32 artifacts` |
 
-That eliminates Windows I/O and the FastLED tree outright: both are identical across all
-three rows, and two of the three no-ops are sub-second.
+That eliminates Windows I/O and the vendored FastLED tree outright: both are identical
+across all four rows, and three of the four no-ops are sub-second.
 
-It also rules out any scaling curve. Doubling the object count (56 to 113) does not move
-the no-op at all — 0.4s either way — and ESP8266 is no toy target: a 2.33 MB image and a
-39s populate. The cost appears only on ESP32, where it is 450x the AVR figure. Note that
-fbuild names the platform in its own reuse message, so this is a per-platform code path,
-and only one of them is slow.
+The STM32 row eliminates project size just as completely. It carries 232 objects against
+ESP32's 255 — within 10% — and confirms its fingerprint match in 0.4s against 181.5s, a
+450x difference across a 1.1x difference in size. Between them the four rows span 56 to
+255 objects with no effect on the no-op whatsoever.
+
+The compile path, by contrast, behaves exactly as it should: populate time tracks object
+count across all four (26.2s / 39.0s / 71.3s for 56 / 113 / 232). Only the ESP32 no-op is
+pathological, and fbuild names the platform in its own reuse message — so these are
+branches of one path, and one branch is the bug.
 
 The ESP32 build directory is also the only one carrying `.firmware_bin_cache.json` and
 `.firmware_size_cache.json` (the mechanism added upstream for issue #4 above), and its
@@ -399,9 +404,10 @@ build in normal use — but it is bisectable to one commit pair from upstream's 
 and worth naming alongside the ask below.
 
 **Upstream ask.** Look at the ESP32 branch of the artifact-reuse path specifically. The
-AVR and ESP8266 branches establish the same fingerprint match on the same project, same
-host and same version in 0.4s; the ESP32 one takes 181.5s without writing anything, which
-gives back none of what a fingerprint cache is for. Worth reporting with the log above, which is
+AVR, ESP8266 and STM32 branches establish the same fingerprint match on the same project,
+same host and same version in 0.4s — STM32 while carrying 232 objects to ESP32's 255. The
+ESP32 branch takes 181.5s and writes nothing, which gives back none of what a fingerprint
+cache is for. Worth reporting with the log above, which is
 self-contained: fbuild states both the no-op match and its own elapsed time.
 
 ---
