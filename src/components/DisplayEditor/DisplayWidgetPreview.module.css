@@ -127,6 +127,17 @@
   font-size: 0.72em;
 }
 
+.controlIcon {
+  width: auto;
+  height: 1.6em;
+  object-fit: contain;
+}
+
+.iconOnly .controlIcon {
+  height: 100%;
+  max-height: 100%;
+}
+
 .imageAsset {
   display: block;
   width: 100%;

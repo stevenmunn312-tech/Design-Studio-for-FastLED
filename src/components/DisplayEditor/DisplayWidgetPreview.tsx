@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactElement } from 'react'
 import type { DisplayTheme, DisplayWidget } from '../../state/displayDocument'
 import type { DisplayPreviewRenderer, DisplayWidgetState } from '../../state/displayRegistry'
 import { displayAsset, displayAssetUrl } from '../../state/displayAssets'
@@ -46,6 +46,25 @@ function timecode(seconds: number, showHours: boolean): string {
   return showHours || hours > 0
     ? `${hours}:${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`
     : `${minutes}:${String(rest).padStart(2, '0')}`
+}
+
+/**
+ * The optional icon a Button or Toggle carries, honouring its `presentation`.
+ *
+ * Themed player-control art is drawn as it comes rather than tinted: a set is
+ * chosen for its own colours, unlike the semantic glyphs an Image/Icon masks to
+ * one tint. An icon-only control with no asset chosen still shows its text —
+ * a blank key and a broken one look identical on a panel.
+ */
+function controlIcon(widget: DisplayWidget): { icon: ReactElement | null; showText: boolean } {
+  const presentation = stringProperty(widget, 'presentation', 'text')
+  if (presentation === 'text') return { icon: null, showText: true }
+  const asset = displayAsset(stringProperty(widget, 'assetId'))
+  if (!asset) return { icon: null, showText: true }
+  return {
+    icon: <img className={styles.controlIcon} src={displayAssetUrl(asset)} alt="" aria-hidden="true" />,
+    showText: presentation !== 'icon',
+  }
 }
 
 export default function DisplayWidgetPreview({ widget, renderer, theme, state, value }: DisplayWidgetPreviewProps) {
@@ -106,10 +125,23 @@ export default function DisplayWidgetPreview({ widget, renderer, theme, state, v
       }
       return <img className={styles.imageAsset} src={displayAssetUrl(asset)} alt={asset.label} />
     }
-    case 'button':
-      return <span className={`${styles.button} ${pressed ? styles.pressed : ''}`}>{stringProperty(widget, 'text', widget.label)}</span>
-    case 'toggle':
-      return <span className={`${styles.toggle} ${active ? styles.active : ''}`}><span />{active ? stringProperty(widget, 'onLabel', 'On') : stringProperty(widget, 'offLabel', 'Off')}</span>
+    case 'button': {
+      const { icon, showText } = controlIcon(widget)
+      return (
+        <span className={`${styles.button} ${pressed ? styles.pressed : ''} ${icon && !showText ? styles.iconOnly : ''}`}>
+          {icon}{showText ? stringProperty(widget, 'text', widget.label) : null}
+        </span>
+      )
+    }
+    case 'toggle': {
+      const { icon, showText } = controlIcon(widget)
+      return (
+        <span className={`${styles.toggle} ${active ? styles.active : ''} ${icon && !showText ? styles.iconOnly : ''}`}>
+          <span />{icon}
+          {showText ? (active ? stringProperty(widget, 'onLabel', 'On') : stringProperty(widget, 'offLabel', 'Off')) : null}
+        </span>
+      )
+    }
     case 'slider':
       return <span className={styles.slider} style={fillStyle}><span className={styles.fill} /><span className={styles.thumb} /></span>
     case 'dial':
