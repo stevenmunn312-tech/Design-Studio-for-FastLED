@@ -181,6 +181,25 @@ describe('uiStore.setStatus auto-clear', () => {
     useUiStore.getState().requestFitView()
     expect(useUiStore.getState().fitViewRequest).toEqual({ nonce: 2, nodeIds: undefined })
   })
+
+  it('navigates between graph and display authoring without persisting document data in UI state', () => {
+    useUiStore.setState({
+      workspaceMode: 'build',
+      designWorkspaceView: { kind: 'graph' },
+      fitViewRequest: { nonce: 4 },
+    })
+
+    useUiStore.getState().openDisplayWorkspace('touch-panel')
+    expect(useUiStore.getState()).toMatchObject({
+      workspaceMode: 'design',
+      designWorkspaceView: { kind: 'display', displayId: 'touch-panel' },
+      fitViewRequest: { nonce: 5 },
+    })
+
+    useUiStore.getState().closeDisplayWorkspace()
+    expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'graph' })
+    expect(useUiStore.getState().fitViewRequest.nonce).toBe(6)
+  })
 })
 
 describe('nodeFlash', () => {

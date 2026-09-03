@@ -28,6 +28,11 @@ export type HelpTab = 'quickstart' | 'hardware' | 'shortcuts' | 'nodes' | 'uploa
 /** The bottom pane shows the bench, or the tools that flash it. */
 export type HardwarePaneTab = 'hardware' | 'upload'
 export type WorkspaceMode = 'design' | 'build'
+/** Which authoring surface occupies the design workspace. Build Diagram stays
+ * a separate workspace mode because it replaces all authoring chrome. */
+export type DesignWorkspaceView =
+  | { kind: 'graph' }
+  | { kind: 'display'; displayId: string }
 
 export interface HelpNodeReferenceState {
   search: string
@@ -137,6 +142,9 @@ interface UiState {
   statusText: string
   statusLevel: StatusLevel
   workspaceMode: WorkspaceMode
+  /** Session-only navigation. Display documents remain persisted beside
+   * graphData in GraphState; this only says which editor is currently open. */
+  designWorkspaceView: DesignWorkspaceView
   sidebarOpen: boolean
   previewPanelOpen: boolean
   sidebarWidth: number
@@ -215,6 +223,8 @@ interface UiState {
   toggleBuildDiagram: () => void
   openBuildDiagram: () => void
   closeBuildDiagram: () => void
+  openDisplayWorkspace: (displayId: string) => void
+  closeDisplayWorkspace: () => void
   toggleSidebar: () => void
   togglePreviewPanel: () => void
   setSidebarWidth: (px: number) => void
@@ -292,6 +302,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   statusText: 'Ready',
   statusLevel: 'idle',
   workspaceMode: 'design',
+  designWorkspaceView: { kind: 'graph' },
   sidebarOpen: true,
   previewPanelOpen: true,
   sidebarWidth: load<number>(SIDEBAR_WIDTH_KEY, DEFAULT_SIDEBAR_WIDTH),
@@ -358,6 +369,15 @@ export const useUiStore = create<UiState>((set, get) => ({
   toggleBuildDiagram: () => set((s) => ({ workspaceMode: s.workspaceMode === 'build' ? 'design' : 'build' })),
   openBuildDiagram: () => set({ workspaceMode: 'build' }),
   closeBuildDiagram: () => set({ workspaceMode: 'design' }),
+  openDisplayWorkspace: (displayId) => set((state) => ({
+    workspaceMode: 'design',
+    designWorkspaceView: { kind: 'display', displayId },
+    fitViewRequest: { nonce: state.fitViewRequest.nonce + 1 },
+  })),
+  closeDisplayWorkspace: () => set((state) => ({
+    designWorkspaceView: { kind: 'graph' },
+    fitViewRequest: { nonce: state.fitViewRequest.nonce + 1 },
+  })),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   togglePreviewPanel: () => set((s) => ({ previewPanelOpen: !s.previewPanelOpen })),
   setSidebarWidth: (px) => {

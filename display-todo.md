@@ -627,6 +627,12 @@ freeform widgets must reuse rather than rediscover.
   signal `graphData` and declarative `displayDocuments` separate. Reuse the
   existing enter/exit gesture, breadcrumbs, fit-view request, and per-document
   undo expectations without pretending widgets are React Flow nodes.
+  `uiStore` now carries a session-only `DesignWorkspaceView` discriminant and
+  `App` swaps the React Flow canvas for `DisplayEditor` without moving document
+  data into UI state. The editor shares the fit request, returns through a
+  Graph breadcrumb or Escape, and suppresses graph-only clipboard shortcuts.
+  The future outer `Display` node still needs to create/open the document, and
+  per-document history needs the same isolation that graph groups receive.
 - [x] Define and version `DisplayDocument` and `DisplayWidget` schemas. At
   minimum store display/module id, resolution/orientation, grid, theme,
   widgets, stable ids, integer bounds, type, validated properties and validated
@@ -646,14 +652,25 @@ freeform widgets must reuse rather than rediscover.
   all 13 launch entries own their role-based ports, defaults, geometry limits,
   adapter identities, inspector metadata, supported states, asset slots and
   property validation. Workspace normalization reads that metadata instead of
-  maintaining a second property-key table. The preview and LVGL adapters still
-  need their Phase 6/7 implementations before this item is complete.
+  maintaining a second property-key table. The DOM preview dispatch now covers
+  every adapter identity and the editor builds its property controls from the
+  registry metadata. LVGL adapters remain Phase 7 work.
 - [ ] Implement add, select, multi-select, drag, keyboard nudge, resize, snap,
   align/distribute, duplicate, delete, copy/paste, undo/redo, zoom/fit, and
   non-overlap collision feedback. Prioritise add/select/drag/resize/snap and
   undo before multi-select/alignment/copy workflows.
+  The first editing pass now adds all 13 registry widgets, selects, drags,
+  resizes, grid-snaps, keyboard-nudges, duplicates, deletes, zooms/fits, and
+  reports overlap plus registry validation. Document commits already flow
+  through the workspace undo slice. Multi-select, align/distribute, clipboard,
+  and isolated per-document undo stacks remain.
 - [ ] Make every editor action keyboard reachable and announce widget type,
   bounds, port direction/type, selection, and validation errors.
+  Palette actions, bounds/properties, nudge, duplicate and delete are keyboard
+  reachable; selection changes announce type, integer bounds and role-based
+  port contracts through a polite live region. Drag/resize still need explicit
+  keyboard equivalents beyond the numeric bounds inspector, and validation
+  announcements need refinement before this is complete.
 - [ ] Auto-mint/remove dynamic ports on the outer `Display` node. Removing a
   wired widget requires confirmation and removes its edges atomically. Changing
   a widget to a different port type is create-new/delete-old, not an in-place
@@ -674,6 +691,9 @@ freeform widgets must reuse rather than rediscover.
 - [ ] Enforce touch-first geometry per target rather than only visual minimums:
   approximately 48×48 px primary targets and 6–8 px separation on the 320×240
   reference screen, with Slider hit regions wider than their visible tracks.
+  New and resized controls now enforce the greater of each registry entry's
+  visual and touch minimum. Separation and the Slider's expanded runtime hit
+  region remain to be enforced.
 - [ ] Add declarative templates for Now Playing, Minimal Transport, Pattern
   Deck, LED Performance, Audio Reactor, Diagnostics and DMX Monitor. Templates
   insert ordinary widgets and mint ordinary visible ports; they do not gain

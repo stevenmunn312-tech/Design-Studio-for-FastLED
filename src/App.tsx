@@ -53,6 +53,7 @@ const TemplatesPopup = lazy(() => import('./components/Templates/TemplatesPopup'
 const PatternRatingsPopup = lazy(() => import('./components/PatternRatings/PatternRatingsPopup'))
 const ProjectsPopup = lazy(() => import('./components/Projects/ProjectsPopup'))
 const BuildDiagramWorkspace = lazy(() => import('./components/BuildDiagram/BuildDiagramWorkspace'))
+const DisplayEditor = lazy(() => import('./components/DisplayEditor/DisplayEditor'))
 const AUTOSAVE_INTERVAL = 10_000
 const AUTOSAVE_IDLE_TIMEOUT = 2_000
 const SNAPSHOT_INTERVAL = 120_000
@@ -69,6 +70,7 @@ export default function App() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen)
   const previewPanelOpen = useUiStore((s) => s.previewPanelOpen)
   const workspaceMode = useUiStore((s) => s.workspaceMode)
+  const designWorkspaceView = useUiStore((s) => s.designWorkspaceView)
   const stageMode = useUiStore((s) => s.stageMode)
   const stageFullscreenStatus = useUiStore((s) => s.stageFullscreenStatus)
   const performanceMode = useUiStore((s) => s.performanceMode)
@@ -118,6 +120,7 @@ export default function App() {
   const [stageCursorHidden, setStageCursorHidden] = useState(false)
   const [splitCanvasHeight, setSplitCanvasHeight] = useState(0)
   const [capacityWatcherReady, setCapacityWatcherReady] = useState(false)
+  const displayEditorOpen = designWorkspaceView.kind === 'display'
 
   // CapacityWatcher assembles the exact firmware text used by a later manual
   // capacity check. It must remain mounted after startup so stale readings are
@@ -295,12 +298,12 @@ export default function App() {
   const lastSnapshotRef = useRef<string>('')
   useEffect(() => {
     const timer = setInterval(() => {
-      const { nodes, edges, graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck } = useGraphStore.getState()
+      const { nodes, edges, graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck, displayDocuments } = useGraphStore.getState()
       if (nodes.length === 0) return
-      const serialized = JSON.stringify({ nodes, edges, graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck })
+      const serialized = JSON.stringify({ nodes, edges, graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck, displayDocuments })
       if (serialized === lastSnapshotRef.current) return
       lastSnapshotRef.current = serialized
-      pushSnapshot({ nodes, edges, graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck })
+      pushSnapshot({ nodes, edges, graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck, displayDocuments })
     }, SNAPSHOT_INTERVAL)
     return () => clearInterval(timer)
   }, [])
@@ -509,6 +512,10 @@ export default function App() {
           useUiStore.getState().closeBuildDiagram()
           return
         }
+        if (useUiStore.getState().designWorkspaceView.kind === 'display') {
+          useUiStore.getState().closeDisplayWorkspace()
+          return
+        }
         if (useUiStore.getState().performanceMode) {
           useUiStore.getState().setPerformanceMode(false)
           return
@@ -579,6 +586,11 @@ export default function App() {
           setStatus('No project open — create one to save into', 'info')
         }
       }
+      // The remaining shortcuts operate on React Flow selection/clipboard.
+      // A custom display is a separate declarative document, so its editor
+      // owns those gestures instead of accidentally copying graph nodes that
+      // happen to remain selected behind it.
+      if (useUiStore.getState().designWorkspaceView.kind !== 'graph') return
       if (e.key === 'a') {
         e.preventDefault()
         useGraphStore.getState().selectAllNodes()
@@ -646,41 +658,49 @@ export default function App() {
           <>
             <div className={styles.workspaceCanvas}>
               <div className={styles.mainRegion}>
-                <div className={`${styles.sidebarDock} ${sidebarOpen ? '' : styles.sidebarDockClosed}`}>
-                  <div
-                    className={`${styles.sidebarPanel} ${sidebarOpen ? '' : styles.sidebarPanelClosed}`}
-                    aria-hidden={!sidebarOpen}
-                    inert={!sidebarOpen}
-                  >
-                    <Sidebar />
-                  </div>
-                </div>
-                {sidebarOpen && (
-                  <PanelResizeHandle
-                    side="sidebar"
-                    width={sidebarWidth}
-                    min={MIN_SIDEBAR_WIDTH}
-                    max={MAX_SIDEBAR_WIDTH}
-                    defaultWidth={DEFAULT_SIDEBAR_WIDTH}
-                    otherPanelWidth={previewPanelOpen ? previewWidth : 0}
-                    label="Resize node library panel"
-                    onCommit={setSidebarWidth}
-                  />
+                {!displayEditorOpen && (
+                  <>
+                    <div className={`${styles.sidebarDock} ${sidebarOpen ? '' : styles.sidebarDockClosed}`}>
+                      <div
+                        className={`${styles.sidebarPanel} ${sidebarOpen ? '' : styles.sidebarPanelClosed}`}
+                        aria-hidden={!sidebarOpen}
+                        inert={!sidebarOpen}
+                      >
+                        <Sidebar />
+                      </div>
+                    </div>
+                    {sidebarOpen && (
+                      <PanelResizeHandle
+                        side="sidebar"
+                        width={sidebarWidth}
+                        min={MIN_SIDEBAR_WIDTH}
+                        max={MAX_SIDEBAR_WIDTH}
+                        defaultWidth={DEFAULT_SIDEBAR_WIDTH}
+                        otherPanelWidth={previewPanelOpen ? previewWidth : 0}
+                        label="Resize node library panel"
+                        onCommit={setSidebarWidth}
+                      />
+                    )}
+                    <button
+                      className={`${styles.sidebarHandle} ${sidebarOpen ? styles.sidebarHandleOpen : styles.sidebarHandleClosed}`}
+                      type="button"
+                      onClick={toggleSidebar}
+                      aria-label={sidebarOpen ? 'Hide node library' : 'Show node library'}
+                      aria-expanded={sidebarOpen}
+                      aria-controls="node-library"
+                      title={sidebarOpen ? 'Hide node library' : 'Show node library'}
+                    >
+                      <span className={styles.sidebarHandleArrow} aria-hidden="true">{sidebarOpen ? '‹' : '›'}</span>
+                    </button>
+                  </>
                 )}
-                <button
-                  className={`${styles.sidebarHandle} ${sidebarOpen ? styles.sidebarHandleOpen : styles.sidebarHandleClosed}`}
-                  type="button"
-                  onClick={toggleSidebar}
-                  aria-label={sidebarOpen ? 'Hide node library' : 'Show node library'}
-                  aria-expanded={sidebarOpen}
-                  aria-controls="node-library"
-                  title={sidebarOpen ? 'Hide node library' : 'Show node library'}
-                >
-                  <span className={styles.sidebarHandleArrow} aria-hidden="true">{sidebarOpen ? '‹' : '›'}</span>
-                </button>
                 <div ref={splitCanvasRef} className={styles.splitCanvas}>
                   <div className={styles.graphPane}>
-                    <NodeGraphCanvas />
+                    {designWorkspaceView.kind === 'display' ? (
+                      <Suspense fallback={null}><DisplayEditor /></Suspense>
+                    ) : (
+                      <NodeGraphCanvas />
+                    )}
                   </div>
                   {splitCanvasHeight > 0 && (
                     <HorizontalResizeHandle
@@ -698,7 +718,7 @@ export default function App() {
                   </div>
                 </div>
               </div>
-              <div className={`${styles.previewDock} ${previewPanelOpen ? '' : styles.previewDockClosed}`}>
+              {!displayEditorOpen && <div className={`${styles.previewDock} ${previewPanelOpen ? '' : styles.previewDockClosed}`}>
                 <div
                   className={`${styles.previewPanel} ${previewPanelOpen ? '' : styles.previewPanelClosed}`}
                   aria-hidden={!previewPanelOpen && !stageMode}
@@ -707,8 +727,8 @@ export default function App() {
                 >
                   <LEDPreview />
                 </div>
-              </div>
-              {previewPanelOpen && !stageMode && (
+              </div>}
+              {!displayEditorOpen && previewPanelOpen && !stageMode && (
                 <PanelResizeHandle
                   side="preview"
                   width={previewWidth}
@@ -720,7 +740,7 @@ export default function App() {
                   onCommit={setPreviewWidth}
                 />
               )}
-              <button
+              {!displayEditorOpen && <button
                 className={`${styles.previewHandle} ${previewPanelOpen ? styles.previewHandleOpen : styles.previewHandleClosed}`}
                 type="button"
                 onClick={togglePreviewPanel}
@@ -730,7 +750,7 @@ export default function App() {
                 title={previewPanelOpen ? 'Hide LED preview' : 'Show LED preview'}
               >
                 <span className={styles.previewHandleArrow} aria-hidden="true">{previewPanelOpen ? '›' : '‹'}</span>
-              </button>
+              </button>}
               {deckOpen && (
                 <Suspense fallback={null}>
                   <PerformanceDeck />

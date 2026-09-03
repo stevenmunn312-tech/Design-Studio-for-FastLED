@@ -1,0 +1,200 @@
+.text,
+.numeric {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.numeric {
+  font-family: var(--font-code);
+  font-size: 1.15em;
+  font-variant-numeric: tabular-nums;
+}
+
+.track,
+.slider {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.track .fill,
+.slider .fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--widget-fill);
+  border-radius: inherit;
+  background: var(--display-accent, #36c8ff);
+}
+
+.vertical {
+  width: 8px;
+  height: 100%;
+}
+
+.vertical .fill {
+  inset: auto 0 0;
+  width: 100%;
+  height: var(--widget-fill);
+}
+
+.status,
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8em;
+}
+
+.status > span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--display-inactive, #6e7788);
+}
+
+.status.active > span {
+  background: var(--display-success, #35d07f);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--display-success, #35d07f) 65%, transparent);
+}
+
+.swatch {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  border-radius: inherit;
+  color: white;
+  font-family: var(--font-code);
+  font-size: 0.72em;
+  text-shadow: 0 1px 3px black;
+}
+
+.pattern {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+}
+
+.patternArt {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  place-items: center;
+  border-radius: 5px;
+  background: conic-gradient(from 40deg, #33d6ff, #8533ff, #ff3385, #33d6ff);
+  color: white;
+}
+
+.pattern strong,
+.pattern small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pattern small {
+  margin-top: 2px;
+  color: var(--display-inactive, #6e7788);
+  font-size: 0.7em;
+}
+
+.image {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  border: 1px dashed currentColor;
+  border-radius: inherit;
+  color: var(--display-inactive, #6e7788);
+  font-size: 0.72em;
+}
+
+.button {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--display-accent, #36c8ff) 60%, transparent);
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--display-accent, #36c8ff) 14%, var(--display-surface, #171d2a));
+  font-weight: 700;
+}
+
+.toggle {
+  width: 100%;
+  justify-content: center;
+}
+
+.toggle > span {
+  position: relative;
+  width: 26px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--display-inactive, #6e7788);
+}
+
+.toggle > span::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: white;
+  content: '';
+}
+
+.toggle.active > span {
+  background: var(--display-accent, #36c8ff);
+}
+
+.toggle.active > span::after {
+  transform: translateX(12px);
+}
+
+.slider {
+  overflow: visible;
+}
+
+.slider .thumb {
+  position: absolute;
+  top: 50%;
+  left: var(--widget-fill);
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+  transform: translate(-50%, -50%);
+}
+
+.dial {
+  position: relative;
+  display: block;
+  width: min(100%, 42px);
+  aspect-ratio: 1;
+  border: 4px solid color-mix(in srgb, var(--display-accent, #36c8ff) 70%, var(--display-surface, #171d2a));
+  border-radius: 50%;
+  background: var(--display-surface, #171d2a);
+}
+
+.dial > span {
+  position: absolute;
+  top: 4px;
+  left: calc(50% - 1px);
+  width: 2px;
+  height: 35%;
+  transform: rotate(var(--dial-angle));
+  transform-origin: 50% calc(100% + 4px);
+  background: white;
+}
