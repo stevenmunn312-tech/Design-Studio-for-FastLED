@@ -801,11 +801,23 @@ freeform widgets must reuse rather than rediscover.
   frames until a panel renderer reads `roleValues`. Touch is unaffected — a
   widget output wired to a real terminal is pulled by that terminal. Restore the
   hot root together with that renderer.
-- [ ] Reject instantaneous graph cycles through one Display node, or add a
+- [x] Reject instantaneous graph cycles through one Display node, or add a
   visible `Delay` requirement; do not rely on evaluator recursion guards to
   define user-facing behaviour by accident. The sole implicit exception is a
   registry-declared synchronized control's paired `out → graph → set` loop,
   whose one-tick ordering is part of that widget contract and tested directly.
+  Satisfied by defining the behaviour rather than refusing the shape, because
+  rejection would refuse this plan's own flagship template: Now Playing's
+  buttons drive a player whose title and elapsed time come back to its own text,
+  which is a loop through one screen and is not an `out → set` pair. The
+  exception is not special after all — a screen's outputs are a pure function of
+  touch sampled *before* the pass and depend on no input, so the evaluator
+  memoizes them before resolving a single input. Every loop through one screen,
+  or closing through a second, then carries the finger's value instead of the
+  `{}` the recursion guard hands back, and the guard no longer decides anything
+  a user can see. Tests assert the discriminating values (a wired 0.5 comes back
+  as 0.75, not the unwired default's 0.25) and fail without the memoization. No
+  `Delay` node exists, so that alternative was never on the table.
 - [ ] Generate deterministic LVGL object setup, styles, event callbacks, bounded
   value buffers, role-based bindings, and change-only updates from
   `DisplayDocument`.

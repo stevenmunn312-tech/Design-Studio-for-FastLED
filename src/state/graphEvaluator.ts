@@ -7229,16 +7229,6 @@ function createEvalNode(
         const widgetInputs = (node.data.inputs as { id: string; dataType?: string }[] | undefined) ?? []
         const widgetOutputs = (node.data.outputs as { id: string; dataType?: string }[] | undefined) ?? []
 
-        if (enabled) {
-          for (const port of widgetInputs) {
-            const parsed = parseDisplayWidgetPortId(port.id)
-            if (!parsed || !incoming.has(`${id}:${port.id}`)) continue
-            const value = input(id, port.id, null)
-            if (value === null || Array.isArray(value)) continue
-            runtime.publishDisplayRoleValue(displayId, parsed.widgetId, parsed.role, value as DisplayRuntimeValue)
-          }
-        }
-
         // An untouched control publishes its type's rest value — false for a
         // latch, zero for a ranged control — until a finger moves it. A
         // disabled screen publishes only those: nothing on it is being touched.
@@ -7249,6 +7239,31 @@ function createEvalNode(
             ? runtime.readDisplayWidget(displayId, parsed.widgetId)?.touchValue
             : undefined
           out[port.id] = touched ?? (port.dataType === 'bool' ? false : 0)
+        }
+
+        /*
+         * Memoize the outputs before reading a single input.
+         *
+         * A synchronized control's `out → graph → set` path comes back into
+         * this same node, so resolving inputs re-enters it. Left to the
+         * evaluator's recursion guard that re-entry yields `{}` and the loop
+         * silently carries a fallback instead of the finger's value — the guard
+         * deciding user-facing behaviour by accident. Publishing first is
+         * sound rather than a trick: these outputs are a pure function of touch
+         * state sampled before this pass and depend on no input, so whoever
+         * asks, in whatever order, gets the same answer. Every other loop
+         * through a screen is refused in validation.
+         */
+        memo.set(id, out)
+
+        if (enabled) {
+          for (const port of widgetInputs) {
+            const parsed = parseDisplayWidgetPortId(port.id)
+            if (!parsed || !incoming.has(`${id}:${port.id}`)) continue
+            const value = input(id, port.id, null)
+            if (value === null || Array.isArray(value)) continue
+            runtime.publishDisplayRoleValue(displayId, parsed.widgetId, parsed.role, value as DisplayRuntimeValue)
+          }
         }
         break
       }

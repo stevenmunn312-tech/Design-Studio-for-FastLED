@@ -89,6 +89,60 @@ describe('custom Display node evaluation', () => {
     expect(runtime().readDisplayWidget('panel', 'text')).toBeUndefined()
   })
 
+  /*
+   * A loop back into the same screen is the normal shape, not an error: the
+   * Now Playing template's buttons drive a player whose readings come back to
+   * its own text. Resolving inputs re-enters the node, so the value the loop
+   * carries must be the finger's, not the fallback the recursion guard would
+   * hand back.
+   */
+  it('carries the sampled touch value around a loop through one screen', () => {
+    const nodes = [
+      screen(),
+      // Wired to the slider's own Set: the registry's synchronized control.
+      node('sync', 'Math', { mathOp: 'add', a: 0, b: 0.25 }),
+      // Wired to a different widget: an ordinary panel loop, equally valid.
+      node('cross', 'Math', { mathOp: 'add', a: 0, b: 1 }),
+    ]
+    const edges = [
+      edge('e-out', 'screen', 'widget:slider:out', 'sync', 'a'),
+      edge('e-set', 'sync', 'result', 'screen', 'widget:slider:set'),
+      edge('e-cross-in', 'screen', 'widget:button:out', 'cross', 'a'),
+      edge('e-cross-out', 'cross', 'result', 'screen', 'widget:text:value'),
+    ]
+    runtime().touchDisplayWidget('panel', 'slider', 0.5)
+
+    const outputs = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true).outputs.get('screen')!
+
+    expect(outputs['widget:slider:out']).toBe(0.5)
+    // 0.75 is the touch value plus 0.25. The recursion guard would have fed
+    // Math its own unwired default instead and published 0.25.
+    expect(runtime().readDisplayWidget('panel', 'slider')?.roleValues.get('set')).toBe(0.75)
+    expect(runtime().readDisplayWidget('panel', 'text')?.roleValues.get('value')).toBe(1)
+  })
+
+  it('resolves a loop that closes through a second screen', () => {
+    const first = screen()
+    const second: StudioNode = {
+      ...first,
+      id: 'screen-b',
+      data: { ...first.data, properties: { displayId: 'deck' } },
+    }
+    const nodes = [first, second, node('link', 'Math', { mathOp: 'add', a: 0, b: 0 })]
+    const edges = [
+      edge('e-a-out', 'screen', 'widget:slider:out', 'link', 'a'),
+      edge('e-b-set', 'link', 'result', 'screen-b', 'widget:slider:set'),
+      edge('e-b-out', 'screen-b', 'widget:slider:out', 'screen', 'widget:slider:set'),
+    ]
+    runtime().touchDisplayWidget('panel', 'slider', 0.4)
+    runtime().touchDisplayWidget('deck', 'slider', 0.9)
+
+    evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true)
+
+    expect(runtime().readDisplayWidget('deck', 'slider')?.roleValues.get('set')).toBe(0.4)
+    expect(runtime().readDisplayWidget('panel', 'slider')?.roleValues.get('set')).toBe(0.9)
+  })
+
   // A screen is evaluated on publish frames like any other node. It is
   // deliberately NOT a hot root: seeding the hot set from its minted ports put
   // its whole upstream on the 60 fps path to publish values no renderer reads
