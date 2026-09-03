@@ -3,6 +3,8 @@ import { useAudioStore } from './audioStore'
 import { useDmxStore } from './dmxStore'
 import { useHardwareInputStore } from './hardwareInputStore'
 import { useTransportDisplayTouchStore } from './transportDisplayTouchStore'
+import { useDisplayRuntimeStore, type DisplayRuntimeValue } from './displayRuntimeStore'
+import { parseDisplayWidgetPortId } from './displayRegistry'
 import { useMidiStore } from './midiStore'
 import { blankDmxSnapshot, clampDmxChannel, clampDmxByte, type DmxSnapshot } from './dmx'
 import { rtcPreviewSnapshot, type RtcPreview } from './rtc'
@@ -7208,6 +7210,49 @@ function createEvalNode(
         break
       }
 
+      case 'Display': {
+        /*
+         * The freeform touch screen. Its ports are minted from the display
+         * document's stable widget roles and persisted on the node, so a port
+         * id — widget id plus role — is the whole contract this case needs; the
+         * declarative document stays with the editor.
+         *
+         * Ordering is the one stated in the plan. A finger's value was sampled
+         * into the runtime store before this pass and leaves on `out` now,
+         * while graph-driven values are published into the store here for the
+         * panel to draw afterward. A widget may own more than one role, so both
+         * directions walk ports rather than assuming one value each.
+         */
+        const displayId = String(props.displayId ?? id)
+        const runtime = useDisplayRuntimeStore.getState()
+        const enabled = props.enabled !== false
+        const widgetInputs = (node.data.inputs as { id: string; dataType?: string }[] | undefined) ?? []
+        const widgetOutputs = (node.data.outputs as { id: string; dataType?: string }[] | undefined) ?? []
+
+        if (enabled) {
+          for (const port of widgetInputs) {
+            const parsed = parseDisplayWidgetPortId(port.id)
+            if (!parsed || !incoming.has(`${id}:${port.id}`)) continue
+            const value = input(id, port.id, null)
+            if (value === null || Array.isArray(value)) continue
+            runtime.publishDisplayRoleValue(displayId, parsed.widgetId, parsed.role, value as DisplayRuntimeValue)
+          }
+        }
+
+        // An untouched control publishes its type's rest value — false for a
+        // latch, zero for a ranged control — until a finger moves it. A
+        // disabled screen publishes only those: nothing on it is being touched.
+        for (const port of widgetOutputs) {
+          const parsed = parseDisplayWidgetPortId(port.id)
+          if (!parsed) continue
+          const touched = enabled
+            ? runtime.readDisplayWidget(displayId, parsed.widgetId)?.touchValue
+            : undefined
+          out[port.id] = touched ?? (port.dataType === 'bool' ? false : 0)
+        }
+        break
+      }
+
       case 'SegmentDisplay': {
         // A display is a terminal: it updates whether or not anything downstream
         // reads it. The rendered characters come from state/segmentDisplay.ts,
@@ -8234,6 +8279,10 @@ export function evaluateScalarSeries(
 // nodes: the terminals (they define the rendered frame) and BeatDetect, whose
 // one-frame beat pulse triggers the preview loop's early publish — sampling it
 // only on publish frames would miss most beats.
+const OUTPUT_CATEGORY_NODE_TYPES = new Set<string>(
+  NODE_LIBRARY.filter((def) => def.category === 'output').map((def) => def.type),
+)
+
 const HOT_NODE_TYPES = new Set<string>([
   'BeatDetect',
   /*
@@ -8275,7 +8324,13 @@ function hotNodeIds(nodes: StudioNode[], edges: StudioEdge[]): Set<string> {
   const hot = new Set<string>()
   const pending: string[] = []
   for (const n of nodes) {
-    if (HOT_NODE_TYPES.has(String((n.data as { nodeType?: unknown }).nodeType))) {
+    const nodeType = String((n.data as { nodeType?: unknown }).nodeType)
+    // The same "output-category node with inputs" rule, asked of the node
+    // rather than the library, for a display whose ports are minted from its
+    // document: the library declares none, so the set above cannot see them.
+    const wiredScreen = OUTPUT_CATEGORY_NODE_TYPES.has(nodeType)
+      && ((n.data as { inputs?: unknown[] }).inputs?.length ?? 0) > 0
+    if (HOT_NODE_TYPES.has(nodeType) || wiredScreen) {
       hot.add(n.id)
       pending.push(n.id)
     }

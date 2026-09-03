@@ -769,9 +769,20 @@ freeform widgets must reuse rather than rediscover.
   preview keeps no second copy of a control's value, marks a held gesture as
   touch-owned and releases on pointer-up, and resets the display's runtime when
   the mode or the open display changes.
-- [ ] Add an evaluator case for the dynamic `Display` node that publishes input
+- [x] Add an evaluator case for the dynamic `Display` node that publishes input
   widget values and returns sampled output roles using the ordering contract
   above; do not assume one value per widget.
+  The case needs no document: a minted port id is widget id plus registry role,
+  and `parseDisplayWidgetPortId` reads it back, so the evaluator walks the
+  node's own ports in both directions and a widget owning several roles is
+  ordinary. Wired inputs publish into the runtime store for the panel to draw
+  after this pass; outputs carry the touch value sampled before it, resting at
+  the port type's own value — false for a latch, zero for a ranged control —
+  until a finger moves it. A disabled screen publishes nothing and reports only
+  those rest values. Being hot needed the same rule asked of the node rather
+  than the library, since a display's ports exist only on the instance: an
+  output-category node with inputs is a terminal, so a wired screen is
+  evaluated every frame instead of at the ~8 fps publish cadence.
 - [ ] Reject instantaneous graph cycles through one Display node, or add a
   visible `Delay` requirement; do not rely on evaluator recursion guards to
   define user-facing behaviour by accident. The sole implicit exception is a

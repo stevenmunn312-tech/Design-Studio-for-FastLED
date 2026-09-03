@@ -14,11 +14,18 @@ import type { DisplayWidgetPortRoleId } from './displayRegistry'
  * animation loop.
  */
 
-export type DisplayRuntimeValue = number | boolean | string
+/** What a finger can produce: a latch or a ranged value. */
+export type DisplayTouchValue = number | boolean
+
+/** Whatever the role's graph data type carries — a scalar for string, float and
+ * bool roles, and the structured value for colour and pattern selection.
+ * Compared by identity for dirty tracking, so a producer that rebuilds a
+ * structured value every frame redraws every frame. */
+export type DisplayRuntimeValue = number | boolean | string | object
 
 export interface DisplayWidgetRuntime {
   /** What the finger produced. Kept after release so the last touch is legible. */
-  touchValue?: DisplayRuntimeValue
+  touchValue?: DisplayTouchValue
   /** True while the finger owns the control and the graph value must not win. */
   touchOwned: boolean
   /** Graph-driven values by the widget's stable registry roles. */
@@ -37,7 +44,7 @@ export interface DisplayRuntimeDiagnostic {
 interface DisplayRuntimeState {
   displays: Map<string, Map<string, DisplayWidgetRuntime>>
   diagnosticsVersion: number
-  touchDisplayWidget: (displayId: string, widgetId: string, value: DisplayRuntimeValue) => void
+  touchDisplayWidget: (displayId: string, widgetId: string, value: DisplayTouchValue) => void
   releaseDisplayWidget: (displayId: string, widgetId: string) => void
   publishDisplayRoleValue: (
     displayId: string,

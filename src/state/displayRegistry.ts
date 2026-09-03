@@ -394,6 +394,20 @@ export function displayWidgetPortId(widgetId: string, role: DisplayWidgetPortRol
   return `widget:${widgetId}:${role}`
 }
 
+const WIDGET_PORT_ROLES: readonly DisplayWidgetPortRoleId[] = ['value', 'out', 'set']
+
+/** Read a minted port id back into the widget and role it names. The port id is
+ * the whole contract between a display document and anything that only sees the
+ * node — the evaluator included — so it has to be reversible. */
+export function parseDisplayWidgetPortId(
+  portId: string,
+): { widgetId: string; role: DisplayWidgetPortRoleId } | null {
+  const parts = portId.split(':')
+  if (parts.length !== 3 || parts[0] !== 'widget' || parts[1].length === 0) return null
+  const role = WIDGET_PORT_ROLES.find((candidate) => candidate === parts[2])
+  return role ? { widgetId: parts[1], role } : null
+}
+
 export function displayWidgetPorts(widget: Pick<DisplayWidget, 'id' | 'type' | 'label'>): ResolvedDisplayWidgetPort[] {
   const definition = DISPLAY_WIDGET_LIBRARY[widget.type]
   const widgetLabel = widget.label.trim() || definition.label
