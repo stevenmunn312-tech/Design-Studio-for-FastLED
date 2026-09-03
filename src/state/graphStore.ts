@@ -274,6 +274,10 @@ interface GraphState {
   addPatternsToCollection: (collectionNodeId: string, saved: SavedPattern[]) => void
   /** Remove a pattern (group id) from a PatternCollection, dropping its subgraph. */
   removeFromCollection: (collectionNodeId: string, groupId: string) => void
+  /** Empty a collection in one edit. Not a loop over `removeFromCollection`:
+   *  that would rebuild the node array once per pattern, and an emptied
+   *  collection should undo in a single step rather than refill one at a time. */
+  clearCollection: (collectionNodeId: string) => void
   /** Toggle a song-section tag on a collection pattern (section-aware selection).
    *  An empty tag set means the pattern is eligible in any section. */
   togglePatternSection: (collectionNodeId: string, groupId: string, section: string) => void
@@ -2299,6 +2303,26 @@ export const useGraphStore = create<GraphState>()(
           })
           const graphData = { ...s.graphData }; delete graphData[groupId]
           const graphs = { ...s.graphs }; delete graphs[groupId]
+          return { nodes, graphData, graphs }
+        }),
+
+      clearCollection: (collectionNodeId) =>
+        set((s) => {
+          const collection = s.nodes.find((n) => n.id === collectionNodeId)
+          const props = collection?.data.properties as { patternIds?: string[] } | undefined
+          const ids = props?.patternIds ?? []
+          if (ids.length === 0) return s
+          const nodes = s.nodes.map((n) => (
+            n.id === collectionNodeId
+              ? { ...n, data: { ...n.data, properties: { ...n.data.properties, patternIds: [], patternSections: {} } } }
+              : n
+          ))
+          const graphData = { ...s.graphData }
+          const graphs = { ...s.graphs }
+          for (const id of ids) {
+            delete graphData[id]
+            delete graphs[id]
+          }
           return { nodes, graphData, graphs }
         }),
 

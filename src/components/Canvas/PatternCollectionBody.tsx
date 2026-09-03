@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useGraphStore } from '../../state/graphStore'
+import { useUiStore } from '../../state/uiStore'
 import { SECTION_TYPES } from '../../codegen/performanceGenerator'
 import { useCapacityStore } from '../../state/capacityStore'
 import { capacityDelta, formatCapacityDelta } from '../../utils/capacityFormat'
@@ -32,6 +33,8 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
   )
   const graphs = useGraphStore((s) => s.graphs)
   const removeFromCollection = useGraphStore((s) => s.removeFromCollection)
+  const clearCollection = useGraphStore((s) => s.clearCollection)
+  const requestConfirm = useUiStore((s) => s.requestConfirm)
   const togglePatternSection = useGraphStore((s) => s.togglePatternSection)
   const setPatternSections = useGraphStore((s) => s.setPatternSections)
 
@@ -45,6 +48,20 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
 
   function handleListWheel(e: React.WheelEvent<HTMLUListElement>) {
     if (shouldConsumeWheel(e.currentTarget, e.deltaY)) e.stopPropagation()
+  }
+
+  // Emptying a collection discards each pattern's absorbed subgraph, so it asks
+  // first — the same courtesy the library's delete already extends, and unlike
+  // the per-row ✕ there is no obvious way to guess what was in a full list.
+  async function handleClear() {
+    const ok = await requestConfirm({
+      title: 'Remove every pattern?',
+      message: `Remove all ${patternIds.length} patterns from this collection? The saved library copies are not affected.`,
+      confirmLabel: 'Remove all',
+      cancelLabel: 'Cancel',
+      tone: 'danger',
+    })
+    if (ok) clearCollection(nodeId)
   }
 
   return (
@@ -97,10 +114,22 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
           })}
         </ul>
       )}
-      <button type="button" className={styles.addPatterns} onClick={() => setPickerOpen(true)}>
-        <span aria-hidden="true">＋</span>
-        Add patterns…
-      </button>
+      <div className={styles.actions}>
+        <button type="button" className={styles.addPatterns} onClick={() => setPickerOpen(true)}>
+          <span aria-hidden="true">＋</span>
+          Add patterns…
+        </button>
+        {patternIds.length > 0 && (
+          <button
+            type="button"
+            className={styles.clearAll}
+            title="Remove every pattern from this collection"
+            onClick={() => void handleClear()}
+          >
+            Remove all
+          </button>
+        )}
+      </div>
       <div className={styles.count}>{patternIds.length} pattern{patternIds.length === 1 ? '' : 's'}</div>
       {deltaText && (
         <div className={styles.delta} title="Change in measured controller capacity since the last live check on this board">

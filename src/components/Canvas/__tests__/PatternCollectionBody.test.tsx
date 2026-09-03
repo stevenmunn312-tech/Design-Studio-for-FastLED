@@ -4,6 +4,7 @@ import PatternCollectionBody from '../PatternCollectionBody'
 import { useGraphStore } from '../../../state/graphStore'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import { usePatternLibrary, type SavedPattern } from '../../../state/patternLibrary'
+import { useUiStore } from '../../../state/uiStore'
 
 function nodeData(type: string, properties: Record<string, unknown>) {
   const def = NODE_LIBRARY.find((n) => n.type === type)!
@@ -88,5 +89,46 @@ describe('PatternCollectionBody', () => {
       'saved-0',
       'saved-1',
     ])
+  })
+
+  it('empties the collection in one confirmed edit, discarding its subgraphs', async () => {
+    useGraphStore.setState({ graphData: { 'group-1': { nodes: [], edges: [] }, 'group-2': { nodes: [], edges: [] } } })
+    const confirm = vi.fn().mockResolvedValue(true)
+    useUiStore.setState({ requestConfirm: confirm })
+
+    const { getByText } = render(<PatternCollectionBody nodeId="collection" />)
+    fireEvent.click(getByText('Remove all'))
+    await vi.waitFor(() => {
+      const props = useGraphStore.getState().nodes[0].data.properties as { patternIds: string[] }
+      expect(props.patternIds).toEqual([])
+    })
+
+    expect(confirm).toHaveBeenCalled()
+    // The absorbed subgraphs go with them, exactly as the per-row remove does.
+    expect(useGraphStore.getState().graphData['group-1']).toBeUndefined()
+    expect(useGraphStore.getState().graphs['group-2']).toBeUndefined()
+  })
+
+  it('leaves the collection alone when the confirm is declined', async () => {
+    const confirm = vi.fn().mockResolvedValue(false)
+    useUiStore.setState({ requestConfirm: confirm })
+
+    const { getByText } = render(<PatternCollectionBody nodeId="collection" />)
+    fireEvent.click(getByText('Remove all'))
+    await vi.waitFor(() => expect(confirm).toHaveBeenCalled())
+
+    const props = useGraphStore.getState().nodes[0].data.properties as { patternIds: string[] }
+    expect(props.patternIds).toEqual(['group-1', 'group-2'])
+  })
+
+  it('offers no Remove all on an empty collection', () => {
+    useGraphStore.setState({
+      nodes: [{
+        id: 'collection', type: 'studioNode', position: { x: 0, y: 0 },
+        data: nodeData('PatternCollection', { patternIds: [], patternSections: {} }),
+      }] as never,
+    })
+    const { queryByText } = render(<PatternCollectionBody nodeId="collection" />)
+    expect(queryByText('Remove all')).toBeNull()
   })
 })
