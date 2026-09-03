@@ -818,12 +818,28 @@ freeform widgets must reuse rather than rediscover.
   a user can see. Tests assert the discriminating values (a wired 0.5 comes back
   as 0.75, not the unwired default's 0.25) and fail without the memoization. No
   `Delay` node exists, so that alternative was never on the table.
-- [ ] Generate deterministic LVGL object setup, styles, event callbacks, bounded
+- [x] Generate deterministic LVGL object setup, styles, event callbacks, bounded
   value buffers, role-based bindings, and change-only updates from
   `DisplayDocument`.
-- [ ] Configure LVGL tick/handler timing from monotonic milliseconds so LED
+  `src/codegen/customDisplayLvglCpp.ts` is the document-to-LVGL 9 boundary. It
+  creates widgets in persisted order using array indices rather than authored
+  ids, resolves the same theme tokens as the DOM preview, attaches one bounded
+  callback runtime to Button, Toggle, Slider and Dial, and maps stable `value`
+  / `set` roles into cached text, integer, boolean and colour updates. All text
+  passes through the shared 64-byte display budget and C++ literal allow-list;
+  generated code contains no Arduino `String` or per-frame object creation.
+  Pattern Browser and Image/Icon deliberately keep placeholders until the
+  later asset-baking item supplies their PROGMEM data. The emitter remains
+  behind the existing upload validation gate until the next timing, pinned
+  dependency/configuration and panel-driver slices make an LVGL sketch
+  buildable rather than merely syntactically emitted.
+- [x] Configure LVGL tick/handler timing from monotonic milliseconds so LED
   animation remains wall-clock driven and high-refresh displays cannot speed it
   up.
+  The LVGL emitter registers a `millis()` callback with `lv_tick_set_cb` and
+  services `lv_timer_handler` through a wrap-safe five-millisecond gate. It
+  never calls `lv_tick_inc` from the LED loop, so neither strip length nor
+  display refresh rate can become an accidental second animation clock.
 - [ ] Pin LVGL and panel/touch dependencies and generate a minimal `lv_conf.h`
   or build-define set that includes only used widgets, fonts, colour depth, and
   heap features.
