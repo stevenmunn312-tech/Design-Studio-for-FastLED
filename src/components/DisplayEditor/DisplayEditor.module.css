@@ -269,6 +269,65 @@
   background-image: repeating-linear-gradient(135deg, transparent 0 7px, color-mix(in srgb, var(--error) 12%, transparent) 7px 9px);
 }
 
+.portNotches {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.portRail {
+  position: absolute;
+  top: 3px;
+  display: flex;
+  max-width: calc(100% - 4px);
+  flex-direction: column;
+  gap: 2px;
+}
+
+.inputPortRail {
+  left: 0;
+  align-items: flex-start;
+}
+
+.outputPortRail {
+  right: 0;
+  align-items: flex-end;
+}
+
+.portNotch {
+  display: flex;
+  height: 11px;
+  align-items: center;
+  gap: 3px;
+  padding: 0 3px;
+  border: 1px solid color-mix(in srgb, var(--display-port-color) 70%, #05070a);
+  border-radius: 3px;
+  background: color-mix(in srgb, #05070a 88%, var(--display-port-color));
+  box-shadow: 0 0 5px color-mix(in srgb, var(--display-port-color) 35%, transparent);
+  color: color-mix(in srgb, var(--display-port-color) 82%, white);
+  font-family: var(--font-code);
+  font-size: 6px;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.outputPortRail .portNotch {
+  flex-direction: row-reverse;
+}
+
+.portDot {
+  width: 4px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 1px;
+  background: var(--display-port-color);
+}
+
 .resizeHandle {
   position: absolute;
   right: -5px;

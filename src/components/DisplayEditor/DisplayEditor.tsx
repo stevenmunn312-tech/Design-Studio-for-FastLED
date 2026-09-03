@@ -15,6 +15,7 @@ import {
   rootGraphNodes,
   useGraphStore,
 } from '../../state/graphStore'
+import { portColor } from '../../state/nodeLibrary'
 import { DISPLAY_WIDGET_LIBRARY, displayWidgetPorts } from '../../state/displayRegistry'
 import {
   addDisplayWidget,
@@ -210,6 +211,40 @@ function issuesForWidget(issues: readonly DisplayLayoutIssue[], widgetId: string
 function validationAnnouncement(issues: readonly DisplayLayoutIssue[]): string {
   if (issues.length === 0) return 'Layout valid.'
   return `${issues.length} layout ${issues.length === 1 ? 'issue' : 'issues'}. ${issues.map((issue) => issue.message).join(' ')}`
+}
+
+function DesignWidgetPorts({ widget }: { widget: DisplayWidget }) {
+  const ports = displayWidgetPorts(widget)
+
+  return (
+    <span className={styles.portNotches} aria-hidden="true">
+      {(['input', 'output'] as const).map((direction) => {
+        const directionalPorts = ports.filter((port) => port.direction === direction)
+        if (directionalPorts.length === 0) return null
+        return (
+          <span
+            key={direction}
+            className={`${styles.portRail} ${direction === 'input' ? styles.inputPortRail : styles.outputPortRail}`}
+          >
+            {directionalPorts.map((port) => (
+              <span
+                key={port.id}
+                className={styles.portNotch}
+                data-display-port-id={port.id}
+                data-port-direction={port.direction}
+                data-port-type={port.dataType}
+                title={`${port.direction === 'input' ? 'Input' : 'Output'} · ${port.dataType} · ${port.label}`}
+                style={{ '--display-port-color': portColor(port.dataType) } as CSSProperties}
+              >
+                <span className={styles.portDot} />
+                <span>{port.direction === 'input' ? 'IN' : 'OUT'} · {port.dataType}</span>
+              </span>
+            ))}
+          </span>
+        )
+      })}
+    </span>
+  )
 }
 
 function widgetAnnouncement(
@@ -616,6 +651,7 @@ export default function DisplayEditor() {
                     }}
                   >
                     <DisplayWidgetPreview widget={widget} renderer={definition.previewRenderer} />
+                    <DesignWidgetPorts widget={widget} />
                     {widgetIssues.length > 0 && (
                       <span id={issueDescriptionId} className={styles.srOnly}>
                         {widgetIssues.map((issue) => issue.message).join(' ')}

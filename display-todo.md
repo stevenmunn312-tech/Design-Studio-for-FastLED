@@ -719,8 +719,12 @@ freeform widgets must reuse rather than rediscover.
   Deck, LED Performance, Audio Reactor, Diagnostics and DMX Monitor. Templates
   insert ordinary widgets and mint ordinary visible ports; they do not gain
   private runtime behaviour.
-- [ ] Show graph-type-coloured input/output notches in Design mode so direction
+- [x] Show graph-type-coloured input/output notches in Design mode so direction
   and type remain legible; hide editor-only notches in Run mode and firmware.
+  Each role now renders as an edge-aligned `IN`/`OUT` badge carrying its graph
+  data type and the same colour as graph handles. The badges are editor-only
+  DOM affordances: Run mode renders its separate widget surface without them,
+  and they are not part of the declarative document consumed by firmware.
 
 ### Phase 7 — custom UI runtime and LVGL codegen
 
