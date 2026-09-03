@@ -20,6 +20,7 @@ import {
   DISPLAY_CONTROL_TRACK_PX,
   DISPLAY_WIDGET_LIBRARY,
   displayControlHitBounds,
+  displayWidgetGlyphId,
   displayWidgetPorts,
   type DisplayWidgetState,
 } from '../../state/displayRegistry'
@@ -48,7 +49,13 @@ import {
   displayTemplate,
   type DisplayTemplateId,
 } from '../../state/displayTemplates'
-import { displayAssetsForSlot } from '../../state/displayAssets'
+import { displayAssetUrl, displayAsset, displayAssetsByCategory, displayAssetsForSlot } from '../../state/displayAssets'
+import {
+  DISPLAY_THEME_PRESETS,
+  applyDisplayThemePreset,
+  displayThemeBackgroundFor,
+  displayThemePreset,
+} from '../../state/displayThemePresets'
 import { useDisplayRuntimeStore } from '../../state/displayRuntimeStore'
 import { useUiStore } from '../../state/uiStore'
 import DisplayWidgetPreview from './DisplayWidgetPreview'
@@ -219,7 +226,22 @@ function backgroundStyle(background: DisplayBackgroundTokens): CSSProperties {
       background: `linear-gradient(${background.direction === 'vertical' ? '180deg' : '90deg'}, ${background.startColor}, ${background.endColor})`,
     }
   }
-  if (background.kind === 'image') return { background: background.fallbackColor }
+  if (background.kind === 'image') {
+    const asset = displayAsset(background.assetId)
+    // The fallback colour still sits underneath: a baked background is fetched,
+    // and a screen that flashes white before it arrives is worse than one that
+    // starts the colour it will settle on.
+    // Longhands only: a `background` shorthand beside `backgroundImage` clears
+    // the image depending on which the style object applies last.
+    return asset
+      ? {
+        backgroundColor: background.fallbackColor,
+        backgroundImage: `url("${displayAssetUrl(asset)}")`,
+        backgroundSize: '100% 100%',
+        backgroundRepeat: 'no-repeat',
+      }
+      : { backgroundColor: background.fallbackColor }
+  }
   return { background: background.color }
 }
 
@@ -395,6 +417,15 @@ export default function DisplayEditor() {
     if (!persisted) closeDisplayWorkspace()
   }, [closeDisplayWorkspace, persisted])
 
+  // A baked background is offered only at the document's own resolution: the
+  // pack ships one per shape per theme, and stretching a 240x320 image across a
+  // 320x240 screen is not a choice worth offering.
+  const backgroundChoices = useMemo(() => (document
+    ? displayAssetsByCategory('background').filter((asset) => (
+      asset.width === document.designSize.width && asset.height === document.designSize.height
+    ))
+    : []), [document])
+
   if (!document) return null
 
   const commit = (next: DisplayDocument, message?: string) => {
@@ -421,6 +452,37 @@ export default function DisplayEditor() {
     const widget = next.widgets.at(-1)!
     commit(next, `${widget.type} added at ${widget.bounds.x}, ${widget.bounds.y}.`)
     setSelectedIds([widget.id])
+  }
+
+  const backgroundChoice = document?.theme.background.kind === 'image'
+    ? document.theme.background.assetId
+    : document?.theme.background.kind ?? 'solid'
+
+  const setBackground = (choice: string) => {
+    if (!document) return
+    const current = document.theme.background
+    if (choice === 'solid') {
+      commit({ ...document, theme: { ...document.theme, background: { kind: 'solid', color: document.theme.surfaceColor } } }, 'Background set to a solid colour.')
+      return
+    }
+    if (choice === 'gradient') {
+      commit({
+        ...document,
+        theme: {
+          ...document.theme,
+          background: current.kind === 'gradient' ? current : {
+            kind: 'gradient',
+            startColor: document.theme.surfaceColor,
+            endColor: document.theme.background.kind === 'solid' ? document.theme.background.color : '#080b12',
+            direction: 'vertical',
+          },
+        },
+      }, 'Background set to a gradient.')
+      return
+    }
+    const asset = displayAsset(choice)
+    if (!asset) return
+    commit({ ...document, theme: { ...document.theme, background: { kind: 'image', assetId: asset.id } } }, `${asset.label} background applied.`)
   }
 
   const insertTemplate = (id: DisplayTemplateId) => {
@@ -674,12 +736,16 @@ export default function DisplayEditor() {
             <h2>Widgets</h2>
             <p>Place readouts and controls on the touch screen.</p>
             <div className={styles.paletteList}>
-              {Object.values(DISPLAY_WIDGET_LIBRARY).map((definition) => (
-                <button key={definition.type} type="button" aria-label={`Add ${definition.label} widget`} onClick={() => add(definition.type)}>
-                  <span>{definition.label}</span>
-                  <small>{definition.portRoles.map((port) => port.direction === 'input' ? 'In' : 'Out').join(' + ') || 'Visual'}</small>
-                </button>
-              ))}
+              {Object.values(DISPLAY_WIDGET_LIBRARY).map((definition) => {
+                const glyph = displayAsset(displayWidgetGlyphId(definition.type))
+                return (
+                  <button key={definition.type} type="button" aria-label={`Add ${definition.label} widget`} onClick={() => add(definition.type)}>
+                    {glyph && <img className={styles.paletteGlyph} src={displayAssetUrl(glyph)} alt="" aria-hidden="true" />}
+                    <span>{definition.label}</span>
+                    <small>{definition.portRoles.map((port) => port.direction === 'input' ? 'In' : 'Out').join(' + ') || 'Visual'}</small>
+                  </button>
+                )
+              })}
             </div>
             <h2>Templates</h2>
             <p>Insert a starting layout of ordinary widgets.</p>
@@ -688,10 +754,19 @@ export default function DisplayEditor() {
                 <button
                   key={template.id}
                   type="button"
+                  className={styles.templateButton}
                   aria-label={`Insert ${template.label} template`}
                   title={template.description}
                   onClick={() => insertTemplate(template.id)}
                 >
+                  {displayAsset(`template:${template.id}`) && (
+                    <img
+                      className={styles.templatePreview}
+                      src={displayAssetUrl(displayAsset(`template:${template.id}`)!)}
+                      alt=""
+                      aria-hidden="true"
+                    />
+                  )}
                   <span>{template.label}</span>
                   <small>{template.widgets.length} widgets</small>
                 </button>
@@ -704,6 +779,7 @@ export default function DisplayEditor() {
           <div className={styles.screenSizer} style={{ width: document.designSize.width * zoom, height: document.designSize.height * zoom }}>
             <div
               className={`${styles.screen} ${editorMode === 'run' ? styles.runScreen : ''}`}
+              data-testid="display-screen"
               style={{
                 ...backgroundStyle(resolveDisplayThemeTokens(document.theme).background),
                 ...editorVariables(document),
@@ -865,6 +941,40 @@ export default function DisplayEditor() {
             <>
               <p>Select a widget to edit its bounds and graph-facing roles.</p>
               <label>Grid<input type="number" min="1" max="64" value={document.gridSize} onChange={(event) => commit({ ...document, gridSize: Math.max(1, Math.min(64, Math.round(Number(event.target.value)))) })} /></label>
+              <label>Theme
+                <select
+                  value=""
+                  onChange={(event) => {
+                    const preset = displayThemePreset(event.target.value)
+                    if (!preset) return
+                    const theme = applyDisplayThemePreset(document.theme, preset.id)
+                    // A screen already wearing baked art keeps wearing it, in
+                    // the new theme's own set: dropping to a gradient because
+                    // someone tried a palette loses the choice they made.
+                    const baked = document.theme.background.kind === 'image'
+                      ? displayThemeBackgroundFor(preset, document.designSize)
+                      : undefined
+                    commit(
+                      { ...document, theme: baked ? { ...theme, background: { kind: 'image', assetId: baked } } : theme },
+                      `${preset.name} theme applied.`,
+                    )
+                  }}
+                >
+                  <option value="">Choose a theme…</option>
+                  {DISPLAY_THEME_PRESETS.map((preset) => (
+                    <option key={preset.id} value={preset.id}>{preset.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label>Background
+                <select value={backgroundChoice} onChange={(event) => setBackground(event.target.value)}>
+                  <option value="solid">Solid colour</option>
+                  <option value="gradient">Gradient</option>
+                  {backgroundChoices.map((asset) => (
+                    <option key={asset.id} value={asset.id}>{asset.label}</option>
+                  ))}
+                </select>
+              </label>
             </>
           )}
           {issues.length > 0 && (

@@ -161,6 +161,40 @@ describe('DisplayEditor', () => {
     expect(view.getByRole('button', { name: /Button, Previous\. Position/ }).getAttribute('aria-pressed')).toBe('true')
   })
 
+  it('shows the pack artwork on the widget palette and the template list', () => {
+    const view = render(<DisplayEditor />)
+
+    const slider = view.getByRole('button', { name: 'Add Slider widget' })
+    expect(slider.querySelector('img')?.getAttribute('src')).toBe('/display-assets/widgets/slider.svg')
+    const template = view.getByRole('button', { name: 'Insert Pattern Deck template' })
+    expect(template.querySelector('img')?.getAttribute('src'))
+      .toBe('/display-assets/templates/pattern-deck.svg')
+  })
+
+  it('applies a pack theme and paints a baked background', () => {
+    const view = render(<DisplayEditor />)
+
+    fireEvent.change(view.getByLabelText('Theme'), { target: { value: 'theme:03-synthwave' } })
+    const themed = useGraphStore.getState().displayDocuments.panel.theme
+    expect(themed.accentColor).toBe('#ff3ca6')
+    expect(themed.background).toEqual({
+      kind: 'gradient', startColor: '#321452', endColor: '#11091f', direction: 'vertical',
+    })
+    expect(view.getByRole('status', { name: 'Display editor announcements' }).textContent)
+      .toContain('Synthwave Sunset theme applied.')
+
+    fireEvent.change(view.getByLabelText('Background'), { target: { value: 'background:03-synthwave:320x240' } })
+    expect(useGraphStore.getState().displayDocuments.panel.theme.background)
+      .toEqual({ kind: 'image', assetId: 'background:03-synthwave:320x240' })
+    expect(view.getByTestId('display-screen').getAttribute('style'))
+      .toContain('display-assets/backgrounds/03-synthwave/320x240.svg')
+
+    // A themed screen keeps wearing art when the palette changes under it.
+    fireEvent.change(view.getByLabelText('Theme'), { target: { value: 'theme:07-aurora' } })
+    expect(useGraphStore.getState().displayDocuments.panel.theme.background)
+      .toEqual({ kind: 'image', assetId: 'background:07-aurora:320x240' })
+  })
+
   it('returns to the graph through the breadcrumb', () => {
     const view = render(<DisplayEditor />)
     fireEvent.click(view.getByRole('button', { name: 'Graph' }))

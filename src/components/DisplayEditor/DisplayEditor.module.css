@@ -162,6 +162,36 @@
   text-align: left;
 }
 
+/* The pack's palette glyph, sized to the row rather than to the art: the SVGs
+   are 96x96 masters and every row must stay one height. */
+.paletteGlyph {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  opacity: 0.85;
+}
+
+.paletteList button span {
+  flex: 1;
+  min-width: 0;
+}
+
+/* A template row is taller: its preview is the fastest way to tell seven
+   layouts apart, and a name alone makes them all look the same. */
+.templateButton {
+  display: grid !important;
+  grid-template-columns: 64px 1fr auto;
+  align-items: center;
+}
+
+.templatePreview {
+  width: 64px;
+  height: 48px;
+  border-radius: 3px;
+  background: var(--bg-canvas, #0b0e14);
+  object-fit: contain;
+}
+
 .paletteList button:hover {
   background: var(--bg-node-hover);
   border-color: color-mix(in srgb, var(--accent-output) 55%, var(--border-glow));

@@ -391,6 +391,13 @@ export function normalizeDisplayWidgetProperties(
   return result
 }
 
+/** The pack's palette glyph for a widget type. Derived from the type the same
+ * way the pack slugged its own files, so a new widget picks up its art by
+ * being named rather than by being listed here. */
+export function displayWidgetGlyphId(type: DisplayWidgetType): string {
+  return `widget:${type.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`
+}
+
 export function displayWidgetDefinition(type: DisplayWidgetType): DisplayWidgetDefinition {
   return DISPLAY_WIDGET_LIBRARY[type]
 }
