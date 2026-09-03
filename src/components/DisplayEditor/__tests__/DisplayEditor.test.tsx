@@ -245,4 +245,23 @@ describe('DisplayEditor', () => {
     expect(view.getByRole('complementary', { name: 'Widget palette' })).toBeTruthy()
     expect(view.getByRole('button', { name: /Button, Button\. Position/ })).toBeTruthy()
   })
+
+  it('lets touch own a synchronized control until release, then shows the wired value', () => {
+    const view = render(<DisplayEditor />)
+    fireEvent.click(view.getByRole('button', { name: 'Add Toggle widget' }))
+    fireEvent.click(view.getByRole('button', { name: 'Run' }))
+    const toggle = view.getByRole('switch', { name: 'Toggle run preview' })
+    const runtime = useDisplayRuntimeStore.getState()
+    runtime.publishDisplayRoleValue('panel', 'toggle', 'set', false)
+
+    fireEvent.pointerDown(toggle, { button: 0, pointerId: 7 })
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
+    expect(runtime.readDisplayWidget('panel', 'toggle')).toMatchObject({
+      touchValue: true, touchOwned: true,
+    })
+
+    fireEvent.pointerUp(toggle, { button: 0, pointerId: 7 })
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    expect(runtime.readDisplayWidget('panel', 'toggle')?.touchOwned).toBe(false)
+  })
 })

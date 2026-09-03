@@ -251,6 +251,7 @@ struct CustomDisplayWidgetRuntime {
   lv_obj_t *object;
   uint8_t kind;                 // 0 passive, 1 button, 2 toggle, 3 slider, 4 dial
   bool touchOwned;
+  bool touchPending;
   bool boolValue;
   float floatValue;
   float minimum, maximum, step;
@@ -309,6 +310,16 @@ static bool _cdSetColor(CustomDisplayWidgetRuntime &runtime, uint32_t color) {
   return true;
 }
 
+static bool _cdBoolOutput(CustomDisplayWidgetRuntime &runtime) {
+  runtime.touchPending = false;
+  return runtime.boolValue;
+}
+
+static float _cdFloatOutput(CustomDisplayWidgetRuntime &runtime) {
+  runtime.touchPending = false;
+  return runtime.floatValue;
+}
+
 static int32_t _cdScaled(float value, float minimum, float maximum) {
   if (!isfinite(value) || maximum <= minimum) return 0;
   float unit = (value - minimum) / (maximum - minimum);
@@ -330,19 +341,29 @@ static void _cdEvent(lv_event_t *event) {
   lv_event_code_t code = lv_event_get_code(event);
   if (code == LV_EVENT_PRESSED) {
     runtime->touchOwned = true;
-    if (runtime->kind == 1) runtime->boolValue = true;
+    if (runtime->kind == 1) {
+      runtime->boolValue = true;
+      runtime->touchPending = true;
+    }
   }
   if (code == LV_EVENT_VALUE_CHANGED) {
-    if (runtime->kind == 2) runtime->boolValue = lv_obj_has_state(runtime->object, LV_STATE_CHECKED);
+    if (runtime->kind == 2) {
+      runtime->boolValue = lv_obj_has_state(runtime->object, LV_STATE_CHECKED);
+      runtime->touchPending = true;
+    }
     if (runtime->kind == 3 || runtime->kind == 4) {
       int32_t raw = runtime->kind == 3 ? lv_slider_get_value(runtime->object) : lv_arc_get_value(runtime->object);
       float value = runtime->minimum + (runtime->maximum - runtime->minimum) * raw / (float)CD_VALUE_SCALE;
       if (runtime->step > 0.0f) value = runtime->minimum + roundf((value - runtime->minimum) / runtime->step) * runtime->step;
       runtime->floatValue = constrain(value, runtime->minimum, runtime->maximum);
+      runtime->touchPending = true;
     }
   }
   if (code == LV_EVENT_RELEASED || code == LV_EVENT_PRESS_LOST) {
-    if (runtime->kind == 1) runtime->boolValue = false;
+    if (runtime->kind == 1) {
+      runtime->boolValue = false;
+      runtime->touchPending = true;
+    }
     runtime->touchOwned = false;
   }
 }
@@ -463,14 +484,18 @@ function synchronizedUpdateLines(emit: CustomDisplayLvglEmit, widget: DisplayWid
   if (!expr) return []
   const rt = runtime(emit, index)
   if (widget.type === 'Toggle') {
-    return [`  if (!${rt}.touchOwned) _cdSetChecked(${rt}, (bool)(${expr}));`]
+    return [
+      `  if (!${rt}.touchOwned && !${rt}.touchPending) _cdSetChecked(${rt}, (bool)(${expr}));`,
+      `  if (!${rt}.touchOwned) ${rt}.touchPending = false;`,
+    ]
   }
   if (widget.type === 'Slider' || widget.type === 'Dial') {
     return [
-      `  if (!${rt}.touchOwned) {`,
+      `  if (!${rt}.touchOwned && !${rt}.touchPending) {`,
       `    ${rt}.floatValue = constrain((float)(${expr}), ${rt}.minimum, ${rt}.maximum);`,
       `    _cdSetInteger(${rt}, _cdScaled(${rt}.floatValue, ${rt}.minimum, ${rt}.maximum));`,
       `  }`,
+      `  if (!${rt}.touchOwned) ${rt}.touchPending = false;`,
     ]
   }
   return []
@@ -496,7 +521,7 @@ export function customDisplayLvglOutputExpression(
   const index = emit.document.widgets.findIndex((widget) => widget.id === widgetId)
   if (index < 0) return null
   const widget = emit.document.widgets[index]
-  if (widget.type === 'Button' || widget.type === 'Toggle') return `${runtime(emit, index)}.boolValue`
-  if (widget.type === 'Slider' || widget.type === 'Dial') return `${runtime(emit, index)}.floatValue`
+  if (widget.type === 'Button' || widget.type === 'Toggle') return `_cdBoolOutput(${runtime(emit, index)})`
+  if (widget.type === 'Slider' || widget.type === 'Dial') return `_cdFloatOutput(${runtime(emit, index)})`
   return null
 }

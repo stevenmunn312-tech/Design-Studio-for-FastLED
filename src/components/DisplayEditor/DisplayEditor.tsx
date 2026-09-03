@@ -56,7 +56,7 @@ import {
   displayThemeBackgroundFor,
   displayThemePreset,
 } from '../../state/displayThemePresets'
-import { useDisplayRuntimeStore } from '../../state/displayRuntimeStore'
+import { resolvedDisplayControlValue, useDisplayRuntimeStore } from '../../state/displayRuntimeStore'
 import { useUiStore } from '../../state/uiStore'
 import DisplayWidgetPreview from './DisplayWidgetPreview'
 import {
@@ -98,6 +98,7 @@ function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDispl
   const definition = DISPLAY_WIDGET_LIBRARY[widget.type]
   const interactive = isInteractiveDisplayWidget(widget)
   const drag = useRef<{ pointerId: number; startY: number; startValue: number } | null>(null)
+  const suppressToggleClick = useRef(false)
   const [touchOwned, setTouchOwned] = useState(false)
   const range = displayControlRange(widget)
   const numericValue = typeof value === 'number' ? value : range.min
@@ -127,6 +128,10 @@ function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDispl
     event.currentTarget.setPointerCapture?.(event.pointerId)
     setTouchOwned(true)
     if (widget.type === 'Button') onValue(true, true)
+    else if (widget.type === 'Toggle') {
+      suppressToggleClick.current = true
+      onValue(!booleanValue, true)
+    }
     else if (widget.type === 'Slider') setSliderFromPointer(event)
     else if (widget.type === 'Dial') {
       drag.current = { pointerId: event.pointerId, startY: event.clientY, startValue: numericValue }
@@ -146,6 +151,7 @@ function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDispl
     setTouchOwned(false)
     if (widget.type === 'Button') onValue(false, false)
     else onRelease()
+    if (event.type === 'pointercancel') suppressToggleClick.current = false
     if (drag.current?.pointerId === event.pointerId) drag.current = null
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId)
@@ -161,7 +167,10 @@ function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDispl
     }
     if (widget.type === 'Toggle' && (event.key === ' ' || event.key === 'Enter')) {
       event.preventDefault()
-      if (!event.repeat) onValue(!booleanValue, false)
+      if (!event.repeat) {
+        suppressToggleClick.current = true
+        onValue(!booleanValue, true)
+      }
       return
     }
     if (widget.type !== 'Slider' && widget.type !== 'Dial') return
@@ -205,13 +214,23 @@ function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDispl
       onPointerCancel={endPointer}
       onClick={(event) => {
         event.stopPropagation()
-        if (widget.type === 'Toggle') onValue(!booleanValue, false)
+        if (widget.type !== 'Toggle') return
+        if (suppressToggleClick.current) {
+          suppressToggleClick.current = false
+          return
+        }
+        // Assistive activation can arrive as a click with no preceding pointer
+        // or key event. The pending-intent bit still gives it one graph sample.
+        onValue(!booleanValue, false)
       }}
       onKeyDown={onKeyDown}
       onKeyUp={(event) => {
         if (widget.type === 'Button' && (event.key === ' ' || event.key === 'Enter')) {
           event.preventDefault()
           onValue(false, false)
+        } else if (widget.type === 'Toggle' && (event.key === ' ' || event.key === 'Enter')) {
+          event.preventDefault()
+          onRelease()
         }
       }}
     >
@@ -624,10 +643,12 @@ export default function DisplayEditor() {
 
   const runValue = (widget: DisplayWidget): DisplayControlValue | undefined => {
     void runTick
-    const touched = displayId
-      ? useDisplayRuntimeStore.getState().readDisplayWidget(displayId, widget.id)?.touchValue
+    const fallback = initialDisplayControlValue(widget)
+    if (fallback === undefined) return undefined
+    const runtime = displayId
+      ? useDisplayRuntimeStore.getState().readDisplayWidget(displayId, widget.id)
       : undefined
-    return typeof touched === 'string' ? undefined : touched ?? initialDisplayControlValue(widget)
+    return resolvedDisplayControlValue(runtime, fallback)
   }
 
   const writeRunValue = (widgetId: string, value: DisplayControlValue, held: boolean) => {

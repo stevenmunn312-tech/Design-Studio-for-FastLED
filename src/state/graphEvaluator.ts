@@ -7230,15 +7230,17 @@ function createEvalNode(
         const widgetOutputs = (node.data.outputs as { id: string; dataType?: string }[] | undefined) ?? []
 
         // An untouched control publishes its type's rest value — false for a
-        // latch, zero for a ranged control — until a finger moves it. A
-        // disabled screen publishes only those: nothing on it is being touched.
+        // latch, zero for a ranged control — until a finger moves it or a wired
+        // `set` value arrives. A pending touch gets one sample even if it was
+        // released between frames; later samples use the authoritative `set`.
+        // A disabled screen publishes only rest values.
         for (const port of widgetOutputs) {
           const parsed = parseDisplayWidgetPortId(port.id)
           if (!parsed) continue
-          const touched = enabled
-            ? runtime.readDisplayWidget(displayId, parsed.widgetId)?.touchValue
-            : undefined
-          out[port.id] = touched ?? (port.dataType === 'bool' ? false : 0)
+          const rest = port.dataType === 'bool' ? false : 0
+          out[port.id] = enabled
+            ? runtime.sampleDisplayWidgetOutput(displayId, parsed.widgetId, rest)
+            : rest
         }
 
         /*

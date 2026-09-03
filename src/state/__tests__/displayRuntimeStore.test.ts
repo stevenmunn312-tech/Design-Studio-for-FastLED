@@ -19,7 +19,32 @@ describe('custom display runtime store', () => {
     expect(runtime().readDisplayWidget('panel', 'missing')).toBeUndefined()
 
     runtime().releaseDisplayWidget('panel', 'slider')
-    expect(runtime().readDisplayWidget('panel', 'slider')).toMatchObject({ touchValue: 0.4, touchOwned: false })
+    expect(runtime().readDisplayWidget('panel', 'slider')).toMatchObject({
+      touchValue: 0.4, touchOwned: false, touchPending: true,
+    })
+  })
+
+  it('gives a synchronized control to the graph after release and keeps an unwired control local', () => {
+    runtime().publishDisplayRoleValue('panel', 'slider', 'set', 0.9)
+    runtime().touchDisplayWidget('panel', 'slider', 0.4)
+
+    expect(runtime().sampleDisplayWidgetOutput('panel', 'slider', 0)).toBe(0.4)
+    runtime().releaseDisplayWidget('panel', 'slider')
+    expect(runtime().sampleDisplayWidgetOutput('panel', 'slider', 0)).toBe(0.9)
+
+    runtime().touchDisplayWidget('panel', 'local', true)
+    runtime().releaseDisplayWidget('panel', 'local')
+    expect(runtime().sampleDisplayWidgetOutput('panel', 'local', false)).toBe(true)
+    expect(runtime().sampleDisplayWidgetOutput('panel', 'local', false)).toBe(true)
+  })
+
+  it('publishes a quick touch once even when it is released between evaluator passes', () => {
+    runtime().publishDisplayRoleValue('panel', 'toggle', 'set', false)
+    runtime().touchDisplayWidget('panel', 'toggle', true)
+    runtime().releaseDisplayWidget('panel', 'toggle')
+
+    expect(runtime().sampleDisplayWidgetOutput('panel', 'toggle', false)).toBe(true)
+    expect(runtime().sampleDisplayWidgetOutput('panel', 'toggle', false)).toBe(false)
   })
 
   it('marks a widget dirty only when something it draws changed, and clears it once', () => {

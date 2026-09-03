@@ -28,6 +28,9 @@ export interface DisplayWidgetRuntime {
   touchValue?: DisplayTouchValue
   /** True while the finger owns the control and the graph value must not win. */
   touchOwned: boolean
+  /** A change not yet sampled by graph evaluation. This preserves a quick
+   * press/release that occurs wholly between two evaluator passes. */
+  touchPending: boolean
   /** Graph-driven values by the widget's stable registry roles. */
   roleValues: Map<DisplayWidgetPortRoleId, DisplayRuntimeValue>
   /** Set when anything the panel draws changed since the last redraw. */
@@ -46,6 +49,11 @@ interface DisplayRuntimeState {
   diagnosticsVersion: number
   touchDisplayWidget: (displayId: string, widgetId: string, value: DisplayTouchValue) => void
   releaseDisplayWidget: (displayId: string, widgetId: string) => void
+  sampleDisplayWidgetOutput: (
+    displayId: string,
+    widgetId: string,
+    fallback: DisplayTouchValue,
+  ) => DisplayTouchValue
   publishDisplayRoleValue: (
     displayId: string,
     widgetId: string,
@@ -60,7 +68,22 @@ interface DisplayRuntimeState {
 }
 
 function emptyRuntime(): DisplayWidgetRuntime {
-  return { touchOwned: false, roleValues: new Map(), dirty: false }
+  return { touchOwned: false, touchPending: false, roleValues: new Map(), dirty: false }
+}
+
+/** The value a synchronized control draws after the input side of an
+ * evaluator pass. Touch owns it while held; once released, a type-compatible
+ * graph `set` value is authoritative. With no `set` value, the last local
+ * value remains the control's state. */
+export function resolvedDisplayControlValue(
+  runtime: DisplayWidgetRuntime | undefined,
+  fallback: DisplayTouchValue,
+): DisplayTouchValue {
+  if (!runtime) return fallback
+  if (runtime.touchOwned) return runtime.touchValue ?? fallback
+  const authoritative = runtime.roleValues.get('set')
+  if (typeof authoritative === typeof fallback) return authoritative as DisplayTouchValue
+  return runtime.touchValue ?? fallback
 }
 
 export const useDisplayRuntimeStore = create<DisplayRuntimeState>()((set, get) => {
@@ -88,6 +111,7 @@ export const useDisplayRuntimeStore = create<DisplayRuntimeState>()((set, get) =
       runtime.dirty = runtime.dirty || runtime.touchValue !== value || !runtime.touchOwned
       runtime.touchValue = value
       runtime.touchOwned = true
+      runtime.touchPending = true
     },
 
     releaseDisplayWidget: (displayId, widgetId) => {
@@ -95,6 +119,16 @@ export const useDisplayRuntimeStore = create<DisplayRuntimeState>()((set, get) =
       if (!runtime?.touchOwned) return
       runtime.touchOwned = false
       runtime.dirty = true
+    },
+
+    sampleDisplayWidgetOutput: (displayId, widgetId, fallback) => {
+      const runtime = get().displays.get(displayId)?.get(widgetId)
+      if (!runtime) return fallback
+      if (runtime.touchOwned || runtime.touchPending) {
+        runtime.touchPending = false
+        return runtime.touchValue ?? fallback
+      }
+      return resolvedDisplayControlValue(runtime, fallback)
     },
 
     publishDisplayRoleValue: (displayId, widgetId, role, value) => {

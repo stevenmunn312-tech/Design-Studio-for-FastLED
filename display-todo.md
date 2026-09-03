@@ -859,10 +859,15 @@ freeform widgets must reuse rather than rediscover.
   unsanitised C++ identifier or literal. Bake only used glyph sizes, tints and
   states from vector/token sources; template preview screenshots are never
   firmware assets.
-- [ ] Implement synchronized Toggle/Slider/Dial as a bounded two-role contract:
+- [x] Implement synchronized Toggle/Slider/Dial as a bounded two-role contract:
   `out` carries touch intent and optional `set` carries graph-authoritative
   state. The finger owns the value while pressed; the wired graph value wins
   again on release. An unwired `set` leaves the control locally owned.
+  Browser runtime and generated LVGL now share that ordering. A pending-intent
+  bit preserves a fast press/release until one graph sample, so a touch cannot
+  vanish merely because it landed between evaluator frames; after that sample,
+  a type-compatible wired `set` becomes visible and is republished on `out`.
+  Without `set`, the last local Toggle/Slider/Dial value remains authoritative.
 - [ ] Support arbitrary scalar/control wiring in normal sketches first. Then
   embed the shared control-graph IR in generative-show and SD-player firmware so
   touch can drive real graph logic rather than only hardcoded transport actions.

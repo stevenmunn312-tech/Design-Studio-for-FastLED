@@ -123,8 +123,8 @@ describe('custom Display LVGL object emitter', () => {
     const loop = customDisplayLvglLoopCpp(emit).join('\n')
     expect(loop).toContain('_cdSetText(_cd_panel[0], n_title_text);')
     expect(loop).toContain('_cdSetInteger(_cd_panel[1], _cdScaled((float)(n_progress_out), 0.0f, 1.0f));')
-    expect(loop).toContain('if (!_cd_panel[2].touchOwned) _cdSetChecked(_cd_panel[2], (bool)(n_enabled_out));')
-    expect(loop).toContain('if (!_cd_panel[3].touchOwned) {')
+    expect(loop).toContain('if (!_cd_panel[2].touchOwned && !_cd_panel[2].touchPending) _cdSetChecked(_cd_panel[2], (bool)(n_enabled_out));')
+    expect(loop).toContain('if (!_cd_panel[3].touchOwned && !_cd_panel[3].touchPending) {')
     expect(loop).toContain('_cdSetInteger(_cd_panel[3], _cdScaled(_cd_panel[3].floatValue')
   })
 
@@ -136,10 +136,26 @@ describe('custom Display LVGL object emitter', () => {
     const emit = { id: 'panel-1', document: document([button]) }
     const source = emitted(emit)
 
-    expect(customDisplayLvglOutputExpression(emit, 'play-next')).toBe('_cd_panel_1[0].boolValue')
+    expect(customDisplayLvglOutputExpression(emit, 'play-next')).toBe('_cdBoolOutput(_cd_panel_1[0])')
     expect(source).toContain('"Say \\"go\\"\\?"')
     expect(source).not.toContain('_play-next')
     expect(customDisplayLvglOutputExpression(emit, 'missing')).toBeNull()
+  })
+
+  it('preserves a quick control intent until graph code samples it, then restores wired state', () => {
+    const toggle = widget('Toggle', 0)
+    const emit: CustomDisplayLvglEmit = {
+      id: 'panel',
+      document: document([toggle]),
+      bindings: { [toggle.id]: [{ role: 'set', expression: 'n_enabled' }] },
+    }
+    const source = emitted(emit)
+
+    expect(source).toContain('runtime->touchPending = true;')
+    expect(customDisplayLvglOutputExpression(emit, toggle.id)).toBe('_cdBoolOutput(_cd_panel[0])')
+    expect(source).toContain('runtime.touchPending = false;')
+    expect(source).toContain('if (!_cd_panel[0].touchOwned && !_cd_panel[0].touchPending)')
+    expect(source).toContain('if (!_cd_panel[0].touchOwned) _cd_panel[0].touchPending = false;')
   })
 
   it('keeps setup valid for an empty document', () => {

@@ -78,6 +78,18 @@ describe('custom Display node evaluation', () => {
     expect(runtime().readDisplayWidget('panel', 'slider')).toBeUndefined()
   })
 
+  it('returns to a wired authoritative value after a pending touch intent is sampled', () => {
+    const { nodes, edges } = graph()
+    runtime().touchDisplayWidget('panel', 'slider', 0.25)
+    runtime().releaseDisplayWidget('panel', 'slider')
+
+    const first = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true).outputs.get('screen')!
+    const second = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true).outputs.get('screen')!
+
+    expect(first['widget:slider:out']).toBe(0.25)
+    expect(second['widget:slider:out']).toBe(0.75)
+  })
+
   it('publishes nothing and touches nothing while the screen is disabled', () => {
     const { nodes, edges } = graph()
     nodes[0] = screen({ enabled: false })
