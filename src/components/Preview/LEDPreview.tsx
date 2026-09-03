@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties } from 'react'
-import { useGraphStore, getGroupRegistry, matrixTileLayout, rootGraphNodes, type GraphMeta, type StudioEdge, type StudioNode } from '../../state/graphStore'
+import { useGraphStore, getGroupRegistry, matrixTileLayout, rootGraphNodes } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audioStore'
-import { evaluateGraphFull, getPatternShowSelection, type Frame } from '../../state/graphEvaluator'
+import { evaluateGraphFull, type Frame } from '../../state/graphEvaluator'
 import { usePreviewStore } from '../../state/previewStore'
 import { useShowPlayback } from '../../state/showPlayback'
 import { usePlayerTransport } from '../../state/playerTransport'
 import { usePatternLibrary } from '../../state/patternLibrary'
 import { useMusicStore } from '../../state/musicStore'
-import { showStateAt } from '../../state/showPreview'
 import { showAudioSpectrum } from '../../state/showAudio'
 import { WebGLLEDRenderer } from './webglRenderer'
 import { renderPreviewFrame } from './frameCanvas'
@@ -48,6 +47,12 @@ import type { StereoVuFrame } from '../../state/stereoVuMeter'
 import { combinedStereoVuFixture, drawStereoVuRail } from './stereoVuCombinedPreview'
 import { previewGridDimensions } from './previewGrid'
 import { fullscreenMatrixDimensions, resampleFullscreenFrame } from './fullscreenMatrix'
+import {
+  activePatternGroupIdFromPreview,
+  activeStagePatternEngineId,
+  activeStagePatternName,
+  libraryLookup,
+} from './stagePatternName'
 
 // Statically replaced at build time, so the telemetry branches (phase timers +
 // the per-frame context object for the dev HUD) are dead-code-stripped in prod.
@@ -112,89 +117,6 @@ interface LocalTrack {
 }
 
 let nextTrackId = 0
-
-function nodeTypeOf(node: StudioNode | undefined): string {
-  return String(node?.data.nodeType ?? '')
-}
-
-function groupIdOf(node: StudioNode | undefined): string | null {
-  const groupId = (node?.data.properties as { groupId?: string } | undefined)?.groupId
-  return typeof groupId === 'string' && groupId ? groupId : null
-}
-
-// Single-entry cache of the library-pattern lookups (id set + name counts),
-// rebuilt only when the saved-patterns array changes — the stage-name selector
-// consuming these runs on every graph-store update.
-let libraryLookupSource: { id: string; name: string }[] | null = null
-let libraryLookupCache = { ids: new Set<string>(), nameCounts: new Map<string, number>() }
-
-function libraryLookup(patterns: { id: string; name: string }[]) {
-  if (patterns !== libraryLookupSource) {
-    libraryLookupSource = patterns
-    const ids = new Set<string>()
-    const nameCounts = new Map<string, number>()
-    for (const pattern of patterns) {
-      ids.add(pattern.id)
-      nameCounts.set(pattern.name, (nameCounts.get(pattern.name) ?? 0) + 1)
-    }
-    libraryLookupCache = { ids, nameCounts }
-  }
-  return libraryLookupCache
-}
-
-function libraryPatternNameForGroup(
-  groupId: string | undefined | null,
-  graphs: Record<string, GraphMeta>,
-  libraryPatternIds: Set<string>,
-  libraryNameCounts: Map<string, number>,
-): string | null {
-  if (!groupId) return null
-  const meta = graphs[groupId]
-  if (!meta) return null
-  if (meta.sourcePatternId) return libraryPatternIds.has(meta.sourcePatternId) ? meta.name : null
-  // Best-effort fallback for workspaces saved before sourcePatternId existed.
-  return (libraryNameCounts.get(meta.name) ?? 0) === 1 ? meta.name : null
-}
-
-function activeStagePatternName(
-  nodes: StudioNode[],
-  edges: StudioEdge[],
-  graphs: Record<string, GraphMeta>,
-  libraryPatternIds: Set<string>,
-  libraryNameCounts: Map<string, number>,
-  playbackShow: ReturnType<typeof useShowPlayback.getState>['show'],
-  playbackPosMs: number,
-  outputId = '',
-): string | null {
-  if (playbackShow?.patternSet?.length) {
-    const live = showStateAt(playbackShow, playbackPosMs)
-    const groupId = live.patternIndex >= 0 ? playbackShow.patternSet[live.patternIndex] : undefined
-    return libraryPatternNameForGroup(groupId, graphs, libraryPatternIds, libraryNameCounts)
-  }
-
-  const output = nodes.find((node) => node.id === outputId && nodeTypeOf(node) === 'MatrixOutput')
-    ?? nodes.find((node) => nodeTypeOf(node) === 'MatrixOutput')
-  if (!output) return null
-  const sourceEdge = edges.find((edge) => edge.target === output.id && edge.targetHandle === 'frame')
-  const sourceNode = nodes.find((node) => node.id === sourceEdge?.source)
-  if (!sourceNode) return null
-
-  if (nodeTypeOf(sourceNode) === 'Group') {
-    return libraryPatternNameForGroup(groupIdOf(sourceNode), graphs, libraryPatternIds, libraryNameCounts)
-  }
-
-  if (nodeTypeOf(sourceNode) === 'PatternMaster' || nodeTypeOf(sourceNode) === 'PatternSlideshow') {
-    const setEdge = edges.find((edge) => edge.target === sourceNode.id && edge.targetHandle === 'patternset')
-    const collection = nodes.find((node) => node.id === setEdge?.source && nodeTypeOf(node) === 'PatternCollection')
-    const patternIds = ((collection?.data.properties as { patternIds?: string[] } | undefined)?.patternIds) ?? []
-    if (patternIds.length === 0) return null
-    const live = getPatternShowSelection(sourceNode.id)
-    const groupId = patternIds[live?.currentIndex ?? 0]
-    return libraryPatternNameForGroup(groupId, graphs, libraryPatternIds, libraryNameCounts)
-  }
-
-  return null
-}
 
 // Mirror the firmware's FastLED.setBrightness master dim: scale the terminal
 // frame by the Board node's `brightness` (0–255, default 200 matching
@@ -343,10 +265,29 @@ export default function LEDPreview() {
   // Stage-mode pattern name, derived inside a selector that returns a plain
   // string — graph edits (including every drag pointermove) only re-render this
   // panel when the displayed name actually changes. Off stage, skip the walk.
+  const stagePatternEngineId = useGraphStore((s) => stageMode && !playbackShow
+    ? activeStagePatternEngineId(s.nodes, s.edges, activeOutputId)
+    : '')
+  // The evaluator publishes `patternSelect` at the normal preview cadence.
+  // Subscribe to only its active group id so this component wakes when the
+  // show advances, but not for every preview-store publish.
+  const liveStagePatternGroupId = usePreviewStore((s) => stageMode
+    ? activePatternGroupIdFromPreview(s.outputs, stagePatternEngineId)
+    : null)
   const stagePatternName = useGraphStore((s) => {
     if (!stageMode) return null
     const lib = libraryLookup(libraryPatterns)
-    return activeStagePatternName(s.nodes, s.edges, s.graphs, lib.ids, lib.nameCounts, playbackShow, playbackPosMs, activeOutputId)
+    return activeStagePatternName(
+      s.nodes,
+      s.edges,
+      s.graphs,
+      lib.ids,
+      lib.nameCounts,
+      playbackShow,
+      playbackPosMs,
+      activeOutputId,
+      liveStagePatternGroupId,
+    )
   })
   const performanceMode = useUiStore((s) => s.performanceMode)
   const uiEffectsEnabled = useUiStore((s) => s.uiEffectsEnabled)
