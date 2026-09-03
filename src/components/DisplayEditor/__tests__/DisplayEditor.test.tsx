@@ -3,6 +3,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react'
 import DisplayEditor from '../DisplayEditor'
 import { createDisplayDocument } from '../../../state/displayEditor'
 import { useGraphStore } from '../../../state/graphStore'
+import { useDisplayRuntimeStore } from '../../../state/displayRuntimeStore'
 import { useUiStore } from '../../../state/uiStore'
 import type { StudioNode } from '../../../state/graphStore'
 
@@ -11,6 +12,7 @@ describe('DisplayEditor', () => {
     useGraphStore.getState().loadGraph([], [])
     useGraphStore.getState().setDisplayDocument(createDisplayDocument('panel', 320, 240))
     useGraphStore.temporal.getState().clear()
+    useDisplayRuntimeStore.getState().resetDisplayRuntime()
     useUiStore.setState({
       workspaceMode: 'design',
       designWorkspaceView: { kind: 'display', displayId: 'panel' },
@@ -150,7 +152,8 @@ describe('DisplayEditor', () => {
     expect(document.widgets.map((widget) => widget.id)).toEqual([
       'text', 'text-2', 'button', 'toggle', 'button-2', 'slider',
     ])
-    expect(useGraphStore.getState().nodes.find((node) => node.id === 'screen')?.data.outputs?.map((port) => port.id))
+    const screen = useGraphStore.getState().nodes.find((node) => node.id === 'screen')!
+    expect((screen.data.outputs as { id: string }[]).map((port) => port.id))
       .toEqual(['widget:button:out', 'widget:toggle:out', 'widget:button-2:out', 'widget:slider:out'])
     expect(view.getByRole('status', { name: 'Display editor announcements' }).textContent).toContain(
       'Minimal Transport template inserted with 5 widgets.',
@@ -187,14 +190,24 @@ describe('DisplayEditor', () => {
     expect(toggle.getAttribute('aria-checked')).toBe('true')
     expect(toggle.getAttribute('data-widget-state')).toBe('active')
 
+    const runtime = useDisplayRuntimeStore.getState()
+    expect(runtime.readDisplayWidget('panel', 'button')).toMatchObject({ touchValue: false, touchOwned: false })
+    expect(runtime.readDisplayWidget('panel', 'toggle')).toMatchObject({ touchValue: true, touchOwned: false })
+
     const slider = view.getByRole('slider', { name: 'Slider run preview' })
     fireEvent.keyDown(slider, { key: 'ArrowRight' })
     expect(slider.getAttribute('aria-valuenow')).toBe('0.01')
+    expect(runtime.readDisplayWidget('panel', 'slider')).toMatchObject({ touchValue: 0.01, touchOwned: false })
+    fireEvent.pointerDown(slider, { button: 0, pointerId: 2, clientX: 0, clientY: 0 })
+    expect(runtime.readDisplayWidget('panel', 'slider')?.touchOwned).toBe(true)
+    fireEvent.pointerUp(slider, { button: 0, pointerId: 2 })
+    expect(runtime.readDisplayWidget('panel', 'slider')?.touchOwned).toBe(false)
     expect(slider.getAttribute('style')).toContain('--widget-state-surface')
     expect(slider.getAttribute('style')).toContain('--widget-hit-inset-y: 0px')
     expect(useGraphStore.getState().displayDocuments.panel).toEqual(before)
 
     fireEvent.click(view.getByRole('button', { name: 'Design' }))
+    expect(useDisplayRuntimeStore.getState().readDisplayWidget('panel', 'toggle')).toBeUndefined()
     expect(view.getByRole('complementary', { name: 'Widget palette' })).toBeTruthy()
     expect(view.getByRole('button', { name: /Button, Button\. Position/ })).toBeTruthy()
   })

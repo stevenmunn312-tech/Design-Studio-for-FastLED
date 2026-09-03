@@ -755,10 +755,20 @@ freeform widgets must reuse rather than rediscover.
 
 ### Phase 7 — custom UI runtime and LVGL codegen
 
-- [ ] Add a display runtime store keyed by `displayId/widgetId` for touch values,
+- [x] Add a display runtime store keyed by `displayId/widgetId` for touch values,
   graph-driven values by stable role, dirty state, touch ownership and preview
   diagnostics. Keep per-frame reads imperative so React does not rerender the
   entire app at animation rate.
+  `src/state/displayRuntimeStore.ts` holds all five per widget under nested
+  display/widget maps. Unlike the hardware-input and TransportDisplay touch
+  stores it is written every evaluated frame, so value writes mutate in place
+  and never call `set`; only a diagnostic change bumps `diagnosticsVersion`, the
+  one thing React chrome subscribes to. `takeDirtyDisplayWidgets` hands a
+  renderer what changed and clears it in the same pass, and a repeated write of
+  an unchanged value re-dirties nothing. Run mode is now its first writer: the
+  preview keeps no second copy of a control's value, marks a held gesture as
+  touch-owned and releases on pointer-up, and resets the display's runtime when
+  the mode or the open display changes.
 - [ ] Add an evaluator case for the dynamic `Display` node that publishes input
   widget values and returns sampled output roles using the ordering contract
   above; do not assume one value per widget.

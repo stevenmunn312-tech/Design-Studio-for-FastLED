@@ -48,6 +48,7 @@ import {
   displayTemplate,
   type DisplayTemplateId,
 } from '../../state/displayTemplates'
+import { useDisplayRuntimeStore } from '../../state/displayRuntimeStore'
 import { useUiStore } from '../../state/uiStore'
 import DisplayWidgetPreview from './DisplayWidgetPreview'
 import {
@@ -77,12 +78,15 @@ interface RunDisplayWidgetProps {
   widget: DisplayWidget
   theme: DisplayDocument['theme']
   value: DisplayControlValue | undefined
-  onValue: (value: DisplayControlValue) => void
+  /** `held` marks a value the finger still owns, so the runtime store knows a
+   * wired graph value must not win it back yet. */
+  onValue: (value: DisplayControlValue, held: boolean) => void
+  onRelease: () => void
 }
 
 let displayWidgetClipboard: DisplayWidget[] = []
 
-function RunDisplayWidget({ widget, theme, value, onValue }: RunDisplayWidgetProps) {
+function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDisplayWidgetProps) {
   const definition = DISPLAY_WIDGET_LIBRARY[widget.type]
   const interactive = isInteractiveDisplayWidget(widget)
   const drag = useRef<{ pointerId: number; startY: number; startValue: number } | null>(null)
@@ -105,7 +109,7 @@ function RunDisplayWidget({ widget, theme, value, onValue }: RunDisplayWidgetPro
       widget,
       { x: event.clientX, y: event.clientY },
       event.currentTarget.getBoundingClientRect(),
-    ))
+    ), true)
   }
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -114,10 +118,11 @@ function RunDisplayWidget({ widget, theme, value, onValue }: RunDisplayWidgetPro
     event.stopPropagation()
     event.currentTarget.setPointerCapture?.(event.pointerId)
     setTouchOwned(true)
-    if (widget.type === 'Button') onValue(true)
+    if (widget.type === 'Button') onValue(true, true)
     else if (widget.type === 'Slider') setSliderFromPointer(event)
     else if (widget.type === 'Dial') {
       drag.current = { pointerId: event.pointerId, startY: event.clientY, startValue: numericValue }
+      onValue(numericValue, true)
     }
   }
 
@@ -125,13 +130,14 @@ function RunDisplayWidget({ widget, theme, value, onValue }: RunDisplayWidgetPro
     if (widget.type === 'Slider' && event.currentTarget.hasPointerCapture?.(event.pointerId)) {
       setSliderFromPointer(event)
     } else if (widget.type === 'Dial' && drag.current?.pointerId === event.pointerId) {
-      onValue(dialValueFromDrag(widget, drag.current.startValue, event.clientY - drag.current.startY))
+      onValue(dialValueFromDrag(widget, drag.current.startValue, event.clientY - drag.current.startY), true)
     }
   }
 
   const endPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
     setTouchOwned(false)
-    if (widget.type === 'Button') onValue(false)
+    if (widget.type === 'Button') onValue(false, false)
+    else onRelease()
     if (drag.current?.pointerId === event.pointerId) drag.current = null
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId)
@@ -142,24 +148,24 @@ function RunDisplayWidget({ widget, theme, value, onValue }: RunDisplayWidgetPro
     if (!interactive) return
     if (widget.type === 'Button' && (event.key === ' ' || event.key === 'Enter')) {
       event.preventDefault()
-      onValue(true)
+      onValue(true, true)
       return
     }
     if (widget.type === 'Toggle' && (event.key === ' ' || event.key === 'Enter')) {
       event.preventDefault()
-      if (!event.repeat) onValue(!booleanValue)
+      if (!event.repeat) onValue(!booleanValue, false)
       return
     }
     if (widget.type !== 'Slider' && widget.type !== 'Dial') return
     if (event.key === 'Home' || event.key === 'End') {
       event.preventDefault()
-      onValue(event.key === 'Home' ? range.min : range.max)
+      onValue(event.key === 'Home' ? range.min : range.max, false)
       return
     }
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return
     event.preventDefault()
     const decrease = event.key === 'ArrowLeft' || event.key === 'ArrowDown'
-    onValue(stepDisplayControlValue(widget, numericValue, decrease ? -1 : 1))
+    onValue(stepDisplayControlValue(widget, numericValue, decrease ? -1 : 1), false)
   }
 
   return (
@@ -191,13 +197,13 @@ function RunDisplayWidget({ widget, theme, value, onValue }: RunDisplayWidgetPro
       onPointerCancel={endPointer}
       onClick={(event) => {
         event.stopPropagation()
-        if (widget.type === 'Toggle') onValue(!booleanValue)
+        if (widget.type === 'Toggle') onValue(!booleanValue, false)
       }}
       onKeyDown={onKeyDown}
       onKeyUp={(event) => {
         if (widget.type === 'Button' && (event.key === ' ' || event.key === 'Enter')) {
           event.preventDefault()
-          onValue(false)
+          onValue(false, false)
         }
       }}
     >
@@ -337,13 +343,16 @@ export default function DisplayEditor() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [zoom, setZoom] = useState(1)
   const [editorMode, setEditorMode] = useState<DisplayEditorMode>('design')
-  const [runValues, setRunValues] = useState<Record<string, DisplayControlValue>>({})
+  // Run preview values live in the display runtime store, not in the document
+  // and not in a second copy here; this counter only rerenders the surface after
+  // an interaction this component handled.
+  const [runTick, setRunTick] = useState(0)
   const [announcement, setAnnouncement] = useState('Display editor opened.')
 
   useEffect(() => {
     if (!displayId) return
     setEditorMode('design')
-    setRunValues({})
+    useDisplayRuntimeStore.getState().resetDisplayRuntime(displayId)
     enterDisplayHistoryScope(displayId)
     return () => leaveDisplayHistoryScope(displayId)
   }, [displayId])
@@ -541,6 +550,8 @@ export default function DisplayEditor() {
 
   const setMode = (mode: DisplayEditorMode) => {
     gesture.current = null
+    if (displayId) useDisplayRuntimeStore.getState().resetDisplayRuntime(displayId)
+    setRunTick((tick) => tick + 1)
     setEditorMode(mode)
     setSelectedIds([])
     setAnnouncement(mode === 'run'
@@ -548,9 +559,27 @@ export default function DisplayEditor() {
       : 'Design mode active. Touch controls are locked for editing.')
   }
 
-  const runValue = (widget: DisplayWidget): DisplayControlValue | undefined => (
-    Object.hasOwn(runValues, widget.id) ? runValues[widget.id] : initialDisplayControlValue(widget)
-  )
+  const runValue = (widget: DisplayWidget): DisplayControlValue | undefined => {
+    void runTick
+    const touched = displayId
+      ? useDisplayRuntimeStore.getState().readDisplayWidget(displayId, widget.id)?.touchValue
+      : undefined
+    return typeof touched === 'string' ? undefined : touched ?? initialDisplayControlValue(widget)
+  }
+
+  const writeRunValue = (widgetId: string, value: DisplayControlValue, held: boolean) => {
+    if (!displayId) return
+    const store = useDisplayRuntimeStore.getState()
+    store.touchDisplayWidget(displayId, widgetId, value)
+    if (!held) store.releaseDisplayWidget(displayId, widgetId)
+    setRunTick((tick) => tick + 1)
+  }
+
+  const releaseRunValue = (widgetId: string) => {
+    if (!displayId) return
+    useDisplayRuntimeStore.getState().releaseDisplayWidget(displayId, widgetId)
+    setRunTick((tick) => tick + 1)
+  }
 
   return (
     <section
@@ -692,7 +721,8 @@ export default function DisplayEditor() {
                       widget={widget}
                       theme={document.theme}
                       value={runValue(widget)}
-                      onValue={(value) => setRunValues((current) => ({ ...current, [widget.id]: value }))}
+                      onValue={(value, held) => writeRunValue(widget.id, value, held)}
+                      onRelease={() => releaseRunValue(widget.id)}
                     />
                   )
                 }
