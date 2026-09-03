@@ -8279,10 +8279,6 @@ export function evaluateScalarSeries(
 // nodes: the terminals (they define the rendered frame) and BeatDetect, whose
 // one-frame beat pulse triggers the preview loop's early publish — sampling it
 // only on publish frames would miss most beats.
-const OUTPUT_CATEGORY_NODE_TYPES = new Set<string>(
-  NODE_LIBRARY.filter((def) => def.category === 'output').map((def) => def.type),
-)
-
 const HOT_NODE_TYPES = new Set<string>([
   'BeatDetect',
   /*
@@ -8297,6 +8293,18 @@ const HOT_NODE_TYPES = new Set<string>([
    * skipped on non-publish frames, so a wired progress bar crawled at the
    * ~8 fps preview cadence instead of following its input, and a speed knob
    * would only be read eight times a second.
+   *
+   * The custom `Display` is deliberately absent, even though it is an
+   * output-category node whose instance carries inputs. Its ports are minted
+   * per document, so the library cannot declare them and this set cannot see
+   * them — but seeding the hot set from the instance instead would put the
+   * screen's whole upstream closure on the 60 fps path to publish values
+   * *nothing draws*: no panel renderer reads `roleValues` yet, and the editor's
+   * Run preview paints its own touch values. That is work with no observable
+   * effect, not a measured slowdown — it was tried, and briefly mistaken for
+   * the cause of unrelated lag. Touch is unaffected either way, because a
+   * widget output wired to a real terminal is pulled by that terminal. Add the
+   * screen back the moment something paints what evaluation publishes.
    */
   ...NODE_LIBRARY
     .filter((def) => def.inputs.length > 0 && (def.outputs.length === 0 || def.category === 'output'))
@@ -8324,13 +8332,7 @@ function hotNodeIds(nodes: StudioNode[], edges: StudioEdge[]): Set<string> {
   const hot = new Set<string>()
   const pending: string[] = []
   for (const n of nodes) {
-    const nodeType = String((n.data as { nodeType?: unknown }).nodeType)
-    // The same "output-category node with inputs" rule, asked of the node
-    // rather than the library, for a display whose ports are minted from its
-    // document: the library declares none, so the set above cannot see them.
-    const wiredScreen = OUTPUT_CATEGORY_NODE_TYPES.has(nodeType)
-      && ((n.data as { inputs?: unknown[] }).inputs?.length ?? 0) > 0
-    if (HOT_NODE_TYPES.has(nodeType) || wiredScreen) {
+    if (HOT_NODE_TYPES.has(String((n.data as { nodeType?: unknown }).nodeType))) {
       hot.add(n.id)
       pending.push(n.id)
     }

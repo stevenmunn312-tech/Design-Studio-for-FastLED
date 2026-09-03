@@ -795,10 +795,12 @@ freeform widgets must reuse rather than rediscover.
   after this pass; outputs carry the touch value sampled before it, resting at
   the port type's own value — false for a latch, zero for a ranged control —
   until a finger moves it. A disabled screen publishes nothing and reports only
-  those rest values. Being hot needed the same rule asked of the node rather
-  than the library, since a display's ports exist only on the instance: an
-  output-category node with inputs is a terminal, so a wired screen is
-  evaluated every frame instead of at the ~8 fps publish cadence.
+  those rest values. The screen is deliberately not a hot root: seeding the hot
+  set from its minted ports would put its whole upstream closure on the 60 fps
+  path to publish values nothing draws yet, so it publishes on ~8 fps publish
+  frames until a panel renderer reads `roleValues`. Touch is unaffected — a
+  widget output wired to a real terminal is pulled by that terminal. Restore the
+  hot root together with that renderer.
 - [ ] Reject instantaneous graph cycles through one Display node, or add a
   visible `Delay` requirement; do not rely on evaluator recursion guards to
   define user-facing behaviour by accident. The sole implicit exception is a

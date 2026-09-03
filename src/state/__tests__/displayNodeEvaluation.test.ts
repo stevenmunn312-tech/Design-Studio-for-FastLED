@@ -62,7 +62,7 @@ describe('custom Display node evaluation', () => {
     const { nodes, edges } = graph()
     runtime().touchDisplayWidget('panel', 'slider', 0.25)
 
-    const outputs = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, false).outputs.get('screen')!
+    const outputs = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true).outputs.get('screen')!
 
     expect(runtime().readDisplayWidget('panel', 'text')?.roleValues.get('value')).toBe('Aurora Drift')
     expect(runtime().readDisplayWidget('panel', 'slider')?.roleValues.get('set')).toBe(0.75)
@@ -71,7 +71,7 @@ describe('custom Display node evaluation', () => {
   })
 
   it('rests an untouched control at its type value and leaves unwired roles unpublished', () => {
-    const outputs = evaluateGraphFull([screen()], [], 1, 8, 8, {}, false).outputs.get('screen')!
+    const outputs = evaluateGraphFull([screen()], [], 1, 8, 8, {}, true).outputs.get('screen')!
 
     expect(outputs).toEqual({ 'widget:slider:out': 0, 'widget:button:out': false })
     expect(runtime().readDisplayWidget('panel', 'text')).toBeUndefined()
@@ -83,17 +83,20 @@ describe('custom Display node evaluation', () => {
     nodes[0] = screen({ enabled: false })
     runtime().touchDisplayWidget('panel', 'slider', 0.25)
 
-    const outputs = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, false).outputs.get('screen')!
+    const outputs = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true).outputs.get('screen')!
 
     expect(outputs['widget:slider:out']).toBe(0)
     expect(runtime().readDisplayWidget('panel', 'text')).toBeUndefined()
   })
 
-  it('stays hot on ports its library entry cannot declare', () => {
+  // A screen is evaluated on publish frames like any other node. It is
+  // deliberately NOT a hot root: seeding the hot set from its minted ports put
+  // its whole upstream on the 60 fps path to publish values no renderer reads
+  // yet. Restore it — and this test — when a panel paints them.
+  it('publishes at the preview cadence rather than pulling its upstream every frame', () => {
     const { nodes, edges } = graph()
-    // auxNodes false is the non-publish frame: a screen the graph feeds must
-    // still be evaluated, or a wired readout would crawl at the publish cadence.
-    expect(evaluateGraphFull(nodes, edges, 1, 8, 8, {}, false).outputs.has('screen')).toBe(true)
-    expect(evaluateGraphFull(nodes, edges, 1, 8, 8, {}, false).outputs.has('title')).toBe(true)
+    expect(evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true).outputs.has('screen')).toBe(true)
+    expect(evaluateGraphFull(nodes, edges, 1, 8, 8, {}, false).outputs.has('screen')).toBe(false)
+    expect(evaluateGraphFull(nodes, edges, 1, 8, 8, {}, false).outputs.has('title')).toBe(false)
   })
 })
