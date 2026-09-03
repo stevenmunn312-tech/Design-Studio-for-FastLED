@@ -256,6 +256,72 @@ It publishes a `display` output like the other sources — see [simple
 displays](simple-displays.md) — which is what a small OLED or a segment module
 plugs into to say which pattern is running.
 
+## Choosing patterns for a Collection
+
+Filling a Collection is a browsing job, not a build job, and the add-patterns
+dialog is where the Library's size stops being an asset. Its controls are
+facets — chips, OR within a facet and AND across facets — so "LED String +
+Audio Reactive" narrows the way it reads. Sort stays a `<select>`, because
+ordering genuinely is one-of-four. Every chip carries a count computed with its
+own facet excluded; a chip that read zero while you filtered on it would make a
+narrowed list look like a thin library, which is the failure mode that makes
+faceted search feel broken.
+
+### Where a pattern looks best is authored, not measured
+
+`src/state/patternTags.ts` holds one small vocabulary — `string`, `matrix`,
+`ring` — and `SavedPattern.bestOn` holds the author's claim about their own
+pattern.
+
+The temptation is to derive this: render the pattern at `N x 1` and at `W x H`
+and decide. That answers a different question. *Will it break* is mechanical and
+almost always "no" — Juggle reads well on a string, a matrix and a ring alike.
+*Where does it shine* is taste, and the only person holding it is the author,
+who has just spent an hour looking at the thing on one particular output. So the
+tag is authored, and it **promotes rather than excludes**:
+
+| state | source | in a search for that output |
+| --- | --- | --- |
+| `best` | the author said so | sorted to the top |
+| `works` | **the default** — untagged | shown under "Also works here" |
+| `poor` | derived | set aside behind a count and a "Show anyway" |
+
+Untagged is the common and correct answer, which is what lets an optional tag
+system survive: the tagged patterns float, and every other pattern behaves
+exactly as it did before anyone tagged anything. A tag on one pattern can never
+hide another.
+
+Only `poor` is derived, and deliberately narrowly: content whose whole substance
+is a two-dimensional form (a clock face, a text banner, a wireframe) has no
+one-line reading at all, while a plasma or a noise field sampled along one row is
+still a plasma and must never enter that set. A rule nobody asked for should fire
+rarely. An author naming an output beats the derivation for that output and only
+that one.
+
+The three coarse tags are not the five `LedOutputForm` values, because a ring and
+a corkscrew are both a chain read around a seam and a HUB75 panel is a matrix in
+every sense a pattern can perceive. `formTagForOutputForm` maps a real bench
+output onto the tag it answers to, which is how the dialog defaults its Output
+facet from `outputRoutes` on the root graph rather than asking the user what they
+are building for.
+
+### Tagging is curation, not authoring
+
+The editing surfaces are the ones reached while *browsing*: a bulk toggle in the
+Library's context menu that states the whole selection (on / mixed / off), and a
+chip row beside the star rating on each Pattern Insights card. The create-group
+dialog also asks, because it is the one save path that already stops for a name.
+
+The three context-menu saves stay a single click. A modal on the tweak-and-resave
+loop gets dismissed by the third iteration, and a dismissed question tags
+nothing — while save time is also the worst moment to ask, since the author has
+only ever seen the pattern on their own output. `savePattern` therefore carries
+`bestOn` and `categoryId` across a `replaceByName` save: curation is not content,
+and re-saving an edited pattern must not silently discard it.
+
+Bundled patterns are curated in `bundledPatterns.ts` and read-only here, the same
+way their name and shelf already are.
+
 ## Codegen target
 
 Today `cppGenerator` emits a single flat `loop()`. The show needs:
