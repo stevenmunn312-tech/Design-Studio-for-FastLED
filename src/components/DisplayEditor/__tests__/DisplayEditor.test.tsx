@@ -40,7 +40,27 @@ describe('DisplayEditor', () => {
     fireEvent.keyDown(widget, { key: 'ArrowRight' })
     fireEvent.keyDown(widget, { key: 'ArrowDown', shiftKey: true })
 
-    expect(useGraphStore.getState().displayDocuments.panel.widgets[0].bounds).toMatchObject({ x: 8, y: 0 })
+    expect(useGraphStore.getState().displayDocuments.panel.widgets[0].bounds).toMatchObject({ x: 8, y: 1 })
+  })
+
+  it('multi-selects, aligns, copies, pastes, and deletes widgets as a group', () => {
+    const view = render(<DisplayEditor />)
+    fireEvent.click(view.getByRole('button', { name: 'Add Button widget' }))
+    fireEvent.click(view.getByRole('button', { name: 'Add Text widget' }))
+    fireEvent.click(view.getByRole('button', { name: /Button, Button\. Position/ }), { ctrlKey: true })
+
+    expect(view.getByRole('heading', { name: '2 widgets' })).toBeTruthy()
+    fireEvent.click(view.getByRole('button', { name: 'Left' }))
+    expect(useGraphStore.getState().displayDocuments.panel.widgets.map((widget) => widget.bounds.x)).toEqual([0, 0])
+
+    fireEvent.click(view.getByRole('button', { name: 'Copy' }))
+    fireEvent.click(view.getByRole('button', { name: 'Paste' }))
+    expect(useGraphStore.getState().displayDocuments.panel.widgets.map((widget) => widget.id)).toEqual([
+      'button', 'text', 'button-2', 'text-2',
+    ])
+
+    fireEvent.click(view.getByRole('button', { name: 'Delete widgets' }))
+    expect(useGraphStore.getState().displayDocuments.panel.widgets.map((widget) => widget.id)).toEqual(['button', 'text'])
   })
 
   it('returns to the graph through the breadcrumb', () => {

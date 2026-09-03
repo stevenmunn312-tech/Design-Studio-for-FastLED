@@ -47,6 +47,12 @@
   color: var(--accent-output);
 }
 
+.toolbar button:disabled,
+.selectionActions button:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
 .breadcrumb > span {
   color: var(--text-secondary);
 }
@@ -310,6 +316,29 @@
   background: transparent;
   color: var(--error);
   cursor: pointer;
+}
+
+.selectionActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.selectionActions button {
+  min-height: 30px;
+  padding: 5px 6px;
+  border: 1px solid var(--border-glow);
+  border-radius: 4px;
+  background: var(--bg-node);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.selectionActions button:hover:not(:disabled) {
+  border-color: var(--accent-output);
+  color: var(--accent-output);
 }
 
 .issues {

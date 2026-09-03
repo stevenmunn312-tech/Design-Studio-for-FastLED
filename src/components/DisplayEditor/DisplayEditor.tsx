@@ -3,24 +3,32 @@ import { useGraphStore } from '../../state/graphStore'
 import { DISPLAY_WIDGET_LIBRARY } from '../../state/displayRegistry'
 import {
   addDisplayWidget,
+  alignDisplayWidgets,
   constrainDisplayWidgetBounds,
   displayLayoutIssues,
-  duplicateDisplayWidget,
-  removeDisplayWidget,
+  distributeDisplayWidgets,
+  duplicateDisplayWidgets,
+  pasteDisplayWidgets,
+  removeDisplayWidgets,
+  translateDisplayWidgets,
   updateDisplayWidget,
 } from '../../state/displayEditor'
-import type { DisplayBounds, DisplayDocument, DisplayWidgetType } from '../../state/displayDocument'
+import type { DisplayBounds, DisplayDocument, DisplayWidget, DisplayWidgetType } from '../../state/displayDocument'
 import { useUiStore } from '../../state/uiStore'
 import DisplayWidgetPreview from './DisplayWidgetPreview'
 import styles from './DisplayEditor.module.css'
 
 type Gesture = {
   widgetId: string
+  widgetIds: string[]
   kind: 'move' | 'resize'
   pointerId: number
   start: { x: number; y: number }
   bounds: DisplayBounds
+  document: DisplayDocument
 }
+
+let displayWidgetClipboard: DisplayWidget[] = []
 
 function backgroundStyle(document: DisplayDocument): CSSProperties {
   const background = document.theme.background
@@ -59,6 +67,12 @@ function widgetAnnouncement(document: DisplayDocument, widgetId: string | null):
   return `${widget.type}, ${widget.label}. Position ${x}, ${y}. Size ${width} by ${height}. ${ports || 'No graph ports'}.`
 }
 
+function selectionAnnouncement(document: DisplayDocument, widgetIds: readonly string[]): string {
+  if (widgetIds.length === 0) return 'No widget selected.'
+  if (widgetIds.length === 1) return widgetAnnouncement(document, widgetIds[0])
+  return `${widgetIds.length} widgets selected.`
+}
+
 export default function DisplayEditor() {
   const view = useUiStore((state) => state.designWorkspaceView)
   const fitViewRequest = useUiStore((state) => state.fitViewRequest)
@@ -70,7 +84,7 @@ export default function DisplayEditor() {
   const gesture = useRef<Gesture | null>(null)
   const [draft, setDraft] = useState<DisplayDocument | null>(persisted ?? null)
   const draftRef = useRef<DisplayDocument | null>(persisted ?? null)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [zoom, setZoom] = useState(1)
   const [announcement, setAnnouncement] = useState('Display editor opened.')
 
@@ -78,6 +92,9 @@ export default function DisplayEditor() {
     if (!gesture.current) {
       draftRef.current = persisted ?? null
       setDraft(persisted ?? null)
+      if (persisted) {
+        setSelectedIds((ids) => ids.filter((id) => persisted.widgets.some((widget) => widget.id === id)))
+      }
     }
   }, [persisted])
 
@@ -114,16 +131,23 @@ export default function DisplayEditor() {
     if (message) setAnnouncement(message)
   }
 
-  const select = (widgetId: string | null) => {
-    setSelectedId(widgetId)
-    setAnnouncement(widgetAnnouncement(document, widgetId))
+  const select = (widgetId: string | null, additive = false) => {
+    const next = widgetId === null
+      ? []
+      : additive
+        ? selectedIds.includes(widgetId)
+          ? selectedIds.filter((id) => id !== widgetId)
+          : [...selectedIds, widgetId]
+        : [widgetId]
+    setSelectedIds(next)
+    setAnnouncement(selectionAnnouncement(document, next))
   }
 
   const add = (type: DisplayWidgetType) => {
     const next = addDisplayWidget(document, type)
     const widget = next.widgets.at(-1)!
     commit(next, `${widget.type} added at ${widget.bounds.x}, ${widget.bounds.y}.`)
-    setSelectedId(widget.id)
+    setSelectedIds([widget.id])
   }
 
   const beginGesture = (event: ReactPointerEvent, widgetId: string, kind: Gesture['kind']) => {
@@ -131,14 +155,27 @@ export default function DisplayEditor() {
     const widget = document.widgets.find((entry) => entry.id === widgetId)
     if (!widget) return
     event.stopPropagation()
+    const additive = event.shiftKey || event.ctrlKey || event.metaKey
+    if (additive && selectedIds.includes(widgetId)) {
+      select(widgetId, true)
+      return
+    }
+    const widgetIds = additive
+      ? [...selectedIds, widgetId]
+      : selectedIds.includes(widgetId) && selectedIds.length > 1
+        ? selectedIds
+        : [widgetId]
     event.currentTarget.setPointerCapture(event.pointerId)
-    select(widgetId)
+    setSelectedIds(widgetIds)
+    setAnnouncement(selectionAnnouncement(document, widgetIds))
     gesture.current = {
       widgetId,
+      widgetIds,
       kind,
       pointerId: event.pointerId,
       start: { x: event.clientX, y: event.clientY },
       bounds: widget.bounds,
+      document,
     }
   }
 
@@ -147,12 +184,16 @@ export default function DisplayEditor() {
     if (!active || active.pointerId !== event.pointerId) return
     const dx = (event.clientX - active.start.x) / zoom
     const dy = (event.clientY - active.start.y) / zoom
-    const next = updateDisplayWidget(document, active.widgetId, (widget) => ({
-      ...widget,
-      bounds: constrainDisplayWidgetBounds(document, widget.type, active.kind === 'move'
-        ? { ...active.bounds, x: active.bounds.x + dx, y: active.bounds.y + dy }
-        : { ...active.bounds, width: active.bounds.width + dx, height: active.bounds.height + dy }),
-    }))
+    const next = active.kind === 'move'
+      ? translateDisplayWidgets(active.document, active.widgetIds, dx, dy)
+      : updateDisplayWidget(active.document, active.widgetId, (widget) => ({
+        ...widget,
+        bounds: constrainDisplayWidgetBounds(active.document, widget.type, {
+          ...active.bounds,
+          width: active.bounds.width + dx,
+          height: active.bounds.height + dy,
+        }),
+      }))
     draftRef.current = next
     setDraft(next)
   }
@@ -168,29 +209,76 @@ export default function DisplayEditor() {
     }
   }
 
-  const selected = document.widgets.find((widget) => widget.id === selectedId) ?? null
+  const selectedWidgets = document.widgets.filter((widget) => selectedIds.includes(widget.id))
+  const selected = selectedWidgets.length === 1 ? selectedWidgets[0] : null
+
+  const applySelectionTransform = (next: DisplayDocument, message: string) => {
+    if (next === document) return
+    commit(next, message)
+  }
+
+  const copySelection = () => {
+    displayWidgetClipboard = selectedWidgets.map((widget) => structuredClone(widget))
+    setAnnouncement(`${displayWidgetClipboard.length} ${displayWidgetClipboard.length === 1 ? 'widget' : 'widgets'} copied.`)
+  }
+
+  const pasteSelection = () => {
+    const result = pasteDisplayWidgets(document, displayWidgetClipboard)
+    if (result.widgetIds.length === 0) return
+    commit(result.document, `${result.widgetIds.length} ${result.widgetIds.length === 1 ? 'widget' : 'widgets'} pasted.`)
+    setSelectedIds(result.widgetIds)
+  }
 
   return (
     <section
       className={styles.editor}
       aria-label={`Display editor for ${displayId}`}
       onKeyDown={(event) => {
-        if (!selected || event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return
+        if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return
         const direction = event.key
+        const mod = event.ctrlKey || event.metaKey
+        if (mod && direction.toLowerCase() === 'a') {
+          event.preventDefault()
+          event.stopPropagation()
+          const ids = document.widgets.map((widget) => widget.id)
+          setSelectedIds(ids)
+          setAnnouncement(selectionAnnouncement(document, ids))
+          return
+        }
+        if (mod && direction.toLowerCase() === 'c' && selectedWidgets.length > 0) {
+          event.preventDefault()
+          event.stopPropagation()
+          copySelection()
+          return
+        }
+        if (mod && direction.toLowerCase() === 'x' && selectedWidgets.length > 0) {
+          event.preventDefault()
+          event.stopPropagation()
+          copySelection()
+          commit(removeDisplayWidgets(document, selectedIds), `${selectedIds.length} ${selectedIds.length === 1 ? 'widget' : 'widgets'} cut.`)
+          setSelectedIds([])
+          return
+        }
+        if (mod && direction.toLowerCase() === 'v') {
+          event.preventDefault()
+          event.stopPropagation()
+          pasteSelection()
+          return
+        }
+        if (selectedWidgets.length === 0) return
         if (direction === 'Delete' || direction === 'Backspace') {
           event.preventDefault()
           event.stopPropagation()
-          commit(removeDisplayWidget(document, selected.id), `${selected.type} deleted.`)
-          setSelectedId(null)
+          commit(removeDisplayWidgets(document, selectedIds), `${selectedIds.length} ${selectedIds.length === 1 ? 'widget' : 'widgets'} deleted.`)
+          setSelectedIds([])
           return
         }
         if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'd') {
           event.preventDefault()
           event.stopPropagation()
-          const next = duplicateDisplayWidget(document, selected.id)
-          const copy = next.widgets.at(-1)!
-          commit(next, `${selected.type} duplicated.`)
-          setSelectedId(copy.id)
+          const result = duplicateDisplayWidgets(document, selectedIds)
+          commit(result.document, `${selectedIds.length} ${selectedIds.length === 1 ? 'widget' : 'widgets'} duplicated.`)
+          setSelectedIds(result.widgetIds)
           return
         }
         if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(direction)) return
@@ -199,11 +287,8 @@ export default function DisplayEditor() {
         const amount = event.shiftKey ? 1 : document.gridSize
         const dx = direction === 'ArrowLeft' ? -amount : direction === 'ArrowRight' ? amount : 0
         const dy = direction === 'ArrowUp' ? -amount : direction === 'ArrowDown' ? amount : 0
-        const next = updateDisplayWidget(document, selected.id, (widget) => ({
-          ...widget,
-          bounds: { ...widget.bounds, x: widget.bounds.x + dx, y: widget.bounds.y + dy },
-        }))
-        commit(next, widgetAnnouncement(next, selected.id))
+        const next = translateDisplayWidgets(document, selectedIds, dx, dy, !event.shiftKey)
+        commit(next, selectionAnnouncement(next, selectedIds))
       }}
     >
       <header className={styles.header}>
@@ -214,6 +299,9 @@ export default function DisplayEditor() {
           <span className={styles.resolution}>{document.designSize.width} × {document.designSize.height}</span>
         </div>
         <div className={styles.toolbar} aria-label="Display canvas controls">
+          <button type="button" onClick={() => { const ids = document.widgets.map((widget) => widget.id); setSelectedIds(ids); setAnnouncement(selectionAnnouncement(document, ids)) }} disabled={document.widgets.length === 0}>Select all</button>
+          <button type="button" onClick={copySelection} disabled={selectedWidgets.length === 0}>Copy</button>
+          <button type="button" onClick={pasteSelection} disabled={displayWidgetClipboard.length === 0}>Paste</button>
           <button type="button" onClick={() => setZoom((value) => Math.max(0.35, value - 0.1))} aria-label="Zoom out">−</button>
           <output aria-label="Display zoom">{Math.round(zoom * 100)}%</output>
           <button type="button" onClick={() => setZoom((value) => Math.min(2, value + 0.1))} aria-label="Zoom in">＋</button>
@@ -250,7 +338,7 @@ export default function DisplayEditor() {
             >
               {document.widgets.map((widget) => {
                 const definition = DISPLAY_WIDGET_LIBRARY[widget.type]
-                const isSelected = widget.id === selectedId
+                const isSelected = selectedIds.includes(widget.id)
                 return (
                   <button
                     key={widget.id}
@@ -265,7 +353,10 @@ export default function DisplayEditor() {
                     aria-label={widgetAnnouncement(document, widget.id)}
                     aria-pressed={isSelected}
                     onPointerDown={(event) => beginGesture(event, widget.id, 'move')}
-                    onClick={(event) => { event.stopPropagation(); select(widget.id) }}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      if (event.detail === 0) select(widget.id, event.shiftKey || event.ctrlKey || event.metaKey)
+                    }}
                   >
                     <DisplayWidgetPreview widget={widget} renderer={definition.previewRenderer} />
                     {isSelected && (
@@ -283,7 +374,7 @@ export default function DisplayEditor() {
         </div>
 
         <aside className={styles.inspector} aria-label="Widget inspector">
-          <h2>{selected ? selected.type : 'Screen'}</h2>
+          <h2>{selected ? selected.type : selectedWidgets.length > 1 ? `${selectedWidgets.length} widgets` : 'Screen'}</h2>
           {selected ? (
             <>
               <label>Label<input value={selected.label} maxLength={80} onChange={(event) => commit(updateDisplayWidget(document, selected.id, (widget) => ({ ...widget, label: event.target.value })))} /></label>
@@ -338,7 +429,22 @@ export default function DisplayEditor() {
                   <div key={port.role}><dt>{port.label}</dt><dd>{port.direction} · {port.dataType}</dd></div>
                 ))}
               </dl>
-              <button className={styles.delete} type="button" onClick={() => { commit(removeDisplayWidget(document, selected.id), `${selected.type} deleted.`); setSelectedId(null) }}>Delete widget</button>
+              <button className={styles.delete} type="button" onClick={() => { commit(removeDisplayWidgets(document, [selected.id]), `${selected.type} deleted.`); setSelectedIds([]) }}>Delete widget</button>
+            </>
+          ) : selectedWidgets.length > 1 ? (
+            <>
+              <p>Move, align, distribute, duplicate, or delete the selected widgets as one group.</p>
+              <div className={styles.selectionActions} aria-label="Selection layout controls">
+                <button type="button" onClick={() => applySelectionTransform(alignDisplayWidgets(document, selectedIds, 'left'), 'Widgets aligned left.')}>Left</button>
+                <button type="button" onClick={() => applySelectionTransform(alignDisplayWidgets(document, selectedIds, 'horizontal-centre'), 'Widgets aligned horizontally.')}>Centre X</button>
+                <button type="button" onClick={() => applySelectionTransform(alignDisplayWidgets(document, selectedIds, 'right'), 'Widgets aligned right.')}>Right</button>
+                <button type="button" onClick={() => applySelectionTransform(alignDisplayWidgets(document, selectedIds, 'top'), 'Widgets aligned top.')}>Top</button>
+                <button type="button" onClick={() => applySelectionTransform(alignDisplayWidgets(document, selectedIds, 'vertical-centre'), 'Widgets aligned vertically.')}>Centre Y</button>
+                <button type="button" onClick={() => applySelectionTransform(alignDisplayWidgets(document, selectedIds, 'bottom'), 'Widgets aligned bottom.')}>Bottom</button>
+                <button type="button" disabled={selectedWidgets.length < 3} onClick={() => applySelectionTransform(distributeDisplayWidgets(document, selectedIds, 'horizontal'), 'Widgets distributed horizontally.')}>Distribute X</button>
+                <button type="button" disabled={selectedWidgets.length < 3} onClick={() => applySelectionTransform(distributeDisplayWidgets(document, selectedIds, 'vertical'), 'Widgets distributed vertically.')}>Distribute Y</button>
+              </div>
+              <button className={styles.delete} type="button" onClick={() => { commit(removeDisplayWidgets(document, selectedIds), `${selectedIds.length} widgets deleted.`); setSelectedIds([]) }}>Delete widgets</button>
             </>
           ) : (
             <>

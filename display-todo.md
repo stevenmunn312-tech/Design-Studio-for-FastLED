@@ -659,18 +659,20 @@ freeform widgets must reuse rather than rediscover.
   align/distribute, duplicate, delete, copy/paste, undo/redo, zoom/fit, and
   non-overlap collision feedback. Prioritise add/select/drag/resize/snap and
   undo before multi-select/alignment/copy workflows.
-  The first editing pass now adds all 13 registry widgets, selects, drags,
-  resizes, grid-snaps, keyboard-nudges, duplicates, deletes, zooms/fits, and
-  reports overlap plus registry validation. Document commits already flow
-  through the workspace undo slice. Multi-select, align/distribute, clipboard,
-  and isolated per-document undo stacks remain.
+  The editor now adds all 13 registry widgets; supports additive multi-select,
+  bounded group drag, grid and one-pixel keyboard nudge, resize, six-way align,
+  horizontal/vertical distribution, duplicate, delete, cut/copy/paste,
+  zoom/fit, and overlap plus registry validation. Pointer and keyboard actions
+  use the same pure document transforms, and pasted widgets receive fresh
+  stable ids. Document commits already flow through the workspace undo slice.
+  Isolated per-document undo stacks remain.
 - [ ] Make every editor action keyboard reachable and announce widget type,
   bounds, port direction/type, selection, and validation errors.
-  Palette actions, bounds/properties, nudge, duplicate and delete are keyboard
-  reachable; selection changes announce type, integer bounds and role-based
-  port contracts through a polite live region. Drag/resize still need explicit
-  keyboard equivalents beyond the numeric bounds inspector, and validation
-  announcements need refinement before this is complete.
+  Palette actions, bounds/properties, select-all, additive selection, nudge,
+  duplicate, cut/copy/paste and delete are keyboard reachable; selection
+  changes announce type, integer bounds and role-based port contracts through
+  a polite live region. Numeric bounds are the keyboard resize equivalent.
+  Validation announcements still need refinement before this is complete.
 - [ ] Auto-mint/remove dynamic ports on the outer `Display` node. Removing a
   wired widget requires confirmation and removes its edges atomically. Changing
   a widget to a different port type is create-new/delete-old, not an in-place

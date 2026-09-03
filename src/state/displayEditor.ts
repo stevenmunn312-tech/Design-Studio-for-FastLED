@@ -130,8 +130,35 @@ export function updateDisplayWidget(
   return changed ? { ...document, widgets } : document
 }
 
+export function updateDisplayWidgets(
+  document: DisplayDocument,
+  widgetIds: Iterable<string>,
+  update: (widget: DisplayWidget) => DisplayWidget,
+): DisplayDocument {
+  const ids = new Set(widgetIds)
+  if (ids.size === 0) return document
+  let changed = false
+  const widgets = document.widgets.map((widget) => {
+    if (!ids.has(widget.id)) return widget
+    changed = true
+    const next = update(widget)
+    return {
+      ...next,
+      bounds: constrainDisplayWidgetBounds(document, next.type, next.bounds),
+    }
+  })
+  return changed ? { ...document, widgets } : document
+}
+
 export function removeDisplayWidget(document: DisplayDocument, widgetId: string): DisplayDocument {
   const widgets = document.widgets.filter((widget) => widget.id !== widgetId)
+  return widgets.length === document.widgets.length ? document : { ...document, widgets }
+}
+
+export function removeDisplayWidgets(document: DisplayDocument, widgetIds: Iterable<string>): DisplayDocument {
+  const ids = new Set(widgetIds)
+  if (ids.size === 0) return document
+  const widgets = document.widgets.filter((widget) => !ids.has(widget.id))
   return widgets.length === document.widgets.length ? document : { ...document, widgets }
 }
 
@@ -151,6 +178,130 @@ export function duplicateDisplayWidget(document: DisplayDocument, widgetId: stri
     properties: { ...source.properties },
   }
   return { ...document, widgets: [...document.widgets, duplicate] }
+}
+
+export function pasteDisplayWidgets(
+  document: DisplayDocument,
+  copiedWidgets: readonly DisplayWidget[],
+  offset = document.gridSize,
+): { document: DisplayDocument; widgetIds: string[] } {
+  if (copiedWidgets.length === 0) return { document, widgetIds: [] }
+  let working = document
+  const pasted: DisplayWidget[] = []
+  for (const source of copiedWidgets) {
+    const copy: DisplayWidget = {
+      ...source,
+      id: nextDisplayWidgetId(working, source.type),
+      label: source.label,
+      bounds: constrainDisplayWidgetBounds(document, source.type, {
+        ...source.bounds,
+        x: source.bounds.x + offset,
+        y: source.bounds.y + offset,
+      }),
+      properties: { ...source.properties },
+    }
+    pasted.push(copy)
+    working = { ...working, widgets: [...working.widgets, copy] }
+  }
+  return { document: working, widgetIds: pasted.map((widget) => widget.id) }
+}
+
+export function duplicateDisplayWidgets(
+  document: DisplayDocument,
+  widgetIds: Iterable<string>,
+): { document: DisplayDocument; widgetIds: string[] } {
+  const ids = new Set(widgetIds)
+  return pasteDisplayWidgets(document, document.widgets.filter((widget) => ids.has(widget.id)))
+}
+
+export function translateDisplayWidgets(
+  document: DisplayDocument,
+  widgetIds: Iterable<string>,
+  dx: number,
+  dy: number,
+  snapToGrid = true,
+): DisplayDocument {
+  const ids = new Set(widgetIds)
+  const selected = document.widgets.filter((widget) => ids.has(widget.id))
+  if (selected.length === 0) return document
+  const minX = Math.min(...selected.map((widget) => widget.bounds.x))
+  const minY = Math.min(...selected.map((widget) => widget.bounds.y))
+  const maxX = Math.max(...selected.map((widget) => widget.bounds.x + widget.bounds.width))
+  const maxY = Math.max(...selected.map((widget) => widget.bounds.y + widget.bounds.height))
+  const snappedX = snapToGrid ? snap(dx, document.gridSize) : Math.round(dx)
+  const snappedY = snapToGrid ? snap(dy, document.gridSize) : Math.round(dy)
+  const offsetX = Math.max(-minX, Math.min(document.designSize.width - maxX, snappedX))
+  const offsetY = Math.max(-minY, Math.min(document.designSize.height - maxY, snappedY))
+  if (offsetX === 0 && offsetY === 0) return document
+  return {
+    ...document,
+    widgets: document.widgets.map((widget) => ids.has(widget.id)
+      ? { ...widget, bounds: { ...widget.bounds, x: widget.bounds.x + offsetX, y: widget.bounds.y + offsetY } }
+      : widget),
+  }
+}
+
+export type DisplayAlignment = 'left' | 'horizontal-centre' | 'right' | 'top' | 'vertical-centre' | 'bottom'
+
+export function alignDisplayWidgets(
+  document: DisplayDocument,
+  widgetIds: Iterable<string>,
+  alignment: DisplayAlignment,
+): DisplayDocument {
+  const ids = new Set(widgetIds)
+  const selected = document.widgets.filter((widget) => ids.has(widget.id))
+  if (selected.length < 2) return document
+  const left = Math.min(...selected.map((widget) => widget.bounds.x))
+  const right = Math.max(...selected.map((widget) => widget.bounds.x + widget.bounds.width))
+  const top = Math.min(...selected.map((widget) => widget.bounds.y))
+  const bottom = Math.max(...selected.map((widget) => widget.bounds.y + widget.bounds.height))
+  return updateDisplayWidgets(document, ids, (widget) => {
+    const bounds = { ...widget.bounds }
+    if (alignment === 'left') bounds.x = left
+    if (alignment === 'horizontal-centre') bounds.x = (left + right - bounds.width) / 2
+    if (alignment === 'right') bounds.x = right - bounds.width
+    if (alignment === 'top') bounds.y = top
+    if (alignment === 'vertical-centre') bounds.y = (top + bottom - bounds.height) / 2
+    if (alignment === 'bottom') bounds.y = bottom - bounds.height
+    return { ...widget, bounds }
+  })
+}
+
+export type DisplayDistribution = 'horizontal' | 'vertical'
+
+export function distributeDisplayWidgets(
+  document: DisplayDocument,
+  widgetIds: Iterable<string>,
+  direction: DisplayDistribution,
+): DisplayDocument {
+  const ids = new Set(widgetIds)
+  const selected = document.widgets.filter((widget) => ids.has(widget.id))
+  if (selected.length < 3) return document
+  const horizontal = direction === 'horizontal'
+  const ordered = [...selected].sort((a, b) => {
+    const aCentre = horizontal ? a.bounds.x + a.bounds.width / 2 : a.bounds.y + a.bounds.height / 2
+    const bCentre = horizontal ? b.bounds.x + b.bounds.width / 2 : b.bounds.y + b.bounds.height / 2
+    return aCentre - bCentre
+  })
+  const first = ordered[0]
+  const last = ordered.at(-1)!
+  const firstCentre = horizontal
+    ? first.bounds.x + first.bounds.width / 2
+    : first.bounds.y + first.bounds.height / 2
+  const lastCentre = horizontal
+    ? last.bounds.x + last.bounds.width / 2
+    : last.bounds.y + last.bounds.height / 2
+  const step = (lastCentre - firstCentre) / (ordered.length - 1)
+  const centres = new Map(ordered.map((widget, index) => [widget.id, firstCentre + step * index]))
+  return updateDisplayWidgets(document, ids, (widget) => {
+    const centre = centres.get(widget.id)!
+    return {
+      ...widget,
+      bounds: horizontal
+        ? { ...widget.bounds, x: centre - widget.bounds.width / 2 }
+        : { ...widget.bounds, y: centre - widget.bounds.height / 2 },
+    }
+  })
 }
 
 export function displayLayoutIssues(
