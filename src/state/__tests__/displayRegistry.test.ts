@@ -86,8 +86,8 @@ describe('display widget registry', () => {
 
   it('normalizes imported properties from inspector metadata', () => {
     expect(normalizeDisplayWidgetProperties('Text', {
-      text: 'abcdef', align: 'diagonal', fontSize: 999, color: '#AABBCC', script: 'no',
-    }, 4, 24)).toEqual({ text: 'abcd', fontSize: 96, color: '#aabbcc' })
+      text: 'abcdef', align: 'diagonal', fontSize: 999, color: '#AABBCC', wrap: true, maxLines: 9, script: 'no',
+    }, 4, 24)).toEqual({ text: 'abcd', fontSize: 96, color: '#aabbcc', wrap: true, maxLines: 4 })
 
     expect(normalizeDisplayWidgetProperties('Button', {
       text: 'Play', assetId: ' icons/play ', presentation: 'icon', nested: { no: true },

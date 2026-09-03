@@ -16,7 +16,7 @@ import {
   useGraphStore,
 } from '../../state/graphStore'
 import { portColor } from '../../state/nodeLibrary'
-import { DISPLAY_WIDGET_LIBRARY, displayWidgetPorts } from '../../state/displayRegistry'
+import { DISPLAY_WIDGET_LIBRARY, displayWidgetPorts, type DisplayWidgetState } from '../../state/displayRegistry'
 import {
   addDisplayWidget,
   alignDisplayWidgets,
@@ -31,6 +31,11 @@ import {
   type DisplayLayoutIssue,
 } from '../../state/displayEditor'
 import type { DisplayBounds, DisplayDocument, DisplayWidget, DisplayWidgetType } from '../../state/displayDocument'
+import {
+  displayWidgetVisualState,
+  resolveDisplayThemeTokens,
+  type DisplayBackgroundTokens,
+} from '../../state/displayTheme'
 import { useUiStore } from '../../state/uiStore'
 import DisplayWidgetPreview from './DisplayWidgetPreview'
 import {
@@ -58,19 +63,22 @@ type DisplayEditorMode = 'design' | 'run'
 
 interface RunDisplayWidgetProps {
   widget: DisplayWidget
+  theme: DisplayDocument['theme']
   value: DisplayControlValue | undefined
   onValue: (value: DisplayControlValue) => void
 }
 
 let displayWidgetClipboard: DisplayWidget[] = []
 
-function RunDisplayWidget({ widget, value, onValue }: RunDisplayWidgetProps) {
+function RunDisplayWidget({ widget, theme, value, onValue }: RunDisplayWidgetProps) {
   const definition = DISPLAY_WIDGET_LIBRARY[widget.type]
   const interactive = isInteractiveDisplayWidget(widget)
   const drag = useRef<{ pointerId: number; startY: number; startValue: number } | null>(null)
+  const [touchOwned, setTouchOwned] = useState(false)
   const range = displayControlRange(widget)
   const numericValue = typeof value === 'number' ? value : range.min
   const booleanValue = value === true
+  const visualState = displayWidgetVisualState(widget, value, { pressed: touchOwned })
   const role = widget.type === 'Toggle'
     ? 'switch'
     : widget.type === 'Slider' || widget.type === 'Dial'
@@ -92,6 +100,7 @@ function RunDisplayWidget({ widget, value, onValue }: RunDisplayWidgetProps) {
     event.preventDefault()
     event.stopPropagation()
     event.currentTarget.setPointerCapture?.(event.pointerId)
+    setTouchOwned(true)
     if (widget.type === 'Button') onValue(true)
     else if (widget.type === 'Slider') setSliderFromPointer(event)
     else if (widget.type === 'Dial') {
@@ -108,6 +117,7 @@ function RunDisplayWidget({ widget, value, onValue }: RunDisplayWidgetProps) {
   }
 
   const endPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
+    setTouchOwned(false)
     if (widget.type === 'Button') onValue(false)
     if (drag.current?.pointerId === event.pointerId) drag.current = null
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
@@ -147,7 +157,9 @@ function RunDisplayWidget({ widget, value, onValue }: RunDisplayWidgetProps) {
         top: widget.bounds.y,
         width: widget.bounds.width,
         height: widget.bounds.height,
+        ...widgetThemeVariables(theme, visualState),
       }}
+      data-widget-state={visualState}
       role={role}
       tabIndex={interactive ? 0 : undefined}
       aria-label={interactive ? `${widget.label || definition.label} run preview` : undefined}
@@ -172,23 +184,23 @@ function RunDisplayWidget({ widget, value, onValue }: RunDisplayWidgetProps) {
         }
       }}
     >
-      <DisplayWidgetPreview widget={widget} renderer={definition.previewRenderer} value={value} />
+      <DisplayWidgetPreview widget={widget} renderer={definition.previewRenderer} theme={theme} state={visualState} value={value} />
     </div>
   )
 }
 
-function backgroundStyle(document: DisplayDocument): CSSProperties {
-  const background = document.theme.background
+function backgroundStyle(background: DisplayBackgroundTokens): CSSProperties {
   if (background.kind === 'gradient') {
     return {
       background: `linear-gradient(${background.direction === 'vertical' ? '180deg' : '90deg'}, ${background.startColor}, ${background.endColor})`,
     }
   }
-  if (background.kind === 'image') return { background: document.theme.surfaceColor }
+  if (background.kind === 'image') return { background: background.fallbackColor }
   return { background: background.color }
 }
 
 function editorVariables(document: DisplayDocument): CSSProperties {
+  const tokens = resolveDisplayThemeTokens(document.theme)
   return {
     '--display-surface': document.theme.surfaceColor,
     '--display-text': document.theme.textColor,
@@ -197,10 +209,24 @@ function editorVariables(document: DisplayDocument): CSSProperties {
     '--display-success': document.theme.successColor,
     '--display-inactive': document.theme.inactiveColor,
     '--display-disabled': document.theme.disabledColor,
-    '--display-radius': `${document.theme.cornerRadius}px`,
-    '--display-border': `${document.theme.borderWidth}px`,
-    '--display-font-size': `${document.theme.fontSize}px`,
+    '--display-radius': `${tokens.cornerRadius}px`,
+    '--display-border': `${tokens.borderWidth}px`,
+    '--display-font-size': `${tokens.fontSize}px`,
     '--display-grid': `${document.gridSize}px`,
+  } as CSSProperties
+}
+
+function widgetThemeVariables(theme: DisplayDocument['theme'], state: DisplayWidgetState): CSSProperties {
+  const tokens = resolveDisplayThemeTokens(theme).states[state]
+  return {
+    '--widget-state-surface': tokens.surfaceColor,
+    '--widget-state-text': tokens.textColor,
+    '--widget-state-border': tokens.borderColor,
+    '--widget-state-indicator': tokens.indicatorColor,
+    '--widget-state-track': tokens.trackColor,
+    '--widget-state-thumb': tokens.thumbColor,
+    '--widget-state-opacity': tokens.opacity,
+    '--widget-state-offset': `${tokens.pressedOffset}px`,
   } as CSSProperties
 }
 
@@ -606,7 +632,7 @@ export default function DisplayEditor() {
             <div
               className={`${styles.screen} ${editorMode === 'run' ? styles.runScreen : ''}`}
               style={{
-                ...backgroundStyle(document),
+                ...backgroundStyle(resolveDisplayThemeTokens(document.theme).background),
                 ...editorVariables(document),
                 width: document.designSize.width,
                 height: document.designSize.height,
@@ -621,6 +647,7 @@ export default function DisplayEditor() {
                     <RunDisplayWidget
                       key={widget.id}
                       widget={widget}
+                      theme={document.theme}
                       value={runValue(widget)}
                       onValue={(value) => setRunValues((current) => ({ ...current, [widget.id]: value }))}
                     />
@@ -639,7 +666,9 @@ export default function DisplayEditor() {
                       top: widget.bounds.y,
                       width: widget.bounds.width,
                       height: widget.bounds.height,
+                      ...widgetThemeVariables(document.theme, 'default'),
                     }}
+                    data-widget-state="default"
                     aria-label={widgetAnnouncement(document, widget.id)}
                     aria-describedby={issueDescriptionId}
                     aria-invalid={widgetIssues.length > 0}
@@ -650,7 +679,7 @@ export default function DisplayEditor() {
                       if (event.detail === 0) select(widget.id, event.shiftKey || event.ctrlKey || event.metaKey)
                     }}
                   >
-                    <DisplayWidgetPreview widget={widget} renderer={definition.previewRenderer} />
+                    <DisplayWidgetPreview widget={widget} renderer={definition.previewRenderer} theme={document.theme} state="default" />
                     <DesignWidgetPorts widget={widget} />
                     {widgetIssues.length > 0 && (
                       <span id={issueDescriptionId} className={styles.srOnly}>

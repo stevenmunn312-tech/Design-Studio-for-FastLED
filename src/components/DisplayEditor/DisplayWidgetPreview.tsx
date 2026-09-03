@@ -1,11 +1,14 @@
 import type { CSSProperties } from 'react'
-import type { DisplayWidget } from '../../state/displayDocument'
-import type { DisplayPreviewRenderer } from '../../state/displayRegistry'
+import type { DisplayTheme, DisplayWidget } from '../../state/displayDocument'
+import type { DisplayPreviewRenderer, DisplayWidgetState } from '../../state/displayRegistry'
+import { displayWidgetTextTokens } from '../../state/displayTheme'
 import styles from './DisplayWidgetPreview.module.css'
 
 export interface DisplayWidgetPreviewProps {
   widget: DisplayWidget
   renderer: DisplayPreviewRenderer
+  theme: DisplayTheme
+  state: DisplayWidgetState
   value?: unknown
 }
 
@@ -44,22 +47,29 @@ function timecode(seconds: number, showHours: boolean): string {
     : `${minutes}:${String(rest).padStart(2, '0')}`
 }
 
-export default function DisplayWidgetPreview({ widget, renderer, value }: DisplayWidgetPreviewProps) {
+export default function DisplayWidgetPreview({ widget, renderer, theme, state, value }: DisplayWidgetPreviewProps) {
   const amount = normalized(widget, value)
   const fillStyle = { '--widget-fill': `${amount * 100}%` } as CSSProperties
+  const typography = displayWidgetTextTokens(widget, theme)
+  const textStyle = {
+    '--widget-text-align': typography.align,
+    '--widget-text-font': typography.font === 'mono' ? 'var(--font-code)' : 'var(--font-body)',
+    '--widget-text-size': `${typography.fontSize}px`,
+    '--widget-text-lines': typography.maxLines,
+  } as CSSProperties
   const text = typeof value === 'string' ? value : stringProperty(widget, 'text', widget.label)
-  const active = typeof value === 'boolean' ? value : true
-  const pressed = value === true
+  const active = state === 'active'
+  const pressed = state === 'pressed'
 
   switch (renderer) {
     case 'text':
-      return <span className={styles.text} style={{ color: stringProperty(widget, 'color', 'inherit') }}>{text || widget.label}</span>
+      return <span className={`${styles.text} ${typography.wrap ? styles.wrappedText : ''}`} style={{ ...textStyle, color: stringProperty(widget, 'color', 'inherit') }}>{text || widget.label}</span>
     case 'numeric': {
       const decimals = Math.max(0, Math.min(4, Math.round(numberProperty(widget, 'decimals', 1))))
-      return <span className={styles.numeric}>{stringProperty(widget, 'prefix')}{numericValue(value, 42).toFixed(decimals)}{stringProperty(widget, 'suffix')}</span>
+      return <span className={styles.numeric} style={textStyle}>{stringProperty(widget, 'prefix')}{numericValue(value, 42).toFixed(decimals)}{stringProperty(widget, 'suffix')}</span>
     }
     case 'timecode':
-      return <span className={styles.numeric}>{timecode(numericValue(value, 83), boolProperty(widget, 'showHours'))}</span>
+      return <span className={styles.numeric} style={textStyle}>{timecode(numericValue(value, 83), boolProperty(widget, 'showHours'))}</span>
     case 'progress':
       return <span className={styles.track} style={fillStyle}><span className={styles.fill} /></span>
     case 'meter':

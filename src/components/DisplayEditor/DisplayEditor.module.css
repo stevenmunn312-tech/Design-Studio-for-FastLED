@@ -228,14 +228,15 @@
   min-width: 0;
   place-items: center;
   padding: 4px;
-  border: var(--display-border) solid color-mix(in srgb, var(--display-text) 14%, transparent);
+  border: var(--display-border) solid var(--widget-state-border);
   border-radius: var(--display-radius);
-  background: var(--display-surface);
-  color: inherit;
+  background: var(--widget-state-surface);
+  color: var(--widget-state-text);
   cursor: grab;
   font: inherit;
   text-align: left;
   touch-action: none;
+  opacity: var(--widget-state-opacity);
 }
 
 .widget:active {

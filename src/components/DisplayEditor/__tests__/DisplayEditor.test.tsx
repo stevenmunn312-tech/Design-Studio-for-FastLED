@@ -156,12 +156,15 @@ describe('DisplayEditor', () => {
     expect(button.getAttribute('aria-pressed')).toBe('false')
 
     const toggle = view.getByRole('switch', { name: 'Toggle run preview' })
+    expect(toggle.getAttribute('data-widget-state')).toBe('inactive')
     fireEvent.click(toggle)
     expect(toggle.getAttribute('aria-checked')).toBe('true')
+    expect(toggle.getAttribute('data-widget-state')).toBe('active')
 
     const slider = view.getByRole('slider', { name: 'Slider run preview' })
     fireEvent.keyDown(slider, { key: 'ArrowRight' })
     expect(slider.getAttribute('aria-valuenow')).toBe('0.01')
+    expect(slider.getAttribute('style')).toContain('--widget-state-surface')
     expect(useGraphStore.getState().displayDocuments.panel).toEqual(before)
 
     fireEvent.click(view.getByRole('button', { name: 'Design' }))

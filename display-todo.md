@@ -644,7 +644,7 @@ freeform widgets must reuse rather than rediscover.
   identities, the single background/theme contract and bounded declarative
   values. Its normalizer rejects unknown schema/widget types, unsafe ids and
   nested property data before any future preview or emitter can read them.
-- [ ] Build `DISPLAY_WIDGET_LIBRARY` entries with label, direction, port type,
+- [x] Build `DISPLAY_WIDGET_LIBRARY` entries with label, direction, port type,
   stable port-role definitions, defaults, minimum visual and touch size,
   allowed display classes, preview renderer, LVGL emitter, property inspector
   metadata, state styling, asset slots and validation. Launch entries are Text,
@@ -655,8 +655,10 @@ freeform widgets must reuse rather than rediscover.
   adapter identities, inspector metadata, supported states, asset slots and
   property validation. Workspace normalization reads that metadata instead of
   maintaining a second property-key table. The DOM preview dispatch now covers
-  every adapter identity and the editor builds its property controls from the
-  registry metadata. LVGL adapters remain Phase 7 work.
+  every adapter identity, the editor builds its property controls from the
+  registry metadata, and the shared theme resolver supplies its state styling.
+  The emitter identities are the registry contract; their LVGL implementations
+  remain Phase 7 work.
 - [x] Implement add, select, multi-select, drag, keyboard nudge, resize, snap,
   align/distribute, duplicate, delete, copy/paste, undo/redo, zoom/fit, and
   non-overlap collision feedback. Prioritise add/select/drag/resize/snap and
@@ -699,10 +701,18 @@ freeform widgets must reuse rather than rediscover.
   gestures. Publishing those preview values to graph evaluation remains with
   the Phase 7 runtime store rather than smuggling runtime state into the
   declarative document.
-- [ ] Use a shared widget theme/token model for DOM preview and LVGL codegen.
+- [x] Use a shared widget theme/token model for DOM preview and LVGL codegen.
   Pixel-perfect parity is not required, but bounds, text wrapping, state,
   values, and interaction semantics are. Include default, pressed, active,
   inactive and disabled states, plus solid/gradient/baked-image backgrounds.
+  `src/state/displayTheme.ts` now resolves the persisted theme into renderer-
+  neutral background, typography and five-state widget tokens with deterministic
+  colour blends suitable for both CSS and emitted LVGL. The DOM editor consumes
+  those tokens for widget surfaces, borders, indicators, tracks, thumbs and
+  pressed offsets; Run mode selects pressed/active/inactive state from the same
+  interaction semantics. Text wrapping, alignment, font choice, size and line
+  limit are resolved once, while baked-image backgrounds retain a safe surface
+  fallback until the validated asset registry can supply their pixels.
 - [ ] Add a validated asset registry/import boundary for the external design
   pack. Registry entries expose stable id, kind, dimensions, tintability,
   source format, allowed display classes and estimated flash cost. Cover the

@@ -3,13 +3,22 @@
   display: block;
   max-width: 100%;
   overflow: hidden;
+  font-family: var(--widget-text-font, inherit);
+  font-size: var(--widget-text-size, inherit);
+  text-align: var(--widget-text-align, left);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.wrappedText {
+  display: -webkit-box;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--widget-text-lines, 2);
+}
+
 .numeric {
-  font-family: var(--font-code);
-  font-size: 1.15em;
   font-variant-numeric: tabular-nums;
 }
 
@@ -21,7 +30,7 @@
   height: 8px;
   overflow: hidden;
   border-radius: 999px;
-  background: color-mix(in srgb, currentColor 18%, transparent);
+  background: var(--widget-state-track, color-mix(in srgb, currentColor 18%, transparent));
 }
 
 .track .fill,
@@ -30,7 +39,7 @@
   inset: 0 auto 0 0;
   width: var(--widget-fill);
   border-radius: inherit;
-  background: var(--display-accent, #36c8ff);
+  background: var(--widget-state-indicator, var(--display-accent, #36c8ff));
 }
 
 .vertical {
@@ -56,12 +65,11 @@
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--display-inactive, #6e7788);
+  background: var(--widget-state-indicator, var(--display-inactive, #6e7788));
 }
 
 .status.active > span {
-  background: var(--display-success, #35d07f);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--display-success, #35d07f) 65%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--widget-state-indicator, var(--display-success, #35d07f)) 65%, transparent);
 }
 
 .swatch {
@@ -124,16 +132,14 @@
   width: 100%;
   height: 100%;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--display-accent, #36c8ff) 60%, transparent);
+  border: 1px solid var(--widget-state-border, color-mix(in srgb, var(--display-accent, #36c8ff) 60%, transparent));
   border-radius: inherit;
-  background: color-mix(in srgb, var(--display-accent, #36c8ff) 14%, var(--display-surface, #171d2a));
+  background: var(--widget-state-surface, var(--display-surface, #171d2a));
   font-weight: 700;
 }
 
 .button.pressed {
-  border-color: var(--display-accent, #36c8ff);
-  background: color-mix(in srgb, var(--display-accent, #36c8ff) 34%, var(--display-surface, #171d2a));
-  transform: translateY(1px);
+  transform: translateY(var(--widget-state-offset, 1px));
 }
 
 .toggle {
@@ -146,7 +152,7 @@
   width: 26px;
   height: 14px;
   border-radius: 999px;
-  background: var(--display-inactive, #6e7788);
+  background: var(--widget-state-indicator, var(--display-inactive, #6e7788));
 }
 
 .toggle > span::after {
@@ -161,7 +167,7 @@
 }
 
 .toggle.active > span {
-  background: var(--display-accent, #36c8ff);
+  background: var(--widget-state-indicator, var(--display-accent, #36c8ff));
 }
 
 .toggle.active > span::after {
@@ -179,7 +185,7 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: white;
+  background: var(--widget-state-thumb, white);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
   transform: translate(-50%, -50%);
 }
@@ -189,9 +195,9 @@
   display: block;
   width: min(100%, 42px);
   aspect-ratio: 1;
-  border: 4px solid color-mix(in srgb, var(--display-accent, #36c8ff) 70%, var(--display-surface, #171d2a));
+  border: 4px solid var(--widget-state-border, color-mix(in srgb, var(--display-accent, #36c8ff) 70%, var(--display-surface, #171d2a)));
   border-radius: 50%;
-  background: var(--display-surface, #171d2a);
+  background: var(--widget-state-surface, var(--display-surface, #171d2a));
 }
 
 .dial > span {
@@ -202,5 +208,5 @@
   height: 35%;
   transform: rotate(var(--dial-angle));
   transform-origin: 50% calc(100% + 4px);
-  background: white;
+  background: var(--widget-state-thumb, white);
 }
