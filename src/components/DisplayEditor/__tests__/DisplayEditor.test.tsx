@@ -132,6 +132,32 @@ describe('DisplayEditor', () => {
     expect(useGraphStore.getState().edges).toEqual([])
   })
 
+  it('inserts a template as ordinary widgets and selects what it added', () => {
+    useGraphStore.setState({
+      nodes: [{
+        id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
+        data: {
+          label: 'Custom Display', nodeType: 'Display', category: 'output',
+          properties: { displayId: 'panel' }, inputs: [], outputs: [],
+        },
+      } as unknown as StudioNode],
+    })
+    const view = render(<DisplayEditor />)
+    fireEvent.click(view.getByRole('button', { name: 'Add Text widget' }))
+    fireEvent.click(view.getByRole('button', { name: 'Insert Minimal Transport template' }))
+
+    const document = useGraphStore.getState().displayDocuments.panel
+    expect(document.widgets.map((widget) => widget.id)).toEqual([
+      'text', 'text-2', 'button', 'toggle', 'button-2', 'slider',
+    ])
+    expect(useGraphStore.getState().nodes.find((node) => node.id === 'screen')?.data.outputs?.map((port) => port.id))
+      .toEqual(['widget:button:out', 'widget:toggle:out', 'widget:button-2:out', 'widget:slider:out'])
+    expect(view.getByRole('status', { name: 'Display editor announcements' }).textContent).toContain(
+      'Minimal Transport template inserted with 5 widgets.',
+    )
+    expect(view.getByRole('button', { name: /Button, Previous\. Position/ }).getAttribute('aria-pressed')).toBe('true')
+  })
+
   it('returns to the graph through the breadcrumb', () => {
     const view = render(<DisplayEditor />)
     fireEvent.click(view.getByRole('button', { name: 'Graph' }))

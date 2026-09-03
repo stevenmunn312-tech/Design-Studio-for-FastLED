@@ -42,6 +42,12 @@ import {
   resolveDisplayThemeTokens,
   type DisplayBackgroundTokens,
 } from '../../state/displayTheme'
+import {
+  DISPLAY_TEMPLATES,
+  applyDisplayTemplate,
+  displayTemplate,
+  type DisplayTemplateId,
+} from '../../state/displayTemplates'
 import { useUiStore } from '../../state/uiStore'
 import DisplayWidgetPreview from './DisplayWidgetPreview'
 import {
@@ -407,6 +413,15 @@ export default function DisplayEditor() {
     setSelectedIds([widget.id])
   }
 
+  const insertTemplate = (id: DisplayTemplateId) => {
+    const template = displayTemplate(id)
+    if (!template) return
+    const next = applyDisplayTemplate(document, id)
+    const added = next.widgets.slice(document.widgets.length)
+    commit(next, `${template.label} template inserted with ${added.length} widgets. ${validationAnnouncement(displayLayoutIssues(next))}`)
+    setSelectedIds(added.map((widget) => widget.id))
+  }
+
   const beginGesture = (event: ReactPointerEvent, widgetId: string, kind: Gesture['kind']) => {
     if (event.button !== 0) return
     const widget = document.widgets.find((entry) => entry.id === widgetId)
@@ -633,6 +648,22 @@ export default function DisplayEditor() {
                 <button key={definition.type} type="button" aria-label={`Add ${definition.label} widget`} onClick={() => add(definition.type)}>
                   <span>{definition.label}</span>
                   <small>{definition.portRoles.map((port) => port.direction === 'input' ? 'In' : 'Out').join(' + ') || 'Visual'}</small>
+                </button>
+              ))}
+            </div>
+            <h2>Templates</h2>
+            <p>Insert a starting layout of ordinary widgets.</p>
+            <div className={styles.paletteList}>
+              {DISPLAY_TEMPLATES.map((template) => (
+                <button
+                  key={template.id}
+                  type="button"
+                  aria-label={`Insert ${template.label} template`}
+                  title={template.description}
+                  onClick={() => insertTemplate(template.id)}
+                >
+                  <span>{template.label}</span>
+                  <small>{template.widgets.length} widgets</small>
                 </button>
               ))}
             </div>

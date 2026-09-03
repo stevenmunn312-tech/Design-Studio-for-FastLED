@@ -733,10 +733,19 @@ freeform widgets must reuse rather than rediscover.
   Run mode applies as an extended click area around the painted control the way
   LVGL will, leaving a slider's hit region far taller than the
   `DISPLAY_CONTROL_TRACK_PX` track it paints.
-- [ ] Add declarative templates for Now Playing, Minimal Transport, Pattern
+- [x] Add declarative templates for Now Playing, Minimal Transport, Pattern
   Deck, LED Performance, Audio Reactor, Diagnostics and DMX Monitor. Templates
   insert ordinary widgets and mint ordinary visible ports; they do not gain
   private runtime behaviour.
+  `src/state/displayTemplates.ts` holds the seven as bounds and property
+  overrides only, and `applyDisplayTemplate` appends them through the same id
+  minting, bounds constraint and registry defaults a hand-placed widget uses —
+  so a placed template is indistinguishable from a hand-built screen and undo
+  reverses it in one step. Each is authored on the 320×240 reference and tested
+  to land there with no layout issue, including the touch separation rule, while
+  a smaller document clamps them. None uses Image/Icon: that widget cannot
+  validate until the asset registry exists, and a template must not arrive
+  holding an error.
 - [x] Show graph-type-coloured input/output notches in Design mode so direction
   and type remain legible; hide editor-only notches in Run mode and firmware.
   Each role now renders as an edge-aligned `IN`/`OUT` badge carrying its graph
