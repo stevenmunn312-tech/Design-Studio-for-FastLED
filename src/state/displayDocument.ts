@@ -1,3 +1,5 @@
+import { normalizeDisplayWidgetProperties } from './displayRegistry'
+
 /** Persisted, declarative custom-display documents.
  *
  * Nothing in this module is executable and no user-provided string becomes a
@@ -106,27 +108,8 @@ export const DEFAULT_DISPLAY_THEME: DisplayTheme = {
 
 const WIDGET_TYPE_SET = new Set<string>(DISPLAY_WIDGET_TYPES)
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]*$/
-const PROPERTY_KEY_RE = /^[A-Za-z][A-Za-z0-9]*$/
 const ASSET_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_./-]*$/
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/
-
-/** The schema owns property names until DISPLAY_WIDGET_LIBRARY grows richer
- * inspector metadata. Unknown keys are never carried through an import. */
-const WIDGET_PROPERTY_KEYS: Record<DisplayWidgetType, ReadonlySet<string>> = {
-  Text: new Set(['text', 'align', 'fontSize', 'color']),
-  'Numeric Readout': new Set(['decimals', 'prefix', 'suffix', 'min', 'max']),
-  Timecode: new Set(['showHours']),
-  Progress: new Set(['min', 'max']),
-  'Value Meter': new Set(['min', 'max', 'orientation', 'warningLow', 'warningHigh']),
-  'Status Indicator': new Set(['offLabel', 'onLabel']),
-  'Colour Swatch': new Set(['showHex', 'showRgb']),
-  'Pattern Browser': new Set(['showThumbnail', 'showOrdinal']),
-  'Image/Icon': new Set(['assetId', 'tint', 'tintColor']),
-  Button: new Set(['text', 'assetId', 'presentation']),
-  Toggle: new Set(['offLabel', 'onLabel', 'assetId', 'presentation']),
-  Slider: new Set(['min', 'max', 'step', 'orientation']),
-  Dial: new Set(['min', 'max', 'step']),
-}
 
 function record(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -193,21 +176,12 @@ export function normalizeDisplayTheme(value: unknown): DisplayTheme {
 }
 
 function normalizeProperties(type: DisplayWidgetType, value: unknown): Record<string, DisplayWidgetProperty> {
-  const source = record(value)
-  if (!source) return {}
-  const result: Record<string, DisplayWidgetProperty> = {}
-  for (const [key, raw] of Object.entries(source).slice(0, DISPLAY_DOCUMENT_LIMITS.propertyCount)) {
-    if (!PROPERTY_KEY_RE.test(key) || !WIDGET_PROPERTY_KEYS[type].has(key)) continue
-    if (key === 'assetId') {
-      const id = assetId(raw)
-      if (id) result[key] = id
-      continue
-    }
-    if (typeof raw === 'boolean') result[key] = raw
-    else if (typeof raw === 'number' && Number.isFinite(raw)) result[key] = raw
-    else if (typeof raw === 'string') result[key] = raw.slice(0, DISPLAY_DOCUMENT_LIMITS.propertyStringLength)
-  }
-  return result
+  return normalizeDisplayWidgetProperties(
+    type,
+    value,
+    DISPLAY_DOCUMENT_LIMITS.propertyStringLength,
+    DISPLAY_DOCUMENT_LIMITS.propertyCount,
+  )
 }
 
 function normalizeWidget(value: unknown, width: number, height: number): DisplayWidget | null {

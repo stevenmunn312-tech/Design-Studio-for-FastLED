@@ -642,6 +642,12 @@ freeform widgets must reuse rather than rediscover.
   metadata, state styling, asset slots and validation. Launch entries are Text,
   Numeric Readout, Timecode, Progress, Value Meter, Status Indicator, Colour
   Swatch, Pattern Browser, Image/Icon, Button, Toggle, Slider and Dial.
+  The declarative registry contract is now in `src/state/displayRegistry.ts`:
+  all 13 launch entries own their role-based ports, defaults, geometry limits,
+  adapter identities, inspector metadata, supported states, asset slots and
+  property validation. Workspace normalization reads that metadata instead of
+  maintaining a second property-key table. The preview and LVGL adapters still
+  need their Phase 6/7 implementations before this item is complete.
 - [ ] Implement add, select, multi-select, drag, keyboard nudge, resize, snap,
   align/distribute, duplicate, delete, copy/paste, undo/redo, zoom/fit, and
   non-overlap collision feedback. Prioritise add/select/drag/resize/snap and
