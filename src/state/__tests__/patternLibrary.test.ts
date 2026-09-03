@@ -203,8 +203,8 @@ describe('patternLibrary', () => {
 
   it('ships immutable bundled patterns for both built-in shelves', async () => {
     expect(STANDARD_BUNDLED_PATTERNS).toHaveLength(20)
-    expect(AUDIO_BUNDLED_PATTERNS).toHaveLength(20)
-    expect(BUNDLED_PATTERNS).toHaveLength(40)
+    expect(AUDIO_BUNDLED_PATTERNS).toHaveLength(40)
+    expect(BUNDLED_PATTERNS).toHaveLength(60)
     expect(STANDARD_BUNDLED_PATTERNS.every((pattern) => (
       pattern.bundled && pattern.categoryId === STANDARD_CATEGORY_ID
     ))).toBe(true)

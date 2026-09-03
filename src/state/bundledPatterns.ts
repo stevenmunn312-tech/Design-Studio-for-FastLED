@@ -3,6 +3,7 @@ import type { SavedPattern } from './patternLibrary'
 import type { PatternFormTag } from './patternTags'
 import { NODE_LIBRARY } from './nodeLibrary'
 
+// Shelf one — the original curated audio-reactive examples.
 import auroraCometFoundry from '../assets/bundled-patterns/Aurora Comet Foundry.json'
 import auroraEchoChoir from '../assets/bundled-patterns/Aurora Echo Choir.json'
 import bassCathedralCollapse from '../assets/bundled-patterns/Bass Cathedral Collapse.json'
@@ -23,6 +24,31 @@ import rgbBlobThunderGarden from '../assets/bundled-patterns/RGB Blob Thunder Ga
 import spectralFieldVortex from '../assets/bundled-patterns/Spectral Field Vortex.json'
 import spiralusPercussionShrine from '../assets/bundled-patterns/Spiralus Percussion Shrine.json'
 import tidalGlassMeditation from '../assets/bundled-patterns/Tidal Glass Meditation.json'
+
+// Shelf two — a second audio-reactive set built on nodes the first shelf
+// predates or never used: the wave simulator, the formula field/point
+// generators, the 3-D wireframe, reaction-diffusion, Game of Life, and the
+// Shape/Array pair driven as live geometry.
+import bassFurnace from '../assets/bundled-patterns/Bass Furnace.json'
+import beatTemple from '../assets/bundled-patterns/Beat Temple.json'
+import cellularPercussionGrid from '../assets/bundled-patterns/Cellular Percussion Grid.json'
+import emberMandala from '../assets/bundled-patterns/Ember Mandala.json'
+import fibonacciSpiralDrive from '../assets/bundled-patterns/Fibonacci Spiral Drive.json'
+import goldenRatioCathedral from '../assets/bundled-patterns/Golden Ratio Cathedral.json'
+import harmonicShardArray from '../assets/bundled-patterns/Harmonic Shard Array.json'
+import hyperspaceKick from '../assets/bundled-patterns/Hyperspace Kick.json'
+import kickDrumWavefield from '../assets/bundled-patterns/Kick Drum Wavefield.json'
+import lissajousLattice from '../assets/bundled-patterns/Lissajous Lattice.json'
+import phyllotaxisBloom from '../assets/bundled-patterns/Phyllotaxis Bloom.json'
+import reactionBloom from '../assets/bundled-patterns/Reaction Bloom.json'
+import snareRain from '../assets/bundled-patterns/Snare Rain.json'
+import spectrumCathedral from '../assets/bundled-patterns/Spectrum Cathedral.json'
+import strangeAttractorFog from '../assets/bundled-patterns/Strange Attractor Fog.json'
+import subBassScanline from '../assets/bundled-patterns/Sub Bass Scanline.json'
+import turbulentDeep from '../assets/bundled-patterns/Turbulent Deep.json'
+import ultravioletLavaLamp from '../assets/bundled-patterns/Ultraviolet Lava Lamp.json'
+import vocalGravityVeil from '../assets/bundled-patterns/Vocal Gravity Veil.json'
+import wireframeBassCage from '../assets/bundled-patterns/Wireframe Bass Cage.json'
 
 export const AUDIO_REACTIVE_CATEGORY_ID = 'audio-reactive'
 export const STANDARD_CATEGORY_ID = 'standard'
@@ -725,6 +751,29 @@ const AUDIO_PATTERN_SEEDS = [
   spectralFieldVortex,
   spiralusPercussionShrine,
   tidalGlassMeditation,
+  // Appended, never interleaved: `materializeBundledPatterns` derives each
+  // pattern's stable `bundled-audio-NN` id from its position, and a collection
+  // or a saved rating refers to a pattern by that id.
+  bassFurnace,
+  beatTemple,
+  cellularPercussionGrid,
+  emberMandala,
+  fibonacciSpiralDrive,
+  goldenRatioCathedral,
+  harmonicShardArray,
+  hyperspaceKick,
+  kickDrumWavefield,
+  lissajousLattice,
+  phyllotaxisBloom,
+  reactionBloom,
+  snareRain,
+  spectrumCathedral,
+  strangeAttractorFog,
+  subBassScanline,
+  turbulentDeep,
+  ultravioletLavaLamp,
+  vocalGravityVeil,
+  wireframeBassCage,
 ] as unknown as BundledSeed[]
 
 /**
@@ -793,6 +842,32 @@ const BUNDLED_BEST_ON: Record<string, PatternFormTag[]> = {
   'Spectral Field Vortex': ['matrix', 'ring'],
   'Spiralus Percussion Shrine': ['matrix', 'ring'],
   'Tidal Glass Meditation': ['string', 'ring'],
+
+  // Audio-reactive shelf two. Decided from renders of each pattern at 32x32
+  // and at 60x1, not from its node list: Kick Drum Wavefield's membrane
+  // becomes a genuine one-dimensional wave equation on tape and is better
+  // there than anywhere, while Bass Furnace collapses into per-pixel flicker
+  // without the vertical axis a flame climbs. Turbulent Deep is the quiet
+  // answer — a marbled field reads on any form, so it names none.
+  'Bass Furnace': ['matrix'],
+  'Beat Temple': ['matrix', 'ring'],
+  'Cellular Percussion Grid': ['matrix'],
+  'Ember Mandala': ['matrix', 'ring'],
+  'Fibonacci Spiral Drive': ['matrix', 'ring'],
+  'Golden Ratio Cathedral': ['matrix', 'ring'],
+  'Harmonic Shard Array': ['matrix', 'ring'],
+  'Hyperspace Kick': ['matrix', 'ring'],
+  'Kick Drum Wavefield': ['string', 'matrix'],
+  'Lissajous Lattice': ['matrix'],
+  'Phyllotaxis Bloom': ['matrix'],
+  'Reaction Bloom': ['matrix'],
+  'Snare Rain': ['matrix', 'ring'],
+  'Spectrum Cathedral': ['matrix'],
+  'Strange Attractor Fog': ['matrix'],
+  'Sub Bass Scanline': ['string', 'matrix'],
+  'Ultraviolet Lava Lamp': ['matrix'],
+  'Vocal Gravity Veil': ['matrix', 'ring'],
+  'Wireframe Bass Cage': ['matrix'],
 }
 
 /** Every name in the table above, so a test can prove each one still matches a

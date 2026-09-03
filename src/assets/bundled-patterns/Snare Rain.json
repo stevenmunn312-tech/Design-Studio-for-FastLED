@@ -1,0 +1,762 @@
+{
+ "id": "pat-1788436800007",
+ "name": "Snare Rain",
+ "createdAt": 1788436800007,
+ "inputs": [
+  {
+   "id": "param0",
+   "label": "Audio",
+   "dataType": "audio"
+  }
+ ],
+ "outputs": [
+  {
+   "id": "frame",
+   "label": "Frame",
+   "dataType": "frame"
+  }
+ ],
+ "subgraph": {
+  "nodes": [
+   {
+    "id": "audio",
+    "type": "studioNode",
+    "position": {
+     "x": -1180,
+     "y": 0
+    },
+    "data": {
+     "label": "Audio",
+     "nodeType": "GroupInput",
+     "category": "composite",
+     "properties": {
+      "paramId": "param0"
+     },
+     "inputs": [],
+     "outputs": [
+      {
+       "id": "out",
+       "label": "Audio",
+       "dataType": "audio"
+      }
+     ]
+    }
+   },
+   {
+    "id": "perc",
+    "type": "studioNode",
+    "position": {
+     "x": -1180,
+     "y": 20
+    },
+    "data": {
+     "label": "Percussion Detect",
+     "nodeType": "PercussionDetect",
+     "category": "audio",
+     "properties": {
+      "sensitivity": 0.62,
+      "decay": 0.76,
+      "separation": 0.5
+     },
+     "inputs": [
+      {
+       "id": "audio",
+       "label": "Audio",
+       "dataType": "audio"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "kick",
+       "label": "Kick",
+       "dataType": "float"
+      },
+      {
+       "id": "snare",
+       "label": "Snare",
+       "dataType": "float"
+      },
+      {
+       "id": "hihat",
+       "label": "Hi-Hat",
+       "dataType": "float"
+      }
+     ]
+    }
+   },
+   {
+    "id": "feat",
+    "type": "studioNode",
+    "position": {
+     "x": -1180,
+     "y": 200
+    },
+    "data": {
+     "label": "Audio Features",
+     "nodeType": "AudioFeatures",
+     "category": "audio",
+     "properties": {
+      "sensitivity": 0.55,
+      "gate": 0.1,
+      "smoothing": 0.82
+     },
+     "inputs": [
+      {
+       "id": "audio",
+       "label": "Audio",
+       "dataType": "audio"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "vocals",
+       "label": "Vocals",
+       "dataType": "float"
+      },
+      {
+       "id": "energy",
+       "label": "Energy",
+       "dataType": "float"
+      },
+      {
+       "id": "silence",
+       "label": "Silence",
+       "dataType": "bool"
+      }
+     ]
+    }
+   },
+   {
+    "id": "fft",
+    "type": "studioNode",
+    "position": {
+     "x": -1180,
+     "y": -160
+    },
+    "data": {
+     "label": "FFT Analyzer",
+     "nodeType": "FFTAnalyzer",
+     "category": "audio",
+     "properties": {
+      "bands": 24,
+      "gain": 1.15,
+      "smoothing": 0.8,
+      "tilt": 0
+     },
+     "inputs": [
+      {
+       "id": "audio",
+       "label": "Audio",
+       "dataType": "audio"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "bass",
+       "label": "Bass",
+       "dataType": "float"
+      },
+      {
+       "id": "mids",
+       "label": "Mids",
+       "dataType": "float"
+      },
+      {
+       "id": "treble",
+       "label": "Treble",
+       "dataType": "float"
+      }
+     ]
+    }
+   },
+   {
+    "id": "snareGate",
+    "type": "studioNode",
+    "position": {
+     "x": -900,
+     "y": 20
+    },
+    "data": {
+     "label": "Compare",
+     "nodeType": "Compare",
+     "category": "math",
+     "properties": {
+      "a": 0,
+      "b": 0.28
+     },
+     "inputs": [
+      {
+       "id": "a",
+       "label": "A",
+       "dataType": "float"
+      },
+      {
+       "id": "b",
+       "label": "B",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "result",
+       "label": "A > B",
+       "dataType": "bool"
+      }
+     ]
+    }
+   },
+   {
+    "id": "ripple",
+    "type": "studioNode",
+    "position": {
+     "x": -620,
+     "y": -40
+    },
+    "data": {
+     "label": "Rain Ripples",
+     "nodeType": "RainRipples",
+     "category": "pattern",
+     "properties": {
+      "energy": 0.8,
+      "speed": 0.75,
+      "palette": "ice",
+      "count": 8,
+      "decay": 0.85,
+      "thickness": 0.85,
+      "spawnSpread": 1,
+      "blendMode": "max"
+     },
+     "inputs": [
+      {
+       "id": "trigger",
+       "label": "Trigger",
+       "dataType": "bool"
+      },
+      {
+       "id": "energy",
+       "label": "Energy",
+       "dataType": "float"
+      },
+      {
+       "id": "speed",
+       "label": "Speed",
+       "dataType": "float"
+      },
+      {
+       "id": "paletteIn",
+       "label": "Palette",
+       "dataType": "palette"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "shock",
+    "type": "studioNode",
+    "position": {
+     "x": -620,
+     "y": 280
+    },
+    "data": {
+     "label": "Kick Shock",
+     "nodeType": "KickShock",
+     "category": "pattern",
+     "properties": {
+      "energy": 0.85,
+      "speed": 0.9,
+      "tiles": 1,
+      "palette": "citrus",
+      "count": 5,
+      "decay": 0.9,
+      "thickness": 0.8,
+      "spawnSpread": 0.25,
+      "blendMode": "add"
+     },
+     "inputs": [
+      {
+       "id": "kick",
+       "label": "Kick",
+       "dataType": "float"
+      },
+      {
+       "id": "snare",
+       "label": "Snare",
+       "dataType": "float"
+      },
+      {
+       "id": "hihat",
+       "label": "Hi-Hat",
+       "dataType": "float"
+      },
+      {
+       "id": "energy",
+       "label": "Energy",
+       "dataType": "float"
+      },
+      {
+       "id": "speed",
+       "label": "Speed",
+       "dataType": "float"
+      },
+      {
+       "id": "tiles",
+       "label": "Tiles",
+       "dataType": "float"
+      },
+      {
+       "id": "paletteIn",
+       "label": "Palette",
+       "dataType": "palette"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "mix",
+    "type": "studioNode",
+    "position": {
+     "x": -320,
+     "y": 120
+    },
+    "data": {
+     "label": "Blend",
+     "nodeType": "Blend",
+     "category": "composite",
+     "properties": {
+      "blendMode": "screen",
+      "amount": 0.7
+     },
+     "inputs": [
+      {
+       "id": "a",
+       "label": "A",
+       "dataType": "frame"
+      },
+      {
+       "id": "b",
+       "label": "B",
+       "dataType": "frame"
+      },
+      {
+       "id": "amount",
+       "label": "Opacity",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "spark",
+    "type": "studioNode",
+    "position": {
+     "x": -620,
+     "y": 540
+    },
+    "data": {
+     "label": "Treble Sparks",
+     "nodeType": "TrebleSparks",
+     "category": "pattern",
+     "properties": {
+      "density": 0.42,
+      "palette": "arctic"
+     },
+     "inputs": [
+      {
+       "id": "treble",
+       "label": "Treble",
+       "dataType": "float"
+      },
+      {
+       "id": "density",
+       "label": "Density",
+       "dataType": "float"
+      },
+      {
+       "id": "paletteIn",
+       "label": "Palette",
+       "dataType": "palette"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "mix2",
+    "type": "studioNode",
+    "position": {
+     "x": -60,
+     "y": 120
+    },
+    "data": {
+     "label": "Blend",
+     "nodeType": "Blend",
+     "category": "composite",
+     "properties": {
+      "blendMode": "screen",
+      "amount": 0.28
+     },
+     "inputs": [
+      {
+       "id": "a",
+       "label": "A",
+       "dataType": "frame"
+      },
+      {
+       "id": "b",
+       "label": "B",
+       "dataType": "frame"
+      },
+      {
+       "id": "amount",
+       "label": "Opacity",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "bright",
+    "type": "studioNode",
+    "position": {
+     "x": 200,
+     "y": 120
+    },
+    "data": {
+     "label": "Brightness",
+     "nodeType": "BrightnessMod",
+     "category": "composite",
+     "properties": {
+      "brightness": 1.6
+     },
+     "inputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      },
+      {
+       "id": "brightness",
+       "label": "Brightness",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "boost",
+    "type": "studioNode",
+    "position": {
+     "x": 460,
+     "y": 120
+    },
+    "data": {
+     "label": "Color Boost",
+     "nodeType": "ColorBoost",
+     "category": "composite",
+     "properties": {
+      "boost": 0.5
+     },
+     "inputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      },
+      {
+       "id": "boost",
+       "label": "Boost",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "sat",
+    "type": "studioNode",
+    "position": {
+     "x": 720,
+     "y": 120
+    },
+    "data": {
+     "label": "Saturation",
+     "nodeType": "Saturation",
+     "category": "composite",
+     "properties": {
+      "amount": 1.3
+     },
+     "inputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      },
+      {
+       "id": "amount",
+       "label": "Amount",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "out",
+    "type": "studioNode",
+    "position": {
+     "x": 1020,
+     "y": 0
+    },
+    "data": {
+     "label": "Group Output",
+     "nodeType": "GroupOutput",
+     "category": "output",
+     "properties": {},
+     "inputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ],
+     "outputs": []
+    }
+   }
+  ],
+  "edges": [
+   {
+    "id": "e0",
+    "source": "audio",
+    "sourceHandle": "out",
+    "target": "perc",
+    "targetHandle": "audio",
+    "type": "glowEdge",
+    "reconnectable": "target",
+    "style": {
+     "stroke": "#00e0a4"
+    }
+   },
+   {
+    "id": "e1",
+    "source": "audio",
+    "sourceHandle": "out",
+    "target": "feat",
+    "targetHandle": "audio",
+    "type": "glowEdge",
+    "reconnectable": "target",
+    "style": {
+     "stroke": "#00e0a4"
+    }
+   },
+   {
+    "id": "e2",
+    "source": "audio",
+    "sourceHandle": "out",
+    "target": "fft",
+    "targetHandle": "audio",
+    "type": "glowEdge",
+    "reconnectable": "target",
+    "style": {
+     "stroke": "#00e0a4"
+    }
+   },
+   {
+    "id": "e3",
+    "source": "perc",
+    "sourceHandle": "snare",
+    "target": "snareGate",
+    "targetHandle": "a",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e4",
+    "source": "snareGate",
+    "sourceHandle": "result",
+    "target": "ripple",
+    "targetHandle": "trigger",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e5",
+    "source": "feat",
+    "sourceHandle": "energy",
+    "target": "ripple",
+    "targetHandle": "energy",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e6",
+    "source": "perc",
+    "sourceHandle": "kick",
+    "target": "shock",
+    "targetHandle": "kick",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e7",
+    "source": "perc",
+    "sourceHandle": "snare",
+    "target": "shock",
+    "targetHandle": "snare",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e8",
+    "source": "perc",
+    "sourceHandle": "hihat",
+    "target": "shock",
+    "targetHandle": "hihat",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e9",
+    "source": "feat",
+    "sourceHandle": "energy",
+    "target": "shock",
+    "targetHandle": "energy",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e10",
+    "source": "shock",
+    "sourceHandle": "frame",
+    "target": "mix",
+    "targetHandle": "a",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e11",
+    "source": "ripple",
+    "sourceHandle": "frame",
+    "target": "mix",
+    "targetHandle": "b",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e12",
+    "source": "fft",
+    "sourceHandle": "treble",
+    "target": "spark",
+    "targetHandle": "treble",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e13",
+    "source": "mix",
+    "sourceHandle": "frame",
+    "target": "mix2",
+    "targetHandle": "a",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e14",
+    "source": "spark",
+    "sourceHandle": "frame",
+    "target": "mix2",
+    "targetHandle": "b",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e15",
+    "source": "mix2",
+    "sourceHandle": "frame",
+    "target": "bright",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e16",
+    "source": "bright",
+    "sourceHandle": "frame",
+    "target": "boost",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e17",
+    "source": "boost",
+    "sourceHandle": "frame",
+    "target": "sat",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e18",
+    "source": "sat",
+    "sourceHandle": "frame",
+    "target": "out",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   }
+  ]
+ }
+}

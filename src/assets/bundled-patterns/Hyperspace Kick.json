@@ -1,0 +1,832 @@
+{
+ "id": "pat-1788436800009",
+ "name": "Hyperspace Kick",
+ "createdAt": 1788436800009,
+ "inputs": [
+  {
+   "id": "param0",
+   "label": "Audio",
+   "dataType": "audio"
+  }
+ ],
+ "outputs": [
+  {
+   "id": "frame",
+   "label": "Frame",
+   "dataType": "frame"
+  }
+ ],
+ "subgraph": {
+  "nodes": [
+   {
+    "id": "audio",
+    "type": "studioNode",
+    "position": {
+     "x": -1180,
+     "y": 0
+    },
+    "data": {
+     "label": "Audio",
+     "nodeType": "GroupInput",
+     "category": "composite",
+     "properties": {
+      "paramId": "param0"
+     },
+     "inputs": [],
+     "outputs": [
+      {
+       "id": "out",
+       "label": "Audio",
+       "dataType": "audio"
+      }
+     ]
+    }
+   },
+   {
+    "id": "fft",
+    "type": "studioNode",
+    "position": {
+     "x": -1180,
+     "y": -160
+    },
+    "data": {
+     "label": "FFT Analyzer",
+     "nodeType": "FFTAnalyzer",
+     "category": "audio",
+     "properties": {
+      "bands": 24,
+      "gain": 1.15,
+      "smoothing": 0.8,
+      "tilt": 0
+     },
+     "inputs": [
+      {
+       "id": "audio",
+       "label": "Audio",
+       "dataType": "audio"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "bass",
+       "label": "Bass",
+       "dataType": "float"
+      },
+      {
+       "id": "mids",
+       "label": "Mids",
+       "dataType": "float"
+      },
+      {
+       "id": "treble",
+       "label": "Treble",
+       "dataType": "float"
+      }
+     ]
+    }
+   },
+   {
+    "id": "feat",
+    "type": "studioNode",
+    "position": {
+     "x": -1180,
+     "y": 200
+    },
+    "data": {
+     "label": "Audio Features",
+     "nodeType": "AudioFeatures",
+     "category": "audio",
+     "properties": {
+      "sensitivity": 0.55,
+      "gate": 0.1,
+      "smoothing": 0.82
+     },
+     "inputs": [
+      {
+       "id": "audio",
+       "label": "Audio",
+       "dataType": "audio"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "vocals",
+       "label": "Vocals",
+       "dataType": "float"
+      },
+      {
+       "id": "energy",
+       "label": "Energy",
+       "dataType": "float"
+      },
+      {
+       "id": "silence",
+       "label": "Silence",
+       "dataType": "bool"
+      }
+     ]
+    }
+   },
+   {
+    "id": "beat",
+    "type": "studioNode",
+    "position": {
+     "x": -1180,
+     "y": 380
+    },
+    "data": {
+     "label": "Beat Detect",
+     "nodeType": "BeatDetect",
+     "category": "audio",
+     "properties": {
+      "threshold": 0.22,
+      "attack": 0.55,
+      "decay": 0.3
+     },
+     "inputs": [
+      {
+       "id": "audio",
+       "label": "Audio",
+       "dataType": "audio"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "beat",
+       "label": "Beat",
+       "dataType": "bool"
+      },
+      {
+       "id": "bpm",
+       "label": "BPM",
+       "dataType": "float"
+      },
+      {
+       "id": "flux",
+       "label": "Flux",
+       "dataType": "float"
+      },
+      {
+       "id": "onset",
+       "label": "Onset",
+       "dataType": "float"
+      },
+      {
+       "id": "contrast",
+       "label": "Contrast",
+       "dataType": "float"
+      },
+      {
+       "id": "threshold",
+       "label": "Threshold",
+       "dataType": "float"
+      },
+      {
+       "id": "cooldownMs",
+       "label": "Cooldown (ms)",
+       "dataType": "float"
+      }
+     ]
+    }
+   },
+   {
+    "id": "warp",
+    "type": "studioNode",
+    "position": {
+     "x": -900,
+     "y": -160
+    },
+    "data": {
+     "label": "Map Range",
+     "nodeType": "MapRange",
+     "category": "math",
+     "properties": {
+      "value": 0,
+      "inMin": 0.05,
+      "inMax": 0.95,
+      "outMin": 0.12,
+      "outMax": 1
+     },
+     "inputs": [
+      {
+       "id": "value",
+       "label": "Value",
+       "dataType": "float"
+      },
+      {
+       "id": "inMin",
+       "label": "In Min",
+       "dataType": "float"
+      },
+      {
+       "id": "inMax",
+       "label": "In Max",
+       "dataType": "float"
+      },
+      {
+       "id": "outMin",
+       "label": "Out Min",
+       "dataType": "float"
+      },
+      {
+       "id": "outMax",
+       "label": "Out Max",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "result",
+       "label": "Result",
+       "dataType": "float"
+      }
+     ]
+    }
+   },
+   {
+    "id": "dens",
+    "type": "studioNode",
+    "position": {
+     "x": -900,
+     "y": 0
+    },
+    "data": {
+     "label": "Map Range",
+     "nodeType": "MapRange",
+     "category": "math",
+     "properties": {
+      "value": 0,
+      "inMin": 0.05,
+      "inMax": 0.7,
+      "outMin": 130,
+      "outMax": 320
+     },
+     "inputs": [
+      {
+       "id": "value",
+       "label": "Value",
+       "dataType": "float"
+      },
+      {
+       "id": "inMin",
+       "label": "In Min",
+       "dataType": "float"
+      },
+      {
+       "id": "inMax",
+       "label": "In Max",
+       "dataType": "float"
+      },
+      {
+       "id": "outMin",
+       "label": "Out Min",
+       "dataType": "float"
+      },
+      {
+       "id": "outMax",
+       "label": "Out Max",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "result",
+       "label": "Result",
+       "dataType": "float"
+      }
+     ]
+    }
+   },
+   {
+    "id": "pal",
+    "type": "studioNode",
+    "position": {
+     "x": -900,
+     "y": -360
+    },
+    "data": {
+     "label": "Poline Palette",
+     "nodeType": "Poline",
+     "category": "color",
+     "properties": {
+      "anchorA": "#000208",
+      "anchorB": "#3aa0ff",
+      "anchorC": "#ffffff",
+      "points": 5,
+      "position": "exponential"
+     },
+     "inputs": [
+      {
+       "id": "colorA",
+       "label": "Anchor A",
+       "dataType": "color"
+      },
+      {
+       "id": "colorB",
+       "label": "Anchor B",
+       "dataType": "color"
+      },
+      {
+       "id": "colorC",
+       "label": "Anchor C",
+       "dataType": "color"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "palette",
+       "label": "Palette",
+       "dataType": "palette"
+      }
+     ]
+    }
+   },
+   {
+    "id": "stars",
+    "type": "studioNode",
+    "position": {
+     "x": -600,
+     "y": -120
+    },
+    "data": {
+     "label": "Starfield",
+     "nodeType": "Starfield",
+     "category": "pattern",
+     "properties": {
+      "speed": 0.35,
+      "count": 90,
+      "palette": "ice",
+      "seed": 4
+     },
+     "inputs": [
+      {
+       "id": "paletteIn",
+       "label": "Palette",
+       "dataType": "palette"
+      },
+      {
+       "id": "speed",
+       "label": "Speed",
+       "dataType": "float"
+      },
+      {
+       "id": "count",
+       "label": "Count",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "trail",
+    "type": "studioNode",
+    "position": {
+     "x": -320,
+     "y": -120
+    },
+    "data": {
+     "label": "Trails",
+     "nodeType": "Trails",
+     "category": "composite",
+     "properties": {
+      "decay": 0.2
+     },
+     "inputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      },
+      {
+       "id": "decay",
+       "label": "Decay",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "flash",
+    "type": "studioNode",
+    "position": {
+     "x": -60,
+     "y": -120
+    },
+    "data": {
+     "label": "Beat Flash",
+     "nodeType": "BeatFlash",
+     "category": "pattern",
+     "properties": {
+      "decay": 0.89,
+      "attack": 0.09,
+      "intensity": 0.22,
+      "blendMode": "add",
+      "preserveBase": true,
+      "palette": "none",
+      "r": 110,
+      "g": 160,
+      "b": 255
+     },
+     "inputs": [
+      {
+       "id": "beat",
+       "label": "Beat",
+       "dataType": "bool"
+      },
+      {
+       "id": "frame",
+       "label": "Base",
+       "dataType": "frame"
+      },
+      {
+       "id": "attack",
+       "label": "Attack",
+       "dataType": "float"
+      },
+      {
+       "id": "decay",
+       "label": "Decay",
+       "dataType": "float"
+      },
+      {
+       "id": "intensity",
+       "label": "Intensity",
+       "dataType": "float"
+      },
+      {
+       "id": "paletteIn",
+       "label": "Palette",
+       "dataType": "palette"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "hueAmt",
+    "type": "studioNode",
+    "position": {
+     "x": -60,
+     "y": 160
+    },
+    "data": {
+     "label": "Map Range",
+     "nodeType": "MapRange",
+     "category": "math",
+     "properties": {
+      "value": 0,
+      "inMin": 0,
+      "inMax": 1,
+      "outMin": -0.05,
+      "outMax": 0.18
+     },
+     "inputs": [
+      {
+       "id": "value",
+       "label": "Value",
+       "dataType": "float"
+      },
+      {
+       "id": "inMin",
+       "label": "In Min",
+       "dataType": "float"
+      },
+      {
+       "id": "inMax",
+       "label": "In Max",
+       "dataType": "float"
+      },
+      {
+       "id": "outMin",
+       "label": "Out Min",
+       "dataType": "float"
+      },
+      {
+       "id": "outMax",
+       "label": "Out Max",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "result",
+       "label": "Result",
+       "dataType": "float"
+      }
+     ]
+    }
+   },
+   {
+    "id": "hue",
+    "type": "studioNode",
+    "position": {
+     "x": 200,
+     "y": -120
+    },
+    "data": {
+     "label": "Hue Shift",
+     "nodeType": "HueShift",
+     "category": "composite",
+     "properties": {
+      "shift": 0
+     },
+     "inputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      },
+      {
+       "id": "shift",
+       "label": "Shift",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "boost",
+    "type": "studioNode",
+    "position": {
+     "x": 460,
+     "y": -120
+    },
+    "data": {
+     "label": "Color Boost",
+     "nodeType": "ColorBoost",
+     "category": "composite",
+     "properties": {
+      "boost": 0.45
+     },
+     "inputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      },
+      {
+       "id": "boost",
+       "label": "Boost",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "hlift",
+    "type": "studioNode",
+    "position": {
+     "x": 720,
+     "y": -120
+    },
+    "data": {
+     "label": "Brightness",
+     "nodeType": "BrightnessMod",
+     "category": "composite",
+     "properties": {
+      "brightness": 1.5
+     },
+     "inputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      },
+      {
+       "id": "brightness",
+       "label": "Brightness",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "out",
+    "type": "studioNode",
+    "position": {
+     "x": 1020,
+     "y": 0
+    },
+    "data": {
+     "label": "Group Output",
+     "nodeType": "GroupOutput",
+     "category": "output",
+     "properties": {},
+     "inputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ],
+     "outputs": []
+    }
+   }
+  ],
+  "edges": [
+   {
+    "id": "e0",
+    "source": "audio",
+    "sourceHandle": "out",
+    "target": "fft",
+    "targetHandle": "audio",
+    "type": "glowEdge",
+    "reconnectable": "target",
+    "style": {
+     "stroke": "#00e0a4"
+    }
+   },
+   {
+    "id": "e1",
+    "source": "audio",
+    "sourceHandle": "out",
+    "target": "feat",
+    "targetHandle": "audio",
+    "type": "glowEdge",
+    "reconnectable": "target",
+    "style": {
+     "stroke": "#00e0a4"
+    }
+   },
+   {
+    "id": "e2",
+    "source": "audio",
+    "sourceHandle": "out",
+    "target": "beat",
+    "targetHandle": "audio",
+    "type": "glowEdge",
+    "reconnectable": "target",
+    "style": {
+     "stroke": "#00e0a4"
+    }
+   },
+   {
+    "id": "e3",
+    "source": "fft",
+    "sourceHandle": "bass",
+    "target": "warp",
+    "targetHandle": "value",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e4",
+    "source": "warp",
+    "sourceHandle": "result",
+    "target": "stars",
+    "targetHandle": "speed",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e5",
+    "source": "feat",
+    "sourceHandle": "energy",
+    "target": "dens",
+    "targetHandle": "value",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e6",
+    "source": "dens",
+    "sourceHandle": "result",
+    "target": "stars",
+    "targetHandle": "count",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e7",
+    "source": "pal",
+    "sourceHandle": "palette",
+    "target": "stars",
+    "targetHandle": "paletteIn",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e8",
+    "source": "stars",
+    "sourceHandle": "frame",
+    "target": "trail",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e9",
+    "source": "trail",
+    "sourceHandle": "frame",
+    "target": "flash",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e10",
+    "source": "beat",
+    "sourceHandle": "beat",
+    "target": "flash",
+    "targetHandle": "beat",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e11",
+    "source": "flash",
+    "sourceHandle": "frame",
+    "target": "hue",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e12",
+    "source": "fft",
+    "sourceHandle": "treble",
+    "target": "hueAmt",
+    "targetHandle": "value",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e13",
+    "source": "hueAmt",
+    "sourceHandle": "result",
+    "target": "hue",
+    "targetHandle": "shift",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e14",
+    "source": "hue",
+    "sourceHandle": "frame",
+    "target": "boost",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e15",
+    "source": "boost",
+    "sourceHandle": "frame",
+    "target": "hlift",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e16",
+    "source": "hlift",
+    "sourceHandle": "frame",
+    "target": "out",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   }
+  ]
+ }
+}

@@ -1,0 +1,633 @@
+{
+ "id": "pat-1788436800018",
+ "name": "Sub Bass Scanline",
+ "createdAt": 1788436800018,
+ "inputs": [
+  {
+   "id": "param0",
+   "label": "Audio",
+   "dataType": "audio"
+  }
+ ],
+ "outputs": [
+  {
+   "id": "frame",
+   "label": "Frame",
+   "dataType": "frame"
+  }
+ ],
+ "subgraph": {
+  "nodes": [
+   {
+    "id": "audio",
+    "type": "studioNode",
+    "position": {
+     "x": -1180,
+     "y": 0
+    },
+    "data": {
+     "label": "Audio",
+     "nodeType": "GroupInput",
+     "category": "composite",
+     "properties": {
+      "paramId": "param0"
+     },
+     "inputs": [],
+     "outputs": [
+      {
+       "id": "out",
+       "label": "Audio",
+       "dataType": "audio"
+      }
+     ]
+    }
+   },
+   {
+    "id": "fft",
+    "type": "studioNode",
+    "position": {
+     "x": -1180,
+     "y": -160
+    },
+    "data": {
+     "label": "FFT Analyzer",
+     "nodeType": "FFTAnalyzer",
+     "category": "audio",
+     "properties": {
+      "bands": 24,
+      "gain": 1.15,
+      "smoothing": 0.8,
+      "tilt": 0
+     },
+     "inputs": [
+      {
+       "id": "audio",
+       "label": "Audio",
+       "dataType": "audio"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "bass",
+       "label": "Bass",
+       "dataType": "float"
+      },
+      {
+       "id": "mids",
+       "label": "Mids",
+       "dataType": "float"
+      },
+      {
+       "id": "treble",
+       "label": "Treble",
+       "dataType": "float"
+      }
+     ]
+    }
+   },
+   {
+    "id": "feat",
+    "type": "studioNode",
+    "position": {
+     "x": -1180,
+     "y": 200
+    },
+    "data": {
+     "label": "Audio Features",
+     "nodeType": "AudioFeatures",
+     "category": "audio",
+     "properties": {
+      "sensitivity": 0.55,
+      "gate": 0.1,
+      "smoothing": 0.82
+     },
+     "inputs": [
+      {
+       "id": "audio",
+       "label": "Audio",
+       "dataType": "audio"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "vocals",
+       "label": "Vocals",
+       "dataType": "float"
+      },
+      {
+       "id": "energy",
+       "label": "Energy",
+       "dataType": "float"
+      },
+      {
+       "id": "silence",
+       "label": "Silence",
+       "dataType": "bool"
+      }
+     ]
+    }
+   },
+   {
+    "id": "beat",
+    "type": "studioNode",
+    "position": {
+     "x": -1180,
+     "y": 380
+    },
+    "data": {
+     "label": "Beat Detect",
+     "nodeType": "BeatDetect",
+     "category": "audio",
+     "properties": {
+      "threshold": 0.22,
+      "attack": 0.55,
+      "decay": 0.3
+     },
+     "inputs": [
+      {
+       "id": "audio",
+       "label": "Audio",
+       "dataType": "audio"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "beat",
+       "label": "Beat",
+       "dataType": "bool"
+      },
+      {
+       "id": "bpm",
+       "label": "BPM",
+       "dataType": "float"
+      },
+      {
+       "id": "flux",
+       "label": "Flux",
+       "dataType": "float"
+      },
+      {
+       "id": "onset",
+       "label": "Onset",
+       "dataType": "float"
+      },
+      {
+       "id": "contrast",
+       "label": "Contrast",
+       "dataType": "float"
+      },
+      {
+       "id": "threshold",
+       "label": "Threshold",
+       "dataType": "float"
+      },
+      {
+       "id": "cooldownMs",
+       "label": "Cooldown (ms)",
+       "dataType": "float"
+      }
+     ]
+    }
+   },
+   {
+    "id": "scan",
+    "type": "studioNode",
+    "position": {
+     "x": -900,
+     "y": -120
+    },
+    "data": {
+     "label": "Scanner",
+     "nodeType": "Scanner",
+     "category": "pattern",
+     "properties": {
+      "speed": 0.4,
+      "width": 4,
+      "fade": 0.72,
+      "axis": "horizontal",
+      "palette": "volcano"
+     },
+     "inputs": [
+      {
+       "id": "speed",
+       "label": "Speed",
+       "dataType": "float"
+      },
+      {
+       "id": "paletteIn",
+       "label": "Palette",
+       "dataType": "palette"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "bars",
+    "type": "studioNode",
+    "position": {
+     "x": -900,
+     "y": 160
+    },
+    "data": {
+     "label": "Spectrum Bars",
+     "nodeType": "SpectrumBars",
+     "category": "pattern",
+     "properties": {
+      "energy": 0.8,
+      "speed": 0.6,
+      "palette": "citrus",
+      "mirror": true
+     },
+     "inputs": [
+      {
+       "id": "bass",
+       "label": "Bass",
+       "dataType": "float"
+      },
+      {
+       "id": "mids",
+       "label": "Mids",
+       "dataType": "float"
+      },
+      {
+       "id": "treble",
+       "label": "Treble",
+       "dataType": "float"
+      },
+      {
+       "id": "energy",
+       "label": "Energy",
+       "dataType": "float"
+      },
+      {
+       "id": "speed",
+       "label": "Speed",
+       "dataType": "float"
+      },
+      {
+       "id": "paletteIn",
+       "label": "Palette",
+       "dataType": "palette"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "mix",
+    "type": "studioNode",
+    "position": {
+     "x": -600,
+     "y": 0
+    },
+    "data": {
+     "label": "Blend",
+     "nodeType": "Blend",
+     "category": "composite",
+     "properties": {
+      "blendMode": "screen",
+      "amount": 0.4
+     },
+     "inputs": [
+      {
+       "id": "a",
+       "label": "A",
+       "dataType": "frame"
+      },
+      {
+       "id": "b",
+       "label": "B",
+       "dataType": "frame"
+      },
+      {
+       "id": "amount",
+       "label": "Opacity",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "flash",
+    "type": "studioNode",
+    "position": {
+     "x": -340,
+     "y": 0
+    },
+    "data": {
+     "label": "Beat Flash",
+     "nodeType": "BeatFlash",
+     "category": "pattern",
+     "properties": {
+      "decay": 0.9,
+      "attack": 0.09,
+      "intensity": 0.5,
+      "blendMode": "add",
+      "preserveBase": true,
+      "palette": "none",
+      "r": 255,
+      "g": 170,
+      "b": 60
+     },
+     "inputs": [
+      {
+       "id": "beat",
+       "label": "Beat",
+       "dataType": "bool"
+      },
+      {
+       "id": "frame",
+       "label": "Base",
+       "dataType": "frame"
+      },
+      {
+       "id": "attack",
+       "label": "Attack",
+       "dataType": "float"
+      },
+      {
+       "id": "decay",
+       "label": "Decay",
+       "dataType": "float"
+      },
+      {
+       "id": "intensity",
+       "label": "Intensity",
+       "dataType": "float"
+      },
+      {
+       "id": "paletteIn",
+       "label": "Palette",
+       "dataType": "palette"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "boost",
+    "type": "studioNode",
+    "position": {
+     "x": -80,
+     "y": 0
+    },
+    "data": {
+     "label": "Color Boost",
+     "nodeType": "ColorBoost",
+     "category": "composite",
+     "properties": {
+      "boost": 0.4
+     },
+     "inputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      },
+      {
+       "id": "boost",
+       "label": "Boost",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "sat",
+    "type": "studioNode",
+    "position": {
+     "x": 180,
+     "y": 0
+    },
+    "data": {
+     "label": "Saturation",
+     "nodeType": "Saturation",
+     "category": "composite",
+     "properties": {
+      "amount": 1.25
+     },
+     "inputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      },
+      {
+       "id": "amount",
+       "label": "Amount",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "out",
+    "type": "studioNode",
+    "position": {
+     "x": 480,
+     "y": 0
+    },
+    "data": {
+     "label": "Group Output",
+     "nodeType": "GroupOutput",
+     "category": "output",
+     "properties": {},
+     "inputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ],
+     "outputs": []
+    }
+   }
+  ],
+  "edges": [
+   {
+    "id": "e0",
+    "source": "audio",
+    "sourceHandle": "out",
+    "target": "fft",
+    "targetHandle": "audio",
+    "type": "glowEdge",
+    "reconnectable": "target",
+    "style": {
+     "stroke": "#00e0a4"
+    }
+   },
+   {
+    "id": "e1",
+    "source": "audio",
+    "sourceHandle": "out",
+    "target": "feat",
+    "targetHandle": "audio",
+    "type": "glowEdge",
+    "reconnectable": "target",
+    "style": {
+     "stroke": "#00e0a4"
+    }
+   },
+   {
+    "id": "e2",
+    "source": "audio",
+    "sourceHandle": "out",
+    "target": "beat",
+    "targetHandle": "audio",
+    "type": "glowEdge",
+    "reconnectable": "target",
+    "style": {
+     "stroke": "#00e0a4"
+    }
+   },
+   {
+    "id": "e3",
+    "source": "fft",
+    "sourceHandle": "bass",
+    "target": "scan",
+    "targetHandle": "speed",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e4",
+    "source": "fft",
+    "sourceHandle": "bass",
+    "target": "bars",
+    "targetHandle": "bass",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e5",
+    "source": "fft",
+    "sourceHandle": "mids",
+    "target": "bars",
+    "targetHandle": "mids",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e6",
+    "source": "fft",
+    "sourceHandle": "treble",
+    "target": "bars",
+    "targetHandle": "treble",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e7",
+    "source": "feat",
+    "sourceHandle": "energy",
+    "target": "bars",
+    "targetHandle": "energy",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e8",
+    "source": "bars",
+    "sourceHandle": "frame",
+    "target": "mix",
+    "targetHandle": "a",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e9",
+    "source": "scan",
+    "sourceHandle": "frame",
+    "target": "mix",
+    "targetHandle": "b",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e10",
+    "source": "mix",
+    "sourceHandle": "frame",
+    "target": "flash",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e11",
+    "source": "beat",
+    "sourceHandle": "beat",
+    "target": "flash",
+    "targetHandle": "beat",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e12",
+    "source": "flash",
+    "sourceHandle": "frame",
+    "target": "boost",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e13",
+    "source": "boost",
+    "sourceHandle": "frame",
+    "target": "sat",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e14",
+    "source": "sat",
+    "sourceHandle": "frame",
+    "target": "out",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   }
+  ]
+ }
+}

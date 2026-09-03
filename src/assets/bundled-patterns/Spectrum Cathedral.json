@@ -1,0 +1,536 @@
+{
+ "id": "pat-1788436800006",
+ "name": "Spectrum Cathedral",
+ "createdAt": 1788436800006,
+ "inputs": [
+  {
+   "id": "param0",
+   "label": "Audio",
+   "dataType": "audio"
+  }
+ ],
+ "outputs": [
+  {
+   "id": "frame",
+   "label": "Frame",
+   "dataType": "frame"
+  }
+ ],
+ "subgraph": {
+  "nodes": [
+   {
+    "id": "audio",
+    "type": "studioNode",
+    "position": {
+     "x": -1180,
+     "y": 0
+    },
+    "data": {
+     "label": "Audio",
+     "nodeType": "GroupInput",
+     "category": "composite",
+     "properties": {
+      "paramId": "param0"
+     },
+     "inputs": [],
+     "outputs": [
+      {
+       "id": "out",
+       "label": "Audio",
+       "dataType": "audio"
+      }
+     ]
+    }
+   },
+   {
+    "id": "beat",
+    "type": "studioNode",
+    "position": {
+     "x": -1180,
+     "y": 380
+    },
+    "data": {
+     "label": "Beat Detect",
+     "nodeType": "BeatDetect",
+     "category": "audio",
+     "properties": {
+      "threshold": 0.22,
+      "attack": 0.55,
+      "decay": 0.3
+     },
+     "inputs": [
+      {
+       "id": "audio",
+       "label": "Audio",
+       "dataType": "audio"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "beat",
+       "label": "Beat",
+       "dataType": "bool"
+      },
+      {
+       "id": "bpm",
+       "label": "BPM",
+       "dataType": "float"
+      },
+      {
+       "id": "flux",
+       "label": "Flux",
+       "dataType": "float"
+      },
+      {
+       "id": "onset",
+       "label": "Onset",
+       "dataType": "float"
+      },
+      {
+       "id": "contrast",
+       "label": "Contrast",
+       "dataType": "float"
+      },
+      {
+       "id": "threshold",
+       "label": "Threshold",
+       "dataType": "float"
+      },
+      {
+       "id": "cooldownMs",
+       "label": "Cooldown (ms)",
+       "dataType": "float"
+      }
+     ]
+    }
+   },
+   {
+    "id": "fall",
+    "type": "studioNode",
+    "position": {
+     "x": -900,
+     "y": 200
+    },
+    "data": {
+     "label": "Spectrum Visualizer",
+     "nodeType": "SpectrumVisualizer",
+     "category": "pattern",
+     "properties": {
+      "style": "Waterfall",
+      "bands": 24,
+      "gain": 1.3,
+      "smoothing": 0.72,
+      "tilt": 0.35,
+      "peakHold": 0.42,
+      "peakGravity": 1.8,
+      "waterfallSpeed": 12,
+      "palette": "ultraviolet"
+     },
+     "inputs": [
+      {
+       "id": "audio",
+       "label": "Audio",
+       "dataType": "audio"
+      },
+      {
+       "id": "paletteIn",
+       "label": "Palette",
+       "dataType": "palette"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "bars",
+    "type": "studioNode",
+    "position": {
+     "x": -900,
+     "y": -160
+    },
+    "data": {
+     "label": "Spectrum Visualizer",
+     "nodeType": "SpectrumVisualizer",
+     "category": "pattern",
+     "properties": {
+      "style": "Centre Mirror",
+      "bands": 20,
+      "gain": 1.5,
+      "smoothing": 0.74,
+      "tilt": 0.3,
+      "peakHold": 0.5,
+      "peakGravity": 2.2,
+      "waterfallSpeed": 10,
+      "palette": "volcano"
+     },
+     "inputs": [
+      {
+       "id": "audio",
+       "label": "Audio",
+       "dataType": "audio"
+      },
+      {
+       "id": "paletteIn",
+       "label": "Palette",
+       "dataType": "palette"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "dim",
+    "type": "studioNode",
+    "position": {
+     "x": -600,
+     "y": 200
+    },
+    "data": {
+     "label": "Brightness",
+     "nodeType": "BrightnessMod",
+     "category": "composite",
+     "properties": {
+      "brightness": 0.24
+     },
+     "inputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      },
+      {
+       "id": "brightness",
+       "label": "Brightness",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "mix",
+    "type": "studioNode",
+    "position": {
+     "x": -320,
+     "y": -20
+    },
+    "data": {
+     "label": "Blend",
+     "nodeType": "Blend",
+     "category": "composite",
+     "properties": {
+      "blendMode": "screen",
+      "amount": 0.45
+     },
+     "inputs": [
+      {
+       "id": "a",
+       "label": "A",
+       "dataType": "frame"
+      },
+      {
+       "id": "b",
+       "label": "B",
+       "dataType": "frame"
+      },
+      {
+       "id": "amount",
+       "label": "Opacity",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "flash",
+    "type": "studioNode",
+    "position": {
+     "x": -60,
+     "y": -20
+    },
+    "data": {
+     "label": "Beat Flash",
+     "nodeType": "BeatFlash",
+     "category": "pattern",
+     "properties": {
+      "decay": 0.9,
+      "attack": 0.1,
+      "intensity": 0.55,
+      "blendMode": "screen",
+      "preserveBase": true,
+      "palette": "none",
+      "r": 255,
+      "g": 210,
+      "b": 140
+     },
+     "inputs": [
+      {
+       "id": "beat",
+       "label": "Beat",
+       "dataType": "bool"
+      },
+      {
+       "id": "frame",
+       "label": "Base",
+       "dataType": "frame"
+      },
+      {
+       "id": "attack",
+       "label": "Attack",
+       "dataType": "float"
+      },
+      {
+       "id": "decay",
+       "label": "Decay",
+       "dataType": "float"
+      },
+      {
+       "id": "intensity",
+       "label": "Intensity",
+       "dataType": "float"
+      },
+      {
+       "id": "paletteIn",
+       "label": "Palette",
+       "dataType": "palette"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "boost",
+    "type": "studioNode",
+    "position": {
+     "x": 200,
+     "y": -20
+    },
+    "data": {
+     "label": "Color Boost",
+     "nodeType": "ColorBoost",
+     "category": "composite",
+     "properties": {
+      "boost": 0.35
+     },
+     "inputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      },
+      {
+       "id": "boost",
+       "label": "Boost",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "sat",
+    "type": "studioNode",
+    "position": {
+     "x": 460,
+     "y": -20
+    },
+    "data": {
+     "label": "Saturation",
+     "nodeType": "Saturation",
+     "category": "composite",
+     "properties": {
+      "amount": 1.25
+     },
+     "inputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      },
+      {
+       "id": "amount",
+       "label": "Amount",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "out",
+    "type": "studioNode",
+    "position": {
+     "x": 760,
+     "y": 0
+    },
+    "data": {
+     "label": "Group Output",
+     "nodeType": "GroupOutput",
+     "category": "output",
+     "properties": {},
+     "inputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ],
+     "outputs": []
+    }
+   }
+  ],
+  "edges": [
+   {
+    "id": "e0",
+    "source": "audio",
+    "sourceHandle": "out",
+    "target": "beat",
+    "targetHandle": "audio",
+    "type": "glowEdge",
+    "reconnectable": "target",
+    "style": {
+     "stroke": "#00e0a4"
+    }
+   },
+   {
+    "id": "e1",
+    "source": "audio",
+    "sourceHandle": "out",
+    "target": "bars",
+    "targetHandle": "audio",
+    "type": "glowEdge",
+    "reconnectable": "target",
+    "style": {
+     "stroke": "#00e0a4"
+    }
+   },
+   {
+    "id": "e2",
+    "source": "audio",
+    "sourceHandle": "out",
+    "target": "fall",
+    "targetHandle": "audio",
+    "type": "glowEdge",
+    "reconnectable": "target",
+    "style": {
+     "stroke": "#00e0a4"
+    }
+   },
+   {
+    "id": "e3",
+    "source": "fall",
+    "sourceHandle": "frame",
+    "target": "dim",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e4",
+    "source": "bars",
+    "sourceHandle": "frame",
+    "target": "mix",
+    "targetHandle": "a",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e5",
+    "source": "dim",
+    "sourceHandle": "frame",
+    "target": "mix",
+    "targetHandle": "b",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e6",
+    "source": "mix",
+    "sourceHandle": "frame",
+    "target": "flash",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e7",
+    "source": "beat",
+    "sourceHandle": "beat",
+    "target": "flash",
+    "targetHandle": "beat",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e8",
+    "source": "flash",
+    "sourceHandle": "frame",
+    "target": "boost",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e9",
+    "source": "boost",
+    "sourceHandle": "frame",
+    "target": "sat",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e10",
+    "source": "sat",
+    "sourceHandle": "frame",
+    "target": "out",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   }
+  ]
+ }
+}
