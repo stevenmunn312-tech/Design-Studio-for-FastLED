@@ -93,13 +93,16 @@ describe('custom display document normalization', () => {
     expect(Object.keys(normalizeDisplayDocuments(registry))).toHaveLength(DISPLAY_DOCUMENT_LIMITS.documents)
   })
 
-  it('stores validated asset ids rather than source paths', () => {
-    expect(normalizeDisplayDocument(document({
-      theme: { background: { kind: 'image', assetId: 'backgrounds/player-dark' } },
-    }))!.theme.background).toEqual({ kind: 'image', assetId: 'backgrounds/player-dark' })
-    expect(normalizeDisplayDocument(document({
-      theme: { background: { kind: 'image', assetId: 'C:\\art\\secret.png' } },
-    }))!.theme.background).toEqual({ kind: 'solid', color: '#080b12' })
+  // Ids come from the installed asset pack, so a document naming anything else
+  // — a working-folder path, a URL, an id the pack has retired — keeps nothing.
+  it('stores installed asset ids rather than source paths', () => {
+    const background = (assetId: string) => normalizeDisplayDocument(document({
+      theme: { background: { kind: 'image', assetId } },
+    }))!.theme.background
+    expect(background('background:01-neon-orbit:320x240'))
+      .toEqual({ kind: 'image', assetId: 'background:01-neon-orbit:320x240' })
+    expect(background(String.raw`C:rt\secret.png`)).toEqual({ kind: 'solid', color: '#080b12' })
+    expect(background('background:retired:320x240')).toEqual({ kind: 'solid', color: '#080b12' })
 
     const widget = (id: string) => normalizeDisplayDocument(document({
       widgets: [{
@@ -107,7 +110,8 @@ describe('custom display document normalization', () => {
         properties: { assetId: id },
       }],
     }))!.widgets[0]
-    expect(widget('icons/play').properties.assetId).toBe('icons/play')
+    expect(widget('icon:queue').properties.assetId).toBe('icon:queue')
     expect(widget('https://example.com/play.svg').properties.assetId).toBeUndefined()
+    expect(widget('semantic-icons/svg/power.svg').properties.assetId).toBeUndefined()
   })
 })

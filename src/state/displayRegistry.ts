@@ -5,6 +5,7 @@ import type {
   DisplayWidgetProperty,
   DisplayWidgetType,
 } from './displayDocument'
+import { displayAsset, normalizeDisplayAssetId } from './displayAssets'
 import type { NodePort } from '../types'
 
 export type DisplayClass = 'touch-tft'
@@ -216,9 +217,12 @@ function rangePropertyIssues(
 }
 
 function requiredAssetIssues(properties: Readonly<Record<string, DisplayWidgetProperty>>): string[] {
-  return typeof properties.assetId === 'string' && properties.assetId.length > 0
-    ? []
-    : ['Choose an image or icon asset.']
+  const id = typeof properties.assetId === 'string' ? properties.assetId : ''
+  if (id.length === 0) return ['Choose an image or icon asset.']
+  // Normalization drops an unknown id, so one that survives to here and still
+  // fails to resolve means the pack no longer has it — worth naming rather than
+  // drawing an empty square.
+  return displayAsset(id) ? [] : [`Asset ${id} is not in the installed pack.`]
 }
 
 export const DISPLAY_WIDGET_LIBRARY: Readonly<Record<DisplayWidgetType, DisplayWidgetDefinition>> = {
@@ -336,7 +340,6 @@ export const DISPLAY_WIDGET_LIBRARY: Readonly<Record<DisplayWidgetType, DisplayW
 }
 
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/
-const ASSET_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_./-]*$/
 
 function sourceRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -373,11 +376,13 @@ export function normalizeDisplayWidgetProperties(
     } else if (control.control === 'color') {
       if (typeof raw === 'string' && COLOR_RE.test(raw)) result[key] = raw.toLowerCase()
     } else if (control.control === 'asset') {
+      // The asset registry is the only authority on what an id may be: a shape
+      // test would happily persist a working-folder path that merely looks like
+      // one. An id the installed pack does not have is dropped here, so a
+      // document can never carry a dangling reference.
       if (typeof raw === 'string') {
-        const id = raw.trim()
-        if ((id.length > 0 && id.length <= maximumStringLength && ASSET_ID_RE.test(id)) || (control.optional && id === '')) {
-          result[key] = id
-        }
+        const id = normalizeDisplayAssetId(raw.trim())
+        if (id.length > 0 || (control.optional && raw.trim() === '')) result[key] = id
       }
     } else if (typeof raw === 'string') {
       result[key] = [...raw].slice(0, Math.min(control.maxLength ?? maximumStringLength, maximumStringLength)).join('')

@@ -1,4 +1,5 @@
 import { normalizeDisplayWidgetProperties } from './displayRegistry'
+import { normalizeDisplayAssetId } from './displayAssets'
 
 /** Persisted, declarative custom-display documents.
  *
@@ -108,7 +109,6 @@ export const DEFAULT_DISPLAY_THEME: DisplayTheme = {
 
 const WIDGET_TYPE_SET = new Set<string>(DISPLAY_WIDGET_TYPES)
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]*$/
-const ASSET_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_./-]*$/
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/
 
 function record(value: unknown): Record<string, unknown> | null {
@@ -133,11 +133,11 @@ function color(value: unknown, fallback: string): string {
 }
 
 function assetId(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const id = value.trim()
-  return id.length > 0 && id.length <= DISPLAY_DOCUMENT_LIMITS.propertyStringLength && ASSET_ID_RE.test(id)
-    ? id
-    : null
+  // The installed pack is the authority, not the shape of the string: a
+  // working-folder path can look like an id, and an id the pack no longer has
+  // would persist as a background nothing can draw.
+  const id = normalizeDisplayAssetId(typeof value === 'string' ? value.trim() : value)
+  return id.length > 0 ? id : null
 }
 
 function normalizeBackground(value: unknown): DisplayBackground {

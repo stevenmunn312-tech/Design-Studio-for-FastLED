@@ -48,6 +48,7 @@ import {
   displayTemplate,
   type DisplayTemplateId,
 } from '../../state/displayTemplates'
+import { displayAssetsForSlot } from '../../state/displayAssets'
 import { useDisplayRuntimeStore } from '../../state/displayRuntimeStore'
 import { useUiStore } from '../../state/uiStore'
 import DisplayWidgetPreview from './DisplayWidgetPreview'
@@ -817,9 +818,23 @@ export default function DisplayEditor() {
                   if (property.control.control === 'color') {
                     return <label key={property.key}>{property.label}<input type="color" value={typeof value === 'string' ? value : '#ffffff'} onChange={(event) => updateProperty(event.target.value)} /></label>
                   }
+                  if (property.control.control === 'asset') {
+                    // The pack is the list. Typing an id by hand could only ever
+                    // produce one the registry drops, so the inspector offers
+                    // what is installed and nothing else.
+                    const choices = displayAssetsForSlot(property.control.kinds)
+                    return (
+                      <label key={property.key}>{property.label}
+                        <select value={typeof value === 'string' ? value : ''} onChange={(event) => updateProperty(event.target.value)}>
+                          <option value="">{property.control.optional ? 'None' : 'Choose an asset'}</option>
+                          {choices.map((asset) => <option key={asset.id} value={asset.id}>{asset.label}</option>)}
+                        </select>
+                      </label>
+                    )
+                  }
                   return (
                     <label key={property.key}>{property.label}
-                      <input value={typeof value === 'string' ? value : ''} maxLength={property.control.control === 'text' ? property.control.maxLength : undefined} placeholder={property.control.control === 'asset' ? 'asset/id' : undefined} onChange={(event) => updateProperty(event.target.value)} />
+                      <input value={typeof value === 'string' ? value : ''} maxLength={property.control.control === 'text' ? property.control.maxLength : undefined} onChange={(event) => updateProperty(event.target.value)} />
                     </label>
                   )
                 })}

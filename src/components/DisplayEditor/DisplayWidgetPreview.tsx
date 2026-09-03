@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import type { DisplayTheme, DisplayWidget } from '../../state/displayDocument'
 import type { DisplayPreviewRenderer, DisplayWidgetState } from '../../state/displayRegistry'
+import { displayAsset, displayAssetUrl } from '../../state/displayAssets'
 import { displayWidgetTextTokens } from '../../state/displayTheme'
 import styles from './DisplayWidgetPreview.module.css'
 
@@ -82,8 +83,29 @@ export default function DisplayWidgetPreview({ widget, renderer, theme, state, v
     }
     case 'pattern-browser':
       return <span className={styles.pattern}><span className={styles.patternArt}>✦</span><span><strong>Aurora Drift</strong><small>3 of 8</small></span></span>
-    case 'image':
-      return <span className={styles.image}>{stringProperty(widget, 'assetId') ? '▧' : 'Choose asset'}</span>
+    case 'image': {
+      const asset = displayAsset(stringProperty(widget, 'assetId'))
+      if (!asset) return <span className={styles.image}>Choose asset</span>
+      // A tintable glyph is an alpha mask, so a tint paints through it rather
+      // than recolouring the pack's own strokes — the same thing the firmware
+      // baker does with an 8-bit mask and one colour.
+      if (asset.tintable && boolProperty(widget, 'tint')) {
+        const mask = `url("${displayAssetUrl(asset)}")`
+        return (
+          <span
+            className={styles.imageAsset}
+            role="img"
+            aria-label={asset.label}
+            style={{
+              maskImage: mask,
+              WebkitMaskImage: mask,
+              background: stringProperty(widget, 'tintColor', '#f4f7ff'),
+            }}
+          />
+        )
+      }
+      return <img className={styles.imageAsset} src={displayAssetUrl(asset)} alt={asset.label} />
+    }
     case 'button':
       return <span className={`${styles.button} ${pressed ? styles.pressed : ''}`}>{stringProperty(widget, 'text', widget.label)}</span>
     case 'toggle':

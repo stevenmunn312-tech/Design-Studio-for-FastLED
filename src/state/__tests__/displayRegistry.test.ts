@@ -94,8 +94,8 @@ describe('display widget registry', () => {
     }, 4, 24)).toEqual({ text: 'abcd', fontSize: 96, color: '#aabbcc', wrap: true, maxLines: 4 })
 
     expect(normalizeDisplayWidgetProperties('Button', {
-      text: 'Play', assetId: ' icons/play ', presentation: 'icon', nested: { no: true },
-    }, 160, 24)).toEqual({ text: 'Play', assetId: 'icons/play', presentation: 'icon' })
+      text: 'Play', assetId: ' control:01-neon-orbit:play-pause ', presentation: 'icon', nested: { no: true },
+    }, 160, 24)).toEqual({ text: 'Play', assetId: 'control:01-neon-orbit:play-pause', presentation: 'icon' })
 
     expect(normalizeDisplayWidgetProperties('Slider', {
       min: Number.NaN, max: 2_000_000, step: -4, orientation: 'round',

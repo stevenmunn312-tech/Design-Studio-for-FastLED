@@ -713,12 +713,28 @@ freeform widgets must reuse rather than rediscover.
   interaction semantics. Text wrapping, alignment, font choice, size and line
   limit are resolved once, while baked-image backgrounds retain a safe surface
   fallback until the validated asset registry can supply their pixels.
-- [ ] Add a validated asset registry/import boundary for the external design
+- [x] Add a validated asset registry/import boundary for the external design
   pack. Registry entries expose stable id, kind, dimensions, tintability,
   source format, allowed display classes and estimated flash cost. Cover the
   canonical semantic glyphs, all launch/follow-on palette thumbnails, theme
   tokens, supported-size backgrounds, themed player controls and starter-
   template previews; source working-folder paths must never enter a workspace.
+  `scripts/import-display-assets.py` is the boundary, the sibling of the part
+  importer: it reads the pack's own manifests, refuses a path that escapes the
+  pack root or names a file that is not there, derives each glyph's dimensions
+  from its viewBox, and copies the vector masters and theme tokens under
+  `public/display-assets/` — all 393 assets across the six categories.
+  `src/state/displayAssets.ts` wraps the generated catalogue, and
+  `normalizeDisplayAssetId` is the only way an id enters a document, so widget
+  slots and the theme background both drop a working-folder path, a URL or a
+  retired id rather than persisting a reference nothing can draw. Flash cost is
+  priced at the size a widget actually draws at, since a vector master is
+  rasterised at bake time. The inspector offers what is installed instead of a
+  free-text id, and the Image/Icon preview draws the real asset, tinting a
+  tintable glyph through its alpha the way the baker will. Only vectors and
+  tokens are imported: the pack's PNG rasters are regenerable, and a screen
+  bakes only the sizes, tints and states it uses. The pack stays out of the PWA
+  precache like the node cards and board renders.
 - [x] Enforce touch-first geometry per target rather than only visual minimums:
   approximately 48×48 px primary targets and 6–8 px separation on the 320×240
   reference screen, with Slider hit regions wider than their visible tracks.
