@@ -6,7 +6,7 @@
 // import script, and `file` here is site-relative so a workspace opens the
 // same way on any machine.
 
-import type { DisplayAssetEntry } from '../../state/displayAssets'
+import type { DisplayAssetEntry, DisplayPackThemeTokens } from '../../state/displayAssets'
 
 export const DISPLAY_ASSET_PACK_VERSION = "1.0.0"
 
@@ -5611,5 +5611,476 @@ export const DISPLAY_ASSET_CATALOGUE_DATA: Record<string, DisplayAssetEntry> = {
     "format": "svg",
     "file": "display-assets/controls/18-circuit-relic/confirm.svg",
     "bytesPerPixel": 1
+  }
+}
+
+export const DISPLAY_THEME_TOKEN_DATA: Record<string, DisplayPackThemeTokens> = {
+  "theme:01-neon-orbit": {
+    "id": "theme:01-neon-orbit",
+    "name": "Neon Orbit",
+    "colours": {
+      "backgroundStart": "#10152b",
+      "backgroundEnd": "#080a16",
+      "surface": "#10152b",
+      "surfaceRaised": "#080a16",
+      "text": "#effcff",
+      "textMuted": "#d4f7ff",
+      "accent": "#19c9ff",
+      "accentSecondary": "#f40ca5",
+      "border": "#71e7ff",
+      "success": "#45f59a",
+      "warning": "#ffd34e",
+      "error": "#ff5268"
+    },
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8,
+    "backgroundAssets": {
+      "landscape": "background:01-neon-orbit:320x240",
+      "portrait": "background:01-neon-orbit:240x320",
+      "square": "background:01-neon-orbit:240x240"
+    }
+  },
+  "theme:02-cyber-cyan": {
+    "id": "theme:02-cyber-cyan",
+    "name": "Cyber Cyan",
+    "colours": {
+      "backgroundStart": "#13242b",
+      "backgroundEnd": "#071014",
+      "surface": "#13242b",
+      "surfaceRaised": "#071014",
+      "text": "#dcfff9",
+      "textMuted": "#67ffe9",
+      "accent": "#00f0d0",
+      "accentSecondary": "#00a7ff",
+      "border": "#28f4d7",
+      "success": "#45f59a",
+      "warning": "#ffd34e",
+      "error": "#ff5268"
+    },
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8,
+    "backgroundAssets": {
+      "landscape": "background:02-cyber-cyan:320x240",
+      "portrait": "background:02-cyber-cyan:240x320",
+      "square": "background:02-cyber-cyan:240x240"
+    }
+  },
+  "theme:03-synthwave": {
+    "id": "theme:03-synthwave",
+    "name": "Synthwave Sunset",
+    "colours": {
+      "backgroundStart": "#321452",
+      "backgroundEnd": "#11091f",
+      "surface": "#321452",
+      "surfaceRaised": "#11091f",
+      "text": "#fff0fd",
+      "textMuted": "#ffb4ed",
+      "accent": "#ff3ca6",
+      "accentSecondary": "#ff9a3c",
+      "border": "#ff62d0",
+      "success": "#45f59a",
+      "warning": "#ffd34e",
+      "error": "#ff5268"
+    },
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8,
+    "backgroundAssets": {
+      "landscape": "background:03-synthwave:320x240",
+      "portrait": "background:03-synthwave:240x320",
+      "square": "background:03-synthwave:240x240"
+    }
+  },
+  "theme:04-brushed-steel": {
+    "id": "theme:04-brushed-steel",
+    "name": "Brushed Steel",
+    "colours": {
+      "backgroundStart": "#67727e",
+      "backgroundEnd": "#1b222a",
+      "surface": "#67727e",
+      "surfaceRaised": "#1b222a",
+      "text": "#ffffff",
+      "textMuted": "#cbd5dc",
+      "accent": "#e7edf1",
+      "accentSecondary": "#687786",
+      "border": "#f7fbff",
+      "success": "#45f59a",
+      "warning": "#ffd34e",
+      "error": "#ff5268"
+    },
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8,
+    "backgroundAssets": {
+      "landscape": "background:04-brushed-steel:320x240",
+      "portrait": "background:04-brushed-steel:240x320",
+      "square": "background:04-brushed-steel:240x240"
+    }
+  },
+  "theme:05-glass-aqua": {
+    "id": "theme:05-glass-aqua",
+    "name": "Glass Aqua",
+    "colours": {
+      "backgroundStart": "#174d66",
+      "backgroundEnd": "#082534",
+      "surface": "#174d66",
+      "surfaceRaised": "#082534",
+      "text": "#f3feff",
+      "textMuted": "#a7f6ff",
+      "accent": "#75efff",
+      "accentSecondary": "#3a9fe6",
+      "border": "#a8f7ff",
+      "success": "#45f59a",
+      "warning": "#ffd34e",
+      "error": "#ff5268"
+    },
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8,
+    "backgroundAssets": {
+      "landscape": "background:05-glass-aqua:320x240",
+      "portrait": "background:05-glass-aqua:240x320",
+      "square": "background:05-glass-aqua:240x240"
+    }
+  },
+  "theme:06-ember-pulse": {
+    "id": "theme:06-ember-pulse",
+    "name": "Ember Pulse",
+    "colours": {
+      "backgroundStart": "#34211b",
+      "backgroundEnd": "#100b0a",
+      "surface": "#34211b",
+      "surfaceRaised": "#100b0a",
+      "text": "#fff6df",
+      "textMuted": "#ffc45e",
+      "accent": "#ffb020",
+      "accentSecondary": "#ff3d16",
+      "border": "#ff7b28",
+      "success": "#45f59a",
+      "warning": "#ffd34e",
+      "error": "#ff5268"
+    },
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8,
+    "backgroundAssets": {
+      "landscape": "background:06-ember-pulse:320x240",
+      "portrait": "background:06-ember-pulse:240x320",
+      "square": "background:06-ember-pulse:240x240"
+    }
+  },
+  "theme:07-aurora": {
+    "id": "theme:07-aurora",
+    "name": "Aurora Flow",
+    "colours": {
+      "backgroundStart": "#172944",
+      "backgroundEnd": "#07111f",
+      "surface": "#172944",
+      "surfaceRaised": "#07111f",
+      "text": "#f4ffff",
+      "textMuted": "#93ffe5",
+      "accent": "#25efbd",
+      "accentSecondary": "#9a4dff",
+      "border": "#78ffe0",
+      "success": "#45f59a",
+      "warning": "#ffd34e",
+      "error": "#ff5268"
+    },
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8,
+    "backgroundAssets": {
+      "landscape": "background:07-aurora:320x240",
+      "portrait": "background:07-aurora:240x320",
+      "square": "background:07-aurora:240x240"
+    }
+  },
+  "theme:08-pixel-matrix": {
+    "id": "theme:08-pixel-matrix",
+    "name": "Pixel Matrix",
+    "colours": {
+      "backgroundStart": "#10131c",
+      "backgroundEnd": "#05060a",
+      "surface": "#10131c",
+      "surfaceRaised": "#05060a",
+      "text": "#f2fff7",
+      "textMuted": "#61ff9d",
+      "accent": "#39ff88",
+      "accentSecondary": "#17bfff",
+      "border": "#55ff97",
+      "success": "#45f59a",
+      "warning": "#ffd34e",
+      "error": "#ff5268"
+    },
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8,
+    "backgroundAssets": {
+      "landscape": "background:08-pixel-matrix:320x240",
+      "portrait": "background:08-pixel-matrix:240x320",
+      "square": "background:08-pixel-matrix:240x240"
+    }
+  },
+  "theme:09-minimal-light": {
+    "id": "theme:09-minimal-light",
+    "name": "Minimal Light",
+    "colours": {
+      "backgroundStart": "#ffffff",
+      "backgroundEnd": "#dfe8f0",
+      "surface": "#ffffff",
+      "surfaceRaised": "#dfe8f0",
+      "text": "#122334",
+      "textMuted": "#43637c",
+      "accent": "#435b70",
+      "accentSecondary": "#1f3447",
+      "border": "#24465e",
+      "success": "#45f59a",
+      "warning": "#ffd34e",
+      "error": "#ff5268"
+    },
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8,
+    "backgroundAssets": {
+      "landscape": "background:09-minimal-light:320x240",
+      "portrait": "background:09-minimal-light:240x320",
+      "square": "background:09-minimal-light:240x240"
+    }
+  },
+  "theme:10-arcade-candy": {
+    "id": "theme:10-arcade-candy",
+    "name": "Arcade Candy",
+    "colours": {
+      "backgroundStart": "#2a1a4b",
+      "backgroundEnd": "#120b25",
+      "surface": "#2a1a4b",
+      "surfaceRaised": "#120b25",
+      "text": "#ffffff",
+      "textMuted": "#ffe84a",
+      "accent": "#ff4fc8",
+      "accentSecondary": "#4ae9ff",
+      "border": "#ffffff",
+      "success": "#45f59a",
+      "warning": "#ffd34e",
+      "error": "#ff5268"
+    },
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8,
+    "backgroundAssets": {
+      "landscape": "background:10-arcade-candy:320x240",
+      "portrait": "background:10-arcade-candy:240x320",
+      "square": "background:10-arcade-candy:240x240"
+    }
+  },
+  "theme:11-vinyl-groove": {
+    "id": "theme:11-vinyl-groove",
+    "name": "Vinyl Groove",
+    "colours": {
+      "backgroundStart": "#25252b",
+      "backgroundEnd": "#050507",
+      "surface": "#25252b",
+      "surfaceRaised": "#050507",
+      "text": "#fff4cf",
+      "textMuted": "#ffcc54",
+      "accent": "#ff315f",
+      "accentSecondary": "#ffb21f",
+      "border": "#fff3c5",
+      "success": "#45f59a",
+      "warning": "#ffd34e",
+      "error": "#ff5268"
+    },
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8,
+    "backgroundAssets": {
+      "landscape": "background:11-vinyl-groove:320x240",
+      "portrait": "background:11-vinyl-groove:240x320",
+      "square": "background:11-vinyl-groove:240x240"
+    }
+  },
+  "theme:12-cassette-future": {
+    "id": "theme:12-cassette-future",
+    "name": "Cassette Future",
+    "colours": {
+      "backgroundStart": "#172b3d",
+      "backgroundEnd": "#09131d",
+      "surface": "#172b3d",
+      "surfaceRaised": "#09131d",
+      "text": "#fffbe8",
+      "textMuted": "#53e5ff",
+      "accent": "#ffdc42",
+      "accentSecondary": "#ff5c8a",
+      "border": "#fff5bf",
+      "success": "#45f59a",
+      "warning": "#ffd34e",
+      "error": "#ff5268"
+    },
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8,
+    "backgroundAssets": {
+      "landscape": "background:12-cassette-future:320x240",
+      "portrait": "background:12-cassette-future:240x320",
+      "square": "background:12-cassette-future:240x240"
+    }
+  },
+  "theme:13-crystal-shard": {
+    "id": "theme:13-crystal-shard",
+    "name": "Crystal Shard",
+    "colours": {
+      "backgroundStart": "#30205e",
+      "backgroundEnd": "#0b1034",
+      "surface": "#30205e",
+      "surfaceRaised": "#0b1034",
+      "text": "#ffffff",
+      "textMuted": "#87f5ff",
+      "accent": "#7ef6ff",
+      "accentSecondary": "#db57ff",
+      "border": "#ffffff",
+      "success": "#45f59a",
+      "warning": "#ffd34e",
+      "error": "#ff5268"
+    },
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8,
+    "backgroundAssets": {
+      "landscape": "background:13-crystal-shard:320x240",
+      "portrait": "background:13-crystal-shard:240x320",
+      "square": "background:13-crystal-shard:240x240"
+    }
+  },
+  "theme:14-biolume-organic": {
+    "id": "theme:14-biolume-organic",
+    "name": "Biolume Organic",
+    "colours": {
+      "backgroundStart": "#123b31",
+      "backgroundEnd": "#071810",
+      "surface": "#123b31",
+      "surfaceRaised": "#071810",
+      "text": "#f0ffe3",
+      "textMuted": "#a7ff5b",
+      "accent": "#80ff77",
+      "accentSecondary": "#18ddb7",
+      "border": "#c2ff88",
+      "success": "#45f59a",
+      "warning": "#ffd34e",
+      "error": "#ff5268"
+    },
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8,
+    "backgroundAssets": {
+      "landscape": "background:14-biolume-organic:320x240",
+      "portrait": "background:14-biolume-organic:240x320",
+      "square": "background:14-biolume-organic:240x240"
+    }
+  },
+  "theme:15-retro-space-age": {
+    "id": "theme:15-retro-space-age",
+    "name": "Retro Space Age",
+    "colours": {
+      "backgroundStart": "#f5dfb7",
+      "backgroundEnd": "#d5804e",
+      "surface": "#f5dfb7",
+      "surfaceRaised": "#d5804e",
+      "text": "#351e2b",
+      "textMuted": "#743244",
+      "accent": "#fff2cd",
+      "accentSecondary": "#d5452f",
+      "border": "#4a2230",
+      "success": "#45f59a",
+      "warning": "#ffd34e",
+      "error": "#ff5268"
+    },
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8,
+    "backgroundAssets": {
+      "landscape": "background:15-retro-space-age:320x240",
+      "portrait": "background:15-retro-space-age:240x320",
+      "square": "background:15-retro-space-age:240x240"
+    }
+  },
+  "theme:16-holo-prism": {
+    "id": "theme:16-holo-prism",
+    "name": "Holo Prism",
+    "colours": {
+      "backgroundStart": "#18233e",
+      "backgroundEnd": "#080b19",
+      "surface": "#18233e",
+      "surfaceRaised": "#080b19",
+      "text": "#ffffff",
+      "textMuted": "#e8e1ff",
+      "accent": "#67fff0",
+      "accentSecondary": "#ff62d4",
+      "border": "#ffffff",
+      "success": "#45f59a",
+      "warning": "#ffd34e",
+      "error": "#ff5268"
+    },
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8,
+    "backgroundAssets": {
+      "landscape": "background:16-holo-prism:320x240",
+      "portrait": "background:16-holo-prism:240x320",
+      "square": "background:16-holo-prism:240x240"
+    }
+  },
+  "theme:17-hazard-module": {
+    "id": "theme:17-hazard-module",
+    "name": "Hazard Module",
+    "colours": {
+      "backgroundStart": "#363735",
+      "backgroundEnd": "#111311",
+      "surface": "#363735",
+      "surfaceRaised": "#111311",
+      "text": "#fff7b3",
+      "textMuted": "#ffd42d",
+      "accent": "#ffe83d",
+      "accentSecondary": "#ff8a18",
+      "border": "#fff2a0",
+      "success": "#45f59a",
+      "warning": "#ffd34e",
+      "error": "#ff5268"
+    },
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8,
+    "backgroundAssets": {
+      "landscape": "background:17-hazard-module:320x240",
+      "portrait": "background:17-hazard-module:240x320",
+      "square": "background:17-hazard-module:240x240"
+    }
+  },
+  "theme:18-circuit-relic": {
+    "id": "theme:18-circuit-relic",
+    "name": "Circuit Relic",
+    "colours": {
+      "backgroundStart": "#123b36",
+      "backgroundEnd": "#061b19",
+      "surface": "#123b36",
+      "surfaceRaised": "#061b19",
+      "text": "#f8e9b7",
+      "textMuted": "#54ffd0",
+      "accent": "#d0a85b",
+      "accentSecondary": "#42e5bd",
+      "border": "#ffe9a8",
+      "success": "#45f59a",
+      "warning": "#ffd34e",
+      "error": "#ff5268"
+    },
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8,
+    "backgroundAssets": {
+      "landscape": "background:18-circuit-relic:320x240",
+      "portrait": "background:18-circuit-relic:240x320",
+      "square": "background:18-circuit-relic:240x240"
+    }
   }
 }

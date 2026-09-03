@@ -37,6 +37,15 @@ OUT_ASSETS = REPO / "public" / "display-assets"
 PUBLIC_DIR = "display-assets"
 
 ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*:[a-z0-9]+(?:-[a-z0-9]+)*(?::[a-z0-9]+(?:[-.][a-z0-9]+)*)?$")
+COLOUR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+# The palette a theme file must supply. A theme missing one would silently
+# inherit the studio default for that role, which is how two themes end up
+# looking the same in one place and different in another.
+THEME_COLOUR_KEYS = (
+    "backgroundStart", "backgroundEnd", "surface", "surfaceRaised", "text",
+    "textMuted", "accent", "accentSecondary", "border", "success", "warning", "error",
+)
 VIEWBOX_RE = re.compile(r'viewBox\s*=\s*"([-\d.\s]+)"')
 
 # A tintable glyph bakes as an 8-bit alpha mask; a background is full RGB565.
@@ -129,6 +138,53 @@ def glyph_entry(
     })
 
 
+def colour(theme_id: str, colours: dict, key: str) -> str:
+    value = colours.get(key)
+    if not isinstance(value, str) or not COLOUR_RE.match(value):
+        fail(f"{theme_id} colour {key!r} is not a #rrggbb value: {value!r}")
+    return value.lower()
+
+
+def bounded(theme_id: str, source: dict, key: str, low: float, high: float, fallback: float) -> float:
+    value = source.get(key, fallback)
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        fail(f"{theme_id} {key!r} is not a number: {value!r}")
+    if not low <= value <= high:
+        fail(f"{theme_id} {key!r} is outside {low}-{high}: {value!r}")
+    return float(value)
+
+
+def validated_theme_tokens(theme_id: str, slug: str, tokens: dict) -> dict:
+    """The pack's own palette, checked and carried across unchanged.
+
+    Deliberately not mapped onto the studio's `DisplayTheme` here: that mapping
+    blends colours, and `mixDisplayColors` already owns blending for the DOM
+    preview and the LVGL emitter alike. Reimplementing it in Python would be a
+    second answer to the same question, free to drift. This script's job is to
+    refuse a theme that cannot be mapped, not to do the mapping.
+    """
+    if tokens.get("id") != slug:
+        fail(f"{theme_id} tokens name a different theme: {tokens.get('id')!r}")
+    colours = tokens.get("colours")
+    if not isinstance(colours, dict):
+        fail(f"{theme_id} has no colours block")
+    geometry = tokens.get("geometry") if isinstance(tokens.get("geometry"), dict) else {}
+    backgrounds = tokens.get("backgroundAssets") if isinstance(tokens.get("backgroundAssets"), dict) else {}
+    return {
+        "id": theme_id,
+        "name": str(tokens.get("name", slug)),
+        "colours": {key: colour(theme_id, colours, key) for key in THEME_COLOUR_KEYS},
+        "cornerRadius": round(bounded(theme_id, geometry, "cornerRadius", 0, 64, 6)),
+        "borderWidth": round(bounded(theme_id, geometry, "borderWidth", 0, 16, 1)),
+        "touchGap": round(bounded(theme_id, geometry, "touchGap", 0, 64, 8)),
+        "backgroundAssets": {
+            shape: str(backgrounds[shape])
+            for shape in ("landscape", "portrait", "square")
+            if isinstance(backgrounds.get(shape), str)
+        },
+    }
+
+
 def main(argv: list[str]) -> None:
     if len(argv) != 2:
         fail('usage: import-display-assets.py "<pack root>"')
@@ -181,12 +237,14 @@ def main(argv: list[str]) -> None:
             "bytesPerPixel": BACKGROUND_BYTES_PER_PIXEL,
         })
 
+    theme_tokens: dict[str, dict] = {}
     for theme in manifest.get("themes", []):
         source = pack_file(kit, theme["tokens"])
         tokens = read_json(source)
         if tokens.get("schemaVersion") != 1:
             fail(f"{theme['id']} tokens have unsupported schemaVersion")
         slug = theme["id"].split(":", 1)[1]
+        theme_tokens[theme["id"]] = validated_theme_tokens(theme["id"], slug, tokens)
         catalogue.add({
             "id": theme["id"],
             "category": "theme",
@@ -253,13 +311,17 @@ def main(argv: list[str]) -> None:
     OUT_TS.write_text(
         header
         + "\n\n"
-        + "import type { DisplayAssetEntry } from '../../state/displayAssets'"
+        + "import type { DisplayAssetEntry, DisplayPackThemeTokens } from '../../state/displayAssets'"
         + "\n\n"
         + f"export const DISPLAY_ASSET_PACK_VERSION = {json.dumps(pack_version)}"
         + "\n\n"
         + "export const DISPLAY_ASSET_CATALOGUE_DATA: "
         + "Record<string, DisplayAssetEntry> = "
         + catalogue_json
+        + "\n\n"
+        + "export const DISPLAY_THEME_TOKEN_DATA: "
+        + "Record<string, DisplayPackThemeTokens> = "
+        + json.dumps(theme_tokens, indent=2, ensure_ascii=False)
         + "\n",
         encoding="utf-8",
     )

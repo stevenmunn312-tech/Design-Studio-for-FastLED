@@ -1,6 +1,7 @@
 import {
   DISPLAY_ASSET_CATALOGUE_DATA,
   DISPLAY_ASSET_PACK_VERSION,
+  DISPLAY_THEME_TOKEN_DATA,
 } from '../build/generated/displayAssetCatalogueData'
 import type { DisplayAssetKind, DisplayClass } from './displayRegistry'
 
@@ -48,6 +49,36 @@ export interface DisplayAssetEntry {
    * background, nothing for an asset that is never baked. */
   bytesPerPixel: number
 }
+
+/** A pack theme's own palette, carried across by the importer unchanged.
+ * Mapping it onto the studio's `DisplayTheme` blends colours, and blending has
+ * one owner — `displayTheme.ts` — so that mapping lives in
+ * `displayThemePresets.ts` rather than in the import script. */
+export interface DisplayPackThemeTokens {
+  id: string
+  name: string
+  colours: {
+    backgroundStart: string
+    backgroundEnd: string
+    surface: string
+    surfaceRaised: string
+    text: string
+    textMuted: string
+    accent: string
+    accentSecondary: string
+    border: string
+    success: string
+    warning: string
+    error: string
+  }
+  cornerRadius: number
+  borderWidth: number
+  /** The pack's own finger gap. Compared against DISPLAY_TOUCH_SEPARATION_PX. */
+  touchGap: number
+  backgroundAssets: Partial<Record<'landscape' | 'portrait' | 'square', string>>
+}
+
+export const DISPLAY_THEME_TOKENS: Readonly<Record<string, DisplayPackThemeTokens>> = DISPLAY_THEME_TOKEN_DATA
 
 export { DISPLAY_ASSET_PACK_VERSION }
 
