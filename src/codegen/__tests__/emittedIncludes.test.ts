@@ -24,6 +24,9 @@ import { generatePlayerSketch } from '../playerSketchGenerator'
 import { generateShowSketch } from '../showGenerator'
 import { playerDisplaysFromGraph } from '../playerDisplays'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
+import { createDisplayDocument } from '../../state/displayEditor'
+import { addDisplayWidget } from '../../state/displayEditor'
+import type { DisplayDocumentRegistry } from '../../state/displayDocument'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, over: Record<string, unknown> = {}): StudioNode {
@@ -51,6 +54,19 @@ const segment = node('seg', 'SegmentDisplay', {
   partId: 'tm1637-4digit-display', clkPin: 32, dioPin: 33, brightness: 4,
 })
 const tft = node('tft', 'TransportDisplay', { tftLayout: 'Now Playing' })
+// The freeform LVGL screen — its own SPI panel driver, separate from
+// TransportDisplay's, so it needs its own presence in this check.
+const custom = {
+  id: 'custom', type: 'studioNode', position: { x: 0, y: 0 },
+  data: {
+    label: 'Custom Display', nodeType: 'Display', category: 'output',
+    properties: { displayId: 'custom', partId: 'st7789v-xpt2046-touch-240x320' },
+    inputs: [], outputs: [{ id: 'widget:toggle:out', label: 'Toggle Output', dataType: 'bool' }],
+  },
+} as unknown as StudioNode
+const customDisplayDocuments: DisplayDocumentRegistry = {
+  custom: addDisplayWidget(createDisplayDocument('custom', 240, 320), 'Toggle'),
+}
 
 /** The collection -> Music Player -> output pipeline a show controller needs. */
 const showNodes = [
@@ -84,6 +100,9 @@ const showGroups = {
 const LIBRARIES: Array<{ object: string; include: string; use: RegExp }> = [
   { object: 'Wire', include: '#include <Wire.h>', use: /(^|[^\w.])Wire\s*\./m },
   { object: 'SPI', include: '#include <SPI.h>', use: /(^|[^\w.])SPI\s*\./m },
+  // Matched on any lv_ call rather than one name, the same reasoning as SPI/
+  // Wire above: this is a whole library's worth of surface, not one object.
+  { object: 'lv_', include: '#include <lvgl.h>', use: /(^|[^\w.])lv_\w+\s*\(/m },
 ]
 
 /** Sketch text with comment lines dropped, so a mention is never a use. */
@@ -121,6 +140,11 @@ describe('normal sketches', () => {
 
   it.each(graphs)('declares what it uses with %s', (label, nodes) => {
     expectDeclaresWhatItUses(generateCpp(nodes, []), `a sketch with ${label}`)
+  })
+
+  it('declares what it uses with a custom LVGL display alone', () => {
+    const source = generateCpp([output, custom], [], {}, { displayDocuments: customDisplayDocuments })
+    expectDeclaresWhatItUses(source, 'a sketch with a custom LVGL display')
   })
 })
 

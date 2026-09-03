@@ -20,6 +20,10 @@ import { playerDisplaysFromGraph } from '../playerDisplays'
 import { INFO_DISPLAY_CPP_FORWARD } from '../infoDisplayCpp'
 import { SEGMENT_DISPLAY_CPP_FORWARD } from '../segmentDisplayCpp'
 import { TFT_DISPLAY_CPP_FORWARD } from '../tftDisplayCpp'
+import { CUSTOM_DISPLAY_LVGL_FORWARD } from '../customDisplayLvglCpp'
+import { createDisplayDocument } from '../../state/displayEditor'
+import { addDisplayWidget } from '../../state/displayEditor'
+import type { DisplayDocumentRegistry } from '../../state/displayDocument'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 const node = (id: string, nodeType: string, properties: Record<string, unknown> = {}) => ({
@@ -46,6 +50,10 @@ const tft = node('tft', 'TransportDisplay', {
   partId: 'st7789-tft-240x240', tftLayout: 'Now Playing',
   csPin: 15, dcPin: 2, resetPin: 4, sckPin: 14, mosiPin: 13, backlightPin: 27,
 })
+const custom = node('custom', 'Display', { displayId: 'custom', partId: 'st7789-tft-240x240' })
+const customDisplayDocuments: DisplayDocumentRegistry = {
+  custom: addDisplayWidget(createDisplayDocument('custom', 240, 240), 'Text'),
+}
 const browserWire = {
   id: 'bw', source: 'coll', target: 'brw', sourceHandle: 'patternset', targetHandle: 'patternset',
 } as unknown as StudioEdge
@@ -95,6 +103,13 @@ describe('normal sketches', () => {
     declaredBeforeAnyFunction(generateCpp([output, tft], []), TFT_DISPLAY_CPP_FORWARD)
   })
 
+  it('names the custom display widget struct before any function that takes one', () => {
+    declaredBeforeAnyFunction(
+      generateCpp([output, custom], [], {}, { displayDocuments: customDisplayDocuments }),
+      CUSTOM_DISPLAY_LVGL_FORWARD,
+    )
+  })
+
   it('names both when both are on the bench', () => {
     const src = generateCpp([output, oled, segment], [])
     declaredBeforeAnyFunction(src, INFO_DISPLAY_CPP_FORWARD)
@@ -106,14 +121,18 @@ describe('normal sketches', () => {
     expect(src).not.toContain(INFO_DISPLAY_CPP_FORWARD)
     expect(src).not.toContain(SEGMENT_DISPLAY_CPP_FORWARD)
     expect(src).not.toContain(TFT_DISPLAY_CPP_FORWARD)
+    expect(src).not.toContain(CUSTOM_DISPLAY_LVGL_FORWARD)
   })
 
   // A forward declaration is only worth anything if the definition follows it.
   it('still defines the struct it forward-declared', () => {
-    const src = generateCpp([output, oled, segment, tft], [])
+    const src = generateCpp(
+      [output, oled, segment, tft, custom], [], {}, { displayDocuments: customDisplayDocuments },
+    )
     expect(src).toContain('struct OledPanel {')
     expect(src).toContain('struct SegDisplay {')
     expect(src).toContain('struct TftPanel {')
+    expect(src).toContain('struct CustomDisplayWidgetRuntime {')
   })
 })
 
@@ -130,7 +149,11 @@ describe('every struct a function takes by reference', () => {
     ['segment display', () => generateCpp([output, segment], [])],
     ['pattern browser', () => generateCpp([output, collection, browser], [browserWire])],
     ['transport display', () => generateCpp([output, tft], [])],
-    ['all of them', () => generateCpp([output, oled, segment, tft, collection, browser], [browserWire])],
+    ['custom display', () => generateCpp([output, custom], [], {}, { displayDocuments: customDisplayDocuments })],
+    ['all of them', () => generateCpp(
+      [output, oled, segment, tft, collection, browser, custom], [browserWire], {},
+      { displayDocuments: customDisplayDocuments },
+    )],
   ]
 
   it.each(graphs)('is declared before any function in a %s sketch', (_label, build) => {

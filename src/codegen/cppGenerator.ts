@@ -64,6 +64,20 @@ import {
   TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit,
 } from './tftTouchCpp'
 import {
+  CUSTOM_DISPLAY_LVGL_FORWARD, CUSTOM_DISPLAY_LVGL_HELPERS, CUSTOM_DISPLAY_LVGL_INCLUDE,
+  CUSTOM_DISPLAY_LVGL_TIMING_CPP,
+  customDisplayLvglGlobalCpp, customDisplayLvglLoopCpp, customDisplayLvglOutputExpression,
+  customDisplayLvglSetupCpp, customDisplayLvglTimingLoopCpp, customDisplayLvglTimingSetupCpp,
+  type CustomDisplayLvglBinding, type CustomDisplayLvglEmit,
+} from './customDisplayLvglCpp'
+import {
+  customDisplayPanelGlobalCpp, customDisplayPanelHelpersCpp, customDisplayPanelSetupCpp,
+  type CustomDisplayPanelEmit,
+} from './customDisplayPanelCpp'
+import { parseDisplayWidgetPortId, type DisplayWidgetPortDataType } from '../state/displayRegistry'
+import type { DisplayDocumentRegistry } from '../state/displayDocument'
+import type { BakedCustomDisplayAsset } from '../state/customDisplayResources'
+import {
   oledRotationCommands, asOledRotation, asOledAddress, OLED_CONTROLLERS,
 } from '../state/oledSurface'
 import { partById } from '../state/partCatalogue'
@@ -326,6 +340,14 @@ function reachableFromOutputs(nodes: StudioNode[], edges: StudioEdge[]): StudioN
     ...outputs,
     ...nodes.filter((n) => n.data.nodeType === 'Board'),
     ...nodes.filter((n) => TERMINAL_NODE_TYPES.has(n.data.nodeType)),
+    // The custom Display's own library entry declares no ports — they are
+    // minted per document instance — so it can never appear in the
+    // library-derived set above. Named explicitly for the same reason the
+    // comment there gives: a sink outside the terminal set is walked back
+    // from nothing and pruned along with everything feeding it, which is
+    // exactly how a configured display used to sit dark on a build that
+    // compiled and uploaded cleanly.
+    ...nodes.filter((n) => n.data.nodeType === 'Display'),
   ]
 
   const sources = new Map<string, string[]>()
@@ -1451,7 +1473,20 @@ export function generateCpp(
   // Handed in rather than baked here — baking evaluates patterns, and a text
   // emitter has no business doing that, nor any way to know whether the
   // workspace has been trusted. See utils/browserThumbnails.ts.
-  opts: { externalAudio?: boolean; nativeFastLedAudio?: boolean; groupInputExprs?: Record<string, string>; psramAllowed?: boolean; aliasTerminalBuffer?: boolean; artworks?: TransportArtworks; bootLabel?: string } = {},
+  // `displayDocuments`: a custom Display node's own DisplayDocument (widgets,
+  // bounds, theme) is not on the node — the node carries only its persisted
+  // ports and physical/pin properties — so it has to be handed in, keyed by
+  // displayId, the same way artworks is. `customDisplayAssets`: the finished
+  // per-widget PROGMEM bytes, keyed by node id, when the caller has baked
+  // them; a document with none still generates, drawing every Image/Icon and
+  // themed background as the placeholder customDisplayLvglCpp.ts already
+  // falls back to.
+  opts: {
+    externalAudio?: boolean; nativeFastLedAudio?: boolean; groupInputExprs?: Record<string, string>
+    psramAllowed?: boolean; aliasTerminalBuffer?: boolean; artworks?: TransportArtworks; bootLabel?: string
+    displayDocuments?: DisplayDocumentRegistry
+    customDisplayAssets?: Record<string, readonly BakedCustomDisplayAsset[]>
+  } = {},
 ): string {
   if (nodes.length === 0) return '// No nodes in graph\n'
 
@@ -1728,7 +1763,7 @@ export function generateCpp(
   function floatExpr(nodeId: string, portId: string, nodeProps: Record<string, unknown>, propKey: string, def: number): string {
     const up = incoming.get(`${nodeId}:${portId}`)
     if (up) {
-      const expr = `n_${safeId(up.srcId)}_${up.srcPort}`
+      const expr = `n_${safeId(up.srcId)}_${safeId(up.srcPort)}`
       // Mirror the evaluator's `clampInputs` toggle: clamp wired signals to the
       // control's range so the firmware matches the live preview.
       if (nodeProps.clampInputs) {
@@ -1743,13 +1778,13 @@ export function generateCpp(
 
   function boolExpr(nodeId: string, portId: string): string {
     const up = incoming.get(`${nodeId}:${portId}`)
-    if (up) return `n_${safeId(up.srcId)}_${up.srcPort}`
+    if (up) return `n_${safeId(up.srcId)}_${safeId(up.srcPort)}`
     return 'false'
   }
 
   function colorExpr(nodeId: string, portId: string, fallback = 'CRGB::Black'): string {
     const up = incoming.get(`${nodeId}:${portId}`)
-    if (up) return `n_${safeId(up.srcId)}_${up.srcPort}`
+    if (up) return `n_${safeId(up.srcId)}_${safeId(up.srcPort)}`
     return fallback
   }
 
@@ -1859,6 +1894,12 @@ export function generateCpp(
   // Panels that sample XPT2046, whether to report coordinates on a
   // Diagnostics screen or to publish a control bundle from their buttons.
   const tftTouches: TftTouchEmit[] = []
+  // The freeform LVGL screens: one control/object-tree emit and one physical
+  // panel/touch driver emit per custom Display node, kept apart because they
+  // come from different modules — the first is a pure function of the
+  // document, the second is real hardware setup neither module wants to own.
+  const customDisplays: CustomDisplayLvglEmit[] = []
+  const customDisplayPanels: CustomDisplayPanelEmit[] = []
   const artworkTables = new Map<string, Uint8Array[]>()
   const needsXyMap = { v: false }
   // Frame-producing nodes each render into their own CRGB buffer, so multiple
@@ -3044,7 +3085,7 @@ export function generateCpp(
         const yExpr = f('y', 'y', 0.5)
         const dateTimeUp = incoming.get(`${node.id}:dateTime`)
         const dateTimeExpr = dateTimeUp
-          ? `n_${safeId(dateTimeUp.srcId)}_${dateTimeUp.srcPort}`
+          ? `n_${safeId(dateTimeUp.srcId)}_${safeId(dateTimeUp.srcPort)}`
           : null
         // DateTime carries source health, so clock modes reject stale or
         // unsynced readings by default. The evaluator treats an unwired legacy
@@ -5065,7 +5106,7 @@ export function generateCpp(
         needsDisplayText.v = true
         const strExpr = (port: string): string | null => {
           const up = incoming.get(`${node.id}:${port}`)
-          return up ? `n_${safeId(up.srcId)}_${up.srcPort}` : null
+          return up ? `n_${safeId(up.srcId)}_${safeId(up.srcPort)}` : null
         }
         const layout = asTransportDisplayLayout(p.tftLayout)
         const controller = tftControllerForProps(p) ?? TFT_CONTROLLERS.ST7789
@@ -5190,6 +5231,95 @@ export function generateCpp(
         break
       }
 
+      case 'Display': {
+        /*
+         * The freeform touch screen: arbitrary scalar/control wiring, in a
+         * normal sketch, resolved the same way the evaluator resolves it —
+         * a minted port id is widget id plus registry role, so this case
+         * needs no knowledge of any one widget beyond that. The document
+         * itself is not on the node (only its ports and pin properties are),
+         * so it is looked up from opts.displayDocuments the way a Now
+         * Playing panel's artwork is looked up from opts.artworks.
+         */
+        const displayId = String(p.displayId ?? node.id)
+        const document = opts.displayDocuments?.[displayId]
+        if (!document) break
+
+        // A widget input's C++ expression, dispatched by the port's own data
+        // type. `patternselect` has no representation here on purpose: a
+        // normal sketch never contains a PatternSlideshow (that graph shape
+        // builds the show controller instead), so there is no pattern
+        // cursor for a Pattern Browser's `value` role to read yet.
+        const widgetInputExpr = (up: { srcId: string; srcPort: string } | undefined, dataType: string | undefined): string | null => {
+          if (!up || dataType === 'patternselect') return null
+          const varExpr = `n_${safeId(up.srcId)}_${safeId(up.srcPort)}`
+          if (dataType === 'color') {
+            return `(((uint32_t)(${varExpr}).r << 16) | ((uint32_t)(${varExpr}).g << 8) | (uint32_t)(${varExpr}).b)`
+          }
+          return varExpr
+        }
+
+        const bindingsByWidget: Record<string, CustomDisplayLvglBinding[]> = {}
+        for (const port of (node.data.inputs as { id: string; dataType?: DisplayWidgetPortDataType }[] | undefined) ?? []) {
+          const parsed = parseDisplayWidgetPortId(port.id)
+          if (!parsed) continue
+          const expr = widgetInputExpr(incoming.get(`${node.id}:${port.id}`), port.dataType)
+          if (expr === null) continue
+          const bindings = bindingsByWidget[parsed.widgetId] ?? (bindingsByWidget[parsed.widgetId] = [])
+          bindings.push({ role: parsed.role, expression: expr })
+        }
+
+        const custom: CustomDisplayLvglEmit = {
+          id, document, bindings: bindingsByWidget, assets: opts.customDisplayAssets?.[node.id],
+        }
+        customDisplays.push(custom)
+        for (const line of customDisplayLvglSetupCpp(custom)) setupLines.push(line)
+        for (const line of customDisplayLvglLoopCpp(custom)) ln(line)
+
+        // Every widget output role becomes an ordinary declared node output —
+        // the same `n_<id>_<port>` convention any other node's output uses —
+        // so downstream wiring (an LED output's Controls input, another
+        // widget, anything) reads it through the existing generic mechanism
+        // rather than a Display-specific special case at every consumer.
+        for (const port of (node.data.outputs as { id: string; dataType?: DisplayWidgetPortDataType }[] | undefined) ?? []) {
+          const parsed = parseDisplayWidgetPortId(port.id)
+          if (!parsed) continue
+          const expr = customDisplayLvglOutputExpression(custom, parsed.widgetId)
+          if (expr === null) continue
+          const cppType = port.dataType === 'bool' ? 'bool' : 'float'
+          ln(`  ${cppType} ${v(safeId(port.id))} = ${expr};`)
+        }
+
+        const controller = tftControllerForProps(p) ?? TFT_CONTROLLERS.ST7789V
+        const rotation = asTftRotation(p.tftRotation)
+        const touchCapable = Boolean(partById(String(p.partId ?? ''))?.display?.touchController)
+        const panel: CustomDisplayPanelEmit = {
+          id,
+          controller,
+          rotation,
+          csPin: intProp(p.csPin, 5, 0, MAX_PIN_NUMBER),
+          dcPin: intProp(p.dcPin, 16, 0, MAX_PIN_NUMBER),
+          resetPin: intProp(p.resetPin, 17, 0, MAX_PIN_NUMBER),
+          sckPin: intProp(p.sckPin, 18, 0, MAX_PIN_NUMBER),
+          mosiPin: intProp(p.mosiPin, 23, 0, MAX_PIN_NUMBER),
+          backlightPin: intProp(p.backlightPin, 4, 0, MAX_PIN_NUMBER),
+          touch: touchCapable ? {
+            csPin: intProp(p.touchCsPin, 15, 0, MAX_PIN_NUMBER),
+            irqPin: intProp(p.touchIrqPin, 2, 0, MAX_PIN_NUMBER),
+            sckPin: intProp(p.touchSckPin, 18, 0, MAX_PIN_NUMBER),
+            mosiPin: intProp(p.touchMosiPin, 23, 0, MAX_PIN_NUMBER),
+            misoPin: intProp(p.touchMisoPin, 19, 0, MAX_PIN_NUMBER),
+            xMin: intProp(p.touchXMin, 200, 0, 4095),
+            xMax: intProp(p.touchXMax, 3900, 0, 4095),
+            yMin: intProp(p.touchYMin, 200, 0, 4095),
+            yMax: intProp(p.touchYMax, 3900, 0, 4095),
+          } : undefined,
+        }
+        customDisplayPanels.push(panel)
+        setupLines.push(...customDisplayPanelSetupCpp(panel))
+        break
+      }
+
       case 'Compare': {
         const a = f('a', 'a', 0), b2 = f('b', 'b', 0.5)
         ln(`  bool ${v('result')} = (${a}) > (${b2});`)
@@ -5216,7 +5346,7 @@ export function generateCpp(
       case 'FormatDateTime': {
         needsDisplayText.v = true
         const dtUp = incoming.get(`${node.id}:dateTime`)
-        const dtExpr = dtUp ? `n_${safeId(dtUp.srcId)}_${dtUp.srcPort}` : null
+        const dtExpr = dtUp ? `n_${safeId(dtUp.srcId)}_${safeId(dtUp.srcPort)}` : null
         for (const line of formatDateTimeCpp(v('text'), dtExpr, asDateTimeTextMode(p.dateTimeFormat))) ln(line)
         break
       }
@@ -5870,7 +6000,7 @@ export function generateCpp(
         for (const line of playerControlsServiceCpp({
           id,
           variable: v('controls'),
-          upstream: upstream ? `n_${safeId(upstream.srcId)}_${upstream.srcPort}` : null,
+          upstream: upstream ? `n_${safeId(upstream.srcId)}_${safeId(upstream.srcPort)}` : null,
           buttons: BUTTONS
             .filter(([port]) => wired(port))
             .map(([port, repeat]) => ({ port, expr: boolExpr(node.id, port), repeat })),
@@ -6469,7 +6599,7 @@ export function generateCpp(
         if (controlsWire) {
           ledLatchOutputs.push(id)
           for (const line of ledOutputLatchCpp({
-            id, controls: `n_${safeId(controlsWire.srcId)}_${controlsWire.srcPort}`,
+            id, controls: `n_${safeId(controlsWire.srcId)}_${safeId(controlsWire.srcPort)}`,
           })) ln(line)
         }
         const src = srcBuf('frame')
@@ -6614,7 +6744,10 @@ export function generateCpp(
   // The colour panel is driven through the Arduino SPI library rather than
   // bit-banged: a 240x240 frame is 115 KB, which no software loop ships in
   // time. The OLED beside it needs no include for exactly the opposite reason.
-  if (tftDisplays.length > 0) lines.push(TFT_DISPLAY_CPP_INCLUDES)
+  // A custom Display's own panel driver needs the same library, so one push
+  // covers both rather than risking two identical #include lines.
+  if (tftDisplays.length > 0 || customDisplayPanels.length > 0) lines.push(TFT_DISPLAY_CPP_INCLUDES)
+  if (customDisplays.length > 0) lines.push(CUSTOM_DISPLAY_LVGL_INCLUDE)
   if (needsWifi) {
     lines.push(`#if defined(ESP32)`)
     lines.push(`#include <WiFi.h>`)
@@ -6643,6 +6776,7 @@ export function generateCpp(
   if (infoDisplays.length > 0) lines.push(INFO_DISPLAY_CPP_FORWARD)
   if (segmentDisplays.length > 0) lines.push(SEGMENT_DISPLAY_CPP_FORWARD)
   if (tftDisplays.length > 0) lines.push(TFT_DISPLAY_CPP_FORWARD)
+  if (customDisplays.length > 0) lines.push(CUSTOM_DISPLAY_LVGL_FORWARD)
   if (stereoVuMeters.length > 0) lines.push(STEREO_VU_CPP_FORWARD)
   lines.push(``)
   if (ss) {
@@ -6747,12 +6881,33 @@ export function generateCpp(
     lines.push(``)
   }
 
+  // One _xptPoint definition regardless of how many panels sample it — a
+  // touch-capable TransportDisplay and a touch-capable custom Display can
+  // both be on the same bench.
+  let xptPointHelpersEmitted = false
+  const emitXptPointHelpersOnce = (): void => {
+    if (xptPointHelpersEmitted) return
+    lines.push(TFT_TOUCH_CPP_HELPERS)
+    xptPointHelpersEmitted = true
+  }
   if (tftDisplays.length > 0) {
     lines.push(tftDisplayHelpersCpp())
-    if (tftTouches.length > 0) lines.push(TFT_TOUCH_CPP_HELPERS)
+    if (tftTouches.length > 0) emitXptPointHelpersOnce()
     for (const touch of tftTouches) lines.push(tftTouchGlobalCpp(touch))
     for (const display of tftDisplays) lines.push(tftDisplayGlobalCpp(display))
     for (const [id, artworks] of artworkTables) lines.push(transportArtworkTableCpp(id, artworks))
+    lines.push(``)
+  }
+
+  if (customDisplays.length > 0) {
+    lines.push(CUSTOM_DISPLAY_LVGL_HELPERS)
+    lines.push(CUSTOM_DISPLAY_LVGL_TIMING_CPP)
+    if (customDisplayPanels.some((panel) => panel.touch)) emitXptPointHelpersOnce()
+    for (const display of customDisplays) lines.push(customDisplayLvglGlobalCpp(display))
+    for (const panel of customDisplayPanels) {
+      lines.push(customDisplayPanelGlobalCpp(panel))
+      lines.push(customDisplayPanelHelpersCpp(panel))
+    }
     lines.push(``)
   }
 
@@ -6947,7 +7102,11 @@ export function generateCpp(
   lines.push(...amplifierIdle.setup)
   lines.push(...psramAllocs)
   lines.push(...pinSetupLines)
+  // Must run before any other LVGL call — every custom Display's screen and
+  // panel setup below (in setupLines) creates LVGL objects.
+  if (customDisplays.length > 0) lines.push(`  lv_init();`)
   lines.push(...setupLines)
+  if (customDisplays.length > 0) lines.push(customDisplayLvglTimingSetupCpp())
   lines.push(...infoDisplayStartupStageBatchCpp(infoDisplays, 1))
   lines.push(...infoDisplayStartupStageBatchCpp(infoDisplays, 2))
   if (multipleOutputs) {
@@ -7013,6 +7172,9 @@ export function generateCpp(
     lines.push(...loopLines)
     if (needsT.v) lines.push(...masterSpeedUpdateCpp(masterSpeedEmit))
   }
+  // Bounded by its own wall-clock gate, so a fast LED loop cannot over-service
+  // it and a slow one still redraws promptly.
+  if (customDisplays.length > 0) lines.push(customDisplayLvglTimingLoopCpp())
   if (multipleOutputs || stereoVuMeters.length > 0 || !sorted.some((n) => n.data.nodeType === 'MatrixOutput')) {
     lines.push(`  FastLED.show();`)
   }
