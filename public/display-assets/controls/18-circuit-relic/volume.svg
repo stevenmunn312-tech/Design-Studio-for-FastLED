@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 160 160" role="img" aria-label="Volume">
+  <title>Circuit Relic — Volume</title>
+  <defs>
+    <linearGradient id="face" x1="26" y1="22" x2="132" y2="141" gradientUnits="userSpaceOnUse"><stop stop-color="#123b36"/><stop offset="1" stop-color="#061b19"/></linearGradient>
+    <linearGradient id="edge" x1="25" y1="24" x2="137" y2="139" gradientUnits="userSpaceOnUse"><stop stop-color="#d0a85b"/><stop offset="1" stop-color="#42e5bd"/></linearGradient>
+    <linearGradient id="glyph" x1="44" y1="45" x2="123" y2="116" gradientUnits="userSpaceOnUse"><stop stop-color="#f8e9b7"/><stop offset="1" stop-color="#54ffd0"/></linearGradient>
+    <filter id="shadow" x="-40%" y="-40%" width="180%" height="190%"><feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#010806" flood-opacity=".72"/><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#38efbe" flood-opacity=".42"/></filter>
+    <filter id="glyphGlow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#38efbe" flood-opacity=".6"/></filter>
+  </defs>
+  <g filter="url(#shadow)"><path d="M39 12 H121 V23 H140 V41 H149 V119 H139 V139 H119 V149 H41 V140 H21 V120 H11 V41 H21 V22 H39 Z" fill="url(#face)" stroke="url(#edge)" stroke-width="6"/></g>
+  <path d="M43 25 H116 V35 H128 V47 H136 V113 H126 V126 H113 V136 H47 V127 H34 V114 H24 V47 H34 V34 H43 Z" fill="none" stroke="#ffffff" stroke-opacity=".12" stroke-width="2"/>
+  <g clip-path="none"><path d="M24 54 H42 L51 45 M118 38 V53 L109 62 M22 107 H43 L52 116 M119 122 V106 L110 97" fill="none" stroke="#4fffd1" opacity=".27" stroke-width="3"/><circle cx="24" cy="54" r="4" fill="#d0a85b"/><circle cx="118" cy="38" r="4" fill="#d0a85b"/><circle cx="22" cy="107" r="4" fill="#d0a85b"/><circle cx="119" cy="122" r="4" fill="#d0a85b"/></g>
+  <path d="M40 44 Q80 20 120 43" fill="none" stroke="#fff8d9" stroke-opacity=".18" stroke-width="6" stroke-linecap="round"/>
+  <g filter="url(#glyphGlow)"><path d="M47 69 H63 L82 54 V106 L63 91 H47 Z" fill="url(#glyph)" stroke="none"/><path d="M94 65 Q111 80 94 95 M106 53 Q133 80 106 107" fill="none" stroke="url(#glyph)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+</svg>

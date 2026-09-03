@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "03-synthwave",
+  "name": "Synthwave Sunset",
+  "packVersion": "1.0.0",
+  "colours": {
+    "backgroundStart": "#321452",
+    "backgroundEnd": "#11091f",
+    "surface": "#321452",
+    "surfaceRaised": "#11091f",
+    "text": "#fff0fd",
+    "textMuted": "#ffb4ed",
+    "accent": "#ff3ca6",
+    "accentSecondary": "#ff9a3c",
+    "border": "#ff62d0",
+    "success": "#45F59A",
+    "warning": "#FFD34E",
+    "error": "#FF5268"
+  },
+  "geometry": {
+    "shape": "squircle",
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8
+  },
+  "typography": {
+    "display": "ui-display",
+    "body": "ui-sans",
+    "data": "ui-mono"
+  },
+  "states": {
+    "default": {
+      "opacity": 1.0,
+      "scale": 1.0
+    },
+    "pressed": {
+      "opacity": 1.0,
+      "scale": 0.96,
+      "surfaceMixAccent": 0.18
+    },
+    "active": {
+      "opacity": 1.0,
+      "scale": 1.0,
+      "glow": "#ff35c8"
+    },
+    "inactive": {
+      "opacity": 0.68,
+      "scale": 1.0
+    },
+    "disabled": {
+      "opacity": 0.34,
+      "scale": 1.0,
+      "desaturate": 0.72
+    }
+  },
+  "backgroundAssets": {
+    "landscape": "background:03-synthwave:320x240",
+    "portrait": "background:03-synthwave:240x320",
+    "square": "background:03-synthwave:240x240"
+  }
+}

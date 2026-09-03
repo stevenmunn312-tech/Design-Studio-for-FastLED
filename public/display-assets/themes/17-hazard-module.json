@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "17-hazard-module",
+  "name": "Hazard Module",
+  "packVersion": "1.0.0",
+  "colours": {
+    "backgroundStart": "#363735",
+    "backgroundEnd": "#111311",
+    "surface": "#363735",
+    "surfaceRaised": "#111311",
+    "text": "#fff7b3",
+    "textMuted": "#ffd42d",
+    "accent": "#ffe83d",
+    "accentSecondary": "#ff8a18",
+    "border": "#fff2a0",
+    "success": "#45F59A",
+    "warning": "#FFD34E",
+    "error": "#FF5268"
+  },
+  "geometry": {
+    "shape": "industrial",
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8
+  },
+  "typography": {
+    "display": "ui-display",
+    "body": "ui-sans",
+    "data": "ui-mono"
+  },
+  "states": {
+    "default": {
+      "opacity": 1.0,
+      "scale": 1.0
+    },
+    "pressed": {
+      "opacity": 1.0,
+      "scale": 0.96,
+      "surfaceMixAccent": 0.18
+    },
+    "active": {
+      "opacity": 1.0,
+      "scale": 1.0,
+      "glow": "#ffc228"
+    },
+    "inactive": {
+      "opacity": 0.68,
+      "scale": 1.0
+    },
+    "disabled": {
+      "opacity": 0.34,
+      "scale": 1.0,
+      "desaturate": 0.72
+    }
+  },
+  "backgroundAssets": {
+    "landscape": "background:17-hazard-module:320x240",
+    "portrait": "background:17-hazard-module:240x320",
+    "square": "background:17-hazard-module:240x240"
+  }
+}

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 160 160" role="img" aria-label="Previous Pattern">
+  <title>Glass Aqua — Previous Pattern</title>
+  <defs>
+    <linearGradient id="face" x1="26" y1="22" x2="132" y2="141" gradientUnits="userSpaceOnUse"><stop stop-color="#174d66"/><stop offset="1" stop-color="#082534"/></linearGradient>
+    <linearGradient id="edge" x1="25" y1="24" x2="137" y2="139" gradientUnits="userSpaceOnUse"><stop stop-color="#75efff"/><stop offset="1" stop-color="#3a9fe6"/></linearGradient>
+    <linearGradient id="glyph" x1="44" y1="45" x2="123" y2="116" gradientUnits="userSpaceOnUse"><stop stop-color="#f3feff"/><stop offset="1" stop-color="#a7f6ff"/></linearGradient>
+    <filter id="shadow" x="-40%" y="-40%" width="180%" height="190%"><feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#021018" flood-opacity=".72"/><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#70efff" flood-opacity=".42"/></filter>
+    <filter id="glyphGlow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#70efff" flood-opacity=".6"/></filter>
+  </defs>
+  <g filter="url(#shadow)"><rect x="13" y="13" width="134" height="134" rx="38" fill="url(#face)" stroke="url(#edge)" stroke-width="7"/></g>
+  <rect x="23" y="23" width="114" height="114" rx="29" fill="none" stroke="#ffffff" stroke-opacity=".11" stroke-width="2"/>
+  <g clip-path="none"><path d="M35 49 Q80 22 125 46" stroke="#ffffff" opacity=".24" stroke-width="9" stroke-linecap="round" fill="none"/></g>
+  <path d="M40 44 Q80 20 120 43" fill="none" stroke="#ffffff" stroke-opacity=".18" stroke-width="6" stroke-linecap="round"/>
+  <g filter="url(#glyphGlow)"><circle cx="54" cy="61" r="5" fill="url(#glyph)"/><circle cx="54" cy="80" r="5" fill="url(#glyph)"/><circle cx="54" cy="99" r="5" fill="url(#glyph)"/><path d="M108 52 L72 80 L108 108" fill="none" stroke="url(#glyph)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+</svg>

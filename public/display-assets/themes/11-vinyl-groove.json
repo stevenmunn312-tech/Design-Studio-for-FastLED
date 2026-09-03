@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "11-vinyl-groove",
+  "name": "Vinyl Groove",
+  "packVersion": "1.0.0",
+  "colours": {
+    "backgroundStart": "#25252b",
+    "backgroundEnd": "#050507",
+    "surface": "#25252b",
+    "surfaceRaised": "#050507",
+    "text": "#fff4cf",
+    "textMuted": "#ffcc54",
+    "accent": "#ff315f",
+    "accentSecondary": "#ffb21f",
+    "border": "#fff3c5",
+    "success": "#45F59A",
+    "warning": "#FFD34E",
+    "error": "#FF5268"
+  },
+  "geometry": {
+    "shape": "vinyl",
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8
+  },
+  "typography": {
+    "display": "ui-display",
+    "body": "ui-sans",
+    "data": "ui-mono"
+  },
+  "states": {
+    "default": {
+      "opacity": 1.0,
+      "scale": 1.0
+    },
+    "pressed": {
+      "opacity": 1.0,
+      "scale": 0.96,
+      "surfaceMixAccent": 0.18
+    },
+    "active": {
+      "opacity": 1.0,
+      "scale": 1.0,
+      "glow": "#ff3d6e"
+    },
+    "inactive": {
+      "opacity": 0.68,
+      "scale": 1.0
+    },
+    "disabled": {
+      "opacity": 0.34,
+      "scale": 1.0,
+      "desaturate": 0.72
+    }
+  },
+  "backgroundAssets": {
+    "landscape": "background:11-vinyl-groove:320x240",
+    "portrait": "background:11-vinyl-groove:240x320",
+    "square": "background:11-vinyl-groove:240x240"
+  }
+}

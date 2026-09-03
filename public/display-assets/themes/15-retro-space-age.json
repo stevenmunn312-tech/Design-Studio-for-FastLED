@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "15-retro-space-age",
+  "name": "Retro Space Age",
+  "packVersion": "1.0.0",
+  "colours": {
+    "backgroundStart": "#f5dfb7",
+    "backgroundEnd": "#d5804e",
+    "surface": "#f5dfb7",
+    "surfaceRaised": "#d5804e",
+    "text": "#351e2b",
+    "textMuted": "#743244",
+    "accent": "#fff2cd",
+    "accentSecondary": "#d5452f",
+    "border": "#4a2230",
+    "success": "#45F59A",
+    "warning": "#FFD34E",
+    "error": "#FF5268"
+  },
+  "geometry": {
+    "shape": "capsule",
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8
+  },
+  "typography": {
+    "display": "ui-display",
+    "body": "ui-sans",
+    "data": "ui-mono"
+  },
+  "states": {
+    "default": {
+      "opacity": 1.0,
+      "scale": 1.0
+    },
+    "pressed": {
+      "opacity": 1.0,
+      "scale": 0.96,
+      "surfaceMixAccent": 0.18
+    },
+    "active": {
+      "opacity": 1.0,
+      "scale": 1.0,
+      "glow": "#ffb25e"
+    },
+    "inactive": {
+      "opacity": 0.68,
+      "scale": 1.0
+    },
+    "disabled": {
+      "opacity": 0.34,
+      "scale": 1.0,
+      "desaturate": 0.72
+    }
+  },
+  "backgroundAssets": {
+    "landscape": "background:15-retro-space-age:320x240",
+    "portrait": "background:15-retro-space-age:240x320",
+    "square": "background:15-retro-space-age:240x240"
+  }
+}

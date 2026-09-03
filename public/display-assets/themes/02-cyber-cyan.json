@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "02-cyber-cyan",
+  "name": "Cyber Cyan",
+  "packVersion": "1.0.0",
+  "colours": {
+    "backgroundStart": "#13242b",
+    "backgroundEnd": "#071014",
+    "surface": "#13242b",
+    "surfaceRaised": "#071014",
+    "text": "#dcfff9",
+    "textMuted": "#67ffe9",
+    "accent": "#00f0d0",
+    "accentSecondary": "#00a7ff",
+    "border": "#28f4d7",
+    "success": "#45F59A",
+    "warning": "#FFD34E",
+    "error": "#FF5268"
+  },
+  "geometry": {
+    "shape": "hex",
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8
+  },
+  "typography": {
+    "display": "ui-display",
+    "body": "ui-sans",
+    "data": "ui-mono"
+  },
+  "states": {
+    "default": {
+      "opacity": 1.0,
+      "scale": 1.0
+    },
+    "pressed": {
+      "opacity": 1.0,
+      "scale": 0.96,
+      "surfaceMixAccent": 0.18
+    },
+    "active": {
+      "opacity": 1.0,
+      "scale": 1.0,
+      "glow": "#00f0d0"
+    },
+    "inactive": {
+      "opacity": 0.68,
+      "scale": 1.0
+    },
+    "disabled": {
+      "opacity": 0.34,
+      "scale": 1.0,
+      "desaturate": 0.72
+    }
+  },
+  "backgroundAssets": {
+    "landscape": "background:02-cyber-cyan:320x240",
+    "portrait": "background:02-cyber-cyan:240x320",
+    "square": "background:02-cyber-cyan:240x240"
+  }
+}

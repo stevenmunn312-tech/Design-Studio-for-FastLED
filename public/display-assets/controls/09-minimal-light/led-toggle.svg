@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 160 160" role="img" aria-label="LED On / Off">
+  <title>Minimal Light — LED On / Off</title>
+  <defs>
+    <linearGradient id="face" x1="26" y1="22" x2="132" y2="141" gradientUnits="userSpaceOnUse"><stop stop-color="#ffffff"/><stop offset="1" stop-color="#dfe8f0"/></linearGradient>
+    <linearGradient id="edge" x1="25" y1="24" x2="137" y2="139" gradientUnits="userSpaceOnUse"><stop stop-color="#435b70"/><stop offset="1" stop-color="#1f3447"/></linearGradient>
+    <linearGradient id="glyph" x1="44" y1="45" x2="123" y2="116" gradientUnits="userSpaceOnUse"><stop stop-color="#122334"/><stop offset="1" stop-color="#43637c"/></linearGradient>
+    <filter id="shadow" x="-40%" y="-40%" width="180%" height="190%"><feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#7890a3" flood-opacity=".72"/><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#2c81bb" flood-opacity=".42"/></filter>
+    <filter id="glyphGlow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#2c81bb" flood-opacity=".6"/></filter>
+  </defs>
+  <g filter="url(#shadow)"><circle cx="80" cy="80" r="66" fill="url(#face)" stroke="url(#edge)" stroke-width="7"/></g>
+  <circle cx="80" cy="80" r="57" fill="none" stroke="#ffffff" stroke-opacity=".11" stroke-width="2"/>
+  <g clip-path="none"><path d="M34 44 Q80 20 126 44" stroke="#ffffff" opacity=".72" stroke-width="12" stroke-linecap="round" fill="none"/></g>
+  <path d="M40 44 Q80 20 120 43" fill="none" stroke="#ffffff" stroke-opacity=".18" stroke-width="6" stroke-linecap="round"/>
+  <g filter="url(#glyphGlow)"><path d="M61 82 A25 25 0 1 1 99 82 C93 88 91 94 91 100 H69 C69 94 67 88 61 82 Z" fill="none" stroke="url(#glyph)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M70 112 H90 M73 122 H87 M80 43 V58 M45 58 L56 68 M115 58 L104 68" fill="none" stroke="url(#glyph)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+</svg>

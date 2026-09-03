@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "01-neon-orbit",
+  "name": "Neon Orbit",
+  "packVersion": "1.0.0",
+  "colours": {
+    "backgroundStart": "#10152b",
+    "backgroundEnd": "#080a16",
+    "surface": "#10152b",
+    "surfaceRaised": "#080a16",
+    "text": "#effcff",
+    "textMuted": "#d4f7ff",
+    "accent": "#19c9ff",
+    "accentSecondary": "#f40ca5",
+    "border": "#71e7ff",
+    "success": "#45F59A",
+    "warning": "#FFD34E",
+    "error": "#FF5268"
+  },
+  "geometry": {
+    "shape": "circle",
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8
+  },
+  "typography": {
+    "display": "ui-display",
+    "body": "ui-sans",
+    "data": "ui-mono"
+  },
+  "states": {
+    "default": {
+      "opacity": 1.0,
+      "scale": 1.0
+    },
+    "pressed": {
+      "opacity": 1.0,
+      "scale": 0.96,
+      "surfaceMixAccent": 0.18
+    },
+    "active": {
+      "opacity": 1.0,
+      "scale": 1.0,
+      "glow": "#27d8ff"
+    },
+    "inactive": {
+      "opacity": 0.68,
+      "scale": 1.0
+    },
+    "disabled": {
+      "opacity": 0.34,
+      "scale": 1.0,
+      "desaturate": 0.72
+    }
+  },
+  "backgroundAssets": {
+    "landscape": "background:01-neon-orbit:320x240",
+    "portrait": "background:01-neon-orbit:240x320",
+    "square": "background:01-neon-orbit:240x240"
+  }
+}

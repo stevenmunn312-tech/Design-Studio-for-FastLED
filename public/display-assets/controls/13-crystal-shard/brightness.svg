@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 160 160" role="img" aria-label="Brightness">
+  <title>Crystal Shard — Brightness</title>
+  <defs>
+    <linearGradient id="face" x1="26" y1="22" x2="132" y2="141" gradientUnits="userSpaceOnUse"><stop stop-color="#30205e"/><stop offset="1" stop-color="#0b1034"/></linearGradient>
+    <linearGradient id="edge" x1="25" y1="24" x2="137" y2="139" gradientUnits="userSpaceOnUse"><stop stop-color="#7ef6ff"/><stop offset="1" stop-color="#db57ff"/></linearGradient>
+    <linearGradient id="glyph" x1="44" y1="45" x2="123" y2="116" gradientUnits="userSpaceOnUse"><stop stop-color="#ffffff"/><stop offset="1" stop-color="#87f5ff"/></linearGradient>
+    <filter id="shadow" x="-40%" y="-40%" width="180%" height="190%"><feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#030413" flood-opacity=".72"/><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#90f8ff" flood-opacity=".42"/></filter>
+    <filter id="glyphGlow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#90f8ff" flood-opacity=".6"/></filter>
+  </defs>
+  <g filter="url(#shadow)"><path d="M80 8 L137 44 L146 99 L105 148 L47 140 L12 92 L25 35 Z" fill="url(#face)" stroke="url(#edge)" stroke-width="6"/></g>
+  <path d="M80 20 L126 49 L134 94 L100 135 L53 128 L25 89 L35 44 Z" fill="none" stroke="#ffffff" stroke-opacity=".17" stroke-width="2"/>
+  <g clip-path="none"><path d="M80 15 L61 59 L21 72 M80 15 L100 57 L140 70 M61 59 L80 137 L100 57 M21 72 L80 137 L140 70" fill="none" stroke="#d8ffff" opacity=".13" stroke-width="2"/></g>
+  <path d="M40 44 Q80 20 120 43" fill="none" stroke="#ffffff" stroke-opacity=".18" stroke-width="6" stroke-linecap="round"/>
+  <g filter="url(#glyphGlow)"><circle cx="80" cy="80" r="21" fill="url(#glyph)"/><path d="M80 42 V53 M80 107 V118 M42 80 H53 M107 80 H118 M53 53 L61 61 M99 99 L107 107 M53 107 L61 99 M99 61 L107 53" fill="none" stroke="url(#glyph)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+</svg>

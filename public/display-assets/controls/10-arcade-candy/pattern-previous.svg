@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 160 160" role="img" aria-label="Previous Pattern">
+  <title>Arcade Candy — Previous Pattern</title>
+  <defs>
+    <linearGradient id="face" x1="26" y1="22" x2="132" y2="141" gradientUnits="userSpaceOnUse"><stop stop-color="#2a1a4b"/><stop offset="1" stop-color="#120b25"/></linearGradient>
+    <linearGradient id="edge" x1="25" y1="24" x2="137" y2="139" gradientUnits="userSpaceOnUse"><stop stop-color="#ff4fc8"/><stop offset="1" stop-color="#4ae9ff"/></linearGradient>
+    <linearGradient id="glyph" x1="44" y1="45" x2="123" y2="116" gradientUnits="userSpaceOnUse"><stop stop-color="#ffffff"/><stop offset="1" stop-color="#ffe84a"/></linearGradient>
+    <filter id="shadow" x="-40%" y="-40%" width="180%" height="190%"><feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#080312" flood-opacity=".72"/><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#ff4fc8" flood-opacity=".42"/></filter>
+    <filter id="glyphGlow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#ff4fc8" flood-opacity=".6"/></filter>
+  </defs>
+  <g filter="url(#shadow)"><rect x="13" y="13" width="134" height="134" rx="38" fill="url(#face)" stroke="url(#edge)" stroke-width="7"/></g>
+  <rect x="23" y="23" width="114" height="114" rx="29" fill="none" stroke="#ffffff" stroke-opacity=".11" stroke-width="2"/>
+  <g clip-path="none"><path d="M39 50 l7 -6 M119 49 l5 7 M39 112 l8 4 M119 112 l6 -6" stroke="#ffe84a" opacity=".34" stroke-width="4" stroke-linecap="round"/></g>
+  <path d="M40 44 Q80 20 120 43" fill="none" stroke="#ffffff" stroke-opacity=".18" stroke-width="6" stroke-linecap="round"/>
+  <g filter="url(#glyphGlow)"><circle cx="54" cy="61" r="5" fill="url(#glyph)"/><circle cx="54" cy="80" r="5" fill="url(#glyph)"/><circle cx="54" cy="99" r="5" fill="url(#glyph)"/><path d="M108 52 L72 80 L108 108" fill="none" stroke="url(#glyph)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+</svg>

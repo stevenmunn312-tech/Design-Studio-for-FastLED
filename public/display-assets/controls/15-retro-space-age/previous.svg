@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 160 160" role="img" aria-label="Previous Track">
+  <title>Retro Space Age — Previous Track</title>
+  <defs>
+    <linearGradient id="face" x1="26" y1="22" x2="132" y2="141" gradientUnits="userSpaceOnUse"><stop stop-color="#f5dfb7"/><stop offset="1" stop-color="#d5804e"/></linearGradient>
+    <linearGradient id="edge" x1="25" y1="24" x2="137" y2="139" gradientUnits="userSpaceOnUse"><stop stop-color="#fff2cd"/><stop offset="1" stop-color="#d5452f"/></linearGradient>
+    <linearGradient id="glyph" x1="44" y1="45" x2="123" y2="116" gradientUnits="userSpaceOnUse"><stop stop-color="#351e2b"/><stop offset="1" stop-color="#743244"/></linearGradient>
+    <filter id="shadow" x="-40%" y="-40%" width="180%" height="190%"><feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#4a211b" flood-opacity=".72"/><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#ffb25e" flood-opacity=".42"/></filter>
+    <filter id="glyphGlow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#ffb25e" flood-opacity=".6"/></filter>
+  </defs>
+  <g filter="url(#shadow)"><rect x="7" y="26" width="146" height="108" rx="54" fill="url(#face)" stroke="url(#edge)" stroke-width="7"/></g>
+  <rect x="20" y="38" width="120" height="84" rx="42" fill="none" stroke="#ffffff" stroke-opacity=".28" stroke-width="3"/>
+  <g clip-path="none"><circle cx="35" cy="80" r="8" fill="#d5452f" opacity=".28"/><circle cx="125" cy="80" r="8" fill="#351e2b" opacity=".20"/><path d="M48 39 H112" stroke="#ffffff" opacity=".3" stroke-width="4" stroke-linecap="round"/></g>
+  <path d="M40 44 Q80 20 120 43" fill="none" stroke="#ffffff" stroke-opacity=".18" stroke-width="6" stroke-linecap="round"/>
+  <g filter="url(#glyphGlow)"><path d="M54 54 V106 M108 54 L68 80 L108 106 Z" fill="none" stroke="url(#glyph)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+</svg>

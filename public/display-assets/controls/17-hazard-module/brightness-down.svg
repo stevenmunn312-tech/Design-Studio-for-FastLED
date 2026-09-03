@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 160 160" role="img" aria-label="Brightness Down">
+  <title>Hazard Module — Brightness Down</title>
+  <defs>
+    <linearGradient id="face" x1="26" y1="22" x2="132" y2="141" gradientUnits="userSpaceOnUse"><stop stop-color="#363735"/><stop offset="1" stop-color="#111311"/></linearGradient>
+    <linearGradient id="edge" x1="25" y1="24" x2="137" y2="139" gradientUnits="userSpaceOnUse"><stop stop-color="#ffe83d"/><stop offset="1" stop-color="#ff8a18"/></linearGradient>
+    <linearGradient id="glyph" x1="44" y1="45" x2="123" y2="116" gradientUnits="userSpaceOnUse"><stop stop-color="#fff7b3"/><stop offset="1" stop-color="#ffd42d"/></linearGradient>
+    <filter id="shadow" x="-40%" y="-40%" width="180%" height="190%"><feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#000000" flood-opacity=".72"/><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#ffc228" flood-opacity=".42"/></filter>
+    <filter id="glyphGlow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#ffc228" flood-opacity=".6"/></filter>
+  </defs>
+  <g filter="url(#shadow)"><path d="M31 12 H129 L148 31 V129 L129 148 H31 L12 129 V31 Z" fill="url(#face)" stroke="url(#edge)" stroke-width="7"/></g>
+  <path d="M37 25 H123 L135 37 V123 L123 135 H37 L25 123 V37 Z" fill="none" stroke="#ffffff" stroke-opacity=".12" stroke-width="2"/>
+  <g clip-path="none"><path d="M17 54 L37 34 M24 82 L72 34 M88 126 L136 78 M116 126 L143 99" stroke="#000000" opacity=".23" stroke-width="10"/><circle cx="31" cy="31" r="4" fill="#0b0c0b"/><circle cx="129" cy="31" r="4" fill="#0b0c0b"/><circle cx="31" cy="129" r="4" fill="#0b0c0b"/><circle cx="129" cy="129" r="4" fill="#0b0c0b"/></g>
+  <path d="M40 44 Q80 20 120 43" fill="none" stroke="#ffffff" stroke-opacity=".18" stroke-width="6" stroke-linecap="round"/>
+  <g filter="url(#glyphGlow)"><circle cx="72" cy="80" r="19" fill="none" stroke="url(#glyph)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M72 45 V54 M72 106 V115 M37 80 H46 M98 80 H107 M47 55 L53 61 M91 99 L97 105 M47 105 L53 99 M91 61 L97 55" fill="none" stroke="url(#glyph)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M102 80 H134" fill="none" stroke="url(#glyph)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+</svg>

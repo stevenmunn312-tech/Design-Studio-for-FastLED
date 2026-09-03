@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 160 160" role="img" aria-label="Previous Pattern">
+  <title>Cyber Cyan — Previous Pattern</title>
+  <defs>
+    <linearGradient id="face" x1="26" y1="22" x2="132" y2="141" gradientUnits="userSpaceOnUse"><stop stop-color="#13242b"/><stop offset="1" stop-color="#071014"/></linearGradient>
+    <linearGradient id="edge" x1="25" y1="24" x2="137" y2="139" gradientUnits="userSpaceOnUse"><stop stop-color="#00f0d0"/><stop offset="1" stop-color="#00a7ff"/></linearGradient>
+    <linearGradient id="glyph" x1="44" y1="45" x2="123" y2="116" gradientUnits="userSpaceOnUse"><stop stop-color="#dcfff9"/><stop offset="1" stop-color="#67ffe9"/></linearGradient>
+    <filter id="shadow" x="-40%" y="-40%" width="180%" height="190%"><feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#000709" flood-opacity=".72"/><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#00f0d0" flood-opacity=".42"/></filter>
+    <filter id="glyphGlow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#00f0d0" flood-opacity=".6"/></filter>
+  </defs>
+  <g filter="url(#shadow)"><polygon points="80,12 132,42 144,99 107,143 50,143 16,98 28,42" fill="url(#face)" stroke="url(#edge)" stroke-width="7"/></g>
+  <polygon points="80,23 123,48 133,96 102,132 54,132 27,94 37,49" fill="none" stroke="#ffffff" stroke-opacity=".11" stroke-width="2"/>
+  <g clip-path="none"><path d="M26 48 H134 M26 72 H134 M26 96 H134 M26 120 H134 M48 26 V134 M72 26 V134 M96 26 V134 M120 26 V134" stroke="#4fffe4" opacity=".05" stroke-width="1"/></g>
+  <path d="M40 44 Q80 20 120 43" fill="none" stroke="#ecffff" stroke-opacity=".18" stroke-width="6" stroke-linecap="round"/>
+  <g filter="url(#glyphGlow)"><circle cx="54" cy="61" r="5" fill="url(#glyph)"/><circle cx="54" cy="80" r="5" fill="url(#glyph)"/><circle cx="54" cy="99" r="5" fill="url(#glyph)"/><path d="M108 52 L72 80 L108 108" fill="none" stroke="url(#glyph)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+</svg>

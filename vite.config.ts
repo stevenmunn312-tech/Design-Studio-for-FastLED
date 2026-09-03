@@ -112,10 +112,14 @@ export default defineConfig(() => {
           // The Essentia.js WASM chunk (~2.5 MB) is loaded on demand only when the
           // user analyses a song with that engine, the generated node-card
           // images (~140 SVGs) only when a Help node-reference page is opened,
-          // and the board renders (~590 KB of WebP) only when the Board node's
-          // pinout view is shown — keep them all out of the precache so the
-          // base install stays small; runtime-cache them after first use.
-          globIgnores: ['**/essentia-wasm*.js', 'node-cards/**', 'boards/**'],
+          // the board renders (~590 KB of WebP) only when the Board node's
+          // pinout view is shown, and the display design pack (~390 vector
+          // assets) only inside a custom display's editor — keep them all out
+          // of the precache so the base install stays small; runtime-cache them
+          // after first use.
+          globIgnores: [
+            '**/essentia-wasm*.js', 'node-cards/**', 'boards/**', 'display-assets/**',
+          ],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\./,
@@ -136,6 +140,11 @@ export default defineConfig(() => {
               urlPattern: /\/boards\/.+\.webp$/,
               handler: 'CacheFirst',
               options: { cacheName: 'board-renders', expiration: { maxEntries: 40 } },
+            },
+            {
+              urlPattern: /\/display-assets\/.+\.(?:svg|json)$/,
+              handler: 'CacheFirst',
+              options: { cacheName: 'display-assets', expiration: { maxEntries: 400 } },
             },
           ],
         },

@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "18-circuit-relic",
+  "name": "Circuit Relic",
+  "packVersion": "1.0.0",
+  "colours": {
+    "backgroundStart": "#123b36",
+    "backgroundEnd": "#061b19",
+    "surface": "#123b36",
+    "surfaceRaised": "#061b19",
+    "text": "#f8e9b7",
+    "textMuted": "#54ffd0",
+    "accent": "#d0a85b",
+    "accentSecondary": "#42e5bd",
+    "border": "#ffe9a8",
+    "success": "#45F59A",
+    "warning": "#FFD34E",
+    "error": "#FF5268"
+  },
+  "geometry": {
+    "shape": "circuit",
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "touchGap": 8
+  },
+  "typography": {
+    "display": "ui-display",
+    "body": "ui-sans",
+    "data": "ui-mono"
+  },
+  "states": {
+    "default": {
+      "opacity": 1.0,
+      "scale": 1.0
+    },
+    "pressed": {
+      "opacity": 1.0,
+      "scale": 0.96,
+      "surfaceMixAccent": 0.18
+    },
+    "active": {
+      "opacity": 1.0,
+      "scale": 1.0,
+      "glow": "#38efbe"
+    },
+    "inactive": {
+      "opacity": 0.68,
+      "scale": 1.0
+    },
+    "disabled": {
+      "opacity": 0.34,
+      "scale": 1.0,
+      "desaturate": 0.72
+    }
+  },
+  "backgroundAssets": {
+    "landscape": "background:18-circuit-relic:320x240",
+    "portrait": "background:18-circuit-relic:240x320",
+    "square": "background:18-circuit-relic:240x240"
+  }
+}
