@@ -848,6 +848,8 @@ export function reachableGroupRegistry(
 // follows the graph it belongs to.
 type HistoryStacks = { pastStates: Partial<HistorySlice>[]; futureStates: Partial<HistorySlice>[] }
 const stashedHistory = new Map<string, HistoryStacks>()
+const stashedDisplayHistory = new Map<string, HistoryStacks>()
+let activeDisplayHistoryId: string | null = null
 
 function stashActiveHistory(graphId: string): void {
   const { pastStates, futureStates } = useGraphStore.temporal.getState()
@@ -871,13 +873,65 @@ function stashActiveHistory(graphId: string): void {
 function restoreStashedHistory(graphId: string): void {
   const stacks = stashedHistory.get(graphId)
   stashedHistory.delete(graphId)
-  const graphData = useGraphStore.getState().graphData
+  const { graphData, displayDocuments } = useGraphStore.getState()
   const rebase = (snapshots: Partial<HistorySlice>[]) =>
-    snapshots.map((snapshot) => (snapshot.graphData ? { ...snapshot, graphData } : snapshot))
+    snapshots.map((snapshot) => ({ ...snapshot, graphData, displayDocuments }))
   useGraphStore.temporal.setState({
     pastStates: rebase(stacks?.pastStates ?? []),
     futureStates: rebase(stacks?.futureStates ?? []),
   })
+}
+
+function stashActiveDisplayHistory(displayId: string): void {
+  const { pastStates, futureStates } = useGraphStore.temporal.getState()
+  if (pastStates.length === 0 && futureStates.length === 0) {
+    stashedDisplayHistory.delete(displayId)
+    return
+  }
+  stashedDisplayHistory.set(displayId, { pastStates: [...pastStates], futureStates: [...futureStates] })
+}
+
+function restoreStashedDisplayHistory(displayId: string): void {
+  const stacks = stashedDisplayHistory.get(displayId)
+  stashedDisplayHistory.delete(displayId)
+  const { nodes, edges, graphData, displayDocuments } = useGraphStore.getState()
+  const rebase = (snapshots: Partial<HistorySlice>[]) => snapshots.map((snapshot) => {
+    const target = snapshot.displayDocuments?.[displayId]
+    const rebasedDocuments = { ...displayDocuments }
+    if (target) rebasedDocuments[displayId] = target
+    else delete rebasedDocuments[displayId]
+    return { ...snapshot, nodes, edges, graphData, displayDocuments: rebasedDocuments }
+  })
+  useGraphStore.temporal.setState({
+    pastStates: rebase(stacks?.pastStates ?? []),
+    futureStates: rebase(stacks?.futureStates ?? []),
+  })
+}
+
+/** Move undo/redo onto one display document without letting its steps alter
+ * the active graph or another display. The editor calls the matching leave
+ * function from its effect cleanup before the graph canvas becomes visible. */
+export function enterDisplayHistoryScope(displayId: string): void {
+  if (activeDisplayHistoryId === displayId) return
+  if (activeDisplayHistoryId) leaveDisplayHistoryScope(activeDisplayHistoryId)
+  flushHistoryDebounce()
+  const temporalApi = useGraphStore.temporal.getState()
+  temporalApi.pause()
+  stashActiveHistory(useGraphStore.getState().activeGraphId)
+  restoreStashedDisplayHistory(displayId)
+  activeDisplayHistoryId = displayId
+  temporalApi.resume()
+}
+
+export function leaveDisplayHistoryScope(displayId: string): void {
+  if (activeDisplayHistoryId !== displayId) return
+  flushHistoryDebounce()
+  const temporalApi = useGraphStore.temporal.getState()
+  temporalApi.pause()
+  stashActiveDisplayHistory(displayId)
+  activeDisplayHistoryId = null
+  restoreStashedHistory(useGraphStore.getState().activeGraphId)
+  temporalApi.resume()
 }
 
 /** Forget every stashed stack — used wherever history is genuinely invalidated
@@ -885,6 +939,7 @@ function restoreStashedHistory(graphId: string): void {
  *  when the user next enters a group that happens to reuse an id. */
 export function clearStashedGraphHistory(): void {
   stashedHistory.clear()
+  stashedDisplayHistory.clear()
 }
 
 /** Every node array held by the undo/redo history — the live stacks plus the
@@ -921,6 +976,8 @@ function scheduleOrphanGraphPrune(): void {
 // the final tiny increment instead of the whole gesture. So pin the pastState
 // from the first call in a burst, and only push a snapshot once the burst has
 // gone quiet, using the most recent currentState/deltaState by then.
+let flushHistoryDebounce = (): void => {}
+
 function debounceHandleSet<Fn extends (pastState: never, replace: never, currentState: never, deltaState?: never) => void>(
   fn: Fn,
   ms: number
@@ -928,13 +985,24 @@ function debounceHandleSet<Fn extends (pastState: never, replace: never, current
   type Args = Parameters<Fn>
   let timer: ReturnType<typeof setTimeout> | undefined
   let burstStart: Args[0] | undefined
+  let latestArgs: Args | undefined
+  const flush = () => {
+    if (timer === undefined || latestArgs === undefined) return
+    clearTimeout(timer)
+    timer = undefined
+    const [, replace, currentState, deltaState] = latestArgs
+    latestArgs = undefined
+    fn(burstStart as Args[0], replace, currentState, deltaState)
+    burstStart = undefined
+  }
+  flushHistoryDebounce = flush
   return ((...args: Args) => {
-    const [pastState, replace, currentState, deltaState] = args
+    const [pastState] = args
     if (timer === undefined) burstStart = pastState
+    latestArgs = args
     if (timer !== undefined) clearTimeout(timer)
     timer = setTimeout(() => {
-      timer = undefined
-      fn(burstStart as Args[0], replace, currentState, deltaState)
+      flush()
     }, ms)
   }) as Fn
 }
@@ -1020,6 +1088,7 @@ export const useGraphStore = create<GraphState>()(
       }),
       removeDisplayDocument: (displayId) => set((s) => {
         if (!s.displayDocuments[displayId]) return {}
+        stashedDisplayHistory.delete(displayId)
         const displayDocuments = { ...s.displayDocuments }
         delete displayDocuments[displayId]
         return { displayDocuments }

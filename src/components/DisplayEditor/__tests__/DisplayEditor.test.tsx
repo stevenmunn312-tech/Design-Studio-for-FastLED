@@ -63,6 +63,27 @@ describe('DisplayEditor', () => {
     expect(useGraphStore.getState().displayDocuments.panel.widgets.map((widget) => widget.id)).toEqual(['button', 'text'])
   })
 
+  it('announces validation changes and associates each issue with its widgets', () => {
+    const view = render(<DisplayEditor />)
+    fireEvent.click(view.getByRole('button', { name: 'Add Button widget' }))
+    fireEvent.click(view.getByRole('button', { name: 'Add Text widget' }))
+    fireEvent.click(view.getByRole('button', { name: /Button, Button\. Position/ }), { ctrlKey: true })
+    fireEvent.click(view.getByRole('button', { name: 'Left' }))
+
+    const validation = view.getByRole('status', { name: 'Display validation status' })
+    expect(validation.textContent).toContain('1 layout issue. Button overlaps Text.')
+    const button = view.getByRole('button', { name: /Button, Button\. Position/ })
+    const text = view.getByRole('button', { name: /Text, Text\. Position/ })
+    expect(button.getAttribute('aria-invalid')).toBe('true')
+    expect(text.getAttribute('aria-invalid')).toBe('true')
+    expect(button.getAttribute('aria-describedby')).toBe('display-widget-issues-button')
+    expect(view.getByText('Button overlaps Text.', { selector: '#display-widget-issues-button' })).toBeTruthy()
+    fireEvent.click(button)
+    expect(view.getByRole('status', { name: 'Display editor announcements' }).textContent).toContain(
+      '1 validation issue: Button overlaps Text.',
+    )
+  })
+
   it('returns to the graph through the breadcrumb', () => {
     const view = render(<DisplayEditor />)
     fireEvent.click(view.getByRole('button', { name: 'Graph' }))

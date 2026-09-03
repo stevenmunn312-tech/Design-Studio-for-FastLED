@@ -631,8 +631,9 @@ freeform widgets must reuse rather than rediscover.
   `App` swaps the React Flow canvas for `DisplayEditor` without moving document
   data into UI state. The editor shares the fit request, returns through a
   Graph breadcrumb or Escape, and suppresses graph-only clipboard shortcuts.
-  The future outer `Display` node still needs to create/open the document, and
-  per-document history needs the same isolation that graph groups receive.
+  Undo/redo stacks are now stashed per display id and rebased when restored, so
+  a step in one display cannot alter another display or the parked graph. The
+  future outer `Display` node still needs to create/open the document.
 - [x] Define and version `DisplayDocument` and `DisplayWidget` schemas. At
   minimum store display/module id, resolution/orientation, grid, theme,
   widgets, stable ids, integer bounds, type, validated properties and validated
@@ -664,15 +665,18 @@ freeform widgets must reuse rather than rediscover.
   horizontal/vertical distribution, duplicate, delete, cut/copy/paste,
   zoom/fit, and overlap plus registry validation. Pointer and keyboard actions
   use the same pure document transforms, and pasted widgets receive fresh
-  stable ids. Document commits already flow through the workspace undo slice.
-  Isolated per-document undo stacks remain.
-- [ ] Make every editor action keyboard reachable and announce widget type,
+  stable ids. Document commits flow through the workspace undo slice and its
+  per-document history scopes.
+- [x] Make every editor action keyboard reachable and announce widget type,
   bounds, port direction/type, selection, and validation errors.
   Palette actions, bounds/properties, select-all, additive selection, nudge,
   duplicate, cut/copy/paste and delete are keyboard reachable; selection
   changes announce type, integer bounds and role-based port contracts through
   a polite live region. Numeric bounds are the keyboard resize equivalent.
-  Validation announcements still need refinement before this is complete.
+  Validation changes now use a persistent polite live region, invalid widgets
+  reference their issue text directly, and selection announcements include the
+  selected widget's validation state alongside its type, integer bounds and
+  role-based port contract.
 - [ ] Auto-mint/remove dynamic ports on the outer `Display` node. Removing a
   wired widget requires confirmation and removes its edges atomically. Changing
   a widget to a different port type is create-new/delete-old, not an in-place

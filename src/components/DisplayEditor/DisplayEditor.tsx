@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
-import { useGraphStore } from '../../state/graphStore'
+import { enterDisplayHistoryScope, leaveDisplayHistoryScope, useGraphStore } from '../../state/graphStore'
 import { DISPLAY_WIDGET_LIBRARY } from '../../state/displayRegistry'
 import {
   addDisplayWidget,
@@ -12,6 +12,7 @@ import {
   removeDisplayWidgets,
   translateDisplayWidgets,
   updateDisplayWidget,
+  type DisplayLayoutIssue,
 } from '../../state/displayEditor'
 import type { DisplayBounds, DisplayDocument, DisplayWidget, DisplayWidgetType } from '../../state/displayDocument'
 import { useUiStore } from '../../state/uiStore'
@@ -57,20 +58,44 @@ function editorVariables(document: DisplayDocument): CSSProperties {
   } as CSSProperties
 }
 
-function widgetAnnouncement(document: DisplayDocument, widgetId: string | null): string {
+function issuesForWidget(issues: readonly DisplayLayoutIssue[], widgetId: string): DisplayLayoutIssue[] {
+  return issues.filter((issue) => issue.widgetId === widgetId || issue.otherWidgetId === widgetId)
+}
+
+function validationAnnouncement(issues: readonly DisplayLayoutIssue[]): string {
+  if (issues.length === 0) return 'Layout valid.'
+  return `${issues.length} layout ${issues.length === 1 ? 'issue' : 'issues'}. ${issues.map((issue) => issue.message).join(' ')}`
+}
+
+function widgetAnnouncement(
+  document: DisplayDocument,
+  widgetId: string | null,
+  issues: readonly DisplayLayoutIssue[] = [],
+): string {
   const widget = document.widgets.find((entry) => entry.id === widgetId)
   if (!widget) return 'No widget selected.'
   const ports = DISPLAY_WIDGET_LIBRARY[widget.type].portRoles
     .map((port) => `${port.direction} ${port.dataType} ${port.role}`)
     .join(', ')
   const { x, y, width, height } = widget.bounds
-  return `${widget.type}, ${widget.label}. Position ${x}, ${y}. Size ${width} by ${height}. ${ports || 'No graph ports'}.`
+  const widgetIssues = issuesForWidget(issues, widget.id)
+  const validation = widgetIssues.length > 0
+    ? ` ${widgetIssues.length} validation ${widgetIssues.length === 1 ? 'issue' : 'issues'}: ${widgetIssues.map((issue) => issue.message).join(' ')}`
+    : ' No validation issues.'
+  return `${widget.type}, ${widget.label}. Position ${x}, ${y}. Size ${width} by ${height}. ${ports || 'No graph ports'}.${validation}`
 }
 
-function selectionAnnouncement(document: DisplayDocument, widgetIds: readonly string[]): string {
+function selectionAnnouncement(
+  document: DisplayDocument,
+  widgetIds: readonly string[],
+  issues: readonly DisplayLayoutIssue[] = [],
+): string {
   if (widgetIds.length === 0) return 'No widget selected.'
-  if (widgetIds.length === 1) return widgetAnnouncement(document, widgetIds[0])
-  return `${widgetIds.length} widgets selected.`
+  if (widgetIds.length === 1) return widgetAnnouncement(document, widgetIds[0], issues)
+  const selectedIssues = issues.filter((issue) => (
+    widgetIds.includes(issue.widgetId) || (issue.otherWidgetId ? widgetIds.includes(issue.otherWidgetId) : false)
+  ))
+  return `${widgetIds.length} widgets selected. ${validationAnnouncement(selectedIssues)}`
 }
 
 export default function DisplayEditor() {
@@ -89,6 +114,12 @@ export default function DisplayEditor() {
   const [announcement, setAnnouncement] = useState('Display editor opened.')
 
   useEffect(() => {
+    if (!displayId) return
+    enterDisplayHistoryScope(displayId)
+    return () => leaveDisplayHistoryScope(displayId)
+  }, [displayId])
+
+  useEffect(() => {
     if (!gesture.current) {
       draftRef.current = persisted ?? null
       setDraft(persisted ?? null)
@@ -100,6 +131,9 @@ export default function DisplayEditor() {
 
   const document = draft ?? persisted
   const issues = useMemo(() => document ? displayLayoutIssues(document) : [], [document])
+  const issuesByWidget = useMemo(() => new Map(document?.widgets.map((widget) => (
+    [widget.id, issuesForWidget(issues, widget.id)]
+  )) ?? []), [document, issues])
   const collisionIds = useMemo(() => new Set(issues.flatMap((issue) => (
     issue.code === 'collision' ? [issue.widgetId, issue.otherWidgetId ?? ''] : []
   ))), [issues])
@@ -140,7 +174,7 @@ export default function DisplayEditor() {
           : [...selectedIds, widgetId]
         : [widgetId]
     setSelectedIds(next)
-    setAnnouncement(selectionAnnouncement(document, next))
+    setAnnouncement(selectionAnnouncement(document, next, issues))
   }
 
   const add = (type: DisplayWidgetType) => {
@@ -167,7 +201,7 @@ export default function DisplayEditor() {
         : [widgetId]
     event.currentTarget.setPointerCapture(event.pointerId)
     setSelectedIds(widgetIds)
-    setAnnouncement(selectionAnnouncement(document, widgetIds))
+    setAnnouncement(selectionAnnouncement(document, widgetIds, issues))
     gesture.current = {
       widgetId,
       widgetIds,
@@ -205,7 +239,7 @@ export default function DisplayEditor() {
     const next = draftRef.current
     if (next && next !== persisted) {
       setDisplayDocument(next)
-      setAnnouncement(widgetAnnouncement(next, active.widgetId))
+      setAnnouncement(widgetAnnouncement(next, active.widgetId, displayLayoutIssues(next)))
     }
   }
 
@@ -242,7 +276,7 @@ export default function DisplayEditor() {
           event.stopPropagation()
           const ids = document.widgets.map((widget) => widget.id)
           setSelectedIds(ids)
-          setAnnouncement(selectionAnnouncement(document, ids))
+          setAnnouncement(selectionAnnouncement(document, ids, issues))
           return
         }
         if (mod && direction.toLowerCase() === 'c' && selectedWidgets.length > 0) {
@@ -288,7 +322,7 @@ export default function DisplayEditor() {
         const dx = direction === 'ArrowLeft' ? -amount : direction === 'ArrowRight' ? amount : 0
         const dy = direction === 'ArrowUp' ? -amount : direction === 'ArrowDown' ? amount : 0
         const next = translateDisplayWidgets(document, selectedIds, dx, dy, !event.shiftKey)
-        commit(next, selectionAnnouncement(next, selectedIds))
+        commit(next, selectionAnnouncement(next, selectedIds, displayLayoutIssues(next)))
       }}
     >
       <header className={styles.header}>
@@ -299,7 +333,7 @@ export default function DisplayEditor() {
           <span className={styles.resolution}>{document.designSize.width} × {document.designSize.height}</span>
         </div>
         <div className={styles.toolbar} aria-label="Display canvas controls">
-          <button type="button" onClick={() => { const ids = document.widgets.map((widget) => widget.id); setSelectedIds(ids); setAnnouncement(selectionAnnouncement(document, ids)) }} disabled={document.widgets.length === 0}>Select all</button>
+          <button type="button" onClick={() => { const ids = document.widgets.map((widget) => widget.id); setSelectedIds(ids); setAnnouncement(selectionAnnouncement(document, ids, issues)) }} disabled={document.widgets.length === 0}>Select all</button>
           <button type="button" onClick={copySelection} disabled={selectedWidgets.length === 0}>Copy</button>
           <button type="button" onClick={pasteSelection} disabled={displayWidgetClipboard.length === 0}>Paste</button>
           <button type="button" onClick={() => setZoom((value) => Math.max(0.35, value - 0.1))} aria-label="Zoom out">−</button>
@@ -339,6 +373,8 @@ export default function DisplayEditor() {
               {document.widgets.map((widget) => {
                 const definition = DISPLAY_WIDGET_LIBRARY[widget.type]
                 const isSelected = selectedIds.includes(widget.id)
+                const widgetIssues = issuesByWidget.get(widget.id) ?? []
+                const issueDescriptionId = widgetIssues.length > 0 ? `display-widget-issues-${widget.id}` : undefined
                 return (
                   <button
                     key={widget.id}
@@ -351,6 +387,8 @@ export default function DisplayEditor() {
                       height: widget.bounds.height,
                     }}
                     aria-label={widgetAnnouncement(document, widget.id)}
+                    aria-describedby={issueDescriptionId}
+                    aria-invalid={widgetIssues.length > 0}
                     aria-pressed={isSelected}
                     onPointerDown={(event) => beginGesture(event, widget.id, 'move')}
                     onClick={(event) => {
@@ -359,6 +397,11 @@ export default function DisplayEditor() {
                     }}
                   >
                     <DisplayWidgetPreview widget={widget} renderer={definition.previewRenderer} />
+                    {widgetIssues.length > 0 && (
+                      <span id={issueDescriptionId} className={styles.srOnly}>
+                        {widgetIssues.map((issue) => issue.message).join(' ')}
+                      </span>
+                    )}
                     {isSelected && (
                       <span
                         className={styles.resizeHandle}
@@ -453,14 +496,17 @@ export default function DisplayEditor() {
             </>
           )}
           {issues.length > 0 && (
-            <div className={styles.issues} role="status">
+            <div className={styles.issues} role="group" aria-label="Layout issues">
               <strong>{issues.length} layout {issues.length === 1 ? 'issue' : 'issues'}</strong>
               {issues.slice(0, 4).map((issue, index) => <p key={`${issue.widgetId}-${issue.code}-${index}`}>{issue.message}</p>)}
             </div>
           )}
         </aside>
       </div>
-      <div className={styles.srOnly} aria-live="polite">{announcement}</div>
+      <div className={styles.srOnly} role="status" aria-label="Display editor announcements" aria-live="polite" aria-atomic="true">{announcement}</div>
+      <div className={styles.srOnly} role="status" aria-label="Display validation status" aria-live="polite" aria-atomic="true">
+        {validationAnnouncement(issues)}
+      </div>
     </section>
   )
 }

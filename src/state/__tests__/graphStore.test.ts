@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { useGraphStore, getGroupRegistry, matrixTileLayout, ROOT_GRAPH_ID, clearStashedGraphHistory, reachableGroupRegistry, rootGraphNodes } from '../graphStore'
+import { useGraphStore, getGroupRegistry, matrixTileLayout, ROOT_GRAPH_ID, clearStashedGraphHistory, enterDisplayHistoryScope, leaveDisplayHistoryScope, reachableGroupRegistry, rootGraphNodes } from '../graphStore'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { evaluateGraph } from '../graphEvaluator'
 import type { StudioNode, StudioEdge } from '../graphStore'
@@ -1122,6 +1122,39 @@ describe('graphStore — custom display documents', () => {
       vi.advanceTimersByTime(400)
       expect(useGraphStore.getState().displayDocuments).toEqual({})
     } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps undo history isolated per display document and away from the graph', () => {
+    vi.useFakeTimers()
+    const secondDocument = { ...displayDocument, displayId: 'panel-b' }
+    try {
+      useGraphStore.temporal.getState().pause()
+      useGraphStore.setState({
+        displayDocuments: { panel: displayDocument, 'panel-b': secondDocument },
+      })
+      useGraphStore.temporal.getState().resume()
+      useGraphStore.temporal.getState().clear()
+
+      enterDisplayHistoryScope('panel')
+      useGraphStore.getState().setDisplayDocument({ ...displayDocument, gridSize: 12 })
+      leaveDisplayHistoryScope('panel')
+
+      enterDisplayHistoryScope('panel-b')
+      expect(useGraphStore.temporal.getState().pastStates).toHaveLength(0)
+      useGraphStore.getState().setDisplayDocument({ ...secondDocument, gridSize: 16 })
+      leaveDisplayHistoryScope('panel-b')
+
+      enterDisplayHistoryScope('panel')
+      expect(useGraphStore.temporal.getState().pastStates).toHaveLength(1)
+      useGraphStore.temporal.getState().undo()
+      expect(useGraphStore.getState().displayDocuments.panel.gridSize).toBe(8)
+      expect(useGraphStore.getState().displayDocuments['panel-b'].gridSize).toBe(16)
+      expect(useGraphStore.getState().nodes).toEqual([])
+    } finally {
+      leaveDisplayHistoryScope('panel')
+      clearStashedGraphHistory()
       vi.useRealTimers()
     }
   })
