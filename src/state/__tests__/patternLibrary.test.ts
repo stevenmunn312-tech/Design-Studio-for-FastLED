@@ -223,6 +223,29 @@ describe('patternLibrary', () => {
     expect(usePatternLibrary.getState().patterns[0].name).toBe(bundled.name)
   })
 
+  it('keeps built-in audio patterns on the settled response baseline', () => {
+    for (const pattern of AUDIO_BUNDLED_PATTERNS) {
+      for (const node of pattern.subgraph.nodes) {
+        const type = String(node.data.nodeType)
+        const props = node.data.properties as Record<string, unknown>
+        const label = `${pattern.name} / ${type}`
+
+        if (type === 'FFTAnalyzer') {
+          expect(Number(props.smoothing), label).toBeGreaterThanOrEqual(0.78)
+        } else if (type === 'SpectrumVisualizer') {
+          expect(Number(props.smoothing), label).toBeGreaterThanOrEqual(0.7)
+        } else if (type === 'Smooth') {
+          expect(Number(props.response), label).toBeGreaterThanOrEqual(0.35)
+        } else if (type === 'PercussionDetect') {
+          expect(Number(props.decay), label).toBeGreaterThanOrEqual(0.72)
+        } else if (type === 'BeatFlash') {
+          expect(Number(props.attack), label).toBeGreaterThanOrEqual(0.08)
+          expect(Number(props.decay), label).toBeGreaterThanOrEqual(0.88)
+        }
+      }
+    }
+  })
+
   it('creates custom shelves, files patterns by drag target, and safely unfiles on removal', () => {
     usePatternLibrary.getState().savePattern({
       name: 'Glow',

@@ -100,8 +100,8 @@
           "category": "audio",
           "properties": {
             "bands": 24,
-            "gain": 1.2,
-            "smoothing": 0.72,
+            "gain": 1.1,
+            "smoothing": 0.82,
             "tilt": 0
           },
           "inputs": [
@@ -176,9 +176,9 @@
           "nodeType": "BeatDetect",
           "category": "audio",
           "properties": {
-            "threshold": 0.2,
-            "attack": 0.55,
-            "decay": 0.25
+            "threshold": 0.24,
+            "attack": 0.62,
+            "decay": 0.34
           },
           "inputs": [
             {

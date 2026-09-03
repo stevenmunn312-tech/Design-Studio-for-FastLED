@@ -76,8 +76,8 @@
           "nodeType": "PercussionDetect",
           "category": "audio",
           "properties": {
-            "sensitivity": 0.6,
-            "decay": 0.7,
+            "sensitivity": 0.52,
+            "decay": 0.82,
             "separation": 0.45
           },
           "inputs": [
@@ -118,9 +118,9 @@
           "nodeType": "BeatDetect",
           "category": "audio",
           "properties": {
-            "threshold": 0.2,
-            "attack": 0.55,
-            "decay": 0.25
+            "threshold": 0.24,
+            "attack": 0.62,
+            "decay": 0.34
           },
           "inputs": [
             {
@@ -382,8 +382,9 @@
           "nodeType": "BeatFlash",
           "category": "pattern",
           "properties": {
-            "decay": 0.45,
-            "intensity": 0.6
+            "decay": 0.88,
+            "attack": 0.08,
+            "intensity": 0.5
           },
           "inputs": [
             {

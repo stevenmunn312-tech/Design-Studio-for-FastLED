@@ -55,8 +55,8 @@
           "category": "audio",
           "properties": {
             "bands": 24,
-            "gain": 1.35,
-            "smoothing": 0.55,
+            "gain": 1.2,
+            "smoothing": 0.78,
             "tilt": 0.4
           },
           "inputs": [
@@ -97,8 +97,8 @@
           "nodeType": "PercussionDetect",
           "category": "audio",
           "properties": {
-            "sensitivity": 0.68,
-            "decay": 0.66,
+            "sensitivity": 0.56,
+            "decay": 0.8,
             "separation": 0.58
           },
           "inputs": [
@@ -139,9 +139,9 @@
           "nodeType": "BeatDetect",
           "category": "audio",
           "properties": {
-            "threshold": 0.18,
-            "attack": 0.66,
-            "decay": 0.24
+            "threshold": 0.22,
+            "attack": 0.68,
+            "decay": 0.34
           },
           "inputs": [
             {
@@ -177,8 +177,8 @@
           "category": "pattern",
           "properties": {
             "effect": "RGB Blobs",
-            "speed": 0.72,
-            "audioAmount": 1.55
+            "speed": 0.62,
+            "audioAmount": 1.15
           },
           "inputs": [
             {
@@ -268,10 +268,10 @@
           "category": "pattern",
           "properties": {
             "palette": "party",
-            "count": 16,
+            "count": 12,
             "size": 1.25,
-            "decay": 0.82,
-            "spawnSpread": 0.86,
+            "decay": 1,
+            "spawnSpread": 0.75,
             "blendMode": "add"
           },
           "inputs": [
@@ -358,10 +358,10 @@
           "nodeType": "BeatFlash",
           "category": "pattern",
           "properties": {
-            "decay": 0.6,
-            "attack": 0.015,
-            "intensity": 1.35,
-            "blendMode": "add",
+            "decay": 0.88,
+            "attack": 0.08,
+            "intensity": 1.05,
+            "blendMode": "screen",
             "preserveBase": true,
             "palette": "rainbow",
             "r": 255,

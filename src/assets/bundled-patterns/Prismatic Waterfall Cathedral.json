@@ -56,12 +56,12 @@
           "properties": {
             "style": "Waterfall",
             "bands": 24,
-            "gain": 1.55,
-            "smoothing": 0.48,
+            "gain": 1.35,
+            "smoothing": 0.72,
             "tilt": 0.42,
-            "peakHold": 0.3,
-            "peakGravity": 2.4,
-            "waterfallSpeed": 14,
+            "peakHold": 0.5,
+            "peakGravity": 1.5,
+            "waterfallSpeed": 10,
             "palette": "ultraviolet"
           },
           "inputs": [
@@ -141,9 +141,9 @@
           "nodeType": "BeatDetect",
           "category": "audio",
           "properties": {
-            "threshold": 0.2,
-            "attack": 0.62,
-            "decay": 0.3
+            "threshold": 0.24,
+            "attack": 0.66,
+            "decay": 0.36
           },
           "inputs": [
             {
@@ -246,9 +246,9 @@
           "nodeType": "BeatFlash",
           "category": "pattern",
           "properties": {
-            "decay": 0.66,
-            "attack": 0.03,
-            "intensity": 1.25,
+            "decay": 0.9,
+            "attack": 0.08,
+            "intensity": 1,
             "blendMode": "screen",
             "preserveBase": true,
             "palette": "none",

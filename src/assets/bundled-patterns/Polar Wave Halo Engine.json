@@ -55,8 +55,8 @@
           "category": "audio",
           "properties": {
             "bands": 24,
-            "gain": 1.25,
-            "smoothing": 0.64,
+            "gain": 1.15,
+            "smoothing": 0.8,
             "tilt": 0.4
           },
           "inputs": [
@@ -97,8 +97,8 @@
           "nodeType": "PercussionDetect",
           "category": "audio",
           "properties": {
-            "sensitivity": 0.56,
-            "decay": 0.76,
+            "sensitivity": 0.5,
+            "decay": 0.84,
             "separation": 0.45
           },
           "inputs": [
@@ -139,9 +139,9 @@
           "nodeType": "BeatDetect",
           "category": "audio",
           "properties": {
-            "threshold": 0.2,
-            "attack": 0.58,
-            "decay": 0.3
+            "threshold": 0.24,
+            "attack": 0.64,
+            "decay": 0.36
           },
           "inputs": [
             {
@@ -177,8 +177,8 @@
           "category": "pattern",
           "properties": {
             "effect": "Polar Waves",
-            "speed": 0.58,
-            "audioAmount": 1.38
+            "speed": 0.52,
+            "audioAmount": 1.05
           },
           "inputs": [
             {
@@ -269,11 +269,11 @@
           "properties": {
             "style": "Centre Mirror",
             "bands": 18,
-            "gain": 1.45,
-            "smoothing": 0.62,
+            "gain": 1.25,
+            "smoothing": 0.74,
             "tilt": 0.35,
-            "peakHold": 0.65,
-            "peakGravity": 1.2,
+            "peakHold": 0.8,
+            "peakGravity": 0.9,
             "waterfallSpeed": 10,
             "palette": "laguna"
           },

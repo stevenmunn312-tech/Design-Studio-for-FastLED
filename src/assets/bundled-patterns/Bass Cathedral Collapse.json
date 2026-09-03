@@ -55,8 +55,8 @@
           "category": "audio",
           "properties": {
             "bands": 24,
-            "gain": 1.2,
-            "smoothing": 0.72
+            "gain": 1.1,
+            "smoothing": 0.82
           },
           "inputs": [
             {
@@ -200,8 +200,8 @@
           "nodeType": "SpectrumBars",
           "category": "pattern",
           "properties": {
-            "energy": 0.96,
-            "speed": 0.7,
+            "energy": 0.86,
+            "speed": 0.6,
             "palette": "rainbow",
             "mirror": true
           },
@@ -258,8 +258,8 @@
           "nodeType": "BassRings",
           "category": "pattern",
           "properties": {
-            "energy": 0.95,
-            "speed": 0.72,
+            "energy": 0.84,
+            "speed": 0.6,
             "r": 255,
             "g": 120,
             "b": 32
@@ -480,7 +480,7 @@
           "nodeType": "Smooth",
           "category": "math",
           "properties": {
-            "response": 0.25
+            "response": 0.4
           },
           "inputs": [
             {
@@ -511,7 +511,7 @@
           "nodeType": "Smooth",
           "category": "math",
           "properties": {
-            "response": 0.25
+            "response": 0.4
           },
           "inputs": [
             {
@@ -542,7 +542,7 @@
           "nodeType": "Smooth",
           "category": "math",
           "properties": {
-            "response": 0.25
+            "response": 0.4
           },
           "inputs": [
             {

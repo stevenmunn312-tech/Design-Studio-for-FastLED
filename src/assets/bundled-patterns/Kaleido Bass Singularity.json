@@ -55,8 +55,8 @@
           "category": "audio",
           "properties": {
             "bands": 24,
-            "gain": 1.4,
-            "smoothing": 0.6,
+            "gain": 1.25,
+            "smoothing": 0.78,
             "tilt": 0.38
           },
           "inputs": [
@@ -97,8 +97,8 @@
           "nodeType": "PercussionDetect",
           "category": "audio",
           "properties": {
-            "sensitivity": 0.6,
-            "decay": 0.74,
+            "sensitivity": 0.52,
+            "decay": 0.82,
             "separation": 0.48
           },
           "inputs": [
@@ -139,9 +139,9 @@
           "nodeType": "BeatDetect",
           "category": "audio",
           "properties": {
-            "threshold": 0.2,
-            "attack": 0.58,
-            "decay": 0.27
+            "threshold": 0.24,
+            "attack": 0.62,
+            "decay": 0.34
           },
           "inputs": [
             {
@@ -177,8 +177,8 @@
           "category": "pattern",
           "properties": {
             "effect": "Complex Kaleido",
-            "speed": 0.62,
-            "audioAmount": 1.35
+            "speed": 0.55,
+            "audioAmount": 1.05
           },
           "inputs": [
             {

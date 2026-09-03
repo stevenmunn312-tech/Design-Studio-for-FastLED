@@ -101,8 +101,8 @@
           "category": "audio",
           "properties": {
             "bands": 24,
-            "gain": 1.15,
-            "smoothing": 0.7,
+            "gain": 1.1,
+            "smoothing": 0.82,
             "tilt": 0
           },
           "inputs": [
@@ -148,8 +148,8 @@
           "nodeType": "PercussionDetect",
           "category": "audio",
           "properties": {
-            "sensitivity": 0.62,
-            "decay": 0.55,
+            "sensitivity": 0.54,
+            "decay": 0.72,
             "separation": 0.7
           },
           "inputs": [
@@ -195,9 +195,9 @@
           "nodeType": "AudioFeatures",
           "category": "audio",
           "properties": {
-            "sensitivity": 0.65,
+            "sensitivity": 0.58,
             "gate": 0.12,
-            "smoothing": 0.62
+            "smoothing": 0.78
           },
           "inputs": [
             {
@@ -424,7 +424,7 @@
           "nodeType": "Smooth",
           "category": "math",
           "properties": {
-            "response": 0.25
+            "response": 0.38
           },
           "inputs": [
             {
@@ -454,7 +454,7 @@
           "nodeType": "Smooth",
           "category": "math",
           "properties": {
-            "response": 0.25
+            "response": 0.38
           },
           "inputs": [
             {
@@ -484,7 +484,7 @@
           "nodeType": "Smooth",
           "category": "math",
           "properties": {
-            "response": 0.2
+            "response": 0.35
           },
           "inputs": [
             {
@@ -514,7 +514,7 @@
           "nodeType": "Smooth",
           "category": "math",
           "properties": {
-            "response": 0.25
+            "response": 0.38
           },
           "inputs": [
             {

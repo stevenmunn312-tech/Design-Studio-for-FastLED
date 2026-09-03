@@ -55,8 +55,8 @@
           "category": "audio",
           "properties": {
             "bands": 24,
-            "gain": 1.18,
-            "smoothing": 0.76
+            "gain": 1.1,
+            "smoothing": 0.84
           },
           "inputs": [
             {
@@ -96,9 +96,9 @@
           "nodeType": "BeatDetect",
           "category": "audio",
           "properties": {
-            "threshold": 0.2,
-            "attack": 0.55,
-            "decay": 0.26
+            "threshold": 0.24,
+            "attack": 0.64,
+            "decay": 0.36
           },
           "inputs": [
             {
@@ -177,7 +177,7 @@
           "nodeType": "AudioFlow",
           "category": "pattern",
           "properties": {
-            "speed": 0.32,
+            "speed": 0.28,
             "scale": 0.5,
             "palette": "rainbow"
           },
@@ -354,7 +354,8 @@
           "nodeType": "BeatFlash",
           "category": "pattern",
           "properties": {
-            "decay": 0.86
+            "decay": 0.92,
+            "attack": 0.1
           },
           "inputs": [
             {
@@ -411,7 +412,7 @@
           "nodeType": "Smooth",
           "category": "math",
           "properties": {
-            "response": 0.25
+            "response": 0.4
           },
           "inputs": [
             {
@@ -442,7 +443,7 @@
           "nodeType": "Smooth",
           "category": "math",
           "properties": {
-            "response": 0.25
+            "response": 0.4
           },
           "inputs": [
             {
@@ -473,7 +474,7 @@
           "nodeType": "Smooth",
           "category": "math",
           "properties": {
-            "response": 0.25
+            "response": 0.4
           },
           "inputs": [
             {

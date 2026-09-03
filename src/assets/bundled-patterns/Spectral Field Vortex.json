@@ -55,8 +55,8 @@
           "category": "audio",
           "properties": {
             "bands": 24,
-            "gain": 1.35,
-            "smoothing": 0.57,
+            "gain": 1.2,
+            "smoothing": 0.8,
             "tilt": 0.52
           },
           "inputs": [
@@ -123,12 +123,12 @@
           "properties": {
             "style": "Waterfall",
             "bands": 28,
-            "gain": 1.6,
-            "smoothing": 0.45,
+            "gain": 1.35,
+            "smoothing": 0.72,
             "tilt": 0.58,
-            "peakHold": 0.25,
-            "peakGravity": 2.8,
-            "waterfallSpeed": 18,
+            "peakHold": 0.45,
+            "peakGravity": 1.6,
+            "waterfallSpeed": 12,
             "palette": "deepsea"
           },
           "inputs": [

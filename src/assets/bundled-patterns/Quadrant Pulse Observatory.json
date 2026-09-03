@@ -55,8 +55,8 @@
           "category": "audio",
           "properties": {
             "bands": 24,
-            "gain": 1.35,
-            "smoothing": 0.58,
+            "gain": 1.2,
+            "smoothing": 0.8,
             "tilt": 0.5
           },
           "inputs": [
@@ -97,8 +97,8 @@
           "nodeType": "PercussionDetect",
           "category": "audio",
           "properties": {
-            "sensitivity": 0.62,
-            "decay": 0.7,
+            "sensitivity": 0.54,
+            "decay": 0.82,
             "separation": 0.52
           },
           "inputs": [
@@ -139,9 +139,9 @@
           "nodeType": "BeatDetect",
           "category": "audio",
           "properties": {
-            "threshold": 0.19,
-            "attack": 0.62,
-            "decay": 0.27
+            "threshold": 0.23,
+            "attack": 0.66,
+            "decay": 0.35
           },
           "inputs": [
             {
@@ -176,9 +176,9 @@
           "nodeType": "AudioFeatures",
           "category": "audio",
           "properties": {
-            "sensitivity": 0.64,
+            "sensitivity": 0.58,
             "gate": 0.09,
-            "smoothing": 0.64
+            "smoothing": 0.78
           },
           "inputs": [
             {
@@ -244,8 +244,8 @@
           "properties": {
             "style": "Bars",
             "bands": 16,
-            "gain": 1.5,
-            "smoothing": 0.48,
+            "gain": 1.3,
+            "smoothing": 0.72,
             "tilt": 0.45,
             "peakHold": 0.45,
             "peakGravity": 1.9,
@@ -286,8 +286,8 @@
           "category": "pattern",
           "properties": {
             "effect": "Water",
-            "speed": 0.65,
-            "audioAmount": 1.25
+            "speed": 0.58,
+            "audioAmount": 1
           },
           "inputs": [
             {

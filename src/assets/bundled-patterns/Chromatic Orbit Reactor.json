@@ -55,8 +55,8 @@
           "category": "audio",
           "properties": {
             "bands": 24,
-            "gain": 1.35,
-            "smoothing": 0.62,
+            "gain": 1.2,
+            "smoothing": 0.8,
             "tilt": 0.35
           },
           "inputs": [
@@ -99,11 +99,11 @@
           "properties": {
             "style": "Orbit",
             "bands": 20,
-            "gain": 1.4,
-            "smoothing": 0.54,
+            "gain": 1.25,
+            "smoothing": 0.72,
             "tilt": 0.35,
-            "peakHold": 0.5,
-            "peakGravity": 1.5,
+            "peakHold": 0.7,
+            "peakGravity": 1.1,
             "waterfallSpeed": 10,
             "palette": "lava"
           },
