@@ -13,10 +13,11 @@ import { OLED_TRANSPORT_PINS, oledTransportFor } from '../../state/oledSurface'
 import { withAssignedPins } from '../../state/pinRetarget'
 import { boardI2cDefault } from '../../build/boardI2cDefaults'
 import { sdSpiPinsForBoard } from '../../state/sdPinDefaults'
-import { partById, partDimensionsMm, partRenderSrc, ringDiameterMm } from '../../state/partCatalogue'
+import { displayResolution, partById, partDimensionsMm, partRenderSrc, ringDiameterMm } from '../../state/partCatalogue'
 import { buttonBankHandle, normalizeButtonBankEntries } from '../../state/buttonBank'
 import { partRenderForNodeType } from '../../state/partRenders'
 import { partOptionProperty, partOptionsFor, resolvePartIdentity } from '../../state/partOptions'
+import { createDisplayDocument } from '../../state/displayEditor'
 import PartIdentity from './PartIdentity'
 import { useUploadStore } from '../../state/uploadStore'
 import {
@@ -174,7 +175,7 @@ function modulePinKeys(nodeType: string, moduleId: string | undefined): readonly
   // Asking the board for the union would reserve five pins for a module with
   // two, and drawing it would label wires the module does not bring out.
   if (nodeType === 'InfoDisplay') return OLED_TRANSPORT_PINS[oledTransportFor(entry?.display?.interface)]
-  if (nodeType === 'TransportDisplay') return transportDisplayPinKeysForProps({ partId: moduleId })
+  if (nodeType === 'TransportDisplay' || nodeType === 'Display') return transportDisplayPinKeysForProps({ partId: moduleId })
   if (nodeType !== 'SegmentDisplay') return null
   return segmentControllerFor(entry?.display?.controller).pins
 }
@@ -211,6 +212,28 @@ const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     pinRequests: [
       { key: 'sckPin' }, { key: 'mosiPin' }, { key: 'csPin' },
       { key: 'dcPin' }, { key: 'resetPin' }, { key: 'backlightPin' },
+    ],
+  },
+  {
+    nodeType: 'Display',
+    partId: 'custom-display',
+    label: 'Custom display',
+    hint: 'A designed touch interface with widget-derived graph ports',
+    footprint: partDimensionsMm('st7789v-xpt2046-touch-240x320', { width: 42.7, height: 60.3 }),
+    render: partRenderSrc('st7789v-xpt2046-touch-240x320') ?? undefined,
+    pinFields: [
+      { key: 'sckPin', label: 'SCK' },
+      { key: 'mosiPin', label: 'MOSI' },
+      { key: 'misoPin', label: 'MISO' },
+      { key: 'csPin', label: 'CS' },
+      { key: 'dcPin', label: 'DC' },
+      { key: 'resetPin', label: 'RESET' },
+      { key: 'backlightPin', label: 'LITE' },
+      { key: 'touchCsPin', label: 'T_CS' },
+      { key: 'touchIrqPin', label: 'T_IRQ' },
+      { key: 'touchSckPin', label: 'T_CLK' },
+      { key: 'touchMosiPin', label: 'T_DIN' },
+      { key: 'touchMisoPin', label: 'T_DO' },
     ],
   },
   {
@@ -536,6 +559,7 @@ function OutputLink({ signalKey, effects, label, link, visualScale }: {
 
 export default function HardwarePane() {
   const addNode = useGraphStore((state) => state.addNode)
+  const setDisplayDocument = useGraphStore((state) => state.setDisplayDocument)
   const connectRoot = useGraphStore((state) => state.connectRoot)
   const removeNodeCompletely = useGraphStore((state) => state.removeNodeCompletely)
   // The bench is the project's hardware, which lives in the root graph — so it
@@ -1396,12 +1420,17 @@ export default function HardwarePane() {
           ),
           ...(moduleProperty && moduleId ? { [moduleProperty]: moduleId } : {}),
           ...(targetOutputId !== undefined ? { targetOutputId } : {}),
+          ...(entry.nodeType === 'Display' ? { displayId: nodeId } : {}),
           ...vuSizing,
         },
         inputs: definition.inputs,
         outputs: definition.outputs,
       },
     } as never)
+    if (entry.nodeType === 'Display') {
+      const size = displayResolution(moduleId ?? '') ?? { width: 320, height: 240 }
+      setDisplayDocument(createDisplayDocument(nodeId, size.width, size.height))
+    }
     const audioNodes = nodes.filter((node) => node.data.nodeType === 'Audio')
     if (entry.nodeType === 'StereoVuMeter' && audioNodes.length === 1) {
       connectRoot({
@@ -1505,7 +1534,7 @@ export default function HardwarePane() {
     if (!fixture) return []
     const blocked = Boolean(fixture.singleton && hasPartOfType(fixture.nodeType))
     return partOptionsFor(nodeType).map((option) => ({
-      key: option.id,
+      key: `${nodeType}:${option.id}`,
       label: option.label,
       hint: option.summary ?? fixture.hint,
       disabled: blocked,
@@ -1519,6 +1548,7 @@ export default function HardwarePane() {
   const segmentDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'SegmentDisplay')
   const infoDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'InfoDisplay')
   const transportDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'TransportDisplay')
+  const customDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'Display')
   const stereoVuFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'StereoVuMeter')
   const stereoVuBlocker = stereoVuFixture
     ? stereoVuFixture.singleton && hasPartOfType(stereoVuFixture.nodeType)
@@ -1571,6 +1601,7 @@ export default function HardwarePane() {
         ...moduleItems('SegmentDisplay', segmentDisplayFixture),
         ...moduleItems('InfoDisplay', infoDisplayFixture),
         ...moduleItems('TransportDisplay', transportDisplayFixture),
+        ...moduleItems('Display', customDisplayFixture),
       ],
     },
     {

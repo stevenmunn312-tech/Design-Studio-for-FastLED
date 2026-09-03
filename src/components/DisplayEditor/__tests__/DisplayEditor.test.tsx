@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { fireEvent, render } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, waitFor } from '@testing-library/react'
 import DisplayEditor from '../DisplayEditor'
 import { createDisplayDocument } from '../../../state/displayEditor'
 import { useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
+import type { StudioNode } from '../../../state/graphStore'
 
 describe('DisplayEditor', () => {
   beforeEach(() => {
@@ -82,6 +83,35 @@ describe('DisplayEditor', () => {
     expect(view.getByRole('status', { name: 'Display editor announcements' }).textContent).toContain(
       '1 validation issue: Button overlaps Text.',
     )
+  })
+
+  it('confirms before deleting a wired widget and disconnects it atomically', async () => {
+    const screen = {
+      id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        label: 'Custom Display', nodeType: 'Display', category: 'output',
+        properties: { displayId: 'panel' }, inputs: [], outputs: [],
+      },
+    } as unknown as StudioNode
+    useGraphStore.setState({ nodes: [screen] })
+    const confirm = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true)
+    useUiStore.setState({ requestConfirm: confirm })
+    const view = render(<DisplayEditor />)
+    fireEvent.click(view.getByRole('button', { name: 'Add Button widget' }))
+    useGraphStore.setState({
+      edges: [{
+        id: 'wired', source: 'screen', sourceHandle: 'widget:button:out',
+        target: 'sink', targetHandle: 'x',
+      }],
+    })
+    fireEvent.click(view.getByRole('button', { name: 'Delete widget' }))
+    await waitFor(() => expect(confirm).toHaveBeenCalledTimes(1))
+    expect(useGraphStore.getState().displayDocuments.panel.widgets).toHaveLength(1)
+    expect(useGraphStore.getState().edges).toHaveLength(1)
+
+    fireEvent.click(view.getByRole('button', { name: 'Delete widget' }))
+    await waitFor(() => expect(useGraphStore.getState().displayDocuments.panel.widgets).toHaveLength(0))
+    expect(useGraphStore.getState().edges).toEqual([])
   })
 
   it('returns to the graph through the breadcrumb', () => {

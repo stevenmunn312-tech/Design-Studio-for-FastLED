@@ -1,0 +1,35 @@
+.body {
+  display: grid;
+  gap: 8px;
+  padding: 8px 10px 10px;
+  border-top: 1px solid color-mix(in srgb, var(--node-accent) 24%, transparent);
+}
+
+.summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.edit {
+  width: 100%;
+  min-height: 30px;
+  border: 1px solid color-mix(in srgb, var(--node-accent) 52%, transparent);
+  border-radius: 6px;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--node-accent) 16%, var(--bg-secondary));
+  cursor: pointer;
+}
+
+.edit:hover:not(:disabled),
+.edit:focus-visible {
+  border-color: var(--node-accent);
+  outline: none;
+}
+
+.edit:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}

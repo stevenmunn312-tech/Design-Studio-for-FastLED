@@ -1,9 +1,11 @@
 import type {
   DisplayBounds,
+  DisplayDocument,
   DisplayWidget,
   DisplayWidgetProperty,
   DisplayWidgetType,
 } from './displayDocument'
+import type { NodePort } from '../types'
 
 export type DisplayClass = 'touch-tft'
 export type DisplayWidgetPortDirection = 'input' | 'output'
@@ -391,6 +393,24 @@ export function displayWidgetPorts(widget: Pick<DisplayWidget, 'id' | 'type' | '
     widgetId: widget.id,
     widgetType: widget.type,
   }))
+}
+
+/** Graph-facing ports for the outer Display node, derived only from stable
+ * widget ids and registry roles. Editable labels affect presentation but never
+ * cable identity. */
+export function displayDocumentPorts(
+  document: Pick<DisplayDocument, 'widgets'>,
+): { inputs: NodePort[]; outputs: NodePort[] } {
+  const inputs: NodePort[] = []
+  const outputs: NodePort[] = []
+  for (const widget of document.widgets) {
+    for (const port of displayWidgetPorts(widget)) {
+      const resolved = { id: port.id, label: port.label, dataType: port.dataType }
+      if (port.direction === 'input') inputs.push(resolved)
+      else outputs.push(resolved)
+    }
+  }
+  return { inputs, outputs }
 }
 
 export function defaultDisplayWidgetProperties(type: DisplayWidgetType): Record<string, DisplayWidgetProperty> {

@@ -52,6 +52,7 @@ import {
   type DisplayDocument,
   type DisplayDocumentRegistry,
 } from './displayDocument'
+import { displayDocumentPorts } from './displayRegistry'
 import { useUploadStore } from './uploadStore'
 import { assignPartPins } from './partPinAssignment'
 import {
@@ -882,6 +883,82 @@ function restoreStashedHistory(graphId: string): void {
   })
 }
 
+/** Keep a freeform Display node's React Flow port metadata and cables derived
+ * from its document. A document edit and any cable cleanup must land in the
+ * same store write so undo can never restore one without the other. */
+function syncDisplayNodesInContent(
+  content: GraphContent,
+  documents: DisplayDocumentRegistry,
+): GraphContent {
+  const portsByNode = new Map<string, {
+    ports: ReturnType<typeof displayDocumentPorts>
+    changedInputTypes: Set<string>
+    changedOutputTypes: Set<string>
+  }>()
+  const nodes = content.nodes.map((node) => {
+    if (node.data.nodeType !== 'Display') return node
+    const displayId = String(node.data.properties.displayId ?? node.id)
+    const document = documents[displayId]
+    const ports = document ? displayDocumentPorts(document) : { inputs: [], outputs: [] }
+    const previousInputs = new Map(
+      ((node.data.inputs as Array<{ id: string; dataType: string }> | undefined) ?? [])
+        .map((port) => [port.id, port.dataType]),
+    )
+    const previousOutputs = new Map(
+      ((node.data.outputs as Array<{ id: string; dataType: string }> | undefined) ?? [])
+        .map((port) => [port.id, port.dataType]),
+    )
+    portsByNode.set(node.id, {
+      ports,
+      changedInputTypes: new Set(ports.inputs
+        .filter((port) => previousInputs.has(port.id) && previousInputs.get(port.id) !== port.dataType)
+        .map((port) => port.id)),
+      changedOutputTypes: new Set(ports.outputs
+        .filter((port) => previousOutputs.has(port.id) && previousOutputs.get(port.id) !== port.dataType)
+        .map((port) => port.id)),
+    })
+    return {
+      ...node,
+      data: { ...node.data, properties: { ...node.data.properties, displayId }, ...ports },
+    }
+  })
+  if (portsByNode.size === 0) return content
+  const edges = content.edges.filter((edge) => {
+    const source = portsByNode.get(edge.source)
+    if (source && (source.changedOutputTypes.has(edge.sourceHandle ?? '')
+      || !source.ports.outputs.some((port) => port.id === edge.sourceHandle))) return false
+    const target = portsByNode.get(edge.target)
+    if (target && (target.changedInputTypes.has(edge.targetHandle ?? '')
+      || !target.ports.inputs.some((port) => port.id === edge.targetHandle))) return false
+    return true
+  })
+  return { nodes, edges }
+}
+
+function duplicateNodeDocument(
+  node: StudioNode,
+  newId: string,
+  documents: DisplayDocumentRegistry,
+): { node: StudioNode; document?: DisplayDocument } {
+  if (node.data.nodeType !== 'Display') return { node: { ...node, id: newId } }
+  const sourceDisplayId = String(node.data.properties.displayId ?? node.id)
+  const source = documents[sourceDisplayId]
+  const document = source ? { ...structuredClone(source), displayId: newId } : undefined
+  const ports = document ? displayDocumentPorts(document) : { inputs: [], outputs: [] }
+  return {
+    node: {
+      ...node,
+      id: newId,
+      data: {
+        ...node.data,
+        properties: { ...node.data.properties, displayId: newId },
+        ...ports,
+      },
+    },
+    document,
+  }
+}
+
 function stashActiveDisplayHistory(displayId: string): void {
   const { pastStates, futureStates } = useGraphStore.temporal.getState()
   if (pastStates.length === 0 && futureStates.length === 0) {
@@ -1084,14 +1161,23 @@ export const useGraphStore = create<GraphState>()(
       setDisplayDocument: (document) => set((s) => {
         const normalized = normalizeDisplayDocument(document)
         if (!normalized) return {}
-        return { displayDocuments: { ...s.displayDocuments, [normalized.displayId]: normalized } }
+        const displayDocuments = { ...s.displayDocuments, [normalized.displayId]: normalized }
+        const root = syncDisplayNodesInContent(
+          { nodes: rootGraphNodes(s), edges: rootGraphEdges(s) },
+          displayDocuments,
+        )
+        return { displayDocuments, ...withRootContent(s, root) }
       }),
       removeDisplayDocument: (displayId) => set((s) => {
         if (!s.displayDocuments[displayId]) return {}
         stashedDisplayHistory.delete(displayId)
         const displayDocuments = { ...s.displayDocuments }
         delete displayDocuments[displayId]
-        return { displayDocuments }
+        const root = syncDisplayNodesInContent(
+          { nodes: rootGraphNodes(s), edges: rootGraphEdges(s) },
+          displayDocuments,
+        )
+        return { displayDocuments, ...withRootContent(s, root) }
       }),
       panicActive: false,
       panicRestoreValues: null,
@@ -1557,12 +1643,14 @@ export const useGraphStore = create<GraphState>()(
 
           const used = new Set(s.nodes.map((n) => n.id))
           const idMap = new Map<string, string>()
+          const displayDocuments = { ...s.displayDocuments }
           const newNodes = pastable.map((n) => {
             const newId = uniqueId(`${n.data.nodeType}-${Date.now()}`, used)
             idMap.set(n.id, newId)
+            const duplicated = duplicateNodeDocument(n, newId, s.displayDocuments)
+            if (duplicated.document) displayDocuments[newId] = duplicated.document
             return {
-              ...n,
-              id: newId,
+              ...duplicated.node,
               position: { x: n.position.x + dx, y: n.position.y + dy },
               selected: true,
             }
@@ -1580,6 +1668,7 @@ export const useGraphStore = create<GraphState>()(
             nodes: [...s.nodes.map((n) => (n.selected ? { ...n, selected: false } : n)), ...newNodes],
             edges: [...s.edges, ...newEdges],
             selectedNodeId: newNodes[0].id,
+            displayDocuments,
           }
         }),
 
@@ -1666,14 +1755,24 @@ export const useGraphStore = create<GraphState>()(
             { nodes: active.nodes, graphData, graphs, activeGraphId },
             [],
           )
+          const loadedGraphData = pruned?.graphData ?? graphData
           const buildProfile = normalizeBuildProfile(workspace?.buildProfile)
+          const displayDocuments = normalizeDisplayDocuments(workspace?.displayDocuments)
+          const rootContent = syncDisplayNodesInContent(
+            activeGraphId === ROOT_GRAPH_ID
+              ? { nodes: active.nodes, edges: active.edges }
+              : loadedGraphData[ROOT_GRAPH_ID] ?? { nodes: [], edges: [] },
+            displayDocuments,
+          )
+          if (activeGraphId !== ROOT_GRAPH_ID) loadedGraphData[ROOT_GRAPH_ID] = rootContent
           const rootNodes = activeGraphId === ROOT_GRAPH_ID
-            ? ensureRootBoardNode(active.nodes, buildProfile?.physicalBoardProfileId)
+            ? ensureRootBoardNode(rootContent.nodes, buildProfile?.physicalBoardProfileId)
             : active.nodes
           return {
             ...active,
             nodes: rootNodes,
-            graphData: pruned?.graphData ?? graphData,
+            ...(activeGraphId === ROOT_GRAPH_ID ? { edges: rootContent.edges } : {}),
+            graphData: loadedGraphData,
             graphs: pruned?.graphs ?? graphs,
             activeGraphId,
             buildProfile,
@@ -1685,7 +1784,7 @@ export const useGraphStore = create<GraphState>()(
             // links, and JSON imports created before this field all fall
             // back safely rather than throwing.
             performanceDeck: normalizeDeckConfig(workspace?.performanceDeck),
-            displayDocuments: normalizeDisplayDocuments(workspace?.displayDocuments),
+            displayDocuments,
             panicActive: false,
             panicRestoreValues: null,
           }
@@ -1698,17 +1797,20 @@ export const useGraphStore = create<GraphState>()(
           const node = s.nodes.find((n) => n.id === id)
           if (!node || !canAddNodeType(s.nodes, node.data.nodeType)) return s
           const newId = uniqueId(`${node.data.nodeType}-${Date.now()}`, new Set(s.nodes.map((n) => n.id)))
+          const duplicated = duplicateNodeDocument(node, newId, s.displayDocuments)
           return {
             nodes: [
               ...s.nodes.map((n) => (n.selected ? { ...n, selected: false } : n)),
               {
-                ...node,
-                id: newId,
+                ...duplicated.node,
                 position: { x: node.position.x + 20, y: node.position.y + 20 },
                 selected: true,
               },
             ],
             selectedNodeId: newId,
+            ...(duplicated.document
+              ? { displayDocuments: { ...s.displayDocuments, [newId]: duplicated.document } }
+              : {}),
           }
         }),
 
@@ -1734,12 +1836,14 @@ export const useGraphStore = create<GraphState>()(
 
           const sourceIds = new Set(duplicable.map((n) => n.id))
           const idMap = new Map<string, string>()
+          const displayDocuments = { ...s.displayDocuments }
           const newNodes = duplicable.map((node) => {
             const newId = uniqueId(`${node.data.nodeType}-${Date.now()}`, used)
             idMap.set(node.id, newId)
+            const duplicated = duplicateNodeDocument(node, newId, s.displayDocuments)
+            if (duplicated.document) displayDocuments[newId] = duplicated.document
             return {
-              ...node,
-              id: newId,
+              ...duplicated.node,
               position: { x: node.position.x + 20, y: node.position.y + 20 },
               selected: true,
             }
@@ -1759,6 +1863,7 @@ export const useGraphStore = create<GraphState>()(
             nodes: [...s.nodes.map((n) => (n.selected ? { ...n, selected: false } : n)), ...newNodes],
             edges: [...s.edges, ...newEdges],
             selectedNodeId: newNodes[0].id,
+            displayDocuments,
           }
         }),
 
@@ -1790,15 +1895,27 @@ export const useGraphStore = create<GraphState>()(
         const inActive = state.nodes.some((entry) => entry.id === id)
         const node = (inActive ? state.nodes : rootGraphNodes(state)).find((entry) => entry.id === id)
         if (!node || node.data.nodeType === 'Board') return
+        const displayId = node.data.nodeType === 'Display'
+          ? String(node.data.properties.displayId ?? node.id)
+          : null
         scheduleOrphanGraphPrune()
         set((s) => {
+          const withoutDisplayDocument = (result: Partial<GraphState>): Partial<GraphState> => {
+            if (!displayId || !s.displayDocuments[displayId]) return result
+            stashedDisplayHistory.delete(displayId)
+            const displayDocuments = { ...s.displayDocuments }
+            delete displayDocuments[displayId]
+            return { ...result, displayDocuments }
+          }
           if (inActive) {
-            return removeNodeAndEdges(s.nodes, s.edges, s.selectedNodeId, s.performanceDeck, new Set([id]))
+            return withoutDisplayDocument(
+              removeNodeAndEdges(s.nodes, s.edges, s.selectedNodeId, s.performanceDeck, new Set([id])),
+            )
           }
           const removed = removeNodeAndEdges(
             rootGraphNodes(s), rootGraphEdges(s), s.selectedNodeId, s.performanceDeck, new Set([id]))
           const { nodes, edges, ...rest } = removed
-          return { ...rest, ...withRootContent(s, { nodes, edges }) }
+          return withoutDisplayDocument({ ...rest, ...withRootContent(s, { nodes, edges }) })
         })
       },
 

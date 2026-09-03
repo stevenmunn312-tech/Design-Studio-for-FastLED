@@ -100,6 +100,27 @@ describe('HardwarePane', () => {
     expect(within(document.body).getByText('Default I2C bus')).toBeTruthy()
   })
 
+  it('adds a custom touch display with its own document and stable identity', () => {
+    render(<HardwarePane />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
+    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /Displays/ }))
+    const customItem = screen.getByText('240x320 colour TFT for a custom touch UI').closest('button')!
+    fireEvent.click(customItem)
+
+    const state = useGraphStore.getState()
+    const display = state.nodes.find((entry) => entry.data.nodeType === 'Display')
+    expect(display).toBeTruthy()
+    expect(display!.data.properties).toMatchObject({
+      displayId: display!.id,
+      partId: 'st7789v-xpt2046-touch-240x320',
+    })
+    expect(state.displayDocuments[display!.id]).toMatchObject({
+      displayId: display!.id,
+      designSize: { width: 240, height: 320 },
+    })
+  })
+
   it('adds and draws a corkscrew as dedicated helical geometry', () => {
     const { container } = render(<HardwarePane />)
 

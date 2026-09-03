@@ -29,6 +29,14 @@ describe('displays a build cannot drive', () => {
     expect(findDisplayGeneratorIssues([out()], [])).toEqual({ errors: [], warnings: [] })
   })
 
+  it('blocks a custom display until its LVGL runtime can be emitted', () => {
+    const custom = node('custom', 'Display', { displayId: 'custom', partId: 'st7789v-xpt2046-touch-240x320' })
+    const issues = findDisplayGeneratorIssues([out(), custom], [])
+    expect(issues.errors).toHaveLength(1)
+    expect(issues.errors[0]).toContain('LVGL firmware generation is not available yet')
+    expect(issues.errors[0]).toContain('fixed Transport Display')
+  })
+
   it('says nothing about a display in a plain sketch', () => {
     expect(findDisplayGeneratorIssues([out(), oled()], [])).toEqual({ errors: [], warnings: [] })
   })

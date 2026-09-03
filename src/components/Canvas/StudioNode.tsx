@@ -76,6 +76,7 @@ const Wireframe3DNodeBody = lazy(() => import('./Wireframe3DNodeBody'))
 const TransportDisplayNodeBody = lazy(() => import('./TransportDisplayNodeBody'))
 const InfoDisplayNodeBody = lazy(() => import('./InfoDisplayNodeBody'))
 const SegmentDisplayNodeBody = lazy(() => import('./SegmentDisplayNodeBody'))
+const CustomDisplayNodeBody = lazy(() => import('./CustomDisplayNodeBody'))
 const StereoVuMeterNodeBody = lazy(() => import('./StereoVuMeterNodeBody'))
 
 type PortDef = { id: string; label: string; dataType: string }
@@ -921,10 +922,11 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const categoryAccent = CATEGORY_ACCENT_VAR[d.category] ?? 'var(--accent-output)'
   const rawProps = d.properties as Record<string, unknown>
   const minimized = d.minimized === true
-  const inputs = (def?.inputs ?? d.inputs) as PortDef[]
+  const inputs = (d.nodeType === 'Display' ? d.inputs ?? [] : def?.inputs ?? d.inputs ?? []) as PortDef[]
   const outputs = (d.nodeType === 'ButtonBank'
     ? buttonBankOutputs(rawProps.buttons)
-    : def?.outputs ?? d.outputs) as PortDef[]
+    : d.nodeType === 'Display' ? d.outputs ?? [] : def?.outputs ?? d.outputs ?? []) as PortDef[]
+  const portLayoutKey = `${inputs.map((port) => port.id).join('|')}::${outputs.map((port) => port.id).join('|')}`
   const rowCount = d.nodeType === 'ButtonBank' ? 0 : Math.max(inputs.length, outputs.length)
 
   // Which of this node's input ports are wired, and to which upstream port. When
@@ -1241,7 +1243,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => updateNodeInternals(id))
     return () => window.cancelAnimationFrame(frame)
-  }, [id, minimized, updateNodeInternals])
+  }, [id, minimized, portLayoutKey, updateNodeInternals])
 
   return (
     <div
@@ -1566,6 +1568,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           {d.nodeType === 'TransportDisplay' && <TransportDisplayNodeBody nodeId={id} />}
           {d.nodeType === 'InfoDisplay' && <InfoDisplayNodeBody nodeId={id} />}
           {d.nodeType === 'SegmentDisplay' && <SegmentDisplayNodeBody nodeId={id} />}
+          {d.nodeType === 'Display' && <CustomDisplayNodeBody nodeId={id} />}
           {d.nodeType === 'StereoVuMeter' && <StereoVuMeterNodeBody nodeId={id} />}
 
           {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}

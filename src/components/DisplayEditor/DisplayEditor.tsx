@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
-import { enterDisplayHistoryScope, leaveDisplayHistoryScope, useGraphStore } from '../../state/graphStore'
-import { DISPLAY_WIDGET_LIBRARY } from '../../state/displayRegistry'
+import {
+  enterDisplayHistoryScope,
+  leaveDisplayHistoryScope,
+  rootGraphEdges,
+  rootGraphNodes,
+  useGraphStore,
+} from '../../state/graphStore'
+import { DISPLAY_WIDGET_LIBRARY, displayWidgetPorts } from '../../state/displayRegistry'
 import {
   addDisplayWidget,
   alignDisplayWidgets,
@@ -102,6 +108,7 @@ export default function DisplayEditor() {
   const view = useUiStore((state) => state.designWorkspaceView)
   const fitViewRequest = useUiStore((state) => state.fitViewRequest)
   const closeDisplayWorkspace = useUiStore((state) => state.closeDisplayWorkspace)
+  const requestConfirm = useUiStore((state) => state.requestConfirm)
   const displayId = view.kind === 'display' ? view.displayId : ''
   const persisted = useGraphStore((state) => state.displayDocuments[displayId])
   const setDisplayDocument = useGraphStore((state) => state.setDisplayDocument)
@@ -263,6 +270,44 @@ export default function DisplayEditor() {
     setSelectedIds(result.widgetIds)
   }
 
+  const removeSelection = async (widgetIds: readonly string[], action: 'cut' | 'deleted') => {
+    if (widgetIds.length === 0) return
+    const state = useGraphStore.getState()
+    const displayNode = rootGraphNodes(state).find((node) => (
+      node.data.nodeType === 'Display'
+      && String(node.data.properties.displayId ?? node.id) === displayId
+    ))
+    const portIds = new Set(document.widgets
+      .filter((widget) => widgetIds.includes(widget.id))
+      .flatMap((widget) => displayWidgetPorts(widget).map((port) => port.id)))
+    const wiredEdges = displayNode
+      ? rootGraphEdges(state).filter((edge) => (
+          (edge.source === displayNode.id && portIds.has(edge.sourceHandle ?? ''))
+          || (edge.target === displayNode.id && portIds.has(edge.targetHandle ?? ''))
+        ))
+      : []
+    if (wiredEdges.length > 0) {
+      const ok = await requestConfirm({
+        title: widgetIds.length === 1 ? 'Delete wired widget?' : 'Delete wired widgets?',
+        message: `${wiredEdges.length} ${wiredEdges.length === 1 ? 'connection uses' : 'connections use'} the selected widget ${wiredEdges.length === 1 ? 'port' : 'ports'}. Deleting ${widgetIds.length === 1 ? 'it' : 'them'} will remove ${wiredEdges.length === 1 ? 'that connection' : 'those connections'} too.`,
+        confirmLabel: action === 'cut' ? 'Cut and disconnect' : 'Delete and disconnect',
+        cancelLabel: 'Keep widget',
+        tone: 'danger',
+      })
+      if (!ok) return
+    }
+    if (action === 'cut') {
+      displayWidgetClipboard = document.widgets
+        .filter((widget) => widgetIds.includes(widget.id))
+        .map((widget) => structuredClone(widget))
+    }
+    commit(
+      removeDisplayWidgets(document, widgetIds),
+      `${widgetIds.length} ${widgetIds.length === 1 ? 'widget' : 'widgets'} ${action}.`,
+    )
+    setSelectedIds([])
+  }
+
   return (
     <section
       className={styles.editor}
@@ -288,9 +333,7 @@ export default function DisplayEditor() {
         if (mod && direction.toLowerCase() === 'x' && selectedWidgets.length > 0) {
           event.preventDefault()
           event.stopPropagation()
-          copySelection()
-          commit(removeDisplayWidgets(document, selectedIds), `${selectedIds.length} ${selectedIds.length === 1 ? 'widget' : 'widgets'} cut.`)
-          setSelectedIds([])
+          void removeSelection(selectedIds, 'cut')
           return
         }
         if (mod && direction.toLowerCase() === 'v') {
@@ -303,8 +346,7 @@ export default function DisplayEditor() {
         if (direction === 'Delete' || direction === 'Backspace') {
           event.preventDefault()
           event.stopPropagation()
-          commit(removeDisplayWidgets(document, selectedIds), `${selectedIds.length} ${selectedIds.length === 1 ? 'widget' : 'widgets'} deleted.`)
-          setSelectedIds([])
+          void removeSelection(selectedIds, 'deleted')
           return
         }
         if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'd') {
@@ -472,7 +514,7 @@ export default function DisplayEditor() {
                   <div key={port.role}><dt>{port.label}</dt><dd>{port.direction} · {port.dataType}</dd></div>
                 ))}
               </dl>
-              <button className={styles.delete} type="button" onClick={() => { commit(removeDisplayWidgets(document, [selected.id]), `${selected.type} deleted.`); setSelectedIds([]) }}>Delete widget</button>
+              <button className={styles.delete} type="button" onClick={() => { void removeSelection([selected.id], 'deleted') }}>Delete widget</button>
             </>
           ) : selectedWidgets.length > 1 ? (
             <>
@@ -487,7 +529,7 @@ export default function DisplayEditor() {
                 <button type="button" disabled={selectedWidgets.length < 3} onClick={() => applySelectionTransform(distributeDisplayWidgets(document, selectedIds, 'horizontal'), 'Widgets distributed horizontally.')}>Distribute X</button>
                 <button type="button" disabled={selectedWidgets.length < 3} onClick={() => applySelectionTransform(distributeDisplayWidgets(document, selectedIds, 'vertical'), 'Widgets distributed vertically.')}>Distribute Y</button>
               </div>
-              <button className={styles.delete} type="button" onClick={() => { commit(removeDisplayWidgets(document, selectedIds), `${selectedIds.length} widgets deleted.`); setSelectedIds([]) }}>Delete widgets</button>
+              <button className={styles.delete} type="button" onClick={() => { void removeSelection(selectedIds, 'deleted') }}>Delete widgets</button>
             </>
           ) : (
             <>

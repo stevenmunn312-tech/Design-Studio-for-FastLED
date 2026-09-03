@@ -1410,6 +1410,18 @@ const TRANSPORT_DISPLAY_LIVE_EXAMPLE = namedExample(
   'The solid colour keeps the LED preview meaningful; the TFT is a separate physical display. On the ST7789V/XPT2046 module, wire Controls through Player Controls to use the visible transport or level controls in player firmware.',
 )
 
+const CUSTOM_DISPLAY_LIVE_EXAMPLE = namedExample(
+  'Display',
+  'Design a typed touch control surface',
+  [
+    { key: 'target', type: 'Display', properties: { displayId: 'example-display' } },
+    { key: 'color', type: 'SolidColor', properties: { r: 24, g: 52, b: 96 } },
+  ],
+  [],
+  'Custom Display owns a separate declarative widget document. Add widgets in its editor and the node mints stable typed ports from their ids and roles; renaming or moving a widget does not break its cables.',
+  'The solid colour keeps the LED Matrix preview meaningful while Custom Display remains a separate physical touch panel. Device generation is blocked until the LVGL runtime is available rather than silently leaving that panel dark.',
+)
+
 const MASTER_SPEED_LIVE_EXAMPLE = namedExample(
   'MasterSpeed',
   'Put one knob on the whole show',
@@ -1443,6 +1455,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   SegmentDisplay: SEGMENT_DISPLAY_LIVE_EXAMPLE,
   InfoDisplay: INFO_DISPLAY_LIVE_EXAMPLE,
   TransportDisplay: TRANSPORT_DISPLAY_LIVE_EXAMPLE,
+  Display: CUSTOM_DISPLAY_LIVE_EXAMPLE,
   StereoVuMeter: STEREO_VU_METER_LIVE_EXAMPLE,
   MasterSpeed: MASTER_SPEED_LIVE_EXAMPLE,
   TextValue: TEXT_VALUE_LIVE_EXAMPLE,

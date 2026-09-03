@@ -4,6 +4,7 @@ import {
   DISPLAY_WIDGET_LIBRARY,
   defaultDisplayWidgetBounds,
   defaultDisplayWidgetProperties,
+  displayDocumentPorts,
   displayWidgetPortId,
   displayWidgetPorts,
   displayWidgetValidationIssues,
@@ -61,6 +62,17 @@ describe('display widget registry', () => {
     expect(DISPLAY_WIDGET_LIBRARY.Text.portRoles).toEqual([
       { role: 'value', label: 'Text', direction: 'input', dataType: 'string' },
     ])
+  })
+
+  it('partitions document ports by graph direction without changing widget order', () => {
+    const ports = displayDocumentPorts({
+      widgets: [
+        widget({ id: 'title', type: 'Text', label: 'Title' }),
+        widget({ id: 'volume', type: 'Slider', label: 'Volume' }),
+      ],
+    })
+    expect(ports.inputs.map((port) => port.id)).toEqual(['widget:title:value', 'widget:volume:set'])
+    expect(ports.outputs.map((port) => port.id)).toEqual(['widget:volume:out'])
   })
 
   it('provides independent defaults and registry-owned minimum bounds', () => {

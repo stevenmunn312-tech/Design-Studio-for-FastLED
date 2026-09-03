@@ -2930,6 +2930,38 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
+    // Freeform touch UI. Its ports are deliberately empty here: they are
+    // derived from the matching DisplayDocument's stable widget roles by the
+    // graph store, then persisted on the node for React Flow and imports.
+    type: 'Display',
+    label: 'Custom Display',
+    category: 'output',
+    inputs: [],
+    outputs: [],
+    defaultProperties: {
+      displayId: '',
+      partId: 'st7789v-xpt2046-touch-240x320',
+      tftRotation: '0',
+      sckPin: 18,
+      mosiPin: 23,
+      misoPin: 19,
+      csPin: 5,
+      dcPin: 16,
+      resetPin: 17,
+      backlightPin: 4,
+      touchCsPin: 15,
+      touchIrqPin: 2,
+      touchSckPin: 18,
+      touchMosiPin: 23,
+      touchMisoPin: 19,
+      touchXMin: 200,
+      touchXMax: 3900,
+      touchYMin: 200,
+      touchYMax: 3900,
+      enabled: true,
+    },
+  },
+  {
     /*
      * One knob on the one shared time value.
      *
@@ -3228,6 +3260,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   SegmentDisplay: 'A 4 or 8-digit 7-segment module showing a number, clock, or index.',
   InfoDisplay: 'A 128x64 OLED showing a now-playing, clock, status, or pattern-browser screen.',
   TransportDisplay: 'A colour TFT showing now-playing, touch transport, or show-status controls.',
+  Display: 'A touch display whose typed graph ports come from its custom widget layout.',
   MasterSpeed: 'Scales animation time for the whole graph. 1 is normal, 0 freezes it.',
   ScheduleTrigger: 'Time-of-day window/trigger driven by RTCInput clock and calendar fields.',
   BeatSin: 'Beat-synced sine oscillator — outputs a normalized low↔high value at a BPM.',
@@ -3705,6 +3738,13 @@ const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
 export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
   TransportDisplay: {
     tftLayout: { control: 'select', options: ['Now Playing', 'Fixed Transport', 'Show Status'] },
+    tftRotation: { control: 'select', options: ['0', '90', '180', '270'] },
+    touchXMin: { control: 'slider', min: 0, max: 4095, step: 1 },
+    touchXMax: { control: 'slider', min: 0, max: 4095, step: 1 },
+    touchYMin: { control: 'slider', min: 0, max: 4095, step: 1 },
+    touchYMax: { control: 'slider', min: 0, max: 4095, step: 1 },
+  },
+  Display: {
     tftRotation: { control: 'select', options: ['0', '90', '180', '270'] },
     touchXMin: { control: 'slider', min: 0, max: 4095, step: 1 },
     touchXMax: { control: 'slider', min: 0, max: 4095, step: 1 },
@@ -4793,6 +4833,10 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
     'sckPin', 'mosiPin', 'misoPin', 'csPin', 'dcPin', 'resetPin', 'backlightPin',
     'touchCsPin', 'touchIrqPin', 'touchSckPin', 'touchMosiPin', 'touchMisoPin',
   ]),
+  Display: new Set([
+    'sckPin', 'mosiPin', 'misoPin', 'csPin', 'dcPin', 'resetPin', 'backlightPin',
+    'touchCsPin', 'touchIrqPin', 'touchSckPin', 'touchMosiPin', 'touchMisoPin',
+  ]),
   SDCard: new Set(['sdCsPin', 'sdSckPin', 'sdMisoPin', 'sdMosiPin']),
   Amplifier: new Set(['i2sBclk', 'i2sLrc', 'i2sDout']),
   MatrixOutput: new Set([
@@ -4841,7 +4885,7 @@ export function gpioRequirementForProperty(
   if (nodeType === 'SDCard' && key === 'sdMisoPin') {
     return { capability: 'digitalInput', pullup: false }
   }
-  if (nodeType === 'TransportDisplay'
+  if ((nodeType === 'TransportDisplay' || nodeType === 'Display')
     && (key === 'misoPin' || key === 'touchMisoPin' || key === 'touchIrqPin')) {
     return { capability: 'digitalInput', pullup: false }
   }
@@ -5069,12 +5113,12 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     if (OLED_PIN_PROPERTIES.has(key)) return OLED_TRANSPORT_PINS[transport].includes(key)
     if (key === 'i2cAddress') return transport === 'i2c'
   }
-  if (nodeType === 'TransportDisplay'
+  if ((nodeType === 'TransportDisplay' || nodeType === 'Display')
     && (TRANSPORT_DISPLAY_BASE_PINS.includes(key as never)
       || TRANSPORT_DISPLAY_TOUCH_PINS.includes(key as never))) {
     return transportDisplayPinKeysForProps(properties).includes(key)
   }
-  if (nodeType === 'TransportDisplay' && key.startsWith('touch') && !key.endsWith('Pin')) {
+  if ((nodeType === 'TransportDisplay' || nodeType === 'Display') && key.startsWith('touch') && !key.endsWith('Pin')) {
     return Boolean(partById(String(properties.partId ?? ''))?.display?.touchController)
   }
   if (nodeType === 'DMXInput') {

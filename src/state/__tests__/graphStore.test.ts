@@ -7,6 +7,7 @@ import { useUiStore } from '../uiStore'
 import { clearPatternContentTrustForTests } from '../patternTrust'
 import { useNodeDefaults } from '../nodeDefaults'
 import { controllerSettings } from '../controllerSettings'
+import { addDisplayWidget, createDisplayDocument, removeDisplayWidget, updateDisplayWidget } from '../displayEditor'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -1157,6 +1158,108 @@ describe('graphStore — custom display documents', () => {
       clearStashedGraphHistory()
       vi.useRealTimers()
     }
+  })
+
+  it('derives stable outer-node ports and keeps cables across label edits', () => {
+    reset([node('screen', 'Display', { displayId: 'panel' })])
+    let document = addDisplayWidget(createDisplayDocument('panel'), 'Text')
+    document = addDisplayWidget(document, 'Toggle')
+    useGraphStore.getState().setDisplayDocument(document)
+
+    let screen = useGraphStore.getState().nodes[0]
+    expect(screen.data.inputs).toEqual([
+      { id: 'widget:text:value', label: 'Text', dataType: 'string' },
+      { id: 'widget:toggle:set', label: 'Toggle Set', dataType: 'bool' },
+    ])
+    expect(screen.data.outputs).toEqual([
+      { id: 'widget:toggle:out', label: 'Toggle Output', dataType: 'bool' },
+    ])
+
+    useGraphStore.setState({
+      edges: [
+        edge('text-wire', 'source', 'text', 'screen', 'widget:text:value'),
+        edge('toggle-wire', 'screen', 'widget:toggle:out', 'sink', 'x'),
+      ],
+    })
+    document = updateDisplayWidget(document, 'toggle', (widget) => ({ ...widget, label: 'Blackout' }))
+    useGraphStore.getState().setDisplayDocument(document)
+
+    screen = useGraphStore.getState().nodes[0]
+    expect(screen.data.outputs).toContainEqual({
+      id: 'widget:toggle:out', label: 'Blackout Output', dataType: 'bool',
+    })
+    expect(useGraphStore.getState().edges.map((entry) => entry.id)).toEqual(['text-wire', 'toggle-wire'])
+  })
+
+  it('removes disappeared widget cables in the same undo step as the document edit', () => {
+    vi.useFakeTimers()
+    try {
+      reset([node('screen', 'Display', { displayId: 'panel' })])
+      let document = addDisplayWidget(createDisplayDocument('panel'), 'Text')
+      document = addDisplayWidget(document, 'Button')
+      useGraphStore.getState().setDisplayDocument(document)
+      useGraphStore.setState({
+        edges: [
+          edge('text-wire', 'source', 'text', 'screen', 'widget:text:value'),
+          edge('button-wire', 'screen', 'widget:button:out', 'sink', 'x'),
+        ],
+      })
+      vi.advanceTimersByTime(400)
+      useGraphStore.temporal.getState().clear()
+
+      useGraphStore.getState().setDisplayDocument(removeDisplayWidget(document, 'text'))
+      vi.advanceTimersByTime(400)
+      expect(useGraphStore.getState().edges.map((entry) => entry.id)).toEqual(['button-wire'])
+      expect(useGraphStore.getState().nodes[0].data.inputs).toEqual([])
+
+      useGraphStore.temporal.getState().undo()
+      expect(useGraphStore.getState().displayDocuments.panel.widgets.map((widget) => widget.id)).toEqual(['text', 'button'])
+      expect(useGraphStore.getState().edges.map((entry) => entry.id)).toEqual(['text-wire', 'button-wire'])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not carry a cable across an in-place widget port-type change', () => {
+    reset([node('screen', 'Display', { displayId: 'panel' })])
+    const document = addDisplayWidget(createDisplayDocument('panel'), 'Text')
+    useGraphStore.getState().setDisplayDocument(document)
+    useGraphStore.setState({ edges: [edge('wire', 'source', 'text', 'screen', 'widget:text:value')] })
+
+    useGraphStore.getState().setDisplayDocument({
+      ...document,
+      widgets: document.widgets.map((widget) => ({
+        ...widget,
+        type: 'Numeric Readout',
+        properties: { decimals: 1, prefix: '', suffix: '', min: 0, max: 100 },
+      })),
+    })
+    expect(useGraphStore.getState().nodes[0].data.inputs).toContainEqual({
+      id: 'widget:text:value', label: 'Text', dataType: 'float',
+    })
+    expect(useGraphStore.getState().edges).toEqual([])
+  })
+
+  it('gives duplicated custom-display nodes independent documents', () => {
+    reset([node('screen', 'Display', { displayId: 'panel' })])
+    const document = addDisplayWidget(createDisplayDocument('panel'), 'Button')
+    useGraphStore.getState().setDisplayDocument(document)
+    useGraphStore.getState().duplicateNode('screen')
+
+    const state = useGraphStore.getState()
+    const copy = state.nodes.find((entry) => entry.id !== 'screen')!
+    const copyDisplayId = String(copy.data.properties.displayId)
+    expect(copyDisplayId).toBe(copy.id)
+    expect(state.displayDocuments[copyDisplayId]).toEqual({ ...document, displayId: copyDisplayId })
+    expect(state.displayDocuments[copyDisplayId]).not.toBe(document)
+  })
+
+  it('removes a custom display document with its physical node', () => {
+    reset([node('screen', 'Display', { displayId: 'panel' })])
+    useGraphStore.getState().setDisplayDocument(createDisplayDocument('panel'))
+    useGraphStore.getState().removeNodeCompletely('screen')
+    expect(useGraphStore.getState().nodes).toEqual([])
+    expect(useGraphStore.getState().displayDocuments).toEqual({})
   })
 })
 

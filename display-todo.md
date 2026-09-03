@@ -623,7 +623,7 @@ freeform widgets must reuse rather than rediscover.
 
 ### Phase 6 — custom UI document and editor
 
-- [ ] Add a discriminated workspace view (`graph` or `display`) while keeping
+- [x] Add a discriminated workspace view (`graph` or `display`) while keeping
   signal `graphData` and declarative `displayDocuments` separate. Reuse the
   existing enter/exit gesture, breadcrumbs, fit-view request, and per-document
   undo expectations without pretending widgets are React Flow nodes.
@@ -633,7 +633,8 @@ freeform widgets must reuse rather than rediscover.
   Graph breadcrumb or Escape, and suppresses graph-only clipboard shortcuts.
   Undo/redo stacks are now stashed per display id and rebased when restored, so
   a step in one display cannot alter another display or the parked graph. The
-  future outer `Display` node still needs to create/open the document.
+  outer `Display` hardware node now creates its document and opens it from its
+  node body or a double-click.
 - [x] Define and version `DisplayDocument` and `DisplayWidget` schemas. At
   minimum store display/module id, resolution/orientation, grid, theme,
   widgets, stable ids, integer bounds, type, validated properties and validated
@@ -656,7 +657,7 @@ freeform widgets must reuse rather than rediscover.
   maintaining a second property-key table. The DOM preview dispatch now covers
   every adapter identity and the editor builds its property controls from the
   registry metadata. LVGL adapters remain Phase 7 work.
-- [ ] Implement add, select, multi-select, drag, keyboard nudge, resize, snap,
+- [x] Implement add, select, multi-select, drag, keyboard nudge, resize, snap,
   align/distribute, duplicate, delete, copy/paste, undo/redo, zoom/fit, and
   non-overlap collision feedback. Prioritise add/select/drag/resize/snap and
   undo before multi-select/alignment/copy workflows.
@@ -677,11 +678,17 @@ freeform widgets must reuse rather than rediscover.
   reference their issue text directly, and selection announcements include the
   selected widget's validation state alongside its type, integer bounds and
   role-based port contract.
-- [ ] Auto-mint/remove dynamic ports on the outer `Display` node. Removing a
+- [x] Auto-mint/remove dynamic ports on the outer `Display` node. Removing a
   wired widget requires confirmation and removes its edges atomically. Changing
   a widget to a different port type is create-new/delete-old, not an in-place
   type mutation. Port ids derive from widget id plus registry role (`value`,
   `out`, `set`, and later `x`/`y`), never label or array position.
+  `displayDocumentPorts` derives ordered typed inputs/outputs from the registry,
+  and the graph store synchronizes those onto the root-scoped hardware node.
+  Label and position edits retain cables; removed roles and incompatible type
+  changes prune only their affected edges in the same undoable transaction.
+  The editor confirms before deleting or cutting wired widgets, and duplicating
+  a custom-display node clones its document under a fresh display id.
 - [ ] Add a read-only “run” preview mode that accepts pointer/touch input and a
   design mode that never fires graph actions accidentally.
 - [ ] Use a shared widget theme/token model for DOM preview and LVGL codegen.

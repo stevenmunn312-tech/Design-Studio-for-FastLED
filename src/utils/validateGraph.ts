@@ -433,6 +433,10 @@ export const DISPLAY_RAM_BYTES_BY_NODE_TYPE: Record<string, number> = {
   // drew and repaints only when that changes. Hundreds of bytes rather than
   // the OLED's thousands, on fifty times the pixels.
   TransportDisplay: TFT_PANEL_RAM_BYTES,
+  // Until the LVGL heap estimator lands, retain at least the colour-panel
+  // driver's known fixed cost. Generation is blocked below, so this is never
+  // presented as a complete custom-runtime estimate.
+  Display: TFT_PANEL_RAM_BYTES,
 }
 
 /**
@@ -1552,6 +1556,13 @@ export function findDisplayGeneratorIssues(
   // up below as unresolved ports and as a transport a Controls wire can reach,
   // not as a generator that leaves the part dark.
   errors.push(...splitI2cBusErrors(nodes))
+
+  for (const display of displays.filter((node) => node.data.nodeType === 'Display')) {
+    errors.push(
+      `${nodeLabel(display)} uses a custom widget document, but LVGL firmware generation is not available yet. `
+      + 'Keep designing and wiring the screen in the editor, then use a fixed Transport Display for device builds until the custom display runtime lands.',
+    )
+  }
 
   for (const display of displays.filter((node) => node.data.nodeType === 'TransportDisplay')) {
     const props = display.data.properties as Record<string, unknown>

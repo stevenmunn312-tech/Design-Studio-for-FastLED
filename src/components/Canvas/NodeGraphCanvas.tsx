@@ -649,8 +649,11 @@ function NodeGraphCanvasInner() {
 
   const onNodeDoubleClick: NodeMouseHandler = useCallback(
     (_e, node) => {
-      const d = node.data as { nodeType?: string; properties?: { groupId?: string } }
+      const d = node.data as { nodeType?: string; properties?: { groupId?: string; displayId?: string } }
       if (d.nodeType === 'Group' && d.properties?.groupId) enterGraph(d.properties.groupId)
+      if (d.nodeType === 'Display') {
+        useUiStore.getState().openDisplayWorkspace(d.properties?.displayId ?? node.id)
+      }
     },
     [enterGraph]
   )

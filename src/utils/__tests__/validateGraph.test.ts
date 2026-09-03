@@ -1366,7 +1366,7 @@ describe('validateGraph', () => {
       for (const nodeType of DISPLAY_NODE_TYPES) {
         expect(DISPLAY_RAM_BYTES_BY_NODE_TYPE[nodeType]).toBeGreaterThan(0)
       }
-      expect([...DISPLAY_NODE_TYPES].sort()).toEqual(['InfoDisplay', 'SegmentDisplay', 'TransportDisplay'])
+      expect([...DISPLAY_NODE_TYPES].sort()).toEqual(['Display', 'InfoDisplay', 'SegmentDisplay', 'TransportDisplay'])
     })
 
 

@@ -104,6 +104,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'SegmentDisplay',
   'InfoDisplay',
   'TransportDisplay',
+  'Display',
 ])
 
 const BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS = new Set([
@@ -228,7 +229,8 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         push(node, `${baseLabel} MOSI`, 'mosiPin', props.mosiPin)
         break
       }
-      case 'TransportDisplay': {
+      case 'TransportDisplay':
+      case 'Display': {
         const labels: Record<string, string> = {
           sckPin: 'SCK', mosiPin: 'MOSI', misoPin: 'MISO', csPin: 'CS', dcPin: 'DC',
           resetPin: 'RESET', backlightPin: 'BACKLIGHT', touchCsPin: 'TOUCH CS',
@@ -633,7 +635,8 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             : [`This OLED has no complete ${labels} pin set configured.`],
         }
       }
-      case 'TransportDisplay': {
+      case 'TransportDisplay':
+      case 'Display': {
         const props = node.data.properties as Record<string, unknown>
         const partId = String(props.partId ?? 'st7789-tft-240x240')
         const entry = partById(partId)
