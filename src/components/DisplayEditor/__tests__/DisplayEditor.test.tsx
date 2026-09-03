@@ -165,6 +165,7 @@ describe('DisplayEditor', () => {
     fireEvent.keyDown(slider, { key: 'ArrowRight' })
     expect(slider.getAttribute('aria-valuenow')).toBe('0.01')
     expect(slider.getAttribute('style')).toContain('--widget-state-surface')
+    expect(slider.getAttribute('style')).toContain('--widget-hit-inset-y: 0px')
     expect(useGraphStore.getState().displayDocuments.panel).toEqual(before)
 
     fireEvent.click(view.getByRole('button', { name: 'Design' }))

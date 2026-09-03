@@ -91,6 +91,17 @@ export interface DisplayWidgetValidationIssue {
   message: string
 }
 
+/**
+ * Touch-first geometry for the 320x240 reference screen. A primary control is
+ * at least DISPLAY_TOUCH_TARGET_MIN_PX on both axes, two controls stay
+ * DISPLAY_TOUCH_SEPARATION_PX apart so one finger cannot land on both, and a
+ * control paints a track only DISPLAY_CONTROL_TRACK_PX thick — which is why a
+ * hit region is derived from the widget's bounds and never from that track.
+ */
+export const DISPLAY_TOUCH_TARGET_MIN_PX = 48
+export const DISPLAY_TOUCH_SEPARATION_PX = 8
+export const DISPLAY_CONTROL_TRACK_PX = 8
+
 const TOUCH_TFT = ['touch-tft'] as const
 const PASSIVE_STATES = ['default', 'inactive', 'disabled'] as const
 const VALUE_STATES = ['default', 'active', 'inactive', 'disabled'] as const
@@ -424,6 +435,31 @@ export function defaultDisplayWidgetBounds(type: DisplayWidgetType, x = 0, y = 0
     y,
     width: Math.max(definition.minimumVisualSize.width, definition.minimumTouchSize?.width ?? 0),
     height: Math.max(definition.minimumVisualSize.height, definition.minimumTouchSize?.height ?? 0),
+  }
+}
+
+/** A control a finger operates, and therefore one the touch-first geometry
+ * rules apply to. Derived from the registry's touch minimum so a new control
+ * joins the rule by declaring one. */
+export function isDisplayTouchTarget(type: DisplayWidgetType): boolean {
+  return DISPLAY_WIDGET_LIBRARY[type].minimumTouchSize !== undefined
+}
+
+/** The pointer region for a control: its drawn bounds grown symmetrically to
+ * the registry touch minimum. It equals the bounds of a widget the editor
+ * constrained and is larger for one that arrived through import, and it is
+ * always the whole control rather than the thin track a slider paints. LVGL
+ * takes the per-side difference as its extended click area. */
+export function displayControlHitBounds(widget: Pick<DisplayWidget, 'type' | 'bounds'>): DisplayBounds {
+  const touch = DISPLAY_WIDGET_LIBRARY[widget.type].minimumTouchSize
+  if (!touch) return { ...widget.bounds }
+  const width = Math.max(widget.bounds.width, touch.width)
+  const height = Math.max(widget.bounds.height, touch.height)
+  return {
+    x: Math.round(widget.bounds.x - (width - widget.bounds.width) / 2),
+    y: Math.round(widget.bounds.y - (height - widget.bounds.height) / 2),
+    width,
+    height,
   }
 }
 

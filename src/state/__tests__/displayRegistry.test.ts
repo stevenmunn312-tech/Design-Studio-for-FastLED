@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { DISPLAY_WIDGET_TYPES, type DisplayWidget } from '../displayDocument'
 import {
+  DISPLAY_CONTROL_TRACK_PX,
+  DISPLAY_TOUCH_TARGET_MIN_PX,
   DISPLAY_WIDGET_LIBRARY,
+  displayControlHitBounds,
   defaultDisplayWidgetBounds,
   defaultDisplayWidgetProperties,
   displayDocumentPorts,
   displayWidgetPortId,
   displayWidgetPorts,
   displayWidgetValidationIssues,
+  isDisplayTouchTarget,
   normalizeDisplayWidgetProperties,
 } from '../displayRegistry'
 
@@ -96,6 +100,22 @@ describe('display widget registry', () => {
     expect(normalizeDisplayWidgetProperties('Slider', {
       min: Number.NaN, max: 2_000_000, step: -4, orientation: 'round',
     }, 160, 24)).toEqual({ max: 1_000_000, step: 0.0001 })
+  })
+
+  it('sizes every touch target for a finger and grows its hit region past the track it paints', () => {
+    for (const type of DISPLAY_WIDGET_TYPES) {
+      const touch = DISPLAY_WIDGET_LIBRARY[type].minimumTouchSize
+      expect(isDisplayTouchTarget(type)).toBe(touch !== undefined)
+      if (!touch) continue
+      expect(Math.min(touch.width, touch.height)).toBeGreaterThanOrEqual(DISPLAY_TOUCH_TARGET_MIN_PX)
+    }
+
+    expect(displayControlHitBounds(widget())).toEqual({ x: 8, y: 8, width: 120, height: 48 })
+    expect(displayControlHitBounds(widget({ bounds: { x: 40, y: 40, width: 60, height: 20 } })))
+      .toEqual({ x: 22, y: 26, width: 96, height: 48 })
+    expect(displayControlHitBounds(widget()).height).toBeGreaterThan(DISPLAY_CONTROL_TRACK_PX)
+    expect(displayControlHitBounds(widget({ type: 'Text', bounds: { x: 0, y: 0, width: 48, height: 20 } })))
+      .toEqual({ x: 0, y: 0, width: 48, height: 20 })
   })
 
   it('reports visual, touch, asset, and cross-property validation issues', () => {

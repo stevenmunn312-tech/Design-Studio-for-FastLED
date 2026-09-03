@@ -719,12 +719,20 @@ freeform widgets must reuse rather than rediscover.
   canonical semantic glyphs, all launch/follow-on palette thumbnails, theme
   tokens, supported-size backgrounds, themed player controls and starter-
   template previews; source working-folder paths must never enter a workspace.
-- [ ] Enforce touch-first geometry per target rather than only visual minimums:
+- [x] Enforce touch-first geometry per target rather than only visual minimums:
   approximately 48×48 px primary targets and 6–8 px separation on the 320×240
   reference screen, with Slider hit regions wider than their visible tracks.
-  New and resized controls now enforce the greater of each registry entry's
-  visual and touch minimum. Separation and the Slider's expanded runtime hit
-  region remain to be enforced.
+  New and resized controls enforce the greater of each registry entry's visual
+  and touch minimum. `DISPLAY_TOUCH_SEPARATION_PX` now states the finger gap
+  once: `displayWidgetsTooClose` compares hit regions rather than paint, new
+  widgets are placed clear of it, and a pair that comes closer reports a
+  `separation` issue distinct from an overlap. Only touch targets take part —
+  derived from the registry's touch minimum, so a caption may still sit against
+  a button. `displayControlHitBounds` is the one statement of a control's
+  pointer region: the drawn bounds grown symmetrically to that minimum, which
+  Run mode applies as an extended click area around the painted control the way
+  LVGL will, leaving a slider's hit region far taller than the
+  `DISPLAY_CONTROL_TRACK_PX` track it paints.
 - [ ] Add declarative templates for Now Playing, Minimal Transport, Pattern
   Deck, LED Performance, Audio Reactor, Diagnostics and DMX Monitor. Templates
   insert ordinary widgets and mint ordinary visible ports; they do not gain

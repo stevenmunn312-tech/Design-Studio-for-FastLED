@@ -16,7 +16,13 @@ import {
   useGraphStore,
 } from '../../state/graphStore'
 import { portColor } from '../../state/nodeLibrary'
-import { DISPLAY_WIDGET_LIBRARY, displayWidgetPorts, type DisplayWidgetState } from '../../state/displayRegistry'
+import {
+  DISPLAY_CONTROL_TRACK_PX,
+  DISPLAY_WIDGET_LIBRARY,
+  displayControlHitBounds,
+  displayWidgetPorts,
+  type DisplayWidgetState,
+} from '../../state/displayRegistry'
 import {
   addDisplayWidget,
   alignDisplayWidgets,
@@ -79,6 +85,7 @@ function RunDisplayWidget({ widget, theme, value, onValue }: RunDisplayWidgetPro
   const numericValue = typeof value === 'number' ? value : range.min
   const booleanValue = value === true
   const visualState = displayWidgetVisualState(widget, value, { pressed: touchOwned })
+  const hitBounds = displayControlHitBounds(widget)
   const role = widget.type === 'Toggle'
     ? 'switch'
     : widget.type === 'Slider' || widget.type === 'Dial'
@@ -158,7 +165,11 @@ function RunDisplayWidget({ widget, theme, value, onValue }: RunDisplayWidgetPro
         width: widget.bounds.width,
         height: widget.bounds.height,
         ...widgetThemeVariables(theme, visualState),
-      }}
+        // The element paints its declared bounds; the pointer region is grown
+        // to the registry touch minimum the way LVGL extends a click area.
+        '--widget-hit-inset-x': `${(widget.bounds.width - hitBounds.width) / 2}px`,
+        '--widget-hit-inset-y': `${(widget.bounds.height - hitBounds.height) / 2}px`,
+      } as CSSProperties}
       data-widget-state={visualState}
       role={role}
       tabIndex={interactive ? 0 : undefined}
@@ -227,6 +238,7 @@ function widgetThemeVariables(theme: DisplayDocument['theme'], state: DisplayWid
     '--widget-state-thumb': tokens.thumbColor,
     '--widget-state-opacity': tokens.opacity,
     '--widget-state-offset': `${tokens.pressedOffset}px`,
+    '--widget-track-thickness': `${DISPLAY_CONTROL_TRACK_PX}px`,
   } as CSSProperties
 }
 
@@ -345,8 +357,8 @@ export default function DisplayEditor() {
   const issuesByWidget = useMemo(() => new Map(document?.widgets.map((widget) => (
     [widget.id, issuesForWidget(issues, widget.id)]
   )) ?? []), [document, issues])
-  const collisionIds = useMemo(() => new Set(issues.flatMap((issue) => (
-    issue.code === 'collision' ? [issue.widgetId, issue.otherWidgetId ?? ''] : []
+  const geometryIssueIds = useMemo(() => new Set(issues.flatMap((issue) => (
+    issue.code === 'collision' || issue.code === 'separation' ? [issue.widgetId, issue.otherWidgetId ?? ''] : []
   ))), [issues])
 
   const displayWidth = document?.designSize.width ?? 0
@@ -660,7 +672,7 @@ export default function DisplayEditor() {
                   <button
                     key={widget.id}
                     type="button"
-                    className={`${styles.widget} ${isSelected ? styles.selected : ''} ${collisionIds.has(widget.id) ? styles.collision : ''}`}
+                    className={`${styles.widget} ${isSelected ? styles.selected : ''} ${geometryIssueIds.has(widget.id) ? styles.collision : ''}`}
                     style={{
                       left: widget.bounds.x,
                       top: widget.bounds.y,

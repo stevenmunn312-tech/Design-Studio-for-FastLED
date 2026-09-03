@@ -253,6 +253,14 @@
   cursor: pointer;
 }
 
+/* The extended click area: a control paints its bounds while a finger may land
+   anywhere in the registry touch region around it. */
+.widget.runWidget.interactiveWidget::before {
+  position: absolute;
+  content: '';
+  inset: var(--widget-hit-inset-y, 0) var(--widget-hit-inset-x, 0);
+}
+
 .widget.runWidget.interactiveWidget:focus-visible {
   border-color: var(--display-accent);
   outline: 2px solid color-mix(in srgb, var(--display-accent) 72%, white);

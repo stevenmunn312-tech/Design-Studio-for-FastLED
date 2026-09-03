@@ -8,16 +8,19 @@ import {
   type DisplayWidgetType,
 } from './displayDocument'
 import {
+  DISPLAY_TOUCH_SEPARATION_PX,
   DISPLAY_WIDGET_LIBRARY,
   defaultDisplayWidgetBounds,
   defaultDisplayWidgetProperties,
+  displayControlHitBounds,
   displayWidgetValidationIssues,
+  isDisplayTouchTarget,
   type DisplayClass,
 } from './displayRegistry'
 
 export interface DisplayLayoutIssue {
   widgetId: string
-  code: 'collision' | 'bounds' | 'widget'
+  code: 'collision' | 'separation' | 'bounds' | 'widget'
   message: string
   otherWidgetId?: string
 }
@@ -59,6 +62,16 @@ export function boundsIntersect(a: DisplayBounds, b: DisplayBounds, gap = 0): bo
     && a.y + a.height + gap > b.y
 }
 
+type PlacedWidget = Pick<DisplayWidget, 'type' | 'bounds'>
+
+/** Two controls are too close when one finger could land on both: their hit
+ * regions come within the touch separation of each other. Widgets that are not
+ * touch targets never trigger it, so a caption may sit against a button. */
+export function displayWidgetsTooClose(a: PlacedWidget, b: PlacedWidget): boolean {
+  if (!isDisplayTouchTarget(a.type) || !isDisplayTouchTarget(b.type)) return false
+  return boundsIntersect(displayControlHitBounds(a), displayControlHitBounds(b), DISPLAY_TOUCH_SEPARATION_PX)
+}
+
 function snap(value: number, gridSize: number): number {
   return Math.round(value / Math.max(1, gridSize)) * Math.max(1, gridSize)
 }
@@ -94,7 +107,11 @@ function firstAvailableBounds(document: DisplayDocument, type: DisplayWidgetType
   for (let y = 0; y <= document.designSize.height - candidate.height; y += step) {
     for (let x = 0; x <= document.designSize.width - candidate.width; x += step) {
       const at = { ...candidate, x, y }
-      if (!document.widgets.some((widget) => boundsIntersect(at, widget.bounds))) return at
+      const placed: PlacedWidget = { type, bounds: at }
+      const blocked = document.widgets.some((widget) => (
+        boundsIntersect(at, widget.bounds) || displayWidgetsTooClose(placed, widget)
+      ))
+      if (!blocked) return at
     }
   }
   return candidate
@@ -320,13 +337,21 @@ export function displayLayoutIssues(
       issues.push({ widgetId: widget.id, code: 'widget', message: issue.message })
     }
     for (const other of document.widgets.slice(index + 1)) {
-      if (!boundsIntersect(widget.bounds, other.bounds)) continue
-      issues.push({
-        widgetId: widget.id,
-        otherWidgetId: other.id,
-        code: 'collision',
-        message: `${widget.label} overlaps ${other.label}.`,
-      })
+      if (boundsIntersect(widget.bounds, other.bounds)) {
+        issues.push({
+          widgetId: widget.id,
+          otherWidgetId: other.id,
+          code: 'collision',
+          message: `${widget.label} overlaps ${other.label}.`,
+        })
+      } else if (displayWidgetsTooClose(widget, other)) {
+        issues.push({
+          widgetId: widget.id,
+          otherWidgetId: other.id,
+          code: 'separation',
+          message: `${widget.label} needs ${DISPLAY_TOUCH_SEPARATION_PX} px of separation from ${other.label}.`,
+        })
+      }
     }
   }
   return issues

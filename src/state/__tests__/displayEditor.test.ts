@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { DISPLAY_TOUCH_SEPARATION_PX } from '../displayRegistry'
 import {
   addDisplayWidget,
   alignDisplayWidgets,
@@ -57,6 +58,39 @@ describe('custom display editor model', () => {
     document.widgets[1].properties.text = 'Copy'
     expect(document.widgets[0].properties.text).toBe('Button')
     expect(removeDisplayWidget(document, 'button').widgets.map((widget) => widget.id)).toEqual(['button-2'])
+  })
+
+  it('keeps touch targets a finger apart while passive widgets may sit against them', () => {
+    let document = createDisplayDocument('panel', 320, 240)
+    document = addDisplayWidget(document, 'Button')
+    document = addDisplayWidget(document, 'Button')
+    const [first, second] = document.widgets
+    expect(second.bounds.x - (first.bounds.x + first.bounds.width)).toBeGreaterThanOrEqual(DISPLAY_TOUCH_SEPARATION_PX)
+    expect(displayLayoutIssues(document)).toEqual([])
+
+    const adjacent = updateDisplayWidget(document, 'button-2', (widget) => ({
+      ...widget,
+      bounds: { ...widget.bounds, x: first.bounds.x + first.bounds.width },
+    }))
+    expect(displayLayoutIssues(adjacent)).toEqual([{
+      widgetId: 'button',
+      otherWidgetId: 'button-2',
+      code: 'separation',
+      message: `Button needs ${DISPLAY_TOUCH_SEPARATION_PX} px of separation from Button.`,
+    }])
+
+    const overlapping = updateDisplayWidget(adjacent, 'button-2', (widget) => ({
+      ...widget,
+      bounds: { ...widget.bounds, x: first.bounds.x + 16 },
+    }))
+    expect(displayLayoutIssues(overlapping).map((issue) => issue.code)).toEqual(['collision'])
+
+    let withCaption = addDisplayWidget(document, 'Text')
+    withCaption = updateDisplayWidget(withCaption, 'text', (widget) => ({
+      ...widget,
+      bounds: { ...widget.bounds, x: first.bounds.x, y: first.bounds.y + first.bounds.height },
+    }))
+    expect(displayLayoutIssues(withCaption)).toEqual([])
   })
 
   it('moves a multi-selection as a bounded group without changing its spacing', () => {
