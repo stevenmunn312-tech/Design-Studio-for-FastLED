@@ -1,5 +1,6 @@
 import type { StudioEdge, StudioNode } from './graphStore'
 import type { SavedPattern } from './patternLibrary'
+import type { PatternFormTag } from './patternTags'
 import { NODE_LIBRARY } from './nodeLibrary'
 
 import auroraCometFoundry from '../assets/bundled-patterns/Aurora Comet Foundry.json'
@@ -726,6 +727,78 @@ const AUDIO_PATTERN_SEEDS = [
   tidalGlassMeditation,
 ] as unknown as BundledSeed[]
 
+/**
+ * Where each curated pattern looks best — the same claim a user makes with the
+ * "best displayed on" chips, made here because bundled patterns are read-only
+ * in the UI (see `patternTags.ts` for why the claim is authored rather than
+ * measured).
+ *
+ * Keyed by name and kept as one table rather than as an argument to twenty
+ * `pattern(...)` calls, so these are read, compared and revised as a set — and
+ * so the twenty audio patterns, which arrive as JSON assets, are judged in the
+ * same place as the standard shelf.
+ *
+ * Most entries name one or two outputs, never all three: a tag on every
+ * pattern ranks nothing. Absent is a real answer and the right one whenever a
+ * pattern is simply good everywhere — Opaline Plasma, Cloud Chamber and Silver
+ * Shoal are soft fields that read the same on a line, a grid or a circle, and
+ * saying so by staying quiet is more useful than a badge.
+ *
+ * The reasoning, so a later pass can disagree with something specific:
+ *   string  a line-native effect — a sweep, a trail, a twinkle, or one of the
+ *           FastLED demos (Pacifica, Pride2015) that was written for tape
+ *   matrix  losing the second axis loses the idea — spectrum bar height, a
+ *           waterfall's scroll, Zones' quadrants, Boids' flocking, a warped
+ *           field, Animartrix
+ *   ring    angular or radial content that comes round without a seam
+ */
+const BUNDLED_BEST_ON: Record<string, PatternFormTag[]> = {
+  // Standard shelf
+  'Azure Tideglass': ['string', 'ring'],
+  'Aurora Veil': ['ring'],
+  'Kaleido Reef': ['matrix', 'ring'],
+  'Velvet Prism': ['string', 'ring'],
+  'Moonlit Lanterns': ['string', 'ring'],
+  'Forest Cathedral': ['matrix'],
+  'Spiral Bloom': ['matrix', 'ring'],
+  'Sunset Silk': ['matrix'],
+  'Celestial Weave': ['matrix'],
+  'Amber Vapor': ['ring'],
+  'Quiet Harbor': ['ring'],
+  'Lantern Orbit': ['string', 'ring'],
+  'Boreal Loom': ['ring'],
+  'Petal Drift': ['matrix'],
+  'Cathedral Glass': ['matrix', 'ring'],
+  'Ink Bloom': ['matrix'],
+  'Starlace Canopy': ['string', 'ring'],
+
+  // Audio-reactive shelf
+  'Aurora Comet Foundry': ['ring'],
+  'Aurora Echo Choir': ['string'],
+  'Bass Cathedral Collapse': ['matrix'],
+  'Chromasonic Vortex': ['matrix', 'ring'],
+  'Chromatic Orbit Reactor': ['matrix', 'ring'],
+  'Color Trails': ['string', 'ring'],
+  'Glass Rain Resonator': ['matrix'],
+  'Kaleido Bass Singularity': ['matrix', 'ring'],
+  'Laser Monsoon Parade': ['matrix'],
+  'Mainstage Confetti Singularity': ['string', 'ring'],
+  'Morphing Neon River': ['string', 'matrix'],
+  'Percussion Symphony': ['string', 'matrix'],
+  'Polar Wave Halo Engine': ['matrix', 'ring'],
+  'Prism Storm': ['matrix'],
+  'Prismatic Waterfall Cathedral': ['matrix'],
+  'Quadrant Pulse Observatory': ['matrix'],
+  'RGB Blob Thunder Garden': ['matrix'],
+  'Spectral Field Vortex': ['matrix', 'ring'],
+  'Spiralus Percussion Shrine': ['matrix', 'ring'],
+  'Tidal Glass Meditation': ['string', 'ring'],
+}
+
+/** Every name in the table above, so a test can prove each one still matches a
+ *  pattern — a rename would otherwise orphan a judgement in silence. */
+export const BUNDLED_BEST_ON_NAMES = Object.keys(BUNDLED_BEST_ON)
+
 function materializeBundledPatterns(
   patterns: BundledSeed[],
   prefix: string,
@@ -738,6 +811,7 @@ function materializeBundledPatterns(
     createdAt: createdAtBase + index,
     categoryId,
     bundled: true,
+    bestOn: BUNDLED_BEST_ON[entry.name],
   }))
 }
 

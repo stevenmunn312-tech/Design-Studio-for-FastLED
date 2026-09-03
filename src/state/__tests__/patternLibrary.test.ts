@@ -125,9 +125,12 @@ describe('patternLibrary', () => {
     usePatternLibrary.getState().tagPattern(id, [])
     expect(usePatternLibrary.getState().patterns[0].bestOn).toBeUndefined()
 
+    // Bundled tags are curated in bundledPatterns.ts and dropped by `persist`,
+    // so accepting an edit here would only lose it at the next reload.
     const bundled = BUNDLED_PATTERNS[0]
+    usePatternLibrary.setState({ patterns: [...usePatternLibrary.getState().patterns, bundled] })
     usePatternLibrary.getState().tagPattern(bundled.id, ['ring'])
-    expect(usePatternLibrary.getState().patterns.find((p) => p.id === bundled.id)?.bestOn)
+    expect(usePatternLibrary.getState().patterns.find((entry) => entry.id === bundled.id)?.bestOn)
       .toEqual(bundled.bestOn)
   })
 

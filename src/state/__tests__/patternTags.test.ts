@@ -7,6 +7,7 @@ import {
   patternFormTags,
 } from '../patternTags'
 import { LED_OUTPUT_FORMS } from '../ledOutputForm'
+import { BUNDLED_BEST_ON_NAMES, BUNDLED_PATTERNS } from '../bundledPatterns'
 import type { StudioNode } from '../graphStore'
 
 function node(nodeType: string): StudioNode {
@@ -83,5 +84,30 @@ describe('patternFit', () => {
     for (const type of ['FieldNoise', 'Fire2012', 'Particles', 'SpectrumBars', 'ReactionDiffusion']) {
       expect(needsTwoDimensions([node(type)])).toBe(false)
     }
+  })
+})
+
+describe('curated bundled tags', () => {
+  it('names a real pattern for every judgement, so a rename cannot orphan one', () => {
+    const names = new Set(BUNDLED_PATTERNS.map((pattern) => pattern.name))
+    expect(BUNDLED_BEST_ON_NAMES.filter((name) => !names.has(name))).toEqual([])
+  })
+
+  it('carries the curated tags onto the materialized patterns', () => {
+    const byName = new Map(BUNDLED_PATTERNS.map((pattern) => [pattern.name, pattern]))
+    expect(byName.get('Velvet Prism')?.bestOn).toEqual(['string', 'ring'])
+    expect(byName.get('Quadrant Pulse Observatory')?.bestOn).toEqual(['matrix'])
+    // Absent is a real answer: a soft field that reads the same on a line, a
+    // grid or a circle should stay quiet rather than claim all three.
+    expect(byName.get('Opaline Plasma')?.bestOn).toBeUndefined()
+  })
+
+  it('keeps the curation discriminating — no pattern claims every output', () => {
+    for (const pattern of BUNDLED_PATTERNS) {
+      expect(patternFormTags(pattern.bestOn).length).toBeLessThan(3)
+    }
+    // ...and a decent share stays untagged, or the facet ranks nothing.
+    const tagged = BUNDLED_PATTERNS.filter((pattern) => patternFormTags(pattern.bestOn).length > 0)
+    expect(tagged.length).toBeLessThan(BUNDLED_PATTERNS.length)
   })
 })
