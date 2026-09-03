@@ -82,6 +82,55 @@ describe('patternLibrary', () => {
     expect(saved[0].subgraph.nodes.map((n) => n.id)).toEqual(['blue'])
   })
 
+  it('keeps author tags and shelf when an edited pattern replaces its library copy', () => {
+    const lib = usePatternLibrary.getState()
+    lib.savePattern({
+      name: 'Glow',
+      inputs: [],
+      outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+      subgraph: { nodes: [node('red', 'SolidColor')], edges: [] as StudioEdge[] },
+    })
+    const original = usePatternLibrary.getState().patterns[0]
+    usePatternLibrary.getState().tagPattern(original.id, ['string', 'ring'])
+    usePatternLibrary.getState().movePattern(original.id, STANDARD_CATEGORY_ID)
+
+    // The authoring loop is tweak-then-resave; curation must survive it.
+    lib.savePattern({
+      name: 'Glow',
+      inputs: [],
+      outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+      subgraph: { nodes: [node('blue', 'Plasma')], edges: [] as StudioEdge[] },
+    }, { replaceByName: true })
+
+    const saved = usePatternLibrary.getState().patterns[0]
+    expect(saved.subgraph.nodes.map((n) => n.id)).toEqual(['blue'])
+    expect(saved.bestOn).toEqual(['string', 'ring'])
+    expect(saved.categoryId).toBe(STANDARD_CATEGORY_ID)
+  })
+
+  it('stores an empty tag selection as absent, and refuses to tag bundled patterns', () => {
+    const lib = usePatternLibrary.getState()
+    lib.savePattern({
+      name: 'Glow',
+      inputs: [],
+      outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+      subgraph: { nodes: [node('red', 'SolidColor')], edges: [] as StudioEdge[] },
+    })
+    const id = usePatternLibrary.getState().patterns[0].id
+
+    usePatternLibrary.getState().tagPattern(id, ['matrix'])
+    expect(usePatternLibrary.getState().patterns[0].bestOn).toEqual(['matrix'])
+    // "Works anywhere" is one state, so clearing the last tag must land on the
+    // same encoding a pattern saved before tags existed already has.
+    usePatternLibrary.getState().tagPattern(id, [])
+    expect(usePatternLibrary.getState().patterns[0].bestOn).toBeUndefined()
+
+    const bundled = BUNDLED_PATTERNS[0]
+    usePatternLibrary.getState().tagPattern(bundled.id, ['ring'])
+    expect(usePatternLibrary.getState().patterns.find((p) => p.id === bundled.id)?.bestOn)
+      .toEqual(bundled.bestOn)
+  })
+
   it('instantiatePattern drops a Group node and registers its subgraph', () => {
     const saved = {
       id: 'pat-1', name: 'Blue', createdAt: 0,

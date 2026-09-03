@@ -9,6 +9,7 @@ import { create } from 'zustand'
 import { isGroupExcludedNodeType, useGraphStore } from './graphStore'
 import type { StudioNode, StudioEdge } from './graphStore'
 import { listPatterns, savePatternToDisk, deletePatternFromDisk } from '../utils/backendClient'
+import { patternFormTags, type PatternFormTag } from './patternTags'
 import {
   AUDIO_REACTIVE_CATEGORY_ID,
   BUNDLED_PATTERNS,
@@ -37,6 +38,9 @@ export interface SavedPattern {
   subgraph: { nodes: StudioNode[]; edges: StudioEdge[] }
   /** Optional user shelf. Missing means the pattern appears in New & Unsorted. */
   categoryId?: string
+  /** Author's claim about where this looks best (see `patternTags.ts`). Absent
+   *  or empty means "works anywhere", which is a useful answer, not a gap. */
+  bestOn?: PatternFormTag[]
   /** Curated release example: visible in the library but never disk-synced or edited. */
   bundled?: boolean
 }
@@ -171,6 +175,10 @@ interface LibraryState {
   createCategory: (name: string) => string | null
   deleteCategory: (id: string) => void
   movePattern: (patternId: string, categoryId: string | null) => void
+  /** Set the author's "best displayed on" tags. Bundled patterns are curated
+   *  in `bundledPatterns.ts` and are read-only here — `persist` drops them, so
+   *  accepting an edit would only lose it at the next reload. */
+  tagPattern: (patternId: string, bestOn: PatternFormTag[]) => void
   /** Reconcile the in-memory library with the on-disk "My Patterns" folder.
    *  Disk is authoritative; a local journal retries only writes/deletes that
    *  the helper has not acknowledged. No-op while the helper is offline. */
@@ -192,6 +200,11 @@ export const usePatternLibrary = create<LibraryState>((set, get) => ({
         ...p,
         id: retained?.id ?? `pat-${now}`,
         createdAt: now,
+        // Re-saving an edited pattern must not silently drop what its author
+        // already said about it. Tags and shelf are curation, not content, so
+        // they survive a replace unless this save carries its own.
+        bestOn: p.bestOn ?? retained?.bestOn,
+        categoryId: p.categoryId ?? retained?.categoryId,
       }
       const basePatterns = options?.replaceByName
         ? s.patterns.filter((pattern) => !sameName.some((match) => match.id === pattern.id))
@@ -300,6 +313,25 @@ export const usePatternLibrary = create<LibraryState>((set, get) => ({
     set({ patterns })
     const moved = patterns.find((entry) => entry.id === patternId)
     if (moved) queuePatternUpsert(moved)
+  },
+
+  tagPattern: (patternId, bestOn) => {
+    const state = get()
+    const pattern = state.patterns.find((entry) => entry.id === patternId)
+    if (!pattern || pattern.bundled) return
+    const next = patternFormTags(bestOn)
+    const current = patternFormTags(pattern.bestOn)
+    if (next.length === current.length && next.every((tag, index) => tag === current[index])) return
+    const patterns = state.patterns.map((entry) => (
+      // An empty selection is stored as absent rather than as `[]`: "works
+      // anywhere" is the same state a pattern saved before tags existed is in,
+      // and two encodings of one state would need reconciling everywhere.
+      entry.id === patternId ? { ...entry, bestOn: next.length ? next : undefined } : entry
+    ))
+    persist(patterns)
+    set({ patterns })
+    const tagged = patterns.find((entry) => entry.id === patternId)
+    if (tagged) queuePatternUpsert(tagged)
   },
 
   refreshFromDisk: async () => {
