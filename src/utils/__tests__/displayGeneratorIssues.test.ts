@@ -29,12 +29,12 @@ describe('displays a build cannot drive', () => {
     expect(findDisplayGeneratorIssues([out()], [])).toEqual({ errors: [], warnings: [] })
   })
 
-  it('blocks a custom display until its LVGL runtime can be emitted', () => {
+  // cppGenerator.ts's `case 'Display'` compiles the whole graph itself, the
+  // same way the browser preview does, so a normal sketch is no longer
+  // refused — see the show/player cases below for what still is.
+  it('leaves a custom display to the normal sketch, which can now draw it', () => {
     const custom = node('custom', 'Display', { displayId: 'custom', partId: 'st7789v-xpt2046-touch-240x320' })
-    const issues = findDisplayGeneratorIssues([out(), custom], [])
-    expect(issues.errors).toHaveLength(1)
-    expect(issues.errors[0]).toContain('LVGL firmware generation is not available yet')
-    expect(issues.errors[0]).toContain('fixed Transport Display')
+    expect(findDisplayGeneratorIssues([out(), custom], [])).toEqual({ errors: [], warnings: [] })
   })
 
   it('says nothing about a display in a plain sketch', () => {
@@ -264,6 +264,20 @@ describe('displays a build cannot drive', () => {
     expect(findDisplayGeneratorIssues(nodes, [edge('e', 'pg', 'frame', 'out', 'frame')]).errors)
       .toEqual([])
   })
+
+  // The player sketch runs a fixed template built around the file it is
+  // holding, not a compiled graph, so it cannot resolve arbitrary widget
+  // wiring the way a normal sketch now can.
+  it('still refuses a custom display in a player build', () => {
+    const custom = node('custom', 'Display', { displayId: 'custom', partId: 'st7789v-xpt2046-touch-240x320' })
+    const master = node('master', 'PatternMaster')
+    const nodes = [out(), custom, master, node('sd', 'SDCard'), node('amp', 'Amplifier')]
+    const issues = findDisplayGeneratorIssues(nodes, [edge('frame', 'master', 'frame', 'out', 'frame')])
+    expect(issues.errors).toHaveLength(1)
+    expect(issues.errors[0]).toContain('custom widget document')
+    expect(issues.errors[0]).toContain('SD player build')
+    expect(issues.errors[0]).toContain('fixed Transport Display')
+  })
 })
 
 // The hole this check had: it looked only for a Performance Generator, so the
@@ -357,5 +371,15 @@ describe('a Pattern Slideshow show', () => {
     const nodes = [master, collection, out, display,
       node('sd', 'SDCard'), node('amp', 'Amplifier', { model: 'MAX98357A' })]
     expect(findDisplayGeneratorIssues(nodes, showEdges).errors).toEqual([])
+  })
+
+  // A generated show has no compiled graph to resolve widget wiring against
+  // at all — it rotates patterns from a fixed template, same as the player.
+  it('still refuses a custom display in the show controller', () => {
+    const custom = node('custom', 'Display', { displayId: 'custom', partId: 'st7789v-xpt2046-touch-240x320' })
+    const issues = findDisplayGeneratorIssues([master, collection, out, custom], showEdges)
+    expect(issues.errors).toHaveLength(1)
+    expect(issues.errors[0]).toContain('custom widget document')
+    expect(issues.errors[0]).toContain('generated show controller')
   })
 })

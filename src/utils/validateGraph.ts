@@ -1557,11 +1557,20 @@ export function findDisplayGeneratorIssues(
   // not as a generator that leaves the part dark.
   errors.push(...splitI2cBusErrors(nodes))
 
-  for (const display of displays.filter((node) => node.data.nodeType === 'Display')) {
-    errors.push(
-      `${nodeLabel(display)} uses a custom widget document, but LVGL firmware generation is not available yet. `
-      + 'Keep designing and wiring the screen in the editor, then use a fixed Transport Display for device builds until the custom display runtime lands.',
-    )
+  // A normal sketch compiles the whole graph itself, the same way the browser
+  // preview evaluates it, so it can resolve arbitrary scalar/control wiring
+  // through a custom Display's widgets — cppGenerator.ts's `case 'Display'`
+  // does exactly that. Neither template generator can: a generated show has
+  // no compiled graph to read a wire against, and the SD player runs a fixed
+  // template built around the file it is holding. Both remain refused until
+  // the shared control-graph IR embeds in their firmware.
+  if (generator === 'show' || generator === 'player') {
+    for (const display of displays.filter((node) => node.data.nodeType === 'Display')) {
+      errors.push(
+        `${nodeLabel(display)} uses a custom widget document, which ${generator === 'show' ? 'a generated show controller' : 'an SD player build'} cannot yet draw. `
+        + 'Keep designing and wiring the screen in the editor, then use a fixed Transport Display for this export, or build a normal sketch instead.',
+      )
+    }
   }
 
   for (const display of displays.filter((node) => node.data.nodeType === 'TransportDisplay')) {

@@ -112,6 +112,14 @@ export default function MatrixOutputDeployPopup({
         codegenGraph.nodes, codegenGraph.edges, groups,
         useGraphStore.getState().trusted,
       ),
+      // The document itself (widgets, bounds, theme) is not on the node, only
+      // the id is — see cppGenerator.ts's `case 'Display'`. Baking its finished
+      // image bytes needs an async browser rasterizer this synchronous
+      // generation pass cannot run, so a custom Display still draws every
+      // Image/Icon and themed background as customDisplayLvglCpp.ts's
+      // placeholder for now; customDisplayAssets is the option that fills them
+      // in once that bake is wired up here.
+      displayDocuments: useGraphStore.getState().displayDocuments,
     }
     return isPatternShow(codegenGraph.nodes, codegenGraph.edges)
       ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)

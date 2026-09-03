@@ -885,9 +885,68 @@ freeform widgets must reuse rather than rediscover.
   vanish merely because it landed between evaluator frames; after that sample,
   a type-compatible wired `set` becomes visible and is republished on `out`.
   Without `set`, the last local Toggle/Slider/Dial value remains authoritative.
-- [ ] Support arbitrary scalar/control wiring in normal sketches first. Then
+- [x] Support arbitrary scalar/control wiring in normal sketches first. Then
   embed the shared control-graph IR in generative-show and SD-player firmware so
   touch can drive real graph logic rather than only hardcoded transport actions.
+  The normal-sketch half is done; show/player remain refused (next). Until now
+  a wired custom Display could not build at all — `cppGenerator.ts` had no
+  `case 'Display'`, `TERMINAL_NODE_TYPES` could not name it (its ports are
+  minted per document, not declared in `NODE_LIBRARY`), and validation
+  unconditionally refused every generator. A normal sketch compiles the whole
+  graph the same way the browser preview evaluates it, so it needed no new IR:
+  the case resolves each wired widget role to an ordinary C++ expression by
+  dataType (float/bool/string/color; `patternselect` stays unresolved — no
+  PatternSlideshow can exist in a normal-sketch graph, so there is nothing to
+  read), and publishes each widget output as an ordinary declared `n_<id>_<port>`
+  node output, so a Button or Slider reaches an LED output's Enabled/Brightness
+  input, another widget, or any future node type through the same generic
+  wiring every other node already uses — no per-consumer special case. That
+  needed one latent bug fixed first: `n_<id>_<port>` interpolated a port id
+  raw, which is safe for every ordinary node's fixed alphanumeric ports but not
+  for a widget's `widget:id:role` port id; all eight sites now run it through
+  the existing `safeId()` sanitizer, which was already exactly the right
+  transform. `case 'Display'` also makes the node an unconditional codegen
+  root (not gated behind `TERMINAL_NODE_TYPES`, unlike the evaluator's
+  deliberately-absent hot-root treatment of the same node — codegen runs once,
+  not sixty times a second, so there is no cost to it always emitting a
+  configured screen).
+  `src/codegen/customDisplayPanelCpp.ts` is the physical half
+  `customDisplayLvglCpp.ts` deliberately stops short of: an LVGL 9
+  `lv_display_t` flush callback and (on a touch-capable module) an `lv_indev_t`
+  read callback driving the ST7789/ST7789V panel over SPI. It does not reuse
+  `tftDisplayCpp.ts`'s `TftPanel` — that is a cached-field renderer for the
+  fixed transport layouts with no notion of flushing an arbitrary pixel
+  buffer — but copies the same datasheet-verified ST7789 register sequence
+  rather than re-deriving it, so the two drivers cannot quietly disagree about
+  what a working panel needs. Touch is not re-implemented at all: the indev
+  callback is a thin wrapper around `tftTouchCpp.ts`'s existing `_xptPoint`,
+  emitted once regardless of how many touch-capable panels (a TransportDisplay
+  and a custom Display) sample it. `lv_init()` is emitted exactly once, before
+  any other LVGL call, immediately ahead of `setupLines` — the one point every
+  custom Display's object/panel setup is known to land, regardless of topo
+  order or how many exist.
+  The document itself is not on the node (only its ports and pin properties
+  are), so `generateCpp`'s new `displayDocuments` option threads it in keyed by
+  displayId, the same way `artworks` threads in Now Playing artwork; both
+  upload call sites (`MatrixOutputDeployPopup.tsx`, `CapacityWatcher.tsx`) now
+  pass `useGraphStore.getState().displayDocuments`. `customDisplayAssets`
+  (finished PROGMEM bytes) is still not threaded there — baking is
+  `bakeCustomDisplayAssets`'s async browser rasterize/fetch, and both call
+  sites compute `opts` synchronously inside `useMemo`. A document with none
+  still generates correctly, drawing every Image/Icon and themed background as
+  the placeholder `customDisplayLvglCpp.ts` already falls back to; wiring the
+  async bake into a deploy is the next real gap, not a silent one.
+  `validateGraph.ts`'s blanket refusal is now scoped to `show`/`player`
+  generators only, which is the "then" half of this item and remains
+  unimplemented — neither has a compiled graph (the show has no music at all
+  and the player runs a fixed template around the file it holds) to resolve
+  widget wiring against.
+  Verified end-to-end, not just per-module: a real `generateCpp()` call with a
+  wired Toggle/Text document produces `lv_init()` before any object/display
+  creation, the Text widget reading a real upstream string variable, the
+  Toggle's output becoming `bool n_screen_widget_toggle_out = ...` and that
+  variable then gating an LED output's blackout fill — i.e. a widget output
+  driving real graph logic, which is what this item asked for.
 - [x] Block unsupported generator bindings with an actionable diagnostic until
   the corresponding control-graph path exists. Generated shows already refuse
   displays because that generator cannot draw them; normal sketches now refuse

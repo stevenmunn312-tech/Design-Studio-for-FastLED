@@ -112,6 +112,10 @@ export default function CapacityWatcher() {
         codegenGraph.nodes, codegenGraph.edges, groups,
         useGraphStore.getState().trusted,
       ),
+      // See the matching note in MatrixOutputDeployPopup.tsx: the document
+      // itself threads through synchronously; baked image bytes are a later,
+      // async-bake integration and draw as placeholders until then.
+      displayDocuments: useGraphStore.getState().displayDocuments,
     }
     return isPatternShow(codegenGraph.nodes, codegenGraph.edges)
       ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)
