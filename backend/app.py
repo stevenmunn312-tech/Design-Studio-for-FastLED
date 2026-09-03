@@ -251,7 +251,105 @@ _FBUILD_HUB75_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "ESP32-HUB75-MatrixPanel-D
 # ZeroI2S, just like the other optional hardware libraries below.
 _FBUILD_ZERO_I2S_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "Adafruit_ZeroI2S"
 _FBUILD_ZERO_DMA_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "Adafruit_ZeroDMA"
+_FBUILD_LVGL_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "lvgl"
+_FBUILD_LV_CONF_PATH = _FBUILD_LVGL_LIB_DIR.parent / "lv_conf.h"
 _FBUILD_OPTIONAL_LIB_STASH_DIR = _FBUILD_PROJECT_DIR / ".optional-libs"
+
+# The custom Display emitter targets this API exactly. Do not float to a branch:
+# LVGL minor releases can change both the public API and the configuration
+# surface, and a cached checkout must not make two identical sketches compile
+# against different runtimes.
+_LVGL_VERSION = "9.5.0"
+_LVGL_INCLUDE_MARKER = "#include <lvgl.h>"
+
+# One deliberately small configuration shared by both build engines. LVGL's
+# defaults enable almost its entire widget catalogue; Studio emits only the
+# seven widgets below and one built-in font. Keeping the header here lets the
+# helper write it beside either a reusable Arduino sketch or the fbuild-local
+# LVGL checkout without depending on a source-tree data file in desktop builds.
+_LV_CONF_TEXT = """\
+#ifndef LV_CONF_H
+#define LV_CONF_H
+
+#define LV_COLOR_DEPTH 16
+#define LV_USE_STDLIB_MALLOC LV_STDLIB_BUILTIN
+#define LV_MEM_SIZE (64 * 1024U)
+#define LV_MEM_POOL_EXPAND_SIZE 0
+#define LV_USE_OS LV_OS_NONE
+#define LV_USE_LOG 0
+#define LV_USE_ASSERT_NULL 1
+#define LV_USE_ASSERT_MALLOC 1
+#define LV_USE_FLOAT 0
+#define LV_USE_MATRIX 0
+
+#define LV_FONT_MONTSERRAT_8 0
+#define LV_FONT_MONTSERRAT_10 0
+#define LV_FONT_MONTSERRAT_12 0
+#define LV_FONT_MONTSERRAT_14 1
+#define LV_FONT_MONTSERRAT_16 0
+#define LV_FONT_MONTSERRAT_18 0
+#define LV_FONT_MONTSERRAT_20 0
+#define LV_FONT_MONTSERRAT_22 0
+#define LV_FONT_MONTSERRAT_24 0
+#define LV_FONT_MONTSERRAT_26 0
+#define LV_FONT_MONTSERRAT_28 0
+#define LV_FONT_MONTSERRAT_30 0
+#define LV_FONT_MONTSERRAT_32 0
+#define LV_FONT_MONTSERRAT_34 0
+#define LV_FONT_MONTSERRAT_36 0
+#define LV_FONT_MONTSERRAT_38 0
+#define LV_FONT_MONTSERRAT_40 0
+#define LV_FONT_MONTSERRAT_42 0
+#define LV_FONT_MONTSERRAT_44 0
+#define LV_FONT_MONTSERRAT_46 0
+#define LV_FONT_MONTSERRAT_48 0
+#define LV_FONT_DEFAULT &lv_font_montserrat_14
+
+#define LV_USE_ANIMIMG 0
+#define LV_USE_ARC 1
+#define LV_USE_ARCLABEL 0
+#define LV_USE_BAR 1
+#define LV_USE_BUTTON 1
+#define LV_USE_BUTTONMATRIX 0
+#define LV_USE_CALENDAR 0
+#define LV_USE_CANVAS 0
+#define LV_USE_CHART 0
+#define LV_USE_CHECKBOX 0
+#define LV_USE_DROPDOWN 0
+#define LV_USE_IMAGE 0
+#define LV_USE_IMAGEBUTTON 0
+#define LV_USE_KEYBOARD 0
+#define LV_USE_LABEL 1
+#define LV_USE_LED 1
+#define LV_USE_LINE 0
+#define LV_USE_LIST 0
+#define LV_USE_LOTTIE 0
+#define LV_USE_MENU 0
+#define LV_USE_MSGBOX 0
+#define LV_USE_ROLLER 0
+#define LV_USE_SCALE 0
+#define LV_USE_SLIDER 1
+#define LV_USE_SPAN 0
+#define LV_USE_SPINBOX 0
+#define LV_USE_SPINNER 0
+#define LV_USE_SWITCH 1
+#define LV_USE_TABLE 0
+#define LV_USE_TABVIEW 0
+#define LV_USE_TEXTAREA 0
+#define LV_USE_TILEVIEW 0
+#define LV_USE_WIN 0
+
+#define LV_USE_THEME_DEFAULT 0
+#define LV_USE_THEME_SIMPLE 0
+#define LV_USE_THEME_MONO 0
+#define LV_USE_FLEX 0
+#define LV_USE_GRID 0
+#define LV_USE_OBSERVER 0
+#define LV_BUILD_EXAMPLES 0
+#define LV_BUILD_DEMOS 0
+
+#endif
+"""
 
 # fbuild currently compiles every library directory under the project's local
 # `lib/`, even when the sketch does not include that library. That makes lazy
@@ -267,6 +365,7 @@ _FBUILD_OPTIONAL_LIBRARIES = (
     # ZeroI2S includes ZeroDMA, so both must enter and leave the local library
     # search path together.
     (_FBUILD_ZERO_DMA_LIB_DIR, ("#include <Adafruit_ZeroI2S.h>",)),
+    (_FBUILD_LVGL_LIB_DIR, (_LVGL_INCLUDE_MARKER,)),
 )
 
 
@@ -1079,6 +1178,78 @@ def _ensure_fbuild_zero_i2s_lib():
     _fbuild_zero_i2s_lib_ready = True
 
 
+_fbuild_lvgl_lib_ready = False
+
+
+def _lvgl_checkout_matches_pin(path: Path) -> bool:
+    """True only for a complete checkout of the exact supported LVGL release."""
+    properties = path / "library.properties"
+    public_header = path / "lvgl.h"
+    try:
+        versions = {
+            line.partition("=")[2].strip()
+            for line in properties.read_text(encoding="utf-8").splitlines()
+            if line.startswith("version=")
+        }
+    except (OSError, UnicodeDecodeError):
+        return False
+    return public_header.is_file() and versions == {_LVGL_VERSION}
+
+
+def _ensure_fbuild_lvgl_lib():
+    """Vendor the pinned LVGL runtime and its deterministic configuration."""
+    global _fbuild_lvgl_lib_ready
+    if _fbuild_lvgl_lib_ready and _lvgl_checkout_matches_pin(_FBUILD_LVGL_LIB_DIR):
+        _write_if_changed(_FBUILD_LV_CONF_PATH, _LV_CONF_TEXT)
+        return
+    if _lvgl_checkout_matches_pin(_FBUILD_LVGL_LIB_DIR):
+        _write_if_changed(_FBUILD_LV_CONF_PATH, _LV_CONF_TEXT)
+        _fbuild_lvgl_lib_ready = True
+        return
+    yield f"\n=== vendoring LVGL {_LVGL_VERSION} (first custom-display build only) ===\n"
+    _FBUILD_LVGL_LIB_DIR.parent.mkdir(parents=True, exist_ok=True)
+    if _FBUILD_LVGL_LIB_DIR.exists():
+        _remove_build_cache_tree(_FBUILD_LVGL_LIB_DIR)
+    rc = yield from _run_phase(
+        "vendor LVGL",
+        ["git", "clone", "--progress", "--branch", f"v{_LVGL_VERSION}", "--depth", "1",
+         "https://github.com/lvgl/lvgl.git", str(_FBUILD_LVGL_LIB_DIR)],
+    )
+    if rc != 0:
+        yield "[error] failed to vendor pinned LVGL — custom Display builds will fail on lvgl.h\n"
+        return
+    if not _lvgl_checkout_matches_pin(_FBUILD_LVGL_LIB_DIR):
+        yield (
+            f"[error] the downloaded LVGL checkout is not the required {_LVGL_VERSION} release or is incomplete. "
+            "Remove the cached lvgl directory and try again.\n"
+        )
+        return
+    _write_if_changed(_FBUILD_LV_CONF_PATH, _LV_CONF_TEXT)
+    _fbuild_lvgl_lib_ready = True
+
+
+_arduino_lvgl_lib_ready = False
+
+
+def _ensure_arduino_lvgl_lib():
+    """Ask arduino-cli for the same exact LVGL release used by fbuild."""
+    global _arduino_lvgl_lib_ready
+    if _arduino_lvgl_lib_ready:
+        return 0
+    rc = yield from _run_phase(
+        f"install LVGL {_LVGL_VERSION}",
+        _ARDUINO_BASE + ["lib", "install", f"lvgl@{_LVGL_VERSION}", "--no-deps"],
+    )
+    if rc != 0:
+        yield (
+            f"[error] failed to install LVGL {_LVGL_VERSION}. Check the network connection or run "
+            f"'arduino-cli lib install lvgl@{_LVGL_VERSION}' and try again.\n"
+        )
+        return rc
+    _arduino_lvgl_lib_ready = True
+    return 0
+
+
 def _write_fbuild_main(ino: str) -> None:
     # fbuild <= 2.5.15 preprocessed `.ino` into `main.ino.cpp`, auto-inserting
     # function prototypes *before* any user #includes — that broke FastLED-typed
@@ -1186,6 +1357,8 @@ def _sketch_workspace(name: str, ino: str):
             sketch_dir = _SKETCH_DIR_ROOT / name
             sketch_dir.mkdir(parents=True, exist_ok=True)
             _write_if_changed(sketch_dir / f"{name}.ino", ino)
+            if _LVGL_INCLUDE_MARKER in ino:
+                _write_if_changed(sketch_dir / "lv_conf.h", _LV_CONF_TEXT)
             yield sketch_dir
         finally:
             lock.release()
@@ -1195,6 +1368,8 @@ def _sketch_workspace(name: str, ino: str):
         sketch_dir = work / name
         sketch_dir.mkdir()
         (sketch_dir / f"{name}.ino").write_text(ino, encoding="utf-8")
+        if _LVGL_INCLUDE_MARKER in ino:
+            (sketch_dir / "lv_conf.h").write_text(_LV_CONF_TEXT, encoding="utf-8")
         yield sketch_dir
     finally:
         shutil.rmtree(work, ignore_errors=True)
@@ -1428,8 +1603,29 @@ def _compile_upload(label, sketch_dir, fqbn, port):
     the upload step. We translate that (otherwise cryptic) failure into a clear
     message, and on success surface the headroom / warn when it's tight."""
     compile_lines = []
+    uses_lvgl = any(
+        _LVGL_INCLUDE_MARKER in path.read_text(encoding="utf-8")
+        for path in sketch_dir.glob("*.ino")
+    )
+    if uses_lvgl:
+        rc = yield from _ensure_arduino_lvgl_lib()
+        if rc != 0:
+            return rc, "compile"
+    compile_args = _ARDUINO_BASE + ["compile", "-v", "--fqbn", fqbn]
+    if uses_lvgl:
+        # The sketch directory is already on Arduino's include path. This flag
+        # makes every separately compiled LVGL translation unit include the
+        # generated header instead of falling back to LVGL's broad defaults.
+        # LVGL itself is C while the generated sketch is C++, so both compiler
+        # recipes need the define; setting only cpp.extra_flags configures the
+        # caller but leaves the runtime compiled with its default catalogue.
+        compile_args += [
+            "--build-property", "compiler.c.extra_flags=-DLV_CONF_INCLUDE_SIMPLE",
+            "--build-property", "compiler.cpp.extra_flags=-DLV_CONF_INCLUDE_SIMPLE",
+        ]
+    compile_args.append(str(sketch_dir))
     rc = yield from _run_phase(
-        f"{label} · compile", _ARDUINO_BASE + ["compile", "-v", "--fqbn", fqbn, str(sketch_dir)],
+        f"{label} · compile", compile_args,
         sink=compile_lines,
     )
     if rc != 0:
@@ -1676,6 +1872,8 @@ def _compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None, usb_cdc=False)
             yield from _ensure_fbuild_hub75_lib()
         if "#include <Adafruit_ZeroI2S.h>" in ino:
             yield from _ensure_fbuild_zero_i2s_lib()
+        if _LVGL_INCLUDE_MARKER in ino:
+            yield from _ensure_fbuild_lvgl_lib()
         env = _fbuild_env_for_fqbn(fqbn, flash_mb, usb_cdc)
         if env is None:
             yield f"\n=== ✗ {label}: no fbuild board mapping for {fqbn} ===\n"

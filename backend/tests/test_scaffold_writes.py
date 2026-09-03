@@ -113,6 +113,30 @@ def test_a_changed_sketch_still_reaches_the_workspace(tmp_path, monkeypatch):
         assert (sketch_dir / "fastled_pattern.ino").read_text(encoding="utf-8") == "void loop() {}\n"
 
 
+def test_lvgl_sketch_workspace_gets_the_minimal_config(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
+    ino = "#include <lvgl.h>\nvoid setup() {}\n"
+
+    with app._sketch_workspace("fastled_pattern", ino) as sketch_dir:
+        config = (sketch_dir / "lv_conf.h").read_text(encoding="utf-8")
+
+    assert config == app._LV_CONF_TEXT
+    assert "#define LV_COLOR_DEPTH 16" in config
+    assert "#define LV_MEM_SIZE (64 * 1024U)" in config
+    assert "#define LV_USE_LABEL 1" in config
+    assert "#define LV_USE_SLIDER 1" in config
+    assert "#define LV_USE_CHART 0" in config
+    assert "#define LV_FONT_MONTSERRAT_14 1" in config
+    assert "#define LV_FONT_MONTSERRAT_16 0" in config
+
+
+def test_non_lvgl_sketch_workspace_does_not_create_a_config(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
+
+    with app._sketch_workspace("ordinary", "void setup() {}\n") as sketch_dir:
+        assert not (sketch_dir / "lv_conf.h").exists()
+
+
 def test_two_sketch_names_get_their_own_workspace(tmp_path, monkeypatch):
     # A player and an ordinary sketch are different programs; sharing one
     # directory would make each build evict the other's cache.

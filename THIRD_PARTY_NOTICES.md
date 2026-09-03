@@ -82,6 +82,12 @@ set. Refresh this file when the lockfile changes in a release-significant way.
   `backend/.fbuild-project/lib/ESP32-HUB75-MatrixPanel-DMA/` only when a HUB75
   sketch is built. The library is MIT-licensed, Copyright (c) 2018-2032
   Faptastic; preserve its bundled `LICENSE.txt` if redistributing that checkout.
+- Custom Display firmware uses LVGL 9.5.0 from `lvgl/lvgl`. The helper installs
+  that exact Arduino library release or clones the exact `v9.5.0` tag lazily for
+  fbuild; it does not track the default branch. LVGL is MIT-licensed, Copyright
+  (c) 2025 LVGL Kft; preserve the checkout's `LICENCE.txt` when redistributing
+  the cached runtime. The ST7789V panel and XPT2046 touch drivers remain
+  project-authored inline code and introduce no additional library dependency.
 
 ## Stefan Petrick / AnimARTrix
 

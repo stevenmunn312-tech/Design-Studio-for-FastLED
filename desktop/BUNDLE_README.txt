@@ -12,5 +12,8 @@ several minutes. Project files, saved patterns, helper configuration, downloaded
 toolchains, and build caches are stored in your user application-data folder,
 not beside the executable.
 
+Custom Display firmware downloads the pinned LVGL 9.5.0 runtime on its first
+build. LVGL is MIT-licensed; a cached checkout keeps its upstream license file.
+
 This is a portable beta bundle, not a signed installer. Your operating system
 may show an unknown-publisher warning until release signing is configured.

@@ -453,6 +453,143 @@ def test_compile_upload_fbuild_vendors_hub75_lib_only_when_sketch_needs_it(monke
     assert calls == [1]
 
 
+def test_compile_upload_fbuild_vendors_lvgl_only_when_sketch_needs_it(monkeypatch):
+    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: "esp32_esp32_esp32s3")
+    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
+    calls = []
+    monkeypatch.setattr(app, "_ensure_fbuild_lvgl_lib", lambda: calls.append(1) or iter(()))
+
+    def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
+        if sink is not None:
+            sink.append("Flash: 1.00KB / 10.00KB (10.0%)\n")
+        yield "ok\n"
+        return 0
+
+    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+
+    list(app._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", ""))
+    assert calls == []
+
+    list(app._compile_upload_fbuild(
+        "Test", "#include <lvgl.h>\nvoid setup(){}", "esp32:esp32:esp32s3", "",
+    ))
+    assert calls == [1]
+
+
+def test_fbuild_lvgl_vendor_is_exactly_pinned_and_writes_config(tmp_path, monkeypatch):
+    library = tmp_path / "lib" / "lvgl"
+    config = tmp_path / "lib" / "lv_conf.h"
+    monkeypatch.setattr(app, "_FBUILD_LVGL_LIB_DIR", library)
+    monkeypatch.setattr(app, "_FBUILD_LV_CONF_PATH", config)
+    monkeypatch.setattr(app, "_fbuild_lvgl_lib_ready", False)
+    calls = []
+
+    def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
+        calls.append(args)
+        library.mkdir(parents=True)
+        (library / "library.properties").write_text(
+            f"name=lvgl\nversion={app._LVGL_VERSION}\n", encoding="utf-8",
+        )
+        (library / "lvgl.h").write_text("// public API\n", encoding="utf-8")
+        yield "cloned\n"
+        return 0
+
+    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+
+    assert "cloned\n" in list(app._ensure_fbuild_lvgl_lib())
+    assert calls[0][calls[0].index("--branch") + 1] == f"v{app._LVGL_VERSION}"
+    assert config.read_text(encoding="utf-8") == app._LV_CONF_TEXT
+
+
+def test_fbuild_lvgl_vendor_replaces_wrong_or_incomplete_cache(tmp_path, monkeypatch):
+    library = tmp_path / "lib" / "lvgl"
+    library.mkdir(parents=True)
+    (library / "library.properties").write_text("name=lvgl\nversion=9.4.0\n", encoding="utf-8")
+    stale = library / "stale.txt"
+    stale.write_text("old checkout", encoding="utf-8")
+    monkeypatch.setattr(app, "_FBUILD_LVGL_LIB_DIR", library)
+    monkeypatch.setattr(app, "_FBUILD_LV_CONF_PATH", tmp_path / "lib" / "lv_conf.h")
+    monkeypatch.setattr(app, "_fbuild_lvgl_lib_ready", False)
+
+    def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
+        assert not stale.exists()
+        library.mkdir(parents=True)
+        (library / "library.properties").write_text(
+            f"name=lvgl\nversion={app._LVGL_VERSION}\n", encoding="utf-8",
+        )
+        (library / "lvgl.h").write_text("// public API\n", encoding="utf-8")
+        yield "cloned\n"
+        return 0
+
+    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+
+    list(app._ensure_fbuild_lvgl_lib())
+    assert app._lvgl_checkout_matches_pin(library)
+
+
+def test_arduino_cli_lvgl_install_is_pinned_and_cached(monkeypatch):
+    monkeypatch.setattr(app, "_ARDUINO_BASE", ["arduino-cli"])
+    monkeypatch.setattr(app, "_arduino_lvgl_lib_ready", False)
+    calls = []
+
+    def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
+        calls.append(args)
+        yield "installed\n"
+        return 0
+
+    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+
+    assert list(app._ensure_arduino_lvgl_lib()) == ["installed\n"]
+    assert calls == [[
+        "arduino-cli", "lib", "install", f"lvgl@{app._LVGL_VERSION}", "--no-deps",
+    ]]
+    assert list(app._ensure_arduino_lvgl_lib()) == []
+    assert len(calls) == 1
+
+
+def test_arduino_cli_compile_activates_lv_conf_only_for_lvgl(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "_ARDUINO_BASE", ["arduino-cli"])
+    installed = []
+
+    def fake_install():
+        installed.append(True)
+        if False:
+            yield ""
+        return 0
+
+    calls = []
+
+    def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
+        calls.append(args)
+        if sink is not None:
+            sink.append("Sketch uses 10 bytes (1%) of program storage space. Maximum is 1000 bytes.\n")
+        yield "ok\n"
+        return 0
+
+    monkeypatch.setattr(app, "_ensure_arduino_lvgl_lib", fake_install)
+    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+
+    ordinary = tmp_path / "ordinary"
+    ordinary.mkdir()
+    (ordinary / "ordinary.ino").write_text("void setup() {}\n", encoding="utf-8")
+    list(app._compile_upload("Test", ordinary, "esp32:esp32:esp32s3", ""))
+    assert installed == []
+    assert not any("LV_CONF_INCLUDE_SIMPLE" in arg for arg in calls[-1])
+
+    custom = tmp_path / "custom"
+    custom.mkdir()
+    (custom / "custom.ino").write_text("#include <lvgl.h>\nvoid setup() {}\n", encoding="utf-8")
+    (custom / "lv_conf.h").write_text(app._LV_CONF_TEXT, encoding="utf-8")
+    list(app._compile_upload("Test", custom, "esp32:esp32:esp32s3", ""))
+    assert installed == [True]
+    lv_conf_flags = [arg for arg in calls[-1] if "LV_CONF_INCLUDE_SIMPLE" in arg]
+    assert lv_conf_flags == [
+        "compiler.c.extra_flags=-DLV_CONF_INCLUDE_SIMPLE",
+        "compiler.cpp.extra_flags=-DLV_CONF_INCLUDE_SIMPLE",
+    ]
+
+
 def test_fbuild_libraries_for_sketch_hides_only_unrequested_optional_libs(tmp_path, monkeypatch):
     lib_root = tmp_path / "lib"
     stash = tmp_path / ".optional-libs"
@@ -460,7 +597,8 @@ def test_fbuild_libraries_for_sketch_hides_only_unrequested_optional_libs(tmp_pa
     dmx = lib_root / "esp_dmx"
     zero_i2s = lib_root / "Adafruit_ZeroI2S"
     zero_dma = lib_root / "Adafruit_ZeroDMA"
-    for path in (audio, dmx, zero_i2s, zero_dma):
+    lvgl = lib_root / "lvgl"
+    for path in (audio, dmx, zero_i2s, zero_dma, lvgl):
         path.mkdir(parents=True)
         (path / "sentinel.txt").write_text(path.name, encoding="utf-8")
 
@@ -471,6 +609,7 @@ def test_fbuild_libraries_for_sketch_hides_only_unrequested_optional_libs(tmp_pa
         (dmx, ("#include <esp_dmx.h>",)),
         (zero_i2s, ("#include <Adafruit_ZeroI2S.h>",)),
         (zero_dma, ("#include <Adafruit_ZeroI2S.h>",)),
+        (lvgl, ("#include <lvgl.h>",)),
     ))
 
     with app._fbuild_libraries_for_sketch("#include <Adafruit_ZeroI2S.h>"):
@@ -478,9 +617,10 @@ def test_fbuild_libraries_for_sketch_hides_only_unrequested_optional_libs(tmp_pa
         assert not dmx.exists()
         assert zero_i2s.exists()
         assert zero_dma.exists()
+        assert not lvgl.exists()
         assert (stash / audio.name).exists()
 
-    assert all(path.exists() for path in (audio, dmx, zero_i2s, zero_dma))
+    assert all(path.exists() for path in (audio, dmx, zero_i2s, zero_dma, lvgl))
     assert not stash.exists()
 
 

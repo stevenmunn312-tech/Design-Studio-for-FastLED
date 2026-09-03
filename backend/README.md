@@ -20,6 +20,9 @@ remains available.
 - **`arduino-cli`** (recommended for ESP32) — the original engine. It needs the
   ESP32 core + FastLED library installed per board (via the Arduino IDE, or
   `arduino-cli core install esp32:esp32` / `arduino-cli lib install FastLED`).
+  A sketch containing a custom Display additionally triggers an idempotent
+  install of the pinned `lvgl@9.5.0` library and receives Studio's generated
+  minimal `lv_conf.h` automatically.
   It is the default while fbuild 2.5.21's confirmed ESP32 no-op check can take
   roughly three minutes on an unchanged build.
 - **`fbuild`** (explicit experimental choice for ESP32) — FastLED's own
@@ -30,7 +33,10 @@ remains available.
   Player, `ESP32-audioI2S` are vendored into `.fbuild-project/lib/` because the
   helper cannot rely on fbuild's registry dependency resolution to fetch them
   consistently (the workaround was introduced against fbuild 2.4.0 and is
-  retained with the currently pinned 2.5.21). Generated source is written as
+  retained with the currently pinned 2.5.21). Custom Display builds similarly
+  vendor LVGL 9.5.0 on first use. Optional libraries are selected by generated
+  include markers, so a cached LVGL checkout is hidden from unrelated board
+  builds. Generated source is written as
   `main.ino`; fbuild 2.5.16 fixed the include/prototype ordering defect that
   previously required a plain-CPP workaround. **Hardware-validated** on a real ESP32-S3
   (16×16 WS2812B matrix, GPIO6): fbuild compiled, flashed via `esptool`,

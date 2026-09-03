@@ -404,15 +404,22 @@ widget, font and image limits before Phase 7 is frozen.
   Display alongside the existing LED, HUB75, audio, and RTC helpers. Controller
   quirks and transport setup stay in their adapters rather than node emit
   cases; TFT/LVGL add new adapters through the same boundary.
-- [ ] Extend the helper's lazy optional-library staging with include markers,
+- [x] Extend the helper's lazy optional-library staging with include markers,
   pinned fetches, cache recovery, clear error messages, and both fbuild and
   Arduino CLI coverage.
-- [ ] Update `THIRD_PARTY_NOTICES.md` and desktop dependency notices for every
+  LVGL 9.5.0 is selected by the emitted `<lvgl.h>` marker. fbuild replaces an
+  incomplete or wrong-version checkout, exposes it only to the requesting
+  sketch, and restores hidden caches even after a failed build; Arduino CLI
+  installs the exact release on first use. Both paths generate the same bounded
+  configuration and name a manual recovery command if dependency setup fails.
+- [x] Update `THIRD_PARTY_NOTICES.md` and desktop dependency notices for every
   shipped driver/runtime library. Nothing to add yet, and that is the point of
   checking: the TM1637, MAX7219, SH1106 and SSD1306 drivers are all written
   inline against `Wire` and `digitalWrite`, so no shipped display pulls in a
   third-party library. The first entry arrives with the TFT panel/LVGL
   dependencies in Phase 5/7.
+  The notices now record LVGL 9.5.0 and its MIT terms, and explicitly retain the
+  fact that the inline ST7789V/XPT2046 drivers add no third-party dependency.
 - [ ] Update firmware RAM estimation for OLED buffers, TFT/LVGL draw buffers,
   widget heap, fonts, images, and thumbnails. The actual compile-capacity check
   remains authoritative. The shipped half is in: `estimateFirmwareRam` now
@@ -840,9 +847,13 @@ freeform widgets must reuse rather than rediscover.
   services `lv_timer_handler` through a wrap-safe five-millisecond gate. It
   never calls `lv_tick_inc` from the LED loop, so neither strip length nor
   display refresh rate can become an accidental second animation clock.
-- [ ] Pin LVGL and panel/touch dependencies and generate a minimal `lv_conf.h`
+- [x] Pin LVGL and panel/touch dependencies and generate a minimal `lv_conf.h`
   or build-define set that includes only used widgets, fonts, colour depth, and
   heap features.
+  Both helper engines now select LVGL 9.5.0 exactly and write the same
+  `lv_conf.h`: RGB565, the fixed 64 KiB built-in heap, Montserrat 14, and only
+  Label, Bar, LED, Button, Switch, Slider and Arc. The ST7789V and XPT2046
+  adapters stay inline, so there is no panel/touch library version to float.
 - [ ] Emit static images/fonts into PROGMEM and validate asset size before
   generation. No widget label, asset name, or imported text may become an
   unsanitised C++ identifier or literal. Bake only used glyph sizes, tints and
