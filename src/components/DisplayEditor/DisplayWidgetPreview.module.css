@@ -130,6 +130,12 @@
   font-weight: 700;
 }
 
+.button.pressed {
+  border-color: var(--display-accent, #36c8ff);
+  background: color-mix(in srgb, var(--display-accent, #36c8ff) 34%, var(--display-surface, #171d2a));
+  transform: translateY(1px);
+}
+
 .toggle {
   width: 100%;
   justify-content: center;

@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import {
   enterDisplayHistoryScope,
   leaveDisplayHistoryScope,
@@ -23,6 +32,15 @@ import {
 import type { DisplayBounds, DisplayDocument, DisplayWidget, DisplayWidgetType } from '../../state/displayDocument'
 import { useUiStore } from '../../state/uiStore'
 import DisplayWidgetPreview from './DisplayWidgetPreview'
+import {
+  dialValueFromDrag,
+  displayControlRange,
+  initialDisplayControlValue,
+  isInteractiveDisplayWidget,
+  sliderValueFromPoint,
+  stepDisplayControlValue,
+  type DisplayControlValue,
+} from './displayRunPreview'
 import styles from './DisplayEditor.module.css'
 
 type Gesture = {
@@ -35,7 +53,128 @@ type Gesture = {
   document: DisplayDocument
 }
 
+type DisplayEditorMode = 'design' | 'run'
+
+interface RunDisplayWidgetProps {
+  widget: DisplayWidget
+  value: DisplayControlValue | undefined
+  onValue: (value: DisplayControlValue) => void
+}
+
 let displayWidgetClipboard: DisplayWidget[] = []
+
+function RunDisplayWidget({ widget, value, onValue }: RunDisplayWidgetProps) {
+  const definition = DISPLAY_WIDGET_LIBRARY[widget.type]
+  const interactive = isInteractiveDisplayWidget(widget)
+  const drag = useRef<{ pointerId: number; startY: number; startValue: number } | null>(null)
+  const range = displayControlRange(widget)
+  const numericValue = typeof value === 'number' ? value : range.min
+  const booleanValue = value === true
+  const role = widget.type === 'Toggle'
+    ? 'switch'
+    : widget.type === 'Slider' || widget.type === 'Dial'
+      ? 'slider'
+      : widget.type === 'Button'
+        ? 'button'
+        : undefined
+
+  const setSliderFromPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
+    onValue(sliderValueFromPoint(
+      widget,
+      { x: event.clientX, y: event.clientY },
+      event.currentTarget.getBoundingClientRect(),
+    ))
+  }
+
+  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!interactive || event.button !== 0) return
+    event.preventDefault()
+    event.stopPropagation()
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+    if (widget.type === 'Button') onValue(true)
+    else if (widget.type === 'Slider') setSliderFromPointer(event)
+    else if (widget.type === 'Dial') {
+      drag.current = { pointerId: event.pointerId, startY: event.clientY, startValue: numericValue }
+    }
+  }
+
+  const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (widget.type === 'Slider' && event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      setSliderFromPointer(event)
+    } else if (widget.type === 'Dial' && drag.current?.pointerId === event.pointerId) {
+      onValue(dialValueFromDrag(widget, drag.current.startValue, event.clientY - drag.current.startY))
+    }
+  }
+
+  const endPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (widget.type === 'Button') onValue(false)
+    if (drag.current?.pointerId === event.pointerId) drag.current = null
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+  }
+
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (!interactive) return
+    if (widget.type === 'Button' && (event.key === ' ' || event.key === 'Enter')) {
+      event.preventDefault()
+      onValue(true)
+      return
+    }
+    if (widget.type === 'Toggle' && (event.key === ' ' || event.key === 'Enter')) {
+      event.preventDefault()
+      if (!event.repeat) onValue(!booleanValue)
+      return
+    }
+    if (widget.type !== 'Slider' && widget.type !== 'Dial') return
+    if (event.key === 'Home' || event.key === 'End') {
+      event.preventDefault()
+      onValue(event.key === 'Home' ? range.min : range.max)
+      return
+    }
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return
+    event.preventDefault()
+    const decrease = event.key === 'ArrowLeft' || event.key === 'ArrowDown'
+    onValue(stepDisplayControlValue(widget, numericValue, decrease ? -1 : 1))
+  }
+
+  return (
+    <div
+      className={`${styles.widget} ${styles.runWidget} ${interactive ? styles.interactiveWidget : ''}`}
+      style={{
+        left: widget.bounds.x,
+        top: widget.bounds.y,
+        width: widget.bounds.width,
+        height: widget.bounds.height,
+      }}
+      role={role}
+      tabIndex={interactive ? 0 : undefined}
+      aria-label={interactive ? `${widget.label || definition.label} run preview` : undefined}
+      aria-pressed={widget.type === 'Button' ? booleanValue : undefined}
+      aria-checked={widget.type === 'Toggle' ? booleanValue : undefined}
+      aria-valuemin={widget.type === 'Slider' || widget.type === 'Dial' ? range.min : undefined}
+      aria-valuemax={widget.type === 'Slider' || widget.type === 'Dial' ? range.max : undefined}
+      aria-valuenow={widget.type === 'Slider' || widget.type === 'Dial' ? numericValue : undefined}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endPointer}
+      onPointerCancel={endPointer}
+      onClick={(event) => {
+        event.stopPropagation()
+        if (widget.type === 'Toggle') onValue(!booleanValue)
+      }}
+      onKeyDown={onKeyDown}
+      onKeyUp={(event) => {
+        if (widget.type === 'Button' && (event.key === ' ' || event.key === 'Enter')) {
+          event.preventDefault()
+          onValue(false)
+        }
+      }}
+    >
+      <DisplayWidgetPreview widget={widget} renderer={definition.previewRenderer} value={value} />
+    </div>
+  )
+}
 
 function backgroundStyle(document: DisplayDocument): CSSProperties {
   const background = document.theme.background
@@ -118,10 +257,14 @@ export default function DisplayEditor() {
   const draftRef = useRef<DisplayDocument | null>(persisted ?? null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [zoom, setZoom] = useState(1)
+  const [editorMode, setEditorMode] = useState<DisplayEditorMode>('design')
+  const [runValues, setRunValues] = useState<Record<string, DisplayControlValue>>({})
   const [announcement, setAnnouncement] = useState('Display editor opened.')
 
   useEffect(() => {
     if (!displayId) return
+    setEditorMode('design')
+    setRunValues({})
     enterDisplayHistoryScope(displayId)
     return () => leaveDisplayHistoryScope(displayId)
   }, [displayId])
@@ -308,11 +451,25 @@ export default function DisplayEditor() {
     setSelectedIds([])
   }
 
+  const setMode = (mode: DisplayEditorMode) => {
+    gesture.current = null
+    setEditorMode(mode)
+    setSelectedIds([])
+    setAnnouncement(mode === 'run'
+      ? 'Run preview active. Touch controls are local to this preview.'
+      : 'Design mode active. Touch controls are locked for editing.')
+  }
+
+  const runValue = (widget: DisplayWidget): DisplayControlValue | undefined => (
+    Object.hasOwn(runValues, widget.id) ? runValues[widget.id] : initialDisplayControlValue(widget)
+  )
+
   return (
     <section
       className={styles.editor}
       aria-label={`Display editor for ${displayId}`}
       onKeyDown={(event) => {
+        if (editorMode === 'run') return
         if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return
         const direction = event.key
         const mod = event.ctrlKey || event.metaKey
@@ -375,9 +532,17 @@ export default function DisplayEditor() {
           <span className={styles.resolution}>{document.designSize.width} × {document.designSize.height}</span>
         </div>
         <div className={styles.toolbar} aria-label="Display canvas controls">
-          <button type="button" onClick={() => { const ids = document.widgets.map((widget) => widget.id); setSelectedIds(ids); setAnnouncement(selectionAnnouncement(document, ids, issues)) }} disabled={document.widgets.length === 0}>Select all</button>
-          <button type="button" onClick={copySelection} disabled={selectedWidgets.length === 0}>Copy</button>
-          <button type="button" onClick={pasteSelection} disabled={displayWidgetClipboard.length === 0}>Paste</button>
+          <div className={styles.modeSwitch} role="group" aria-label="Display editor mode">
+            <button type="button" aria-pressed={editorMode === 'design'} onClick={() => setMode('design')}>Design</button>
+            <button type="button" aria-pressed={editorMode === 'run'} onClick={() => setMode('run')}>Run</button>
+          </div>
+          {editorMode === 'design' && (
+            <>
+              <button type="button" onClick={() => { const ids = document.widgets.map((widget) => widget.id); setSelectedIds(ids); setAnnouncement(selectionAnnouncement(document, ids, issues)) }} disabled={document.widgets.length === 0}>Select all</button>
+              <button type="button" onClick={copySelection} disabled={selectedWidgets.length === 0}>Copy</button>
+              <button type="button" onClick={pasteSelection} disabled={displayWidgetClipboard.length === 0}>Paste</button>
+            </>
+          )}
           <button type="button" onClick={() => setZoom((value) => Math.max(0.35, value - 0.1))} aria-label="Zoom out">−</button>
           <output aria-label="Display zoom">{Math.round(zoom * 100)}%</output>
           <button type="button" onClick={() => setZoom((value) => Math.min(2, value + 0.1))} aria-label="Zoom in">＋</button>
@@ -385,24 +550,26 @@ export default function DisplayEditor() {
         </div>
       </header>
 
-      <div className={styles.body}>
-        <aside className={styles.palette} aria-label="Widget palette">
-          <h2>Widgets</h2>
-          <p>Place readouts and controls on the touch screen.</p>
-          <div className={styles.paletteList}>
-            {Object.values(DISPLAY_WIDGET_LIBRARY).map((definition) => (
-              <button key={definition.type} type="button" aria-label={`Add ${definition.label} widget`} onClick={() => add(definition.type)}>
-                <span>{definition.label}</span>
-                <small>{definition.portRoles.map((port) => port.direction === 'input' ? 'In' : 'Out').join(' + ') || 'Visual'}</small>
-              </button>
-            ))}
-          </div>
-        </aside>
+      <div className={`${styles.body} ${editorMode === 'run' ? styles.runBody : ''}`}>
+        {editorMode === 'design' && (
+          <aside className={styles.palette} aria-label="Widget palette">
+            <h2>Widgets</h2>
+            <p>Place readouts and controls on the touch screen.</p>
+            <div className={styles.paletteList}>
+              {Object.values(DISPLAY_WIDGET_LIBRARY).map((definition) => (
+                <button key={definition.type} type="button" aria-label={`Add ${definition.label} widget`} onClick={() => add(definition.type)}>
+                  <span>{definition.label}</span>
+                  <small>{definition.portRoles.map((port) => port.direction === 'input' ? 'In' : 'Out').join(' + ') || 'Visual'}</small>
+                </button>
+              ))}
+            </div>
+          </aside>
+        )}
 
         <div ref={viewportRef} className={styles.viewport} onPointerMove={continueGesture} onPointerUp={endGesture} onPointerCancel={endGesture}>
           <div className={styles.screenSizer} style={{ width: document.designSize.width * zoom, height: document.designSize.height * zoom }}>
             <div
-              className={styles.screen}
+              className={`${styles.screen} ${editorMode === 'run' ? styles.runScreen : ''}`}
               style={{
                 ...backgroundStyle(document),
                 ...editorVariables(document),
@@ -410,10 +577,20 @@ export default function DisplayEditor() {
                 height: document.designSize.height,
                 transform: `scale(${zoom})`,
               }}
-              onPointerDown={() => select(null)}
+              onPointerDown={() => { if (editorMode === 'design') select(null) }}
             >
               {document.widgets.map((widget) => {
                 const definition = DISPLAY_WIDGET_LIBRARY[widget.type]
+                if (editorMode === 'run') {
+                  return (
+                    <RunDisplayWidget
+                      key={widget.id}
+                      widget={widget}
+                      value={runValue(widget)}
+                      onValue={(value) => setRunValues((current) => ({ ...current, [widget.id]: value }))}
+                    />
+                  )
+                }
                 const isSelected = selectedIds.includes(widget.id)
                 const widgetIssues = issuesByWidget.get(widget.id) ?? []
                 const issueDescriptionId = widgetIssues.length > 0 ? `display-widget-issues-${widget.id}` : undefined
@@ -458,7 +635,7 @@ export default function DisplayEditor() {
           </div>
         </div>
 
-        <aside className={styles.inspector} aria-label="Widget inspector">
+        {editorMode === 'design' && <aside className={styles.inspector} aria-label="Widget inspector">
           <h2>{selected ? selected.type : selectedWidgets.length > 1 ? `${selectedWidgets.length} widgets` : 'Screen'}</h2>
           {selected ? (
             <>
@@ -543,7 +720,7 @@ export default function DisplayEditor() {
               {issues.slice(0, 4).map((issue, index) => <p key={`${issue.widgetId}-${issue.code}-${index}`}>{issue.message}</p>)}
             </div>
           )}
-        </aside>
+        </aside>}
       </div>
       <div className={styles.srOnly} role="status" aria-label="Display editor announcements" aria-live="polite" aria-atomic="true">{announcement}</div>
       <div className={styles.srOnly} role="status" aria-label="Display validation status" aria-live="polite" aria-atomic="true">

@@ -689,8 +689,16 @@ freeform widgets must reuse rather than rediscover.
   changes prune only their affected edges in the same undoable transaction.
   The editor confirms before deleting or cutting wired widgets, and duplicating
   a custom-display node clones its document under a fresh display id.
-- [ ] Add a read-only “run” preview mode that accepts pointer/touch input and a
+- [x] Add a read-only “run” preview mode that accepts pointer/touch input and a
   design mode that never fires graph actions accidentally.
+  The display workspace now has a session-only Design/Run switch. Run hides
+  editing chrome, selection, grid, resize and collision affordances while
+  Button, Toggle, Slider and Dial use isolated local preview values with
+  pointer capture and keyboard equivalents. Switching modes never writes the
+  document, and Design routes the same surface only to selection and geometry
+  gestures. Publishing those preview values to graph evaluation remains with
+  the Phase 7 runtime store rather than smuggling runtime state into the
+  declarative document.
 - [ ] Use a shared widget theme/token model for DOM preview and LVGL codegen.
   Pixel-perfect parity is not required, but bounds, text wrapping, state,
   values, and interaction semantics are. Include default, pressed, active,

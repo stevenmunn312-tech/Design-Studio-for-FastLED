@@ -28,6 +28,26 @@
   gap: 8px;
 }
 
+.modeSwitch {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--chrome-border);
+  border-radius: 6px;
+  background: var(--bg-primary);
+}
+
+.modeSwitch button {
+  border-color: transparent;
+  background: transparent;
+}
+
+.modeSwitch button[aria-pressed='true'] {
+  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--border-glow));
+  background: color-mix(in srgb, var(--accent-output) 13%, var(--bg-node));
+  color: var(--accent-output);
+}
+
 .breadcrumb button,
 .toolbar button {
   border: 1px solid var(--border-glow);
@@ -83,6 +103,10 @@
   min-height: 0;
   flex: 1;
   grid-template-columns: 182px minmax(240px, 1fr) 210px;
+}
+
+.runBody {
+  grid-template-columns: minmax(240px, 1fr);
 }
 
 .palette,
@@ -193,6 +217,10 @@
   content: '';
 }
 
+.runScreen::before {
+  display: none;
+}
+
 .widget {
   position: absolute;
   z-index: 1;
@@ -212,6 +240,22 @@
 
 .widget:active {
   cursor: grabbing;
+}
+
+.widget.runWidget {
+  cursor: default;
+  user-select: none;
+}
+
+.widget.runWidget.interactiveWidget,
+.widget.runWidget.interactiveWidget:active {
+  cursor: pointer;
+}
+
+.widget.runWidget.interactiveWidget:focus-visible {
+  border-color: var(--display-accent);
+  outline: 2px solid color-mix(in srgb, var(--display-accent) 72%, white);
+  outline-offset: 2px;
 }
 
 .widget.selected {

@@ -119,4 +119,35 @@ describe('DisplayEditor', () => {
     fireEvent.click(view.getByRole('button', { name: 'Graph' }))
     expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'graph' })
   })
+
+  it('keeps design editing separate from the interactive run preview', () => {
+    const view = render(<DisplayEditor />)
+    fireEvent.click(view.getByRole('button', { name: 'Add Button widget' }))
+    fireEvent.click(view.getByRole('button', { name: 'Add Toggle widget' }))
+    fireEvent.click(view.getByRole('button', { name: 'Add Slider widget' }))
+    const before = structuredClone(useGraphStore.getState().displayDocuments.panel)
+
+    fireEvent.click(view.getByRole('button', { name: 'Run' }))
+
+    expect(view.queryByRole('complementary', { name: 'Widget palette' })).toBeNull()
+    expect(view.queryByRole('complementary', { name: 'Widget inspector' })).toBeNull()
+    const button = view.getByRole('button', { name: 'Button run preview' })
+    fireEvent.pointerDown(button, { button: 0, pointerId: 1 })
+    expect(button.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.pointerUp(button, { button: 0, pointerId: 1 })
+    expect(button.getAttribute('aria-pressed')).toBe('false')
+
+    const toggle = view.getByRole('switch', { name: 'Toggle run preview' })
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
+
+    const slider = view.getByRole('slider', { name: 'Slider run preview' })
+    fireEvent.keyDown(slider, { key: 'ArrowRight' })
+    expect(slider.getAttribute('aria-valuenow')).toBe('0.01')
+    expect(useGraphStore.getState().displayDocuments.panel).toEqual(before)
+
+    fireEvent.click(view.getByRole('button', { name: 'Design' }))
+    expect(view.getByRole('complementary', { name: 'Widget palette' })).toBeTruthy()
+    expect(view.getByRole('button', { name: /Button, Button\. Position/ })).toBeTruthy()
+  })
 })

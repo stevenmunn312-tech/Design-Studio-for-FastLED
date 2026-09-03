@@ -49,6 +49,7 @@ export default function DisplayWidgetPreview({ widget, renderer, value }: Displa
   const fillStyle = { '--widget-fill': `${amount * 100}%` } as CSSProperties
   const text = typeof value === 'string' ? value : stringProperty(widget, 'text', widget.label)
   const active = typeof value === 'boolean' ? value : true
+  const pressed = value === true
 
   switch (renderer) {
     case 'text':
@@ -74,7 +75,7 @@ export default function DisplayWidgetPreview({ widget, renderer, value }: Displa
     case 'image':
       return <span className={styles.image}>{stringProperty(widget, 'assetId') ? '▧' : 'Choose asset'}</span>
     case 'button':
-      return <span className={styles.button}>{stringProperty(widget, 'text', widget.label)}</span>
+      return <span className={`${styles.button} ${pressed ? styles.pressed : ''}`}>{stringProperty(widget, 'text', widget.label)}</span>
     case 'toggle':
       return <span className={`${styles.toggle} ${active ? styles.active : ''}`}><span />{active ? stringProperty(widget, 'onLabel', 'On') : stringProperty(widget, 'offLabel', 'Off')}</span>
     case 'slider':
