@@ -13,4 +13,8 @@ describe('previewGridDimensions', () => {
   it('prefers the selected LED output dimensions', () => {
     expect(previewGridDimensions({ width: 32, height: 8 }, 30, true)).toEqual({ width: 32, height: 8 })
   })
+
+  it('shows a complete maximum-length LED string', () => {
+    expect(previewGridDimensions({ width: 300, height: 1 }, 16, false)).toEqual({ width: 300, height: 1 })
+  })
 })

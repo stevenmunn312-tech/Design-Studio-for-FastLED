@@ -756,6 +756,8 @@ const BODY_CONTENT_W = 224
 /** Keep wide one-row previews legible and bounded. This is also the cap used
  *  by every generic frame thumbnail below. */
 const FRAME_PREVIEW_MAX_AXIS = 128
+/** Two one-pixel borders must still leave enough interior for an LED emitter. */
+const FRAME_PREVIEW_MIN_HEIGHT = 8
 /** How long a node announces itself after the hardware view jumps to it.
  *  Long enough to catch the eye having just moved, short enough not to linger
  *  as if it were a selection state. Must match `.nodeFlash`'s duration. */
@@ -1116,7 +1118,10 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       : null
   // Frame previews fill the node width at the matrix aspect ratio; palette /
   // colour / wave previews use the fixed scope height.
-  const framePreviewH = Math.round((BODY_CONTENT_W * gridH) / gridW)
+  const framePreviewH = Math.max(
+    FRAME_PREVIEW_MIN_HEIGHT,
+    Math.round((BODY_CONTENT_W * gridH) / gridW),
+  )
   /*
    * The LED output's own preview, drawn in the shape of the thing it drives.
    *
@@ -1176,7 +1181,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       return {
         cols,
         rows: 1,
-        height: Math.round(BODY_CONTENT_W / cols),
+        height: Math.max(FRAME_PREVIEW_MIN_HEIGHT, Math.round(BODY_CONTENT_W / cols)),
         width: null,
         cellFill: LED_CELL_FILL,
         ring: null,
