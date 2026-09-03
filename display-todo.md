@@ -854,11 +854,28 @@ freeform widgets must reuse rather than rediscover.
   `lv_conf.h`: RGB565, the fixed 64 KiB built-in heap, Montserrat 14, and only
   Label, Bar, LED, Button, Switch, Slider and Arc. The ST7789V and XPT2046
   adapters stay inline, so there is no panel/touch library version to float.
-- [ ] Emit static images/fonts into PROGMEM and validate asset size before
+- [x] Emit static images/fonts into PROGMEM and validate asset size before
   generation. No widget label, asset name, or imported text may become an
   unsanitised C++ identifier or literal. Bake only used glyph sizes, tints and
   states from vector/token sources; template preview screenshots are never
   firmware assets.
+  `customDisplayResources.ts` now derives the exact background, Image/Icon and
+  control-icon rasterizations a document paints, folding equal id/size/tint
+  uses while keeping different variants separate. `bakeCustomDisplayAssets.ts`
+  fetches only validated site-relative catalogue URLs, rasterizes vectors at
+  their final size, and packs A8, RGB565 or RGB565+A8 bytes before synchronous
+  code generation. The 512 KiB pre-generation ceiling, exact byte-length check,
+  supported background size and editor-only category checks fail with named
+  diagnostics instead of producing a partial screen. `customDisplayAssetsCpp.ts`
+  emits aligned indexed PROGMEM tables and LVGL 9 descriptors; only the
+  codegen-owned display stem and array index enter identifiers, while all
+  authored text still passes through `displayString`/`cppStringLiteral`.
+  The LVGL emitter selects the nearest pinned Montserrat bitmap size per text
+  widget, records only sizes actually used, and the helper specializes
+  `lv_conf.h` from that allow-listed marker so unused font tables stay out of
+  flash. Backgrounds, tinted masks, full-colour transparent art and optional
+  Button/Toggle icons now consume those baked descriptors; template preview
+  screenshots have no route into the bake.
 - [x] Implement synchronized Toggle/Slider/Dial as a bounded two-role contract:
   `out` carries touch intent and optional `set` carries graph-authoritative
   state. The finger owns the value while pressed; the wired graph value wins
