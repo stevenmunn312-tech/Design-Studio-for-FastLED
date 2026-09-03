@@ -1,15 +1,22 @@
 // Deterministic LVGL 9 object tree for the freeform Display node.
 //
-// This module deliberately stops at the LVGL boundary. The following display
-// driver, tick source and asset/font tables are separate slices of the display
-// plan, so this emitter can be tested without pretending those dependencies
-// already exist. It owns the parts that are purely a function of a normalized
-// DisplayDocument: objects, styles, callbacks, bounded caches and bindings.
+// This module deliberately stops at the LVGL boundary. The panel driver and
+// browser-side rasterizer are separate slices, while customDisplayAssetsCpp
+// supplies the finished PROGMEM tables. It owns the parts that are purely a
+// function of a normalized DisplayDocument: objects, styles, font selection,
+// callbacks, bounded caches and bindings.
 
 import type { DisplayDocument, DisplayWidget, DisplayWidgetProperty } from '../state/displayDocument'
 import { displayWidgetDefinition, type DisplayWidgetPortRoleId } from '../state/displayRegistry'
 import { resolveDisplayThemeTokens, displayWidgetTextTokens, type DisplayWidgetStateTokens } from '../state/displayTheme'
 import { DISPLAY_TEXT_BUFFER_BYTES, cppStringLiteral, displayString, normalizeNumberFormat } from '../state/displayText'
+import {
+  customDisplayAssetRequests,
+  customDisplayFontSize,
+  customDisplayFontSizes,
+  type BakedCustomDisplayAsset,
+} from '../state/customDisplayResources'
+import { customDisplayAssetIndex, customDisplayAssetSymbol } from './customDisplayAssetsCpp'
 
 export const CUSTOM_DISPLAY_LVGL_INCLUDE = '#include <lvgl.h>'
 
@@ -37,6 +44,9 @@ export interface CustomDisplayLvglEmit {
   /** Codegen-owned identifier stem (normally the sanitized graph node id). */
   id: string
   document: DisplayDocument
+  /** Finished, validated browser-side rasterizations. Omit while previewing an
+   * incomplete document; deploy generation validates and requires every use. */
+  assets?: readonly BakedCustomDisplayAsset[]
   /** Bindings grouped by widget id. Unknown roles are harmlessly ignored. */
   bindings?: Readonly<Record<string, readonly CustomDisplayLvglBinding[]>>
 }
@@ -127,13 +137,11 @@ function widgetCreateExpression(widget: DisplayWidget, screen: string): string {
     case 'switch': return `lv_switch_create(${screen})`
     case 'slider': return `lv_slider_create(${screen})`
     case 'arc': return `lv_arc_create(${screen})`
-    // Pattern Browser and image assets receive their final compound/static
-    // object implementations with the asset-baking slice. Their deterministic
-    // bounds and placeholder remain real LVGL objects in the meantime.
+    // Pattern Browser keeps its placeholder until its separate collection
+    // thumbnail slice is wired into the custom screen.
     case 'pattern-browser': return `lv_label_create(${screen})`
-    case 'image':
-    case 'swatch':
-      return `lv_obj_create(${screen})`
+    case 'image': return `lv_image_create(${screen})`
+    case 'swatch': return `lv_obj_create(${screen})`
   }
 }
 
@@ -167,6 +175,7 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: DisplayWidget, in
   const text = displayWidgetTextTokens(widget, emit.document.theme)
   if (displayWidgetDefinition(widget.type).lvglEmitter === 'label') {
     lines.push(
+      `  lv_obj_set_style_text_font(${obj}, &lv_font_montserrat_${customDisplayFontSize(text.fontSize)}, LV_PART_MAIN);`,
       `  lv_obj_set_style_text_align(${obj}, ${alignCpp(text.align)}, LV_PART_MAIN);`,
       `  lv_label_set_long_mode(${obj}, ${text.wrap ? 'LV_LABEL_LONG_MODE_WRAP' : 'LV_LABEL_LONG_MODE_DOTS'});`,
     )
@@ -229,15 +238,59 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: DisplayWidget, in
   } else if (widget.type === 'Pattern Browser') {
     lines.push(`  _cdSetText(${rt}, "NO PATTERN");`)
   } else if (widget.type === 'Image/Icon') {
-    lines.push(`  lv_obj_t *_cdLabel_${safeId(emit.id)}_${index} = lv_label_create(${obj});`)
-    lines.push(`  lv_label_set_text(_cdLabel_${safeId(emit.id)}_${index}, "IMAGE");`)
-    lines.push(`  lv_obj_center(_cdLabel_${safeId(emit.id)}_${index});`)
+    const assetIndex = emit.assets ? customDisplayAssetIndex(emit.document, { kind: 'widget', widgetIndex: index }) : null
+    if (assetIndex !== null) {
+      const request = customDisplayAssetRequests(emit.document)[assetIndex]
+      lines.push(`  lv_image_set_src(${obj}, &${customDisplayAssetSymbol(emit.id, assetIndex)});`)
+      if (request.format === 'a8') {
+        lines.push(`  lv_obj_set_style_image_recolor(${obj}, lv_color_hex(${colorHex(request.tintColor ?? '#ffffff')}), LV_PART_MAIN);`)
+        lines.push(`  lv_obj_set_style_image_recolor_opa(${obj}, LV_OPA_COVER, LV_PART_MAIN);`)
+      }
+    } else {
+      lines.push(`  lv_obj_t *_cdLabel_${safeId(emit.id)}_${index} = lv_label_create(${obj});`)
+      lines.push(`  lv_label_set_text(_cdLabel_${safeId(emit.id)}_${index}, "IMAGE");`)
+      lines.push(`  lv_obj_center(_cdLabel_${safeId(emit.id)}_${index});`)
+    }
   } else if (widget.type === 'Button') {
-    lines.push(`  lv_obj_t *_cdLabel_${safeId(emit.id)}_${index} = lv_label_create(${obj});`)
-    lines.push(`  lv_label_set_text(_cdLabel_${safeId(emit.id)}_${index}, ${cppStringLiteral(displayString(stringProperty(widget, 'text', widget.label || 'Button')))});`)
-    lines.push(`  lv_obj_center(_cdLabel_${safeId(emit.id)}_${index});`)
+    lines.push(...controlContentsLines(emit, widget, index, obj, text.fontSize, stringProperty(widget, 'text', widget.label || 'Button')))
+  } else if (widget.type === 'Toggle') {
+    const label = stringProperty(widget, 'offLabel', 'Off')
+    lines.push(...controlContentsLines(emit, widget, index, obj, text.fontSize, label))
   }
 
+  return lines
+}
+
+function controlContentsLines(
+  emit: CustomDisplayLvglEmit,
+  widget: DisplayWidget,
+  index: number,
+  obj: string,
+  fontSize: number,
+  label: string,
+): string[] {
+  const lines: string[] = []
+  const presentation = stringProperty(widget, 'presentation', 'text')
+  const assetIndex = emit.assets && presentation !== 'text'
+    ? customDisplayAssetIndex(emit.document, { kind: 'widget', widgetIndex: index })
+    : null
+  if (assetIndex !== null) {
+    const image = `_cdImage_${safeId(emit.id)}_${index}`
+    lines.push(`  lv_obj_t *${image} = lv_image_create(${obj});`)
+    lines.push(`  lv_image_set_src(${image}, &${customDisplayAssetSymbol(emit.id, assetIndex)});`)
+    lines.push(presentation === 'icon'
+      ? `  lv_obj_center(${image});`
+      : `  lv_obj_align(${image}, LV_ALIGN_LEFT_MID, 4, 0);`)
+  }
+  if (presentation !== 'icon' || assetIndex === null) {
+    const text = `_cdLabel_${safeId(emit.id)}_${index}`
+    lines.push(`  lv_obj_t *${text} = lv_label_create(${obj});`)
+    lines.push(`  lv_obj_set_style_text_font(${text}, &lv_font_montserrat_${customDisplayFontSize(fontSize)}, LV_PART_MAIN);`)
+    lines.push(`  lv_label_set_text(${text}, ${cppStringLiteral(displayString(label))});`)
+    lines.push(assetIndex === null
+      ? `  lv_obj_center(${text});`
+      : `  lv_obj_align(${text}, LV_ALIGN_RIGHT_MID, -4, 0);`)
+  }
   return lines
 }
 
@@ -410,6 +463,7 @@ export function customDisplayLvglGlobalCpp(emit: CustomDisplayLvglEmit): string 
   const id = safeId(emit.id)
   const count = Math.max(1, emit.document.widgets.length)
   return [
+    `// FLS-LVGL-FONTS:${customDisplayFontSizes(emit.document).join(',')}`,
     `static lv_obj_t *_cdScreen_${id} = nullptr;`,
     `static CustomDisplayWidgetRuntime _cd_${id}[${count}] = {};`,
   ].join('\n')
@@ -434,6 +488,13 @@ export function customDisplayLvglSetupCpp(emit: CustomDisplayLvglEmit): string[]
   if (theme.background.kind === 'gradient') {
     lines.push(`  lv_obj_set_style_bg_grad_color(_cdScreen_${id}, lv_color_hex(${colorHex(theme.background.endColor)}), LV_PART_MAIN);`)
     lines.push(`  lv_obj_set_style_bg_grad_dir(_cdScreen_${id}, ${theme.background.direction === 'vertical' ? 'LV_GRAD_DIR_VER' : 'LV_GRAD_DIR_HOR'}, LV_PART_MAIN);`)
+  }
+  const backgroundIndex = emit.assets ? customDisplayAssetIndex(emit.document, { kind: 'background' }) : null
+  if (backgroundIndex !== null) {
+    lines.push(`  lv_obj_t *_cdBackground_${id} = lv_image_create(_cdScreen_${id});`)
+    lines.push(`  lv_image_set_src(_cdBackground_${id}, &${customDisplayAssetSymbol(emit.id, backgroundIndex)});`)
+    lines.push(`  lv_obj_set_pos(_cdBackground_${id}, 0, 0);`)
+    lines.push(`  lv_obj_set_size(_cdBackground_${id}, ${emit.document.designSize.width}, ${emit.document.designSize.height});`)
   }
   emit.document.widgets.forEach((widget, index) => lines.push(...setupWidgetLines(emit, widget, index)))
   lines.push(`  lv_screen_load(_cdScreen_${id});`)

@@ -19,6 +19,8 @@ import {
   defaultDisplayWidgetProperties,
 } from '../../state/displayRegistry'
 import { DISPLAY_WIDGET_TYPES, type DisplayDocument, type DisplayWidget } from '../../state/displayDocument'
+import { customDisplayAssetByteLength, customDisplayAssetRequests } from '../../state/customDisplayResources'
+import { customDisplayAssetsCpp } from '../customDisplayAssetsCpp'
 
 function widget(type: DisplayWidget['type'], index: number): DisplayWidget {
   return {
@@ -40,6 +42,7 @@ function emitted(emit: CustomDisplayLvglEmit): string {
     CUSTOM_DISPLAY_LVGL_FORWARD,
     CUSTOM_DISPLAY_LVGL_HELPERS,
     CUSTOM_DISPLAY_LVGL_TIMING_CPP,
+    ...(emit.assets ? [customDisplayAssetsCpp(emit.id, emit.document, emit.assets)] : []),
     customDisplayLvglGlobalCpp(emit),
     ...customDisplayLvglSetupCpp(emit),
     ...customDisplayLvglLoopCpp(emit),
@@ -78,6 +81,54 @@ describe('custom Display LVGL object emitter', () => {
     expect(gradient).toContain('lv_color_hex(0x112233)')
     expect(gradient).toContain('lv_color_hex(0x445566)')
     expect(gradient).toContain('LV_GRAD_DIR_VER')
+  })
+
+  it('emits only used font sizes and assigns the nearest pinned bitmap font', () => {
+    const item = widget('Text', 0)
+    item.properties.fontSize = 23
+    const source = emitted({ id: 'panel', document: document([item]) })
+    expect(source).toContain('// FLS-LVGL-FONTS:22')
+    expect(source).toContain('lv_obj_set_style_text_font(_cd_panel[0].object, &lv_font_montserrat_22')
+    expect(source).not.toContain('lv_font_montserrat_24')
+  })
+
+  it('uses baked images for the background, image widgets and control icons', () => {
+    const art = widget('Image/Icon', 0)
+    art.bounds = { x: 8, y: 8, width: 24, height: 24 }
+    art.properties = { assetId: 'icon:power', tint: true, tintColor: '#123456' }
+    const button = widget('Button', 1)
+    button.properties = { text: 'Go', assetId: 'icon:queue', presentation: 'icon' }
+    const doc = document([art, button])
+    doc.theme.background = { kind: 'image', assetId: 'background:01-neon-orbit:320x240' }
+    const assets = customDisplayAssetRequests(doc).map((request) => ({
+      ...request, data: new Uint8Array(customDisplayAssetByteLength(request)),
+    }))
+    const source = emitted({ id: 'panel-name', document: doc, assets })
+
+    expect(source).toContain('uint8_t _cdAsset_panel_name_0_map[] PROGMEM')
+    expect(source).toContain('.cf = LV_COLOR_FORMAT_RGB565')
+    expect(source).toContain('.cf = LV_COLOR_FORMAT_A8')
+    expect(source).toContain('.cf = LV_COLOR_FORMAT_RGB565A8')
+    expect(source).toContain('lv_image_set_src(_cdBackground_panel_name, &_cdAsset_panel_name_0);')
+    expect(source).toContain('lv_image_set_src(_cd_panel_name[0].object, &_cdAsset_panel_name_1);')
+    expect(source).toContain('lv_obj_set_style_image_recolor(_cd_panel_name[0].object, lv_color_hex(0x123456)')
+    expect(source).toContain('lv_image_set_src(_cdImage_panel_name_1, &_cdAsset_panel_name_2);')
+    expect(source).not.toContain('lv_label_set_text(_cdLabel_panel_name_1')
+    // Neither catalogue ids nor labels are ever C++ declaration material.
+    expect(source).not.toContain('_icon:power')
+  })
+
+  it('refuses missing or wrong-sized asset data before emitting a table', () => {
+    const art = widget('Image/Icon', 0)
+    art.bounds = { x: 0, y: 0, width: 2, height: 2 }
+    art.properties = { assetId: 'icon:power', tint: true, tintColor: '#ffffff' }
+    const doc = document([art])
+    const request = customDisplayAssetRequests(doc)[0]
+
+    expect(() => customDisplayAssetsCpp('panel', doc, [])).toThrow('has not been baked')
+    expect(() => customDisplayAssetsCpp('panel', doc, [{
+      ...request, data: new Uint8Array(3),
+    }])).toThrow('produced 3 bytes; 4 are required')
   })
 
   it('uses one bounded runtime cache and no allocating Arduino String', () => {

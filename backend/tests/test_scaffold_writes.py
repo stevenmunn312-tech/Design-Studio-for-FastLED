@@ -128,6 +128,34 @@ def test_lvgl_sketch_workspace_gets_the_minimal_config(tmp_path, monkeypatch):
     assert "#define LV_USE_CHART 0" in config
     assert "#define LV_FONT_MONTSERRAT_14 1" in config
     assert "#define LV_FONT_MONTSERRAT_16 0" in config
+    assert "#define LV_USE_IMAGE 1" in config
+
+
+def test_lvgl_sketch_workspace_enables_only_generated_font_sizes(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
+    ino = "#include <lvgl.h>\n// FLS-LVGL-FONTS:16,22\nvoid setup() {}\n"
+
+    with app._sketch_workspace("custom_fonts", ino) as sketch_dir:
+        config = (sketch_dir / "lv_conf.h").read_text(encoding="utf-8")
+
+    assert "#define LV_FONT_MONTSERRAT_14 0" in config
+    assert "#define LV_FONT_MONTSERRAT_16 1" in config
+    assert "#define LV_FONT_MONTSERRAT_22 1" in config
+    assert "#define LV_FONT_MONTSERRAT_24 0" in config
+    assert "#define LV_FONT_DEFAULT &lv_font_montserrat_16" in config
+
+
+def test_lvgl_font_markers_are_allowlisted_and_combined():
+    config = app._lv_conf_for_sketch(
+        "// FLS-LVGL-FONTS:8,18\n// FLS-LVGL-FONTS:18,48\n"
+        "// FLS-LVGL-FONTS:13,999\n"
+    )
+
+    assert "#define LV_FONT_MONTSERRAT_8 1" in config
+    assert "#define LV_FONT_MONTSERRAT_18 1" in config
+    assert "#define LV_FONT_MONTSERRAT_48 1" in config
+    assert "MONTSERRAT_13" not in config
+    assert "MONTSERRAT_999" not in config
 
 
 def test_non_lvgl_sketch_workspace_does_not_create_a_config(tmp_path, monkeypatch):

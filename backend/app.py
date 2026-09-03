@@ -264,7 +264,9 @@ _LVGL_INCLUDE_MARKER = "#include <lvgl.h>"
 
 # One deliberately small configuration shared by both build engines. LVGL's
 # defaults enable almost its entire widget catalogue; Studio emits only the
-# seven widgets below and one built-in font. Keeping the header here lets the
+# eight widgets below. Font switches are specialized per sketch from the
+# FLS-LVGL-FONTS marker, so a 14 px screen does not pull every authored size
+# into flash. Keeping the header here lets the
 # helper write it beside either a reusable Arduino sketch or the fbuild-local
 # LVGL checkout without depending on a source-tree data file in desktop builds.
 _LV_CONF_TEXT = """\
@@ -316,7 +318,7 @@ _LV_CONF_TEXT = """\
 #define LV_USE_CHART 0
 #define LV_USE_CHECKBOX 0
 #define LV_USE_DROPDOWN 0
-#define LV_USE_IMAGE 0
+#define LV_USE_IMAGE 1
 #define LV_USE_IMAGEBUTTON 0
 #define LV_USE_KEYBOARD 0
 #define LV_USE_LABEL 1
@@ -350,6 +352,32 @@ _LV_CONF_TEXT = """\
 
 #endif
 """
+
+_LVGL_FONT_SIZES = tuple(range(8, 50, 2))
+_LVGL_FONT_MARKER_RE = re.compile(r"^// FLS-LVGL-FONTS:([0-9,]+)$", re.MULTILINE)
+
+
+def _lv_conf_for_sketch(ino: str) -> str:
+    """Enable only the pinned LVGL bitmap fonts named by generated source."""
+    requested = {
+        int(size)
+        for marker in _LVGL_FONT_MARKER_RE.findall(ino)
+        for size in marker.split(",")
+        if size.isdigit() and int(size) in _LVGL_FONT_SIZES
+    }
+    if not requested:
+        requested = {14}
+    config = _LV_CONF_TEXT
+    for size in _LVGL_FONT_SIZES:
+        config = config.replace(
+            f"#define LV_FONT_MONTSERRAT_{size} {1 if size == 14 else 0}",
+            f"#define LV_FONT_MONTSERRAT_{size} {1 if size in requested else 0}",
+        )
+    config = config.replace(
+        "#define LV_FONT_DEFAULT &lv_font_montserrat_14",
+        f"#define LV_FONT_DEFAULT &lv_font_montserrat_{min(requested)}",
+    )
+    return config
 
 # fbuild currently compiles every library directory under the project's local
 # `lib/`, even when the sketch does not include that library. That makes lazy
@@ -1196,14 +1224,14 @@ def _lvgl_checkout_matches_pin(path: Path) -> bool:
     return public_header.is_file() and versions == {_LVGL_VERSION}
 
 
-def _ensure_fbuild_lvgl_lib():
+def _ensure_fbuild_lvgl_lib(ino: str = ""):
     """Vendor the pinned LVGL runtime and its deterministic configuration."""
     global _fbuild_lvgl_lib_ready
     if _fbuild_lvgl_lib_ready and _lvgl_checkout_matches_pin(_FBUILD_LVGL_LIB_DIR):
-        _write_if_changed(_FBUILD_LV_CONF_PATH, _LV_CONF_TEXT)
+        _write_if_changed(_FBUILD_LV_CONF_PATH, _lv_conf_for_sketch(ino))
         return
     if _lvgl_checkout_matches_pin(_FBUILD_LVGL_LIB_DIR):
-        _write_if_changed(_FBUILD_LV_CONF_PATH, _LV_CONF_TEXT)
+        _write_if_changed(_FBUILD_LV_CONF_PATH, _lv_conf_for_sketch(ino))
         _fbuild_lvgl_lib_ready = True
         return
     yield f"\n=== vendoring LVGL {_LVGL_VERSION} (first custom-display build only) ===\n"
@@ -1224,7 +1252,7 @@ def _ensure_fbuild_lvgl_lib():
             "Remove the cached lvgl directory and try again.\n"
         )
         return
-    _write_if_changed(_FBUILD_LV_CONF_PATH, _LV_CONF_TEXT)
+    _write_if_changed(_FBUILD_LV_CONF_PATH, _lv_conf_for_sketch(ino))
     _fbuild_lvgl_lib_ready = True
 
 
@@ -1358,7 +1386,7 @@ def _sketch_workspace(name: str, ino: str):
             sketch_dir.mkdir(parents=True, exist_ok=True)
             _write_if_changed(sketch_dir / f"{name}.ino", ino)
             if _LVGL_INCLUDE_MARKER in ino:
-                _write_if_changed(sketch_dir / "lv_conf.h", _LV_CONF_TEXT)
+                _write_if_changed(sketch_dir / "lv_conf.h", _lv_conf_for_sketch(ino))
             yield sketch_dir
         finally:
             lock.release()
@@ -1369,7 +1397,7 @@ def _sketch_workspace(name: str, ino: str):
         sketch_dir.mkdir()
         (sketch_dir / f"{name}.ino").write_text(ino, encoding="utf-8")
         if _LVGL_INCLUDE_MARKER in ino:
-            (sketch_dir / "lv_conf.h").write_text(_LV_CONF_TEXT, encoding="utf-8")
+            (sketch_dir / "lv_conf.h").write_text(_lv_conf_for_sketch(ino), encoding="utf-8")
         yield sketch_dir
     finally:
         shutil.rmtree(work, ignore_errors=True)
@@ -1873,7 +1901,7 @@ def _compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None, usb_cdc=False)
         if "#include <Adafruit_ZeroI2S.h>" in ino:
             yield from _ensure_fbuild_zero_i2s_lib()
         if _LVGL_INCLUDE_MARKER in ino:
-            yield from _ensure_fbuild_lvgl_lib()
+            yield from _ensure_fbuild_lvgl_lib(ino)
         env = _fbuild_env_for_fqbn(fqbn, flash_mb, usb_cdc)
         if env is None:
             yield f"\n=== ✗ {label}: no fbuild board mapping for {fqbn} ===\n"

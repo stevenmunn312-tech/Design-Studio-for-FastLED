@@ -458,7 +458,7 @@ def test_compile_upload_fbuild_vendors_lvgl_only_when_sketch_needs_it(monkeypatc
     monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: "esp32_esp32_esp32s3")
     monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
     calls = []
-    monkeypatch.setattr(app, "_ensure_fbuild_lvgl_lib", lambda: calls.append(1) or iter(()))
+    monkeypatch.setattr(app, "_ensure_fbuild_lvgl_lib", lambda ino="": calls.append(ino) or iter(()))
 
     def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
         if sink is not None:
@@ -474,7 +474,7 @@ def test_compile_upload_fbuild_vendors_lvgl_only_when_sketch_needs_it(monkeypatc
     list(app._compile_upload_fbuild(
         "Test", "#include <lvgl.h>\nvoid setup(){}", "esp32:esp32:esp32s3", "",
     ))
-    assert calls == [1]
+    assert calls == ["#include <lvgl.h>\nvoid setup(){}"]
 
 
 def test_fbuild_lvgl_vendor_is_exactly_pinned_and_writes_config(tmp_path, monkeypatch):
