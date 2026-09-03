@@ -22,6 +22,12 @@ interface SavePatternOptions {
   replaceByName?: boolean
 }
 
+interface SaveGroupOptions extends SavePatternOptions {
+  /** Author tags collected by the create-group dialog. Omitted by the
+   *  one-click context-menu saves, which leave any existing tags alone. */
+  bestOn?: PatternFormTag[]
+}
+
 export interface SaveGroupToLibraryResult {
   name: string
   replaced: boolean
@@ -383,7 +389,7 @@ export const usePatternLibrary = create<LibraryState>((set, get) => ({
  *  or null if `groupNodeId` isn't a Group node. */
 export function saveGroupToLibrary(
   groupNodeId: string,
-  options?: SavePatternOptions,
+  options?: SaveGroupOptions,
 ): SaveGroupToLibraryResult | null {
   const s = useGraphStore.getState()
   const node = s.nodes.find((n) => n.id === groupNodeId)
@@ -398,6 +404,7 @@ export function saveGroupToLibrary(
     inputs: (node.data.inputs as Port[] | undefined) ?? [],
     outputs: (node.data.outputs as Port[] | undefined) ?? [],
     subgraph: stripUnsharablePartsFromSubgraph(sub),
+    bestOn: options?.bestOn?.length ? patternFormTags(options.bestOn) : undefined,
   }, options)
   return { name, replaced: !!replaced }
 }

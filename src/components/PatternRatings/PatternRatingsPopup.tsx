@@ -15,6 +15,8 @@ import {
   type RatingThumbnail,
 } from '../../state/patternRating'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
+import PatternTagChips from '../PatternTags/PatternTagChips'
+import { patternFormTags, type PatternFormTag } from '../../state/patternTags'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { useModalFocus } from '../../hooks/useModalFocus'
 import styles from './PatternRatingsPopup.module.css'
@@ -100,11 +102,12 @@ interface RatingCardProps {
   onToggle: (id: string) => void
   onUserRating: (id: string, value: number) => void
   onIntentChange: (pattern: SavedPattern, intent: PatternIntent) => void
+  onTagChange: (id: string, bestOn: PatternFormTag[]) => void
 }
 
 function RatingCard({
   pattern, rating, checked, userRating, rescanning,
-  onToggle, onUserRating, onIntentChange,
+  onToggle, onUserRating, onIntentChange, onTagChange,
 }: RatingCardProps) {
   const tier = ratingTier(rating.overall)
   const unscored = rating.failed || rating.skipped
@@ -158,6 +161,16 @@ function RatingCard({
             <p className={styles.summary}>{rating.summary}</p>
             <StarRating value={userRating} onChange={(value) => onUserRating(pattern.id, value)} name={pattern.name} />
 
+            <div className={styles.tagRow}>
+              <span className={styles.tagLabel}>Best displayed on</span>
+              <PatternTagChips
+                name={pattern.name}
+                value={patternFormTags(pattern.bestOn)}
+                disabled={pattern.bundled}
+                onChange={(next) => onTagChange(pattern.id, next)}
+              />
+            </div>
+
             <div className={styles.notesGrid}>
               <div>
                 <h3>What works</h3>
@@ -197,6 +210,7 @@ export default function PatternRatingsPopup() {
   const viewCenter = useUiStore((state) => state.viewCenter)
   const patterns = usePatternLibrary((state) => state.patterns)
   const createCollectionFromPatterns = useGraphStore((state) => state.createCollectionFromPatterns)
+  const tagPattern = usePatternLibrary((state) => state.tagPattern)
   const storedRatings = usePatternRatingStore((state) => state.ratingsByPatternId)
   const userRatings = usePatternRatingStore((state) => state.userRatingsByPatternId)
   const intentOverrides = usePatternRatingStore((state) => state.intentOverridesByPatternId)
@@ -327,6 +341,7 @@ export default function PatternRatingsPopup() {
                 onToggle={toggleSelected}
                 onUserRating={setUserRating}
                 onIntentChange={changeIntent}
+                onTagChange={tagPattern}
               />
             )
           })}

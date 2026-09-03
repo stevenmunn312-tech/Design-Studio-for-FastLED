@@ -135,7 +135,7 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
   // Mirrors GroupControls' "⊞ Group" dialog flow so grouping + saving to the
   // library can happen in one action from a multi-selection's right-click menu,
   // instead of select → group → reopen the node menu → Save to Library.
-  const handleCreateGroup = async (name: string, { saveToLibrary, exposePaletteNodeIds }: CreateGroupResult) => {
+  const handleCreateGroup = async (name: string, { saveToLibrary, bestOn, exposePaletteNodeIds }: CreateGroupResult) => {
     const groupId = createGroup(name, selectedIds, { saveToLibrary, exposePaletteNodeIds })
     let savedToLibrary = false
     let replacedLibraryPattern = false
@@ -150,7 +150,7 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
         tone: 'danger',
       })
       if (ok) {
-        const result = saveGroupToLibrary(`groupnode-${groupId}`, { replaceByName: replacing })
+        const result = saveGroupToLibrary(`groupnode-${groupId}`, { replaceByName: replacing, bestOn })
         savedToLibrary = !!result
         replacedLibraryPattern = !!result?.replaced
       }

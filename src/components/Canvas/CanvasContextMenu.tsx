@@ -382,7 +382,7 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
 
   const act = (fn: () => void) => { fn(); onClose() }
 
-  const handleCreateGroup = async (name: string, { saveToLibrary, exposePaletteNodeIds }: CreateGroupResult) => {
+  const handleCreateGroup = async (name: string, { saveToLibrary, bestOn, exposePaletteNodeIds }: CreateGroupResult) => {
     const groupId = createGroup(name, selectedIds, { saveToLibrary, exposePaletteNodeIds })
     let savedToLibrary = false
     let replacedLibraryPattern = false
@@ -397,7 +397,7 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
         tone: 'danger',
       })
       if (ok) {
-        const result = saveGroupToLibrary(`groupnode-${groupId}`, { replaceByName: replacing })
+        const result = saveGroupToLibrary(`groupnode-${groupId}`, { replaceByName: replacing, bestOn })
         savedToLibrary = !!result
         replacedLibraryPattern = !!result?.replaced
       }

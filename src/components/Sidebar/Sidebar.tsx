@@ -4,6 +4,15 @@ import { canAddNodeType, SINGLETON_NODE_TYPES, useGraphStore, reachableGroupRegi
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audioStore'
 import { usePatternLibrary, importPatternFile, type SavedPattern } from '../../state/patternLibrary'
+import { PATTERN_FORM_TAGS, patternFormTags, type PatternFormTag } from '../../state/patternTags'
+
+/** A library row is one line, so an author's tags show as marks and spell
+ *  themselves out in the row's tooltip and in its context menu. */
+const PATTERN_TAG_MARKS: Record<PatternFormTag, string> = { string: '━', matrix: '▦', ring: '◯' }
+
+function tagNames(tags: PatternFormTag[]): string {
+  return tags.map((tag) => PATTERN_FORM_TAGS.find((entry) => entry.id === tag)?.label ?? tag).join(', ')
+}
 import { AUDIO_REACTIVE_CATEGORY_ID, STANDARD_CATEGORY_ID } from '../../state/bundledPatterns'
 import { NODE_LIBRARY, CATEGORIES, CATEGORY_ACCENT_VAR, NODE_DESCRIPTIONS, categoryNodes } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
@@ -272,6 +281,7 @@ function Sidebar() {
   const createPatternCategory = usePatternLibrary((s) => s.createCategory)
   const deletePatternCategory = usePatternLibrary((s) => s.deleteCategory)
   const movePattern = usePatternLibrary((s) => s.movePattern)
+  const tagPattern = usePatternLibrary((s) => s.tagPattern)
   const ratingsByPatternId = usePatternRatingStore((s) => s.ratingsByPatternId)
   const userRatingsByPatternId = usePatternRatingStore((s) => s.userRatingsByPatternId)
   const requestConfirm = useUiStore((s) => s.requestConfirm)
@@ -659,6 +669,41 @@ function Sidebar() {
     showPatternContextMenu(patternId, event.clientX, event.clientY)
   }
 
+  /**
+   * Bulk "best displayed on", across whatever is selected.
+   *
+   * Tagging is a curation pass, not an authoring step — people will happily
+   * mark twenty patterns while browsing the shelf and resent being asked once
+   * per save. A tag counts as on only when every editable pattern in the
+   * selection carries it, so the button always states the whole selection
+   * rather than the first item in it.
+   */
+  const selectionTagState = (tag: PatternFormTag): 'on' | 'mixed' | 'off' => {
+    const carrying = editableSelectedPatterns.filter((pattern) => patternFormTags(pattern.bestOn).includes(tag))
+    if (carrying.length === 0) return 'off'
+    return carrying.length === editableSelectedPatterns.length ? 'on' : 'mixed'
+  }
+
+  const toggleSelectionTag = (tag: PatternFormTag) => {
+    if (editableSelectedPatterns.length === 0) return
+    // Mixed resolves upward: the click that follows a partial state is far more
+    // often "make them all this" than "clear the ones that have it".
+    const clearing = selectionTagState(tag) === 'on'
+    for (const pattern of editableSelectedPatterns) {
+      const current = patternFormTags(pattern.bestOn)
+      tagPattern(pattern.id, clearing
+        ? current.filter((entry) => entry !== tag)
+        : current.includes(tag) ? current : [...current, tag])
+    }
+    const label = PATTERN_FORM_TAGS.find((entry) => entry.id === tag)?.label ?? tag
+    setStatus(
+      clearing
+        ? `Cleared ${label} from ${editableSelectedPatterns.length} pattern${editableSelectedPatterns.length === 1 ? '' : 's'}`
+        : `Marked ${editableSelectedPatterns.length} pattern${editableSelectedPatterns.length === 1 ? '' : 's'} best on ${label}`,
+      'success',
+    )
+  }
+
   const addSelectedPatternsToCanvas = () => {
     selectedPatterns.forEach((pattern, index) => {
       const position = dropPos()
@@ -959,6 +1004,7 @@ function Sidebar() {
           const rating = ratingsByPatternId[pattern.id]
           const userRating = userRatingsByPatternId[pattern.id]
           const scoreTier = rating && !rating.failed && !rating.skipped ? ratingTier(rating.overall) : 'bad'
+          const tags = patternFormTags(pattern.bestOn)
           return (
             <li
               key={pattern.id}
@@ -995,7 +1041,8 @@ function Sidebar() {
               }}
               title={renaming
                 ? undefined
-                : `${pattern.name}\n${pattern.bundled ? 'Bundled pattern · ' : ''}Click to select · double-click to add · drag to place`}
+                : `${pattern.name}
+${pattern.bundled ? 'Bundled pattern · ' : ''}${tags.length ? `Best on ${tagNames(tags)} · ` : ''}Click to select · double-click to add · drag to place`}
             >
               {renaming ? (
                 <input
@@ -1014,6 +1061,13 @@ function Sidebar() {
               ) : (
                 <>
                   <span className={styles.patternName}>{pattern.name}</span>
+                  {tags.length > 0 && (
+                    <span className={styles.patternTags} title={`Best on ${tagNames(tags)}`}>
+                      {tags.map((tag) => (
+                        <span key={tag} className={styles.patternTagMark} aria-hidden="true">{PATTERN_TAG_MARKS[tag]}</span>
+                      ))}
+                    </span>
+                  )}
                   {rating && (
                     <span
                       className={`${styles.patternRating} ${styles[`patternRating_${scoreTier}`]}`}
@@ -1396,6 +1450,26 @@ function Sidebar() {
           <span aria-hidden="true">◇</span>
           New collection
         </button>
+        <div className={styles.patternContextDivider} />
+        <div className={styles.patternContextLabel}>Best displayed on</div>
+        {PATTERN_FORM_TAGS.map((tag) => {
+          const state = selectionTagState(tag.id)
+          return (
+            <button
+              key={tag.id}
+              type="button"
+              role="menuitemcheckbox"
+              aria-checked={state === 'on' ? true : state === 'mixed' ? 'mixed' : false}
+              className={state === 'off' ? undefined : styles.patternContextChecked}
+              disabled={editableSelectedPatterns.length === 0}
+              title={editableSelectedPatterns.length === 0 ? 'Bundled patterns cannot be tagged' : tag.hint}
+              onClick={() => toggleSelectionTag(tag.id)}
+            >
+              <span aria-hidden="true">{state === 'on' ? '✓' : state === 'mixed' ? '–' : ' '}</span>
+              {tag.label}
+            </button>
+          )
+        })}
         <div className={styles.patternContextDivider} />
         <button
           type="button"

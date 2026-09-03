@@ -337,3 +337,19 @@
   .popup { animation: none; }
   .progressTrack span { transition: none; }
 }
+
+.tagRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.tagLabel {
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

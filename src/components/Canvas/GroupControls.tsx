@@ -41,7 +41,7 @@ export default function GroupControls() {
     return () => window.removeEventListener('keydown', handler)
   }, [selectedIds])
 
-  const handleCreate = async (name: string, { saveToLibrary, exposePaletteNodeIds }: CreateGroupResult) => {
+  const handleCreate = async (name: string, { saveToLibrary, bestOn, exposePaletteNodeIds }: CreateGroupResult) => {
     const groupId = createGroup(name, selectedIds, { saveToLibrary, exposePaletteNodeIds })
     let savedToLibrary = false
     let replacedLibraryPattern = false
@@ -56,7 +56,7 @@ export default function GroupControls() {
         tone: 'danger',
       })
       if (ok) {
-        const result = saveGroupToLibrary(`groupnode-${groupId}`, { replaceByName: replacing })
+        const result = saveGroupToLibrary(`groupnode-${groupId}`, { replaceByName: replacing, bestOn })
         savedToLibrary = !!result
         replacedLibraryPattern = !!result?.replaced
       }

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useGraphStore } from '../../state/graphStore'
+import PatternTagChips from '../PatternTags/PatternTagChips'
+import type { PatternFormTag } from '../../state/patternTags'
 import styles from './CreateGroupDialog.module.css'
 
 interface PaletteCandidate {
@@ -10,6 +12,9 @@ interface PaletteCandidate {
 
 export interface CreateGroupResult {
   saveToLibrary: boolean
+  /** The author's "best displayed on" claim. Empty means "works anywhere",
+   *  which is both the default and a perfectly good answer. */
+  bestOn: PatternFormTag[]
   exposePaletteNodeIds: string[]
 }
 
@@ -27,6 +32,7 @@ export default function CreateGroupDialog({ selectedIds, onClose, onCreate }: Pr
   const edges = useGraphStore((s) => s.edges)
   const [name, setName] = useState('New Group')
   const [saveToLibrary, setSaveToLibrary] = useState(false)
+  const [bestOn, setBestOn] = useState<PatternFormTag[]>([])
   const [checkedPalettes, setCheckedPalettes] = useState<Set<string>>(new Set())
 
   // Candidates: selected nodes with an unwired `paletteIn` port — a node
@@ -49,7 +55,11 @@ export default function CreateGroupDialog({ selectedIds, onClose, onCreate }: Pr
   const handleCreate = () => {
     const trimmed = name.trim()
     if (!trimmed) return
-    onCreate(trimmed, { saveToLibrary, exposePaletteNodeIds: [...checkedPalettes] })
+    onCreate(trimmed, {
+      saveToLibrary,
+      bestOn: saveToLibrary ? bestOn : [],
+      exposePaletteNodeIds: [...checkedPalettes],
+    })
   }
 
   if (typeof document === 'undefined') return null
@@ -85,6 +95,16 @@ export default function CreateGroupDialog({ selectedIds, onClose, onCreate }: Pr
           />
           Save to library
         </label>
+
+        {/* The only save path that already stops to ask something. The three
+            context-menu saves stay one click — a modal on the tweak-and-resave
+            loop gets dismissed, and a dismissed question tags nothing. */}
+        {saveToLibrary && (
+          <div className={styles.paletteSection}>
+            <div className={styles.sectionTitle}>Best displayed on (optional)</div>
+            <PatternTagChips name={name.trim() || 'this pattern'} value={bestOn} onChange={setBestOn} />
+          </div>
+        )}
 
         {paletteCandidates.length > 0 && (
           <div className={styles.paletteSection}>
