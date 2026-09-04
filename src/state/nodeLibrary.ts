@@ -2114,7 +2114,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
 
   // ── Transition nodes ──────────────────────────────────────────────────
   {
-    // Bundled transitions — `transitionType` selects one of 16 A→B effects.
+    // Bundled transitions — `transitionType` selects one of 21 A→B effects.
     // All share the (a, b, t)→frame signature; the variant-specific properties
     // (`direction`, `axis`, `tileSize`, `count`, `turns`) only apply to some
     // variants (the inline editor disables the others via isPropertyEnabled).
@@ -3377,7 +3377,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Zones: 'Routes up to four wired frames into their own named rectangle of the matrix.',
   Trails: 'Fades the previous frame and re-lightens where the input is brighter.',
   FrameFeedback: 'Recursive delay — blend a faded prior output over the live input.',
-  Transition: 'Transitions A→B — 16 styles: wipe, iris, push, blinds, spiral, zoom + more.',
+  Transition: 'Transitions A→B — 21 styles: wipe, iris, push, spiral, dolly, cube + more.',
   Sequencer: 'Crossfades through its inputs on a timer.',
   PatternCollection: 'Absorbs pattern groups into a set for the Music Player or Performance Generator.',
   TransitionSet: 'A pool of transition styles for the Music Player / Performance Generator.',
@@ -3598,7 +3598,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   transitionType: { control: 'select', options: [
     'crossfade', 'wipe', 'dissolve', 'iris', 'clockwipe', 'push', 'checkerboard',
     'diagonal', 'fadeblack', 'fadewhite', 'blinds', 'ripple', 'spiral', 'curtain',
-    'scanlines', 'zoom',
+    'scanlines', 'zoom', 'dolly', 'flip', 'cube', 'door', 'tilt',
   ] },
   blendMode:      { control: 'select', options: ['normal', 'multiply', 'screen', 'overlay', 'add', 'difference'] },
   mirrorMode:     { control: 'select', options: ['horizontal', 'vertical', 'quad', 'diagonal'] },
@@ -4949,7 +4949,8 @@ const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, stri
       iris: 'Iris', clockwipe: 'Clock Wipe', push: 'Push', checkerboard: 'Checkerboard',
       diagonal: 'Diagonal Wipe', fadeblack: 'Fade · Black', fadewhite: 'Fade · White',
       blinds: 'Blinds', ripple: 'Ripple Wipe', spiral: 'Spiral Wipe', curtain: 'Curtain',
-      scanlines: 'Scan Lines', zoom: 'Zoom',
+      scanlines: 'Scan Lines', zoom: 'Zoom', dolly: 'Dolly', flip: 'Card Flip',
+      cube: 'Cube Rotate', door: 'Door Swing', tilt: 'Slab Tilt',
     },
   },
   SpectrumVisualizer: {

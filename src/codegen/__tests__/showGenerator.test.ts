@@ -50,7 +50,7 @@ describe('showGenerator', () => {
     expect(cpp).toContain('case 0: render_p0(ms); break;')
     expect(cpp).toContain('void setup()')
     expect(cpp).toContain('void loop()')
-    // Transitions are composited via the shared 16-style helper, picking a
+    // Transitions are composited via the shared 21-style helper, picking a
     // random style from the pool (crossfade-only pool → { 0 }).
     expect(cpp).toContain('void compositeTransition(uint8_t type, CRGB* out')
     expect(cpp).toContain('const uint8_t TRANS_POOL[] = { 0 };')

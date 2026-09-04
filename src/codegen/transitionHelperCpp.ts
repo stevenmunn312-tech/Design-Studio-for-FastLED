@@ -1,13 +1,62 @@
-// The 16 A→B transition styles as one self-contained C++ function operating on
-// generic CRGB buffers, plus the particle hash — shared verbatim by the
-// music-sync player (playerSketchGenerator) and the generative pattern show
-// (showGenerator) so both composite transitions the same way the browser
-// preview does (compositeTransition in graphEvaluator.ts). The style ids match
+// The 21 A→B transition styles as one self-contained C++ function operating on
+// generic CRGB buffers, plus the particle hash and the 3D styles' shared
+// support — the function itself is shared verbatim by the music-sync player
+// (playerSketchGenerator) and the generative pattern show (showGenerator) so
+// both composite transitions the same way the browser preview does
+// (compositeTransition in graphEvaluator.ts). The style ids match
 // TRANSITION_IDS / SHOW_TRANSITIONS in performanceGenerator.ts. A caller passes
 // only the style id + progress, so direction/axis/tile/count/turns use the same
 // defaults the preview falls back to. `out` must differ from `a` and `b`.
 // Requires WIDTH / HEIGHT / NUM_LEDS #defines in the host sketch.
+
+/**
+ * Shared support for the 3D styles (dolly, card flip, cube, door, tilt).
+ *
+ * Exported on its own because the normal-sketch generator emits these too: its
+ * Transition node writes per-node buffers rather than calling
+ * compositeTransition, so without this it would need its own copy of the depth
+ * curve, the tie-breaking rounding and the unit sampler — the three parts of a
+ * 3D style where preview and firmware most easily drift apart. Requires the
+ * WIDTH / HEIGHT defines, like the rest of this file.
+ */
+export const TRANSITION_3D_HELPERS_CPP = `// Perspective depth cue shared by the 3D styles: a surface on the screen plane
+// is unshaded and anything further recedes toward a floor of 0.45. Nearer than
+// the plane stays fully lit rather than blowing out, so a near edge that
+// overshoots the frame does not clip to white. Mirrors depthShade() in
+// graphEvaluator.ts — the 0.55 lives in both and the two must agree.
+static inline float _depthShade(float z) {
+  float zf = z < 1.0f ? 1.0f : z;
+  return 1.0f - 0.55f * (1.0f - 1.0f / zf);
+}
+// The same falloff applied to a surface turned away from the viewer rather than
+// moved away from it, so a panel that does both reads consistently.
+static inline float _facingShade(float ct) {
+  return 1.0f - 0.55f * (1.0f - (ct < 0.0f ? 0.0f : ct));
+}
+// floor(v + 0.5) rather than roundf: roundf breaks .5 ties away from zero while
+// JS Math.round breaks them toward +infinity, and a warp lands on half steps at
+// negative offsets constantly. Both sides floor the same way instead.
+static inline int _sampleRound(float v) { return (int)floorf(v + 0.5f); }
+static inline CRGB _shadePixel(CRGB p, float k) {
+  return CRGB((uint8_t)(p.r * k + 0.5f), (uint8_t)(p.g * k + 0.5f), (uint8_t)(p.b * k + 0.5f));
+}
+// Read a frame at a normalised texture coordinate, both axes in -1..1. The null
+// check is for a normal sketch, where a Transition node can have an unconnected
+// A or B input and the generator has no buffer to hand over; the show and
+// player templates always pass real buffers and never take the branch.
+static inline CRGB _sampleUnit(const CRGB* f, float u, float v) {
+  if (!f) return CRGB::Black;
+  int col = _sampleRound(u * (WIDTH * 0.5f) + WIDTH * 0.5f - 0.5f);
+  int row = _sampleRound(v * (HEIGHT * 0.5f) + HEIGHT * 0.5f - 0.5f);
+  col = constrain(col, 0, WIDTH - 1);
+  row = constrain(row, 0, HEIGHT - 1);
+  return f[row * WIDTH + col];
+}
+`
+
+/** The dispatcher itself. See the note at the top of the file. */
 export const TRANSITION_HELPER_CPP = `// ── Transitions ─────────────────────────────────────────────────────────────
+${TRANSITION_3D_HELPERS_CPP}
 void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt) {
   switch (type) {
     case 1: {  // wipe (rightward)
@@ -130,6 +179,131 @@ void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, 
         if (bx >= 0 && bx < WIDTH && by >= 0 && by < HEIGHT)
           out[idx] = blend(out[idx], b[by*WIDTH+bx], (uint8_t)(tt*255));
         else out[idx].nscale8((uint8_t)((1.0f-tt)*255));
+      }
+      break;
+    }
+    case 16: {  // dolly — B arrives from a vanishing point while A recedes
+      float cx = WIDTH*0.5f, cy = HEIGHT*0.5f;
+      float cover = tt*tt; if (cover < 1e-4f) cover = 1e-4f;
+      float za = powf(1.12f, tt), zb = 1.0f / cover;
+      float sa = _depthShade(za), sb = _depthShade(zb);
+      for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
+        float ox = x + 0.5f - cx, oy = y + 0.5f - cy;
+        int bx = _sampleRound(ox*zb + cx - 0.5f), by = _sampleRound(oy*zb + cy - 0.5f);
+        if (bx >= 0 && bx < WIDTH && by >= 0 && by < HEIGHT) {
+          out[y*WIDTH+x] = _shadePixel(b[by*WIDTH+bx], sb);
+          continue;
+        }
+        int ax = _sampleRound(ox*za + cx - 0.5f), ay = _sampleRound(oy*za + cy - 0.5f);
+        ax = constrain(ax, 0, WIDTH-1); ay = constrain(ay, 0, HEIGHT-1);
+        out[y*WIDTH+x] = _shadePixel(a[ay*WIDTH+ax], sa);
+      }
+      break;
+    }
+    case 17: {  // card flip — A on the front face, B on the back, about the vertical axis
+      float cx = WIDTH*0.5f, cy = HEIGHT*0.5f;
+      float th = tt * 3.14159265f, ct = cosf(th), sn = sinf(th);
+      bool back = tt >= 0.5f;
+      const CRGB* src = back ? b : a;
+      for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
+        int o = y*WIDTH+x;
+        out[o] = CRGB::Black;
+        float sx = (x + 0.5f - cx)/cx, sy = (y + 0.5f - cy)/cy;
+        float den = 3.0f*ct - sx*sn;
+        if (fabsf(den) < 1e-4f) continue;
+        float u = sx*3.0f/den;
+        if (u < -1.0f || u > 1.0f) continue;
+        float z = 3.0f + u*sn;
+        if (z < 0.05f) continue;
+        float w = sy*z/3.0f;
+        if (w < -1.0f || w > 1.0f) continue;
+        out[o] = _shadePixel(_sampleUnit(src, back ? -u : u, w), _depthShade(z/3.0f));
+      }
+      break;
+    }
+    case 18: {  // cube rotate — A on the front face, B on the side turning into view
+      float cx = WIDTH*0.5f, cy = HEIGHT*0.5f;
+      float th = tt * 1.57079633f, ct = cosf(th), sn = sinf(th);
+      float cd = 3.0f, cf = 2.0f;
+      for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
+        int o = y*WIDTH+x;
+        out[o] = CRGB::Black;
+        float sx = (x + 0.5f - cx)/cx, sy = (y + 0.5f - cy)/cy;
+        int face = -1; float fu = 0.0f, fv = 0.0f, fz = 0.0f;
+        float dA = cf*ct + sx*sn;
+        if (fabsf(dA) >= 1e-4f) {
+          float u = (sx*(cd - ct) + cf*sn)/dA;
+          float z = cd - u*sn - ct;
+          float v = sy*z/cf;
+          if (u >= -1.0f && u <= 1.0f && v >= -1.0f && v <= 1.0f && z > 0.05f) { face = 0; fu = u; fv = v; fz = z; }
+        }
+        float dB = cf*sn - sx*ct;
+        if (fabsf(dB) >= 1e-4f) {
+          float u = (sx*(cd - sn) - cf*ct)/dB;
+          float z = cd - sn + u*ct;
+          float v = sy*z/cf;
+          if (u >= -1.0f && u <= 1.0f && v >= -1.0f && v <= 1.0f && z > 0.05f && (face < 0 || z < fz)) { face = 1; fu = u; fv = v; fz = z; }
+        }
+        if (face < 0) continue;
+        out[o] = _shadePixel(_sampleUnit(face == 0 ? a : b, fu, fv), _depthShade(fz/cf));
+      }
+      break;
+    }
+    case 19: {  // door swing — two panels of A open toward the viewer, uncovering B
+      float cx = WIDTH*0.5f, cy = HEIGHT*0.5f;
+      float ph = tt * 1.57079633f, ct = cosf(ph), sn = sinf(ph);
+      float dd = 3.0f, df = 3.0f;
+      float panel = _facingShade(ct), backLit = 0.5f + 0.5f * sn;
+      for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
+        int o = y*WIDTH+x;
+        float sx = (x + 0.5f - cx)/cx, sy = (y + 0.5f - cy)/cy;
+        bool drawn = false;
+        float dL = df*ct + sx*sn;
+        if (fabsf(dL) >= 1e-4f) {
+          float s = (sx*dd + df)/dL;
+          if (s >= 0.0f && s <= 1.0f) {
+            float z = dd - s*sn, v = sy*z/df;
+            if (v >= -1.0f && v <= 1.0f && z > 0.05f) { out[o] = _shadePixel(_sampleUnit(a, s - 1.0f, v), panel); drawn = true; }
+          }
+        }
+        if (!drawn) {
+          float dR = sx*sn - df*ct;
+          if (fabsf(dR) >= 1e-4f) {
+            float s = (sx*dd - df)/dR;
+            if (s >= 0.0f && s <= 1.0f) {
+              float z = dd - s*sn, v = sy*z/df;
+              if (v >= -1.0f && v <= 1.0f && z > 0.05f) { out[o] = _shadePixel(_sampleUnit(a, 1.0f - s, v), panel); drawn = true; }
+            }
+          }
+        }
+        if (!drawn) out[o] = _shadePixel(b[o], backLit);
+      }
+      break;
+    }
+    case 20: {  // slab tilt — A tips away about its bottom edge as B slides down over it
+      float cx = WIDTH*0.5f, cy = HEIGHT*0.5f;
+      float ph = tt * 1.4f, ct = cosf(ph), sn = sinf(ph);
+      float td = 3.0f, tf = 3.0f;
+      float zb = td + 0.8f * (1.0f - tt), slide = -2.6f * (1.0f - tt);
+      float sb = _depthShade(zb/tf);
+      for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
+        int o = y*WIDTH+x;
+        out[o] = CRGB::Black;
+        float sx = (x + 0.5f - cx)/cx, sy = (y + 0.5f - cy)/cy;
+        float bu = sx*zb/tf, bv = sy*zb/tf - slide;
+        if (bu >= -1.0f && bu <= 1.0f && bv >= -1.0f && bv <= 1.0f) {
+          out[o] = _shadePixel(_sampleUnit(b, bu, bv), sb);
+          continue;
+        }
+        float den = tf*ct + sy*sn;
+        if (fabsf(den) < 1e-4f) continue;
+        float s = (tf - sy*td)/den;
+        if (s < 0.0f || s > 2.0f) continue;
+        float z = td + s*sn;
+        if (z < 0.05f) continue;
+        float u = sx*z/tf;
+        if (u < -1.0f || u > 1.0f) continue;
+        out[o] = _shadePixel(_sampleUnit(a, u, 1.0f - s), _depthShade(z/tf));
       }
       break;
     }

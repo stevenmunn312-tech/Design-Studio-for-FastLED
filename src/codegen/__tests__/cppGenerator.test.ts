@@ -1999,6 +1999,55 @@ describe('generateCpp', () => {
     })
   }
 
+  // The 3D styles are the only arms that need support functions, so they are
+  // also the only place a normal sketch can end up calling something it never
+  // declared — or carrying a helper block nothing uses.
+  const THREE_D_VARIANTS = ['dolly', 'flip', 'cube', 'door', 'tilt']
+  for (const variant of THREE_D_VARIANTS) {
+    it(`Transition '${variant}' emits real buffer writes and its support helpers`, () => {
+      const cpp = transitionCpp(variant)
+      expect(cpp).toContain('buf_tr[')
+      expect(/buf_(a|b)\[/.test(cpp) || cpp.includes('_sampleUnit(buf_')).toBe(true)
+      // Declared before use, and exactly once however many 3D nodes there are.
+      expect(cpp.split('static inline float _depthShade').length - 1).toBe(1)
+      expect(cpp.indexOf('static inline float _depthShade')).toBeLessThan(cpp.indexOf('void setup'))
+    })
+  }
+
+  it('emits the 3D support helpers once for a sketch with several 3D transitions', () => {
+    const a = node('a', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const b = node('b', 'SolidColor', 'pattern', { r: 0, g: 255, b: 0 })
+    const t1 = node('t1', 'Transition', 'composite', { transitionType: 'cube', t: 0.5 })
+    const t2 = node('t2', 'Transition', 'composite', { transitionType: 'tilt', t: 0.5 })
+    const cpp = generateCpp([a, b, t1, t2, outputNode], [
+      edge('e1', 'a', 't1', 'frame', 'a'),
+      edge('e2', 'b', 't1', 'frame', 'b'),
+      edge('e3', 't1', 't2', 'frame', 'a'),
+      edge('e4', 'b', 't2', 'frame', 'b'),
+      edge('e5', 't2', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp.split('static inline float _depthShade').length - 1).toBe(1)
+  })
+
+  it('leaves the 3D helpers out of a sketch that uses no 3D transition', () => {
+    const cpp = transitionCpp('crossfade')
+    expect(cpp).not.toContain('_depthShade')
+    expect(cpp).not.toContain('_sampleUnit')
+  })
+
+  // An unconnected A or B is a degenerate graph, but it must not emit a call
+  // with no buffer to name: the sampler takes null and answers black.
+  it('handles a 3D transition with an unconnected input', () => {
+    const b = node('b', 'SolidColor', 'pattern', { r: 0, g: 255, b: 0 })
+    const tr = node('tr', 'Transition', 'composite', { transitionType: 'cube', t: 0.5 })
+    const cpp = generateCpp([b, tr, outputNode], [
+      edge('e2', 'b', 'tr', 'frame', 'b'),
+      edge('e3', 'tr', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('nullptr')
+    expect(cpp).toContain('_sampleUnit')
+  })
+
   it("Transition 'push' branches on direction at codegen time", () => {
     expect(transitionCpp('push', { direction: 'up' })).toContain('roundf(_y-_tt*HEIGHT)')
     expect(transitionCpp('push', { direction: 'right' })).toContain('roundf(_x+_tt*WIDTH)')

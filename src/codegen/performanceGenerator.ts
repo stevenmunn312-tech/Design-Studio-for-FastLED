@@ -143,7 +143,7 @@ export const PARTICLE_STYLES = [
 // `extra` is the pool from a TransitionSet node wired into the Performance
 // Generator's `transitions` input (empty when none is wired). When present, it
 // has a 50/50 chance of overriding the rule-based pick below, so a show gets a
-// taste of the wider 16-style catalogue instead of only ever crossfade/wipe/dissolve.
+// taste of the wider 21-style catalogue instead of only ever crossfade/wipe/dissolve.
 function chooseTransition(from: SongSection['type'], to: SongSection['type'], extra: string[] = []): string {
   const pick = (base: string) =>
     extra.length > 0 && Math.random() < 0.5 ? extra[Math.floor(Math.random() * extra.length)] : base
@@ -598,14 +598,17 @@ const PATTERN_IDS: Record<string, number> = {
   Noise2D: 5, RadialBurst: 6, Spiral: 7, Kaleidoscope: 8, Particles: 9,
   Simplex2D: 10, GradientFrame: 11,
 }
-// Mirrors the `Transition` node's 16-style catalogue (nodeLibrary.ts
+// Mirrors the `Transition` node's 21-style catalogue (nodeLibrary.ts
 // PROPERTY_META.transitionType) so a style chosen from a wired TransitionSet
 // round-trips through the binary export. crossfade/wipe/dissolve keep their
-// original ids for backward compatibility with already-exported `.show` files.
+// original ids for backward compatibility with already-exported `.show` files,
+// and the table is append-only for the same reason: a new style takes the next
+// free id rather than renumbering the ones a saved show already refers to.
 const TRANSITION_IDS: Record<string, number> = {
   crossfade: 0, wipe: 1, dissolve: 2, iris: 3, clockwipe: 4, push: 5,
   checkerboard: 6, diagonal: 7, fadeblack: 8, fadewhite: 9, blinds: 10,
   ripple: 11, spiral: 12, curtain: 13, scanlines: 14, zoom: 15,
+  dolly: 16, flip: 17, cube: 18, door: 19, tilt: 20,
 }
 const CMD_IDS: Record<ShowEvent['cmd'], number> = {
   SET_PATTERN: 0, SET_PALETTE: 1, SET_SPEED: 2, SET_BRIGHTNESS: 3,

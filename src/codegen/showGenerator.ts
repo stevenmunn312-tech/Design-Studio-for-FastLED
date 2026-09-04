@@ -7,7 +7,7 @@
 // subgraph and rewriting it into a function — so every node type already
 // supported by the generator works inside a show with no extra wiring.
 //
-// Implements the full 16-style transition pool (via a wired TransitionSet) and
+// Implements the full 21-style transition pool (via a wired TransitionSet) and
 // the beat trigger (via the hosted audio input's _audioBeat). Remaining scope: a
 // single controller file — multi-file (.h-per-pattern) output is a follow-up.
 // The full transition pool, beat-triggered early advance, and particle overlay

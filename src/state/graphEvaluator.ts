@@ -3877,7 +3877,261 @@ function evalZoom(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H):
     })
 }
 
-// Dispatch one of the 16 A→B transition styles (the Transition node + the
+// ── 3D transitions ──────────────────────────────────────────────────────────
+// All five work the way every other style here already does — an inverse
+// per-pixel sample — with a perspective divide where `zoom` uses a linear
+// scale. At LED resolution the texture is illegible either way, so what has to
+// read is the silhouette: a rectangle growing out of a vanishing point, a card
+// narrowing to a line, a seam sweeping across a turning cube, two panels
+// swinging open, a slab tipping away. Styles that sell depth through shading
+// gradients, or arbitrary multi-axis tumbles, are deliberately not here; at
+// 16x16 they are indistinguishable from noise.
+//
+// Mirrored by cases 16-20 of TRANSITION_HELPER_CPP and by the matching arms in
+// cppGenerator.ts. Every one lands exactly on A at t=0 and exactly on B at t=1
+// through the geometry itself, not through the endpoint guards: the generators
+// see a runtime t and cannot branch on it, so a style that only reached its
+// endpoints via a guard would part company with firmware at both ends.
+
+/** How far a receding surface dims. The limit at infinity is 1 - this. */
+const TRANSITION_DEPTH_FADE = 0.55
+
+/** Depth cue: unshaded on the screen plane (z = 1), dimmer further away.
+ *  Nearer than the plane stays fully lit rather than blowing out, so a near
+ *  edge overshooting the frame does not clip to white. */
+function depthShade(z: number): number {
+  return 1 - TRANSITION_DEPTH_FADE * (1 - 1 / Math.max(1, z))
+}
+
+/** How much a surface turned away from the viewer dims. Same floor as
+ *  depthShade, so a panel that both turns and recedes reads consistently. */
+function facingShade(cosPhi: number): number {
+  return 1 - TRANSITION_DEPTH_FADE * (1 - Math.max(0, cosPhi))
+}
+
+/** floor(v + 0.5), not Math.round: C++ roundf breaks .5 ties away from zero
+ *  and Math.round breaks them toward +Infinity, and a warp produces negative
+ *  half steps constantly. Both sides floor the same way instead. */
+function sampleRound(v: number): number {
+  return Math.floor(v + 0.5)
+}
+
+function clampIndex(v: number, n: number): number {
+  return v < 0 ? 0 : v >= n ? n - 1 : v
+}
+
+function shadePixel(px: RGB, k: number): RGB {
+  return {
+    r: Math.floor(px.r * k + 0.5),
+    g: Math.floor(px.g * k + 0.5),
+    b: Math.floor(px.b * k + 0.5),
+  }
+}
+
+const BLACK_PIXEL: RGB = { r: 0, g: 0, b: 0 }
+
+/** Read a frame at a normalised texture coordinate, both axes in [-1, 1]. */
+function sampleUnit(f: Frame, u: number, v: number, W: number, H: number): RGB {
+  const col = clampIndex(sampleRound(u * (W / 2) + W / 2 - 0.5), W)
+  const row = clampIndex(sampleRound(v * (H / 2) + H / 2 - 0.5), H)
+  return f[row][col]
+}
+
+/** A's depth at t=1 under a dolly. Enough parallax to read; much more and the
+ *  clamped edge band becomes the most prominent thing on screen, since that
+ *  band is exactly what B has not covered yet. */
+const DOLLY_RECEDE = 1.12
+
+function evalDolly(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const cx = W / 2, cy = H / 2
+  // Depth comes from the coverage curve rather than the other way round.
+  // Interpolating z directly — linearly or geometrically — is what a camera
+  // closing at constant speed does, and it reads badly: screen size goes as
+  // 1/z, so B stays a dot for most of the transition and then snaps. Choosing
+  // an eased coverage and inverting it keeps a real perspective divide, and so
+  // a real depth cue, while the growth stays visible throughout. It also starts
+  // sub-pixel on a panel of any width for free, which a fixed far plane does
+  // not: at 24 a 64-wide panel pops in a five-pixel slab at t=0.
+  const za = Math.pow(DOLLY_RECEDE, tt)
+  const zb = 1 / Math.max(1e-4, tt * tt)
+  const shadeA = depthShade(za), shadeB = depthShade(zb)
+  return buildFrame(W, H, (x, y) => {
+      if (tt <= 0) return { ...a[y][x] }
+      if (tt >= 1) return { ...b[y][x] }
+      const ox = x + 0.5 - cx, oy = y + 0.5 - cy
+      // B occludes A wherever it lands in bounds: its in-bounds region is a
+      // centred rectangle growing from nothing to the full frame, which is the
+      // whole read at this size.
+      const bx = sampleRound(ox * zb + cx - 0.5), by = sampleRound(oy * zb + cy - 0.5)
+      if (bx >= 0 && bx < W && by >= 0 && by < H) return shadePixel(b[by][bx], shadeB)
+      // A recedes with its edge pixels extended rather than opening a black
+      // border. The border is what stays visible longest while B covers the
+      // middle, so a smear there reads better than a frame of black.
+      const ax = clampIndex(sampleRound(ox * za + cx - 0.5), W)
+      const ay = clampIndex(sampleRound(oy * za + cy - 0.5), H)
+      return shadePixel(a[ay][ax], shadeA)
+    })
+}
+
+/** Camera distance and focal length in one: equal means t=0 is the identity
+ *  map, and 3 keeps the near edge inside the frame through the whole turn. */
+const FLIP_DEPTH = 3
+
+function evalFlip(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const cx = W / 2, cy = H / 2
+  const theta = tt * Math.PI
+  const ct = Math.cos(theta), sn = Math.sin(theta)
+  // Past a quarter turn the card shows its back, which is B. Reading B mirrored
+  // is what lands on B itself at t=1 rather than on B flipped.
+  const back = tt >= 0.5
+  const src = back ? b : a
+  return buildFrame(W, H, (x, y) => {
+      if (tt <= 0) return { ...a[y][x] }
+      if (tt >= 1) return { ...b[y][x] }
+      const sx = (x + 0.5 - cx) / cx, sy = (y + 0.5 - cy) / cy
+      const den = FLIP_DEPTH * ct - sx * sn
+      // Edge-on: the card is a line, so the frame is empty. Also the one place
+      // the inverse map has no solution, so the guard is needed either way.
+      if (Math.abs(den) < 1e-4) return BLACK_PIXEL
+      const u = sx * FLIP_DEPTH / den
+      if (u < -1 || u > 1) return BLACK_PIXEL
+      const z = FLIP_DEPTH + u * sn
+      if (z < 0.05) return BLACK_PIXEL
+      const v = sy * z / FLIP_DEPTH
+      if (v < -1 || v > 1) return BLACK_PIXEL
+      return shadePixel(sampleUnit(src, back ? -u : u, v, W, H), depthShade(z / FLIP_DEPTH))
+    })
+}
+
+/** Cube of half-size 1 centred at CUBE_DEPTH, focal length CUBE_DEPTH - 1 so
+ *  the face on the screen plane projects 1:1. That one choice makes both ends
+ *  of the quarter turn exact: A's front face at t=0 and B's side face at t=1
+ *  are each at that distance, so each maps onto the frame identically. */
+const CUBE_DEPTH = 3
+const CUBE_FOCAL = CUBE_DEPTH - 1
+
+function evalCube(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const cx = W / 2, cy = H / 2
+  const theta = tt * Math.PI / 2
+  const ct = Math.cos(theta), sn = Math.sin(theta)
+  const D = CUBE_DEPTH, f = CUBE_FOCAL
+  return buildFrame(W, H, (x, y) => {
+      if (tt <= 0) return { ...a[y][x] }
+      if (tt >= 1) return { ...b[y][x] }
+      const sx = (x + 0.5 - cx) / cx, sy = (y + 0.5 - cy) / cy
+      let face = -1, fu = 0, fv = 0, fz = 0
+      // Front face carries A; the side face rotating into view carries B. Both
+      // inverse maps can be in range at once, so the nearer one wins — which is
+      // what draws the seam at all.
+      const denA = f * ct + sx * sn
+      if (Math.abs(denA) >= 1e-4) {
+        const u = (sx * (D - ct) + f * sn) / denA
+        const z = D - u * sn - ct
+        const v = sy * z / f
+        if (u >= -1 && u <= 1 && v >= -1 && v <= 1 && z > 0.05) { face = 0; fu = u; fv = v; fz = z }
+      }
+      const denB = f * sn - sx * ct
+      if (Math.abs(denB) >= 1e-4) {
+        const u = (sx * (D - sn) - f * ct) / denB
+        const z = D - sn + u * ct
+        const v = sy * z / f
+        if (u >= -1 && u <= 1 && v >= -1 && v <= 1 && z > 0.05 && (face < 0 || z < fz)) {
+          face = 1; fu = u; fv = v; fz = z
+        }
+      }
+      if (face < 0) return BLACK_PIXEL
+      return shadePixel(sampleUnit(face === 0 ? a : b, fu, fv, W, H), depthShade(fz / f))
+    })
+}
+
+/** Two panels of A hinged at the frame edges, swinging toward the viewer to
+ *  uncover B. Depth equals focal length, so a closed door is the identity. */
+const DOOR_DEPTH = 3
+
+function evalDoor(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const cx = W / 2, cy = H / 2
+  const phi = tt * Math.PI / 2
+  const ct = Math.cos(phi), sn = Math.sin(phi)
+  const D = DOOR_DEPTH, f = DOOR_DEPTH
+  const panelShade = facingShade(ct)
+  // B sits behind the doors and comes into the light as they open, reaching
+  // full brightness exactly as they leave the frame.
+  const backShade = 0.5 + 0.5 * sn
+  return buildFrame(W, H, (x, y) => {
+      if (tt <= 0) return { ...a[y][x] }
+      if (tt >= 1) return { ...b[y][x] }
+      const sx = (x + 0.5 - cx) / cx, sy = (y + 0.5 - cy) / cy
+      // s is the distance from the hinge along the panel, so 0..1 is on-panel
+      // and anything else is past its free edge.
+      const denL = f * ct + sx * sn
+      if (Math.abs(denL) >= 1e-4) {
+        const s = (sx * D + f) / denL
+        if (s >= 0 && s <= 1) {
+          const z = D - s * sn
+          const v = sy * z / f
+          if (v >= -1 && v <= 1 && z > 0.05) return shadePixel(sampleUnit(a, s - 1, v, W, H), panelShade)
+        }
+      }
+      const denR = sx * sn - f * ct
+      if (Math.abs(denR) >= 1e-4) {
+        const s = (sx * D - f) / denR
+        if (s >= 0 && s <= 1) {
+          const z = D - s * sn
+          const v = sy * z / f
+          if (v >= -1 && v <= 1 && z > 0.05) return shadePixel(sampleUnit(a, 1 - s, v, W, H), panelShade)
+        }
+      }
+      return shadePixel(b[y][x], backShade)
+    })
+}
+
+/** A tips away about its bottom edge while B slides down over it. The hinge
+ *  goes at the bottom so that the end of A which travels — its top — recedes
+ *  into exactly the space B is arriving from; hinged at the top instead, A
+ *  lifts off the bottom of the frame and opens a black band there that B does
+ *  not reach until the last moment. A hinge line never moves at all, so a
+ *  tipping slab can never clear the frame on its own: B arriving in front is
+ *  what makes the ending exact rather than a residual strip. */
+const TILT_DEPTH = 3
+/** Just past 80 degrees: far enough that the slab reads as lying down. */
+const TILT_MAX_ANGLE = 1.4
+/** B's start, in frame half-heights above the top edge. Far enough up that none
+ *  of it shows at t=0 even after its approach magnifies it. */
+const TILT_SLIDE = 2.6
+/** Extra depth B closes over the slide, so it grows slightly as it lands. */
+const TILT_APPROACH = 0.8
+
+function evalTilt(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const cx = W / 2, cy = H / 2
+  const phi = tt * TILT_MAX_ANGLE
+  const ct = Math.cos(phi), sn = Math.sin(phi)
+  const D = TILT_DEPTH, f = TILT_DEPTH
+  const zb = D + TILT_APPROACH * (1 - tt)
+  const dy = -TILT_SLIDE * (1 - tt)
+  const shadeB = depthShade(zb / f)
+  return buildFrame(W, H, (x, y) => {
+      if (tt <= 0) return { ...a[y][x] }
+      if (tt >= 1) return { ...b[y][x] }
+      const sx = (x + 0.5 - cx) / cx, sy = (y + 0.5 - cy) / cy
+      // B is in front of the tipping slab everywhere, so it is tested first.
+      const bu = sx * zb / f, bv = sy * zb / f - dy
+      if (bu >= -1 && bu <= 1 && bv >= -1 && bv <= 1) {
+        return shadePixel(sampleUnit(b, bu, bv, W, H), shadeB)
+      }
+      // s is the distance from the bottom hinge up the slab, 0..2 across it.
+      const den = f * ct + sy * sn
+      if (Math.abs(den) < 1e-4) return BLACK_PIXEL
+      const s = (f - sy * D) / den
+      if (s < 0 || s > 2) return BLACK_PIXEL
+      const z = D + s * sn
+      if (z < 0.05) return BLACK_PIXEL
+      const u = sx * z / f
+      if (u < -1 || u > 1) return BLACK_PIXEL
+      return shadePixel(sampleUnit(a, u, 1 - s, W, H), depthShade(z / f))
+    })
+}
+
+// Dispatch one of the 21 A→B transition styles (the Transition node + the
 // Pattern Master both composite through this). Unknown type → crossfade.
 export function compositeTransition(
   type: string, a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H,
@@ -3904,6 +4158,11 @@ export function compositeTransition(
     case 'curtain':      return evalCurtain(a, b, tt, axis, W, H)
     case 'scanlines':    return evalScanLines(a, b, tt, W, H)
     case 'zoom':         return evalZoom(a, b, tt, W, H)
+    case 'dolly':        return evalDolly(a, b, tt, W, H)
+    case 'flip':         return evalFlip(a, b, tt, W, H)
+    case 'cube':         return evalCube(a, b, tt, W, H)
+    case 'door':         return evalDoor(a, b, tt, W, H)
+    case 'tilt':         return evalTilt(a, b, tt, W, H)
     default:             return blendFrame(a, b, tt, W, H)   // crossfade
   }
 }

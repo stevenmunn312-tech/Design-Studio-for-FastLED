@@ -294,7 +294,7 @@ describe('generatePlayerSketch', () => {
   it('composites transitions by style id instead of a plain crossfade', () => {
     const ino = generatePlayerSketch()
     // The style id is captured and dispatched through the shared helper, which
-    // implements all 16 styles (wipe/iris/… plus the crossfade default).
+    // implements all 21 styles (wipe/iris/… plus the crossfade default).
     expect(ino).toContain('#include <Audio.h>       // ESP32-audioI2S\n#include <FastLED.h>')
     expect(ino).toContain('CRGB samplePalette(uint8_t palId, uint8_t index);')
     expect(ino).toContain('void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt);')

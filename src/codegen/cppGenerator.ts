@@ -101,6 +101,7 @@ import { sanitizePin } from './hardwarePins'
 import { resolveWireframeMesh, meshBoundingRadius, WIREFRAME_FIT_MARGIN, WIREFRAME_CAM_FAR, WIREFRAME_CAM_NEAR } from '../state/wireframeModel'
 import { resolveAudioCapabilitySource } from '../state/audioCapabilities'
 import { amplifierIdleCpp } from './amplifierIdle'
+import { TRANSITION_3D_HELPERS_CPP } from './transitionHelperCpp'
 import { buttonBankHandle, normalizeButtonBankEntries } from '../state/buttonBank'
 import {
   STEREO_VU_CPP_FORWARD,
@@ -1880,6 +1881,7 @@ export function generateCpp(
   const globalLines: string[] = []
   const needsMapFloat: boolean[] = [false]
   const needsWorley = { v: false }
+  const need3d = { v: false }
   const needsKelvin = { v: false }
   const needsT = { v: false }
   const needsShims = { v: false }
@@ -5387,7 +5389,7 @@ export function generateCpp(
         break
       }
 
-      // Bundled transitions — `transitionType` picks one of 16 A→B effects.
+      // Bundled transitions — `transitionType` picks one of 21 A→B effects.
       // Every variant works on the per-node frame buffers (seed `ob` from A,
       // then composite B in) so the generated firmware actually renders the
       // transition. Keep in sync with the `Transition` case in graphEvaluator.ts.
@@ -5398,6 +5400,10 @@ export function generateCpp(
         const B = b ?? ob                                  // unconnected B ⇒ behaves like A
         const aPix = (i: string) => a ? `${a}[${i}]` : 'CRGB::Black'
         const bPix = (i: string) => b ? `${b}[${i}]` : 'CRGB::Black'
+        // The unit sampler takes a null buffer and answers black, which is
+        // how an unconnected A or B reaches the 3D arms; the older arms use
+        // aPix/bPix for the same thing.
+        const aBuf = a ?? 'nullptr', bBuf = b ?? 'nullptr'
         const seed = a ? `::memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`
         const idx = '_y*WIDTH+_x'
         // Most variants reveal B where a per-pixel condition holds; this emits the
@@ -5522,6 +5528,98 @@ export function generateCpp(
             ln(`      int _bx=(int)((_x-_cx)/_sc+_cx),_by=(int)((_y-_cy)/_sc+_cy);`)
             ln(`      if(_bx>=0&&_bx<WIDTH&&_by>=0&&_by<HEIGHT) ${ob}[${idx}]=blend(${ob}[${idx}], ${bPix('_by*WIDTH+_bx')}, (uint8_t)(_tt*255));`)
             ln(`      else ${ob}[${idx}].nscale8((uint8_t)((1.0f-_tt)*255));`)
+            ln(`    } }`)
+            break
+          // ── 3D styles ────────────────────────────────────────────────
+          // Inverse per-pixel sample with a perspective divide, mirroring
+          // evalDolly/evalFlip/evalCube/evalDoor/evalTilt in graphEvaluator.ts
+          // and cases 16-20 of transitionHelperCpp.ts. The depth curve, the
+          // tie-breaking rounding and the unit sampler come from that file's
+          // TRANSITION_3D_HELPERS_CPP rather than being restated here, so the
+          // parts most likely to drift out of parity exist once. Each arm
+          // writes every pixel, so none of them seeds from A first.
+          case 'dolly':
+            need3d.v = true
+            ln(`  { float _tt=${tt},_cx=WIDTH*0.5f,_cy=HEIGHT*0.5f;`)
+            ln(`    float _cv=_tt*_tt; if(_cv<1e-4f) _cv=1e-4f;`)
+            ln(`    float _za=powf(1.12f,_tt),_zb=1.0f/_cv;`)
+            ln(`    float _sa=_depthShade(_za),_sb=_depthShade(_zb);`)
+            ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+            ln(`      float _ox=_x+0.5f-_cx,_oy=_y+0.5f-_cy; CRGB _s; float _k;`)
+            ln(`      int _bx=_sampleRound(_ox*_zb+_cx-0.5f),_by=_sampleRound(_oy*_zb+_cy-0.5f);`)
+            ln(`      if(_bx>=0&&_bx<WIDTH&&_by>=0&&_by<HEIGHT){ _s=${bPix('_by*WIDTH+_bx')}; _k=_sb; }`)
+            ln(`      else { int _ax=_sampleRound(_ox*_za+_cx-0.5f),_ay=_sampleRound(_oy*_za+_cy-0.5f);`)
+            ln(`        _ax=constrain(_ax,0,WIDTH-1); _ay=constrain(_ay,0,HEIGHT-1);`)
+            ln(`        _s=${aPix('_ay*WIDTH+_ax')}; _k=_sa; }`)
+            ln(`      ${ob}[${idx}]=_shadePixel(_s,_k);`)
+            ln(`    } }`)
+            break
+          case 'flip':
+            need3d.v = true
+            ln(`  { float _tt=${tt},_cx=WIDTH*0.5f,_cy=HEIGHT*0.5f;`)
+            ln(`    float _th=_tt*3.14159265f,_ct=cosf(_th),_sn=sinf(_th); bool _bk=_tt>=0.5f;`)
+            ln(`    const CRGB* _src=_bk?${bBuf}:${aBuf};`)
+            ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+            ln(`      ${ob}[${idx}]=CRGB::Black;`)
+            ln(`      float _sx=(_x+0.5f-_cx)/_cx,_sy=(_y+0.5f-_cy)/_cy;`)
+            ln(`      float _den=3.0f*_ct-_sx*_sn; if(fabsf(_den)<1e-4f) continue;`)
+            ln(`      float _u=_sx*3.0f/_den; if(_u<-1.0f||_u>1.0f) continue;`)
+            ln(`      float _z=3.0f+_u*_sn; if(_z<0.05f) continue;`)
+            ln(`      float _w=_sy*_z/3.0f; if(_w<-1.0f||_w>1.0f) continue;`)
+            ln(`      ${ob}[${idx}]=_shadePixel(_sampleUnit(_src,_bk?-_u:_u,_w),_depthShade(_z/3.0f));`)
+            ln(`    } }`)
+            break
+          case 'cube':
+            need3d.v = true
+            ln(`  { float _tt=${tt},_cx=WIDTH*0.5f,_cy=HEIGHT*0.5f;`)
+            ln(`    float _th=_tt*1.57079633f,_ct=cosf(_th),_sn=sinf(_th),_cd=3.0f,_cf=2.0f;`)
+            ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+            ln(`      ${ob}[${idx}]=CRGB::Black;`)
+            ln(`      float _sx=(_x+0.5f-_cx)/_cx,_sy=(_y+0.5f-_cy)/_cy;`)
+            ln(`      int _fc=-1; float _fu=0.0f,_fv=0.0f,_fz=0.0f;`)
+            ln(`      float _dA=_cf*_ct+_sx*_sn;`)
+            ln(`      if(fabsf(_dA)>=1e-4f){ float _u=(_sx*(_cd-_ct)+_cf*_sn)/_dA,_z=_cd-_u*_sn-_ct,_v=_sy*_z/_cf;`)
+            ln(`        if(_u>=-1.0f&&_u<=1.0f&&_v>=-1.0f&&_v<=1.0f&&_z>0.05f){ _fc=0; _fu=_u; _fv=_v; _fz=_z; } }`)
+            ln(`      float _dB=_cf*_sn-_sx*_ct;`)
+            ln(`      if(fabsf(_dB)>=1e-4f){ float _u=(_sx*(_cd-_sn)-_cf*_ct)/_dB,_z=_cd-_sn+_u*_ct,_v=_sy*_z/_cf;`)
+            ln(`        if(_u>=-1.0f&&_u<=1.0f&&_v>=-1.0f&&_v<=1.0f&&_z>0.05f&&(_fc<0||_z<_fz)){ _fc=1; _fu=_u; _fv=_v; _fz=_z; } }`)
+            ln(`      if(_fc<0) continue;`)
+            ln(`      ${ob}[${idx}]=_shadePixel(_sampleUnit(_fc==0?${aBuf}:${bBuf},_fu,_fv),_depthShade(_fz/_cf));`)
+            ln(`    } }`)
+            break
+          case 'door':
+            need3d.v = true
+            ln(`  { float _tt=${tt},_cx=WIDTH*0.5f,_cy=HEIGHT*0.5f;`)
+            ln(`    float _ph=_tt*1.57079633f,_ct=cosf(_ph),_sn=sinf(_ph),_dd=3.0f,_df=3.0f;`)
+            ln(`    float _pn=_facingShade(_ct),_bl=0.5f+0.5f*_sn;`)
+            ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+            ln(`      float _sx=(_x+0.5f-_cx)/_cx,_sy=(_y+0.5f-_cy)/_cy; bool _dn=false;`)
+            ln(`      float _dL=_df*_ct+_sx*_sn;`)
+            ln(`      if(fabsf(_dL)>=1e-4f){ float _s=(_sx*_dd+_df)/_dL;`)
+            ln(`        if(_s>=0.0f&&_s<=1.0f){ float _z=_dd-_s*_sn,_v=_sy*_z/_df;`)
+            ln(`          if(_v>=-1.0f&&_v<=1.0f&&_z>0.05f){ ${ob}[${idx}]=_shadePixel(_sampleUnit(${aBuf},_s-1.0f,_v),_pn); _dn=true; } } }`)
+            ln(`      if(!_dn){ float _dR=_sx*_sn-_df*_ct;`)
+            ln(`        if(fabsf(_dR)>=1e-4f){ float _s=(_sx*_dd-_df)/_dR;`)
+            ln(`          if(_s>=0.0f&&_s<=1.0f){ float _z=_dd-_s*_sn,_v=_sy*_z/_df;`)
+            ln(`            if(_v>=-1.0f&&_v<=1.0f&&_z>0.05f){ ${ob}[${idx}]=_shadePixel(_sampleUnit(${aBuf},1.0f-_s,_v),_pn); _dn=true; } } } }`)
+            ln(`      if(!_dn) ${ob}[${idx}]=_shadePixel(${bPix(idx)},_bl);`)
+            ln(`    } }`)
+            break
+          case 'tilt':
+            need3d.v = true
+            ln(`  { float _tt=${tt},_cx=WIDTH*0.5f,_cy=HEIGHT*0.5f;`)
+            ln(`    float _ph=_tt*1.4f,_ct=cosf(_ph),_sn=sinf(_ph),_td=3.0f,_tf=3.0f;`)
+            ln(`    float _zb=_td+0.8f*(1.0f-_tt),_sl=-2.6f*(1.0f-_tt),_sb=_depthShade(_zb/_tf);`)
+            ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+            ln(`      ${ob}[${idx}]=CRGB::Black;`)
+            ln(`      float _sx=(_x+0.5f-_cx)/_cx,_sy=(_y+0.5f-_cy)/_cy;`)
+            ln(`      float _bu=_sx*_zb/_tf,_bv=_sy*_zb/_tf-_sl;`)
+            ln(`      if(_bu>=-1.0f&&_bu<=1.0f&&_bv>=-1.0f&&_bv<=1.0f){ ${ob}[${idx}]=_shadePixel(_sampleUnit(${bBuf},_bu,_bv),_sb); continue; }`)
+            ln(`      float _den=_tf*_ct+_sy*_sn; if(fabsf(_den)<1e-4f) continue;`)
+            ln(`      float _s=(_tf-_sy*_td)/_den; if(_s<0.0f||_s>2.0f) continue;`)
+            ln(`      float _z=_td+_s*_sn; if(_z<0.05f) continue;`)
+            ln(`      float _u=_sx*_z/_tf; if(_u<-1.0f||_u>1.0f) continue;`)
+            ln(`      ${ob}[${idx}]=_shadePixel(_sampleUnit(${aBuf},_u,1.0f-_s),_depthShade(_z/_tf));`)
             ln(`    } }`)
             break
           default: // crossfade
@@ -6948,6 +7046,11 @@ export function generateCpp(
     lines.push(`  return CRGB(constrain((int)r, 0, 255), constrain((int)g, 0, 255), constrain((int)b, 0, 255));`)
     lines.push(`}`)
     lines.push(``)
+  }
+
+  if (need3d.v) {
+    lines.push(TRANSITION_3D_HELPERS_CPP)
+    lines.push()
   }
 
   if (needsWorley.v) {

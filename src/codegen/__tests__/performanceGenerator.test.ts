@@ -520,7 +520,7 @@ describe('editor option lists', () => {
     expect(SHOW_TRANSITIONS).toEqual([
       'crossfade', 'wipe', 'dissolve', 'iris', 'clockwipe', 'push', 'checkerboard',
       'diagonal', 'fadeblack', 'fadewhite', 'blinds', 'ripple', 'spiral', 'curtain',
-      'scanlines', 'zoom',
+      'scanlines', 'zoom', 'dolly', 'flip', 'cube', 'door', 'tilt',
     ])
   })
 })
