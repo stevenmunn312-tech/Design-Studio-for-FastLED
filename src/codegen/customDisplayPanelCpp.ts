@@ -14,9 +14,13 @@
 // `_xptPoint`, and this module's indev callback is a thin wrapper around it.
 
 import {
-  tftMadctl, tftRotatedSize, tftWindowOrigin,
+  asTftRotation, TFT_CONTROLLERS, tftMadctl, tftRotatedSize, tftWindowOrigin,
   type TftController, type TftRotation,
 } from '../state/tftSurface'
+import { tftControllerForProps } from '../state/nodeLibrary'
+import { partById } from '../state/partCatalogue'
+import { MAX_PIN_NUMBER } from '../state/boardGpio'
+import { customDisplayId } from './customDisplayId'
 
 export const CUSTOM_DISPLAY_PANEL_CPP_INCLUDES = '#include <SPI.h>'
 
@@ -60,6 +64,27 @@ export interface CustomDisplayPanelEmit {
   backlightPin: number
   /** Present only for a touch-capable module. */
   touch?: CustomDisplayPanelTouch
+  /** Template controllers sample touch explicitly before evaluating controls. */
+  manualTouch?: boolean
+}
+
+export function customDisplayPanelFromProps(id: string, p: Record<string, unknown>): CustomDisplayPanelEmit {
+  const integer = (key: string, fallback: number, max = MAX_PIN_NUMBER) => {
+    const value = Math.round(Number(p[key] ?? fallback))
+    return Number.isFinite(value) ? Math.max(0, Math.min(max, value)) : fallback
+  }
+  return {
+    id: customDisplayId(id), controller: tftControllerForProps(p) ?? TFT_CONTROLLERS.ST7789V,
+    rotation: asTftRotation(p.tftRotation),
+    csPin: integer('csPin', 5), dcPin: integer('dcPin', 16), resetPin: integer('resetPin', 17),
+    sckPin: integer('sckPin', 18), mosiPin: integer('mosiPin', 23), backlightPin: integer('backlightPin', 4),
+    touch: partById(String(p.partId ?? ''))?.display?.touchController ? {
+      csPin: integer('touchCsPin', 15), irqPin: integer('touchIrqPin', 2),
+      sckPin: integer('touchSckPin', 18), mosiPin: integer('touchMosiPin', 23), misoPin: integer('touchMisoPin', 19),
+      xMin: integer('touchXMin', 200, 4095), xMax: integer('touchXMax', 3900, 4095),
+      yMin: integer('touchYMin', 200, 4095), yMax: integer('touchYMax', 3900, 4095),
+    } : undefined,
+  }
 }
 
 function rotationCode(rotation: TftRotation): number {
@@ -77,11 +102,11 @@ export function customDisplayPanelGlobalCpp(emit: CustomDisplayPanelEmit): strin
   const id = emit.id
   const bufPixels = customDisplayPanelBufferPixels(emit.controller, emit.rotation)
   const lines = [
-    `struct CustomDisplayPanel {`,
+    `struct CustomDisplayPanel_${id} {`,
     `  uint8_t cs, dc, rst, sck, mosi, bl;`,
     `  uint16_t colStart, rowStart;`,
     `};`,
-    `static CustomDisplayPanel _cdPanel_${id};`,
+    `static CustomDisplayPanel_${id} _cdPanel_${id};`,
     `static SPISettings _cdPanelSpi_${id}(40000000, MSBFIRST, SPI_MODE0);`,
     `static lv_display_t *_cdDisp_${id} = nullptr;`,
     `static uint8_t _cdPanelBuf_${id}[${bufPixels} * 2];`,
@@ -234,6 +259,7 @@ export function customDisplayPanelSetupCpp(emit: CustomDisplayPanelEmit): string
     `  if (_cdPanel_${id}.bl != 255) digitalWrite(_cdPanel_${id}.bl, HIGH);`,
     ``,
     `  _cdDisp_${id} = lv_display_create(${size.width}, ${size.height});`,
+    `  lv_display_set_default(_cdDisp_${id});`,
     `  lv_display_set_color_format(_cdDisp_${id}, LV_COLOR_FORMAT_RGB565);`,
     `  lv_display_set_flush_cb(_cdDisp_${id}, _cdFlush_${id});`,
     `  lv_display_set_buffers(_cdDisp_${id}, _cdPanelBuf_${id}, nullptr, sizeof(_cdPanelBuf_${id}), LV_DISPLAY_RENDER_MODE_PARTIAL);`,
@@ -250,6 +276,7 @@ export function customDisplayPanelSetupCpp(emit: CustomDisplayPanelEmit): string
       `  lv_indev_set_read_cb(_cdIndev_${id}, _cdIndevRead_${id});`,
       `  lv_indev_set_display(_cdIndev_${id}, _cdDisp_${id});`,
     )
+    if (emit.manualTouch) lines.push(`  lv_indev_set_mode(_cdIndev_${id}, LV_INDEV_MODE_EVENT);`)
   }
   return lines
 }

@@ -1501,22 +1501,22 @@ function masterSpeedGeneratorErrors(
 export function findOutputRuntimeIssues(
   nodes: StudioNode[],
   edges: StudioEdge[],
+  displayDocuments?: DisplayDocumentRegistry,
 ): { errors: string[] } {
   const generator = selectedGenerator(nodes, edges)
   if (generator === 'sketch') return { errors: [] }
 
   const speedErrors = masterSpeedGeneratorErrors(nodes, edges, generator)
-  const showControls = generator === 'show' ? showControlRouting(nodes, edges) : null
+  const showControls = generator === 'show' ? showControlRouting(nodes, edges, displayDocuments) : null
   const showOutputs = generator === 'show' ? showControlOutputIds(nodes, edges) : new Set<string>()
 
-  // The show's bounded Controls path is resolved above. Scalar runtime wires
-  // still need arbitrary graph evaluation, and the SD player owns its own
+  // The show's Controls and scalar paths are resolved above. The SD player owns its own
   // transport latch rather than these per-output inputs.
   const RUNTIME_PORTS = new Set(['enabled', 'brightness', 'controls'])
   const wired = nodes.filter((node) => node.data.nodeType === 'MatrixOutput'
     && edges.some((edge) => edge.target === node.id
       && RUNTIME_PORTS.has(String(edge.targetHandle))
-      && !(generator === 'show' && edge.targetHandle === 'controls' && showOutputs.has(node.id))))
+      && !(generator === 'show' && showOutputs.has(node.id))))
   if (wired.length === 0) return { errors: [...speedErrors, ...(showControls?.errors ?? [])] }
 
   const errors: string[] = []
@@ -1525,7 +1525,7 @@ export function findOutputRuntimeIssues(
     ? `${names}: a music-player build cannot read Enabled, Brightness or Controls wired to the LED output. `
       + 'Wire the button or knob to Player Controls (LED On / Off, Brightness) and on to Music Player instead — it reaches the same place through the transport the player already reads.'
     : `${names}: a generated show controller cannot read these Enabled, Brightness or Controls wires. `
-      + "Route blackout and dimming through Player Controls to a slideshow LED output's Controls input; remove scalar runtime wires or build a normal sketch.")
+      + "Wire supported controls to a slideshow LED output; use a normal sketch for other output routes.")
 
   return { errors: [...errors, ...speedErrors, ...(showControls?.errors ?? [])] }
 }
@@ -1547,6 +1547,7 @@ export function findOutputRuntimeIssues(
 export function findDisplayGeneratorIssues(
   nodes: StudioNode[],
   edges: StudioEdge[],
+  displayDocuments?: DisplayDocumentRegistry,
 ): { errors: string[]; warnings: string[] } {
   const displays = nodes.filter((node) => DISPLAY_NODE_TYPES.has(node.data.nodeType))
   if (displays.length === 0) return { errors: [], warnings: [] }
@@ -1556,7 +1557,7 @@ export function findDisplayGeneratorIssues(
 
   const generator = selectedGenerator(nodes, edges)
   const nodeById = new Map(nodes.map((node) => [node.id, node]))
-  const showControls = generator === 'show' ? showControlRouting(nodes, edges) : null
+  const showControls = generator === 'show' ? showControlRouting(nodes, edges, displayDocuments) : null
 
   // All three generators draw a configured display now:
   //
@@ -1570,20 +1571,14 @@ export function findDisplayGeneratorIssues(
   // up below as unresolved ports and as a transport a Controls wire can reach,
   // not as a generator that leaves the part dark.
   errors.push(...splitI2cBusErrors(nodes))
+  errors.push(...(showControls?.custom.errors ?? []))
 
-  // A normal sketch compiles the whole graph itself, the same way the browser
-  // preview evaluates it, so it can resolve arbitrary scalar/control wiring
-  // through a custom Display's widgets — cppGenerator.ts's `case 'Display'`
-  // does exactly that. Neither template generator can: a generated show has
-  // no compiled graph to read a wire against, and the SD player runs a fixed
-  // template built around the file it is holding. Both remain refused until
-  // the shared control-graph IR embeds in their firmware.
-  if (generator === 'show' || generator === 'player') {
+  // Shows compile widget scalar/control paths; the SD-player template still
+  // needs the shared control graph before it can draw custom documents.
+  if (generator === 'player') {
     for (const display of displays.filter((node) => node.data.nodeType === 'Display')) {
-      errors.push(
-        `${nodeLabel(display)} uses a custom widget document, which ${generator === 'show' ? 'a generated show controller' : 'an SD player build'} cannot yet draw. `
-        + 'Keep designing and wiring the screen in the editor, then use a fixed Transport Display for this export, or build a normal sketch instead.',
-      )
+      errors.push(`${nodeLabel(display)} uses a custom widget document, which an SD player build cannot yet draw. `
+        + 'Use a fixed Transport Display for this export, or build a normal sketch or generative show instead.')
     }
   }
 
@@ -2180,7 +2175,7 @@ export function buildGraphDiagnostics(
   // Keep the live drawer aligned with deploy validation. Display-generator
   // mismatches are especially misleading because the screen itself may still
   // render while a field stays blank or every touch is ignored.
-  const liveDisplayIssues = findDisplayGeneratorIssues(nodes, edges)
+  const liveDisplayIssues = findDisplayGeneratorIssues(nodes, edges, options.displayDocuments)
   const displayNodeIds = nodes.filter((node) => DISPLAY_NODE_TYPES.has(node.data.nodeType)).map((node) => node.id)
   liveDisplayIssues.errors.forEach((message, index) => diagnostics.push({
     id: `display-generator-error-${index}`,
@@ -2209,7 +2204,7 @@ export function buildGraphDiagnostics(
 
   // Output-control failures must be visible before deploy too, including a
   // supported touch chain with an unsupported local Player Controls override.
-  findOutputRuntimeIssues(nodes, edges).errors.forEach((message, index) => diagnostics.push({
+  findOutputRuntimeIssues(nodes, edges, options.displayDocuments).errors.filter((message) => !liveDisplayIssues.errors.includes(message)).forEach((message, index) => diagnostics.push({
     id: `output-runtime-error-${index}`,
     severity: 'error', category: 'connection',
     title: 'Output firmware cannot honour these controls',
@@ -2311,10 +2306,10 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   warnings.push(...findPinRangeWarnings(nodes))
   warnings.push(...findBoardPinCompatibility(nodes, selectedFqbn).warnings)
   warnings.push(...findPlayerControlMappingWarnings(nodes, edges))
-  const displayIssues = findDisplayGeneratorIssues(nodes, edges)
+  const displayIssues = findDisplayGeneratorIssues(nodes, edges, displayDocuments)
   errors.push(...displayIssues.errors)
   warnings.push(...displayIssues.warnings)
-  errors.push(...findOutputRuntimeIssues(nodes, edges).errors)
+  errors.push(...findOutputRuntimeIssues(nodes, edges, displayDocuments).errors.filter((message) => !displayIssues.errors.includes(message)))
 
   const power = estimatePowerLoad(nodes)
   if (power?.exceedsConfigured) {

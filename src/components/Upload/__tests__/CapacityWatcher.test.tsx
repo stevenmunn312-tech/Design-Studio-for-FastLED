@@ -69,7 +69,7 @@ describe('CapacityWatcher', () => {
     expect(container.firstChild).toBeNull()
   })
 
-  it('measures baked artwork and invalidates it on document-only edits', async () => {
+  it.each([false, true])('measures baked artwork and invalidates it on document-only edits (show: %s)', async (show) => {
     setGraph(true)
     const document = createDisplayDocument('screen-document')
     document.widgets = [{ id: 'art', type: 'Image/Icon', label: 'Art',
@@ -78,14 +78,30 @@ describe('CapacityWatcher', () => {
     useGraphStore.setState({
       nodes: [...useGraphStore.getState().nodes, {
         ...output, id: 'screen', data: { ...output.data, nodeType: 'Display',
-          properties: { displayId: document.displayId, partId: 'st7789v-tft-240x320' } },
+          properties: { displayId: document.displayId, partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90' } },
       }] as never[],
       displayDocuments: { [document.displayId]: document },
     })
+    if (show) {
+      const showNode = (id: string, nodeType: string, properties = {}) => ({
+        ...pattern, id, data: { ...pattern.data, nodeType, properties },
+      })
+      useGraphStore.setState({
+        nodes: [...useGraphStore.getState().nodes, showNode('coll', 'PatternCollection', { patternIds: ['p'] }), showNode('show', 'PatternSlideshow')] as never[],
+        edges: [
+          { id: 's1', source: 'coll', sourceHandle: 'patternset', target: 'show', targetHandle: 'patternset' },
+          { id: 's2', source: 'show', sourceHandle: 'frame', target: 'matrix', targetHandle: 'frame' },
+        ] as never[],
+        graphData: { p: { nodes: [pattern, showNode('end', 'GroupOutput')],
+          edges: [{ id: 'p1', source: 'sc', sourceHandle: 'frame', target: 'end', targetHandle: 'frame' }] } } as never,
+        graphs: { root: { id: 'root', name: 'Main' }, p: { id: 'p', name: 'Pattern' } },
+      })
+    }
     render(<CapacityWatcher />)
     expect(useCapacityStore.getState().target?.code).toBeNull()
     await waitFor(() => expect(useCapacityStore.getState().target?.code).toContain('_cdAsset_screen_0_map[] PROGMEM'))
     const originalCode = useCapacityStore.getState().target?.code
+    if (show) expect(originalCode).toContain('void renderPattern(')
     expect(originalCode).toContain('.w = 24')
     const edited = { ...document, widgets: [{ ...document.widgets[0],
       bounds: { ...document.widgets[0].bounds, width: 32 } }] }

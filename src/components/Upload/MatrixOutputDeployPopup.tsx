@@ -99,7 +99,7 @@ export default function MatrixOutputDeployPopup({
   // behind this popup doesn't re-run the sketch generator every frame.
   const codegenGraph = useCodegenGraph(nodes, edges)
   const customAssets = useCustomDisplayAssets(codegenGraph.nodes,
-    !hasSdShow && !isPatternShow(codegenGraph.nodes, codegenGraph.edges))
+    !hasSdShow, codegenGraph.edges)
   function generateCurrentCode() {
     if (customAssets.pending || customAssets.errors.length > 0) return ''
     // A confirmation dialog may have been open while the document changed.

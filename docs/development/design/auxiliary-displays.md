@@ -180,7 +180,7 @@ ordinary widgets, and generated firmware never embeds the preview screenshot.
 External source-art working folders and their manifests are build-time handoff
 inputs; neither a saved workspace nor generated C++ may depend on those paths.
 
-Normal-sketch upload, export, code view and capacity checks prepare custom
+Normal-sketch and generative-show upload, export, code view and capacity checks prepare custom
 display assets through `useCustomDisplayAssets` before calling the generator.
 Only documents owned by root display nodes are baked, and image fetching waits
 for workspace trust. Both build consumers share in-flight and successful bakes
@@ -191,9 +191,11 @@ measures a placeholder screen while the real artwork is pending or failed.
 The capacity readout distinguishes image preparation from an empty graph and
 surfaces the named failure; its review action opens the upload controls. A
 preparation attempt publishes bytes only when every display has succeeded.
-`generateCpp` receives finished bytes keyed by node id and emits validated
-PROGMEM tables before the LVGL objects reference them. Show/player custom-screen
-generation remains gated separately until those generators support its bindings.
+`generateCpp` and `generateShowSketch` receive finished bytes keyed by node id
+and emit validated PROGMEM tables before the LVGL objects reference them. Show
+preparation also validates widget bindings before fetching or generating;
+missing documents, stale handles and unsupported wires produce named errors.
+SD-player custom-screen generation remains gated until its bindings are implemented.
 
 ### The persisted document
 
@@ -485,8 +487,9 @@ graph is limited to 256 nodes. Unreachable nodes are not emitted.
 Math, Lerp, Clamp, MapRange, Sin, Cos, Compare, TextValue and FormatNumber use
 `scalarControlCpp.ts` in both the normal sketch and control IR. Numeric property
 resolution, wired clamping and bounded string formatting retain the existing
-rules. This slice has no time-dependent nodes, arbitrary scripts, nested groups
-or custom widget sources. Those paths stay refused until explicitly supported.
+rules. Custom Button/Toggle/Slider/Dial outputs are typed pre-pass sources.
+Time-dependent nodes, arbitrary scripts, nested groups and status sources stay
+refused until explicitly supported.
 
 One walk serves both, in `codegen/playerDisplays.ts`, parameterised by the
 expression table the generator hands it and optional typed control bindings.
@@ -531,10 +534,11 @@ physical array owns its blackout and dimming; HUB75 uses its brightness
 register. Display painting remains after LED output. A Diagnostics panel
 samples regardless of wiring, an unwired panel remains read-only, and a
 disabled panel contributes no touch intent. Show Status does not yet read back
-its output's latch. Scalar Enabled/Brightness wires and arbitrary widget logic
-remain outside this slice, as does a wired panel Enabled input (its value must
-also govern touch sampling). Deploy validation and Graph Health name these
-unsupported bindings.
+its output's latch. Supported scalar Enabled/Brightness wires combine with
+the Controls latch: enabled values are ANDed and clamped brightness values
+are multiplied. A wired fixed-panel Enabled input remains unsupported because
+it must also govern touch sampling. Deploy validation and Graph Health name
+unsupported sources and bindings.
 
 Which generator a graph would *actually* build with therefore has to be exact.
 `selectedGenerator` mirrors the upload path's order, and both arms of
@@ -543,10 +547,26 @@ the **player** sketch, and the same graph without a card builds an ordinary
 one. Neither mattered while every generator but the normal one refused displays
 outright. Both do now that all three draw.
 
-The SD-player and custom-widget integrations must reuse this IR and its shared
-emitters. They must also supply typed runtime sources and sample widget outputs
-before resolving any graph-authoritative inputs; removing the custom-display
-validation gate alone does not provide that behavior.
+Custom show displays use `customDisplayControlGraph.ts` to derive roles from
+saved documents rather than copied node handles. Each configured, enabled
+panel is created and made LVGL's default before its screen objects are created.
+The shared panel adapter and widget/asset emitters use one identifier rule,
+including for numeric-leading UUIDs and multiple panels.
+
+Touch input devices run in LVGL event mode: the controller calls `lv_indev_read`
+for every enabled custom panel before snapshotting any widget output. The
+snapshot is the typed source for the entire graph pass. Set bindings never
+become producer dependencies, so feedback such as Slider Out → Math → Slider
+Set, including across screens, preserves the sampled touch intent. After LED
+output, the controller applies graph-authoritative inputs using the existing
+finger-ownership/release rules, then services LVGL's monotonic timer handler.
+Disabled custom screens contribute false/zero and perform no touch or LVGL work.
+
+Custom float/bool/string inputs support the same scalar nodes as the control
+mapper; wired colour and pattern-selection roles remain refused. Asset
+preparation and capacity measurement include actual baked image data. The
+SD-player integration must reuse this resolver and ordering when it adds the
+player's typed runtime sources; removing its validation gate is insufficient.
 
 ## One surface, two transports
 

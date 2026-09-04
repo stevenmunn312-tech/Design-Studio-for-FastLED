@@ -1,6 +1,8 @@
+import { showControlRouting } from '../codegen/showControlRouting'
+import { isPatternShow } from '../codegen/showGenerator'
 import { useEffect, useMemo, useState } from 'react'
 import { create } from 'zustand'
-import { useGraphStore, type StudioNode } from '../state/graphStore'
+import { useGraphStore, type StudioNode, type StudioEdge } from '../state/graphStore'
 import type { DisplayDocument } from '../state/displayDocument'
 import { customDisplayAssetRequests, customDisplayResourceIssues, type BakedCustomDisplayAsset } from '../state/customDisplayResources'
 import { bakeCustomDisplayAssets } from '../utils/bakeCustomDisplayAssets'
@@ -32,7 +34,7 @@ function bake(document: DisplayDocument) {
 }
 
 /** Prepare real firmware bytes before either build consumer generates code. */
-export function useCustomDisplayAssets(nodes: StudioNode[], enabled: boolean) {
+export function useCustomDisplayAssets(nodes: StudioNode[], enabled: boolean, edges?: StudioEdge[]) {
   const documents = useGraphStore((state) => state.displayDocuments)
   const trusted = useGraphStore((state) => state.trusted)
   const { revision, retry } = useBakeRetry()
@@ -50,11 +52,14 @@ export function useCustomDisplayAssets(nodes: StudioNode[], enabled: boolean) {
       errors.push(...customDisplayResourceIssues(document).map((issue) => `${label}: ${issue.message}`))
       if (customDisplayAssetRequests(document).length > 0) targets.push({ nodeId: node.id, label, document })
     }
+    if (enabled && edges && isPatternShow(nodes, edges)) {
+      errors.push(...showControlRouting(nodes, edges, documents).errors)
+    }
     if (targets.length > 0 && !trusted) {
       errors.push('Trust this project before preparing its display images for firmware.')
     }
     return { targets, errors }
-  }, [nodes, documents, trusted, enabled])
+  }, [nodes, edges, documents, trusted, enabled])
   const [finished, setFinished] = useState<{ plan: typeof plan; revision: number; result: Result } | null>(null)
 
   useEffect(() => {

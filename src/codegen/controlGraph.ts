@@ -24,7 +24,7 @@ export function controlReferenceCpp(reference: ControlReference): string {
   return `n_${safeId(reference.nodeId)}_${safeId(reference.port)}`
 }
 
-export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[]) {
+export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sampledSources: readonly ControlReference[] = []) {
   const byId = new Map(nodes.map((node) => [node.id, node]))
   const incoming = new Map(edges.map((edge) => [`${edge.target}:${edge.targetHandle}`, edge]))
   const { w, h } = compositionDims(nodes, edges)
@@ -34,19 +34,30 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[]) {
   const symbols = new Map<string, string>()
   const label = (id: string) => String(byId.get(id)?.data.label || id)
   const fail = (message: string): null => { errors.add(message); return null }
+  const samples = new Map(sampledSources.map((source) => [JSON.stringify([source.nodeId, source.port]), source]))
+  // Samples are declared before the graph even when no consumer reads them.
+  // Reserve all their symbols so an otherwise unused output cannot collide.
+  for (const source of sampledSources) {
+    const symbol = controlReferenceCpp(source), owner = JSON.stringify([source.nodeId, source.port])
+    if (symbols.has(symbol) && symbols.get(symbol) !== owner) fail(`${label(source.nodeId)}: control identifiers collide after sanitization. Rename or recreate this node.`)
+    symbols.set(symbol, owner)
+  }
 
   const resolve = (nodeId: string, port: string, type: ControlDataType): ControlReference | null => {
     const node = byId.get(nodeId)
     if (!node) return fail(`Control graph: missing source ${nodeId}.`)
     const scalar = Object.hasOwn(SCALAR_CONTROL_NODES, node.data.nodeType) ? SCALAR_CONTROL_NODES[node.data.nodeType] : undefined
     const gpio = scalar ? null : controlInputCpp(node.data.nodeType, safeId(node.id), node.data.properties)
-    const actualType = scalar ? (port === scalar.port ? scalar.type : undefined) : gpio?.outputs[port]
+    const sample = samples.get(JSON.stringify([nodeId, port]))
+    const actualType = sample?.type ?? (scalar ? (port === scalar.port ? scalar.type : undefined) : gpio?.outputs[port])
     if (actualType !== type) return fail(`${label(nodeId)}.${port}: control graph requires ${type}; this source or port is unsupported.`)
     const reference = { nodeId, port, type }
     const symbol = controlReferenceCpp(reference)
     const owner = JSON.stringify([nodeId, port])
     if (symbols.has(symbol) && symbols.get(symbol) !== owner) return fail(`${label(nodeId)}: control identifiers collide after sanitization. Rename or recreate this node.`)
     symbols.set(symbol, owner)
+    // Touch outputs depend on the pre-pass sample, never on a wired Set value.
+    if (sample) return reference
     if (done.has(nodeId)) return reference
     if (visiting.has(nodeId)) return fail(`${label(nodeId)}: control graph contains an instantaneous cycle. Remove a feedback wire.`)
     if (visiting.size + done.size >= MAX_CONTROL_GRAPH_NODES) return fail(`Control graph exceeds ${MAX_CONTROL_GRAPH_NODES} nodes. Split or simplify its wiring.`)

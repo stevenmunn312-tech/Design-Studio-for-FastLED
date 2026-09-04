@@ -64,6 +64,7 @@ describe('normal-sketch codegen for the custom Display node', () => {
     // lv_init must precede any object/display creation.
     expect(src.indexOf('lv_init();')).toBeLessThan(src.indexOf('_cdDisp_screen = lv_display_create'))
     expect(src.indexOf('lv_init();')).toBeLessThan(src.indexOf('_cdScreen_screen = lv_obj_create'))
+    expect(src.indexOf('lv_display_set_default(_cdDisp_screen)')).toBeLessThan(src.indexOf('_cdScreen_screen = lv_obj_create'))
     expect(src).toContain('_cdBeginTiming();')
     expect(src).toContain('_cdServiceLvgl();')
     // Touch-capable module: the indev is wired up.
@@ -109,5 +110,14 @@ describe('normal-sketch codegen for the custom Display node', () => {
     const src = generateCpp([output, screen()], [], {}, { displayDocuments: documents })
     const occurrences = src.split('static uint16_t _xptRead12').length - 1
     expect(occurrences).toBe(1)
+  })
+
+  it('initializes multiple panels with numeric-leading IDs before creating their own screens', () => {
+    const first = { ...screen(), id: '1-first' }, second = { ...screen(), id: 'second' }
+    const cpp = generateCpp([output, first, second], [], {}, { displayDocuments: documents })
+    for (const id of ['_1_first', 'second']) {
+      expect(cpp).toContain(`struct CustomDisplayPanel_${id} {`)
+      expect(cpp.indexOf(`lv_display_set_default(_cdDisp_${id})`)).toBeLessThan(cpp.indexOf(`_cdScreen_${id} = lv_obj_create`))
+    }
   })
 })

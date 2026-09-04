@@ -73,7 +73,7 @@ import {
   type CustomDisplayLvglBinding, type CustomDisplayLvglEmit,
 } from './customDisplayLvglCpp'
 import {
-  customDisplayPanelGlobalCpp, customDisplayPanelHelpersCpp, customDisplayPanelSetupCpp,
+  customDisplayPanelGlobalCpp, customDisplayPanelHelpersCpp, customDisplayPanelSetupCpp, customDisplayPanelFromProps,
   type CustomDisplayPanelEmit,
 } from './customDisplayPanelCpp'
 import { parseDisplayWidgetPortId, type DisplayWidgetPortDataType } from '../state/displayRegistry'
@@ -5213,7 +5213,7 @@ export function generateCpp(
           id, document, bindings: bindingsByWidget, assets: opts.customDisplayAssets?.[node.id],
         }
         customDisplays.push(custom)
-        for (const line of customDisplayLvglSetupCpp(custom)) setupLines.push(line)
+        needsDisplayText.v = true
         for (const line of customDisplayLvglLoopCpp(custom)) ln(line)
 
         // Every widget output role becomes an ordinary declared node output —
@@ -5230,33 +5230,9 @@ export function generateCpp(
           ln(`  ${cppType} ${v(safeId(port.id))} = ${expr};`)
         }
 
-        const controller = tftControllerForProps(p) ?? TFT_CONTROLLERS.ST7789V
-        const rotation = asTftRotation(p.tftRotation)
-        const touchCapable = Boolean(partById(String(p.partId ?? ''))?.display?.touchController)
-        const panel: CustomDisplayPanelEmit = {
-          id,
-          controller,
-          rotation,
-          csPin: intProp(p.csPin, 5, 0, MAX_PIN_NUMBER),
-          dcPin: intProp(p.dcPin, 16, 0, MAX_PIN_NUMBER),
-          resetPin: intProp(p.resetPin, 17, 0, MAX_PIN_NUMBER),
-          sckPin: intProp(p.sckPin, 18, 0, MAX_PIN_NUMBER),
-          mosiPin: intProp(p.mosiPin, 23, 0, MAX_PIN_NUMBER),
-          backlightPin: intProp(p.backlightPin, 4, 0, MAX_PIN_NUMBER),
-          touch: touchCapable ? {
-            csPin: intProp(p.touchCsPin, 15, 0, MAX_PIN_NUMBER),
-            irqPin: intProp(p.touchIrqPin, 2, 0, MAX_PIN_NUMBER),
-            sckPin: intProp(p.touchSckPin, 18, 0, MAX_PIN_NUMBER),
-            mosiPin: intProp(p.touchMosiPin, 23, 0, MAX_PIN_NUMBER),
-            misoPin: intProp(p.touchMisoPin, 19, 0, MAX_PIN_NUMBER),
-            xMin: intProp(p.touchXMin, 200, 0, 4095),
-            xMax: intProp(p.touchXMax, 3900, 0, 4095),
-            yMin: intProp(p.touchYMin, 200, 0, 4095),
-            yMax: intProp(p.touchYMax, 3900, 0, 4095),
-          } : undefined,
-        }
+        const panel = customDisplayPanelFromProps(id, p)
         customDisplayPanels.push(panel)
-        setupLines.push(...customDisplayPanelSetupCpp(panel))
+        setupLines.push(...customDisplayPanelSetupCpp(panel), ...customDisplayLvglSetupCpp(custom))
         break
       }
 

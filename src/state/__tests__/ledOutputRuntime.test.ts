@@ -213,11 +213,17 @@ describe('what a show or player build cannot honour', () => {
 
   // Flashing firmware that ignores a physical blackout button is the same
   // failure as leaving a display dark: the user's next move is the wiring.
-  it('refuses a show that would drop the wire', () => {
+  it('accepts a show blackout button now evaluated by the shared control graph', () => {
     const { nodes, edges } = showGraph()
     const { errors } = findOutputRuntimeIssues(nodes, edges)
-    expect(errors.join(' ')).toContain('show controller')
-    expect(errors.join(' ')).toContain('Enabled, Brightness or Controls')
+    expect(errors).toEqual([])
+  })
+
+  it('still refuses a show runtime wire from an unsupported source', () => {
+    const { nodes, edges } = showGraph()
+    const { errors } = findOutputRuntimeIssues([...nodes, node('wave', 'Wave')],
+      [...edges, edge('unsupported', 'wave', 'value', 'out', 'brightness')])
+    expect(errors.join(' ')).toContain('cannot evaluate the wire feeding brightness')
   })
 
   // The player has a real route for this, so the message names it rather than

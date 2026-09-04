@@ -1,6 +1,5 @@
 // The fixed show's supported control path. This is deliberately bounded to
-// PlayerControls, the scalar control IR and fixed touch panels. Widget source
-// bindings are a separate integration. Validation uses this same
+// PlayerControls, the scalar control IR and fixed/custom touch panels. Validation uses this same
 // resolver so no accepted wire can disappear during emission.
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { partById } from '../state/partCatalogue'
@@ -8,6 +7,8 @@ import { normalizeButtonEdgeSettings } from '../state/transportBridge'
 import { createControlGraph, controlReferenceCpp } from './controlGraph'
 import { NODE_LIBRARY } from '../state/nodeLibrary'
 import { PLAYER_CONTROL_BUTTONS, type PlayerControlsEmit } from './playerControlsCpp'
+import type { DisplayDocumentRegistry } from '../state/displayDocument'
+import { customDisplayControlPlan, bindCustomDisplayControls } from './customDisplayControlGraph'
 
 const safeId = (id: string) => id.replace(/[^a-zA-Z0-9_]/g, '_')
 export const controlBundleVariable = (id: string) => `n_${safeId(id)}_controls`
@@ -21,20 +22,23 @@ export function showControlOutputIds(nodes: StudioNode[], edges: StudioEdge[]): 
     && e.targetHandle === 'frame' && outputs.has(e.target)).map((e) => e.target))
 }
 
-export function showControlRouting(nodes: StudioNode[], edges: StudioEdge[]) {
+export function showControlRouting(nodes: StudioNode[], edges: StudioEdge[], documents?: DisplayDocumentRegistry) {
   const byId = new Map(nodes.map((n) => [n.id, n]))
   const incoming = new Map(edges.map((e) => [`${e.target}:${e.targetHandle}`, e]))
   const touchIds = new Set<string>()
-  const graph = createControlGraph(nodes, edges)
+  const custom = customDisplayControlPlan(nodes, documents)
+  const graph = createControlGraph(nodes, edges, custom.sources)
+  bindCustomDisplayControls(custom, graph, edges)
   const displaySources = new Map<string, string>()
   const controls: PlayerControlsEmit[] = []
   const outputs = new Map<string, string>()
-  const errors = new Set<string>()
+  const scalarOutputs = new Map<string, { enabledExpr: string | null; brightnessExpr: string | null }>()
+  const errors = new Set<string>(custom.errors)
   const done = new Set<string>(), visiting = new Set<string>()
   const label = (id: string) => byId.get(id)?.data.label || id
   const unsupported = (id: string, port: string) => errors.add(
     `${label(id)}: a generated show controller cannot evaluate the wire feeding ${port}. `
-    + 'Use supported scalar nodes with buttons, potentiometers or encoders, or build a normal sketch for other control logic.',
+    + 'Use supported scalar nodes with buttons, potentiometers, encoders or custom touch widgets, or build a normal sketch for other control logic.',
   )
 
   const sourceExpr = (target: StudioNode, port: string, type: 'bool' | 'float'): string | null => {
@@ -90,6 +94,8 @@ export function showControlRouting(nodes: StudioNode[], edges: StudioEdge[]) {
     return variable
   }
   for (const id of showControlOutputIds(nodes, edges)) {
+    const output = byId.get(id)!
+    scalarOutputs.set(id, { enabledExpr: sourceExpr(output, 'enabled', 'bool'), brightnessExpr: sourceExpr(output, 'brightness', 'float') })
     const edge = incoming.get(`${id}:controls`)
     if (!edge) continue
     const variable = visit(edge)
@@ -119,7 +125,7 @@ export function showControlRouting(nodes: StudioNode[], edges: StudioEdge[]) {
     if (issues.length) issues[0] += ` ${detail}`
     else issues.push(detail)
   }
-  return { touchIds, graph, displaySources, controls, outputs, errors: issues }
+  return { touchIds, graph, custom, displaySources, controls, outputs, scalarOutputs, errors: issues }
 }
 
 export type ShowControlRouting = ReturnType<typeof showControlRouting>

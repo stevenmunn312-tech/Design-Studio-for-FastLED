@@ -405,8 +405,9 @@ widget, font and image limits before Phase 7 is frozen.
   FormatNumber. `scalarControlCpp.ts` owns those emitters for both normal
   sketches and the IR; every producer runs once before its consumers and
   shared helper definitions are deduplicated across patterns and controls.
-  Widget sources, time/status sources, nested groups and the SD-player
-  integration remain. The show's music-accessor table stays empty because a
+  Custom widget float/bool sources now join the IR as pre-pass samples, and
+  show widgets consume float/bool/string bindings. Time/status sources, nested
+  groups and the SD-player integration remain. The show's music-accessor table stays empty because a
   show holds no track; scalar display bindings are supplied separately.
 - [x] Add shared display setup/loop/global helpers for Segment Display and Info
   Display alongside the existing LED, HUB75, audio, and RTC helpers. Controller
@@ -589,9 +590,9 @@ freeform widgets must reuse rather than rediscover.
   several outputs. Each fixture dims its own routed array (HUB75 uses its
   driver brightness), so a blackout cannot darken another fixture's source.
   Music-only layouts, incomplete chains, controls aimed at an output outside
-  the slideshow, cycles and unsupported mapper inputs are diagnosed. Scalar
-  Enabled/Brightness wires and arbitrary control graphs remain unsupported in
-  shows; custom widgets still need the separate Phase 7 control-graph IR.
+  the slideshow, cycles and unsupported mapper inputs are diagnosed. Supported
+  scalar Enabled/Brightness wires now combine with these latches; the Phase 7
+  show integration also accepts custom widget outputs through the same IR.
   The normal sketch needed a port contract before it needed a generator, and
   the contract chosen was `MatrixOutput` gaining a **`controls`** input. That
   is the honest destination: a sketch has no transport, but it does have
@@ -898,7 +899,8 @@ freeform widgets must reuse rather than rediscover.
   a type-compatible wired `set` becomes visible and is republished on `out`.
   Without `set`, the last local Toggle/Slider/Dial value remains authoritative.
 - [x] Support arbitrary scalar/control wiring in normal sketches.
-  The normal-sketch half is done; show/player remain refused (next). Until now
+  The normal-sketch half is done; the show path is recorded below and the
+  SD-player path remains open. Previously
   a wired custom Display could not build at all — `cppGenerator.ts` had no
   `case 'Display'`, `TERMINAL_NODE_TYPES` could not name it (its ports are
   minted per document, not declared in `NODE_LIBRARY`), and validation
@@ -949,28 +951,40 @@ freeform widgets must reuse rather than rediscover.
   `generateCpp` emits their validated PROGMEM tables alongside the references.
   Regression tests cover trust changes, stale completion, retry, document-only
   edits and actual asset tables in the measured sketch.
-  `validateGraph.ts`'s blanket refusal is now scoped to `show`/`player`
-  generators only, which is the "then" half of this item and remains
-  unimplemented — neither has a compiled graph (the show has no music at all
-  and the player runs a fixed template around the file it holds) to resolve
-  widget wiring against.
+  `validateGraph.ts` now reserves the blanket custom-screen refusal for the
+  SD-player template. Generative shows use the typed widget path below.
   Verified end-to-end, not just per-module: a real `generateCpp()` call with a
   wired Toggle/Text document produces `lv_init()` before any object/display
   creation, the Text widget reading a real upstream string variable, the
   Toggle's output becoming `bool n_screen_widget_toggle_out = ...` and that
   variable then gating an LED output's blackout fill — i.e. a widget output
   driving real graph logic, which is what this item asked for.
-- [ ] Embed the shared control-graph IR in generative-show and SD-player firmware
-  so custom touch widgets can drive real graph logic rather than only hardcoded
-  transport actions. Normal-sketch support above does not complete this path.
+- [x] Embed the shared control-graph IR in generative-show firmware so custom
+  touch widgets can drive supported scalar/control graph logic.
+  `customDisplayControlGraph.ts` derives ports from the saved document and
+  exposes Button/Toggle/Slider/Dial outputs as typed samples. All LVGL touch
+  reads and output snapshots precede graph evaluation, including synchronized
+  feedback within or between screens; widget input updates and display refresh
+  follow LED output. Float/bool/string widget inputs share the scalar IR with
+  Player Controls and direct LED Enabled/Brightness inputs. Scalar levels and
+  bundle latches compose for strip routes and HUB75. Each panel is created and
+  selected before its screen objects, with shared identifier rules for panel,
+  widget and asset symbols. Both build consumers prepare trusted image bytes
+  for shows and reject missing documents, stale/unsupported bindings, type
+  errors and size mismatches before generation. Focused tests cover feedback,
+  multiple screens, disabled outputs, real assets and document-only edits.
+  Time/status/group sources and wired colour/patternselect widget roles remain
+  explicitly unsupported; this is the bounded scalar path, not arbitrary code.
+- [ ] Embed the shared control-graph IR and custom widget runtime in SD-player
+  firmware. The show path above does not complete the music-player integration.
 - [x] Block unsupported generator bindings with an actionable diagnostic until
   the corresponding control-graph path exists. All three generators draw fixed
   displays. Normal sketches and shows accept fixed touch controls only with an
-  actionable destination/layout; shows also reject unsupported mapper inputs
-  and scalar output-runtime wires. SD-player builds refuse incomplete chains
-  that never reach Music Player. Custom widgets remain refused in show/player
-  templates. Read-only panels stay valid. Deploy validation and live Graph
-  Health report the same display/output control failures.
+  actionable destination/layout; shows reject unsupported mapper and widget
+  inputs. SD-player builds refuse incomplete chains that never reach Music
+  Player, and still refuse custom widget documents. Read-only panels stay
+  valid. Deploy validation and live Graph Health report the same display/output
+  control failures.
 
 ### Phase 8 — tests, documentation, and release evidence
 

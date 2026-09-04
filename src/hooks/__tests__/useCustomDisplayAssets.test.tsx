@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useCustomDisplayAssets } from '../useCustomDisplayAssets'
-import { useGraphStore, type StudioNode } from '../../state/graphStore'
+import { useGraphStore, type StudioNode, type StudioEdge } from '../../state/graphStore'
 import { createDisplayDocument } from '../../state/displayEditor'
 import { bakeCustomDisplayAssets, type BakedCustomDisplayAssets } from '../../utils/bakeCustomDisplayAssets'
 import { customDisplayAssetRequests, type BakedCustomDisplayAsset } from '../../state/customDisplayResources'
@@ -140,5 +140,25 @@ describe('firmware display asset preparation', () => {
     act(() => useGraphStore.setState({ displayDocuments: { document } }))
     expect(missing.result.current.errors.join(' ')).toContain('unknown-asset')
     expect(bakeCustomDisplayAssets).not.toHaveBeenCalled()
+  })
+
+  it('reports unsupported show wiring before baking and responds to wire-only edits', async () => {
+    const showNodes = [...nodes, ...['PatternCollection', 'PatternSlideshow', 'MatrixOutput', 'TextValue'].map((nodeType) => ({
+      ...nodes[0], id: nodeType, data: { ...nodes[0].data, nodeType, properties: { patternIds: ['p'] } },
+    }))]
+    showNodes[0] = { ...nodes[0], data: { ...nodes[0].data, properties: { displayId: 'document', tftRotation: '90' } } }
+    const edges = [
+      { id: '1', source: 'PatternCollection', sourceHandle: 'patternset', target: 'PatternSlideshow', targetHandle: 'patternset' },
+      { id: '2', source: 'PatternSlideshow', sourceHandle: 'frame', target: 'MatrixOutput', targetHandle: 'frame' },
+      { id: '3', source: 'TextValue', sourceHandle: 'text', target: 'screen', targetHandle: 'widget:deleted:value' },
+    ] as StudioEdge[]
+    vi.mocked(bakeCustomDisplayAssets).mockResolvedValue({ assets: [], issues: [] })
+    const { result, rerender } = renderHook(({ wires }) => useCustomDisplayAssets(showNodes, true, wires), { initialProps: { wires: edges } })
+    expect(result.current.errors.join(' ')).toContain('widget:deleted:value')
+    expect(bakeCustomDisplayAssets).not.toHaveBeenCalled()
+    rerender({ wires: edges.slice(0, 2) })
+    await waitFor(() => expect(result.current.pending).toBe(false))
+    expect(result.current.errors).toEqual([])
+    expect(bakeCustomDisplayAssets).toHaveBeenCalledTimes(1)
   })
 })

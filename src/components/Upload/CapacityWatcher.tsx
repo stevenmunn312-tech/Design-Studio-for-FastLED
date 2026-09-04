@@ -92,7 +92,7 @@ export default function CapacityWatcher() {
   // positions cannot affect.
   const codegenGraph = useCodegenGraph(nodes, edges)
   const customAssets = useCustomDisplayAssets(codegenGraph.nodes,
-    hasFrameInput && !isShow && !isPatternShow(codegenGraph.nodes, codegenGraph.edges))
+    hasFrameInput && !isShow, codegenGraph.edges)
   const capacityCode = useMemo(() => {
     const groups = getGroupRegistry()
     if (isShow) {

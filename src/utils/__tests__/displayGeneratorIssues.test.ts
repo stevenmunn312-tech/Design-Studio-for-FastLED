@@ -65,12 +65,10 @@ describe('fixed touch output routing validation', () => {
     }))
   })
 
-  it('keeps scalar output inputs refused even beside a supported bundle', () => {
+  it('accepts scalar output inputs beside a supported bundle', () => {
     const nodes = [...show, out(), panel, controls, node('pot', 'PotInput')]
     const edges = [...showEdges, ...chain, edge('scalar', 'pot', 'value', 'out', 'brightness')]
-    expect(findOutputRuntimeIssues(nodes, edges).errors).toEqual([
-      expect.stringContaining('remove scalar runtime wires'),
-    ])
+    expect(findOutputRuntimeIssues(nodes, edges).errors).toEqual([])
   })
 
   it('accepts shared scalar calculations for a show mapper and fixed screen', () => {
@@ -456,13 +454,10 @@ describe('a Pattern Slideshow show', () => {
     expect(findDisplayGeneratorIssues(nodes, showEdges).errors).toEqual([])
   })
 
-  // A generated show has no compiled graph to resolve widget wiring against
-  // at all — it rotates patterns from a fixed template, same as the player.
-  it('still refuses a custom display in the show controller', () => {
+  it('names a missing custom document in the show controller', () => {
     const custom = node('custom', 'Display', { displayId: 'custom', partId: 'st7789v-xpt2046-touch-240x320' })
     const issues = findDisplayGeneratorIssues([master, collection, out, custom], showEdges)
     expect(issues.errors).toHaveLength(1)
-    expect(issues.errors[0]).toContain('custom widget document')
-    expect(issues.errors[0]).toContain('generated show controller')
+    expect(issues.errors[0]).toContain('screen document is missing')
   })
 })

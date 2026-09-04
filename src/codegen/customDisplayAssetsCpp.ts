@@ -1,3 +1,4 @@
+import { customDisplayId as safeId } from './customDisplayId'
 import {
   customDisplayAssetByteLength,
   customDisplayAssetRequests,
@@ -7,10 +8,7 @@ import {
 } from '../state/customDisplayResources'
 import type { DisplayDocument } from '../state/displayDocument'
 
-function safeId(value: string): string {
-  const safe = value.replace(/[^A-Za-z0-9_]/g, '_')
-  return safe.length > 0 && /^[A-Za-z_]/.test(safe) ? safe : `_${safe}`
-}
+
 
 function bytes(data: Uint8Array, perRow = 16): string {
   const rows: string[] = []

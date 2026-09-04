@@ -1,3 +1,4 @@
+import { customDisplayId as safeId } from './customDisplayId'
 // Deterministic LVGL 9 object tree for the freeform Display node.
 //
 // This module deliberately stops at the LVGL boundary. The panel driver and
@@ -61,10 +62,7 @@ export interface CustomDisplayLvglEmit {
   bindings?: Readonly<Record<string, readonly CustomDisplayLvglBinding[]>>
 }
 
-function safeId(value: string): string {
-  const safe = value.replace(/[^A-Za-z0-9_]/g, '_')
-  return safe.length > 0 && /^[A-Za-z_]/.test(safe) ? safe : `_${safe}`
-}
+
 
 function property(widget: DisplayWidget, key: string, fallback: DisplayWidgetProperty): DisplayWidgetProperty {
   return widget.properties[key] ?? fallback

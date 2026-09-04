@@ -61,6 +61,8 @@ import {
 import { masterShowClockLoopCpp, type MasterSpeedEmit } from './masterSpeedCpp'
 import { controlBundleVariable, showControlRouting, type ShowControlRouting } from './showControlRouting'
 import { controlGraphCpp } from './controlGraph'
+import type { DisplayDocumentRegistry } from '../state/displayDocument'
+import { customDisplayShowCpp, type CustomDisplayAssets } from './customDisplayShowCpp'
 import { PLAYER_CONTROLS_CPP, playerControlsServiceCpp, ledOutputLatchGlobalCpp, ledOutputLatchCpp } from './playerControlsCpp'
 import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp } from './ledOutputRuntimeCpp'
 import {
@@ -583,6 +585,8 @@ export function generateShowSketch(
     thumbnails?: BrowserThumbnails
     artworks?: TransportArtworks
     bootLabel?: string
+    displayDocuments?: DisplayDocumentRegistry
+    customDisplayAssets?: CustomDisplayAssets
   } = {},
 ): string {
   const info = showInfo(nodes, edges)
@@ -673,15 +677,24 @@ export function generateShowSketch(
   const transitions = renderers.count > 1
   // Root displays and their control chains live outside collected patterns.
   // Resolve them against the controller template rather than the pattern walk.
-  const controls = showControlRouting(nodes, edges)
+  const controls = showControlRouting(nodes, edges, opts.displayDocuments)
   if (controls.errors.length > 0) throw new Error(controls.errors.join('\n'))
   const controlGraph = controlGraphCpp(controls.graph)
   const displays = showDisplaysCpp(nodes, edges, renderers.count, opts, controls)
-  const outputRuntime = (outputId: string, array: string, count: string): string[] => {
-    if (!controls.outputs.has(outputId)) return []
+  const customDisplays = customDisplayShowCpp(controls.custom, opts.customDisplayAssets)
+  const outputRuntimeExpressions = (outputId: string) => {
     const id = safeId(outputId)
-    return ledOutputRuntimeCpp({ id, array, count, enabledExpr: `_ledOn_${id}`, brightnessExpr: `_ledLevel_${id}` })
+    const scalar = controls.scalarOutputs.get(outputId)
+    const latched = controls.outputs.has(outputId)
+    const enabled = scalar?.enabledExpr
+    const brightness = scalar?.brightnessExpr
+    return { id,
+      enabledExpr: latched ? enabled ? `(${enabled}) && _ledOn_${id}` : `_ledOn_${id}` : enabled ?? null,
+      brightnessExpr: latched ? brightness ? `constrain(${brightness}, 0.0f, 1.0f) * _ledLevel_${id}` : `_ledLevel_${id}` : brightness ?? null,
+    }
   }
+  const outputRuntime = (outputId: string, array: string, count: string): string[] =>
+    ledOutputRuntimeCpp({ ...outputRuntimeExpressions(outputId), array, count })
   const fastLedDecls = new Set<string>()
   if (transitions) fastLedDecls.add('void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt);')
   for (const block of [...renderers.helpers, ...renderers.functions]) {
@@ -700,7 +713,7 @@ export function generateShowSketch(
   L.push('#include <FastLED.h>')
   if (isHub75) L.push(...hub75IncludesCpp(hub75Hw!))
   if (audio) L.push(audio.include)
-  for (const include of displays.includes) L.push(include)
+  for (const include of new Set([...displays.includes, ...customDisplays.includes])) L.push(include)
   L.push('')
   L.push('// Explicit FastLED-typed declarations keep the Arduino preprocessor')
   L.push('// from injecting its own before <FastLED.h>, which breaks CRGB names.')
@@ -709,7 +722,7 @@ export function generateShowSketch(
   L.push('// types are defined, so a helper taking one by reference fails on a')
   L.push('// line nothing in this generator wrote.')
   for (const decl of fastLedDecls) L.push(decl)
-  for (const decl of displays.forwards) L.push(decl)
+  for (const decl of new Set([...displays.forwards, ...customDisplays.forwards])) L.push(decl)
   if (stereoVuMeters.length > 0) L.push(STEREO_VU_CPP_FORWARD)
   L.push('')
   L.push(`#define WIDTH    ${width}`)
@@ -774,7 +787,7 @@ export function generateShowSketch(
   if (transitions) { L.push(transitionHelperCpp(info.transitionIds)); L.push('') }
   // A pattern and a root control chain may both need mapFloat; the shared
   // emitter gives them identical helpers, emitted once at file scope.
-  for (const h of new Set([...renderers.helpers, ...controlGraph.helpers])) { L.push(h); L.push('') }
+  for (const h of new Set([...renderers.helpers, ...controlGraph.helpers, ...customDisplays.shared])) { L.push(h); L.push('') }
 
   if (multiOutput) {
     for (const route of routes) {
@@ -797,8 +810,8 @@ export function generateShowSketch(
     // `cur` at all, and because a display helper reads it from outside loop().
     L.push(`static uint8_t ${SHOW_PATTERN_INDEX} = 0;`)
     L.push('')
-    for (const helper of displays.helpers) { L.push(helper); L.push('') }
   }
+  for (const helper of new Set([...displays.helpers, ...customDisplays.helpers])) { L.push(helper); L.push('') }
 
   // Pattern dispatch table (renders pattern i into `leds`).
   L.push('void renderPattern(uint8_t i, uint32_t ms) {')
@@ -848,6 +861,7 @@ export function generateShowSketch(
   L.push(info.seed ? `  random16_set_seed(${info.seed}u);` : '  randomSeed(analogRead(A0));')
   if (audio) L.push('  setupAudio();')
   for (const line of displays.setup) L.push(line)
+  L.push(...customDisplays.setup)
   L.push(...controlGraph.setup)
   for (let step = 1; step <= 6; step++) {
     for (const line of infoDisplayStartupStageBatchCpp(displays.info, step)) L.push(line)
@@ -869,6 +883,7 @@ export function generateShowSketch(
     : '(cur + 1 + random8(PATTERN_COUNT - 1)) % PATTERN_COUNT'
   L.push('void loop() {')
   L.push(...displays.sample)
+  L.push(...customDisplays.sample)
   L.push(...controlGraph.loop)
   for (const control of controls.controls) L.push(...playerControlsServiceCpp(control))
   for (const [id, variable] of controls.outputs) L.push(...ledOutputLatchCpp({ id: safeId(id), controls: variable }))
@@ -952,10 +967,7 @@ export function generateShowSketch(
   }
   for (const meter of stereoVuMeters) L.push(stereoVuLoopCpp(meter))
   if (isHub75) {
-    if (out && controls.outputs.has(out.id)) {
-      const id = safeId(out.id)
-      L.push(...hub75OutputRuntimeCpp({ id, enabledExpr: `_ledOn_${id}`, brightnessExpr: `_ledLevel_${id}` }, hw.brightness))
-    }
+    if (out) L.push(...hub75OutputRuntimeCpp(outputRuntimeExpressions(out.id), hw.brightness))
     L.push(...hub75BlitRowsCpp(hub75Hw!))
   }
   if (!isHub75 || stereoVuMeters.length > 0) {
@@ -967,6 +979,7 @@ export function generateShowSketch(
   // panels catch up in the slack. Each of these is already change-gated, so a
   // steady display costs a comparison per loop.
   for (const line of displays.loop) L.push(line)
+  L.push(...customDisplays.loop)
   L.push('  FastLED.delay(16);')
   L.push('}')
 
