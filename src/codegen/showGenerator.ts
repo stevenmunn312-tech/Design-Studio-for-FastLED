@@ -59,6 +59,9 @@ import {
   stereoVuGlobalCpp, stereoVuLoopCpp,
 } from './stereoVuMeterCpp'
 import { masterShowClockLoopCpp, type MasterSpeedEmit } from './masterSpeedCpp'
+import { controlBundleVariable, showControlRouting, type ShowControlRouting } from './showControlRouting'
+import { PLAYER_CONTROLS_CPP, playerControlsServiceCpp, ledOutputLatchGlobalCpp, ledOutputLatchCpp } from './playerControlsCpp'
+import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp } from './ledOutputRuntimeCpp'
 import {
   clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MAX, MASTER_SPEED_MIN,
 } from '../state/masterSpeed'
@@ -355,12 +358,14 @@ interface ShowDisplayEmission {
   setup: string[]
   /** Lines for loop(), after the frame has been shipped. */
   loop: string[]
+  /** Touch intent sampled once, before controls and rendering. */
+  sample: string[]
   /** OLEDs that receive the shared six-stage startup sequence. */
   info: InfoDisplayEmit[]
 }
 
 const NO_SHOW_DISPLAYS: ShowDisplayEmission = {
-  includes: [], forwards: [], helpers: [], setup: [], loop: [], info: [],
+  includes: [], forwards: [], helpers: [], setup: [], loop: [], sample: [], info: [],
 }
 
 /**
@@ -370,19 +375,20 @@ const NO_SHOW_DISPLAYS: ShowDisplayEmission = {
  * display's ports through the same walk rather than through the node-by-node
  * emission a normal sketch does. What differs is only the expression table it
  * hands in — `SHOW_DISPLAY_EXPRESSIONS`, empty because a show has no music to
- * answer for — and that there is no transport for a Controls wire to reach, so
- * a touch panel in a show is a Diagnostics screen or a read-only one. Both
- * differences are one argument each rather than a branch on the generator.
+ * answer for. Touch bundles reach the show's per-output latches, while music
+ * actions still require a player. Sampling is emitted before graph controls;
+ * drawing stays after the LED frame has shipped.
  */
 function showDisplaysCpp(
   nodes: StudioNode[],
   edges: StudioEdge[],
   patternCount: number,
   opts: { thumbnails?: BrowserThumbnails; artworks?: TransportArtworks; bootLabel?: string },
+  controls: ShowControlRouting,
 ): ShowDisplayEmission {
   const displays = playerDisplaysFromGraph(
     nodes as never, edges as never,
-    { expressions: SHOW_DISPLAY_EXPRESSIONS, transportTouch: false, kinds: ['slideshow'] },
+    { expressions: SHOW_DISPLAY_EXPRESSIONS, transportTouch: false, kinds: ['slideshow'], controlTouchIds: controls.touchIds },
   )
   const hasInfo = displays.info.length > 0
   const hasSegment = displays.segment.length > 0
@@ -497,6 +503,7 @@ function showDisplaysCpp(
       enabled: display.enabled,
       touch: display.touch!,
     }))
+  const touchBundleIds = new Set([...controls.touchIds].map(safeId))
 
   // The header follows the driver, not the transport: the shared OLED driver
   // compiles its Wire branch whichever bus the panel is on, so an SPI-only
@@ -549,11 +556,16 @@ function showDisplaysCpp(
       ...(usesSelection && patternCount > 0
         ? [`  _selSetActive(${selVar}, PATTERN_COUNT, ${SHOW_PATTERN_INDEX});`]
         : []),
-      ...touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)),
       ...infoEmits.flatMap(infoDisplayLoopCpp),
       ...segmentEmits.flatMap(segmentDisplayLoopCpp),
       ...tftEmits.flatMap(tftDisplayLoopCpp),
     ],
+    sample: touchEmits.flatMap((touch) => {
+      const variable = controlBundleVariable(touch.id)
+      return touchBundleIds.has(touch.id)
+        ? [`  PlayerControlsValue ${variable};`, ...tftTouchServiceCpp(touch, { kind: 'bundle', variable })]
+        : tftTouchServiceCpp(touch)
+    }),
     info: infoEmits,
   }
 }
@@ -658,10 +670,16 @@ export function generateShowSketch(
   // the whole transition apparatus (showA/showB, the style pool, and the
   // compositing switch) is left out rather than emitted unreachable.
   const transitions = renderers.count > 1
-  // Displays are not upstream of an LED output and never will be, so they
-  // arrive here rather than through the pattern walk. A show controller is a
-  // fixed template, so their ports resolve the same way the SD player's do.
-  const displays = showDisplaysCpp(nodes, edges, renderers.count, opts)
+  // Root displays and their control chains live outside collected patterns.
+  // Resolve them against the controller template rather than the pattern walk.
+  const controls = showControlRouting(nodes, edges)
+  if (controls.errors.length > 0) throw new Error(controls.errors.join('\n'))
+  const displays = showDisplaysCpp(nodes, edges, renderers.count, opts, controls)
+  const outputRuntime = (outputId: string, array: string, count: string): string[] => {
+    if (!controls.outputs.has(outputId)) return []
+    const id = safeId(outputId)
+    return ledOutputRuntimeCpp({ id, array, count, enabledExpr: `_ledOn_${id}`, brightnessExpr: `_ledLevel_${id}` })
+  }
   const fastLedDecls = new Set<string>()
   if (transitions) fastLedDecls.add('void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt);')
   for (const block of [...renderers.helpers, ...renderers.functions]) {
@@ -765,6 +783,10 @@ export function generateShowSketch(
 
   for (const fn of renderers.functions) { L.push(fn); L.push('') }
 
+  if (controls.outputs.size > 0) {
+    L.push(PLAYER_CONTROLS_CPP)
+    for (const id of controls.outputs.keys()) L.push(ledOutputLatchGlobalCpp(safeId(id)))
+  }
   if (displays.helpers.length > 0) {
     // The running pattern, published for the panels. A file-scope global
     // rather than the loop's own `cur` because a single-pattern show has no
@@ -822,6 +844,7 @@ export function generateShowSketch(
   L.push(info.seed ? `  random16_set_seed(${info.seed}u);` : '  randomSeed(analogRead(A0));')
   if (audio) L.push('  setupAudio();')
   for (const line of displays.setup) L.push(line)
+  L.push(...new Set([...controls.inputs.values()].flatMap((input) => input.setup)))
   for (let step = 1; step <= 6; step++) {
     for (const line of infoDisplayStartupStageBatchCpp(displays.info, step)) L.push(line)
   }
@@ -841,6 +864,10 @@ export function generateShowSketch(
     ? '(cur + 1) % PATTERN_COUNT'
     : '(cur + 1 + random8(PATTERN_COUNT - 1)) % PATTERN_COUNT'
   L.push('void loop() {')
+  L.push(...displays.sample)
+  for (const input of controls.inputs.values()) L.push(...input.loop)
+  for (const control of controls.controls) L.push(...playerControlsServiceCpp(control))
+  for (const [id, variable] of controls.outputs) L.push(...ledOutputLatchCpp({ id: safeId(id), controls: variable }))
   if (audio) L.push('  updateAudio();   // refresh audio band levels once per frame')
   if (transitions) {
     L.push(`  static uint8_t  cur = ${firstPattern}, nxt = 0, transType = 0;`)
@@ -914,10 +941,17 @@ export function generateShowSketch(
         L.push(`    CRGB _c = _n ? CRGB(_r / _n, _g / _n, _b / _n) : CRGB::Black; _c.nscale8_video(${route.hardware.brightness}); ${dest}[${index}] = _c;`)
         L.push('  }')
       }
+      L.push(...outputRuntime(route.id, dest, String(route.width * route.height)))
     }
+  } else if (!isHub75 && out) {
+    L.push(...outputRuntime(out.id, 'leds', 'NUM_LEDS'))
   }
   for (const meter of stereoVuMeters) L.push(stereoVuLoopCpp(meter))
   if (isHub75) {
+    if (out && controls.outputs.has(out.id)) {
+      const id = safeId(out.id)
+      L.push(...hub75OutputRuntimeCpp({ id, enabledExpr: `_ledOn_${id}`, brightnessExpr: `_ledLevel_${id}` }, hw.brightness))
+    }
     L.push(...hub75BlitRowsCpp(hub75Hw!))
   }
   if (!isHub75 || stereoVuMeters.length > 0) {

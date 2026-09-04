@@ -29,6 +29,8 @@ import {
 import { OLED_PANEL_RAM_BYTES } from '../codegen/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../codegen/segmentDisplayCpp'
 import { TFT_PANEL_RAM_BYTES } from '../codegen/tftDisplayCpp'
+import { showControlRouting, showControlOutputIds } from '../codegen/showControlRouting'
+import { asTransportDisplayLayout } from '../state/transportDisplay'
 import {
   findPinCollisions, findI2cAddressCollisions, pinCollisionMessage,
   pinCollisionTitle, pinCollisionFix, addressCollisionMessage,
@@ -1496,25 +1498,28 @@ export function findOutputRuntimeIssues(
   if (generator === 'sketch') return { errors: [] }
 
   const speedErrors = masterSpeedGeneratorErrors(nodes, edges, generator)
+  const showControls = generator === 'show' ? showControlRouting(nodes, edges) : null
+  const showOutputs = generator === 'show' ? showControlOutputIds(nodes, edges) : new Set<string>()
 
-  // `controls` joins the other two: it is the same run-time control of the
-  // same output, latched rather than read directly, and a generator that drops
-  // Enabled drops it for exactly the same reason.
+  // The show's bounded Controls path is resolved above. Scalar runtime wires
+  // still need arbitrary graph evaluation, and the SD player owns its own
+  // transport latch rather than these per-output inputs.
   const RUNTIME_PORTS = new Set(['enabled', 'brightness', 'controls'])
   const wired = nodes.filter((node) => node.data.nodeType === 'MatrixOutput'
     && edges.some((edge) => edge.target === node.id
-      && RUNTIME_PORTS.has(String(edge.targetHandle))))
-  if (wired.length === 0) return { errors: speedErrors }
+      && RUNTIME_PORTS.has(String(edge.targetHandle))
+      && !(generator === 'show' && edge.targetHandle === 'controls' && showOutputs.has(node.id))))
+  if (wired.length === 0) return { errors: [...speedErrors, ...(showControls?.errors ?? [])] }
 
   const errors: string[] = []
   const names = wired.map((node) => nodeLabel(node)).join(', ')
   errors.push(generator === 'player'
     ? `${names}: a music-player build cannot read Enabled, Brightness or Controls wired to the LED output. `
       + 'Wire the button or knob to Player Controls (LED On / Off, Brightness) and on to Music Player instead — it reaches the same place through the transport the player already reads.'
-    : `${names}: a generated show controller cannot read Enabled, Brightness or Controls wired to the LED output, so the firmware would ignore them. `
-      + 'Export it through Upload show to SD and drive them from Player Controls, or remove the wires before exporting a show.')
+    : `${names}: a generated show controller cannot read these Enabled, Brightness or Controls wires. `
+      + "Route blackout and dimming through Player Controls to a slideshow LED output's Controls input; remove scalar runtime wires or build a normal sketch.")
 
-  return { errors: [...errors, ...speedErrors] }
+  return { errors: [...errors, ...speedErrors, ...(showControls?.errors ?? [])] }
 }
 
 /**
@@ -1543,6 +1548,7 @@ export function findDisplayGeneratorIssues(
 
   const generator = selectedGenerator(nodes, edges)
   const nodeById = new Map(nodes.map((node) => [node.id, node]))
+  const showControls = generator === 'show' ? showControlRouting(nodes, edges) : null
 
   // All three generators draw a configured display now:
   //
@@ -1589,14 +1595,11 @@ export function findDisplayGeneratorIssues(
         + "Wire it through to an LED output's Controls input to drive blackout and brightness, "
         + 'disconnect it to use the panel as a read-only display, or export a music-player build through Upload show to SD.',
       )
-    } else if (controlsWired && generator === 'show') {
-      // Not "not yet": a generative show has nothing for play/pause, previous,
-      // next or volume to mean. It draws the panel and reports which pattern
-      // is running; commanding a transport needs a build that has one.
+    } else if (controlsWired && generator === 'show' && !showControls?.touchIds.has(display.id)) {
       errors.push(
-        `${nodeLabel(display)} has its Controls output wired, but a generated show controller has no transport to command — `
-        + 'it rotates patterns and plays no music. Disconnect Controls to use the panel as a read-only display, '
-        + 'or export a music-player build through Upload show to SD.',
+        `${nodeLabel(display)} has its Controls output wired, but the chain does not reach a slideshow LED output's Controls input. `
+        + 'Use Show Status and route Controls there for blackout and brightness. A show has no transport to command; '
+        + 'disconnect Controls for a read-only display, or use a music-player build for music actions.',
       )
     } else if (controlsWired && generator === 'player'
       && !displayControlsPlayer(display.id, edges as never, nodeById as never)) {
@@ -1604,6 +1607,14 @@ export function findDisplayGeneratorIssues(
         `${nodeLabel(display)} has its Controls output wired, but that chain does not reach Music Player through Player Controls. `
         + 'Complete the control chain so the player sketch samples touch, or disconnect Controls to use the panel as read-only.',
       )
+    }
+    if (controlsWired && generator !== 'player'
+      && asTransportDisplayLayout(props.tftLayout) !== 'Show Status'
+      && (generator === 'sketch'
+        ? controlChainSinks(display.id, edges as never, nodeById as never).has('output')
+        : showControls?.touchIds.has(display.id))) {
+      errors.push(`${nodeLabel(display)}: this layout has no LED-output controls. Select Show Status for blackout and brightness, `
+        + 'or use a music-player build for play/pause, track and volume actions.')
     }
     const raw = (key: string, fallback: number) => {
       const value = Number(props[key] ?? fallback)
@@ -2186,6 +2197,18 @@ export function buildGraphDiagnostics(
     nodeLabel: displayNodeIds.length === 1
       ? nodeLabel(nodes.find((node) => node.id === displayNodeIds[0])!)
       : 'Displays',
+  }))
+
+  // Output-control failures must be visible before deploy too, including a
+  // supported touch chain with an unsupported local Player Controls override.
+  findOutputRuntimeIssues(nodes, edges).errors.forEach((message, index) => diagnostics.push({
+    id: `output-runtime-error-${index}`,
+    severity: 'error', category: 'connection',
+    title: 'Output firmware cannot honour these controls',
+    message,
+    fix: 'Follow the control-wiring or export-path change named in the message.',
+    nodeIds: nodes.filter((node) => ['MatrixOutput', 'PlayerControls', 'MasterSpeed'].includes(node.data.nodeType)).map((node) => node.id),
+    nodeLabel: 'Output controls',
   }))
 
   const perfGen = nodes.find((node) => node.data.nodeType === 'PerformanceGenerator')

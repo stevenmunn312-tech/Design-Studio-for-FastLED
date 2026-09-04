@@ -503,19 +503,29 @@ generative show reports "3/8" out of the box. Its rotation goes through
 does, so a Pattern Browser and the pixels cannot come to disagree about which
 pattern is playing.
 
-Drawing is not commanding, and the two are separately gated. A show has no
-transport for play/pause, previous, next or volume to reach, and no LED-output
-runtime either — it drops Enabled, Brightness and Controls alike — so a wired
-Controls output is refused there, and its touch service is not emitted at all
-outside Diagnostics, because it would call player transport functions a show
-controller does not define. A normal sketch is the case that changed: it now
-samples the panel and publishes the bundle, so the question there is not
-whether the generator can read touch but whether the chain ends somewhere it
-can act on. `controlChainSinks` answers that in one walk — an LED output's
-latch is somewhere, a Music Player in a plain sketch is not. A Diagnostics
-panel still samples touch whatever is wired, since reporting coordinates is
-how you find the calibration numbers. An unwired touch panel stays valid as a
-read-only display.
+Drawing and commanding are separately gated. Normal sketches and generative
+shows route a Show Status panel's blackout and brightness through the existing
+`playercontrols` bundle to an LED output's Controls input, directly or through
+Player Controls. Play/pause, previous, next and volume still require an SD
+player; validation rejects music-only layouts wired solely to LED outputs.
+
+`showControlRouting.ts` resolves the show's bounded control path for generation
+and validation together. It follows Controls In chains and accepts direct
+Button Input, Button Bank, Pot Input and Encoder Input sources using the same
+GPIO emitter as normal sketches. Bundle merging, edge timing and output
+latches use `playerControlsCpp.ts`; no second transport or touch hit test is
+introduced. Unsupported mapper wires and cyclic chains fail before emission.
+Only outputs actually rendered by the slideshow count as destinations.
+
+The show samples each routed panel once before controls and rendering, then
+applies each latch after output routing and before shipping the LEDs. Each
+physical array owns its blackout and dimming; HUB75 uses its brightness
+register. Display painting remains after LED output. A Diagnostics panel
+samples regardless of wiring, an unwired panel remains read-only, and a
+disabled panel contributes no touch intent. Show Status does not yet read back
+its output's latch. Scalar Enabled/Brightness wires and arbitrary widget logic
+remain outside the fixed show template until the shared control-graph IR is
+embedded. Deploy validation and Graph Health name these unsupported bindings.
 
 Which generator a graph would *actually* build with therefore has to be exact.
 `selectedGenerator` mirrors the upload path's order, and both arms of

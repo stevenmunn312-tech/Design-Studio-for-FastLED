@@ -227,12 +227,13 @@ export interface TemplateDisplayOptions {
   /**
    * Whether a wired Controls output reaches a transport this template has.
    *
-   * False for a generator with nothing to control: the touch service calls
-   * the player's own transport functions, so emitting it into a sketch that
-   * has none produces C++ that names undefined symbols. Diagnostics touch is
-   * unaffected — it only reports coordinates.
+   * False when the template has no music transport. A show instead supplies
+   * controlTouchIds and routes sampled bundles to its output latches.
+   * Diagnostics touch is unaffected — it only reports coordinates.
    */
   transportTouch?: boolean
+  /** Fixed panels whose bundles the caller routes to its own output latches. */
+  controlTouchIds?: ReadonlySet<string>
   /**
    * Which `Display` sources this template can honour.
    *
@@ -390,6 +391,7 @@ export function playerDisplaysFromGraph(
         backlightPin: intProp(props.backlightPin, 4),
         touch: part?.display?.touchController
           && (asTransportDisplayLayout(props.tftLayout) === 'Diagnostics'
+            || options.controlTouchIds?.has(node.id)
             || (transportTouch && displayControlsPlayer(node.id, edges, byId)))
           ? {
             csPin: intProp(props.touchCsPin, 15),

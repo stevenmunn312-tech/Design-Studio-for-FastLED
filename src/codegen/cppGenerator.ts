@@ -39,9 +39,10 @@ import { MAX_PIN_NUMBER } from '../state/boardGpio'
 import { NODE_LIBRARY, oledControllerForProps, oledTransportForProps, tftControllerForProps } from '../state/nodeLibrary'
 import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp } from './ledOutputRuntimeCpp'
 import {
-  PLAYER_CONTROLS_CPP, playerControlsServiceCpp,
+  PLAYER_CONTROLS_CPP, PLAYER_CONTROL_BUTTONS, playerControlsServiceCpp,
   ledOutputLatchGlobalCpp, ledOutputLatchCpp,
 } from './playerControlsCpp'
+import { controlInputCpp } from './controlInputCpp'
 import { normalizeButtonEdgeSettings } from '../state/transportBridge'
 import { masterClockLoopCpp, masterSpeedUpdateCpp, type MasterSpeedEmit } from './masterSpeedCpp'
 import {
@@ -103,7 +104,6 @@ import { resolveWireframeMesh, meshBoundingRadius, WIREFRAME_FIT_MARGIN, WIREFRA
 import { resolveAudioCapabilitySource } from '../state/audioCapabilities'
 import { amplifierIdleCpp } from './amplifierIdle'
 import { TRANSITION_3D_HELPERS_CPP } from './transitionHelperCpp'
-import { buttonBankHandle, normalizeButtonBankEntries } from '../state/buttonBank'
 import {
   STEREO_VU_CPP_FORWARD,
   STEREO_VU_CPP_HELPERS,
@@ -2370,25 +2370,15 @@ export function generateCpp(
         ln(`  // Audio capability — the selected hardware source is hosted once by the sketch.`)
         break
 
-      case 'ButtonInput': {
-        const pin = sanitizePin(p.pin, 0)
-        pinSetupLines.add(`  pinMode(${pin}, ${p.pullup === false ? 'INPUT' : 'INPUT_PULLUP'});`)
-        ln(`  bool ${v('pressed')} = digitalRead(${pin}) == LOW;`)
-        break
-      }
-
-      case 'ButtonBank': {
-        for (const button of normalizeButtonBankEntries(p.buttons)) {
-          const pin = sanitizePin(button.pin, 0)
-          pinSetupLines.add(`  pinMode(${pin}, ${button.pullup ? 'INPUT_PULLUP' : 'INPUT'});`)
-          ln(`  bool ${v(buttonBankHandle(button.id))} = digitalRead(${pin}) == LOW;`)
-        }
-        break
-      }
-
+      case 'ButtonInput':
+      case 'ButtonBank':
       case 'PotInput':
-        ln(`  float ${v('value')} = analogRead(${sanitizePin(p.pin, 4)}) / 4095.0f;`)
+      case 'EncoderInput': {
+        const emit = controlInputCpp(node.data.nodeType, id, p)!
+        for (const line of emit.setup) pinSetupLines.add(line)
+        for (const line of emit.loop) ln(line)
         break
+      }
 
       case 'MotionInput': {
         // HC-SR501's OUT idles low and goes high on movement — the opposite
@@ -2404,26 +2394,6 @@ export function generateCpp(
       case 'LightInput':
         ln(`  float ${v('level')} = analogRead(${sanitizePin(p.pin, 4)}) / 4095.0f;`)
         break
-
-      // Polling quadrature decode (no interrupts) via a standard 4x lookup
-      // table; `position` is an unbounded running count.
-      case 'EncoderInput': {
-        const pinA = sanitizePin(p.pinA, 6), pinB = sanitizePin(p.pinB, 7), pinSW = sanitizePin(p.pinSW, 8)
-        const mode = p.pullup === false ? 'INPUT' : 'INPUT_PULLUP'
-        for (const pin of [pinA, pinB, pinSW]) pinSetupLines.add(`  pinMode(${pin}, ${mode});`)
-        ln(`  static int8_t _encLast_${id} = 0; static float _encPos_${id} = 0;`)
-        ln(`  { int8_t _a=digitalRead(${pinA}),_b=digitalRead(${pinB}); int8_t _s=(_a<<1)|_b;`)
-        ln(`    static const int8_t _encTbl_${id}[16]={0,-1,1,0, 1,0,0,-1, -1,0,0,1, 0,1,-1,0};`)
-        ln(`    _encPos_${id}+=_encTbl_${id}[(_encLast_${id}<<2)|_s]; _encLast_${id}=_s; }`)
-        ln(`  bool ${v('pressed')} = digitalRead(${pinSW}) == LOW;`)
-        if (p.resetOnPress === true) {
-          ln(`  static bool _encSwLast_${id} = false;`)
-          ln(`  if (${v('pressed')} && !_encSwLast_${id}) _encPos_${id} = 0;`)
-          ln(`  _encSwLast_${id} = ${v('pressed')};`)
-        }
-        ln(`  float ${v('position')} = _encPos_${id};`)
-        break
-      }
 
       case 'DMXInput': {
         const inputMode = String(p.inputMode ?? 'Art-Net')
@@ -6084,20 +6054,12 @@ export function generateCpp(
         // Repeat exactly where the evaluator repeats: an adjustment ramps
         // while held, an action fires once per press however long you lean on
         // it. Getting this backwards makes a blackout button strobe.
-        const BUTTONS: Array<[string, boolean]> = [
-          ['playPause', false], ['previous', false], ['next', false],
-          ['volumeUp', true], ['volumeDown', true],
-          ['ledToggle', false],
-          ['brightnessUp', true], ['brightnessDown', true],
-          ['patternPrevious', true], ['patternNext', true],
-          ['patternConfirm', false],
-        ]
         const upstream = incoming.get(`${node.id}:controlsIn`)
         for (const line of playerControlsServiceCpp({
           id,
           variable: v('controls'),
           upstream: upstream ? `n_${safeId(upstream.srcId)}_${safeId(upstream.srcPort)}` : null,
-          buttons: BUTTONS
+          buttons: PLAYER_CONTROL_BUTTONS
             .filter(([port]) => wired(port))
             .map(([port, repeat]) => ({ port, expr: boolExpr(node.id, port), repeat })),
           volumeExpr: wired('volume') ? f('volume', 'volume', 0) : null,

@@ -21,6 +21,14 @@
 import { type ButtonEdgeSettings } from '../state/transportBridge'
 import { ENCODER_COUNTS_PER_STEP, ENCODER_RESEAT_COUNTS } from '../state/patternSelection'
 
+/** Adjustment buttons repeat; transport and blackout fire once per press. */
+export const PLAYER_CONTROL_BUTTONS: ReadonlyArray<readonly [string, boolean]> = [
+  ['playPause', false], ['previous', false], ['next', false],
+  ['volumeUp', true], ['volumeDown', true], ['ledToggle', false],
+  ['brightnessUp', true], ['brightnessDown', true],
+  ['patternPrevious', true], ['patternNext', true], ['patternConfirm', false],
+]
+
 /** One button feeding the bundle, and whether holding it should repeat. */
 export interface PlayerControlButtonEmit {
   /** Bundle field this press contributes to. */

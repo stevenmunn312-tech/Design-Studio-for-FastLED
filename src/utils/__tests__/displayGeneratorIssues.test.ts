@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildGraphDiagnostics, findDisplayGeneratorIssues } from '../validateGraph'
+import { buildGraphDiagnostics, findDisplayGeneratorIssues, findOutputRuntimeIssues } from '../validateGraph'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
@@ -19,6 +19,80 @@ function edge(id: string, s: string, sh: string, t: string, th: string): StudioE
 
 const oled = () => node('oled', 'InfoDisplay', { partId: 'sh1106-oled-128x64', infoLayout: 'Now Playing' })
 const out = () => node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4 })
+
+describe('fixed touch output routing validation', () => {
+  const panel = node('panel', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Show Status' })
+  const controls = node('controls', 'PlayerControls')
+  const show = [node('show', 'PatternSlideshow'), node('set', 'PatternCollection', { patternIds: ['p'] })]
+  const showEdges = [edge('set', 'set', 'patternset', 'show', 'patternset'), edge('frame', 'show', 'frame', 'out', 'frame')]
+  const chain = [edge('touch', 'panel', 'controls', 'controls', 'controlsIn'), edge('latch', 'controls', 'controls', 'out', 'controls')]
+
+  it.each(['direct', 'chained'])('accepts a %s show route and agrees in Graph Health', (mode) => {
+    const nodes = [...show, out(), panel, controls]
+    const edges = [...showEdges, ...(mode === 'direct' ? [edge('latch', 'panel', 'controls', 'out', 'controls')] : chain)]
+    expect(findDisplayGeneratorIssues(nodes, edges).errors).toEqual([])
+    expect(findOutputRuntimeIssues(nodes, edges).errors).toEqual([])
+    expect(buildGraphDiagnostics(nodes, edges).filter((d) =>
+      d.id.startsWith('display-generator-error') || d.id.startsWith('output-runtime'))).toEqual([])
+  })
+
+  it('refuses a layout whose actions an LED output cannot consume in either generator', () => {
+    const transport = node('panel', 'TransportDisplay', { ...panel.data.properties, tftLayout: 'Fixed Transport' })
+    for (const template of [false, true]) {
+      const errors = findDisplayGeneratorIssues([out(), transport, controls, ...(template ? show : [])],
+        [...chain, ...(template ? showEdges : [])]).errors
+      expect(errors).toEqual([expect.stringContaining('Select Show Status')])
+    }
+  })
+
+  it('does not accept a chain ending at an output the selected slideshow never renders', () => {
+    const nodes = [...show, out(), panel, controls, node('other', 'MatrixOutput')]
+    const edges = [...showEdges, chain[0], edge('wrong', 'controls', 'controls', 'other', 'controls')]
+    expect(findDisplayGeneratorIssues(nodes, edges).errors).toEqual([
+      expect.stringContaining('does not reach a slideshow LED output'),
+    ])
+    expect(findOutputRuntimeIssues(nodes, edges).errors).toHaveLength(1)
+  })
+
+  it('names an unsupported mapper input rather than silently dropping its physical override', () => {
+    const nodes = [...show, out(), panel, controls, node('wave', 'Wave')]
+    const edges = [...showEdges, ...chain, edge('unsupported', 'wave', 'value', 'controls', 'brightness')]
+    expect(findOutputRuntimeIssues(nodes, edges).errors).toEqual([
+      expect.stringContaining('cannot evaluate the wire feeding brightness'),
+    ])
+    expect(buildGraphDiagnostics(nodes, edges)).toContainEqual(expect.objectContaining({
+      severity: 'error', message: expect.stringContaining('cannot evaluate the wire feeding brightness'),
+    }))
+  })
+
+  it('keeps scalar output inputs refused even beside a supported bundle', () => {
+    const nodes = [...show, out(), panel, controls, node('pot', 'PotInput')]
+    const edges = [...showEdges, ...chain, edge('scalar', 'pot', 'value', 'out', 'brightness')]
+    expect(findOutputRuntimeIssues(nodes, edges).errors).toEqual([
+      expect.stringContaining('remove scalar runtime wires'),
+    ])
+  })
+
+  it('rejects cyclic mapper chains and invalid source handles', () => {
+    const nodes = [...show, out(), controls, node('parent', 'PlayerControls')]
+    const edges = [...showEdges, chain[1], edge('a', 'controls', 'controls', 'parent', 'controlsIn'),
+      edge('b', 'parent', 'controls', 'controls', 'controlsIn')]
+    expect(findOutputRuntimeIssues(nodes, edges).errors).toEqual([expect.stringContaining('contains a cycle')])
+    expect(findOutputRuntimeIssues([...show, out(), panel], [...showEdges,
+      edge('bad', 'panel', 'unknown', 'out', 'controls')]).errors).toEqual([
+      expect.stringContaining('cannot evaluate the wire feeding controls'),
+    ])
+  })
+
+  it('retains SD-player validation for controls connected only to an LED output', () => {
+    const nodes = [out(), panel, controls, node('player', 'PatternMaster'), node('sd', 'SDCard'), node('amp', 'Amplifier')]
+    const edges = [...chain, edge('frame', 'player', 'frame', 'out', 'frame')]
+    expect(findDisplayGeneratorIssues(nodes, edges).errors).toEqual([
+      expect.stringContaining('does not reach Music Player'),
+    ])
+    expect(findOutputRuntimeIssues(nodes, edges).errors).toHaveLength(1)
+  })
+})
 
 /*
  * A build that succeeds and leaves the panel dark is the worst outcome: the

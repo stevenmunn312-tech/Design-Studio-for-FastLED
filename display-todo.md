@@ -199,13 +199,14 @@ case the OLED slice cannot already serve.
   `dateTime: datetime`. Its formatting mode and exact module are properties.
 - [x] `InfoDisplay` consumes stable typed ports for its selected fixed layout;
   do not add/remove ports when a label changes.
-- [ ] `TransportDisplay` consumes the same contract: song information in from
+- [x] `TransportDisplay` consumes the same contract: song information in from
   Music Player, commands out through the `playercontrols` bundle Player Controls
   already publishes. A touch module does not invent a second player.
-  The inbound half is done — stable typed ports for both layouts, resolved by
-  the evaluator and by `playerDisplaysFromGraph` for the SD player. Browser
-  touch and the SD-player outbound path are done; normal-sketch and generative-
-  show routing remain, and are the reason this contract is not yet complete.
+  All three generators route the supported fixed controls. Normal sketches
+  and generative shows deliver Show Status blackout/brightness to an LED
+  output's Controls input, directly or through Player Controls; music actions
+  retain the SD player's existing transport route. Validation checks the
+  selected generator, destination and layout rather than accepting dead wires.
 - [x] Each fixed node has a compact browser preview body that shows what the
   physical screen will render at its real aspect ratio. Transport Display
   paints its evaluated RGB565 surface, Info Display paints the page-major OLED
@@ -573,13 +574,18 @@ freeform widgets must reuse rather than rediscover.
   brightness from Show Status. Browser touch: the node preview publishes button
   edges and held absolute sliders through the same bundle using the firmware's
   shared hit geometry.
-  The generative show resolved to *nothing to command*: a show rotates patterns
-  and holds no music, and drops the LED-output runtime too, so play/pause,
-  previous, next, volume, blackout and dimming all have no destination in it.
-  It draws the panel and reports the running pattern from its own cursor; a
-  wired Controls output is refused there, and the XPT2046 service is not
-  emitted outside Diagnostics, because it would call player transport functions
-  a show controller does not define.
+  Generative shows now sample touch before rendering and route the same bundle
+  through Player Controls to each connected slideshow LED output's latch.
+  `showControlRouting.ts` resolves that bounded chain for both generation and
+  validation; direct Button/Button Bank, Pot and Encoder inputs use the normal
+  sketch's shared `controlInputCpp` emitter, and bundle merging/debounce/repeat
+  use `playerControlsServiceCpp`. One panel is sampled once even when it drives
+  several outputs. Each fixture dims its own routed array (HUB75 uses its
+  driver brightness), so a blackout cannot darken another fixture's source.
+  Music-only layouts, incomplete chains, controls aimed at an output outside
+  the slideshow, cycles and unsupported mapper inputs are diagnosed. Scalar
+  Enabled/Brightness wires and arbitrary control graphs remain unsupported in
+  shows; custom widgets still need the separate Phase 7 control-graph IR.
   The normal sketch needed a port contract before it needed a generator, and
   the contract chosen was `MatrixOutput` gaining a **`controls`** input. That
   is the honest destination: a sketch has no transport, but it does have
@@ -596,8 +602,8 @@ freeform widgets must reuse rather than rediscover.
   can act on (`controlChainSinks`) rather than whether the generator can sample
   touch at all; an unwired touch panel is still valid as a read-only display.
   Deliberately still open, and out of this slice: a panel cannot *read back*
-  the latch it just changed, so a Show Status screen shows OUTPUT OFF while the
-  fixture is lit unless something else is wired to its `outputEnabled` input.
+  the latch it just changed, so Show Status does not reflect the fixture's
+  latched blackout or brightness without a separately supported status input.
   Closing that means either an output publishing its resolved runtime — which
   would give a sink an output and drop it from both terminal registries, the
   trap this file warns about twice — or the synchronized-control `set` contract
@@ -952,11 +958,13 @@ freeform widgets must reuse rather than rediscover.
   so custom touch widgets can drive real graph logic rather than only hardcoded
   transport actions. Normal-sketch support above does not complete this path.
 - [x] Block unsupported generator bindings with an actionable diagnostic until
-  the corresponding control-graph path exists. Generated shows already refuse
-  displays because that generator cannot draw them; normal sketches now refuse
-  a wired XPT2046 Controls output they cannot sample, and SD-player builds
-  refuse incomplete chains that never reach Music Player. Read-only panels stay
-  valid. The same messages appear in deploy validation and live Graph Health.
+  the corresponding control-graph path exists. All three generators draw fixed
+  displays. Normal sketches and shows accept fixed touch controls only with an
+  actionable destination/layout; shows also reject unsupported mapper inputs
+  and scalar output-runtime wires. SD-player builds refuse incomplete chains
+  that never reach Music Player. Custom widgets remain refused in show/player
+  templates. Read-only panels stay valid. Deploy validation and live Graph
+  Health report the same display/output control failures.
 
 ### Phase 8 — tests, documentation, and release evidence
 
