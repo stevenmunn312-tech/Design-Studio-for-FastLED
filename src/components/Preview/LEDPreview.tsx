@@ -40,7 +40,7 @@ import { idleFrame } from './idleFrame'
 import { publishOutputStreamFrame, publishStreamFrame, useStreamStore } from '../../state/streamStore'
 import { outputRenderPasses, outputRoutes, routeFrame } from '../../state/outputRouting'
 import type { LedOutputForm } from '../../state/ledOutputForm'
-import { exitStagePresentation, toggleStageFullscreen } from '../../utils/stagePresentation'
+import { enterStagePresentation, exitStagePresentation, toggleStageFullscreen } from '../../utils/stagePresentation'
 import { controllerSettings } from '../../state/controllerSettings'
 import { masterSpeedFromOutputs, masterSpeedOriginShift } from '../../state/masterSpeed'
 import type { StereoVuFrame } from '../../state/stereoVuMeter'
@@ -1151,6 +1151,11 @@ export default function LEDPreview() {
       <div
         ref={canvasWrapRef}
         className={`${styles.canvasWrap} ${effectivePreview3d ? styles.canvasWrap3d : ''}`}
+        onDoubleClick={() => {
+          if (stageMode) void exitStagePresentation()
+          else void enterStagePresentation()
+        }}
+        title={stageMode ? 'Double-click to exit Stage' : 'Double-click to enter Stage'}
       >
         {import.meta.env.DEV && !stageFullscreen && <DevPerformanceHud />}
         <div className={`${styles.canvasBay} ${combinedVuId ? styles.canvasBayWithVu : ''} ${standaloneVu ? styles.canvasBayVuOnly : ''}`}>
