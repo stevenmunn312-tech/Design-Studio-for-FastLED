@@ -108,9 +108,14 @@ still a fraction of a percent dim.
 
 **Rounding ties.** C++ `roundf` breaks `.5` away from zero; JS `Math.round`
 breaks it toward `+Infinity`. A warp produces negative half-steps constantly, so
-both sides use `floor(v + 0.5)` instead (`sampleRound` / `_sampleRound`). This
-was the first thing to go wrong and would have shown up as a one-pixel seam that
-only appears on some frames.
+neither is used: coordinates floor, and the one place a channel is quantised
+does `floor(v + 0.5)` explicitly. This was the first thing to go wrong and would
+have shown up as a one-pixel seam appearing on some frames and not others.
+
+**Quantising twice.** The depth shade is folded into the sampler's weights
+rather than applied to its result, so a channel is reduced to 8 bits exactly
+once. Sampling and *then* shading rounds twice and throws away part of the
+gradient the interpolation just recovered.
 
 **float versus double.** The generators emit `float`; the evaluator computes in
 double. Near a pixel boundary the two can land on different source pixels. This
@@ -148,6 +153,41 @@ Styles degrade rather than blank — Card Flip becomes a horizontal squeeze, Dol
 a centred expansion — and the tests assert a one-row output still lights. A style
 that would no-op entirely on a strip should say so before it lands.
 
+## Sampling
+
+The 3D styles read **bilinearly**; every older style still reads
+nearest-neighbour.
+
+Nearest is what makes a warp crawl. Along a rotating edge the sample points
+cross pixel centres at different moments, so the edge shimmers frame to frame
+instead of moving. A uniform scale like `zoom` gets away with it because its
+sample points all cross together — which is also why the legacy arms were left
+alone. They are threshold reveals and axis-aligned scales, they do not shimmer
+the same way, and converting them would restyle every show already built on
+them for no gain.
+
+Four weighted reads and three lerps a channel buy temporal stability, and in
+motion that reads better than a crisper single frame: the eye tracks a moving
+edge and forgives softness, but not jitter. On a sparse matrix with visible gaps
+between LEDs the softening is more noticeable than on a dense panel, which is a
+genuine trade — but the shimmer it replaces is worse on both.
+
+Two properties matter beyond looks. Out-of-frame neighbours **clamp** rather
+than fade to black, so a turning surface keeps a solid border instead of growing
+a dark fringe as it leaves the frame. And an integral coordinate still reads
+exactly one pixel, because the other three weigh nothing — which is what lets
+[endpoint exactness](#a-style-must-reach-its-endpoints-geometrically) survive
+interpolation rather than being approximated by it.
+
+Bilinear is a magnification filter. Where a style minifies hard — the far side
+of a turning cube, a slab tipped near edge-on — it still aliases, because it
+samples four texels however much the source is being shrunk. Fixing that wants
+mip levels or area sampling, which is not worth it at this size.
+
+There is no toggle. A per-node smoothing property would work in the `Transition`
+node and silently not in a show or on the player, both of which composite from a
+style id and a progress value alone.
+
 ## Flash: the show narrows, the player cannot
 
 `transitionHelperCpp(styleIds)` strips the `case` arms a sketch cannot reach.
@@ -165,11 +205,10 @@ comments break the brace counter; keep them out.
 
 ## What is not here
 
-**Bilinear sampling.** Everything samples nearest-neighbour, matching `zoom`.
-This is the largest available quality win — a non-uniform warp shimmers more
-than a uniform scale does, and rotation is the worst case — but it changes the
-character of every existing arm and has to land identically in three emitters,
-so it wants its own pass rather than riding along with a style.
+**Bilinear on the legacy arms.** The older styles still read nearest-neighbour;
+see [sampling](#sampling) for why that is a decision rather than an omission.
+`zoom` is the only one where converting would clearly help, and it is not worth
+restyling existing shows on its own.
 
 **A correspondence morph.** Classic image morphing needs a displacement field,
 and both ways of getting one are closed here: authored feature lines need a
@@ -195,7 +234,10 @@ analytic hash the way `prnd()` already is.
 ## Adding a style: checklist
 
 1. Decide it reads at 16x16 from its silhouette, and what it does on `H = 1`.
-2. Evaluator: an `eval*` function plus a `compositeTransition` case.
+2. Evaluator: an `eval*` function plus a `compositeTransition` case. Read
+   through `sampleUnitShaded` / `sampleShaded` rather than indexing the frame,
+   unless the read is an exact identity — that is what gets the style bilinear
+   filtering and single-quantisation for free.
 3. `TRANSITION_HELPER_CPP`: a `    case N: {` arm, braces balanced, none in
    comments.
 4. `cppGenerator.ts`: the `Transition` node arm.

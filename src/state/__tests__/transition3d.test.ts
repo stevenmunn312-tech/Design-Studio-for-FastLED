@@ -41,12 +41,18 @@ describe('3D transitions', () => {
     // The endpoint guards are a fast path, not the mechanism: the maths has to
     // arrive at the same place on its own, or preview and firmware part company
     // at the ends, where the generators have a runtime t and cannot branch. It
-    // converges rather than lands: the depth shading is continuous, so a hair
-    // short of the end the surface is still a fraction of a percent dim.
+    // converges rather than lands, for two reasons: depth shading is continuous,
+    // so a hair short of the end a surface is still a fraction of a percent dim,
+    // and bilinear sampling means a coordinate a hair off a pixel centre really
+    // does mix in its neighbour. The probe therefore sits very close to the ends
+    // — far enough out to exercise the geometry, near enough that a correct
+    // sub-pixel blend rounds away. Loosening the tolerance instead would let a
+    // genuinely misplaced sample pass on the wide frames, which is the case that
+    // caught the fixed-far-plane bug.
     it.each(SIZES)('converges on the endpoints without the guards (%ix%i)', (W, H) => {
       const a = gradient(W, H, 'red'), b = gradient(W, H, 'green')
-      expect(maxChannelDiff(compositeTransition(style, a, b, 0.0001, W, H), a)).toBeLessThanOrEqual(1)
-      expect(maxChannelDiff(compositeTransition(style, a, b, 0.9999, W, H), b)).toBeLessThanOrEqual(1)
+      expect(maxChannelDiff(compositeTransition(style, a, b, 1e-6, W, H), a)).toBeLessThanOrEqual(1)
+      expect(maxChannelDiff(compositeTransition(style, a, b, 1 - 1e-6, W, H), b)).toBeLessThanOrEqual(1)
     })
   })
 
@@ -167,6 +173,50 @@ describe('3D transitions', () => {
     // visible A bands does not simply fall the way a wipe's would.
     expect(bandsOfA(0.35)).toBeGreaterThan(0)
     expect(bandsOfA(0.55)).toBeGreaterThan(0)
+  })
+
+// Without these, dropping back to nearest-neighbour would pass every other
+  // test in this file: the silhouette assertions only care where B appears.
+  describe('bilinear sampling', () => {
+    it('produces intermediate values a nearest read could never return', () => {
+      const W = 16, H = 16
+      // Two-tone A: every source pixel is 0 or 240, so any other value on
+      // screen can only have come from weighting two neighbours.
+      const a: Frame = Array.from({ length: H }, (_, y) =>
+        Array.from({ length: W }, (_, x) => (x + y) % 2 === 0
+          ? { r: 240, g: 240, b: 240 }
+          : { r: 0, g: 0, b: 0 }))
+      const b = solid(W, H, 0, 0, 0)
+      // Mid-turn the card samples off pixel centres across most of its width.
+      const out = compositeTransition('flip', a, b, 0.3, W, H)
+      const mixed = out.flat().filter((p) => p.r > 8 && p.r < 232)
+      expect(mixed.length).toBeGreaterThan(0)
+    })
+
+    it('still reads exactly one pixel when the coordinate is integral', () => {
+      // The endpoint-exactness rule rests on this: at t=0 and t=1 the sample
+      // lands on a pixel centre, so three of the four weights are zero.
+      const W = 16, H = 16
+      const a = gradient(W, H, 'red'), b = gradient(W, H, 'green')
+      for (const style of STYLES) {
+        expect(equalFrames(compositeTransition(style, a, b, 0, W, H), a)).toBe(true)
+        expect(equalFrames(compositeTransition(style, a, b, 1, W, H), b)).toBe(true)
+      }
+    })
+
+    it('clamps out-of-frame neighbours instead of fading to black at the edge', () => {
+      const W = 16, H = 16
+      // A uniform surface must stay uniform under a warp. If the sampler let
+      // out-of-frame neighbours contribute black, the border would darken.
+      // Early in a dolly B is still sub-pixel, so the whole frame is the one
+      // receding A surface — comparing an edge against a centre that had
+      // become B would be comparing two surfaces at two different depths.
+      const a = solid(W, H, 200, 200, 200), b = solid(W, H, 200, 200, 200)
+      const out = compositeTransition('dolly', a, b, 0.2, W, H)
+      const values = new Set(out.flat().map((p) => p.r))
+      expect(values.size).toBe(1)
+      expect([...values][0]).toBeGreaterThan(0)
+    })
   })
 
   it('degrades to a horizontal squeeze on a one-row output rather than blanking', () => {

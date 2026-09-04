@@ -3909,13 +3909,6 @@ function facingShade(cosPhi: number): number {
   return 1 - TRANSITION_DEPTH_FADE * (1 - Math.max(0, cosPhi))
 }
 
-/** floor(v + 0.5), not Math.round: C++ roundf breaks .5 ties away from zero
- *  and Math.round breaks them toward +Infinity, and a warp produces negative
- *  half steps constantly. Both sides floor the same way instead. */
-function sampleRound(v: number): number {
-  return Math.floor(v + 0.5)
-}
-
 function clampIndex(v: number, n: number): number {
   return v < 0 ? 0 : v >= n ? n - 1 : v
 }
@@ -3930,11 +3923,42 @@ function shadePixel(px: RGB, k: number): RGB {
 
 const BLACK_PIXEL: RGB = { r: 0, g: 0, b: 0 }
 
-/** Read a frame at a normalised texture coordinate, both axes in [-1, 1]. */
-function sampleUnit(f: Frame, u: number, v: number, W: number, H: number): RGB {
-  const col = clampIndex(sampleRound(u * (W / 2) + W / 2 - 0.5), W)
-  const row = clampIndex(sampleRound(v * (H / 2) + H / 2 - 0.5), H)
-  return f[row][col]
+/**
+ * Bilinear read at float pixel coordinates, with the depth shade folded into
+ * the weights so each channel is quantised exactly once.
+ *
+ * Nearest-neighbour is what makes a warp crawl. The sample point crosses pixel
+ * centres at different moments along a rotating edge, so the edge shimmers
+ * frame to frame instead of moving; a scale like `zoom` gets away with it
+ * because its sample points all cross together. Weighting the four neighbours
+ * costs four reads and three lerps a channel and buys temporal stability,
+ * which reads better in motion than a crisper single frame does — the eye
+ * tracks a moving edge and forgives its softness, but not its jitter.
+ *
+ * Out-of-frame neighbours clamp to the edge rather than fading to black, so a
+ * surface keeps a solid border instead of growing a dark fringe as it turns.
+ *
+ * An integral coordinate still reads exactly one pixel (the other three weigh
+ * nothing), which is what keeps the endpoint-exactness rule intact.
+ */
+function sampleShaded(f: Frame, fx: number, fy: number, k: number, W: number, H: number): RGB {
+  const x0 = Math.floor(fx), y0 = Math.floor(fy)
+  const tx = fx - x0, ty = fy - y0
+  const xa = clampIndex(x0, W), xb = clampIndex(x0 + 1, W)
+  const ya = clampIndex(y0, H), yb = clampIndex(y0 + 1, H)
+  const p00 = f[ya][xa], p10 = f[ya][xb], p01 = f[yb][xa], p11 = f[yb][xb]
+  const w00 = (1 - tx) * (1 - ty) * k, w10 = tx * (1 - ty) * k
+  const w01 = (1 - tx) * ty * k, w11 = tx * ty * k
+  return {
+    r: Math.floor(p00.r * w00 + p10.r * w10 + p01.r * w01 + p11.r * w11 + 0.5),
+    g: Math.floor(p00.g * w00 + p10.g * w10 + p01.g * w01 + p11.g * w11 + 0.5),
+    b: Math.floor(p00.b * w00 + p10.b * w10 + p01.b * w01 + p11.b * w11 + 0.5),
+  }
+}
+
+/** The same, at a normalised texture coordinate with both axes in [-1, 1]. */
+function sampleUnitShaded(f: Frame, u: number, v: number, k: number, W: number, H: number): RGB {
+  return sampleShaded(f, u * (W / 2) + W / 2 - 0.5, v * (H / 2) + H / 2 - 0.5, k, W, H)
 }
 
 /** A's depth at t=1 under a dolly. Enough parallax to read; much more and the
@@ -3962,14 +3986,16 @@ function evalDolly(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H)
       // B occludes A wherever it lands in bounds: its in-bounds region is a
       // centred rectangle growing from nothing to the full frame, which is the
       // whole read at this size.
-      const bx = sampleRound(ox * zb + cx - 0.5), by = sampleRound(oy * zb + cy - 0.5)
-      if (bx >= 0 && bx < W && by >= 0 && by < H) return shadePixel(b[by][bx], shadeB)
+      // The visible rectangle of B is exactly where a nearest read would have
+      // landed in bounds, so bilinear softens its edge without moving it.
+      const fbx = ox * zb + cx - 0.5, fby = oy * zb + cy - 0.5
+      if (fbx >= -0.5 && fbx < W - 0.5 && fby >= -0.5 && fby < H - 0.5) {
+        return sampleShaded(b, fbx, fby, shadeB, W, H)
+      }
       // A recedes with its edge pixels extended rather than opening a black
       // border. The border is what stays visible longest while B covers the
       // middle, so a smear there reads better than a frame of black.
-      const ax = clampIndex(sampleRound(ox * za + cx - 0.5), W)
-      const ay = clampIndex(sampleRound(oy * za + cy - 0.5), H)
-      return shadePixel(a[ay][ax], shadeA)
+      return sampleShaded(a, ox * za + cx - 0.5, oy * za + cy - 0.5, shadeA, W, H)
     })
 }
 
@@ -3999,7 +4025,7 @@ function evalFlip(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H):
       if (z < 0.05) return BLACK_PIXEL
       const v = sy * z / FLIP_DEPTH
       if (v < -1 || v > 1) return BLACK_PIXEL
-      return shadePixel(sampleUnit(src, back ? -u : u, v, W, H), depthShade(z / FLIP_DEPTH))
+      return sampleUnitShaded(src, back ? -u : u, v, depthShade(z / FLIP_DEPTH), W, H)
     })
 }
 
@@ -4040,7 +4066,7 @@ function evalCube(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H):
         }
       }
       if (face < 0) return BLACK_PIXEL
-      return shadePixel(sampleUnit(face === 0 ? a : b, fu, fv, W, H), depthShade(fz / f))
+      return sampleUnitShaded(face === 0 ? a : b, fu, fv, depthShade(fz / f), W, H)
     })
 }
 
@@ -4069,7 +4095,7 @@ function evalDoor(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H):
         if (s >= 0 && s <= 1) {
           const z = D - s * sn
           const v = sy * z / f
-          if (v >= -1 && v <= 1 && z > 0.05) return shadePixel(sampleUnit(a, s - 1, v, W, H), panelShade)
+          if (v >= -1 && v <= 1 && z > 0.05) return sampleUnitShaded(a, s - 1, v, panelShade, W, H)
         }
       }
       const denR = sx * sn - f * ct
@@ -4078,7 +4104,7 @@ function evalDoor(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H):
         if (s >= 0 && s <= 1) {
           const z = D - s * sn
           const v = sy * z / f
-          if (v >= -1 && v <= 1 && z > 0.05) return shadePixel(sampleUnit(a, 1 - s, v, W, H), panelShade)
+          if (v >= -1 && v <= 1 && z > 0.05) return sampleUnitShaded(a, 1 - s, v, panelShade, W, H)
         }
       }
       return shadePixel(b[y][x], backShade)
@@ -4116,7 +4142,7 @@ function evalTilt(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H):
       // B is in front of the tipping slab everywhere, so it is tested first.
       const bu = sx * zb / f, bv = sy * zb / f - dy
       if (bu >= -1 && bu <= 1 && bv >= -1 && bv <= 1) {
-        return shadePixel(sampleUnit(b, bu, bv, W, H), shadeB)
+        return sampleUnitShaded(b, bu, bv, shadeB, W, H)
       }
       // s is the distance from the bottom hinge up the slab, 0..2 across it.
       const den = f * ct + sy * sn
@@ -4127,7 +4153,7 @@ function evalTilt(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H):
       if (z < 0.05) return BLACK_PIXEL
       const u = sx * z / f
       if (u < -1 || u > 1) return BLACK_PIXEL
-      return shadePixel(sampleUnit(a, u, 1 - s, W, H), depthShade(z / f))
+      return sampleUnitShaded(a, u, 1 - s, depthShade(z / f), W, H)
     })
 }
 

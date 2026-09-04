@@ -33,24 +33,43 @@ static inline float _depthShade(float z) {
 static inline float _facingShade(float ct) {
   return 1.0f - 0.55f * (1.0f - (ct < 0.0f ? 0.0f : ct));
 }
-// floor(v + 0.5) rather than roundf: roundf breaks .5 ties away from zero while
-// JS Math.round breaks them toward +infinity, and a warp lands on half steps at
-// negative offsets constantly. Both sides floor the same way instead.
-static inline int _sampleRound(float v) { return (int)floorf(v + 0.5f); }
 static inline CRGB _shadePixel(CRGB p, float k) {
   return CRGB((uint8_t)(p.r * k + 0.5f), (uint8_t)(p.g * k + 0.5f), (uint8_t)(p.b * k + 0.5f));
 }
-// Read a frame at a normalised texture coordinate, both axes in -1..1. The null
-// check is for a normal sketch, where a Transition node can have an unconnected
-// A or B input and the generator has no buffer to hand over; the show and
-// player templates always pass real buffers and never take the branch.
-static inline CRGB _sampleUnit(const CRGB* f, float u, float v) {
+// Bilinear read at float pixel coordinates, with the shade folded into the
+// weights so each channel is quantised exactly once. Mirrors sampleShaded() in
+// graphEvaluator.ts. Nearest-neighbour makes a rotating edge shimmer rather
+// than move, because the sample points along it cross pixel centres at
+// different moments; four weighted reads buy temporal stability, which reads
+// better in motion than a crisper single frame. Out-of-frame neighbours clamp
+// to the edge, so a turning surface keeps a solid border instead of growing a
+// dark fringe. An integral coordinate still reads exactly one pixel, which is
+// what keeps a style landing exactly on A at t=0 and B at t=1.
+//
+// The null check is for a normal sketch, where a Transition node can have an
+// unconnected A or B input and the generator has no buffer to hand over; the
+// show and player templates always pass real buffers and never take it. Note
+// the signature carries no user-defined struct: a generated struct here would
+// meet the .ino preprocessor's hoisted prototypes above its own definition.
+static inline CRGB _sampleShaded(const CRGB* f, float fx, float fy, float k) {
   if (!f) return CRGB::Black;
-  int col = _sampleRound(u * (WIDTH * 0.5f) + WIDTH * 0.5f - 0.5f);
-  int row = _sampleRound(v * (HEIGHT * 0.5f) + HEIGHT * 0.5f - 0.5f);
-  col = constrain(col, 0, WIDTH - 1);
-  row = constrain(row, 0, HEIGHT - 1);
-  return f[row * WIDTH + col];
+  int x0 = (int)floorf(fx), y0 = (int)floorf(fy);
+  float tx = fx - x0, ty = fy - y0;
+  int xa = constrain(x0, 0, WIDTH - 1), xb = constrain(x0 + 1, 0, WIDTH - 1);
+  int ya = constrain(y0, 0, HEIGHT - 1), yb = constrain(y0 + 1, 0, HEIGHT - 1);
+  CRGB p00 = f[ya * WIDTH + xa], p10 = f[ya * WIDTH + xb];
+  CRGB p01 = f[yb * WIDTH + xa], p11 = f[yb * WIDTH + xb];
+  float w00 = (1.0f - tx) * (1.0f - ty) * k, w10 = tx * (1.0f - ty) * k;
+  float w01 = (1.0f - tx) * ty * k, w11 = tx * ty * k;
+  return CRGB(
+    (uint8_t)(p00.r * w00 + p10.r * w10 + p01.r * w01 + p11.r * w11 + 0.5f),
+    (uint8_t)(p00.g * w00 + p10.g * w10 + p01.g * w01 + p11.g * w11 + 0.5f),
+    (uint8_t)(p00.b * w00 + p10.b * w10 + p01.b * w01 + p11.b * w11 + 0.5f));
+}
+// The same, at a normalised texture coordinate with both axes in -1..1.
+static inline CRGB _sampleUnitShaded(const CRGB* f, float u, float v, float k) {
+  return _sampleShaded(f, u * (WIDTH * 0.5f) + WIDTH * 0.5f - 0.5f,
+                          v * (HEIGHT * 0.5f) + HEIGHT * 0.5f - 0.5f, k);
 }
 `
 
@@ -189,14 +208,12 @@ void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, 
       float sa = _depthShade(za), sb = _depthShade(zb);
       for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
         float ox = x + 0.5f - cx, oy = y + 0.5f - cy;
-        int bx = _sampleRound(ox*zb + cx - 0.5f), by = _sampleRound(oy*zb + cy - 0.5f);
-        if (bx >= 0 && bx < WIDTH && by >= 0 && by < HEIGHT) {
-          out[y*WIDTH+x] = _shadePixel(b[by*WIDTH+bx], sb);
+        float fbx = ox*zb + cx - 0.5f, fby = oy*zb + cy - 0.5f;
+        if (fbx >= -0.5f && fbx < WIDTH - 0.5f && fby >= -0.5f && fby < HEIGHT - 0.5f) {
+          out[y*WIDTH+x] = _sampleShaded(b, fbx, fby, sb);
           continue;
         }
-        int ax = _sampleRound(ox*za + cx - 0.5f), ay = _sampleRound(oy*za + cy - 0.5f);
-        ax = constrain(ax, 0, WIDTH-1); ay = constrain(ay, 0, HEIGHT-1);
-        out[y*WIDTH+x] = _shadePixel(a[ay*WIDTH+ax], sa);
+        out[y*WIDTH+x] = _sampleShaded(a, ox*za + cx - 0.5f, oy*za + cy - 0.5f, sa);
       }
       break;
     }
@@ -217,7 +234,7 @@ void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, 
         if (z < 0.05f) continue;
         float w = sy*z/3.0f;
         if (w < -1.0f || w > 1.0f) continue;
-        out[o] = _shadePixel(_sampleUnit(src, back ? -u : u, w), _depthShade(z/3.0f));
+        out[o] = _sampleUnitShaded(src, back ? -u : u, w, _depthShade(z/3.0f));
       }
       break;
     }
@@ -245,7 +262,7 @@ void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, 
           if (u >= -1.0f && u <= 1.0f && v >= -1.0f && v <= 1.0f && z > 0.05f && (face < 0 || z < fz)) { face = 1; fu = u; fv = v; fz = z; }
         }
         if (face < 0) continue;
-        out[o] = _shadePixel(_sampleUnit(face == 0 ? a : b, fu, fv), _depthShade(fz/cf));
+        out[o] = _sampleUnitShaded(face == 0 ? a : b, fu, fv, _depthShade(fz/cf));
       }
       break;
     }
@@ -263,7 +280,7 @@ void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, 
           float s = (sx*dd + df)/dL;
           if (s >= 0.0f && s <= 1.0f) {
             float z = dd - s*sn, v = sy*z/df;
-            if (v >= -1.0f && v <= 1.0f && z > 0.05f) { out[o] = _shadePixel(_sampleUnit(a, s - 1.0f, v), panel); drawn = true; }
+            if (v >= -1.0f && v <= 1.0f && z > 0.05f) { out[o] = _sampleUnitShaded(a, s - 1.0f, v, panel); drawn = true; }
           }
         }
         if (!drawn) {
@@ -272,7 +289,7 @@ void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, 
             float s = (sx*dd - df)/dR;
             if (s >= 0.0f && s <= 1.0f) {
               float z = dd - s*sn, v = sy*z/df;
-              if (v >= -1.0f && v <= 1.0f && z > 0.05f) { out[o] = _shadePixel(_sampleUnit(a, 1.0f - s, v), panel); drawn = true; }
+              if (v >= -1.0f && v <= 1.0f && z > 0.05f) { out[o] = _sampleUnitShaded(a, 1.0f - s, v, panel); drawn = true; }
             }
           }
         }
@@ -292,7 +309,7 @@ void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, 
         float sx = (x + 0.5f - cx)/cx, sy = (y + 0.5f - cy)/cy;
         float bu = sx*zb/tf, bv = sy*zb/tf - slide;
         if (bu >= -1.0f && bu <= 1.0f && bv >= -1.0f && bv <= 1.0f) {
-          out[o] = _shadePixel(_sampleUnit(b, bu, bv), sb);
+          out[o] = _sampleUnitShaded(b, bu, bv, sb);
           continue;
         }
         float den = tf*ct + sy*sn;
@@ -303,7 +320,7 @@ void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, 
         if (z < 0.05f) continue;
         float u = sx*z/tf;
         if (u < -1.0f || u > 1.0f) continue;
-        out[o] = _shadePixel(_sampleUnit(a, u, 1.0f - s), _depthShade(z/tf));
+        out[o] = _sampleUnitShaded(a, u, 1.0f - s, _depthShade(z/tf));
       }
       break;
     }

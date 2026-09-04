@@ -5545,13 +5545,11 @@ export function generateCpp(
             ln(`    float _za=powf(1.12f,_tt),_zb=1.0f/_cv;`)
             ln(`    float _sa=_depthShade(_za),_sb=_depthShade(_zb);`)
             ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-            ln(`      float _ox=_x+0.5f-_cx,_oy=_y+0.5f-_cy; CRGB _s; float _k;`)
-            ln(`      int _bx=_sampleRound(_ox*_zb+_cx-0.5f),_by=_sampleRound(_oy*_zb+_cy-0.5f);`)
-            ln(`      if(_bx>=0&&_bx<WIDTH&&_by>=0&&_by<HEIGHT){ _s=${bPix('_by*WIDTH+_bx')}; _k=_sb; }`)
-            ln(`      else { int _ax=_sampleRound(_ox*_za+_cx-0.5f),_ay=_sampleRound(_oy*_za+_cy-0.5f);`)
-            ln(`        _ax=constrain(_ax,0,WIDTH-1); _ay=constrain(_ay,0,HEIGHT-1);`)
-            ln(`        _s=${aPix('_ay*WIDTH+_ax')}; _k=_sa; }`)
-            ln(`      ${ob}[${idx}]=_shadePixel(_s,_k);`)
+            ln(`      float _ox=_x+0.5f-_cx,_oy=_y+0.5f-_cy;`)
+            ln(`      float _fbx=_ox*_zb+_cx-0.5f,_fby=_oy*_zb+_cy-0.5f;`)
+            ln(`      if(_fbx>=-0.5f&&_fbx<WIDTH-0.5f&&_fby>=-0.5f&&_fby<HEIGHT-0.5f)`)
+            ln(`        ${ob}[${idx}]=_sampleShaded(${bBuf},_fbx,_fby,_sb);`)
+            ln(`      else ${ob}[${idx}]=_sampleShaded(${aBuf},_ox*_za+_cx-0.5f,_oy*_za+_cy-0.5f,_sa);`)
             ln(`    } }`)
             break
           case 'flip':
@@ -5566,7 +5564,7 @@ export function generateCpp(
             ln(`      float _u=_sx*3.0f/_den; if(_u<-1.0f||_u>1.0f) continue;`)
             ln(`      float _z=3.0f+_u*_sn; if(_z<0.05f) continue;`)
             ln(`      float _w=_sy*_z/3.0f; if(_w<-1.0f||_w>1.0f) continue;`)
-            ln(`      ${ob}[${idx}]=_shadePixel(_sampleUnit(_src,_bk?-_u:_u,_w),_depthShade(_z/3.0f));`)
+            ln(`      ${ob}[${idx}]=_sampleUnitShaded(_src,_bk?-_u:_u,_w,_depthShade(_z/3.0f));`)
             ln(`    } }`)
             break
           case 'cube':
@@ -5584,7 +5582,7 @@ export function generateCpp(
             ln(`      if(fabsf(_dB)>=1e-4f){ float _u=(_sx*(_cd-_sn)-_cf*_ct)/_dB,_z=_cd-_sn+_u*_ct,_v=_sy*_z/_cf;`)
             ln(`        if(_u>=-1.0f&&_u<=1.0f&&_v>=-1.0f&&_v<=1.0f&&_z>0.05f&&(_fc<0||_z<_fz)){ _fc=1; _fu=_u; _fv=_v; _fz=_z; } }`)
             ln(`      if(_fc<0) continue;`)
-            ln(`      ${ob}[${idx}]=_shadePixel(_sampleUnit(_fc==0?${aBuf}:${bBuf},_fu,_fv),_depthShade(_fz/_cf));`)
+            ln(`      ${ob}[${idx}]=_sampleUnitShaded(_fc==0?${aBuf}:${bBuf},_fu,_fv,_depthShade(_fz/_cf));`)
             ln(`    } }`)
             break
           case 'door':
@@ -5597,11 +5595,11 @@ export function generateCpp(
             ln(`      float _dL=_df*_ct+_sx*_sn;`)
             ln(`      if(fabsf(_dL)>=1e-4f){ float _s=(_sx*_dd+_df)/_dL;`)
             ln(`        if(_s>=0.0f&&_s<=1.0f){ float _z=_dd-_s*_sn,_v=_sy*_z/_df;`)
-            ln(`          if(_v>=-1.0f&&_v<=1.0f&&_z>0.05f){ ${ob}[${idx}]=_shadePixel(_sampleUnit(${aBuf},_s-1.0f,_v),_pn); _dn=true; } } }`)
+            ln(`          if(_v>=-1.0f&&_v<=1.0f&&_z>0.05f){ ${ob}[${idx}]=_sampleUnitShaded(${aBuf},_s-1.0f,_v,_pn); _dn=true; } } }`)
             ln(`      if(!_dn){ float _dR=_sx*_sn-_df*_ct;`)
             ln(`        if(fabsf(_dR)>=1e-4f){ float _s=(_sx*_dd-_df)/_dR;`)
             ln(`          if(_s>=0.0f&&_s<=1.0f){ float _z=_dd-_s*_sn,_v=_sy*_z/_df;`)
-            ln(`            if(_v>=-1.0f&&_v<=1.0f&&_z>0.05f){ ${ob}[${idx}]=_shadePixel(_sampleUnit(${aBuf},1.0f-_s,_v),_pn); _dn=true; } } } }`)
+            ln(`            if(_v>=-1.0f&&_v<=1.0f&&_z>0.05f){ ${ob}[${idx}]=_sampleUnitShaded(${aBuf},1.0f-_s,_v,_pn); _dn=true; } } } }`)
             ln(`      if(!_dn) ${ob}[${idx}]=_shadePixel(${bPix(idx)},_bl);`)
             ln(`    } }`)
             break
@@ -5614,12 +5612,12 @@ export function generateCpp(
             ln(`      ${ob}[${idx}]=CRGB::Black;`)
             ln(`      float _sx=(_x+0.5f-_cx)/_cx,_sy=(_y+0.5f-_cy)/_cy;`)
             ln(`      float _bu=_sx*_zb/_tf,_bv=_sy*_zb/_tf-_sl;`)
-            ln(`      if(_bu>=-1.0f&&_bu<=1.0f&&_bv>=-1.0f&&_bv<=1.0f){ ${ob}[${idx}]=_shadePixel(_sampleUnit(${bBuf},_bu,_bv),_sb); continue; }`)
+            ln(`      if(_bu>=-1.0f&&_bu<=1.0f&&_bv>=-1.0f&&_bv<=1.0f){ ${ob}[${idx}]=_sampleUnitShaded(${bBuf},_bu,_bv,_sb); continue; }`)
             ln(`      float _den=_tf*_ct+_sy*_sn; if(fabsf(_den)<1e-4f) continue;`)
             ln(`      float _s=(_tf-_sy*_td)/_den; if(_s<0.0f||_s>2.0f) continue;`)
             ln(`      float _z=_td+_s*_sn; if(_z<0.05f) continue;`)
             ln(`      float _u=_sx*_z/_tf; if(_u<-1.0f||_u>1.0f) continue;`)
-            ln(`      ${ob}[${idx}]=_shadePixel(_sampleUnit(${aBuf},_u,1.0f-_s),_depthShade(_z/_tf));`)
+            ln(`      ${ob}[${idx}]=_sampleUnitShaded(${aBuf},_u,1.0f-_s,_depthShade(_z/_tf));`)
             ln(`    } }`)
             break
           default: // crossfade
