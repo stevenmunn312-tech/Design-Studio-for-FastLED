@@ -33,6 +33,7 @@ export default function GraphHealthDrawer() {
   const nodes = useGraphStore((state) => state.nodes)
   const capabilityNodes = useRootNodes()
   const edges = useGraphStore((state) => state.edges)
+  const displayDocuments = useGraphStore((state) => state.displayDocuments)
   const activeGraphId = useGraphStore((state) => state.activeGraphId)
   const graphs = useGraphStore((state) => state.graphs)
   const focusNode = useGraphStore((state) => state.focusNode)
@@ -48,7 +49,8 @@ export default function GraphHealthDrawer() {
     selectedFqbn,
     target: activeGraphId === ROOT_GRAPH_ID ? 'matrix' : 'group',
     capabilityNodes,
-  }), [activeGraphId, capabilityNodes, edges, nodes, selectedFqbn])
+    displayDocuments,
+  }), [activeGraphId, capabilityNodes, edges, nodes, selectedFqbn, displayDocuments])
   const errors = diagnostics.filter((issue) => issue.severity === 'error').length
   const warnings = diagnostics.length - errors
   const visible = filter === 'all' ? diagnostics : diagnostics.filter((issue) => issue.severity === filter)

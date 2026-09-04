@@ -33,6 +33,16 @@ export const CUSTOM_DISPLAY_LVGL_VALUE_SCALE = 10000
  * work independently of LED frame count while remaining responsive to touch. */
 export const CUSTOM_DISPLAY_LVGL_HANDLER_MIN_MS = 5
 
+/** The pinned helper lv_conf.h reserves this once per sketch, shared by every
+ * screen, widget, style and dynamically allocated label. Keep in step with
+ * backend/app.py's LV_MEM_SIZE (checked by the RAM contract test). */
+export const CUSTOM_DISPLAY_LVGL_HEAP_BYTES = 64 * 1024
+
+/** CustomDisplayWidgetRuntime on the supported 32-bit targets: pointer,
+ * four byte-sized fields, four floats, two integers and two bounded strings,
+ * rounded to the struct's four-byte alignment. This lives outside LVGL's heap. */
+export const CUSTOM_DISPLAY_WIDGET_RAM_BYTES = Math.ceil((32 + 2 * DISPLAY_TEXT_BUFFER_BYTES) / 4) * 4
+
 export interface CustomDisplayLvglBinding {
   /** C++ expression for the registry role, already resolved by the graph
    * generator. Expressions are codegen-owned; document text never enters here. */

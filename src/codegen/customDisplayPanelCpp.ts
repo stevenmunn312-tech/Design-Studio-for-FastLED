@@ -33,6 +33,14 @@ export const CUSTOM_DISPLAY_PANEL_CPP_INCLUDES = '#include <SPI.h>'
  * an audio pipeline. LVGL flushes in bands of this height instead. */
 export const CUSTOM_DISPLAY_PANEL_BUFFER_LINES = 20
 
+/** 32-bit target allowance for panel pins/window, SPI settings, display/input
+ * handles and the screen pointer. LVGL objects themselves live in its heap. */
+export const CUSTOM_DISPLAY_PANEL_RAM_BYTES = 32
+
+export function customDisplayPanelBufferPixels(controller: TftController, rotation: TftRotation): number {
+  return tftRotatedSize(controller, rotation).width * CUSTOM_DISPLAY_PANEL_BUFFER_LINES
+}
+
 export interface CustomDisplayPanelTouch {
   csPin: number; irqPin: number; sckPin: number; mosiPin: number; misoPin: number
   xMin: number; xMax: number; yMin: number; yMax: number
@@ -67,8 +75,7 @@ function hex2(value: number): string {
  * only the codegen-owned display stem occurs in an identifier. */
 export function customDisplayPanelGlobalCpp(emit: CustomDisplayPanelEmit): string {
   const id = emit.id
-  const size = tftRotatedSize(emit.controller, emit.rotation)
-  const bufPixels = size.width * CUSTOM_DISPLAY_PANEL_BUFFER_LINES
+  const bufPixels = customDisplayPanelBufferPixels(emit.controller, emit.rotation)
   const lines = [
     `struct CustomDisplayPanel {`,
     `  uint8_t cs, dc, rst, sck, mosi, bl;`,

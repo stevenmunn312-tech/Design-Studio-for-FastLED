@@ -184,11 +184,10 @@ case the OLED slice cannot already serve.
   animation in the build the instant the knob moved — and both read the speed
   the previous frame resolved, since a control computed from scaled time could
   not be turned back up from a freeze.
-  Two generators refuse rather than emit. A music player animates on the
-  track's own position, so scaling it would slide the LEDs off the music: that
-  is correct behaviour, not a gap. The show generator's clock also times how
-  long each pattern holds, so it needs a second accumulated clock before it can
-  honour a speed knob — that one *is* a gap, and is the remaining work here.
+  Music Player refuses Master Speed because its animation clock is track
+  position. Pattern Slideshow now uses a separate accumulated animation clock
+  while hold/transition timing stays unscaled; its fixed controller accepts the
+  node's slider but still refuses a wire into Speed.
 - [x] Define button semantics once: a Button widget is `true` while pressed;
   transport/control sinks detect a rising edge where a one-shot action is
   required. Toggle widgets hold a boolean state.
@@ -366,17 +365,23 @@ widget, font and image limits before Phase 7 is frozen.
     transactions; TFT touch and SD-card coexistence is a first-class test.
   - Display reset, data/command, backlight, interrupt, and touch-CS pins remain
     exclusive unless a driver contract explicitly says otherwise.
-- [ ] Add optional `displayDocuments` to workspace persistence, project
+- [x] Add optional `displayDocuments` to workspace persistence, project
   autosave, JSON import/export, sharing, undo/orphan cleanup, and migrations.
   Missing data must load as an empty registry for old workspaces. Start this
   only after the role-based port, background/theme and asset-id contracts above
   are frozen; persistence is the point at which those choices become expensive.
   The versioned registry now round-trips through workspace capture, projects,
   JSON import/export and share links; load/import normalize it, missing data is
-  empty, and store updates participate in undo. Orphan cleanup remains paired
-  with the future `Display` node, because no graph node owns a document yet.
-- [ ] Validate imported documents and assets with hard limits. Widget metadata
+  empty, and store updates participate in undo. The `Display` node now owns its
+  document: physical deletion removes it, duplication clones it under a fresh
+  id, and document edits synchronize role-derived ports and prune affected
+  cables atomically. These paths are covered by the graph-store, workspace,
+  project-file and sharing tests. No pre-1.0 migration is required on Hardware.
+- [x] Validate imported documents and assets with hard limits. Widget metadata
   is declarative and must never be treated as executable code or raw C++.
+  Document normalization bounds counts, geometry, ids, strings and declarative
+  properties; asset ids resolve through the installed catalogue. Resource
+  validation bounds raster sizes and total bytes before code generation.
 
 ### Phase 2 — runtime and code-generation foundation
 
@@ -421,19 +426,18 @@ widget, font and image limits before Phase 7 is frozen.
   dependencies in Phase 5/7.
   The notices now record LVGL 9.5.0 and its MIT terms, and explicitly retain the
   fact that the inline ST7789V/XPT2046 drivers add no third-party dependency.
-- [ ] Update firmware RAM estimation for OLED buffers, TFT/LVGL draw buffers,
+- [x] Update firmware RAM estimation for OLED buffers, TFT/LVGL draw buffers,
   widget heap, fonts, images, and thumbnails. The actual compile-capacity check
-  remains authoritative. The shipped half is in: `estimateFirmwareRam` now
-  reports `displayBytes`, and a display is counted whether or not anything is
-  wired to it, because a sink is emitted either way — it is never in the walk
-  back from the LED output, which is why it was worth nothing before. Each
-  figure lives beside the struct it measures (`OLED_PANEL_RAM_BYTES`,
-  `SEGMENT_DISPLAY_RAM_BYTES`) rather than being restated in the estimator, and
-  `DISPLAY_NODE_TYPES` is derived from the catalogue — a workbench-owned node
-  whose modules carry a display spec — so it holds when the touch panel arrives
-  with outputs of its own. Fonts and thumbnails are deliberately *not* counted:
-  they are PROGMEM, and this estimate is internal RAM only. TFT draw buffers
-  and widget heap join when there is something to measure.
+  remains authoritative. `displayBytes` counts all configured panels. Custom
+  screens add their rotated 20-row RGB565 buffer and document-sized static
+  widget caches, plus one shared 64 KiB LVGL heap and handler timestamp per
+  sketch. Widget objects/styles/text allocations use that heap, so they are
+  not counted twice. Unknown documents reserve the maximum widget cache array.
+  Hardware Readiness, Board settings and Graph Health subscribe to document
+  edits. Display allocations stay internal when LED buffers move to PSRAM;
+  baked images, fonts and thumbnails remain flash costs measured by compilation.
+  Tests cover multiple screens, rotation, document-only edits to cache size,
+  missing documents, PSRAM and the helper's actual heap configuration.
 - [x] Add validation errors when a selected action/generator cannot represent a
   shipped display, plus unresolved-binding warnings for the interim player
   path. Never generate a successful sketch that simply leaves the part dark;
@@ -979,14 +983,20 @@ freeform widgets must reuse rather than rediscover.
   documents, role-derived ports, asset ids and wired-widget deletion.
 - [ ] Add hardware workbench tests for exact module identity, root-scoped edits,
   repeated displays, part layout, pin retargeting, shared-bus rules, and delete.
-- [ ] Add backend tests for optional dependency fetch/stage/cache recovery and
+- [x] Add backend tests for optional dependency fetch/stage/cache recovery and
   pinned versions.
+  `test_engine.py` and `test_scaffold_writes.py` cover both build engines,
+  exact LVGL versions, incomplete/wrong caches, selective staging, restoration
+  after failure, generated configuration and allow-listed font selection.
 - [ ] Add visual snapshots for each fixed layout and custom widget state at every
   supported resolution/orientation, including pressed/active/disabled states,
   every launch theme token and each template. Visual snapshots complement, not
   replace, semantic tests.
 - [ ] Run `npm run lint`, `npm test`, and `npm run build`; compile representative
   generated sketches through both supported build engines.
+  Lint, the full frontend test suite and the production build pass; the build
+  still reports the application-chunk size warning. Representative generated
+  sketches still need compile evidence from both engines before closing this.
 - [ ] Add the user workflow to the hardware workbench guide and display-node
   reference pages. Describe unsupported devices as unsupported, not generic.
 - [ ] Add support-matrix rows only after recorded physical tests for the exact

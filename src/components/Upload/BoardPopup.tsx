@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useRootEdges, useRootNodes } from '../../state/graphStore'
+import { useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
 import { allBoards, boardByFqbn, engineReady, useUploadStore } from '../../state/uploadStore'
 import { estimateFirmwareRam } from '../../utils/validateGraph'
 import styles from './Upload.module.css'
@@ -40,6 +40,7 @@ export default function BoardPopup() {
   } = useUploadStore()
   const nodes = useRootNodes()
   const edges = useRootEdges()
+  const displayDocuments = useGraphStore((state) => state.displayDocuments)
   const [newBoard, setNewBoard] = useState(EMPTY_CUSTOM_BOARD)
   const [addError, setAddError] = useState<string | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -77,7 +78,7 @@ export default function BoardPopup() {
   const psramSupported = !!psramOptions || !!selectedPhysicalBoardProfile(nodes)?.psramMode
   const usePsram = psramSupported && controller.usePsram
   const psramChoice = psramOptions?.find((option) => option.id === controller.psramMode) ?? psramOptions?.[0]
-  const ram = useMemo(() => estimateFirmwareRam(nodes, edges), [nodes, edges])
+  const ram = useMemo(() => estimateFirmwareRam(nodes, edges, displayDocuments), [nodes, edges, displayDocuments])
 
   const handleAddBoard = () => {
     const result = addCustomBoard(newBoard)

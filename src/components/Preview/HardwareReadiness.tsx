@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useRootEdges, useRootNodes } from '../../state/graphStore'
+import { useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
 import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import { useCapacityStore } from '../../state/capacityStore'
 import { useUiStore } from '../../state/uiStore'
@@ -36,6 +36,7 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
   // hardware, which lives in the root graph.
   const nodes = useRootNodes()
   const edges = useRootEdges()
+  const displayDocuments = useGraphStore((state) => state.displayDocuments)
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
   const openConsole = useUploadStore((s) => s.openConsole)
   const setHardwarePaneTab = useUiStore((s) => s.setHardwarePaneTab)
@@ -61,7 +62,7 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
   }, [capacityStatus])
 
   const power = useMemo(() => estimatePowerLoad(nodes), [nodes])
-  const ram = useMemo(() => estimateFirmwareRam(nodes, edges), [nodes, edges])
+  const ram = useMemo(() => estimateFirmwareRam(nodes, edges, displayDocuments), [nodes, edges, displayDocuments])
   const refresh = useMemo(() => estimateLedRefreshTime(nodes, edges), [nodes, edges])
   const pinTrouble = useMemo(() => {
     const conflicts = findPinConflicts(nodes, edges)

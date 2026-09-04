@@ -29,6 +29,10 @@ import {
 import { OLED_PANEL_RAM_BYTES } from '../codegen/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../codegen/segmentDisplayCpp'
 import { TFT_PANEL_RAM_BYTES } from '../codegen/tftDisplayCpp'
+import { CUSTOM_DISPLAY_PANEL_RAM_BYTES } from '../codegen/customDisplayPanelCpp'
+import { CUSTOM_DISPLAY_LVGL_HEAP_BYTES } from '../codegen/customDisplayLvglCpp'
+import { customDisplayRamBytes } from '../codegen/customDisplayRam'
+import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import { showControlRouting, showControlOutputIds } from '../codegen/showControlRouting'
 import { asTransportDisplayLayout } from '../state/transportDisplay'
 import {
@@ -435,10 +439,8 @@ export const DISPLAY_RAM_BYTES_BY_NODE_TYPE: Record<string, number> = {
   // drew and repaints only when that changes. Hundreds of bytes rather than
   // the OLED's thousands, on fifty times the pixels.
   TransportDisplay: TFT_PANEL_RAM_BYTES,
-  // Until the LVGL heap estimator lands, retain at least the colour-panel
-  // driver's known fixed cost. Generation is blocked below, so this is never
-  // presented as a complete custom-runtime estimate.
-  Display: TFT_PANEL_RAM_BYTES,
+  // Variable draw buffers/widget caches and the shared heap are added below.
+  Display: CUSTOM_DISPLAY_PANEL_RAM_BYTES,
 }
 
 /**
@@ -459,10 +461,15 @@ export const DISPLAY_NODE_TYPES = new Set(
 )
 
 /** Internal RAM the displays present in `nodes` add to the sketch. */
-function displayRamBytes(nodes: StudioNode[]): number {
+function displayRamBytes(nodes: StudioNode[], documents?: DisplayDocumentRegistry): number {
   return nodes.reduce(
-    (sum, n) => sum + (DISPLAY_RAM_BYTES_BY_NODE_TYPE[n.data.nodeType] ?? 0),
-    0,
+    (sum, n) => {
+      if (n.data.nodeType !== 'Display') return sum + (DISPLAY_RAM_BYTES_BY_NODE_TYPE[n.data.nodeType] ?? 0)
+      const props = n.data.properties as Record<string, unknown>
+      return sum + customDisplayRamBytes(props, documents?.[String(props.displayId ?? n.id)])
+    },
+    // LVGL's built-in heap and the shared handler timestamp are emitted once.
+    nodes.some((n) => n.data.nodeType === 'Display') ? CUSTOM_DISPLAY_LVGL_HEAP_BYTES + 4 : 0,
   )
 }
 
@@ -535,7 +542,7 @@ export function estimateLedRefreshTime(nodes: StudioNode[], edges: StudioEdge[])
  * known-heavy simulation-node state. Operates on the graph passed in (like
  * the rest of this module) — it does not recurse into group subgraphs.
  */
-export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): FirmwareRamEstimate | null {
+export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[], displayDocuments?: DisplayDocumentRegistry): FirmwareRamEstimate | null {
   const outputs = ledDrivingOutputs(nodes)
   const stereoVuMeters = emittedStereoVuMeters(nodes, edges)
   if (outputs.length === 0 && stereoVuMeters.length === 0) return null
@@ -658,7 +665,7 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): F
 
   // Displays are sinks, so they are not in `reachable` and never will be —
   // they are walked *from*, not to. Count them over the whole graph instead.
-  const displayBytes = displayRamBytes(nodes)
+  const displayBytes = displayRamBytes(nodes, displayDocuments)
 
   const ledsArrayBytes = ledCount * 3
   const usesPsram = controllerSettings(nodes).usePsram
@@ -1199,6 +1206,7 @@ export interface GraphDiagnostic {
 }
 
 export interface GraphDiagnosticOptions {
+  displayDocuments?: DisplayDocumentRegistry
   selectedFqbn?: string
   /** Group subgraphs terminate at GroupOutput rather than MatrixOutput. */
   target?: 'matrix' | 'group'
@@ -2017,13 +2025,13 @@ export function buildGraphDiagnostics(
     })
   }
 
-  const ram = estimateFirmwareRam(nodes, edges)
-  if (matrixOutput && ram && !ram.usesPsram && ram.internalBytes > INTERNAL_RAM_WARN_BYTES) {
+  const ram = estimateFirmwareRam(nodes, edges, options.displayDocuments)
+  if (matrixOutput && ram && ram.internalBytes > INTERNAL_RAM_WARN_BYTES) {
     diagnostics.push({
       id: `${matrixOutput.id}-memory`, severity: 'warning', category: 'memory',
       title: 'Internal RAM estimate is high',
-      message: `Render buffers need roughly ${Math.round(ram.internalBytes / 1024)} KB before framework and network overhead.`,
-      fix: 'Choose a PSRAM-capable ESP32 board and enable Use PSRAM, or reduce matrix size and buffer-heavy nodes.',
+      message: `LED and display allocations need roughly ${Math.round(ram.internalBytes / 1024)} KB of internal RAM before other framework and network overhead.`,
+      fix: 'Reduce LED dimensions, buffer-heavy nodes or custom screens. PSRAM can hold LED render buffers; display buffers and the LVGL heap remain internal. Use the compile-capacity check to measure the selected board.',
       nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
     })
   }
@@ -2254,7 +2262,7 @@ export function buildGraphDiagnostics(
   return diagnostics
 }
 
-export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selectedFqbn = ''): ValidationResult {
+export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selectedFqbn = '', displayDocuments?: DisplayDocumentRegistry): ValidationResult {
   const errors: string[] = [], warnings: string[] = []
   if (nodes.length === 0) { errors.push('No nodes in graph'); return { errors, warnings } }
 
@@ -2317,10 +2325,10 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
 
   warnings.push(...findMirroredOutputMismatches(nodes, edges))
 
-  const ram = estimateFirmwareRam(nodes, edges)
-  if (ram && !ram.usesPsram && ram.internalBytes > INTERNAL_RAM_WARN_BYTES) {
+  const ram = estimateFirmwareRam(nodes, edges, displayDocuments)
+  if (ram && ram.internalBytes > INTERNAL_RAM_WARN_BYTES) {
     warnings.push(
-      `Estimated internal RAM for render buffers (~${Math.round(ram.internalBytes / 1024)} KB) is large for many boards — consider enabling MatrixOutput's "Use PSRAM" toggle if the selected board supports it`
+      `Estimated internal RAM for LED and display allocations (~${Math.round(ram.internalBytes / 1024)} KB) is large for many boards — reduce LED dimensions or custom screens and run a compile-capacity check. PSRAM moves LED render buffers only; display allocations remain internal`
     )
   }
 
