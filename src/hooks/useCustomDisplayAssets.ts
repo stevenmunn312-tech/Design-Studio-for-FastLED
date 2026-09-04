@@ -1,3 +1,5 @@
+import { playerControlGraph } from '../codegen/playerControlGraph'
+import { sdShowConnected } from '../utils/showUpload'
 import { showControlRouting } from '../codegen/showControlRouting'
 import { isPatternShow } from '../codegen/showGenerator'
 import { useEffect, useMemo, useState } from 'react'
@@ -52,13 +54,15 @@ export function useCustomDisplayAssets(nodes: StudioNode[], enabled: boolean, ed
       errors.push(...customDisplayResourceIssues(document).map((issue) => `${label}: ${issue.message}`))
       if (customDisplayAssetRequests(document).length > 0) targets.push({ nodeId: node.id, label, document })
     }
-    if (enabled && edges && isPatternShow(nodes, edges)) {
+    if (enabled && edges && sdShowConnected(nodes, edges)) {
+      errors.push(...playerControlGraph(nodes, edges, documents).errors)
+    } else if (enabled && edges && isPatternShow(nodes, edges)) {
       errors.push(...showControlRouting(nodes, edges, documents).errors)
     }
     if (targets.length > 0 && !trusted) {
       errors.push('Trust this project before preparing its display images for firmware.')
     }
-    return { targets, errors }
+    return { targets, errors: [...new Set(errors)] }
   }, [nodes, edges, documents, trusted, enabled])
   const [finished, setFinished] = useState<{ plan: typeof plan; revision: number; result: Result } | null>(null)
 

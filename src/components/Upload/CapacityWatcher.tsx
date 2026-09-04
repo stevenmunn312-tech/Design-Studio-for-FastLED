@@ -92,16 +92,17 @@ export default function CapacityWatcher() {
   // positions cannot affect.
   const codegenGraph = useCodegenGraph(nodes, edges)
   const customAssets = useCustomDisplayAssets(codegenGraph.nodes,
-    hasFrameInput && !isShow, codegenGraph.edges)
+    hasFrameInput || isShow, codegenGraph.edges)
   const capacityCode = useMemo(() => {
     const groups = getGroupRegistry()
+    if (customAssets.pending || customAssets.errors.length > 0) return null
     if (isShow) {
       return buildShowPlayerForMeasurement(
         codegenGraph.nodes, codegenGraph.edges, groups, selectedFqbn, psramSupported, projectName,
+        { displayDocuments: customAssets.documents, customDisplayAssets: customAssets.assets },
       )
     }
     if (!hasFrameInput) return null
-    if (customAssets.pending || customAssets.errors.length > 0) return null
     // Thumbnails are flash, and this is the thing that measures flash — leaving
     // them out understates a Pattern Browser build, which is exactly the build
     // most likely to be near the ceiling.

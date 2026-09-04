@@ -406,9 +406,11 @@ widget, font and image limits before Phase 7 is frozen.
   sketches and the IR; every producer runs once before its consumers and
   shared helper definitions are deduplicated across patterns and controls.
   Custom widget float/bool sources now join the IR as pre-pass samples, and
-  show widgets consume float/bool/string bindings. Time/status sources, nested
-  groups and the SD-player integration remain. The show's music-accessor table stays empty because a
-  show holds no track; scalar display bindings are supplied separately.
+  template widgets consume float/bool/string bindings. SD-player builds add
+  typed samples from the active Music Player. Time-dependent nodes, broader
+  structured status/frame values and nested groups remain open. The show's
+  music-accessor table stays empty because a show holds no track; scalar
+  display bindings are supplied separately.
 - [x] Add shared display setup/loop/global helpers for Segment Display and Info
   Display alongside the existing LED, HUB75, audio, and RTC helpers. Controller
   quirks and transport setup stay in their adapters rather than node emit
@@ -900,7 +902,7 @@ freeform widgets must reuse rather than rediscover.
   Without `set`, the last local Toggle/Slider/Dial value remains authoritative.
 - [x] Support arbitrary scalar/control wiring in normal sketches.
   The normal-sketch half is done; the show path is recorded below and the
-  SD-player path remains open. Previously
+  SD-player path is also recorded below. Previously
   a wired custom Display could not build at all — `cppGenerator.ts` had no
   `case 'Display'`, `TERMINAL_NODE_TYPES` could not name it (its ports are
   minted per document, not declared in `NODE_LIBRARY`), and validation
@@ -951,8 +953,8 @@ freeform widgets must reuse rather than rediscover.
   `generateCpp` emits their validated PROGMEM tables alongside the references.
   Regression tests cover trust changes, stale completion, retry, document-only
   edits and actual asset tables in the measured sketch.
-  `validateGraph.ts` now reserves the blanket custom-screen refusal for the
-  SD-player template. Generative shows use the typed widget path below.
+  `validateGraph.ts` now uses the typed widget resolvers for both template
+  generators, refusing individual unsupported bindings instead of all screens.
   Verified end-to-end, not just per-module: a real `generateCpp()` call with a
   wired Toggle/Text document produces `lv_init()` before any object/display
   creation, the Text widget reading a real upstream string variable, the
@@ -973,17 +975,35 @@ freeform widgets must reuse rather than rediscover.
   for shows and reject missing documents, stale/unsupported bindings, type
   errors and size mismatches before generation. Focused tests cover feedback,
   multiple screens, disabled outputs, real assets and document-only edits.
-  Time/status/group sources and wired colour/patternselect widget roles remain
-  explicitly unsupported; this is the bounded scalar path, not arbitrary code.
-- [ ] Embed the shared control-graph IR and custom widget runtime in SD-player
-  firmware. The show path above does not complete the music-player integration.
+  Time-dependent/group sources and wired colour/patternselect widget roles
+  remain explicitly unsupported; this is the bounded scalar path.
+- [x] Embed the shared control-graph IR and custom widget runtime in SD-player
+  firmware.
+  `templateControlRouting.ts` now serves shows and players; `playerControlGraph.ts`
+  adds typed samples from the active Music Player's song ports. Only referenced
+  values are sampled, with bounded copies of strings before a Next/Previous
+  action can reset the tag buffers. Widget outputs and GPIO feed the shared
+  scalar operations and per-node Player Controls debounce/repeat/merge logic;
+  the resulting bundle drives playback, track changes, volume, blackout and
+  brightness. Synchronized volume reads the normalized control setting so an
+  amplifier ceiling is not repeatedly multiplied through feedback. Widget
+  updates/refresh follow LED output and also run on the track-EOF return path;
+  serial file transfers continue to suspend rendering. Capacity, code view and
+  actual SD upload wait for trusted asset preparation and receive identical
+  document/byte snapshots. Tests cover collection and file-timeline players,
+  mixed fixed/custom screens, readouts, control chains and real asset tables.
+  Direct runtime wires to an SD player's LED output remain refused: route
+  controls through Player Controls to Music Player. Unsupported colour,
+  patternselect, time-dependent and group bindings remain explicit errors.
+  Firmware compilation and physical SPI/audio/display tests remain Phase 8
+  release evidence, not implied by these generator tests.
 - [x] Block unsupported generator bindings with an actionable diagnostic until
   the corresponding control-graph path exists. All three generators draw fixed
   displays. Normal sketches and shows accept fixed touch controls only with an
   actionable destination/layout; shows reject unsupported mapper and widget
-  inputs. SD-player builds refuse incomplete chains that never reach Music
-  Player, and still refuse custom widget documents. Read-only panels stay
-  valid. Deploy validation and live Graph Health report the same display/output
+  inputs. SD-player builds refuse unsupported widget/control bindings and
+  incomplete fixed-touch chains that never reach Music Player. Read-only panels
+  stay valid. Deploy validation and live Graph Health report the same display/output
   control failures.
 
 ### Phase 8 — tests, documentation, and release evidence

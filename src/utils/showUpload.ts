@@ -1,3 +1,12 @@
+import { playerControlGraph } from '../codegen/playerControlGraph'
+import type { DisplayDocumentRegistry } from '../state/displayDocument'
+import type { CustomDisplayAssets } from '../codegen/customDisplayShowCpp'
+
+export interface PlayerDisplayBuildOptions {
+  displayDocuments?: DisplayDocumentRegistry
+  customDisplayAssets?: CustomDisplayAssets
+}
+
 // Assembles the music-sync upload payload from the graph and the analysed songs:
 // the player sketch and the SD file list (/music/*.mp3 + /shows/*.show). Used
 // by the Build & Upload panel when an SDCard node is on the bench, and — via
@@ -15,7 +24,7 @@ import type { GroupRegistry } from '../state/graphEvaluator'
 import type { MusicEntry } from '../state/musicStore'
 import { bakeBrowserThumbnails } from './browserThumbnails'
 import { bakeDisplayArtworks } from './transportArtworks'
-import { generatePlayerSketch, playerConfigFromGraph, playerControlsFromGraph, playerParticlesFromGraph } from '../codegen/playerSketchGenerator'
+import { generatePlayerSketch, playerConfigFromGraph, playerParticlesFromGraph } from '../codegen/playerSketchGenerator'
 import { playerDisplaysFromGraph } from '../codegen/playerDisplays'
 import { buildPatternRenderers, patternRenderersUseAudio } from '../codegen/showGenerator'
 import { showFileToBinary } from '../codegen/performanceGenerator'
@@ -94,7 +103,7 @@ export function buildShowPlayer(
   nodes: StudioNode[],
   edges: Edge[],
   groups: GroupRegistry,
-  opts: { patternSet?: string[]; bakedAudio: boolean; preferredTrack: string; genericPlayer?: boolean; fqbn?: string; psramAllowed?: boolean; projectName?: string },
+  opts: { patternSet?: string[]; bakedAudio: boolean; preferredTrack: string; genericPlayer?: boolean; fqbn?: string; psramAllowed?: boolean; projectName?: string } & PlayerDisplayBuildOptions,
 ): string {
   // A collection (version 2) show carries its pattern group ids in patternSet;
   // compile those subgraphs into render_pN() so the player draws the user's own
@@ -117,16 +126,18 @@ export function buildShowPlayer(
   const decoderTap = patternRenderersUseAudio(renderers)
     || particleFx?.enabled === true
     || stereoVuMeters.length > 0
+  const controlGraph = playerControlGraph(nodes, edges, opts.displayDocuments)
   return generatePlayerSketch(playerConfigFromGraph(nodes, edges, opts.fqbn), renderers, {
     audioEnvelope: opts.bakedAudio && (!!renderers || stereoVuMeters.length > 0),
     decoderTap,
     preferredTrack: opts.preferredTrack,
     genericPlayer: opts.genericPlayer,
     psramAllowed: opts.psramAllowed,
-    controls: playerControlsFromGraph(nodes, edges),
+    controlGraph,
+    customDisplayAssets: opts.customDisplayAssets,
     // The panel on a finished build is fed by the player itself, so each wire
     // from Music Player is resolved to the expression that reads it on device.
-    displays: playerDisplaysFromGraph(nodes, edges),
+    displays: playerDisplaysFromGraph(nodes, edges, { controlSources: controlGraph.displaySources }),
     // Baked here rather than in the generator: baking evaluates patterns, and
     // only this side knows whether the workspace has been trusted. Without it
     // a Pattern Browser builds and says NO PATTERNS.
@@ -163,6 +174,7 @@ export function buildShowPlayerForMeasurement(
   fqbn = '',
   psramAllowed = false,
   projectName = '',
+  displayOptions: PlayerDisplayBuildOptions = {},
 ): string | null {
   if (!sdShowConnected(nodes, edges)) return null
   const { ids } = wiredPatternCollection(nodes, edges)
@@ -174,6 +186,7 @@ export function buildShowPlayerForMeasurement(
     fqbn,
     psramAllowed,
     projectName,
+    ...displayOptions,
   })
 }
 
@@ -187,7 +200,7 @@ export function buildShowPayload(
   edges: Edge[],
   entries: MusicEntry[],
   groups: GroupRegistry = {},
-  opts: { fqbn?: string; psramAllowed?: boolean; fqbnOpt?: string; projectName?: string } = {},
+  opts: { fqbn?: string; psramAllowed?: boolean; fqbnOpt?: string; projectName?: string } & PlayerDisplayBuildOptions = {},
 ): { player: string; files: ShowUploadFile[]; fqbnOpt?: string } | null {
   const done = entries.filter((e) => e.status === 'done' && e.show)
   const genericPlayer = musicPlayerConnected(nodes, edges)
@@ -213,6 +226,8 @@ export function buildShowPayload(
     fqbn: opts.fqbn,
     psramAllowed: opts.psramAllowed,
     projectName: opts.projectName,
+    displayDocuments: opts.displayDocuments,
+    customDisplayAssets: opts.customDisplayAssets,
   })
 
   const files: ShowUploadFile[] = []

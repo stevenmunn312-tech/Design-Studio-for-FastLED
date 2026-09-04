@@ -42,6 +42,7 @@ vi.mock('../../../utils/showUpload', () => ({
       && nodes.some((node) => node.data.nodeType === 'PerformanceGenerator')),
   readySongCount: vi.fn(() => 0),
   buildShowPayload: vi.fn(() => null),
+  buildShowPlayerForMeasurement: vi.fn(() => '// player sketch'),
 }))
 
 vi.mock('../../../utils/validateGraph', () => ({
@@ -480,6 +481,8 @@ describe('MatrixOutputDeployPopup SD-show upload', () => {
   beforeEach(() => {
     localStorage.clear()
     setSdShowGraph()
+    useGraphStore.setState({ displayDocuments: {}, trusted: true })
+    vi.mocked(bakeCustomDisplayAssets).mockReset()
     useMusicStore.setState({ entries: [] })
     useProjectStore.setState({ projects: [], currentProjectId: '', recentProjectIds: [] })
     useStreamStore.setState({ streaming: false, fps: 0, error: '', start: vi.fn(), stop: vi.fn() })
@@ -495,6 +498,35 @@ describe('MatrixOutputDeployPopup SD-show upload', () => {
       openCodeView: vi.fn(), closeDeployPopup: vi.fn(),
       runUpload: vi.fn(), runLastUpload: vi.fn(), runShowUpload: vi.fn(), exportIno: vi.fn(),
     })
+  })
+
+  it('waits for custom artwork and forwards the prepared document and bytes to SD upload', async () => {
+    const showUpload = await import('../../../utils/showUpload')
+    vi.mocked(showUpload.readySongCount).mockReturnValue(1)
+    vi.mocked(showUpload.buildShowPayload).mockClear()
+    const document = createDisplayDocument('panel', 240, 320)
+    document.widgets = [{ id: 'art', type: 'Image/Icon', label: 'Art',
+      bounds: { x: 0, y: 0, width: 2, height: 1 }, properties: { assetId: 'icon:power', tint: true } }]
+    const baked = [{ ...customDisplayAssetRequests(document)[0], data: new Uint8Array([1, 2]) }]
+    let resolve!: (value: BakedCustomDisplayAssets) => void
+    vi.mocked(bakeCustomDisplayAssets).mockReturnValue(new Promise((done) => { resolve = done }))
+    useGraphStore.setState({
+      nodes: [...useGraphStore.getState().nodes, {
+        id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
+        data: { label: 'Screen', nodeType: 'Display', category: 'output',
+          properties: { displayId: 'panel', partId: 'st7789v-xpt2046-touch-240x320' }, inputs: [], outputs: [] },
+      }] as never[], displayDocuments: { panel: document },
+    })
+    const { getByRole } = render(<MatrixOutputDeployPopup />)
+    expect((getByRole('button', { name: /Upload show/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect(showUpload.buildShowPayload).not.toHaveBeenCalled()
+    await act(async () => resolve({ assets: baked, issues: [] }))
+    expect((getByRole('button', { name: /Upload show/ }) as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(getByRole('button', { name: /Upload show/ }))
+    await waitFor(() => expect(showUpload.buildShowPayload).toHaveBeenCalledWith(
+      expect.anything(), expect.anything(), expect.anything(), expect.anything(),
+      expect.objectContaining({ displayDocuments: { panel: document }, customDisplayAssets: { screen: baked } }),
+    ))
   })
 
   it('drops the separate show-upload button', async () => {

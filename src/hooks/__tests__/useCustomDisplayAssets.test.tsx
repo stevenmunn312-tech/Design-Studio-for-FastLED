@@ -142,14 +142,16 @@ describe('firmware display asset preparation', () => {
     expect(bakeCustomDisplayAssets).not.toHaveBeenCalled()
   })
 
-  it('reports unsupported show wiring before baking and responds to wire-only edits', async () => {
-    const showNodes = [...nodes, ...['PatternCollection', 'PatternSlideshow', 'MatrixOutput', 'TextValue'].map((nodeType) => ({
+  it.each(['show', 'player'])('reports unsupported %s wiring before baking and responds to wire-only edits', async (generator) => {
+    const masterType = generator === 'player' ? 'PatternMaster' : 'PatternSlideshow'
+    const showNodes = [...nodes, ...['PatternCollection', masterType, 'MatrixOutput', 'TextValue',
+      ...(generator === 'player' ? ['SDCard', 'Amplifier'] : [])].map((nodeType) => ({
       ...nodes[0], id: nodeType, data: { ...nodes[0].data, nodeType, properties: { patternIds: ['p'] } },
     }))]
     showNodes[0] = { ...nodes[0], data: { ...nodes[0].data, properties: { displayId: 'document', tftRotation: '90' } } }
     const edges = [
-      { id: '1', source: 'PatternCollection', sourceHandle: 'patternset', target: 'PatternSlideshow', targetHandle: 'patternset' },
-      { id: '2', source: 'PatternSlideshow', sourceHandle: 'frame', target: 'MatrixOutput', targetHandle: 'frame' },
+      { id: '1', source: 'PatternCollection', sourceHandle: 'patternset', target: masterType, targetHandle: 'patternset' },
+      { id: '2', source: masterType, sourceHandle: 'frame', target: 'MatrixOutput', targetHandle: 'frame' },
       { id: '3', source: 'TextValue', sourceHandle: 'text', target: 'screen', targetHandle: 'widget:deleted:value' },
     ] as StudioEdge[]
     vi.mocked(bakeCustomDisplayAssets).mockResolvedValue({ assets: [], issues: [] })

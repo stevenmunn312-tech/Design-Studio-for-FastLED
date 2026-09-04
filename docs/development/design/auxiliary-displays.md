@@ -180,7 +180,7 @@ ordinary widgets, and generated firmware never embeds the preview screenshot.
 External source-art working folders and their manifests are build-time handoff
 inputs; neither a saved workspace nor generated C++ may depend on those paths.
 
-Normal-sketch and generative-show upload, export, code view and capacity checks prepare custom
+Normal-sketch, generative-show and SD-player build consumers prepare custom
 display assets through `useCustomDisplayAssets` before calling the generator.
 Only documents owned by root display nodes are baked, and image fetching waits
 for workspace trust. Both build consumers share in-flight and successful bakes
@@ -191,11 +191,13 @@ measures a placeholder screen while the real artwork is pending or failed.
 The capacity readout distinguishes image preparation from an empty graph and
 surfaces the named failure; its review action opens the upload controls. A
 preparation attempt publishes bytes only when every display has succeeded.
-`generateCpp` and `generateShowSketch` receive finished bytes keyed by node id
-and emit validated PROGMEM tables before the LVGL objects reference them. Show
-preparation also validates widget bindings before fetching or generating;
+`generateCpp`, `generateShowSketch` and the SD-player builder receive finished
+bytes keyed by node id and emit validated PROGMEM tables before the LVGL
+objects reference them. Template preparation also validates widget bindings
+before fetching or generating;
 missing documents, stale handles and unsupported wires produce named errors.
-SD-player custom-screen generation remains gated until its bindings are implemented.
+SD upload checks the document/trust snapshot again after any confirmation
+dialog; it does not pair a newly edited screen with older rasterizations.
 
 ### The persisted document
 
@@ -476,8 +478,8 @@ touch control can drive real graph logic rather than only the hardcoded
 transport actions. Until that path exists for a given generator, an unsupported
 binding blocks with a diagnostic naming what is missing.
 
-The SD player still resolves display inputs against Music Player's own output
-ports — title, artist, elapsed and the rest. Generative shows additionally
+The SD player resolves runtime sources against Music Player's own output
+ports — title, artist, elapsed and the rest. Both template generators
 compile bounded scalar paths through `codegen/controlGraph.ts`. Its typed
 instructions keep literal values separate from references, visit dependencies
 before consumers, sample each GPIO producer once, and reject cycles, missing
@@ -517,8 +519,9 @@ shows route a Show Status panel's blackout and brightness through the existing
 Player Controls. Play/pause, previous, next and volume still require an SD
 player; validation rejects music-only layouts wired solely to LED outputs.
 
-`showControlRouting.ts` resolves the show's bounded control path for generation
-and validation together. It follows Controls In chains and resolves scalar
+`templateControlRouting.ts` resolves the bounded control path for generation
+and validation together, with `showControlRouting.ts` selecting the slideshow
+outputs and `playerControlGraph.ts` selecting the active Music Player. It follows Controls In chains and resolves scalar
 inputs through the IR, including Button Input, Button Bank, Pot Input and
 Encoder Input using the same GPIO emitter as normal sketches. Fixed TFT text,
 numeric and boolean readout inputs use the same IR and can share a producer
@@ -565,8 +568,22 @@ Disabled custom screens contribute false/zero and perform no touch or LVGL work.
 Custom float/bool/string inputs support the same scalar nodes as the control
 mapper; wired colour and pattern-selection roles remain refused. Asset
 preparation and capacity measurement include actual baked image data. The
-SD-player integration must reuse this resolver and ordering when it adds the
-player's typed runtime sources; removing its validation gate is insufficient.
+SD player uses this same resolver and ordering. Only referenced Music Player
+song ports are sampled; strings are copied into bounded buffers before a
+transport action can reset their source tags. A synchronized volume slider
+reads `playerVolume`, the normalized control setting before the amplifier cap,
+so feedback cannot repeatedly attenuate the value. Fixed touch panels publish
+the same bundle as widget/GPIO-fed Player Controls; each mapper keeps its own
+debounce/repeat settings and downstream absolute values override upstream ones.
+
+The bundle is applied to the player's one transport before audio servicing and
+LED rendering. Custom widgets and fixed displays publish after LED output,
+including on the generic player's EOF branch before returning. Serial file
+transfers still bypass all display/control work. Collection and file-timeline
+players use the same integration. Direct Enabled/Brightness/Controls wires to
+the player's LED output remain refused; those controls must reach Music Player
+through Player Controls. Firmware compilation and physical shared-SPI/audio
+performance evidence remain separate release gates.
 
 ## One surface, two transports
 

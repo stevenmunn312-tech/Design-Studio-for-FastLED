@@ -17,6 +17,15 @@ const edge = (source: string, sourceHandle: string, target: string, targetHandle
   ({ id: `${source}-${sourceHandle}-${target}-${targetHandle}`, source, sourceHandle, target, targetHandle }) as StudioEdge
 
 describe('typed control graph', () => {
+  it.each([true, false])('respects button polarity for pullup=%s in every shared emitter', (pullup) => {
+    const graph = createControlGraph([node('button', 'ButtonInput', { pin: 12, pullup }),
+      node('encoder', 'EncoderInput', { pinSW: 13, pullup })], [])
+    graph.resolve('button', 'pressed', 'bool')
+    graph.resolve('encoder', 'pressed', 'bool')
+    const cpp = controlGraphCpp(graph)
+    expect(cpp.setup).toContain(`  pinMode(12, ${pullup ? 'INPUT_PULLUP' : 'INPUT'});`)
+    for (const pin of [12, 13]) expect(cpp.loop.join('\n')).toContain(`digitalRead(${pin}) == ${pullup ? 'LOW' : 'HIGH'}`)
+  })
   it('keeps operation ports and numeric dependencies aligned with the node registry', () => {
     for (const [type, output] of Object.entries(SCALAR_CONTROL_NODES)) {
       const definition = NODE_LIBRARY.find((entry) => entry.type === type)!

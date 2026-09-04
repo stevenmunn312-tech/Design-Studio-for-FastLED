@@ -14,7 +14,7 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
   const v = (port: string) => `n_${id}_${port.replace(/[^a-zA-Z0-9_]/g, '_')}`
   const button = (port: string, pin: number, pullup: boolean) => {
     setup.push(`  pinMode(${pin}, ${pullup ? 'INPUT_PULLUP' : 'INPUT'});`)
-    loop.push(`  bool ${v(port)} = digitalRead(${pin}) == LOW;`)
+    loop.push(`  bool ${v(port)} = digitalRead(${pin}) == ${pullup ? 'LOW' : 'HIGH'};`)
     outputs[port] = 'bool'
   }
   switch (nodeType) {

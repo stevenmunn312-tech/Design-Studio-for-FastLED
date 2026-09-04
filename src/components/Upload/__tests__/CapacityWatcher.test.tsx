@@ -69,7 +69,7 @@ describe('CapacityWatcher', () => {
     expect(container.firstChild).toBeNull()
   })
 
-  it.each([false, true])('measures baked artwork and invalidates it on document-only edits (show: %s)', async (show) => {
+  it.each(['normal', 'show', 'player'])('measures baked artwork and invalidates it on document-only edits (%s)', async (generator) => {
     setGraph(true)
     const document = createDisplayDocument('screen-document')
     document.widgets = [{ id: 'art', type: 'Image/Icon', label: 'Art',
@@ -82,12 +82,14 @@ describe('CapacityWatcher', () => {
       }] as never[],
       displayDocuments: { [document.displayId]: document },
     })
-    if (show) {
+    if (generator !== 'normal') {
       const showNode = (id: string, nodeType: string, properties = {}) => ({
         ...pattern, id, data: { ...pattern.data, nodeType, properties },
       })
       useGraphStore.setState({
-        nodes: [...useGraphStore.getState().nodes, showNode('coll', 'PatternCollection', { patternIds: ['p'] }), showNode('show', 'PatternSlideshow')] as never[],
+        nodes: [...useGraphStore.getState().nodes, showNode('coll', 'PatternCollection', { patternIds: ['p'] }),
+          showNode('show', generator === 'player' ? 'PatternMaster' : 'PatternSlideshow'),
+          ...(generator === 'player' ? [showNode('sd', 'SDCard'), showNode('amp', 'Amplifier')] : [])] as never[],
         edges: [
           { id: 's1', source: 'coll', sourceHandle: 'patternset', target: 'show', targetHandle: 'patternset' },
           { id: 's2', source: 'show', sourceHandle: 'frame', target: 'matrix', targetHandle: 'frame' },
@@ -101,7 +103,8 @@ describe('CapacityWatcher', () => {
     expect(useCapacityStore.getState().target?.code).toBeNull()
     await waitFor(() => expect(useCapacityStore.getState().target?.code).toContain('_cdAsset_screen_0_map[] PROGMEM'))
     const originalCode = useCapacityStore.getState().target?.code
-    if (show) expect(originalCode).toContain('void renderPattern(')
+    if (generator === 'show') expect(originalCode).toContain('void renderPattern(')
+    if (generator === 'player') expect(originalCode).toContain('Music-Sync Player')
     expect(originalCode).toContain('.w = 24')
     const edited = { ...document, widgets: [{ ...document.widgets[0],
       bounds: { ...document.widgets[0].bounds, width: 32 } }] }

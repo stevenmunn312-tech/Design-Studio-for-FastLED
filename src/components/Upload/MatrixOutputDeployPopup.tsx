@@ -12,7 +12,7 @@ import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph, streamReceiverCapabilityNotes } from '../../codegen/streamReceiverGenerator'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
-import { readySongCount, buildShowPayload, sdShowConnected } from '../../utils/showUpload'
+import { readySongCount, buildShowPayload, buildShowPlayerForMeasurement, sdShowConnected } from '../../utils/showUpload'
 import { findPinConflicts, findMatrixLayoutErrors, findMirroredOutputMismatches, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowOutputFormErrors, findShowRequirementErrors } from '../../utils/validateGraph'
 import { summarizeCapacity } from '../../utils/capacityFormat'
 import { useCodegenGraph } from '../../utils/codegenGraph'
@@ -99,13 +99,16 @@ export default function MatrixOutputDeployPopup({
   // behind this popup doesn't re-run the sketch generator every frame.
   const codegenGraph = useCodegenGraph(nodes, edges)
   const customAssets = useCustomDisplayAssets(codegenGraph.nodes,
-    !hasSdShow, codegenGraph.edges)
+    true, codegenGraph.edges)
   function generateCurrentCode() {
     if (customAssets.pending || customAssets.errors.length > 0) return ''
     // A confirmation dialog may have been open while the document changed.
     if (customAssets.documents !== useGraphStore.getState().displayDocuments
       || customAssets.trusted !== useGraphStore.getState().trusted) return ''
     const groups = getGroupRegistry()
+    if (hasSdShow) return buildShowPlayerForMeasurement(codegenGraph.nodes, codegenGraph.edges, groups,
+      selectedFqbn, psramSupported, projectName,
+      { displayDocuments: customAssets.documents, customDisplayAssets: customAssets.assets }) ?? ''
     // Baked here rather than inside the generator: baking evaluates patterns,
     // and only this side knows whether the workspace has been trusted.
     const opts = {
@@ -126,7 +129,7 @@ export default function MatrixOutputDeployPopup({
       ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)
       : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
   }
-  const code = useMemo(generateCurrentCode, [codegenGraph, psramSupported, projectName,
+  const code = useMemo(generateCurrentCode, [codegenGraph, psramSupported, projectName, hasSdShow, selectedFqbn,
     customAssets.pending, customAssets.errors, customAssets.documents, customAssets.assets, customAssets.trusted])
 
   const portLabel = ports.find((p) => p.address === selectedPort)?.label ?? selectedPort
@@ -388,11 +391,17 @@ export default function MatrixOutputDeployPopup({
   function handleShowUpload() {
     void (async () => {
       if (!(await confirmUploadIfUntrusted())) return
+      // A trust dialog can outlive the document/asset snapshot it opened with.
+      if (customAssets.pending || customAssets.errors.length > 0
+        || customAssets.documents !== useGraphStore.getState().displayDocuments
+        || customAssets.trusted !== useGraphStore.getState().trusted) return
       const payload = buildShowPayload(nodes, edges, entries, getGroupRegistry(), {
         fqbn: selectedFqbn,
         psramAllowed: !!psramOptions,
         fqbnOpt: usePsram ? psramChoice?.opt : undefined,
         projectName,
+        displayDocuments: customAssets.documents,
+        customDisplayAssets: customAssets.assets,
       })
       if (payload) await offerValidationAfter('sd-show', runShowUpload(payload))
     })()

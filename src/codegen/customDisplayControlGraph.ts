@@ -11,7 +11,7 @@ import { customDisplayLvglOutputExpression, type CustomDisplayLvglEmit, type Cus
 /** Resolve against the document registry, never stale/copied node handles.
  * Widget outputs are samples independent of Set inputs, including feedback
  * crossing multiple displays. Validation and template codegen share this plan. */
-export function customDisplayControlPlan(nodes: StudioNode[], documents: DisplayDocumentRegistry = {}) {
+export function customDisplayControlPlan(nodes: StudioNode[], documents: DisplayDocumentRegistry = {}, generatorLabel = 'the show') {
   const errors: string[] = [], sources: ControlReference[] = [], sample: string[] = []
   const symbols = new Set<string>()
   const displays = nodes.filter((node) => node.data.nodeType === 'Display').flatMap((node) => {
@@ -36,7 +36,7 @@ export function customDisplayControlPlan(nodes: StudioNode[], documents: Display
     const enabled = node.data.properties.enabled !== false
     for (const port of ports.filter((port) => port.direction === 'output')) {
       if (port.dataType !== 'bool' && port.dataType !== 'float') {
-        errors.push(`${label}.${port.label}: this widget output is unsupported by the show control graph.`)
+        errors.push(`${label}.${port.label}: this widget output is unsupported by ${generatorLabel} control graph.`)
         continue
       }
       const reference = { nodeId: node.id, port: port.id, type: port.dataType }
@@ -50,17 +50,17 @@ export function customDisplayControlPlan(nodes: StudioNode[], documents: Display
   return { displays, errors, sources, sample }
 }
 
-export function bindCustomDisplayControls(plan: ReturnType<typeof customDisplayControlPlan>, graph: ReturnType<typeof createControlGraph>, edges: StudioEdge[]): void {
+export function bindCustomDisplayControls(plan: ReturnType<typeof customDisplayControlPlan>, graph: ReturnType<typeof createControlGraph>, edges: StudioEdge[], generatorLabel = 'the show'): void {
   for (const display of plan.displays) {
     for (const edge of edges.filter((edge) => edge.target === display.nodeId)) {
       const port = display.ports.find((port) => port.direction === 'input' && port.id === edge.targetHandle)
       if (!port || (port.dataType !== 'float' && port.dataType !== 'bool' && port.dataType !== 'string')) {
-        plan.errors.push(`${display.label}: the show cannot evaluate ${port?.label ?? edge.targetHandle}. Use a float, boolean or text widget binding supported by the control graph.`)
+        plan.errors.push(`${display.label}: ${generatorLabel} cannot evaluate ${port?.label ?? edge.targetHandle}. Use a float, boolean or text widget binding supported by the control graph.`)
         continue
       }
       const reference = graph.input(display.nodeId, port.id, port.dataType)
       if (!reference) {
-        plan.errors.push(`${display.label}.${port.label}: the show cannot evaluate this widget input. Use supported scalar nodes or build a normal sketch.`)
+        plan.errors.push(`${display.label}.${port.label}: ${generatorLabel} cannot evaluate this widget input. Use supported scalar nodes or build a normal sketch.`)
         continue
       }
       const bindings = display.bindings[port.widgetId] ?? (display.bindings[port.widgetId] = [])

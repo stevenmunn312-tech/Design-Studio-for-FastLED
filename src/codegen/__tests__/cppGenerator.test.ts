@@ -366,7 +366,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('pinMode(12, INPUT_PULLUP);')
     expect(cpp).toContain('pinMode(13, INPUT);')
     expect(cpp).toContain('digitalRead(12) == LOW')
-    expect(cpp).toContain('digitalRead(13) == LOW')
+    expect(cpp).toContain('digitalRead(13) == HIGH')
   })
 
   it('emits setup() pinModes for all three EncoderInput pins, honouring pullup', () => {

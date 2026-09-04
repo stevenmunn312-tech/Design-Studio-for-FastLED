@@ -346,18 +346,13 @@ describe('displays a build cannot drive', () => {
       .toEqual([])
   })
 
-  // The player sketch runs a fixed template built around the file it is
-  // holding, not a compiled graph, so it cannot resolve arbitrary widget
-  // wiring the way a normal sketch now can.
-  it('still refuses a custom display in a player build', () => {
+  it('requires the saved custom document for a player build', () => {
     const custom = node('custom', 'Display', { displayId: 'custom', partId: 'st7789v-xpt2046-touch-240x320' })
     const master = node('master', 'PatternMaster')
     const nodes = [out(), custom, master, node('sd', 'SDCard'), node('amp', 'Amplifier')]
     const issues = findDisplayGeneratorIssues(nodes, [edge('frame', 'master', 'frame', 'out', 'frame')])
     expect(issues.errors).toHaveLength(1)
-    expect(issues.errors[0]).toContain('custom widget document')
-    expect(issues.errors[0]).toContain('SD player build')
-    expect(issues.errors[0]).toContain('fixed Transport Display')
+    expect(issues.errors[0]).toContain('screen document is missing')
   })
 })
 

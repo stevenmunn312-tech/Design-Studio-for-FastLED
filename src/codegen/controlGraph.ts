@@ -32,6 +32,7 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
   const errors = new Set<string>()
   const done = new Set<string>(), visiting = new Set<string>()
   const symbols = new Map<string, string>()
+  const usedSamples = new Map<string, ControlReference>()
   const label = (id: string) => String(byId.get(id)?.data.label || id)
   const fail = (message: string): null => { errors.add(message); return null }
   const samples = new Map(sampledSources.map((source) => [JSON.stringify([source.nodeId, source.port]), source]))
@@ -57,7 +58,7 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
     if (symbols.has(symbol) && symbols.get(symbol) !== owner) return fail(`${label(nodeId)}: control identifiers collide after sanitization. Rename or recreate this node.`)
     symbols.set(symbol, owner)
     // Touch outputs depend on the pre-pass sample, never on a wired Set value.
-    if (sample) return reference
+    if (sample) { usedSamples.set(owner, reference); return reference }
     if (done.has(nodeId)) return reference
     if (visiting.has(nodeId)) return fail(`${label(nodeId)}: control graph contains an instantaneous cycle. Remove a feedback wire.`)
     if (visiting.size + done.size >= MAX_CONTROL_GRAPH_NODES) return fail(`Control graph exceeds ${MAX_CONTROL_GRAPH_NODES} nodes. Split or simplify its wiring.`)
@@ -91,7 +92,7 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
     const edge = incoming.get(`${nodeId}:${port}`)
     return edge ? resolve(edge.source, edge.sourceHandle ?? '', type) : null
   }
-  return { instructions, errors, resolve, input }
+  return { instructions, errors, resolve, input, usedSamples }
 }
 
 /** Emit each producer exactly once in dependency order. Values live for the

@@ -1,3 +1,10 @@
+import { controlGraphCpp } from './controlGraph'
+import type { PlayerControlGraph } from './playerControlGraph'
+import { playerControlApplyCpp } from './playerControlGraph'
+import { customDisplayShowCpp, type CustomDisplayAssets } from './customDisplayShowCpp'
+import { PLAYER_CONTROLS_CPP, playerControlsServiceCpp } from './playerControlsCpp'
+import { controlBundleVariable } from './templateControlRouting'
+import { DISPLAY_TEXT_CPP_HELPERS } from './displayTextCpp'
 // Generates the ESP32-S3 player sketch that:
 //   - plays MP3 from SD card via I2S
 //   - reads the companion .show file
@@ -335,6 +342,7 @@ export function generatePlayerSketch(
     thumbnails?: BrowserThumbnails; artworks?: TransportArtworks
     stereoVuMeters?: StereoVuEmit[]
     bootLabel?: string; deviceLabel?: string
+    controlGraph?: PlayerControlGraph; customDisplayAssets?: CustomDisplayAssets
   } = {},
 ): string {
   const raw = { ...DEFAULTS, ...cfg }
@@ -366,7 +374,13 @@ export function generatePlayerSketch(
   const startingAttenuation = DECODER_VOLUME_TABLE[Math.max(0, Math.min(21, c.maxVolume))]
   const decoderVolumeComp = `${startingAttenuation ? (64 / startingAttenuation).toFixed(4) : '1.0000'}f`
   const genericPlayer = collection && opts.genericPlayer === true
-  const controls = opts.controls ?? { bindings: {}, ...DEFAULT_CONTROL_SETTINGS }
+  const graphRouting = opts.controlGraph
+  if (graphRouting?.errors.length) throw new Error(graphRouting.errors.join('\n'))
+  const compiledGraph = graphRouting ? controlGraphCpp(graphRouting.graph) : null
+  const customDisplays = graphRouting ? customDisplayShowCpp(graphRouting.custom, opts.customDisplayAssets) : null
+  const graphShared = new Set([...(compiledGraph?.helpers ?? []), ...(customDisplays?.shared ?? []),
+    ...(graphRouting?.hasSongSources ? [DISPLAY_TEXT_CPP_HELPERS] : [])])
+  const controls = (graphRouting ? undefined : opts.controls) ?? { bindings: {}, ...DEFAULT_CONTROL_SETTINGS }
   const particleFx = opts.particleFx?.enabled ? opts.particleFx : null
   const displays = opts.displays ?? { info: [], segment: [], tft: [], unresolved: [] }
   const touchEmits: TftTouchEmit[] = displays.tft
@@ -376,7 +390,7 @@ export function generatePlayerSketch(
       layout: display.layout, enabled: display.enabled, touch: display.touch!,
     }))
   const controlEntries = Object.entries(controls.bindings) as Array<[PlayerControlAction, PlayerControlSource]>
-  const hasControls = controlEntries.length > 0 || touchEmits.length > 0
+  const hasControls = controlEntries.length > 0 || touchEmits.length > 0 || !!graphRouting?.bundle || !!graphRouting?.hasSongSources
   const reactiveAudio = bakedAudio || decoderTap
   const internalDac = c.audioOutput === 'internalDac'
   // A stale saved toggle must never put ESP32-only allocation calls into a
@@ -503,7 +517,7 @@ export function generatePlayerSketch(
     ? [
         ...renderers!.buffers.map(playerBufferDecl),
         '',
-        ...renderers!.helpers.flatMap((h) => [h, '']),
+        ...renderers!.helpers.filter((h) => !graphShared.has(h)).flatMap((h) => [h, '']),
         ...renderers!.functions.flatMap((fn) => [fn, '']),
       ].join('\n')
     : ''
@@ -688,7 +702,7 @@ void changePlayerTrack(int8_t direction) {
   playbackReady = startPlayback();
 }
 
-void servicePlayerControls() {
+${graphRouting ? '' : `void servicePlayerControls() {
   uint32_t now = millis();
 ${patternEncoder ? `  // Detents into the one selection the player owns.
   {
@@ -698,7 +712,7 @@ ${patternEncoder ? `  // Detents into the one selection the player owns.
 ` : ''}
 ${controlServiceLines}
 ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
-}
+}`}
 ` : ''
 
   /*
@@ -713,7 +727,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
   const hasInfoDisplays = displays.info.length > 0
   const hasSegmentDisplays = displays.segment.length > 0
   const hasTftDisplays = displays.tft.length > 0
-  const hasDisplays = hasInfoDisplays || hasSegmentDisplays || hasTftDisplays
+  const hasDisplays = hasInfoDisplays || hasSegmentDisplays || hasTftDisplays || !!graphRouting?.hasSongSources || !!customDisplays?.includes.length
 
   const browserEmits = displays.info
     .filter((display) => display.layout === 'Pattern Browser')
@@ -724,7 +738,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
   const playerArtworks = Object.values(opts.artworks ?? {})[0] ?? []
   const hasTftArtwork = displays.tft.some((display) => display.layout === 'Now Playing')
     && playerArtworks.length > 0
-  const hasPatternControls = controlEntries.some(([action]) =>
+  const hasPatternControls = !!graphRouting?.hasPatternControls || controlEntries.some(([action]) =>
     action === 'patternSelect' || action === 'patternPrevious'
     || action === 'patternNext' || action === 'patternConfirm')
   // The player cursor belongs to the player, not to whichever panel happens
@@ -840,7 +854,10 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
       : {}),
   }))
 
-  const displayHelpersCpp = [
+  const displayHelpersCpp = [...new Set([
+    ...graphShared,
+    ...(graphRouting ? [PLAYER_CONTROLS_CPP] : []),
+    ...(customDisplays?.helpers ?? []),
     hasStereoVu ? STEREO_VU_CPP_HELPERS : '',
     hasStereoVu ? stereoVuMeters.map(stereoVuGlobalCpp).join('\n') : '',
     hasDisplays ? PLAYER_SONG_INFO_CPP : '',
@@ -868,7 +885,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     touchEmits.length > 0 ? TFT_TOUCH_CPP_HELPERS : '',
     touchEmits.length > 0 ? touchEmits.map(tftTouchGlobalCpp).join('\n') : '',
     hasTftDisplays ? tftEmits.map(tftDisplayGlobalCpp).join('\n') : '',
-  ].filter(Boolean).join('\n')
+  ])].filter(Boolean).join('\n')
 
   const songOpen = (nameExpr: string) => (hasDisplays ? `songResetFromFile(${nameExpr});` : '')
 
@@ -883,6 +900,8 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
   // gated on there actually being an I2C device with pins to start it on.
   const i2cIncludeCpp = hasInfoDisplays ? '\n#include <Wire.h>' : ''
   const displaySetupCpp = [
+    ...(customDisplays?.setup ?? []),
+    ...(compiledGraph?.setup ?? []),
     ...(i2cDisplays.length > 0
       ? [`  Wire.begin(${i2cDisplays[0].sdaPin}, ${i2cDisplays[0].sclPin});  // I2C displays`]
       : []),
@@ -908,6 +927,19 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     ...tftEmits.flatMap(tftDisplayLoopCpp),
   ].join('\n')
 
+  const graphLoopCpp = graphRouting ? [
+    ...(customDisplays?.sample ?? []),
+    ...graphRouting.sample,
+    ...touchEmits.flatMap((touch) => [
+      `  PlayerControlsValue ${controlBundleVariable(touch.id)};`,
+      ...tftTouchServiceCpp(touch, { kind: 'bundle', variable: controlBundleVariable(touch.id) }),
+    ]),
+    ...(compiledGraph?.loop ?? []),
+    ...graphRouting.controls.flatMap(playerControlsServiceCpp),
+    ...playerControlApplyCpp(graphRouting.bundle, hasPatternSelection, PLAYER_SELECTION_STEM),
+  ].join('\n') : ''
+  const publishDisplaysCpp = graphRouting ? [displayLoopCpp, ...(customDisplays?.loop ?? [])].filter(Boolean).join('\n') : ''
+
   return `// Design Studio for FastLED — Music-Sync Player${collection ? ' (collection show)' : ''}
 // Generated by Design Studio for FastLED. Requires:
 //   - ESP32-audioI2S  (schreibfaul1/ESP32-audioI2S on GitHub)
@@ -932,6 +964,7 @@ ${overclockDefines}// The audio header MUST come before <FastLED.h>. FastLED shi
 #include <FastLED.h>
 ${isHub75 ? hub75IncludesCpp(hub75Hw!).join('\n') + '\n' : ''}#include <SD.h>
 #include <SPI.h>${i2cIncludeCpp}
+${customDisplays?.includes.filter((include) => include !== '#include <SPI.h>').join('\n') ?? ''}
 // Explicit FastLED-typed declarations keep the Arduino preprocessor from
 // inventing its own before <FastLED.h>, which breaks CRGB names. The
 // display structs are forward-declared here for the same reason: the
@@ -939,7 +972,7 @@ ${isHub75 ? hub75IncludesCpp(hub75Hw!).join('\n') + '\n' : ''}#include <SD.h>
 // defined, so a helper taking one by reference fails on a line nothing
 // in this generator wrote.
 ${[...fastLedDecls].join('\n')}
-${hasInfoDisplays ? INFO_DISPLAY_CPP_FORWARD + '\n' : ''}${hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasTftDisplays ? TFT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasPatternSelection ? PATTERN_SELECTION_CPP_FORWARD + '\n' : ''}${hasStereoVu ? STEREO_VU_CPP_FORWARD + '\n' : ''}
+${hasInfoDisplays ? INFO_DISPLAY_CPP_FORWARD + '\n' : ''}${hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasTftDisplays ? TFT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasPatternSelection ? PATTERN_SELECTION_CPP_FORWARD + '\n' : ''}${hasStereoVu ? STEREO_VU_CPP_FORWARD + '\n' : ''}${customDisplays?.forwards.join('\n') ?? ''}
 // ── Pin config ────────────────────────────────────────────────────────────────
 ${c.hasPrimaryLedOutput && !isHub75 ? `#define LED_DATA_PIN  ${c.ledDataPin}\n` : ''}${clockPinDefine}#define WIDTH         ${c.ledWidth}
 #define HEIGHT        ${c.ledHeight}
@@ -1849,7 +1882,7 @@ void loop() {
   if (provTransferring) return;
 
   sdRetryMount();
-${hasControls ? '  servicePlayerControls();\n' : ''}${displayLoopCpp ? displayLoopCpp + '\n' : ''}
+${graphRouting ? graphLoopCpp : `${hasControls ? '  servicePlayerControls();\n' : ''}${displayLoopCpp ? displayLoopCpp + '\n' : ''}`}
 
   // Heartbeat so a serial monitor can tell "still running, just quiet" apart
   // from "hung" — printed before audio.loop() so it keeps ticking even if
@@ -1873,6 +1906,7 @@ ${decoderTap ? '  updateDecoderAudio();  // drain PCM only after the decoder has
 ${genericPlayer ? `  if (GENERIC_PLAYER && audioEnded) {
     genericTrackIndex++;
     playbackReady = startPlayback();
+${publishDisplaysCpp}
     return;
   }
 ` : ''}
@@ -2108,6 +2142,7 @@ ${genericPlayer ? `  for (int i = 0; i < NUM_LEDS; i++) {
 ${stereoVuMeters.map(stereoVuLoopCpp).join('\n')}
   ${isHub75 ? hub75BlitRowsCpp(hub75Hw!).map((line) => line.replace(/^ {2}/, '')).join('\n  ') : ''}
   ${!isHub75 || hasStereoVu ? 'FastLED.show();' : ''}
+${publishDisplaysCpp}
   FastLED.delay(16);  // ~60 fps
 }
 `

@@ -40,7 +40,7 @@ describe('buildShowPlayer', () => {
 
     expect(sketch).toContain('pinMode(12, INPUT);')
     expect(sketch).toContain('digitalRead(12) == HIGH')
-    expect(sketch).toContain('now - changedAt >= 55')
+    expect(sketch).toContain('.update(n_pause_pressed, _pcNow_controls, false, 55u, 475u, 135u)')
     expect(sketch).toContain('audio.pauseResume()')
   })
 
