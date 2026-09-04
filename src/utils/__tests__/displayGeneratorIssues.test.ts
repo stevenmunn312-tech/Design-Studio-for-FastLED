@@ -73,6 +73,15 @@ describe('fixed touch output routing validation', () => {
     ])
   })
 
+  it('accepts shared scalar calculations for a show mapper and fixed screen', () => {
+    const nodes = [...show, out(), panel, controls, node('pot', 'PotInput'), node('map', 'MapRange'), node('format', 'FormatNumber')]
+    const edges = [...showEdges, ...chain, edge('pot-map', 'pot', 'value', 'map', 'value'),
+      edge('map-control', 'map', 'result', 'controls', 'brightness'),
+      edge('map-format', 'map', 'result', 'format', 'value'), edge('format-panel', 'format', 'text', 'panel', 'section')]
+    expect(findOutputRuntimeIssues(nodes, edges).errors).toEqual([])
+    expect(findDisplayGeneratorIssues(nodes, edges)).toEqual({ errors: [], warnings: [] })
+  })
+
   it('rejects cyclic mapper chains and invalid source handles', () => {
     const nodes = [...show, out(), controls, node('parent', 'PlayerControls')]
     const edges = [...showEdges, chain[1], edge('a', 'controls', 'controls', 'parent', 'controlsIn'),

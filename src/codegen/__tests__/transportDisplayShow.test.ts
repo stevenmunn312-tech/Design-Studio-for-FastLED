@@ -110,4 +110,56 @@ describe('fixed touch routing in generative shows', () => {
       edge('wave', 'value', 'pc', 'brightness'),
     ])).toThrow('cannot evaluate the wire feeding brightness')
   })
+
+  it('evaluates a shared scalar chain before its button mapper and fixed TFT readouts', () => {
+    const cpp = build([output(), panel(), node('pc', 'PlayerControls'), node('knob', 'PotInput', { pin: 33 }),
+      node('map', 'MapRange', { outMax: 2 }), node('compare', 'Compare', { b: 0.75 }),
+      node('format', 'FormatNumber', { decimals: 2 }), node('title', 'TextValue', { text: 'LIVE SHOW' })], [
+      edge('knob', 'value', 'map', 'value'), edge('map', 'result', 'compare', 'a'),
+      edge('compare', 'result', 'pc', 'ledToggle'), edge('map', 'result', 'pc', 'brightness'),
+      edge('pc', 'controls', 'out', 'controls'), edge('map', 'result', 'format', 'value'),
+      edge('format', 'text', 'touch-panel', 'section'), edge('title', 'text', 'touch-panel', 'patternName'),
+      edge('map', 'result', 'touch-panel', 'bpm'), edge('compare', 'result', 'touch-panel', 'outputEnabled'),
+    ])
+    const loop = cpp.slice(cpp.indexOf('void loop() {'))
+    expect(count(loop, 'analogRead(33)')).toBe(1)
+    expect(count(loop, 'float n_map_result =')).toBe(1)
+    expect(count(cpp, 'float mapFloat(')).toBe(1)
+    expect(cpp).toContain('static void _dsFormatNumber(')
+    expect(loop.indexOf('float n_map_result =')).toBeLessThan(loop.indexOf('bool n_compare_result ='))
+    expect(loop.indexOf('bool n_compare_result =')).toBeLessThan(loop.indexOf('PlayerControlsValue n_pc_controls;'))
+    expect(loop).toContain('n_pc_controls.brightness = constrain(n_map_result, 0.0f, 1.0f);')
+    expect(loop).toContain('char n_format_text[DS_TEXT_BYTES];')
+    const draw = loop.slice(loop.indexOf('FastLED.show();'))
+    expect(draw).toContain('n_format_text')
+    expect(draw).toContain('n_title_text')
+    expect(draw).toContain('n_compare_result')
+  })
+
+  it('emits scalar readouts even without a wired Controls bundle', () => {
+    const cpp = build([output(), panel(), node('value', 'Math', { a: 60, b: 60 })],
+      [edge('value', 'result', 'touch-panel', 'bpm')])
+    expect(cpp).toContain('float n_value_result = (60) + (60);')
+    expect(cpp).not.toContain('PlayerControlsValue')
+  })
+
+  it('deduplicates a mapping helper used by both a pattern and the root control graph', () => {
+    const patternGroups = { p: {
+      nodes: [node('pattern-map', 'MapRange'), node('plasma', 'Plasma'), node('go', 'GroupOutput')],
+      edges: [edge('pattern-map', 'result', 'plasma', 'speed'), edge('plasma', 'frame', 'go', 'frame')],
+    } }
+    const cpp = generateShowSketch([...show, output(), panel(), node('root-map', 'MapRange')],
+      [...frameEdges, edge('root-map', 'result', 'touch-panel', 'bpm')], patternGroups)
+    expect(cpp).toContain('n_pattern_map_result = mapFloat(')
+    expect(cpp).toContain('n_root_map_result = mapFloat(')
+    expect(count(cpp, 'float mapFloat(')).toBe(1)
+  })
+
+  it('refuses scalar cycles and unsupported TFT bindings directly at generation', () => {
+    expect(() => build([output(), panel(), node('a', 'Math'), node('b', 'Math')], [
+      edge('a', 'result', 'b', 'a'), edge('b', 'result', 'a', 'a'), edge('a', 'result', 'touch-panel', 'bpm'),
+    ])).toThrow('instantaneous cycle')
+    expect(() => build([output(), panel(), node('wave', 'Wave')],
+      [edge('wave', 'result', 'touch-panel', 'bpm')])).toThrow('unsupported')
+  })
 })

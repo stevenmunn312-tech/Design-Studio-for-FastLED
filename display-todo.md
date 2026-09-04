@@ -398,14 +398,16 @@ widget, font and image limits before Phase 7 is frozen.
 - [ ] Build a small control-graph IR for float/bool/string/status paths. Reuse
   it from normal sketch, generative-show, and SD-player generators instead of
   copy/pasting display-specific graph evaluation into each generator.
-  The copy/paste this guards against was avoided when the show controller
-  learned to draw: it reuses `playerDisplaysFromGraph` rather than growing a
-  second resolver, parameterised by the expression table the generator hands
-  in. The show's table is empty on purpose — it has no music to answer for — so
-  every song wire is reported unresolved through the one path. That is still
-  the interim stage the IR replaces, not the IR: it resolves a wire to a named
-  accessor and cannot evaluate a Wave or a Math node. What it does settle is
-  the shape, which is a table per generator rather than a branch per generator.
+  The first typed IR is implemented in `codegen/controlGraph.ts`: bounded
+  dependency traversal, typed literals/references, shared GPIO sampling and
+  explicit cycle/type/source errors. Show Player Controls inputs and fixed TFT
+  readouts can use Math, Lerp, Clamp, MapRange, Sin, Cos, Compare, TextValue and
+  FormatNumber. `scalarControlCpp.ts` owns those emitters for both normal
+  sketches and the IR; every producer runs once before its consumers and
+  shared helper definitions are deduplicated across patterns and controls.
+  Widget sources, time/status sources, nested groups and the SD-player
+  integration remain. The show's music-accessor table stays empty because a
+  show holds no track; scalar display bindings are supplied separately.
 - [x] Add shared display setup/loop/global helpers for Segment Display and Info
   Display alongside the existing LED, HUB75, audio, and RTC helpers. Controller
   quirks and transport setup stay in their adapters rather than node emit

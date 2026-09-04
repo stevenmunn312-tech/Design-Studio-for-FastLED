@@ -60,6 +60,7 @@ import {
 } from './stereoVuMeterCpp'
 import { masterShowClockLoopCpp, type MasterSpeedEmit } from './masterSpeedCpp'
 import { controlBundleVariable, showControlRouting, type ShowControlRouting } from './showControlRouting'
+import { controlGraphCpp } from './controlGraph'
 import { PLAYER_CONTROLS_CPP, playerControlsServiceCpp, ledOutputLatchGlobalCpp, ledOutputLatchCpp } from './playerControlsCpp'
 import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp } from './ledOutputRuntimeCpp'
 import {
@@ -388,7 +389,7 @@ function showDisplaysCpp(
 ): ShowDisplayEmission {
   const displays = playerDisplaysFromGraph(
     nodes as never, edges as never,
-    { expressions: SHOW_DISPLAY_EXPRESSIONS, transportTouch: false, kinds: ['slideshow'], controlTouchIds: controls.touchIds },
+    { expressions: SHOW_DISPLAY_EXPRESSIONS, transportTouch: false, kinds: ['slideshow'], controlTouchIds: controls.touchIds, controlSources: controls.displaySources },
   )
   const hasInfo = displays.info.length > 0
   const hasSegment = displays.segment.length > 0
@@ -674,6 +675,7 @@ export function generateShowSketch(
   // Resolve them against the controller template rather than the pattern walk.
   const controls = showControlRouting(nodes, edges)
   if (controls.errors.length > 0) throw new Error(controls.errors.join('\n'))
+  const controlGraph = controlGraphCpp(controls.graph)
   const displays = showDisplaysCpp(nodes, edges, renderers.count, opts, controls)
   const outputRuntime = (outputId: string, array: string, count: string): string[] => {
     if (!controls.outputs.has(outputId)) return []
@@ -770,7 +772,9 @@ export function generateShowSketch(
     L.push('')
   }
   if (transitions) { L.push(transitionHelperCpp(info.transitionIds)); L.push('') }
-  for (const h of renderers.helpers) { L.push(h); L.push('') }
+  // A pattern and a root control chain may both need mapFloat; the shared
+  // emitter gives them identical helpers, emitted once at file scope.
+  for (const h of new Set([...renderers.helpers, ...controlGraph.helpers])) { L.push(h); L.push('') }
 
   if (multiOutput) {
     for (const route of routes) {
@@ -844,7 +848,7 @@ export function generateShowSketch(
   L.push(info.seed ? `  random16_set_seed(${info.seed}u);` : '  randomSeed(analogRead(A0));')
   if (audio) L.push('  setupAudio();')
   for (const line of displays.setup) L.push(line)
-  L.push(...new Set([...controls.inputs.values()].flatMap((input) => input.setup)))
+  L.push(...controlGraph.setup)
   for (let step = 1; step <= 6; step++) {
     for (const line of infoDisplayStartupStageBatchCpp(displays.info, step)) L.push(line)
   }
@@ -865,7 +869,7 @@ export function generateShowSketch(
     : '(cur + 1 + random8(PATTERN_COUNT - 1)) % PATTERN_COUNT'
   L.push('void loop() {')
   L.push(...displays.sample)
-  for (const input of controls.inputs.values()) L.push(...input.loop)
+  L.push(...controlGraph.loop)
   for (const control of controls.controls) L.push(...playerControlsServiceCpp(control))
   for (const [id, variable] of controls.outputs) L.push(...ledOutputLatchCpp({ id: safeId(id), controls: variable }))
   if (audio) L.push('  updateAudio();   // refresh audio band levels once per frame')

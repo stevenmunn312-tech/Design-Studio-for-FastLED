@@ -1666,7 +1666,7 @@ export function findDisplayGeneratorIssues(
         fix: 'the Music Player this build plays from',
       }
     for (const issue of playerDisplaysFromGraph(
-      nodes as never, edges as never, { expressions: template.expressions, kinds: template.kinds },
+      nodes as never, edges as never, { expressions: template.expressions, kinds: template.kinds, controlSources: showControls?.displaySources },
     ).unresolved) {
       const display = nodes.find((node) => node.id === issue.display)
       // A simple panel has one content input, so name it as one thing rather

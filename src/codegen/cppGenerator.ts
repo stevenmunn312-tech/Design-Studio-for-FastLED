@@ -25,10 +25,11 @@ import {
   MIC_MAX_GAIN,
 } from '../audio/micAnalysis'
 import { inputClampRange, bypassPort, CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, CORRECTION_OPTIONS, SPI_CHIPSETS, HUB75_CHIPSET, resolveNodeScalarExpressions } from '../state/nodeLibrary'
+import { scalarControlCpp, MAP_FLOAT_CPP } from './scalarControlCpp'
 import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
 import { isNodeFormulaValid } from '../state/formulaLang'
 import {
-  DISPLAY_TEXT_CPP_HELPERS, textValueCpp, formatNumberCpp, formatDateTimeCpp,
+  DISPLAY_TEXT_CPP_HELPERS, formatDateTimeCpp,
 } from './displayTextCpp'
 import {
   SEGMENT_DISPLAY_CPP_HELPERS, SEGMENT_DISPLAY_CPP_FORWARD, segmentDisplayGlobalCpp, segmentDisplaySetupCpp,
@@ -83,7 +84,7 @@ import {
   oledRotationCommands, asOledRotation, asOledAddress, OLED_CONTROLLERS,
 } from '../state/oledSurface'
 import { partById } from '../state/partCatalogue'
-import { displayString, normalizeNumberFormat, asDateTimeTextMode } from '../state/displayText'
+import { asDateTimeTextMode } from '../state/displayText'
 import { particleRadius } from '../state/particleScale'
 import { buildXYTable, rotatePoint, tileRotationAt } from '../state/xyLayout'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette, type RGB } from '../state/customPalette'
@@ -2017,6 +2018,14 @@ export function generateCpp(
       }
     }
 
+    const scalar = scalarControlCpp(type, id, p, (port, fallback) => f(port, port, fallback))
+    if (scalar) {
+      scalar.loop.forEach(ln)
+      needsMapFloat[0] ||= scalar.needsMapFloat
+      needsDisplayText.v ||= scalar.needsDisplayText
+      return
+    }
+
     switch (type) {
       case 'TimeNode':
         needsT.v = true
@@ -2038,47 +2047,6 @@ export function generateCpp(
         else ln(`  float ${v('out')} = ${opts.groupInputExprs?.[role] ?? role};`)
         break
       }
-
-      // Bundled binary math — `mathOp` picks the operator. Keep in sync with the
-      // `Math` case in graphEvaluator.ts.
-      case 'Math': {
-        const op = String(p.mathOp ?? 'add')
-        const idn = op === 'multiply' || op === 'divide' ? 1 : 0
-        const a = f('a', 'a', idn), b = f('b', 'b', idn)
-        let expr: string
-        switch (op) {
-          case 'subtract': expr = `(${a}) - (${b})`; break
-          case 'multiply': expr = `(${a}) * (${b})`; break
-          case 'divide':   expr = `((${b}) == 0.0f ? 0.0f : (${a}) / (${b}))`; break
-          case 'min':      expr = `min((float)(${a}), (float)(${b}))`; break
-          case 'max':      expr = `max((float)(${a}), (float)(${b}))`; break
-          case 'add':
-          default:         expr = `(${a}) + (${b})`; break
-        }
-        ln(`  float ${v('result')} = ${expr};`)
-        break
-      }
-
-      case 'Lerp':
-        ln(`  float ${v('result')} = (${f('a', 'a', 0)}) + ((${f('b', 'b', 1)}) - (${f('a', 'a', 0)})) * (${f('t', 't', 0.5)});`)
-        break
-
-      case 'Clamp':
-        ln(`  float ${v('result')} = constrain(${f('value', 'value', 0)}, ${f('min', 'min', 0)}, ${f('max', 'max', 1)});`)
-        break
-
-      case 'MapRange':
-        needsMapFloat[0] = true
-        ln(`  float ${v('result')} = mapFloat(${f('value', 'value', 0)}, ${f('inMin', 'inMin', 0)}, ${f('inMax', 'inMax', 1)}, ${f('outMin', 'outMin', 0)}, ${f('outMax', 'outMax', 1)});`)
-        break
-
-      case 'Sin':
-        ln(`  float ${v('result')} = sin((${f('x', 'x', 0)}) * TWO_PI);`)
-        break
-
-      case 'Cos':
-        ln(`  float ${v('result')} = cos((${f('x', 'x', 0)}) * TWO_PI);`)
-        break
 
       case 'Wave': {
         needsT.v = true
@@ -5292,29 +5260,6 @@ export function generateCpp(
         break
       }
 
-      case 'Compare': {
-        const a = f('a', 'a', 0), b2 = f('b', 'b', 0.5)
-        ln(`  bool ${v('result')} = (${a}) > (${b2});`)
-        break
-      }
-
-      // ── Text ──────────────────────────────────────────────────────────
-      // Buffers and snprintf, never Arduino String: a display refreshed from
-      // loop() would otherwise reallocate once per LED frame. The formatting
-      // itself lives in codegen/displayTextCpp.ts, generated from the same
-      // state/displayText.ts the evaluator uses.
-      case 'TextValue': {
-        needsDisplayText.v = true
-        ln(textValueCpp(v('text'), displayString(p.text ?? '')))
-        break
-      }
-
-      case 'FormatNumber': {
-        needsDisplayText.v = true
-        for (const line of formatNumberCpp(v('text'), f('value', 'value', 0), normalizeNumberFormat(p))) ln(line)
-        break
-      }
-
       case 'FormatDateTime': {
         needsDisplayText.v = true
         const dtUp = incoming.get(`${node.id}:dateTime`)
@@ -6992,10 +6937,7 @@ export function generateCpp(
   }
 
   if (needsMapFloat[0]) {
-    lines.push(`float mapFloat(float x, float inMin, float inMax, float outMin, float outMax) {`)
-    lines.push(`  if (inMax == inMin) return outMin;`)
-    lines.push(`  return outMin + (x - inMin) * (outMax - outMin) / (inMax - inMin);`)
-    lines.push(`}`)
+    lines.push(MAP_FLOAT_CPP)
     lines.push(``)
   }
 

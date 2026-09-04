@@ -474,17 +474,22 @@ touch control can drive real graph logic rather than only the hardcoded
 transport actions. Until that path exists for a given generator, an unsupported
 binding blocks with a diagnostic naming what is missing.
 
-Both template generators are at that interim stage now. They resolve a
-display's inputs against the Music Player's own output ports — title, artist,
-elapsed and the rest — and collect anything wired from another source as
-unresolved. That is deliberately narrower than the IR: it covers the case a
-finished build actually has, which is a panel reporting what the firmware is
-doing, and it does not pretend to evaluate a Wave or a Math node inside a
-template that has no graph in it. The IR replaces it rather than being layered
-on top.
+The SD player still resolves display inputs against Music Player's own output
+ports — title, artist, elapsed and the rest. Generative shows additionally
+compile bounded scalar paths through `codegen/controlGraph.ts`. Its typed
+instructions keep literal values separate from references, visit dependencies
+before consumers, sample each GPIO producer once, and reject cycles, missing
+or unsupported sources, type mismatches and identifier collisions. A control
+graph is limited to 256 nodes. Unreachable nodes are not emitted.
+
+Math, Lerp, Clamp, MapRange, Sin, Cos, Compare, TextValue and FormatNumber use
+`scalarControlCpp.ts` in both the normal sketch and control IR. Numeric property
+resolution, wired clamping and bounded string formatting retain the existing
+rules. This slice has no time-dependent nodes, arbitrary scripts, nested groups
+or custom widget sources. Those paths stay refused until explicitly supported.
 
 One walk serves both, in `codegen/playerDisplays.ts`, parameterised by the
-expression table the generator hands it. That table is the whole difference.
+expression table the generator hands it and optional typed control bindings.
 The SD player's names the accessors that read the file it is holding. The show
 controller's, `SHOW_DISPLAY_EXPRESSIONS`, is **empty**, and the emptiness is the
 statement: a generative show rotates patterns and holds no music, so there is
@@ -510,22 +515,26 @@ Player Controls. Play/pause, previous, next and volume still require an SD
 player; validation rejects music-only layouts wired solely to LED outputs.
 
 `showControlRouting.ts` resolves the show's bounded control path for generation
-and validation together. It follows Controls In chains and accepts direct
-Button Input, Button Bank, Pot Input and Encoder Input sources using the same
-GPIO emitter as normal sketches. Bundle merging, edge timing and output
+and validation together. It follows Controls In chains and resolves scalar
+inputs through the IR, including Button Input, Button Bank, Pot Input and
+Encoder Input using the same GPIO emitter as normal sketches. Fixed TFT text,
+numeric and boolean readout inputs use the same IR and can share a producer
+with a control mapper. Bundle merging, edge timing and output
 latches use `playerControlsCpp.ts`; no second transport or touch hit test is
 introduced. Unsupported mapper wires and cyclic chains fail before emission.
 Only outputs actually rendered by the slideshow count as destinations.
 
-The show samples each routed panel once before controls and rendering, then
+The show samples each routed panel once, evaluates the scalar graph before
+control mappers and rendering, then
 applies each latch after output routing and before shipping the LEDs. Each
 physical array owns its blackout and dimming; HUB75 uses its brightness
 register. Display painting remains after LED output. A Diagnostics panel
 samples regardless of wiring, an unwired panel remains read-only, and a
 disabled panel contributes no touch intent. Show Status does not yet read back
 its output's latch. Scalar Enabled/Brightness wires and arbitrary widget logic
-remain outside the fixed show template until the shared control-graph IR is
-embedded. Deploy validation and Graph Health name these unsupported bindings.
+remain outside this slice, as does a wired panel Enabled input (its value must
+also govern touch sampling). Deploy validation and Graph Health name these
+unsupported bindings.
 
 Which generator a graph would *actually* build with therefore has to be exact.
 `selectedGenerator` mirrors the upload path's order, and both arms of
@@ -534,10 +543,10 @@ the **player** sketch, and the same graph without a card builds an ordinary
 one. Neither mattered while every generator but the normal one refused displays
 outright. Both do now that all three draw.
 
-The control-graph IR is built once and reused by all three generators. The
-alternative — display-specific graph evaluation copy-pasted into each — is how
-the generators drift apart, and the drift shows up as a display that reads
-correctly in a normal sketch and wrongly in a show.
+The SD-player and custom-widget integrations must reuse this IR and its shared
+emitters. They must also supply typed runtime sources and sample widget outputs
+before resolving any graph-authoritative inputs; removing the custom-display
+validation gate alone does not provide that behavior.
 
 ## One surface, two transports
 

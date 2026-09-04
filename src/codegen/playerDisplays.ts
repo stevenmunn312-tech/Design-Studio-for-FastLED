@@ -216,6 +216,8 @@ export const SHOW_DISPLAY_EXPRESSIONS: Record<string, string> = {}
 
 /** What a template generator can answer for, and what it can act on. */
 export interface TemplateDisplayOptions {
+  /** Typed control-graph expressions prepared by the template, by consumer port. */
+  controlSources?: ReadonlyMap<string, string>
   /**
    * Music Player output handle -> the C++ expression that reads it here.
    *
@@ -374,7 +376,8 @@ export function playerDisplaysFromGraph(
       for (const port of ['title', 'artist', 'elapsedSec', 'durationSec', 'progress',
         'playing', 'volume', 'patternName', 'patternIndex', 'patternCount',
         'section', 'bpm', 'beat', 'outputEnabled', 'brightness', 'enabled']) {
-        const expression = resolvePort(node.id, port, edges, byId, unresolved, expressions)
+        const expression = options.controlSources?.get(`${node.id}:${port}`)
+          ?? resolvePort(node.id, port, edges, byId, unresolved, expressions)
         if (expression) sources[port] = expression
       }
       tft.push({

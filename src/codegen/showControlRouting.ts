@@ -1,11 +1,12 @@
 // The fixed show's supported control path. This is deliberately bounded to
-// PlayerControls, GPIO sources and fixed touch panels; arbitrary widget/control
-// graphs still need the separate control-graph IR. Validation uses this same
+// PlayerControls, the scalar control IR and fixed touch panels. Widget source
+// bindings are a separate integration. Validation uses this same
 // resolver so no accepted wire can disappear during emission.
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { partById } from '../state/partCatalogue'
 import { normalizeButtonEdgeSettings } from '../state/transportBridge'
-import { controlInputCpp, type ControlInputEmission } from './controlInputCpp'
+import { createControlGraph, controlReferenceCpp } from './controlGraph'
+import { NODE_LIBRARY } from '../state/nodeLibrary'
 import { PLAYER_CONTROL_BUTTONS, type PlayerControlsEmit } from './playerControlsCpp'
 
 const safeId = (id: string) => id.replace(/[^a-zA-Z0-9_]/g, '_')
@@ -24,7 +25,8 @@ export function showControlRouting(nodes: StudioNode[], edges: StudioEdge[]) {
   const byId = new Map(nodes.map((n) => [n.id, n]))
   const incoming = new Map(edges.map((e) => [`${e.target}:${e.targetHandle}`, e]))
   const touchIds = new Set<string>()
-  const inputs = new Map<string, ControlInputEmission>()
+  const graph = createControlGraph(nodes, edges)
+  const displaySources = new Map<string, string>()
   const controls: PlayerControlsEmit[] = []
   const outputs = new Map<string, string>()
   const errors = new Set<string>()
@@ -32,20 +34,18 @@ export function showControlRouting(nodes: StudioNode[], edges: StudioEdge[]) {
   const label = (id: string) => byId.get(id)?.data.label || id
   const unsupported = (id: string, port: string) => errors.add(
     `${label(id)}: a generated show controller cannot evaluate the wire feeding ${port}. `
-    + 'Use a fixed Transport Display or Player Controls with direct buttons, potentiometers or encoders, or build a normal sketch for arbitrary control logic.',
+    + 'Use supported scalar nodes with buttons, potentiometers or encoders, or build a normal sketch for other control logic.',
   )
 
   const sourceExpr = (target: StudioNode, port: string, type: 'bool' | 'float'): string | null => {
     const edge = incoming.get(`${target.id}:${port}`)
     if (!edge) return null
-    const source = byId.get(edge.source)
-    const emit = source && controlInputCpp(source.data.nodeType, safeId(source.id), source.data.properties)
-    if (!source || !emit || emit.outputs[edge.sourceHandle ?? ''] !== type) {
+    const reference = graph.input(target.id, port, type)
+    if (!reference) {
       unsupported(target.id, port)
       return null
     }
-    inputs.set(source.id, emit)
-    return `n_${safeId(source.id)}_${safeId(edge.sourceHandle!)}`
+    return controlReferenceCpp(reference)
   }
 
   const visit = (edge: StudioEdge): string | null => {
@@ -95,7 +95,31 @@ export function showControlRouting(nodes: StudioNode[], edges: StudioEdge[]) {
     const variable = visit(edge)
     if (variable) outputs.set(id, variable)
   }
-  return { touchIds, inputs, controls, outputs, errors: [...errors] }
+  for (const node of nodes.filter((n) => n.data.nodeType === 'TransportDisplay')) {
+    // Read the library's typed ports, including graphs loaded without copied
+    // instance metadata. Pattern selection remains the template's own cursor.
+    const ports = NODE_LIBRARY.find((def) => def.type === node.data.nodeType)!.inputs
+    for (const port of ports) {
+      if (!incoming.has(`${node.id}:${port.id}`) || port.dataType === 'patternselect') continue
+      if (port.id === 'enabled') {
+        errors.add(`${label(node.id)}: a generated show cannot yet apply a wired Enabled value to touch sampling. Use the panel's Enabled setting.`)
+        continue
+      }
+      if (port.dataType !== 'float' && port.dataType !== 'bool' && port.dataType !== 'string') continue
+      const reference = graph.input(node.id, port.id, port.dataType)
+      if (reference) displaySources.set(`${node.id}:${port.id}`, controlReferenceCpp(reference))
+      else unsupported(node.id, port.id)
+    }
+  }
+  // Keep the consumer in the headline and retain the typed cause (cycle,
+  // invalid handle, limits) for an actionable error from either entry point.
+  const issues = [...errors]
+  if (graph.errors.size) {
+    const detail = [...graph.errors].join(' ')
+    if (issues.length) issues[0] += ` ${detail}`
+    else issues.push(detail)
+  }
+  return { touchIds, graph, displaySources, controls, outputs, errors: issues }
 }
 
 export type ShowControlRouting = ReturnType<typeof showControlRouting>
