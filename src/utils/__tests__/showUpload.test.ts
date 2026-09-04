@@ -77,8 +77,11 @@ describe('buildShowPlayer', () => {
     expect(sketch).toContain('musicTrackAt(')
     expect(sketch).toContain('No playable MP3 found on the card')
     expect(sketch).toContain('musicDumpCard();')
-    expect(sketch).toContain('audioFadeTarget')
-    expect(sketch).toContain('leds[i].nscale8')
+    // Solid Color requests no audio analysis; fading it from missing band
+    // levels used to emit uncompilable C++ (or would keep the output black).
+    expect(sketch).not.toContain('audioFadeTarget')
+    expect(sketch).not.toContain('_audioBass')
+    expect(sketch).toContain('void render_p0(uint32_t ms)')
   })
 
   it('compiles collection audio against the decoder tap even without a baked envelope', () => {

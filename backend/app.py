@@ -241,6 +241,11 @@ _FBUILD_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "FastLED"
 # ESP32-audioI2S. Vendored the same way as FastLED, but lazily — only the
 # Player build path needs it, so it's not fetched for every ordinary compile.
 _FBUILD_AUDIO_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "ESP32-audioI2S"
+# Arduino uses its own immutable cache, so fbuild's optional-library staging
+# cannot hide Audio.h underneath an Arduino compile. Never replace user libs.
+_ARDUINO_AUDIO_LIB_DIR = _DATA_DIR / ".arduino-libraries" / "ESP32-audioI2S"
+_PLAYER_AUDIO_VERSION = "3.0.12"
+_arduino_audio_lock = threading.Lock()
 _FBUILD_ESP_DMX_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "esp_dmx"
 # HUB75 scan-panel output (docs/development/design/hub75-output.md) — FastLED
 # has no native HUB75 driver, so a HUB75 MatrixOutput route needs this DMA
@@ -741,8 +746,8 @@ def _parse_fqbn(fqbn: str) -> tuple[str, str | None]:
     """`"esp32:esp32:esp32s3:PSRAM=opi"` -> `("esp32:esp32:esp32s3", "opi")`."""
     parts = fqbn.split(":")
     base = ":".join(parts[:3])
-    opt = parts[3] if len(parts) > 3 else None
-    psram_id = _FQBN_PSRAM_VALUES.get(opt.split("=", 1)[1]) if opt and "=" in opt else None
+    options = dict(option.split("=", 1) for option in parts[3].split(",") if "=" in option) if len(parts) > 3 else {}
+    psram_id = _FQBN_PSRAM_VALUES.get(options.get("PSRAM"))
     return base, psram_id
 
 
@@ -1078,6 +1083,33 @@ def _patch_fastled_samd51_build() -> None:
 _fbuild_audio_lib_ready = False
 
 
+def _clone_player_audio_lib(library_dir):
+    library_dir.parent.mkdir(parents=True, exist_ok=True)
+    if library_dir.exists():
+        _remove_build_cache_tree(library_dir)
+    return (yield from _run_phase(
+        "vendor ESP32-audioI2S",
+        ["git", "clone", "--progress", "--branch", _PLAYER_AUDIO_VERSION, "--depth", "1",
+         "https://github.com/schreibfaul1/ESP32-audioI2S.git", str(library_dir)],
+    ))
+
+
+def _ensure_arduino_audio_lib():
+    """Use the same pinned player API even when the user's Arduino lib is old."""
+    with _arduino_audio_lock:
+        marker = _ARDUINO_AUDIO_LIB_DIR / ".fls-version"
+        header = _ARDUINO_AUDIO_LIB_DIR / "src" / "Audio.h"
+        if header.is_file() and marker.is_file() and marker.read_text(encoding="utf-8") == _PLAYER_AUDIO_VERSION:
+            return 0
+        yield f"\n=== vendoring ESP32-audioI2S {_PLAYER_AUDIO_VERSION} for Arduino (first Player build only) ===\n"
+        rc = yield from _clone_player_audio_lib(_ARDUINO_AUDIO_LIB_DIR)
+        if rc != 0 or not header.is_file():
+            yield "[error] failed to prepare the pinned Arduino player audio library\n"
+            return rc or -1
+        marker.write_text(_PLAYER_AUDIO_VERSION, encoding="utf-8")
+        return 0
+
+
 def _ensure_fbuild_audio_lib():
     """Vendor ESP32-audioI2S (schreibfaul1/ESP32-audioI2S), same rationale as
     `_ensure_fbuild_project`'s FastLED vendoring — fbuild 2.4.0's `lib_deps`
@@ -1094,30 +1126,17 @@ def _ensure_fbuild_audio_lib():
         _fbuild_audio_lib_ready = True
         return
     yield "\n=== vendoring ESP32-audioI2S (first run only) ===\n"
-    _FBUILD_AUDIO_LIB_DIR.parent.mkdir(parents=True, exist_ok=True)
     # Replaces a `-nopsram` fork checkout if one is cached. That fork is built
     # for a classic ESP32 with no PSRAM; this player targets an ESP32-S3 with
     # it, which is what upstream v3 wants.
     #
     # Pinned to 3.0.12, NOT the default branch: the library is rewritten often
     # enough that tracking its head carries no stability guarantee.
-    if _FBUILD_AUDIO_LIB_DIR.exists():
-        # Not a bare rmtree: a previous vendoring left a .git behind, and git's
-        # pack files are read-only, which on Windows makes rmtree raise
-        # PermissionError. Raised here it escapes mid-stream from a generator
-        # inside a StreamingResponse, so the upload stops dead after the
-        # "vendoring" line with nothing said. That is what
-        # `_remove_build_cache_tree` is for, and the FastLED cache already used
-        # it — this path never had a replacement exercised on Windows.
-        _remove_build_cache_tree(_FBUILD_AUDIO_LIB_DIR)
-    rc = yield from _run_phase(
-        "vendor ESP32-audioI2S",
-        ["git", "clone", "--progress", "--branch", "3.0.12", "--depth", "1",
-         "https://github.com/schreibfaul1/ESP32-audioI2S.git", str(_FBUILD_AUDIO_LIB_DIR)],
-    )
+    rc = yield from _clone_player_audio_lib(_FBUILD_AUDIO_LIB_DIR)
     if rc != 0:
         yield "[error] failed to vendor ESP32-audioI2S — the Player build below will fail on Audio.h\n"
-    _fbuild_audio_lib_ready = True
+    _fbuild_audio_lib_ready = rc == 0
+    return rc
 
 
 _fbuild_esp_dmx_lib_ready = False
@@ -1379,6 +1398,12 @@ def _sketch_workspace(name: str, ino: str):
     the cache costs a slow build; sharing the directory would cost a wrong one,
     and a second build waiting for the first would take just as long as the cold
     build it was trying to avoid."""
+    if "#include <Audio.h>" in ino:
+        # Arduino CLI 1.5.1 can reuse the sketch object after --library selects
+        # a different Audio.h, linking old method signatures against the new
+        # library. Tie source identity to the pinned API without discarding
+        # the expensive library cache on every build.
+        ino = f"// FLS-PLAYER-AUDIO: {_PLAYER_AUDIO_VERSION}\n{ino}"
     lock = _sketch_dir_lock(name)
     if lock.acquire(blocking=False):
         try:
@@ -1640,6 +1665,12 @@ def _compile_upload(label, sketch_dir, fqbn, port):
         if rc != 0:
             return rc, "compile"
     compile_args = _ARDUINO_BASE + ["compile", "-v", "--fqbn", fqbn]
+    uses_audio = any("#include <Audio.h>" in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
+    if uses_audio:
+        rc = yield from _ensure_arduino_audio_lib()
+        if rc != 0:
+            return rc, "compile"
+        compile_args += ["--library", str(_ARDUINO_AUDIO_LIB_DIR)]
     if uses_lvgl:
         # The sketch directory is already on Arduino's include path. This flag
         # makes every separately compiled LVGL translation unit include the
@@ -1852,6 +1883,81 @@ def _drain_compile(gen):
         return lines, stop.value
 
 
+def _fbuild_lvgl_archive_command(lines, env, toolchain_root=None):
+    """Recognize only fbuild's Windows LVGL archiver spawn failure.
+
+    fbuild 2.5.22 passes every object on the command line (library_compiler.rs,
+    archive_objects), exceeding CreateProcess's limit for LVGL 9.5.0. Restrict
+    recovery to existing objects in this environment and an installed fbuild
+    toolchain; compiler diagnostics must never become arbitrary commands.
+    """
+    root = _FBUILD_PROJECT_DIR.resolve()
+    library = (root / ".fbuild" / "build" / env / "release" / "lib" / "lvgl").resolve()
+    if not library.is_relative_to(root):
+        return None
+    cache = (toolchain_root or Path.home() / ".fbuild").resolve()
+    marker = "local library 'lvgl' failed to compile: failed to spawn "
+    for line in lines:
+        if marker not in line or "os error 206" not in line:
+            continue
+        try:
+            args, _ = json.JSONDecoder().raw_decode(line.split(marker, 1)[1])
+            if not isinstance(args, list) or len(args) < 4 or not all(isinstance(arg, str) for arg in args):
+                continue
+            ar = Path(args[0]).resolve()
+            if not ar.is_relative_to(cache) or "toolchains" not in ar.parts or not ar.is_file():
+                continue
+            if not re.fullmatch(r"[a-zA-Z0-9_-]+-ar\.exe", ar.name) or args[1] != "rcs":
+                continue
+            archive = (root / args[2]).resolve()
+            objects = [(root / arg).resolve() for arg in args[3:]]
+            if archive != library / "liblvgl.a" or not objects:
+                continue
+            if any(obj.parent != library / "obj" or obj.suffix != ".o" or not obj.is_file() for obj in objects):
+                continue
+            return ar, archive, objects
+        except (ValueError, OSError, TypeError):
+            continue
+    return None
+
+
+def _recover_fbuild_lvgl_archive(lines, env):
+    if platform.system() != "Windows":
+        return False
+    command = _fbuild_lvgl_archive_command(lines, env)
+    if command is None:
+        return False
+    ar, archive, objects = command
+    response = archive.parent / "lvgl-objects.rsp"
+    # GCC response files accept quoted forward-slash paths, including spaces.
+    response.write_text("\n".join(f'"{obj.as_posix()}"' for obj in objects) + "\n", encoding="utf-8")
+    yield "\n  [build] Archiving LVGL with a response file for the Windows command-length limit.\n"
+    rc = yield from _run_phase("archive LVGL", [str(ar), "rcs", str(archive), f"@{response}"], cwd=_FBUILD_PROJECT_DIR)
+    return rc == 0
+
+
+def _run_fbuild_compile(label, env, sink):
+    """Stream compilation, deferring its failure status until recovery is tried.
+
+    The upload UI treats any nonzero phase-exit marker as a final error. Keep
+    the diagnostics visible but don't report a recoverable archive attempt as
+    the outcome of the whole upload.
+    """
+    phase_label = f"{label} · compile"
+    phase = _run_phase(phase_label, [_FBUILD_BIN, "build", "-e", env, "-v", "--no-timestamp"],
+                       sink=sink, cwd=_FBUILD_PROJECT_DIR)
+    deferred = []
+    try:
+        while True:
+            line = next(phase)
+            if line.startswith(f"[{phase_label} exit code:") and not line.startswith(f"[{phase_label} exit code: 0 "):
+                deferred.append(line)
+            else:
+                yield line
+    except StopIteration as stop:
+        return stop.value, deferred
+
+
 @_reports_total_time
 def _compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None, usb_cdc=False):
     """fbuild-engine counterpart to `_compile_upload` — same (rc, phase)
@@ -1894,6 +2000,8 @@ def _compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None, usb_cdc=False)
         return -1, "busy"
     try:
         yield from _ensure_fbuild_project()
+        if "#include <Audio.h>" in ino:
+            yield from _ensure_fbuild_audio_lib()
         if "#include <esp_dmx.h>" in ino:
             yield from _ensure_fbuild_esp_dmx_lib()
         if "#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>" in ino:
@@ -1909,10 +2017,16 @@ def _compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None, usb_cdc=False)
         compile_lines = []
         with _fbuild_libraries_for_sketch(ino):
             _write_fbuild_main(ino)
-            rc = yield from _run_phase(
-                f"{label} · compile", [_FBUILD_BIN, "build", "-e", env, "-v", "--no-timestamp"],
-                sink=compile_lines, cwd=_FBUILD_PROJECT_DIR,
-            )
+            rc, deferred = yield from _run_fbuild_compile(label, env, compile_lines)
+            if rc != 0 and not _build_was_cancelled() and (yield from _recover_fbuild_lvgl_archive(compile_lines, env)):
+                # fbuild reuses the now-current archive and completes its own
+                # link, capacity report and binary generation. Retry once only.
+                rc = yield from _run_phase(
+                    f"{label} · compile", [_FBUILD_BIN, "build", "-e", env, "-v", "--no-timestamp"],
+                    sink=compile_lines, cwd=_FBUILD_PROJECT_DIR,
+                )
+            else:
+                yield from deferred
         if rc != 0:
             if _looks_like_overflow(compile_lines):
                 yield (
@@ -3369,8 +3483,6 @@ async def upload_show(
         are different programs that happen to be built by the same helper."""
         use_port = port if target_port is None else target_port
         if engine == "fbuild":
-            if label.startswith("Player"):
-                yield from _ensure_fbuild_audio_lib()
             return (yield from _compile_upload_fbuild(label, ino, fqbn, use_port, flash_mb, usb_cdc))
         with _sketch_workspace(label.split()[0].lower(), ino) as sketch_dir:
             return (yield from _compile_upload(label, sketch_dir, fqbn, use_port))

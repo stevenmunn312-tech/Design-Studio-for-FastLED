@@ -76,7 +76,7 @@ import {
   customDisplayPanelGlobalCpp, customDisplayPanelHelpersCpp, customDisplayPanelSetupCpp, customDisplayPanelFromProps,
   type CustomDisplayPanelEmit,
 } from './customDisplayPanelCpp'
-import { parseDisplayWidgetPortId, type DisplayWidgetPortDataType } from '../state/displayRegistry'
+import { displayDocumentPorts, parseDisplayWidgetPortId } from '../state/displayRegistry'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import type { BakedCustomDisplayAsset } from '../state/customDisplayResources'
 import { customDisplayAssetsCpp } from './customDisplayAssetsCpp'
@@ -1670,7 +1670,10 @@ export function generateCpp(
     return true
   }
 
-  const sorted = topoSort(live, edges)
+  // Custom widget outputs are sampled before evaluation; their input wires
+  // publish after evaluation. Treating both as one graph vertex invents a
+  // cycle for ordinary slider -> Math -> readout/set wiring on the same panel.
+  const sorted = topoSort(live, edges.filter((edge) => nodeMap.get(edge.target)?.data.nodeType !== 'Display'))
 
   /*
    * The node feeding the output used to fill its own `buf_` and then have the
@@ -1848,6 +1851,8 @@ export function generateCpp(
     })
 
   const loopLines: string[] = []
+  const customDisplaySamples: string[] = []
+  const customDisplayPublication: string[] = []
   // pinMode(...) calls contributed by hardware-input nodes, emitted in setup().
   // A Set so two nodes reading the same pin don't emit it twice.
   const pinSetupLines = new Set<string>()
@@ -5184,6 +5189,7 @@ export function generateCpp(
         const displayId = String(p.displayId ?? node.id)
         const document = opts.displayDocuments?.[displayId]
         if (!document) break
+        const ports = displayDocumentPorts(document)
 
         // A widget input's C++ expression, dispatched by the port's own data
         // type. `patternselect` has no representation here on purpose: a
@@ -5200,7 +5206,7 @@ export function generateCpp(
         }
 
         const bindingsByWidget: Record<string, CustomDisplayLvglBinding[]> = {}
-        for (const port of (node.data.inputs as { id: string; dataType?: DisplayWidgetPortDataType }[] | undefined) ?? []) {
+        for (const port of ports.inputs) {
           const parsed = parseDisplayWidgetPortId(port.id)
           if (!parsed) continue
           const expr = widgetInputExpr(incoming.get(`${node.id}:${port.id}`), port.dataType)
@@ -5214,23 +5220,28 @@ export function generateCpp(
         }
         customDisplays.push(custom)
         needsDisplayText.v = true
-        for (const line of customDisplayLvglLoopCpp(custom)) ln(line)
+        customDisplayPublication.push(...customDisplayLvglLoopCpp(custom))
 
         // Every widget output role becomes an ordinary declared node output —
         // the same `n_<id>_<port>` convention any other node's output uses —
         // so downstream wiring (an LED output's Controls input, another
         // widget, anything) reads it through the existing generic mechanism
         // rather than a Display-specific special case at every consumer.
-        for (const port of (node.data.outputs as { id: string; dataType?: DisplayWidgetPortDataType }[] | undefined) ?? []) {
+        for (const port of ports.outputs) {
           const parsed = parseDisplayWidgetPortId(port.id)
           if (!parsed) continue
           const expr = customDisplayLvglOutputExpression(custom, parsed.widgetId)
           if (expr === null) continue
           const cppType = port.dataType === 'bool' ? 'bool' : 'float'
-          ln(`  ${cppType} ${v(safeId(port.id))} = ${expr};`)
+          const name = v(safeId(port.id))
+          // Native output passes need the same snapshot in each separately
+          // scoped render function, even if an earlier pass publishes a set.
+          if (nativeMultiRender) globalLines.push(`static ${cppType} ${name};`)
+          customDisplaySamples.push(`  ${nativeMultiRender ? '' : `${cppType} `}${name} = ${expr};`)
         }
 
         const panel = customDisplayPanelFromProps(id, p)
+        panel.manualTouch = true
         customDisplayPanels.push(panel)
         setupLines.push(...customDisplayPanelSetupCpp(panel), ...customDisplayLvglSetupCpp(custom))
         break
@@ -6707,6 +6718,7 @@ export function generateCpp(
 
   // Emit all node snippets first to collect needsMapFloat and needsT flags
   for (const node of sorted) emit(node)
+  loopLines.push(...customDisplayPublication)
 
   const lines: string[] = []
 
@@ -7146,6 +7158,10 @@ export function generateCpp(
   if (emitEngine) lines.push(`  updateAudio();`)
   if (needsDs3231) lines.push(`  _rtcHandleSerialSet();`)
   if (needsT.v) lines.push(...masterClockLoopCpp(masterSpeedEmit))
+  for (const panel of customDisplayPanels) {
+    if (panel.touch) lines.push(`  lv_indev_read(_cdIndev_${panel.id});`)
+  }
+  lines.push(...customDisplaySamples)
   if (nativeMultiRender) {
     renderPasses.forEach((pass, index) => {
       const call = `renderOutputPass<${index}, ${pass.width}, ${pass.height}>(${needsT.v ? 't' : '0.0f'})`
@@ -7156,12 +7172,12 @@ export function generateCpp(
     lines.push(...loopLines)
     if (needsT.v) lines.push(...masterSpeedUpdateCpp(masterSpeedEmit))
   }
-  // Bounded by its own wall-clock gate, so a fast LED loop cannot over-service
-  // it and a slow one still redraws promptly.
-  if (customDisplays.length > 0) lines.push(customDisplayLvglTimingLoopCpp())
   if (multipleOutputs || stereoVuMeters.length > 0 || !sorted.some((n) => n.data.nodeType === 'MatrixOutput')) {
     lines.push(`  FastLED.show();`)
   }
+  // Bounded by its own wall-clock gate, so a fast LED loop cannot over-service
+  // it and a slow one still redraws promptly.
+  if (customDisplays.length > 0) lines.push(customDisplayLvglTimingLoopCpp())
   lines.push(`  FastLED.delay(16);  // ~60 fps`)
   lines.push(`}`)
 

@@ -9,6 +9,18 @@ const SHOW_EDGE = [{ source: 'pg', target: 'mo', sourceHandle: 'frame', targetHa
 const generator = { id: 'pg', data: { nodeType: 'PerformanceGenerator', properties: {} } }
 
 describe('playerSketchGenerator', () => {
+  it.each([
+    { audioEnvelope: false, decoderTap: false, fades: false },
+    { audioEnvelope: true, decoderTap: false, fades: true },
+    { audioEnvelope: false, decoderTap: true, fades: true },
+  ])('only fades generic collections with audio analysis (%j)', ({ audioEnvelope, decoderTap, fades }) => {
+    const renderers = { buffers: [], helpers: [], functions: ['void render_p0(uint32_t ms) { (void)ms; }'], count: 1, params: [] }
+    const sketch = generatePlayerSketch({}, renderers, { genericPlayer: true, audioEnvelope, decoderTap })
+    expect(sketch.includes('float audioEnergy = constrain((_audioBass')).toBe(fades)
+    expect(sketch.includes('constrain(audioFade * 255.0f')).toBe(fades)
+    expect(/float\s+_audioBass\b/.test(sketch)).toBe(fades)
+  })
+
   describe('Player Controls', () => {
     it('traces a chained controls bundle and lets the downstream mapper override an action', () => {
       const nodes = [

@@ -96,6 +96,9 @@ build/architecture overview aimed at contributors.
     input whose plugged-in source picks the layout, the three-tier split that
     leaves touch panels for later, and what an unwired panel says instead of
     sitting blank.
+  - [Display firmware compile checks](development/display-compile-checks.md)
+    — reproducible normal, show and SD-player fixtures for Arduino CLI and
+    fbuild; build evidence is separate from physical display validation.
 - [Plans](development/plans/)
   - [Stereo side-string VU meters](development/plans/vu-meter.md)
     — implementation plan for paired vertical left/right LED strings, the

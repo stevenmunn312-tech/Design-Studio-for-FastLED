@@ -1988,7 +1988,7 @@ ${hasPatternSelection ? `    // Through the selection, so a confirmed pattern an
     }
   }
 ` : ''}
-${genericPlayer ? `  // Fade the player down during genuine silence. Release is slower
+${genericPlayer && reactiveAudio ? `  // Fade the player down during genuine silence. Release is slower
   // than attack so short pauses do not make the LEDs flicker.
   float audioEnergy = constrain((_audioBass + _audioMids + _audioTreble) / 3.0f, 0.0f, 1.0f);
   float audioFadeTarget = audioEnergy <= 0.025f
@@ -2134,7 +2134,7 @@ ${genericPlayer ? `  // Fade the player down during genuine silence. Release is 
     }
   }
 
-${genericPlayer ? `  for (int i = 0; i < NUM_LEDS; i++) {
+${genericPlayer && reactiveAudio ? `  for (int i = 0; i < NUM_LEDS; i++) {
     leds[i].nscale8((uint8_t)constrain(audioFade * 255.0f, 0.0f, 255.0f));
   }
 ` : ''}

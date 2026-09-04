@@ -25,6 +25,8 @@ backend/.helper-config.json
 backend/bin/
 # fbuild build workspace + vendored FastLED/audio libs
 backend/.fbuild-project/
+# Pinned Arduino-only player dependencies (user libraries are left alone).
+backend/.arduino-libraries/
 # arduino-cli sketch workspaces — one reused directory per sketch name, whose
 # stable path is what lets arduino-cli find its own build cache
 backend/sketches/

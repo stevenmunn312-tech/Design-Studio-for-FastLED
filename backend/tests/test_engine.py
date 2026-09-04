@@ -1,5 +1,6 @@
 """Build-engine selection and FQBN <-> fbuild-environment translation — pure
 logic, no subprocess/hardware involved."""
+import contextlib
 import stat
 import threading
 import time
@@ -81,6 +82,12 @@ def test_parse_fqbn_ignores_unknown_menu_option():
     base, psram = app._parse_fqbn("esp32:esp32:esp32s3:CPUFreq=240")
     assert base == "esp32:esp32:esp32s3"
     assert psram is None
+
+
+def test_fbuild_keeps_psram_with_multiple_board_menu_options():
+    for options in ("PSRAM=opi,FlashSize=16M", "FlashSize=16M,PSRAM=opi,CPUFreq=240"):
+        assert app._fbuild_env_for_fqbn(f"esp32:esp32:esp32s3:{options}", 16) == "esp32_esp32_esp32s3_opi"
+    assert app._parse_fqbn("esp32:esp32:esp32s3:Unrelated=opi")[1] is None
 
 
 def test_env_id_slugifies_and_suffixes():
@@ -475,6 +482,26 @@ def test_compile_upload_fbuild_vendors_lvgl_only_when_sketch_needs_it(monkeypatc
         "Test", "#include <lvgl.h>\nvoid setup(){}", "esp32:esp32:esp32s3", "",
     ))
     assert calls == ["#include <lvgl.h>\nvoid setup(){}"]
+
+
+def test_compile_only_player_vendors_audio_before_writing_source(monkeypatch):
+    calls = []
+    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(app, "_fbuild_libraries_for_sketch", lambda ino: contextlib.nullcontext())
+    monkeypatch.setattr(app, "_ensure_fbuild_audio_lib", lambda: calls.append("audio") or iter(()))
+    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: calls.append("source"))
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda *args: "esp32_esp32_esp32s3_opi")
+
+    def fake_run_phase(*args, **kwargs):
+        yield "Flash: 1.00KB / 10.00KB (10.0%)\n"
+        return 0
+
+    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+    list(app._compile_upload_fbuild("Capacity check", "void setup(){}", "esp32:esp32:esp32s3", ""))
+    assert calls == ["source"]
+    calls.clear()
+    list(app._compile_upload_fbuild("Capacity check", "#include <Audio.h>\nvoid setup(){}", "esp32:esp32:esp32s3:PSRAM=opi", ""))
+    assert calls == ["audio", "source"]
 
 
 def test_fbuild_lvgl_vendor_is_exactly_pinned_and_writes_config(tmp_path, monkeypatch):

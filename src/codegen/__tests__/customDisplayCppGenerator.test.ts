@@ -120,4 +120,40 @@ describe('normal-sketch codegen for the custom Display node', () => {
       expect(cpp.indexOf(`lv_display_set_default(_cdDisp_${id})`)).toBeLessThan(cpp.indexOf(`_cdScreen_${id} = lv_obj_create`))
     }
   })
+
+  it('samples all widget outputs before scalar feedback and publishes after evaluation', () => {
+    const doc = addDisplayWidget(document(), 'Slider')
+    const nodes = [screen(), node('math', 'Math', { mathOp: 'multiply', b: 0.5 }),
+      node('format', 'FormatNumber'), output]
+    const edges = [edge('a', 'screen', 'widget:slider:out', 'math', 'a'),
+      edge('b', 'math', 'result', 'format', 'value'), edge('c', 'format', 'text', 'screen', 'widget:text:value'),
+      edge('d', 'math', 'result', 'screen', 'widget:slider:set'), edge('e', 'math', 'result', 'out', 'brightness')]
+    // Deliberately stale copied ports: the document remains authoritative.
+    const cpp = generateCpp(nodes, edges, {}, { displayDocuments: { panel: doc } })
+    const loop = cpp.slice(cpp.indexOf('void loop() {'))
+    const order = ['lv_indev_read(_cdIndev_screen)', 'float n_screen_widget_slider_out =',
+      'float n_math_result =', '_dsFormatNumber(n_format_text,', 'FastLED.show();',
+      '_cdSetText(_cd_screen[1], n_format_text);', '_cdServiceLvgl();'].map((text) => loop.indexOf(text))
+    expect(order.every((index) => index >= 0)).toBe(true)
+    expect(order).toEqual([...order].sort((a, b) => a - b))
+    expect(loop).toContain('constrain((float)(n_math_result), _cd_screen[2].minimum, _cd_screen[2].maximum)')
+    expect(cpp).toContain('lv_indev_set_mode(_cdIndev_screen, LV_INDEV_MODE_EVENT);')
+  })
+
+  it('keeps one widget snapshot across native output passes and cross-screen feedback', () => {
+    const other = { ...screen(), id: 'other' }
+    const strip = node('strip', 'MatrixOutput', { form: 'strip', ledCount: 16, dataPin: 6 })
+    const fill = node('fill', 'SolidColor')
+    const edges = [edge('a', 'fill', 'frame', 'out', 'frame'), edge('b', 'fill', 'frame', 'strip', 'frame'),
+      edge('c', 'screen', 'widget:toggle:out', 'other', 'widget:toggle:set'),
+      edge('d', 'other', 'widget:toggle:out', 'screen', 'widget:toggle:set')]
+    const cpp = generateCpp([output, strip, screen(), other, fill], edges, {}, { displayDocuments: documents })
+    const loop = cpp.slice(cpp.indexOf('void loop() {'))
+    expect(cpp).toContain('static bool n_screen_widget_toggle_out;')
+    expect(cpp).toContain('float renderOutputPass(float t) {')
+    expect(loop.indexOf('lv_indev_read(_cdIndev_other)')).toBeLessThan(loop.indexOf('n_screen_widget_toggle_out ='))
+    expect(loop.indexOf('n_other_widget_toggle_out =')).toBeLessThan(loop.indexOf('renderOutputPass<'))
+    expect(loop.indexOf('FastLED.show();')).toBeLessThan(loop.indexOf('_cdServiceLvgl();'))
+    expect(loop.match(/n_screen_widget_toggle_out =/g)).toHaveLength(1)
+  })
 })

@@ -46,6 +46,10 @@ describe('custom displays in SD-player firmware', () => {
     expect(cpp.indexOf('lv_display_set_default(_cdDisp_screen)')).toBeLessThan(cpp.indexOf('_cdScreen_screen = lv_obj_create'))
     expect(cpp).toContain('static char songTitle[SONG_FIELD_BYTES]')
     expect(cpp).toContain('songResetFromFile(')
+    // This collection's Solid Color pattern requests no audio analysis. A
+    // silence fade must not reference absent band globals or black it out.
+    expect(cpp).not.toContain('audioFade')
+    expect(cpp).not.toContain('_audioBass')
     expect(loop).toContain('char n_player_title[64]; _dsCopy(n_player_title, songTitle);')
     expect(loop).toContain('float n_player_progress = songProgress();')
     expect(loop).toContain('float n_player_elapsed = songElapsedSec();')

@@ -395,6 +395,11 @@ widget, font and image limits before Phase 7 is frozen.
 - [ ] Split mixed source/sink display handling into deterministic stages:
   sample touch outputs, evaluate the control/frame graph, publish display
   inputs, then flush changed widgets/pixels.
+  Custom LVGL displays now sample before evaluation and publish afterward in
+  normal, show and SD-player sketches. Normal sketches derive ports from the
+  document and snapshot once across native output passes, so readout/set
+  feedback does not introduce a false dependency cycle. The broader fixed
+  display/evaluator staging audit remains open.
 - [ ] Build a small control-graph IR for float/bool/string/status paths. Reuse
   it from normal sketch, generative-show, and SD-player generators instead of
   copy/pasting display-specific graph evaluation into each generator.
@@ -1024,15 +1029,23 @@ freeform widgets must reuse rather than rediscover.
   `test_engine.py` and `test_scaffold_writes.py` cover both build engines,
   exact LVGL versions, incomplete/wrong caches, selective staging, restoration
   after failure, generated configuration and allow-listed font selection.
+  `test_fbuild_lvgl_archive.py` covers Windows archive recovery and its path
+  validation; `test_arduino_audio.py` covers pinned private audio dependencies,
+  incomplete downloads and compile-only selection.
 - [ ] Add visual snapshots for each fixed layout and custom widget state at every
   supported resolution/orientation, including pressed/active/disabled states,
   every launch theme token and each template. Visual snapshots complement, not
   replace, semantic tests.
-- [ ] Run `npm run lint`, `npm test`, and `npm run build`; compile representative
+- [x] Run `npm run lint`, `npm test`, and `npm run build`; compile representative
   generated sketches through both supported build engines.
   Lint, the full frontend test suite and the production build pass; the build
-  still reports the application-chunk size warning. Representative generated
-  sketches still need compile evidence from both engines before closing this.
+  still reports the application-chunk size warning. Normal, generative-show and
+  SD-player sketches with custom LVGL widgets plus a fixed TFT transport screen
+  compile through Arduino CLI and fbuild for ESP32-S3 N16R8. Reproduction steps,
+  toolchain versions, compiler-exposed fixes and flash/RAM results are recorded
+  in [display compile checks](docs/development/display-compile-checks.md).
+  This closes representative compilation only; physical tests and the broader
+  advertised-board matrix remain open.
 - [ ] Add the user workflow to the hardware workbench guide and display-node
   reference pages. Describe unsupported devices as unsupported, not generic.
 - [ ] Add support-matrix rows only after recorded physical tests for the exact
