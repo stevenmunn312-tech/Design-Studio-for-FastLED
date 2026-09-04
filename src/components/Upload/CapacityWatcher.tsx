@@ -130,6 +130,8 @@ export default function CapacityWatcher() {
   useEffect(() => {
     setCapacityTarget({
       code: capacityCode,
+      preparing: customAssets.pending,
+      preparationError: customAssets.errors.join('\n'),
       fqbn: fqbnWithOpt,
       toolchainReady,
       engineTag: helper?.engine,
@@ -137,7 +139,7 @@ export default function CapacityWatcher() {
       flashMb,
       usbCdcOnBoot,
     })
-  }, [capacityCode, fqbnWithOpt, toolchainReady, helper?.engine, isShow, flashMb, usbCdcOnBoot, setCapacityTarget])
+  }, [capacityCode, customAssets.pending, customAssets.errors, fqbnWithOpt, toolchainReady, helper?.engine, isShow, flashMb, usbCdcOnBoot, setCapacityTarget])
 
   return null
 }

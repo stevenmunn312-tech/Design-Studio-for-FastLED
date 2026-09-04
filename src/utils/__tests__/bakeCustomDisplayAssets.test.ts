@@ -53,13 +53,28 @@ describe('custom display asset baker', () => {
   })
 
   it('returns a named diagnostic and no partial bake when rasterization fails', async () => {
+    const rasterize = vi.fn()
+      .mockResolvedValueOnce(new Uint8ClampedArray(8))
+      .mockRejectedValueOnce(new Error('decoder failed'))
     const result = await bakeCustomDisplayAssets(
-      { ...createDisplayDocument('panel'), widgets: [art] },
-      async () => { throw new Error('decoder failed') },
+      { ...createDisplayDocument('panel'), widgets: [art, { ...art, id: 'large-art', bounds: { ...art.bounds, width: 3 } }] },
+      rasterize,
     )
+    expect(rasterize).toHaveBeenCalledTimes(2)
     expect(result.assets).toEqual([])
     expect(result.issues).toEqual([expect.objectContaining({
-      code: 'asset-data', message: expect.stringContaining('Power'),
+      code: 'asset-data', message: 'Could not bake Power at 3x1: decoder failed',
     })])
+  })
+
+  it('validates every asset before starting any rasterization', async () => {
+    const rasterize = vi.fn()
+    const result = await bakeCustomDisplayAssets({
+      ...createDisplayDocument('panel'), widgets: [art,
+        { ...art, id: 'unknown', properties: { assetId: 'unknown-asset' } }],
+    }, rasterize)
+    expect(rasterize).not.toHaveBeenCalled()
+    expect(result.assets).toEqual([])
+    expect(result.issues[0].message).toContain('unknown-asset')
   })
 })

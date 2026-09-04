@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import MatrixOutputDeployPopup from '../MatrixOutputDeployPopup'
+import CapacityWatcher from '../CapacityWatcher'
 import { useGraphStore } from '../../../state/graphStore'
 import { useUploadStore } from '../../../state/uploadStore'
 import { useMusicStore } from '../../../state/musicStore'
@@ -104,6 +105,8 @@ function setHub75Grid() {
 
 describe('MatrixOutputDeployPopup', () => {
   beforeEach(() => {
+    vi.mocked(bakeCustomDisplayAssets).mockReset()
+    vi.mocked(generateCpp).mockClear().mockReturnValue('// sketch')
     localStorage.clear()
     setMatrixGraph()
     useGraphStore.setState({ displayDocuments: {}, trusted: true })
@@ -142,7 +145,7 @@ describe('MatrixOutputDeployPopup', () => {
     vi.mocked(findFormulaErrors).mockReturnValue([])
   })
 
-  it('waits for artwork before export and passes the same bytes to fresh generation', async () => {
+  it.each([false, true])('shares artwork with capacity and waits before upload/export (retry: %s)', async (failFirst) => {
     const document = createDisplayDocument('document')
     document.widgets = [{ id: 'art', type: 'Image/Icon', label: 'Art',
       bounds: { x: 0, y: 0, width: 24, height: 24 },
@@ -160,15 +163,47 @@ describe('MatrixOutputDeployPopup', () => {
       edges: [{ id: 'frame', source: 'pattern', target: 'matrix', sourceHandle: 'frame', targetHandle: 'frame' }],
       displayDocuments: { document },
     })
-    const { getByRole, getByText } = render(<MatrixOutputDeployPopup />)
+    useUploadStore.setState({
+      helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false },
+      selectedPort: 'COM7',
+      ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [] }],
+    })
+    const { getByRole, getByText } = render(<><CapacityWatcher /><MatrixOutputDeployPopup /></>)
+    expect(bakeCustomDisplayAssets).toHaveBeenCalledTimes(1)
+    expect(generateCpp).not.toHaveBeenCalled()
+    expect(useCapacityStore.getState().status).toBe('preparing')
+    expect(useCapacityStore.getState().target?.code).toBeNull()
     expect(getByText('Preparing display images…')).toBeTruthy()
+    expect((getByRole('button', { name: '↑ Upload' }) as HTMLButtonElement).disabled).toBe(true)
     expect((getByRole('button', { name: /Export .ino/ }) as HTMLButtonElement).disabled).toBe(true)
     expect((getByRole('button', { name: /View Code/ }) as HTMLButtonElement).disabled).toBe(true)
-    await act(async () => resolve({ assets: baked, issues: [] }))
+    if (failFirst) {
+      const message = 'Could not bake Power at 24x24: SVG decoder failed'
+      await act(async () => resolve({ assets: [], issues: [{ code: 'asset-data', message }] }))
+      expect(getByText(`Touch panel: ${message}`)).toBeTruthy()
+      expect(useCapacityStore.getState().status).toBe('preparation-failed')
+      expect(useCapacityStore.getState().target?.preparationError).toBe(`Touch panel: ${message}`)
+      expect(useCapacityStore.getState().target?.code).toBeNull()
+      expect(generateCpp).not.toHaveBeenCalled()
+      expect((getByRole('button', { name: '↑ Upload' }) as HTMLButtonElement).disabled).toBe(true)
+      expect((getByRole('button', { name: /Export .ino/ }) as HTMLButtonElement).disabled).toBe(true)
+      vi.mocked(bakeCustomDisplayAssets).mockResolvedValue({ assets: baked, issues: [] })
+      fireEvent.click(getByRole('button', { name: 'Retry display images' }))
+      await waitFor(() => expect(useCapacityStore.getState().target?.code).toBe('// sketch'))
+      expect(bakeCustomDisplayAssets).toHaveBeenCalledTimes(2)
+    } else {
+      await act(async () => resolve({ assets: baked, issues: [] }))
+    }
+    expect(useCapacityStore.getState().target?.code).toBe('// sketch')
     expect((getByRole('button', { name: /Export .ino/ }) as HTMLButtonElement).disabled).toBe(false)
     vi.mocked(generateCpp).mockClear()
     fireEvent.click(getByRole('button', { name: /Export .ino/ }))
     await waitFor(() => expect(useUploadStore.getState().exportIno).toHaveBeenCalledWith('// sketch'))
+    expect(generateCpp).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.anything(),
+      expect.objectContaining({ displayDocuments: { document }, customDisplayAssets: { screen: baked } }))
+    vi.mocked(generateCpp).mockClear()
+    fireEvent.click(getByRole('button', { name: '↑ Upload' }))
+    await waitFor(() => expect(useUploadStore.getState().runUpload).toHaveBeenCalledWith('// sketch', undefined))
     expect(generateCpp).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.anything(),
       expect.objectContaining({ displayDocuments: { document }, customDisplayAssets: { screen: baked } }))
   })

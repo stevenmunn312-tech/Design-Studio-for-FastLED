@@ -26,8 +26,11 @@ export function summarizeCapacity(
   status: CapacityStatus,
   result: CompileCheckResult | null,
   subject: CapacitySubject = 'sketch',
+  preparationError?: string,
 ): CapacitySummary {
   const label = board?.label ?? 'No board'
+  if (status === 'preparing') return { text: `${label} · preparing display images…`, level: 'pending' }
+  if (status === 'preparation-failed') return { text: `${label} · ${preparationError || 'Display image preparation failed'}`, level: 'error' }
   if (status === 'toolchain-missing') return { text: `${label} · capacity: install toolchain to check`, level: 'pending' }
   if (status === 'nothing-to-measure') return { text: `${label} · capacity: nothing to build yet`, level: 'pending' }
   if (status === 'checking') return { text: `${label} · checking capacity…`, level: 'pending' }

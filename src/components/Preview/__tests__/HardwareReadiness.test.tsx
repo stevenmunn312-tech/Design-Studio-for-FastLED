@@ -4,6 +4,7 @@ import HardwareReadiness from '../HardwareReadiness'
 import { useGraphStore } from '../../../state/graphStore'
 import { useUploadStore } from '../../../state/uploadStore'
 import { useCapacityStore } from '../../../state/capacityStore'
+import { useUiStore } from '../../../state/uiStore'
 
 // The strip only renders once something drives LEDs, so every test needs a
 // real output on the bench.
@@ -65,6 +66,17 @@ describe('HardwareReadiness — the Fits chip', () => {
 
     expect(getByLabelText(/Fits: compiling capacity/)).toBeTruthy()
     expect(getByText(/compiling/)).toBeTruthy()
+  })
+
+  it('names a bake failure and opens the upload controls to review it', () => {
+    useCapacityStore.getState().setTarget({ ...TARGET, code: null,
+      preparationError: 'Touch panel: Could not bake Power at 24x24: decoder failed' })
+    const setHardwarePaneTab = vi.spyOn(useUiStore.getState(), 'setHardwarePaneTab')
+    const { getByRole } = render(<HardwareReadiness />)
+    fireEvent.click(getByRole('button', { name: /Fits.*Touch panel: Could not bake Power/ }))
+    expect(setHardwarePaneTab).toHaveBeenCalledWith('upload')
+    expect(useUploadStore.getState().openConsole).not.toHaveBeenCalled()
+    setHardwarePaneTab.mockRestore()
   })
 
   it('leads to the compiler output after a failed check, not to another check', () => {

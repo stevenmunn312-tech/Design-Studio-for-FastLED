@@ -70,7 +70,7 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
   }, [nodes, edges])
 
   const board = boardByFqbn(selectedFqbn)
-  const capacity = summarizeCapacity(board, capacityStatus, capacityResult, capacitySubject)
+  const capacity = summarizeCapacity(board, capacityStatus, capacityResult, capacitySubject, capacityTarget?.preparationError)
   const capacityFailed = capacity.level === 'error'
   // A check compiles the design for real, so it only ever runs from a press —
   // and there is only something to press when there is something to build.
@@ -132,14 +132,14 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
           className={`${styles.item} ${styles.itemButton}`}
           data-level="bad"
           onClick={() => {
-            openConsole()
+            if (capacityStatus !== 'preparation-failed') openConsole()
             setHardwarePaneTab('upload')
           }}
-          title={`${capacity.text}\n\nClick to show the upload output.${capacityResult?.log ? `\n\n${capacityResult.log.slice(-1500)}` : ''}`}
+          title={`${capacity.text}\n\n${capacityStatus === 'preparation-failed' ? 'Click to review display preparation in the Upload tab.' : 'Click to show the upload output.'}${capacityResult?.log ? `\n\n${capacityResult.log.slice(-1500)}` : ''}`}
         >
           <em className={styles.label}>Fits</em>
           <strong>{capacity.text.replace(/^.*?·\s*/, '')}</strong>
-          <span className={styles.note}>see output</span>
+          <span className={styles.note}>{capacityStatus === 'preparation-failed' ? 'review' : 'see output'}</span>
         </button>
       ) : canCheck ? (
         <button

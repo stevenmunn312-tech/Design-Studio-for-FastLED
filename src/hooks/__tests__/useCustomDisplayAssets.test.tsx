@@ -64,6 +64,37 @@ describe('firmware display asset preparation', () => {
     expect(result.current.documents.document.widgets[0].bounds.width).toBe(3)
   })
 
+  it('shares a failed bake across nodes using the same document without publishing partial assets', async () => {
+    const otherDocument = documentWithArt(3)
+    useGraphStore.setState({ displayDocuments: { ...useGraphStore.getState().displayDocuments, other: otherDocument } })
+    const pending = deferred()
+    const otherAsset = { ...customDisplayAssetRequests(otherDocument)[0], data: new Uint8Array([1, 2, 3]) }
+    vi.mocked(bakeCustomDisplayAssets).mockReturnValueOnce(pending.promise)
+      .mockResolvedValueOnce({ assets: [otherAsset], issues: [] })
+    const sharedNodes = [...nodes,
+      { ...nodes[0], id: 'duplicate', data: { ...nodes[0].data, label: 'Second panel' } },
+      { ...nodes[0], id: 'other', data: { ...nodes[0].data, properties: { displayId: 'other' } } },
+    ]
+    const { result } = renderHook(() => useCustomDisplayAssets(sharedNodes, true))
+    // Independent documents can prepare while the first decoder is pending.
+    expect(bakeCustomDisplayAssets).toHaveBeenCalledTimes(2)
+    await act(async () => pending.resolve({ assets: [], issues: [{ code: 'asset-data', message: 'Power: decoder failed' }] }))
+    expect(result.current.errors).toEqual(['Touch panel: Power: decoder failed', 'Second panel: Power: decoder failed'])
+    expect(result.current.assets).toEqual({})
+    expect(bakeCustomDisplayAssets).toHaveBeenCalledTimes(2)
+  })
+
+  it('names unexpected bake rejections and permits retrying them', async () => {
+    vi.mocked(bakeCustomDisplayAssets).mockRejectedValueOnce(new Error('Canvas unavailable'))
+      .mockResolvedValueOnce({ assets: [], issues: [] })
+    const { result } = renderHook(() => useCustomDisplayAssets(nodes, true))
+    await waitFor(() => expect(result.current.errors).toEqual(['Touch panel: could not prepare display images: Canvas unavailable']))
+    act(() => result.current.retry())
+    await waitFor(() => expect(result.current.pending).toBe(false))
+    expect(result.current.errors).toEqual([])
+    expect(bakeCustomDisplayAssets).toHaveBeenCalledTimes(2)
+  })
+
   it('gates I/O on trust and removes cached bytes immediately when trust is revoked', async () => {
     useGraphStore.setState({ trusted: false })
     vi.mocked(bakeCustomDisplayAssets).mockResolvedValue({ assets: [], issues: [] })

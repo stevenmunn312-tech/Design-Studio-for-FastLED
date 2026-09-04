@@ -175,8 +175,8 @@ export default function MatrixOutputDeployPopup({
     target: capacityTarget, check: runCapacityCheck,
   } = useCapacityStore()
   const capacitySummary = useMemo(
-    () => summarizeCapacity(board, capacityStatus, capacityResult, capacitySubject),
-    [board, capacityStatus, capacityResult, capacitySubject],
+    () => summarizeCapacity(board, capacityStatus, capacityResult, capacitySubject, capacityTarget?.preparationError),
+    [board, capacityStatus, capacityResult, capacitySubject, capacityTarget?.preparationError],
   )
   const canCheckCapacity = !!capacityTarget?.code && capacityTarget.toolchainReady && capacityStatus !== 'checking'
   // Only a *current* measurement blocks. 'measured' means the reading was taken

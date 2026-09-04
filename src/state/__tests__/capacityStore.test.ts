@@ -132,6 +132,32 @@ describe('capacityStore', () => {
     expect(compileCheck).not.toHaveBeenCalled()
   })
 
+  it('tracks preparation failures and retries even while every target has null code', async () => {
+    const { useCapacityStore } = await freshStore()
+    const { setTarget, check } = useCapacityStore.getState()
+    setTarget(TARGET)
+    check()
+    await vi.advanceTimersByTimeAsync(0)
+    compileCheck.mockClear()
+
+    setTarget({ ...TARGET, code: null, preparing: true })
+    expect(useCapacityStore.getState().status).toBe('preparing')
+    expect(useCapacityStore.getState().result).toBeNull()
+    check()
+    for (const preparationError of ['Panel: Power failed', 'Panel: Play failed']) {
+      setTarget({ ...TARGET, code: null, preparationError })
+      expect(useCapacityStore.getState().status).toBe('preparation-failed')
+      expect(useCapacityStore.getState().target?.preparationError).toBe(preparationError)
+      check()
+    }
+    setTarget({ ...TARGET, code: null, preparing: true })
+    expect(useCapacityStore.getState().status).toBe('preparing')
+    check()
+    expect(compileCheck).not.toHaveBeenCalled()
+    setTarget(TARGET)
+    expect(useCapacityStore.getState().status).toBe('idle')
+  })
+
   it('retries a build-serialization collision, then reports it', async () => {
     // The helper serializes builds, so a check pressed during an Upload comes
     // back having compiled nothing. The user asked for this one, so retry

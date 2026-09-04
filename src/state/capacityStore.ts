@@ -40,6 +40,8 @@ export type CapacityStatus =
    *  been shrunk). */
   | 'stale'
   | 'toolchain-missing'
+  | 'preparing'
+  | 'preparation-failed'
   /** There is no sketch to build yet, so there is deliberately no number.
    *  Distinct from a stale reading: a graph that stopped being buildable used
    *  to leave the previous reading on screen, from a different design, looking
@@ -56,8 +58,11 @@ export type CapacitySubject = 'sketch' | 'player'
  *  check — a chip under the preview, a button in the deploy popup — can ask
  *  for one without knowing how to generate a sketch. */
 export interface CapacityTarget {
-  /** `null` when there is nothing to build. */
+  /** `null` when there is nothing to build or asset preparation blocks it. */
   code: string | null
+  /** Asset preparation happens before a compile target can be published. */
+  preparing?: boolean
+  preparationError?: string
   fqbn: string
   toolchainReady: boolean
   engineTag?: string
@@ -122,7 +127,7 @@ function hashCode(s: string): string {
 }
 
 function targetKey(t: Omit<CapacityTarget, 'key'>): string {
-  return `${t.fqbn}|${t.engineTag ?? ''}|${t.subject}|${t.flashMb ?? ''}|${t.usbCdcOnBoot ? 'cdc' : ''}|${t.code === null ? 'none' : hashCode(t.code)}`
+  return `${t.fqbn}|${t.engineTag ?? ''}|${t.subject}|${t.flashMb ?? ''}|${t.usbCdcOnBoot ? 'cdc' : ''}|${t.code === null ? 'none' : hashCode(t.code)}|${JSON.stringify([!!t.preparing, t.preparationError ?? ''])}`
 }
 
 let retryTimer: ReturnType<typeof setTimeout> | null = null
@@ -159,7 +164,8 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
       // Drop the reading rather than leaving it: it described a graph that no
       // longer exists, and a number with nothing behind it is worse than none.
       measuredKey = null
-      set({ target, status: 'nothing-to-measure', result: null, previousResult: null })
+      const status = next.preparationError ? 'preparation-failed' : next.preparing ? 'preparing' : 'nothing-to-measure'
+      set({ target, status, result: null, previousResult: null })
       return
     }
     if (!next.toolchainReady) {

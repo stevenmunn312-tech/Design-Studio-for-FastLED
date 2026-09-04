@@ -61,18 +61,20 @@ export function useCustomDisplayAssets(nodes: StudioNode[], enabled: boolean) {
     if (plan.errors.length > 0 || plan.targets.length === 0) return
     let cancelled = false
     void (async () => {
-      const assets: AssetMap = {}
-      const errors: string[] = []
-      for (const target of plan.targets) {
-        if (cancelled) return
+      // Start together so repeated uses share even a failed in-flight bake.
+      // Promise.all preserves node order for diagnostics regardless of decode order.
+      const prepared = await Promise.all(plan.targets.map(async (target) => {
         try {
           const result = await bake(target.document)
-          errors.push(...result.issues.map((issue) => `${target.label}: ${issue.message}`))
-          assets[target.nodeId] = result.assets
+          return { nodeId: target.nodeId, assets: result.assets,
+            errors: result.issues.map((issue) => `${target.label}: ${issue.message}`) }
         } catch (error) {
-          errors.push(`${target.label}: could not prepare display images: ${error instanceof Error ? error.message : String(error)}`)
+          return { nodeId: target.nodeId, assets: [],
+            errors: [`${target.label}: could not prepare display images: ${error instanceof Error ? error.message : String(error)}`] }
         }
-      }
+      }))
+      const errors = prepared.flatMap((result) => result.errors)
+      const assets: AssetMap = errors.length > 0 ? {} : Object.fromEntries(prepared.map((result) => [result.nodeId, result.assets]))
       if (!cancelled) setFinished({ plan, revision, result: { assets, errors } })
     })()
     return () => { cancelled = true }

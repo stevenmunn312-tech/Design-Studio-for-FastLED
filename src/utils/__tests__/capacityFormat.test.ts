@@ -15,6 +15,14 @@ function ok(flashPct: number, ramPct: number): CompileCheckResult {
 }
 
 describe('summarizeCapacity', () => {
+  it('distinguishes pending images and named preparation failures from an empty graph', () => {
+    expect(summarizeCapacity(board, 'preparing', null)).toEqual({
+      text: 'Arduino Uno · preparing display images…', level: 'pending',
+    })
+    expect(summarizeCapacity(board, 'preparation-failed', null, 'sketch', 'Touch panel: Power failed')).toEqual({
+      text: 'Arduino Uno · Touch panel: Power failed', level: 'error',
+    })
+  })
   it('says there is nothing to build rather than showing an old number', () => {
     const s = summarizeCapacity(board, 'nothing-to-measure', null)
     expect(s.level).toBe('pending')
