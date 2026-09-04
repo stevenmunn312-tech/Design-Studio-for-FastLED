@@ -39,6 +39,11 @@ build/architecture overview aimed at contributors.
     — the Pattern Library → Collection → Show Engine flow for a random
     pattern/transition show, including helper-backed library mirroring,
     transition pools, and the current controller-sketch codegen shape.
+  - [Transition catalogue](development/design/transition-catalogue.md)
+    — what an A→B transition style is, the three implementations and two
+    registries it spans, why style ids are append-only *and* must stay dense,
+    the endpoint-exactness rule that keeps preview and firmware together, and
+    what reads at LED resolution.
   - [Collection-driven performance](development/design/collection-driven-performance.md)
     — plug a Pattern Collection into the Performance Generator so the music-sync
     rules engine schedules the user's own patterns, with a "Use group inputs"
