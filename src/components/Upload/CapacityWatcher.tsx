@@ -13,6 +13,7 @@ import { controllerSettings } from '../../state/controllerSettings'
 import { selectedBoardFlashMb, selectedPhysicalBoardProfile } from '../../build/boardProfiles'
 import { resolveUsbCdcOnBoot } from '../../state/serialRouting'
 import { useProjectStore } from '../../state/projectStore'
+import { useCustomDisplayAssets } from '../../hooks/useCustomDisplayAssets'
 
 /**
  * Keeps the capacity store pointed at what an Upload would actually build.
@@ -90,6 +91,8 @@ export default function CapacityWatcher() {
   // otherwise re-run the whole sketch generator ~60x/sec for output that node
   // positions cannot affect.
   const codegenGraph = useCodegenGraph(nodes, edges)
+  const customAssets = useCustomDisplayAssets(codegenGraph.nodes,
+    hasFrameInput && !isShow && !isPatternShow(codegenGraph.nodes, codegenGraph.edges))
   const capacityCode = useMemo(() => {
     const groups = getGroupRegistry()
     if (isShow) {
@@ -98,6 +101,7 @@ export default function CapacityWatcher() {
       )
     }
     if (!hasFrameInput) return null
+    if (customAssets.pending || customAssets.errors.length > 0) return null
     // Thumbnails are flash, and this is the thing that measures flash — leaving
     // them out understates a Pattern Browser build, which is exactly the build
     // most likely to be near the ceiling.
@@ -106,21 +110,20 @@ export default function CapacityWatcher() {
       bootLabel: projectName,
       thumbnails: bakeBrowserThumbnails(
         codegenGraph.nodes, codegenGraph.edges, groups,
-        useGraphStore.getState().trusted, useGraphStore.getState().graphs,
+        customAssets.trusted, useGraphStore.getState().graphs,
       ),
       artworks: bakeDisplayArtworks(
         codegenGraph.nodes, codegenGraph.edges, groups,
-        useGraphStore.getState().trusted,
+        customAssets.trusted,
       ),
-      // See the matching note in MatrixOutputDeployPopup.tsx: the document
-      // itself threads through synchronously; baked image bytes are a later,
-      // async-bake integration and draw as placeholders until then.
-      displayDocuments: useGraphStore.getState().displayDocuments,
+      displayDocuments: customAssets.documents,
+      customDisplayAssets: customAssets.assets,
     }
     return isPatternShow(codegenGraph.nodes, codegenGraph.edges)
       ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)
       : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
-  }, [codegenGraph, psramSupported, hasFrameInput, isShow, selectedFqbn, projectName])
+  }, [codegenGraph, psramSupported, hasFrameInput, isShow, selectedFqbn, projectName,
+    customAssets.pending, customAssets.errors, customAssets.documents, customAssets.assets, customAssets.trusted])
 
   // Published even with nothing to build: a skipped call would leave the
   // previous reading on screen describing a graph that no longer exists.

@@ -77,6 +77,7 @@ import {
 import { parseDisplayWidgetPortId, type DisplayWidgetPortDataType } from '../state/displayRegistry'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import type { BakedCustomDisplayAsset } from '../state/customDisplayResources'
+import { customDisplayAssetsCpp } from './customDisplayAssetsCpp'
 import {
   oledRotationCommands, asOledRotation, asOledAddress, OLED_CONTROLLERS,
 } from '../state/oledSurface'
@@ -1478,10 +1479,9 @@ export function generateCpp(
   // bounds, theme) is not on the node — the node carries only its persisted
   // ports and physical/pin properties — so it has to be handed in, keyed by
   // displayId, the same way artworks is. `customDisplayAssets`: the finished
-  // per-widget PROGMEM bytes, keyed by node id, when the caller has baked
-  // them; a document with none still generates, drawing every Image/Icon and
-  // themed background as the placeholder customDisplayLvglCpp.ts already
-  // falls back to.
+  // per-widget PROGMEM bytes, keyed by node id. Upload/export and capacity
+  // checks prepare these through useCustomDisplayAssets before generating.
+  // Low-level callers may omit them to preview an incomplete document.
   opts: {
     externalAudio?: boolean; nativeFastLedAudio?: boolean; groupInputExprs?: Record<string, string>
     psramAllowed?: boolean; aliasTerminalBuffer?: boolean; artworks?: TransportArtworks; bootLabel?: string
@@ -6999,7 +6999,10 @@ export function generateCpp(
     lines.push(CUSTOM_DISPLAY_LVGL_HELPERS)
     lines.push(CUSTOM_DISPLAY_LVGL_TIMING_CPP)
     if (customDisplayPanels.some((panel) => panel.touch)) emitXptPointHelpersOnce()
-    for (const display of customDisplays) lines.push(customDisplayLvglGlobalCpp(display))
+    for (const display of customDisplays) {
+      if (display.assets) lines.push(customDisplayAssetsCpp(display.id, display.document, display.assets))
+      lines.push(customDisplayLvglGlobalCpp(display))
+    }
     for (const panel of customDisplayPanels) {
       lines.push(customDisplayPanelGlobalCpp(panel))
       lines.push(customDisplayPanelHelpersCpp(panel))

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import MatrixOutputDeployPopup from '../MatrixOutputDeployPopup'
 import { useGraphStore } from '../../../state/graphStore'
 import { useUploadStore } from '../../../state/uploadStore'
@@ -10,6 +10,11 @@ import { useCapacityStore } from '../../../state/capacityStore'
 import { generateCpp } from '../../../codegen/cppGenerator'
 import { generateWiringDiagnosticSketch } from '../../../codegen/wiringDiagnosticGenerator'
 import { findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors } from '../../../utils/validateGraph'
+import { createDisplayDocument } from '../../../state/displayEditor'
+import { bakeCustomDisplayAssets, type BakedCustomDisplayAssets } from '../../../utils/bakeCustomDisplayAssets'
+import { customDisplayAssetRequests } from '../../../state/customDisplayResources'
+
+vi.mock('../../../utils/bakeCustomDisplayAssets', () => ({ bakeCustomDisplayAssets: vi.fn() }))
 
 vi.mock('../../../codegen/cppGenerator', () => ({
   generateCpp: vi.fn(() => '// sketch'),
@@ -101,6 +106,7 @@ describe('MatrixOutputDeployPopup', () => {
   beforeEach(() => {
     localStorage.clear()
     setMatrixGraph()
+    useGraphStore.setState({ displayDocuments: {}, trusted: true })
     useMusicStore.setState({ entries: [] })
     useProjectStore.setState({ projects: [], currentProjectId: '', recentProjectIds: [] })
     useStreamStore.setState({ streaming: false, fps: 0, error: '', start: vi.fn(), stop: vi.fn() })
@@ -134,6 +140,37 @@ describe('MatrixOutputDeployPopup', () => {
     vi.mocked(findHub75ConfigErrors).mockReturnValue([])
     vi.mocked(findHub75TopologyDiagnosticErrors).mockReturnValue([])
     vi.mocked(findFormulaErrors).mockReturnValue([])
+  })
+
+  it('waits for artwork before export and passes the same bytes to fresh generation', async () => {
+    const document = createDisplayDocument('document')
+    document.widgets = [{ id: 'art', type: 'Image/Icon', label: 'Art',
+      bounds: { x: 0, y: 0, width: 24, height: 24 },
+      properties: { assetId: 'icon:power', tint: true } }]
+    const request = customDisplayAssetRequests(document)[0]
+    const baked = [{ ...request, data: new Uint8Array(24 * 24).fill(255) }]
+    let resolve!: (value: BakedCustomDisplayAssets) => void
+    vi.mocked(bakeCustomDisplayAssets).mockReturnValue(new Promise((done) => { resolve = done }))
+    useGraphStore.setState({
+      nodes: [...useGraphStore.getState().nodes, {
+        id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
+        data: { nodeType: 'Display', label: 'Touch panel', category: 'output',
+          properties: { displayId: 'document' }, inputs: [], outputs: [] },
+      }] as never[],
+      edges: [{ id: 'frame', source: 'pattern', target: 'matrix', sourceHandle: 'frame', targetHandle: 'frame' }],
+      displayDocuments: { document },
+    })
+    const { getByRole, getByText } = render(<MatrixOutputDeployPopup />)
+    expect(getByText('Preparing display images…')).toBeTruthy()
+    expect((getByRole('button', { name: /Export .ino/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect((getByRole('button', { name: /View Code/ }) as HTMLButtonElement).disabled).toBe(true)
+    await act(async () => resolve({ assets: baked, issues: [] }))
+    expect((getByRole('button', { name: /Export .ino/ }) as HTMLButtonElement).disabled).toBe(false)
+    vi.mocked(generateCpp).mockClear()
+    fireEvent.click(getByRole('button', { name: /Export .ino/ }))
+    await waitFor(() => expect(useUploadStore.getState().exportIno).toHaveBeenCalledWith('// sketch'))
+    expect(generateCpp).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.anything(),
+      expect.objectContaining({ displayDocuments: { document }, customDisplayAssets: { screen: baked } }))
   })
 
   it('keeps readiness collapsed behind the action-needed gate', () => {

@@ -17,6 +17,7 @@ import { findPinConflicts, findMatrixLayoutErrors, findMirroredOutputMismatches,
 import { summarizeCapacity } from '../../utils/capacityFormat'
 import { useCodegenGraph } from '../../utils/codegenGraph'
 import { useModalFocus } from '../../hooks/useModalFocus'
+import { useCustomDisplayAssets } from '../../hooks/useCustomDisplayAssets'
 import {
   buildHardwareValidationProfile,
   suggestedValidationAction,
@@ -97,7 +98,13 @@ export default function MatrixOutputDeployPopup({
   // See CapacityWatcher: keyed on the codegen-relevant graph so a node drag
   // behind this popup doesn't re-run the sketch generator every frame.
   const codegenGraph = useCodegenGraph(nodes, edges)
+  const customAssets = useCustomDisplayAssets(codegenGraph.nodes,
+    !hasSdShow && !isPatternShow(codegenGraph.nodes, codegenGraph.edges))
   function generateCurrentCode() {
+    if (customAssets.pending || customAssets.errors.length > 0) return ''
+    // A confirmation dialog may have been open while the document changed.
+    if (customAssets.documents !== useGraphStore.getState().displayDocuments
+      || customAssets.trusted !== useGraphStore.getState().trusted) return ''
     const groups = getGroupRegistry()
     // Baked here rather than inside the generator: baking evaluates patterns,
     // and only this side knows whether the workspace has been trusted.
@@ -106,26 +113,21 @@ export default function MatrixOutputDeployPopup({
       bootLabel: projectName,
       thumbnails: bakeBrowserThumbnails(
         codegenGraph.nodes, codegenGraph.edges, groups,
-        useGraphStore.getState().trusted, useGraphStore.getState().graphs,
+        customAssets.trusted, useGraphStore.getState().graphs,
       ),
       artworks: bakeDisplayArtworks(
         codegenGraph.nodes, codegenGraph.edges, groups,
-        useGraphStore.getState().trusted,
+        customAssets.trusted,
       ),
-      // The document itself (widgets, bounds, theme) is not on the node, only
-      // the id is — see cppGenerator.ts's `case 'Display'`. Baking its finished
-      // image bytes needs an async browser rasterizer this synchronous
-      // generation pass cannot run, so a custom Display still draws every
-      // Image/Icon and themed background as customDisplayLvglCpp.ts's
-      // placeholder for now; customDisplayAssets is the option that fills them
-      // in once that bake is wired up here.
-      displayDocuments: useGraphStore.getState().displayDocuments,
+      displayDocuments: customAssets.documents,
+      customDisplayAssets: customAssets.assets,
     }
     return isPatternShow(codegenGraph.nodes, codegenGraph.edges)
       ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)
       : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
   }
-  const code = useMemo(generateCurrentCode, [codegenGraph, psramSupported, projectName])
+  const code = useMemo(generateCurrentCode, [codegenGraph, psramSupported, projectName,
+    customAssets.pending, customAssets.errors, customAssets.documents, customAssets.assets, customAssets.trusted])
 
   const portLabel = ports.find((p) => p.address === selectedPort)?.label ?? selectedPort
   const target = `${board?.label ?? 'No board'} · ${portLabel || 'no port'}`
@@ -186,6 +188,8 @@ export default function MatrixOutputDeployPopup({
     && !capacityResult.ok && capacityResult.overflow
 
   const blockingErrors = [
+    ...customAssets.errors,
+    ...(customAssets.pending ? ['Preparing display images…'] : []),
     ...pinConflicts,
     ...layoutErrors,
     ...outputResourceErrors,
@@ -413,6 +417,7 @@ export default function MatrixOutputDeployPopup({
       // current generator says now; only "Re-upload last sketch" intentionally
       // sends an older cached source unchanged.
       const uploadCode = generateCurrentCode()
+      if (!uploadCode) return
       await offerValidationAfter(suggestedAction, runUpload(uploadCode, usePsram ? psramChoice?.opt : undefined))
     })()
   }
@@ -423,7 +428,8 @@ export default function MatrixOutputDeployPopup({
   function handleExportIno() {
     void (async () => {
       if (!(await confirmUploadIfUntrusted())) return
-      exportIno(generateCurrentCode())
+      const exportCode = generateCurrentCode()
+      if (exportCode) exportIno(exportCode)
     })()
   }
 
@@ -639,6 +645,11 @@ export default function MatrixOutputDeployPopup({
             {blockingErrors.map((c) => <div key={c}>{c}</div>)}
           </div>
         )}
+        {customAssets.errors.length > 0 && customAssets.trusted && (
+          <button className={styles.wizardButtonBase} onClick={customAssets.retry}>
+            Retry display images
+          </button>
+        )}
 
         {mirrorNotes.length > 0 && (
           <div className={styles.streamNote}>
@@ -672,7 +683,7 @@ export default function MatrixOutputDeployPopup({
 
           <button
             className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
-            disabled={!hasFrameInput}
+            disabled={!hasFrameInput || !code}
             onClick={openCodeView}
             title={hasFrameInput ? 'View the generated .ino sketch' : 'Connect a frame to view the generated .ino sketch'}
           >

@@ -180,6 +180,18 @@ ordinary widgets, and generated firmware never embeds the preview screenshot.
 External source-art working folders and their manifests are build-time handoff
 inputs; neither a saved workspace nor generated C++ may depend on those paths.
 
+Normal-sketch upload, export, code view and capacity checks prepare custom
+display assets through `useCustomDisplayAssets` before calling the generator.
+Only documents owned by root display nodes are baked, and image fetching waits
+for workspace trust. Both build consumers share in-flight and successful bakes
+per immutable document. Document edits invalidate the generated code immediately;
+late completions cannot replace newer screen data. Preparation errors name the
+display and block the build, with a shared retry action. A capacity check never
+measures a placeholder screen while the real artwork is pending or failed.
+`generateCpp` receives finished bytes keyed by node id and emits validated
+PROGMEM tables before the LVGL objects reference them. Show/player custom-screen
+generation remains gated separately until those generators support its bindings.
+
 ### The persisted document
 
 ```ts

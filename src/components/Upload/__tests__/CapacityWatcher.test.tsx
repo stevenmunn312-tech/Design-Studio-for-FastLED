@@ -1,10 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, waitFor } from '@testing-library/react'
+import { act, render, waitFor } from '@testing-library/react'
 import CapacityWatcher from '../CapacityWatcher'
 import { useGraphStore } from '../../../state/graphStore'
 import { useUploadStore } from '../../../state/uploadStore'
 import { useCapacityStore } from '../../../state/capacityStore'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
+import { createDisplayDocument } from '../../../state/displayEditor'
+import { bakeCustomDisplayAssets } from '../../../utils/bakeCustomDisplayAssets'
+
+vi.mock('../../../utils/bakeCustomDisplayAssets', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../utils/bakeCustomDisplayAssets')>()
+  return { bakeCustomDisplayAssets: vi.fn((document) => actual.bakeCustomDisplayAssets(document,
+    async (request) => new Uint8ClampedArray(request.width * request.height * 4).fill(255))) }
+})
 
 const output = {
   id: 'matrix',
@@ -43,6 +51,7 @@ function setGraph(wired: boolean) {
 describe('CapacityWatcher', () => {
   beforeEach(() => {
     localStorage.clear()
+    useGraphStore.setState({ displayDocuments: {}, trusted: true })
     useUploadStore.setState({
       selectedFqbn: 'esp32:esp32:esp32s3',
       selectedPort: 'COM7',
@@ -58,6 +67,33 @@ describe('CapacityWatcher', () => {
     setGraph(true)
     const { container } = render(<CapacityWatcher />)
     expect(container.firstChild).toBeNull()
+  })
+
+  it('measures baked artwork and invalidates it on document-only edits', async () => {
+    setGraph(true)
+    const document = createDisplayDocument('screen-document')
+    document.widgets = [{ id: 'art', type: 'Image/Icon', label: 'Art',
+      bounds: { x: 0, y: 0, width: 24, height: 24 },
+      properties: { assetId: 'icon:power', tint: true } }]
+    useGraphStore.setState({
+      nodes: [...useGraphStore.getState().nodes, {
+        ...output, id: 'screen', data: { ...output.data, nodeType: 'Display',
+          properties: { displayId: document.displayId, partId: 'st7789v-tft-240x320' } },
+      }] as never[],
+      displayDocuments: { [document.displayId]: document },
+    })
+    render(<CapacityWatcher />)
+    expect(useCapacityStore.getState().target?.code).toBeNull()
+    await waitFor(() => expect(useCapacityStore.getState().target?.code).toContain('_cdAsset_screen_0_map[] PROGMEM'))
+    const originalCode = useCapacityStore.getState().target?.code
+    expect(originalCode).toContain('.w = 24')
+    const edited = { ...document, widgets: [{ ...document.widgets[0],
+      bounds: { ...document.widgets[0].bounds, width: 32 } }] }
+    act(() => useGraphStore.setState({ displayDocuments: { [document.displayId]: edited } }))
+    expect(useCapacityStore.getState().target?.code).toBeNull()
+    await waitFor(() => expect(useCapacityStore.getState().target?.code).toContain('.w = 32'))
+    expect(useCapacityStore.getState().target?.code).not.toBe(originalCode)
+    expect(bakeCustomDisplayAssets).toHaveBeenCalledWith(edited)
   })
 
   it('says there is nothing to measure, rather than staying quiet', () => {

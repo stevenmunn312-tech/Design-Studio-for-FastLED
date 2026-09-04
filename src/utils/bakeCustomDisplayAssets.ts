@@ -25,8 +25,15 @@ async function canvasRasterizer(
 ): Promise<Uint8ClampedArray> {
   const response = await fetch(sourceUrl)
   if (!response.ok) throw new Error(`HTTP ${response.status}`)
-  const image = await createImageBitmap(await response.blob())
+  // The catalogue contains SVG masters, including viewBox-only glyphs. Decode
+  // them as images at their catalogue dimensions before drawing into the final
+  // raster; a Blob-to-ImageBitmap decoder need not support SVG input.
+  const source = displayAsset(request.assetId)!
+  const image = new Image(source.width, source.height)
+  const objectUrl = URL.createObjectURL(await response.blob())
   try {
+    image.src = objectUrl
+    await image.decode()
     const canvas = typeof OffscreenCanvas === 'undefined'
       ? document.createElement('canvas')
       : new OffscreenCanvas(request.width, request.height)
@@ -48,7 +55,7 @@ async function canvasRasterizer(
     }
     return context.getImageData(0, 0, request.width, request.height).data
   } finally {
-    image.close()
+    URL.revokeObjectURL(objectUrl)
   }
 }
 

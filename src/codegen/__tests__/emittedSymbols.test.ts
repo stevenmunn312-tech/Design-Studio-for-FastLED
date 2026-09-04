@@ -23,6 +23,8 @@ import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import type { PatternRenderers } from '../showGenerator'
 import type { GroupRegistry } from '../../state/graphEvaluator'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
+import { createDisplayDocument } from '../../state/displayEditor'
+import { customDisplayAssetRequests, customDisplayAssetByteLength } from '../../state/customDisplayResources'
 
 function node(id: string, nodeType: string, props: Record<string, unknown> = {}): StudioNode {
   const def = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -88,6 +90,7 @@ const COMPOSED = [
   { use: /\bTHUMB_H_([A-Za-z0-9_]+)\b/g, define: (stem: string) => `#define THUMB_H_${stem}` },
   { use: /\b_thumbByte_([A-Za-z0-9_]+)\s*\(/g, define: (stem: string) => `_thumbByte_${stem}(uint16_t` },
   { use: /\b_thumbName_([A-Za-z0-9_]+)_read\s*\(/g, define: (stem: string) => `_thumbName_${stem}_read(char` },
+  { use: /&_cdAsset_([A-Za-z0-9_]+)\b/g, define: (stem: string) => `lv_image_dsc_t _cdAsset_${stem} =` },
 ]
 
 function undefinedSymbols(src: string): string[] {
@@ -102,6 +105,28 @@ function undefinedSymbols(src: string): string[] {
 }
 
 describe('a normal sketch', () => {
+  it('defines every baked image it references, including multiple displays', () => {
+    const document = createDisplayDocument('document')
+    document.widgets = [{ id: 'power', type: 'Image/Icon', label: 'Power',
+      bounds: { x: 0, y: 0, width: 2, height: 1 },
+      properties: { assetId: 'icon:power', tint: true } }]
+    const assets = customDisplayAssetRequests(document).map((request) => ({
+      ...request, data: new Uint8Array(customDisplayAssetByteLength(request)).fill(127),
+    }))
+    const src = generateCpp([
+      node('out', 'MatrixOutput', { width: 8, height: 8 }),
+      node('screen-a', 'Display', { displayId: 'document' }),
+      node('screen-b', 'Display', { displayId: 'document' }),
+    ], [], {}, {
+      displayDocuments: { document },
+      customDisplayAssets: { 'screen-a': assets, 'screen-b': assets },
+    })
+    expect(src.match(/lv_image_set_src/g)).toHaveLength(2)
+    expect(src.match(/_map\[\] PROGMEM/g)).toHaveLength(2)
+    expect(src).toContain('0x7f, 0x7f')
+    expect(undefinedSymbols(src)).toEqual([])
+  })
+
   // It composes none of these at all: a browser is the Slideshow's screen and
   // a Slideshow builds the show controller, so the normal generator has no
   // selection cursor and no thumbnail table to name.

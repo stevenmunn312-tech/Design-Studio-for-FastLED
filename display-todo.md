@@ -885,9 +885,7 @@ freeform widgets must reuse rather than rediscover.
   vanish merely because it landed between evaluator frames; after that sample,
   a type-compatible wired `set` becomes visible and is republished on `out`.
   Without `set`, the last local Toggle/Slider/Dial value remains authoritative.
-- [x] Support arbitrary scalar/control wiring in normal sketches first. Then
-  embed the shared control-graph IR in generative-show and SD-player firmware so
-  touch can drive real graph logic rather than only hardcoded transport actions.
+- [x] Support arbitrary scalar/control wiring in normal sketches.
   The normal-sketch half is done; show/player remain refused (next). Until now
   a wired custom Display could not build at all — `cppGenerator.ts` had no
   `case 'Display'`, `TERMINAL_NODE_TYPES` could not name it (its ports are
@@ -929,13 +927,16 @@ freeform widgets must reuse rather than rediscover.
   are), so `generateCpp`'s new `displayDocuments` option threads it in keyed by
   displayId, the same way `artworks` threads in Now Playing artwork; both
   upload call sites (`MatrixOutputDeployPopup.tsx`, `CapacityWatcher.tsx`) now
-  pass `useGraphStore.getState().displayDocuments`. `customDisplayAssets`
-  (finished PROGMEM bytes) is still not threaded there — baking is
-  `bakeCustomDisplayAssets`'s async browser rasterize/fetch, and both call
-  sites compute `opts` synchronously inside `useMemo`. A document with none
-  still generates correctly, drawing every Image/Icon and themed background as
-  the placeholder `customDisplayLvglCpp.ts` already falls back to; wiring the
-  async bake into a deploy is the next real gap, not a silent one.
+  pass the documents and finished image bytes through `useCustomDisplayAssets`.
+  That shared preparation hook subscribes to document-only edits and trust,
+  deduplicates in-flight/successful bakes per immutable document, and discards
+  late results from older edits. Upload, export, code view and capacity checks
+  wait for preparation; missing documents, invalid resources and failed decodes
+  block generation with named diagnostics. Retry refreshes both build consumers.
+  SVG masters decode at their catalogue dimensions before rasterization, and
+  `generateCpp` emits their validated PROGMEM tables alongside the references.
+  Regression tests cover trust changes, stale completion, retry, document-only
+  edits and actual asset tables in the measured sketch.
   `validateGraph.ts`'s blanket refusal is now scoped to `show`/`player`
   generators only, which is the "then" half of this item and remains
   unimplemented — neither has a compiled graph (the show has no music at all
@@ -947,6 +948,9 @@ freeform widgets must reuse rather than rediscover.
   Toggle's output becoming `bool n_screen_widget_toggle_out = ...` and that
   variable then gating an LED output's blackout fill — i.e. a widget output
   driving real graph logic, which is what this item asked for.
+- [ ] Embed the shared control-graph IR in generative-show and SD-player firmware
+  so custom touch widgets can drive real graph logic rather than only hardcoded
+  transport actions. Normal-sketch support above does not complete this path.
 - [x] Block unsupported generator bindings with an actionable diagnostic until
   the corresponding control-graph path exists. Generated shows already refuse
   displays because that generator cannot draw them; normal sketches now refuse
