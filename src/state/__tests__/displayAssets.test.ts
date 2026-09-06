@@ -7,6 +7,8 @@ import {
   displayAssetUrl,
   displayAssetsByCategory,
   displayAssetsForSlot,
+  displayControlAssetId,
+  displayControlsForTheme,
   displayControlTheme,
   normalizeDisplayAssetId,
 } from '../displayAssets'
@@ -70,6 +72,14 @@ describe('display asset registry', () => {
     expect(control).toMatchObject({ category: 'control', tintable: true })
     expect(displayControlTheme(control)).toBe('03-synthwave')
     expect(displayControlTheme(displayAsset('icon:power')!)).toBeUndefined()
+  })
+
+  it('groups the complete themed control set for the sidebar and templates', () => {
+    const controls = displayControlsForTheme('theme:03-synthwave')
+    expect(controls).toHaveLength(14)
+    expect(controls.map((asset) => asset.id)).toContain('control:03-synthwave:play-pause')
+    expect(displayControlAssetId('theme:03-synthwave', 'next')).toBe('control:03-synthwave:next')
+    expect(displayControlAssetId('theme:not-installed', 'next')).toBeUndefined()
   })
 
   it('is the only authority on what a document may store in an asset slot', () => {

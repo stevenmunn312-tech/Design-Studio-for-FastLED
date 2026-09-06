@@ -203,6 +203,68 @@
   font-size: 9px;
 }
 
+.controlIcons {
+  margin: 16px 0;
+}
+
+.controlIcons h2 {
+  margin-top: 0;
+}
+
+.controlIcons > label {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.controlIcons select {
+  width: 100%;
+  min-width: 0;
+}
+
+.controlIcons > p {
+  margin: 0 0 8px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.controlIconGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.controlIconButton {
+  display: grid;
+  min-height: 70px;
+  place-items: center;
+  gap: 3px;
+  padding: 5px;
+  border: 1px solid var(--border-glow);
+  border-radius: 4px;
+  background: var(--bg-node);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 9px;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.controlIconButton img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.controlIconButton:hover {
+  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--border-glow));
+  background: var(--bg-node-hover);
+  color: var(--text-primary);
+}
+
 .viewport {
   position: relative;
   min-width: 0;

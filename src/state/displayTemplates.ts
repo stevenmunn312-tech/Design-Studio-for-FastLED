@@ -7,6 +7,7 @@ import type {
 } from './displayDocument'
 import { constrainDisplayWidgetBounds, nextDisplayWidgetId } from './displayEditor'
 import { defaultDisplayWidgetProperties } from './displayRegistry'
+import { displayControlAssetId, type DisplayControlIconName } from './displayAssets'
 
 export type DisplayTemplateId =
   | 'now-playing'
@@ -34,6 +35,19 @@ export interface DisplayTemplate {
 /** Templates are authored against the reference screen; a smaller document
  * clamps them through the same constraint every hand-placed widget uses. */
 export const DISPLAY_TEMPLATE_REFERENCE_SIZE = { width: 320, height: 240 } as const
+
+/*
+ * Templates remain ordinary widgets, but the transport actions are ordinary
+ * enough to arrive with the currently chosen button art. A label is only the
+ * presentation name here — port identity still comes from the widget id.
+ */
+const TEMPLATE_CONTROL_ICONS: Readonly<Record<string, DisplayControlIconName>> = {
+  Previous: 'previous',
+  Play: 'play-pause',
+  Next: 'next',
+  Confirm: 'confirm',
+  Blackout: 'led-toggle',
+}
 
 const widget = (
   type: DisplayWidgetType,
@@ -163,17 +177,27 @@ export function displayTemplate(id: DisplayTemplateId): DisplayTemplate | undefi
 /** Insert a template's widgets as ordinary widgets: fresh stable ids, the same
  * bounds constraint as a hand-placed widget, and registry defaults under the
  * template's own property overrides. */
-export function applyDisplayTemplate(document: DisplayDocument, id: DisplayTemplateId): DisplayDocument {
+export function applyDisplayTemplate(
+  document: DisplayDocument,
+  id: DisplayTemplateId,
+  controlThemeId?: string,
+): DisplayDocument {
   const template = displayTemplate(id)
   if (!template) return document
   let working = document
   for (const spec of template.widgets) {
+    const icon = TEMPLATE_CONTROL_ICONS[spec.label]
+    const assetId = icon ? displayControlAssetId(controlThemeId, icon) : undefined
     const placed: DisplayWidget = {
       id: nextDisplayWidgetId(working, spec.type),
       type: spec.type,
       label: spec.label,
       bounds: constrainDisplayWidgetBounds(working, spec.type, spec.bounds),
-      properties: { ...defaultDisplayWidgetProperties(spec.type), ...spec.properties },
+      properties: {
+        ...defaultDisplayWidgetProperties(spec.type),
+        ...spec.properties,
+        ...(assetId ? { assetId, presentation: 'icon' } : {}),
+      },
     }
     working = { ...working, widgets: [...working.widgets, placed] }
   }

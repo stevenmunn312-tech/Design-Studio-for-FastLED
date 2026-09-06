@@ -171,6 +171,30 @@ describe('DisplayEditor', () => {
       .toBe('/display-assets/templates/pattern-deck.svg')
   })
 
+  it('switches the sidebar icon set and applies it to added controls and templates', () => {
+    const view = render(<DisplayEditor />)
+
+    fireEvent.change(view.getByLabelText('Icon theme'), { target: { value: 'theme:03-synthwave' } })
+    const previous = view.getByRole('button', { name: 'Add Synthwave Sunset Previous Track control' })
+    expect(previous.querySelector('img')?.getAttribute('src'))
+      .toBe('/display-assets/controls/03-synthwave/previous.svg')
+
+    fireEvent.click(previous)
+    expect(useGraphStore.getState().displayDocuments.panel.widgets[0]).toMatchObject({
+      type: 'Button',
+      label: 'Previous track',
+      properties: { assetId: 'control:03-synthwave:previous', presentation: 'icon' },
+    })
+
+    fireEvent.click(view.getByRole('button', { name: 'Insert Minimal Transport template' }))
+    const templateControls = useGraphStore.getState().displayDocuments.panel.widgets.slice(2, 5)
+    expect(templateControls.map((widget) => widget.properties.assetId)).toEqual([
+      'control:03-synthwave:previous',
+      'control:03-synthwave:play-pause',
+      'control:03-synthwave:next',
+    ])
+  })
+
   it('applies a pack theme and paints a baked background', () => {
     const view = render(<DisplayEditor />)
 

@@ -49,7 +49,14 @@ import {
   displayTemplate,
   type DisplayTemplateId,
 } from '../../state/displayTemplates'
-import { displayAssetUrl, displayAsset, displayAssetsByCategory, displayAssetsForSlot } from '../../state/displayAssets'
+import {
+  displayAssetUrl,
+  displayAsset,
+  displayAssetsByCategory,
+  displayAssetsForSlot,
+  displayControlsForTheme,
+  type DisplayAssetEntry,
+} from '../../state/displayAssets'
 import {
   DISPLAY_THEME_PRESETS,
   applyDisplayThemePreset,
@@ -93,6 +100,23 @@ interface RunDisplayWidgetProps {
 }
 
 let displayWidgetClipboard: DisplayWidget[] = []
+
+const CONTROL_LABELS: Readonly<Record<string, string>> = {
+  'play-pause': 'Play / Pause',
+  previous: 'Previous track',
+  next: 'Next track',
+  volume: 'Volume',
+  'volume-up': 'Volume up',
+  'volume-down': 'Volume down',
+  'led-toggle': 'LED power',
+  brightness: 'Brightness',
+  'brightness-up': 'Brightness up',
+  'brightness-down': 'Brightness down',
+  'pattern-select': 'Pattern select',
+  'pattern-previous': 'Previous pattern',
+  'pattern-next': 'Next pattern',
+  confirm: 'Confirm',
+}
 
 function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDisplayWidgetProps) {
   const definition = DISPLAY_WIDGET_LIBRARY[widget.type]
@@ -385,6 +409,10 @@ export default function DisplayEditor() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [zoom, setZoom] = useState(1)
   const [editorMode, setEditorMode] = useState<DisplayEditorMode>('design')
+  // This picker chooses the icon *set*, while the Screen theme in the
+  // inspector controls colour tokens. Keeping them separate lets an author
+  // audition a control family without unexpectedly repainting their screen.
+  const [controlThemeId, setControlThemeId] = useState(() => DISPLAY_THEME_PRESETS[0]?.id ?? '')
   // Run preview values live in the display runtime store, not in the document
   // and not in a second copy here; this counter only rerenders the surface after
   // an interaction this component handled.
@@ -473,6 +501,27 @@ export default function DisplayEditor() {
     setSelectedIds([widget.id])
   }
 
+  const addControlIcon = (asset: DisplayAssetEntry) => {
+    const iconName = asset.id.split(':').at(-1) ?? 'Control'
+    const type: DisplayWidgetType = iconName === 'play-pause' || iconName === 'led-toggle'
+      ? 'Toggle'
+      : 'Button'
+    const next = addDisplayWidget(document, type)
+    const widget = next.widgets.at(-1)!
+    const label = CONTROL_LABELS[iconName] ?? iconName
+    const configured: DisplayDocument = {
+      ...next,
+      widgets: [...next.widgets.slice(0, -1), {
+        ...widget,
+        label,
+        properties: { ...widget.properties, assetId: asset.id, presentation: 'icon' },
+      }],
+    }
+    const added = configured.widgets.at(-1)!
+    commit(configured, `${asset.label} control added at ${added.bounds.x}, ${added.bounds.y}.`)
+    setSelectedIds([added.id])
+  }
+
   const backgroundChoice = document?.theme.background.kind === 'image'
     ? document.theme.background.assetId
     : document?.theme.background.kind ?? 'solid'
@@ -507,7 +556,7 @@ export default function DisplayEditor() {
   const insertTemplate = (id: DisplayTemplateId) => {
     const template = displayTemplate(id)
     if (!template) return
-    const next = applyDisplayTemplate(document, id)
+    const next = applyDisplayTemplate(document, id, controlThemeId)
     const added = next.widgets.slice(document.widgets.length)
     commit(next, `${template.label} template inserted with ${added.length} widgets. ${validationAnnouncement(displayLayoutIssues(next))}`)
     setSelectedIds(added.map((widget) => widget.id))
@@ -768,6 +817,32 @@ export default function DisplayEditor() {
                 )
               })}
             </div>
+            <section className={styles.controlIcons} aria-label="Custom button icons">
+              <h2>Button icons</h2>
+              <label>Icon theme
+                <select value={controlThemeId} onChange={(event) => setControlThemeId(event.target.value)}>
+                  {DISPLAY_THEME_PRESETS.map((preset) => (
+                    <option key={preset.id} value={preset.id}>{preset.name}</option>
+                  ))}
+                </select>
+              </label>
+              <p>Click an icon to add it as a themed control. Templates use this set too.</p>
+              <div className={styles.controlIconGrid}>
+                {displayControlsForTheme(controlThemeId).map((asset) => (
+                  <button
+                    key={asset.id}
+                    type="button"
+                    className={styles.controlIconButton}
+                    aria-label={`Add ${asset.label} control`}
+                    title={`Add ${asset.label} control`}
+                    onClick={() => addControlIcon(asset)}
+                  >
+                    <img src={displayAssetUrl(asset)} alt="" aria-hidden="true" />
+                    <span>{asset.label.replace(/^.*?\s/, '')}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
             <h2>Templates</h2>
             <p>Insert a starting layout of ordinary widgets.</p>
             <div className={styles.paletteList}>

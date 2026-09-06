@@ -153,3 +153,45 @@ export function displayAssetsByCategory(category: DisplayAssetCategory): Display
 export function displayControlTheme(entry: DisplayAssetEntry): string | undefined {
   return entry.category === 'control' ? entry.id.split(':')[1] : undefined
 }
+
+/** The semantic control names carried by every themed player-control set. */
+export type DisplayControlIconName =
+  | 'play-pause'
+  | 'previous'
+  | 'next'
+  | 'volume'
+  | 'volume-up'
+  | 'volume-down'
+  | 'led-toggle'
+  | 'brightness'
+  | 'brightness-up'
+  | 'brightness-down'
+  | 'pattern-select'
+  | 'pattern-previous'
+  | 'pattern-next'
+  | 'confirm'
+
+/**
+ * The visual-theme id is `theme:…`; control artwork uses the same suffix in
+ * `control:<suffix>:<semantic-name>`. Keep that translation here so neither
+ * the editor nor templates need to know the catalogue's id shape.
+ */
+function controlThemeSuffix(themeId: string): string {
+  return themeId.startsWith('theme:') ? themeId.slice('theme:'.length) : themeId
+}
+
+/** The complete custom-button icon set for one pack theme, in pack order. */
+export function displayControlsForTheme(themeId: string): DisplayAssetEntry[] {
+  const suffix = controlThemeSuffix(themeId)
+  return displayAssetsByCategory('control').filter((entry) => displayControlTheme(entry) === suffix)
+}
+
+/** One semantic button icon from a selected theme, if the installed pack has it. */
+export function displayControlAssetId(
+  themeId: string | undefined,
+  icon: DisplayControlIconName,
+): string | undefined {
+  if (!themeId) return undefined
+  const id = `control:${controlThemeSuffix(themeId)}:${icon}`
+  return displayAsset(id) ? id : undefined
+}

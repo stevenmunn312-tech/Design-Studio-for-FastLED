@@ -58,6 +58,18 @@ describe('custom display templates', () => {
       .toMatchObject({ offLabel: 'Play', onLabel: 'Pause', presentation: 'text' })
   })
 
+  it('uses the selected themed icon set for template controls when one is supplied', () => {
+    const document = applyDisplayTemplate(referenceDocument(), 'now-playing', 'theme:03-synthwave')
+
+    expect(document.widgets.filter((widget) => ['Previous', 'Play', 'Next'].includes(widget.label))
+      .map((widget) => widget.properties))
+      .toEqual([
+        expect.objectContaining({ assetId: 'control:03-synthwave:previous', presentation: 'icon' }),
+        expect.objectContaining({ assetId: 'control:03-synthwave:play-pause', presentation: 'icon' }),
+        expect.objectContaining({ assetId: 'control:03-synthwave:next', presentation: 'icon' }),
+      ])
+  })
+
   it('appends a second template with fresh stable ids and independent properties', () => {
     const first = applyDisplayTemplate(referenceDocument(), 'minimal-transport')
     const both = applyDisplayTemplate(first, 'minimal-transport')
