@@ -1015,9 +1015,16 @@ freeform widgets must reuse rather than rediscover.
 
 - [ ] Add focused registry/default/property tests and update node-card/help
   generation for every graph-visible display/control node.
-- [ ] Add evaluator parity tests for formatted text, fixed layouts, widget
+- [x] Add evaluator parity tests for formatted text, fixed layouts, widget
   role outputs, synchronized-control ownership/release, update ordering,
   group/string propagation, and cycle handling.
+  `displayEvaluatorParity.test.ts` exercises the whole preview-facing path:
+  formatted text reaches both custom and fixed panels, each fixed family
+  evaluates through its declared contract, every minted widget role is sampled
+  or published, touch ownership hands back to a wired `set` value only after
+  the current pass, group boundaries retain string types, and a display
+  feedback cycle carries the sampled touch value instead of the evaluator's
+  recursion fallback.
 - [ ] Add C++ generator tests for normal, generative-show, SD-player, diagnostic,
   and stream-receiver paths, including “configured display is not omitted”.
 - [ ] Add workspace migration/import/export/orphan/undo tests for display
