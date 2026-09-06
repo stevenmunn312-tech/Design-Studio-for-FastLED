@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DISPLAY_WIDGET_TYPES, type DisplayWidget } from '../displayDocument'
+import { DISPLAY_DOCUMENT_LIMITS, DISPLAY_WIDGET_TYPES, type DisplayWidget } from '../displayDocument'
 import {
   DISPLAY_CONTROL_TRACK_PX,
   DISPLAY_TOUCH_TARGET_MIN_PX,
@@ -86,6 +86,14 @@ describe('display widget registry', () => {
     expect(second.text).toBe('Button')
     expect(defaultDisplayWidgetBounds('Button')).toEqual({ x: 0, y: 0, width: 48, height: 48 })
     expect(defaultDisplayWidgetBounds('Dial', 16, 24)).toEqual({ x: 16, y: 24, width: 48, height: 48 })
+  })
+
+  it.each(DISPLAY_WIDGET_TYPES)('%s defaults survive the inspector/import contract unchanged', (type) => {
+    const defaults = defaultDisplayWidgetProperties(type)
+    expect(normalizeDisplayWidgetProperties(type, defaults,
+      DISPLAY_DOCUMENT_LIMITS.propertyStringLength, DISPLAY_DOCUMENT_LIMITS.propertyCount)).toEqual(defaults)
+    expect(DISPLAY_WIDGET_LIBRARY[type].validateProperties(defaults))
+      .toEqual(type === 'Image/Icon' ? ['Choose an image or icon asset.'] : [])
   })
 
   it('normalizes imported properties from inspector metadata', () => {

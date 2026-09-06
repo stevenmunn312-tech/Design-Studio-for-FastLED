@@ -39,6 +39,7 @@ import {
   ringStartAngle,
 } from '../src/state/ledOutputForm'
 import { tidyLayout } from '../src/utils/tidyLayout'
+import { nodeReferenceSlug as kebab } from '../src/utils/nodeReferenceAssets'
 import type { LiveExampleSpec } from '../src/utils/insertLiveExample'
 import type { StudioNode, StudioEdge } from '../src/state/graphStore'
 import type { NodeDefinition } from '../src/types'
@@ -154,9 +155,6 @@ const hash3 = (t: string) => {
   for (const ch of t) h = (h * 31 + ch.charCodeAt(0)) >>> 0
   return String(100 + (h % 900))
 }
-
-const kebab = (t: string) =>
-  t.replace(/([a-z0-9])([A-Z])/g, '$1-$2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2').toLowerCase()
 
 const fmtNum = (v: number) => {
   if (Number.isInteger(v)) return String(v)

@@ -4,6 +4,7 @@ import { CATEGORIES, CATEGORY_COLOR, isPortlessNodeType, NODE_DESCRIPTIONS, NODE
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audioStore'
 import { insertLiveExample } from '../../utils/insertLiveExample'
+import { exampleGraphSrc, mainPreviewSrc, nodeCardSrc } from '../../utils/nodeReferenceAssets'
 import type { LiveExampleSpec } from '../../utils/insertLiveExample'
 import {
   exampleUsesMicrophone, liveExampleForNode,
@@ -14,6 +15,7 @@ import {
 } from './liveExamples'
 import type { ReferenceLiveExample } from './liveExamples'
 import { OUTPUT_USE_CASES, PORT_DESCRIPTIONS, TYPE_GLYPH } from './portCopy'
+import { DISPLAY_REFERENCE } from './displayReference'
 import styles from './NodeReference.module.css'
 
 type FilterCategory = 'all' | NodeCategory
@@ -713,6 +715,7 @@ function buildExampleRecipe(node: NodeDefinition): ExampleRecipe {
 }
 
 function buildUseCases(node: NodeDefinition): string[] {
+  if (DISPLAY_REFERENCE[node.type]) return DISPLAY_REFERENCE[node.type].overview
   const primaryOutput = node.outputs[0]?.dataType
   const primaryUse = NODE_DESCRIPTIONS[node.type] ?? `${node.label} is part of the Design Studio for FastLED graph pipeline.`
   const categoryUseCases: Partial<Record<NodeCategory, string>> = {
@@ -855,28 +858,6 @@ function GraphScreenshot({ recipe }: { recipe: ExampleRecipe }) {
       <div className={styles.graphExplanation}>{recipe.explanation}</div>
     </div>
   )
-}
-
-/** URL of a node type's generated reference card (public/node-cards/, built by
- *  `npm run gen:node-cards` — see scripts/generate-node-card-svgs.ts). */
-function nodeCardSrc(nodeType: string): string {
-  const kebab = nodeType
-    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
-    .toLowerCase()
-  return `/node-cards/${kebab}.svg`
-}
-
-/** URL of a node type's generated example-graph image — the rendered form of
- *  the same LiveExampleSpec the article's "Try it live" button inserts. */
-function exampleGraphSrc(nodeType: string): string {
-  return nodeCardSrc(nodeType).replace('/node-cards/', '/node-cards/graphs/')
-}
-
-/** URL of the generated frame showing the example's declared preview target —
- *  normally the same embedded preview visible on the final visual node. */
-function mainPreviewSrc(nodeType: string): string {
-  return nodeCardSrc(nodeType).replace('/node-cards/', '/node-cards/previews/')
 }
 
 function MainPreviewImage({ node, alt }: { node: NodeDefinition; alt: string }) {
@@ -1484,6 +1465,7 @@ function MidiArticle({ node }: { node: NodeDefinition }) {
 }
 
 function propertyNoteForNode(node: NodeDefinition): string {
+  if (DISPLAY_REFERENCE[node.type]) return DISPLAY_REFERENCE[node.type].propertyNote
   const properties = propertyEntries(node)
   if (properties.length === 0) {
     return 'This node is shaped entirely by its sockets and downstream context.'
@@ -1505,6 +1487,7 @@ function ReferenceArticle({ node }: { node: NodeDefinition }) {
   const properties = propertyEntries(node)
   const useCases = buildUseCases(node)
   const liveExample = liveExampleForNode(node)
+  const displayReference = DISPLAY_REFERENCE[node.type]
   const usesMicrophone = exampleUsesMicrophone(liveExample)
   const tryLive = () => {
     openLiveExample(liveExample, {
@@ -1521,7 +1504,7 @@ function ReferenceArticle({ node }: { node: NodeDefinition }) {
           <h1>{node.label}</h1>
           <p>{NODE_DESCRIPTIONS[node.type]}</p>
         </div>
-        <div className={styles.articleMeta}>{node.inputs.length} inputs · {node.outputs.length} outputs · {properties.length} properties</div>
+        <div className={styles.articleMeta}>{node.type === 'Display' ? 'Widget-defined ports' : `${node.inputs.length} inputs · ${node.outputs.length} outputs`} · {properties.length} properties</div>
       </header>
 
       <div className={styles.introGrid}>
@@ -1546,6 +1529,15 @@ function ReferenceArticle({ node }: { node: NodeDefinition }) {
         />
         <PortPanel title="Outputs" ports={node.outputs} direction="output" />
       </div>
+
+      {displayReference && (
+        <section className={styles.manualSection}>
+          <h2>Set up and connect</h2>
+          <ol>
+            {displayReference.steps.map((step) => <li key={step}><p>{step}</p></li>)}
+          </ol>
+        </section>
+      )}
 
       <section className={styles.exampleSection}>
         <div className={styles.sectionHeading}>

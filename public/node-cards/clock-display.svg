@@ -282,14 +282,14 @@
 <circle cx="-2" cy="336" r="9" fill="#ffd24a" opacity="0.25"/>
 <circle cx="-2" cy="336" r="6" fill="#ffd24a" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="340" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Color</text>
-<circle cx="242" cy="336" r="9" fill="#9aa0a6" opacity="0.25"/>
-<circle cx="242" cy="336" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
+<circle cx="242" cy="336" r="9" fill="#c6ff32" opacity="0.25"/>
+<circle cx="242" cy="336" r="6" fill="#c6ff32" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="230" y="340" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Done</text>
 <circle cx="-2" cy="364" r="9" fill="#9aa0a6" opacity="0.25"/>
 <circle cx="-2" cy="364" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="368" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Seconds Today</text>
-<circle cx="-2" cy="392" r="9" fill="#9aa0a6" opacity="0.25"/>
-<circle cx="-2" cy="392" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
+<circle cx="-2" cy="392" r="9" fill="#c6ff32" opacity="0.25"/>
+<circle cx="-2" cy="392" r="6" fill="#c6ff32" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="396" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Valid</text>
 <circle cx="-2" cy="420" r="9" fill="#9aa0a6" opacity="0.25"/>
 <circle cx="-2" cy="420" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
@@ -297,11 +297,11 @@
 <circle cx="-2" cy="448" r="9" fill="#9aa0a6" opacity="0.25"/>
 <circle cx="-2" cy="448" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="452" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Month</text>
-<circle cx="-2" cy="476" r="9" fill="#9aa0a6" opacity="0.25"/>
-<circle cx="-2" cy="476" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
+<circle cx="-2" cy="476" r="9" fill="#c6ff32" opacity="0.25"/>
+<circle cx="-2" cy="476" r="6" fill="#c6ff32" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="480" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Run</text>
-<circle cx="-2" cy="504" r="9" fill="#9aa0a6" opacity="0.25"/>
-<circle cx="-2" cy="504" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
+<circle cx="-2" cy="504" r="9" fill="#c6ff32" opacity="0.25"/>
+<circle cx="-2" cy="504" r="6" fill="#c6ff32" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="508" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Reset</text>
 <circle cx="-2" cy="532" r="9" fill="#9aa0a6" opacity="0.25"/>
 <circle cx="-2" cy="532" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>

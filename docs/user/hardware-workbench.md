@@ -32,7 +32,9 @@ Use **Add Hardware** in the workbench. The current categories are:
   PIR motion sensor, ambient-light sensor, and RTC module;
 - **Storage** — supported microSD modules;
 - **Amplifiers & DACs** — the supported I2S DAC/amplifier and analog amplifier
-  modules; and
+  modules;
+- **Displays** — segment readouts, OLED information panels, fixed-layout TFTs,
+  and a custom touch display; and
 - **LED outputs** — LED String, LED Matrix, LED Ring, LED Corkscrew, and HUB75 Panel.
 
 A **Button Bank** starts with one hollow graph socket. Connect it to a named
@@ -52,6 +54,10 @@ Some components appear in both views because they carry a signal:
 - microphone, line-in, and input/sensor parts produce graph data;
 - RTC produces a clock signal; and
 - an LED output consumes a frame.
+
+Auxiliary displays also have graph nodes: fixed panels consume display data,
+while touch panels can publish controls as well. They are separate screens and
+do not consume any of the LED output's pixels.
 
 Board, SD Card, and amplifier/DAC parts are workbench-only. They persist as part
 of the project and affect validation or code generation, but they do not carry
@@ -107,6 +113,66 @@ For an LED Corkscrew, set the chain length, number of turns, LED 0 angle,
 winding direction, cylinder diameter, and finished height. Studio authors the
 effect on an unwrapped cylinder, then uses the same helical sample map for the
 browser preview and generated firmware.
+
+## Add and connect a display
+
+Choose **Add Hardware → Displays**, then the kind of screen you need. Select
+the part in the workbench to choose its exact module and GPIO. The
+[display reference](../reference/displays.md) lists the available modules,
+connections, and build limitations. An unlisted controller, resolution, or
+touch module is unsupported; choosing a similar-looking part does not make its
+driver compatible.
+
+For **Segment Display** and **Info Display**, connect the **Display** output of
+RTC Clock, Music Player, or Pattern Slideshow to the panel's **Display** input.
+The source determines the layout. **Transport Display** instead has a layout
+selector and separate typed inputs for text, timing, progress, and state. For
+music-player touch controls, connect **Transport Display Controls → Player
+Controls → Music Player**.
+
+### Design a custom screen
+
+1. Add **Custom display** for the ST7789V 2.4-inch 240×320 module with XPT2046
+   touch. Configure the display and touch pins in Hardware, then choose rotation
+   on the graph node. Use **Show in graph** if the node is hidden.
+2. Click **Edit display**. In **Design**, add widgets from the palette or insert
+   a template. A template adds widgets to the screen; it does not connect their
+   graph ports. Select a widget to edit its label, bounds, and properties. With
+   no selection, choose the screen's grid, theme, and background.
+3. Start with a **Slider** and **Numeric Readout**. Click **Graph** to return to
+   the graph and connect the slider's **Output** to the readout's input (the
+   **Value** role, labelled with the readout's name).
+   Connect the same output to the intended control, such as brightness. For an
+   SD music player, route brightness and volume through **Player Controls →
+   Music Player**. Use a 0–1 slider range for these normalized levels.
+4. Reopen **Edit display** and choose **Run** to exercise the slider locally.
+   Switch back to **Design** to move or resize widgets. Mode changes reset
+   temporary control state; they do not erase the layout. Run preview does not
+   operate the physical touchscreen or validate its calibration.
+5. Resolve layout issues and Graph Health errors, then measure capacity or
+   upload through the usual Upload pane. Normal, generative-show, and SD-player
+   builds generate custom LVGL screens; each checks whether its generator can
+   evaluate your widget bindings. Unsupported bindings must be changed before
+   deployment.
+
+Readout widgets receive values. Buttons publish boolean outputs. Toggles,
+sliders, and dials also have an optional **Set** input: touch owns a control
+while held, and its wired Set value takes over after release. With Set
+unwired, it retains its local value. See the
+[widget role table](../reference/displays.md#widget-ports) for the complete map.
+
+Renaming or moving widgets preserves connections. Deleting a wired widget
+asks before removing its connections. Copying widgets creates independent
+widgets that need their own graph wiring. The screen document is saved with the
+project, and layout edits participate in undo/redo; temporary Run-mode touch
+values are not saved.
+
+Use distinct chip-select lines when sharing a compatible SPI bus between a TFT,
+touch controller, and SD card. TM1637 is not I²C and needs a separate CLK/DIO
+pair per module. Resolve pin conflicts in Graph Health and review the Build
+Diagram. Shared-bus operation under audio and LED load, touch calibration, and
+screen performance still need physical validation; successful compilation does
+not close those checks.
 
 ## Navigate the workbench
 

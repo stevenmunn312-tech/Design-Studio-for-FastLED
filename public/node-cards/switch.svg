@@ -19,8 +19,8 @@
 <circle cx="-2" cy="80" r="9" fill="#9aa0a6" opacity="0.25"/>
 <circle cx="-2" cy="80" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="84" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">B</text>
-<circle cx="-2" cy="108" r="9" fill="#9aa0a6" opacity="0.25"/>
-<circle cx="-2" cy="108" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
+<circle cx="-2" cy="108" r="9" fill="#c6ff32" opacity="0.25"/>
+<circle cx="-2" cy="108" r="6" fill="#c6ff32" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="112" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Select</text>
 <line x1="8" y1="128" x2="232" y2="128" stroke="rgba(255,255,255,0.08)"/>
 <text x="8" y="148" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">a</text>

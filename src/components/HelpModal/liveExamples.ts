@@ -1418,8 +1418,8 @@ const CUSTOM_DISPLAY_LIVE_EXAMPLE = namedExample(
     { key: 'color', type: 'SolidColor', properties: { r: 24, g: 52, b: 96 } },
   ],
   [],
-  'Custom Display owns a separate declarative widget document. Add widgets in its editor and the node mints stable typed ports from their ids and roles; renaming or moving a widget does not break its cables.',
-  'The solid colour keeps the LED Matrix preview meaningful while Custom Display remains a separate physical touch panel. Device generation is blocked until the LVGL runtime is available rather than silently leaving that panel dark.',
+  'Click Edit display on Custom Display, add a Slider and a Numeric Readout, then return with Graph and connect the slider’s Output to the readout’s input. The widgets create typed ports; renaming or moving them keeps their cables. Use Run in the editor to try the control locally.',
+  'The solid colour keeps the LED preview meaningful while Custom Display remains a separate physical touch panel. Normal, show, and SD-player builds generate LVGL widgets; Graph Health reports unsupported bindings. Browser Run mode and a successful compile do not verify physical touch or screen performance.',
 )
 
 const MASTER_SPEED_LIVE_EXAMPLE = namedExample(

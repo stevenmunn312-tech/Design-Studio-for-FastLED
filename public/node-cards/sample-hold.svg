@@ -16,8 +16,8 @@
 <circle cx="242" cy="52" r="9" fill="#9aa0a6" opacity="0.25"/>
 <circle cx="242" cy="52" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="230" y="56" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Result</text>
-<circle cx="-2" cy="80" r="9" fill="#9aa0a6" opacity="0.25"/>
-<circle cx="-2" cy="80" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
+<circle cx="-2" cy="80" r="9" fill="#c6ff32" opacity="0.25"/>
+<circle cx="-2" cy="80" r="6" fill="#c6ff32" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="84" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Trigger</text>
 <line x1="8" y1="100" x2="232" y2="100" stroke="rgba(255,255,255,0.08)"/>
 <text x="8" y="120" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">value</text>

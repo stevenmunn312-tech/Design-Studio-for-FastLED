@@ -13,8 +13,8 @@
 <circle cx="-2" cy="52" r="9" fill="#5ad1ff" opacity="0.25"/>
 <circle cx="-2" cy="52" r="6" fill="#5ad1ff" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="56" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Pattern</text>
-<circle cx="242" cy="52" r="9" fill="#00e0a4" opacity="0.25"/>
-<circle cx="242" cy="52" r="6" fill="#00e0a4" stroke="#0d0f12" stroke-width="1.5"/>
+<circle cx="242" cy="52" r="9" fill="#38a6ff" opacity="0.25"/>
+<circle cx="242" cy="52" r="6" fill="#38a6ff" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="230" y="56" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Patterns</text>
 <rect x="8" y="68" width="224" height="24" rx="4" fill="none" stroke="rgba(255,255,255,0.12)" stroke-dasharray="4 3"/>
 <text x="120" y="84" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="10" font-style="italic" fill="#a0a0a0">collected patterns list</text>

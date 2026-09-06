@@ -189,7 +189,7 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
         id: 'st7789v-xpt2046-touch-240x320',
         label: 'ST7789V 2.4-inch + touch',
         summary: '240x320 colour TFT for a custom touch UI',
-        note: 'The custom Display editor targets touch-capable colour panels. Its widget ports are derived from the saved screen document; LVGL firmware generation remains blocked until the custom runtime is available.',
+        note: 'Design this exact touch module with Edit display on its graph node. Widgets create typed graph ports and generate LVGL firmware in normal, show, and SD-player builds; Graph Health reports unsupported bindings. Physical touch and performance validation remain outstanding.',
       },
     ],
   },

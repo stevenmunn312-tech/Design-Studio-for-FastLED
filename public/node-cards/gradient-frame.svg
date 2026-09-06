@@ -276,8 +276,8 @@
 <circle cx="-2" cy="308" r="9" fill="#ffd24a" opacity="0.25"/>
 <circle cx="-2" cy="308" r="6" fill="#ffd24a" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="312" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Color B</text>
-<circle cx="-2" cy="336" r="9" fill="#9aa0a6" opacity="0.25"/>
-<circle cx="-2" cy="336" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
+<circle cx="-2" cy="336" r="9" fill="#c6ff32" opacity="0.25"/>
+<circle cx="-2" cy="336" r="6" fill="#c6ff32" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="340" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Vertical</text>
 <line x1="8" y1="356" x2="232" y2="356" stroke="rgba(255,255,255,0.08)"/>
 <text x="8" y="376" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ COLOR A</text>

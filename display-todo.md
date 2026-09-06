@@ -1013,8 +1013,17 @@ freeform widgets must reuse rather than rediscover.
 
 ### Phase 8 — tests, documentation, and release evidence
 
-- [ ] Add focused registry/default/property tests and update node-card/help
+- [x] Add focused registry/default/property tests and update node-card/help
   generation for every graph-visible display/control node.
+  Node-card generation now runs with isolated in-memory browser storage and
+  regenerates cards, example graphs, and previews for all 173 current nodes,
+  including every display/control node. `displayNodeRegistration.test.ts`
+  checks catalogue/driver dimensions, module defaults, hardware ownership,
+  editable/claimed/retargeted pins and property ranges. `displayRegistry.test.ts`
+  checks every widget's defaults against inspector/import normalization.
+  Fixed-display, text-node and Player Controls contracts are covered by their
+  node tests. Help tests check live examples, display-specific workflow coverage
+  and all generated assets using the same URL helpers as the app and generator.
 - [x] Add evaluator parity tests for formatted text, fixed layouts, widget
   role outputs, synchronized-control ownership/release, update ordering,
   group/string propagation, and cycle handling.
@@ -1053,8 +1062,12 @@ freeform widgets must reuse rather than rediscover.
   in [display compile checks](docs/development/display-compile-checks.md).
   This closes representative compilation only; physical tests and the broader
   advertised-board matrix remain open.
-- [ ] Add the user workflow to the hardware workbench guide and display-node
+- [x] Add the user workflow to the hardware workbench guide and display-node
   reference pages. Describe unsupported devices as unsupported, not generic.
+  The [workbench guide](docs/user/hardware-workbench.md#add-and-connect-a-display),
+  [display reference](docs/reference/displays.md), and each display's in-app
+  Node Reference cover module identity, wiring, Design/Run, widget roles,
+  persistence, assets, generator limits, and the physical-validation boundary.
 - [ ] Add support-matrix rows only after recorded physical tests for the exact
   board, module, bus, generator, and interaction combination.
 

@@ -3373,10 +3373,10 @@
 <path d="M966,324 C1009.2,324 1018.8,484 1062,484" fill="none" stroke="#33d6ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
 <path d="M966,324 C1009.2,324 1018.8,484 1062,484" fill="none" stroke="#33d6ff" stroke-width="1.2" stroke-linecap="round"/>
 <circle cx="1062" cy="484" r="3" fill="#33d6ff"/>
-<path d="M1306,484 C1349.2,484 1358.8,316 1402,316" fill="none" stroke="#3333ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M1306,484 C1349.2,484 1358.8,316 1402,316" fill="none" stroke="#3333ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M1306,484 C1349.2,484 1358.8,316 1402,316" fill="none" stroke="#3333ff" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="1402" cy="316" r="3" fill="#3333ff"/>
+<path d="M1306,484 C1349.2,484 1358.8,256 1402,256" fill="none" stroke="#3333ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M1306,484 C1349.2,484 1358.8,256 1402,256" fill="none" stroke="#3333ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M1306,484 C1349.2,484 1358.8,256 1402,256" fill="none" stroke="#3333ff" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="1402" cy="256" r="3" fill="#3333ff"/>
 <g transform="translate(44,324)">
 <rect x="0" y="0" width="240" height="147" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
 <rect x="0" y="0" width="240" height="147" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
@@ -4104,9 +4104,9 @@
 <rect x="220" y="380" width="12" height="12" rx="3" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
 </g>
 </g>
-<g transform="translate(1404,264)">
-<rect x="0" y="0" width="240" height="280" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
-<rect x="0" y="0" width="240" height="280" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
+<g transform="translate(1404,204)">
+<rect x="0" y="0" width="240" height="385" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
+<rect x="0" y="0" width="240" height="385" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#d633ff"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">LED Matrix</text>
 <rect x="154" y="10" width="25" height="12" rx="6" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
@@ -4116,25 +4116,38 @@
 <circle cx="-2" cy="52" r="9" fill="#5ad1ff" opacity="0.25"/>
 <circle cx="-2" cy="52" r="6" fill="#5ad1ff" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="56" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Frame</text>
-<rect x="8" y="68" width="224" height="24" rx="4" fill="none" stroke="rgba(255,255,255,0.12)" stroke-dasharray="4 3"/>
-<text x="120" y="84" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="10" font-style="italic" fill="#a0a0a0">board · port · upload</text>
-<line x1="8" y1="100" x2="232" y2="100" stroke="rgba(255,255,255,0.08)"/>
-<text x="8" y="120" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ OUTPUT</text>
-<text x="8" y="141" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ FRAME ROUTE</text>
-<text x="8" y="162" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ WIRING</text>
-<text x="8" y="183" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ HUB75 WIRING</text>
-<text x="8" y="204" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ LAYOUT</text>
-<text x="8" y="225" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ RENDERING</text>
-<text x="8" y="246" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">brightness</text>
+<circle cx="-2" cy="80" r="9" fill="#c6ff32" opacity="0.25"/>
+<circle cx="-2" cy="80" r="6" fill="#c6ff32" stroke="#0d0f12" stroke-width="1.5"/>
+<text x="10" y="84" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Enabled</text>
+<circle cx="-2" cy="108" r="9" fill="#9aa0a6" opacity="0.25"/>
+<circle cx="-2" cy="108" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
+<text x="10" y="112" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Brightness</text>
+<circle cx="-2" cy="136" r="9" fill="#ff8a65" opacity="0.25"/>
+<circle cx="-2" cy="136" r="6" fill="#ff8a65" stroke="#0d0f12" stroke-width="1.5"/>
+<text x="10" y="140" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Controls</text>
+<rect x="8" y="152" width="224" height="24" rx="4" fill="none" stroke="rgba(255,255,255,0.12)" stroke-dasharray="4 3"/>
+<text x="120" y="168" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="10" font-style="italic" fill="#a0a0a0">board · port · upload</text>
+<line x1="8" y1="184" x2="232" y2="184" stroke="rgba(255,255,255,0.08)"/>
+<text x="8" y="204" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ OUTPUT GEOMETRY</text>
+<text x="8" y="225" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ FRAME ROUTE</text>
+<text x="8" y="246" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ WIRING</text>
+<text x="8" y="267" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ HUB75 WIRING</text>
+<text x="8" y="288" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ LAYOUT</text>
+<text x="8" y="309" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ RENDERING</text>
+<text x="8" y="330" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">brightness</text>
 <g>
-<rect x="120" y="240" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="120" y="240" width="72.0" height="4" rx="2" fill="#d633ff"/>
-<circle cx="192.0" cy="242" r="5" fill="#d633ff"/>
-<text x="232" y="246" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">220</text>
+<rect x="120" y="324" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="120" y="324" width="72.0" height="4" rx="2" fill="#d633ff"/>
+<circle cx="192.0" cy="326" r="5" fill="#d633ff"/>
+<text x="232" y="330" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">220</text>
 </g>
-<text x="8" y="267" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">set default</text>
+<text x="8" y="351" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">clamp inputs</text>
 <g>
-<rect x="220" y="257" width="12" height="12" rx="3" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
+<rect x="220" y="341" width="12" height="12" rx="3" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
+</g>
+<text x="8" y="372" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">set default</text>
+<g>
+<rect x="220" y="362" width="12" height="12" rx="3" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
 </g>
 </g>
 </svg>

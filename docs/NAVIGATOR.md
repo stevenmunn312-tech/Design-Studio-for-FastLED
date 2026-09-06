@@ -7,7 +7,7 @@ build/architecture overview aimed at contributors.
 
 - [Hardware workbench](user/hardware-workbench.md)
   — the current Hardware-branch workflow for choosing a board, adding physical
-    parts, assigning pins, connecting signal nodes, switching LED preview
+    parts, assigning pins, designing and wiring display widgets, switching LED preview
     routes, deploying firmware, and using the embedded Output/Serial console.
 - [Stereo VU Meter](user/stereo-vu-meter.md)
   — adding and wiring paired side strings, stereo/mono source behavior, all
@@ -87,8 +87,9 @@ build/architecture overview aimed at contributors.
     records the remaining Audio and Storage capability work.
   - [Auxiliary displays](development/design/auxiliary-displays.md)
     — 7-segment/OLED/TFT peripherals as hardware-owned root parts: the `string`
-    signal and TM1637 Segment Display have shipped; OLED, TFT and the freeform
-    `Display` document are still planned. Records the touch/evaluate/publish/
+    signal, segment/OLED/fixed TFT drivers, and the freeform `Display` editor
+    and LVGL generators are implemented; physical validation remains separate.
+    Records the touch/evaluate/publish/
     flush frame order, bus-aware pin sharing, why a display is a codegen
     terminal, and the evidence gates no device ships without.
   - [Simple displays](development/design/simple-displays.md)
@@ -130,6 +131,9 @@ build/architecture overview aimed at contributors.
 
 ## Reference
 
+- [Display nodes](reference/displays.md)
+  — exact module choices, fixed-screen wiring, custom widget roles, editor and
+    Run workflow, assets, generator limits, and troubleshooting.
 - [Node cards](reference/node-cards.md)
   — a generated reference card image for every node in the library (ports,
     typed port colours, inline controls at their defaults, evaluated preview

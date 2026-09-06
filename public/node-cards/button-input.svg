@@ -12,8 +12,8 @@
 <text x="208.5" y="19" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="8" letter-spacing="0.08em" fill="#000">BUT-644</text>
 <rect x="81" y="40" width="78" height="28" rx="8" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
 <text x="120" y="58" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">press</text>
-<circle cx="242" cy="84" r="9" fill="#9aa0a6" opacity="0.25"/>
-<circle cx="242" cy="84" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
+<circle cx="242" cy="84" r="9" fill="#c6ff32" opacity="0.25"/>
+<circle cx="242" cy="84" r="6" fill="#c6ff32" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="230" y="88" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Pressed</text>
 <line x1="8" y1="104" x2="232" y2="104" stroke="rgba(255,255,255,0.08)"/>
 <text x="8" y="124" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">pin</text>

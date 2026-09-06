@@ -6,17 +6,41 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ## Inputs
 
+### Audio
+
+![Audio node](../../public/node-cards/audio.svg)
+
+![Audio example graph](../../public/node-cards/graphs/audio.svg)
+
+### Storage
+
+![Storage node](../../public/node-cards/storage.svg)
+
+![Storage example graph](../../public/node-cards/graphs/storage.svg)
+
 ### Microphone
 
 ![Microphone node](../../public/node-cards/mic-input.svg)
 
 ![Microphone example graph](../../public/node-cards/graphs/mic-input.svg)
 
+### Line In
+
+![Line In node](../../public/node-cards/line-input.svg)
+
+![Line In example graph](../../public/node-cards/graphs/line-input.svg)
+
 ### Button
 
 ![Button node](../../public/node-cards/button-input.svg)
 
 ![Button example graph](../../public/node-cards/graphs/button-input.svg)
+
+### Button Bank
+
+![Button Bank node](../../public/node-cards/button-bank.svg)
+
+![Button Bank example graph](../../public/node-cards/graphs/button-bank.svg)
 
 ### Motion Sensor
 
@@ -257,6 +281,24 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Trigger node](../../public/node-cards/trigger.svg)
 
 ![Trigger example graph](../../public/node-cards/graphs/trigger.svg)
+
+### Text Value
+
+![Text Value node](../../public/node-cards/text-value.svg)
+
+![Text Value example graph](../../public/node-cards/graphs/text-value.svg)
+
+### Format Number
+
+![Format Number node](../../public/node-cards/format-number.svg)
+
+![Format Number example graph](../../public/node-cards/graphs/format-number.svg)
+
+### Format Date/Time
+
+![Format Date/Time node](../../public/node-cards/format-date-time.svg)
+
+![Format Date/Time example graph](../../public/node-cards/graphs/format-date-time.svg)
 
 ### XY → Index
 
@@ -910,11 +952,23 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Transitions example graph](../../public/node-cards/graphs/transition-set.svg)
 
-### Show Engine
+### Player Controls
 
-![Show Engine node](../../public/node-cards/pattern-master.svg)
+![Player Controls node](../../public/node-cards/player-controls.svg)
 
-![Show Engine example graph](../../public/node-cards/graphs/pattern-master.svg)
+![Player Controls example graph](../../public/node-cards/graphs/player-controls.svg)
+
+### Player Particles
+
+![Player Particles node](../../public/node-cards/player-particles.svg)
+
+![Player Particles example graph](../../public/node-cards/graphs/player-particles.svg)
+
+### Music Player
+
+![Music Player node](../../public/node-cards/pattern-master.svg)
+
+![Music Player example graph](../../public/node-cards/graphs/pattern-master.svg)
 
 ### Sequencer
 
@@ -940,6 +994,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![SD Card example graph](../../public/node-cards/graphs/sd-card.svg)
 
+### Pattern Slideshow
+
+![Pattern Slideshow node](../../public/node-cards/pattern-slideshow.svg)
+
+![Pattern Slideshow example graph](../../public/node-cards/graphs/pattern-slideshow.svg)
+
 ## Output
 
 ### Board
@@ -953,6 +1013,42 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![LED Matrix node](../../public/node-cards/matrix-output.svg)
 
 ![LED Matrix example graph](../../public/node-cards/graphs/matrix-output.svg)
+
+### Stereo VU Meter
+
+![Stereo VU Meter node](../../public/node-cards/stereo-vu-meter.svg)
+
+![Stereo VU Meter example graph](../../public/node-cards/graphs/stereo-vu-meter.svg)
+
+### Info Display
+
+![Info Display node](../../public/node-cards/info-display.svg)
+
+![Info Display example graph](../../public/node-cards/graphs/info-display.svg)
+
+### Transport Display
+
+![Transport Display node](../../public/node-cards/transport-display.svg)
+
+![Transport Display example graph](../../public/node-cards/graphs/transport-display.svg)
+
+### Custom Display
+
+![Custom Display node](../../public/node-cards/display.svg)
+
+![Custom Display example graph](../../public/node-cards/graphs/display.svg)
+
+### Master Speed
+
+![Master Speed node](../../public/node-cards/master-speed.svg)
+
+![Master Speed example graph](../../public/node-cards/graphs/master-speed.svg)
+
+### Segment Display
+
+![Segment Display node](../../public/node-cards/segment-display.svg)
+
+![Segment Display example graph](../../public/node-cards/graphs/segment-display.svg)
 
 ### Amplifier
 
