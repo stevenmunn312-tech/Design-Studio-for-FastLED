@@ -116,8 +116,8 @@ browser preview and generated firmware.
 
 ## Add and connect a display
 
-Choose **Add Hardware → Displays**, then the kind of screen you need. Select
-the part in the workbench to choose its exact module and GPIO. The
+Choose **Add Hardware → Displays**, then choose the exact module you need from
+the menu. Select the added part in the workbench to configure its GPIO. The
 [display reference](../reference/displays.md) lists the available modules,
 connections, and build limitations. An unlisted controller, resolution, or
 touch module is unsupported; choosing a similar-looking part does not make its
@@ -134,7 +134,8 @@ Controls → Music Player**.
 
 1. Add **Custom display** for the ST7789V 2.4-inch 240×320 module with XPT2046
    touch. Configure the display and touch pins in Hardware, then choose rotation
-   on the graph node. Use **Show in graph** if the node is hidden.
+   on the graph node. Custom Display is graph-visible as soon as you add it;
+   use **Show in graph** from its Hardware actions to locate it on a busy canvas.
 2. Click **Edit display**. In **Design**, add widgets from the palette or insert
    a template. A template adds widgets to the screen; it does not connect their
    graph ports. Select a widget to edit its label, bounds, and properties. With
