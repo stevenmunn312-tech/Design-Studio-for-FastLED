@@ -6,6 +6,7 @@ import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { controllerSettings, ledPropsWithController } from '../state/controllerSettings'
 import { outputGridDims } from '../state/ledOutputForm'
 import { amplifierIdleCpp } from './amplifierIdle'
+import { standaloneDisplaysCpp } from './standaloneDisplayCpp'
 
 function intProp(val: unknown, def: number, min: number, max: number): number {
   const n = Math.round(Number(val))
@@ -50,6 +51,7 @@ export function generateWiringDiagnosticSketch(
   const vuRightReversed = vuProps?.rightDirection === 'Top'
   const controller = controllerSettings(nodes)
   const amplifierIdle = amplifierIdleCpp(nodes)
+  const displays = standaloneDisplaysCpp(nodes)
   const grid = outputGridDims(p)
   const width = grid.width
   const height = grid.height
@@ -102,8 +104,11 @@ export function generateWiringDiagnosticSketch(
   lines.push(...overclockDefineCpp(hw))
   lines.push('#include <FastLED.h>')
   if (isHub75) lines.push(...hub75IncludesCpp(hub75Hw!))
+  lines.push(...displays.includes)
   lines.push('#include <stdio.h>')
   lines.push('')
+  lines.push(...displays.forwards)
+  if (displays.forwards.length > 0) lines.push('')
   if (!isHub75) {
     lines.push(`#define DATA_PIN ${dataPin}`)
     if (SPI_CHIPSETS.has(hw.chipset)) lines.push(`#define CLOCK_PIN ${hw.clockPin}`)
@@ -137,6 +142,7 @@ export function generateWiringDiagnosticSketch(
     lines.push('CRGB vuRight[VU_LED_COUNT];')
   }
   if (isHub75) lines.push(...hub75GlobalsCpp(hub75Hw!))
+  lines.push(...displays.helpers)
   lines.push('')
   if (xyTable) {
     lines.push('// Physical wiring map (grid index -> physical LED index), baked from')
@@ -362,6 +368,7 @@ export function generateWiringDiagnosticSketch(
   lines.push(...amplifierIdle.setup)
   if (isHub75) lines.push(...hub75SetupCpp(hub75Hw!))
   else lines.push(...fastledSetupCpp(hw))
+  lines.push(...displays.setup)
   if (vuNode && vuHw) {
     lines.push(...fastledSetupCpp(vuHw, {
       dataPinMacro: 'VU_LEFT_PIN', brightness: null, ledCountMacro: 'VU_LED_COUNT',
@@ -409,6 +416,7 @@ export function generateWiringDiagnosticSketch(
   if (!isHub75 || vuNode) {
     lines.push('  FastLED.show();')
   }
+  lines.push(...displays.loop)
   lines.push('  FastLED.delay(16);')
   lines.push('}')
   lines.push('')

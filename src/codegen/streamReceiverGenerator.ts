@@ -5,6 +5,7 @@ import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { ledPropsWithController } from '../state/controllerSettings'
 import { isLinearForm, outputForm, outputGridDims } from '../state/ledOutputForm'
 import { amplifierIdleCpp } from './amplifierIdle'
+import { standaloneDisplaysCpp } from './standaloneDisplayCpp'
 
 // A tiny, generic Adalight-protocol receiver — flashed once, then the studio
 // pushes already-computed live-preview frames straight to it over serial at
@@ -77,6 +78,7 @@ export function generateStreamReceiverSketch(nodes: StudioNode[], outputNodeId?:
   const isHub75 = hw.chipset === HUB75_CHIPSET
   const hub75Hw = isHub75 ? hub75HardwareFromProps(combined, layout.width, layout.height) : null
   const amplifierIdle = amplifierIdleCpp(nodes)
+  const displays = standaloneDisplaysCpp(nodes)
 
   const lines: string[] = []
   lines.push('// Design Studio for FastLED — generic live-stream receiver (Adalight protocol).')
@@ -89,7 +91,10 @@ export function generateStreamReceiverSketch(nodes: StudioNode[], outputNodeId?:
   lines.push(...overclockDefineCpp(hw))
   lines.push('#include <FastLED.h>')
   if (isHub75) lines.push(...hub75IncludesCpp(hub75Hw!))
+  lines.push(...displays.includes)
   lines.push('')
+  lines.push(...displays.forwards)
+  if (displays.forwards.length > 0) lines.push('')
   if (!isHub75) {
     lines.push(`#define DATA_PIN ${dataPin}`)
     if (SPI_CHIPSETS.has(hw.chipset)) lines.push(`#define CLOCK_PIN ${hw.clockPin}`)
@@ -106,6 +111,7 @@ export function generateStreamReceiverSketch(nodes: StudioNode[], outputNodeId?:
   lines.push('')
   lines.push('CRGB leds[NUM_LEDS];')
   if (isHub75) lines.push(...hub75GlobalsCpp(hub75Hw!))
+  lines.push(...displays.helpers)
   lines.push('')
   lines.push('void setup() {')
   lines.push(...amplifierIdle.setup)
@@ -117,6 +123,7 @@ export function generateStreamReceiverSketch(nodes: StudioNode[], outputNodeId?:
   // preview, especially at lower master levels. Keep the transport receiver
   // neutral; color order/correction still belong to the physical controller.
   else lines.push(...fastledSetupCpp(hw, { brightness: 255 }))
+  lines.push(...displays.setup)
   lines.push('}')
   lines.push('')
   lines.push('// Returns -1 after READ_TIMEOUT_MS with nothing available instead of blocking')
@@ -133,6 +140,9 @@ export function generateStreamReceiverSketch(nodes: StudioNode[], outputNodeId?:
   lines.push('// checksum (hi ^ lo ^ 0x55). The count is only used to sync framing — this')
   lines.push('// receiver always reads exactly NUM_LEDS triples, baked in at flash time.')
   lines.push('void loop() {')
+  // Service panels before waiting on the serial prefix. In particular, this
+  // keeps a configured Diagnostics touch panel alive when the sender pauses.
+  lines.push(...displays.loop)
   lines.push('  static const uint8_t prefix[] = { \'A\', \'d\', \'a\' };')
   lines.push('  for (uint8_t i = 0; i < sizeof(prefix); ) {')
   lines.push('    int b = readByte();')

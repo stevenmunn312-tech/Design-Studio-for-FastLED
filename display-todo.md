@@ -1034,8 +1034,15 @@ freeform widgets must reuse rather than rediscover.
   the current pass, group boundaries retain string types, and a display
   feedback cycle carries the sampled touch value instead of the evaluator's
   recursion fallback.
-- [ ] Add C++ generator tests for normal, generative-show, SD-player, diagnostic,
+- [x] Add C++ generator tests for normal, generative-show, SD-player, diagnostic,
   and stream-receiver paths, including “configured display is not omitted”.
+  `displayGeneratorPaths.test.ts` now runs the same I²C OLED, TM1637 and
+  diagnostic touch TFT through every path, requiring each emitted sketch to
+  include its headers/forward declarations, driver globals, bus and panel
+  setup, touch service, and display refresh. That exposed the two standalone
+  generators dropping fixed displays entirely; `standaloneDisplayCpp.ts` now
+  gives diagnostic and serial-stream sketches the shared fixed-driver emission
+  and services panels even while the receiver is waiting for a frame.
 - [x] Add workspace migration/import/export/orphan/undo tests for display
   documents, role-derived ports, asset ids and wired-widget deletion.
   Legacy workspaces default to an empty registry, loaded orphan documents are
