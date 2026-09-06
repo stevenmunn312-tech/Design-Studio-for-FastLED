@@ -1036,8 +1036,12 @@ freeform widgets must reuse rather than rediscover.
   recursion fallback.
 - [ ] Add C++ generator tests for normal, generative-show, SD-player, diagnostic,
   and stream-receiver paths, including “configured display is not omitted”.
-- [ ] Add workspace migration/import/export/orphan/undo tests for display
+- [x] Add workspace migration/import/export/orphan/undo tests for display
   documents, role-derived ports, asset ids and wired-widget deletion.
+  Legacy workspaces default to an empty registry, loaded orphan documents are
+  discarded, project/Graph JSON/share paths round-trip catalogue asset ids,
+  and reopening a Display editor before undo/redo restores each deleted
+  widget's document, derived port and affected cable as one transaction.
 - [ ] Add hardware workbench tests for exact module identity, root-scoped edits,
   repeated displays, part layout, pin retargeting, shared-bus rules, and delete.
 - [x] Add backend tests for optional dependency fetch/stage/cache recovery and

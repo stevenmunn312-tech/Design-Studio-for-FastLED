@@ -263,8 +263,10 @@ export default function MenuBar() {
 
   const handleSaveJSON = () => {
     // Export the whole workspace so pattern-group subgraphs travel with the file.
-    const { nodes, edges, graphData, graphs, activeGraphId, buildProfile } = useGraphStore.getState()
-    const json = JSON.stringify({ nodes, edges, graphData, graphs, activeGraphId, buildProfile }, null, 2)
+    const { nodes, edges, graphData, graphs, activeGraphId, buildProfile, performanceDeck, displayDocuments } = useGraphStore.getState()
+    const json = JSON.stringify({
+      nodes, edges, graphData, graphs, activeGraphId, buildProfile, performanceDeck, displayDocuments,
+    }, null, 2)
     const blob = new Blob([json], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -276,8 +278,10 @@ export default function MenuBar() {
   }
 
   const handleCopyShareLink = async () => {
-    const { nodes, edges, graphData, graphs, activeGraphId, buildProfile } = useGraphStore.getState()
-    const url = buildShareUrl({ nodes, edges, graphData, graphs, activeGraphId, buildProfile })
+    const { nodes, edges, graphData, graphs, activeGraphId, buildProfile, performanceDeck, displayDocuments } = useGraphStore.getState()
+    const url = buildShareUrl({
+      nodes, edges, graphData, graphs, activeGraphId, buildProfile, performanceDeck, displayDocuments,
+    })
     try {
       await navigator.clipboard.writeText(url)
       setStatus('Share link copied to clipboard', 'success')
@@ -566,11 +570,13 @@ export default function MenuBar() {
       const reader = new FileReader()
       reader.onload = (ev) => {
         try {
-          const { nodes, edges, graphData, graphs, activeGraphId, buildProfile, performanceDeck } = JSON.parse(ev.target?.result as string) as
+          const { nodes, edges, graphData, graphs, activeGraphId, buildProfile, performanceDeck, displayDocuments } = JSON.parse(ev.target?.result as string) as
             { nodes: StudioNode[]; edges: StudioEdge[] } & WorkspaceExtras
           // Never trust an imported file's own `trusted` claim — force it
           // false regardless of what the JSON says (todo.md's P0 trust item).
-          useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, buildProfile, trusted: false, performanceDeck })
+          useGraphStore.getState().loadGraph(nodes, edges, {
+            graphData, graphs, activeGraphId, buildProfile, trusted: false, performanceDeck, displayDocuments,
+          })
           useGraphStore.temporal.getState().clear()
           setStatus('Graph JSON imported', 'success')
           void promptTrustIfNeeded()

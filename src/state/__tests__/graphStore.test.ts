@@ -1095,7 +1095,7 @@ describe('graphStore — custom display documents', () => {
     useGraphStore.getState().loadGraph([], [])
     expect(useGraphStore.getState().displayDocuments).toEqual({})
 
-    useGraphStore.getState().loadGraph([], [], {
+    useGraphStore.getState().loadGraph([node('screen', 'Display', { displayId: 'panel' })], [], {
       displayDocuments: {
         untrustedKey: { ...displayDocument, orientation: 'invalid' as never },
         old: { ...displayDocument, schemaVersion: 2 as never, displayId: 'old' },
@@ -1103,6 +1103,20 @@ describe('graphStore — custom display documents', () => {
     })
     expect(Object.keys(useGraphStore.getState().displayDocuments)).toEqual(['panel'])
     expect(useGraphStore.getState().displayDocuments.panel.orientation).toBe('0')
+  })
+
+  it('drops a loaded display document whose physical Display node was orphaned', () => {
+    useGraphStore.getState().loadGraph([node('screen', 'Display', { displayId: 'panel' })], [], {
+      displayDocuments: {
+        panel: displayDocument,
+        orphan: { ...displayDocument, displayId: 'orphan' },
+      },
+    })
+
+    // A document is a hardware part's declarative payload, not a standalone
+    // canvas artifact. Retaining an unowned import would make it persist
+    // forever despite there being no part that can render or generate it.
+    expect(useGraphStore.getState().displayDocuments).toEqual({ panel: displayDocument })
   })
 
   it('adds and removes a document through undo-aware store actions', () => {
@@ -1216,6 +1230,46 @@ describe('graphStore — custom display documents', () => {
       expect(useGraphStore.getState().displayDocuments.panel.widgets.map((widget) => widget.id)).toEqual(['text', 'button'])
       expect(useGraphStore.getState().edges.map((entry) => entry.id)).toEqual(['text-wire', 'button-wire'])
     } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('restores a removed wired widget, its derived port, and its cable after leaving and reopening the display undo scope', () => {
+    vi.useFakeTimers()
+    try {
+      reset([node('screen', 'Display', { displayId: 'panel' })])
+      let document = addDisplayWidget(createDisplayDocument('panel'), 'Text')
+      document = addDisplayWidget(document, 'Button')
+      useGraphStore.getState().setDisplayDocument(document)
+      useGraphStore.setState({
+        edges: [
+          edge('text-wire', 'source', 'text', 'screen', 'widget:text:value'),
+          edge('button-wire', 'screen', 'widget:button:out', 'sink', 'x'),
+        ],
+      })
+      vi.advanceTimersByTime(400)
+      useGraphStore.temporal.getState().clear()
+
+      enterDisplayHistoryScope('panel')
+      useGraphStore.getState().setDisplayDocument(removeDisplayWidget(document, 'text'))
+      vi.advanceTimersByTime(400)
+      leaveDisplayHistoryScope('panel')
+
+      enterDisplayHistoryScope('panel')
+      useGraphStore.temporal.getState().undo()
+      expect(useGraphStore.getState().displayDocuments.panel.widgets.map((widget) => widget.id)).toEqual(['text', 'button'])
+      expect(useGraphStore.getState().nodes[0].data.inputs).toContainEqual({
+        id: 'widget:text:value', label: 'Text', dataType: 'string',
+      })
+      expect(useGraphStore.getState().edges.map((entry) => entry.id)).toEqual(['text-wire', 'button-wire'])
+
+      useGraphStore.temporal.getState().redo()
+      expect(useGraphStore.getState().displayDocuments.panel.widgets.map((widget) => widget.id)).toEqual(['button'])
+      expect(useGraphStore.getState().nodes[0].data.inputs).toEqual([])
+      expect(useGraphStore.getState().edges.map((entry) => entry.id)).toEqual(['button-wire'])
+    } finally {
+      leaveDisplayHistoryScope('panel')
+      clearStashedGraphHistory()
       vi.useRealTimers()
     }
   })

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { parseProjectFile } from '../projectFileIO'
+import { parseProjectFile, serializeProject } from '../projectFileIO'
+import { DEFAULT_DISPLAY_THEME, type DisplayDocument } from '../../state/displayDocument'
 
 // todo.md's P0 trust-boundary item: a project file must never be able to
 // self-declare its way past the trust gate by setting `trusted: true` in its
@@ -32,6 +33,34 @@ describe('parseProjectFile — trust boundary', () => {
 })
 
 describe('parseProjectFile — display document boundary', () => {
+  const displayDocument: DisplayDocument = {
+    schemaVersion: 1,
+    displayId: 'panel',
+    designSize: { width: 320, height: 240 },
+    orientation: '0',
+    gridSize: 8,
+    theme: { ...DEFAULT_DISPLAY_THEME, background: { kind: 'image', assetId: 'background:01-neon-orbit:320x240' } },
+    widgets: [{
+      id: 'art', type: 'Image/Icon', label: 'Artwork',
+      bounds: { x: 0, y: 0, width: 48, height: 48 },
+      properties: { assetId: 'icon:power', tint: true },
+    }],
+  }
+
+  it('round-trips the declarative registry through a project file using catalogue asset ids', () => {
+    const text = serializeProject({
+      id: 'project', name: 'Display project', createdAt: 1, updatedAt: 2,
+      workspace: { nodes: [], edges: [], displayDocuments: { panel: displayDocument } },
+    })
+
+    const imported = parseProjectFile(text, 'fallback')
+    expect(imported.workspace.displayDocuments?.panel).toMatchObject({
+      displayId: 'panel',
+      theme: { background: { kind: 'image', assetId: 'background:01-neon-orbit:320x240' } },
+      widgets: [expect.objectContaining({ properties: { assetId: 'icon:power', tint: true } })],
+    })
+  })
+
   it('normalizes imported display documents and drops invalid entries', () => {
     const text = JSON.stringify({
       nodes: [], edges: [],

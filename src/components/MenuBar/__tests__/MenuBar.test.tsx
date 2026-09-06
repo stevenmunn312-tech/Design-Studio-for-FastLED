@@ -12,6 +12,7 @@ import { captureSharePreview } from '../../../utils/sharePreviewCapture'
 import { useUploadStore } from '../../../state/uploadStore'
 import { INMP441_NO_BOARD_MESSAGE, INMP441_UNSUPPORTED_MESSAGE } from '../../../state/micPinDefaults'
 import { BOARD_PROFILES } from '../../../build/boardProfiles'
+import { createDisplayDocument } from '../../../state/displayEditor'
 
 vi.mock('../../../utils/communityUpload', () => ({
   openCommunityTab: vi.fn().mockReturnValue({ target: 'design-studio-community-test', opened: true }),
@@ -540,6 +541,37 @@ describe('MenuBar file menu', () => {
     await waitFor(() => expect(useProjectStore.getState().currentProjectId).toBe(pg.id))
     expect(requestNewProjectDecision).not.toHaveBeenCalled()
     expect(authoredNodeIds()).toEqual(['pg-node'])
+  })
+
+  it('imports custom display documents with Graph JSON and normalizes their asset ids', async () => {
+    const displayDocument = createDisplayDocument('screen')
+    displayDocument.widgets = [{
+      id: 'art', type: 'Image/Icon', label: 'Artwork',
+      bounds: { x: 0, y: 0, width: 48, height: 48 },
+      properties: { assetId: 'icon:power', tint: true },
+    }]
+    const imported = {
+      nodes: [{
+        id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
+        data: { label: 'Display', nodeType: 'Display', category: 'hardware', properties: { displayId: 'screen' }, inputs: [], outputs: [] },
+      }],
+      edges: [],
+      displayDocuments: { arbitraryKey: displayDocument },
+    }
+
+    const { container, getByRole, getByText } = render(<MenuBar />)
+    const input = container.querySelector<HTMLInputElement>('input[accept=".json"]')
+    expect(input).toBeTruthy()
+    fireEvent.click(getByRole('button', { name: 'File menu' }))
+    fireEvent.click(getByText('Import Graph JSON…'))
+    fireEvent.change(input!, {
+      target: { files: [new File([JSON.stringify(imported)], 'display.json', { type: 'application/json' })] },
+    })
+
+    await waitFor(() => expect(useGraphStore.getState().displayDocuments.screen).toMatchObject({
+      displayId: 'screen',
+      widgets: [expect.objectContaining({ properties: { assetId: 'icon:power', tint: true } })],
+    }))
   })
 
   it('supports cancel before opening a recent project', () => {

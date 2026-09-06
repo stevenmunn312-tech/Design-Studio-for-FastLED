@@ -935,6 +935,22 @@ function syncDisplayNodesInContent(
   return { nodes, edges }
 }
 
+/** Display documents are the persisted payload of physical Display parts. A
+ * loaded workspace may predate that ownership rule or contain a partially
+ * exported part, so discard registry entries that no root-scoped Display node
+ * can resolve. Live creation deliberately does not use this helper: adding a
+ * part and its initial document spans two store actions. */
+function pruneOrphanDisplayDocuments(
+  documents: DisplayDocumentRegistry,
+  rootNodes: StudioNode[],
+): DisplayDocumentRegistry {
+  const owned = new Set(rootNodes
+    .filter((node) => node.data.nodeType === 'Display')
+    .map((node) => String(node.data.properties.displayId ?? node.id)))
+  const entries = Object.entries(documents).filter(([displayId]) => owned.has(displayId))
+  return entries.length === Object.keys(documents).length ? documents : Object.fromEntries(entries)
+}
+
 function duplicateNodeDocument(
   node: StudioNode,
   newId: string,
@@ -977,7 +993,43 @@ function restoreStashedDisplayHistory(displayId: string): void {
     const rebasedDocuments = { ...displayDocuments }
     if (target) rebasedDocuments[displayId] = target
     else delete rebasedDocuments[displayId]
-    return { ...snapshot, nodes, edges, graphData, displayDocuments: rebasedDocuments }
+    // A display-history step owns its document, but the document also owns the
+    // outer node's ports and the cables attached to those ports. Rebuild that
+    // root-scoped projection for every stashed snapshot rather than retaining
+    // the current projection: otherwise reopening a display and undoing a
+    // widget deletion restored the widget while leaving its port and cable
+    // deleted.
+    const scope = { nodes, edges, graphData, activeGraphId: useGraphStore.getState().activeGraphId }
+    const currentRoot = { nodes: rootGraphNodes(scope), edges: rootGraphEdges(scope) }
+    const historicRoot = scope.activeGraphId === ROOT_GRAPH_ID
+      ? { nodes: snapshot.nodes ?? currentRoot.nodes, edges: snapshot.edges ?? currentRoot.edges }
+      : snapshot.graphData?.[ROOT_GRAPH_ID] ?? currentRoot
+    const displayNodeIds = new Set(currentRoot.nodes
+      .filter((node) => node.data.nodeType === 'Display'
+        && String(node.data.properties.displayId ?? node.id) === displayId)
+      .map((node) => node.id))
+    // Retain current graph cables except the document-owned display endpoints,
+    // which have to come from the historical snapshot to bring a deleted role
+    // back. `syncDisplayNodesInContent` below drops anything that is still
+    // incompatible with the snapshot document.
+    const touchesDisplay = (edge: StudioEdge) => displayNodeIds.has(edge.source) || displayNodeIds.has(edge.target)
+    const root = syncDisplayNodesInContent(
+      {
+        nodes: currentRoot.nodes,
+        edges: [
+          ...currentRoot.edges.filter((edge) => !touchesDisplay(edge)),
+          ...historicRoot.edges.filter(touchesDisplay),
+        ],
+      },
+      rebasedDocuments,
+    )
+    return {
+      nodes,
+      edges,
+      graphData,
+      displayDocuments: rebasedDocuments,
+      ...withRootContent(scope, root),
+    }
   })
   useGraphStore.temporal.setState({
     pastStates: rebase(stacks?.pastStates ?? []),
@@ -1757,13 +1809,14 @@ export const useGraphStore = create<GraphState>()(
           )
           const loadedGraphData = pruned?.graphData ?? graphData
           const buildProfile = normalizeBuildProfile(workspace?.buildProfile)
-          const displayDocuments = normalizeDisplayDocuments(workspace?.displayDocuments)
+          let displayDocuments = normalizeDisplayDocuments(workspace?.displayDocuments)
           const rootContent = syncDisplayNodesInContent(
             activeGraphId === ROOT_GRAPH_ID
               ? { nodes: active.nodes, edges: active.edges }
               : loadedGraphData[ROOT_GRAPH_ID] ?? { nodes: [], edges: [] },
             displayDocuments,
           )
+          displayDocuments = pruneOrphanDisplayDocuments(displayDocuments, rootContent.nodes)
           if (activeGraphId !== ROOT_GRAPH_ID) loadedGraphData[ROOT_GRAPH_ID] = rootContent
           const rootNodes = activeGraphId === ROOT_GRAPH_ID
             ? ensureRootBoardNode(rootContent.nodes, buildProfile?.physicalBoardProfileId)
