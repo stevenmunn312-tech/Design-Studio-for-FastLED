@@ -118,6 +118,37 @@ describe('retargetHardwarePins', () => {
     expect(result.nodes[0].data.properties).toMatchObject({ sdaPin: 21, sclPin: 22 })
   })
 
+  it('moves an I2C OLED with the RTC onto the board I2C bus', () => {
+    const xiao = boardProfileById('seeed-xiao-esp32s3')!
+    const devkit = boardProfileById('esp32-devkit-v1-30pin-esp32d')!
+    const nodes = [
+      part('rtc', 'RTCInput', withAssignedPins({ timeSource: 'DS3231' }, { sdaPin: 5, sclPin: 6 }, xiao.id)),
+      part('oled', 'InfoDisplay', withAssignedPins({ partId: 'ssd1306-oled-128x64' }, { sdaPin: 5, sclPin: 6 }, xiao.id)),
+    ]
+
+    const result = retargetHardwarePins(nodes, devkit, 'esp32:esp32:esp32', xiao.id)
+    for (const node of result.nodes) {
+      expect(node.data.properties).toMatchObject({ sdaPin: 21, sclPin: 22 })
+    }
+  })
+
+  it('retargets only the pins physically present on a MAX7219 display', () => {
+    const nodes = [part('digits', 'SegmentDisplay', withAssignedPins(
+      { partId: 'max7219-8digit-7segment', dioPin: 99 },
+      { clkPin: 4, dinPin: 5, csPin: 6 },
+      'first-board',
+    ))]
+
+    const result = retargetHardwarePins(nodes, profile([21, 33, 34], undefined, 'second-board'), ESP32_S3, 'first-board')
+    expect(result.nodes[0].data.properties).toMatchObject({
+      clkPin: 21,
+      dinPin: 33,
+      csPin: 34,
+      // A MAX7219 has no DIO header. It must not become a fourth claimed pin.
+      dioPin: 99,
+    })
+  })
+
   it('moves an untouched SD SPI bus from the S3 defaults to ESP-32D VSPI', () => {
     const s3 = boardProfileById('generic-esp32-s3-n16r8-44pin-dual-usbc')!
     const esp32d = boardProfileById('esp32-devkit-v1-30pin-esp32d')!

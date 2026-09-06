@@ -33,6 +33,12 @@ function node(type: string, id: string, properties: Record<string, unknown> = {}
   }
 }
 
+function addDisplay(summary: string) {
+  fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
+  fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /Displays/ }))
+  fireEvent.click(screen.getByText(summary).closest('button')!)
+}
+
 describe('HardwarePane', () => {
   beforeEach(() => {
     vi.stubGlobal('ResizeObserver', ResizeObserverStub)
@@ -103,10 +109,7 @@ describe('HardwarePane', () => {
   it('adds a custom touch display with its own document and stable identity', () => {
     render(<HardwarePane />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
-    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /Displays/ }))
-    const customItem = screen.getByText('240x320 colour TFT for a custom touch UI').closest('button')!
-    fireEvent.click(customItem)
+    addDisplay('240x320 colour TFT for a custom touch UI')
 
     const state = useGraphStore.getState()
     const display = state.nodes.find((entry) => entry.data.nodeType === 'Display')
@@ -119,6 +122,81 @@ describe('HardwarePane', () => {
       displayId: display!.id,
       designSize: { width: 240, height: 320 },
     })
+  })
+
+  it.each([
+    ['SegmentDisplay', 'Two-wire 7-segment with a colon', 'tm1637-4digit-display'],
+    ['SegmentDisplay', 'Eight digits on a shared SPI bus', 'max7219-8digit-7segment'],
+    ['InfoDisplay', '128x64 white OLED over 4-wire SPI', 'sh1106-oled-128x64'],
+    ['InfoDisplay', '128x64 white OLED over I2C', 'ssd1306-oled-128x64'],
+    ['TransportDisplay', '240x240 colour TFT over SPI', 'st7789-tft-240x240'],
+    ['TransportDisplay', '240x320 colour TFT with XPT2046 touch', 'st7789v-xpt2046-touch-240x320'],
+    ['Display', '240x320 colour TFT for a custom touch UI', 'st7789v-xpt2046-touch-240x320'],
+  ])('adds %s as the exact catalogued module chosen in the display menu', (nodeType, summary, partId) => {
+    render(<HardwarePane />)
+
+    addDisplay(summary)
+
+    const display = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === nodeType)
+    expect(display?.data.properties.partId).toBe(partId)
+  })
+
+  it('keeps repeated displays distinct and root-scoped', () => {
+    useGraphStore.setState({
+      nodes: [],
+      edges: [],
+      activeGraphId: 'pattern',
+      graphs: {
+        [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' },
+        pattern: { id: 'pattern', name: 'Pattern' },
+      },
+      graphData: {
+        [ROOT_GRAPH_ID]: {
+          nodes: [node('Board', ROOT_BOARD_NODE_ID, { profileId: DEFAULT_BOARD_PROFILE_ID }) as never],
+          edges: [],
+        },
+      },
+    })
+    render(<HardwarePane />)
+
+    addDisplay('Two-wire 7-segment with a colon')
+    addDisplay('Two-wire 7-segment with a colon')
+
+    const state = useGraphStore.getState()
+    const displays = rootGraphNodes(state).filter((entry) => entry.data.nodeType === 'SegmentDisplay')
+    expect(displays).toHaveLength(2)
+    expect(new Set(displays.map((entry) => entry.id)).size).toBe(2)
+    expect(displays.every((entry) => entry.data.properties.partId === 'tm1637-4digit-display')).toBe(true)
+    expect(state.nodes).toEqual([])
+  })
+
+  it('removes a custom display and its document from the root graph while a group is open', () => {
+    const display = node('Display', 'custom-screen', {
+      displayId: 'custom-screen',
+      partId: 'st7789v-xpt2046-touch-240x320',
+    }) as never
+    useGraphStore.setState({
+      nodes: [],
+      edges: [],
+      activeGraphId: 'pattern',
+      graphs: {
+        [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' },
+        pattern: { id: 'pattern', name: 'Pattern' },
+      },
+      graphData: { [ROOT_GRAPH_ID]: { nodes: [node('Board', ROOT_BOARD_NODE_ID) as never, display], edges: [] } },
+      displayDocuments: {
+        'custom-screen': { displayId: 'custom-screen', designSize: { width: 240, height: 320 }, widgets: [], theme: {} } as never,
+      },
+    })
+    render(<HardwarePane />)
+
+    fireEvent.contextMenu(document.querySelector('[data-hardware-node-id="custom-screen"]')!)
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+
+    const state = useGraphStore.getState()
+    expect(rootGraphNodes(state).some((entry) => entry.id === 'custom-screen')).toBe(false)
+    expect(state.displayDocuments['custom-screen']).toBeUndefined()
+    expect(state.nodes).toEqual([])
   })
 
   it('adds and draws a corkscrew as dedicated helical geometry', () => {

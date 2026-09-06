@@ -10,6 +10,7 @@ import {
   type HardwarePartBox,
   type HardwarePartLink,
 } from '../hardwareLayout'
+import { partById } from '../../../state/partCatalogue'
 
 const BOARD: HardwarePartBox = { id: 'board', widthMm: 25.6, heightMm: 55 }
 const MIC: HardwarePartBox = { id: 'mic', widthMm: 20.5, heightMm: 14.5 }
@@ -111,6 +112,28 @@ describe('hardware arrangement', () => {
     const byId = index(parts)
     expect(byId.get('tiny')!.height).toBeLessThan(byId.get('mic')!.height)
     expect(byId.get('mic')!.height).toBeLessThan(byId.get('board')!.height)
+  })
+
+  it('keeps catalogued display modules at their individual physical aspect ratios', () => {
+    const oled = partById('sh1106-oled-128x64')!
+    const touch = partById('st7789v-xpt2046-touch-240x320')!
+    const displays: HardwarePartBox[] = [
+      { id: 'oled', widthMm: oled.dimensionsMm.width, heightMm: oled.dimensionsMm.height },
+      { id: 'touch', widthMm: touch.dimensionsMm.width, heightMm: touch.dimensionsMm.height },
+    ]
+    const { parts } = arrange([BOARD, ...displays], [
+      { source: 'board', target: 'oled' },
+      { source: 'board', target: 'touch' },
+    ])
+    const byId = index(parts)
+
+    for (const display of displays) {
+      const placed = byId.get(display.id)!
+      expect(placed.width / placed.height).toBeCloseTo(display.widthMm / display.heightMm, 3)
+    }
+    // They receive separate row slots, so a second display cannot cover the first.
+    expect(byId.get('oled')!.x + byId.get('oled')!.slotWidth)
+      .toBeLessThanOrEqual(byId.get('touch')!.x)
   })
 
   it('centres the view on the controller, not on the bounding box', () => {

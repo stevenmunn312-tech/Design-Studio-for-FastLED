@@ -1049,7 +1049,7 @@ freeform widgets must reuse rather than rediscover.
   discarded, project/Graph JSON/share paths round-trip catalogue asset ids,
   and reopening a Display editor before undo/redo restores each deleted
   widget's document, derived port and affected cable as one transaction.
-- [ ] Add hardware workbench tests for exact module identity, root-scoped edits,
+- [x] Add hardware workbench tests for exact module identity, root-scoped edits,
   repeated displays, part layout, pin retargeting, shared-bus rules, and delete.
 - [x] Add backend tests for optional dependency fetch/stage/cache recovery and
   pinned versions.

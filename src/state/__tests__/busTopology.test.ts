@@ -60,12 +60,38 @@ describe('findPinCollisions', () => {
     expect(findPinCollisions(uses)).toEqual([])
   })
 
+  it('accepts the actual SSD1306 OLED and DS3231 sharing their I2C bus', () => {
+    const uses = [
+      pinUse('rtc', 'RTCInput', 'sdaPin', 21), pinUse('rtc', 'RTCInput', 'sclPin', 22),
+      pinUse('oled', 'InfoDisplay', 'sdaPin', 21), pinUse('oled', 'InfoDisplay', 'sclPin', 22),
+    ]
+    expect(findPinCollisions(uses)).toEqual([])
+  })
+
   it('accepts two SPI clients sharing SCK, MOSI, and MISO with distinct selects', () => {
     const uses = [
       pinUse('sd', CARD, 'sdSckPin', 18), pinUse('sd', CARD, 'sdMosiPin', 23),
       pinUse('sd', CARD, 'sdMisoPin', 19), pinUse('sd', CARD, 'sdCsPin', 5),
       pinUse('tft', CARD, 'sdSckPin', 18), pinUse('tft', CARD, 'sdMosiPin', 23),
       pinUse('tft', CARD, 'sdMisoPin', 19), pinUse('tft', CARD, 'sdCsPin', 15),
+    ]
+    expect(findPinCollisions(uses)).toEqual([])
+  })
+
+  it('accepts a custom touch display sharing its display and touch SPI host', () => {
+    const uses = [
+      pinUse('screen', 'Display', 'sckPin', 18),
+      pinUse('screen', 'Display', 'mosiPin', 23),
+      pinUse('screen', 'Display', 'misoPin', 19),
+      pinUse('screen', 'Display', 'csPin', 5),
+      pinUse('screen', 'Display', 'dcPin', 16),
+      pinUse('screen', 'Display', 'resetPin', 17),
+      pinUse('screen', 'Display', 'backlightPin', 4),
+      pinUse('screen', 'Display', 'touchCsPin', 15),
+      pinUse('screen', 'Display', 'touchIrqPin', 27),
+      pinUse('screen', 'Display', 'touchSckPin', 18),
+      pinUse('screen', 'Display', 'touchMosiPin', 23),
+      pinUse('screen', 'Display', 'touchMisoPin', 19),
     ]
     expect(findPinCollisions(uses)).toEqual([])
   })
