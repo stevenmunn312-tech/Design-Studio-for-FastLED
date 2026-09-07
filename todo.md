@@ -14,12 +14,19 @@ matrix, not a reason to postpone testing earlier changes.
 
 ## 1. Make existing controls and screens reliable
 
-- [ ] **HW-01 · P1 · Slideshow selection and TFT-only firmware (M).** Resolve
-  controls addressed to Pattern Slideshow; apply browse/confirm to its renderer;
-  derive cursor/name-table emission from every consumer, not OLED presence.
-  Exit: headless Button/Encoder/widget selection, TFT-only Show Status and
-  OLED+TFT agree with preview and compile; names do not depend on thumbnails.
-  Review F1/F2; large-display and slideshow design notes.
+- [ ] **HW-01 · P1 · Slideshow selection and TFT-only firmware (M).** Code
+  complete; compile evidence outstanding. `showControlTargets` now names the
+  Pattern Slideshow as a control destination beside the outputs it renders, the
+  loop applies that bundle through `_selUpdate` before rendering, and the
+  renderer reads `cur` back out of the cursor. Cursor emission is derived from
+  every consumer and every commander rather than from OLED presence, so a
+  TFT-only Show Status declares `_sel_show` and a headless build gets one with
+  no display half. Pattern names moved to their own table
+  (`patternNameTableCpp`, fed by `collectionPatternNames`), independent of the
+  bake. Covered by headless Button/Encoder and Button-widget tests plus
+  TFT-only Show Status name/cursor tests; `npm test`, `npm run lint` and
+  `tsc -b` pass. Remaining exit: an Arduino CLI/fbuild compile of the TFT-only,
+  OLED+TFT and headless cases (belongs to the HW-06 matrix). Review F1/F2.
 - [ ] **HW-02 · P1 · Panel ownership and Enabled (M).** Read mounted geometry
   from TransportDisplay; repair editor orientation writes; share size validation
   across all generators. Define disabled drawing/touch/output-rest and re-enable

@@ -46,8 +46,14 @@ Show/player templates still cannot read arbitrary RTC sources.
 Show Status displays the engine's pattern/selection information. It has no LED
 toggle or brightness touch region. Use custom Toggle/Slider widgets for those
 actions. Diagnostics is device lifecycle, not a DisplaySignal source; a visible
-entry point is still needed. Template Show Status names and TFT-only cursor
-emission still need HW-01.
+entry point is still needed.
+
+Show Status reads pattern names from the sketch's own name table
+(`patternNameTableCpp`), not from a Pattern Browser's baked thumbnails: a name
+needs no bake, no trust decision and no flash budget, so a TFT-only show still
+names what it plays. Cursor emission is derived from every consumer — browser,
+Show Status, artwork, and anything commanding it — rather than from OLED
+presence.
 
 ## Reporting state
 
@@ -59,8 +65,11 @@ Player template sources resolve only unpackers actually connected to its player.
 A normal sketch emits blanks because it does not run the device music player.
 
 The player owns track/selection state; screens report it. Slideshow owns its
-active/highlight cursor. Firmware must route controls back to that engine before
-publishing readback; the slideshow template currently misses this route (HW-01).
+active/highlight cursor. Firmware routes controls back to that engine before
+publishing readback: `showControlTargets` names the slideshow as a control
+destination beside the LED outputs it renders, the show loop applies the bundle
+through `_selUpdate`, and the renderer reads `cur` back out of the cursor, so a
+confirm changes the pixels rather than only what a panel says.
 
 ## Assigning controls
 

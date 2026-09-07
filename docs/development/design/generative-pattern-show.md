@@ -236,7 +236,17 @@ music-free case. Nobody would find that, so nobody did.
   reorder must not change what is playing, and a deletion hands its slot to the
   new occupant — but a control that says "next" moves what is running, not a
   cursor waiting on a confirm. There is no separate active/highlight split to
-  show, which is what the browser layout's `SELECT?` row exists for.
+  show, which is what the browser layout's `SELECT?` row exists for. The
+  generated controller says the same thing the evaluator does, by confirming on
+  any non-zero step rather than by keeping a second rule.
+- **Controls reach the show, not only its outputs.** `showControlTargets` names
+  two kinds of destination: the LED outputs the slideshow renders, which latch
+  blackout and dimming, and the slideshow itself, which takes pattern intent.
+  The loop applies that bundle through `_selUpdate` before rendering and the
+  renderer reads `cur` back out of the cursor, so a confirm changes the pixels.
+  The cursor is emitted for anything that reads it (Pattern Browser, Show
+  Status, baked artwork) or commands it — a headless three-button build has no
+  display half at all and still needs one.
 - **Master Speed changes motion, not the programme.** Slideshow intervals and
   transition durations are wall-clock seconds. The preview and generated
   controller keep an unscaled elapsed clock for those decisions and pass a
