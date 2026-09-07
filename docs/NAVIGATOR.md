@@ -97,6 +97,11 @@ build/architecture overview aimed at contributors.
     input whose plugged-in source picks the layout, the three-tier split that
     leaves touch panels for later, and what an unwired panel says instead of
     sitting blank.
+  - [Large displays and control routing](development/design/large-displays-and-control-routing.md)
+    — the tier 2/3 half of the above, designed but not built: one panel node
+    plus a separate document node, `Display` and `Custom Display` as exclusive
+    typed inputs, Music Player's song fields moved to an unpacker node, and a
+    Player Controls input that mints only the functions a build actually wires.
   - [Display firmware compile checks](development/display-compile-checks.md)
     — reproducible normal, show and SD-player fixtures for Arduino CLI and
     fbuild; build evidence is separate from physical display validation.
