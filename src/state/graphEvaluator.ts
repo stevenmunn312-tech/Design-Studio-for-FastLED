@@ -32,9 +32,10 @@ import {
 } from './patternThumbnail'
 import {
   asTransportDisplayLayout, renderTransportDisplay, transportArtworkFromFrame,
+  transportLayoutForKind,
   TRANSPORT_ARTWORK_H, TRANSPORT_ARTWORK_SUPERSAMPLE, TRANSPORT_ARTWORK_TICK_SEC,
   TRANSPORT_ARTWORK_W,
-  type TransportDisplayData,
+  type TransportDisplayData, type TransportDisplayLayout,
 } from './transportDisplay'
 import { TFT_CONTROLLERS, asTftRotation, tftLine, type TftSurface } from './tftSurface'
 import { touchRegionAt, transportTouchRegions } from './transportTouch'
@@ -50,7 +51,7 @@ import { advanceSlideshowSilenceFade, slideshowSettings, type PatternSlideshowOr
 import { isDisplaySignal, type DisplaySignal } from './displaySignal'
 import {
   blankPatternSelection, blankPatternCursor, reconcilePatternCursor, updatePatternSelection,
-  patternSelectionView, encoderSteps, blankPatternSelectValue, isPatternSelect,
+  patternSelectionView, encoderSteps, blankPatternSelectValue,
   type PatternSelectionState, type PatternCursor, type PatternSelectValue,
 } from './patternSelection'
 import { asFont, textBlockLayout, textAlignMode, TEXT_LINE_GAP, type BitmapFont, DEFAULT_FONT } from './font'
@@ -7375,7 +7376,17 @@ function createEvalNode(
           : props.enabled !== false
         const controller = tftControllerForProps(props) ?? TFT_CONTROLLERS.ST7789
         const rotation = asTftRotation(props.tftRotation)
-        const layout = asTransportDisplayLayout(props.tftLayout)
+        // One content input, exactly as the OLED beside it. What is plugged in
+        // picks the screen; `tftLayout` only chooses between the treatments
+        // that source already offers, so it can never make a player panel show
+        // a slideshow. Diagnostics is not a source — it is device lifecycle,
+        // reached from the property rather than from a wire.
+        const signalValue = input(id, 'display', null)
+        const signal = isDisplaySignal(signalValue) ? signalValue : null
+        const diagnostics = asTransportDisplayLayout(props.tftLayout) === 'Diagnostics'
+        const layout: TransportDisplayLayout = diagnostics
+          ? 'Diagnostics'
+          : (signal ? transportLayoutForKind(signal.kind, props.tftLayout) : null) ?? 'Waiting'
         const controls: PlayerControls = {
           playPause: false, previous: false, next: false,
           volumeDelta: 0, ledToggle: false, brightnessDelta: 0,
@@ -7421,33 +7432,43 @@ function createEvalNode(
               y: touch?.y ?? 0,
             },
           }
+        } else if (layout === 'Waiting' || !signal) {
+          // Unwired, or wired to a source with no colour layout — an RTC, for
+          // now. Either way the panel says so rather than sitting blank.
+          payload = { layout: 'Waiting' }
         } else if (layout === 'Show Status') {
+          const selection = signal.kind === 'slideshow' ? signal.selection : null
           payload = {
             layout: 'Show Status',
             data: {
-              patternName: tftLine(input(id, 'patternName', '')),
-              patternIndex: num(id, 'patternIndex', props, 'patternIndex', 0),
-              patternCount: num(id, 'patternCount', props, 'patternCount', 0),
-              section: tftLine(input(id, 'section', '')),
-              bpm: num(id, 'bpm', props, 'bpm', 0),
-              beat: num(id, 'beat', props, 'beat', 0),
-              outputEnabled: Boolean(input(id, 'outputEnabled', false)),
-              brightness: clamp01(num(id, 'brightness', props, 'brightness', 0)),
+              patternName: tftLine(selection?.names[selection.activeIndex] ?? ''),
+              patternIndex: selection?.activeIndex ?? 0,
+              patternCount: selection?.count ?? 0,
+              highlightName: tftLine(selection?.names[selection.highlightIndex] ?? ''),
+              highlightIndex: selection?.highlightIndex ?? 0,
+              browsing: selection?.browsing === true,
             },
           }
         } else if (layout === 'Fixed Transport') {
+          const song = signal.kind === 'player' ? signal.song : null
+          const selection = signal.kind === 'player' ? signal.selection : null
           payload = {
             layout: 'Fixed Transport',
             data: {
-              title: tftLine(input(id, 'title', '')),
-              patternName: tftLine(input(id, 'patternName', '')),
-              playing: Boolean(input(id, 'playing', false)),
-              volume: clamp01(num(id, 'volume', props, 'volume', 0)),
+              title: tftLine(song?.title ?? ''),
+              patternName: tftLine(selection?.names[selection.activeIndex] ?? ''),
+              playing: song?.playing === true,
+              volume: clamp01(song?.volume ?? 0),
             },
           }
         } else {
-          const selection = input(id, 'patternSelect', null)
-          const pattern = isPatternSelect(selection) && selection.activeIndex >= 0
+          // Artwork identity rides the same envelope as the track. The player
+          // owns both readings and publishes them together, so a panel cannot
+          // be told about a song from one wire and a pattern from another and
+          // end up captioning the wrong picture.
+          const song = signal.kind === 'player' ? signal.song : null
+          const selection = signal.kind === 'player' ? signal.selection : null
+          const pattern = selection && selection.activeIndex >= 0
             ? selection.ids[selection.activeIndex]
             : ''
           let artwork: Uint8Array | null = null
@@ -7476,16 +7497,14 @@ function createEvalNode(
           payload = {
             layout: 'Now Playing',
             data: {
-              title: tftLine(input(id, 'title', '')),
-              artist: tftLine(input(id, 'artist', '')),
-              elapsedSec: num(id, 'elapsedSec', props, 'elapsedSec', 0),
-              durationSec: num(id, 'durationSec', props, 'durationSec', 0),
-              progress: clamp01(num(id, 'progress', props, 'progress', 0)),
-              playing: Boolean(input(id, 'playing', false)),
-              volume: clamp01(num(id, 'volume', props, 'volume', 0)),
-              patternName: tftLine(input(id, 'patternName', isPatternSelect(selection)
-                ? selection.names[selection.activeIndex] ?? ''
-                : '')),
+              title: tftLine(song?.title ?? ''),
+              artist: tftLine(song?.artist ?? ''),
+              elapsedSec: song?.elapsedSec ?? 0,
+              durationSec: song?.durationSec ?? 0,
+              progress: clamp01(song?.progress ?? 0),
+              playing: song?.playing === true,
+              volume: clamp01(song?.volume ?? 0),
+              patternName: tftLine(selection?.names[selection.activeIndex] ?? ''),
               artwork,
             },
           }
@@ -7729,13 +7748,6 @@ function createEvalNode(
           loaded: player.transport !== null,
           volume: runtime.volume,
         })
-        // The per-field ports and the envelope come from one reading, so a
-        // panel and a custom UI cannot be told different things.
-        const song = {
-          ...songInfoOutputs(songInfo),
-          display: { kind: 'player', song: songInfo } satisfies DisplaySignal,
-        }
-
         // Read *after* the show has run: its own advance moves the same cursor,
         // and publishing the pre-show snapshot left the panel a frame behind
         // the LEDs on the first frame of every collection.
@@ -7751,6 +7763,20 @@ function createEvalNode(
             browsing: selectionView.browsing,
           }
           : blankPatternSelectValue()
+
+        // The per-field ports and the envelope come from one reading, so a
+        // panel and a custom UI cannot be told different things. Built after
+        // the selection for the same reason the selection is read late: the
+        // envelope carries it, so building it earlier would publish the
+        // pre-show cursor to the panel and the post-show one to the port.
+        const song = {
+          ...songInfoOutputs(songInfo),
+          display: {
+            kind: 'player',
+            song: songInfo,
+            selection: ids.length > 0 ? patternSelect : null,
+          } satisfies DisplaySignal,
+        }
 
         if (!runtime.ledEnabled) out = { ...song, patternSelect, frame: blankFrame(W, H) }
         else if (runtime.brightness < 1) {

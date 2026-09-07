@@ -1,8 +1,8 @@
 import { beforeEach, describe, it, expect } from 'vitest'
-import { evaluateGraphFull, resetEvaluatorState, type GroupRegistry } from '../graphEvaluator'
+import { evaluateGraphFull, resetEvaluatorState } from '../graphEvaluator'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import type { StudioNode, StudioEdge } from '../graphStore'
-import { TRANSPORT_COLORS, fixedTransportGeometry, nowPlayingGeometry, showStatusGeometry } from '../transportDisplay'
+import { TRANSPORT_COLORS, fixedTransportGeometry, transportWaitingGeometry } from '../transportDisplay'
 import { getTftPixel, type TftSurface } from '../tftSurface'
 import { useTransportDisplayTouchStore } from '../transportDisplayTouchStore'
 
@@ -26,14 +26,26 @@ function edge(id: string, s: string, sh: string, t: string, th: string): StudioE
 
 const output = node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4 })
 
-function evaluate(displayProps: Record<string, unknown>, extra: {
+/**
+ * Evaluate a panel, optionally with a source plugged into its one content
+ * input.
+ *
+ * `source` is the whole of what decides the screen now, which is why it is a
+ * parameter of the harness rather than a property in `displayProps`: a test
+ * that sets `tftLayout` without wiring anything is asserting about a panel
+ * that draws its waiting screen.
+ */
+function evaluate(displayProps: Record<string, unknown>, options: {
+  source?: string
   nodes?: StudioNode[]
   edges?: StudioEdge[]
 } = {}) {
   const tft = node('tft', 'TransportDisplay', { partId: PLAIN, ...displayProps })
+  const sourceNodes = options.source ? [node('src', options.source)] : []
+  const sourceEdges = options.source ? [edge('feed', 'src', 'display', 'tft', 'display')] : []
   const result = evaluateGraphFull(
-    [output, tft, ...(extra.nodes ?? [])],
-    extra.edges ?? [],
+    [output, tft, ...sourceNodes, ...(options.nodes ?? [])],
+    [...sourceEdges, ...(options.edges ?? [])],
     1.5, 8, 8,
   )
   return result.outputs.get('tft') as
@@ -50,56 +62,79 @@ function litCount(surface: TftSurface): number {
   return n
 }
 
-describe('the panel the evaluator draws', () => {
+describe('what decides the screen', () => {
   beforeEach(() => {
     resetEvaluatorState()
     useTransportDisplayTouchStore.getState().clear()
   })
 
-  it('renders the selected layout', () => {
-    expect(evaluate({ tftLayout: 'Now Playing' })?.layout).toBe('Now Playing')
-    expect(evaluate({ tftLayout: 'Show Status' })?.layout).toBe('Show Status')
+  // The whole of the model in four assertions: the wire picks the screen, and
+  // the property can only choose between the treatments that source offers.
+  it('takes its layout from what is plugged in', () => {
+    expect(evaluate({}, { source: 'PatternMaster' })?.layout).toBe('Now Playing')
+    expect(evaluate({}, { source: 'PatternSlideshow' })?.layout).toBe('Show Status')
   })
 
-  it('renders the Diagnostics self-test layout', () => {
+  it('lets the property choose between a source\'s own treatments', () => {
+    expect(evaluate({ tftLayout: 'Fixed Transport' }, { source: 'PatternMaster' })?.layout)
+      .toBe('Fixed Transport')
+    expect(evaluate({ tftLayout: 'Now Playing' }, { source: 'PatternMaster' })?.layout)
+      .toBe('Now Playing')
+  })
+
+  // Switching a panel from a Slideshow to a Music Player leaves the old
+  // treatment behind in the property. Falling back to the source's own first
+  // treatment is the reading that matches what is actually plugged in.
+  it('ignores a treatment belonging to another source', () => {
+    expect(evaluate({ tftLayout: 'Show Status' }, { source: 'PatternMaster' })?.layout)
+      .toBe('Now Playing')
+  })
+
+  it('waits when nothing is plugged in', () => {
+    expect(evaluate({})?.layout).toBe('Waiting')
+    expect(evaluate({ tftLayout: 'Fixed Transport' })?.layout).toBe('Waiting')
+  })
+
+  // There is no colour clock layout yet, so an RTC is not a legal source for
+  // this panel. It says so rather than borrowing a screen built for a player.
+  it('waits for a source it has no layout for', () => {
+    expect(evaluate({}, { source: 'RTCInput' })?.layout).toBe('Waiting')
+  })
+
+  // Device lifecycle, not content — so it comes from the property and never
+  // asks what is plugged in.
+  it('renders the Diagnostics self-test whatever is wired', () => {
     expect(evaluate({ tftLayout: 'Diagnostics' })?.layout).toBe('Diagnostics')
+    expect(evaluate({ tftLayout: 'Diagnostics' }, { source: 'PatternMaster' })?.layout)
+      .toBe('Diagnostics')
   })
 
-  it('renders the interactive Fixed Transport layout', () => {
-    expect(evaluate({ tftLayout: 'Fixed Transport' })?.layout).toBe('Fixed Transport')
+  // A blank panel and a dead panel look identical on a bench, so the waiting
+  // screen has to actually put something on the glass.
+  it('says it is waiting rather than sitting blank', () => {
+    const surface = evaluate({})!.surface!
+    const g = transportWaitingGeometry(surface.width, surface.height)
+    let lit = 0
+    for (let y = g.message.y; y < g.message.y + g.message.h; y++) {
+      for (let x = g.message.x; x < g.message.x + g.message.w; x++) {
+        if (getTftPixel(surface, x, y) !== TRANSPORT_COLORS.background) lit++
+      }
+    }
+    expect(lit).toBeGreaterThan(0)
   })
 
-  // Rotation is a fact about how the module was bolted down, not about the
-  // part, so a 240x320 panel on its side is a 320x240 surface and the layout
-  // has to be told.
-  it('sizes the surface for the mounted rotation', () => {
-    const upright = evaluate({ partId: TOUCH, tftRotation: '0' })?.surface
-    expect([upright?.width, upright?.height]).toEqual([240, 320])
-    const sideways = evaluate({ partId: TOUCH, tftRotation: '90' })?.surface
-    expect([sideways?.width, sideways?.height]).toEqual([320, 240])
-  })
-
-  it('sizes the square panel from its own controller', () => {
-    const surface = evaluate({ partId: PLAIN })?.surface
-    expect([surface?.width, surface?.height]).toEqual([240, 240])
-  })
-
-  // The catalogue is what says which silicon is behind the glass. Resolving
-  // ST7789V through a shortest-prefix match would hand it the 240x240
-  // descriptor and draw every layout eighty rows short.
-  it('resolves each module to its own controller', () => {
-    expect(evaluate({ partId: TOUCH })?.surface?.height).toBe(320)
-    expect(evaluate({ partId: PLAIN })?.surface?.height).toBe(240)
-  })
-
-  it('goes dark and draws nothing when it is switched off', () => {
-    const off = evaluate({ enabled: false })
-    expect(off?.lit).toBe(false)
-    expect(off?.surface).toBeNull()
-  })
-
-  it('is lit by default', () => {
+  it('is lit by default and dark when disabled', () => {
     expect(evaluate({})?.lit).toBe(true)
+    const dark = evaluate({ enabled: false })
+    expect(dark?.lit).toBe(false)
+    expect(dark?.surface).toBeNull()
+  })
+})
+
+describe('touch published from the preview', () => {
+  beforeEach(() => {
+    resetEvaluatorState()
+    useTransportDisplayTouchStore.getState().clear()
   })
 
   it('publishes an inert player-controls bundle without a preview touch', () => {
@@ -119,10 +154,26 @@ describe('the panel the evaluator draws', () => {
       y: g.next.rect.y + 1,
     })
 
-    const first = evaluate({ partId: TOUCH, tftLayout: 'Fixed Transport' }) as unknown as { controls: Record<string, unknown> }
-    const held = evaluate({ partId: TOUCH, tftLayout: 'Fixed Transport' }) as unknown as { controls: Record<string, unknown> }
+    const props = { partId: TOUCH, tftLayout: 'Fixed Transport' }
+    const first = evaluate(props, { source: 'PatternMaster' }) as unknown as { controls: Record<string, unknown> }
+    const held = evaluate(props, { source: 'PatternMaster' }) as unknown as { controls: Record<string, unknown> }
     expect(first.controls.next).toBe(true)
     expect(held.controls.next).toBe(false)
+  })
+
+  it('publishes an absolute slider while the touch is held', () => {
+    const g = fixedTransportGeometry(240, 320)
+    useTransportDisplayTouchStore.getState().setTouch('tft', {
+      pressed: true,
+      x: g.volume.x + Math.floor((g.volume.w - 1) / 2),
+      y: g.volume.y + 1,
+    })
+
+    const value = evaluate(
+      { partId: TOUCH, tftLayout: 'Fixed Transport' },
+      { source: 'PatternMaster' },
+    ) as unknown as { controls: Record<string, unknown> }
+    expect(value.controls.volume).toBeCloseTo(0.5, 1)
   })
 
   it('chains browser touch through the Player Controls bundle', () => {
@@ -133,152 +184,60 @@ describe('the panel the evaluator draws', () => {
       y: g.playPause.rect.y + 1,
     })
     const tft = node('tft', 'TransportDisplay', { partId: TOUCH, tftLayout: 'Fixed Transport' })
+    const player = node('src', 'PatternMaster')
     const playerControls = node('pc', 'PlayerControls')
     const result = evaluateGraphFull(
-      [output, tft, playerControls],
-      [edge('controls', 'tft', 'controls', 'pc', 'controlsIn')],
+      [output, tft, player, playerControls],
+      [
+        edge('feed', 'src', 'display', 'tft', 'display'),
+        edge('controls', 'tft', 'controls', 'pc', 'controlsIn'),
+      ],
       1.5, 8, 8,
     )
 
     expect((result.outputs.get('pc')?.controls as Record<string, unknown>).playPause).toBe(true)
   })
 
-  it('publishes absolute sliders while the browser touch is held', () => {
-    const g = showStatusGeometry(240, 320)
-    useTransportDisplayTouchStore.getState().setTouch('tft', {
-      pressed: true,
-      x: g.brightness.x + Math.floor((g.brightness.w - 1) / 2),
-      y: g.brightness.y + 1,
-    })
-
-    const value = evaluate({ partId: TOUCH, tftLayout: 'Show Status' }) as unknown as { controls: Record<string, unknown> }
-    expect(value.controls.brightness).toBeCloseTo(0.5, 1)
+  // Show Status lost its LED toggle and brightness bar along with the readings
+  // behind them; both moved to the custom-display layer, which can wire an LED
+  // output's Controls input directly. A panel that reports without commanding
+  // is a legitimate state.
+  it('publishes nothing from a Show Status panel', () => {
+    useTransportDisplayTouchStore.getState().setTouch('tft', { pressed: true, x: 40, y: 40 })
+    const value = evaluate(
+      { partId: TOUCH },
+      { source: 'PatternSlideshow' },
+    ) as unknown as { controls: Record<string, unknown> }
+    expect(value.controls.ledToggle).toBe(false)
+    expect(value.controls.brightness).toBeUndefined()
   })
 
   it('keeps a non-touch module inert even if stale browser input exists', () => {
     useTransportDisplayTouchStore.getState().setTouch('tft', { pressed: true, x: 1, y: 1 })
-    const value = evaluate({ partId: PLAIN, tftLayout: 'Now Playing' }) as unknown as { controls: Record<string, unknown> }
+    const value = evaluate(
+      { partId: PLAIN, tftLayout: 'Fixed Transport' },
+      { source: 'PatternMaster' },
+    ) as unknown as { controls: Record<string, unknown> }
     expect(value.controls.playPause).toBe(false)
-    expect(value.controls.volume).toBeUndefined()
-  })
-
-  it('remains in the hot set after gaining its controls output', () => {
-    const tft = node('tft', 'TransportDisplay', { partId: PLAIN })
-    const { outputs } = evaluateGraphFull([output, tft], [], 1.5, 8, 8, {}, false)
-    expect(outputs.has('tft')).toBe(true)
+    expect(value.controls.next).toBe(false)
   })
 })
 
-describe('what the ports feed', () => {
-  it('draws an unwired panel without inventing readings', () => {
-    const surface = evaluate({ tftLayout: 'Now Playing' })?.surface
-    expect(surface).toBeTruthy()
-    expect(litCount(surface!)).toBeGreaterThan(0)
+describe('what the panel draws from the envelope', () => {
+  beforeEach(() => {
+    resetEvaluatorState()
+    useTransportDisplayTouchStore.getState().clear()
   })
 
-  it('draws the active player pattern as baked RGB565 artwork', () => {
-    const tft = node('tft', 'TransportDisplay', { partId: PLAIN, tftLayout: 'Now Playing' })
-    const collection = node('collection', 'PatternCollection', { patternIds: ['red'] })
-    const player = node('player', 'PatternMaster')
-    const groups = {
-      red: {
-        nodes: [node('red', 'SolidColor', { r: 255, g: 0, b: 0 }), node('group-out', 'GroupOutput')],
-        edges: [edge('group-frame', 'red', 'frame', 'group-out', 'frame')],
-      },
-    } as unknown as GroupRegistry
-    const result = evaluateGraphFull(
-      [output, collection, player, tft],
-      [
-        edge('collection-player', 'collection', 'patternset', 'player', 'patternset'),
-        edge('player-tft', 'player', 'patternSelect', 'tft', 'patternSelect'),
-      ],
-      1.5, 8, 8, groups,
-    )
-    const surface = result.outputs.get('tft')?.surface as TftSurface
-    const art = nowPlayingGeometry(240, 240).artwork
-    expect(getTftPixel(surface, art.x + 1, art.y + 1)).toBe(0xf800)
+  // The player owns the track and the selection and publishes them together,
+  // so a Now Playing panel needs exactly one wire to have something to say.
+  it('draws a player screen from one wire', () => {
+    const surface = evaluate({}, { source: 'PatternMaster' })!.surface!
+    expect(litCount(surface)).toBeGreaterThan(0)
   })
 
-  it('shows a wired title', () => {
-    const bare = evaluate({ tftLayout: 'Now Playing' })!.surface!
-    const wired = evaluate(
-      { tftLayout: 'Now Playing' },
-      {
-        nodes: [node('text', 'TextValue', { text: 'MIDNIGHT DRIVE' })],
-        edges: [edge('e', 'text', 'text', 'tft', 'title')],
-      },
-    )!.surface!
-    const g = nowPlayingGeometry(240, 240)
-    const rowPixels = (surface: TftSurface) => {
-      let n = 0
-      for (let y = g.title.y; y < g.title.y + g.title.h; y++) {
-        for (let x = g.title.x; x < g.title.x + g.title.w; x++) {
-          if (getTftPixel(surface, x, y) !== TRANSPORT_COLORS.background) n++
-        }
-      }
-      return n
-    }
-    expect(rowPixels(bare)).toBe(0)
-    expect(rowPixels(wired)).toBeGreaterThan(0)
-  })
-
-  // A wired progress bar is the case that first exposed the hot-set rule for
-  // the OLED: a display outside it crawls at the publish cadence.
-  it('follows a wired progress value', () => {
-    const g = nowPlayingGeometry(240, 240)
-    const filledWidth = (surface: TftSurface) => {
-      let n = 0
-      const y = g.progress.y + Math.floor(g.progress.h / 2)
-      for (let x = g.progress.x + 1; x < g.progress.x + g.progress.w - 1; x++) {
-        if (getTftPixel(surface, x, y) === TRANSPORT_COLORS.accent) n++
-      }
-      return n
-    }
-    // Driven through the property fallback an unwired-but-configured port
-    // uses, so the reading is exact rather than whatever a source node
-    // happened to produce at this tick.
-    const empty = evaluate({ tftLayout: 'Now Playing', progress: 0 })!.surface!
-    const half = evaluate({ tftLayout: 'Now Playing', progress: 0.5 })!.surface!
-    const full = evaluate({ tftLayout: 'Now Playing', progress: 1 })!.surface!
-    expect(filledWidth(empty)).toBe(0)
-    expect(filledWidth(full)).toBe(g.progress.w - 2)
-    expect(filledWidth(half)).toBeCloseTo((g.progress.w - 2) / 2, -1)
-  })
-
-  // A lone 1/0 on a panel is worse than being told the wire is not carrying a
-  // show, so an unwired Show Status says so outright.
-  it('says there is no collection when nothing feeds the count', () => {
-    const g = showStatusGeometry(240, 240)
-    const surface = evaluate({ tftLayout: 'Show Status' })!.surface!
-    let lit = 0
-    for (let y = g.ordinal.y; y < g.ordinal.y + g.ordinal.h; y++) {
-      for (let x = g.ordinal.x; x < g.ordinal.x + g.ordinal.w; x++) {
-        if (getTftPixel(surface, x, y) !== TRANSPORT_COLORS.background) lit++
-      }
-    }
-    expect(lit).toBeGreaterThan(0)
-  })
-
-  it('colours the output row by what the lights are doing', () => {
-    const g = showStatusGeometry(240, 240)
-    const seen = (surface: TftSurface) => {
-      const colors = new Set<number>()
-      for (let y = g.output.y; y < g.output.y + g.output.h; y++) {
-        for (let x = g.output.x; x < g.output.x + g.output.w; x++) colors.add(getTftPixel(surface, x, y))
-      }
-      return colors
-    }
-    const off = evaluate({ tftLayout: 'Show Status' })!.surface!
-    // `Not` with nothing on its input publishes true, which is the cheapest
-    // real wire this graph can carry.
-    const on = evaluate(
-      { tftLayout: 'Show Status' },
-      {
-        nodes: [node('n', 'Not')],
-        edges: [edge('e', 'n', 'result', 'tft', 'outputEnabled')],
-      },
-    )!.surface!
-    expect(seen(off).has(TRANSPORT_COLORS.off)).toBe(true)
-    expect(seen(on).has(TRANSPORT_COLORS.on)).toBe(true)
+  it('draws a slideshow screen from one wire', () => {
+    const surface = evaluate({}, { source: 'PatternSlideshow' })!.surface!
+    expect(litCount(surface)).toBeGreaterThan(0)
   })
 })

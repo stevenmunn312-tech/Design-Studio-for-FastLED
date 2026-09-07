@@ -20,14 +20,17 @@
 // everywhere else in the app.
 
 import {
-  createTftSurfaceFor, clearTftSurface, drawTftField, drawTftBar, drawTftIndicator,
+  createTftSurfaceFor, clearTftSurface, drawTftField, drawTftBar,
   drawTftArtwork, drawTftRect, fillTftRect, rgb565, tftTextHeight, tftTextWidth,
   type TftController, type TftField, type TftRect, type TftRotation, type TftSurface,
 } from './tftSurface'
 import { formatTransportTime } from './transportBridge'
-import { DISPLAY_TEXT_NO_READING, displayString } from './displayText'
+import { displayString } from './displayText'
+import { DISPLAY_WAITING_TEXT, type DisplaySignalKind } from './displaySignal'
 
-export const TRANSPORT_DISPLAY_LAYOUTS = ['Now Playing', 'Fixed Transport', 'Show Status', 'Diagnostics'] as const
+export const TRANSPORT_DISPLAY_LAYOUTS = [
+  'Waiting', 'Now Playing', 'Fixed Transport', 'Show Status', 'Diagnostics',
+] as const
 export type TransportDisplayLayout = (typeof TRANSPORT_DISPLAY_LAYOUTS)[number]
 
 export function asTransportDisplayLayout(value: unknown): TransportDisplayLayout {
@@ -37,15 +40,63 @@ export function asTransportDisplayLayout(value: unknown): TransportDisplayLayout
     : 'Now Playing'
 }
 
+/**
+ * The treatments each source offers, most-detailed first.
+ *
+ * The colour twin of `infoLayoutForKind`, with one difference that is the
+ * whole reason this is a list rather than a single layout: a large panel has
+ * room to say the same thing two ways. Now Playing and Fixed Transport are
+ * both a player, so the *source* cannot choose between them and a property
+ * has to — but only ever within the row the source already picked. That is
+ * what keeps `tftLayout` a presentation choice instead of a content one: it
+ * can change how a player screen is drawn and can never make a player screen
+ * show a slideshow.
+ *
+ * `clock` is deliberately empty. There is no colour clock layout yet, and an
+ * empty list makes a large panel wired to an RTC report itself unresolved and
+ * draw its waiting screen, rather than quietly borrowing a layout built for
+ * something else.
+ */
+const TRANSPORT_LAYOUTS_BY_KIND: Record<DisplaySignalKind, readonly TransportDisplayLayout[]> = {
+  clock: [],
+  player: ['Now Playing', 'Fixed Transport'],
+  slideshow: ['Show Status'],
+}
+
+/** Whether a source has any colour layout at all. */
+export function transportSupportsKind(kind: DisplaySignalKind): boolean {
+  return TRANSPORT_LAYOUTS_BY_KIND[kind].length > 0
+}
+
+/**
+ * The screen a plugged-in source produces, honouring `treatment` when the
+ * source offers more than one and the property names one of them.
+ *
+ * Null means this source has no colour layout, which the caller reports and
+ * draws as `Waiting`. A treatment belonging to another kind is ignored rather
+ * than rejected: switching a panel from a Slideshow to a Music Player leaves
+ * `Show Status` behind in the property, and falling back to the source's own
+ * first treatment is the reading that matches what is actually plugged in.
+ */
+export function transportLayoutForKind(
+  kind: DisplaySignalKind,
+  treatment?: unknown,
+): TransportDisplayLayout | null {
+  const offered = TRANSPORT_LAYOUTS_BY_KIND[kind]
+  if (offered.length === 0) return null
+  const named = String(treatment ?? '')
+  return offered.find((layout) => layout === named) ?? offered[0]
+}
+
 // ── Shared metrics ──────────────────────────────────────────────────────────
 
 /**
  * The pixel vocabulary both layouts are built from.
  *
  * Text scales are integer repeats of the shared 3x5 font: 2 is a readable
- * body row at arm's length on a 240-pixel panel, 3 is a heading, and 5 is the
- * BPM readout you can see from the desk. Anything finer would need a second
- * font in flash and a second glyph table to keep in step with the LED matrix.
+ * body row at arm's length on a 240-pixel panel and 3 is a heading. Anything
+ * finer would need a second font in flash and a second glyph table to keep in
+ * step with the LED matrix.
  */
 export const TRANSPORT_METRICS = {
   margin: 8,
@@ -53,23 +104,10 @@ export const TRANSPORT_METRICS = {
   rowGap: 6,
   bodyScale: 2,
   headingScale: 3,
-  bigScale: 5,
   barHeight: 12,
   /** Space between the artwork and the text under it. */
   artGap: 12,
-  /** Edge of a beat marker, and the gap between two of them. */
-  beatSize: 16,
-  beatGap: 8,
 } as const
-
-/**
- * Beats a bar is divided into on the Show Status panel.
- *
- * Four, because the show's section/beat model counts a bar of four and a
- * panel that drew a variable number of markers would move its own layout
- * every time the meter changed.
- */
-export const TRANSPORT_BEAT_COUNT = 4
 
 /**
  * Artwork size, in pixels.
@@ -196,6 +234,49 @@ const M = TRANSPORT_METRICS
 
 function field(x: number, y: number, w: number, scale: number, align: TftField['align']): TftField {
   return { x, y, w, h: tftTextHeight(scale), scale, align }
+}
+
+// ── Waiting ─────────────────────────────────────────────────────────────────
+
+export interface TransportWaitingGeometry {
+  message: TftField
+  /** Dropped on a panel with no room for a second row. */
+  hint: TftField | null
+}
+
+/**
+ * Nothing is plugged in, and the panel says so.
+ *
+ * Same reasoning as the OLED's waiting screen: a blank panel and a dead panel
+ * look identical on a bench, and the one that tells you which costs nothing.
+ * The second row names the port to look at, which is the whole of the user's
+ * next move.
+ *
+ * Both rows are centred as a block on the glass rather than pinned to the top
+ * margin. A colour panel is large enough that a two-row message in the corner
+ * reads as a rendering fault rather than as a message.
+ */
+export function transportWaitingGeometry(width: number, height: number): TransportWaitingGeometry {
+  const inner = width - (M.margin * 2)
+  const messageH = tftTextHeight(M.headingScale)
+  const hintH = tftTextHeight(M.bodyScale)
+  const both = messageH + M.rowGap + hintH
+  const roomForHint = both + (M.margin * 2) <= height
+  const blockH = roomForHint ? both : messageH
+  const top = Math.max(M.margin, ((height - blockH) / 2) | 0)
+  return {
+    message: field(M.margin, top, inner, M.headingScale, 'center'),
+    hint: roomForHint
+      ? field(M.margin, top + messageH + M.rowGap, inner, M.bodyScale, 'center')
+      : null,
+  }
+}
+
+export function drawTransportWaiting(surface: TftSurface): void {
+  const g = transportWaitingGeometry(surface.width, surface.height)
+  const c = TRANSPORT_COLORS
+  drawTftField(surface, g.message, DISPLAY_WAITING_TEXT, c.text, c.background)
+  if (g.hint) drawTftField(surface, g.hint, 'WIRE A SOURCE TO DISPLAY', c.dim, c.background)
 }
 
 // ── Now Playing ─────────────────────────────────────────────────────────────
@@ -421,39 +502,44 @@ export function drawTransportFixed(surface: TftSurface, data: TransportFixedData
 
 // ── Show Status ─────────────────────────────────────────────────────────────
 
+/**
+ * What a Slideshow knows, and nothing else.
+ *
+ * This layout used to carry section, BPM, beat, output state and brightness
+ * as well. None of those has a source: `PatternSlideshow` has no tempo or
+ * section concept at all, and the two output readings belong to the LED
+ * output rather than to the show. They only ever resolved in a normal sketch,
+ * wired from arbitrary graph nodes — which is the custom-UI capability, and
+ * it moves there wholesale rather than surviving as five fields that a
+ * template build reports unresolved. Exactly what simple-displays.md did to
+ * the OLED's `Status` layout, for the same reason.
+ *
+ * What is left is `PatternSelectValue` drawn large: which pattern is running,
+ * where it sits in the collection, and — while the user is browsing away from
+ * it — which one they are looking at.
+ */
 export interface TransportShowStatusData {
   patternName: string
   /** 0-based, the way `patternSelection.ts` counts. The panel shows it 1-based. */
   patternIndex: number
   patternCount: number
-  section: string
-  bpm: number
-  /** Beat within the bar; fractional values are floored to the marker they are on. */
-  beat: number
-  outputEnabled: boolean
-  /** 0-1. */
-  brightness: number
+  /** The pattern being looked at, which is only meaningful while browsing. */
+  highlightName: string
+  highlightIndex: number
+  browsing: boolean
 }
 
 export interface ShowStatusGeometry {
   pattern: TftField
   ordinal: TftField
-  section: TftField
-  bpm: TftField
-  bpmLabel: TftField
-  beats: TftRect
-  beatSize: number
-  beatGap: number
-  beatCount: number
-  output: TftField
-  brightnessLabel: TftField
-  brightness: TftRect
+  status: TftField
+  /** Blank rather than absent when not browsing, so the region clears itself. */
+  highlight: TftField
+  highlightOrdinal: TftField
 }
 
-const BPM_LABEL = 'BPM'
-const BRIGHTNESS_LABEL = 'BRIGHT'
-/** Widest reading the big field has to hold, so the layout is size-stable. */
-const BPM_WIDEST = '000'
+const STATUS_PLAYING = 'PLAYING'
+const STATUS_BROWSING = 'BROWSING'
 
 /**
  * Resolve the Show Status layout for a panel of this size.
@@ -467,42 +553,26 @@ export function showStatusGeometry(width: number, height: number): ShowStatusGeo
   const inner = width - (M.margin * 2)
   const bodyH = tftTextHeight(M.bodyScale)
   const headingH = tftTextHeight(M.headingScale)
-  const bigH = tftTextHeight(M.bigScale)
 
+  // The running pattern owns the top of the glass, because it is the one
+  // reading that is true whether or not anyone is touching the panel.
   const patternY = M.margin
   const ordinalY = patternY + headingH + M.rowGap
-  const sectionY = ordinalY + bodyH + M.rowGap
-  const topEnd = sectionY + bodyH
+  const statusY = ordinalY + bodyH + M.rowGap
 
-  const brightnessY = height - M.margin - M.barHeight
-  const outputY = brightnessY - M.rowGap - headingH
-  const beatsY = outputY - (M.rowGap * 2) - M.beatSize
-
-  // The tempo block takes the middle, centred in whatever the two stacks left.
-  const bpmY = topEnd + Math.max(0, Math.floor((beatsY - topEnd - bigH) / 2))
-  const bpmW = tftTextWidth(BPM_WIDEST, M.bigScale)
-  const bpmLabelW = tftTextWidth(BPM_LABEL, M.bodyScale)
-
-  const brightnessLabelW = tftTextWidth(BRIGHTNESS_LABEL, M.bodyScale)
-  const brightnessX = M.margin + brightnessLabelW + M.rowGap
-
-  const beatsW = (TRANSPORT_BEAT_COUNT * M.beatSize) + ((TRANSPORT_BEAT_COUNT - 1) * M.beatGap)
+  // The browsing block sits at the bottom rather than under the status row, so
+  // the running pattern's position on the glass never moves when a browse
+  // starts or ends. A layout that reflowed on every encoder detent would be
+  // unreadable exactly when it is being used.
+  const highlightOrdinalY = height - M.margin - bodyH
+  const highlightY = highlightOrdinalY - M.rowGap - headingH
 
   return {
     pattern: field(M.margin, patternY, inner, M.headingScale, 'left'),
     ordinal: field(M.margin, ordinalY, inner, M.bodyScale, 'left'),
-    section: field(M.margin, sectionY, inner, M.bodyScale, 'left'),
-    bpm: field(M.margin, bpmY, bpmW, M.bigScale, 'right'),
-    // Sat on the big number's baseline rather than its top, so the unit reads
-    // as attached to the figure instead of floating above it.
-    bpmLabel: field(M.margin + bpmW + M.rowGap, bpmY + bigH - bodyH, bpmLabelW, M.bodyScale, 'left'),
-    beats: { x: M.margin, y: beatsY, w: beatsW, h: M.beatSize },
-    beatSize: M.beatSize,
-    beatGap: M.beatGap,
-    beatCount: TRANSPORT_BEAT_COUNT,
-    output: field(M.margin, outputY, inner, M.headingScale, 'left'),
-    brightnessLabel: field(M.margin, brightnessY + 1, brightnessLabelW, M.bodyScale, 'left'),
-    brightness: { x: brightnessX, y: brightnessY, w: width - M.margin - brightnessX, h: M.barHeight },
+    status: field(M.margin, statusY, inner, M.bodyScale, 'left'),
+    highlight: field(M.margin, highlightY, inner, M.headingScale, 'left'),
+    highlightOrdinal: field(M.margin, highlightOrdinalY, inner, M.bodyScale, 'left'),
   }
 }
 
@@ -520,60 +590,36 @@ export function showStatusOrdinalText(index: number, count: number): string {
   return `${Math.min(at, total - 1) + 1}/${total}`
 }
 
-/**
- * BPM as an integer, or the shared no-reading marker.
- *
- * Dashes rather than 0, because a show with no tempo and a show stopped dead
- * are different things and only one of them is a fault.
- */
-export function showStatusBpmText(bpm: number): string {
-  if (!Number.isFinite(bpm) || bpm <= 0) return DISPLAY_TEXT_NO_READING
-  return String(Math.round(bpm))
+/** Whether the panel is reporting the show or a browse in progress. */
+export function showStatusStateText(browsing: boolean): string {
+  return browsing ? STATUS_BROWSING : STATUS_PLAYING
 }
 
-/** Which of the four markers is lit for this beat position. */
-export function showStatusBeatIndex(beat: number): number {
-  if (!Number.isFinite(beat)) return 0
-  const floored = Math.floor(beat)
-  return ((floored % TRANSPORT_BEAT_COUNT) + TRANSPORT_BEAT_COUNT) % TRANSPORT_BEAT_COUNT
-}
-
-/** Whether the lights are on, as a phrase rather than a symbol. */
-export function showStatusOutputText(enabled: boolean): string {
-  return enabled ? 'OUTPUT ON' : 'OUTPUT OFF'
-}
-
-/** Show Status: pattern, section, tempo, and what the lights are doing. */
+/** Show Status: which pattern is running, and which one is being looked at. */
 export function drawTransportShowStatus(surface: TftSurface, data: TransportShowStatusData): void {
   const g = showStatusGeometry(surface.width, surface.height)
   const c = TRANSPORT_COLORS
 
   drawTftField(surface, g.pattern, displayString(data.patternName), c.text, c.background)
   drawTftField(surface, g.ordinal, showStatusOrdinalText(data.patternIndex, data.patternCount), c.dim, c.background)
-  drawTftField(surface, g.section, displayString(data.section), c.accent, c.background)
-
-  drawTftField(surface, g.bpm, showStatusBpmText(data.bpm), c.text, c.background)
-  drawTftField(surface, g.bpmLabel, BPM_LABEL, c.dim, c.background)
-
-  const lit = showStatusBeatIndex(data.beat)
-  for (let i = 0; i < g.beatCount; i++) {
-    drawTftIndicator(
-      surface,
-      g.beats.x + (i * (g.beatSize + g.beatGap)),
-      g.beats.y,
-      g.beatSize,
-      i === lit,
-      c.accent,
-      c.outline,
-    )
-  }
-
   drawTftField(
-    surface, g.output, showStatusOutputText(data.outputEnabled),
-    data.outputEnabled ? c.on : c.off, c.background,
+    surface, g.status, showStatusStateText(data.browsing),
+    data.browsing ? c.accent : c.dim, c.background,
   )
-  drawTftField(surface, g.brightnessLabel, BRIGHTNESS_LABEL, c.dim, c.background)
-  drawTftBar(surface, g.brightness, data.brightness, c.text, c.track, c.outline)
+
+  // Blank rather than skipped: painting the empty fields is what clears the
+  // previous candidate off the glass when a browse ends, and the firmware
+  // caches per field, so an unchanged blank costs nothing after the first.
+  drawTftField(
+    surface, g.highlight,
+    data.browsing ? displayString(data.highlightName) : '',
+    c.accent, c.background,
+  )
+  drawTftField(
+    surface, g.highlightOrdinal,
+    data.browsing ? showStatusOrdinalText(data.highlightIndex, data.patternCount) : '',
+    c.dim, c.background,
+  )
 }
 
 // ── Diagnostics ─────────────────────────────────────────────────────────────────────────────
@@ -654,6 +700,7 @@ export function drawTransportDiagnostics(surface: TftSurface, data: TransportDia
 // ── Rendering ───────────────────────────────────────────────────────────────
 
 export type TransportDisplayData =
+  | { layout: 'Waiting' }
   | { layout: 'Now Playing'; data: TransportNowPlayingData }
   | { layout: 'Fixed Transport'; data: TransportFixedData }
   | { layout: 'Show Status'; data: TransportShowStatusData }
@@ -668,6 +715,7 @@ export function renderTransportDisplay(
   const surface = createTftSurfaceFor(controller, rotation)
   clearTftSurface(surface, TRANSPORT_COLORS.background)
   switch (input.layout) {
+    case 'Waiting': drawTransportWaiting(surface); break
     case 'Now Playing': drawTransportNowPlaying(surface, input.data); break
     case 'Fixed Transport': drawTransportFixed(surface, input.data); break
     case 'Show Status': drawTransportShowStatus(surface, input.data); break
@@ -676,8 +724,15 @@ export function renderTransportDisplay(
   return surface
 }
 
-/** Blank data per layout, for an unwired node or a dark panel. */
+/**
+ * Blank data per layout, for a dark panel.
+ *
+ * A panel with nothing plugged in is not this: it draws `Waiting`, because a
+ * blank screen and a broken screen are indistinguishable. This is what a
+ * layout renders when it is disabled or has no reading yet.
+ */
 export function blankTransportData(layout: TransportDisplayLayout): TransportDisplayData {
+  if (layout === 'Waiting') return { layout }
   if (layout === 'Fixed Transport') {
     return { layout, data: { title: '', patternName: '', playing: false, volume: 0 } }
   }
@@ -685,8 +740,8 @@ export function blankTransportData(layout: TransportDisplayLayout): TransportDis
     return {
       layout,
       data: {
-        patternName: '', patternIndex: 0, patternCount: 0, section: '',
-        bpm: 0, beat: 0, outputEnabled: false, brightness: 0,
+        patternName: '', patternIndex: 0, patternCount: 0,
+        highlightName: '', highlightIndex: 0, browsing: false,
       },
     }
   }

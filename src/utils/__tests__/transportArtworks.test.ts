@@ -42,7 +42,7 @@ function graph(ids: string[] = ['red']) {
     nodes: [output, collection, player, display],
     edges: [
       edge('collection-player', 'collection', 'patternset', 'player', 'patternset'),
-      edge('player-display', 'player', 'patternSelect', 'tft', 'patternSelect'),
+      edge('player-display', 'player', 'display', 'tft', 'display'),
     ],
   }
 }
@@ -52,7 +52,7 @@ describe('Transport Display artwork baking', () => {
 
   it('finds a Now Playing panel and the player that owns its collection', () => {
     const { nodes, edges } = graph()
-    expect(artworkDisplays(nodes).map((display) => display.id)).toEqual(['tft'])
+    expect(artworkDisplays(nodes, edges).map((display) => display.id)).toEqual(['tft'])
     expect(artworkPlayer(nodes[3], nodes, edges)?.id).toBe('player')
   })
 
@@ -62,9 +62,12 @@ describe('Transport Display artwork baking', () => {
     expect(artworks.player[0]).toHaveLength(TRANSPORT_ARTWORK_BYTES)
     expect(Array.from(artworks.player[0].slice(0, 2))).toEqual([0xf8, 0x00])
 
+    // A normal sketch emits no artwork table. Now Playing is a player screen
+    // and a player renders as a black fill here, so this generator can never
+    // resolve that layout — the SD-player and show templates emit the
+    // pictures. The bake itself still runs, for the preview and for them.
     const source = generateCpp(nodes, edges, groups, { artworks })
-    expect(source).toContain('#define ART_COUNT_player 1')
-    expect(source).toContain('_artData_player[_tftArtIndex_tft]')
+    expect(source).not.toContain('#define ART_COUNT_player')
   })
 
   it('reports a collection that exceeds the explicit flash budget', () => {
@@ -73,9 +76,22 @@ describe('Transport Display artwork baking', () => {
     expect(bakeDisplayArtworks(nodes, edges, groups, true)).toEqual({})
   })
 
-  it('does not bake for a layout with no artwork', () => {
+  // A treatment belonging to another source is ignored, not obeyed: the panel
+  // is wired to a player, so it resolves Now Playing and still needs its
+  // pictures baked. Reading the raw property would have skipped the bake while
+  // the panel drew an empty artwork frame.
+  it('bakes for a player panel left on a treatment from another source', () => {
     const { nodes, edges } = graph()
     nodes[3].data.properties.tftLayout = 'Show Status'
-    expect(bakeDisplayArtworks(nodes, edges, groups, true)).toEqual({})
+    expect(Object.keys(bakeDisplayArtworks(nodes, edges, groups, true))).toEqual(['player'])
+  })
+
+  it('does not bake for a source whose layout has no artwork', () => {
+    const { nodes, edges } = graph()
+    const slideshow = node('slideshow', 'PatternSlideshow')
+    const rewired = edges.map((e) => (e.id === 'player-display'
+      ? edge('player-display', 'slideshow', 'display', 'tft', 'display')
+      : e))
+    expect(bakeDisplayArtworks([...nodes, slideshow], rewired, groups, true)).toEqual({})
   })
 })

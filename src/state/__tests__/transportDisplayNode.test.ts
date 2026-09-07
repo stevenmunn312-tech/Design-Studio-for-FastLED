@@ -8,7 +8,8 @@ import { NODE_LIBRARY, isPropertyEnabled, libraryDefaults } from '../nodeLibrary
 import { PART_FIELDS } from '../partFields'
 import { partOptionsFor } from '../partOptions'
 import { retargetHardwarePins } from '../pinRetarget'
-import { blankTransportData, TRANSPORT_DISPLAY_LAYOUTS } from '../transportDisplay'
+import { TRANSPORT_DISPLAY_LAYOUTS, transportLayoutForKind } from '../transportDisplay'
+import { DISPLAY_SIGNAL_KINDS } from '../displaySignal'
 
 const PLAIN = 'st7789-tft-240x240'
 const TOUCH = 'st7789v-xpt2046-touch-240x320'
@@ -41,45 +42,37 @@ describe('TransportDisplay registration', () => {
   // those without a scaler, and a scaler in the browser needs a twin in C++.
   // Deriving the check from what the layouts actually render is what stops a
   // port being declared for a field nothing draws.
-  it('declares no port the layouts cannot render', () => {
+  // The whole content contract in one assertion. Seventeen per-field ports
+  // became one envelope, so the check that used to compare ports against
+  // rendered fields now checks the opposite thing: that no content port has
+  // crept back. A field a layout draws is fed by the envelope's arm, never by
+  // a socket, which is why there is nothing left to keep in step.
+  it('takes one content input and declares no per-field ports', () => {
     const def = NODE_LIBRARY.find((entry) => entry.type === 'TransportDisplay')!
-    const rendered = new Set(TRANSPORT_DISPLAY_LAYOUTS.flatMap(
-      (layout) => Object.keys(blankTransportData(layout).data),
-    ))
-    // `enabled` switches the panel; `patternSelect` supplies collection
-    // metadata to the baker rather than becoming a visible field itself.
-    const fed = def.inputs.map((port) => port.id)
-      .filter((id) => id !== 'enabled' && id !== 'patternSelect')
-    expect(fed.length).toBeGreaterThan(0)
-    for (const port of fed) {
-      expect(rendered.has(port), `${port} is a port no layout renders`).toBe(true)
-    }
-  })
-
-  // Artwork is fed by the selection metadata rather than by a live image port.
-  it('renders exactly one field that has no port yet', () => {
-    const def = NODE_LIBRARY.find((entry) => entry.type === 'TransportDisplay')!
-    const ports = new Set(def.inputs.map((port) => port.id))
-    const rendered = new Set(TRANSPORT_DISPLAY_LAYOUTS.flatMap(
-      (layout) => Object.keys(blankTransportData(layout).data),
-    ))
-    // Artwork and diagnostic touch readings are derived runtime state rather
-    // than graph inputs; every user-supplied display field still needs a port.
-    expect([...rendered].filter((field) => !ports.has(field))).toEqual([
-      'artwork', 'touchAvailable', 'pressed', 'x', 'y',
-    ])
-  })
-
-  it('declares the fixed layout payload ports', () => {
-    const def = NODE_LIBRARY.find((entry) => entry.type === 'TransportDisplay')!
-    expect(def.inputs.map((port) => port.id)).toEqual([
-      'title', 'artist', 'elapsedSec', 'durationSec', 'progress', 'playing', 'volume',
-      'patternName', 'patternSelect', 'patternIndex', 'patternCount', 'section', 'bpm', 'beat',
-      'outputEnabled', 'brightness', 'enabled',
-    ])
+    expect(def.inputs.map((port) => port.id)).toEqual(['display', 'enabled'])
+    expect(def.inputs.find((port) => port.id === 'display')?.dataType).toBe('display')
     expect(def.defaultProperties).toMatchObject({
       partId: PLAIN, tftLayout: 'Now Playing', tftRotation: '0', enabled: true,
     })
+  })
+
+  // A layout that no source can produce would be unreachable, and a source
+  // with no layout is reported rather than guessed at. Derived from the two
+  // tables so neither can grow an entry the other does not answer for.
+  it('produces every non-service layout from some source', () => {
+    const reachable = new Set(DISPLAY_SIGNAL_KINDS
+      .map((kind) => transportLayoutForKind(kind))
+      .filter((layout): layout is NonNullable<typeof layout> => layout !== null))
+    for (const layout of TRANSPORT_DISPLAY_LAYOUTS) {
+      // Waiting is the unwired state and Diagnostics is device lifecycle;
+      // neither is content a cable selects.
+      if (layout === 'Waiting' || layout === 'Diagnostics') continue
+      const offered = DISPLAY_SIGNAL_KINDS.some(
+        (kind) => transportLayoutForKind(kind, layout) === layout,
+      )
+      expect(offered, `${layout} is a layout no source produces`).toBe(true)
+    }
+    expect(reachable.size).toBeGreaterThan(0)
   })
 
   it('offers only the two module profiles in scope', () => {

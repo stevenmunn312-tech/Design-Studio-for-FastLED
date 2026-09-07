@@ -70,7 +70,11 @@ describe('display evaluator parity', () => {
     useGraphStore.setState({ nodes: [], edges: [], graphData: {}, activeGraphId: 'root' } as never)
   })
 
-  it('carries one formatted string through the evaluator into both panel families', () => {
+  // A fixed panel no longer takes arbitrary text: seventeen content ports
+  // became one envelope, and wiring a graph reading onto a panel is what the
+  // custom Display is for. So this is now about the custom panel only, and
+  // the fixed one is checked against a real source below.
+  it('carries one formatted string through the evaluator into a custom panel', () => {
     const format = node('format', 'FormatNumber', {
       value: 42.5,
       decimals: 1,
@@ -79,13 +83,9 @@ describe('display evaluator parity', () => {
       suffix: ' BPM',
     })
     const custom = screen()
-    const transport = node('transport', 'TransportDisplay', { tftLayout: 'Now Playing' })
     const result = evaluateGraphFull(
-      [format, custom, transport],
-      [
-        edge('custom-title', 'format', 'text', 'screen', 'widget:title:value'),
-        edge('transport-title', 'format', 'text', 'transport', 'title'),
-      ],
+      [format, custom],
+      [edge('custom-title', 'format', 'text', 'screen', 'widget:title:value')],
       0,
       8,
       8,
@@ -94,19 +94,22 @@ describe('display evaluator parity', () => {
     expect(result.outputs.get('format')?.text).toBe('+042.5 BPM')
     expect(useDisplayRuntimeStore.getState().readDisplayWidget('panel', 'title')?.roleValues.get('value'))
       .toBe('+042.5 BPM')
-    expect(tftTitlePixels(result.outputs.get('transport')?.surface as TftSurface)).toBeGreaterThan(0)
   })
 
   it('updates each fixed layout through its declared evaluator contract', () => {
     const rtc = node('rtc', 'RTCInput', { timeSource: 'Manual', startYear: 2026, startMonth: 9, startDay: 6, startHour: 9, startMinute: 5 })
     const info = node('info', 'InfoDisplay', { partId: 'sh1106-oled-128x64' })
     const segment = node('segment', 'SegmentDisplay', { partId: 'tm1637-4digit-display' })
-    const transport = node('transport', 'TransportDisplay', { tftLayout: 'Show Status', patternCount: 3, patternIndex: 1, bpm: 128 })
+    // The colour panel needs its own source: an RTC has no colour layout, so
+    // pointing all three at the clock would only prove the TFT waits.
+    const slideshow = node('slideshow', 'PatternSlideshow')
+    const transport = node('transport', 'TransportDisplay', {})
     const result = evaluateGraphFull(
-      [rtc, info, segment, transport],
+      [rtc, info, segment, slideshow, transport],
       [
         edge('clock-info', 'rtc', 'display', 'info', 'display'),
         edge('clock-segment', 'rtc', 'display', 'segment', 'display'),
+        edge('show-transport', 'slideshow', 'display', 'transport', 'display'),
       ],
       0,
       8,

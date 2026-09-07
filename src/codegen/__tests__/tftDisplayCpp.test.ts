@@ -33,8 +33,8 @@ const emit = (over: Partial<TftDisplayEmit> = {}): TftDisplayEmit => ({
   titleExpr: '_title', artistExpr: '_artist', patternNameExpr: '_pattern',
   elapsedExpr: '_elapsed', durationExpr: '_duration', progressExpr: '_progress',
   playingExpr: '_playing', volumeExpr: '_volume',
-  patternIndexExpr: '_index', patternCountExpr: '_count', sectionExpr: '_section',
-  bpmExpr: '_bpm', beatExpr: '_beat', outputEnabledExpr: '_out', brightnessExpr: '_bright',
+  patternIndexExpr: '_index', patternCountExpr: '_count',
+  browsingExpr: '_browsing', highlightNameExpr: '_highName', highlightIndexExpr: '_highIndex',
   ...over,
 })
 
@@ -196,8 +196,8 @@ describe('the loop', () => {
 
   it('emits Show Status coordinates from the shared geometry', () => {
     const g = showStatusGeometry(240, 240)
-    expect(showStatus).toContain(`${g.bpm.x}, ${g.bpm.y}, ${g.bpm.w}, ${g.bpm.h}, ${g.bpm.scale}, 2,`)
-    expect(showStatus).toContain(`${g.beats.x} + (i * ${g.beats.w === 0 ? 0 : g.beatSize + g.beatGap})`)
+    expect(showStatus).toContain(`${g.pattern.x}, ${g.pattern.y}, ${g.pattern.w}, ${g.pattern.h}, ${g.pattern.scale},`)
+    expect(showStatus).toContain(`${g.highlight.x}, ${g.highlight.y}, ${g.highlight.w}, ${g.highlight.h}, ${g.highlight.scale},`)
   })
 
   it('emits Fixed Transport buttons from the shared geometry', () => {

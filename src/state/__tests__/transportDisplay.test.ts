@@ -4,7 +4,6 @@ import {
   TRANSPORT_ARTWORK_W,
   TRANSPORT_ARTWORK_H,
   TRANSPORT_ARTWORK_BYTES,
-  TRANSPORT_BEAT_COUNT,
   TRANSPORT_COLORS,
   TRANSPORT_METRICS,
   MAX_TRANSPORT_ARTWORKS,
@@ -19,11 +18,9 @@ import {
   nowPlayingStateText,
   nowPlayingTimes,
   renderTransportDisplay,
-  showStatusBeatIndex,
-  showStatusBpmText,
   showStatusGeometry,
   showStatusOrdinalText,
-  showStatusOutputText,
+  showStatusStateText,
   transportArtworkBudgetIssue,
   transportArtworkFlashCost,
   type TransportNowPlayingData,
@@ -34,7 +31,6 @@ import {
   TFT_CONTROLLERS, TFT_ROTATIONS, createTftSurface, clearTftSurface, getTftPixel,
   tftRotatedSize, tftTextWidth, type TftRect, type TftSurface,
 } from '../tftSurface'
-import { DISPLAY_TEXT_NO_READING } from '../displayText'
 
 const st7789 = TFT_CONTROLLERS.ST7789
 const st7789v = TFT_CONTROLLERS.ST7789V
@@ -56,8 +52,8 @@ const nowPlaying = (over: Partial<TransportNowPlayingData> = {}): TransportNowPl
 })
 
 const showStatus = (over: Partial<TransportShowStatusData> = {}): TransportShowStatusData => ({
-  patternName: 'FIRE 2', patternIndex: 3, patternCount: 12, section: 'CHORUS',
-  bpm: 128, beat: 2, outputEnabled: true, brightness: 0.6, ...over,
+  patternName: 'FIRE 2', patternIndex: 3, patternCount: 12,
+  highlightName: 'AURORA', highlightIndex: 7, browsing: false, ...over,
 })
 
 const fixedTransport = (over: Partial<TransportFixedData> = {}): TransportFixedData => ({
@@ -84,8 +80,13 @@ function rectsOf(geometry: object): Array<[string, TftRect]> {
 
 describe('layout selection', () => {
   // Every fixed layout previews and emits through both firmware paths.
-  it('offers the four layouts that can be generated', () => {
-    expect([...TRANSPORT_DISPLAY_LAYOUTS]).toEqual(['Now Playing', 'Fixed Transport', 'Show Status', 'Diagnostics'])
+  // `Waiting` leads because it is what a panel shows before any source picks
+  // one of the others, and it is generated like the rest rather than being a
+  // browser-only placeholder.
+  it('offers the five layouts that can be generated', () => {
+    expect([...TRANSPORT_DISPLAY_LAYOUTS]).toEqual([
+      'Waiting', 'Now Playing', 'Fixed Transport', 'Show Status', 'Diagnostics',
+    ])
   })
 
   it('falls back to Now Playing for anything else', () => {
@@ -180,7 +181,7 @@ describe('geometry across every mounted size', () => {
 
   it.each(MOUNTED_SIZES)('stacks Show Status rows without overlap on $key', ({ width, height }) => {
     const g = showStatusGeometry(width, height)
-    const stack = [g.pattern, g.ordinal, g.section, g.bpm, g.beats, g.output, g.brightness]
+    const stack = [g.pattern, g.ordinal, g.status, g.highlight, g.highlightOrdinal]
     for (let i = 1; i < stack.length; i++) {
       expect(stack[i].y, `row ${i} starts below row ${i - 1}`)
         .toBeGreaterThanOrEqual(stack[i - 1].y + stack[i - 1].h)
@@ -195,9 +196,18 @@ describe('geometry across every mounted size', () => {
     expect(height - (g.volume.y + g.volume.h)).toBe(TRANSPORT_METRICS.margin)
   })
 
-  it.each(MOUNTED_SIZES)('anchors the brightness bar to the bottom of $key', ({ width, height }) => {
+  // The browsing block is pinned to the bottom so the running pattern's rows
+  // never move when a browse starts or ends — a layout that reflowed on every
+  // encoder detent would be unreadable exactly when it is being used.
+  it.each(MOUNTED_SIZES)('anchors the browsing block to the bottom of $key', ({ width, height }) => {
     const g = showStatusGeometry(width, height)
-    expect(height - (g.brightness.y + g.brightness.h)).toBe(TRANSPORT_METRICS.margin)
+    expect(height - (g.highlightOrdinal.y + g.highlightOrdinal.h)).toBe(TRANSPORT_METRICS.margin)
+  })
+
+  it.each(MOUNTED_SIZES)('holds the running rows still while browsing on $key', ({ width, height }) => {
+    const g = showStatusGeometry(width, height)
+    expect(g.pattern.y).toBe(TRANSPORT_METRICS.margin)
+    expect(g.status.y).toBeLessThan(g.highlight.y)
   })
 
   // Artwork is fixed at 96 square because the bytes are baked in the browser
@@ -225,10 +235,7 @@ describe('geometry across every mounted size', () => {
     expect(tall.artwork.y).toBeGreaterThan(square.artwork.y)
   })
 
-  it('divides a bar into four beats', () => {
-    expect(showStatusGeometry(240, 240).beatCount).toBe(TRANSPORT_BEAT_COUNT)
-    expect(TRANSPORT_BEAT_COUNT).toBe(4)
-  })
+
 })
 
 describe('what the fields say', () => {
@@ -260,27 +267,9 @@ describe('what the fields say', () => {
     expect(showStatusOrdinalText(-4, 12)).toBe('1/12')
   })
 
-  // Dashes rather than 0: a show with no tempo and a show stopped dead are
-  // different things and only one of them is a fault.
-  it('marks a tempo it has no reading for', () => {
-    expect(showStatusBpmText(128)).toBe('128')
-    expect(showStatusBpmText(127.6)).toBe('128')
-    expect(showStatusBpmText(0)).toBe(DISPLAY_TEXT_NO_READING)
-    expect(showStatusBpmText(Number.NaN)).toBe(DISPLAY_TEXT_NO_READING)
-    expect(showStatusBpmText(Number.POSITIVE_INFINITY)).toBe(DISPLAY_TEXT_NO_READING)
-  })
-
-  it('wraps the beat marker at both ends of the bar', () => {
-    expect(showStatusBeatIndex(0)).toBe(0)
-    expect(showStatusBeatIndex(2.75)).toBe(2)
-    expect(showStatusBeatIndex(4)).toBe(0)
-    expect(showStatusBeatIndex(-1)).toBe(3)
-    expect(showStatusBeatIndex(Number.NaN)).toBe(0)
-  })
-
-  it('names the output state in full', () => {
-    expect(showStatusOutputText(true)).toBe('OUTPUT ON')
-    expect(showStatusOutputText(false)).toBe('OUTPUT OFF')
+  it('names whether the panel is reporting or being browsed', () => {
+    expect(showStatusStateText(false)).toBe('PLAYING')
+    expect(showStatusStateText(true)).toBe('BROWSING')
   })
 })
 
@@ -349,35 +338,46 @@ describe('rendering', () => {
     }
   })
 
-  it('colours the output row by what the lights are doing', () => {
+  // Blank rather than skipped: painting the empty field is what clears the
+  // previous candidate off the glass when a browse ends. Skipping it would
+  // leave the last browsed pattern on the panel indefinitely.
+  it('clears the browsing rows when a browse ends', () => {
     const g = showStatusGeometry(240, 240)
-    const on = renderTransportDisplay(st7789, '0', {
-      layout: 'Show Status', data: showStatus({ outputEnabled: true }),
+    const browsing = renderTransportDisplay(st7789, '0', {
+      layout: 'Show Status', data: showStatus({ browsing: true }),
     })
-    const off = renderTransportDisplay(st7789, '0', {
-      layout: 'Show Status', data: showStatus({ outputEnabled: false }),
+    const settled = renderTransportDisplay(st7789, '0', {
+      layout: 'Show Status', data: showStatus({ browsing: false }),
     })
-    const rowColors = (surface: TftSurface) => {
-      const seen = new Set<number>()
-      for (let y = g.output.y; y < g.output.y + g.output.h; y++) {
-        for (let x = g.output.x; x < g.output.x + g.output.w; x++) seen.add(getTftPixel(surface, x, y))
+    const rowLit = (surface: TftSurface, rect: TftRect) => {
+      for (let y = rect.y; y < rect.y + rect.h; y++) {
+        for (let x = rect.x; x < rect.x + rect.w; x++) {
+          if (getTftPixel(surface, x, y) !== TRANSPORT_COLORS.background) return true
+        }
       }
-      return seen
+      return false
     }
-    expect(rowColors(on).has(TRANSPORT_COLORS.on)).toBe(true)
-    expect(rowColors(off).has(TRANSPORT_COLORS.off)).toBe(true)
+    expect(rowLit(browsing, g.highlight)).toBe(true)
+    expect(rowLit(browsing, g.highlightOrdinal)).toBe(true)
+    expect(rowLit(settled, g.highlight)).toBe(false)
+    expect(rowLit(settled, g.highlightOrdinal)).toBe(false)
   })
 
-  it('lights exactly one beat marker', () => {
+  // The running rows are what the panel is for, so they say the same thing
+  // whether or not someone is turning the encoder.
+  it('keeps reporting the running pattern while browsing', () => {
     const g = showStatusGeometry(240, 240)
-    const surface = renderTransportDisplay(st7789, '0', {
-      layout: 'Show Status', data: showStatus({ beat: 2 }),
+    const browsing = renderTransportDisplay(st7789, '0', {
+      layout: 'Show Status', data: showStatus({ browsing: true }),
     })
-    const filled = [0, 1, 2, 3].filter((i) => {
-      const x = g.beats.x + (i * (g.beatSize + g.beatGap)) + Math.floor(g.beatSize / 2)
-      return getTftPixel(surface, x, g.beats.y + Math.floor(g.beatSize / 2)) === TRANSPORT_COLORS.accent
+    const settled = renderTransportDisplay(st7789, '0', {
+      layout: 'Show Status', data: showStatus({ browsing: false }),
     })
-    expect(filled).toEqual([2])
+    for (let y = g.pattern.y; y < g.pattern.y + g.pattern.h; y++) {
+      for (let x = g.pattern.x; x < g.pattern.x + g.pattern.w; x++) {
+        expect(getTftPixel(browsing, x, y)).toBe(getTftPixel(settled, x, y))
+      }
+    }
   })
 
   it('renders blank data for an unwired node without throwing', () => {

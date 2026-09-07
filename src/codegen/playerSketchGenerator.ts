@@ -843,11 +843,12 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
       ?? (hasPatternSelection ? `_sel_${PLAYER_SELECTION_STEM}.active` : '0.0f'),
     patternCountExpr: display.sources.patternCount
       ?? (hasPatternSelection ? 'PATTERN_COUNT' : '0.0f'),
-    sectionExpr: display.sources.section ?? null,
-    bpmExpr: display.sources.bpm ?? '0.0f',
-    beatExpr: display.sources.beat ?? '0.0f',
-    outputEnabledExpr: display.sources.outputEnabled ?? 'true',
-    brightnessExpr: display.sources.brightness ?? '1.0f',
+    // Show Status cannot reach this sketch: it is the slideshow's screen, and
+    // a slideshow plugged into a panel here resolves as unresolved and draws
+    // Waiting. These are the blanks that layout would have read.
+    browsingExpr: 'false',
+    highlightNameExpr: null,
+    highlightIndexExpr: '0.0f',
     diagnosticTouch: display.layout === 'Diagnostics' && display.touch !== null,
     ...(display.layout === 'Now Playing' && playerArtworks.length > 0
       ? { artwork: { tableStem: PLAYER_SELECTION_STEM, count: playerArtworks.length } }

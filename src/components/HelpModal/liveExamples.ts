@@ -1397,17 +1397,13 @@ const TRANSPORT_DISPLAY_LIVE_EXAMPLE = namedExample(
   'TransportDisplay',
   'Put a colour transport screen on the bench',
   [
-    { key: 'title', type: 'TextValue', properties: { text: 'MIDNIGHT DRIVE' } },
-    { key: 'progress', type: 'BeatSin', properties: { bpm: 12, low: 0, high: 1 } },
+    { key: 'player', type: 'PatternMaster' },
     { key: 'target', type: 'TransportDisplay', properties: { tftLayout: 'Now Playing' } },
     { key: 'color', type: 'SolidColor', properties: { r: 20, g: 55, b: 95 } },
   ],
-  [
-    { source: 'title', sourceHandle: 'text', target: 'target', targetHandle: 'title' },
-    { source: 'progress', sourceHandle: 'value', target: 'target', targetHandle: 'progress' },
-  ],
-  'Transport Display is a colour-screen terminal with Now Playing, Fixed Transport, and Show Status layouts. Add the exact TFT module in the hardware workbench, then wire the text and values its selected layout shows.',
-  'The solid colour keeps the LED preview meaningful; the TFT is a separate physical display. On the ST7789V/XPT2046 module, wire Controls through Player Controls to use the visible transport or level controls in player firmware.',
+  [{ source: 'player', sourceHandle: 'display', target: 'target', targetHandle: 'display' }],
+  'Transport Display takes one Display wire, exactly like the smaller panels: a Music Player makes it a now-playing screen, a Pattern Slideshow makes it a show status screen. The layout property only chooses between the treatments that source already offers — Now Playing or Fixed Transport for a player — so it can change how a screen is drawn but never what it shows. Add the exact TFT module in the hardware workbench.',
+  'The solid colour keeps the LED preview meaningful; the TFT is a separate physical display. On the ST7789V/XPT2046 module, wire Controls through Player Controls to use the visible transport controls in player firmware.',
 )
 
 const CUSTOM_DISPLAY_LIVE_EXAMPLE = namedExample(

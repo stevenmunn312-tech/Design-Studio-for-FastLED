@@ -485,11 +485,16 @@ function showDisplaysCpp(
     // running pattern out of the collection with nothing else to configure.
     patternIndexExpr: display.sources.patternIndex ?? SHOW_PATTERN_INDEX,
     patternCountExpr: display.sources.patternCount ?? 'PATTERN_COUNT',
-    sectionExpr: display.sources.section ?? null,
-    bpmExpr: display.sources.bpm ?? '0.0f',
-    beatExpr: display.sources.beat ?? '0.0f',
-    outputEnabledExpr: display.sources.outputEnabled ?? 'true',
-    brightnessExpr: display.sources.brightness ?? '1.0f',
+    // Browsing is the show's own cursor, read from the one selection the
+    // pixels are already driven by, so the panel and the LEDs cannot disagree
+    // about which pattern is being looked at.
+    browsingExpr: `_selBrowsing(${selVar})`,
+    highlightIndexExpr: `${selVar}.highlight`,
+    // Pattern names live in the thumbnail table, which is emitted only for an
+    // OLED Pattern Browser and reads through a buffer-filling function rather
+    // than an expression. Blank until that is threaded through; the ordinal
+    // and the browsing state are the readings this panel is here for.
+    highlightNameExpr: null,
     diagnosticTouch: display.layout === 'Diagnostics' && display.touch !== null,
     ...(display.layout === 'Now Playing' && artworks.length > 0
       ? { artwork: { tableStem: SHOW_SELECTION_STEM, count: artworks.length } }

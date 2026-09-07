@@ -37,10 +37,12 @@ import {
   type TftController, type TftField, type TftRect, type TftRotation,
 } from '../state/tftSurface'
 import {
-  TRANSPORT_ARTWORK_H, TRANSPORT_ARTWORK_W, TRANSPORT_BEAT_COUNT, TRANSPORT_COLORS,
+  TRANSPORT_ARTWORK_H, TRANSPORT_ARTWORK_W, TRANSPORT_COLORS,
   diagnosticsGeometry, fixedTransportGeometry, nowPlayingGeometry, showStatusGeometry,
+  transportWaitingGeometry,
   type TransportDisplayLayout,
 } from '../state/transportDisplay'
+import { DISPLAY_WAITING_TEXT } from '../state/displaySignal'
 
 /**
  * Forward declaration for the top of a sketch, above the includes' first
@@ -81,9 +83,10 @@ const NOW_PLAYING_TEXT_SLOTS = {
 const NOW_PLAYING_VALUE_SLOTS = { progress: 0, volume: 1, artwork: 2 } as const
 
 const SHOW_STATUS_TEXT_SLOTS = {
-  pattern: 0, ordinal: 1, section: 2, bpm: 3, output: 4,
+  pattern: 0, ordinal: 1, status: 2, highlight: 3, highlightOrdinal: 4,
 } as const
-const SHOW_STATUS_VALUE_SLOTS = { beat: 0, brightness: 1 } as const
+/** Show Status draws no bars or indicators, so it caches no numeric fields. */
+const SHOW_STATUS_VALUE_SLOTS = {} as const
 
 const FIXED_TRANSPORT_TEXT_SLOTS = { title: 0, pattern: 1, state: 2 } as const
 const FIXED_TRANSPORT_VALUE_SLOTS = { volume: 0 } as const
@@ -625,14 +628,13 @@ export interface TftDisplayEmit {
   progressExpr: string
   playingExpr: string
   volumeExpr: string
-  /** Show Status. */
+  /** Show Status, and the artwork index Now Playing blits by. */
   patternIndexExpr: string
   patternCountExpr: string
-  sectionExpr: string | null
-  bpmExpr: string
-  beatExpr: string
-  outputEnabledExpr: string
-  brightnessExpr: string
+  /** Show Status: the candidate the user is looking at, while browsing. */
+  browsingExpr: string
+  highlightNameExpr: string | null
+  highlightIndexExpr: string
   /** Whether Diagnostics can read a live XPT2046 point. */
   diagnosticTouch?: boolean
   /**
@@ -750,69 +752,65 @@ function showStatusLoop(display: TftDisplayEmit, width: number, height: number):
   const id = display.id
   const g = showStatusGeometry(width, height)
   const s = SHOW_STATUS_TEXT_SLOTS
-  const v = SHOW_STATUS_VALUE_SLOTS
   const text = (expr: string | null) => expr ?? '""'
   const lines: string[] = []
+
+  // Formatting only — no declaration and no paint — so the running pattern's
+  // ordinal and the browsed candidate's are produced by one piece of code.
+  // They count out of the same collection, and a divergence between them
+  // would be a bug nobody could see by looking at the panel.
+  // The index local is named after its buffer so the browsing branch does not
+  // shadow the outer one: the two ordinals live in nested scopes, and a
+  // shadowed name here compiles but reads as a bug in every review.
+  const formatOrdinal = (buffer: string, indexExpr: string, indent: string) => {
+    const at = `_tftAt${buffer}`
+    return [
+      `${indent}long ${at} = _tftWhole(${indexExpr});`,
+      `${indent}if (_tftCount_${id} <= 0) {`,
+      // The same refusal showStatusOrdinalText() makes: a lone 1/0 on a panel
+      // is worse than being told the wire is not carrying a show.
+      `${indent}  snprintf(${buffer}, sizeof(${buffer}), "NO PATTERNS");`,
+      `${indent}} else {`,
+      `${indent}  if (${at} < 0) ${at} = 0;`,
+      `${indent}  if (${at} > _tftCount_${id} - 1) ${at} = _tftCount_${id} - 1;`,
+      `${indent}  snprintf(${buffer}, sizeof(${buffer}), "%ld/%ld", ${at} + 1, _tftCount_${id});`,
+      `${indent}}`,
+    ]
+  }
 
   lines.push(
     `      const char *_tftPattern_${id} = ${text(display.patternNameExpr)};`,
     `      if (_tftTextDirty(${p}, ${s.pattern}, _tftPattern_${id}) || _tftFull_${id}) `
       + `_tftField(${p}, ${fieldArgs(g.pattern)}, _tftPattern_${id}, TFT_C_TEXT, TFT_C_BG);`,
-  )
-
-  lines.push(
-    `      char _tftOrd_${id}[16];`,
     `      long _tftCount_${id} = _tftWhole(${display.patternCountExpr});`,
-    `      long _tftIndex_${id} = _tftWhole(${display.patternIndexExpr});`,
-    `      if (_tftCount_${id} <= 0) {`,
-    // The same refusal showStatusOrdinalText() makes: a lone 1/0 on a panel is
-    // worse than being told the wire is not carrying a show.
-    `        snprintf(_tftOrd_${id}, sizeof(_tftOrd_${id}), "NO PATTERNS");`,
-    `      } else {`,
-    `        if (_tftIndex_${id} < 0) _tftIndex_${id} = 0;`,
-    `        if (_tftIndex_${id} > _tftCount_${id} - 1) _tftIndex_${id} = _tftCount_${id} - 1;`,
-    `        snprintf(_tftOrd_${id}, sizeof(_tftOrd_${id}), "%ld/%ld", _tftIndex_${id} + 1, _tftCount_${id});`,
-    `      }`,
+    `      char _tftOrd_${id}[16];`,
+    ...formatOrdinal(`_tftOrd_${id}`, display.patternIndexExpr, '      '),
     `      if (_tftTextDirty(${p}, ${s.ordinal}, _tftOrd_${id}) || _tftFull_${id}) `
       + `_tftField(${p}, ${fieldArgs(g.ordinal)}, _tftOrd_${id}, TFT_C_DIM, TFT_C_BG);`,
-    `      const char *_tftSection_${id} = ${text(display.sectionExpr)};`,
-    `      if (_tftTextDirty(${p}, ${s.section}, _tftSection_${id}) || _tftFull_${id}) `
-      + `_tftField(${p}, ${fieldArgs(g.section)}, _tftSection_${id}, TFT_C_ACCENT, TFT_C_BG);`,
   )
 
   lines.push(
-    `      char _tftBpm_${id}[8];`,
-    `      float _tftBpmV_${id} = ${display.bpmExpr};`,
-    // Dashes rather than 0: a show with no tempo and a show stopped dead are
-    // different things, and only one of them is a fault.
-    `      if (!isfinite(_tftBpmV_${id}) || _tftBpmV_${id} <= 0) snprintf(_tftBpm_${id}, sizeof(_tftBpm_${id}), "---");`,
-    `      else snprintf(_tftBpm_${id}, sizeof(_tftBpm_${id}), "%ld", _tftWhole(_tftBpmV_${id}));`,
-    `      if (_tftTextDirty(${p}, ${s.bpm}, _tftBpm_${id}) || _tftFull_${id}) `
-      + `_tftField(${p}, ${fieldArgs(g.bpm)}, _tftBpm_${id}, TFT_C_TEXT, TFT_C_BG);`,
-    `      if (_tftFull_${id}) _tftField(${p}, ${fieldArgs(g.bpmLabel)}, "BPM", TFT_C_DIM, TFT_C_BG);`,
+    `      bool _tftBrowsing_${id} = ${display.browsingExpr};`,
+    `      const char *_tftState_${id} = _tftBrowsing_${id} ? "BROWSING" : "PLAYING";`,
+    `      if (_tftTextDirty(${p}, ${s.status}, _tftState_${id}) || _tftFull_${id}) `
+      + `_tftField(${p}, ${fieldArgs(g.status)}, _tftState_${id}, `
+      + `_tftBrowsing_${id} ? TFT_C_ACCENT : TFT_C_DIM, TFT_C_BG);`,
   )
 
+  // Blank rather than skipped, matching drawTransportShowStatus: painting the
+  // empty field is what clears the previous candidate when a browse ends, and
+  // the dirty cache means an unchanged blank costs nothing after the first.
   lines.push(
-    `      long _tftBeat_${id} = _tftFloorWhole(${display.beatExpr});`,
-    `      _tftBeat_${id} = ((_tftBeat_${id} % ${TRANSPORT_BEAT_COUNT}) + ${TRANSPORT_BEAT_COUNT}) % ${TRANSPORT_BEAT_COUNT};`,
-    `      if (_tftValueDirty(${p}, ${v.beat}, (int32_t)_tftBeat_${id}) || _tftFull_${id}) {`,
-    `        for (int i = 0; i < ${g.beatCount}; i++) {`,
-    `          _tftIndicator(${p}, ${g.beats.x} + (i * ${g.beatSize + g.beatGap}), ${g.beats.y}, `
-      + `${g.beatSize}, i == (int)_tftBeat_${id}, TFT_C_ACCENT, TFT_C_OUTLINE);`,
-    `        }`,
+    `      const char *_tftHigh_${id} = _tftBrowsing_${id} ? (${text(display.highlightNameExpr)}) : "";`,
+    `      if (_tftTextDirty(${p}, ${s.highlight}, _tftHigh_${id}) || _tftFull_${id}) `
+      + `_tftField(${p}, ${fieldArgs(g.highlight)}, _tftHigh_${id}, TFT_C_ACCENT, TFT_C_BG);`,
+    `      char _tftHighOrd_${id}[16];`,
+    `      _tftHighOrd_${id}[0] = 0;`,
+    `      if (_tftBrowsing_${id}) {`,
+    ...formatOrdinal(`_tftHighOrd_${id}`, display.highlightIndexExpr, '        '),
     `      }`,
-  )
-
-  lines.push(
-    `      bool _tftOut_${id} = ${display.outputEnabledExpr};`,
-    `      const char *_tftOutText_${id} = _tftOut_${id} ? "OUTPUT ON" : "OUTPUT OFF";`,
-    `      if (_tftTextDirty(${p}, ${s.output}, _tftOutText_${id}) || _tftFull_${id}) `
-      + `_tftField(${p}, ${fieldArgs(g.output)}, _tftOutText_${id}, `
-      + `_tftOut_${id} ? TFT_C_ON : TFT_C_OFF, TFT_C_BG);`,
-    `      if (_tftFull_${id}) _tftField(${p}, ${fieldArgs(g.brightnessLabel)}, "BRIGHT", TFT_C_DIM, TFT_C_BG);`,
-    `      float _tftBright_${id} = ${display.brightnessExpr};`,
-    `      if (_tftValueDirty(${p}, ${v.brightness}, _tftBarFill(${g.brightness.w}, _tftBright_${id})) || _tftFull_${id}) `
-      + `_tftBar(${p}, ${rectArgs(g.brightness)}, _tftBright_${id}, TFT_C_TEXT, TFT_C_TRACK, TFT_C_OUTLINE);`,
+    `      if (_tftTextDirty(${p}, ${s.highlightOrdinal}, _tftHighOrd_${id}) || _tftFull_${id}) `
+      + `_tftField(${p}, ${fieldArgs(g.highlightOrdinal)}, _tftHighOrd_${id}, TFT_C_DIM, TFT_C_BG);`,
   )
 
   return lines
@@ -858,6 +856,32 @@ function fixedTransportLoop(display: TftDisplayEmit, width: number, height: numb
     `      if (_tftValueDirty(${p}, ${v.volume}, _tftBarFill(${g.volume.w}, _tftVol_${id})) || _tftFull_${id}) `
       + `_tftBar(${p}, ${rectArgs(g.volume)}, _tftVol_${id}, TFT_C_TEXT, TFT_C_TRACK, TFT_C_OUTLINE);`,
   ]
+  return lines
+}
+
+/**
+ * Nothing is plugged in, and the panel says so.
+ *
+ * Both rows are fixed text, so they are painted on a full repaint only — the
+ * dirty cache exists for readings that change, and these never do. Without
+ * this the layout fell through to Now Playing and a device drew an empty
+ * transport where the preview drew a message, which is exactly the kind of
+ * disagreement the shared geometry exists to prevent.
+ */
+function waitingLoop(display: TftDisplayEmit, width: number, height: number): string[] {
+  const p = `_tft_${display.id}`
+  const id = display.id
+  const g = transportWaitingGeometry(width, height)
+  const lines = [
+    `      if (_tftFull_${id}) _tftField(${p}, ${fieldArgs(g.message)}, `
+      + `${cppStringLiteral(DISPLAY_WAITING_TEXT)}, TFT_C_TEXT, TFT_C_BG);`,
+  ]
+  if (g.hint) {
+    lines.push(
+      `      if (_tftFull_${id}) _tftField(${p}, ${fieldArgs(g.hint)}, `
+        + `"WIRE A SOURCE TO DISPLAY", TFT_C_DIM, TFT_C_BG);`,
+    )
+  }
   return lines
 }
 
@@ -916,7 +940,9 @@ function diagnosticsLoop(display: TftDisplayEmit, width: number, height: number)
 export function tftDisplayLoopCpp(display: TftDisplayEmit): string[] {
   const id = display.id
   const size = tftRotatedSize(display.controller, display.rotation)
-  const body = display.layout === 'Diagnostics'
+  const body = display.layout === 'Waiting'
+    ? waitingLoop(display, size.width, size.height)
+    : display.layout === 'Diagnostics'
     ? diagnosticsLoop(display, size.width, size.height)
     : display.layout === 'Show Status'
       ? showStatusLoop(display, size.width, size.height)

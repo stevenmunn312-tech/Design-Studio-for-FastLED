@@ -2881,26 +2881,16 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'TransportDisplay',
     label: 'Transport Display',
     category: 'output',
+    // One content input, the same as the small panels. What is plugged in
+    // decides the screen, and `tftLayout` only picks between the treatments
+    // that source offers — so a property can change how a player panel is
+    // drawn and can never make it show a slideshow. The seventeen per-field
+    // ports this replaces were the custom-UI capability in disguise: wiring
+    // arbitrary graph readings onto a panel is what the Display node is for.
+    // Artwork rides the envelope too, since the player owns both the track
+    // and the selection that identifies the baked picture.
     inputs: [
-      { id: 'title', label: 'Title', dataType: 'string' },
-      { id: 'artist', label: 'Artist', dataType: 'string' },
-      { id: 'elapsedSec', label: 'Elapsed', dataType: 'float' },
-      { id: 'durationSec', label: 'Duration', dataType: 'float' },
-      { id: 'progress', label: 'Progress', dataType: 'float' },
-      { id: 'playing', label: 'Playing', dataType: 'bool' },
-      { id: 'volume', label: 'Volume', dataType: 'float' },
-      { id: 'patternName', label: 'Pattern Name', dataType: 'string' },
-      // The player-owned selection supplies the collection identity used by
-      // the RGB565 baker. It is metadata, not a live image port: finished
-      // bytes are baked in the browser and blitted unchanged by firmware.
-      { id: 'patternSelect', label: 'Pattern Select', dataType: 'patternselect' },
-      { id: 'patternIndex', label: 'Pattern Index', dataType: 'float' },
-      { id: 'patternCount', label: 'Pattern Count', dataType: 'float' },
-      { id: 'section', label: 'Section', dataType: 'string' },
-      { id: 'bpm', label: 'BPM', dataType: 'float' },
-      { id: 'beat', label: 'Beat', dataType: 'float' },
-      { id: 'outputEnabled', label: 'Output Enabled', dataType: 'bool' },
-      { id: 'brightness', label: 'Brightness', dataType: 'float' },
+      { id: 'display', label: 'Display', dataType: 'display' },
       { id: 'enabled', label: 'Enabled', dataType: 'bool' },
     ],
     outputs: [{ id: 'controls', label: 'Controls', dataType: 'playercontrols' }],

@@ -60,7 +60,9 @@ import {
   tftDisplayHelpersCpp, TFT_DISPLAY_CPP_FORWARD, TFT_DISPLAY_CPP_INCLUDES,
   tftDisplayGlobalCpp, tftDisplaySetupCpp, tftDisplayLoopCpp, type TftDisplayEmit,
 } from './tftDisplayCpp'
-import { asTransportDisplayLayout } from '../state/transportDisplay'
+import {
+  asTransportDisplayLayout, transportLayoutForKind, type TransportDisplayLayout,
+} from '../state/transportDisplay'
 import { asTftRotation, TFT_CONTROLLERS } from '../state/tftSurface'
 import {
   TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit,
@@ -5049,11 +5051,20 @@ export function generateCpp(
 
       case 'TransportDisplay': {
         needsDisplayText.v = true
-        const strExpr = (port: string): string | null => {
-          const up = incoming.get(`${node.id}:${port}`)
-          return up ? `n_${safeId(up.srcId)}_${safeId(up.srcPort)}` : null
-        }
-        const layout = asTransportDisplayLayout(p.tftLayout)
+        // One content input, same as the OLED above. A normal sketch answers
+        // for a clock and nothing else, and there is no colour clock layout
+        // yet — so a colour panel in a normal sketch draws its waiting screen
+        // unless its property puts it on the Diagnostics service screen.
+        // Wiring arbitrary readings onto a panel is what the custom Display
+        // node is for; it is not a fixed layout's job.
+        const displayUp = incoming.get(`${node.id}:display`)
+        const displaySource = displayUp && nodeMap.get(displayUp.srcId)
+        const kind = displaySource
+          ? DISPLAY_SOURCE_NODE_TYPES[String(displaySource.data.nodeType ?? '')]
+          : undefined
+        const layout: TransportDisplayLayout = asTransportDisplayLayout(p.tftLayout) === 'Diagnostics'
+          ? 'Diagnostics'
+          : (kind ? transportLayoutForKind(kind, p.tftLayout) : null) ?? 'Waiting'
         const controller = tftControllerForProps(p) ?? TFT_CONTROLLERS.ST7789
         const rotation = asTftRotation(p.tftRotation)
         const touchCapable = Boolean(partById(String(p.partId ?? ''))?.display?.touchController)
@@ -5079,36 +5090,29 @@ export function generateCpp(
           enabledExpr: incoming.get(`${node.id}:enabled`)
             ? boolExpr(node.id, 'enabled')
             : (p.enabled === false ? 'false' : 'true'),
-          titleExpr: strExpr('title'),
-          artistExpr: strExpr('artist'),
-          patternNameExpr: strExpr('patternName'),
-          elapsedExpr: f('elapsedSec', 'elapsedSec', 0),
-          durationExpr: f('durationSec', 'durationSec', 0),
-          progressExpr: `constrain(${f('progress', 'progress', 0)}, 0.0f, 1.0f)`,
-          playingExpr: incoming.get(`${node.id}:playing`) ? boolExpr(node.id, 'playing') : 'false',
-          volumeExpr: `constrain(${f('volume', 'volume', 0)}, 0.0f, 1.0f)`,
-          patternIndexExpr: f('patternIndex', 'patternIndex', 0),
-          patternCountExpr: f('patternCount', 'patternCount', 0),
-          sectionExpr: strExpr('section'),
-          bpmExpr: f('bpm', 'bpm', 0),
-          beatExpr: f('beat', 'beat', 0),
-          outputEnabledExpr: incoming.get(`${node.id}:outputEnabled`)
-            ? boolExpr(node.id, 'outputEnabled')
-            : 'false',
-          brightnessExpr: `constrain(${f('brightness', 'brightness', 0)}, 0.0f, 1.0f)`,
+          // Nothing in a normal sketch feeds a colour layout, so these are
+          // the blanks the Waiting and Diagnostics screens never read. They
+          // stay on the emit type rather than becoming optional because the
+          // two template generators do fill them.
+          titleExpr: null,
+          artistExpr: null,
+          patternNameExpr: null,
+          elapsedExpr: '0.0f',
+          durationExpr: '0.0f',
+          progressExpr: '0.0f',
+          playingExpr: 'false',
+          volumeExpr: '0.0f',
+          patternIndexExpr: '0.0f',
+          patternCountExpr: '0.0f',
+          browsingExpr: 'false',
+          highlightNameExpr: null,
+          highlightIndexExpr: '0.0f',
           diagnosticTouch,
         }
-        if (emit.layout === 'Now Playing') {
-          const player = incoming.get(`${node.id}:patternSelect`)?.srcId
-            ?? incoming.get(`${node.id}:patternIndex`)?.srcId
-            ?? incoming.get(`${node.id}:patternName`)?.srcId
-          const artworks = player ? opts.artworks?.[player] : undefined
-          if (player && artworks && artworks.length > 0) {
-            const tableStem = safeId(player)
-            emit.artwork = { tableStem, count: artworks.length }
-            artworkTables.set(tableStem, artworks)
-          }
-        }
+        // No artwork table here. Now Playing is a player screen and a player
+        // in a normal sketch renders as a black fill, so this generator can
+        // never resolve that layout — the two template generators bake and
+        // emit the pictures instead.
         tftDisplays.push(emit)
         if (diagnosticTouch || publishesControls) {
           const touch: TftTouchEmit = {

@@ -5,7 +5,7 @@
 // Hit regions come from the layout geometry itself: the visible control and
 // the thing that responds can therefore never drift apart.
 
-import { fixedTransportGeometry, nowPlayingGeometry, showStatusGeometry, type TransportDisplayLayout } from './transportDisplay'
+import { fixedTransportGeometry, nowPlayingGeometry, type TransportDisplayLayout } from './transportDisplay'
 import { tftRotatedSize, type TftController, type TftRect, type TftRotation } from './tftSurface'
 
 export interface TouchCalibration {
@@ -65,14 +65,14 @@ export function transportTouchRegions(
   layout: TransportDisplayLayout,
 ): TransportTouchRegion[] {
   const { width, height } = tftRotatedSize(controller, rotation)
-  if (layout === 'Diagnostics') return []
-  if (layout === 'Show Status') {
-    const g = showStatusGeometry(width, height)
-    return [
-      { action: 'ledToggle', rect: g.output },
-      { action: 'brightness', rect: g.brightness, valueAxis: 'x' },
-    ]
-  }
+  if (layout === 'Diagnostics' || layout === 'Waiting') return []
+  // Show Status is read-only. It used to offer an LED toggle and a brightness
+  // bar, but both were drawn from readings a Slideshow does not have; the
+  // controls went with them to the custom-display layer, which can wire an LED
+  // output's Controls input directly. A panel that reports without commanding
+  // is a legitimate state — `findDisplayGeneratorIssues` only objects to a
+  // touch chain that reaches nothing, not to a display that publishes none.
+  if (layout === 'Show Status') return []
   if (layout === 'Fixed Transport') {
     const g = fixedTransportGeometry(width, height)
     return [

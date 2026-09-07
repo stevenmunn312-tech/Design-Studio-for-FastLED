@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { generateCpp } from '../cppGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
-import { diagnosticsGeometry, fixedTransportGeometry, nowPlayingGeometry, showStatusGeometry } from '../../state/transportDisplay'
+import {
+  diagnosticsGeometry, fixedTransportGeometry, nowPlayingGeometry, transportWaitingGeometry,
+} from '../../state/transportDisplay'
 import { TFT_CONTROLLERS, tftMadctl, tftRotatedSize, tftWindowOrigin } from '../../state/tftSurface'
 import { TFT_DISPLAY_CPP_FORWARD } from '../tftDisplayCpp'
 
@@ -103,11 +105,13 @@ describe('what the loop draws', () => {
     expect(src).toContain(`${g.title.x}, ${g.title.y}, ${g.title.w}, ${g.title.h}, ${g.title.scale},`)
   })
 
-  it('emits Show Status coordinates from the shared geometry', () => {
+  // A normal sketch resolves no colour layout at all now: Show Status is the
+  // slideshow's screen, and a slideshow builds the show controller instead.
+  // The panel draws its waiting screen, which is what it should look like.
+  it('emits the waiting screen for a colour panel in a normal sketch', () => {
     const src = build({ tftLayout: 'Show Status' })
-    const g = showStatusGeometry(240, 240)
-    expect(src).toContain(`${g.bpm.x}, ${g.bpm.y}, ${g.bpm.w}, ${g.bpm.h}, ${g.bpm.scale},`)
-    expect(src).toContain(`_tftIndicator(_tft_tft, ${g.beats.x} + (i * ${g.beatSize + g.beatGap}),`)
+    const g = transportWaitingGeometry(240, 240)
+    expect(src).toContain(`${g.message.x}, ${g.message.y}, ${g.message.w}, ${g.message.h}, ${g.message.scale},`)
   })
 
   it('emits Fixed Transport through the normal sketch path', () => {

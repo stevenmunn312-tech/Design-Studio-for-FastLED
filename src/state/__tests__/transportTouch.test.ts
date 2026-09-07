@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fixedTransportGeometry, nowPlayingGeometry, showStatusGeometry } from '../transportDisplay'
+import { fixedTransportGeometry, nowPlayingGeometry } from '../transportDisplay'
 import { TFT_CONTROLLERS, tftRotatedSize, type TftRotation } from '../tftSurface'
 import {
   DEFAULT_XPT2046_CALIBRATION, mapTransportTouch, touchRegionAt, transportTouchRegions,
@@ -54,12 +54,15 @@ describe('fixed-layout touch regions', () => {
     ])
   })
 
-  it('derives Show Status hit areas from its visible output and brightness fields', () => {
-    const g = showStatusGeometry(240, 320)
-    expect(transportTouchRegions(panel, '0', 'Show Status')).toEqual([
-      { action: 'ledToggle', rect: g.output },
-      { action: 'brightness', rect: g.brightness, valueAxis: 'x' },
-    ])
+  // Show Status is read-only. Its LED toggle and brightness bar were drawn
+  // from readings a Slideshow does not have, and both went with them to the
+  // custom-display layer, which can wire an LED output's Controls directly.
+  it('offers no hit areas on a read-only Show Status panel', () => {
+    expect(transportTouchRegions(panel, '0', 'Show Status')).toEqual([])
+  })
+
+  it('offers no hit areas on a waiting panel', () => {
+    expect(transportTouchRegions(panel, '0', 'Waiting')).toEqual([])
   })
 
   it('maps every Fixed Transport button and its volume bar', () => {

@@ -29,7 +29,18 @@ export type DisplaySignalKind = (typeof DISPLAY_SIGNAL_KINDS)[number]
 
 export type DisplaySignal =
   | { kind: 'clock'; clock: RtcPreview }
-  | { kind: 'player'; song: SongInfo }
+  /**
+   * A player answers for two things at once, so its arm carries both.
+   *
+   * `SongInfo` is the track. The selection is which pattern is running, which
+   * a player owns just as much (it is the same `PatternSelectValue` published
+   * on `patternSelect`, from the same cursor) and which a colour panel needs:
+   * a Now Playing screen names the pattern and draws its baked artwork, and
+   * neither reading exists anywhere in `SongInfo`. Null when the player holds
+   * no collection at all — a panel then draws the track and omits the pattern
+   * row rather than captioning the artwork frame with an empty name.
+   */
+  | { kind: 'player'; song: SongInfo; selection: PatternSelectValue | null }
   | { kind: 'slideshow'; selection: PatternSelectValue }
 
 /** Whether a port value is a display signal. */

@@ -28,7 +28,9 @@ import {
   type OledTransport,
 } from '../state/oledSurface'
 import { oledControllerForProps, oledTransportForProps, tftControllerForProps } from '../state/nodeLibrary'
-import { asTransportDisplayLayout, type TransportDisplayLayout } from '../state/transportDisplay'
+import {
+  asTransportDisplayLayout, transportLayoutForKind, type TransportDisplayLayout,
+} from '../state/transportDisplay'
 import { asTftRotation, TFT_CONTROLLERS, type TftController, type TftRotation } from '../state/tftSurface'
 import { segmentModeForKind, segmentControllerFor, clampSegmentBrightness, type SegmentDisplayMode } from '../state/segmentDisplay'
 import { partById } from '../state/partCatalogue'
@@ -278,36 +280,6 @@ function resolveDisplayKind(
   return kind
 }
 
-/**
- * Resolve one display input to a template-side expression.
- *
- * Only Music Player is a source here. Anything else is reported unresolved
- * rather than guessed at.
- */
-function resolvePort(
-  displayId: string,
-  port: string,
-  edges: ConfigEdge[],
-  byId: Map<string, ConfigNode>,
-  unresolved: PlayerDisplays['unresolved'],
-  expressions: Record<string, string>,
-): string | null {
-  const edge = edges.find((e) => e.target === displayId && e.targetHandle === port)
-  if (!edge) return null
-  const source = byId.get(edge.source)
-  if (!source) return null
-  if (source.data.nodeType !== 'PatternMaster') {
-    unresolved.push({ display: displayId, port, source: source.data.nodeType })
-    return null
-  }
-  const expression = expressions[String(edge.sourceHandle ?? '')]
-  if (!expression) {
-    unresolved.push({ display: displayId, port, source: `Music Player.${edge.sourceHandle}` })
-    return null
-  }
-  return expression
-}
-
 export function playerDisplaysFromGraph(
   nodes: ConfigNode[],
   edges: ConfigEdge[],
@@ -369,21 +341,35 @@ export function playerDisplaysFromGraph(
     if (node.data.nodeType === 'TransportDisplay') {
       const partId = String(props.partId ?? 'st7789-tft-240x240')
       const part = partById(partId)
-      const sources: Record<string, string> = {}
-      // Every port the layouts render. A player sketch can only honour the
-      // ones the music itself knows; anything else wired here is reported
-      // unresolved rather than emitted as a panel that shows nothing.
-      for (const port of ['title', 'artist', 'elapsedSec', 'durationSec', 'progress',
-        'playing', 'volume', 'patternName', 'patternIndex', 'patternCount',
-        'section', 'bpm', 'beat', 'outputEnabled', 'brightness', 'enabled']) {
-        const expression = options.controlSources?.get(`${node.id}:${port}`)
-          ?? resolvePort(node.id, port, edges, byId, unresolved, expressions)
-        if (expression) sources[port] = expression
+      // Diagnostics is device lifecycle rather than content, so it comes from
+      // the property and never asks what is plugged in. Everything else is the
+      // one envelope, resolved exactly as the OLED above resolves its own.
+      const diagnostics = asTransportDisplayLayout(props.tftLayout) === 'Diagnostics'
+      const kind = diagnostics ? null : resolveDisplayKind(node.id, edges, byId, unresolved, kinds)
+      // A source this generator honours can still have no colour layout — an
+      // RTC does not, today — and that is reported too, rather than falling
+      // back to a screen built for something else.
+      const resolved = kind ? transportLayoutForKind(kind, props.tftLayout) : null
+      if (kind && !resolved) {
+        unresolved.push({ display: node.id, port: 'display', source: DISPLAY_SOURCE_LABELS[kind] })
       }
+      // One envelope in, so the fields come from the generator's own table
+      // rather than one wire at a time.
+      const sources: Record<string, string> = kind === 'player'
+        ? {
+          title: expressions.title,
+          artist: expressions.artist,
+          elapsedSec: expressions.elapsed,
+          durationSec: expressions.duration,
+          progress: expressions.progress,
+          playing: expressions.playing,
+          volume: expressions.volume,
+        }
+        : {}
       tft.push({
         id: node.id,
         partId,
-        layout: asTransportDisplayLayout(props.tftLayout),
+        layout: diagnostics ? 'Diagnostics' : resolved ?? 'Waiting',
         controller: tftControllerForProps(props) ?? TFT_CONTROLLERS.ST7789,
         rotation: asTftRotation(props.tftRotation),
         csPin: intProp(props.csPin, 5),
@@ -393,7 +379,7 @@ export function playerDisplaysFromGraph(
         mosiPin: intProp(props.mosiPin, 23),
         backlightPin: intProp(props.backlightPin, 4),
         touch: part?.display?.touchController
-          && (asTransportDisplayLayout(props.tftLayout) === 'Diagnostics'
+          && (diagnostics
             || options.controlTouchIds?.has(node.id)
             || (transportTouch && displayControlsPlayer(node.id, edges, byId)))
           ? {
