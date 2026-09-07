@@ -880,6 +880,21 @@ describe('displays in a show controller', () => {
       edge('cmd', 'ctl', 'controls', 'pm', 'controls'),
     ]
 
+    // An encoder is the other physical shape of the same intent: a running
+    // count turned into whole detents rather than one step per press.
+    it('carries a headless encoder into the show it selects', () => {
+      const nodes = [...base,
+        node('enc', 'EncoderInput', { pinA: 6, pinB: 7, pinSW: 8 }),
+        node('ctl', 'PlayerControls', { controls: ['patternSelect', 'patternConfirm'] })]
+      const edges = [...baseEdges,
+        edge('turn', 'enc', 'position', 'ctl', 'patternSelect'),
+        edge('press', 'enc', 'pressed', 'ctl', 'patternConfirm'),
+        edge('cmd', 'ctl', 'controls', 'pm', 'controls')]
+      const cpp = generateShowSketch(nodes, edges, groups)
+      expect(cpp).toContain('n_ctl_controls.patternSteps += _pcD_ctl.update((long)(n_enc_position));')
+      expect(cpp).toContain('_selUpdate(_sel_show, PATTERN_COUNT, millis(), n_ctl_controls.patternSteps,')
+    })
+
     it('carries a headless Pattern Next into the show it selects', () => {
       const cpp = generateShowSketch([...base, ...controlNodes], [...baseEdges, ...controlEdges], groups)
       expect(cpp).toContain('struct PlayerControlsValue {')

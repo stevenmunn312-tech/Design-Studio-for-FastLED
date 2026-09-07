@@ -151,4 +151,21 @@ describe('custom displays in generative shows', () => {
       { 'a-b': document('a-b'), a_b: document('a_b') },
     )).toThrow('identifiers collide')
   })
+
+  // A widget is a control source like a button on a pin: the same bundle, the
+  // same destination. What was missing was the destination — a Player Controls
+  // chain addressed to the slideshow reached nothing the generator emitted.
+  it('browses the collection from a Button widget', () => {
+    const doc = addDisplayWidget(createDisplayDocument('screen', 240, 320), 'Button')
+    const buttonId = doc.widgets.at(-1)!.id
+    const nodes = [screen(), panel('tft'), node('controls', 'PlayerControls')]
+    const edges = [link('screen', 'tft'),
+      edge('screen', `widget:${buttonId}:out`, 'controls', 'patternNext'),
+      edge('controls', 'controls', 'show', 'controls')]
+    expect(showControlRouting([...root, ...nodes], [...routing, ...edges], { screen: doc }).errors).toEqual([])
+    const cpp = generate(nodes, edges, { screen: doc })
+    expect(cpp).toContain(`bool n_screen_widget_${buttonId}_out = _cdBoolOutput(`)
+    expect(cpp).toContain(`_pcE_controls_patternNext.update(n_screen_widget_${buttonId}_out`)
+    expect(cpp).toContain('_selUpdate(_sel_show, PATTERN_COUNT, millis(), n_controls_controls.patternSteps,')
+  })
 })
