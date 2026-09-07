@@ -4,8 +4,6 @@ import { NODE_LIBRARY } from '../nodeLibrary'
 import { useDisplayRuntimeStore } from '../displayRuntimeStore'
 import { useGraphStore } from '../graphStore'
 import type { StudioEdge, StudioNode } from '../graphStore'
-import { TRANSPORT_COLORS, nowPlayingGeometry } from '../transportDisplay'
-import { getTftPixel, type TftSurface } from '../tftSurface'
 
 function node(
   id: string,
@@ -46,16 +44,6 @@ function screen(id = 'screen', displayId = 'panel'): StudioNode {
   })
 }
 
-function tftTitlePixels(surface: TftSurface): number {
-  const field = nowPlayingGeometry(surface.width, surface.height).title
-  let pixels = 0
-  for (let y = field.y; y < field.y + field.h; y++) {
-    for (let x = field.x; x < field.x + field.w; x++) {
-      if (getTftPixel(surface, x, y) !== TRANSPORT_COLORS.background) pixels++
-    }
-  }
-  return pixels
-}
 
 describe('display evaluator parity', () => {
   beforeEach(() => {

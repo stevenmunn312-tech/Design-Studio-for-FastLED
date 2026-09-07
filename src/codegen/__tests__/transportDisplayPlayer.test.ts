@@ -56,25 +56,41 @@ describe('resolving a colour panel for a player sketch', () => {
     expect(display.backlightPin).toBe(27)
   })
 
-  it('reads a port the player itself knows', () => {
+  // One envelope in, so every field the layout reads comes from the
+  // generator's own table at once rather than one wire at a time.
+  it('fills the player readings from one wire', () => {
     const displays = resolve(
       [node('m', 'PatternMaster'), node('tft', 'TransportDisplay', { partId: PLAIN })],
-      [edge('e', 'm', 'title', 'tft', 'title')],
+      [edge('e', 'm', 'display', 'tft', 'display')],
     )
+    expect(displays.tft[0].layout).toBe('Now Playing')
     expect(displays.tft[0].sources.title).toBe('songTitle')
+    expect(displays.tft[0].sources.volume).toBeDefined()
     expect(displays.unresolved).toEqual([])
   })
 
   // A player sketch runs a fixed template, so a panel fed from a Wave has no
   // value to read. Naming it is what stops the sketch building successfully
-  // with a panel that never shows the thing it was wired to.
-  it('reports a port wired to something the template cannot evaluate', () => {
+  // with a panel that never shows the thing it was wired to — asked once now,
+  // about the one socket, instead of once per port.
+  it('reports a source the template cannot evaluate', () => {
     const displays = resolve(
       [node('w', 'Wave'), node('tft', 'TransportDisplay', { partId: PLAIN })],
-      [edge('e', 'w', 'result', 'tft', 'bpm')],
+      [edge('e', 'w', 'result', 'tft', 'display')],
     )
-    expect(displays.tft[0].sources.bpm).toBeUndefined()
-    expect(displays.unresolved).toContainEqual({ display: 'tft', port: 'bpm', source: 'Wave' })
+    expect(displays.tft[0].layout).toBe('Waiting')
+    expect(displays.unresolved).toContainEqual({ display: 'tft', port: 'display', source: 'Wave' })
+  })
+
+  // A slideshow is a source this generator honours nowhere: it builds the show
+  // controller instead, so the panel waits rather than drawing a half-show.
+  it('reports a slideshow plugged into a player sketch', () => {
+    const displays = resolve(
+      [node('s', 'PatternSlideshow'), node('tft', 'TransportDisplay', { partId: PLAIN })],
+      [edge('e', 's', 'display', 'tft', 'display')],
+    )
+    expect(displays.tft[0].layout).toBe('Waiting')
+    expect(displays.unresolved.map((entry) => entry.display)).toContain('tft')
   })
 
   it('finds nothing when the graph has no colour panel', () => {
@@ -83,7 +99,12 @@ describe('resolving a colour panel for a player sketch', () => {
 })
 
 describe('the emitted player sketch', () => {
-  const src = sketch([node('tft', 'TransportDisplay', { partId: PLAIN })])
+  // A panel needs its one wire to draw anything: unwired it is a waiting
+  // screen, which is a different sketch and is covered separately below.
+  const src = sketch(
+    [node('m', 'PatternMaster'), node('tft', 'TransportDisplay', { partId: PLAIN })],
+    [edge('feed', 'm', 'display', 'tft', 'display')],
+  )
 
   it('carries the driver, the panel and its setup', () => {
     expect(src).toContain(TFT_DISPLAY_CPP_FORWARD)
@@ -114,7 +135,10 @@ describe('the emitted player sketch', () => {
   })
 
   it('carries baked artwork and follows the player selection', () => {
-    const displays = resolve([node('tft', 'TransportDisplay', { partId: PLAIN })])
+    const displays = resolve(
+      [node('m', 'PatternMaster'), node('tft', 'TransportDisplay', { partId: PLAIN })],
+      [edge('feed', 'm', 'display', 'tft', 'display')],
+    )
     const artwork = new Uint8Array(96 * 96 * 2)
     artwork[0] = 0xf8
     const baked = generatePlayerSketch({}, undefined, {
@@ -130,17 +154,19 @@ describe('the emitted player sketch', () => {
   it('shows a wired title from the player', () => {
     const wired = sketch(
       [node('m', 'PatternMaster'), node('tft', 'TransportDisplay', { partId: PLAIN })],
-      [edge('e', 'm', 'title', 'tft', 'title')],
+      [edge('e', 'm', 'display', 'tft', 'display')],
     )
     expect(wired).toContain('const char *_tftTitle_tft = songTitle;')
   })
 
-  // A player sketch has no show model, so Show Status can only report what it
-  // is told — and zero patterns is what makes the panel say so outright.
-  it('says there is no collection on an unwired Show Status panel', () => {
+  // Unwired says so. A blank panel and a dead panel look identical, and the
+  // treatment property cannot conjure content out of a socket with no cable.
+  it('draws the waiting screen for a panel with nothing plugged in', () => {
     const status = sketch([node('tft', 'TransportDisplay', { partId: PLAIN, tftLayout: 'Show Status' })])
-    expect(status).toContain('"NO PATTERNS"')
-    expect(status).toContain('long _tftCount_tft = _tftWhole(0.0f);')
+    expect(status).toContain('"WAITING FOR A SIGNAL"')
+    // The player's own song helpers are always in the sketch; what matters is
+    // that the panel's loop reads none of them.
+    expect(status).not.toContain('_tftTitle_tft')
   })
 
   it('carries none of the driver for a player with no colour panel', () => {
@@ -161,6 +187,7 @@ describe('XPT2046 player controls', () => {
     node('m', 'PatternMaster'),
   ]
   const wires = [
+    edge('feed', 'm', 'display', 'tft', 'display'),
     edge('touch-controls', 'tft', 'controls', 'pc', 'controlsIn'),
     edge('player-controls', 'pc', 'controls', 'm', 'controls'),
   ]

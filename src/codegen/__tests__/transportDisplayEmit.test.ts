@@ -3,7 +3,7 @@ import { generateCpp } from '../cppGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import {
-  diagnosticsGeometry, fixedTransportGeometry, nowPlayingGeometry, transportWaitingGeometry,
+  diagnosticsGeometry, transportWaitingGeometry,
 } from '../../state/transportDisplay'
 import { TFT_CONTROLLERS, tftMadctl, tftRotatedSize, tftWindowOrigin } from '../../state/tftSurface'
 import { TFT_DISPLAY_CPP_FORWARD } from '../tftDisplayCpp'
@@ -89,36 +89,35 @@ describe('what setup tells the driver', () => {
 
   it('resolves the layout against the size the panel is mounted at', () => {
     const src = build({ partId: TOUCH, tftRotation: '90' })
-    const g = nowPlayingGeometry(320, 240)
-    expect(src).toContain(`${g.title.x}, ${g.title.y}, ${g.title.w}, ${g.title.h},`)
+    const g = transportWaitingGeometry(320, 240)
+    expect(src).toContain(`${g.message.x}, ${g.message.y}, ${g.message.w}, ${g.message.h},`)
   })
 })
 
 describe('what the loop draws', () => {
-  // Every coordinate comes from the shared geometry rather than being written
-  // out again, which is the only reason the panel can be claimed to match the
+  // A normal sketch resolves no colour content layout at all. Now Playing and
+  // Fixed Transport are a player's screens and a player renders as a black
+  // fill here; Show Status is the slideshow's, and a slideshow builds the show
+  // controller instead. So the panel draws its waiting screen whatever the
+  // treatment property says — and every coordinate still comes from the shared
+  // geometry, which is the only reason the panel can be claimed to match the
   // preview the editor showed.
-  it('emits Now Playing coordinates from the shared geometry', () => {
+  it.each(['Now Playing', 'Fixed Transport', 'Show Status'])(
+    'draws the waiting screen for a %s panel in a normal sketch',
+    (tftLayout) => {
+      const src = build({ tftLayout })
+      const g = transportWaitingGeometry(240, 240)
+      expect(src).toContain(`${g.message.x}, ${g.message.y}, ${g.message.w}, ${g.message.h}, ${g.message.scale},`)
+      expect(src).toContain('"WAITING FOR A SIGNAL"')
+    },
+  )
+
+  // The layout fell through to Now Playing before this had its own emitter,
+  // so a device drew an empty transport where the preview drew a message.
+  it('draws no transport furniture on a waiting panel', () => {
     const src = build({ tftLayout: 'Now Playing' })
-    const g = nowPlayingGeometry(240, 240)
-    expect(src).toContain(`_tftBar(_tft_tft, ${g.progress.x}, ${g.progress.y}, ${g.progress.w}, ${g.progress.h},`)
-    expect(src).toContain(`${g.title.x}, ${g.title.y}, ${g.title.w}, ${g.title.h}, ${g.title.scale},`)
-  })
-
-  // A normal sketch resolves no colour layout at all now: Show Status is the
-  // slideshow's screen, and a slideshow builds the show controller instead.
-  // The panel draws its waiting screen, which is what it should look like.
-  it('emits the waiting screen for a colour panel in a normal sketch', () => {
-    const src = build({ tftLayout: 'Show Status' })
-    const g = transportWaitingGeometry(240, 240)
-    expect(src).toContain(`${g.message.x}, ${g.message.y}, ${g.message.w}, ${g.message.h}, ${g.message.scale},`)
-  })
-
-  it('emits Fixed Transport through the normal sketch path', () => {
-    const src = build({ tftLayout: 'Fixed Transport' })
-    const g = fixedTransportGeometry(240, 240)
-    expect(src).toContain(`_tftRect(_tft_tft, ${g.previous.rect.x}, ${g.previous.rect.y}, ${g.previous.rect.w}, ${g.previous.rect.h},`)
-    expect(src).toContain('const char *_tftState_tft = _tftPlaying_tft ? "PAUSE" : "PLAY";')
+    expect(src).not.toContain('_tftBar(_tft_tft,')
+    expect(src).not.toContain('"PAUSE"')
   })
 
   it('emits the display and live touch self-test through the normal sketch path', () => {
@@ -141,33 +140,21 @@ describe('what the loop draws', () => {
     expect(src).not.toContain('_xptPoint(')
   })
 
-  it('reads a wired string port from the node that publishes it', () => {
-    const src = build({}, [node('txt', 'TextValue', { text: 'MIDNIGHT DRIVE' })], [
-      { id: 'e', source: 'txt', target: 'tft', sourceHandle: 'text', targetHandle: 'title' } as unknown as StudioEdge,
-    ])
-    expect(src).toMatch(/const char \*_tftTitle_tft = n_txt_text;/)
-  })
-
-  it('draws an empty string for a port nothing feeds', () => {
-    expect(build()).toContain('const char *_tftArtist_tft = "";')
-  })
-
-  // Clamped where it is read rather than trusting the wire: a progress value
-  // past its ends would otherwise paint outside the bar it belongs to.
-  it('clamps the values that drive bars', () => {
+  // There is one content socket and it takes a `display` envelope, so a
+  // string cannot be wired at a panel field any more. That capability moved
+  // wholesale to the custom Display node.
+  it('names no per-field content variables', () => {
     const src = build()
-    expect(src).toMatch(/float _tftProg_tft = constrain\(.*, 0\.0f, 1\.0f\);/)
-    expect(src).toMatch(/float _tftVol_tft = constrain\(.*, 0\.0f, 1\.0f\);/)
+    expect(src).not.toContain('_tftTitle_tft')
+    expect(src).not.toContain('_tftArtist_tft')
+    expect(src).not.toContain('_tftProg_tft')
   })
 
-  // Nothing bakes colour art yet, so referencing a table would name a symbol
-  // no generator declares — which emittedSymbols.test.ts exists to catch.
-  it('draws the empty artwork frame rather than naming a table nothing writes', () => {
+  // Referencing a table would name a symbol no generator declares here, which
+  // emittedSymbols.test.ts exists to catch.
+  it('names no artwork table in a normal sketch', () => {
     const src = build({ tftLayout: 'Now Playing' })
-    expect(src).toContain('TFT_C_FRAME')
     expect(src).not.toContain('_artData_')
-    // The blit helper is still defined — it is what the baker will call — but
-    // nothing in the loop reaches for it.
     expect(src).not.toContain('_tftArt(_tft_tft,')
   })
 
@@ -263,29 +250,26 @@ describe('a touch panel driving an LED output', () => {
     expect(src).toContain('_xptPoint(')
   })
 
-  it('writes the layout actions into that bundle rather than a player transport', () => {
+  // A normal sketch draws the waiting screen, which has no controls on it, so
+  // there is no hit region to write and the bundle stays inert. Touch-driven
+  // LED control did not disappear with the fixed layouts — it moved to the
+  // custom Display node, whose authored buttons this generator does emit.
+  it('writes no layout actions, because a waiting screen has no controls', () => {
     const src = build()
-    expect(src).toContain('n_tft_controls.ledToggle = true;')
-    expect(src).toContain('n_tft_controls.hasBrightness = true;')
-    // The player's own transport functions have no definition in a normal
-    // sketch; reaching for one is the failure this parameterisation prevents.
+    expect(src).not.toContain('n_tft_controls.ledToggle = true;')
+    expect(src).not.toContain('n_tft_controls.hasBrightness = true;')
+    expect(src).not.toContain('n_tft_controls.playPause = true;')
+  })
+
+  // Whatever a panel does publish must still reach the latch, and must never
+  // reach for a player transport function no normal sketch defines.
+  it('feeds the output latch without naming a player transport', () => {
+    const src = build()
+    expect(src).toContain('n_tft_controls')
+    expect(src).toContain('_ledOn_out')
     for (const symbol of ['changePlayerTrack', 'applyPlayerBrightness', 'audio.pauseResume']) {
       expect(src).not.toContain(symbol)
     }
-  })
-
-  it('feeds the output latch from it', () => {
-    const src = build()
-    expect(src).toContain('if (n_tft_controls.ledToggle) _ledOn_out = !_ledOn_out;')
-  })
-
-  // A momentary action fires on the touch-down edge; an absolute slider tracks
-  // while the finger stays down. The evaluator publishes them the same way, so
-  // a held finger cannot fire a button every tick in one and not the other.
-  it('edges the buttons and tracks the sliders', () => {
-    const src = build('Fixed Transport')
-    expect(src).toMatch(/if \(_touchDown_tft && !_touchPrev_tft && \([^)]*\)\) \{ n_tft_controls\.playPause = true; \}/)
-    expect(src).toMatch(/if \(_touchDown_tft && \([^)]*\)\) \{ n_tft_controls\.hasVolume = true;/)
   })
 
   // A read-only panel is still valid, and still costs nothing.

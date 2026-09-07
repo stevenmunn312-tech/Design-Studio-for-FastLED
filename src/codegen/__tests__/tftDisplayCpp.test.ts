@@ -229,8 +229,11 @@ describe('the loop', () => {
   it.each([['Now Playing', nowPlaying], ['Fixed Transport', fixedTransport], ['Show Status', showStatus]])(
     'gives every %s field its own cache slot', (_layout, src) => {
       const used = (pattern: RegExp) => [...src.matchAll(pattern)].map((m) => m[1])
-      for (const slots of [used(/_tftTextDirty\(_tft_tft1, (\d+),/g), used(/_tftValueDirty\(_tft_tft1, (\d+),/g)]) {
-        expect(slots.length).toBeGreaterThan(0)
+      // Show Status draws no bars or indicators, so it caches no numeric
+      // fields at all; an empty set is still a set with no collisions.
+      const text = used(/_tftTextDirty\(_tft_tft1, (\d+),/g)
+      expect(text.length).toBeGreaterThan(0)
+      for (const slots of [text, used(/_tftValueDirty\(_tft_tft1, (\d+),/g)]) {
         expect(new Set(slots).size).toBe(slots.length)
       }
     },
@@ -240,7 +243,7 @@ describe('the loop', () => {
   // driver compares the pixels it would fill rather than the float behind them.
   it('compares bars by the pixels they would fill', () => {
     expect(nowPlaying).toMatch(/_tftValueDirty\(_tft_tft1, \d+, _tftBarFill\(/)
-    expect(showStatus).toMatch(/_tftValueDirty\(_tft_tft1, \d+, _tftBarFill\(/)
+    expect(fixedTransport).toMatch(/_tftValueDirty\(_tft_tft1, \d+, _tftBarFill\(/)
   })
 
   it('drops the backlight for a disabled panel and leaves it alone', () => {
@@ -267,7 +270,7 @@ describe('the loop', () => {
   // comparing them every pass would be work with a known answer.
   it('draws the unchanging parts only on a full repaint', () => {
     expect(nowPlaying).toMatch(/if \(_tftFull_tft1\) _tftField\(_tft_tft1, [^)]*"VOL"/)
-    expect(showStatus).toMatch(/if \(_tftFull_tft1\) _tftField\(_tft_tft1, [^)]*"BPM"/)
+    expect(fixedTransport).toMatch(/if \(_tftFull_tft1\) _tftField\(_tft_tft1, [^)]*"VOL"/)
   })
 
   // The same refusal showStatusOrdinalText() makes in the browser.
@@ -276,9 +279,20 @@ describe('the loop', () => {
     expect(showStatus).toContain('if (_tftCount_tft1 <= 0)')
   })
 
-  it('marks a tempo it has no reading for', () => {
-    expect(showStatus).toContain('"---"')
-    expect(showStatus).toMatch(/!isfinite\(_tftBpmV_tft1\) \|\| _tftBpmV_tft1 <= 0/)
+  // Blank rather than skipped, matching drawTransportShowStatus: painting the
+  // empty field is what clears the previous candidate when a browse ends.
+  it('clears the browsing rows when a browse ends', () => {
+    expect(showStatus).toContain('_tftBrowsing_tft1 ? (_highName) : ""')
+    expect(showStatus).toContain('_tftHighOrd_tft1[0] = 0;')
+    expect(showStatus).toMatch(/_tftState_tft1 = _tftBrowsing_tft1 \? "BROWSING" : "PLAYING"/)
+  })
+
+  // Both ordinals count out of the same collection, so they are formatted by
+  // one piece of code and neither may shadow the other's index local.
+  it('formats both ordinals without shadowing an index local', () => {
+    const locals = [...showStatus.matchAll(/long (_tftAt\w+) =/g)].map((m) => m[1])
+    expect(locals.length).toBe(2)
+    expect(new Set(locals).size).toBe(2)
   })
 
   it('uses fixed buffers rather than Arduino String', () => {

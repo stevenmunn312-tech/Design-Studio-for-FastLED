@@ -786,7 +786,9 @@ describe('displays in a show controller', () => {
 
   // The one thing a show genuinely knows, and it needs no wiring to say it.
   it('reports the running pattern from the show itself', () => {
-    const cpp = build([status])
+    // Wired to the Slideshow, which is what makes it a show panel at all: one
+    // content socket, and the source picks the screen.
+    const cpp = build([status], [edge('show-tft', 'pm', 'display', 'tft', 'display')])
     expect(cpp).toContain('static uint8_t showPatternIndex = 0;')
     // Published where the show decides it, and read by the panel.
     expect(cpp).toContain('  showPatternIndex = cur;')

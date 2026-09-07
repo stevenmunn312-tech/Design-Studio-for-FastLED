@@ -45,8 +45,11 @@ describe('fixed touch routing in generative shows', () => {
     expect(runtime).toBeGreaterThan(render)
     expect(loop.indexOf('FastLED.show();')).toBeGreaterThan(runtime)
     expect(loop.indexOf('{ // Transport Display')).toBeGreaterThan(loop.indexOf('FastLED.show();'))
-    expect(loop).toMatch(/_touchDown_touch_panel && !_touchPrev_touch_panel.*ledToggle = true/)
-    expect(loop).toMatch(/_touchDown_touch_panel && \(_touchX_.*hasBrightness = true/)
+    // Show Status is read-only: its LED toggle and brightness bar were drawn
+    // from readings a Slideshow does not have, and both moved to the custom
+    // Display layer with them. The panel still samples and still publishes a
+    // bundle — it just has no hit region to write into it.
+    expect(loop).not.toMatch(/_touchDown_touch_panel.*ledToggle = true/)
     expect(cpp).not.toMatch(/audio\.pauseResume|changePlayerTrack|applyPlayerBrightness|playerVolume/)
   })
 
@@ -118,27 +121,20 @@ describe('fixed touch routing in generative shows', () => {
       edge('knob', 'value', 'map', 'value'), edge('map', 'result', 'compare', 'a'),
       edge('compare', 'result', 'pc', 'ledToggle'), edge('map', 'result', 'pc', 'brightness'),
       edge('pc', 'controls', 'out', 'controls'), edge('map', 'result', 'format', 'value'),
-      edge('format', 'text', 'touch-panel', 'section'), edge('title', 'text', 'touch-panel', 'patternName'),
-      edge('map', 'result', 'touch-panel', 'bpm'), edge('compare', 'result', 'touch-panel', 'outputEnabled'),
+      edge('map', 'result', 'out', 'brightness'),
     ])
     const loop = cpp.slice(cpp.indexOf('void loop() {'))
     expect(count(loop, 'analogRead(33)')).toBe(1)
     expect(count(loop, 'float n_map_result =')).toBe(1)
     expect(count(cpp, 'float mapFloat(')).toBe(1)
-    expect(cpp).toContain('static void _dsFormatNumber(')
     expect(loop.indexOf('float n_map_result =')).toBeLessThan(loop.indexOf('bool n_compare_result ='))
     expect(loop.indexOf('bool n_compare_result =')).toBeLessThan(loop.indexOf('PlayerControlsValue n_pc_controls;'))
     expect(loop).toContain('n_pc_controls.brightness = constrain(n_map_result, 0.0f, 1.0f);')
-    expect(loop).toContain('char n_format_text[DS_TEXT_BYTES];')
-    const draw = loop.slice(loop.indexOf('FastLED.show();'))
-    expect(draw).toContain('n_format_text')
-    expect(draw).toContain('n_title_text')
-    expect(draw).toContain('n_compare_result')
   })
 
-  it('emits scalar readouts even without a wired Controls bundle', () => {
+  it('emits a scalar chain even without a wired Controls bundle', () => {
     const cpp = build([output(), panel(), node('value', 'Math', { a: 60, b: 60 })],
-      [edge('value', 'result', 'touch-panel', 'bpm')])
+      [edge('value', 'result', 'out', 'brightness')])
     expect(cpp).toContain('float n_value_result = (60) + (60);')
     expect(cpp).not.toContain('PlayerControlsValue')
   })
@@ -149,17 +145,17 @@ describe('fixed touch routing in generative shows', () => {
       edges: [edge('pattern-map', 'result', 'plasma', 'speed'), edge('plasma', 'frame', 'go', 'frame')],
     } }
     const cpp = generateShowSketch([...show, output(), panel(), node('root-map', 'MapRange')],
-      [...frameEdges, edge('root-map', 'result', 'touch-panel', 'bpm')], patternGroups)
+      [...frameEdges, edge('root-map', 'result', 'out', 'brightness')], patternGroups)
     expect(cpp).toContain('n_pattern_map_result = mapFloat(')
     expect(cpp).toContain('n_root_map_result = mapFloat(')
     expect(count(cpp, 'float mapFloat(')).toBe(1)
   })
 
-  it('refuses scalar cycles and unsupported TFT bindings directly at generation', () => {
+  it('refuses scalar cycles and unsupported bindings directly at generation', () => {
     expect(() => build([output(), panel(), node('a', 'Math'), node('b', 'Math')], [
-      edge('a', 'result', 'b', 'a'), edge('b', 'result', 'a', 'a'), edge('a', 'result', 'touch-panel', 'bpm'),
+      edge('a', 'result', 'b', 'a'), edge('b', 'result', 'a', 'a'), edge('a', 'result', 'out', 'brightness'),
     ])).toThrow('instantaneous cycle')
     expect(() => build([output(), panel(), node('wave', 'Wave')],
-      [edge('wave', 'result', 'touch-panel', 'bpm')])).toThrow('unsupported')
+      [edge('wave', 'result', 'out', 'brightness')])).toThrow('unsupported')
   })
 })

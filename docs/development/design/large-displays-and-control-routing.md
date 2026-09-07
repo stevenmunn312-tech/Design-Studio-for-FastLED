@@ -1,6 +1,6 @@
 # Large displays and control routing — design note
 
-Status: designed, not implemented · Owner: app · Date: 2026-09-07
+Status: decision 2 implemented; decisions 1, 3 and 4 designed only · Owner: app · Date: 2026-09-07
 
 What a large panel is told, who tells it, and how a physical button gets a job.
 Decided 2026-09-07. This is tiers 2 and 3 of the split laid out in [simple
@@ -16,9 +16,9 @@ decide about panels lands on `PlayerControls` either way.
 
 Nothing here is broken. It is unreadable.
 
-| Node | Ports today | After |
+| Node | Ports before | After |
 | --- | --- | --- |
-| `TransportDisplay` (Transport Display) | 17 in, 1 out | 2 in, 1 out |
+| `TransportDisplay` (Transport Display) | 17 in, 1 out | **2 in, 1 out — done** |
 | `PatternMaster` (Music Player) | 9 in, 16 out | 9 in, 3 out |
 | `PlayerControls` | 15 in, 1 out | 1 in + as many as you wired, 1 out |
 | `Display` (Custom Display) | 0 in, 0 out, 18 properties | folded into two nodes |
@@ -102,12 +102,54 @@ when the wired source has more than one treatment. It decides how a screen is
 drawn, never what is on it, so the invariant holds: you can still read what a
 panel does off the wire, and the property can only change how much of it fits.
 
-### Two honest gaps this exposes
+### What building it settled
 
-- **There is no TFT clock layout.** `RTCInput` on a large panel currently has
-  nowhere to land. The table above promises one; it has to be built, or RTC is
-  not yet a legal source for a large panel and the panel says so. Better to see
-  the hole in a table than to discover it on a bench.
+Two things the plan above did not survive contact with, both resolved while
+implementing:
+
+- **The envelope could not carry a Now Playing screen.** The `player` arm held
+  only `SongInfo`, which has no pattern name and no collection identity — so a
+  panel fed by one wire had nothing to caption its artwork with, and the baker
+  had no collection to bake. The arm now carries the selection beside the song
+  (`selection: PatternSelectValue | null`), which the player already owns and
+  already publishes on `patternSelect`. It is the same authority type, not a
+  fourth definition. Artwork discovery in `transportArtworks.ts` follows the
+  `display` edge now rather than whichever of three metadata ports was wired.
+- **Show Status drew five fields nothing could feed.** `section`, `bpm`,
+  `beat`, `outputEnabled` and `brightness` have no source: `PatternSlideshow`
+  has no tempo or section concept, and the two output readings belong to the
+  LED output. They only ever resolved in a normal sketch from arbitrary graph
+  wires. The layout now draws what the slideshow arm actually carries — the
+  running pattern, its ordinal, and the candidate being browsed — which is two
+  genuinely-known readings in place of five constants a show build was
+  emitting (`OUTPUT ON`, brightness `1.0`, bpm `---`). The richer performance
+  readout belongs in a custom Display template.
+
+**Two capabilities moved with those five fields, and both are real losses at
+the fixed-panel layer:**
+
+- A colour panel in a **normal sketch** now always draws its waiting screen,
+  because no source in a normal sketch produces a colour layout. It therefore
+  publishes no touch actions, so a `TransportDisplay` can no longer drive an
+  LED output's Controls input there. The custom `Display` node does exactly
+  this and `cppGenerator` already emits it.
+- A **Show Status panel lost its LED toggle and brightness bar**, in the show
+  controller as well as the browser. Those were touch regions derived from the
+  fields above; with the fields gone there is nothing to draw a control on.
+  `transportTouchRegions` returns `[]` for Show Status and for Waiting.
+
+The firmware needed its own waiting screen to match. Without one the layout
+fell through to `nowPlayingLoop` and a device drew an empty transport where the
+preview drew a message — the exact preview/firmware disagreement the shared
+geometry exists to prevent.
+
+### Two gaps this exposes
+
+- **There is no TFT clock layout.** `RTCInput` on a large panel has nowhere to
+  land. Settled for now the conservative way: `TRANSPORT_LAYOUTS_BY_KIND.clock`
+  is deliberately empty, so a panel wired to an RTC reports itself unresolved
+  and draws its waiting screen rather than borrowing a screen built for
+  something else. Building the layout is the open half.
 - **Diagnostics is not a source.** `TRANSPORT_DISPLAY_LAYOUTS` carries a fourth
   entry, `Diagnostics`, that no node publishes. It is device lifecycle — the
   same category as the OLED boot and fault overlay — not content a cable
@@ -242,9 +284,21 @@ place.
 
 ## Open
 
-- The TFT clock layout, or an explicit statement that RTC is not yet a large-
-  panel source.
-- Where Diagnostics is reached from, now that it is not a wired source.
+- The TFT clock layout itself, now that RTC is explicitly not a large-panel
+  source until one exists.
+- Where Diagnostics is reached from, now that it is not a wired source. It is
+  still only settable by hand-editing a saved file; `PROPERTY_META.tftLayout`
+  does not offer it.
+- Pattern names on a show controller's Show Status panel. The name table is
+  emitted only for an OLED Pattern Browser and reads through a buffer-filling
+  function rather than an expression, so the two name rows are blank in a show
+  build. The ordinal and the browsing state — the readings the panel exists
+  for — are correct.
+- Whether `findDisplayGeneratorIssues` should warn when a `TransportDisplay`'s
+  Controls output is wired in a normal sketch, where it can now never publish.
+- The LED Performance custom-display template that the Show Status fields
+  moved to. Nothing is built yet, so the capability is designed-away rather
+  than relocated.
 - Whether `tftLayout`-as-presentation should be a property or derived from
   panel size, which is what `simple-displays.md`'s geometry functions do.
 - The size boundary between a tier-1 and a tier-2 panel, still unsettled.
