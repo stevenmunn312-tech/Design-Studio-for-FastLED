@@ -144,9 +144,8 @@ The editor's left sidebar also has **Button icons**. Its **Icon theme** picker
 shows one matching control-art set at a time; click an icon to add an icon-first
 Button or Toggle. The picker changes control art only, while the Screen
 **Theme** in the inspector changes the display's colours and background.
-Templates use the currently selected icon theme for their supported Previous,
-Play/Pause, Next, Confirm, and LED power controls. Other template actions stay
-text-labelled until matching icon art is added to the pack.
+Templates use the currently selected icon theme for their transport and action
+controls, including Shuffle, Auto advance, and Freeze.
 
 ### Firmware scope and troubleshooting
 

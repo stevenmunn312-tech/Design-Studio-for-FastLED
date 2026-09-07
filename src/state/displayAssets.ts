@@ -170,6 +170,9 @@ export type DisplayControlIconName =
   | 'pattern-previous'
   | 'pattern-next'
   | 'confirm'
+  | 'shuffle'
+  | 'auto-advance'
+  | 'freeze'
 
 /**
  * The visual-theme id is `theme:…`; control artwork uses the same suffix in

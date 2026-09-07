@@ -116,7 +116,12 @@ const CONTROL_LABELS: Readonly<Record<string, string>> = {
   'pattern-previous': 'Previous pattern',
   'pattern-next': 'Next pattern',
   confirm: 'Confirm',
+  shuffle: 'Shuffle',
+  'auto-advance': 'Auto advance',
+  freeze: 'Freeze',
 }
+
+const TOGGLE_CONTROL_ICONS = new Set(['play-pause', 'led-toggle', 'shuffle', 'auto-advance', 'freeze'])
 
 function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDisplayWidgetProps) {
   const definition = DISPLAY_WIDGET_LIBRARY[widget.type]
@@ -503,7 +508,7 @@ export default function DisplayEditor() {
 
   const addControlIcon = (asset: DisplayAssetEntry) => {
     const iconName = asset.id.split(':').at(-1) ?? 'Control'
-    const type: DisplayWidgetType = iconName === 'play-pause' || iconName === 'led-toggle'
+    const type: DisplayWidgetType = TOGGLE_CONTROL_ICONS.has(iconName)
       ? 'Toggle'
       : 'Button'
     const next = addDisplayWidget(document, type)

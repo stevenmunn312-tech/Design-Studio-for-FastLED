@@ -47,6 +47,9 @@ const TEMPLATE_CONTROL_ICONS: Readonly<Record<string, DisplayControlIconName>> =
   Next: 'next',
   Confirm: 'confirm',
   Blackout: 'led-toggle',
+  Shuffle: 'shuffle',
+  'Auto advance': 'auto-advance',
+  Freeze: 'freeze',
 }
 
 const widget = (

@@ -70,6 +70,18 @@ describe('custom display templates', () => {
       ])
   })
 
+  it('uses the selected themed icons for every template action', () => {
+    const document = applyDisplayTemplate(referenceDocument(), 'pattern-deck', 'theme:03-synthwave')
+    expect(document.widgets.find((widget) => widget.label === 'Shuffle')?.properties)
+      .toMatchObject({ assetId: 'control:03-synthwave:shuffle', presentation: 'icon' })
+    expect(document.widgets.find((widget) => widget.label === 'Auto advance')?.properties)
+      .toMatchObject({ assetId: 'control:03-synthwave:auto-advance', presentation: 'icon' })
+
+    const performance = applyDisplayTemplate(referenceDocument(), 'led-performance', 'theme:03-synthwave')
+    expect(performance.widgets.find((widget) => widget.label === 'Freeze')?.properties)
+      .toMatchObject({ assetId: 'control:03-synthwave:freeze', presentation: 'icon' })
+  })
+
   it('appends a second template with fresh stable ids and independent properties', () => {
     const first = applyDisplayTemplate(referenceDocument(), 'minimal-transport')
     const both = applyDisplayTemplate(first, 'minimal-transport')

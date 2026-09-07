@@ -34,7 +34,7 @@ describe('display asset registry', () => {
       (['icon', 'control', 'widget-glyph', 'background', 'theme', 'template-preview'] as const)
         .map((category) => [category, displayAssetsByCategory(category).length]),
     )).toEqual({
-      icon: 43, control: 252, 'widget-glyph': 19, background: 54, theme: 18, 'template-preview': 7,
+      icon: 45, control: 306, 'widget-glyph': 19, background: 54, theme: 18, 'template-preview': 7,
     })
 
     for (const [id, entry] of Object.entries(DISPLAY_ASSETS)) {
@@ -49,7 +49,7 @@ describe('display asset registry', () => {
 
   it('offers only slot-fillable art to a widget, and prices a bake by the size drawn', () => {
     const icons = displayAssetsForSlot(['icon'])
-    expect(icons.length).toBe(43 + 252)
+    expect(icons.length).toBe(45 + 306)
     expect(icons.every((entry) => entry.tintable)).toBe(true)
     // Palette glyphs, backgrounds, themes and template previews are not widget art.
     expect(icons.some((entry) => entry.category === 'widget-glyph')).toBe(false)
@@ -76,10 +76,16 @@ describe('display asset registry', () => {
 
   it('groups the complete themed control set for the sidebar and templates', () => {
     const controls = displayControlsForTheme('theme:03-synthwave')
-    expect(controls).toHaveLength(14)
+    expect(controls).toHaveLength(17)
     expect(controls.map((asset) => asset.id)).toContain('control:03-synthwave:play-pause')
     expect(displayControlAssetId('theme:03-synthwave', 'next')).toBe('control:03-synthwave:next')
     expect(displayControlAssetId('theme:not-installed', 'next')).toBeUndefined()
+  })
+
+  it('keeps every template action in the selected themed set', () => {
+    expect(displayControlAssetId('theme:03-synthwave', 'shuffle')).toBe('control:03-synthwave:shuffle')
+    expect(displayControlAssetId('theme:03-synthwave', 'auto-advance')).toBe('control:03-synthwave:auto-advance')
+    expect(displayControlAssetId('theme:03-synthwave', 'freeze')).toBe('control:03-synthwave:freeze')
   })
 
   it('is the only authority on what a document may store in an asset slot', () => {

@@ -142,7 +142,7 @@ Controls → Music Player**.
    no selection, choose the screen's grid, theme, and background. Use the
    palette's **Icon theme** picker to browse one matching set of custom button
    icons; clicking an icon adds an icon-first control, and templates use that
-   selected icon set for their supported transport actions.
+   selected icon set for their transport and action controls.
 3. Start with a **Slider** and **Numeric Readout**. Click **Graph** to return to
    the graph and connect the slider's **Output** to the readout's input (the
    **Value** role, labelled with the readout's name).

@@ -186,8 +186,18 @@ describe('DisplayEditor', () => {
       properties: { assetId: 'control:03-synthwave:previous', presentation: 'icon' },
     })
 
+    const shuffle = view.getByRole('button', { name: 'Add Synthwave Sunset Shuffle control' })
+    expect(shuffle.querySelector('img')?.getAttribute('src'))
+      .toBe('/display-assets/controls/03-synthwave/shuffle.svg')
+    fireEvent.click(shuffle)
+    expect(useGraphStore.getState().displayDocuments.panel.widgets[1]).toMatchObject({
+      type: 'Toggle',
+      label: 'Shuffle',
+      properties: { assetId: 'control:03-synthwave:shuffle', presentation: 'icon' },
+    })
+
     fireEvent.click(view.getByRole('button', { name: 'Insert Minimal Transport template' }))
-    const templateControls = useGraphStore.getState().displayDocuments.panel.widgets.slice(2, 5)
+    const templateControls = useGraphStore.getState().displayDocuments.panel.widgets.slice(3, 6)
     expect(templateControls.map((widget) => widget.properties.assetId)).toEqual([
       'control:03-synthwave:previous',
       'control:03-synthwave:play-pause',

@@ -86,6 +86,36 @@ export const DISPLAY_ASSET_CATALOGUE_DATA: Record<string, DisplayAssetEntry> = {
     "file": "display-assets/icons/shuffle.svg",
     "bytesPerPixel": 1
   },
+  "icon:auto-advance": {
+    "id": "icon:auto-advance",
+    "category": "icon",
+    "label": "Auto Advance",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 96,
+    "height": 96,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/icons/auto-advance.svg",
+    "bytesPerPixel": 1
+  },
+  "icon:freeze": {
+    "id": "icon:freeze",
+    "category": "icon",
+    "label": "Freeze",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 96,
+    "height": 96,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/icons/freeze.svg",
+    "bytesPerPixel": 1
+  },
   "icon:queue": {
     "id": "icon:queue",
     "category": "icon",
@@ -1877,6 +1907,51 @@ export const DISPLAY_ASSET_CATALOGUE_DATA: Record<string, DisplayAssetEntry> = {
     "file": "display-assets/controls/01-neon-orbit/next.svg",
     "bytesPerPixel": 1
   },
+  "control:01-neon-orbit:shuffle": {
+    "id": "control:01-neon-orbit:shuffle",
+    "category": "control",
+    "label": "Neon Orbit Shuffle",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/01-neon-orbit/shuffle.svg",
+    "bytesPerPixel": 1
+  },
+  "control:01-neon-orbit:auto-advance": {
+    "id": "control:01-neon-orbit:auto-advance",
+    "category": "control",
+    "label": "Neon Orbit Auto Advance",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/01-neon-orbit/auto-advance.svg",
+    "bytesPerPixel": 1
+  },
+  "control:01-neon-orbit:freeze": {
+    "id": "control:01-neon-orbit:freeze",
+    "category": "control",
+    "label": "Neon Orbit Freeze",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/01-neon-orbit/freeze.svg",
+    "bytesPerPixel": 1
+  },
   "control:01-neon-orbit:volume": {
     "id": "control:01-neon-orbit:volume",
     "category": "control",
@@ -2085,6 +2160,51 @@ export const DISPLAY_ASSET_CATALOGUE_DATA: Record<string, DisplayAssetEntry> = {
     "tintable": true,
     "format": "svg",
     "file": "display-assets/controls/02-cyber-cyan/next.svg",
+    "bytesPerPixel": 1
+  },
+  "control:02-cyber-cyan:shuffle": {
+    "id": "control:02-cyber-cyan:shuffle",
+    "category": "control",
+    "label": "Cyber Cyan Shuffle",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/02-cyber-cyan/shuffle.svg",
+    "bytesPerPixel": 1
+  },
+  "control:02-cyber-cyan:auto-advance": {
+    "id": "control:02-cyber-cyan:auto-advance",
+    "category": "control",
+    "label": "Cyber Cyan Auto Advance",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/02-cyber-cyan/auto-advance.svg",
+    "bytesPerPixel": 1
+  },
+  "control:02-cyber-cyan:freeze": {
+    "id": "control:02-cyber-cyan:freeze",
+    "category": "control",
+    "label": "Cyber Cyan Freeze",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/02-cyber-cyan/freeze.svg",
     "bytesPerPixel": 1
   },
   "control:02-cyber-cyan:volume": {
@@ -2297,6 +2417,51 @@ export const DISPLAY_ASSET_CATALOGUE_DATA: Record<string, DisplayAssetEntry> = {
     "file": "display-assets/controls/03-synthwave/next.svg",
     "bytesPerPixel": 1
   },
+  "control:03-synthwave:shuffle": {
+    "id": "control:03-synthwave:shuffle",
+    "category": "control",
+    "label": "Synthwave Sunset Shuffle",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/03-synthwave/shuffle.svg",
+    "bytesPerPixel": 1
+  },
+  "control:03-synthwave:auto-advance": {
+    "id": "control:03-synthwave:auto-advance",
+    "category": "control",
+    "label": "Synthwave Sunset Auto Advance",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/03-synthwave/auto-advance.svg",
+    "bytesPerPixel": 1
+  },
+  "control:03-synthwave:freeze": {
+    "id": "control:03-synthwave:freeze",
+    "category": "control",
+    "label": "Synthwave Sunset Freeze",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/03-synthwave/freeze.svg",
+    "bytesPerPixel": 1
+  },
   "control:03-synthwave:volume": {
     "id": "control:03-synthwave:volume",
     "category": "control",
@@ -2505,6 +2670,51 @@ export const DISPLAY_ASSET_CATALOGUE_DATA: Record<string, DisplayAssetEntry> = {
     "tintable": true,
     "format": "svg",
     "file": "display-assets/controls/04-brushed-steel/next.svg",
+    "bytesPerPixel": 1
+  },
+  "control:04-brushed-steel:shuffle": {
+    "id": "control:04-brushed-steel:shuffle",
+    "category": "control",
+    "label": "Brushed Steel Shuffle",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/04-brushed-steel/shuffle.svg",
+    "bytesPerPixel": 1
+  },
+  "control:04-brushed-steel:auto-advance": {
+    "id": "control:04-brushed-steel:auto-advance",
+    "category": "control",
+    "label": "Brushed Steel Auto Advance",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/04-brushed-steel/auto-advance.svg",
+    "bytesPerPixel": 1
+  },
+  "control:04-brushed-steel:freeze": {
+    "id": "control:04-brushed-steel:freeze",
+    "category": "control",
+    "label": "Brushed Steel Freeze",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/04-brushed-steel/freeze.svg",
     "bytesPerPixel": 1
   },
   "control:04-brushed-steel:volume": {
@@ -2717,6 +2927,51 @@ export const DISPLAY_ASSET_CATALOGUE_DATA: Record<string, DisplayAssetEntry> = {
     "file": "display-assets/controls/05-glass-aqua/next.svg",
     "bytesPerPixel": 1
   },
+  "control:05-glass-aqua:shuffle": {
+    "id": "control:05-glass-aqua:shuffle",
+    "category": "control",
+    "label": "Glass Aqua Shuffle",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/05-glass-aqua/shuffle.svg",
+    "bytesPerPixel": 1
+  },
+  "control:05-glass-aqua:auto-advance": {
+    "id": "control:05-glass-aqua:auto-advance",
+    "category": "control",
+    "label": "Glass Aqua Auto Advance",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/05-glass-aqua/auto-advance.svg",
+    "bytesPerPixel": 1
+  },
+  "control:05-glass-aqua:freeze": {
+    "id": "control:05-glass-aqua:freeze",
+    "category": "control",
+    "label": "Glass Aqua Freeze",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/05-glass-aqua/freeze.svg",
+    "bytesPerPixel": 1
+  },
   "control:05-glass-aqua:volume": {
     "id": "control:05-glass-aqua:volume",
     "category": "control",
@@ -2925,6 +3180,51 @@ export const DISPLAY_ASSET_CATALOGUE_DATA: Record<string, DisplayAssetEntry> = {
     "tintable": true,
     "format": "svg",
     "file": "display-assets/controls/06-ember-pulse/next.svg",
+    "bytesPerPixel": 1
+  },
+  "control:06-ember-pulse:shuffle": {
+    "id": "control:06-ember-pulse:shuffle",
+    "category": "control",
+    "label": "Ember Pulse Shuffle",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/06-ember-pulse/shuffle.svg",
+    "bytesPerPixel": 1
+  },
+  "control:06-ember-pulse:auto-advance": {
+    "id": "control:06-ember-pulse:auto-advance",
+    "category": "control",
+    "label": "Ember Pulse Auto Advance",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/06-ember-pulse/auto-advance.svg",
+    "bytesPerPixel": 1
+  },
+  "control:06-ember-pulse:freeze": {
+    "id": "control:06-ember-pulse:freeze",
+    "category": "control",
+    "label": "Ember Pulse Freeze",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/06-ember-pulse/freeze.svg",
     "bytesPerPixel": 1
   },
   "control:06-ember-pulse:volume": {
@@ -3137,6 +3437,51 @@ export const DISPLAY_ASSET_CATALOGUE_DATA: Record<string, DisplayAssetEntry> = {
     "file": "display-assets/controls/07-aurora/next.svg",
     "bytesPerPixel": 1
   },
+  "control:07-aurora:shuffle": {
+    "id": "control:07-aurora:shuffle",
+    "category": "control",
+    "label": "Aurora Flow Shuffle",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/07-aurora/shuffle.svg",
+    "bytesPerPixel": 1
+  },
+  "control:07-aurora:auto-advance": {
+    "id": "control:07-aurora:auto-advance",
+    "category": "control",
+    "label": "Aurora Flow Auto Advance",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/07-aurora/auto-advance.svg",
+    "bytesPerPixel": 1
+  },
+  "control:07-aurora:freeze": {
+    "id": "control:07-aurora:freeze",
+    "category": "control",
+    "label": "Aurora Flow Freeze",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/07-aurora/freeze.svg",
+    "bytesPerPixel": 1
+  },
   "control:07-aurora:volume": {
     "id": "control:07-aurora:volume",
     "category": "control",
@@ -3345,6 +3690,51 @@ export const DISPLAY_ASSET_CATALOGUE_DATA: Record<string, DisplayAssetEntry> = {
     "tintable": true,
     "format": "svg",
     "file": "display-assets/controls/08-pixel-matrix/next.svg",
+    "bytesPerPixel": 1
+  },
+  "control:08-pixel-matrix:shuffle": {
+    "id": "control:08-pixel-matrix:shuffle",
+    "category": "control",
+    "label": "Pixel Matrix Shuffle",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/08-pixel-matrix/shuffle.svg",
+    "bytesPerPixel": 1
+  },
+  "control:08-pixel-matrix:auto-advance": {
+    "id": "control:08-pixel-matrix:auto-advance",
+    "category": "control",
+    "label": "Pixel Matrix Auto Advance",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/08-pixel-matrix/auto-advance.svg",
+    "bytesPerPixel": 1
+  },
+  "control:08-pixel-matrix:freeze": {
+    "id": "control:08-pixel-matrix:freeze",
+    "category": "control",
+    "label": "Pixel Matrix Freeze",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/08-pixel-matrix/freeze.svg",
     "bytesPerPixel": 1
   },
   "control:08-pixel-matrix:volume": {
@@ -3557,6 +3947,51 @@ export const DISPLAY_ASSET_CATALOGUE_DATA: Record<string, DisplayAssetEntry> = {
     "file": "display-assets/controls/09-minimal-light/next.svg",
     "bytesPerPixel": 1
   },
+  "control:09-minimal-light:shuffle": {
+    "id": "control:09-minimal-light:shuffle",
+    "category": "control",
+    "label": "Minimal Light Shuffle",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/09-minimal-light/shuffle.svg",
+    "bytesPerPixel": 1
+  },
+  "control:09-minimal-light:auto-advance": {
+    "id": "control:09-minimal-light:auto-advance",
+    "category": "control",
+    "label": "Minimal Light Auto Advance",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/09-minimal-light/auto-advance.svg",
+    "bytesPerPixel": 1
+  },
+  "control:09-minimal-light:freeze": {
+    "id": "control:09-minimal-light:freeze",
+    "category": "control",
+    "label": "Minimal Light Freeze",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/09-minimal-light/freeze.svg",
+    "bytesPerPixel": 1
+  },
   "control:09-minimal-light:volume": {
     "id": "control:09-minimal-light:volume",
     "category": "control",
@@ -3765,6 +4200,51 @@ export const DISPLAY_ASSET_CATALOGUE_DATA: Record<string, DisplayAssetEntry> = {
     "tintable": true,
     "format": "svg",
     "file": "display-assets/controls/10-arcade-candy/next.svg",
+    "bytesPerPixel": 1
+  },
+  "control:10-arcade-candy:shuffle": {
+    "id": "control:10-arcade-candy:shuffle",
+    "category": "control",
+    "label": "Arcade Candy Shuffle",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/10-arcade-candy/shuffle.svg",
+    "bytesPerPixel": 1
+  },
+  "control:10-arcade-candy:auto-advance": {
+    "id": "control:10-arcade-candy:auto-advance",
+    "category": "control",
+    "label": "Arcade Candy Auto Advance",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/10-arcade-candy/auto-advance.svg",
+    "bytesPerPixel": 1
+  },
+  "control:10-arcade-candy:freeze": {
+    "id": "control:10-arcade-candy:freeze",
+    "category": "control",
+    "label": "Arcade Candy Freeze",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/10-arcade-candy/freeze.svg",
     "bytesPerPixel": 1
   },
   "control:10-arcade-candy:volume": {
@@ -3977,6 +4457,51 @@ export const DISPLAY_ASSET_CATALOGUE_DATA: Record<string, DisplayAssetEntry> = {
     "file": "display-assets/controls/11-vinyl-groove/next.svg",
     "bytesPerPixel": 1
   },
+  "control:11-vinyl-groove:shuffle": {
+    "id": "control:11-vinyl-groove:shuffle",
+    "category": "control",
+    "label": "Vinyl Groove Shuffle",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/11-vinyl-groove/shuffle.svg",
+    "bytesPerPixel": 1
+  },
+  "control:11-vinyl-groove:auto-advance": {
+    "id": "control:11-vinyl-groove:auto-advance",
+    "category": "control",
+    "label": "Vinyl Groove Auto Advance",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/11-vinyl-groove/auto-advance.svg",
+    "bytesPerPixel": 1
+  },
+  "control:11-vinyl-groove:freeze": {
+    "id": "control:11-vinyl-groove:freeze",
+    "category": "control",
+    "label": "Vinyl Groove Freeze",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/11-vinyl-groove/freeze.svg",
+    "bytesPerPixel": 1
+  },
   "control:11-vinyl-groove:volume": {
     "id": "control:11-vinyl-groove:volume",
     "category": "control",
@@ -4185,6 +4710,51 @@ export const DISPLAY_ASSET_CATALOGUE_DATA: Record<string, DisplayAssetEntry> = {
     "tintable": true,
     "format": "svg",
     "file": "display-assets/controls/12-cassette-future/next.svg",
+    "bytesPerPixel": 1
+  },
+  "control:12-cassette-future:shuffle": {
+    "id": "control:12-cassette-future:shuffle",
+    "category": "control",
+    "label": "Cassette Future Shuffle",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/12-cassette-future/shuffle.svg",
+    "bytesPerPixel": 1
+  },
+  "control:12-cassette-future:auto-advance": {
+    "id": "control:12-cassette-future:auto-advance",
+    "category": "control",
+    "label": "Cassette Future Auto Advance",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/12-cassette-future/auto-advance.svg",
+    "bytesPerPixel": 1
+  },
+  "control:12-cassette-future:freeze": {
+    "id": "control:12-cassette-future:freeze",
+    "category": "control",
+    "label": "Cassette Future Freeze",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/12-cassette-future/freeze.svg",
     "bytesPerPixel": 1
   },
   "control:12-cassette-future:volume": {
@@ -4397,6 +4967,51 @@ export const DISPLAY_ASSET_CATALOGUE_DATA: Record<string, DisplayAssetEntry> = {
     "file": "display-assets/controls/13-crystal-shard/next.svg",
     "bytesPerPixel": 1
   },
+  "control:13-crystal-shard:shuffle": {
+    "id": "control:13-crystal-shard:shuffle",
+    "category": "control",
+    "label": "Crystal Shard Shuffle",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/13-crystal-shard/shuffle.svg",
+    "bytesPerPixel": 1
+  },
+  "control:13-crystal-shard:auto-advance": {
+    "id": "control:13-crystal-shard:auto-advance",
+    "category": "control",
+    "label": "Crystal Shard Auto Advance",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/13-crystal-shard/auto-advance.svg",
+    "bytesPerPixel": 1
+  },
+  "control:13-crystal-shard:freeze": {
+    "id": "control:13-crystal-shard:freeze",
+    "category": "control",
+    "label": "Crystal Shard Freeze",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/13-crystal-shard/freeze.svg",
+    "bytesPerPixel": 1
+  },
   "control:13-crystal-shard:volume": {
     "id": "control:13-crystal-shard:volume",
     "category": "control",
@@ -4605,6 +5220,51 @@ export const DISPLAY_ASSET_CATALOGUE_DATA: Record<string, DisplayAssetEntry> = {
     "tintable": true,
     "format": "svg",
     "file": "display-assets/controls/14-biolume-organic/next.svg",
+    "bytesPerPixel": 1
+  },
+  "control:14-biolume-organic:shuffle": {
+    "id": "control:14-biolume-organic:shuffle",
+    "category": "control",
+    "label": "Biolume Organic Shuffle",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/14-biolume-organic/shuffle.svg",
+    "bytesPerPixel": 1
+  },
+  "control:14-biolume-organic:auto-advance": {
+    "id": "control:14-biolume-organic:auto-advance",
+    "category": "control",
+    "label": "Biolume Organic Auto Advance",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/14-biolume-organic/auto-advance.svg",
+    "bytesPerPixel": 1
+  },
+  "control:14-biolume-organic:freeze": {
+    "id": "control:14-biolume-organic:freeze",
+    "category": "control",
+    "label": "Biolume Organic Freeze",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/14-biolume-organic/freeze.svg",
     "bytesPerPixel": 1
   },
   "control:14-biolume-organic:volume": {
@@ -4817,6 +5477,51 @@ export const DISPLAY_ASSET_CATALOGUE_DATA: Record<string, DisplayAssetEntry> = {
     "file": "display-assets/controls/15-retro-space-age/next.svg",
     "bytesPerPixel": 1
   },
+  "control:15-retro-space-age:shuffle": {
+    "id": "control:15-retro-space-age:shuffle",
+    "category": "control",
+    "label": "Retro Space Age Shuffle",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/15-retro-space-age/shuffle.svg",
+    "bytesPerPixel": 1
+  },
+  "control:15-retro-space-age:auto-advance": {
+    "id": "control:15-retro-space-age:auto-advance",
+    "category": "control",
+    "label": "Retro Space Age Auto Advance",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/15-retro-space-age/auto-advance.svg",
+    "bytesPerPixel": 1
+  },
+  "control:15-retro-space-age:freeze": {
+    "id": "control:15-retro-space-age:freeze",
+    "category": "control",
+    "label": "Retro Space Age Freeze",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/15-retro-space-age/freeze.svg",
+    "bytesPerPixel": 1
+  },
   "control:15-retro-space-age:volume": {
     "id": "control:15-retro-space-age:volume",
     "category": "control",
@@ -5025,6 +5730,51 @@ export const DISPLAY_ASSET_CATALOGUE_DATA: Record<string, DisplayAssetEntry> = {
     "tintable": true,
     "format": "svg",
     "file": "display-assets/controls/16-holo-prism/next.svg",
+    "bytesPerPixel": 1
+  },
+  "control:16-holo-prism:shuffle": {
+    "id": "control:16-holo-prism:shuffle",
+    "category": "control",
+    "label": "Holo Prism Shuffle",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/16-holo-prism/shuffle.svg",
+    "bytesPerPixel": 1
+  },
+  "control:16-holo-prism:auto-advance": {
+    "id": "control:16-holo-prism:auto-advance",
+    "category": "control",
+    "label": "Holo Prism Auto Advance",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/16-holo-prism/auto-advance.svg",
+    "bytesPerPixel": 1
+  },
+  "control:16-holo-prism:freeze": {
+    "id": "control:16-holo-prism:freeze",
+    "category": "control",
+    "label": "Holo Prism Freeze",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/16-holo-prism/freeze.svg",
     "bytesPerPixel": 1
   },
   "control:16-holo-prism:volume": {
@@ -5237,6 +5987,51 @@ export const DISPLAY_ASSET_CATALOGUE_DATA: Record<string, DisplayAssetEntry> = {
     "file": "display-assets/controls/17-hazard-module/next.svg",
     "bytesPerPixel": 1
   },
+  "control:17-hazard-module:shuffle": {
+    "id": "control:17-hazard-module:shuffle",
+    "category": "control",
+    "label": "Hazard Module Shuffle",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/17-hazard-module/shuffle.svg",
+    "bytesPerPixel": 1
+  },
+  "control:17-hazard-module:auto-advance": {
+    "id": "control:17-hazard-module:auto-advance",
+    "category": "control",
+    "label": "Hazard Module Auto Advance",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/17-hazard-module/auto-advance.svg",
+    "bytesPerPixel": 1
+  },
+  "control:17-hazard-module:freeze": {
+    "id": "control:17-hazard-module:freeze",
+    "category": "control",
+    "label": "Hazard Module Freeze",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/17-hazard-module/freeze.svg",
+    "bytesPerPixel": 1
+  },
   "control:17-hazard-module:volume": {
     "id": "control:17-hazard-module:volume",
     "category": "control",
@@ -5445,6 +6240,51 @@ export const DISPLAY_ASSET_CATALOGUE_DATA: Record<string, DisplayAssetEntry> = {
     "tintable": true,
     "format": "svg",
     "file": "display-assets/controls/18-circuit-relic/next.svg",
+    "bytesPerPixel": 1
+  },
+  "control:18-circuit-relic:shuffle": {
+    "id": "control:18-circuit-relic:shuffle",
+    "category": "control",
+    "label": "Circuit Relic Shuffle",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/18-circuit-relic/shuffle.svg",
+    "bytesPerPixel": 1
+  },
+  "control:18-circuit-relic:auto-advance": {
+    "id": "control:18-circuit-relic:auto-advance",
+    "category": "control",
+    "label": "Circuit Relic Auto Advance",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/18-circuit-relic/auto-advance.svg",
+    "bytesPerPixel": 1
+  },
+  "control:18-circuit-relic:freeze": {
+    "id": "control:18-circuit-relic:freeze",
+    "category": "control",
+    "label": "Circuit Relic Freeze",
+    "slots": [
+      "icon",
+      "image"
+    ],
+    "width": 160,
+    "height": 160,
+    "tintable": true,
+    "format": "svg",
+    "file": "display-assets/controls/18-circuit-relic/freeze.svg",
     "bytesPerPixel": 1
   },
   "control:18-circuit-relic:volume": {
