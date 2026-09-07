@@ -37,6 +37,35 @@ the exact environment and path that were exercised. Everything else stays
 
 These are the only fully recorded public-beta support rows today.
 
+## Auxiliary display hardware validation
+
+Separate from the LED-output combos above: auxiliary displays (Segment Display,
+Info Display, Transport Display, the custom `Display` node) are a distinct
+peripheral class with their own bus/driver/pin concerns. The same
+supported/experimental framework applies, scoped to display hardware.
+
+| Status | Host OS | Browser | Board | Display module (bus) | Node / layout tested | Build engine | Upload method | What was verified | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | SSD1306 0.96-inch 128x64 OLED (I2C, SDA GPIO1 / SCL GPIO2) | `RTCInput` (Compile Time) → `InfoDisplay`, Clock layout | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Correct orientation, live time/date update — first display hardware pass recorded for this project | Bench record (`2026-09-07`) below |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | TM1637 4-digit 7-segment (2-wire CLK/DIO) | `RTCInput` (Compile Time) → `SegmentDisplay`, Clock mode | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Correct digits, minutes advancing live | Bench record (`2026-09-07`) below |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | MAX7219 8-digit 7-segment (SPI CLK/DIN/LOAD) | `RTCInput` (Compile Time) → `SegmentDisplay`, Clock mode | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Hours:minutes:seconds progressing live, correct digit orientation | Bench record (`2026-09-07`) below |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | SH1106 0.96-inch 128x64 OLED (7-pin SPI) | `RTCInput` (Compile Time) → `InfoDisplay`, Clock layout | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Correct orientation and alignment, confirming the SH1106's 2-column RAM offset renders correctly rather than shifting the image | Bench record (`2026-09-07`) below |
+
+**Bench record (`2026-09-07`, all four rows above):** first hardware pass for
+any auxiliary display in this project — none had a recorded physical test
+before this session. All four wired individually to the same ESP32-S3, each
+driven by `RTCInput` set to Compile Time, generated and uploaded through
+`arduino-cli`. One codegen defect was found and fixed during this session
+(`4b6e9e01`): `_RtcDateTime` was passed by reference into RTC helper functions
+with no forward declaration, so any RTC-driven sketch failed to compile under
+the Arduino `.ino` prototype-hoisting trap already documented in `CLAUDE.md`.
+
+Not yet recorded as a supported row: the ESP32-2432S028 ("CYD") integrated
+touch TFT board — see the note under "Recorded validations that are not yet
+full support rows" below. The SH1106 1.3-inch **I2C** module and the
+`sh1106-oled-128x64-i2c` catalogue entry added for it (`2026-09-08`) have no
+physical validation yet either.
+
 ### ESP32 upload-engine recommendation
 
 For new ESP32 uploads, Studio defaults to and recommends `arduino-cli`. fbuild 2.5.21
@@ -108,6 +137,23 @@ they name.
   needs a USB-A-to-C cable. Nothing about this is a Studio fault, but it looks
   exactly like a broken board.
 
+- **2026-09-08 — ESP32-2432S028 ("CYD") integrated touch TFT, basic SPI
+  bring-up only (`arduino-cli`).** Studio's `TransportDisplay` part
+  `st7789v-xpt2046-touch-240x320` auto-assigns pins as if driving a loose
+  breakout; this board's panel and touch controller are hard-wired on its own
+  PCB and needed every pin manually overridden to the board's real, fixed
+  wiring before anything would light up correctly. Wired to `RTCInput`
+  (Compile Time), the panel rendered the `Waiting` layout — the correct result
+  for this wiring, since a normal sketch has no colour-TFT clock treatment
+  yet — with clean, correctly-oriented, uninverted text, which is evidence
+  (not proof) this unit's panel is ST7789-compatible despite most
+  ESP32-2432S028 units shipping ILI9341, a controller Studio has no driver
+  for. Not promoted to a support row: no board profile exists yet for this
+  board's fixed pinout (tracked in `display-todo.md` Phase 1), the controller
+  identity is not confirmed, and Now Playing / Fixed Transport / Show Status
+  / touch are all untested — they need a real Music Player (SD + audio)
+  graph, a materially larger test than this bring-up pass.
+
 ## CI-covered host/platform coverage
 
 These jobs reduce risk, but they are not substitutes for manual browser or
@@ -143,6 +189,11 @@ Unless a future row says otherwise, treat the following as experimental:
 - Baked song envelopes and collection-driven modulation in the music-show
   pipeline.
 - SD show provisioning and player upload (music-sync shows remain experimental).
+- **Auxiliary displays beyond the four recorded rows above.** The SH1106
+  I2C module, the ESP32-2432S028 board profile, Now Playing / Fixed Transport
+  / Show Status on the colour TFT, any touch interaction, the custom `Display`
+  (LVGL) node, and every display module/board combination not listed in the
+  table above remain unvalidated on real hardware.
 - **DMX / Art-Net input, in every mode.** No hardware pass has been recorded
   for either transport. Two separate runs are needed before any part of this
   graduates:

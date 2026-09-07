@@ -382,6 +382,23 @@ widget, font and image limits before Phase 7 is frozen.
   Document normalization bounds counts, geometry, ids, strings and declarative
   properties; asset ids resolve through the installed catalogue. Resource
   validation bounds raster sizes and total bytes before code generation.
+- [ ] Add board-profile entries for common integrated ESP32+display boards
+  (starting with the ESP32-2432S028 "CYD" family) that pre-set each board's
+  exact, fixed pins instead of letting the current free-GPIO auto-assignment
+  treat a soldered-down panel like a wireable breakout module — and record
+  which controller each SKU actually ships, since these boards are sold under
+  one part number across multiple panel/touch driver revisions.
+  Bench-confirmed 2026-09-08 on a real ESP32-2432S028: Studio auto-assigned
+  `TransportDisplay` pins (CLK 14/MOSI 16/CS 17/DC 18/RES 19/LITE 21/MISO 22/
+  T_CS 23/T_IRQ 25/T_CLK 26/T_DIN 27/T_DO 32) that do not match the board's
+  real, hard-wired pins (SCLK 14/MOSI 13/MISO 12/CS 15/DC 2/BL 21, touch CLK 25/
+  MOSI 32/MISO 39/CS 33/IRQ 36) — only CLK and backlight happened to coincide.
+  The panel's RST line also has no dedicated GPIO at all on this board (tied/
+  software-driven), a case the current one-pin-per-signal property model
+  doesn't represent. Manually overriding the matching pins and leaving the
+  mismatched ones did still render clean, correctly-oriented, uninverted text,
+  which is evidence (not proof) this specific unit's panel is ST7789-compatible
+  despite most ESP32-2432S028 units shipping ILI9341.
 
 ### Phase 2 — runtime and code-generation foundation
 
