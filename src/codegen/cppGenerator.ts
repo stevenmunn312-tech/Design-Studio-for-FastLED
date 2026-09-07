@@ -1212,6 +1212,8 @@ function textAxisStartExpr(valueExpr: string, sizeVar: string, lengthExpr: strin
   return align === 'end' ? `(${edge}) - (${lengthExpr})` : edge
 }
 
+const RTC_CPP_FORWARD = 'struct _RtcDateTime;'
+
 function rtcHelperCpp(): string[] {
   return [
     '// ── RTC software clock helpers ────────────────────────────────────────────',
@@ -6789,6 +6791,7 @@ export function generateCpp(
   if (tftDisplays.length > 0) lines.push(TFT_DISPLAY_CPP_FORWARD)
   if (customDisplays.length > 0) lines.push(CUSTOM_DISPLAY_LVGL_FORWARD)
   if (stereoVuMeters.length > 0) lines.push(STEREO_VU_CPP_FORWARD)
+  if (emitRtcHelpers) lines.push(RTC_CPP_FORWARD)
   lines.push(``)
   if (ss) {
     lines.push(`#define SS       ${supersample}          // supersample factor: render at SS×, downscale`)
