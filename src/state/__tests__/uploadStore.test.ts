@@ -346,6 +346,33 @@ describe('uploadStore', () => {
     expect(mocks.uploadSketch).not.toHaveBeenCalled()
   })
 
+  it('returns a successful upload to the normal Upload state after five seconds', async () => {
+    vi.useFakeTimers()
+    try {
+      const { useUploadStore } = await freshStores()
+      useUploadStore.setState({
+        helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false },
+        selectedFqbn: 'esp32:esp32:esp32s3',
+        selectedPort: 'COM7',
+      })
+      mocks.uploadSketch.mockImplementationOnce(async (_code, _fqbn, _port, onLog) => {
+        onLog('Upload complete\n')
+      })
+
+      await useUploadStore.getState().runUpload('void loop() {}')
+      expect(useUploadStore.getState().status.phase).toBe('done')
+
+      vi.advanceTimersByTime(4999)
+      expect(useUploadStore.getState().status.phase).toBe('done')
+
+      vi.advanceTimersByTime(1)
+      expect(useUploadStore.getState().status.phase).toBe('idle')
+    } finally {
+      vi.runOnlyPendingTimers()
+      vi.useRealTimers()
+    }
+  })
+
   it('re-syncs the selected port when it disappears from a refresh (board re-enumerated on a new port)', async () => {
     const { useUploadStore } = await freshStores()
     mocks.listPorts.mockResolvedValueOnce([{ address: 'COM5', label: 'COM5', boards: [] }])

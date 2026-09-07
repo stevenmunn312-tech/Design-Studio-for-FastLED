@@ -468,18 +468,28 @@ let persistedPrefs = load()
 const initialSelection = projectSelection(persistedPrefs)
 let serialController: AbortController | null = null
 
-// An error status sticks around until the user notices it, then quietly
-// reverts to the normal idle button — otherwise a red "Error" button is
-// permanent until the next upload attempt.
-const ERROR_RESET_MS = 5000
-let errorResetTimer: ReturnType<typeof setTimeout> | null = null
+// A terminal status sticks around long enough to be noticed, then quietly
+// reverts to the normal idle button. Upload success joins the existing error
+// reset so the primary action does not remain labelled "Done" indefinitely.
+const STATUS_RESET_MS = 5000
+let statusResetTimer: ReturnType<typeof setTimeout> | null = null
 
-function scheduleErrorReset(set: (partial: Partial<UploadState>) => void, get: () => UploadState) {
-  if (errorResetTimer) clearTimeout(errorResetTimer)
-  errorResetTimer = setTimeout(() => {
-    errorResetTimer = null
-    if (get().status.phase === 'error') set({ status: IDLE })
-  }, ERROR_RESET_MS)
+function clearStatusReset() {
+  if (!statusResetTimer) return
+  clearTimeout(statusResetTimer)
+  statusResetTimer = null
+}
+
+function scheduleStatusReset(
+  set: (partial: Partial<UploadState>) => void,
+  get: () => UploadState,
+  phase: 'done' | 'error' = 'error',
+) {
+  clearStatusReset()
+  statusResetTimer = setTimeout(() => {
+    statusResetTimer = null
+    if (get().status.phase === phase) set({ status: IDLE })
+  }, STATUS_RESET_MS)
 }
 
 function saveProjectSelection(selectedFqbn: string, selectedPort: string) {
@@ -647,6 +657,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     if (busy) return
     if (!engineReady(helper)) { set({ cliPopupOpen: true }); return }
     if (!selectedPort) { set({ boardPopupOpen: true }); return }
+    clearStatusReset()
     // The board only has one serial port — a live stream and a compile+flash
     // can't hold it at once, so an upload always wins and reclaims it.
     useStreamStore.getState().stop()
@@ -694,7 +705,8 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       set({ status: { phase: 'error', message: 'Error — helper offline?' }, consoleOpen: true })
     } finally {
       set({ busy: false })
-      if (get().status.phase === 'error') scheduleErrorReset(set, get)
+      const phase = get().status.phase
+      if (phase === 'done' || phase === 'error') scheduleStatusReset(set, get, phase)
     }
   },
 
@@ -729,6 +741,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     if (busy) return
     if (!engineReady(helper)) { set({ cliPopupOpen: true }); return }
     if (!selectedPort) { set({ boardPopupOpen: true }); return }
+    clearStatusReset()
     get().stopSerial()
     useStreamStore.getState().stop()
 
@@ -847,7 +860,8 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     } finally {
       sdPromptResolver = null
       set({ busy: false, sdPrompt: null })
-      if (get().status.phase === 'error') scheduleErrorReset(set, get)
+      const phase = get().status.phase
+      if (phase === 'done' || phase === 'error') scheduleStatusReset(set, get, phase)
     }
   },
 
@@ -869,6 +883,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
 
   installCli: async () => {
     if (get().busy) return
+    clearStatusReset()
     set({ busy: true, consoleOpen: true, log: get().log + '\n=== Installing arduino-cli ===\n', status: { phase: 'working', message: 'Installing CLI…' } })
     try {
       await installCli((chunk) => get().appendLog(chunk))
@@ -880,12 +895,13 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       set({ status: { phase: 'error', message: 'Install failed' } })
     } finally {
       set({ busy: false })
-      if (get().status.phase === 'error') scheduleErrorReset(set, get)
+      if (get().status.phase === 'error') scheduleStatusReset(set, get)
     }
   },
 
   installCore: async (core) => {
     if (get().busy) return
+    clearStatusReset()
     const url = allBoards().find((b) => b.core === core && b.boardUrl)?.boardUrl
     set({ busy: true, consoleOpen: true, log: get().log + `\n=== Installing ${core} ===\n`, status: { phase: 'working', message: `Installing ${core}…` } })
     try {
@@ -898,7 +914,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       set({ status: { phase: 'error', message: 'Core install failed' } })
     } finally {
       set({ busy: false })
-      if (get().status.phase === 'error') scheduleErrorReset(set, get)
+      if (get().status.phase === 'error') scheduleStatusReset(set, get)
     }
   },
 
@@ -916,6 +932,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   closeUpdatesPopup: () => set({ updatesPopupOpen: false }),
   upgradeCores: async (cores) => {
     if (get().busy) return
+    clearStatusReset()
     const list = cores ?? get().availableUpdates.map((u) => u.core)
     const urls = get().customBoards.map((b) => b.boardUrl).filter((u): u is string => !!u)
     set({
@@ -933,7 +950,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       set({ status: { phase: 'error', message: 'Update failed' } })
     } finally {
       set({ busy: false })
-      if (get().status.phase === 'error') scheduleErrorReset(set, get)
+      if (get().status.phase === 'error') scheduleStatusReset(set, get)
     }
   },
 }))
