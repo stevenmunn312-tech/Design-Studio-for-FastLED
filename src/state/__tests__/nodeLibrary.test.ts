@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType } from '../hardware'
 import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, PROPERTY_GROUPS, isPropertyEnabled, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel } from '../nodeLibrary'
 import { EASE_TYPES } from '../easing'
+import { PLAYER_CONTROL_FUNCTIONS } from '../playerControlAssignments'
 
 describe('nodeLibrary', () => {
   it('defines dedicated semantic Music Player control and particle bundles', () => {
@@ -11,15 +12,21 @@ describe('nodeLibrary', () => {
       category: 'show',
       outputs: [{ id: 'controls', dataType: 'playercontrols' }],
     })
+    // The library entry declares the bundle input and the trailing invitation
+    // only. The fourteen functions are minted per assignment, keeping their
+    // original port ids so nothing downstream had to be taught — the full
+    // catalogue and the minting rule are covered in
+    // playerControlAssignments.test.ts.
     expect(controls?.inputs.map(({ id, dataType }) => [id, dataType])).toEqual([
-      ['controlsIn', 'playercontrols'], ['playPause', 'bool'], ['previous', 'bool'],
-      ['next', 'bool'], ['volume', 'float'], ['volumeUp', 'bool'],
-      ['volumeDown', 'bool'], ['ledToggle', 'bool'], ['brightness', 'float'],
-      ['brightnessUp', 'bool'], ['brightnessDown', 'bool'],
-      // Choosing a pattern is a physical intent like any other, so it arrives
-      // here rather than on the panel that shows the result.
-      ['patternSelect', 'float'], ['patternPrevious', 'bool'],
-      ['patternNext', 'bool'], ['patternConfirm', 'bool'],
+      ['controlsIn', 'playercontrols'], ['add-control', 'bool'],
+    ])
+    expect(controls?.defaultProperties?.controls).toEqual([])
+    // Every function the picker can offer is a port id the evaluator and the
+    // generators already read; that is the whole reason this stayed cheap.
+    expect(PLAYER_CONTROL_FUNCTIONS.map((entry) => entry.id)).toEqual([
+      'playPause', 'previous', 'next', 'volume', 'volumeUp', 'volumeDown',
+      'ledToggle', 'brightness', 'brightnessUp', 'brightnessDown',
+      'patternSelect', 'patternPrevious', 'patternNext', 'patternConfirm',
     ])
 
     const particles = NODE_LIBRARY.find((n) => n.type === 'PlayerParticles')

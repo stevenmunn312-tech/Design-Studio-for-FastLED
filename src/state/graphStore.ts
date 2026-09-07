@@ -62,6 +62,11 @@ import {
   nextButtonBankEntryId,
   normalizeButtonBankEntries,
 } from './buttonBank'
+import {
+  PLAYER_CONTROL_ADD_HANDLE, normalizePlayerControlIds, playerControlFunction,
+  playerControlIdsFromEdges, playerControlInputs,
+  withPlayerControlAssignment, withoutPlayerControlAssignment,
+} from './playerControlAssignments'
 import { syncAutomaticStereoVuLedCounts, VU_LED_COUNT_CUSTOM_KEY } from './stereoVuSizing'
 
 export interface StudioNodeData extends Record<string, unknown> {
@@ -238,6 +243,13 @@ interface GraphState {
   removeEdge: (id: string) => void
   /** Remove one physical button row and every noodle fed by its stable handle. */
   removeButtonBankEntry: (nodeId: string, entryId: string) => void
+  /** A drop on Player Controls' trailing socket, waiting for a function. */
+  pendingControlAssignment: PendingControlAssignment | null
+  /** Mint the chosen function's port and land the held connection on it. */
+  assignPlayerControl: (functionId: string) => void
+  cancelPlayerControlAssignment: () => void
+  /** Drop one assigned function's port and the wire feeding it. */
+  removePlayerControlAssignment: (nodeId: string, functionId: string) => void
   /** Re-route an edge to a new connection when its end is dragged to a port. */
   reconnectNoodle: (oldEdge: StudioEdge, newConnection: Connection) => void
 
@@ -493,7 +505,24 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
       delete properties.wifiSsid
       delete properties.wifiPassword
     }
-    const inputs = def?.inputs ?? (Array.isArray(data.inputs) ? data.inputs : [])
+    // A Player Controls node mints only the functions it has been given. A
+    // workspace saved before that listed none, so the stored list is unioned
+    // with the functions its wires already land on — otherwise a load would
+    // drop every one of them on the floor.
+    //
+    // Union rather than a fallback for an absent list, because a save from
+    // before this feature and a fresh node both present an empty list; the
+    // wires are what tell them apart. It cannot resurrect a row the user
+    // removed, since removing one takes its wire with it.
+    if (nodeType === 'PlayerControls') {
+      properties.controls = normalizePlayerControlIds([
+        ...(Array.isArray(properties.controls) ? properties.controls : []),
+        ...playerControlIdsFromEdges(n.id, edges),
+      ])
+    }
+    const inputs = nodeType === 'PlayerControls'
+      ? playerControlInputs(properties.controls)
+      : def?.inputs ?? (Array.isArray(data.inputs) ? data.inputs : [])
     const outputs = nodeType === 'ButtonBank'
       ? buttonBankOutputs(properties.buttons)
       : def?.outputs ?? (Array.isArray(data.outputs) ? data.outputs : [])
@@ -559,6 +588,86 @@ function withAdoptedMirrorPin(
  * placeholder. Keeping this in the store makes the growth and the edge one
  * undo step regardless of whether the drag started at the source or target.
  */
+/**
+ * A node's inputs as they actually are, not as its stored data claims.
+ *
+ * Player Controls mints one port per assigned function, so its ports follow
+ * its properties. Deriving here rather than reading `data.inputs` means the
+ * naming works however the node reached the store — a load, a paste, or a
+ * test writing state directly — instead of only when normalization has run.
+ */
+function effectiveInputs(node: StudioNode): Array<{ id: string; label: string }> {
+  if (node.data.nodeType === 'PlayerControls') {
+    return playerControlInputs(node.data.properties.controls)
+  }
+  return (node.data.inputs ?? []) as Array<{ id: string; label: string }>
+}
+
+/**
+ * A drop that cannot be a connection yet.
+ *
+ * Only the trailing socket qualifies, and only on a Player Controls node. The
+ * source's dataType is captured here rather than looked up again later,
+ * because it is what narrows the picker: `portsCompatible` lets float and bool
+ * interconvert, which is right for arithmetic and wrong for a knob.
+ */
+export interface PendingControlAssignment {
+  nodeId: string
+  connection: Connection
+  sourceDataType: string | undefined
+}
+
+function pendingControlAssignmentFor(
+  nodes: StudioNode[],
+  connection: Connection,
+): PendingControlAssignment | null {
+  if (connection.targetHandle !== PLAYER_CONTROL_ADD_HANDLE) return null
+  const target = nodes.find((node) => node.id === connection.target)
+  if (!target || target.data.nodeType !== 'PlayerControls') return null
+  const source = nodes.find((node) => node.id === connection.source)
+  const port = (source?.data.outputs as Array<{ id: string; dataType: string }> | undefined)
+    ?.find((entry) => entry.id === connection.sourceHandle)
+  return { nodeId: target.id, connection, sourceDataType: port?.dataType }
+}
+
+/** Rewrite one Player Controls node's assignment list and its derived ports. */
+function withPlayerControlRow(node: StudioNode, controls: string[]): StudioNode {
+  return {
+    ...node,
+    data: {
+      ...node.data,
+      properties: { ...node.data.properties, controls },
+      inputs: playerControlInputs(controls),
+    },
+  }
+}
+
+/**
+ * Land a resolved connection: grow a Button Bank row if that is what the
+ * source end is, replace whatever held the input, and draw the noodle.
+ *
+ * Shared by `onConnect` and by the control picker, so a connection made
+ * through the picker is the same connection in every respect but when it was
+ * named. Clears any pending assignment, since completing one ends it.
+ */
+function completeConnection(s: GraphState, connection: Connection): Partial<GraphState> {
+  const grown = materializeButtonBankConnection(s.nodes, connection)
+  const resolved = grown.connection
+  const src = grown.nodes.find((n) => n.id === resolved.source)
+  const color = edgeStrokeForPort(src, resolved.sourceHandle ?? undefined)
+  const replaced = resolved.target && resolved.targetHandle
+    ? s.edges.filter((e) => !(e.target === resolved.target && e.targetHandle === resolved.targetHandle))
+    : s.edges
+  // `reconnectable: 'target'` lets a noodle be unplugged/re-routed from
+  // the input (target) end only — grab it at the input port and drag.
+  const edges = addEdge({ ...resolved, type: 'glowEdge', reconnectable: 'target', style: { stroke: color } }, replaced)
+  return {
+    edges,
+    nodes: withAdoptedMirrorPin(grown.nodes, edges, resolved),
+    pendingControlAssignment: null,
+  }
+}
+
 function materializeButtonBankConnection(
   nodes: StudioNode[],
   connection: Connection,
@@ -570,8 +679,8 @@ function materializeButtonBankConnection(
   const properties = source.data.properties as Record<string, unknown>
   const entries = normalizeButtonBankEntries(properties.buttons)
   const target = nodes.find((node) => node.id === connection.target)
-  const targetPort = (target?.data.inputs as Array<{ id: string; label: string }> | undefined)
-    ?.find((port) => port.id === connection.targetHandle)
+  const targetPort = target && effectiveInputs(target)
+    .find((port) => port.id === connection.targetHandle)
   const label = targetPort?.label?.trim() || `Button ${entries.length + 1}`
   const id = nextButtonBankEntryId(entries, connection.targetHandle)
   const root = nodes
@@ -1177,6 +1286,7 @@ export const useGraphStore = create<GraphState>()(
       nodes: [],
       edges: [],
       selectedNodeId: null,
+      pendingControlAssignment: null,
       clipboard: null,
 
       activeGraphId: ROOT_GRAPH_ID,
@@ -1451,18 +1561,46 @@ export const useGraphStore = create<GraphState>()(
 
       onConnect: (connection) =>
         set((s) => {
-          const grown = materializeButtonBankConnection(s.nodes, connection)
-          const resolved = grown.connection
-          const src = grown.nodes.find((n) => n.id === resolved.source)
-          const color = edgeStrokeForPort(src, resolved.sourceHandle ?? undefined)
-          const replaced = resolved.target && resolved.targetHandle
-            ? s.edges.filter((e) => !(e.target === resolved.target && e.targetHandle === resolved.targetHandle))
-            : s.edges
-          // `reconnectable: 'target'` lets a noodle be unplugged/re-routed from
-          // the input (target) end only — grab it at the input port and drag.
-          const edges = addEdge({ ...resolved, type: 'glowEdge', reconnectable: 'target', style: { stroke: color } }, replaced)
-          return { edges, nodes: withAdoptedMirrorPin(grown.nodes, edges, resolved) }
+          // A drop on the trailing socket is not a connection yet: nothing on
+          // the source side can name it, so the picker asks, and the choice is
+          // what materialises the port. Held rather than created, and
+          // abandoned outright if the picker is dismissed.
+          const pending = pendingControlAssignmentFor(s.nodes, connection)
+          if (pending) return { pendingControlAssignment: pending }
+          return completeConnection(s, connection)
         }),
+
+      cancelPlayerControlAssignment: () => set({ pendingControlAssignment: null }),
+
+      assignPlayerControl: (functionId) =>
+        set((s) => {
+          const pending = s.pendingControlAssignment
+          if (!pending || !playerControlFunction(functionId)) return {}
+          // The row is added *before* the connection is completed, so the port
+          // exists with its real label by the time anything reads it. That
+          // ordering is what makes two dynamic ends work: a Button Bank's own
+          // trailing socket names its row from the target port, and the target
+          // port is only real once this row is.
+          const nodes = s.nodes.map((node) => (
+            node.id === pending.nodeId && node.data.nodeType === 'PlayerControls'
+              ? withPlayerControlRow(node, withPlayerControlAssignment(node.data.properties.controls, functionId))
+              : node
+          ))
+          return completeConnection(
+            { ...s, nodes },
+            { ...pending.connection, targetHandle: functionId },
+          )
+        }),
+
+      removePlayerControlAssignment: (nodeId, functionId) =>
+        set((s) => ({
+          nodes: s.nodes.map((node) => (
+            node.id === nodeId && node.data.nodeType === 'PlayerControls'
+              ? withPlayerControlRow(node, withoutPlayerControlAssignment(node.data.properties.controls, functionId))
+              : node
+          )),
+          edges: s.edges.filter((edge) => !(edge.target === nodeId && edge.targetHandle === functionId)),
+        })),
 
       connectRoot: (connection) =>
         set((s) => {
@@ -2838,6 +2976,7 @@ function editNodeIn(
         ...n.data,
         properties,
         ...(n.data.nodeType === 'ButtonBank' ? { outputs: buttonBankOutputs(properties.buttons) } : {}),
+        ...(n.data.nodeType === 'PlayerControls' ? { inputs: playerControlInputs(properties.controls) } : {}),
       },
     }
   })

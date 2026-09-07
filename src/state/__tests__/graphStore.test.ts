@@ -819,7 +819,14 @@ describe('graphStore — loadGraph normalization', () => {
   })
 
   it('grows and names a Button Bank output when its trailing socket is connected', () => {
-    reset([node('bank', 'ButtonBank', { buttons: [] }), node('controls', 'PlayerControls')])
+    // Player Controls mints a port only once that job has been assigned, so
+    // this drop needs a real target port to name the bank's row after. The
+    // case where *neither* end can name itself is covered in
+    // playerControlAssignments.test.ts.
+    reset([
+      node('bank', 'ButtonBank', { buttons: [] }),
+      node('controls', 'PlayerControls', { controls: ['playPause'] }),
+    ])
 
     useGraphStore.getState().onConnect({
       source: 'bank', sourceHandle: 'add-button', target: 'controls', targetHandle: 'playPause',

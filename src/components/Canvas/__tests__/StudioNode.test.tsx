@@ -135,8 +135,91 @@ describe('StudioNode', () => {
     expect(trailing.style.background).toBe(button.style.background)
   })
 
+  // A drop on the trailing socket cannot name itself, so the node asks. These
+  // cover the rendered half of that; the store half is in
+  // state/__tests__/playerControlAssignments.test.ts.
+  it('offers only the functions a button can sensibly drive', () => {
+    const node = makeNode('PlayerControls', {})
+    act(() => {
+      useGraphStore.setState({
+        nodes: [node],
+        pendingControlAssignment: {
+          nodeId: node.id,
+          connection: { source: 'btn', sourceHandle: 'pressed', target: node.id, targetHandle: 'add-control' },
+          sourceDataType: 'bool',
+        },
+      })
+    })
+    const { getByLabelText, queryByTitle } = renderNode(node)
+    const picker = getByLabelText('Choose what this control does')
+    expect(within(picker).getByTitle('Assign Play / Pause')).toBeTruthy()
+    // portsCompatible would allow bool → float; a button on Volume would set
+    // 0 or 1 and nothing between, so the picker refuses to offer it.
+    expect(queryByTitle('Assign Volume')).toBeNull()
+    expect(within(picker).getByText('Transport')).toBeTruthy()
+  })
+
+  it('offers the continuous functions to a knob instead', () => {
+    const node = makeNode('PlayerControls', {})
+    act(() => {
+      useGraphStore.setState({
+        nodes: [node],
+        pendingControlAssignment: {
+          nodeId: node.id,
+          connection: { source: 'knob', sourceHandle: 'value', target: node.id, targetHandle: 'add-control' },
+          sourceDataType: 'float',
+        },
+      })
+    })
+    const { getByTitle, queryByTitle } = renderNode(node)
+    expect(getByTitle('Assign Volume')).toBeTruthy()
+    expect(getByTitle('Assign Pattern Selection')).toBeTruthy()
+    expect(queryByTitle('Assign Play / Pause')).toBeNull()
+  })
+
+  it('mints the chosen port when the picker is answered', () => {
+    const node = makeNode('PlayerControls', {})
+    act(() => {
+      useGraphStore.setState({
+        nodes: [node], edges: [],
+        pendingControlAssignment: {
+          nodeId: node.id,
+          connection: { source: 'btn', sourceHandle: 'pressed', target: node.id, targetHandle: 'add-control' },
+          sourceDataType: 'bool',
+        },
+      })
+    })
+    const { getByTitle } = renderNode(node)
+    act(() => { fireEvent.click(getByTitle('Assign Next')) })
+
+    const state = useGraphStore.getState()
+    expect(state.pendingControlAssignment).toBeNull()
+    expect(state.nodes[0].data.properties.controls).toEqual(['next'])
+    expect(state.edges).toHaveLength(1)
+    expect(state.edges[0]).toMatchObject({ target: node.id, targetHandle: 'next' })
+  })
+
+  it('lists an assigned control with a way to take it back', () => {
+    const node = makeNode('PlayerControls', { controls: ['playPause'] })
+    act(() => {
+      useGraphStore.setState({
+        nodes: [node],
+        edges: [{ id: 'e', source: 'btn', sourceHandle: 'pressed', target: node.id, targetHandle: 'playPause' } as never],
+        pendingControlAssignment: null,
+      })
+    })
+    const { getByLabelText } = renderNode(node)
+    act(() => { fireEvent.click(getByLabelText('Remove Play / Pause')) })
+
+    const state = useGraphStore.getState()
+    expect(state.nodes[0].data.properties.controls).toEqual([])
+    expect(state.edges).toEqual([])
+  })
+
   it('visually distinguishes Player Controls button and potentiometer sockets', () => {
-    const { container } = renderNode(makeNode('PlayerControls', {}))
+    // Both sockets exist only once their functions have been assigned; the
+    // node starts with the bundle input and the trailing invitation alone.
+    const { container } = renderNode(makeNode('PlayerControls', { controls: ['playPause', 'volume'] }))
     const button = container.querySelector('[data-handle="target:playPause"]') as HTMLElement
     const potentiometer = container.querySelector('[data-handle="target:volume"]') as HTMLElement
 

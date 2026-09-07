@@ -1,6 +1,6 @@
 # Large displays and control routing — design note
 
-Status: decision 2 implemented; decisions 1, 3 and 4 designed only · Owner: app · Date: 2026-09-07
+Status: decisions 2 and 4 implemented; decisions 1 and 3 designed only · Owner: app · Date: 2026-09-07
 
 What a large panel is told, who tells it, and how a physical button gets a job.
 Decided 2026-09-07. This is tiers 2 and 3 of the split laid out in [simple
@@ -20,7 +20,7 @@ Nothing here is broken. It is unreadable.
 | --- | --- | --- |
 | `TransportDisplay` (Transport Display) | 17 in, 1 out | **2 in, 1 out — done** |
 | `PatternMaster` (Music Player) | 9 in, 16 out | 9 in, 3 out |
-| `PlayerControls` | 15 in, 1 out | 1 in + as many as you wired, 1 out |
+| `PlayerControls` | 15 in, 1 out | **2 in + one per assignment, 1 out — done** |
 | `Display` (Custom Display) | 0 in, 0 out, 18 properties | folded into two nodes |
 
 A four-node player graph currently draws about sixty sockets, most of them
@@ -254,6 +254,37 @@ already knowing its name. A picker is asynchronous — the connection has to be
 held pending while the menu is open, and abandoned if the user dismisses it.
 That is the one genuinely new piece of machinery in this note.
 
+### What building it settled
+
+**The port ids did not have to change, and that is what kept it cheap.** A row
+for Play / Pause mints a port called `playPause` — the id it had when all
+fourteen were declared in `NODE_LIBRARY` — so the evaluator, all four
+generators, validation and the firmware read exactly what they read before.
+The only thing that changed is whether the socket exists. Had rows been given
+ids of their own, every one of those would have needed teaching.
+
+`src/state/playerControlAssignments.ts` owns the catalogue and the minting;
+`graphStore` holds one `pendingControlAssignment` and completes it through the
+same `completeConnection` helper `onConnect` uses, so a connection made through
+the picker is the same connection in every respect but when it was named.
+
+Three things fell out that the plan did not anticipate:
+
+- **Ordering is load-bearing for the two-dynamic-ends case.** The row must be
+  added to the node *before* the connection completes, because
+  `materializeButtonBankConnection` names the bank's row from the target port's
+  label — and that port is only real once the picker has minted it. Reverse the
+  two and the bank names itself "Button 1" after the trailing socket.
+- **`materializeButtonBankConnection` cannot trust `data.inputs`.** It now
+  derives the target's ports through a shared `effectiveInputs`, so naming
+  works however the node reached the store — a load, a paste, or a test writing
+  state directly — rather than only after normalization has run.
+- **Old saves need seeding, and an absent list is not the signal.** A save from
+  before this feature and a freshly placed node both present an empty list; the
+  *wires* are what tell them apart. The stored list is therefore unioned with
+  the functions its edges already land on, which cannot resurrect a row the
+  user removed because removing one takes its wire with it.
+
 ## What this removes
 
 - **`TransportDisplay`'s seventeen content inputs**, replaced by two.
@@ -263,7 +294,8 @@ That is the one genuinely new piece of machinery in this note.
 - **`PatternMaster`'s thirteen song-field outputs**, replaced by a node that
   exists only when wanted.
 - **`PlayerControls`' fourteen always-present function inputs**, replaced by
-  the ones a build uses.
+  the ones a build uses. Their *port ids* are untouched, so nothing downstream
+  of the graph noticed.
 - **`tftLayout` as a content choice.**
 
 This breaks persisted graphs. `Hardware` is targeting v1.0.0 and is explicitly

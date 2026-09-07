@@ -15,6 +15,7 @@ import {
 import { tidyLayout } from '../../utils/tidyLayout'
 import type { NodeDefinition, NodePort } from '../../types'
 import { LED_OUTPUT_FORM_LABELS, type LedOutputForm } from '../../state/ledOutputForm'
+import { playerControlInputs } from '../../state/playerControlAssignments'
 
 export interface ReferenceLiveExample extends LiveExampleSpec {
   /** Compact topology shown beside the Try it live button. */
@@ -143,13 +144,29 @@ class ExampleBuilder {
     return type
   }
 
+  /**
+   * The inputs a placed node actually has.
+   *
+   * Most nodes declare theirs in `NODE_LIBRARY`, but Player Controls mints
+   * one port per assigned function, so its ports depend on the properties
+   * this example gave it. Asking the library alone would reject a wire the
+   * canvas accepts.
+   */
+  private inputsOf(key: string): Array<{ id: string }> {
+    const placed = this.nodes.find((node) => node.key === key)
+    if (placed?.type === 'PlayerControls') {
+      return playerControlInputs((placed.properties as Record<string, unknown> | undefined)?.controls)
+    }
+    return definition(this.typeOf(key)).inputs
+  }
+
   wire(source: string, sourceHandle: string, target: string, targetHandle: string): void {
     const sourceNode = definition(this.typeOf(source))
     const targetNode = definition(this.typeOf(target))
     if (!sourceNode.outputs.some((port) => port.id === sourceHandle)) {
       throw new Error(`${sourceNode.type}.${sourceHandle} is not an output`)
     }
-    if (!targetNode.inputs.some((port) => port.id === targetHandle)) {
+    if (!this.inputsOf(target).some((port) => port.id === targetHandle)) {
       throw new Error(`${targetNode.type}.${targetHandle} is not an input`)
     }
     this.edges.push({ source, sourceHandle, target, targetHandle })
@@ -877,7 +894,10 @@ function workflowExample(node: NodeDefinition): ReferenceLiveExample {
     case 'PlayerControls':
       builder.add('play', 'ButtonInput')
       builder.add('volume', 'PotInput')
-      builder.add('target', node.type)
+      // The node mints a port only once a control has been given that job, so
+      // an example that wires one has to have made the assignment first — the
+      // same two steps a user takes when the picker opens.
+      builder.add('target', node.type, { controls: ['playPause', 'volume'] })
       builder.add('show', 'PatternMaster')
       builder.wire('play', 'pressed', 'target', 'playPause')
       builder.wire('volume', 'value', 'target', 'volume')

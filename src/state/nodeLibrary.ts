@@ -10,6 +10,7 @@ import { DATE_TIME_TEXT_MODES } from './displayText'
 import { SEGMENT_BRIGHTNESS_MIN, SEGMENT_BRIGHTNESS_MAX, segmentControllerFor } from './segmentDisplay'
 import { partById } from './partCatalogue'
 import { SONG_INFO_PORTS } from './songInfo'
+import { playerControlInputs } from './playerControlAssignments'
 import { PATTERN_SLIDESHOW_ORDERS } from './patternSlideshow'
 import {
   OLED_ROTATIONS, OLED_TRANSPORT_PINS, OLED_I2C_ADDRESS_OPTIONS, DEFAULT_OLED_I2C_ADDRESS,
@@ -2139,28 +2140,18 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'PlayerControls',
     label: 'Player Controls',
     category: 'show',
-    inputs: [
-      { id: 'controlsIn', label: 'Controls In', dataType: 'playercontrols' },
-      { id: 'playPause', label: 'Play / Pause', dataType: 'bool' },
-      { id: 'previous', label: 'Previous', dataType: 'bool' },
-      { id: 'next', label: 'Next', dataType: 'bool' },
-      { id: 'volume', label: 'Volume', dataType: 'float' },
-      { id: 'volumeUp', label: 'Volume Up', dataType: 'bool' },
-      { id: 'volumeDown', label: 'Volume Down', dataType: 'bool' },
-      { id: 'ledToggle', label: 'LED On / Off', dataType: 'bool' },
-      { id: 'brightness', label: 'Brightness', dataType: 'float' },
-      { id: 'brightnessUp', label: 'Brightness Up', dataType: 'bool' },
-      { id: 'brightnessDown', label: 'Brightness Down', dataType: 'bool' },
-      // Choosing a pattern is a physical intent like any other here. An
-      // encoder and buttons both, because a panel may have three buttons and
-      // no encoder — the same reason `next` sits beside `volumeUp`.
-      { id: 'patternSelect', label: 'Pattern Selection', dataType: 'float' },
-      { id: 'patternPrevious', label: 'Previous Pattern', dataType: 'bool' },
-      { id: 'patternNext', label: 'Next Pattern', dataType: 'bool' },
-      { id: 'patternConfirm', label: 'Confirm', dataType: 'bool' },
-    ],
+    // The real inputs are derived from `controls`, the way a Button Bank's
+    // outputs are derived from `buttons`. This declares the bundle input and
+    // the trailing invitation; completing a connection onto that socket opens
+    // the function picker, and the choice mints a port named for it.
+    //
+    // Port ids are unchanged from when all fourteen were declared here, so the
+    // evaluator, the generators and the firmware read exactly what they read
+    // before — only whether the socket exists is new.
+    inputs: playerControlInputs([]),
     outputs: [{ id: 'controls', label: 'Controls', dataType: 'playercontrols' }],
     defaultProperties: {
+      controls: [],
       debounceMs: 30, volumeStep: 0.05, brightnessStep: 0.05,
       repeatDelayMs: 400, repeatIntervalMs: 120,
     },

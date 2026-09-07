@@ -37,11 +37,13 @@ import AudioCapabilityBody from './AudioCapabilityBody'
 import StorageCapabilityBody from './StorageCapabilityBody'
 import HardwareInputBody from './HardwareInputBody'
 import ButtonBankBody from './ButtonBankBody'
+import PlayerControlsBody from './PlayerControlsBody'
 import MidiInputBody from './MidiInputBody'
 import DmxInputBody from './DmxInputBody'
 import RtcInputBody from './RtcInputBody'
 import { pinSupports, pinWarningForCapability } from '../../state/boardGpio'
 import { buttonBankOutputs } from '../../state/buttonBank'
+import { playerControlInputs } from '../../state/playerControlAssignments'
 import { isHardwareNodeType } from '../../state/hardware'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
@@ -922,7 +924,11 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const categoryAccent = CATEGORY_ACCENT_VAR[d.category] ?? 'var(--accent-output)'
   const rawProps = d.properties as Record<string, unknown>
   const minimized = d.minimized === true
-  const inputs = (d.nodeType === 'Display' ? d.inputs ?? [] : def?.inputs ?? d.inputs ?? []) as PortDef[]
+  const inputs = (d.nodeType === 'Display'
+    ? d.inputs ?? []
+    : d.nodeType === 'PlayerControls'
+      ? playerControlInputs(rawProps.controls)
+      : def?.inputs ?? d.inputs ?? []) as PortDef[]
   const outputs = (d.nodeType === 'ButtonBank'
     ? buttonBankOutputs(rawProps.buttons)
     : d.nodeType === 'Display' ? d.outputs ?? [] : def?.outputs ?? d.outputs ?? []) as PortDef[]
@@ -1028,7 +1034,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // convention) instead of the fixed category accent every other node uses.
   const accent = isComment && isHexColor(props.color) ? props.color : categoryAccent
   const editable = Object.entries(props).filter(
-    ([k]) => k !== 'font' && k !== 'image' && k !== 'animation' && k !== 'mesh' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden' && k !== 'bypassed' && k !== 'showInMainPreview' && k !== 'profileId' && k !== 'sourceId' && k !== 'buttons' && k !== '_ledCountCustom'
+    ([k]) => k !== 'font' && k !== 'image' && k !== 'animation' && k !== 'mesh' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden' && k !== 'bypassed' && k !== 'showInMainPreview' && k !== 'profileId' && k !== 'sourceId' && k !== 'buttons' && k !== 'controls' && k !== '_ledCountCustom'
     // Pin provenance is bookkeeping, not a setting: which pins the app
     // assigned, which board for, and the user's own choices per board.
     // It was rendering as `[object Object]` rows on every hardware node.
@@ -1385,6 +1391,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
             decorative FX, so keep them available even when UI FX are off. */}
         {isHardwareInput && <HardwareInputBody nodeId={id} nodeType={d.nodeType} resetOnPress={props.resetOnPress === true} />}
         {d.nodeType === 'ButtonBank' && <ButtonBankBody nodeId={id} />}
+        {d.nodeType === 'PlayerControls' && <PlayerControlsBody nodeId={id} />}
         {d.nodeType === 'DMXInput' && <DmxInputBody nodeId={id} />}
         {d.nodeType === 'RTCInput' && <RtcInputBody nodeId={id} />}
         {showLiveNodeVisuals && d.nodeType === 'MidiInput' && <MidiInputBody note={Math.round(Number(props.note ?? 60))} cc={Math.round(Number(props.cc ?? 1))} />}

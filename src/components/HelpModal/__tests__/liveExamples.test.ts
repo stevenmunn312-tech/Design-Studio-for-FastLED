@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { NODE_LIBRARY, portsCompatible } from '../../../state/nodeLibrary'
+import { playerControlInputs } from '../../../state/playerControlAssignments'
 import {
   exampleUsesMicrophone,
   liveExampleForNode,
@@ -27,7 +28,12 @@ describe('node-reference live examples', () => {
         const sourceDefinition = NODE_LIBRARY.find((node) => node.type === source?.type)
         const targetDefinition = NODE_LIBRARY.find((node) => node.type === target?.type)
         const sourcePort = sourceDefinition?.outputs.find((port) => port.id === edge.sourceHandle)
-        const targetPort = targetDefinition?.inputs.find((port) => port.id === edge.targetHandle)
+        // Player Controls mints one port per assigned function, so its ports
+        // follow the example's own properties rather than the library entry.
+        const targetInputs = target?.type === 'PlayerControls'
+          ? playerControlInputs((target.properties as Record<string, unknown> | undefined)?.controls)
+          : targetDefinition?.inputs
+        const targetPort = targetInputs?.find((port) => port.id === edge.targetHandle)
         expect(source, `${featured.type}: missing ${edge.source}`).toBeTruthy()
         expect(target, `${featured.type}: missing ${edge.target}`).toBeTruthy()
         expect(sourcePort, `${featured.type}: ${source?.type}.${edge.sourceHandle}`).toBeTruthy()
