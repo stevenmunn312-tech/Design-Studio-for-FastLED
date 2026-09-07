@@ -2,7 +2,7 @@ import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import { displayWidgetPorts } from '../state/displayRegistry'
 import { customDisplayResourceIssues } from '../state/customDisplayResources'
-import { tftRotatedSize } from '../state/tftSurface'
+import { mountedPanelGeometry, mountedSizeIssue } from '../state/mountedDisplays'
 import { controlReferenceCpp, type ControlReference, type createControlGraph } from './controlGraph'
 import { customDisplayId } from './customDisplayId'
 import { customDisplayPanelFromProps } from './customDisplayPanelCpp'
@@ -45,10 +45,11 @@ export function customDisplayControlPlan(
     if (symbols.has(id)) errors.push(`${label}: display identifiers collide after sanitization. Recreate this display.`)
     symbols.add(id)
     const panel = { ...customDisplayPanelFromProps(customDisplayId(panelNode.id), panelNode.data.properties), manualTouch: true }
-    const size = tftRotatedSize(panel.controller, panel.rotation)
-    if (size.width !== document.designSize.width || size.height !== document.designSize.height) {
-      errors.push(`${label}: the screen document size does not match the mounted display. Open the display editor and resize it for this module and orientation.`)
-    }
+    // The panel states the size; the document is what has to match it. Shared
+    // with deploy validation so a normal sketch reports the same mismatch this
+    // template refuses to build.
+    const issue = mountedSizeIssue(label, mountedPanelGeometry(panelNode.data.properties), document.designSize)
+    if (issue) errors.push(issue)
     errors.push(...customDisplayResourceIssues(document).map((issue) => `${label}: ${issue.message}`))
     const bindings: Record<string, CustomDisplayLvglBinding[]> = Object.create(null)
     const emit: CustomDisplayLvglEmit = { id, document, bindings }

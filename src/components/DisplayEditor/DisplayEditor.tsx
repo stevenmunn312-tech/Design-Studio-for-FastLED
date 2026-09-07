@@ -65,6 +65,7 @@ import {
   displayThemePreset,
 } from '../../state/displayThemePresets'
 import { resolvedDisplayControlValue, useDisplayRuntimeStore } from '../../state/displayRuntimeStore'
+import { mountedPanelGeometry, panelsShowingDocument } from '../../state/mountedDisplays'
 import { useUiStore } from '../../state/uiStore'
 import DisplayWidgetPreview from './DisplayWidgetPreview'
 import {
@@ -698,12 +699,32 @@ export default function DisplayEditor() {
       : 'Design mode active. Touch controls are locked for editing.')
   }
 
+  /*
+   * Orientation is the *panel's* property, not the document's.
+   *
+   * Before the panel/document split this wrote `tftRotation` onto the `Display`
+   * node, where nothing read it — so turning a design landscape left it
+   * attached to a portrait panel and only a template build said so. Now the
+   * connected panels are rotated and the design is sized from what they then
+   * present, in one undoable action. An unmounted document has no panel to ask,
+   * so it keeps swapping its own edges until something is plugged into it.
+   */
   const setDisplayOrientation = (orientation: Extract<DisplayOrientation, '0' | '90'>) => {
+    const state = useGraphStore.getState()
+    const panels = displayId
+      ? panelsShowingDocument(displayId, rootGraphNodes(state), rootGraphEdges(state))
+      : []
+    for (const panel of panels) updateNodeProperty(panel.id, 'tftRotation', orientation)
+    const mounted = panels[0]
+      ? mountedPanelGeometry({ ...panels[0].data.properties, tftRotation: orientation })
+      : null
     const shortEdge = Math.min(document.designSize.width, document.designSize.height)
     const longEdge = Math.max(document.designSize.width, document.designSize.height)
-    const designSize = orientation === '0'
-      ? { width: shortEdge, height: longEdge }
-      : { width: longEdge, height: shortEdge }
+    const designSize = mounted
+      ? { width: mounted.width, height: mounted.height }
+      : orientation === '0'
+        ? { width: shortEdge, height: longEdge }
+        : { width: longEdge, height: shortEdge }
     const resized = resizeDisplayDocument(document, designSize, orientation)
     const background = resized.theme.background
     const [category, themeId] = background.kind === 'image' ? background.assetId.split(':') : []
@@ -713,11 +734,6 @@ export default function DisplayEditor() {
     const next = matchingBackground
       ? { ...resized, theme: { ...resized.theme, background: { kind: 'image' as const, assetId: matchingBackground.id } } }
       : resized
-    const displayNode = rootGraphNodes(useGraphStore.getState()).find((node) => (
-      node.data.nodeType === 'Display'
-      && String(node.data.properties.displayId ?? node.id) === displayId
-    ))
-    if (displayNode) updateNodeProperty(displayNode.id, 'tftRotation', orientation)
     if (editorMode === 'run') setMode('design')
     commit(next, `${orientation === '0' ? 'Portrait' : 'Landscape'} view applied at ${designSize.width} × ${designSize.height}.`)
   }

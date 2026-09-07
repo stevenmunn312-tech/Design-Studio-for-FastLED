@@ -3739,13 +3739,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     touchYMin: { control: 'slider', min: 0, max: 4095, step: 1 },
     touchYMax: { control: 'slider', min: 0, max: 4095, step: 1 },
   },
-  Display: {
-    tftRotation: { control: 'select', options: ['0', '90', '180', '270'] },
-    touchXMin: { control: 'slider', min: 0, max: 4095, step: 1 },
-    touchXMax: { control: 'slider', min: 0, max: 4095, step: 1 },
-    touchYMin: { control: 'slider', min: 0, max: 4095, step: 1 },
-    touchYMax: { control: 'slider', min: 0, max: 4095, step: 1 },
-  },
   InfoDisplay: {
     oledRotation: { control: 'select', options: OLED_ROTATIONS },
     // Hex, because that is what the module's silkscreen and its datasheet

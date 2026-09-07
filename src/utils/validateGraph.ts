@@ -35,6 +35,7 @@ import { CUSTOM_DISPLAY_LVGL_HEAP_BYTES } from '../codegen/customDisplayLvglCpp'
 import { customDisplayRamBytes } from '../codegen/customDisplayRam'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import { showControlRouting, showControlOutputIds } from '../codegen/showControlRouting'
+import { mountedCustomDisplays, mountedSizeIssue } from '../state/mountedDisplays'
 import { asTransportDisplayLayout } from '../state/transportDisplay'
 import {
   findPinCollisions, findI2cAddressCollisions, pinCollisionMessage,
@@ -1581,7 +1582,21 @@ export function findDisplayGeneratorIssues(
   // up below as unresolved ports and as a transport a Controls wire can reach,
   // not as a generator that leaves the part dark.
   errors.push(...splitI2cBusErrors(nodes))
-  errors.push(...(templateControls?.custom.errors ?? []))
+
+  // Geometry belongs to the panel, so every build path asks the panel — a
+  // normal sketch had no equivalent check at all and emitted a landscape
+  // design onto a portrait panel without a word. The template plan resolves
+  // this through the same helper, so its copy of the message is dropped rather
+  // than reported twice.
+  for (const mounted of mountedCustomDisplays(nodes, edges)) {
+    const document = displayDocuments?.[mounted.documentId]
+    if (!document) continue
+    const issue = mountedSizeIssue(nodeLabel(mounted.document), mounted.geometry, document.designSize)
+    if (issue) errors.push(issue)
+  }
+  for (const issue of templateControls?.custom.errors ?? []) {
+    if (!errors.includes(issue)) errors.push(issue)
+  }
 
   // The outputs this show renders, resolved once for every panel below.
   const renderedShowOutputs = generator === 'show' ? showControlOutputIds(nodes, edges) : null

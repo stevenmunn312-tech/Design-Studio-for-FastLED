@@ -5,7 +5,8 @@ import { createDisplayDocument } from '../../../state/displayEditor'
 import { useGraphStore } from '../../../state/graphStore'
 import { useDisplayRuntimeStore } from '../../../state/displayRuntimeStore'
 import { useUiStore } from '../../../state/uiStore'
-import type { StudioNode } from '../../../state/graphStore'
+import { NODE_LIBRARY, libraryDefaults } from '../../../state/nodeLibrary'
+import type { StudioEdge, StudioNode } from '../../../state/graphStore'
 
 describe('DisplayEditor', () => {
   beforeEach(() => {
@@ -191,17 +192,26 @@ describe('DisplayEditor', () => {
     expect(view.getByRole('button', { name: /Progress, Progress. Position/ }).getAttribute('data-widget-type')).toBe('Progress')
   })
 
-  it('switches the display between portrait and landscape while retaining a valid layout', () => {
+  const libraryNode = (id: string, nodeType: string, properties: Record<string, unknown>): StudioNode => {
+    const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)!
+    return { id, type: 'studioNode', position: { x: 0, y: 0 }, data: {
+      label: definition.label, nodeType, category: definition.category,
+      properties: { ...libraryDefaults(nodeType), ...properties },
+      inputs: definition.inputs, outputs: definition.outputs,
+    } } as unknown as StudioNode
+  }
+  const documentNode = () => libraryNode('screen', 'Display', { displayId: 'panel' })
+  const panelNode = () => libraryNode('tft', 'TransportDisplay', {
+    partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0',
+  })
+
+  const mountEdge = {
+    id: 'mount', source: 'screen', sourceHandle: 'customDisplay', target: 'tft', targetHandle: 'customDisplay',
+  } as unknown as StudioEdge
+
+  it('switches an unmounted design between portrait and landscape, retaining a valid layout', () => {
     useGraphStore.getState().setDisplayDocument(createDisplayDocument('panel', 240, 320))
-    useGraphStore.setState({
-      nodes: [{
-        id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
-        data: {
-          label: 'Custom Display', nodeType: 'Display', category: 'output',
-          properties: { displayId: 'panel', tftRotation: '0' }, inputs: [], outputs: [],
-        },
-      } as unknown as StudioNode],
-    })
+    useGraphStore.setState({ nodes: [documentNode()] })
     const view = render(<DisplayEditor />)
     fireEvent.click(view.getByRole('button', { name: 'Insert LED Performance template' }))
     fireEvent.click(view.getByRole('button', { name: 'Landscape' }))
@@ -209,11 +219,37 @@ describe('DisplayEditor', () => {
     expect(useGraphStore.getState().displayDocuments.panel).toMatchObject({
       designSize: { width: 320, height: 240 }, orientation: '90',
     })
-    expect(useGraphStore.getState().nodes.find((node) => node.id === 'screen')?.data.properties.tftRotation).toBe('90')
     expect(view.getByText('320 × 240')).toBeTruthy()
     expect(view.getByRole('status', { name: 'Display validation status' }).textContent).toContain('Layout valid.')
 
     fireEvent.click(view.getByRole('button', { name: 'Portrait' }))
+    expect(useGraphStore.getState().displayDocuments.panel).toMatchObject({
+      designSize: { width: 240, height: 320 }, orientation: '0',
+    })
+  })
+
+  /*
+   * Rotation belongs to the panel. Writing it onto the document — which is what
+   * this used to do — left a landscape design attached to a portrait panel,
+   * because nothing reads a document's `tftRotation`.
+   */
+  it('rotates the panel a mounted design is plugged into, and sizes the design from it', () => {
+    useGraphStore.getState().setDisplayDocument(createDisplayDocument('panel', 240, 320))
+    useGraphStore.setState({ nodes: [documentNode(), panelNode()], edges: [mountEdge] })
+    const view = render(<DisplayEditor />)
+    fireEvent.click(view.getByRole('button', { name: 'Landscape' }))
+
+    const panel = () => useGraphStore.getState().nodes.find((node) => node.id === 'tft')
+    expect(panel()?.data.properties.tftRotation).toBe('90')
+    expect(useGraphStore.getState().displayDocuments.panel).toMatchObject({
+      designSize: { width: 320, height: 240 }, orientation: '90',
+    })
+    // The document node keeps no physical property of its own.
+    expect(useGraphStore.getState().nodes.find((node) => node.id === 'screen')?.data.properties.tftRotation)
+      .toBeUndefined()
+
+    fireEvent.click(view.getByRole('button', { name: 'Portrait' }))
+    expect(panel()?.data.properties.tftRotation).toBe('0')
     expect(useGraphStore.getState().displayDocuments.panel).toMatchObject({
       designSize: { width: 240, height: 320 }, orientation: '0',
     })
