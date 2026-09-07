@@ -651,7 +651,11 @@ export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
     const b = display.browser
     const stem = b?.tableStem ?? display.id
     const sel = b?.selVar ?? `_sel_${display.id}`
-    const count = `THUMB_COUNT_${stem}`
+    // How many patterns there are, which is the name table — not how many were
+    // pictured. Gating on the thumbnail count made a collection too large to
+    // bake (or one nobody trusted) report NO PATTERNS while its names sat in
+    // flash beside it, which is the coupling splitting the tables removed.
+    const count = `PATTERN_NAME_COUNT_${stem}`
     const g = browserGeometry(width, height)
     lines.push(
       // No _selUpdate here. The player advances the selection, from the
@@ -662,7 +666,12 @@ export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
       `      } else {`,
       `        uint16_t _oledSel_${display.id} = ${sel}.highlight;`,
       // Every coordinate from BROWSER_LAYOUT rather than written out again.
-      `        _oledThumb(${p}, ${g.thumb.x}, ${g.thumb.y}, ` +
+      // An empty frame where a picture would be: a pattern that was named but
+      // not baked reads as a missing picture rather than as one of the several
+      // that legitimately render black.
+      `        if (THUMB_COUNT_${stem} == 0) _oledThumbMissing(${p}, ${g.thumb.x}, ${g.thumb.y}, ` +
+        `THUMB_W_${stem}, THUMB_H_${stem});`,
+      `        else _oledThumb(${p}, ${g.thumb.x}, ${g.thumb.y}, ` +
         `THUMB_W_${stem}, THUMB_H_${stem}, _thumbByte_${stem}, _oledSel_${display.id});`,
       `        char _oledName_${display.id}[40];`,
       `        _patName_${stem}_read(_oledName_${display.id}, sizeof(_oledName_${display.id}), _oledSel_${display.id});`,

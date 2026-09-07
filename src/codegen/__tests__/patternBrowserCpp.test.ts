@@ -166,9 +166,15 @@ describe('the emitted layout', () => {
     expect(src).toContain('THUMB_COUNT_shared')
   })
 
-  it('says so rather than drawing an empty frame for an empty collection', () => {
-    expect(loop()).toContain('if (THUMB_COUNT_br == 0)')
+  // "NO PATTERNS" means the collection is empty, not that nobody baked it.
+  // Gating on the picture count made an unbaked or over-budget collection
+  // report nothing to show while its names sat in flash beside it.
+  it('says so for an empty collection, and draws a blank frame for an unbaked one', () => {
+    expect(loop()).toContain('if (PATTERN_NAME_COUNT_br == 0)')
     expect(loop()).toContain('"NO PATTERNS"')
+    expect(loop()).toContain('if (THUMB_COUNT_br == 0) _oledThumbMissing(')
+    expect(loop()).toContain('else _oledThumb(')
+    expect(loop()).toContain('(unsigned)PATTERN_NAME_COUNT_br')
   })
 
   // The split is invisible unless the panel shows it, and a panel describing
