@@ -508,7 +508,7 @@ function showDisplaysCpp(
     segmentRemap: display.segmentRemap,
     comScan: display.comScan,
     layout: display.layout,
-    enabledExpr: display.enabled ? 'true' : 'false',
+    enabledExpr: display.enabledExpr,
     titleExpr: display.sources.title ?? null,
     line2Expr: display.sources.line2 ?? null,
     valueExpr: display.sources.value ?? '0.0f',
@@ -536,7 +536,7 @@ function showDisplaysCpp(
     showColon: display.showColon,
     valueExpr: display.sources.value ?? '0.0f',
     dateTimeExpr: null,
-    enabledExpr: display.enabled ? 'true' : 'false',
+    enabledExpr: display.enabledExpr,
   }))
 
   const tftEmits: TftDisplayEmit[] = displays.tft.map((display) => ({
@@ -550,7 +550,7 @@ function showDisplaysCpp(
     sckPin: display.sckPin,
     mosiPin: display.mosiPin,
     backlightPin: display.backlightPin,
-    enabledExpr: display.enabled ? 'true' : 'false',
+    enabledExpr: display.enabledExpr,
     // A show has no RTC-in-template path yet, so a Clock-kind wire stays
     // unresolved here the same way it already is for the OLED beside it — see
     // playerDisplays.ts's `kinds`.
@@ -595,7 +595,7 @@ function showDisplaysCpp(
       controller: display.controller,
       rotation: display.rotation,
       layout: display.layout,
-      enabled: display.enabled,
+      enabledExpr: `_tftOn_${safeId(display.id)}`,
       touch: display.touch!,
     }))
   const touchBundleIds = new Set([...controls.touchIds].map(safeId))
@@ -994,6 +994,8 @@ export function generateShowSketch(
   L.push(...customDisplays.sample)
   L.push(...controlGraph.loop)
   for (const control of controls.controls) L.push(...playerControlsServiceCpp(control))
+  // After the control graph, which is where a wired Enabled acquires a value.
+  L.push(...customDisplays.enable)
   for (const [id, variable] of controls.outputs) L.push(...ledOutputLatchCpp({ id: safeId(id), controls: variable }))
   // Pattern intent lands on the cursor before anything renders, so a confirmed
   // pattern is the one this pass draws rather than the next one.

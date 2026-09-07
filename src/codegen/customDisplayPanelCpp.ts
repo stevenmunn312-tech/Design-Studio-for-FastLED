@@ -66,6 +66,14 @@ export interface CustomDisplayPanelEmit {
   touch?: CustomDisplayPanelTouch
   /** Template controllers sample touch explicitly before evaluating controls. */
   manualTouch?: boolean
+  /**
+   * Runtime gate, from the panel's Enabled property or the wire feeding it.
+   *
+   * A disabled panel is still built and still initialised — it is fitted
+   * hardware either way — but it is dark, reads no touch and rests its widget
+   * outputs, exactly as a disabled fixed layout is. Defaults to always on.
+   */
+  enabledExpr?: string
 }
 
 export function customDisplayPanelFromProps(id: string, p: Record<string, unknown>): CustomDisplayPanelEmit {
@@ -110,6 +118,12 @@ export function customDisplayPanelGlobalCpp(emit: CustomDisplayPanelEmit): strin
     `static SPISettings _cdPanelSpi_${id}(40000000, MSBFIRST, SPI_MODE0);`,
     `static lv_display_t *_cdDisp_${id} = nullptr;`,
     `static uint8_t _cdPanelBuf_${id}[${bufPixels} * 2];`,
+    // File scope, not a loop local: touch sampling and widget-output snapshots
+    // both read it, and both run before the point in the pass where a wired
+    // Enabled has a value. They therefore see the previous pass's state on the
+    // one frame it changes, which is the cost of evaluating the expression
+    // once rather than in three places that could disagree.
+    `static bool _cdPanelOn_${id} = ${emit.enabledExpr === 'false' ? 'false' : 'true'};`,
   ]
   if (emit.touch) {
     lines.push(`static lv_indev_t *_cdIndev_${id} = nullptr;`)
@@ -192,6 +206,7 @@ function panelIndevCpp(emit: CustomDisplayPanelEmit): string {
   const t = emit.touch
   return `static void _cdIndevRead_${id}(lv_indev_t *indev, lv_indev_data_t *data) {
   int16_t x = 0, y = 0; uint16_t rawX = 0, rawY = 0;
+  if (!_cdPanelOn_${id}) { data->state = LV_INDEV_STATE_RELEASED; return; }
   bool pressed = _xptPoint(${t.csPin}, ${t.irqPin}, ${t.sckPin}, ${t.mosiPin}, ${t.misoPin}, `
     + `${t.xMin}, ${t.xMax}, ${t.yMin}, ${t.yMax}, `
     + `${emit.controller.width}, ${emit.controller.height}, ${rotationCode(emit.rotation)}, x, y, rawX, rawY);
@@ -207,6 +222,31 @@ function panelIndevCpp(emit: CustomDisplayPanelEmit): string {
  * so there is nothing here two custom displays could share. */
 export function customDisplayPanelHelpersCpp(emit: CustomDisplayPanelEmit): string {
   return [panelBusCpp(emit), panelFlushCpp(emit), panelIndevCpp(emit)].filter(Boolean).join('\n')
+}
+
+/**
+ * Apply the panel's Enabled state, once per pass.
+ *
+ * Backlight only, and only on a change: the panel keeps its last image while
+ * dark, so re-enabling shows what was there rather than a blank screen waiting
+ * for the next redraw. Skipping the LVGL bindings while off is what stops
+ * anything being invalidated, so a dark panel costs no SPI traffic either.
+ */
+export function customDisplayPanelEnableCpp(emit: CustomDisplayPanelEmit): string[] {
+  const id = emit.id
+  const expression = emit.enabledExpr ?? 'true'
+  // A constant is the latch's initial value already, so there is nothing to
+  // re-decide every pass.
+  if (expression === 'true' || expression === 'false') return []
+  return [
+    `  { // ${id} enabled`,
+    `    bool _cdOn_${id} = ${expression};`,
+    `    if (_cdOn_${id} != _cdPanelOn_${id}) {`,
+    `      _cdPanelOn_${id} = _cdOn_${id};`,
+    `      if (_cdPanel_${id}.bl != 255) digitalWrite(_cdPanel_${id}.bl, _cdOn_${id} ? HIGH : LOW);`,
+    `    }`,
+    `  }`,
+  ]
 }
 
 /**
@@ -256,7 +296,7 @@ export function customDisplayPanelSetupCpp(emit: CustomDisplayPanelEmit): string
     `  _cdPanelCmd_${id}(${emit.controller.invert ? '0x21' : '0x20'});`, // INVON / INVOFF
     `  _cdPanelCmd_${id}(0x13); delay(10);`, // NORON
     `  _cdPanelCmd_${id}(0x29); delay(100);`, // DISPON
-    `  if (_cdPanel_${id}.bl != 255) digitalWrite(_cdPanel_${id}.bl, HIGH);`,
+    `  if (_cdPanel_${id}.bl != 255) digitalWrite(_cdPanel_${id}.bl, _cdPanelOn_${id} ? HIGH : LOW);`,
     ``,
     `  _cdDisp_${id} = lv_display_create(${size.width}, ${size.height});`,
     `  lv_display_set_default(_cdDisp_${id});`,

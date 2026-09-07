@@ -11,6 +11,9 @@ import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import { customDisplayControlPlan, bindCustomDisplayControls } from './customDisplayControlGraph'
 
 const safeId = (id: string) => id.replace(/[^a-zA-Z0-9_]/g, '_')
+
+/** The panels whose typed inputs a template resolves through the control graph. */
+const DISPLAY_NODE_TYPES = new Set(['TransportDisplay', 'InfoDisplay', 'SegmentDisplay'])
 export const controlBundleVariable = (id: string) => `n_${safeId(id)}_controls`
 
 /**
@@ -134,21 +137,28 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
     const variable = visit(edge)
     if (variable) bundles.set(id, variable)
   }
-  for (const node of nodes.filter((n) => n.data.nodeType === 'TransportDisplay')) {
+  // Enabled is a control wire like any other now: the panel keeps one latch,
+  // written where its expression is evaluable and read by the drawing, touch
+  // and output-rest that a disabled panel has to skip. Refusing the wire here
+  // while a normal sketch honoured it meant the same graph meant two things.
+  for (const node of nodes.filter((n) => DISPLAY_NODE_TYPES.has(n.data.nodeType))) {
     // Read the library's typed ports, including graphs loaded without copied
     // instance metadata. Pattern selection remains the template's own cursor.
     const ports = NODE_LIBRARY.find((def) => def.type === node.data.nodeType)!.inputs
     for (const port of ports) {
       if (!incoming.has(`${node.id}:${port.id}`) || port.dataType === 'patternselect') continue
-      if (port.id === 'enabled') {
-        errors.add(`${label(node.id)}: ${context.label} cannot yet apply a wired Enabled value to touch sampling. Use the panel's Enabled setting.`)
-        continue
-      }
       if (port.dataType !== 'float' && port.dataType !== 'bool' && port.dataType !== 'string') continue
       const reference = graph.input(node.id, port.id, port.dataType)
       if (reference) displaySources.set(`${node.id}:${port.id}`, controlReferenceCpp(reference))
       else unsupported(node.id, port.id)
     }
+  }
+  // A wired Enabled reaching a custom panel becomes that panel's gate. Done
+  // here rather than in the plan because the plan is built before the control
+  // graph exists — it supplies the graph's widget sources.
+  for (const display of custom.displays) {
+    const wired = displaySources.get(`${display.panelNodeId}:enabled`)
+    if (wired) display.panel.enabledExpr = wired
   }
   // Keep the consumer in the headline and retain the typed cause (cycle,
   // invalid handle, limits) for an actionable error from either entry point.

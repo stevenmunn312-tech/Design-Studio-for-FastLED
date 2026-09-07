@@ -666,7 +666,13 @@ export interface TftDisplayEmit {
 }
 
 export function tftDisplayGlobalCpp(display: TftDisplayEmit): string {
-  return `static TftPanel _tft_${display.id};`
+  // The enable latch is file scope rather than a loop local because touch
+  // sampling reads it, and touch is sampled before this panel's own loop lines
+  // run. Reading last pass's value on the frame Enabled changes is the cost;
+  // the alternative is evaluating a graph expression twice per pass in two
+  // places, which is how the two would come to disagree.
+  return `static TftPanel _tft_${display.id};
+static bool _tftOn_${display.id} = true;`
 }
 
 export function tftDisplaySetupCpp(display: TftDisplayEmit): string[] {
@@ -1027,7 +1033,7 @@ export function tftDisplayLoopCpp(display: TftDisplayEmit): string[] {
 
   return [
     `  { // Transport Display`,
-    `    bool _tftOn_${id} = ${display.enabledExpr};`,
+    `    _tftOn_${id} = ${display.enabledExpr};`,
     `    _tftBacklight(_tft_${id}, _tftOn_${id});`,
     `    bool _tftFull_${id} = false;`,
     `    if (_tftOn_${id} && _tftPaint(_tft_${id}, _tftFull_${id})) {`,

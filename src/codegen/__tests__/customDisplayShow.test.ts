@@ -94,15 +94,35 @@ describe('custom displays in generative shows', () => {
     expect(hub).toContain('setBrightness8')
   })
 
-  it('publishes rest values without sampling or refreshing a disabled display', () => {
+  /*
+   * Off means the same thing here as in a normal sketch: dark, no touch,
+   * outputs at rest. It used to mean "not in the firmware at all", which made
+   * Enabled a build switch in this generator and a runtime one in the other,
+   * and left a wired Enabled with nothing to switch.
+   */
+  it('builds a disabled display but holds it dark, untouched and at rest', () => {
     const cpp = generate(
       [screen('screen'), panel('tft', { enabled: false })],
       [link('screen', 'tft'), edge('screen', 'widget:slider:out', 'out', 'brightness')],
       { screen: document() },
     )
-    expect(cpp).toContain('float n_screen_widget_slider_out = 0.0f;')
-    expect(cpp).not.toContain('lv_indev_read(')
-    expect(cpp).not.toContain('lv_init();')
+    expect(cpp).toContain('static bool _cdPanelOn_tft = false;')
+    expect(cpp).toContain('float n_screen_widget_slider_out = _cdPanelOn_tft ? (_cdFloatOutput')
+    expect(cpp).toContain('if (_cdPanel_tft.bl != 255) digitalWrite(_cdPanel_tft.bl, _cdPanelOn_tft ? HIGH : LOW);')
+    expect(cpp).toContain('if (_cdPanelOn_tft) lv_indev_read(_cdIndev_tft);')
+    expect(cpp).toContain('lv_init();')
+  })
+
+  // A wire is the same signal as the property, so it reaches the same latch —
+  // this template used to refuse it outright while a normal sketch honoured it.
+  it('takes a wired Enabled as the panel gate', () => {
+    const cpp = generate(
+      [screen('screen'), panel('tft'), node('toggle', 'ButtonInput', { pin: 12 })],
+      [link('screen', 'tft'), edge('toggle', 'pressed', 'tft', 'enabled')],
+      { screen: document() },
+    )
+    expect(cpp).toContain('_cdPanelOn_tft = _cdOn_tft;')
+    expect(cpp).toContain('if (_cdPanelOn_tft) lv_indev_read(_cdIndev_tft);')
   })
 
   it('requires prepared assets and emits their actual PROGMEM bytes', () => {

@@ -146,7 +146,11 @@ describe('the emitted driver', () => {
 
 describe('setup', () => {
   it('declares one panel per node', () => {
-    expect(tftDisplayGlobalCpp(emit())).toBe('static TftPanel _tft_tft1;')
+    // The panel and its enable latch: touch sampling reads the latch, and it
+    // runs before this panel's own loop lines, so it cannot be a loop local.
+    expect(tftDisplayGlobalCpp(emit())).toBe(
+      ['static TftPanel _tft_tft1;', 'static bool _tftOn_tft1 = true;'].join('\n'),
+    )
   })
 
   it('hands the driver the pins the node was given', () => {

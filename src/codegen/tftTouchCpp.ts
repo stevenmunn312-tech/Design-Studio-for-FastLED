@@ -15,7 +15,8 @@ export interface TftTouchEmit {
   controller: TftController
   rotation: TftRotation
   layout: TransportDisplayLayout
-  enabled: boolean
+  /** Runtime gate: a disabled panel reads no touch, as it draws nothing. */
+  enabledExpr: string
   touch: {
     csPin: number; irqPin: number; sckPin: number; mosiPin: number; misoPin: number
     xMin: number; xMax: number; yMin: number; yMax: number
@@ -137,7 +138,7 @@ export function tftTouchServiceCpp(
   const regions = transportTouchRegions(display.controller, display.rotation, display.layout)
   const lines = [
     `  {`,
-    `    ${down} = ${display.enabled ? '' : 'false && '}_xptPoint(${t.csPin}, ${t.irqPin}, ${t.sckPin}, ${t.mosiPin}, ${t.misoPin}, `
+    `    ${down} = (${display.enabledExpr}) && _xptPoint(${t.csPin}, ${t.irqPin}, ${t.sckPin}, ${t.mosiPin}, ${t.misoPin}, `
       + `${t.xMin}, ${t.xMax}, ${t.yMin}, ${t.yMax}, ${display.controller.width}, ${display.controller.height}, ${rotation}, ${pointX}, ${pointY}, ${rawX}, ${rawY});`,
     `    static bool _touchPrev_${id} = false;`,
   ]

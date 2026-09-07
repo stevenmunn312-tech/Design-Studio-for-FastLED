@@ -72,6 +72,8 @@ export interface PlayerInfoDisplay {
   segmentRemap: number
   comScan: number
   enabled: boolean
+  /** Runtime gate: the wire feeding Enabled, or the property as a constant. */
+  enabledExpr: string
   /** Port id -> C++ expression, for the ports this sketch can honour. */
   sources: Record<string, string>
 }
@@ -88,6 +90,8 @@ export interface PlayerSegmentDisplay {
   brightness: number
   showColon: boolean
   enabled: boolean
+  /** Runtime gate: the wire feeding Enabled, or the property as a constant. */
+  enabledExpr: string
   sources: Record<string, string>
 }
 
@@ -123,6 +127,8 @@ export interface PlayerTransportDisplay {
     yMax: number
   }
   enabled: boolean
+  /** Runtime gate: the wire feeding Enabled, or the property as a constant. */
+  enabledExpr: string
   sources: Record<string, string>
 }
 
@@ -310,6 +316,11 @@ export function playerDisplaysFromGraph(
   options: TemplateDisplayOptions = {},
 ): PlayerDisplays {
   const expressions = options.expressions ?? PLAYER_SONG_EXPRESSIONS
+  // The panel's Enabled: the wire when one is resolved, the property when not.
+  // One expression per panel, so drawing, touch and output-rest cannot each
+  // decide separately whether the screen is on.
+  const enabledExprFor = (id: string, props: Record<string, unknown>) =>
+    options.controlSources?.get(`${id}:enabled`) ?? (props.enabled !== false ? 'true' : 'false')
   const kinds = options.kinds ?? ['player']
   const transportTouch = options.transportTouch !== false
   const byId = new Map(nodes.map((node) => [node.id, node]))
@@ -358,6 +369,7 @@ export function playerDisplaysFromGraph(
         segmentRemap: rotation.segmentRemap,
         comScan: rotation.comScan,
         enabled: props.enabled !== false,
+        enabledExpr: enabledExprFor(node.id, props),
         sources,
       })
       continue
@@ -420,6 +432,7 @@ export function playerDisplaysFromGraph(
           }
           : null,
         enabled: props.enabled !== false,
+        enabledExpr: enabledExprFor(node.id, props),
         sources,
       })
       continue
@@ -447,6 +460,7 @@ export function playerDisplaysFromGraph(
         brightness: clampSegmentBrightness(props.brightness, controller),
         showColon: props.showColon !== false && controller.hasColon,
         enabled: props.enabled !== false,
+        enabledExpr: enabledExprFor(node.id, props),
         sources,
       })
     }

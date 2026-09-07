@@ -198,6 +198,38 @@ describe('normal-sketch codegen for the custom Display node', () => {
     expect(cpp).toContain('lv_indev_set_mode(_cdIndev_tft, LV_INDEV_MODE_EVENT);')
   })
 
+  /*
+   * Enabled reached the fixed layouts and stopped at the custom arm, so
+   * turning a custom screen off produced byte-for-byte identical firmware.
+   * Off now means what it means everywhere else: dark, no touch, outputs at
+   * rest — and the panel is still built, so it can be turned back on.
+   */
+  it('holds a disabled panel dark, untouched and at rest', () => {
+    const on = generateCpp([output, panel(), doc()], [link()], {}, { displayDocuments: documents })
+    const off = generateCpp([output, panel('tft', { enabled: false }), doc()], [link()], {}, { displayDocuments: documents })
+    expect(off).not.toEqual(on)
+    expect(off).toContain('static bool _cdPanelOn_tft = false;')
+    expect(off).toContain('if (_cdPanel_tft.bl != 255) digitalWrite(_cdPanel_tft.bl, _cdPanelOn_tft ? HIGH : LOW);')
+    expect(off).toContain('if (_cdPanelOn_tft) lv_indev_read(_cdIndev_tft);')
+    expect(off).toContain('bool n_screen_widget_toggle_out = _cdPanelOn_tft ? (_cdBoolOutput')
+    // Still built, so re-enabling has something to switch on.
+    expect(off).toContain('lv_init();')
+    // An always-on panel pays nothing for the gate.
+    expect(on).toContain('static bool _cdPanelOn_tft = true;')
+    expect(on).toContain('  lv_indev_read(_cdIndev_tft);')
+    expect(on).toContain('bool n_screen_widget_toggle_out = _cdBoolOutput')
+  })
+
+  // The wire is the same signal as the property, and reaches the same latch.
+  it('takes a wired Enabled as the panel gate', () => {
+    const button = node('btn', 'ButtonInput', { pin: 12 }, { outputs: [{ id: 'pressed', label: 'Pressed', dataType: 'bool' }] })
+    const src = generateCpp([output, panel(), doc(), button],
+      [link(), edge('gate', 'btn', 'pressed', 'tft', 'enabled')], {}, { displayDocuments: documents })
+    expect(src).toContain('_cdPanelOn_tft = _cdOn_tft;')
+    expect(src).toContain('if (_cdPanelOn_tft) lv_indev_read(_cdIndev_tft);')
+    expect(src).toContain('bool n_screen_widget_toggle_out = _cdPanelOn_tft ? (_cdBoolOutput')
+  })
+
   it('keeps one widget snapshot across native output passes and cross-screen feedback', () => {
     const otherPanel = panel('other-tft')
     const otherDoc = doc('other', 'panel')

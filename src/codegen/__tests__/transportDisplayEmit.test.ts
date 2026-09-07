@@ -160,8 +160,8 @@ describe('what the loop draws', () => {
   })
 
   it('switches the panel from a wired enable rather than the property', () => {
-    expect(build({ enabled: false })).toContain('bool _tftOn_tft = false;')
-    expect(build({ enabled: true })).toContain('bool _tftOn_tft = true;')
+    expect(build({ enabled: false })).toContain('_tftOn_tft = false;')
+    expect(build({ enabled: true })).toContain('_tftOn_tft = true;')
   })
 })
 

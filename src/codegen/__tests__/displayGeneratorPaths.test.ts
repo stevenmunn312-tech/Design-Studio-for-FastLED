@@ -76,7 +76,7 @@ function expectFixedDisplaySupport(source: string): void {
   expect(source).toContain('_oledClear(_oled_oled);')
   expect(source).toContain('_segWrite(_seg_segment, _segBuf_segment')
   expect(source).toContain('_tftBacklight(_tft_tft, _tftOn_tft);')
-  expect(source).toContain('_touchDown_tft = _xptPoint(')
+  expect(source).toContain('_touchDown_tft = (_tftOn_tft) && _xptPoint(')
 }
 
 const groups: GroupRegistry = {

@@ -101,7 +101,7 @@ describe('fixed touch routing in generative shows', () => {
   it('keeps read-only panels idle, disabled panels inert and Diagnostics sampling', () => {
     expect(build([panel(), output()], [])).not.toContain('_xptPoint(')
     const disabled = build([panel({ enabled: false }), output()], [direct])
-    expect(disabled).toContain('_touchDown_touch_panel = false && _xptPoint(')
+    expect(disabled).toContain('_touchDown_touch_panel = (_tftOn_touch_panel) && _xptPoint(')
     const diagnostic = build([panel({ tftLayout: 'Diagnostics' }), output()], [])
     expect(diagnostic).toContain('_xptPoint(')
     expect(diagnostic).not.toContain('PlayerControlsValue')

@@ -8,6 +8,26 @@ import { customDisplayId } from './customDisplayId'
 import { customDisplayPanelFromProps } from './customDisplayPanelCpp'
 import { customDisplayLvglOutputExpression, type CustomDisplayLvglEmit, type CustomDisplayLvglBinding } from './customDisplayLvglCpp'
 
+/** One widget output snapshot, before it is known whether it needs a gate. */
+export interface CustomDisplaySample {
+  type: 'bool' | 'float'
+  variable: string
+  expression: string
+}
+
+/**
+ * A widget output as the sketch reads it, at rest when the panel is off.
+ *
+ * A control nobody can touch reports its rest value rather than the position a
+ * finger left it in — the same thing a disabled fixed layout does by drawing
+ * nothing and reading no touch.
+ */
+export function customDisplaySampleCpp(sample: CustomDisplaySample, gate: string | null): string {
+  const rest = sample.type === 'bool' ? 'false' : '0.0f'
+  const value = gate ? `${gate} ? (${sample.expression}) : ${rest}` : sample.expression
+  return `  ${sample.type} ${sample.variable} = ${value};`
+}
+
 /**
  * Resolve against the document registry, never stale/copied node handles.
  * Widget outputs are samples independent of Set inputs, including feedback
@@ -27,7 +47,7 @@ export function customDisplayControlPlan(
   documents: DisplayDocumentRegistry = {},
   generatorLabel = 'the show',
 ) {
-  const errors: string[] = [], sources: ControlReference[] = [], sample: string[] = []
+  const errors: string[] = [], sources: ControlReference[] = []
   const symbols = new Set<string>()
   const nodeById = new Map(nodes.map((n) => [n.id, n]))
   const displays = nodes.filter((node) => node.data.nodeType === 'TransportDisplay').flatMap((panelNode) => {
@@ -55,8 +75,15 @@ export function customDisplayControlPlan(
     const emit: CustomDisplayLvglEmit = { id, document, bindings }
     const ports = document.widgets.flatMap(displayWidgetPorts)
     // Enabled lives on the panel now, not the document — the document has no
-    // physical existence to be enabled or disabled.
+    // physical existence to be enabled or disabled. The property is the gate
+    // until `templateControlRouting` resolves a wire into it, which happens
+    // after this plan is built and before anything reads `panel.enabledExpr`.
     const enabled = panelNode.data.properties.enabled !== false
+    panel.enabledExpr = enabled ? 'true' : 'false'
+    // Recorded rather than rendered: whether this needs a runtime gate is only
+    // settled once `templateControlRouting` has resolved a wire into Enabled,
+    // and this plan is what that resolution is built on.
+    const samples: CustomDisplaySample[] = []
     for (const port of ports.filter((port) => port.direction === 'output')) {
       if (port.dataType !== 'bool' && port.dataType !== 'float') {
         errors.push(`${label}.${port.label}: this widget output is unsupported by ${generatorLabel} control graph.`)
@@ -66,11 +93,11 @@ export function customDisplayControlPlan(
       sources.push(reference)
       const expression = customDisplayLvglOutputExpression(emit, port.widgetId)
       if (!expression) errors.push(`${label}.${port.label}: this widget has no firmware output.`)
-      sample.push(`  ${port.dataType} ${controlReferenceCpp(reference)} = ${enabled ? expression : port.dataType === 'bool' ? 'false' : '0.0f'};`)
+      samples.push({ type: port.dataType, variable: controlReferenceCpp(reference), expression: expression ?? '' })
     }
-    return [{ nodeId: node.id, label, enabled, ports, emit, panel, bindings }]
+    return [{ nodeId: node.id, panelNodeId: panelNode.id, label, enabled, ports, emit, panel, bindings, samples }]
   })
-  return { displays, errors, sources, sample }
+  return { displays, errors, sources }
 }
 
 export function bindCustomDisplayControls(plan: ReturnType<typeof customDisplayControlPlan>, graph: ReturnType<typeof createControlGraph>, edges: StudioEdge[], generatorLabel = 'the show'): void {

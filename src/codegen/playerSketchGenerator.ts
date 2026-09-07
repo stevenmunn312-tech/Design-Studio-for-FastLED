@@ -388,7 +388,7 @@ export function generatePlayerSketch(
     .filter((display) => display.touch !== null)
     .map((display) => ({
       id: safePlayerId(display.id), controller: display.controller, rotation: display.rotation,
-      layout: display.layout, enabled: display.enabled, touch: display.touch!,
+      layout: display.layout, enabledExpr: `_tftOn_${safePlayerId(display.id)}`, touch: display.touch!,
     }))
   const controlEntries = Object.entries(controls.bindings) as Array<[PlayerControlAction, PlayerControlSource]>
   const hasControls = controlEntries.length > 0 || touchEmits.length > 0 || !!graphRouting?.bundle || !!graphRouting?.hasSongSources
@@ -762,7 +762,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     segmentRemap: display.segmentRemap,
     comScan: display.comScan,
     layout: display.layout,
-    enabledExpr: display.enabled ? 'true' : 'false',
+    enabledExpr: display.enabledExpr,
     titleExpr: display.sources.title ?? null,
     line2Expr: display.sources.line2 ?? null,
     valueExpr: display.sources.value ?? '0.0f',
@@ -809,7 +809,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     showColon: display.showColon,
     valueExpr: display.sources.value ?? '0.0f',
     dateTimeExpr: null,
-    enabledExpr: display.enabled ? 'true' : 'false',
+    enabledExpr: display.enabledExpr,
     faultCodeExpr: '!sdMounted ? SEG_FAULT_SD_CARD : (!playbackReady ? SEG_FAULT_NO_TRACK : SEG_FAULT_NONE)',
   }))
 
@@ -828,7 +828,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     sckPin: display.sckPin,
     mosiPin: display.mosiPin,
     backlightPin: display.backlightPin,
-    enabledExpr: display.enabled ? 'true' : 'false',
+    enabledExpr: display.enabledExpr,
     // The player has no RTC-in-template path yet, so a Clock-kind wire stays
     // unresolved here the same way it already is for the OLED beside it — see
     // playerDisplays.ts's `kinds`.
@@ -948,6 +948,8 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     ]),
     ...(compiledGraph?.loop ?? []),
     ...graphRouting.controls.flatMap(playerControlsServiceCpp),
+    // After the control graph, which is where a wired Enabled acquires a value.
+    ...(customDisplays?.enable ?? []),
     ...playerControlApplyCpp(graphRouting.bundle, hasPatternSelection, PLAYER_SELECTION_STEM),
   ].join('\n') : ''
   const publishDisplaysCpp = graphRouting ? [displayLoopCpp, ...(customDisplays?.loop ?? [])].filter(Boolean).join('\n') : ''

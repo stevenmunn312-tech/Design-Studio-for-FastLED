@@ -77,6 +77,7 @@ import {
 } from './customDisplayLvglCpp'
 import {
   customDisplayPanelGlobalCpp, customDisplayPanelHelpersCpp, customDisplayPanelSetupCpp, customDisplayPanelFromProps,
+  customDisplayPanelEnableCpp,
   type CustomDisplayPanelEmit,
 } from './customDisplayPanelCpp'
 import { displayDocumentPorts, parseDisplayWidgetPortId } from '../state/displayRegistry'
@@ -5098,8 +5099,24 @@ export function generateCpp(
             id: docId, document, bindings: bindingsByWidget,
             assets: opts.customDisplayAssets?.[documentNode.id],
           }
+          const panel = customDisplayPanelFromProps(id, p)
+          panel.manualTouch = true
+          // The same Enabled the fixed layouts below already honour. Without
+          // it this arm emitted setup, touch sampling and publication whatever
+          // the panel's switch said, so turning a custom screen off produced
+          // byte-for-byte identical firmware.
+          panel.enabledExpr = incoming.get(`${node.id}:enabled`)
+            ? boolExpr(node.id, 'enabled')
+            : (p.enabled === false ? 'false' : 'true')
+          const gate = `_cdPanelOn_${panel.id}`
           customDisplays.push(custom)
-          customDisplayPublication.push(...customDisplayLvglLoopCpp(custom))
+          // A dark panel invalidates nothing, so LVGL redraws nothing and the
+          // bus stays quiet; re-enabling resumes from the image already on it.
+          customDisplayPublication.push(
+            ...(panel.enabledExpr === 'true'
+              ? customDisplayLvglLoopCpp(custom)
+              : [`  if (${gate}) {`, ...customDisplayLvglLoopCpp(custom).map((line) => `  ${line}`), `  }`]),
+          )
 
           for (const port of ports.outputs) {
             const parsed = parseDisplayWidgetPortId(port.id)
@@ -5108,14 +5125,19 @@ export function generateCpp(
             if (expr === null) continue
             const cppType = port.dataType === 'bool' ? 'bool' : 'float'
             const name = `n_${docId}_${safeId(port.id)}`
+            const rest = cppType === 'bool' ? 'false' : '0.0f'
+            // A control nobody can touch reports its rest value rather than
+            // the position its finger left it in.
+            const value = panel.enabledExpr === 'true' ? expr : `${gate} ? (${expr}) : ${rest}`
             if (nativeMultiRender) globalLines.push(`static ${cppType} ${name};`)
-            customDisplaySamples.push(`  ${nativeMultiRender ? '' : `${cppType} `}${name} = ${expr};`)
+            customDisplaySamples.push(`  ${nativeMultiRender ? '' : `${cppType} `}${name} = ${value};`)
           }
 
-          const panel = customDisplayPanelFromProps(id, p)
-          panel.manualTouch = true
           customDisplayPanels.push(panel)
           setupLines.push(...customDisplayPanelSetupCpp(panel), ...customDisplayLvglSetupCpp(custom))
+          // Emitted at this node's own place in the walk, so a wired Enabled
+          // has been computed by the time it is read.
+          for (const line of customDisplayPanelEnableCpp(panel)) ln(line)
           break
         }
 
@@ -5187,7 +5209,7 @@ export function generateCpp(
         tftDisplays.push(emit)
         if (diagnosticTouch || publishesControls) {
           const touch: TftTouchEmit = {
-            id, controller, rotation, layout, enabled: p.enabled !== false,
+            id, controller, rotation, layout, enabledExpr: `_tftOn_${id}`,
             touch: {
               csPin: intProp(p.touchCsPin, 15, 0, MAX_PIN_NUMBER),
               irqPin: intProp(p.touchIrqPin, 2, 0, MAX_PIN_NUMBER),
@@ -7190,7 +7212,9 @@ export function generateCpp(
   if (needsDs3231) lines.push(`  _rtcHandleSerialSet();`)
   if (needsT.v) lines.push(...masterClockLoopCpp(masterSpeedEmit))
   for (const panel of customDisplayPanels) {
-    if (panel.touch) lines.push(`  lv_indev_read(_cdIndev_${panel.id});`)
+    if (!panel.touch) continue
+    const read = `lv_indev_read(_cdIndev_${panel.id});`
+    lines.push(panel.enabledExpr === 'true' ? `  ${read}` : `  if (_cdPanelOn_${panel.id}) ${read}`)
   }
   lines.push(...customDisplaySamples)
   if (nativeMultiRender) {

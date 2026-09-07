@@ -59,7 +59,7 @@ export function standaloneDisplaysCpp(nodes: StudioNode[]): StandaloneDisplayEmi
     sckPin: display.sckPin, mosiPin: display.mosiPin, address: display.address,
     columnOffset: display.columnOffset, segmentRemap: display.segmentRemap,
     comScan: display.comScan, layout: display.layout, width: display.width, height: display.height,
-    enabledExpr: display.enabled ? 'true' : 'false',
+    enabledExpr: display.enabledExpr,
     titleExpr: null, line2Expr: null, valueExpr: '0.0f', progressExpr: '0.0f',
     playingExpr: 'false', volumeExpr: '0.0f', durationExpr: '0.0f', dateTimeExpr: null,
   }))
@@ -67,13 +67,13 @@ export function standaloneDisplaysCpp(nodes: StudioNode[]): StandaloneDisplayEmi
     id: safeId(display.id), controller: display.controller, digits: display.digits,
     clkPin: display.clkPin, dataPin: display.dataPin, csPin: display.csPin,
     brightness: display.brightness, mode: display.mode, showColon: display.showColon,
-    valueExpr: null, dateTimeExpr: null, enabledExpr: display.enabled ? 'true' : 'false',
+    valueExpr: null, dateTimeExpr: null, enabledExpr: display.enabledExpr,
   }))
   const tft: TftDisplayEmit[] = displays.tft.map((display) => ({
     id: safeId(display.id), controller: display.controller, rotation: display.rotation,
     layout: display.layout, csPin: display.csPin, dcPin: display.dcPin,
     resetPin: display.resetPin, sckPin: display.sckPin, mosiPin: display.mosiPin,
-    backlightPin: display.backlightPin, enabledExpr: display.enabled ? 'true' : 'false',
+    backlightPin: display.backlightPin, enabledExpr: display.enabledExpr,
     dateTimeExpr: null,
     titleExpr: null, artistExpr: null, patternNameExpr: null,
     elapsedExpr: '0.0f', durationExpr: '0.0f', progressExpr: '0.0f',
@@ -85,7 +85,7 @@ export function standaloneDisplaysCpp(nodes: StudioNode[]): StandaloneDisplayEmi
     .filter((display) => display.touch !== null)
     .map((display) => ({
       id: safeId(display.id), controller: display.controller, rotation: display.rotation,
-      layout: display.layout, enabled: display.enabled, touch: display.touch!,
+      layout: display.layout, enabledExpr: `_tftOn_${safeId(display.id)}`, touch: display.touch!,
     }))
   const i2c = displays.info.filter((display) => display.transport === 'i2c')
 
