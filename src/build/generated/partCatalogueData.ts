@@ -444,7 +444,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
     "notes": [
       "Two independent mono MAX98357A breakouts presented as the physical stereo pair used on one shared I2S bus.",
       "The SD/mode resistor on the left module is configured for the left slot and the right module for the right slot.",
-      "Both speaker outputs are bridge-tied; neither speaker terminal is ground."
+      "Both speaker outputs are bridge-tied; neither speaker terminal is ground.",
+      "The seven-position logic connection rows are intentionally unpopulated plated through-holes, matching the reference breakout presentation."
     ],
     "render": {
       "file": "parts/max98357a-stereo-pair.webp",
