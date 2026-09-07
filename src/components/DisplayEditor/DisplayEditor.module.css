@@ -320,6 +320,7 @@
   position: absolute;
   z-index: 1;
   display: grid;
+  box-sizing: border-box;
   min-width: 0;
   place-items: center;
   padding: 4px;
@@ -332,6 +333,16 @@
   text-align: left;
   touch-action: none;
   opacity: var(--widget-state-opacity);
+}
+
+/* Saved bounds are the physical footprint used by layout validation and LVGL.
+   Keep every preview descendant inside that same border box: a content-box
+   border or intrinsic SVG size makes a screen look valid in the model while
+   painting outside its real touch target. */
+.widget *,
+.widget *::before,
+.widget *::after {
+  box-sizing: border-box;
 }
 
 .widget:active {

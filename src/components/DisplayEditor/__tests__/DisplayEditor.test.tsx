@@ -174,6 +174,15 @@ describe('DisplayEditor', () => {
     expect(view.getByRole('switch', { name: 'Auto advance run preview' })).toBeTruthy()
   })
 
+  it('renders a template control inside its saved border-box footprint', () => {
+    useGraphStore.getState().setDisplayDocument(createDisplayDocument('panel', 240, 320))
+    const view = render(<DisplayEditor />)
+    fireEvent.click(view.getByRole('button', { name: 'Insert Minimal Transport template' }))
+    const play = view.getByRole('button', { name: /Toggle, Play\. Position/ })
+    expect(play.className).toContain('widget')
+    expect(play.querySelector('img')).toBeTruthy()
+  })
+
   it('switches the display between portrait and landscape while retaining a valid layout', () => {
     useGraphStore.getState().setDisplayDocument(createDisplayDocument('panel', 240, 320))
     useGraphStore.setState({
