@@ -142,8 +142,8 @@ value contract with vertical-drag touch interaction).
 
 Button is one semantic widget with text, icon, or text-plus-icon presentation;
 there are not separate transport or image-button behaviours. Now Playing,
-Minimal Transport, Pattern Deck, LED Performance, Audio Reactor, Diagnostics
-and DMX Monitor are templates composed from ordinary widgets. A template mints
+Minimal Transport, Pattern Deck, Show Status, LED Performance, Audio Reactor,
+Diagnostics and DMX Monitor are templates composed from ordinary widgets. A template mints
 the same visible typed ports as placing those widgets individually and never
 gets a private player or graph runtime.
 

@@ -21,6 +21,7 @@ describe('custom display templates', () => {
       'now-playing',
       'minimal-transport',
       'pattern-deck',
+      'show-status',
       'led-performance',
       'audio-reactor',
       'diagnostics',

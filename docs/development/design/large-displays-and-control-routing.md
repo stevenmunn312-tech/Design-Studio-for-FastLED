@@ -138,6 +138,16 @@ the fixed-panel layer:**
   fields above; with the fields gone there is nothing to draw a control on.
   `transportTouchRegions` returns `[]` for Show Status and for Waiting.
 
+Both now have somewhere to land. The **Show Status** custom-display template
+(`show-status` in `displayTemplates.ts`) carries the five readings the fixed
+layout gave up — pattern, section, tempo, beat — beside the two controls, and
+it carries them the way this node carries everything: as ordinary widgets
+minting ordinary typed ports. Blackout and Brightness come back as a Toggle and
+a Slider rather than as readouts, because both are `synchronized` widgets — one
+wire reports the graph's value and commands it, which is exactly what the old
+touch region did. A user whose panel lost its controls places the template and
+rewires; nothing is gone, it just has to be wired now instead of assumed.
+
 The firmware needed its own waiting screen to match. Without one the layout
 fell through to `nowPlayingLoop` and a device drew an empty transport where the
 preview drew a message — the exact preview/firmware disagreement the shared
@@ -296,9 +306,9 @@ place.
   for — are correct.
 - Whether `findDisplayGeneratorIssues` should warn when a `TransportDisplay`'s
   Controls output is wired in a normal sketch, where it can now never publish.
-- The LED Performance custom-display template that the Show Status fields
-  moved to. Nothing is built yet, so the capability is designed-away rather
-  than relocated.
+- Whether the Show Status template should ship pre-wired in any starter
+  workspace, or stay something a user places deliberately. It resolves nothing
+  on its own — a template mints ports and makes no connections.
 - Whether `tftLayout`-as-presentation should be a property or derived from
   panel size, which is what `simple-displays.md`'s geometry functions do.
 - The size boundary between a tier-1 and a tier-2 panel, still unsettled.

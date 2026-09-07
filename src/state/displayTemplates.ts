@@ -13,6 +13,7 @@ export type DisplayTemplateId =
   | 'now-playing'
   | 'minimal-transport'
   | 'pattern-deck'
+  | 'show-status'
   | 'led-performance'
   | 'audio-reactor'
   | 'diagnostics'
@@ -139,6 +140,42 @@ export const DISPLAY_TEMPLATES: readonly DisplayTemplate[] = [
       widget('Button', 'Next', [160, 88, 64, 64], { text: 'Next' }),
       widget('Toggle', 'Shuffle', [48, 176, 64, 64], { offLabel: 'In order', onLabel: 'Shuffle' }),
       widget('Toggle', 'Auto advance', [128, 176, 64, 64], { offLabel: 'Hold', onLabel: 'Advance' }),
+    ],
+  },
+  {
+    /*
+     * The screen the fixed `Show Status` TFT layout gave up.
+     *
+     * That layout drew section, tempo, beat, output state and brightness from
+     * ports nothing could feed: `PatternSlideshow` has no tempo or section
+     * concept, and the two output readings belong to the LED output. Wiring
+     * arbitrary graph readings onto a panel is this node's job, not a fixed
+     * layout's, so the rows moved here rather than surviving as five fields a
+     * template build reported unresolved.
+     *
+     * Two of them come back as *controls* rather than readouts. Blackout and
+     * Brightness were touch regions on the old layout, and a Toggle and a
+     * Slider are synchronized widgets — they report the graph's value and
+     * command it from the same wire, which is what that touch region did.
+     */
+    id: 'show-status',
+    label: 'Show Status',
+    description: 'Pattern, section, tempo and beat beside the blackout and brightness a show panel used to carry.',
+    widgets: [
+      widget('Pattern Browser', 'Collection', [16, 8, 288, 80]),
+      widget('Text', 'Section', [16, 96, 288, 24]),
+      widget('Numeric Readout', 'Tempo', [16, 128, 136, 32], { decimals: 0, suffix: ' BPM', min: 0, max: 300 }),
+      widget('Status Indicator', 'Beat', [168, 128, 136, 32], { offLabel: 'STEADY', onLabel: 'BEAT' }),
+      widget('Slider', 'Brightness', [16, 168, 208, 48]),
+      widget('Toggle', 'Blackout', [240, 168, 64, 64], { offLabel: 'Lit', onLabel: 'Blackout' }),
+    ],
+    portraitWidgets: [
+      widget('Pattern Browser', 'Collection', [16, 8, 208, 80]),
+      widget('Text', 'Section', [16, 96, 208, 24]),
+      widget('Numeric Readout', 'Tempo', [16, 128, 96, 32], { decimals: 0, suffix: ' BPM', min: 0, max: 300 }),
+      widget('Status Indicator', 'Beat', [128, 128, 96, 32], { offLabel: 'STEADY', onLabel: 'BEAT' }),
+      widget('Slider', 'Brightness', [16, 176, 208, 48]),
+      widget('Toggle', 'Blackout', [88, 240, 64, 64], { offLabel: 'Lit', onLabel: 'Blackout' }),
     ],
   },
   {
