@@ -145,9 +145,12 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
   // second entry (display-todo.md slice B) and arrives with its own adapter —
   // listing it now would be a claim the firmware cannot keep, which is the
   // misrepresentation this whole module exists to prevent.
-  // Two modules, two controllers, two buses — the difference is real and the
-  // menu has to state it. The SH1106 on the bench is the 7-pin SPI variant;
-  // the SSD1306 is the 4-pin I2C one.
+  // The controller and the bus are independent facts about a module, not one
+  // choice: the SH1106 exists on the bench in both a 7-pin SPI form and a
+  // 4-pin I2C form, and the SSD1306 is 4-pin I2C. `oledTransportFor` reads
+  // each option's catalogued interface, so a module's pins, bus validation
+  // and retargeting follow from its part id alone — no case here needed a
+  // change to support the second SH1106 form, only a menu entry.
   InfoDisplay: {
     property: 'partId',
     options: [
@@ -156,6 +159,12 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
         label: 'SH1106 1.3-inch',
         summary: '128x64 white OLED over 4-wire SPI',
         note: 'The 1.3-inch SH1106 has 132 columns of controller RAM behind a 128-column panel, so its window starts two columns in. Driving it as an SSD1306 shifts the image two pixels and wraps the remainder down the edge.',
+      },
+      {
+        id: 'sh1106-oled-128x64-i2c',
+        label: 'SH1106 1.3-inch (I2C)',
+        summary: '128x64 white OLED over I2C',
+        note: 'Same SH1106G silicon and 2-column RAM offset as the SPI module, on a 4-pin I2C breakout instead. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices, same as the SSD1306.',
       },
       {
         id: 'ssd1306-oled-128x64',

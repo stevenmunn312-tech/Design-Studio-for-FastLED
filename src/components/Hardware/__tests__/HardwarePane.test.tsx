@@ -33,10 +33,18 @@ function node(type: string, id: string, properties: Record<string, unknown> = {}
   }
 }
 
-function addDisplay(summary: string) {
+// Neither label nor summary alone is a unique key across the display menu:
+// TransportDisplay and Display both offer a "ST7789V 2.4-inch + touch" label
+// (distinguished by summary), and SSD1306/SH1106 (I2C) now both summarise as
+// "128x64 white OLED over I2C" (distinguished by label). Matching on both
+// finds the one button that has each.
+function addDisplay(label: string, summary: string) {
   fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
   fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /Displays/ }))
-  fireEvent.click(screen.getByText(summary).closest('button')!)
+  const button = screen.getAllByText(summary)
+    .map((el) => el.closest('button')!)
+    .find((candidate) => within(candidate).queryByText(label))
+  fireEvent.click(button!)
 }
 
 describe('HardwarePane', () => {
@@ -109,7 +117,7 @@ describe('HardwarePane', () => {
   it('adds a custom touch display with its own document and stable identity', () => {
     render(<HardwarePane />)
 
-    addDisplay('240x320 colour TFT for a custom touch UI')
+    addDisplay('ST7789V 2.4-inch + touch', '240x320 colour TFT for a custom touch UI')
 
     const state = useGraphStore.getState()
     const display = state.nodes.find((entry) => entry.data.nodeType === 'Display')
@@ -125,17 +133,18 @@ describe('HardwarePane', () => {
   })
 
   it.each([
-    ['SegmentDisplay', 'Two-wire 7-segment with a colon', 'tm1637-4digit-display'],
-    ['SegmentDisplay', 'Eight digits on a shared SPI bus', 'max7219-8digit-7segment'],
-    ['InfoDisplay', '128x64 white OLED over 4-wire SPI', 'sh1106-oled-128x64'],
-    ['InfoDisplay', '128x64 white OLED over I2C', 'ssd1306-oled-128x64'],
-    ['TransportDisplay', '240x240 colour TFT over SPI', 'st7789-tft-240x240'],
-    ['TransportDisplay', '240x320 colour TFT with XPT2046 touch', 'st7789v-xpt2046-touch-240x320'],
-    ['Display', '240x320 colour TFT for a custom touch UI', 'st7789v-xpt2046-touch-240x320'],
-  ])('adds %s as the exact catalogued module chosen in the display menu', (nodeType, summary, partId) => {
+    ['SegmentDisplay', 'TM1637 4-digit', 'Two-wire 7-segment with a colon', 'tm1637-4digit-display'],
+    ['SegmentDisplay', 'MAX7219 8-digit', 'Eight digits on a shared SPI bus', 'max7219-8digit-7segment'],
+    ['InfoDisplay', 'SH1106 1.3-inch', '128x64 white OLED over 4-wire SPI', 'sh1106-oled-128x64'],
+    ['InfoDisplay', 'SH1106 1.3-inch (I2C)', '128x64 white OLED over I2C', 'sh1106-oled-128x64-i2c'],
+    ['InfoDisplay', 'SSD1306 0.96-inch', '128x64 white OLED over I2C', 'ssd1306-oled-128x64'],
+    ['TransportDisplay', 'ST7789 1.3-inch', '240x240 colour TFT over SPI', 'st7789-tft-240x240'],
+    ['TransportDisplay', 'ST7789V 2.4-inch + touch', '240x320 colour TFT with XPT2046 touch', 'st7789v-xpt2046-touch-240x320'],
+    ['Display', 'ST7789V 2.4-inch + touch', '240x320 colour TFT for a custom touch UI', 'st7789v-xpt2046-touch-240x320'],
+  ])('adds %s as the exact catalogued module chosen in the display menu', (nodeType, label, summary, partId) => {
     render(<HardwarePane />)
 
-    addDisplay(summary)
+    addDisplay(label, summary)
 
     const display = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === nodeType)
     expect(display?.data.properties.partId).toBe(partId)
@@ -159,8 +168,8 @@ describe('HardwarePane', () => {
     })
     render(<HardwarePane />)
 
-    addDisplay('Two-wire 7-segment with a colon')
-    addDisplay('Two-wire 7-segment with a colon')
+    addDisplay('TM1637 4-digit', 'Two-wire 7-segment with a colon')
+    addDisplay('TM1637 4-digit', 'Two-wire 7-segment with a colon')
 
     const state = useGraphStore.getState()
     const displays = rootGraphNodes(state).filter((entry) => entry.data.nodeType === 'SegmentDisplay')

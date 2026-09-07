@@ -79,6 +79,68 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 12.0
     }
   },
+  "dx-0809-stereo-amplifier": {
+    "partId": "dx-0809-stereo-amplifier",
+    "label": "DX-0809 stereo power amplifier",
+    "category": "amplifier",
+    "dimensionsMm": {
+      "width": 130.0,
+      "height": 105.0
+    },
+    "manufacturer": "generic DX-0809 / TDA8944-TDA8946J class",
+    "logicVoltage": "12 V power; line-level analog input",
+    "pinLabelsLeftToRight": [
+      "AUX-L",
+      "AUX-GND",
+      "AUX-R",
+      "+12V",
+      "GND",
+      "L+",
+      "L-",
+      "R-",
+      "R+"
+    ],
+    "notes": [
+      "Large analog stereo power-amplifier board with line input, volume/tone controls and two 6.35 mm microphone jacks.",
+      "Seller claims of 2 x 40 W are peak marketing; the TDA8946J datasheet specifies 2 x 15 W into 8 ohms at 18 V.",
+      "A DAC such as PCM5102A or UDA1334A is required when used with ESP32 variants that do not provide analog audio output."
+    ],
+    "render": {
+      "file": "parts/dx-0809-stereo-amplifier.webp",
+      "widthPx": 1200,
+      "heightPx": 973,
+      "pxPerMm": 9.077
+    }
+  },
+  "generic-i2s-mems-microphone": {
+    "partId": "generic-i2s-mems-microphone",
+    "label": "Generic I2S MEMS microphone",
+    "category": "microphone",
+    "dimensionsMm": {
+      "width": 15.2,
+      "height": 9.1
+    },
+    "manufacturer": "generic / Sipeed MSM261S4030H0 class",
+    "logicVoltage": "3.3 V",
+    "pinLabelsLeftToRight": [
+      "GND",
+      "VDD",
+      "SD",
+      "SCK",
+      "WS",
+      "L/R"
+    ],
+    "notes": [
+      "Representative low-cost MSM261S4030H0-class I2S breakout; supplier solder-mask colour and passive placement vary.",
+      "The GenericMEMS profile is an average response correction rather than a claim that every clone has identical acoustics."
+    ],
+    "render": {
+      "file": "parts/generic-i2s-mems-microphone.webp",
+      "widthPx": 400,
+      "heightPx": 248,
+      "pxPerMm": 25.0
+    }
+  },
   "hc-sr501-pir-sensor": {
     "partId": "hc-sr501-pir-sensor",
     "label": "HC-SR501 PIR motion sensor module",
@@ -149,6 +211,35 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 1200,
       "heightPx": 1200,
       "pxPerMm": 4.656
+    }
+  },
+  "ics-43434-i2s-microphone": {
+    "partId": "ics-43434-i2s-microphone",
+    "label": "ICS-43434 I2S microphone",
+    "category": "microphone",
+    "dimensionsMm": {
+      "width": 25.4,
+      "height": 17.78
+    },
+    "manufacturer": "TDK InvenSense / Adafruit breakout form",
+    "logicVoltage": "1.5-3.6 V; 3.3 V logic",
+    "pinLabelsLeftToRight": [
+      "SEL",
+      "LRCL",
+      "DOUT",
+      "BCLK",
+      "GND",
+      "3V"
+    ],
+    "notes": [
+      "Bottom-port 24-bit I2S MEMS microphone on the recognisable six-pad Adafruit-style breakout.",
+      "SEL selects I2S/PDM on this breakout; LRCL selects the left or right I2S slot."
+    ],
+    "render": {
+      "file": "parts/ics-43434-i2s-microphone.webp",
+      "widthPx": 400,
+      "heightPx": 286,
+      "pxPerMm": 14.961
     }
   },
   "ili9341-xpt2046-touch-320x240": {
@@ -324,6 +415,44 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 22.047
     }
   },
+  "max98357a-stereo-pair": {
+    "partId": "max98357a-stereo-pair",
+    "label": "MAX98357A stereo pair",
+    "category": "amplifier",
+    "dimensionsMm": {
+      "width": 38.56,
+      "height": 25.4
+    },
+    "manufacturer": "generic / Adafruit breakout form",
+    "logicVoltage": "3.3 V / 5 V logic; 2.7-5.5 V supply",
+    "pinLabelsLeftToRight": [
+      "L:LRC",
+      "L:BCLK",
+      "L:DIN",
+      "L:GAIN",
+      "L:SD",
+      "L:GND",
+      "L:VIN",
+      "R:LRC",
+      "R:BCLK",
+      "R:DIN",
+      "R:GAIN",
+      "R:SD",
+      "R:GND",
+      "R:VIN"
+    ],
+    "notes": [
+      "Two independent mono MAX98357A breakouts presented as the physical stereo pair used on one shared I2S bus.",
+      "The SD/mode resistor on the left module is configured for the left slot and the right module for the right slot.",
+      "Both speaker outputs are bridge-tied; neither speaker terminal is ground."
+    ],
+    "render": {
+      "file": "parts/max98357a-stereo-pair.webp",
+      "widthPx": 483,
+      "heightPx": 325,
+      "pxPerMm": 12.007
+    }
+  },
   "microsd-breakout-3v3": {
     "partId": "microsd-breakout-3v3",
     "label": "microSD breakout, 3.3 V bare",
@@ -420,6 +549,39 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 287,
       "pxPerMm": 16.174
+    }
+  },
+  "pam8610-stereo-amplifier": {
+    "partId": "pam8610-stereo-amplifier",
+    "label": "PAM8610 2 x 15 W stereo amplifier",
+    "category": "amplifier",
+    "dimensionsMm": {
+      "width": 30.0,
+      "height": 25.0
+    },
+    "manufacturer": "generic",
+    "logicVoltage": "7-15 V power; line-level analog input",
+    "pinLabelsLeftToRight": [
+      "L+",
+      "L-",
+      "+12V",
+      "GND",
+      "R-",
+      "R+",
+      "INL",
+      "AGND",
+      "INR",
+      "MUTE"
+    ],
+    "notes": [
+      "Compact filterless stereo class-D board, commonly sold as 2 x 15 W for 12 V systems.",
+      "Speaker outputs are bridge-tied; no speaker terminal should be connected to ground."
+    ],
+    "render": {
+      "file": "parts/pam8610-stereo-amplifier.webp",
+      "widthPx": 400,
+      "heightPx": 337,
+      "pxPerMm": 12.667
     }
   },
   "pcm1802-line-in-adc": {
@@ -549,6 +711,45 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 12.0
     }
   },
+  "sh1106-oled-128x64-i2c": {
+    "partId": "sh1106-oled-128x64-i2c",
+    "label": "SH1106 1.3-inch 128x64 OLED I2C",
+    "category": "display",
+    "dimensionsMm": {
+      "width": 35.4,
+      "height": 33.5
+    },
+    "manufacturer": "generic four-pin I2C module form",
+    "logicVoltage": "3.3 V / 5 V module supply; I2C logic varies by board revision",
+    "pinLabelsLeftToRight": [
+      "GND",
+      "VCC",
+      "SCL",
+      "SDA"
+    ],
+    "notes": [
+      "Common four-pin 1.3-inch SH1106G I2C OLED breakout with a blue solder-mask PCB.",
+      "The 29.42 x 14.70 mm active area and 128 x 64 visible pixels distinguish the panel from a 0.96-inch SSD1306 module.",
+      "The default address is commonly 0x3C; supplier revisions may expose or fix 0x3D instead.",
+      "Pin order is the common header-down GND, VCC, SCL, SDA arrangement.",
+      "The four-pin connection footprint is delivered unpopulated: plated through-holes only, with no installed header pins or plastic housings."
+    ],
+    "display": {
+      "controller": "SH1106G",
+      "resolutionPx": [
+        128,
+        64
+      ],
+      "interface": "I2C",
+      "touchController": null
+    },
+    "render": {
+      "file": "parts/sh1106-oled-128x64-i2c.webp",
+      "widthPx": 445,
+      "heightPx": 422,
+      "pxPerMm": 12.006
+    }
+  },
   "sn74ahct125n-dip14": {
     "partId": "sn74ahct125n-dip14",
     "label": "74AHCT125 level shifter (DIP-14)",
@@ -592,6 +793,35 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 488,
       "heightPx": 488,
       "pxPerMm": 12.0
+    }
+  },
+  "sph0645lm4h-i2s-microphone": {
+    "partId": "sph0645lm4h-i2s-microphone",
+    "label": "SPH0645LM4H I2S microphone",
+    "category": "microphone",
+    "dimensionsMm": {
+      "width": 16.7,
+      "height": 12.7
+    },
+    "manufacturer": "Knowles / Adafruit breakout form",
+    "logicVoltage": "1.6-3.6 V; 3.3 V logic",
+    "pinLabelsLeftToRight": [
+      "SEL",
+      "LRCL",
+      "DOUT",
+      "BCLK",
+      "GND",
+      "3V"
+    ],
+    "notes": [
+      "Knowles bottom-port I2S microphone on the compact Adafruit Product 3421 breakout form.",
+      "This device has a known I2S bit-alignment quirk and should be bench-verified before firmware support is advertised."
+    ],
+    "render": {
+      "file": "parts/sph0645lm4h-i2s-microphone.webp",
+      "widthPx": 400,
+      "heightPx": 309,
+      "pxPerMm": 22.754
     }
   },
   "ssd1306-oled-128x64": {
