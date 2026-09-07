@@ -146,9 +146,15 @@ Button or Toggle. The picker changes control art only, while the Screen
 **Theme** in the inspector changes the display's colours and background.
 Templates use the currently selected icon theme for their transport and action
 controls, including Shuffle, Auto advance, and Freeze.
-Their layouts use a shared gutter and row rhythm, with square themed actions
-where appropriate. A recognised template switches to its dedicated touch-safe
-portrait or landscape composition when the panel orientation changes.
+All eight built-in templates — Now Playing, Minimal Transport, Pattern Deck,
+Show Status, LED Performance, Audio Reactor, Diagnostics, and DMX Monitor —
+have separate 320×240 and 240×320 compositions. The editor places the portrait
+composition directly rather than squeezing or clipping the landscape one.
+Themed icon-only Buttons and Toggles paint inside their saved border-box bounds;
+those bounds remain the complete touch target, at least 48×48 px with 8 px
+between neighbouring controls. A recognised template switches between its
+dedicated touch-safe portrait and landscape compositions when the panel
+orientation changes.
 Use the editor’s **Portrait** and **Landscape** controls to match the panel’s
 mounted rotation. The switch reflows the saved layout, keeps square themed
 touch targets square, selects the matching background artwork, and updates the
