@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createDisplayDocument, displayLayoutIssues } from '../displayEditor'
+import { createDisplayDocument, displayLayoutIssues, resizeDisplayDocument } from '../displayEditor'
 import { displayDocumentPorts, displayWidgetPorts } from '../displayRegistry'
 import {
   DISPLAY_TEMPLATES,
@@ -80,6 +80,33 @@ describe('custom display templates', () => {
         expect.objectContaining({ assetId: 'control:03-synthwave:play-pause', presentation: 'icon' }),
         expect.objectContaining({ assetId: 'control:03-synthwave:next', presentation: 'icon' }),
       ])
+  })
+
+  it('keeps themed transport targets square when a template rotates', () => {
+    const landscape = applyDisplayTemplate(referenceDocument(), 'now-playing', 'theme:03-synthwave')
+    const portrait = resizeDisplayDocument(landscape, { width: 240, height: 320 }, '0')
+
+    for (const label of ['Previous', 'Play', 'Next']) {
+      expect(portrait.widgets.find((widget) => widget.label === label)?.bounds).toMatchObject({ width: 64, height: 64 })
+    }
+    expect(displayLayoutIssues(portrait)).toEqual([])
+
+    const legacyPortrait = {
+      ...portrait,
+      widgets: portrait.widgets.map((widget) => (
+        ['Previous', 'Play', 'Next'].includes(widget.label)
+          ? { ...widget, bounds: { ...widget.bounds, width: 48, height: 88 } }
+          : widget
+      )),
+    }
+    const repairedLandscape = resizeDisplayDocument(legacyPortrait, { width: 320, height: 240 }, '90')
+    for (const label of ['Previous', 'Play', 'Next']) {
+      expect(repairedLandscape.widgets.find((widget) => widget.label === label)?.bounds).toMatchObject({ width: 64, height: 64 })
+    }
+    expect(repairedLandscape.widgets.find((widget) => widget.label === 'Title')?.bounds)
+      .toEqual({ x: 16, y: 8, width: 288, height: 32 })
+    expect(repairedLandscape.widgets.find((widget) => widget.label === 'Position')?.bounds)
+      .toEqual({ x: 16, y: 128, width: 288, height: 16 })
   })
 
   it('uses the selected themed icons for every template action', () => {

@@ -168,6 +168,12 @@
   transform: translateY(var(--widget-state-offset, 1px));
 }
 
+.button.iconOnly {
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+}
+
 .toggle {
   display: grid;
   width: 100%;

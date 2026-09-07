@@ -25,6 +25,40 @@ export interface DisplayLayoutIssue {
   otherWidgetId?: string
 }
 
+const NOW_PLAYING_SIGNATURE: readonly (readonly [DisplayWidgetType, string])[] = [
+  ['Text', 'Title'],
+  ['Text', 'Artist'],
+  ['Timecode', 'Elapsed'],
+  ['Timecode', 'Remaining'],
+  ['Progress', 'Position'],
+  ['Button', 'Previous'],
+  ['Toggle', 'Play'],
+  ['Button', 'Next'],
+]
+
+const NOW_PLAYING_BOUNDS = {
+  '320x240': [
+    { x: 16, y: 8, width: 288, height: 32 },
+    { x: 16, y: 48, width: 288, height: 24 },
+    { x: 16, y: 80, width: 80, height: 32 },
+    { x: 224, y: 80, width: 80, height: 32 },
+    { x: 16, y: 128, width: 288, height: 16 },
+    { x: 32, y: 160, width: 64, height: 64 },
+    { x: 128, y: 160, width: 64, height: 64 },
+    { x: 224, y: 160, width: 64, height: 64 },
+  ],
+  '240x320': [
+    { x: 16, y: 8, width: 208, height: 32 },
+    { x: 16, y: 48, width: 208, height: 24 },
+    { x: 16, y: 80, width: 80, height: 32 },
+    { x: 144, y: 80, width: 80, height: 32 },
+    { x: 16, y: 128, width: 208, height: 16 },
+    { x: 8, y: 160, width: 64, height: 64 },
+    { x: 88, y: 160, width: 64, height: 64 },
+    { x: 168, y: 160, width: 64, height: 64 },
+  ],
+} as const
+
 export function createDisplayDocument(
   displayId: string,
   width = 320,
@@ -55,14 +89,22 @@ export function resizeDisplayDocument(
   const scaleX = width / Math.max(1, document.designSize.width)
   const scaleY = height / Math.max(1, document.designSize.height)
   const target = { designSize: { width, height }, gridSize: document.gridSize }
-  const scaled = document.widgets.map((widget) => ({
+  const nowPlayingBounds = canonicalNowPlayingBounds(document.widgets, width, height)
+  const scaled = document.widgets.map((widget, index) => ({
     ...widget,
-    bounds: constrainDisplayWidgetBounds(target, widget.type, {
-      x: widget.bounds.x * scaleX,
-      y: widget.bounds.y * scaleY,
-      width: widget.bounds.width * scaleX,
-      height: widget.bounds.height * scaleY,
-    }),
+    bounds: (() => {
+      if (nowPlayingBounds) return nowPlayingBounds[index]
+      const controlSize = preservedControlSize(widget, scaleX, scaleY, document.gridSize)
+      return constrainDisplayWidgetBounds(target, widget.type, {
+        x: widget.bounds.x * scaleX,
+        y: widget.bounds.y * scaleY,
+        // Icon-only controls are physical touch targets. Rotation changes their
+        // position, never their circular artwork into a rectangle. Textual
+        // widgets can still use both axes to make productive use of the panel.
+        width: controlSize ?? widget.bounds.width * scaleX,
+        height: controlSize ?? widget.bounds.height * scaleY,
+      })
+    })(),
   }))
   // Shrinking an axis can bring two controls closer than their required touch
   // gap after their minimum sizes are restored. Keep each visual's relative
@@ -95,6 +137,43 @@ export function resizeDisplayDocument(
     orientation,
     widgets: scaled.map((widget) => ({ ...widget, bounds: boundsById.get(widget.id) ?? widget.bounds })),
   }
+}
+
+function canonicalNowPlayingBounds(
+  widgets: readonly DisplayWidget[],
+  width: number,
+  height: number,
+): readonly DisplayBounds[] | undefined {
+  const key = `${width}x${height}` as keyof typeof NOW_PLAYING_BOUNDS
+  const bounds = NOW_PLAYING_BOUNDS[key]
+  if (!bounds || widgets.length !== NOW_PLAYING_SIGNATURE.length) return undefined
+  const matches = widgets.every((widget, index) => (
+    widget.type === NOW_PLAYING_SIGNATURE[index][0] && widget.label === NOW_PLAYING_SIGNATURE[index][1]
+  ))
+  return matches ? bounds : undefined
+}
+
+function preservesControlAspect(widget: DisplayWidget): boolean {
+  if ((widget.type !== 'Button' && widget.type !== 'Toggle') || widget.properties.presentation !== 'icon') return false
+  const assetId = typeof widget.properties.assetId === 'string' ? widget.properties.assetId : ''
+  if (!assetId) return false
+  const controlName = assetId.split(':').at(-1)
+  return controlName === 'previous'
+    || controlName === 'play-pause'
+    || controlName === 'next'
+    || controlName === 'confirm'
+    // A hand-sized square custom control should stay square too.
+    || Math.abs(widget.bounds.width - widget.bounds.height) <= 8
+}
+
+function preservedControlSize(widget: DisplayWidget, scaleX: number, scaleY: number, gridSize: number): number | undefined {
+  if (!preservesControlAspect(widget)) return undefined
+  if (Math.abs(widget.bounds.width - widget.bounds.height) <= gridSize) return Math.max(widget.bounds.width, widget.bounds.height)
+
+  // Repair icon controls saved by the earlier non-uniform rotation. The two
+  // scaled axes describe the old square from opposite directions, so the
+  // larger is its original physical target size.
+  return snap(Math.max(widget.bounds.width * scaleX, widget.bounds.height * scaleY), gridSize)
 }
 
 function widgetIdStem(type: DisplayWidgetType): string {
