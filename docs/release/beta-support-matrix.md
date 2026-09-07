@@ -50,9 +50,10 @@ supported/experimental framework applies, scoped to display hardware.
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | TM1637 4-digit 7-segment (2-wire CLK/DIO) | `RTCInput` (Compile Time) → `SegmentDisplay`, Clock mode | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Correct digits, minutes advancing live | Bench record (`2026-09-07`) below |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | MAX7219 8-digit 7-segment (SPI CLK/DIN/LOAD) | `RTCInput` (Compile Time) → `SegmentDisplay`, Clock mode | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Hours:minutes:seconds progressing live, correct digit orientation | Bench record (`2026-09-07`) below |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | SH1106 0.96-inch 128x64 OLED (7-pin SPI) | `RTCInput` (Compile Time) → `InfoDisplay`, Clock layout | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Correct orientation and alignment, confirming the SH1106's 2-column RAM offset renders correctly rather than shifting the image | Bench record (`2026-09-07`) below |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | SH1106 1.3-inch 128x64 OLED (I2C, `sh1106-oled-128x64-i2c`) | `RTCInput` (Compile Time) → `InfoDisplay`, Clock layout | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Time/date correct, not-synced state shown correctly, correct orientation and alignment, time progressing live | Bench record (`2026-09-08`) below |
 
-**Bench record (`2026-09-07`, all four rows above):** first hardware pass for
-any auxiliary display in this project — none had a recorded physical test
+**Bench record (`2026-09-07`, first four rows above):** first hardware pass
+for any auxiliary display in this project — none had a recorded physical test
 before this session. All four wired individually to the same ESP32-S3, each
 driven by `RTCInput` set to Compile Time, generated and uploaded through
 `arduino-cli`. One codegen defect was found and fixed during this session
@@ -60,11 +61,15 @@ driven by `RTCInput` set to Compile Time, generated and uploaded through
 with no forward declaration, so any RTC-driven sketch failed to compile under
 the Arduino `.ino` prototype-hoisting trap already documented in `CLAUDE.md`.
 
+**Bench record (`2026-09-08`, SH1106 I2C row above):** same ESP32-S3, same
+`RTCInput` (Compile Time) → `InfoDisplay` wiring, on the newly catalogued
+`sh1106-oled-128x64-i2c` part (`019000fc`) — validates both the module and
+that a second transport form of an already-supported controller needed no
+driver changes, only the catalogue entry.
+
 Not yet recorded as a supported row: the ESP32-2432S028 ("CYD") integrated
 touch TFT board — see the note under "Recorded validations that are not yet
-full support rows" below. The SH1106 1.3-inch **I2C** module and the
-`sh1106-oled-128x64-i2c` catalogue entry added for it (`2026-09-08`) have no
-physical validation yet either.
+full support rows" below.
 
 ### ESP32 upload-engine recommendation
 
@@ -189,11 +194,11 @@ Unless a future row says otherwise, treat the following as experimental:
 - Baked song envelopes and collection-driven modulation in the music-show
   pipeline.
 - SD show provisioning and player upload (music-sync shows remain experimental).
-- **Auxiliary displays beyond the four recorded rows above.** The SH1106
-  I2C module, the ESP32-2432S028 board profile, Now Playing / Fixed Transport
-  / Show Status on the colour TFT, any touch interaction, the custom `Display`
-  (LVGL) node, and every display module/board combination not listed in the
-  table above remain unvalidated on real hardware.
+- **Auxiliary displays beyond the five recorded rows above.** The
+  ESP32-2432S028 board profile, Now Playing / Fixed Transport / Show Status
+  on the colour TFT, any touch interaction, the custom `Display` (LVGL) node,
+  and every display module/board combination not listed in the table above
+  remain unvalidated on real hardware.
 - **DMX / Art-Net input, in every mode.** No hardware pass has been recorded
   for either transport. Two separate runs are needed before any part of this
   graduates:
