@@ -17,6 +17,7 @@ import {
   isDisplayTouchTarget,
   type DisplayClass,
 } from './displayRegistry'
+import { canonicalDisplayTemplateBounds } from './displayTemplates'
 
 export interface DisplayLayoutIssue {
   widgetId: string
@@ -24,40 +25,6 @@ export interface DisplayLayoutIssue {
   message: string
   otherWidgetId?: string
 }
-
-const NOW_PLAYING_SIGNATURE: readonly (readonly [DisplayWidgetType, string])[] = [
-  ['Text', 'Title'],
-  ['Text', 'Artist'],
-  ['Timecode', 'Elapsed'],
-  ['Timecode', 'Remaining'],
-  ['Progress', 'Position'],
-  ['Button', 'Previous'],
-  ['Toggle', 'Play'],
-  ['Button', 'Next'],
-]
-
-const NOW_PLAYING_BOUNDS = {
-  '320x240': [
-    { x: 16, y: 8, width: 288, height: 32 },
-    { x: 16, y: 48, width: 288, height: 24 },
-    { x: 16, y: 80, width: 80, height: 32 },
-    { x: 224, y: 80, width: 80, height: 32 },
-    { x: 16, y: 128, width: 288, height: 16 },
-    { x: 32, y: 160, width: 64, height: 64 },
-    { x: 128, y: 160, width: 64, height: 64 },
-    { x: 224, y: 160, width: 64, height: 64 },
-  ],
-  '240x320': [
-    { x: 16, y: 8, width: 208, height: 32 },
-    { x: 16, y: 48, width: 208, height: 24 },
-    { x: 16, y: 80, width: 80, height: 32 },
-    { x: 144, y: 80, width: 80, height: 32 },
-    { x: 16, y: 128, width: 208, height: 16 },
-    { x: 8, y: 160, width: 64, height: 64 },
-    { x: 88, y: 160, width: 64, height: 64 },
-    { x: 168, y: 160, width: 64, height: 64 },
-  ],
-} as const
 
 export function createDisplayDocument(
   displayId: string,
@@ -89,11 +56,11 @@ export function resizeDisplayDocument(
   const scaleX = width / Math.max(1, document.designSize.width)
   const scaleY = height / Math.max(1, document.designSize.height)
   const target = { designSize: { width, height }, gridSize: document.gridSize }
-  const nowPlayingBounds = canonicalNowPlayingBounds(document.widgets, width, height)
+  const templateBounds = canonicalDisplayTemplateBounds(document.widgets, width, height)
   const scaled = document.widgets.map((widget, index) => ({
     ...widget,
     bounds: (() => {
-      if (nowPlayingBounds) return nowPlayingBounds[index]
+      if (templateBounds) return templateBounds[index]
       const controlSize = preservedControlSize(widget, scaleX, scaleY, document.gridSize)
       return constrainDisplayWidgetBounds(target, widget.type, {
         x: widget.bounds.x * scaleX,
@@ -137,20 +104,6 @@ export function resizeDisplayDocument(
     orientation,
     widgets: scaled.map((widget) => ({ ...widget, bounds: boundsById.get(widget.id) ?? widget.bounds })),
   }
-}
-
-function canonicalNowPlayingBounds(
-  widgets: readonly DisplayWidget[],
-  width: number,
-  height: number,
-): readonly DisplayBounds[] | undefined {
-  const key = `${width}x${height}` as keyof typeof NOW_PLAYING_BOUNDS
-  const bounds = NOW_PLAYING_BOUNDS[key]
-  if (!bounds || widgets.length !== NOW_PLAYING_SIGNATURE.length) return undefined
-  const matches = widgets.every((widget, index) => (
-    widget.type === NOW_PLAYING_SIGNATURE[index][0] && widget.label === NOW_PLAYING_SIGNATURE[index][1]
-  ))
-  return matches ? bounds : undefined
 }
 
 function preservesControlAspect(widget: DisplayWidget): boolean {

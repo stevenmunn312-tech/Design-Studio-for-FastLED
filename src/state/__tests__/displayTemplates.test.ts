@@ -53,6 +53,36 @@ describe('custom display templates', () => {
     }
   })
 
+  it('reflows every recognised template to its dedicated portrait and landscape composition', () => {
+    for (const template of DISPLAY_TEMPLATES) {
+      const landscape = applyDisplayTemplate(referenceDocument(), template.id, 'theme:03-synthwave')
+      const portrait = resizeDisplayDocument(landscape, { width: 240, height: 320 }, '0')
+      expect(portrait.widgets.map((widget) => widget.bounds)).toEqual(
+        template.portraitWidgets.map((widget) => widget.bounds),
+      )
+      expect(displayLayoutIssues(portrait)).toEqual([])
+
+      const restored = resizeDisplayDocument(portrait, { width: 320, height: 240 }, '90')
+      expect(restored.widgets.map((widget) => widget.bounds)).toEqual(
+        template.widgets.map((widget) => widget.bounds),
+      )
+      expect(displayLayoutIssues(restored)).toEqual([])
+    }
+  })
+
+  it('keeps a deliberately repositioned template on the ordinary resize path', () => {
+    const landscape = applyDisplayTemplate(referenceDocument(), 'pattern-deck')
+    const customised = {
+      ...landscape,
+      widgets: landscape.widgets.map((widget, index) => (
+        index === 0 ? { ...widget, bounds: { ...widget.bounds, x: 8 } } : widget
+      )),
+    }
+
+    const portrait = resizeDisplayDocument(customised, { width: 240, height: 320 }, '0')
+    expect(portrait.widgets[0].bounds.x).toBe(8)
+  })
+
   it('inserts ordinary widgets that mint the ports they would mint one at a time', () => {
     const document = applyDisplayTemplate(referenceDocument(), 'now-playing')
     const ports = displayDocumentPorts(document)

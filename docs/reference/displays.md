@@ -146,9 +146,9 @@ Button or Toggle. The picker changes control art only, while the Screen
 **Theme** in the inspector changes the display's colours and background.
 Templates use the currently selected icon theme for their transport and action
 controls, including Shuffle, Auto advance, and Freeze.
-Their layout switches to a separate touch-safe portrait composition on the
-240×320 custom panel, so inserting a template does not collapse a landscape
-control row into overlapping targets.
+Their layouts use a shared gutter and row rhythm, with square themed actions
+where appropriate. A recognised template switches to its dedicated touch-safe
+portrait or landscape composition when the panel orientation changes.
 Use the editor’s **Portrait** and **Landscape** controls to match the panel’s
 mounted rotation. The switch reflows the saved layout, keeps square themed
 touch targets square, selects the matching background artwork, and updates the
