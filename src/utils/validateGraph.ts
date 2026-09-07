@@ -25,7 +25,7 @@ import { collectPinUses } from '../build/hardwareManifest'
 import { browserThumbnailIssues } from './browserThumbnails'
 import { transportArtworkIssues } from './transportArtworks'
 import {
-  controlChainSinks, displayControlsPlayer, playerDisplaysFromGraph, SHOW_DISPLAY_EXPRESSIONS,
+  controlChainDestinations, displayControlsPlayer, playerDisplaysFromGraph, SHOW_DISPLAY_EXPRESSIONS,
 } from '../codegen/playerDisplays'
 import { OLED_PANEL_RAM_BYTES } from '../codegen/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../codegen/segmentDisplayCpp'
@@ -1583,23 +1583,34 @@ export function findDisplayGeneratorIssues(
   errors.push(...splitI2cBusErrors(nodes))
   errors.push(...(templateControls?.custom.errors ?? []))
 
+  // The outputs this show renders, resolved once for every panel below.
+  const renderedShowOutputs = generator === 'show' ? showControlOutputIds(nodes, edges) : null
+
   for (const display of displays.filter((node) => node.data.nodeType === 'TransportDisplay')) {
     const props = display.data.properties as Record<string, unknown>
     if (!partById(String(props.partId ?? ''))?.display?.touchController) continue
     const controlsWired = edges.some((edge) => edge.source === display.id && edge.sourceHandle === 'controls')
+    // A fixed panel's touch regions are transport and volume — no layout emits
+    // pattern intent — so an LED output's latch is the only thing it can
+    // command outside a player build. In a show it has to be an output that
+    // show actually renders: a latch on an output the slideshow never draws to
+    // is a wire to a part of the graph the controller does not build.
+    const destinations = controlChainDestinations(display.id, edges as never, nodeById as never)
+    const reachesOutput = [...destinations].some((id) =>
+      nodeById.get(id)?.data.nodeType === 'MatrixOutput'
+      && (renderedShowOutputs === null || renderedShowOutputs.has(id)))
     // A normal sketch samples the panel and publishes its bundle now, so the
     // question is no longer whether the generator can read touch but whether
     // the chain ends anywhere it can act on. An LED output's blackout and
     // dimming latch is that somewhere; Music Player is not, because a normal
     // sketch renders a Music Player as a black fill.
-    if (controlsWired && generator === 'sketch'
-      && !controlChainSinks(display.id, edges as never, nodeById as never).has('output')) {
+    if (controlsWired && generator === 'sketch' && !reachesOutput) {
       errors.push(
         `${nodeLabel(display)} has its Controls output wired, but the chain does not reach anything a normal sketch can act on. `
         + "Wire it through to an LED output's Controls input to drive blackout and brightness, "
         + 'disconnect it to use the panel as a read-only display, or export a music-player build through Upload show to SD.',
       )
-    } else if (controlsWired && generator === 'show' && !templateControls?.touchIds.has(display.id)) {
+    } else if (controlsWired && generator === 'show' && !reachesOutput) {
       errors.push(
         `${nodeLabel(display)} has its Controls output wired, but the chain does not reach a slideshow LED output's Controls input. `
         + 'Use Show Status and route Controls there for blackout and brightness. A show has no transport to command; '
@@ -1614,9 +1625,7 @@ export function findDisplayGeneratorIssues(
     }
     if (controlsWired && generator !== 'player'
       && asTransportDisplayLayout(props.tftLayout) !== 'Show Status'
-      && (generator === 'sketch'
-        ? controlChainSinks(display.id, edges as never, nodeById as never).has('output')
-        : templateControls?.touchIds.has(display.id))) {
+      && reachesOutput) {
       errors.push(`${nodeLabel(display)}: this layout has no LED-output controls. Select Show Status for blackout and brightness, `
         + 'or use a music-player build for play/pause, track and volume actions.')
     }

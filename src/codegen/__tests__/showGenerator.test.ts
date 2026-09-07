@@ -853,4 +853,55 @@ describe('displays in a show controller', () => {
       expect(cpp).not.toContain('_sel_show')
     })
   })
+
+  /*
+   * The cursor belongs to everything that reads or commands it, not to the
+   * OLED browser that happened to need it first. A TFT-only Show Status read
+   * `_sel_show` that no line declared, and a headless Pattern Next reached the
+   * browser and vanished from the sketch.
+   */
+  describe('the pattern cursor', () => {
+    it('declares it for a TFT-only Show Status', () => {
+      const cpp = build([status], [edge('show-tft', 'pm', 'display', 'tft', 'display')])
+      expect(cpp).toContain('static PatternSel _sel_show;')
+      expect(cpp).toContain('  _selBegin(_sel_show);')
+      expect(cpp).toContain('_selBrowsing(_sel_show)')
+      expect(cpp).toContain('_selSetActive(_sel_show, PATTERN_COUNT, showPatternIndex);')
+    })
+
+    // Three buttons and no screen at all: the cursor, the bundle type and the
+    // show's own advance all have to exist without a display asking for them.
+    const controlNodes = [
+      node('btn', 'ButtonInput', { pin: 12 }),
+      node('ctl', 'PlayerControls', { controls: ['patternNext'] }),
+    ]
+    const controlEdges = [
+      edge('press', 'btn', 'pressed', 'ctl', 'patternNext'),
+      edge('cmd', 'ctl', 'controls', 'pm', 'controls'),
+    ]
+
+    it('carries a headless Pattern Next into the show it selects', () => {
+      const cpp = generateShowSketch([...base, ...controlNodes], [...baseEdges, ...controlEdges], groups)
+      expect(cpp).toContain('struct PlayerControlsValue {')
+      expect(cpp).toContain('PlayerControlsValue n_ctl_controls;')
+      expect(cpp).toContain('n_ctl_controls.patternSteps += 1;')
+      expect(cpp).toContain('static PatternSel _sel_show;')
+      // A slideshow has no confirm step, so a step is the change — the rule
+      // the evaluator applies by confirming on any non-zero step.
+      expect(cpp).toContain('_selUpdate(_sel_show, PATTERN_COUNT, millis(), n_ctl_controls.patternSteps, '
+        + 'n_ctl_controls.patternSteps != 0 || n_ctl_controls.patternConfirm);')
+    })
+
+    // Commanding, not just reporting: the renderer reads the cursor the way
+    // the evaluator reads its active index every frame.
+    it('renders the selected pattern rather than only naming it', () => {
+      const cpp = generateShowSketch([...base, ...controlNodes], [...baseEdges, ...controlEdges], groups)
+      const update = cpp.indexOf('_selUpdate(_sel_show')
+      const follow = cpp.indexOf('if (!transitioning) cur = (uint8_t)_sel_show.active;')
+      const render = cpp.indexOf('renderPattern(cur,')
+      expect(update).toBeGreaterThan(-1)
+      expect(follow).toBeGreaterThan(update)
+      expect(render).toBeGreaterThan(follow)
+    })
+  })
 })

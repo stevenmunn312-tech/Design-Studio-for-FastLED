@@ -157,23 +157,33 @@ export type ControlChainSink =
   | 'player'
   /** An LED output's blackout and dimming latch. */
   | 'output'
+  /** A Pattern Slideshow's cursor: browse and confirm, with no transport. */
+  | 'engine'
+
+/** The node types a chain can end at, and what each of them is. */
+const CONTROL_CHAIN_SINKS: Record<string, ControlChainSink | undefined> = {
+  PatternMaster: 'player',
+  MatrixOutput: 'output',
+  PatternSlideshow: 'engine',
+}
 
 /**
- * Every sink a control bundle reaches, following Player Controls links.
+ * Every node a control bundle lands on, following Player Controls links.
  *
- * One walk for both, because "does this wire go anywhere" is one question with
- * two answers now. A panel wired to an LED output is serviced by a normal
- * sketch; one wired to Music Player is serviced by the SD player; one wired to
- * both is serviced by whichever generator the graph selects. Answering only
- * the player half is what made a touch panel look unroutable in a plain sketch
- * for as long as an LED output had nothing to receive it on.
+ * One walk for all of them, because "does this wire go anywhere" is one
+ * question with three answers now. A panel wired to an LED output is serviced
+ * by a normal sketch; one wired to Music Player is serviced by the SD player;
+ * one wired to a Pattern Slideshow browses that show's collection; one wired
+ * to several is serviced by whichever generator the graph selects. Answering
+ * only the player half is what made a touch panel look unroutable in a plain
+ * sketch for as long as an LED output had nothing to receive it on.
  */
-export function controlChainSinks(
+export function controlChainDestinations(
   sourceId: string,
   edges: ConfigEdge[],
   byId: Map<string, ConfigNode>,
-): Set<ControlChainSink> {
-  const found = new Set<ControlChainSink>()
+): Set<string> {
+  const found = new Set<string>()
   const pending = [sourceId]
   const seen = new Set<string>()
   while (pending.length) {
@@ -183,10 +193,23 @@ export function controlChainSinks(
     for (const edge of edges) {
       if (edge.source !== id || edge.sourceHandle !== 'controls') continue
       const target = byId.get(edge.target)
-      if (target?.data.nodeType === 'PatternMaster' && edge.targetHandle === 'controls') found.add('player')
-      if (target?.data.nodeType === 'MatrixOutput' && edge.targetHandle === 'controls') found.add('output')
-      if (target?.data.nodeType === 'PlayerControls' && edge.targetHandle === 'controlsIn') pending.push(target.id)
+      if (!target) continue
+      if (target.data.nodeType === 'PlayerControls' && edge.targetHandle === 'controlsIn') pending.push(target.id)
+      else if (edge.targetHandle === 'controls' && CONTROL_CHAIN_SINKS[target.data.nodeType]) found.add(target.id)
     }
+  }
+  return found
+}
+
+export function controlChainSinks(
+  sourceId: string,
+  edges: ConfigEdge[],
+  byId: Map<string, ConfigNode>,
+): Set<ControlChainSink> {
+  const found = new Set<ControlChainSink>()
+  for (const id of controlChainDestinations(sourceId, edges, byId)) {
+    const kind = CONTROL_CHAIN_SINKS[byId.get(id)!.data.nodeType]
+    if (kind) found.add(kind)
   }
   return found
 }

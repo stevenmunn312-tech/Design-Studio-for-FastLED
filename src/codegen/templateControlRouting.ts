@@ -13,21 +13,41 @@ import { customDisplayControlPlan, bindCustomDisplayControls } from './customDis
 const safeId = (id: string) => id.replace(/[^a-zA-Z0-9_]/g, '_')
 export const controlBundleVariable = (id: string) => `n_${safeId(id)}_controls`
 
-/** Exactly the outputs rendered by the first connected slideshow template. */
-export function showControlOutputIds(nodes: StudioNode[], edges: StudioEdge[]): Set<string> {
+/**
+ * What a generated show can service a Controls wire into.
+ *
+ * Two kinds, not one. The LED outputs the slideshow renders take a blackout
+ * and dimming latch; the slideshow *itself* takes pattern intent, and reaching
+ * only the outputs is what made Pattern Next a wire that lit up in the browser
+ * and vanished from the sketch.
+ */
+export function showControlTargets(nodes: StudioNode[], edges: StudioEdge[]): {
+  engineId: string | null
+  outputIds: Set<string>
+} {
   const outputs = new Set(nodes.filter((n) => n.data.nodeType === 'MatrixOutput').map((n) => n.id))
   const show = nodes.find((n) => n.data.nodeType === 'PatternSlideshow' && edges.some((e) =>
     e.source === n.id && e.sourceHandle === 'frame' && e.targetHandle === 'frame' && outputs.has(e.target)))
-  return new Set(edges.filter((e) => e.source === show?.id && e.sourceHandle === 'frame'
-    && e.targetHandle === 'frame' && outputs.has(e.target)).map((e) => e.target))
+  return {
+    engineId: show?.id ?? null,
+    outputIds: new Set(edges.filter((e) => e.source === show?.id && e.sourceHandle === 'frame'
+      && e.targetHandle === 'frame' && outputs.has(e.target)).map((e) => e.target)),
+  }
+}
+
+/** Exactly the outputs rendered by the first connected slideshow template. */
+export function showControlOutputIds(nodes: StudioNode[], edges: StudioEdge[]): Set<string> {
+  return showControlTargets(nodes, edges).outputIds
 }
 
 export interface TemplateControlContext {
   label: string
   widgetLabel: string
+  /** Every node whose Controls input this template can resolve into a bundle. */
   destinationIds: ReadonlySet<string>
   sampledSources?: readonly ControlReference[]
-  scalarOutputs?: boolean
+  /** The destinations that are LED outputs, and so also carry Enabled/Brightness. */
+  scalarOutputIds?: ReadonlySet<string>
 }
 
 export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[], documents: DisplayDocumentRegistry | undefined, context: TemplateControlContext) {
@@ -39,7 +59,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
   bindCustomDisplayControls(custom, graph, edges, context.widgetLabel)
   const displaySources = new Map<string, string>()
   const controls: PlayerControlsEmit[] = []
-  const outputs = new Map<string, string>()
+  const bundles = new Map<string, string>()
   const scalarOutputs = new Map<string, { enabledExpr: string | null; brightnessExpr: string | null }>()
   const errors = new Set<string>(custom.errors)
   const done = new Set<string>(), visiting = new Set<string>()
@@ -102,12 +122,17 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
     return variable
   }
   for (const id of context.destinationIds) {
-    const output = byId.get(id)!
-    if (context.scalarOutputs) scalarOutputs.set(id, { enabledExpr: sourceExpr(output, 'enabled', 'bool'), brightnessExpr: sourceExpr(output, 'brightness', 'float') })
+    const destination = byId.get(id)!
+    if (context.scalarOutputIds?.has(id)) {
+      scalarOutputs.set(id, {
+        enabledExpr: sourceExpr(destination, 'enabled', 'bool'),
+        brightnessExpr: sourceExpr(destination, 'brightness', 'float'),
+      })
+    }
     const edge = incoming.get(`${id}:controls`)
     if (!edge) continue
     const variable = visit(edge)
-    if (variable) outputs.set(id, variable)
+    if (variable) bundles.set(id, variable)
   }
   for (const node of nodes.filter((n) => n.data.nodeType === 'TransportDisplay')) {
     // Read the library's typed ports, including graphs loaded without copied
@@ -133,7 +158,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
     if (issues.length) issues[0] += ` ${detail}`
     else issues.push(detail)
   }
-  return { touchIds, graph, custom, displaySources, controls, outputs, scalarOutputs, errors: issues }
+  return { touchIds, graph, custom, displaySources, controls, bundles, scalarOutputs, errors: issues }
 }
 
 export type TemplateControlRouting = ReturnType<typeof templateControlRouting>

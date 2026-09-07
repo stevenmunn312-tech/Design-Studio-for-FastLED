@@ -40,7 +40,7 @@ export function playerControlGraph(nodes: StudioNode[], edges: StudioEdge[], doc
       ? [`  char ${variable}[${DISPLAY_TEXT_BUFFER_BYTES}]; _dsCopy(${variable}, ${expression});`]
       : [`  ${source.type} ${variable} = ${expression};`]
   })
-  const bundle = master ? routing.outputs.get(master.id) : undefined
+  const bundle = master ? routing.bundles.get(master.id) : undefined
   const hasPatternControls = routing.controls.some((control) => control.patternPositionExpr
     || control.buttons.some((button) => button.port.startsWith('pattern')))
   return { ...routing, sample, bundle, hasPatternControls, hasSongSources: usedSources.length > 0 }

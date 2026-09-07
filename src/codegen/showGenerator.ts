@@ -350,6 +350,82 @@ const SHOW_SELECTION_STEM = 'show'
 /** The show's running pattern index, readable from anywhere in the sketch. */
 const SHOW_PATTERN_INDEX = 'showPatternIndex'
 
+type ResolvedShowDisplays = ReturnType<typeof playerDisplaysFromGraph>
+
+/**
+ * Whether this show needs a pattern cursor, and who asked for it.
+ *
+ * Derived from every consumer rather than from one of them. An OLED Pattern
+ * Browser used to be the only thing that counted, so a TFT-only Show Status
+ * emitted `_sel_show.highlight` against a variable no line declared, and
+ * physical Pattern Next with no screen at all was dropped silently. The rule
+ * is now the plain one: anything that reads the cursor, and anything that
+ * commands it, keeps it.
+ */
+interface ShowSelectionPlan {
+  /** Emit the cursor at all. */
+  used: boolean
+  variable: string
+  stem: string
+  /** The control bundle carrying pattern intent, or null when nothing does. */
+  commands: string | null
+}
+
+function showSelectionPlan(
+  displays: ResolvedShowDisplays,
+  hasArtwork: boolean,
+  patternCommands: string | null,
+): ShowSelectionPlan {
+  const readers = displays.info.some((display) => display.layout === 'Pattern Browser')
+    || displays.tft.some((display) => display.layout === 'Show Status')
+    || hasArtwork
+  return {
+    used: readers || patternCommands !== null,
+    variable: `_sel_${SHOW_SELECTION_STEM}`,
+    stem: SHOW_SELECTION_STEM,
+    commands: patternCommands,
+  }
+}
+
+/**
+ * The cursor itself: declaration, reset, the intent applied to it, and the
+ * show's own advance published back into it.
+ *
+ * Emitted from the generator rather than from the display half, because a
+ * headless build — three buttons and no screen — needs every one of these and
+ * has no display half at all.
+ */
+function showSelectionCpp(plan: ShowSelectionPlan, patternCount: number): {
+  forwards: string[]
+  helpers: string[]
+  setup: string[]
+  apply: string[]
+  publish: string[]
+} {
+  if (!plan.used) return { forwards: [], helpers: [], setup: [], apply: [], publish: [] }
+  const bundle = plan.commands
+  return {
+    forwards: [PATTERN_SELECTION_CPP_FORWARD],
+    // PATTERN_COUNT is already defined by the controller above, so the
+    // selection reads it rather than restating it.
+    helpers: [PATTERN_SELECTION_CPP, `static PatternSel ${plan.variable};`],
+    setup: [`  _selBegin(${plan.variable});`],
+    // A slideshow has no split between what you are looking at and what is
+    // playing to show anybody, so a step *is* the change — the same rule the
+    // evaluator applies by confirming on any non-zero step.
+    apply: bundle
+      ? [`  _selUpdate(${plan.variable}, PATTERN_COUNT, millis(), ${bundle}.patternSteps, `
+        + `${bundle}.patternSteps != 0 || ${bundle}.patternConfirm);`]
+      : [],
+    // The show's own advance goes through the selection, exactly as the SD
+    // player's does, so a panel and the pixels never disagree about which
+    // pattern is running.
+    publish: patternCount > 0
+      ? [`  _selSetActive(${plan.variable}, PATTERN_COUNT, ${SHOW_PATTERN_INDEX});`]
+      : [],
+  }
+}
+
 interface ShowDisplayEmission {
   /** Extra include lines the drivers need. */
   includes: string[]
@@ -384,15 +460,11 @@ const NO_SHOW_DISPLAYS: ShowDisplayEmission = {
  */
 function showDisplaysCpp(
   nodes: StudioNode[],
-  edges: StudioEdge[],
-  patternCount: number,
+  displays: ResolvedShowDisplays,
   opts: { thumbnails?: BrowserThumbnails; artworks?: TransportArtworks; bootLabel?: string },
   controls: ShowControlRouting,
+  selection: ShowSelectionPlan,
 ): ShowDisplayEmission {
-  const displays = playerDisplaysFromGraph(
-    nodes as never, edges as never,
-    { expressions: SHOW_DISPLAY_EXPRESSIONS, transportTouch: false, kinds: ['slideshow'], controlTouchIds: controls.touchIds, controlSources: controls.displaySources },
-  )
   const hasInfo = displays.info.length > 0
   const hasSegment = displays.segment.length > 0
   const hasTft = displays.tft.length > 0
@@ -406,9 +478,7 @@ function showDisplaysCpp(
   const artworks = Object.values(opts.artworks ?? {})[0] ?? []
   const hasArtwork = displays.tft.some((display) => display.layout === 'Now Playing')
     && artworks.length > 0
-  // The cursor exists for anything that has to know which pattern is running.
-  const usesSelection = browsers.length > 0 || hasArtwork
-  const selVar = `_sel_${SHOW_SELECTION_STEM}`
+  const selVar = selection.variable
   const bootTitle = opts.bootLabel?.trim() || 'FASTLED BUILD'
   const bootDevice = selectedPhysicalBoardProfile(nodes)?.label ?? 'FASTLED CONTROLLER'
 
@@ -533,15 +603,10 @@ function showDisplaysCpp(
       ...(hasInfo ? [INFO_DISPLAY_CPP_FORWARD] : []),
       ...(hasSegment ? [SEGMENT_DISPLAY_CPP_FORWARD] : []),
       ...(hasTft ? [TFT_DISPLAY_CPP_FORWARD] : []),
-      ...(usesSelection ? [PATTERN_SELECTION_CPP_FORWARD] : []),
     ],
     helpers: [
       hasInfo ? infoDisplayHelpersCpp() : '',
       hasInfo ? infoEmits.map(infoDisplayGlobalCpp).join('\n') : '',
-      // PATTERN_COUNT is already defined by the controller above, so the
-      // selection reads it rather than restating it.
-      usesSelection ? PATTERN_SELECTION_CPP : '',
-      usesSelection ? `static PatternSel ${selVar};` : '',
       browsers.length > 0 ? THUMBNAIL_DRAW_CPP : '',
       browsers.length > 0 ? patternThumbnailTableCpp(SHOW_SELECTION_STEM, thumbnails) : '',
       hasSegment ? SEGMENT_DISPLAY_CPP_HELPERS : '',
@@ -557,18 +622,11 @@ function showDisplaysCpp(
         ? [`  Wire.begin(${i2cDisplays[0].sdaPin}, ${i2cDisplays[0].sclPin});  // I2C displays`]
         : []),
       ...infoEmits.flatMap(infoDisplaySetupCpp),
-      ...(usesSelection ? [`  _selBegin(${selVar});`] : []),
       ...segmentEmits.flatMap(segmentDisplaySetupCpp),
       ...tftEmits.flatMap(tftDisplaySetupCpp),
       ...touchEmits.flatMap(tftTouchSetupCpp),
     ],
     loop: [
-      // The show's own advance goes through the selection, exactly as the SD
-      // player's does, so a panel and the pixels never disagree about which
-      // pattern is running.
-      ...(usesSelection && patternCount > 0
-        ? [`  _selSetActive(${selVar}, PATTERN_COUNT, ${SHOW_PATTERN_INDEX});`]
-        : []),
       ...infoEmits.flatMap(infoDisplayLoopCpp),
       ...segmentEmits.flatMap(segmentDisplayLoopCpp),
       ...tftEmits.flatMap(tftDisplayLoopCpp),
@@ -690,7 +748,24 @@ export function generateShowSketch(
   const controls = showControlRouting(nodes, edges, opts.displayDocuments)
   if (controls.errors.length > 0) throw new Error(controls.errors.join('\n'))
   const controlGraph = controlGraphCpp(controls.graph)
-  const displays = showDisplaysCpp(nodes, edges, renderers.count, opts, controls)
+  // Resolved once, then asked two questions: what has to be drawn, and who
+  // needs the pattern cursor. Both readers and commanders count, which is what
+  // keeps a TFT-only Show Status and a screenless Pattern Next working.
+  const resolvedDisplays = playerDisplaysFromGraph(
+    nodes as never, edges as never,
+    {
+      expressions: SHOW_DISPLAY_EXPRESSIONS, transportTouch: false, kinds: ['slideshow'],
+      controlTouchIds: controls.touchIds, controlSources: controls.displaySources,
+    },
+  )
+  const selection = showSelectionPlan(
+    resolvedDisplays,
+    resolvedDisplays.tft.some((display) => display.layout === 'Now Playing')
+      && (Object.values(opts.artworks ?? {})[0] ?? []).length > 0,
+    controls.patternCommands,
+  )
+  const selectionCpp = showSelectionCpp(selection, renderers.count)
+  const displays = showDisplaysCpp(nodes, resolvedDisplays, opts, controls, selection)
   const customDisplays = customDisplayShowCpp(controls.custom, opts.customDisplayAssets)
   const outputRuntimeExpressions = (outputId: string) => {
     const id = safeId(outputId)
@@ -732,7 +807,7 @@ export function generateShowSketch(
   L.push('// types are defined, so a helper taking one by reference fails on a')
   L.push('// line nothing in this generator wrote.')
   for (const decl of fastLedDecls) L.push(decl)
-  for (const decl of new Set([...displays.forwards, ...customDisplays.forwards])) L.push(decl)
+  for (const decl of new Set([...displays.forwards, ...selectionCpp.forwards, ...customDisplays.forwards])) L.push(decl)
   if (stereoVuMeters.length > 0) L.push(STEREO_VU_CPP_FORWARD)
   L.push('')
   L.push(`#define WIDTH    ${width}`)
@@ -810,18 +885,22 @@ export function generateShowSketch(
 
   for (const fn of renderers.functions) { L.push(fn); L.push('') }
 
-  if (controls.outputs.size > 0) {
+  // The bundle type belongs to every chain that builds one, not just to the
+  // LED latches: a panel sampled into a bundle and a slideshow commanded by
+  // one both name PlayerControlsValue with no output involved.
+  if (controls.controls.length > 0 || controls.outputs.size > 0 || controls.touchIds.size > 0) {
     L.push(PLAYER_CONTROLS_CPP)
-    for (const id of controls.outputs.keys()) L.push(ledOutputLatchGlobalCpp(safeId(id)))
   }
-  if (displays.helpers.length > 0) {
-    // The running pattern, published for the panels. A file-scope global
-    // rather than the loop's own `cur` because a single-pattern show has no
-    // `cur` at all, and because a display helper reads it from outside loop().
+  for (const id of controls.outputs.keys()) L.push(ledOutputLatchGlobalCpp(safeId(id)))
+  if (displays.helpers.length > 0 || selection.used) {
+    // The running pattern, published for the panels and for the cursor. A
+    // file-scope global rather than the loop's own `cur` because a
+    // single-pattern show has no `cur` at all, and because a display helper
+    // reads it from outside loop().
     L.push(`static uint8_t ${SHOW_PATTERN_INDEX} = 0;`)
     L.push('')
   }
-  for (const helper of new Set([...displays.helpers, ...customDisplays.helpers])) { L.push(helper); L.push('') }
+  for (const helper of new Set([...selectionCpp.helpers, ...displays.helpers, ...customDisplays.helpers])) { L.push(helper); L.push('') }
 
   // Pattern dispatch table (renders pattern i into `leds`).
   L.push('void renderPattern(uint8_t i, uint32_t ms) {')
@@ -871,6 +950,7 @@ export function generateShowSketch(
   L.push(info.seed ? `  random16_set_seed(${info.seed}u);` : '  randomSeed(analogRead(A0));')
   if (audio) L.push('  setupAudio();')
   for (const line of displays.setup) L.push(line)
+  L.push(...selectionCpp.setup)
   L.push(...customDisplays.setup)
   L.push(...controlGraph.setup)
   for (let step = 1; step <= 6; step++) {
@@ -897,11 +977,19 @@ export function generateShowSketch(
   L.push(...controlGraph.loop)
   for (const control of controls.controls) L.push(...playerControlsServiceCpp(control))
   for (const [id, variable] of controls.outputs) L.push(...ledOutputLatchCpp({ id: safeId(id), controls: variable }))
+  // Pattern intent lands on the cursor before anything renders, so a confirmed
+  // pattern is the one this pass draws rather than the next one.
+  L.push(...selectionCpp.apply)
   if (audio) L.push('  updateAudio();   // refresh audio band levels once per frame')
   if (transitions) {
     L.push(`  static uint8_t  cur = ${firstPattern}, nxt = 0, transType = 0;`)
     L.push('  static bool     transitioning = false;')
     L.push('  static uint32_t phaseStart = 0;')
+    // The renderer follows the cursor, the way the evaluator reads its active
+    // index every frame — a confirm has to change the pixels, not just what a
+    // panel says. Mid-transition it is left alone: the outgoing pattern is
+    // still the one running, and the transition commits its own choice.
+    if (selection.used) L.push(`  if (!transitioning) cur = (uint8_t)${selection.variable}.active;`)
   }
   L.push('  uint32_t now = millis();')
   L.push(...masterShowClockLoopCpp(masterSpeedEmit))
@@ -926,7 +1014,7 @@ export function generateShowSketch(
     L.push('    if (p >= 1.0f) { cur = nxt; transitioning = false; phaseStart = now; }')
     L.push('  }')
     L.push('')
-    if (displays.helpers.length > 0) {
+    if (displays.helpers.length > 0 || selection.used) {
       // Mid-transition the outgoing pattern is still the one running: a panel
       // that renamed itself the instant a crossfade began would be ahead of
       // what anyone can see on the fixture.
@@ -988,6 +1076,7 @@ export function generateShowSketch(
   // regression to wall-clock LED timing — so the pixels go out first and the
   // panels catch up in the slack. Each of these is already change-gated, so a
   // steady display costs a comparison per loop.
+  L.push(...selectionCpp.publish)
   for (const line of displays.loop) L.push(line)
   L.push(...customDisplays.loop)
   L.push('  FastLED.delay(16);')
