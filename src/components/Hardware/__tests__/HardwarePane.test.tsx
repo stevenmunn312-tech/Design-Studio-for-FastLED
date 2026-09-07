@@ -140,7 +140,7 @@ describe('HardwarePane', () => {
     ['InfoDisplay', 'SH1106 0.96-inch', '128x64 white OLED over 4-wire SPI', 'sh1106-oled-096-128x64-spi'],
     ['InfoDisplay', 'SH1106 1.3-inch (I2C)', '128x64 white OLED over I2C', 'sh1106-oled-128x64-i2c'],
     ['InfoDisplay', 'SSD1306 0.96-inch', '128x64 white OLED over I2C', 'ssd1306-oled-128x64'],
-    ['TransportDisplay', 'ST7789 1.3/1.54-inch', '240x240 colour TFT over SPI', 'st7789-tft-240x240'],
+    ['TransportDisplay', 'ST7789 1.54-inch', '240x240 colour TFT over SPI', 'st7789-tft-240x240'],
     ['TransportDisplay', 'ST7789V 2.4-inch + touch', '240x320 colour TFT with XPT2046 touch', 'st7789v-xpt2046-touch-240x320'],
     // Display is deliberately not a row here: it selects no catalogued
     // module of its own since the panel/document split, so it has no "exact

@@ -35,7 +35,11 @@ describe('part catalogue', () => {
     expect(displays['max7219-8digit-7segment']).toMatchObject({ controller: 'MAX7219', resolutionPx: [8, 7] })
     expect(displays['ssd1306-oled-128x64']).toMatchObject({ controller: 'SSD1306', resolutionPx: [128, 64] })
     expect(displays['sh1106-oled-128x64']).toMatchObject({ controller: 'SH1106G', resolutionPx: [128, 64] })
-    expect(displays['st7789-tft-240x240']).toMatchObject({ controller: 'ST7789', resolutionPx: [240, 240] })
+    // A square 240x240 panel driven by real ST7789V silicon — the same chip
+    // as the touch module, windowed into less of its RAM. See
+    // tftControllerForProps in nodeLibrary.ts for how panel geometry and
+    // controller identity resolve independently from this fact.
+    expect(displays['st7789-tft-240x240']).toMatchObject({ controller: 'ST7789V', resolutionPx: [240, 240] })
     expect(displays['st7789v-xpt2046-touch-240x320'])
       .toMatchObject({ controller: 'ST7789V', resolutionPx: [240, 320], touchController: 'XPT2046' })
   })

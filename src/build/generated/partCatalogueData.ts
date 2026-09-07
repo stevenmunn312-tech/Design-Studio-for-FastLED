@@ -909,47 +909,44 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
   },
   "st7789-tft-240x240": {
     "partId": "st7789-tft-240x240",
-    "label": "ST7789 1.3/1.54-inch 240x240 TFT",
+    "label": "ST7789 1.54-inch 240x240 TFT",
     "category": "display",
     "dimensionsMm": {
-      "width": 35.8,
-      "height": 35.8
+      "width": 32.0,
+      "height": 43.72
     },
-    "manufacturer": "Adafruit",
-    "logicVoltage": "3.3 V logic; 3-5 V VIN",
+    "manufacturer": "generic M154-240240-RGB-8 module form",
+    "logicVoltage": "3.0-3.3 V supply and logic",
     "pinLabelsLeftToRight": [
-      "VIN",
-      "3V",
       "GND",
-      "SCK",
-      "MOSI",
-      "CS",
-      "DC",
+      "VCC",
+      "SCL",
+      "SDA",
       "RST",
-      "LITE",
-      "MISO",
-      "SDCS",
-      "SDDET"
+      "DC",
+      "CS",
+      "BL"
     ],
     "notes": [
-      "Adafruit Product 4313 IPS TFT breakout with microSD and 240x240 ST7789 panel. Adafruit sells this identical PCB, mounting geometry and header in both 1.3-inch and 1.54-inch panel-glass variants, so this asset represents the shared board rather than one specific glass size.",
-      "The screen shows a square now-playing dashboard to make the active area and colour response obvious.",
-      "No touch controller is fitted; this is the app's non-interactive colour-display target."
+      "Common 1.54-inch 240 x 240 IPS TFT breakout using an ST7789V controller and four-wire SPI.",
+      "Pin labels follow the user's physical module exactly: GND, VCC, SCL, SDA, RST, DC, CS, BL. On this module SCL is the SPI clock and SDA is the SPI data input, not an I2C bus.",
+      "The eight 2.54 mm connection positions are intentionally unpopulated plated through-holes, with no installed header posts or plastic strip.",
+      "The previous Adafruit-style square carrier and microSD/header details were removed; this replacement follows the 32.00 x 43.72 mm eight-pin module drawing."
     ],
     "display": {
-      "controller": "ST7789",
+      "controller": "ST7789V",
       "resolutionPx": [
         240,
         240
       ],
-      "interface": "SPI",
+      "interface": "4-wire SPI",
       "touchController": null
     },
     "render": {
       "file": "parts/st7789-tft-240x240.webp",
-      "widthPx": 438,
-      "heightPx": 438,
-      "pxPerMm": 12.011
+      "widthPx": 404,
+      "heightPx": 545,
+      "pxPerMm": 12.0
     }
   },
   "st7789v-xpt2046-touch-240x320": {

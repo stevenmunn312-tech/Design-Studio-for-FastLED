@@ -5072,7 +5072,20 @@ export function oledControllerForProps(properties: Record<string, unknown>): Ole
  * not a second property for the user to keep in step with their module choice.
  */
 export function tftControllerForProps(properties: Record<string, unknown>): TftController | null {
-  return tftControllerFor(partById(String(properties.partId ?? ''))?.display?.controller)
+  const entry = partById(String(properties.partId ?? ''))
+  const base = tftControllerFor(entry?.display?.controller)
+  if (!base) return null
+  // Which silicon is behind the glass and how large the glass itself is are
+  // two different facts: an ST7789V drives a 240x320 touch module and, on
+  // this square 1.54-inch module, a 240x240 one windowed into the same
+  // 240x320 RAM the base descriptor already states — the same relationship
+  // the OLED's columnOffset expresses for narrower glass on wider RAM. Panel
+  // size comes from the catalogue's own resolutionPx when it disagrees with
+  // the controller-name default, rather than baking one panel size per chip
+  // name and forcing every module on that chip to share it.
+  const resolution = entry?.display?.resolutionPx
+  if (!resolution || (resolution[0] === base.width && resolution[1] === base.height)) return base
+  return { ...base, width: resolution[0], height: resolution[1] }
 }
 
 const TRANSPORT_DISPLAY_BASE_PINS = [

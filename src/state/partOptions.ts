@@ -186,9 +186,9 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
     options: [
       {
         id: 'st7789-tft-240x240',
-        label: 'ST7789 1.3/1.54-inch',
+        label: 'ST7789 1.54-inch',
         summary: '240x240 colour TFT over SPI',
-        note: 'A square 240x240 colour display with no touch controller. Adafruit sells this identical board in both 1.3-inch and 1.54-inch panel-glass variants.',
+        note: 'A square 240x240 colour display with no touch controller.',
       },
       {
         id: 'st7789v-xpt2046-touch-240x320',
