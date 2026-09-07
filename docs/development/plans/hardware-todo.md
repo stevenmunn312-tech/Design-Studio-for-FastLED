@@ -10,6 +10,7 @@ Active backlog for the breaking `Hardware` line. The implemented two-view hardwa
 - [x] Route `FFTAnalyzer`, `BeatDetect`, `PercussionDetect`, and `AudioFeatures` through explicit ports instead of ambient `useAudioStore.getState()` reads.
 - [x] Add a decoder tap so on-board playback can analyse PCM before the DAC and drive generative shows without a microphone.
 - [x] Add ESP32-S3 PCM1802 line-in hardware/capability support for player modules that cannot expose decoded PCM.
+- [ ] Widen the supported microphone and amplifier modules. FastLED's vendored audio layer already ships the ICS-43434 and generic-MEMS factories and profiles, so those two are free in firmware; a 12 V analog power amplifier first needs a decision on whether a DAC and a power amp can be two parts on one bench. See [`audio-part-expansion.md`](audio-part-expansion.md).
 
 ## Deferred model work
 

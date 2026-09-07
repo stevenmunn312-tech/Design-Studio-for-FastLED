@@ -110,6 +110,10 @@ build/architecture overview aimed at contributors.
     — implementation plan for paired vertical left/right LED strings, the
     backward-compatible stereo-level path, twelve visualizations, generator
     integration, electrical validation, and staged bench evidence.
+  - [Audio part expansion](development/plans/audio-part-expansion.md)
+    — proposed microphone and amplifier modules, which are free in firmware
+    because FastLED already ships their profiles, and the DAC-to-power-amp
+    question a 12 V analog amplifier forces before any of them can be added.
   - [Hardware branch todo](development/plans/hardware-todo.md)
     — active hardware-line backlog and unresolved bench findings.
   - [Hardware renders](development/plans/hardware-renders.md)

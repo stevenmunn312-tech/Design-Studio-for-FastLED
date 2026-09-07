@@ -117,6 +117,8 @@ interface InputPartEntry {
   dataType?: string
   /** Pins to find on the board. Empty when the profile supplies them. */
   pinRequests: readonly PartPinRequest[]
+  /** Pin roles printed below the part, including profile-supplied buses. */
+  pinFields: readonly { key: string; label: string }[]
   /** Extra properties stamped on nodes created from this hardware entry. */
   properties?: Record<string, unknown>
   /** Caption when the part is wired by a board peripheral rather than GPIO. */
@@ -320,6 +322,11 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     footprint: partDimensionsMm('inmp441-i2s-microphone', INMP441_FOOTPRINT_MM),
     signalPort: 'audio',
     pinRequests: [],
+    pinFields: [
+      { key: 'i2sWs', label: 'WS' },
+      { key: 'i2sSck', label: 'SCK' },
+      { key: 'i2sSd', label: 'SD' },
+    ],
     singleton: true,
   },
   {
@@ -335,6 +342,12 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
       { key: 'i2sLrclk' },
       { key: 'i2sDout', capability: 'digitalInput' },
     ],
+    pinFields: [
+      { key: 'i2sMclk', label: 'MCLK' },
+      { key: 'i2sBclk', label: 'BCLK' },
+      { key: 'i2sLrclk', label: 'LRCLK' },
+      { key: 'i2sDout', label: 'DOUT' },
+    ],
     properties: { partId: 'pcm1802-line-in-adc' },
     singleton: true,
     fqbnPrefix: 'esp32:esp32:esp32s3',
@@ -348,6 +361,10 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     signalPort: 'secondsOfDay',
     dataType: 'float',
     pinRequests: [],
+    pinFields: [
+      { key: 'sdaPin', label: 'SDA' },
+      { key: 'sclPin', label: 'SCL' },
+    ],
     properties: { timeSource: 'DS3231', partId: 'ds3231-rtc-module' },
     connectionSummary: 'Default I2C bus',
     singleton: true,
@@ -361,6 +378,10 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     signalPort: 'secondsOfDay',
     dataType: 'float',
     pinRequests: [],
+    pinFields: [
+      { key: 'sdaPin', label: 'SDA' },
+      { key: 'sclPin', label: 'SCL' },
+    ],
     properties: { timeSource: 'DS3231', partId: 'jaycar-xc9044-rtc-module' },
     connectionSummary: 'Default I2C bus',
     singleton: true,
@@ -373,6 +394,7 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     footprint: BUTTON_MODULE_FOOTPRINT_MM,
     signalPort: 'pressed',
     pinRequests: [{ key: 'pin' }],
+    pinFields: [{ key: 'pin', label: 'GPIO' }],
   },
   {
     nodeType: 'ButtonBank',
@@ -382,6 +404,7 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     footprint: BUTTON_MODULE_FOOTPRINT_MM,
     signalPort: 'add-button',
     pinRequests: [],
+    pinFields: [],
   },
   {
     nodeType: 'PotInput',
@@ -392,6 +415,7 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     signalPort: 'value',
     // The one part that cannot take just any free pin.
     pinRequests: [{ key: 'pin', capability: 'analogInput' }],
+    pinFields: [{ key: 'pin', label: 'GPIO' }],
   },
   {
     nodeType: 'MotionInput',
@@ -402,6 +426,7 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     signalPort: 'motion',
     dataType: 'bool',
     pinRequests: [{ key: 'pin' }],
+    pinFields: [{ key: 'pin', label: 'GPIO' }],
   },
   {
     nodeType: 'LightInput',
@@ -413,6 +438,7 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     dataType: 'float',
     // An LDR divider is an analog signal — the same constraint the pot has.
     pinRequests: [{ key: 'pin', capability: 'analogInput' }],
+    pinFields: [{ key: 'pin', label: 'GPIO' }],
   },
   {
     nodeType: 'EncoderInput',
@@ -422,8 +448,26 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     footprint: ENCODER_MODULE_FOOTPRINT_MM,
     signalPort: 'position',
     pinRequests: [{ key: 'pinA' }, { key: 'pinB' }, { key: 'pinSW' }],
+    pinFields: [
+      { key: 'pinA', label: 'A' },
+      { key: 'pinB', label: 'B' },
+      { key: 'pinSW', label: 'SW' },
+    ],
   },
 ]
+
+/** Format a part's assigned pins in ascending GPIO order, retaining each role. */
+function numericPinSummary(
+  properties: Record<string, unknown>,
+  fields: readonly { key: string; label: string }[],
+): string {
+  return fields
+    .map(({ key, label }) => ({ label, pin: Number(properties[key]) }))
+    .filter(({ pin }) => Number.isFinite(pin))
+    .sort((left, right) => left.pin - right.pin || left.label.localeCompare(right.label))
+    .map(({ label, pin }) => `${label} ${pin}`)
+    .join(' · ')
+}
 // One node type for every LED output; the form says what physical geometry the
 // chain or panel has (src/state/ledOutputForm.ts).
 const LED_OUTPUT_NODE_TYPE = 'MatrixOutput'
@@ -774,11 +818,7 @@ export default function HardwarePane() {
         ? moduleKeys.map((key) => ({ key, label: MODULE_PIN_LABELS[key] ?? key }))
         : entry.pinFields
     const props = node.data.properties as Record<string, unknown>
-    const pinSummary = pinFields
-      .map(({ key, label }) => ({ label, pin: Number(props[key]) }))
-      .filter(({ pin }) => Number.isFinite(pin))
-      .map(({ label, pin }) => `${label} ${pin}`)
-      .join(' · ')
+    const pinSummary = numericPinSummary(props, pinFields)
     const vuLedCount = entry.nodeType === 'StereoVuMeter'
       ? Math.max(1, Math.round(Number(props.ledCount ?? 16)))
       : null
@@ -882,15 +922,13 @@ export default function HardwarePane() {
     if (entry.nodeType === 'ButtonBank') {
       const buttons = normalizeButtonBankEntries(props.buttons)
       if (buttons.length === 0) return 'Connect outputs in the graph'
-      return `${buttons.length} button${buttons.length === 1 ? '' : 's'} · GPIO ${buttons.map((button) => button.pin).join(', ')}`
+      const pins = buttons.map((button) => button.pin).sort((left, right) => left - right)
+      return `${buttons.length} button${buttons.length === 1 ? '' : 's'} · GPIO ${pins.join(', ')}`
     }
-    const keys = entry.nodeType === MIC_NODE_TYPE
-      ? ['i2sWs', 'i2sSck', 'i2sSd']
-      : entry.pinRequests.map((request) => request.key)
-    const pins = keys.map((key) => Number(props[key])).filter((pin) => Number.isFinite(pin))
-    if (pins.length === 0 && entry.connectionSummary) return entry.connectionSummary
-    if (pins.length === 0) return 'Mirrored in the graph'
-    return `Pin${pins.length > 1 ? 's' : ''} ${pins.join(', ')}`
+    const summary = numericPinSummary(props, entry.pinFields)
+    if (!summary && entry.connectionSummary) return entry.connectionSummary
+    if (!summary) return 'Mirrored in the graph'
+    return summary
   }
   const ledOutputDefinition = useMemo(
     () => NODE_LIBRARY.find((definition) => definition.type === LED_OUTPUT_NODE_TYPE),

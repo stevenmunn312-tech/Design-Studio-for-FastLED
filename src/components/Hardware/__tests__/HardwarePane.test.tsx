@@ -103,7 +103,7 @@ describe('HardwarePane', () => {
       timeSource: 'DS3231',
       partId: 'ds3231-rtc-module',
     })
-    expect(within(document.body).getByText('Default I2C bus')).toBeTruthy()
+    expect(within(document.body).getByText('SDA 21 · SCL 22')).toBeTruthy()
   })
 
   it('adds a custom touch display with its own document and stable identity', () => {
@@ -345,7 +345,7 @@ describe('HardwarePane', () => {
     render(<HardwarePane />)
 
     expect(screen.getByText('MAX98357A')).toBeTruthy()
-    expect(screen.getByText('BCLK 17 · LRC 18 · DIN 16')).toBeTruthy()
+    expect(screen.getByText('DIN 16 · BCLK 17 · LRC 18')).toBeTruthy()
     expect(screen.queryByText(/Hardware only/)).toBeNull()
   })
 
@@ -355,10 +355,10 @@ describe('HardwarePane', () => {
         ...useGraphStore.getState().nodes,
         node('SDCard', 'sd', {
           partId: 'microsd-module-5v',
-          sdCsPin: 5,
+          sdCsPin: 23,
           sdSckPin: 18,
           sdMisoPin: 19,
-          sdMosiPin: 23,
+          sdMosiPin: 5,
         }) as never,
       ],
     })
@@ -366,7 +366,20 @@ describe('HardwarePane', () => {
     render(<HardwarePane />)
 
     expect(screen.getByText('microSD module (5 V)')).toBeTruthy()
-    expect(screen.getByText('CS 5 · SCK 18 · MISO 19 · MOSI 23')).toBeTruthy()
+    expect(screen.getByText('MOSI 5 · SCK 18 · MISO 19 · CS 23')).toBeTruthy()
+  })
+
+  it('labels input roles and lists their pins numerically', () => {
+    useGraphStore.setState({
+      nodes: [
+        ...useGraphStore.getState().nodes,
+        node('EncoderInput', 'encoder', { pinA: 8, pinB: 4, pinSW: 6 }) as never,
+      ],
+    })
+
+    render(<HardwarePane />)
+
+    expect(screen.getByText('B 4 · SW 6 · A 8')).toBeTruthy()
   })
 
   it('lifts the hardware inspector to use room above without scrolling', () => {
