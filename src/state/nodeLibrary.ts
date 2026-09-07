@@ -2894,16 +2894,21 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'TransportDisplay',
     label: 'Transport Display',
     category: 'output',
-    // One content input, the same as the small panels. What is plugged in
-    // decides the screen, and `tftLayout` only picks between the treatments
-    // that source offers — so a property can change how a player panel is
-    // drawn and can never make it show a slideshow. The seventeen per-field
-    // ports this replaces were the custom-UI capability in disguise: wiring
-    // arbitrary graph readings onto a panel is what the Display node is for.
-    // Artwork rides the envelope too, since the player owns both the track
-    // and the selection that identifies the baked picture.
+    // Two content inputs, exclusive: `display` for the fixed layouts above,
+    // `customDisplay` for a document authored on a `Display` node elsewhere on
+    // the bench. Wiring one drops the other (graphStore's connection handling
+    // enforces this), so the panel always shows exactly what was plugged in
+    // last — never two sources arguing over one screen. `tftLayout` only picks
+    // between the treatments the *wired* source offers, so a property can
+    // change how a player panel is drawn and can never make it show a
+    // slideshow. The seventeen per-field ports `display` replaces were the
+    // custom-UI capability in disguise; `customDisplay` is that capability
+    // done properly, as a document rather than loose wires. Artwork rides the
+    // `display` envelope too, since the player owns both the track and the
+    // selection that identifies the baked picture.
     inputs: [
       { id: 'display', label: 'Display', dataType: 'display' },
+      { id: 'customDisplay', label: 'Custom Display', dataType: 'customdisplay' },
       { id: 'enabled', label: 'Enabled', dataType: 'bool' },
     ],
     outputs: [{ id: 'controls', label: 'Controls', dataType: 'playercontrols' }],
@@ -2933,35 +2938,20 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
-    // Freeform touch UI. Its ports are deliberately empty here: they are
-    // derived from the matching DisplayDocument's stable widget roles by the
-    // graph store, then persisted on the node for React Flow and imports.
+    // The design, not the glass. It has no pins, no bus, and no physical
+    // existence — a `TransportDisplay` panel elsewhere on the bench owns
+    // those, and this document reaches one only through the `customDisplay`
+    // wire its one static output carries. Its per-widget ports are
+    // deliberately empty here: they are derived from the matching
+    // DisplayDocument's stable widget roles by the graph store, then
+    // persisted on the node for React Flow and imports.
     type: 'Display',
     label: 'Custom Display',
     category: 'output',
     inputs: [],
-    outputs: [],
+    outputs: [{ id: 'customDisplay', label: 'Custom Display', dataType: 'customdisplay' }],
     defaultProperties: {
       displayId: '',
-      partId: 'st7789v-xpt2046-touch-240x320',
-      tftRotation: '0',
-      sckPin: 18,
-      mosiPin: 23,
-      misoPin: 19,
-      csPin: 5,
-      dcPin: 16,
-      resetPin: 17,
-      backlightPin: 4,
-      touchCsPin: 15,
-      touchIrqPin: 2,
-      touchSckPin: 18,
-      touchMosiPin: 23,
-      touchMisoPin: 19,
-      touchXMin: 200,
-      touchXMax: 3900,
-      touchYMin: 200,
-      touchYMax: 3900,
-      enabled: true,
     },
   },
   {
@@ -3488,6 +3478,7 @@ export const PORT_COLORS: Record<string, string> = {
   patternset: '#38a6ff',
   patternselect: '#7fd1ff',
   display: '#ffe066',
+  customdisplay: '#ffb300',
   transitionset: '#b388ff',
   playercontrols: '#ff8a65',
   playerparticles: '#ce93d8',
@@ -4833,11 +4824,8 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   RTCInput: new Set(['sdaPin', 'sclPin']),
   SegmentDisplay: new Set(['clkPin', 'dioPin', 'dinPin', 'csPin']),
   InfoDisplay: new Set(Object.values(OLED_TRANSPORT_PINS).flat()),
+  // The panel node owns every pin; `Display` (the document) has none.
   TransportDisplay: new Set([
-    'sckPin', 'mosiPin', 'misoPin', 'csPin', 'dcPin', 'resetPin', 'backlightPin',
-    'touchCsPin', 'touchIrqPin', 'touchSckPin', 'touchMosiPin', 'touchMisoPin',
-  ]),
-  Display: new Set([
     'sckPin', 'mosiPin', 'misoPin', 'csPin', 'dcPin', 'resetPin', 'backlightPin',
     'touchCsPin', 'touchIrqPin', 'touchSckPin', 'touchMosiPin', 'touchMisoPin',
   ]),
@@ -4889,7 +4877,7 @@ export function gpioRequirementForProperty(
   if (nodeType === 'SDCard' && key === 'sdMisoPin') {
     return { capability: 'digitalInput', pullup: false }
   }
-  if ((nodeType === 'TransportDisplay' || nodeType === 'Display')
+  if (nodeType === 'TransportDisplay'
     && (key === 'misoPin' || key === 'touchMisoPin' || key === 'touchIrqPin')) {
     return { capability: 'digitalInput', pullup: false }
   }
@@ -5118,12 +5106,12 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     if (OLED_PIN_PROPERTIES.has(key)) return OLED_TRANSPORT_PINS[transport].includes(key)
     if (key === 'i2cAddress') return transport === 'i2c'
   }
-  if ((nodeType === 'TransportDisplay' || nodeType === 'Display')
+  if (nodeType === 'TransportDisplay'
     && (TRANSPORT_DISPLAY_BASE_PINS.includes(key as never)
       || TRANSPORT_DISPLAY_TOUCH_PINS.includes(key as never))) {
     return transportDisplayPinKeysForProps(properties).includes(key)
   }
-  if ((nodeType === 'TransportDisplay' || nodeType === 'Display') && key.startsWith('touch') && !key.endsWith('Pin')) {
+  if (nodeType === 'TransportDisplay' && key.startsWith('touch') && !key.endsWith('Pin')) {
     return Boolean(partById(String(properties.partId ?? ''))?.display?.touchController)
   }
   if (nodeType === 'DMXInput') {

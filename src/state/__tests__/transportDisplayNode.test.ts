@@ -47,10 +47,14 @@ describe('TransportDisplay registration', () => {
   // rendered fields now checks the opposite thing: that no content port has
   // crept back. A field a layout draws is fed by the envelope's arm, never by
   // a socket, which is why there is nothing left to keep in step.
-  it('takes one content input and declares no per-field ports', () => {
+  it('takes two content inputs and declares no per-field ports', () => {
     const def = NODE_LIBRARY.find((entry) => entry.type === 'TransportDisplay')!
-    expect(def.inputs.map((port) => port.id)).toEqual(['display', 'enabled'])
+    expect(def.inputs.map((port) => port.id)).toEqual(['display', 'customDisplay', 'enabled'])
     expect(def.inputs.find((port) => port.id === 'display')?.dataType).toBe('display')
+    // The panel/document split's second input: a wired `Display` document
+    // takes over from the fixed layouts above. See
+    // docs/development/design/large-displays-and-control-routing.md.
+    expect(def.inputs.find((port) => port.id === 'customDisplay')?.dataType).toBe('customdisplay')
     expect(def.defaultProperties).toMatchObject({
       partId: PLAIN, tftLayout: 'Now Playing', tftRotation: '0', enabled: true,
     })

@@ -117,18 +117,19 @@ describe('HardwarePane', () => {
   it('adds a custom touch display with its own document and stable identity', () => {
     render(<HardwarePane />)
 
-    addDisplay('ST7789V 2.4-inch + touch', '240x320 colour TFT for a custom touch UI')
+    // Not option-driven any more — Display selects no catalogued module of
+    // its own, so it's one direct menu entry rather than a choice of parts.
+    // See the panel/document split in
+    // docs/development/design/large-displays-and-control-routing.md.
+    addDisplay('Custom display', 'A designed touch interface with widget-derived graph ports')
 
     const state = useGraphStore.getState()
     const display = state.nodes.find((entry) => entry.data.nodeType === 'Display')
     expect(display).toBeTruthy()
-    expect(display!.data.properties).toMatchObject({
-      displayId: display!.id,
-      partId: 'st7789v-xpt2046-touch-240x320',
-    })
+    expect(display!.data.properties).toEqual({ displayId: display!.id })
     expect(state.displayDocuments[display!.id]).toMatchObject({
       displayId: display!.id,
-      designSize: { width: 240, height: 320 },
+      designSize: { width: 320, height: 240 },
     })
   })
 
@@ -141,7 +142,9 @@ describe('HardwarePane', () => {
     ['InfoDisplay', 'SSD1306 0.96-inch', '128x64 white OLED over I2C', 'ssd1306-oled-128x64'],
     ['TransportDisplay', 'ST7789 1.3/1.54-inch', '240x240 colour TFT over SPI', 'st7789-tft-240x240'],
     ['TransportDisplay', 'ST7789V 2.4-inch + touch', '240x320 colour TFT with XPT2046 touch', 'st7789v-xpt2046-touch-240x320'],
-    ['Display', 'ST7789V 2.4-inch + touch', '240x320 colour TFT for a custom touch UI', 'st7789v-xpt2046-touch-240x320'],
+    // Display is deliberately not a row here: it selects no catalogued
+    // module of its own since the panel/document split, so it has no "exact
+    // module chosen" to assert. Covered by the dedicated test above instead.
   ])('adds %s as the exact catalogued module chosen in the display menu', (nodeType, label, summary, partId) => {
     render(<HardwarePane />)
 
@@ -180,11 +183,15 @@ describe('HardwarePane', () => {
     expect(state.nodes).toEqual([])
   })
 
+  // Display draws no box on the bench any more — it has no footprint, no
+  // physical existence — so it has no HardwarePane context menu to trigger
+  // this through. It's still removed the same way any canvas node is (select
+  // + delete, or a canvas context menu), through the same
+  // `removeNodeCompletely` action HardwarePane's own "Remove" button already
+  // called — verified directly here since there is no longer a bench
+  // interaction to drive it through.
   it('removes a custom display and its document from the root graph while a group is open', () => {
-    const display = node('Display', 'custom-screen', {
-      displayId: 'custom-screen',
-      partId: 'st7789v-xpt2046-touch-240x320',
-    }) as never
+    const display = node('Display', 'custom-screen', { displayId: 'custom-screen' }) as never
     useGraphStore.setState({
       nodes: [],
       edges: [],
@@ -198,15 +205,12 @@ describe('HardwarePane', () => {
         'custom-screen': { displayId: 'custom-screen', designSize: { width: 240, height: 320 }, widgets: [], theme: {} } as never,
       },
     })
-    render(<HardwarePane />)
 
-    fireEvent.contextMenu(document.querySelector('[data-hardware-node-id="custom-screen"]')!)
-    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    useGraphStore.getState().removeNodeCompletely('custom-screen')
 
     const state = useGraphStore.getState()
     expect(rootGraphNodes(state).some((entry) => entry.id === 'custom-screen')).toBe(false)
     expect(state.displayDocuments['custom-screen']).toBeUndefined()
-    expect(state.nodes).toEqual([])
   })
 
   it('adds and draws a corkscrew as dedicated helical geometry', () => {

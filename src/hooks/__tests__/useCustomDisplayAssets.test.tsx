@@ -147,18 +147,27 @@ describe('firmware display asset preparation', () => {
     const showNodes = [...nodes, ...['PatternCollection', masterType, 'MatrixOutput', 'TextValue',
       ...(generator === 'player' ? ['SDCard', 'Amplifier'] : [])].map((nodeType) => ({
       ...nodes[0], id: nodeType, data: { ...nodes[0].data, nodeType, properties: { patternIds: ['p'] } },
-    }))]
-    showNodes[0] = { ...nodes[0], data: { ...nodes[0].data, properties: { displayId: 'document', tftRotation: '90' } } }
+    })),
+    // Panel/document split: the document ('screen') needs a wired
+    // TransportDisplay panel to be considered at all, the same way codegen
+    // requires one now. Rotation is the panel's property now, not the
+    // document's — a 240x320 panel rotated 90 degrees mounts as 320x240,
+    // matching the document's default design size.
+    { ...nodes[0], id: 'panel', data: { ...nodes[0].data, nodeType: 'TransportDisplay', properties: { partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90' } } }]
+    showNodes[0] = { ...nodes[0], data: { ...nodes[0].data, properties: { displayId: 'document' } } }
     const edges = [
       { id: '1', source: 'PatternCollection', sourceHandle: 'patternset', target: masterType, targetHandle: 'patternset' },
       { id: '2', source: masterType, sourceHandle: 'frame', target: 'MatrixOutput', targetHandle: 'frame' },
-      { id: '3', source: 'TextValue', sourceHandle: 'text', target: 'screen', targetHandle: 'widget:deleted:value' },
+      // The customDisplay link stays present across the rerender below; only
+      // the bad widget wire (last) gets dropped.
+      { id: '3', source: 'screen', sourceHandle: 'customDisplay', target: 'panel', targetHandle: 'customDisplay' },
+      { id: '4', source: 'TextValue', sourceHandle: 'text', target: 'screen', targetHandle: 'widget:deleted:value' },
     ] as StudioEdge[]
     vi.mocked(bakeCustomDisplayAssets).mockResolvedValue({ assets: [], issues: [] })
     const { result, rerender } = renderHook(({ wires }) => useCustomDisplayAssets(showNodes, true, wires), { initialProps: { wires: edges } })
     expect(result.current.errors.join(' ')).toContain('widget:deleted:value')
     expect(bakeCustomDisplayAssets).not.toHaveBeenCalled()
-    rerender({ wires: edges.slice(0, 2) })
+    rerender({ wires: edges.slice(0, 3) })
     await waitFor(() => expect(result.current.pending).toBe(false))
     expect(result.current.errors).toEqual([])
     expect(bakeCustomDisplayAssets).toHaveBeenCalledTimes(1)

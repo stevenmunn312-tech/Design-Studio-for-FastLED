@@ -225,20 +225,7 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
       { key: 'touchMisoPin', capability: 'digitalInput' },
     ],
   },
-  Display: {
-    keys: [
-      'sckPin', 'mosiPin', 'misoPin', 'csPin', 'dcPin', 'resetPin', 'backlightPin',
-      'touchCsPin', 'touchIrqPin', 'touchSckPin', 'touchMosiPin', 'touchMisoPin',
-    ],
-    keysFor: transportDisplayPinKeysForProps,
-    requests: [
-      { key: 'sckPin' }, { key: 'mosiPin' }, { key: 'misoPin', capability: 'digitalInput' },
-      { key: 'csPin' }, { key: 'dcPin' }, { key: 'resetPin' }, { key: 'backlightPin' },
-      { key: 'touchCsPin' }, { key: 'touchIrqPin', capability: 'digitalInput' },
-      { key: 'touchSckPin' }, { key: 'touchMosiPin' },
-      { key: 'touchMisoPin', capability: 'digitalInput' },
-    ],
-  },
+  // Display (the document node) has no plan — it has no pins to retarget.
   SDCard: {
     keys: ['sdCsPin', 'sdSckPin', 'sdMisoPin', 'sdMosiPin'],
     fromProfile: (profile) => {

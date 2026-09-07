@@ -346,14 +346,13 @@ function reachableFromOutputs(nodes: StudioNode[], edges: StudioEdge[]): StudioN
     ...outputs,
     ...nodes.filter((n) => n.data.nodeType === 'Board'),
     ...nodes.filter((n) => TERMINAL_NODE_TYPES.has(n.data.nodeType)),
-    // The custom Display's own library entry declares no ports — they are
-    // minted per document instance — so it can never appear in the
-    // library-derived set above. Named explicitly for the same reason the
-    // comment there gives: a sink outside the terminal set is walked back
-    // from nothing and pruned along with everything feeding it, which is
-    // exactly how a configured display used to sit dark on a build that
-    // compiled and uploaded cleanly.
-    ...nodes.filter((n) => n.data.nodeType === 'Display'),
+    // No explicit root for the custom Display document node: it has no
+    // physical existence of its own any more (see the panel/document split in
+    // docs/development/design/large-displays-and-control-routing.md), so an
+    // unwired one correctly has nothing to draw with. Its liveness now comes
+    // from an ordinary edge into a TransportDisplay panel's `customDisplay`
+    // input — TransportDisplay is already a root above, and the backward walk
+    // below follows every incoming edge regardless of which port it targets.
   ]
 
   const sources = new Map<string, string[]>()
@@ -5055,11 +5054,76 @@ export function generateCpp(
 
       case 'TransportDisplay': {
         needsDisplayText.v = true
-        // One content input, same as the OLED above. A normal sketch answers
-        // for a clock the same way the OLED does — the wired RTCInput's own
+        // Two content inputs, exclusive (see
+        // docs/development/design/large-displays-and-control-routing.md,
+        // Decisions 1/2): `customDisplay` wins when wired, driving this
+        // panel's own pins with the wired `Display` document's widgets
+        // through the same LVGL machinery a standalone Display node used
+        // before the panel/document split. The document itself carries no
+        // pins any more, so its widget bindings and outputs stay keyed by its
+        // own id (matching what any wire drawn from its ports already
+        // expects) while the physical driver — struct instance, SPI pins,
+        // LVGL display object — is keyed by this panel's id. Call order
+        // matters: the panel's setup lines must precede the document's, since
+        // LVGL creates widgets against whichever display was most recently
+        // made the default.
+        const customUp = incoming.get(`${node.id}:customDisplay`)
+        const documentNode = customUp && nodeMap.get(customUp.srcId)
+        const document = documentNode
+          ? opts.displayDocuments?.[String(props(documentNode).displayId ?? documentNode.id)]
+          : undefined
+
+        if (documentNode && document) {
+          const docId = safeId(documentNode.id)
+          const ports = displayDocumentPorts(document)
+          const widgetInputExpr = (up: { srcId: string; srcPort: string } | undefined, dataType: string | undefined): string | null => {
+            if (!up || dataType === 'patternselect') return null
+            const varExpr = `n_${safeId(up.srcId)}_${safeId(up.srcPort)}`
+            if (dataType === 'color') {
+              return `(((uint32_t)(${varExpr}).r << 16) | ((uint32_t)(${varExpr}).g << 8) | (uint32_t)(${varExpr}).b)`
+            }
+            return varExpr
+          }
+          const bindingsByWidget: Record<string, CustomDisplayLvglBinding[]> = {}
+          for (const port of ports.inputs) {
+            const parsed = parseDisplayWidgetPortId(port.id)
+            if (!parsed) continue
+            const expr = widgetInputExpr(incoming.get(`${documentNode.id}:${port.id}`), port.dataType)
+            if (expr === null) continue
+            const bindings = bindingsByWidget[parsed.widgetId] ?? (bindingsByWidget[parsed.widgetId] = [])
+            bindings.push({ role: parsed.role, expression: expr })
+          }
+
+          const custom: CustomDisplayLvglEmit = {
+            id: docId, document, bindings: bindingsByWidget,
+            assets: opts.customDisplayAssets?.[documentNode.id],
+          }
+          customDisplays.push(custom)
+          customDisplayPublication.push(...customDisplayLvglLoopCpp(custom))
+
+          for (const port of ports.outputs) {
+            const parsed = parseDisplayWidgetPortId(port.id)
+            if (!parsed) continue
+            const expr = customDisplayLvglOutputExpression(custom, parsed.widgetId)
+            if (expr === null) continue
+            const cppType = port.dataType === 'bool' ? 'bool' : 'float'
+            const name = `n_${docId}_${safeId(port.id)}`
+            if (nativeMultiRender) globalLines.push(`static ${cppType} ${name};`)
+            customDisplaySamples.push(`  ${nativeMultiRender ? '' : `${cppType} `}${name} = ${expr};`)
+          }
+
+          const panel = customDisplayPanelFromProps(id, p)
+          panel.manualTouch = true
+          customDisplayPanels.push(panel)
+          setupLines.push(...customDisplayPanelSetupCpp(panel), ...customDisplayLvglSetupCpp(custom))
+          break
+        }
+
+        // Fixed layouts, from `display`. A normal sketch answers for a clock
+        // the same way the OLED does — the wired RTCInput's own
         // `_RtcDateTimeValue` — and for nothing else; wiring arbitrary
-        // readings onto a panel is what the custom Display node is for, not a
-        // fixed layout's job.
+        // readings onto a panel is what a wired Custom Display is for above,
+        // not a fixed layout's job.
         const displayUp = incoming.get(`${node.id}:display`)
         const displaySource = displayUp && nodeMap.get(displayUp.srcId)
         const kind = displaySource
@@ -5188,73 +5252,13 @@ export function generateCpp(
       }
 
       case 'Display': {
-        /*
-         * The freeform touch screen: arbitrary scalar/control wiring, in a
-         * normal sketch, resolved the same way the evaluator resolves it —
-         * a minted port id is widget id plus registry role, so this case
-         * needs no knowledge of any one widget beyond that. The document
-         * itself is not on the node (only its ports and pin properties are),
-         * so it is looked up from opts.displayDocuments the way a Now
-         * Playing panel's artwork is looked up from opts.artworks.
-         */
-        const displayId = String(p.displayId ?? node.id)
-        const document = opts.displayDocuments?.[displayId]
-        if (!document) break
-        const ports = displayDocumentPorts(document)
-
-        // A widget input's C++ expression, dispatched by the port's own data
-        // type. `patternselect` has no representation here on purpose: a
-        // normal sketch never contains a PatternSlideshow (that graph shape
-        // builds the show controller instead), so there is no pattern
-        // cursor for a Pattern Browser's `value` role to read yet.
-        const widgetInputExpr = (up: { srcId: string; srcPort: string } | undefined, dataType: string | undefined): string | null => {
-          if (!up || dataType === 'patternselect') return null
-          const varExpr = `n_${safeId(up.srcId)}_${safeId(up.srcPort)}`
-          if (dataType === 'color') {
-            return `(((uint32_t)(${varExpr}).r << 16) | ((uint32_t)(${varExpr}).g << 8) | (uint32_t)(${varExpr}).b)`
-          }
-          return varExpr
-        }
-
-        const bindingsByWidget: Record<string, CustomDisplayLvglBinding[]> = {}
-        for (const port of ports.inputs) {
-          const parsed = parseDisplayWidgetPortId(port.id)
-          if (!parsed) continue
-          const expr = widgetInputExpr(incoming.get(`${node.id}:${port.id}`), port.dataType)
-          if (expr === null) continue
-          const bindings = bindingsByWidget[parsed.widgetId] ?? (bindingsByWidget[parsed.widgetId] = [])
-          bindings.push({ role: parsed.role, expression: expr })
-        }
-
-        const custom: CustomDisplayLvglEmit = {
-          id, document, bindings: bindingsByWidget, assets: opts.customDisplayAssets?.[node.id],
-        }
-        customDisplays.push(custom)
-        needsDisplayText.v = true
-        customDisplayPublication.push(...customDisplayLvglLoopCpp(custom))
-
-        // Every widget output role becomes an ordinary declared node output —
-        // the same `n_<id>_<port>` convention any other node's output uses —
-        // so downstream wiring (an LED output's Controls input, another
-        // widget, anything) reads it through the existing generic mechanism
-        // rather than a Display-specific special case at every consumer.
-        for (const port of ports.outputs) {
-          const parsed = parseDisplayWidgetPortId(port.id)
-          if (!parsed) continue
-          const expr = customDisplayLvglOutputExpression(custom, parsed.widgetId)
-          if (expr === null) continue
-          const cppType = port.dataType === 'bool' ? 'bool' : 'float'
-          const name = v(safeId(port.id))
-          // Native output passes need the same snapshot in each separately
-          // scoped render function, even if an earlier pass publishes a set.
-          if (nativeMultiRender) globalLines.push(`static ${cppType} ${name};`)
-          customDisplaySamples.push(`  ${nativeMultiRender ? '' : `${cppType} `}${name} = ${expr};`)
-        }
-
-        const panel = customDisplayPanelFromProps(id, p)
-        panel.manualTouch = true
-        customDisplayPanels.push(panel)
-        setupLines.push(...customDisplayPanelSetupCpp(panel), ...customDisplayLvglSetupCpp(custom))
+        // The design, not the glass — see the panel/document split in
+        // docs/development/design/large-displays-and-control-routing.md.
+        // This node has no pins any more, so it emits nothing on its own;
+        // whichever TransportDisplay panel has this document wired to its
+        // `customDisplay` input does the actual widget-binding resolution
+        // and LVGL emission, keyed by this node's own id so a wire drawn
+        // from a widget's output port still resolves correctly.
         break
       }
 

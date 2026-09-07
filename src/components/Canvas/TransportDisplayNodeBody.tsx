@@ -18,8 +18,17 @@ function isTftSurface(value: unknown): value is TftSurface {
 export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const props = useGraphStore((state) => state.nodes.find((node) => node.id === nodeId)?.data.properties)
+  // A wired Custom Display takes over the panel (see the panel/document split
+  // in docs/development/design/large-displays-and-control-routing.md), and
+  // this thumbnail cannot usefully render LVGL widgets — the real live
+  // preview for a designed screen is the DisplayEditor's own Run mode,
+  // opened from the document node. Showing that plainly here is better than
+  // drawing this panel's own unrelated Waiting screen over an active design.
+  const customDisplayWired = useGraphStore((state) => state.edges.some(
+    (edge) => edge.target === nodeId && edge.targetHandle === 'customDisplay',
+  ))
   const live = usePreviewStore((state) => state.outputs.get(nodeId)?.surface)
-  const surface = isTftSurface(live) ? live : null
+  const surface = customDisplayWired ? null : (isTftSurface(live) ? live : null)
   const setTouch = useTransportDisplayTouchStore((state) => state.setTouch)
   const releaseTouch = useTransportDisplayTouchStore((state) => state.releaseTouch)
   const touchCapable = Boolean(partById(String((props as Record<string, unknown> | undefined)?.partId ?? ''))?.display?.touchController)
@@ -58,6 +67,17 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
     }
     context.putImageData(image, 0, 0)
   }, [surface])
+
+  if (customDisplayWired) {
+    return (
+      <div className={styles.wrap}>
+        <div className={styles.customNotice} style={{ '--aspect': `${width} / ${height}` } as never} role="img"
+          aria-label="Driven by a wired Custom Display">
+          Custom Display — edit on its own node
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={styles.wrap}>

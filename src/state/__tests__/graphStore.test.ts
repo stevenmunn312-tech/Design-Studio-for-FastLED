@@ -348,6 +348,29 @@ describe('graphStore — grouping', () => {
     expect(e[0].targetHandle).toBe('frame')
   })
 
+  it('onConnect drops the sibling Display/Custom Display wire on the same panel', () => {
+    reset(
+      [node('rtc', 'RTCInput', {}), node('doc', 'Display', {}), node('panel', 'TransportDisplay', {})],
+      [edge('e1', 'rtc', 'display', 'panel', 'display')],
+    )
+    useGraphStore.getState().onConnect({
+      source: 'doc', sourceHandle: 'customDisplay', target: 'panel', targetHandle: 'customDisplay',
+    })
+    const e = useGraphStore.getState().edges
+    expect(e).toHaveLength(1)
+    expect(e[0].source).toBe('doc')
+    expect(e[0].targetHandle).toBe('customDisplay')
+
+    // And the reverse direction: wiring `display` again drops `customDisplay`.
+    useGraphStore.getState().onConnect({
+      source: 'rtc', sourceHandle: 'display', target: 'panel', targetHandle: 'display',
+    })
+    const e2 = useGraphStore.getState().edges
+    expect(e2).toHaveLength(1)
+    expect(e2[0].source).toBe('rtc')
+    expect(e2[0].targetHandle).toBe('display')
+  })
+
   it('reconnectNoodle replaces the noodle already occupying the destination input', () => {
     reset(
       [node('a', 'SolidColor', {}), node('b', 'Noise', {}), node('c', 'Image', {}), node('out', 'MatrixOutput', {})],

@@ -347,10 +347,17 @@ describe('displays a build cannot drive', () => {
   })
 
   it('requires the saved custom document for a player build', () => {
-    const custom = node('custom', 'Display', { displayId: 'custom', partId: 'st7789v-xpt2046-touch-240x320' })
+    const custom = node('custom', 'Display', { displayId: 'custom' })
+    // The document needs a wired panel to be considered at all — see the
+    // panel/document split in
+    // docs/development/design/large-displays-and-control-routing.md.
+    const customPanel = node('customPanel', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320' })
     const master = node('master', 'PatternMaster')
-    const nodes = [out(), custom, master, node('sd', 'SDCard'), node('amp', 'Amplifier')]
-    const issues = findDisplayGeneratorIssues(nodes, [edge('frame', 'master', 'frame', 'out', 'frame')])
+    const nodes = [out(), custom, customPanel, master, node('sd', 'SDCard'), node('amp', 'Amplifier')]
+    const issues = findDisplayGeneratorIssues(nodes, [
+      edge('frame', 'master', 'frame', 'out', 'frame'),
+      edge('link', 'custom', 'customDisplay', 'customPanel', 'customDisplay'),
+    ])
     expect(issues.errors).toHaveLength(1)
     expect(issues.errors[0]).toContain('screen document is missing')
   })
@@ -450,8 +457,15 @@ describe('a Pattern Slideshow show', () => {
   })
 
   it('names a missing custom document in the show controller', () => {
-    const custom = node('custom', 'Display', { displayId: 'custom', partId: 'st7789v-xpt2046-touch-240x320' })
-    const issues = findDisplayGeneratorIssues([master, collection, out, custom], showEdges)
+    const custom = node('custom', 'Display', { displayId: 'custom' })
+    // The document needs a wired panel to be considered at all — see the
+    // panel/document split in
+    // docs/development/design/large-displays-and-control-routing.md.
+    const customPanel = node('customPanel', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320' })
+    const issues = findDisplayGeneratorIssues(
+      [master, collection, out, custom, customPanel],
+      [...showEdges, edge('link', 'custom', 'customDisplay', 'customPanel', 'customDisplay')],
+    )
     expect(issues.errors).toHaveLength(1)
     expect(issues.errors[0]).toContain('screen document is missing')
   })

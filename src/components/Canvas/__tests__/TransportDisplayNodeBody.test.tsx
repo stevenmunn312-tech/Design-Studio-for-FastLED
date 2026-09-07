@@ -65,6 +65,17 @@ describe('TransportDisplayNodeBody', () => {
     expect(useTransportDisplayTouchStore.getState().touches.get('tft')?.pressed).toBe(false)
   })
 
+  it('shows the Custom Display notice instead of the canvas when customDisplay is wired', () => {
+    useGraphStore.setState({
+      nodes: [display({ partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0' })],
+      edges: [{ id: 'link', source: 'screen', sourceHandle: 'customDisplay', target: 'tft', targetHandle: 'customDisplay' }],
+      activeGraphId: ROOT_GRAPH_ID,
+    } as never)
+    render(<TransportDisplayNodeBody nodeId="tft" />)
+    expect(screen.getByRole('img', { name: 'Driven by a wired Custom Display' })).toBeTruthy()
+    expect(screen.queryByRole('img', { name: /Transport display preview/ })).toBeNull()
+  })
+
   it('does not make the non-touch module interactive', () => {
     useGraphStore.setState({
       nodes: [display({ partId: 'st7789-tft-240x240', tftRotation: '0' })],

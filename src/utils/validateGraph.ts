@@ -448,18 +448,27 @@ export const DISPLAY_RAM_BYTES_BY_NODE_TYPE: Record<string, number> = {
  * Every auxiliary display in the library, for the RAM figure above and for the
  * checks that ask what a build can draw.
  *
- * Derived, not listed: a workbench-owned node whose catalogued modules carry a
- * display spec is a display. The catalogue is the honest signal — "a sink the
- * bench owns" would sweep in the LED output, and "no outputs" would drop the
- * touch panel that is meant to arrive next, since its whole point is sending
- * something back.
+ * Derived, not listed, for the fixed panels: a workbench-owned node whose
+ * catalogued modules carry a display spec is a display. The catalogue is the
+ * honest signal — "a sink the bench owns" would sweep in the LED output, and
+ * "no outputs" would drop the touch panel that is meant to arrive next, since
+ * its whole point is sending something back.
+ *
+ * `Display` (the document node) is added explicitly rather than derived: the
+ * panel/document split (see
+ * docs/development/design/large-displays-and-control-routing.md) left it
+ * selecting no catalogued module of its own, so the same derivation that
+ * finds InfoDisplay/SegmentDisplay/TransportDisplay can no longer see it —
+ * but it still costs RAM when wired to a panel and still needs the same
+ * "what can this build draw" checks below.
  */
-export const DISPLAY_NODE_TYPES = new Set(
-  NODE_LIBRARY
+export const DISPLAY_NODE_TYPES = new Set([
+  ...NODE_LIBRARY
     .filter((def) => isHardwareManagedSignalNodeType(def.type)
       && partOptionsFor(def.type).some((option) => !!partById(option.id)?.display))
     .map((def) => def.type),
-)
+  'Display',
+])
 
 /** Internal RAM the displays present in `nodes` add to the sketch. */
 function displayRamBytes(nodes: StudioNode[], documents?: DisplayDocumentRegistry): number {

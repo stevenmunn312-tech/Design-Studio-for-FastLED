@@ -55,15 +55,25 @@ const segment = node('seg', 'SegmentDisplay', {
 })
 const tft = node('tft', 'TransportDisplay', { tftLayout: 'Now Playing' })
 // The freeform LVGL screen — its own SPI panel driver, separate from
-// TransportDisplay's, so it needs its own presence in this check.
+// TransportDisplay's, so it needs its own presence in this check. The panel
+// carries the pins now; the document (below) carries only the widgets, wired
+// to the panel through `customDisplay`.
+const customPanel = node('customPanel', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320' })
 const custom = {
   id: 'custom', type: 'studioNode', position: { x: 0, y: 0 },
   data: {
     label: 'Custom Display', nodeType: 'Display', category: 'output',
-    properties: { displayId: 'custom', partId: 'st7789v-xpt2046-touch-240x320' },
-    inputs: [], outputs: [{ id: 'widget:toggle:out', label: 'Toggle Output', dataType: 'bool' }],
+    properties: { displayId: 'custom' },
+    inputs: [],
+    outputs: [
+      { id: 'widget:toggle:out', label: 'Toggle Output', dataType: 'bool' },
+      { id: 'customDisplay', label: 'Custom Display', dataType: 'customdisplay' },
+    ],
   },
 } as unknown as StudioNode
+const customLink = {
+  id: 'custom-link', source: 'custom', target: 'customPanel', sourceHandle: 'customDisplay', targetHandle: 'customDisplay',
+} as unknown as StudioEdge
 const customDisplayDocuments: DisplayDocumentRegistry = {
   custom: addDisplayWidget(createDisplayDocument('custom', 240, 320), 'Toggle'),
 }
@@ -143,7 +153,9 @@ describe('normal sketches', () => {
   })
 
   it('declares what it uses with a custom LVGL display alone', () => {
-    const source = generateCpp([output, custom], [], {}, { displayDocuments: customDisplayDocuments })
+    const source = generateCpp(
+      [output, customPanel, custom], [customLink], {}, { displayDocuments: customDisplayDocuments },
+    )
     expectDeclaresWhatItUses(source, 'a sketch with a custom LVGL display')
   })
 })

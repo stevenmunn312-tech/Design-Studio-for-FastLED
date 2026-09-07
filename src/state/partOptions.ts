@@ -198,17 +198,9 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       },
     ],
   },
-  Display: {
-    property: 'partId',
-    options: [
-      {
-        id: 'st7789v-xpt2046-touch-240x320',
-        label: 'ST7789V 2.4-inch + touch',
-        summary: '240x320 colour TFT for a custom touch UI',
-        note: 'Design this exact touch module with Edit display on its graph node. Widgets create typed graph ports and generate LVGL firmware in normal, show, and SD-player builds; Graph Health reports unsupported bindings. Physical touch and performance validation remain outstanding.',
-      },
-    ],
-  },
+  // Display (the document node) has no partId — it has no physical existence
+  // of its own. The touch module it's authored against is whatever
+  // TransportDisplay panel its customDisplay output is wired to.
   SegmentDisplay: {
     property: 'partId',
     options: [

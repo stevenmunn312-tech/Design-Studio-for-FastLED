@@ -75,10 +75,21 @@ describe('CapacityWatcher', () => {
     document.widgets = [{ id: 'art', type: 'Image/Icon', label: 'Art',
       bounds: { x: 0, y: 0, width: 24, height: 24 },
       properties: { assetId: 'icon:power', tint: true } }]
+    // Panel/document split: the document has no pins of its own, so a
+    // TransportDisplay panel carries them and a customDisplay wire connects
+    // the two. See docs/development/design/large-displays-and-control-routing.md.
+    const panel = {
+      ...output, id: 'panel', data: { ...output.data, nodeType: 'TransportDisplay',
+        properties: { partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90' } },
+    }
+    const screen = {
+      ...output, id: 'screen', data: { ...output.data, nodeType: 'Display',
+        properties: { displayId: document.displayId } },
+    }
     useGraphStore.setState({
-      nodes: [...useGraphStore.getState().nodes, {
-        ...output, id: 'screen', data: { ...output.data, nodeType: 'Display',
-          properties: { displayId: document.displayId, partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90' } },
+      nodes: [...useGraphStore.getState().nodes, panel, screen] as never[],
+      edges: [...useGraphStore.getState().edges, {
+        id: 'link', source: 'screen', sourceHandle: 'customDisplay', target: 'panel', targetHandle: 'customDisplay',
       }] as never[],
       displayDocuments: { [document.displayId]: document },
     })
@@ -90,7 +101,7 @@ describe('CapacityWatcher', () => {
         nodes: [...useGraphStore.getState().nodes, showNode('coll', 'PatternCollection', { patternIds: ['p'] }),
           showNode('show', generator === 'player' ? 'PatternMaster' : 'PatternSlideshow'),
           ...(generator === 'player' ? [showNode('sd', 'SDCard'), showNode('amp', 'Amplifier')] : [])] as never[],
-        edges: [
+        edges: [...useGraphStore.getState().edges,
           { id: 's1', source: 'coll', sourceHandle: 'patternset', target: 'show', targetHandle: 'patternset' },
           { id: 's2', source: 'show', sourceHandle: 'frame', target: 'matrix', targetHandle: 'frame' },
         ] as never[],

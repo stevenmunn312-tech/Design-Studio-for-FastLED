@@ -143,13 +143,14 @@ interface FixturePartEntry {
   partId: string
   label: string
   hint: string
-  footprint: PartFootprintMm
+  /** Absent only for a node with no physical existence — see `Display` below. */
+  footprint?: PartFootprintMm
   /** Absent until the Blender render lands; a placeholder is drawn meanwhile. */
   render?: string
   /** Pins to read off the board profile, keyed property -> profile field. */
   profilePins?: Record<string, 'bclk' | 'lrc' | 'din'>
-  /** Compact pin row shown beneath the physical module on the bench. */
-  pinFields: readonly { key: string; label: string }[]
+  /** Compact pin row shown beneath the physical module on the bench. Absent alongside `footprint`. */
+  pinFields?: readonly { key: string; label: string }[]
   /** Pins to find on the board, for a part no board profile places for us. */
   pinRequests?: readonly PartPinRequest[]
   singleton?: boolean
@@ -217,26 +218,15 @@ const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     ],
   },
   {
+    // No pins, no footprint, no render — the panel/document split (see
+    // docs/development/design/large-displays-and-control-routing.md) left
+    // this node with no physical existence of its own. It opens a document
+    // that drives whichever TransportDisplay panel its `customDisplay`
+    // output is wired to.
     nodeType: 'Display',
     partId: 'custom-display',
     label: 'Custom display',
     hint: 'A designed touch interface with widget-derived graph ports',
-    footprint: partDimensionsMm('st7789v-xpt2046-touch-240x320', { width: 42.7, height: 60.3 }),
-    render: partRenderSrc('st7789v-xpt2046-touch-240x320') ?? undefined,
-    pinFields: [
-      { key: 'sckPin', label: 'SCK' },
-      { key: 'mosiPin', label: 'MOSI' },
-      { key: 'misoPin', label: 'MISO' },
-      { key: 'csPin', label: 'CS' },
-      { key: 'dcPin', label: 'DC' },
-      { key: 'resetPin', label: 'RESET' },
-      { key: 'backlightPin', label: 'LITE' },
-      { key: 'touchCsPin', label: 'T_CS' },
-      { key: 'touchIrqPin', label: 'T_IRQ' },
-      { key: 'touchSckPin', label: 'T_CLK' },
-      { key: 'touchMosiPin', label: 'T_DIN' },
-      { key: 'touchMisoPin', label: 'T_DO' },
-    ],
   },
   {
     // Two modules behind one node: the SH1106 on SPI and the SSD1306 on I2C.
@@ -816,7 +806,7 @@ export default function HardwarePane() {
       ? []
       : moduleKeys
         ? moduleKeys.map((key) => ({ key, label: MODULE_PIN_LABELS[key] ?? key }))
-        : entry.pinFields
+        : entry.pinFields ?? []
     const props = node.data.properties as Record<string, unknown>
     const pinSummary = numericPinSummary(props, pinFields)
     const vuLedCount = entry.nodeType === 'StereoVuMeter'
@@ -984,6 +974,11 @@ export default function HardwarePane() {
       links.push({ source: BOARD_PART_ID, target: output.partId })
     }
     for (const part of fixtureParts) {
+      // No footprint means no physical existence — Display (the document
+      // node) still needs its place in `fixtureParts` for menus and removal,
+      // but draws no box on the bench. See the panel/document split in
+      // docs/development/design/large-displays-and-control-routing.md.
+      if (!part.entry.footprint) continue
       parts.push({
         id: part.partId,
         widthMm: part.entry.footprint.width,
@@ -1639,7 +1634,18 @@ export default function HardwarePane() {
         ...moduleItems('SegmentDisplay', segmentDisplayFixture),
         ...moduleItems('InfoDisplay', infoDisplayFixture),
         ...moduleItems('TransportDisplay', transportDisplayFixture),
-        ...moduleItems('Display', customDisplayFixture),
+        // Not `moduleItems`: Display selects no catalogued module of its own
+        // — the panel/document split left it with no `partOptions` at all —
+        // so it needs a direct entry, the same pattern StereoVuMeter uses
+        // below for the same reason.
+        ...(customDisplayFixture ? [{
+          key: customDisplayFixture.partId,
+          label: customDisplayFixture.label,
+          hint: customDisplayFixture.hint,
+          disabled: false,
+          disabledReason: null,
+          onSelect: () => addFixturePart(customDisplayFixture),
+        }] : []),
       ],
     },
     {
@@ -1906,7 +1912,7 @@ export default function HardwarePane() {
           </button>
           {renderCaption(BOARD_PART_ID, boardProfile.label, 'Click for board options')}
 
-          {fixtureParts.map((part) => (
+          {fixtureParts.filter((part) => part.entry.footprint).map((part) => (
             <Fragment key={part.node.id}>
               <button
                 type="button"

@@ -650,13 +650,28 @@ function withPlayerControlRow(node: StudioNode, controls: string[]): StudioNode 
  * through the picker is the same connection in every respect but when it was
  * named. Clears any pending assignment, since completing one ends it.
  */
+/**
+ * `TransportDisplay`'s two content inputs are exclusive: a panel shows
+ * whichever was wired last, the same way any single-source input replaces
+ * what was there. Unlike an ordinary input, that rule spans two different
+ * handles on the same node, so it needs its own small map rather than falling
+ * out of the same-handle replacement below.
+ */
+const EXCLUSIVE_SIBLING_INPUT: Record<string, string> = {
+  display: 'customDisplay',
+  customDisplay: 'display',
+}
+
 function completeConnection(s: GraphState, connection: Connection): Partial<GraphState> {
   const grown = materializeButtonBankConnection(s.nodes, connection)
   const resolved = grown.connection
   const src = grown.nodes.find((n) => n.id === resolved.source)
   const color = edgeStrokeForPort(src, resolved.sourceHandle ?? undefined)
+  const sibling = resolved.targetHandle ? EXCLUSIVE_SIBLING_INPUT[resolved.targetHandle] : undefined
   const replaced = resolved.target && resolved.targetHandle
-    ? s.edges.filter((e) => !(e.target === resolved.target && e.targetHandle === resolved.targetHandle))
+    ? s.edges.filter((e) => !(e.target === resolved.target && (
+      e.targetHandle === resolved.targetHandle || (sibling !== undefined && e.targetHandle === sibling)
+    )))
     : s.edges
   // `reconnectable: 'target'` lets a noodle be unplugged/re-routed from
   // the input (target) end only — grab it at the input port and drag.
@@ -1653,9 +1668,11 @@ export const useGraphStore = create<GraphState>()(
 
       reconnectNoodle: (oldEdge, newConnection) =>
         set((s) => {
+          const sibling = newConnection.targetHandle ? EXCLUSIVE_SIBLING_INPUT[newConnection.targetHandle] : undefined
           const replaced = newConnection.target && newConnection.targetHandle
-            ? s.edges.filter((e) =>
-              e.id === oldEdge.id || !(e.target === newConnection.target && e.targetHandle === newConnection.targetHandle))
+            ? s.edges.filter((e) => e.id === oldEdge.id || !(e.target === newConnection.target && (
+              e.targetHandle === newConnection.targetHandle || (sibling !== undefined && e.targetHandle === sibling)
+            )))
             : s.edges
           const edges = reconnectEdge(oldEdge, newConnection, replaced)
           const src = s.nodes.find((n) => n.id === newConnection.source)

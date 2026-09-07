@@ -78,20 +78,23 @@ describe('findPinCollisions', () => {
     expect(findPinCollisions(uses)).toEqual([])
   })
 
+  // The panel carries these pins now, not the document — see the
+  // panel/document split in
+  // docs/development/design/large-displays-and-control-routing.md.
   it('accepts a custom touch display sharing its display and touch SPI host', () => {
     const uses = [
-      pinUse('screen', 'Display', 'sckPin', 18),
-      pinUse('screen', 'Display', 'mosiPin', 23),
-      pinUse('screen', 'Display', 'misoPin', 19),
-      pinUse('screen', 'Display', 'csPin', 5),
-      pinUse('screen', 'Display', 'dcPin', 16),
-      pinUse('screen', 'Display', 'resetPin', 17),
-      pinUse('screen', 'Display', 'backlightPin', 4),
-      pinUse('screen', 'Display', 'touchCsPin', 15),
-      pinUse('screen', 'Display', 'touchIrqPin', 27),
-      pinUse('screen', 'Display', 'touchSckPin', 18),
-      pinUse('screen', 'Display', 'touchMosiPin', 23),
-      pinUse('screen', 'Display', 'touchMisoPin', 19),
+      pinUse('screen', 'TransportDisplay', 'sckPin', 18),
+      pinUse('screen', 'TransportDisplay', 'mosiPin', 23),
+      pinUse('screen', 'TransportDisplay', 'misoPin', 19),
+      pinUse('screen', 'TransportDisplay', 'csPin', 5),
+      pinUse('screen', 'TransportDisplay', 'dcPin', 16),
+      pinUse('screen', 'TransportDisplay', 'resetPin', 17),
+      pinUse('screen', 'TransportDisplay', 'backlightPin', 4),
+      pinUse('screen', 'TransportDisplay', 'touchCsPin', 15),
+      pinUse('screen', 'TransportDisplay', 'touchIrqPin', 27),
+      pinUse('screen', 'TransportDisplay', 'touchSckPin', 18),
+      pinUse('screen', 'TransportDisplay', 'touchMosiPin', 23),
+      pinUse('screen', 'TransportDisplay', 'touchMisoPin', 19),
     ]
     expect(findPinCollisions(uses)).toEqual([])
   })

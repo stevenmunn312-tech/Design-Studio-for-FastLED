@@ -30,6 +30,7 @@ const emit = (over: Partial<TftDisplayEmit> = {}): TftDisplayEmit => ({
   layout: 'Now Playing',
   csPin: 5, dcPin: 16, resetPin: 17, sckPin: 18, mosiPin: 23, backlightPin: 4,
   enabledExpr: 'true',
+  dateTimeExpr: null,
   titleExpr: '_title', artistExpr: '_artist', patternNameExpr: '_pattern',
   elapsedExpr: '_elapsed', durationExpr: '_duration', progressExpr: '_progress',
   playingExpr: '_playing', volumeExpr: '_volume',

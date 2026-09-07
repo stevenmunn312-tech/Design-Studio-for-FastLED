@@ -4,9 +4,8 @@ import { resolve } from 'node:path'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import { OUTPUT_USE_CASES, PORT_DESCRIPTIONS, TYPE_GLYPH } from '../portCopy'
 import { DISPLAY_REFERENCE } from '../displayReference'
-import { partOptionsFor } from '../../../state/partOptions'
-import { partById } from '../../../state/partCatalogue'
 import { exampleGraphSrc, mainPreviewSrc, nodeCardSrc } from '../../../utils/nodeReferenceAssets'
+import { DISPLAY_NODE_TYPES } from '../../../utils/validateGraph'
 
 /**
  * The Node Reference is generated from NODE_LIBRARY, so it can never list a
@@ -78,8 +77,11 @@ describe('Node Reference generated assets', () => {
   })
 
   it('gives every offered display its own setup instructions', () => {
-    const displayTypes = NODE_LIBRARY.filter((node) => partOptionsFor(node.type)
-      .some((option) => partById(option.id)?.display)).map((node) => node.type).sort()
+    // Reuses DISPLAY_NODE_TYPES rather than re-deriving from partOptionsFor:
+    // `Display` (the document node) selects no catalogued module of its own
+    // since the panel/document split, so that derivation alone can no longer
+    // see it — DISPLAY_NODE_TYPES already adds it back explicitly.
+    const displayTypes = [...DISPLAY_NODE_TYPES].sort()
     expect(Object.keys(DISPLAY_REFERENCE).sort()).toEqual(displayTypes)
     for (const type of displayTypes) {
       expect(DISPLAY_REFERENCE[type].steps.length).toBeGreaterThan(0)

@@ -229,8 +229,9 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         push(node, `${baseLabel} MOSI`, 'mosiPin', props.mosiPin)
         break
       }
-      case 'TransportDisplay':
-      case 'Display': {
+      // Display (the document node) has no pins — it names no peripheral
+      // item in either switch below either, for the same reason.
+      case 'TransportDisplay': {
         const labels: Record<string, string> = {
           sckPin: 'SCK', mosiPin: 'MOSI', misoPin: 'MISO', csPin: 'CS', dcPin: 'DC',
           resetPin: 'RESET', backlightPin: 'BACKLIGHT', touchCsPin: 'TOUCH CS',
@@ -635,8 +636,12 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             : [`This OLED has no complete ${labels} pin set configured.`],
         }
       }
-      case 'TransportDisplay':
-      case 'Display': {
+      // Display (the document node) names no peripheral item — it has no
+      // pins and no physical existence, so there is nothing here to report as
+      // supported or unsupported. The panel it is wired to is what shows up.
+      case 'Display':
+        return []
+      case 'TransportDisplay': {
         const props = node.data.properties as Record<string, unknown>
         const partId = String(props.partId ?? 'st7789-tft-240x240')
         const entry = partById(partId)

@@ -13,6 +13,10 @@ import { PART_PIN_PLANS } from '../pinRetarget'
 
 // Derive the inventory from real module choices: a newly offered display must
 // satisfy the same ownership, driver and inspector contracts automatically.
+// `Display` (the document node) is deliberately not part of this derivation
+// any more — since the panel/document split it selects no module of its own,
+// so it has nothing for `partOptionsFor` to find. Its own contract is tested
+// directly below instead.
 const displays = NODE_LIBRARY.filter((node) => partOptionsFor(node.type)
   .some((option) => partById(option.id)?.display))
 const modules = displays.flatMap((node) => partOptionsFor(node.type)
@@ -31,9 +35,9 @@ function moduleNode(nodeType: string, partId: string): StudioNode {
 }
 
 describe('display node registration contracts', () => {
-  it('includes fixed and document-driven displays', () => {
+  it('includes every fixed, module-selecting display', () => {
     expect(displays.map((node) => node.type).sort())
-      .toEqual(['Display', 'InfoDisplay', 'SegmentDisplay', 'TransportDisplay'])
+      .toEqual(['InfoDisplay', 'SegmentDisplay', 'TransportDisplay'])
   })
 
   it.each(displays)('$type starts with a real offered module and belongs to the workbench', (node) => {
@@ -55,7 +59,6 @@ describe('display node registration contracts', () => {
     if (driver && 'width' in driver) {
       expect({ width: driver.width, height: driver.height }).toEqual(displayResolution(partId))
     }
-    if (nodeType === 'Display') expect(spec.touchController).toBe('XPT2046')
   })
 
   it.each(modules)('$nodeType / $partId exposes and retargets exactly the pins it claims', ({ nodeType, partId }) => {
@@ -87,12 +90,18 @@ describe('display node registration contracts', () => {
     }
   })
 
-  it('keeps custom ports document-driven and leaves fixed layouts on Transport Display', () => {
-    const definition = displays.find((node) => node.type === 'Display')!
+  it('keeps custom ports document-driven and leaves fixed layouts and pins on Transport Display', () => {
+    // Looked up directly, not through `displays` above — Display selects no
+    // module of its own any more, so it never appears in that derivation.
+    const definition = NODE_LIBRARY.find((node) => node.type === 'Display')!
     expect(definition.inputs).toEqual([])
-    expect(definition.outputs).toEqual([])
+    // One static output, the wire a TransportDisplay panel's `customDisplay`
+    // input accepts. Every other port stays widget-derived.
+    expect(definition.outputs).toEqual([{ id: 'customDisplay', label: 'Custom Display', dataType: 'customdisplay' }])
     expect(definition.defaultProperties).not.toHaveProperty('tftLayout')
-    expect(partOptionsFor(definition.type).map((option) => option.id))
-      .toEqual(['st7789v-xpt2046-touch-240x320'])
+    // No pins, no partId, no physical existence at all — just which document
+    // this node opens.
+    expect(definition.defaultProperties).toEqual({ displayId: '' })
+    expect(partOptionsFor(definition.type)).toEqual([])
   })
 })
