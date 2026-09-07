@@ -27,11 +27,19 @@ matrix, not a reason to postpone testing earlier changes.
   TFT-only Show Status name/cursor tests; `npm test`, `npm run lint` and
   `tsc -b` pass. Remaining exit: an Arduino CLI/fbuild compile of the TFT-only,
   OLED+TFT and headless cases (belongs to the HW-06 matrix). Review F1/F2.
-- [ ] **HW-02 · P1 · Panel ownership and Enabled (M).** Read mounted geometry
-  from TransportDisplay; repair editor orientation writes; share size validation
-  across all generators. Define disabled drawing/touch/output-rest and re-enable
-  semantics. Support wired Enabled consistently or reject it consistently.
-  Exit: rotation, re-enable and save/reload coverage uses the split model. F3/F4.
+- [ ] **HW-02 · P1 · Panel ownership and Enabled (M).** Code complete; compile
+  evidence outstanding. `mountedDisplays.ts` resolves mounted geometry from the
+  panel for the editor, deploy validation (every generator) and the template
+  plan; Portrait/Landscape rotates the connected panels and sizes the design
+  from them. Enabled is one runtime signal in all three generators — dark, no
+  touch, outputs at rest, still built so it can be turned back on — through a
+  per-panel latch, and a wired Enabled is accepted everywhere rather than
+  refused by the templates. Also repaired here: a `Display` node's
+  `customDisplay` output was stripped by the port sync, so the mount wire was
+  dropped on load and on every document edit. Rotation, re-enable, wired-enable
+  and save/reload coverage added; `npm test`, `npm run lint` and `tsc -b` pass.
+  Remaining exit: compile the disabled, wired-enable and rotated cases (HW-06
+  matrix). F3/F4.
 - [ ] **HW-03 · P1/P2 · Resolve mounted screens once (M; after HW-02).** Enforce
   one document per panel initially and diagnose unmounted live widget sources.
   Share active instances across RAM, assets, validation and emission; exclude

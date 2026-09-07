@@ -18,11 +18,44 @@ It has no part, bus or pins. The static `customDisplay` output connects to a
 panel, while widget ports derive from stable widget ids and roles. The document
 does not join hardware registries. Edit display lives on the document node.
 
+The document's own `customDisplay` output is a library port and survives every
+document sync; widget ports are additive beside it. Replacing the whole set with
+widget ports stripped that output and dropped the mount wire on load and on
+every edit, so a saved screen came back unplugged from its panel.
+
 One document driving two panels was a design intention, not a completed feature:
 normal generation duplicates widget symbols and template generation rejects it.
-Use separate documents for now; HW-03 will enforce the boundary. Editor
-orientation still writes to the old document property, and normal custom-panel
-Enabled is ineffective; HW-02 repairs these ownership gaps.
+Use separate documents for now; HW-03 will enforce the boundary.
+
+### Geometry
+
+`mountedDisplays.ts` answers "how large is this design as mounted" once, from
+the panel. A mounted document's design size must equal the panel's rotated size;
+deploy validation checks it for every generator and the template plan resolves
+it through the same helper. The editor's Portrait/Landscape control rotates the
+panels a design is plugged into and sizes the design from what they then
+present, in one undoable action; an unmounted design swaps its own edges,
+because there is no panel to ask.
+
+### Enabled
+
+Enabled is one runtime signal, and it means the same thing in all three
+generators: the panel is dark, reads no touch, and rests its widget outputs at
+`false`/`0`. The panel is still built and still initialised — it is fitted
+hardware either way — so re-enabling resumes from the image already on the
+glass, and a fixed layout's next `_tftPaint` is a full repaint because its
+refresh clock did not advance while it was off.
+
+Each panel keeps one latch (`_tftOn_<id>` for a fixed layout, `_cdPanelOn_<id>`
+for a custom screen), written where its expression is evaluable and read by
+everything that runs before that point — touch sampling and widget-output
+snapshots see the previous pass's value on the single frame Enabled changes.
+That is the price of evaluating the expression once instead of in three places
+that could disagree. A constant folds into the latch's initialiser, so an
+always-on panel pays nothing.
+
+A wire feeding Enabled is accepted by every generator. The templates resolve it
+through the scalar control graph, which is what `controlSources` carries.
 
 ## The wire chooses the content
 
