@@ -23,6 +23,7 @@ import type { StudioNode, StudioNodeData } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import type { MusicEntry } from '../state/musicStore'
 import { bakeBrowserThumbnails } from './browserThumbnails'
+import { collectionPatternNames } from './patternNames'
 import { bakeDisplayArtworks } from './transportArtworks'
 import { generatePlayerSketch, playerConfigFromGraph, playerParticlesFromGraph } from '../codegen/playerSketchGenerator'
 import { playerDisplaysFromGraph } from '../codegen/playerDisplays'
@@ -141,10 +142,10 @@ export function buildShowPlayer(
     // Baked here rather than in the generator: baking evaluates patterns, and
     // only this side knows whether the workspace has been trusted. Without it
     // a Pattern Browser builds and says NO PATTERNS.
-    thumbnails: bakeBrowserThumbnails(
-      nodes, edges, groups,
-      useGraphStore.getState().trusted, useGraphStore.getState().graphs,
-    ),
+    thumbnails: bakeBrowserThumbnails(nodes, edges, groups, useGraphStore.getState().trusted),
+    // Names are not baked: they cost no evaluation and no trust decision, so a
+    // panel keeps naming patterns even where the pictures could not be made.
+    patternNames: collectionPatternNames(nodes, edges, useGraphStore.getState().graphs),
     artworks: bakeDisplayArtworks(
       nodes, edges, groups, useGraphStore.getState().trusted,
     ),

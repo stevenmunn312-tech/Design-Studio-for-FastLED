@@ -665,7 +665,7 @@ export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
       `        _oledThumb(${p}, ${g.thumb.x}, ${g.thumb.y}, ` +
         `THUMB_W_${stem}, THUMB_H_${stem}, _thumbByte_${stem}, _oledSel_${display.id});`,
       `        char _oledName_${display.id}[40];`,
-      `        _thumbName_${stem}_read(_oledName_${display.id}, sizeof(_oledName_${display.id}), _oledSel_${display.id});`,
+      `        _patName_${stem}_read(_oledName_${display.id}, sizeof(_oledName_${display.id}), _oledSel_${display.id});`,
       `        _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), _oledName_${display.id}, ${g.name.w});`,
       `        _oledText(${p}, ${g.name.x}, ${g.name.y}, _oledBuf_${display.id});`,
       `        snprintf(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), "%u/%u", ` +
@@ -682,7 +682,7 @@ export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
     if (g.playing) lines.push(
       `        if (_selBrowsing(${sel})) {`,
       `          _oledHLine(${p}, ${g.playing.rule.x}, ${g.playing.rule.y}, ${g.playing.rule.w});`,
-      `          _thumbName_${stem}_read(_oledName_${display.id}, sizeof(_oledName_${display.id}), ${sel}.active);`,
+      `          _patName_${stem}_read(_oledName_${display.id}, sizeof(_oledName_${display.id}), ${sel}.active);`,
       `          char _oledPlaying_${display.id}[48];`,
       `          snprintf(_oledPlaying_${display.id}, sizeof(_oledPlaying_${display.id}), "PLAYING %s", _oledName_${display.id});`,
       `          _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), _oledPlaying_${display.id}, ${g.playing.label.w});`,

@@ -13,12 +13,18 @@
 import { bakePatternThumbnails } from './bakePatternThumbnails'
 import { thumbnailBudgetIssue } from '../state/patternThumbnail'
 import type { GroupRegistry } from '../state/graphEvaluator'
+import type { PatternThumbnail } from '../state/patternThumbnail'
 import type { StudioNode, StudioEdge } from '../state/graphStore'
-import type { ThumbnailEmit } from '../codegen/patternThumbnailCpp'
 import { DISPLAY_SOURCE_NODE_TYPES } from '../state/displaySignal'
 
-/** Baked thumbnails per Info Display node id. */
-export type BrowserThumbnails = Record<string, ThumbnailEmit[]>
+/**
+ * Baked pictures per rotating-engine node id.
+ *
+ * Pictures only: a pattern's *name* is metadata that needs no bake and no
+ * trust decision, so it travels separately (see utils/patternNames.ts) and
+ * survives a collection too large to picture.
+ */
+export type BrowserThumbnails = Record<string, PatternThumbnail[]>
 
 /**
  * The player a Pattern Browser reads, or undefined when it is not wired to one.
@@ -101,7 +107,6 @@ export function bakeBrowserThumbnails(
   edges: readonly StudioEdge[],
   groups: GroupRegistry,
   trusted: boolean,
-  graphNames: Record<string, { name?: string }> = {},
 ): BrowserThumbnails {
   const out: BrowserThumbnails = {}
   for (const display of patternBrowsers(nodes, edges)) {
@@ -113,10 +118,7 @@ export function bakeBrowserThumbnails(
     // than shipping half a set of pictures — the patterns without one would
     // look broken rather than like the ones that ran out of flash.
     if (baked.issue) continue
-    out[player.id] = baked.thumbnails.map((entry) => ({
-      name: graphNames[entry.groupId]?.name ?? entry.groupId,
-      thumbnail: entry.thumbnail,
-    }))
+    out[player.id] = baked.thumbnails.map((entry) => entry.thumbnail)
   }
   return out
 }

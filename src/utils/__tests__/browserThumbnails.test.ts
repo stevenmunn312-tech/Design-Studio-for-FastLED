@@ -11,6 +11,7 @@ import {
   bakeBrowserThumbnails, browserPlayer, playerPatternIds, patternBrowsers,
   browserThumbnailIssues,
 } from '../browserThumbnails'
+import { collectionPatternNames } from '../patternNames'
 import { findDisplayGeneratorIssues } from '../validateGraph'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { resetEvaluatorState, type GroupRegistry } from '../../state/graphEvaluator'
@@ -92,19 +93,24 @@ describe('finding the browsers in a graph', () => {
 describe('baking for a graph', () => {
   beforeEach(() => resetEvaluatorState())
 
-  it('bakes one entry per pattern, named from the graph', () => {
+  it('bakes one picture per pattern', () => {
     const { nodes, edges } = graph()
-    const baked = bakeBrowserThumbnails(nodes, edges, GROUPS, true, {
-      white: { name: 'WHITEOUT' }, dark: { name: 'NIGHT' },
-    })
-    expect(baked.master.map((entry) => entry.name)).toEqual(['WHITEOUT', 'NIGHT'])
-    expect(baked.master[0].thumbnail.data).toHaveLength(THUMBNAIL_BYTES)
+    const baked = bakeBrowserThumbnails(nodes, edges, GROUPS, true)
+    expect(baked.master).toHaveLength(2)
+    expect(baked.master[0].data).toHaveLength(THUMBNAIL_BYTES)
+  })
+
+  // Names come from the graph rather than from the bake, so a collection that
+  // could not be pictured — untrusted, or over budget — still has them.
+  it('names patterns without baking anything', () => {
+    const { nodes, edges } = graph()
+    expect(collectionPatternNames(nodes, edges, { white: { name: 'WHITEOUT' }, dark: { name: 'NIGHT' } }).master)
+      .toEqual(['WHITEOUT', 'NIGHT'])
   })
 
   it('falls back to the group id when the graph has no name for it', () => {
     const { nodes, edges } = graph()
-    expect(bakeBrowserThumbnails(nodes, edges, GROUPS, true).master.map((e) => e.name))
-      .toEqual(['white', 'dark'])
+    expect(collectionPatternNames(nodes, edges).master).toEqual(['white', 'dark'])
   })
 
   it('bakes nothing for a graph with no browser', () => {
@@ -136,8 +142,8 @@ describe('baking for a graph', () => {
       edge('e1', 'coll', 'patternset', 'master', 'patternset'),
       edge('e2', 'master', 'display', 'brw', 'display'),
     ]
-    const lit = (entry: { thumbnail: { data: Uint8Array } }) =>
-      Array.from(entry.thumbnail.data).reduce((n, b) => n + b, 0)
+    const lit = (thumbnail: { data: Uint8Array }) =>
+      Array.from(thumbnail.data).reduce((n, b) => n + b, 0)
 
     const trusted = bakeBrowserThumbnails(nodes, edges, groups, true).master[0]
     expect(lit(trusted), 'the formula must draw when trusted').toBeGreaterThan(0)

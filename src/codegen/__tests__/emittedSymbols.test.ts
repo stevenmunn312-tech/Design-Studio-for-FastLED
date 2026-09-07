@@ -177,7 +177,7 @@ describe('the SD player sketch', () => {
     functions: IDS.map((_, i) => `void render_p${i}(uint32_t ms) {}`),
   }
 
-  const build = (thumbnails?: Record<string, { name: string; thumbnail: ReturnType<typeof blankThumbnail> }[]>) => {
+  const build = (thumbnails?: Record<string, ReturnType<typeof blankThumbnail>[]>) => {
     const { nodes, edges } = benchGraph()
     return generatePlayerSketch({}, renderers, {
       displays: playerDisplaysFromGraph(nodes as never, edges as never),
@@ -191,13 +191,14 @@ describe('the SD player sketch', () => {
       },
       genericPlayer: true,
       thumbnails,
+      patternNames: { master: [...IDS] },
     })
   }
 
   // This is the exact failure that reached a bench three times: the controls
   // and the panel referenced _sel_player while the table defined _sel_brw.
   it('defines every stem-composed symbol it uses', () => {
-    const src = build({ master: IDS.map((name) => ({ name, thumbnail: blankThumbnail() })) })
+    const src = build({ master: IDS.map(() => blankThumbnail()) })
     expect(src).toContain('_sel_')
     expect(undefinedSymbols(src)).toEqual([])
   })
@@ -209,7 +210,7 @@ describe('the SD player sketch', () => {
   // One show per player sketch, so the controls, the panel and the table must
   // all land on the same stem rather than three that happen to agree.
   it('uses exactly one selection', () => {
-    const src = build({ master: IDS.map((name) => ({ name, thumbnail: blankThumbnail() })) })
+    const src = build({ master: IDS.map(() => blankThumbnail()) })
     const stems = new Set([...src.matchAll(/\b_sel_([A-Za-z0-9_]+)\b/g)].map((m) => m[1]))
     expect([...stems]).toHaveLength(1)
   })

@@ -7,6 +7,7 @@ import { useMusicStore } from '../../state/musicStore'
 import { useProjectStore } from '../../state/projectStore'
 import { useCapacityStore } from '../../state/capacityStore'
 import { bakeBrowserThumbnails } from '../../utils/browserThumbnails'
+import { collectionPatternNames } from '../../utils/patternNames'
 import { bakeDisplayArtworks } from '../../utils/transportArtworks'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
@@ -115,8 +116,12 @@ export default function MatrixOutputDeployPopup({
       psramAllowed: psramSupported,
       bootLabel: projectName,
       thumbnails: bakeBrowserThumbnails(
-        codegenGraph.nodes, codegenGraph.edges, groups,
-        customAssets.trusted, useGraphStore.getState().graphs,
+        codegenGraph.nodes, codegenGraph.edges, groups, customAssets.trusted,
+      ),
+      // Names are not baked: they cost no evaluation and no trust decision, so
+      // a panel keeps naming patterns even where the pictures could not be made.
+      patternNames: collectionPatternNames(
+        codegenGraph.nodes, codegenGraph.edges, useGraphStore.getState().graphs,
       ),
       artworks: bakeDisplayArtworks(
         codegenGraph.nodes, codegenGraph.edges, groups,

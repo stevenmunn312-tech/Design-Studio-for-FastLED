@@ -31,7 +31,7 @@
 // is exactly how the 2.4-inch module is wired.
 
 import { DEFAULT_FONT, FONT_H, FONT_W } from '../state/font'
-import { cppStringLiteral } from '../state/displayText'
+import { cppStringLiteral, DISPLAY_TEXT_BUFFER_BYTES } from '../state/displayText'
 import {
   TFT_LETTER_SPACING, tftMadctl, tftRotatedSize, tftWindowOrigin,
   type TftController, type TftField, type TftRect, type TftRotation,
@@ -643,6 +643,15 @@ export interface TftDisplayEmit {
   browsingExpr: string
   highlightNameExpr: string | null
   highlightIndexExpr: string
+  /**
+   * Show Status only: the emitted pattern-name table this panel reads, when
+   * the sketch has one.
+   *
+   * A name is not a picture, so this is independent of the thumbnail table an
+   * OLED browser needs — a TFT-only show reported blanks for as long as the
+   * two were emitted together.
+   */
+  patternNames?: { tableStem: string; selVar: string }
   /** Whether Diagnostics can read a live XPT2046 point. */
   diagnosticTouch?: boolean
   /**
@@ -763,6 +772,24 @@ function showStatusLoop(display: TftDisplayEmit, width: number, height: number):
   const text = (expr: string | null) => expr ?? '""'
   const lines: string[] = []
 
+  // Read out of flash into a local before either field is formatted: the
+  // running pattern and the browsed candidate are two indices into one table,
+  // and the reader copies rather than points because PROGMEM may be a separate
+  // address space.
+  const names = display.patternNames
+  const nameBuffer = (suffix: string, indexExpr: string) => {
+    const buffer = `_tftName${suffix}_${id}`
+    lines.push(
+      `      char ${buffer}[${DISPLAY_TEXT_BUFFER_BYTES}];`,
+      `      _patName_${names!.tableStem}_read(${buffer}, sizeof(${buffer}), (uint16_t)(${indexExpr}));`,
+    )
+    return buffer
+  }
+  const patternName = names && !display.patternNameExpr
+    ? nameBuffer('Active', `${names.selVar}.active`) : display.patternNameExpr
+  const highlightName = names && !display.highlightNameExpr
+    ? nameBuffer('High', `${names.selVar}.highlight`) : display.highlightNameExpr
+
   // Formatting only — no declaration and no paint — so the running pattern's
   // ordinal and the browsed candidate's are produced by one piece of code.
   // They count out of the same collection, and a divergence between them
@@ -787,7 +814,7 @@ function showStatusLoop(display: TftDisplayEmit, width: number, height: number):
   }
 
   lines.push(
-    `      const char *_tftPattern_${id} = ${text(display.patternNameExpr)};`,
+    `      const char *_tftPattern_${id} = ${text(patternName)};`,
     `      if (_tftTextDirty(${p}, ${s.pattern}, _tftPattern_${id}) || _tftFull_${id}) `
       + `_tftField(${p}, ${fieldArgs(g.pattern)}, _tftPattern_${id}, TFT_C_TEXT, TFT_C_BG);`,
     `      long _tftCount_${id} = _tftWhole(${display.patternCountExpr});`,
@@ -809,7 +836,7 @@ function showStatusLoop(display: TftDisplayEmit, width: number, height: number):
   // empty field is what clears the previous candidate when a browse ends, and
   // the dirty cache means an unchanged blank costs nothing after the first.
   lines.push(
-    `      const char *_tftHigh_${id} = _tftBrowsing_${id} ? (${text(display.highlightNameExpr)}) : "";`,
+    `      const char *_tftHigh_${id} = _tftBrowsing_${id} ? (${text(highlightName)}) : "";`,
     `      if (_tftTextDirty(${p}, ${s.highlight}, _tftHigh_${id}) || _tftFull_${id}) `
       + `_tftField(${p}, ${fieldArgs(g.highlight)}, _tftHigh_${id}, TFT_C_ACCENT, TFT_C_BG);`,
     `      char _tftHighOrd_${id}[16];`,

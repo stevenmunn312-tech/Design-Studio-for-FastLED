@@ -892,6 +892,31 @@ describe('displays in a show controller', () => {
         + 'n_ctl_controls.patternSteps != 0 || n_ctl_controls.patternConfirm);')
     })
 
+    /*
+     * Names are metadata, pictures are a bake. A Show Status panel names
+     * patterns and pictures none, so it needs its own table rather than one
+     * borrowed from an OLED browser it may not be sitting beside.
+     */
+    it('names patterns on a TFT with no thumbnails anywhere in the sketch', () => {
+      const cpp = generateShowSketch(
+        [...base, status], [...baseEdges, edge('show-tft', 'pm', 'display', 'tft', 'display')], groups,
+        { patternNames: { pm: ['SUNRISE', 'RAIN'] } },
+      )
+      expect(cpp).toContain('#define PATTERN_NAME_COUNT_show  2')
+      expect(cpp).toContain('"SUNRISE"')
+      expect(cpp).not.toContain('THUMB_COUNT_')
+      expect(cpp).toContain('_patName_show_read(_tftNameActive_tft, sizeof(_tftNameActive_tft), (uint16_t)(_sel_show.active));')
+      expect(cpp).toContain('_patName_show_read(_tftNameHigh_tft, sizeof(_tftNameHigh_tft), (uint16_t)(_sel_show.highlight));')
+    })
+
+    // The reader is emitted either way, so an unnamed collection draws a blank
+    // field rather than calling a function nothing wrote.
+    it('emits an empty name table when the caller supplied none', () => {
+      const cpp = build([status], [edge('show-tft', 'pm', 'display', 'tft', 'display')])
+      expect(cpp).toContain('#define PATTERN_NAME_COUNT_show  0')
+      expect(cpp).toContain('static void _patName_show_read(char *dst, size_t dstSize, uint16_t index)')
+    })
+
     // Commanding, not just reporting: the renderer reads the cursor the way
     // the evaluator reads its active index every frame.
     it('renders the selected pattern rather than only naming it', () => {

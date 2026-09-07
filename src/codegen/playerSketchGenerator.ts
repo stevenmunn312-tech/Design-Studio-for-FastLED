@@ -31,11 +31,12 @@ import {
   tftDisplayHelpersCpp, TFT_DISPLAY_CPP_FORWARD, tftDisplayGlobalCpp,
   tftDisplaySetupCpp, tftDisplayLoopCpp, type TftDisplayEmit,
 } from './tftDisplayCpp'
-import { patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
+import { patternNameTableCpp, patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
 import { TRANSITION_HELPER_CPP } from './transitionHelperCpp'
 import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './patternSelectionCpp'
 import { TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit } from './tftTouchCpp'
 import type { BrowserThumbnails } from '../utils/browserThumbnails'
+import type { PatternNames } from '../utils/patternNames'
 import type { TransportArtworks } from '../utils/transportArtworks'
 import { transportArtworkTableCpp } from './transportArtworkCpp'
 
@@ -339,7 +340,7 @@ export function generatePlayerSketch(
     audioEnvelope?: boolean; decoderTap?: boolean; preferredTrack?: string
     genericPlayer?: boolean; psramAllowed?: boolean; controls?: PlayerControlsConfig
     particleFx?: PlayerParticlesConfig | null; displays?: PlayerDisplays
-    thumbnails?: BrowserThumbnails; artworks?: TransportArtworks
+    thumbnails?: BrowserThumbnails; patternNames?: PatternNames; artworks?: TransportArtworks
     stereoVuMeters?: StereoVuEmit[]
     bootLabel?: string; deviceLabel?: string
     controlGraph?: PlayerControlGraph; customDisplayAssets?: CustomDisplayAssets
@@ -880,6 +881,11 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
       // Keyed by the player in the bake, and a player sketch has exactly one
       // show — so the sole entry is it, whatever node id it was baked under.
       ? patternThumbnailTableCpp(PLAYER_SELECTION_STEM, Object.values(opts.thumbnails ?? {})[0] ?? [])
+      : '',
+    // Names are keyed the same way and emitted beside the pictures, but from
+    // their own source: a collection too large to picture still has names.
+    browserEmits.length > 0
+      ? patternNameTableCpp(PLAYER_SELECTION_STEM, Object.values(opts.patternNames ?? {})[0] ?? [])
       : '',
     hasPatternSelection ? `static PatternSel _sel_${PLAYER_SELECTION_STEM};` : '',
     hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_HELPERS : '',

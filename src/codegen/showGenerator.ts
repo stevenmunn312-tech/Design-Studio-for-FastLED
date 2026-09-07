@@ -50,9 +50,10 @@ import {
   TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit,
 } from './tftTouchCpp'
 import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './patternSelectionCpp'
-import { patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
+import { patternNameTableCpp, patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
 import { transportArtworkTableCpp } from './transportArtworkCpp'
 import type { BrowserThumbnails } from '../utils/browserThumbnails'
+import type { PatternNames } from '../utils/patternNames'
 import type { TransportArtworks } from '../utils/transportArtworks'
 import {
   STEREO_VU_CPP_FORWARD, STEREO_VU_CPP_HELPERS, stereoVuEmitsFromGraph,
@@ -369,6 +370,8 @@ interface ShowSelectionPlan {
   stem: string
   /** The control bundle carrying pattern intent, or null when nothing does. */
   commands: string | null
+  /** Whether a panel names patterns, and so needs the name table in flash. */
+  names: boolean
 }
 
 function showSelectionPlan(
@@ -376,14 +379,17 @@ function showSelectionPlan(
   hasArtwork: boolean,
   patternCommands: string | null,
 ): ShowSelectionPlan {
-  const readers = displays.info.some((display) => display.layout === 'Pattern Browser')
+  // Naming a pattern and picturing one are different needs: a Show Status
+  // panel names without picturing, so the name table follows this rather than
+  // the browser's thumbnail table.
+  const names = displays.info.some((display) => display.layout === 'Pattern Browser')
     || displays.tft.some((display) => display.layout === 'Show Status')
-    || hasArtwork
   return {
-    used: readers || patternCommands !== null,
+    used: names || hasArtwork || patternCommands !== null,
     variable: `_sel_${SHOW_SELECTION_STEM}`,
     stem: SHOW_SELECTION_STEM,
     commands: patternCommands,
+    names,
   }
 }
 
@@ -395,7 +401,7 @@ function showSelectionPlan(
  * headless build — three buttons and no screen — needs every one of these and
  * has no display half at all.
  */
-function showSelectionCpp(plan: ShowSelectionPlan, patternCount: number): {
+function showSelectionCpp(plan: ShowSelectionPlan, patternCount: number, names: readonly string[]): {
   forwards: string[]
   helpers: string[]
   setup: string[]
@@ -408,7 +414,11 @@ function showSelectionCpp(plan: ShowSelectionPlan, patternCount: number): {
     forwards: [PATTERN_SELECTION_CPP_FORWARD],
     // PATTERN_COUNT is already defined by the controller above, so the
     // selection reads it rather than restating it.
-    helpers: [PATTERN_SELECTION_CPP, `static PatternSel ${plan.variable};`],
+    helpers: [
+      PATTERN_SELECTION_CPP,
+      `static PatternSel ${plan.variable};`,
+      ...(plan.names ? [patternNameTableCpp(plan.stem, names)] : []),
+    ],
     setup: [`  _selBegin(${plan.variable});`],
     // A slideshow has no split between what you are looking at and what is
     // playing to show anybody, so a step *is* the change — the same rule the
@@ -565,11 +575,13 @@ function showDisplaysCpp(
     // about which pattern is being looked at.
     browsingExpr: `_selBrowsing(${selVar})`,
     highlightIndexExpr: `${selVar}.highlight`,
-    // Pattern names live in the thumbnail table, which is emitted only for an
-    // OLED Pattern Browser and reads through a buffer-filling function rather
-    // than an expression. Blank until that is threaded through; the ordinal
-    // and the browsing state are the readings this panel is here for.
+    // Names come from the sketch's own name table, which is emitted for this
+    // panel rather than borrowed from a Pattern Browser's thumbnails — a
+    // TFT-only show has no thumbnails and still knows what it is playing.
     highlightNameExpr: null,
+    ...(selection.names
+      ? { patternNames: { tableStem: selection.stem, selVar } }
+      : {}),
     diagnosticTouch: display.layout === 'Diagnostics' && display.touch !== null,
     ...(display.layout === 'Now Playing' && artworks.length > 0
       ? { artwork: { tableStem: SHOW_SELECTION_STEM, count: artworks.length } }
@@ -651,6 +663,7 @@ export function generateShowSketch(
   opts: {
     psramAllowed?: boolean
     thumbnails?: BrowserThumbnails
+    patternNames?: PatternNames
     artworks?: TransportArtworks
     bootLabel?: string
     displayDocuments?: DisplayDocumentRegistry
@@ -764,7 +777,12 @@ export function generateShowSketch(
       && (Object.values(opts.artworks ?? {})[0] ?? []).length > 0,
     controls.patternCommands,
   )
-  const selectionCpp = showSelectionCpp(selection, renderers.count)
+  const selectionCpp = showSelectionCpp(
+    selection, renderers.count,
+    // Keyed by the engine, and a controller sketch runs exactly one show, so
+    // the sole entry is this show's collection whatever node id it came under.
+    Object.values(opts.patternNames ?? {})[0] ?? [],
+  )
   const displays = showDisplaysCpp(nodes, resolvedDisplays, opts, controls, selection)
   const customDisplays = customDisplayShowCpp(controls.custom, opts.customDisplayAssets)
   const outputRuntimeExpressions = (outputId: string) => {

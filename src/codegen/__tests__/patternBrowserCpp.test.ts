@@ -6,7 +6,7 @@
 // restating them. A coordinate typed twice is a coordinate that disagrees.
 
 import { describe, it, expect } from 'vitest'
-import { patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from '../patternThumbnailCpp'
+import { patternNameTableCpp, patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from '../patternThumbnailCpp'
 import { PATTERN_SELECTION_CPP } from '../patternSelectionCpp'
 import { infoDisplayLoopCpp, type InfoDisplayEmit } from '../infoDisplayCpp'
 import { THUMBNAIL_W, THUMBNAIL_H, THUMBNAIL_BYTES, blankThumbnail } from '../../state/patternThumbnail'
@@ -22,7 +22,9 @@ const lit = (fill: number) => {
 }
 
 const table = (n: number) => patternThumbnailTableCpp('br',
-  Array.from({ length: n }, (_, i) => ({ name: `PATTERN ${i}`, thumbnail: lit(0xa5) })))
+  Array.from({ length: n }, () => lit(0xa5)))
+const names = (n: number) => patternNameTableCpp('br',
+  Array.from({ length: n }, (_, i) => `PATTERN ${i}`))
 
 const emit = (over: Partial<InfoDisplayEmit> = {}): InfoDisplayEmit => ({
   id: 'br', controller: 'SH1106', transport: 'spi', csPin: 1, dcPin: 2, resetPin: 5, sckPin: 6, mosiPin: 7,
@@ -52,17 +54,12 @@ describe('the thumbnail table', () => {
     expect(src).toContain(`#define THUMB_H_br      ${THUMBNAIL_H}`)
   })
 
-  // A name read straight from a PROGMEM pointer returns whatever sits at the
-  // same RAM offset on a board where that is a separate address space.
-  it('copies names out of flash rather than pointing at them', () => {
-    const src = table(1)
-    expect(src).toContain('strncpy_P')
-    expect(src).toContain('pgm_read_ptr')
-    expect(src).toContain('pgm_read_byte')
+  it('reads bytes out of flash rather than copying them into RAM', () => {
+    expect(table(1)).toContain('pgm_read_byte')
   })
 
   it('names each table after its collection, so two browsers cannot collide', () => {
-    const other = patternThumbnailTableCpp('two', [{ name: 'X', thumbnail: blankThumbnail() }])
+    const other = patternThumbnailTableCpp('two', [blankThumbnail()])
     expect(other).toContain('THUMB_COUNT_two')
     expect(other).not.toContain('THUMB_COUNT_br')
   })
@@ -73,9 +70,39 @@ describe('the thumbnail table', () => {
     expect(src).not.toContain('_thumbData_br[')
   })
 
+  // Pictures need a bake, a trust decision and a flash budget; names need
+  // none of the three, so a panel that only names patterns gets a table of
+  // its own rather than borrowing a browser's.
+  it('carries no names, so a name needs no picture', () => {
+    expect(table(2)).not.toContain('_patName_br_read')
+    expect(table(2)).not.toContain('strncpy_P')
+  })
+})
+
+describe('the pattern name table', () => {
+  // A name read straight from a PROGMEM pointer returns whatever sits at the
+  // same RAM offset on a board where that is a separate address space.
+  it('copies names out of flash rather than pointing at them', () => {
+    const src = names(2)
+    expect(src).toContain('#define PATTERN_NAME_COUNT_br  2')
+    expect(src).toContain('"PATTERN 0"')
+    expect(src).toContain('strncpy_P')
+    expect(src).toContain('pgm_read_ptr')
+  })
+
+  it('emits a reader that answers emptily for a collection with no names', () => {
+    const src = names(0)
+    expect(src).toContain('#define PATTERN_NAME_COUNT_br  0')
+    expect(src).toContain('static void _patName_br_read(char *dst, size_t dstSize, uint16_t index)')
+    expect(src).not.toContain('_patNames_br[')
+  })
+
+  it('names each table after its collection, so two panels cannot collide', () => {
+    expect(patternNameTableCpp('two', ['X'])).not.toContain('_patName_br_')
+  })
+
   it('escapes a name rather than ending the string literal', () => {
-    const src = patternThumbnailTableCpp('br', [{ name: 'A "QUOTED" ONE', thumbnail: blankThumbnail() }])
-    expect(src).toContain('\\"')
+    expect(patternNameTableCpp('br', ['A "QUOTED" ONE'])).toContain('\\"')
   })
 })
 
@@ -154,7 +181,7 @@ describe('the emitted layout', () => {
   })
 
   it('reads the name into a buffer rather than formatting from flash', () => {
-    expect(loop()).toContain('_thumbName_br_read(_oledName_br, sizeof(_oledName_br)')
+    expect(loop()).toContain('_patName_br_read(_oledName_br, sizeof(_oledName_br)')
   })
 })
 

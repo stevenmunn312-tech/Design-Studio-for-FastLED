@@ -1,10 +1,16 @@
-// Baked pattern thumbnails and names, emitted into flash.
+// Baked pattern thumbnails, and the pattern names beside them, in flash.
 //
 // The bake happens in the browser (see utils/bakePatternThumbnails.ts); this
 // only writes the finished bytes out. There is deliberately no dithering here
 // — a second implementation would not be parity, it would be the bug, because
 // the preview and the panel are supposed to be showing the *same* bytes rather
 // than two renderings that agree.
+//
+// Names are emitted separately from pictures, and that separation is the
+// point. A name evaluates nothing, so it needs no trust decision and no flash
+// budget; a picture needs both. While they travelled in one table, a Show
+// Status panel with no OLED beside it had no names at all, and a collection
+// too large to picture lost its names along with its thumbnails.
 //
 // PROGMEM and pgm_read_byte throughout. On an ESP32 that is a no-op, since
 // .rodata is already memory-mapped flash, but a thumbnail table is exactly the
@@ -15,12 +21,6 @@ import {
   THUMBNAIL_W, THUMBNAIL_H, THUMBNAIL_BYTES, type PatternThumbnail,
 } from '../state/patternThumbnail'
 import { cppStringLiteral, displayString } from '../state/displayText'
-
-export interface ThumbnailEmit {
-  /** Pattern name as the browser will show it. */
-  name: string
-  thumbnail: PatternThumbnail
-}
 
 /** Identifier-safe stem so several collections cannot collide in one sketch. */
 function stem(id: string): string {
@@ -39,17 +39,50 @@ function byteRows(data: Uint8Array, perRow = 16): string[] {
 }
 
 /**
- * The whole table for one collection: geometry, bytes, names, and readers.
+ * The pattern names of one collection, and the reader that copies one out.
+ *
+ * Emitted for any panel that names a pattern — an OLED Pattern Browser, a TFT
+ * Show Status — whether or not that sketch has any thumbnails in it.
+ */
+export function patternNameTableCpp(id: string, names: readonly string[]): string {
+  const s = stem(id)
+  const count = names.length
+
+  return `// ── Pattern names (${s}) ────────────────────────────────────────────────────
+#define PATTERN_NAME_COUNT_${s}  ${count}
+${count === 0 ? `// Nothing named. The reader still exists and answers emptily, because the
+// layout that calls it is emitted either way — a panel calling a function that
+// was never written is a build failure rather than the blank field it should be.
+static void _patName_${s}_read(char *dst, size_t dstSize, uint16_t index) {
+  (void)index;
+  if (dstSize) dst[0] = 0;
+}` : `${names.map((name, i) =>
+  `static const char _patName_${s}_${i}[] PROGMEM = ${cppStringLiteral(displayString(name))};`).join('\n')}
+static const char *const _patNames_${s}[PATTERN_NAME_COUNT_${s}] PROGMEM = {
+${names.map((_, i) => `  _patName_${s}_${i},`).join('\n')}
+};
+
+// Copied out rather than pointed at: the name is a PROGMEM string, and on a
+// board where that is a separate address space reading it directly returns
+// whatever happens to sit at the same RAM offset.
+static void _patName_${s}_read(char *dst, size_t dstSize, uint16_t index) {
+  if (index >= PATTERN_NAME_COUNT_${s} || dstSize == 0) { if (dstSize) dst[0] = 0; return; }
+  strncpy_P(dst, (const char *)pgm_read_ptr(&_patNames_${s}[index]), dstSize - 1);
+  dst[dstSize - 1] = 0;
+}`}
+`
+}
+
+/**
+ * The picture table for one collection: geometry, bytes and the byte reader.
  *
  * Emitted once per Pattern Browser rather than once per sketch, because two
  * browsers could be showing different collections and a shared table would
  * quietly make the second one draw the first one's pictures.
  */
-export function patternThumbnailTableCpp(id: string, entries: readonly ThumbnailEmit[]): string {
+export function patternThumbnailTableCpp(id: string, thumbnails: readonly PatternThumbnail[]): string {
   const s = stem(id)
-  const count = entries.length
-  const names = entries.map((entry, i) =>
-    `static const char _thumbName_${s}_${i}[] PROGMEM = ${cppStringLiteral(displayString(entry.name))};`)
+  const count = thumbnails.length
 
   return `// ── Pattern thumbnails (${s}) ───────────────────────────────────────────────
 // Baked in the browser at export and blitted verbatim; see
@@ -58,36 +91,17 @@ export function patternThumbnailTableCpp(id: string, entries: readonly Thumbnail
 #define THUMB_H_${s}      ${THUMBNAIL_H}
 #define THUMB_BYTES_${s}  ${THUMBNAIL_BYTES}
 #define THUMB_COUNT_${s}  ${count}
-${count === 0 ? `// Nothing baked. The readers still exist and answer emptily, because the
-// layout that calls them is emitted either way — a table that defines only its
-// sizes leaves the panel calling functions that were never written, which is a
+${count === 0 ? `// Nothing baked. The reader still exists and answers emptily, because the
+// layout that calls it is emitted either way — a table that defines only its
+// sizes leaves the panel calling a function that was never written, which is a
 // build failure rather than the blank screen it should be.
-static void _thumbName_${s}_read(char *dst, size_t dstSize, uint16_t index) {
-  (void)index;
-  if (dstSize) dst[0] = 0;
-}
-
 static uint8_t _thumbByte_${s}(uint16_t index, uint16_t offset) {
   (void)index; (void)offset;
   return 0;
 }` : `
 static const uint8_t _thumbData_${s}[THUMB_COUNT_${s}][THUMB_BYTES_${s}] PROGMEM = {
-${entries.map((entry) => `  {\n${byteRows(entry.thumbnail.data).join('\n')}\n  },`).join('\n')}
+${thumbnails.map((thumbnail) => `  {\n${byteRows(thumbnail.data).join('\n')}\n  },`).join('\n')}
 };
-
-${names.join('\n')}
-static const char *const _thumbNames_${s}[THUMB_COUNT_${s}] PROGMEM = {
-${entries.map((_, i) => `  _thumbName_${s}_${i},`).join('\n')}
-};
-
-// Copied out rather than pointed at: the name is a PROGMEM string, and on a
-// board where that is a separate address space reading it directly returns
-// whatever happens to sit at the same RAM offset.
-static void _thumbName_${s}_read(char *dst, size_t dstSize, uint16_t index) {
-  if (index >= THUMB_COUNT_${s} || dstSize == 0) { if (dstSize) dst[0] = 0; return; }
-  strncpy_P(dst, (const char *)pgm_read_ptr(&_thumbNames_${s}[index]), dstSize - 1);
-  dst[dstSize - 1] = 0;
-}
 
 // One page-major column byte, the same packing OledSurface uses, so the blit
 // below is a copy rather than a transpose.
