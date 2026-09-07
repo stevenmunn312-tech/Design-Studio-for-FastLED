@@ -155,12 +155,6 @@ Wi-Fi settings are warnings. Each has a repair line in the Graph Health drawer.
 
 ## Follow-ups
 
-Tracked in `todo.md` under **Node additions worth considering → DMX/Art-Net
-input node**:
-
-- The docs/release sweep (node cards, README, CHANGELOG, support matrix, the
-  Wi-Fi-credential privacy note).
-- **Hardware validation — both passes.** One DMX512 run against a real
-  transceiver and one Wi-Fi/Art-Net run against a real controller. Until then
-  this stays experimental in `docs/release/beta-support-matrix.md`; everything
-  above is verified only by unit, codegen, and backend tests.
+Hardware validation and remaining topology/network evidence are consolidated in
+[root todo, HW-13](../../../todo.md). Existing recorded support belongs to the
+[support matrix](../../release/beta-support-matrix.md).

@@ -1,34 +1,23 @@
 # Auxiliary displays — design note
 
-Status: in progress; the `string` signal, the Music Player's song-information
-outputs, the TM1637 and MAX7219 Segment Displays and the Info Display have
-shipped. The SH1106 OLED is
-the first device driven on real hardware: panel, font, refresh and mounted
-rotation confirmed on a bench, on an ESP32-S3 over 4-wire SPI. The SSD1306's I²C
-transport is written and tested but has not been on a bench · Owner: app ·
-Date: 2026-08-27
+Status: fixed segment/OLED/TFT drivers, source envelopes, Song Info, custom
+documents/editor and LVGL generation implemented on Hardware. Updated 2026-09-08.
+The panel/document split is implemented but has unresolved integration defects;
+see [large displays](large-displays-and-control-routing.md) and
+[the branch review](../reports/hardware-branch-review.md). Physical support is
+recorded separately in the support matrix.
 
-Gives a build a second screen: a 7-segment module showing BPM, an OLED naming
-the pattern the encoder is about to select, a colour TFT running a now-playing
-screen you can actually press. Studio has one visual output today, and it is the
-LED fixture itself — anything a build wants to *say* has to be spelled out in
-pixels on the tape or not said at all.
+An **LED output** is `MatrixOutput` in any supported form. A physical auxiliary
+display is a separate segment/OLED/TFT peripheral. A custom `Display` is now a
+screen document, not another physical device. This note keeps driver, asset,
+widget, runtime and bus contracts; active work is [root todo](../../../todo.md).
 
-In this note **LED output** means the existing `MatrixOutput` node in any of its
-forms, and **display** means a separate 7-segment, OLED, or TFT peripheral. The
-work sequence, the device list, and the per-phase checklists live in
-[`display-todo.md`](../../../display-todo.md); this note records the contracts
-that sequence has to hold to.
+## Support boundary
 
-## What is not decided here
-
-Nothing in this note is a support claim.
-[`docs/release/beta-support-matrix.md`](../../release/beta-support-matrix.md)
-remains the only authority on what works, and it gets a row for an exact
-board/module/bus/generator combination after that combination has been tested on
-real hardware — not after it compiles. The modules named below have been ordered
-and none has been on a bench. Every library named below is a candidate to be
-pinned after the Phase 0 spike, not a decision already taken.
+The [support matrix](../../release/beta-support-matrix.md) alone defines recorded
+board/module/bus/generator support. Segment/OLED rows already exist. Custom
+LVGL/touch performance still needs the HW-11 bench budget; compilation does
+not establish physical support. Selected drivers are listed below.
 
 ## The display is a part first
 
@@ -61,8 +50,9 @@ The two **simple** panels went further than stable ports and now have a single
 content input, `Display`, with no layout property at all — what is plugged in
 decides what the panel shows. That model, and what an unwired panel says instead
 of sitting blank, is in [simple displays](simple-displays.md); the rest of this
-note is about the parts themselves. `TransportDisplay` is a tier-3 panel and
-still resolves per port.
+note is about the parts themselves. `TransportDisplay` also consumes this
+envelope, or an exclusive custom-document input; it no longer takes per-field
+content wires. The document node has no hardware ownership.
 
 The Info Display's Pattern Browser screen reads the shared selection contract
 rather than tracking an index of its own — active versus highlighted, wrapping,
@@ -71,49 +61,16 @@ confirm, and what happens when the collection changes are defined once in
 
 ### Which displays get a design surface
 
-The freeform editor is for the **larger touch panels only**. Segment modules and
-the small OLEDs get one predetermined screen per source, and nothing else.
+Segment and OLED modules use predetermined source-driven layouts, without a
+layout selector. TFT panels can use built-in layouts or a custom document.
+The runtime resolves the physical controller from the mounted panel. Touch
+actions require a touch-capable module; a non-touch TFT cannot operate interactive
+widgets locally. Allowed widget display classes remain defined by the registry;
+the exact non-touch custom-screen product scope needs HW-07/D-02 reconciliation.
 
-Three reasons, and the first is the one that settles it: you cannot pick a
-widget on a screen you cannot touch. A drag-and-drop UI whose output has no
-pointer is a layout tool, not an interface — every interactive widget in the
-palette above is dead on a panel with no touch controller, which leaves labels
-and readouts, which is what a preset already is.
-
-Second, a 4-digit 7-segment module and a 128x64 one-bit panel have no room to
-design in. Every pixel is load-bearing at that size, and a hand-placed layout on
-one is reliably worse than a preset that was tuned once against the real glyph
-metrics. The constraint is doing the design work; exposing it as freedom mostly
-exposes the ways it can go wrong.
-
-Third, the freeform path costs a widget palette, a persisted document format,
-LVGL codegen and asset baking. That is repaid on a screen big enough to be worth
-designing and not on one that shows four digits.
-
-So the tiers are:
-
-| Display | What the user picks |
-| --- | --- |
-| Segment (TM1637, MAX7219) | A mode from a dropdown |
-| Info Display (SH1106, SSD1306) | A layout from a dropdown, with presets bindable to buttons |
-| Touch TFT (ST7789V + XPT2046, CYD) | Fixed layouts first, then the freeform editor |
-
-Segment modes are `Number`, `Clock` and `Index` today, with a timer/countdown
-and an elapsed/duration mode to come. Two notes on those. A wall clock needs a
-time source rather than a board feature, so "hardware dependent" is expressed as
-an unwired `dateTime` showing dashes and validation saying an RTC is wanted — a
-display that invents midnight is worse than one that admits it does not know.
-And a *duration* is not a wall clock even though both read `M:SS`: one counts
-from zero and the other rolls over at 24 hours, so it is a separate mode rather
-than a flag on Clock.
-
-**The freeform `Display` node** is the only node with widget-derived dynamic
-ports, and it is deliberately last. It owns a `displayId` and derives its ports
-from the widgets in the matching `DisplayDocument`.
-
-The fixed nodes are not a stepping stone to the freeform one. They are the
-deliverable for anyone who wants a clock, a pattern name, or a transport screen
-without drawing a UI, and they ship first because they can.
+`Display` owns `displayId` and stable widget-role ports. `TransportDisplay` owns
+pins/rotation and receives the document through `customDisplay`. A fixed screen
+is useful without creating a document. See the [large-display contract](large-displays-and-control-routing.md).
 
 ### Port identity
 
@@ -283,8 +240,9 @@ says what it is playing. So `PlayerControls` sends commands — play/pause,
 previous, next, volume, brightness — through the `playercontrols` bundle, and
 `PatternMaster` (Music Player) reports back: title, artist, album, genre, year,
 status, playing, elapsed, duration, remaining, progress, volume, bitrate. One
-list, `SONG_INFO_PORTS` in `src/state/songInfo.ts`, defines those ports and the
-field behind each, so a port cannot exist with nothing filling it.
+list, `SONG_INFO_PORTS` in `src/state/songInfo.ts`, defines the fields. The
+player publishes them in its Display envelope; Song Info exposes the individual
+ports for custom-widget or other scalar consumers.
 
 A single `TransportControl` node that both commanded and reported shipped first
 and was removed. It put the song information on a node beside the player rather
@@ -432,28 +390,17 @@ would be user-facing behaviour decided by accident.
 
 ### Displays are terminals
 
-`reachableFromOutputs` in `src/codegen/cppGenerator.ts` walks back from every
-`MatrixOutput` and prunes what it cannot reach. A display is not upstream of an
-LED output and never will be, so under the current walk a configured display and
-everything feeding it would be pruned out of the sketch. Displays join the walk
-as roots, and the preview's terminal set gains them alongside `GroupOutput` and
-`MatrixOutput`.
+The evaluator and normal generator derive physical terminals from input-bearing
+output-category nodes and ordinary sinks. This keeps an interactive panel in
+the root set even though it publishes Controls. The pinless Display document
+does not declare its widget inputs in NODE_LIBRARY and is not an unconditional
+root. Firmware reachability follows its customDisplay edge to a physical panel.
+A document used as a control source without a mounted panel must be diagnosed;
+that case currently generates undeclared symbols (HW-03).
 
-A display must update even in a graph with no LED output at all.
-
-Both terminal registries are **derived** from exactly one rule: an ordinary
-input-bearing node with no outputs is a terminal, and so is any input-bearing
-node in the output category. `TERMINAL_NODE_TYPES` in
-`src/codegen/cppGenerator.ts` and `HOT_NODE_TYPES` in
-`src/state/graphEvaluator.ts` therefore pick up each display without a row.
-
-The second clause arrived with touch. `TransportDisplay` gained a
-`playercontrols` output, and the former inputs-and-no-outputs rule would have
-silently removed it from both sets: `reachableFromOutputs` would prune the
-panel and everything feeding it out of a cleanly compiling sketch, while the
-preview would evaluate it only on publish frames at roughly 8 fps. Deriving the
-wider rule rather than adding the display to two hand-kept lists keeps the trap
-closed for the freeform interactive display too.
+Display role values already reach the runtime store, but the editor does not
+yet draw passive graph-fed values. HW-05 completes the renderer and audits
+sample/evaluate/publish order; do not claim full browser/firmware parity yet.
 
 ### Scheduling
 
@@ -466,89 +413,42 @@ is no regression to wall-clock LED timing.
 
 ## Generators
 
-Normal sketch, generative show, SD-show player, diagnostic, and stream receiver
-each either emit a configured display with its bindings or fail validation with
-an actionable message. There is no third outcome. A sketch that compiles, uploads
-and leaves the part dark is the worst available result, because the user's next
-move is to suspect the wiring.
+The required contract is that a build emits every supported binding or reports
+why it cannot. The current implementation has known violations recorded in the
+[branch review](../reports/hardware-branch-review.md), particularly selection,
+Enabled, unmounted/shared documents and fixed-control diagnostics.
 
-Arbitrary scalar/control wiring lands in normal sketches first. Generative-show
-and SD-player firmware get it by embedding the shared control-graph IR, so a
-touch control can drive real graph logic rather than only the hardcoded
-transport actions. Until that path exists for a given generator, an unsupported
-binding blocks with a diagnostic naming what is missing.
+Normal sketches evaluate general graph expressions. Show and SD-player
+templates share a bounded scalar IR in `controlGraph.ts`, with GPIO sampling,
+typed sources, dependency ordering, cycle/type/id checks and a 256-node limit.
+`scalarControlCpp.ts` supplies Math, Lerp, Clamp, MapRange, Sin, Cos, Compare,
+TextValue and FormatNumber to both the IR and normal sketches. Custom controls
+provide float/bool pre-pass samples; template widget inputs accept supported
+float/bool/string paths. Time-dependent sources, groups, arbitrary scripts and
+structured colour/pattern bindings remain outside that template scope.
 
-The SD player resolves runtime sources against Music Player's own output
-ports — title, artist, elapsed and the rest. Both template generators
-compile bounded scalar paths through `codegen/controlGraph.ts`. Its typed
-instructions keep literal values separate from references, visit dependencies
-before consumers, sample each GPIO producer once, and reject cycles, missing
-or unsupported sources, type mismatches and identifier collisions. A control
-graph is limited to 256 nodes. Unreachable nodes are not emitted.
+`playerDisplays.ts` resolves fixed content envelopes. The normal generator can
+read RTC Clock, the player reads its track, and the show reads its slideshow.
+The show song-expression table is intentionally empty because it owns no track.
+Player scalar song readings come through Song Info nodes wired to the active
+Music Player, not removed per-field ports on the player itself.
 
-Math, Lerp, Clamp, MapRange, Sin, Cos, Compare, TextValue and FormatNumber use
-`scalarControlCpp.ts` in both the normal sketch and control IR. Numeric property
-resolution, wired clamping and bounded string formatting retain the existing
-rules. Custom Button/Toggle/Slider/Dial outputs are typed pre-pass sources.
-Time-dependent nodes, arbitrary scripts, nested groups and status sources stay
-refused until explicitly supported.
+`templateControlRouting.ts` follows Player Controls chains for selected
+destinations. Player builds route to Music Player; show builds currently route
+only to rendered LED outputs, which is why slideshow pattern intent is ignored
+(HW-01). LED output latches combine enabled values by AND and brightness by
+multiplication. Direct LED control wires remain refused by the SD player;
+commands there must reach Music Player. Show Status is read-only: it no longer
+has blackout/brightness regions. Those controls belong in custom widgets.
 
-One walk serves both, in `codegen/playerDisplays.ts`, parameterised by the
-expression table the generator hands it and optional typed control bindings.
-The SD player's names the accessors that read the file it is holding. The show
-controller's, `SHOW_DISPLAY_EXPRESSIONS`, is **empty**, and the emptiness is the
-statement: a generative show rotates patterns and holds no music, so there is
-no title, no elapsed time and no volume anywhere in that sketch. Every song
-wire into a panel there is reported unresolved rather than filled with a
-plausible zero — the same rule the browser follows when it leaves artist blank
-instead of guessing it from a filename. Branching on the generator inside the
-resolver would have made a third template a third branch; handing the table in
-makes it a table.
+The show publishes its pattern ordinal, but TFT-only selection declarations and
+pattern names still need repair. Utility Wiring Test and Stream Receiver have
+their own fixed-display/diagnostic scope; they do not execute the custom UI.
 
-What the show controller *does* know it supplies with no wiring at all. Which
-pattern is running, and how many there are, come from the show's own state:
-`showPatternIndex` and `PATTERN_COUNT`, so a Show Status panel dropped into a
-generative show reports "3/8" out of the box. Its rotation goes through
-`_selSetActive` on the single `_sel_show` cursor, exactly as the SD player's
-does, so a Pattern Browser and the pixels cannot come to disagree about which
-pattern is playing.
-
-Drawing and commanding are separately gated. Normal sketches and generative
-shows route a Show Status panel's blackout and brightness through the existing
-`playercontrols` bundle to an LED output's Controls input, directly or through
-Player Controls. Play/pause, previous, next and volume still require an SD
-player; validation rejects music-only layouts wired solely to LED outputs.
-
-`templateControlRouting.ts` resolves the bounded control path for generation
-and validation together, with `showControlRouting.ts` selecting the slideshow
-outputs and `playerControlGraph.ts` selecting the active Music Player. It follows Controls In chains and resolves scalar
-inputs through the IR, including Button Input, Button Bank, Pot Input and
-Encoder Input using the same GPIO emitter as normal sketches. Fixed TFT text,
-numeric and boolean readout inputs use the same IR and can share a producer
-with a control mapper. Bundle merging, edge timing and output
-latches use `playerControlsCpp.ts`; no second transport or touch hit test is
-introduced. Unsupported mapper wires and cyclic chains fail before emission.
-Only outputs actually rendered by the slideshow count as destinations.
-
-The show samples each routed panel once, evaluates the scalar graph before
-control mappers and rendering, then
-applies each latch after output routing and before shipping the LEDs. Each
-physical array owns its blackout and dimming; HUB75 uses its brightness
-register. Display painting remains after LED output. A Diagnostics panel
-samples regardless of wiring, an unwired panel remains read-only, and a
-disabled panel contributes no touch intent. Show Status does not yet read back
-its output's latch. Supported scalar Enabled/Brightness wires combine with
-the Controls latch: enabled values are ANDed and clamped brightness values
-are multiplied. A wired fixed-panel Enabled input remains unsupported because
-it must also govern touch sampling. Deploy validation and Graph Health name
-unsupported sources and bindings.
-
-Which generator a graph would *actually* build with therefore has to be exact.
-`selectedGenerator` mirrors the upload path's order, and both arms of
-`sdShowConnected` matter: a Show Engine writing a timed show to a card builds
-the **player** sketch, and the same graph without a card builds an ordinary
-one. Neither mattered while every generator but the normal one refused displays
-outright. Both do now that all three draw.
+Generator selection must agree across upload, validation, capacity and assets.
+Currently `selectedGenerator` duplicates the upload rules. HW-04 extracts a
+shared plan, retaining SD-player precedence. An SD card by itself is insufficient
+to choose the music/show player.
 
 Custom show displays use `customDisplayControlGraph.ts` to derive roles from
 saved documents rather than copied node handles. Each configured, enabled
@@ -563,13 +463,15 @@ become producer dependencies, so feedback such as Slider Out → Math → Slider
 Set, including across screens, preserves the sampled touch intent. After LED
 output, the controller applies graph-authoritative inputs using the existing
 finger-ownership/release rules, then services LVGL's monotonic timer handler.
-Disabled custom screens contribute false/zero and perform no touch or LVGL work.
+In these template paths disabled custom screens contribute false/zero and
+perform no touch or LVGL work. Normal firmware does not yet honor this rule
+after the panel/document split (HW-02).
 
 Custom float/bool/string inputs support the same scalar nodes as the control
 mapper; wired colour and pattern-selection roles remain refused. Asset
 preparation and capacity measurement include actual baked image data. The
-SD player uses this same resolver and ordering. Only referenced Music Player
-song ports are sampled; strings are copied into bounded buffers before a
+SD player uses this same resolver and ordering. Only referenced Song Info
+ports from an unpacker wired to its player are sampled; strings are copied into bounded buffers before a
 transport action can reset their source tags. A synchronized volume slider
 reads `playerVolume`, the normalized control setting before the amplifier cap,
 so feedback cannot repeatedly attenuate the value. Fixed touch panels publish
@@ -741,32 +643,26 @@ TFT plus SD card on one SPI host is a first-class test case, not a footnote. It
 is also the configuration most likely to be wired by a user who bought a display
 board with an SD slot on it.
 
-## Driver candidates
+## Selected drivers
 
-Pinned tags come after the Phase 0 spike. Generated firmware never follows a
-default branch.
+| Family | Current implementation |
+| --- | --- |
+| TM1637 / MAX7219 | Inline controller-specific segment drivers |
+| SSD1306 / SH1106 | Inline OLED driver, both catalogue-derived transports |
+| ST7789 / ST7789V | Inline SPI TFT renderer; custom screens use the LVGL panel adapter |
+| XPT2046 | Shared `tftTouchCpp.ts` sampling and LVGL indev wrapper |
+| Custom UI | LVGL 9.5.0, pinned by the helper; selected font-size configuration |
 
-| Family | Candidate | Why | What the spike has to settle |
-| --- | --- | --- | --- |
-| TM1637 / MAX7219 7-segment | A small dedicated driver per controller | No graphics stack is warranted for eight digits | Whether one logical node contract covers both controllers with wiring and digit capacity confined to the part adapter |
-| SSD1306 / SH1106 1-bit OLED | ~~U8g2~~ — settled: an inline driver, `src/codegen/infoDisplayCpp.ts` | A page-addressed 1-bit panel is a short, stable protocol over either bus, and bundling it keeps the display slices off the optional-library staging path: nothing to fetch, nothing to pin, nothing to fail without a network. It also lets the emitted glyph table be generated from `font.ts`, so preview and panel cannot disagree | Settled |
-| ST7789 / ILI9341 colour TFT | LovyanGFX | Runtime configuration suits per-project generation; a build-flag-configured driver fights a generator that emits one sketch per project | Draw-buffer size, partial-update scheduling, and coexistence with SD on the same host |
-| XPT2046 touch | Panel driver's own touch support | Sharing the driver's transaction handling is safer than a second SPI client racing it | Calibration stability per module, and whether it survives LED refresh load |
-| Custom UI | LVGL 9.x | The only candidate that is an actual widget toolkit | Whether a minimal `lv_conf.h` fits the launch board profiles at all |
-
-References: [LVGL integration
-overview](https://docs.lvgl.io/master/integration/overview.html), [LVGL display
-model](https://docs.lvgl.io/master/main-modules/display/overview.html), [LVGL
-events](https://docs.lvgl.io/master/common-widget-features/events.html), [U8g2
-device list](https://github.com/olikraus/u8g2/wiki/u8g2setupcpp), [LovyanGFX
-controller overview](https://github.com/lovyan03/LovyanGFX/blob/master/README.md),
-and [SquareLine's development
-workflow](https://docs.squareline.io/docs/1.5.3/introduction/typical_dev/) for
-interaction patterns only — not its project format.
+U8g2/LovyanGFX were candidates, not current dependencies. ILI9341 is not a
+current driver. Exact integrated-board controller identity must be established
+before adding it (HW-12). Generated firmware never follows a floating library
+branch. See the [compile record](../display-compile-checks.md) for the toolchain
+contract and the current fixture limitation.
 
 ## Evidence gates
 
-None of these have been measured. Each is a gate the Phase 0 spike fills in, and
+Historical compile-size results are recorded separately; these runtime gates
+remain unmeasured. HW-11 must supply them, and
 a device family that fails its gate does not ship regardless of whether it
 compiles. Nominal MCU compatibility is not evidence that a board can run LVGL.
 
@@ -780,9 +676,13 @@ compiles. Nominal MCU compatibility is not evidence that a board can run LVGL.
 | Touch latency under LED load | Responsive under normal load | — | not measured |
 | Audio + show coexistence | Playback unaffected | — | not measured |
 
+**Known gap (HW-03):** after the panel/document split, the estimator still
+reads custom-panel geometry from document properties and counts orphan documents.
+The allocation contract below describes what it must count after repair.
+
 Capacity estimation in `src/utils/validateGraph.ts` counts OLED buffers and
 fixed TFT field caches. Custom screens add a 20-row RGB565 buffer using the
-hardware's rotated width, a 32-byte panel/handle allowance, and one static
+mounted width in the intended model, a 32-byte panel/handle allowance, and one static
 runtime cache per widget (one slot even for an empty document). With no document
 available, the estimate reserves the maximum 64 slots. Cache sizes live beside
 the emitted struct; buffer sizing is shared with the panel emitter.
@@ -806,14 +706,10 @@ second-wave Colour Picker/Choice Strip/Step Control/XY Pad/Launch Pad/Arc Gauge
 palette, video on a TFT, SquareLine project import, remote/network UI, e-paper,
 and large RGB/HDMI panels.
 
-The custom UI editor in particular must not gate the fixed displays. Its schema,
-port roles, widget registry and theme/asset contracts are frozen while no saved
-document depends on them, but editor implementation starts only after the fixed
-TFT software path exists and one representative panel/touch/LVGL bench spike
-has supplied real memory, refresh and touch budgets. Full soak tests and support
-claims may follow, but nominal MCU compatibility is not enough to freeze widget
-limits. The freeform editor is where this feature is most likely to consume the
-schedule, and the useful fixed-display deliverables still ship before it.
+The fixed and custom software paths now exist. The original sequence required
+a representative bench budget before freezing custom-UI limits; that measurement
+is still outstanding and is HW-11. Do not infer runtime capacity from the
+completed editor or historical successful compiles.
 
 E-paper and RGB/HDMI stay out because they are different runtime classes, not
 because they are exotic. Character LCDs stay out because they would add a third

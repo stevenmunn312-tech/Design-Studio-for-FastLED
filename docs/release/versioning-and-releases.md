@@ -4,6 +4,15 @@ Design Studio for FastLED is pre-1.0 and uses semantic versioning with the usual
 pre-release caution: while the project remains below `1.0.0`, compatibility can
 still move quickly.
 
+## Development lines and the v1 baseline
+
+`main` is the frozen public-beta line; change it only for an explicitly requested
+beta hotfix. `Hardware` is authoritative breaking development toward LTS v1.0.0.
+Never merge the two lines in either direction. Before v1 ships, Hardware does
+not require pre-1.0 save compatibility or migrations. The released v1 format
+becomes the new compatibility baseline. [Root todo HW-18](../../todo.md) tracks
+the format/support freeze after the control and display workflow stabilizes.
+
 ## Version scheme
 
 - `MAJOR` (`1.0.0` and beyond): intentionally breaking release-line changes or

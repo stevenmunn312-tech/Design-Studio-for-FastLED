@@ -1,5 +1,9 @@
 # Audio Part Expansion — Microphones and Amplifiers
 
+Active execution and acceptance are tracked in [root todo, HW-19/HW-20](../../../todo.md).
+This document retains the feature contract, not a second checklist.
+
+
 ## Goal
 
 Widen the audio hardware the app can honestly claim to support: three
@@ -123,15 +127,15 @@ three I2S pin properties, the `BUS_ASSIGNMENTS` row, the `PART_PIN_PLANS`
 entry and the `MIC_PIN_DEFAULTS_BY_FQBN` table are all per-node and already
 correct. The work is:
 
-- [ ] A `partOptions.ts` row per module, with a `summary` and an honest `note`.
-- [ ] A catalogue entry per module (verified Blender asset and dimensions).
-- [ ] `audioEngineForGraph` in `cppGenerator.ts` reads the mic node's `partId`
+- A `partOptions.ts` row per module, with a `summary` and an honest `note`.
+- A catalogue entry per module (verified Blender asset and dimensions).
+- `audioEngineForGraph` in `cppGenerator.ts` reads the mic node's `partId`
       and threads it to `audioEngineCpp`, which picks the factory. One call
       site, and both the normal sketch and the show generator inherit it
       because they share this one resolver.
-- [ ] The emitted banner and the `StudioInmp441Input` class name stop naming
+- The emitted banner and the `StudioInmp441Input` class name stop naming
       INMP441.
-- [ ] Update the `partOptions.ts` header comment and
+- Update the `partOptions.ts` header comment and
       `src/state/__tests__/partOptions.test.ts`, both of which currently assert
       the one-microphone rule and its reason.
 
@@ -174,14 +178,14 @@ board with an on-module PDM mic enters the supported set.
 Ordered so that the cheapest honest win ships first and the design argument
 does not block it.
 
-- [ ] **Phase 1 — ICS-43434 and Generic I2S MEMS.** No firmware invention;
+- **Phase 1 — ICS-43434 and Generic I2S MEMS.** No firmware invention;
       both factories exist. Ends with a compile proof and an ESP32-S3 bench row.
-- [ ] **Phase 2 — the Option A/B decision**, recorded here with its reasoning
+- **Phase 2 — the Option A/B decision**, recorded here with its reasoning
       before any amplifier row is added.
-- [ ] **Phase 3 — the chosen amplifier model**, then DX-0809 and PAM8610.
-- [ ] **Phase 4 — SPH0645LM4H**, only if the bit-alignment quirk is verified on
+- **Phase 3 — the chosen amplifier model**, then DX-0809 and PAM8610.
+- **Phase 4 — SPH0645LM4H**, only if the bit-alignment quirk is verified on
       hardware rather than reasoned about.
-- [ ] **Phase 5 — MAX98357A stereo pair**, after Phase 2 settles how a bench
+- **Phase 5 — MAX98357A stereo pair**, after Phase 2 settles how a bench
       holds more than one amplifier.
 
 ## Bench evidence

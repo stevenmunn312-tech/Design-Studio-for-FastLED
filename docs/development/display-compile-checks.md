@@ -1,5 +1,13 @@
 # Display firmware compile checks
 
+> **Current-fixture limitation (2026-09-08):** results below describe the earlier
+> graph model. `scripts/generate-display-smoke.ts` still puts hardware properties
+> on Display, omits the custom-panel edge and uses removed field ports. Repair
+> it and rerun these commands before using them as evidence for the current
+> panel/document split. See [review F9](reports/hardware-branch-review.md#f9--p2--compile-fixtures-still-use-the-removed-graph-shape)
+> and root todo HW-06. Historical results and toolchain notes are retained.
+
+
 These fixtures exercise custom LVGL displays alongside the fixed TFT transport
 renderer in the normal sketch, generative show, and SD-player generators. Each
 includes a slider, button, toggle, dial, readouts, meters, a status indicator and

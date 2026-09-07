@@ -1,6 +1,6 @@
 # Simple displays — design note
 
-Status: implemented for tier 1 (InfoDisplay, SegmentDisplay) · Owner: app · Date: 2026-08-29
+Status: simple panels implemented; larger panels now also consume DisplaySignal. Updated 2026-09-08. See [large displays](large-displays-and-control-routing.md) for the implemented panel/document split and outstanding integration work.
 
 What a small, non-touch display shows, and how it is told. Decided 2026-08-27,
 scoped 2026-08-29. The companion half of this note is [Pattern
@@ -24,11 +24,11 @@ Three tiers, separated by what a panel is physically good for:
    who does not want to author one.
 3. **Touch displays** — as above, plus touch as a control source.
 
-Tiers 2 and 3 take two inputs, `Display` and `Custom UI`, and their predetermined
-layouts may say *more* than a simple panel does — album art where the file
-carries it, for instance. The exact size boundary is not settled and does not
-need to be until tier 2 is built. `TransportDisplay` (ST7789) is a tier-3 part
-and is deliberately untouched by this note; so is its Diagnostics screen.
+Larger panels now take exclusive `Display` and `Custom Display` content
+inputs, plus Enabled. Their implementation and remaining gaps are described in
+[large displays](large-displays-and-control-routing.md). Artwork is currently
+baked pattern artwork, not album art. A numerical tier boundary is a deferred
+product decision, not the current driver capability rule.
 
 ## The model
 
@@ -106,10 +106,9 @@ the first evaluated loop rather than being guessed during setup.
   segment module plugged into a Music Player shows elapsed time as `M:SS`, using
   the colon the TM1637 already has; into an RTC, the time; into a Slideshow, the
   pattern's ordinal. A bare number on a wall is a custom UI.
-- **The per-field song ports as a display feed.** `PatternMaster` keeps its
-  `SONG_INFO_PORTS` outputs — they are what a custom UI will read, and
-  `songInfo.ts` is still the one list behind them — but a simple display no
-  longer consumes them one wire at a time.
+- **Per-field song wires as the fixed-panel feed.** Music Player publishes one
+  Display envelope. The separate Song Info unpacker exposes `SONG_INFO_PORTS`
+  when a custom design or another graph node needs an individual field.
 
 This is a breaking change to persisted graphs. That is allowed on `Hardware`
 ahead of v1.0.0 and no migration is provided.
@@ -122,7 +121,7 @@ discriminated union whose `kind` *is* the layout choice:
 ```ts
 type DisplaySignal =
   | { kind: 'clock';     clock: RtcPreview }
-  | { kind: 'player';    song: SongInfo }
+  | { kind: 'player';    song: SongInfo; selection: PatternSelectValue | null }
   | { kind: 'slideshow'; selection: PatternSelectValue }
 ```
 
@@ -201,12 +200,9 @@ What this deliberately does *not* do is spread a layout to fill a taller panel.
 Now Playing occupies the top of a 128x64 module today and still does; using the
 rest of the glass is a visual decision, not a fitting one.
 
-## Open
+## Remaining work
 
-- The size boundary between tiers 1 and 2.
-- Whether a taller panel should spread its rows rather than leave the bottom
-  empty.
-- Tier 2: the `Custom UI` input, the authoring surface, and what a predetermined
-  layout adds when it has the room (album art, more rows).
-- Where the TFT's Diagnostics screen lives once tier 3 is designed.
-- `PerformanceGenerator` as a `player` source.
+The TFT clock and the panel/document content split are implemented; they are no
+longer tier-2 proposals. Outstanding integration work is [HW-01–08](../../../todo.md).
+Optional density/size policies and Performance Generator as a real playback
+source are D-01/02. Hardware support requires its own recorded evidence.

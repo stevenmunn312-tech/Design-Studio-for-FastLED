@@ -3,6 +3,12 @@
 Index of project documentation. See `CLAUDE.md` (repo root) for the
 build/architecture overview aimed at contributors.
 
+## Active work
+
+- [Ordered Hardware → v1 backlog](../todo.md) — the single active checklist.
+- [Hardware branch review, 2026-09-08](development/reports/hardware-branch-review.md)
+  — reproduced integration defects, control/display workflow and next milestone.
+
 ## User guides
 
 - [Hardware workbench](user/hardware-workbench.md)
@@ -36,7 +42,7 @@ build/architecture overview aimed at contributors.
 
 - [Design notes](development/design/)
   - [Generative pattern show](development/design/generative-pattern-show.md)
-    — the Pattern Library → Collection → Show Engine flow for a random
+    — the Pattern Library → Collection → Pattern Slideshow flow for a random
     pattern/transition show, including helper-backed library mirroring,
     transition pools, and the current controller-sketch codegen shape.
   - [Transition catalogue](development/design/transition-catalogue.md)
@@ -94,40 +100,32 @@ build/architecture overview aimed at contributors.
     terminal, and the evidence gates no device ships without.
   - [Simple displays](development/design/simple-displays.md)
     — what a small non-touch panel shows and how it is told: one `Display`
-    input whose plugged-in source picks the layout, the three-tier split that
-    leaves touch panels for later, and what an unwired panel says instead of
+    input whose plugged-in source picks the layout, the source-driven layout contract and its
+    relationship to larger panels, and what an unwired panel says instead of
     sitting blank.
   - [Large displays and control routing](development/design/large-displays-and-control-routing.md)
-    — the tier 2/3 half of the above, designed but not built: one panel node
+    — the implemented tier 2/3 panel/document split and its open integration gaps: one panel node
     plus a separate document node, `Display` and `Custom Display` as exclusive
     typed inputs, Music Player's song fields moved to an unpacker node, and a
     Player Controls input that mints only the functions a build actually wires.
   - [Display firmware compile checks](development/display-compile-checks.md)
-    — reproducible normal, show and SD-player fixtures for Arduino CLI and
-    fbuild; build evidence is separate from physical display validation.
+    — historical Arduino CLI/fbuild evidence and commands; the current
+    fixture needs the panel/document update before it can establish new coverage.
 - [Plans](development/plans/)
-  - [Stereo side-string VU meters](development/plans/vu-meter.md)
-    — implementation plan for paired vertical left/right LED strings, the
-    backward-compatible stereo-level path, twelve visualizations, generator
-    integration, electrical validation, and staged bench evidence.
   - [Audio part expansion](development/plans/audio-part-expansion.md)
-    — proposed microphone and amplifier modules, which are free in firmware
-    because FastLED already ships their profiles, and the DAC-to-power-amp
+    — proposed microphones using existing firmware profiles, amplifier
+    expansion, and the DAC-to-power-amp
     question a 12 V analog amplifier forces before any of them can be added.
-  - [Hardware branch todo](development/plans/hardware-todo.md)
-    — active hardware-line backlog and unresolved bench findings.
+  - [Build Diagram contract](development/plans/build-diagram-handoff.md)
+    — implemented generated wiring/BOM behavior; independent electrical review
+      is tracked in root todo as HW-14.
+
   - [Hardware renders](development/plans/hardware-renders.md)
-    — which board and module renders the two-view hardware pane still needs,
-    what is already modelled, and the boards awaiting import.
-  - [Node audit record](development/plans/node-todo.md)
-    — historical category-by-category findings. Use root `todo.md` for the
-    remaining active work and current code/tests as the implementation truth.
+    — verified Blender source, render/import contract and catalogue ownership.
 - [Reports](development/reports/)
-  - [Node library review](development/reports/node-review.md)
-    — a broad pass cross-checking the registry, live preview,
-    and firmware generator: preview/firmware divergences (a `Kaleidoscope`
-    codegen stub, `Mod` by zero, frame-rate-coupled timing), unbounded
-    property values, and node-metadata improvements.
+  - [Stereo VU bench record](development/reports/stereo-vu-bench.md)
+    — preserved exact-rig evidence from the completed implementation plan.
+
   - [Input peripheral bench records](development/reports/input-peripheral-bench.md)
     — hardware validation for the `input` node category: the LDR light-sensor
     run with its measured ADC range, which input nodes still have no record,
@@ -170,11 +168,8 @@ build/architecture overview aimed at contributors.
   — the repeatable keyboard-only and NVDA release scenario, browser-assisted
     preflight evidence, and the completion record for the accessibility gate.
 
-## Historical design intent (non-normative)
+## Documentation maintenance
 
-Located in `.docs/` at the repo root. These preserve the early brief and are
-not current implementation guidance:
-
-- `.docs/Proposal-FastLED_Studio` — node-type catalogue and deployment workflow
-- `.docs/Design_Specification.md` — visual design system
-- `.docs/Developer_Handoff_Specification` — implementation guide
+Keep active work in root todo, contracts in architecture/design notes and evidence
+in reports/release records. Superseded initial briefs and completed duplicate
+trackers were removed in the 2026-09-08 review; Git retains their history.

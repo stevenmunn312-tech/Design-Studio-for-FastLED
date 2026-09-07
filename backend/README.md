@@ -108,7 +108,7 @@ The studio talks to `http://localhost:8008` by default; override with the
 | POST | `/api/upload` | Compile a generated sketch and optionally upload it; streams logs. |
 | POST | `/api/build/cancel` | Cancel the active compile/upload process tree before it continues. |
 | POST | `/api/compile-check` | Compile without flashing and return flash/RAM capacity data. |
-| POST | `/api/upload-show` | Provisioner upload → SD transfer → music-show player upload. |
+| POST | `/api/upload-show` | Flash the player once, then transfer SD content through its built-in receiver. |
 | GET | `/api/removable-drives` | List candidate removable drives for direct SD-show copying. |
 | POST | `/api/sd-copy` | Copy packaged music/show content to a selected removable drive. |
 | GET / POST | `/api/patterns` | List or save helper-backed Pattern Library JSON files. |

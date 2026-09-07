@@ -104,7 +104,7 @@ returns immediately with the most recently *completed* frame (blank on the
 very first call for a new instance) rather than blocking on the worker
 round-trip — the same decoupled-cadence pattern already used elsewhere for
 per-node live previews, so a Code node's displayed frame can lag the true
-render tick by roughly one round trip. See `todo.md`'s P0 sandboxing item for
+render tick by roughly one round trip. See the sandbox runtime and worker modules below for
 the sibling `CustomFormula`/`FieldFormula` fix (a parsed expression grammar
 instead of `new Function`, since those don't need general-purpose execution).
 

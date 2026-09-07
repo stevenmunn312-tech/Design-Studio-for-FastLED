@@ -123,41 +123,46 @@ connections, and build limitations. An unlisted controller, resolution, or
 touch module is unsupported; choosing a similar-looking part does not make its
 driver compatible.
 
-For **Segment Display** and **Info Display**, connect the **Display** output of
-RTC Clock, Music Player, or Pattern Slideshow to the panel's **Display** input.
-The source determines the layout. **Transport Display** instead has a layout
-selector and separate typed inputs for text, timing, progress, and state. For
-music-player touch controls, connect **Transport Display Controls → Player
-Controls → Music Player**.
+For **Segment Display**, **Info Display**, and built-in **Transport Display**
+screens, connect the source's **Display** output to the panel's **Display** input.
+RTC Clock selects a clock, Music Player selects transport information, and
+Pattern Slideshow selects its pattern status/browser. The TFT's presentation
+setting chooses between treatments of its connected source. There are no
+separate Title/Artist/Progress inputs on the physical panel.
+
+For fixed music touch, connect **Transport Display Controls → Player Controls
+Controls In → Music Player Controls**. Custom screens use their individual
+widget outputs instead. Fixed Show Status and Clock screens have no touch actions.
 
 ### Design a custom screen
 
-1. Add **Custom display** for the ST7789V 2.4-inch 240×320 module with XPT2046
-   touch. Configure the display and touch pins in Hardware, then choose rotation
-   on the graph node. Custom Display is graph-visible as soon as you add it;
-   use **Show in graph** from its Hardware actions to locate it on a busy canvas.
-2. Click **Edit display**. In **Design**, add widgets from the palette or insert
-   a template. A template adds widgets to the screen; it does not connect their
-   graph ports. Select a widget to edit its label, bounds, and properties. With
-   no selection, choose the screen's grid, theme, and background. Use the
-   palette's **Icon theme** picker to browse one matching set of custom button
-   icons; clicking an icon adds an icon-first control, and templates use that
-   selected icon set for their transport and action controls.
-3. Start with a **Slider** and **Numeric Readout**. Click **Graph** to return to
-   the graph and connect the slider's **Output** to the readout's input (the
-   **Value** role, labelled with the readout's name).
-   Connect the same output to the intended control, such as brightness. For an
-   SD music player, route brightness and volume through **Player Controls →
-   Music Player**. Use a 0–1 slider range for these normalized levels.
-4. Reopen **Edit display** and choose **Run** to exercise the slider locally.
-   Switch back to **Design** to move or resize widgets. Mode changes reset
-   temporary control state; they do not erase the layout. Run preview does not
-   operate the physical touchscreen or validate its calibration.
-5. Resolve layout issues and Graph Health errors, then measure capacity or
-   upload through the usual Upload pane. Normal, generative-show, and SD-player
-   builds generate custom LVGL screens; each checks whether its generator can
-   evaluate your widget bindings. Unsupported bindings must be changed before
-   deployment.
+1. Add a physical **Transport display** and choose its exact module. Set its
+   GPIO/touch pins in Hardware and mounted rotation on that panel's graph node.
+2. Add **Custom display** from the display menu. This creates a screen document,
+   not another hardware part. Connect its **Custom Display** output to the
+   physical panel's **Custom Display** input; this replaces any built-in Display
+   content wire. Use a separate document for each panel for now.
+3. Click **Edit display** on the document. In **Design**, place widgets or a
+   template, then edit labels, bounds, theme and assets. Templates create ordinary
+   widgets and ports; they do not connect playback or supply live data.
+4. Return with **Graph**. A 0–1 Slider can drive a normal-sketch LED output's
+   Brightness input. For SD music playback, assign brightness/volume through
+   **Player Controls → Music Player**. For track text, connect **Music Player
+   Display → Song Info Display**, then **Song Info Title → Text widget input**.
+5. **Run** exercises local touch controls. It is not a hardware connection, and
+   passive graph-fed readouts do not yet repaint live there. Do not use a blank
+   readout as proof that its graph wire is wrong. Return to Design to edit.
+6. Match document dimensions to the panel's mounted dimensions before building.
+   The current Portrait/Landscape action changes the document but does not yet
+   update the connected panel; set that panel's rotation explicitly as well.
+   Resolve Graph Health and resource issues, measure capacity, then upload.
+
+The Hardware branch is still completing this integration. Slideshow physical
+pattern selection, TFT-only Show Status, custom-panel Disabled in normal
+firmware, and shared-document builds have known defects. See the
+[review findings](../development/reports/hardware-branch-review.md) before relying
+on those paths; HW-01–06 track their repair. Existing compile records do not
+certify the newly split panel/document workflow.
 
 Readout widgets receive values. Buttons publish boolean outputs. Toggles,
 sliders, and dials also have an optional **Set** input: touch owns a control
@@ -211,8 +216,9 @@ is sent to the board.
 
 For a music-synchronised SD show, add an SD Card and the appropriate audio-output
 part first. Upload then packages the selected music/show content and flashes the
-player path. Ordinary graphs and generative shows stay on the normal firmware
-path.
+player path. A connected Pattern Slideshow uses the show-controller generator; ordinary
+graphs use the normal sketch generator. An SD card alone does not select the
+player; the qualifying music/show graph also has to exist.
 
 ## Support boundary
 

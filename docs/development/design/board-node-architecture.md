@@ -1,8 +1,7 @@
 # Board node and hardware capability model
 
 Status: board/profile architecture plus microphone, PCM1802 line-in, and
-player-decoder Audio capabilities implemented on `Hardware`; storage remains
-deferred · Owner: app · Updated: 2026-08-24
+player-decoder Audio and Storage capabilities implemented on `Hardware` · Owner: app · Updated: 2026-09-08
 
 The Board node is the root authority for the controller a project targets. The
 original proposal has now shipped far enough that this document describes the
@@ -153,5 +152,5 @@ The following proposal slices remain open and must not be described as shipped:
 - a Raspberry Pi/Linux code-generation backend.
 
 These items are tracked in
-[`../plans/hardware-todo.md`](../plans/hardware-todo.md). The current two-view
+[root todo, D-03](../../../todo.md). The current two-view
 component contract is documented in [`hardware-nodes.md`](hardware-nodes.md).

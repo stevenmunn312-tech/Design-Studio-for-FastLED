@@ -204,20 +204,6 @@ ones and never travel with the graph — see the DMX note for the full rationale
 
 ## Follow-ups
 
-Tracked in `todo.md` under **Node additions worth considering → Time-of-day /
-scheduled trigger support**:
-
-- ~~The docs/release sweep (node cards, README, CHANGELOG, the per-board
-  time-source capability matrix in the support matrix).~~ Done — README gained
-  an *RTC clock and time-of-day scheduling* section, the Help modal gained a
-  matching *RTC clock and scheduling hardware setup* section, `CHANGELOG.md`
-  has an `[Unreleased]` **Added** entry, and
-  [`beta-support-matrix.md`](../../release/beta-support-matrix.md) records the
-  board × time-source table (including the Arduino UNO R4 WiFi gap noted
-  above).
-- **Hardware validation — three passes.** One software-clock run (does it hold
-  time, and how far does it drift over hours?), one NTP run (does a real board
-  sync, and does `synced` flip?), and one DS3231 run (valid read, OSF/stale
-  behavior, unplug/reconnect). Until then these stay experimental in
-  `docs/release/beta-support-matrix.md`; everything above is verified only by
-  unit and codegen tests.
+Hardware validation and remaining topology/network evidence are consolidated in
+[root todo, HW-13](../../../todo.md). Existing recorded support belongs to the
+[support matrix](../../release/beta-support-matrix.md).

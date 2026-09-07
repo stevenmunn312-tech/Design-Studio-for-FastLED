@@ -254,12 +254,8 @@ params — a different operation that doesn't map onto an additive offset field.
 
 ---
 
-## Open questions
+## Remaining design choice
 
-- Should `FieldFormula` support `fieldIn` as a writable pixel buffer (i.e. the
-  Code-node model)? Deferred: the expression model covers ANIMartRIX.
-- Should `FieldToFrame` carry a `brightness` input port or only a property? Port
-  keeps it wirable (audio-reactive brightness); property is simpler. Start with
-  property, add port in Phase 2.
-- Should `Noise` get a `field` output mode? Worth doing in Phase 2 — a noise
-  field fed into `FieldWarp` produces domain-warped noise without any formula.
+Writable `FieldFormula` pixel buffers remain deferred (root todo D-04).
+`FieldToFrame.brightness` is already an input and `FieldNoise` already provides
+the noise-field source; those earlier Phase 2 questions are closed.

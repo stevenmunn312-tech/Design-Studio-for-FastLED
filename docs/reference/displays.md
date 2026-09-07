@@ -1,11 +1,10 @@
 # Display node reference
 
-Displays are root-level hardware parts with graph nodes. Add them through
-**Add Hardware → Displays** and configure module identity and GPIO in the
-workbench. Use the graph for signal connections and presentation settings. The
-[hardware workbench guide](../user/hardware-workbench.md#add-and-connect-a-display)
-walks through a first custom screen. The same workflow is available in Help →
-Node Reference on each display's page.
+Physical displays are root-level Hardware parts. **Custom Display** is a
+separate screen document with widget ports; it has no GPIO. Connect it to the
+Custom Display input on a physical **Transport Display**. The
+[workbench guide](../user/hardware-workbench.md#add-and-connect-a-display) describes
+the current flow. In-app Help still needs the same post-split refresh (HW-08).
 
 ## Choose the exact module
 
@@ -14,10 +13,11 @@ Node Reference on each display's page.
 | Segment Display | TM1637 4-digit | Four digits, centre colon, dedicated CLK/DIO pair |
 | Segment Display | MAX7219 8-digit | Eight digits, no colon, SPI clock/data plus dedicated load line |
 | Info Display | SH1106 1.3-inch | 128×64 OLED, seven-pin SPI module |
+| Info Display | SH1106 0.96-inch | 128×64 OLED, seven-pin SPI module |
+| Info Display | SH1106 1.3-inch (I²C) | 128×64 OLED, four-pin I²C module, 0x3C or 0x3D |
 | Info Display | SSD1306 0.96-inch | 128×64 OLED, four-pin I²C module, address 0x3C or 0x3D |
-| Transport Display | ST7789 1.3-inch | 240×240 colour TFT, SPI, no touch |
+| Transport Display | ST7789 1.54-inch | 240×240 colour TFT, SPI, no touch |
 | Transport Display | ST7789V 2.4-inch + touch | 240×320 colour TFT, SPI, XPT2046 touch with its own header |
-| Custom Display | ST7789V 2.4-inch + touch | The same 240×320 module, with an editable widget screen |
 
 These are implemented catalogue choices, not a list of physically validated
 combinations. Unlisted controllers, panel sizes, interfaces, and touch modules
@@ -57,43 +57,37 @@ and use the same SDA/SCL pair as the other I²C parts in the sketch.
 
 ## Transport Display
 
-Choose **Now Playing**, **Fixed Transport**, or **Show Status** on the graph
-node, then wire the typed inputs used by that layout. These include Title,
-Artist, Elapsed, Duration, Progress, Playing, Volume, pattern information, and
-LED output state. Elapsed and Duration are seconds; Progress, Volume, and
-Brightness use normalized 0–1 values. Text Value supplies literal text and
-Format Number turns a float into a string for text inputs.
+Connect **Display** from RTC Clock, Music Player or Pattern Slideshow for Clock,
+Now Playing/Fixed Transport or Show Status respectively. The source chooses
+content; presentation only chooses among that source's treatments. Unwired
+panels say Waiting. Alternatively, connect a document's **Custom Display**
+output. The two content inputs are exclusive: the newest content wire replaces
+the other. Enabled remains a separate input/property.
 
-For music playback, wire the matching outputs from Music Player to the screen.
-On the XPT2046 module, connect **Controls → Player Controls → Music Player**
-to give touch actions a destination. Read-only panels remain useful without
-this chain. The square ST7789 module has no touch controller and produces no
-touch actions.
+For fixed music touch on XPT2046, route **Controls → Player Controls Controls In
+→ Music Player Controls**. Show Status and Clock are read-only. For custom
+touch, wire individual controls from the **document node**; the physical panel's
+fixed Controls output does not replace those widget ports.
 
-The chosen layout, destination, and firmware generator must support each other.
-Graph Health reports incomplete or unsupported touch chains. Normal and
-generative-show graphs can use the fixed controls supported by their destination;
-the SD-player chain must reach Music Player. Selecting a touch module does not
-automatically wire any action.
+The normal generator can render a clock. Show/player templates only read their
+own supported source kinds, so an arbitrary RTC wire there remains unresolved.
+Slideshow control routing and TFT-only Show Status currently need fixes; see
+[known integration gaps](#known-integration-gaps).
 
 ## Custom Display
 
-Click **Edit display** on the graph node. The screen size follows the selected
-module and rotation. In **Design**, place individual widgets or insert a
-template, then edit bounds and properties in the inspector. Templates add
-ordinary widgets with editable labels and ports; names such as Now Playing or
-DMX Monitor do not supply data or establish automatic connections.
+Add the document separately and connect it to a physical TFT panel. Click
+**Edit display** on the document. Design adds/resizes widgets or inserts ordinary
+widget templates; labels such as Now Playing and DMX Monitor do not supply data
+or automatically wire actions. Module, pins and mounted rotation belong to the
+panel. Use one document per physical panel until shared-instance behavior is fixed.
 
-Use **Graph** to return and connect the newly created ports. Widget identity
-keeps wires attached when labels or positions change. Duplicating or pasting
-creates new widget identities; wire their ports separately. Deleting a wired
-widget prompts before removing its wires. Undo/redo and project save include
-the layout. Transient touch state is neither saved nor undo history.
-
-**Run** lets you exercise controls locally. **Design** locks those controls for
-editing. Switching modes resets local control state. The browser preview is
-not a device connection, and it does not test physical display wiring, touch
-alignment, or timing under load.
+Return with **Graph** to wire widget roles. Renaming/moving widgets retains
+connections; copying creates new identities; deleting a wired widget prompts
+before removing its edges. Layouts participate in save and undo; transient
+touch state does not. Run exercises local controls and Design locks them for
+editing. Run is not device telemetry and does not yet redraw passive graph-fed
+readouts. Changing mode resets local control state.
 
 ### Widget ports
 
@@ -111,7 +105,7 @@ alignment, or timing under load.
 | Slider, Dial | Set: float, optional | Output: float |
 
 The node exposes the roles of its actual widgets, so a new empty screen has no
-ports. A widget with one port uses its widget label on the graph socket; a
+widget ports; it still has its Custom Display content output. A widget with one port uses its widget label on the graph socket; a
 control with multiple ports appends Output or Set. The inspector shows the role
 and type. For a first connection, add a Slider and Numeric Readout and connect
 the slider's Output to the readout's Value. For formatted text, insert Format
@@ -157,8 +151,9 @@ dedicated touch-safe portrait and landscape compositions when the panel
 orientation changes.
 Use the editor’s **Portrait** and **Landscape** controls to match the panel’s
 mounted rotation. The switch reflows the saved layout, keeps square themed
-touch targets square, selects the matching background artwork, and updates the
-display node’s firmware rotation at the same time.
+touch targets square, selects the matching background artwork, but currently writes rotation to the document instead of its physical panel.
+Set the connected panel’s rotation explicitly too; automatic synchronization
+is an open implementation fix (HW-02).
 
 ### Firmware scope and troubleshooting
 
@@ -167,7 +162,7 @@ Show and SD-player control paths accept float, boolean, and string bindings
 from supported sources and scalar operations: Math, Lerp, Clamp, Map Range,
 Sin, Cos, Compare, Text Value, and Format Number. Supported GPIO buttons,
 button banks, potentiometers, and encoders can participate; SD-player displays
-can also use the player's supported song outputs.
+can also use supported Song Info fields from an unpacker wired to the player.
 
 This does not enable every node in a template build. Time-dependent nodes,
 nested groups, and wired colour or pattern-selection widget inputs are
@@ -178,7 +173,7 @@ evaluate every wire connected to it.
 
 | Symptom | What to check |
 | --- | --- |
-| No custom graph ports | Open Edit display and add widgets; the empty screen has no roles. |
+| No widget graph ports | Add widgets in Edit display; the empty document only has its Custom Display content output. |
 | Control snaps back after release | Inspect its Set wire; that source becomes authoritative after touch. |
 | Template does not control playback | Connect widget outputs through Player Controls to Music Player. |
 | Build reports an unsupported widget input | Replace the upstream path with supported scalar nodes, or use a normal sketch where that path is supported. |
@@ -186,10 +181,17 @@ evaluate every wire connected to it.
 | Asset preparation or trust issue | Choose an installed asset and complete the project's trust review before building. |
 | Pin conflict | Check exact module identity, shared bus pins, and separate chip-select lines in Hardware and Graph Health. |
 
-Representative normal, show, and SD-player sketches have compiled with both
-Arduino CLI and fbuild on an ESP32-S3 N16R8; see the
-[compile record](../development/display-compile-checks.md). Touch calibration,
-rotation on the physical module, TFT/SD/touch bus sharing under load, LED frame
-rate, and runtime memory use still need physical checks. The calibration wizard
-is not yet implemented; existing numeric calibration bounds are not a measured
+### Known integration gaps
+
+The 2026-09-08 review found ignored slideshow pattern controls, a missing cursor
+in TFT-only Show Status firmware, orientation/Enabled ownership gaps, unsupported
+document fan-out, incorrect custom-screen RAM estimates, and incomplete live
+readout preview. The old compile script still uses the pre-split model. See
+[the evidence and repair order](../development/reports/hardware-branch-review.md).
+
+The [compile record](../development/display-compile-checks.md) preserves historical
+normal/show/player builds through both toolchains; it is not a fresh validation
+of the panel/document split. Calibration, rotation on real modules, bus sharing
+under load, LED rate and runtime memory still require physical checks. The
+calibration wizard is not implemented; default numeric bounds are not a measured
 calibration for your module.

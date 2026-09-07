@@ -268,5 +268,6 @@ hardware pass yet.
 
 ## Follow-ups
 
-Tracked in `todo.md` under **Node additions worth considering → HUB75 Output
-node**.
+Hardware validation and remaining topology/network evidence are consolidated in
+[root todo, HW-13](../../../todo.md). Existing recorded support belongs to the
+[support matrix](../../release/beta-support-matrix.md).

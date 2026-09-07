@@ -1,5 +1,9 @@
 # Plan - Generated Build Diagram
 
+Active execution and acceptance are tracked in [root todo, HW-14](../../../todo.md).
+This document retains the feature contract, not a second checklist.
+
+
 Status: **Corrected implementation complete; verification in progress**
 
 ## Corrected Product Contract
@@ -116,7 +120,7 @@ different firmware pin behind the user's back.
   reviewed-pinout board picker.
 - [x] Full repository tests pass.
 - [x] Lint and production build pass.
-- [ ] Independent electrical review confirms formulas, source tables, and
+- Independent electrical review confirms formulas, source tables, and
   wording before authoritative-guidance claims are made.
 
 ## Non-Goals
