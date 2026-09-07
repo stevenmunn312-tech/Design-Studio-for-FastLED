@@ -67,7 +67,12 @@ describe('InfoDisplay ownership', () => {
 
   it('offers all OLED modules as exact choices', () => {
     const options = partOptionsFor('InfoDisplay').map((option) => option.id)
-    expect(options).toEqual(['sh1106-oled-128x64', 'sh1106-oled-128x64-i2c', 'ssd1306-oled-128x64'])
+    expect(options).toEqual([
+      'sh1106-oled-128x64',
+      'sh1106-oled-096-128x64-spi',
+      'sh1106-oled-128x64-i2c',
+      'ssd1306-oled-128x64',
+    ])
   })
 })
 

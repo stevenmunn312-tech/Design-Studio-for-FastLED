@@ -145,12 +145,13 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
   // second entry (display-todo.md slice B) and arrives with its own adapter —
   // listing it now would be a claim the firmware cannot keep, which is the
   // misrepresentation this whole module exists to prevent.
-  // The controller and the bus are independent facts about a module, not one
-  // choice: the SH1106 exists on the bench in both a 7-pin SPI form and a
-  // 4-pin I2C form, and the SSD1306 is 4-pin I2C. `oledTransportFor` reads
-  // each option's catalogued interface, so a module's pins, bus validation
-  // and retargeting follow from its part id alone — no case here needed a
-  // change to support the second SH1106 form, only a menu entry.
+  // Screen size and bus are each independent facts about a module, not one
+  // choice: the SH1106 exists on the bench as a 1.3-inch 7-pin SPI module, a
+  // 0.96-inch 7-pin SPI module, and a 1.3-inch 4-pin I2C module, and the
+  // SSD1306 is 0.96-inch 4-pin I2C. `oledTransportFor` reads each option's
+  // catalogued interface, so a module's pins, bus validation and retargeting
+  // follow from its part id alone — no case here needed a change to support
+  // another SH1106 form, only a menu entry.
   InfoDisplay: {
     property: 'partId',
     options: [
@@ -159,6 +160,12 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
         label: 'SH1106 1.3-inch',
         summary: '128x64 white OLED over 4-wire SPI',
         note: 'The 1.3-inch SH1106 has 132 columns of controller RAM behind a 128-column panel, so its window starts two columns in. Driving it as an SSD1306 shifts the image two pixels and wraps the remainder down the edge.',
+      },
+      {
+        id: 'sh1106-oled-096-128x64-spi',
+        label: 'SH1106 0.96-inch',
+        summary: '128x64 white OLED over 4-wire SPI',
+        note: 'Same SH1106G silicon and 2-column RAM offset as the 1.3-inch SPI module, on a smaller 27 x 28 mm board.',
       },
       {
         id: 'sh1106-oled-128x64-i2c',
@@ -179,9 +186,9 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
     options: [
       {
         id: 'st7789-tft-240x240',
-        label: 'ST7789 1.3-inch',
+        label: 'ST7789 1.3/1.54-inch',
         summary: '240x240 colour TFT over SPI',
-        note: 'A square 240x240 colour display with no touch controller.',
+        note: 'A square 240x240 colour display with no touch controller. Adafruit sells this identical board in both 1.3-inch and 1.54-inch panel-glass variants.',
       },
       {
         id: 'st7789v-xpt2046-touch-240x320',

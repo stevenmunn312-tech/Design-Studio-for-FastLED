@@ -33,7 +33,7 @@ export const DISPLAY_REFERENCE: Record<string, DisplayReferenceContent> = {
   TransportDisplay: {
     overview: [
       'A separate colour TFT with Now Playing, Fixed Transport, and Show Status layouts. Select the layout on the graph node and connect the typed text, time, progress, and state inputs it displays.',
-      'Choose the non-touch ST7789 1.3-inch 240×240 module or the ST7789V 2.4-inch 240×320 module with XPT2046 touch. Other TFT and touch controllers are unsupported.',
+      'Choose the non-touch ST7789 1.3/1.54-inch 240×240 module or the ST7789V 2.4-inch 240×320 module with XPT2046 touch. Other TFT and touch controllers are unsupported.',
     ],
     steps: [
       'Add Transport display through Add Hardware → Displays. Set its exact module and wiring in the workbench, including the touch header when present. Set layout and rotation on the graph node.',

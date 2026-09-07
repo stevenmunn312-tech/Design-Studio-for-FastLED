@@ -672,6 +672,47 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 12.0
     }
   },
+  "sh1106-oled-096-128x64-spi": {
+    "partId": "sh1106-oled-096-128x64-spi",
+    "label": "SH1106 0.96-inch 128x64 OLED SPI",
+    "category": "display",
+    "dimensionsMm": {
+      "width": 27.0,
+      "height": 28.0
+    },
+    "manufacturer": "generic seven-pin SPI module form",
+    "logicVoltage": "3.3 V / 5 V module supply; 3.3 V logic recommended",
+    "pinLabelsLeftToRight": [
+      "GND",
+      "VCC",
+      "CLK",
+      "MOSI",
+      "RES",
+      "DC",
+      "CS"
+    ],
+    "notes": [
+      "Common 0.96-inch 128 x 64 OLED breakout configured for four-wire SPI and identified with an SH1106G controller.",
+      "Pin labels follow the user's physical module exactly: GND, VCC, CLK, MOSI, RES, DC, CS; RES, DC and CS are separate control inputs.",
+      "The connection row is intentionally unpopulated: seven plated through-holes only, with no installed pin posts or plastic housings.",
+      "Generic suppliers list 27 x 28 mm and 28 x 28 mm PCB revisions; this asset uses the documented 27 x 28 mm form."
+    ],
+    "display": {
+      "controller": "SH1106G",
+      "resolutionPx": [
+        128,
+        64
+      ],
+      "interface": "4-wire SPI",
+      "touchController": null
+    },
+    "render": {
+      "file": "parts/sh1106-oled-096-128x64-spi.webp",
+      "widthPx": 400,
+      "heightPx": 414,
+      "pxPerMm": 14.074
+    }
+  },
   "sh1106-oled-128x64": {
     "partId": "sh1106-oled-128x64",
     "label": "SH1106 1.3-inch 128x64 OLED",
@@ -868,7 +909,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
   },
   "st7789-tft-240x240": {
     "partId": "st7789-tft-240x240",
-    "label": "ST7789 1.3-inch 240x240 TFT",
+    "label": "ST7789 1.3/1.54-inch 240x240 TFT",
     "category": "display",
     "dimensionsMm": {
       "width": 35.8,
@@ -891,7 +932,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "SDDET"
     ],
     "notes": [
-      "Adafruit Product 4313 1.3-inch IPS TFT breakout with microSD and 240x240 ST7789 panel.",
+      "Adafruit Product 4313 IPS TFT breakout with microSD and 240x240 ST7789 panel. Adafruit sells this identical PCB, mounting geometry and header in both 1.3-inch and 1.54-inch panel-glass variants, so this asset represents the shared board rather than one specific glass size.",
       "The screen shows a square now-playing dashboard to make the active area and colour response obvious.",
       "No touch controller is fitted; this is the app's non-interactive colour-display target."
     ],
