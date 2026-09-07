@@ -41,6 +41,18 @@ describe('custom display templates', () => {
     }
   })
 
+  it('uses each template’s touch-safe portrait composition on the custom panel', () => {
+    for (const template of DISPLAY_TEMPLATES) {
+      const document = applyDisplayTemplate(createDisplayDocument('panel', 240, 320), template.id)
+      expect(document.widgets).toHaveLength(template.portraitWidgets.length)
+      expect(displayLayoutIssues(document)).toEqual([])
+      for (const [index, placed] of document.widgets.entries()) {
+        expect(placed.bounds).toEqual(template.portraitWidgets[index].bounds)
+        expect(placed.label).toBe(template.portraitWidgets[index].label)
+      }
+    }
+  })
+
   it('inserts ordinary widgets that mint the ports they would mint one at a time', () => {
     const document = applyDisplayTemplate(referenceDocument(), 'now-playing')
     const ports = displayDocumentPorts(document)

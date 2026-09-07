@@ -146,6 +146,9 @@ Button or Toggle. The picker changes control art only, while the Screen
 **Theme** in the inspector changes the display's colours and background.
 Templates use the currently selected icon theme for their transport and action
 controls, including Shuffle, Auto advance, and Freeze.
+Their layout switches to a separate touch-safe portrait composition on the
+240×320 custom panel, so inserting a template does not collapse a landscape
+control row into overlapping targets.
 
 ### Firmware scope and troubleshooting
 

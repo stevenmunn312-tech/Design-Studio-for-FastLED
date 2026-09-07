@@ -30,6 +30,9 @@ export interface DisplayTemplate {
   label: string
   description: string
   widgets: readonly DisplayTemplateWidget[]
+  /** The physical custom panel is portrait. Keep a deliberate portrait
+   * composition rather than clamping a landscape layout into collisions. */
+  portraitWidgets: readonly DisplayTemplateWidget[]
 }
 
 /** Templates are authored against the reference screen; a smaller document
@@ -87,6 +90,16 @@ export const DISPLAY_TEMPLATES: readonly DisplayTemplate[] = [
       widget('Toggle', 'Play', [128, 152, 64, 64], { offLabel: 'Play', onLabel: 'Pause' }),
       widget('Button', 'Next', [224, 152, 64, 64], { text: 'Next' }),
     ],
+    portraitWidgets: [
+      widget('Text', 'Title', [8, 8, 224, 32], { text: 'Title', fontSize: 24 }),
+      widget('Text', 'Artist', [8, 48, 224, 24], { text: 'Artist' }),
+      widget('Timecode', 'Elapsed', [8, 80, 80, 32]),
+      widget('Timecode', 'Remaining', [152, 80, 80, 32]),
+      widget('Progress', 'Position', [8, 112, 224, 16]),
+      widget('Button', 'Previous', [8, 152, 64, 64], { text: 'Prev' }),
+      widget('Toggle', 'Play', [88, 152, 64, 64], { offLabel: 'Play', onLabel: 'Pause' }),
+      widget('Button', 'Next', [168, 152, 64, 64], { text: 'Next' }),
+    ],
   },
   {
     id: 'minimal-transport',
@@ -98,6 +111,13 @@ export const DISPLAY_TEMPLATES: readonly DisplayTemplate[] = [
       widget('Toggle', 'Play', [120, 64, 80, 80], { offLabel: 'Play', onLabel: 'Pause' }),
       widget('Button', 'Next', [224, 64, 80, 80], { text: 'Next' }),
       widget('Slider', 'Volume', [16, 176, 288, 48]),
+    ],
+    portraitWidgets: [
+      widget('Text', 'Track', [8, 16, 224, 32], { text: 'Track', align: 'center', fontSize: 24 }),
+      widget('Button', 'Previous', [8, 72, 64, 64], { text: 'Prev' }),
+      widget('Toggle', 'Play', [88, 72, 64, 64], { offLabel: 'Play', onLabel: 'Pause' }),
+      widget('Button', 'Next', [168, 72, 64, 64], { text: 'Next' }),
+      widget('Slider', 'Volume', [8, 168, 224, 48]),
     ],
   },
   {
@@ -111,6 +131,14 @@ export const DISPLAY_TEMPLATES: readonly DisplayTemplate[] = [
       widget('Button', 'Next', [240, 120, 72, 56], { text: 'Next' }),
       widget('Toggle', 'Shuffle', [8, 184, 144, 48], { offLabel: 'In order', onLabel: 'Shuffle' }),
       widget('Toggle', 'Auto advance', [168, 184, 144, 48], { offLabel: 'Hold', onLabel: 'Advance' }),
+    ],
+    portraitWidgets: [
+      widget('Pattern Browser', 'Collection', [8, 8, 224, 88]),
+      widget('Button', 'Previous', [8, 112, 64, 56], { text: 'Prev' }),
+      widget('Button', 'Confirm', [88, 112, 64, 56], { text: 'Play' }),
+      widget('Button', 'Next', [168, 112, 64, 56], { text: 'Next' }),
+      widget('Toggle', 'Shuffle', [8, 192, 104, 48], { offLabel: 'In order', onLabel: 'Shuffle' }),
+      widget('Toggle', 'Auto advance', [128, 192, 104, 48], { offLabel: 'Hold', onLabel: 'Advance' }),
     ],
   },
   {
@@ -126,6 +154,15 @@ export const DISPLAY_TEMPLATES: readonly DisplayTemplate[] = [
       widget('Numeric Readout', 'Frame rate', [8, 208, 152, 32], { decimals: 0, suffix: ' fps', min: 0, max: 240 }),
       widget('Status Indicator', 'Output', [192, 208, 120, 24], { offLabel: 'IDLE', onLabel: 'LIVE' }),
     ],
+    portraitWidgets: [
+      widget('Text', 'Heading', [8, 8, 224, 24], { text: 'LED performance' }),
+      widget('Slider', 'Brightness', [8, 48, 224, 48]),
+      widget('Slider', 'Speed', [8, 112, 224, 48], { min: 0, max: 4, step: 0.05 }),
+      widget('Toggle', 'Blackout', [8, 184, 104, 64], { offLabel: 'Lit', onLabel: 'Blackout' }),
+      widget('Toggle', 'Freeze', [128, 184, 104, 64], { offLabel: 'Run', onLabel: 'Freeze' }),
+      widget('Numeric Readout', 'Frame rate', [8, 272, 104, 32], { decimals: 0, suffix: ' fps', min: 0, max: 240 }),
+      widget('Status Indicator', 'Output', [128, 272, 104, 32], { offLabel: 'IDLE', onLabel: 'LIVE' }),
+    ],
   },
   {
     id: 'audio-reactor',
@@ -138,6 +175,14 @@ export const DISPLAY_TEMPLATES: readonly DisplayTemplate[] = [
       widget('Numeric Readout', 'Tempo', [168, 72, 144, 32], { decimals: 1, suffix: ' BPM', min: 0, max: 300 }),
       widget('Slider', 'Sensitivity', [8, 112, 304, 48]),
       widget('Slider', 'Noise gate', [8, 168, 304, 48]),
+    ],
+    portraitWidgets: [
+      widget('Value Meter', 'Left level', [8, 8, 224, 24]),
+      widget('Value Meter', 'Right level', [8, 40, 224, 24]),
+      widget('Status Indicator', 'Beat', [8, 80, 104, 32], { offLabel: 'STEADY', onLabel: 'BEAT' }),
+      widget('Numeric Readout', 'Tempo', [128, 80, 104, 32], { decimals: 1, suffix: ' BPM', min: 0, max: 300 }),
+      widget('Slider', 'Sensitivity', [8, 136, 224, 48]),
+      widget('Slider', 'Noise gate', [8, 208, 224, 48]),
     ],
   },
   {
@@ -155,6 +200,17 @@ export const DISPLAY_TEMPLATES: readonly DisplayTemplate[] = [
       widget('Value Meter', 'Temperature', [8, 160, 304, 24]),
       widget('Text', 'Message', [8, 192, 304, 40], { text: 'Ready', maxLines: 2 }),
     ],
+    portraitWidgets: [
+      widget('Numeric Readout', 'Free heap', [8, 8, 104, 32], { decimals: 0, suffix: ' kB', min: 0, max: 1000000 }),
+      widget('Numeric Readout', 'Frame rate', [128, 8, 104, 32], { decimals: 0, suffix: ' fps', min: 0, max: 240 }),
+      widget('Timecode', 'Uptime', [8, 48, 104, 32], { showHours: true }),
+      widget('Numeric Readout', 'Frames', [128, 48, 104, 32], { decimals: 0, min: 0, max: 1000000 }),
+      widget('Status Indicator', 'Link', [8, 96, 104, 32], { offLabel: 'OFFLINE', onLabel: 'ONLINE' }),
+      widget('Status Indicator', 'Card', [128, 96, 104, 32], { offLabel: 'NO CARD', onLabel: 'CARD' }),
+      widget('Value Meter', 'Processor load', [8, 144, 224, 24]),
+      widget('Value Meter', 'Temperature', [8, 176, 224, 24]),
+      widget('Text', 'Message', [8, 224, 224, 40], { text: 'Ready', maxLines: 2 }),
+    ],
   },
   {
     id: 'dmx-monitor',
@@ -169,6 +225,16 @@ export const DISPLAY_TEMPLATES: readonly DisplayTemplate[] = [
       widget('Value Meter', 'Channel 2', [8, 128, 304, 24], { min: 0, max: 255, warningLow: 0, warningHigh: 204 }),
       widget('Value Meter', 'Channel 3', [8, 160, 304, 24], { min: 0, max: 255, warningLow: 0, warningHigh: 204 }),
       widget('Value Meter', 'Channel 4', [8, 192, 304, 24], { min: 0, max: 255, warningLow: 0, warningHigh: 204 }),
+    ],
+    portraitWidgets: [
+      widget('Numeric Readout', 'Universe', [8, 8, 104, 32], { decimals: 0, prefix: 'U', min: 0, max: 32768 }),
+      widget('Numeric Readout', 'Frame rate', [128, 8, 104, 32], { decimals: 0, suffix: ' fps', min: 0, max: 240 }),
+      widget('Status Indicator', 'Signal', [8, 48, 104, 40], { offLabel: 'NO DATA', onLabel: 'DATA' }),
+      widget('Colour Swatch', 'Colour', [128, 48, 104, 40]),
+      widget('Value Meter', 'Channel 1', [8, 112, 224, 24], { min: 0, max: 255, warningLow: 0, warningHigh: 204 }),
+      widget('Value Meter', 'Channel 2', [8, 152, 224, 24], { min: 0, max: 255, warningLow: 0, warningHigh: 204 }),
+      widget('Value Meter', 'Channel 3', [8, 192, 224, 24], { min: 0, max: 255, warningLow: 0, warningHigh: 204 }),
+      widget('Value Meter', 'Channel 4', [8, 232, 224, 24], { min: 0, max: 255, warningLow: 0, warningHigh: 204 }),
     ],
   },
 ]
@@ -187,8 +253,11 @@ export function applyDisplayTemplate(
 ): DisplayDocument {
   const template = displayTemplate(id)
   if (!template) return document
+  const specs = document.designSize.height > document.designSize.width
+    ? template.portraitWidgets
+    : template.widgets
   let working = document
-  for (const spec of template.widgets) {
+  for (const spec of specs) {
     const icon = TEMPLATE_CONTROL_ICONS[spec.label]
     const assetId = icon ? displayControlAssetId(controlThemeId, icon) : undefined
     const placed: DisplayWidget = {
