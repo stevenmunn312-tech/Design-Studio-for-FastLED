@@ -183,6 +183,12 @@ describe('DisplayEditor', () => {
     expect(play.querySelector('img')).toBeTruthy()
   })
 
+  it('identifies Progress widgets for the fixed-height track treatment', () => {
+    const view = render(<DisplayEditor />)
+    fireEvent.click(view.getByRole('button', { name: 'Add Progress widget' }))
+    expect(view.getByRole('button', { name: /Progress, Progress. Position/ }).getAttribute('data-widget-type')).toBe('Progress')
+  })
+
   it('switches the display between portrait and landscape while retaining a valid layout', () => {
     useGraphStore.getState().setDisplayDocument(createDisplayDocument('panel', 240, 320))
     useGraphStore.setState({

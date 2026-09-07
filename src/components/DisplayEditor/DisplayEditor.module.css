@@ -345,6 +345,13 @@
   box-sizing: border-box;
 }
 
+/* A Progress widget has a fixed eight-pixel track in a sixteen-pixel row.
+   Its content area must be the same height as that track, otherwise the
+   inherited widget padding visually biases the bar toward one edge. */
+.widget[data-widget-type='Progress'] {
+  padding-block: 3px;
+}
+
 .widget:active {
   cursor: grabbing;
 }

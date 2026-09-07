@@ -230,6 +230,7 @@ function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDispl
         '--widget-hit-inset-y': `${(widget.bounds.height - hitBounds.height) / 2}px`,
       } as CSSProperties}
       data-widget-state={visualState}
+      data-widget-type={widget.type}
       role={role}
       tabIndex={interactive ? 0 : undefined}
       aria-label={interactive ? `${widget.label || definition.label} run preview` : undefined}
@@ -950,6 +951,7 @@ export default function DisplayEditor() {
                       ...widgetThemeVariables(document.theme, 'default'),
                     }}
                     data-widget-state="default"
+                    data-widget-type={widget.type}
                     aria-label={widgetAnnouncement(document, widget.id)}
                     aria-describedby={issueDescriptionId}
                     aria-invalid={widgetIssues.length > 0}
