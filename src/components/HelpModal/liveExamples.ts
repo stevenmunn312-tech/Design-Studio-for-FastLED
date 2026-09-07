@@ -884,6 +884,16 @@ function workflowExample(node: NodeDefinition): ReferenceLiveExample {
       builder.wire('controls', 'controls', 'target', 'controls')
       builder.wire('particles', 'particleFx', 'target', 'particleFx')
       break
+    case 'SongInfo':
+      // One wire in. The player publishes its whole report on `display`, and
+      // this is the node that opens it into a field per cable — which is why
+      // the example is a player and nothing else.
+      builder.add('patterns', 'PatternCollection')
+      builder.add('player', 'PatternMaster')
+      builder.add('target', node.type)
+      builder.wire('patterns', 'patternset', 'player', 'patternset')
+      builder.wire('player', 'display', 'target', 'display')
+      break
     case 'PatternSlideshow':
       // Deliberately bare beside the Music Player's example: a collection, an
       // interval and the LEDs is the whole workflow.
@@ -1490,7 +1500,7 @@ export function buildGenericLiveExample(node: NodeDefinition): ReferenceLiveExam
   if (node.type === 'Comment') return commentExample(node)
   if (node.type === 'Transition') return transitionExample(node)
   if (node.type === 'Sequencer') return sequencerExample(node)
-  if (['MusicLibrary', 'PerformanceGenerator', 'SDCard', 'PatternCollection', 'PatternMaster', 'TransitionSet', 'PlayerControls', 'PlayerParticles'].includes(node.type)) {
+  if (['MusicLibrary', 'PerformanceGenerator', 'SDCard', 'PatternCollection', 'PatternMaster', 'TransitionSet', 'PlayerControls', 'PlayerParticles', 'SongInfo'].includes(node.type)) {
     return workflowExample(node)
   }
   if (AUDIO_PATTERN_TYPES.has(node.type)) return audioPatternExample(node)

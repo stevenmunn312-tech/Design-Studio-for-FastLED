@@ -2196,16 +2196,15 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     outputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
-      // The player holds the music, so the player says what the music is. On a
-      // finished build the card may be full of files the app has never seen;
-      // these carry whatever tags those files turn out to have.
-      ...SONG_INFO_PORTS.map((port) => ({ id: port.id, label: port.label, dataType: port.dataType })),
       // Technically I/O: commands arrive on `controls` and the resulting
       // selection leaves here, which is what makes the round trip visible on
       // the canvas instead of hidden in a display's private state.
       { id: 'patternSelect', label: 'Pattern Select', dataType: 'patternselect' },
-      // Everything a simple panel needs, in one envelope. The per-field ports
-      // above stay for a custom UI to read one at a time.
+      // Everything the player knows about what it is playing, in one envelope:
+      // the track, and the selection identifying the pattern running under it.
+      // The thirteen per-field ports this replaces are minted by the Song Info
+      // node instead, which appears on a canvas only when a graph genuinely
+      // needs a field on a wire.
       { id: 'display', label: 'Display', dataType: 'display' },
     ],
     defaultProperties: {
@@ -2214,6 +2213,29 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // Controls and particle FX are supplied by their dedicated bundle nodes.
       seed: 0,
     },
+  },
+  {
+    /*
+     * The player's track report, opened up.
+     *
+     * Music Player used to declare these thirteen as outputs, which meant
+     * every player graph drew thirteen sockets whether or not anything read
+     * one. A panel takes the whole `display` envelope and a custom screen
+     * reads widget roles by name, so nothing consumes them one wire at a time
+     * any more — except the occasional graph that genuinely wants a field
+     * (text into a pattern, say, or gating on `playing`). This is that graph's
+     * node, and it costs nothing to the rest.
+     *
+     * It takes the same envelope a panel does, because that envelope already
+     * carries a whole `SongInfo` for the player arm. `songInfo.ts` stays the
+     * one list behind these ports; only the node that spreads it changed.
+     */
+    type: 'SongInfo',
+    label: 'Song Info',
+    category: 'show',
+    inputs: [{ id: 'display', label: 'Player', dataType: 'display' }],
+    outputs: SONG_INFO_PORTS.map((port) => ({ id: port.id, label: port.label, dataType: port.dataType })),
+    defaultProperties: {},
   },
   {
     // Timeline-as-a-node: cycles its inputs with a timed crossfade.
@@ -3326,6 +3348,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   PatternMaster: 'Random pattern/transition show from a Pattern Collection.',
   PatternSlideshow: 'Plays a Pattern Collection on a timer — the show without the music.',
   PlayerControls: 'Maps buttons and knobs to Music Player transport, volume, and LED controls.',
+  SongInfo: 'Opens the Music Player’s track report into one wire per field.',
   PlayerParticles: 'Configures the Music Player\'s beat-triggered particle overlay.',
   CustomFormula: 'Per-pixel JS expression f(x, y, t) — with cx/cy/r/angle and FastLED shims.',
   Code: 'Paste raw FastLED C++ that writes into leds[].',
@@ -3410,7 +3433,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
   field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'WaveSim', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldToFrame'],
-  show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'PlayerControls', 'PlayerParticles', 'PatternMaster', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
+  show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'PlayerControls', 'PlayerParticles', 'PatternMaster', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
 /**

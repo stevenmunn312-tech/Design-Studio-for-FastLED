@@ -46,7 +46,7 @@ import {
 } from './displayText'
 import { useUiStore } from './uiStore'
 import { useGraphStore } from './graphStore'
-import { songInfoOutputs, resolveSongInfo } from './songInfo'
+import { blankSongInfo, songInfoOutputs, resolveSongInfo } from './songInfo'
 import { advanceSlideshowSilenceFade, slideshowSettings, type PatternSlideshowOrder } from './patternSlideshow'
 import { isDisplaySignal, type DisplaySignal } from './displaySignal'
 import {
@@ -7633,6 +7633,18 @@ function createEvalNode(
           text: segmentFrameText(segment),
           brightness: clampSegmentBrightness(props.brightness, segCtl),
         }
+        break
+      }
+
+      case 'SongInfo': {
+        // The same envelope a panel takes, because it already carries a whole
+        // SongInfo for the player arm. Anything else plugged in — a clock, a
+        // slideshow, nothing at all — reports blanks rather than the last
+        // track's readings, so an unwired field reads as "no music" instead of
+        // as stale music.
+        const signalValue = input(id, 'display', null)
+        const signal = isDisplaySignal(signalValue) ? signalValue : null
+        out = songInfoOutputs(signal?.kind === 'player' ? signal.song : blankSongInfo())
         break
       }
 

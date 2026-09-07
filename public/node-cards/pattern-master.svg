@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 296 853" width="296" height="853" role="img" aria-label="Music Player node">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 296 657" width="296" height="657" role="img" aria-label="Music Player node">
 
 <defs><filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#000" flood-opacity="0.45"/></filter></defs>
 <g transform="translate(28,24)">
-<rect x="0" y="0" width="240" height="795" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
-<rect x="0" y="0" width="240" height="795" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
+<rect x="0" y="0" width="240" height="599" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
+<rect x="0" y="0" width="240" height="599" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#8533ff"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Music Player</text>
 <rect x="154" y="10" width="25" height="12" rx="6" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
@@ -276,78 +276,39 @@
 <circle cx="-2" cy="308" r="9" fill="#ff8a65" opacity="0.25"/>
 <circle cx="-2" cy="308" r="6" fill="#ff8a65" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="312" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Controls</text>
-<circle cx="242" cy="308" r="9" fill="#ff7bb0" opacity="0.25"/>
-<circle cx="242" cy="308" r="6" fill="#ff7bb0" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="312" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Title</text>
+<circle cx="242" cy="308" r="9" fill="#7fd1ff" opacity="0.25"/>
+<circle cx="242" cy="308" r="6" fill="#7fd1ff" stroke="#0d0f12" stroke-width="1.5"/>
+<text x="230" y="312" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Pattern Select</text>
 <circle cx="-2" cy="336" r="9" fill="#38a6ff" opacity="0.25"/>
 <circle cx="-2" cy="336" r="6" fill="#38a6ff" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="340" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Patterns</text>
-<circle cx="242" cy="336" r="9" fill="#ff7bb0" opacity="0.25"/>
-<circle cx="242" cy="336" r="6" fill="#ff7bb0" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="340" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Artist</text>
+<circle cx="242" cy="336" r="9" fill="#ffe066" opacity="0.25"/>
+<circle cx="242" cy="336" r="6" fill="#ffe066" stroke="#0d0f12" stroke-width="1.5"/>
+<text x="230" y="340" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Display</text>
 <circle cx="-2" cy="364" r="9" fill="#b388ff" opacity="0.25"/>
 <circle cx="-2" cy="364" r="6" fill="#b388ff" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="368" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Transitions</text>
-<circle cx="242" cy="364" r="9" fill="#ff7bb0" opacity="0.25"/>
-<circle cx="242" cy="364" r="6" fill="#ff7bb0" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="368" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Album</text>
 <circle cx="-2" cy="392" r="9" fill="#ce93d8" opacity="0.25"/>
 <circle cx="-2" cy="392" r="6" fill="#ce93d8" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="396" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Particle FX</text>
-<circle cx="242" cy="392" r="9" fill="#ff7bb0" opacity="0.25"/>
-<circle cx="242" cy="392" r="6" fill="#ff7bb0" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="396" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Genre</text>
 <circle cx="-2" cy="420" r="9" fill="#c6ff32" opacity="0.25"/>
 <circle cx="-2" cy="420" r="6" fill="#c6ff32" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="424" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Beat</text>
-<circle cx="242" cy="420" r="9" fill="#ff7bb0" opacity="0.25"/>
-<circle cx="242" cy="420" r="6" fill="#ff7bb0" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="424" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Year</text>
 <circle cx="-2" cy="448" r="9" fill="#9aa0a6" opacity="0.25"/>
 <circle cx="-2" cy="448" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="452" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Min Time</text>
-<circle cx="242" cy="448" r="9" fill="#ff7bb0" opacity="0.25"/>
-<circle cx="242" cy="448" r="6" fill="#ff7bb0" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="452" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Status</text>
 <circle cx="-2" cy="476" r="9" fill="#9aa0a6" opacity="0.25"/>
 <circle cx="-2" cy="476" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="480" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Max Time</text>
-<circle cx="242" cy="476" r="9" fill="#c6ff32" opacity="0.25"/>
-<circle cx="242" cy="476" r="6" fill="#c6ff32" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="480" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Playing</text>
 <circle cx="-2" cy="504" r="9" fill="#9aa0a6" opacity="0.25"/>
 <circle cx="-2" cy="504" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="508" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Transition</text>
-<circle cx="242" cy="504" r="9" fill="#9aa0a6" opacity="0.25"/>
-<circle cx="242" cy="504" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="508" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Elapsed</text>
-<circle cx="242" cy="532" r="9" fill="#9aa0a6" opacity="0.25"/>
-<circle cx="242" cy="532" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="536" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Duration</text>
-<circle cx="242" cy="560" r="9" fill="#9aa0a6" opacity="0.25"/>
-<circle cx="242" cy="560" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="564" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Remaining</text>
-<circle cx="242" cy="588" r="9" fill="#9aa0a6" opacity="0.25"/>
-<circle cx="242" cy="588" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="592" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Progress</text>
-<circle cx="242" cy="616" r="9" fill="#9aa0a6" opacity="0.25"/>
-<circle cx="242" cy="616" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="620" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Volume</text>
-<circle cx="242" cy="644" r="9" fill="#9aa0a6" opacity="0.25"/>
-<circle cx="242" cy="644" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="648" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Bitrate</text>
-<circle cx="242" cy="672" r="9" fill="#7fd1ff" opacity="0.25"/>
-<circle cx="242" cy="672" r="6" fill="#7fd1ff" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="676" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Pattern Select</text>
-<circle cx="242" cy="700" r="9" fill="#ffe066" opacity="0.25"/>
-<circle cx="242" cy="700" r="6" fill="#ffe066" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="704" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Display</text>
-<line x1="8" y1="720" x2="232" y2="720" stroke="rgba(255,255,255,0.08)"/>
-<text x="8" y="740" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ TIMING</text>
-<text x="8" y="761" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ RANDOMNESS</text>
-<text x="8" y="782" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">clamp inputs</text>
+<line x1="8" y1="524" x2="232" y2="524" stroke="rgba(255,255,255,0.08)"/>
+<text x="8" y="544" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ TIMING</text>
+<text x="8" y="565" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ RANDOMNESS</text>
+<text x="8" y="586" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">clamp inputs</text>
 <g>
-<rect x="220" y="772" width="12" height="12" rx="3" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
+<rect x="220" y="576" width="12" height="12" rx="3" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
 </g>
 </g>
 </svg>

@@ -1,6 +1,6 @@
 # Large displays and control routing — design note
 
-Status: decisions 2 and 4 implemented; decisions 1 and 3 designed only · Owner: app · Date: 2026-09-07
+Status: decisions 2, 3 and 4 implemented; decision 1 designed only · Owner: app · Date: 2026-09-07
 
 What a large panel is told, who tells it, and how a physical button gets a job.
 Decided 2026-09-07. This is tiers 2 and 3 of the split laid out in [simple
@@ -19,7 +19,7 @@ Nothing here is broken. It is unreadable.
 | Node | Ports before | After |
 | --- | --- | --- |
 | `TransportDisplay` (Transport Display) | 17 in, 1 out | **2 in, 1 out — done** |
-| `PatternMaster` (Music Player) | 9 in, 16 out | 9 in, 3 out |
+| `PatternMaster` (Music Player) | 9 in, 16 out | **9 in, 3 out — done** |
 | `PlayerControls` | 15 in, 1 out | **2 in + one per assignment, 1 out — done** |
 | `Display` (Custom Display) | 0 in, 0 out, 18 properties | folded into two nodes |
 
@@ -187,6 +187,29 @@ node that exists so a bundle can be opened where someone wants it opened, and
 nowhere else.
 
 Music Player drops from sixteen outputs to three.
+
+### What building it settled
+
+The unpacker takes the **same `display` envelope a panel does**, rather than a
+new dataType or a fourteenth output on the player. That envelope already
+carries a whole `SongInfo` on its player arm, so there was nothing to define
+twice — and it composes honestly: plug a Slideshow or an RTC into a Song Info
+node and every field reads blank, because that source has no track. Blanks
+rather than the last player's readings, so an unwired field reads as *no
+music* instead of as stale music.
+
+The template generators needed one change, not thirteen.
+`playerControlGraph.ts` used to offer the player's own song ports as sampled
+sources for custom-display widgets; it now offers the ports of Song Info nodes
+**wired to that player**, resolved through the same `PLAYER_SONG_EXPRESSIONS`.
+Requiring the wire matters: an unwired Song Info node has no music behind it,
+and resolving it to the template's accessors anyway would report the track on
+a cable nobody connected.
+
+A normal sketch emits blanks for it, because the Music Player it reads renders
+as a black fill there. Blanks rather than omitted variables — anything
+downstream already names those symbols, and a missing definition fails the
+build on a line no generator wrote.
 
 ## Decision 4 — Player Controls grows the ports you use
 

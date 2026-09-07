@@ -970,6 +970,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Music Player example graph](../../public/node-cards/graphs/pattern-master.svg)
 
+### Song Info
+
+![Song Info node](../../public/node-cards/song-info.svg)
+
+![Song Info example graph](../../public/node-cards/graphs/song-info.svg)
+
 ### Sequencer
 
 ![Sequencer node](../../public/node-cards/sequencer.svg)

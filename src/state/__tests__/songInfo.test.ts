@@ -20,18 +20,30 @@ function node(id: string, nodeType: string, props: Record<string, unknown> = {})
 }
 
 describe('the Music Player reports what it is playing', () => {
-  it('publishes a port for every song field', () => {
+  // The player publishes the whole report in one envelope. Opening it into a
+  // wire per field is the Song Info node's job, so a player graph draws three
+  // sockets instead of sixteen.
+  it('reports through one envelope rather than a port per field', () => {
     const def = NODE_LIBRARY.find((n) => n.type === 'PatternMaster')!
     const ids = def.outputs.map((port) => port.id)
-    expect(ids[0]).toBe('frame')
+    expect(ids).toEqual(['frame', 'patternSelect', 'display'])
+    for (const port of SONG_INFO_PORTS) expect(ids, port.id).not.toContain(port.id)
+  })
+
+  it('publishes a port for every song field on the unpacker', () => {
+    const def = NODE_LIBRARY.find((n) => n.type === 'SongInfo')!
+    const ids = def.outputs.map((port) => port.id)
+    expect(def.inputs.map((port) => port.id)).toEqual(['display'])
     for (const port of SONG_INFO_PORTS) {
       expect(ids, port.id).toContain(port.id)
       expect(def.outputs.find((p) => p.id === port.id)!.dataType).toBe(port.dataType)
     }
+    // One list behind the ports, so a port cannot exist with nothing behind it.
+    expect(ids).toHaveLength(SONG_INFO_PORTS.length)
   })
 
   it('carries the tags a display would want as text', () => {
-    const def = NODE_LIBRARY.find((n) => n.type === 'PatternMaster')!
+    const def = NODE_LIBRARY.find((n) => n.type === 'SongInfo')!
     const strings = def.outputs.filter((port) => port.dataType === 'string').map((port) => port.id)
     for (const field of SONG_TAG_FIELDS) expect(strings, field).toContain(field)
     expect(strings).toContain('status')
@@ -41,6 +53,57 @@ describe('the Music Player reports what it is playing', () => {
     const outputs = songInfoOutputs(blankSongInfo())
     for (const port of SONG_INFO_PORTS) expect(outputs[port.id], port.id).toBeDefined()
     expect(Object.keys(outputs)).toHaveLength(SONG_INFO_PORTS.length)
+  })
+})
+
+describe('the unpacker in the evaluator', () => {
+  const node = (id: string, nodeType: string, properties: Record<string, unknown> = {}) => {
+    const def = NODE_LIBRARY.find((entry) => entry.type === nodeType)
+    return {
+      id, type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        label: nodeType, nodeType, category: def?.category ?? 'show', properties,
+        inputs: def?.inputs ?? [], outputs: def?.outputs ?? [],
+      },
+    } as never
+  }
+  const edge = (id: string, s2: string, sh: string, t: string, th: string) =>
+    ({ id, source: s2, sourceHandle: sh, target: t, targetHandle: th }) as never
+
+  const evaluate = (source: string) => {
+    resetEvaluatorState()
+    const result = evaluateGraphFull(
+      [node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4 }), node('src', source), node('song', 'SongInfo')],
+      [edge('e', 'src', 'display', 'song', 'display')],
+      1.5, 8, 8,
+    )
+    return result.outputs.get('song') as Record<string, unknown> | undefined
+  }
+
+  it('publishes one output per field from the player envelope', () => {
+    const out = evaluate('PatternMaster')!
+    for (const port of SONG_INFO_PORTS) expect(out[port.id], port.id).toBeDefined()
+    expect(Object.keys(out)).toHaveLength(SONG_INFO_PORTS.length)
+  })
+
+  // A slideshow has no music at all. Reporting blanks rather than whatever the
+  // last player said is what keeps an unwired field reading as "no music"
+  // instead of as stale music.
+  it('reports blanks for a source carrying no track', () => {
+    const out = evaluate('PatternSlideshow')!
+    expect(out.title).toBe('')
+    expect(out.playing).toBe(false)
+    expect(out.elapsed).toBe(0)
+    expect(Object.keys(out)).toHaveLength(SONG_INFO_PORTS.length)
+  })
+
+  it('reports blanks with nothing plugged in', () => {
+    resetEvaluatorState()
+    const result = evaluateGraphFull(
+      [node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4 }), node('song', 'SongInfo')],
+      [], 1.5, 8, 8,
+    )
+    expect((result.outputs.get('song') as Record<string, unknown>).title).toBe('')
   })
 })
 

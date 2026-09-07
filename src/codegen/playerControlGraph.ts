@@ -9,7 +9,19 @@ import { DISPLAY_TEXT_BUFFER_BYTES } from '../state/displayText'
 /** Only the Music Player this template runs owns runtime song sources. */
 export function playerControlGraph(nodes: StudioNode[], edges: StudioEdge[], documents?: DisplayDocumentRegistry) {
   const master = nodes.find((node) => node.data.nodeType === 'PatternMaster')
-  const sources: ControlReference[] = master ? SONG_INFO_PORTS.map((port) => ({ nodeId: master.id, port: port.id, type: port.dataType })) : []
+  // The track report is opened by a Song Info node now, not by the player's
+  // own ports. Only one actually fed by this player counts: an unwired Song
+  // Info node has no music behind it, and resolving it to the template's
+  // accessors anyway would report the track on a wire nothing connected.
+  const songNodes = master
+    ? nodes.filter((node) => node.data.nodeType === 'SongInfo'
+      && edges.some((edge) => edge.target === node.id
+        && edge.targetHandle === 'display' && edge.source === master.id))
+    : []
+  const songNodeIds = new Set(songNodes.map((node) => node.id))
+  const sources: ControlReference[] = songNodes.flatMap((node) => (
+    SONG_INFO_PORTS.map((port) => ({ nodeId: node.id, port: port.id, type: port.dataType }))
+  ))
   const routing = templateControlRouting(nodes, edges, documents, {
     label: 'an SD player', widgetLabel: 'the SD player',
     destinationIds: new Set(master ? [master.id] : []), sampledSources: sources,
@@ -21,7 +33,7 @@ export function playerControlGraph(nodes: StudioNode[], edges: StudioEdge[], doc
     }
   }
   // Snapshot strings too: a Next action can reset tag buffers in this pass.
-  const usedSources = [...routing.graph.usedSamples.values()].filter((source) => source.nodeId === master?.id)
+  const usedSources = [...routing.graph.usedSamples.values()].filter((source) => songNodeIds.has(source.nodeId))
   const sample = usedSources.flatMap((source) => {
     const variable = controlReferenceCpp(source), expression = source.port === 'volume' ? 'playerVolume' : PLAYER_SONG_EXPRESSIONS[source.port]
     return source.type === 'string'

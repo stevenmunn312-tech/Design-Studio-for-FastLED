@@ -35,11 +35,14 @@ const generate = (nodes: StudioNode[], edges: StudioEdge[], collection = true) =
 
 describe('custom displays in SD-player firmware', () => {
   it.each([false, true])('runs widget controls and publishes track readouts with or without collection renderers (%s)', (collection) => {
-    const nodes = [screen(), node('controls', 'PlayerControls', { debounceMs: 0 }), node('math', 'Math', { mathOp: 'multiply', b: 0.5 })]
+    const nodes = [screen(), node('song', 'SongInfo'), node('controls', 'PlayerControls', { debounceMs: 0 }), node('math', 'Math', { mathOp: 'multiply', b: 0.5 })]
     const edges = [edge('screen', 'widget:slider:out', 'math', 'a'), edge('math', 'result', 'controls', 'brightness'),
       edge('screen', 'widget:button:out', 'controls', 'playPause'), edge('controls', 'controls', 'player', 'controls'),
-      edge('player', 'title', 'screen', 'widget:text:value'), edge('player', 'progress', 'screen', 'widget:progress:value'),
-      edge('player', 'elapsed', 'screen', 'widget:timecode:value')]
+      // The track report is opened by a Song Info node now; the player itself
+      // publishes one envelope rather than a port per field.
+      edge('player', 'display', 'song', 'display'),
+      edge('song', 'title', 'screen', 'widget:text:value'), edge('song', 'progress', 'screen', 'widget:progress:value'),
+      edge('song', 'elapsed', 'screen', 'widget:timecode:value')]
     const cpp = generate(nodes, edges, collection)
     const loop = cpp.slice(cpp.indexOf('void loop() {'))
     expect(cpp).toContain('lv_display_set_default(_cdDisp_screen);')
@@ -50,16 +53,16 @@ describe('custom displays in SD-player firmware', () => {
     // silence fade must not reference absent band globals or black it out.
     expect(cpp).not.toContain('audioFade')
     expect(cpp).not.toContain('_audioBass')
-    expect(loop).toContain('char n_player_title[64]; _dsCopy(n_player_title, songTitle);')
-    expect(loop).toContain('float n_player_progress = songProgress();')
-    expect(loop).toContain('float n_player_elapsed = songElapsedSec();')
-    expect(loop).not.toContain('n_player_album')
+    expect(loop).toContain('char n_song_title[64]; _dsCopy(n_song_title, songTitle);')
+    expect(loop).toContain('float n_song_progress = songProgress();')
+    expect(loop).toContain('float n_song_elapsed = songElapsedSec();')
+    expect(loop).not.toContain('n_song_album')
     const ordered = ['if (provTransferring) return;', 'lv_indev_read(_cdIndev_screen)', 'float n_screen_widget_slider_out',
       'float n_math_result', 'n_controls_controls.hasBrightness = true;', 'if (n_controls_controls.playPause && audio.pauseResume())', 'audio.loop();']
     const offsets = ordered.map((part) => loop.indexOf(part))
     expect(offsets.every((offset) => offset >= 0)).toBe(true)
     expect(offsets).toEqual([...offsets].sort((a, b) => a - b))
-    expect(loop.lastIndexOf('_cdSetText(_cd_screen[2], n_player_title);')).toBeGreaterThan(loop.lastIndexOf('FastLED.show();'))
+    expect(loop.lastIndexOf('_cdSetText(_cd_screen[2], n_song_title);')).toBeGreaterThan(loop.lastIndexOf('FastLED.show();'))
     expect(loop.lastIndexOf('_cdServiceLvgl();')).toBeGreaterThan(loop.lastIndexOf('FastLED.show();'))
     if (collection) {
       const eof = loop.slice(loop.indexOf('if (GENERIC_PLAYER && audioEnded)'), loop.indexOf('// getAudioCurrentTime()'))
@@ -70,14 +73,14 @@ describe('custom displays in SD-player firmware', () => {
   })
 
   it('keeps synchronized volume normalized to the player control setting under an amplifier cap', () => {
-    const cpp = generate([screen(), node('controls', 'PlayerControls')], [
+    const cpp = generate([screen(), node('song', 'SongInfo'), node('controls', 'PlayerControls')], [
       edge('screen', 'widget:slider:out', 'controls', 'volume'), edge('controls', 'controls', 'player', 'controls'),
-      edge('player', 'volume', 'screen', 'widget:slider:set'),
+      edge('player', 'display', 'song', 'display'), edge('song', 'volume', 'screen', 'widget:slider:set'),
     ])
     expect(cpp).toContain('lroundf(playerVolume * 6)')
-    expect(cpp).toContain('float n_player_volume = playerVolume;')
-    expect(cpp).toContain('constrain((float)(n_player_volume), _cd_screen[0].minimum, _cd_screen[0].maximum)')
-    expect(cpp.indexOf('float n_player_volume = playerVolume;')).toBeLessThan(cpp.indexOf('playerVolume = constrain((n_controls_controls.hasVolume'))
+    expect(cpp).toContain('float n_song_volume = playerVolume;')
+    expect(cpp).toContain('constrain((float)(n_song_volume), _cd_screen[0].minimum, _cd_screen[0].maximum)')
+    expect(cpp.indexOf('float n_song_volume = playerVolume;')).toBeLessThan(cpp.indexOf('playerVolume = constrain((n_controls_controls.hasVolume'))
   })
 
   it('shares scalar computations between widget readouts, fixed screens and chained controls', () => {

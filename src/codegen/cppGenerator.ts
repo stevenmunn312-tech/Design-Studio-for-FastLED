@@ -29,8 +29,9 @@ import { scalarControlCpp, MAP_FLOAT_CPP } from './scalarControlCpp'
 import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
 import { isNodeFormulaValid } from '../state/formulaLang'
 import {
-  DISPLAY_TEXT_CPP_HELPERS, formatDateTimeCpp,
+  DISPLAY_TEXT_CPP_HELPERS, formatDateTimeCpp, textValueCpp,
 } from './displayTextCpp'
+import { SONG_INFO_PORTS } from '../state/songInfo'
 import {
   SEGMENT_DISPLAY_CPP_HELPERS, SEGMENT_DISPLAY_CPP_FORWARD, segmentDisplayGlobalCpp, segmentDisplaySetupCpp,
   segmentDisplayLoopCpp, type SegmentDisplayEmit,
@@ -5961,6 +5962,21 @@ export function generateCpp(
         ln(`      if (_pop==0) { for (int _i=0;_i<NUM_LEDS;_i++) ${c}[_i]=random8()<77?1:0; }`)
         ln(`      _gt_${id}=millis(); }`)
         ln(`    for (int _i=0;_i<NUM_LEDS;_i++){ ${br}[_i]=${c}[_i]?1.0f:${br}[_i]*${fadeL}; ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${br}[_i]*255)); ${ob}[_i].nscale8((uint8_t)(${br}[_i]*255)); } }`)
+        break
+      }
+
+      case 'SongInfo': {
+        // The player it reads renders as a black fill here, so there is no
+        // track to report. Blanks rather than omitted variables: anything
+        // downstream already names these, and a missing definition would fail
+        // the build on a line no generator wrote.
+        needsDisplayText.v = true
+        for (const port of SONG_INFO_PORTS) {
+          const name = `n_${id}_${safeId(port.id)}`
+          if (port.dataType === 'string') ln(textValueCpp(name, ''))
+          else if (port.dataType === 'bool') ln(`  bool ${name} = false;`)
+          else ln(`  float ${name} = 0.0f;`)
+        }
         break
       }
 
