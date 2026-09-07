@@ -3,7 +3,7 @@ import { generateCpp } from '../cppGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import {
-  diagnosticsGeometry, transportWaitingGeometry,
+  diagnosticsGeometry, transportClockGeometry, transportWaitingGeometry,
 } from '../../state/transportDisplay'
 import { TFT_CONTROLLERS, tftMadctl, tftRotatedSize, tftWindowOrigin } from '../../state/tftSurface'
 import { TFT_DISPLAY_CPP_FORWARD } from '../tftDisplayCpp'
@@ -95,13 +95,14 @@ describe('what setup tells the driver', () => {
 })
 
 describe('what the loop draws', () => {
-  // A normal sketch resolves no colour content layout at all. Now Playing and
-  // Fixed Transport are a player's screens and a player renders as a black
-  // fill here; Show Status is the slideshow's, and a slideshow builds the show
-  // controller instead. So the panel draws its waiting screen whatever the
-  // treatment property says — and every coordinate still comes from the shared
-  // geometry, which is the only reason the panel can be claimed to match the
-  // preview the editor showed.
+  // A normal sketch resolves exactly one colour content layout: Clock, from a
+  // wired RTC (see the describe block below). Now Playing and Fixed Transport
+  // are a player's screens and a player renders as a black fill here; Show
+  // Status is the slideshow's, and a slideshow builds the show controller
+  // instead. So the panel draws its waiting screen whatever the treatment
+  // property says for those three — and every coordinate still comes from the
+  // shared geometry, which is the only reason the panel can be claimed to
+  // match the preview the editor showed.
   it.each(['Now Playing', 'Fixed Transport', 'Show Status'])(
     'draws the waiting screen for a %s panel in a normal sketch',
     (tftLayout) => {
@@ -161,6 +162,48 @@ describe('what the loop draws', () => {
   it('switches the panel from a wired enable rather than the property', () => {
     expect(build({ enabled: false })).toContain('bool _tftOn_tft = false;')
     expect(build({ enabled: true })).toContain('bool _tftOn_tft = true;')
+  })
+})
+
+describe('the Clock layout, from a wired RTC', () => {
+  const wire = (id: string, sc: string, sh: string, t: string, th: string): StudioEdge =>
+    ({ id, source: sc, target: t, sourceHandle: sh, targetHandle: th }) as unknown as StudioEdge
+
+  it('reads the wired RTCInput\'s own dateTime struct', () => {
+    const rtc = node('rtc', 'RTCInput', {})
+    const src = build({}, [rtc], [wire('feed', 'rtc', 'display', 'tft', 'display')])
+    expect(src).toContain('n_rtc_dateTime.valid')
+    expect(src).toContain('(int)n_rtc_dateTime.hour')
+    expect(src).toContain('(int)n_rtc_dateTime.minute')
+    expect(src).toContain('(int)n_rtc_dateTime.second')
+    expect(src).toContain('"%02d:%02d:%02d"')
+    expect(src).toContain('n_rtc_dateTime.synced && !n_rtc_dateTime.stale')
+    expect(src).toContain('"SYNCED"')
+    expect(src).toContain('"NOT SYNCED"')
+    expect(src).toContain('"NO CLOCK"')
+  })
+
+  it('draws through the shared geometry, matching the preview', () => {
+    const rtc = node('rtc', 'RTCInput', {})
+    const src = build({}, [rtc], [wire('feed', 'rtc', 'display', 'tft', 'display')])
+    const g = transportClockGeometry(240, 240)
+    expect(src).toContain(`${g.time.x}, ${g.time.y}, ${g.time.w}, ${g.time.h}, ${g.time.scale},`)
+    expect(src).toContain(`${g.date.x}, ${g.date.y}, ${g.date.w}, ${g.date.h}, ${g.date.scale},`)
+    expect(src).toContain(`${g.status.x}, ${g.status.y}, ${g.status.w}, ${g.status.h}, ${g.status.scale},`)
+  })
+
+  it('is not offered as a tftLayout treatment, since a clock has only one', () => {
+    const rtc = node('rtc', 'RTCInput', {})
+    const src = build(
+      { tftLayout: 'Fixed Transport' },
+      [rtc],
+      [wire('feed', 'rtc', 'display', 'tft', 'display')],
+    )
+    // tftLayout only chooses between the treatments the wired source offers;
+    // Clock offers one, so the property cannot steer it onto another source's
+    // screen the way it can for a Music Player.
+    expect(src).toContain('"%02d:%02d:%02d"')
+    expect(src).not.toContain('_tftBar(_tft_tft,')
   })
 })
 

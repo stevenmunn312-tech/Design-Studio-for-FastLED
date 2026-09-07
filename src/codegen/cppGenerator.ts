@@ -5056,16 +5056,18 @@ export function generateCpp(
       case 'TransportDisplay': {
         needsDisplayText.v = true
         // One content input, same as the OLED above. A normal sketch answers
-        // for a clock and nothing else, and there is no colour clock layout
-        // yet — so a colour panel in a normal sketch draws its waiting screen
-        // unless its property puts it on the Diagnostics service screen.
-        // Wiring arbitrary readings onto a panel is what the custom Display
-        // node is for; it is not a fixed layout's job.
+        // for a clock the same way the OLED does — the wired RTCInput's own
+        // `_RtcDateTimeValue` — and for nothing else; wiring arbitrary
+        // readings onto a panel is what the custom Display node is for, not a
+        // fixed layout's job.
         const displayUp = incoming.get(`${node.id}:display`)
         const displaySource = displayUp && nodeMap.get(displayUp.srcId)
         const kind = displaySource
           ? DISPLAY_SOURCE_NODE_TYPES[String(displaySource.data.nodeType ?? '')]
           : undefined
+        const clockExpr = kind === 'clock' && displayUp
+          ? `n_${safeId(displayUp.srcId)}_dateTime`
+          : null
         const layout: TransportDisplayLayout = asTransportDisplayLayout(p.tftLayout) === 'Diagnostics'
           ? 'Diagnostics'
           : (kind ? transportLayoutForKind(kind, p.tftLayout) : null) ?? 'Waiting'
@@ -5094,10 +5096,11 @@ export function generateCpp(
           enabledExpr: incoming.get(`${node.id}:enabled`)
             ? boolExpr(node.id, 'enabled')
             : (p.enabled === false ? 'false' : 'true'),
-          // Nothing in a normal sketch feeds a colour layout, so these are
-          // the blanks the Waiting and Diagnostics screens never read. They
-          // stay on the emit type rather than becoming optional because the
-          // two template generators do fill them.
+          dateTimeExpr: clockExpr,
+          // A player screen is not answerable in a normal sketch, so these
+          // are the blanks Waiting/Clock/Diagnostics never read. They stay on
+          // the emit type rather than becoming optional because the two
+          // template generators do fill them.
           titleExpr: null,
           artistExpr: null,
           patternNameExpr: null,

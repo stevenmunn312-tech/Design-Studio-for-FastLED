@@ -828,6 +828,10 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     mosiPin: display.mosiPin,
     backlightPin: display.backlightPin,
     enabledExpr: display.enabled ? 'true' : 'false',
+    // The player has no RTC-in-template path yet, so a Clock-kind wire stays
+    // unresolved here the same way it already is for the OLED beside it — see
+    // playerDisplays.ts's `kinds`.
+    dateTimeExpr: null,
     titleExpr: display.sources.title ?? null,
     artistExpr: display.sources.artist ?? null,
     patternNameExpr: display.sources.patternName ?? null,

@@ -39,7 +39,7 @@ import {
 import {
   TRANSPORT_ARTWORK_H, TRANSPORT_ARTWORK_W, TRANSPORT_COLORS,
   diagnosticsGeometry, fixedTransportGeometry, nowPlayingGeometry, showStatusGeometry,
-  transportWaitingGeometry,
+  transportClockGeometry, transportWaitingGeometry,
   type TransportDisplayLayout,
 } from '../state/transportDisplay'
 import { DISPLAY_WAITING_TEXT } from '../state/displaySignal'
@@ -91,15 +91,21 @@ const SHOW_STATUS_VALUE_SLOTS = {} as const
 const FIXED_TRANSPORT_TEXT_SLOTS = { title: 0, pattern: 1, state: 2 } as const
 const FIXED_TRANSPORT_VALUE_SLOTS = { volume: 0 } as const
 
+const CLOCK_TEXT_SLOTS = { time: 0, date: 1, status: 2 } as const
+/** Clock draws no bars or indicators, so it caches no numeric fields. */
+const CLOCK_VALUE_SLOTS = {} as const
+
 const TFT_TEXT_SLOTS = Math.max(
   Object.keys(NOW_PLAYING_TEXT_SLOTS).length,
   Object.keys(SHOW_STATUS_TEXT_SLOTS).length,
   Object.keys(FIXED_TRANSPORT_TEXT_SLOTS).length,
+  Object.keys(CLOCK_TEXT_SLOTS).length,
 )
 const TFT_VALUE_SLOTS = Math.max(
   Object.keys(NOW_PLAYING_VALUE_SLOTS).length,
   Object.keys(SHOW_STATUS_VALUE_SLOTS).length,
   Object.keys(FIXED_TRANSPORT_VALUE_SLOTS).length,
+  Object.keys(CLOCK_VALUE_SLOTS).length,
 )
 
 /**
@@ -619,6 +625,8 @@ export interface TftDisplayEmit {
   /** 255 when the module ties its backlight high and there is nothing to drive. */
   backlightPin: number
   enabledExpr: string
+  /** Clock: the wired RTCInput's `_RtcDateTimeValue`, or null when unresolved. */
+  dateTimeExpr: string | null
   /** Now Playing. Text expressions are `const char *`; the rest are numeric. */
   titleExpr: string | null
   artistExpr: string | null
@@ -860,6 +868,44 @@ function fixedTransportLoop(display: TftDisplayEmit, width: number, height: numb
 }
 
 /**
+ * An RTC's own reading, drawn large — the colour twin of `infoDisplayCpp.ts`'s
+ * Clock branch, reading the same `_RtcDateTimeValue` this panel's normal-sketch
+ * caller resolves exactly as the OLED case does. Cached like every other TFT
+ * field rather than repainted every frame, unlike the OLED's whole-buffer
+ * flush.
+ */
+function clockLoop(display: TftDisplayEmit, width: number, height: number): string[] {
+  const p = `_tft_${display.id}`
+  const id = display.id
+  const g = transportClockGeometry(width, height)
+  const s = CLOCK_TEXT_SLOTS
+  const dt = display.dateTimeExpr
+  return [
+    `      char _tftTime_${id}[16]; char _tftDate_${id}[16];`,
+    `      bool _tftClockValid_${id} = ${dt ? `${dt}.valid` : 'false'};`,
+    `      if (_tftClockValid_${id}) {`,
+    `        snprintf(_tftTime_${id}, sizeof(_tftTime_${id}), "%02d:%02d:%02d", `
+      + `${dt ? `(int)${dt}.hour` : 0}, ${dt ? `(int)${dt}.minute` : 0}, ${dt ? `(int)${dt}.second` : 0});`,
+    `        snprintf(_tftDate_${id}, sizeof(_tftDate_${id}), "%04d-%02d-%02d", `
+      + `${dt ? `(int)${dt}.year` : 0}, ${dt ? `(int)${dt}.month` : 1}, ${dt ? `(int)${dt}.day` : 1});`,
+    `      } else {`,
+    `        snprintf(_tftTime_${id}, sizeof(_tftTime_${id}), "--:--:--");`,
+    `        _tftDate_${id}[0] = 0;`,
+    `      }`,
+    `      if (_tftTextDirty(${p}, ${s.time}, _tftTime_${id}) || _tftFull_${id}) `
+      + `_tftField(${p}, ${fieldArgs(g.time)}, _tftTime_${id}, TFT_C_TEXT, TFT_C_BG);`,
+    `      if (_tftTextDirty(${p}, ${s.date}, _tftDate_${id}) || _tftFull_${id}) `
+      + `_tftField(${p}, ${fieldArgs(g.date)}, _tftDate_${id}, TFT_C_DIM, TFT_C_BG);`,
+    `      bool _tftClockSynced_${id} = ${dt ? `(${dt}.synced && !${dt}.stale)` : 'false'};`,
+    `      const char *_tftClockStatus_${id} = !_tftClockValid_${id} ? "NO CLOCK" : `
+      + `(_tftClockSynced_${id} ? "SYNCED" : "NOT SYNCED");`,
+    `      if (_tftTextDirty(${p}, ${s.status}, _tftClockStatus_${id}) || _tftFull_${id}) `
+      + `_tftField(${p}, ${fieldArgs(g.status)}, _tftClockStatus_${id}, `
+      + `!_tftClockValid_${id} ? TFT_C_OFF : (_tftClockSynced_${id} ? TFT_C_ON : TFT_C_ACCENT), TFT_C_BG);`,
+  ]
+}
+
+/**
  * Nothing is plugged in, and the panel says so.
  *
  * Both rows are fixed text, so they are painted on a full repaint only — the
@@ -942,6 +988,8 @@ export function tftDisplayLoopCpp(display: TftDisplayEmit): string[] {
   const size = tftRotatedSize(display.controller, display.rotation)
   const body = display.layout === 'Waiting'
     ? waitingLoop(display, size.width, size.height)
+    : display.layout === 'Clock'
+    ? clockLoop(display, size.width, size.height)
     : display.layout === 'Diagnostics'
     ? diagnosticsLoop(display, size.width, size.height)
     : display.layout === 'Show Status'

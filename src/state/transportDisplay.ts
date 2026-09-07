@@ -29,7 +29,7 @@ import { displayString } from './displayText'
 import { DISPLAY_WAITING_TEXT, type DisplaySignalKind } from './displaySignal'
 
 export const TRANSPORT_DISPLAY_LAYOUTS = [
-  'Waiting', 'Now Playing', 'Fixed Transport', 'Show Status', 'Diagnostics',
+  'Waiting', 'Clock', 'Now Playing', 'Fixed Transport', 'Show Status', 'Diagnostics',
 ] as const
 export type TransportDisplayLayout = (typeof TRANSPORT_DISPLAY_LAYOUTS)[number]
 
@@ -52,13 +52,12 @@ export function asTransportDisplayLayout(value: unknown): TransportDisplayLayout
  * can change how a player screen is drawn and can never make a player screen
  * show a slideshow.
  *
- * `clock` is deliberately empty. There is no colour clock layout yet, and an
- * empty list makes a large panel wired to an RTC report itself unresolved and
- * draw its waiting screen, rather than quietly borrowing a layout built for
- * something else.
+ * `clock` offers exactly one treatment, the same way `slideshow` does — a
+ * clock is not two different screens depending on taste, it is one reading
+ * drawn large.
  */
 const TRANSPORT_LAYOUTS_BY_KIND: Record<DisplaySignalKind, readonly TransportDisplayLayout[]> = {
-  clock: [],
+  clock: ['Clock'],
   player: ['Now Playing', 'Fixed Transport'],
   slideshow: ['Show Status'],
 }
@@ -697,10 +696,76 @@ export function drawTransportDiagnostics(surface: TftSurface, data: TransportDia
   drawTftField(surface, g.rawCoordinates, diagnosticsRawCoordinateText(data), c.dim, c.background)
 }
 
+// ── Clock ────────────────────────────────────────────────────────────────
+
+/**
+ * An RTC's own reading, drawn large.
+ *
+ * The colour twin of `InfoDisplay`'s Clock layout, but the extra room and a
+ * third channel — colour — buy two things the 1-bit panel cannot afford: the
+ * hour reads with seconds, since a static HH:MM on a screen this size looks
+ * stopped rather than merely quiet, and the sync state is a colour
+ * (green/amber/red) rather than only a word, legible from further away than
+ * text alone.
+ */
+export interface TransportClockData {
+  timeText: string
+  dateText: string
+  valid: boolean
+  synced: boolean
+  stale: boolean
+}
+
+export interface ClockGeometry {
+  time: TftField
+  date: TftField
+  status: TftField
+}
+
+/**
+ * Centred as a block, the same reasoning as `transportWaitingGeometry`: a
+ * clock face pinned to a corner of a 240-pixel panel reads as a rendering
+ * fault, not as a clock.
+ */
+export function transportClockGeometry(width: number, height: number): ClockGeometry {
+  const inner = width - (M.margin * 2)
+  const timeH = tftTextHeight(M.headingScale)
+  const dateH = tftTextHeight(M.bodyScale)
+  const statusH = tftTextHeight(M.bodyScale)
+  const blockH = timeH + M.rowGap + dateH + M.rowGap + statusH
+  const top = Math.max(M.margin, Math.floor((height - blockH) / 2))
+  return {
+    time: field(M.margin, top, inner, M.headingScale, 'center'),
+    date: field(M.margin, top + timeH + M.rowGap, inner, M.bodyScale, 'center'),
+    status: field(M.margin, top + timeH + M.rowGap + dateH + M.rowGap, inner, M.bodyScale, 'center'),
+  }
+}
+
+function clockStatusColor(data: TransportClockData): number {
+  const c = TRANSPORT_COLORS
+  if (!data.valid) return c.off
+  return data.synced && !data.stale ? c.on : c.accent
+}
+
+/** Three states an RTC can report, distinct from the OLED's two: a stale sync counts as not synced. */
+export function clockStatusText(data: TransportClockData): string {
+  if (!data.valid) return 'NO CLOCK'
+  return data.synced && !data.stale ? 'SYNCED' : 'NOT SYNCED'
+}
+
+export function drawTransportClock(surface: TftSurface, data: TransportClockData): void {
+  const g = transportClockGeometry(surface.width, surface.height)
+  const c = TRANSPORT_COLORS
+  drawTftField(surface, g.time, data.timeText, c.text, c.background)
+  drawTftField(surface, g.date, data.dateText, c.dim, c.background)
+  drawTftField(surface, g.status, clockStatusText(data), clockStatusColor(data), c.background)
+}
+
 // ── Rendering ───────────────────────────────────────────────────────────────
 
 export type TransportDisplayData =
   | { layout: 'Waiting' }
+  | { layout: 'Clock'; data: TransportClockData }
   | { layout: 'Now Playing'; data: TransportNowPlayingData }
   | { layout: 'Fixed Transport'; data: TransportFixedData }
   | { layout: 'Show Status'; data: TransportShowStatusData }
@@ -716,6 +781,7 @@ export function renderTransportDisplay(
   clearTftSurface(surface, TRANSPORT_COLORS.background)
   switch (input.layout) {
     case 'Waiting': drawTransportWaiting(surface); break
+    case 'Clock': drawTransportClock(surface, input.data); break
     case 'Now Playing': drawTransportNowPlaying(surface, input.data); break
     case 'Fixed Transport': drawTransportFixed(surface, input.data); break
     case 'Show Status': drawTransportShowStatus(surface, input.data); break
@@ -733,6 +799,9 @@ export function renderTransportDisplay(
  */
 export function blankTransportData(layout: TransportDisplayLayout): TransportDisplayData {
   if (layout === 'Waiting') return { layout }
+  if (layout === 'Clock') {
+    return { layout, data: { timeText: '--:--:--', dateText: '', valid: false, synced: false, stale: true } }
+  }
   if (layout === 'Fixed Transport') {
     return { layout, data: { title: '', patternName: '', playing: false, volume: 0 } }
   }

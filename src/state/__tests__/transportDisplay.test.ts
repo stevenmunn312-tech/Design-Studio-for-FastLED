@@ -83,9 +83,9 @@ describe('layout selection', () => {
   // `Waiting` leads because it is what a panel shows before any source picks
   // one of the others, and it is generated like the rest rather than being a
   // browser-only placeholder.
-  it('offers the five layouts that can be generated', () => {
+  it('offers the six layouts that can be generated', () => {
     expect([...TRANSPORT_DISPLAY_LAYOUTS]).toEqual([
-      'Waiting', 'Now Playing', 'Fixed Transport', 'Show Status', 'Diagnostics',
+      'Waiting', 'Clock', 'Now Playing', 'Fixed Transport', 'Show Status', 'Diagnostics',
     ])
   })
 

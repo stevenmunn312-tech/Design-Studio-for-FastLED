@@ -32,10 +32,10 @@ import {
 } from './patternThumbnail'
 import {
   asTransportDisplayLayout, renderTransportDisplay, transportArtworkFromFrame,
-  transportLayoutForKind,
+  transportLayoutForKind, blankTransportData,
   TRANSPORT_ARTWORK_H, TRANSPORT_ARTWORK_SUPERSAMPLE, TRANSPORT_ARTWORK_TICK_SEC,
   TRANSPORT_ARTWORK_W,
-  type TransportDisplayData, type TransportDisplayLayout,
+  type TransportDisplayData, type TransportDisplayLayout, type TransportClockData,
 } from './transportDisplay'
 import { TFT_CONTROLLERS, asTftRotation, tftLine, type TftSurface } from './tftSurface'
 import { touchRegionAt, transportTouchRegions } from './transportTouch'
@@ -7433,9 +7433,23 @@ function createEvalNode(
             },
           }
         } else if (layout === 'Waiting' || !signal) {
-          // Unwired, or wired to a source with no colour layout — an RTC, for
-          // now. Either way the panel says so rather than sitting blank.
+          // Unwired, or wired to a source with no colour layout at all. The
+          // panel says so rather than sitting blank.
           payload = { layout: 'Waiting' }
+        } else if (layout === 'Clock') {
+          const clock = signal.kind === 'clock' ? signal.clock : null
+          payload = {
+            layout: 'Clock',
+            data: clock && clock.valid
+              ? {
+                timeText: `${String(clock.hour).padStart(2, '0')}:${String(clock.minute).padStart(2, '0')}:${String(clock.second).padStart(2, '0')}`,
+                dateText: `${clock.year}-${String(clock.month).padStart(2, '0')}-${String(clock.day).padStart(2, '0')}`,
+                valid: true,
+                synced: clock.synced === true,
+                stale: clock.stale === true,
+              }
+              : (blankTransportData('Clock') as { layout: 'Clock'; data: TransportClockData }).data,
+          }
         } else if (layout === 'Show Status') {
           const selection = signal.kind === 'slideshow' ? signal.selection : null
           payload = {

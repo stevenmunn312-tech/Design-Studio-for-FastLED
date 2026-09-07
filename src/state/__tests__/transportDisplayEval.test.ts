@@ -95,10 +95,8 @@ describe('what decides the screen', () => {
     expect(evaluate({ tftLayout: 'Fixed Transport' })?.layout).toBe('Waiting')
   })
 
-  // There is no colour clock layout yet, so an RTC is not a legal source for
-  // this panel. It says so rather than borrowing a screen built for a player.
-  it('waits for a source it has no layout for', () => {
-    expect(evaluate({}, { source: 'RTCInput' })?.layout).toBe('Waiting')
+  it('takes the Clock layout from a wired RTC', () => {
+    expect(evaluate({}, { source: 'RTCInput' })?.layout).toBe('Clock')
   })
 
   // Device lifecycle, not content — so it comes from the property and never

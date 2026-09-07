@@ -74,6 +74,7 @@ export function standaloneDisplaysCpp(nodes: StudioNode[]): StandaloneDisplayEmi
     layout: display.layout, csPin: display.csPin, dcPin: display.dcPin,
     resetPin: display.resetPin, sckPin: display.sckPin, mosiPin: display.mosiPin,
     backlightPin: display.backlightPin, enabledExpr: display.enabled ? 'true' : 'false',
+    dateTimeExpr: null,
     titleExpr: null, artistExpr: null, patternNameExpr: null,
     elapsedExpr: '0.0f', durationExpr: '0.0f', progressExpr: '0.0f',
     playingExpr: 'false', volumeExpr: '0.0f', patternIndexExpr: '0', patternCountExpr: '0',
