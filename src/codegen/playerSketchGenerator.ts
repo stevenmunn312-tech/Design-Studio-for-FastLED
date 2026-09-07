@@ -747,6 +747,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
   const hasPatternSelection = browserEmits.length > 0 || hasPatternControls || hasTftArtwork
   const infoEmits = displays.info.map((display) => ({
     id: safePlayerId(display.id),
+    controller: display.controller,
     transport: display.transport,
     csPin: display.csPin,
     dcPin: display.dcPin,

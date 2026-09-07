@@ -5020,6 +5020,7 @@ export function generateCpp(
         const transport = oledTransportForProps(p)
         const emit: InfoDisplayEmit = {
           id,
+          controller: controller?.id ?? OLED_CONTROLLERS.SH1106.id,
           transport,
           csPin: intProp(p.csPin, 5, 0, MAX_PIN_NUMBER),
           dcPin: intProp(p.dcPin, 16, 0, MAX_PIN_NUMBER),

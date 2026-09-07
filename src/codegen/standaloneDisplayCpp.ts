@@ -54,7 +54,7 @@ export function standaloneDisplaysCpp(nodes: StudioNode[]): StandaloneDisplayEmi
   const hasTft = displays.tft.length > 0
 
   const info: InfoDisplayEmit[] = displays.info.map((display) => ({
-    id: safeId(display.id), transport: display.transport,
+    id: safeId(display.id), controller: display.controller, transport: display.transport,
     csPin: display.csPin, dcPin: display.dcPin, resetPin: display.resetPin,
     sckPin: display.sckPin, mosiPin: display.mosiPin, address: display.address,
     columnOffset: display.columnOffset, segmentRemap: display.segmentRemap,

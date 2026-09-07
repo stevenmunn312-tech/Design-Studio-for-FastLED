@@ -52,6 +52,7 @@ interface ConfigEdge {
 export interface PlayerInfoDisplay {
   id: string
   partId: string
+  controller: string
   layout: InfoDisplayLayout
   /** Which wires carry the bytes; the layout is the same either way. */
   transport: OledTransport
@@ -317,6 +318,7 @@ export function playerDisplaysFromGraph(
       info.push({
         id: node.id,
         partId,
+        controller: controller?.id ?? OLED_CONTROLLERS.SH1106.id,
         layout: kind ? infoLayoutForKind(kind) : 'Waiting',
         transport: oledTransportForProps(props),
         csPin: intProp(props.csPin, 5),

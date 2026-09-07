@@ -62,7 +62,7 @@ function expectFixedDisplaySupport(source: string): void {
   // standalone/template paths use the module's resolved pins. Either way the
   // bus must be explicitly started before the OLED's begin call.
   expect(source).toContain('Wire.begin(')
-  expect(source).toContain('_oledBeginI2c(_oled_oled, 0x3c')
+  expect(source).toContain('_oledBeginI2c(_oled_oled, OLED_SSD1306, 0x3c')
   expect(source).toContain('_segBegin(_seg_segment, SEG_KIND_TM1637, 4, 32, 33, 21, 4);')
   expect(source).toContain('_tftBegin(_tft_tft, 5, 16, 17, 18, 23, 4,')
 

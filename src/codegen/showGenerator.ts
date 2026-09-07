@@ -414,6 +414,7 @@ function showDisplaysCpp(
 
   const infoEmits: InfoDisplayEmit[] = displays.info.map((display) => ({
     id: safeId(display.id),
+    controller: display.controller,
     transport: display.transport,
     csPin: display.csPin,
     dcPin: display.dcPin,

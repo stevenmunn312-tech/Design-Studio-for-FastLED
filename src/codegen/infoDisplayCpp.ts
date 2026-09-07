@@ -78,8 +78,8 @@ const OLED_MAX_WIDTH = 128
 const OLED_MAX_HEIGHT = 64
 const OLED_MAX_PAGES = OLED_MAX_HEIGHT / OLED_PAGE_HEIGHT
 
-/** transport, cs/dc/rst/sck/mosi, addr, columnOffset, segmentRemap, comScan, w, h, pages, written. */
-const OLED_PANEL_BYTE_MEMBERS = 14
+/** transport, controller, cs/dc/rst/sck/mosi, addr, columnOffset, segmentRemap, comScan, w, h, pages, written. */
+const OLED_PANEL_BYTE_MEMBERS = 15
 
 function alignTo4(bytes: number): number {
   return Math.ceil(bytes / 4) * 4
@@ -134,6 +134,8 @@ static const uint8_t _oledFont[${font.count} * OLED_FONT_W] = { ${font.table} };
 // src/state/oledSurface.ts, where the surface knows nothing about the bus.
 #define OLED_SPI 0
 #define OLED_I2C 1
+#define OLED_SH1106  0
+#define OLED_SSD1306 1
 // Control byte prefixes an I2C write: 0x00 says the payload is commands,
 // 0x40 says it is display RAM. SPI says the same thing with the D/C line.
 #define OLED_I2C_CMD  0x00
@@ -145,6 +147,7 @@ static const uint8_t _oledFont[${font.count} * OLED_FONT_W] = { ${font.table} };
 
 struct OledPanel {
   uint8_t transport;
+  uint8_t controller;
   // SPI wires. A 4-pin I2C module has none of these.
   uint8_t cs, dc, rst, sck, mosi;
   // I2C. The address is a solder blob on the module: 0x3C or 0x3D.
@@ -213,15 +216,21 @@ static void _oledInit(OledPanel &p) {
   _oledCommand(p, 0xA8); _oledCommand(p, (uint8_t)(p.h - 1));
   _oledCommand(p, 0xD3); _oledCommand(p, 0x00);
   _oledCommand(p, 0x40);
-  _oledCommand(p, 0xAD); _oledCommand(p, 0x8B);   // SH1106 charge pump; ignored by SSD1306
+  if (p.controller == OLED_SSD1306) {
+    _oledCommand(p, 0x8D); _oledCommand(p, 0x14); // SSD1306 internal charge pump
+  } else {
+    _oledCommand(p, 0xAD); _oledCommand(p, 0x8B); // SH1106 internal DC/DC
+  }
   _oledCommand(p, p.segmentRemap);    // segment remap, per mounted rotation
   _oledCommand(p, p.comScan);         // COM scan direction, likewise
   // COM pin layout follows the same fact: alternative for a 64-row panel,
   // sequential for a 32-row one, and getting it wrong interleaves the image.
   _oledCommand(p, 0xDA); _oledCommand(p, (uint8_t)(p.h > 32 ? 0x12 : 0x02));
   _oledCommand(p, 0x81); _oledCommand(p, 0x80);   // contrast
-  _oledCommand(p, 0xD9); _oledCommand(p, 0x22);
-  _oledCommand(p, 0xDB); _oledCommand(p, 0x35);
+  _oledCommand(p, 0xD9);
+  _oledCommand(p, p.controller == OLED_SSD1306 ? 0xF1 : 0x22);
+  _oledCommand(p, 0xDB);
+  _oledCommand(p, p.controller == OLED_SSD1306 ? 0x40 : 0x35);
   _oledCommand(p, 0xA4);              // resume from RAM
   _oledCommand(p, 0xA6);              // normal, not inverted
   _oledCommand(p, 0xAF);              // display on
@@ -243,10 +252,11 @@ static void _oledCommon(OledPanel &p, uint8_t transport, uint8_t w, uint8_t h,
   for (uint16_t i = 0; i < sizeof(p.buf); i++) { p.buf[i] = 0; p.last[i] = 0; }
 }
 
-static void _oledBeginSpi(OledPanel &p, uint8_t cs, uint8_t dc, uint8_t rst,
+static void _oledBeginSpi(OledPanel &p, uint8_t controller, uint8_t cs, uint8_t dc, uint8_t rst,
                           uint8_t sck, uint8_t mosi, uint8_t w, uint8_t h,
                           uint8_t columnOffset, uint8_t segmentRemap, uint8_t comScan) {
   _oledCommon(p, OLED_SPI, w, h, columnOffset, segmentRemap, comScan);
+  p.controller = controller;
   p.cs = cs; p.dc = dc; p.rst = rst; p.sck = sck; p.mosi = mosi;
   p.addr = 0;
 
@@ -262,9 +272,10 @@ static void _oledBeginSpi(OledPanel &p, uint8_t cs, uint8_t dc, uint8_t rst,
 // the two bus wires, and resets itself from its own RC network at power-up.
 // Wire.begin() is the sketch's, not this panel's — every I2C device on the
 // board shares one bus, so one place starts it.
-static void _oledBeginI2c(OledPanel &p, uint8_t addr, uint8_t w, uint8_t h,
+static void _oledBeginI2c(OledPanel &p, uint8_t controller, uint8_t addr, uint8_t w, uint8_t h,
                           uint8_t columnOffset, uint8_t segmentRemap, uint8_t comScan) {
   _oledCommon(p, OLED_I2C, w, h, columnOffset, segmentRemap, comScan);
+  p.controller = controller;
   p.cs = 0; p.dc = 0; p.rst = 0; p.sck = 0; p.mosi = 0;
   p.addr = addr;
   _oledInit(p);
@@ -388,6 +399,8 @@ static void _oledTime(char *dst, size_t dstSize, float seconds) {
 
 export interface InfoDisplayEmit {
   id: string
+  /** Controller-specific power-up commands differ even when the page protocol matches. */
+  controller: OledController['id']
   /** Which wires carry the bytes; the layout is the same either way. */
   transport: OledTransport
   csPin: number
@@ -477,13 +490,14 @@ function infoBootDrawCpp(
 
 export function infoDisplaySetupCpp(display: InfoDisplayEmit): string[] {
   const rotation = `0x${display.segmentRemap.toString(16)}, 0x${display.comScan.toString(16)}`
+  const controller = display.controller === 'SSD1306' ? 'OLED_SSD1306' : 'OLED_SH1106'
   const begin = display.transport === 'i2c'
     ? [
-      `  _oledBeginI2c(_oled_${display.id}, 0x${display.address.toString(16)}, ` +
+      `  _oledBeginI2c(_oled_${display.id}, ${controller}, 0x${display.address.toString(16)}, ` +
         `${display.width}, ${display.height}, ${display.columnOffset}, ${rotation});`,
     ]
     : [
-      `  _oledBeginSpi(_oled_${display.id}, ${display.csPin}, ${display.dcPin}, ${display.resetPin}, ` +
+      `  _oledBeginSpi(_oled_${display.id}, ${controller}, ${display.csPin}, ${display.dcPin}, ${display.resetPin}, ` +
         `${display.sckPin}, ${display.mosiPin}, ${display.width}, ${display.height}, ` +
         `${display.columnOffset}, ${rotation});`,
     ]
@@ -604,9 +618,9 @@ export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
       `      bool _oledValid_${display.id} = ${dt ? `${dt}.valid` : 'false'};`,
       `      if (_oledValid_${display.id}) {`,
       `        snprintf(_oledT_${display.id}, sizeof(_oledT_${display.id}), "%02d:%02d", ` +
-        `${dt ? `${dt}.hour` : 0}, ${dt ? `${dt}.minute` : 0});`,
+        `${dt ? `(int)${dt}.hour` : 0}, ${dt ? `(int)${dt}.minute` : 0});`,
       `        snprintf(_oledD_${display.id}, sizeof(_oledD_${display.id}), "%04d-%02d-%02d", ` +
-        `${dt ? `${dt}.year` : 0}, ${dt ? `${dt}.month` : 1}, ${dt ? `${dt}.day` : 1});`,
+        `${dt ? `(int)${dt}.year` : 0}, ${dt ? `(int)${dt}.month` : 1}, ${dt ? `(int)${dt}.day` : 1});`,
       `      } else {`,
       `        snprintf(_oledT_${display.id}, sizeof(_oledT_${display.id}), "--:--");`,
       `        _oledD_${display.id}[0] = 0;`,

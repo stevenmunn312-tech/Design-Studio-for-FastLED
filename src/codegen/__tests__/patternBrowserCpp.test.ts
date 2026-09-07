@@ -25,7 +25,7 @@ const table = (n: number) => patternThumbnailTableCpp('br',
   Array.from({ length: n }, (_, i) => ({ name: `PATTERN ${i}`, thumbnail: lit(0xa5) })))
 
 const emit = (over: Partial<InfoDisplayEmit> = {}): InfoDisplayEmit => ({
-  id: 'br', transport: 'spi', csPin: 1, dcPin: 2, resetPin: 5, sckPin: 6, mosiPin: 7,
+  id: 'br', controller: 'SH1106', transport: 'spi', csPin: 1, dcPin: 2, resetPin: 5, sckPin: 6, mosiPin: 7,
   address: 0x3c, width: 128, height: 64, columnOffset: 2, segmentRemap: 0xa0, comScan: 0xc0,
   layout: 'Pattern Browser', enabledExpr: 'true',
   titleExpr: null, line2Expr: null, valueExpr: '0.0f', progressExpr: '0.0f',

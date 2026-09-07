@@ -79,7 +79,7 @@ describe('generateCpp with an OLED', () => {
     const src = generateCpp([outputNode, oled()], [])
     // ...128, 64 being the panel's own glass, which is what it addresses and
     // flushes rather than a sketch-wide constant.
-    expect(src).toContain('_oledBeginSpi(_oled_oled, 5, 16, 17, 18, 23, 128, 64, 2, 0xa0, 0xc0);')
+    expect(src).toContain('_oledBeginSpi(_oled_oled, OLED_SH1106, 5, 16, 17, 18, 23, 128, 64, 2, 0xa0, 0xc0);')
     expect(src).toContain('_oledFlush(_oled_oled,')
     expect(src).toContain('static OledPanel _oled_oled;')
   })
@@ -112,6 +112,17 @@ describe('generateCpp with an OLED', () => {
     expect(sh).toContain(`, ${OLED_CONTROLLERS.SH1106.columnOffset}, 0xa0, 0xc0);`)
     expect(ssd).toContain(`, ${OLED_CONTROLLERS.SSD1306.columnOffset}, 0xa0, 0xc0);`)
     expect(OLED_CONTROLLERS.SH1106.columnOffset).not.toBe(OLED_CONTROLLERS.SSD1306.columnOffset)
+  })
+
+  it('emits the controller-specific charge-pump sequence', () => {
+    const helpers = infoDisplayHelpersCpp()
+    expect(helpers).toContain('_oledCommand(p, 0xAD); _oledCommand(p, 0x8B); // SH1106 internal DC/DC')
+    expect(helpers).toContain('_oledCommand(p, 0x8D); _oledCommand(p, 0x14); // SSD1306 internal charge pump')
+
+    const sh = generateCpp([outputNode, oled({ partId: 'sh1106-oled-128x64' })], [])
+    const ssd = generateCpp([outputNode, oled({ partId: 'ssd1306-oled-128x64' })], [])
+    expect(sh).toContain('_oledBeginSpi(_oled_oled, OLED_SH1106,')
+    expect(ssd).toContain('_oledBeginI2c(_oled_oled, OLED_SSD1306,')
   })
 
   // The change that keeps a display in the sketch at all.
@@ -175,6 +186,7 @@ describe('generateCpp with an OLED', () => {
     const src = generateCpp(nodes, [edge('e', 'rtc', 'oled', 'display', 'display')])
     expect(src).toContain('n_rtc_dateTime.valid')
     expect(src).toContain('n_rtc_dateTime.hour')
+    expect(src).toContain('(int)n_rtc_dateTime.hour')
     expect(src).toContain('"--:--"')
   })
 
@@ -216,7 +228,7 @@ describe('generateCpp with an I2C OLED', () => {
 
   it('begins the panel on the bus rather than on four wires', () => {
     const src = generateCpp([outputNode, i2c()], [])
-    expect(src).toContain('_oledBeginI2c(_oled_oled, 0x3c, 128, 64, 0, 0xa0, 0xc0);')
+    expect(src).toContain('_oledBeginI2c(_oled_oled, OLED_SSD1306, 0x3c, 128, 64, 0, 0xa0, 0xc0);')
     expect(src).not.toContain('_oledBeginSpi(_oled_oled')
   })
 
@@ -237,7 +249,7 @@ describe('generateCpp with an I2C OLED', () => {
 
   it('honours the strap the module was set to', () => {
     expect(generateCpp([outputNode, i2c({ i2cAddress: '0x3D' })], []))
-      .toContain('_oledBeginI2c(_oled_oled, 0x3d,')
+      .toContain('_oledBeginI2c(_oled_oled, OLED_SSD1306, 0x3d,')
   })
 
   // The DS3231 and the panel are one bus with two addresses, so one begin.
