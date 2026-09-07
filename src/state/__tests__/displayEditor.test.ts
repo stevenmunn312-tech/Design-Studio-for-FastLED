@@ -12,6 +12,7 @@ import {
   pasteDisplayWidgets,
   removeDisplayWidget,
   removeDisplayWidgets,
+  resizeDisplayDocument,
   translateDisplayWidgets,
   updateDisplayWidget,
 } from '../displayEditor'
@@ -23,6 +24,23 @@ describe('custom display editor model', () => {
     first.theme.accentColor = '#000000'
     expect(first).toMatchObject({ schemaVersion: 1, displayId: 'panel-a', designSize: { width: 320, height: 240 }, orientation: '90', gridSize: 8 })
     expect(second.theme.accentColor).not.toBe('#000000')
+  })
+
+  it('reflows a complete layout when the mounted display changes orientation', () => {
+    const portrait = {
+      ...createDisplayDocument('panel', 240, 320),
+      widgets: [
+        { id: 'left', type: 'Toggle' as const, label: 'Left', bounds: { x: 8, y: 184, width: 104, height: 64 }, properties: {} },
+        { id: 'right', type: 'Toggle' as const, label: 'Right', bounds: { x: 128, y: 184, width: 104, height: 64 }, properties: {} },
+      ],
+    }
+    const landscape = resizeDisplayDocument(portrait, { width: 320, height: 240 }, '90')
+    expect(landscape).toMatchObject({ designSize: { width: 320, height: 240 }, orientation: '90' })
+    expect(displayLayoutIssues(landscape)).toEqual([])
+
+    const restored = resizeDisplayDocument(landscape, { width: 240, height: 320 }, '0')
+    expect(restored).toMatchObject({ designSize: { width: 240, height: 320 }, orientation: '0' })
+    expect(displayLayoutIssues(restored)).toEqual([])
   })
 
   it('adds registry-backed widgets with stable unique ids and free positions', () => {

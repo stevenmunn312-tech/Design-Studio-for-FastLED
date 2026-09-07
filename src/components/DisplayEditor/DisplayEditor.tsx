@@ -32,12 +32,13 @@ import {
   distributeDisplayWidgets,
   duplicateDisplayWidgets,
   pasteDisplayWidgets,
+  resizeDisplayDocument,
   removeDisplayWidgets,
   translateDisplayWidgets,
   updateDisplayWidget,
   type DisplayLayoutIssue,
 } from '../../state/displayEditor'
-import type { DisplayBounds, DisplayDocument, DisplayWidget, DisplayWidgetType } from '../../state/displayDocument'
+import type { DisplayBounds, DisplayDocument, DisplayOrientation, DisplayWidget, DisplayWidgetType } from '../../state/displayDocument'
 import {
   displayWidgetVisualState,
   resolveDisplayThemeTokens,
@@ -407,6 +408,7 @@ export default function DisplayEditor() {
   const displayId = view.kind === 'display' ? view.displayId : ''
   const persisted = useGraphStore((state) => state.displayDocuments[displayId])
   const setDisplayDocument = useGraphStore((state) => state.setDisplayDocument)
+  const updateNodeProperty = useGraphStore((state) => state.updateNodeProperty)
   const viewportRef = useRef<HTMLDivElement>(null)
   const gesture = useRef<Gesture | null>(null)
   const [draft, setDraft] = useState<DisplayDocument | null>(persisted ?? null)
@@ -695,6 +697,30 @@ export default function DisplayEditor() {
       : 'Design mode active. Touch controls are locked for editing.')
   }
 
+  const setDisplayOrientation = (orientation: Extract<DisplayOrientation, '0' | '90'>) => {
+    const shortEdge = Math.min(document.designSize.width, document.designSize.height)
+    const longEdge = Math.max(document.designSize.width, document.designSize.height)
+    const designSize = orientation === '0'
+      ? { width: shortEdge, height: longEdge }
+      : { width: longEdge, height: shortEdge }
+    const resized = resizeDisplayDocument(document, designSize, orientation)
+    const background = resized.theme.background
+    const [category, themeId] = background.kind === 'image' ? background.assetId.split(':') : []
+    const matchingBackground = category === 'background' && themeId
+      ? displayAsset(`background:${themeId}:${designSize.width}x${designSize.height}`)
+      : undefined
+    const next = matchingBackground
+      ? { ...resized, theme: { ...resized.theme, background: { kind: 'image' as const, assetId: matchingBackground.id } } }
+      : resized
+    const displayNode = rootGraphNodes(useGraphStore.getState()).find((node) => (
+      node.data.nodeType === 'Display'
+      && String(node.data.properties.displayId ?? node.id) === displayId
+    ))
+    if (displayNode) updateNodeProperty(displayNode.id, 'tftRotation', orientation)
+    if (editorMode === 'run') setMode('design')
+    commit(next, `${orientation === '0' ? 'Portrait' : 'Landscape'} view applied at ${designSize.width} × ${designSize.height}.`)
+  }
+
   const runValue = (widget: DisplayWidget): DisplayControlValue | undefined => {
     void runTick
     const fallback = initialDisplayControlValue(widget)
@@ -790,6 +816,10 @@ export default function DisplayEditor() {
           <div className={styles.modeSwitch} role="group" aria-label="Display editor mode">
             <button type="button" aria-pressed={editorMode === 'design'} onClick={() => setMode('design')}>Design</button>
             <button type="button" aria-pressed={editorMode === 'run'} onClick={() => setMode('run')}>Run</button>
+          </div>
+          <div className={styles.orientationSwitch} role="group" aria-label="Display orientation">
+            <button type="button" aria-pressed={document.designSize.height >= document.designSize.width} onClick={() => setDisplayOrientation('0')}>Portrait</button>
+            <button type="button" aria-pressed={document.designSize.width > document.designSize.height} onClick={() => setDisplayOrientation('90')}>Landscape</button>
           </div>
           {editorMode === 'design' && (
             <>

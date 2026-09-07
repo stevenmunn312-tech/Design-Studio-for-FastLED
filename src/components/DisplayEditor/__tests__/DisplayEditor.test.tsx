@@ -161,6 +161,47 @@ describe('DisplayEditor', () => {
     expect(view.getByRole('button', { name: /Button, Previous\. Position/ }).getAttribute('aria-pressed')).toBe('true')
   })
 
+  it('keeps every portrait template control visible and interactive in Run mode', () => {
+    useGraphStore.getState().setDisplayDocument(createDisplayDocument('panel', 240, 320))
+    const view = render(<DisplayEditor />)
+    fireEvent.click(view.getByRole('button', { name: 'Insert Pattern Deck template' }))
+    fireEvent.click(view.getByRole('button', { name: 'Run' }))
+
+    expect(view.getByRole('button', { name: 'Previous run preview' })).toBeTruthy()
+    expect(view.getByRole('button', { name: 'Confirm run preview' })).toBeTruthy()
+    expect(view.getByRole('button', { name: 'Next run preview' })).toBeTruthy()
+    expect(view.getByRole('switch', { name: 'Shuffle run preview' })).toBeTruthy()
+    expect(view.getByRole('switch', { name: 'Auto advance run preview' })).toBeTruthy()
+  })
+
+  it('switches the display between portrait and landscape while retaining a valid layout', () => {
+    useGraphStore.getState().setDisplayDocument(createDisplayDocument('panel', 240, 320))
+    useGraphStore.setState({
+      nodes: [{
+        id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
+        data: {
+          label: 'Custom Display', nodeType: 'Display', category: 'output',
+          properties: { displayId: 'panel', tftRotation: '0' }, inputs: [], outputs: [],
+        },
+      } as unknown as StudioNode],
+    })
+    const view = render(<DisplayEditor />)
+    fireEvent.click(view.getByRole('button', { name: 'Insert LED Performance template' }))
+    fireEvent.click(view.getByRole('button', { name: 'Landscape' }))
+
+    expect(useGraphStore.getState().displayDocuments.panel).toMatchObject({
+      designSize: { width: 320, height: 240 }, orientation: '90',
+    })
+    expect(useGraphStore.getState().nodes.find((node) => node.id === 'screen')?.data.properties.tftRotation).toBe('90')
+    expect(view.getByText('320 × 240')).toBeTruthy()
+    expect(view.getByRole('status', { name: 'Display validation status' }).textContent).toContain('Layout valid.')
+
+    fireEvent.click(view.getByRole('button', { name: 'Portrait' }))
+    expect(useGraphStore.getState().displayDocuments.panel).toMatchObject({
+      designSize: { width: 240, height: 320 }, orientation: '0',
+    })
+  })
+
   it('shows the pack artwork on the widget palette and the template list', () => {
     const view = render(<DisplayEditor />)
 

@@ -28,7 +28,8 @@
   gap: 8px;
 }
 
-.modeSwitch {
+.modeSwitch,
+.orientationSwitch {
   display: flex;
   gap: 2px;
   padding: 2px;
@@ -37,12 +38,14 @@
   background: var(--bg-primary);
 }
 
-.modeSwitch button {
+.modeSwitch button,
+.orientationSwitch button {
   border-color: transparent;
   background: transparent;
 }
 
-.modeSwitch button[aria-pressed='true'] {
+.modeSwitch button[aria-pressed='true'],
+.orientationSwitch button[aria-pressed='true'] {
   border-color: color-mix(in srgb, var(--accent-output) 55%, var(--border-glow));
   background: color-mix(in srgb, var(--accent-output) 13%, var(--bg-node));
   color: var(--accent-output);

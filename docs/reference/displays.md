@@ -149,6 +149,10 @@ controls, including Shuffle, Auto advance, and Freeze.
 Their layout switches to a separate touch-safe portrait composition on the
 240×320 custom panel, so inserting a template does not collapse a landscape
 control row into overlapping targets.
+Use the editor’s **Portrait** and **Landscape** controls to match the panel’s
+mounted rotation. The switch resizes the saved layout proportionally, selects
+the matching background artwork, and updates the display node’s firmware
+rotation at the same time.
 
 ### Firmware scope and troubleshooting
 

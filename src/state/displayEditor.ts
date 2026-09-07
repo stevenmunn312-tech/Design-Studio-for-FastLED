@@ -42,6 +42,61 @@ export function createDisplayDocument(
   }
 }
 
+/** Move a complete screen between its mounted portrait and landscape views.
+ * Widgets retain their relative composition instead of being individually
+ * clamped against the newly swapped edge. */
+export function resizeDisplayDocument(
+  document: DisplayDocument,
+  designSize: { width: number; height: number },
+  orientation: DisplayOrientation,
+): DisplayDocument {
+  const width = Math.max(1, Math.round(designSize.width))
+  const height = Math.max(1, Math.round(designSize.height))
+  const scaleX = width / Math.max(1, document.designSize.width)
+  const scaleY = height / Math.max(1, document.designSize.height)
+  const target = { designSize: { width, height }, gridSize: document.gridSize }
+  const scaled = document.widgets.map((widget) => ({
+    ...widget,
+    bounds: constrainDisplayWidgetBounds(target, widget.type, {
+      x: widget.bounds.x * scaleX,
+      y: widget.bounds.y * scaleY,
+      width: widget.bounds.width * scaleX,
+      height: widget.bounds.height * scaleY,
+    }),
+  }))
+  // Shrinking an axis can bring two controls closer than their required touch
+  // gap after their minimum sizes are restored. Keep each visual's relative
+  // placement, then nudge only a later conflicting control down to the next
+  // grid line. This never affects a same-row pair whose hit regions are apart.
+  const placed: DisplayWidget[] = []
+  for (const widget of [...scaled].sort((a, b) => a.bounds.y - b.bounds.y || a.bounds.x - b.bounds.x)) {
+    let bounds = widget.bounds
+    for (let attempt = 0; attempt < scaled.length; attempt++) {
+      const conflicts = placed.filter((other) => displayWidgetsTooClose({ type: widget.type, bounds }, other))
+      if (conflicts.length === 0) break
+      const candidateHit = displayControlHitBounds({ type: widget.type, bounds })
+      const requiredY = Math.max(...conflicts.map((other) => {
+        const otherHit = displayControlHitBounds(other)
+        return otherHit.y + otherHit.height + DISPLAY_TOUCH_SEPARATION_PX + (bounds.y - candidateHit.y)
+      }))
+      const next = constrainDisplayWidgetBounds(target, widget.type, {
+        ...bounds,
+        y: Math.ceil(requiredY / document.gridSize) * document.gridSize,
+      })
+      if (next.y === bounds.y) break
+      bounds = next
+    }
+    placed.push({ ...widget, bounds })
+  }
+  const boundsById = new Map(placed.map((widget) => [widget.id, widget.bounds]))
+  return {
+    ...document,
+    designSize: { width, height },
+    orientation,
+    widgets: scaled.map((widget) => ({ ...widget, bounds: boundsById.get(widget.id) ?? widget.bounds })),
+  }
+}
+
 function widgetIdStem(type: DisplayWidgetType): string {
   return type.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
