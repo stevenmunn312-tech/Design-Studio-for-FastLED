@@ -1204,6 +1204,31 @@ describe('graphStore — custom display documents', () => {
     }
   })
 
+  /*
+   * A design is mounted on a panel by an ordinary wire, and that wire has to
+   * survive the two things that happen to it constantly: reopening the
+   * workspace, and editing the design. The port sync used to replace the
+   * Display node's whole port set with its widget ports, so `customDisplay`
+   * vanished and the edge filter dropped the mount — a saved screen came back
+   * unplugged from the panel it was drawn for.
+   */
+  it('keeps a design mounted on its panel across a load and an edit', () => {
+    const mount = edge('mount', 'screen', 'customDisplay', 'tft', 'customDisplay')
+    useGraphStore.getState().loadGraph(
+      [node('screen', 'Display', { displayId: 'panel' }),
+        node('tft', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320' })],
+      [mount],
+    )
+    const mounted = () => useGraphStore.getState().edges.some((entry) => entry.id === 'mount')
+    expect(mounted()).toBe(true)
+
+    useGraphStore.getState().setDisplayDocument(addDisplayWidget(createDisplayDocument('panel'), 'Slider'))
+    expect(mounted()).toBe(true)
+    const screen = useGraphStore.getState().nodes.find((entry) => entry.id === 'screen')!
+    expect((screen.data.outputs as { id: string }[]).map((port) => port.id))
+      .toEqual(['customDisplay', 'widget:slider:out'])
+  })
+
   it('derives stable outer-node ports and keeps cables across label edits', () => {
     reset([node('screen', 'Display', { displayId: 'panel' })])
     let document = addDisplayWidget(createDisplayDocument('panel'), 'Text')
@@ -1215,7 +1240,11 @@ describe('graphStore — custom display documents', () => {
       { id: 'widget:text:value', label: 'Text', dataType: 'string' },
       { id: 'widget:toggle:set', label: 'Toggle Set', dataType: 'bool' },
     ])
+    // The library's own `customDisplay` output leads, and the widget ports
+    // follow it. Replacing the whole set with widget ports dropped the wire
+    // that mounts this design on a panel, on load and on every edit.
     expect(screen.data.outputs).toEqual([
+      { id: 'customDisplay', label: 'Custom Display', dataType: 'customdisplay' },
       { id: 'widget:toggle:out', label: 'Toggle Output', dataType: 'bool' },
     ])
 

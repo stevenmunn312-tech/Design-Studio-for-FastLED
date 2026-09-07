@@ -1023,7 +1023,18 @@ function syncDisplayNodesInContent(
     if (node.data.nodeType !== 'Display') return node
     const displayId = String(node.data.properties.displayId ?? node.id)
     const document = documents[displayId]
-    const ports = document ? displayDocumentPorts(document) : { inputs: [], outputs: [] }
+    // The document contributes widget ports; the node's own identity ports —
+    // `customDisplay`, the wire that mounts this design on a panel — come from
+    // the library, as they do for every other node. Replacing the whole set
+    // with the document's widget ports stripped that output, and the edge
+    // filter below then dropped the mount wire on load and on every edit: a
+    // saved screen came back unplugged from the panel it was drawn for.
+    const library = LIBRARY_DEF.get(node.data.nodeType)
+    const widgetPorts = document ? displayDocumentPorts(document) : { inputs: [], outputs: [] }
+    const ports = {
+      inputs: [...(library?.inputs ?? []), ...widgetPorts.inputs],
+      outputs: [...(library?.outputs ?? []), ...widgetPorts.outputs],
+    }
     const previousInputs = new Map(
       ((node.data.inputs as Array<{ id: string; dataType: string }> | undefined) ?? [])
         .map((port) => [port.id, port.dataType]),

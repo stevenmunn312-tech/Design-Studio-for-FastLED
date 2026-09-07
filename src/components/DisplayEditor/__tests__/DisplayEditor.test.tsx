@@ -153,8 +153,10 @@ describe('DisplayEditor', () => {
       'text', 'text-2', 'button', 'toggle', 'button-2', 'slider',
     ])
     const screen = useGraphStore.getState().nodes.find((node) => node.id === 'screen')!
+    // The node's own `customDisplay` output — the wire that mounts this design
+    // on a panel — survives every document edit; the widget ports follow it.
     expect((screen.data.outputs as { id: string }[]).map((port) => port.id))
-      .toEqual(['widget:button:out', 'widget:toggle:out', 'widget:button-2:out', 'widget:slider:out'])
+      .toEqual(['customDisplay', 'widget:button:out', 'widget:toggle:out', 'widget:button-2:out', 'widget:slider:out'])
     expect(view.getByRole('status', { name: 'Display editor announcements' }).textContent).toContain(
       'Minimal Transport template inserted with 5 widgets.',
     )
