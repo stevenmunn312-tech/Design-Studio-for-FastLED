@@ -12,7 +12,15 @@ import styles from './PartIdentity.module.css'
  * The header order is the detail that earns its space: it is what you read off
  * while a jumper is in your hand, and getting it from a photograph means
  * counting pads in a picture that may be rotated.
+ *
+ * The catalogue's notes run to five or six sentences for a well-documented
+ * module — worth having, but not worth reading past every time this opens, and
+ * long enough to push the panel's own actions out of reach. The first two carry
+ * what the module is; the rest are provenance and comparisons with modules you
+ * do not have, so they fold away behind a count rather than being dropped.
  */
+const LEAD_NOTES = 2
+
 export default function PartIdentity({ nodeId, nodeType }: { nodeId: string; nodeType: string }) {
   const properties = useGraphStore((s) => {
     const node = rootGraphNodes(s).find((n) => n.id === nodeId)
@@ -59,8 +67,17 @@ export default function PartIdentity({ nodeId, nodeType }: { nodeId: string; nod
 
       {identity.notes.length > 0 && (
         <ul className={styles.notes}>
-          {identity.notes.map((note) => <li key={note}>{note}</li>)}
+          {identity.notes.slice(0, LEAD_NOTES).map((note) => <li key={note}>{note}</li>)}
         </ul>
+      )}
+
+      {identity.notes.length > LEAD_NOTES && (
+        <details className={styles.moreNotes}>
+          <summary>{identity.notes.length - LEAD_NOTES} more about this module</summary>
+          <ul className={styles.notes}>
+            {identity.notes.slice(LEAD_NOTES).map((note) => <li key={note}>{note}</li>)}
+          </ul>
+        </details>
       )}
 
       {!identity.entry && (

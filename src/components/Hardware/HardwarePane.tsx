@@ -2206,7 +2206,6 @@ export default function HardwarePane() {
           placement="below"
           align="start"
           className={styles.itemMenu}
-          maxHeight={440}
           panelRef={(element) => { itemMenuRef.current = element }}
         >
           {itemMenu.mode === 'settings' ? (
@@ -2221,6 +2220,7 @@ export default function HardwarePane() {
               <PartIdentity nodeId={itemMenu.kind} nodeType={itemMenuIdentity} />
             </div>
           )}
+          <div className={styles.itemMenuActions}>
           <button
             type="button"
             className={styles.itemMenuButton}
@@ -2251,6 +2251,7 @@ export default function HardwarePane() {
           >
             Remove
           </button>
+          </div>
         </FloatingMenu>
       )}
     </section>

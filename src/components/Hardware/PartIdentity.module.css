@@ -72,3 +72,19 @@
   font-size: var(--fs-caption);
   line-height: 1.4;
 }
+
+/* Folded provenance. The summary reads as a quiet control, not a heading. */
+.moreNotes > summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  line-height: 1.4;
+}
+
+.moreNotes > summary:hover {
+  color: var(--text-primary);
+}
+
+.moreNotes[open] > summary {
+  margin-bottom: 2px;
+}
