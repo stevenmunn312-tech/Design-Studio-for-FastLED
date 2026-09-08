@@ -51,6 +51,7 @@ supported/experimental framework applies, scoped to display hardware.
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | MAX7219 8-digit 7-segment (SPI CLK/DIN/LOAD) | `RTCInput` (Compile Time) → `SegmentDisplay`, Clock mode | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Hours:minutes:seconds progressing live, correct digit orientation | Bench record (`2026-09-07`) below |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | SH1106 0.96-inch 128x64 OLED (7-pin SPI, `sh1106-oled-096-128x64-spi`) | `RTCInput` (Compile Time) → `InfoDisplay`, Clock layout | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Correct orientation and alignment, confirming the SH1106's 2-column RAM offset renders correctly rather than shifting the image | Bench record (`2026-09-07`) below |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | SH1106 1.3-inch 128x64 OLED (I2C, `sh1106-oled-128x64-i2c`) | `RTCInput` (Compile Time) → `InfoDisplay`, Clock layout | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Time/date correct, not-synced state shown correctly, correct orientation and alignment, time progressing live | Bench record (`2026-09-08`) below |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | ST7789 1.54-inch 240x240 TFT (4-wire SPI, `st7789-tft-240x240`) | `PatternCollection` → `PatternSlideshow` → `TransportDisplay`, Show Status layout, no OLED on the bench | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Running pattern named, ordinal counted out of the ten-pattern collection, PLAYING state, correct orientation, and the patterns advancing on the slideshow's own interval | Bench record (`2026-09-08`, colour TFT) below |
 
 **Bench record (`2026-09-07`, first four rows above):** first hardware pass
 for any auxiliary display in this project — none had a recorded physical test
@@ -66,6 +67,34 @@ the Arduino `.ino` prototype-hoisting trap already documented in `CLAUDE.md`.
 `sh1106-oled-128x64-i2c` part (`019000fc`) — validates both the module and
 that a second transport form of an already-supported controller needed no
 driver changes, only the catalogue entry.
+
+**Bench record (`2026-09-08`, colour TFT row above):** the first colour TFT
+hardware pass recorded for this project — every display row before it is an
+OLED or a 7-segment module. A generative show controller was generated for a
+ten-pattern collection with a single `TransportDisplay` on the bench and no
+OLED beside it, compiled and flashed through `arduino-cli`. The panel named the
+running pattern, counted it out of ten, reported `PLAYING`, and stayed correctly
+oriented while the show advanced on its own interval.
+
+Three things this establishes that no compile could:
+
+- **A TFT-only Show Status build exists at all.** Until `1608c790` the layout
+  read `_sel_show.highlight` and `_selBrowsing(_sel_show)` while the cursor was
+  declared only for an OLED Pattern Browser or baked artwork, so this exact
+  graph did not compile (review F2).
+- **Pattern names do not depend on thumbnails.** With no OLED there is no
+  thumbnail table in the sketch, and the name still rendered — the name table
+  from `39f17bc9` reaching real glass.
+- **A 240x240 module on ST7789V silicon is sized from the catalogue.** The
+  chip-name default is the 240x320 touch panel's geometry; correct orientation
+  here is `tftControllerForProps`'s `resolutionPx` override behaving on
+  hardware rather than in a unit test.
+
+What it does not cover, and what still needs a bench: **control-driven pattern
+selection** — the rotation here was the slideshow's own timer, not a button,
+encoder or touch widget, so review F1's repair is still unproven physically;
+an OLED and a TFT sharing one cursor; the panel's Enabled semantics; and touch,
+which this module has no controller for.
 
 Not yet recorded as a supported row: the ESP32-2432S028 ("CYD") integrated
 touch TFT board — see the note under "Recorded validations that are not yet

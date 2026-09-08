@@ -25,8 +25,13 @@ matrix, not a reason to postpone testing earlier changes.
   (`patternNameTableCpp`, fed by `collectionPatternNames`), independent of the
   bake. Covered by headless Button/Encoder and Button-widget tests plus
   TFT-only Show Status name/cursor tests; `npm test`, `npm run lint` and
-  `tsc -b` pass. Remaining exit: an Arduino CLI/fbuild compile of the TFT-only,
-  OLED+TFT and headless cases (belongs to the HW-06 matrix). Review F1/F2.
+  `tsc -b` pass. The TFT-only leg is now bench-proven: ESP32-S3 + ST7789 1.54-inch
+  via `arduino-cli`, naming patterns with no thumbnail table present and counting
+  them out of the collection (see the colour TFT row in
+  [the support matrix](docs/release/beta-support-matrix.md#auxiliary-display-hardware-validation)).
+  Remaining exit: **control-driven** selection on hardware — that run advanced on
+  the slideshow's own timer, so F1's repair is still physically unproven — plus
+  the OLED+TFT and headless cases (HW-06 matrix). Review F1/F2.
 - [ ] **HW-02 · P1 · Panel ownership and Enabled (M).** Code complete; compile
   evidence outstanding. `mountedDisplays.ts` resolves mounted geometry from the
   panel for the editor, deploy validation (every generator) and the template
@@ -38,8 +43,12 @@ matrix, not a reason to postpone testing earlier changes.
   `customDisplay` output was stripped by the port sync, so the mount wire was
   dropped on load and on every document edit. Rotation, re-enable, wired-enable
   and save/reload coverage added; `npm test`, `npm run lint` and `tsc -b` pass.
-  Remaining exit: compile the disabled, wired-enable and rotated cases (HW-06
-  matrix). F3/F4.
+  The mounted-size path has incidental bench support — a 240x240 module on
+  ST7789V silicon rendered at the right size and orientation, which is the
+  catalogue `resolutionPx` override rather than the chip-name default — but that
+  run left rotation at 0, so the editor's rotation write is untested physically.
+  Remaining exit: compile and bench the disabled, wired-enable and rotated cases
+  (HW-06 matrix). F3/F4.
 - [ ] **HW-03 · P1/P2 · Resolve mounted screens once (M; after HW-02).** Enforce
   one document per panel initially and diagnose unmounted live widget sources.
   Share active instances across RAM, assets, validation and emission; exclude
