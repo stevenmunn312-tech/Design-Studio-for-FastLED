@@ -14,7 +14,7 @@ matrix, not a reason to postpone testing earlier changes.
 
 ## 1. Make existing controls and screens reliable
 
-- [ ] **HW-01 · P1 · Slideshow selection and TFT-only firmware (M).** Code
+- [x] **HW-01 · P1 · Slideshow selection and TFT-only firmware (M).** Code
   complete; compile evidence outstanding. `showControlTargets` now names the
   Pattern Slideshow as a control destination beside the outputs it renders, the
   loop applies that bundle through `_selUpdate` before rendering, and the
@@ -33,9 +33,13 @@ matrix, not a reason to postpone testing earlier changes.
   Player Controls into the Slideshow's Controls input changes the running pattern
   on the LEDs (F1 on hardware, see the
   [encoder record](docs/development/reports/input-peripheral-bench.md#rotary-encoder-pattern-selection--2026-09-08)).
-  Remaining exit: an OLED and a TFT sharing one cursor in one sketch — the last
-  genuinely untested case. Button and touch-widget selection travel the same
-  bundle into the same `_selUpdate`, so they are variants of a proven path.
+  The last genuinely untested case — an OLED and a TFT sharing one cursor in one
+  sketch — is now bench-proven too: an SH1106 1.3-inch I2C Pattern Browser and an
+  ST7789 1.54-inch Show Status on one ESP32-S3, advancing in step off one
+  `_sel_show` across two buses (see the two-panel row in
+  [the support matrix](docs/release/beta-support-matrix.md#auxiliary-display-hardware-validation)).
+  Button and touch-widget selection travel the same bundle into the same
+  `_selUpdate`, so they are variants of a proven path. All exits met.
   Review F1/F2.
 - [ ] **HW-02 · P1 · Panel ownership and Enabled (M).** Code complete; compile
   evidence outstanding. `mountedDisplays.ts` resolves mounted geometry from the
@@ -140,6 +144,22 @@ matrix, not a reason to postpone testing earlier changes.
   folded/chained/rotated topology and show/player. Confirm HUB75 chain orientation,
   preview fidelity and panel-specific power assumptions. Keep untested paths
   experimental. Preserve completed LDR, DS3231, segment/OLED and VU evidence.
+- [ ] **HW-21 · P2 · Catalogue and Build Diagram gaps for common I2C OLEDs (S).**
+  Three defects found while debugging a dark OLED on 2026-09-08, all in how the
+  catalogue describes real modules rather than in firmware. (a) There is no
+  generic four-pin SSD1306 0.96-inch I2C part: the only SSD1306 entry is
+  Adafruit's eight-pin STEMMA QT breakout, so the most common OLED anyone owns
+  cannot be described accurately. (b) `SIGNAL_PAD_NAMES['info-display']` in
+  `physicalDiagramLayout.ts` lists only the SPI signals, so an I2C OLED whose
+  silkscreen prints CLK/DATA rather than SCL/SDA falls through to that table and
+  the diagram draws SDA on the CS pad and SCL on the DC pad. (c)
+  `MODULE_PAD_GEOMETRY` has no entry for `sh1106-oled-128x64-i2c`, so its four
+  wires are placed by a generic even spread instead of measured holes, and that
+  fallback also skips the aspect-fit correction the measured branch applies.
+  Exit: every catalogued display part with a render has measured geometry and a
+  pad mapping derived from its own labels, asserted by a test that fails when a
+  new part arrives without them rather than only checking the entries that exist.
+
 - [ ] **HW-14 · Independent electrical review (M).** Qualified review of Build
   Diagram calculations, source tables, scope and wording before authoritative
   electrical-guidance claims. Exit: review/corrections recorded against
@@ -192,6 +212,12 @@ matrix, not a reason to postpone testing earlier changes.
   arbitrary callbacks/code/LVGL properties, SquareLine project exchange, remote/
   phone UI, TFT video and e-paper/RGB/HDMI. Revisit after measured one-screen
   budgets. Resolve size thresholds/density from actual capabilities/legibility.
+  Also deferred: colour pattern artwork on Show Status. On a bench running both
+  panels the 1-bit OLED pictures the pattern and the colour TFT does not, which
+  reads as an asymmetry, but Show Status is a text-only layout and the 96x96
+  artwork bake is player-owned — giving a music-free show artwork means feeding
+  that bake from a Slideshow's collection and adding a field to the layout,
+  which is a feature rather than a repair.
 - [ ] **D-03 · Other architecture/authoring.** Multi-board, Raspberry Pi/Linux
   backend, richer timed sequences, pattern weighting/tags, broader library
   sharing and distinct per-input modulation. Keep Collection/engine ownership

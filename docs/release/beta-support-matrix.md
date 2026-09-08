@@ -53,6 +53,7 @@ supported/experimental framework applies, scoped to display hardware.
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | SH1106 0.96-inch 128x64 OLED (7-pin SPI, `sh1106-oled-096-128x64-spi`) | `RTCInput` (Compile Time) → `InfoDisplay`, Clock layout | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Correct orientation and alignment, confirming the SH1106's 2-column RAM offset renders correctly rather than shifting the image | Bench record (`2026-09-07`) below |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | SH1106 1.3-inch 128x64 OLED (I2C, `sh1106-oled-128x64-i2c`) | `RTCInput` (Compile Time) → `InfoDisplay`, Clock layout | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Time/date correct, not-synced state shown correctly, correct orientation and alignment, time progressing live | Bench record (`2026-09-08`) below |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | ST7789 1.54-inch 240x240 TFT (4-wire SPI, `st7789-tft-240x240`) | `PatternCollection` → `PatternSlideshow` → `TransportDisplay`, Show Status layout, no OLED on the bench | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Running pattern named, ordinal counted out of the ten-pattern collection, PLAYING state, correct orientation, and the patterns advancing on the slideshow's own interval | Bench record (`2026-09-08`, colour TFT) below |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | SH1106 1.3-inch 128x64 OLED (I2C 0x3C, SDA GPIO18 / SCL GPIO17, `sh1106-oled-128x64-i2c`) **and** ST7789 1.54-inch 240x240 TFT (4-wire SPI, CS 5 / DC 6 / RST 7 / SCK 1 / MOSI 2 / BL 16, `st7789-tft-240x240`) together on one board | `PatternCollection` → `PatternSlideshow` driving both `InfoDisplay` (Pattern Browser) and `TransportDisplay` (Show Status) | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Both panels lit and advancing in step from one `_sel_show` cursor across two different buses; OLED thumbnail, pattern name, ordinal and PLAYING state all correct, with correct orientation and alignment | Bench record (`2026-09-08`, two panels) below |
 
 **Bench record (`2026-09-07`, first four rows above):** first hardware pass
 for any auxiliary display in this project — none had a recorded physical test
@@ -91,12 +92,44 @@ Three things this establishes that no compile could:
   here is `tftControllerForProps`'s `resolutionPx` override behaving on
   hardware rather than in a unit test.
 
+**Bench record (`2026-09-08`, two panels):** an I2C OLED and an SPI TFT on the
+same ESP32-S3, in one generated show controller, both drawing the same running
+collection. This is the case every earlier display row left open: each of them
+put one module on the bench at a time, so nothing had yet shown two auxiliary
+displays coexisting in one sketch.
+
+What it establishes:
+
+- **One cursor drives both panels.** The two advanced in step as the slideshow
+  rotated, which is `_sel_show` reaching an OLED Pattern Browser and a TFT Show
+  Status from the single emission point rather than each layout keeping its own
+  idea of what is playing.
+- **Two buses coexist.** `Wire.begin(18, 17)` for the OLED and `SPI.begin(1, -1, 2, -1)`
+  for the TFT in one setup, with no interference in either direction — the
+  I2C/SPI split the driver has always assumed, on real silicon.
+- **The Pattern Browser's baked thumbnails reach glass beside a colour panel.**
+  The OLED drew the thumbnail, name and ordinal correctly with the 2-column
+  SH1106 offset intact, in the same sketch that emits the TFT's name table.
+
+The TFT drawing no thumbnail is correct, not a gap: Show Status is a text-only
+layout, and transport artwork is player-owned — `artworkPlayer` follows the
+`display` envelope's `player` arm, which a Pattern Slideshow does not publish.
+A colour thumbnail for a music-free show is tracked as deferred scope (D-02),
+not as a defect.
+
+Not covered by this run: the TFT was physically mounted upside down, so its
+orientation was corrected with the node's `tftRotation` property rather than
+verified at `180` on the bench. `tftWindowOrigin(ST7789, '180')` derives the
+80-row RAM offset a 240x240 window into 240x320 memory needs, and that is
+asserted in `tftSurface.test.ts`, but it has not been seen on glass. Enabled
+semantics and touch remain untested on this pair.
+
 What this run did not cover, the rotation here being the slideshow's own timer:
 control-driven pattern selection, since settled the same day by the
 [rotary encoder record](../development/reports/input-peripheral-bench.md#rotary-encoder-pattern-selection--2026-09-08)
-on this same board and panel. Still open: an OLED and a TFT sharing one cursor;
-the panel's Enabled semantics; and touch, which this module has no controller
-for.
+on this same board and panel. An OLED and a TFT sharing one cursor was also
+open here, and is settled by the two-panel record below. Still open: the
+panel's Enabled semantics, and touch, which this module has no controller for.
 
 Not yet recorded as a supported row: the ESP32-2432S028 ("CYD") integrated
 touch TFT board — see the note under "Recorded validations that are not yet
