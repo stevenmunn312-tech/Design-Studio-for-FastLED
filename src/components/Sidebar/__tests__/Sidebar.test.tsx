@@ -69,6 +69,21 @@ describe('Sidebar equipment rack', () => {
     expect(useGraphStore.getState().nodes[0].data.nodeType).toBe('FFTAnalyzer')
   })
 
+  it('answers a search for a hardware-owned module instead of finding nothing', () => {
+    // A Button added from the bench puts a Button node in the graph, so people
+    // search this library for it afterwards. It is hidden here because it
+    // cannot be dropped on the canvas — but "nothing found" is the wrong
+    // answer to a question that has one.
+    const { getByPlaceholderText, getByText } = render(<Sidebar />)
+    fireEvent.change(getByPlaceholderText('Search nodes…'), { target: { value: 'button' } })
+
+    expect(getByText('In the Hardware bench')).toBeTruthy()
+    // Both Button and Button Bank live on the bench; take the first.
+    const shelf = getByText('In the Hardware bench').parentElement!
+    fireEvent.click(shelf.querySelectorAll('button')[0])
+    expect(useUiStore.getState().workspaceMode).toBe('hardware')
+  })
+
   it('keeps only one category open at a time', () => {
     const { getByRole, getByLabelText, queryByLabelText } = render(<Sidebar />)
 

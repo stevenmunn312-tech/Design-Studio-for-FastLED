@@ -1010,6 +1010,35 @@ export default function HardwarePane() {
     () => (arrangement ? hardwareArrangementBounds(arrangement) : null),
     [arrangement],
   )
+
+  /*
+   * Arrive framed.
+   *
+   * The bench used to live in a pane a fraction of the window tall, where the
+   * identity transform it mounts with was a reasonable opening view. Now that
+   * each workspace takes the whole canvas the pane unmounts when you leave it,
+   * so every visit starts at identity again — in a viewport several times
+   * taller, with the parts hanging off the bottom edge until someone presses
+   * Fit. Nothing is lost by fitting instead: the transform is component state,
+   * so a pan or zoom is already discarded when the workspace changes.
+   *
+   * Once per mount, and only once there is something to frame and somewhere to
+   * frame it — refitting on every arrangement change would yank the view out
+   * from under anyone adding a part while zoomed in.
+   */
+  const fittedOnArrival = useRef(false)
+  const fitToStage = view.fit
+  useEffect(() => {
+    if (fittedOnArrival.current || !arrangementBounds) return
+    if (stageBox.width <= 0 || stageBox.height <= 0) return
+    fittedOnArrival.current = true
+    fitToStage(arrangementBounds, {
+      x: leftInset,
+      y: 0,
+      width: Math.max(1, stageBox.width - leftInset - rightInset),
+      height: Math.max(1, stageBox.height),
+    })
+  }, [arrangementBounds, fitToStage, leftInset, rightInset, stageBox])
   /*
    * The emitters each broken run actually draws. Taken from the layout's own
    * cut, so the box it was given, the tape photo behind it and the live cells

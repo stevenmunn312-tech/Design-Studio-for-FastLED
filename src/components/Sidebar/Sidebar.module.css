@@ -937,3 +937,56 @@
 .patternContextMenu > .patternContextDanger > span {
   color: var(--error);
 }
+
+/*
+ * Search results for modules that live on the Hardware bench rather than in
+ * this library. They are an answer to a question, not something to drag, so
+ * they read as a signpost and sit above the droppable results.
+ */
+.hardwareMatches {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 8px;
+  padding: 8px;
+  border: 1px dashed var(--divider);
+  border-radius: 10px;
+  background: var(--bg-primary);
+}
+
+.hardwareMatchesLead {
+  margin: 0 0 4px;
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.hardwareMatch {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 6px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: var(--fs-caption);
+  text-align: left;
+  cursor: pointer;
+}
+
+.hardwareMatch:hover {
+  background: color-mix(in srgb, var(--border-glow) 18%, transparent);
+}
+
+.hardwareMatchName {
+  min-width: 0;
+}
+
+.hardwareMatchHint {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+}

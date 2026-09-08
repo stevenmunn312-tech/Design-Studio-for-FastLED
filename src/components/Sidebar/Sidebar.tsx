@@ -287,6 +287,7 @@ function Sidebar() {
   const requestConfirm = useUiStore((s) => s.requestConfirm)
   const viewCenter = useUiStore((s) => s.viewCenter)
   const setStatus = useUiStore((s) => s.setStatus)
+  const setWorkspaceMode = useUiStore((s) => s.setWorkspaceMode)
   const openRatings = useUiStore((s) => s.openRatings)
   const setDraggingNodeType = useUiStore((s) => s.setDraggingNodeType)
   // One-bank-at-a-time accordion. We still persist the last opened section,
@@ -354,6 +355,22 @@ function Sidebar() {
     .map((type) => SIDEBAR_NODE_LIBRARY.find((def) => def.type === type))
     .filter((def): def is NodeDefinition => !!def)
     .filter((def) => nodeMatchesQuery(def))
+  /*
+   * Hardware-owned modules, findable where people look for them.
+   *
+   * A Button added from the Hardware bench puts a Button node in the graph, and
+   * someone who saw it there later searches this library for "button" and finds
+   * nothing — then finds it in Help, which confirms it exists and still does not
+   * say where it came from.
+   *
+   * These appear only while searching. Listing them in the categories would put
+   * entries in the library that cannot be dropped on the canvas, which is what
+   * hiding them was protecting against; but a search is someone asking a
+   * question, and the answer is "the Hardware bench, and here is the way there".
+   */
+  const hardwareMatches = query === '' ? [] : NODE_LIBRARY
+    .filter((def) => isHardwareLibraryHiddenNodeType(def.type) && nodeMatchesQuery(def))
+
   const visibleRecipes = RECIPE_CARDS.filter((recipe) => (
     query === '' || `${recipe.title} ${recipe.kicker} ${recipe.description}`.toLowerCase().includes(query)
   ))
@@ -774,7 +791,7 @@ function Sidebar() {
 
   const searchStatus = query === ''
     ? `${viewMode === 'all' ? SIDEBAR_NODE_LIBRARY.length : BEGINNER_NODE_TYPES.size} modules`
-    : `${CATEGORIES.reduce((count, category) => count + filteredByView(categoryNodes(category.id)).length, 0) + visiblePatterns.length + visibleRecipes.length} matches`
+    : `${CATEGORIES.reduce((count, category) => count + filteredByView(categoryNodes(category.id)).length, 0) + visiblePatterns.length + visibleRecipes.length + hardwareMatches.length} matches`
 
   const handleAddNode = (type: string) => {
     const def = SIDEBAR_NODE_LIBRARY.find((n) => n.type === type)
@@ -1181,6 +1198,23 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${tags.length ? `Best on ${tagNam
         />
       </div>
       <div className={styles.scroll}>
+        {hardwareMatches.length > 0 && (
+          <div className={styles.hardwareMatches}>
+            <p className={styles.hardwareMatchesLead}>In the Hardware bench</p>
+            {hardwareMatches.map((def) => (
+              <button
+                key={def.type}
+                type="button"
+                className={styles.hardwareMatch}
+                onClick={() => setWorkspaceMode('hardware')}
+                title={`${def.label} is added from the Hardware bench`}
+              >
+                <span className={styles.hardwareMatchName}>{def.label}</span>
+                <span className={styles.hardwareMatchHint}>Added from Hardware &rarr;</span>
+              </button>
+            ))}
+          </div>
+        )}
         {query === '' && visibleRecipes.length > 0 && (
           <div className={styles.category}>
             <button
