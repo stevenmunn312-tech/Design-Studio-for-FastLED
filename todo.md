@@ -104,7 +104,19 @@ matrix, not a reason to postpone testing earlier changes.
 - [ ] **HW-07 · Connected authoring (M; after HW-04/05).** Distinguish panel and
   design labels, add create/open-design and back-to-hardware actions, display
   build mode/reason, and filter assignments by destination plus type. Explain
-  event versus state and units/ranges. Exit: actions/readings are traceable in
+  event versus state and units/ranges. **Size a design from the panel when it is
+  connected, rather than reporting a mismatch and waiting.** A mounted design's
+  size is not a free choice — it is the panel's rotated size, so a mismatch has
+  exactly one correct resolution and asking the user to find it is asking them to
+  resolve something that was never ambiguous. Reported from the bench on
+  2026-09-08: the size error was hit twice, and the Portrait/Landscape control
+  that resolves it was not discoverably the answer, because `mountedSizeIssue`
+  says "resize it" without naming the control. The fresh-document default of
+  320x240 compounds it — a new design mounted on a portrait panel is wrong
+  before anything is drawn. Care needed only where a design already has widgets,
+  since resizing can push a considered layout off the canvas; the editor's
+  orientation control is already one undoable action, so doing it and letting
+  undo carry the risk is defensible. Exit: actions/readings are traceable in
   visible edges; no hidden template bindings. See review recommendations.
 - [ ] **HW-08 · Starters, visual QA and help (M; after HW-07).** Connected live
   dimming, slideshow browse/confirm and music transport/readback examples;
