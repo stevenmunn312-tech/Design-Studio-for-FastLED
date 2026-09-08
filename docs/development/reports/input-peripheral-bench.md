@@ -16,7 +16,7 @@ not the node type in general.
 | `LightInput` | Photosensitive LDR module (KS6026 form) | Below |
 | `ButtonInput` | — | None |
 | `PotInput` | — | None |
-| `EncoderInput` | — | None |
+| `EncoderInput` | Plain two-phase rotary encoder with push (bare component, no breakout) | Below |
 | `MotionInput` | — | None |
 
 Everything without a record is covered by unit, codegen, and backend tests
@@ -117,3 +117,67 @@ broken.
 `152.0.7977.65` staged while `152.0.7977.64` was running; the build that
 actually landed was `152.0.7977.76`. A version read from the updater rather
 than from the browser at test time would have been wrong in the record.
+
+## Rotary encoder pattern selection — 2026-09-08
+
+First `EncoderInput` hardware coverage, and the first record of any physical
+control reaching a generated show's pattern selection.
+
+### Environment
+
+| Field | Value |
+| --- | --- |
+| Host OS | Windows 11 Home, build 10.0.26200 |
+| Browser | Chrome 152.0.7977.76 (64-bit) |
+| Board | ESP32-S3, COM7 |
+| Module | Plain two-phase rotary encoder with push switch — a bare component, not a breakout module |
+| Encoder pins | A GPIO8, B GPIO9, switch GPIO21, `pullup` left on |
+| Display | ST7789 1.54-inch 240x240 TFT (`st7789-tft-240x240`), Show Status |
+| LED output | WS2812B, 16x16 matrix |
+| Build engine | `arduino-cli` |
+| Upload method | USB flash via `esptool` through the helper's normal Upload path |
+
+`pullup` matters here in a way it would not on a KY-040-style breakout: a bare
+encoder brings no pull-ups of its own, so the node's `INPUT_PULLUP` default is
+what makes the common-to-ground wiring read at all.
+
+### Graph
+
+`Pattern Collection` (10 patterns) → `Pattern Slideshow` → `LED Matrix.Frame`,
+with `Pattern Slideshow.Display` → `Transport Display` (Show Status), and:
+
+`Encoder.Position` → `Player Controls` **Pattern Selection**
+`Encoder.Pressed` → `Player Controls` **Confirm**
+`Player Controls.Controls` → **`Pattern Slideshow.Controls`**
+
+The last wire is the whole point. It also has a near-identical wrong
+destination — `LED Matrix.Controls` accepts the same `playercontrols` type but
+is the blackout and dimming latch, not the engine.
+
+### Observed on hardware
+
+Turning the encoder changes the running pattern on the LEDs, and the panel
+names the pattern it changed to.
+
+### What this establishes
+
+Review finding **F1**: a Player Controls chain addressed to a Pattern Slideshow
+was consumed by the browser preview and silently dropped by the show generator,
+which offered only LED output ids as control destinations. No bundle was
+emitted and no routing error was reported, so the encoder worked in the app and
+did nothing on the device. Fixed in `1608c790`; this is that repair on real
+hardware.
+
+### What it does not cover
+
+- **Button and touch-widget selection.** Both travel the same bundle into the
+  same `_selUpdate` call, so they are variants of a proven path rather than
+  untested ones — but neither has been on a bench.
+- **The Confirm assignment.** It is wired, but a slideshow confirms on any
+  non-zero step (`steps != 0 || patternConfirm`), so a press with no rotation
+  commits a highlight that already equals the active pattern and does nothing
+  visible. Confirm needs a Music Player, which has the highlight/active split,
+  to be exercised at all.
+- **Detent edge cases.** Wrap at both ends of the collection, the ignored first
+  reading, and the re-seat threshold were not deliberately exercised.
+- **An OLED and a TFT sharing one cursor.** Still the open case for HW-01.

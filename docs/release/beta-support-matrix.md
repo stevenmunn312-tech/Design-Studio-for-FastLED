@@ -34,6 +34,7 @@ the exact environment and path that were exercised. Everything else stays
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP8266 | WS2812B | 10x1 | Strip (non-matrix) | `arduino-cli` | ⚡ Flash Stream Receiver + 📡 Live Stream | Flash the Adalight stream receiver once, then push live-preview frames to the board over serial | Validation `hw-b0b34ed3` (`2026-07-25`): passed after the one-row frame-dimension fix |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.64 | ESP32-S3 + microSD + MAX98357A | WS2812B | 16x16 matrix plus paired 32x1 VU rails | Single rectangular matrix (serpentine) flanked by a Stereo VU Meter fixture (left GPIO 42, right GPIO 2, data-in Bottom both sides) | `fbuild` 2.5.21 | USB flash via `esptool` through the helper's normal Upload path | Generate the SD Music Player sketch with a Stereo VU Meter, compile, flash, and run the full fifteen-item bench matrix: silence, channel separation, mono mirroring, a calibrated level staircase, ballistics, clipping, all twelve visualizations, all four selection policies, a fifteen-minute soak with the matrix rendering concurrently, track-skip and card-pull interruption, channel swap, both data-in directions, and power draw at the cap | [Bench record (`2026-09-02`)](../development/reports/stereo-vu-bench.md#bench-record--2026-09-02): all fifteen passed; 2.90-2.92 A measured against a 3000 mA cap at 4.82 V far-end, strips barely warm after ten minutes. Found and fixed two level-scale defects (`c43113f3`, `173dcc3d`) that compile and browser tests could not see |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 (Generic N16R8, 44-pin dual USB-C) + photosensitive LDR module (KS6026 form) | WS2812B | 32x1 | LED string (non-matrix, non-serpentine) | `fbuild` 2.5.21 | USB flash via `esptool` through the helper's normal Upload path | Generate a live-graph sketch whose `Light Sensor` on GPIO2/ADC1 drives LED output brightness through Map Range and Smooth; compile, flash, and verify the strip tracks light across covered, normal room light, and direct torch | [Input-peripheral bench record (`2026-09-02`)](../development/reports/input-peripheral-bench.md#ldr-light-sensor--2026-09-02): all three light conditions passed; ADC measured across the full range with a probe sketch using the same `analogRead(pin) / 4095.0f` expression the generator emits |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 + plain rotary encoder (A GPIO8, B GPIO9, switch GPIO21) | WS2812B | 16x16 | Single rectangular matrix, with an ST7789 1.54-inch panel on Show Status | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Generate a ten-pattern generative show whose pattern selection is driven by a physical encoder through Player Controls into the Pattern Slideshow's Controls input; compile, flash, and verify that turning the encoder changes the running pattern on the LEDs and the panel names it | [Rotary encoder bench record (`2026-09-08`)](../development/reports/input-peripheral-bench.md#rotary-encoder-pattern-selection--2026-09-08): review finding F1 repaired on hardware — the same chain was dropped by the show generator before `1608c790` |
 
 These are the only fully recorded public-beta support rows today.
 
@@ -90,11 +91,12 @@ Three things this establishes that no compile could:
   here is `tftControllerForProps`'s `resolutionPx` override behaving on
   hardware rather than in a unit test.
 
-What it does not cover, and what still needs a bench: **control-driven pattern
-selection** — the rotation here was the slideshow's own timer, not a button,
-encoder or touch widget, so review F1's repair is still unproven physically;
-an OLED and a TFT sharing one cursor; the panel's Enabled semantics; and touch,
-which this module has no controller for.
+What this run did not cover, the rotation here being the slideshow's own timer:
+control-driven pattern selection, since settled the same day by the
+[rotary encoder record](../development/reports/input-peripheral-bench.md#rotary-encoder-pattern-selection--2026-09-08)
+on this same board and panel. Still open: an OLED and a TFT sharing one cursor;
+the panel's Enabled semantics; and touch, which this module has no controller
+for.
 
 Not yet recorded as a supported row: the ESP32-2432S028 ("CYD") integrated
 touch TFT board — see the note under "Recorded validations that are not yet

@@ -29,9 +29,14 @@ matrix, not a reason to postpone testing earlier changes.
   via `arduino-cli`, naming patterns with no thumbnail table present and counting
   them out of the collection (see the colour TFT row in
   [the support matrix](docs/release/beta-support-matrix.md#auxiliary-display-hardware-validation)).
-  Remaining exit: **control-driven** selection on hardware — that run advanced on
-  the slideshow's own timer, so F1's repair is still physically unproven — plus
-  the OLED+TFT and headless cases (HW-06 matrix). Review F1/F2.
+  Control-driven selection is now bench-proven too: a plain rotary encoder into
+  Player Controls into the Slideshow's Controls input changes the running pattern
+  on the LEDs (F1 on hardware, see the
+  [encoder record](docs/development/reports/input-peripheral-bench.md#rotary-encoder-pattern-selection--2026-09-08)).
+  Remaining exit: an OLED and a TFT sharing one cursor in one sketch — the last
+  genuinely untested case. Button and touch-widget selection travel the same
+  bundle into the same `_selUpdate`, so they are variants of a proven path.
+  Review F1/F2.
 - [ ] **HW-02 · P1 · Panel ownership and Enabled (M).** Code complete; compile
   evidence outstanding. `mountedDisplays.ts` resolves mounted geometry from the
   panel for the editor, deploy validation (every generator) and the template
