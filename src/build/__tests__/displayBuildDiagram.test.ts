@@ -92,6 +92,22 @@ describe('the Build Diagram draws every part on the bench', () => {
     expect(tft.supported).toBe(true)
   })
 
+  it('uses the square colour display silkscreen names throughout the manifest', () => {
+    const tft = buildHardwareManifest(
+      [node('tft', 'TransportDisplay', { partId: 'st7789-tft-240x240' })], [], FQBN,
+    ).items.find((entry) => entry.sourceNodeId === 'tft')!
+    const labels = Object.fromEntries(tft.pins.map((pin) => [pin.propertyKey, pin.label]))
+
+    expect(labels).toMatchObject({
+      sckPin: expect.stringMatching(/ SCL$/),
+      mosiPin: expect.stringMatching(/ SDA$/),
+      csPin: expect.stringMatching(/ CS$/),
+      dcPin: expect.stringMatching(/ DC$/),
+      resetPin: expect.stringMatching(/ RST$/),
+      backlightPin: expect.stringMatching(/ BL$/),
+    })
+  })
+
   // The board is what everything else is wired to, drawn as the controller.
   it('does not draw the board as a peripheral', () => {
     const manifest = buildHardwareManifest([node('b', 'Board')], [], FQBN)

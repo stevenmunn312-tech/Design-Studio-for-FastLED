@@ -13,6 +13,10 @@ function item(kind: HardwareManifestItem['kind'], partId: string, facts: Record<
   } as HardwareManifestItem
 }
 
+function pin(propertyKey: string) {
+  return { propertyKey } as HardwareManifestItem['pins'][number]
+}
+
 /** Every pad the diagram draws, in order. */
 function pads(entry: HardwareManifestItem): string[] {
   return Array.from({ length: peripheralPadCount(entry) }, (_, i) => peripheralPadLabel(entry, i))
@@ -84,6 +88,16 @@ describe('module pads come from the part, not the category', () => {
     expect(labels[peripheralSignalPadIndex(oled, 2)]).toBe('RES')
     expect(labels[peripheralSignalPadIndex(oled, 3)]).toBe('CLK')
     expect(labels[peripheralSignalPadIndex(oled, 4)]).toBe('MOSI')
+  })
+
+  it('routes the square ST7789 signals to its SCL/SDA/RST/BL silkscreen pads', () => {
+    const tft = {
+      ...item('transport-display', 'st7789-tft-240x240'),
+      pins: ['sckPin', 'mosiPin', 'csPin', 'dcPin', 'resetPin', 'backlightPin'].map(pin),
+    }
+    const labels = pads(tft)
+    expect(tft.pins.map((_, index) => labels[peripheralSignalPadIndex(tft, index)]))
+      .toEqual(['SCL', 'SDA', 'CS', 'DC', 'RST', 'BL'])
   })
 
   it('routes a MAX7219 to its own three lines', () => {

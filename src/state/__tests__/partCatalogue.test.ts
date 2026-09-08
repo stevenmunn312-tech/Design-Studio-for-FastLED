@@ -7,6 +7,7 @@ import {
   isDisplayPart,
   partById,
   partDimensionsMm,
+  partPinLabelForProperty,
   partRenderSrc,
   ringDiameterMm,
 } from '../partCatalogue'
@@ -60,6 +61,14 @@ describe('part catalogue', () => {
     expect(plain.controller.startsWith('ST7789')).toBe(true)
     expect(touch.touchController).toBe('XPT2046')
     expect(plain.touchController).toBeNull()
+  })
+
+  it('resolves each TFT property to the label printed on that exact module', () => {
+    const keys = ['sckPin', 'mosiPin', 'csPin', 'dcPin', 'resetPin', 'backlightPin']
+    expect(keys.map((key) => partPinLabelForProperty('st7789-tft-240x240', key)))
+      .toEqual(['SCL', 'SDA', 'CS', 'DC', 'RST', 'BL'])
+    expect(keys.map((key) => partPinLabelForProperty('st7789v-xpt2046-touch-240x320', key)))
+      .toEqual(['SCK', 'MOSI', 'CS', 'DC', 'RESET', 'LED'])
   })
 
   // The two 1-bit OLEDs share a resolution and a layout contract but not a

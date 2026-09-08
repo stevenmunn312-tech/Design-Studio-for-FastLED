@@ -76,6 +76,22 @@ describe('HardwarePartBody', () => {
     expect(queryByText('Size')).toBeNull()
   })
 
+  it('uses the square ST7789 module silkscreen names for its pin assignments', () => {
+    setPart('TransportDisplay')
+    const { getByLabelText, queryByLabelText } = render(
+      <HardwarePartBody nodeId="part" nodeType="TransportDisplay" />,
+    )
+
+    expect(getByLabelText('SCL')).toBeTruthy()
+    expect(getByLabelText('SDA')).toBeTruthy()
+    expect(getByLabelText('RST')).toBeTruthy()
+    expect(getByLabelText('BL')).toBeTruthy()
+    expect(queryByLabelText('SCK')).toBeNull()
+    expect(queryByLabelText('MOSI')).toBeNull()
+    expect(queryByLabelText('RESET')).toBeNull()
+    expect(queryByLabelText('BACKLIGHT')).toBeNull()
+  })
+
   it('does not show an analog-only ADC2 caveat for a digital I2S pin', () => {
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
     setPart('Amplifier')

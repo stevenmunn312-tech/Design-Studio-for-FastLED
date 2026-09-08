@@ -82,6 +82,41 @@ export function partById(partId: string): PartCatalogueEntry | undefined {
   return PART_CATALOGUE[partId]
 }
 
+/*
+ * A graph property names an electrical role; a module prints the name its
+ * manufacturer chose for that role. For example, the square ST7789 breakout
+ * prints SCL/SDA/RST/BL for SPI SCK/MOSI/reset/backlight. Keep the aliases here
+ * beside the catalogue boundary so every physical view can show the words a
+ * person will actually find on the part.
+ */
+const PART_PIN_PROPERTY_ALIASES: Record<string, readonly string[]> = {
+  clkPin: ['CLK', 'SCK', 'SCL'],
+  dioPin: ['DIO', 'DATA', 'DIN'],
+  dinPin: ['DIN', 'DATA', 'DIO'],
+  csPin: ['CS', 'LOAD'],
+  dcPin: ['DC'],
+  resetPin: ['RST', 'RESET', 'RES'],
+  sckPin: ['SCK', 'CLK', 'SCL', 'D0'],
+  mosiPin: ['MOSI', 'SDA', 'DIN', 'DATA', 'D1'],
+  misoPin: ['MISO', 'DO'],
+  backlightPin: ['BL', 'LED', 'LITE', 'BACKLIGHT'],
+  sdaPin: ['SDA'],
+  sclPin: ['SCL'],
+  touchCsPin: ['T_CS'],
+  touchIrqPin: ['T_IRQ'],
+  touchSckPin: ['T_CLK'],
+  touchMosiPin: ['T_DIN'],
+  touchMisoPin: ['T_DO'],
+}
+
+/** The exact label printed on a catalogued part for one graph pin property. */
+export function partPinLabelForProperty(partId: string, propertyKey: string): string | null {
+  const labels = partById(partId)?.pinLabelsLeftToRight ?? []
+  const aliases = PART_PIN_PROPERTY_ALIASES[propertyKey]
+  if (!aliases) return null
+  return labels.find((label) => aliases.includes(label.toUpperCase())) ?? null
+}
+
 /** The catalogued size, or `fallback` for a part not modelled yet. */
 export function partDimensionsMm(
   partId: string,

@@ -383,6 +383,28 @@ describe('HardwarePane', () => {
     expect(screen.getByText('MOSI 5 · SCK 18 · MISO 19 · CS 23')).toBeTruthy()
   })
 
+  it('uses the ST7789 module silkscreen names in its pin caption', () => {
+    useGraphStore.setState({
+      nodes: [
+        ...useGraphStore.getState().nodes,
+        node('TransportDisplay', 'tft', {
+          partId: 'st7789-tft-240x240',
+          sckPin: 2,
+          mosiPin: 4,
+          csPin: 5,
+          dcPin: 6,
+          resetPin: 7,
+          backlightPin: 8,
+        }) as never,
+      ],
+    })
+
+    render(<HardwarePane />)
+
+    expect(screen.getByText('SCL 2 · SDA 4 · CS 5 · DC 6 · RST 7 · BL 8')).toBeTruthy()
+    expect(screen.queryByText('CLK 2 · MOSI 4 · CS 5 · DC 6 · RES 7 · LITE 8')).toBeNull()
+  })
+
   it('labels input roles and lists their pins numerically', () => {
     useGraphStore.setState({
       nodes: [

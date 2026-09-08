@@ -21,7 +21,7 @@ import { rtcI2cPinsForProfile } from '../state/rtcPins'
 import { segmentControllerFor } from '../state/segmentDisplay'
 import { OLED_TRANSPORT_PINS, asOledAddress, oledAddressLabel } from '../state/oledSurface'
 import { isHardwareNodeType } from '../state/hardware'
-import { partById } from '../state/partCatalogue'
+import { partById, partPinLabelForProperty } from '../state/partCatalogue'
 import type { BusAssignment } from '../state/busTopology'
 import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
 import { resolvePartIdentity } from '../state/partOptions'
@@ -232,6 +232,7 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
       // Display (the document node) has no pins — it names no peripheral
       // item in either switch below either, for the same reason.
       case 'TransportDisplay': {
+        const partId = String(props.partId ?? 'st7789-tft-240x240')
         const labels: Record<string, string> = {
           sckPin: 'SCK', mosiPin: 'MOSI', misoPin: 'MISO', csPin: 'CS', dcPin: 'DC',
           resetPin: 'RESET', backlightPin: 'BACKLIGHT', touchCsPin: 'TOUCH CS',
@@ -239,7 +240,8 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
           touchMosiPin: 'TOUCH MOSI', touchMisoPin: 'TOUCH MISO',
         }
         for (const key of transportDisplayPinKeysForProps(props)) {
-          push(node, `${baseLabel} ${labels[key]}`, key, props[key])
+          const label = partPinLabelForProperty(partId, key) ?? labels[key]
+          push(node, `${baseLabel} ${label}`, key, props[key])
         }
         break
       }

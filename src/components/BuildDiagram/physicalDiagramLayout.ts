@@ -1,7 +1,7 @@
 import type { ElectricalPlanSummary } from '../../build/electricalPlan'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
 import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/powerDistribution'
-import { partById } from '../../state/partCatalogue'
+import { partById, partPinLabelForProperty } from '../../state/partCatalogue'
 
 export type ItemLayout = {
   item: HardwareManifestItem
@@ -395,6 +395,15 @@ export function peripheralSignalPadIndex(item: HardwareManifestItem, signalIndex
    * property is called sckPin.
    */
   const pads = peripheralPads(item).map((label) => label.toUpperCase())
+  const partId = String(item.facts.partId ?? '')
+  const propertyKey = item.pins[signalIndex]?.propertyKey
+  const cataloguedLabel = propertyKey
+    ? partPinLabelForProperty(partId, propertyKey)?.toUpperCase()
+    : null
+  if (cataloguedLabel) {
+    const index = pads.indexOf(cataloguedLabel)
+    if (index >= 0) return index
+  }
   const wanted = SIGNAL_PAD_NAMES[item.kind]?.[signalIndex]
   if (wanted) {
     const index = pads.findIndex((label) => wanted.includes(label))

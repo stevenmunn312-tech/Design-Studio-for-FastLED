@@ -11,6 +11,7 @@ import styles from './BoardNodeBody.module.css'
 import PartIdentity from '../Hardware/PartIdentity'
 import BoardPinPicker from '../Hardware/BoardPinPicker'
 import { normalizeButtonBankEntries } from '../../state/buttonBank'
+import { partPinLabelForProperty } from '../../state/partCatalogue'
 
 // A physical part's settings, shown in the hardware view rather than on its
 // signal node. Hardware-only parts and graph-visible inputs/outputs share this
@@ -24,7 +25,14 @@ import { normalizeButtonBankEntries } from '../../state/buttonBank'
 
 interface Props { nodeId: string; nodeType?: string }
 
-function hardwareFieldLabel(nodeType: string, key: string, declared?: string): string {
+function hardwareFieldLabel(
+  nodeType: string,
+  key: string,
+  properties: Record<string, unknown>,
+  declared?: string,
+): string {
+  const printed = partPinLabelForProperty(String(properties.partId ?? ''), key)
+  if (printed) return printed
   if (declared) return declared
   const known = propertyLabel(nodeType, key)
   if (known !== key) return known
@@ -120,7 +128,7 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
             const field = declaredFields.find((candidate) => candidate.key === key)
             const meta = propertyMeta(nodeType, key)
             const value = Number(props[key] ?? 0)
-            const label = hardwareFieldLabel(nodeType, key, field?.label)
+            const label = hardwareFieldLabel(nodeType, key, props, field?.label)
             return (
               <label key={key} className={styles.settingField}>
                 <span>{label}</span>

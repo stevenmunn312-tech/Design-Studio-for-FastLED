@@ -37,6 +37,9 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
     { key: 'sdMosiPin', label: 'MOSI', kind: 'pin' },
     { key: 'sdMisoPin', label: 'MISO', kind: 'pin' },
   ],
+  // These are semantic fallbacks only. HardwarePartBody resolves the selected
+  // catalogue entry first because the square module prints SCL/SDA/RST/BL
+  // while the touch module prints SCK/MOSI/RESET/LED for the same roles.
   TransportDisplay: [
     { key: 'sckPin', label: 'SCK', kind: 'pin' },
     { key: 'mosiPin', label: 'MOSI', kind: 'pin' },

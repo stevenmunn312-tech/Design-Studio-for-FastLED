@@ -13,7 +13,10 @@ import { OLED_TRANSPORT_PINS, oledTransportFor } from '../../state/oledSurface'
 import { withAssignedPins } from '../../state/pinRetarget'
 import { boardI2cDefault } from '../../build/boardI2cDefaults'
 import { sdSpiPinsForBoard } from '../../state/sdPinDefaults'
-import { displayResolution, partById, partDimensionsMm, partRenderSrc, ringDiameterMm } from '../../state/partCatalogue'
+import {
+  displayResolution, partById, partDimensionsMm, partPinLabelForProperty,
+  partRenderSrc, ringDiameterMm,
+} from '../../state/partCatalogue'
 import { buttonBankHandle, normalizeButtonBankEntries } from '../../state/buttonBank'
 import { partRenderForNodeType } from '../../state/partRenders'
 import { partOptionProperty, partOptionsFor, resolvePartIdentity } from '../../state/partOptions'
@@ -166,8 +169,8 @@ interface FixturePartEntry {
  */
 const MODULE_PIN_LABELS: Record<string, string> = {
   clkPin: 'CLK', dioPin: 'DIO', dinPin: 'DIN', csPin: 'CS',
-  dcPin: 'DC', resetPin: 'RES', sckPin: 'CLK', mosiPin: 'MOSI',
-  misoPin: 'MISO', backlightPin: 'LITE', sdaPin: 'SDA', sclPin: 'SCL',
+  dcPin: 'DC', resetPin: 'RESET', sckPin: 'SCK', mosiPin: 'MOSI',
+  misoPin: 'MISO', backlightPin: 'BACKLIGHT', sdaPin: 'SDA', sclPin: 'SCL',
   touchCsPin: 'T_CS', touchIrqPin: 'T_IRQ', touchSckPin: 'T_CLK',
   touchMosiPin: 'T_DIN', touchMisoPin: 'T_DO',
 }
@@ -205,12 +208,12 @@ const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     footprint: partDimensionsMm('st7789-tft-240x240', { width: 35.8, height: 35.8 }),
     render: partRenderSrc('st7789-tft-240x240') ?? undefined,
     pinFields: [
-      { key: 'sckPin', label: 'SCK' },
-      { key: 'mosiPin', label: 'MOSI' },
+      { key: 'sckPin', label: 'SCL' },
+      { key: 'mosiPin', label: 'SDA' },
       { key: 'csPin', label: 'CS' },
       { key: 'dcPin', label: 'DC' },
-      { key: 'resetPin', label: 'RESET' },
-      { key: 'backlightPin', label: 'LITE' },
+      { key: 'resetPin', label: 'RST' },
+      { key: 'backlightPin', label: 'BL' },
     ],
     pinRequests: [
       { key: 'sckPin' }, { key: 'mosiPin' }, { key: 'csPin' },
@@ -805,7 +808,10 @@ export default function HardwarePane() {
     const pinFields = identity?.option.input === 'analog'
       ? []
       : moduleKeys
-        ? moduleKeys.map((key) => ({ key, label: MODULE_PIN_LABELS[key] ?? key }))
+        ? moduleKeys.map((key) => ({
+          key,
+          label: partPinLabelForProperty(identity?.option.id ?? '', key) ?? MODULE_PIN_LABELS[key] ?? key,
+        }))
         : entry.pinFields ?? []
     const props = node.data.properties as Record<string, unknown>
     const pinSummary = numericPinSummary(props, pinFields)
