@@ -160,8 +160,17 @@ describe('MatrixOutputDeployPopup', () => {
         id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
         data: { nodeType: 'Display', label: 'Touch panel', category: 'output',
           properties: { displayId: 'document' }, inputs: [], outputs: [] },
+      }, {
+        // The panel the design is plugged into: artwork is prepared for
+        // mounted screens, so an unwired document bakes nothing.
+        id: 'glass', type: 'studioNode', position: { x: 0, y: 0 },
+        data: { nodeType: 'TransportDisplay', label: 'Panel', category: 'output',
+          properties: { partId: 'st7789v-xpt2046-touch-240x320' }, inputs: [], outputs: [] },
       }] as never[],
-      edges: [{ id: 'frame', source: 'pattern', target: 'matrix', sourceHandle: 'frame', targetHandle: 'frame' }],
+      edges: [
+        { id: 'frame', source: 'pattern', target: 'matrix', sourceHandle: 'frame', targetHandle: 'frame' },
+        { id: 'mount', source: 'screen', target: 'glass', sourceHandle: 'customDisplay', targetHandle: 'customDisplay' },
+      ],
       displayDocuments: { document },
     })
     useUploadStore.setState({
@@ -514,8 +523,19 @@ describe('MatrixOutputDeployPopup SD-show upload', () => {
       nodes: [...useGraphStore.getState().nodes, {
         id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
         data: { label: 'Screen', nodeType: 'Display', category: 'output',
-          properties: { displayId: 'panel', partId: 'st7789v-xpt2046-touch-240x320' }, inputs: [], outputs: [] },
-      }] as never[], displayDocuments: { panel: document },
+          properties: { displayId: 'panel' }, inputs: [], outputs: [] },
+      }, {
+        // The module and its rotation are the panel's now; the design is only
+        // real once it is plugged into one, which is what decides whether its
+        // artwork is baked at all.
+        id: 'glass', type: 'studioNode', position: { x: 0, y: 0 },
+        data: { label: 'Panel', nodeType: 'TransportDisplay', category: 'output',
+          properties: { partId: 'st7789v-xpt2046-touch-240x320' }, inputs: [], outputs: [] },
+      }] as never[],
+      edges: [...useGraphStore.getState().edges,
+        { id: 'mount', source: 'screen', target: 'glass', sourceHandle: 'customDisplay', targetHandle: 'customDisplay' },
+      ] as never[],
+      displayDocuments: { panel: document },
     })
     const { getByRole } = render(<MatrixOutputDeployPopup />)
     expect((getByRole('button', { name: /Upload show/ }) as HTMLButtonElement).disabled).toBe(true)

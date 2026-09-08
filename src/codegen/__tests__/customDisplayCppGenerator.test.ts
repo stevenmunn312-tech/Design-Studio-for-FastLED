@@ -248,4 +248,36 @@ describe('normal-sketch codegen for the custom Display node', () => {
     expect(loop.indexOf('FastLED.show();')).toBeLessThan(loop.indexOf('_cdServiceLvgl();'))
     expect(loop.match(/n_screen_widget_toggle_out =/g)).toHaveLength(1)
   })
+
+  it('builds one design on one panel, whichever panel it is also wired to', () => {
+    // Every symbol a screen emits is keyed by its document, so a second panel
+    // showing the same document declared the screen object and every widget
+    // global twice — a sketch that cannot compile. Validation refuses the
+    // graph; this is what the refused build would contain: one screen, and the
+    // spare panel falling back to the fixed layout it can still draw.
+    const edges = [link(), link('screen', 'spare-tft')]
+    const src = generateCpp([output, panel(), panel('spare-tft'), doc()], edges, {}, { displayDocuments: documents })
+    expect(src.match(/_cdScreen_screen = lv_obj_create/g)).toHaveLength(1)
+    expect(src.match(/CustomDisplayWidgetRuntime _cd_screen\[/g)).toHaveLength(1)
+    expect(src).toContain('_cdPanel_tft')
+    expect(src).not.toContain('_cdPanel_spare_tft')
+    expect(src).toContain('_tftOn_spare_tft')
+  })
+
+  it('reads a design no panel shows as at rest rather than as an undeclared symbol', () => {
+    // A document nothing is plugged into builds no widgets, so a wire out of
+    // one used to name a variable this sketch never declared. It reads at rest
+    // instead — the same answer a disabled panel's controls give, for the same
+    // reason. Validation names the wire; this only keeps the C++ well-formed.
+    const edges = [
+      edge('e-frame', 'title', 'text', 'out', 'frame'),
+      edge('e-enable', 'screen', 'widget:toggle:out', 'out', 'enabled'),
+    ]
+    const src = generateCpp([output, doc(), title], edges, {}, { displayDocuments: documents })
+    expect(src).not.toContain('lv_init')
+    expect(src).toMatch(/bool n_screen_widget_toggle_out = false;/)
+    const loop = src.slice(src.indexOf('void loop() {'))
+    expect(loop.indexOf('n_screen_widget_toggle_out = false;'))
+      .toBeLessThan(loop.lastIndexOf('n_screen_widget_toggle_out'))
+  })
 })

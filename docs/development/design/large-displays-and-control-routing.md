@@ -23,9 +23,40 @@ document sync; widget ports are additive beside it. Replacing the whole set with
 widget ports stripped that output and dropped the mount wire on load and on
 every edit, so a saved screen came back unplugged from its panel.
 
-One document driving two panels was a design intention, not a completed feature:
-normal generation duplicates widget symbols and template generation rejects it.
-Use separate documents for now; HW-03 will enforce the boundary.
+### One design, one panel
+
+A design drives one panel. Every symbol a screen emits — its LVGL screen object,
+its widget runtime array, each widget output variable — is keyed by the document
+node, so a second panel showing the same document declared all of them twice.
+Normal generation emitted that duplicate; the template planner refused it as an
+identifier collision, which named the wrong thing entirely and told the user to
+recreate a display that was fine.
+
+`customDisplayMountPlan` in `mountedDisplays.ts` is the one walk that decides
+which screens a build contains, and RAM pricing, asset baking, deploy validation
+and all three generators read it. It reports the two shapes that cannot be
+built:
+
+- **A document on more than one panel.** Refused, naming the panels, with the
+  repair: copy the `Display` node and wire a copy to each panel. Duplicating the
+  node already mints a fresh `displayId`, so the copy is independent. Sharing one
+  document across two panels would also be two fingers on one set of widgets with
+  no rule for which wins; independent copies avoid needing that rule. A build
+  forced through anyway emits the design once and lets the spare panel fall back
+  to its fixed layout, so the refused graph still produces well-formed C++.
+- **A document no panel shows, driving something.** Its widgets are never built,
+  so a wire out of it named a control variable the sketch never declared. The
+  wire is refused, and codegen declares the output at rest — the same answer a
+  disabled panel gives, for the same reason: there is nothing there for a finger
+  to move.
+
+A design nobody has plugged in and nobody has wired out of costs nothing and
+blocks nothing: no draw buffer, no widget caches, no LVGL heap, no artwork bake.
+Leaving spare designs in a workspace is ordinary, and an unused one with a broken
+image reference used to refuse an upload that never referenced it.
+
+Document fan-out to two panels stays out of scope until there is an answer for
+simultaneous touch; see [HW-03](../../../todo.md).
 
 ### Geometry
 
@@ -138,15 +169,17 @@ nodes belong to none of those physical registries.
 The normal generator walks graph expressions. Show/player templates reuse
 `templateControlRouting.ts`, `controlGraph.ts` and `customDisplayControlGraph.ts`.
 Their supported sources/types remain narrower than the browser evaluator.
-Share a resolved build/mounted-screen plan across validation, preparation,
-capacity and generation (HW-03/04); retain specialized rendering adapters.
+`customDisplayMountPlan` is that shared mounted-screen plan for validation,
+asset preparation, capacity and all three generators; the resolved *build mode*
+is still chosen separately at each entry point (HW-04). Retain specialized
+rendering adapters.
 
 No pre-1.0 migration is required on Hardware. The v1 format becomes the new
 compatibility baseline only after it ships.
 
 ## Remaining decisions
 
-HW-01–08 cover selection, ownership, shared documents, diagnostics, live preview,
+HW-01–08 cover selection, ownership, diagnostics, live preview,
 connected starters and generator-aware assignments. Broader structured bindings,
 Performance Generator as a real Display source, density/size thresholds and
 multi-screen scope are explicitly deferred in D-01/02. Useful driver, bus and

@@ -1360,12 +1360,18 @@ describe('validateGraph', () => {
       expect(ram.internalBytes).toBe(48 + OLED_PANEL_RAM_BYTES)
     })
 
-    it('has a RAM figure for every display in the library', () => {
+    it('has a RAM figure for every physical display in the library', () => {
       // The node-type -> struct map is the one part of this that cannot be
       // derived. A third panel with no entry would be measured as free.
+      // `Display` is deliberately absent: a screen document is not hardware,
+      // so it has no fixed cost — what it costs is its panel's draw buffer and
+      // its own widget caches, priced through the mounted-panel plan, and
+      // nothing at all when no panel shows it.
       for (const nodeType of DISPLAY_NODE_TYPES) {
+        if (nodeType === 'Display') continue
         expect(DISPLAY_RAM_BYTES_BY_NODE_TYPE[nodeType]).toBeGreaterThan(0)
       }
+      expect(DISPLAY_RAM_BYTES_BY_NODE_TYPE.Display).toBeUndefined()
       expect([...DISPLAY_NODE_TYPES].sort()).toEqual(['Display', 'InfoDisplay', 'SegmentDisplay', 'TransportDisplay'])
     })
 

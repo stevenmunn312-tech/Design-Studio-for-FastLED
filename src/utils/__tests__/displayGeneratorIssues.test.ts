@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { buildGraphDiagnostics, findDisplayGeneratorIssues, findOutputRuntimeIssues } from '../validateGraph'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
+import { createDisplayDocument } from '../../state/displayEditor'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, props: Record<string, unknown> = {}): StudioNode {
@@ -360,6 +361,43 @@ describe('displays a build cannot drive', () => {
     ])
     expect(issues.errors).toHaveLength(1)
     expect(issues.errors[0]).toContain('screen document is missing')
+  })
+
+  it('refuses one design plugged into two panels, and takes the copies', () => {
+    // Every symbol a screen emits is keyed by its document, so two panels
+    // showing one design meant declaring it twice. The repair is a copy of the
+    // design, not a shared one: two panels on one document would also be two
+    // fingers on one set of widgets with no rule for which wins.
+    const design = node('custom', 'Display', { displayId: 'custom' })
+    const first = node('panelA', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320' })
+    const second = node('panelB', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320' })
+    const documents = { custom: createDisplayDocument('custom', 240, 320) }
+    const mount = [
+      edge('m1', 'custom', 'customDisplay', 'panelA', 'customDisplay'),
+      edge('m2', 'custom', 'customDisplay', 'panelB', 'customDisplay'),
+    ]
+    const shared = findDisplayGeneratorIssues([out(), design, first, second], mount, documents).errors
+    expect(shared).toEqual([expect.stringContaining('is plugged into 2 panels')])
+    expect(shared[0]).toContain('copy the Display node')
+    // Two independent copies, one panel each, is the supported shape.
+    const copy = node('copy', 'Display', { displayId: 'copy' })
+    expect(findDisplayGeneratorIssues(
+      [out(), design, copy, first, second],
+      [mount[0], edge('m2', 'copy', 'customDisplay', 'panelB', 'customDisplay')],
+      { ...documents, copy: createDisplayDocument('copy', 240, 320) },
+    ).errors).toEqual([])
+  })
+
+  it('names a design driving a control while plugged into nothing, and leaves an idle one alone', () => {
+    // Unplugged, its widgets are never built, so the wire names a control that
+    // does not exist. The design itself is fine sitting in the workspace.
+    const design = node('custom', 'Display', { displayId: 'custom' })
+    const documents = { custom: createDisplayDocument('custom', 240, 320) }
+    expect(findDisplayGeneratorIssues([out(), design], [], documents).errors).toEqual([])
+    const driven = findDisplayGeneratorIssues([out(), design],
+      [edge('w', 'custom', 'widget:toggle:out', 'out', 'enabled')], documents).errors
+    expect(driven).toEqual([expect.stringContaining('not plugged into a panel')])
+    expect(driven[0]).toContain('drives a control')
   })
 })
 

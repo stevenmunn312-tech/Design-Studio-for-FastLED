@@ -91,3 +91,73 @@ export function mountedSizeIssue(
     + `plugged into shows ${geometry.width} x ${geometry.height} at ${geometry.rotation}°. `
     + 'Open the display editor and resize it for this module and orientation.'
 }
+
+/**
+ * The mounted screens a build actually contains, plus the two shapes it cannot
+ * build.
+ *
+ * Everything downstream of the panel/document split has to agree on which
+ * documents are real: RAM pricing, asset baking, deploy validation and all
+ * three generators. They used to each walk the graph their own way — the
+ * estimator priced every `Display` node whether or not anything showed it, the
+ * asset bake fetched artwork for designs nobody had plugged in, and normal
+ * codegen emitted one document twice when two panels shared it, which the
+ * template planner refused as an identifier collision. One walk, one answer.
+ *
+ * `mounted` holds one panel per document node, so the symbols keyed by that
+ * document's id are declared exactly once. A second panel showing the same
+ * document is reported in `shared` rather than built: one design drives one
+ * panel for now, and a user who wants the same screen twice duplicates the
+ * `Display` node — two documents, two sets of widgets, two independent
+ * touch surfaces. Documents `unmounted` have no physical existence at all;
+ * they cost nothing and block nothing, but anything wired out of one is
+ * driving a control that does not exist.
+ */
+export interface CustomDisplayMountPlan {
+  /** One panel per document node, in graph order. */
+  mounted: MountedCustomDisplay[]
+  /** Documents plugged into more than one panel, with every panel showing them. */
+  shared: { document: StudioNode; panels: StudioNode[] }[]
+  /** `Display` nodes no panel shows. */
+  unmounted: StudioNode[]
+}
+
+export function customDisplayMountPlan(
+  nodes: readonly StudioNode[],
+  edges: readonly StudioEdge[],
+): CustomDisplayMountPlan {
+  const byDocumentNode = new Map<string, MountedCustomDisplay[]>()
+  for (const mount of mountedCustomDisplays(nodes, edges)) {
+    const showings = byDocumentNode.get(mount.document.id)
+    if (showings) showings.push(mount)
+    else byDocumentNode.set(mount.document.id, [mount])
+  }
+  const showings = [...byDocumentNode.values()]
+  return {
+    mounted: showings.map((panels) => panels[0]),
+    shared: showings.filter((panels) => panels.length > 1)
+      .map((panels) => ({ document: panels[0].document, panels: panels.map((mount) => mount.panel) })),
+    unmounted: nodes.filter((node) => node.data.nodeType === 'Display' && !byDocumentNode.has(node.id)),
+  }
+}
+
+/**
+ * Why one design cannot drive two panels.
+ *
+ * Stated once so deploy validation and the two template planners say the same
+ * sentence, and so the merge in `findDisplayGeneratorIssues` reports it once
+ * rather than twice in slightly different words.
+ */
+export function sharedDocumentIssue(documentLabel: string, panelLabels: readonly string[]): string {
+  return `${documentLabel} is plugged into ${panelLabels.length} panels (${panelLabels.join(', ')}). `
+    + 'A screen design drives one panel: copy the Display node and wire a copy to each panel, '
+    + 'or disconnect all but one.'
+}
+
+/** Why a wire out of an unplugged design leads nowhere. */
+export function unmountedDocumentIssue(documentLabel: string, drivenCount: number): string {
+  return `${documentLabel} drives ${drivenCount === 1 ? 'a control' : `${drivenCount} controls`}, `
+    + 'but it is not plugged into a panel, so its widgets are never built. '
+    + "Wire its Custom Display output to a Transport Display's Custom Display input, "
+    + 'or disconnect the widget wires.'
+}

@@ -54,11 +54,23 @@ matrix, not a reason to postpone testing earlier changes.
   run left rotation at 0, so the editor's rotation write is untested physically.
   Remaining exit: compile and bench the disabled, wired-enable and rotated cases
   (HW-06 matrix). F3/F4.
-- [ ] **HW-03 · P1/P2 · Resolve mounted screens once (M; after HW-02).** Enforce
-  one document per panel initially and diagnose unmounted live widget sources.
-  Share active instances across RAM, assets, validation and emission; exclude
-  orphan designs. Exit: no duplicate/undeclared symbols, real rotation changes
-  buffer estimates, one shared heap, unused designs cannot block builds. F5/F7.
+- [ ] **HW-03 · P1/P2 · Resolve mounted screens once (M; after HW-02).** Code
+  complete; compile evidence outstanding. `customDisplayMountPlan` in
+  `mountedDisplays.ts` is the one walk that says which screens a build contains,
+  and RAM pricing, asset baking, deploy validation, the template planner and the
+  normal generator all read it. One design on two panels is refused by name
+  rather than as a sanitization collision, and a build forced through emits it
+  once while the spare panel falls back to its fixed layout, so the refused graph
+  still produces well-formed C++. A design no panel shows is refused only when it
+  drives something, and its outputs read at rest so the sketch stays declared;
+  left idle it costs no draw buffer, widget cache, LVGL heap or artwork bake and
+  cannot block an upload. The estimate now prices the panel's rotation rather
+  than the document's, and stops charging a custom panel for the fixed-layout
+  field caches it never emits. Covered by shared/unmounted codegen, validation,
+  show-template, RAM and asset-preparation tests; `npm test`, `npm run lint` and
+  `tsc -b` pass. Remaining exit: compile the shared-refusal and unmounted-source
+  cases (HW-06 matrix). Document fan-out to two panels stays deferred until
+  simultaneous touch has an answer. F5/F7.
 - [ ] **HW-04 · P1 · Shared build-mode/capability plan (L; after HW-01–03).**
   Replace repeated generator selection in Upload, Graph Health, capacity,
   assets and generation with one pure resolver. Validate resolved content/actions

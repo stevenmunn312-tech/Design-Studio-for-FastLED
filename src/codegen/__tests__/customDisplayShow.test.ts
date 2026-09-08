@@ -172,6 +172,21 @@ describe('custom displays in generative shows', () => {
     )).toThrow('identifiers collide')
   })
 
+  it('names one design on two panels for what it is, not as a sanitization collision', () => {
+    // The planner used to reach this through its duplicate-symbol guard, which
+    // told the user to recreate a display that was fine. It is the second wire
+    // that is wrong, and deploy validation now says the same sentence, so the
+    // merged report carries it once.
+    const nodes = [screen(), panel('tftA'), panel('tftB')]
+    const edges = [link('screen', 'tftA'), link('screen', 'tftB')]
+    const documents = { screen: document() }
+    expect(() => generate(nodes, edges, documents)).toThrow('is plugged into 2 panels')
+    const errors = showControlRouting([...root, ...nodes], [...routing, ...edges], documents).errors
+    expect(errors).toEqual([expect.stringContaining('is plugged into 2 panels')])
+    expect(findDisplayGeneratorIssues([...root, ...nodes], [...routing, ...edges], documents)
+      .errors.filter((issue) => issue.includes('plugged into 2 panels'))).toHaveLength(1)
+  })
+
   // A widget is a control source like a button on a pin: the same bundle, the
   // same destination. What was missing was the destination — a Player Controls
   // chain addressed to the slideshow reached nothing the generator emitted.

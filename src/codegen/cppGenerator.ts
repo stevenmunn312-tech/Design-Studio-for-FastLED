@@ -81,6 +81,7 @@ import {
   type CustomDisplayPanelEmit,
 } from './customDisplayPanelCpp'
 import { displayDocumentPorts, parseDisplayWidgetPortId } from '../state/displayRegistry'
+import { customDisplayMountPlan } from '../state/mountedDisplays'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import type { BakedCustomDisplayAsset } from '../state/customDisplayResources'
 import { customDisplayAssetsCpp } from './customDisplayAssetsCpp'
@@ -1927,6 +1928,38 @@ export function generateCpp(
   // intermediates. Native passes get one correctly-sized copy per template
   // instance; ordinary buf_ arrays remain the one sequentially reused set.
   const persistentFrameStateBufs = new Set<string>()
+
+  // Which panel is allowed to build which document — the same walk validation
+  // and the RAM estimate use, so all three agree on what this sketch contains.
+  // Two panels wired to one document would declare its screen object and every
+  // widget global twice; only the first builds it, and the second falls through
+  // to the fixed-layout arm below and comes up as a Waiting screen. Validation
+  // refuses that graph outright, so this is what a refused build would look
+  // like rather than a shape anyone is meant to ship.
+  const customMounts = customDisplayMountPlan(nodes, edges)
+  const customDisplayOwners = new Set(customMounts.mounted.map((mount) => mount.panel.id))
+
+  // A document no panel shows builds no widgets, so a wire out of one used to
+  // reference a control variable this sketch never declared. It reads at rest
+  // instead — the same thing a disabled panel's controls report, for the same
+  // reason: there is nothing there for a finger to move. Validation names the
+  // wire; this only keeps the C++ well-formed while it is being repaired.
+  for (const document of customMounts.unmounted) {
+    const registered = opts.displayDocuments?.[String(props(document).displayId ?? document.id)]
+    const declared = new Map((registered
+      ? displayDocumentPorts(registered).outputs
+      : ((document.data.outputs ?? []) as { id: string; dataType: string }[]))
+      .map((port) => [port.id, port.dataType]))
+    for (const edge of edges) {
+      if (edge.source !== document.id || !edge.sourceHandle) continue
+      if (!parseDisplayWidgetPortId(edge.sourceHandle)) continue
+      const cppType = declared.get(edge.sourceHandle) === 'bool' ? 'bool' : 'float'
+      const name = `n_${safeId(document.id)}_${safeId(edge.sourceHandle)}`
+      if (customDisplaySamples.some((line) => line.includes(` ${name} =`))) continue
+      if (nativeMultiRender) globalLines.push(`static ${cppType} ${name};`)
+      customDisplaySamples.push(`  ${nativeMultiRender ? '' : `${cppType} `}${name} = ${cppType === 'bool' ? 'false' : '0.0f'};  // screen not plugged into a panel`)
+    }
+  }
 
   function emit(node: StudioNode): void {
     const id = safeId(node.id)
@@ -5074,7 +5107,7 @@ export function generateCpp(
           ? opts.displayDocuments?.[String(props(documentNode).displayId ?? documentNode.id)]
           : undefined
 
-        if (documentNode && document) {
+        if (documentNode && document && customDisplayOwners.has(node.id)) {
           const docId = safeId(documentNode.id)
           const ports = displayDocumentPorts(document)
           const widgetInputExpr = (up: { srcId: string; srcPort: string } | undefined, dataType: string | undefined): string | null => {

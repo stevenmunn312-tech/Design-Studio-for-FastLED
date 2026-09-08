@@ -7,6 +7,7 @@ import { create } from 'zustand'
 import { useGraphStore, type StudioNode, type StudioEdge } from '../state/graphStore'
 import type { DisplayDocument } from '../state/displayDocument'
 import { customDisplayAssetRequests, customDisplayResourceIssues, type BakedCustomDisplayAsset } from '../state/customDisplayResources'
+import { customDisplayMountPlan } from '../state/mountedDisplays'
 import { bakeCustomDisplayAssets } from '../utils/bakeCustomDisplayAssets'
 
 type AssetMap = Record<string, readonly BakedCustomDisplayAsset[]>
@@ -35,17 +36,27 @@ function bake(document: DisplayDocument) {
   return pending
 }
 
-/** Prepare real firmware bytes before either build consumer generates code. */
-export function useCustomDisplayAssets(nodes: StudioNode[], enabled: boolean, edges?: StudioEdge[]) {
+/**
+ * Prepare real firmware bytes before either build consumer generates code.
+ *
+ * `edges` are not optional: what a build contains is a question about wires
+ * now, not about which nodes exist, so there is no honest answer without them.
+ */
+export function useCustomDisplayAssets(nodes: StudioNode[], enabled: boolean, edges: StudioEdge[]) {
   const documents = useGraphStore((state) => state.displayDocuments)
   const trusted = useGraphStore((state) => state.trusted)
   const { revision, retry } = useBakeRetry()
   const plan = useMemo(() => {
     const targets: { nodeId: string; label: string; document: DisplayDocument }[] = []
     const errors: string[] = []
-    if (enabled) for (const node of nodes) {
-      if (node.data.nodeType !== 'Display') continue
-      const document = documents[String(node.data.properties.displayId ?? node.id)]
+    // Mounted screens only. A design nobody has plugged into a panel emits no
+    // firmware, so fetching and decoding its artwork spends work on bytes no
+    // build will contain — and worse, a broken asset in a design left over in
+    // the workspace refused an upload that never referenced it. The same walk
+    // the generators, the RAM estimate and validation use decides what is real.
+    if (enabled) for (const mounted of customDisplayMountPlan(nodes, edges).mounted) {
+      const node = mounted.document
+      const document = documents[mounted.documentId]
       const label = String(node.data.label || 'Display')
       if (!document) {
         errors.push(`${label}: the screen document is missing. Open the display editor to configure it.`)
@@ -54,9 +65,9 @@ export function useCustomDisplayAssets(nodes: StudioNode[], enabled: boolean, ed
       errors.push(...customDisplayResourceIssues(document).map((issue) => `${label}: ${issue.message}`))
       if (customDisplayAssetRequests(document).length > 0) targets.push({ nodeId: node.id, label, document })
     }
-    if (enabled && edges && sdShowConnected(nodes, edges)) {
+    if (enabled && sdShowConnected(nodes, edges)) {
       errors.push(...playerControlGraph(nodes, edges, documents).errors)
-    } else if (enabled && edges && isPatternShow(nodes, edges)) {
+    } else if (enabled && isPatternShow(nodes, edges)) {
       errors.push(...showControlRouting(nodes, edges, documents).errors)
     }
     if (targets.length > 0 && !trusted) {

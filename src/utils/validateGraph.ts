@@ -30,12 +30,11 @@ import {
 import { OLED_PANEL_RAM_BYTES } from '../codegen/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../codegen/segmentDisplayCpp'
 import { TFT_PANEL_RAM_BYTES } from '../codegen/tftDisplayCpp'
-import { CUSTOM_DISPLAY_PANEL_RAM_BYTES } from '../codegen/customDisplayPanelCpp'
 import { CUSTOM_DISPLAY_LVGL_HEAP_BYTES } from '../codegen/customDisplayLvglCpp'
 import { customDisplayRamBytes } from '../codegen/customDisplayRam'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import { showControlRouting, showControlOutputIds } from '../codegen/showControlRouting'
-import { mountedCustomDisplays, mountedSizeIssue } from '../state/mountedDisplays'
+import { customDisplayMountPlan, mountedCustomDisplays, mountedSizeIssue, sharedDocumentIssue, unmountedDocumentIssue } from '../state/mountedDisplays'
 import { asTransportDisplayLayout } from '../state/transportDisplay'
 import {
   findPinCollisions, findI2cAddressCollisions, pinCollisionMessage,
@@ -441,8 +440,10 @@ export const DISPLAY_RAM_BYTES_BY_NODE_TYPE: Record<string, number> = {
   // drew and repaints only when that changes. Hundreds of bytes rather than
   // the OLED's thousands, on fifty times the pixels.
   TransportDisplay: TFT_PANEL_RAM_BYTES,
-  // Variable draw buffers/widget caches and the shared heap are added below.
-  Display: CUSTOM_DISPLAY_PANEL_RAM_BYTES,
+  // `Display` has no row on purpose: a screen document is not hardware, so it
+  // has no fixed cost of its own. What it costs is its panel's draw buffer and
+  // its own widget caches, priced below through the mounted-panel plan — and
+  // nothing at all when no panel shows it.
 }
 
 /**
@@ -471,16 +472,34 @@ export const DISPLAY_NODE_TYPES = new Set([
   'Display',
 ])
 
-/** Internal RAM the displays present in `nodes` add to the sketch. */
-function displayRamBytes(nodes: StudioNode[], documents?: DisplayDocumentRegistry): number {
+/**
+ * Internal RAM the displays present in `nodes` add to the sketch.
+ *
+ * Custom screens are priced from the mounted-panel plan rather than from the
+ * `Display` nodes on the canvas, which is what the generators emit from: an
+ * unplugged design produces no firmware and so costs nothing, and the panel
+ * showing one is not also charged for the fixed-layout field caches it never
+ * emits. The panel is what states the rotation, so rotating it really does
+ * move the draw buffer — reading rotation off the document priced a portrait
+ * buffer for a landscape screen.
+ */
+function displayRamBytes(
+  nodes: StudioNode[],
+  edges: readonly StudioEdge[],
+  documents?: DisplayDocumentRegistry,
+): number {
+  const mounted = customDisplayMountPlan(nodes, edges).mounted
+  const customPanels = new Set(mounted.map((mount) => mount.panel.id))
   return nodes.reduce(
     (sum, n) => {
-      if (n.data.nodeType !== 'Display') return sum + (DISPLAY_RAM_BYTES_BY_NODE_TYPE[n.data.nodeType] ?? 0)
-      const props = n.data.properties as Record<string, unknown>
-      return sum + customDisplayRamBytes(props, documents?.[String(props.displayId ?? n.id)])
+      if (n.data.nodeType === 'Display' || customPanels.has(n.id)) return sum
+      return sum + (DISPLAY_RAM_BYTES_BY_NODE_TYPE[n.data.nodeType] ?? 0)
     },
-    // LVGL's built-in heap and the shared handler timestamp are emitted once.
-    nodes.some((n) => n.data.nodeType === 'Display') ? CUSTOM_DISPLAY_LVGL_HEAP_BYTES + 4 : 0,
+    mounted.reduce(
+      (sum, mount) => sum + customDisplayRamBytes(mount.panel.data.properties, documents?.[mount.documentId]),
+      // LVGL's built-in heap and the shared handler timestamp are emitted once.
+      mounted.length > 0 ? CUSTOM_DISPLAY_LVGL_HEAP_BYTES + 4 : 0,
+    ),
   )
 }
 
@@ -676,7 +695,7 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[], di
 
   // Displays are sinks, so they are not in `reachable` and never will be —
   // they are walked *from*, not to. Count them over the whole graph instead.
-  const displayBytes = displayRamBytes(nodes, displayDocuments)
+  const displayBytes = displayRamBytes(nodes, edges, displayDocuments)
 
   const ledsArrayBytes = ledCount * 3
   const usesPsram = controllerSettings(nodes).usePsram
@@ -1588,12 +1607,35 @@ export function findDisplayGeneratorIssues(
   // design onto a portrait panel without a word. The template plan resolves
   // this through the same helper, so its copy of the message is dropped rather
   // than reported twice.
+  const mountPlan = customDisplayMountPlan(nodes, edges)
   for (const mounted of mountedCustomDisplays(nodes, edges)) {
     const document = displayDocuments?.[mounted.documentId]
     if (!document) continue
     const issue = mountedSizeIssue(nodeLabel(mounted.document), mounted.geometry, document.designSize)
     if (issue) errors.push(issue)
   }
+  // One design, one panel. Every symbol a custom screen emits is keyed by its
+  // document node, so a second panel showing the same document would declare
+  // the widget globals and the screen object twice; the template planner
+  // already refused this as an identifier collision while normal codegen
+  // emitted the duplicate. Say so in the one place all three build paths read,
+  // and name the repair — a copy of the design, not a shared one, because two
+  // panels showing one document would also be two fingers on one set of
+  // widgets with no policy for which wins.
+  for (const { document, panels } of mountPlan.shared) {
+    errors.push(sharedDocumentIssue(nodeLabel(document), panels.map(nodeLabel)))
+  }
+  // A design nobody has plugged in is free to sit in the workspace — it costs
+  // no RAM, bakes no images and blocks no build. What it cannot do is drive
+  // anything: its widgets are never created, so a normal sketch referenced a
+  // control variable it had not declared. The wire is the mistake, not the
+  // design.
+  for (const document of mountPlan.unmounted) {
+    const driven = edges.filter((edge) => edge.source === document.id && edge.sourceHandle !== 'customDisplay')
+    if (driven.length === 0) continue
+    errors.push(unmountedDocumentIssue(nodeLabel(document), driven.length))
+  }
+
   for (const issue of templateControls?.custom.errors ?? []) {
     if (!errors.includes(issue)) errors.push(issue)
   }

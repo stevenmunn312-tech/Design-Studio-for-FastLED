@@ -2,7 +2,7 @@ import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import { displayWidgetPorts } from '../state/displayRegistry'
 import { customDisplayResourceIssues } from '../state/customDisplayResources'
-import { mountedPanelGeometry, mountedSizeIssue } from '../state/mountedDisplays'
+import { customDisplayMountPlan, mountedPanelGeometry, mountedSizeIssue, sharedDocumentIssue, unmountedDocumentIssue } from '../state/mountedDisplays'
 import { controlReferenceCpp, type ControlReference, type createControlGraph } from './controlGraph'
 import { customDisplayId } from './customDisplayId'
 import { customDisplayPanelFromProps } from './customDisplayPanelCpp'
@@ -38,8 +38,10 @@ export function customDisplaySampleCpp(sample: CustomDisplaySample, gate: string
  * document has no pins of its own: this walks `TransportDisplay` panels with
  * a wired `customDisplay` input instead of `Display` nodes directly, pulling
  * physical config from the panel and widgets/document from whichever
- * `Display` node is wired to it. An unwired document is invisible here, the
- * same way it is to codegen — it has no physical existence to report on.
+ * `Display` node is wired to it. An unwired document builds nothing here, the
+ * same way it builds nothing in codegen — it has no physical existence — but
+ * it is no longer silent: a wire out of one is reported, because the control
+ * it names is never created.
  */
 export function customDisplayControlPlan(
   nodes: StudioNode[],
@@ -49,12 +51,21 @@ export function customDisplayControlPlan(
 ) {
   const errors: string[] = [], sources: ControlReference[] = []
   const symbols = new Set<string>()
-  const nodeById = new Map(nodes.map((n) => [n.id, n]))
-  const displays = nodes.filter((node) => node.data.nodeType === 'TransportDisplay').flatMap((panelNode) => {
-    const wire = edges.find((e) => e.target === panelNode.id && e.targetHandle === 'customDisplay')
-    if (!wire) return []
-    const node = nodeById.get(wire.source)
-    if (!node || node.data.nodeType !== 'Display') return []
+  // The one mounted-screen walk, shared with deploy validation, the RAM
+  // estimate and the normal generator. It also answers the two shapes this
+  // used to diagnose by accident: a document on two panels came out as
+  // "identifiers collide after sanitization", which named the wrong problem,
+  // and a document on none was simply invisible while its widget wires still
+  // asked the control graph for values.
+  const mountPlan = customDisplayMountPlan(nodes, edges)
+  for (const { document, panels } of mountPlan.shared) {
+    errors.push(sharedDocumentIssue(String(document.data.label || document.id), panels.map((panel) => String(panel.data.label || panel.id))))
+  }
+  for (const document of mountPlan.unmounted) {
+    const driven = edges.filter((edge) => edge.source === document.id && edge.sourceHandle !== 'customDisplay')
+    if (driven.length > 0) errors.push(unmountedDocumentIssue(String(document.data.label || document.id), driven.length))
+  }
+  const displays = mountPlan.mounted.flatMap(({ panel: panelNode, document: node }) => {
     const label = String(node.data.label || node.id)
     const document = documents[String(node.data.properties.displayId ?? node.id)]
     if (!document) {
