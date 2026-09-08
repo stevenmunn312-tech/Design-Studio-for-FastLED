@@ -53,9 +53,16 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
 
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas || !surface) return
+    if (!canvas) return
     const context = canvas.getContext('2d')
     if (!context) return
+    // Off is painted, not skipped — see the matching clear in
+    // InfoDisplayNodeBody. A backlit panel showing nothing is black.
+    if (!surface) {
+      context.fillStyle = '#000'
+      context.fillRect(0, 0, canvas.width, canvas.height)
+      return
+    }
     const image = context.createImageData(surface.width, surface.height)
     for (let i = 0; i < surface.data.length; i++) {
       const { r, g, b } = rgb565Components(surface.data[i])

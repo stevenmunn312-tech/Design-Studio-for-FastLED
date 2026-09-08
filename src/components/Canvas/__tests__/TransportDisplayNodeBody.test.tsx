@@ -45,6 +45,34 @@ describe('TransportDisplayNodeBody', () => {
     expect(screen.getByRole('img', { name: 'Transport display preview, 240 by 240 pixels' })).toBeTruthy()
   })
 
+  it('paints the panel dark once its surface goes away', () => {
+    // A panel switched off by Enabled evaluates to no surface. Skipping the
+    // draw left the last lit frame on the canvas, so the preview kept showing a
+    // clock while the glass was dark — the preview contradicting the firmware on
+    // the one signal whose entire meaning is whether the panel is lit.
+    const fills: string[] = []
+    const rects: number[][] = []
+    const context = {
+      fillStyle: '',
+      fillRect: (...args: number[]) => { fills.push(context.fillStyle); rects.push(args) },
+      createImageData: (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) }),
+      putImageData: () => {},
+    }
+    const original = HTMLCanvasElement.prototype.getContext
+    HTMLCanvasElement.prototype.getContext = (() => context) as never
+    try {
+      useGraphStore.setState({
+        nodes: [display({ partId: 'st7789-tft-240x240', tftRotation: '0' })],
+        edges: [], activeGraphId: ROOT_GRAPH_ID,
+      } as never)
+      render(<TransportDisplayNodeBody nodeId="tft" />)
+      expect(fills).toEqual(['#000'])
+      expect(rects).toEqual([[0, 0, 240, 240]])
+    } finally {
+      HTMLCanvasElement.prototype.getContext = original
+    }
+  })
+
   it('maps pointer positions into mounted pixels for a touch module', () => {
     useGraphStore.setState({
       nodes: [display({ partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0' })],

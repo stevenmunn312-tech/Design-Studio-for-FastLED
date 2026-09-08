@@ -19,9 +19,20 @@ export default function InfoDisplayNodeBody({ nodeId }: { nodeId: string }) {
 
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas || !surface) return
+    if (!canvas) return
     const context = canvas.getContext('2d')
     if (!context) return
+    // A panel with no surface is off, and off has to be *painted*. Returning
+    // early left the last lit frame on the canvas, so a display switched off by
+    // its Enabled property or a wire went dark on the glass while the node
+    // preview kept showing the clock it had drawn before — the preview
+    // contradicting the firmware, on the one signal whose whole meaning is
+    // whether the panel is dark. Unlit is the same colour an unlit pixel is.
+    if (!surface) {
+      context.fillStyle = 'rgb(0, 5, 12)'
+      context.fillRect(0, 0, canvas.width, canvas.height)
+      return
+    }
     const image = context.createImageData(surface.width, surface.height)
     for (let y = 0; y < surface.height; y++) {
       for (let x = 0; x < surface.width; x++) {
