@@ -119,12 +119,17 @@ matrix, not a reason to postpone testing earlier changes.
   2026-09-08 after the size error was hit twice: `mountedSizeIssue` says
   "resize it" without naming the Portrait/Landscape control that does it, and
   the 320x240 default means a new design mounted on a portrait panel is wrong
-  before anything is drawn. Two parts still need design. First, this removes the
-  mismatch at authoring time but not afterwards: changing the panel or its
-  rotation under an existing design reopens it, so that case needs its own rule
-  (offer to re-fit, re-fit undoably, or refuse the change). Second, a disabled
-  Edit Display must state why it is disabled, or it trades one discoverability
-  failure for another. Templates are unaffected: they already carry portrait and
+  before anything is drawn. Changing the panel under an existing design
+  deliberately needs no rule of its own: re-fit to the new panel and let the
+  editor show it, because a WYSIWYG canvas makes a wrong layout self-evident and
+  the user can redo it. That is safe because `resizeDisplayDocument` already
+  scales widgets and clamps them through `constrainDisplayWidgetBounds`, so
+  nothing lands off-canvas or becomes ungrabbable, and an unmodified template
+  re-lays out from its own portrait/landscape spec via
+  `canonicalDisplayTemplateBounds` rather than being scaled. Rotation likewise
+  keeps the explicit Portrait/Landscape control it has now. One part still needs
+  design: a disabled Edit Display must state why it is disabled, or it trades one
+  discoverability failure for another. Templates are unaffected: they already carry portrait and
   landscape variants selected by `height > width` from a 320x240 reference. Exit: actions/readings are traceable in
   visible edges; no hidden template bindings. See review recommendations.
 - [ ] **HW-08 · Starters, visual QA and help (M; after HW-07).** Connected live
