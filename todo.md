@@ -191,6 +191,26 @@ matrix, not a reason to postpone testing earlier changes.
   pad mapping derived from its own labels, asserted by a test that fails when a
   new part arrives without them rather than only checking the entries that exist.
 
+- [ ] **HW-22 · P2 · Undo in the display editor leaves the node's ports behind (S).**
+  Bench-reported 2026-09-08. Applying a template in the display editor and then
+  undoing restores the document correctly — the editor canvas and the node's own
+  "1 widget" readout both follow — but the `Display` node keeps the widget ports
+  the undone template created, so the graph shows a node advertising Toggle Set,
+  Collection, Shuffle Set, Auto advance and their outputs for widgets the
+  document no longer contains. Not merely cosmetic: those ports can still carry
+  edges, and a build then resolves widget roles the document cannot answer for.
+  The node body is a live projection of the document, which is why the widget
+  count is right; the ports are persisted on the node and are what fell out of
+  step. Localised but not diagnosed — `setDisplayDocument` does call
+  `syncDisplayNodesInContent`, and zundo's `partialize` does capture `nodes`
+  beside `displayDocuments`, so a snapshot ought to carry both halves. Do not
+  guess the mechanism from reading: reproduce it as a failing test over
+  `enterDisplayHistoryScope` → template apply → undo → `leaveDisplayHistoryScope`
+  first. Suspect the rebase in `restoreStashedDisplayHistory`, which rebuilds each
+  stashed snapshot's root projection against the *current* nodes. Exit: undo and
+  redo across an editor session leave document, node ports and edges consistent,
+  asserted by that test.
+
 - [ ] **HW-14 · Independent electrical review (M).** Qualified review of Build
   Diagram calculations, source tables, scope and wording before authoritative
   electrical-guidance claims. Exit: review/corrections recorded against
