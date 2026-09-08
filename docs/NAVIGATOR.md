@@ -41,6 +41,11 @@ build/architecture overview aimed at contributors.
 ## Development
 
 - [Design notes](development/design/)
+  - [One canvas, four workspaces](development/design/workspace-tabs.md)
+    — replacing the split graph/hardware canvas with Hardware · Build Diagram ·
+    Graph · Upload tabs, why co-visibility was not what connected them, and how
+    the two costs (an unseen change, a node nobody can find in the library) get
+    paid for with behaviour instead of screen area.
   - [Generative pattern show](development/design/generative-pattern-show.md)
     — the Pattern Library → Collection → Pattern Slideshow flow for a random
     pattern/transition show, including helper-backed library mirroring,
