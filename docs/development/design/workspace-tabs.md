@@ -62,9 +62,15 @@ watch that happen; under tabs it happens out of sight.
 
 **A tab announces when something you just did changed it.** Not when its content
 changes — that would flash constantly and teach people to ignore it — but when
-an action taken in *another* workspace changed this one. Adding a part flashes
-Graph; removing one flashes it too. The signal has to decay on its own and never
-require dismissal.
+an action taken in *another* workspace changed this one. The signal decays on
+its own and never requires dismissal.
+
+*As built*, this is one direction only: `useChangedElsewhere` watches the graph's
+node count and flashes **Graph**, which covers the case that prompted it —
+adding or removing a part putting a node somewhere you cannot see. Generalising
+it so any tab can announce its own change is not a matter of widening the flash
+target; each workspace needs a change signal of its own worth announcing, and
+what those are has not been decided.
 
 This is worth building even though the split layout would have shown it for
 free, because "for free" was only true while both panes were on screen and both
@@ -117,10 +123,17 @@ The change is mostly hoisting state that already exists. The panes themselves �
 internally.
 
 1. **`uiStore`**: widen `WorkspaceMode` from `'design' | 'build'` to the four
-   workspaces, migrating `'design'` to `'graph'`. `hardwarePaneTab`
-   (`'hardware' | 'upload'`) is absorbed: those two become top-level modes, so
-   the pane stops carrying its own tab strip. Keep `openBuildDiagram` and
+   workspaces, migrating `'design'` to `'graph'`. Keep `openBuildDiagram` and
    friends working — the menu bar and keyboard paths call them.
+
+   `hardwarePaneTab` (`'hardware' | 'upload'`) survives *as built*, mirrored
+   rather than absorbed: `setWorkspaceMode` writes it whenever the new mode is
+   Hardware or Upload, and `setHardwarePaneTab` writes `workspaceMode` back, so
+   the several existing callers that navigate by asking for a pane tab — the
+   menu bar, hardware readiness, the setup wizard — keep working untouched and
+   now land on a full workspace. `HardwarePane` still reads it to choose which
+   half to render. Treat it as a persisted alias of those two modes, not as dead
+   state to delete.
 2. **Tab strip** across the workspace, with the announce-on-change behaviour.
 3. **`App.tsx`**: render one workspace per mode. The `workspaceMode === 'build'`
    branch already does exactly this for one of the four, so this generalises a
@@ -128,8 +141,9 @@ internally.
 4. **Remove the split**: `HorizontalResizeHandle`, `hardwarePaneRatio`,
    `--hardware-pane-height`, `MIN_HARDWARE_PANE_HEIGHT`,
    `MIN_GRAPH_PANE_HEIGHT`, and the `hardwareDock` wrapper.
-5. **`HardwarePane`**: drop its internal `HARDWARE | UPLOAD` tabs; it renders
-   the bench, and Upload becomes its own workspace.
+5. **`HardwarePane`**: drop its internal `HARDWARE | UPLOAD` tabs, now that the
+   workspace strip does that job. It still hosts both halves, choosing between
+   them on the mirrored `hardwarePaneTab` above.
 
 Separable, and each valuable alone: the tab announcement (2), the node-library
 stubs for hardware-owned types, and landing traced.
