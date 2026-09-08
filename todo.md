@@ -104,19 +104,28 @@ matrix, not a reason to postpone testing earlier changes.
 - [ ] **HW-07 · Connected authoring (M; after HW-04/05).** Distinguish panel and
   design labels, add create/open-design and back-to-hardware actions, display
   build mode/reason, and filter assignments by destination plus type. Explain
-  event versus state and units/ranges. **Size a design from the panel when it is
-  connected, rather than reporting a mismatch and waiting.** A mounted design's
-  size is not a free choice — it is the panel's rotated size, so a mismatch has
-  exactly one correct resolution and asking the user to find it is asking them to
-  resolve something that was never ambiguous. Reported from the bench on
-  2026-09-08: the size error was hit twice, and the Portrait/Landscape control
-  that resolves it was not discoverably the answer, because `mountedSizeIssue`
-  says "resize it" without naming the control. The fresh-document default of
-  320x240 compounds it — a new design mounted on a portrait panel is wrong
-  before anything is drawn. Care needed only where a design already has widgets,
-  since resizing can push a considered layout off the canvas; the editor's
-  orientation control is already one undoable action, so doing it and letting
-  undo carry the risk is defensible. Exit: actions/readings are traceable in
+  event versus state and units/ranges. **A design has no size until it is
+  connected to a panel.** A mounted design's size is not a free choice — it is
+  the panel's rotated size — so rather than letting a design be authored at an
+  arbitrary size and reporting the mismatch afterwards, do not offer the size at
+  all until there is a panel to derive it from: keep 320x240 as an internal
+  default, show no size on an unconnected `Display` node, disable Edit Display
+  until the panel wire exists, and on connection show the hardware's size and
+  enable it. That makes the invalid state unrepresentable instead of repairable,
+  and stops someone laying out a screen that cannot fit the panel they connect
+  later. It extends the rule HW-03 already established — an unmounted document
+  has no physical existence, so it costs no RAM, bakes no assets and emits no
+  firmware — to its geometry, which is equally a physical fact. Bench-reported
+  2026-09-08 after the size error was hit twice: `mountedSizeIssue` says
+  "resize it" without naming the Portrait/Landscape control that does it, and
+  the 320x240 default means a new design mounted on a portrait panel is wrong
+  before anything is drawn. Two parts still need design. First, this removes the
+  mismatch at authoring time but not afterwards: changing the panel or its
+  rotation under an existing design reopens it, so that case needs its own rule
+  (offer to re-fit, re-fit undoably, or refuse the change). Second, a disabled
+  Edit Display must state why it is disabled, or it trades one discoverability
+  failure for another. Templates are unaffected: they already carry portrait and
+  landscape variants selected by `height > width` from a 320x240 reference. Exit: actions/readings are traceable in
   visible edges; no hidden template bindings. See review recommendations.
 - [ ] **HW-08 · Starters, visual QA and help (M; after HW-07).** Connected live
   dimming, slideshow browse/confirm and music transport/readback examples;
