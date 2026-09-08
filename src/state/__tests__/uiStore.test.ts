@@ -191,7 +191,7 @@ describe('uiStore.setStatus auto-clear', () => {
 
     useUiStore.getState().openDisplayWorkspace('touch-panel')
     expect(useUiStore.getState()).toMatchObject({
-      workspaceMode: 'design',
+      workspaceMode: 'graph',
       designWorkspaceView: { kind: 'display', displayId: 'touch-panel' },
       fitViewRequest: { nonce: 5 },
     })

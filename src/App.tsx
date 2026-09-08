@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useUiStore } from './state/uiStore'
 import { rootGraphNodes, useGraphStore } from './state/graphStore'
 import { useAudioStore } from './state/audioStore'
@@ -30,10 +30,10 @@ import { usePerformanceDeckSession } from './state/performanceDeckSessionStore'
 import { serializeKeyCombo } from './state/performanceDeck'
 import { dispatchDeckAction } from './state/performanceDeckActions'
 import { PanelResizeHandle } from './components/Layout/PanelResizeHandle'
-import { HorizontalResizeHandle } from './components/Layout/HorizontalResizeHandle'
 import { DEFAULT_PREVIEW_WIDTH, DEFAULT_SIDEBAR_WIDTH, MAX_PREVIEW_WIDTH, MAX_SIDEBAR_WIDTH, MIN_PREVIEW_WIDTH, MIN_SIDEBAR_WIDTH } from './state/layoutPresets'
 import { enterStagePresentation, exitStagePresentation } from './utils/stagePresentation'
 import HardwarePane from './components/Hardware/HardwarePane'
+import WorkspaceTabs from './components/Layout/WorkspaceTabs'
 import styles from './App.module.css'
 
 const PerformanceDeck = lazy(() => import('./components/PerformanceDeck/PerformanceDeck'))
@@ -58,8 +58,6 @@ const AUTOSAVE_INTERVAL = 10_000
 const AUTOSAVE_IDLE_TIMEOUT = 2_000
 const SNAPSHOT_INTERVAL = 120_000
 const STAGE_CURSOR_IDLE_MS = 2_000
-const MIN_GRAPH_PANE_HEIGHT = 180
-const MIN_HARDWARE_PANE_HEIGHT = 0
 
 interface IdleWindow {
   requestIdleCallback?: Window['requestIdleCallback']
@@ -89,10 +87,8 @@ export default function App() {
   const togglePreviewPanel = useUiStore((s) => s.togglePreviewPanel)
   const sidebarWidth = useUiStore((s) => s.sidebarWidth)
   const previewWidth = useUiStore((s) => s.previewWidth)
-  const hardwarePaneRatio = useUiStore((s) => s.hardwarePaneRatio)
   const setSidebarWidth = useUiStore((s) => s.setSidebarWidth)
   const setPreviewWidth = useUiStore((s) => s.setPreviewWidth)
-  const setHardwarePaneRatio = useUiStore((s) => s.setHardwarePaneRatio)
   const startAudio = useAudioStore((s) => s.startAudio)
   const stopAudio = useAudioStore((s) => s.stopAudio)
   const audioInputNode = useGraphStore((s) => {
@@ -103,7 +99,6 @@ export default function App() {
   const hasAudioInputNode = audioInputProps !== null
   const selectedBoardProfile = useGraphStore((s) => selectedPhysicalBoardProfile(rootGraphNodes(s)))
   const showPreviewPlaying = useShowPlayback((s) => s.playing)
-  const visibleGraphNodeCount = useGraphStore((s) => s.nodes.filter((node) => node.data.nodeType !== 'Board').length)
   const boardPopupOpen = useUploadStore((s) => s.boardPopupOpen)
   const pinoutProfileId = useUploadStore((s) => s.pinoutProfileId)
   const setupWizardOpen = useUploadStore((s) => s.setupWizardOpen)
@@ -116,9 +111,7 @@ export default function App() {
     : inmp441SupportedForBoardProfile(selectedBoardProfile)
   const hadAudioInputNode = useRef(false)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
-  const splitCanvasRef = useRef<HTMLDivElement | null>(null)
   const [stageCursorHidden, setStageCursorHidden] = useState(false)
-  const [splitCanvasHeight, setSplitCanvasHeight] = useState(0)
   const [capacityWatcherReady, setCapacityWatcherReady] = useState(false)
   const displayEditorOpen = designWorkspaceView.kind === 'display'
 
@@ -162,22 +155,6 @@ export default function App() {
   useEffect(() => {
     document.documentElement.style.setProperty('--right-panel-width', `${previewWidth}px`)
   }, [previewWidth])
-  useEffect(() => {
-    const element = splitCanvasRef.current
-    if (!element) return
-    const update = () => setSplitCanvasHeight(element.clientHeight)
-    update()
-    if (typeof ResizeObserver === 'undefined') {
-      window.addEventListener('resize', update)
-      return () => window.removeEventListener('resize', update)
-    }
-    const observer = new ResizeObserver(update)
-    observer.observe(element)
-    return () => observer.disconnect()
-  // Build Diagram replaces the design workspace rather than hiding it. Rebind
-  // whenever that replacement changes so a detached canvas cannot leave the
-  // hardware pane at zero height when the user returns.
-  }, [workspaceMode, stageMode])
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autosaveIdle = useRef<number | null>(null)
   const latestAutosaveState = useRef<ReturnType<typeof useGraphStore.getState> | null>(null)
@@ -348,10 +325,6 @@ export default function App() {
       setStatus(`Moved ${moved} part${moved > 1 ? 's' : ''} onto this board's pins`, 'info')
     }
   }, [selectedBoardProfile, selectedFqbn, retargetHardwarePins, setStatus])
-
-  useEffect(() => {
-    if (visibleGraphNodeCount === 0) setHardwarePaneRatio(0.5)
-  }, [setHardwarePaneRatio, visibleGraphNodeCount])
 
   // Keep the browser analysis gain in sync with the selected physical input.
   useEffect(() => {
@@ -634,22 +607,12 @@ export default function App() {
     return () => window.removeEventListener('keydown', handler)
   }, [setStatus])
 
-  const hardwarePaneHeight = useMemo(() => {
-    if (splitCanvasHeight <= 0) return 0
-    const ratio = Number.isFinite(hardwarePaneRatio) ? hardwarePaneRatio : 0.5
-    const max = Math.max(MIN_HARDWARE_PANE_HEIGHT, splitCanvasHeight - MIN_GRAPH_PANE_HEIGHT)
-    return Math.max(MIN_HARDWARE_PANE_HEIGHT, Math.min(max, splitCanvasHeight * ratio))
-  }, [hardwarePaneRatio, splitCanvasHeight])
-
-  useEffect(() => {
-    document.documentElement.style.setProperty('--hardware-pane-height', `${hardwarePaneHeight}px`)
-  }, [hardwarePaneHeight])
-
   return (
     <div className={`${styles.app} ${stageMode ? styles.appStage : ''} ${stageCursorHidden ? styles.appStageCursorHidden : ''} ${performanceMode ? styles.appPerformance : ''}`}>
       <div className={styles.menuShell}><MenuBar /></div>
       {!stageMode && <TrustBanner />}
       <div className={`${styles.workspace} ${stageMode ? styles.workspaceStage : ''} ${workspaceMode === 'build' ? styles.workspaceBuild : ''}`}>
+        {!stageMode && !performanceMode && <WorkspaceTabs />}
         {workspaceMode === 'build' && !stageMode ? (
           <Suspense fallback={null}>
             <BuildDiagramWorkspace />
@@ -694,27 +657,15 @@ export default function App() {
                     </button>
                   </>
                 )}
-                <div ref={splitCanvasRef} className={styles.splitCanvas}>
+                <div className={styles.splitCanvas}>
                   <div className={styles.graphPane}>
-                    {designWorkspaceView.kind === 'display' ? (
+                    {workspaceMode === 'hardware' || workspaceMode === 'upload' ? (
+                      <HardwarePane />
+                    ) : designWorkspaceView.kind === 'display' ? (
                       <Suspense fallback={null}><DisplayEditor /></Suspense>
                     ) : (
                       <NodeGraphCanvas />
                     )}
-                  </div>
-                  {splitCanvasHeight > 0 && (
-                    <HorizontalResizeHandle
-                      height={hardwarePaneHeight}
-                      min={MIN_HARDWARE_PANE_HEIGHT}
-                      max={Math.max(MIN_HARDWARE_PANE_HEIGHT, splitCanvasHeight - MIN_GRAPH_PANE_HEIGHT)}
-                      containerHeight={splitCanvasHeight}
-                      defaultRatio={0.5}
-                      label="Resize hardware view"
-                      onCommit={setHardwarePaneRatio}
-                    />
-                  )}
-                  <div className={styles.hardwareDock}>
-                    <HardwarePane />
                   </div>
                 </div>
               </div>

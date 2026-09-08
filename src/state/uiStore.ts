@@ -27,7 +27,14 @@ export type StartChoice = string | 'blank' | null
 export type HelpTab = 'quickstart' | 'hardware' | 'shortcuts' | 'nodes' | 'upload' | 'about'
 /** The bottom pane shows the bench, or the tools that flash it. */
 export type HardwarePaneTab = 'hardware' | 'upload'
-export type WorkspaceMode = 'design' | 'build'
+/**
+ * Which workspace has the canvas.
+ *
+ * Four peers rather than a graph with a hardware pane bolted under it — see
+ * docs/development/design/workspace-tabs.md. `graph` is where the hours go, so
+ * it is where a session lands; the tab order tells the build story instead.
+ */
+export type WorkspaceMode = 'hardware' | 'build' | 'graph' | 'upload'
 /** Which authoring surface occupies the design workspace. Build Diagram stays
  * a separate workspace mode because it replaces all authoring chrome. */
 export type DesignWorkspaceView =
@@ -220,6 +227,7 @@ interface UiState {
   appDialog: AppDialogState | null
   setStatus: (text: string, level?: StatusLevel) => void
   clearStatus: () => void
+  setWorkspaceMode: (mode: WorkspaceMode) => void
   toggleBuildDiagram: () => void
   openBuildDiagram: () => void
   closeBuildDiagram: () => void
@@ -301,7 +309,7 @@ let flashTimer: ReturnType<typeof setTimeout> | null = null
 export const useUiStore = create<UiState>((set, get) => ({
   statusText: 'Ready',
   statusLevel: 'idle',
-  workspaceMode: 'design',
+  workspaceMode: 'graph',
   designWorkspaceView: { kind: 'graph' },
   sidebarOpen: true,
   previewPanelOpen: true,
@@ -366,11 +374,18 @@ export const useUiStore = create<UiState>((set, get) => ({
     if (statusTimer) clearTimeout(statusTimer)
     set({ statusText: 'Ready', statusLevel: 'idle' })
   },
-  toggleBuildDiagram: () => set((s) => ({ workspaceMode: s.workspaceMode === 'build' ? 'design' : 'build' })),
+  // Hardware and Upload share one pane, so choosing either has to tell it
+  // which half to show.
+  setWorkspaceMode: (workspaceMode) => set(
+    workspaceMode === 'hardware' || workspaceMode === 'upload'
+      ? { workspaceMode, hardwarePaneTab: workspaceMode }
+      : { workspaceMode },
+  ),
+  toggleBuildDiagram: () => set((s) => ({ workspaceMode: s.workspaceMode === 'build' ? 'graph' : 'build' })),
   openBuildDiagram: () => set({ workspaceMode: 'build' }),
-  closeBuildDiagram: () => set({ workspaceMode: 'design' }),
+  closeBuildDiagram: () => set({ workspaceMode: 'graph' }),
   openDisplayWorkspace: (displayId) => set((state) => ({
-    workspaceMode: 'design',
+    workspaceMode: 'graph',
     designWorkspaceView: { kind: 'display', displayId },
     fitViewRequest: { nonce: state.fitViewRequest.nonce + 1 },
   })),
@@ -423,7 +438,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   setStageIdle: (stageIdle) => set({ stageIdle }),
   setHardwarePaneTab: (hardwarePaneTab) => {
     save(HARDWARE_TAB_KEY, hardwarePaneTab)
-    set({ hardwarePaneTab })
+    set({ hardwarePaneTab, workspaceMode: hardwarePaneTab })
   },
   setHardwareInspectorNodeId: (hardwareInspectorNodeId) => set({ hardwareInspectorNodeId }),
   togglePerformanceMode: () => set((s) => ({ performanceMode: !s.performanceMode })),

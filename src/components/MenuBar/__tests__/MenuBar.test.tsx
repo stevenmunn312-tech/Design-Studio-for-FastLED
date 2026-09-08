@@ -73,7 +73,7 @@ describe('MenuBar file menu', () => {
       recoverOpen: false,
       templatesOpen: false,
       projectsOpen: false,
-      workspaceMode: 'design',
+      workspaceMode: 'graph',
       performanceMode: false,
       evaluationRunning: true,
       stageMode: false,

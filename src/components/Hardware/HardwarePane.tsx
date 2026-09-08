@@ -1686,34 +1686,9 @@ export default function HardwarePane() {
   return (
     <section ref={sectionRef} className={styles.hardwarePane} aria-label="Hardware view">
       <div className={styles.toolbar}>
-        {/* Tabs across the whole pane rather than a side dock: the console is
-            readable at full width and the board render stays big, which is
-            what the old floating slide-over could never offer. */}
-        <div
-          className={styles.paneTabs}
-          style={{ left: `${leftInset + 16}px` }}
-          role="tablist"
-          aria-label="Hardware pane"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={paneTab === 'hardware'}
-            className={`${styles.paneTab} ${paneTab === 'hardware' ? styles.paneTabActive : ''}`}
-            onClick={() => setPaneTab('hardware')}
-          >
-            Hardware
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={paneTab === 'upload'}
-            className={`${styles.paneTab} ${paneTab === 'upload' ? styles.paneTabActive : ''}`}
-            onClick={() => setPaneTab('upload')}
-          >
-            Upload
-          </button>
-        </div>
+        {/* Hardware and Upload are workspace tabs now, so the pane no longer
+            carries its own pair — it renders whichever half the workspace
+            selected. See docs/development/design/workspace-tabs.md. */}
         {paneTab === 'hardware' && (
           /* Portalled so the cascading menu stays constrained to the viewport
              even though its trigger now sits at the stage edge. */

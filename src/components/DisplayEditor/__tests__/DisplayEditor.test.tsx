@@ -15,7 +15,7 @@ describe('DisplayEditor', () => {
     useGraphStore.temporal.getState().clear()
     useDisplayRuntimeStore.getState().resetDisplayRuntime()
     useUiStore.setState({
-      workspaceMode: 'design',
+      workspaceMode: 'graph',
       designWorkspaceView: { kind: 'display', displayId: 'panel' },
       fitViewRequest: { nonce: 0 },
     })

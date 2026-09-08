@@ -1,0 +1,63 @@
+.tabs {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  padding: 6px 10px 0;
+  border-bottom: 1px solid var(--divider);
+  background: var(--bg-panel);
+}
+
+.tab {
+  position: relative;
+  padding: 6px 14px 7px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: var(--fs-caption);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.tabActive {
+  border-color: color-mix(in srgb, var(--border-glow) 80%, transparent);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/*
+ * "Something to see over here." A tab whose contents changed because of
+ * something done in another workspace pulses briefly and then stops on its own
+ * — nothing to dismiss, and nothing left glowing to be ignored later.
+ */
+.tabFlash {
+  animation: workspaceTabFlash 0.6s ease-in-out 3;
+}
+
+@keyframes workspaceTabFlash {
+  0%, 100% { color: var(--text-secondary); }
+  50% { color: var(--accent-favourites); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tabFlash {
+    animation: none;
+    color: var(--accent-favourites);
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
