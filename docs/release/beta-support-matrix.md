@@ -54,6 +54,7 @@ supported/experimental framework applies, scoped to display hardware.
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | SH1106 1.3-inch 128x64 OLED (I2C, `sh1106-oled-128x64-i2c`) | `RTCInput` (Compile Time) → `InfoDisplay`, Clock layout | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Time/date correct, not-synced state shown correctly, correct orientation and alignment, time progressing live | Bench record (`2026-09-08`) below |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | ST7789 1.54-inch 240x240 TFT (4-wire SPI, `st7789-tft-240x240`) | `PatternCollection` → `PatternSlideshow` → `TransportDisplay`, Show Status layout, no OLED on the bench | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Running pattern named, ordinal counted out of the ten-pattern collection, PLAYING state, correct orientation, and the patterns advancing on the slideshow's own interval | Bench record (`2026-09-08`, colour TFT) below |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | SH1106 1.3-inch 128x64 OLED (I2C 0x3C, SDA GPIO18 / SCL GPIO17, `sh1106-oled-128x64-i2c`) **and** ST7789 1.54-inch 240x240 TFT (4-wire SPI, CS 5 / DC 6 / RST 7 / SCK 1 / MOSI 2 / BL 16, `st7789-tft-240x240`) together on one board | `PatternCollection` → `PatternSlideshow` driving both `InfoDisplay` (Pattern Browser) and `TransportDisplay` (Show Status) | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Both panels lit and advancing in step from one `_sel_show` cursor across two different buses; OLED thumbnail, pattern name, ordinal and PLAYING state all correct, with correct orientation and alignment; the TFT's upside-down mounting corrected on glass by `tftRotation` `180`, confirming the 80-row RAM window offset | Bench record (`2026-09-08`, two panels) below |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | SH1106 1.3-inch 128x64 OLED (I2C 0x3C, SDA 18 / SCL 17) **and** ST7789 1.54-inch 240x240 TFT (SPI, CS 4 / DC 5 / RST 6 / SCK 1 / MOSI 2 / BL 16), with a DS3231 sharing the OLED's I2C bus | `RTCInput` (DS3231) → both `InfoDisplay` and `TransportDisplay`, Clock layouts, plus a `ButtonInput` wired to both Enabled inputs | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Enabled honoured per panel and at runtime: all four property combinations of two panels, then a button darkening and re-lighting both | Bench record (`2026-09-08`, Enabled) below |
 
 **Bench record (`2026-09-07`, first four rows above):** first hardware pass
 for any auxiliary display in this project — none had a recorded physical test
@@ -140,6 +141,39 @@ control-driven pattern selection, since settled the same day by the
 on this same board and panel. An OLED and a TFT sharing one cursor was also
 open here, and is settled by the two-panel record below. Still open: the
 panel's Enabled semantics, and touch, which this module has no controller for.
+
+**Bench record (`2026-09-08`, Enabled):** the semantics review F4 called out —
+"changing the physical panel's `enabled` property from true to false produces
+byte-for-byte identical normal C++" — tested on glass, in the normal sketch that
+defect named.
+
+One DS3231 drove the Clock layout on both an I2C OLED and an SPI TFT at once,
+with the RTC and the OLED sharing SDA 18 / SCL 17. All four combinations of the
+two Enabled properties were built and flashed: OLED only, TFT only, both, and
+neither. Each panel went dark on its own and left the other running, which is
+the per-panel latches (`_tftOn_<id>`, `_oledOn_<id>`) behaving as independent
+gates rather than one shared switch. "Neither" is the case that could not have
+existed before the repair, since that build used to be identical to "both".
+
+A `ButtonInput` was then wired into both Enabled inputs, moving the signal from
+compile time to runtime. Unpressed, both panels stayed dark; a press turned both
+on. That covers the wired-Enabled case the templates used to refuse outright,
+and the re-enable half of the rule — a disabled panel is still built and still
+initialised, so it can come back.
+
+It also exercises the one-`Wire` rule incidentally: an RTC and an I2C display on
+the same two pins, started once, both answering.
+
+Found and fixed during this run (`f0b54316`): the browser node previews did not
+follow Enabled. A panel with no surface returned before touching its canvas, so
+the last lit frame stayed on screen while the glass was dark — the preview
+contradicting the firmware on the one signal that means "is this panel lit". The
+evaluator was already correct; only the drawing skipped.
+
+Not covered: Enabled on a mounted custom `Display` document, where the rule also
+has to rest widget outputs — these are fixed Clock layouts with no widget
+outputs to rest. That case needs a classic-ESP32-sized LVGL heap first (HW-25)
+or an ESP32-S3 panel with a document mounted.
 
 Not yet recorded as a supported row: the ESP32-2432S028 ("CYD") integrated
 touch TFT board — see the note under "Recorded validations that are not yet

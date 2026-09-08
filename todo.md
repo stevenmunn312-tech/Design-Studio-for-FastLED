@@ -59,8 +59,15 @@ matrix, not a reason to postpone testing earlier changes.
   mounting corrected through `tftRotation`, confirming `tftWindowOrigin`'s 80-row
   window offset — but through a fixed layout's property, not through the editor's
   Portrait/Landscape write on a mounted document, which is this item's actual
-  case and stays untested. Remaining exit: compile and bench the disabled,
-  wired-enable and rotated cases (HW-06 matrix). F3/F4.
+  case and stays untested. The disabled and wired-Enable cases are now
+  bench-proven (see the Enabled row in
+  [the support matrix](docs/release/beta-support-matrix.md#auxiliary-display-hardware-validation)):
+  all four Enabled combinations of an OLED and a TFT in one sketch, each panel
+  darkening independently, then a button darkening and re-lighting both at
+  runtime. Remaining exit: the same rule on a mounted custom document, where it
+  must also rest widget outputs — a fixed Clock layout has none — and the
+  editor's own Portrait/Landscape write, rotation having so far been proven only
+  through a fixed layout's property. F3/F4.
 - [ ] **HW-03 · P1/P2 · Resolve mounted screens once (M; after HW-02).** Code
   complete; compile evidence outstanding. `customDisplayMountPlan` in
   `mountedDisplays.ts` is the one walk that says which screens a build contains,
