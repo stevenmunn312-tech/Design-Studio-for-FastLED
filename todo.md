@@ -261,10 +261,16 @@ matrix, not a reason to postpone testing earlier changes.
   link time. Exit: a measured minimum heap per screen complexity, chosen against
   HW-11's numbers rather than picked to clear one overflow.
 
-- [ ] **HW-14 · Independent electrical review (M).** Qualified review of Build
-  Diagram calculations, source tables, scope and wording before authoritative
-  electrical-guidance claims. Exit: review/corrections recorded against
-  `build-diagram-handoff.md`.
+- [ ] **HW-14 · Independent electrical audit (M).** Scope is a full audit rather
+  than a review: Build Diagram calculations, source tables, scope and wording,
+  before any authoritative electrical-guidance claim. An auditor is available and
+  willing — a career electronics engineering lecturer with forty years across
+  field, lab and classroom — so this is a matter of scheduling rather than of
+  finding someone qualified. A real reference system exists to audit against as
+  well as the generated advice: a 70,000 mAh lithium pack with fuses, balancer,
+  BMS and 100 W charge/discharge control, already built and running. That matters
+  most for D-05's second and third classes, which this gates. Exit:
+  audit/corrections recorded against `build-diagram-handoff.md`.
 - [ ] **HW-15 · Helper workarounds (M).** Recheck fbuild repeat/no-op latency and
   remaining workarounds against a deliberately selected version; keep reproductions
   and remove workarounds only with regression evidence. Follow the fbuild report;
@@ -323,6 +329,24 @@ matrix, not a reason to postpone testing earlier changes.
   backend, richer timed sequences, pattern weighting/tags, broader library
   sharing and distinct per-input modulation. Keep Collection/engine ownership
   separate unless user research establishes a better model; merger is not required.
+- [ ] **D-05 · Hardware expansion.** Wanted, with viable use cases, and split
+  here because the three classes cost very different amounts rather than being
+  one list. **Signal inputs** — human presence sensors (PIR, mmWave), IR and
+  remote control — are the cheapest: a presence sensor is `MotionInput`'s
+  sibling, and IR needs a decode the app lacks but is still pin to value to
+  graph. **Switching power** — relays, transistors, MOSFETs — is a node category
+  that does not exist yet: controlling a load is neither rendering nor sensing,
+  and it is where wrong advice damages hardware rather than failing to light up.
+  **Energy** — batteries, charging modules, balancers, BMS — is not a part but a
+  dimension the power model lacks: the Build Diagram budgets against a PSU
+  (`15.4 A` on the current bench), while a pack means state of charge, discharge
+  limits and protection behaviour. The last two are gated on HW-14's audit.
+  Before widening, harden the multiplier: the part catalogue and its import
+  pipeline are what make a new family cheap, and HW-21 already records the tail
+  each addition currently drags — unmeasured pad geometry, a missing generic
+  four-pin SSD1306, board profiles at `visual-match-only`, and an I2C module
+  falling through to the SPI signal table. Fix that once and a dozen families
+  cost about what one costs.
 - [ ] **D-04 · Code/field fidelity.** Code-node overflow, persistent globals,
   timing macros/includes/palette/XY support and richer inference; writable
   FieldFormula buffers. VU expansion beyond the current contract (clocked
