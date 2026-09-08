@@ -117,6 +117,11 @@ build/architecture overview aimed at contributors.
     — historical Arduino CLI/fbuild evidence and commands; the current
     fixture needs the panel/document update before it can establish new coverage.
 - [Plans](development/plans/)
+  - [Workspace shelves handoff](development/plans/workspace-shelves-handoff.md)
+    — what the workspace tabs exposed: a sidebar still stocked for the graph
+    while standing on the bench, and an LED preview that does not survive the
+    Build Diagram. Proposes a parts shelf, information shelves, and the order to
+    do them in.
   - [Audio part expansion](development/plans/audio-part-expansion.md)
     — proposed microphones using existing firmware profiles, amplifier
     expansion, and the DAC-to-power-amp
