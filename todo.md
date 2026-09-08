@@ -54,10 +54,13 @@ matrix, not a reason to postpone testing earlier changes.
   and save/reload coverage added; `npm test`, `npm run lint` and `tsc -b` pass.
   The mounted-size path has incidental bench support — a 240x240 module on
   ST7789V silicon rendered at the right size and orientation, which is the
-  catalogue `resolutionPx` override rather than the chip-name default — but that
-  run left rotation at 0, so the editor's rotation write is untested physically.
-  Remaining exit: compile and bench the disabled, wired-enable and rotated cases
-  (HW-06 matrix). F3/F4.
+  catalogue `resolutionPx` override rather than the chip-name default. Rotation
+  has since been proven on glass at `180` on that same panel — an upside-down
+  mounting corrected through `tftRotation`, confirming `tftWindowOrigin`'s 80-row
+  window offset — but through a fixed layout's property, not through the editor's
+  Portrait/Landscape write on a mounted document, which is this item's actual
+  case and stays untested. Remaining exit: compile and bench the disabled,
+  wired-enable and rotated cases (HW-06 matrix). F3/F4.
 - [ ] **HW-03 · P1/P2 · Resolve mounted screens once (M; after HW-02).** Code
   complete; compile evidence outstanding. `customDisplayMountPlan` in
   `mountedDisplays.ts` is the one walk that says which screens a build contains,

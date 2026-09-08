@@ -53,7 +53,7 @@ supported/experimental framework applies, scoped to display hardware.
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | SH1106 0.96-inch 128x64 OLED (7-pin SPI, `sh1106-oled-096-128x64-spi`) | `RTCInput` (Compile Time) → `InfoDisplay`, Clock layout | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Correct orientation and alignment, confirming the SH1106's 2-column RAM offset renders correctly rather than shifting the image | Bench record (`2026-09-07`) below |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | SH1106 1.3-inch 128x64 OLED (I2C, `sh1106-oled-128x64-i2c`) | `RTCInput` (Compile Time) → `InfoDisplay`, Clock layout | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Time/date correct, not-synced state shown correctly, correct orientation and alignment, time progressing live | Bench record (`2026-09-08`) below |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | ST7789 1.54-inch 240x240 TFT (4-wire SPI, `st7789-tft-240x240`) | `PatternCollection` → `PatternSlideshow` → `TransportDisplay`, Show Status layout, no OLED on the bench | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Running pattern named, ordinal counted out of the ten-pattern collection, PLAYING state, correct orientation, and the patterns advancing on the slideshow's own interval | Bench record (`2026-09-08`, colour TFT) below |
-| Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | SH1106 1.3-inch 128x64 OLED (I2C 0x3C, SDA GPIO18 / SCL GPIO17, `sh1106-oled-128x64-i2c`) **and** ST7789 1.54-inch 240x240 TFT (4-wire SPI, CS 5 / DC 6 / RST 7 / SCK 1 / MOSI 2 / BL 16, `st7789-tft-240x240`) together on one board | `PatternCollection` → `PatternSlideshow` driving both `InfoDisplay` (Pattern Browser) and `TransportDisplay` (Show Status) | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Both panels lit and advancing in step from one `_sel_show` cursor across two different buses; OLED thumbnail, pattern name, ordinal and PLAYING state all correct, with correct orientation and alignment | Bench record (`2026-09-08`, two panels) below |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | SH1106 1.3-inch 128x64 OLED (I2C 0x3C, SDA GPIO18 / SCL GPIO17, `sh1106-oled-128x64-i2c`) **and** ST7789 1.54-inch 240x240 TFT (4-wire SPI, CS 5 / DC 6 / RST 7 / SCK 1 / MOSI 2 / BL 16, `st7789-tft-240x240`) together on one board | `PatternCollection` → `PatternSlideshow` driving both `InfoDisplay` (Pattern Browser) and `TransportDisplay` (Show Status) | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Both panels lit and advancing in step from one `_sel_show` cursor across two different buses; OLED thumbnail, pattern name, ordinal and PLAYING state all correct, with correct orientation and alignment; the TFT's upside-down mounting corrected on glass by `tftRotation` `180`, confirming the 80-row RAM window offset | Bench record (`2026-09-08`, two panels) below |
 
 **Bench record (`2026-09-07`, first four rows above):** first hardware pass
 for any auxiliary display in this project — none had a recorded physical test
@@ -117,12 +117,22 @@ layout, and transport artwork is player-owned — `artworkPlayer` follows the
 A colour thumbnail for a music-free show is tracked as deferred scope (D-02),
 not as a defect.
 
-Not covered by this run: the TFT was physically mounted upside down, so its
-orientation was corrected with the node's `tftRotation` property rather than
-verified at `180` on the bench. `tftWindowOrigin(ST7789, '180')` derives the
-80-row RAM offset a 240x240 window into 240x320 memory needs, and that is
-asserted in `tftSurface.test.ts`, but it has not been seen on glass. Enabled
-semantics and touch remain untested on this pair.
+The panel was physically mounted upside down, which turned into a fourth
+result: setting the node's `tftRotation` to `180` corrected it on glass. That
+exercises the one part of the rotation path a unit test cannot vouch for. A
+240x240 ST7789 is a window into 240x320 of controller RAM, so a flipped
+mounting has to move the visible window 80 rows or the image sits eighty rows
+off the panel; `tftWindowOrigin` derives that offset rather than hardcoding it,
+`tftSurface.test.ts` asserts it, and the panel now confirms it. A wrong offset
+here would have produced a plausible-looking upright image in the wrong place
+rather than an obvious failure.
+
+Still untested on this pair: rotations `90` and `270`, which additionally swap
+the visible axes through MADCTL's `MV` bit and move the window offset to the
+column (`{ col: 80, row: 0 }` at `270`); the display editor's own
+Portrait/Landscape write, which rotates the panels a mounted custom document is
+plugged into and is a different path from this fixed layout's property (HW-02);
+Enabled semantics; and touch, which this module has no controller for.
 
 What this run did not cover, the rotation here being the slideshow's own timer:
 control-driven pattern selection, since settled the same day by the
