@@ -211,6 +211,49 @@ matrix, not a reason to postpone testing earlier changes.
   redo across an editor session leave document, node ports and edges consistent,
   asserted by that test.
 
+- [ ] **HW-23 · P1 · A RAM overflow is reported as, and advised like, a flash
+  overflow (S).** Bench-reported 2026-09-08. A custom screen on a classic ESP32
+  failed to link with ``region `dram0_0_seg' overflowed by 22496 bytes``, and the
+  helper answered with "This design is larger than the board can hold. Try fewer
+  patterns in the collection, a smaller matrix, or fewer heavy nodes ... or pick
+  a board (or ESP32 partition scheme) with more space." Patterns and partition
+  schemes are flash; neither moves DRAM by a byte, so the advice sends the user
+  somewhere that cannot help — the reporter's reaction was "only 10 patterns
+  too". The information is already parsed: `_LD_OVERFLOW_RE` in `backend/app.py`
+  captures both the region name and the byte count, and `_looks_like_overflow`
+  then discards them for one flash-flavoured paragraph. Exit: an overflow names
+  the region it overflowed and how far, and gives advice for that region — RAM
+  advice (fewer or smaller screens, smaller LVGL heap, PSRAM for LED buffers)
+  for `dram`/`iram`/`bss`/`data`, the existing flash advice for `text`/`irom`.
+
+- [ ] **HW-24 · P1 · The RAM estimate predicts an overflow and lets the build run
+  anyway (M; overlaps HW-11).** Same session, and the more expensive half.
+  `estimateFirmwareRam` already counted this design's display RAM — the 64 KiB
+  `CUSTOM_DISPLAY_LVGL_HEAP_BYTES` plus a 240x20 RGB565 draw buffer, about 75 KiB
+  before FastLED and framework overhead — so the failure was predictable before
+  the toolchain ran. It surfaced only as a Graph Health *warning*, because
+  `INTERNAL_RAM_WARN_BYTES` is a flat 40,000 and is documented as "not a hard
+  board-specific limit". The user paid 3m 45s to be told something the app could
+  have said instantly. The board is known at that point, and a classic ESP32's
+  `dram0_0_seg` is far smaller than an ESP32-S3's, so the budget can be
+  board-derived rather than a single constant. Exit: a design whose estimated
+  internal RAM exceeds the selected board's own budget is refused before
+  compiling, naming the largest contributor; the flat constant remains only as
+  the fallback for boards with no declared budget.
+
+- [ ] **HW-25 · P2 · Fixed 64 KiB LVGL heap rules out classic-ESP32 custom
+  screens (M; after HW-11).** The overflow above was 22,496 bytes against a
+  65,536-byte heap, so a 32 KiB heap would fit with room to spare and a classic
+  ESP32 could drive a custom screen at all. `LV_MEM_SIZE` is pinned in one
+  `lv_conf.h` the helper already specializes per build — the `// FLS-LVGL-FONTS:`
+  marker does exactly this for font sizes — so the mechanism exists. The
+  consequence to design rather than assume: the heap stops being one constant,
+  so `CUSTOM_DISPLAY_LVGL_HEAP_BYTES`, `customDisplayRamBytes` and the test
+  asserting the TS constant equals the backend's `#define` all have to take the
+  board, and a heap too small for a busy screen fails at runtime rather than at
+  link time. Exit: a measured minimum heap per screen complexity, chosen against
+  HW-11's numbers rather than picked to clear one overflow.
+
 - [ ] **HW-14 · Independent electrical review (M).** Qualified review of Build
   Diagram calculations, source tables, scope and wording before authoritative
   electrical-guidance claims. Exit: review/corrections recorded against
