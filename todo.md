@@ -127,9 +127,11 @@ matrix, not a reason to postpone testing earlier changes.
   nothing lands off-canvas or becomes ungrabbable, and an unmodified template
   re-lays out from its own portrait/landscape spec via
   `canonicalDisplayTemplateBounds` rather than being scaled. Rotation likewise
-  keeps the explicit Portrait/Landscape control it has now. One part still needs
-  design: a disabled Edit Display must state why it is disabled, or it trades one
-  discoverability failure for another. Templates are unaffected: they already carry portrait and
+  keeps the explicit Portrait/Landscape control it has now. A disabled Edit Display states why in a
+  small label beneath it. Prefer naming the thing to connect *to* — the node
+  being labelled is itself the custom display, so "Connect a Transport Display
+  to edit" points somewhere, where "connect a custom display" reads as a
+  description of the node the user is already looking at. Templates are unaffected: they already carry portrait and
   landscape variants selected by `height > width` from a 320x240 reference. Exit: actions/readings are traceable in
   visible edges; no hidden template bindings. See review recommendations.
 - [ ] **HW-08 · Starters, visual QA and help (M; after HW-07).** Connected live
