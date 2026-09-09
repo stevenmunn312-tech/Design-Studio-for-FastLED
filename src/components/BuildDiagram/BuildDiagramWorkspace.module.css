@@ -159,7 +159,6 @@
 .hardwareMain,
 .controllerCard,
 .diagramCard,
-.backButton,
 .resetButton,
 .smallButton {
   border: 1px solid color-mix(in srgb, var(--border-glow) 78%, transparent);
@@ -399,20 +398,11 @@
 }
 
 .smallButton,
-.backButton,
 .resetButton {
   padding: 9px 12px;
   border-radius: 12px;
   font: inherit;
   cursor: pointer;
-}
-
-.sidebarBackButton {
-  display: inline-flex;
-  align-items: center;
-  align-self: flex-start;
-  gap: 8px;
-  font-weight: 750;
 }
 
 .controllerChooserCard {
@@ -1167,7 +1157,6 @@
 }
 
 .smallButton,
-.backButton,
 .resetButton {
   min-height: 32px;
   padding: 6px 10px;
@@ -1175,7 +1164,6 @@
 }
 
 .smallButton:hover,
-.backButton:hover,
 .resetButton:hover,
 .exportModeButton:hover,
 .connectionRow:hover {

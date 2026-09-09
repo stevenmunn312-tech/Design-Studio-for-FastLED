@@ -1,5 +1,6 @@
 import { Fragment, lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import amplifierRender from '../../assets/components/max98357a-i2s-amplifier.webp'
 import { useGraphStore, useRootEdges, useRootNodes, type StudioNode } from '../../state/graphStore'
 import { usePreviewStore } from '../../state/previewStore'
@@ -61,6 +62,11 @@ import { LED_CELL_FILL } from './ledPreviewGeometry'
 import HardwareLedSpill from './HardwareLedSpill'
 import HardwareLink from './HardwareLink'
 import FloatingMenu from './FloatingMenu'
+import HardwarePartsShelf, {
+  HARDWARE_SHELF_HOST_ID,
+  type HardwareShelfCategory,
+  type HardwareShelfItem,
+} from './HardwarePartsShelf'
 import type { PlacementBox } from './floatingPlacement'
 import { useHardwareView } from './useHardwareView'
 import { resolveAudioCapabilitySource } from '../../state/audioCapabilities'
@@ -489,25 +495,6 @@ const LED_OUTPUT_ENTRIES: Array<{
   { form: 'hub75', hint: 'A scan panel on its own ribbon', properties: { width: 64, height: 32 } },
 ]
 
-/** One leaf of the Add Hardware menu: exactly one module you can put down. */
-interface AddMenuItem {
-  key: string
-  label: string
-  hint: string
-  disabled: boolean
-  /** Why it cannot be added, shown in place of the hint. */
-  disabledReason: string | null
-  onSelect: () => void
-}
-
-interface AddMenuCategory {
-  id: string
-  label: string
-  /** What the category is for, so the top level is readable without opening it. */
-  hint: string
-  items: AddMenuItem[]
-}
-
 // Layout ids. Stable and independent of graph node ids, so the arrangement is
 // about parts rather than about whichever node happens to back one.
 const BOARD_PART_ID = 'board'
@@ -617,9 +604,11 @@ export default function HardwarePane() {
   const uiEffectsEnabled = useUiStore((state) => state.uiEffectsEnabled)
   const paneTab = useUiStore((state) => state.hardwarePaneTab)
   const setPaneTab = useUiStore((state) => state.setHardwarePaneTab)
+  const shelfTarget = useUiStore((state) => state.hardwareShelfTarget)
+  const clearShelfTarget = useUiStore((state) => state.clearHardwareShelfTarget)
   const inspectorNodeId = useUiStore((state) => state.hardwareInspectorNodeId)
   const setInspectorNodeId = useUiStore((state) => state.setHardwareInspectorNodeId)
-  const [addMenuOpen, setAddMenuOpen] = useState(false)
+  const [shelfHost, setShelfHost] = useState<HTMLElement | null>(null)
   const [boardMenu, setBoardMenu] = useState<{ anchor: PlacementBox } | null>(null)
   const [itemMenu, setItemMenu] = useState<
     { anchor: PlacementBox; kind: string; mode: 'actions' | 'settings' } | null
@@ -628,7 +617,6 @@ export default function HardwarePane() {
   const sectionRef = useRef<HTMLElement | null>(null)
   const stageRef = useRef<HTMLDivElement | null>(null)
   const boardCardRef = useRef<HTMLButtonElement | null>(null)
-  const addMenuRef = useRef<HTMLDivElement | null>(null)
   const boardMenuRef = useRef<HTMLDivElement | null>(null)
   const itemMenuRef = useRef<HTMLDivElement | null>(null)
   const inspectorMenuRef = useRef<HTMLDivElement | null>(null)
@@ -637,6 +625,10 @@ export default function HardwarePane() {
   const view = useHardwareView(stageRef)
   const { adjustForContentShift } = view
   const [stageBox, setStageBox] = useState({ width: 0, height: 0 })
+
+  useLayoutEffect(() => {
+    setShelfHost(document.getElementById(HARDWARE_SHELF_HOST_ID))
+  }, [paneTab])
 
   useEffect(() => {
     const stage = stageRef.current
@@ -935,13 +927,6 @@ export default function HardwarePane() {
   const previewInset = previewPanelOpen ? previewWidth : 0
   const inspectorOpen = paneTab === 'hardware' && inspectorNode !== null
   const rightInset = previewInset
-  // The open submenu, with the row it flies out from — the row is the anchor,
-  // so the submenu tracks it rather than guessing an offset.
-  const [openSubmenu, setOpenSubmenu] = useState<{ id: string; anchor: HTMLElement } | null>(null)
-  const addButtonRef = useRef<HTMLButtonElement | null>(null)
-  const addPanelRef = useRef<HTMLDivElement | null>(null)
-  const addSubmenuPanelRef = useRef<HTMLDivElement | null>(null)
-
   const boardBoxMm = useMemo(
     () => (boardProfile ? boardFootprintMm(boardProfile) : null),
     [boardProfile],
@@ -1274,22 +1259,12 @@ export default function HardwarePane() {
   useEffect(() => {
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node
-      // The menu and its submenu are portalled to the body, so "inside the
-      // anchor" is no longer the same question as "inside the menu".
-      const insideAdd = [addMenuRef.current, addPanelRef.current, addSubmenuPanelRef.current]
-        .some((element) => element?.contains(target))
-      if (!insideAdd) {
-        setAddMenuOpen(false)
-        setOpenSubmenu(null)
-      }
       if (boardMenuRef.current && !boardMenuRef.current.contains(target)) setBoardMenu(null)
       if (itemMenuRef.current && !itemMenuRef.current.contains(target)) setItemMenu(null)
       if (inspectorMenuRef.current && !inspectorMenuRef.current.contains(target)) closeInspector()
     }
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setAddMenuOpen(false)
-        setOpenSubmenu(null)
         setBoardMenu(null)
         setItemMenu(null)
         closeInspector()
@@ -1392,7 +1367,6 @@ export default function HardwarePane() {
         outputs: definition.outputs,
       },
     } as never)
-    setAddMenuOpen(false)
     const pins = Object.values(assignedPins)
     setStatus(
       pins.length
@@ -1508,8 +1482,6 @@ export default function HardwarePane() {
         targetHandle: 'audio',
       })
     }
-    setAddMenuOpen(false)
-    setOpenSubmenu(null)
     setStatus(
       entry.nodeType === 'StereoVuMeter' && audioNodes.length === 1
         ? `Added ${entry.label} and connected Audio`
@@ -1574,7 +1546,6 @@ export default function HardwarePane() {
         outputs: ledOutputDefinition.outputs,
       },
     } as never)
-    setAddMenuOpen(false)
     setStatus(
       needsDataPin
         ? `Added ${LED_OUTPUT_FORM_LABELS[entry.form]} on pin ${nextLedPin}`
@@ -1598,13 +1569,16 @@ export default function HardwarePane() {
   const moduleItems = (
     nodeType: string,
     fixture: FixturePartEntry | undefined,
-  ): AddMenuItem[] => {
+  ): HardwareShelfItem[] => {
     if (!fixture) return []
     const blocked = Boolean(fixture.singleton && hasPartOfType(fixture.nodeType))
     return partOptionsFor(nodeType).map((option) => ({
       key: `${nodeType}:${option.id}`,
+      nodeType,
       label: option.label,
       hint: option.summary ?? fixture.hint,
+      renderSrc: partRenderSrc(option.id),
+      visual: option.id,
       disabled: blocked,
       disabledReason: blocked ? `One ${fixture.label.toLowerCase()} per board` : null,
       onSelect: () => addFixturePart(fixture, option.id),
@@ -1632,7 +1606,7 @@ export default function HardwarePane() {
         })()
     : 'Stereo VU Meter is unavailable'
 
-  const addMenuCategories: AddMenuCategory[] = [
+  const shelfCategories: HardwareShelfCategory[] = [
     {
       id: 'inputs',
       label: 'Inputs',
@@ -1641,8 +1615,11 @@ export default function HardwarePane() {
         const blocker = inputPartBlocker(entry)
         return {
           key: entry.partId,
+          nodeType: entry.nodeType,
           label: entry.label,
           hint: entry.hint,
+          renderSrc: partRenderForNodeType(entry.nodeType, entry.properties ?? {})?.src,
+          visual: entry.partId,
           disabled: blocker !== null,
           disabledReason: blocker,
           onSelect: () => addInputPart(entry),
@@ -1675,8 +1652,10 @@ export default function HardwarePane() {
         // below for the same reason.
         ...(customDisplayFixture ? [{
           key: customDisplayFixture.partId,
+          nodeType: customDisplayFixture.nodeType,
           label: customDisplayFixture.label,
           hint: customDisplayFixture.hint,
+          visual: 'custom-display',
           disabled: false,
           disabledReason: null,
           onSelect: () => addFixturePart(customDisplayFixture),
@@ -1690,8 +1669,10 @@ export default function HardwarePane() {
       items: [
         ...(stereoVuFixture ? [{
           key: stereoVuFixture.partId,
+          nodeType: stereoVuFixture.nodeType,
           label: stereoVuFixture.label,
           hint: stereoVuFixture.hint,
+          visual: 'stereo-vu',
           disabled: stereoVuBlocker !== null,
           disabledReason: stereoVuBlocker,
           onSelect: () => addFixturePart(stereoVuFixture),
@@ -1701,8 +1682,10 @@ export default function HardwarePane() {
         const blocked = needsDataPin && nextLedPin === null
         return {
           key: entry.form,
+          nodeType: LED_OUTPUT_NODE_TYPE,
           label: LED_OUTPUT_FORM_LABELS[entry.form],
           hint: needsDataPin ? `${entry.hint} on pin ${nextLedPin}` : entry.hint,
+          visual: entry.form,
           disabled: blocked,
           disabledReason: blocked ? 'No free GPIO on this board' : null,
           onSelect: () => addLedOutput(entry),
@@ -1714,104 +1697,14 @@ export default function HardwarePane() {
 
   return (
     <section ref={sectionRef} className={styles.hardwarePane} aria-label="Hardware view">
-      <div className={styles.toolbar}>
-        {/* Hardware and Upload are workspace tabs now, so the pane no longer
-            carries its own pair — it renders whichever half the workspace
-            selected. See docs/development/design/workspace-tabs.md. */}
-        {paneTab === 'hardware' && (
-          /* Portalled so the cascading menu stays constrained to the viewport
-             even though its trigger now sits at the stage edge. */
-          <div
-            ref={addMenuRef}
-            className={styles.addMenuAnchor}
-            style={{ left: `${leftInset + 16}px` }}
-          >
-            <button
-              ref={addButtonRef}
-              type="button"
-              className={styles.addButton}
-              onClick={() => {
-                setAddMenuOpen((open) => !open)
-                setOpenSubmenu(null)
-              }}
-              aria-expanded={addMenuOpen}
-              aria-haspopup="menu"
-            >
-              Add Hardware
-            </button>
-
-            {addMenuOpen && (
-              <FloatingMenu
-                anchor={addButtonRef.current}
-                placement="below"
-                className={styles.addMenu}
-                role="menu"
-                ariaLabel="Add hardware"
-                panelRef={(element) => { addPanelRef.current = element }}
-              >
-                {addMenuCategories.map((category) => {
-                  const open = openSubmenu?.id === category.id
-                  return (
-                    <div key={category.id} className={styles.addMenuGroup}>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className={`${styles.addMenuItem} ${styles.addMenuParent}`}
-                        aria-haspopup="menu"
-                        aria-expanded={open}
-                        onMouseEnter={(event) =>
-                          setOpenSubmenu({ id: category.id, anchor: event.currentTarget })}
-                        onFocus={(event) =>
-                          setOpenSubmenu({ id: category.id, anchor: event.currentTarget })}
-                        onClick={(event) =>
-                          setOpenSubmenu(open ? null : { id: category.id, anchor: event.currentTarget })}
-                        onKeyDown={(event) => {
-                          if (event.key === 'ArrowRight') {
-                            event.preventDefault()
-                            setOpenSubmenu({ id: category.id, anchor: event.currentTarget })
-                          } else if (event.key === 'ArrowLeft') {
-                            event.preventDefault()
-                            setOpenSubmenu(null)
-                          }
-                        }}
-                      >
-                        <span>{category.label}</span>
-                        <small>{category.hint}</small>
-                        <span aria-hidden="true" className={styles.addMenuChevron}>›</span>
-                      </button>
-                    </div>
-                  )
-                })}
-              </FloatingMenu>
-            )}
-
-            {addMenuOpen && openSubmenu && (
-              <FloatingMenu
-                anchor={openSubmenu.anchor}
-                placement="beside"
-                className={styles.addSubmenu}
-                role="menu"
-                ariaLabel={addMenuCategories.find((c) => c.id === openSubmenu.id)?.label}
-                panelRef={(element) => { addSubmenuPanelRef.current = element }}
-              >
-                {(addMenuCategories.find((c) => c.id === openSubmenu.id)?.items ?? []).map((item) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    role="menuitem"
-                    className={styles.addMenuItem}
-                    disabled={item.disabled}
-                    onClick={item.onSelect}
-                  >
-                    <span>{item.label}</span>
-                    <small>{item.disabledReason ?? item.hint}</small>
-                  </button>
-                ))}
-              </FloatingMenu>
-            )}
-          </div>
-        )}
-      </div>
+      {paneTab === 'hardware' && shelfHost && createPortal(
+        <HardwarePartsShelf
+          categories={shelfCategories}
+          targetNodeType={shelfTarget}
+          onTargetHandled={clearShelfTarget}
+        />,
+        shelfHost,
+      )}
 
       {paneTab === 'upload' && (
         <Suspense fallback={<div className={styles.lazyPanelStatus} role="status">Loading upload tools…</div>}>

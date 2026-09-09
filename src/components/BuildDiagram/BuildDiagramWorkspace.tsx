@@ -21,7 +21,6 @@ import { fuseBlockAllocations } from '../../build/powerDistribution'
 import { rootGraphNodes, useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
 import { ROOT_BOARD_NODE_ID } from '../../state/hardware'
 import { useProjectStore } from '../../state/projectStore'
-import { useUiStore } from '../../state/uiStore'
 import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import PhysicalAssemblyDiagram from './PhysicalAssemblyDiagram'
 import BuildPrintSheets from './BuildPrintSheets'
@@ -303,7 +302,6 @@ export default function BuildDiagramWorkspace() {
   const edges = useRootEdges()
   const storedBuildProfile = useGraphStore((state) => state.buildProfile)
   const updateBuildProfile = useGraphStore((state) => state.updateBuildProfile)
-  const closeBuildDiagram = useUiStore((state) => state.closeBuildDiagram)
   const selectedFqbn = useUploadStore((state) => state.selectedFqbn)
   const manifest = useMemo(() => buildHardwareManifest(nodes, edges, selectedFqbn), [nodes, edges, selectedFqbn])
   const buildProfile = ensureBuildProfile(storedBuildProfile)
@@ -883,14 +881,6 @@ export default function BuildDiagramWorkspace() {
           </button>
         ) : (
           <>
-            {/* The workspace tabs are the way out now. This stays as the
-                shortcut back to the workspace people arrive from, named for the
-                tab it lands on — "Design" stopped being a word the UI uses when
-                the split canvas became four workspaces. */}
-            <button type="button" className={`${styles.backButton} ${styles.sidebarBackButton}`} onClick={closeBuildDiagram}>
-              <span aria-hidden="true">&larr;</span>
-              <span>Back to Graph</span>
-            </button>
             <div className={styles.panelHeader}>
               <h2 className={styles.panelTitle}>Build Diagram</h2>
               <div className={styles.headerActions}>

@@ -1141,7 +1141,7 @@ describe('BuildDiagramWorkspace', () => {
     expect(canvas).toBeTruthy()
     const viewportElement = viewport as HTMLElement
     expect(getByRole('heading', { name: 'Wiring Diagram' })).toBeTruthy()
-    expect(getByRole('button', { name: 'Back to Graph' })).toBeTruthy()
+    expect(queryByText('Back to Graph')).toBeNull()
     expect(queryByText('Visible')).toBeNull()
     expect(queryByText('Graph hardware in, complete recommended wiring out.')).toBeNull()
 

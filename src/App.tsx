@@ -33,6 +33,7 @@ import { PanelResizeHandle } from './components/Layout/PanelResizeHandle'
 import { DEFAULT_PREVIEW_WIDTH, DEFAULT_SIDEBAR_WIDTH, MAX_PREVIEW_WIDTH, MAX_SIDEBAR_WIDTH, MIN_PREVIEW_WIDTH, MIN_SIDEBAR_WIDTH } from './state/layoutPresets'
 import { enterStagePresentation, exitStagePresentation } from './utils/stagePresentation'
 import HardwarePane from './components/Hardware/HardwarePane'
+import { HARDWARE_SHELF_HOST_ID } from './components/Hardware/HardwarePartsShelf'
 import WorkspaceTabs from './components/Layout/WorkspaceTabs'
 import styles from './App.module.css'
 
@@ -114,6 +115,8 @@ export default function App() {
   const [stageCursorHidden, setStageCursorHidden] = useState(false)
   const [capacityWatcherReady, setCapacityWatcherReady] = useState(false)
   const displayEditorOpen = designWorkspaceView.kind === 'display'
+  const workspaceSidebarVisible = !displayEditorOpen && workspaceMode !== 'build'
+  const sidebarLabel = workspaceMode === 'hardware' ? 'parts shelf' : 'node library'
 
   // CapacityWatcher assembles the exact firmware text used by a later manual
   // capacity check. It must remain mounted after startup so stale readings are
@@ -613,104 +616,102 @@ export default function App() {
       {!stageMode && <TrustBanner />}
       <div className={`${styles.workspace} ${stageMode ? styles.workspaceStage : ''} ${workspaceMode === 'build' ? styles.workspaceBuild : ''}`}>
         {!stageMode && !performanceMode && <WorkspaceTabs />}
-        {workspaceMode === 'build' && !stageMode ? (
-          <Suspense fallback={null}>
-            <BuildDiagramWorkspace />
-          </Suspense>
-        ) : (
-          <>
-            <div className={styles.workspaceCanvas}>
-              <div className={styles.mainRegion}>
-                {!displayEditorOpen && (
-                  <>
-                    <div className={`${styles.sidebarDock} ${sidebarOpen ? '' : styles.sidebarDockClosed}`}>
-                      <div
-                        className={`${styles.sidebarPanel} ${sidebarOpen ? '' : styles.sidebarPanelClosed}`}
-                        aria-hidden={!sidebarOpen}
-                        inert={!sidebarOpen}
-                      >
-                        <Sidebar />
-                      </div>
-                    </div>
-                    {sidebarOpen && (
-                      <PanelResizeHandle
-                        side="sidebar"
-                        width={sidebarWidth}
-                        min={MIN_SIDEBAR_WIDTH}
-                        max={MAX_SIDEBAR_WIDTH}
-                        defaultWidth={DEFAULT_SIDEBAR_WIDTH}
-                        otherPanelWidth={previewPanelOpen ? previewWidth : 0}
-                        label="Resize node library panel"
-                        onCommit={setSidebarWidth}
-                      />
-                    )}
-                    <button
-                      className={`${styles.sidebarHandle} ${sidebarOpen ? styles.sidebarHandleOpen : styles.sidebarHandleClosed}`}
-                      type="button"
-                      onClick={toggleSidebar}
-                      aria-label={sidebarOpen ? 'Hide node library' : 'Show node library'}
-                      aria-expanded={sidebarOpen}
-                      aria-controls="node-library"
-                      title={sidebarOpen ? 'Hide node library' : 'Show node library'}
-                    >
-                      <span className={styles.sidebarHandleArrow} aria-hidden="true">{sidebarOpen ? '‹' : '›'}</span>
-                    </button>
-                  </>
-                )}
-                <div className={styles.splitCanvas}>
-                  <div className={styles.graphPane}>
-                    {workspaceMode === 'hardware' || workspaceMode === 'upload' ? (
-                      <HardwarePane />
-                    ) : designWorkspaceView.kind === 'display' ? (
-                      <Suspense fallback={null}><DisplayEditor /></Suspense>
-                    ) : (
-                      <NodeGraphCanvas />
-                    )}
+        <div className={styles.workspaceCanvas}>
+          <div className={`${styles.mainRegion} ${workspaceMode === 'build' && previewPanelOpen ? styles.mainRegionBuildPreviewOpen : ''}`}>
+            {workspaceSidebarVisible && (
+              <>
+                <div className={`${styles.sidebarDock} ${sidebarOpen ? '' : styles.sidebarDockClosed}`}>
+                  <div
+                    className={`${styles.sidebarPanel} ${sidebarOpen ? '' : styles.sidebarPanelClosed}`}
+                    aria-hidden={!sidebarOpen}
+                    inert={!sidebarOpen}
+                  >
+                    {workspaceMode === 'hardware'
+                      ? <div id={HARDWARE_SHELF_HOST_ID} className={styles.sidebarShelfHost} />
+                      : <Sidebar />}
                   </div>
                 </div>
-              </div>
-              {!displayEditorOpen && <div className={`${styles.previewDock} ${previewPanelOpen ? '' : styles.previewDockClosed}`}>
-                <div
-                  className={`${styles.previewPanel} ${previewPanelOpen ? '' : styles.previewPanelClosed}`}
-                  aria-hidden={!previewPanelOpen && !stageMode}
-                  inert={!previewPanelOpen && !stageMode}
-                  id="preview-panel"
+                {sidebarOpen && (
+                  <PanelResizeHandle
+                    side="sidebar"
+                    width={sidebarWidth}
+                    min={MIN_SIDEBAR_WIDTH}
+                    max={MAX_SIDEBAR_WIDTH}
+                    defaultWidth={DEFAULT_SIDEBAR_WIDTH}
+                    otherPanelWidth={previewPanelOpen ? previewWidth : 0}
+                    label={`Resize ${sidebarLabel} panel`}
+                    onCommit={setSidebarWidth}
+                  />
+                )}
+                <button
+                  className={`${styles.sidebarHandle} ${sidebarOpen ? styles.sidebarHandleOpen : styles.sidebarHandleClosed}`}
+                  type="button"
+                  onClick={toggleSidebar}
+                  aria-label={`${sidebarOpen ? 'Hide' : 'Show'} ${sidebarLabel}`}
+                  aria-expanded={sidebarOpen}
+                  aria-controls={workspaceMode === 'hardware' ? HARDWARE_SHELF_HOST_ID : 'node-library'}
+                  title={`${sidebarOpen ? 'Hide' : 'Show'} ${sidebarLabel}`}
                 >
-                  <LEDPreview />
-                </div>
-              </div>}
-              {!displayEditorOpen && previewPanelOpen && !stageMode && (
-                <PanelResizeHandle
-                  side="preview"
-                  width={previewWidth}
-                  min={MIN_PREVIEW_WIDTH}
-                  max={MAX_PREVIEW_WIDTH}
-                  defaultWidth={DEFAULT_PREVIEW_WIDTH}
-                  otherPanelWidth={sidebarOpen ? sidebarWidth : 0}
-                  label="Resize LED preview panel"
-                  onCommit={setPreviewWidth}
-                />
-              )}
-              {!displayEditorOpen && <button
-                className={`${styles.previewHandle} ${previewPanelOpen ? styles.previewHandleOpen : styles.previewHandleClosed}`}
-                type="button"
-                onClick={togglePreviewPanel}
-                aria-label={previewPanelOpen ? 'Hide LED preview' : 'Show LED preview'}
-                aria-expanded={previewPanelOpen}
-                aria-controls="preview-panel"
-                title={previewPanelOpen ? 'Hide LED preview' : 'Show LED preview'}
-              >
-                <span className={styles.previewHandleArrow} aria-hidden="true">{previewPanelOpen ? '›' : '‹'}</span>
-              </button>}
-              {deckOpen && (
-                <Suspense fallback={null}>
-                  <PerformanceDeck />
-                </Suspense>
-              )}
+                  <span className={styles.sidebarHandleArrow} aria-hidden="true">{sidebarOpen ? '‹' : '›'}</span>
+                </button>
+              </>
+            )}
+            <div className={styles.splitCanvas}>
+              <div className={styles.graphPane}>
+                {workspaceMode === 'build' && !stageMode ? (
+                  <Suspense fallback={null}>
+                    <BuildDiagramWorkspace />
+                  </Suspense>
+                ) : workspaceMode === 'hardware' || workspaceMode === 'upload' ? (
+                  <HardwarePane />
+                ) : designWorkspaceView.kind === 'display' ? (
+                  <Suspense fallback={null}><DisplayEditor /></Suspense>
+                ) : (
+                  <NodeGraphCanvas />
+                )}
+              </div>
             </div>
-            {!stageMode && <GraphHealthDrawer />}
-          </>
-        )}
+          </div>
+          {!displayEditorOpen && <div className={`${styles.previewDock} ${previewPanelOpen ? '' : styles.previewDockClosed}`}>
+            <div
+              className={`${styles.previewPanel} ${previewPanelOpen ? '' : styles.previewPanelClosed}`}
+              aria-hidden={!previewPanelOpen && !stageMode}
+              inert={!previewPanelOpen && !stageMode}
+              id="preview-panel"
+            >
+              <LEDPreview />
+            </div>
+          </div>}
+          {!displayEditorOpen && previewPanelOpen && !stageMode && (
+            <PanelResizeHandle
+              side="preview"
+              width={previewWidth}
+              min={MIN_PREVIEW_WIDTH}
+              max={MAX_PREVIEW_WIDTH}
+              defaultWidth={DEFAULT_PREVIEW_WIDTH}
+              otherPanelWidth={workspaceSidebarVisible && sidebarOpen ? sidebarWidth : 0}
+              label="Resize LED preview panel"
+              onCommit={setPreviewWidth}
+            />
+          )}
+          {!displayEditorOpen && <button
+            className={`${styles.previewHandle} ${previewPanelOpen ? styles.previewHandleOpen : styles.previewHandleClosed}`}
+            type="button"
+            onClick={togglePreviewPanel}
+            aria-label={previewPanelOpen ? 'Hide LED preview' : 'Show LED preview'}
+            aria-expanded={previewPanelOpen}
+            aria-controls="preview-panel"
+            title={previewPanelOpen ? 'Hide LED preview' : 'Show LED preview'}
+          >
+            <span className={styles.previewHandleArrow} aria-hidden="true">{previewPanelOpen ? '›' : '‹'}</span>
+          </button>}
+          {deckOpen && (
+            <Suspense fallback={null}>
+              <PerformanceDeck />
+            </Suspense>
+          )}
+        </div>
+        {!stageMode && workspaceMode !== 'build' && <GraphHealthDrawer />}
       </div>
       <div className={styles.statusShell}><StatusBar /></div>
       <PerformanceDeckMidiBridge />

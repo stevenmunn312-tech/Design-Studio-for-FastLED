@@ -42,7 +42,12 @@ describe('Sidebar equipment rack', () => {
     useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null })
     usePatternLibrary.setState({ patterns: [] })
     usePatternRatingStore.setState({ ratingsByPatternId: {}, userRatingsByPatternId: {}, intentOverridesByPatternId: {} })
-    useUiStore.setState({ viewCenter: { x: 200, y: 180 }, draggingNodeType: null, testSignal: false })
+    useUiStore.setState({
+      viewCenter: { x: 200, y: 180 },
+      draggingNodeType: null,
+      testSignal: false,
+      hardwareShelfTarget: null,
+    })
     startAudio.mockClear()
     useAudioStore.setState({ startAudio })
   })
@@ -82,6 +87,8 @@ describe('Sidebar equipment rack', () => {
     const shelf = getByText('In the Hardware bench').parentElement!
     fireEvent.click(shelf.querySelectorAll('button')[0])
     expect(useUiStore.getState().workspaceMode).toBe('hardware')
+    expect(useUiStore.getState().sidebarOpen).toBe(true)
+    expect(useUiStore.getState().hardwareShelfTarget).toBe('ButtonInput')
   })
 
   it('keeps only one category open at a time', () => {

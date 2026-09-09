@@ -202,6 +202,9 @@ interface UiState {
    *  tools that act on it. Persisted — it is a workspace preference, not a
    *  moment. */
   hardwarePaneTab: HardwarePaneTab
+  /** Hardware-owned module requested from Graph search. The parts shelf
+   * consumes this after it opens the matching section and focuses the part. */
+  hardwareShelfTarget: string | null
   /** Hardware part whose physical wiring inspector is open. Session-only. */
   hardwareInspectorNodeId: string | null
   /** Monotonic fit-view request consumed by the canvas. */
@@ -228,6 +231,8 @@ interface UiState {
   setStatus: (text: string, level?: StatusLevel) => void
   clearStatus: () => void
   setWorkspaceMode: (mode: WorkspaceMode) => void
+  openHardwareShelf: (nodeType: string) => void
+  clearHardwareShelfTarget: () => void
   toggleBuildDiagram: () => void
   openBuildDiagram: () => void
   closeBuildDiagram: () => void
@@ -340,6 +345,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   draggingNodeType: null,
   viewCenter: { x: 300, y: 250 },
   hardwarePaneTab: (load<string>(HARDWARE_TAB_KEY, 'hardware') === 'upload' ? 'upload' : 'hardware') as HardwarePaneTab,
+  hardwareShelfTarget: null,
   hardwareInspectorNodeId: null,
   fitViewRequest: { nonce: 0 },
   nodeFlash: { nodeId: null, nonce: 0 },
@@ -381,6 +387,13 @@ export const useUiStore = create<UiState>((set, get) => ({
       ? { workspaceMode, hardwarePaneTab: workspaceMode }
       : { workspaceMode },
   ),
+  openHardwareShelf: (hardwareShelfTarget) => set({
+    workspaceMode: 'hardware',
+    hardwarePaneTab: 'hardware',
+    sidebarOpen: true,
+    hardwareShelfTarget,
+  }),
+  clearHardwareShelfTarget: () => set({ hardwareShelfTarget: null }),
   toggleBuildDiagram: () => set((s) => ({ workspaceMode: s.workspaceMode === 'build' ? 'graph' : 'build' })),
   openBuildDiagram: () => set({ workspaceMode: 'build' }),
   closeBuildDiagram: () => set({ workspaceMode: 'graph' }),

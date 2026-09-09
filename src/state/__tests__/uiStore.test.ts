@@ -200,6 +200,26 @@ describe('uiStore.setStatus auto-clear', () => {
     expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'graph' })
     expect(useUiStore.getState().fitViewRequest.nonce).toBe(6)
   })
+
+  it('opens the Hardware shelf on a requested module', () => {
+    useUiStore.setState({
+      workspaceMode: 'graph',
+      hardwarePaneTab: 'upload',
+      sidebarOpen: false,
+      hardwareShelfTarget: null,
+    })
+
+    useUiStore.getState().openHardwareShelf('ButtonInput')
+    expect(useUiStore.getState()).toMatchObject({
+      workspaceMode: 'hardware',
+      hardwarePaneTab: 'hardware',
+      sidebarOpen: true,
+      hardwareShelfTarget: 'ButtonInput',
+    })
+
+    useUiStore.getState().clearHardwareShelfTarget()
+    expect(useUiStore.getState().hardwareShelfTarget).toBeNull()
+  })
 })
 
 describe('nodeFlash', () => {

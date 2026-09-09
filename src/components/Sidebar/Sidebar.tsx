@@ -287,7 +287,7 @@ function Sidebar() {
   const requestConfirm = useUiStore((s) => s.requestConfirm)
   const viewCenter = useUiStore((s) => s.viewCenter)
   const setStatus = useUiStore((s) => s.setStatus)
-  const setWorkspaceMode = useUiStore((s) => s.setWorkspaceMode)
+  const openHardwareShelf = useUiStore((s) => s.openHardwareShelf)
   const openRatings = useUiStore((s) => s.openRatings)
   const setDraggingNodeType = useUiStore((s) => s.setDraggingNodeType)
   // One-bank-at-a-time accordion. We still persist the last opened section,
@@ -1206,7 +1206,7 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${tags.length ? `Best on ${tagNam
                 key={def.type}
                 type="button"
                 className={styles.hardwareMatch}
-                onClick={() => setWorkspaceMode('hardware')}
+                onClick={() => openHardwareShelf(def.type)}
                 title={`${def.label} is added from the Hardware bench`}
               >
                 <span className={styles.hardwareMatchName}>{def.label}</span>

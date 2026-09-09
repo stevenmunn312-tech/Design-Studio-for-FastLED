@@ -4,8 +4,9 @@ Follows [one canvas, four workspaces](../design/workspace-tabs.md), which shippe
 on 2026-09-08 (`659f8b50`, tidied by `64fa8b15`). That note is the contract for
 the tabs themselves; this one covers what the tabs exposed.
 
-Status: **proposed, nothing built**. Raised from bench use the same evening the
-tabs landed.
+Status: **Hardware shelf and persistent four-workspace preview implemented on
+2026-09-09.** Build Diagram and Upload information shelves remain undesigned
+follow-up work. Raised from bench use the same evening the tabs landed.
 
 ## What the tabs exposed
 
@@ -83,6 +84,22 @@ Two things to decide while fixing it:
   rather than a fifth workspace, so the same rule arguably applies — but it is a
   full-width editing surface and the hiding may well be deliberate. Decide it,
   do not inherit it by accident.
+
+## Implementation decision
+
+Build Diagram now renders inside the shared workspace canvas, so the standard
+preview dock and transport remain available beside it. Its obsolete `Back to
+Graph` control was removed; the workspace tabs are the single navigation model.
+
+The Hardware sidebar is now a searchable, sectioned parts shelf using the
+catalogue's module renders and descriptions. The floating Add Hardware cascade
+was removed. Graph-search results for hardware-owned modules open that shelf,
+expand the owning section, and focus the requested part.
+
+The display editor continues to hide both docks deliberately. It is a full-width
+authoring surface within Graph, not one of the four workspaces covered by the
+permanent-preview rule, and shrinking its editing canvas would change that
+separate workflow without a reviewed design.
 
 ## Order
 

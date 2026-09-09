@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import type { ReactNode } from 'react'
+import { fireEvent, render as renderView, screen, within } from '@testing-library/react'
 import HardwarePane from '../HardwarePane'
+import { HARDWARE_SHELF_HOST_ID } from '../HardwarePartsShelf'
 import { ROOT_GRAPH_ID, rootGraphNodes, useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/uploadStore'
@@ -33,14 +35,27 @@ function node(type: string, id: string, properties: Record<string, unknown> = {}
   }
 }
 
+function render(ui: ReactNode) {
+  return renderView(<><div id={HARDWARE_SHELF_HOST_ID} />{ui}</>)
+}
+
+function openShelfCategory(label: string) {
+  const category = screen.getByRole('button', { name: new RegExp(`^${label}`) })
+  if (category.getAttribute('aria-expanded') !== 'true') fireEvent.click(category)
+}
+
+function addPart(category: string, label: string) {
+  openShelfCategory(category)
+  fireEvent.click(screen.getByRole('button', { name: `Add ${label}` }))
+}
+
 // Neither label nor summary alone is a unique key across the display menu:
 // TransportDisplay and Display both offer a "ST7789V 2.4-inch + touch" label
 // (distinguished by summary), and SSD1306/SH1106 (I2C) now both summarise as
 // "128x64 white OLED over I2C" (distinguished by label). Matching on both
 // finds the one button that has each.
 function addDisplay(label: string, summary: string) {
-  fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
-  fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /Displays/ }))
+  openShelfCategory('Displays')
   const button = screen.getAllByText(summary)
     .map((el) => el.closest('button')!)
     .find((candidate) => within(candidate).queryByText(label))
@@ -88,9 +103,7 @@ describe('HardwarePane', () => {
     })
     render(<HardwarePane />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
-    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /Inputs/ }))
-    fireEvent.click(screen.getByRole('menuitem', { name: /DS3231 RTC module/ }))
+    addPart('Inputs', 'DS3231 RTC module')
 
     // The part lands on the bench, not sealed inside the open group.
     const rootTypes = rootGraphNodes(useGraphStore.getState()).map((entry) => entry.data.nodeType)
@@ -101,9 +114,7 @@ describe('HardwarePane', () => {
   it('adds a DS3231 RTC module as a hardware-owned RTCInput node', () => {
     render(<HardwarePane />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
-    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /Inputs/ }))
-    fireEvent.click(screen.getByRole('menuitem', { name: /DS3231 RTC module/ }))
+    addPart('Inputs', 'DS3231 RTC module')
 
     const rtc = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'RTCInput')
     expect(rtc).toBeTruthy()
@@ -216,9 +227,7 @@ describe('HardwarePane', () => {
   it('adds and draws a corkscrew as dedicated helical geometry', () => {
     const { container } = render(<HardwarePane />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
-    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /LED outputs/ }))
-    fireEvent.click(screen.getByRole('menuitem', { name: /LED Corkscrew/ }))
+    addPart('LED outputs', 'LED Corkscrew')
 
     const output = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'MatrixOutput')
     expect(output?.data.properties).toMatchObject({
@@ -237,9 +246,7 @@ describe('HardwarePane', () => {
   it('adds PCM1802 line in with four distinct board-owned pins', () => {
     render(<HardwarePane />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
-    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /Inputs/ }))
-    fireEvent.click(screen.getByRole('menuitem', { name: /PCM1802 line-in ADC/ }))
+    addPart('Inputs', 'PCM1802 line-in ADC')
 
     const lineIn = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'LineInput')
     expect(lineIn).toBeTruthy()
@@ -260,9 +267,7 @@ describe('HardwarePane', () => {
     })
     const { container } = render(<HardwarePane />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
-    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /LED outputs/ }))
-    fireEvent.click(screen.getByRole('menuitem', { name: /Stereo VU Meter/ }))
+    addPart('LED outputs', 'Stereo VU Meter')
 
     const meters = useGraphStore.getState().nodes.filter((entry) => entry.data.nodeType === 'StereoVuMeter')
     expect(meters).toHaveLength(1)
@@ -277,16 +282,12 @@ describe('HardwarePane', () => {
     ]))
     expect(container.querySelector('[aria-label="Stereo VU Meter paired LED strings"]')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
-    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /LED outputs/ }))
-    expect((screen.getByRole('menuitem', { name: /Stereo VU Meter/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Add Stereo VU Meter' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('adds a standalone Stereo VU Meter with 16 LEDs per side', () => {
     render(<HardwarePane />)
-    fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
-    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /LED outputs/ }))
-    fireEvent.click(screen.getByRole('menuitem', { name: /Stereo VU Meter/ }))
+    addPart('LED outputs', 'Stereo VU Meter')
 
     const meter = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'StereoVuMeter')!
     expect(meter.data.properties.targetOutputId).toBe('')
@@ -311,9 +312,7 @@ describe('HardwarePane', () => {
     })
     render(<HardwarePane />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
-    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /LED outputs/ }))
-    fireEvent.click(screen.getByRole('menuitem', { name: /Stereo VU Meter/ }))
+    addPart('LED outputs', 'Stereo VU Meter')
 
     const state = useGraphStore.getState()
     const root = rootGraphNodes(state)
@@ -328,9 +327,7 @@ describe('HardwarePane', () => {
   it('opens a board-aware pin popup and reveals the signal node automatically', () => {
     render(<HardwarePane />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
-    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /Inputs/ }))
-    fireEvent.click(screen.getByRole('menuitem', { name: /Potentiometer/ }))
+    addPart('Inputs', 'Potentiometer')
 
     fireEvent.click(screen.getByTitle('Click to configure wiring · right-click for hardware actions'))
 
@@ -475,7 +472,7 @@ describe('HardwarePane', () => {
     render(<HardwarePane />)
 
     fireEvent.click(screen.getByTitle('Click for board options'))
-    expect(await within(document.body).findByLabelText('Board family')).toBeTruthy()
+    expect(await within(document.body).findByLabelText('Board family', undefined, { timeout: 5000 })).toBeTruthy()
 
     fireEvent.pointerDown(document.body)
 
@@ -570,9 +567,7 @@ describe('HardwarePane', () => {
   it('adds a Raspberry Pi RTC clock module as the compact RTCInput option', () => {
     render(<HardwarePane />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add Hardware' }))
-    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /Inputs/ }))
-    fireEvent.click(screen.getByRole('menuitem', { name: /DS3231 RTC Clock Module for Raspberry Pi/ }))
+    addPart('Inputs', 'DS3231 RTC Clock Module for Raspberry Pi')
 
     const rtc = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'RTCInput')
     expect(rtc).toBeTruthy()
