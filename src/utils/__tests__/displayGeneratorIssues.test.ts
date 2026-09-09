@@ -121,8 +121,12 @@ describe('displays a build cannot drive', () => {
   // same way the browser preview does, so a normal sketch is no longer
   // refused — see the show/player cases below for what still is.
   it('leaves a custom display to the normal sketch, which can now draw it', () => {
-    const custom = node('custom', 'Display', { displayId: 'custom', partId: 'st7789v-xpt2046-touch-240x320' })
-    expect(findDisplayGeneratorIssues([out(), custom], [])).toEqual({ errors: [], warnings: [] })
+    const custom = node('custom', 'Display', { displayId: 'custom' })
+    const panel = node('panel', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320' })
+    const mount = edge('mount', 'custom', 'customDisplay', 'panel', 'customDisplay')
+    expect(findDisplayGeneratorIssues([out(), custom, panel], [mount], {
+      custom: createDisplayDocument('custom', 240, 320),
+    })).toEqual({ errors: [], warnings: [] })
   })
 
   it('says nothing about a display in a plain sketch', () => {

@@ -1761,6 +1761,15 @@ _FLASH_BYTES_RE = re.compile(
 _RAM_BYTES_RE = re.compile(
     r"Global variables use (\d+) bytes \((\d+)%\) of dynamic memory[^.]*\.\s*Maximum is (\d+) bytes", re.I
 )
+# ESP8266 core 3.x uses its own segmented size report instead of Arduino's
+# standard two sentences. Keep the two totals the capacity UI can compare;
+# IRAM is reported separately by that core and is not general dynamic RAM.
+_ESP8266_FLASH_BYTES_RE = re.compile(
+    r"Code in flash[^\r\n]*used (\d+) / (\d+) bytes \((\d+)%\)", re.I
+)
+_ESP8266_RAM_BYTES_RE = re.compile(
+    r"Variables and constants in RAM[^\r\n]*used (\d+) / (\d+) bytes \((\d+)%\)", re.I
+)
 
 
 def _size_bytes_report(lines):
@@ -1769,11 +1778,21 @@ def _size_bytes_report(lines):
     text = "".join(lines)
     result: dict = {"flash": None, "ram": None}
     fm = _FLASH_BYTES_RE.search(text)
+    if not fm:
+        fm = _ESP8266_FLASH_BYTES_RE.search(text)
     if fm:
-        result["flash"] = {"usedBytes": int(fm.group(1)), "percent": int(fm.group(2)), "limitBytes": int(fm.group(3))}
+        if fm.re is _FLASH_BYTES_RE:
+            result["flash"] = {"usedBytes": int(fm.group(1)), "percent": int(fm.group(2)), "limitBytes": int(fm.group(3))}
+        else:
+            result["flash"] = {"usedBytes": int(fm.group(1)), "limitBytes": int(fm.group(2)), "percent": int(fm.group(3))}
     rm = _RAM_BYTES_RE.search(text)
+    if not rm:
+        rm = _ESP8266_RAM_BYTES_RE.search(text)
     if rm:
-        result["ram"] = {"usedBytes": int(rm.group(1)), "percent": int(rm.group(2)), "limitBytes": int(rm.group(3))}
+        if rm.re is _RAM_BYTES_RE:
+            result["ram"] = {"usedBytes": int(rm.group(1)), "percent": int(rm.group(2)), "limitBytes": int(rm.group(3))}
+        else:
+            result["ram"] = {"usedBytes": int(rm.group(1)), "limitBytes": int(rm.group(2)), "percent": int(rm.group(3))}
     return result
 
 

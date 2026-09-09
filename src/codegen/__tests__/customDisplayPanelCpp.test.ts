@@ -45,6 +45,8 @@ describe('custom display panel driver', () => {
 
   it('drives the panel through the same ST7789 register sequence tftDisplayCpp.ts verified', () => {
     const setup = customDisplayPanelSetupCpp(emit()).join('\n')
+    expect(setup).toContain('#if defined(ESP32)\n  SPI.begin(_cdPanel_screen.sck, -1, _cdPanel_screen.mosi, -1);')
+    expect(setup).toContain('#elif defined(ESP8266)\n  SPI.pins(_cdPanel_screen.sck, MISO, _cdPanel_screen.mosi, -1);\n  SPI.begin();')
     expect(setup).toContain('_cdPanelCmd_screen(0x01); delay(150);') // SWRESET
     expect(setup).toContain('_cdPanelCmd_screen(0x11); delay(120);') // SLPOUT
     expect(setup).toContain('uint8_t colmod = 0x55')

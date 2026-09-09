@@ -2981,6 +2981,7 @@ describe('PSRAM buffer placement (MatrixOutput usePsram)', () => {
     expect(cpp).toContain('CRGB* buf_sc = nullptr;')
     expect(cpp).toContain('buf_sc = (CRGB*)_psAlloc(sizeof(CRGB) * NUM_LEDS);')
     expect(cpp).toContain('void* _psAlloc(size_t n)')
+    expect(cpp).toContain('#if defined(ESP32)\n  void* p = psramFound() ? ps_malloc(n) : nullptr;\n#else\n  void* p = nullptr;')
     // leds stays a static internal-RAM array — FastLED's ESP32 drivers read it
     // from ISR/DMA context where PSRAM access can fault.
     expect(cpp).toContain('CRGB leds[NUM_LEDS];')

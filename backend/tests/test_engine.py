@@ -254,6 +254,17 @@ def test_size_bytes_report_returns_none_for_missing_lines():
     assert app._size_bytes_report(["Compiling sketch...\n"]) == {"flash": None, "ram": None}
 
 
+def test_size_bytes_report_understands_esp8266_segment_totals():
+    report = app._size_bytes_report([
+        ". Variables and constants in RAM (global, static), used 38956 / 80192 bytes (48%)\n",
+        ". Instruction RAM (IRAM_ATTR, ICACHE_RAM_ATTR), used 60519 / 65536 bytes (92%)\n",
+        ". Code in flash (default, ICACHE_FLASH_ATTR), used 255936 / 1048576 bytes (24%)\n",
+    ])
+
+    assert report["flash"] == {"usedBytes": 255936, "percent": 24, "limitBytes": 1048576}
+    assert report["ram"] == {"usedBytes": 38956, "percent": 48, "limitBytes": 80192}
+
+
 def test_fbuild_size_bytes_report_converts_units_to_bytes():
     report = app._fbuild_size_bytes_report([
         "Flash: 4.45KB / 31.50KB (14.1%)\n",

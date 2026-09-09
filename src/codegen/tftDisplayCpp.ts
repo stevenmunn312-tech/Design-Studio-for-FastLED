@@ -382,11 +382,16 @@ static void _tftBegin(TftPanel &p, uint8_t cs, uint8_t dc, uint8_t rst, uint8_t 
   if (bl != 255) { pinMode(bl, OUTPUT); digitalWrite(bl, LOW); }
 
   if (!_tftSpiStarted) {
-#if defined(ESP32) || defined(ESP8266)
+#if defined(ESP32)
     // The GPIO matrix routes the peripheral to whichever pins the build chose,
     // so an arbitrary pinout still gets hardware SPI. There is no MISO and no
     // hardware chip select: this panel is write-only and its CS is driven here.
     SPI.begin(sck, -1, mosi, -1);
+#elif defined(ESP8266)
+    // ESP8266 exposes pin selection separately from begin(). MISO is unused by
+    // this write-only panel but remains part of that core's four-pin API.
+    SPI.pins(sck, MISO, mosi, -1);
+    SPI.begin();
 #else
     SPI.begin();
 #endif
