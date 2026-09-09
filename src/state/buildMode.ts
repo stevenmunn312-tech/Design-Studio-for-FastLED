@@ -50,6 +50,49 @@ export interface BuildModeResolution<T extends BuildModeNode = BuildModeNode> {
   capabilities: BuildCapabilities
 }
 
+export interface BuildModePresentation {
+  label: string
+  reason: string
+}
+
+/**
+ * User-facing name and explanation for the shared build-mode decision.
+ *
+ * This stays beside `resolveBuildMode` so authoring, validation and upload UI
+ * do not each invent a different explanation for the same selected engine.
+ */
+export function describeBuildMode(
+  build: BuildModeResolution,
+): BuildModePresentation {
+  if (build.engineKind === 'music-player') {
+    return build.reachedOutputs.length > 0
+      ? {
+          label: 'SD music player',
+          reason: 'A Music Player with an SD card and amplifier drives an LED output.',
+        }
+      : {
+          label: 'SD music player',
+          reason: 'A Music Player with an SD card and amplifier drives a standalone Stereo VU Meter.',
+        }
+  }
+  if (build.engineKind === 'performance-show') {
+    return {
+      label: 'SD performance player',
+      reason: 'A Performance Generator with an SD card drives an LED output.',
+    }
+  }
+  if (build.engineKind === 'pattern-slideshow') {
+    return {
+      label: 'Collection slideshow',
+      reason: 'A Pattern Slideshow with a pattern collection drives an LED output.',
+    }
+  }
+  return {
+    label: 'Live graph',
+    reason: 'No connected show engine qualifies, so the graph builds as a normal sketch.',
+  }
+}
+
 function frameOutputs<T extends BuildModeNode>(
   source: T,
   nodes: T[],

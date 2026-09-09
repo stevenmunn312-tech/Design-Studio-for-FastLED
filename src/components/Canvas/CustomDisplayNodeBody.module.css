@@ -6,11 +6,46 @@
 }
 
 .summary {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
+  display: grid;
+  gap: 5px;
   color: var(--text-secondary);
   font-size: 11px;
+}
+
+.summary > div {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 7px;
+}
+
+.label {
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.buildReason,
+.widgetCount,
+.connectHint {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.buildReason {
+  color: var(--text-muted);
+}
+
+.widgetCount {
+  text-align: right;
+}
+
+.connectHint {
+  color: var(--warning, #f2b84b);
+  text-align: center;
 }
 
 .edit {

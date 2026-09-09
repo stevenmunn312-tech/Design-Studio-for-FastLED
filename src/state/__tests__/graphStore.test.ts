@@ -371,6 +371,31 @@ describe('graphStore — grouping', () => {
     expect(e2[0].targetHandle).toBe('display')
   })
 
+  it('fits a screen design to the panel geometry when its mount wire is created or rotated', () => {
+    reset([
+      node('doc', 'Display', { displayId: 'screen' }),
+      node('panel', 'TransportDisplay', {
+        partId: 'st7789v-xpt2046-touch-240x320',
+        tftRotation: '90',
+      }),
+    ])
+    useGraphStore.getState().setDisplayDocument(createDisplayDocument('screen', 240, 320))
+
+    useGraphStore.getState().onConnect({
+      source: 'doc', sourceHandle: 'customDisplay', target: 'panel', targetHandle: 'customDisplay',
+    })
+    expect(useGraphStore.getState().displayDocuments.screen).toMatchObject({
+      designSize: { width: 320, height: 240 },
+      orientation: '90',
+    })
+
+    useGraphStore.getState().updateNodeProperty('panel', 'tftRotation', '0')
+    expect(useGraphStore.getState().displayDocuments.screen).toMatchObject({
+      designSize: { width: 240, height: 320 },
+      orientation: '0',
+    })
+  })
+
   it('reconnectNoodle replaces the noodle already occupying the destination input', () => {
     reset(
       [node('a', 'SolidColor', {}), node('b', 'Noise', {}), node('c', 'Image', {}), node('out', 'MatrixOutput', {})],

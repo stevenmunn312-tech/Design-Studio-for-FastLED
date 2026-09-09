@@ -53,6 +53,8 @@ import {
   type DisplayDocumentRegistry,
 } from './displayDocument'
 import { displayDocumentPorts } from './displayRegistry'
+import { resizeDisplayDocument } from './displayEditor'
+import { mountedPanelGeometry } from './mountedDisplays'
 import { useUploadStore } from './uploadStore'
 import { assignPartPins } from './partPinAssignment'
 import {
@@ -662,6 +664,58 @@ const EXCLUSIVE_SIBLING_INPUT: Record<string, string> = {
   customDisplay: 'display',
 }
 
+/**
+ * Fit a design to the physical glass at the moment its mount becomes real.
+ *
+ * The document's 320x240 creation size is only an internal placeholder. A
+ * mount wire gives it physical geometry for the first time, and keeping the
+ * resize in the same store transaction makes a wrong-sized first edit
+ * impossible. Reconnecting to another panel uses this same path.
+ */
+function displayDocumentsForMount(
+  nodes: StudioNode[],
+  documents: DisplayDocumentRegistry,
+  connection: Connection,
+): DisplayDocumentRegistry {
+  if (connection.sourceHandle !== 'customDisplay' || connection.targetHandle !== 'customDisplay') {
+    return documents
+  }
+  const documentNode = nodes.find((node) => node.id === connection.source && node.data.nodeType === 'Display')
+  const panel = nodes.find((node) => node.id === connection.target && node.data.nodeType === 'TransportDisplay')
+  if (!documentNode || !panel) return documents
+  const displayId = String(documentNode.data.properties.displayId ?? documentNode.id)
+  const document = documents[displayId]
+  if (!document) return documents
+  const geometry = mountedPanelGeometry(panel.data.properties)
+  if (document.designSize.width === geometry.width
+    && document.designSize.height === geometry.height
+    && document.orientation === geometry.rotation) return documents
+  return {
+    ...documents,
+    [displayId]: resizeDisplayDocument(
+      document,
+      { width: geometry.width, height: geometry.height },
+      geometry.rotation,
+    ),
+  }
+}
+
+function displayDocumentsForMountedPanel(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  documents: DisplayDocumentRegistry,
+  panelId: string,
+): DisplayDocumentRegistry {
+  const mount = edges.find((edge) => edge.target === panelId && edge.targetHandle === 'customDisplay')
+  if (!mount) return documents
+  return displayDocumentsForMount(nodes, documents, {
+    source: mount.source,
+    sourceHandle: mount.sourceHandle ?? null,
+    target: panelId,
+    targetHandle: mount.targetHandle ?? null,
+  })
+}
+
 function completeConnection(s: GraphState, connection: Connection): Partial<GraphState> {
   const grown = materializeButtonBankConnection(s.nodes, connection)
   const resolved = grown.connection
@@ -679,6 +733,7 @@ function completeConnection(s: GraphState, connection: Connection): Partial<Grap
   return {
     edges,
     nodes: withAdoptedMirrorPin(grown.nodes, edges, resolved),
+    displayDocuments: displayDocumentsForMount(grown.nodes, s.displayDocuments, resolved),
     pendingControlAssignment: null,
   }
 }
@@ -1643,10 +1698,13 @@ export const useGraphStore = create<GraphState>()(
             { ...resolved, type: 'glowEdge', reconnectable: 'target', style: { stroke: color } },
             replaced,
           )
-          return withRootContent(s, {
-            edges,
-            nodes: withAdoptedMirrorPin(grown.nodes, edges, resolved),
-          })
+          return {
+            ...withRootContent(s, {
+              edges,
+              nodes: withAdoptedMirrorPin(grown.nodes, edges, resolved),
+            }),
+            displayDocuments: displayDocumentsForMount(grown.nodes, s.displayDocuments, resolved),
+          }
         }),
 
       removeEdge: (id) =>
@@ -1690,6 +1748,7 @@ export const useGraphStore = create<GraphState>()(
           const color = edgeStrokeForPort(src, newConnection.sourceHandle ?? undefined)
           return {
             edges: edges.map((edge) => edge.id === oldEdge.id ? { ...edge, style: { ...edge.style, stroke: color } } : edge),
+            displayDocuments: displayDocumentsForMount(s.nodes, s.displayDocuments, newConnection),
           }
         }),
 
@@ -3015,7 +3074,7 @@ function editNodeIn(
 }
 
 function editNodePropertyAndSyncVu(
-  s: GraphScope,
+  s: GraphState,
   id: string,
   updates: Record<string, unknown>,
   ledCountWasEdited: boolean,
@@ -3037,12 +3096,24 @@ function editNodePropertyAndSyncVu(
     ? (edited.nodes ?? s.nodes)
     : (edited.graphData?.[ROOT_GRAPH_ID]?.nodes ?? root)
   const syncedRoot = syncAutomaticStereoVuLedCounts(editedRoot)
-  if (s.activeGraphId === ROOT_GRAPH_ID) return { ...edited, nodes: syncedRoot }
+  const displayDocuments = target?.data.nodeType === 'TransportDisplay'
+    && (Object.prototype.hasOwnProperty.call(updates, 'partId')
+      || Object.prototype.hasOwnProperty.call(updates, 'tftRotation'))
+    ? displayDocumentsForMountedPanel(
+        syncedRoot,
+        rootGraphEdges(s),
+        s.displayDocuments,
+        target.id,
+      )
+    : s.displayDocuments
+  const resized = displayDocuments === s.displayDocuments ? {} : { displayDocuments }
+  if (s.activeGraphId === ROOT_GRAPH_ID) return { ...edited, nodes: syncedRoot, ...resized }
   if (!edited.graphData && syncedRoot === root) return edited
   const graphData = edited.graphData ?? s.graphData
   const rootContent = graphData[ROOT_GRAPH_ID] ?? { nodes: root, edges: [] }
   return {
     ...edited,
+    ...resized,
     graphData: {
       ...graphData,
       [ROOT_GRAPH_ID]: { ...rootContent, nodes: syncedRoot },
