@@ -66,9 +66,9 @@ export function useCustomDisplayAssets(nodes: StudioNode[], enabled: boolean, ed
       if (customDisplayAssetRequests(document).length > 0) targets.push({ nodeId: node.id, label, document })
     }
     if (enabled && build.mode === 'player') {
-      errors.push(...playerControlGraph(nodes, edges, documents).errors)
+      errors.push(...playerControlGraph(nodes, edges, documents, build.engine?.id).errors)
     } else if (enabled && build.mode === 'show') {
-      errors.push(...showControlRouting(nodes, edges, documents).errors)
+      errors.push(...showControlRouting(nodes, edges, documents, build.engine?.id).errors)
     }
     if (targets.length > 0 && !trusted) {
       errors.push('Trust this project before preparing its display images for firmware.')

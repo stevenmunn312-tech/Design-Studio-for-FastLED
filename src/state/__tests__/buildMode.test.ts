@@ -32,6 +32,7 @@ describe('build mode resolution', () => {
       output: null,
       capabilities: { frameOutput: false, standaloneVuOutput: false, buildable: false },
     })
+    expect(build.templateDisplaySourceIds).toBeNull()
   })
 
   it('selects the connected slideshow when an unrelated Music Player is disconnected', () => {
@@ -51,6 +52,7 @@ describe('build mode resolution', () => {
       expect(resolveBuildMode(nodes, edges)).toMatchObject({
         mode: 'show', engineKind: 'pattern-slideshow', engine: { id: 'slideshow' }, output: { id: 'out' },
       })
+      expect([...resolveBuildMode(nodes, edges).templateDisplaySourceIds!]).toEqual(['slideshow'])
     }
   })
 
@@ -76,6 +78,7 @@ describe('build mode resolution', () => {
       output: { id: 'musicOut' },
       capabilities: { fixedTransportControls: true },
     })
+    expect([...resolveBuildMode(nodes, edges).templateDisplaySourceIds!]).toEqual(['music'])
   })
 
   it('selects a connected Performance Generator past a disconnected Music Player', () => {
@@ -86,13 +89,15 @@ describe('build mode resolution', () => {
       node('card', 'SDCard'),
       node('amp', 'Amplifier'),
     ]
-    expect(resolveBuildMode(nodes, [edge('performance', 'out')])).toMatchObject({
+    const build = resolveBuildMode(nodes, [edge('performance', 'out')])
+    expect(build).toMatchObject({
       mode: 'player',
       engineKind: 'performance-show',
       engine: { id: 'performance' },
       output: { id: 'out' },
       capabilities: { fixedTransportControls: false },
     })
+    expect([...build.templateDisplaySourceIds!]).toEqual([])
   })
 
   it('preserves a standalone VU as a buildable Music Player output', () => {

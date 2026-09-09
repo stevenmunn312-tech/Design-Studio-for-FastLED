@@ -153,6 +153,20 @@ describe('displays a build cannot drive', () => {
     expect(findDisplayGeneratorIssues(nodes, wires)).toEqual({ errors: [], warnings: [] })
   })
 
+  it('does not treat a disconnected Music Player as the selected player display source', () => {
+    const nodes = [out(), oled(), node('stray', 'PatternMaster'), node('selected', 'PatternMaster'),
+      node('sd', 'SDCard'), node('amp', 'Amplifier')]
+    const wires = [
+      edge('frame', 'selected', 'frame', 'out', 'frame'),
+      edge('display', 'stray', 'display', 'oled', 'display'),
+    ]
+    const issues = findDisplayGeneratorIssues(nodes, wires)
+    expect(issues.errors).toEqual([])
+    expect(issues.warnings).toEqual([
+      expect.stringContaining('SD player sketch cannot read'),
+    ])
+  })
+
   // The player sketch is a template, not a compiled graph. A Wave is a
   // perfectly reasonable wire on the canvas and is not a display source at all.
   it('warns about a source the player sketch cannot read', () => {

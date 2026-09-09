@@ -16,9 +16,12 @@ const nodeType = (node: StudioNode) => (node.data as StudioNodeData).nodeType
 export function wiredPatternCollection(
   nodes: StudioNode[],
   edges: Edge[],
+  engineId?: string,
 ): { ids: string[]; sectionTags: string[][] } {
   const empty = { ids: [], sectionTags: [] }
-  const engine = nodes.find((node) => nodeType(node) === 'PerformanceGenerator' || nodeType(node) === 'PatternMaster')
+  const engine = nodes.find((node) => engineId
+    ? node.id === engineId
+    : nodeType(node) === 'PerformanceGenerator' || nodeType(node) === 'PatternMaster')
   if (!engine) return empty
   const link = edges.find((edge) => edge.target === engine.id && edge.targetHandle === 'patternset')
   if (!link) return empty

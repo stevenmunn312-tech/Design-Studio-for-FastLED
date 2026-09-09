@@ -41,6 +41,12 @@ export interface BuildModeResolution<T extends BuildModeNode = BuildModeNode> {
   output: T | null
   /** Every output reached by the selected engine, including an invalid 2+ set. */
   reachedOutputs: T[]
+  /**
+   * Engine nodes whose Display envelope this fixed template can publish.
+   * Null means a normal graph evaluates its own sources; an empty set means a
+   * template (currently a performance player) has no graph display source.
+   */
+  templateDisplaySourceIds: ReadonlySet<string> | null
   capabilities: BuildCapabilities
 }
 
@@ -83,12 +89,16 @@ function resolution<T extends BuildModeNode>(
   frameOutput: boolean,
   standaloneVu: boolean,
 ): BuildModeResolution<T> {
+  const templateDisplaySourceIds = mode === 'sketch' ? null
+    : new Set(engine && (engineKind === 'music-player' || engineKind === 'pattern-slideshow')
+      ? [engine.id] : [])
   return {
     mode,
     engineKind,
     engine,
     output: reachedOutputs.length === 1 ? reachedOutputs[0] : null,
     reachedOutputs,
+    templateDisplaySourceIds,
     capabilities: {
       frameOutput,
       standaloneVuOutput: standaloneVu,

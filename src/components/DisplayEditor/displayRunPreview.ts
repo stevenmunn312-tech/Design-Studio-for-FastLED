@@ -1,6 +1,21 @@
 import type { DisplayWidget } from '../../state/displayDocument'
+import {
+  resolvedDisplayControlValue,
+  type DisplayWidgetRuntime,
+} from '../../state/displayRuntimeStore'
 
 export type DisplayControlValue = boolean | number
+
+/** Value the shared preview renderer paints for one evaluated widget. */
+export function displayRunValue(
+  widget: DisplayWidget,
+  runtime: DisplayWidgetRuntime | undefined,
+): unknown {
+  const fallback = initialDisplayControlValue(widget)
+  return fallback === undefined
+    ? runtime?.roleValues.get('value')
+    : resolvedDisplayControlValue(runtime, fallback)
+}
 
 export interface DisplayControlRect {
   left: number

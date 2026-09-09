@@ -39,12 +39,14 @@ export function artworkPlayer(
 export function artworkDisplays(
   nodes: readonly StudioNode[],
   edges: readonly StudioEdge[],
+  sourceIds?: ReadonlySet<string>,
 ): StudioNode[] {
   const byId = new Map(nodes.map((node) => [node.id, node]))
   return nodes.filter((node) => {
     if (node.data.nodeType !== 'TransportDisplay') return false
     const edge = edges.find((e) => e.target === node.id && e.targetHandle === 'display')
     const source = edge && byId.get(edge.source)
+    if (source && sourceIds && !sourceIds.has(source.id)) return false
     const kind = source ? DISPLAY_SOURCE_NODE_TYPES[source.data.nodeType] : undefined
     if (!kind) return false
     const layout = transportLayoutForKind(kind, (node.data.properties as { tftLayout?: unknown }).tftLayout)
@@ -55,9 +57,10 @@ export function artworkDisplays(
 export function transportArtworkIssues(
   nodes: readonly StudioNode[],
   edges: readonly StudioEdge[],
+  sourceIds?: ReadonlySet<string>,
 ): { display: StudioNode; issue: string }[] {
   const issues: { display: StudioNode; issue: string }[] = []
-  for (const display of artworkDisplays(nodes, edges)) {
+  for (const display of artworkDisplays(nodes, edges, sourceIds)) {
     const player = artworkPlayer(display, nodes, edges)
     if (!player) continue
     const issue = transportArtworkBudgetIssue(playerPatternIds(player, nodes, edges).length)
@@ -71,9 +74,10 @@ export function bakeDisplayArtworks(
   edges: readonly StudioEdge[],
   groups: GroupRegistry,
   trusted: boolean,
+  sourceIds?: ReadonlySet<string>,
 ): TransportArtworks {
   const out: TransportArtworks = {}
-  for (const display of artworkDisplays(nodes, edges)) {
+  for (const display of artworkDisplays(nodes, edges, sourceIds)) {
     const player = artworkPlayer(display, nodes, edges)
     if (!player) continue
     const baked = bakeTransportArtworks(playerPatternIds(player, nodes, edges), groups, trusted)

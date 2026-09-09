@@ -7,8 +7,11 @@ import { controlReferenceCpp, type ControlReference } from './controlGraph'
 import { DISPLAY_TEXT_BUFFER_BYTES } from '../state/displayText'
 
 /** Only the Music Player this template runs owns runtime song sources. */
-export function playerControlGraph(nodes: StudioNode[], edges: StudioEdge[], documents?: DisplayDocumentRegistry) {
-  const master = nodes.find((node) => node.data.nodeType === 'PatternMaster')
+export function playerControlGraph(
+  nodes: StudioNode[], edges: StudioEdge[], documents?: DisplayDocumentRegistry, engineId?: string,
+) {
+  const master = nodes.find((node) => node.data.nodeType === 'PatternMaster'
+    && (!engineId || node.id === engineId))
   // The track report is opened by a Song Info node now, not by the player's
   // own ports. Only one actually fed by this player counts: an unwired Song
   // Info node has no music behind it, and resolving it to the template's

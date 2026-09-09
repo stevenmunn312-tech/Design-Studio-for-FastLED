@@ -24,12 +24,13 @@ export const controlBundleVariable = (id: string) => `n_${safeId(id)}_controls`
  * only the outputs is what made Pattern Next a wire that lit up in the browser
  * and vanished from the sketch.
  */
-export function showControlTargets(nodes: StudioNode[], edges: StudioEdge[]): {
+export function showControlTargets(nodes: StudioNode[], edges: StudioEdge[], engineId?: string): {
   engineId: string | null
   outputIds: Set<string>
 } {
   const outputs = new Set(nodes.filter((n) => n.data.nodeType === 'MatrixOutput').map((n) => n.id))
-  const show = nodes.find((n) => n.data.nodeType === 'PatternSlideshow' && edges.some((e) =>
+  const show = nodes.find((n) => n.data.nodeType === 'PatternSlideshow'
+    && (!engineId || n.id === engineId) && edges.some((e) =>
     e.source === n.id && e.sourceHandle === 'frame' && e.targetHandle === 'frame' && outputs.has(e.target)))
   return {
     engineId: show?.id ?? null,
@@ -39,8 +40,8 @@ export function showControlTargets(nodes: StudioNode[], edges: StudioEdge[]): {
 }
 
 /** Exactly the outputs rendered by the first connected slideshow template. */
-export function showControlOutputIds(nodes: StudioNode[], edges: StudioEdge[]): Set<string> {
-  return showControlTargets(nodes, edges).outputIds
+export function showControlOutputIds(nodes: StudioNode[], edges: StudioEdge[], engineId?: string): Set<string> {
+  return showControlTargets(nodes, edges, engineId).outputIds
 }
 
 export interface TemplateControlContext {

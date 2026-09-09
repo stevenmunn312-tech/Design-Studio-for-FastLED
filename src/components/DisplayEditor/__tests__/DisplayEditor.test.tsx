@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import DisplayEditor from '../DisplayEditor'
 import { createDisplayDocument } from '../../../state/displayEditor'
 import { useGraphStore } from '../../../state/graphStore'
@@ -391,5 +391,16 @@ describe('DisplayEditor', () => {
     fireEvent.pointerUp(toggle, { button: 0, pointerId: 7 })
     expect(toggle.getAttribute('aria-checked')).toBe('false')
     expect(runtime.readDisplayWidget('panel', 'toggle')?.touchOwned).toBe(false)
+  })
+
+  it('repaints a passive readout when the graph publishes its value role', () => {
+    const view = render(<DisplayEditor />)
+    fireEvent.click(view.getByRole('button', { name: 'Add Numeric Readout widget' }))
+    fireEvent.click(view.getByRole('button', { name: 'Run' }))
+
+    expect(view.getByText('42.0')).toBeTruthy()
+    act(() => useDisplayRuntimeStore.getState()
+      .publishDisplayRoleValue('panel', 'numeric-readout', 'value', 0.625))
+    expect(view.getByText('0.6')).toBeTruthy()
   })
 })

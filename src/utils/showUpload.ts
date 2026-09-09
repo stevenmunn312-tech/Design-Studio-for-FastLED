@@ -112,7 +112,7 @@ export function buildShowPlayer(
   const renderers = patternSet.length > 0
     ? buildPatternRenderers(patternSet, groups, roleParams, true, { beat: '_audioBeat' }, true)
     : undefined
-  const particleFx = playerParticlesFromGraph(nodes, edges)
+  const particleFx = playerParticlesFromGraph(nodes, edges, selectedEngine?.id)
   const stereoVuMeters = stereoVuEmitsFromGraph(nodes, edges, {
     active: opts.bakedAudio ? '(_decoderTapLive || audioEnvFrames > 0)' : '_decoderTapLive',
     left: '_audioLeftLevel', right: '_audioRightLevel', beat: '_audioBeat',
@@ -122,7 +122,7 @@ export function buildShowPlayer(
   const decoderTap = patternRenderersUseAudio(renderers)
     || particleFx?.enabled === true
     || stereoVuMeters.length > 0
-  const controlGraph = playerControlGraph(nodes, edges, opts.displayDocuments)
+  const controlGraph = playerControlGraph(nodes, edges, opts.displayDocuments, selectedEngine?.id)
   return generatePlayerSketch(playerConfigFromGraph(nodes, edges, opts.fqbn, selectedEngine?.id), renderers, {
     audioEnvelope: opts.bakedAudio && (!!renderers || stereoVuMeters.length > 0),
     decoderTap,
@@ -133,16 +133,26 @@ export function buildShowPlayer(
     customDisplayAssets: opts.customDisplayAssets,
     // The panel on a finished build is fed by the player itself, so each wire
     // from Music Player is resolved to the expression that reads it on device.
-    displays: playerDisplaysFromGraph(nodes, edges, { controlSources: controlGraph.displaySources }),
+    displays: playerDisplaysFromGraph(nodes, edges, {
+      controlSources: controlGraph.displaySources,
+      sourceIds: build.templateDisplaySourceIds ?? undefined,
+    }),
     // Baked here rather than in the generator: baking evaluates patterns, and
     // only this side knows whether the workspace has been trusted. Without it
     // a Pattern Browser builds and says NO PATTERNS.
-    thumbnails: bakeBrowserThumbnails(nodes, edges, groups, useGraphStore.getState().trusted),
+    thumbnails: bakeBrowserThumbnails(
+      nodes, edges, groups, useGraphStore.getState().trusted,
+      build.templateDisplaySourceIds ?? undefined,
+    ),
     // Names are not baked: they cost no evaluation and no trust decision, so a
     // panel keeps naming patterns even where the pictures could not be made.
-    patternNames: collectionPatternNames(nodes, edges, useGraphStore.getState().graphs),
+    patternNames: collectionPatternNames(
+      nodes, edges, useGraphStore.getState().graphs,
+      build.templateDisplaySourceIds ?? undefined,
+    ),
     artworks: bakeDisplayArtworks(
       nodes, edges, groups, useGraphStore.getState().trusted,
+      build.templateDisplaySourceIds ?? undefined,
     ),
     particleFx,
     stereoVuMeters,
@@ -174,7 +184,7 @@ export function buildShowPlayerForMeasurement(
 ): string | null {
   const build = resolveBuildMode(nodes, edges)
   if (build.mode !== 'player') return null
-  const { ids } = wiredPatternCollection(nodes, edges)
+  const { ids } = wiredPatternCollection(nodes, edges, build.engine?.id)
   return buildShowPlayer(nodes, edges, groups, {
     patternSet: ids,
     bakedAudio: build.engineKind !== 'music-player',
@@ -200,9 +210,10 @@ export function buildShowPayload(
   opts: { fqbn?: string; psramAllowed?: boolean; fqbnOpt?: string; projectName?: string } & PlayerDisplayBuildOptions = {},
 ): { player: string; files: ShowUploadFile[]; fqbnOpt?: string } | null {
   const done = entries.filter((e) => e.status === 'done' && e.show)
-  const genericPlayer = resolveBuildMode(nodes, edges).engineKind === 'music-player'
+  const build = resolveBuildMode(nodes, edges)
+  const genericPlayer = build.engineKind === 'music-player'
   if (done.length === 0 && !genericPlayer) return null
-  const { ids: playerPatternSet } = wiredPatternCollection(nodes, edges)
+  const { ids: playerPatternSet } = wiredPatternCollection(nodes, edges, build.engine?.id)
 
   // A collection (version 2) show carries its pattern group ids in patternSet;
   // compile those subgraphs into render_pN() so the player draws the user's own

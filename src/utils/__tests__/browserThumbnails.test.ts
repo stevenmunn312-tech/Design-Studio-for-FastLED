@@ -73,6 +73,7 @@ describe('finding the browsers in a graph', () => {
   it('picks out only the Info Displays a slideshow feeds', () => {
     const { nodes, edges } = graph([node('other', 'InfoDisplay', {})])
     expect(patternBrowsers(nodes, edges).map((n) => n.id)).toEqual(['brw'])
+    expect(patternBrowsers(nodes, edges, new Set(['another-show']))).toEqual([])
   })
 
   it('finds the player a browser reads, and the patterns behind it', () => {
@@ -111,6 +112,13 @@ describe('baking for a graph', () => {
   it('falls back to the group id when the graph has no name for it', () => {
     const { nodes, edges } = graph()
     expect(collectionPatternNames(nodes, edges).master).toEqual(['white', 'dark'])
+  })
+
+  it('plans pictures and names only for selected template sources', () => {
+    const { nodes, edges } = graph()
+    const selected = new Set(['another-show'])
+    expect(bakeBrowserThumbnails(nodes, edges, GROUPS, true, selected)).toEqual({})
+    expect(collectionPatternNames(nodes, edges, {}, selected)).toEqual({})
   })
 
   it('bakes nothing for a graph with no browser', () => {

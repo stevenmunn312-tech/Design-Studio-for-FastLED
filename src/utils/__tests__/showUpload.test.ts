@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Edge } from '@xyflow/react'
 import type { GroupRegistry } from '../../state/graphEvaluator'
 import type { StudioNode } from '../../state/graphStore'
-import { buildShowPlayer } from '../showUpload'
+import { buildShowPlayer, buildShowPlayerForMeasurement } from '../showUpload'
 
 function node(
   id: string,
@@ -39,6 +39,63 @@ describe('buildShowPlayer', () => {
 
     expect(sketch).toContain('#define LED_DATA_PIN  17')
     expect(sketch).not.toContain('#define LED_DATA_PIN  5')
+  })
+
+  it('takes the selected performance engine collection in a mixed graph', () => {
+    const groups = {
+      stale: {
+        nodes: [node('stale-color', 'SolidColor', { r: 255, g: 0, b: 0 }), node('stale-out', 'GroupOutput')],
+        edges: [{ id: 'stale-frame', source: 'stale-color', sourceHandle: 'frame', target: 'stale-out', targetHandle: 'frame' }],
+      },
+      selected: {
+        nodes: [node('selected-color', 'SolidColor', { r: 0, g: 0, b: 255 }), node('selected-out', 'GroupOutput')],
+        edges: [{ id: 'selected-frame', source: 'selected-color', sourceHandle: 'frame', target: 'selected-out', targetHandle: 'frame' }],
+      },
+    } as GroupRegistry
+    const nodes = [
+      node('stray-player', 'PatternMaster'),
+      node('stale-collection', 'PatternCollection', { patternIds: ['stale'] }),
+      node('performance', 'PerformanceGenerator'),
+      node('selected-collection', 'PatternCollection', { patternIds: ['selected'] }),
+      node('show-output', 'MatrixOutput', { width: 8, height: 8, dataPin: 17 }),
+      node('sd', 'SDCard'),
+    ]
+    const edges = [
+      { id: 'stale-patterns', source: 'stale-collection', sourceHandle: 'patternset', target: 'stray-player', targetHandle: 'patternset' },
+      { id: 'selected-patterns', source: 'selected-collection', sourceHandle: 'patternset', target: 'performance', targetHandle: 'patternset' },
+      { id: 'show-led', source: 'performance', sourceHandle: 'frame', target: 'show-output', targetHandle: 'frame' },
+    ] as Edge[]
+
+    const sketch = buildShowPlayerForMeasurement(nodes, edges, groups)
+    expect(sketch).toContain('CRGB(0, 0, 255)')
+    expect(sketch).not.toContain('CRGB(255, 0, 0)')
+  })
+
+  it('routes controls from the selected Music Player in a mixed graph', () => {
+    const nodes = [
+      node('stray-player', 'PatternMaster'),
+      node('stray-controls', 'PlayerControls', { controls: ['playPause'] }),
+      node('stray-button', 'ButtonInput', { pin: 12, pullup: false }),
+      node('selected-player', 'PatternMaster'),
+      node('selected-controls', 'PlayerControls', { controls: ['playPause'] }),
+      node('selected-button', 'ButtonInput', { pin: 13, pullup: false }),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 17 }),
+      node('sd', 'SDCard'),
+      node('amp', 'Amplifier'),
+    ]
+    const edges = [
+      { id: 'stray-button-controls', source: 'stray-button', sourceHandle: 'pressed', target: 'stray-controls', targetHandle: 'playPause' },
+      { id: 'stray-controls-player', source: 'stray-controls', sourceHandle: 'controls', target: 'stray-player', targetHandle: 'controls' },
+      { id: 'selected-button-controls', source: 'selected-button', sourceHandle: 'pressed', target: 'selected-controls', targetHandle: 'playPause' },
+      { id: 'selected-controls-player', source: 'selected-controls', sourceHandle: 'controls', target: 'selected-player', targetHandle: 'controls' },
+      { id: 'selected-frame', source: 'selected-player', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+    ] as Edge[]
+
+    const sketch = buildShowPlayer(nodes, edges, {}, {
+      patternSet: [], bakedAudio: false, preferredTrack: '', genericPlayer: true,
+    })
+    expect(sketch).toContain('pinMode(13, INPUT);')
+    expect(sketch).not.toContain('pinMode(12, INPUT);')
   })
 
   it('passes the Player Controls wiring into the generated SD player', () => {

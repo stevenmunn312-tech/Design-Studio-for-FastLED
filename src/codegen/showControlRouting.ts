@@ -12,8 +12,10 @@ export { controlBundleVariable, showControlOutputIds, showControlTargets } from 
  * left in the LED map because it drives the cursor, not a latch — and because
  * the generator has to know whether it needs a cursor at all.
  */
-export function showControlRouting(nodes: StudioNode[], edges: StudioEdge[], documents?: DisplayDocumentRegistry) {
-  const targets = showControlTargets(nodes, edges)
+export function showControlRouting(
+  nodes: StudioNode[], edges: StudioEdge[], documents?: DisplayDocumentRegistry, engineId?: string,
+) {
+  const targets = showControlTargets(nodes, edges, engineId)
   const routing = templateControlRouting(nodes, edges, documents, {
     label: 'a generated show controller', widgetLabel: 'the show',
     destinationIds: new Set([...targets.outputIds, ...(targets.engineId ? [targets.engineId] : [])]),

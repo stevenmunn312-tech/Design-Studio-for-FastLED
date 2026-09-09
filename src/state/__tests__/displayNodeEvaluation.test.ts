@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { evaluateGraphFull } from '../graphEvaluator'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { useDisplayRuntimeStore } from '../displayRuntimeStore'
@@ -123,10 +123,18 @@ describe('custom Display node evaluation', () => {
       edge('e-cross-out', 'cross', 'result', 'screen', 'widget:text:value'),
     ]
     runtime().touchDisplayWidget('panel', 'slider', 0.5)
-
-    const outputs = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true).outputs.get('screen')!
+    const originalSample = runtime().sampleDisplayWidgetOutput
+    const sample = vi.fn(originalSample)
+    useDisplayRuntimeStore.setState({ sampleDisplayWidgetOutput: sample })
+    let outputs: Record<string, unknown>
+    try {
+      outputs = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true).outputs.get('screen')!
+    } finally {
+      useDisplayRuntimeStore.setState({ sampleDisplayWidgetOutput: originalSample })
+    }
 
     expect(outputs['widget:slider:out']).toBe(0.5)
+    expect(sample.mock.calls.map(([, widgetId]) => widgetId)).toEqual(['slider', 'button'])
     // 0.75 is the touch value plus 0.25. The recursion guard would have fed
     // Math its own unwired default instead and published 0.25.
     expect(runtime().readDisplayWidget('panel', 'slider')?.roleValues.get('set')).toBe(0.75)
@@ -155,14 +163,12 @@ describe('custom Display node evaluation', () => {
     expect(runtime().readDisplayWidget('panel', 'slider')?.roleValues.get('set')).toBe(0.9)
   })
 
-  // A screen is evaluated on publish frames like any other node. It is
-  // deliberately NOT a hot root: seeding the hot set from its minted ports put
-  // its whole upstream on the 60 fps path to publish values no renderer reads
-  // yet. Restore it — and this test — when a panel paints them.
-  it('publishes at the preview cadence rather than pulling its upstream every frame', () => {
+  // Run mode and the mounted panel thumbnail paint these values now, so a
+  // wired display and its upstream inputs are sampled on every preview frame.
+  it('publishes wired display readings on every preview frame', () => {
     const { nodes, edges } = graph()
     expect(evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true).outputs.has('screen')).toBe(true)
-    expect(evaluateGraphFull(nodes, edges, 1, 8, 8, {}, false).outputs.has('screen')).toBe(false)
-    expect(evaluateGraphFull(nodes, edges, 1, 8, 8, {}, false).outputs.has('title')).toBe(false)
+    expect(evaluateGraphFull(nodes, edges, 1, 8, 8, {}, false).outputs.has('screen')).toBe(true)
+    expect(evaluateGraphFull(nodes, edges, 1, 8, 8, {}, false).outputs.has('title')).toBe(true)
   })
 })

@@ -123,15 +123,18 @@ export default function MatrixOutputDeployPopup({
       bootLabel: projectName,
       thumbnails: bakeBrowserThumbnails(
         codegenGraph.nodes, codegenGraph.edges, groups, customAssets.trusted,
+        codegenBuild.templateDisplaySourceIds ?? undefined,
       ),
       // Names are not baked: they cost no evaluation and no trust decision, so
       // a panel keeps naming patterns even where the pictures could not be made.
       patternNames: collectionPatternNames(
         codegenGraph.nodes, codegenGraph.edges, useGraphStore.getState().graphs,
+        codegenBuild.templateDisplaySourceIds ?? undefined,
       ),
       artworks: bakeDisplayArtworks(
         codegenGraph.nodes, codegenGraph.edges, groups,
         customAssets.trusted,
+        codegenBuild.templateDisplaySourceIds ?? undefined,
       ),
       displayDocuments: customAssets.documents,
       customDisplayAssets: customAssets.assets,

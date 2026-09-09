@@ -278,6 +278,9 @@ export interface TemplateDisplayOptions {
    * blank.
    */
   kinds?: readonly DisplaySignalKind[]
+  /** Source nodes this template actually runs. A matching node type elsewhere
+   * in a mixed graph is not a runtime value this firmware can publish. */
+  sourceIds?: ReadonlySet<string>
 }
 
 /**
@@ -293,6 +296,7 @@ function resolveDisplayKind(
   byId: Map<string, ConfigNode>,
   unresolved: PlayerDisplays['unresolved'],
   kinds: readonly DisplaySignalKind[],
+  sourceIds?: ReadonlySet<string>,
 ): DisplaySignalKind | null {
   const edge = edges.find((e) => e.target === displayId && e.targetHandle === 'display')
   if (!edge) return null
@@ -304,6 +308,10 @@ function resolveDisplayKind(
     return null
   }
   if (!kinds.includes(kind)) {
+    unresolved.push({ display: displayId, port: 'display', source: DISPLAY_SOURCE_LABELS[kind] })
+    return null
+  }
+  if (sourceIds && !sourceIds.has(source.id)) {
     unresolved.push({ display: displayId, port: 'display', source: DISPLAY_SOURCE_LABELS[kind] })
     return null
   }
@@ -322,6 +330,7 @@ export function playerDisplaysFromGraph(
   const enabledExprFor = (id: string, props: Record<string, unknown>) =>
     options.controlSources?.get(`${id}:enabled`) ?? (props.enabled !== false ? 'true' : 'false')
   const kinds = options.kinds ?? ['player']
+  const sourceIds = options.sourceIds
   const transportTouch = options.transportTouch !== false
   const byId = new Map(nodes.map((node) => [node.id, node]))
   const unresolved: PlayerDisplays['unresolved'] = []
@@ -335,7 +344,7 @@ export function playerDisplaysFromGraph(
       const partId = String(props.partId ?? 'sh1106-oled-128x64')
       const controller = oledControllerForProps(node.data.properties)
       const rotation = oledRotationCommands(asOledRotation(props.oledRotation))
-      const kind = resolveDisplayKind(node.id, edges, byId, unresolved, kinds)
+      const kind = resolveDisplayKind(node.id, edges, byId, unresolved, kinds, sourceIds)
       // One envelope in, so the fields come from the generator's own table
       // rather than one wire at a time. Nothing to forget, and nothing that
       // resolves in preview and not here.
@@ -382,7 +391,7 @@ export function playerDisplaysFromGraph(
       // the property and never asks what is plugged in. Everything else is the
       // one envelope, resolved exactly as the OLED above resolves its own.
       const diagnostics = asTransportDisplayLayout(props.tftLayout) === 'Diagnostics'
-      const kind = diagnostics ? null : resolveDisplayKind(node.id, edges, byId, unresolved, kinds)
+      const kind = diagnostics ? null : resolveDisplayKind(node.id, edges, byId, unresolved, kinds, sourceIds)
       // A source this generator honours can still have no colour layout — an
       // RTC does not, today — and that is reported too, rather than falling
       // back to a screen built for something else.
@@ -442,7 +451,7 @@ export function playerDisplaysFromGraph(
       const partId = String(props.partId ?? 'tm1637-4digit-display')
       const controller = segmentControllerFor(partById(partId)?.display?.controller)
       const isMax = controller.id === 'MAX7219'
-      const kind = resolveDisplayKind(node.id, edges, byId, unresolved, kinds)
+      const kind = resolveDisplayKind(node.id, edges, byId, unresolved, kinds, sourceIds)
       // A segment module reads one number, and which number is the kind:
       // elapsed seconds from a player, an ordinal from a show.
       const sources: Record<string, string> = kind === 'player'

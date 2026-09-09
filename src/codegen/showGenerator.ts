@@ -118,9 +118,10 @@ function transitionPool(nodes: StudioNode[], edges: StudioEdge[], master: Studio
 // and are not emitted below. Both ride an audio beat, and a slideshow is the
 // mode for patterns that should hold still; where they still belong is the
 // Music Player, whose own sketch keeps them.
-function showInfo(nodes: StudioNode[], edges: StudioEdge[]): ShowInfo | null {
+function showInfo(nodes: StudioNode[], edges: StudioEdge[], engineId?: string): ShowInfo | null {
   const outputIds = new Set(nodes.filter((n) => nodeType(n) === 'MatrixOutput').map((n) => n.id))
-  const master = nodes.find((n) => nodeType(n) === 'PatternSlideshow' && edges.some((e) =>
+  const master = nodes.find((n) => nodeType(n) === 'PatternSlideshow'
+    && (!engineId || n.id === engineId) && edges.some((e) =>
     e.source === n.id && e.sourceHandle === 'frame' && outputIds.has(e.target) && e.targetHandle === 'frame'))
   if (!master) return null
   const setEdge = edges.find((e) => e.target === master.id && e.targetHandle === 'patternset')
@@ -662,7 +663,9 @@ export function generateShowSketch(
     customDisplayAssets?: CustomDisplayAssets
   } = {},
 ): string {
-  const info = showInfo(nodes, edges)
+  const build = resolveBuildMode(nodes, edges)
+  if (build.mode !== 'show') return generateCpp(nodes, edges, groups, opts)
+  const info = showInfo(nodes, edges, build.engine?.id)
   if (!info) return generateCpp(nodes, edges, groups, opts)
   if (info.patternIds.length === 0) {
     return '// Pattern Master has no patterns — add patterns to its Pattern Collection.\n' + generateCpp(nodes, edges, groups, opts)
@@ -750,7 +753,7 @@ export function generateShowSketch(
   const transitions = renderers.count > 1
   // Root displays and their control chains live outside collected patterns.
   // Resolve them against the controller template rather than the pattern walk.
-  const controls = showControlRouting(nodes, edges, opts.displayDocuments)
+  const controls = showControlRouting(nodes, edges, opts.displayDocuments, info.masterId)
   if (controls.errors.length > 0) throw new Error(controls.errors.join('\n'))
   const controlGraph = controlGraphCpp(controls.graph)
   // Resolved once, then asked two questions: what has to be drawn, and who
@@ -761,6 +764,7 @@ export function generateShowSketch(
     {
       expressions: SHOW_DISPLAY_EXPRESSIONS, transportTouch: false, kinds: ['slideshow'],
       controlTouchIds: controls.touchIds, controlSources: controls.displaySources,
+      sourceIds: build.templateDisplaySourceIds ?? undefined,
     },
   )
   const selection = showSelectionPlan(

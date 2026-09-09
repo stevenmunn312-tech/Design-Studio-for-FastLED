@@ -7,11 +7,10 @@ import type { DisplayWidgetPortRoleId } from './displayRegistry'
  * redrawing, and what the preview could not resolve. Like the hardware input
  * and TransportDisplay touch stores it is neither persisted nor undo-tracked;
  * unlike them it is written on every evaluated frame, so value writes mutate
- * the map in place and never call `set`. Only diagnostics — which change when
- * something is wrong, not at animation rate — bump `diagnosticsVersion` for
- * React chrome to subscribe to. Read values imperatively through
- * `getState()`; a component that renders them per frame already has its own
- * animation loop.
+ * the map in place and never call Zustand's `set`. Renderers subscribe to a
+ * lightweight per-display revision; diagnostics — which change when something
+ * is wrong, not at animation rate — separately bump `diagnosticsVersion` for
+ * React chrome.
  */
 
 /** What a finger can produce: a latch or a ranged value. */
@@ -46,6 +45,8 @@ export interface DisplayRuntimeDiagnostic {
 
 interface DisplayRuntimeState {
   displays: Map<string, Map<string, DisplayWidgetRuntime>>
+  /** Monotonic per-display paint revision, polled by any number of renderers. */
+  displayRevisions: Map<string, number>
   diagnosticsVersion: number
   touchDisplayWidget: (displayId: string, widgetId: string, value: DisplayTouchValue) => void
   releaseDisplayWidget: (displayId: string, widgetId: string) => void
@@ -61,6 +62,8 @@ interface DisplayRuntimeState {
     value: DisplayRuntimeValue,
   ) => void
   readDisplayWidget: (displayId: string, widgetId: string) => DisplayWidgetRuntime | undefined
+  displayRevision: (displayId: string) => number
+  subscribeDisplay: (displayId: string, listener: () => void) => () => void
   takeDirtyDisplayWidgets: (displayId: string) => string[]
   setDisplayWidgetDiagnostic: (displayId: string, widgetId: string, message?: string) => void
   displayRuntimeDiagnostics: (displayId: string) => DisplayRuntimeDiagnostic[]
@@ -87,6 +90,12 @@ export function resolvedDisplayControlValue(
 }
 
 export const useDisplayRuntimeStore = create<DisplayRuntimeState>()((set, get) => {
+  const displayListeners = new Map<string, Set<() => void>>()
+  const bumpDisplayRevision = (displayId: string) => {
+    const revisions = get().displayRevisions
+    revisions.set(displayId, (revisions.get(displayId) ?? 0) + 1)
+    displayListeners.get(displayId)?.forEach((listener) => listener())
+  }
   const widgetRuntime = (displayId: string, widgetId: string): DisplayWidgetRuntime => {
     const displays = get().displays
     let widgets = displays.get(displayId)
@@ -104,14 +113,17 @@ export const useDisplayRuntimeStore = create<DisplayRuntimeState>()((set, get) =
 
   return {
     displays: new Map(),
+    displayRevisions: new Map(),
     diagnosticsVersion: 0,
 
     touchDisplayWidget: (displayId, widgetId, value) => {
       const runtime = widgetRuntime(displayId, widgetId)
-      runtime.dirty = runtime.dirty || runtime.touchValue !== value || !runtime.touchOwned
+      const changed = runtime.touchValue !== value || !runtime.touchOwned
+      runtime.dirty = runtime.dirty || changed
       runtime.touchValue = value
       runtime.touchOwned = true
       runtime.touchPending = true
+      if (changed) bumpDisplayRevision(displayId)
     },
 
     releaseDisplayWidget: (displayId, widgetId) => {
@@ -119,6 +131,7 @@ export const useDisplayRuntimeStore = create<DisplayRuntimeState>()((set, get) =
       if (!runtime?.touchOwned) return
       runtime.touchOwned = false
       runtime.dirty = true
+      bumpDisplayRevision(displayId)
     },
 
     sampleDisplayWidgetOutput: (displayId, widgetId, fallback) => {
@@ -136,9 +149,23 @@ export const useDisplayRuntimeStore = create<DisplayRuntimeState>()((set, get) =
       if (runtime.roleValues.get(role) === value) return
       runtime.roleValues.set(role, value)
       runtime.dirty = true
+      bumpDisplayRevision(displayId)
     },
 
     readDisplayWidget: (displayId, widgetId) => get().displays.get(displayId)?.get(widgetId),
+    displayRevision: (displayId) => get().displayRevisions.get(displayId) ?? 0,
+    subscribeDisplay: (displayId, listener) => {
+      let listeners = displayListeners.get(displayId)
+      if (!listeners) {
+        listeners = new Set()
+        displayListeners.set(displayId, listeners)
+      }
+      listeners.add(listener)
+      return () => {
+        listeners?.delete(listener)
+        if (listeners?.size === 0) displayListeners.delete(displayId)
+      }
+    },
 
     takeDirtyDisplayWidgets: (displayId) => {
       const widgets = get().displays.get(displayId)
@@ -171,8 +198,16 @@ export const useDisplayRuntimeStore = create<DisplayRuntimeState>()((set, get) =
 
     resetDisplayRuntime: (displayId) => {
       const displays = get().displays
-      if (displayId === undefined) displays.clear()
-      else displays.delete(displayId)
+      const revisions = get().displayRevisions
+      if (displayId === undefined) {
+        const subscribedDisplays = [...displayListeners.keys()]
+        displays.clear()
+        revisions.clear()
+        subscribedDisplays.forEach((id) => displayListeners.get(id)?.forEach((listener) => listener()))
+      } else {
+        displays.delete(displayId)
+        bumpDisplayRevision(displayId)
+      }
       set({ diagnosticsVersion: get().diagnosticsVersion + 1 })
     },
   }

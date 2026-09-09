@@ -968,7 +968,7 @@ export function findShowOutputFormErrors(nodes: StudioNode[], edges: StudioEdge[
 export function findShowRequirementErrors(
   nodes: StudioNode[], edges: StudioEdge[], selectedFqbn = '',
 ): string[] {
-  const generator = nodes.find((node) => node.data.nodeType === 'PerformanceGenerator')
+  const generator = relevantPerformanceGenerator(nodes, edges)
   if (!generator) return []
   const errors: string[] = []
 
@@ -1001,6 +1001,33 @@ export function findShowRequirementErrors(
   }
 
   return errors
+}
+
+/**
+ * The incomplete or selected performance path diagnostics should describe.
+ * A wholly disconnected engine is ordinary unused canvas content, while a
+ * different SD engine selected by the shared build plan owns the build and
+ * must not inherit errors from a stray Performance Generator.
+ */
+function relevantPerformanceGenerator(
+  nodes: StudioNode[], edges: StudioEdge[],
+): StudioNode | null {
+  const build = resolveBuildMode(nodes, edges)
+  if (build.mode === 'player') {
+    return build.engineKind === 'performance-show' ? build.engine : null
+  }
+  return nodes.find((node) => node.data.nodeType === 'PerformanceGenerator'
+    && edges.some((edge) => edge.source === node.id || edge.target === node.id)) ?? null
+}
+
+/** Music Player whose completeness is relevant to this graph/build. */
+function relevantMusicPlayer(nodes: StudioNode[], edges: StudioEdge[]): StudioNode | null {
+  const build = resolveBuildMode(nodes, edges)
+  if (build.mode === 'player') {
+    return build.engineKind === 'music-player' ? build.engine : null
+  }
+  return nodes.find((node) => node.data.nodeType === 'PatternMaster'
+    && edges.some((edge) => edge.source === node.id || edge.target === node.id)) ?? null
 }
 
 export interface Hub75ConfigIssue {
@@ -1507,14 +1534,18 @@ export function findOutputRuntimeIssues(
   edges: StudioEdge[],
   displayDocuments?: DisplayDocumentRegistry,
 ): { errors: string[] } {
-  const generator = selectedGenerator(nodes, edges)
+  const build = resolveBuildMode(nodes, edges)
+  const generator = build.mode
   if (generator === 'sketch') return { errors: [] }
 
   const speedErrors = masterSpeedGeneratorErrors(nodes, edges, generator)
-  const templateControls = generator === 'show' ? showControlRouting(nodes, edges, displayDocuments)
-    : generator === 'player' ? playerControlGraph(nodes, edges, displayDocuments) : null
+  const templateControls = generator === 'show'
+    ? showControlRouting(nodes, edges, displayDocuments, build.engine?.id)
+    : generator === 'player'
+      ? playerControlGraph(nodes, edges, displayDocuments, build.engine?.id) : null
   if (generator === 'player') return { errors: [...speedErrors, ...(templateControls?.errors ?? [])] }
-  const showOutputs = generator === 'show' ? showControlOutputIds(nodes, edges) : new Set<string>()
+  const showOutputs = generator === 'show'
+    ? showControlOutputIds(nodes, edges, build.engine?.id) : new Set<string>()
 
   // The show's Controls and scalar paths are resolved above. The SD player owns its own
   // transport latch rather than these per-output inputs.
@@ -1561,13 +1592,17 @@ export function findDisplayGeneratorIssues(
   const build = resolveBuildMode(nodes, edges)
   const generator = build.mode
   const nodeById = new Map(nodes.map((node) => [node.id, node]))
-  const templateControls = generator === 'show' ? showControlRouting(nodes, edges, displayDocuments)
-    : generator === 'player' ? playerControlGraph(nodes, edges, displayDocuments) : null
+  const templateControls = generator === 'show'
+    ? showControlRouting(nodes, edges, displayDocuments, build.engine?.id)
+    : generator === 'player'
+      ? playerControlGraph(nodes, edges, displayDocuments, build.engine?.id) : null
+  const templateSourceIds = build.templateDisplaySourceIds ?? undefined
   const resolvedTft = new Map(playerDisplaysFromGraph(nodes as never, edges as never, {
     expressions: generator === 'show' ? SHOW_DISPLAY_EXPRESSIONS : undefined,
     kinds: generator === 'show' ? ['slideshow'] : generator === 'player'
       ? ['player'] : ['clock', 'player', 'slideshow'],
     controlSources: templateControls?.displaySources,
+    sourceIds: templateSourceIds,
   }).tft.map((display) => [display.id, display]))
 
   // All three generators draw a configured display now:
@@ -1622,7 +1657,8 @@ export function findDisplayGeneratorIssues(
   }
 
   // The outputs this show renders, resolved once for every panel below.
-  const renderedShowOutputs = generator === 'show' ? showControlOutputIds(nodes, edges) : null
+  const renderedShowOutputs = generator === 'show'
+    ? showControlOutputIds(nodes, edges, build.engine?.id) : null
 
   for (const display of displays.filter((node) => node.data.nodeType === 'TransportDisplay')) {
     const props = display.data.properties as Record<string, unknown>
@@ -1691,10 +1727,10 @@ export function findDisplayGeneratorIssues(
   // A collection too big to picture bakes nothing, and the panel then says
   // "NO PATTERNS" — the same thing it says for a browser wired to nobody. The
   // difference matters and only this message carries it.
-  for (const { display, issue } of browserThumbnailIssues(nodes, edges)) {
+  for (const { display, issue } of browserThumbnailIssues(nodes, edges, templateSourceIds)) {
     errors.push(`${nodeLabel(display)}: ${issue}`)
   }
-  for (const { display, issue } of transportArtworkIssues(nodes, edges)) {
+  for (const { display, issue } of transportArtworkIssues(nodes, edges, templateSourceIds)) {
     errors.push(`${nodeLabel(display)}: ${issue}`)
   }
 
@@ -1717,7 +1753,12 @@ export function findDisplayGeneratorIssues(
         fix: 'the Music Player this build plays from',
       }
     for (const issue of playerDisplaysFromGraph(
-      nodes as never, edges as never, { expressions: template.expressions, kinds: template.kinds, controlSources: templateControls?.displaySources },
+      nodes as never, edges as never, {
+        expressions: template.expressions,
+        kinds: template.kinds,
+        controlSources: templateControls?.displaySources,
+        sourceIds: templateSourceIds,
+      },
     ).unresolved) {
       const display = nodes.find((node) => node.id === issue.display)
       // A simple panel has one content input, so name it as one thing rather
@@ -2144,7 +2185,7 @@ export function buildGraphDiagnostics(
   // Everything the music-sync player needs named rather than guessed. The
   // generator itself is the node to select for all of them: it is the node that
   // declares the show, and the one whose missing wire is the usual cause.
-  const generator = nodes.find((node) => node.data.nodeType === 'PerformanceGenerator')
+  const generator = relevantPerformanceGenerator(nodes, edges)
   if (generator) {
     const show = resolveShowTarget(nodes, edges, generator.id)
     if (show.problem === 'unconnected') {
@@ -2196,7 +2237,7 @@ export function buildGraphDiagnostics(
     }
   }
 
-  const master = nodes.find((node) => node.data.nodeType === 'PatternMaster')
+  const master = relevantMusicPlayer(nodes, edges)
   if (master && !incoming.has(`${master.id}:patternset`)) {
     diagnostics.push({
       id: `${master.id}-patterns`, severity: 'warning', category: 'show',
@@ -2270,7 +2311,7 @@ export function buildGraphDiagnostics(
     nodeLabel: 'Output controls',
   }))
 
-  const perfGen = nodes.find((node) => node.data.nodeType === 'PerformanceGenerator')
+  const perfGen = generator
   if (perfGen && incoming.has(`${perfGen.id}:patternset`)) {
     const link = edges.find((edge) => edge.target === perfGen.id && edge.targetHandle === 'patternset')
     const collection = link && nodes.find((node) => node.id === link.source && node.data.nodeType === 'PatternCollection')
@@ -2383,7 +2424,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
     )
   }
 
-  const master = nodes.find(n => n.data.nodeType === 'PatternMaster')
+  const master = relevantMusicPlayer(nodes, edges)
   if (master && !incoming.has(`${master.id}:patternset`)) {
     warnings.push('Music Player has no Pattern Collection wired')
   }
@@ -2395,7 +2436,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
 
   // Music-sync generator: a wired Pattern Collection needs a direct music
   // source on the generator, and an empty collection produces nothing.
-  const perfGen = nodes.find(n => n.data.nodeType === 'PerformanceGenerator')
+  const perfGen = relevantPerformanceGenerator(nodes, edges)
   if (perfGen && incoming.has(`${perfGen.id}:patternset`)) {
     const link = edges.find(e => e.target === perfGen.id && e.targetHandle === 'patternset')
     const coll = link && nodes.find(n => n.id === link.source && n.data.nodeType === 'PatternCollection')

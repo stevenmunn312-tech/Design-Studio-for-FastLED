@@ -39,6 +39,28 @@ describe('showGenerator', () => {
     expect(isPatternShow([...nodes, node('stray', 'PatternSlideshow')], [])).toBe(false)
   })
 
+  it('generates the slideshow selected by the shared build plan in a mixed graph', () => {
+    const mixedNodes = [
+      node('stray', 'PatternSlideshow'),
+      node('stray-out', 'MatrixOutput', { width: 4, height: 4, dataPin: 3 }),
+      ...nodes,
+      node('btn', 'ButtonInput', { pin: 12 }),
+      node('ctl', 'PlayerControls', { controls: ['patternNext'] }),
+    ]
+    const mixedEdges = [
+      edge('stray-frame', 'stray', 'frame', 'stray-out', 'frame'),
+      ...edges,
+      edge('press', 'btn', 'pressed', 'ctl', 'patternNext'),
+      edge('command', 'ctl', 'controls', 'pm', 'controls'),
+    ]
+
+    const cpp = generateShowSketch(mixedNodes, mixedEdges, groups)
+    expect(cpp).toContain('#define PATTERN_COUNT 2')
+    expect(cpp).toContain('n_ctl_controls.patternSteps += 1;')
+    expect(cpp).toContain('#define DATA_PIN 5')
+    expect(cpp).not.toContain('#define DATA_PIN 3')
+  })
+
   it('emits a render function per pattern and a controller', () => {
     const cpp = generateShowSketch(nodes, edges, groups)
     expect(cpp).toContain('#define PATTERN_COUNT 2')

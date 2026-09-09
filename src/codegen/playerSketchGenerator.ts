@@ -238,9 +238,12 @@ function safePlayerId(id: string): string {
   return id.replace(/[^A-Za-z0-9_]/g, '_')
 }
 
-export function playerControlsFromGraph(nodes: ConfigNode[], edges: ShowTargetEdge[]): PlayerControlsConfig {
+export function playerControlsFromGraph(
+  nodes: ConfigNode[], edges: ShowTargetEdge[], engineId?: string,
+): PlayerControlsConfig {
   const byId = new Map(nodes.map((node) => [node.id, node]))
-  const master = nodes.find((node) => node.data.nodeType === 'PatternMaster')
+  const master = nodes.find((node) => node.data.nodeType === 'PatternMaster'
+    && (!engineId || node.id === engineId))
   const bundle = master && edges.find((edge) =>
     edge.target === master.id && edge.targetHandle === 'controls')
   const root = bundle ? byId.get(bundle.source) : undefined
@@ -301,9 +304,10 @@ export function playerControlsFromGraph(nodes: ConfigNode[], edges: ShowTargetEd
  * are show appearance rather than hardware configuration, so their inspector
  * values are frozen into the generated player just like transition choices. */
 export function playerParticlesFromGraph(
-  nodes: ConfigNode[], edges: ShowTargetEdge[],
+  nodes: ConfigNode[], edges: ShowTargetEdge[], engineId?: string,
 ): PlayerParticlesConfig | null {
-  const master = nodes.find((node) => node.data.nodeType === 'PatternMaster')
+  const master = nodes.find((node) => node.data.nodeType === 'PatternMaster'
+    && (!engineId || node.id === engineId))
   const link = master && edges.find((edge) =>
     edge.target === master.id && edge.targetHandle === 'particleFx')
   const node = link && nodes.find((candidate) =>

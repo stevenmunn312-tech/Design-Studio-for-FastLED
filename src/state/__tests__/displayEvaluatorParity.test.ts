@@ -3,6 +3,7 @@ import { evaluateGraphFull, resetEvaluatorState } from '../graphEvaluator'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { useDisplayRuntimeStore } from '../displayRuntimeStore'
 import { useGraphStore } from '../graphStore'
+import { usePlayerTransport } from '../playerTransport'
 import type { StudioEdge, StudioNode } from '../graphStore'
 
 function node(
@@ -49,6 +50,7 @@ describe('display evaluator parity', () => {
   beforeEach(() => {
     resetEvaluatorState()
     useDisplayRuntimeStore.getState().resetDisplayRuntime()
+    usePlayerTransport.setState({ transport: null, posMs: 0, playing: false })
   })
 
   afterEach(() => {
@@ -136,6 +138,55 @@ describe('display evaluator parity', () => {
     })
     expect(runtime.readDisplayWidget('panel', 'title')?.roleValues.get('value')).toBe('MIDNIGHT DRIVE')
     expect(runtime.readDisplayWidget('panel', 'slider')?.roleValues.get('set')).toBe(0.75)
+  })
+
+  it('publishes Slider output into a passive readout in the same frame', () => {
+    const custom = screen()
+    custom.data.inputs = [
+      ...(custom.data.inputs as unknown[]),
+      { id: 'widget:readout:value', label: 'Value', dataType: 'float' },
+    ] as never
+    const runtime = useDisplayRuntimeStore.getState()
+    runtime.touchDisplayWidget('panel', 'slider', 0.4)
+
+    evaluateGraphFull(
+      [custom],
+      [edge('slider-readout', 'screen', 'widget:slider:out', 'screen', 'widget:readout:value')],
+      0,
+      8,
+      8,
+    )
+
+    expect(runtime.readDisplayWidget('panel', 'readout')?.roleValues.get('value')).toBe(0.4)
+  })
+
+  it('publishes Song Info title into a Text widget in the same frame', () => {
+    usePlayerTransport.setState({
+      transport: {
+        nodeId: 'player', title: 'MIDNIGHT DRIVE', durationMs: 180_000,
+        hasPrev: false, hasNext: false,
+        toggle: () => {}, seek: () => {}, prev: () => {}, next: () => {},
+      },
+      posMs: 12_000,
+      playing: true,
+    })
+    const player = node('player', 'PatternMaster')
+    const song = node('song', 'SongInfo')
+    const custom = screen()
+
+    evaluateGraphFull(
+      [player, song, custom],
+      [
+        edge('player-song', 'player', 'display', 'song', 'display'),
+        edge('song-title', 'song', 'title', 'screen', 'widget:title:value'),
+      ],
+      0,
+      8,
+      8,
+    )
+
+    expect(useDisplayRuntimeStore.getState().readDisplayWidget('panel', 'title')?.roleValues.get('value'))
+      .toBe('MIDNIGHT DRIVE')
   })
 
   it('keeps a synchronized control touch-owned for one pass, then releases it to the graph', () => {

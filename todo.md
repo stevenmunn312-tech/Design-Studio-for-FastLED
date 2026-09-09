@@ -85,19 +85,32 @@ matrix, not a reason to postpone testing earlier changes.
   `tsc -b` pass. Remaining exit: compile the shared-refusal and unmounted-source
   cases (HW-06 matrix). Document fan-out to two panels stays deferred until
   simultaneous touch has an answer. F5/F7.
-- [ ] **HW-04 · P1 · Shared build-mode/capability plan (L; after HW-01–03).**
-  Replace repeated generator selection in Upload, Graph Health, capacity,
-  assets and generation with one pure resolver. Validate resolved content/actions
-  and destinations; remove the dead Show Status blackout advice. Preserve SD
-  precedence and standalone VU. Exit: all entry points choose the same build
-  and diagnostics for disconnected/mixed-engine graphs. Finish registry/control
-  planning around the existing scalar IR; do not rebuild that IR. F6.
-- [ ] **HW-05 · P2 · Live custom-screen simulation (M; after HW-02–04).** Render
+- [x] **HW-04 · P1 · Shared build-mode/capability plan (L; after HW-01–03).**
+  `resolveBuildMode` is now the pure source of build mode, selected engine,
+  reached output, standalone-VU capability and fixed-template display sources.
+  Upload, Graph Health, capacity, asset preparation and all three generation
+  paths consume it with SD precedence intact. The selected engine id now also
+  scopes collection/name/artwork/thumbnail preparation, player/show controls,
+  particle routing and fixed-display bindings, so a disconnected first engine
+  cannot leak into a different valid path in a mixed graph. Resolved touch
+  actions and their actual destinations replace the dead Show Status blackout
+  advice; custom Toggle/Slider wiring is named instead. Covered by disconnected,
+  mixed-player, mixed-slideshow, standalone-VU, display-source and asset-filter
+  regressions; `npm test` (4,514 tests), `npm run lint` and `tsc -b` pass. F6.
+- [x] **HW-05 · P2 · Live custom-screen simulation (M; after HW-02–04).** Render
   graph-published roles using dirty updates, including passive readouts and Set
   feedback; reuse the renderer for panel preview. Audit fixed/custom sample →
   evaluate → publish → flush order and native passes. Exit: Slider → Readout
   and Song Info → Text update visibly, controls reconcile after release, taps
-  are preserved and input sampling occurs once per frame. F8.
+  are preserved and input sampling occurs once per frame. The editor Run view
+  and mounted-panel thumbnail now share one live widget renderer backed by
+  per-display paint revisions, so passive values and structured colour/pattern
+  roles repaint without one consumer clearing another's update. Wired Display
+  inputs and their upstream closure run at preview cadence; sampled controls
+  are memoized once before feedback is published, preserving quick taps and
+  releasing cleanly to Set. Browser Slider → Readout and Song Info → Text paths,
+  multi-renderer updates, and normal/show/player native ordering are covered;
+  `npm test` (4,520 tests), `npm run lint` and `tsc -b` pass. F8.
 - [ ] **HW-06 · Current-model verification fixtures (M; after HW-01–05).**
   Repair `generate-display-smoke.ts` and hardware-bearing Display test fixtures;
   use panel/document edges and Song Info. Assert intended UI/binding symbols

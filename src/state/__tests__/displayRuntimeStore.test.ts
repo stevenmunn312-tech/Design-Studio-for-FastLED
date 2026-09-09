@@ -62,7 +62,7 @@ describe('custom display runtime store', () => {
     expect(runtime().takeDirtyDisplayWidgets('missing')).toEqual([])
   })
 
-  it('wakes React for diagnostics but never for per-frame values', () => {
+  it('keeps diagnostic subscriptions separate from live paint revisions', () => {
     const before = useDisplayRuntimeStore.getState().diagnosticsVersion
     runtime().touchDisplayWidget('panel', 'dial', 0.2)
     runtime().publishDisplayRoleValue('panel', 'dial', 'set', 0.3)
@@ -78,6 +78,27 @@ describe('custom display runtime store', () => {
 
     runtime().setDisplayWidgetDiagnostic('panel', 'dial', undefined)
     expect(runtime().displayRuntimeDiagnostics('panel')).toEqual([])
+  })
+
+  it('notifies every renderer once per visible change without consuming dirty state', () => {
+    let editorPaints = 0
+    let panelPaints = 0
+    const stopEditor = runtime().subscribeDisplay('panel', () => { editorPaints++ })
+    const stopPanel = runtime().subscribeDisplay('panel', () => { panelPaints++ })
+
+    runtime().publishDisplayRoleValue('panel', 'readout', 'value', 0.5)
+    expect(runtime().displayRevision('panel')).toBe(1)
+    expect([editorPaints, panelPaints]).toEqual([1, 1])
+
+    runtime().publishDisplayRoleValue('panel', 'readout', 'value', 0.5)
+    expect([editorPaints, panelPaints]).toEqual([1, 1])
+    expect(runtime().takeDirtyDisplayWidgets('panel')).toEqual(['readout'])
+    expect(runtime().displayRevision('panel')).toBe(1)
+
+    stopEditor()
+    runtime().publishDisplayRoleValue('panel', 'readout', 'value', 0.75)
+    expect([editorPaints, panelPaints]).toEqual([1, 2])
+    stopPanel()
   })
 
   it('resets one display without disturbing another', () => {

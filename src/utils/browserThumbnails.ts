@@ -67,9 +67,13 @@ export function playerPatternIds(
 export function patternBrowsers(
   nodes: readonly StudioNode[],
   edges: readonly StudioEdge[],
+  sourceIds?: ReadonlySet<string>,
 ): StudioNode[] {
-  return nodes.filter((node) => node.data.nodeType === 'InfoDisplay'
-    && browserPlayer(node, nodes, edges) !== undefined)
+  return nodes.filter((node) => {
+    if (node.data.nodeType !== 'InfoDisplay') return false
+    const player = browserPlayer(node, nodes, edges)
+    return player !== undefined && (!sourceIds || sourceIds.has(player.id))
+  })
 }
 
 /**
@@ -84,9 +88,10 @@ export function patternBrowsers(
 export function browserThumbnailIssues(
   nodes: readonly StudioNode[],
   edges: readonly StudioEdge[],
+  sourceIds?: ReadonlySet<string>,
 ): { display: StudioNode; issue: string }[] {
   const issues: { display: StudioNode; issue: string }[] = []
-  for (const display of patternBrowsers(nodes, edges)) {
+  for (const display of patternBrowsers(nodes, edges, sourceIds)) {
     const player = browserPlayer(display, nodes, edges)
     if (!player) continue
     const issue = thumbnailBudgetIssue(playerPatternIds(player, nodes, edges).length)
@@ -107,9 +112,10 @@ export function bakeBrowserThumbnails(
   edges: readonly StudioEdge[],
   groups: GroupRegistry,
   trusted: boolean,
+  sourceIds?: ReadonlySet<string>,
 ): BrowserThumbnails {
   const out: BrowserThumbnails = {}
-  for (const display of patternBrowsers(nodes, edges)) {
+  for (const display of patternBrowsers(nodes, edges, sourceIds)) {
     const player = browserPlayer(display, nodes, edges)
     if (!player) continue
     const ids = playerPatternIds(player, nodes, edges)

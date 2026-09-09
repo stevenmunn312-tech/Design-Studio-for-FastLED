@@ -3,6 +3,8 @@ import type { DisplayTheme, DisplayWidget } from '../../state/displayDocument'
 import type { DisplayPreviewRenderer, DisplayWidgetState } from '../../state/displayRegistry'
 import { displayAsset, displayAssetUrl } from '../../state/displayAssets'
 import { displayWidgetTextTokens } from '../../state/displayTheme'
+import { rgbToHex } from '../../state/customPalette'
+import { isPatternSelect } from '../../state/patternSelection'
 import styles from './DisplayWidgetPreview.module.css'
 
 export interface DisplayWidgetPreviewProps {
@@ -36,6 +38,17 @@ function normalized(widget: DisplayWidget, value: unknown): number {
   const min = numberProperty(widget, 'min', 0)
   const max = numberProperty(widget, 'max', 1)
   return Math.max(0, Math.min(1, (numericValue(value) - min) / Math.max(Number.EPSILON, max - min)))
+}
+
+function colorValue(value: unknown): string {
+  if (typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)) return value
+  if (value && typeof value === 'object') {
+    const color = value as { r?: unknown; g?: unknown; b?: unknown }
+    if ([color.r, color.g, color.b].every((channel) => typeof channel === 'number')) {
+      return rgbToHex(color as { r: number; g: number; b: number })
+    }
+  }
+  return '#36c8ff'
 }
 
 function timecode(seconds: number, showHours: boolean): string {
@@ -97,11 +110,25 @@ export default function DisplayWidgetPreview({ widget, renderer, theme, state, v
     case 'status':
       return <span className={`${styles.status} ${active ? styles.active : ''}`}><span />{active ? stringProperty(widget, 'onLabel', 'ON') : stringProperty(widget, 'offLabel', 'OFF')}</span>
     case 'swatch': {
-      const color = typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value : '#36c8ff'
+      const color = colorValue(value)
       return <span className={styles.swatch} style={{ background: color }}>{boolProperty(widget, 'showHex', true) ? color.toUpperCase() : ''}</span>
     }
-    case 'pattern-browser':
-      return <span className={styles.pattern}><span className={styles.patternArt}>✦</span><span><strong>Aurora Drift</strong><small>3 of 8</small></span></span>
+    case 'pattern-browser': {
+      const selection = isPatternSelect(value) ? value : null
+      const index = selection
+        ? (selection.browsing ? selection.highlightIndex : selection.activeIndex)
+        : -1
+      const name = selection && index >= 0
+        ? selection.names[index] || selection.ids[index] || 'Unnamed pattern'
+        : 'No patterns'
+      const ordinal = selection && index >= 0 ? `${index + 1} of ${selection.count}` : '0 of 0'
+      return (
+        <span className={styles.pattern}>
+          {boolProperty(widget, 'showThumbnail', true) && <span className={styles.patternArt}>✦</span>}
+          <span><strong>{name}</strong>{boolProperty(widget, 'showOrdinal', true) && <small>{ordinal}</small>}</span>
+        </span>
+      )
+    }
     case 'image': {
       const asset = displayAsset(stringProperty(widget, 'assetId'))
       if (!asset) return <span className={styles.image}>Choose asset</span>

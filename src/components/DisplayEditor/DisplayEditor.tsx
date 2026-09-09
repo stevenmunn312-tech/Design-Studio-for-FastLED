@@ -17,12 +17,10 @@ import {
 } from '../../state/graphStore'
 import { portColor } from '../../state/nodeLibrary'
 import {
-  DISPLAY_CONTROL_TRACK_PX,
   DISPLAY_WIDGET_LIBRARY,
   displayControlHitBounds,
   displayWidgetGlyphId,
   displayWidgetPorts,
-  type DisplayWidgetState,
 } from '../../state/displayRegistry'
 import {
   addDisplayWidget,
@@ -42,7 +40,6 @@ import type { DisplayBounds, DisplayDocument, DisplayOrientation, DisplayWidget,
 import {
   displayWidgetVisualState,
   resolveDisplayThemeTokens,
-  type DisplayBackgroundTokens,
 } from '../../state/displayTheme'
 import {
   DISPLAY_TEMPLATES,
@@ -64,14 +61,19 @@ import {
   displayThemeBackgroundFor,
   displayThemePreset,
 } from '../../state/displayThemePresets'
-import { resolvedDisplayControlValue, useDisplayRuntimeStore } from '../../state/displayRuntimeStore'
+import { useDisplayRuntimeStore } from '../../state/displayRuntimeStore'
 import { mountedPanelGeometry, panelsShowingDocument } from '../../state/mountedDisplays'
 import { useUiStore } from '../../state/uiStore'
 import DisplayWidgetPreview from './DisplayWidgetPreview'
+import DisplayRuntimeWidgets from './DisplayRuntimeWidgets'
+import {
+  displayBackgroundStyle as backgroundStyle,
+  displayThemeVariables as editorVariables,
+  displayWidgetThemeVariables as widgetThemeVariables,
+} from './displayPreviewStyles'
 import {
   dialValueFromDrag,
   displayControlRange,
-  initialDisplayControlValue,
   isInteractiveDisplayWidget,
   sliderValueFromPoint,
   stepDisplayControlValue,
@@ -94,7 +96,7 @@ type DisplayEditorMode = 'design' | 'run'
 interface RunDisplayWidgetProps {
   widget: DisplayWidget
   theme: DisplayDocument['theme']
-  value: DisplayControlValue | undefined
+  value: unknown
   /** `held` marks a value the finger still owns, so the runtime store knows a
    * wired graph value must not win it back yet. */
   onValue: (value: DisplayControlValue, held: boolean) => void
@@ -271,63 +273,6 @@ function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDispl
   )
 }
 
-function backgroundStyle(background: DisplayBackgroundTokens): CSSProperties {
-  if (background.kind === 'gradient') {
-    return {
-      background: `linear-gradient(${background.direction === 'vertical' ? '180deg' : '90deg'}, ${background.startColor}, ${background.endColor})`,
-    }
-  }
-  if (background.kind === 'image') {
-    const asset = displayAsset(background.assetId)
-    // The fallback colour still sits underneath: a baked background is fetched,
-    // and a screen that flashes white before it arrives is worse than one that
-    // starts the colour it will settle on.
-    // Longhands only: a `background` shorthand beside `backgroundImage` clears
-    // the image depending on which the style object applies last.
-    return asset
-      ? {
-        backgroundColor: background.fallbackColor,
-        backgroundImage: `url("${displayAssetUrl(asset)}")`,
-        backgroundSize: '100% 100%',
-        backgroundRepeat: 'no-repeat',
-      }
-      : { backgroundColor: background.fallbackColor }
-  }
-  return { background: background.color }
-}
-
-function editorVariables(document: DisplayDocument): CSSProperties {
-  const tokens = resolveDisplayThemeTokens(document.theme)
-  return {
-    '--display-surface': document.theme.surfaceColor,
-    '--display-text': document.theme.textColor,
-    '--display-accent': document.theme.accentColor,
-    '--display-warning': document.theme.warningColor,
-    '--display-success': document.theme.successColor,
-    '--display-inactive': document.theme.inactiveColor,
-    '--display-disabled': document.theme.disabledColor,
-    '--display-radius': `${tokens.cornerRadius}px`,
-    '--display-border': `${tokens.borderWidth}px`,
-    '--display-font-size': `${tokens.fontSize}px`,
-    '--display-grid': `${document.gridSize}px`,
-  } as CSSProperties
-}
-
-function widgetThemeVariables(theme: DisplayDocument['theme'], state: DisplayWidgetState): CSSProperties {
-  const tokens = resolveDisplayThemeTokens(theme).states[state]
-  return {
-    '--widget-state-surface': tokens.surfaceColor,
-    '--widget-state-text': tokens.textColor,
-    '--widget-state-border': tokens.borderColor,
-    '--widget-state-indicator': tokens.indicatorColor,
-    '--widget-state-track': tokens.trackColor,
-    '--widget-state-thumb': tokens.thumbColor,
-    '--widget-state-opacity': tokens.opacity,
-    '--widget-state-offset': `${tokens.pressedOffset}px`,
-    '--widget-track-thickness': `${DISPLAY_CONTROL_TRACK_PX}px`,
-  } as CSSProperties
-}
-
 function issuesForWidget(issues: readonly DisplayLayoutIssue[], widgetId: string): DisplayLayoutIssue[] {
   return issues.filter((issue) => issue.widgetId === widgetId || issue.otherWidgetId === widgetId)
 }
@@ -422,10 +367,6 @@ export default function DisplayEditor() {
   // inspector controls colour tokens. Keeping them separate lets an author
   // audition a control family without unexpectedly repainting their screen.
   const [controlThemeId, setControlThemeId] = useState(() => DISPLAY_THEME_PRESETS[0]?.id ?? '')
-  // Run preview values live in the display runtime store, not in the document
-  // and not in a second copy here; this counter only rerenders the surface after
-  // an interaction this component handled.
-  const [runTick, setRunTick] = useState(0)
   const [announcement, setAnnouncement] = useState('Display editor opened.')
 
   useEffect(() => {
@@ -691,7 +632,6 @@ export default function DisplayEditor() {
   const setMode = (mode: DisplayEditorMode) => {
     gesture.current = null
     if (displayId) useDisplayRuntimeStore.getState().resetDisplayRuntime(displayId)
-    setRunTick((tick) => tick + 1)
     setEditorMode(mode)
     setSelectedIds([])
     setAnnouncement(mode === 'run'
@@ -738,28 +678,16 @@ export default function DisplayEditor() {
     commit(next, `${orientation === '0' ? 'Portrait' : 'Landscape'} view applied at ${designSize.width} × ${designSize.height}.`)
   }
 
-  const runValue = (widget: DisplayWidget): DisplayControlValue | undefined => {
-    void runTick
-    const fallback = initialDisplayControlValue(widget)
-    if (fallback === undefined) return undefined
-    const runtime = displayId
-      ? useDisplayRuntimeStore.getState().readDisplayWidget(displayId, widget.id)
-      : undefined
-    return resolvedDisplayControlValue(runtime, fallback)
-  }
-
   const writeRunValue = (widgetId: string, value: DisplayControlValue, held: boolean) => {
     if (!displayId) return
     const store = useDisplayRuntimeStore.getState()
     store.touchDisplayWidget(displayId, widgetId, value)
     if (!held) store.releaseDisplayWidget(displayId, widgetId)
-    setRunTick((tick) => tick + 1)
   }
 
   const releaseRunValue = (widgetId: string) => {
     if (!displayId) return
     useDisplayRuntimeStore.getState().releaseDisplayWidget(displayId, widgetId)
-    setRunTick((tick) => tick + 1)
   }
 
   return (
@@ -937,20 +865,21 @@ export default function DisplayEditor() {
               }}
               onPointerDown={() => { if (editorMode === 'design') select(null) }}
             >
-              {document.widgets.map((widget) => {
-                const definition = DISPLAY_WIDGET_LIBRARY[widget.type]
-                if (editorMode === 'run') {
-                  return (
+              {editorMode === 'run' ? (
+                <DisplayRuntimeWidgets displayId={displayId} document={document}>
+                  {(widget, value) => (
                     <RunDisplayWidget
                       key={widget.id}
                       widget={widget}
                       theme={document.theme}
-                      value={runValue(widget)}
-                      onValue={(value, held) => writeRunValue(widget.id, value, held)}
+                      value={value}
+                      onValue={(next, held) => writeRunValue(widget.id, next, held)}
                       onRelease={() => releaseRunValue(widget.id)}
                     />
-                  )
-                }
+                  )}
+                </DisplayRuntimeWidgets>
+              ) : document.widgets.map((widget) => {
+                const definition = DISPLAY_WIDGET_LIBRARY[widget.type]
                 const isSelected = selectedIds.includes(widget.id)
                 const widgetIssues = issuesByWidget.get(widget.id) ?? []
                 const issueDescriptionId = widgetIssues.length > 0 ? `display-widget-issues-${widget.id}` : undefined

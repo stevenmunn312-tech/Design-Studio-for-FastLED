@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, estimatePowerLoad, estimateFirmwareRam, estimateLedRefreshTime, findMirroredOutputMismatches, findShowOutputFormErrors, findAudioCapabilityErrors, findPlayerControlMappingWarnings, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowRequirementErrors, estimatePowerLoad, estimateFirmwareRam, estimateLedRefreshTime, findMirroredOutputMismatches, findShowOutputFormErrors, findAudioCapabilityErrors, findPlayerControlMappingWarnings, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
 import { OLED_PANEL_RAM_BYTES } from '../../codegen/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../../codegen/segmentDisplayCpp'
 import { TFT_PANEL_RAM_BYTES } from '../../codegen/tftDisplayCpp'
@@ -578,6 +578,27 @@ describe('validateGraph', () => {
     ]
     const { errors } = validateGraph(nodes, edges)
     expect(errors.some((e) => e.includes('not sending its show anywhere'))).toBe(true)
+  })
+
+  it('does not apply show requirements to a wholly disconnected Performance Generator', () => {
+    expect(findShowRequirementErrors([
+      node('pg', 'PerformanceGenerator'),
+      node('out', 'MatrixOutput'),
+    ], [])).toEqual([])
+  })
+
+  it('does not apply a stray Performance Generator to the selected Music Player build', () => {
+    const nodes = [
+      node('pg', 'PerformanceGenerator'),
+      node('player', 'PatternMaster'),
+      node('sd', 'SDCard'),
+      node('amp', 'Amplifier'),
+      node('out', 'MatrixOutput'),
+    ]
+    const edges = [
+      { id: 'player-out', source: 'player', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' } as unknown as StudioEdge,
+    ]
+    expect(findShowRequirementErrors(nodes, edges)).toEqual([])
   })
 
   it('refuses a show with nothing to play it from', () => {

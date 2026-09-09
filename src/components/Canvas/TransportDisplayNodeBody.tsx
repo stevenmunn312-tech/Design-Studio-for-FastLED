@@ -5,6 +5,15 @@ import { tftControllerForProps } from '../../state/nodeLibrary'
 import { asTftRotation, rgb565Components, TFT_CONTROLLERS, tftRotatedSize, type TftSurface } from '../../state/tftSurface'
 import { partById } from '../../state/partCatalogue'
 import { useTransportDisplayTouchStore } from '../../state/transportDisplayTouchStore'
+import { DISPLAY_WIDGET_LIBRARY } from '../../state/displayRegistry'
+import { displayWidgetVisualState, resolveDisplayThemeTokens } from '../../state/displayTheme'
+import DisplayWidgetPreview from '../DisplayEditor/DisplayWidgetPreview'
+import DisplayRuntimeWidgets from '../DisplayEditor/DisplayRuntimeWidgets'
+import {
+  displayBackgroundStyle,
+  displayThemeVariables,
+  displayWidgetThemeVariables,
+} from '../DisplayEditor/displayPreviewStyles'
 import styles from './TransportDisplayNodeBody.module.css'
 
 function isTftSurface(value: unknown): value is TftSurface {
@@ -19,14 +28,18 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const props = useGraphStore((state) => state.nodes.find((node) => node.id === nodeId)?.data.properties)
   // A wired Custom Display takes over the panel (see the panel/document split
-  // in docs/development/design/large-displays-and-control-routing.md), and
-  // this thumbnail cannot usefully render LVGL widgets — the real live
-  // preview for a designed screen is the DisplayEditor's own Run mode,
-  // opened from the document node. Showing that plainly here is better than
-  // drawing this panel's own unrelated Waiting screen over an active design.
-  const customDisplayWired = useGraphStore((state) => state.edges.some(
+  // in docs/development/design/large-displays-and-control-routing.md). Resolve
+  // that document here so the compact panel and the editor Run surface share
+  // the same live widget renderer and values.
+  const customDisplayNodeId = useGraphStore((state) => state.edges.find(
     (edge) => edge.target === nodeId && edge.targetHandle === 'customDisplay',
-  ))
+  )?.source ?? '')
+  const customDisplayId = useGraphStore((state) => {
+    const node = state.nodes.find((entry) => entry.id === customDisplayNodeId)
+    return node ? String(node.data.properties.displayId ?? node.id) : ''
+  })
+  const customDocument = useGraphStore((state) => state.displayDocuments[customDisplayId])
+  const customDisplayWired = customDisplayNodeId !== ''
   const live = usePreviewStore((state) => state.outputs.get(nodeId)?.surface)
   const surface = customDisplayWired ? null : (isTftSurface(live) ? live : null)
   const setTouch = useTransportDisplayTouchStore((state) => state.setTouch)
@@ -76,6 +89,61 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
   }, [surface])
 
   if (customDisplayWired) {
+    if (customDocument) {
+      const scale = 160 / customDocument.designSize.width
+      return (
+        <div className={styles.wrap}>
+          <div
+            className={styles.customPreview}
+            style={{
+              width: customDocument.designSize.width * scale,
+              height: customDocument.designSize.height * scale,
+            }}
+            role="img"
+            aria-label={`Live custom display preview, ${customDocument.designSize.width} by ${customDocument.designSize.height} pixels`}
+          >
+            <div
+              className={styles.customSurface}
+              style={{
+                ...displayBackgroundStyle(resolveDisplayThemeTokens(customDocument.theme).background),
+                ...displayThemeVariables(customDocument),
+                width: customDocument.designSize.width,
+                height: customDocument.designSize.height,
+                transform: `scale(${scale})`,
+              }}
+            >
+              <DisplayRuntimeWidgets displayId={customDisplayId} document={customDocument}>
+                {(widget, value) => {
+                  const definition = DISPLAY_WIDGET_LIBRARY[widget.type]
+                  const state = displayWidgetVisualState(widget, value)
+                  return (
+                    <div
+                      key={widget.id}
+                      className={styles.customWidget}
+                      style={{
+                        left: widget.bounds.x,
+                        top: widget.bounds.y,
+                        width: widget.bounds.width,
+                        height: widget.bounds.height,
+                        ...displayWidgetThemeVariables(customDocument.theme, state),
+                      }}
+                    >
+                      <DisplayWidgetPreview
+                        widget={widget}
+                        renderer={definition.previewRenderer}
+                        theme={customDocument.theme}
+                        state={state}
+                        value={value}
+                      />
+                    </div>
+                  )
+                }}
+              </DisplayRuntimeWidgets>
+            </div>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className={styles.wrap}>
         <div className={styles.customNotice} style={{ '--aspect': `${width} / ${height}` } as never} role="img"

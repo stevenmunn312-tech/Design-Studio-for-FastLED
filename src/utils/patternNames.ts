@@ -27,11 +27,13 @@ export function collectionPatternNames(
   nodes: readonly StudioNode[],
   edges: readonly StudioEdge[],
   graphNames: Record<string, { name?: string }> = {},
+  sourceIds?: ReadonlySet<string>,
 ): PatternNames {
   const out: PatternNames = {}
   for (const node of nodes) {
     const kind = DISPLAY_SOURCE_NODE_TYPES[node.data.nodeType]
     if (kind !== 'player' && kind !== 'slideshow') continue
+    if (sourceIds && !sourceIds.has(node.id)) continue
     out[node.id] = playerPatternIds(node, nodes, edges).map((id) => graphNames[id]?.name ?? id)
   }
   return out

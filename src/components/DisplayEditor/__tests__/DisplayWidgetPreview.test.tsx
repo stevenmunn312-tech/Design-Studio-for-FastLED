@@ -19,13 +19,14 @@ function control(
   }
 }
 
-function draw(widget: DisplayWidget) {
+function draw(widget: DisplayWidget, value?: unknown) {
   return render(
     <DisplayWidgetPreview
       widget={widget}
       renderer={DISPLAY_WIDGET_LIBRARY[widget.type].previewRenderer}
       theme={DEFAULT_DISPLAY_THEME}
       state="default"
+      value={value}
     />,
   )
 }
@@ -61,5 +62,25 @@ describe('display widget preview artwork', () => {
     const view = draw(control('Button', { text: 'Play', assetId: PLAY, presentation: 'text' }))
     expect(view.container.querySelector('img')).toBeNull()
     expect(view.container.textContent).toContain('Play')
+  })
+
+  it('draws structured graph values for colour and pattern widgets', () => {
+    const swatch = draw({
+      id: 'swatch', type: 'Colour Swatch', label: 'Colour Swatch',
+      bounds: { x: 0, y: 0, width: 64, height: 32 },
+      properties: DISPLAY_WIDGET_LIBRARY['Colour Swatch'].defaultProperties,
+    }, { r: 18, g: 52, b: 86 })
+    expect(swatch.container.textContent).toBe('#123456')
+
+    const browser = draw({
+      id: 'browser', type: 'Pattern Browser', label: 'Pattern Browser',
+      bounds: { x: 0, y: 0, width: 160, height: 80 },
+      properties: DISPLAY_WIDGET_LIBRARY['Pattern Browser'].defaultProperties,
+    }, {
+      ids: ['aurora', 'midnight'], names: ['Aurora Drift', 'Midnight Drive'],
+      activeIndex: 0, highlightIndex: 1, count: 2, browsing: true,
+    })
+    expect(browser.container.textContent).toContain('Midnight Drive')
+    expect(browser.container.textContent).toContain('2 of 2')
   })
 })

@@ -34,3 +34,31 @@
   font-size: 11px;
   color: #9aa0a6;
 }
+
+.customPreview {
+  position: relative;
+  max-width: 160px;
+  overflow: hidden;
+  background: #000;
+  border: 3px solid #242933;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px #08090b, 0 4px 12px rgb(0 0 0 / 35%);
+}
+
+.customSurface {
+  position: absolute;
+  inset: 0 auto auto 0;
+  overflow: hidden;
+  transform-origin: top left;
+  color: var(--display-text);
+  font-family: var(--font-body);
+}
+
+.customWidget {
+  position: absolute;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  color: var(--widget-state-text);
+  opacity: var(--widget-state-opacity, 1);
+}

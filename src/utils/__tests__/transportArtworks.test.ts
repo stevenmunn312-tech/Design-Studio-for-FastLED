@@ -54,6 +54,7 @@ describe('Transport Display artwork baking', () => {
     const { nodes, edges } = graph()
     expect(artworkDisplays(nodes, edges).map((display) => display.id)).toEqual(['tft'])
     expect(artworkPlayer(nodes[3], nodes, edges)?.id).toBe('player')
+    expect(artworkDisplays(nodes, edges, new Set(['another-player']))).toEqual([])
   })
 
   it('bakes exact RGB565 bytes and hands them to codegen by player id', () => {
@@ -68,6 +69,13 @@ describe('Transport Display artwork baking', () => {
     // pictures. The bake itself still runs, for the preview and for them.
     const source = generateCpp(nodes, edges, groups, { artworks })
     expect(source).not.toContain('#define ART_COUNT_player')
+  })
+
+  it('does not bake or budget artwork for an unselected template source', () => {
+    const { nodes, edges } = graph(Array.from({ length: MAX_TRANSPORT_ARTWORKS + 1 }, (_, i) => `p${i}`))
+    const selected = new Set(['another-player'])
+    expect(transportArtworkIssues(nodes, edges, selected)).toEqual([])
+    expect(bakeDisplayArtworks(nodes, edges, groups, true, selected)).toEqual({})
   })
 
   it('reports a collection that exceeds the explicit flash budget', () => {

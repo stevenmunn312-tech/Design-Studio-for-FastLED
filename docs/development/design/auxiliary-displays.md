@@ -447,7 +447,10 @@ their own fixed-display/diagnostic scope; they do not execute the custom UI.
 
 Generator selection must agree across upload, validation, capacity and assets.
 `resolveBuildMode` owns that shared plan, retaining SD-player precedence and
-the standalone-VU output capability. An SD card by itself is insufficient to
+the standalone-VU output capability. It also names the exact selected engine
+and the graph Display sources a fixed template can publish; collection assets,
+names, controls and bindings are scoped to that identity rather than finding
+the first node of a matching type. An SD card by itself is insufficient to
 choose the music/show player, and a disconnected engine never selects a template.
 
 Custom show displays use `customDisplayControlGraph.ts` to derive roles from

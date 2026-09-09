@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import TransportDisplayNodeBody from '../TransportDisplayNodeBody'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import { ROOT_GRAPH_ID, useGraphStore, type StudioNode } from '../../../state/graphStore'
 import { usePreviewStore } from '../../../state/previewStore'
 import { useTransportDisplayTouchStore } from '../../../state/transportDisplayTouchStore'
+import { addDisplayWidget, createDisplayDocument } from '../../../state/displayEditor'
+import { useDisplayRuntimeStore } from '../../../state/displayRuntimeStore'
 
 if (!Element.prototype.setPointerCapture) Element.prototype.setPointerCapture = () => {}
 
@@ -23,6 +25,7 @@ describe('TransportDisplayNodeBody', () => {
   beforeEach(() => {
     usePreviewStore.getState().clear()
     useTransportDisplayTouchStore.getState().clear()
+    useDisplayRuntimeStore.getState().resetDisplayRuntime()
   })
 
   it('keeps the exact mounted panel aspect ratio before the first preview frame', () => {
@@ -101,6 +104,33 @@ describe('TransportDisplayNodeBody', () => {
     } as never)
     render(<TransportDisplayNodeBody nodeId="tft" />)
     expect(screen.getByRole('img', { name: 'Driven by a wired Custom Display' })).toBeTruthy()
+    expect(screen.queryByRole('img', { name: /Transport display preview/ })).toBeNull()
+  })
+
+  it('renders a wired custom document and follows its live graph values', () => {
+    const sourceDef = NODE_LIBRARY.find((entry) => entry.type === 'Display')!
+    const source = {
+      id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        label: sourceDef.label, nodeType: sourceDef.type, category: sourceDef.category,
+        properties: { ...sourceDef.defaultProperties, displayId: 'panel' },
+        inputs: sourceDef.inputs, outputs: sourceDef.outputs,
+      },
+    } as unknown as StudioNode
+    const document = addDisplayWidget(createDisplayDocument('panel', 320, 240), 'Text')
+    useGraphStore.setState({
+      nodes: [source, display({ partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90' })],
+      edges: [{ id: 'link', source: 'screen', sourceHandle: 'customDisplay', target: 'tft', targetHandle: 'customDisplay' }],
+      displayDocuments: { panel: document },
+      activeGraphId: ROOT_GRAPH_ID,
+    } as never)
+
+    render(<TransportDisplayNodeBody nodeId="tft" />)
+    expect(screen.getByRole('img', { name: 'Live custom display preview, 320 by 240 pixels' })).toBeTruthy()
+    expect(screen.getByText('Text')).toBeTruthy()
+
+    act(() => useDisplayRuntimeStore.getState().publishDisplayRoleValue('panel', 'text', 'value', 'MIDNIGHT DRIVE'))
+    expect(screen.getByText('MIDNIGHT DRIVE')).toBeTruthy()
     expect(screen.queryByRole('img', { name: /Transport display preview/ })).toBeNull()
   })
 

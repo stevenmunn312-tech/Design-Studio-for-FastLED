@@ -170,9 +170,10 @@ The normal generator walks graph expressions. Show/player templates reuse
 `templateControlRouting.ts`, `controlGraph.ts` and `customDisplayControlGraph.ts`.
 Their supported sources/types remain narrower than the browser evaluator.
 `customDisplayMountPlan` is that shared mounted-screen plan for validation,
-asset preparation, capacity and all three generators; the resolved *build mode*
-and its output/control capabilities come from the pure `resolveBuildMode` plan
-shared by every entry point. The rendering adapters remain specialized.
+asset preparation, capacity and all three generators; the resolved *build mode*,
+selected engine, display sources and output/control capabilities come from the
+pure `resolveBuildMode` plan shared by every entry point. The rendering adapters
+remain specialized.
 
 No pre-1.0 migration is required on Hardware. The v1 format becomes the new
 compatibility baseline only after it ships.
