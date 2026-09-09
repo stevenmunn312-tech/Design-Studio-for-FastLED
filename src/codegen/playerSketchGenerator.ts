@@ -140,9 +140,9 @@ interface ConfigNode { id: string; data: { nodeType: string; properties: Record<
  * that imaginary matrix from reaching the sketch.
  */
 export function playerConfigFromGraph(
-  nodes: ConfigNode[], edges: ShowTargetEdge[] = [], fqbn = '',
+  nodes: ConfigNode[], edges: ShowTargetEdge[] = [], fqbn = '', engineId?: string,
 ): Partial<PlayerConfig> {
-  const target = resolveShowTarget(nodes as ShowTargetNode[], edges).target
+  const target = resolveShowTarget(nodes as ShowTargetNode[], edges, engineId).target
   const mo = target?.data.properties ?? {}
   const board = nodes.find((n) => n.data.nodeType === 'Board')?.data.properties ?? mo
   const profileId = typeof board.profileId === 'string' ? board.profileId : undefined

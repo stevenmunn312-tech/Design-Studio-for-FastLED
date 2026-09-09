@@ -55,12 +55,13 @@ export interface ShowTargetResolution<T> {
 export function resolveShowTarget<T extends ShowTargetNode>(
   nodes: T[],
   edges: ShowTargetEdge[],
+  sourceId?: string,
 ): ShowTargetResolution<T> {
-  const generator = nodes.find((node) =>
-    node.data.nodeType === 'PatternMaster'
-    || node.data.nodeType === 'PatternSlideshow'
-    || node.data.nodeType === 'PerformanceGenerator',
-  )
+  const generator = nodes.find((node) => sourceId
+    ? node.id === sourceId
+    : (node.data.nodeType === 'PatternMaster'
+      || node.data.nodeType === 'PatternSlideshow'
+      || node.data.nodeType === 'PerformanceGenerator'))
   if (!generator) return { target: null, reached: [], problem: 'unconnected' }
 
   const reached = edges

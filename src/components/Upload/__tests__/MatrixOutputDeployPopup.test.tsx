@@ -483,7 +483,10 @@ describe('MatrixOutputDeployPopup SD-show upload', () => {
           data: { label: 'SD Card', nodeType: 'SDCard', category: 'show', properties: {}, inputs: [], outputs: [] },
         },
       ] as never[],
-      edges: [] as never[],
+      edges: [{
+        id: 'show-output', source: 'performance', target: 'matrix',
+        sourceHandle: 'frame', targetHandle: 'frame',
+      }] as never[],
     })
   }
 

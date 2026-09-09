@@ -69,6 +69,7 @@ import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp } from './ledOutputRuntimeCp
 import {
   clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MAX, MASTER_SPEED_MIN,
 } from '../state/masterSpeed'
+import { resolveBuildMode } from '../state/buildMode'
 
 const nodeType = (n: StudioNode) => (n.data as { nodeType?: string }).nodeType
 const props = (n: StudioNode) => n.data.properties as Record<string, unknown>
@@ -82,16 +83,7 @@ const safeId = (id: string) => id.replace(/[^a-zA-Z0-9_]/g, '_')
  * attached: the three generators are told apart by which node is present, not
  * by which hardware is absent. */
 export function isPatternShow(nodes: StudioNode[], edges: StudioEdge[]): boolean {
-  const outputs = new Set(nodes.filter((n) => nodeType(n) === 'MatrixOutput').map((n) => n.id))
-  return nodes.some((master) => {
-    if (nodeType(master) !== 'PatternSlideshow') return false
-    const reachesOutput = edges.some((e) =>
-      e.source === master.id && e.sourceHandle === 'frame' &&
-      outputs.has(e.target) && e.targetHandle === 'frame')
-    const setEdge = edges.find((e) => e.target === master.id && e.targetHandle === 'patternset')
-    const hasCollection = !!setEdge && nodes.some((n) => n.id === setEdge.source && nodeType(n) === 'PatternCollection')
-    return reachesOutput && hasCollection
-  })
+  return resolveBuildMode(nodes, edges).mode === 'show'
 }
 
 interface ShowInfo {

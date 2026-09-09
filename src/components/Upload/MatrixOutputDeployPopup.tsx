@@ -10,10 +10,10 @@ import { bakeBrowserThumbnails } from '../../utils/browserThumbnails'
 import { collectionPatternNames } from '../../utils/patternNames'
 import { bakeDisplayArtworks } from '../../utils/transportArtworks'
 import { generateCpp } from '../../codegen/cppGenerator'
-import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
+import { generateShowSketch } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph, streamReceiverCapabilityNotes } from '../../codegen/streamReceiverGenerator'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
-import { readySongCount, buildShowPayload, buildShowPlayerForMeasurement, sdShowConnected } from '../../utils/showUpload'
+import { readySongCount, buildShowPayload, buildShowPlayerForMeasurement } from '../../utils/showUpload'
 import { findPinConflicts, findMatrixLayoutErrors, findMirroredOutputMismatches, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowOutputFormErrors, findShowRequirementErrors } from '../../utils/validateGraph'
 import { summarizeCapacity } from '../../utils/capacityFormat'
 import { useCodegenGraph } from '../../utils/codegenGraph'
@@ -30,6 +30,7 @@ import OutputConsole from './OutputConsole'
 import styles from './Upload.module.css'
 import { controllerSettings } from '../../state/controllerSettings'
 import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
+import { resolveBuildMode } from '../../state/buildMode'
 
 type ReadinessState = 'ready' | 'checking' | 'missing'
 
@@ -80,11 +81,12 @@ export default function MatrixOutputDeployPopup({
   const ownProps = ((outputNode?.data.properties ?? {}) as Record<string, unknown>)
   const nodeId = outputNode?.id ?? ''
   const isHub75 = String(ownProps.chipset ?? 'WS2812B') === 'HUB75'
-  const hasFrameInput = !!outputNode && edges.some((e) => e.target === nodeId && e.targetHandle === 'frame')
-  // A card is ordinary storage hardware until Performance Generator declares
-  // that this graph is the offline music-show workflow.
-  const hasSdShow = useMemo(() => sdShowConnected(nodes, edges), [nodes, edges])
-  const hasMusicPlayer = useMemo(() => hasSdShow && nodes.some((node) => node.data.nodeType === 'PatternMaster'), [hasSdShow, nodes])
+  const build = useMemo(() => resolveBuildMode(nodes, edges), [nodes, edges])
+  const hasBuildOutput = build.capabilities.buildable
+  // A card is ordinary storage hardware until a connected engine selects the
+  // player build. SD selection wins over a simultaneous slideshow path.
+  const hasSdShow = build.mode === 'player'
+  const hasMusicPlayer = build.engineKind === 'music-player'
 
   const board = boardByFqbn(selectedFqbn)
   const usingFbuild = helper?.engine === 'fbuild'
@@ -99,6 +101,10 @@ export default function MatrixOutputDeployPopup({
   // See CapacityWatcher: keyed on the codegen-relevant graph so a node drag
   // behind this popup doesn't re-run the sketch generator every frame.
   const codegenGraph = useCodegenGraph(nodes, edges)
+  const codegenBuild = useMemo(
+    () => resolveBuildMode(codegenGraph.nodes, codegenGraph.edges),
+    [codegenGraph],
+  )
   const customAssets = useCustomDisplayAssets(codegenGraph.nodes,
     true, codegenGraph.edges)
   function generateCurrentCode() {
@@ -107,7 +113,7 @@ export default function MatrixOutputDeployPopup({
     if (customAssets.documents !== useGraphStore.getState().displayDocuments
       || customAssets.trusted !== useGraphStore.getState().trusted) return ''
     const groups = getGroupRegistry()
-    if (hasSdShow) return buildShowPlayerForMeasurement(codegenGraph.nodes, codegenGraph.edges, groups,
+    if (codegenBuild.mode === 'player') return buildShowPlayerForMeasurement(codegenGraph.nodes, codegenGraph.edges, groups,
       selectedFqbn, psramSupported, projectName,
       { displayDocuments: customAssets.documents, customDisplayAssets: customAssets.assets }) ?? ''
     // Baked here rather than inside the generator: baking evaluates patterns,
@@ -130,11 +136,11 @@ export default function MatrixOutputDeployPopup({
       displayDocuments: customAssets.documents,
       customDisplayAssets: customAssets.assets,
     }
-    return isPatternShow(codegenGraph.nodes, codegenGraph.edges)
+    return codegenBuild.mode === 'show'
       ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)
       : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
   }
-  const code = useMemo(generateCurrentCode, [codegenGraph, psramSupported, projectName, hasSdShow, selectedFqbn,
+  const code = useMemo(generateCurrentCode, [codegenGraph, codegenBuild, psramSupported, projectName, selectedFqbn,
     customAssets.pending, customAssets.errors, customAssets.documents, customAssets.assets, customAssets.trusted])
 
   const portLabel = ports.find((p) => p.address === selectedPort)?.label ?? selectedPort
@@ -208,7 +214,7 @@ export default function MatrixOutputDeployPopup({
     ...formulaErrors,
     ...(capacityOverflow ? [`${board?.label ?? 'This board'}: design is too large to fit (live capacity check)`] : []),
   ]
-  const canBuild = hasFrameInput && blockingErrors.length === 0
+  const canBuild = hasBuildOutput && blockingErrors.length === 0
   const canShowUpload = hasSdShow && blockingErrors.length === 0
   const suggestedAction = useMemo(() => suggestedValidationAction(nodes, edges), [nodes, edges])
   const validationProfile = useMemo(() => buildHardwareValidationProfile({
@@ -473,7 +479,7 @@ export default function MatrixOutputDeployPopup({
         : cardReader
           ? `Write ${readySongs} song${readySongs === 1 ? '' : 's'} to a card in your reader, then flash the player`
           : `Write ${readySongs} song${readySongs === 1 ? '' : 's'} to the SD card over serial, then flash the player`
-      : !hasFrameInput ? 'Connect a frame to enable upload'
+      : !hasBuildOutput ? 'Connect a frame to enable upload'
         : blockingErrors.length > 0 ? blockingErrors.join('\n')
         : readinessIssues.length > 0 ? readinessIssues.join('\n')
         : 'Compile & upload to the board'
@@ -542,7 +548,7 @@ export default function MatrixOutputDeployPopup({
             </div>
           </div>
         </div>
-        {hasFrameInput && (
+        {hasBuildOutput && (
           /* The check compiles the whole design against the board, so it runs
            * only when asked — see capacityStore. This is the deliberate place
            * to ask: you are about to flash, which is exactly when "does it
@@ -688,18 +694,18 @@ export default function MatrixOutputDeployPopup({
 
           <button
             className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
-            disabled={!hasFrameInput || blockingErrors.length > 0}
+            disabled={!hasBuildOutput || blockingErrors.length > 0}
             onClick={handleExportIno}
-            title={!hasFrameInput ? 'Connect a frame to enable export' : blockingErrors.length > 0 ? blockingErrors.join('\n') : 'Download the generated .ino sketch'}
+            title={!hasBuildOutput ? 'Connect a frame to enable export' : blockingErrors.length > 0 ? blockingErrors.join('\n') : 'Download the generated .ino sketch'}
           >
             ↓ Export .ino
           </button>
 
           <button
             className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
-            disabled={!hasFrameInput || !code}
+            disabled={!hasBuildOutput || !code}
             onClick={openCodeView}
-            title={hasFrameInput ? 'View the generated .ino sketch' : 'Connect a frame to view the generated .ino sketch'}
+            title={hasBuildOutput ? 'View the generated .ino sketch' : 'Connect a frame to view the generated .ino sketch'}
           >
             {'</>'} View Code
           </button>
@@ -809,7 +815,7 @@ export default function MatrixOutputDeployPopup({
             uploadDisabled={!canBuild || !uploadReady || busy}
             uploadTitle={
               busy ? status.message
-              : !hasFrameInput ? 'Connect a frame to enable upload'
+              : !hasBuildOutput ? 'Connect a frame to enable upload'
               : blockingErrors.length > 0 ? blockingErrors.join('\n')
               : readinessIssues.length > 0 ? readinessIssues.join('\n')
               : 'Compile & upload to the board'

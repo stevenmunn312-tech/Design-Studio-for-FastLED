@@ -446,9 +446,9 @@ pattern names still need repair. Utility Wiring Test and Stream Receiver have
 their own fixed-display/diagnostic scope; they do not execute the custom UI.
 
 Generator selection must agree across upload, validation, capacity and assets.
-Currently `selectedGenerator` duplicates the upload rules. HW-04 extracts a
-shared plan, retaining SD-player precedence. An SD card by itself is insufficient
-to choose the music/show player.
+`resolveBuildMode` owns that shared plan, retaining SD-player precedence and
+the standalone-VU output capability. An SD card by itself is insufficient to
+choose the music/show player, and a disconnected engine never selects a template.
 
 Custom show displays use `customDisplayControlGraph.ts` to derive roles from
 saved documents rather than copied node handles. Each configured, enabled

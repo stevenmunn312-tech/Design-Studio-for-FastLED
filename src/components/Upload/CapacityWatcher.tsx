@@ -7,14 +7,15 @@ import { bakeBrowserThumbnails } from '../../utils/browserThumbnails'
 import { collectionPatternNames } from '../../utils/patternNames'
 import { bakeDisplayArtworks } from '../../utils/transportArtworks'
 import { generateCpp } from '../../codegen/cppGenerator'
-import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
-import { buildShowPlayerForMeasurement, sdShowConnected } from '../../utils/showUpload'
+import { generateShowSketch } from '../../codegen/showGenerator'
+import { buildShowPlayerForMeasurement } from '../../utils/showUpload'
 import { useCodegenGraph } from '../../utils/codegenGraph'
 import { controllerSettings } from '../../state/controllerSettings'
 import { selectedBoardFlashMb, selectedPhysicalBoardProfile } from '../../build/boardProfiles'
 import { resolveUsbCdcOnBoot } from '../../state/serialRouting'
 import { useProjectStore } from '../../state/projectStore'
 import { useCustomDisplayAssets } from '../../hooks/useCustomDisplayAssets'
+import { resolveBuildMode } from '../../state/buildMode'
 
 /**
  * Keeps the capacity store pointed at what an Upload would actually build.
@@ -59,7 +60,8 @@ export default function CapacityWatcher() {
    * could not link, so the subject is chosen with the same predicate the
    * Upload button uses.
    */
-  const isShow = useMemo(() => sdShowConnected(nodes, edges), [nodes, edges])
+  const build = useMemo(() => resolveBuildMode(nodes, edges), [nodes, edges])
+  const isShow = build.mode === 'player'
   // Measured against the module's own flash, not the generic board id's.
   const flashMb = useMemo(() => selectedBoardFlashMb(nodes), [nodes])
 
@@ -81,29 +83,27 @@ export default function CapacityWatcher() {
   // Nothing reaches the LEDs until a frame does, and a sketch with no frame
   // measures a design nobody is building. A show is exempt: its LEDs are
   // driven by the player's own pattern dispatch, not by a wired frame.
-  const hasFrameInput = useMemo(
-    () => edges.some((edge) => (edge.targetHandle ?? '') === 'frame'
-      && nodes.some((node) => node.id === edge.target && node.data.nodeType === 'MatrixOutput')),
-    [edges, nodes],
-  )
-
   // Keyed on the codegen-relevant graph rather than the raw arrays: React Flow
   // hands a fresh `nodes` array on every pointer move of a drag, which would
   // otherwise re-run the whole sketch generator ~60x/sec for output that node
   // positions cannot affect.
   const codegenGraph = useCodegenGraph(nodes, edges)
+  const codegenBuild = useMemo(
+    () => resolveBuildMode(codegenGraph.nodes, codegenGraph.edges),
+    [codegenGraph],
+  )
   const customAssets = useCustomDisplayAssets(codegenGraph.nodes,
-    hasFrameInput || isShow, codegenGraph.edges)
+    build.capabilities.buildable, codegenGraph.edges)
   const capacityCode = useMemo(() => {
     const groups = getGroupRegistry()
     if (customAssets.pending || customAssets.errors.length > 0) return null
-    if (isShow) {
+    if (codegenBuild.mode === 'player') {
       return buildShowPlayerForMeasurement(
         codegenGraph.nodes, codegenGraph.edges, groups, selectedFqbn, psramSupported, projectName,
         { displayDocuments: customAssets.documents, customDisplayAssets: customAssets.assets },
       )
     }
-    if (!hasFrameInput) return null
+    if (!codegenBuild.capabilities.buildable) return null
     // Thumbnails are flash, and this is the thing that measures flash — leaving
     // them out understates a Pattern Browser build, which is exactly the build
     // most likely to be near the ceiling.
@@ -125,10 +125,10 @@ export default function CapacityWatcher() {
       displayDocuments: customAssets.documents,
       customDisplayAssets: customAssets.assets,
     }
-    return isPatternShow(codegenGraph.nodes, codegenGraph.edges)
+    return codegenBuild.mode === 'show'
       ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)
       : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
-  }, [codegenGraph, psramSupported, hasFrameInput, isShow, selectedFqbn, projectName,
+  }, [codegenGraph, codegenBuild, psramSupported, selectedFqbn, projectName,
     customAssets.pending, customAssets.errors, customAssets.documents, customAssets.assets, customAssets.trusted])
 
   // Published even with nothing to build: a skipped call would leave the

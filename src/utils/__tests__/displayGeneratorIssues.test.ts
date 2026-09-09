@@ -28,13 +28,17 @@ describe('fixed touch output routing validation', () => {
   const showEdges = [edge('set', 'set', 'patternset', 'show', 'patternset'), edge('frame', 'show', 'frame', 'out', 'frame')]
   const chain = [edge('touch', 'panel', 'controls', 'controls', 'controlsIn'), edge('latch', 'controls', 'controls', 'out', 'controls')]
 
-  it.each(['direct', 'chained'])('accepts a %s show route and agrees in Graph Health', (mode) => {
+  it.each(['direct', 'chained'])('rejects a %s fixed-screen show route and agrees in Graph Health', (mode) => {
     const nodes = [...show, out(), panel, controls]
     const edges = [...showEdges, ...(mode === 'direct' ? [edge('latch', 'panel', 'controls', 'out', 'controls')] : chain)]
-    expect(findDisplayGeneratorIssues(nodes, edges).errors).toEqual([])
+    expect(findDisplayGeneratorIssues(nodes, edges).errors).toEqual([
+      expect.stringContaining('Toggle and Slider widget outputs'),
+    ])
     expect(findOutputRuntimeIssues(nodes, edges).errors).toEqual([])
     expect(buildGraphDiagnostics(nodes, edges).filter((d) =>
-      d.id.startsWith('display-generator-error') || d.id.startsWith('output-runtime'))).toEqual([])
+      d.id.startsWith('display-generator-error') || d.id.startsWith('output-runtime'))).toEqual([
+      expect.objectContaining({ id: 'display-generator-error-0' }),
+    ])
   })
 
   it('refuses a layout whose actions an LED output cannot consume in either generator', () => {
@@ -42,7 +46,7 @@ describe('fixed touch output routing validation', () => {
     for (const template of [false, true]) {
       const errors = findDisplayGeneratorIssues([out(), transport, controls, ...(template ? show : [])],
         [...chain, ...(template ? showEdges : [])]).errors
-      expect(errors).toEqual([expect.stringContaining('Select Show Status')])
+      expect(errors).toEqual([expect.stringContaining('Toggle and Slider widget outputs')])
     }
   })
 
@@ -78,7 +82,9 @@ describe('fixed touch output routing validation', () => {
       edge('map-control', 'map', 'result', 'controls', 'brightness'),
       edge('map-format', 'map', 'result', 'format', 'value'), edge('format-panel', 'format', 'text', 'panel', 'section')]
     expect(findOutputRuntimeIssues(nodes, edges).errors).toEqual([])
-    expect(findDisplayGeneratorIssues(nodes, edges)).toEqual({ errors: [], warnings: [] })
+    expect(findDisplayGeneratorIssues(nodes, edges).errors).toEqual([
+      expect.stringContaining('Toggle and Slider widget outputs'),
+    ])
   })
 
   it('rejects cyclic mapper chains and invalid source handles', () => {
@@ -233,7 +239,7 @@ describe('displays a build cannot drive', () => {
    * the generator can read touch and became whether the chain ends anywhere it
    * can act on.
    */
-  it('accepts a touch panel wired through to an LED output', () => {
+  it('rejects a read-only fixed panel wired through to an LED output', () => {
     const transport = node('transport', 'TransportDisplay', {
       partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Show Status',
     })
@@ -245,10 +251,10 @@ describe('displays a build cannot drive', () => {
         edge('latch', 'controls', 'controls', 'out', 'controls'),
       ],
     )
-    expect(issues.errors).toEqual([])
+    expect(issues.errors).toEqual([expect.stringContaining('Toggle and Slider widget outputs')])
   })
 
-  it('accepts one wired straight to the output, with no Player Controls between', () => {
+  it('rejects one wired straight to the output, with no Player Controls between', () => {
     const transport = node('transport', 'TransportDisplay', {
       partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Show Status',
     })
@@ -256,7 +262,7 @@ describe('displays a build cannot drive', () => {
       [out(), transport],
       [edge('latch', 'transport', 'controls', 'out', 'controls')],
     )
-    expect(issues.errors).toEqual([])
+    expect(issues.errors).toEqual([expect.stringContaining('Toggle and Slider widget outputs')])
   })
 
   // Music Player is not somewhere a *normal* sketch can act on: it renders as
@@ -304,6 +310,7 @@ describe('displays a build cannot drive', () => {
     const nodes = [out(), transport, master, controls, node('sd', 'SDCard'), node('amp', 'Amplifier')]
     const wires = [
       edge('frame', 'master', 'frame', 'out', 'frame'),
+      edge('display', 'master', 'display', 'transport', 'display'),
       edge('touch', 'transport', 'controls', 'controls', 'controlsIn'),
     ]
     const issues = findDisplayGeneratorIssues(nodes, wires)
@@ -320,6 +327,7 @@ describe('displays a build cannot drive', () => {
     const nodes = [out(), transport, master, controls, node('sd', 'SDCard'), node('amp', 'Amplifier')]
     const wires = [
       edge('frame', 'master', 'frame', 'out', 'frame'),
+      edge('display', 'master', 'display', 'transport', 'display'),
       edge('touch', 'transport', 'controls', 'controls', 'controlsIn'),
       edge('player', 'controls', 'controls', 'master', 'controls'),
     ]

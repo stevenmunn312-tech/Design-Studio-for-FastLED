@@ -20,6 +20,27 @@ function node(
 }
 
 describe('buildShowPlayer', () => {
+  it('generates from the selected engine in a mixed graph, not the first engine in node order', () => {
+    const nodes = [
+      node('disconnected-music', 'PatternMaster'),
+      node('unrelated-output', 'MatrixOutput', { width: 4, height: 4, dataPin: 5 }),
+      node('performance', 'PerformanceGenerator'),
+      node('show-output', 'MatrixOutput', { width: 8, height: 8, dataPin: 17 }),
+      node('sd', 'SDCard'),
+      node('amp', 'Amplifier'),
+    ]
+    const edges = [
+      { id: 'show-led', source: 'performance', sourceHandle: 'frame', target: 'show-output', targetHandle: 'frame' },
+    ] as Edge[]
+
+    const sketch = buildShowPlayer(nodes, edges, {}, {
+      patternSet: [], bakedAudio: true, preferredTrack: '', genericPlayer: false,
+    })
+
+    expect(sketch).toContain('#define LED_DATA_PIN  17')
+    expect(sketch).not.toContain('#define LED_DATA_PIN  5')
+  })
+
   it('passes the Player Controls wiring into the generated SD player', () => {
     const nodes = [
       node('player', 'PatternMaster'),

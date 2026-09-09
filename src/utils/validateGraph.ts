@@ -25,7 +25,7 @@ import { collectPinUses } from '../build/hardwareManifest'
 import { browserThumbnailIssues } from './browserThumbnails'
 import { transportArtworkIssues } from './transportArtworks'
 import {
-  controlChainDestinations, displayControlsPlayer, playerDisplaysFromGraph, SHOW_DISPLAY_EXPRESSIONS,
+  controlChainDestinations, playerDisplaysFromGraph, SHOW_DISPLAY_EXPRESSIONS,
 } from '../codegen/playerDisplays'
 import { OLED_PANEL_RAM_BYTES } from '../codegen/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../codegen/segmentDisplayCpp'
@@ -35,7 +35,8 @@ import { customDisplayRamBytes } from '../codegen/customDisplayRam'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import { showControlRouting, showControlOutputIds } from '../codegen/showControlRouting'
 import { customDisplayMountPlan, mountedCustomDisplays, mountedSizeIssue, sharedDocumentIssue, unmountedDocumentIssue } from '../state/mountedDisplays'
-import { asTransportDisplayLayout } from '../state/transportDisplay'
+import { transportTouchRegions } from '../state/transportTouch'
+import { resolveBuildMode } from '../state/buildMode'
 import {
   findPinCollisions, findI2cAddressCollisions, pinCollisionMessage,
   pinCollisionTitle, pinCollisionFix, addressCollisionMessage,
@@ -971,7 +972,7 @@ export function findShowRequirementErrors(
   if (!generator) return []
   const errors: string[] = []
 
-  const { reached, problem } = resolveShowTarget(nodes, edges)
+  const { reached, problem } = resolveShowTarget(nodes, edges, generator.id)
   if (problem === 'unconnected') {
     errors.push('Performance Generator is not sending its show anywhere — wire its Show output into an LED output, so the player knows which hardware to drive')
   } else if (problem === 'ambiguous') {
@@ -1456,34 +1457,7 @@ function splitI2cBusErrors(nodes: StudioNode[]): string[] {
 export type SelectedGenerator = 'sketch' | 'show' | 'player'
 
 export function selectedGenerator(nodes: StudioNode[], edges: StudioEdge[]): SelectedGenerator {
-  const master = nodes.find((node) => node.data.nodeType === 'PatternMaster')
-  const slideshow = nodes.find((node) => node.data.nodeType === 'PatternSlideshow')
-  const showEngine = nodes.find((node) => node.data.nodeType === 'PerformanceGenerator')
-
-  const drivesOutput = (source: StudioNode | undefined): boolean => !!source && edges.some((edge) =>
-    edge.source === source.id
-    && (edge.sourceHandle ?? '') === 'frame'
-    && (edge.targetHandle ?? '') === 'frame'
-    && nodes.some((node) => node.id === edge.target && node.data.nodeType === 'MatrixOutput'))
-
-  const collectionFeeds = (target: StudioNode | undefined): boolean => !!target && edges.some((edge) =>
-    edge.target === target.id
-    && (edge.targetHandle ?? '') === 'patternset'
-    && nodes.some((node) => node.id === edge.source && node.data.nodeType === 'PatternCollection'))
-
-  const hasCard = nodes.some((node) => node.data.nodeType === 'SDCard')
-  const hasStandaloneVuOutput = nodes.some(isActiveStandaloneStereoVuMeter)
-  if (hasCard
-    && nodes.some((node) => node.data.nodeType === 'Amplifier')
-    && (drivesOutput(master) || (!!master && hasStandaloneVuOutput))) return 'player'
-  // A Show Engine's output is a timed `.show` file on a card, played back by
-  // the player sketch. Without the card there is nothing to write it to and
-  // the graph exports as an ordinary sketch.
-  if (hasCard && drivesOutput(showEngine)) return 'player'
-  // The show sketch is the Slideshow's, keyed on the node being present rather
-  // than on a Music Player that happens to have no card attached.
-  if (drivesOutput(slideshow) && collectionFeeds(slideshow)) return 'show'
-  return 'sketch'
+  return resolveBuildMode(nodes, edges).mode
 }
 
 /**
@@ -1584,10 +1558,17 @@ export function findDisplayGeneratorIssues(
   const errors: string[] = []
   const warnings: string[] = []
 
-  const generator = selectedGenerator(nodes, edges)
+  const build = resolveBuildMode(nodes, edges)
+  const generator = build.mode
   const nodeById = new Map(nodes.map((node) => [node.id, node]))
   const templateControls = generator === 'show' ? showControlRouting(nodes, edges, displayDocuments)
     : generator === 'player' ? playerControlGraph(nodes, edges, displayDocuments) : null
+  const resolvedTft = new Map(playerDisplaysFromGraph(nodes as never, edges as never, {
+    expressions: generator === 'show' ? SHOW_DISPLAY_EXPRESSIONS : undefined,
+    kinds: generator === 'show' ? ['slideshow'] : generator === 'player'
+      ? ['player'] : ['clock', 'player', 'slideshow'],
+    controlSources: templateControls?.displaySources,
+  }).tft.map((display) => [display.id, display]))
 
   // All three generators draw a configured display now:
   //
@@ -1656,6 +1637,10 @@ export function findDisplayGeneratorIssues(
     const reachesOutput = [...destinations].some((id) =>
       nodeById.get(id)?.data.nodeType === 'MatrixOutput'
       && (renderedShowOutputs === null || renderedShowOutputs.has(id)))
+    const resolved = resolvedTft.get(display.id)
+    const touchActions = resolved
+      ? transportTouchRegions(resolved.controller, resolved.rotation, resolved.layout)
+      : []
     // A normal sketch samples the panel and publishes its bundle now, so the
     // question is no longer whether the generator can read touch but whether
     // the chain ends anywhere it can act on. An LED output's blackout and
@@ -1670,21 +1655,25 @@ export function findDisplayGeneratorIssues(
     } else if (controlsWired && generator === 'show' && !reachesOutput) {
       errors.push(
         `${nodeLabel(display)} has its Controls output wired, but the chain does not reach a slideshow LED output's Controls input. `
-        + 'Use Show Status and route Controls there for blackout and brightness. A show has no transport to command; '
+        + 'A show has no transport to command from a fixed screen; '
         + 'disconnect Controls for a read-only display, or use a music-player build for music actions.',
       )
     } else if (controlsWired && generator === 'player'
-      && !displayControlsPlayer(display.id, edges as never, nodeById as never)) {
+      && (!build.engine || !destinations.has(build.engine.id))) {
       errors.push(
         `${nodeLabel(display)} has its Controls output wired, but that chain does not reach Music Player through Player Controls. `
         + 'Complete the control chain so the player sketch samples touch, or disconnect Controls to use the panel as read-only.',
       )
-    }
-    if (controlsWired && generator !== 'player'
-      && asTransportDisplayLayout(props.tftLayout) !== 'Show Status'
-      && reachesOutput) {
-      errors.push(`${nodeLabel(display)}: this layout has no LED-output controls. Select Show Status for blackout and brightness, `
-        + 'or use a music-player build for play/pause, track and volume actions.')
+    } else if (controlsWired && generator === 'player' && touchActions.length === 0) {
+      errors.push(`${nodeLabel(display)} resolves to the read-only ${resolved?.layout ?? 'Waiting'} layout, so its Controls wire emits no actions. `
+        + 'Wire Music Player to its Display input and choose Now Playing or Fixed Transport, or disconnect Controls.')
+    } else if (controlsWired && generator !== 'player' && reachesOutput) {
+      const actionDescription = touchActions.length > 0
+        ? 'only music transport and volume actions, which an LED output cannot consume'
+        : 'no touch actions'
+      errors.push(`${nodeLabel(display)} resolves to ${resolved?.layout ?? 'Waiting'}, which has ${actionDescription}. `
+        + 'Use a custom screen with Toggle and Slider widget outputs wired to the LED output for blackout and brightness, '
+        + 'or disconnect Controls to keep this fixed screen read-only.')
     }
     const raw = (key: string, fallback: number) => {
       const value = Number(props[key] ?? fallback)
@@ -2157,7 +2146,7 @@ export function buildGraphDiagnostics(
   // declares the show, and the one whose missing wire is the usual cause.
   const generator = nodes.find((node) => node.data.nodeType === 'PerformanceGenerator')
   if (generator) {
-    const show = resolveShowTarget(nodes, edges)
+    const show = resolveShowTarget(nodes, edges, generator.id)
     if (show.problem === 'unconnected') {
       diagnostics.push({
         id: `${generator.id}-show-target`, severity: 'error', category: 'show',

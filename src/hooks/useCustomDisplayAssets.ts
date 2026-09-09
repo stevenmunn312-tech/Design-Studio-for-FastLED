@@ -1,7 +1,5 @@
 import { playerControlGraph } from '../codegen/playerControlGraph'
-import { sdShowConnected } from '../utils/showUpload'
 import { showControlRouting } from '../codegen/showControlRouting'
-import { isPatternShow } from '../codegen/showGenerator'
 import { useEffect, useMemo, useState } from 'react'
 import { create } from 'zustand'
 import { useGraphStore, type StudioNode, type StudioEdge } from '../state/graphStore'
@@ -9,6 +7,7 @@ import type { DisplayDocument } from '../state/displayDocument'
 import { customDisplayAssetRequests, customDisplayResourceIssues, type BakedCustomDisplayAsset } from '../state/customDisplayResources'
 import { customDisplayMountPlan } from '../state/mountedDisplays'
 import { bakeCustomDisplayAssets } from '../utils/bakeCustomDisplayAssets'
+import { resolveBuildMode } from '../state/buildMode'
 
 type AssetMap = Record<string, readonly BakedCustomDisplayAsset[]>
 interface Result { assets: AssetMap; errors: string[] }
@@ -47,6 +46,7 @@ export function useCustomDisplayAssets(nodes: StudioNode[], enabled: boolean, ed
   const trusted = useGraphStore((state) => state.trusted)
   const { revision, retry } = useBakeRetry()
   const plan = useMemo(() => {
+    const build = resolveBuildMode(nodes, edges)
     const targets: { nodeId: string; label: string; document: DisplayDocument }[] = []
     const errors: string[] = []
     // Mounted screens only. A design nobody has plugged into a panel emits no
@@ -65,9 +65,9 @@ export function useCustomDisplayAssets(nodes: StudioNode[], enabled: boolean, ed
       errors.push(...customDisplayResourceIssues(document).map((issue) => `${label}: ${issue.message}`))
       if (customDisplayAssetRequests(document).length > 0) targets.push({ nodeId: node.id, label, document })
     }
-    if (enabled && sdShowConnected(nodes, edges)) {
+    if (enabled && build.mode === 'player') {
       errors.push(...playerControlGraph(nodes, edges, documents).errors)
-    } else if (enabled && isPatternShow(nodes, edges)) {
+    } else if (enabled && build.mode === 'show') {
       errors.push(...showControlRouting(nodes, edges, documents).errors)
     }
     if (targets.length > 0 && !trusted) {

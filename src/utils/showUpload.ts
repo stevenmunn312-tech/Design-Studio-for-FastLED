@@ -30,11 +30,10 @@ import { playerDisplaysFromGraph } from '../codegen/playerDisplays'
 import { buildPatternRenderers, patternRenderersUseAudio } from '../codegen/showGenerator'
 import { showFileToBinary } from '../codegen/performanceGenerator'
 import type { ShowUploadFile } from './backendClient'
-import { resolveShowTarget } from '../state/showTarget'
 import { stereoVuEmitsFromGraph } from '../codegen/stereoVuMeterCpp'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
 import { wiredPatternCollection } from '../state/patternCollectionWiring'
-import { isActiveStandaloneStereoVuMeter } from '../state/stereoVuSizing'
+import { resolveBuildMode } from '../state/buildMode'
 
 export { wiredPatternCollection } from '../state/patternCollectionWiring'
 
@@ -56,12 +55,7 @@ export function sdCardConnected(nodes: StudioNode[]): boolean {
 }
 
 export function musicPlayerConnected(nodes: StudioNode[], edges: Edge[]): boolean {
-  // A standalone VU pair is itself the physical light output. It needs no
-  // frame edge because it renders decoded stereo levels rather than frames.
-  return sdCardConnected(nodes)
-    && nodes.some((n) => nodeType(n) === 'Amplifier')
-    && (!!resolveShowTarget(nodes, edges).target || nodes.some(isActiveStandaloneStereoVuMeter))
-    && nodes.some((n) => nodeType(n) === 'PatternMaster')
+  return resolveBuildMode(nodes, edges).engineKind === 'music-player'
 }
 
 /**
@@ -78,10 +72,7 @@ export function musicPlayerConnected(nodes: StudioNode[], edges: Edge[]): boolea
  * Pattern Master's frame reach a MatrixOutput before hijacking the sketch.
  */
 export function sdShowConnected(nodes: StudioNode[], edges: Edge[]): boolean {
-  return musicPlayerConnected(nodes, edges)
-    || (sdCardConnected(nodes)
-      && !!resolveShowTarget(nodes, edges).target
-      && nodes.some((n) => nodeType(n) === 'PerformanceGenerator'))
+  return resolveBuildMode(nodes, edges).mode === 'player'
 }
 
 /** Number of songs ready (analysed) to upload. */
@@ -111,7 +102,11 @@ export function buildShowPlayer(
   // patterns instead of the built-in enum set. "Use group inputs" threads the
   // section energy, (normalised) speed, and palette into each pattern's
   // `energy`/`speed`/`palette` roles.
-  const pgProps = (nodes.find((n) => nodeType(n) === 'PerformanceGenerator' || nodeType(n) === 'PatternMaster')?.data as StudioNodeData | undefined)?.properties ?? {}
+  const build = resolveBuildMode(nodes, edges)
+  const selectedEngine = build.mode === 'player' ? build.engine : null
+  const pgProps = (selectedEngine?.data as StudioNodeData | undefined)?.properties
+    ?? (nodes.find((n) => nodeType(n) === 'PerformanceGenerator' || nodeType(n) === 'PatternMaster')?.data as StudioNodeData | undefined)?.properties
+    ?? {}
   const roleParams = pgProps.useGroupInputs ? ['energy', 'speed', 'palette'] : []
   const patternSet = opts.patternSet ?? []
   const renderers = patternSet.length > 0
@@ -128,7 +123,7 @@ export function buildShowPlayer(
     || particleFx?.enabled === true
     || stereoVuMeters.length > 0
   const controlGraph = playerControlGraph(nodes, edges, opts.displayDocuments)
-  return generatePlayerSketch(playerConfigFromGraph(nodes, edges, opts.fqbn), renderers, {
+  return generatePlayerSketch(playerConfigFromGraph(nodes, edges, opts.fqbn, selectedEngine?.id), renderers, {
     audioEnvelope: opts.bakedAudio && (!!renderers || stereoVuMeters.length > 0),
     decoderTap,
     preferredTrack: opts.preferredTrack,
@@ -177,13 +172,14 @@ export function buildShowPlayerForMeasurement(
   projectName = '',
   displayOptions: PlayerDisplayBuildOptions = {},
 ): string | null {
-  if (!sdShowConnected(nodes, edges)) return null
+  const build = resolveBuildMode(nodes, edges)
+  if (build.mode !== 'player') return null
   const { ids } = wiredPatternCollection(nodes, edges)
   return buildShowPlayer(nodes, edges, groups, {
     patternSet: ids,
-    bakedAudio: !musicPlayerConnected(nodes, edges),
+    bakedAudio: build.engineKind !== 'music-player',
     preferredTrack: '',
-    genericPlayer: musicPlayerConnected(nodes, edges),
+    genericPlayer: build.engineKind === 'music-player',
     fqbn,
     psramAllowed,
     projectName,
@@ -204,7 +200,7 @@ export function buildShowPayload(
   opts: { fqbn?: string; psramAllowed?: boolean; fqbnOpt?: string; projectName?: string } & PlayerDisplayBuildOptions = {},
 ): { player: string; files: ShowUploadFile[]; fqbnOpt?: string } | null {
   const done = entries.filter((e) => e.status === 'done' && e.show)
-  const genericPlayer = musicPlayerConnected(nodes, edges)
+  const genericPlayer = resolveBuildMode(nodes, edges).engineKind === 'music-player'
   if (done.length === 0 && !genericPlayer) return null
   const { ids: playerPatternSet } = wiredPatternCollection(nodes, edges)
 
