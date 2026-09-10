@@ -295,6 +295,68 @@ _REAL_DRAM_OVERFLOW_LOG = [
 ]
 
 
+def test_overflow_message_names_ram_region_bytes_and_ram_remedies():
+    message = app._overflow_message("esp32:esp32:esp32", [
+        "ld.exe: region `dram0_0_seg' overflowed by 22496 bytes\n",
+    ])
+
+    assert "RAM region `dram0_0_seg` overflowed by 22,496 bytes" in message
+    assert "fewer or smaller screens" in message
+    assert "smaller LVGL" in message
+    assert "LED buffers to PSRAM" in message
+    assert "Flash partition schemes do not increase RAM" in message
+    assert "fewer patterns" not in message
+
+
+def test_overflow_message_names_flash_region_bytes_and_flash_remedies():
+    message = app._overflow_message("arduino:avr:uno", [
+        "ld.exe: region `text' overflowed by 7,052 bytes\n",
+    ])
+
+    assert "FLASH region `text` overflowed by 7,052 bytes" in message
+    assert "fewer patterns" in message
+    assert "partition scheme with more flash" in message
+    assert "smaller LVGL" not in message
+
+
+def test_overflow_message_keeps_only_largest_repeat_for_each_region():
+    message = app._overflow_message("test:board", [
+        "region `dram0_0_seg' overflowed by 100 bytes\n",
+        "region `dram0_0_seg' overflowed by 500 bytes\n",
+        "region `iram0_0_seg' overflowed by 25 bytes\n",
+    ])
+
+    assert "overflowed by 100 bytes" not in message
+    assert message.count("region `dram0_0_seg`") == 1
+    assert "region `dram0_0_seg` overflowed by 500 bytes" in message
+    assert "region `iram0_0_seg` overflowed by 25 bytes" in message
+
+
+def test_arduino_cli_compile_uses_region_specific_overflow_message(tmp_path, monkeypatch):
+    sketch = tmp_path / "sketch"
+    sketch.mkdir()
+    (sketch / "sketch.ino").write_text("void setup() {}\n", encoding="utf-8")
+    monkeypatch.setattr(app, "_ARDUINO_BASE", ["arduino-cli"])
+
+    def fake_phase(label, args, sink=None, cwd=None, tool_env=None):
+        line = "ld.exe: region `dram0_0_seg' overflowed by 22496 bytes\n"
+        if sink is not None:
+            sink.append(line)
+        yield line
+        return 1
+
+    monkeypatch.setattr(app, "_run_phase", fake_phase)
+    lines, result = app._drain_compile(
+        app._compile_upload("Sketch", sketch, "esp32:esp32:esp32", "")
+    )
+    message = "".join(lines)
+
+    assert result == (1, "compile")
+    assert "RAM region `dram0_0_seg` overflowed by 22,496 bytes" in message
+    assert "fewer or smaller screens" in message
+    assert "fewer patterns" not in message
+
+
 def test_fbuild_overflow_estimate_computes_percentage_from_real_ld_output():
     result = app._fbuild_overflow_estimate(_REAL_DRAM_OVERFLOW_LOG)
 

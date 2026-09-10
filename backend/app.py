@@ -1643,6 +1643,66 @@ def _looks_like_overflow(lines):
     return any(marker in text for marker in _OVERFLOW_MARKERS)
 
 
+def _overflow_region_kind(region: str) -> str | None:
+    """Map common linker region names to the resource the user can change."""
+    name = region.lower().lstrip(".")
+    if any(marker in name for marker in ("text", "irom", "flash", "rodata")):
+        return "flash"
+    if any(marker in name for marker in ("dram", "iram", "bss", "data", "noinit")):
+        return "ram"
+    return None
+
+
+def _overflow_details(lines) -> list[tuple[str, int, str | None]]:
+    """Return each linker region's largest reported overflow."""
+    largest_by_region: dict[str, int] = {}
+    for region, amount in _LD_OVERFLOW_RE.findall("".join(lines)):
+        byte_count = int(amount.replace(",", ""))
+        largest_by_region[region] = max(byte_count, largest_by_region.get(region, 0))
+    return [
+        (region, amount, _overflow_region_kind(region))
+        for region, amount in largest_by_region.items()
+    ]
+
+
+def _overflow_message(fqbn: str, lines, measured: dict[str, int] | None = None) -> str:
+    """Explain an overflow using region-specific facts and useful remedies."""
+    details = _overflow_details(lines)
+    kinds = {kind for _, _, kind in details if kind is not None}
+    body: list[str] = [f"\n=== ✗ Too big for {fqbn} ===\n"]
+
+    if details:
+        for region, amount, kind in details:
+            label = f"{kind.upper()} " if kind else ""
+            body.append(f"  {label}region `{region}` overflowed by {amount:,} bytes.\n")
+    elif measured:
+        readings = ", ".join(f"{kind} {percent}%" for kind, percent in measured.items())
+        body.append(f"  The build linked, but it does not fit: {readings}.\n")
+        kinds.update(measured)
+    else:
+        body.append("  This design is larger than a linker memory region can hold.\n")
+
+    if "ram" in kinds:
+        body.extend((
+            "  To reduce RAM, use fewer or smaller screens, choose a smaller LVGL\n",
+            "  heap where the screen permits it, or move LED buffers to PSRAM on\n",
+            "  a PSRAM-equipped board. Flash partition schemes do not increase RAM.\n",
+        ))
+    if "flash" in kinds:
+        body.extend((
+            "  To reduce flash, try fewer patterns in the collection, a smaller\n",
+            "  matrix, or fewer heavy nodes (Image / audio / field) — or choose a\n",
+            "  board or ESP32 partition scheme with more flash.\n",
+        ))
+    if not kinds:
+        body.extend((
+            "  See the linker output, reduce the resources stored in that region, or\n",
+            "  choose a board with more of that memory.\n",
+        ))
+    body.append("  [size-error] won't fit on this board\n")
+    return "".join(body)
+
+
 @_reports_total_time
 def _compile_upload(label, sketch_dir, fqbn, port):
     """Compile, then (if a port is given) upload a sketch. Returns
@@ -1691,14 +1751,7 @@ def _compile_upload(label, sketch_dir, fqbn, port):
         # A capacity overflow is the interesting failure — say so plainly so the
         # UI can show "won't fit" instead of a wall of linker errors.
         if _looks_like_overflow(compile_lines):
-            yield (
-                f"\n=== ✗ Too big for {fqbn} ===\n"
-                "  This design is larger than the board can hold. Try fewer\n"
-                "  patterns in the collection, a smaller matrix, or fewer heavy\n"
-                "  nodes (Image / audio / field) — or pick a board (or ESP32\n"
-                "  partition scheme) with more space.\n"
-                "  [size-error] won't fit on this board\n"
-            )
+            yield _overflow_message(fqbn, compile_lines)
         return rc, "compile"
 
     report = _size_report(compile_lines)
@@ -1833,7 +1886,10 @@ def _fbuild_size_bytes_report(lines):
 # fbuild always prints the board's memory budget up front (win or lose), so
 # the two together are enough to compute a genuine over-100% percentage
 # instead of a bare "won't fit".
-_LD_OVERFLOW_RE = re.compile(r"region [`']([\w.]+)' overflowed by (\d+) bytes", re.I)
+_LD_OVERFLOW_RE = re.compile(
+    r"region\s+[`']?([\w.-]+)[`']?\s+overflowed by\s+([\d,]+)\s+bytes",
+    re.I,
+)
 _FBUILD_MEMORY_RE = re.compile(r"Memory:\s*([\d.]+)\s*(\w+)\s*Flash,\s*([\d.]+)\s*(\w+)\s*RAM", re.I)
 
 
@@ -2048,27 +2104,16 @@ def _compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None, usb_cdc=False)
                 yield from deferred
         if rc != 0:
             if _looks_like_overflow(compile_lines):
-                yield (
-                    f"\n=== ✗ Too big for {fqbn} ===\n"
-                    "  This design is larger than the board can hold. Try fewer\n"
-                    "  patterns in the collection, a smaller matrix, or fewer heavy\n"
-                    "  nodes (Image / audio / field) — or pick a board (or ESP32\n"
-                    "  partition scheme) with more space.\n"
-                    "  [size-error] won't fit on this board\n"
-                )
+                yield _overflow_message(fqbn, compile_lines)
             return rc, "compile"
 
         report = _fbuild_size_report(compile_lines)
         over = _over_capacity(report)
         if over:
-            measured = ", ".join(f"{kind} {report[kind]}%" for kind in over)
-            yield (
-                f"\n=== \u2717 Too big for {fqbn} ===\n"
-                f"  The build linked, but it does not fit: {measured}.\n"
-                "  Try fewer patterns in the collection, a smaller matrix, or fewer\n"
-                "  heavy nodes (Image / audio / field) - or pick a board (or ESP32\n"
-                "  partition scheme) with more space.\n"
-                "  [size-error] won't fit on this board\n"
+            yield _overflow_message(
+                fqbn,
+                compile_lines,
+                {kind: report[kind] for kind in over},
             )
             return -1, "compile"
         if report["flash"] is not None:

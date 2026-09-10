@@ -225,20 +225,17 @@ matrix, not a reason to postpone testing earlier changes.
   asserting document, node ports and edges together. The focused 154 tests,
   targeted lint and `tsc -b` pass.
 
-- [ ] **HW-23 · P1 · A RAM overflow is reported as, and advised like, a flash
-  overflow (S).** Bench-reported 2026-09-08. A custom screen on a classic ESP32
-  failed to link with ``region `dram0_0_seg' overflowed by 22496 bytes``, and the
-  helper answered with "This design is larger than the board can hold. Try fewer
-  patterns in the collection, a smaller matrix, or fewer heavy nodes ... or pick
-  a board (or ESP32 partition scheme) with more space." Patterns and partition
-  schemes are flash; neither moves DRAM by a byte, so the advice sends the user
-  somewhere that cannot help — the reporter's reaction was "only 10 patterns
-  too". The information is already parsed: `_LD_OVERFLOW_RE` in `backend/app.py`
-  captures both the region name and the byte count, and `_looks_like_overflow`
-  then discards them for one flash-flavoured paragraph. Exit: an overflow names
-  the region it overflowed and how far, and gives advice for that region — RAM
-  advice (fewer or smaller screens, smaller LVGL heap, PSRAM for LED buffers)
-  for `dram`/`iram`/`bss`/`data`, the existing flash advice for `text`/`irom`.
+- [x] **HW-23 · P1 · A RAM overflow is reported as, and advised like, a flash
+  overflow (S).** Hard linker failures now retain each region's largest byte
+  overflow and classify the common `dram`/`iram`/`bss`/`data` and
+  `text`/`irom` families. Arduino CLI and fbuild share one formatter: RAM
+  failures name the region and exact overage, recommend fewer/smaller screens,
+  a smaller LVGL heap or PSRAM-backed LED buffers, and explicitly say that a
+  flash partition cannot help; flash failures keep the pattern/matrix/node and
+  partition advice. Successful fbuild outputs over 100% use the same
+  resource-specific path, repeated linker lines are de-duplicated, and the
+  `[size-error]` UI contract is unchanged. The focused 104 tests and full 200
+  backend tests pass.
 
 - [x] **HW-24 · P1 · The RAM estimate predicts an overflow and lets the build run
   anyway (M; overlaps HW-11).** Same session, and the more expensive half.

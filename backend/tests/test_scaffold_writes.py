@@ -230,8 +230,35 @@ def test_a_build_that_linked_over_capacity_is_refused(monkeypatch, tmp_path):
     # The frontend keys its "Won't fit" message on this tag.
     assert "[size-error]" in log
     assert "flash 135%" in log and "ram 2059%" in log
+    assert "fewer or smaller screens" in log
+    assert "fewer patterns" in log
     # Nothing may reach the board: the upload phase never starts.
     assert "upload" not in log.lower()
+
+
+def test_fbuild_hard_ram_overflow_uses_region_specific_advice(monkeypatch):
+    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
+    monkeypatch.setattr(app, "_fbuild_project_ready", True)
+    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda *a, **k: "esp32_esp32_esp32")
+
+    def fake_phase(label, args, sink=None, cwd=None, tool_env=None):
+        line = "ld.exe: region `dram0_0_seg' overflowed by 22496 bytes\n"
+        if sink is not None:
+            sink.append(line)
+        yield line
+        return 1
+
+    monkeypatch.setattr(app, "_run_phase", fake_phase)
+    lines, result = app._drain_compile(
+        app._compile_upload_fbuild("Sketch", "void setup(){}", "esp32:esp32:esp32", "")
+    )
+    log = "".join(lines)
+
+    assert result == (1, "compile")
+    assert "RAM region `dram0_0_seg` overflowed by 22,496 bytes" in log
+    assert "fewer or smaller screens" in log
+    assert "fewer patterns" not in log
 
 
 def test_a_build_that_fits_still_uploads(monkeypatch):
