@@ -179,25 +179,29 @@ matrix, not a reason to postpone testing earlier changes.
   orientations, including pressed/disabled. Expose diagnostics/calibration.
   SquareLine interaction research from the old plan is optional UX input.
 
-  Two of the three starters have landed. **Dimmer and Blackout** is a knob and
-  a button reaching an LED output's Controls latch with no player in the graph;
-  **Browse a Slideshow** is an encoder turning a highlight and a press
+  **All three connected starters have landed.** *Dimmer and Blackout* is a knob
+  and a button reaching an LED output's Controls latch with no player in the
+  graph; *Browse a Slideshow* is an encoder turning a highlight and a press
   committing it, with an I2C OLED as the Pattern Browser that makes
-  highlight-then-confirm mean anything. Both load clean — no errors, no
-  warnings, no pin conflicts — on the generic ESP32 and ESP32-S3 profiles.
-  `build()` now derives the ports Player Controls and Button Bank mint from
+  highlight-then-confirm mean anything; *Player Buttons and Screen* is three
+  buttons named on the Player Controls node reaching the player on one cable,
+  with an OLED taking the player's single Display wire. Every starter — not
+  only these — is now checked on both reference board profiles for pin
+  conflicts and validation errors, and the per-starter structural check
+  validates the board-aware build, since `build()` hands back library-default
+  pins that several parts share and the allocator is what resolves them.
+  `build()` also derives the ports Player Controls and Button Bank mint from
   their properties the way `loadGraph` does, so a starter that wires a function
   hands back a graph whose edges land on sockets its own nodes declare.
 
-  **The music transport/readback starter is held behind HW-26.** It needs three
-  buttons, an SD card, an amplifier, an LED output and a readout, and on the
-  default classic-ESP32 profile that combination cannot be allocated: the
-  curated `max98357` pinout puts DIN on GPIO 22, which is that board's own I2C
-  SCL, so any I2C readout collides; and a segment module instead exhausts
-  `safeGeneralPurpose`, where the allocation failure is silent and the part
-  keeps colliding defaults. One genuine allocator bug found on the way was
-  fixed (parts on fixed pins now sort by the pins they actually take, not by
-  whether their plan has a `fromProfile` function).
+  In-app Help gains a *Physical controls* card beside the two show recipes, the
+  workbench guide a section on wiring a knob or button to something, and the
+  README's gallery list had fallen behind by three starters.
+
+  **Remaining:** the visual/snapshot pass (fixed layouts, widget states, launch
+  themes and templates at supported sizes and orientations, including
+  pressed/disabled) and exposing diagnostics/calibration. Those are QA and UI
+  surface rather than model work.
 - [ ] **HW-09 · Collection freshness/music completeness (M).** Verify group
   edit/delete/reorder invalidates generated timelines and packaged pattern sets;
   cover patternset-without-song and songs-only paths. Exit: stale/incomplete
@@ -325,28 +329,36 @@ matrix, not a reason to postpone testing earlier changes.
   link time. Exit: a measured minimum heap per screen complexity, chosen against
   HW-11's numbers rather than picked to clear one overflow.
 
-- [ ] **HW-26 · P2 · A crowded classic ESP32 cannot be pin-allocated, and says
-  so badly (S/M; blocks HW-08's third starter).** Two separate defects, both
-  found building a music-player starter with three buttons, a card, an
-  amplifier, an LED output and a readout.
+- [x] **HW-26 · P2 · A crowded classic ESP32 could not be pin-allocated, and
+  said so badly (S/M).** Three defects, all found building HW-08's music
+  transport starter, all fixed.
 
-  (a) `esp32-generic-devkit-38pin`'s curated `peripheralPins.max98357` is
-  `{ bclk: 27, lrc: 14, din: 22 }`, and GPIO 22 is that board's own I2C SCL.
-  The pinout is fine alone and collides the moment any I2C part is present —
-  an OLED, or the DS3231 the app also ships — with Graph Health correctly
-  reporting "GPIO 22 mixes a shared bus line with another role". Whether 22 is
-  a bench-wired commitment or an unlucky curation is a maintainer question, not
-  a code one: the rig exists, so ask before moving it.
+  (a) **A placed part claimed its old pins as well as its new ones.** Updates
+  are applied at the end of a retarget, so an already-answered part still held
+  the pins it arrived with — and those properties went to the allocator beside
+  the claim set. An SD card counted as its library default 10/11/12/13 *and* as
+  its board pins 5/18/19/23 at once. Roomy boards never noticed; a classic
+  ESP32 with a card, an amplifier, three buttons, an LED output and a screen
+  ran out of pool with pins still free.
 
-  (b) When `assignPartPins` returns `ok: false` — "No free GPIO on this board",
-  which a classic ESP32 reaches with about a dozen pool pins spoken for —
-  `retargetHardwarePins` silently leaves the part on its library defaults.
-  Those defaults are frequently the very pins already taken, so an exhausted
-  pool is reported downstream as an ordinary pin conflict rather than as "this
-  board has run out". Surface the allocator's own reason instead.
+  (b) **A curated amplifier pinout sat on the board's own I2C bus.** The
+  importer keeps a board's curated peripherals disjoint but cannot see
+  `BOARD_I2C_DEFAULTS`, which lives in the app rather than in the manifests, so
+  MAX98357 DIN was curated onto GPIO 22 — SCL — on both 38-pin ESP32 DevKits
+  and two super minis. Treating the bus as claimed just before the amplifier
+  extends the importer's own precedence by one claim; the amplifier then falls
+  through to three plain digital lines, which `PART_PIN_PLANS` already calls
+  the honest request. A curated microphone stays curated. *(Maintainer
+  confirmed 22 was an unlucky pick, not the bench wiring.)*
 
-  Exit: a starter with that part list either allocates clean on the default
-  board or is refused with a message naming the exhausted board.
+  (c) **Parts on fixed pins were sorted by whether their plan had a
+  `fromProfile` function, not by whether it answered.** An SPI OLED carries one
+  that returns null, so it allocated ahead of the card and the amplifier, which
+  then took their board pins on top of it.
+
+  All three carry focused regressions that fail without the fix. Exit met: the
+  starter with that part list now allocates clean on both reference boards, and
+  so does every other starter.
 
 - [ ] **HW-14 · Independent electrical audit (M).** Scope is a full audit rather
   than a review: Build Diagram calculations, source tables, scope and wording,
