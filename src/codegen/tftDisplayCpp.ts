@@ -837,7 +837,11 @@ function showStatusLoop(display: TftDisplayEmit, width: number, height: number):
 
   lines.push(
     `      bool _tftBrowsing_${id} = ${display.browsingExpr};`,
-    `      const char *_tftState_${id} = _tftBrowsing_${id} ? "BROWSING" : "PLAYING";`,
+    // The same silence showStatusStateText() keeps: the ordinal row has
+    // already said NO PATTERNS, and following that with PLAYING claims a show
+    // the panel has just reported it does not have.
+    `      const char *_tftState_${id} = _tftCount_${id} <= 0 ? "" `
+      + `: (_tftBrowsing_${id} ? "BROWSING" : "PLAYING");`,
     `      if (_tftTextDirty(${p}, ${s.status}, _tftState_${id}) || _tftFull_${id}) `
       + `_tftField(${p}, ${fieldArgs(g.status)}, _tftState_${id}, `
       + `_tftBrowsing_${id} ? TFT_C_ACCENT : TFT_C_DIM, TFT_C_BG);`,

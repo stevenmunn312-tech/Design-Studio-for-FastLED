@@ -589,8 +589,19 @@ export function showStatusOrdinalText(index: number, count: number): string {
   return `${Math.min(at, total - 1) + 1}/${total}`
 }
 
-/** Whether the panel is reporting the show or a browse in progress. */
-export function showStatusStateText(browsing: boolean): string {
+/**
+ * Whether the panel is reporting the show or a browse in progress.
+ *
+ * Silent when there is no collection, for the same reason
+ * `showStatusOrdinalText` refuses to write "1/0": the row above has just said
+ * NO PATTERNS, and a panel that follows that with PLAYING is claiming to be
+ * running something it has also just said it does not have. The OLED Pattern
+ * Browser already draws nothing in that case; this is the colour panel
+ * catching up.
+ */
+export function showStatusStateText(browsing: boolean, count: number): string {
+  const total = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0
+  if (total <= 0) return ''
   return browsing ? STATUS_BROWSING : STATUS_PLAYING
 }
 
@@ -602,7 +613,7 @@ export function drawTransportShowStatus(surface: TftSurface, data: TransportShow
   drawTftField(surface, g.pattern, displayString(data.patternName), c.text, c.background)
   drawTftField(surface, g.ordinal, showStatusOrdinalText(data.patternIndex, data.patternCount), c.dim, c.background)
   drawTftField(
-    surface, g.status, showStatusStateText(data.browsing),
+    surface, g.status, showStatusStateText(data.browsing, data.patternCount),
     data.browsing ? c.accent : c.dim, c.background,
   )
 

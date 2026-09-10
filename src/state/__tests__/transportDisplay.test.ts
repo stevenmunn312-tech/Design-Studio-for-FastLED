@@ -268,8 +268,16 @@ describe('what the fields say', () => {
   })
 
   it('names whether the panel is reporting or being browsed', () => {
-    expect(showStatusStateText(false)).toBe('PLAYING')
-    expect(showStatusStateText(true)).toBe('BROWSING')
+    expect(showStatusStateText(false, 9)).toBe('PLAYING')
+    expect(showStatusStateText(true, 9)).toBe('BROWSING')
+  })
+
+  it('says nothing about playing when there is no collection', () => {
+    // The row above already reads NO PATTERNS; a PLAYING under it claims a
+    // show the panel has just reported it does not have.
+    expect(showStatusStateText(false, 0)).toBe('')
+    expect(showStatusStateText(true, 0)).toBe('')
+    expect(showStatusStateText(false, Number.NaN)).toBe('')
   })
 })
 

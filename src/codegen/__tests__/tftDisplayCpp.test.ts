@@ -292,7 +292,11 @@ describe('the loop', () => {
   it('clears the browsing rows when a browse ends', () => {
     expect(showStatus).toContain('_tftBrowsing_tft1 ? (_highName) : ""')
     expect(showStatus).toContain('_tftHighOrd_tft1[0] = 0;')
-    expect(showStatus).toMatch(/_tftState_tft1 = _tftBrowsing_tft1 \? "BROWSING" : "PLAYING"/)
+    expect(showStatus).toMatch(/_tftBrowsing_tft1 \? "BROWSING" : "PLAYING"/)
+  })
+
+  it('keeps the state row silent with no collection, as the preview does', () => {
+    expect(showStatus).toMatch(/_tftState_tft1 = _tftCount_tft1 <= 0 \? ""/)
   })
 
   // Both ordinals count out of the same collection, so they are formatted by
