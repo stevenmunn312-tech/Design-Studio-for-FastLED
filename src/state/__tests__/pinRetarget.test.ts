@@ -80,6 +80,48 @@ describe('retargetHardwarePins', () => {
    * group and let it allocate ahead of the card and the amplifier — which then
    * took their board pins on top of it.
    */
+  /*
+   * A part already answered for holds its new pins in `claimed`, but its node
+   * properties still hold whatever it arrived with — updates are applied at
+   * the end. Handing those stale properties to the allocator alongside the
+   * claim set made each processed part claim twice, and a small pool then ran
+   * out with pins still free.
+   */
+  it('does not let an already-placed part claim its old pins as well as its new ones', () => {
+    // The amplifier is placed first, onto the board's curated trio, leaving
+    // the three it arrived on. Those three have to come back to the pool: the
+    // five pins the remaining parts need are exactly what is left without
+    // them, and exactly two short with them.
+    const board = {
+      id: 'tight-board',
+      pinSafety: {
+        safeGeneralPurpose: [2, 4, 5, 12, 13, 14, 15, 16],
+        useWithCaution: {},
+        boardReservedOrNotExposed: {},
+      },
+      peripheralPins: { max98357: { bclk: 2, lrc: 4, din: 5 } },
+    } as unknown as PhysicalBoardProfile
+    // The encoder arrives on the very pins the amplifier is about to be given,
+    // so it has to move — and the only room for it is the three the amplifier
+    // vacates.
+    const nodes = [
+      part('amp', 'Amplifier', { i2sBclk: 12, i2sLrc: 13, i2sDout: 14 }),
+      part('enc', 'EncoderInput', { pinA: 2, pinB: 4, pinSW: 5 }),
+      part('one', 'ButtonInput', { pin: 15 }),
+      part('two', 'ButtonInput', { pin: 16 }),
+    ]
+
+    const result = retargetHardwarePins(nodes, board, ESP32_S3)
+    const pins = result.nodes.flatMap((node) => {
+      const properties = node.data.properties as Record<string, unknown>
+      return ['pin', 'pinA', 'pinB', 'pinSW', 'i2sBclk', 'i2sLrc', 'i2sDout']
+        .map((key) => properties[key])
+        .filter((value): value is number => typeof value === 'number')
+    })
+    expect(pins).toHaveLength(8)
+    expect(new Set(pins).size, `distinct pins in ${JSON.stringify(pins)}`).toBe(8)
+  })
+
   it('allocates an SPI OLED after the parts whose pins the board fixes', () => {
     const board = boardProfileById('esp32-generic-devkit-38pin')!
     const nodes = [

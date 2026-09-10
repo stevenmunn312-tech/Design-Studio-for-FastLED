@@ -465,6 +465,18 @@ export function retargetHardwarePins(
   const boardKey = profile?.id ?? fqbn
   const updates = new Map<string, { pins: Record<string, number>; memory: PinsByBoard; mine: string[] }>()
   const claimed = new Set<number>()
+  /*
+   * Parts this pass has already answered for.
+   *
+   * Their pins are in `claimed`; their *node properties* still hold whatever
+   * they arrived with, and updates are only applied at the end. Handing those
+   * stale properties to `assignPartPins` alongside the claim set made every
+   * processed part claim twice — an SD card counted as both its library
+   * default 10/11/12/13 and its board pins 5/18/19/23 — and a crowded classic
+   * ESP32 then ran out of pool and left the next part silently on defaults
+   * that were already taken.
+   */
+  const resolvedIds = new Set<string>()
 
   /* What the user has chosen for *this* board, either just now on it or on a
      previous visit. Off the table before anything is handed out. */
@@ -567,8 +579,12 @@ export function retargetHardwarePins(
         // Everything spoken for, expressed as the claim set `assignPartPins`
         // understands — but never this part's own current pins, or it could
         // not be handed back the pin it already holds and every board change
-        // would shuffle parts that had no reason to move.
-        [...nodes.filter((other) => other.id !== node.id), ...claimedAsNodes(claimed)],
+        // would shuffle parts that had no reason to move. Nor the stale pins
+        // of a part already answered for: `claimed` is what it actually holds.
+        [
+          ...nodes.filter((other) => other.id !== node.id && !resolvedIds.has(other.id)),
+          ...claimedAsNodes(claimed),
+        ],
         (planRequests(plan, properties) ?? []).filter((request) => movable.includes(request.key)),
       )
       next = assigned.ok ? assigned.pins : null
@@ -579,6 +595,7 @@ export function retargetHardwarePins(
     // just placed, and take precedence where both have something to say.
     const resolved = { ...next, ...mine }
     for (const pin of Object.values(resolved)) claimed.add(pin)
+    resolvedIds.add(node.id)
 
     const changed = Object.entries(resolved).filter(([key, pin]) => Number(properties[key]) !== pin)
     const memoryChanged = JSON.stringify(memory) !== JSON.stringify(userPinsByBoard(properties))
