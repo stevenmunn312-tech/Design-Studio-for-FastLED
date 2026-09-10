@@ -175,8 +175,13 @@ describe('starterTemplates', () => {
         expect(tgt, `target node ${edge.target} exists`).toBeTruthy()
         const srcDef = LIBRARY_DEF.get((src!.data as StudioNodeData).nodeType)!
         const tgtDef = LIBRARY_DEF.get((tgt!.data as StudioNodeData).nodeType)!
-        const outPort = srcDef.outputs.find((p) => p.id === edge.sourceHandle)
-        const inPort = tgtDef.inputs.find((p) => p.id === edge.targetHandle)
+        // The node's own ports, not the library's: Player Controls and Button
+        // Bank mint theirs from their properties, so a starter that wires one
+        // has to carry the port it wired.
+        const srcPorts = ((src!.data as StudioNodeData).outputs ?? srcDef.outputs) as typeof srcDef.outputs
+        const tgtPorts = ((tgt!.data as StudioNodeData).inputs ?? tgtDef.inputs) as typeof tgtDef.inputs
+        const outPort = srcPorts.find((p) => p.id === edge.sourceHandle)
+        const inPort = tgtPorts.find((p) => p.id === edge.targetHandle)
         expect(outPort, `${srcDef.type} has output "${edge.sourceHandle}"`).toBeTruthy()
         expect(inPort, `${tgtDef.type} has input "${edge.targetHandle}"`).toBeTruthy()
         expect(portsCompatible(outPort!.dataType, inPort!.dataType)).toBe(true)

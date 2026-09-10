@@ -5,6 +5,8 @@ import { isHardwareOnlyNodeType } from './hardware'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
 import { retargetHardwarePins } from './pinRetarget'
 import { audioCapabilityIntent } from './audioCapabilities'
+import { playerControlInputs } from './playerControlAssignments'
+import { buttonBankOutputs } from './buttonBank'
 import { estimatePowerLoad } from '../utils/validateGraph'
 import type { StudioNode, StudioEdge } from './graphStore'
 
@@ -145,8 +147,16 @@ function buildGraph(nodeSpecs: NodeSpec[], edgeSpecs: EdgeSpec[]): { nodes: Stud
           key,
           typeof value === 'string' && value.startsWith('$') ? idFor(value.slice(1)) : value,
         ])),
-        inputs: def.inputs,
-        outputs: def.outputs,
+        // Two node types mint their own ports from their properties, the way
+        // `loadGraph` derives them. A starter that wires a Player Controls
+        // function has to carry the port it wired, or `build()` hands back a
+        // graph whose edges land on sockets its own nodes do not declare.
+        inputs: def.type === 'PlayerControls'
+          ? playerControlInputs((spec.properties ?? {}).controls)
+          : def.inputs,
+        outputs: def.type === 'ButtonBank'
+          ? buttonBankOutputs((spec.properties ?? {}).buttons)
+          : def.outputs,
       },
     }
   })
@@ -409,6 +419,75 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     edgeSpecs: [
       { source: 'lib', sourceHandle: 'music', target: 'perf', targetHandle: 'music' },
       { source: 'perf', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+    ],
+  }),
+  template({
+    id: 'live-dimming',
+    name: 'Dimmer and Blackout',
+    description: 'A knob and a button on the bench dimming and blacking out the LEDs — no player, no card, just wires.',
+    completionSteps: [
+      'Set the potentiometer and button GPIOs in the Hardware bench, and the LED output pin and size.',
+      'Turn the knob in the hardware bench to watch the preview dim, and press the button to black it out.',
+      'Swap Plasma for any pattern you like — the dimming wires do not care what is being rendered.',
+      'Check capacity, then upload; the same two controls work on the board.',
+    ],
+    nodeSpecs: [
+      { id: 'pattern', type: 'Plasma', col: 0, row: 0 },
+      { id: 'pot', type: 'PotInput', col: 0, row: 1 },
+      { id: 'button', type: 'ButtonInput', col: 0, row: 2 },
+      // The assignment list is declared as well as wired. A load unions the
+      // two, so either alone would do — but stating it means the node reads
+      // correctly straight out of build(), before any load resolves the edges.
+      { id: 'controls', type: 'PlayerControls', col: 1, row: 1, properties: { controls: ['brightness', 'ledToggle'] } },
+      { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 2, row: 0 },
+      tutorialNote(
+        'guide', -1, 0,
+        'DIM AND BLACK OUT \nBlackout and dimming are wires, not project settings: the knob sets the level and the button toggles the lamp.\nUnwired, an output stays lit and undimmed, so adding these ports to an existing project cannot darken it.',
+        TRY_COLOR,
+      ),
+    ],
+    edgeSpecs: [
+      { source: 'pattern', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+      { source: 'pot', sourceHandle: 'value', target: 'controls', targetHandle: 'brightness' },
+      { source: 'button', sourceHandle: 'pressed', target: 'controls', targetHandle: 'ledToggle' },
+      { source: 'controls', sourceHandle: 'controls', target: 'out', targetHandle: 'controls' },
+    ],
+  }),
+  template({
+    id: 'slideshow-browse',
+    name: 'Browse a Slideshow',
+    description: 'A slideshow you can turn through and confirm, with an OLED showing what you are about to play.',
+    completionSteps: [
+      'Build a pattern, select its nodes, create a Group, then connect that Group frame to Pattern Collection.',
+      'Add a few pattern groups so there is something to browse between.',
+      'Set the encoder and OLED GPIOs in the Hardware bench, then turn to highlight and press to confirm.',
+      'Check capacity — a browser bakes a thumbnail per pattern into flash — then upload.',
+    ],
+    nodeSpecs: [
+      { id: 'collection', type: 'PatternCollection', col: 0, row: 0 },
+      { id: 'show', type: 'PatternSlideshow', col: 1, row: 0 },
+      { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 2, row: 0 },
+      { id: 'encoder', type: 'EncoderInput', col: 0, row: 1 },
+      { id: 'controls', type: 'PlayerControls', col: 1, row: 1, properties: { controls: ['patternSelect', 'patternConfirm'] } },
+      // An OLED fed by a pattern-rotating source is a Pattern Browser, and it
+      // is what makes highlight-then-confirm mean anything: the LEDs only ever
+      // show what is already running. The four-pin I2C module rather than the
+      // library's SPI default: two shared bus lines instead of five exclusive
+      // pins is the right first screen, and it is the commonest module.
+      { id: 'oled', type: 'InfoDisplay', col: 2, row: 1, properties: { partId: 'ssd1306-oled-096-128x64-i2c' } },
+      tutorialNote(
+        'guide', -1, 0,
+        'BROWSE AND CONFIRM \nThe show owns which pattern is playing; the encoder moves a highlight and the press commits it.\nThe screen shows what you are looking at, while the LEDs keep playing what is running until you confirm.',
+        TRY_COLOR,
+      ),
+    ],
+    edgeSpecs: [
+      { source: 'collection', sourceHandle: 'patternset', target: 'show', targetHandle: 'patternset' },
+      { source: 'show', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+      { source: 'show', sourceHandle: 'display', target: 'oled', targetHandle: 'display' },
+      { source: 'encoder', sourceHandle: 'position', target: 'controls', targetHandle: 'patternSelect' },
+      { source: 'encoder', sourceHandle: 'pressed', target: 'controls', targetHandle: 'patternConfirm' },
+      { source: 'controls', sourceHandle: 'controls', target: 'show', targetHandle: 'controls' },
     ],
   }),
   template({
