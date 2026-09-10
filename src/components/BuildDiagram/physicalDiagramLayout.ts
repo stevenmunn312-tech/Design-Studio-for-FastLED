@@ -2,6 +2,7 @@ import type { ElectricalPlanSummary } from '../../build/electricalPlan'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
 import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/powerDistribution'
 import { partById, partPinLabelForProperty } from '../../state/partCatalogue'
+import { oledTransportFor, type OledTransport } from '../../state/oledSurface'
 
 export type ItemLayout = {
   item: HardwareManifestItem
@@ -274,6 +275,9 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // be daisy-chained.
   'sh1106-oled-128x64':
     padRow([125.5, 155.5, 186.5, 216.5, 247, 277.5, 308], 434, 391.6, 412),
+  'sh1106-oled-096-128x64-spi':
+    padRow([92.3, 128.1, 163.5, 199.3, 235.3, 271.7, 306.8], 400, 371.6, 414),
+  'sh1106-oled-128x64-i2c': padRow([176.5, 206.6, 237.4, 267.6], 445, 381.5, 422),
   'ssd1306-oled-128x64':
     padRow([80, 114.3, 148.6, 182.9, 217.1, 251.4, 285.7, 320], 400, 346.2, 366),
   // A Grove part: four contacts inside a keyed connector rather than pads.
@@ -281,6 +285,14 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   'max7219-8digit-7segment': padColumn(17.5, 992, [33, 63, 93.5, 124, 153], 188),
   'st7789-tft-240x240':
     padRow([94.5, 125.5, 155.5, 186.5, 216.5, 247.5, 277.5, 308.5], 404, 505, 545),
+  'st7789v-xpt2046-touch-240x320': padRow(
+    [269, 299, 330.2, 360.3, 390.9, 421.1, 452, 482.5, 512.9, 543.2, 574, 604.3, 635.3, 664.9],
+    935, 500.9, 521,
+  ),
+  'ili9341-xpt2046-touch-320x240': padRow(
+    [316.6, 346.2, 376.8, 407.6, 438, 468.3, 498.7, 529.1, 560, 590.4, 621.1, 651.2],
+    968, 586.7, 608,
+  ),
 }
 
 /**
@@ -404,7 +416,7 @@ export function peripheralSignalPadIndex(item: HardwareManifestItem, signalIndex
     const index = pads.indexOf(cataloguedLabel)
     if (index >= 0) return index
   }
-  const wanted = SIGNAL_PAD_NAMES[item.kind]?.[signalIndex]
+  const wanted = signalPadNames(item)?.[signalIndex]
   if (wanted) {
     const index = pads.findIndex((label) => wanted.includes(label))
     if (index >= 0) return index
@@ -422,7 +434,6 @@ export function peripheralSignalPadIndex(item: HardwareManifestItem, signalIndex
  */
 const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>> = {
   'sd-card': [['CS'], ['SCK', 'CLK'], ['MOSI', 'DI'], ['MISO', 'DO']],
-  'info-display': [['CS'], ['DC'], ['RES', 'RST', 'RESET'], ['CLK', 'SCK', 'D0'], ['MOSI', 'DATA', 'DIN', 'D1']],
   'segment-display': [['CLK', 'SCK'], ['DIO', 'DIN', 'DATA'], ['CS', 'LOAD']],
   'rtc-input': [['SDA'], ['SCL']],
   'motion-input': [['OUT', 'SIG']],
@@ -430,6 +441,27 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   'button-input': [['SIG']],
   'pot-input': [['SIG']],
   'encoder-input': [['A'], ['B'], ['SW']],
+}
+
+/**
+ * An OLED's manifest order is its transport's, so one positional list cannot
+ * serve both: `OLED_TRANSPORT_PINS` pushes CS, DC, RESET, CLK, MOSI over SPI
+ * and SDA, SCL over I2C. Reading the SPI list for an I2C module drew SDA on the
+ * CS pad and SCL on the DC pad. The transport comes from the catalogued
+ * interface, the same derivation `oledTransportForProps` makes, rather than
+ * from a second list of which part ids are I2C.
+ */
+function signalPadNames(item: HardwareManifestItem): string[][] | undefined {
+  if (item.kind === 'info-display') {
+    const transport = oledTransportFor(partById(String(item.facts.partId ?? ''))?.display?.interface)
+    return OLED_PAD_NAMES[transport]
+  }
+  return SIGNAL_PAD_NAMES[item.kind]
+}
+
+const OLED_PAD_NAMES: Record<OledTransport, string[][]> = {
+  spi: [['CS'], ['DC'], ['RES', 'RST', 'RESET'], ['CLK', 'SCK', 'D0'], ['MOSI', 'DATA', 'DIN', 'D1']],
+  i2c: [['SDA', 'DATA', 'DIN', 'D1'], ['SCL', 'CLK', 'SCK', 'D0']],
 }
 
 export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' {

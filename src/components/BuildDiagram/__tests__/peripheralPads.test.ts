@@ -90,6 +90,31 @@ describe('module pads come from the part, not the category', () => {
     expect(labels[peripheralSignalPadIndex(oled, 4)]).toBe('MOSI')
   })
 
+  /*
+   * The manifest pushes SDA then SCL for an I2C OLED and CS, DC, RESET, CLK,
+   * MOSI for an SPI one, so the positional fallback has to follow the module's
+   * transport. Reading the SPI order for a four-pin module drew SDA on the CS
+   * pad and SCL on the DC pad — on a board that has neither.
+   */
+  it('routes an I2C OLED to SDA and SCL rather than to the SPI order', () => {
+    const oled = item('info-display', 'sh1106-oled-128x64-i2c')
+    const labels = pads(oled)
+    expect(labels[peripheralSignalPadIndex(oled, 0)]).toBe('SDA')
+    expect(labels[peripheralSignalPadIndex(oled, 1)]).toBe('SCL')
+  })
+
+  // Adafruit prints the SPI names on the two lines its breakout answers I2C on,
+  // so the data line is found as DATA and the clock as CLK.
+  it('finds an I2C line printed with its SPI name', () => {
+    const oled = {
+      ...item('info-display', 'ssd1306-oled-128x64'),
+      pins: ['sdaPin', 'sclPin'].map(pin),
+    }
+    const labels = pads(oled)
+    expect(oled.pins.map((_, index) => labels[peripheralSignalPadIndex(oled, index)]))
+      .toEqual(['DATA', 'CLK'])
+  })
+
   it('routes the square ST7789 signals to its SCL/SDA/RST/BL silkscreen pads', () => {
     const tft = {
       ...item('transport-display', 'st7789-tft-240x240'),

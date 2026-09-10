@@ -100,8 +100,10 @@ const PART_PIN_PROPERTY_ALIASES: Record<string, readonly string[]> = {
   mosiPin: ['MOSI', 'SDA', 'DIN', 'DATA', 'D1'],
   misoPin: ['MISO', 'DO'],
   backlightPin: ['BL', 'LED', 'LITE', 'BACKLIGHT'],
-  sdaPin: ['SDA'],
-  sclPin: ['SCL'],
+  // An I2C OLED is not always silkscreened SDA/SCL: Adafruit's SSD1306 breakout
+  // prints the SPI names DATA and CLK on the same two lines it answers I2C on.
+  sdaPin: ['SDA', 'DATA', 'DIN', 'D1'],
+  sclPin: ['SCL', 'CLK', 'SCK', 'D0'],
   touchCsPin: ['T_CS'],
   touchIrqPin: ['T_IRQ'],
   touchSckPin: ['T_CLK'],
