@@ -43,9 +43,24 @@ export function createDisplayDocument(
   }
 }
 
-/** Move a complete screen between its mounted portrait and landscape views.
- * Widgets retain their relative composition instead of being individually
- * clamped against the newly swapped edge. */
+/**
+ * Move a complete screen between its mounted portrait and landscape views.
+ *
+ * A rotation turns the glass; it does not resize what is drawn on it. A
+ * widget is a physical thing on a physical panel — a 64-pixel button is
+ * 64 pixels whichever way the panel is held, and a label sized to its text
+ * still needs that many pixels afterwards. So a widget keeps its size and
+ * only its position moves, its centre carried across in proportion so the
+ * composition and the reading order survive.
+ *
+ * Scaling both axes was the earlier rule and it had already been carved out
+ * of once, for icon controls, on exactly this reasoning. Applying it to text
+ * was worse rather than better: a label narrowed by a rotation wraps where it
+ * did not before, and gains no height from the other axis until it is too
+ * late. Anything genuinely too big for the panel it lands on is still cut
+ * down by `constrainDisplayWidgetBounds`, which is the one place a bound has
+ * ever been allowed to shrink.
+ */
 export function resizeDisplayDocument(
   document: DisplayDocument,
   designSize: { width: number; height: number },
@@ -61,15 +76,20 @@ export function resizeDisplayDocument(
     ...widget,
     bounds: (() => {
       if (templateBounds) return templateBounds[index]
-      const controlSize = preservedControlSize(widget, scaleX, scaleY, document.gridSize)
+      const square = squaredControlSize(widget, document.gridSize)
+      const size = {
+        width: square ?? widget.bounds.width,
+        height: square ?? widget.bounds.height,
+      }
+      // The centre rather than the corner, so a centred row stays centred and
+      // a widget against the far edge is not dragged inward twice — once by
+      // the scale and again by the clamp.
+      const centreX = (widget.bounds.x + (widget.bounds.width / 2)) * scaleX
+      const centreY = (widget.bounds.y + (widget.bounds.height / 2)) * scaleY
       return constrainDisplayWidgetBounds(target, widget.type, {
-        x: widget.bounds.x * scaleX,
-        y: widget.bounds.y * scaleY,
-        // Icon-only controls are physical touch targets. Rotation changes their
-        // position, never their circular artwork into a rectangle. Textual
-        // widgets can still use both axes to make productive use of the panel.
-        width: controlSize ?? widget.bounds.width * scaleX,
-        height: controlSize ?? widget.bounds.height * scaleY,
+        x: centreX - (size.width / 2),
+        y: centreY - (size.height / 2),
+        ...size,
       })
     })(),
   }))
@@ -119,14 +139,20 @@ function preservesControlAspect(widget: DisplayWidget): boolean {
     || Math.abs(widget.bounds.width - widget.bounds.height) <= 8
 }
 
-function preservedControlSize(widget: DisplayWidget, scaleX: number, scaleY: number, gridSize: number): number | undefined {
+/**
+ * The edge an icon control should be square on, or undefined to leave it.
+ *
+ * Sizes are carried across a rotation untouched now, so this no longer has a
+ * size to preserve — what is left is the repair. An icon control stretched
+ * into a rectangle by the earlier non-uniform rotation is squared back up to
+ * its larger edge, which is the physical target size it was authored at; the
+ * scale factors it used to be derived from described the damage rather than
+ * the original, and mean nothing once neither axis is scaled.
+ */
+function squaredControlSize(widget: DisplayWidget, gridSize: number): number | undefined {
   if (!preservesControlAspect(widget)) return undefined
-  if (Math.abs(widget.bounds.width - widget.bounds.height) <= gridSize) return Math.max(widget.bounds.width, widget.bounds.height)
-
-  // Repair icon controls saved by the earlier non-uniform rotation. The two
-  // scaled axes describe the old square from opposite directions, so the
-  // larger is its original physical target size.
-  return snap(Math.max(widget.bounds.width * scaleX, widget.bounds.height * scaleY), gridSize)
+  if (widget.bounds.width === widget.bounds.height) return undefined
+  return snap(Math.max(widget.bounds.width, widget.bounds.height), gridSize)
 }
 
 function widgetIdStem(type: DisplayWidgetType): string {

@@ -43,6 +43,60 @@ describe('custom display editor model', () => {
     expect(displayLayoutIssues(restored)).toEqual([])
   })
 
+  it('carries widget sizes across a rotation instead of rescaling them', () => {
+    // A rotation turns the glass; it does not resize what is on it. Scaling
+    // both axes narrowed a label until its text wrapped, and the extra line
+    // had nowhere to go — which is what a rotation used to expose. Position
+    // still moves in proportion, so the composition survives.
+    const landscape = {
+      ...createDisplayDocument('panel', 320, 240),
+      widgets: [
+        { id: 'top', type: 'Text' as const, label: 'Top Left', bounds: { x: 16, y: 8, width: 160, height: 32 }, properties: { text: 'Top Left' } },
+        { id: 'bottom', type: 'Text' as const, label: 'Bottom Right', bounds: { x: 144, y: 200, width: 160, height: 32 }, properties: { text: 'Bottom Right' } },
+      ],
+    }
+    const portrait = resizeDisplayDocument(landscape, { width: 240, height: 320 }, '0')
+    for (const [index, widget] of portrait.widgets.entries()) {
+      expect(widget.bounds.width, widget.label).toBe(landscape.widgets[index].bounds.width)
+      expect(widget.bounds.height, widget.label).toBe(landscape.widgets[index].bounds.height)
+    }
+    // Reading order holds: the first widget stays above the second.
+    expect(portrait.widgets[0].bounds.y).toBeLessThan(portrait.widgets[1].bounds.y)
+    expect(displayLayoutIssues(portrait)).toEqual([])
+
+    // Rotating back is not bit-exact and cannot be: a widget keeping its size
+    // takes up a different *share* of the narrower panel, so a position that
+    // has to be clamped on the way over has nowhere to remember the overhang.
+    // What must hold is that the loss happens once and then stops — otherwise
+    // a few rotations would walk a layout off its own screen.
+    const restored = resizeDisplayDocument(portrait, { width: 320, height: 240 }, '90')
+    const again = resizeDisplayDocument(
+      resizeDisplayDocument(restored, { width: 240, height: 320 }, '0'),
+      { width: 320, height: 240 }, '90',
+    )
+    expect(again.widgets.map((widget) => widget.bounds))
+      .toEqual(restored.widgets.map((widget) => widget.bounds))
+    for (const [index, widget] of restored.widgets.entries()) {
+      expect(widget.bounds.width, widget.label).toBe(landscape.widgets[index].bounds.width)
+      expect(widget.bounds.height, widget.label).toBe(landscape.widgets[index].bounds.height)
+    }
+    expect(displayLayoutIssues(restored)).toEqual([])
+  })
+
+  it('cuts a widget down only when the panel it lands on is too small for it', () => {
+    // The one case a bound may still shrink, and it is the clamp doing it
+    // rather than the rotation: 288 pixels of label cannot sit on 240 of glass.
+    const landscape = {
+      ...createDisplayDocument('panel', 320, 240),
+      widgets: [
+        { id: 'wide', type: 'Text' as const, label: 'Wide', bounds: { x: 16, y: 96, width: 288, height: 32 }, properties: {} },
+      ],
+    }
+    const portrait = resizeDisplayDocument(landscape, { width: 240, height: 320 }, '0')
+    expect(portrait.widgets[0].bounds.width).toBe(240)
+    expect(portrait.widgets[0].bounds.x).toBe(0)
+  })
+
   it('adds registry-backed widgets with stable unique ids and free positions', () => {
     let document = createDisplayDocument('panel')
     document = addDisplayWidget(document, 'Button')

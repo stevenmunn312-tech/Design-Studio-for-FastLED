@@ -3,6 +3,7 @@ import { createDisplayDocument, displayLayoutIssues, resizeDisplayDocument } fro
 import { displayDocumentPorts, displayWidgetPorts } from '../displayRegistry'
 import {
   DISPLAY_TEMPLATES,
+  displayTemplate,
   DISPLAY_TEMPLATE_REFERENCE_SIZE,
   applyDisplayTemplate,
 } from '../displayTemplates'
@@ -81,7 +82,15 @@ describe('custom display templates', () => {
     }
 
     const portrait = resizeDisplayDocument(customised, { width: 240, height: 320 }, '0')
-    expect(portrait.widgets[0].bounds.x).toBe(8)
+    // What makes this the ordinary path is that the widget keeps the size it
+    // was given — 288 wide, cut to the 240 of glass it now has — instead of
+    // being re-laid-out into the template's own portrait composition, which
+    // would have made it 208 by 72. Asserting a position instead only ever
+    // worked because the old proportional scale happened to land back on the
+    // same grid line.
+    const reflowed = displayTemplate('pattern-deck')!.portraitWidgets[0].bounds
+    expect(portrait.widgets[0].bounds).toMatchObject({ width: 240, height: 88 })
+    expect(portrait.widgets[0].bounds.height).not.toBe(reflowed.height)
   })
 
   it('inserts ordinary widgets that mint the ports they would mint one at a time', () => {
