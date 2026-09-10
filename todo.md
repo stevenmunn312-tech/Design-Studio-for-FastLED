@@ -112,12 +112,33 @@ matrix, not a reason to postpone testing earlier changes.
   multi-renderer updates, and normal/show/player native ordering are covered;
   `npm test` (4,520 tests), `npm run lint` and `tsc -b` pass. F8.
 - [ ] **HW-06 · Current-model verification fixtures (M; after HW-01–05).**
-  Repair `generate-display-smoke.ts` and hardware-bearing Display test fixtures;
-  use panel/document edges and Song Info. Assert intended UI/binding symbols
-  exist, then compile normal/show/player through Arduino CLI and fbuild. Include
-  isolated TFT-only, headless, disabled and multi-panel cases and each advertised
-  board/part family, especially segment modules. Record fresh source hashes,
-  toolchains and memory figures. Historical fixtures are not current proof. F9.
+  Fixtures ready; the compile runs are the remaining exit and are yours.
+
+  `generate-display-smoke.ts` builds on the current model — panel/document mount
+  edges, widget port ids, Song Info — and asserts the binding symbols each
+  sketch must contain. Ten fixtures: the three generator paths (normal, show,
+  player), then the shapes with no generator of their own that fail in their own
+  ways — isolated TFT-only, headless controls, a disabled panel, two panels each
+  showing their own design — plus every catalogued module across
+  `part-families`/`part-families-i2c`, and a classic-ESP32 fixture carrying the
+  fixed layouts only (a 64 KiB LVGL heap does not fit beside FastLED there, see
+  HW-25).
+
+  Two guards were added so a fixture set can be trusted before anyone spends a
+  compile on it, and both earned their keep immediately. Module coverage is
+  *derived* from the catalogue rather than listed, so a display imported
+  tomorrow fails until it is compiled once — it found the generic four-pin
+  SSD1306, catalogued and offered since HW-21 and compiled nowhere. And each
+  fixture's own graph is checked for pin conflicts, which found two live
+  defects: the player fixture's panel shared the SD card's chip select, and the
+  0.96-inch OLED's reset sat on the LED data pin.
+
+  Remaining exit (bench): compile every fixture through Arduino CLI and fbuild
+  and record fresh source hashes, toolchains and memory figures against
+  [display compile checks](docs/development/display-compile-checks.md), which
+  carries the exact commands including the classic-ESP32 `--fqbn`/`--tag` pair.
+  Each board now gets its own arduino-cli workspace so the two do not evict each
+  other's cores. Historical fixtures are not current proof. F9.
 
 ## 2. Make the workflow understandable
 
