@@ -1,0 +1,1501 @@
+{
+  "studio-default": {
+    "background": {
+      "kind": "solid",
+      "color": "#080b12"
+    },
+    "font": "sans",
+    "fontSize": 16,
+    "cornerRadius": 6,
+    "borderWidth": 1,
+    "states": {
+      "default": {
+        "tokens": {
+          "surfaceColor": "#171d2a",
+          "textColor": "#f4f7ff",
+          "borderColor": "#363c48",
+          "indicatorColor": "#36c8ff",
+          "trackColor": "#3f4450",
+          "thumbColor": "#f4f7ff",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 15.73
+      },
+      "pressed": {
+        "tokens": {
+          "surfaceColor": "#225772",
+          "textColor": "#f4f7ff",
+          "borderColor": "#36c8ff",
+          "indicatorColor": "#36c8ff",
+          "trackColor": "#246583",
+          "thumbColor": "#f4f7ff",
+          "opacity": 1,
+          "pressedOffset": 1
+        },
+        "contrast": 7.33
+      },
+      "active": {
+        "tokens": {
+          "surfaceColor": "#1e4359",
+          "textColor": "#f4f7ff",
+          "borderColor": "#2d98c3",
+          "indicatorColor": "#35d07f",
+          "trackColor": "#225b77",
+          "thumbColor": "#f4f7ff",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 9.79
+      },
+      "inactive": {
+        "tokens": {
+          "surfaceColor": "#232a37",
+          "textColor": "#6e7788",
+          "borderColor": "#383f4e",
+          "indicatorColor": "#6e7788",
+          "trackColor": "#2c3341",
+          "thumbColor": "#6e7788",
+          "opacity": 0.82,
+          "pressedOffset": 0
+        },
+        "contrast": 3.19
+      },
+      "disabled": {
+        "tokens": {
+          "surfaceColor": "#313845",
+          "textColor": "#3b4250",
+          "borderColor": "#2b313f",
+          "indicatorColor": "#3b4250",
+          "trackColor": "#313845",
+          "thumbColor": "#3b4250",
+          "opacity": 0.58,
+          "pressedOffset": 0
+        },
+        "contrast": 1.17
+      }
+    }
+  },
+  "theme:01-neon-orbit": {
+    "background": {
+      "kind": "gradient",
+      "startColor": "#10152b",
+      "endColor": "#080a16",
+      "direction": "vertical"
+    },
+    "font": "sans",
+    "fontSize": 16,
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "states": {
+      "default": {
+        "tokens": {
+          "surfaceColor": "#10152b",
+          "textColor": "#effcff",
+          "borderColor": "#2f3549",
+          "indicatorColor": "#19c9ff",
+          "trackColor": "#383f51",
+          "thumbColor": "#effcff",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 17.21
+      },
+      "pressed": {
+        "tokens": {
+          "surfaceColor": "#135273",
+          "textColor": "#effcff",
+          "borderColor": "#19c9ff",
+          "indicatorColor": "#19c9ff",
+          "trackColor": "#146184",
+          "thumbColor": "#effcff",
+          "opacity": 1,
+          "pressedOffset": 1
+        },
+        "contrast": 8.07
+      },
+      "active": {
+        "tokens": {
+          "surfaceColor": "#123d5a",
+          "textColor": "#effcff",
+          "borderColor": "#1697c4",
+          "indicatorColor": "#45f59a",
+          "trackColor": "#135677",
+          "thumbColor": "#effcff",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 10.89
+      },
+      "inactive": {
+        "tokens": {
+          "surfaceColor": "#21293d",
+          "textColor": "#8aa1ae",
+          "borderColor": "#3e4a5d",
+          "indicatorColor": "#8aa1ae",
+          "trackColor": "#2d374a",
+          "thumbColor": "#8aa1ae",
+          "opacity": 0.82,
+          "pressedOffset": 0
+        },
+        "contrast": 5.38
+      },
+      "disabled": {
+        "tokens": {
+          "surfaceColor": "#404c5f",
+          "textColor": "#536273",
+          "borderColor": "#353f53",
+          "indicatorColor": "#536273",
+          "trackColor": "#404c5f",
+          "thumbColor": "#536273",
+          "opacity": 0.58,
+          "pressedOffset": 0
+        },
+        "contrast": 1.39
+      }
+    }
+  },
+  "theme:02-cyber-cyan": {
+    "background": {
+      "kind": "gradient",
+      "startColor": "#13242b",
+      "endColor": "#071014",
+      "direction": "vertical"
+    },
+    "font": "sans",
+    "fontSize": 16,
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "states": {
+      "default": {
+        "tokens": {
+          "surfaceColor": "#13242b",
+          "textColor": "#dcfff9",
+          "borderColor": "#2f4348",
+          "indicatorColor": "#00f0d0",
+          "trackColor": "#374b50",
+          "thumbColor": "#dcfff9",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 14.99
+      },
+      "pressed": {
+        "tokens": {
+          "surfaceColor": "#0d6963",
+          "textColor": "#dcfff9",
+          "borderColor": "#00f0d0",
+          "indicatorColor": "#00f0d0",
+          "trackColor": "#0b7a70",
+          "thumbColor": "#dcfff9",
+          "opacity": 1,
+          "pressedOffset": 1
+        },
+        "contrast": 6.13
+      },
+      "active": {
+        "tokens": {
+          "surfaceColor": "#0f514f",
+          "textColor": "#dcfff9",
+          "borderColor": "#05b7a2",
+          "indicatorColor": "#45f59a",
+          "trackColor": "#0c6d66",
+          "thumbColor": "#dcfff9",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 8.53
+      },
+      "inactive": {
+        "tokens": {
+          "surfaceColor": "#1a373c",
+          "textColor": "#47aca1",
+          "borderColor": "#275858",
+          "indicatorColor": "#47aca1",
+          "trackColor": "#1f4547",
+          "thumbColor": "#47aca1",
+          "opacity": 0.82,
+          "pressedOffset": 0
+        },
+        "contrast": 4.64
+      },
+      "disabled": {
+        "tokens": {
+          "surfaceColor": "#28595a",
+          "textColor": "#306e6c",
+          "borderColor": "#234d4f",
+          "indicatorColor": "#306e6c",
+          "trackColor": "#28595a",
+          "thumbColor": "#306e6c",
+          "opacity": 0.58,
+          "pressedOffset": 0
+        },
+        "contrast": 1.34
+      }
+    }
+  },
+  "theme:03-synthwave": {
+    "background": {
+      "kind": "gradient",
+      "startColor": "#321452",
+      "endColor": "#11091f",
+      "direction": "vertical"
+    },
+    "font": "sans",
+    "fontSize": 16,
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "states": {
+      "default": {
+        "tokens": {
+          "surfaceColor": "#321452",
+          "textColor": "#fff0fd",
+          "borderColor": "#4f336a",
+          "indicatorColor": "#ff3ca6",
+          "trackColor": "#573c71",
+          "thumbColor": "#fff0fd",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 14.1
+      },
+      "pressed": {
+        "tokens": {
+          "surfaceColor": "#78226f",
+          "textColor": "#fff0fd",
+          "borderColor": "#ff3ca6",
+          "indicatorColor": "#ff3ca6",
+          "trackColor": "#882575",
+          "thumbColor": "#fff0fd",
+          "opacity": 1,
+          "pressedOffset": 1
+        },
+        "contrast": 8.48
+      },
+      "active": {
+        "tokens": {
+          "surfaceColor": "#5f1d64",
+          "textColor": "#fff0fd",
+          "borderColor": "#c6318e",
+          "indicatorColor": "#45f59a",
+          "trackColor": "#7c2270",
+          "thumbColor": "#fff0fd",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 10.36
+      },
+      "inactive": {
+        "tokens": {
+          "surfaceColor": "#44225f",
+          "textColor": "#b177b2",
+          "borderColor": "#623a76",
+          "indicatorColor": "#b177b2",
+          "trackColor": "#502c69",
+          "thumbColor": "#b177b2",
+          "opacity": 0.82,
+          "pressedOffset": 0
+        },
+        "contrast": 3.75
+      },
+      "disabled": {
+        "tokens": {
+          "surfaceColor": "#643b78",
+          "textColor": "#784a87",
+          "borderColor": "#59326f",
+          "indicatorColor": "#784a87",
+          "trackColor": "#643b78",
+          "thumbColor": "#784a87",
+          "opacity": 0.58,
+          "pressedOffset": 0
+        },
+        "contrast": 1.28
+      }
+    }
+  },
+  "theme:04-brushed-steel": {
+    "background": {
+      "kind": "gradient",
+      "startColor": "#67727e",
+      "endColor": "#1b222a",
+      "direction": "vertical"
+    },
+    "font": "sans",
+    "fontSize": 16,
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "states": {
+      "default": {
+        "tokens": {
+          "surfaceColor": "#67727e",
+          "textColor": "#ffffff",
+          "borderColor": "#7c8690",
+          "indicatorColor": "#e7edf1",
+          "trackColor": "#828b95",
+          "thumbColor": "#ffffff",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 4.9
+      },
+      "pressed": {
+        "tokens": {
+          "surfaceColor": "#939ca5",
+          "textColor": "#ffffff",
+          "borderColor": "#e7edf1",
+          "indicatorColor": "#e7edf1",
+          "trackColor": "#9da6ae",
+          "thumbColor": "#ffffff",
+          "opacity": 1,
+          "pressedOffset": 1
+        },
+        "contrast": 2.79
+      },
+      "active": {
+        "tokens": {
+          "surfaceColor": "#838d97",
+          "textColor": "#ffffff",
+          "borderColor": "#c3cbd1",
+          "indicatorColor": "#45f59a",
+          "trackColor": "#959ea7",
+          "thumbColor": "#ffffff",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 3.38
+      },
+      "inactive": {
+        "tokens": {
+          "surfaceColor": "#707b86",
+          "textColor": "#a5afb8",
+          "borderColor": "#7f8994",
+          "indicatorColor": "#a5afb8",
+          "trackColor": "#76818c",
+          "thumbColor": "#a5afb8",
+          "opacity": 0.82,
+          "pressedOffset": 0
+        },
+        "contrast": 1.94
+      },
+      "disabled": {
+        "tokens": {
+          "surfaceColor": "#7f8a95",
+          "textColor": "#89949e",
+          "borderColor": "#7a8590",
+          "indicatorColor": "#89949e",
+          "trackColor": "#7f8a95",
+          "thumbColor": "#89949e",
+          "opacity": 0.58,
+          "pressedOffset": 0
+        },
+        "contrast": 1.14
+      }
+    }
+  },
+  "theme:05-glass-aqua": {
+    "background": {
+      "kind": "gradient",
+      "startColor": "#174d66",
+      "endColor": "#082534",
+      "direction": "vertical"
+    },
+    "font": "sans",
+    "fontSize": 16,
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "states": {
+      "default": {
+        "tokens": {
+          "surfaceColor": "#174d66",
+          "textColor": "#f3feff",
+          "borderColor": "#36667b",
+          "indicatorColor": "#75efff",
+          "trackColor": "#3f6d82",
+          "thumbColor": "#f3feff",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 8.92
+      },
+      "pressed": {
+        "tokens": {
+          "surfaceColor": "#37849a",
+          "textColor": "#f3feff",
+          "borderColor": "#75efff",
+          "indicatorColor": "#75efff",
+          "trackColor": "#3e91a6",
+          "thumbColor": "#f3feff",
+          "opacity": 1,
+          "pressedOffset": 1
+        },
+        "contrast": 4.14
+      },
+      "active": {
+        "tokens": {
+          "surfaceColor": "#2c7188",
+          "textColor": "#f3feff",
+          "borderColor": "#5bc2d4",
+          "indicatorColor": "#45f59a",
+          "trackColor": "#39879d",
+          "thumbColor": "#f3feff",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 5.34
+      },
+      "inactive": {
+        "tokens": {
+          "surfaceColor": "#235c73",
+          "textColor": "#70b6c5",
+          "borderColor": "#39758a",
+          "indicatorColor": "#70b6c5",
+          "trackColor": "#2c667d",
+          "thumbColor": "#70b6c5",
+          "opacity": 0.82,
+          "pressedOffset": 0
+        },
+        "contrast": 3.22
+      },
+      "disabled": {
+        "tokens": {
+          "surfaceColor": "#3a768b",
+          "textColor": "#48869a",
+          "borderColor": "#326c83",
+          "indicatorColor": "#48869a",
+          "trackColor": "#3a768b",
+          "thumbColor": "#48869a",
+          "opacity": 0.58,
+          "pressedOffset": 0
+        },
+        "contrast": 1.24
+      }
+    }
+  },
+  "theme:06-ember-pulse": {
+    "background": {
+      "kind": "gradient",
+      "startColor": "#34211b",
+      "endColor": "#100b0a",
+      "direction": "vertical"
+    },
+    "font": "sans",
+    "fontSize": 16,
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "states": {
+      "default": {
+        "tokens": {
+          "surfaceColor": "#34211b",
+          "textColor": "#fff6df",
+          "borderColor": "#503f36",
+          "indicatorColor": "#ffb020",
+          "trackColor": "#59473e",
+          "thumbColor": "#fff6df",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 14.14
+      },
+      "pressed": {
+        "tokens": {
+          "surfaceColor": "#79521d",
+          "textColor": "#fff6df",
+          "borderColor": "#ffb020",
+          "indicatorColor": "#ffb020",
+          "trackColor": "#895d1d",
+          "thumbColor": "#fff6df",
+          "opacity": 1,
+          "pressedOffset": 1
+        },
+        "contrast": 6.42
+      },
+      "active": {
+        "tokens": {
+          "surfaceColor": "#61401c",
+          "textColor": "#fff6df",
+          "borderColor": "#c6881f",
+          "indicatorColor": "#45f59a",
+          "trackColor": "#7d541d",
+          "thumbColor": "#fff6df",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 8.63
+      },
+      "inactive": {
+        "tokens": {
+          "surfaceColor": "#462f21",
+          "textColor": "#b28645",
+          "borderColor": "#64472b",
+          "indicatorColor": "#b28645",
+          "trackColor": "#523925",
+          "thumbColor": "#b28645",
+          "opacity": 0.82,
+          "pressedOffset": 0
+        },
+        "contrast": 3.78
+      },
+      "disabled": {
+        "tokens": {
+          "surfaceColor": "#66492c",
+          "textColor": "#795832",
+          "borderColor": "#5a3f28",
+          "indicatorColor": "#795832",
+          "trackColor": "#66492c",
+          "thumbColor": "#795832",
+          "opacity": 0.58,
+          "pressedOffset": 0
+        },
+        "contrast": 1.27
+      }
+    }
+  },
+  "theme:07-aurora": {
+    "background": {
+      "kind": "gradient",
+      "startColor": "#172944",
+      "endColor": "#07111f",
+      "direction": "vertical"
+    },
+    "font": "sans",
+    "fontSize": 16,
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "states": {
+      "default": {
+        "tokens": {
+          "surfaceColor": "#172944",
+          "textColor": "#f4ffff",
+          "borderColor": "#36475e",
+          "indicatorColor": "#25efbd",
+          "trackColor": "#3f5066",
+          "thumbColor": "#f4ffff",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 14.33
+      },
+      "pressed": {
+        "tokens": {
+          "surfaceColor": "#1c6c6d",
+          "textColor": "#f4ffff",
+          "borderColor": "#25efbd",
+          "indicatorColor": "#25efbd",
+          "trackColor": "#1d7c77",
+          "thumbColor": "#f4ffff",
+          "opacity": 1,
+          "pressedOffset": 1
+        },
+        "contrast": 6.03
+      },
+      "active": {
+        "tokens": {
+          "surfaceColor": "#1a555f",
+          "textColor": "#f4ffff",
+          "borderColor": "#21b89b",
+          "indicatorColor": "#45f59a",
+          "trackColor": "#1c7070",
+          "thumbColor": "#f4ffff",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 8.21
+      },
+      "inactive": {
+        "tokens": {
+          "surfaceColor": "#223c52",
+          "textColor": "#64aea8",
+          "borderColor": "#345c6a",
+          "indicatorColor": "#64aea8",
+          "trackColor": "#29495c",
+          "thumbColor": "#64aea8",
+          "opacity": 0.82,
+          "pressedOffset": 0
+        },
+        "contrast": 4.44
+      },
+      "disabled": {
+        "tokens": {
+          "surfaceColor": "#355e6c",
+          "textColor": "#41727b",
+          "borderColor": "#2e5162",
+          "indicatorColor": "#41727b",
+          "trackColor": "#355e6c",
+          "thumbColor": "#41727b",
+          "opacity": 0.58,
+          "pressedOffset": 0
+        },
+        "contrast": 1.32
+      }
+    }
+  },
+  "theme:08-pixel-matrix": {
+    "background": {
+      "kind": "gradient",
+      "startColor": "#10131c",
+      "endColor": "#05060a",
+      "direction": "vertical"
+    },
+    "font": "sans",
+    "fontSize": 16,
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "states": {
+      "default": {
+        "tokens": {
+          "surfaceColor": "#10131c",
+          "textColor": "#f2fff7",
+          "borderColor": "#30343b",
+          "indicatorColor": "#39ff88",
+          "trackColor": "#393d43",
+          "thumbColor": "#f2fff7",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 18.04
+      },
+      "pressed": {
+        "tokens": {
+          "surfaceColor": "#1e6341",
+          "textColor": "#f2fff7",
+          "borderColor": "#39ff88",
+          "indicatorColor": "#39ff88",
+          "trackColor": "#217649",
+          "thumbColor": "#f2fff7",
+          "opacity": 1,
+          "pressedOffset": 1
+        },
+        "contrast": 7
+      },
+      "active": {
+        "tokens": {
+          "surfaceColor": "#194734",
+          "textColor": "#f2fff7",
+          "borderColor": "#2ebd6a",
+          "indicatorColor": "#45f59a",
+          "trackColor": "#1f6843",
+          "thumbColor": "#f2fff7",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 10.25
+      },
+      "inactive": {
+        "tokens": {
+          "surfaceColor": "#172727",
+          "textColor": "#42a56c",
+          "borderColor": "#234a3a",
+          "indicatorColor": "#42a56c",
+          "trackColor": "#1c362f",
+          "thumbColor": "#42a56c",
+          "opacity": 0.82,
+          "pressedOffset": 0
+        },
+        "contrast": 5.04
+      },
+      "disabled": {
+        "tokens": {
+          "surfaceColor": "#244d3c",
+          "textColor": "#2c6348",
+          "borderColor": "#1f3f34",
+          "indicatorColor": "#2c6348",
+          "trackColor": "#244d3c",
+          "thumbColor": "#2c6348",
+          "opacity": 0.58,
+          "pressedOffset": 0
+        },
+        "contrast": 1.36
+      }
+    }
+  },
+  "theme:09-minimal-light": {
+    "background": {
+      "kind": "gradient",
+      "startColor": "#ffffff",
+      "endColor": "#dfe8f0",
+      "direction": "vertical"
+    },
+    "font": "sans",
+    "fontSize": 16,
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "states": {
+      "default": {
+        "tokens": {
+          "surfaceColor": "#ffffff",
+          "textColor": "#122334",
+          "borderColor": "#dee0e3",
+          "indicatorColor": "#435b70",
+          "trackColor": "#d4d7da",
+          "thumbColor": "#122334",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 15.96
+      },
+      "pressed": {
+        "tokens": {
+          "surfaceColor": "#bfc7ce",
+          "textColor": "#122334",
+          "borderColor": "#435b70",
+          "indicatorColor": "#435b70",
+          "trackColor": "#b0bac3",
+          "thumbColor": "#122334",
+          "opacity": 1,
+          "pressedOffset": 1
+        },
+        "contrast": 9.33
+      },
+      "active": {
+        "tokens": {
+          "surfaceColor": "#d6dbe0",
+          "textColor": "#122334",
+          "borderColor": "#788998",
+          "indicatorColor": "#45f59a",
+          "trackColor": "#bbc4cc",
+          "thumbColor": "#122334",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 11.45
+      },
+      "inactive": {
+        "tokens": {
+          "surfaceColor": "#eff1f4",
+          "textColor": "#8a9eae",
+          "borderColor": "#d3dae0",
+          "indicatorColor": "#8a9eae",
+          "trackColor": "#e3e8ec",
+          "thumbColor": "#8a9eae",
+          "opacity": 0.82,
+          "pressedOffset": 0
+        },
+        "contrast": 2.45
+      },
+      "disabled": {
+        "tokens": {
+          "surfaceColor": "#d1d9df",
+          "textColor": "#bfcad2",
+          "borderColor": "#dce2e6",
+          "indicatorColor": "#bfcad2",
+          "trackColor": "#d1d9df",
+          "thumbColor": "#bfcad2",
+          "opacity": 0.58,
+          "pressedOffset": 0
+        },
+        "contrast": 1.17
+      }
+    }
+  },
+  "theme:10-arcade-candy": {
+    "background": {
+      "kind": "gradient",
+      "startColor": "#2a1a4b",
+      "endColor": "#120b25",
+      "direction": "vertical"
+    },
+    "font": "sans",
+    "fontSize": 16,
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "states": {
+      "default": {
+        "tokens": {
+          "surfaceColor": "#2a1a4b",
+          "textColor": "#ffffff",
+          "borderColor": "#483a64",
+          "indicatorColor": "#ff4fc8",
+          "trackColor": "#50436b",
+          "thumbColor": "#ffffff",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 15.58
+      },
+      "pressed": {
+        "tokens": {
+          "surfaceColor": "#722c76",
+          "textColor": "#ffffff",
+          "borderColor": "#ff4fc8",
+          "indicatorColor": "#ff4fc8",
+          "trackColor": "#833080",
+          "thumbColor": "#ffffff",
+          "opacity": 1,
+          "pressedOffset": 1
+        },
+        "contrast": 8.98
+      },
+      "active": {
+        "tokens": {
+          "surfaceColor": "#592667",
+          "textColor": "#ffffff",
+          "borderColor": "#c340a5",
+          "indicatorColor": "#45f59a",
+          "trackColor": "#772d78",
+          "thumbColor": "#ffffff",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 11.07
+      },
+      "inactive": {
+        "tokens": {
+          "surfaceColor": "#3c2c4b",
+          "textColor": "#ae9a4a",
+          "borderColor": "#5c4b4b",
+          "indicatorColor": "#ae9a4a",
+          "trackColor": "#4a394b",
+          "thumbColor": "#ae9a4a",
+          "opacity": 0.82,
+          "pressedOffset": 0
+        },
+        "contrast": 4.55
+      },
+      "disabled": {
+        "tokens": {
+          "surfaceColor": "#5e4c4b",
+          "textColor": "#72604b",
+          "borderColor": "#52414b",
+          "indicatorColor": "#72604b",
+          "trackColor": "#5e4c4b",
+          "thumbColor": "#72604b",
+          "opacity": 0.58,
+          "pressedOffset": 0
+        },
+        "contrast": 1.34
+      }
+    }
+  },
+  "theme:11-vinyl-groove": {
+    "background": {
+      "kind": "gradient",
+      "startColor": "#25252b",
+      "endColor": "#050507",
+      "direction": "vertical"
+    },
+    "font": "sans",
+    "fontSize": 16,
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "states": {
+      "default": {
+        "tokens": {
+          "surfaceColor": "#25252b",
+          "textColor": "#fff4cf",
+          "borderColor": "#444242",
+          "indicatorColor": "#ff315f",
+          "trackColor": "#4c4a49",
+          "thumbColor": "#fff4cf",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 13.85
+      },
+      "pressed": {
+        "tokens": {
+          "surfaceColor": "#6f293d",
+          "textColor": "#fff4cf",
+          "borderColor": "#ff315f",
+          "indicatorColor": "#ff315f",
+          "trackColor": "#812a41",
+          "thumbColor": "#fff4cf",
+          "opacity": 1,
+          "pressedOffset": 1
+        },
+        "contrast": 9.27
+      },
+      "active": {
+        "tokens": {
+          "surfaceColor": "#552836",
+          "textColor": "#fff4cf",
+          "borderColor": "#c22e50",
+          "indicatorColor": "#45f59a",
+          "trackColor": "#73293e",
+          "thumbColor": "#fff4cf",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 10.95
+      },
+      "inactive": {
+        "tokens": {
+          "surfaceColor": "#38342f",
+          "textColor": "#ac8d44",
+          "borderColor": "#584d35",
+          "indicatorColor": "#ac8d44",
+          "trackColor": "#453e31",
+          "thumbColor": "#ac8d44",
+          "opacity": 0.82,
+          "pressedOffset": 0
+        },
+        "contrast": 3.91
+      },
+      "disabled": {
+        "tokens": {
+          "surfaceColor": "#5a4e35",
+          "textColor": "#6f5e39",
+          "borderColor": "#4e4433",
+          "indicatorColor": "#6f5e39",
+          "trackColor": "#5a4e35",
+          "thumbColor": "#6f5e39",
+          "opacity": 0.58,
+          "pressedOffset": 0
+        },
+        "contrast": 1.3
+      }
+    }
+  },
+  "theme:12-cassette-future": {
+    "background": {
+      "kind": "gradient",
+      "startColor": "#172b3d",
+      "endColor": "#09131d",
+      "direction": "vertical"
+    },
+    "font": "sans",
+    "fontSize": 16,
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "states": {
+      "default": {
+        "tokens": {
+          "surfaceColor": "#172b3d",
+          "textColor": "#fffbe8",
+          "borderColor": "#374855",
+          "indicatorColor": "#ffdc42",
+          "trackColor": "#41505c",
+          "thumbColor": "#fffbe8",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 13.95
+      },
+      "pressed": {
+        "tokens": {
+          "surfaceColor": "#66673f",
+          "textColor": "#fffbe8",
+          "borderColor": "#ffdc42",
+          "indicatorColor": "#ffdc42",
+          "trackColor": "#78753f",
+          "thumbColor": "#fffbe8",
+          "opacity": 1,
+          "pressedOffset": 1
+        },
+        "contrast": 5.65
+      },
+      "active": {
+        "tokens": {
+          "surfaceColor": "#4a523e",
+          "textColor": "#fffbe8",
+          "borderColor": "#beaa41",
+          "indicatorColor": "#45f59a",
+          "trackColor": "#6b6b3f",
+          "thumbColor": "#fffbe8",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 7.87
+      },
+      "inactive": {
+        "tokens": {
+          "surfaceColor": "#1c3b4e",
+          "textColor": "#3c9eb5",
+          "borderColor": "#25576b",
+          "indicatorColor": "#3c9eb5",
+          "trackColor": "#20475a",
+          "thumbColor": "#3c9eb5",
+          "opacity": 0.82,
+          "pressedOffset": 0
+        },
+        "contrast": 3.78
+      },
+      "disabled": {
+        "tokens": {
+          "surfaceColor": "#25586d",
+          "textColor": "#2b6a7f",
+          "borderColor": "#224e61",
+          "indicatorColor": "#2b6a7f",
+          "trackColor": "#25586d",
+          "thumbColor": "#2b6a7f",
+          "opacity": 0.58,
+          "pressedOffset": 0
+        },
+        "contrast": 1.29
+      }
+    }
+  },
+  "theme:13-crystal-shard": {
+    "background": {
+      "kind": "gradient",
+      "startColor": "#30205e",
+      "endColor": "#0b1034",
+      "direction": "vertical"
+    },
+    "font": "sans",
+    "fontSize": 16,
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "states": {
+      "default": {
+        "tokens": {
+          "surfaceColor": "#30205e",
+          "textColor": "#ffffff",
+          "borderColor": "#4d3f75",
+          "indicatorColor": "#7ef6ff",
+          "trackColor": "#55487b",
+          "thumbColor": "#ffffff",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 14.06
+      },
+      "pressed": {
+        "tokens": {
+          "surfaceColor": "#4b6995",
+          "textColor": "#ffffff",
+          "borderColor": "#7ef6ff",
+          "indicatorColor": "#7ef6ff",
+          "trackColor": "#517aa2",
+          "thumbColor": "#ffffff",
+          "opacity": 1,
+          "pressedOffset": 1
+        },
+        "contrast": 5.59
+      },
+      "active": {
+        "tokens": {
+          "surfaceColor": "#414f81",
+          "textColor": "#ffffff",
+          "borderColor": "#68bad2",
+          "indicatorColor": "#45f59a",
+          "trackColor": "#4c6d98",
+          "thumbColor": "#ffffff",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 7.89
+      },
+      "inactive": {
+        "tokens": {
+          "surfaceColor": "#38326c",
+          "textColor": "#66a4c2",
+          "borderColor": "#455284",
+          "indicatorColor": "#66a4c2",
+          "trackColor": "#3d4076",
+          "thumbColor": "#66a4c2",
+          "opacity": 0.82,
+          "pressedOffset": 0
+        },
+        "contrast": 4.16
+      },
+      "disabled": {
+        "tokens": {
+          "surfaceColor": "#465486",
+          "textColor": "#4e6895",
+          "borderColor": "#41487c",
+          "indicatorColor": "#4e6895",
+          "trackColor": "#465486",
+          "thumbColor": "#4e6895",
+          "opacity": 0.58,
+          "pressedOffset": 0
+        },
+        "contrast": 1.3
+      }
+    }
+  },
+  "theme:14-biolume-organic": {
+    "background": {
+      "kind": "gradient",
+      "startColor": "#123b31",
+      "endColor": "#071810",
+      "direction": "vertical"
+    },
+    "font": "sans",
+    "fontSize": 16,
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "states": {
+      "default": {
+        "tokens": {
+          "surfaceColor": "#123b31",
+          "textColor": "#f0ffe3",
+          "borderColor": "#31564a",
+          "indicatorColor": "#80ff77",
+          "trackColor": "#3a5e51",
+          "thumbColor": "#f0ffe3",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 11.86
+      },
+      "pressed": {
+        "tokens": {
+          "surfaceColor": "#377e49",
+          "textColor": "#f0ffe3",
+          "borderColor": "#80ff77",
+          "indicatorColor": "#80ff77",
+          "trackColor": "#408d4e",
+          "thumbColor": "#f0ffe3",
+          "opacity": 1,
+          "pressedOffset": 1
+        },
+        "contrast": 4.74
+      },
+      "active": {
+        "tokens": {
+          "surfaceColor": "#2a6640",
+          "textColor": "#f0ffe3",
+          "borderColor": "#61c863",
+          "indicatorColor": "#45f59a",
+          "trackColor": "#3a824a",
+          "thumbColor": "#f0ffe3",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 6.55
+      },
+      "inactive": {
+        "tokens": {
+          "surfaceColor": "#1f4c35",
+          "textColor": "#6eb54b",
+          "borderColor": "#35693b",
+          "indicatorColor": "#6eb54b",
+          "trackColor": "#285837",
+          "thumbColor": "#6eb54b",
+          "opacity": 0.82,
+          "pressedOffset": 0
+        },
+        "contrast": 3.91
+      },
+      "disabled": {
+        "tokens": {
+          "surfaceColor": "#376b3b",
+          "textColor": "#457e3f",
+          "borderColor": "#2e6039",
+          "indicatorColor": "#457e3f",
+          "trackColor": "#376b3b",
+          "thumbColor": "#457e3f",
+          "opacity": 0.58,
+          "pressedOffset": 0
+        },
+        "contrast": 1.29
+      }
+    }
+  },
+  "theme:15-retro-space-age": {
+    "background": {
+      "kind": "gradient",
+      "startColor": "#f5dfb7",
+      "endColor": "#d5804e",
+      "direction": "vertical"
+    },
+    "font": "sans",
+    "fontSize": 16,
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "states": {
+      "default": {
+        "tokens": {
+          "surfaceColor": "#f5dfb7",
+          "textColor": "#351e2b",
+          "borderColor": "#dac4a3",
+          "indicatorColor": "#fff2cd",
+          "trackColor": "#d2bc9e",
+          "thumbColor": "#351e2b",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 11.75
+      },
+      "pressed": {
+        "tokens": {
+          "surfaceColor": "#f8e5be",
+          "textColor": "#351e2b",
+          "borderColor": "#fff2cd",
+          "indicatorColor": "#fff2cd",
+          "trackColor": "#f9e7c0",
+          "thumbColor": "#351e2b",
+          "opacity": 1,
+          "pressedOffset": 1
+        },
+        "contrast": 12.35
+      },
+      "active": {
+        "tokens": {
+          "surfaceColor": "#f7e3bc",
+          "textColor": "#351e2b",
+          "borderColor": "#fcedc7",
+          "indicatorColor": "#45f59a",
+          "trackColor": "#f9e6bf",
+          "thumbColor": "#351e2b",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 12.15
+      },
+      "inactive": {
+        "tokens": {
+          "surfaceColor": "#ead0ad",
+          "textColor": "#a57470",
+          "borderColor": "#d7b69c",
+          "indicatorColor": "#a57470",
+          "trackColor": "#e2c5a6",
+          "thumbColor": "#a57470",
+          "opacity": 0.82,
+          "pressedOffset": 0
+        },
+        "contrast": 2.65
+      },
+      "disabled": {
+        "tokens": {
+          "surfaceColor": "#d5b59b",
+          "textColor": "#c9a490",
+          "borderColor": "#ddbfa2",
+          "indicatorColor": "#c9a490",
+          "trackColor": "#d5b59b",
+          "thumbColor": "#c9a490",
+          "opacity": 0.58,
+          "pressedOffset": 0
+        },
+        "contrast": 1.19
+      }
+    }
+  },
+  "theme:16-holo-prism": {
+    "background": {
+      "kind": "gradient",
+      "startColor": "#18233e",
+      "endColor": "#080b19",
+      "direction": "vertical"
+    },
+    "font": "sans",
+    "fontSize": 16,
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "states": {
+      "default": {
+        "tokens": {
+          "surfaceColor": "#18233e",
+          "textColor": "#ffffff",
+          "borderColor": "#384259",
+          "indicatorColor": "#67fff0",
+          "trackColor": "#424b61",
+          "thumbColor": "#ffffff",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 15.57
+      },
+      "pressed": {
+        "tokens": {
+          "surfaceColor": "#336e7b",
+          "textColor": "#ffffff",
+          "borderColor": "#67fff0",
+          "indicatorColor": "#67fff0",
+          "trackColor": "#397f89",
+          "thumbColor": "#ffffff",
+          "opacity": 1,
+          "pressedOffset": 1
+        },
+        "contrast": 5.74
+      },
+      "active": {
+        "tokens": {
+          "surfaceColor": "#295365",
+          "textColor": "#ffffff",
+          "borderColor": "#51c1be",
+          "indicatorColor": "#45f59a",
+          "trackColor": "#34727e",
+          "thumbColor": "#ffffff",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 8.33
+      },
+      "inactive": {
+        "tokens": {
+          "surfaceColor": "#2a344f",
+          "textColor": "#9999b6",
+          "borderColor": "#49506c",
+          "indicatorColor": "#9999b6",
+          "trackColor": "#373f5b",
+          "thumbColor": "#9999b6",
+          "opacity": 0.82,
+          "pressedOffset": 0
+        },
+        "contrast": 4.46
+      },
+      "disabled": {
+        "tokens": {
+          "surfaceColor": "#4b526e",
+          "textColor": "#5f6480",
+          "borderColor": "#3f4762",
+          "indicatorColor": "#5f6480",
+          "trackColor": "#4b526e",
+          "thumbColor": "#5f6480",
+          "opacity": 0.58,
+          "pressedOffset": 0
+        },
+        "contrast": 1.33
+      }
+    }
+  },
+  "theme:17-hazard-module": {
+    "background": {
+      "kind": "gradient",
+      "startColor": "#363735",
+      "endColor": "#111311",
+      "direction": "vertical"
+    },
+    "font": "sans",
+    "fontSize": 16,
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "states": {
+      "default": {
+        "tokens": {
+          "surfaceColor": "#363735",
+          "textColor": "#fff7b3",
+          "borderColor": "#525247",
+          "indicatorColor": "#ffe83d",
+          "trackColor": "#5a5a4c",
+          "thumbColor": "#fff7b3",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 10.95
+      },
+      "pressed": {
+        "tokens": {
+          "surfaceColor": "#7a7338",
+          "textColor": "#fff7b3",
+          "borderColor": "#ffe83d",
+          "indicatorColor": "#ffe83d",
+          "trackColor": "#8a8138",
+          "thumbColor": "#fff7b3",
+          "opacity": 1,
+          "pressedOffset": 1
+        },
+        "contrast": 4.43
+      },
+      "active": {
+        "tokens": {
+          "surfaceColor": "#625e37",
+          "textColor": "#fff7b3",
+          "borderColor": "#c7b63b",
+          "indicatorColor": "#45f59a",
+          "trackColor": "#7e7738",
+          "thumbColor": "#fff7b3",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 6.05
+      },
+      "inactive": {
+        "tokens": {
+          "surfaceColor": "#484534",
+          "textColor": "#b39830",
+          "borderColor": "#665c33",
+          "indicatorColor": "#b39830",
+          "trackColor": "#544e34",
+          "thumbColor": "#b39830",
+          "opacity": 0.82,
+          "pressedOffset": 0
+        },
+        "contrast": 3.42
+      },
+      "disabled": {
+        "tokens": {
+          "surfaceColor": "#675d33",
+          "textColor": "#7a6c32",
+          "borderColor": "#5b5433",
+          "indicatorColor": "#7a6c32",
+          "trackColor": "#675d33",
+          "thumbColor": "#7a6c32",
+          "opacity": 0.58,
+          "pressedOffset": 0
+        },
+        "contrast": 1.26
+      }
+    }
+  },
+  "theme:18-circuit-relic": {
+    "background": {
+      "kind": "gradient",
+      "startColor": "#123b36",
+      "endColor": "#061b19",
+      "direction": "vertical"
+    },
+    "font": "sans",
+    "fontSize": 16,
+    "cornerRadius": 12,
+    "borderWidth": 2,
+    "states": {
+      "default": {
+        "tokens": {
+          "surfaceColor": "#123b36",
+          "textColor": "#f8e9b7",
+          "borderColor": "#325348",
+          "indicatorColor": "#d0a85b",
+          "trackColor": "#3b5a4d",
+          "thumbColor": "#f8e9b7",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 10.17
+      },
+      "pressed": {
+        "tokens": {
+          "surfaceColor": "#536043",
+          "textColor": "#f8e9b7",
+          "borderColor": "#d0a85b",
+          "indicatorColor": "#d0a85b",
+          "trackColor": "#626946",
+          "thumbColor": "#f8e9b7",
+          "opacity": 1,
+          "pressedOffset": 1
+        },
+        "contrast": 5.55
+      },
+      "active": {
+        "tokens": {
+          "surfaceColor": "#3c533e",
+          "textColor": "#f8e9b7",
+          "borderColor": "#9b8951",
+          "indicatorColor": "#45f59a",
+          "trackColor": "#566243",
+          "thumbColor": "#f8e9b7",
+          "opacity": 1,
+          "pressedOffset": 0
+        },
+        "contrast": 6.94
+      },
+      "inactive": {
+        "tokens": {
+          "surfaceColor": "#184c43",
+          "textColor": "#3bb595",
+          "borderColor": "#22695a",
+          "indicatorColor": "#3bb595",
+          "trackColor": "#1c584d",
+          "thumbColor": "#3bb595",
+          "opacity": 0.82,
+          "pressedOffset": 0
+        },
+        "contrast": 3.82
+      },
+      "disabled": {
+        "tokens": {
+          "surfaceColor": "#226b5b",
+          "textColor": "#287e6a",
+          "borderColor": "#1e6053",
+          "indicatorColor": "#287e6a",
+          "trackColor": "#226b5b",
+          "thumbColor": "#287e6a",
+          "opacity": 0.58,
+          "pressedOffset": 0
+        },
+        "contrast": 1.29
+      }
+    }
+  }
+}
