@@ -27,12 +27,42 @@ installed:
 
 ```powershell
 node scripts/generate-display-smoke.mjs
+```
+
+The three generator paths, on both engines:
+
+```powershell
 python scripts/compile-display-smoke.py arduino-cli artifacts/display-compile/normal.ino
 python scripts/compile-display-smoke.py arduino-cli artifacts/display-compile/show.ino
 python scripts/compile-display-smoke.py arduino-cli artifacts/display-compile/player.ino
 python scripts/compile-display-smoke.py fbuild artifacts/display-compile/normal.ino
 python scripts/compile-display-smoke.py fbuild artifacts/display-compile/show.ino
 python scripts/compile-display-smoke.py fbuild artifacts/display-compile/player.ino
+```
+
+The shapes that have no generator of their own but fail in their own ways —
+a TFT with no LED output beside it, a control build with no display half, a
+panel switched off, two panels each showing their own design, and every
+catalogued module in as few sketches as their I²C addresses allow:
+
+```powershell
+python scripts/compile-display-smoke.py fbuild artifacts/display-compile/isolated-tft.ino
+python scripts/compile-display-smoke.py fbuild artifacts/display-compile/headless.ino
+python scripts/compile-display-smoke.py fbuild artifacts/display-compile/disabled.ino
+python scripts/compile-display-smoke.py fbuild artifacts/display-compile/multi-panel.ino
+python scripts/compile-display-smoke.py fbuild artifacts/display-compile/part-families.ino
+python scripts/compile-display-smoke.py fbuild artifacts/display-compile/part-families-i2c.ino
+```
+
+The other advertised board. A classic ESP32 is a different chip family with no
+PSRAM and a much smaller internal RAM ceiling, so its fixture carries the fixed
+display layouts only — no custom screen, because a 64 KiB LVGL heap does not
+fit beside FastLED there (HW-25). Pass its FQBN and a `--tag`, which keeps the
+report beside the S3 one instead of overwriting it:
+
+```powershell
+python scripts/compile-display-smoke.py arduino-cli artifacts/display-compile/classic-esp32-fixed.ino --fqbn esp32:esp32:esp32 --tag classic
+python scripts/compile-display-smoke.py fbuild artifacts/display-compile/classic-esp32-fixed.ino --fqbn esp32:esp32:esp32 --tag classic
 ```
 
 Generation uses empty in-memory browser storage and opens no browser. Compilation
@@ -42,12 +72,23 @@ and a JSON size/result report beside its input sketch. These local artifacts are
 ignored by Git. Each command exits nonzero on a failed build.
 
 The default target is ESP32-S3 with OPI PSRAM, 16 MB flash and a 3 MB application
-partition. The fixture selects the generic N16R8 44-pin board profile and the
-ST7789V/XPT2046 240×320 module. Use `--fqbn` only for a deliberately selected
-alternative target; other boards are not covered by these fixtures. The helper
+partition. Those fixtures select the generic N16R8 44-pin board profile and the
+ST7789V/XPT2046 240×320 module; the classic-ESP32 fixture selects the generic
+38-pin DevKit and needs its own `--fqbn` as shown above. Each board gets its own
+arduino-cli workspace, keyed on the FQBN's board id, because arduino-cli caches
+per sketch *path* — one shared directory would have each board evicting the
+other's cores and rebuilding all of FastLED. The helper
 installs LVGL 9.5.0 lazily; Arduino must already have the ESP32 core and FastLED
 installed. Both engines fetch their own pinned player audio dependency when
 needed. Git and network access are required for uncached dependencies.
+
+The generator refuses to write a fixture set that would waste a compile. It
+asserts the binding symbols each sketch must contain, that every module offered
+by a part menu is compiled by some fixture — derived from the catalogue, so a
+display imported tomorrow fails here until it has been built once — and that no
+fixture wires two parts to one pin. That last check found two live defects in
+this set when it was added: a panel whose chip select shared the SD card's, and
+an OLED reset sitting on the LED data pin.
 
 ## Findings
 

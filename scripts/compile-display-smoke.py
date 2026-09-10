@@ -54,9 +54,13 @@ with log_path.open("w", encoding="utf-8") as log:
         result = drain(helper._compile_upload_fbuild("Display smoke", ino, args.fqbn, "", 16), log)
         sizes = helper._fbuild_size_bytes_report(lines)
     else:
-        # One serialized workspace reuses the library cache across all three
-        # variants. Its stable name is retained from the first normal fixture.
-        with helper._sketch_workspace("display_smoke_normal", ino) as workspace:
+        # One serialized workspace per board reuses the library cache across
+        # every fixture built for it. Keyed on the board, not on one stable
+        # name, because arduino-cli caches per sketch *path*: sharing a
+        # directory between an S3 and a classic ESP32 makes each run evict the
+        # other's cores and rebuild all of FastLED.
+        board = "".join(ch if ch.isalnum() else "_" for ch in args.fqbn.split(":")[2] if ch != ":")
+        with helper._sketch_workspace(f"display_smoke_{board or 'board'}", ino) as workspace:
             result = drain(helper._compile_upload("Display smoke", workspace, args.fqbn, ""), log)
         sizes = helper._size_bytes_report(lines)
 toolchain = {

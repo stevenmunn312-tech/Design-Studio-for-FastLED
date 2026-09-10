@@ -4,6 +4,9 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { StudioNode, StudioEdge } from '../src/state/graphStore'
 import { NODE_LIBRARY, libraryDefaults } from '../src/state/nodeLibrary'
+import { catalogueDisplays } from '../src/state/partCatalogue'
+import { partOptionsFor } from '../src/state/partOptions'
+import { findPinConflicts } from '../src/utils/validateGraph'
 import { createDisplayDocument, addDisplayWidget } from '../src/state/displayEditor'
 import type { DisplayDocument, DisplayDocumentRegistry } from '../src/state/displayDocument'
 import { customDisplayAssetByteLength, customDisplayAssetRequests } from '../src/state/customDisplayResources'
@@ -53,7 +56,9 @@ const output = () => node('out', 'MatrixOutput', { width: 8, height: 8, dataPin:
 const screen = (id = 'screen') => node(id, 'Display', { displayId: id })
 const panel = (id: string, properties: Record<string, unknown> = {}) => node(id, 'TransportDisplay', {
   partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0',
-  sckPin: 12, mosiPin: 11, misoPin: 13, csPin: 10, dcPin: 9, resetPin: 8, backlightPin: 7,
+  // CS 14, not 10: the SD card in the player fixture holds 10, and two devices
+  // sharing a bus must still have chip selects of their own.
+  sckPin: 12, mosiPin: 11, misoPin: 13, csPin: 14, dcPin: 9, resetPin: 8, backlightPin: 7,
   touchSckPin: 12, touchMosiPin: 11, touchMisoPin: 13, touchCsPin: 6, touchIrqPin: 5,
   ...properties,
 })
@@ -133,11 +138,58 @@ const partNodes = [
   node('segment-tm1637', 'SegmentDisplay', { partId: 'tm1637-4digit-display', clkPin: 2, dioPin: 3 }),
   node('segment-max7219', 'SegmentDisplay', { partId: 'max7219-8digit-7segment', clkPin: 12, dinPin: 11, csPin: 10 }),
   node('oled-sh1106-spi-13', 'InfoDisplay', { partId: 'sh1106-oled-128x64', sckPin: 12, mosiPin: 11, csPin: 9, dcPin: 8, resetPin: 7 }),
-  node('oled-sh1106-spi-096', 'InfoDisplay', { partId: 'sh1106-oled-096-128x64-spi', sckPin: 12, mosiPin: 11, csPin: 6, dcPin: 5, resetPin: 4 }),
+  node('oled-sh1106-spi-096', 'InfoDisplay', { partId: 'sh1106-oled-096-128x64-spi', sckPin: 12, mosiPin: 11, csPin: 6, dcPin: 5, resetPin: 21 }),
   node('oled-sh1106-i2c', 'InfoDisplay', { partId: 'sh1106-oled-128x64-i2c', sdaPin: 18, sclPin: 17, i2cAddress: '0x3C' }),
   node('oled-ssd1306-i2c', 'InfoDisplay', { partId: 'ssd1306-oled-128x64', sdaPin: 18, sclPin: 17, i2cAddress: '0x3D' }),
-  panel('tft-st7789', { partId: 'st7789-tft-240x240', csPin: 15, dcPin: 14, resetPin: 13, backlightPin: 16 }),
+  panel('tft-st7789', { partId: 'st7789-tft-240x240', csPin: 15, dcPin: 14, resetPin: 20, backlightPin: 16 }),
   panel('tft-st7789v', { csPin: 38, dcPin: 39, resetPin: 40, backlightPin: 41, touchCsPin: 42, touchIrqPin: 47 }),
+]
+
+/*
+ * The third I2C OLED, in its own sketch.
+ *
+ * Not an oversight in the list above: a generated sketch starts exactly one
+ * `Wire`, an SSD1306/SH1106 answers on 0x3C or 0x3D and nothing else, and
+ * `part-families` already spends both. A third I2C module therefore cannot
+ * share that sketch however its pins are set, so coverage is measured across
+ * the fixture set rather than within one sketch.
+ */
+const altPartNodes = [
+  node('oled-ssd1306-4pin', 'InfoDisplay', {
+    partId: 'ssd1306-oled-096-128x64-i2c', sdaPin: 18, sclPin: 17, i2cAddress: '0x3C',
+  }),
+]
+
+/*
+ * The other board the support matrix advertises.
+ *
+ * Every fixture above is an ESP32-S3. A classic ESP32 is a different chip
+ * family with no PSRAM, a different I2C pair and a far smaller internal RAM
+ * ceiling, and it is where the fixed-display path most needs proving —
+ * deliberately *without* a custom screen, because a 64 KiB LVGL heap does not
+ * fit beside FastLED there (HW-25), and a fixture that pretends otherwise
+ * would fail for a reason the matrix already knows about.
+ */
+const classicBoard = () => node('board', 'Board', { profileId: 'esp32-generic-devkit-38pin' })
+const classicNodes = [
+  classicBoard(),
+  node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 27 }),
+  node('fill', 'SolidColor'),
+  node('rtc', 'RTCInput', {
+    timeSource: 'Manual', startYear: 2026, startMonth: 9, startDay: 9, startHour: 20, startMinute: 30,
+    sdaPin: 21, sclPin: 22,
+  }),
+  panel('classic-tft', {
+    partId: 'st7789-tft-240x240', sckPin: 18, mosiPin: 23, csPin: 19, dcPin: 17, resetPin: 16, backlightPin: 13,
+  }),
+  node('classic-oled', 'InfoDisplay', { partId: 'ssd1306-oled-096-128x64-i2c', sdaPin: 21, sclPin: 22, i2cAddress: '0x3C' }),
+  node('classic-digits', 'SegmentDisplay', { partId: 'tm1637-4digit-display', clkPin: 25, dioPin: 26 }),
+]
+const classicEdges = [
+  edge('fill', 'frame', 'out', 'frame'),
+  edge('rtc', 'display', 'classic-tft', 'display'),
+  edge('rtc', 'display', 'classic-oled', 'display'),
+  edge('rtc', 'display', 'classic-digits', 'display'),
 ]
 
 const sketches: Record<string, string> = {
@@ -166,6 +218,60 @@ const sketches: Record<string, string> = {
     [board(), output(), rtc(), node('fill', 'SolidColor'), ...partNodes],
     [edge('fill', 'frame', 'out', 'frame'), ...partNodes.map((entry) => edge('rtc', 'display', entry.id, 'display'))],
   ),
+  'part-families-i2c': generateCpp(
+    [board(), output(), rtc(), node('fill', 'SolidColor'), ...altPartNodes],
+    [edge('fill', 'frame', 'out', 'frame'), ...altPartNodes.map((entry) => edge('rtc', 'display', entry.id, 'display'))],
+  ),
+  'classic-esp32-fixed': generateCpp(classicNodes, classicEdges),
+}
+
+/*
+ * A fixture wiring two parts to one pin is not a compile subject, it is a
+ * mistake waiting to be blamed on the toolchain. These pins are hand-picked so
+ * that modules can deliberately share a bus, which the allocator would not do
+ * — so check them the way the app checks a user's graph.
+ */
+const fixtureGraphs: Record<string, { nodes: StudioNode[]; edges: StudioEdge[] }> = {
+  normal: { nodes: normalNodes, edges: normalEdges },
+  show: { nodes: showNodes, edges: showEdges },
+  player: { nodes: playerNodes, edges: playerEdges },
+  'part-families': { nodes: [board(), output(), rtc(), ...partNodes], edges: [] },
+  'part-families-i2c': { nodes: [board(), output(), rtc(), ...altPartNodes], edges: [] },
+  'classic-esp32-fixed': { nodes: classicNodes, edges: classicEdges },
+}
+for (const [name, graph] of Object.entries(fixtureGraphs)) {
+  const conflicts = findPinConflicts(graph.nodes)
+  if (conflicts.length > 0) throw new Error(`${name}.ino fixture has pin conflicts: ${conflicts.join('; ')}`)
+}
+
+/*
+ * Every module a user can actually choose is compiled somewhere.
+ *
+ * Derived from the catalogue rather than restated, for the same reason
+ * `displayPartCoverage.test.ts` derives its cases: a display imported tomorrow
+ * should fail here until it has been compiled once, instead of quietly staying
+ * outside the matrix — which is exactly what happened to the generic four-pin
+ * SSD1306. `CATALOGUE_ONLY` names the modelled-but-undriven ILI9341, so that a
+ * *newly* unoffered part is still a failure rather than a silent skip.
+ */
+const CATALOGUE_ONLY = ['ili9341-xpt2046-touch-320x240']
+const fixtureNodes = [...partNodes, ...altPartNodes, ...common, fixedPanel(), ...playerNodes]
+const compiledParts = new Set(fixtureNodes.map((entry) => String(entry.data.properties.partId ?? '')))
+const offeredParts = new Set(['InfoDisplay', 'TransportDisplay', 'SegmentDisplay']
+  .flatMap((nodeType) => partOptionsFor(nodeType).map((option) => option.id)))
+for (const entry of catalogueDisplays()) {
+  if (CATALOGUE_ONLY.includes(entry.partId)) {
+    if (offeredParts.has(entry.partId)) {
+      throw new Error(`${entry.partId} is offered in a part menu but exempted from the compile matrix`)
+    }
+    continue
+  }
+  if (!offeredParts.has(entry.partId)) {
+    throw new Error(`${entry.partId} is catalogued but offered by no part menu; name it in CATALOGUE_ONLY or offer it`)
+  }
+  if (!compiledParts.has(entry.partId)) {
+    throw new Error(`${entry.partId} is offered to users but compiled by no fixture`)
+  }
 }
 
 const requiredSymbols: Record<string, readonly string[]> = {
@@ -177,6 +283,8 @@ const requiredSymbols: Record<string, readonly string[]> = {
   disabled: ['static bool _cdPanelOn_custom_tft = false', 'if (_cdPanelOn_custom_tft) lv_indev_read'],
   'multi-panel': ['_cdScreen_screen = lv_obj_create', '_cdScreen_deck = lv_obj_create', '_cdDisp_custom_tft', '_cdDisp_deck_tft'],
   'part-families': ['SEG_KIND_TM1637', 'SEG_KIND_MAX7219', '_oledBeginSpi', '_oledBeginI2c', '_tftPaint'],
+  'part-families-i2c': ['_oledBeginI2c', '#include <Wire.h>'],
+  'classic-esp32-fixed': ['_tftClockValid_classic_tft', '_oledBeginI2c', 'SEG_KIND_TM1637'],
 }
 
 for (const [name, symbols] of Object.entries(requiredSymbols)) {
