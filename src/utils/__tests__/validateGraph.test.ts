@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowRequirementErrors, estimatePowerLoad, estimateFirmwareRam, estimateLedRefreshTime, findMirroredOutputMismatches, findShowOutputFormErrors, findAudioCapabilityErrors, findPlayerControlMappingWarnings, findSignalRangeWarnings, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowRequirementErrors, estimatePowerLoad, estimateFirmwareRam, estimateLedRefreshTime, findMirroredOutputMismatches, findShowOutputFormErrors, findAudioCapabilityErrors, findPlayerControlMappingWarnings, findSharedControlSourceWarnings, findSignalRangeWarnings, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
 import { OLED_PANEL_RAM_BYTES } from '../../codegen/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../../codegen/segmentDisplayCpp'
 import { TFT_PANEL_RAM_BYTES } from '../../codegen/tftDisplayCpp'
@@ -51,6 +51,41 @@ describe('validateGraph', () => {
       title: 'Volume controls conflict',
       nodeIds: expect.arrayContaining([first.id, second.id]),
     }))
+  })
+
+  it('catches one control given two jobs, however the graph got there', () => {
+    // The picker declines to mint a second port from a source that already
+    // has one, so this is for the ways a graph arrives at it anyway: a load, a
+    // paste, or a wire dragged onto a port another control had already minted.
+    const button = libraryNode('btn', 'ButtonInput')
+    const controls = libraryNode('controls', 'PlayerControls', {
+      controls: ['brightnessUp', 'brightnessDown'],
+    })
+    const wires = [
+      { id: 'up', source: 'btn', sourceHandle: 'pressed', target: 'controls', targetHandle: 'brightnessUp' },
+      { id: 'down', source: 'btn', sourceHandle: 'pressed', target: 'controls', targetHandle: 'brightnessDown' },
+    ] as unknown as StudioEdge[]
+
+    const warnings = findSharedControlSourceWarnings([button, controls], wires)
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toContain('Brightness Up, Brightness Down')
+    expect(warnings[0]).toContain('One press cannot mean two things')
+    expect(buildGraphDiagnostics([button, controls], wires)).toContainEqual(expect.objectContaining({
+      id: 'shared-control-source-0', severity: 'warning', title: 'One control has two jobs',
+    }))
+  })
+
+  it('leaves two controls each doing one job alone', () => {
+    const one = libraryNode('one', 'ButtonInput')
+    const two = libraryNode('two', 'ButtonInput')
+    const controls = libraryNode('controls', 'PlayerControls', {
+      controls: ['brightnessUp', 'brightnessDown'],
+    })
+    const wires = [
+      { id: 'up', source: 'one', sourceHandle: 'pressed', target: 'controls', targetHandle: 'brightnessUp' },
+      { id: 'down', source: 'two', sourceHandle: 'pressed', target: 'controls', targetHandle: 'brightnessDown' },
+    ] as unknown as StudioEdge[]
+    expect(findSharedControlSourceWarnings([one, two, controls], wires)).toEqual([])
   })
 
   it('names a 0-1 signal wired into an input that reads some other domain', () => {

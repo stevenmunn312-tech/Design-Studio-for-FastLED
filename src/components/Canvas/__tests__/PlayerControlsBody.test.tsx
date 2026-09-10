@@ -92,6 +92,49 @@ describe('PlayerControlsBody picker', () => {
     expect(screen.queryByRole('button', { name: /Play \/ Pause/ })).toBeNull()
   })
 
+  it('refuses a second job to a control that already has one', () => {
+    // Reported from the bench: after giving a button Brightness Up, the same
+    // button could be dropped again and given Brightness Down — +step and
+    // -step in the same frame, netting to nothing.
+    useGraphStore.getState().loadGraph(
+      [node('button', 'ButtonInput'), node('controls', 'PlayerControls', { controls: ['brightnessUp'] }),
+        node('out', 'MatrixOutput')],
+      [
+        edge('job', 'button', 'pressed', 'controls', 'brightnessUp'),
+        edge('chain', 'controls', 'controls', 'out', 'controls'),
+      ],
+    )
+    pending('bool')
+
+    render(<PlayerControlsBody nodeId="controls" />)
+
+    expect(screen.queryByRole('button', { name: /Brightness Down/ })).toBeNull()
+    expect(screen.getByText('Already assigned')).toBeTruthy()
+    expect(screen.getByText(/This control already has a job on this node/)).toBeTruthy()
+  })
+
+  it('still offers the rest to a different control', () => {
+    useGraphStore.getState().loadGraph(
+      [node('one', 'ButtonInput'), node('two', 'ButtonInput'),
+        node('controls', 'PlayerControls', { controls: ['brightnessUp'] }), node('out', 'MatrixOutput')],
+      [
+        edge('job', 'one', 'pressed', 'controls', 'brightnessUp'),
+        edge('chain', 'controls', 'controls', 'out', 'controls'),
+      ],
+    )
+    useGraphStore.setState({
+      pendingControlAssignment: {
+        nodeId: 'controls',
+        connection: { source: 'two', sourceHandle: 'pressed', target: 'controls', targetHandle: PLAYER_CONTROL_ADD_HANDLE },
+        sourceDataType: 'bool',
+      },
+      activeGraphId: ROOT_GRAPH_ID,
+    } as never)
+
+    render(<PlayerControlsBody nodeId="controls" />)
+    expect(screen.getByRole('button', { name: /Brightness Down/ })).toBeTruthy()
+  })
+
   it('says what an edge is and what a position is', () => {
     useGraphStore.getState().loadGraph([node('controls', 'PlayerControls')], [])
     pending('float')

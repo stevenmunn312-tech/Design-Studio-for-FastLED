@@ -9,6 +9,7 @@ import {
 import { isLinearForm, outputForm, outputLedTotal } from '../state/ledOutputForm'
 import { PALETTE_BUILDER_NODE_TYPES } from '../state/nodeLibrary'
 import { formatSignalRange, isNormalizedOutput, signalRangeMismatch } from '../state/signalRange'
+import { playerControlFunction } from '../state/playerControlAssignments'
 import { audioOutputMissing } from '../state/audioOutput'
 import { resolveShowTarget } from '../state/showTarget'
 import {
@@ -1920,6 +1921,47 @@ export function findSignalRangeHints(nodes: StudioNode[], edges: StudioEdge[]): 
   return signalRangeIssues(nodes, edges).map((issue) => issue.hint)
 }
 
+/**
+ * One control given two jobs on the same Player Controls node.
+ *
+ * A press is one event, so a button wired to both Brightness Up and
+ * Brightness Down sends +step and -step in the same frame and nets to
+ * nothing; a pair that does not cancel is still one press doing two things,
+ * which no physical control can be read as doing. The picker declines to mint
+ * a second port from a source that already has one, so this catches the ways
+ * a graph arrives at it anyway — a load, a paste, or a wire dragged onto a
+ * port some other control had already minted.
+ */
+function sharedControlSourceIssues(nodes: StudioNode[], edges: StudioEdge[]): string[] {
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  const jobsBySource = new Map<string, { target: StudioNode; source: StudioNode; functions: string[] }>()
+  for (const edge of edges) {
+    const target = byId.get(edge.target)
+    const source = byId.get(edge.source)
+    if (!target || !source || target.data.nodeType !== 'PlayerControls') continue
+    const entry = playerControlFunction(edge.targetHandle)
+    if (!entry) continue
+    const key = `${edge.target}|${edge.source}|${edge.sourceHandle ?? ''}`
+    const existing = jobsBySource.get(key)
+    if (existing) existing.functions.push(entry.label)
+    else jobsBySource.set(key, { target, source, functions: [entry.label] })
+  }
+  const issues: string[] = []
+  for (const { target, source, functions } of jobsBySource.values()) {
+    if (functions.length < 2) continue
+    issues.push(
+      `${nodeLabel(source)} drives ${functions.length} controls on ${nodeLabel(target)} `
+      + `(${functions.join(', ')}). One press cannot mean two things — `
+      + 'give each job its own control, or remove the rows you do not want.',
+    )
+  }
+  return issues
+}
+
+export function findSharedControlSourceWarnings(nodes: StudioNode[], edges: StudioEdge[]): string[] {
+  return sharedControlSourceIssues(nodes, edges)
+}
+
 export function findPlayerControlMappingWarnings(nodes: StudioNode[], edges: StudioEdge[]): string[] {
   return playerControlMappingIssues(nodes, edges).map((issue) => `${issue.message} — the absolute control will override button changes`)
 }
@@ -2059,6 +2101,16 @@ export function buildGraphDiagnostics(
       nodeIds: [], nodeLabel: 'LED outputs',
     })
   })
+  for (const [index, message] of sharedControlSourceIssues(nodes, edges).entries()) {
+    diagnostics.push({
+      id: `shared-control-source-${index}`, severity: 'warning', category: 'connection',
+      title: 'One control has two jobs',
+      message,
+      fix: 'Give each job its own button or knob, or remove the extra rows from Player Controls.',
+      nodeIds: nodes.filter((node) => node.data.nodeType === 'PlayerControls').map((node) => node.id),
+      nodeLabel: 'Player Controls',
+    })
+  }
   for (const issue of signalRangeIssues(nodes, edges)) {
     diagnostics.push({
       id: `signal-range-${issue.edgeId}`, severity: 'warning', category: 'connection',
@@ -2573,6 +2625,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   warnings.push(...findPinRangeWarnings(nodes))
   warnings.push(...findBoardPinCompatibility(nodes, selectedFqbn).warnings)
   warnings.push(...findPlayerControlMappingWarnings(nodes, edges))
+  warnings.push(...findSharedControlSourceWarnings(nodes, edges))
   warnings.push(...findSignalRangeWarnings(nodes, edges))
   const displayIssues = findDisplayGeneratorIssues(nodes, edges, displayDocuments)
   errors.push(...displayIssues.errors)

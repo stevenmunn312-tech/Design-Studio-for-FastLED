@@ -61,29 +61,40 @@ describe('what a control can sensibly be given to do', () => {
     // is refused: pressing the button and blaming the soldering is the failure
     // this filter exists to prevent.
     const toOutput = new Set(['output'] as const)
-    const forOutput = sensiblePlayerControls('bool', [], toOutput).map((entry) => entry.id)
+    const forOutput = sensiblePlayerControls('bool', [], { reachable: toOutput }).map((entry) => entry.id)
     expect(forOutput).toEqual(['ledToggle', 'brightnessUp', 'brightnessDown'])
-    expect(sensiblePlayerControls('float', [], toOutput).map((entry) => entry.id)).toEqual(['brightness'])
+    expect(sensiblePlayerControls('float', [], { reachable: toOutput }).map((entry) => entry.id)).toEqual(['brightness'])
 
     const toEngine = new Set(['engine'] as const)
-    expect(sensiblePlayerControls('bool', [], toEngine).map((entry) => entry.id))
+    expect(sensiblePlayerControls('bool', [], { reachable: toEngine }).map((entry) => entry.id))
       .toEqual(['patternPrevious', 'patternNext', 'patternConfirm'])
 
     // The player holds the track, the lamp and the collection.
     const toPlayer = new Set(['player'] as const)
-    expect(sensiblePlayerControls('bool', [], toPlayer).map((entry) => entry.id))
+    expect(sensiblePlayerControls('bool', [], { reachable: toPlayer }).map((entry) => entry.id))
       .toEqual(PLAYER_CONTROL_FUNCTIONS.filter((entry) => entry.dataType === 'bool').map((entry) => entry.id))
 
     // Two destinations union rather than intersect.
-    expect(sensiblePlayerControls('bool', [], new Set(['output', 'engine'] as const)).map((entry) => entry.id))
+    expect(sensiblePlayerControls('bool', [], { reachable: new Set(['output', 'engine'] as const) }).map((entry) => entry.id))
       .toEqual(['ledToggle', 'brightnessUp', 'brightnessDown', 'patternPrevious', 'patternNext', 'patternConfirm'])
   })
 
   it('judges nothing while the Controls output goes nowhere', () => {
     // A chain not yet plugged in has no destination to judge against, and
     // refusing every function would leave nothing to build the graph with.
-    expect(sensiblePlayerControls('bool', [], new Set()).map((entry) => entry.id))
+    expect(sensiblePlayerControls('bool', [], { reachable: new Set() }).map((entry) => entry.id))
       .toEqual(sensiblePlayerControls('bool', []).map((entry) => entry.id))
+  })
+
+  it('offers a control that already has a job here nothing at all', () => {
+    // A press is one event: a button given Brightness Up must not also be
+    // offered Brightness Down, which would send +step and -step in the same
+    // frame and net to nothing. The picker is what mints the port, so
+    // declining here is what makes the second job unreachable.
+    expect(sensiblePlayerControls('bool', ['brightnessUp'], { sourceAlreadyAssigned: true })).toEqual([])
+    // A different control is still offered the rest.
+    expect(sensiblePlayerControls('bool', ['brightnessUp'], { sourceAlreadyAssigned: false })
+      .map((entry) => entry.id)).toContain('brightnessDown')
   })
 
   it('names each function an edge or a position', () => {

@@ -49,15 +49,29 @@ export default function PlayerControlsBody({ nodeId }: { nodeId: string }) {
     const byId = new Map(nodes.map((node) => [node.id, node]))
     return [...controlChainSinks(nodeId, rootGraphEdges(state) as never, byId as never)].sort().join(',')
   })
+  /*
+   * Whether this exact control already has a job here.
+   *
+   * One press cannot mean two things, so a button that has already been given
+   * Brightness Up must not also be offered Brightness Down — they would send
+   * +step and -step in the same frame and net to nothing. The picker is what
+   * mints a port, so declining here is what makes the second job unreachable.
+   */
+  const sourceAlreadyAssigned = useGraphStore((state) => {
+    if (!pending?.connection.source) return false
+    return rootGraphEdges(state).some((edge) => edge.target === nodeId
+      && edge.source === pending.connection.source
+      && (edge.sourceHandle ?? '') === (pending.connection.sourceHandle ?? '')
+      && !!playerControlFunction(edge.targetHandle))
+  })
   const offered = useMemo(
     () => (pending
-      ? sensiblePlayerControls(
-          pending.sourceDataType,
-          saved,
-          new Set((reachable ? reachable.split(',') : []).filter(Boolean) as never),
-        )
+      ? sensiblePlayerControls(pending.sourceDataType, saved, {
+          reachable: new Set((reachable ? reachable.split(',') : []).filter(Boolean) as never),
+          sourceAlreadyAssigned,
+        })
       : []),
-    [pending, reachable, saved],
+    [pending, reachable, saved, sourceAlreadyAssigned],
   )
 
   // The derived ports change with the assignment list, so React Flow has to
@@ -80,11 +94,13 @@ export default function PlayerControlsBody({ nodeId }: { nodeId: string }) {
         <div className={styles.pickerHead}>
           {offered.length > 0
             ? `What should this ${pending.sourceDataType === 'float' ? 'knob' : 'button'} do?`
-            : 'Nothing left to assign'}
+            : sourceAlreadyAssigned ? 'Already assigned' : 'Nothing left to assign'}
         </div>
         {offered.length === 0 && (
           <p className={styles.note}>
-            {pending.sourceDataType === undefined
+            {sourceAlreadyAssigned
+              ? 'This control already has a job on this node. One press cannot mean two things — remove its row first, or use another control.'
+              : pending.sourceDataType === undefined
               ? 'That output has no type this node can take.'
               : reachable
                 ? `Nothing this chain reaches takes a ${pending.sourceDataType === 'float' ? 'continuous' : 'momentary'} `

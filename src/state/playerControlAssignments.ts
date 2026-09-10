@@ -166,12 +166,30 @@ export function playerControlInputs(value: unknown): NodePort[] {
  * has not been plugged into anything yet — there is no destination to judge
  * against, and refusing every function would leave nothing to build with.
  */
+export interface SensibleControlContext {
+  /** Destination kinds this node's bundle actually reaches. */
+  reachable?: ReadonlySet<PlayerControlDestination>
+  /**
+   * Whether this exact source output already holds a job on this node.
+   *
+   * One control, one job. A button given both Brightness Up and Brightness
+   * Down sends +step and -step in the same frame and nets to nothing; even a
+   * pair that does not cancel means one press doing two things, which no
+   * physical control can be read as doing. The picker is what mints a port, so
+   * declining here is what makes the second job unreachable rather than
+   * merely discouraged.
+   */
+  sourceAlreadyAssigned?: boolean
+}
+
 export function sensiblePlayerControls(
   sourceDataType: string | undefined,
   assigned: unknown,
-  reachable?: ReadonlySet<PlayerControlDestination>,
+  context: SensibleControlContext = {},
 ): PlayerControlFunction[] {
+  if (context.sourceAlreadyAssigned) return []
   const taken = new Set(normalizePlayerControlIds(assigned))
+  const reachable = context.reachable
   const judge = reachable && reachable.size > 0 ? reachable : null
   return PLAYER_CONTROL_FUNCTIONS.filter((entry) => (
     !taken.has(entry.id)
