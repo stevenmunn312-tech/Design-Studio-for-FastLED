@@ -63,16 +63,16 @@
       },
       "disabled": {
         "tokens": {
-          "surfaceColor": "#313845",
+          "surfaceColor": "#1c222f",
           "textColor": "#3b4250",
           "borderColor": "#2b313f",
           "indicatorColor": "#3b4250",
-          "trackColor": "#313845",
+          "trackColor": "#1c222f",
           "thumbColor": "#3b4250",
           "opacity": 0.58,
           "pressedOffset": 0
         },
-        "contrast": 1.17
+        "contrast": 1.58
       }
     }
   },
@@ -142,16 +142,16 @@
       },
       "disabled": {
         "tokens": {
-          "surfaceColor": "#404c5f",
+          "surfaceColor": "#192035",
           "textColor": "#536273",
           "borderColor": "#353f53",
           "indicatorColor": "#536273",
-          "trackColor": "#404c5f",
+          "trackColor": "#192035",
           "thumbColor": "#536273",
           "opacity": 0.58,
           "pressedOffset": 0
         },
-        "contrast": 1.39
+        "contrast": 2.59
       }
     }
   },
@@ -221,16 +221,16 @@
       },
       "disabled": {
         "tokens": {
-          "surfaceColor": "#28595a",
+          "surfaceColor": "#172e34",
           "textColor": "#306e6c",
           "borderColor": "#234d4f",
           "indicatorColor": "#306e6c",
-          "trackColor": "#28595a",
+          "trackColor": "#172e34",
           "thumbColor": "#306e6c",
           "opacity": 0.58,
           "pressedOffset": 0
         },
-        "contrast": 1.34
+        "contrast": 2.42
       }
     }
   },
@@ -300,16 +300,16 @@
       },
       "disabled": {
         "tokens": {
-          "surfaceColor": "#643b78",
+          "surfaceColor": "#3c1c59",
           "textColor": "#784a87",
           "borderColor": "#59326f",
           "indicatorColor": "#784a87",
-          "trackColor": "#643b78",
+          "trackColor": "#3c1c59",
           "thumbColor": "#784a87",
           "opacity": 0.58,
           "pressedOffset": 0
         },
-        "contrast": 1.28
+        "contrast": 2.08
       }
     }
   },
@@ -379,16 +379,16 @@
       },
       "disabled": {
         "tokens": {
-          "surfaceColor": "#7f8a95",
+          "surfaceColor": "#6c7782",
           "textColor": "#89949e",
           "borderColor": "#7a8590",
           "indicatorColor": "#89949e",
-          "trackColor": "#7f8a95",
+          "trackColor": "#6c7782",
           "thumbColor": "#89949e",
           "opacity": 0.58,
           "pressedOffset": 0
         },
-        "contrast": 1.14
+        "contrast": 1.48
       }
     }
   },
@@ -458,16 +458,16 @@
       },
       "disabled": {
         "tokens": {
-          "surfaceColor": "#3a768b",
+          "surfaceColor": "#1e556d",
           "textColor": "#48869a",
           "borderColor": "#326c83",
           "indicatorColor": "#48869a",
-          "trackColor": "#3a768b",
+          "trackColor": "#1e556d",
           "thumbColor": "#48869a",
           "opacity": 0.58,
           "pressedOffset": 0
         },
-        "contrast": 1.24
+        "contrast": 2
       }
     }
   },
@@ -537,16 +537,16 @@
       },
       "disabled": {
         "tokens": {
-          "surfaceColor": "#66492c",
+          "surfaceColor": "#3e291e",
           "textColor": "#795832",
           "borderColor": "#5a3f28",
           "indicatorColor": "#795832",
-          "trackColor": "#66492c",
+          "trackColor": "#3e291e",
           "thumbColor": "#795832",
           "opacity": 0.58,
           "pressedOffset": 0
         },
-        "contrast": 1.27
+        "contrast": 2.11
       }
     }
   },
@@ -616,16 +616,16 @@
       },
       "disabled": {
         "tokens": {
-          "surfaceColor": "#355e6c",
+          "surfaceColor": "#1d334c",
           "textColor": "#41727b",
           "borderColor": "#2e5162",
           "indicatorColor": "#41727b",
-          "trackColor": "#355e6c",
+          "trackColor": "#1d334c",
           "thumbColor": "#41727b",
           "opacity": 0.58,
           "pressedOffset": 0
         },
-        "contrast": 1.32
+        "contrast": 2.4
       }
     }
   },
@@ -695,16 +695,16 @@
       },
       "disabled": {
         "tokens": {
-          "surfaceColor": "#244d3c",
+          "surfaceColor": "#141e22",
           "textColor": "#2c6348",
           "borderColor": "#1f3f34",
           "indicatorColor": "#2c6348",
-          "trackColor": "#244d3c",
+          "trackColor": "#141e22",
           "thumbColor": "#2c6348",
           "opacity": 0.58,
           "pressedOffset": 0
         },
-        "contrast": 1.36
+        "contrast": 2.41
       }
     }
   },
@@ -774,16 +774,16 @@
       },
       "disabled": {
         "tokens": {
-          "surfaceColor": "#d1d9df",
+          "surfaceColor": "#f6f8f9",
           "textColor": "#bfcad2",
           "borderColor": "#dce2e6",
           "indicatorColor": "#bfcad2",
-          "trackColor": "#d1d9df",
+          "trackColor": "#f6f8f9",
           "thumbColor": "#bfcad2",
           "opacity": 0.58,
           "pressedOffset": 0
         },
-        "contrast": 1.17
+        "contrast": 1.57
       }
     }
   },
@@ -853,16 +853,16 @@
       },
       "disabled": {
         "tokens": {
-          "surfaceColor": "#5e4c4b",
+          "surfaceColor": "#34244b",
           "textColor": "#72604b",
           "borderColor": "#52414b",
           "indicatorColor": "#72604b",
-          "trackColor": "#5e4c4b",
+          "trackColor": "#34244b",
           "thumbColor": "#72604b",
           "opacity": 0.58,
           "pressedOffset": 0
         },
-        "contrast": 1.34
+        "contrast": 2.33
       }
     }
   },
@@ -932,16 +932,16 @@
       },
       "disabled": {
         "tokens": {
-          "surfaceColor": "#5a4e35",
+          "surfaceColor": "#2f2d2d",
           "textColor": "#6f5e39",
           "borderColor": "#4e4433",
           "indicatorColor": "#6f5e39",
-          "trackColor": "#5a4e35",
+          "trackColor": "#2f2d2d",
           "thumbColor": "#6f5e39",
           "opacity": 0.58,
           "pressedOffset": 0
         },
-        "contrast": 1.3
+        "contrast": 2.17
       }
     }
   },
@@ -1011,16 +1011,16 @@
       },
       "disabled": {
         "tokens": {
-          "surfaceColor": "#25586d",
+          "surfaceColor": "#1a3446",
           "textColor": "#2b6a7f",
           "borderColor": "#224e61",
           "indicatorColor": "#2b6a7f",
-          "trackColor": "#25586d",
+          "trackColor": "#1a3446",
           "thumbColor": "#2b6a7f",
           "opacity": 0.58,
           "pressedOffset": 0
         },
-        "contrast": 1.29
+        "contrast": 2.14
       }
     }
   },
@@ -1090,16 +1090,16 @@
       },
       "disabled": {
         "tokens": {
-          "surfaceColor": "#465486",
+          "surfaceColor": "#342a66",
           "textColor": "#4e6895",
           "borderColor": "#41487c",
           "indicatorColor": "#4e6895",
-          "trackColor": "#465486",
+          "trackColor": "#342a66",
           "thumbColor": "#4e6895",
           "opacity": 0.58,
           "pressedOffset": 0
         },
-        "contrast": 1.3
+        "contrast": 2.24
       }
     }
   },
@@ -1169,16 +1169,16 @@
       },
       "disabled": {
         "tokens": {
-          "surfaceColor": "#376b3b",
+          "surfaceColor": "#194433",
           "textColor": "#457e3f",
           "borderColor": "#2e6039",
           "indicatorColor": "#457e3f",
-          "trackColor": "#376b3b",
+          "trackColor": "#194433",
           "thumbColor": "#457e3f",
           "opacity": 0.58,
           "pressedOffset": 0
         },
-        "contrast": 1.29
+        "contrast": 2.25
       }
     }
   },
@@ -1248,16 +1248,16 @@
       },
       "disabled": {
         "tokens": {
-          "surfaceColor": "#d5b59b",
+          "surfaceColor": "#efd7b2",
           "textColor": "#c9a490",
           "borderColor": "#ddbfa2",
           "indicatorColor": "#c9a490",
-          "trackColor": "#d5b59b",
+          "trackColor": "#efd7b2",
           "thumbColor": "#c9a490",
           "opacity": 0.58,
           "pressedOffset": 0
         },
-        "contrast": 1.19
+        "contrast": 1.63
       }
     }
   },
@@ -1327,16 +1327,16 @@
       },
       "disabled": {
         "tokens": {
-          "surfaceColor": "#4b526e",
+          "surfaceColor": "#222c47",
           "textColor": "#5f6480",
           "borderColor": "#3f4762",
           "indicatorColor": "#5f6480",
-          "trackColor": "#4b526e",
+          "trackColor": "#222c47",
           "thumbColor": "#5f6480",
           "opacity": 0.58,
           "pressedOffset": 0
         },
-        "contrast": 1.33
+        "contrast": 2.38
       }
     }
   },
@@ -1406,16 +1406,16 @@
       },
       "disabled": {
         "tokens": {
-          "surfaceColor": "#675d33",
+          "surfaceColor": "#403e35",
           "textColor": "#7a6c32",
           "borderColor": "#5b5433",
           "indicatorColor": "#7a6c32",
-          "trackColor": "#675d33",
+          "trackColor": "#403e35",
           "thumbColor": "#7a6c32",
           "opacity": 0.58,
           "pressedOffset": 0
         },
-        "contrast": 1.26
+        "contrast": 2.05
       }
     }
   },
@@ -1485,16 +1485,16 @@
       },
       "disabled": {
         "tokens": {
-          "surfaceColor": "#226b5b",
+          "surfaceColor": "#15443d",
           "textColor": "#287e6a",
           "borderColor": "#1e6053",
           "indicatorColor": "#287e6a",
-          "trackColor": "#226b5b",
+          "trackColor": "#15443d",
           "thumbColor": "#287e6a",
           "opacity": 0.58,
           "pressedOffset": 0
         },
-        "contrast": 1.29
+        "contrast": 2.22
       }
     }
   }

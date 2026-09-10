@@ -73,10 +73,27 @@ function backgroundTokens(background: DisplayBackground, fallbackColor: string):
   return { ...background }
 }
 
+/**
+ * How far a muted state tints its own surface.
+ *
+ * One constant for both muted states, because a state is set back by its text
+ * colour and its opacity — not by washing its surface toward the very colour
+ * its text is about to be drawn in. `disabled` used 0.72 against `inactive`'s
+ * 0.14 and so moved its surface most of the way to its own text: every launch
+ * theme resolved a disabled control to between 1.14 and 1.39 contrast, which
+ * is a blank rounded rectangle rather than a greyed-out label. The fade was
+ * already being applied twice over — once in `disabledColor`, which the pack
+ * derives by blending its muted text a third of the way to the surface, and
+ * again in `opacity`, which both renderers apply — so a third helping only
+ * cost the label. Sharing the wash leaves the two states told apart by the
+ * two things that are supposed to tell them apart.
+ */
+const MUTED_SURFACE_WASH = 0.14
+
 export function resolveDisplayThemeTokens(theme: DisplayTheme): DisplayThemeTokens {
   const defaultBorder = mixDisplayColors(theme.textColor, theme.surfaceColor, 0.14)
-  const inactiveSurface = mixDisplayColors(theme.inactiveColor, theme.surfaceColor, 0.14)
-  const disabledSurface = mixDisplayColors(theme.disabledColor, theme.surfaceColor, 0.72)
+  const inactiveSurface = mixDisplayColors(theme.inactiveColor, theme.surfaceColor, MUTED_SURFACE_WASH)
+  const disabledSurface = mixDisplayColors(theme.disabledColor, theme.surfaceColor, MUTED_SURFACE_WASH)
   return {
     background: backgroundTokens(theme.background, theme.surfaceColor),
     font: theme.font,
