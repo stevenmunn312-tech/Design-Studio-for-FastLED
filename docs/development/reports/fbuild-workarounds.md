@@ -4,11 +4,14 @@ Every accommodation `backend/app.py` makes for the **fbuild** build engine, why 
 exists, and what it costs. Written to be usable as an upstream bug report as well as
 an internal record.
 
-- **Current repository pin:** 2.5.21 (`backend/requirements.txt` and
-  `backend/constraints.txt`)
+- **Current repository pin:** 2.5.22 (`backend/requirements.txt` and
+  `backend/constraints.txt`), moved from 2.5.21 on 2026-09-11 for the issue 9 fix.
+  Deliberately not 2.5.23, which is upstream's latest but has no measurement behind it
+  here; the pin follows the evidence, not the release feed.
 - **Mind which fbuild actually ran.** The pin is not the only fbuild on this host, and
   a measurement is only about the version that produced it. On 2026-09-10 the pin was
-  2.5.21, `backend/.venv` held **2.5.0**, and `scripts/compile-display-smoke.py` — which
+  2.5.21 (moved to 2.5.22 the following day), `backend/.venv` held **2.5.0**, and
+  `scripts/compile-display-smoke.py` — which
   imports the helper under whichever interpreter invokes it — ran **2.5.22** out of the
   Espressif Python. The upstream latest was **2.5.23**. Four versions, one bench. Every
   build report the script writes records `toolchain.engine_version`; read that rather
@@ -364,9 +367,9 @@ already a silent no-op, which is its own argument for deleting rather than repoi
 > Two caveats. It is not a strict no-op — `show` compiled 47 seconds of real work — so
 > it demonstrates the *fixed floor* is gone rather than re-running the exact experiment
 > below; a true no-op re-run would settle it outright. And it was taken on 2.5.22 while
-> the repository still pins 2.5.21, so a clean install from `backend/requirements.txt`
-> gets the version this section describes, not the one that was measured. The account
-> below is kept as the record of what 2.5.21 does.
+> the repository still pinned 2.5.21 — the pin moved to 2.5.22 the next day, so a clean
+> install now gets the measured version. The account below is kept as the record of
+> what 2.5.21 does, not as current behaviour.
 
 **Reported upstream 2026-09-03 as [#1411](https://github.com/FastLED/fbuild/issues/1411).**
 
