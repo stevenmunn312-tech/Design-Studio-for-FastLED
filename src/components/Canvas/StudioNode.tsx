@@ -368,6 +368,18 @@ const LivePropertyControls = memo(function LivePropertyControls({
     return (sourceType && DISPLAY_SOURCE_NODE_TYPES[sourceType]) ?? null
   }) as DisplaySignalKind | null
   const transportLayoutOptions = transportLayoutChoicesForKind(transportDisplaySourceKind)
+  /*
+   * A mounted Screen Design owns the panel, and the fixed layout below it is
+   * never drawn. The property stayed live and silently ignored, which reads
+   * as a control that does nothing: the dropdown moves, the preview does not,
+   * and an upload flashes the design regardless. Disable it and say why,
+   * rather than removing it — the fixed layout is still what the panel falls
+   * back to the moment the design is disconnected.
+   */
+  const mountedScreenDesign = useGraphStore((s) => {
+    if (nodeType !== 'TransportDisplay') return false
+    return rootGraphEdges(s).some((edge) => edge.target === nodeId && edge.targetHandle === 'customDisplay')
+  })
 
   const isMatrixOutput = nodeType === 'MatrixOutput'
   const [sizePopupOpen, setSizePopupOpen] = useState(false)
@@ -453,7 +465,8 @@ const LivePropertyControls = memo(function LivePropertyControls({
         // A property may be inapplicable to the current variant (e.g. a
         // Transition's `direction` outside wipe): shown but disabled.
         const gated = !isPropertyEnabled(nodeType, key, props)
-        const disabled = wired || gated || locked
+        const ownedByDesign = mountedScreenDesign && key === 'tftLayout'
+        const disabled = wired || gated || ownedByDesign || locked
         const live = wired ? liveFor(key) : undefined
         const forceTextNumber = nodeType === 'Math' && (key === 'a' || key === 'b')
         const expressionCapable = supportsScalarExpression(nodeType, key)
@@ -478,15 +491,17 @@ const LivePropertyControls = memo(function LivePropertyControls({
                   : pinWarningForCapability(gpioPin, gpioRequirement.capability) ?? gpioPin.note
         const rowTitle = wired
           ? 'Driven by connection'
-          : gated
-            ? 'Not used by this mode'
-            : expressionCapable
-              ? expressionInvalid
-                ? `Invalid expression. ${SCALAR_EXPRESSION_HELP}`
-                : typeof val === 'string'
-                  ? `${val} = ${showNum(expressionResult!)}`
-                  : `Number or expression. ${SCALAR_EXPRESSION_HELP}`
-              : gpioNote ?? propertyDescription(nodeType, key)
+          : ownedByDesign
+            ? 'The mounted Screen Design draws this panel. Disconnect it to use a fixed layout.'
+            : gated
+              ? 'Not used by this mode'
+              : expressionCapable
+                ? expressionInvalid
+                  ? `Invalid expression. ${SCALAR_EXPRESSION_HELP}`
+                  : typeof val === 'string'
+                    ? `${val} = ${showNum(expressionResult!)}`
+                    : `Number or expression. ${SCALAR_EXPRESSION_HELP}`
+                : gpioNote ?? propertyDescription(nodeType, key)
         const isTransportLayout = nodeType === 'TransportDisplay' && key === 'tftLayout'
         const selectOptions = meta?.control === 'select'
           ? (isTransportLayout ? transportLayoutOptions : meta.options)
