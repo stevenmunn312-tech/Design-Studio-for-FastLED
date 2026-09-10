@@ -99,6 +99,7 @@ const SIDEBAR_WIDTH_KEY = 'design-studio-for-fastled-sidebar-width'
 const PREVIEW_WIDTH_KEY = 'design-studio-for-fastled-preview-width'
 const LAYOUT_PRESET_KEY = 'design-studio-for-fastled-layout-preset'
 const HARDWARE_RATIO_KEY = 'design-studio-for-fastled-hardware-pane-ratio'
+const HARDWARE_SHELF_CATEGORY_KEY = 'design-studio-for-fastled-hardware-shelf-category'
 
 function clampHardwarePaneRatio(value: unknown, fallback = 0.5): number {
   const ratio = typeof value === 'number' && Number.isFinite(value) ? value : fallback
@@ -231,6 +232,17 @@ interface UiState {
   setStatus: (text: string, level?: StatusLevel) => void
   clearStatus: () => void
   setWorkspaceMode: (mode: WorkspaceMode) => void
+  /**
+   * Which hardware shelf category is open, or null for all closed.
+   *
+   * Persisted rather than component state: the shelf unmounts whenever the
+   * user visits another workspace, and finding your category again every
+   * time is the sort of small tax that adds up over an evening. A blank
+   * sketch resets it, because there is nothing on the bench yet and an
+   * accordion left open on someone else's session is noise.
+   */
+  hardwareShelfCategory: string | null
+  setHardwareShelfCategory: (id: string | null) => void
   openHardwareShelf: (nodeType: string) => void
   clearHardwareShelfTarget: () => void
   toggleBuildDiagram: () => void
@@ -411,6 +423,11 @@ export const useUiStore = create<UiState>((set, get) => ({
       : { workspaceMode }),
     ...leavingDisplayEditor(state),
   })),
+  hardwareShelfCategory: load<string | null>(HARDWARE_SHELF_CATEGORY_KEY, null),
+  setHardwareShelfCategory: (hardwareShelfCategory) => {
+    save(HARDWARE_SHELF_CATEGORY_KEY, hardwareShelfCategory)
+    set({ hardwareShelfCategory })
+  },
   openHardwareShelf: (hardwareShelfTarget) => set({
     workspaceMode: 'hardware',
     hardwarePaneTab: 'hardware',

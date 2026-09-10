@@ -75,5 +75,9 @@ export function startTemplateById(id: string, options?: StartFlowOptions) {
 export function startBlankCanvas(options?: StartFlowOptions) {
   startFlowGeneration += 1
   useGraphStore.getState().loadGraph([], [])
+  // Nothing on the bench yet, so nothing in the shelf is the category you
+  // were last working in. Everything else about the shelf is left as the user
+  // had it — this is the one moment where that state means nothing.
+  useUiStore.getState().setHardwareShelfCategory(null)
   finishStartFlow('blank', 'Started with a blank canvas', undefined, options)
 }

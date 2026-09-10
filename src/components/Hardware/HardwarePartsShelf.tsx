@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useUiStore } from '../../state/uiStore'
 import styles from './HardwarePartsShelf.module.css'
 
 export const HARDWARE_SHELF_HOST_ID = 'hardware-parts-shelf'
@@ -44,7 +45,11 @@ export default function HardwarePartsShelf({
   onTargetHandled,
 }: HardwarePartsShelfProps) {
   const [query, setQuery] = useState('')
-  const [expandedId, setExpandedId] = useState<string | null>(() => categories[0]?.id ?? null)
+  // Which category is open outlives this component: the shelf unmounts on
+  // every trip to another workspace, and re-finding your category each time
+  // is a tax that adds up. A blank sketch resets it to all-closed.
+  const expandedId = useUiStore((state) => state.hardwareShelfCategory)
+  const setExpandedId = useUiStore((state) => state.setHardwareShelfCategory)
   const itemRefs = useRef(new Map<string, HTMLButtonElement>())
 
   const normalizedQuery = query.trim().toLowerCase()
@@ -77,7 +82,7 @@ export default function HardwarePartsShelf({
     }
     setQuery('')
     setExpandedId(category.id)
-  }, [categories, onTargetHandled, targetNodeType])
+  }, [categories, onTargetHandled, setExpandedId, targetNodeType])
 
   useEffect(() => {
     if (!targetNodeType) return
