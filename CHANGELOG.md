@@ -9,6 +9,37 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- A retarget let an already-placed part claim its old pins as well as its new
+  ones. Updates are applied at the end of the pass, so a part that had been
+  answered for still held the pins it arrived with, and those went to the
+  allocator beside the claim set — an SD card counting as its library default
+  10/11/12/13 and as its board pins 5/18/19/23 at the same time. Roomy boards
+  never noticed; a classic ESP32 carrying a card, an amplifier, three buttons,
+  an LED output and a screen ran out of pool with pins still free, and a failed
+  allocation leaves a part on library defaults that are usually the pins
+  already taken — so it surfaced as an ordinary pin conflict rather than as
+  anything to do with allocation.
+
+- Parts on fixed pins were sorted by whether their plan carried a board lookup,
+  not by whether that lookup answered. An SPI OLED carries one that returns
+  null for its transport, so it allocated ahead of the SD card and the
+  amplifier, which then took their board pins on top of it.
+
+- Four board profiles curated a MAX98357 pinout onto their own I²C bus —
+  DIN on GPIO 22, which is SCL on both 38-pin ESP32 DevKits. Fine alone, and
+  refused by pin validation the moment any I²C part was present, an OLED or the
+  DS3231 included. The board's bus is now claimed before the amplifier, which
+  falls through to three plain digital lines from the pool.
+
+- A Display Panel showing a screen design, with its own Controls output still
+  wired, was advised to wire Music Player to its Display input and choose Now
+  Playing — advice that would have dropped the design it was showing, since the
+  two content inputs are exclusive. It now says the design owns the touch.
+
+- Double-clicking an unconnected screen design opened an editor with no size
+  behind it, bypassing the Edit button that was already disabled there.
+
+
 - arduino-cli reuses its build cache between compiles. Each build got a fresh
   `tempfile.mkdtemp()` directory, and arduino-cli keys its cache on a hash of
   the sketch path, so every compile was a guaranteed miss that rebuilt the whole
@@ -92,6 +123,40 @@ versioning (`0.y.z`) until the first stable release.
   mistakes.
 
 ### Added
+
+- **Three starters where the controls are already wired.** Both existing
+  control-bearing starters left Player Controls as a stub with nothing plugged
+  into either end, so the one thing a beginner most needs to see — that
+  blackout, dimming and pattern intent are ordinary visible cables — was the
+  one thing they had to work out unaided. *Dimmer and Blackout* is a knob and a
+  button reaching an LED output's Controls latch with no player in the graph.
+  *Browse a Slideshow* is an encoder turning a highlight and a press committing
+  it, with an OLED as the Pattern Browser that makes highlight-then-confirm
+  mean anything — the LEDs only ever show what is already running. *Player
+  Buttons and Screen* is three buttons named on the Player Controls node
+  reaching the player on one cable, with an OLED taking the player's single
+  Display wire.
+
+- **Create screen design, on the panel.** A design has no size until something
+  physical says what size it is, so it is no longer authored at an arbitrary
+  size and told afterwards that it does not fit. A Display Panel mints the
+  design instead: one node, one document already the panel's rotated size, and
+  the ordinary content cable between them, in one undoable step. An unconnected
+  design shows no size at all and cannot be opened, saying which panel to
+  connect instead; the editor names the panel it is drawn for and offers the
+  way back to it.
+
+- **A 0–1 signal wired into another domain is now named.** Wired values are
+  passed straight through — only the speed/scale class is stretched onto a
+  node's own rate — so an audio band into Fire 2012's Sparking set it to about
+  1 out of 255 and the fire never lit, into Reaction Diffusion's Feed it landed
+  ten times past a usable range, into Starfield's Count it asked for one star.
+  Nothing errored and the graph on screen was the graph that was drawn, which is
+  what made it expensive to find. Graph Health now names the wire and the Map
+  Range that repairs it, and the status bar says it as the wire lands — a range
+  mismatch is a fact about the two ports, already true, and no later wiring
+  makes it false.
+
 
 - **Stereo VU Meter.** A paired addressable-LED fixture for the left and right
   sides of a matrix frame, added from Hardware and driven by one explicit Audio
@@ -212,6 +277,23 @@ versioning (`0.y.z`) until the first stable release.
   silence.
 
 ### Changed
+
+- **The panel and the design are named apart.** "Transport Display" named the
+  glass after one of the four things it can show, and "Custom Display" named
+  the document with the same words as the panel input it plugs into — so a
+  sentence about connecting one to the other used one phrase for both ends.
+  The panel is now the **Display Panel** and the document the **Screen
+  Design**, on the node, its port, the hardware shelf, in-app Help, the node
+  cards and the guides. Saved workspaces pick up the new names on load.
+
+- **The control picker offers only what the chain can act on.** It filtered on
+  type alone, so a Player Controls node wired to an LED output still offered
+  Play / Pause, Volume and Previous Track; choosing one minted a port, accepted
+  the wire, passed validation and did nothing — the failure that has someone
+  pressing a button and blaming their soldering. Each option also says whether
+  it is an edge or a position, since "Volume" beside "Volume Up" does not say
+  which of the two you get.
+
 
 - The capacity meter reads its flash and RAM figures from fbuild's own output
   rather than from a private cache file beside the build. fbuild used to print
