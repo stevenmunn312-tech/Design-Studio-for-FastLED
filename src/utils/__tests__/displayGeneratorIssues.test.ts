@@ -41,6 +41,24 @@ describe('fixed touch output routing validation', () => {
     ])
   })
 
+  it('names the design, not the layout, when a mounted panel has its Controls wired', () => {
+    // Every other branch here reads the resolved fixed layout, which is
+    // Waiting once a design owns the glass — so they would advise wiring
+    // Music Player to the Display input, which drops the design.
+    const design = node('screen', 'Display', { displayId: 'screen' })
+    const nodes = [out(), panel, controls, design]
+    const edges = [
+      edge('mount', 'screen', 'customDisplay', 'panel', 'customDisplay'),
+      ...chain,
+    ]
+    const errors = findDisplayGeneratorIssues(nodes, edges, {
+      screen: createDisplayDocument('screen', 240, 320),
+    }).errors
+    expect(errors).toEqual([expect.stringContaining('is showing a screen design')])
+    expect(errors[0]).toContain("the design owns the touch")
+    expect(errors[0]).not.toContain('Music Player')
+  })
+
   it('refuses a layout whose actions an LED output cannot consume in either generator', () => {
     const transport = node('panel', 'TransportDisplay', { ...panel.data.properties, tftLayout: 'Fixed Transport' })
     for (const template of [false, true]) {

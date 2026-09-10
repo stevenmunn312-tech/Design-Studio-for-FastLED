@@ -121,39 +121,44 @@ matrix, not a reason to postpone testing earlier changes.
 
 ## 2. Make the workflow understandable
 
-- [ ] **HW-07 · Connected authoring (M; after HW-04/05).** Distinguish panel and
-  design labels, add create/open-design and back-to-hardware actions, display
-  build mode/reason, and filter assignments by destination plus type. Explain
-  event versus state and units/ranges. **A design has no size until it is
-  connected to a panel.** A mounted design's size is not a free choice — it is
-  the panel's rotated size — so rather than letting a design be authored at an
-  arbitrary size and reporting the mismatch afterwards, do not offer the size at
-  all until there is a panel to derive it from: keep 320x240 as an internal
-  default, show no size on an unconnected `Display` node, disable Edit Display
-  until the panel wire exists, and on connection show the hardware's size and
-  enable it. That makes the invalid state unrepresentable instead of repairable,
-  and stops someone laying out a screen that cannot fit the panel they connect
-  later. It extends the rule HW-03 already established — an unmounted document
-  has no physical existence, so it costs no RAM, bakes no assets and emits no
-  firmware — to its geometry, which is equally a physical fact. Bench-reported
-  2026-09-08 after the size error was hit twice: `mountedSizeIssue` says
-  "resize it" without naming the Portrait/Landscape control that does it, and
-  the 320x240 default means a new design mounted on a portrait panel is wrong
-  before anything is drawn. Changing the panel under an existing design
-  deliberately needs no rule of its own: re-fit to the new panel and let the
-  editor show it, because a WYSIWYG canvas makes a wrong layout self-evident and
-  the user can redo it. That is safe because `resizeDisplayDocument` already
-  scales widgets and clamps them through `constrainDisplayWidgetBounds`, so
-  nothing lands off-canvas or becomes ungrabbable, and an unmodified template
-  re-lays out from its own portrait/landscape spec via
-  `canonicalDisplayTemplateBounds` rather than being scaled. Rotation likewise
-  keeps the explicit Portrait/Landscape control it has now. A disabled Edit Display states why in a
-  small label beneath it. Prefer naming the thing to connect *to* — the node
-  being labelled is itself the custom display, so "Connect a Transport Display
-  to edit" points somewhere, where "connect a custom display" reads as a
-  description of the node the user is already looking at. Templates are unaffected: they already carry portrait and
-  landscape variants selected by `height > width` from a 320x240 reference. Exit: actions/readings are traceable in
-  visible edges; no hidden template bindings. See review recommendations.
+- [ ] **HW-07 · Connected authoring (M; after HW-04/05).** Mostly landed;
+  remaining exit is the Map Range offer and a visual pass.
+
+  **Done.** *A design has no size until it is connected to a panel.* Rather
+  than let one be authored at an arbitrary size and reporting the mismatch
+  afterwards, the size is not offered at all until there is a panel to derive
+  it from: 320x240 stays an internal default, an unconnected `Display` node
+  shows no size, Edit is disabled with a small label beneath saying what to
+  connect *to* ("Connect a Display Panel to edit"), and double-click is gated
+  the same way. Going the other direction, **Create screen design** on the
+  panel mints the node, a document already the panel's rotated size and the
+  ordinary `customDisplay` cable in one undoable store write, and the editor
+  names the panel in its breadcrumb and offers the way back to it. Changing
+  the panel under an existing design deliberately needs no rule of its own —
+  `resizeDisplayDocument` re-fits and `constrainDisplayWidgetBounds` clamps, so
+  nothing lands off-canvas, and an unmodified template re-lays out from its own
+  spec via `canonicalDisplayTemplateBounds`. Labels now distinguish the two:
+  **Display Panel** for the glass, **Screen Design** for the document, on the
+  node, its port, the hardware shelf, Help, the node cards and the guides
+  (`loadGraph` refreshes a saved node's label from the library, so existing
+  workspaces read the new names). Build mode and its reason are on the
+  `Display` node. The Player Controls picker now filters by **destination** as
+  well as type — each function names the `PlayerControlDestination` kinds that
+  act on it, `controlChainSinks` says which this chain reaches, and the two are
+  intersected, so Play / Pause is not offered on a chain ending at an LED
+  output; `ControlChainSink` is an alias of that same union rather than a
+  second copy. Each option says whether it is an edge or a position. A panel
+  showing a Screen Design with its own Controls wired is now told the design
+  owns the touch, instead of being advised to wire Music Player to its Display
+  input, which would drop the design. `npm test` (4,598 tests), `npm run lint`
+  and `tsc -b` pass.
+
+  **Remaining.** Offer Map Range when a normalized signal needs scaling into a
+  node's own domain (the un-normalised-input rule in `CLAUDE.md`); explain
+  unsupported wires *while* connecting rather than after; and the connected
+  starters/visual pass, which is HW-08's scope. Exit: actions/readings are
+  traceable in visible edges; no hidden template bindings. See review
+  recommendations.
 - [ ] **HW-08 · Starters, visual QA and help (M; after HW-07).** Connected live
   dimming, slideshow browse/confirm and music transport/readback examples;
   update in-app Help, descriptions/cards and guides together. Snapshot fixed
@@ -237,19 +242,19 @@ matrix, not a reason to postpone testing earlier changes.
   backend tests pass.
 
 - [x] **HW-24 · P1 · The RAM estimate predicts an overflow and lets the build run
-  anyway (M; overlaps HW-11).** Same session, and the more expensive half.
-  `estimateFirmwareRam` already counted this design's display RAM — the 64 KiB
-  `CUSTOM_DISPLAY_LVGL_HEAP_BYTES` plus a 240x20 RGB565 draw buffer, about 75 KiB
-  before FastLED and framework overhead — so the failure was predictable before
-  the toolchain ran. It surfaced only as a Graph Health *warning*, because
-  `INTERNAL_RAM_WARN_BYTES` is a flat 40,000 and is documented as "not a hard
-  board-specific limit". The user paid 3m 45s to be told something the app could
-  have said instantly. The board is known at that point, and a classic ESP32's
-  `dram0_0_seg` is far smaller than an ESP32-S3's, so the budget can be
-  board-derived rather than a single constant. Exit: a design whose estimated
-  internal RAM exceeds the selected board's own budget is refused before
-  compiling, naming the largest contributor; the flat constant remains only as
-  the fallback for boards with no declared budget.
+  anyway (M; overlaps HW-11).** Closed. `estimateFirmwareRam` already counted the
+  design's display RAM — the 64 KiB `CUSTOM_DISPLAY_LVGL_HEAP_BYTES` plus a
+  240x20 RGB565 draw buffer, about 75 KiB before FastLED and framework overhead
+  — so the failure was predictable before the toolchain ran, and the user paid
+  3m 45s to be told it. Board profiles now declare `internalRamBudgetBytes`, and
+  `findFirmwareRamBudgetIssue` refuses a design over the *selected* board's own
+  budget before compiling, naming the largest contributor from
+  `firmwareRamContributors` (display allocations, LED array, simulation state,
+  palettes, and the render buffers when they are not in PSRAM). Both upload
+  callers gate on it. The flat `INTERNAL_RAM_WARN_BYTES` survives only as the
+  advisory fallback for a board with no declared budget — guessing a limit for
+  an unknown board would be worse than asking its compiler. Covered by board
+  profile, RAM, `CapacityWatcher` and deploy-popup regressions.
 
 - [ ] **HW-25 · P2 · Fixed 64 KiB LVGL heap rules out classic-ESP32 custom
   screens (M; after HW-11).** The overflow above was 22,496 bytes against a

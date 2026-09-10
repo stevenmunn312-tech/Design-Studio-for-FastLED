@@ -1722,6 +1722,8 @@ export function findDisplayGeneratorIssues(
   // The outputs this show renders, resolved once for every panel below.
   const renderedShowOutputs = generator === 'show'
     ? showControlOutputIds(nodes, edges, build.engine?.id) : null
+  /** Panels whose glass belongs to an authored document rather than a layout. */
+  const customMountedPanels = new Set(mountPlan.mounted.map((mount) => mount.panel.id))
 
   for (const display of displays.filter((node) => node.data.nodeType === 'TransportDisplay')) {
     const props = display.data.properties as Record<string, unknown>
@@ -1740,12 +1742,19 @@ export function findDisplayGeneratorIssues(
     const touchActions = resolved
       ? transportTouchRegions(resolved.controller, resolved.rotation, resolved.layout)
       : []
-    // A normal sketch samples the panel and publishes its bundle now, so the
-    // question is no longer whether the generator can read touch but whether
-    // the chain ends anywhere it can act on. An LED output's blackout and
-    // dimming latch is that somewhere; Music Player is not, because a normal
-    // sketch renders a Music Player as a black fill.
-    if (controlsWired && generator === 'sketch' && !reachesOutput) {
+    // A panel showing a Screen Design has no fixed layout to sample, so its
+    // own Controls output is inert whatever the build. Say that first: every
+    // branch below reads the resolved layout, which is Waiting here, and
+    // would hand back advice that repairs the wrong thing — "wire Music
+    // Player to its Display input" would drop the design the panel is
+    // showing. The touch is the document's, and so are the outputs.
+    if (controlsWired && customMountedPanels.has(display.id)) {
+      errors.push(
+        `${nodeLabel(display)} is showing a screen design, so its own Controls output publishes nothing — `
+        + "the design owns the touch. Wire that design's own Toggle, Button and Slider outputs to what they "
+        + "should command, and disconnect this panel's Controls.",
+      )
+    } else if (controlsWired && generator === 'sketch' && !reachesOutput) {
       errors.push(
         `${nodeLabel(display)} has its Controls output wired, but the chain does not reach anything a normal sketch can act on. `
         + "Wire it through to an LED output's Controls input to drive blackout and brightness, "
