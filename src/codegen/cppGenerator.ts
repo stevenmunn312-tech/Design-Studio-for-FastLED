@@ -38,7 +38,7 @@ import {
 } from './segmentDisplayCpp'
 import { clampSegmentBrightness, segmentControllerFor } from '../state/segmentDisplay'
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
-import { NODE_LIBRARY, oledControllerForProps, oledTransportForProps, tftControllerForProps } from '../state/nodeLibrary'
+import { isPaletteBuilderNodeType, NODE_LIBRARY, oledControllerForProps, oledTransportForProps, tftControllerForProps } from '../state/nodeLibrary'
 import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp } from './ledOutputRuntimeCpp'
 import {
   PLAYER_CONTROLS_CPP, PLAYER_CONTROL_BUTTONS, playerControlsServiceCpp,
@@ -1835,7 +1835,7 @@ export function generateCpp(
         // Palette builders create a CRGBPalette16 in their emit cases; reference
         // it by name. A palette-role GroupInput (collection-show codegen)
         // likewise resolves to its `pal_<id>` copy of the render_pN param.
-        if (src.data.nodeType === 'CustomPalette' || src.data.nodeType === 'PaletteFromImage' || src.data.nodeType === 'PaletteBlend' || src.data.nodeType === 'Poline') return `pal_${safeId(up.srcId)}`
+        if (isPaletteBuilderNodeType(src.data.nodeType)) return `pal_${safeId(up.srcId)}`
         if (src.data.nodeType === 'GroupInput' && String(props(src).paramId ?? '') === 'palette') return `pal_${safeId(up.srcId)}`
         return fastledPalette(String(props(src).palette ?? 'rainbow'))
       }

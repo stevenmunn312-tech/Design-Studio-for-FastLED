@@ -31,7 +31,7 @@ import type { StudioEdge } from '../../state/graphStore'
 import { findSignalRangeHints } from '../../utils/validateGraph'
 import { useUiStore } from '../../state/uiStore'
 import { usePatternLibrary } from '../../state/patternLibrary'
-import { NODE_LIBRARY, CATEGORY_COLOR, nodeDisplayLabel, portsCompatible } from '../../state/nodeLibrary'
+import { NODE_LIBRARY, CATEGORY_COLOR, nodeDisplayLabel, portsCompatible, spliceTargetPorts } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import StudioNode from './StudioNode'
 import GlowEdge from './GlowEdge'
@@ -795,17 +795,13 @@ function NodeGraphCanvasInner() {
       const inType = (tN.data as { inputs?: Array<{ id: string; dataType: string }> }).inputs
         ?.find((p) => p.id === edge.targetHandle)?.dataType
       if (!outType || !inType) continue
-      const preferredInput = def.spliceInput
-        ? def.inputs.find((p) => p.id === def.spliceInput && portsCompatible(outType, p.dataType))
-        : undefined
-      const inPort = preferredInput ?? def.inputs.find((p) => portsCompatible(outType, p.dataType))
-      const outPort = def.outputs.find((p) => portsCompatible(p.dataType, inType))
-      if (inPort && outPort) {
+      const ports = spliceTargetPorts(def, outType, inType)
+      if (ports) {
         const category = (sN.data as { category?: string }).category ?? 'output'
         best = {
           edgeId: edge.id,
-          inHandle: inPort.id,
-          outHandle: outPort.id,
+          inHandle: ports.inPort,
+          outHandle: ports.outPort,
           color: (typeof edge.style?.stroke === 'string' && edge.style.stroke) || CATEGORY_COLOR[category] || '#00bfff',
         }
         bestDist = distance

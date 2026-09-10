@@ -18,7 +18,15 @@ export interface NodeDefinition {
   subcategory?: string
   inputs: NodePort[]
   outputs: NodePort[]
-  /** Preferred input when this node is dropped onto a compatible noodle. */
+  /**
+   * Which input an existing noodle should land on when this node is dropped
+   * onto it, where declaration order does not already answer it.
+   *
+   * Needed only for peers — Blend's A and B, where one is the layer underneath
+   * and the other is what goes over it. A node whose primary input is declared
+   * first, which is nearly all of them, needs no declaration: see
+   * `spliceTargetPorts` in `state/nodeLibrary.ts`.
+   */
   spliceInput?: string
   defaultProperties?: Record<string, unknown>
 }

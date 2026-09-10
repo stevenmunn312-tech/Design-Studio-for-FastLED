@@ -202,12 +202,35 @@ matrix, not a reason to postpone testing earlier changes.
   edit/delete/reorder invalidates generated timelines and packaged pattern sets;
   cover patternset-without-song and songs-only paths. Exit: stale/incomplete
   shows cannot export silently. Source: collection-driven-performance open questions.
-- [ ] **HW-10 · Residual node-authoring audit (S).** Review explicit splice
-  targets on multi-input nodes and name/document the preset-name-or-RGB palette
-  union. Reconfirm old findings against current tests instead of replaying stale
-  prescriptions. Ease variants, PaletteFromImage, DMX/RTC, FieldNoise and field
-  brightness inputs already exist. Exit: remaining metadata decisions fixed or
-  explicitly closed with rationale.
+- [x] **HW-10 · Residual node-authoring audit (S).** Both decisions closed, one
+  fixed and one closed with rationale, and each left behind as a check rather
+  than a paragraph (`nodeAuthoringMetadata.test.ts`).
+
+  **Splice targets: closed, no change needed.** Every node whose drop is
+  ambiguous was reviewed against what `findSpliceTarget` actually resolves.
+  Declaration order is already the right answer everywhere but one, because the
+  library declares a node's primary input first — Mask `frame` before `mask`,
+  Clamp `value` before `min`, Zones `base` before its four layers, Field Warp
+  `field` before `dx`. Blend's A and B are peers and are the sole case needing
+  the `spliceInput` override, which it already had. The rule moved out of the
+  canvas into `spliceTargetPorts` so it is testable and stated once, the two
+  redundant declarations on single-input nodes (Format Number, Format Date/Time)
+  were dropped so the override means "these inputs are peers", and a test
+  asserts the invariant the default rests on — so reordering a node's inputs for
+  the inspector's sake can no longer silently move where a drop lands.
+
+  **Palette union: fixed.** The browser resolves `Palette = string | RGB[]`
+  from the value; firmware has no runtime union and decides from the *source
+  node* at generation time — a builder emits its own `pal_<id>` table, a
+  selector resolves to a shared `paldef_<name>` constant. That set was written
+  by hand twice, in `cppGenerator`'s `paletteExpr` and again in
+  `validateGraph`'s RAM estimate, so a fifth palette node joining one and not
+  the other would emit a table nothing prices, or price memory the sketch never
+  allocates. It is now derived once from the thing that already tells the two
+  apart: a selector carries a `palette` property, a builder does not. The union
+  is documented at its definition and cross-referenced from there.
+
+  `npm test` (4,618 tests), `npm run lint` and `tsc -b` pass.
 
 ## 3. Establish exact hardware support
 

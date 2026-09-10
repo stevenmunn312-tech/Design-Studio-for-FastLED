@@ -1573,7 +1573,6 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'math',
     inputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
     outputs: [{ id: 'text', label: 'Text', dataType: 'string' }],
-    spliceInput: 'value',
     defaultProperties: {
       value: 0,
       decimals: 0,
@@ -1590,7 +1589,6 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'math',
     inputs: [{ id: 'dateTime', label: 'DateTime', dataType: 'datetime' }],
     outputs: [{ id: 'text', label: 'Text', dataType: 'string' }],
-    spliceInput: 'dateTime',
     defaultProperties: { dateTimeFormat: 'HH:MM' },
   },
   {
@@ -3196,6 +3194,38 @@ export const NODE_LIBRARY: NodeDefinition[] = [
 const DEFAULTS_BY_TYPE = new Map(NODE_LIBRARY.map((n) => [n.type, n.defaultProperties ?? {}]))
 export function libraryDefaults(nodeType: string): Record<string, unknown> {
   return DEFAULTS_BY_TYPE.get(nodeType) ?? {}
+}
+
+/**
+ * Palette producers whose value is *built*, not named.
+ *
+ * The browser carries one union — `Palette = string | RGB[]` in `ledColor.ts`,
+ * a preset name or an ordered list of colours — and resolves it from the value
+ * at runtime. Firmware has no runtime union at all: a builder emits its own
+ * `pal_<id>` CRGBPalette16 in its emit case, while a selector resolves to a
+ * shared `paldef_<name>` preset constant, and which of the two a wire is comes
+ * from the *source node*, decided once at generation time.
+ *
+ * So the two sides model the same fact differently, and the firmware side has
+ * to be told which producers build. It was told twice, by hand, in
+ * `cppGenerator`'s `paletteExpr` and again in `validateGraph`'s RAM estimate —
+ * a fifth palette node joining one list and not the other would emit the right
+ * table and price the wrong memory, or reference `pal_<id>` and price nothing.
+ *
+ * Derived instead, from the one thing that already distinguishes them: a
+ * selector *names* a preset, so it carries a `palette` property; a builder
+ * makes one out of its inputs and carries none. A new palette node is
+ * classified by what it is rather than by being remembered.
+ */
+export const PALETTE_BUILDER_NODE_TYPES: ReadonlySet<string> = new Set(
+  NODE_LIBRARY
+    .filter((def) => def.outputs.some((port) => port.dataType === 'palette')
+      && (def.defaultProperties ?? {}).palette === undefined)
+    .map((def) => def.type),
+)
+
+export function isPaletteBuilderNodeType(nodeType: string): boolean {
+  return PALETTE_BUILDER_NODE_TYPES.has(nodeType)
 }
 
 export const NODE_DESCRIPTIONS: Record<string, string> = {
@@ -4889,6 +4919,37 @@ export function bypassPort(outputs: { id: string; dataType?: string }[], inputs:
     if (match) return { outPort: o.id, inPort: match.id }
   }
   return null
+}
+
+/**
+ * Where a node lands when it is dropped onto an existing noodle.
+ *
+ * Splicing has to choose one input and one output out of the several a node may
+ * have, and the choice is not cosmetic: dropping Blend on a frame cable should
+ * make that stream the base layer, not the thing composited over it.
+ *
+ * The rule is *declaration order*, with `spliceInput` as the override. That
+ * works because the library declares a node's primary input first — Mask takes
+ * `frame` before `mask`, Clamp `value` before `min`, Field Warp `field` before
+ * `dx` — so the first compatible input is nearly always the pass-through one.
+ * Blend is the exception the override exists for: `a` and `b` are peers, and
+ * only one of them is the layer underneath.
+ *
+ * Stated here rather than inline in the canvas so the choice is testable, and
+ * so reordering a node's inputs for the sake of the inspector cannot silently
+ * move where a drop lands.
+ */
+export function spliceTargetPorts(
+  def: Pick<NodeDefinition, 'inputs' | 'outputs' | 'spliceInput'>,
+  sourceDataType: string,
+  targetDataType: string,
+): { inPort: string; outPort: string } | null {
+  const preferred = def.spliceInput
+    ? def.inputs.find((port) => port.id === def.spliceInput && portsCompatible(sourceDataType, port.dataType))
+    : undefined
+  const inPort = preferred ?? def.inputs.find((port) => portsCompatible(sourceDataType, port.dataType))
+  const outPort = def.outputs.find((port) => portsCompatible(port.dataType, targetDataType))
+  return inPort && outPort ? { inPort: inPort.id, outPort: outPort.id } : null
 }
 
 /**

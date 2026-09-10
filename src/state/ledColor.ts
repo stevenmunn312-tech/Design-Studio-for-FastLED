@@ -9,7 +9,15 @@ import { sampleNamedPalette } from './paletteCatalog'
 export interface RGB { r: number; g: number; b: number }
 export type Frame = RGB[][]   // row-major [y][x]
 
-/** A palette is either a named preset or an ordered list of custom colors. */
+/**
+ * A palette is either a named preset or an ordered list of custom colors.
+ *
+ * The union is resolved from the value here, at evaluation time. Firmware has
+ * no equivalent: which arm a wire carries is decided once at generation time
+ * from the *source node* — a builder emits its own `pal_<id>` table, a selector
+ * resolves to a shared preset constant. See `PALETTE_BUILDER_NODE_TYPES` in
+ * `state/nodeLibrary.ts` for how the two are told apart without a list.
+ */
 export type Palette = string | RGB[]
 
 function byte(v: number): number { return Math.max(0, Math.min(255, Math.round(v * 255))) }

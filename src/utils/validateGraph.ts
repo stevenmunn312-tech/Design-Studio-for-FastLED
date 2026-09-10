@@ -7,6 +7,7 @@ import {
   supportsScalarExpression,
 } from '../state/nodeLibrary'
 import { isLinearForm, outputForm, outputLedTotal } from '../state/ledOutputForm'
+import { PALETTE_BUILDER_NODE_TYPES } from '../state/nodeLibrary'
 import { formatSignalRange, isNormalizedOutput, signalRangeMismatch } from '../state/signalRange'
 import { audioOutputMissing } from '../state/audioOutput'
 import { resolveShowTarget } from '../state/showTarget'
@@ -522,9 +523,12 @@ function displayRamBytes(
 const PALETTE_BYTES = 48
 
 // Node types whose emit case builds its own `pal_<id>` table rather than
-// referencing a shared `paldef_<name>` one. Mirrors the branch in
-// cppGenerator's `paletteExpr`.
-const PALETTE_BUILDER_TYPES = new Set(['CustomPalette', 'PaletteFromImage', 'PaletteBlend', 'Poline'])
+// referencing a shared `paldef_<name>` one. Derived beside the node library
+// rather than restated here: this list and `cppGenerator`'s `paletteExpr` were
+// two hand-written copies of one fact, and a palette node joining only one of
+// them prices memory the sketch does not allocate, or allocates memory nothing
+// prices.
+const PALETTE_BUILDER_TYPES = PALETTE_BUILDER_NODE_TYPES
 
 // Extra `static` state a handful of simulation nodes allocate beyond their own
 // frame/field render buffer — mirrors the arrays cppGenerator.ts emits for
