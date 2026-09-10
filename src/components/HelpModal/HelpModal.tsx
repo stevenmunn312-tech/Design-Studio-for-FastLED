@@ -254,6 +254,10 @@ function QuickStartTab() {
             <strong>Music-synced SD show</strong>
             <span>Drop tracks into Music Library — they analyse as they land — build the timeline in Performance Generator, add an <strong>SD Card</strong> part in the hardware view, then <strong>Upload</strong>. That writes the songs and shows to the card and flashes the player.</span>
           </div>
+          <div className={styles.choiceCard}>
+            <strong>Physical controls</strong>
+            <span>Blackout, dimming and pattern intent are wires, not project settings. A knob or button goes into <strong>Player Controls</strong>, which asks what that control should do and mints the port it names, and its <strong>Controls</strong> bundle then reaches an LED output&apos;s latch, a Pattern Slideshow&apos;s cursor, or Music Player&apos;s transport. The <strong>Dimmer and Blackout</strong> and <strong>Browse a Slideshow</strong> starters arrive with both ends already wired.</span>
+          </div>
         </div>
       </div>
     </>

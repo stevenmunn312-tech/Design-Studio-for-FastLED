@@ -31,11 +31,11 @@ What makes the Studio useful:
 
 ## Start with a spark, not an empty canvas
 
-The Start Gallery includes guided patches for Juggle, Fire, scrolling text, live audio, field warping, generative shows, and music-synced SD playback. Each starter arrives with an editable Comment node explaining what to try next.
+The Start Gallery includes guided patches for Juggle, Fire, scrolling text, live audio, field warping, generative shows, music-synced SD playback, pattern slideshows, and two where the physical controls are already wired — a knob and button dimming an LED output, and an encoder browsing a slideshow. Each starter arrives with an editable Comment node explaining what to try next.
 
 ![The full-screen Start Gallery with beginner, audio, field, and show templates](docs/images/readme/design-studio-start-gallery.png)
 
-The starter patches are deliberately simple: a pattern flows into an LED output. Change a few controls, splice an effect directly into the wire, and the preview responds immediately.
+Most starter patches are deliberately simple: a pattern flows into an LED output. Change a few controls, splice an effect directly into the wire, and the preview responds immediately. The control starters add one more idea — that a button or knob on the bench reaches the fixture along an ordinary visible cable.
 
 | Build and preview a patch | Browse and collect reusable patterns |
 | --- | --- |

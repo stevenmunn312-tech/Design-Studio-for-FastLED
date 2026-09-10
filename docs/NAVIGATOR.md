@@ -13,7 +13,8 @@ build/architecture overview aimed at contributors.
 
 - [Hardware workbench](user/hardware-workbench.md)
   — the current Hardware-branch workflow for choosing a board, adding physical
-    parts, assigning pins, designing and wiring display widgets, switching LED preview
+    parts, assigning pins, wiring a knob or button through Player Controls,
+    designing and wiring display widgets, switching LED preview
     routes, deploying firmware, and using the embedded Output/Serial console.
 - [Stereo VU Meter](user/stereo-vu-meter.md)
   — adding and wiring paired side strings, stereo/mono source behavior, all

@@ -114,6 +114,37 @@ winding direction, cylinder diameter, and finished height. Studio authors the
 effect on an unwrapped cylinder, then uses the same helical sample map for the
 browser preview and generated firmware.
 
+## Wire a knob or a button to something
+
+Blackout, dimming and pattern intent are wires, not project settings. Add the
+control as a part — **Potentiometer**, **Button**, **Rotary Encoder** — then
+drag its output onto **Player Controls**. Dropping on its trailing socket asks
+what that control should do and mints a port named for the job, offering only
+the jobs this chain can actually carry out: a bundle ending at an LED output is
+offered blackout and dimming, one ending at a Pattern Slideshow is offered
+pattern intent, and one reaching Music Player is offered all of it. Each option
+says whether it is an edge (*on each press*) or a position (*holds its
+position, 0 to 1*).
+
+The node's single **Controls** output then goes to whatever should obey it:
+
+| Destination | What it takes |
+| --- | --- |
+| LED output **Controls** | Blackout toggle, brightness level and up/down steps |
+| Pattern Slideshow **Controls** | Pattern selection, previous/next, confirm |
+| Music Player **Controls** | Transport, volume, blackout, dimming and pattern intent |
+| Another Player Controls **Controls In** | Chains banks of controls into one bundle |
+
+An LED output's **Enabled** and **Brightness** inputs take a plain wire too, for
+a graph with no controls in it. Unwired, an output is lit and undimmed, so
+adding these ports to an existing project cannot darken it. Blackout, dimming
+and the Controls bundle combine rather than override each other.
+
+Two Start Gallery patches arrive with both ends already wired: **Dimmer and
+Blackout** (a knob and a button reaching an LED output, no player anywhere) and
+**Browse a Slideshow** (an encoder turning a highlight, a press committing it,
+and an OLED showing what you are about to play).
+
 ## Add and connect a display
 
 Choose **Add Hardware → Displays**, then choose the exact module you need from
