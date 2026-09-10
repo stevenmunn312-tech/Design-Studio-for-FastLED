@@ -265,29 +265,37 @@ matrix, not a reason to postpone testing earlier changes.
   gets a surface of its own, only the two muted states fade (disabled further
   than inactive), and the three live states clear a 2.7 regression floor.
 
-  **Open, and a design decision rather than a defect to fix blind:** the
-  square panel. `displayTemplateGolden.test.ts` sweeps every template across
-  every mounted size and records what lands where. 320x240 and 240x320 are
-  clean, but both ST7789 modules are **240x240 at every rotation**, so a
-  Screen Design created on a 1.3-inch module is born square — and
-  `applyDisplayTemplate` takes the portrait composition only when height
-  exceeds width, so a square panel gets the 320-wide landscape one and the
-  clamp slides each right-hand widget onto its neighbour. All eight templates
-  collide, twelve collisions in total. Forcing portrait instead fixes three
-  and overruns the bottom of the other five, so neither authored layout is the
-  answer: eight square compositions have to be drawn. Recorded rather than
-  asserted, so authoring them changes the vectors visibly.
+  **The square panel, found by that sweep and now fixed.** Both ST7789
+  modules are 240x240 at every rotation, so a Screen Design created on a
+  1.3-inch module is born square — and `applyDisplayTemplate` took the
+  portrait composition only when height exceeded width, so a square panel got
+  the 320-wide landscape one and the clamp slid each right-hand widget onto
+  its neighbour. All eight templates collided, twelve collisions in total.
+  Composition choice now goes through one `templateComposition` helper that
+  both the placer and the orientation reflow call, square falls back to
+  *portrait* rather than landscape (portrait is already authored 240 wide, so
+  nothing clamps horizontally), and the five templates whose portrait layout
+  runs past 240 rows carry a `squareWidgets` composition of their own. The
+  three that already fit deliberately have none, and a test holds that
+  correspondence so the absence stays a decision rather than an omission.
+  Every template now places on every mounted size with no layout issue, and
+  `npm run gen:display-sheets` draws each template's placed widgets per size
+  as a second kind of sheet, which is what caught two ragged rows.
 
-  Also noted, not changed: `disabled` resolves to 1.14–1.39 contrast in every
-  theme, because the state floods its surface 72% toward the already-muted
-  text colour (`inactive` washes only 14%) while `opacity` is separately
-  fading the whole control. A disabled control reads as a blank rounded
-  rectangle rather than a greyed-out label. Whether that is the intended
-  look is a taste call, so the numbers are recorded and the fix is not made.
+  **The disabled state, also fixed.** It resolved to 1.14-1.39 contrast in
+  every theme — a blank rounded rectangle rather than a greyed-out label —
+  because the fade was applied three times over: `disabledColor` is already
+  the pack's muted text blended a third of the way to the surface, `opacity`
+  fades the whole control again in both renderers, and the surface was then
+  washed 0.72 toward that same muted text, against `inactive`'s 0.14. The two
+  muted states now share one wash constant and are told apart by their text
+  colour and their opacity, which is what is supposed to tell them apart.
+  Disabled comes out at 1.48-2.59, still clearly set back from inactive's
+  1.94-5.38.
 
   Raw calibration properties are exposed and explained; guided calibration and
   measured bounds remain HW-11 work. No new physical validation is claimed by
-  these software checks. `npm test` (4,788 passed, 13 skipped), `npm run lint`
+  these software checks. `npm test` (4,790 passed, 13 skipped), `npm run lint`
   and `tsc -b` pass.
 - [x] **HW-09 · Collection freshness/music completeness (M).** Both open
   questions from [collection-driven
