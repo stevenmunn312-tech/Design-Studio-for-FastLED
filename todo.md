@@ -223,10 +223,41 @@ matrix, not a reason to postpone testing earlier changes.
   themes and templates at supported sizes and orientations, including
   pressed/disabled) and exposing diagnostics/calibration. Those are QA and UI
   surface rather than model work.
-- [ ] **HW-09 · Collection freshness/music completeness (M).** Verify group
-  edit/delete/reorder invalidates generated timelines and packaged pattern sets;
-  cover patternset-without-song and songs-only paths. Exit: stale/incomplete
-  shows cannot export silently. Source: collection-driven-performance open questions.
+- [x] **HW-09 · Collection freshness/music completeness (M).** Both open
+  questions from [collection-driven
+  performance](docs/development/design/collection-driven-performance.md#open-questions)
+  answered; the first was a real defect.
+
+  **Collection drift — was not covered.** The design note asked to "confirm"
+  that regenerate-on-change covered pattern-set changes as well as the
+  timeline. It did not: the effect keyed on the Performance Generator's own
+  properties alone, while `regenerateShow` reads the wired collection live — so
+  editing the collection changed what every stored show *meant* without
+  changing the show. A show schedules patterns by position, and the player
+  compiles one `render_pN` table from the *first* ready show's `patternSet`, so
+  a reorder wrote a card that played the wrong patterns in perfect time with
+  the music, and a second show generated against a different collection mapped
+  its indices onto the first one's patterns.
+
+  `ShowFile.patternSet` already records the vocabulary each show was built
+  against, so drift is a comparison rather than a timestamp: `showFreshness.ts`
+  names the six ways it goes wrong (reordered, added to, removed from, a
+  collection wired or unwired since generating, or a pattern group deleted
+  outright), `buildShowPayload` refuses on any of them, and the deploy popup
+  says which song and what to do rather than leaving a dead button. The
+  regenerate trigger now includes the wired vocabulary, so the unedited common
+  case heals itself; a hand-edited show is still never regenerated for the
+  user, which is why the packaging check exists and why its message names
+  Revert instead.
+
+  **Mixed wiring — already correct.** `patternset` without a song warns in
+  Graph Health and cannot export (no analysed show means no payload, and the
+  button explains itself). Songs-only stays legacy enum mode. A stored show
+  carrying a `patternSet` with no collection wired is now refused rather than
+  compiled against a vocabulary that is gone.
+
+  Covered by freshness unit tests and packaging/popup regressions; `npm test`
+  (4,634 tests), `npm run lint` and `tsc -b` pass.
 - [x] **HW-10 · Residual node-authoring audit (S).** Both decisions closed, one
   fixed and one closed with rationale, and each left behind as a check rather
   than a paragraph (`nodeAuthoringMetadata.test.ts`).

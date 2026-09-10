@@ -9,6 +9,17 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- A music-synced show is no longer packaged after its Pattern Collection has
+  moved underneath it. A show schedules patterns by *position*, and the player
+  compiles one pattern table from the first ready show, so reordering the
+  collection — or deleting a pattern group, or wiring the collection up after
+  generating — wrote a card that played the wrong patterns in perfect time with
+  the music, and a second song generated against a different collection mapped
+  its numbers onto the first one's patterns. Uploading now says which song is
+  out of step and what to do about it. The common case fixes itself: shows
+  regenerate when the collection changes, not only when the generator's own
+  controls do.
+
 - A retarget let an already-placed part claim its old pins as well as its new
   ones. Updates are applied at the end of the pass, so a part that had been
   answered for still held the pins it arrived with, and those went to the
