@@ -13,7 +13,7 @@ import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph, streamReceiverCapabilityNotes } from '../../codegen/streamReceiverGenerator'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
-import { readySongCount, buildShowPayload, buildShowPlayerForMeasurement } from '../../utils/showUpload'
+import { readySongCount, buildShowPayload, buildShowPlayerForMeasurement, showPackagingIssues } from '../../utils/showUpload'
 import { findPinConflicts, findMatrixLayoutErrors, findMirroredOutputMismatches, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowOutputFormErrors, findShowRequirementErrors, findFirmwareRamBudgetIssue } from '../../utils/validateGraph'
 import { summarizeCapacity } from '../../utils/capacityFormat'
 import { useCodegenGraph } from '../../utils/codegenGraph'
@@ -409,6 +409,14 @@ export default function MatrixOutputDeployPopup({
 
   function handleShowUpload() {
     void (async () => {
+      // Said before the trust prompt, because it is not a decision to make —
+      // a drifted show plays the wrong patterns in time with the music, which
+      // looks like a broken feature rather than a file that needs rebuilding.
+      const stale = showPackagingIssues(nodes, edges, entries, getGroupRegistry())
+      if (stale.length > 0) {
+        useUiStore.getState().setStatus(stale[0].message, 'error')
+        return
+      }
       if (!(await confirmUploadIfUntrusted())) return
       // A trust dialog can outlive the document/asset snapshot it opened with.
       if (customAssets.pending || customAssets.errors.length > 0

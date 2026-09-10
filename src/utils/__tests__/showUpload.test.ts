@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import type { Edge } from '@xyflow/react'
 import type { GroupRegistry } from '../../state/graphEvaluator'
 import type { StudioNode } from '../../state/graphStore'
-import { buildShowPlayer, buildShowPlayerForMeasurement } from '../showUpload'
+import { buildShowPayload, buildShowPlayer, buildShowPlayerForMeasurement, showPackagingIssues } from '../showUpload'
+import type { MusicEntry } from '../../state/musicStore'
+import type { ShowFile } from '../../types/showFile'
 
 function node(
   id: string,
@@ -221,5 +223,61 @@ describe('buildShowPlayer', () => {
     expect(sketch).toContain('void render_p0(uint32_t ms)')
     expect(sketch).not.toContain('void audio_process_i2s(')
     expect(sketch).not.toContain('fl::audio::Processor')
+  })
+})
+
+/*
+ * A show picks its patterns by position in the collection it was generated
+ * from, and the player compiles one pattern table from the first ready show.
+ * So a collection edited afterwards does not break the export — it writes a
+ * card that plays the wrong patterns in perfect time with the music, which
+ * reads as a broken feature rather than a stale file.
+ */
+describe('packaging a drifted show', () => {
+  const showFile = (patternSet?: string[]): ShowFile => ({
+    version: patternSet ? 2 : 1, songTitle: 'Track', durationMs: 1000, bpm: 120, events: [],
+    ...(patternSet ? { patternSet } : {}),
+  } as ShowFile)
+
+  const entry = (patternSet?: string[], edited = false): MusicEntry => ({
+    id: 'song', file: new File([''], 'track.mp3'), status: 'done',
+    analysis: {} as never, show: showFile(patternSet), edited,
+  } as unknown as MusicEntry)
+
+  const graph = (patternIds: string[]) => ({
+    nodes: [
+      node('performance', 'PerformanceGenerator', {}, [{ id: 'patternset', dataType: 'patternset' }]),
+      node('collection', 'PatternCollection', { patternIds }, [], [{ id: 'patternset', dataType: 'patternset' }]),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 17 }),
+      node('sd', 'SDCard'),
+      node('amp', 'Amplifier'),
+    ],
+    edges: [
+      { id: 'set', source: 'collection', sourceHandle: 'patternset', target: 'performance', targetHandle: 'patternset' },
+      { id: 'led', source: 'performance', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+    ] as Edge[],
+  })
+
+  const groups: GroupRegistry = { a: { nodes: [], edges: [] }, b: { nodes: [], edges: [] } }
+
+  it('packages a show that still matches its collection', () => {
+    const { nodes, edges } = graph(['a', 'b'])
+    expect(showPackagingIssues(nodes, edges, [entry(['a', 'b'])], groups)).toEqual([])
+    expect(buildShowPayload(nodes, edges, [entry(['a', 'b'])], groups)).not.toBeNull()
+  })
+
+  it('refuses one whose collection was reordered underneath it', () => {
+    const { nodes, edges } = graph(['b', 'a'])
+    const issues = showPackagingIssues(nodes, edges, [entry(['a', 'b'])], groups)
+    expect(issues).toHaveLength(1)
+    expect(issues[0].message).toContain('picks patterns by position')
+    expect(buildShowPayload(nodes, edges, [entry(['a', 'b'])], groups)).toBeNull()
+  })
+
+  it('refuses one built from a pattern group since deleted', () => {
+    const { nodes, edges } = graph(['a', 'gone'])
+    const issues = showPackagingIssues(nodes, edges, [entry(['a', 'gone'])], groups)
+    expect(issues[0].kind).toBe('missing-group')
+    expect(buildShowPayload(nodes, edges, [entry(['a', 'gone'])], groups)).toBeNull()
   })
 })

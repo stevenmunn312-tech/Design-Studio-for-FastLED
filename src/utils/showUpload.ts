@@ -33,6 +33,7 @@ import type { ShowUploadFile } from './backendClient'
 import { stereoVuEmitsFromGraph } from '../codegen/stereoVuMeterCpp'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
 import { wiredPatternCollection } from '../state/patternCollectionWiring'
+import { showFreshnessIssues, type ShowFreshnessIssue } from '../state/showFreshness'
 import { resolveBuildMode } from '../state/buildMode'
 
 export { wiredPatternCollection } from '../state/patternCollectionWiring'
@@ -198,8 +199,43 @@ export function buildShowPlayerForMeasurement(
 }
 
 /**
+ * Why the analysed shows on hand cannot be packaged as they stand.
+ *
+ * The one place that asks, so the deploy popup can say it and
+ * `buildShowPayload` can refuse on it without the two drifting apart. Empty
+ * when the shows and the wired collection agree, which is the normal case and
+ * the one the generator keeps true by regenerating on a change.
+ */
+export function showPackagingIssues(
+  nodes: StudioNode[],
+  edges: Edge[],
+  entries: MusicEntry[],
+  groups: GroupRegistry = {},
+): ShowFreshnessIssue[] {
+  const build = resolveBuildMode(nodes, edges)
+  // A generic music player compiles the wired collection directly and reads no
+  // `.show` file, so a stale show is not part of what it builds.
+  if (build.engineKind === 'music-player') return []
+  const done = entries.filter((e) => e.status === 'done' && e.show)
+  if (done.length === 0) return []
+  const { ids } = wiredPatternCollection(nodes, edges, build.engine?.id)
+  return showFreshnessIssues(
+    done.map((entry) => ({
+      songTitle: entry.show!.songTitle,
+      patternSet: entry.show!.patternSet,
+      edited: entry.edited,
+    })),
+    ids,
+    new Set(Object.keys(groups)),
+  )
+}
+
+/**
  * Build the player sketch and the SD file list. Returns null when there are no
- * analysed songs to upload. The player reads `/music/*.mp3` and the matching
+ * analysed songs to upload, or when the shows no longer match the collection
+ * they were generated from — packaging a drifted show writes a card that plays
+ * the wrong patterns in perfect sync, which reads as a broken feature rather
+ * than a stale file. The player reads `/music/*.mp3` and the matching
  * `/shows/<name>.show`, so both share the song's safe title.
  */
 export function buildShowPayload(
@@ -213,6 +249,7 @@ export function buildShowPayload(
   const build = resolveBuildMode(nodes, edges)
   const genericPlayer = build.engineKind === 'music-player'
   if (done.length === 0 && !genericPlayer) return null
+  if (showPackagingIssues(nodes, edges, entries, groups).length > 0) return null
   const { ids: playerPatternSet } = wiredPatternCollection(nodes, edges, build.engine?.id)
 
   // A collection (version 2) show carries its pattern group ids in patternSet;

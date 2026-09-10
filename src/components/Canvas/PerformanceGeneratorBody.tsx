@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMusicStore } from '../../state/musicStore'
 import { useGraphStore, getGroupRegistry, rootGraphNodes, rootGraphEdges } from '../../state/graphStore'
+import { wiredPatternCollection } from '../../state/patternCollectionWiring'
 import { resolveShowTarget } from '../../state/showTarget'
 import { useShowPlayback } from '../../state/showPlayback'
 import { usePlayerTransport } from '../../state/playerTransport'
@@ -49,7 +50,13 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
     s.nodes.find((n) => n.id === nodeId)?.data.properties ?? {}
   )
   const options = useMemo(() => performanceOptionsFromProperties(properties), [properties])
-  const optionsKey = JSON.stringify(options)
+  // Everything `regenerateShow` reads: this node's controls, plus the pattern
+  // vocabulary and transition pool it resolves live from the graph.
+  const wiredVocabulary = useGraphStore((s) => {
+    const { ids, sectionTags } = wiredPatternCollection(rootGraphNodes(s), rootGraphEdges(s))
+    return JSON.stringify([ids, sectionTags])
+  })
+  const regenerateKey = `${JSON.stringify(options)}|${wiredVocabulary}`
   const useGroupInputs = !!properties.useGroupInputs
   const trusted = useGraphStore((s) => s.trusted)
 
@@ -83,7 +90,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const rafRef = useRef<number | null>(null)
-  const previousOptionsRef = useRef(optionsKey)
+  const previousOptionsRef = useRef(regenerateKey)
   // Resume playback after a prev/next track switch once the new audio loads.
   const pendingPlayRef = useRef(false)
 
@@ -123,21 +130,33 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
     if (previewId !== bake.entryId) setPreviewId(bake.entryId)
   }, [bake?.entryId, nodeId, previewId, ready])
 
-  // Regenerate analysed shows shortly after generator controls settle. Skip
-  // the initial mount: songs were already generated with these options by the
-  // Music Library's Analyse action.
+  /*
+   * Regenerate analysed shows shortly after the inputs settle. Skip the
+   * initial mount: songs were already generated with these options by the
+   * Music Library's Analyse action.
+   *
+   * The vocabulary counts as an input, not only the knobs. A show schedules
+   * patterns by *position* in the collection, so adding, removing or
+   * reordering one silently repoints every `SET_PATTERN` in every stored show
+   * — and watching this node's own properties alone meant editing the
+   * collection changed what the show meant without changing the show.
+   * `regenerateShow` already reads the wired collection live, so it was only
+   * ever the trigger that was too narrow.
+   */
   useEffect(() => {
-    if (previousOptionsRef.current === optionsKey) return
-    previousOptionsRef.current = optionsKey
+    if (previousOptionsRef.current === regenerateKey) return
+    previousOptionsRef.current = regenerateKey
     const timer = window.setTimeout(() => {
       const music = useMusicStore.getState()
       for (const candidate of music.entries) {
-        // Manual timeline edits win until the user reverts — don't clobber them.
+        // Manual timeline edits win until the user reverts — don't clobber
+        // them. `showPackagingIssues` is what stops one of those being
+        // packaged while it is out of step.
         if (candidate.analysis && !candidate.edited) music.regenerateShow(candidate.id, options)
       }
     }, 250)
     return () => window.clearTimeout(timer)
-  }, [options, optionsKey])
+  }, [options, regenerateKey])
 
   // Object URL for the currently-previewed file.
   const audioUrl = useMemo(() => (entry ? URL.createObjectURL(entry.file) : null), [entry])

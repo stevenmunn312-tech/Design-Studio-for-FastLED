@@ -3,6 +3,7 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import MatrixOutputDeployPopup from '../MatrixOutputDeployPopup'
 import CapacityWatcher from '../CapacityWatcher'
 import { useGraphStore } from '../../../state/graphStore'
+import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/uploadStore'
 import { useMusicStore } from '../../../state/musicStore'
 import { useProjectStore } from '../../../state/projectStore'
@@ -41,6 +42,10 @@ vi.mock('../../../utils/showUpload', () => ({
     nodes.some((node) => node.data.nodeType === 'SDCard')
       && nodes.some((node) => node.data.nodeType === 'PerformanceGenerator')),
   readySongCount: vi.fn(() => 0),
+  // Fresh by default: the drift refusal has its own coverage in
+  // utils/__tests__/showUpload.test.ts, and every case here is about the
+  // upload path rather than about a stale show.
+  showPackagingIssues: vi.fn(() => []),
   buildShowPayload: vi.fn(() => null),
   buildShowPlayerForMeasurement: vi.fn(() => '// player sketch'),
 }))
@@ -566,6 +571,30 @@ describe('MatrixOutputDeployPopup SD-show upload', () => {
       expect.anything(), expect.anything(), expect.anything(), expect.anything(),
       expect.objectContaining({ displayDocuments: { panel: document }, customDisplayAssets: { screen: baked } }),
     ))
+  })
+
+  it('says why a drifted show is not uploaded, instead of doing nothing', async () => {
+    // `buildShowPayload` refuses a drifted set by returning null, which on its
+    // own looks like a dead button. The popup asks first so the reason reaches
+    // the user, and asks before the trust prompt because this is not a
+    // decision — a stale show plays the wrong patterns in time with the music.
+    const showUpload = await import('../../../utils/showUpload')
+    vi.mocked(showUpload.readySongCount).mockReturnValue(1)
+    vi.mocked(showUpload.buildShowPayload).mockClear()
+    vi.mocked(showUpload.showPackagingIssues).mockReturnValue([{
+      songTitle: 'Track', kind: 'collection', message: 'Track was generated from a different set of patterns.',
+    }])
+    try {
+      const { getByRole } = render(<MatrixOutputDeployPopup />)
+      fireEvent.click(getByRole('button', { name: /Upload show/ }))
+
+      await waitFor(() => expect(useUiStore.getState().statusText)
+        .toBe('Track was generated from a different set of patterns.'))
+      expect(useUiStore.getState().statusLevel).toBe('error')
+      expect(showUpload.buildShowPayload).not.toHaveBeenCalled()
+    } finally {
+      vi.mocked(showUpload.showPackagingIssues).mockReturnValue([])
+    }
   })
 
   it('drops the separate show-upload button', async () => {
