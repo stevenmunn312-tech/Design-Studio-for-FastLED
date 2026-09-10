@@ -401,6 +401,19 @@ export interface FirmwareRamEstimate {
   psramBytes: number
 }
 
+export interface FirmwareRamContributor {
+  label: string
+  bytes: number
+}
+
+export interface FirmwareRamBudgetIssue {
+  profile: PhysicalBoardProfile
+  estimate: FirmwareRamEstimate
+  budgetBytes: number
+  largestContributor: FirmwareRamContributor
+  message: string
+}
+
 export interface LedRefreshEstimate {
   /** Addressable pixels sent by the synchronized FastLED refresh. */
   ledCount: number
@@ -707,10 +720,60 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[], di
   return { ledCount, ledsArrayBytes, frameBufferBytes, fieldBufferBytes, statefulBytes, paletteBytes, displayBytes, usesPsram, internalBytes, psramBytes }
 }
 
-// A conservative "worth a heads-up" threshold for classic ESP32-class internal
-// SRAM (WiFi/BT stacks and the rest of the app already claim a large share of
-// the ~300–500 KB total) — not a hard board-specific limit.
-const INTERNAL_RAM_WARN_BYTES = 40_000
+// A conservative "worth a heads-up" threshold for boards whose exact profile
+// does not declare a usable design-allocation budget. This remains advisory:
+// only a selected board's declared budget can turn the estimate into a hard
+// pre-build verdict.
+export const INTERNAL_RAM_WARN_BYTES = 40_000
+
+/** Internal-only categories, kept separate so an over-budget verdict can tell
+ * the user which part of the design is worth shrinking first. */
+export function firmwareRamContributors(estimate: FirmwareRamEstimate): FirmwareRamContributor[] {
+  const contributors: FirmwareRamContributor[] = [
+    { label: 'display allocations', bytes: estimate.displayBytes },
+    { label: 'physical LED array', bytes: estimate.ledsArrayBytes },
+    { label: 'simulation state', bytes: estimate.statefulBytes },
+    { label: 'palette tables', bytes: estimate.paletteBytes },
+  ]
+  if (!estimate.usesPsram) {
+    contributors.push(
+      { label: 'frame render buffers', bytes: estimate.frameBufferBytes },
+      { label: 'field render buffers', bytes: estimate.fieldBufferBytes },
+    )
+  }
+  return contributors.filter((contributor) => contributor.bytes > 0)
+}
+
+/**
+ * A hard internal-RAM verdict exists only when the exact selected board has a
+ * declared allowance. Profiles without one deliberately retain the historical
+ * flat warning: guessing a limit for an unknown/custom board would be worse
+ * than asking its compiler for a measurement.
+ */
+export function findFirmwareRamBudgetIssue(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  displayDocuments?: DisplayDocumentRegistry,
+): FirmwareRamBudgetIssue | null {
+  const profile = selectedBoardProfile(nodes)
+  const budgetBytes = profile?.internalRamBudgetBytes
+  if (!profile || budgetBytes === undefined) return null
+  const estimate = estimateFirmwareRam(nodes, edges, displayDocuments)
+  if (!estimate || estimate.internalBytes <= budgetBytes) return null
+  const largestContributor = firmwareRamContributors(estimate)
+    .sort((a, b) => b.bytes - a.bytes)[0]
+    ?? { label: 'graph allocations', bytes: estimate.internalBytes }
+  const estimatedKb = Math.round(estimate.internalBytes / 1024)
+  const budgetKb = Math.round(budgetBytes / 1024)
+  const contributorKb = Math.round(largestContributor.bytes / 1024)
+  return {
+    profile,
+    estimate,
+    budgetBytes,
+    largestContributor,
+    message: `Estimated internal RAM (~${estimatedKb} KB) exceeds ${profile.label}'s ~${budgetKb} KB design budget. Largest contributor: ${largestContributor.label} (~${contributorKb} KB).`,
+  }
+}
 
 /**
  * Pin uses that are a shared GPIO on purpose, as `nodeId:propertyKey` keys.
@@ -2118,13 +2181,26 @@ export function buildGraphDiagnostics(
   }
 
   const ram = estimateFirmwareRam(nodes, edges, options.displayDocuments)
-  if (matrixOutput && ram && ram.internalBytes > INTERNAL_RAM_WARN_BYTES) {
+  const ramBudgetIssue = findFirmwareRamBudgetIssue(nodes, edges, options.displayDocuments)
+  const memoryNode = matrixOutput ?? nodes.find((node) => node.data.nodeType === 'Board')
+  if (ramBudgetIssue) {
     diagnostics.push({
-      id: `${matrixOutput.id}-memory`, severity: 'warning', category: 'memory',
+      id: `${memoryNode?.id ?? 'graph'}-memory-budget`, severity: 'error', category: 'memory',
+      title: 'Internal RAM estimate exceeds this board',
+      message: ramBudgetIssue.message,
+      fix: 'Reduce the named allocation, shrink LED dimensions or custom screens, or choose a board with a larger declared internal-RAM budget. PSRAM can hold render buffers only.',
+      nodeIds: memoryNode ? [memoryNode.id] : [],
+      nodeLabel: memoryNode ? nodeLabel(memoryNode) : ramBudgetIssue.profile.label,
+      action: 'choose-board',
+    })
+  } else if (memoryNode && ram && ram.internalBytes > INTERNAL_RAM_WARN_BYTES
+    && selectedBoardProfile(nodes)?.internalRamBudgetBytes === undefined) {
+    diagnostics.push({
+      id: `${memoryNode.id}-memory`, severity: 'warning', category: 'memory',
       title: 'Internal RAM estimate is high',
       message: `LED and display allocations need roughly ${Math.round(ram.internalBytes / 1024)} KB of internal RAM before other framework and network overhead.`,
       fix: 'Reduce LED dimensions, buffer-heavy nodes or custom screens. PSRAM can hold LED render buffers; display buffers and the LVGL heap remain internal. Use the compile-capacity check to measure the selected board.',
-      nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
+      nodeIds: [memoryNode.id], nodeLabel: nodeLabel(memoryNode),
     })
   }
 
@@ -2418,7 +2494,11 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   warnings.push(...findMirroredOutputMismatches(nodes, edges))
 
   const ram = estimateFirmwareRam(nodes, edges, displayDocuments)
-  if (ram && ram.internalBytes > INTERNAL_RAM_WARN_BYTES) {
+  const ramBudgetIssue = findFirmwareRamBudgetIssue(nodes, edges, displayDocuments)
+  if (ramBudgetIssue) {
+    errors.push(ramBudgetIssue.message)
+  } else if (ram && ram.internalBytes > INTERNAL_RAM_WARN_BYTES
+    && selectedBoardProfile(nodes)?.internalRamBudgetBytes === undefined) {
     warnings.push(
       `Estimated internal RAM for LED and display allocations (~${Math.round(ram.internalBytes / 1024)} KB) is large for many boards — reduce LED dimensions or custom screens and run a compile-capacity check. PSRAM moves LED render buffers only; display allocations remain internal`
     )

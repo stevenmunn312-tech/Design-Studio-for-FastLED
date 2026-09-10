@@ -304,6 +304,25 @@ describe('board pin safety', () => {
       },
     })])).toEqual([])
   })
+
+  it('rejects an unusable declared internal-RAM budget', () => {
+    expect(validateBoardProfiles([fixture({ internalRamBudgetBytes: 0 })]))
+      .toContain('fixture-board: internal RAM budget must be a positive whole number of bytes')
+    expect(validateBoardProfiles([fixture({ internalRamBudgetBytes: 1024.5 })]))
+      .toContain('fixture-board: internal RAM budget must be a positive whole number of bytes')
+  })
+})
+
+describe('internal-RAM budgets', () => {
+  it('gives the known S3 boards more graph-allocation headroom than classic ESP32 boards', () => {
+    expect(boardProfileById('esp32-generic-devkit-38pin')?.internalRamBudgetBytes).toBe(48 * 1024)
+    expect(boardProfileById('esp32-devkit-v1-30pin-esp32d')?.internalRamBudgetBytes).toBe(48 * 1024)
+    expect(boardProfileById('espressif-esp32-s3-devkitc-1')?.internalRamBudgetBytes).toBe(192 * 1024)
+  })
+
+  it('leaves uncalibrated profiles undeclared so callers can use the warning fallback', () => {
+    expect(boardProfileById('lolin-s2-mini')?.internalRamBudgetBytes).toBeUndefined()
+  })
 })
 
 describe('ESP32 DevKit v1 (ESP-32D) audio pins', () => {

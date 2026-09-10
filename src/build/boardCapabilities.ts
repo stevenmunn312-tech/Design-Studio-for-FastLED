@@ -109,5 +109,14 @@ export interface BoardCapabilityData {
   peripheralPins?: BoardPeripheralPins
   processor?: string
   memory?: { flashMb: number; psramMb: number }
+  /**
+   * Conservative share of internal SRAM available to graph-owned firmware
+   * allocations after the board core, networking and runtime libraries have
+   * taken their baseline. This is deliberately not the chip's headline SRAM
+   * capacity: `estimateFirmwareRam` counts only allocations caused by the
+   * design, so comparing it with total silicon RAM would promise space the
+   * generated sketch cannot actually use.
+   */
+  internalRamBudgetBytes?: number
   render?: BoardRenderAsset
 }

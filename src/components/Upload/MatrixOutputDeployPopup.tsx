@@ -14,7 +14,7 @@ import { generateShowSketch } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph, streamReceiverCapabilityNotes } from '../../codegen/streamReceiverGenerator'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
 import { readySongCount, buildShowPayload, buildShowPlayerForMeasurement } from '../../utils/showUpload'
-import { findPinConflicts, findMatrixLayoutErrors, findMirroredOutputMismatches, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowOutputFormErrors, findShowRequirementErrors } from '../../utils/validateGraph'
+import { findPinConflicts, findMatrixLayoutErrors, findMirroredOutputMismatches, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowOutputFormErrors, findShowRequirementErrors, findFirmwareRamBudgetIssue } from '../../utils/validateGraph'
 import { summarizeCapacity } from '../../utils/capacityFormat'
 import { useCodegenGraph } from '../../utils/codegenGraph'
 import { useModalFocus } from '../../hooks/useModalFocus'
@@ -182,6 +182,10 @@ export default function MatrixOutputDeployPopup({
     () => findHub75TopologyDiagnosticErrors(nodes, nodeId),
     [nodes, nodeId],
   )
+  const ramBudgetIssue = useMemo(
+    () => findFirmwareRamBudgetIssue(nodes, edges, customAssets.documents),
+    [nodes, edges, customAssets.documents],
+  )
 
   // Live controller-capacity meter (see CapacityWatcher.tsx, which drives
   // the actual debounced compile-check) — the measured result is the
@@ -215,6 +219,7 @@ export default function MatrixOutputDeployPopup({
     ...showOutputFormErrors,
     ...showTargetErrors,
     ...formulaErrors,
+    ...(ramBudgetIssue ? [ramBudgetIssue.message] : []),
     ...(capacityOverflow ? [`${board?.label ?? 'This board'}: design is too large to fit (live capacity check)`] : []),
   ]
   const canBuild = hasBuildOutput && blockingErrors.length === 0

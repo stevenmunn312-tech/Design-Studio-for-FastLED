@@ -4,7 +4,7 @@ import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import { addDisplayWidget, createDisplayDocument } from '../../state/displayEditor'
 import { DISPLAY_DOCUMENT_LIMITS } from '../../state/displayDocument'
 import { TFT_CONTROLLERS } from '../../state/tftSurface'
-import { buildGraphDiagnostics, estimateFirmwareRam, validateGraph } from '../../utils/validateGraph'
+import { buildGraphDiagnostics, estimateFirmwareRam, findFirmwareRamBudgetIssue, validateGraph } from '../../utils/validateGraph'
 import { customDisplayPanelGlobalCpp } from '../customDisplayPanelCpp'
 import { TFT_PANEL_RAM_BYTES } from '../tftDisplayCpp'
 import { CUSTOM_DISPLAY_LVGL_HEAP_BYTES, CUSTOM_DISPLAY_WIDGET_RAM_BYTES } from '../customDisplayLvglCpp'
@@ -120,6 +120,53 @@ describe('custom display firmware RAM', () => {
       .toContainEqual(expect.stringContaining('display allocations remain internal'))
     const withImage = { ...document, theme: { ...document.theme, background: { kind: 'image' as const, assetId: 'background:01-neon-orbit:320x240' } } }
     expect(estimateFirmwareRam(nodes, edges, { a: withImage })!.displayBytes).toBe(ram.displayBytes)
+  })
+
+  it('blocks a declared board budget and names the largest internal allocation', () => {
+    const document = createDisplayDocument('a')
+    const mounted = graph(screen('a'))
+    const classic = node('board', 'Board', { profileId: 'esp32-generic-devkit-38pin' })
+    const nodes = [...mounted.nodes, classic]
+    const issue = findFirmwareRamBudgetIssue(nodes, mounted.edges, { a: document })
+
+    expect(issue).toMatchObject({
+      profile: { id: 'esp32-generic-devkit-38pin' },
+      budgetBytes: 48 * 1024,
+      largestContributor: { label: 'display allocations' },
+    })
+    expect(issue!.largestContributor.bytes).toBe(issue!.estimate.displayBytes)
+    expect(issue!.message).toContain('Largest contributor: display allocations')
+    expect(validateGraph(nodes, mounted.edges, '', { a: document }).errors).toContain(issue!.message)
+    expect(buildGraphDiagnostics(nodes, mounted.edges, { displayDocuments: { a: document } }))
+      .toContainEqual(expect.objectContaining({
+        severity: 'error',
+        category: 'memory',
+        message: issue!.message,
+      }))
+  })
+
+  it('does not apply the flat fallback warning below a declared S3 budget', () => {
+    const document = createDisplayDocument('a')
+    const mounted = graph(screen('a'))
+    const s3 = node('board', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1' })
+    const nodes = [...mounted.nodes, s3]
+
+    expect(findFirmwareRamBudgetIssue(nodes, mounted.edges, { a: document })).toBeNull()
+    const result = validateGraph(nodes, mounted.edges, '', { a: document })
+    expect(result.errors.some((message) => message.includes('Estimated internal RAM'))).toBe(false)
+    expect(result.warnings.some((message) => message.includes('internal RAM'))).toBe(false)
+  })
+
+  it('keeps the flat warning fallback when the board declares no budget', () => {
+    const document = createDisplayDocument('a')
+    const mounted = graph(screen('a'))
+    const undeclared = node('board', 'Board', { profileId: 'lolin-s2-mini' })
+    const nodes = [...mounted.nodes, undeclared]
+
+    expect(findFirmwareRamBudgetIssue(nodes, mounted.edges, { a: document })).toBeNull()
+    const result = validateGraph(nodes, mounted.edges, '', { a: document })
+    expect(result.errors.some((message) => message.includes('Estimated internal RAM'))).toBe(false)
+    expect(result.warnings).toContainEqual(expect.stringContaining('large for many boards'))
   })
 
   it('matches the heap reserved by the pinned build-helper configuration', () => {

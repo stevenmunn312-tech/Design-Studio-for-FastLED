@@ -355,4 +355,41 @@ describe('CapacityWatcher', () => {
     render(<CapacityWatcher />)
     await waitFor(() => expect(useCapacityStore.getState().status).toBe('toolchain-missing'))
   })
+
+  it('publishes an instant blocker instead of a compile target when the selected board budget is exceeded', async () => {
+    setGraph(true)
+    const document = createDisplayDocument('screen-document')
+    const board = {
+      ...output,
+      id: 'board',
+      data: { ...output.data, nodeType: 'Board', properties: { profileId: 'esp32-generic-devkit-38pin' } },
+    }
+    const panel = {
+      ...output,
+      id: 'panel',
+      data: { ...output.data, nodeType: 'TransportDisplay',
+        properties: { partId: 'st7789v-xpt2046-touch-240x320' } },
+    }
+    const screen = {
+      ...output,
+      id: 'screen',
+      data: { ...output.data, nodeType: 'Display', properties: { displayId: document.displayId } },
+    }
+    useGraphStore.setState({
+      nodes: [...useGraphStore.getState().nodes, board, panel, screen] as never[],
+      edges: [...useGraphStore.getState().edges, {
+        id: 'mount', source: 'screen', sourceHandle: 'customDisplay',
+        target: 'panel', targetHandle: 'customDisplay',
+      }] as never[],
+      displayDocuments: { [document.displayId]: document },
+    })
+
+    render(<CapacityWatcher />)
+
+    await waitFor(() => expect(useCapacityStore.getState().status).toBe('preparation-failed'))
+    const target = useCapacityStore.getState().target
+    expect(target?.code).toBeNull()
+    expect(target?.preparationError).toContain('exceeds Generic ESP32 DevKit, 38-pin')
+    expect(target?.preparationError).toContain('Largest contributor: display allocations')
+  })
 })

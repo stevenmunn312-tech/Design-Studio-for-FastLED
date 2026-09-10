@@ -10,7 +10,7 @@ import { useStreamStore } from '../../../state/streamStore'
 import { useCapacityStore } from '../../../state/capacityStore'
 import { generateCpp } from '../../../codegen/cppGenerator'
 import { generateWiringDiagnosticSketch } from '../../../codegen/wiringDiagnosticGenerator'
-import { findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors } from '../../../utils/validateGraph'
+import { findFirmwareRamBudgetIssue, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors } from '../../../utils/validateGraph'
 import { createDisplayDocument } from '../../../state/displayEditor'
 import { bakeCustomDisplayAssets, type BakedCustomDisplayAssets } from '../../../utils/bakeCustomDisplayAssets'
 import { customDisplayAssetRequests } from '../../../state/customDisplayResources'
@@ -56,6 +56,7 @@ vi.mock('../../../utils/validateGraph', () => ({
   findHub75TopologyDiagnosticErrors: vi.fn(() => []),
   findFormulaErrors: vi.fn(() => []),
   findShowRequirementErrors: vi.fn(() => []),
+  findFirmwareRamBudgetIssue: vi.fn(() => null),
 }))
 
 function setMatrixGraph() {
@@ -144,6 +145,7 @@ describe('MatrixOutputDeployPopup', () => {
     vi.mocked(findHub75ConfigErrors).mockReturnValue([])
     vi.mocked(findHub75TopologyDiagnosticErrors).mockReturnValue([])
     vi.mocked(findFormulaErrors).mockReturnValue([])
+    vi.mocked(findFirmwareRamBudgetIssue).mockReturnValue(null)
   })
 
   it.each([false, true])('shares artwork with capacity and waits before upload/export (retry: %s)', async (failFirst) => {
@@ -224,6 +226,20 @@ describe('MatrixOutputDeployPopup', () => {
     expect(queryByText('Browser uploads need the local helper running on this machine.')).toBeNull()
     fireEvent.click(getByRole('button', { name: /Upload readiness/i }))
     expect(queryByText('Browser uploads need the local helper running on this machine.')).toBeTruthy()
+  })
+
+  it('shows the board-derived RAM verdict as a pre-build blocker', () => {
+    const message = 'Estimated internal RAM (~75 KB) exceeds Generic ESP32 DevKit, 38-pin\'s ~48 KB design budget. Largest contributor: display allocations (~74 KB).'
+    vi.mocked(findFirmwareRamBudgetIssue).mockReturnValue({ message } as never)
+    useGraphStore.setState({
+      edges: [{ id: 'frame', source: 'pattern', sourceHandle: 'frame', target: 'matrix', targetHandle: 'frame' }] as never[],
+    })
+
+    const { getByRole, getByText } = render(<MatrixOutputDeployPopup />)
+
+    expect(getByText(message)).toBeTruthy()
+    expect((getByRole('button', { name: '↑ Upload' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((getByRole('button', { name: /Export .ino/ }) as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('keeps output visible beside the inline controls without a launcher button', () => {

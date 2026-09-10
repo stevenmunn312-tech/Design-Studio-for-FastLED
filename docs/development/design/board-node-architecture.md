@@ -1,7 +1,7 @@
 # Board node and hardware capability model
 
 Status: board/profile architecture plus microphone, PCM1802 line-in, and
-player-decoder Audio and Storage capabilities implemented on `Hardware` · Owner: app · Updated: 2026-09-08
+player-decoder Audio and Storage capabilities implemented on `Hardware` · Owner: app · Updated: 2026-09-10
 
 The Board node is the root authority for the controller a project targets. The
 original proposal has now shipped far enough that this document describes the
@@ -59,6 +59,27 @@ contains PSRAM.
 `On` and `Off` are explicit overrides. Legacy boolean saves are interpreted as
 explicit choices. Fixed simulation state stays in internal RAM even when render
 buffers move to PSRAM, and the upload capacity display explains that boundary.
+
+## Internal-RAM budget
+
+An exact physical profile may declare `internalRamBudgetBytes`: the conservative
+share of internal SRAM available to graph-owned allocations after the board
+core, networking stack, and generator libraries have taken their baseline. It
+is intentionally not the chip's headline SRAM capacity, because
+`estimateFirmwareRam` counts only design-owned LED, render, simulation,
+palette, and display allocations.
+
+The profiled classic ESP32 boards currently allow 48 KiB of those allocations;
+the profiled ESP32-S3 boards allow 192 KiB. When an estimate exceeds the
+selected profile's allowance, Graph Health reports an error and Upload and the
+compile-capacity check are disabled before a toolchain build begins. The error
+names the largest internal allocation category so the first useful reduction
+is visible immediately. PSRAM-backed render and field buffers are excluded
+from that internal contributor list.
+
+Profiles with no declared allowance retain the historical 40,000-byte warning
+and may still run a compile-capacity check. This fallback is deliberate: an
+unknown or custom board should not receive a guessed hard ceiling.
 
 ## Serial route policy
 

@@ -246,7 +246,7 @@ matrix, not a reason to postpone testing earlier changes.
   advice (fewer or smaller screens, smaller LVGL heap, PSRAM for LED buffers)
   for `dram`/`iram`/`bss`/`data`, the existing flash advice for `text`/`irom`.
 
-- [ ] **HW-24 · P1 · The RAM estimate predicts an overflow and lets the build run
+- [x] **HW-24 · P1 · The RAM estimate predicts an overflow and lets the build run
   anyway (M; overlaps HW-11).** Same session, and the more expensive half.
   `estimateFirmwareRam` already counted this design's display RAM — the 64 KiB
   `CUSTOM_DISPLAY_LVGL_HEAP_BYTES` plus a 240x20 RGB565 draw buffer, about 75 KiB

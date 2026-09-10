@@ -16,6 +16,7 @@ import { resolveUsbCdcOnBoot } from '../../state/serialRouting'
 import { useProjectStore } from '../../state/projectStore'
 import { useCustomDisplayAssets } from '../../hooks/useCustomDisplayAssets'
 import { resolveBuildMode } from '../../state/buildMode'
+import { findFirmwareRamBudgetIssue } from '../../utils/validateGraph'
 
 /**
  * Keeps the capacity store pointed at what an Upload would actually build.
@@ -94,9 +95,13 @@ export default function CapacityWatcher() {
   )
   const customAssets = useCustomDisplayAssets(codegenGraph.nodes,
     build.capabilities.buildable, codegenGraph.edges)
+  const ramBudgetIssue = useMemo(
+    () => findFirmwareRamBudgetIssue(codegenGraph.nodes, codegenGraph.edges, customAssets.documents),
+    [codegenGraph, customAssets.documents],
+  )
   const capacityCode = useMemo(() => {
     const groups = getGroupRegistry()
-    if (customAssets.pending || customAssets.errors.length > 0) return null
+    if (customAssets.pending || customAssets.errors.length > 0 || ramBudgetIssue) return null
     if (codegenBuild.mode === 'player') {
       return buildShowPlayerForMeasurement(
         codegenGraph.nodes, codegenGraph.edges, groups, selectedFqbn, psramSupported, projectName,
@@ -131,7 +136,7 @@ export default function CapacityWatcher() {
     return codegenBuild.mode === 'show'
       ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)
       : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
-  }, [codegenGraph, codegenBuild, psramSupported, selectedFqbn, projectName,
+  }, [codegenGraph, codegenBuild, psramSupported, selectedFqbn, projectName, ramBudgetIssue,
     customAssets.pending, customAssets.errors, customAssets.documents, customAssets.assets, customAssets.trusted])
 
   // Published even with nothing to build: a skipped call would leave the
@@ -140,7 +145,7 @@ export default function CapacityWatcher() {
     setCapacityTarget({
       code: capacityCode,
       preparing: customAssets.pending,
-      preparationError: customAssets.errors.join('\n'),
+      preparationError: [...customAssets.errors, ...(ramBudgetIssue ? [ramBudgetIssue.message] : [])].join('\n'),
       fqbn: fqbnWithOpt,
       toolchainReady,
       engineTag: helper?.engine,
@@ -148,7 +153,7 @@ export default function CapacityWatcher() {
       flashMb,
       usbCdcOnBoot,
     })
-  }, [capacityCode, customAssets.pending, customAssets.errors, fqbnWithOpt, toolchainReady, helper?.engine, isShow, flashMb, usbCdcOnBoot, setCapacityTarget])
+  }, [capacityCode, customAssets.pending, customAssets.errors, ramBudgetIssue, fqbnWithOpt, toolchainReady, helper?.engine, isShow, flashMb, usbCdcOnBoot, setCapacityTarget])
 
   return null
 }
