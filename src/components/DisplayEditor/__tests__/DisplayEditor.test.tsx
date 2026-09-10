@@ -261,7 +261,7 @@ describe('DisplayEditor', () => {
     useGraphStore.setState({ nodes: [documentNode(), panelNode()], edges: [mountEdge] })
     const view = render(<DisplayEditor />)
 
-    const back = view.getByRole('button', { name: 'Transport Display' })
+    const back = view.getByRole('button', { name: 'Display Panel' })
     fireEvent.click(back)
 
     expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'graph' })
@@ -271,7 +271,7 @@ describe('DisplayEditor', () => {
   it('offers no panel link while the design is unmounted', () => {
     useGraphStore.setState({ nodes: [documentNode()], edges: [] })
     const view = render(<DisplayEditor />)
-    expect(view.queryByRole('button', { name: 'Transport Display' })).toBeNull()
+    expect(view.queryByRole('button', { name: 'Display Panel' })).toBeNull()
   })
 
   it('shows the pack artwork on the widget palette and the template list', () => {

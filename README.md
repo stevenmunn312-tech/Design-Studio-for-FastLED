@@ -169,7 +169,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 - **Fields:** Field Formula, Field Noise, Formula Field, Wave Sim, Distance Field, Frame → Field, Field Math, Field Warp, Field Rotate, Field Tile, Field → Frame
 - **Effects:** Blur 2D, Blend, Mask, Brightness, Fade to Black, Hue Shift, Gamma, Saturation, Color Boost, Transform, Array, Invert, Mirror, Trails, Frame Feedback, Frame Switch, Zones
 - **Show:** Music Library, Pattern Collection, Transitions, Music Player, Pattern Slideshow, Player Controls, Player Particles, Song Info, Sequencer, Transition, Performance Generator, SD Card
-- **Output:** Amplifier, Board, Custom Display, Info Display, LED Matrix, Master Speed, Segment Display, Stereo VU Meter, Transport Display
+- **Output:** Amplifier, Board, Display Panel, Info Display, LED Matrix, Master Speed, Screen Design, Segment Display, Stereo VU Meter
 - **Notes:** Comment
 
 </details>

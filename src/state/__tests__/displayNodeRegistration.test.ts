@@ -90,14 +90,14 @@ describe('display node registration contracts', () => {
     }
   })
 
-  it('keeps custom ports document-driven and leaves fixed layouts and pins on Transport Display', () => {
+  it('keeps custom ports document-driven and leaves fixed layouts and pins on the Display Panel', () => {
     // Looked up directly, not through `displays` above — Display selects no
     // module of its own any more, so it never appears in that derivation.
     const definition = NODE_LIBRARY.find((node) => node.type === 'Display')!
     expect(definition.inputs).toEqual([])
     // One static output, the wire a TransportDisplay panel's `customDisplay`
     // input accepts. Every other port stays widget-derived.
-    expect(definition.outputs).toEqual([{ id: 'customDisplay', label: 'Custom Display', dataType: 'customdisplay' }])
+    expect(definition.outputs).toEqual([{ id: 'customDisplay', label: 'Screen Design', dataType: 'customdisplay' }])
     expect(definition.defaultProperties).not.toHaveProperty('tftLayout')
     // No pins, no partId, no physical existence at all — just which document
     // this node opens.

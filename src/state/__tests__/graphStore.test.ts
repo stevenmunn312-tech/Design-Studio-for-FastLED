@@ -1252,7 +1252,7 @@ describe('graphStore — custom display documents', () => {
         expect(state.displayDocuments.panel).toEqual(document)
         expect(screen.data.inputs).toEqual(widgetPorts.inputs)
         expect(screen.data.outputs).toEqual([
-          { id: 'customDisplay', label: 'Custom Display', dataType: 'customdisplay' },
+          { id: 'customDisplay', label: 'Screen Design', dataType: 'customdisplay' },
           ...widgetPorts.outputs,
         ])
         expect(state.edges.map((entry) => entry.id)).toEqual(edgeIds)
@@ -1345,7 +1345,7 @@ describe('graphStore — custom display documents', () => {
     // follow it. Replacing the whole set with widget ports dropped the wire
     // that mounts this design on a panel, on load and on every edit.
     expect(screen.data.outputs).toEqual([
-      { id: 'customDisplay', label: 'Custom Display', dataType: 'customdisplay' },
+      { id: 'customDisplay', label: 'Screen Design', dataType: 'customdisplay' },
       { id: 'widget:toggle:out', label: 'Toggle Output', dataType: 'bool' },
     ])
 

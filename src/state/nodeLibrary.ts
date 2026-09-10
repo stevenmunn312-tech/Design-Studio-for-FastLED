@@ -2892,7 +2892,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // inert bundle. Output-category terminals remain evaluator/codegen roots
     // even when they publish controls; see the derived terminal rules.
     type: 'TransportDisplay',
-    label: 'Transport Display',
+    label: 'Display Panel',
     category: 'output',
     // Two content inputs, exclusive: `display` for the fixed layouts above,
     // `customDisplay` for a document authored on a `Display` node elsewhere on
@@ -2908,7 +2908,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // selection that identifies the baked picture.
     inputs: [
       { id: 'display', label: 'Display', dataType: 'display' },
-      { id: 'customDisplay', label: 'Custom Display', dataType: 'customdisplay' },
+      { id: 'customDisplay', label: 'Screen Design', dataType: 'customdisplay' },
       { id: 'enabled', label: 'Enabled', dataType: 'bool' },
     ],
     outputs: [{ id: 'controls', label: 'Controls', dataType: 'playercontrols' }],
@@ -2946,10 +2946,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // DisplayDocument's stable widget roles by the graph store, then
     // persisted on the node for React Flow and imports.
     type: 'Display',
-    label: 'Custom Display',
+    label: 'Screen Design',
     category: 'output',
     inputs: [],
-    outputs: [{ id: 'customDisplay', label: 'Custom Display', dataType: 'customdisplay' }],
+    outputs: [{ id: 'customDisplay', label: 'Screen Design', dataType: 'customdisplay' }],
     defaultProperties: {
       displayId: '',
     },
@@ -3252,8 +3252,8 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   FormatDateTime: 'Turns a clock reading into display text such as HH:MM.',
   SegmentDisplay: 'A 4 or 8-digit 7-segment module showing a number, clock, or index.',
   InfoDisplay: 'A 128x64 OLED showing a now-playing, clock, status, or pattern-browser screen.',
-  TransportDisplay: 'A colour TFT showing now-playing, touch transport, or show-status controls.',
-  Display: 'A touch display whose typed graph ports come from its custom widget layout.',
+  TransportDisplay: 'A colour TFT panel: a fixed transport or status layout, or a Screen Design.',
+  Display: 'A screen drawn widget by widget, shown by the Display Panel it is wired to.',
   MasterSpeed: 'Scales animation time for the whole graph. 1 is normal, 0 freezes it.',
   ScheduleTrigger: 'Time-of-day window/trigger driven by RTCInput clock and calendar fields.',
   BeatSin: 'Beat-synced sine oscillator — outputs a normalized low↔high value at a BPM.',

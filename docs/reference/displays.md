@@ -1,8 +1,8 @@
 # Display node reference
 
-Physical displays are root-level Hardware parts. **Custom Display** is a
+Physical displays are root-level Hardware parts. **Screen Design** is a
 separate screen document with widget ports; it has no GPIO. Connect it to the
-Custom Display input on a physical **Transport Display**. The
+Screen Design input on a physical **Display Panel**. The
 [workbench guide](../user/hardware-workbench.md#add-and-connect-a-display) describes
 the current flow. In-app Help still needs the same post-split refresh (HW-08).
 
@@ -16,8 +16,8 @@ the current flow. In-app Help still needs the same post-split refresh (HW-08).
 | Info Display | SH1106 0.96-inch | 128×64 OLED, seven-pin SPI module |
 | Info Display | SH1106 1.3-inch (I²C) | 128×64 OLED, four-pin I²C module, 0x3C or 0x3D |
 | Info Display | SSD1306 0.96-inch | 128×64 OLED, four-pin I²C module, address 0x3C or 0x3D |
-| Transport Display | ST7789 1.54-inch | 240×240 colour TFT, SPI, no touch |
-| Transport Display | ST7789V 2.4-inch + touch | 240×320 colour TFT, SPI, XPT2046 touch with its own header |
+| Display Panel | ST7789 1.54-inch | 240×240 colour TFT, SPI, no touch |
+| Display Panel | ST7789V 2.4-inch + touch | 240×320 colour TFT, SPI, XPT2046 touch with its own header |
 
 These are implemented catalogue choices, not a list of physically validated
 combinations. Unlisted controllers, panel sizes, interfaces, and touch modules
@@ -30,7 +30,7 @@ ESP32-S3 does not establish support for every board or display combination.
 Connect one **Display** wire from RTC Clock, Music Player, or Pattern Slideshow.
 It shows the time, elapsed playback position, or pattern number respectively.
 Unwired digits show dashes. A raw float or a Format Number string does not fit
-this socket; use a Custom Display readout for those values.
+this socket; use a Screen Design readout for those values.
 
 Set brightness, leading zeros, decimals, colon, and enabled state on the graph
 node where applicable. The TM1637 has a colon; the MAX7219 module does not.
@@ -55,12 +55,12 @@ Select the actual OLED module before assigning pins. The SH1106 SPI module is
 not interchangeable with the SSD1306 I²C module. For SSD1306, match its address
 and use the same SDA/SCL pair as the other I²C parts in the sketch.
 
-## Transport Display
+## Display Panel
 
 Connect **Display** from RTC Clock, Music Player or Pattern Slideshow for Clock,
 Now Playing/Fixed Transport or Show Status respectively. The source chooses
 content; presentation only chooses among that source's treatments. Unwired
-panels say Waiting. Alternatively, connect a document's **Custom Display**
+panels say Waiting. Alternatively, connect a document's **Screen Design**
 output. The two content inputs are exclusive: the newest content wire replaces
 the other. Enabled remains a separate input/property.
 
@@ -74,10 +74,10 @@ own supported source kinds, so an arbitrary RTC wire there remains unresolved.
 Slideshow control routing and TFT-only Show Status currently need fixes; see
 [known integration gaps](#known-integration-gaps).
 
-## Custom Display
+## Screen Design
 
 Add the document separately and connect it to a physical TFT panel. Click
-**Edit display** on the document. Design adds/resizes widgets or inserts ordinary
+**Edit screen design** on the document. Design adds/resizes widgets or inserts ordinary
 widget templates; labels such as Now Playing and DMX Monitor do not supply data
 or automatically wire actions. Module, pins and mounted rotation belong to the
 panel. Use one document per physical panel until shared-instance behavior is fixed.
@@ -105,7 +105,7 @@ readouts. Changing mode resets local control state.
 | Slider, Dial | Set: float, optional | Output: float |
 
 The node exposes the roles of its actual widgets, so a new empty screen has no
-widget ports; it still has its Custom Display content output. A widget with one port uses its widget label on the graph socket; a
+widget ports; it still has its Screen Design content output. A widget with one port uses its widget label on the graph socket; a
 control with multiple ports appends Output or Set. The inspector shows the role
 and type. For a first connection, add a Slider and Numeric Readout and connect
 the slider's Output to the readout's Value. For formatted text, insert Format
@@ -173,7 +173,7 @@ evaluate every wire connected to it.
 
 | Symptom | What to check |
 | --- | --- |
-| No widget graph ports | Add widgets in Edit display; the empty document only has its Custom Display content output. |
+| No widget graph ports | Add widgets in Edit screen design; the empty document only has its Screen Design content output. |
 | Control snaps back after release | Inspect its Set wire; that source becomes authoritative after touch. |
 | Template does not control playback | Connect widget outputs through Player Controls to Music Player. |
 | Build reports an unsupported widget input | Replace the upstream path with supported scalar nodes, or use a normal sketch where that path is supported. |

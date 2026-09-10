@@ -110,7 +110,7 @@ build/architecture overview aimed at contributors.
     sitting blank.
   - [Large displays and control routing](development/design/large-displays-and-control-routing.md)
     — the implemented tier 2/3 panel/document split and its open integration gaps: one panel node
-    plus a separate document node, `Display` and `Custom Display` as exclusive
+    plus a separate document node, `Display` and `Screen Design` as exclusive
     typed inputs, Music Player's song fields moved to an unpacker node, and a
     Player Controls input that mints only the functions a build actually wires.
   - [Display firmware compile checks](development/display-compile-checks.md)

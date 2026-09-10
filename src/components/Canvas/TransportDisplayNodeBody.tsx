@@ -28,7 +28,7 @@ function isTftSurface(value: unknown): value is TftSurface {
 export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const props = useGraphStore((state) => state.nodes.find((node) => node.id === nodeId)?.data.properties)
-  // A wired Custom Display takes over the panel (see the panel/document split
+  // A wired Screen Design takes over the panel (see the panel/document split
   // in docs/development/design/large-displays-and-control-routing.md). Resolve
   // that document here so the compact panel and the editor Run surface share
   // the same live widget renderer and values.
@@ -185,8 +185,8 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
     return (
       <div className={styles.wrap}>
         <div className={styles.customNotice} style={{ '--aspect': `${width} / ${height}` } as never} role="img"
-          aria-label="Driven by a wired Custom Display">
-          Custom Display — edit on its own node
+          aria-label="Driven by a wired Screen Design">
+          Screen Design — its document is missing
         </div>
         {designAction}
       </div>

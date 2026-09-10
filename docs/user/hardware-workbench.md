@@ -123,39 +123,45 @@ connections, and build limitations. An unlisted controller, resolution, or
 touch module is unsupported; choosing a similar-looking part does not make its
 driver compatible.
 
-For **Segment Display**, **Info Display**, and built-in **Transport Display**
+For **Segment Display**, **Info Display**, and built-in **Display Panel**
 screens, connect the source's **Display** output to the panel's **Display** input.
 RTC Clock selects a clock, Music Player selects transport information, and
 Pattern Slideshow selects its pattern status/browser. The TFT's presentation
 setting chooses between treatments of its connected source. There are no
 separate Title/Artist/Progress inputs on the physical panel.
 
-For fixed music touch, connect **Transport Display Controls → Player Controls
+For fixed music touch, connect **Display Panel Controls → Player Controls
 Controls In → Music Player Controls**. Custom screens use their individual
 widget outputs instead. Fixed Show Status and Clock screens have no touch actions.
 
 ### Design a custom screen
 
-1. Add a physical **Transport display** and choose its exact module. Set its
-   GPIO/touch pins in Hardware and mounted rotation on that panel's graph node.
-2. Add **Custom display** from the display menu. This creates a screen document,
-   not another hardware part. Connect its **Custom Display** output to the
-   physical panel's **Custom Display** input; this replaces any built-in Display
-   content wire. Use a separate document for each panel for now.
-3. Click **Edit display** on the document. In **Design**, place widgets or a
-   template, then edit labels, bounds, theme and assets. Templates create ordinary
-   widgets and ports; they do not connect playback or supply live data.
-4. Return with **Graph**. A 0–1 Slider can drive a normal-sketch LED output's
-   Brightness input. For SD music playback, assign brightness/volume through
-   **Player Controls → Music Player**. For track text, connect **Music Player
-   Display → Song Info Display**, then **Song Info Title → Text widget input**.
-5. **Run** exercises local touch controls. It is not a hardware connection, and
-   passive graph-fed readouts do not yet repaint live there. Do not use a blank
-   readout as proof that its graph wire is wrong. Return to Design to edit.
-6. Match document dimensions to the panel's mounted dimensions before building.
-   The current Portrait/Landscape action changes the document but does not yet
-   update the connected panel; set that panel's rotation explicitly as well.
-   Resolve Graph Health and resource issues, measure capacity, then upload.
+1. Add a physical **Display panel** and choose its exact module. Set its
+   GPIO/touch pins in Hardware.
+2. Click **Create screen design** on that panel's graph node. This adds a
+   screen document — not another hardware part — already sized to the panel's
+   mounted glass, connects its **Screen Design** output to the panel's
+   **Screen Design** input, and opens the editor. The new content wire replaces
+   any built-in Display wire the panel had. Use a separate document for each
+   panel for now.
+
+   Adding **Screen design** from the display menu instead leaves the document
+   unconnected, and it has no size and cannot be edited until you wire it to a
+   panel. Prefer the panel's own action.
+3. In **Design**, place widgets or a template, then edit labels, bounds, theme
+   and assets. Templates create ordinary widgets and ports; they do not connect
+   playback or supply live data. **Portrait**/**Landscape** rotates the
+   connected panel and re-fits the design to what it then shows, so the two can
+   never disagree.
+4. Return with **Graph**, or with the panel's own name in the breadcrumb to
+   land on it. A 0–1 Slider can drive a normal-sketch LED output's Brightness
+   input. For SD music playback, assign brightness/volume through **Player
+   Controls → Music Player**. For track text, connect **Music Player Display →
+   Song Info Display**, then **Song Info Title → Text widget input**.
+5. **Run** exercises local touch controls and repaints graph-fed readouts as
+   the graph publishes them. It is a simulation, not a hardware connection:
+   it does not verify physical touch calibration or on-device draw rate.
+6. Resolve Graph Health and resource issues, measure capacity, then upload.
 
 The Hardware branch is still completing this integration. Slideshow physical
 pattern selection, TFT-only Show Status, custom-panel Disabled in normal

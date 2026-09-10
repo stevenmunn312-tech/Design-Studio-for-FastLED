@@ -150,7 +150,7 @@ export function customDisplayMountPlan(
  */
 export function sharedDocumentIssue(documentLabel: string, panelLabels: readonly string[]): string {
   return `${documentLabel} is plugged into ${panelLabels.length} panels (${panelLabels.join(', ')}). `
-    + 'A screen design drives one panel: copy the Display node and wire a copy to each panel, '
+    + 'A screen design drives one panel: copy the Screen Design node and wire a copy to each panel, '
     + 'or disconnect all but one.'
 }
 
@@ -158,6 +158,6 @@ export function sharedDocumentIssue(documentLabel: string, panelLabels: readonly
 export function unmountedDocumentIssue(documentLabel: string, drivenCount: number): string {
   return `${documentLabel} drives ${drivenCount === 1 ? 'a control' : `${drivenCount} controls`}, `
     + 'but it is not plugged into a panel, so its widgets are never built. '
-    + "Wire its Custom Display output to a Transport Display's Custom Display input, "
+    + "Wire its Screen Design output to a Display Panel's Screen Design input, "
     + 'or disconnect the widget wires.'
 }

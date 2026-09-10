@@ -49,8 +49,8 @@ describe('CustomDisplayNodeBody', () => {
     expect(screen.getByText('Not connected')).toBeTruthy()
     expect(screen.queryByText('240 × 320')).toBeNull()
     expect(screen.getByText('0 widgets')).toBeTruthy()
-    expect(screen.getByText('Connect a Transport Display to edit.')).toBeTruthy()
-    const edit = screen.getByRole('button', { name: 'Edit Display' }) as HTMLButtonElement
+    expect(screen.getByText('Connect a Display Panel to edit.')).toBeTruthy()
+    const edit = screen.getByRole('button', { name: 'Edit screen design' }) as HTMLButtonElement
     expect(edit.disabled).toBe(true)
     expect(edit.getAttribute('aria-describedby')).toBe('display-edit-hint-screen')
     expect(screen.getByText('Live graph')).toBeTruthy()
@@ -72,8 +72,8 @@ describe('CustomDisplayNodeBody', () => {
 
     expect(screen.getByText('320 × 240 · 90°')).toBeTruthy()
     expect(screen.queryByText('240 × 320')).toBeNull()
-    expect(screen.queryByText('Connect a Transport Display to edit.')).toBeNull()
-    const edit = screen.getByRole('button', { name: 'Edit Display' }) as HTMLButtonElement
+    expect(screen.queryByText('Connect a Display Panel to edit.')).toBeNull()
+    const edit = screen.getByRole('button', { name: 'Edit screen design' }) as HTMLButtonElement
     expect(edit.disabled).toBe(false)
     fireEvent.click(edit)
     expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'display', displayId: 'panel' })

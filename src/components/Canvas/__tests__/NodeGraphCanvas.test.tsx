@@ -392,7 +392,7 @@ describe('NodeGraphCanvas start screen', () => {
     onNodeDoubleClick({}, documentNode)
     expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'graph' })
     expect(useUiStore.getState().statusText)
-      .toBe('Connect this screen design to a Transport Display to edit it')
+      .toBe('Connect this screen design to a Display Panel to edit it')
 
     useGraphStore.setState({
       edges: [{

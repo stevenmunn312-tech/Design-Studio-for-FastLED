@@ -1032,17 +1032,17 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Info Display example graph](../../public/node-cards/graphs/info-display.svg)
 
-### Transport Display
+### Display Panel
 
-![Transport Display node](../../public/node-cards/transport-display.svg)
+![Display Panel node](../../public/node-cards/transport-display.svg)
 
-![Transport Display example graph](../../public/node-cards/graphs/transport-display.svg)
+![Display Panel example graph](../../public/node-cards/graphs/transport-display.svg)
 
-### Custom Display
+### Screen Design
 
-![Custom Display node](../../public/node-cards/display.svg)
+![Screen Design node](../../public/node-cards/display.svg)
 
-![Custom Display example graph](../../public/node-cards/graphs/display.svg)
+![Screen Design example graph](../../public/node-cards/graphs/display.svg)
 
 ### Master Speed
 

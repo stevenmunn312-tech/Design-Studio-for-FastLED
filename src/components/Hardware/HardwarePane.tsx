@@ -209,8 +209,8 @@ const FIXTURE_PARTS: readonly FixturePartEntry[] = [
   {
     nodeType: 'TransportDisplay',
     partId: 'transport-display',
-    label: 'Transport display',
-    hint: 'A colour now-playing or show-status screen',
+    label: 'Display panel',
+    hint: 'A colour TFT: a fixed now-playing or show-status layout, or a Screen design',
     footprint: partDimensionsMm('st7789-tft-240x240', { width: 35.8, height: 35.8 }),
     render: partRenderSrc('st7789-tft-240x240') ?? undefined,
     pinFields: [
@@ -234,8 +234,8 @@ const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     // output is wired to.
     nodeType: 'Display',
     partId: 'custom-display',
-    label: 'Custom display',
-    hint: 'A designed touch interface with widget-derived graph ports',
+    label: 'Screen design',
+    hint: 'A screen you draw, shown by the Display panel it is wired to',
   },
   {
     // Two modules behind one node: the SH1106 on SPI and the SSD1306 on I2C.

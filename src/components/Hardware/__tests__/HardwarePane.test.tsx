@@ -132,7 +132,7 @@ describe('HardwarePane', () => {
     // its own, so it's one direct menu entry rather than a choice of parts.
     // See the panel/document split in
     // docs/development/design/large-displays-and-control-routing.md.
-    addDisplay('Custom display', 'A designed touch interface with widget-derived graph ports')
+    addDisplay('Screen design', 'A screen you draw, shown by the Display panel it is wired to')
 
     const state = useGraphStore.getState()
     const display = state.nodes.find((entry) => entry.data.nodeType === 'Display')

@@ -29,7 +29,7 @@ function display(id: string, over: Record<string, unknown> = {}): StudioNode {
 describe('TransportDisplay registration', () => {
   it('is a workbench-owned signal terminal with a player-controls output', () => {
     const def = NODE_LIBRARY.find((entry) => entry.type === 'TransportDisplay')!
-    expect(def.label).toBe('Transport Display')
+    expect(def.label).toBe('Display Panel')
     expect(def.category).toBe('output')
     expect(def.outputs).toEqual([{ id: 'controls', label: 'Controls', dataType: 'playercontrols' }])
     expect(isHardwareManagedSignalNodeType(def.type)).toBe(true)

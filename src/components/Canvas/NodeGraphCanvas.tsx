@@ -659,7 +659,7 @@ function NodeGraphCanvasInner() {
         const mounted = rootGraphEdges(graph)
           .some((edge) => edge.source === node.id && edge.targetHandle === 'customDisplay')
         if (mounted) useUiStore.getState().openDisplayWorkspace(d.properties?.displayId ?? node.id)
-        else useUiStore.getState().setStatus('Connect this screen design to a Transport Display to edit it', 'info')
+        else useUiStore.getState().setStatus('Connect this screen design to a Display Panel to edit it', 'info')
       }
     },
     [enterGraph]

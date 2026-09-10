@@ -404,7 +404,7 @@ describe('displays a build cannot drive', () => {
     ]
     const shared = findDisplayGeneratorIssues([out(), design, first, second], mount, documents).errors
     expect(shared).toEqual([expect.stringContaining('is plugged into 2 panels')])
-    expect(shared[0]).toContain('copy the Display node')
+    expect(shared[0]).toContain('copy the Screen Design node')
     // Two independent copies, one panel each, is the supported shape.
     const copy = node('copy', 'Display', { displayId: 'copy' })
     expect(findDisplayGeneratorIssues(

@@ -43,11 +43,11 @@ export default function CustomDisplayNodeBody({ nodeId }: { nodeId: string }) {
         aria-describedby={!canEdit ? editHintId : undefined}
         onClick={() => { if (canEdit) openDisplayWorkspace(displayId) }}
       >
-        Edit Display
+        Edit screen design
       </button>
       {!canEdit && (
         <p id={editHintId} className={styles.connectHint}>
-          {!mount ? 'Connect a Transport Display to edit.' : 'This screen design has no document to edit.'}
+          {!mount ? 'Connect a Display Panel to edit.' : 'This screen design has no document to edit.'}
         </p>
       )}
     </div>

@@ -767,12 +767,12 @@ export default function DisplayEditor() {
                 type="button"
                 onClick={() => { closeDisplayWorkspace(); focusNode(mountedPanel.id) }}
               >
-                {String(mountedPanel.data.label ?? 'Transport Display')}
+                {String(mountedPanel.data.label ?? 'Display Panel')}
               </button>
               <span aria-hidden="true">/</span>
             </>
           )}
-          <strong>Custom display</strong>
+          <strong>Screen design</strong>
           <span className={styles.resolution}>{document.designSize.width} × {document.designSize.height}</span>
         </div>
         <div className={styles.toolbar} aria-label="Display canvas controls">

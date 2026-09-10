@@ -1432,7 +1432,7 @@ const TRANSPORT_DISPLAY_LIVE_EXAMPLE = namedExample(
     { key: 'color', type: 'SolidColor', properties: { r: 20, g: 55, b: 95 } },
   ],
   [{ source: 'player', sourceHandle: 'display', target: 'target', targetHandle: 'display' }],
-  'Transport Display takes one Display wire, exactly like the smaller panels: a Music Player makes it a now-playing screen, a Pattern Slideshow makes it a show status screen. The layout property only chooses between the treatments that source already offers — Now Playing or Fixed Transport for a player — so it can change how a screen is drawn but never what it shows. Add the exact TFT module in the hardware workbench.',
+  'A Display Panel takes one Display wire, exactly like the smaller panels: a Music Player makes it a now-playing screen, a Pattern Slideshow makes it a show status screen. The layout property only chooses between the treatments that source already offers — Now Playing or Fixed Transport for a player — so it can change how a screen is drawn but never what it shows. Add the exact TFT module in the hardware workbench.',
   'The solid colour keeps the LED preview meaningful; the TFT is a separate physical display. On the ST7789V/XPT2046 module, wire Controls through Player Controls to use the visible transport controls in player firmware.',
 )
 
@@ -1444,8 +1444,8 @@ const CUSTOM_DISPLAY_LIVE_EXAMPLE = namedExample(
     { key: 'color', type: 'SolidColor', properties: { r: 24, g: 52, b: 96 } },
   ],
   [],
-  'Click Edit display on Custom Display, add a Slider and a Numeric Readout, then return with Graph and connect the slider’s Output to the readout’s input. The widgets create typed ports; renaming or moving them keeps their cables. Use Run in the editor to try the control locally.',
-  'The solid colour keeps the LED preview meaningful while Custom Display remains a separate physical touch panel. Normal, show, and SD-player builds generate LVGL widgets; Graph Health reports unsupported bindings. Browser Run mode and a successful compile do not verify physical touch or screen performance.',
+  'Click Edit screen design on the Screen Design node, add a Slider and a Numeric Readout, then return with Graph and connect the slider’s Output to the readout’s input. The widgets create typed ports; renaming or moving them keeps their cables. Use Run in the editor to try the control locally.',
+  'The solid colour keeps the LED preview meaningful while the Screen Design remains a separate physical touch panel. Normal, show, and SD-player builds generate LVGL widgets; Graph Health reports unsupported bindings. Browser Run mode and a successful compile do not verify physical touch or screen performance.',
 )
 
 const MASTER_SPEED_LIVE_EXAMPLE = namedExample(
