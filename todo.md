@@ -178,6 +178,26 @@ matrix, not a reason to postpone testing earlier changes.
   layouts, widget states, launch themes and templates at supported sizes and
   orientations, including pressed/disabled. Expose diagnostics/calibration.
   SquareLine interaction research from the old plan is optional UX input.
+
+  Two of the three starters have landed. **Dimmer and Blackout** is a knob and
+  a button reaching an LED output's Controls latch with no player in the graph;
+  **Browse a Slideshow** is an encoder turning a highlight and a press
+  committing it, with an I2C OLED as the Pattern Browser that makes
+  highlight-then-confirm mean anything. Both load clean — no errors, no
+  warnings, no pin conflicts — on the generic ESP32 and ESP32-S3 profiles.
+  `build()` now derives the ports Player Controls and Button Bank mint from
+  their properties the way `loadGraph` does, so a starter that wires a function
+  hands back a graph whose edges land on sockets its own nodes declare.
+
+  **The music transport/readback starter is held behind HW-26.** It needs three
+  buttons, an SD card, an amplifier, an LED output and a readout, and on the
+  default classic-ESP32 profile that combination cannot be allocated: the
+  curated `max98357` pinout puts DIN on GPIO 22, which is that board's own I2C
+  SCL, so any I2C readout collides; and a segment module instead exhausts
+  `safeGeneralPurpose`, where the allocation failure is silent and the part
+  keeps colliding defaults. One genuine allocator bug found on the way was
+  fixed (parts on fixed pins now sort by the pins they actually take, not by
+  whether their plan has a `fromProfile` function).
 - [ ] **HW-09 · Collection freshness/music completeness (M).** Verify group
   edit/delete/reorder invalidates generated timelines and packaged pattern sets;
   cover patternset-without-song and songs-only paths. Exit: stale/incomplete
@@ -281,6 +301,29 @@ matrix, not a reason to postpone testing earlier changes.
   board, and a heap too small for a busy screen fails at runtime rather than at
   link time. Exit: a measured minimum heap per screen complexity, chosen against
   HW-11's numbers rather than picked to clear one overflow.
+
+- [ ] **HW-26 · P2 · A crowded classic ESP32 cannot be pin-allocated, and says
+  so badly (S/M; blocks HW-08's third starter).** Two separate defects, both
+  found building a music-player starter with three buttons, a card, an
+  amplifier, an LED output and a readout.
+
+  (a) `esp32-generic-devkit-38pin`'s curated `peripheralPins.max98357` is
+  `{ bclk: 27, lrc: 14, din: 22 }`, and GPIO 22 is that board's own I2C SCL.
+  The pinout is fine alone and collides the moment any I2C part is present —
+  an OLED, or the DS3231 the app also ships — with Graph Health correctly
+  reporting "GPIO 22 mixes a shared bus line with another role". Whether 22 is
+  a bench-wired commitment or an unlucky curation is a maintainer question, not
+  a code one: the rig exists, so ask before moving it.
+
+  (b) When `assignPartPins` returns `ok: false` — "No free GPIO on this board",
+  which a classic ESP32 reaches with about a dozen pool pins spoken for —
+  `retargetHardwarePins` silently leaves the part on its library defaults.
+  Those defaults are frequently the very pins already taken, so an exhausted
+  pool is reported downstream as an ordinary pin conflict rather than as "this
+  board has run out". Surface the allocator's own reason instead.
+
+  Exit: a starter with that part list either allocates clean on the default
+  board or is refused with a message naming the exhausted board.
 
 - [ ] **HW-14 · Independent electrical audit (M).** Scope is a full audit rather
   than a review: Build Diagram calculations, source tables, scope and wording,
