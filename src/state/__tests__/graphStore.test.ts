@@ -8,6 +8,8 @@ import { clearPatternContentTrustForTests } from '../patternTrust'
 import { useNodeDefaults } from '../nodeDefaults'
 import { controllerSettings } from '../controllerSettings'
 import { addDisplayWidget, createDisplayDocument, removeDisplayWidget, updateDisplayWidget } from '../displayEditor'
+import { applyDisplayTemplate } from '../displayTemplates'
+import { displayDocumentPorts } from '../displayRegistry'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -1229,6 +1231,80 @@ describe('graphStore — custom display documents', () => {
     }
   })
 
+  it('keeps a display document, its node ports, and its edges in step when undoing and redoing a template', () => {
+    vi.useFakeTimers()
+    try {
+      reset([
+        node('screen', 'Display', { displayId: 'panel' }),
+        node('board', 'Board', { brightness: 100 }),
+        node('source', 'TextValue'),
+        node('sink', 'Not'),
+      ])
+      const original = addDisplayWidget(createDisplayDocument('panel'), 'Text')
+      useGraphStore.getState().setDisplayDocument(original)
+      useGraphStore.setState({
+        edges: [edge('text-wire', 'source', 'text', 'screen', 'widget:text:value')],
+      })
+      const expectProjection = (document: typeof original, edgeIds: string[]) => {
+        const state = useGraphStore.getState()
+        const screen = state.nodes.find((entry) => entry.id === 'screen')!
+        const widgetPorts = displayDocumentPorts(document)
+        expect(state.displayDocuments.panel).toEqual(document)
+        expect(screen.data.inputs).toEqual(widgetPorts.inputs)
+        expect(screen.data.outputs).toEqual([
+          { id: 'customDisplay', label: 'Custom Display', dataType: 'customdisplay' },
+          ...widgetPorts.outputs,
+        ])
+        expect(state.edges.map((entry) => entry.id)).toEqual(edgeIds)
+      }
+      vi.advanceTimersByTime(400)
+      useGraphStore.temporal.getState().clear()
+
+      enterDisplayHistoryScope('panel')
+      const templated = applyDisplayTemplate(original, 'pattern-deck')
+      useGraphStore.getState().setDisplayDocument(templated)
+      useGraphStore.setState({
+        edges: [
+          ...useGraphStore.getState().edges,
+          edge('shuffle-wire', 'screen', 'widget:toggle:out', 'sink', 'x'),
+        ],
+      })
+      vi.advanceTimersByTime(400)
+      leaveDisplayHistoryScope('panel')
+
+      // Keep an ordinary graph step alive while the display-specific stack is
+      // reopened. Its snapshot carries the template-era projection that used
+      // to be paired with the current document unchanged during the rebase.
+      useGraphStore.getState().updateNodeProperty('board', 'brightness', 120)
+      vi.advanceTimersByTime(400)
+      enterDisplayHistoryScope('panel')
+
+      useGraphStore.temporal.getState().undo()
+      expectProjection(original, ['text-wire'])
+
+      leaveDisplayHistoryScope('panel')
+      expectProjection(original, ['text-wire'])
+
+      useGraphStore.temporal.getState().undo()
+      expect(useGraphStore.getState().nodes.find((entry) => entry.id === 'board')?.data.properties.brightness).toBe(100)
+      expectProjection(original, ['text-wire'])
+      useGraphStore.temporal.getState().redo()
+      expect(useGraphStore.getState().nodes.find((entry) => entry.id === 'board')?.data.properties.brightness).toBe(120)
+      expectProjection(original, ['text-wire'])
+
+      enterDisplayHistoryScope('panel')
+      useGraphStore.temporal.getState().redo()
+      expectProjection(templated, ['text-wire', 'shuffle-wire'])
+
+      leaveDisplayHistoryScope('panel')
+      expectProjection(templated, ['text-wire', 'shuffle-wire'])
+    } finally {
+      leaveDisplayHistoryScope('panel')
+      clearStashedGraphHistory()
+      vi.useRealTimers()
+    }
+  })
+
   /*
    * A design is mounted on a panel by an ordinary wire, and that wire has to
    * survive the two things that happen to it constantly: reopening the
@@ -1321,7 +1397,11 @@ describe('graphStore — custom display documents', () => {
   it('restores a removed wired widget, its derived port, and its cable after leaving and reopening the display undo scope', () => {
     vi.useFakeTimers()
     try {
-      reset([node('screen', 'Display', { displayId: 'panel' })])
+      reset([
+        node('screen', 'Display', { displayId: 'panel' }),
+        node('source', 'TextValue'),
+        node('sink', 'Not'),
+      ])
       let document = addDisplayWidget(createDisplayDocument('panel'), 'Text')
       document = addDisplayWidget(document, 'Button')
       useGraphStore.getState().setDisplayDocument(document)

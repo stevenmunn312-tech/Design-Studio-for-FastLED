@@ -1053,9 +1053,27 @@ function stashActiveHistory(graphId: string): void {
 function restoreStashedHistory(graphId: string): void {
   const stacks = stashedHistory.get(graphId)
   stashedHistory.delete(graphId)
-  const { graphData, displayDocuments } = useGraphStore.getState()
-  const rebase = (snapshots: Partial<HistorySlice>[]) =>
-    snapshots.map((snapshot) => ({ ...snapshot, graphData, displayDocuments }))
+  const { nodes, edges, graphData, displayDocuments, activeGraphId } = useGraphStore.getState()
+  const scope = { nodes, edges, graphData, activeGraphId }
+  const currentRoot = { nodes: rootGraphNodes(scope), edges: rootGraphEdges(scope) }
+  const rebase = (snapshots: Partial<HistorySlice>[]) => snapshots.map((snapshot) => {
+    if (graphId !== ROOT_GRAPH_ID) return { ...snapshot, graphData, displayDocuments }
+    const historicRoot = {
+      nodes: snapshot.nodes ?? currentRoot.nodes,
+      edges: snapshot.edges ?? currentRoot.edges,
+    }
+    // Graph history still owns ordinary node/edge edits, while the display
+    // editor owns its document-derived ports and any cables using them. Rebase
+    // both halves together: rebasing only `displayDocuments` pairs the current
+    // document with stale node metadata and can resurrect invalid widget edges
+    // on the next graph undo.
+    const root = syncDisplayProjection(
+      historicRoot,
+      displayDocuments,
+      currentRoot,
+    )
+    return { ...snapshot, nodes: root.nodes, edges: root.edges, graphData, displayDocuments }
+  })
   useGraphStore.temporal.setState({
     pastStates: rebase(stacks?.pastStates ?? []),
     futureStates: rebase(stacks?.futureStates ?? []),
@@ -1123,6 +1141,42 @@ function syncDisplayNodesInContent(
     return true
   })
   return { nodes, edges }
+}
+
+/** Rebase one graph projection while keeping Display node ports derived from
+ * `documents`. Ordinary edges come from `content`; edges incident to the
+ * selected Display nodes come from `displayEdgeSource`, so the caller can
+ * choose whether graph history or display history owns that part of a step. */
+function syncDisplayProjection(
+  content: GraphContent,
+  documents: DisplayDocumentRegistry,
+  displayEdgeSource: GraphContent,
+  displayId?: string,
+): GraphContent {
+  const displayNodeIds = new Set(content.nodes
+    .filter((node) => node.data.nodeType === 'Display'
+      && (displayId === undefined
+        || String(node.data.properties.displayId ?? node.id) === displayId))
+    .map((node) => node.id))
+  const contentNodeIds = new Set(content.nodes.map((node) => node.id))
+  const contentEdgeIds = new Set(content.edges.map((edge) => edge.id))
+  const touchesDisplay = (edge: StudioEdge) => (
+    displayNodeIds.has(edge.source) || displayNodeIds.has(edge.target)
+  )
+  const belongsToContent = (edge: StudioEdge) => (
+    contentEdgeIds.has(edge.id)
+      || (contentNodeIds.has(edge.source) && contentNodeIds.has(edge.target))
+  )
+  return syncDisplayNodesInContent(
+    {
+      nodes: content.nodes,
+      edges: [
+        ...content.edges.filter((edge) => !touchesDisplay(edge)),
+        ...displayEdgeSource.edges.filter((edge) => touchesDisplay(edge) && belongsToContent(edge)),
+      ],
+    },
+    documents,
+  )
 }
 
 /** Display documents are the persisted payload of physical Display parts. A
@@ -1194,24 +1248,15 @@ function restoreStashedDisplayHistory(displayId: string): void {
     const historicRoot = scope.activeGraphId === ROOT_GRAPH_ID
       ? { nodes: snapshot.nodes ?? currentRoot.nodes, edges: snapshot.edges ?? currentRoot.edges }
       : snapshot.graphData?.[ROOT_GRAPH_ID] ?? currentRoot
-    const displayNodeIds = new Set(currentRoot.nodes
-      .filter((node) => node.data.nodeType === 'Display'
-        && String(node.data.properties.displayId ?? node.id) === displayId)
-      .map((node) => node.id))
     // Retain current graph cables except the document-owned display endpoints,
     // which have to come from the historical snapshot to bring a deleted role
-    // back. `syncDisplayNodesInContent` below drops anything that is still
-    // incompatible with the snapshot document.
-    const touchesDisplay = (edge: StudioEdge) => displayNodeIds.has(edge.source) || displayNodeIds.has(edge.target)
-    const root = syncDisplayNodesInContent(
-      {
-        nodes: currentRoot.nodes,
-        edges: [
-          ...currentRoot.edges.filter((edge) => !touchesDisplay(edge)),
-          ...historicRoot.edges.filter(touchesDisplay),
-        ],
-      },
+    // back. The projection sync drops anything that is still incompatible
+    // with the snapshot document.
+    const root = syncDisplayProjection(
+      currentRoot,
       rebasedDocuments,
+      historicRoot,
+      displayId,
     )
     return {
       nodes,
