@@ -231,7 +231,7 @@ export const DISPLAY_WIDGET_LIBRARY: Readonly<Record<DisplayWidgetType, DisplayW
     portRoles: input('string', 'Text'), defaultProperties: { text: '', align: 'left', fontSize: 16, color: '#f4f7ff', wrap: true, maxLines: 2 },
     minimumVisualSize: { width: 48, height: 20 }, allowedDisplayClasses: TOUCH_TFT,
     previewRenderer: 'text', lvglEmitter: 'label',
-    propertyInspector: [text('text', 'Fallback text'), select('align', 'Alignment', ['left', 'center', 'right']), number('fontSize', 'Font size', 8, 96, 1, true), color('color', 'Text colour'), toggle('wrap', 'Wrap text'), number('maxLines', 'Maximum lines', 1, 4, 1, true)],
+    propertyInspector: [text('text', 'Text when unwired (optional)'), select('align', 'Alignment', ['left', 'center', 'right']), number('fontSize', 'Font size', 8, 96, 1, true), color('color', 'Text colour'), toggle('wrap', 'Wrap text'), number('maxLines', 'Maximum lines', 1, 4, 1, true)],
     states: PASSIVE_STATES, assetSlots: NO_ASSETS, validateProperties: noPropertyIssues,
   },
   'Numeric Readout': {
