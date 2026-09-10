@@ -496,11 +496,27 @@ export function retargetHardwarePins(
     for (const pin of Object.values(ownedNow(node))) claimed.add(pin)
   }
 
-  const order = [...nodes].sort((a, b) => {
-    const peripheralA = PART_PIN_PLANS[a.data.nodeType]?.peripheral || PART_PIN_PLANS[a.data.nodeType]?.fromProfile ? 0 : 1
-    const peripheralB = PART_PIN_PLANS[b.data.nodeType]?.peripheral || PART_PIN_PLANS[b.data.nodeType]?.fromProfile ? 0 : 1
-    return peripheralA - peripheralB
-  })
+  /*
+   * Parts on fixed pins go first, so the pool the rest allocate from already
+   * has those pins out of it.
+   *
+   * "Fixed" has to be asked of this part *as configured*, not of its plan:
+   * `InfoDisplay` carries a `fromProfile` for its I2C variant that returns
+   * null for its SPI one, so testing whether the function merely exists put an
+   * SPI OLED in the fixed group and let it allocate ahead of the SD card and
+   * the amplifier — which then took their board pins on top of it, three
+   * collisions in a graph the allocator had just built. Resolving the answer
+   * is the same call the loop below makes, so the two cannot disagree.
+   */
+  const takesFixedPins = (node: StudioNode): boolean => {
+    const plan = PART_PIN_PLANS[node.data.nodeType]
+    if (!plan) return false
+    const properties = node.data.properties as Record<string, unknown>
+    return (peripheralPins(plan, profile)
+      ?? plan.fromProfile?.(profile, properties)
+      ?? plan.fromFqbn?.(fqbn)) != null
+  }
+  const order = [...nodes].sort((a, b) => Number(takesFixedPins(b)) - Number(takesFixedPins(a)))
 
   for (const node of order) {
     const plan = PART_PIN_PLANS[node.data.nodeType]

@@ -71,6 +71,39 @@ describe('pin ownership', () => {
 })
 
 describe('retargetHardwarePins', () => {
+  /*
+   * Parts on fixed pins have to be handed out first, so the pool the rest
+   * allocate from already has those pins out of it. Whether a part *is* fixed
+   * has to be asked of it as configured: an `InfoDisplay` carries a
+   * `fromProfile` for its I2C variant that returns null for its SPI one, so
+   * testing whether that function merely exists put an SPI OLED in the fixed
+   * group and let it allocate ahead of the card and the amplifier — which then
+   * took their board pins on top of it.
+   */
+  it('allocates an SPI OLED after the parts whose pins the board fixes', () => {
+    const board = boardProfileById('esp32-generic-devkit-38pin')!
+    const nodes = [
+      part('screen', 'InfoDisplay', { partId: 'sh1106-oled-128x64', csPin: 5, dcPin: 16, resetPin: 17, sckPin: 18, mosiPin: 23, sdaPin: 21, sclPin: 22 }),
+      part('sd', 'SDCard', { sdCsPin: 5, sdSckPin: 18, sdMisoPin: 19, sdMosiPin: 23 }),
+      part('amp', 'Amplifier', { i2sBclk: 26, i2sLrc: 25, i2sDout: 22 }),
+    ]
+
+    const result = retargetHardwarePins(nodes, board, 'esp32:esp32:esp32')
+    const pins = (id: string, keys: string[]) => {
+      const properties = result.nodes.find((node) => node.id === id)!.data.properties as Record<string, number>
+      return keys.map((key) => properties[key])
+    }
+    const card = pins('sd', ['sdCsPin', 'sdSckPin', 'sdMisoPin', 'sdMosiPin'])
+    const amp = pins('amp', ['i2sBclk', 'i2sLrc', 'i2sDout'])
+    const screen = pins('screen', ['csPin', 'dcPin', 'resetPin', 'sckPin', 'mosiPin'])
+
+    for (const pin of screen) {
+      expect(card, `OLED pin ${pin} against the card`).not.toContain(pin)
+      expect(amp, `OLED pin ${pin} against the amplifier`).not.toContain(pin)
+    }
+    expect(new Set(screen).size).toBe(screen.length)
+  })
+
   it('retargets every app-assigned Button Bank row without collisions', () => {
     const first = profile([2, 4, 5], undefined, 'first-board')
     const second = profile([21, 33, 34], undefined, 'second-board')
