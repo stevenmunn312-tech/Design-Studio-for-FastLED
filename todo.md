@@ -195,21 +195,20 @@ matrix, not a reason to postpone testing earlier changes.
   folded/chained/rotated topology and show/player. Confirm HUB75 chain orientation,
   preview fidelity and panel-specific power assumptions. Keep untested paths
   experimental. Preserve completed LDR, DS3231, segment/OLED and VU evidence.
-- [ ] **HW-21 · P2 · Catalogue and Build Diagram gaps for common I2C OLEDs (S).**
-  Three defects found while debugging a dark OLED on 2026-09-08, all in how the
-  catalogue describes real modules rather than in firmware. (a) There is no
-  generic four-pin SSD1306 0.96-inch I2C part: the only SSD1306 entry is
-  Adafruit's eight-pin STEMMA QT breakout, so the most common OLED anyone owns
-  cannot be described accurately. (b) `SIGNAL_PAD_NAMES['info-display']` in
-  `physicalDiagramLayout.ts` lists only the SPI signals, so an I2C OLED whose
-  silkscreen prints CLK/DATA rather than SCL/SDA falls through to that table and
-  the diagram draws SDA on the CS pad and SCL on the DC pad. (c)
-  `MODULE_PAD_GEOMETRY` has no entry for `sh1106-oled-128x64-i2c`, so its four
-  wires are placed by a generic even spread instead of measured holes, and that
-  fallback also skips the aspect-fit correction the measured branch applies.
-  Exit: every catalogued display part with a render has measured geometry and a
-  pad mapping derived from its own labels, asserted by a test that fails when a
-  new part arrives without them rather than only checking the entries that exist.
+- [x] **HW-21 · P2 · Catalogue and Build Diagram gaps for common I2C OLEDs (S).**
+  All three defects closed. (a) The generic four-pin SSD1306 0.96-inch I2C
+  module is catalogued from its own Blender asset and offered as *SSD1306
+  0.96-inch (4-pin)*; the Adafruit eight-pin breakout stays as *(Adafruit)* and
+  each note now says which board it is. (b) The positional pad-name list is
+  chosen by the transport the catalogued interface declares rather than being
+  SPI-only, and `sdaPin`/`sclPin` gained the SPI-name aliases the Adafruit board
+  prints (CLK/DATA), so both routes resolve from the module's own silkscreen.
+  (c) Every rendered display now has pad geometry scanned off its own plating —
+  the four-pin SH1106, the 0.96-inch SPI SH1106, both touch TFTs and the new
+  part. `displayPartCoverage.test.ts` derives its cases from the catalogue, so a
+  display imported later fails there until it has geometry, a menu entry and
+  pads found by its own labels. The full 4,583-test suite, `tsc -b` and targeted lint
+  pass.
 
 - [x] **HW-22 · P2 · Undo in the display editor leaves the node's ports behind (S).**
   Reproduced with a template-era display snapshot crossing an ordinary graph

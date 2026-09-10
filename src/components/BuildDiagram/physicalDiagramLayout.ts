@@ -280,6 +280,7 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   'sh1106-oled-128x64-i2c': padRow([176.5, 206.6, 237.4, 267.6], 445, 381.5, 422),
   'ssd1306-oled-128x64':
     padRow([80, 114.3, 148.6, 182.9, 217.1, 251.4, 285.7, 320], 400, 346.2, 366),
+  'ssd1306-oled-096-128x64-i2c': padRow([145.7, 181.5, 217.5, 253.1], 400, 370.8, 414),
   // A Grove part: four contacts inside a keyed connector rather than pads.
   'tm1637-4digit-display': padRow([210, 240, 270, 300], 512, 252, 296),
   'max7219-8digit-7segment': padColumn(17.5, 992, [33, 63, 93.5, 124, 153], 188),

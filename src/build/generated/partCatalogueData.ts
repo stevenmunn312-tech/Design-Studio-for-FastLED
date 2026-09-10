@@ -866,6 +866,44 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 22.754
     }
   },
+  "ssd1306-oled-096-128x64-i2c": {
+    "partId": "ssd1306-oled-096-128x64-i2c",
+    "label": "SSD1306 0.96-inch 128x64 OLED I2C (4-pin)",
+    "category": "display",
+    "dimensionsMm": {
+      "width": 27.3,
+      "height": 27.8
+    },
+    "manufacturer": "generic four-pin I2C module form",
+    "logicVoltage": "3.3 V / 5 V module supply; 3.3 V logic",
+    "pinLabelsLeftToRight": [
+      "GND",
+      "VCC",
+      "SCL",
+      "SDA"
+    ],
+    "notes": [
+      "Common four-pin 0.96-inch SSD1306 I2C OLED breakout, distinct from the eight-pin Adafruit I2C/SPI board.",
+      "Pin order is the common header-down GND, VCC, SCL, SDA arrangement; supplier variants sometimes swap GND and VCC.",
+      "The default seven-bit I2C address is commonly 0x3C; some revisions expose or fix 0x3D instead.",
+      "The connection row is intentionally unpopulated: four plated through-holes are shown without header pins."
+    ],
+    "display": {
+      "controller": "SSD1306",
+      "resolutionPx": [
+        128,
+        64
+      ],
+      "interface": "I2C",
+      "touchController": null
+    },
+    "render": {
+      "file": "parts/ssd1306-oled-096-128x64-i2c.webp",
+      "widthPx": 400,
+      "heightPx": 414,
+      "pxPerMm": 14.652
+    }
+  },
   "ssd1306-oled-128x64": {
     "partId": "ssd1306-oled-128x64",
     "label": "SSD1306 0.96-inch 128x64 OLED",
