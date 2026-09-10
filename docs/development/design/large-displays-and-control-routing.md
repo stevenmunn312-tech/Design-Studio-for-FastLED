@@ -143,10 +143,27 @@ Dropping on **Control…** opens a picker, then creates the named function input
 and completes the connection. Disconnecting retains the row; explicitly removing
 the row removes its edge. Function ids remain port ids, such as `playPause`.
 
-`playerControlAssignments.ts` owns the catalogue. The picker matches exact source
-types, deliberately narrower than float/bool wire compatibility: a button is
-not a useful continuous-volume control. Destination-capability filtering is
-still proposed (HW-07).
+`playerControlAssignments.ts` owns the catalogue. The picker narrows twice.
+
+By **type**, deliberately narrower than float/bool wire compatibility: a button
+is not a useful continuous-volume control.
+
+By **destination**, because a bundle goes somewhere specific. Each function
+names the `PlayerControlDestination` kinds that act on it — a Music Player
+holds the track, the lamp and the collection and so takes all fourteen; an LED
+output has a blackout and a dimmer; a Pattern Slideshow has a cursor and no
+transport. `controlChainSinks` (`codegen/playerDisplays.ts`) walks the chain to
+find which kinds this node reaches, and `sensiblePlayerControls` intersects the
+two, so Play / Pause is not offered on a chain that ends at an LED output — a
+port that would mint, wire, validate and do nothing. `ControlChainSink` is an
+alias of that same union rather than a second copy, so a new destination cannot
+reach the generators while the picker goes on offering it nothing. A chain
+plugged into nothing yet is judged on type alone: there is no destination to
+judge against, and refusing everything would leave nothing to build with.
+
+Each option carries one line saying whether it is an edge or a position — *On
+each press*, *Holds its position, 0 to 1*, *Turn — one detent per pattern* —
+because `kind` is the thing being chosen and the label alone does not say it.
 
 For Button Bank → Control… both ends need a name. Materialize the target row
 before completing the edge, and derive target ports through `effectiveInputs`;

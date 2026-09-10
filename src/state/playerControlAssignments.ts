@@ -42,7 +42,32 @@ export interface PlayerControlFunction {
   kind: 'momentary' | 'continuous'
   /** Grouped in the picker so a long list reads as four short ones. */
   group: 'Transport' | 'Volume' | 'Lights' | 'Patterns'
+  /** What acts on it. See `PlayerControlDestination`. */
+  destinations: readonly PlayerControlDestination[]
 }
+
+/**
+ * The three things a `playercontrols` cable can end at.
+ *
+ * `codegen/playerDisplays.ts` walks the graph to find which of these a given
+ * bundle actually reaches; this is the other half of the same fact — which of
+ * them can *do* anything with each function. A Music Player is holding the
+ * track, the lamp and the collection, so it acts on all fourteen. An LED
+ * output has a blackout and a dimmer and nothing else. A Pattern Slideshow has
+ * a cursor and no transport at all: it is a show, not a player.
+ *
+ * Naming a function's destinations is what lets the picker refuse to offer
+ * Volume to a bundle that only reaches an LED output — a wire that connects,
+ * validates and does nothing, which is the worst kind.
+ */
+export type PlayerControlDestination = 'player' | 'output' | 'engine'
+
+/** Transport and volume: only the node holding the track can act on these. */
+const PLAYER_ONLY: readonly PlayerControlDestination[] = ['player']
+/** Blackout and dimming: the player's lamp, and an LED output's own latch. */
+const LIGHTS: readonly PlayerControlDestination[] = ['player', 'output']
+/** Pattern intent: the player's collection, and a slideshow's cursor. */
+const PATTERNS: readonly PlayerControlDestination[] = ['player', 'engine']
 
 /**
  * Every job a control can be given, in the order the picker offers them.
@@ -52,22 +77,22 @@ export interface PlayerControlFunction {
  * taught about it — which is the same reason `SONG_INFO_PORTS` is one list.
  */
 export const PLAYER_CONTROL_FUNCTIONS: readonly PlayerControlFunction[] = [
-  { id: 'playPause', label: 'Play / Pause', dataType: 'bool', kind: 'momentary', group: 'Transport' },
-  { id: 'previous', label: 'Previous', dataType: 'bool', kind: 'momentary', group: 'Transport' },
-  { id: 'next', label: 'Next', dataType: 'bool', kind: 'momentary', group: 'Transport' },
-  { id: 'volume', label: 'Volume', dataType: 'float', kind: 'continuous', group: 'Volume' },
-  { id: 'volumeUp', label: 'Volume Up', dataType: 'bool', kind: 'momentary', group: 'Volume' },
-  { id: 'volumeDown', label: 'Volume Down', dataType: 'bool', kind: 'momentary', group: 'Volume' },
-  { id: 'ledToggle', label: 'LED On / Off', dataType: 'bool', kind: 'momentary', group: 'Lights' },
-  { id: 'brightness', label: 'Brightness', dataType: 'float', kind: 'continuous', group: 'Lights' },
-  { id: 'brightnessUp', label: 'Brightness Up', dataType: 'bool', kind: 'momentary', group: 'Lights' },
-  { id: 'brightnessDown', label: 'Brightness Down', dataType: 'bool', kind: 'momentary', group: 'Lights' },
+  { id: 'playPause', label: 'Play / Pause', dataType: 'bool', kind: 'momentary', group: 'Transport', destinations: PLAYER_ONLY },
+  { id: 'previous', label: 'Previous', dataType: 'bool', kind: 'momentary', group: 'Transport', destinations: PLAYER_ONLY },
+  { id: 'next', label: 'Next', dataType: 'bool', kind: 'momentary', group: 'Transport', destinations: PLAYER_ONLY },
+  { id: 'volume', label: 'Volume', dataType: 'float', kind: 'continuous', group: 'Volume', destinations: PLAYER_ONLY },
+  { id: 'volumeUp', label: 'Volume Up', dataType: 'bool', kind: 'momentary', group: 'Volume', destinations: PLAYER_ONLY },
+  { id: 'volumeDown', label: 'Volume Down', dataType: 'bool', kind: 'momentary', group: 'Volume', destinations: PLAYER_ONLY },
+  { id: 'ledToggle', label: 'LED On / Off', dataType: 'bool', kind: 'momentary', group: 'Lights', destinations: LIGHTS },
+  { id: 'brightness', label: 'Brightness', dataType: 'float', kind: 'continuous', group: 'Lights', destinations: LIGHTS },
+  { id: 'brightnessUp', label: 'Brightness Up', dataType: 'bool', kind: 'momentary', group: 'Lights', destinations: LIGHTS },
+  { id: 'brightnessDown', label: 'Brightness Down', dataType: 'bool', kind: 'momentary', group: 'Lights', destinations: LIGHTS },
   // Choosing a pattern is a physical intent like any other here. An encoder
   // and buttons both, because a panel may have three buttons and no encoder.
-  { id: 'patternSelect', label: 'Pattern Selection', dataType: 'float', kind: 'continuous', group: 'Patterns' },
-  { id: 'patternPrevious', label: 'Previous Pattern', dataType: 'bool', kind: 'momentary', group: 'Patterns' },
-  { id: 'patternNext', label: 'Next Pattern', dataType: 'bool', kind: 'momentary', group: 'Patterns' },
-  { id: 'patternConfirm', label: 'Confirm', dataType: 'bool', kind: 'momentary', group: 'Patterns' },
+  { id: 'patternSelect', label: 'Pattern Selection', dataType: 'float', kind: 'continuous', group: 'Patterns', destinations: PATTERNS },
+  { id: 'patternPrevious', label: 'Previous Pattern', dataType: 'bool', kind: 'momentary', group: 'Patterns', destinations: PATTERNS },
+  { id: 'patternNext', label: 'Next Pattern', dataType: 'bool', kind: 'momentary', group: 'Patterns', destinations: PATTERNS },
+  { id: 'patternConfirm', label: 'Confirm', dataType: 'bool', kind: 'momentary', group: 'Patterns', destinations: PATTERNS },
 ]
 
 const BY_ID = new Map(PLAYER_CONTROL_FUNCTIONS.map((entry) => [entry.id, entry]))
@@ -121,23 +146,46 @@ export function playerControlInputs(value: unknown): NodePort[] {
 }
 
 /**
- * What this source can sensibly be given to do.
+ * What this source can sensibly be given to do, here.
  *
- * Sensible is narrower than *compatible*: `portsCompatible` lets `float` and
- * `bool` interconvert, which is right for arithmetic and wrong for a physical
- * control. A button wired to Volume would set it to 0 or 1 and nothing
- * between; a potentiometer wired to Play / Pause would fire it at the halfway
- * mark. So the picker matches the dataType exactly, and an encoder reaches
- * both lists the honest way — through its two separate outputs.
+ * Sensible is narrower than *compatible* twice over.
+ *
+ * By type, because `portsCompatible` lets `float` and `bool` interconvert,
+ * which is right for arithmetic and wrong for a physical control. A button
+ * wired to Volume would set it to 0 or 1 and nothing between; a potentiometer
+ * wired to Play / Pause would fire it at the halfway mark. So the picker
+ * matches the dataType exactly, and an encoder reaches both lists the honest
+ * way — through its two separate outputs.
+ *
+ * And by destination, because this node's bundle goes somewhere specific.
+ * Offering Play / Pause on a chain that only reaches an LED output mints a
+ * port, accepts a wire, passes validation and does nothing — the failure that
+ * leaves someone pressing a button and blaming their soldering. `reachable`
+ * is what the bundle actually lands on (`controlChainSinks`); omit it and
+ * only the type filter applies, which is the right answer for a chain that
+ * has not been plugged into anything yet — there is no destination to judge
+ * against, and refusing every function would leave nothing to build with.
  */
 export function sensiblePlayerControls(
   sourceDataType: string | undefined,
   assigned: unknown,
+  reachable?: ReadonlySet<PlayerControlDestination>,
 ): PlayerControlFunction[] {
   const taken = new Set(normalizePlayerControlIds(assigned))
+  const judge = reachable && reachable.size > 0 ? reachable : null
   return PLAYER_CONTROL_FUNCTIONS.filter((entry) => (
-    !taken.has(entry.id) && entry.dataType === sourceDataType
+    !taken.has(entry.id)
+    && entry.dataType === sourceDataType
+    && (!judge || entry.destinations.some((destination) => judge.has(destination)))
   ))
+}
+
+/** How a function behaves, for the one line the picker prints beneath it. */
+export function playerControlHint(entry: PlayerControlFunction): string {
+  if (entry.kind === 'momentary') return 'On each press'
+  return entry.id === 'patternSelect'
+    ? 'Turn — one detent per pattern'
+    : 'Holds its position, 0 to 1'
 }
 
 /** Append an assignment, ignoring one that is unknown or already present. */

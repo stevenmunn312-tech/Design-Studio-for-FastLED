@@ -1,9 +1,11 @@
 import { useEffect, useMemo } from 'react'
 import { useUpdateNodeInternals } from '@xyflow/react'
-import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
+import { rootGraphEdges, rootGraphNodes, useGraphStore } from '../../state/graphStore'
+import { controlChainSinks } from '../../codegen/playerDisplays'
 import {
   normalizePlayerControlIds,
   playerControlFunction,
+  playerControlHint,
   sensiblePlayerControls,
   type PlayerControlFunction,
 } from '../../state/playerControlAssignments'
@@ -32,9 +34,30 @@ export default function PlayerControlsBody({ nodeId }: { nodeId: string }) {
   const updateNodeInternals = useUpdateNodeInternals()
 
   const assigned = useMemo(() => normalizePlayerControlIds(saved), [saved])
+  /*
+   * Where this node's bundle actually goes.
+   *
+   * The picker filtered on type alone, so a chain that only reaches an LED
+   * output still offered Play / Pause — a port that mints, wires, validates
+   * and does nothing. Only recomputed while the picker is open, since it walks
+   * the graph, and joined into a string so the selector stays referentially
+   * stable across renders. Empty means the Controls output goes nowhere yet.
+   */
+  const reachable = useGraphStore((state) => {
+    if (!pending) return null
+    const nodes = rootGraphNodes(state)
+    const byId = new Map(nodes.map((node) => [node.id, node]))
+    return [...controlChainSinks(nodeId, rootGraphEdges(state) as never, byId as never)].sort().join(',')
+  })
   const offered = useMemo(
-    () => (pending ? sensiblePlayerControls(pending.sourceDataType, saved) : []),
-    [pending, saved],
+    () => (pending
+      ? sensiblePlayerControls(
+          pending.sourceDataType,
+          saved,
+          new Set((reachable ? reachable.split(',') : []).filter(Boolean) as never),
+        )
+      : []),
+    [pending, reachable, saved],
   )
 
   // The derived ports change with the assignment list, so React Flow has to
@@ -63,7 +86,11 @@ export default function PlayerControlsBody({ nodeId }: { nodeId: string }) {
           <p className={styles.note}>
             {pending.sourceDataType === undefined
               ? 'That output has no type this node can take.'
-              : `Every ${pending.sourceDataType === 'float' ? 'continuous' : 'momentary'} function is already assigned.`}
+              : reachable
+                ? `Nothing this chain reaches takes a ${pending.sourceDataType === 'float' ? 'continuous' : 'momentary'} `
+                  + 'control that is still free. Wire Controls into a Music Player, an LED output or a Pattern '
+                  + 'Slideshow that wants one.'
+                : `Every ${pending.sourceDataType === 'float' ? 'continuous' : 'momentary'} function is already assigned.`}
           </p>
         )}
         {groups.map(([group, entries]) => (
@@ -78,7 +105,8 @@ export default function PlayerControlsBody({ nodeId }: { nodeId: string }) {
                   title={`Assign ${entry.label}`}
                   onClick={() => assign(entry.id)}
                 >
-                  {entry.label}
+                  <span>{entry.label}</span>
+                  <small className={styles.optionHint}>{playerControlHint(entry)}</small>
                 </button>
               ))}
             </div>

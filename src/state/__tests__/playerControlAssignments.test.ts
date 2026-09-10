@@ -8,6 +8,7 @@ import {
   normalizePlayerControlIds,
   playerControlIdsFromEdges,
   playerControlInputs,
+  playerControlHint,
   sensiblePlayerControls,
 } from '../playerControlAssignments'
 
@@ -53,6 +54,43 @@ describe('what a control can sensibly be given to do', () => {
     expect(forKnob).not.toContain('playPause')
     expect([...forButton, ...forKnob].sort())
       .toEqual(PLAYER_CONTROL_FUNCTIONS.map((entry) => entry.id).sort())
+  })
+
+  it('offers only what the chain it feeds can act on', () => {
+    // A wire that connects, validates and does nothing is worse than one that
+    // is refused: pressing the button and blaming the soldering is the failure
+    // this filter exists to prevent.
+    const toOutput = new Set(['output'] as const)
+    const forOutput = sensiblePlayerControls('bool', [], toOutput).map((entry) => entry.id)
+    expect(forOutput).toEqual(['ledToggle', 'brightnessUp', 'brightnessDown'])
+    expect(sensiblePlayerControls('float', [], toOutput).map((entry) => entry.id)).toEqual(['brightness'])
+
+    const toEngine = new Set(['engine'] as const)
+    expect(sensiblePlayerControls('bool', [], toEngine).map((entry) => entry.id))
+      .toEqual(['patternPrevious', 'patternNext', 'patternConfirm'])
+
+    // The player holds the track, the lamp and the collection.
+    const toPlayer = new Set(['player'] as const)
+    expect(sensiblePlayerControls('bool', [], toPlayer).map((entry) => entry.id))
+      .toEqual(PLAYER_CONTROL_FUNCTIONS.filter((entry) => entry.dataType === 'bool').map((entry) => entry.id))
+
+    // Two destinations union rather than intersect.
+    expect(sensiblePlayerControls('bool', [], new Set(['output', 'engine'] as const)).map((entry) => entry.id))
+      .toEqual(['ledToggle', 'brightnessUp', 'brightnessDown', 'patternPrevious', 'patternNext', 'patternConfirm'])
+  })
+
+  it('judges nothing while the Controls output goes nowhere', () => {
+    // A chain not yet plugged in has no destination to judge against, and
+    // refusing every function would leave nothing to build the graph with.
+    expect(sensiblePlayerControls('bool', [], new Set()).map((entry) => entry.id))
+      .toEqual(sensiblePlayerControls('bool', []).map((entry) => entry.id))
+  })
+
+  it('names each function an edge or a position', () => {
+    const byId = new Map(PLAYER_CONTROL_FUNCTIONS.map((entry) => [entry.id, entry]))
+    expect(playerControlHint(byId.get('playPause')!)).toBe('On each press')
+    expect(playerControlHint(byId.get('volume')!)).toBe('Holds its position, 0 to 1')
+    expect(playerControlHint(byId.get('patternSelect')!)).toBe('Turn — one detent per pattern')
   })
 
   it('never offers a function already assigned', () => {

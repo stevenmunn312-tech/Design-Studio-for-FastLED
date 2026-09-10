@@ -34,6 +34,7 @@ import {
 import { asTftRotation, TFT_CONTROLLERS, type TftController, type TftRotation } from '../state/tftSurface'
 import { segmentModeForKind, segmentControllerFor, clampSegmentBrightness, type SegmentDisplayMode } from '../state/segmentDisplay'
 import { partById } from '../state/partCatalogue'
+import type { PlayerControlDestination } from '../state/playerControlAssignments'
 import { PLAYER_SONG_EXPRESSIONS } from './playerSongInfoCpp'
 
 interface ConfigNode {
@@ -157,14 +158,16 @@ function touchRawProp(value: unknown, fallback: number): number {
   return Number.isFinite(n) ? Math.max(0, Math.min(4095, n)) : fallback
 }
 
-/** What a `playercontrols` chain can end at. */
-export type ControlChainSink =
-  /** Music Player's transport: play/pause, track, volume, pattern selection. */
-  | 'player'
-  /** An LED output's blackout and dimming latch. */
-  | 'output'
-  /** A Pattern Slideshow's cursor: browse and confirm, with no transport. */
-  | 'engine'
+/**
+ * What a `playercontrols` chain can end at.
+ *
+ * One union, shared with the connection-time picker: `playerControlAssignments`
+ * names which of these act on each function, this walk names which of them a
+ * given bundle reaches, and the picker intersects the two. Declaring the
+ * kinds twice would let a new destination reach the generators while the
+ * picker went on offering it nothing.
+ */
+export type ControlChainSink = PlayerControlDestination
 
 /** The node types a chain can end at, and what each of them is. */
 const CONTROL_CHAIN_SINKS: Record<string, ControlChainSink | undefined> = {
