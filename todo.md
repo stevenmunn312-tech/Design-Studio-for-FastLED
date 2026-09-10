@@ -121,8 +121,8 @@ matrix, not a reason to postpone testing earlier changes.
 
 ## 2. Make the workflow understandable
 
-- [ ] **HW-07 · Connected authoring (M; after HW-04/05).** Mostly landed;
-  remaining exit is the Map Range offer and a visual pass.
+- [x] **HW-07 · Connected authoring (M; after HW-04/05).** Exits met; the
+  connected starters and visual/help pass are HW-08's scope, not this item's.
 
   **Done.** *A design has no size until it is connected to a panel.* Rather
   than let one be authored at an arbitrary size and reporting the mismatch
@@ -153,12 +153,25 @@ matrix, not a reason to postpone testing earlier changes.
   input, which would drop the design. `npm test` (4,598 tests), `npm run lint`
   and `tsc -b` pass.
 
-  **Remaining.** Offer Map Range when a normalized signal needs scaling into a
-  node's own domain (the un-normalised-input rule in `CLAUDE.md`); explain
-  unsupported wires *while* connecting rather than after; and the connected
-  starters/visual pass, which is HW-08's scope. Exit: actions/readings are
-  traceable in visible edges; no hidden template bindings. See review
-  recommendations.
+  Units and ranges are answered on both sides of a wire.
+  `src/state/signalRange.ts` compares what a source promises against the
+  domain the target reads, so an audio band into `Fire2012.sparking` (0–255),
+  `ReactionDiffusion.feed` (~0.03–0.065) or `Starfield.count` is named with the
+  Map Range that repairs it, in Graph Health and in the status bar *as the wire
+  lands* — a range mismatch is a fact about the two ports, already true and not
+  made false by later wiring, unlike everything else the drawer reports. Its
+  two halves are asymmetric on purpose: the target's domain is derived from
+  `inputClampRange` (every input the evaluator denormalises is a 0–1 slider
+  because that is what denormalising means, so no second list of denormalised
+  inputs can drift, and the test holds that equivalence over every
+  `speedRange` table), while `NORMALIZED_OUTPUTS` lists the source contracts,
+  deliberately short, because a false warning on a correct wire costs more than
+  a missed one on a wrong wire. `npm test` (4,608 tests), `npm run lint` and
+  `tsc -b` pass.
+
+  Exit met: actions and readings are traceable in visible edges — the mount
+  cable, the widget ports and the control chain are all ordinary wires — and no
+  template introduces a hidden binding.
 - [ ] **HW-08 · Starters, visual QA and help (M; after HW-07).** Connected live
   dimming, slideshow browse/confirm and music transport/readback examples;
   update in-app Help, descriptions/cards and guides together. Snapshot fixed

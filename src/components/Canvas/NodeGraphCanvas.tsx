@@ -27,6 +27,8 @@ import {
 import '@xyflow/react/dist/style.css'
 import { useShallow } from 'zustand/react/shallow'
 import { rootGraphEdges, useGraphStore } from '../../state/graphStore'
+import type { StudioEdge } from '../../state/graphStore'
+import { findSignalRangeHints } from '../../utils/validateGraph'
 import { useUiStore } from '../../state/uiStore'
 import { usePatternLibrary } from '../../state/patternLibrary'
 import { NODE_LIBRARY, CATEGORY_COLOR, nodeDisplayLabel, portsCompatible } from '../../state/nodeLibrary'
@@ -521,6 +523,18 @@ function NodeGraphCanvasInner() {
       spreadNodes()
       fireConnectionCeremony(ceremonyConnection)
       playNoodleConnectSfx()
+      // A range mismatch is a fact about the two ports, so it is already true
+      // and no later wiring makes it false — the one finding worth saying as
+      // the wire lands rather than leaving for Graph Health, where the rest
+      // belongs because the rest can be transiently true mid-patch.
+      const hint = findSignalRangeHints(useGraphStore.getState().nodes, [{
+        id: 'connecting',
+        source: connection.source ?? '',
+        target: connection.target ?? '',
+        sourceHandle: connection.sourceHandle ?? null,
+        targetHandle: connection.targetHandle ?? null,
+      } as StudioEdge])[0]
+      if (hint) setStatus(hint, 'info')
     },
     [onConnect, spreadNodes, fireConnectionCeremony, getNode, setStatus, addToCollection]
   )

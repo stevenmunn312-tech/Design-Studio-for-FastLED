@@ -1855,6 +1855,8 @@ interface SignalRangeIssue {
   message: string
   fix: string
   title: string
+  /** The same fact in one line, for the status bar at connection time. */
+  hint: string
 }
 
 /**
@@ -1891,6 +1893,7 @@ function signalRangeIssues(nodes: StudioNode[], edges: StudioEdge[]): SignalRang
       title: `${targetName} reads ${span}, not 0–1`,
       message: `${sourceName} carries 0–1, so ${targetName} only ever sees the bottom of its ${span} range.`,
       fix: `Insert a Map Range between them with In 0–1 and Out ${span}.`,
+      hint: `${targetName} reads ${span}, not 0–1 — insert a Map Range with Out ${span}`,
     })
   }
   return issues
@@ -1898,6 +1901,19 @@ function signalRangeIssues(nodes: StudioNode[], edges: StudioEdge[]): SignalRang
 
 export function findSignalRangeWarnings(nodes: StudioNode[], edges: StudioEdge[]): string[] {
   return signalRangeIssues(nodes, edges).map((issue) => `${issue.message} ${issue.fix}`)
+}
+
+/**
+ * The same finding, one line, for the moment the wire is drawn.
+ *
+ * A range mismatch is a fact about the two ports, not about how finished the
+ * graph is, so it is the one thing worth saying immediately: it is already
+ * wrong and no later wiring makes it right. Everything else Graph Health
+ * reports can be transiently true halfway through building a patch, which is
+ * why the drawer keeps it and the canvas does not.
+ */
+export function findSignalRangeHints(nodes: StudioNode[], edges: StudioEdge[]): string[] {
+  return signalRangeIssues(nodes, edges).map((issue) => issue.hint)
 }
 
 export function findPlayerControlMappingWarnings(nodes: StudioNode[], edges: StudioEdge[]): string[] {

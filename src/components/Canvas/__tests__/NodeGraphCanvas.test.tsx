@@ -403,4 +403,56 @@ describe('NodeGraphCanvas start screen', () => {
     onNodeDoubleClick({}, documentNode)
     expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'display', displayId: 'panel' })
   })
+
+  it('says a range mismatch as the wire lands, not only at deploy', () => {
+    // Already wrong, and no later wiring makes it right — unlike everything
+    // else Graph Health reports, which can be transiently true mid-patch.
+    const fft = {
+      id: 'fft', type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        label: 'FFT Analyzer', nodeType: 'FFTAnalyzer', category: 'audio', properties: {},
+        inputs: [], outputs: [{ id: 'bass', label: 'Bass', dataType: 'float' }],
+      },
+    }
+    const fire = {
+      id: 'fire', type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        label: 'Fire 2012', nodeType: 'Fire2012', category: 'pattern', properties: {},
+        inputs: [{ id: 'sparking', label: 'Sparking', dataType: 'float' }], outputs: [],
+      },
+    }
+    useGraphStore.getState().loadGraph([fft as never, fire as never], [])
+    render(<NodeGraphCanvas />)
+
+    const onConnect = reactFlowProps.onConnect as (connection: unknown) => void
+    onConnect({ source: 'fft', sourceHandle: 'bass', target: 'fire', targetHandle: 'sparking' })
+
+    expect(useUiStore.getState().statusText)
+      .toBe('Fire 2012 Sparking reads 0–255, not 0–1 — insert a Map Range with Out 0–255')
+  })
+
+  it('stays quiet for a wire that needs no scaling', () => {
+    const fft = {
+      id: 'fft', type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        label: 'FFT Analyzer', nodeType: 'FFTAnalyzer', category: 'audio', properties: {},
+        inputs: [], outputs: [{ id: 'bass', label: 'Bass', dataType: 'float' }],
+      },
+    }
+    const plasma = {
+      id: 'plasma', type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        label: 'Plasma', nodeType: 'Plasma', category: 'pattern', properties: {},
+        inputs: [{ id: 'speed', label: 'Speed', dataType: 'float' }], outputs: [],
+      },
+    }
+    useGraphStore.getState().loadGraph([fft as never, plasma as never], [])
+    useUiStore.setState({ statusText: 'Ready' })
+    render(<NodeGraphCanvas />)
+
+    const onConnect = reactFlowProps.onConnect as (connection: unknown) => void
+    onConnect({ source: 'fft', sourceHandle: 'bass', target: 'plasma', targetHandle: 'speed' })
+
+    expect(useUiStore.getState().statusText).toBe('Ready')
+  })
 })
