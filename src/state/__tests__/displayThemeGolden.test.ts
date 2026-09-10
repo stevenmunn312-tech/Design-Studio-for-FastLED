@@ -159,6 +159,31 @@ describe('Launch theme golden tokens', () => {
     }
   })
 
+  it('sets a muted state back with its text and opacity, not its surface', () => {
+    // The rule the `disabled` state broke, stated rather than left to the
+    // recorded numbers. Washing a state's surface toward the very colour its
+    // own label is about to be drawn in collapses the two together — every
+    // launch theme resolved a disabled control to between 1.14 and 1.39
+    // contrast that way, which is a blank rounded rectangle rather than a
+    // greyed-out label. It survived the invariants above because a surface
+    // moved most of the way to its text is still unique, still faded, and
+    // says nothing about the three live states. So: a muted surface has to
+    // stay nearer the theme's own surface than the text it will carry.
+    const distance = (a: string, b: string) => Math.hypot(
+      ...[1, 3, 5].map((at) => Number.parseInt(a.slice(at, at + 2), 16)
+        - Number.parseInt(b.slice(at, at + 2), 16)),
+    )
+    for (const { id, theme } of THEMES) {
+      for (const state of ['inactive', 'disabled'] as const) {
+        const tokens = produced[id].states[state].tokens
+        expect(
+          distance(tokens.surfaceColor, theme.surfaceColor),
+          `${id}/${state} surface has drifted toward its own text`,
+        ).toBeLessThan(distance(tokens.surfaceColor, tokens.textColor))
+      }
+    }
+  })
+
   it('keeps a live control legible in every theme', () => {
     // Only the three live states are held to a floor; `inactive` and
     // `disabled` are meant to be dim, and what they actually measure is
