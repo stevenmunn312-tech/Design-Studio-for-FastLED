@@ -1,6 +1,7 @@
 import type { BuildTargetFamily } from './buildProfile'
 import { targetFamilyFromFqbn } from './buildProfile'
 import { BOARD_CAPABILITY_DATA, GENERATED_BOARD_PROFILES } from './generated/boardCapabilityData'
+import { boardI2cDefault } from './boardI2cDefaults'
 import type {
   BoardCapabilityData,
   BoardPeripheralPins,
@@ -674,6 +675,47 @@ const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
  * a pin-safety list are not enough to build a usable profile without the pin
  * map, so those boards wait until one is authored.
  */
+/**
+ * Curated peripheral pinouts that land on the board's own I2C bus, dropped.
+ *
+ * The importer already keeps the curated set disjoint — it prefers the
+ * microphone and discards an amplifier or LED default that overlaps it — but
+ * it cannot see `BOARD_I2C_DEFAULTS`, which lives here rather than in the
+ * board manifests. So a trio could be curated onto SDA or SCL, and the
+ * generic 38-pin DevKit's was: MAX98357 DIN on GPIO 22, which is that board's
+ * SCL. Fine alone, and refused by pin validation the moment any I2C part is
+ * present — an OLED, or the DS3231 the app also ships.
+ *
+ * Dropping the whole entry rather than moving one pin is the same answer the
+ * importer gives for the microphone overlap, and it is the right one: with no
+ * curated pinout, `PART_PIN_PLANS.Amplifier` falls through to three plain
+ * digital lines from the pool, which its own comment already calls the honest
+ * request. ESP32 I2S routes through the GPIO matrix, so a curated trio is a
+ * tidy suggestion, never a hardware constraint.
+ *
+ * The amplifier only, because that is where the importer's own precedence
+ * already puts the cost: it prefers the microphone and discards whatever
+ * overlaps it. Treating the board's bus as claimed *before* the amplifier
+ * extends that same order by one claim rather than inventing a new policy —
+ * and a curated microphone stays curated, since a board with no I2C part on it
+ * has nothing to collide with.
+ */
+function withoutI2cBusCollisions(
+  profileId: string,
+  pins: BoardPeripheralPins | undefined,
+): BoardPeripheralPins | undefined {
+  if (!pins) return pins
+  const bus = boardI2cDefault(profileId)
+  if (!bus) return pins
+  const busPins = new Set([bus.sda.arduinoPin, bus.scl.arduinoPin])
+  const collides = (entry: Record<string, number> | undefined) =>
+    !!entry && Object.values(entry).some((pin) => busPins.has(pin))
+  if (!collides(pins.max98357)) return pins
+  const kept = { ...pins }
+  delete kept.max98357
+  return kept
+}
+
 const MERGED_AUTHORED: PhysicalBoardProfile[] = AUTHORED_PROFILES.map((profile) => {
   const imported: BoardCapabilityData | undefined = BOARD_CAPABILITY_DATA[profile.id]
   if (!imported) return profile
@@ -683,7 +725,7 @@ const MERGED_AUTHORED: PhysicalBoardProfile[] = AUTHORED_PROFILES.map((profile) 
     memory: profile.memory ?? imported.memory,
     internalRamBudgetBytes: profile.internalRamBudgetBytes ?? imported.internalRamBudgetBytes,
     pinSafety: profile.pinSafety ?? imported.pinSafety,
-    peripheralPins: profile.peripheralPins ?? imported.peripheralPins,
+    peripheralPins: withoutI2cBusCollisions(profile.id, profile.peripheralPins ?? imported.peripheralPins),
     render: profile.render ?? imported.render,
     safetyNotes: profile.safetyNotes ?? imported.safetyNotes,
   }
@@ -717,7 +759,7 @@ const IMPORTED_PROFILES: PhysicalBoardProfile[] = GENERATED_BOARD_PROFILES
       memory: capability.memory,
       internalRamBudgetBytes: capability.internalRamBudgetBytes,
       pinSafety: capability.pinSafety,
-      peripheralPins: capability.peripheralPins,
+      peripheralPins: withoutI2cBusCollisions(generated.id, capability.peripheralPins),
       render: capability.render,
       safetyNotes: capability.safetyNotes,
     }
