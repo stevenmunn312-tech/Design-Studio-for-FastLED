@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import PlayerControlsBody from '../PlayerControlsBody'
 import { NODE_LIBRARY, libraryDefaults } from '../../../state/nodeLibrary'
 import { ROOT_GRAPH_ID, useGraphStore, type StudioEdge, type StudioNode } from '../../../state/graphStore'
@@ -133,6 +133,39 @@ describe('PlayerControlsBody picker', () => {
 
     render(<PlayerControlsBody nodeId="controls" />)
     expect(screen.getByRole('button', { name: /Brightness Down/ })).toBeTruthy()
+  })
+
+  it('puts the question down when the graph is edited instead of answered', () => {
+    // Reported from the bench: with the refusal showing, unplugging the very
+    // wire that caused it turned the message into a live picker nobody had
+    // re-opened — a menu that changed under the user's hands.
+    useGraphStore.getState().loadGraph(
+      [node('button', 'ButtonInput'), node('controls', 'PlayerControls', { controls: ['brightnessUp'] }),
+        node('out', 'MatrixOutput')],
+      [
+        edge('job', 'button', 'pressed', 'controls', 'brightnessUp'),
+        edge('chain', 'controls', 'controls', 'out', 'controls'),
+      ],
+    )
+    pending('bool')
+
+    const view = render(<PlayerControlsBody nodeId="controls" />)
+    expect(screen.getByText('Already assigned')).toBeTruthy()
+
+    act(() => { useGraphStore.getState().removeEdge('job') })
+
+    expect(useGraphStore.getState().pendingControlAssignment).toBeNull()
+    expect(view.container.querySelector('[aria-label="Choose what this control does"]')).toBeNull()
+  })
+
+  it('puts it down when a part is removed too', () => {
+    useGraphStore.getState().loadGraph(
+      [node('button', 'ButtonInput'), node('controls', 'PlayerControls'), node('out', 'MatrixOutput')],
+      [edge('chain', 'controls', 'controls', 'out', 'controls')],
+    )
+    pending('bool')
+    act(() => { useGraphStore.getState().removeNodeCompletely('button') })
+    expect(useGraphStore.getState().pendingControlAssignment).toBeNull()
   })
 
   it('says what an edge is and what a position is', () => {

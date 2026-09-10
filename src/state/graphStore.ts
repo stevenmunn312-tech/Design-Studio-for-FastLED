@@ -1822,8 +1822,21 @@ export const useGraphStore = create<GraphState>()(
           }
         }),
 
+      /*
+       * Unplugging a wire also puts down a half-finished control assignment.
+       *
+       * The picker is a question about a drop that has just happened, and the
+       * user answering it by editing the graph instead has answered it: the
+       * gesture is over. Left standing it re-evaluates against the new graph,
+       * so unplugging the very wire that made a control ineligible turned the
+       * "already assigned" refusal into a live picker nobody had re-opened —
+       * a menu that changed under the user's hands.
+       */
       removeEdge: (id) =>
-        set((s) => ({ edges: s.edges.filter((e) => e.id !== id) })),
+        set((s) => ({
+          edges: s.edges.filter((e) => e.id !== id),
+          ...(s.pendingControlAssignment ? { pendingControlAssignment: null } : {}),
+        })),
 
       removeButtonBankEntry: (nodeId, entryId) =>
         set((s) => {
@@ -2288,6 +2301,9 @@ export const useGraphStore = create<GraphState>()(
         const inActive = state.nodes.some((entry) => entry.id === id)
         const node = (inActive ? state.nodes : rootGraphNodes(state)).find((entry) => entry.id === id)
         if (!node || node.data.nodeType === 'Board') return
+        // A part removed mid-question ends the question, whether or not it was
+        // one of the two nodes the drop was between.
+        if (state.pendingControlAssignment) set({ pendingControlAssignment: null })
         const displayId = node.data.nodeType === 'Display'
           ? String(node.data.properties.displayId ?? node.id)
           : null
