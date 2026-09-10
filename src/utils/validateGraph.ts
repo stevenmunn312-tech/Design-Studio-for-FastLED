@@ -7,6 +7,7 @@ import {
   supportsScalarExpression,
 } from '../state/nodeLibrary'
 import { isLinearForm, outputForm, outputLedTotal } from '../state/ledOutputForm'
+import { formatSignalRange, isNormalizedOutput, signalRangeMismatch } from '../state/signalRange'
 import { audioOutputMissing } from '../state/audioOutput'
 import { resolveShowTarget } from '../state/showTarget'
 import {
@@ -1846,6 +1847,59 @@ export function findDisplayGeneratorIssues(
   return { errors, warnings }
 }
 
+interface SignalRangeIssue {
+  edgeId: string
+  sourceId: string
+  targetId: string
+  targetLabel: string
+  message: string
+  fix: string
+  title: string
+}
+
+/**
+ * Wires carrying a 0–1 signal into an input that reads some other domain.
+ *
+ * The graph on screen is the graph the author drew — nothing is disconnected,
+ * nothing errors, the pattern just sits nearly dark. That is the expensive
+ * kind of mistake, and the only place it can be caught is here, by comparing
+ * what the source promises against the slider the target reads. See
+ * `state/signalRange.ts` for why one side is derived and the other listed.
+ */
+function signalRangeIssues(nodes: StudioNode[], edges: StudioEdge[]): SignalRangeIssue[] {
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  const issues: SignalRangeIssue[] = []
+  for (const edge of edges) {
+    const source = byId.get(edge.source)
+    const target = byId.get(edge.target)
+    if (!source || !target) continue
+    if (!isNormalizedOutput(source.data.nodeType, edge.sourceHandle)) continue
+    const range = signalRangeMismatch(target.data.nodeType, edge.targetHandle)
+    if (!range) continue
+    const sourcePort = (source.data.outputs as { id: string; label?: string }[] | undefined)
+      ?.find((port) => port.id === edge.sourceHandle)
+    const targetPort = (target.data.inputs as { id: string; label?: string }[] | undefined)
+      ?.find((port) => port.id === edge.targetHandle)
+    const sourceName = `${nodeLabel(source)} ${sourcePort?.label ?? edge.sourceHandle}`
+    const targetName = `${nodeLabel(target)} ${targetPort?.label ?? edge.targetHandle}`
+    const span = formatSignalRange(range)
+    issues.push({
+      edgeId: String(edge.id),
+      sourceId: source.id,
+      targetId: target.id,
+      targetLabel: nodeLabel(target),
+      title: `${targetName} reads ${span}, not 0–1`,
+      message: `${sourceName} carries 0–1, so ${targetName} only ever sees the bottom of its ${span} range.`,
+      fix: `Insert a Map Range between them with In 0–1 and Out ${span}.`,
+    })
+  }
+  return issues
+}
+
+export function findSignalRangeWarnings(nodes: StudioNode[], edges: StudioEdge[]): string[] {
+  return signalRangeIssues(nodes, edges).map((issue) => `${issue.message} ${issue.fix}`)
+}
+
 export function findPlayerControlMappingWarnings(nodes: StudioNode[], edges: StudioEdge[]): string[] {
   return playerControlMappingIssues(nodes, edges).map((issue) => `${issue.message} — the absolute control will override button changes`)
 }
@@ -1985,6 +2039,17 @@ export function buildGraphDiagnostics(
       nodeIds: [], nodeLabel: 'LED outputs',
     })
   })
+  for (const issue of signalRangeIssues(nodes, edges)) {
+    diagnostics.push({
+      id: `signal-range-${issue.edgeId}`, severity: 'warning', category: 'connection',
+      title: issue.title,
+      message: issue.message,
+      fix: issue.fix,
+      nodeIds: [issue.targetId, issue.sourceId],
+      nodeLabel: issue.targetLabel,
+      action: 'open-node-library',
+    })
+  }
   for (const use of collectPinUses(nodes)) {
     if (isValidPinNumber(use.pin)) continue
     diagnostics.push({
@@ -2488,6 +2553,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   warnings.push(...findPinRangeWarnings(nodes))
   warnings.push(...findBoardPinCompatibility(nodes, selectedFqbn).warnings)
   warnings.push(...findPlayerControlMappingWarnings(nodes, edges))
+  warnings.push(...findSignalRangeWarnings(nodes, edges))
   const displayIssues = findDisplayGeneratorIssues(nodes, edges, displayDocuments)
   errors.push(...displayIssues.errors)
   warnings.push(...displayIssues.warnings)

@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowRequirementErrors, estimatePowerLoad, estimateFirmwareRam, estimateLedRefreshTime, findMirroredOutputMismatches, findShowOutputFormErrors, findAudioCapabilityErrors, findPlayerControlMappingWarnings, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowRequirementErrors, estimatePowerLoad, estimateFirmwareRam, estimateLedRefreshTime, findMirroredOutputMismatches, findShowOutputFormErrors, findAudioCapabilityErrors, findPlayerControlMappingWarnings, findSignalRangeWarnings, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
 import { OLED_PANEL_RAM_BYTES } from '../../codegen/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../../codegen/segmentDisplayCpp'
 import { TFT_PANEL_RAM_BYTES } from '../../codegen/tftDisplayCpp'
+import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -16,6 +17,18 @@ function node(id: string, nodeType: string, properties: Record<string, unknown> 
 
 function edge(id: string, source: string, target: string, th: string): StudioEdge {
   return { id, source, target, sourceHandle: 'frame', targetHandle: th } as unknown as StudioEdge
+}
+
+/** A node carrying its real library ports, for checks that read port labels. */
+function libraryNode(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
+  const def = NODE_LIBRARY.find((entry) => entry.type === nodeType)!
+  return {
+    id, type: 'studioNode', position: { x: 0, y: 0 },
+    data: {
+      label: def.label, nodeType, category: def.category,
+      properties, inputs: def.inputs, outputs: def.outputs,
+    },
+  } as unknown as StudioNode
 }
 
 describe('validateGraph', () => {
@@ -38,6 +51,46 @@ describe('validateGraph', () => {
       title: 'Volume controls conflict',
       nodeIds: expect.arrayContaining([first.id, second.id]),
     }))
+  })
+
+  it('names a 0-1 signal wired into an input that reads some other domain', () => {
+    // The graph looks right, nothing errors, and the fire never lights: the
+    // band sets Sparking to about 1 out of 255. Only this check can say so.
+    const fft = libraryNode('fft', 'FFTAnalyzer')
+    const fire = libraryNode('fire', 'Fire2012')
+    const wires = [
+      { id: 'w', source: 'fft', sourceHandle: 'bass', target: 'fire', targetHandle: 'sparking' } as unknown as StudioEdge,
+    ]
+
+    expect(findSignalRangeWarnings([fft, fire], wires)).toEqual([
+      expect.stringContaining('Insert a Map Range between them with In 0–1 and Out 0–255.'),
+    ])
+    expect(findSignalRangeWarnings([fft, fire], wires)[0])
+      .toContain('FFT Analyzer Bass carries 0–1')
+    expect(buildGraphDiagnostics([fft, fire], wires)).toContainEqual(expect.objectContaining({
+      id: 'signal-range-w',
+      severity: 'warning',
+      title: 'Fire 2012 Sparking reads 0–255, not 0–1',
+      nodeIds: ['fire', 'fft'],
+    }))
+  })
+
+  it('leaves alone the wires that need no scaling', () => {
+    const fft = libraryNode('fft', 'FFTAnalyzer')
+    // Plasma's Speed is one of the inputs the evaluator denormalises for you,
+    // and Fire2012's Palette Mix is genuinely 0-1.
+    const plasma = libraryNode('plasma', 'Plasma')
+    const fire = libraryNode('fire', 'Fire2012')
+    const map = libraryNode('map', 'MapRange')
+    const wires = [
+      { id: 'a', source: 'fft', sourceHandle: 'bass', target: 'plasma', targetHandle: 'speed' },
+      { id: 'b', source: 'fft', sourceHandle: 'mids', target: 'fire', targetHandle: 'paletteMix' },
+      { id: 'c', source: 'fft', sourceHandle: 'treble', target: 'map', targetHandle: 'value' },
+      // An already-scaled signal is not a normalised source, so it says nothing.
+      { id: 'd', source: 'map', sourceHandle: 'result', target: 'fire', targetHandle: 'sparking' },
+    ] as unknown as StudioEdge[]
+
+    expect(findSignalRangeWarnings([fft, plasma, fire, map], wires)).toEqual([])
   })
 
   it('allows absolute and step player settings in separate controls domains', () => {
