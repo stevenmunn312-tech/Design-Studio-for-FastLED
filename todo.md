@@ -236,11 +236,59 @@ matrix, not a reason to postpone testing earlier changes.
   `npm test` (4,636 passed, 13 skipped), `npm run lint`, `tsc -b` and
   `git diff --check` pass.
 
-  **Remaining:** the full visual/snapshot pass (fixed layouts, widget states,
-  launch themes and templates at supported sizes and orientations, including
-  pressed/disabled). Raw calibration properties are exposed and explained;
-  guided calibration and measured bounds remain HW-11 work. No new physical
-  validation is claimed by these software checks.
+  **The visual/snapshot pass has landed, and found three things.** Every
+  picture the fixed layouts can draw is enumerated once in
+  `displaySurfaceCases.ts` — each catalogued geometry, each layout, each
+  reading including the at-rest one a disabled panel draws — and read by two
+  consumers: `displaySurfaceGolden.test.ts`, which freezes a digest per case
+  (size, colour count, ink coverage and a hash, so a layout that stops drawing
+  reads as a coverage collapse rather than an opaque mismatch), and
+  `npm run gen:display-sheets`, which rasterises the same cases into PNG
+  contact sheets at the panel's true pixel size. Everything derives from the
+  controller/rotation tables, so a new module joins the sweep on its own and a
+  new layout fails to compile until it has been given readings.
+
+  Looking at the first sheets caught two defects, both fixed. A Show Status
+  panel with no collection drew NO PATTERNS and then PLAYING underneath —
+  announcing a show it had just said it did not have; `showStatusStateText`
+  now takes the count and `tftDisplayCpp` emits the same silence. And
+  "WAITING FOR A SIGNAL" needs 237 px at the heading scale against a 240-wide
+  panel's 224, so both modules in portrait said "WAITING FOR A S..." while a
+  128-px OLED said it in full; the message is the one fixed string on any
+  panel, so it now sizes itself instead of truncating.
+
+  Themes are frozen the same way in `displayThemeGolden.test.ts` — all
+  nineteen launch themes in all five widget states, as resolved *tokens*
+  rather than rendered widgets, because the DOM preview and the LVGL emitter
+  both read exactly those numbers. Each state records the contrast between its
+  own text and its own surface, and three invariants ride along: every state
+  gets a surface of its own, only the two muted states fade (disabled further
+  than inactive), and the three live states clear a 2.7 regression floor.
+
+  **Open, and a design decision rather than a defect to fix blind:** the
+  square panel. `displayTemplateGolden.test.ts` sweeps every template across
+  every mounted size and records what lands where. 320x240 and 240x320 are
+  clean, but both ST7789 modules are **240x240 at every rotation**, so a
+  Screen Design created on a 1.3-inch module is born square — and
+  `applyDisplayTemplate` takes the portrait composition only when height
+  exceeds width, so a square panel gets the 320-wide landscape one and the
+  clamp slides each right-hand widget onto its neighbour. All eight templates
+  collide, twelve collisions in total. Forcing portrait instead fixes three
+  and overruns the bottom of the other five, so neither authored layout is the
+  answer: eight square compositions have to be drawn. Recorded rather than
+  asserted, so authoring them changes the vectors visibly.
+
+  Also noted, not changed: `disabled` resolves to 1.14–1.39 contrast in every
+  theme, because the state floods its surface 72% toward the already-muted
+  text colour (`inactive` washes only 14%) while `opacity` is separately
+  fading the whole control. A disabled control reads as a blank rounded
+  rectangle rather than a greyed-out label. Whether that is the intended
+  look is a taste call, so the numbers are recorded and the fix is not made.
+
+  Raw calibration properties are exposed and explained; guided calibration and
+  measured bounds remain HW-11 work. No new physical validation is claimed by
+  these software checks. `npm test` (4,788 passed, 13 skipped), `npm run lint`
+  and `tsc -b` pass.
 - [x] **HW-09 · Collection freshness/music completeness (M).** Both open
   questions from [collection-driven
   performance](docs/development/design/collection-driven-performance.md#open-questions)
