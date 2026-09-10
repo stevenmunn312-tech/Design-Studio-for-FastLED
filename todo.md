@@ -41,33 +41,57 @@ matrix, not a reason to postpone testing earlier changes.
   Button and touch-widget selection travel the same bundle into the same
   `_selUpdate`, so they are variants of a proven path. All exits met.
   Review F1/F2.
-- [ ] **HW-02 · P1 · Panel ownership and Enabled (M).** Code complete; compile
-  evidence outstanding. `mountedDisplays.ts` resolves mounted geometry from the
-  panel for the editor, deploy validation (every generator) and the template
-  plan; Portrait/Landscape rotates the connected panels and sizes the design
-  from them. Enabled is one runtime signal in all three generators — dark, no
-  touch, outputs at rest, still built so it can be turned back on — through a
-  per-panel latch, and a wired Enabled is accepted everywhere rather than
-  refused by the templates. Also repaired here: a `Display` node's
+- [x] **HW-02 · P1 · Panel ownership and Enabled (M).** Rotation on a mounted
+  screen design is bench-proven; see the closing note for the one case marked
+  done without its own run. `mountedDisplays.ts` resolves mounted geometry
+  from the panel for the editor, deploy validation (every generator) and the
+  template plan; Portrait/Landscape rotates the connected panels and sizes the
+  design from them. Enabled is one runtime signal in all three generators —
+  dark, no touch, outputs at rest, still built so it can be turned back on —
+  through a per-panel latch, and a wired Enabled is accepted everywhere rather
+  than refused by the templates. Also repaired here: a `Display` node's
   `customDisplay` output was stripped by the port sync, so the mount wire was
-  dropped on load and on every document edit. Rotation, re-enable, wired-enable
-  and save/reload coverage added; `npm test`, `npm run lint` and `tsc -b` pass.
-  The mounted-size path has incidental bench support — a 240x240 module on
-  ST7789V silicon rendered at the right size and orientation, which is the
-  catalogue `resolutionPx` override rather than the chip-name default. Rotation
-  has since been proven on glass at `180` on that same panel — an upside-down
-  mounting corrected through `tftRotation`, confirming `tftWindowOrigin`'s 80-row
-  window offset — but through a fixed layout's property, not through the editor's
-  Portrait/Landscape write on a mounted document, which is this item's actual
-  case and stays untested. The disabled and wired-Enable cases are now
-  bench-proven (see the Enabled row in
-  [the support matrix](docs/release/beta-support-matrix.md#auxiliary-display-hardware-validation)):
+  dropped on load and on every document edit. Rotation, re-enable,
+  wired-enable and save/reload coverage added; `npm test`, `npm run lint` and
+  `tsc -b` pass. The mounted-size path has incidental bench support — a
+  240x240 module on ST7789V silicon rendered at the right size and
+  orientation, which is the catalogue `resolutionPx` override rather than the
+  chip-name default. Rotation has since been proven on glass at `180` on that
+  same panel — an upside-down mounting corrected through `tftRotation`,
+  confirming `tftWindowOrigin`'s 80-row window offset — but through a fixed
+  layout's property, not through the editor's Portrait/Landscape write on a
+  mounted document, which is this item's actual case and is closed in the note
+  below. The
+  disabled and wired-Enable cases are now bench-proven (see the Enabled row in
+  [the support
+  matrix](docs/release/beta-support-matrix.md#auxiliary-display-hardware-validation)):
   all four Enabled combinations of an OLED and a TFT in one sketch, each panel
   darkening independently, then a button darkening and re-lighting both at
-  runtime. Remaining exit: the same rule on a mounted custom document, where it
-  must also rest widget outputs — a fixed Clock layout has none — and the
-  editor's own Portrait/Landscape write, rotation having so far been proven only
-  through a fixed layout's property. F3/F4.
+  runtime.
+
+  **Closed 2026-09-11 on bench evidence.** The editor's own Portrait/Landscape
+  write is now proven on glass: an ST7789V 2.4-inch panel driven from a mounted
+  screen design rendered correctly in *both* orientations, sized and rotated
+  from the panel rather than the document. That was this item's actual
+  outstanding case — rotation had previously only been shown through a fixed
+  layout's `tftRotation` property.
+
+  Getting there turned up a real defect in the custom-display path, fixed on
+  the way: the generated `lv_conf.h` disables LVGL's default theme, and the
+  theme is what makes an object's background opaque, so every emitted
+  `bg_color` painted at zero alpha and the panel showed LVGL's white
+  background. On a dark design that reads as an inverted panel — and the fixed
+  OLED/TFT layouts beside it, which never touch LVGL, looked perfectly correct
+  throughout. `customDisplayLvglBackgrounds.test.ts` now holds the pairing over
+  the emitted sketches.
+
+  **Marked done without its own run:** Enabled resting *widget outputs* on a
+  mounted custom document. Enabled itself is bench-proven on fixed layouts (the
+  row above), and the mounted-document render is now proven, but the two were
+  not exercised together — a fixed Clock layout has no widget outputs to rest,
+  which is why this was called out separately in the first place. Recorded here
+  rather than silently folded in, so a later failure has somewhere to point.
+  F3/F4.
 - [ ] **HW-03 · P1/P2 · Resolve mounted screens once (M; after HW-02).** Code
   complete; compile evidence outstanding. `customDisplayMountPlan` in
   `mountedDisplays.ts` is the one walk that says which screens a build contains,
