@@ -23,14 +23,16 @@ import {
   showStatusStateText,
   transportArtworkBudgetIssue,
   transportArtworkFlashCost,
+  transportWaitingGeometry,
   type TransportNowPlayingData,
   type TransportFixedData,
   type TransportShowStatusData,
 } from '../transportDisplay'
 import {
   TFT_CONTROLLERS, TFT_ROTATIONS, createTftSurface, clearTftSurface, getTftPixel,
-  tftRotatedSize, tftTextWidth, type TftRect, type TftSurface,
+  fitTftText, tftRotatedSize, tftTextWidth, type TftRect, type TftSurface,
 } from '../tftSurface'
+import { DISPLAY_WAITING_TEXT } from '../displaySignal'
 
 const st7789 = TFT_CONTROLLERS.ST7789
 const st7789v = TFT_CONTROLLERS.ST7789V
@@ -94,6 +96,24 @@ describe('layout selection', () => {
     expect(asTransportDisplayLayout('Fixed Transport')).toBe('Fixed Transport')
     expect(asTransportDisplayLayout('Diagnostics')).toBe('Diagnostics')
     expect(asTransportDisplayLayout(undefined)).toBe('Now Playing')
+  })
+})
+
+describe('waiting', () => {
+  it.each(MOUNTED_SIZES)('says the whole message on a $key panel', ({ width, height }) => {
+    // The one fixed string on any panel, and the only thing a bench has to go
+    // on when nothing is wired. Truncated to "WAITING FOR A S..." it stops
+    // being the message and becomes evidence of a second fault.
+    const g = transportWaitingGeometry(width, height)
+    expect(fitTftText(DISPLAY_WAITING_TEXT, g.message.w, g.message.scale))
+      .toBe(DISPLAY_WAITING_TEXT)
+  })
+
+  it('keeps the message no smaller than the hint beneath it', () => {
+    for (const { width, height } of MOUNTED_SIZES) {
+      const g = transportWaitingGeometry(width, height)
+      if (g.hint) expect(g.message.scale).toBeGreaterThanOrEqual(g.hint.scale)
+    }
   })
 })
 

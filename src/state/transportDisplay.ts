@@ -257,18 +257,40 @@ export interface TransportWaitingGeometry {
  */
 export function transportWaitingGeometry(width: number, height: number): TransportWaitingGeometry {
   const inner = width - (M.margin * 2)
-  const messageH = tftTextHeight(M.headingScale)
+  // The one layout that sizes its own text. Everywhere else a field truncates
+  // because the content is a stranger's ID3 tag and no scale would fit every
+  // title; here the string is fixed and known, so a heading scale that spills
+  // it is a choice to show two thirds of the only sentence the panel exists
+  // to say. "WAITING FOR A S..." overflows a 240-wide panel by thirteen
+  // pixels, which is not a legibility trade — it is a lost message.
+  const messageScale = waitingMessageScale(inner)
+  const messageH = tftTextHeight(messageScale)
   const hintH = tftTextHeight(M.bodyScale)
   const both = messageH + M.rowGap + hintH
   const roomForHint = both + (M.margin * 2) <= height
   const blockH = roomForHint ? both : messageH
   const top = Math.max(M.margin, ((height - blockH) / 2) | 0)
   return {
-    message: field(M.margin, top, inner, M.headingScale, 'center'),
+    message: field(M.margin, top, inner, messageScale, 'center'),
     hint: roomForHint
       ? field(M.margin, top + messageH + M.rowGap, inner, M.bodyScale, 'center')
       : null,
   }
+}
+
+/**
+ * The largest scale that shows the waiting message whole, down to body size.
+ *
+ * Derived from the metrics rather than tabulated against panel widths, so a
+ * narrower module or a longer message resolves itself instead of quietly
+ * losing its tail. It stops at `bodyScale`: below that the message would be
+ * smaller than the hint under it, which inverts what the two rows mean.
+ */
+function waitingMessageScale(inner: number): number {
+  for (let scale = M.headingScale; scale > M.bodyScale; scale -= 1) {
+    if (tftTextWidth(DISPLAY_WAITING_TEXT, scale) <= inner) return scale
+  }
+  return M.bodyScale
 }
 
 export function drawTransportWaiting(surface: TftSurface): void {
