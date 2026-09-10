@@ -255,6 +255,25 @@ describe('DisplayEditor', () => {
     })
   })
 
+  it('names the panel it is drawn for and offers the way back to it', () => {
+    // The panel states the size, so the editor should not leave the author to
+    // find it again on the canvas (HW-07).
+    useGraphStore.setState({ nodes: [documentNode(), panelNode()], edges: [mountEdge] })
+    const view = render(<DisplayEditor />)
+
+    const back = view.getByRole('button', { name: 'Transport Display' })
+    fireEvent.click(back)
+
+    expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'graph' })
+    expect(useGraphStore.getState().selectedNodeId).toBe('tft')
+  })
+
+  it('offers no panel link while the design is unmounted', () => {
+    useGraphStore.setState({ nodes: [documentNode()], edges: [] })
+    const view = render(<DisplayEditor />)
+    expect(view.queryByRole('button', { name: 'Transport Display' })).toBeNull()
+  })
+
   it('shows the pack artwork on the widget palette and the template list', () => {
     const view = render(<DisplayEditor />)
 

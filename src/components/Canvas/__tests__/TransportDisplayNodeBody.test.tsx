@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import TransportDisplayNodeBody from '../TransportDisplayNodeBody'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
@@ -7,6 +7,7 @@ import { usePreviewStore } from '../../../state/previewStore'
 import { useTransportDisplayTouchStore } from '../../../state/transportDisplayTouchStore'
 import { addDisplayWidget, createDisplayDocument } from '../../../state/displayEditor'
 import { useDisplayRuntimeStore } from '../../../state/displayRuntimeStore'
+import { useUiStore } from '../../../state/uiStore'
 
 if (!Element.prototype.setPointerCapture) Element.prototype.setPointerCapture = () => {}
 
@@ -132,6 +133,93 @@ describe('TransportDisplayNodeBody', () => {
     act(() => useDisplayRuntimeStore.getState().publishDisplayRoleValue('panel', 'text', 'value', 'MIDNIGHT DRIVE'))
     expect(screen.getByText('MIDNIGHT DRIVE')).toBeTruthy()
     expect(screen.queryByRole('img', { name: /Transport display preview/ })).toBeNull()
+  })
+
+  it('creates a screen design already sized to the panel it is made from', () => {
+    // The panel is the only thing that knows the size, so the create action
+    // has to mint node, document and cable together — a design that exists
+    // before its mount is exactly the unsized state HW-07 removes.
+    useGraphStore.getState().loadGraph([display({ partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90' })], [])
+    useUiStore.setState({ designWorkspaceView: { kind: 'graph' } })
+
+    render(<TransportDisplayNodeBody nodeId="tft" />)
+    act(() => { fireEvent.click(screen.getByRole('button', { name: 'Create screen design' })) })
+
+    const state = useGraphStore.getState()
+    const created = state.nodes.find((node) => node.data.nodeType === 'Display')!
+    expect(created).toBeTruthy()
+    expect(state.edges).toHaveLength(1)
+    expect(state.edges[0]).toMatchObject({
+      source: created.id, sourceHandle: 'customDisplay', target: 'tft', targetHandle: 'customDisplay',
+    })
+    const document = state.displayDocuments[created.id]
+    expect(document.designSize).toEqual({ width: 320, height: 240 })
+    expect(document.orientation).toBe('90')
+    const view = useUiStore.getState().designWorkspaceView
+    expect(view).toEqual({ kind: 'display', displayId: created.id })
+  })
+
+  it('undoes the whole design in one step', () => {
+    vi.useFakeTimers()
+    try {
+      useGraphStore.getState().loadGraph([display({ partId: 'st7789-tft-240x240', tftRotation: '0' })], [])
+      render(<TransportDisplayNodeBody nodeId="tft" />)
+      act(() => { fireEvent.click(screen.getByRole('button', { name: 'Create screen design' })) })
+      act(() => { vi.advanceTimersByTime(400) })
+      const created = useGraphStore.getState().nodes.find((node) => node.data.nodeType === 'Display')!
+
+      act(() => { useGraphStore.temporal.getState().undo() })
+
+      const state = useGraphStore.getState()
+      expect(state.nodes.some((node) => node.data.nodeType === 'Display')).toBe(false)
+      expect(state.edges).toHaveLength(0)
+      expect(state.displayDocuments[created.id]).toBeUndefined()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+
+  it('drops a fixed content wire the way dragging the cable would', () => {
+    const player = {
+      id: 'player', type: 'studioNode', position: { x: 0, y: 0 },
+      data: { label: 'Music Player', nodeType: 'PatternMaster', category: 'output', properties: {}, inputs: [], outputs: [] },
+    } as unknown as StudioNode
+    useGraphStore.getState().loadGraph(
+      [player, display({ partId: 'st7789-tft-240x240', tftRotation: '0' })],
+      [{ id: 'fixed', source: 'player', sourceHandle: 'display', target: 'tft', targetHandle: 'display' } as never],
+    )
+
+    render(<TransportDisplayNodeBody nodeId="tft" />)
+    act(() => { fireEvent.click(screen.getByRole('button', { name: 'Create screen design' })) })
+
+    const edges = useGraphStore.getState().edges
+    expect(edges).toHaveLength(1)
+    expect(edges[0].targetHandle).toBe('customDisplay')
+  })
+
+  it('offers the mounted design for editing instead of a second one', () => {
+    const sourceDef = NODE_LIBRARY.find((entry) => entry.type === 'Display')!
+    const source = {
+      id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        label: sourceDef.label, nodeType: sourceDef.type, category: sourceDef.category,
+        properties: { ...sourceDef.defaultProperties, displayId: 'panel' },
+        inputs: sourceDef.inputs, outputs: sourceDef.outputs,
+      },
+    } as unknown as StudioNode
+    useGraphStore.setState({
+      nodes: [source, display({ partId: 'st7789-tft-240x240', tftRotation: '0' })],
+      edges: [{ id: 'link', source: 'screen', sourceHandle: 'customDisplay', target: 'tft', targetHandle: 'customDisplay' }],
+      displayDocuments: { panel: createDisplayDocument('panel', 240, 240) },
+      activeGraphId: ROOT_GRAPH_ID,
+    } as never)
+    useUiStore.setState({ designWorkspaceView: { kind: 'graph' } })
+
+    render(<TransportDisplayNodeBody nodeId="tft" />)
+    expect(screen.queryByRole('button', { name: 'Create screen design' })).toBeNull()
+    act(() => { fireEvent.click(screen.getByRole('button', { name: 'Edit screen design' })) })
+    expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'display', displayId: 'panel' })
   })
 
   it('does not make the non-touch module interactive', () => {

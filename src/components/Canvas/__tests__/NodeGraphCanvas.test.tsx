@@ -375,4 +375,32 @@ describe('NodeGraphCanvas start screen', () => {
     ]))
     expect(runTidyMock).toHaveBeenCalledOnce()
   })
+
+  it('opens a screen design on double-click only once a panel gives it a size', () => {
+    const documentNode = {
+      id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        label: 'Custom Display', nodeType: 'Display', category: 'output',
+        properties: { displayId: 'panel' }, inputs: [], outputs: [],
+      },
+    }
+    useGraphStore.getState().loadGraph([documentNode as never], [])
+    useUiStore.setState({ designWorkspaceView: { kind: 'graph' } })
+    render(<NodeGraphCanvas />)
+    const onNodeDoubleClick = reactFlowProps.onNodeDoubleClick as (event: unknown, node: unknown) => void
+
+    onNodeDoubleClick({}, documentNode)
+    expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'graph' })
+    expect(useUiStore.getState().statusText)
+      .toBe('Connect this screen design to a Transport Display to edit it')
+
+    useGraphStore.setState({
+      edges: [{
+        id: 'mount', source: 'screen', sourceHandle: 'customDisplay',
+        target: 'tft', targetHandle: 'customDisplay',
+      } as never],
+    })
+    onNodeDoubleClick({}, documentNode)
+    expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'display', displayId: 'panel' })
+  })
 })

@@ -352,10 +352,17 @@ export default function DisplayEditor() {
   const fitViewRequest = useUiStore((state) => state.fitViewRequest)
   const closeDisplayWorkspace = useUiStore((state) => state.closeDisplayWorkspace)
   const requestConfirm = useUiStore((state) => state.requestConfirm)
+  const focusNode = useGraphStore((state) => state.focusNode)
   const displayId = view.kind === 'display' ? view.displayId : ''
   const persisted = useGraphStore((state) => state.displayDocuments[displayId])
   const setDisplayDocument = useGraphStore((state) => state.setDisplayDocument)
   const updateNodeProperty = useGraphStore((state) => state.updateNodeProperty)
+  // The panel this design is drawn for. It states the size, so the editor
+  // names it and offers the way back to it rather than leaving the author to
+  // find it on the canvas (HW-07).
+  const mountedPanel = useGraphStore((state) => (displayId
+    ? panelsShowingDocument(displayId, rootGraphNodes(state), rootGraphEdges(state))[0]
+    : undefined))
   const viewportRef = useRef<HTMLDivElement>(null)
   const gesture = useRef<Gesture | null>(null)
   const [draft, setDraft] = useState<DisplayDocument | null>(persisted ?? null)
@@ -754,6 +761,17 @@ export default function DisplayEditor() {
         <div className={styles.breadcrumb}>
           <button type="button" onClick={closeDisplayWorkspace}>Graph</button>
           <span aria-hidden="true">/</span>
+          {mountedPanel && (
+            <>
+              <button
+                type="button"
+                onClick={() => { closeDisplayWorkspace(); focusNode(mountedPanel.id) }}
+              >
+                {String(mountedPanel.data.label ?? 'Transport Display')}
+              </button>
+              <span aria-hidden="true">/</span>
+            </>
+          )}
           <strong>Custom display</strong>
           <span className={styles.resolution}>{document.designSize.width} × {document.designSize.height}</span>
         </div>

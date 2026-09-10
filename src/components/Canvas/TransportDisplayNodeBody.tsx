@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useGraphStore } from '../../state/graphStore'
+import { useUiStore } from '../../state/uiStore'
 import { usePreviewStore } from '../../state/previewStore'
 import { tftControllerForProps } from '../../state/nodeLibrary'
 import { asTftRotation, rgb565Components, TFT_CONTROLLERS, tftRotatedSize, type TftSurface } from '../../state/tftSurface'
@@ -40,6 +41,9 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
   })
   const customDocument = useGraphStore((state) => state.displayDocuments[customDisplayId])
   const customDisplayWired = customDisplayNodeId !== ''
+  const createScreenDesignForPanel = useGraphStore((state) => state.createScreenDesignForPanel)
+  const openDisplayWorkspace = useUiStore((state) => state.openDisplayWorkspace)
+  const setStatus = useUiStore((state) => state.setStatus)
   const live = usePreviewStore((state) => state.outputs.get(nodeId)?.surface)
   const surface = customDisplayWired ? null : (isTftSurface(live) ? live : null)
   const setTouch = useTransportDisplayTouchStore((state) => state.setTouch)
@@ -51,6 +55,39 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
   ), [props])
   const width = surface?.width ?? fallbackSize.width
   const height = surface?.height ?? fallbackSize.height
+
+  /*
+   * Authoring a screen starts at the panel (HW-07).
+   *
+   * A design has no size until something physical says what size it is, so
+   * rather than let one be drawn loose and reported wrong afterwards, the
+   * panel mints it: one `Display` node, one document already the right size,
+   * one visible `customDisplay` cable — the same edge the user could have
+   * dragged, not a hidden binding.
+   */
+  const createScreenDesign = useCallback(() => {
+    const documentNodeId = `Display-${Date.now()}-${Math.round(Math.random() * 1e6)}`
+    createScreenDesignForPanel(nodeId, documentNodeId)
+    openDisplayWorkspace(documentNodeId)
+    setStatus('Screen design created and connected to this panel', 'success')
+  }, [createScreenDesignForPanel, nodeId, openDisplayWorkspace, setStatus])
+
+  const designAction = customDisplayWired
+    ? (
+        <button
+          type="button"
+          className={`nodrag ${styles.designAction}`}
+          disabled={!customDocument}
+          onClick={() => { if (customDocument) openDisplayWorkspace(customDisplayId) }}
+        >
+          Edit screen design
+        </button>
+      )
+    : (
+        <button type="button" className={`nodrag ${styles.designAction}`} onClick={createScreenDesign}>
+          Create screen design
+        </button>
+      )
 
   const updateTouch = useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current
@@ -141,6 +178,7 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
               </DisplayRuntimeWidgets>
             </div>
           </div>
+          {designAction}
         </div>
       )
     }
@@ -150,6 +188,7 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
           aria-label="Driven by a wired Custom Display">
           Custom Display — edit on its own node
         </div>
+        {designAction}
       </div>
     )
   }
@@ -174,6 +213,7 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
         onPointerUp={() => releaseTouch(nodeId)}
         onPointerCancel={() => releaseTouch(nodeId)}
       />
+      {designAction}
     </div>
   )
 }

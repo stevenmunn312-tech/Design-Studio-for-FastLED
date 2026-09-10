@@ -1,7 +1,29 @@
 .wrap {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
   margin: 8px 10px 4px;
+}
+
+/* The panel is the only thing that knows how large a screen design may be, so
+   the action that creates one lives here rather than on a loose node. */
+.designAction {
+  width: min(160px, 100%);
+  min-height: 26px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--node-accent) 52%, transparent);
+  border-radius: 6px;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--node-accent) 16%, var(--bg-secondary));
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.designAction:hover,
+.designAction:focus-visible {
+  border-color: var(--node-accent);
+  outline: none;
 }
 
 .screen {

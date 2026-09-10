@@ -26,7 +26,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useShallow } from 'zustand/react/shallow'
-import { useGraphStore } from '../../state/graphStore'
+import { rootGraphEdges, useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { usePatternLibrary } from '../../state/patternLibrary'
 import { NODE_LIBRARY, CATEGORY_COLOR, nodeDisplayLabel, portsCompatible } from '../../state/nodeLibrary'
@@ -651,8 +651,15 @@ function NodeGraphCanvasInner() {
     (_e, node) => {
       const d = node.data as { nodeType?: string; properties?: { groupId?: string; displayId?: string } }
       if (d.nodeType === 'Group' && d.properties?.groupId) enterGraph(d.properties.groupId)
+      // Only a mounted design can be opened, for the same reason the node's
+      // own Edit button is disabled until then: an unmounted document has no
+      // size to draw at (HW-07).
       if (d.nodeType === 'Display') {
-        useUiStore.getState().openDisplayWorkspace(d.properties?.displayId ?? node.id)
+        const graph = useGraphStore.getState()
+        const mounted = rootGraphEdges(graph)
+          .some((edge) => edge.source === node.id && edge.targetHandle === 'customDisplay')
+        if (mounted) useUiStore.getState().openDisplayWorkspace(d.properties?.displayId ?? node.id)
+        else useUiStore.getState().setStatus('Connect this screen design to a Transport Display to edit it', 'info')
       }
     },
     [enterGraph]

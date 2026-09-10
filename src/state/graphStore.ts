@@ -53,7 +53,7 @@ import {
   type DisplayDocumentRegistry,
 } from './displayDocument'
 import { displayDocumentPorts } from './displayRegistry'
-import { resizeDisplayDocument } from './displayEditor'
+import { createDisplayDocument, resizeDisplayDocument } from './displayEditor'
 import { mountedPanelGeometry } from './mountedDisplays'
 import { useUploadStore } from './uploadStore'
 import { assignPartPins } from './partPinAssignment'
@@ -158,6 +158,12 @@ interface GraphState {
   displayDocuments: DisplayDocumentRegistry
   setDisplayDocument: (document: DisplayDocument) => void
   removeDisplayDocument: (displayId: string) => void
+  /** Give a `TransportDisplay` panel a screen design of its own: one new
+   *  `Display` node, its blank document already sized to the panel's rotated
+   *  glass, and the ordinary `customDisplay` edge between them — in one
+   *  undoable step. `documentNodeId` is minted by the caller so it can open
+   *  the editor on the design it just made. */
+  createScreenDesignForPanel: (panelId: string, documentNodeId: string) => void
   pinProperty: (nodeId: string, propertyKey: string) => void
   unpinProperty: (pinId: string) => void
   renamePin: (pinId: string, label: string) => void
@@ -1467,6 +1473,69 @@ export const useGraphStore = create<GraphState>()(
         )
         return { displayDocuments, ...withRootContent(s, root) }
       }),
+      /*
+       * A panel is the only thing that can say how large a screen design is,
+       * so the design is created *from* the panel rather than dropped loose
+       * and measured afterwards (HW-07). Doing it in one `set` means one undo
+       * step puts the node, its document and the mount wire back together —
+       * a design half-created is exactly the unsized state this action exists
+       * to make unreachable.
+       */
+      createScreenDesignForPanel: (panelId, documentNodeId) => set((s) => {
+        const nodes = rootGraphNodes(s)
+        const rootEdges = rootGraphEdges(s)
+        const panel = nodes.find((node) => node.id === panelId && node.data.nodeType === 'TransportDisplay')
+        const definition = LIBRARY_DEF.get('Display')
+        if (!panel || !definition) return {}
+        // Already showing a design: this is the create action, not a swap.
+        if (rootEdges.some((edge) => edge.target === panelId && edge.targetHandle === 'customDisplay')) return {}
+        const geometry = mountedPanelGeometry(panel.data.properties)
+        const node: StudioNode = {
+          id: documentNodeId,
+          type: 'studioNode',
+          position: { x: panel.position.x - 360, y: panel.position.y },
+          data: {
+            label: definition.label,
+            nodeType: definition.type,
+            category: definition.category,
+            properties: { displayId: documentNodeId },
+            inputs: [],
+            outputs: definition.outputs,
+          },
+        } as StudioNode
+        const connection = {
+          source: documentNodeId,
+          sourceHandle: 'customDisplay',
+          target: panelId,
+          targetHandle: 'customDisplay',
+        }
+        // The two content inputs are exclusive, so a fixed-layout wire steps
+        // aside the same way it does when the user drags this cable by hand.
+        const edges = addEdge(
+          {
+            ...connection,
+            type: 'glowEdge',
+            reconnectable: 'target',
+            style: { stroke: edgeStrokeForPort(node, 'customDisplay') },
+          },
+          rootEdges.filter((edge) => !(edge.target === panelId
+            && (edge.targetHandle === 'customDisplay' || edge.targetHandle === 'display'))),
+        )
+        const displayDocuments = {
+          ...s.displayDocuments,
+          [documentNodeId]: createDisplayDocument(
+            documentNodeId,
+            geometry.width,
+            geometry.height,
+            geometry.rotation,
+          ),
+        }
+        return {
+          displayDocuments,
+          ...withRootContent(s, { nodes: [...nodes, node], edges }),
+        }
+      }),
+
       panicActive: false,
       panicRestoreValues: null,
 
