@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ROOT_GRAPH_ID, useGraphStore, useRootNodes } from '../../state/graphStore'
+import { insertMapRangeOnEdge, ROOT_GRAPH_ID, useGraphStore, useRootNodes } from '../../state/graphStore'
 import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import { useUiStore } from '../../state/uiStore'
 import {
@@ -26,7 +26,11 @@ const CATEGORY_LABELS: Record<GraphDiagnosticCategory, string> = {
 }
 
 function actionLabel(action: GraphDiagnosticAction): string {
-  return action === 'choose-board' ? 'Choose board' : 'Open library'
+  if (action === 'choose-board') return 'Choose board'
+  // Named rather than a bare "Fix", so the button says what will appear on the
+  // canvas before it appears there.
+  if (action === 'insert-map-range') return 'Insert Map Range'
+  return 'Open library'
 }
 
 export default function GraphHealthDrawer() {
@@ -65,9 +69,20 @@ export default function GraphHealthDrawer() {
     setStatus(`Located ${issue.nodeLabel ?? 'graph issue'}`, 'info')
   }
 
-  const runAction = (action: GraphDiagnosticAction) => {
-    if (action === 'choose-board') {
+  const runAction = (issue: GraphDiagnostic) => {
+    if (issue.action === 'choose-board') {
       openBoardPopup()
+      return
+    }
+    if (issue.action === 'insert-map-range' && issue.repair) {
+      const { edgeId, outMin, outMax } = issue.repair
+      const done = insertMapRangeOnEdge(edgeId, outMin, outMax)
+      setStatus(
+        done
+          ? `Map Range inserted, mapping 0–1 to ${outMin}–${outMax}`
+          : 'That wire is no longer there — the graph has changed since this was reported',
+        done ? 'success' : 'info',
+      )
       return
     }
     useUiStore.setState({ sidebarOpen: true })
@@ -144,7 +159,7 @@ export default function GraphHealthDrawer() {
                       {issue.nodeIds.length > 1 ? `Locate ${issue.nodeIds.length} nodes` : 'Locate node'}
                     </button>
                   )}
-                  {issue.action && <button type="button" onClick={() => runAction(issue.action!)}>{actionLabel(issue.action)}</button>}
+                  {issue.action && <button type="button" onClick={() => runAction(issue)}>{actionLabel(issue.action)}</button>}
                 </div>
               </article>
             ))}

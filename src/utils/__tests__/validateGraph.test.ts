@@ -107,6 +107,10 @@ describe('validateGraph', () => {
       severity: 'warning',
       title: 'Fire 2012 Sparking reads 0–255, not 0–1',
       nodeIds: ['fire', 'fft'],
+      // The repair is named *and* carried, so the drawer can perform it
+      // rather than open the node library and leave the rest to the user.
+      action: 'insert-map-range',
+      repair: { edgeId: 'w', outMin: 0, outMax: 255 },
     }))
   })
 

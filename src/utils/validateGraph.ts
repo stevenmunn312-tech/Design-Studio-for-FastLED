@@ -9,6 +9,7 @@ import {
 import { isLinearForm, outputForm, outputLedTotal } from '../state/ledOutputForm'
 import { PALETTE_BUILDER_NODE_TYPES } from '../state/nodeLibrary'
 import { formatSignalRange, isNormalizedOutput, signalRangeMismatch } from '../state/signalRange'
+import type { SignalRangeMismatch } from '../state/signalRange'
 import { playerControlFunction } from '../state/playerControlAssignments'
 import { audioOutputMissing } from '../state/audioOutput'
 import { resolveShowTarget } from '../state/showTarget'
@@ -1314,7 +1315,15 @@ export type GraphDiagnosticCategory =
   | 'board'
   | 'show'
 
-export type GraphDiagnosticAction = 'open-node-library' | 'choose-board'
+export type GraphDiagnosticAction = 'open-node-library' | 'choose-board' | 'insert-map-range'
+
+/** Everything `insert-map-range` needs to perform the repair it names: the
+ *  wire to splice, and the domain the target actually reads. */
+export interface SignalRangeRepair {
+  edgeId: string
+  outMin: number
+  outMax: number
+}
 
 export interface GraphDiagnostic {
   id: string
@@ -1330,6 +1339,8 @@ export interface GraphDiagnostic {
   nodeLabel?: string
   propertyKey?: string
   action?: GraphDiagnosticAction
+  /** Present only on diagnostics whose action performs a repair. */
+  repair?: SignalRangeRepair
 }
 
 export interface GraphDiagnosticOptions {
@@ -1862,6 +1873,8 @@ interface SignalRangeIssue {
   title: string
   /** The same fact in one line, for the status bar at connection time. */
   hint: string
+  /** The domain the target reads, so the drawer's fix can fill it in. */
+  range: SignalRangeMismatch
 }
 
 /**
@@ -1899,6 +1912,7 @@ function signalRangeIssues(nodes: StudioNode[], edges: StudioEdge[]): SignalRang
       message: `${sourceName} carries 0–1, so ${targetName} only ever sees the bottom of its ${span} range.`,
       fix: `Insert a Map Range between them with In 0–1 and Out ${span}.`,
       hint: `${targetName} reads ${span}, not 0–1 — insert a Map Range with Out ${span}`,
+      range,
     })
   }
   return issues
@@ -2119,7 +2133,11 @@ export function buildGraphDiagnostics(
       fix: issue.fix,
       nodeIds: [issue.targetId, issue.sourceId],
       nodeLabel: issue.targetLabel,
-      action: 'open-node-library',
+      // Named *and* performed: opening the node library left the user to find
+      // Map Range, place it, splice it and type four numbers that the
+      // diagnostic had already worked out.
+      action: 'insert-map-range',
+      repair: { edgeId: issue.edgeId, outMin: issue.range.min, outMax: issue.range.max },
     })
   }
   for (const use of collectPinUses(nodes)) {

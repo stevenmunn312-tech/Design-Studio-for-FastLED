@@ -53,6 +53,7 @@ import {
   type DisplayDocumentRegistry,
 } from './displayDocument'
 import { displayDocumentPorts } from './displayRegistry'
+import { libraryDefaults, spliceTargetPorts } from './nodeLibrary'
 import { createDisplayDocument, resizeDisplayDocument } from './displayEditor'
 import { mountedPanelGeometry } from './mountedDisplays'
 import { useUploadStore } from './uploadStore'
@@ -3138,6 +3139,44 @@ export function useRootEdges(): StudioEdge[] {
  * from inside a group would otherwise be a silent no-op, since the node being
  * edited is not in the active graph at all.
  */
+/**
+ * Put a Map Range on a wire that carries the wrong domain.
+ *
+ * The repair Graph Health names, performed rather than described. It is a
+ * plain splice — the same one a drag-and-drop onto the noodle does, through
+ * the same `spliceTargetPorts` rule — with the four bounds already filled in:
+ * 0-1 in, because that is what the source promised, and the target's own
+ * slider range out. Undo takes it back in one step like any other insert.
+ */
+export function insertMapRangeOnEdge(edgeId: string, outMin: number, outMax: number): boolean {
+  const definition = LIBRARY_DEF.get('MapRange')
+  if (!definition) return false
+  const ports = spliceTargetPorts(definition, 'float', 'float')
+  if (!ports) return false
+  // The graph can move on between a diagnostic being rendered and its button
+  // being pressed. `insertNodeOnEdge` drops the node on the canvas loose when
+  // the edge has gone, which is right for a drag — the user dragged a node in
+  // and should get one — and wrong for a repair, which was asked to fix a
+  // particular wire and should decline if that wire is no longer there.
+  if (!useGraphStore.getState().edges.some((edge) => edge.id === edgeId)) return false
+  const id = `MapRange-${Date.now()}-${Math.round(Math.random() * 1e6)}`
+  const node = {
+    id,
+    type: 'studioNode',
+    position: { x: 0, y: 0 },
+    data: {
+      label: definition.label,
+      nodeType: definition.type,
+      category: definition.category,
+      properties: { ...libraryDefaults('MapRange'), inMin: 0, inMax: 1, outMin, outMax },
+      inputs: definition.inputs,
+      outputs: definition.outputs,
+    },
+  } as StudioNode
+  useGraphStore.getState().insertNodeOnEdge(node, edgeId, ports.inPort, ports.outPort)
+  return true
+}
+
 function withRootNodes(s: GraphScope, nodes: StudioNode[]): Partial<GraphState> {
   return withRootContent(s, { nodes })
 }
