@@ -83,6 +83,19 @@ describe('custom Display LVGL object emitter', () => {
     expect(gradient).toContain('LV_GRAD_DIR_VER')
   })
 
+  it('uses the Text label when no separate fallback text is entered', () => {
+    const item = widget('Text', 0)
+    item.label = 'Top Left'
+    item.properties.text = ''
+    expect(emitted({ id: 'panel', document: document([item]) }))
+      .toContain('_cdSetText(_cd_panel[0], "Top Left");')
+
+    item.properties.text = 'Different fallback'
+    const overridden = emitted({ id: 'panel', document: document([item]) })
+    expect(overridden).toContain('_cdSetText(_cd_panel[0], "Different fallback");')
+    expect(overridden).not.toContain('_cdSetText(_cd_panel[0], "Top Left");')
+  })
+
   it('emits only used font sizes and assigns the nearest pinned bitmap font', () => {
     const item = widget('Text', 0)
     item.properties.fontSize = 23

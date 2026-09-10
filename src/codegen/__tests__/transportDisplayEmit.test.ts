@@ -183,6 +183,19 @@ describe('the Clock layout, from a wired RTC', () => {
     expect(src).toContain('"NO CLOCK"')
   })
 
+  it('generates the clock panel without requiring an LED output', () => {
+    const rtc = node('rtc', 'RTCInput', {})
+    const panel = node('tft', 'TransportDisplay', { partId: TOUCH })
+    const src = generateCpp(
+      [rtc, panel],
+      [wire('feed', 'rtc', 'display', 'tft', 'display')],
+    )
+
+    expect(src).toContain('_tftBegin(_tft_tft,')
+    expect(src).toContain('"%02d:%02d:%02d"')
+    expect(src).not.toContain('FastLED.addLeds<')
+  })
+
   it('draws through the shared geometry, matching the preview', () => {
     const rtc = node('rtc', 'RTCInput', {})
     const src = build({}, [rtc], [wire('feed', 'rtc', 'display', 'tft', 'display')])

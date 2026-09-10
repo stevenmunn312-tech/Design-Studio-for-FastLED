@@ -4286,6 +4286,28 @@ describe('RTCInput', () => {
     expect(later).toMatchObject({ hour: 0, minute: 0, second: 30, day: 2, month: 3, year: 2026 })
   })
 
+  it('restarts a Manual preview when the seed fields change', () => {
+    const first = node('rtc-manual-edit', 'RTCInput', 'input', {
+      timeSource: 'Manual',
+      startYear: 2026, startMonth: 9, startDay: 11,
+      startHour: 8, startMinute: 0, startSecond: 0,
+    })
+    evaluateGraphFull([first], [], 30 * 60, W, H)
+
+    const edited = node('rtc-manual-edit', 'RTCInput', 'input', {
+      timeSource: 'Manual',
+      startYear: 2031, startMonth: 12, startDay: 24,
+      startHour: 9, startMinute: 45, startSecond: 30,
+    })
+    const output = evaluateGraphFull([edited], [], 40 * 60, W, H).outputs.get('rtc-manual-edit')
+
+    expect(output).toMatchObject({
+      valid: true,
+      year: 2031, month: 12, day: 24,
+      hour: 9, minute: 45, second: 30,
+    })
+  })
+
   it('reports an impossible Manual seed as invalid, matching the firmware clock', () => {
     const rtc = node('rtc', 'RTCInput', 'input', {
       timeSource: 'Manual',

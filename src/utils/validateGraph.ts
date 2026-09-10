@@ -15,7 +15,6 @@ import { audioOutputMissing } from '../state/audioOutput'
 import { resolveShowTarget } from '../state/showTarget'
 import {
   DEFAULT_STANDALONE_VU_LED_COUNT,
-  isActiveStandaloneStereoVuMeter,
 } from '../state/stereoVuSizing'
 import { evaluateScalarExpression } from '../state/scalarExpression'
 import { isNodeFormulaValid } from '../state/formulaLang'
@@ -1996,7 +1995,9 @@ export function buildGraphDiagnostics(
   const terminalName = target === 'group' ? 'Group Output' : 'LED output'
   const terminals = nodes.filter((node) => node.data.nodeType === terminalType)
   const terminal = terminals[0]
-  const hasStandaloneVuOutput = target === 'matrix' && nodes.some(isActiveStandaloneStereoVuMeter)
+  const buildCapabilities = target === 'matrix' ? resolveBuildMode(nodes, edges).capabilities : null
+  const hasStandaloneOutput = buildCapabilities?.standaloneVuOutput === true
+    || buildCapabilities?.standaloneDisplayOutput === true
   const incoming = new Set(edges.filter((edge) => edge.target && edge.targetHandle).map((edge) => `${edge.target}:${edge.targetHandle}`))
 
   if (nodes.length === 0) {
@@ -2010,7 +2011,7 @@ export function buildGraphDiagnostics(
     return diagnostics
   }
 
-  if (!terminal && !hasStandaloneVuOutput) {
+  if (!terminal && !hasStandaloneOutput) {
     diagnostics.push({
       id: `missing-${terminalType}`, severity: 'error', category: 'connection',
       title: `${terminalName} is missing`,
@@ -2599,7 +2600,10 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   if (nodes.length === 0) { errors.push('No nodes in graph'); return { errors, warnings } }
 
   const outputs = nodes.filter(n => n.data.nodeType === 'MatrixOutput')
-  const hasOutput = outputs.length > 0 || nodes.some(isActiveStandaloneStereoVuMeter)
+  const capabilities = resolveBuildMode(nodes, edges).capabilities
+  const hasOutput = outputs.length > 0
+    || capabilities.standaloneVuOutput
+    || capabilities.standaloneDisplayOutput
   if (!hasOutput) errors.push('Missing MatrixOutput node')
 
   const incoming = new Set(edges.filter(e => e.target && e.targetHandle).map(e => `${e.target}:${e.targetHandle}`))

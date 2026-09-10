@@ -37,22 +37,13 @@ describe('DisplayEditor', () => {
     expect(view.getByText('output · bool')).toBeTruthy()
   })
 
-  it('shows typed input and output notches only in Design mode', () => {
+  it('keeps typed port details in the inspector without covering the design canvas', () => {
     const view = render(<DisplayEditor />)
     fireEvent.click(view.getByRole('button', { name: 'Add Toggle widget' }))
 
-    const input = view.container.querySelector('[data-display-port-id="widget:toggle:set"]')
-    const output = view.container.querySelector('[data-display-port-id="widget:toggle:out"]')
-    expect(input?.getAttribute('data-port-direction')).toBe('input')
-    expect(input?.getAttribute('data-port-type')).toBe('bool')
-    expect(input?.textContent).toBe('IN · bool')
-    expect(output?.getAttribute('data-port-direction')).toBe('output')
-    expect(output?.getAttribute('data-port-type')).toBe('bool')
-    expect(output?.textContent).toBe('OUT · bool')
-    expect(input?.getAttribute('style')).toContain('#c6ff32')
-
-    fireEvent.click(view.getByRole('button', { name: 'Run' }))
     expect(view.container.querySelector('[data-display-port-id]')).toBeNull()
+    expect(view.getByText('input · bool')).toBeTruthy()
+    expect(view.getByText('output · bool')).toBeTruthy()
   })
 
   it('nudges the selected widget on the document grid without touching graph nodes', () => {

@@ -506,8 +506,6 @@ export default function MatrixOutputDeployPopup({
     : status.phase === 'error' ? '✗ Error'
     : status.message
 
-  if (!outputNode) return null
-
   const controls = (
     <div className={styles.deployControls}>
         <div className={styles.popupHeader}>
@@ -530,8 +528,11 @@ export default function MatrixOutputDeployPopup({
               quietly removed the wizard from the app. */}
           <button
             className={styles.setupBtn}
-            onClick={() => openSetupWizard(outputNode?.id)}
-            title="Open the guided hardware setup wizard"
+            disabled={!outputNode}
+            onClick={() => { if (outputNode) openSetupWizard(outputNode.id) }}
+            title={outputNode
+              ? 'Open the guided LED-output setup wizard'
+              : 'Add an LED output to use its setup wizard'}
           >
             ✦ Setup…
           </button>
@@ -736,10 +737,12 @@ export default function MatrixOutputDeployPopup({
           <div className={styles.deployActions}>
           <button
             className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
-            disabled={!uploadReady || blockingErrors.length > 0 || busy}
+            disabled={!outputNode || !uploadReady || blockingErrors.length > 0 || busy}
             onClick={handleFlashWiringTest}
             title={
-              blockingErrors.length > 0
+              !outputNode
+                ? 'Add an LED output to flash its wiring test'
+                : blockingErrors.length > 0
                 ? blockingErrors.join('\n')
                 : readinessIssues.length > 0
                   ? readinessIssues.join('\n')
@@ -792,19 +795,25 @@ export default function MatrixOutputDeployPopup({
           <div className={styles.deployActions}>
           <button
             className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
-            disabled={!canBuild || !uploadReady || busy || streaming}
+            disabled={!outputNode || !canBuild || !uploadReady || busy || streaming}
             onClick={handleFlashReceiver}
-            title={readinessIssues.length > 0 ? readinessIssues.join('\n') : 'Flash a tiny generic receiver sketch once — after that, Live Stream pushes preview frames straight to the board without recompiling'}
+            title={!outputNode
+              ? 'Add an LED output to use live frame streaming'
+              : readinessIssues.length > 0
+                ? readinessIssues.join('\n')
+                : 'Flash a tiny generic receiver sketch once — after that, Live Stream pushes preview frames straight to the board without recompiling'}
           >
             ⚡ Flash Stream Receiver
           </button>
 
           <button
             className={`${styles.wizardButtonBase} ${styles.exportBtn} ${streaming ? styles.streamBtnActive : ''}`}
-            disabled={!canBuild || busy || !helperReady || !portDetected}
+            disabled={!outputNode || !canBuild || busy || !helperReady || !portDetected}
             onClick={handleToggleStream}
             title={
-              streaming
+              !outputNode
+                ? 'Add an LED output to use live frame streaming'
+                : streaming
                 ? 'Stop pushing live preview frames to the board'
                 : !helperReady
                   ? 'Start the local helper to enable live streaming'

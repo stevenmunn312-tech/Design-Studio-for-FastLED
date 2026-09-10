@@ -8,7 +8,7 @@ import { NODE_LIBRARY, isPropertyEnabled, libraryDefaults, propertyMeta } from '
 import { PART_FIELDS } from '../partFields'
 import { partOptionsFor } from '../partOptions'
 import { retargetHardwarePins } from '../pinRetarget'
-import { TRANSPORT_DISPLAY_LAYOUTS, transportLayoutForKind } from '../transportDisplay'
+import { TRANSPORT_DISPLAY_LAYOUTS, transportLayoutChoicesForKind, transportLayoutForKind } from '../transportDisplay'
 import { DISPLAY_SIGNAL_KINDS } from '../displaySignal'
 
 const PLAIN = 'st7789-tft-240x240'
@@ -88,6 +88,13 @@ describe('TransportDisplay registration', () => {
     expect(meta?.control).toBe('select')
     if (meta?.control !== 'select') throw new Error('Panel layout must be selectable')
     expect(meta.options).toContain('Diagnostics')
+  })
+
+  it('offers only layouts that can affect the connected source', () => {
+    expect(transportLayoutChoicesForKind('clock')).toEqual(['Clock', 'Diagnostics'])
+    expect(transportLayoutChoicesForKind('player')).toEqual(['Now Playing', 'Fixed Transport', 'Diagnostics'])
+    expect(transportLayoutChoicesForKind('slideshow')).toEqual(['Show Status', 'Diagnostics'])
+    expect(transportLayoutChoicesForKind(null)).toEqual(['Waiting', 'Diagnostics'])
   })
 
   it('makes every physical pin reachable from the hardware editor', () => {

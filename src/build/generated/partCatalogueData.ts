@@ -367,7 +367,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
     "notes": [
       "Common 82 mm eight-digit module built from two four-digit red common-cathode packages.",
       "MAX7219 uses DIN, CLK and CS/LOAD; the opposite five-pin header provides DOUT for daisy chaining.",
-      "The illuminated proof reads 12345678 so every digit position is visible."
+      "The display is intentionally rendered blank, with all eight digits and decimal points unlit."
     ],
     "display": {
       "controller": "MAX7219",
@@ -735,7 +735,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
     "notes": [
       "1.3-inch white SH1106G OLED module with a seven-pin four-wire SPI interface.",
       "The 29.42 x 14.70 mm active area distinguishes this larger panel from the 0.96-inch SSD1306 asset.",
-      "The proof face uses the same app information-display language as SSD1306 while retaining the larger glass and board."
+      "The OLED is intentionally rendered blank, with all pixels unlit."
     ],
     "display": {
       "controller": "SH1106G",
@@ -992,8 +992,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
     "label": "ST7789V 2.4-inch 240x320 TFT with XPT2046 touch and SD",
     "category": "display",
     "dimensionsMm": {
-      "width": 77.18,
-      "height": 42.72
+      "width": 42.72,
+      "height": 77.18
     },
     "manufacturer": "generic MSP2402-form module",
     "logicVoltage": "3.3-5 V supply; 3.3 V SPI logic",
@@ -1015,7 +1015,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
     ],
     "notes": [
       "Common 2.4-inch 240x320 SPI TFT module using ST7789V with XPT2046 resistive touch and an onboard microSD slot.",
-      "The portrait physical board is rotated into 77.18 x 42.72 mm header-down render axes for the app hardware bench.",
+      "The board is shown in its 42.72 x 77.18 mm portrait orientation with the fourteen-pin header along the bottom edge.",
       "Display, touch and microSD share SPI data/clock lines and use separate chip-select signals.",
       "Fourteen main header positions expose display and touch signals; the microSD chip-select pads are represented beside the socket."
     ],
@@ -1030,9 +1030,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
     },
     "render": {
       "file": "parts/st7789v-xpt2046-touch-240x320.webp",
-      "widthPx": 935,
-      "heightPx": 521,
-      "pxPerMm": 12.011
+      "widthPx": 651,
+      "heightPx": 1169,
+      "pxPerMm": 15.0
     }
   },
   "tm1637-4digit-display": {
@@ -1053,7 +1053,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
     ],
     "notes": [
       "Grove 4-Digit Display form with a TM1637 two-wire controller and central colon.",
-      "The illuminated example reads 12:34 so all four digits and the colon are visible.",
+      "The display is intentionally rendered blank, with all four digits and the colon unlit.",
       "The physical Grove cable order is GND, VCC, DIO, CLK when read left to right in this render."
     ],
     "display": {

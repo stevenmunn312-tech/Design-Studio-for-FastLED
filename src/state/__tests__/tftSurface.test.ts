@@ -86,9 +86,9 @@ describe('controllers', () => {
   // Both IPS modules are wired normally-black: without INVON the panel renders
   // a photographic negative, which reads as a broken driver rather than a
   // missing command.
-  it('marks both panels as needing inversion', () => {
+  it('keeps the bench-tested polarity for each panel', () => {
     expect(st7789.invert).toBe(true)
-    expect(st7789v.invert).toBe(true)
+    expect(st7789v.invert).toBe(false)
   })
 })
 

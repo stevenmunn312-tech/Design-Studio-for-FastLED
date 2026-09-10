@@ -52,6 +52,7 @@ supported/experimental framework applies, scoped to display hardware.
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | MAX7219 8-digit 7-segment (SPI CLK/DIN/LOAD) | `RTCInput` (Compile Time) → `SegmentDisplay`, Clock mode | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Hours:minutes:seconds progressing live, correct digit orientation | Bench record (`2026-09-07`) below |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | SH1106 0.96-inch 128x64 OLED (7-pin SPI, `sh1106-oled-096-128x64-spi`) | `RTCInput` (Compile Time) → `InfoDisplay`, Clock layout | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Correct orientation and alignment, confirming the SH1106's 2-column RAM offset renders correctly rather than shifting the image | Bench record (`2026-09-07`) below |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | SH1106 1.3-inch 128x64 OLED (I2C, `sh1106-oled-128x64-i2c`) | `RTCInput` (Compile Time) → `InfoDisplay`, Clock layout | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Time/date correct, not-synced state shown correctly, correct orientation and alignment, time progressing live | Bench record (`2026-09-08`) below |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.83 | ESP32-S3 (Generic N16R8, 44-pin dual USB-C, OPI PSRAM) | ST7789V 2.4-inch 240x320 TFT breakout (SPI, SCK 1 / MOSI 2 / CS 5 / DC 6 / RST 7 / BL 10, `st7789v-xpt2046-touch-240x320`; this physical module has no touch controller) | `RTCInput` → `TransportDisplay`, Clock layout; Compile Time, Manual, and NTP sources | `arduino-cli`, ESP32 core 3.3.11 | USB flash via `esptool` 5.3.1 through the app's normal Upload path on COM7 | Blank-screen display-only graph compiled and uploaded without a forced LED output; correct 240x320 orientation/alignment and live time/date; Manual seed started at the exact entered instant and advanced normally; NTP joined 2.4 GHz Wi-Fi, changed to NOT SYNCED on hotspot loss while continuing to run, then returned to SYNCED automatically when the hotspot came back | Bench record (`2026-09-11`, 240x320 RTC panel) below |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | ST7789 1.54-inch 240x240 TFT (4-wire SPI, `st7789-tft-240x240`) | `PatternCollection` → `PatternSlideshow` → `TransportDisplay`, Show Status layout, no OLED on the bench | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Running pattern named, ordinal counted out of the ten-pattern collection, PLAYING state, correct orientation, and the patterns advancing on the slideshow's own interval | Bench record (`2026-09-08`, colour TFT) below |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | SH1106 1.3-inch 128x64 OLED (I2C 0x3C, SDA GPIO18 / SCL GPIO17, `sh1106-oled-128x64-i2c`) **and** ST7789 1.54-inch 240x240 TFT (4-wire SPI, CS 5 / DC 6 / RST 7 / SCK 1 / MOSI 2 / BL 16, `st7789-tft-240x240`) together on one board | `PatternCollection` → `PatternSlideshow` driving both `InfoDisplay` (Pattern Browser) and `TransportDisplay` (Show Status) | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Both panels lit and advancing in step from one `_sel_show` cursor across two different buses; OLED thumbnail, pattern name, ordinal and PLAYING state all correct, with correct orientation and alignment; the TFT's upside-down mounting corrected on glass by `tftRotation` `180`, confirming the 80-row RAM window offset | Bench record (`2026-09-08`, two panels) below |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 | SH1106 1.3-inch 128x64 OLED (I2C 0x3C, SDA 18 / SCL 17) **and** ST7789 1.54-inch 240x240 TFT (SPI, CS 4 / DC 5 / RST 6 / SCK 1 / MOSI 2 / BL 16), with a DS3231 sharing the OLED's I2C bus | `RTCInput` (DS3231) → both `InfoDisplay` and `TransportDisplay`, Clock layouts, plus a `ButtonInput` wired to both Enabled inputs | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Enabled honoured per panel and at runtime: all four property combinations of two panels, then a button darkening and re-lighting both | Bench record (`2026-09-08`, Enabled) below |
@@ -70,6 +71,26 @@ the Arduino `.ino` prototype-hoisting trap already documented in `CLAUDE.md`.
 `sh1106-oled-128x64-i2c` part (`019000fc`) — validates both the module and
 that a second transport form of an already-supported controller needed no
 driver changes, only the catalogue entry.
+
+**Bench record (`2026-09-11`, 240x320 RTC panel):** the loose breakout's
+controller, colour polarity, portrait and landscape address windows and
+backlight had first been isolated with small probes. The app run then exercised
+the real user path: a display-only graph, Graph Health, the Upload tab,
+generation, Arduino CLI compile and USB flash. The first black screen exposed a
+board-selection wiring change rather than a driver failure: selecting the
+ESP32-S3 had retargeted the workbench part to CS 5 / DC 6 / RST 7 / BL 10 while
+the panel was still physically wired to the earlier assignment. Rewiring to the
+Build Diagram restored the Clock layout without changing firmware.
+
+The same graph then passed three clock sources. Compile Time displayed the
+correct build date/time as NOT SYNCED. Manual displayed 2031-12-24 09:45:30 and
+advanced normally. Editing that seed exposed and fixed a browser-only defect:
+the evaluator had added the age of the whole preview to every newly-entered
+Manual seed instead of anchoring when the seed changed. NTP joined a phone
+hotspot on 2.4 GHz, corrected the clock and displayed SYNCED; switching the
+hotspot off changed the panel to NOT SYNCED without stopping the clock, and
+switching it back on restored SYNCED without a reset or reflash. This is a
+source/recovery pass, not a long-duration drift measurement.
 
 **Bench record (`2026-09-08`, colour TFT row above):** the first colour TFT
 hardware pass recorded for this project — every display row before it is an
@@ -262,11 +283,44 @@ they name.
   Waiting text, not the later Clock screen; that is evidence
   (not proof) this unit's panel is ST7789-compatible despite most
   ESP32-2432S028 units shipping ILI9341, a controller Studio has no driver
-  for. Not promoted to a support row: no board profile exists yet for this
-  board's fixed pinout (tracked in root `todo.md`, HW-12), the controller
-  identity is not confirmed, and Now Playing / Fixed Transport / Show Status
-  / touch are all untested — they need a real Music Player (SD + audio)
-  graph, a materially larger test than this bring-up pass.
+  for. Not promoted to a support row: the imported board profile does not yet
+  model this board's fixed internal wiring (tracked in root `todo.md`, HW-12),
+  the controller identity is not confirmed, and Now Playing / Fixed Transport /
+  Show Status plus Studio-generated touch are untested — they need a real Music
+  Player (SD + audio) graph, a materially larger test than this bring-up pass.
+
+  **2026-09-10 follow-up — screen and raw touch characteristics, still not a
+  support row.** The board is marked `ESP32-2432S028` with no printed revision;
+  Windows enumerated its CH340 bridge on COM8 and `esptool` identified an
+  ESP32-D0WD-V3 revision 3.1. Arduino CLI 1.5.1, ESP32 core 3.3.11 and esptool
+  5.3.1 compiled and uploaded three small probes through the fixed onboard
+  wiring. The LCD drew across the full 240x320 portrait surface with USB at the
+  bottom on CS 15, DC 2, SCK 14, MOSI 13 and backlight 21. A white border, two
+  edge bars, four independently coloured corner squares and a centre cross all
+  landed at the correct positions. `INVON` made every test colour its exact
+  complement; `INVOFF` produced the intended white/yellow/cyan/red/green/blue/
+  magenta pattern. This unit therefore needs normal panel polarity rather than
+  the loose ST7789V module's catalogued inversion flag.
+
+  The onboard XPT2046 answered on CS 33, IRQ 36, SCK 25, MOSI 32 and MISO 39.
+  With USB at the bottom, raw X runs right-to-left and raw Y runs top-to-bottom;
+  provisional edge bounds derived from the target centres were X 3850..290 and
+  Y 100..3640. After applying those directions and bounds, centre and all four
+  target-square presses landed inside their intended targets, with sampled
+  centres within about 4-8 pixels. This is a raw hardware/calibration probe,
+  not proof of the Studio's current `touchXMin`/`touchYMin` property mapping or
+  its Diagnostics layout. GPIO36 is input-only: requesting `INPUT_PULLUP`, as
+  the current generated XPT2046 setup does, logged `gpio_pullup_en` error 85;
+  plain `INPUT` read the board's IRQ correctly.
+
+  Controller identification remains open. Direct `RDDID`/ID-register reads and
+  the ILI9341 indexed-read sequence returned stable status/pixel-format values
+  but neither the ST7789V `85 85 52` signature nor a useful ILI9341 identity;
+  the visible four-wire flex is marked only `L2`. The existing command path is
+  operational, but that shared behaviour is not enough to name the silicon.
+  A board profile with fixed internal ownership, exact controller evidence,
+  Studio-generated touch, SD/audio sharing and load/soak results is still
+  required before promotion.
 
 ## CI-covered host/platform coverage
 
@@ -340,9 +394,9 @@ each source is allowed on is enforced in `validateGraph.ts`
 
 | Time source | Allowed boards | Enforced by validation | Hardware validated |
 | --- | --- | --- | --- |
-| Compile Time | Every board in the catalogue | No board restriction | No |
-| Manual | Every board in the catalogue | No board restriction | No |
-| NTP | ESP32-family (S3, S2, C3, C6, H2, classic) and ESP8266 | Yes — blocked on every other board | No |
+| Compile Time | Every board in the catalogue | No board restriction | **Yes** — ESP32-S3 across OLED and TFT rows above; the 240x320 TFT app-path run is recorded on `2026-09-11` |
+| Manual | Every board in the catalogue | No board restriction | **Yes** — ESP32-S3 + ST7789V 240x320, exact seed and live progression, `2026-09-11`; long-duration drift remains unmeasured |
+| NTP | ESP32-family (S3, S2, C3, C6, H2, classic) and ESP8266 | Yes — blocked on every other board | **Yes** — ESP32-S3 + ST7789V 240x320 on 2.4 GHz Wi-Fi, including loss and automatic recovery, `2026-09-11` |
 | DS3231 | Every board with the standard Arduino `Wire` API and a default I²C bus | No board restriction | **Yes** — classic ESP-32D DevKit v1 (30-pin), Jaycar XC9044 module, `fbuild`, `2026-08-21`: time written via the helper's `/api/rtc/set`, then read back and rendered by Clock Display on the LEDs |
 
 Notes:
@@ -354,8 +408,9 @@ Notes:
   "unsupported" result.
 - Art-Net input (see above) is gated by the identical ESP32-family-or-ESP8266
   check and shares this same open hardware-validation gap.
-- Compile Time and Manual need no network and are not blocked on any board,
-  but neither has a recorded drift measurement — see the note below.
+- Compile Time and Manual need no network and are not blocked on any board.
+  Both now have live display evidence, but neither has a long-duration drift
+  measurement — see the note below.
 - DS3231 uses address `0x68` and the board core's default SDA/SCL pins. It has no
   third-party library dependency. Pin labels vary by board, and the current GPIO
   validator cannot infer those board-default aliases, so users must avoid

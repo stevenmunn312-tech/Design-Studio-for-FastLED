@@ -38,7 +38,7 @@ import styles from './LEDPreview.module.css'
 import { frameAmbient } from '../../utils/signalVisual'
 import { idleFrame } from './idleFrame'
 import { publishOutputStreamFrame, publishStreamFrame, useStreamStore } from '../../state/streamStore'
-import { outputRenderPasses, outputRoutes, routeFrame } from '../../state/outputRouting'
+import { outputRoutes, previewRenderPasses, routeFrame } from '../../state/outputRouting'
 import type { LedOutputForm } from '../../state/ledOutputForm'
 import { enterStagePresentation, exitStagePresentation, toggleStageFullscreen } from '../../utils/stagePresentation'
 import { controllerSettings } from '../../state/controllerSettings'
@@ -578,8 +578,10 @@ export default function LEDPreview() {
         const evalStart = PERF_TELEMETRY ? performance.now() : 0
         const routes = outputRoutes(graphNodes)
         const selectedRoute = routes.find((route) => route.id === activeOutputIdRef.current) ?? routes[0]
-        const passes = outputRenderPasses(graphNodes, graphEdges)
-        const selectedPass = passes.find((pass) => pass.routes.some((route) => route.id === selectedRoute?.id))
+        const passes = previewRenderPasses(graphNodes, graphEdges, gW, gH)
+        const selectedPass = selectedRoute
+          ? passes.find((pass) => pass.routes.some((route) => route.id === selectedRoute.id))
+          : passes[0]
         const currentStreamState = useStreamStore.getState()
         const requestedStreamOutputId = currentStreamState.streaming ? currentStreamState.layout?.outputId : undefined
         // Evaluate the focused route last. Evaluator frames live for two pass

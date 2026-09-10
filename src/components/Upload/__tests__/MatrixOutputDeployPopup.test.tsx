@@ -87,6 +87,29 @@ function setMatrixGraph() {
   })
 }
 
+function setDisplayOnlyGraph() {
+  useGraphStore.setState({
+    nodes: [{
+      id: 'rtc', type: 'studioNode', position: { x: 0, y: 0 },
+      data: { label: 'RTC Clock', nodeType: 'RTCInput', category: 'input', properties: {}, inputs: [], outputs: [] },
+    }, {
+      id: 'panel', type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        label: 'Display Panel', nodeType: 'TransportDisplay', category: 'output',
+        properties: { enabled: true, partId: 'st7789v-xpt2046-touch-240x320' }, inputs: [], outputs: [],
+      },
+    }] as never[],
+    edges: [{
+      id: 'clock-panel', source: 'rtc', sourceHandle: 'display',
+      target: 'panel', targetHandle: 'display',
+    }] as never[],
+    selectedNodeId: null,
+    graphData: {},
+    graphs: { root: { id: 'root', name: 'Main' } },
+    activeGraphId: 'root',
+  })
+}
+
 function setHub75Grid() {
   setMatrixGraph()
   useGraphStore.setState({
@@ -253,6 +276,22 @@ describe('MatrixOutputDeployPopup', () => {
     expect(getByRole('log', { name: 'Upload and serial output' })).toBeTruthy()
     expect(queryByRole('button', { name: /Output \/ Serial/i })).toBeNull()
     expect(getByText('Firmware')).toBeTruthy()
+    expect(getByText('Diagnostics')).toBeTruthy()
+    expect(getByText('Live control')).toBeTruthy()
+  })
+
+  it('shows normal upload tools for a display-only build', () => {
+    setDisplayOnlyGraph()
+
+    const { getByRole, getByText } = render(<MatrixOutputDeployPopup inline />)
+
+    expect(getByText('Deploy to hardware')).toBeTruthy()
+    expect(getByRole('button', { name: '↑ Upload' })).toBeTruthy()
+    expect(getByText('Firmware')).toBeTruthy()
+    expect((getByRole('button', { name: '✦ Setup…' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((getByRole('button', { name: '🧪 Flash Wiring Test' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((getByRole('button', { name: '⚡ Flash Stream Receiver' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((getByRole('button', { name: '📡 Live Stream' }) as HTMLButtonElement).disabled).toBe(true)
     expect(getByText('Diagnostics')).toBeTruthy()
     expect(getByText('Live control')).toBeTruthy()
   })

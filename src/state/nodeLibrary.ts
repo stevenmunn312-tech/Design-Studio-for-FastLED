@@ -3011,6 +3011,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'input',
     inputs: [],
     outputs: [
+      { id: 'display', label: 'Display', dataType: 'display' },
       { id: 'dateTime', label: 'DateTime', dataType: 'datetime' },
       { id: 'valid', label: 'Valid', dataType: 'bool' },
       { id: 'synced', label: 'Synced', dataType: 'bool' },
@@ -3024,7 +3025,6 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'year', label: 'Year', dataType: 'float' },
       { id: 'secondsOfDay', label: 'Seconds Today', dataType: 'float' },
       { id: 'weekend', label: 'Weekend', dataType: 'bool' },
-      { id: 'display', label: 'Display', dataType: 'display' },
     ],
     defaultProperties: {
       timeSource: 'Compile Time',
@@ -4483,6 +4483,10 @@ export function propertyDescription(nodeType: string, key: string): string | und
 
 /** Per-node overrides for a property's displayed label (defaults to the raw key). */
 export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
+  TransportDisplay: {
+    tftLayout: 'layout',
+    tftRotation: 'rotation',
+  },
   StereoVuMeter: {
     targetOutputId: 'target LED output',
     ledCount: 'LEDs per side',

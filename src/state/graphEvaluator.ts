@@ -161,6 +161,16 @@ interface ScheduleState {
   prevDayKey: number
 }
 const scheduleState = new Map<string, ScheduleState>()
+interface RtcManualPreviewState {
+  signature: string
+  anchorT: number
+  lastT: number
+}
+// A Manual RTC seed starts when that seed becomes active. The global preview
+// clock may already have been running for minutes when the user edits the
+// fields, so feeding its absolute time straight into rtcPreviewSnapshot would
+// make a newly-entered seed jump forward by the age of the whole preview.
+const rtcManualPreviewState = new Map<string, RtcManualPreviewState>()
 // Clock/Transport node — free-runs from `resetOffset`; a `tap`/`sync` rising
 // edge re-zeros the offset and (from the second pulse on) derives a live BPM
 // from the pulse interval via an EMA, mirroring the millis()-based codegen.
@@ -510,7 +520,7 @@ let _stateMaps: StateMap[] | null = null
 function stateMaps(): StateMap[] {
   return _stateMaps ??= [
     fireHeat, flashLevel, counterVals, intervalLast, smoothState, holdState,
-    envState, dmxChannelState, trailState, frameFeedbackState, fftLevels, beatLevels, clockState, clockDisplayState, fireRngState,
+    envState, dmxChannelState, trailState, frameFeedbackState, fftLevels, beatLevels, rtcManualPreviewState, clockState, clockDisplayState, fireRngState,
     seededRngState, triggerState, scheduleState, particleState, particleSeedState, patternShowState, patternSlideshowFadeState,
     patternSelectionState, transportArtworkCache, patternThumbnailCache,
     playerControlsState, transportDisplayTouchState, musicPlayerRuntimeState,
@@ -586,7 +596,7 @@ export function getEvaluatorMemoryStats(): {
     fireHeat: fireHeat.size, fire2012Heat: fire2012Heat.size, fireRngState: fireRngState.size,
     seededRngState: seededRngState.size, flashLevel: flashLevel.size, counterVals: counterVals.size,
     intervalLast: intervalLast.size, smoothState: smoothState.size, holdState: holdState.size,
-    envState: envState.size, dmxChannelState: dmxChannelState.size, triggerState: triggerState.size, scheduleState: scheduleState.size, clockState: clockState.size,
+    envState: envState.size, dmxChannelState: dmxChannelState.size, triggerState: triggerState.size, scheduleState: scheduleState.size, rtcManualPreviewState: rtcManualPreviewState.size, clockState: clockState.size,
     trailState: trailState.size, frameFeedbackState: frameFeedbackState.size,
     fftLevels: fftLevels.size, beatLevels: beatLevels.size, percussionLevels: percussionLevels.size,
     audioFeatureLevels: audioFeatureLevels.size, particleState: particleState.size,
@@ -8387,10 +8397,30 @@ function createEvalNode(
 
       case 'RTCInput': {
         // Preview the clock the *configured* source will produce on-device, not
-        // just the browser clock: a Manual seed runs forward from `t` (the
-        // preview's stand-in for millis()) and reads invalid for an impossible
-        // date, and NTP shows UTC + the configured offset. See rtc.ts.
-        const rtc = rtcPreviewSnapshot(props, t)
+        // just the browser clock. A Manual seed starts when that particular
+        // seed becomes active, then runs forward using preview time as the
+        // stand-in for millis(). Changing any Manual field therefore shows the
+        // newly-entered instant immediately instead of adding all the time the
+        // preview had already been open. NTP shows UTC + the configured offset.
+        const source = String(props.timeSource ?? 'Compile Time')
+        let elapsed = t
+        const rtcKey = stateKey(id)
+        if (source === 'Manual') {
+          const signature = [
+            props.startYear, props.startMonth, props.startDay,
+            props.startHour, props.startMinute, props.startSecond,
+          ].map((value) => String(value ?? '')).join('|')
+          const previous = rtcManualPreviewState.get(rtcKey)
+          const reset = !previous || previous.signature !== signature || t < previous.lastT
+          const state = reset
+            ? { signature, anchorT: t, lastT: t }
+            : { ...previous, lastT: t }
+          rtcManualPreviewState.set(rtcKey, state)
+          elapsed = Math.max(0, t - state.anchorT)
+        } else {
+          rtcManualPreviewState.delete(rtcKey)
+        }
+        const rtc = rtcPreviewSnapshot(props, elapsed)
         out = {
           dateTime: rtc,
           // The same reading, addressed to a panel. One wire instead of the

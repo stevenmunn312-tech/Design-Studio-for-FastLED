@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRenderPasses, outputRoutes, routeFrame } from '../outputRouting'
+import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRenderPasses, outputRoutes, previewRenderPasses, routeFrame } from '../outputRouting'
 import type { StudioNode } from '../graphStore'
 
 function output(id: string, properties: Record<string, unknown>): StudioNode {
@@ -10,6 +10,13 @@ function output(id: string, properties: Record<string, unknown>): StudioNode {
 }
 
 describe('multi-output routing', () => {
+  it('gives an auxiliary-only preview one evaluator pass without inventing an LED route', () => {
+    expect(outputRenderPasses([], [])).toEqual([])
+    expect(previewRenderPasses([], [], 24, 12)).toEqual([
+      { key: 'preview-24x12', width: 24, height: 12, routes: [] },
+    ])
+  })
+
   it('defaults separate outputs to native rendering and groups equal shapes', () => {
     const nodes = [
       output('strip', { form: 'strip', ledCount: 60, dataPin: 5 }),

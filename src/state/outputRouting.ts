@@ -311,6 +311,28 @@ export function outputRenderPasses(
   return [...passes.values()]
 }
 
+/**
+ * Evaluation passes for the live workbench preview.
+ *
+ * A graph made only from auxiliary hardware (for example RTC Clock wired to a
+ * Display Panel) has no LED output route, but its terminal nodes still need an
+ * evaluator pass so their node previews can paint. Firmware generation keeps
+ * using `outputRenderPasses` directly because a screen-only build has no LED
+ * render pass; this fallback belongs only to the browser preview loop.
+ */
+export function previewRenderPasses(
+  nodes: StudioNode[],
+  edges: readonly FrameFeedEdge[] = [],
+  fallbackWidth = 16,
+  fallbackHeight = 16,
+): OutputRenderPass[] {
+  const passes = outputRenderPasses(nodes, edges)
+  if (passes.length > 0) return passes
+  const width = Math.max(1, Math.round(fallbackWidth))
+  const height = Math.max(1, Math.round(fallbackHeight))
+  return [{ key: `preview-${width}x${height}`, width, height, routes: [] }]
+}
+
 export function outputRenderPassFor(
   route: OutputRoute,
   passes: readonly OutputRenderPass[],

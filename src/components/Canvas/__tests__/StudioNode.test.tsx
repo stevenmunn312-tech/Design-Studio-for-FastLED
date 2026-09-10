@@ -84,6 +84,28 @@ describe('StudioNode', () => {
     expect(getByText('Color')).toBeTruthy()          // input port label
   })
 
+  it('shows the active clock layout instead of unrelated display choices', () => {
+    const rtc = { ...makeNode('RTCInput', {}), id: 'rtc' }
+    const panel = { ...makeNode('TransportDisplay', { tftLayout: 'Now Playing' }), id: 'panel' }
+    useGraphStore.setState({
+      nodes: [rtc, panel],
+      edges: [{
+        id: 'clock-screen', source: rtc.id, sourceHandle: 'display',
+        target: panel.id, targetHandle: 'display',
+      } as never],
+    })
+    const props = { id: panel.id, data: panel.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
+    const view = render(<StudioNode {...props} />)
+    const layout = view.getByLabelText('layout value') as HTMLSelectElement
+
+    expect(layout.value).toBe('Clock')
+    expect([...layout.options].map((option) => option.value)).toEqual(['Clock', 'Diagnostics'])
+
+    fireEvent.change(layout, { target: { value: 'Diagnostics' } })
+    expect(useGraphStore.getState().nodes.find((entry) => entry.id === panel.id)?.data.properties.tftLayout)
+      .toBe('Diagnostics')
+  })
+
   it('minimizes to the header and node type, preserves port handles, restores, and deletes', () => {
     const node = makeNode('SolidColor', { r: 255, g: 0, b: 128 })
     const view = renderNode(node)

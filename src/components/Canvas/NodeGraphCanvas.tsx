@@ -41,7 +41,7 @@ import GroupControls from './GroupControls'
 import { anchorPosition } from '../../utils/anchorNode'
 import { signalPathFor } from '../../utils/signalPath'
 import { STARTER_TEMPLATES } from '../../state/starterTemplates'
-import { startBlankCanvas, startTemplateById } from '../../utils/startFlow'
+import { startTemplateById } from '../../utils/startFlow'
 import { runTidy } from '../../utils/tidyGraph'
 import { usePreviewStore } from '../../state/previewStore'
 import { playNoodleConnectSfx, playNoodleDisconnectSfx } from '../../audio/interactionSfx'
@@ -762,10 +762,6 @@ function NodeGraphCanvasInner() {
     openTemplates()
   }, [openTemplates])
 
-  const handleStartBlank = useCallback(() => {
-    startBlankCanvas()
-  }, [])
-
   const findSpliceTarget = useCallback((
     position: Pt,
     def: (typeof NODE_LIBRARY)[number],
@@ -1104,9 +1100,6 @@ function NodeGraphCanvasInner() {
               </button>
               <button type="button" className={styles.startAction} onClick={handleBrowseStarters}>
                 Browse starter patches
-              </button>
-              <button type="button" className={styles.startAction} onClick={handleStartBlank}>
-                Blank canvas
               </button>
             </div>
             {lastStartLabel && <div className={styles.emptyMeta}>Last start: {lastStartLabel}</div>}

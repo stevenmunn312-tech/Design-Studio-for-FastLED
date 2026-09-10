@@ -266,18 +266,13 @@ describe('NodeGraphCanvas start screen', () => {
     }))
   })
 
-  it('opens the starter gallery and remembers blank-canvas preference', async () => {
-    const { getByRole } = render(<NodeGraphCanvas />)
+  it('opens the starter gallery without offering a redundant blank-canvas action', () => {
+    const { getByRole, queryByRole } = render(<NodeGraphCanvas />)
+
+    expect(queryByRole('button', { name: 'Blank canvas' })).toBeNull()
 
     fireEvent.click(getByRole('button', { name: 'Browse starter patches' }))
     expect(useUiStore.getState().templatesOpen).toBe(true)
-
-    fireEvent.click(getByRole('button', { name: 'Blank canvas' }))
-
-    await waitFor(() => {
-      expect(useUiStore.getState().lastStartChoice).toBe('blank')
-    })
-    expect(visibleNodeTypes()).toEqual([])
   })
 
   it('unplugs a connected Field Noise speed input when its input handle is dragged to empty canvas', () => {

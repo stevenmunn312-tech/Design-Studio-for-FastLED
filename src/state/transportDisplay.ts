@@ -62,6 +62,13 @@ const TRANSPORT_LAYOUTS_BY_KIND: Record<DisplaySignalKind, readonly TransportDis
   slideshow: ['Show Status'],
 }
 
+/** Choices that can actually affect the currently wired source, plus self-test. */
+export function transportLayoutChoicesForKind(
+  kind: DisplaySignalKind | null,
+): readonly TransportDisplayLayout[] {
+  return [...(kind ? TRANSPORT_LAYOUTS_BY_KIND[kind] : ['Waiting'] as const), 'Diagnostics']
+}
+
 /** Whether a source has any colour layout at all. */
 export function transportSupportsKind(kind: DisplaySignalKind): boolean {
   return TRANSPORT_LAYOUTS_BY_KIND[kind].length > 0

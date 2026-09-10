@@ -51,7 +51,7 @@ describe('custom display panel driver', () => {
     expect(setup).toContain('_cdPanelCmd_screen(0x11); delay(120);') // SLPOUT
     expect(setup).toContain('uint8_t colmod = 0x55')
     expect(setup).toContain('uint8_t porch[5] = { 0x0C, 0x0C, 0x00, 0x33, 0x33 }')
-    expect(setup).toContain('_cdPanelCmd_screen(0x21);') // INVON: both catalogued modules are inverted
+    expect(setup).toContain('_cdPanelCmd_screen(0x20);') // INVOFF: bench-tested ST7789V polarity
     expect(setup).toContain('_cdPanelCmd_screen(0x13); delay(10);') // NORON
     expect(setup).toContain('_cdPanelCmd_screen(0x29); delay(100);') // DISPON
   })

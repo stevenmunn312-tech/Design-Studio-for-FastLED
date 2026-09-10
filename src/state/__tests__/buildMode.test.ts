@@ -114,4 +114,21 @@ describe('build mode resolution', () => {
       capabilities: { frameOutput: false, standaloneVuOutput: true, buildable: true },
     })
   })
+
+  it('treats a wired display as a complete standalone build', () => {
+    const build = resolveBuildMode([
+      node('rtc', 'RTCInput'),
+      node('panel', 'TransportDisplay', { enabled: true }),
+    ], [edge('rtc', 'panel', 'display', 'display')])
+
+    expect(build).toMatchObject({
+      mode: 'sketch',
+      capabilities: {
+        frameOutput: false,
+        standaloneVuOutput: false,
+        standaloneDisplayOutput: true,
+        buildable: true,
+      },
+    })
+  })
 })

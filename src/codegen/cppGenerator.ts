@@ -6884,7 +6884,7 @@ export function generateCpp(
       lines.push(`#define DATA_PIN_${route.safeId} ${route.dataPin}`)
       if (SPI_CHIPSETS.has(route.hardware.chipset)) lines.push(`#define CLOCK_PIN_${route.safeId} ${route.hardware.clockPin}`)
     }
-  } else if (!isHub75) {
+  } else if (!isHub75 && outputNode) {
     lines.push(`#define DATA_PIN ${dataPin}`)
     if (SPI_CHIPSETS.has(hw.chipset)) lines.push(`#define CLOCK_PIN ${hw.clockPin}`)
   }
@@ -6894,7 +6894,7 @@ export function generateCpp(
     for (const route of outputConfigs) lines.push(`CRGB leds_${route.safeId}[${route.ledTotal}];`)
   } else if (isHub75) {
     lines.push(...hub75GlobalsCpp(hub75Hw!))
-  } else {
+  } else if (outputNode) {
     lines.push(`CRGB leds[${physLeds}];`)
   }
   // One render buffer per frame-producing node so layers can be composited, and
@@ -7209,7 +7209,7 @@ export function generateCpp(
     lines.push(`  FastLED.setBrightness(255);  // controller brightness is applied while routing pixels`)
   } else if (isHub75) {
     lines.push(...hub75SetupCpp(hub75Hw!))
-  } else {
+  } else if (outputNode) {
     lines.push(...fastledSetupCpp(hw, (ss || ringMap || corkscrewMap) ? { ledCountMacro: physLeds } : {}))
   }
   for (const meter of stereoVuMeters) {
@@ -7235,7 +7235,9 @@ export function generateCpp(
   }
   // HUB75 has no FastLED CLEDController registered, so setMaxPowerInVoltsAndMilliamps
   // would have nothing to throttle.
-  if (powerLimit && !isHub75) lines.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${volts}, ${milliamps});`)
+  if (powerLimit && !isHub75 && (outputNode || stereoVuMeters.length > 0)) {
+    lines.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${volts}, ${milliamps});`)
+  }
   lines.push(...infoDisplayStartupStageBatchCpp(infoDisplays, 3))
   lines.push(...infoDisplayStartupStageBatchCpp(infoDisplays, 4))
   if (emitEngine) lines.push(`  setupAudio();`)
@@ -7264,7 +7266,7 @@ export function generateCpp(
     lines.push(...loopLines)
     if (needsT.v) lines.push(...masterSpeedUpdateCpp(masterSpeedEmit))
   }
-  if (multipleOutputs || stereoVuMeters.length > 0 || !sorted.some((n) => n.data.nodeType === 'MatrixOutput')) {
+  if (multipleOutputs || stereoVuMeters.length > 0) {
     lines.push(`  FastLED.show();`)
   }
   // Bounded by its own wall-clock gate, so a fast LED loop cannot over-service

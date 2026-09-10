@@ -62,6 +62,12 @@ import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalett
 import { polinePalette, hexToRgb as polineHexToRgb } from '../../state/polinePalette'
 import type { Palette } from '../../state/ledColor'
 import { isHardwarePartField } from '../../state/partFields'
+import { DISPLAY_SOURCE_NODE_TYPES, type DisplaySignalKind } from '../../state/displaySignal'
+import {
+  asTransportDisplayLayout,
+  transportLayoutChoicesForKind,
+  transportLayoutForKind,
+} from '../../state/transportDisplay'
 import styles from './StudioNode.module.css'
 import { NODE_HANDLE_STYLE } from './nodeHandleStyle'
 
@@ -354,6 +360,14 @@ const LivePropertyControls = memo(function LivePropertyControls({
     return `${w}:${h}`
   })
   const [expressionW, expressionH] = expressionDimsKey.split(':').map(Number)
+  const transportDisplaySourceKind = useGraphStore((s) => {
+    if (nodeType !== 'TransportDisplay') return null
+    const sourceId = sourceMap.get('display')?.srcId
+    if (!sourceId) return null
+    const sourceType = rootGraphNodes(s).find((node) => node.id === sourceId)?.data.nodeType
+    return (sourceType && DISPLAY_SOURCE_NODE_TYPES[sourceType]) ?? null
+  }) as DisplaySignalKind | null
+  const transportLayoutOptions = transportLayoutChoicesForKind(transportDisplaySourceKind)
 
   const isMatrixOutput = nodeType === 'MatrixOutput'
   const [sizePopupOpen, setSizePopupOpen] = useState(false)
@@ -473,6 +487,19 @@ const LivePropertyControls = memo(function LivePropertyControls({
                   ? `${val} = ${showNum(expressionResult!)}`
                   : `Number or expression. ${SCALAR_EXPRESSION_HELP}`
               : gpioNote ?? propertyDescription(nodeType, key)
+        const isTransportLayout = nodeType === 'TransportDisplay' && key === 'tftLayout'
+        const selectOptions = meta?.control === 'select'
+          ? (isTransportLayout ? transportLayoutOptions : meta.options)
+          : []
+        const selectValue = isTransportLayout
+          ? asTransportDisplayLayout(val) === 'Diagnostics'
+            ? 'Diagnostics'
+            : transportDisplaySourceKind
+              ? transportLayoutForKind(transportDisplaySourceKind, val) ?? 'Waiting'
+              : 'Waiting'
+          : typeof live === 'string' && selectOptions.includes(live as never)
+            ? live
+            : String(val)
         return (
           <div
             key={key}
@@ -484,12 +511,12 @@ const LivePropertyControls = memo(function LivePropertyControls({
               <select
                 className={`nodrag ${styles.propSelect}`}
                 disabled={disabled}
-                value={typeof live === 'string' && meta.options.includes(live) ? live : String(val)}
+                value={selectValue}
                 aria-label={`${controlLabel} value`}
                 onWheelCapture={stopWheelWhileFocused}
                 onChange={(e) => updateNodeProperty(nodeId, key, e.target.value)}
               >
-                {meta.options.map((opt) => (
+                {selectOptions.map((opt) => (
                   <option key={opt} value={opt}>{opt}</option>
                 ))}
               </select>

@@ -65,8 +65,8 @@ export interface TftController {
   /**
    * Whether the panel needs INVON.
    *
-   * True on both ST7789 modules: the IPS glass is wired normally-black, so a
-   * controller left in its normal mode renders a photographic negative.
+   * The required polarity is a property of the fitted panel, not merely the
+   * controller family. Bench testing decides this value for each module.
    */
   invert: boolean
 }
@@ -85,7 +85,7 @@ export const TFT_CONTROLLERS: Record<string, TftController> = {
   },
   ST7789V: {
     id: 'ST7789V', width: 240, height: 320, ramWidth: 240, ramHeight: 320,
-    columnOffset: 0, rowOffset: 0, colorOrder: 'RGB', invert: true,
+    columnOffset: 0, rowOffset: 0, colorOrder: 'RGB', invert: false,
   },
 }
 

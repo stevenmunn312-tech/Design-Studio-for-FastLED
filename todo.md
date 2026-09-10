@@ -386,6 +386,9 @@ matrix, not a reason to postpone testing earlier changes.
   folded/chained/rotated topology and show/player. Confirm HUB75 chain orientation,
   preview fidelity and panel-specific power assumptions. Keep untested paths
   experimental. Preserve completed LDR, DS3231, segment/OLED and VU evidence.
+  RTC update (`2026-09-11`): Compile Time, Manual seed/progression and NTP
+  synced/stale/recovery passed through the app on ESP32-S3 + ST7789V 240x320;
+  long-duration software-clock drift and DS3231 recovery remain.
 - [x] **HW-21 · P2 · Catalogue and Build Diagram gaps for common I2C OLEDs (S).**
   All three defects closed. (a) The generic four-pin SSD1306 0.96-inch I2C
   module is catalogued from its own Blender asset and offered as *SSD1306

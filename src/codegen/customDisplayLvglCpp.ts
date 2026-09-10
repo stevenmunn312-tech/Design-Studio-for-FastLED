@@ -234,7 +234,8 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: DisplayWidget, in
   }
 
   if (widget.type === 'Text') {
-    lines.push(`  _cdSetText(${rt}, ${cppStringLiteral(displayString(stringProperty(widget, 'text')))});`)
+    const fallbackText = stringProperty(widget, 'text') || widget.label
+    lines.push(`  _cdSetText(${rt}, ${cppStringLiteral(displayString(fallbackText))});`)
   } else if (widget.type === 'Numeric Readout') {
     const format = normalizeNumberFormat(widget.properties)
     lines.push(`  _dsFormatNumber(${rt}.nextText, 0.0, ${format.decimals}, ${format.padWidth}, `

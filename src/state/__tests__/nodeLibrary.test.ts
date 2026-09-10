@@ -498,9 +498,9 @@ describe('nodeLibrary', () => {
     expect(rtc?.category).toBe('input')
     expect(rtc?.inputs).toEqual([])
     expect(rtc?.outputs.map((port) => port.id)).toEqual([
-      'dateTime', 'valid', 'synced', 'stale', 'hour', 'minute', 'second', 'weekday', 'day', 'month', 'year', 'secondsOfDay', 'weekend',
       // The same reading addressed to a simple panel, which takes one wire.
       'display',
+      'dateTime', 'valid', 'synced', 'stale', 'hour', 'minute', 'second', 'weekday', 'day', 'month', 'year', 'secondsOfDay', 'weekend',
     ])
     expect(rtc?.defaultProperties).toMatchObject({
       timeSource: 'Compile Time',

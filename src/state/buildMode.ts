@@ -26,6 +26,8 @@ export interface BuildCapabilities {
   frameOutput: boolean
   /** A free-standing stereo VU pair is itself a physical light output. */
   standaloneVuOutput: boolean
+  /** A wired auxiliary screen is useful physical output without any LEDs. */
+  standaloneDisplayOutput: boolean
   /** There is physical output worth generating or measuring. */
   buildable: boolean
   /** Fixed transport touch has a device transport to command. */
@@ -124,6 +126,23 @@ function standaloneVuOutput<T extends BuildModeNode>(nodes: T[]): boolean {
     && String(node.data.properties.targetOutputId ?? '') === '')
 }
 
+const AUXILIARY_DISPLAY_NODE_TYPES = new Set(['InfoDisplay', 'SegmentDisplay', 'TransportDisplay'])
+
+/** A real panel with content (or its explicit self-test) is a complete build. */
+function standaloneDisplayOutput<T extends BuildModeNode>(
+  nodes: T[],
+  edges: BuildModeEdge[],
+): boolean {
+  const active = new Map(nodes
+    .filter((node) => AUXILIARY_DISPLAY_NODE_TYPES.has(node.data.nodeType)
+      && node.data.properties.enabled !== false)
+    .map((node) => [node.id, node]))
+  if (edges.some((edge) => active.has(edge.target)
+    && (edge.targetHandle === 'display' || edge.targetHandle === 'customDisplay'))) return true
+  return [...active.values()].some((node) => node.data.nodeType === 'TransportDisplay'
+    && String(node.data.properties.tftLayout ?? '') === 'Diagnostics')
+}
+
 function resolution<T extends BuildModeNode>(
   mode: BuildMode,
   engineKind: BuildEngineKind,
@@ -131,6 +150,7 @@ function resolution<T extends BuildModeNode>(
   reachedOutputs: T[],
   frameOutput: boolean,
   standaloneVu: boolean,
+  standaloneDisplay: boolean,
 ): BuildModeResolution<T> {
   const templateDisplaySourceIds = mode === 'sketch' ? null
     : new Set(engine && (engineKind === 'music-player' || engineKind === 'pattern-slideshow')
@@ -145,7 +165,8 @@ function resolution<T extends BuildModeNode>(
     capabilities: {
       frameOutput,
       standaloneVuOutput: standaloneVu,
-      buildable: frameOutput || standaloneVu,
+      standaloneDisplayOutput: standaloneDisplay,
+      buildable: frameOutput || standaloneVu || standaloneDisplay,
       fixedTransportControls: engineKind === 'music-player',
     },
   }
@@ -170,6 +191,7 @@ export function resolveBuildMode<T extends BuildModeNode>(
   const hasCard = nodes.some((node) => node.data.nodeType === 'SDCard')
   const hasAmplifier = nodes.some((node) => node.data.nodeType === 'Amplifier')
   const hasStandaloneVu = standaloneVuOutput(nodes)
+  const hasStandaloneDisplay = standaloneDisplayOutput(nodes, edges)
 
   const musicPlayers = nodes.filter((node) => node.data.nodeType === 'PatternMaster')
   const connectedMusicPlayer = musicPlayers.find((node) => frameOutputs(node, nodes, edges).length > 0)
@@ -177,7 +199,7 @@ export function resolveBuildMode<T extends BuildModeNode>(
   if (hasCard && hasAmplifier && musicPlayer) {
     const reached = frameOutputs(musicPlayer, nodes, edges)
     return resolution('player', 'music-player', musicPlayer, reached,
-      hasAnyFrameOutput, hasStandaloneVu)
+      hasAnyFrameOutput, hasStandaloneVu, hasStandaloneDisplay)
   }
 
   const performance = nodes
@@ -185,7 +207,7 @@ export function resolveBuildMode<T extends BuildModeNode>(
     .find((node) => frameOutputs(node, nodes, edges).length > 0)
   if (hasCard && performance) {
     return resolution('player', 'performance-show', performance,
-      frameOutputs(performance, nodes, edges), hasAnyFrameOutput, false)
+      frameOutputs(performance, nodes, edges), hasAnyFrameOutput, false, hasStandaloneDisplay)
   }
 
   const slideshow = nodes
@@ -194,8 +216,8 @@ export function resolveBuildMode<T extends BuildModeNode>(
       && hasPatternCollection(node, nodes, edges))
   if (slideshow) {
     return resolution('show', 'pattern-slideshow', slideshow,
-      frameOutputs(slideshow, nodes, edges), hasAnyFrameOutput, false)
+      frameOutputs(slideshow, nodes, edges), hasAnyFrameOutput, false, hasStandaloneDisplay)
   }
 
-  return resolution('sketch', 'graph', null, [], hasAnyFrameOutput, false)
+  return resolution('sketch', 'graph', null, [], hasAnyFrameOutput, hasStandaloneVu, hasStandaloneDisplay)
 }

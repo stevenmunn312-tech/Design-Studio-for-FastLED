@@ -175,6 +175,20 @@ describe('validateGraph', () => {
     }))
   })
 
+  it('accepts an RTC wired to a display without requiring an LED output', () => {
+    const rtc = libraryNode('rtc', 'RTCInput')
+    const panel = libraryNode('panel', 'TransportDisplay', { enabled: true })
+    const displayWire = {
+      id: 'rtc-panel', source: rtc.id, sourceHandle: 'display',
+      target: panel.id, targetHandle: 'display',
+    } as StudioEdge
+
+    expect(validateGraph([rtc, panel], [displayWire]).errors).not.toContain('Missing MatrixOutput node')
+    expect(buildGraphDiagnostics([rtc, panel], [displayWire])).not.toContainEqual(expect.objectContaining({
+      id: 'missing-MatrixOutput',
+    }))
+  })
+
   it('does not count a disabled standalone Stereo VU Meter as an active output', () => {
     const meter = node('vu', 'StereoVuMeter', {
       targetOutputId: '', enabled: false, leftDataPin: 5, rightDataPin: 6,
