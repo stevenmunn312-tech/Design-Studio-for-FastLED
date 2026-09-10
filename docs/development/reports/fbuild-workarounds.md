@@ -6,6 +6,13 @@ an internal record.
 
 - **Current repository pin:** 2.5.21 (`backend/requirements.txt` and
   `backend/constraints.txt`)
+- **Mind which fbuild actually ran.** The pin is not the only fbuild on this host, and
+  a measurement is only about the version that produced it. On 2026-09-10 the pin was
+  2.5.21, `backend/.venv` held **2.5.0**, and `scripts/compile-display-smoke.py` — which
+  imports the helper under whichever interpreter invokes it — ran **2.5.22** out of the
+  Espressif Python. The upstream latest was **2.5.23**. Four versions, one bench. Every
+  build report the script writes records `toolchain.engine_version`; read that rather
+  than assuming the pin, and say which version a result is about.
 - **Host:** Windows 11. Some issues below are Windows-specific and are marked as such.
 - **How we drive fbuild:** a persistent scaffold at `backend/.fbuild-project/` with one
   `[env:X]` per supported board, built with `fbuild build -e <env> -v --no-timestamp`
@@ -34,9 +41,10 @@ an internal record.
 | 6 | ESP32 RAM percentage impossible (>100%) on success | 2.4.0 | Discard RAM figure over 100% | **No — fixed in 2.5.17, guard removed 2026-09-03 (it hid #11)** |
 | 7 | `deploy` unimplemented for some compilable platforms | **2.5.21** | Fall back to arduino-cli | Yes — re-confirmed 2026-09-03 |
 | 8 | Dep scanner misses transitive `SPI` in a vendored lib | 2.4.0 | Stub out the offending file | **No — FastLED guarded it in #3815, workaround removed 2026-08-27** |
-| 9 | ESP32 no-op build costs 181.5s (AVR, ESP8266, STM32: 0.4s) | **2.5.21** | None — measured, not worked around | Yes — [#1411](https://github.com/FastLED/fbuild/issues/1411) |
+| 9 | ESP32 no-op build costs 181.5s (AVR, ESP8266, STM32: 0.4s) | **2.5.21** | None — measured, not worked around | **No — our [#1411](https://github.com/FastLED/fbuild/issues/1411), closed 2026-09-03; re-measured on 2.5.22, see below** |
 | 10 | Every directory in `lib/` is compiled, used or not | **2.5.21** | Hide unused libraries for the run | Yes — [#1410](https://github.com/FastLED/fbuild/issues/1410) |
 | 11 | A build over the board's limits reports success | **2.5.21** | Refuse it on the measured percentage | Yes — [#1409](https://github.com/FastLED/fbuild/issues/1409) |
+| 12 | Windows: LVGL archive spawn exceeds the command-length limit | **2.5.22** | Re-archive with a response file, then continue | Yes — not yet reported |
 
 ---
 
@@ -336,6 +344,29 @@ already a silent no-op, which is its own argument for deleting rather than repoi
 ---
 
 ## 9. A build with nothing to do still takes three minutes
+
+> [!NOTE]
+> **Fixed upstream.** [#1411](https://github.com/FastLED/fbuild/issues/1411) was closed
+> as completed on 2026-09-03, the day it was filed, and 2.5.22 shipped that evening.
+> Re-measured here on **2.5.22**, 2026-09-10, through
+> `scripts/compile-display-smoke.py`: the `show` display-smoke fixture reports a
+> **47.4s compile inside a 47.5s total** — a fixed cost of roughly a tenth of a second
+> where this section measured 181.5s.
+>
+> Read the other two runs of that session carefully rather than as contradictions.
+> `normal` took 6m 51s around a 38.7s compile and `player` 5m 24s around a 24.8s one,
+> but both logs carry an `[archive LVGL]` phase that `show` does not: they hit
+> `_recover_fbuild_lvgl_archive`, the Windows command-length recovery in issue 12
+> below, so each is a build that compiled, failed to archive, was re-archived by the
+> helper and then ran again. Minutes of real work and a retry, not a no-op decision.
+> `show` is the clean measurement precisely because it needed no recovery.
+>
+> Two caveats. It is not a strict no-op — `show` compiled 47 seconds of real work — so
+> it demonstrates the *fixed floor* is gone rather than re-running the exact experiment
+> below; a true no-op re-run would settle it outright. And it was taken on 2.5.22 while
+> the repository still pins 2.5.21, so a clean install from `backend/requirements.txt`
+> gets the version this section describes, not the one that was measured. The account
+> below is kept as the record of what 2.5.21 does.
 
 **Reported upstream 2026-09-03 as [#1411](https://github.com/FastLED/fbuild/issues/1411).**
 
@@ -768,3 +799,45 @@ first-class feature rather than log-scraping.
 
 **A stable size query.** See §4 — `fbuild size -e <env> --json` would replace both the
 private-cache read and the linker-message parsing in §5.
+
+---
+
+## 12. Archiving LVGL on Windows exceeds the command-length limit
+
+**Not yet reported upstream.** Confirmed on 2.5.22, 2026-09-10.
+
+**Symptom.** fbuild passes every object file on the archiver's command line
+(`library_compiler.rs`, `archive_objects`). LVGL 9.5.0 has enough of them that the line
+exceeds what `CreateProcess` accepts, and the build fails with
+
+```text
+local library 'lvgl' failed to compile: failed to spawn [...] (os error 206)
+```
+
+os error 206 is `ERROR_FILENAME_EXCED_RANGE`. Windows only; the limit does not exist on
+the other hosts.
+
+**Workaround.** `_recover_fbuild_lvgl_archive` in [`backend/app.py`](../../../backend/app.py)
+writes the object list to `lvgl-objects.rsp` and re-runs the same archiver with `@rsp`,
+which GCC's `ar` accepts. The build then continues. `_run_fbuild_compile` defers the
+failing exit status until recovery has been tried, so a recoverable archive failure is
+not reported to the upload UI as the outcome of the whole build.
+
+`_fbuild_lvgl_archive_command` deliberately recognises only this one failure before it
+will run anything: the spawn marker and `os error 206` must both be present, the
+archiver has to be an installed `*-ar.exe` under the fbuild toolchain cache, the
+argument after it has to be `rcs`, the archive has to be exactly this environment's
+`liblvgl.a`, and every object has to be an existing `.o` in that library's own `obj`
+directory. A compiler diagnostic is untrusted text; without those checks it would be a
+path from build output to an arbitrary command line.
+
+**Cost.** The recovery itself is about a second. What it costs is the build it recovers:
+the failing pass has already compiled everything, so a run that hits this pays the full
+compile twice over. In the 2026-09-10 display-smoke session the two fixtures that hit it
+took 6m 51s and 5m 24s in total around compiles of 38.7s and 24.8s, while the one that
+did not — LVGL already archived from the run before it — finished in 47.5s. That
+asymmetry is worth knowing when reading any timing on this bench, and it is why issue 9
+above is measured from the run that needed no recovery.
+
+**Upstream ask.** Archive through a response file on Windows, as the compiler drivers
+already do for long link lines.
