@@ -42,6 +42,9 @@ export type CapacityStatus =
   | 'toolchain-missing'
   | 'preparing'
   | 'preparation-failed'
+  /** The graph itself will not build — Graph Health says why, in full, and
+   *  this is deliberately not a second copy of that sentence. */
+  | 'blocked-by-graph'
   /** There is no sketch to build yet, so there is deliberately no number.
    *  Distinct from a stale reading: a graph that stopped being buildable used
    *  to leave the previous reading on screen, from a different design, looking
@@ -63,6 +66,10 @@ export interface CapacityTarget {
   /** Asset preparation happens before a compile target can be published. */
   preparing?: boolean
   preparationError?: string
+  /** True when validation, not asset preparation, is what stopped the
+   *  build being measurable. Reported rather than restated: the reason
+   *  belongs in Graph Health, which already carries it. */
+  blockedByGraph?: boolean
   fqbn: string
   toolchainReady: boolean
   engineTag?: string
@@ -127,7 +134,7 @@ function hashCode(s: string): string {
 }
 
 function targetKey(t: Omit<CapacityTarget, 'key'>): string {
-  return `${t.fqbn}|${t.engineTag ?? ''}|${t.subject}|${t.flashMb ?? ''}|${t.usbCdcOnBoot ? 'cdc' : ''}|${t.code === null ? 'none' : hashCode(t.code)}|${JSON.stringify([!!t.preparing, t.preparationError ?? ''])}`
+  return `${t.fqbn}|${t.engineTag ?? ''}|${t.subject}|${t.flashMb ?? ''}|${t.usbCdcOnBoot ? 'cdc' : ''}|${t.code === null ? 'none' : hashCode(t.code)}|${JSON.stringify([!!t.preparing, t.preparationError ?? '', !!t.blockedByGraph])}`
 }
 
 let retryTimer: ReturnType<typeof setTimeout> | null = null
@@ -164,7 +171,10 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
       // Drop the reading rather than leaving it: it described a graph that no
       // longer exists, and a number with nothing behind it is worse than none.
       measuredKey = null
-      const status = next.preparationError ? 'preparation-failed' : next.preparing ? 'preparing' : 'nothing-to-measure'
+      const status = next.preparationError
+        ? 'preparation-failed'
+        : next.preparing ? 'preparing'
+          : next.blockedByGraph ? 'blocked-by-graph' : 'nothing-to-measure'
       set({ target, status, result: null, previousResult: null })
       return
     }

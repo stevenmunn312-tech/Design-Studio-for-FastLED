@@ -31,6 +31,10 @@ export function summarizeCapacity(
   const label = board?.label ?? 'No board'
   if (status === 'preparing') return { text: `${label} · preparing display images…`, level: 'pending' }
   if (status === 'preparation-failed') return { text: `${label} · ${preparationError || 'Display image preparation failed'}`, level: 'error' }
+  // Named, not restated. Graph Health already carries the sentence, with a
+  // Locate button; a second full copy in a one-line status strip pushes
+  // every other reading off the bar and gives the user nothing new.
+  if (status === 'blocked-by-graph') return { text: `${label} · capacity: fix the graph errors first`, level: 'warn' }
   if (status === 'toolchain-missing') return { text: `${label} · capacity: install toolchain to check`, level: 'pending' }
   if (status === 'nothing-to-measure') return { text: `${label} · capacity: nothing to build yet`, level: 'pending' }
   if (status === 'checking') return { text: `${label} · checking capacity…`, level: 'pending' }

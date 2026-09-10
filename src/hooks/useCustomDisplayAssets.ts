@@ -65,15 +65,33 @@ export function useCustomDisplayAssets(nodes: StudioNode[], enabled: boolean, ed
       errors.push(...customDisplayResourceIssues(document).map((issue) => `${label}: ${issue.message}`))
       if (customDisplayAssetRequests(document).length > 0) targets.push({ nodeId: node.id, label, document })
     }
-    if (enabled && build.mode === 'player') {
-      errors.push(...playerControlGraph(nodes, edges, documents, build.engine?.id).errors)
-    } else if (enabled && build.mode === 'show') {
-      errors.push(...showControlRouting(nodes, edges, documents, build.engine?.id).errors)
-    }
+    /*
+     * Broken control routing blocks a bake, but it is reported separately as
+     * well, because the two kinds of blocker send the user to different
+     * places: an asset that would not bake is explained in the Upload tab,
+     * while a mis-wired control is explained — already, in full — by Graph
+     * Health. Indistinguishable, a graph with no screens on it at all had an
+     * LED-output wiring mistake recited in the Fits chip as though the
+     * capacity meter had something to say about it.
+     */
+    const routingErrors = !enabled ? []
+      : build.mode === 'player'
+        ? playerControlGraph(nodes, edges, documents, build.engine?.id).errors
+        : build.mode === 'show'
+          ? showControlRouting(nodes, edges, documents, build.engine?.id).errors
+          : []
     if (targets.length > 0 && !trusted) {
       errors.push('Trust this project before preparing its display images for firmware.')
     }
-    return { targets, errors: [...new Set(errors)] }
+    // Routing errors stay in `errors` — they still block a bake, and one of
+    // them is a wire onto a widget port that no longer exists, which is very
+    // much a display problem. They are *also* reported separately so a caller
+    // can tell whether what stopped the build was the graph or the images.
+    return {
+      targets,
+      errors: [...new Set([...errors, ...routingErrors])],
+      routingErrors: [...new Set(routingErrors)],
+    }
   }, [nodes, edges, documents, trusted, enabled])
   const [finished, setFinished] = useState<{ plan: typeof plan; revision: number; result: Result } | null>(null)
 
@@ -110,6 +128,9 @@ export function useCustomDisplayAssets(nodes: StudioNode[], enabled: boolean, ed
     documents, trusted, retry,
     assets: result?.assets,
     errors: result?.errors ?? [],
+    // Kept out of `errors` so a caller can tell "these images would not bake"
+    // from "this graph would not build" — they lead to different places.
+    routingErrors: plan.routingErrors,
     pending: result === null,
   }
 }

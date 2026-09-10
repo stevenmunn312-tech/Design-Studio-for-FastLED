@@ -101,7 +101,8 @@ export default function CapacityWatcher() {
   )
   const capacityCode = useMemo(() => {
     const groups = getGroupRegistry()
-    if (customAssets.pending || customAssets.errors.length > 0 || ramBudgetIssue) return null
+    if (customAssets.pending || customAssets.errors.length > 0
+      || customAssets.routingErrors.length > 0 || ramBudgetIssue) return null
     if (codegenBuild.mode === 'player') {
       return buildShowPlayerForMeasurement(
         codegenGraph.nodes, codegenGraph.edges, groups, selectedFqbn, psramSupported, projectName,
@@ -137,7 +138,8 @@ export default function CapacityWatcher() {
       ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)
       : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
   }, [codegenGraph, codegenBuild, psramSupported, selectedFqbn, projectName, ramBudgetIssue,
-    customAssets.pending, customAssets.errors, customAssets.documents, customAssets.assets, customAssets.trusted])
+    customAssets.pending, customAssets.errors, customAssets.routingErrors,
+    customAssets.documents, customAssets.assets, customAssets.trusted])
 
   // Published even with nothing to build: a skipped call would leave the
   // previous reading on screen describing a graph that no longer exists.
@@ -145,7 +147,14 @@ export default function CapacityWatcher() {
     setCapacityTarget({
       code: capacityCode,
       preparing: customAssets.pending,
-      preparationError: [...customAssets.errors, ...(ramBudgetIssue ? [ramBudgetIssue.message] : [])].join('\n'),
+      // Only what asset preparation itself could not do. A routing error is
+      // reported as `blockedByGraph` instead, so the meter can point at Graph
+      // Health rather than recite a sentence Graph Health already carries.
+      preparationError: [
+        ...customAssets.errors.filter((message) => !customAssets.routingErrors.includes(message)),
+        ...(ramBudgetIssue ? [ramBudgetIssue.message] : []),
+      ].join('\n'),
+      blockedByGraph: customAssets.routingErrors.length > 0,
       fqbn: fqbnWithOpt,
       toolchainReady,
       engineTag: helper?.engine,
@@ -153,7 +162,7 @@ export default function CapacityWatcher() {
       flashMb,
       usbCdcOnBoot,
     })
-  }, [capacityCode, customAssets.pending, customAssets.errors, ramBudgetIssue, fqbnWithOpt, toolchainReady, helper?.engine, isShow, flashMb, usbCdcOnBoot, setCapacityTarget])
+  }, [capacityCode, customAssets.pending, customAssets.errors, customAssets.routingErrors, ramBudgetIssue, fqbnWithOpt, toolchainReady, helper?.engine, isShow, flashMb, usbCdcOnBoot, setCapacityTarget])
 
   return null
 }

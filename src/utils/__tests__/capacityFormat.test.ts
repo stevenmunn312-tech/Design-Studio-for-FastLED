@@ -15,6 +15,18 @@ function ok(flashPct: number, ramPct: number): CompileCheckResult {
 }
 
 describe('summarizeCapacity', () => {
+  /*
+   * Reported from the bench: a control-wiring error filled the whole Fits
+   * slot in the status bar. Graph Health already carries that sentence, with
+   * a Locate button — a second full copy on a one-line strip pushes every
+   * other reading off the bar and tells the user nothing new.
+   */
+  it('says the graph is what needs fixing, without reciting the graph error', () => {
+    const summary = summarizeCapacity(board, 'blocked-by-graph', null)
+    expect(summary.text).toBe('Arduino Uno · capacity: fix the graph errors first')
+    expect(summary.level).toBe('warn')
+  })
+
   it('distinguishes pending images and named preparation failures from an empty graph', () => {
     expect(summarizeCapacity(board, 'preparing', null)).toEqual({
       text: 'Arduino Uno · preparing display images…', level: 'pending',
