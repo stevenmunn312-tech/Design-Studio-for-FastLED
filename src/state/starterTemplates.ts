@@ -491,6 +491,53 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     ],
   }),
   template({
+    id: 'player-transport',
+    name: 'Player Buttons and Screen',
+    description: 'Three buttons driving the music player, and an OLED reporting the track it is playing.',
+    completionSteps: [
+      'Specify your board, SD card and amplifier in the Hardware bench, and the three button GPIOs.',
+      'Build a pattern, select its nodes, create a Group, then connect that Group frame to Pattern Collection.',
+      'Set the OLED GPIOs; the panel reads the player’s one Display wire, not a port per field.',
+      'Check the hardware GPIOs and capacity, then upload the player sketch from the LED output.',
+    ],
+    nodeSpecs: [
+      { id: 'audio', type: 'Audio', properties: { sourceId: audioCapabilityIntent('decoder') }, col: 0, row: 0 },
+      { id: 'collection', type: 'PatternCollection', col: 0, row: 1 },
+      { id: 'play', type: 'ButtonInput', col: 0, row: 2 },
+      { id: 'prev', type: 'ButtonInput', col: 0, row: 3 },
+      { id: 'next', type: 'ButtonInput', col: 0, row: 4 },
+      {
+        id: 'controls', type: 'PlayerControls', col: 1, row: 2,
+        properties: { controls: ['playPause', 'previous', 'next'] },
+      },
+      { id: 'master', type: 'PatternMaster', col: 2, row: 0 },
+      { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 3, row: 0 },
+      // Readback: one Display wire carries the whole track report, and the
+      // panel only shows it. Song Info opens that same envelope into a field
+      // per cable, for a graph that genuinely wants one. Two I2C lines rather
+      // than the library's five-pin SPI default, so a player build's SPI bus
+      // stays with the card.
+      { id: 'oled', type: 'InfoDisplay', col: 3, row: 1, properties: { partId: 'ssd1306-oled-096-128x64-i2c' } },
+      { id: 'sd', type: 'SDCard', col: 4, row: 0 },
+      { id: 'amp', type: 'Amplifier', col: 4, row: 1 },
+      tutorialNote(
+        'guide', -1, 0,
+        'PRESS AND READ BACK \nEach button is given its job on the Player Controls node, and the bundle reaches the player on one cable.\nThe screen takes the player’s one Display wire: the player reports the track, the panel only draws it.',
+        TRY_COLOR,
+      ),
+    ],
+    edgeSpecs: [
+      { source: 'audio', sourceHandle: 'audio', target: 'master', targetHandle: 'audio' },
+      { source: 'collection', sourceHandle: 'patternset', target: 'master', targetHandle: 'patternset' },
+      { source: 'play', sourceHandle: 'pressed', target: 'controls', targetHandle: 'playPause' },
+      { source: 'prev', sourceHandle: 'pressed', target: 'controls', targetHandle: 'previous' },
+      { source: 'next', sourceHandle: 'pressed', target: 'controls', targetHandle: 'next' },
+      { source: 'controls', sourceHandle: 'controls', target: 'master', targetHandle: 'controls' },
+      { source: 'master', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+      { source: 'master', sourceHandle: 'display', target: 'oled', targetHandle: 'display' },
+    ],
+  }),
+  template({
     id: 'pattern-slideshow',
     name: 'Pattern Slideshow',
     description: 'Cycle a collection of patterns on a timer — no music, no card, nothing to plug in but the LEDs.',

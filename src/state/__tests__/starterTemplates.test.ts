@@ -100,6 +100,35 @@ describe('starterTemplates', () => {
     expect(validateGraph(nodes, edges).errors).toEqual([])
   })
 
+  /*
+   * Every starter, on both reference boards, not just Music Player.
+   *
+   * A starter is the first thing a new user sees, so one that loads holding a
+   * pin conflict teaches that the app ships broken. The control starters made
+   * this worth checking across the gallery rather than for one patch: they add
+   * buttons, knobs and screens, which is where a board runs out of pool and
+   * where the allocator's own bugs surface.
+   */
+  it.each([
+    ['Generic ESP32', 'esp32-generic-devkit-38pin', 'esp32:esp32:esp32'],
+    ['Generic ESP32-S3', 'generic-esp32-s3-n16r8-44pin-dual-usbc', 'esp32:esp32:esp32s3'],
+  ])('loads every starter without a pin conflict on %s', (_, profileId, fqbn) => {
+    const board = {
+      id: 'board-root', type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        nodeType: 'Board', label: 'Board', category: 'output',
+        properties: { profileId }, inputs: [], outputs: [],
+      },
+    } as unknown as StudioNode
+
+    for (const template of STARTER_TEMPLATES) {
+      const { nodes, edges } = buildBoardAwareStarter(template, [board], fqbn)
+      expect(findPinConflicts(nodes), `${template.id} pin conflicts`).toEqual([])
+      expect(validateGraph(nodes, edges, fqbn).errors, `${template.id} errors`).toEqual([])
+      expect(findExactBoardPinIssues(nodes).errors, `${template.id} exact-board`).toEqual([])
+    }
+  })
+
   it.each([
     ['Generic ESP32', 'esp32-generic-devkit-38pin', 'esp32:esp32:esp32'],
     ['Generic ESP32-S3', 'generic-esp32-s3-n16r8-44pin-dual-usbc', 'esp32:esp32:esp32s3'],
@@ -190,7 +219,13 @@ describe('starterTemplates', () => {
       // Loading a template shouldn't trip graph validation errors (missing
       // MatrixOutput, unconnected Frame input, unresolved audio source, etc).
       // Warnings are fine — e.g. a deliberately conservative power estimate.
-      const { errors } = validateGraph(nodes, edges)
+      //
+      // Against the board-aware build, because that is the only build the app
+      // performs: `build()` hands back library-default pins that several parts
+      // share, and the allocator is what resolves them. The per-board pass
+      // above checks the same thing on both reference boards.
+      const placed = buildBoardAwareStarter(template, [], 'esp32:esp32:esp32')
+      const { errors } = validateGraph(placed.nodes, placed.edges)
       expect(errors).toEqual([])
     })
   }
