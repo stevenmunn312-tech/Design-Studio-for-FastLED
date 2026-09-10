@@ -237,3 +237,45 @@ describe('nodeFlash', () => {
     expect(useUiStore.getState().nodeFlash.nonce).toBe(first + 1)
   })
 })
+
+/*
+ * The display editor is a sub-view of Graph, not a fifth workspace. It
+ * rendered on `designWorkspaceView`, and nothing cleared that — so clicking
+ * **Graph** while editing a screen changed nothing at all. Same view, no
+ * feedback, and everything scoped to the canvas silently went elsewhere: undo
+ * most visibly, because history follows the editor while it is open, so two
+ * presses appeared to do nothing and the new nodes stayed wired.
+ */
+describe('leaving the display editor', () => {
+  const openEditor = () => {
+    useUiStore.getState().openDisplayWorkspace('panel')
+    expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'display', displayId: 'panel' })
+  }
+
+  it.each(['graph', 'hardware', 'build', 'upload'] as const)('is dismissed by the %s tab', (mode) => {
+    openEditor()
+    const before = useUiStore.getState().fitViewRequest.nonce
+    useUiStore.getState().setWorkspaceMode(mode)
+    expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'graph' })
+    expect(useUiStore.getState().workspaceMode).toBe(mode)
+    // The canvas it hands back to has to refit; it was never laid out.
+    expect(useUiStore.getState().fitViewRequest.nonce).toBe(before + 1)
+  })
+
+  it.each([
+    ['openBuildDiagram', () => useUiStore.getState().openBuildDiagram()],
+    ['closeBuildDiagram', () => useUiStore.getState().closeBuildDiagram()],
+    ['toggleBuildDiagram', () => useUiStore.getState().toggleBuildDiagram()],
+  ])('is dismissed by %s, which sets the mode directly', (_label, act) => {
+    openEditor()
+    act()
+    expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'graph' })
+  })
+
+  it('leaves an already-graph view and its fit request alone', () => {
+    useUiStore.getState().closeDisplayWorkspace()
+    const before = useUiStore.getState().fitViewRequest.nonce
+    useUiStore.getState().setWorkspaceMode('hardware')
+    expect(useUiStore.getState().fitViewRequest.nonce).toBe(before)
+  })
+})

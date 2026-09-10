@@ -311,6 +311,17 @@ let appDialogNonce = 0
 const NODE_FLASH_MS = 1300
 let flashTimer: ReturnType<typeof setTimeout> | null = null
 
+/** Dismiss the display editor when a workspace is chosen, and refit the canvas
+ *  it hands back to. Empty when no editor is open, so it composes into a `set`
+ *  without disturbing anything. */
+function leavingDisplayEditor(state: UiState): Partial<UiState> {
+  if (state.designWorkspaceView.kind === 'graph') return {}
+  return {
+    designWorkspaceView: { kind: 'graph' },
+    fitViewRequest: { nonce: state.fitViewRequest.nonce + 1 },
+  }
+}
+
 export const useUiStore = create<UiState>((set, get) => ({
   statusText: 'Ready',
   statusLevel: 'idle',
@@ -382,11 +393,24 @@ export const useUiStore = create<UiState>((set, get) => ({
   },
   // Hardware and Upload share one pane, so choosing either has to tell it
   // which half to show.
-  setWorkspaceMode: (workspaceMode) => set(
-    workspaceMode === 'hardware' || workspaceMode === 'upload'
+  /*
+   * Picking a workspace leaves the display editor.
+   *
+   * The editor is a sub-view of Graph, not a fifth workspace, so it rendered
+   * whenever `designWorkspaceView` said `display` — and nothing cleared that.
+   * Clicking **Graph** while editing a screen therefore changed nothing at
+   * all: same view, no feedback, and the user reasonably believed they were
+   * back on the canvas. Everything scoped to the canvas then went to the
+   * wrong place, undo most visibly, because history follows the *editor* while
+   * it is open (see `enterDisplayHistoryScope`). A tab means show me that
+   * workspace.
+   */
+  setWorkspaceMode: (workspaceMode) => set((state) => ({
+    ...(workspaceMode === 'hardware' || workspaceMode === 'upload'
       ? { workspaceMode, hardwarePaneTab: workspaceMode }
-      : { workspaceMode },
-  ),
+      : { workspaceMode }),
+    ...leavingDisplayEditor(state),
+  })),
   openHardwareShelf: (hardwareShelfTarget) => set({
     workspaceMode: 'hardware',
     hardwarePaneTab: 'hardware',
@@ -394,9 +418,14 @@ export const useUiStore = create<UiState>((set, get) => ({
     hardwareShelfTarget,
   }),
   clearHardwareShelfTarget: () => set({ hardwareShelfTarget: null }),
-  toggleBuildDiagram: () => set((s) => ({ workspaceMode: s.workspaceMode === 'build' ? 'graph' : 'build' })),
-  openBuildDiagram: () => set({ workspaceMode: 'build' }),
-  closeBuildDiagram: () => set({ workspaceMode: 'graph' }),
+  // These three set `workspaceMode` directly rather than through
+  // `setWorkspaceMode`, so they each have to leave the editor too.
+  toggleBuildDiagram: () => set((s) => ({
+    workspaceMode: s.workspaceMode === 'build' ? 'graph' : 'build',
+    ...leavingDisplayEditor(s),
+  })),
+  openBuildDiagram: () => set((s) => ({ workspaceMode: 'build', ...leavingDisplayEditor(s) })),
+  closeBuildDiagram: () => set((s) => ({ workspaceMode: 'graph', ...leavingDisplayEditor(s) })),
   openDisplayWorkspace: (displayId) => set((state) => ({
     workspaceMode: 'graph',
     designWorkspaceView: { kind: 'display', displayId },
