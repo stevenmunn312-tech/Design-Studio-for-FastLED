@@ -59,6 +59,15 @@
 
 .customPreview {
   position: relative;
+  /* The border is a bezel around the glass, not part of it. Everything else
+     in the app is border-box, but the child here is absolutely sized to the
+     document and transform-scaled to the width declared inline — so under
+     border-box the 3px bezel ate into the content box and `overflow: hidden`
+     clipped the last few pixels of the screen. At the usual half scale that
+     is twelve document pixels off the bottom, which cut a widget sitting on
+     the bottom edge clean through. The two siblings below scale their own
+     content to fit and so never noticed. */
+  box-sizing: content-box;
   max-width: 160px;
   overflow: hidden;
   background: #000;
