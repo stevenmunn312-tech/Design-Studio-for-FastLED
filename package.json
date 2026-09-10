@@ -16,6 +16,7 @@
     "test:coverage": "node --disable-warning=DEP0040 ./node_modules/vitest/vitest.mjs run --coverage",
     "package:desktop": "python desktop/build.py",
     "gen:node-cards": "node scripts/generate-node-cards.mjs",
+    "gen:display-sheets": "node scripts/generate-display-sheets.mjs",
     "helper": "python -m uvicorn app:app --reload --port 8008 --app-dir backend"
   },
   "dependencies": {

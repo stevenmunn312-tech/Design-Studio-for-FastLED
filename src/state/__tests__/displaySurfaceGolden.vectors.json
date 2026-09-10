@@ -1,0 +1,457 @@
+{
+  "tft/240x240/Waiting/unwired": {
+    "width": 240,
+    "height": 240,
+    "colors": 3,
+    "coverage": 2.63,
+    "hash": "76709085"
+  },
+  "tft/240x240/Clock/synced": {
+    "width": 240,
+    "height": 240,
+    "colors": 4,
+    "coverage": 1.95,
+    "hash": "732eb581"
+  },
+  "tft/240x240/Clock/free-running": {
+    "width": 240,
+    "height": 240,
+    "colors": 4,
+    "coverage": 2.17,
+    "hash": "f8d3c0d1"
+  },
+  "tft/240x240/Clock/at-rest": {
+    "width": 240,
+    "height": 240,
+    "colors": 3,
+    "coverage": 0.82,
+    "hash": "c2b628b5"
+  },
+  "tft/240x240/Now Playing/playing": {
+    "width": 240,
+    "height": 240,
+    "colors": 2509,
+    "coverage": 28.29,
+    "hash": "0fe1e964"
+  },
+  "tft/240x240/Now Playing/paused": {
+    "width": 240,
+    "height": 240,
+    "colors": 2509,
+    "coverage": 28.41,
+    "hash": "71088994"
+  },
+  "tft/240x240/Now Playing/no-artwork": {
+    "width": 240,
+    "height": 240,
+    "colors": 7,
+    "coverage": 12.96,
+    "hash": "09bf2a7c"
+  },
+  "tft/240x240/Now Playing/at-rest": {
+    "width": 240,
+    "height": 240,
+    "colors": 6,
+    "coverage": 9.06,
+    "hash": "a280f85d"
+  },
+  "tft/240x240/Fixed Transport/playing": {
+    "width": 240,
+    "height": 240,
+    "colors": 6,
+    "coverage": 30.54,
+    "hash": "2a6b54f0"
+  },
+  "tft/240x240/Fixed Transport/paused": {
+    "width": 240,
+    "height": 240,
+    "colors": 6,
+    "coverage": 30.91,
+    "hash": "2865a058"
+  },
+  "tft/240x240/Fixed Transport/muted": {
+    "width": 240,
+    "height": 240,
+    "colors": 6,
+    "coverage": 30.54,
+    "hash": "abed3dd8"
+  },
+  "tft/240x240/Fixed Transport/at-rest": {
+    "width": 240,
+    "height": 240,
+    "colors": 5,
+    "coverage": 27.83,
+    "hash": "ea883d1d"
+  },
+  "tft/240x240/Show Status/running": {
+    "width": 240,
+    "height": 240,
+    "colors": 3,
+    "coverage": 2.49,
+    "hash": "df21ffea"
+  },
+  "tft/240x240/Show Status/browsing": {
+    "width": 240,
+    "height": 240,
+    "colors": 4,
+    "coverage": 4.76,
+    "hash": "6b428634"
+  },
+  "tft/240x240/Show Status/at-rest": {
+    "width": 240,
+    "height": 240,
+    "colors": 2,
+    "coverage": 0.74,
+    "hash": "45ee0f65"
+  },
+  "tft/240x240/Diagnostics/untouched": {
+    "width": 240,
+    "height": 240,
+    "colors": 8,
+    "coverage": 21.9,
+    "hash": "a5e76402"
+  },
+  "tft/240x240/Diagnostics/pressed": {
+    "width": 240,
+    "height": 240,
+    "colors": 8,
+    "coverage": 21.88,
+    "hash": "92d9ec40"
+  },
+  "tft/240x240/Diagnostics/at-rest": {
+    "width": 240,
+    "height": 240,
+    "colors": 8,
+    "coverage": 21.93,
+    "hash": "63b3a7ae"
+  },
+  "tft/240x320/Waiting/unwired": {
+    "width": 240,
+    "height": 320,
+    "colors": 3,
+    "coverage": 1.97,
+    "hash": "daacc485"
+  },
+  "tft/240x320/Clock/synced": {
+    "width": 240,
+    "height": 320,
+    "colors": 4,
+    "coverage": 1.46,
+    "hash": "32fea181"
+  },
+  "tft/240x320/Clock/free-running": {
+    "width": 240,
+    "height": 320,
+    "colors": 4,
+    "coverage": 1.63,
+    "hash": "d6674cd1"
+  },
+  "tft/240x320/Clock/at-rest": {
+    "width": 240,
+    "height": 320,
+    "colors": 3,
+    "coverage": 0.61,
+    "hash": "adedbcb5"
+  },
+  "tft/240x320/Now Playing/playing": {
+    "width": 240,
+    "height": 320,
+    "colors": 2509,
+    "coverage": 21.22,
+    "hash": "76fb3364"
+  },
+  "tft/240x320/Now Playing/paused": {
+    "width": 240,
+    "height": 320,
+    "colors": 2509,
+    "coverage": 21.31,
+    "hash": "d821d394"
+  },
+  "tft/240x320/Now Playing/no-artwork": {
+    "width": 240,
+    "height": 320,
+    "colors": 7,
+    "coverage": 9.72,
+    "hash": "a71be47c"
+  },
+  "tft/240x320/Now Playing/at-rest": {
+    "width": 240,
+    "height": 320,
+    "colors": 6,
+    "coverage": 6.8,
+    "hash": "a4577c5d"
+  },
+  "tft/240x320/Fixed Transport/playing": {
+    "width": 240,
+    "height": 320,
+    "colors": 6,
+    "coverage": 22.9,
+    "hash": "6613f4f0"
+  },
+  "tft/240x320/Fixed Transport/paused": {
+    "width": 240,
+    "height": 320,
+    "colors": 6,
+    "coverage": 23.18,
+    "hash": "5172d058"
+  },
+  "tft/240x320/Fixed Transport/muted": {
+    "width": 240,
+    "height": 320,
+    "colors": 6,
+    "coverage": 22.9,
+    "hash": "e795ddd8"
+  },
+  "tft/240x320/Fixed Transport/at-rest": {
+    "width": 240,
+    "height": 320,
+    "colors": 5,
+    "coverage": 20.88,
+    "hash": "97e1011d"
+  },
+  "tft/240x320/Show Status/running": {
+    "width": 240,
+    "height": 320,
+    "colors": 3,
+    "coverage": 1.87,
+    "hash": "8384e7ea"
+  },
+  "tft/240x320/Show Status/browsing": {
+    "width": 240,
+    "height": 320,
+    "colors": 4,
+    "coverage": 3.57,
+    "hash": "fd244e34"
+  },
+  "tft/240x320/Show Status/at-rest": {
+    "width": 240,
+    "height": 320,
+    "colors": 2,
+    "coverage": 0.56,
+    "hash": "925b4365"
+  },
+  "tft/240x320/Diagnostics/untouched": {
+    "width": 240,
+    "height": 320,
+    "colors": 8,
+    "coverage": 20.68,
+    "hash": "a2a3a912"
+  },
+  "tft/240x320/Diagnostics/pressed": {
+    "width": 240,
+    "height": 320,
+    "colors": 8,
+    "coverage": 20.67,
+    "hash": "db179630"
+  },
+  "tft/240x320/Diagnostics/at-rest": {
+    "width": 240,
+    "height": 320,
+    "colors": 8,
+    "coverage": 20.71,
+    "hash": "4d83fbfe"
+  },
+  "tft/320x240/Waiting/unwired": {
+    "width": 320,
+    "height": 240,
+    "colors": 3,
+    "coverage": 3.12,
+    "hash": "6354cc2b"
+  },
+  "tft/320x240/Clock/synced": {
+    "width": 320,
+    "height": 240,
+    "colors": 4,
+    "coverage": 1.46,
+    "hash": "70a2a401"
+  },
+  "tft/320x240/Clock/free-running": {
+    "width": 320,
+    "height": 240,
+    "colors": 4,
+    "coverage": 1.63,
+    "hash": "b889ec51"
+  },
+  "tft/320x240/Clock/at-rest": {
+    "width": 320,
+    "height": 240,
+    "colors": 3,
+    "coverage": 0.61,
+    "hash": "428e79b5"
+  },
+  "tft/320x240/Now Playing/playing": {
+    "width": 320,
+    "height": 240,
+    "colors": 2509,
+    "coverage": 24.08,
+    "hash": "4896e57b"
+  },
+  "tft/320x240/Now Playing/paused": {
+    "width": 320,
+    "height": 240,
+    "colors": 2509,
+    "coverage": 24.18,
+    "hash": "bf0e9343"
+  },
+  "tft/320x240/Now Playing/no-artwork": {
+    "width": 320,
+    "height": 240,
+    "colors": 7,
+    "coverage": 12.59,
+    "hash": "d5506163"
+  },
+  "tft/320x240/Now Playing/at-rest": {
+    "width": 320,
+    "height": 240,
+    "colors": 6,
+    "coverage": 9.09,
+    "hash": "7f4c635d"
+  },
+  "tft/320x240/Fixed Transport/playing": {
+    "width": 320,
+    "height": 240,
+    "colors": 6,
+    "coverage": 31.39,
+    "hash": "a223b96f"
+  },
+  "tft/320x240/Fixed Transport/paused": {
+    "width": 320,
+    "height": 240,
+    "colors": 6,
+    "coverage": 31.67,
+    "hash": "fd3b016f"
+  },
+  "tft/320x240/Fixed Transport/muted": {
+    "width": 320,
+    "height": 240,
+    "colors": 6,
+    "coverage": 31.39,
+    "hash": "4975ea27"
+  },
+  "tft/320x240/Fixed Transport/at-rest": {
+    "width": 320,
+    "height": 240,
+    "colors": 5,
+    "coverage": 28.79,
+    "hash": "43b14405"
+  },
+  "tft/320x240/Show Status/running": {
+    "width": 320,
+    "height": 240,
+    "colors": 3,
+    "coverage": 1.87,
+    "hash": "371300aa"
+  },
+  "tft/320x240/Show Status/browsing": {
+    "width": 320,
+    "height": 240,
+    "colors": 4,
+    "coverage": 3.57,
+    "hash": "fd263a74"
+  },
+  "tft/320x240/Show Status/at-rest": {
+    "width": 320,
+    "height": 240,
+    "colors": 2,
+    "coverage": 0.56,
+    "hash": "0aba5865"
+  },
+  "tft/320x240/Diagnostics/untouched": {
+    "width": 320,
+    "height": 240,
+    "colors": 8,
+    "coverage": 21.43,
+    "hash": "13bf8392"
+  },
+  "tft/320x240/Diagnostics/pressed": {
+    "width": 320,
+    "height": 240,
+    "colors": 8,
+    "coverage": 21.42,
+    "hash": "87504ff0"
+  },
+  "tft/320x240/Diagnostics/at-rest": {
+    "width": 320,
+    "height": 240,
+    "colors": 8,
+    "coverage": 21.46,
+    "hash": "2798087e"
+  },
+  "oled/128x64/Waiting/unwired": {
+    "width": 128,
+    "height": 64,
+    "colors": 2,
+    "coverage": 4.63,
+    "hash": "0a56d8aa"
+  },
+  "oled/128x64/Clock/synced": {
+    "width": 128,
+    "height": 64,
+    "colors": 2,
+    "coverage": 3.69,
+    "hash": "1b3da1a7"
+  },
+  "oled/128x64/Clock/free-running": {
+    "width": 128,
+    "height": 64,
+    "colors": 2,
+    "coverage": 4.08,
+    "hash": "fcdbf167"
+  },
+  "oled/128x64/Clock/at-rest": {
+    "width": 128,
+    "height": 64,
+    "colors": 2,
+    "coverage": 2.51,
+    "hash": "12b7057b"
+  },
+  "oled/128x64/Now Playing/playing": {
+    "width": 128,
+    "height": 64,
+    "colors": 2,
+    "coverage": 10.69,
+    "hash": "01bb5ca3"
+  },
+  "oled/128x64/Now Playing/paused": {
+    "width": 128,
+    "height": 64,
+    "colors": 2,
+    "coverage": 10.91,
+    "hash": "2c5da4e5"
+  },
+  "oled/128x64/Now Playing/at-rest": {
+    "width": 128,
+    "height": 64,
+    "colors": 2,
+    "coverage": 5.29,
+    "hash": "7476d1c8"
+  },
+  "oled/128x64/Pattern Browser/playing": {
+    "width": 128,
+    "height": 64,
+    "colors": 2,
+    "coverage": 6.05,
+    "hash": "75072017"
+  },
+  "oled/128x64/Pattern Browser/browsing": {
+    "width": 128,
+    "height": 64,
+    "colors": 2,
+    "coverage": 9.79,
+    "hash": "716e6067"
+  },
+  "oled/128x64/Pattern Browser/no-thumbnail": {
+    "width": 128,
+    "height": 64,
+    "colors": 2,
+    "coverage": 7.84,
+    "hash": "f40e6f87"
+  },
+  "oled/128x64/Pattern Browser/at-rest": {
+    "width": 128,
+    "height": 64,
+    "colors": 2,
+    "coverage": 1.31,
+    "hash": "963cc75e"
+  }
+}
