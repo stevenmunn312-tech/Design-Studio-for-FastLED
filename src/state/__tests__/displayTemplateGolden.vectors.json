@@ -1,0 +1,1462 @@
+{
+  "240x240/now-playing": {
+    "widgets": [
+      {
+        "label": "Title",
+        "type": "Text",
+        "x": 0,
+        "y": 8,
+        "width": 240,
+        "height": 32
+      },
+      {
+        "label": "Artist",
+        "type": "Text",
+        "x": 0,
+        "y": 48,
+        "width": 240,
+        "height": 24
+      },
+      {
+        "label": "Elapsed",
+        "type": "Timecode",
+        "x": 16,
+        "y": 80,
+        "width": 80,
+        "height": 32
+      },
+      {
+        "label": "Remaining",
+        "type": "Timecode",
+        "x": 160,
+        "y": 80,
+        "width": 80,
+        "height": 32
+      },
+      {
+        "label": "Position",
+        "type": "Progress",
+        "x": 0,
+        "y": 128,
+        "width": 240,
+        "height": 16
+      },
+      {
+        "label": "Previous",
+        "type": "Button",
+        "x": 32,
+        "y": 160,
+        "width": 64,
+        "height": 64
+      },
+      {
+        "label": "Play",
+        "type": "Toggle",
+        "x": 128,
+        "y": 160,
+        "width": 64,
+        "height": 64
+      },
+      {
+        "label": "Next",
+        "type": "Button",
+        "x": 176,
+        "y": 160,
+        "width": 64,
+        "height": 64
+      }
+    ],
+    "issues": [
+      "collision: Play overlaps Next."
+    ]
+  },
+  "240x240/minimal-transport": {
+    "widgets": [
+      {
+        "label": "Track",
+        "type": "Text",
+        "x": 0,
+        "y": 16,
+        "width": 240,
+        "height": 32
+      },
+      {
+        "label": "Previous",
+        "type": "Button",
+        "x": 16,
+        "y": 64,
+        "width": 80,
+        "height": 80
+      },
+      {
+        "label": "Play",
+        "type": "Toggle",
+        "x": 120,
+        "y": 64,
+        "width": 80,
+        "height": 80
+      },
+      {
+        "label": "Next",
+        "type": "Button",
+        "x": 160,
+        "y": 64,
+        "width": 80,
+        "height": 80
+      },
+      {
+        "label": "Volume",
+        "type": "Slider",
+        "x": 0,
+        "y": 176,
+        "width": 240,
+        "height": 48
+      }
+    ],
+    "issues": [
+      "collision: Play overlaps Next."
+    ]
+  },
+  "240x240/pattern-deck": {
+    "widgets": [
+      {
+        "label": "Collection",
+        "type": "Pattern Browser",
+        "x": 0,
+        "y": 8,
+        "width": 240,
+        "height": 88
+      },
+      {
+        "label": "Previous",
+        "type": "Button",
+        "x": 16,
+        "y": 104,
+        "width": 64,
+        "height": 64
+      },
+      {
+        "label": "Confirm",
+        "type": "Button",
+        "x": 128,
+        "y": 104,
+        "width": 64,
+        "height": 64
+      },
+      {
+        "label": "Next",
+        "type": "Button",
+        "x": 176,
+        "y": 104,
+        "width": 64,
+        "height": 64
+      },
+      {
+        "label": "Shuffle",
+        "type": "Toggle",
+        "x": 80,
+        "y": 176,
+        "width": 64,
+        "height": 64
+      },
+      {
+        "label": "Auto advance",
+        "type": "Toggle",
+        "x": 176,
+        "y": 176,
+        "width": 64,
+        "height": 64
+      }
+    ],
+    "issues": [
+      "collision: Confirm overlaps Next."
+    ]
+  },
+  "240x240/show-status": {
+    "widgets": [
+      {
+        "label": "Collection",
+        "type": "Pattern Browser",
+        "x": 0,
+        "y": 8,
+        "width": 240,
+        "height": 80
+      },
+      {
+        "label": "Section",
+        "type": "Text",
+        "x": 0,
+        "y": 96,
+        "width": 240,
+        "height": 24
+      },
+      {
+        "label": "Tempo",
+        "type": "Numeric Readout",
+        "x": 16,
+        "y": 128,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Beat",
+        "type": "Status Indicator",
+        "x": 104,
+        "y": 128,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Brightness",
+        "type": "Slider",
+        "x": 16,
+        "y": 168,
+        "width": 208,
+        "height": 48
+      },
+      {
+        "label": "Blackout",
+        "type": "Toggle",
+        "x": 176,
+        "y": 168,
+        "width": 64,
+        "height": 64
+      }
+    ],
+    "issues": [
+      "collision: Tempo overlaps Beat.",
+      "collision: Brightness overlaps Blackout."
+    ]
+  },
+  "240x240/led-performance": {
+    "widgets": [
+      {
+        "label": "Heading",
+        "type": "Text",
+        "x": 0,
+        "y": 8,
+        "width": 240,
+        "height": 24
+      },
+      {
+        "label": "Brightness",
+        "type": "Slider",
+        "x": 0,
+        "y": 40,
+        "width": 240,
+        "height": 48
+      },
+      {
+        "label": "Speed",
+        "type": "Slider",
+        "x": 0,
+        "y": 96,
+        "width": 240,
+        "height": 48
+      },
+      {
+        "label": "Blackout",
+        "type": "Toggle",
+        "x": 80,
+        "y": 152,
+        "width": 48,
+        "height": 48
+      },
+      {
+        "label": "Freeze",
+        "type": "Toggle",
+        "x": 192,
+        "y": 152,
+        "width": 48,
+        "height": 48
+      },
+      {
+        "label": "Frame rate",
+        "type": "Numeric Readout",
+        "x": 16,
+        "y": 208,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Output",
+        "type": "Status Indicator",
+        "x": 104,
+        "y": 208,
+        "width": 136,
+        "height": 24
+      }
+    ],
+    "issues": [
+      "collision: Frame rate overlaps Output."
+    ]
+  },
+  "240x240/audio-reactor": {
+    "widgets": [
+      {
+        "label": "Left level",
+        "type": "Value Meter",
+        "x": 0,
+        "y": 8,
+        "width": 240,
+        "height": 24
+      },
+      {
+        "label": "Right level",
+        "type": "Value Meter",
+        "x": 0,
+        "y": 40,
+        "width": 240,
+        "height": 24
+      },
+      {
+        "label": "Beat",
+        "type": "Status Indicator",
+        "x": 16,
+        "y": 72,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Tempo",
+        "type": "Numeric Readout",
+        "x": 104,
+        "y": 72,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Sensitivity",
+        "type": "Slider",
+        "x": 0,
+        "y": 112,
+        "width": 240,
+        "height": 48
+      },
+      {
+        "label": "Noise gate",
+        "type": "Slider",
+        "x": 0,
+        "y": 168,
+        "width": 240,
+        "height": 48
+      }
+    ],
+    "issues": [
+      "collision: Beat overlaps Tempo."
+    ]
+  },
+  "240x240/diagnostics": {
+    "widgets": [
+      {
+        "label": "Free heap",
+        "type": "Numeric Readout",
+        "x": 16,
+        "y": 8,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Frame rate",
+        "type": "Numeric Readout",
+        "x": 104,
+        "y": 8,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Uptime",
+        "type": "Timecode",
+        "x": 16,
+        "y": 48,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Frames",
+        "type": "Numeric Readout",
+        "x": 104,
+        "y": 48,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Link",
+        "type": "Status Indicator",
+        "x": 16,
+        "y": 88,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Card",
+        "type": "Status Indicator",
+        "x": 104,
+        "y": 88,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Processor load",
+        "type": "Value Meter",
+        "x": 0,
+        "y": 128,
+        "width": 240,
+        "height": 24
+      },
+      {
+        "label": "Temperature",
+        "type": "Value Meter",
+        "x": 0,
+        "y": 160,
+        "width": 240,
+        "height": 24
+      },
+      {
+        "label": "Message",
+        "type": "Text",
+        "x": 0,
+        "y": 192,
+        "width": 240,
+        "height": 40
+      }
+    ],
+    "issues": [
+      "collision: Free heap overlaps Frame rate.",
+      "collision: Uptime overlaps Frames.",
+      "collision: Link overlaps Card."
+    ]
+  },
+  "240x240/dmx-monitor": {
+    "widgets": [
+      {
+        "label": "Universe",
+        "type": "Numeric Readout",
+        "x": 16,
+        "y": 8,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Frame rate",
+        "type": "Numeric Readout",
+        "x": 104,
+        "y": 8,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Signal",
+        "type": "Status Indicator",
+        "x": 16,
+        "y": 48,
+        "width": 136,
+        "height": 40
+      },
+      {
+        "label": "Colour",
+        "type": "Colour Swatch",
+        "x": 104,
+        "y": 48,
+        "width": 136,
+        "height": 40
+      },
+      {
+        "label": "Channel 1",
+        "type": "Value Meter",
+        "x": 0,
+        "y": 96,
+        "width": 240,
+        "height": 24
+      },
+      {
+        "label": "Channel 2",
+        "type": "Value Meter",
+        "x": 0,
+        "y": 128,
+        "width": 240,
+        "height": 24
+      },
+      {
+        "label": "Channel 3",
+        "type": "Value Meter",
+        "x": 0,
+        "y": 160,
+        "width": 240,
+        "height": 24
+      },
+      {
+        "label": "Channel 4",
+        "type": "Value Meter",
+        "x": 0,
+        "y": 192,
+        "width": 240,
+        "height": 24
+      }
+    ],
+    "issues": [
+      "collision: Universe overlaps Frame rate.",
+      "collision: Signal overlaps Colour."
+    ]
+  },
+  "240x320/now-playing": {
+    "widgets": [
+      {
+        "label": "Title",
+        "type": "Text",
+        "x": 16,
+        "y": 8,
+        "width": 208,
+        "height": 32
+      },
+      {
+        "label": "Artist",
+        "type": "Text",
+        "x": 16,
+        "y": 48,
+        "width": 208,
+        "height": 24
+      },
+      {
+        "label": "Elapsed",
+        "type": "Timecode",
+        "x": 16,
+        "y": 80,
+        "width": 80,
+        "height": 32
+      },
+      {
+        "label": "Remaining",
+        "type": "Timecode",
+        "x": 144,
+        "y": 80,
+        "width": 80,
+        "height": 32
+      },
+      {
+        "label": "Position",
+        "type": "Progress",
+        "x": 16,
+        "y": 128,
+        "width": 208,
+        "height": 16
+      },
+      {
+        "label": "Previous",
+        "type": "Button",
+        "x": 8,
+        "y": 160,
+        "width": 64,
+        "height": 64
+      },
+      {
+        "label": "Play",
+        "type": "Toggle",
+        "x": 88,
+        "y": 160,
+        "width": 64,
+        "height": 64
+      },
+      {
+        "label": "Next",
+        "type": "Button",
+        "x": 168,
+        "y": 160,
+        "width": 64,
+        "height": 64
+      }
+    ],
+    "issues": []
+  },
+  "240x320/minimal-transport": {
+    "widgets": [
+      {
+        "label": "Track",
+        "type": "Text",
+        "x": 16,
+        "y": 16,
+        "width": 208,
+        "height": 32
+      },
+      {
+        "label": "Previous",
+        "type": "Button",
+        "x": 16,
+        "y": 72,
+        "width": 64,
+        "height": 64
+      },
+      {
+        "label": "Play",
+        "type": "Toggle",
+        "x": 88,
+        "y": 72,
+        "width": 64,
+        "height": 64
+      },
+      {
+        "label": "Next",
+        "type": "Button",
+        "x": 160,
+        "y": 72,
+        "width": 64,
+        "height": 64
+      },
+      {
+        "label": "Volume",
+        "type": "Slider",
+        "x": 16,
+        "y": 168,
+        "width": 208,
+        "height": 48
+      }
+    ],
+    "issues": []
+  },
+  "240x320/pattern-deck": {
+    "widgets": [
+      {
+        "label": "Collection",
+        "type": "Pattern Browser",
+        "x": 16,
+        "y": 8,
+        "width": 208,
+        "height": 72
+      },
+      {
+        "label": "Previous",
+        "type": "Button",
+        "x": 16,
+        "y": 88,
+        "width": 64,
+        "height": 64
+      },
+      {
+        "label": "Confirm",
+        "type": "Button",
+        "x": 88,
+        "y": 88,
+        "width": 64,
+        "height": 64
+      },
+      {
+        "label": "Next",
+        "type": "Button",
+        "x": 160,
+        "y": 88,
+        "width": 64,
+        "height": 64
+      },
+      {
+        "label": "Shuffle",
+        "type": "Toggle",
+        "x": 48,
+        "y": 176,
+        "width": 64,
+        "height": 64
+      },
+      {
+        "label": "Auto advance",
+        "type": "Toggle",
+        "x": 128,
+        "y": 176,
+        "width": 64,
+        "height": 64
+      }
+    ],
+    "issues": []
+  },
+  "240x320/show-status": {
+    "widgets": [
+      {
+        "label": "Collection",
+        "type": "Pattern Browser",
+        "x": 16,
+        "y": 8,
+        "width": 208,
+        "height": 80
+      },
+      {
+        "label": "Section",
+        "type": "Text",
+        "x": 16,
+        "y": 96,
+        "width": 208,
+        "height": 24
+      },
+      {
+        "label": "Tempo",
+        "type": "Numeric Readout",
+        "x": 16,
+        "y": 128,
+        "width": 96,
+        "height": 32
+      },
+      {
+        "label": "Beat",
+        "type": "Status Indicator",
+        "x": 128,
+        "y": 128,
+        "width": 96,
+        "height": 32
+      },
+      {
+        "label": "Brightness",
+        "type": "Slider",
+        "x": 16,
+        "y": 176,
+        "width": 208,
+        "height": 48
+      },
+      {
+        "label": "Blackout",
+        "type": "Toggle",
+        "x": 88,
+        "y": 240,
+        "width": 64,
+        "height": 64
+      }
+    ],
+    "issues": []
+  },
+  "240x320/led-performance": {
+    "widgets": [
+      {
+        "label": "Heading",
+        "type": "Text",
+        "x": 16,
+        "y": 8,
+        "width": 208,
+        "height": 24
+      },
+      {
+        "label": "Brightness",
+        "type": "Slider",
+        "x": 16,
+        "y": 48,
+        "width": 208,
+        "height": 48
+      },
+      {
+        "label": "Speed",
+        "type": "Slider",
+        "x": 16,
+        "y": 112,
+        "width": 208,
+        "height": 48
+      },
+      {
+        "label": "Blackout",
+        "type": "Toggle",
+        "x": 64,
+        "y": 176,
+        "width": 48,
+        "height": 48
+      },
+      {
+        "label": "Freeze",
+        "type": "Toggle",
+        "x": 128,
+        "y": 176,
+        "width": 48,
+        "height": 48
+      },
+      {
+        "label": "Frame rate",
+        "type": "Numeric Readout",
+        "x": 16,
+        "y": 248,
+        "width": 96,
+        "height": 32
+      },
+      {
+        "label": "Output",
+        "type": "Status Indicator",
+        "x": 128,
+        "y": 248,
+        "width": 96,
+        "height": 24
+      }
+    ],
+    "issues": []
+  },
+  "240x320/audio-reactor": {
+    "widgets": [
+      {
+        "label": "Left level",
+        "type": "Value Meter",
+        "x": 16,
+        "y": 8,
+        "width": 208,
+        "height": 24
+      },
+      {
+        "label": "Right level",
+        "type": "Value Meter",
+        "x": 16,
+        "y": 40,
+        "width": 208,
+        "height": 24
+      },
+      {
+        "label": "Beat",
+        "type": "Status Indicator",
+        "x": 16,
+        "y": 80,
+        "width": 96,
+        "height": 32
+      },
+      {
+        "label": "Tempo",
+        "type": "Numeric Readout",
+        "x": 128,
+        "y": 80,
+        "width": 96,
+        "height": 32
+      },
+      {
+        "label": "Sensitivity",
+        "type": "Slider",
+        "x": 16,
+        "y": 136,
+        "width": 208,
+        "height": 48
+      },
+      {
+        "label": "Noise gate",
+        "type": "Slider",
+        "x": 16,
+        "y": 208,
+        "width": 208,
+        "height": 48
+      }
+    ],
+    "issues": []
+  },
+  "240x320/diagnostics": {
+    "widgets": [
+      {
+        "label": "Free heap",
+        "type": "Numeric Readout",
+        "x": 16,
+        "y": 8,
+        "width": 96,
+        "height": 32
+      },
+      {
+        "label": "Frame rate",
+        "type": "Numeric Readout",
+        "x": 128,
+        "y": 8,
+        "width": 96,
+        "height": 32
+      },
+      {
+        "label": "Uptime",
+        "type": "Timecode",
+        "x": 16,
+        "y": 48,
+        "width": 96,
+        "height": 32
+      },
+      {
+        "label": "Frames",
+        "type": "Numeric Readout",
+        "x": 128,
+        "y": 48,
+        "width": 96,
+        "height": 32
+      },
+      {
+        "label": "Link",
+        "type": "Status Indicator",
+        "x": 16,
+        "y": 96,
+        "width": 96,
+        "height": 32
+      },
+      {
+        "label": "Card",
+        "type": "Status Indicator",
+        "x": 128,
+        "y": 96,
+        "width": 96,
+        "height": 32
+      },
+      {
+        "label": "Processor load",
+        "type": "Value Meter",
+        "x": 16,
+        "y": 144,
+        "width": 208,
+        "height": 24
+      },
+      {
+        "label": "Temperature",
+        "type": "Value Meter",
+        "x": 16,
+        "y": 176,
+        "width": 208,
+        "height": 24
+      },
+      {
+        "label": "Message",
+        "type": "Text",
+        "x": 16,
+        "y": 224,
+        "width": 208,
+        "height": 40
+      }
+    ],
+    "issues": []
+  },
+  "240x320/dmx-monitor": {
+    "widgets": [
+      {
+        "label": "Universe",
+        "type": "Numeric Readout",
+        "x": 16,
+        "y": 8,
+        "width": 96,
+        "height": 32
+      },
+      {
+        "label": "Frame rate",
+        "type": "Numeric Readout",
+        "x": 128,
+        "y": 8,
+        "width": 96,
+        "height": 32
+      },
+      {
+        "label": "Signal",
+        "type": "Status Indicator",
+        "x": 16,
+        "y": 48,
+        "width": 96,
+        "height": 40
+      },
+      {
+        "label": "Colour",
+        "type": "Colour Swatch",
+        "x": 128,
+        "y": 48,
+        "width": 96,
+        "height": 40
+      },
+      {
+        "label": "Channel 1",
+        "type": "Value Meter",
+        "x": 16,
+        "y": 112,
+        "width": 208,
+        "height": 24
+      },
+      {
+        "label": "Channel 2",
+        "type": "Value Meter",
+        "x": 16,
+        "y": 152,
+        "width": 208,
+        "height": 24
+      },
+      {
+        "label": "Channel 3",
+        "type": "Value Meter",
+        "x": 16,
+        "y": 192,
+        "width": 208,
+        "height": 24
+      },
+      {
+        "label": "Channel 4",
+        "type": "Value Meter",
+        "x": 16,
+        "y": 232,
+        "width": 208,
+        "height": 24
+      }
+    ],
+    "issues": []
+  },
+  "320x240/now-playing": {
+    "widgets": [
+      {
+        "label": "Title",
+        "type": "Text",
+        "x": 16,
+        "y": 8,
+        "width": 288,
+        "height": 32
+      },
+      {
+        "label": "Artist",
+        "type": "Text",
+        "x": 16,
+        "y": 48,
+        "width": 288,
+        "height": 24
+      },
+      {
+        "label": "Elapsed",
+        "type": "Timecode",
+        "x": 16,
+        "y": 80,
+        "width": 80,
+        "height": 32
+      },
+      {
+        "label": "Remaining",
+        "type": "Timecode",
+        "x": 224,
+        "y": 80,
+        "width": 80,
+        "height": 32
+      },
+      {
+        "label": "Position",
+        "type": "Progress",
+        "x": 16,
+        "y": 128,
+        "width": 288,
+        "height": 16
+      },
+      {
+        "label": "Previous",
+        "type": "Button",
+        "x": 32,
+        "y": 160,
+        "width": 64,
+        "height": 64
+      },
+      {
+        "label": "Play",
+        "type": "Toggle",
+        "x": 128,
+        "y": 160,
+        "width": 64,
+        "height": 64
+      },
+      {
+        "label": "Next",
+        "type": "Button",
+        "x": 224,
+        "y": 160,
+        "width": 64,
+        "height": 64
+      }
+    ],
+    "issues": []
+  },
+  "320x240/minimal-transport": {
+    "widgets": [
+      {
+        "label": "Track",
+        "type": "Text",
+        "x": 16,
+        "y": 16,
+        "width": 288,
+        "height": 32
+      },
+      {
+        "label": "Previous",
+        "type": "Button",
+        "x": 16,
+        "y": 64,
+        "width": 80,
+        "height": 80
+      },
+      {
+        "label": "Play",
+        "type": "Toggle",
+        "x": 120,
+        "y": 64,
+        "width": 80,
+        "height": 80
+      },
+      {
+        "label": "Next",
+        "type": "Button",
+        "x": 224,
+        "y": 64,
+        "width": 80,
+        "height": 80
+      },
+      {
+        "label": "Volume",
+        "type": "Slider",
+        "x": 16,
+        "y": 176,
+        "width": 288,
+        "height": 48
+      }
+    ],
+    "issues": []
+  },
+  "320x240/pattern-deck": {
+    "widgets": [
+      {
+        "label": "Collection",
+        "type": "Pattern Browser",
+        "x": 16,
+        "y": 8,
+        "width": 288,
+        "height": 88
+      },
+      {
+        "label": "Previous",
+        "type": "Button",
+        "x": 16,
+        "y": 104,
+        "width": 64,
+        "height": 64
+      },
+      {
+        "label": "Confirm",
+        "type": "Button",
+        "x": 128,
+        "y": 104,
+        "width": 64,
+        "height": 64
+      },
+      {
+        "label": "Next",
+        "type": "Button",
+        "x": 240,
+        "y": 104,
+        "width": 64,
+        "height": 64
+      },
+      {
+        "label": "Shuffle",
+        "type": "Toggle",
+        "x": 80,
+        "y": 176,
+        "width": 64,
+        "height": 64
+      },
+      {
+        "label": "Auto advance",
+        "type": "Toggle",
+        "x": 176,
+        "y": 176,
+        "width": 64,
+        "height": 64
+      }
+    ],
+    "issues": []
+  },
+  "320x240/show-status": {
+    "widgets": [
+      {
+        "label": "Collection",
+        "type": "Pattern Browser",
+        "x": 16,
+        "y": 8,
+        "width": 288,
+        "height": 80
+      },
+      {
+        "label": "Section",
+        "type": "Text",
+        "x": 16,
+        "y": 96,
+        "width": 288,
+        "height": 24
+      },
+      {
+        "label": "Tempo",
+        "type": "Numeric Readout",
+        "x": 16,
+        "y": 128,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Beat",
+        "type": "Status Indicator",
+        "x": 168,
+        "y": 128,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Brightness",
+        "type": "Slider",
+        "x": 16,
+        "y": 168,
+        "width": 208,
+        "height": 48
+      },
+      {
+        "label": "Blackout",
+        "type": "Toggle",
+        "x": 240,
+        "y": 168,
+        "width": 64,
+        "height": 64
+      }
+    ],
+    "issues": []
+  },
+  "320x240/led-performance": {
+    "widgets": [
+      {
+        "label": "Heading",
+        "type": "Text",
+        "x": 16,
+        "y": 8,
+        "width": 288,
+        "height": 24
+      },
+      {
+        "label": "Brightness",
+        "type": "Slider",
+        "x": 16,
+        "y": 40,
+        "width": 288,
+        "height": 48
+      },
+      {
+        "label": "Speed",
+        "type": "Slider",
+        "x": 16,
+        "y": 96,
+        "width": 288,
+        "height": 48
+      },
+      {
+        "label": "Blackout",
+        "type": "Toggle",
+        "x": 80,
+        "y": 152,
+        "width": 48,
+        "height": 48
+      },
+      {
+        "label": "Freeze",
+        "type": "Toggle",
+        "x": 192,
+        "y": 152,
+        "width": 48,
+        "height": 48
+      },
+      {
+        "label": "Frame rate",
+        "type": "Numeric Readout",
+        "x": 16,
+        "y": 208,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Output",
+        "type": "Status Indicator",
+        "x": 168,
+        "y": 208,
+        "width": 136,
+        "height": 24
+      }
+    ],
+    "issues": []
+  },
+  "320x240/audio-reactor": {
+    "widgets": [
+      {
+        "label": "Left level",
+        "type": "Value Meter",
+        "x": 16,
+        "y": 8,
+        "width": 288,
+        "height": 24
+      },
+      {
+        "label": "Right level",
+        "type": "Value Meter",
+        "x": 16,
+        "y": 40,
+        "width": 288,
+        "height": 24
+      },
+      {
+        "label": "Beat",
+        "type": "Status Indicator",
+        "x": 16,
+        "y": 72,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Tempo",
+        "type": "Numeric Readout",
+        "x": 168,
+        "y": 72,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Sensitivity",
+        "type": "Slider",
+        "x": 16,
+        "y": 112,
+        "width": 288,
+        "height": 48
+      },
+      {
+        "label": "Noise gate",
+        "type": "Slider",
+        "x": 16,
+        "y": 168,
+        "width": 288,
+        "height": 48
+      }
+    ],
+    "issues": []
+  },
+  "320x240/diagnostics": {
+    "widgets": [
+      {
+        "label": "Free heap",
+        "type": "Numeric Readout",
+        "x": 16,
+        "y": 8,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Frame rate",
+        "type": "Numeric Readout",
+        "x": 168,
+        "y": 8,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Uptime",
+        "type": "Timecode",
+        "x": 16,
+        "y": 48,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Frames",
+        "type": "Numeric Readout",
+        "x": 168,
+        "y": 48,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Link",
+        "type": "Status Indicator",
+        "x": 16,
+        "y": 88,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Card",
+        "type": "Status Indicator",
+        "x": 168,
+        "y": 88,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Processor load",
+        "type": "Value Meter",
+        "x": 16,
+        "y": 128,
+        "width": 288,
+        "height": 24
+      },
+      {
+        "label": "Temperature",
+        "type": "Value Meter",
+        "x": 16,
+        "y": 160,
+        "width": 288,
+        "height": 24
+      },
+      {
+        "label": "Message",
+        "type": "Text",
+        "x": 16,
+        "y": 192,
+        "width": 288,
+        "height": 40
+      }
+    ],
+    "issues": []
+  },
+  "320x240/dmx-monitor": {
+    "widgets": [
+      {
+        "label": "Universe",
+        "type": "Numeric Readout",
+        "x": 16,
+        "y": 8,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Frame rate",
+        "type": "Numeric Readout",
+        "x": 168,
+        "y": 8,
+        "width": 136,
+        "height": 32
+      },
+      {
+        "label": "Signal",
+        "type": "Status Indicator",
+        "x": 16,
+        "y": 48,
+        "width": 136,
+        "height": 40
+      },
+      {
+        "label": "Colour",
+        "type": "Colour Swatch",
+        "x": 168,
+        "y": 48,
+        "width": 136,
+        "height": 40
+      },
+      {
+        "label": "Channel 1",
+        "type": "Value Meter",
+        "x": 16,
+        "y": 96,
+        "width": 288,
+        "height": 24
+      },
+      {
+        "label": "Channel 2",
+        "type": "Value Meter",
+        "x": 16,
+        "y": 128,
+        "width": 288,
+        "height": 24
+      },
+      {
+        "label": "Channel 3",
+        "type": "Value Meter",
+        "x": 16,
+        "y": 160,
+        "width": 288,
+        "height": 24
+      },
+      {
+        "label": "Channel 4",
+        "type": "Value Meter",
+        "x": 16,
+        "y": 192,
+        "width": 288,
+        "height": 24
+      }
+    ],
+    "issues": []
+  }
+}
