@@ -45,6 +45,10 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
   const openDisplayWorkspace = useUiStore((state) => state.openDisplayWorkspace)
   const setStatus = useUiStore((state) => state.setStatus)
   const live = usePreviewStore((state) => state.outputs.get(nodeId)?.surface)
+  const lit = usePreviewStore((state) => state.outputs.get(nodeId)?.lit)
+  // Enabled is resolved by the evaluator, including a wire overriding the
+  // property. Before the first published frame, use the panel's saved setting.
+  const panelEnabled = typeof lit === 'boolean' ? lit : props?.enabled !== false
   const surface = customDisplayWired ? null : (isTftSurface(live) ? live : null)
   const setTouch = useTransportDisplayTouchStore((state) => state.setTouch)
   const releaseTouch = useTransportDisplayTouchStore((state) => state.releaseTouch)
@@ -91,7 +95,7 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
 
   const updateTouch = useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current
-    if (!canvas || !touchCapable) return
+    if (!canvas || !touchCapable || !panelEnabled) return
     const rect = canvas.getBoundingClientRect()
     if (rect.width <= 0 || rect.height <= 0) return
     setTouch(nodeId, {
@@ -99,7 +103,11 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
       x: Math.max(0, Math.min(width - 1, Math.floor((clientX - rect.left) * width / rect.width))),
       y: Math.max(0, Math.min(height - 1, Math.floor((clientY - rect.top) * height / rect.height))),
     })
-  }, [height, nodeId, setTouch, touchCapable, width])
+  }, [height, nodeId, panelEnabled, setTouch, touchCapable, width])
+
+  useEffect(() => {
+    if (!panelEnabled) releaseTouch(nodeId)
+  }, [nodeId, panelEnabled, releaseTouch])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -137,9 +145,9 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
               height: customDocument.designSize.height * scale,
             }}
             role="img"
-            aria-label={`Live custom display preview, ${customDocument.designSize.width} by ${customDocument.designSize.height} pixels`}
+            aria-label={`${panelEnabled ? 'Live' : 'Disabled'} custom display preview, ${customDocument.designSize.width} by ${customDocument.designSize.height} pixels`}
           >
-            <div
+            {panelEnabled && <div
               className={styles.customSurface}
               style={{
                 ...displayBackgroundStyle(resolveDisplayThemeTokens(customDocument.theme).background),
@@ -176,7 +184,7 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
                   )
                 }}
               </DisplayRuntimeWidgets>
-            </div>
+            </div>}
           </div>
           {designAction}
         </div>
@@ -203,7 +211,7 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
         role="img"
         aria-label={`Transport display preview, ${width} by ${height} pixels`}
         onPointerDown={(event) => {
-          if (!touchCapable) return
+          if (!touchCapable || !panelEnabled) return
           event.currentTarget.setPointerCapture(event.pointerId)
           updateTouch(event.clientX, event.clientY)
         }}

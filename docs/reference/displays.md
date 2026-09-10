@@ -4,7 +4,7 @@ Physical displays are root-level Hardware parts. **Screen Design** is a
 separate screen document with widget ports; it has no GPIO. Connect it to the
 Screen Design input on a physical **Display Panel**. The
 [workbench guide](../user/hardware-workbench.md#add-and-connect-a-display) describes
-the current flow. In-app Help still needs the same post-split refresh (HW-08).
+the current flow; in-app Help describes the same panel/document wiring.
 
 ## Choose the exact module
 
@@ -71,23 +71,38 @@ fixed Controls output does not replace those widget ports.
 
 The normal generator can render a clock. Show/player templates only read their
 own supported source kinds, so an arbitrary RTC wire there remains unresolved.
-Slideshow control routing and TFT-only Show Status currently need fixes; see
-[known integration gaps](#known-integration-gaps).
+
+### Diagnostics and touch bounds
+
+On the panel's graph node, choose **Diagnostics** in the layout menu for a
+self-test. Disconnect a **Screen Design** wire first: a mounted document owns
+the screen. The fixed **Display** source wire can stay connected. Diagnostics
+shows mapped touch coordinates on XPT2046 modules and identifies a non-touch
+panel as such. Choose the previous layout and reconnect the document to return
+to your content. Upload the changed design to run the check on the device.
+
+The panel also exposes **Touch X Min/Max** and **Touch Y Min/Max** for touch
+modules. These are raw 0–4095 bounds; use measurements from the exact module,
+then save the project and upload again. The defaults are provisional.
+Diagnostics shows mapped pixels, not raw samples, and browser touches cannot
+calibrate the physical controller. Guided calibration remains HW-11 work.
 
 ## Screen Design
 
-Add the document separately and connect it to a physical TFT panel. Click
-**Edit screen design** on the document. Design adds/resizes widgets or inserts ordinary
+Click **Create screen design** on a physical TFT panel to create, size, connect
+and open its document. A separately added document cannot be edited until it
+is connected to a panel. **Edit screen design** reopens it. Design adds/resizes widgets or inserts ordinary
 widget templates; labels such as Now Playing and DMX Monitor do not supply data
 or automatically wire actions. Module, pins and mounted rotation belong to the
-panel. Use one document per physical panel until shared-instance behavior is fixed.
+panel. Use one document per physical panel; shared documents are refused.
 
 Return with **Graph** to wire widget roles. Renaming/moving widgets retains
 connections; copying creates new identities; deleting a wired widget prompts
 before removing its edges. Layouts participate in save and undo; transient
 touch state does not. Run exercises local controls and Design locks them for
-editing. Run is not device telemetry and does not yet redraw passive graph-fed
-readouts. Changing mode resets local control state.
+editing. Run redraws passive graph-fed readouts as values are published, as does
+the panel thumbnail. Run is not device telemetry. Changing mode resets local
+control state. A disabled panel's thumbnail is dark; editing remains available.
 
 ### Widget ports
 
@@ -151,9 +166,8 @@ dedicated touch-safe portrait and landscape compositions when the panel
 orientation changes.
 Use the editor’s **Portrait** and **Landscape** controls to match the panel’s
 mounted rotation. The switch reflows the saved layout, keeps square themed
-touch targets square, selects the matching background artwork, but currently writes rotation to the document instead of its physical panel.
-Set the connected panel’s rotation explicitly too; automatic synchronization
-is an open implementation fix (HW-02).
+touch targets square, selects the matching background artwork, rotates the
+connected panel and sizes the document from its mounted glass.
 
 ### Firmware scope and troubleshooting
 
@@ -183,11 +197,12 @@ evaluate every wire connected to it.
 
 ### Known integration gaps
 
-The 2026-09-08 review found ignored slideshow pattern controls, a missing cursor
-in TFT-only Show Status firmware, orientation/Enabled ownership gaps, unsupported
-document fan-out, incorrect custom-screen RAM estimates, and incomplete live
-readout preview. The old compile script still uses the pre-split model. See
-[the evidence and repair order](../development/reports/hardware-branch-review.md).
+The software repairs from the 2026-09-08 review are implemented: slideshow
+controls and TFT-only Show Status share selection state, mounted panels own
+geometry and Enabled, shared/unmounted documents have explicit build rules,
+RAM estimates use the mount plan, and Run readouts repaint. The compile fixtures
+now use the panel/document model. Fresh compile runs and physical validation
+remain separate gates; see [the active checklist](../../todo.md).
 
 The [compile record](../development/display-compile-checks.md) preserves historical
 normal/show/player builds through both toolchains; it is not a fresh validation

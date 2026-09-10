@@ -194,12 +194,18 @@ widget outputs instead. Fixed Show Status and Clock screens have no touch action
    it does not verify physical touch calibration or on-device draw rate.
 6. Resolve Graph Health and resource issues, measure capacity, then upload.
 
-The Hardware branch is still completing this integration. Slideshow physical
-pattern selection, TFT-only Show Status, custom-panel Disabled in normal
-firmware, and shared-document builds have known defects. See the
-[review findings](../development/reports/hardware-branch-review.md) before relying
-on those paths; HW-01–06 track their repair. Existing compile records do not
-certify the newly split panel/document workflow.
+For a panel self-test, disconnect its Screen Design wire and choose
+**Diagnostics** in the panel's layout menu. The fixed Display wire can stay.
+Upload to check the physical panel and mapped XPT2046 touch coordinates; choose
+the previous layout and reconnect the document to restore content. Touch X/Y
+Min/Max properties take measured raw bounds for that exact module. Save and
+upload after changing them. Defaults are provisional, Diagnostics is not a raw
+sample collector, and the guided calibration wizard remains unimplemented.
+
+The panel/document software repairs are implemented; shared documents are
+refused, so use one per panel. Fresh compile runs and mounted-document bench
+checks remain open in [HW-02/03/06](../../todo.md). Historical compile records
+do not certify the current panel/document workflow.
 
 Readout widgets receive values. Buttons publish boolean outputs. Toggles,
 sliders, and dials also have an optional **Set** input: touch owns a control

@@ -4,7 +4,7 @@ import { boardProfileById } from '../../build/boardProfiles'
 import { findPinConflicts } from '../../utils/validateGraph'
 import type { StudioNode } from '../graphStore'
 import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType } from '../hardware'
-import { NODE_LIBRARY, isPropertyEnabled, libraryDefaults } from '../nodeLibrary'
+import { NODE_LIBRARY, isPropertyEnabled, libraryDefaults, propertyMeta } from '../nodeLibrary'
 import { PART_FIELDS } from '../partFields'
 import { partOptionsFor } from '../partOptions'
 import { retargetHardwarePins } from '../pinRetarget'
@@ -81,6 +81,13 @@ describe('TransportDisplay registration', () => {
 
   it('offers only the two module profiles in scope', () => {
     expect(partOptionsFor('TransportDisplay').map((option) => option.id)).toEqual([PLAIN, TOUCH])
+  })
+
+  it('makes the source-independent Diagnostics screen selectable', () => {
+    const meta = propertyMeta('TransportDisplay', 'tftLayout')
+    expect(meta?.control).toBe('select')
+    if (meta?.control !== 'select') throw new Error('Panel layout must be selectable')
+    expect(meta.options).toContain('Diagnostics')
   })
 
   it('makes every physical pin reachable from the hardware editor', () => {

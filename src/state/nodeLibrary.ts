@@ -3762,7 +3762,7 @@ const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
 // `rate` is a 0–1 emission rate for Particles but a degrees/sec spin for Transform.
 export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
   TransportDisplay: {
-    tftLayout: { control: 'select', options: ['Now Playing', 'Fixed Transport', 'Show Status'] },
+    tftLayout: { control: 'select', options: ['Now Playing', 'Fixed Transport', 'Show Status', 'Diagnostics'] },
     tftRotation: { control: 'select', options: ['0', '90', '180', '270'] },
     touchXMin: { control: 'slider', min: 0, max: 4095, step: 1 },
     touchXMax: { control: 'slider', min: 0, max: 4095, step: 1 },
@@ -4383,6 +4383,13 @@ export const FORMULA_LANG_HELP = 'Variables: x, y, t, cx, cy, r, angle, W, H, a,
 
 /** Per-node overrides for property names whose meaning collides across nodes. */
 export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, string>> = {
+  TransportDisplay: {
+    tftLayout: 'Presentation for the connected Display source. Diagnostics shows a panel self-test and mapped touch coordinates; disconnect Screen Design to use it. Select the previous presentation to return to your content.',
+    touchXMin: 'Measured raw X minimum for this touch module (0–4095). Defaults are provisional; the guided calibration wizard is not available yet.',
+    touchXMax: 'Measured raw X maximum for this touch module (0–4095). Save the project and upload again after changing calibration bounds.',
+    touchYMin: 'Measured raw Y minimum for this touch module (0–4095). Diagnostics reports mapped screen pixels, not raw calibration samples.',
+    touchYMax: 'Measured raw Y maximum for this touch module (0–4095). Browser touches simulate screen pixels and cannot calibrate the physical controller.',
+  },
   StereoVuMeter: {
     targetOutputId: 'The LED matrix or HUB75 panel these rails visually flank. Empty keeps the fixture standalone.',
     leftDirection: 'Where the left string data enters. The renderer keeps visual left on screen-left and reverses physical LED order as needed.',

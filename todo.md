@@ -219,10 +219,28 @@ matrix, not a reason to postpone testing earlier changes.
   workbench guide a section on wiring a knob or button to something, and the
   README's gallery list had fallen behind by three starters.
 
-  **Remaining:** the visual/snapshot pass (fixed layouts, widget states, launch
-  themes and templates at supported sizes and orientations, including
-  pressed/disabled) and exposing diagnostics/calibration. Those are QA and UI
-  surface rather than model work.
+  **Diagnostics and help refreshed.** The existing panel Diagnostics self-test
+  is now selectable in the layout menu; it had preview and firmware support
+  but no menu option. Property help explains raw touch bounds, mapped diagnostic
+  coordinates, and the need to disconnect a mounted Screen Design before using
+  the fixed self-test. In-app display Help and both guides now describe the
+  panel/document split, one Display envelope, Song Info unpacking, panel-owned
+  orientation and live Run readouts. Node cards regenerated without changes.
+
+  The disabled-state check also found a custom-panel thumbnail that ignored the
+  panel's Enabled signal. It now follows the evaluator's published state, paints
+  dark while disabled and restores current widget readings when re-enabled;
+  fixed-panel browser touches release on disable and cannot start while off.
+  Regression coverage includes initially disabled documents and a live Enabled
+  wire overriding the saved property in both directions.
+  `npm test` (4,636 passed, 13 skipped), `npm run lint`, `tsc -b` and
+  `git diff --check` pass.
+
+  **Remaining:** the full visual/snapshot pass (fixed layouts, widget states,
+  launch themes and templates at supported sizes and orientations, including
+  pressed/disabled). Raw calibration properties are exposed and explained;
+  guided calibration and measured bounds remain HW-11 work. No new physical
+  validation is claimed by these software checks.
 - [x] **HW-09 · Collection freshness/music completeness (M).** Both open
   questions from [collection-driven
   performance](docs/development/design/collection-driven-performance.md#open-questions)

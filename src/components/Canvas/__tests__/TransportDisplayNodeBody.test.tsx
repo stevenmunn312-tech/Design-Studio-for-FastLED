@@ -93,6 +93,13 @@ describe('TransportDisplayNodeBody', () => {
     expect(useTransportDisplayTouchStore.getState().touches.get('tft')).toEqual({
       pressed: true, x: 120, y: 160,
     })
+    act(() => usePreviewStore.getState().setOutputs(new Map([['tft', { lit: false }]])))
+    expect(useTransportDisplayTouchStore.getState().touches.get('tft')?.pressed).toBe(false)
+    fireEvent.pointerDown(canvas, { pointerId: 2, clientX: 70, clientY: 100 })
+    expect(useTransportDisplayTouchStore.getState().touches.get('tft')?.pressed).toBe(false)
+    act(() => usePreviewStore.getState().setOutputs(new Map([['tft', { lit: true }]])))
+    fireEvent.pointerDown(canvas, { pointerId: 3, clientX: 70, clientY: 100 })
+    expect(useTransportDisplayTouchStore.getState().touches.get('tft')?.pressed).toBe(true)
     fireEvent.pointerUp(canvas, { pointerId: 1 })
     expect(useTransportDisplayTouchStore.getState().touches.get('tft')?.pressed).toBe(false)
   })
@@ -108,7 +115,7 @@ describe('TransportDisplayNodeBody', () => {
     expect(screen.queryByRole('img', { name: /Transport display preview/ })).toBeNull()
   })
 
-  it('renders a wired custom document and follows its live graph values', () => {
+  it.each([true, false])('renders a wired custom document with saved Enabled=%s and follows live values', (enabled) => {
     const sourceDef = NODE_LIBRARY.find((entry) => entry.type === 'Display')!
     const source = {
       id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
@@ -120,19 +127,36 @@ describe('TransportDisplayNodeBody', () => {
     } as unknown as StudioNode
     const document = addDisplayWidget(createDisplayDocument('panel', 320, 240), 'Text')
     useGraphStore.setState({
-      nodes: [source, display({ partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90' })],
+      nodes: [source, display({ partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90', enabled })],
       edges: [{ id: 'link', source: 'screen', sourceHandle: 'customDisplay', target: 'tft', targetHandle: 'customDisplay' }],
       displayDocuments: { panel: document },
       activeGraphId: ROOT_GRAPH_ID,
     } as never)
 
     render(<TransportDisplayNodeBody nodeId="tft" />)
+    expect(screen.getByRole('img', { name: `${enabled ? 'Live' : 'Disabled'} custom display preview, 320 by 240 pixels` })).toBeTruthy()
+    if (!enabled) expect(screen.queryByText('Text')).toBeNull()
+    // A live wire can light a panel whose saved property is false.
+    act(() => usePreviewStore.getState().setOutputs(new Map([['tft', { lit: true }]])))
     expect(screen.getByRole('img', { name: 'Live custom display preview, 320 by 240 pixels' })).toBeTruthy()
     expect(screen.getByText('Text')).toBeTruthy()
 
     act(() => useDisplayRuntimeStore.getState().publishDisplayRoleValue('panel', 'text', 'value', 'MIDNIGHT DRIVE'))
     expect(screen.getByText('MIDNIGHT DRIVE')).toBeTruthy()
     expect(screen.queryByRole('img', { name: /Transport display preview/ })).toBeNull()
+
+    // A wired Enabled value is published on the physical panel, separately
+    // from the document's live roles. Off must hide the whole themed surface.
+    act(() => usePreviewStore.getState().setOutputs(new Map([['tft', { lit: false }]])))
+    const dark = screen.getByRole('img', { name: 'Disabled custom display preview, 320 by 240 pixels' })
+    expect(dark.childElementCount).toBe(0)
+    expect(screen.queryByText('MIDNIGHT DRIVE')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Edit screen design' }).hasAttribute('disabled')).toBe(false)
+
+    act(() => useDisplayRuntimeStore.getState().publishDisplayRoleValue('panel', 'text', 'value', 'NEXT TRACK'))
+    act(() => usePreviewStore.getState().setOutputs(new Map([['tft', { lit: true }]])))
+    expect(screen.getByRole('img', { name: 'Live custom display preview, 320 by 240 pixels' })).toBeTruthy()
+    expect(screen.getByText('NEXT TRACK')).toBeTruthy()
   })
 
   it('creates a screen design already sized to the panel it is made from', () => {
