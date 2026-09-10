@@ -6818,7 +6818,7 @@ export function generateCpp(
     : hw
   lines.push(...overclockDefineCpp(overclockHw))
   if (audio) lines.push(...audio.preInclude)
-  lines.push(`#include <FastLED.h>`)
+  lines.push(FASTLED_INCLUDE)
   if (isHub75) lines.push(...hub75IncludesCpp(hub75Hw!))
   if (needsWireHeader) lines.push(`#include <Wire.h>`)
   // The colour panel is driven through the Arduino SPI library rather than
@@ -7272,8 +7272,38 @@ export function generateCpp(
   // Bounded by its own wall-clock gate, so a fast LED loop cannot over-service
   // it and a slow one still redraws promptly.
   if (customDisplays.length > 0) lines.push(customDisplayLvglTimingLoopCpp())
-  lines.push(`  FastLED.delay(16);  // ~60 fps`)
+  lines.push(FASTLED_PACING)
   lines.push(`}`)
 
-  return lines.join('\n')
+  return withoutUnusedFastLed(lines).join('\n')
+}
+
+const FASTLED_PACING = '  FastLED.delay(16);  // ~60 fps'
+const FASTLED_INCLUDE = '#include <FastLED.h>'
+
+/**
+ * Leave FastLED out of a sketch that never draws an LED.
+ *
+ * A screen-only build - a panel and a screen design, no LED output anywhere
+ * - used to reach for FastLED twice: the include, and `FastLED.delay` to
+ * pace the loop. The call is replaceable by a plain `delay`, and the include
+ * is the expensive half, because arduino-cli compiles every source file in a
+ * library folder whether the sketch uses it or not.
+ *
+ * Decided from what was actually emitted rather than from a list of features
+ * that imply FastLED, so a node added later that draws pixels keeps the
+ * include without anyone remembering to say so. Deliberately conservative:
+ * anything that so much as looks like FastLED keeps it, because being wrong
+ * that way costs a compile we already pay for today, while being wrong the
+ * other way breaks the build.
+ */
+function withoutUnusedFastLed(lines: string[]): string[] {
+  const uses = /\b(FastLED|CRGB|CHSV|CLEDController|CPixelView|fill_solid|fill_rainbow|fill_gradient\w*|nscale8\w*|blend8|beatsin\d*|inoise\d*|EVERY_N_\w+|qadd8|qsub8|scale8\w*)\b/
+  const needed = lines.some((line) => (
+    line !== FASTLED_PACING && line !== FASTLED_INCLUDE && uses.test(line)
+  ))
+  if (needed) return lines
+  return lines
+    .filter((line) => line !== FASTLED_INCLUDE)
+    .map((line) => (line === FASTLED_PACING ? '  delay(16);  // ~60 fps' : line))
 }
