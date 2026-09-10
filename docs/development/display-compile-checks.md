@@ -1,11 +1,14 @@
 # Display firmware compile checks
 
-> **Current-fixture limitation (2026-09-08):** results below describe the earlier
-> graph model. `scripts/generate-display-smoke.ts` still puts hardware properties
-> on Display, omits the custom-panel edge and uses removed field ports. Repair
-> it and rerun these commands before using them as evidence for the current
-> panel/document split. See [review F9](reports/hardware-branch-review.md#f9--p2--compile-fixtures-still-use-the-removed-graph-shape)
-> and root todo HW-06. Historical results and toolchain notes are retained.
+> **Partial coverage of the current model (2026-09-10).** The generator has been
+> repaired: `scripts/generate-display-smoke.ts` now builds on the panel/document
+> split — a `Display` node, a `TransportDisplay` panel and a `customDisplay` mount
+> edge between them — and the removed field ports are gone. Three of the ten
+> fixtures have been rerun against it on both engines and are recorded below.
+> **The other seven have not**, and the figures for them are from the earlier
+> graph model, so they are not current proof. See root todo HW-06 for the
+> remaining runs and [review F9](reports/hardware-branch-review.md#f9--p2--compile-fixtures-still-use-the-removed-graph-shape)
+> for how the fixtures came to be wrong.
 
 
 These fixtures exercise custom LVGL displays alongside the fixed TFT transport
@@ -138,8 +141,48 @@ static RAM report measures runtime heap or PSRAM use.
 Sizes below use the compilers' final byte summaries. The helper JSON can round
 fbuild sizes because it also accepts that engine's KB/MB display format.
 
+### Current model, 2026-09-10
+
+The three generator paths, rebuilt against the repaired fixtures. Arduino CLI
+1.5.1 (ESP32 core 3.3.11, FastLED 3.10.5, LVGL 9.5.0) and fbuild 2.5.22, both on
+`esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB`.
+The source hash is the generated `.ino`, so a figure can be tied to the exact
+sketch that produced it.
+
+| Fixture | Source SHA-256 | Engine | Result | Flash bytes | Static RAM bytes |
+| --- | --- | --- | --- | ---: | ---: |
+| Normal | `a024c5c4dada` | Arduino CLI | Passed | 632,799 (20%) | 105,644 (32%) |
+| Normal | `a024c5c4dada` | fbuild | Passed | 957,450 (6%) | 161,229 (49%) |
+| Generative show | `4362cdafefae` | Arduino CLI | Passed | 636,935 (20%) | 106,020 (32%) |
+| Generative show | `4362cdafefae` | fbuild | Passed | 962,734 (6%) | 161,833 (49%) |
+| SD player | `b8f1d7d68663` | Arduino CLI | Passed | 1,313,847 (41%) | 121,892 (37%) |
+| SD player | `b8f1d7d68663` | fbuild | Passed | 1,635,779 (10%) | 176,712 (54%) |
+
+These are the first runs to exercise `lv_obj_set_style_text_line_space`, which the
+LVGL emitter began emitting the same day; each fixture carries three of them.
+
+The percentages are not comparable across engines and are given only to save a
+reader the division: Arduino CLI measures flash against the 3 MB application
+partition, this fbuild environment against the full 16 MB. The static RAM figures
+differ between engines for the same sketch — 105,644 against 161,229 bytes on the
+normal fixture — because the two link different framework builds and count
+different sections, not because either is wrong; fbuild's old impossible-RAM
+defect was fixed in 2.5.17 and its guard removed. Compare an engine against
+itself over time, never one against the other.
+
+Two of the six needed the Windows LVGL archive recovery
+([issue 12](reports/fbuild-workarounds.md)) and so took minutes rather than
+seconds; that is a build-time artefact and does not affect the sizes.
+
+### Earlier graph model — superseded, retained for comparison
+
+Not current proof: these were built before the panel/document split, from the
+fixture shape [review F9](reports/hardware-branch-review.md#f9--p2--compile-fixtures-still-use-the-removed-graph-shape)
+describes. The seven fixtures not listed in the table above have no newer figures
+at all.
+
 | Fixture | Engine | Result | Flash bytes | Static RAM bytes |
-| --- | --- | --- | ---: | ---: |
+| --- | --- | --- | --- | ---: |
 | Normal | Arduino CLI | Passed | 631,471 | 105,276 |
 | Normal | fbuild | Passed | 956,128 | 160,860 |
 | Generative show | Arduino CLI | Passed | 636,367 | 105,380 |
