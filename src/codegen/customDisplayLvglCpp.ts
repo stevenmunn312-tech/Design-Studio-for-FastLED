@@ -115,6 +115,22 @@ function alignCpp(align: 'left' | 'center' | 'right'): string {
   return 'LV_TEXT_ALIGN_LEFT'
 }
 
+/**
+ * Every `bg_color` needs a `bg_opa` beside it.
+ *
+ * The generated `lv_conf.h` sets `LV_USE_THEME_DEFAULT 0` to keep the theme's
+ * styles out of flash, and the theme is what normally makes an object's
+ * background opaque. LVGL's own class default for `bg_opa` is transparent, so
+ * a colour set without one is painted at zero alpha and the display's
+ * background — white — shows through instead. On a dark screen design that
+ * reads as an inverted panel: white behind near-white text, with only the
+ * borders visible. It cost a bench session to find, because the fixed OLED
+ * and TFT layouts never touch LVGL and looked perfectly correct beside it.
+ *
+ * `customDisplayLvglBackgrounds.test.ts` holds the pairing over the emitted
+ * sketch rather than over this function, so a colour added anywhere — a new
+ * widget part, a new state — is caught even if it never comes through here.
+ */
 function styleLines(
   target: string,
   tokens: DisplayWidgetStateTokens,
@@ -122,6 +138,8 @@ function styleLines(
 ): string[] {
   return [
     `  lv_obj_set_style_bg_color(${target}, lv_color_hex(${colorHex(tokens.surfaceColor)}), ${selector});`,
+    // Opacity beside the colour — see the note above `styleLines`.
+    `  lv_obj_set_style_bg_opa(${target}, LV_OPA_COVER, ${selector});`,
     `  lv_obj_set_style_text_color(${target}, lv_color_hex(${colorHex(tokens.textColor)}), ${selector});`,
     `  lv_obj_set_style_border_color(${target}, lv_color_hex(${colorHex(tokens.borderColor)}), ${selector});`,
     `  lv_obj_set_style_opa(${target}, ${opacity(tokens.opacity)}, ${selector});`,
@@ -204,12 +222,15 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: DisplayWidget, in
       lines.push(`  lv_bar_set_orientation(${obj}, LV_BAR_ORIENTATION_VERTICAL);`)
     }
     lines.push(`  lv_obj_set_style_bg_color(${obj}, lv_color_hex(${colorHex(base.indicatorColor)}), LV_PART_INDICATOR);`)
+    lines.push(`  lv_obj_set_style_bg_opa(${obj}, LV_OPA_COVER, LV_PART_INDICATOR);`)
   }
 
   if (widget.type === 'Toggle' || widget.type === 'Slider' || widget.type === 'Dial') {
     lines.push(`  lv_obj_set_style_bg_color(${obj}, lv_color_hex(${colorHex(base.trackColor)}), LV_PART_MAIN);`)
     lines.push(`  lv_obj_set_style_bg_color(${obj}, lv_color_hex(${colorHex(base.indicatorColor)}), LV_PART_INDICATOR);`)
     lines.push(`  lv_obj_set_style_bg_color(${obj}, lv_color_hex(${colorHex(base.thumbColor)}), LV_PART_KNOB);`)
+    lines.push(`  lv_obj_set_style_bg_opa(${obj}, LV_OPA_COVER, LV_PART_INDICATOR);`)
+    lines.push(`  lv_obj_set_style_bg_opa(${obj}, LV_OPA_COVER, LV_PART_KNOB);`)
     lines.push(`  lv_obj_set_style_bg_color(${obj}, lv_color_hex(${colorHex(theme.states.active.indicatorColor)}), LV_PART_INDICATOR | LV_STATE_CHECKED);`)
     lines.push(`  lv_obj_set_style_bg_color(${obj}, lv_color_hex(${colorHex(theme.states.pressed.thumbColor)}), LV_PART_KNOB | LV_STATE_PRESSED);`)
   }
@@ -498,6 +519,7 @@ export function customDisplayLvglSetupCpp(emit: CustomDisplayLvglEmit): string[]
     `  lv_obj_set_style_pad_all(_cdScreen_${id}, 0, LV_PART_MAIN);`,
     `  lv_obj_set_style_border_width(_cdScreen_${id}, 0, LV_PART_MAIN);`,
     `  lv_obj_set_style_bg_color(_cdScreen_${id}, lv_color_hex(${colorHex(background)}), LV_PART_MAIN);`,
+    `  lv_obj_set_style_bg_opa(_cdScreen_${id}, LV_OPA_COVER, LV_PART_MAIN);`,
   ]
   if (theme.background.kind === 'gradient') {
     lines.push(`  lv_obj_set_style_bg_grad_color(_cdScreen_${id}, lv_color_hex(${colorHex(theme.background.endColor)}), LV_PART_MAIN);`)
