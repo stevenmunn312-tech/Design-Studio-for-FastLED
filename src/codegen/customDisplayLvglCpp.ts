@@ -186,6 +186,11 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: DisplayWidget, in
       `  lv_obj_set_style_text_font(${obj}, &lv_font_montserrat_${customDisplayFontSize(text.fontSize)}, LV_PART_MAIN);`,
       `  lv_obj_set_style_text_align(${obj}, ${alignCpp(text.align)}, LV_PART_MAIN);`,
       `  lv_label_set_long_mode(${obj}, ${text.wrap ? 'LV_LABEL_LONG_MODE_WRAP' : 'LV_LABEL_LONG_MODE_DOTS'});`,
+      // The gap between wrapped rows, so the glass breaks its lines where the
+      // preview does. LVGL measures the space *between* lines while the
+      // tokens carry the pitch, and the Montserrat faces are close enough to
+      // their nominal size that the difference is the pitch less the size.
+      `  lv_obj_set_style_text_line_space(${obj}, ${Math.max(0, text.lineHeight - text.fontSize)}, LV_PART_MAIN);`,
     )
     if (widget.type === 'Text') {
       const authoredColor = stringProperty(widget, 'color', base.textColor)

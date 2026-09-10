@@ -7,12 +7,16 @@ import {
   resolveDisplayThemeTokens,
 } from '../displayTheme'
 
-function widget(type: DisplayWidget['type'], properties: DisplayWidget['properties'] = {}): DisplayWidget {
+function widget(
+  type: DisplayWidget['type'],
+  properties: DisplayWidget['properties'] = {},
+  height = 48,
+): DisplayWidget {
   return {
     id: type.toLowerCase().replaceAll(' ', '-'),
     type,
     label: type,
-    bounds: { x: 0, y: 0, width: 100, height: 48 },
+    bounds: { x: 0, y: 0, width: 100, height },
     properties,
   }
 }
@@ -75,11 +79,36 @@ describe('display theme tokens', () => {
 
     expect(displayWidgetTextTokens(widget('Text', {
       align: 'center', fontSize: 22, wrap: true, maxLines: 3,
-    }), DEFAULT_DISPLAY_THEME)).toEqual({
-      align: 'center', font: 'sans', fontSize: 22, wrap: true, maxLines: 3, overflow: 'ellipsis',
+    }, 120), DEFAULT_DISPLAY_THEME)).toEqual({
+      align: 'center', font: 'sans', fontSize: 22, lineHeight: 28,
+      wrap: true, maxLines: 3, overflow: 'ellipsis',
     })
     expect(displayWidgetTextTokens(widget('Numeric Readout'), DEFAULT_DISPLAY_THEME)).toMatchObject({
       font: 'mono', wrap: false, maxLines: 1,
     })
+  })
+
+  it('never budgets more lines than the widget is tall enough to show', () => {
+    // The authored ceiling is what the author wants; this is what the glass
+    // can hold. A widget rendering the extra line anyway spills outside its
+    // own bounds — over its neighbours mid-screen, and cut through by the
+    // panel edge at the bottom, which is what a rotation exposes when the
+    // same text reflows into a narrower box.
+    const asked = { fontSize: 22, wrap: true, maxLines: 4 }
+    expect(displayWidgetTextTokens(widget('Text', asked, 48), DEFAULT_DISPLAY_THEME).maxLines).toBe(1)
+    expect(displayWidgetTextTokens(widget('Text', asked, 160), DEFAULT_DISPLAY_THEME).maxLines).toBe(4)
+    // Never zero: a widget too short for even one line still shows the line
+    // it has, clipped by its own box, rather than rendering nothing at all.
+    expect(displayWidgetTextTokens(widget('Text', asked, 4), DEFAULT_DISPLAY_THEME).maxLines).toBe(1)
+  })
+
+  it('leaves the authored ceiling alone when there are no bounds to judge', () => {
+    // Pricing a font or emitting a style asks no layout question, so a caller
+    // without bounds must not be handed a budget derived from a guess.
+    const placed = widget('Text', { fontSize: 22, maxLines: 3 })
+    expect(displayWidgetTextTokens(
+      { type: placed.type, properties: placed.properties },
+      DEFAULT_DISPLAY_THEME,
+    ).maxLines).toBe(3)
   })
 })

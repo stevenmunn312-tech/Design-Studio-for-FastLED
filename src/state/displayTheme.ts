@@ -1,4 +1,4 @@
-import type { DisplayBackground, DisplayFont, DisplayTheme, DisplayWidget } from './displayDocument'
+import type { DisplayBackground, DisplayBounds, DisplayFont, DisplayTheme, DisplayWidget } from './displayDocument'
 import type { DisplayWidgetState } from './displayRegistry'
 
 /**
@@ -35,7 +35,12 @@ export interface DisplayWidgetTextTokens {
   align: 'left' | 'center' | 'right'
   font: DisplayFont
   fontSize: number
+  /** Row pitch for wrapped text. Both renderers lay lines out on it, so a
+   *  wrap lands on the same rows in the preview and on the glass. */
+  lineHeight: number
   wrap: boolean
+  /** Lines actually shown — the authored ceiling, lowered to what the widget
+   *  is tall enough to hold when its bounds are known. */
   maxLines: number
   overflow: 'ellipsis'
 }
@@ -184,22 +189,69 @@ function boolProperty(widget: Pick<DisplayWidget, 'properties'>, key: string): b
   return typeof value === 'boolean' ? value : undefined
 }
 
+/**
+ * Row pitch as a multiple of the font size.
+ *
+ * Named because the line budget below is computed from it and the DOM lays
+ * text out on it; a browser default on one side and a constant on the other
+ * would put the clamp and the rendering on different rows.
+ */
+const LINE_HEIGHT_RATIO = 1.25
+
+/**
+ * Chrome a label loses to its widget's own frame, per edge.
+ *
+ * The editor's widget box draws a border and pads its content, so the height
+ * a label can use is smaller than the bounds saved in the document. Counting
+ * the bounds alone made the budget one line too generous on a short widget,
+ * which is the same overflow this is here to prevent.
+ */
+export const DISPLAY_WIDGET_TEXT_INSET_PX = 4
+
 /** Text metrics and wrapping are semantic tokens, not DOM CSS choices. */
 export function displayWidgetTextTokens(
-  widget: Pick<DisplayWidget, 'type' | 'properties'>,
+  widget: Pick<DisplayWidget, 'type' | 'properties'> & { bounds?: DisplayBounds },
   theme: DisplayTheme,
 ): DisplayWidgetTextTokens {
   const textWidget = widget.type === 'Text'
   const align = stringProperty(widget, 'align')
   const numeric = widget.type === 'Numeric Readout' || widget.type === 'Timecode'
+  const fontSize = Math.max(8, Math.min(96, Math.round(numberProperty(widget, 'fontSize') ?? theme.fontSize)))
+  const lineHeight = Math.max(1, Math.round(fontSize * LINE_HEIGHT_RATIO))
+  const authored = textWidget
+    ? Math.max(1, Math.min(4, Math.round(numberProperty(widget, 'maxLines') ?? 2)))
+    : 1
   return {
     align: align === 'center' || align === 'right' ? align : 'left',
     font: numeric ? 'mono' : theme.font,
-    fontSize: Math.max(8, Math.min(96, Math.round(numberProperty(widget, 'fontSize') ?? theme.fontSize))),
+    fontSize,
+    lineHeight,
     wrap: textWidget ? (boolProperty(widget, 'wrap') ?? true) : false,
-    maxLines: textWidget
-      ? Math.max(1, Math.min(4, Math.round(numberProperty(widget, 'maxLines') ?? 2)))
-      : 1,
+    maxLines: Math.min(authored, linesThatFit(widget.bounds, lineHeight, theme)),
     overflow: 'ellipsis',
   }
+}
+
+/**
+ * How many whole lines the widget is tall enough to show.
+ *
+ * `maxLines` is what the author asked for; this is what the glass can
+ * actually hold, and the smaller of the two is what gets drawn. Without it a
+ * two-line ceiling on a one-line-tall widget renders the second line anyway
+ * and lets it spill outside the widget's own bounds — over its neighbours in
+ * the middle of a screen, and cut through by the panel edge at the bottom.
+ * Rotating a design is what exposes it: the same text reflows into a
+ * narrower box and wraps where it previously did not.
+ *
+ * Bounds are optional because a caller pricing fonts or emitting a style has
+ * no layout question to ask; without them the authored ceiling stands.
+ */
+function linesThatFit(
+  bounds: DisplayBounds | undefined,
+  lineHeight: number,
+  theme: DisplayTheme,
+): number {
+  if (!bounds) return Number.POSITIVE_INFINITY
+  const chrome = 2 * (DISPLAY_WIDGET_TEXT_INSET_PX + Math.max(0, theme.borderWidth))
+  return Math.max(1, Math.floor((bounds.height - chrome) / lineHeight))
 }

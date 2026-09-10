@@ -88,6 +88,10 @@ export default function DisplayWidgetPreview({ widget, renderer, theme, state, v
     '--widget-text-align': typography.align,
     '--widget-text-font': typography.font === 'mono' ? 'var(--font-code)' : 'var(--font-body)',
     '--widget-text-size': `${typography.fontSize}px`,
+    // The pitch the line budget was computed against. Left to the browser's
+    // default the two disagree, and a clamp measured in rows the renderer
+    // does not use is no clamp at all.
+    '--widget-text-line-height': `${typography.lineHeight}px`,
     '--widget-text-lines': typography.maxLines,
   } as CSSProperties
   const text = typeof value === 'string' ? value : stringProperty(widget, 'text', widget.label)
