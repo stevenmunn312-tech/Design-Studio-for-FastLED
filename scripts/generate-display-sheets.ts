@@ -15,6 +15,11 @@
  * committed PNG of a layout is a second authority that can disagree with the
  * layout.
  *
+ * It also draws a second kind of sheet, one per mounted size: the
+ * custom-display templates as placed widget boxes, controls tinted apart from
+ * readouts. A template carries no values yet, so what has to be judged there
+ * is where things sit and how much room a finger has, not what they say.
+ *
  * Labels are drawn with the panel's own bitmap font rather than a system one,
  * so a sheet needs no fonts, no browser and no dependency beyond zlib — and
  * the label text is legible at exactly the size the panel's text is, which is
@@ -24,12 +29,15 @@ import { deflateSync } from 'node:zlib'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import {
-  clearTftSurface, createTftSurface, drawTftRect, drawTftText, rgb565,
-  rgb565Components, type TftSurface,
+  TFT_CONTROLLERS, TFT_ROTATIONS, clearTftSurface, createTftSurface, drawTftRect,
+  drawTftText, fillTftRect, rgb565, rgb565Components, tftRotatedSize, type TftSurface,
 } from '../src/state/tftSurface'
 import {
   displaySurfaceCases, type DisplaySurfaceCase, type RenderedSurface,
 } from '../src/state/__tests__/displaySurfaceCases'
+import { DISPLAY_TEMPLATES, applyDisplayTemplate } from '../src/state/displayTemplates'
+import { createDisplayDocument } from '../src/state/displayEditor'
+import { isDisplayTouchTarget } from '../src/state/displayRegistry'
 
 const OUT_DIR = resolve('artifacts/display-sheets')
 
@@ -37,6 +45,10 @@ const SHEET_BG = rgb565(24, 24, 28)
 const SHEET_INK = rgb565(232, 232, 240)
 const SHEET_DIM = rgb565(140, 140, 152)
 const TILE_EDGE = rgb565(80, 80, 92)
+const WIDGET_FILL = rgb565(27, 31, 39)
+const WIDGET_EDGE = rgb565(90, 97, 114)
+const CONTROL_FILL = rgb565(29, 58, 82)
+const CONTROL_EDGE = rgb565(74, 163, 224)
 
 const LABEL_SCALE = 1
 const LABEL_H = 8
@@ -138,12 +150,77 @@ function composeSheet(key: string, cases: DisplaySurfaceCase[], columns: number)
     drawTftRect(sheet, x - 1, tileY - 1, tileW + 2, tileH + 2, TILE_EDGE)
   })
 
-  const rgb = new Uint32Array(width * height)
+  return { name: key, width, height, rgb: toRgb(sheet) }
+}
+
+function toRgb(sheet: TftSurface): Uint32Array {
+  const rgb = new Uint32Array(sheet.width * sheet.height)
   for (let i = 0; i < rgb.length; i += 1) {
     const { r, g, b } = rgb565Components(sheet.data[i])
     rgb[i] = (r << 16) | (g << 8) | b
   }
-  return { name: key, width, height, rgb }
+  return rgb
+}
+
+/**
+ * A second kind of sheet: the custom-display templates as placed widgets.
+ *
+ * Boxes and labels rather than a rendered screen, because a template *is* a
+ * set of bounds — it carries no values yet — and what has to be judged is
+ * where things sit and how much room a finger has. Drawn with the same
+ * primitives as the panel sheets so this needs no browser and no rasteriser
+ * either; the alternative, an SVG rasterised through a downloaded CLI, made
+ * the picture unreproducible the moment the throwaway script was deleted.
+ *
+ * Controls are tinted apart from readouts, which is the distinction the
+ * layout has to get right: only controls carry a touch minimum and a
+ * separation rule.
+ */
+function composeTemplateSheet(width: number, height: number, columns: number): Sheet {
+  const cellW = width
+  const cellH = LABEL_H + CAPTION_GAP + height
+  const rows = Math.ceil(DISPLAY_TEMPLATES.length / columns)
+  const titleH = LABEL_H + GAP
+  const sheetW = MARGIN * 2 + columns * cellW + (columns - 1) * GAP
+  const sheetH = MARGIN * 2 + titleH + rows * cellH + (rows - 1) * GAP
+
+  const sheet = createTftSurface(sheetW, sheetH)
+  clearTftSurface(sheet, SHEET_BG)
+  label(sheet, MARGIN, MARGIN, `TEMPLATES ${width}X${height}  ${DISPLAY_TEMPLATES.length} LAYOUTS`, SHEET_INK)
+
+  DISPLAY_TEMPLATES.forEach((template, index) => {
+    const x = MARGIN + (index % columns) * (cellW + GAP)
+    const y = MARGIN + titleH + ((index / columns) | 0) * (cellH + GAP)
+    label(sheet, x, y, template.label.toUpperCase(), SHEET_DIM)
+    const top = y + LABEL_H + CAPTION_GAP
+    fillTftRect(sheet, x, top, width, height, 0)
+    drawTftRect(sheet, x - 1, top - 1, width + 2, height + 2, TILE_EDGE)
+    const document = applyDisplayTemplate(createDisplayDocument('sheet', width, height), template.id)
+    for (const placed of document.widgets) {
+      const control = isDisplayTouchTarget(placed.type)
+      const bounds = placed.bounds
+      fillTftRect(sheet, x + bounds.x, top + bounds.y, bounds.width, bounds.height,
+        control ? CONTROL_FILL : WIDGET_FILL)
+      drawTftRect(sheet, x + bounds.x, top + bounds.y, bounds.width, bounds.height,
+        control ? CONTROL_EDGE : WIDGET_EDGE)
+      label(sheet, x + bounds.x + 3, top + bounds.y + 3, placed.label.toUpperCase(), SHEET_INK)
+    }
+  })
+
+  return { name: `templates-${width}x${height}`, width: sheetW, height: sheetH, rgb: toRgb(sheet) }
+}
+
+/** Every size a catalogued colour panel presents, deduplicated. */
+function mountedSizes(): Array<{ width: number; height: number }> {
+  const seen = new Map<string, { width: number; height: number }>()
+  for (const controller of Object.values(TFT_CONTROLLERS)) {
+    for (const rotation of TFT_ROTATIONS) {
+      const size = tftRotatedSize(controller, rotation)
+      const key = `${size.width}x${size.height}`
+      if (!seen.has(key)) seen.set(key, size)
+    }
+  }
+  return [...seen.values()]
 }
 
 // ── Entry ───────────────────────────────────────────────────────────────────
@@ -163,6 +240,13 @@ export function generateDisplaySheets(): string[] {
     const columns = Math.min(6, cases.length)
     const sheet = composeSheet(key, cases, columns)
     const file = resolve(OUT_DIR, `${key}.png`)
+    writeFileSync(file, encodePng(sheet.width, sheet.height, sheet.rgb))
+    written.push(file)
+  }
+
+  for (const size of mountedSizes()) {
+    const sheet = composeTemplateSheet(size.width, size.height, Math.min(4, DISPLAY_TEMPLATES.length))
+    const file = resolve(OUT_DIR, `${sheet.name}.png`)
     writeFileSync(file, encodePng(sheet.width, sheet.height, sheet.rgb))
     written.push(file)
   }

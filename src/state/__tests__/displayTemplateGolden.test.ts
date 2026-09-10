@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { DISPLAY_TEMPLATES, applyDisplayTemplate } from '../displayTemplates'
+import { DISPLAY_TEMPLATES, applyDisplayTemplate, templateComposition } from '../displayTemplates'
 import { createDisplayDocument, displayLayoutIssues } from '../displayEditor'
 import { TFT_CONTROLLERS, TFT_ROTATIONS, tftRotatedSize } from '../tftSurface'
 
@@ -15,13 +15,14 @@ import { TFT_CONTROLLERS, TFT_ROTATIONS, tftRotatedSize } from '../tftSurface'
  * are at every one of their four rotations, and which is therefore what a
  * design created on one is sized to.
  *
- * Recording the resolved bounds and the layout issues per case, rather than
- * asserting a pass, is deliberate: the square panel does not currently work
- * (see the note on the square geometry below), and a test that asserted the
- * failure would read as the failure being intended, while one that skipped
- * the size would leave the gap undocumented. The vectors say exactly what
- * lands where, so authoring square compositions changes this file visibly and
- * a regression on the two working sizes fails outright.
+ * The square case is why this exists. It used to take the 320-wide landscape
+ * composition, because `applyDisplayTemplate` chose portrait only when height
+ * exceeded width, and the clamp then slid each right-hand widget onto its
+ * neighbour — all eight templates collided, twelve collisions in total. A
+ * square panel now takes a composition authored for its own width, and the
+ * five templates whose portrait layout runs past 240 rows declare one of
+ * their own. The recorded bounds are what makes a re-authored layout a
+ * visible diff rather than a silent reshuffle.
  *
  * Regenerate deliberately, never to make a red test green:
  *   DISPLAY_TEMPLATE_UPDATE_GOLDEN=1 npx vitest run src/state/__tests__/displayTemplateGolden.test.ts
@@ -86,28 +87,54 @@ describe('Template golden layouts across every mounted panel', () => {
     })
   }
 
-  it('covers the square panel that neither authored composition was drawn for', () => {
+  it('covers the square panel a 1.3-inch module presents', () => {
     // Named rather than assumed: both ST7789 modules are 240x240 at every
     // rotation, so this is not a hypothetical size — it is what a design
     // created on a 1.3-inch module is born as.
     expect(MOUNTED_SIZES.map(([key]) => key)).toContain('240x240')
   })
 
-  it('places every template cleanly on both authored sizes', () => {
-    // 320x240 is the reference composition's own size and 240x320 the
-    // portrait one's. A collision on either is a regression, not a gap.
+  it('places every template cleanly on every mounted size', () => {
+    // Including the square one, which is the whole point of this sweep: it
+    // used to collide on all eight templates, twelve collisions in total,
+    // because a square panel took the 320-wide landscape composition and the
+    // clamp slid each right-hand widget onto its neighbour.
     for (const [key] of MOUNTED_SIZES) {
-      if (key === '240x240') continue
       for (const template of DISPLAY_TEMPLATES) {
         expect(produced[`${key}/${template.id}`].issues, `${key}/${template.id}`).toEqual([])
       }
     }
   })
 
+  it('gives a square panel a composition authored for its own width', () => {
+    // Portrait is 240 wide, the same as a square panel, so it lands with
+    // nothing clamped horizontally — which is why it is the fallback for the
+    // templates that already fit in 240 rows, and why the five that do not
+    // declare a square composition rather than a re-clamped landscape one.
+    for (const template of DISPLAY_TEMPLATES) {
+      const square = templateComposition(template, 240, 240)
+      expect(square, template.id).toBe(template.squareWidgets ?? template.portraitWidgets)
+      for (const spec of square) {
+        expect(spec.bounds.x + spec.bounds.width, `${template.id}/${spec.label}`).toBeLessThanOrEqual(240)
+        expect(spec.bounds.y + spec.bounds.height, `${template.id}/${spec.label}`).toBeLessThanOrEqual(240)
+      }
+    }
+  })
+
+  it('declares a square composition only where the portrait one overruns', () => {
+    // A copy of a layout that already fits is a second copy to keep in step,
+    // so the three templates without one are deliberate — and this is what
+    // says so, rather than a comment nobody re-checks.
+    for (const template of DISPLAY_TEMPLATES) {
+      const overruns = template.portraitWidgets.some((spec) => spec.bounds.y + spec.bounds.height > 240)
+      expect(template.squareWidgets !== undefined, template.id).toBe(overruns)
+    }
+  })
+
   it('keeps every widget on the glass, whatever else the layout does', () => {
-    // The one guarantee `constrainDisplayWidgetBounds` does make, and it is
-    // worth separating from the collisions: nothing is drawn off the panel,
-    // even on the size the compositions were not drawn for.
+    // Separate from the collision check on purpose. This is the guarantee
+    // the clamp makes on its own, so it still holds for a hand-resized
+    // document no authored composition covers.
     for (const [key, size] of MOUNTED_SIZES) {
       for (const template of DISPLAY_TEMPLATES) {
         for (const widget of produced[`${key}/${template.id}`].widgets) {

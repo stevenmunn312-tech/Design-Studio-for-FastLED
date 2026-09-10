@@ -4,17 +4,17 @@
       {
         "label": "Title",
         "type": "Text",
-        "x": 0,
+        "x": 16,
         "y": 8,
-        "width": 240,
+        "width": 208,
         "height": 32
       },
       {
         "label": "Artist",
         "type": "Text",
-        "x": 0,
+        "x": 16,
         "y": 48,
-        "width": 240,
+        "width": 208,
         "height": 24
       },
       {
@@ -28,7 +28,7 @@
       {
         "label": "Remaining",
         "type": "Timecode",
-        "x": 160,
+        "x": 144,
         "y": 80,
         "width": 80,
         "height": 32
@@ -36,15 +36,15 @@
       {
         "label": "Position",
         "type": "Progress",
-        "x": 0,
+        "x": 16,
         "y": 128,
-        "width": 240,
+        "width": 208,
         "height": 16
       },
       {
         "label": "Previous",
         "type": "Button",
-        "x": 32,
+        "x": 8,
         "y": 160,
         "width": 64,
         "height": 64
@@ -52,7 +52,7 @@
       {
         "label": "Play",
         "type": "Toggle",
-        "x": 128,
+        "x": 88,
         "y": 160,
         "width": 64,
         "height": 64
@@ -60,101 +60,97 @@
       {
         "label": "Next",
         "type": "Button",
-        "x": 176,
+        "x": 168,
         "y": 160,
         "width": 64,
         "height": 64
       }
     ],
-    "issues": [
-      "collision: Play overlaps Next."
-    ]
+    "issues": []
   },
   "240x240/minimal-transport": {
     "widgets": [
       {
         "label": "Track",
         "type": "Text",
-        "x": 0,
+        "x": 16,
         "y": 16,
-        "width": 240,
+        "width": 208,
         "height": 32
       },
       {
         "label": "Previous",
         "type": "Button",
         "x": 16,
-        "y": 64,
-        "width": 80,
-        "height": 80
+        "y": 72,
+        "width": 64,
+        "height": 64
       },
       {
         "label": "Play",
         "type": "Toggle",
-        "x": 120,
-        "y": 64,
-        "width": 80,
-        "height": 80
+        "x": 88,
+        "y": 72,
+        "width": 64,
+        "height": 64
       },
       {
         "label": "Next",
         "type": "Button",
         "x": 160,
-        "y": 64,
-        "width": 80,
-        "height": 80
+        "y": 72,
+        "width": 64,
+        "height": 64
       },
       {
         "label": "Volume",
         "type": "Slider",
-        "x": 0,
-        "y": 176,
-        "width": 240,
+        "x": 16,
+        "y": 168,
+        "width": 208,
         "height": 48
       }
     ],
-    "issues": [
-      "collision: Play overlaps Next."
-    ]
+    "issues": []
   },
   "240x240/pattern-deck": {
     "widgets": [
       {
         "label": "Collection",
         "type": "Pattern Browser",
-        "x": 0,
+        "x": 16,
         "y": 8,
-        "width": 240,
-        "height": 88
+        "width": 208,
+        "height": 72
       },
       {
         "label": "Previous",
         "type": "Button",
         "x": 16,
-        "y": 104,
+        "y": 88,
         "width": 64,
         "height": 64
       },
       {
         "label": "Confirm",
         "type": "Button",
-        "x": 128,
-        "y": 104,
+        "x": 88,
+        "y": 88,
         "width": 64,
         "height": 64
       },
       {
         "label": "Next",
         "type": "Button",
-        "x": 176,
-        "y": 104,
+        "x": 160,
+        "y": 88,
         "width": 64,
         "height": 64
       },
       {
         "label": "Shuffle",
         "type": "Toggle",
-        "x": 80,
+        "x": 48,
         "y": 176,
         "width": 64,
         "height": 64
@@ -162,102 +158,97 @@
       {
         "label": "Auto advance",
         "type": "Toggle",
-        "x": 176,
+        "x": 128,
         "y": 176,
         "width": 64,
         "height": 64
       }
     ],
-    "issues": [
-      "collision: Confirm overlaps Next."
-    ]
+    "issues": []
   },
   "240x240/show-status": {
     "widgets": [
       {
         "label": "Collection",
         "type": "Pattern Browser",
-        "x": 0,
+        "x": 16,
         "y": 8,
-        "width": 240,
-        "height": 80
+        "width": 208,
+        "height": 72
       },
       {
         "label": "Section",
         "type": "Text",
-        "x": 0,
-        "y": 96,
-        "width": 240,
+        "x": 16,
+        "y": 88,
+        "width": 208,
         "height": 24
       },
       {
         "label": "Tempo",
         "type": "Numeric Readout",
         "x": 16,
-        "y": 128,
-        "width": 136,
+        "y": 120,
+        "width": 96,
         "height": 32
       },
       {
         "label": "Beat",
         "type": "Status Indicator",
-        "x": 104,
-        "y": 128,
-        "width": 136,
+        "x": 128,
+        "y": 120,
+        "width": 96,
         "height": 32
       },
       {
         "label": "Brightness",
         "type": "Slider",
         "x": 16,
-        "y": 168,
-        "width": 208,
+        "y": 160,
+        "width": 128,
         "height": 48
       },
       {
         "label": "Blackout",
         "type": "Toggle",
-        "x": 176,
-        "y": 168,
+        "x": 160,
+        "y": 160,
         "width": 64,
-        "height": 64
+        "height": 48
       }
     ],
-    "issues": [
-      "collision: Tempo overlaps Beat.",
-      "collision: Brightness overlaps Blackout."
-    ]
+    "issues": []
   },
   "240x240/led-performance": {
     "widgets": [
       {
         "label": "Heading",
         "type": "Text",
-        "x": 0,
+        "x": 16,
         "y": 8,
-        "width": 240,
+        "width": 208,
         "height": 24
       },
       {
         "label": "Brightness",
         "type": "Slider",
-        "x": 0,
+        "x": 16,
         "y": 40,
-        "width": 240,
+        "width": 208,
         "height": 48
       },
       {
         "label": "Speed",
         "type": "Slider",
-        "x": 0,
+        "x": 16,
         "y": 96,
-        "width": 240,
+        "width": 208,
         "height": 48
       },
       {
         "label": "Blackout",
         "type": "Toggle",
-        "x": 80,
+        "x": 16,
         "y": 152,
         "width": 48,
         "height": 48
@@ -265,7 +256,7 @@
       {
         "label": "Freeze",
         "type": "Toggle",
-        "x": 192,
+        "x": 72,
         "y": 152,
         "width": 48,
         "height": 48
@@ -273,40 +264,38 @@
       {
         "label": "Frame rate",
         "type": "Numeric Readout",
-        "x": 16,
-        "y": 208,
-        "width": 136,
+        "x": 136,
+        "y": 160,
+        "width": 88,
         "height": 32
       },
       {
         "label": "Output",
         "type": "Status Indicator",
-        "x": 104,
+        "x": 16,
         "y": 208,
-        "width": 136,
+        "width": 208,
         "height": 24
       }
     ],
-    "issues": [
-      "collision: Frame rate overlaps Output."
-    ]
+    "issues": []
   },
   "240x240/audio-reactor": {
     "widgets": [
       {
         "label": "Left level",
         "type": "Value Meter",
-        "x": 0,
+        "x": 16,
         "y": 8,
-        "width": 240,
+        "width": 208,
         "height": 24
       },
       {
         "label": "Right level",
         "type": "Value Meter",
-        "x": 0,
+        "x": 16,
         "y": 40,
-        "width": 240,
+        "width": 208,
         "height": 24
       },
       {
@@ -314,37 +303,35 @@
         "type": "Status Indicator",
         "x": 16,
         "y": 72,
-        "width": 136,
+        "width": 96,
         "height": 32
       },
       {
         "label": "Tempo",
         "type": "Numeric Readout",
-        "x": 104,
+        "x": 128,
         "y": 72,
-        "width": 136,
+        "width": 96,
         "height": 32
       },
       {
         "label": "Sensitivity",
         "type": "Slider",
-        "x": 0,
+        "x": 16,
         "y": 112,
-        "width": 240,
+        "width": 208,
         "height": 48
       },
       {
         "label": "Noise gate",
         "type": "Slider",
-        "x": 0,
+        "x": 16,
         "y": 168,
-        "width": 240,
+        "width": 208,
         "height": 48
       }
     ],
-    "issues": [
-      "collision: Beat overlaps Tempo."
-    ]
+    "issues": []
   },
   "240x240/diagnostics": {
     "widgets": [
@@ -353,15 +340,15 @@
         "type": "Numeric Readout",
         "x": 16,
         "y": 8,
-        "width": 136,
+        "width": 96,
         "height": 32
       },
       {
         "label": "Frame rate",
         "type": "Numeric Readout",
-        "x": 104,
+        "x": 128,
         "y": 8,
-        "width": 136,
+        "width": 96,
         "height": 32
       },
       {
@@ -369,15 +356,15 @@
         "type": "Timecode",
         "x": 16,
         "y": 48,
-        "width": 136,
+        "width": 96,
         "height": 32
       },
       {
         "label": "Frames",
         "type": "Numeric Readout",
-        "x": 104,
+        "x": 128,
         "y": 48,
-        "width": 136,
+        "width": 96,
         "height": 32
       },
       {
@@ -385,47 +372,43 @@
         "type": "Status Indicator",
         "x": 16,
         "y": 88,
-        "width": 136,
-        "height": 32
+        "width": 96,
+        "height": 24
       },
       {
         "label": "Card",
         "type": "Status Indicator",
-        "x": 104,
+        "x": 128,
         "y": 88,
-        "width": 136,
-        "height": 32
+        "width": 96,
+        "height": 24
       },
       {
         "label": "Processor load",
         "type": "Value Meter",
-        "x": 0,
-        "y": 128,
-        "width": 240,
+        "x": 16,
+        "y": 120,
+        "width": 208,
         "height": 24
       },
       {
         "label": "Temperature",
         "type": "Value Meter",
-        "x": 0,
-        "y": 160,
-        "width": 240,
+        "x": 16,
+        "y": 152,
+        "width": 208,
         "height": 24
       },
       {
         "label": "Message",
         "type": "Text",
-        "x": 0,
-        "y": 192,
-        "width": 240,
+        "x": 16,
+        "y": 184,
+        "width": 208,
         "height": 40
       }
     ],
-    "issues": [
-      "collision: Free heap overlaps Frame rate.",
-      "collision: Uptime overlaps Frames.",
-      "collision: Link overlaps Card."
-    ]
+    "issues": []
   },
   "240x240/dmx-monitor": {
     "widgets": [
@@ -434,15 +417,15 @@
         "type": "Numeric Readout",
         "x": 16,
         "y": 8,
-        "width": 136,
+        "width": 96,
         "height": 32
       },
       {
         "label": "Frame rate",
         "type": "Numeric Readout",
-        "x": 104,
+        "x": 128,
         "y": 8,
-        "width": 136,
+        "width": 96,
         "height": 32
       },
       {
@@ -450,54 +433,51 @@
         "type": "Status Indicator",
         "x": 16,
         "y": 48,
-        "width": 136,
+        "width": 96,
         "height": 40
       },
       {
         "label": "Colour",
         "type": "Colour Swatch",
-        "x": 104,
+        "x": 128,
         "y": 48,
-        "width": 136,
+        "width": 96,
         "height": 40
       },
       {
         "label": "Channel 1",
         "type": "Value Meter",
-        "x": 0,
+        "x": 16,
         "y": 96,
-        "width": 240,
+        "width": 208,
         "height": 24
       },
       {
         "label": "Channel 2",
         "type": "Value Meter",
-        "x": 0,
+        "x": 16,
         "y": 128,
-        "width": 240,
+        "width": 208,
         "height": 24
       },
       {
         "label": "Channel 3",
         "type": "Value Meter",
-        "x": 0,
+        "x": 16,
         "y": 160,
-        "width": 240,
+        "width": 208,
         "height": 24
       },
       {
         "label": "Channel 4",
         "type": "Value Meter",
-        "x": 0,
+        "x": 16,
         "y": 192,
-        "width": 240,
+        "width": 208,
         "height": 24
       }
     ],
-    "issues": [
-      "collision: Universe overlaps Frame rate.",
-      "collision: Signal overlaps Colour."
-    ]
+    "issues": []
   },
   "240x320/now-playing": {
     "widgets": [
