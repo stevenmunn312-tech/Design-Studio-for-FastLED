@@ -161,7 +161,8 @@ matrix, not a reason to postpone testing earlier changes.
   0.96-inch OLED's reset sat on the LED data pin.
 
   **Arduino CLI is done: all ten fixtures compiled against the current model on
-  2026-09-11**, source hashes, toolchain and memory figures recorded in
+  2026-09-11** (the five LVGL fixtures rebuilt after the HW-28 fix those runs
+  found, so every recorded hash is the sketch that produced its own figures), source hashes, toolchain and memory figures recorded in
   [display compile checks](docs/development/display-compile-checks.md) (CLI
   1.5.2-rc.1, ESP32 core 3.3.11, FastLED 3.10.5, LVGL 9.5.0; nine on the S3
   target, the classic-ESP32 fixture on its own `--fqbn`/`--tag`). Two figures
@@ -421,6 +422,27 @@ matrix, not a reason to postpone testing earlier changes.
   engine implicitly, which is what let this through; that assumption is now one
   autouse fixture in `conftest.py`, and `test_missing_engine.py` sets it back to
   None to hold each refusal.
+
+- [x] **HW-28 · P2 · A custom screen's Pattern Browser drew at LVGL's default
+  size, not the authored one (S).** Found from HW-06's compile runs, by comparing
+  each emitted sketch's `// FLS-LVGL-FONTS:` marker against the
+  `&lv_font_montserrat_N` faces it actually references: one declared face nothing
+  used. The Pattern Browser is created as an `lv_label` — a placeholder until its
+  collection-thumbnail slice lands — but the font/align/long-mode/line-space block
+  was gated on `lvglEmitter === 'label'`, and its emitter id is `pattern-browser`.
+  So on glass it inherited LVGL's built-in default face while the DOM preview
+  honoured the authored size, and the face the marker had already compiled into
+  flash for it was never drawn with: a parity break and a wasted face from one
+  cause. Text styling now follows `lvglWidgetClass`, the LVGL class the widget is
+  actually created as, so two emitters creating a label are styled alike; the
+  marker's own widget list was right all along. Costs 40–52 bytes of flash per
+  browser and no RAM, measured across the five rebuilt fixtures.
+  `customDisplayLvglFonts.test.ts` holds both directions — every referenced face
+  declared, nothing declared unreferenced — over one document with every widget
+  type at its own distinct size, which is what gives it teeth: cycling a short
+  list of sizes let Timecode and Button share a number, and the test passed a
+  deliberate break until each type contributed its own. The compile matrix could
+  not have caught this, because every LVGL fixture it builds uses a single size.
 
 ## 3. Establish exact hardware support
 

@@ -154,13 +154,13 @@ the exact sketch that produced it.
 
 | Fixture | Source SHA-256 | Result | Flash bytes | Static RAM bytes |
 | --- | --- | --- | --- | ---: |
-| Normal | `96e3235d7172` | Passed | 632,999 (20%) | 105,644 (32%) |
-| Generative show | `8098a5107e36` | Passed | 637,179 (20%) | 106,020 (32%) |
-| SD player | `887c16d16f4e` | Passed | 1,314,043 (41%) | 121,892 (37%) |
+| Normal | `1db869428c2f` | Passed | 633,039 (20%) | 105,644 (32%) |
+| Generative show | `dac549be5897` | Passed | 637,223 (20%) | 106,020 (32%) |
+| SD player | `ff9133a09018` | Passed | 1,314,095 (41%) | 121,892 (37%) |
 | Isolated TFT | `ab8b3351b884` | Passed | 301,024 (9%) | 23,016 (7%) |
 | Headless controls | `ef9b0a4cfe7b` | Passed | 426,831 (13%) | 27,636 (8%) |
-| Disabled panel | `cf03c253eb74` | Passed | 628,323 (19%) | 105,276 (32%) |
-| Two panels, two designs | `d1f7034eea21` | Passed | 630,439 (20%) | 115,068 (35%) |
+| Disabled panel | `3d1cb471a093` | Passed | 628,367 (19%) | 105,276 (32%) |
+| Two panels, two designs | `5bcea64fd269` | Passed | 630,487 (20%) | 115,068 (35%) |
 | Part families (SPI) | `bfda657994bb` | Passed | 471,851 (14%) | 37,884 (11%) |
 | Part families (I²C) | `7e2e4f5fc37c` | Passed | 459,987 (14%) | 31,012 (9%) |
 
@@ -171,6 +171,11 @@ and the fixed layouts only:
 | --- | --- | --- | --- | ---: |
 | Classic ESP32, fixed layouts | `03da992ff2ff` | Passed | 428,011 (32%) | 31,508 (9%) |
 
+The five LVGL fixtures were rebuilt after the Pattern Browser font fix below,
+so every hash here is the sketch that produced its own figures. That fix costs
+40 to 52 bytes of flash and no RAM — one font/align/long-mode/line-space style
+per browser.
+
 Two figures are worth reading rather than filing. The isolated-TFT fixture is the
 smallest at 301,024 bytes because it is the screen-only shape, and
 `withoutUnusedFastLed` drops the FastLED include entirely — compile evidence for
@@ -178,6 +183,20 @@ an invariant that until now only a unit test asserted. And the disabled-panel
 fixture costs almost exactly what the normal one does (628,323 against 632,999),
 which is the intended design: a switched-off panel is still built so it can be
 switched back on.
+
+**Found by these runs: the Pattern Browser drew at the wrong size on device.**
+Comparing each sketch's `// FLS-LVGL-FONTS:` marker against the
+`&lv_font_montserrat_N` faces it actually references showed one declared face
+nothing used. The Pattern Browser is created as an `lv_label` (a placeholder
+until its collection-thumbnail slice lands), but the font/align/long-mode block
+was gated on `lvglEmitter === 'label'` and its emitter id is
+`pattern-browser` — so it inherited LVGL's built-in default face while the DOM
+preview honoured the authored size, and the face the marker had already
+compiled into flash for it went unused. Text styling now follows the LVGL class
+the widget is created as, `lvglWidgetClass`, rather than the emitter id.
+`src/codegen/__tests__/customDisplayLvglFonts.test.ts` holds both directions at
+one distinct size per widget; the compile matrix could not have caught it,
+because every fixture it builds uses a single size.
 
 <a id="fbuild-outstanding"></a>**fbuild remains outstanding, and is bench work.**
 It is installed and runs (2.5.22), but its platform package download does not

@@ -154,21 +154,37 @@ function stateStyleLines(
   return styleLines(target, tokens, `LV_PART_MAIN | LV_STATE_${state}`)
 }
 
-function widgetCreateExpression(widget: DisplayWidget, screen: string): string {
+/**
+ * The LVGL class a widget's object is created as.
+ *
+ * Named separately from the create call because text styling applies to the
+ * *class*, not to the emitter id: two emitters create an `lv_label`, and
+ * gating the font/align/long-mode block on `lvglEmitter === 'label'` left the
+ * Pattern Browser — a label — with no font at all. It rendered at LVGL's
+ * built-in default face while the DOM preview honoured the authored size, and
+ * the face the marker had already compiled into flash for it went unused.
+ * Found by `customDisplayLvglFonts.test.ts` comparing the two.
+ */
+function lvglWidgetClass(widget: DisplayWidget): string {
   switch (displayWidgetDefinition(widget.type).lvglEmitter) {
-    case 'label': return `lv_label_create(${screen})`
-    case 'bar': return `lv_bar_create(${screen})`
-    case 'led': return `lv_led_create(${screen})`
-    case 'button': return `lv_button_create(${screen})`
-    case 'switch': return `lv_switch_create(${screen})`
-    case 'slider': return `lv_slider_create(${screen})`
-    case 'arc': return `lv_arc_create(${screen})`
+    case 'label': return 'lv_label'
+    case 'bar': return 'lv_bar'
+    case 'led': return 'lv_led'
+    case 'button': return 'lv_button'
+    case 'switch': return 'lv_switch'
+    case 'slider': return 'lv_slider'
+    case 'arc': return 'lv_arc'
     // Pattern Browser keeps its placeholder until its separate collection
-    // thumbnail slice is wired into the custom screen.
-    case 'pattern-browser': return `lv_label_create(${screen})`
-    case 'image': return `lv_image_create(${screen})`
-    case 'swatch': return `lv_obj_create(${screen})`
+    // thumbnail slice is wired into the custom screen. A placeholder that
+    // honours the authored text size is still the nearer thing to the preview.
+    case 'pattern-browser': return 'lv_label'
+    case 'image': return 'lv_image'
+    case 'swatch': return 'lv_obj'
   }
+}
+
+function widgetCreateExpression(widget: DisplayWidget, screen: string): string {
+  return `${lvglWidgetClass(widget)}_create(${screen})`
 }
 
 function controlKind(widget: DisplayWidget): number {
@@ -199,7 +215,7 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: DisplayWidget, in
   ]
 
   const text = displayWidgetTextTokens(widget, emit.document.theme)
-  if (displayWidgetDefinition(widget.type).lvglEmitter === 'label') {
+  if (lvglWidgetClass(widget) === 'lv_label') {
     lines.push(
       `  lv_obj_set_style_text_font(${obj}, &lv_font_montserrat_${customDisplayFontSize(text.fontSize)}, LV_PART_MAIN);`,
       `  lv_obj_set_style_text_align(${obj}, ${alignCpp(text.align)}, LV_PART_MAIN);`,
