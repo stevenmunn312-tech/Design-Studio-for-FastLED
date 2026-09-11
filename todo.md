@@ -536,6 +536,27 @@ matrix, not a reason to postpone testing earlier changes.
   save/reopen → export/upload. Exercise pins, layout, power, board/toolchain,
   capacity, graph and asset/trust blockers. Exit: every fix is reachable without
   source docs; keyboard/screen-reader checks include the new editor and picker.
+  **Automated half landed 2026-09-11** (`src/utils/__tests__/deployGates.test.ts`):
+  one provoking graph per blocker class, each asserting the shared deploy gate
+  refuses it, that the message names the offending node/pin/property, and that
+  Graph Health explains it with a repair and a node to select. It found two real
+  gaps, both now fixed — an invalid numeric property expression blocked nothing
+  at deploy time (`validateGraph` and Graph Health called it an error while
+  Upload/Export proceeded, shipping a sketch where the property had silently
+  fallen back to its library default), and the HUB75 board-family block had no
+  Graph Health diagnostic at all, so a user on a C3 saw Upload disabled with only
+  incidental pin errors to explain it. The popup no longer assembles its own
+  blocker list; see `findDeployBlockingErrors`. What remains here is the human
+  half: watching each class block in the real UI, plus the keyboard/
+  screen-reader pass.
+  - [ ] Decide the six `DEPLOY_GATE_UNENFORCED` classes (`findAudioCapabilityErrors`,
+    `findStorageCapabilityErrors`, `findStereoVuMeterErrors`,
+    `findDisplayGeneratorIssues`, `findOutputRuntimeIssues`, error-severity
+    `showEngineIssues`). Each is already a `validateGraph` error and a
+    "compiles, then the part stays dark" rule, so each is a gate candidate —
+    but enforcing them all at once would start refusing uploads that work on
+    the bench today while these generators are still moving. Listed and pinned
+    by test rather than silently absent.
 - [ ] **HW-17 · Distribution smoke tests (M).** Clean-profile offline-PWA
   relaunch and clean end-user-machine desktop runs; platform signing/notarization
   before publishing. Exit: per-platform launch/install, helper discovery,

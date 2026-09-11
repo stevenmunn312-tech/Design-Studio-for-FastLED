@@ -1302,6 +1302,70 @@ export function findOutputResourceErrors(nodes: StudioNode[]): string[] {
   return []
 }
 
+/**
+ * The graph rules that block a build, flash, or export — one list, read by both
+ * the deploy UI and `validateGraph`.
+ *
+ * The deploy popup used to assemble this itself, which is how rules kept going
+ * missing from it. `findHub75ConfigErrors` was absent for a while, so Graph
+ * Health flagged an unsupported HUB75 shape while Upload stayed clickable.
+ * `findScalarExpressionErrors` was the same omission found again: an expression
+ * the parser rejects resolves to that property's library default in
+ * `resolveNodeScalarExpressions`, so the flashed sketch does something other
+ * than what the node's own editor says — exactly the divergence
+ * `findFormulaErrors` exists to stop.
+ *
+ * Three kinds of rule are deliberately NOT here:
+ *
+ *   - Graph *shape* (no output, no Frame wired). `validateGraph` reports it as
+ *     an error; the deploy UI expresses it per action ("connect a frame to
+ *     enable export"), because which port must be wired depends on the action.
+ *   - Anything measured rather than derived from the graph: the live
+ *     capacity-check overflow and display-asset preparation both come from
+ *     stores, so the popup adds those itself.
+ *   - `DEPLOY_GATE_UNENFORCED` below — `validateGraph` errors that do not block
+ *     deploy yet. They are listed rather than silently absent, so the next
+ *     person sees a decision instead of rediscovering an omission.
+ */
+export function findDeployBlockingErrors(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  selectedFqbn = '',
+): string[] {
+  return [
+    ...findPinConflicts(nodes, edges),
+    ...findOutputResourceErrors(nodes),
+    ...findMatrixLayoutErrors(nodes),
+    ...findShowOutputFormErrors(nodes, edges),
+    ...findShowRequirementErrors(nodes, edges, selectedFqbn),
+    ...findHub75ConfigErrors(nodes),
+    ...findScalarExpressionErrors(nodes),
+    ...findFormulaErrors(nodes),
+    ...findBoardCompatibilityErrors(nodes, selectedFqbn),
+  ]
+}
+
+/**
+ * `validateGraph` error classes the deploy gate does not enforce yet.
+ *
+ * Every one of these is a "compiles, then the part stays dark" rule, so each is
+ * a candidate for the gate — but adding them all at once would start refusing
+ * uploads that work on the bench today, on a branch where the capability,
+ * display, and show generators are still moving. Deciding that is the owner's
+ * call, not a side effect of extracting the list above.
+ *
+ * `deployGates.test.ts` pins this set, so adding one to the gate is a
+ * deliberate edit here rather than an accident either way.
+ */
+export const DEPLOY_GATE_UNENFORCED = [
+  'findAudioCapabilityErrors',
+  'findStorageCapabilityErrors',
+  'findStereoVuMeterErrors',
+  'findDisplayGeneratorIssues',
+  'findOutputRuntimeIssues',
+  'showEngineIssues',
+] as const
+
 export type GraphDiagnosticSeverity = 'error' | 'warning'
 export type GraphDiagnosticCategory =
   | 'connection'
@@ -2393,6 +2457,26 @@ export function buildGraphDiagnostics(
     }
   }
 
+  // The HUB75 board-family block was the one deploy blocker with nothing in the
+  // drawer to explain it. Upload refused the graph, while Graph Health showed
+  // only whatever incidental pin errors the default HUB75 pinout happened to
+  // provoke on that chip — which reads as "fix your pins" rather than "this
+  // chip cannot drive HUB75 at all".
+  if (options.selectedFqbn && !HUB75_SUPPORTED_FQBNS.has(options.selectedFqbn)) {
+    for (const node of nodes.filter((entry) =>
+      entry.data.nodeType === 'MatrixOutput'
+      && outputForm(entry.data.properties as Record<string, unknown>) === 'hub75'
+    )) {
+      diagnostics.push({
+        id: `${node.id}-board-hub75`, severity: 'error', category: 'board',
+        title: 'HUB75 output is incompatible with the selected board',
+        message: 'The HUB75 DMA driver needs the LCD-mode peripheral found on the classic ESP32, ESP32-S2, and ESP32-S3; RISC-V ESP32 variants (C3/C6/H2) and other board families have none.',
+        fix: 'Choose a classic ESP32, ESP32-S2, or ESP32-S3 board in Board & Port, or switch the LED output to an addressable chipset.',
+        nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
+      })
+    }
+  }
+
   if (options.selectedFqbn && !options.selectedFqbn.startsWith('esp32:')) {
     for (const node of nodes.filter((entry) =>
       entry.data.nodeType === 'DMXInput' && String((entry.data.properties as Record<string, unknown>).inputMode ?? 'Art-Net') === 'DMX512'
@@ -2627,19 +2711,11 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
     }
   }
 
-  errors.push(...findPinConflicts(nodes, edges))
-  errors.push(...findOutputResourceErrors(nodes))
-  errors.push(...findMatrixLayoutErrors(nodes))
-  errors.push(...findShowOutputFormErrors(nodes, edges))
-  errors.push(...findShowRequirementErrors(nodes, edges, selectedFqbn))
+  errors.push(...findDeployBlockingErrors(nodes, edges, selectedFqbn))
+  // Not in the deploy gate yet — see DEPLOY_GATE_UNENFORCED.
   errors.push(...findAudioCapabilityErrors(nodes, edges))
   errors.push(...findStorageCapabilityErrors(nodes, edges))
   errors.push(...findStereoVuMeterErrors(nodes, edges))
-
-  errors.push(...findHub75ConfigErrors(nodes))
-  errors.push(...findScalarExpressionErrors(nodes))
-  errors.push(...findFormulaErrors(nodes))
-  errors.push(...findBoardCompatibilityErrors(nodes, selectedFqbn))
   warnings.push(...findPreviewOnlyWarnings(nodes, edges))
   warnings.push(...findRtcWarnings(nodes))
   warnings.push(...findNetworkConfigWarnings(nodes))
