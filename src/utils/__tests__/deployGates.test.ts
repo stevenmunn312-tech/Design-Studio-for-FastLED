@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
   findDeployBlockingErrors,
-  DEPLOY_GATE_UNENFORCED,
   buildGraphDiagnostics,
   validateGraph,
 } from '../validateGraph'
@@ -25,10 +24,17 @@ import type { StudioNode, StudioEdge } from '../../state/graphStore'
  *      where a blocked user goes to repair it.
  *
  * Plus one invariant that keeps them honest: for every case, `validateGraph`'s
- * errors and the deploy gate agree exactly. Both gaps closed here were the same
+ * errors and the deploy gate agree exactly. Every gap closed here was the same
  * shape — a rule that was an error in the drawer and a no-op at the Upload
- * button (`findHub75ConfigErrors`, then `findScalarExpressionErrors`) — so a
- * new `errors.push` in `validateGraph` that skips the shared helper fails here.
+ * button (`findHub75ConfigErrors`, then `findScalarExpressionErrors`, then the
+ * six capability/display/show-engine classes) — so a new `errors.push` in
+ * `validateGraph` that skips the shared helper fails here.
+ *
+ * Point 3 is not decoration. Enforcing those six meant three of them had no
+ * Graph Health diagnostic at all (Storage capability, the Stereo VU Meter's
+ * data pins, its chipset), which would have produced the inverse fault: Upload
+ * refused with nothing in the drawer to explain it. Asserting the diagnostic
+ * per class is what surfaced that.
  */
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -162,6 +168,58 @@ const CASES: GateCase[] = [
     diagnostic: 'out-layout-0',
   },
   {
+    name: 'an Audio capability with no attached source',
+    nodes: [
+      node('audio', 'Audio', { sourceId: '' }),
+      node('bars', 'SpectrumBars'),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ],
+    edges: [edge('e1', 'audio', 'bars', 'audio'), edge('e2', 'bars', 'out')],
+    fqbn: S3,
+    blocks: /has no attached source/,
+    names: ['Audio', 'microphone'],
+    diagnostic: 'audio-source',
+  },
+  {
+    name: 'a Storage capability with no attached provider',
+    nodes: [
+      node('storage', 'Storage', { sourceId: '' }),
+      node('sc', 'SolidColor'),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ],
+    edges: [edge('e1', 'storage', 'out', 'sdcard'), edge('e2', 'sc', 'out')],
+    fqbn: S3,
+    blocks: /has no attached storage provider/,
+    names: ['Storage', 'SD card'],
+    diagnostic: 'storage-source',
+  },
+  {
+    name: 'a Stereo VU Meter rail on a pin that is not a GPIO',
+    nodes: [
+      node('vu', 'StereoVuMeter', { enabled: true, targetOutputId: '', leftDataPin: 5.5, rightDataPin: 6 }),
+      node('sc', 'SolidColor'),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 7 }),
+    ],
+    edges: [edge('e1', 'audio-src', 'vu', 'audio'), edge('e2', 'sc', 'out')],
+    fqbn: S3,
+    blocks: /left data pin is missing or invalid/,
+    names: ['StereoVuMeter', 'left data pin'],
+    diagnostic: 'vu-leftDataPin',
+  },
+  {
+    name: 'a Stereo VU Meter on a chipset that needs a clock line',
+    nodes: [
+      node('vu', 'StereoVuMeter', { enabled: true, targetOutputId: '', leftDataPin: 5, rightDataPin: 6, chipset: 'APA102' }),
+      node('sc', 'SolidColor'),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 7 }),
+    ],
+    edges: [edge('e1', 'audio-src', 'vu', 'audio'), edge('e2', 'sc', 'out')],
+    fqbn: S3,
+    blocks: /unsupported chipset APA102/,
+    names: ['StereoVuMeter', 'APA102', 'clockless'],
+    diagnostic: 'vu-chipset',
+  },
+  {
     name: 'a numeric property expression the parser rejects',
     nodes: [
       node('rnd', 'Random', { min: 0, max: 'unknown + 1' }),
@@ -229,37 +287,6 @@ describe('deploy gates — each failure class blocks with an actionable message'
     expect(findDeployBlockingErrors(nodes, edges, S3)).toEqual([])
     expect(validateGraph(nodes, edges, S3).errors).toEqual([])
     expect(buildGraphDiagnostics(nodes, edges, { selectedFqbn: S3 }).filter((d) => d.severity === 'error')).toEqual([])
-  })
-
-  it('pins which validateGraph errors the gate does not enforce yet', () => {
-    // Not a wish list: each of these is an error validateGraph and Graph Health
-    // already report, so each is a candidate for the gate. They are enumerated
-    // so that adding one is a deliberate edit to DEPLOY_GATE_UNENFORCED rather
-    // than something a reader has to diff two functions to discover.
-    expect([...DEPLOY_GATE_UNENFORCED]).toEqual([
-      'findAudioCapabilityErrors',
-      'findStorageCapabilityErrors',
-      'findStereoVuMeterErrors',
-      'findDisplayGeneratorIssues',
-      'findOutputRuntimeIssues',
-      'showEngineIssues',
-    ])
-  })
-
-  it('leaves an unattached Audio capability to validateGraph, per that list', () => {
-    // The current behaviour of one entry above, pinned so a change is visible:
-    // validateGraph calls it an error, the deploy gate stays silent.
-    const nodes = [
-      node('audio', 'Audio', { sourceId: '' }),
-      node('bars', 'SpectrumBars'),
-      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
-    ]
-    const edges = [edge('e1', 'audio', 'bars', 'audio'), edge('e2', 'bars', 'out')]
-
-    expect(validateGraph(nodes, edges, S3).errors).toEqual(
-      expect.arrayContaining([expect.stringMatching(/no attached source/)]),
-    )
-    expect(findDeployBlockingErrors(nodes, edges, S3)).toEqual([])
   })
 
   it('blocks an unwired output through the graph-shape check rather than this gate', () => {

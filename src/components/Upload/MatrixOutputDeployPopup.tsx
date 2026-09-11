@@ -154,14 +154,13 @@ export default function MatrixOutputDeployPopup({
   const uploadReady = helperReady && activeEngineReady && coreReady && portDetected
 
   // Every graph rule that blocks a build, in the one list validateGraph and
-  // Graph Health read too — pin conflicts, layout, output resources, show form
-  // and show requirements, HUB75 config, property expressions, formula source,
-  // and board compatibility. Assembling it here is what let rules go missing
-  // from the buttons while the drawer called them errors; see
-  // findDeployBlockingErrors.
+  // Graph Health read too. Assembling it here is what let rules go missing from
+  // the buttons while the drawer called them errors; see
+  // findDeployBlockingErrors. The prepared documents are passed because a custom
+  // screen's bindings cannot be resolved without them.
   const graphBlockers = useMemo(
-    () => findDeployBlockingErrors(nodes, edges, selectedFqbn),
-    [nodes, edges, selectedFqbn],
+    () => findDeployBlockingErrors(nodes, edges, selectedFqbn, customAssets.documents),
+    [nodes, edges, selectedFqbn, customAssets.documents],
   )
   // Uneven parallel runs are worth saying and never worth blocking — a star
   // with half-length arms is a real build, not a misconfiguration.
@@ -197,13 +196,17 @@ export default function MatrixOutputDeployPopup({
     && capacityResult?.target === (usePsram && psramChoice ? `${selectedFqbn}:${psramChoice.opt}` : selectedFqbn)
     && !capacityResult.ok && capacityResult.overflow
 
-  const blockingErrors = [
+  // Deduped because two of these sources legitimately name the same problem: a
+  // control-routing error blocks an asset bake (so the hook reports it, itself
+  // deduped for the same reason) and is also an output-runtime error in the
+  // deploy gate. The list is rendered one line per entry, keyed by the message.
+  const blockingErrors = [...new Set([
     ...customAssets.errors,
     ...(customAssets.pending ? ['Preparing display images…'] : []),
     ...graphBlockers,
     ...(ramBudgetIssue ? [ramBudgetIssue.message] : []),
     ...(capacityOverflow ? [`${board?.label ?? 'This board'}: design is too large to fit (live capacity check)`] : []),
-  ]
+  ])]
   const canBuild = hasBuildOutput && blockingErrors.length === 0
   const canShowUpload = hasSdShow && blockingErrors.length === 0
   const suggestedAction = useMemo(() => suggestedValidationAction(nodes, edges), [nodes, edges])

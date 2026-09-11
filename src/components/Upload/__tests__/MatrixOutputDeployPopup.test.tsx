@@ -451,6 +451,28 @@ describe('MatrixOutputDeployPopup', () => {
     expect(wiringButton.disabled).toBe(true)
   })
 
+  it('lists a problem once when two sources report it', () => {
+    // Real pair: a control-routing error blocks the display-asset bake (so
+    // useCustomDisplayAssets reports it, deduping its own two sources for the
+    // same reason) and is also an output-runtime error in the deploy gate, which
+    // now enforces those. Two mocked sources stand in for that overlap here —
+    // getByText is the assertion, since it throws on a duplicate render.
+    const shared = 'Panel: a generated show controller cannot read these Controls wires.'
+    vi.mocked(findDeployBlockingErrors).mockReturnValue([shared])
+    vi.mocked(findFirmwareRamBudgetIssue).mockReturnValue({ message: shared } as never)
+    useUploadStore.setState({
+      helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' },
+      installedCores: [],
+      selectedPort: 'COM7',
+      ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [{ name: 'ESP32-S3' }] }],
+    })
+
+    const { getByRole, getByText } = render(<MatrixOutputDeployPopup />)
+
+    expect(getByText(shared)).toBeTruthy()
+    expect((getByRole('button', { name: '🧪 Flash Wiring Test' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
   it('blocks deploy actions when a numeric property expression is invalid', () => {
     // The gap the shared gate closed. validateGraph and Graph Health both call
     // an unparseable expression an error, but this popup assembled its own

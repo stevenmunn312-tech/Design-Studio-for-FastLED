@@ -549,14 +549,19 @@ matrix, not a reason to postpone testing earlier changes.
   blocker list; see `findDeployBlockingErrors`. What remains here is the human
   half: watching each class block in the real UI, plus the keyboard/
   screen-reader pass.
-  - [ ] Decide the six `DEPLOY_GATE_UNENFORCED` classes (`findAudioCapabilityErrors`,
-    `findStorageCapabilityErrors`, `findStereoVuMeterErrors`,
-    `findDisplayGeneratorIssues`, `findOutputRuntimeIssues`, error-severity
-    `showEngineIssues`). Each is already a `validateGraph` error and a
-    "compiles, then the part stays dark" rule, so each is a gate candidate —
-    but enforcing them all at once would start refusing uploads that work on
-    the bench today while these generators are still moving. Listed and pinned
-    by test rather than silently absent.
+  - [x] **All six formerly unenforced classes now block deploy** (2026-09-11, at
+    the owner's direction): unresolved `Audio`/`Storage` capabilities, Stereo VU
+    Meter configuration, display-generator and output-runtime issues, and
+    error-severity show-engine issues. Each was already a `validateGraph` error
+    and a "compiles, then the part stays dark" rule. Enforcing them surfaced two
+    further things worth knowing. Three had **no Graph Health diagnostic at all**
+    (Storage capability, the VU meter's left/right data pins, its chipset), so
+    enforcement alone would have blocked Upload with nothing in the drawer to
+    explain it — the inverse of the HUB75 fault — and those diagnostics were
+    added with the enforcement. And a control-routing error now arrives from two
+    sources at once (the display-asset bake hook, which already deduped its own
+    two sources, and the gate's output-runtime half), so the popup dedupes its
+    assembled list rather than printing the same sentence twice.
 - [ ] **HW-17 · Distribution smoke tests (M).** Clean-profile offline-PWA
   relaunch and clean end-user-machine desktop runs; platform signing/notarization
   before publishing. Exit: per-platform launch/install, helper discovery,
