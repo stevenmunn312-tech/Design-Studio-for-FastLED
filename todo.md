@@ -536,32 +536,26 @@ matrix, not a reason to postpone testing earlier changes.
   save/reopen → export/upload. Exercise pins, layout, power, board/toolchain,
   capacity, graph and asset/trust blockers. Exit: every fix is reachable without
   source docs; keyboard/screen-reader checks include the new editor and picker.
-  **Automated half landed 2026-09-11** (`src/utils/__tests__/deployGates.test.ts`):
-  one provoking graph per blocker class, each asserting the shared deploy gate
-  refuses it, that the message names the offending node/pin/property, and that
-  Graph Health explains it with a repair and a node to select. It found two real
-  gaps, both now fixed — an invalid numeric property expression blocked nothing
-  at deploy time (`validateGraph` and Graph Health called it an error while
-  Upload/Export proceeded, shipping a sketch where the property had silently
-  fallen back to its library default), and the HUB75 board-family block had no
-  Graph Health diagnostic at all, so a user on a C3 saw Upload disabled with only
-  incidental pin errors to explain it. The popup no longer assembles its own
-  blocker list; see `findDeployBlockingErrors`. What remains here is the human
-  half: watching each class block in the real UI, plus the keyboard/
-  screen-reader pass.
-  - [x] **All six formerly unenforced classes now block deploy** (2026-09-11, at
-    the owner's direction): unresolved `Audio`/`Storage` capabilities, Stereo VU
-    Meter configuration, display-generator and output-runtime issues, and
-    error-severity show-engine issues. Each was already a `validateGraph` error
-    and a "compiles, then the part stays dark" rule. Enforcing them surfaced two
-    further things worth knowing. Three had **no Graph Health diagnostic at all**
-    (Storage capability, the VU meter's left/right data pins, its chipset), so
-    enforcement alone would have blocked Upload with nothing in the drawer to
-    explain it — the inverse of the HUB75 fault — and those diagnostics were
-    added with the enforcement. And a control-routing error now arrives from two
-    sources at once (the display-asset bake hook, which already deduped its own
-    two sources, and the gate's output-runtime half), so the popup dedupes its
-    assembled list rather than printing the same sentence twice.
+  The blocker half is automated in `src/utils/__tests__/deployGates.test.ts`:
+  one graph per class asserting the gate refuses it, that the message names the
+  offending node/pin/property, that Graph Health explains it with a repair, and
+  that `validateGraph` and the gate agree exactly. `findDeployBlockingErrors` is
+  now that one gate (contract in CLAUDE.md); the deploy popup no longer keeps its
+  own copy. Remaining exit: the journey itself, run by hand.
+  - [x] Every graph error `validateGraph` reports blocks deploy (2026-09-11).
+    Closed by the audit above: an invalid numeric property expression and six
+    formerly exempt classes (Audio/Storage capabilities, Stereo VU Meter config,
+    display-generator, output-runtime, error-severity show-engine) all reached
+    Upload unblocked, and the HUB75 board-family block plus three of those six
+    had no Graph Health diagnostic to explain the refusal. Gate, diagnostics and
+    popup dedup landed together.
+  - [ ] **Confirm the new enforcement refuses nothing that actually builds.**
+    Those six classes started blocking on 2026-09-11. Each was already a
+    `validateGraph` error and no test broke, but a graph that uploaded before
+    that date can be refused now — a capability with no attached source, a VU
+    meter mid-configuration, a screen whose bindings do not resolve. Exit: one
+    pass over the reference bench graphs; treat a refusal you disagree with as a
+    gate bug to report, not a graph to rewire.
 - [ ] **HW-17 · Distribution smoke tests (M).** Clean-profile offline-PWA
   relaunch and clean end-user-machine desktop runs; platform signing/notarization
   before publishing. Exit: per-platform launch/install, helper discovery,
