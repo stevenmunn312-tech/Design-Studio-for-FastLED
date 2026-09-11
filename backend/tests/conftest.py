@@ -12,6 +12,23 @@ def client():
 
 
 @pytest.fixture(autouse=True)
+def _engine_binaries_present(monkeypatch):
+    """Assume an installed build engine unless a test says otherwise.
+
+    Both compile generators now refuse up front when their binary is missing —
+    a real path, since the helper ships without either engine — but almost every
+    test here drives the generators' *orchestration* with `_run_phase` stubbed,
+    and never had a reason to set a binary. Give them a stand-in centrally; a
+    test that wants the refusal (see test_missing_engine.py) sets it back to
+    None and wins, because its own monkeypatch runs after this one.
+    """
+    if app_module._FBUILD_BIN is None:
+        monkeypatch.setattr(app_module, "_FBUILD_BIN", "fbuild")
+    if app_module._ARDUINO_CLI is None:
+        monkeypatch.setattr(app_module, "_ARDUINO_CLI", "arduino-cli")
+
+
+@pytest.fixture(autouse=True)
 def _clean_stream_state():
     """Every test starts with (and leaves) no open streaming session, no
     matter what a test does to app_module's stream globals."""

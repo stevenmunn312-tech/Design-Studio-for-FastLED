@@ -106,9 +106,12 @@ matrix, not a reason to postpone testing earlier changes.
   than the document's, and stops charging a custom panel for the fixed-layout
   field caches it never emits. Covered by shared/unmounted codegen, validation,
   show-template, RAM and asset-preparation tests; `npm test`, `npm run lint` and
-  `tsc -b` pass. Remaining exit: compile the shared-refusal and unmounted-source
-  cases (HW-06 matrix). Document fan-out to two panels stays deferred until
-  simultaneous touch has an answer. F5/F7.
+  `tsc -b` pass. **The shared-refusal and unmounted-source cases now compile**
+  (`multi-panel` and `disabled`/`isolated-tft` in HW-06's matrix, Arduino CLI,
+  2026-09-11), so a refused graph is confirmed to still produce well-formed C++.
+  Remaining exit: the same two shapes through fbuild, with the rest of HW-06.
+  Document fan-out to two panels stays deferred until simultaneous touch has an
+  answer. F5/F7.
 - [x] **HW-04 · P1 · Shared build-mode/capability plan (L; after HW-01–03).**
   `resolveBuildMode` is now the pure source of build mode, selected engine,
   reached output, standalone-VU capability and fixed-template display sources.
@@ -157,12 +160,25 @@ matrix, not a reason to postpone testing earlier changes.
   defects: the player fixture's panel shared the SD card's chip select, and the
   0.96-inch OLED's reset sat on the LED data pin.
 
-  Remaining exit (bench): compile every fixture through Arduino CLI and fbuild
-  and record fresh source hashes, toolchains and memory figures against
-  [display compile checks](docs/development/display-compile-checks.md), which
-  carries the exact commands including the classic-ESP32 `--fqbn`/`--tag` pair.
-  Each board now gets its own arduino-cli workspace so the two do not evict each
-  other's cores. Historical fixtures are not current proof. F9.
+  **Arduino CLI is done: all ten fixtures compiled against the current model on
+  2026-09-11**, source hashes, toolchain and memory figures recorded in
+  [display compile checks](docs/development/display-compile-checks.md) (CLI
+  1.5.2-rc.1, ESP32 core 3.3.11, FastLED 3.10.5, LVGL 9.5.0; nine on the S3
+  target, the classic-ESP32 fixture on its own `--fqbn`/`--tag`). Two figures
+  read as design confirmations rather than numbers: the isolated-TFT fixture is
+  the smallest because `withoutUnusedFastLed` really does drop the include on a
+  screen-only sketch, and the disabled-panel fixture costs what the normal one
+  costs, which is the intended "still built so it can be switched back on".
+
+  Remaining exit (bench): the same ten through **fbuild**. It installs and runs
+  (2.5.22) but its platform-package download does not complete from the
+  environment those runs were made in, while `curl` fetches the same URL — an
+  environment limit, not a repository defect. Historical fixtures are not current
+  proof, and the superseded table is now kept only as the last fbuild numbers on
+  record. F9.
+  - [x] Fixtures regenerate clean on current `Hardware` (2026-09-11): binding
+    symbols, catalogue-derived module coverage and the per-fixture pin-conflict
+    check all pass, so the set was worth the compiles spent on it.
 
 ## 2. Make the workflow understandable
 
@@ -385,6 +401,26 @@ matrix, not a reason to postpone testing earlier changes.
   is documented at its definition and cross-referenced from there.
 
   `npm test` (4,618 tests), `npm run lint` and `tsc -b` pass.
+
+- [x] **HW-27 · P2 · A missing build engine crashed the compile generator (S).**
+  Found running HW-06's matrix. Every HTTP entry point checks that the selected
+  engine's binary exists and answers 400, but the two compile generators are also
+  called directly — `scripts/compile-display-smoke.py` drives the whole fixture
+  matrix through them — and neither checked. With fbuild off PATH, `_FBUILD_BIN`
+  is None, so assembling its argument list raised `TypeError: sequence item 0:
+  expected str instance, NoneType found` from inside `_run_phase`: a stack trace
+  where a sentence belongs, and an empty log where the reason belongs.
+  arduino-cli did not crash but reported `failed to launch compile`, naming the
+  subcommand as though it were the missing program. Both generators now refuse up
+  front in the same `=== ✗ label: … ===` voice as their sibling refusals, keeping
+  the `(rc, phase)` contract so callers can still say nothing reached the board,
+  and fbuild refuses *before* taking the shared build lock so a build that cannot
+  run does not make the next one queue behind it. `_run_phase` — the one funnel
+  both engines use — also stringifies its arguments and reports an unresolved
+  binary rather than raising mid-stream. The backend tests assumed an installed
+  engine implicitly, which is what let this through; that assumption is now one
+  autouse fixture in `conftest.py`, and `test_missing_engine.py` sets it back to
+  None to hold each refusal.
 
 ## 3. Establish exact hardware support
 

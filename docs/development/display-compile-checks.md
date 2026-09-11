@@ -1,14 +1,15 @@
 # Display firmware compile checks
 
-> **Partial coverage of the current model (2026-09-10).** The generator has been
-> repaired: `scripts/generate-display-smoke.ts` now builds on the panel/document
-> split — a `Display` node, a `TransportDisplay` panel and a `customDisplay` mount
-> edge between them — and the removed field ports are gone. Three of the ten
-> fixtures have been rerun against it on both engines and are recorded below.
-> **The other seven have not**, and the figures for them are from the earlier
-> graph model, so they are not current proof. See root todo HW-06 for the
-> remaining runs and [review F9](reports/hardware-branch-review.md#f9--p2--compile-fixtures-still-use-the-removed-graph-shape)
-> for how the fixtures came to be wrong.
+> **All ten fixtures compiled on Arduino CLI against the current model
+> (2026-09-11); fbuild is still outstanding.** `scripts/generate-display-smoke.ts`
+> builds on the panel/document split — a `Display` node, a `TransportDisplay`
+> panel and a `customDisplay` mount edge between them — and every fixture it
+> writes now has a current Arduino CLI figure below, including the seven whose
+> only previous numbers came from the removed graph model. The second engine has
+> no current run for any fixture: see [fbuild](#fbuild-outstanding). Root todo
+> HW-06 carries the remainder, and
+> [review F9](reports/hardware-branch-review.md#f9--p2--compile-fixtures-still-use-the-removed-graph-shape)
+> records how the fixtures came to be wrong.
 
 
 These fixtures exercise custom LVGL displays alongside the fixed TFT transport
@@ -141,6 +142,51 @@ static RAM report measures runtime heap or PSRAM use.
 Sizes below use the compilers' final byte summaries. The helper JSON can round
 fbuild sizes because it also accepts that engine's KB/MB display format.
 
+### Current model, all ten fixtures on Arduino CLI, 2026-09-11
+
+Linux, 11 September 2026. Arduino CLI 1.5.2-rc.1 with ESP32 core 3.3.11, FastLED
+3.10.5 and LVGL 9.5.0 (installed lazily by the helper), player audio checkout
+tagged 3.0.12. Nine fixtures on
+`esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB`;
+the classic-ESP32 fixture on `esp32:esp32:esp32` as its own target. Every run
+exited zero. The source hash is the generated `.ino`, so a figure can be tied to
+the exact sketch that produced it.
+
+| Fixture | Source SHA-256 | Result | Flash bytes | Static RAM bytes |
+| --- | --- | --- | --- | ---: |
+| Normal | `96e3235d7172` | Passed | 632,999 (20%) | 105,644 (32%) |
+| Generative show | `8098a5107e36` | Passed | 637,179 (20%) | 106,020 (32%) |
+| SD player | `887c16d16f4e` | Passed | 1,314,043 (41%) | 121,892 (37%) |
+| Isolated TFT | `ab8b3351b884` | Passed | 301,024 (9%) | 23,016 (7%) |
+| Headless controls | `ef9b0a4cfe7b` | Passed | 426,831 (13%) | 27,636 (8%) |
+| Disabled panel | `cf03c253eb74` | Passed | 628,323 (19%) | 105,276 (32%) |
+| Two panels, two designs | `d1f7034eea21` | Passed | 630,439 (20%) | 115,068 (35%) |
+| Part families (SPI) | `bfda657994bb` | Passed | 471,851 (14%) | 37,884 (11%) |
+| Part families (I²C) | `7e2e4f5fc37c` | Passed | 459,987 (14%) | 31,012 (9%) |
+
+The classic ESP32, a different chip family with a 1.25 MB application partition
+and the fixed layouts only:
+
+| Fixture | Source SHA-256 | Result | Flash bytes | Static RAM bytes |
+| --- | --- | --- | --- | ---: |
+| Classic ESP32, fixed layouts | `03da992ff2ff` | Passed | 428,011 (32%) | 31,508 (9%) |
+
+Two figures are worth reading rather than filing. The isolated-TFT fixture is the
+smallest at 301,024 bytes because it is the screen-only shape, and
+`withoutUnusedFastLed` drops the FastLED include entirely — compile evidence for
+an invariant that until now only a unit test asserted. And the disabled-panel
+fixture costs almost exactly what the normal one does (628,323 against 632,999),
+which is the intended design: a switched-off panel is still built so it can be
+switched back on.
+
+<a id="fbuild-outstanding"></a>**fbuild remains outstanding, and is bench work.**
+It is installed and runs (2.5.22), but its platform package download does not
+complete in the environment these runs were made in — `curl` fetches the same
+`platform-espressif32.zip` URL through the proxy while fbuild's own downloader
+gives up at byte offset 0 — so no fixture has a current fbuild figure. That is an
+environment limit, not a defect in this repository; the commands in *Reproduce*
+above are unchanged.
+
 ### Current model, 2026-09-10
 
 The three generator paths, rebuilt against the repaired fixtures. Arduino CLI
@@ -178,8 +224,9 @@ seconds; that is a build-time artefact and does not affect the sizes.
 
 Not current proof: these were built before the panel/document split, from the
 fixture shape [review F9](reports/hardware-branch-review.md#f9--p2--compile-fixtures-still-use-the-removed-graph-shape)
-describes. The seven fixtures not listed in the table above have no newer figures
-at all.
+describes. Every fixture now has a current Arduino CLI figure above; these rows
+are kept only because they are the last fbuild numbers on record, and they
+describe a graph shape that no longer exists.
 
 | Fixture | Engine | Result | Flash bytes | Static RAM bytes |
 | --- | --- | --- | --- | ---: |
