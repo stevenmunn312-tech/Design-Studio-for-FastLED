@@ -221,6 +221,21 @@ const classicEdges = [
   edge('rtc', 'display', 'classic-digits', 'display'),
 ]
 
+/*
+ * The bench instrument, compiled once.
+ *
+ * The normal fixture's own graph with the Board's telemetry property on, rather
+ * than that fixture flipped: its hash is recorded compile evidence, and a
+ * property that rewrote it would invalidate the table to prove one block
+ * compiles. This shape is what makes the emission worth checking — a custom
+ * screen for `drawbuf` to measure, and a touch panel for the press stamp.
+ */
+const telemetryNodes = normalNodes.map((entry) => (entry.id === 'board'
+  ? node('board', 'Board', {
+    profileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc', usePsram: true, reportTelemetry: true,
+  })
+  : entry))
+
 const sketches: Record<string, string> = {
   normal: generateCpp(normalNodes, normalEdges, {}, options),
   show: generateShowSketch(showNodes, showEdges, groups, options),
@@ -252,6 +267,7 @@ const sketches: Record<string, string> = {
     [edge('fill', 'frame', 'out', 'frame'), ...altPartNodes.map((entry) => edge('rtc', 'display', entry.id, 'display'))],
   ),
   'refused-mounts': generateCpp(refusedNodes, refusedEdges, {}, refusedOptions),
+  telemetry: generateCpp(telemetryNodes, normalEdges, {}, options),
   'classic-esp32-fixed': generateCpp(classicNodes, classicEdges),
 }
 
@@ -268,6 +284,7 @@ const fixtureGraphs: Record<string, { nodes: StudioNode[]; edges: StudioEdge[] }
   'part-families': { nodes: [board(), output(), rtc(), ...partNodes], edges: [] },
   'part-families-i2c': { nodes: [board(), output(), rtc(), ...altPartNodes], edges: [] },
   'refused-mounts': { nodes: refusedNodes, edges: refusedEdges },
+  telemetry: { nodes: telemetryNodes, edges: normalEdges },
   'classic-esp32-fixed': { nodes: classicNodes, edges: classicEdges },
 }
 for (const [name, graph] of Object.entries(fixtureGraphs)) {
@@ -317,6 +334,8 @@ const requiredSymbols: Record<string, readonly string[]> = {
   'part-families-i2c': ['_oledBeginI2c', '#include <Wire.h>'],
   'refused-mounts': ['lv_display_set_default(_cdDisp_custom_tft)', 'static TftPanel _tft_spare_tft',
     '_tftPaint(_tft_spare_tft', 'n_loose_widget_slider_out = 0.0f'],
+  telemetry: ['void _telReport() {', 'FLS_STAT uptime=', '_telTouchPress();', 'drawbuf=',
+    'Serial.begin(115200)'],
   'classic-esp32-fixed': ['_tftClockValid_classic_tft', '_oledBeginI2c', 'SEG_KIND_TM1637'],
 }
 
