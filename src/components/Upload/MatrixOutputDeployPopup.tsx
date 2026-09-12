@@ -14,7 +14,7 @@ import { generateShowSketch } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph, streamReceiverCapabilityNotes } from '../../codegen/streamReceiverGenerator'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
 import { readySongCount, buildShowPayload, buildShowPlayerForMeasurement, showPackagingIssues } from '../../utils/showUpload'
-import { findPinConflicts, findMatrixLayoutErrors, findMirroredOutputMismatches, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowOutputFormErrors, findShowRequirementErrors, findFirmwareRamBudgetIssue } from '../../utils/validateGraph'
+import { findDeployBlockingErrors, findMirroredOutputMismatches, findHub75TopologyDiagnosticErrors, findFirmwareRamBudgetIssue } from '../../utils/validateGraph'
 import { summarizeCapacity } from '../../utils/capacityFormat'
 import { useCodegenGraph } from '../../utils/codegenGraph'
 import { useModalFocus } from '../../hooks/useModalFocus'
@@ -156,31 +156,19 @@ export default function MatrixOutputDeployPopup({
   const coreReady = !!board && (usingFbuild || installedCores.includes(board.core))
   const uploadReady = helperReady && activeEngineReady && coreReady && portDetected
 
-  const pinConflicts = useMemo(() => findPinConflicts(nodes, edges), [nodes, edges])
-  const layoutErrors = useMemo(
-    () => findMatrixLayoutErrors(nodes),
-    [nodes],
+  // Every graph rule that blocks a build, in the one list validateGraph and
+  // Graph Health read too. Assembling it here is what let rules go missing from
+  // the buttons while the drawer called them errors; see
+  // findDeployBlockingErrors. The prepared documents are passed because a custom
+  // screen's bindings cannot be resolved without them.
+  const graphBlockers = useMemo(
+    () => findDeployBlockingErrors(nodes, edges, selectedFqbn, customAssets.documents),
+    [nodes, edges, selectedFqbn, customAssets.documents],
   )
   // Uneven parallel runs are worth saying and never worth blocking — a star
   // with half-length arms is a real build, not a misconfiguration.
   const mirrorNotes = useMemo(() => findMirroredOutputMismatches(nodes, edges), [nodes, edges])
   const liveStreamNotes = useMemo(() => streamReceiverCapabilityNotes(nodes), [nodes])
-  const outputResourceErrors = useMemo(() => findOutputResourceErrors(nodes), [nodes])
-  const boardCompatibilityErrors = useMemo(
-    () => findBoardCompatibilityErrors(nodes, selectedFqbn),
-    [nodes, selectedFqbn],
-  )
-  const hub75ConfigErrors = useMemo(() => findHub75ConfigErrors(nodes), [nodes])
-  const showOutputFormErrors = useMemo(() => findShowOutputFormErrors(nodes, edges), [nodes, edges])
-  const formulaErrors = useMemo(() => findFormulaErrors(nodes), [nodes])
-  // A music show has to name every part the player drives: the LED output it
-  // sends the show to, the card it reads the song from, and the module that
-  // turns that song into sound. Guessing any of them flashes a board that
-  // lights nothing, plays nothing, or both.
-  const showTargetErrors = useMemo(
-    () => findShowRequirementErrors(nodes, edges, selectedFqbn),
-    [nodes, edges, selectedFqbn],
-  )
   const hub75TopologyErrors = useMemo(
     () => findHub75TopologyDiagnosticErrors(nodes, nodeId),
     [nodes, nodeId],
@@ -211,20 +199,17 @@ export default function MatrixOutputDeployPopup({
     && capacityResult?.target === (usePsram && psramChoice ? `${selectedFqbn}:${psramChoice.opt}` : selectedFqbn)
     && !capacityResult.ok && capacityResult.overflow
 
-  const blockingErrors = [
+  // Deduped because two of these sources legitimately name the same problem: a
+  // control-routing error blocks an asset bake (so the hook reports it, itself
+  // deduped for the same reason) and is also an output-runtime error in the
+  // deploy gate. The list is rendered one line per entry, keyed by the message.
+  const blockingErrors = [...new Set([
     ...customAssets.errors,
     ...(customAssets.pending ? ['Preparing display images…'] : []),
-    ...pinConflicts,
-    ...layoutErrors,
-    ...outputResourceErrors,
-    ...boardCompatibilityErrors,
-    ...hub75ConfigErrors,
-    ...showOutputFormErrors,
-    ...showTargetErrors,
-    ...formulaErrors,
+    ...graphBlockers,
     ...(ramBudgetIssue ? [ramBudgetIssue.message] : []),
     ...(capacityOverflow ? [`${board?.label ?? 'This board'}: design is too large to fit (live capacity check)`] : []),
-  ]
+  ])]
   const canBuild = hasBuildOutput && blockingErrors.length === 0
   const canShowUpload = hasSdShow && blockingErrors.length === 0
   const suggestedAction = useMemo(() => suggestedValidationAction(nodes, edges), [nodes, edges])

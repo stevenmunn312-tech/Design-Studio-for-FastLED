@@ -11,7 +11,7 @@ import { useStreamStore } from '../../../state/streamStore'
 import { useCapacityStore } from '../../../state/capacityStore'
 import { generateCpp } from '../../../codegen/cppGenerator'
 import { generateWiringDiagnosticSketch } from '../../../codegen/wiringDiagnosticGenerator'
-import { findFirmwareRamBudgetIssue, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors } from '../../../utils/validateGraph'
+import { findDeployBlockingErrors, findFirmwareRamBudgetIssue, findHub75TopologyDiagnosticErrors } from '../../../utils/validateGraph'
 import { createDisplayDocument } from '../../../state/displayEditor'
 import { bakeCustomDisplayAssets, type BakedCustomDisplayAssets } from '../../../utils/bakeCustomDisplayAssets'
 import { customDisplayAssetRequests } from '../../../state/customDisplayResources'
@@ -50,17 +50,13 @@ vi.mock('../../../utils/showUpload', () => ({
   buildShowPlayerForMeasurement: vi.fn(() => '// player sketch'),
 }))
 
+// The graph rules themselves are proven against real graphs in
+// utils/__tests__/deployGates.test.ts. What this file owns is the wiring: that
+// whatever findDeployBlockingErrors reports actually disables the buttons.
 vi.mock('../../../utils/validateGraph', () => ({
-  findPinConflicts: vi.fn(() => []),
-  findMatrixLayoutErrors: vi.fn(() => []),
-  findShowOutputFormErrors: vi.fn(() => []),
+  findDeployBlockingErrors: vi.fn(() => []),
   findMirroredOutputMismatches: vi.fn(() => []),
-  findOutputResourceErrors: vi.fn(() => []),
-  findBoardCompatibilityErrors: vi.fn(() => []),
-  findHub75ConfigErrors: vi.fn(() => []),
   findHub75TopologyDiagnosticErrors: vi.fn(() => []),
-  findFormulaErrors: vi.fn(() => []),
-  findShowRequirementErrors: vi.fn(() => []),
   findFirmwareRamBudgetIssue: vi.fn(() => null),
 }))
 
@@ -170,9 +166,8 @@ describe('MatrixOutputDeployPopup', () => {
   })
 
   afterEach(() => {
-    vi.mocked(findHub75ConfigErrors).mockReturnValue([])
+    vi.mocked(findDeployBlockingErrors).mockReturnValue([])
     vi.mocked(findHub75TopologyDiagnosticErrors).mockReturnValue([])
-    vi.mocked(findFormulaErrors).mockReturnValue([])
     vi.mocked(findFirmwareRamBudgetIssue).mockReturnValue(null)
   })
 
@@ -438,8 +433,9 @@ describe('MatrixOutputDeployPopup', () => {
     // supersample) used to be surfaced only in the Graph Health drawer, never
     // in this popup's own blockingErrors — so Flash Wiring Test (which needs
     // no frame input, unlike Upload) stayed clickable for a HUB75 shape
-    // cppGenerator.ts can't actually emit.
-    vi.mocked(findHub75ConfigErrors).mockReturnValue([
+    // cppGenerator.ts can't actually emit. It reaches the buttons through the
+    // shared deploy gate now.
+    vi.mocked(findDeployBlockingErrors).mockReturnValue([
       'Matrix Output is set to HUB75, which only supports the Matrix layout or a Panels chain so far — switch layout to Matrix or Panels, or use an addressable chipset.',
     ])
     useUploadStore.setState({
@@ -455,11 +451,57 @@ describe('MatrixOutputDeployPopup', () => {
     expect(wiringButton.disabled).toBe(true)
   })
 
+  it('lists a problem once when two sources report it', () => {
+    // Real pair: a control-routing error blocks the display-asset bake (so
+    // useCustomDisplayAssets reports it, deduping its own two sources for the
+    // same reason) and is also an output-runtime error in the deploy gate, which
+    // now enforces those. Two mocked sources stand in for that overlap here —
+    // getByText is the assertion, since it throws on a duplicate render.
+    const shared = 'Panel: a generated show controller cannot read these Controls wires.'
+    vi.mocked(findDeployBlockingErrors).mockReturnValue([shared])
+    vi.mocked(findFirmwareRamBudgetIssue).mockReturnValue({ message: shared } as never)
+    useUploadStore.setState({
+      helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' },
+      installedCores: [],
+      selectedPort: 'COM7',
+      ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [{ name: 'ESP32-S3' }] }],
+    })
+
+    const { getByRole, getByText } = render(<MatrixOutputDeployPopup />)
+
+    expect(getByText(shared)).toBeTruthy()
+    expect((getByRole('button', { name: '🧪 Flash Wiring Test' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('blocks deploy actions when a numeric property expression is invalid', () => {
+    // The gap the shared gate closed. validateGraph and Graph Health both call
+    // an unparseable expression an error, but this popup assembled its own
+    // blocker list and omitted findScalarExpressionErrors — so Upload/Export
+    // shipped a sketch in which the property had silently fallen back to its
+    // library default (resolveNodeScalarExpressions), doing something other
+    // than what the node's editor says.
+    vi.mocked(findDeployBlockingErrors).mockReturnValue([
+      'Random max has an invalid numeric expression: unknown + 1',
+    ])
+    useUploadStore.setState({
+      helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' },
+      installedCores: [],
+      selectedPort: 'COM7',
+      ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [{ name: 'ESP32-S3' }] }],
+    })
+
+    const { getByRole, getByText } = render(<MatrixOutputDeployPopup />)
+
+    expect((getByRole('button', { name: '↓ Export .ino' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((getByRole('button', { name: '🧪 Flash Wiring Test' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(getByText('Random max has an invalid numeric expression: unknown + 1')).toBeTruthy()
+  })
+
   it('blocks Export .ino when a formula node would not survive codegen validation', () => {
     // The C++ generator refuses to emit unvalidated formula source (it falls
     // back to a blank render), so an invalid formula must block export rather
     // than quietly shipping a sketch that does something else.
-    vi.mocked(findFormulaErrors).mockReturnValue([
+    vi.mocked(findDeployBlockingErrors).mockReturnValue([
       'Custom Formula has an invalid formula: 0.0f; digitalWrite(2, HIGH); float _x = 0',
     ])
     useUploadStore.setState({

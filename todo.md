@@ -151,6 +151,14 @@ matrix, not a reason to postpone testing earlier changes.
   three custom-screen fixtures on that engine — the normal path on this platform
   rather than an exception.
 
+
+  **A parallel session read this differently, and it is worth saying why.** Its
+  own HW-06 run recorded the shared-refusal and unmounted-source cases as
+  covered by `multi-panel` and `disabled`/`isolated-tft`. Those three fixtures
+  contain neither shape: `multi-panel` is two designs on two panels, which is
+  the *legal* arrangement, and the other two have one design and none. The
+  refusals had no fixture at all until `refused-mounts`, which is why it exists.
+
   Document fan-out to two panels stays deferred until simultaneous touch has an
   answer. All exits met. F5/F7.
 - [x] **HW-04 · P1 · Shared build-mode/capability plan (L; after HW-01–03).**
@@ -230,7 +238,23 @@ matrix, not a reason to postpone testing earlier changes.
   engine's own build line carries full bytes and should be preferred for that
   leg. An eleventh fixture, `refused-mounts`, was added afterwards for HW-03 and
   compiled under it the same day; the ten recorded hashes did not change when it
-  was generated. F9.
+  was generated.
+
+  **A second, independent run of the same matrix exists**, made in parallel on
+  Arduino CLI 1.5.2-rc.1 rather than the 1.5.1 used above, with the five LVGL
+  fixtures rebuilt after HW-28. Both are kept: two toolchain versions over the
+  same fixtures is calibration rather than duplication — `isolated-tft` compiled
+  at the identical source hash under both and landed 48 bytes apart, which is
+  the noise floor between CLI versions on this set. That run reached no fbuild
+  figures at all: fbuild 2.5.22 installs and runs there, but its platform-package
+  download does not complete from that environment while `curl` fetches the same
+  URL, which is an environment limit rather than a repository defect and is worth
+  knowing before anyone tries the matrix from the cloud again. The fbuild half of
+  this item is met by the local runs above.
+
+  Also confirmed by that run: the fixtures regenerate clean on current
+  `Hardware` — binding symbols, catalogue-derived module coverage and the
+  per-fixture pin-conflict check all pass. F9.
 
 ## 2. Make the workflow understandable
 
@@ -454,6 +478,47 @@ matrix, not a reason to postpone testing earlier changes.
 
   `npm test` (4,618 tests), `npm run lint` and `tsc -b` pass.
 
+- [x] **HW-27 · P2 · A missing build engine crashed the compile generator (S).**
+  Found running HW-06's matrix. Every HTTP entry point checks that the selected
+  engine's binary exists and answers 400, but the two compile generators are also
+  called directly — `scripts/compile-display-smoke.py` drives the whole fixture
+  matrix through them — and neither checked. With fbuild off PATH, `_FBUILD_BIN`
+  is None, so assembling its argument list raised `TypeError: sequence item 0:
+  expected str instance, NoneType found` from inside `_run_phase`: a stack trace
+  where a sentence belongs, and an empty log where the reason belongs.
+  arduino-cli did not crash but reported `failed to launch compile`, naming the
+  subcommand as though it were the missing program. Both generators now refuse up
+  front in the same `=== ✗ label: … ===` voice as their sibling refusals, keeping
+  the `(rc, phase)` contract so callers can still say nothing reached the board,
+  and fbuild refuses *before* taking the shared build lock so a build that cannot
+  run does not make the next one queue behind it. `_run_phase` — the one funnel
+  both engines use — also stringifies its arguments and reports an unresolved
+  binary rather than raising mid-stream. The backend tests assumed an installed
+  engine implicitly, which is what let this through; that assumption is now one
+  autouse fixture in `conftest.py`, and `test_missing_engine.py` sets it back to
+  None to hold each refusal.
+
+- [x] **HW-28 · P2 · A custom screen's Pattern Browser drew at LVGL's default
+  size, not the authored one (S).** Found from HW-06's compile runs, by comparing
+  each emitted sketch's `// FLS-LVGL-FONTS:` marker against the
+  `&lv_font_montserrat_N` faces it actually references: one declared face nothing
+  used. The Pattern Browser is created as an `lv_label` — a placeholder until its
+  collection-thumbnail slice lands — but the font/align/long-mode/line-space block
+  was gated on `lvglEmitter === 'label'`, and its emitter id is `pattern-browser`.
+  So on glass it inherited LVGL's built-in default face while the DOM preview
+  honoured the authored size, and the face the marker had already compiled into
+  flash for it was never drawn with: a parity break and a wasted face from one
+  cause. Text styling now follows `lvglWidgetClass`, the LVGL class the widget is
+  actually created as, so two emitters creating a label are styled alike; the
+  marker's own widget list was right all along. Costs 40–52 bytes of flash per
+  browser and no RAM, measured across the five rebuilt fixtures.
+  `customDisplayLvglFonts.test.ts` holds both directions — every referenced face
+  declared, nothing declared unreferenced — over one document with every widget
+  type at its own distinct size, which is what gives it teeth: cycling a short
+  list of sizes let Timecode and Button share a number, and the test passed a
+  deliberate break until each type contributed its own. The compile matrix could
+  not have caught this, because every LVGL fixture it builds uses a single size.
+
 ## 3. Establish exact hardware support
 
 - [ ] **HW-11 · Touch/LVGL budget and calibration (L; after HW-06).** One exact
@@ -652,6 +717,26 @@ matrix, not a reason to postpone testing earlier changes.
   save/reopen → export/upload. Exercise pins, layout, power, board/toolchain,
   capacity, graph and asset/trust blockers. Exit: every fix is reachable without
   source docs; keyboard/screen-reader checks include the new editor and picker.
+  The blocker half is automated in `src/utils/__tests__/deployGates.test.ts`:
+  one graph per class asserting the gate refuses it, that the message names the
+  offending node/pin/property, that Graph Health explains it with a repair, and
+  that `validateGraph` and the gate agree exactly. `findDeployBlockingErrors` is
+  now that one gate (contract in CLAUDE.md); the deploy popup no longer keeps its
+  own copy. Remaining exit: the journey itself, run by hand.
+  - [x] Every graph error `validateGraph` reports blocks deploy (2026-09-11).
+    Closed by the audit above: an invalid numeric property expression and six
+    formerly exempt classes (Audio/Storage capabilities, Stereo VU Meter config,
+    display-generator, output-runtime, error-severity show-engine) all reached
+    Upload unblocked, and the HUB75 board-family block plus three of those six
+    had no Graph Health diagnostic to explain the refusal. Gate, diagnostics and
+    popup dedup landed together.
+  - [ ] **Confirm the new enforcement refuses nothing that actually builds.**
+    Those six classes started blocking on 2026-09-11. Each was already a
+    `validateGraph` error and no test broke, but a graph that uploaded before
+    that date can be refused now — a capability with no attached source, a VU
+    meter mid-configuration, a screen whose bindings do not resolve. Exit: one
+    pass over the reference bench graphs; treat a refusal you disagree with as a
+    gate bug to report, not a graph to rewire.
 - [ ] **HW-17 · Distribution smoke tests (M).** Clean-profile offline-PWA
   relaunch and clean end-user-machine desktop runs; platform signing/notarization
   before publishing. Exit: per-platform launch/install, helper discovery,

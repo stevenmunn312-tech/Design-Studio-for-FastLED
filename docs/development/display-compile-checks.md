@@ -1,17 +1,36 @@
 # Display firmware compile checks
 
-> **All twelve fixtures carry current-model evidence (2026-09-11/12).**
-> The generator was repaired first: `scripts/generate-display-smoke.ts` builds on
-> the panel/document split — a `Display` node, a `TransportDisplay` panel and a
-> `customDisplay` mount edge between them — and the removed field ports are gone
-> (see [review F9](reports/hardware-branch-review.md#f9--p2--compile-fixtures-still-use-the-removed-graph-shape)
-> for how the fixtures came to be wrong). Every fixture has since been built
-> against it on both engines: twenty runs, all passing. Two needed a second
-> attempt and neither for a reason in the sketch — one fbuild daemon death, one
-> Windows command-length limit that the helper's own recovery handled.
-> `refused-mounts` was added afterwards, for HW-03's two refused shapes, and
-> compiled on both engines the same day; `telemetry` was added for HW-11's bench
-> instrument and compiled under Arduino CLI.
+> **All twelve fixtures carry current-model evidence (2026-09-11/12), from two
+> independent runs on two toolchain versions.** The generator was repaired first:
+> `scripts/generate-display-smoke.ts` builds on the panel/document split — a
+> `Display` node, a `TransportDisplay` panel and a `customDisplay` mount edge
+> between them — and the removed field ports are gone (see
+> [review F9](reports/hardware-branch-review.md#f9--p2--compile-fixtures-still-use-the-removed-graph-shape)
+> for how the fixtures came to be wrong).
+>
+> The local runs built every fixture on **both** engines — twenty runs, all
+> passing, Arduino CLI 1.5.1 and fbuild 2.5.22 — plus `refused-mounts` for HW-03's
+> two refused shapes and `telemetry` for HW-11's bench instrument. A parallel
+> session built the same ten on **Arduino CLI 1.5.2-rc.1** and reached no fbuild
+> figures, its environment being unable to complete fbuild's platform download.
+> Both sets are recorded below rather than one replacing the other: the same
+> fixture at the same source hash under two CLI versions is what tells you the
+> noise floor between them.
+>
+> **Which rows are current, checked by regenerating on the merged tree rather
+> than assumed.** HW-28's Pattern Browser styling changed the LVGL output, and
+> the parallel run was made after it: the generator emits `1db869428c2f` for the
+> normal fixture today, which is that run's recorded hash, so **its figures are
+> the current ones for every LVGL-bearing fixture**. The local Arduino CLI rows
+> for those same fixtures (`96e3235d7172` and its siblings) predate the change
+> and are superseded; the local fbuild rows are superseded as figures but remain
+> the only fbuild evidence on record. The non-LVGL fixtures — isolated TFT,
+> headless, both part-family sketches and the classic-ESP32 one — are unaffected
+> and current on both engines: `isolated-tft` regenerates at `ab8b3351b884`,
+> exactly the hash both runs recorded. The `telemetry` fixture is LVGL-bearing
+> and now emits `bb82571a7d57`, so its figures below are superseded too; what
+> they establish — that the block compiles and what it costs — is unchanged by a
+> styling edit elsewhere in the sketch.
 
 
 These fixtures exercise custom LVGL displays alongside the fixed TFT transport
@@ -172,6 +191,71 @@ static RAM report measures runtime heap or PSRAM use.
 
 Sizes below use the compilers' final byte summaries. The helper JSON can round
 fbuild sizes because it also accepts that engine's KB/MB display format.
+
+### Current model, all ten fixtures on Arduino CLI, 2026-09-11
+
+Linux, 11 September 2026. Arduino CLI 1.5.2-rc.1 with ESP32 core 3.3.11, FastLED
+3.10.5 and LVGL 9.5.0 (installed lazily by the helper), player audio checkout
+tagged 3.0.12. Nine fixtures on
+`esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB`;
+the classic-ESP32 fixture on `esp32:esp32:esp32` as its own target. Every run
+exited zero. The source hash is the generated `.ino`, so a figure can be tied to
+the exact sketch that produced it.
+
+| Fixture | Source SHA-256 | Result | Flash bytes | Static RAM bytes |
+| --- | --- | --- | --- | ---: |
+| Normal | `1db869428c2f` | Passed | 633,039 (20%) | 105,644 (32%) |
+| Generative show | `dac549be5897` | Passed | 637,223 (20%) | 106,020 (32%) |
+| SD player | `ff9133a09018` | Passed | 1,314,095 (41%) | 121,892 (37%) |
+| Isolated TFT | `ab8b3351b884` | Passed | 301,024 (9%) | 23,016 (7%) |
+| Headless controls | `ef9b0a4cfe7b` | Passed | 426,831 (13%) | 27,636 (8%) |
+| Disabled panel | `3d1cb471a093` | Passed | 628,367 (19%) | 105,276 (32%) |
+| Two panels, two designs | `5bcea64fd269` | Passed | 630,487 (20%) | 115,068 (35%) |
+| Part families (SPI) | `bfda657994bb` | Passed | 471,851 (14%) | 37,884 (11%) |
+| Part families (I²C) | `7e2e4f5fc37c` | Passed | 459,987 (14%) | 31,012 (9%) |
+
+The classic ESP32, a different chip family with a 1.25 MB application partition
+and the fixed layouts only:
+
+| Fixture | Source SHA-256 | Result | Flash bytes | Static RAM bytes |
+| --- | --- | --- | --- | ---: |
+| Classic ESP32, fixed layouts | `03da992ff2ff` | Passed | 428,011 (32%) | 31,508 (9%) |
+
+The five LVGL fixtures were rebuilt after the Pattern Browser font fix below,
+so every hash here is the sketch that produced its own figures. That fix costs
+40 to 52 bytes of flash and no RAM — one font/align/long-mode/line-space style
+per browser.
+
+Two figures are worth reading rather than filing. The isolated-TFT fixture is the
+smallest at 301,024 bytes because it is the screen-only shape, and
+`withoutUnusedFastLed` drops the FastLED include entirely — compile evidence for
+an invariant that until now only a unit test asserted. And the disabled-panel
+fixture costs almost exactly what the normal one does (628,323 against 632,999),
+which is the intended design: a switched-off panel is still built so it can be
+switched back on.
+
+**Found by these runs: the Pattern Browser drew at the wrong size on device.**
+Comparing each sketch's `// FLS-LVGL-FONTS:` marker against the
+`&lv_font_montserrat_N` faces it actually references showed one declared face
+nothing used. The Pattern Browser is created as an `lv_label` (a placeholder
+until its collection-thumbnail slice lands), but the font/align/long-mode block
+was gated on `lvglEmitter === 'label'` and its emitter id is
+`pattern-browser` — so it inherited LVGL's built-in default face while the DOM
+preview honoured the authored size, and the face the marker had already
+compiled into flash for it went unused. Text styling now follows the LVGL class
+the widget is created as, `lvglWidgetClass`, rather than the emitter id.
+`src/codegen/__tests__/customDisplayLvglFonts.test.ts` holds both directions at
+one distinct size per widget; the compile matrix could not have caught it,
+because every fixture it builds uses a single size.
+
+<a id="fbuild-outstanding"></a>**This run reached no fbuild figures, and the
+reason is worth keeping.** fbuild 2.5.22 is installed and runs there, but its
+platform package download does not complete in that environment — `curl` fetches
+the same `platform-espressif32.zip` URL through the proxy while fbuild's own
+downloader gives up at byte offset 0. An environment limit rather than a defect
+in this repository, and the thing to check first if the matrix is ever attempted
+from the cloud again. The fbuild half of the matrix was completed locally
+instead; those figures are in the sections below.
 
 ### Current model, 2026-09-11
 
@@ -344,11 +428,11 @@ without `-w` and would be the one to show any warning this block provokes.
 
 ### Earlier graph model — superseded, retained for comparison
 
-Not current proof either, and for a different reason: these were built before
-the panel/document split, from the fixture shape
+Not current proof, and for a different reason than the tables above: these were
+built before the panel/document split, from the fixture shape
 [review F9](reports/hardware-branch-review.md#f9--p2--compile-fixtures-still-use-the-removed-graph-shape)
-describes. They are kept only so the same three paths can be compared across the
-model change.
+describes, so they describe a graph shape that no longer exists. They are kept
+only so the same three paths can be compared across the model change.
 
 | Fixture | Engine | Result | Flash bytes | Static RAM bytes |
 | --- | --- | --- | --- | ---: |

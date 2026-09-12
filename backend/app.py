@@ -1565,13 +1565,42 @@ def _reports_total_time(compile_upload):
     return timed
 
 
+def _missing_engine(label, engine, hint):
+    """Refuse a build whose engine binary is not installed.
+
+    Every HTTP entry point checks this and answers 400, but the two compile
+    generators are also called directly — `scripts/compile-display-smoke.py`
+    runs the display fixture matrix through them — and neither checked. fbuild
+    was the worse of the two: `_FBUILD_BIN` is None, so building its argument
+    list raised `TypeError: sequence item 0: expected str instance, NoneType
+    found` from inside `_run_phase`, a stack trace where a sentence belongs.
+    arduino-cli degraded to `_ARDUINO_BASE == []` and reported "failed to
+    launch compile", naming the subcommand as though it were the program.
+
+    Yields the same `=== ✗ label: … ===` shape as the other refusals in this
+    module and returns the (rc, phase) pair callers expect, so nothing reached
+    the board and the caller can say so.
+    """
+    yield f"\n=== ✗ {label}: {engine} was not found ===\n"
+    yield f"  {hint}\n"
+    yield "  Nothing was compiled or sent to the board.\n"
+    return -1, "compile"
+
+
 def _run_phase(label, args, sink=None, cwd=None, tool_env=None):
     """Run one build-tool phase (arduino-cli or fbuild), yielding its output
     lines; returns the exit code. If `sink` (a list) is given, each output line
     is also appended to it so the caller can inspect the phase output (e.g. to
     parse the flash/RAM size report)."""
     _begin_build_run()
-    yield f"\n=== {label} ===\n$ {' '.join(args)}\n"
+    # A None here means an engine binary went unresolved upstream. Report it as
+    # a launch failure rather than raising out of the generator mid-stream: the
+    # caller is streaming this to a log or the Output console, and a TypeError
+    # there loses both the run and the reason for it.
+    if not args or args[0] is None:
+        yield f"[error] {label}: no build tool to run — the engine binary was not found\n"
+        return -1
+    yield f"\n=== {label} ===\n$ {' '.join(str(arg) for arg in args)}\n"
     started = time.monotonic()
     try:
         proc = subprocess.Popen(
@@ -1715,6 +1744,12 @@ def _compile_upload(label, sketch_dir, fqbn, port):
     overflows flash/RAM, so an over-capacity design fails here and never reaches
     the upload step. We translate that (otherwise cryptic) failure into a clear
     message, and on success surface the headroom / warn when it's tight."""
+    if not _ARDUINO_CLI:
+        return (yield from _missing_engine(
+            label, "arduino-cli",
+            "Point the helper at a binary or install one from Board & Port, "
+            "or switch the engine to fbuild.",
+        ))
     compile_lines = []
     uses_lvgl = any(
         _LVGL_INCLUDE_MARKER in path.read_text(encoding="utf-8")
@@ -2045,6 +2080,13 @@ def _compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None, usb_cdc=False)
     unlikely. The acquire is timeout-bounded (see `_FBUILD_LOCK_TIMEOUT_S`)
     so a genuinely wedged build fails fast and visibly instead of silently
     starving every later build/upload/capacity-check request forever."""
+    # Before the lock: a build that cannot run should not make the next one
+    # queue behind it.
+    if not _FBUILD_BIN:
+        return (yield from _missing_engine(
+            label, "fbuild",
+            "Install it with `pip install fbuild`, or switch the engine to arduino-cli.",
+        ))
     # Take the wait in slices instead of one blocking `acquire`, and narrate it.
     # The UI derives its status from this stream, so a build queued behind
     # another one used to produce no output at all for up to

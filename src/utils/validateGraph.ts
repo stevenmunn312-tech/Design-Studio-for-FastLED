@@ -1302,6 +1302,73 @@ export function findOutputResourceErrors(nodes: StudioNode[]): string[] {
   return []
 }
 
+/**
+ * The graph rules that block a build, flash, or export — one list, read by both
+ * the deploy UI and `validateGraph`.
+ *
+ * The deploy popup used to assemble this itself, which is how rules kept going
+ * missing from it. `findHub75ConfigErrors` was absent for a while, so Graph
+ * Health flagged an unsupported HUB75 shape while Upload stayed clickable.
+ * `findScalarExpressionErrors` was the same omission found again: an expression
+ * the parser rejects resolves to that property's library default in
+ * `resolveNodeScalarExpressions`, so the flashed sketch does something other
+ * than what the node's own editor says — exactly the divergence
+ * `findFormulaErrors` exists to stop.
+ *
+ * It is every graph rule `validateGraph` calls an error, in one call, so the
+ * two cannot disagree. Six classes were exempt when this was extracted —
+ * unresolved Audio and Storage capabilities, Stereo VU Meter configuration,
+ * display-generator and output-runtime issues, and error-severity show-engine
+ * issues — each a "compiles, then the part stays dark" rule that nonetheless
+ * left Upload clickable. They are enforced now.
+ *
+ * Two kinds of rule are deliberately NOT here:
+ *
+ *   - Graph *shape* (no output, no Frame wired). `validateGraph` reports it as
+ *     an error; the deploy UI expresses it per action ("connect a frame to
+ *     enable export"), because which port must be wired depends on the action.
+ *   - Anything measured rather than derived from the graph: the live
+ *     capacity-check overflow, display-asset preparation, and the RAM budget
+ *     all come from stores or an async bake, so the popup adds those itself.
+ *
+ * `displayDocuments` is optional only because most callers have no registry to
+ * pass; omitting it when one exists reports a custom screen's bindings as
+ * unresolved, so the deploy UI passes its prepared documents.
+ */
+export function findDeployBlockingErrors(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  selectedFqbn = '',
+  displayDocuments?: DisplayDocumentRegistry,
+): string[] {
+  // Both walks can name the same problem; the display half is the more specific
+  // sentence, so it wins and the runtime half is deduped against it (the same
+  // order validateGraph and the drawer already use).
+  const displayIssues = findDisplayGeneratorIssues(nodes, edges, displayDocuments)
+  const runtimeIssues = findOutputRuntimeIssues(nodes, edges, displayDocuments).errors
+    .filter((message) => !displayIssues.errors.includes(message))
+
+  return [
+    ...findPinConflicts(nodes, edges),
+    ...findOutputResourceErrors(nodes),
+    ...findMatrixLayoutErrors(nodes),
+    ...findShowOutputFormErrors(nodes, edges),
+    ...findShowRequirementErrors(nodes, edges, selectedFqbn),
+    ...findAudioCapabilityErrors(nodes, edges),
+    ...findStorageCapabilityErrors(nodes, edges),
+    ...findStereoVuMeterErrors(nodes, edges),
+    ...findHub75ConfigErrors(nodes),
+    ...findScalarExpressionErrors(nodes),
+    ...findFormulaErrors(nodes),
+    ...findBoardCompatibilityErrors(nodes, selectedFqbn),
+    ...displayIssues.errors,
+    ...runtimeIssues,
+    ...showEngineIssues(nodes, edges)
+      .filter((issue) => issue.severity === 'error')
+      .map((issue) => `${issue.title}. ${issue.fix}`),
+  ]
+}
+
 export type GraphDiagnosticSeverity = 'error' | 'warning'
 export type GraphDiagnosticCategory =
   | 'connection'
@@ -2057,6 +2124,24 @@ export function buildGraphDiagnostics(
     })
   }
 
+  for (const storageNode of nodes.filter((node) =>
+    node.data.nodeType === 'Storage' &&
+    edges.some((edge) => edge.source === node.id) &&
+    !resolveStorageCapabilitySource(options.capabilityNodes ?? nodes, String(node.data.properties.sourceId ?? ''))
+  )) {
+    diagnostics.push({
+      id: `${storageNode.id}-source`,
+      severity: 'error',
+      category: 'connection',
+      title: 'Storage has no attached provider',
+      message: 'This Storage signal is in use, but it does not resolve to attached storage hardware.',
+      fix: 'Add a board with storage or an SD card in Hardware, then choose it from the Storage source list.',
+      nodeIds: [storageNode.id],
+      nodeLabel: nodeLabel(storageNode),
+      propertyKey: 'sourceId',
+    })
+  }
+
   for (const meter of nodes.filter((node) => node.data.nodeType === 'StereoVuMeter')) {
     const props = meter.data.properties as Record<string, unknown>
     if (props.enabled === false) continue
@@ -2067,6 +2152,28 @@ export function buildGraphDiagnostics(
         message: 'The paired side strings stay black until an Audio node is connected.',
         fix: 'Connect Audio to the meter’s Audio socket, or disable the fixture.',
         nodeIds: [meter.id], nodeLabel: nodeLabel(meter),
+      })
+    }
+    for (const [key, side] of [['leftDataPin', 'left'], ['rightDataPin', 'right']] as const) {
+      const pin = props[key]
+      if (typeof pin !== 'number' || !isValidPinNumber(pin)) {
+        diagnostics.push({
+          id: `${meter.id}-${key}`, severity: 'error', category: 'pins',
+          title: `Stereo VU Meter ${side} data pin is not a usable GPIO`,
+          message: `The ${side} rail is set to ${pin === undefined ? 'nothing' : String(pin)}.`,
+          fix: `Enter a whole-number GPIO from 0–${MAX_PIN_NUMBER} for the ${side} rail.`,
+          nodeIds: [meter.id], nodeLabel: nodeLabel(meter), propertyKey: key,
+        })
+      }
+    }
+    const meterChipset = String(props.chipset ?? 'WS2812B')
+    if (!(CLOCKLESS_CHIPSET_OPTIONS as readonly string[]).includes(meterChipset)) {
+      diagnostics.push({
+        id: `${meter.id}-chipset`, severity: 'error', category: 'layout',
+        title: 'Stereo VU Meter chipset is not supported',
+        message: `${meterChipset} needs a separate clock line, and both rails are driven as clockless strings.`,
+        fix: 'Choose a clockless addressable chipset (WS2812B, WS2811, SK6812, …) for the meter.',
+        nodeIds: [meter.id], nodeLabel: nodeLabel(meter), propertyKey: 'chipset',
       })
     }
     const targetOutputId = String(props.targetOutputId ?? '')
@@ -2393,6 +2500,26 @@ export function buildGraphDiagnostics(
     }
   }
 
+  // The HUB75 board-family block was the one deploy blocker with nothing in the
+  // drawer to explain it. Upload refused the graph, while Graph Health showed
+  // only whatever incidental pin errors the default HUB75 pinout happened to
+  // provoke on that chip — which reads as "fix your pins" rather than "this
+  // chip cannot drive HUB75 at all".
+  if (options.selectedFqbn && !HUB75_SUPPORTED_FQBNS.has(options.selectedFqbn)) {
+    for (const node of nodes.filter((entry) =>
+      entry.data.nodeType === 'MatrixOutput'
+      && outputForm(entry.data.properties as Record<string, unknown>) === 'hub75'
+    )) {
+      diagnostics.push({
+        id: `${node.id}-board-hub75`, severity: 'error', category: 'board',
+        title: 'HUB75 output is incompatible with the selected board',
+        message: 'The HUB75 DMA driver needs the LCD-mode peripheral found on the classic ESP32, ESP32-S2, and ESP32-S3; RISC-V ESP32 variants (C3/C6/H2) and other board families have none.',
+        fix: 'Choose a classic ESP32, ESP32-S2, or ESP32-S3 board in Board & Port, or switch the LED output to an addressable chipset.',
+        nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
+      })
+    }
+  }
+
   if (options.selectedFqbn && !options.selectedFqbn.startsWith('esp32:')) {
     for (const node of nodes.filter((entry) =>
       entry.data.nodeType === 'DMXInput' && String((entry.data.properties as Record<string, unknown>).inputMode ?? 'Art-Net') === 'DMX512'
@@ -2627,19 +2754,11 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
     }
   }
 
-  errors.push(...findPinConflicts(nodes, edges))
-  errors.push(...findOutputResourceErrors(nodes))
-  errors.push(...findMatrixLayoutErrors(nodes))
-  errors.push(...findShowOutputFormErrors(nodes, edges))
-  errors.push(...findShowRequirementErrors(nodes, edges, selectedFqbn))
-  errors.push(...findAudioCapabilityErrors(nodes, edges))
-  errors.push(...findStorageCapabilityErrors(nodes, edges))
-  errors.push(...findStereoVuMeterErrors(nodes, edges))
-
-  errors.push(...findHub75ConfigErrors(nodes))
-  errors.push(...findScalarExpressionErrors(nodes))
-  errors.push(...findFormulaErrors(nodes))
-  errors.push(...findBoardCompatibilityErrors(nodes, selectedFqbn))
+  // Every error this function reports about the graph itself comes from the one
+  // list the deploy UI gates on, so a rule cannot be an error here and a no-op
+  // at the Upload button. Only the warning halves are collected separately
+  // below.
+  errors.push(...findDeployBlockingErrors(nodes, edges, selectedFqbn, displayDocuments))
   warnings.push(...findPreviewOnlyWarnings(nodes, edges))
   warnings.push(...findRtcWarnings(nodes))
   warnings.push(...findNetworkConfigWarnings(nodes))
@@ -2649,10 +2768,8 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   warnings.push(...findPlayerControlMappingWarnings(nodes, edges))
   warnings.push(...findSharedControlSourceWarnings(nodes, edges))
   warnings.push(...findSignalRangeWarnings(nodes, edges))
-  const displayIssues = findDisplayGeneratorIssues(nodes, edges, displayDocuments)
-  errors.push(...displayIssues.errors)
-  warnings.push(...displayIssues.warnings)
-  errors.push(...findOutputRuntimeIssues(nodes, edges, displayDocuments).errors.filter((message) => !displayIssues.errors.includes(message)))
+  // Errors from this walk are already in the deploy gate above.
+  warnings.push(...findDisplayGeneratorIssues(nodes, edges, displayDocuments).warnings)
 
   const power = estimatePowerLoad(nodes)
   if (power?.exceedsConfigured) {
@@ -2679,9 +2796,9 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
     warnings.push('Music Player has no Pattern Collection wired')
   }
 
+  // Error-severity show-engine issues likewise arrive through the deploy gate.
   for (const issue of showEngineIssues(nodes, edges)) {
-    if (issue.severity === 'error') errors.push(`${issue.title}. ${issue.fix}`)
-    else warnings.push(issue.title)
+    if (issue.severity !== 'error') warnings.push(issue.title)
   }
 
   // Music-sync generator: a wired Pattern Collection needs a direct music
