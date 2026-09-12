@@ -2569,6 +2569,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       psramPolicy: 'auto',
       psramMode: 'opi',
       serialRoute: 'auto',
+      // Off by default: it costs flash and puts a line on the serial port every
+      // couple of seconds, which a finished installation has no use for. It is
+      // a bench instrument, turned on to measure a rig and turned off again.
+      reportTelemetry: false,
     },
   },
   {
@@ -4357,6 +4361,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   psramPolicy: "Automatically uses PSRAM when the exact board profile identifies its interface, or lets you force it on or off.",
   psramMode: "Which PSRAM interface to target — must match the board module's physical package; it can't be probed from the host.",
   serialRoute: "Chooses where Serial appears. Auto identifies native USB versus a UART bridge from the selected USB port when possible.",
+  reportTelemetry: 'Prints free heap, PSRAM, frame rate and touch response to Serial every couple of seconds, for the telemetry card in the Upload tab to record. A bench instrument: leave it off for a finished build. ESP32 and ESP8266 only — other boards have no Serial.printf to report with.',
   layout: 'How a grid maps to physical LED wiring order — plain matrix, tiled panels, or a custom index permutation. Chain forms use their own authoring geometry instead.',
   chipset: 'The addressable LED chipset driving this output — must match the physical part. HUB75 scan panels are their own form rather than a chipset; see docs/development/design/hub75-output.md.',
   form: 'What this output physically is — a string, matrix, ring, corkscrew, or HUB75 scan panel. Everything else on the node follows from it.',
@@ -4703,6 +4708,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     // field the Board migration reads as 0-255 — 0.85 became 1, and every
     // load re-applied it. Two controls, two scales, one property name.
     { key: 'power', label: 'Power', keys: ['overclock', 'powerLimit', 'volts', 'milliamps'] },
+    { key: 'bench', label: 'Bench', keys: ['reportTelemetry'] },
   ],
   StereoVuMeter: [
     { key: 'mounting', label: 'Mounting', keys: ['targetOutputId', 'leftDirection', 'rightDirection', 'swapChannels'] },

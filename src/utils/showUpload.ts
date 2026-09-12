@@ -32,6 +32,7 @@ import { showFileToBinary } from '../codegen/performanceGenerator'
 import type { ShowUploadFile } from './backendClient'
 import { stereoVuEmitsFromGraph } from '../codegen/stereoVuMeterCpp'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
+import { boardSupportsTelemetry } from '../codegen/deviceTelemetryCpp'
 import { wiredPatternCollection } from '../state/patternCollectionWiring'
 import { showFreshnessIssues, type ShowFreshnessIssue } from '../state/showFreshness'
 import { resolveBuildMode } from '../state/buildMode'
@@ -132,6 +133,10 @@ export function buildShowPlayer(
     psramAllowed: opts.psramAllowed,
     controlGraph,
     customDisplayAssets: opts.customDisplayAssets,
+    // Asked for on the Board, honoured only where Serial.printf exists.
+    telemetry: nodes.some((n) => nodeType(n) === 'Board'
+      && (n.data as StudioNodeData).properties?.reportTelemetry === true)
+      && boardSupportsTelemetry(selectedPhysicalBoardProfile(nodes)?.targetFamilies),
     // The panel on a finished build is fed by the player itself, so each wire
     // from Music Player is resolved to the expression that reads it on device.
     displays: playerDisplaysFromGraph(nodes, edges, {

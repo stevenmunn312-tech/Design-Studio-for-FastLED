@@ -32,6 +32,10 @@ import { compositionDims, outputRoutes } from '../state/outputRouting'
 import { outputCanvasDims } from '../state/ledOutputForm'
 import { controllerSettings, ledPropsWithController } from '../state/controllerSettings'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
+import {
+  TELEMETRY_LOOP_BEGIN_CPP, TELEMETRY_REPORT_CPP, TELEMETRY_SERIAL_BEGIN_CPP,
+  boardSupportsTelemetry, deviceTelemetryGlobalsCpp, telemetryEmitFromSource,
+} from './deviceTelemetryCpp'
 import { amplifierIdleCpp } from './amplifierIdle'
 import { playerDisplaysFromGraph, SHOW_DISPLAY_EXPRESSIONS } from './playerDisplays'
 import {
@@ -924,7 +928,18 @@ export function generateShowSketch(
   L.push('}')
   L.push('')
 
+  // Bench telemetry, asked for on the Board and honoured only where Serial.printf
+  // exists. Emitted after every helper so its sizeof sees the real draw buffers.
+  const telemetryAsked = nodes.some((entry) => entry.data.nodeType === 'Board'
+    && entry.data.properties?.reportTelemetry === true)
+  const emitTelemetry = telemetryAsked
+    && boardSupportsTelemetry(selectedPhysicalBoardProfile(nodes)?.targetFamilies)
+  if (emitTelemetry) {
+    L.push(...deviceTelemetryGlobalsCpp(telemetryEmitFromSource(L)))
+  }
+
   L.push('void setup() {')
+  if (emitTelemetry) L.push(TELEMETRY_SERIAL_BEGIN_CPP)
   L.push(...amplifierIdle.setup)
   for (const a of psramAllocs) L.push(a)
   if (multiOutput) {
@@ -986,6 +1001,7 @@ export function generateShowSketch(
     ? '(cur + 1) % PATTERN_COUNT'
     : '(cur + 1 + random8(PATTERN_COUNT - 1)) % PATTERN_COUNT'
   L.push('void loop() {')
+  if (emitTelemetry) L.push(TELEMETRY_LOOP_BEGIN_CPP)
   L.push(...displays.sample)
   L.push(...customDisplays.sample)
   L.push(...controlGraph.loop)
@@ -1095,6 +1111,7 @@ export function generateShowSketch(
   L.push(...selectionCpp.publish)
   for (const line of displays.loop) L.push(line)
   L.push(...customDisplays.loop)
+  if (emitTelemetry) L.push(TELEMETRY_REPORT_CPP)
   L.push('  FastLED.delay(16);')
   L.push('}')
 

@@ -98,6 +98,10 @@ import { compositionDims, corkscrewMapFor, leadingOutputRoutes, outputMirrorLead
 import { isLinearForm, outputCanvasDims, outputForm, outputLedTotal } from '../state/ledOutputForm'
 import { getNetworkCredentials } from '../state/networkCredentials'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
+import {
+  TELEMETRY_LOOP_BEGIN_CPP, TELEMETRY_REPORT_CPP, TELEMETRY_SERIAL_BEGIN_CPP,
+  boardSupportsTelemetry, deviceTelemetryGlobalsCpp, telemetryEmitFromSource,
+} from './deviceTelemetryCpp'
 import { rtcI2cPinsForProfile } from '../state/rtcPins'
 import { controllerSettings, ledPropsWithController, DEFAULT_CONTROLLER_SETTINGS } from '../state/controllerSettings'
 import {
@@ -1916,6 +1920,19 @@ export function generateCpp(
   // panel/touch driver emit per custom Display node, kept apart because they
   // come from different modules — the first is a pure function of the
   // document, the second is real hardware setup neither module wants to own.
+  /*
+   * Bench telemetry, asked for on the Board and honoured only where it can work.
+   *
+   * A board with no `Serial.printf` cannot report, and emitting the block anyway
+   * would break a build to add an instrument nobody asked to be broken for — so
+   * the property is treated as a request rather than a guarantee, the same way
+   * PSRAM is. Validation names the refusal; this simply does not emit.
+   */
+  const telemetryBoard = selectedPhysicalBoardProfile(nodes)
+  const telemetryAsked = nodes.some((node) => node.data.nodeType === 'Board'
+    && props(node).reportTelemetry === true)
+  const emitTelemetry = telemetryAsked && boardSupportsTelemetry(telemetryBoard?.targetFamilies)
+
   const customDisplays: CustomDisplayLvglEmit[] = []
   const customDisplayPanels: CustomDisplayPanelEmit[] = []
   const artworkTables = new Map<string, Uint8Array[]>()
@@ -5138,6 +5155,7 @@ export function generateCpp(
           }
           const panel = customDisplayPanelFromProps(id, p)
           panel.manualTouch = true
+          panel.telemetry = emitTelemetry
           // The same Enabled the fixed layouts below already honour. Without
           // it this arm emitted setup, touch sampling and publication whatever
           // the panel's switch said, so turning a custom screen off produced
@@ -5247,6 +5265,7 @@ export function generateCpp(
         if (diagnosticTouch || publishesControls) {
           const touch: TftTouchEmit = {
             id, controller, rotation, layout, enabledExpr: `_tftOn_${id}`,
+            telemetry: emitTelemetry,
             touch: {
               csPin: intProp(p.touchCsPin, 15, 0, MAX_PIN_NUMBER),
               irqPin: intProp(p.touchIrqPin, 2, 0, MAX_PIN_NUMBER),
@@ -7184,10 +7203,18 @@ export function generateCpp(
     lines.push(``)
   }
 
+  if (emitTelemetry) {
+    // After every panel, so `sizeof` sees the buffers rather than a number this
+    // generator guessed at — an estimate that reports itself proves nothing.
+    lines.push(...deviceTelemetryGlobalsCpp(telemetryEmitFromSource(lines)))
+  }
   lines.push(`void setup() {`)
   lines.push(...amplifierIdle.setup)
   lines.push(...psramAllocs)
   lines.push(...pinSetupLines)
+  // One Serial.begin, and only if the DS3231 command path has not already
+  // opened the port for its own reasons.
+  if (emitTelemetry && !needsDs3231) lines.push(TELEMETRY_SERIAL_BEGIN_CPP)
   // Must run before any other LVGL call — every custom Display's screen and
   // panel setup below (in setupLines) creates LVGL objects.
   if (customDisplays.length > 0) lines.push(`  lv_init();`)
@@ -7247,6 +7274,7 @@ export function generateCpp(
   lines.push(``)
 
   lines.push(`void loop() {`)
+  if (emitTelemetry) lines.push(TELEMETRY_LOOP_BEGIN_CPP)
   if (emitEngine) lines.push(`  updateAudio();`)
   if (needsDs3231) lines.push(`  _rtcHandleSerialSet();`)
   if (needsT.v) lines.push(...masterClockLoopCpp(masterSpeedEmit))
@@ -7272,6 +7300,9 @@ export function generateCpp(
   // Bounded by its own wall-clock gate, so a fast LED loop cannot over-service
   // it and a slow one still redraws promptly.
   if (customDisplays.length > 0) lines.push(customDisplayLvglTimingLoopCpp())
+  // Before the pacing delay: the report then measures the work a pass did, not
+  // the sleep it was told to take.
+  if (emitTelemetry) lines.push(TELEMETRY_REPORT_CPP)
   lines.push(FASTLED_PACING)
   lines.push(`}`)
 

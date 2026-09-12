@@ -21,6 +21,7 @@ import { tftControllerForProps } from '../state/nodeLibrary'
 import { partById } from '../state/partCatalogue'
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
 import { customDisplayId } from './customDisplayId'
+import { TELEMETRY_TOUCH_PRESS_CPP } from './deviceTelemetryCpp'
 
 export const CUSTOM_DISPLAY_PANEL_CPP_INCLUDES = '#include <SPI.h>'
 
@@ -54,6 +55,8 @@ export interface CustomDisplayPanelEmit {
   /** Codegen-owned identifier stem, shared with the CustomDisplayLvglEmit for
    * the same node. */
   id: string
+  /** Stamp each press for bench telemetry; set only when the Board asks. */
+  telemetry?: boolean
   controller: TftController
   rotation: TftRotation
   csPin: number
@@ -213,7 +216,10 @@ function panelIndevCpp(emit: CustomDisplayPanelEmit): string {
   data->point.x = x;
   data->point.y = y;
   data->state = pressed ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
-}`
+${emit.telemetry ? `  static bool _cdTouchPrev_${id} = false;
+  if (pressed && !_cdTouchPrev_${id}) ${TELEMETRY_TOUCH_PRESS_CPP}
+  _cdTouchPrev_${id} = pressed;
+` : ''}}`
 }
 
 /** Every static function this panel needs, emitted once per display. Grouped

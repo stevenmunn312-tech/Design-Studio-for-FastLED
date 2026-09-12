@@ -9,8 +9,16 @@
 import { transportTouchRegions } from '../state/transportTouch'
 import { type TftController, type TftRotation } from '../state/tftSurface'
 import type { TransportDisplayLayout } from '../state/transportDisplay'
+import { TELEMETRY_TOUCH_PRESS_CPP } from './deviceTelemetryCpp'
 
 export interface TftTouchEmit {
+  /**
+   * Stamp each press for bench telemetry.
+   *
+   * Set only when the Board asks for telemetry, so an ordinary build carries
+   * neither the call nor the statics behind it.
+   */
+  telemetry?: boolean
   id: string
   controller: TftController
   rotation: TftRotation
@@ -142,6 +150,9 @@ export function tftTouchServiceCpp(
       + `${t.xMin}, ${t.xMax}, ${t.yMin}, ${t.yMax}, ${display.controller.width}, ${display.controller.height}, ${rotation}, ${pointX}, ${pointY}, ${rawX}, ${rawY});`,
     `    static bool _touchPrev_${id} = false;`,
   ]
+  // On the down edge only, and before the region tests, so the stamp measures
+  // from the press rather than from whichever control happened to be under it.
+  if (display.telemetry) lines.push(`    if (${down} && !_touchPrev_${id}) ${TELEMETRY_TOUCH_PRESS_CPP}`)
   for (const region of regions) {
     const hit = `(${inside(pointX, pointY, region.rect)})`
     const value = region.valueAxis === 'x'
