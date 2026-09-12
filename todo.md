@@ -93,7 +93,7 @@ matrix, not a reason to postpone testing earlier changes.
   rather than silently folded in, so a later failure has somewhere to point.
   F3/F4.
 - [ ] **HW-03 · P1/P2 · Resolve mounted screens once (M; after HW-02).** Code
-  complete; compile evidence outstanding. `customDisplayMountPlan` in
+  complete; one scoping decision outstanding, no compile. `customDisplayMountPlan` in
   `mountedDisplays.ts` is the one walk that says which screens a build contains,
   and RAM pricing, asset baking, deploy validation, the template planner and the
   normal generator all read it. One design on two panels is refused by name
@@ -118,7 +118,8 @@ matrix, not a reason to postpone testing earlier changes.
   never written. So this needs one decision, not a compile: either add a
   forced-through shared-design fixture to `generate-display-smoke.ts` (the
   well-formed-C++ claim is the part a compiler can check) or narrow the exit to
-  the multi-panel proof and let the refusals stand on their tests. Document
+  the multi-panel proof and let the refusals stand on their tests. With HW-06
+  closed, this decision is the only thing left in section 1. Document
   fan-out to two panels stays deferred until simultaneous touch has an answer.
   F5/F7.
 - [x] **HW-04 · P1 · Shared build-mode/capability plan (L; after HW-01–03).**
@@ -147,8 +148,8 @@ matrix, not a reason to postpone testing earlier changes.
   releasing cleanly to Set. Browser Slider → Readout and Song Info → Text paths,
   multi-renderer updates, and normal/show/player native ordering are covered;
   `npm test` (4,520 tests), `npm run lint` and `tsc -b` pass. F8.
-- [ ] **HW-06 · Current-model verification fixtures (M; after HW-01–05).**
-  Fixtures ready; the compile runs are the remaining exit and are yours.
+- [x] **HW-06 · Current-model verification fixtures (M; after HW-01–05).**
+  Fixtures ready and every run recorded; exits met 2026-09-12.
 
   `generate-display-smoke.ts` builds on the current model — panel/document mount
   edges, widget port ids, Song Info — and asserts the binding symbols each
@@ -169,26 +170,34 @@ matrix, not a reason to postpone testing earlier changes.
   defects: the player fixture's panel shared the SD card's chip select, and the
   0.96-inch OLED's reset sat on the LED data pin.
 
-  **Seven of the ten fixtures are done** (2026-09-11, both engines), and their
-  hashes, toolchains and memory figures are recorded in
-  [display compile checks](docs/development/display-compile-checks.md): the
-  isolated TFT, headless controls, a disabled panel, two panels each showing
-  their own design, both part-family sketches and the classic-ESP32 fixed-layout
-  fixture. Thirteen of those fourteen runs passed; `isolated-tft` on fbuild died
-  in the daemon after 4h 08m with nothing emitted past its board banner, while
-  Arduino CLI built the identical hash in 1m 55s, so that leg is an engine
-  failure to rerun rather than a codegen defect. Two things are proven in
-  passing: a screen-only sketch compiles with FastLED trimmed out, and the LVGL
-  background-opacity fix compiles on both engines.
+  **All ten fixtures are compiled on both engines — twenty runs, all passing** —
+  with hashes, toolchains and memory figures in
+  [display compile checks](docs/development/display-compile-checks.md). The seven
+  shapes with no generator of their own were built 2026-09-11; the three
+  generator paths were rebuilt 2026-09-12 because the LVGL background-opacity
+  pairing (`fd143099`) and the FastLED trim (`8a7334ea`) landed after their
+  earlier runs, making those figures describe sketches the generator no longer
+  emits.
 
-  Remaining exit (bench), seven runs and no more: the three generator paths on
-  both engines, plus `isolated-tft` on fbuild. The three were built on
-  2026-09-10 and both the LVGL fix (`fd143099`) and the FastLED trim
-  (`8a7334ea`) landed afterwards, so their recorded figures describe sketches the
-  generator no longer emits — the commands are in the
-  [remaining runs](docs/development/display-compile-checks.md#remaining-runs)
-  section. Each board gets its own arduino-cli workspace so the two do not evict
-  each other's cores. Historical fixtures are not current proof. F9.
+  Four results are worth keeping rather than just the exit codes. The LVGL fix
+  costs 500–520 bytes of flash per path and **zero** static RAM on every path and
+  engine, which is the right shape for 34 style-value call sites. A screen-only
+  sketch compiles with FastLED trimmed out on *both* engines, its fbuild log
+  mentioning FastLED not once, at 625 KB the smallest fixture in the set. The
+  player's fbuild leg exercised the Windows LVGL archive recovery (issue 12) and
+  the helper's response-file retry linked it in 29.1s. And fbuild's daemon death
+  on `isolated-tft` — 4h 08m, nothing compiled — did not reproduce: the identical
+  source passed in 5m 23s, so it was environmental, though still worth writing up
+  upstream while the daemon log holds it.
+
+  Two things this turned up that are *not* exits here. fbuild reports 66
+  deprecation warnings per custom-screen sketch, because the LVGL emitter
+  composes selectors as `LV_PART_x | LV_STATE_y` rather than typing them
+  `lv_style_selector_t`; Arduino CLI hides them with `-w`. And the JSON report
+  derives fbuild's flash figure from its displayed KB/MB summary, so the player's
+  is MB-rounded to about ±5 KB and its byte-level delta is unmeasurable — the
+  engine's own build line carries full bytes and should be preferred for that
+  leg. F9.
 
 ## 2. Make the workflow understandable
 
