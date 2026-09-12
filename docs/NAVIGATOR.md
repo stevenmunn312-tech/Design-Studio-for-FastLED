@@ -115,8 +115,14 @@ build/architecture overview aimed at contributors.
     typed inputs, Music Player's song fields moved to an unpacker node, and a
     Player Controls input that mints only the functions a build actually wires.
   - [Display firmware compile checks](development/display-compile-checks.md)
-    — historical Arduino CLI/fbuild evidence and commands; the current
-    fixture needs the panel/document update before it can establish new coverage.
+    — the eleven current-model fixtures, their Arduino CLI/fbuild figures and
+    the commands that rebuild them, including the two refused shapes that must
+    still generate well-formed C++.
+- [Testing](development/testing/)
+  - [Touch, LVGL and heap budgets](development/testing/display-budget-bench.md)
+    — what a running board reports about itself, how to read it in the Upload
+    tab, and the four runs plus one-hour soak whose numbers become the
+    acceptance budgets. Tables deliberately empty until measured.
 - [Plans](development/plans/)
   - [Workspace shelves handoff](development/plans/workspace-shelves-handoff.md)
     — what the workspace tabs exposed: a sidebar still stocked for the graph

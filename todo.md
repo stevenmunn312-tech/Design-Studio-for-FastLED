@@ -463,6 +463,44 @@ matrix, not a reason to postpone testing earlier changes.
   rotation. Exit: TFT+SD+touch bus sharing, audio+LEDs and a one-hour soak pass
   without unbounded heap growth or wall-clock timing regression; record each
   generator separately. Consolidates display spike, load and calibration checks.
+
+  **The instrument is built; the measuring is yours.** A board cannot be
+  budgeted from a desk, so the device now reports itself: a `reportTelemetry`
+  property on the Board emits one marked line every two seconds carrying free
+  and minimum heap, PSRAM, frames per second, the longest loop pass, the worst
+  press-to-painted-frame and the draw buffer the build actually allocated —
+  `sizeof`, not the RAM estimate's opinion of it, since the point of measuring
+  is to catch an estimate that was wrong. Off by default: it is a bench
+  instrument, and a finished installation has no use for a line on its serial
+  port every two seconds.
+
+  Four decisions worth keeping. The line format lives once in
+  `src/state/deviceTelemetry.ts` and is read from both sides, so the emitter and
+  the parser cannot drift; a key the app does not know is ignored rather than
+  rejected, so an older app still reads a newer device. The card **shares the
+  Output console's serial connection** rather than opening its own — the helper
+  holds a port exclusively, and a second reader would have been two consumers
+  fighting over one board, which is the bug this design avoided rather than
+  shipped. Heap drift is a least-squares fit over every sample, not a line
+  through the first and last, so one collection dip cannot invent a leak; and it
+  refuses to answer at all under thirty seconds, because a confident wrong slope
+  is worse than none. An absent reading stays absent everywhere: a panel nobody
+  touched has no latency and a board with no PSRAM has none fitted, and neither
+  is nought.
+
+  What the device reports is honoured only where it can work — ESP32 and ESP8266
+  have `Serial.printf` and the heap accessors, and any other target ignores the
+  property rather than failing to link. Placement is asserted identically in all
+  three generators (`deviceTelemetryCpp.test.ts`), including that Serial is
+  opened exactly once and the report sits before whatever paces the loop, so
+  `loopmax` is work rather than sleep. `npm test` (4,875 passed, 13 skipped),
+  `npm run lint` and `tsc -b` pass.
+
+  Remaining: the rig, four runs and the hour, against
+  [the bench procedure](docs/development/testing/display-budget-bench.md) whose
+  tables are deliberately empty until measured — then the budgets get set from
+  those numbers. Guided calibration is the other half of this item and is not
+  started; the raw bounds remain sliders on the panel node.
 - [ ] **HW-12 · Integrated display boards (M; after HW-11).** Verify controller
   identity and fixed pins per proposed board, including the ESP32-2432S028
   bring-up unit; add exact profiles/bus ownership and missing drivers only after
