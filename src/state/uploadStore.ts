@@ -12,6 +12,7 @@ import { selectedBoardFlashMb } from '../build/boardProfiles'
 import { controllerSettings } from './controllerSettings'
 import { resolveUsbCdcOnBoot } from './serialRouting'
 import { BOARD_GPIO_BY_FQBN, type BoardGpio } from './boardGpio'
+import { useDeviceTelemetryStore } from './deviceTelemetryStore'
 
 export type { BoardGpio, PinNote } from './boardGpio'
 
@@ -637,10 +638,15 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     const controller = new AbortController()
     serialController = controller
     set({ serialConnected: true, serialError: '' })
+    // One reader, two consumers. The helper holds the port exclusively, so the
+    // telemetry card cannot open its own connection beside this one — it is fed
+    // from here instead. A fresh connection is a fresh measurement.
+    useDeviceTelemetryStore.getState().reset()
     try {
-      await monitorSerial(selectedPort, serialBaud, (chunk) => set((s) => ({
-        serialLog: (s.serialLog + chunk).slice(-60000),
-      })), controller.signal)
+      await monitorSerial(selectedPort, serialBaud, (chunk) => {
+        useDeviceTelemetryStore.getState().ingest(chunk)
+        set((s) => ({ serialLog: (s.serialLog + chunk).slice(-60000) }))
+      }, controller.signal)
     } catch (err) {
       if (!controller.signal.aborted) {
         const message = err instanceof Error ? err.message : String(err)
