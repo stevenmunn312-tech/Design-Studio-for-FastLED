@@ -1,6 +1,6 @@
 # Display firmware compile checks
 
-> **All eleven fixtures carry current-model evidence (2026-09-11/12).**
+> **All twelve fixtures carry current-model evidence (2026-09-11/12).**
 > The generator was repaired first: `scripts/generate-display-smoke.ts` builds on
 > the panel/document split — a `Display` node, a `TransportDisplay` panel and a
 > `customDisplay` mount edge between them — and the removed field ports are gone
@@ -10,7 +10,8 @@
 > attempt and neither for a reason in the sketch — one fbuild daemon death, one
 > Windows command-length limit that the helper's own recovery handled.
 > `refused-mounts` was added afterwards, for HW-03's two refused shapes, and
-> compiled on both engines the same day.
+> compiled on both engines the same day; `telemetry` was added for HW-11's bench
+> instrument and compiled under Arduino CLI.
 
 
 These fixtures exercise custom LVGL displays alongside the fixed TFT transport
@@ -68,6 +69,14 @@ well-formed rather than a sketch declaring one screen's widgets twice:
 ```powershell
 python scripts/compile-display-smoke.py arduino-cli artifacts/display-compile/refused-mounts.ino
 python scripts/compile-display-smoke.py fbuild artifacts/display-compile/refused-mounts.ino
+```
+
+The bench instrument, which is the normal graph with the Board's telemetry
+property on:
+
+```powershell
+python scripts/compile-display-smoke.py arduino-cli artifacts/display-compile/telemetry.ino
+python scripts/compile-display-smoke.py fbuild artifacts/display-compile/telemetry.ino
 ```
 
 The other advertised board. A classic ESP32 is a different chip family with no
@@ -306,6 +315,32 @@ in 30.2s. Two of the three custom-screen fixtures built on fbuild have now neede
 it, so treat it as the normal path on this platform rather than an exception. Its
 precise bytes, from the engine's own build line, are 955,600 flash and 161,172
 RAM; the table's figures come from the KB-rounded display summary.
+
+### Bench telemetry, 2026-09-12
+
+The normal fixture's own graph with the Board's `reportTelemetry` property on —
+a separate sketch rather than that fixture flipped, because its hash is recorded
+evidence and rewriting it to prove one block compiles would invalidate the table
+above.
+
+| Fixture | Source SHA-256 | Engine | Result | Flash bytes | Static RAM bytes |
+| --- | --- | --- | --- | ---: | ---: |
+| Telemetry | `f9e668bf421e` | Arduino CLI | Passed | 637,763 (20%) | 105,684 (32%) |
+
+**What the instrument costs**, against the same graph with the property off
+(`normal`, 633,319 / 105,644): **4,444 bytes of flash and 40 bytes of RAM**. The
+flash is mostly `Serial.printf`'s float conversions. The 40 bytes is exactly the
+nine statics the emitter declares — five counters, three touch fields and the
+pending flag, four bytes each with the bool padded — which matters more than it
+looks: an instrument that consumed the resource it measures would be reporting
+partly on itself.
+
+Three things the compiled source confirms beyond the exit code: the press stamp
+sits inside the LVGL read callback (`if (pressed && !_cdTouchPrev_custom_tft)
+_telTouchPress();`), the draw buffer is reported as
+`sizeof(_cdPanelBuf_custom_tft)` rather than a number the generator guessed, and
+Serial is opened exactly once. Not yet built under fbuild, which compiles
+without `-w` and would be the one to show any warning this block provokes.
 
 ### Earlier graph model — superseded, retained for comparison
 

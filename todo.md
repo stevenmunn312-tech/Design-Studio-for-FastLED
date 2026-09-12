@@ -496,6 +496,16 @@ matrix, not a reason to postpone testing earlier changes.
   `loopmax` is work rather than sleep. `npm test` (4,875 passed, 13 skipped),
   `npm run lint` and `tsc -b` pass.
 
+  **Compiled, and priced.** A twelfth fixture carries the normal graph with the
+  property on — a separate sketch, since flipping the recorded one would
+  invalidate its hash to prove a block compiles — and builds under Arduino CLI
+  at 637,763 flash / 105,684 RAM. Against the same graph with telemetry off that
+  is **4,444 bytes of flash and 40 bytes of RAM**, the 40 being exactly the nine
+  statics the emitter declares. That number is the one worth keeping: an
+  instrument that consumed the resource it measures would be reporting partly on
+  itself. Not yet built under fbuild, which compiles without `-w` and is where
+  any warning this block provokes would appear.
+
   Remaining: the rig, four runs and the hour, against
   [the bench procedure](docs/development/testing/display-budget-bench.md) whose
   tables are deliberately empty until measured — then the budgets get set from
