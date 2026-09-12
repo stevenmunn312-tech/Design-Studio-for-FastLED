@@ -1,17 +1,14 @@
 # Display firmware compile checks
 
-> **Seven of ten fixtures carry current-model evidence (2026-09-11).** The
-> generator was repaired first: `scripts/generate-display-smoke.ts` builds on the
-> panel/document split — a `Display` node, a `TransportDisplay` panel and a
+> **The whole ten-fixture set carries current-model evidence (2026-09-11/12).**
+> The generator was repaired first: `scripts/generate-display-smoke.ts` builds on
+> the panel/document split — a `Display` node, a `TransportDisplay` panel and a
 > `customDisplay` mount edge between them — and the removed field ports are gone
 > (see [review F9](reports/hardware-branch-review.md#f9--p2--compile-fixtures-still-use-the-removed-graph-shape)
-> for how the fixtures came to be wrong). The seven shapes with no generator of
-> their own have since been built against it, thirteen of their fourteen runs
-> passing; the fourteenth died in fbuild's daemon rather than in the sketch.
-> **The three generator paths do not.** They were built on 2026-09-10 and two
-> codegen fixes landed afterwards, so their recorded figures belong to sketches
-> this generator no longer emits. Seven runs remain, listed under
-> [Remaining runs](#remaining-runs) and tracked as root todo HW-06.
+> for how the fixtures came to be wrong). Every fixture has since been built
+> against it on both engines: twenty runs, all passing. Two needed a second
+> attempt and neither for a reason in the sketch — one fbuild daemon death, one
+> Windows command-length limit that the helper's own recovery handled.
 
 
 These fixtures exercise custom LVGL displays alongside the fixed TFT transport
@@ -118,6 +115,16 @@ The initial runs exposed these gaps, now covered by regression tests:
   fbuild once to finish linking and produce its normal size report. It does not
   trim or replace LVGL sources. The upstream call is in
   [archive_objects at v2.5.22](https://github.com/FastLED/fbuild/blob/v2.5.22/crates/fbuild-library/src/library/library_compiler.rs#L667).
+- fbuild's daemon dropped its connection mid-build on one run
+  (`daemon error: lost connection to daemon mid-build`) after four hours with
+  nothing compiled, on a sketch the other engine built in under two minutes. A
+  rerun of the identical source passed in 5m 23s. Not reproduced, not written up
+  upstream yet; the daemon log at `~/.fbuild/prod/daemon/daemon.log` is where the
+  evidence lives.
+- The generated LVGL code composes style selectors as `LV_PART_x | LV_STATE_y`,
+  which LVGL 9.5 deprecates between those two enum types. Sixty-six warnings per
+  custom-screen sketch under fbuild; invisible under Arduino CLI, which compiles
+  with `-w`. Harmless today, an error if the deprecation is promoted.
 - Arduino selected an older user-installed ESP32 audio library whose AAC
   decoder does not compile with this toolchain's `int32_t` definitions. The
   helper now passes a private, pinned 3.0.12 library via `--library`, leaving
@@ -157,7 +164,7 @@ produced it.
 | Fixture | Source SHA-256 | Engine | Result | Flash bytes | Static RAM bytes |
 | --- | --- | --- | --- | ---: | ---: |
 | Isolated TFT | `ab8b3351b884` | Arduino CLI | Passed | 301,072 (9%) | 23,016 (7%) |
-| Isolated TFT | `ab8b3351b884` | fbuild | **Failed in the daemon** | — | — |
+| Isolated TFT | `ab8b3351b884` | fbuild | Passed (rerun 2026-09-12) | 625,316 (4%) | 75,684 (23%) |
 | Headless controls | `ef9b0a4cfe7b` | Arduino CLI | Passed | 427,151 (13%) | 27,636 (8%) |
 | Headless controls | `ef9b0a4cfe7b` | fbuild | Passed | 743,117 (4%) | 80,855 (25%) |
 | Disabled panel | `cf03c253eb74` | Arduino CLI | Passed | 628,643 (19%) | 105,276 (32%) |
@@ -175,12 +182,15 @@ The classic-ESP32 percentages are against that chip's own ceilings — a 1.31 MB
 application partition and 320 KB of RAM — so they are the one pair in the table
 that is not measured against the S3 figures above them.
 
-**The failure is not in the sketch.** `isolated-tft` on fbuild ended with
-`daemon error: lost connection to daemon mid-build`, after 4h 08m of wall clock,
-having emitted nothing past its board banner. Arduino CLI built the identical
-source — same hash — in 1m 55s. That leg needs rerunning; the daemon death
-itself is fbuild's own and is not yet written up in
-[the fbuild report](reports/fbuild-workarounds.md).
+**One leg failed here and passed on a rerun.** On 2026-09-11 `isolated-tft`
+under fbuild ended with `daemon error: lost connection to daemon mid-build`,
+after 4h 08m of wall clock, having emitted nothing past its board banner, while
+Arduino CLI built the identical hash in 1m 55s. Rerun on 2026-09-12 against the
+same source, same engine and same machine, it passed in 5m 23s. So the death was
+environmental, not a property of this fixture — but it is fbuild's own failure
+mode and is not yet written up in
+[the fbuild report](reports/fbuild-workarounds.md), which is worth doing while
+the daemon log still holds it.
 
 Two results are worth reading for what they prove beyond the exit code. The
 screen-only sketch is the first compiled since FastLED is trimmed out of a
@@ -195,54 +205,64 @@ Wall-clock totals in these logs are not build cost. Several of them — 7h 41m o
 headless under Arduino CLI, 24m on the disabled panel — are a build waiting its
 turn, since the helper clocks from before the lock is acquired.
 
-### The three generator paths, 2026-09-10 — superseded
+### The three generator paths, 2026-09-12
 
-Not current proof. These passed on both engines against the repaired fixtures,
-and were the first runs to exercise `lv_obj_set_style_text_line_space`. Two
-codegen fixes landed the following morning, after the regeneration that produced
-today's fixtures: the LVGL background-opacity pairing (`fd143099`), which adds
-34 `bg_opa` calls to each of these three, and the FastLED trim (`8a7334ea`). The
-generator now emits `96e3235d` for the normal path, `8098a510` for the show and
-`887c16d1` for the player, so no row below describes a sketch it still produces.
+Rebuilt on the current fixtures, after the LVGL background-opacity pairing
+(`fd143099`) and the FastLED trim (`8a7334ea`) changed what the generator emits.
+These supersede the 2026-09-10 figures, which described sketches it no longer
+produces.
 
 | Fixture | Source SHA-256 | Engine | Result | Flash bytes | Static RAM bytes |
 | --- | --- | --- | --- | ---: | ---: |
-| Normal | `a024c5c4dada` | Arduino CLI | Passed | 632,799 (20%) | 105,644 (32%) |
-| Normal | `a024c5c4dada` | fbuild | Passed | 957,450 (6%) | 161,229 (49%) |
-| Generative show | `4362cdafefae` | Arduino CLI | Passed | 636,935 (20%) | 106,020 (32%) |
-| Generative show | `4362cdafefae` | fbuild | Passed | 962,734 (6%) | 161,833 (49%) |
-| SD player | `b8f1d7d68663` | Arduino CLI | Passed | 1,313,847 (41%) | 121,892 (37%) |
-| SD player | `b8f1d7d68663` | fbuild | Passed | 1,635,779 (10%) | 176,712 (54%) |
+| Normal | `96e3235d7172` | Arduino CLI | Passed | 633,319 (20%) | 105,644 (32%) |
+| Normal | `96e3235d7172` | fbuild | Passed | 957,962 (6%) | 161,229 (49%) |
+| Generative show | `8098a5107e36` | Arduino CLI | Passed | 637,435 (20%) | 106,020 (32%) |
+| Generative show | `8098a5107e36` | fbuild | Passed | 963,246 (6%) | 161,833 (49%) |
+| SD player | `887c16d16f4e` | Arduino CLI | Passed | 1,314,363 (41%) | 121,892 (37%) |
+| SD player | `887c16d16f4e` | fbuild | Passed | 1,635,779 (10%) | 176,712 (54%) |
 
-The percentages are not comparable across engines and are given only to save a
-reader the division: Arduino CLI measures flash against the 3 MB application
-partition, this fbuild environment against the full 16 MB. The static RAM figures
-differ between engines for the same sketch — 105,644 against 161,229 bytes on the
-normal fixture — because the two link different framework builds and count
-different sections, not because either is wrong; fbuild's old impossible-RAM
-defect was fixed in 2.5.17 and its guard removed. Compare an engine against
-itself over time, never one against the other.
+The player's fbuild leg needed the Windows LVGL archive recovery
+([issue 12](reports/fbuild-workarounds.md)): fbuild failed twice with
+`local library 'lvgl' failed to compile: failed to spawn [...]`, the helper
+archived LVGL through a response file in 1.2s, and the retry linked in 29.1s.
+That is the documented recovery behaving as designed, and it does not affect the
+sizes.
 
-Two of the six needed the Windows LVGL archive recovery
-([issue 12](reports/fbuild-workarounds.md)) and so took minutes rather than
-seconds; that is a build-time artefact and does not affect the sizes.
+**What the LVGL fix cost, measured rather than assumed.** Against the 2026-09-10
+figures for the same three paths, flash grew by 520, 500 and 516 bytes under
+Arduino CLI and by 512 bytes on both the normal and show paths under fbuild.
+Static RAM is identical to the byte in every case, which is what a style-value
+change should do: 34 `bg_opa` call sites per sketch, no new allocation. The
+player's fbuild delta cannot be stated — see the rounding note below.
 
-### Remaining runs
+**Read fbuild's flash figures with their precision in mind.** The JSON report
+derives them from the engine's displayed summary, which switches unit as the
+number grows: KB for the two lighter paths, MB for the player. fbuild's own build
+line carries full bytes — 957,960 / 161,228 for the normal path, 963,244 /
+161,836 for the show, 1,635,416 / 176,708 for the player — and on the player that
+is 363 bytes below the MB-rounded 1,635,779 above, whose precision is about
+±5 KB. Since 2026-09-10 recorded the same rounded value for that leg, no
+byte-level comparison is possible there; the other two are exact.
 
-Seven, and no more than seven:
+Superseded figures, kept only as the comparison those deltas are measured
+against: normal 632,799 / 105,644 (Arduino CLI) and 957,450 / 161,229 (fbuild);
+show 636,935 / 106,020 and 962,734 / 161,833; player 1,313,847 / 121,892 and
+1,635,779 / 176,712. The percentages there and here are not comparable across
+engines — Arduino CLI measures flash against the 3 MB application partition, this
+fbuild environment against the full 16 MB — and the static RAM figures differ
+between engines for the same sketch because the two link different framework
+builds and count different sections. Compare an engine against itself over time,
+never one against the other.
 
-```powershell
-python scripts/compile-display-smoke.py arduino-cli artifacts/display-compile/normal.ino
-python scripts/compile-display-smoke.py arduino-cli artifacts/display-compile/show.ino
-python scripts/compile-display-smoke.py arduino-cli artifacts/display-compile/player.ino
-python scripts/compile-display-smoke.py fbuild artifacts/display-compile/normal.ino
-python scripts/compile-display-smoke.py fbuild artifacts/display-compile/show.ino
-python scripts/compile-display-smoke.py fbuild artifacts/display-compile/player.ino
-python scripts/compile-display-smoke.py fbuild artifacts/display-compile/isolated-tft.ino
-```
-
-Regenerate first only if the tree has moved since the fixtures were written; a
-regeneration that changes a hash invalidates the table above along with it.
+**One warning, sixty-six times, in every custom-screen sketch.** fbuild compiles
+without `-w` and reports what Arduino CLI hides:
+`bitwise operation between different enumeration types 'lv_part_t' and
+'lv_state_t' is deprecated [-Wdeprecated-enum-enum-conversion]`. It is the LVGL
+emitter composing style selectors as `LV_PART_x | LV_STATE_y`, which LVGL 9.5
+wants typed as `lv_style_selector_t`. Warnings only, and every build here passed,
+but they become errors if the deprecation is ever promoted. The fixtures with no
+custom screen — `isolated-tft` among them — emit none, which is the expected
+shape of the finding rather than a separate result.
 
 ### Earlier graph model — superseded, retained for comparison
 
