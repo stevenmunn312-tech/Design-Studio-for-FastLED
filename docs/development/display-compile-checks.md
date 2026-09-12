@@ -1,6 +1,7 @@
 # Display firmware compile checks
 
-> **The whole ten-fixture set carries current-model evidence (2026-09-11/12).**
+> **Ten of eleven fixtures carry current-model evidence (2026-09-11/12); the
+> eleventh is new and awaits its two runs.**
 > The generator was repaired first: `scripts/generate-display-smoke.ts` builds on
 > the panel/document split — a `Display` node, a `TransportDisplay` panel and a
 > `customDisplay` mount edge between them — and the removed field ports are gone
@@ -9,6 +10,8 @@
 > against it on both engines: twenty runs, all passing. Two needed a second
 > attempt and neither for a reason in the sketch — one fbuild daemon death, one
 > Windows command-length limit that the helper's own recovery handled.
+> `refused-mounts` was added afterwards, for HW-03's two refused shapes, and has
+> not been compiled yet.
 
 
 These fixtures exercise custom LVGL displays alongside the fixed TFT transport
@@ -55,6 +58,17 @@ python scripts/compile-display-smoke.py fbuild artifacts/display-compile/disable
 python scripts/compile-display-smoke.py fbuild artifacts/display-compile/multi-panel.ino
 python scripts/compile-display-smoke.py fbuild artifacts/display-compile/part-families.ino
 python scripts/compile-display-smoke.py fbuild artifacts/display-compile/part-families-i2c.ino
+```
+
+The two graphs the app refuses, generated anyway — one design wired to two
+panels, and a design wired to no panel while still driving a control. Neither is
+a shape to ship; both are compiled because a refused graph is still generated
+while its message is being read, and only a compiler can say the result is
+well-formed rather than a sketch declaring one screen's widgets twice:
+
+```powershell
+python scripts/compile-display-smoke.py arduino-cli artifacts/display-compile/refused-mounts.ino
+python scripts/compile-display-smoke.py fbuild artifacts/display-compile/refused-mounts.ino
 ```
 
 The other advertised board. A classic ESP32 is a different chip family with no
@@ -263,6 +277,17 @@ wants typed as `lv_style_selector_t`. Warnings only, and every build here passed
 but they become errors if the deprecation is ever promoted. The fixtures with no
 custom screen — `isolated-tft` among them — emit none, which is the expected
 shape of the finding rather than a separate result.
+
+### Refused mounts, awaiting its runs
+
+`refused-mounts.ino` (`2e9f94eb8940`, 61,504 bytes) was generated after the runs
+above and has no figures yet. What it asserts before a compiler ever sees it:
+the shared design's screen object is declared exactly once, the spare panel gets
+no LVGL display of its own and falls through to its fixed layout as a Waiting
+screen, and the unplugged design emits no screen object while the wire out of it
+reads `0.0f` with a comment saying why. Those three are structural checks in the
+generator, so the compile is asking a narrower question — does the C++ this shape
+produces actually build. Both engines, two runs, tracked as HW-03's exit.
 
 ### Earlier graph model — superseded, retained for comparison
 

@@ -115,11 +115,28 @@ matrix, not a reason to postpone testing earlier changes.
   shown by two panels and a design no panel shows, have **no fixture in the
   HW-06 set**; they are refusals, held by validation and codegen tests, and
   pointing the exit at "the HW-06 matrix" quietly assumed a fixture that was
-  never written. So this needs one decision, not a compile: either add a
-  forced-through shared-design fixture to `generate-display-smoke.ts` (the
-  well-formed-C++ claim is the part a compiler can check) or narrow the exit to
-  the multi-panel proof and let the refusals stand on their tests. With HW-06
-  closed, this decision is the only thing left in section 1. Document
+  never written. The decision was to add the fixture, and it
+  exists: `refused-mounts` builds both refused shapes in one sketch — one design
+  wired to two panels, and a design wired to no panel while still driving a
+  control — because both make the same claim, that a refused graph still
+  generates well-formed C++ while its message is being read.
+
+  Three properties are asserted in the generator, where a compiler cannot help:
+  the shared design's screen object is declared exactly once (a second
+  definition is a link error, not a missing symbol, so `includes` could not say
+  it), the spare panel gets no LVGL display of its own and falls through to its
+  fixed layout as a Waiting screen, and the unplugged design emits no screen
+  object at all while the wire out of it reads `0.0f`. Each is falsifiable rather
+  than vacuous: `multi-panel` proves both `_cdScreen_<id>` and `_cdDisp_<panel>`
+  do appear when a document really is mounted.
+
+  Adding it also closed a listing that had drifted:
+  `customDisplayLvglBackgrounds.test.ts` named three fixtures by hand, so the
+  shapes with no generator of their own — a disabled panel, two panels, and now
+  these — sat outside a check they are equally subject to. It now finds every
+  generated sketch that initialises LVGL, which brought three more fixtures under
+  it; all pass. The ten recorded fixture hashes are unchanged, so HW-06's
+  evidence stands. Remaining exit: compile `refused-mounts` on both engines. Document
   fan-out to two panels stays deferred until simultaneous touch has an answer.
   F5/F7.
 - [x] **HW-04 · P1 · Shared build-mode/capability plan (L; after HW-01–03).**
@@ -197,7 +214,9 @@ matrix, not a reason to postpone testing earlier changes.
   derives fbuild's flash figure from its displayed KB/MB summary, so the player's
   is MB-rounded to about ±5 KB and its byte-level delta is unmeasurable — the
   engine's own build line carries full bytes and should be preferred for that
-  leg. F9.
+  leg. An eleventh fixture, `refused-mounts`, was added afterwards for HW-03 and
+  its two runs are tracked there, not here — the ten recorded hashes did not
+  change when it was generated. F9.
 
 ## 2. Make the workflow understandable
 
