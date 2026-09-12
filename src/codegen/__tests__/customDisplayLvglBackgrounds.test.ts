@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 
 /**
@@ -17,9 +17,31 @@ import path from 'node:path'
  * state selector, or a path that never goes through `styleLines`. The
  * fixtures are the ones `scripts/generate-display-smoke.ts` writes, which is
  * also what the compile checks build, so this cannot drift from what ships.
+ *
+ * Which fixtures those are is *found*, not listed: every generated sketch that
+ * initialises LVGL is one that can paint a background. The three generator
+ * paths were named here by hand at first, which silently left the shapes with
+ * no generator of their own — a disabled panel, two panels, the refused mounts
+ * — outside a check they are equally subject to. A fixture added later now
+ * joins on its own.
  */
 
-const FIXTURES = ['normal', 'show', 'player'] as const
+const FIXTURE_DIRECTORY = path.join(process.cwd(), 'artifacts', 'display-compile')
+
+function lvglFixtures(): string[] {
+  let entries: string[]
+  try {
+    entries = readdirSync(FIXTURE_DIRECTORY).filter((name) => name.endsWith('.ino'))
+  } catch {
+    return []
+  }
+  return entries
+    .filter((name) => readFileSync(path.join(FIXTURE_DIRECTORY, name), 'utf8').includes('lv_init('))
+    .map((name) => name.replace(/\.ino$/, ''))
+    .sort()
+}
+
+const FIXTURES = lvglFixtures()
 
 /** `lv_obj_set_style_bg_color(obj, …, SELECTOR);` → the object and selector. */
 const BG_COLOR = /lv_obj_set_style_bg_color\(\s*([^,]+),[^;]*?,\s*([^,)]+)\)\s*;/g
@@ -48,8 +70,11 @@ function pairs(source: string, pattern: RegExp): Set<string> {
 }
 
 describe('LVGL background opacity', () => {
+  if (FIXTURES.length === 0) {
+    it.skip('no LVGL fixtures are generated — run scripts/generate-display-smoke.mjs', () => {})
+  }
   for (const fixture of FIXTURES) {
-    const file = path.join(process.cwd(), 'artifacts', 'display-compile', `${fixture}.ino`)
+    const file = path.join(FIXTURE_DIRECTORY, `${fixture}.ino`)
     let source: string
     try {
       source = readFileSync(file, 'utf8')
