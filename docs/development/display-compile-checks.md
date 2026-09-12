@@ -1,7 +1,6 @@
 # Display firmware compile checks
 
-> **Ten of eleven fixtures carry current-model evidence (2026-09-11/12); the
-> eleventh is new and awaits its two runs.**
+> **All eleven fixtures carry current-model evidence (2026-09-11/12).**
 > The generator was repaired first: `scripts/generate-display-smoke.ts` builds on
 > the panel/document split — a `Display` node, a `TransportDisplay` panel and a
 > `customDisplay` mount edge between them — and the removed field ports are gone
@@ -10,8 +9,8 @@
 > against it on both engines: twenty runs, all passing. Two needed a second
 > attempt and neither for a reason in the sketch — one fbuild daemon death, one
 > Windows command-length limit that the helper's own recovery handled.
-> `refused-mounts` was added afterwards, for HW-03's two refused shapes, and has
-> not been compiled yet.
+> `refused-mounts` was added afterwards, for HW-03's two refused shapes, and
+> compiled on both engines the same day.
 
 
 These fixtures exercise custom LVGL displays alongside the fixed TFT transport
@@ -278,16 +277,35 @@ but they become errors if the deprecation is ever promoted. The fixtures with no
 custom screen — `isolated-tft` among them — emit none, which is the expected
 shape of the finding rather than a separate result.
 
-### Refused mounts, awaiting its runs
+### Refused mounts, 2026-09-12
 
-`refused-mounts.ino` (`2e9f94eb8940`, 61,504 bytes) was generated after the runs
-above and has no figures yet. What it asserts before a compiler ever sees it:
-the shared design's screen object is declared exactly once, the spare panel gets
-no LVGL display of its own and falls through to its fixed layout as a Waiting
-screen, and the unplugged design emits no screen object while the wire out of it
-reads `0.0f` with a comment saying why. Those three are structural checks in the
-generator, so the compile is asking a narrower question — does the C++ this shape
-produces actually build. Both engines, two runs, tracked as HW-03's exit.
+The two graphs the app refuses, generated anyway: one design wired to two panels,
+and a design wired to no panel while still driving a control.
+
+| Fixture | Source SHA-256 | Engine | Result | Flash bytes | Static RAM bytes |
+| --- | --- | --- | --- | ---: | ---: |
+| Refused mounts | `2e9f94eb8940` | Arduino CLI | Passed | 630,979 (20%) | 105,588 (32%) |
+| Refused mounts | `2e9f94eb8940` | fbuild | Passed | 955,597 (6%) | 161,167 (49%) |
+
+**The saving is the evidence, not the exit code.** Against `multi-panel` — the
+legal shape, two designs on two panels, same board — this uses 9,480 bytes less
+RAM under Arduino CLI and 9,483 less under fbuild. A 240x20 RGB565 partial draw
+buffer is 9,600 bytes, so both toolchains independently measure the spare panel
+as having allocated no custom display of its own: it fell through to its fixed
+layout, and the unplugged design cost nothing at all. That is the claim these
+shapes make — emitted once, and an idle document priced at zero — measured rather
+than read off the emitted text. Three structural properties are asserted in the
+generator besides, where a compiler cannot help: the shared screen object is
+declared exactly once (a second definition is a link error, not a missing
+symbol), the spare panel gets no `lv_display_t`, and the unplugged design gets no
+screen object.
+
+fbuild's leg needed the Windows LVGL archive recovery, as the player's did: two
+`failed to spawn` errors, a response-file archive in 1.0s, and a retry that linked
+in 30.2s. Two of the three custom-screen fixtures built on fbuild have now needed
+it, so treat it as the normal path on this platform rather than an exception. Its
+precise bytes, from the engine's own build line, are 955,600 flash and 161,172
+RAM; the table's figures come from the KB-rounded display summary.
 
 ### Earlier graph model — superseded, retained for comparison
 

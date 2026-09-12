@@ -92,8 +92,8 @@ matrix, not a reason to postpone testing earlier changes.
   which is why this was called out separately in the first place. Recorded here
   rather than silently folded in, so a later failure has somewhere to point.
   F3/F4.
-- [ ] **HW-03 · P1/P2 · Resolve mounted screens once (M; after HW-02).** Code
-  complete; one scoping decision outstanding, no compile. `customDisplayMountPlan` in
+- [x] **HW-03 · P1/P2 · Resolve mounted screens once (M; after HW-02).** All
+  exits met 2026-09-12. `customDisplayMountPlan` in
   `mountedDisplays.ts` is the one walk that says which screens a build contains,
   and RAM pricing, asset baking, deploy validation, the template planner and the
   normal generator all read it. One design on two panels is refused by name
@@ -136,9 +136,23 @@ matrix, not a reason to postpone testing earlier changes.
   these — sat outside a check they are equally subject to. It now finds every
   generated sketch that initialises LVGL, which brought three more fixtures under
   it; all pass. The ten recorded fixture hashes are unchanged, so HW-06's
-  evidence stands. Remaining exit: compile `refused-mounts` on both engines. Document
-  fan-out to two panels stays deferred until simultaneous touch has an answer.
-  F5/F7.
+  evidence stands.
+
+  **Compiled on both engines, and the saving is the evidence rather than the exit
+  code.** Against `multi-panel` — the legal shape, two designs on two panels,
+  same board — the refused shape uses 9,480 bytes less RAM under Arduino CLI and
+  9,483 less under fbuild. A 240x20 RGB565 partial draw buffer is 9,600 bytes, so
+  both toolchains independently measure the spare panel as having allocated no
+  custom display of its own, and the unplugged design as costing nothing: emitted
+  once and priced at zero, measured rather than read off the emitted text.
+  Figures in [display compile
+  checks](docs/development/display-compile-checks.md). fbuild needed the Windows
+  LVGL archive recovery here as it did on the player, which makes it two of the
+  three custom-screen fixtures on that engine — the normal path on this platform
+  rather than an exception.
+
+  Document fan-out to two panels stays deferred until simultaneous touch has an
+  answer. All exits met. F5/F7.
 - [x] **HW-04 · P1 · Shared build-mode/capability plan (L; after HW-01–03).**
   `resolveBuildMode` is now the pure source of build mode, selected engine,
   reached output, standalone-VU capability and fixed-template display sources.
@@ -215,8 +229,8 @@ matrix, not a reason to postpone testing earlier changes.
   is MB-rounded to about ±5 KB and its byte-level delta is unmeasurable — the
   engine's own build line carries full bytes and should be preferred for that
   leg. An eleventh fixture, `refused-mounts`, was added afterwards for HW-03 and
-  its two runs are tracked there, not here — the ten recorded hashes did not
-  change when it was generated. F9.
+  compiled under it the same day; the ten recorded hashes did not change when it
+  was generated. F9.
 
 ## 2. Make the workflow understandable
 
