@@ -134,6 +134,35 @@ const playerEdges = [
 
 const secondDocument = addDisplayWidget(createDisplayDocument('deck', 240, 320), 'Text')
 const multiOptions = displayOptions({ screen: document, deck: secondDocument })
+
+/*
+ * The two graphs validation refuses, generated anyway.
+ *
+ * One design wired to two panels, and a second design wired to no panel at all
+ * while still driving a control. Both are named and refused before an upload,
+ * so neither is a shape to ship — but a refused graph is still generated while
+ * the message is being read, and it has to be well-formed C++ rather than a
+ * sketch that declares one screen's widgets twice or reads a variable it never
+ * declared. The first panel builds the shared design and the spare falls
+ * through to its own fixed layout; the unplugged design's widget reads at rest.
+ * Only a compiler can check that, which is why these shapes get a fixture
+ * instead of resting on their unit tests alone.
+ */
+const looseDocument = addDisplayWidget(createDisplayDocument('loose', 240, 320), 'Slider')
+const refusedOptions = displayOptions({ screen: document, loose: looseDocument })
+const refusedNodes = [
+  board(), output(), node('fill', 'SolidColor'), math(),
+  screen(), panel('custom-tft'),
+  panel('spare-tft', { csPin: 16, dcPin: 17, resetPin: 18, backlightPin: 21, touchCsPin: 1, touchIrqPin: 2 }),
+  screen('loose'),
+]
+const refusedEdges = [
+  mount('screen', 'custom-tft'),
+  mount('screen', 'spare-tft'),
+  edge('fill', 'frame', 'out', 'frame'),
+  edge('loose', 'widget:slider:out', 'math', 'a'),
+  edge('math', 'result', 'out', 'brightness'),
+]
 const partNodes = [
   node('segment-tm1637', 'SegmentDisplay', { partId: 'tm1637-4digit-display', clkPin: 2, dioPin: 3 }),
   node('segment-max7219', 'SegmentDisplay', { partId: 'max7219-8digit-7segment', clkPin: 12, dinPin: 11, csPin: 10 }),
@@ -222,6 +251,7 @@ const sketches: Record<string, string> = {
     [board(), output(), rtc(), node('fill', 'SolidColor'), ...altPartNodes],
     [edge('fill', 'frame', 'out', 'frame'), ...altPartNodes.map((entry) => edge('rtc', 'display', entry.id, 'display'))],
   ),
+  'refused-mounts': generateCpp(refusedNodes, refusedEdges, {}, refusedOptions),
   'classic-esp32-fixed': generateCpp(classicNodes, classicEdges),
 }
 
@@ -237,6 +267,7 @@ const fixtureGraphs: Record<string, { nodes: StudioNode[]; edges: StudioEdge[] }
   player: { nodes: playerNodes, edges: playerEdges },
   'part-families': { nodes: [board(), output(), rtc(), ...partNodes], edges: [] },
   'part-families-i2c': { nodes: [board(), output(), rtc(), ...altPartNodes], edges: [] },
+  'refused-mounts': { nodes: refusedNodes, edges: refusedEdges },
   'classic-esp32-fixed': { nodes: classicNodes, edges: classicEdges },
 }
 for (const [name, graph] of Object.entries(fixtureGraphs)) {
@@ -284,6 +315,8 @@ const requiredSymbols: Record<string, readonly string[]> = {
   'multi-panel': ['_cdScreen_screen = lv_obj_create', '_cdScreen_deck = lv_obj_create', '_cdDisp_custom_tft', '_cdDisp_deck_tft'],
   'part-families': ['SEG_KIND_TM1637', 'SEG_KIND_MAX7219', '_oledBeginSpi', '_oledBeginI2c', '_tftPaint'],
   'part-families-i2c': ['_oledBeginI2c', '#include <Wire.h>'],
+  'refused-mounts': ['lv_display_set_default(_cdDisp_custom_tft)', 'static TftPanel _tft_spare_tft',
+    '_tftPaint(_tft_spare_tft', 'n_loose_widget_slider_out = 0.0f'],
   'classic-esp32-fixed': ['_tftClockValid_classic_tft', '_oledBeginI2c', 'SEG_KIND_TM1637'],
 }
 
@@ -294,6 +327,24 @@ for (const [name, symbols] of Object.entries(requiredSymbols)) {
   }
 }
 if (sketches.headless.includes('#include <lvgl.h>')) throw new Error('headless.ino unexpectedly includes LVGL')
+
+/*
+ * The shared design is built once, and the shapes that must emit nothing do.
+ *
+ * `includes` cannot express either. A design declared twice is a link error
+ * rather than a missing symbol, which is the failure this fixture exists to
+ * catch; and the spare panel having no LVGL display of its own, and the
+ * unplugged design no screen object at all, are what make the refused build
+ * well-formed rather than merely compiling.
+ */
+const refusedSketch = sketches['refused-mounts']
+const sharedScreenDeclarations = refusedSketch.split('lv_obj_t *_cdScreen_screen').length - 1
+if (sharedScreenDeclarations !== 1) {
+  throw new Error(`refused-mounts.ino declares the shared screen ${sharedScreenDeclarations} times, expected once`)
+}
+for (const absent of ['_cdDisp_spare_tft', '_cdScreen_loose']) {
+  if (refusedSketch.includes(absent)) throw new Error(`refused-mounts.ino unexpectedly emits ${absent}`)
+}
 
 const outputDirectory = resolve(process.argv[2] ?? 'artifacts/display-compile')
 mkdirSync(outputDirectory, { recursive: true })
