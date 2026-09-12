@@ -106,9 +106,21 @@ matrix, not a reason to postpone testing earlier changes.
   than the document's, and stops charging a custom panel for the fixed-layout
   field caches it never emits. Covered by shared/unmounted codegen, validation,
   show-template, RAM and asset-preparation tests; `npm test`, `npm run lint` and
-  `tsc -b` pass. Remaining exit: compile the shared-refusal and unmounted-source
-  cases (HW-06 matrix). Document fan-out to two panels stays deferred until
-  simultaneous touch has an answer. F5/F7.
+  `tsc -b` pass.
+
+  **What the 2026-09-11 compiles settled, and what they did not.** The legal
+  two-panel shape — two panels, each showing its own design — now compiles on
+  both engines (the `multi-panel` fixture), which is the per-document symbol
+  keying this item rests on. The two shapes in this item's own exit, a design
+  shown by two panels and a design no panel shows, have **no fixture in the
+  HW-06 set**; they are refusals, held by validation and codegen tests, and
+  pointing the exit at "the HW-06 matrix" quietly assumed a fixture that was
+  never written. So this needs one decision, not a compile: either add a
+  forced-through shared-design fixture to `generate-display-smoke.ts` (the
+  well-formed-C++ claim is the part a compiler can check) or narrow the exit to
+  the multi-panel proof and let the refusals stand on their tests. Document
+  fan-out to two panels stays deferred until simultaneous touch has an answer.
+  F5/F7.
 - [x] **HW-04 · P1 · Shared build-mode/capability plan (L; after HW-01–03).**
   `resolveBuildMode` is now the pure source of build mode, selected engine,
   reached output, standalone-VU capability and fixed-template display sources.
@@ -157,12 +169,26 @@ matrix, not a reason to postpone testing earlier changes.
   defects: the player fixture's panel shared the SD card's chip select, and the
   0.96-inch OLED's reset sat on the LED data pin.
 
-  Remaining exit (bench): compile every fixture through Arduino CLI and fbuild
-  and record fresh source hashes, toolchains and memory figures against
-  [display compile checks](docs/development/display-compile-checks.md), which
-  carries the exact commands including the classic-ESP32 `--fqbn`/`--tag` pair.
-  Each board now gets its own arduino-cli workspace so the two do not evict each
-  other's cores. Historical fixtures are not current proof. F9.
+  **Seven of the ten fixtures are done** (2026-09-11, both engines), and their
+  hashes, toolchains and memory figures are recorded in
+  [display compile checks](docs/development/display-compile-checks.md): the
+  isolated TFT, headless controls, a disabled panel, two panels each showing
+  their own design, both part-family sketches and the classic-ESP32 fixed-layout
+  fixture. Thirteen of those fourteen runs passed; `isolated-tft` on fbuild died
+  in the daemon after 4h 08m with nothing emitted past its board banner, while
+  Arduino CLI built the identical hash in 1m 55s, so that leg is an engine
+  failure to rerun rather than a codegen defect. Two things are proven in
+  passing: a screen-only sketch compiles with FastLED trimmed out, and the LVGL
+  background-opacity fix compiles on both engines.
+
+  Remaining exit (bench), seven runs and no more: the three generator paths on
+  both engines, plus `isolated-tft` on fbuild. The three were built on
+  2026-09-10 and both the LVGL fix (`fd143099`) and the FastLED trim
+  (`8a7334ea`) landed afterwards, so their recorded figures describe sketches the
+  generator no longer emits — the commands are in the
+  [remaining runs](docs/development/display-compile-checks.md#remaining-runs)
+  section. Each board gets its own arduino-cli workspace so the two do not evict
+  each other's cores. Historical fixtures are not current proof. F9.
 
 ## 2. Make the workflow understandable
 
