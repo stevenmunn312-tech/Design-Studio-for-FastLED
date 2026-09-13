@@ -281,6 +281,12 @@ interface UiState {
   setDraggingNodeType: (nodeType: string | null) => void
   setViewCenter: (center: { x: number; y: number }) => void
   requestFitView: (nodeIds?: string[]) => void
+  /** Bring the graph canvas to the front and frame `nodeIds` on it. Every
+   *  "take me to that node" affordance outside the canvas has to go through
+   *  this rather than `requestFitView` alone: the canvas is unmounted in the
+   *  Hardware and Upload workspaces and under the display editor, so a bare
+   *  fit request there moves a view nobody is looking at. */
+  revealGraphNodes: (nodeIds?: string[]) => void
   /** Ask a node to announce itself once the view has moved to it. */
   flashNode: (nodeId: string) => void
   setTheme: (theme: AppTheme) => void
@@ -540,6 +546,24 @@ export const useUiStore = create<UiState>((set, get) => ({
   requestFitView: (nodeIds) => set((state) => ({
     fitViewRequest: { nonce: state.fitViewRequest.nonce + 1, nodeIds },
   })),
+  revealGraphNodes: (nodeIds) => {
+    set((state) => ({
+      workspaceMode: 'graph',
+      ...leavingDisplayEditor(state),
+      fitViewRequest: { nonce: state.fitViewRequest.nonce + 1, nodeIds },
+    }))
+    // Ask a second time once the frame has settled. The canvas may only be
+    // mounting on this render (it was another workspace a moment ago), and
+    // React Flow measures its nodes a frame after that — a fit computed from
+    // unmeasured nodes frames a set of points and zooms to the limit. The
+    // same beat covers `focusNode` crossing into another graph, which swaps
+    // the canvas's nodes in a microtask of its own. When nothing has changed
+    // this re-fits to the viewport already showing, which is invisible.
+    if (typeof requestAnimationFrame !== 'function') return
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      get().requestFitView(nodeIds)
+    }))
+  },
   flashNode: (nodeId) => {
     // Clears itself, the way setStatus does — otherwise a node that unmounts
     // and comes back (scrolled out of view and in again) would read a nonce

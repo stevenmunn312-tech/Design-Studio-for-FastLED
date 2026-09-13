@@ -581,6 +581,7 @@ export default function HardwarePane() {
   const setStatus = useUiStore((state) => state.setStatus)
   const focusNode = useGraphStore((state) => state.focusNode)
   const requestFitView = useUiStore((state) => state.requestFitView)
+  const revealGraphNodes = useUiStore((state) => state.revealGraphNodes)
   const flashNode = useUiStore((state) => state.flashNode)
   const previewOutputId = useUiStore((state) => state.previewOutputId)
   const setPreviewOutputId = useUiStore((state) => state.setPreviewOutputId)
@@ -846,7 +847,11 @@ export default function HardwarePane() {
     ? nodes.find((candidate) => candidate.id === inspectorNodeId) ?? null
     : null
 
-  const revealNode = (nodeId: string, label: string) => {
+  /* `jumpToGraph` is what makes "Show in graph" arrive on the graph: the
+     canvas is unmounted while this pane is up, so focusing and fitting alone
+     moves a view nobody can see. The wiring inspector calls this for the
+     selection only and stays here, so it passes false. */
+  const revealNode = (nodeId: string, label: string, jumpToGraph = true) => {
     const hardwareNode = nodes.find((node) => node.id === nodeId)
     const isAudioProvider = hardwareNode
       && [MIC_NODE_TYPE, 'LineInput'].includes(hardwareNode.data.nodeType)
@@ -863,7 +868,8 @@ export default function HardwarePane() {
     }
     const targetId = audioNode?.id ?? nodeId
     focusNode(targetId)
-    requestFitView([targetId])
+    if (jumpToGraph) revealGraphNodes([targetId])
+    else requestFitView([targetId])
     flashNode(targetId)
     setStatus(audioNode ? `Showing ${label} in Audio` : `Showing ${label} in the graph`, 'info')
   }
@@ -874,7 +880,7 @@ export default function HardwarePane() {
     setInspectorNodeId(nodeId)
     const node = nodes.find((candidate) => candidate.id === nodeId)
     if (node && isHardwareManagedSignalNodeType(node.data.nodeType)) {
-      revealNode(node.id, node.data.label)
+      revealNode(node.id, node.data.label, false)
     }
   }
 

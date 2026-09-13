@@ -27,7 +27,14 @@ describe('GraphHealthDrawer', () => {
       activeGraphId: ROOT_GRAPH_ID,
       graphs: { [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' } },
     })
-    useUiStore.setState({ graphHealthOpen: true, fitViewRequest: { nonce: 0 }, statusText: 'Ready', statusLevel: 'idle' })
+    useUiStore.setState({
+      graphHealthOpen: true,
+      fitViewRequest: { nonce: 0 },
+      statusText: 'Ready',
+      statusLevel: 'idle',
+      workspaceMode: 'graph',
+      designWorkspaceView: { kind: 'graph' },
+    })
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
   })
 
@@ -39,6 +46,32 @@ describe('GraphHealthDrawer', () => {
     fireEvent.click(within(card!).getByRole('button', { name: 'Locate node' }))
 
     expect(useGraphStore.getState().selectedNodeId).toBe('random')
+    expect(useUiStore.getState().fitViewRequest).toEqual({ nonce: 1, nodeIds: ['random'] })
+  })
+
+  // The drawer is open in Hardware and Upload as well, where the canvas is
+  // unmounted: locating there framed a view the user was not looking at.
+  it('returns to the graph workspace when located from another workspace', () => {
+    useUiStore.setState({ workspaceMode: 'upload', hardwarePaneTab: 'upload' })
+    const { getByText } = render(<GraphHealthDrawer />)
+    const card = getByText('Random has an invalid expression').closest('article')
+
+    fireEvent.click(within(card!).getByRole('button', { name: 'Locate node' }))
+
+    expect(useUiStore.getState().workspaceMode).toBe('graph')
+    expect(useUiStore.getState().fitViewRequest).toEqual({ nonce: 1, nodeIds: ['random'] })
+  })
+
+  // Same for the display editor, which is a sub-view of Graph rather than a
+  // workspace of its own — the canvas is equally absent underneath it.
+  it('leaves the display editor when located from it', () => {
+    useUiStore.setState({ workspaceMode: 'graph', designWorkspaceView: { kind: 'display', displayId: 'panel-1' } })
+    const { getByText } = render(<GraphHealthDrawer />)
+    const card = getByText('Random has an invalid expression').closest('article')
+
+    fireEvent.click(within(card!).getByRole('button', { name: 'Locate node' }))
+
+    expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'graph' })
     expect(useUiStore.getState().fitViewRequest).toEqual({ nonce: 1, nodeIds: ['random'] })
   })
 

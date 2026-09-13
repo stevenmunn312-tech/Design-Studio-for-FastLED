@@ -45,7 +45,7 @@ export default function GraphHealthDrawer() {
   const openBoardPopup = useUploadStore((state) => state.openBoardPopup)
   const open = useUiStore((state) => state.graphHealthOpen)
   const toggle = useUiStore((state) => state.toggleGraphHealth)
-  const requestFitView = useUiStore((state) => state.requestFitView)
+  const revealGraphNodes = useUiStore((state) => state.revealGraphNodes)
   const setStatus = useUiStore((state) => state.setStatus)
   const [filter, setFilter] = useState<Filter>('all')
 
@@ -65,7 +65,9 @@ export default function GraphHealthDrawer() {
   const locate = (issue: GraphDiagnostic) => {
     if (issue.nodeIds.length === 0) return
     focusNode(issue.nodeIds[0])
-    requestFitView(issue.nodeIds)
+    // The drawer is open in Hardware and Upload too, where the canvas is not
+    // on screen — locating has to bring it back before framing anything.
+    revealGraphNodes(issue.nodeIds)
     setStatus(`Located ${issue.nodeLabel ?? 'graph issue'}`, 'info')
   }
 

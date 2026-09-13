@@ -182,6 +182,39 @@ describe('uiStore.setStatus auto-clear', () => {
     expect(useUiStore.getState().fitViewRequest).toEqual({ nonce: 2, nodeIds: undefined })
   })
 
+  /* A fit request alone only moves the canvas, which is unmounted in the
+     Hardware and Upload workspaces and under the display editor — so every
+     reveal from outside the canvas has to bring it back first. */
+  it('brings the canvas forward before framing a revealed node', () => {
+    useUiStore.setState({
+      workspaceMode: 'upload',
+      hardwarePaneTab: 'upload',
+      designWorkspaceView: { kind: 'display', displayId: 'panel-1' },
+      fitViewRequest: { nonce: 3 },
+    })
+
+    useUiStore.getState().revealGraphNodes(['mic'])
+
+    expect(useUiStore.getState()).toMatchObject({
+      workspaceMode: 'graph',
+      designWorkspaceView: { kind: 'graph' },
+      fitViewRequest: { nonce: 4, nodeIds: ['mic'] },
+    })
+  })
+
+  it('re-frames a revealed node once the canvas has measured itself', () => {
+    useUiStore.setState({ workspaceMode: 'hardware', fitViewRequest: { nonce: 0 } })
+
+    useUiStore.getState().revealGraphNodes(['mic'])
+    expect(useUiStore.getState().fitViewRequest.nonce).toBe(1)
+
+    // React Flow measures its nodes a frame after mounting; a fit computed
+    // before that frames points rather than nodes and zooms to the limit.
+    vi.advanceTimersToNextFrame()
+    vi.advanceTimersToNextFrame()
+    expect(useUiStore.getState().fitViewRequest).toEqual({ nonce: 2, nodeIds: ['mic'] })
+  })
+
   it('navigates between graph and display authoring without persisting document data in UI state', () => {
     useUiStore.setState({
       workspaceMode: 'build',
