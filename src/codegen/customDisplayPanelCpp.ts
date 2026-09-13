@@ -20,6 +20,7 @@ import {
 import { TELEMETRY_TOUCH_INTERVAL_MS } from '../state/deviceTelemetry'
 import { tftControllerForProps } from '../state/nodeLibrary'
 import { partById } from '../state/partCatalogue'
+import { emittedTouchBounds } from '../state/transportTouch'
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
 import { customDisplayId } from './customDisplayId'
 import { TELEMETRY_TOUCH_PRESS_CPP, telemetryTouchSampleCpp } from './deviceTelemetryCpp'
@@ -50,7 +51,7 @@ export function customDisplayPanelBufferPixels(controller: TftController, rotati
 
 export interface CustomDisplayPanelTouch {
   csPin: number; irqPin: number; sckPin: number; mosiPin: number; misoPin: number
-  xMin: number; xMax: number; yMin: number; yMax: number
+  xFrom: number; xTo: number; yFrom: number; yTo: number
 }
 
 export interface CustomDisplayPanelEmit {
@@ -90,10 +91,6 @@ export function customDisplayPanelFromProps(
     const value = Math.round(Number(p[key] ?? fallback))
     return Number.isFinite(value) ? Math.max(0, Math.min(max, value)) : fallback
   }
-  const calibrationInteger = (key: string, fallback: number) => {
-    const value = Math.round(Number(calibration[key] ?? fallback))
-    return Number.isFinite(value) ? Math.max(0, Math.min(4095, value)) : fallback
-  }
   return {
     id: customDisplayId(id), controller: tftControllerForProps(p) ?? TFT_CONTROLLERS.ST7789V,
     rotation: asTftRotation(p.tftRotation),
@@ -102,8 +99,9 @@ export function customDisplayPanelFromProps(
     touch: partById(String(p.partId ?? ''))?.display?.touchController ? {
       csPin: integer('touchCsPin', 15), irqPin: integer('touchIrqPin', 2),
       sckPin: integer('touchSckPin', 18), mosiPin: integer('touchMosiPin', 23), misoPin: integer('touchMisoPin', 19),
-      xMin: calibrationInteger('touchXMin', 200), xMax: calibrationInteger('touchXMax', 3900),
-      yMin: calibrationInteger('touchYMin', 200), yMax: calibrationInteger('touchYMax', 3900),
+      // See emittedTouchBounds: a reversed axis leaves here as a descending
+      // span rather than a flag the LVGL read callback branches on.
+      ...emittedTouchBounds(calibration),
     } : undefined,
   }
 }
@@ -222,7 +220,7 @@ function panelIndevCpp(emit: CustomDisplayPanelEmit): string {
   int16_t x = 0, y = 0; uint16_t rawX = 0, rawY = 0;
   if (!_cdPanelOn_${id}) { data->state = LV_INDEV_STATE_RELEASED; return; }
   bool pressed = _xptPoint(${t.csPin}, ${t.irqPin}, ${t.sckPin}, ${t.mosiPin}, ${t.misoPin}, `
-    + `${t.xMin}, ${t.xMax}, ${t.yMin}, ${t.yMax}, `
+    + `${t.xFrom}, ${t.xTo}, ${t.yFrom}, ${t.yTo}, `
     + `${emit.controller.width}, ${emit.controller.height}, ${rotationCode(emit.rotation)}, x, y, rawX, rawY);
   data->point.x = x;
   data->point.y = y;

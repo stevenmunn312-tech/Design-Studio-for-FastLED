@@ -111,6 +111,7 @@ import {
   type Inmp441FirmwareBackend,
 } from '../state/micPinDefaults'
 import { sanitizePin } from './hardwarePins'
+import { emittedTouchBounds } from '../state/transportTouch'
 import { resolveWireframeMesh, meshBoundingRadius, WIREFRAME_FIT_MARGIN, WIREFRAME_CAM_FAR, WIREFRAME_CAM_NEAR } from '../state/wireframeModel'
 import { resolveAudioCapabilitySource } from '../state/audioCapabilities'
 import { amplifierIdleCpp } from './amplifierIdle'
@@ -5344,10 +5345,9 @@ export function generateCpp(
               // node when there is one. A panel showing its own Diagnostics
               // screen with no Touch node beside it still needs bounds, and
               // falls back to the library defaults.
-              xMin: intProp(touchProps.touchXMin, 200, 0, 4095),
-              xMax: intProp(touchProps.touchXMax, 3900, 0, 4095),
-              yMin: intProp(touchProps.touchYMin, 200, 0, 4095),
-              yMax: intProp(touchProps.touchYMax, 3900, 0, 4095),
+              // Oriented, not raw: a reversed axis is emitted as a descending
+              // span so the firmware's one linear map covers both directions.
+              ...emittedTouchBounds(touchProps),
             },
           }
           tftTouches.push(touch)

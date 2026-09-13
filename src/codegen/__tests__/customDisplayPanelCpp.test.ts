@@ -21,7 +21,7 @@ function emit(overrides: Partial<CustomDisplayPanelEmit> = {}): CustomDisplayPan
 
 function touchEmit(overrides: Partial<CustomDisplayPanelEmit> = {}): CustomDisplayPanelEmit {
   return emit({
-    touch: { csPin: 15, irqPin: 2, sckPin: 18, mosiPin: 23, misoPin: 19, xMin: 200, xMax: 3900, yMin: 200, yMax: 3900 },
+    touch: { csPin: 15, irqPin: 2, sckPin: 18, mosiPin: 23, misoPin: 19, xFrom: 200, xTo: 3900, yFrom: 200, yTo: 3900 },
     ...overrides,
   })
 }
@@ -76,7 +76,7 @@ describe('custom display panel driver', () => {
   it('uses plain input for a CYD touch IRQ on classic ESP32', () => {
     const setup = customDisplayPanelSetupCpp(touchEmit({
       touch: { csPin: 33, irqPin: 36, sckPin: 25, mosiPin: 32, misoPin: 39,
-        xMin: 200, xMax: 3900, yMin: 200, yMax: 3900 },
+        xFrom: 200, xTo: 3900, yFrom: 200, yTo: 3900 },
     })).join('\n')
     expect(setup).toContain('#if defined(CONFIG_IDF_TARGET_ESP32)\n  pinMode(36, INPUT);')
     expect(setup).toContain('#else\n  pinMode(36, INPUT_PULLUP);')

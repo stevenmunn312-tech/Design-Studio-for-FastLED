@@ -200,7 +200,9 @@ describe('XPT2046 player controls', () => {
   it('only enables touch when its controls bundle reaches the player', () => {
     expect(resolve(graph, wires).tft[0].touch).toMatchObject({
       csPin: 15, irqPin: 2, sckPin: 18, mosiPin: 23, misoPin: 19,
-      xMin: 321, xMax: 3789, yMin: 245, yMax: 3821,
+      // Emitted as a span, low end first — a reversed axis arrives here
+      // descending rather than as a flag the firmware branches on.
+      xFrom: 321, xTo: 3789, yFrom: 245, yTo: 3821,
     })
     expect(resolve(graph, []).tft[0].touch).toBeNull()
     expect(resolve([node('plain', 'TransportDisplay', { partId: PLAIN })]).tft[0].touch).toBeNull()

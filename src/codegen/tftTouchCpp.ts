@@ -28,7 +28,7 @@ export interface TftTouchEmit {
   enabledExpr: string
   touch: {
     csPin: number; irqPin: number; sckPin: number; mosiPin: number; misoPin: number
-    xMin: number; xMax: number; yMin: number; yMax: number
+    xFrom: number; xTo: number; yFrom: number; yTo: number
   }
 }
 
@@ -52,15 +52,20 @@ static uint16_t _xptRead12(uint8_t cs, uint8_t sck, uint8_t mosi, uint8_t miso, 
 }
 
 static bool _xptPoint(uint8_t cs, uint8_t irq, uint8_t sck, uint8_t mosi, uint8_t miso,
-                      int rawXMin, int rawXMax, int rawYMin, int rawYMax,
+                      int rawXFrom, int rawXTo, int rawYFrom, int rawYTo,
                       int nativeW, int nativeH, uint8_t rotation, int16_t &x, int16_t &y,
                       uint16_t &rawX, uint16_t &rawY) {
   if (irq != 255 && digitalRead(irq) != LOW) return false;
   rawX = _xptRead12(cs, sck, mosi, miso, 0xD0);
   rawY = _xptRead12(cs, sck, mosi, miso, 0x90);
-  if (rawXMax <= rawXMin || rawYMax <= rawYMin) return false;
-  int px = constrain((long)(rawX - rawXMin) * (nativeW - 1) / (rawXMax - rawXMin), 0L, (long)nativeW - 1);
-  int py = constrain((long)(rawY - rawYMin) * (nativeH - 1) / (rawYMax - rawYMin), 0L, (long)nativeH - 1);
+  // A descending span is a reversed axis, not an error: flipping a linear map
+  // is the same as swapping its endpoints, so the caller hands them over in
+  // the order the glass actually counts and this stays one multiply. Both
+  // operands of the division change sign together, so integer truncation
+  // behaves exactly as it does for an ascending span.
+  if (rawXTo == rawXFrom || rawYTo == rawYFrom) return false;
+  int px = constrain((long)(rawX - rawXFrom) * (nativeW - 1) / (rawXTo - rawXFrom), 0L, (long)nativeW - 1);
+  int py = constrain((long)(rawY - rawYFrom) * (nativeH - 1) / (rawYTo - rawYFrom), 0L, (long)nativeH - 1);
   if (rotation == 1) { x = nativeH - 1 - py; y = px; }
   else if (rotation == 2) { x = nativeW - 1 - px; y = nativeH - 1 - py; }
   else if (rotation == 3) { x = py; y = nativeW - 1 - px; }
@@ -165,7 +170,7 @@ export function tftTouchServiceCpp(
   const lines = [
     `  {`,
     `    ${down} = (${display.enabledExpr}) && _xptPoint(${t.csPin}, ${t.irqPin}, ${t.sckPin}, ${t.mosiPin}, ${t.misoPin}, `
-      + `${t.xMin}, ${t.xMax}, ${t.yMin}, ${t.yMax}, ${display.controller.width}, ${display.controller.height}, ${rotation}, ${pointX}, ${pointY}, ${rawX}, ${rawY});`,
+      + `${t.xFrom}, ${t.xTo}, ${t.yFrom}, ${t.yTo}, ${display.controller.width}, ${display.controller.height}, ${rotation}, ${pointX}, ${pointY}, ${rawX}, ${rawY});`,
     `    static bool _touchPrev_${id} = false;`,
   ]
   // On the down edge only, and before the region tests, so the stamp measures

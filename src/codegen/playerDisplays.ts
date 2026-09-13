@@ -34,6 +34,7 @@ import {
 import { asTftRotation, TFT_CONTROLLERS, type TftController, type TftRotation } from '../state/tftSurface'
 import { segmentModeForKind, segmentControllerFor, clampSegmentBrightness, type SegmentDisplayMode } from '../state/segmentDisplay'
 import { partById } from '../state/partCatalogue'
+import { emittedTouchBounds } from '../state/transportTouch'
 import type { PlayerControlDestination } from '../state/playerControlAssignments'
 import { PLAYER_SONG_EXPRESSIONS } from './playerSongInfoCpp'
 
@@ -122,10 +123,10 @@ export interface PlayerTransportDisplay {
     sckPin: number
     mosiPin: number
     misoPin: number
-    xMin: number
-    xMax: number
-    yMin: number
-    yMax: number
+    xFrom: number
+    xTo: number
+    yFrom: number
+    yTo: number
   }
   enabled: boolean
   /** Runtime gate: the wire feeding Enabled, or the property as a constant. */
@@ -151,11 +152,6 @@ export interface PlayerDisplays {
 function intProp(value: unknown, fallback: number): number {
   const n = Math.round(Number(value))
   return Number.isFinite(n) ? Math.max(0, Math.min(255, n)) : fallback
-}
-
-function touchRawProp(value: unknown, fallback: number): number {
-  const n = Math.round(Number(value))
-  return Number.isFinite(n) ? Math.max(0, Math.min(4095, n)) : fallback
 }
 
 /**
@@ -445,10 +441,9 @@ export function playerDisplaysFromGraph(
             sckPin: intProp(props.touchSckPin, 18),
             mosiPin: intProp(props.touchMosiPin, 23),
             misoPin: intProp(props.touchMisoPin, 19),
-            xMin: touchRawProp(touchProps.touchXMin, 200),
-            xMax: touchRawProp(touchProps.touchXMax, 3900),
-            yMin: touchRawProp(touchProps.touchYMin, 200),
-            yMax: touchRawProp(touchProps.touchYMax, 3900),
+            // See emittedTouchBounds: a reversed axis leaves here as a
+            // descending span rather than a flag the firmware branches on.
+            ...emittedTouchBounds(touchProps),
           }
           : null,
         enabled: props.enabled !== false,
