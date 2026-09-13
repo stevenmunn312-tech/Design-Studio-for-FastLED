@@ -258,6 +258,17 @@ matrix, not a reason to postpone testing earlier changes.
 
 ## 2. Make the workflow understandable
 
+- [ ] **HW-29 · Finish the Displays help page (S; after the control restructure).**
+  The page exists with every heading the maintainer asked for, and two of them
+  carry a "being rebuilt" note instead of prose: *Using touch input* and
+  *Connecting controls to displays*. Both describe the model being replaced —
+  touch moving onto its own node, and Control Map — so they are written once the
+  restructure lands rather than written now and corrected in the same week.
+  Also wanted, and not built: showing serial output and runtime debug readings
+  on a panel, the way the microphone reports its own levels. The diagnostics
+  section says so rather than implying it exists.
+
+
 - [x] **HW-07 · Connected authoring (M; after HW-04/05).** Exits met; the
   connected starters and visual/help pass are HW-08's scope, not this item's.
 

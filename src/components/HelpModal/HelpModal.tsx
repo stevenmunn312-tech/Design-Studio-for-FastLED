@@ -9,6 +9,7 @@ const FIRST_PATCH_IMAGE = '/node-cards/graphs/juggle.svg'
 const TABS: { id: HelpTab; label: string }[] = [
   { id: 'quickstart', label: 'Quick Start' },
   { id: 'hardware', label: 'Hardware' },
+  { id: 'displays', label: 'Displays' },
   { id: 'shortcuts', label: 'Shortcuts' },
   { id: 'nodes', label: 'Node Reference' },
   { id: 'upload', label: 'Upload & Export' },
@@ -442,6 +443,94 @@ function ShortcutsTab() {
   )
 }
 
+/*
+ * Displays.
+ *
+ * Written for what the app does today. The headings whose subject is being
+ * rebuilt — touch, and how controls reach a screen — carry a short note saying
+ * so rather than a description of a model about to be replaced, because a help
+ * page that documents the previous week is worse than one with a gap in it.
+ * Root todo HW-29 finishes them.
+ */
+function DisplaysTab() {
+  return (
+    <>
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>What a display can show</div>
+        <div className={styles.lede}>
+          Displays are output devices. They show what something else tells them to show, the same way an LED output renders the frame it is given.
+        </div>
+        <div className={styles.text}>
+          <strong>Information displays</strong> are the small ones — 7-segment digits and the 128x64 OLED family. They take one Display wire from a source (RTC Clock, Music Player, Pattern Slideshow) and draw the reading that source publishes. A 4-digit module can show a clock or a number and nothing more; an OLED has room for a line of text beside it. What the module can physically do decides what it is offered, so you cannot ask a segment display for artwork.
+        </div>
+        <div className={styles.text}>
+          <strong>Colour panels</strong> (ST7789 and friends) take the same single Display wire and draw a fuller version of the same reading — a clock face, a now-playing screen with artwork, a show status. The presentation is a property on the panel; the content is whatever is wired in.
+        </div>
+        <div className={styles.note}>
+          One wire, not fourteen. A Music Player publishes its whole reading — title, artist, elapsed, artwork, which pattern is playing — as a single Display signal. Wire that one cable and the panel has everything. Song Info unpacks individual fields onto their own wires when you genuinely need one on a cable.
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Creating a custom user interface</div>
+        <div className={styles.text}>
+          A colour panel can draw a screen you design instead of one of the fixed presentations. Open the panel and choose Edit screen design: you get a canvas the exact size of the glass, a palette of widgets down the side, and a theme picker.
+        </div>
+        <div className={styles.text}>
+          Place readouts for things the panel is being told — text, numbers, a timecode, a progress bar, a meter — and controls for things a finger can change. Design shows you the layout; Run shows it live with the values the graph is producing right now, so you can check a readout before any hardware exists.
+        </div>
+        <div className={styles.note}>
+          The design belongs to the panel it is drawn on, so its size, rotation and colour depth are settled facts rather than choices. A design made for a 240x320 panel cannot be silently half off the edge of a 240x240 one.
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Turning displays on and off</div>
+        <div className={styles.text}>
+          Every display has an <strong>Enabled</strong> input. Leave it unwired and the display is always on. Wire a button, a schedule or any on/off signal to it and you can darken the screen without removing it from the build: the panel goes dark, touch stops being read, and anything the screen publishes rests at zero.
+        </div>
+        <div className={styles.text}>
+          It stays compiled either way, so a screen switched off at night comes back in the morning without reflashing. This is a runtime signal, not a build option.
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Using touch input</div>
+        <div className={styles.note}>
+          <strong>Being rebuilt — notes to follow.</strong> Touch is moving onto a node of its own, because the digitiser on a touch panel is a separate chip from the display. This section will cover what a touch node produces and how a screen design maps its buttons and sliders to real functions.
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Connecting controls to displays</div>
+        <div className={styles.note}>
+          <strong>Being rebuilt — notes to follow.</strong> Displays do not own controls: a screen shows things, and the controls on it are inputs that reach whatever they are mapped to. This section will explain the Control Map node and what a control can be pointed at.
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Using displays for diagnostics</div>
+        <div className={styles.text}>
+          Every colour panel offers a <strong>Diagnostics</strong> presentation: colour bars to prove the panel is wired and oriented correctly, plus live touch state and the raw controller coordinates behind it. It is the fastest way to tell a dark panel from a mis-wired one.
+        </div>
+        <div className={styles.note}>
+          <strong>More to come.</strong> Showing serial output and runtime debug readings on a panel — the way the microphone reports its own levels — is wanted but not built.
+        </div>
+      </div>
+    </>
+  )
+}
+
 function UploadTab() {
   return (
     <>
@@ -819,6 +908,7 @@ export default function HelpModal() {
         >
           {helpTab === 'quickstart' && <QuickStartTab />}
           {helpTab === 'hardware' && <HardwareTab />}
+          {helpTab === 'displays' && <DisplaysTab />}
           {helpTab === 'shortcuts' && <ShortcutsTab />}
           {helpTab === 'nodes' && <NodeReference />}
           {helpTab === 'upload' && <UploadTab />}

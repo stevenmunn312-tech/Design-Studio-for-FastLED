@@ -4317,6 +4317,29 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
 }
 
 /** Inline-editor control hint for a node's property, honouring per-node overrides. */
+/**
+ * Properties that exist for the app's own bookkeeping and never for a user.
+ *
+ * Declared here so a node can store what it needs without putting it on
+ * someone's canvas. The inspector used to decide this with a chain of
+ * `key !== 'this'` tests, which meant every new internal field was visible
+ * until somebody noticed and added another link — `displayId`, a codegen
+ * symbol stem, sat in the open that way.
+ */
+export const INTERNAL_PROPERTY_KEYS: ReadonlySet<string> = new Set([
+  // The stem generated C++ identifiers are built from. Renaming it renames
+  // symbols in the sketch and nothing a user can see.
+  'displayId',
+  // Which catalogue module this part is. Set when the part is taken off the
+  // hardware shelf, which is also where a different module is chosen, so the
+  // id itself is never something to type.
+  'partId',
+])
+
+export function isInternalProperty(key: string): boolean {
+  return INTERNAL_PROPERTY_KEYS.has(key)
+}
+
 export function propertyMeta(nodeType: string, key: string): PropertyControl | undefined {
   return PROPERTY_META_OVERRIDES[nodeType]?.[key] ?? PROPERTY_META[key]
 }
@@ -4389,6 +4412,7 @@ export const FORMULA_LANG_HELP = 'Variables: x, y, t, cx, cy, r, angle, W, H, a,
 /** Per-node overrides for property names whose meaning collides across nodes. */
 export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, string>> = {
   TransportDisplay: {
+    enabled: 'Turns the panel off without removing it from the build: the screen goes dark, touch is not read, and anything it publishes rests at zero. It is still compiled and can be switched back on, so wire this to a button or a schedule to darken a screen at night. Unwired, the panel stays on.',
     tftLayout: 'Presentation for the connected Display source. Diagnostics shows a panel self-test and mapped touch coordinates; disconnect Screen Design to use it. Select the previous presentation to return to your content.',
     touchXMin: 'Measured raw X minimum for this touch module (0–4095). Defaults are provisional; the guided calibration wizard is not available yet.',
     touchXMax: 'Measured raw X maximum for this touch module (0–4095). Save the project and upload again after changing calibration bounds.',

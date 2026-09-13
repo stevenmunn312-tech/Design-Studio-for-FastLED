@@ -5,7 +5,7 @@ import { rootGraphEdges, rootGraphNodes, useGraphStore } from '../../state/graph
 import { compositionDims } from '../../state/outputRouting'
 import type { StudioEdge, StudioNodeData } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { NODE_LIBRARY, NODE_DESCRIPTIONS, CATEGORY_ACCENT_VAR, portColor, propertyMeta, propertyDescription, propertyLabel, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression, isGpioPinProperty, gpioRequirementForProperty } from '../../state/nodeLibrary'
+import { NODE_LIBRARY, NODE_DESCRIPTIONS, CATEGORY_ACCENT_VAR, portColor, propertyMeta, propertyDescription, propertyLabel, hasClampableInputs, bypassPort, nodeDisplayLabel, isInternalProperty, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression, isGpioPinProperty, gpioRequirementForProperty } from '../../state/nodeLibrary'
 import { isPinnableProperty } from '../../state/performanceDeck'
 import { useUploadStore, boardGpioInfo } from '../../state/uploadStore'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../../state/scalarExpression'
@@ -1076,7 +1076,10 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // convention) instead of the fixed category accent every other node uses.
   const accent = isComment && isHexColor(props.color) ? props.color : categoryAccent
   const editable = Object.entries(props).filter(
-    ([k]) => k !== 'font' && k !== 'image' && k !== 'animation' && k !== 'mesh' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden' && k !== 'bypassed' && k !== 'showInMainPreview' && k !== 'profileId' && k !== 'sourceId' && k !== 'buttons' && k !== 'controls' && k !== '_ledCountCustom'
+    // Bookkeeping the app keeps for itself, declared in one place rather than
+    // added to the chain below each time somebody notices one on their canvas.
+    ([k]) => !isInternalProperty(k)
+      && k !== 'font' && k !== 'image' && k !== 'animation' && k !== 'mesh' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden' && k !== 'bypassed' && k !== 'showInMainPreview' && k !== 'profileId' && k !== 'sourceId' && k !== 'buttons' && k !== 'controls' && k !== '_ledCountCustom'
     // Pin provenance is bookkeeping, not a setting: which pins the app
     // assigned, which board for, and the user's own choices per board.
     // It was rendering as `[object Object]` rows on every hardware node.
@@ -1272,6 +1275,17 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     ? `${minimizedType} · ${def.subcategory.toUpperCase()}`
     : minimizedType
   const minimizedDescription = NODE_DESCRIPTIONS[d.nodeType] ?? d.label
+  /*
+   * The title bar says what this node is, on hover.
+   *
+   * Two nodes from the same family sit side by side with their names cut
+   * short — "Player _" and "Player _" — and the first instinct is to hover the
+   * title, which until now said nothing. The name is given in full because the
+   * header is exactly where it gets truncated.
+   */
+  const headerTooltip = NODE_DESCRIPTIONS[d.nodeType]
+    ? `${displayName} — ${NODE_DESCRIPTIONS[d.nodeType]}`
+    : displayName
   const showLiveNodeVisuals = uiEffectsEnabled
 
   useEffect(() => {
@@ -1303,7 +1317,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       } as React.CSSProperties}
     >
       <span ref={signalAuraRef} className={styles.signalAura} aria-hidden="true" />
-      <div className={styles.header} style={{ background: accent }}>
+      <div className={styles.header} style={{ background: accent }} title={headerTooltip}>
         {minimized && inputs.map((input, index) => {
           const inputColor = portColor(input.dataType)
           return (
