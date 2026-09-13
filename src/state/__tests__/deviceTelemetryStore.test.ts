@@ -48,6 +48,12 @@ describe('device telemetry store', () => {
 
   it('forwards raw touch lines to calibration without counting them as noise', () => {
     useTouchCalibrationStore.getState().start('touch')
+    // A real run reaches this by flashing the measuring sketch first. This is
+    // about the one serial reader forwarding what it parses, so the run is
+    // put straight into the state where a corner can be armed.
+    useTouchCalibrationStore.setState((state) => ({
+      session: state.session ? { ...state.session, phase: 'ready', sketchUploaded: true } : null,
+    }))
     useTouchCalibrationStore.getState().beginCorner()
     useDeviceTelemetryStore.getState().ingest(`${TELEMETRY_MARKER} touchx=230 touchy=3810\n`)
     const capture = useTouchCalibrationStore.getState().session

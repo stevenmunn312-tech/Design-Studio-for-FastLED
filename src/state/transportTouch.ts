@@ -40,7 +40,14 @@ export const TOUCH_CALIBRATION_CORNERS = [
 ] as const
 
 export type TouchCalibrationCorner = typeof TOUCH_CALIBRATION_CORNERS[number]['id']
-export type TouchCalibrationCapturePhase = 'ready' | 'collecting' | 'captured' | 'complete'
+/**
+ * `prepare` is the run's own first step — the board has to be flashed with the
+ * measuring sketch before a reading can arrive — and is the one phase this
+ * module never produces. Capture starts at `ready`; putting the board in a
+ * state where it can answer belongs to the store that drives the upload.
+ */
+export type TouchCalibrationCapturePhase =
+  'prepare' | 'ready' | 'collecting' | 'captured' | 'complete'
 
 /** A short hold supplies enough readings to reject one noisy ADC sample. */
 export const TOUCH_CALIBRATION_SAMPLES_PER_CORNER = 5

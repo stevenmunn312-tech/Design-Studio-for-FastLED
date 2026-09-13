@@ -39,12 +39,13 @@ function TouchCalibrationDialog({ nodeId }: { nodeId: string }) {
   const session = useTouchCalibrationStore((state) => state.session?.nodeId === nodeId
     ? state.session
     : null)
-  const start = useTouchCalibrationStore((state) => state.start)
+  const restart = useTouchCalibrationStore((state) => state.restart)
+  const prepare = useTouchCalibrationStore((state) => state.prepare)
   const beginCorner = useTouchCalibrationStore((state) => state.beginCorner)
   const retryCorner = useTouchCalibrationStore((state) => state.retryCorner)
   const cancel = useTouchCalibrationStore((state) => state.cancel)
   const updateNodeProperties = useGraphStore((state) => state.updateNodeProperties)
-  const { selectedPort, serialConnected, serialError, busy, startSerial, openBoardPopup } = useUploadStore()
+  const { selectedPort, serialConnected, serialError, busy, status, openBoardPopup } = useUploadStore()
   const close = () => cancel()
   const dialogRef = useModalFocus<HTMLDivElement>(close)
 
@@ -93,24 +94,22 @@ function TouchCalibrationDialog({ nodeId }: { nodeId: string }) {
               <button type="button" className={styles.closeButton} onClick={close} aria-label="Close touch calibration">×</button>
             </header>
 
+            {/*
+              * The port, not the connection.
+              *
+              * Connecting is the wizard's job now, so the only thing left for
+              * the user here is naming which board — and that is the one fact
+              * the app cannot work out for itself.
+              */}
             <div className={styles.connectionRow}>
               <span className={`${styles.connectionDot} ${serialConnected ? styles.connected : ''}`} aria-hidden="true" />
               <div className={styles.connectionText}>
-                <strong>{serialConnected ? 'Serial connected' : 'Serial disconnected'}</strong>
-                <span>{selectedPort || 'No port selected'}</span>
+                <strong>{selectedPort ? 'Board' : 'No board chosen'}</strong>
+                <span>{selectedPort || 'Choose the port this panel is wired to'}</span>
               </div>
-              {!selectedPort ? (
+              {!selectedPort && (
                 <button type="button" className={styles.secondaryButton} onClick={choosePort}>Choose port</button>
-              ) : !serialConnected ? (
-                <button
-                  type="button"
-                  className={styles.secondaryButton}
-                  disabled={busy}
-                  onClick={() => { void startSerial() }}
-                >
-                  Connect
-                </button>
-              ) : null}
+              )}
             </div>
 
             {serialError && <div className={styles.error} role="alert">{serialError}</div>}
@@ -119,14 +118,52 @@ function TouchCalibrationDialog({ nodeId }: { nodeId: string }) {
               <CornerMap activeIndex={session.cornerIndex} completed={completed} />
 
               <section className={styles.capturePanel} aria-live="polite">
-                <div className={styles.stepLine}>Corner {session.cornerIndex + 1} of {TOUCH_CALIBRATION_CORNERS.length}</div>
+                <div className={styles.stepLine}>
+                  {session.phase === 'prepare'
+                    ? 'Step 1 of 2'
+                    : `Corner ${session.cornerIndex + 1} of ${TOUCH_CALIBRATION_CORNERS.length}`}
+                </div>
+
+                {/*
+                  * One button instead of a checklist.
+                  *
+                  * What the board has to be running to answer is this wizard's
+                  * problem, not the user's: a measuring sketch built from the
+                  * panel alone, so a graph that cannot be deployed — a screen
+                  * with no LED output, say — calibrates just the same.
+                  */}
+                {session.phase === 'prepare' && (
+                  <>
+                    <h3>Put the measuring sketch on the board</h3>
+                    <p>
+                      This uploads a small sketch that reports raw touch readings, replacing
+                      what the board is running. Your project goes back on afterwards.
+                    </p>
+                    <button
+                      type="button"
+                      className={styles.primaryButton}
+                      disabled={!selectedPort || session.preparing || busy}
+                      onClick={() => { void prepare() }}
+                    >
+                      {session.preparing ? 'Uploading…' : 'Upload calibration sketch'}
+                    </button>
+                    {session.preparing && (
+                      <div className={styles.rawReadout}>{status.message}</div>
+                    )}
+                    {session.error && <div className={styles.error} role="alert">{session.error}</div>}
+                  </>
+                )}
+
                 {session.phase === 'ready' && current && (
                   <>
                     <h3>Start at the {current.label}</h3>
                     <p>Use a stylus or fingertip. Start capture, then press and hold the marked corner until five readings arrive.</p>
-                    <button type="button" className={styles.primaryButton} disabled={!serialConnected} onClick={beginCorner}>
+                    <button type="button" className={styles.primaryButton} onClick={beginCorner}>
                       Start {current.label}
                     </button>
+                    {/* A serial port that refused to open after a good upload:
+                        the sketch is on the board, so the run is recoverable. */}
+                    {session.error && <div className={styles.error} role="alert">{session.error}</div>}
                   </>
                 )}
 
@@ -164,7 +201,7 @@ function TouchCalibrationDialog({ nodeId }: { nodeId: string }) {
                     <h3>Calibration ready</h3>
                     {session.result ? (
                       <>
-                        <p>These bounds will replace the four values on the Touch node.</p>
+                        <p>Saving writes these onto the Touch node. Upload your project afterwards to run with them.</p>
                         <dl className={styles.bounds}>
                           <div><dt>X min</dt><dd>{session.result.xMin}</dd></div>
                           <div><dt>X max</dt><dd>{session.result.xMax}</dd></div>
@@ -172,7 +209,7 @@ function TouchCalibrationDialog({ nodeId }: { nodeId: string }) {
                           <div><dt>Y max</dt><dd>{session.result.yMax}</dd></div>
                         </dl>
                         <div className={styles.actions}>
-                          <button type="button" className={styles.secondaryButton} onClick={() => start(nodeId)}>Restart</button>
+                          <button type="button" className={styles.secondaryButton} onClick={restart}>Restart</button>
                           <button type="button" className={styles.primaryButton} onClick={save}>Save calibration</button>
                         </div>
                       </>
@@ -180,7 +217,7 @@ function TouchCalibrationDialog({ nodeId }: { nodeId: string }) {
                       <>
                         <div className={styles.error} role="alert">{session.error}</div>
                         <div className={styles.actions}>
-                          <button type="button" className={styles.secondaryButton} onClick={() => start(nodeId)}>Restart</button>
+                          <button type="button" className={styles.secondaryButton} onClick={restart}>Restart</button>
                           <button type="button" className={styles.primaryButton} onClick={retryCorner}>Retry last corner</button>
                         </div>
                       </>
@@ -191,7 +228,7 @@ function TouchCalibrationDialog({ nodeId }: { nodeId: string }) {
             </div>
 
             <footer className={styles.footer}>
-              <span>The running device must use calibration-enabled firmware that emits raw touch samples.</span>
+              <span>The board runs a temporary measuring sketch. Upload your project again when you are done.</span>
               <button type="button" className={styles.cancelButton} onClick={close}>Cancel</button>
             </footer>
           </div>
