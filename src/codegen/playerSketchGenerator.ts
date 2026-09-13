@@ -389,7 +389,9 @@ export function generatePlayerSketch(
   const graphRouting = opts.controlGraph
   if (graphRouting?.errors.length) throw new Error(graphRouting.errors.join('\n'))
   const compiledGraph = graphRouting ? controlGraphCpp(graphRouting.graph) : null
-  const customDisplays = graphRouting ? customDisplayShowCpp(graphRouting.custom, opts.customDisplayAssets) : null
+  const customDisplays = graphRouting
+    ? customDisplayShowCpp(graphRouting.custom, opts.customDisplayAssets, opts.telemetry === true)
+    : null
   const graphShared = new Set([...(compiledGraph?.helpers ?? []), ...(customDisplays?.shared ?? []),
     ...(graphRouting?.hasSongSources ? [DISPLAY_TEXT_CPP_HELPERS] : [])])
   const controls = (graphRouting ? undefined : opts.controls) ?? { bindings: {}, ...DEFAULT_CONTROL_SETTINGS }
@@ -399,7 +401,8 @@ export function generatePlayerSketch(
     .filter((display) => display.touch !== null)
     .map((display) => ({
       id: safePlayerId(display.id), controller: display.controller, rotation: display.rotation,
-      layout: display.layout, enabledExpr: `_tftOn_${safePlayerId(display.id)}`, touch: display.touch!,
+      layout: display.layout, enabledExpr: `_tftOn_${safePlayerId(display.id)}`,
+      telemetry: opts.telemetry === true, touch: display.touch!,
     }))
   const controlEntries = Object.entries(controls.bindings) as Array<[PlayerControlAction, PlayerControlSource]>
   const hasControls = controlEntries.length > 0 || touchEmits.length > 0 || !!graphRouting?.bundle || !!graphRouting?.hasSongSources

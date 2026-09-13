@@ -20,6 +20,9 @@ export const TELEMETRY_MARKER = 'FLS_STAT'
 export const TELEMETRY_TOUCH_X_KEY = 'touchx'
 export const TELEMETRY_TOUCH_Y_KEY = 'touchy'
 
+/** Raw touch cadence while the panel is held, fast enough for a short five-sample capture. */
+export const TELEMETRY_TOUCH_INTERVAL_MS = 50
+
 export interface DeviceTouchSample {
   rawX: number
   rawY: number

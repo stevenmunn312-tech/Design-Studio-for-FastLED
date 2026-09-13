@@ -477,6 +477,7 @@ function showDisplaysCpp(
   opts: { thumbnails?: BrowserThumbnails; artworks?: TransportArtworks; bootLabel?: string },
   controls: ShowControlRouting,
   selection: ShowSelectionPlan,
+  telemetry: boolean,
 ): ShowDisplayEmission {
   const hasInfo = displays.info.length > 0
   const hasSegment = displays.segment.length > 0
@@ -599,6 +600,7 @@ function showDisplaysCpp(
       rotation: display.rotation,
       layout: display.layout,
       enabledExpr: `_tftOn_${safeId(display.id)}`,
+      telemetry,
       touch: display.touch!,
     }))
   const touchBundleIds = new Set([...controls.touchIds].map(safeId))
@@ -790,8 +792,12 @@ export function generateShowSketch(
     // the sole entry is this show's collection whatever node id it came under.
     Object.values(opts.patternNames ?? {})[0] ?? [],
   )
-  const displays = showDisplaysCpp(nodes, resolvedDisplays, opts, controls, selection)
-  const customDisplays = customDisplayShowCpp(controls.custom, opts.customDisplayAssets)
+  const telemetryAsked = nodes.some((entry) => entry.data.nodeType === 'Board'
+    && entry.data.properties?.reportTelemetry === true)
+  const emitTelemetry = telemetryAsked
+    && boardSupportsTelemetry(selectedPhysicalBoardProfile(nodes)?.targetFamilies)
+  const displays = showDisplaysCpp(nodes, resolvedDisplays, opts, controls, selection, emitTelemetry)
+  const customDisplays = customDisplayShowCpp(controls.custom, opts.customDisplayAssets, emitTelemetry)
   const outputRuntimeExpressions = (outputId: string) => {
     const id = safeId(outputId)
     const scalar = controls.scalarOutputs.get(outputId)
@@ -937,10 +943,6 @@ export function generateShowSketch(
 
   // Bench telemetry, asked for on the Board and honoured only where Serial.printf
   // exists. Emitted after every helper so its sizeof sees the real draw buffers.
-  const telemetryAsked = nodes.some((entry) => entry.data.nodeType === 'Board'
-    && entry.data.properties?.reportTelemetry === true)
-  const emitTelemetry = telemetryAsked
-    && boardSupportsTelemetry(selectedPhysicalBoardProfile(nodes)?.targetFamilies)
   if (emitTelemetry) {
     L.push(...deviceTelemetryGlobalsCpp(telemetryEmitFromSource(L)))
   }

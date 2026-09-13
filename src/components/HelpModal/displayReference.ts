@@ -42,7 +42,7 @@ export const DISPLAY_REFERENCE: Record<string, DisplayReferenceContent> = {
       'For fixed music touch, connect Display Panel Controls → Control Map Controls In → Music Control Map. Clock and Show Status are read-only. A custom screen uses its document’s individual widget outputs instead of the panel’s fixed Controls output.',
       'For a panel self-test, disconnect any Screen Design wire and choose Diagnostics in the panel’s layout menu. Upload to check the physical panel and mapped touch coordinates; browser touches are only a simulation. Select the previous layout and reconnect the design to restore your content.',
     ],
-    propertyNote: 'Hardware owns module identity and display/touch GPIO. The panel’s graph properties expose layout, rotation, Enabled, and raw touch X/Y bounds for touch modules. Use measured bounds, save, and upload again; defaults are provisional and a guided calibration wizard is not available yet. Diagnostics reports mapped pixels, not raw calibration samples. The square ST7789 has no touch controller.',
+    propertyNote: 'Hardware owns module identity and display/touch GPIO. The companion Touch node owns the raw X/Y bounds for touch modules; defaults are provisional. Enable Report telemetry on the Board, compile and upload, then use Calibrate touch on the Touch node and upload again with the saved bounds. Diagnostics reports mapped pixels, not raw calibration samples. The square ST7789 has no touch controller.',
   },
   Display: {
     overview: [
@@ -56,6 +56,6 @@ export const DISPLAY_REFERENCE: Record<string, DisplayReferenceContent> = {
       'Use Set when another graph value should synchronize a control. Touch owns it while held; after release, the wired Set value takes over. Without Set, it keeps its local value. Run repaints graph-fed readouts and lets you exercise local controls; its temporary touch state resets when switching editor modes.',
       'Resolve layout, asset, and Graph Health issues before measuring capacity or uploading. Normal, generative-show, and SD-player builds generate LVGL widgets. Show/player wiring accepts supported float, boolean, and text paths; arbitrary nodes, nested groups, and wired colour or pattern-selection widget inputs are unsupported there.',
     ],
-    propertyNote: 'Ports depend on this screen’s widgets, so the empty default node has no fixed port list. A single-port widget uses its label on the graph socket; controls append Output or Set. The inspector shows each role and type. Hardware owns module identity and GPIO; Edit screen design owns widgets and appearance. The saved project includes the screen layout, but not temporary Run-mode touch values. Physical touch calibration and performance validation remain outstanding.',
+    propertyNote: 'Ports depend on this screen’s widgets, so the empty default node has no fixed port list. A single-port widget uses its label on the graph socket; controls append Output or Set. The inspector shows each role and type. Hardware owns module identity and GPIO; Edit screen design owns widgets and appearance. The saved project includes the screen layout, but not temporary Run-mode touch values. Use the companion Touch node’s calibration wizard for physical bounds; performance validation remains outstanding.',
   },
 }

@@ -309,9 +309,10 @@ they name.
   target-square presses landed inside their intended targets, with sampled
   centres within about 4-8 pixels. This is a raw hardware/calibration probe,
   not proof of the Studio's current `touchXMin`/`touchYMin` property mapping or
-  its Diagnostics layout. GPIO36 is input-only: requesting `INPUT_PULLUP`, as
-  the current generated XPT2046 setup does, logged `gpio_pullup_en` error 85;
-  plain `INPUT` read the board's IRQ correctly.
+  its Diagnostics layout. GPIO36 is input-only: the probe confirmed that
+  `INPUT_PULLUP` logged `gpio_pullup_en` error 85 while plain `INPUT` read IRQ
+  correctly. Generated touch setup now selects plain `INPUT` for GPIO34-39 on
+  classic ESP32 targets; that generator repair still needs an on-device rerun.
 
   Controller identification remains open. Direct `RDDID`/ID-register reads and
   the ILI9341 indexed-read sequence returned stable status/pixel-format values

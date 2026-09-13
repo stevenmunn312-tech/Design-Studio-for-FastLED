@@ -73,11 +73,29 @@ describe('custom display panel driver', () => {
     expect(setup).toContain('lv_indev_set_display(_cdIndev_screen, _cdDisp_screen);')
   })
 
+  it('uses plain input for a CYD touch IRQ on classic ESP32', () => {
+    const setup = customDisplayPanelSetupCpp(touchEmit({
+      touch: { csPin: 33, irqPin: 36, sckPin: 25, mosiPin: 32, misoPin: 39,
+        xMin: 200, xMax: 3900, yMin: 200, yMax: 3900 },
+    })).join('\n')
+    expect(setup).toContain('#if defined(CONFIG_IDF_TARGET_ESP32)\n  pinMode(36, INPUT);')
+    expect(setup).toContain('#else\n  pinMode(36, INPUT_PULLUP);')
+  })
+
   it('samples touch through the one XPT2046 primitive rather than a second implementation', () => {
     const helpers = customDisplayPanelHelpersCpp(touchEmit())
     expect(helpers).toContain('_xptPoint(15, 2, 18, 23, 19, 200, 3900, 200, 3900, 240, 320, 0, x, y, rawX, rawY)')
     expect(helpers).toContain('data->state = pressed ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;')
     expect(customDisplayPanelHelpersCpp(emit())).not.toContain('_xptPoint')
+  })
+
+  it('streams rate-limited raw samples only in telemetry builds', () => {
+    const enabled = touchEmit({ telemetry: true })
+    const source = `${customDisplayPanelGlobalCpp(enabled)}\n${customDisplayPanelHelpersCpp(enabled)}`
+    expect(source).toContain('static uint32_t _cdTouchSampleMs_screen = 0;')
+    expect(source).toContain('FLS_STAT touchx=%u touchy=%u\\n')
+    expect(source).toContain('>= 50u')
+    expect(customDisplayPanelHelpersCpp(touchEmit())).not.toContain('touchx=%u')
   })
 
   it('flushes a band by reading logical RGB565 values and letting SPI.transfer16 handle wire order', () => {

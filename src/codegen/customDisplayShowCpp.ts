@@ -15,7 +15,11 @@ import { TFT_TOUCH_CPP_HELPERS } from './tftTouchCpp'
 
 export type CustomDisplayAssets = Record<string, readonly BakedCustomDisplayAsset[]>
 
-export function customDisplayShowCpp(plan: ReturnType<typeof customDisplayControlPlan>, assets: CustomDisplayAssets = {}) {
+export function customDisplayShowCpp(
+  plan: ReturnType<typeof customDisplayControlPlan>,
+  assets: CustomDisplayAssets = {},
+  telemetry = false,
+) {
   if (plan.errors.length) throw new Error(plan.errors.join('\n'))
   // Every mounted panel is built, disabled or not: it is fitted hardware
   // either way, and dropping it from the sketch made Enabled a build switch
@@ -35,16 +39,17 @@ export function customDisplayShowCpp(plan: ReturnType<typeof customDisplayContro
   }
   for (const display of displays) {
     const emit = { ...display.emit, assets: assets[display.documentId] ?? [] }
+    const panel = { ...display.panel, telemetry }
     helpers.push(customDisplayAssetsCpp(emit.id, emit.document, emit.assets), customDisplayLvglGlobalCpp(emit),
-      customDisplayPanelGlobalCpp(display.panel), customDisplayPanelHelpersCpp(display.panel))
-    setup.push(...customDisplayPanelSetupCpp(display.panel), ...customDisplayLvglSetupCpp(emit))
-    const gate = `_cdPanelOn_${display.panel.id}`
-    const always = display.panel.enabledExpr === 'true'
-    if (display.panel.touch) {
-      const read = `lv_indev_read(_cdIndev_${display.panel.id});`
+      customDisplayPanelGlobalCpp(panel), customDisplayPanelHelpersCpp(panel))
+    setup.push(...customDisplayPanelSetupCpp(panel), ...customDisplayLvglSetupCpp(emit))
+    const gate = `_cdPanelOn_${panel.id}`
+    const always = panel.enabledExpr === 'true'
+    if (panel.touch) {
+      const read = `lv_indev_read(_cdIndev_${panel.id});`
       sample.push(always ? `  ${read}` : `  if (${gate}) ${read}`)
     }
-    enable.push(...customDisplayPanelEnableCpp(display.panel))
+    enable.push(...customDisplayPanelEnableCpp(panel))
     const publish = customDisplayLvglLoopCpp(emit)
     loop.push(...(always ? publish : [`  if (${gate}) {`, ...publish.map((line) => `  ${line}`), `  }`]))
     snapshots.push(...display.samples.map((entry) => customDisplaySampleCpp(entry, always ? null : gate)))

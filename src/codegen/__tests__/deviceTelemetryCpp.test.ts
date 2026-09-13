@@ -12,7 +12,15 @@ import { describe, it, expect } from 'vitest'
 import { generateCpp } from '../cppGenerator'
 import { generateShowSketch } from '../showGenerator'
 import { buildShowPlayer } from '../../utils/showUpload'
-import { TELEMETRY_INTERVAL_MS, TELEMETRY_MARKER, parseTelemetryLine } from '../../state/deviceTelemetry'
+import {
+  TELEMETRY_INTERVAL_MS,
+  TELEMETRY_MARKER,
+  TELEMETRY_TOUCH_INTERVAL_MS,
+  TELEMETRY_TOUCH_X_KEY,
+  TELEMETRY_TOUCH_Y_KEY,
+  parseTelemetryLine,
+  parseTelemetryTouchSample,
+} from '../../state/deviceTelemetry'
 import { boardSupportsTelemetry } from '../deviceTelemetryCpp'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
@@ -60,7 +68,7 @@ function showSketch(reportTelemetry: boolean): string {
   return generateShowSketch(
     [board(reportTelemetry), node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4 }),
       node('collection', 'PatternCollection', { patternIds: ['pattern'] }),
-      node('show', 'PatternSlideshow')],
+      node('show', 'PatternSlideshow'), panel({ tftLayout: 'Diagnostics' })],
     [edge('collection', 'patternset', 'show', 'patternset'), edge('show', 'frame', 'out', 'frame')],
     groups,
   )
@@ -69,7 +77,8 @@ function showSketch(reportTelemetry: boolean): string {
 function playerSketch(reportTelemetry: boolean): string {
   return buildShowPlayer(
     [board(reportTelemetry), node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4 }),
-      node('player', 'PatternMaster'), node('sd', 'SDCard'), node('amp', 'Amplifier')],
+      node('player', 'PatternMaster'), node('sd', 'SDCard'), node('amp', 'Amplifier'),
+      panel({ tftLayout: 'Diagnostics' })],
     [edge('player', 'frame', 'out', 'frame')],
     groups,
     { patternSet: ['pattern'], bakedAudio: false, genericPlayer: true, preferredTrack: '' },
@@ -103,6 +112,13 @@ describe('device telemetry in every generator', () => {
 
       it('reports at the interval the app expects', () => {
         expect(generator.build(true)).toContain(`if (elapsedMs < ${TELEMETRY_INTERVAL_MS}ul) return;`)
+      })
+
+      it('streams raw touch readings at the calibration cadence only when asked', () => {
+        const source = generator.build(true)
+        expect(source).toContain(`${TELEMETRY_MARKER} ${TELEMETRY_TOUCH_X_KEY}=%u ${TELEMETRY_TOUCH_Y_KEY}=%u\\n`)
+        expect(source).toContain(`>= ${TELEMETRY_TOUCH_INTERVAL_MS}u`)
+        expect(generator.build(false)).not.toContain(`${TELEMETRY_TOUCH_X_KEY}=%u`)
       })
 
       it('begins the loop before any work and reports after it', () => {
@@ -153,6 +169,31 @@ describe('device telemetry in every generator', () => {
     expect(parsed?.heapFree).toBe(1234)
     expect(parsed?.fps).toBe(12.5)
     expect(parsed?.psramFree).toBe(1234)
+  })
+
+  it('emits a raw touch line the calibration parser can actually read', () => {
+    const source = normalSketch(true)
+    const format = source.match(/Serial\.printf\("(FLS_STAT touchx=%u touchy=%u)\\n"/)?.[1]
+    expect(format).toBeDefined()
+    expect(parseTelemetryTouchSample(format!.replace('%u', '290').replace('%u', '3640')))
+      .toEqual({ rawX: 290, rawY: 3640 })
+  })
+
+  it('emits the CYD fixed touch wiring and avoids a pull-up on classic ESP32 GPIO36', () => {
+    const source = generateCpp([
+      board(true, 'esp32-2432s028r'),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4 }),
+      node('fill', 'SolidColor'),
+      panel({
+        tftLayout: 'Diagnostics', csPin: 15, dcPin: 2, resetPin: 4, sckPin: 14,
+        mosiPin: 13, backlightPin: 21, touchCsPin: 33, touchIrqPin: 36,
+        touchSckPin: 25, touchMosiPin: 32, touchMisoPin: 39,
+      }),
+    ], [edge('fill', 'frame', 'out', 'frame')])
+    expect(source).toContain('_tftBegin(_tft_panel, 15, 2, 4, 14, 13, 21,')
+    expect(source).toContain('_xptPoint(33, 36, 25, 32, 39,')
+    expect(source).toContain('#if defined(CONFIG_IDF_TARGET_ESP32)\n  pinMode(36, INPUT);')
+    expect(source).toContain(`${TELEMETRY_MARKER} ${TELEMETRY_TOUCH_X_KEY}=%u ${TELEMETRY_TOUCH_Y_KEY}=%u`)
   })
 })
 

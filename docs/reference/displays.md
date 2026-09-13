@@ -87,10 +87,11 @@ provisional. Use **Calibrate touch** to collect five readings at each corner and
 save all four bounds together, then save the project and upload again.
 
 The browser wizard listens on the Output console's existing serial connection
-for `FLS_STAT touchx=<value> touchy=<value>` lines. Emitting those raw samples is
-a separate firmware step and requires the maintainer to compile and upload a
-calibration-enabled sketch. Diagnostics still shows mapped pixels, not raw
-samples, and browser touches cannot calibrate the physical controller.
+for `FLS_STAT touchx=<value> touchy=<value>` lines. Turn on **Report telemetry**
+on the Board node, then compile and upload that calibration-enabled sketch; it
+streams raw samples while the panel is held. Diagnostics still shows mapped
+pixels, not raw samples, and browser touches cannot calibrate the physical
+controller.
 
 ## Touch
 

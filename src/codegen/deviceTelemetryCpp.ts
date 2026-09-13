@@ -12,7 +12,12 @@
 // wrote (see `displayForwardDeclarations.test.ts`). These take no parameters at
 // all, so they need no forward declaration and cannot join that trap.
 
-import { TELEMETRY_INTERVAL_MS, TELEMETRY_MARKER } from '../state/deviceTelemetry'
+import {
+  TELEMETRY_INTERVAL_MS,
+  TELEMETRY_MARKER,
+  TELEMETRY_TOUCH_X_KEY,
+  TELEMETRY_TOUCH_Y_KEY,
+} from '../state/deviceTelemetry'
 
 export interface DeviceTelemetryEmit {
   /**
@@ -180,6 +185,11 @@ export const TELEMETRY_REPORT_CPP = '  _telReport();'
 
 /** Statement that stamps a press, for the touch paths to call. */
 export const TELEMETRY_TOUCH_PRESS_CPP = '_telTouchPress();'
+
+/** One raw XPT2046 reading for the browser calibration wizard. */
+export function telemetryTouchSampleCpp(rawXExpr: string, rawYExpr: string): string {
+  return `Serial.printf("${TELEMETRY_MARKER} ${TELEMETRY_TOUCH_X_KEY}=%u ${TELEMETRY_TOUCH_Y_KEY}=%u\\n", (unsigned)${rawXExpr}, (unsigned)${rawYExpr});`
+}
 
 /**
  * Add telemetry to an already-assembled sketch.

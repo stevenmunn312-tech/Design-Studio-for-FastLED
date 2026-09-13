@@ -6,10 +6,11 @@
 // lets either wiring described by the hardware model work without re-beginning
 // the SD/display host underneath another client.
 
+import { TELEMETRY_TOUCH_INTERVAL_MS } from '../state/deviceTelemetry'
 import { transportTouchRegions } from '../state/transportTouch'
 import { type TftController, type TftRotation } from '../state/tftSurface'
 import type { TransportDisplayLayout } from '../state/transportDisplay'
-import { TELEMETRY_TOUCH_PRESS_CPP } from './deviceTelemetryCpp'
+import { TELEMETRY_TOUCH_PRESS_CPP, telemetryTouchSampleCpp } from './deviceTelemetryCpp'
 
 export interface TftTouchEmit {
   /**
@@ -32,7 +33,8 @@ export interface TftTouchEmit {
 }
 
 export function tftTouchGlobalCpp(display: TftTouchEmit): string {
-  return `static bool _touchDown_${display.id} = false; static int16_t _touchX_${display.id} = 0, _touchY_${display.id} = 0; static uint16_t _touchRawX_${display.id} = 0, _touchRawY_${display.id} = 0;`
+  const sampleClock = display.telemetry ? ` static uint32_t _touchSampleMs_${display.id} = 0;` : ''
+  return `static bool _touchDown_${display.id} = false; static int16_t _touchX_${display.id} = 0, _touchY_${display.id} = 0; static uint16_t _touchRawX_${display.id} = 0, _touchRawY_${display.id} = 0;${sampleClock}`
 }
 
 export const TFT_TOUCH_CPP_HELPERS = `// ── XPT2046 touch ────────────────────────────────────────────────────────────
@@ -73,7 +75,23 @@ export function tftTouchSetupCpp(display: TftTouchEmit): string[] {
     `  pinMode(${t.csPin}, OUTPUT); digitalWrite(${t.csPin}, HIGH);`,
     `  pinMode(${t.sckPin}, OUTPUT); digitalWrite(${t.sckPin}, LOW);`,
     `  pinMode(${t.mosiPin}, OUTPUT); pinMode(${t.misoPin}, INPUT);`,
-    `  pinMode(${t.irqPin}, INPUT_PULLUP);`,
+    ...tftTouchIrqSetupCpp(t.irqPin),
+  ]
+}
+
+/**
+ * Classic ESP32 GPIO34-39 are input-only and have no internal pull-up. Keep
+ * the pull-up on other targets/pins, while letting fixed-wiring CYD boards use
+ * GPIO36 without the Arduino core logging gpio_pullup_en error 85.
+ */
+export function tftTouchIrqSetupCpp(irqPin: number): string[] {
+  if (irqPin < 34 || irqPin > 39) return [`  pinMode(${irqPin}, INPUT_PULLUP);`]
+  return [
+    `#if defined(CONFIG_IDF_TARGET_ESP32)`,
+    `  pinMode(${irqPin}, INPUT);  // classic ESP32 GPIO34-39 have no internal pull-up`,
+    `#else`,
+    `  pinMode(${irqPin}, INPUT_PULLUP);`,
+    `#endif`,
   ]
 }
 
@@ -152,7 +170,20 @@ export function tftTouchServiceCpp(
   ]
   // On the down edge only, and before the region tests, so the stamp measures
   // from the press rather than from whichever control happened to be under it.
-  if (display.telemetry) lines.push(`    if (${down} && !_touchPrev_${id}) ${TELEMETRY_TOUCH_PRESS_CPP}`)
+  if (display.telemetry) {
+    const sampleClock = `_touchSampleMs_${id}`
+    const now = `_touchSampleNow_${id}`
+    lines.push(
+      `    if (${down} && !_touchPrev_${id}) ${TELEMETRY_TOUCH_PRESS_CPP}`,
+      `    if (${down}) {`,
+      `      uint32_t ${now} = millis();`,
+      `      if (${sampleClock} == 0 || (uint32_t)(${now} - ${sampleClock}) >= ${TELEMETRY_TOUCH_INTERVAL_MS}u) {`,
+      `        ${telemetryTouchSampleCpp(rawX, rawY)}`,
+      `        ${sampleClock} = ${now};`,
+      `      }`,
+      `    } else { ${sampleClock} = 0; }`,
+    )
+  }
   for (const region of regions) {
     const hit = `(${inside(pointX, pointY, region.rect)})`
     const value = region.valueAxis === 'x'

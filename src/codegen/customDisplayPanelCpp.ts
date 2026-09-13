@@ -17,11 +17,13 @@ import {
   asTftRotation, TFT_CONTROLLERS, tftMadctl, tftRotatedSize, tftWindowOrigin,
   type TftController, type TftRotation,
 } from '../state/tftSurface'
+import { TELEMETRY_TOUCH_INTERVAL_MS } from '../state/deviceTelemetry'
 import { tftControllerForProps } from '../state/nodeLibrary'
 import { partById } from '../state/partCatalogue'
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
 import { customDisplayId } from './customDisplayId'
-import { TELEMETRY_TOUCH_PRESS_CPP } from './deviceTelemetryCpp'
+import { TELEMETRY_TOUCH_PRESS_CPP, telemetryTouchSampleCpp } from './deviceTelemetryCpp'
+import { tftTouchIrqSetupCpp } from './tftTouchCpp'
 
 export const CUSTOM_DISPLAY_PANEL_CPP_INCLUDES = '#include <SPI.h>'
 
@@ -138,6 +140,7 @@ export function customDisplayPanelGlobalCpp(emit: CustomDisplayPanelEmit): strin
   ]
   if (emit.touch) {
     lines.push(`static lv_indev_t *_cdIndev_${id} = nullptr;`)
+    if (emit.telemetry) lines.push(`static uint32_t _cdTouchSampleMs_${id} = 0;`)
   }
   return lines.join('\n')
 }
@@ -226,6 +229,13 @@ function panelIndevCpp(emit: CustomDisplayPanelEmit): string {
   data->state = pressed ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
 ${emit.telemetry ? `  static bool _cdTouchPrev_${id} = false;
   if (pressed && !_cdTouchPrev_${id}) ${TELEMETRY_TOUCH_PRESS_CPP}
+  if (pressed) {
+    uint32_t sampleNow = millis();
+    if (_cdTouchSampleMs_${id} == 0 || (uint32_t)(sampleNow - _cdTouchSampleMs_${id}) >= ${TELEMETRY_TOUCH_INTERVAL_MS}u) {
+      ${telemetryTouchSampleCpp('rawX', 'rawY')}
+      _cdTouchSampleMs_${id} = sampleNow;
+    }
+  } else { _cdTouchSampleMs_${id} = 0; }
   _cdTouchPrev_${id} = pressed;
 ` : ''}}`
 }
@@ -327,7 +337,7 @@ export function customDisplayPanelSetupCpp(emit: CustomDisplayPanelEmit): string
       `  pinMode(${t.csPin}, OUTPUT); digitalWrite(${t.csPin}, HIGH);`,
       `  pinMode(${t.sckPin}, OUTPUT); digitalWrite(${t.sckPin}, LOW);`,
       `  pinMode(${t.mosiPin}, OUTPUT); pinMode(${t.misoPin}, INPUT);`,
-      `  pinMode(${t.irqPin}, INPUT_PULLUP);`,
+      ...tftTouchIrqSetupCpp(t.irqPin),
       `  _cdIndev_${id} = lv_indev_create();`,
       `  lv_indev_set_type(_cdIndev_${id}, LV_INDEV_TYPE_POINTER);`,
       `  lv_indev_set_read_cb(_cdIndev_${id}, _cdIndevRead_${id});`,
