@@ -446,11 +446,14 @@ function ShortcutsTab() {
 /*
  * Displays.
  *
- * Written for what the app does today. The headings whose subject is being
- * rebuilt — touch, and how controls reach a screen — carry a short note saying
- * so rather than a description of a model about to be replaced, because a help
- * page that documents the previous week is worse than one with a gap in it.
- * Root todo HW-29 finishes them.
+ * Written for what the app does today. Touch and control routing were left as
+ * short "being rebuilt" notes while their model was changing, on the grounds
+ * that a help page documenting the previous week is worse than one with a gap
+ * in it; both are now written against the shipped model — two nodes for a touch
+ * panel, and Control Map as the one place a control is given a job.
+ *
+ * What stays a note is the one thing still genuinely absent: serial output and
+ * runtime debug readings on a panel.
  */
 function DisplaysTab() {
   return (
@@ -481,6 +484,12 @@ function DisplaysTab() {
         <div className={styles.text}>
           Place readouts for things the panel is being told — text, numbers, a timecode, a progress bar, a meter — and controls for things a finger can change. Design shows you the layout; Run shows it live with the values the graph is producing right now, so you can check a readout before any hardware exists.
         </div>
+        <div className={styles.text}>
+          Each readout has a <strong>Reads</strong> row in the inspector, listing what the panel&rsquo;s own source publishes — Title, Artist, Elapsed and so on for a Music Player; Time and Date for an RTC Clock. Pick one and the widget takes that reading straight off the wire already feeding the panel, with no cable of its own. Choose <strong>A wire from the graph</strong> instead and the widget mints a socket on the panel for you to connect anything else to.
+        </div>
+        <div className={styles.text}>
+          The <strong>Templates</strong> shelf is ordered the same way: the layouts your panel&rsquo;s source can fill are listed first. Place <strong>Now Playing</strong> on a panel wired to a Music Player and it is already showing the track — the readings arrive connected, and only its buttons are left for you to point somewhere.
+        </div>
         <div className={styles.note}>
           The design belongs to the panel it is drawn on, so its size, rotation and colour depth are settled facts rather than choices. A design made for a 240x320 panel cannot be silently half off the edge of a 240x240 one.
         </div>
@@ -502,8 +511,20 @@ function DisplaysTab() {
 
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Using touch input</div>
+        <div className={styles.lede}>
+          A touch panel is two chips: the screen, and a digitiser sitting over the glass reading where your finger is. So it arrives as two nodes.
+        </div>
+        <div className={styles.text}>
+          Add a touch-capable panel from <strong>Add Hardware → Displays</strong> and you get the <strong>Display Panel</strong> and a <strong>Touch</strong> node together, already linked. You never wire them to each other or type which panel the Touch node reads — they are one part, and taking it off the shelf was the one decision. The panel keeps all the pins, including the digitiser&rsquo;s five lines, because that is where the Build Diagram and the pin checker look for them.
+        </div>
+        <div className={styles.text}>
+          The Touch node has a single <strong>Controls</strong> output. Whatever the panel&rsquo;s presentation puts under your finger comes out of it: a <strong>Fixed Transport</strong> screen gives you Previous, Play/Pause, Next and a volume strip, a <strong>Now Playing</strong> screen gives play/pause and volume. Wire that one cable to a <strong>Control Map</strong> and the presses become whatever you point them at.
+        </div>
+        <div className={styles.text}>
+          A panel showing a <strong>screen design</strong> is different: the design owns the touch. Its Buttons, Toggles, Sliders and Dials each publish on their own output on the panel, so you wire the one you mean rather than a single bundle. The Touch node stays quiet there — there is no fixed layout under the design for it to read.
+        </div>
         <div className={styles.note}>
-          <strong>Being rebuilt — notes to follow.</strong> Touch is moving onto a node of its own, because the digitiser on a touch panel is a separate chip from the display. This section will cover what a touch node produces and how a screen design maps its buttons and sliders to real functions.
+          Touch follows <strong>Enabled</strong>. A dark panel is not read, and the Controls output rests at zero rather than holding the last thing anybody pressed.
         </div>
       </div>
 
@@ -511,8 +532,25 @@ function DisplaysTab() {
 
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Connecting controls to displays</div>
+        <div className={styles.lede}>
+          Controls do not belong to displays. A screen, a button on a bench and a knob on a panel all produce the same thing, and <strong>Control Map</strong> is where you say what it should do.
+        </div>
+        <div className={styles.text}>
+          Drop a Control Map and it starts almost empty: one <strong>Controls In</strong> input for chaining, and one trailing <strong>Connect control…</strong> socket. Drag any control into that socket and a picker asks what the control is for. Choose, and the node grows a port named for the job — Play / Pause, Volume, Brightness, Next Pattern — with a fresh empty socket beneath it. You end up with a node that lists exactly the jobs you have given it instead of fourteen sockets you have to read past.
+        </div>
+        <div className={styles.text}>
+          The picker only offers what makes sense, which is narrower than what would merely connect:
+        </div>
+        <div className={styles.definitionGrid}>
+          <div><strong>By what it is</strong><span>A button can be Play / Pause or Next; only a knob or a slider can be Volume. A button wired to Volume would set it to 0 or 1 and nothing between, so it is not offered.</span></div>
+          <div><strong>By where the cable ends</strong><span>Play / Pause needs something holding a track. If the Control Map reaches only an LED output, you are offered its blackout and dimmer and no transport at all.</span></div>
+          <div><strong>One job per control</strong><span>A press is one event. A button already doing Brightness Up is not offered Brightness Down, which would fire both in the same frame and cancel out.</span></div>
+        </div>
+        <div className={styles.text}>
+          Then wire the Control Map&rsquo;s <strong>Controls</strong> output at whatever should obey it. A <strong>Music Player</strong> takes everything — transport, volume, its lamp, its collection. An <strong>LED output</strong> takes blackout and dimming and remembers its own level, so two fixtures on one Control Map both go dark on a press. A <strong>Pattern Slideshow</strong> takes pattern intent and has no transport, because it is a show rather than a player. <strong>Master Speed</strong> takes a speed.
+        </div>
         <div className={styles.note}>
-          <strong>Being rebuilt — notes to follow.</strong> Displays do not own controls: a screen shows things, and the controls on it are inputs that reach whatever they are mapped to. This section will explain the Control Map node and what a control can be pointed at.
+          Chain them with <strong>Controls In</strong> when controls live in different places — three buttons on the bench and a touch screen on the door. Presses combine rather than fight: either end pressing Play means play, and a knob wired nearer wins over one further away, because the nearer one is what somebody just touched.
         </div>
       </div>
 

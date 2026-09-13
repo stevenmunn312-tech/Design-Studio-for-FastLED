@@ -75,11 +75,11 @@ own supported source kinds, so an arbitrary RTC wire there remains unresolved.
 ### Diagnostics and touch bounds
 
 On the panel's graph node, choose **Diagnostics** in the layout menu for a
-self-test. Disconnect a **Screen Design** wire first: a mounted document owns
-the screen. The fixed **Display** source wire can stay connected. Diagnostics
-shows mapped touch coordinates on XPT2046 modules and identifies a non-touch
-panel as such. Choose the previous layout and reconnect the document to return
-to your content. Upload the changed design to run the check on the device.
+self-test. It overrides a screen design as well as the fixed layouts, so there
+is nothing to disconnect first, and the **Display** source wire can stay
+connected. Diagnostics shows mapped touch coordinates on XPT2046 modules and
+identifies a non-touch panel as such. Choose the previous layout to return to
+your content. Upload the changed design to run the check on the device.
 
 The panel also exposes **Touch X Min/Max** and **Touch Y Min/Max** for touch
 modules. These are raw 0–4095 bounds; use measurements from the exact module,
@@ -87,14 +87,39 @@ then save the project and upload again. The defaults are provisional.
 Diagnostics shows mapped pixels, not raw samples, and browser touches cannot
 calibrate the physical controller. Guided calibration remains HW-11 work.
 
+## Touch
+
+A touch-capable panel arrives as two nodes: the **Display Panel** and a
+**Touch** node beside it, added together by taking the module off the shelf and
+linked from that moment. The digitiser is a separate chip from the display
+controller, which is why it is a separate node; its five lines are still pins on
+the panel, where the Build Diagram and the pin checker look for them.
+
+Touch has no inputs and one **Controls** output carrying the presses the panel's
+current fixed layout defines — Previous, Play/Pause, Next and volume on **Fixed
+Transport**; play/pause and volume on **Now Playing**; nothing on read-only
+layouts such as Show Status or Waiting. Wire it to **Control Map** to give those
+presses a job.
+
+A panel showing a screen design has no fixed layout underneath for Touch to
+read, so it reports nothing there. The design owns the touch instead: each
+Button, Toggle, Slider and Dial publishes on its own output on the panel node.
+
+The output rests at zero whenever the panel is disabled or the module has no
+touch controller, so a dark panel cannot hold the last press anybody made.
+
 ## Screen Design
 
-Click **Create screen design** on a physical TFT panel to create, size, connect
-and open its document. A separately added document cannot be edited until it
-is connected to a panel. **Edit screen design** reopens it. Design adds/resizes widgets or inserts ordinary
-widget templates; labels such as Now Playing and DMX Monitor do not supply data
-or automatically wire actions. Module, pins and mounted rotation belong to the
-panel. Use one document per physical panel; shared documents are refused.
+Click **Create screen design** on a physical TFT panel to create, size and open
+its design; **Edit screen design** reopens it. A design belongs to the panel it
+was drawn on, so it is always the size of that glass and there is no separate
+document to add, connect, or accidentally attach to two panels at once. To reuse
+a design, duplicate the panel — the copy gets a design of its own.
+
+Design adds and resizes widgets or inserts ordinary widget templates. Module,
+pins and mounted rotation belong to the panel. A template's readings arrive
+bound to whatever is wired into the panel (see **Widget ports** below); its
+controls are ordinary outputs and are not wired to actions for you.
 
 Return with **Graph** to wire widget roles. Renaming/moving widgets retains
 connections; copying creates new identities; deleting a wired widget prompts
@@ -119,8 +144,16 @@ control state. A disabled panel's thumbnail is dark; editing remains available.
 | Toggle | Set: boolean, optional | Output: boolean |
 | Slider, Dial | Set: float, optional | Output: float |
 
-The node exposes the roles of its actual widgets, so a new empty screen has no
-widget ports; it still has its Screen Design content output. A widget with one port uses its widget label on the graph socket; a
+An input appears only for a widget reading **A wire from the graph**. Set a
+widget's **Reads** row to a field of the panel's source instead — Title, Elapsed,
+Time — and it takes that value directly, with no socket and no cable. Outputs are
+unaffected: a control still reports what a finger did to it either way. The
+fields on offer are whatever the source wired into the panel publishes, narrowed
+to those the widget can show, so a track title is never offered to a progress
+bar.
+
+The panel exposes the roles of its actual widgets, so a new empty screen adds no
+widget ports to it. A widget with one port uses its widget label on the graph socket; a
 control with multiple ports appends Output or Set. The inspector shows the role
 and type. For a first connection, add a Slider and Numeric Readout and connect
 the slider's Output to the readout's Value. For formatted text, insert Format
@@ -208,10 +241,11 @@ evaluate every wire connected to it.
 ### Known integration gaps
 
 The software repairs from the 2026-09-08 review are implemented: slideshow
-controls and TFT-only Show Status share selection state, mounted panels own
-geometry and Enabled, shared/unmounted documents have explicit build rules,
-RAM estimates use the mount plan, and Run readouts repaint. The compile fixtures
-now use the panel/document model. Fresh compile runs and physical validation
+controls and TFT-only Show Status share selection state, panels own their
+geometry and Enabled, RAM estimates use the mount plan, and Run readouts
+repaint. A design shared between panels or attached to none — which those
+repairs gave build rules for — is no longer possible to express, since a panel
+owns its design outright. Fresh compile runs and physical validation
 remain separate gates; see [the active checklist](../../todo.md).
 
 The [compile record](../development/display-compile-checks.md) preserves historical

@@ -258,15 +258,35 @@ matrix, not a reason to postpone testing earlier changes.
 
 ## 2. Make the workflow understandable
 
-- [ ] **HW-29 · Finish the Displays help page (S; after the control restructure).**
-  The page exists with every heading the maintainer asked for, and two of them
-  carry a "being rebuilt" note instead of prose: *Using touch input* and
-  *Connecting controls to displays*. Both describe the model being replaced —
-  touch moving onto its own node, and Control Map — so they are written once the
-  restructure lands rather than written now and corrected in the same week.
-  Also wanted, and not built: showing serial output and runtime debug readings
-  on a panel, the way the microphone reports its own levels. The diagnostics
-  section says so rather than implying it exists.
+- [x] **HW-29 · Finish the Displays help page (S; after the control restructure).**
+  Done, now that HW-30 closed the restructure the two gaps were waiting on.
+
+  *Using touch input* says the thing that explains the node count: a touch panel
+  is two chips, so it arrives as two nodes, already linked, and the panel keeps
+  every pin because that is where the Build Diagram and the pin checker look.
+  It covers what the Touch node's one Controls output carries for each fixed
+  presentation, that a screen design owns its own touch instead (its widgets
+  publish individually, so the Touch node is quiet there), and that touch
+  follows Enabled.
+
+  *Connecting controls to displays* leads with the fact the old model hid —
+  controls do not belong to displays — then covers Control Map minting a port
+  per job from its trailing socket, the three ways the picker narrows (by what
+  the control is, by where the cable ends, one job per control), what each
+  destination can act on, and how chaining combines rather than fights.
+
+  A third gap closed while writing: *Creating a custom user interface* never
+  mentioned the **Reads** row or that the template shelf is ordered by the wired
+  source, both of which arrived with HW-30 and are the first thing a reader
+  meets when they place a template.
+
+  `HelpModal.test.tsx` asserts the prose against the shipped model and that no
+  section has fallen back to a placeholder — a stale note renders perfectly
+  happily, which is the one failure mode a help page has.
+
+  Still a note, because it is still genuinely absent: showing serial output and
+  runtime debug readings on a panel, the way the microphone reports its own
+  levels. The diagnostics section says so rather than implying it exists.
 
 
 - [x] **HW-30 · Widgets read the panel's source, and templates follow the wire

@@ -216,6 +216,40 @@ describe('HelpModal session state', () => {
     expect(view.getByText(/embedded Output\/Serial console/)).toBeTruthy()
   })
 
+  /*
+   * The Displays page explains the shipped model, not a placeholder.
+   *
+   * Touch and control routing carried "being rebuilt" notes while their model
+   * was changing, which was the right call then and would be a gap now. This
+   * asserts the prose says the things a reader has to know and, explicitly, that
+   * no section has fallen back to a placeholder — the one failure mode a help
+   * page has, since a stale note renders perfectly happily.
+   */
+  it('explains touch and control routing against the shipped model', () => {
+    const view = render(<HelpModal />)
+
+    fireEvent.click(view.getByRole('tab', { name: 'Displays' }))
+
+    expect(view.getByText('Using touch input')).toBeTruthy()
+    expect(view.getByText('Connecting controls to displays')).toBeTruthy()
+    // A touch panel is two chips, so it is two nodes, arriving linked.
+    expect(view.getByText(/a digitiser sitting over the glass/)).toBeTruthy()
+    expect(view.getByText(/already linked/)).toBeTruthy()
+    // A screen design owns its own touch; the Touch node reads fixed layouts.
+    expect(view.getByText(/the design owns the touch/)).toBeTruthy()
+    // Control Map mints a port per job, and the picker narrows three ways.
+    expect(view.getByText(/Connect control…/)).toBeTruthy()
+    expect(view.getByText('By what it is')).toBeTruthy()
+    expect(view.getByText('By where the cable ends')).toBeTruthy()
+    expect(view.getByText('One job per control')).toBeTruthy()
+    // Readings can come from the panel's own source rather than a cable.
+    expect(view.getByText(/listing what the panel/)).toBeTruthy()
+
+    const page = view.getByRole('tabpanel')
+    expect(page.textContent).not.toContain('Being rebuilt')
+    expect(page.textContent).not.toContain('notes to follow')
+  })
+
   it('describes the board catalogue by family rather than a stale fixed list', () => {
     const view = render(<HelpModal />)
 
