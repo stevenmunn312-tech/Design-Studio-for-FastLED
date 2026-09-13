@@ -8,6 +8,7 @@ import { catalogueDisplays } from '../src/state/partCatalogue'
 import { partOptionsFor } from '../src/state/partOptions'
 import { findPinConflicts } from '../src/utils/validateGraph'
 import { createDisplayDocument, addDisplayWidget } from '../src/state/displayEditor'
+import { displayWidgetSources } from '../src/state/displayRegistry'
 import type { DisplayDocument, DisplayDocumentRegistry } from '../src/state/displayDocument'
 import { customDisplayAssetByteLength, customDisplayAssetRequests } from '../src/state/customDisplayResources'
 import { generateCpp } from '../src/codegen/cppGenerator'
@@ -25,14 +26,33 @@ function node(id: string, nodeType: string, properties: Record<string, unknown> 
 const edge = (source: string, sourceHandle: string, target: string, targetHandle: string): StudioEdge =>
   ({ id: `${source}-${sourceHandle}-${target}-${targetHandle}`, source, sourceHandle, target, targetHandle }) as StudioEdge
 
-function fullDocument(id: string): DisplayDocument {
+/**
+ * One screen with every widget on it, and whatever readings the fixture binds.
+ *
+ * `bindings` maps a widget id to a field of the source wired into the panel —
+ * the same `source` property the inspector's Reads row writes. A bound widget
+ * mints no input port and is fed by the generator's own expression table, so
+ * these are what put `_rtcClockText`, `songTitle` and `_patNameStr_<stem>` into
+ * a compiled sketch. Without them the matrix would build the restructure and
+ * leave every line of the binding path untested.
+ *
+ * The second Text is appended rather than inserted so the widget indices the
+ * required-symbol checks name (`_cd_screen[4]` is the first Text) do not move.
+ */
+function fullDocument(id: string, bindings: Readonly<Record<string, string>> = {}): DisplayDocument {
   let document = createDisplayDocument(id, 240, 320)
   for (const type of [
     'Slider', 'Button', 'Toggle', 'Dial', 'Text', 'Numeric Readout', 'Timecode',
     'Progress', 'Value Meter', 'Status Indicator', 'Colour Swatch', 'Pattern Browser', 'Image/Icon',
+    'Text',
   ] as const) document = addDisplayWidget(document, type)
-  const icon = document.widgets.at(-1)!
+  const icon = document.widgets.find((widget) => widget.type === 'Image/Icon')!
   icon.properties = { ...icon.properties, assetId: 'icon:power', tint: true }
+  for (const [widgetId, field] of Object.entries(bindings)) {
+    const widget = document.widgets.find((entry) => entry.id === widgetId)
+    if (!widget) throw new Error(`${id}: no widget ${widgetId} to bind to ${field}`)
+    widget.properties = { ...widget.properties, source: field }
+  }
   return document
 }
 
@@ -53,6 +73,14 @@ const board = () => node('board', 'Board', {
   profileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc', usePsram: true,
 })
 const output = () => node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4 })
+/**
+ * A panel, optionally carrying the screen design's binding projection.
+ *
+ * In the app the graph store writes `widgetSources` onto the panel on every
+ * document edit; a fixture builds its nodes by hand and has no store, so it
+ * calls the same helper rather than restating the shape. Without this a bound
+ * widget compiles as an unbound one and the matrix would quietly test nothing.
+ */
 const panel = (id: string, properties: Record<string, unknown> = {}) => node(id, 'TransportDisplay', {
   partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0',
   // CS 14, not 10: the SD card in the player fixture holds 10, and two devices
@@ -68,12 +96,45 @@ const groups = {
   },
 }
 
+/*
+ * The unbound screen, for the fixtures whose panel has nothing wired into it.
+ * Every widget reads from the graph there, which is the pre-binding shape and
+ * still a supported one.
+ */
 const document = fullDocument('screen')
 const options = displayOptions({ screen: document })
+
+/*
+ * Bound screens, one per generator, because what a build can answer differs.
+ *
+ * A normal sketch knows the clock and nothing else; a show knows which pattern
+ * is running; a player knows the track. Each binds a string, a `set` role and a
+ * float, so the projection is exercised for a role that is not `value` — a
+ * Toggle shows its reading on `set` — as well as for the plain case.
+ */
+const clockDocument = fullDocument('screen', {
+  'text-2': 'time', toggle: 'valid', 'value-meter': 'second',
+})
+const showDocument = fullDocument('screen', {
+  'text-2': 'patternName', toggle: 'browsing', 'value-meter': 'patternIndex',
+})
+const playerDocument = fullDocument('screen', {
+  'text-2': 'title', toggle: 'playing', 'value-meter': 'volume',
+})
+const clockOptions = displayOptions({ screen: clockDocument })
+const showOptions = displayOptions({ screen: showDocument })
+const playerOptions = displayOptions({ screen: playerDocument })
 const controls = () => node('controls', 'ControlMap', { debounceMs: 0 })
 const math = () => node('math', 'Math', { mathOp: 'multiply', b: 0.5 })
 const format = () => node('format', 'FormatNumber', { decimals: 2 })
+/** The panel showing one of the bound screens above, projection included. */
+const boundPanel = (design: DisplayDocument, properties: Record<string, unknown> = {}) => panel('custom-tft', {
+  displayId: 'screen', widgetSources: displayWidgetSources(design), ...properties,
+})
 const common = [board(), output(), panel('custom-tft', { displayId: 'screen' }), controls(), math(), format()]
+const commonFor = (design: DisplayDocument) => [
+  board(), output(), boundPanel(design), controls(), math(), format(),
+]
 const commonWires = [
   edge('custom-tft', 'widget:slider:out', 'math', 'a'),
   edge('math', 'result', 'format', 'value'),
@@ -90,17 +151,20 @@ const fixedPanel = () => panel('fixed-tft', {
   touchCsPin: 1, touchIrqPin: 2,
 })
 
-const normalNodes = [...common, fixedPanel(), rtc(), node('fill', 'SolidColor')]
+const normalNodes = [...commonFor(clockDocument), fixedPanel(), rtc(), node('fill', 'SolidColor')]
 const normalEdges = [
   ...commonWires,
   edge('custom-tft', 'widget:button:out', 'controls', 'playPause'),
   edge('controls', 'controls', 'out', 'controls'),
   edge('fill', 'frame', 'out', 'frame'),
   edge('rtc', 'display', 'fixed-tft', 'display'),
+  // The custom panel needs a source of its own before a widget on it can read a
+  // field: binding is about the wire already feeding the panel.
+  edge('rtc', 'display', 'custom-tft', 'display'),
 ]
 
 const showNodes = [
-  ...common, fixedPanel(), node('collection', 'PatternCollection', { patternIds: ['pattern'] }),
+  ...commonFor(showDocument), fixedPanel(), node('collection', 'PatternCollection', { patternIds: ['pattern'] }),
   node('show', 'PatternSlideshow'),
 ]
 const showEdges = [
@@ -110,10 +174,11 @@ const showEdges = [
   edge('collection', 'patternset', 'show', 'patternset'),
   edge('show', 'frame', 'out', 'frame'),
   edge('show', 'display', 'fixed-tft', 'display'),
+  edge('show', 'display', 'custom-tft', 'display'),
 ]
 
 const playerNodes = [
-  ...common, fixedPanel(), node('player', 'PatternMaster'), node('song', 'SongInfo'),
+  ...commonFor(playerDocument), fixedPanel(), node('player', 'PatternMaster'), node('song', 'SongInfo'),
   node('sd', 'SDCard'), node('amp', 'Amplifier'),
 ]
 const playerEdges = [
@@ -122,6 +187,7 @@ const playerEdges = [
   edge('controls', 'controls', 'player', 'controls'),
   edge('player', 'frame', 'out', 'frame'),
   edge('player', 'display', 'fixed-tft', 'display'),
+  edge('player', 'display', 'custom-tft', 'display'),
   edge('player', 'display', 'song', 'display'),
   edge('song', 'title', 'custom-tft', 'widget:text:value'),
   edge('song', 'elapsed', 'custom-tft', 'widget:timecode:value'),
@@ -206,10 +272,15 @@ const telemetryNodes = normalNodes.map((entry) => (entry.id === 'board'
   : entry))
 
 const sketches: Record<string, string> = {
-  normal: generateCpp(normalNodes, normalEdges, {}, options),
-  show: generateShowSketch(showNodes, showEdges, groups, options),
+  normal: generateCpp(normalNodes, normalEdges, {}, clockOptions),
+  show: generateShowSketch(showNodes, showEdges, groups, {
+    ...showOptions,
+    // Real names, so the table a bound pattern name turns on is compiled with
+    // something in it rather than as the empty-collection reader.
+    patternNames: { show: ['Aurora Drift'] },
+  }),
   player: buildShowPlayer(playerNodes, playerEdges, groups, {
-    ...options, patternSet: ['pattern'], bakedAudio: false, genericPlayer: true, preferredTrack: '',
+    ...playerOptions, patternSet: ['pattern'], bakedAudio: false, genericPlayer: true, preferredTrack: '',
   }),
   'isolated-tft': generateCpp([board(), fixedPanel(), rtc()], [edge('rtc', 'display', 'fixed-tft', 'display')]),
   headless: generateShowSketch(
@@ -237,7 +308,7 @@ const sketches: Record<string, string> = {
     [board(), output(), rtc(), node('fill', 'SolidColor'), ...altPartNodes],
     [edge('fill', 'frame', 'out', 'frame'), ...altPartNodes.map((entry) => edge('rtc', 'display', entry.id, 'display'))],
   ),
-  telemetry: generateCpp(telemetryNodes, normalEdges, {}, options),
+  telemetry: generateCpp(telemetryNodes, normalEdges, {}, clockOptions),
   'classic-esp32-fixed': generateCpp(classicNodes, classicEdges),
 }
 
@@ -292,9 +363,16 @@ for (const entry of catalogueDisplays()) {
 }
 
 const requiredSymbols: Record<string, readonly string[]> = {
-  normal: ['lv_display_set_default(_cdDisp_custom_tft)', 'n_custom_tft_widget_slider_out', '_cdSetText(_cd_screen[4]', '_tftClockValid_fixed_tft'],
-  show: ['lv_display_set_default(_cdDisp_custom_tft)', '_pcE_controls_patternNext.update', '_selUpdate(_sel_show', '_tftHigh_fixed_tft'],
-  player: ['lv_display_set_default(_cdDisp_custom_tft)', 'char n_song_title[64]', '_cdSetText(_cd_screen[4], n_song_title)', 'audio.loop();'],
+  // The last four of each generator's list are the binding path: a string read
+  // through that build's own table, a `set` role, a float, and — where the build
+  // has one — the flash table the reading needs. They are named per generator
+  // because what a build can answer is a fact about the generator.
+  normal: ['lv_display_set_default(_cdDisp_custom_tft)', 'n_custom_tft_widget_slider_out', '_cdSetText(_cd_screen[4]', '_tftClockValid_fixed_tft',
+    '_cdSetText(_cd_screen[13], _rtcClockText(', '_cdSetChecked(_cd_screen[2], (bool)((n_rtc_dateTime).valid))', '_cdSetInteger(_cd_screen[8], _cdScaled((float)(((float)(n_rtc_dateTime).second))'],
+  show: ['lv_display_set_default(_cdDisp_custom_tft)', '_pcE_controls_patternNext.update', '_selUpdate(_sel_show', '_tftHigh_fixed_tft',
+    '_cdSetText(_cd_screen[13], _patNameStr_show(_sel_show.active))', 'static char _patNameStr_show_buf[', '_cdSetChecked(_cd_screen[2], (bool)(_selBrowsing(_sel_show)))'],
+  player: ['lv_display_set_default(_cdDisp_custom_tft)', 'char n_song_title[64]', '_cdSetText(_cd_screen[4], n_song_title)', 'audio.loop();',
+    '_cdSetText(_cd_screen[13], songTitle)', '_cdSetChecked(_cd_screen[2], (bool)(songPlaying()))'],
   'isolated-tft': ['_tftClockValid_fixed_tft', '_tftPaint(_tft_fixed_tft'],
   headless: ['_pcE_controls_patternNext.update', '_selUpdate(_sel_show'],
   disabled: ['static bool _cdPanelOn_custom_tft = false', 'if (_cdPanelOn_custom_tft) lv_indev_read'],

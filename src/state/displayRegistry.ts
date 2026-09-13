@@ -482,6 +482,35 @@ export function displaySourceFieldsForWidget(
   return displaySourceFields(kind).filter((field) => accepted.has(field.dataType))
 }
 
+/**
+ * Which widgets read the panel's own source, as the panel node carries it.
+ *
+ * Evaluation and all three generators work from the node, and a bound widget
+ * has no port to carry the fact, so this is projected onto the panel's
+ * properties by the graph store on every edit. It lives here rather than inside
+ * that store write because the compile fixtures build their graphs by hand and
+ * need the identical projection — a second copy there would be free to drift
+ * from the rule the app actually applies, and the fixtures are the evidence.
+ *
+ * The roles are the widget's own input roles rather than an assumed `value`:
+ * a Slider shows its reading on `set`.
+ */
+export function displayWidgetSources(
+  document: Pick<DisplayDocument, 'widgets'> | undefined,
+): Record<string, { field: string; roles: string[] }> {
+  const sources: Record<string, { field: string; roles: string[] }> = {}
+  for (const widget of document?.widgets ?? []) {
+    if (!displayWidgetIsBound(widget)) continue
+    sources[widget.id] = {
+      field: String(widget.properties?.source),
+      roles: displayWidgetPorts(widget)
+        .filter((port) => port.direction === 'input')
+        .map((port) => port.role),
+    }
+  }
+  return sources
+}
+
 /** Graph-facing ports for the panel, derived only from stable widget ids and
  * registry roles. Editable labels affect presentation but never cable
  * identity, and a widget bound to the panel's own source has no input port to
