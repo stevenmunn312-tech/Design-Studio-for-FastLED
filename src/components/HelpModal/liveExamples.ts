@@ -1146,6 +1146,23 @@ export const BUTTON_LIVE_EXAMPLE = namedExample(
   'The Frame Switch node preview starts on cool Pacifica. Press the Button node to show fire; release it to return to the ocean scene.',
 )
 
+export const TOUCH_LIVE_EXAMPLE = namedExample(
+  'TouchInput',
+  'Dim the lights from the touch screen',
+  [
+    { key: 'panel', type: 'TransportDisplay', properties: { tftLayout: 'Fixed Transport' } },
+    { key: 'touch', type: 'TouchInput' },
+    { key: 'fire', type: 'Fire2012', properties: { palette: 'lava' } },
+    { key: 'out', type: 'MatrixOutput' },
+  ],
+  [
+    { source: 'fire', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+    { source: 'touch', sourceHandle: 'controls', target: 'out', targetHandle: 'controls' },
+  ],
+  'The panel draws the transport screen; the Touch node beside it is the glass in front of that screen, and its Controls output carries what a finger did. Sent straight to the LED output, the screen dims and blacks out the lights.',
+  'Press the brightness strip on the panel preview and the Fire 2012 output dims with it. The display shows; the touch node is what listens.',
+)
+
 export const POTENTIOMETER_LIVE_EXAMPLE = namedExample(
   'PotInput',
   'Sweep a knob across the colour wheel',
@@ -1466,6 +1483,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   MicInput: MICROPHONE_LIVE_EXAMPLE,
   LineInput: LINE_INPUT_LIVE_EXAMPLE,
   ButtonInput: BUTTON_LIVE_EXAMPLE,
+  TouchInput: TOUCH_LIVE_EXAMPLE,
   PotInput: POTENTIOMETER_LIVE_EXAMPLE,
   EncoderInput: ENCODER_LIVE_EXAMPLE,
   MidiInput: MIDI_LIVE_EXAMPLE,

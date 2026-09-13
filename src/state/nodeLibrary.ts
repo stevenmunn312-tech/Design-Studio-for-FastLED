@@ -2753,6 +2753,43 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { pin: 0, pullup: true },
   },
   {
+    /*
+     * The digitiser on a touch panel, as its own node.
+     *
+     * A touch screen is two chips: the display controller and an XPT2046
+     * digitiser with its own chip select. Modelling them as one node made the
+     * display both an output and an input, which is why controls used to leave
+     * a screen — a thing that shows you something, somehow also being where a
+     * finger's intent came out. The display is an output now, end of the line
+     * like an LED output, and this is where touch goes in.
+     *
+     * `panelId` is the module this glass belongs to, set when the pair is added
+     * together and never typed: the two nodes are one physical part, and a
+     * press cannot be resolved into "the Play button you drew" without the
+     * panel's design, size and rotation. It is internal for the same reason a
+     * catalogue id is, and the node body states the panel in words instead.
+     */
+    type: 'TouchInput',
+    label: 'Touch',
+    category: 'input',
+    inputs: [],
+    outputs: [{ id: 'controls', label: 'Controls', dataType: 'playercontrols' }],
+    defaultProperties: {
+      panelId: '',
+      touchCsPin: 15,
+      touchIrqPin: 2,
+      // Sharing the display's bus is the useful default; the separately broken
+      // out touch header can move to another SPI bus without changing anything.
+      touchSckPin: 18,
+      touchMosiPin: 23,
+      touchMisoPin: 19,
+      touchXMin: 200,
+      touchXMax: 3900,
+      touchYMin: 200,
+      touchYMax: 3900,
+    },
+  },
+  {
     type: 'ButtonBank',
     label: 'Button Bank',
     category: 'input',
@@ -3371,6 +3408,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   GameOfLife: 'Conway’s Game of Life with fading trails.',
   PatternMaster: 'Random pattern/transition show from a Pattern Collection.',
   PatternSlideshow: 'Plays a Pattern Collection on a timer — the show without the music.',
+  TouchInput: 'The touch surface of a Display Panel, as controls.',
   PlayerControls: 'Maps buttons and knobs to Music Player transport, volume, and LED controls.',
   SongInfo: 'Opens the Music Player’s track report into one wire per field.',
   PlayerParticles: 'Configures the Music Player\'s beat-triggered particle overlay.',
@@ -4334,6 +4372,9 @@ export const INTERNAL_PROPERTY_KEYS: ReadonlySet<string> = new Set([
   // hardware shelf, which is also where a different module is chosen, so the
   // id itself is never something to type.
   'partId',
+  // Which Display Panel a Touch node is the glass of. The two are one physical
+  // module and are added together; the node says which panel in words.
+  'panelId',
 ])
 
 export function isInternalProperty(key: string): boolean {
@@ -4411,6 +4452,17 @@ export const FORMULA_LANG_HELP = 'Variables: x, y, t, cx, cy, r, angle, W, H, a,
 
 /** Per-node overrides for property names whose meaning collides across nodes. */
 export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, string>> = {
+  TouchInput: {
+    touchCsPin: 'Chip select for the touch digitiser. It is a separate chip from the display and needs a select line of its own.',
+    touchIrqPin: 'Interrupt line the digitiser pulls low while the glass is being pressed.',
+    touchSckPin: 'Clock line. Shares the display bus by default; change it only if the touch header is wired to another bus.',
+    touchMosiPin: 'Data to the digitiser. Shares the display bus by default.',
+    touchMisoPin: 'Data from the digitiser. Shares the display bus by default.',
+    touchXMin: 'Measured raw X minimum for this touch module (0-4095). Use Calibrate touch rather than typing these.',
+    touchXMax: 'Measured raw X maximum for this touch module (0-4095).',
+    touchYMin: 'Measured raw Y minimum for this touch module (0-4095).',
+    touchYMax: 'Measured raw Y maximum for this touch module (0-4095).',
+  },
   TransportDisplay: {
     enabled: 'Turns the panel off without removing it from the build: the screen goes dark, touch is not read, and anything it publishes rests at zero. It is still compiled and can be switched back on, so wire this to a button or a schedule to darken a screen at night. Unwired, the panel stays on.',
     tftLayout: 'Presentation for the connected Display source. Diagnostics shows a panel self-test and mapped touch coordinates; disconnect Screen Design to use it. Select the previous presentation to return to your content.',
