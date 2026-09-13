@@ -99,9 +99,13 @@ The run also measures **which way the digitiser counts**, saved as **Touch Flip
 X** and **Touch Flip Y**. A range cannot carry that — the same two numbers
 describe an axis read in either direction — so a reversed panel used to map
 every press to the mirror of where it happened while the calibration itself
-looked correct. The dots show it as it happens: on a reversed axis they land on
-the opposite side to your finger, because the measuring sketch draws them
-uncalibrated. The wizard names the finding before you save.
+looked correct. The wizard names the finding before you save.
+
+The dots are drawn through whatever calibration is currently saved, so they are
+the check as well as the feedback: before a run on a reversed panel they land on
+the opposite side to your finger, and after saving and reopening the wizard they
+land under it. The readings sent over serial are always the raw ones, so a
+re-run measures the hardware rather than its own previous answer.
 
 Diagnostics still shows mapped pixels, not raw samples, and browser touches
 cannot calibrate the physical controller.

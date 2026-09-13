@@ -10,11 +10,15 @@ import { NO_PIN } from '../../state/boardGpio'
 
 const CYD = CYD_TOUCH_DISPLAY.panelProperties
 
-function sketchFor(properties: Record<string, unknown>): string {
+function sketchFor(
+  properties: Record<string, unknown>,
+  touchProperties?: Record<string, unknown>,
+): string {
   return generateTouchCalibrationSketch(touchCalibrationTargetFor(
     properties,
     tftControllerForProps(properties),
     asTftRotation(properties.tftRotation),
+    touchProperties,
   ))
 }
 
@@ -43,13 +47,33 @@ describe('the touch calibration sketch', () => {
     expect(sketchFor(CYD)).toContain(`, ${NO_PIN}, `)
   })
 
-  it('reports raw readings rather than mapped pixels', () => {
-    const sketch = sketchFor(CYD)
-    expect(sketch).toContain('touchx=%u touchy=%u')
-    // Mapped with the full ADC range, never the stored bounds: calibrating
-    // against the value being measured would make the result self-confirming.
-    expect(sketch).toContain('0, 4095, 0, 4095,')
-    expect(sketch).not.toContain(`${CYD.touchCsPin}, 200, 3900`)
+  /*
+   * The two halves of a reading, and why only one follows the calibration.
+   *
+   * What goes over serial is what the digitiser said, so a run measures the
+   * hardware rather than its own previous answer. What goes on the glass is
+   * what the *saved* calibration makes of that reading — the only feedback
+   * that can show a calibration being wrong, and then show it being right.
+   */
+  it('reports the raw reading whatever the calibration says', () => {
+    const reversed = sketchFor(CYD, { touchXMin: 290, touchXMax: 3850, touchFlipX: true })
+    expect(reversed).toContain('touchx=%u touchy=%u')
+    expect(reversed).toContain('(unsigned)rawX, (unsigned)rawY')
+  })
+
+  it('draws the mark through the saved calibration, direction included', () => {
+    // Flipped: the span reaches the panel descending, so the dot lands on the
+    // side the finger was on rather than its mirror.
+    expect(sketchFor(CYD, { touchXMin: 290, touchXMax: 3850, touchFlipX: true }))
+      .toContain('3850, 290, 200, 3900,')
+    expect(sketchFor(CYD, { touchXMin: 290, touchXMax: 3850 }))
+      .toContain('290, 3850, 200, 3900,')
+  })
+
+  // An uncalibrated panel maps through the library defaults — which is the
+  // "before" the run exists to correct, not a special case.
+  it('falls back to the library defaults before a run', () => {
+    expect(sketchFor(CYD)).toContain('200, 3900, 200, 3900,')
   })
 
   /*

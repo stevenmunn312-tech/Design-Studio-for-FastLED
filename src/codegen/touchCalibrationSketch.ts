@@ -30,6 +30,7 @@ import {
 } from '../state/tftSurface'
 import { TELEMETRY_TOUCH_INTERVAL_MS } from '../state/deviceTelemetry'
 import { FONT_W, FONT_H } from '../state/font'
+import { emittedTouchBounds } from '../state/transportTouch'
 import { telemetryTouchSampleCpp } from './deviceTelemetryCpp'
 import {
   TFT_DISPLAY_CPP_FORWARD,
@@ -53,6 +54,21 @@ export interface TouchCalibrationSketchTarget {
   touchSckPin: number
   touchMosiPin: number
   touchMisoPin: number
+  /**
+   * The calibration the mark is drawn through — the Touch node's saved bounds
+   * and direction, oriented by `emittedTouchBounds`.
+   *
+   * Only the mark. The readings this sketch reports come straight off the
+   * digitiser and are untouched by it, so there is no measuring-against-itself
+   * here: the dot says what the *current* calibration makes of the press,
+   * which is the one thing a calibration run has no other way to show. Before
+   * a run it is the library default and a reversed panel marks the mirror of
+   * your finger; after saving it lands under it, and that is the confirmation.
+   */
+  xFrom: number
+  xTo: number
+  yFrom: number
+  yTo: number
 }
 
 /** Corner marker size in native pixels: big enough to hit with a fingertip,
@@ -81,16 +97,6 @@ function fittingScale(text: string, width: number, max = 4): number {
   }
   return 1
 }
-
-/**
- * Raw bounds this sketch maps with — the full ADC range, deliberately.
- *
- * It reports `rawX`/`rawY` and never uses the mapped pixel, so feeding the
- * panel's stored calibration in here would make the measurement depend on the
- * value being measured.
- */
-const RAW_MIN = 0
-const RAW_MAX = 4095
 
 const ROTATION_CODE: Record<TftRotation, number> = { 0: 0, 90: 1, 180: 2, 270: 3 }
 
@@ -170,7 +176,7 @@ export function generateTouchCalibrationSketch(target: TouchCalibrationSketchTar
     '  int16_t x = 0, y = 0;',
     '  uint16_t rawX = 0, rawY = 0;',
     `  bool pressed = _xptPoint(${target.touchCsPin}, ${target.touchIrqPin}, ${target.touchSckPin}, `
-      + `${target.touchMosiPin}, ${target.touchMisoPin}, ${RAW_MIN}, ${RAW_MAX}, ${RAW_MIN}, ${RAW_MAX}, `
+      + `${target.touchMosiPin}, ${target.touchMisoPin}, ${target.xFrom}, ${target.xTo}, ${target.yFrom}, ${target.yTo}, `
       + `${target.controller.width}, ${target.controller.height}, ${ROTATION_CODE[target.rotation]}, `
       + 'x, y, rawX, rawY);',
     '  if (pressed) {',
@@ -206,11 +212,16 @@ export function generateTouchCalibrationSketch(target: TouchCalibrationSketchTar
   ].join('\n')
 }
 
-/** Resolve the sketch target from a panel node's own properties. */
+/**
+ * Resolve the sketch target: pins and geometry from the panel, calibration
+ * from the Touch node beside it, which is where the glass's own measurements
+ * live.
+ */
 export function touchCalibrationTargetFor(
   panelProperties: Record<string, unknown>,
   controller: TftController | null,
   rotation: TftRotation,
+  touchProperties?: Record<string, unknown>,
 ): TouchCalibrationSketchTarget {
   const pin = (key: string, fallback: number) => {
     const value = Math.round(Number(panelProperties[key]))
@@ -230,5 +241,6 @@ export function touchCalibrationTargetFor(
     touchSckPin: pin('touchSckPin', 18),
     touchMosiPin: pin('touchMosiPin', 23),
     touchMisoPin: pin('touchMisoPin', 19),
+    ...emittedTouchBounds(touchProperties),
   }
 }

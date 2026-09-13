@@ -69,6 +69,10 @@ function calibrationSketchFor(nodeId: string): string | null {
     properties,
     tftControllerForProps(properties),
     asTftRotation(properties.tftRotation),
+    // The glass's own saved calibration, so the mark says what this panel
+    // currently makes of a press — the mirror of your finger before a run,
+    // under it after one.
+    touch?.data.properties as Record<string, unknown> | undefined,
   ))
 }
 
