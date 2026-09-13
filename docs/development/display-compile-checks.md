@@ -159,3 +159,80 @@ The initial runs exposed these gaps, now covered by regression tests:
   completion marker and are retried. A version comment in the helper's sketch
   also invalidates Arduino's cached caller object when the audio API changes;
   identical rebuilds retain their source mtime and library cache.
+
+## Recorded environment
+
+Windows, 13 September 2026. Arduino CLI 1.5.1 with ESP32 core 3.3.11, FastLED
+3.10.5 and LVGL 9.5.0 (installed lazily by the helper), player audio checkout
+tagged 3.0.12. Ten fixtures on
+`esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB`;
+the classic-ESP32 fixture on `esp32:esp32:esp32` as its own target.
+
+Arduino reports flash against its 3 MB application partition. Neither static RAM
+report measures runtime heap or PSRAM use, so a row saying 32% is not a claim
+that the sketch has 68% of its RAM spare at runtime — LVGL's heap and the draw
+buffers are allocated on top of it.
+
+## Results
+
+Every fixture passed. The source hash is the generated `.ino`, so a figure can
+be tied to the exact sketch that produced it; each was checked against the
+current generator output after the run, so no row describes a sketch that no
+longer regenerates.
+
+| Fixture | Source SHA-256 | Result | Flash bytes | Static RAM bytes |
+| --- | --- | --- | --- | ---: |
+| Normal | `326913201ec7` | Passed | 634,127 (20%) | 105,812 (32%) |
+| Generative show | `fd5c306eef20` | Passed | 638,175 (20%) | 106,244 (32%) |
+| SD player | `c86cb90453d5` | Passed | 1,318,531 (41%) | 122,052 (37%) |
+| Isolated TFT | `7b593ce07417` | Passed | 301,072 (9%) | 23,016 (7%) |
+| Headless controls | `6fc1c5e68731` | Passed | 427,151 (13%) | 27,636 (8%) |
+| Disabled panel | `0719a2f49a99` | Passed | 628,959 (19%) | 105,436 (32%) |
+| Two panels, two designs | `442987045954` | Passed | 631,087 (20%) | 115,228 (35%) |
+| Part families (SPI) | `ed150cf57f10` | Passed | 472,171 (15%) | 37,884 (11%) |
+| Part families (I²C) | `1878e5f7afc2` | Passed | 460,311 (14%) | 31,012 (9%) |
+| Bench telemetry | `c1154e5baad8` | Passed | 638,567 (20%) | 105,852 (32%) |
+| Classic ESP32, fixed layouts | `556c95d61450` | Passed | 428,331 (32%) | 31,508 (9%) |
+
+### What the figures say
+
+**Source-bound widgets cost very little.** The show carries a bound pattern name,
+which is the one binding that puts a table in flash: against the same fixture
+before bindings it is +952 bytes of flash and +224 of RAM, covering the name
+table, its 64-byte buffer, the `_patNameStr_show` reader and three publish lines.
+The player's track bindings cost +4,168 flash and +160 RAM.
+
+**The bench instrument is cheap enough to leave on.** Telemetry against Normal —
+the same graph with the Board's property set — is **+4,440 bytes of flash and
++40 of RAM**. That is HW-11's reporter, heap sampling and touch stamp priced for
+the first time, and small enough not to distort the soak it measures.
+
+**A second panel costs about 9.4 KB of RAM.** Two panels each drawing their own
+design (115,228) against one (105,812) is the second draw buffer and widget
+cache — the shape the restructure made expressible by giving every panel its own
+`displayId`.
+
+### What this run found
+
+Two defects, neither visible to any of the 4,964 unit tests, because in both
+cases the emitted text is correct and only its *order* or its *type* is wrong.
+Both are fixed and guarded; see [Findings](#findings) for the cumulative list.
+
+- The generator dropped **every** edge into a `TransportDisplay` before ordering
+  nodes, to keep a panel's own widget feedback from looking like a cycle. That
+  also dropped `display` and `enabled`, so a source feeding nothing but a panel —
+  an RTC driving a fixed Clock layout — emitted its value after the block that
+  read it. `isolated-tft` is three nodes and reproduces it exactly.
+- The bound clock helpers were typed against `_RtcDateTime`, the parse helper's
+  struct, while a graph wire carries `_RtcDateTimeValue`.
+
+The ordering fix is positional only, and the figures say so independently:
+`isolated-tft` and `part-families` both compile to byte-identical flash and RAM
+against their pre-regression records under a different source hash.
+
+### Not established here
+
+fbuild has not been run against this source, so there are no second-engine rows.
+Physical behaviour is untouched by any of this: refresh speed, touch accuracy,
+heap headroom under load, SPI coexistence and audio continuity all remain HW-11
+and HW-13 bench work.

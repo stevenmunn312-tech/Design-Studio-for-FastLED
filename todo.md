@@ -668,7 +668,25 @@ matrix, not a reason to postpone testing earlier changes.
   bring-up unit; add exact profiles/bus ownership and missing drivers only after
   identification. Exit: internal connections survive board selection/validation
   and bench evidence names the exact hardware and tested actions.
-- [ ] **HW-13 · Remaining firmware/bench matrix (L).** Separate recorded runs:
+- [ ] **HW-13 · Remaining firmware/bench matrix (L).** *Arduino CLI half done
+  2026-09-13: all eleven display fixtures pass on current-model source, recorded
+  in [the compile record](docs/development/display-compile-checks.md). fbuild has
+  not been run against this source, so the second engine is still open.*
+
+  That run earned its keep. It found two defects no unit test could see, because
+  in both the emitted text is correct and only its order or its type is wrong:
+  the generator dropped every edge into a panel before ordering nodes — not just
+  the widget feedback it meant to — so an RTC feeding nothing but a panel emitted
+  its value after the block reading it; and the bound clock helpers were typed
+  against the parse helper's struct rather than the value a graph wire carries.
+  Both fixed and guarded by `emittedDeclarationOrder.test.ts`, which asserts
+  declaration-before-use over the emitted loop.
+
+  It also priced two things that were previously guesses: the bench telemetry
+  block costs +4,440 bytes of flash and +40 of RAM over the same graph without
+  it, and a second panel with its own design costs about 9.4 KB of RAM.
+
+  Separate recorded runs:
   classic-ESP32 SD provisioning/player; S3 PSRAM variants; tiled/rotated/custom
   XY and native multi-output; baked audio/collection modulation; FormulaField/
   FormulaPoints; real Art-Net controller and DMX512 RS-485; RTC Compile Time/
