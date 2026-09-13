@@ -189,7 +189,7 @@ export type PlayerControlAction =
   | 'volume' | 'volumeUp' | 'volumeDown'
   | 'ledToggle' | 'brightness' | 'brightnessUp' | 'brightnessDown'
   // Choosing a pattern arrives the same way every other physical intent does,
-  // through Player Controls. That is what stops the SD player's encoder being
+  // through Control Map. That is what stops the SD player's encoder being
   // a special case with its own wiring.
   | 'patternSelect' | 'patternPrevious' | 'patternNext' | 'patternConfirm'
 
@@ -231,7 +231,7 @@ const CONTROL_ACTIONS: PlayerControlAction[] = [
   'ledToggle', 'brightness', 'brightnessUp', 'brightnessDown',
 ]
 
-/** Resolve the physical parts feeding the Player Controls bundle wired into
+/** Resolve the physical parts feeding the Control Map bundle wired into
  * Pattern Master. `controlsIn` may chain mapper nodes; the downstream mapper
  * wins when both layers assign the same action. */
 /** A node id as a C identifier, matching what the normal generator emits. */
@@ -248,12 +248,12 @@ export function playerControlsFromGraph(
   const bundle = master && edges.find((edge) =>
     edge.target === master.id && edge.targetHandle === 'controls')
   const root = bundle ? byId.get(bundle.source) : undefined
-  // Transport Control publishes the same bundle Player Controls does — that is
+  // Transport Control publishes the same bundle Control Map does — that is
   // the point of it, so Pattern Master has one consumer and "next" has one
-  // meaning. Reading only Player Controls here would have generated a player
+  // meaning. Reading only Control Map here would have generated a player
   // with no controls at all for a graph wired through the newer node, which is
   // the silent-omission failure the display plan rules out.
-  if (!root || root.data.nodeType !== 'PlayerControls') return { bindings: {}, ...DEFAULT_CONTROL_SETTINGS }
+  if (!root || root.data.nodeType !== 'ControlMap') return { bindings: {}, ...DEFAULT_CONTROL_SETTINGS }
 
   const visit = (control: ConfigNode, seen: Set<string>): PlayerControlsConfig['bindings'] => {
     if (seen.has(control.id)) return {}
@@ -261,7 +261,7 @@ export function playerControlsFromGraph(
     const result: PlayerControlsConfig['bindings'] = {}
     const inherited = edges.find((edge) => edge.target === control.id && edge.targetHandle === 'controlsIn')
     const parent = inherited ? byId.get(inherited.source) : undefined
-    if (parent?.data.nodeType === 'PlayerControls') Object.assign(result, visit(parent, seen))
+    if (parent?.data.nodeType === 'ControlMap') Object.assign(result, visit(parent, seen))
 
     for (const action of CONTROL_ACTIONS) {
       const edge = edges.find((candidate) => candidate.target === control.id && candidate.targetHandle === action)
@@ -474,7 +474,7 @@ export function generatePlayerSketch(
     return []
   }).join('\n')
   // Strip init shared with the main/show generators. The Board brightness is
-  // the hard ceiling; show events and Player Controls scale beneath it.
+  // the hard ceiling; show events and Control Map scale beneath it.
   const hw = ledHardwareFromProps({
     chipset: c.chipset, colorOrder: c.colorOrder, correction: c.correction,
     dither: c.dither, overclock: c.overclock, clockPin: c.ledClockPin,

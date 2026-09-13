@@ -970,7 +970,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // declares, so they are read from the node rather than the library.
   const inputs = (d.nodeType === 'TransportDisplay'
     ? d.inputs ?? def?.inputs ?? []
-    : d.nodeType === 'PlayerControls'
+    : d.nodeType === 'ControlMap'
       ? playerControlInputs(rawProps.controls)
       : def?.inputs ?? d.inputs ?? []) as PortDef[]
   const outputs = (d.nodeType === 'ButtonBank'
@@ -1449,7 +1449,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
             decorative FX, so keep them available even when UI FX are off. */}
         {isHardwareInput && <HardwareInputBody nodeId={id} nodeType={d.nodeType} resetOnPress={props.resetOnPress === true} />}
         {d.nodeType === 'ButtonBank' && <ButtonBankBody nodeId={id} />}
-        {d.nodeType === 'PlayerControls' && <PlayerControlsBody nodeId={id} />}
+        {d.nodeType === 'ControlMap' && <PlayerControlsBody nodeId={id} />}
         {d.nodeType === 'DMXInput' && <DmxInputBody nodeId={id} />}
         {d.nodeType === 'RTCInput' && <RtcInputBody nodeId={id} />}
         {showLiveNodeVisuals && d.nodeType === 'MidiInput' && <MidiInputBody note={Math.round(Number(props.note ?? 60))} cc={Math.round(Number(props.cc ?? 1))} />}

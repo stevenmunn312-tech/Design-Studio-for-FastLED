@@ -958,11 +958,11 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Transitions example graph](../../public/node-cards/graphs/transition-set.svg)
 
-### Player Controls
+### Control Map
 
-![Player Controls node](../../public/node-cards/player-controls.svg)
+![Control Map node](../../public/node-cards/player-controls.svg)
 
-![Player Controls example graph](../../public/node-cards/graphs/player-controls.svg)
+![Control Map example graph](../../public/node-cards/graphs/player-controls.svg)
 
 ### Player Particles
 

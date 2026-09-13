@@ -839,13 +839,13 @@ describe('graphStore — loadGraph normalization', () => {
   })
 
   it('grows and names a Button Bank output when its trailing socket is connected', () => {
-    // Player Controls mints a port only once that job has been assigned, so
+    // Control Map mints a port only once that job has been assigned, so
     // this drop needs a real target port to name the bank's row after. The
     // case where *neither* end can name itself is covered in
     // playerControlAssignments.test.ts.
     reset([
       node('bank', 'ButtonBank', { buttons: [] }),
-      node('controls', 'PlayerControls', { controls: ['playPause'] }),
+      node('controls', 'ControlMap', { controls: ['playPause'] }),
     ])
 
     useGraphStore.getState().onConnect({
@@ -869,7 +869,7 @@ describe('graphStore — loadGraph normalization', () => {
   it('retains a Button Bank row after its noodle is disconnected', () => {
     const buttons = [{ id: 'next', label: 'Next', pin: 12, pullup: true }]
     reset(
-      [node('bank', 'ButtonBank', { buttons }), node('controls', 'PlayerControls')],
+      [node('bank', 'ButtonBank', { buttons }), node('controls', 'ControlMap')],
       [edge('bank-next', 'bank', 'button-next', 'controls', 'next')],
     )
 
@@ -885,7 +885,7 @@ describe('graphStore — loadGraph normalization', () => {
       { id: 'next', label: 'Next', pin: 13, pullup: true },
     ]
     reset(
-      [node('bank', 'ButtonBank', { buttons }), node('controls', 'PlayerControls')],
+      [node('bank', 'ButtonBank', { buttons }), node('controls', 'ControlMap')],
       [
         edge('bank-play', 'bank', 'button-play', 'controls', 'playPause'),
         edge('bank-next', 'bank', 'button-next', 'controls', 'next'),

@@ -21,12 +21,12 @@ describe('playerSketchGenerator', () => {
     expect(/float\s+_audioBass\b/.test(sketch)).toBe(fades)
   })
 
-  describe('Player Controls', () => {
+  describe('Control Map', () => {
     it('traces a chained controls bundle and lets the downstream mapper override an action', () => {
       const nodes = [
         { id: 'master', data: { nodeType: 'PatternMaster', properties: {} } },
-        { id: 'base', data: { nodeType: 'PlayerControls', properties: {} } },
-        { id: 'controls', data: { nodeType: 'PlayerControls', properties: {
+        { id: 'base', data: { nodeType: 'ControlMap', properties: {} } },
+        { id: 'controls', data: { nodeType: 'ControlMap', properties: {
           debounceMs: 45, volumeStep: 0.08, brightnessStep: 0.09,
           repeatDelayMs: 525, repeatIntervalMs: 150,
         } } },
@@ -61,7 +61,7 @@ describe('playerSketchGenerator', () => {
     it('resolves a named Button Bank row as a physical player button', () => {
       const nodes = [
         { id: 'master', data: { nodeType: 'PatternMaster', properties: {} } },
-        { id: 'controls', data: { nodeType: 'PlayerControls', properties: {} } },
+        { id: 'controls', data: { nodeType: 'ControlMap', properties: {} } },
         { id: 'bank', data: { nodeType: 'ButtonBank', properties: {
           buttons: [{ id: 'playPause', label: 'Play / Pause', pin: 12, pullup: false }],
         } } },

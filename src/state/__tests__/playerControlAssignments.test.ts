@@ -117,7 +117,7 @@ describe('what a control can sensibly be given to do', () => {
   })
 })
 
-describe('the ports a Player Controls node mints', () => {
+describe('the ports a Control Map node mints', () => {
   it('starts with the bundle input and the invitation only', () => {
     expect(playerControlInputs([]).map((port) => port.id))
       .toEqual(['controlsIn', PLAYER_CONTROL_ADD_HANDLE])
@@ -152,7 +152,7 @@ describe('assigning a control through the picker', () => {
   // source side can name it, so the edge must not exist until the picker says
   // what it is for.
   it('holds the connection instead of creating an edge', () => {
-    reset([node('btn', 'ButtonInput'), node('pc', 'PlayerControls')])
+    reset([node('btn', 'ButtonInput'), node('pc', 'ControlMap')])
 
     useGraphStore.getState().onConnect({
       source: 'btn', sourceHandle: 'pressed', target: 'pc', targetHandle: PLAYER_CONTROL_ADD_HANDLE,
@@ -165,7 +165,7 @@ describe('assigning a control through the picker', () => {
   })
 
   it('mints the chosen port, lands the wire on it, and grows a fresh socket', () => {
-    reset([node('btn', 'ButtonInput'), node('pc', 'PlayerControls')])
+    reset([node('btn', 'ButtonInput'), node('pc', 'ControlMap')])
     useGraphStore.getState().onConnect({
       source: 'btn', sourceHandle: 'pressed', target: 'pc', targetHandle: PLAYER_CONTROL_ADD_HANDLE,
     })
@@ -182,7 +182,7 @@ describe('assigning a control through the picker', () => {
   })
 
   it('abandons the connection outright when the picker is dismissed', () => {
-    reset([node('btn', 'ButtonInput'), node('pc', 'PlayerControls')])
+    reset([node('btn', 'ButtonInput'), node('pc', 'ControlMap')])
     useGraphStore.getState().onConnect({
       source: 'btn', sourceHandle: 'pressed', target: 'pc', targetHandle: PLAYER_CONTROL_ADD_HANDLE,
     })
@@ -195,7 +195,7 @@ describe('assigning a control through the picker', () => {
   })
 
   it('leaves an ordinary connection alone', () => {
-    reset([node('btn', 'ButtonInput'), node('pc', 'PlayerControls', { controls: ['next'] })])
+    reset([node('btn', 'ButtonInput'), node('pc', 'ControlMap', { controls: ['next'] })])
 
     useGraphStore.getState().onConnect({
       source: 'btn', sourceHandle: 'pressed', target: 'pc', targetHandle: 'next',
@@ -211,7 +211,7 @@ describe('assigning a control through the picker', () => {
   // before the connection is completed, or the bank names itself after the
   // trailing socket.
   it('names both ends when two dynamic sockets meet', () => {
-    reset([node('bank', 'ButtonBank', { buttons: [] }), node('pc', 'PlayerControls')])
+    reset([node('bank', 'ButtonBank', { buttons: [] }), node('pc', 'ControlMap')])
 
     useGraphStore.getState().onConnect({
       source: 'bank', sourceHandle: 'add-button', target: 'pc', targetHandle: PLAYER_CONTROL_ADD_HANDLE,
@@ -235,7 +235,7 @@ describe('assigning a control through the picker', () => {
   // rewiring should be a drag, not a re-decision.
   it('keeps the row when its wire is removed', () => {
     reset(
-      [node('btn', 'ButtonInput'), node('pc', 'PlayerControls', { controls: ['playPause'] })],
+      [node('btn', 'ButtonInput'), node('pc', 'ControlMap', { controls: ['playPause'] })],
       [edge('e', 'btn', 'pressed', 'pc', 'playPause')],
     )
 
@@ -247,7 +247,7 @@ describe('assigning a control through the picker', () => {
 
   it('removes a row and the wire feeding it together', () => {
     reset(
-      [node('btn', 'ButtonInput'), node('pc', 'PlayerControls', { controls: ['playPause', 'next'] })],
+      [node('btn', 'ButtonInput'), node('pc', 'ControlMap', { controls: ['playPause', 'next'] })],
       [edge('e', 'btn', 'pressed', 'pc', 'playPause')],
     )
 
@@ -265,7 +265,7 @@ describe('loading a workspace saved before assignments existed', () => {
   // silently dropping every one of them.
   it('seeds the assignment list from the wires already landing on it', () => {
     reset(
-      [node('btn', 'ButtonInput'), node('knob', 'PotInput'), node('pc', 'PlayerControls')],
+      [node('btn', 'ButtonInput'), node('knob', 'PotInput'), node('pc', 'ControlMap')],
       [
         edge('e1', 'btn', 'pressed', 'pc', 'playPause'),
         edge('e2', 'knob', 'value', 'pc', 'brightness'),

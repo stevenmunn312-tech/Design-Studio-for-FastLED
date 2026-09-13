@@ -161,7 +161,7 @@ describe('StudioNode', () => {
   // cover the rendered half of that; the store half is in
   // state/__tests__/playerControlAssignments.test.ts.
   it('offers only the functions a button can sensibly drive', () => {
-    const node = makeNode('PlayerControls', {})
+    const node = makeNode('ControlMap', {})
     act(() => {
       useGraphStore.setState({
         nodes: [node],
@@ -182,7 +182,7 @@ describe('StudioNode', () => {
   })
 
   it('offers the continuous functions to a knob instead', () => {
-    const node = makeNode('PlayerControls', {})
+    const node = makeNode('ControlMap', {})
     act(() => {
       useGraphStore.setState({
         nodes: [node],
@@ -200,7 +200,7 @@ describe('StudioNode', () => {
   })
 
   it('mints the chosen port when the picker is answered', () => {
-    const node = makeNode('PlayerControls', {})
+    const node = makeNode('ControlMap', {})
     act(() => {
       useGraphStore.setState({
         nodes: [node], edges: [],
@@ -222,7 +222,7 @@ describe('StudioNode', () => {
   })
 
   it('lists an assigned control with a way to take it back', () => {
-    const node = makeNode('PlayerControls', { controls: ['playPause'] })
+    const node = makeNode('ControlMap', { controls: ['playPause'] })
     act(() => {
       useGraphStore.setState({
         nodes: [node],
@@ -238,10 +238,10 @@ describe('StudioNode', () => {
     expect(state.edges).toEqual([])
   })
 
-  it('visually distinguishes Player Controls button and potentiometer sockets', () => {
+  it('visually distinguishes Control Map button and potentiometer sockets', () => {
     // Both sockets exist only once their functions have been assigned; the
     // node starts with the bundle input and the trailing invitation alone.
-    const { container } = renderNode(makeNode('PlayerControls', { controls: ['playPause', 'volume'] }))
+    const { container } = renderNode(makeNode('ControlMap', { controls: ['playPause', 'volume'] }))
     const button = container.querySelector('[data-handle="target:playPause"]') as HTMLElement
     const potentiometer = container.querySelector('[data-handle="target:volume"]') as HTMLElement
 

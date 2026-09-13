@@ -64,7 +64,7 @@ describe('starterTemplates', () => {
     const nodeByType = new Map(nodes.map((node) => [(node.data as StudioNodeData).nodeType, node]))
     expect([...nodeByType.keys()]).toEqual(expect.arrayContaining([
       'Audio',
-      'PlayerControls',
+      'ControlMap',
       'PatternCollection',
       'PatternMaster',
       'MatrixOutput',
@@ -81,7 +81,7 @@ describe('starterTemplates', () => {
 
     const expectedEdges = [
       ['Audio', 'audio', 'PatternMaster', 'audio'],
-      ['PlayerControls', 'controls', 'PatternMaster', 'controls'],
+      ['ControlMap', 'controls', 'PatternMaster', 'controls'],
       ['PatternCollection', 'patternset', 'PatternMaster', 'patternset'],
       ['PatternMaster', 'frame', 'MatrixOutput', 'frame'],
     ]
@@ -204,7 +204,7 @@ describe('starterTemplates', () => {
         expect(tgt, `target node ${edge.target} exists`).toBeTruthy()
         const srcDef = LIBRARY_DEF.get((src!.data as StudioNodeData).nodeType)!
         const tgtDef = LIBRARY_DEF.get((tgt!.data as StudioNodeData).nodeType)!
-        // The node's own ports, not the library's: Player Controls and Button
+        // The node's own ports, not the library's: Control Map and Button
         // Bank mint theirs from their properties, so a starter that wires one
         // has to carry the port it wired.
         const srcPorts = ((src!.data as StudioNodeData).outputs ?? srcDef.outputs) as typeof srcDef.outputs

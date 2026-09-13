@@ -277,7 +277,7 @@ describe('beside the other displays', () => {
  * Until an LED output could latch a bundle there was nothing here for a press
  * to reach, so validation refused the wire and the generator emitted no touch
  * sampling at all. Both halves changed together: the panel publishes the same
- * `playercontrols` bundle a Player Controls node does, resolved from the same
+ * `playercontrols` bundle a Control Map node does, resolved from the same
  * hit geometry the browser preview uses.
  */
 describe('a touch panel driving an LED output', () => {

@@ -2135,8 +2135,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
 
   // ── Music Player controls and effects ───────────────────────────────
   {
-    type: 'PlayerControls',
-    label: 'Player Controls',
+    type: 'ControlMap',
+    label: 'Control Map',
     category: 'show',
     // The real inputs are derived from `controls`, the way a Button Bank's
     // outputs are derived from `buttons`. This declares the bundle input and
@@ -2925,7 +2925,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     // Fixed colour layouts for the transport appliance. Every layout keeps
     // the same stable port set. Touch-capable modules publish the same control
-    // bundle Player Controls chains, while a panel without touch publishes an
+    // bundle Control Map chains, while a panel without touch publishes an
     // inert bundle. Output-category terminals remain evaluator/codegen roots
     // even when they publish controls; see the derived terminal rules.
     type: 'TransportDisplay',
@@ -2998,7 +2998,11 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'MasterSpeed',
     label: 'Master Speed',
     category: 'output',
-    inputs: [{ id: 'speed', label: 'Speed', dataType: 'float' }],
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      // A knob on a Control Map reaches the clock the same way a wire does.
+      { id: 'controls', label: 'Controls', dataType: 'playercontrols' },
+    ],
     outputs: [],
     defaultProperties: { speed: MASTER_SPEED_DEFAULT },
   },
@@ -3396,7 +3400,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   PatternMaster: 'Random pattern/transition show from a Pattern Collection.',
   PatternSlideshow: 'Plays a Pattern Collection on a timer — the show without the music.',
   TouchInput: 'The touch surface of a Display Panel, as controls.',
-  PlayerControls: 'Maps buttons and knobs to Music Player transport, volume, and LED controls.',
+  ControlMap: 'Maps buttons and knobs to Music Player transport, volume, and LED controls.',
   SongInfo: 'Opens the Music Player’s track report into one wire per field.',
   PlayerParticles: 'Configures the Music Player\'s beat-triggered particle overlay.',
   CustomFormula: 'Per-pixel JS expression f(x, y, t) — with cx/cy/r/angle and FastLED shims.',
@@ -3482,7 +3486,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
   field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'WaveSim', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldToFrame'],
-  show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'PlayerControls', 'PlayerParticles', 'PatternMaster', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
+  show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
 /**
@@ -4251,7 +4255,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     transitionSec: { control: 'slider', min: 0, max: 10, step: 0.1 },
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
-  PlayerControls: {
+  ControlMap: {
     debounceMs: { control: 'slider', min: 0, max: 250, step: 5 },
     volumeStep: { control: 'slider', min: 0.01, max: 0.25, step: 0.01 },
     brightnessStep: { control: 'slider', min: 0.01, max: 0.25, step: 0.01 },
@@ -4488,7 +4492,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   Transition: {
     direction: 'Slide direction for the Wipe / Push styles.',
   },
-  PlayerControls: {
+  ControlMap: {
     debounceMs: 'Time an input must remain stable before a button press is accepted.',
     volumeStep: 'Volume change applied by each Volume Up or Volume Down event.',
     brightnessStep: 'Brightness change applied by each Brightness Up or Brightness Down event.',
@@ -4628,7 +4632,7 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
   PaletteFromImage: {
     count: 'Colors',
   },
-  PlayerControls: {
+  ControlMap: {
     debounceMs: 'debounce (ms)',
     volumeStep: 'volume step',
     brightnessStep: 'brightness step',
@@ -4853,7 +4857,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'audio', label: 'Audio', keys: ['audioReactive'] },
     { key: 'randomness', label: 'Randomness', keys: ['seed'] },
   ],
-  PlayerControls: [
+  ControlMap: [
     { key: 'buttons', label: 'Buttons', keys: ['debounceMs', 'repeatDelayMs', 'repeatIntervalMs'] },
     { key: 'steps', label: 'Steps', keys: ['volumeStep', 'brightnessStep'] },
   ],

@@ -25,7 +25,7 @@ export const DISPLAY_REFERENCE: Record<string, DisplayReferenceContent> = {
     ],
     steps: [
       'Add the OLED through Add Hardware → Displays and select its exact module in the workbench. Configure the active module’s pins; an I²C module also needs the correct address.',
-      'Connect the source’s Display output to Info Display. Pattern Slideshow owns the pattern selection; the OLED only reports it. Route physical browsing controls through Player Controls to the slideshow.',
+      'Connect the source’s Display output to Info Display. Pattern Slideshow owns the pattern selection; the OLED only reports it. Route physical browsing controls through Control Map to the slideshow.',
       'Choose rotation on the graph node, resolve Graph Health issues, and check the build. Firmware thumbnails are baked at export, so regenerate and upload when the collection changes.',
     ],
     propertyNote: 'Choose module identity and GPIO in Hardware. The graph exposes rotation, enabled state, and the I²C address when relevant. All I²C parts in one sketch must use the same SDA/SCL pair.',
@@ -39,7 +39,7 @@ export const DISPLAY_REFERENCE: Record<string, DisplayReferenceContent> = {
     steps: [
       'Add Display panel through Add Hardware → Displays. Set its exact module and wiring in the workbench, including the touch header when present. Set layout and rotation on the graph node.',
       'For a fixed music screen, connect Music Player Display → Display Panel Display. To put individual song fields on custom widgets, connect Music Player Display → Song Info Display, then wire the unpacked fields to the Screen Design’s widget inputs.',
-      'For fixed music touch, connect Display Panel Controls → Player Controls Controls In → Music Player Controls. Clock and Show Status are read-only. A custom screen uses its document’s individual widget outputs instead of the panel’s fixed Controls output.',
+      'For fixed music touch, connect Display Panel Controls → Control Map Controls In → Music Control Map. Clock and Show Status are read-only. A custom screen uses its document’s individual widget outputs instead of the panel’s fixed Controls output.',
       'For a panel self-test, disconnect any Screen Design wire and choose Diagnostics in the panel’s layout menu. Upload to check the physical panel and mapped touch coordinates; browser touches are only a simulation. Select the previous layout and reconnect the design to restore your content.',
     ],
     propertyNote: 'Hardware owns module identity and display/touch GPIO. The panel’s graph properties expose layout, rotation, Enabled, and raw touch X/Y bounds for touch modules. Use measured bounds, save, and upload again; defaults are provisional and a guided calibration wizard is not available yet. Diagnostics reports mapped pixels, not raw calibration samples. The square ST7789 has no touch controller.',
@@ -52,7 +52,7 @@ export const DISPLAY_REFERENCE: Record<string, DisplayReferenceContent> = {
     steps: [
       'Start with Create screen design on the panel. A separately added document cannot be edited until it is connected to a panel. In Design, add widgets or a template and set labels, bounds, values, theme, and background. Portrait/Landscape rotates the connected panel and re-fits its design. Templates add a layout; you still wire its actions yourself.',
       'Return with Graph to wire the ports created by each widget. Readouts have Value inputs, buttons have Output ports, and toggles, sliders, and dials also have optional Set inputs. Renaming or moving a widget keeps its wires; deleting a wired widget asks before removing those connections.',
-      'For a level control, add a Slider and Numeric Readout, then wire the slider’s Output to the readout’s input and the intended control input. For SD playback levels, use Player Controls → Music Player. Keep normalized brightness and volume sliders in the 0–1 range.',
+      'For a level control, add a Slider and Numeric Readout, then wire the slider’s Output to the readout’s input and the intended control input. For SD playback levels, use Control Map → Music Player. Keep normalized brightness and volume sliders in the 0–1 range.',
       'Use Set when another graph value should synchronize a control. Touch owns it while held; after release, the wired Set value takes over. Without Set, it keeps its local value. Run repaints graph-fed readouts and lets you exercise local controls; its temporary touch state resets when switching editor modes.',
       'Resolve layout, asset, and Graph Health issues before measuring capacity or uploading. Normal, generative-show, and SD-player builds generate LVGL widgets. Show/player wiring accepts supported float, boolean, and text paths; arbitrary nodes, nested groups, and wired colour or pattern-selection widget inputs are unsupported there.',
     ],

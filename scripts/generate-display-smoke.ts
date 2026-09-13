@@ -70,7 +70,7 @@ const groups = {
 
 const document = fullDocument('screen')
 const options = displayOptions({ screen: document })
-const controls = () => node('controls', 'PlayerControls', { debounceMs: 0 })
+const controls = () => node('controls', 'ControlMap', { debounceMs: 0 })
 const math = () => node('math', 'Math', { mathOp: 'multiply', b: 0.5 })
 const format = () => node('format', 'FormatNumber', { decimals: 2 })
 const common = [board(), output(), panel('custom-tft', { displayId: 'screen' }), controls(), math(), format()]

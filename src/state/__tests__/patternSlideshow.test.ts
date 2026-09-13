@@ -143,7 +143,7 @@ describe('a running Pattern Slideshow', () => {
     // anybody, so a step is the change — and the panel never reads "browsing".
     const props = { order: 'Sequential', interval: 9999 }
     const extra = {
-      nodes: [node('ctl', 'PlayerControls', {}), node('knob', 'PotInput', { pin: 34 })],
+      nodes: [node('ctl', 'ControlMap', {}), node('knob', 'PotInput', { pin: 34 })],
       edges: [
         edge('ek', 'knob', 'value', 'ctl', 'patternSelect'),
         edge('ec', 'ctl', 'controls', 'show', 'controls'),

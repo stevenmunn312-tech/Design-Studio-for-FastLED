@@ -146,9 +146,9 @@ what makes the common-to-ground wiring read at all.
 `Pattern Collection` (10 patterns) → `Pattern Slideshow` → `LED Matrix.Frame`,
 with `Pattern Slideshow.Display` → `Transport Display` (Show Status), and:
 
-`Encoder.Position` → `Player Controls` **Pattern Selection**
-`Encoder.Pressed` → `Player Controls` **Confirm**
-`Player Controls.Controls` → **`Pattern Slideshow.Controls`**
+`Encoder.Position` → `Control Map` **Pattern Selection**
+`Encoder.Pressed` → `Control Map` **Confirm**
+`Control Map.Controls` → **`Pattern Slideshow.Controls`**
 
 The last wire is the whole point. It also has a near-identical wrong
 destination — `LED Matrix.Controls` accepts the same `playercontrols` type but
@@ -161,7 +161,7 @@ names the pattern it changed to.
 
 ### What this establishes
 
-Review finding **F1**: a Player Controls chain addressed to a Pattern Slideshow
+Review finding **F1**: a Control Map chain addressed to a Pattern Slideshow
 was consumed by the browser preview and silently dropped by the show generator,
 which offered only LED output ids as control destinations. No bundle was
 emitted and no routing error was reported, so the encoder worked in the app and

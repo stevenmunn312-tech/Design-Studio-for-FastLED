@@ -26,7 +26,7 @@ refer to the reviewed revision. These are findings, not fixes.
 
 ### F1 · P1 · Slideshow pattern controls do not reach generated playback
 
-Reproduction: Button → Player Controls Pattern Next → Pattern Slideshow
+Reproduction: Button → Control Map Pattern Next → Pattern Slideshow
 Controls, with Collection → Slideshow → LED output. The browser consumes the
 slideshow's controls, but `showControlRouting` supplies only LED output IDs as
 destinations. The generated show contains no `n_ctl_controls` for this chain
@@ -155,12 +155,12 @@ compiling. Add isolated TFT-only, headless-control and disabled cases. **HW-06**
 | What did I buy and which pins are used? | Hardware and physical panel | Board, part, bus, rotation |
 | What is playing? | Music Player or Pattern Slideshow | Engine Display → panel Display |
 | What should the screen look like? | Custom Display document | Document Custom Display → panel Custom Display |
-| What does this button do? | Player Controls assignment | Hardware/widget output → named action → destination |
+| What does this button do? | Control Map assignment | Hardware/widget output → named action → destination |
 | Which value should the screen show? | Node owning that state | Song Info/data wire → widget input |
 | What runs on this board? | Resolved build plan | Visible build mode and supported connections |
 
 Panel content inputs are mutually exclusive. Fixed music touch uses Panel
-Controls → Player Controls → Music Player. Custom screens use the **document's
+Controls → Control Map → Music Player. Custom screens use the **document's
 individual widget outputs**, not the panel's fixed Controls bundle. Song Info
 opens the player's Display envelope when individual fields are needed.
 
@@ -186,7 +186,7 @@ built-in/custom screen → assign actions → simulate → wiring/capacity → u
   in port hints; disable/hide fixed Controls when custom content owns touch.
 - Add **Create screen design** on a panel: size it correctly and create an
   ordinary visible content edge in one undoable action. Link back to the panel.
-- Keep the connection-time Player Controls picker; filter by destination as
+- Keep the connection-time Control Map picker; filter by destination as
   well as type. Explain edge-triggered actions versus persistent state and
   numeric units/ranges; offer Map Range when a normalized signal needs scaling.
 - Provide connected dimming, slideshow and music-player starters. Layout

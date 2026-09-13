@@ -76,10 +76,10 @@ describe('buildShowPlayer', () => {
   it('routes controls from the selected Music Player in a mixed graph', () => {
     const nodes = [
       node('stray-player', 'PatternMaster'),
-      node('stray-controls', 'PlayerControls', { controls: ['playPause'] }),
+      node('stray-controls', 'ControlMap', { controls: ['playPause'] }),
       node('stray-button', 'ButtonInput', { pin: 12, pullup: false }),
       node('selected-player', 'PatternMaster'),
-      node('selected-controls', 'PlayerControls', { controls: ['playPause'] }),
+      node('selected-controls', 'ControlMap', { controls: ['playPause'] }),
       node('selected-button', 'ButtonInput', { pin: 13, pullup: false }),
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 17 }),
       node('sd', 'SDCard'),
@@ -100,10 +100,10 @@ describe('buildShowPlayer', () => {
     expect(sketch).not.toContain('pinMode(12, INPUT);')
   })
 
-  it('passes the Player Controls wiring into the generated SD player', () => {
+  it('passes the Control Map wiring into the generated SD player', () => {
     const nodes = [
       node('player', 'PatternMaster'),
-      node('controls', 'PlayerControls', {
+      node('controls', 'ControlMap', {
         debounceMs: 55, volumeStep: 0.06, brightnessStep: 0.07,
         repeatDelayMs: 475, repeatIntervalMs: 135,
       }),

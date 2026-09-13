@@ -33,8 +33,8 @@ function libraryNode(id: string, nodeType: string, properties: Record<string, un
 
 describe('validateGraph', () => {
   it('warns when an absolute player setting and step buttons share a controls chain', () => {
-    const first = node('controls-a', 'PlayerControls')
-    const second = node('controls-b', 'PlayerControls')
+    const first = node('controls-a', 'ControlMap')
+    const second = node('controls-b', 'ControlMap')
     const pot = node('volume-pot', 'Potentiometer')
     const button = node('volume-up', 'Button')
     const wires = [
@@ -58,7 +58,7 @@ describe('validateGraph', () => {
     // has one, so this is for the ways a graph arrives at it anyway: a load, a
     // paste, or a wire dragged onto a port another control had already minted.
     const button = libraryNode('btn', 'ButtonInput')
-    const controls = libraryNode('controls', 'PlayerControls', {
+    const controls = libraryNode('controls', 'ControlMap', {
       controls: ['brightnessUp', 'brightnessDown'],
     })
     const wires = [
@@ -78,7 +78,7 @@ describe('validateGraph', () => {
   it('leaves two controls each doing one job alone', () => {
     const one = libraryNode('one', 'ButtonInput')
     const two = libraryNode('two', 'ButtonInput')
-    const controls = libraryNode('controls', 'PlayerControls', {
+    const controls = libraryNode('controls', 'ControlMap', {
       controls: ['brightnessUp', 'brightnessDown'],
     })
     const wires = [
@@ -133,8 +133,8 @@ describe('validateGraph', () => {
   })
 
   it('allows absolute and step player settings in separate controls domains', () => {
-    const volume = node('volume-controls', 'PlayerControls')
-    const brightness = node('brightness-controls', 'PlayerControls')
+    const volume = node('volume-controls', 'ControlMap')
+    const brightness = node('brightness-controls', 'ControlMap')
     const pot = node('pot', 'Potentiometer')
     const button = node('button', 'Button')
     const wires = [

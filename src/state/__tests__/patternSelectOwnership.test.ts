@@ -4,7 +4,7 @@
 // its own cursor. It drew correctly and modelled the wrong thing: confirming
 // changed what the panel *said* while the LEDs carried on with the show's own
 // rotation. These pin the fix — one cursor, on the player, reached through
-// Player Controls, which is where physical inputs become intent.
+// Control Map, which is where physical inputs become intent.
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { evaluateGraphFull, resetEvaluatorState } from '../graphEvaluator'
@@ -33,11 +33,11 @@ const solid = (blue: number) => ({
 const IDS = ['a', 'b', 'c', 'd']
 const GROUPS = Object.fromEntries(IDS.map((id, i) => [id, solid(30 + i * 40)]))
 
-/** Collection -> player -> output, with Player Controls in front of the player. */
+/** Collection -> player -> output, with Control Map in front of the player. */
 function build(controlProps: Record<string, unknown> = {}) {
   const nodes = [
     node('coll', 'PatternCollection', { patternIds: IDS }),
-    node('ctl', 'PlayerControls', { debounceMs: 0, ...controlProps }),
+    node('ctl', 'ControlMap', { debounceMs: 0, ...controlProps }),
     node('master', 'PatternMaster', { minTime: 9999, maxTime: 9999, transitionSec: 0, seed: 5 }),
     node('out', 'MatrixOutput', {}),
     node('enc', 'EncoderInput', { pinA: 1, pinB: 2, pinSW: 3 }),
@@ -93,7 +93,7 @@ describe('the player publishes the selection', () => {
   })
 })
 
-describe('an encoder through Player Controls', () => {
+describe('an encoder through Control Map', () => {
   beforeEach(() => {
     resetEvaluatorState()
     useHardwareInputStore.setState({ button: new Map(), pot: new Map(), encoder: new Map() })

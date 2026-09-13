@@ -148,10 +148,10 @@ function buildGraph(nodeSpecs: NodeSpec[], edgeSpecs: EdgeSpec[]): { nodes: Stud
           typeof value === 'string' && value.startsWith('$') ? idFor(value.slice(1)) : value,
         ])),
         // Two node types mint their own ports from their properties, the way
-        // `loadGraph` derives them. A starter that wires a Player Controls
+        // `loadGraph` derives them. A starter that wires a Control Map
         // function has to carry the port it wired, or `build()` hands back a
         // graph whose edges land on sockets its own nodes do not declare.
-        inputs: def.type === 'PlayerControls'
+        inputs: def.type === 'ControlMap'
           ? playerControlInputs((spec.properties ?? {}).controls)
           : def.inputs,
         outputs: def.type === 'ButtonBank'
@@ -357,7 +357,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     ],
     nodeSpecs: [
       { id: 'audio', type: 'Audio', properties: { sourceId: audioCapabilityIntent('decoder') }, col: 0, row: 0 },
-      { id: 'controls', type: 'PlayerControls', col: 0, row: 1 },
+      { id: 'controls', type: 'ControlMap', col: 0, row: 1 },
       { id: 'collection', type: 'PatternCollection', col: 0, row: 2 },
       { id: 'master', type: 'PatternMaster', col: 1, row: 1 },
       { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 2, row: 1 },
@@ -438,7 +438,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       // The assignment list is declared as well as wired. A load unions the
       // two, so either alone would do — but stating it means the node reads
       // correctly straight out of build(), before any load resolves the edges.
-      { id: 'controls', type: 'PlayerControls', col: 1, row: 1, properties: { controls: ['brightness', 'ledToggle'] } },
+      { id: 'controls', type: 'ControlMap', col: 1, row: 1, properties: { controls: ['brightness', 'ledToggle'] } },
       { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 2, row: 0 },
       tutorialNote(
         'guide', -1, 0,
@@ -468,7 +468,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { id: 'show', type: 'PatternSlideshow', col: 1, row: 0 },
       { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 2, row: 0 },
       { id: 'encoder', type: 'EncoderInput', col: 0, row: 1 },
-      { id: 'controls', type: 'PlayerControls', col: 1, row: 1, properties: { controls: ['patternSelect', 'patternConfirm'] } },
+      { id: 'controls', type: 'ControlMap', col: 1, row: 1, properties: { controls: ['patternSelect', 'patternConfirm'] } },
       // An OLED fed by a pattern-rotating source is a Pattern Browser, and it
       // is what makes highlight-then-confirm mean anything: the LEDs only ever
       // show what is already running. The four-pin I2C module rather than the
@@ -507,7 +507,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { id: 'prev', type: 'ButtonInput', col: 0, row: 3 },
       { id: 'next', type: 'ButtonInput', col: 0, row: 4 },
       {
-        id: 'controls', type: 'PlayerControls', col: 1, row: 2,
+        id: 'controls', type: 'ControlMap', col: 1, row: 2,
         properties: { controls: ['playPause', 'previous', 'next'] },
       },
       { id: 'master', type: 'PatternMaster', col: 2, row: 0 },
@@ -522,7 +522,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { id: 'amp', type: 'Amplifier', col: 4, row: 1 },
       tutorialNote(
         'guide', -1, 0,
-        'PRESS AND READ BACK \nEach button is given its job on the Player Controls node, and the bundle reaches the player on one cable.\nThe screen takes the player’s one Display wire: the player reports the track, the panel only draws it.',
+        'PRESS AND READ BACK \nEach button is given its job on the Control Map node, and the bundle reaches the player on one cable.\nThe screen takes the player’s one Display wire: the player reports the track, the panel only draws it.',
         TRY_COLOR,
       ),
     ],

@@ -47,7 +47,7 @@ an unwired panel explicitly reports that state. Rotation and enabled state are
 graph settings.
 
 The slideshow owns the current pattern and highlighted selection. The OLED
-reports that state; physical browsing controls go through Player Controls to
+reports that state; physical browsing controls go through Control Map to
 Pattern Slideshow. Pattern thumbnails are baked during export, so upload again
 after changing the collection.
 
@@ -64,8 +64,8 @@ panels say Waiting. Alternatively, connect a document's **Screen Design**
 output. The two content inputs are exclusive: the newest content wire replaces
 the other. Enabled remains a separate input/property.
 
-For fixed music touch on XPT2046, route **Controls → Player Controls Controls In
-→ Music Player Controls**. Show Status and Clock are read-only. For custom
+For fixed music touch on XPT2046, route **Controls → Control Map Controls In
+→ Music Control Map**. Show Status and Clock are read-only. For custom
 touch, wire individual controls from the **document node**; the physical panel's
 fixed Controls output does not replace those widget ports.
 
@@ -125,7 +125,7 @@ control with multiple ports appends Output or Set. The inspector shows the role
 and type. For a first connection, add a Slider and Numeric Readout and connect
 the slider's Output to the readout's Value. For formatted text, insert Format
 Number between the slider and a Text widget. For music-player actions, connect
-widget outputs to the appropriate Player Controls inputs and that node to Music
+widget outputs to the appropriate Control Map inputs and that node to Music
 Player. Route SD-player brightness and volume through that same chain.
 
 A synchronized control belongs to the finger while held. After release, a wired
@@ -189,7 +189,7 @@ evaluate every wire connected to it.
 | --- | --- |
 | No widget graph ports | Add widgets in Edit screen design; the empty document only has its Screen Design content output. |
 | Control snaps back after release | Inspect its Set wire; that source becomes authoritative after touch. |
-| Template does not control playback | Connect widget outputs through Player Controls to Music Player. |
+| Template does not control playback | Connect widget outputs through Control Map to Music Player. |
 | Build reports an unsupported widget input | Replace the upstream path with supported scalar nodes, or use a normal sketch where that path is supported. |
 | Screen document size does not match | Reopen the editor after changing the mounted module or rotation and resolve the reported size/layout issue. |
 | Asset preparation or trust issue | Choose an installed asset and complete the project's trust review before building. |

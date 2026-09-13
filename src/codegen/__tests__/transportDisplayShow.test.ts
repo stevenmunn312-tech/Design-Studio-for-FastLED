@@ -54,7 +54,7 @@ describe('fixed touch routing in generative shows', () => {
   })
 
   it('shares the normal sketch bundle and GPIO emitters across chained controls', () => {
-    const controls = [node('last', 'PlayerControls', { brightnessStep: 0.125 }), node('first', 'PlayerControls')]
+    const controls = [node('last', 'ControlMap', { brightnessStep: 0.125 }), node('first', 'ControlMap')]
     const knob = node('knob', 'PotInput', { pin: 33 })
     const button = node('button', 'ButtonInput', { pin: 32 })
     const nodes = [output(), ...controls, knob, button, panel()]
@@ -108,14 +108,14 @@ describe('fixed touch routing in generative shows', () => {
   })
 
   it('refuses arbitrary graph bindings rather than emitting a partial control chain', () => {
-    expect(() => build([panel(), output(), node('pc', 'PlayerControls'), node('wave', 'Wave')], [
+    expect(() => build([panel(), output(), node('pc', 'ControlMap'), node('wave', 'Wave')], [
       edge('touch-panel', 'controls', 'pc', 'controlsIn'), edge('pc', 'controls', 'out', 'controls'),
       edge('wave', 'value', 'pc', 'brightness'),
     ])).toThrow('cannot evaluate the wire feeding brightness')
   })
 
   it('evaluates a shared scalar chain before its button mapper and fixed TFT readouts', () => {
-    const cpp = build([output(), panel(), node('pc', 'PlayerControls'), node('knob', 'PotInput', { pin: 33 }),
+    const cpp = build([output(), panel(), node('pc', 'ControlMap'), node('knob', 'PotInput', { pin: 33 }),
       node('map', 'MapRange', { outMax: 2 }), node('compare', 'Compare', { b: 0.75 }),
       node('format', 'FormatNumber', { decimals: 2 }), node('title', 'TextValue', { text: 'LIVE SHOW' })], [
       edge('knob', 'value', 'map', 'value'), edge('map', 'result', 'compare', 'a'),

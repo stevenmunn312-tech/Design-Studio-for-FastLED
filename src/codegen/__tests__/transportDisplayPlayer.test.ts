@@ -183,7 +183,7 @@ describe('XPT2046 player controls', () => {
       touchSckPin: 18, touchMosiPin: 23, touchMisoPin: 19,
       touchXMin: 321, touchXMax: 3789, touchYMin: 245, touchYMax: 3821,
     }),
-    node('pc', 'PlayerControls'),
+    node('pc', 'ControlMap'),
     node('m', 'PatternMaster'),
   ]
   const wires = [

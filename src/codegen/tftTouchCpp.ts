@@ -88,7 +88,7 @@ function inside(x: string, y: string, rect: { x: number; y: number; w: number; h
  * player calls its own transport directly, which is why this file could hard-
  * code those calls for as long as the player was the only generator sampling
  * touch. A normal sketch has no transport at all: its panel publishes the same
- * `playercontrols` bundle a Player Controls node does, and whatever is wired
+ * `playercontrols` bundle a Control Map node does, and whatever is wired
  * downstream decides what that means — today an LED output's blackout and
  * dimming latch.
  *
@@ -162,7 +162,7 @@ export function tftTouchServiceCpp(
     if (!body) continue
     // A momentary action fires on the touch-down edge; an absolute slider
     // tracks for as long as the finger stays down. The evaluator publishes
-    // them the same way, so chaining a panel through Player Controls cannot
+    // them the same way, so chaining a panel through Control Map cannot
     // fire a button every tick it is held in one place and not the other.
     const guard = region.valueAxis === 'x' ? '' : `!_touchPrev_${id} && `
     lines.push(`    if (${down} && ${guard}${hit}) { ${body} }`)

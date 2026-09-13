@@ -174,13 +174,14 @@ const CONTROL_CHAIN_SINKS: Record<string, ControlChainSink | undefined> = {
   PatternMaster: 'player',
   MatrixOutput: 'output',
   PatternSlideshow: 'engine',
+  MasterSpeed: 'speed',
 }
 
 /**
- * Every node a control bundle lands on, following Player Controls links.
+ * Every node a control bundle lands on, following Control Map links.
  *
  * One walk for all of them, because "does this wire go anywhere" is one
- * question with three answers now. A panel wired to an LED output is serviced
+ * question with several answers now. A panel wired to an LED output is serviced
  * by a normal sketch; one wired to Music Player is serviced by the SD player;
  * one wired to a Pattern Slideshow browses that show's collection; one wired
  * to several is serviced by whichever generator the graph selects. Answering
@@ -203,7 +204,7 @@ export function controlChainDestinations(
       if (edge.source !== id || edge.sourceHandle !== 'controls') continue
       const target = byId.get(edge.target)
       if (!target) continue
-      if (target.data.nodeType === 'PlayerControls' && edge.targetHandle === 'controlsIn') pending.push(target.id)
+      if (target.data.nodeType === 'ControlMap' && edge.targetHandle === 'controlsIn') pending.push(target.id)
       else if (edge.targetHandle === 'controls' && CONTROL_CHAIN_SINKS[target.data.nodeType]) found.add(target.id)
     }
   }
@@ -224,7 +225,7 @@ export function controlChainSinks(
 }
 
 /** Whether this display's control bundle reaches the Music Player through the
- * same Player Controls chain as physical buttons and encoders. */
+ * same Control Map chain as physical buttons and encoders. */
 export function displayControlsPlayer(
   displayId: string,
   edges: ConfigEdge[],

@@ -147,14 +147,14 @@ class ExampleBuilder {
   /**
    * The inputs a placed node actually has.
    *
-   * Most nodes declare theirs in `NODE_LIBRARY`, but Player Controls mints
+   * Most nodes declare theirs in `NODE_LIBRARY`, but Control Map mints
    * one port per assigned function, so its ports depend on the properties
    * this example gave it. Asking the library alone would reject a wire the
    * canvas accepts.
    */
   private inputsOf(key: string): Array<{ id: string }> {
     const placed = this.nodes.find((node) => node.key === key)
-    if (placed?.type === 'PlayerControls') {
+    if (placed?.type === 'ControlMap') {
       return playerControlInputs((placed.properties as Record<string, unknown> | undefined)?.controls)
     }
     return definition(this.typeOf(key)).inputs
@@ -873,7 +873,7 @@ function workflowExample(node: NodeDefinition): ReferenceLiveExample {
       builder.add('mic', 'MicInput')
       builder.add('transitions', 'TransitionSet')
       builder.add('beat', 'BeatDetect')
-      builder.add('controls', 'PlayerControls')
+      builder.add('controls', 'ControlMap')
       builder.add('particles', 'PlayerParticles')
       builder.add('target', node.type)
       builder.wire('patterns', 'patternset', 'target', 'patternset')
@@ -901,7 +901,7 @@ function workflowExample(node: NodeDefinition): ReferenceLiveExample {
       builder.add('target', node.type)
       builder.wire('patterns', 'patternset', 'target', 'patternset')
       break
-    case 'PlayerControls':
+    case 'ControlMap':
       builder.add('play', 'ButtonInput')
       builder.add('volume', 'PotInput')
       // The node mints a port only once a control has been given that job, so
@@ -1505,7 +1505,7 @@ export function buildGenericLiveExample(node: NodeDefinition): ReferenceLiveExam
   if (node.type === 'Comment') return commentExample(node)
   if (node.type === 'Transition') return transitionExample(node)
   if (node.type === 'Sequencer') return sequencerExample(node)
-  if (['MusicLibrary', 'PerformanceGenerator', 'SDCard', 'PatternCollection', 'PatternMaster', 'TransitionSet', 'PlayerControls', 'PlayerParticles', 'SongInfo'].includes(node.type)) {
+  if (['MusicLibrary', 'PerformanceGenerator', 'SDCard', 'PatternCollection', 'PatternMaster', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'SongInfo'].includes(node.type)) {
     return workflowExample(node)
   }
   if (AUDIO_PATTERN_TYPES.has(node.type)) return audioPatternExample(node)

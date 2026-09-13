@@ -45,7 +45,7 @@ describe('showGenerator', () => {
       node('stray-out', 'MatrixOutput', { width: 4, height: 4, dataPin: 3 }),
       ...nodes,
       node('btn', 'ButtonInput', { pin: 12 }),
-      node('ctl', 'PlayerControls', { controls: ['patternNext'] }),
+      node('ctl', 'ControlMap', { controls: ['patternNext'] }),
     ]
     const mixedEdges = [
       edge('stray-frame', 'stray', 'frame', 'stray-out', 'frame'),
@@ -895,7 +895,7 @@ describe('displays in a show controller', () => {
     // show's own advance all have to exist without a display asking for them.
     const controlNodes = [
       node('btn', 'ButtonInput', { pin: 12 }),
-      node('ctl', 'PlayerControls', { controls: ['patternNext'] }),
+      node('ctl', 'ControlMap', { controls: ['patternNext'] }),
     ]
     const controlEdges = [
       edge('press', 'btn', 'pressed', 'ctl', 'patternNext'),
@@ -907,7 +907,7 @@ describe('displays in a show controller', () => {
     it('carries a headless encoder into the show it selects', () => {
       const nodes = [...base,
         node('enc', 'EncoderInput', { pinA: 6, pinB: 7, pinSW: 8 }),
-        node('ctl', 'PlayerControls', { controls: ['patternSelect', 'patternConfirm'] })]
+        node('ctl', 'ControlMap', { controls: ['patternSelect', 'patternConfirm'] })]
       const edges = [...baseEdges,
         edge('turn', 'enc', 'position', 'ctl', 'patternSelect'),
         edge('press', 'enc', 'pressed', 'ctl', 'patternConfirm'),

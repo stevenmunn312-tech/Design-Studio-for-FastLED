@@ -1,4 +1,4 @@
-// Which physical controls a Player Controls node has been given a job for.
+// Which physical controls a Control Map node has been given a job for.
 //
 // The node used to declare all fourteen functions as always-present inputs, of
 // which a real build wires three or four. This mints only the ones in use, the
@@ -40,8 +40,8 @@ export interface PlayerControlFunction {
   label: string
   dataType: 'bool' | 'float'
   kind: 'momentary' | 'continuous'
-  /** Grouped in the picker so a long list reads as four short ones. */
-  group: 'Transport' | 'Volume' | 'Lights' | 'Patterns'
+  /** Grouped in the picker so a long list reads as several short ones. */
+  group: 'Transport' | 'Volume' | 'Lights' | 'Patterns' | 'Show'
   /** What acts on it. See `PlayerControlDestination`. */
   destinations: readonly PlayerControlDestination[]
 }
@@ -60,7 +60,7 @@ export interface PlayerControlFunction {
  * Volume to a bundle that only reaches an LED output — a wire that connects,
  * validates and does nothing, which is the worst kind.
  */
-export type PlayerControlDestination = 'player' | 'output' | 'engine'
+export type PlayerControlDestination = 'player' | 'output' | 'engine' | 'speed'
 
 /** Transport and volume: only the node holding the track can act on these. */
 const PLAYER_ONLY: readonly PlayerControlDestination[] = ['player']
@@ -68,6 +68,8 @@ const PLAYER_ONLY: readonly PlayerControlDestination[] = ['player']
 const LIGHTS: readonly PlayerControlDestination[] = ['player', 'output']
 /** Pattern intent: the player's collection, and a slideshow's cursor. */
 const PATTERNS: readonly PlayerControlDestination[] = ['player', 'engine']
+/** The one clock every animated node reads. Only Master Speed scales it. */
+const SPEED: readonly PlayerControlDestination[] = ['speed']
 
 /**
  * Every job a control can be given, in the order the picker offers them.
@@ -93,6 +95,17 @@ export const PLAYER_CONTROL_FUNCTIONS: readonly PlayerControlFunction[] = [
   { id: 'patternPrevious', label: 'Previous Pattern', dataType: 'bool', kind: 'momentary', group: 'Patterns', destinations: PATTERNS },
   { id: 'patternNext', label: 'Next Pattern', dataType: 'bool', kind: 'momentary', group: 'Patterns', destinations: PATTERNS },
   { id: 'patternConfirm', label: 'Confirm', dataType: 'bool', kind: 'momentary', group: 'Patterns', destinations: PATTERNS },
+  /*
+   * The first job here that is not a player's.
+   *
+   * Everything above acts on a track, a lamp or a collection, which is why
+   * this was called Player Controls. Master Speed is none of those — it scales
+   * the one clock every animated node reads — and it needed no new machinery
+   * to arrive: a row in this list, a destination naming what acts on it, and
+   * the picker, the ports, the evaluator and the generators followed. That is
+   * the property this list has to keep as more targets are added.
+   */
+  { id: 'masterSpeed', label: 'Master Speed', dataType: 'float', kind: 'continuous', group: 'Show', destinations: SPEED },
 ]
 
 const BY_ID = new Map(PLAYER_CONTROL_FUNCTIONS.map((entry) => [entry.id, entry]))

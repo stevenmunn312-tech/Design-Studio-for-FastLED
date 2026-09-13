@@ -1,4 +1,4 @@
-// Shared control routing for template generators: Player Controls, the scalar
+// Shared control routing for template generators: Control Map, the scalar
 // IR and fixed/custom touch panels. Each template supplies its destinations
 // and runtime sources. Validation uses this same resolver as emission.
 import type { StudioNode, StudioEdge } from '../state/graphStore'
@@ -91,7 +91,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
       return null
     }
     if (visiting.has(source.id)) {
-      errors.add(`${label(source.id)}: the Player Controls chain contains a cycle. Remove a Controls In wire before exporting.`)
+      errors.add(`${label(source.id)}: the Control Map chain contains a cycle. Remove a Controls In wire before exporting.`)
       return null
     }
     const variable = controlBundleVariable(source.id)
@@ -100,7 +100,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
     if (source.data.nodeType === 'TransportDisplay'
       && partById(String(p.partId ?? ''))?.display?.touchController) {
       touchIds.add(source.id)
-    } else if (source.data.nodeType === 'PlayerControls') {
+    } else if (source.data.nodeType === 'ControlMap') {
       visiting.add(source.id)
       const parent = incoming.get(`${source.id}:controlsIn`)
       const upstream = parent ? visit(parent) : null

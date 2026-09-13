@@ -32,7 +32,7 @@ export function playerControlGraph(
   for (const output of nodes.filter((node) => node.data.nodeType === 'MatrixOutput')) {
     if (edges.some((edge) => edge.target === output.id && ['enabled', 'brightness', 'controls'].includes(edge.targetHandle ?? ''))) {
       routing.errors.push(`${output.data.label || output.id}: a music-player build cannot read Enabled, Brightness or Controls wired to the LED output. `
-        + 'Wire these controls through Player Controls to Music Player instead.')
+        + 'Wire these controls through Control Map to Music Player instead.')
     }
   }
   // Snapshot strings too: a Next action can reset tag buffers in this pass.

@@ -1,6 +1,6 @@
 // The one definition of what a transport control *means*.
 //
-// A press has to mean one thing wherever it is read. `Player Controls` turns
+// A press has to mean one thing wherever it is read. `Control Map` turns
 // buttons into transport actions for the Music Player, and the player sketch
 // has to agree with what the preview just did — a debounce written twice is a
 // debounce that eventually disagrees with itself.

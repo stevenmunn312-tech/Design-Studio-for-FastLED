@@ -47,7 +47,9 @@ describe('the knob itself', () => {
   it('is a sink: the graph feeds it and nothing reads it', () => {
     const def = NODE_LIBRARY.find((entry) => entry.type === 'MasterSpeed')
     expect(def?.outputs).toEqual([])
-    expect(def?.inputs.map((input) => input.id)).toEqual(['speed'])
+    // Two ways in, one meaning: an ordinary wire, or a knob given this job on
+    // a Control Map. Still nothing out — it changes what time is.
+    expect(def?.inputs.map((input) => input.id)).toEqual(['speed', 'controls'])
   })
 })
 

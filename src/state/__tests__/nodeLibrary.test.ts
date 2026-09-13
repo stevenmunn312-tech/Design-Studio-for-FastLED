@@ -6,17 +6,16 @@ import { PLAYER_CONTROL_FUNCTIONS } from '../playerControlAssignments'
 
 describe('nodeLibrary', () => {
   it('defines dedicated semantic Music Player control and particle bundles', () => {
-    const controls = NODE_LIBRARY.find((n) => n.type === 'PlayerControls')
+    const controls = NODE_LIBRARY.find((n) => n.type === 'ControlMap')
     expect(controls).toMatchObject({
-      label: 'Player Controls',
+      label: 'Control Map',
       category: 'show',
       outputs: [{ id: 'controls', dataType: 'playercontrols' }],
     })
     // The library entry declares the bundle input and the trailing invitation
-    // only. The fourteen functions are minted per assignment, keeping their
-    // original port ids so nothing downstream had to be taught — the full
-    // catalogue and the minting rule are covered in
-    // playerControlAssignments.test.ts.
+    // only. Every function is minted per assignment, keeping its original port
+    // id so nothing downstream had to be taught — the full catalogue and the
+    // minting rule are covered in playerControlAssignments.test.ts.
     expect(controls?.inputs.map(({ id, dataType }) => [id, dataType])).toEqual([
       ['controlsIn', 'playercontrols'], ['add-control', 'bool'],
     ])
@@ -27,6 +26,10 @@ describe('nodeLibrary', () => {
       'playPause', 'previous', 'next', 'volume', 'volumeUp', 'volumeDown',
       'ledToggle', 'brightness', 'brightnessUp', 'brightnessDown',
       'patternSelect', 'patternPrevious', 'patternNext', 'patternConfirm',
+      // The first job that is not a player's, and it needed no new machinery:
+      // a row here, a destination naming what acts on it, and the picker, the
+      // ports and the generators followed.
+      'masterSpeed',
     ])
 
     const particles = NODE_LIBRARY.find((n) => n.type === 'PlayerParticles')

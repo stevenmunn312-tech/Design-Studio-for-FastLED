@@ -25,7 +25,7 @@ interface PlayerTransportState {
   posMs: number
   playing: boolean
   volume: number
-  /** Monotonic command envelope published by a graph-level Player Controls
+  /** Monotonic command envelope published by a graph-level Control Map
    * bundle. The preview player consumes each serial exactly once. */
   controlSerial: number
   controlCommand: PreviewPlayerCommand | null

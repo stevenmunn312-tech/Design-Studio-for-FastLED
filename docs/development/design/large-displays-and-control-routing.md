@@ -1,7 +1,7 @@
 # Large displays and control routing
 
 Status: panel/document split, exclusive content inputs, Song Info unpacker and
-dynamic Player Controls assignments implemented on Hardware. Integration gaps
+dynamic Control Map assignments implemented on Hardware. Integration gaps
 were found on 2026-09-08; see [the branch review](../reports/hardware-branch-review.md)
 and [HW-01–08](../../../todo.md). This contract replaces the pre-split proposal.
 
@@ -138,7 +138,7 @@ confirm changes the pixels rather than only what a panel says.
 ## Assigning controls
 
 Keep hardware sources generic: Button pressed can trigger a pattern or an
-appliance. Player Controls owns assignment, not a dropdown on each physical part.
+appliance. Control Map owns assignment, not a dropdown on each physical part.
 Dropping on **Control…** opens a picker, then creates the named function input
 and completes the connection. Disconnecting retains the row; explicitly removing
 the row removes its edge. Function ids remain port ids, such as `playPause`.
@@ -171,8 +171,8 @@ otherwise the bank names its button after the trailing add socket. Pending
 assignments are cancelled when the picker is dismissed. Loading unions declared
 functions with actual wired function ids so existing edges remain legible.
 
-Fixed music touch routes Panel Controls → Player Controls → Music Player.
-Custom UI uses document widget outputs → named Player Controls actions, or
+Fixed music touch routes Panel Controls → Control Map → Music Player.
+Custom UI uses document widget outputs → named Control Map actions, or
 supported direct LED inputs. It does not acquire fixed transport actions merely
 by connecting its document to a touch panel.
 

@@ -1522,9 +1522,9 @@ function showEngineIssues(nodes: StudioNode[], edges: StudioEdge[]): ShowEngineI
   return issues
 }
 
-/** Check conflicting mappings across a complete chained Player Controls domain. */
+/** Check conflicting mappings across a complete chained Control Map domain. */
 function playerControlMappingIssues(nodes: StudioNode[], edges: StudioEdge[]): PlayerControlMappingIssue[] {
-  const controls = nodes.filter((node) => node.data.nodeType === 'PlayerControls')
+  const controls = nodes.filter((node) => node.data.nodeType === 'ControlMap')
   const byId = new Map(controls.map((node) => [node.id, node]))
   const neighbours = new Map(controls.map((node) => [node.id, new Set<string>()]))
   for (const edge of edges) {
@@ -1563,7 +1563,7 @@ function playerControlMappingIssues(nodes: StudioNode[], edges: StudioEdge[]): P
         domain,
         nodeIds: component,
         nodeLabel: nodeLabel(first),
-        message: `${domain === 'volume' ? 'Volume' : 'Brightness'} has both an absolute control and up/down buttons in the same Player Controls chain`,
+        message: `${domain === 'volume' ? 'Volume' : 'Brightness'} has both an absolute control and up/down buttons in the same Control Map chain`,
       })
     }
   }
@@ -1833,7 +1833,7 @@ export function findDisplayGeneratorIssues(
     } else if (controlsWired && generator === 'player'
       && (!build.engine || !destinations.has(build.engine.id))) {
       errors.push(
-        `${nodeLabel(display)} has its Controls output wired, but that chain does not reach Music Player through Player Controls. `
+        `${nodeLabel(display)} has its Controls output wired, but that chain does not reach Music Player through Control Map. `
         + 'Complete the control chain so the player sketch samples touch, or disconnect Controls to use the panel as read-only.',
       )
     } else if (controlsWired && generator === 'player' && touchActions.length === 0) {
@@ -1983,7 +1983,7 @@ export function findSignalRangeHints(nodes: StudioNode[], edges: StudioEdge[]): 
 }
 
 /**
- * One control given two jobs on the same Player Controls node.
+ * One control given two jobs on the same Control Map node.
  *
  * A press is one event, so a button wired to both Brightness Up and
  * Brightness Down sends +step and -step in the same frame and nets to
@@ -1999,7 +1999,7 @@ function sharedControlSourceIssues(nodes: StudioNode[], edges: StudioEdge[]): st
   for (const edge of edges) {
     const target = byId.get(edge.target)
     const source = byId.get(edge.source)
-    if (!target || !source || target.data.nodeType !== 'PlayerControls') continue
+    if (!target || !source || target.data.nodeType !== 'ControlMap') continue
     const entry = playerControlFunction(edge.targetHandle)
     if (!entry) continue
     const key = `${edge.target}|${edge.source}|${edge.sourceHandle ?? ''}`
@@ -2209,9 +2209,9 @@ export function buildGraphDiagnostics(
       id: `shared-control-source-${index}`, severity: 'warning', category: 'connection',
       title: 'One control has two jobs',
       message,
-      fix: 'Give each job its own button or knob, or remove the extra rows from Player Controls.',
-      nodeIds: nodes.filter((node) => node.data.nodeType === 'PlayerControls').map((node) => node.id),
-      nodeLabel: 'Player Controls',
+      fix: 'Give each job its own button or knob, or remove the extra rows from Control Map.',
+      nodeIds: nodes.filter((node) => node.data.nodeType === 'ControlMap').map((node) => node.id),
+      nodeLabel: 'Control Map',
     })
   }
   for (const issue of signalRangeIssues(nodes, edges)) {
@@ -2612,7 +2612,7 @@ export function buildGraphDiagnostics(
       category: 'connection',
       title: `${issue.domain === 'volume' ? 'Volume' : 'Brightness'} controls conflict`,
       message: `${issue.message}. The absolute control will override button changes.`,
-      fix: `Disconnect either the absolute ${issue.domain} input or its up/down button inputs from this Player Controls chain.`,
+      fix: `Disconnect either the absolute ${issue.domain} input or its up/down button inputs from this Control Map chain.`,
       nodeIds: issue.nodeIds,
       nodeLabel: issue.nodeLabel,
     })
@@ -2649,14 +2649,14 @@ export function buildGraphDiagnostics(
   }))
 
   // Output-control failures must be visible before deploy too, including a
-  // supported touch chain with an unsupported local Player Controls override.
+  // supported touch chain with an unsupported local Control Map override.
   findOutputRuntimeIssues(nodes, edges, options.displayDocuments).errors.filter((message) => !liveDisplayIssues.errors.includes(message)).forEach((message, index) => diagnostics.push({
     id: `output-runtime-error-${index}`,
     severity: 'error', category: 'connection',
     title: 'Output firmware cannot honour these controls',
     message,
     fix: 'Follow the control-wiring or export-path change named in the message.',
-    nodeIds: nodes.filter((node) => ['MatrixOutput', 'PlayerControls', 'MasterSpeed'].includes(node.data.nodeType)).map((node) => node.id),
+    nodeIds: nodes.filter((node) => ['MatrixOutput', 'ControlMap', 'MasterSpeed'].includes(node.data.nodeType)).map((node) => node.id),
     nodeLabel: 'Output controls',
   }))
 

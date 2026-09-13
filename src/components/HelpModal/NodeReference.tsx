@@ -369,7 +369,7 @@ function sourceNodeForType(dataType: string, nodeType: string, index: number): E
     image: { label: 'Image', category: 'pattern' },
     dmx: { label: 'DMX / Art-Net', category: 'input' },
     storage: { label: 'Storage', category: 'input' },
-    playercontrols: { label: 'Player Controls', category: 'input' },
+    playercontrols: { label: 'Control Map', category: 'input' },
     playerparticles: { label: 'Player Particles', category: 'show' },
     string: { label: 'Text Value', category: 'math' },
   }
@@ -635,7 +635,7 @@ function buildSpecialRecipe(node: NodeDefinition): ExampleRecipe | null {
     case 'PatternMaster':
       return {
         columns: [
-          [makeNode('collection', 'Pattern Collection', 'show'), makeNode('mic', 'Microphone', 'input'), makeNode('transitions', 'Transitions', 'show'), makeNode('controls', 'Player Controls', 'input'), makeNode('particles', 'Player Particles', 'show')],
+          [makeNode('collection', 'Pattern Collection', 'show'), makeNode('mic', 'Microphone', 'input'), makeNode('transitions', 'Transitions', 'show'), makeNode('controls', 'Control Map', 'input'), makeNode('particles', 'Player Particles', 'show')],
           [makeNode('target', node.label, node.category, true)],
           [makeNode('sink', 'LED Matrix', 'output')],
         ],
@@ -647,10 +647,10 @@ function buildSpecialRecipe(node: NodeDefinition): ExampleRecipe | null {
           { from: 'particles', to: 'target' },
           { from: 'target', to: 'sink' },
         ],
-        explanation: `${node.label} performs the live generative show. Player Controls maps physical inputs to transport and LED commands, while Player Particles supplies the optional beat-overlay configuration.`,
+        explanation: `${node.label} performs the live generative show. Control Map maps physical inputs to transport and LED commands, while Player Particles supplies the optional beat-overlay configuration.`,
         result: 'A live multi-pattern show with dwell timing, transitions, physical controls, and optional audio reactivity.',
       }
-    case 'PlayerControls':
+    case 'ControlMap':
       return {
         columns: [
           [makeNode('buttons', 'Buttons', 'input'), makeNode('knobs', 'Potentiometers', 'input')],

@@ -249,7 +249,7 @@ function QuickStartTab() {
         <div className={styles.choiceGrid}>
           <div className={styles.choiceCard}>
             <strong>Self-running generative show</strong>
-            <span>Add saved patterns to Pattern Collection, connect it to Music Player, then connect the player&apos;s frame to the LED output. Add Player Controls when buttons or knobs should operate playback, volume, LED power, or brightness; add Player Particles when the show needs a configurable beat overlay.</span>
+            <span>Add saved patterns to Pattern Collection, connect it to Music Player, then connect the player&apos;s frame to the LED output. Add Control Map when buttons or knobs should operate playback, volume, LED power, or brightness; add Player Particles when the show needs a configurable beat overlay.</span>
           </div>
           <div className={styles.choiceCard}>
             <strong>Music-synced SD show</strong>
@@ -257,7 +257,7 @@ function QuickStartTab() {
           </div>
           <div className={styles.choiceCard}>
             <strong>Physical controls</strong>
-            <span>Blackout, dimming and pattern intent are wires, not project settings. A knob or button goes into <strong>Player Controls</strong>, which asks what that control should do and mints the port it names, and its <strong>Controls</strong> bundle then reaches an LED output&apos;s latch, a Pattern Slideshow&apos;s cursor, or Music Player&apos;s transport. The <strong>Dimmer and Blackout</strong> and <strong>Browse a Slideshow</strong> starters arrive with both ends already wired.</span>
+            <span>Blackout, dimming and pattern intent are wires, not project settings. A knob or button goes into <strong>Control Map</strong>, which asks what that control should do and mints the port it names, and its <strong>Controls</strong> bundle then reaches an LED output&apos;s latch, a Pattern Slideshow&apos;s cursor, or Music Player&apos;s transport. The <strong>Dimmer and Blackout</strong> and <strong>Browse a Slideshow</strong> starters arrive with both ends already wired.</span>
           </div>
         </div>
       </div>

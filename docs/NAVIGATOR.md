@@ -13,7 +13,7 @@ build/architecture overview aimed at contributors.
 
 - [Hardware workbench](user/hardware-workbench.md)
   — the current Hardware-branch workflow for choosing a board, adding physical
-    parts, assigning pins, wiring a knob or button through Player Controls,
+    parts, assigning pins, wiring a knob or button through Control Map,
     designing and wiring display widgets, switching LED preview
     routes, deploying firmware, and using the embedded Output/Serial console.
 - [Stereo VU Meter](user/stereo-vu-meter.md)
@@ -113,7 +113,7 @@ build/architecture overview aimed at contributors.
     — the implemented tier 2/3 panel/document split and its open integration gaps: one panel node
     plus a separate document node, `Display` and `Screen Design` as exclusive
     typed inputs, Music Player's song fields moved to an unpacker node, and a
-    Player Controls input that mints only the functions a build actually wires.
+    Control Map input that mints only the functions a build actually wires.
   - [Display firmware compile checks](development/display-compile-checks.md)
     — the eleven current-model fixtures, their Arduino CLI/fbuild figures and
     the commands that rebuild them, including the two refused shapes that must

@@ -28,9 +28,9 @@ describe('node-reference live examples', () => {
         const sourceDefinition = NODE_LIBRARY.find((node) => node.type === source?.type)
         const targetDefinition = NODE_LIBRARY.find((node) => node.type === target?.type)
         const sourcePort = sourceDefinition?.outputs.find((port) => port.id === edge.sourceHandle)
-        // Player Controls mints one port per assigned function, so its ports
+        // Control Map mints one port per assigned function, so its ports
         // follow the example's own properties rather than the library entry.
-        const targetInputs = target?.type === 'PlayerControls'
+        const targetInputs = target?.type === 'ControlMap'
           ? playerControlInputs((target.properties as Record<string, unknown> | undefined)?.controls)
           : targetDefinition?.inputs
         const targetPort = targetInputs?.find((port) => port.id === edge.targetHandle)

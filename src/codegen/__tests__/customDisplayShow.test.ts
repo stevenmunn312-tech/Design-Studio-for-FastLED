@@ -41,7 +41,7 @@ describe('custom displays in generative shows', () => {
   it('samples touch before scalar feedback, renders LEDs, then updates widgets and flushes LVGL', () => {
     const doc = document()
     const numberId = doc.widgets.find((widget) => widget.type === 'Numeric Readout')!.id
-    const nodes = [panel('tft'), node('math', 'Math', { mathOp: 'add', b: 0.25 }), node('controls', 'PlayerControls'), node('format', 'FormatNumber')]
+    const nodes = [panel('tft'), node('math', 'Math', { mathOp: 'add', b: 0.25 }), node('controls', 'ControlMap'), node('format', 'FormatNumber')]
     const edges = [edge('tft', 'widget:slider:out', 'math', 'a'), edge('math', 'result', 'tft', 'widget:slider:set'),
       edge('math', 'result', 'screen', `widget:${numberId}:value`), edge('math', 'result', 'format', 'value'),
       edge('format', 'text', 'tft', 'widget:text:value'), edge('math', 'result', 'controls', 'brightness'),
@@ -81,7 +81,7 @@ describe('custom displays in generative shows', () => {
   })
 
   it('composes scalar brightness with the Controls latch and supports HUB75', () => {
-    const nodes = [panel('tft'), node('controls', 'PlayerControls')]
+    const nodes = [panel('tft'), node('controls', 'ControlMap')]
     const edges = [edge('tft', 'widget:slider:out', 'out', 'brightness'), edge('controls', 'controls', 'out', 'controls')]
     const cpp = generate(nodes, edges, { screen: document() })
     expect(cpp).toContain('constrain(n_tft_widget_slider_out, 0.0f, 1.0f) * _ledLevel_out')
@@ -174,12 +174,12 @@ describe('custom displays in generative shows', () => {
 
 
   // A widget is a control source like a button on a pin: the same bundle, the
-  // same destination. What was missing was the destination — a Player Controls
+  // same destination. What was missing was the destination — a Control Map
   // chain addressed to the slideshow reached nothing the generator emitted.
   it('browses the collection from a Button widget', () => {
     const doc = addDisplayWidget(createDisplayDocument('screen', 240, 320), 'Button')
     const buttonId = doc.widgets.at(-1)!.id
-    const nodes = [panel('tft'), node('controls', 'PlayerControls')]
+    const nodes = [panel('tft'), node('controls', 'ControlMap')]
     const edges = [edge('tft', `widget:${buttonId}:out`, 'controls', 'patternNext'),
       edge('controls', 'controls', 'show', 'controls')]
     expect(showControlRouting([...root, ...nodes], [...routing, ...edges], { screen: doc }).errors).toEqual([])

@@ -2543,7 +2543,7 @@ describe('evaluateGraph', () => {
     resetEvaluatorState()
     const press = node('pc_press', 'Compare', 'math', { a: 0, b: 0.5 })
     const volume = node('pc_volume', 'Math', 'math', { mathOp: 'add', a: 1.4, b: 0 })
-    const controls = node('pc', 'PlayerControls', 'show', {
+    const controls = node('pc', 'ControlMap', 'show', {
       debounceMs: 30, volumeStep: 0.1, repeatDelayMs: 100, repeatIntervalMs: 50,
     })
     const nodes = [press, volume, controls]
@@ -2567,8 +2567,8 @@ describe('evaluateGraph', () => {
   it('PlayerControls chains command pulses and sums local deltas', () => {
     resetEvaluatorState()
     const press = node('chain_press', 'Compare', 'math', { a: 0, b: 0.5 })
-    const first = node('chain_first', 'PlayerControls', 'show', { debounceMs: 0, volumeStep: 0.1 })
-    const second = node('chain_second', 'PlayerControls', 'show', { debounceMs: 0, volumeStep: 0.2 })
+    const first = node('chain_first', 'ControlMap', 'show', { debounceMs: 0, volumeStep: 0.1 })
+    const second = node('chain_second', 'ControlMap', 'show', { debounceMs: 0, volumeStep: 0.2 })
     const nodes = [press, first, second]
     const edges = [
       edge('chain_e1', press.id, 'result', first.id, 'next'),
@@ -2629,7 +2629,7 @@ describe('evaluateGraph', () => {
     const collection = node('ctl_collection', 'PatternCollection', 'show', { patternIds: ['ctl_group'] })
     const brightness = node('ctl_brightness', 'Math', 'math', { mathOp: 'add', a: 0.5, b: 0 })
     const toggle = node('ctl_toggle', 'Compare', 'math', { a: 0, b: 0.5 })
-    const controls = node('ctl_controls', 'PlayerControls', 'show', { debounceMs: 0 })
+    const controls = node('ctl_controls', 'ControlMap', 'show', { debounceMs: 0 })
     const player = node('ctl_player', 'PatternMaster', 'show', { minTime: 999, maxTime: 999, transitionSec: 1 })
     const output = node('ctl_output', 'MatrixOutput', 'output', {})
     const solid = node('ctl_solid', 'SolidColor', 'pattern', { r: 200, g: 100, b: 50 })

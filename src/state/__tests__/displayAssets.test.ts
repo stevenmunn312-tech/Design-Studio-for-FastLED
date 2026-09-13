@@ -91,7 +91,7 @@ describe('display asset registry', () => {
   it('is the only authority on what a document may store in an asset slot', () => {
     expect(normalizeDisplayAssetId('icon:power')).toBe('icon:power')
     expect(normalizeDisplayAssetId('icon:not-in-this-pack')).toBe('')
-    expect(normalizeDisplayAssetId('C:/Users/User/Desktop/Player Controls/svg/power.svg')).toBe('')
+    expect(normalizeDisplayAssetId('C:/Users/User/Desktop/Control Map/svg/power.svg')).toBe('')
     expect(normalizeDisplayAssetId('../../etc/passwd')).toBe('')
     expect(normalizeDisplayAssetId(42)).toBe('')
 

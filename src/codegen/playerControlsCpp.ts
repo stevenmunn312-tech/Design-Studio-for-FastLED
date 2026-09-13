@@ -49,6 +49,8 @@ export interface PlayerControlsEmit {
   buttons: PlayerControlButtonEmit[]
   /** Absolute wires, by bundle field. */
   volumeExpr: string | null
+  /** Master Speed, when a control has been given that job. */
+  speedExpr?: string | null
   brightnessExpr: string | null
   /** Encoder position feeding pattern selection, in raw counts. */
   patternPositionExpr: string | null
@@ -78,6 +80,10 @@ struct PlayerControlsValue {
   bool  hasBrightness = false; float brightness = 0.0f;
   int   patternSteps = 0;
   bool  patternConfirm = false;
+  // Master Speed, present only while a control has been given that job — the
+  // same has/value pair volume and brightness use, and for the same reason: an
+  // unwired bundle must not overrule the node's own setting.
+  bool  hasSpeed = false;    float speed = 1.0f;
 };
 
 // Mirrors buttonEdge() in state/transportBridge.ts. A press is the debounced
@@ -146,7 +152,7 @@ export function playerControlsServiceCpp(emit: PlayerControlsEmit): string[] {
   if (emit.patternPositionExpr) lines.push(`  static CtlDetent _pcD_${id};`)
 
   lines.push(`  PlayerControlsValue ${variable};`)
-  lines.push(`  { // Player Controls`)
+  lines.push(`  { // Control Map`)
   if (emit.upstream) lines.push(`    ${variable} = ${emit.upstream};`)
   lines.push(`    uint32_t _pcNow_${id} = millis();`)
 
@@ -189,6 +195,10 @@ export function playerControlsServiceCpp(emit: PlayerControlsEmit): string[] {
     lines.push(`    ${variable}.hasBrightness = true;`)
     lines.push(`    ${variable}.brightness = constrain(${emit.brightnessExpr}, 0.0f, 1.0f);`)
   }
+  if (emit.speedExpr) {
+    lines.push(`    ${variable}.hasSpeed = true;`)
+    lines.push(`    ${variable}.speed = ${emit.speedExpr};`)
+  }
   lines.push(`  }`)
   return lines
 }
@@ -215,7 +225,7 @@ export function ledOutputLatchGlobalCpp(id: string): string {
  *
  * Emitted at the top of the output's own case, which topological order puts
  * after the node that built the bundle and before anything reads the latch.
- * Per output rather than per bundle: two fixtures wired to one Player Controls
+ * Per output rather than per bundle: two fixtures wired to one Control Map
  * both go dark on a press, and each remembers its own level from there.
  */
 export function ledOutputLatchCpp(emit: LedOutputLatchEmit): string[] {

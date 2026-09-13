@@ -37,7 +37,7 @@ These fixtures exercise custom LVGL displays alongside the fixed TFT transport
 renderer in the normal sketch, generative show, and SD-player generators. Each
 includes a slider, button, toggle, dial, readouts, meters, a status indicator and
 a two-byte A8 icon. Slider data passes through Math and Format Number to both
-screens and through Player Controls to the output/player. The SD player also
+screens and through Control Map to the output/player. The SD player also
 publishes track time and progress and compiles a collected Solid Color pattern.
 
 This is compile evidence, not a physical wiring or touch-layout example. It does

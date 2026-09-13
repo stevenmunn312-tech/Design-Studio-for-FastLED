@@ -102,11 +102,11 @@ This is the shortest route from an idea to hardware. Every frame-producing patte
 
 ```text
 Pattern → Group → Pattern Library → Pattern Collection ─┐
-Buttons / knobs → Player Controls ──────────────────────┼→ Music Player → LED Output → LEDs
+Buttons / knobs → Control Map ──────────────────────┼→ Music Player → LED Output → LEDs
 Player Particles ───────────────────────────────────────┘
 ```
 
-Save finished patterns as reusable Groups, collect the ones you want, and let Music Player choose timing and transitions while the decoder supplies live audio. Player Controls bundles physical play/pause, previous/next, volume, LED power, and brightness inputs into one Controls connection. Player Particles keeps the optional beat-overlay style, colour, randomisation, and intensity in a separate Particle FX connection. The preview and generated controller sketch share the same show structure.
+Save finished patterns as reusable Groups, collect the ones you want, and let Music Player choose timing and transitions while the decoder supplies live audio. Control Map bundles physical play/pause, previous/next, volume, LED power, and brightness inputs into one Controls connection. Player Particles keeps the optional beat-overlay style, colour, randomisation, and intensity in a separate Particle FX connection. The preview and generated controller sketch share the same show structure.
 
 ### Author a music-synced SD show
 
@@ -168,7 +168,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 - **Patterns:** Solid Color, Text, Clock Display, Circle, Line, Shape, Path, 3D Wireframe, Gradient Frame, Palette Gradient, Image, Noise, Plasma, Rainbow, Pride 2015, Pacifica, TwinkleFox, Scanner, Confetti, Juggle, Radial Burst, Spiral, Kaleidoscope, Fractal Noise, Gabor Noise, Blobs, Fire, Fire 2012, Particles, Formula Points, Flow Field, Starfield, Boids, Reaction Diffusion, Game of Life, Spectrum Bars, Spectrum Visualizer, Bass Pulse, Bass Rings, Midrange Waves, Midrange Bloom, Treble Sparks, Treble Prism, Audio Cascade, Beat Flash, Kick Shock, Vocal Aurora, Beat Kaleidoscope, Spectra Mosaic, Percussion Blobs, Ember Pulse, Turbulent Bloom, Gravity Well, Rain Ripples, Prism Storm, Audio Flow, Color Trails, AnimARTrix, Custom Formula, Code
 - **Fields:** Field Formula, Field Noise, Formula Field, Wave Sim, Distance Field, Frame → Field, Field Math, Field Warp, Field Rotate, Field Tile, Field → Frame
 - **Effects:** Blur 2D, Blend, Mask, Brightness, Fade to Black, Hue Shift, Gamma, Saturation, Color Boost, Transform, Array, Invert, Mirror, Trails, Frame Feedback, Frame Switch, Zones
-- **Show:** Music Library, Pattern Collection, Transitions, Music Player, Pattern Slideshow, Player Controls, Player Particles, Song Info, Sequencer, Transition, Performance Generator, SD Card
+- **Show:** Music Library, Pattern Collection, Transitions, Music Player, Pattern Slideshow, Control Map, Player Particles, Song Info, Sequencer, Transition, Performance Generator, SD Card
 - **Output:** Amplifier, Board, Display Panel, Info Display, LED Matrix, Master Speed, Segment Display, Stereo VU Meter
 - **Notes:** Comment
 

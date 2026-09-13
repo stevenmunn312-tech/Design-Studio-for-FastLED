@@ -118,7 +118,7 @@ browser preview and generated firmware.
 
 Blackout, dimming and pattern intent are wires, not project settings. Add the
 control as a part — **Potentiometer**, **Button**, **Rotary Encoder** — then
-drag its output onto **Player Controls**. Dropping on its trailing socket asks
+drag its output onto **Control Map**. Dropping on its trailing socket asks
 what that control should do and mints a port named for the job, offering only
 the jobs this chain can actually carry out: a bundle ending at an LED output is
 offered blackout and dimming, one ending at a Pattern Slideshow is offered
@@ -133,7 +133,7 @@ The node's single **Controls** output then goes to whatever should obey it:
 | LED output **Controls** | Blackout toggle, brightness level and up/down steps |
 | Pattern Slideshow **Controls** | Pattern selection, previous/next, confirm |
 | Music Player **Controls** | Transport, volume, blackout, dimming and pattern intent |
-| Another Player Controls **Controls In** | Chains banks of controls into one bundle |
+| Another Control Map **Controls In** | Chains banks of controls into one bundle |
 
 An LED output's **Enabled** and **Brightness** inputs take a plain wire too, for
 a graph with no controls in it. Unwired, an output is lit and undimmed, so
@@ -161,8 +161,8 @@ Pattern Slideshow selects its pattern status/browser. The TFT's presentation
 setting chooses between treatments of its connected source. There are no
 separate Title/Artist/Progress inputs on the physical panel.
 
-For fixed music touch, connect **Display Panel Controls → Player Controls
-Controls In → Music Player Controls**. Custom screens use their individual
+For fixed music touch, connect **Display Panel Controls → Control Map
+Controls In → Music Control Map**. Custom screens use their individual
 widget outputs instead. Fixed Show Status and Clock screens have no touch actions.
 
 ### Design a custom screen

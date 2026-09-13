@@ -23,7 +23,7 @@ const out = () => node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4 
 
 describe('fixed touch output routing validation', () => {
   const panel = node('panel', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Show Status' })
-  const controls = node('controls', 'PlayerControls')
+  const controls = node('controls', 'ControlMap')
   const show = [node('show', 'PatternSlideshow'), node('set', 'PatternCollection', { patternIds: ['p'] })]
   const showEdges = [edge('set', 'set', 'patternset', 'show', 'patternset'), edge('frame', 'show', 'frame', 'out', 'frame')]
   const chain = [edge('touch', 'panel', 'controls', 'controls', 'controlsIn'), edge('latch', 'controls', 'controls', 'out', 'controls')]
@@ -105,7 +105,7 @@ describe('fixed touch output routing validation', () => {
   })
 
   it('rejects cyclic mapper chains and invalid source handles', () => {
-    const nodes = [...show, out(), controls, node('parent', 'PlayerControls')]
+    const nodes = [...show, out(), controls, node('parent', 'ControlMap')]
     const edges = [...showEdges, chain[1], edge('a', 'controls', 'controls', 'parent', 'controlsIn'),
       edge('b', 'parent', 'controls', 'controls', 'controlsIn')]
     expect(findOutputRuntimeIssues(nodes, edges).errors).toEqual([expect.stringContaining('contains a cycle')])
@@ -253,14 +253,14 @@ describe('displays a build cannot drive', () => {
     const transport = node('transport', 'TransportDisplay', {
       partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Fixed Transport',
     })
-    const controls = node('controls', 'PlayerControls')
+    const controls = node('controls', 'ControlMap')
     const issues = findDisplayGeneratorIssues(
       [out(), transport, controls],
       [edge('touch', 'transport', 'controls', 'controls', 'controlsIn')],
     )
     expect(issues.errors).toHaveLength(1)
     // Not "cannot sample touch" any more — it can. The chain simply ends at a
-    // Player Controls with nothing after it, so the press reaches nothing.
+    // Control Map with nothing after it, so the press reaches nothing.
     expect(issues.errors[0]).toContain('does not reach anything a normal sketch can act on')
     expect(issues.errors[0]).toContain('read-only display')
   })
@@ -269,7 +269,7 @@ describe('displays a build cannot drive', () => {
    * The route that used to not exist.
    *
    * A normal sketch samples XPT2046 now and publishes the panel's presses as
-   * the same `playercontrols` bundle a Player Controls node does; an LED
+   * the same `playercontrols` bundle a Control Map node does; an LED
    * output latches the LED half of it. So the question stopped being whether
    * the generator can read touch and became whether the chain ends anywhere it
    * can act on.
@@ -278,7 +278,7 @@ describe('displays a build cannot drive', () => {
     const transport = node('transport', 'TransportDisplay', {
       partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Show Status',
     })
-    const controls = node('controls', 'PlayerControls')
+    const controls = node('controls', 'ControlMap')
     const issues = findDisplayGeneratorIssues(
       [out(), transport, controls],
       [
@@ -289,7 +289,7 @@ describe('displays a build cannot drive', () => {
     expect(issues.errors).toEqual([expect.stringContaining('Toggle and Slider widget outputs')])
   })
 
-  it('rejects one wired straight to the output, with no Player Controls between', () => {
+  it('rejects one wired straight to the output, with no Control Map between', () => {
     const transport = node('transport', 'TransportDisplay', {
       partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Show Status',
     })
@@ -307,7 +307,7 @@ describe('displays a build cannot drive', () => {
       partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Fixed Transport',
     })
     const master = node('master', 'PatternMaster')
-    const controls = node('controls', 'PlayerControls')
+    const controls = node('controls', 'ControlMap')
     const issues = findDisplayGeneratorIssues(
       [out(), transport, controls, master],
       [
@@ -323,7 +323,7 @@ describe('displays a build cannot drive', () => {
     const transport = node('transport', 'TransportDisplay', {
       partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Fixed Transport',
     })
-    const controls = node('controls', 'PlayerControls')
+    const controls = node('controls', 'ControlMap')
     const diagnostics = buildGraphDiagnostics(
       [out(), transport, controls],
       [edge('touch', 'transport', 'controls', 'controls', 'controlsIn')],
@@ -341,7 +341,7 @@ describe('displays a build cannot drive', () => {
       partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Fixed Transport',
     })
     const master = node('master', 'PatternMaster')
-    const controls = node('controls', 'PlayerControls')
+    const controls = node('controls', 'ControlMap')
     const nodes = [out(), transport, master, controls, node('sd', 'SDCard'), node('amp', 'Amplifier')]
     const wires = [
       edge('frame', 'master', 'frame', 'out', 'frame'),
@@ -350,7 +350,7 @@ describe('displays a build cannot drive', () => {
     ]
     const issues = findDisplayGeneratorIssues(nodes, wires)
     expect(issues.errors).toHaveLength(1)
-    expect(issues.errors[0]).toContain('does not reach Music Player through Player Controls')
+    expect(issues.errors[0]).toContain('does not reach Music Player through Control Map')
   })
 
   it('accepts a touch chain that reaches Music Player in a player build', () => {
@@ -358,7 +358,7 @@ describe('displays a build cannot drive', () => {
       partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Fixed Transport',
     })
     const master = node('master', 'PatternMaster')
-    const controls = node('controls', 'PlayerControls')
+    const controls = node('controls', 'ControlMap')
     const nodes = [out(), transport, master, controls, node('sd', 'SDCard'), node('amp', 'Amplifier')]
     const wires = [
       edge('frame', 'master', 'frame', 'out', 'frame'),
@@ -455,7 +455,7 @@ describe('a Pattern Slideshow show', () => {
     const transport = node('transport', 'TransportDisplay', {
       partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Fixed Transport',
     })
-    const controls = node('controls', 'PlayerControls')
+    const controls = node('controls', 'ControlMap')
     const { errors } = findDisplayGeneratorIssues(
       [master, collection, out, transport, controls],
       [...showEdges,

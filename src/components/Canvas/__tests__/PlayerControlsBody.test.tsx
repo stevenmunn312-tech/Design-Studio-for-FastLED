@@ -47,7 +47,7 @@ describe('PlayerControlsBody picker', () => {
     // no transport at all. Offering Play / Pause here mints a port, accepts a
     // wire, passes validation and does nothing.
     useGraphStore.getState().loadGraph(
-      [node('button', 'ButtonInput'), node('controls', 'PlayerControls'), node('out', 'MatrixOutput')],
+      [node('button', 'ButtonInput'), node('controls', 'ControlMap'), node('out', 'MatrixOutput')],
       [edge('chain', 'controls', 'controls', 'out', 'controls')],
     )
     pending('bool')
@@ -62,7 +62,7 @@ describe('PlayerControlsBody picker', () => {
 
   it('offers everything while the Controls output goes nowhere', () => {
     useGraphStore.getState().loadGraph(
-      [node('button', 'ButtonInput'), node('controls', 'PlayerControls')],
+      [node('button', 'ButtonInput'), node('controls', 'ControlMap')],
       [],
     )
     pending('bool')
@@ -73,11 +73,11 @@ describe('PlayerControlsBody picker', () => {
     expect(screen.getByRole('button', { name: /LED On \/ Off/ })).toBeTruthy()
   })
 
-  it('follows a chained Player Controls to the destination at its end', () => {
+  it('follows a chained Control Map to the destination at its end', () => {
     useGraphStore.getState().loadGraph(
       [
-        node('button', 'ButtonInput'), node('controls', 'PlayerControls'),
-        node('downstream', 'PlayerControls'), node('show', 'PatternSlideshow'),
+        node('button', 'ButtonInput'), node('controls', 'ControlMap'),
+        node('downstream', 'ControlMap'), node('show', 'PatternSlideshow'),
       ],
       [
         edge('link', 'controls', 'controls', 'downstream', 'controlsIn'),
@@ -97,7 +97,7 @@ describe('PlayerControlsBody picker', () => {
     // button could be dropped again and given Brightness Down — +step and
     // -step in the same frame, netting to nothing.
     useGraphStore.getState().loadGraph(
-      [node('button', 'ButtonInput'), node('controls', 'PlayerControls', { controls: ['brightnessUp'] }),
+      [node('button', 'ButtonInput'), node('controls', 'ControlMap', { controls: ['brightnessUp'] }),
         node('out', 'MatrixOutput')],
       [
         edge('job', 'button', 'pressed', 'controls', 'brightnessUp'),
@@ -116,7 +116,7 @@ describe('PlayerControlsBody picker', () => {
   it('still offers the rest to a different control', () => {
     useGraphStore.getState().loadGraph(
       [node('one', 'ButtonInput'), node('two', 'ButtonInput'),
-        node('controls', 'PlayerControls', { controls: ['brightnessUp'] }), node('out', 'MatrixOutput')],
+        node('controls', 'ControlMap', { controls: ['brightnessUp'] }), node('out', 'MatrixOutput')],
       [
         edge('job', 'one', 'pressed', 'controls', 'brightnessUp'),
         edge('chain', 'controls', 'controls', 'out', 'controls'),
@@ -140,7 +140,7 @@ describe('PlayerControlsBody picker', () => {
     // wire that caused it turned the message into a live picker nobody had
     // re-opened — a menu that changed under the user's hands.
     useGraphStore.getState().loadGraph(
-      [node('button', 'ButtonInput'), node('controls', 'PlayerControls', { controls: ['brightnessUp'] }),
+      [node('button', 'ButtonInput'), node('controls', 'ControlMap', { controls: ['brightnessUp'] }),
         node('out', 'MatrixOutput')],
       [
         edge('job', 'button', 'pressed', 'controls', 'brightnessUp'),
@@ -160,7 +160,7 @@ describe('PlayerControlsBody picker', () => {
 
   it('puts it down when a part is removed too', () => {
     useGraphStore.getState().loadGraph(
-      [node('button', 'ButtonInput'), node('controls', 'PlayerControls'), node('out', 'MatrixOutput')],
+      [node('button', 'ButtonInput'), node('controls', 'ControlMap'), node('out', 'MatrixOutput')],
       [edge('chain', 'controls', 'controls', 'out', 'controls')],
     )
     pending('bool')
@@ -169,7 +169,7 @@ describe('PlayerControlsBody picker', () => {
   })
 
   it('says what an edge is and what a position is', () => {
-    useGraphStore.getState().loadGraph([node('controls', 'PlayerControls')], [])
+    useGraphStore.getState().loadGraph([node('controls', 'ControlMap')], [])
     pending('float')
 
     render(<PlayerControlsBody nodeId="controls" />)
@@ -185,7 +185,7 @@ describe('PlayerControlsBody picker', () => {
     // already been given it — so the honest answer names the destination
     // rather than claiming every continuous function is taken.
     useGraphStore.getState().loadGraph(
-      [node('controls', 'PlayerControls', { controls: ['brightness'] }), node('out', 'MatrixOutput')],
+      [node('controls', 'ControlMap', { controls: ['brightness'] }), node('out', 'MatrixOutput')],
       [edge('chain', 'controls', 'controls', 'out', 'controls')],
     )
     pending('float')

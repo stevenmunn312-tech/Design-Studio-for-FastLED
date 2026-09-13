@@ -228,12 +228,12 @@ describe('what a show or player build cannot honour', () => {
 
   // The player has a real route for this, so the message names it rather than
   // just saying no.
-  it('points a player build at Player Controls', () => {
+  it('points a player build at Control Map', () => {
     const { nodes, edges } = showGraph()
     const player = [master, ...nodes.slice(1), node('sd', 'SDCard'), node('amp', 'Amplifier')]
     const { errors } = findOutputRuntimeIssues(player, edges)
     expect(selectedGenerator(player, edges)).toBe('player')
-    expect(errors.join(' ')).toContain('Player Controls')
+    expect(errors.join(' ')).toContain('Control Map')
   })
 
   it('says nothing about a show whose outputs carry no such wire', () => {
@@ -335,12 +335,12 @@ describe('combining the wires with the latch', () => {
 })
 
 /*
- * End to end in the preview: a contact closes, Player Controls edges it, and
+ * End to end in the preview: a contact closes, Control Map edges it, and
  * the fixture goes dark. The bench case ledOutputRuntime.ts was written for —
  * "a build that has no Music Player anywhere" — with the bundle as the route.
  */
-describe('a button reaching the output through Player Controls', () => {
-  const controls = node('ctl', 'PlayerControls', {
+describe('a button reaching the output through Control Map', () => {
+  const controls = node('ctl', 'ControlMap', {
     debounceMs: 0, brightnessStep: 0.05, repeatDelayMs: 400, repeatIntervalMs: 120,
   })
   const button = node('b', 'ButtonInput', { pin: 4, pullup: true })
@@ -375,7 +375,7 @@ describe('a button reaching the output through Player Controls', () => {
     expect(frame?.[0][0].r).toBeCloseTo(127.5, 1)
   })
 
-  // Two fixtures, one Player Controls: both go dark, and each keeps its own
+  // Two fixtures, one Control Map: both go dark, and each keeps its own
   // state from there. Node outputs are memoised per pass, so the second output
   // sees the same single press rather than a second one.
   it('gives each output its own latch', () => {
@@ -419,7 +419,7 @@ describe('a button reaching the output through Player Controls', () => {
 })
 
 describe('the emitted sketch, for a bundle', () => {
-  const controls = node('ctl', 'PlayerControls', {})
+  const controls = node('ctl', 'ControlMap', {})
   const button = node('b', 'ButtonInput', { pin: 12, pullup: true })
   const wires = [
     frameEdge,

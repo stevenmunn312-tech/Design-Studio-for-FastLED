@@ -252,7 +252,7 @@ interface GraphState {
   removeEdge: (id: string) => void
   /** Remove one physical button row and every noodle fed by its stable handle. */
   removeButtonBankEntry: (nodeId: string, entryId: string) => void
-  /** A drop on Player Controls' trailing socket, waiting for a function. */
+  /** A drop on Control Map' trailing socket, waiting for a function. */
   pendingControlAssignment: PendingControlAssignment | null
   /** Mint the chosen function's port and land the held connection on it. */
   assignPlayerControl: (functionId: string) => void
@@ -514,7 +514,7 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
       delete properties.wifiSsid
       delete properties.wifiPassword
     }
-    // A Player Controls node mints only the functions it has been given. A
+    // A Control Map node mints only the functions it has been given. A
     // workspace saved before that listed none, so the stored list is unioned
     // with the functions its wires already land on — otherwise a load would
     // drop every one of them on the floor.
@@ -523,13 +523,13 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     // before this feature and a fresh node both present an empty list; the
     // wires are what tell them apart. It cannot resurrect a row the user
     // removed, since removing one takes its wire with it.
-    if (nodeType === 'PlayerControls') {
+    if (nodeType === 'ControlMap') {
       properties.controls = normalizePlayerControlIds([
         ...(Array.isArray(properties.controls) ? properties.controls : []),
         ...playerControlIdsFromEdges(n.id, edges),
       ])
     }
-    const inputs = nodeType === 'PlayerControls'
+    const inputs = nodeType === 'ControlMap'
       ? playerControlInputs(properties.controls)
       : def?.inputs ?? (Array.isArray(data.inputs) ? data.inputs : [])
     const outputs = nodeType === 'ButtonBank'
@@ -600,13 +600,13 @@ function withAdoptedMirrorPin(
 /**
  * A node's inputs as they actually are, not as its stored data claims.
  *
- * Player Controls mints one port per assigned function, so its ports follow
+ * Control Map mints one port per assigned function, so its ports follow
  * its properties. Deriving here rather than reading `data.inputs` means the
  * naming works however the node reached the store — a load, a paste, or a
  * test writing state directly — instead of only when normalization has run.
  */
 function effectiveInputs(node: StudioNode): Array<{ id: string; label: string }> {
-  if (node.data.nodeType === 'PlayerControls') {
+  if (node.data.nodeType === 'ControlMap') {
     return playerControlInputs(node.data.properties.controls)
   }
   return (node.data.inputs ?? []) as Array<{ id: string; label: string }>
@@ -615,7 +615,7 @@ function effectiveInputs(node: StudioNode): Array<{ id: string; label: string }>
 /**
  * A drop that cannot be a connection yet.
  *
- * Only the trailing socket qualifies, and only on a Player Controls node. The
+ * Only the trailing socket qualifies, and only on a Control Map node. The
  * source's dataType is captured here rather than looked up again later,
  * because it is what narrows the picker: `portsCompatible` lets float and bool
  * interconvert, which is right for arithmetic and wrong for a knob.
@@ -632,14 +632,14 @@ function pendingControlAssignmentFor(
 ): PendingControlAssignment | null {
   if (connection.targetHandle !== PLAYER_CONTROL_ADD_HANDLE) return null
   const target = nodes.find((node) => node.id === connection.target)
-  if (!target || target.data.nodeType !== 'PlayerControls') return null
+  if (!target || target.data.nodeType !== 'ControlMap') return null
   const source = nodes.find((node) => node.id === connection.source)
   const port = (source?.data.outputs as Array<{ id: string; dataType: string }> | undefined)
     ?.find((entry) => entry.id === connection.sourceHandle)
   return { nodeId: target.id, connection, sourceDataType: port?.dataType }
 }
 
-/** Rewrite one Player Controls node's assignment list and its derived ports. */
+/** Rewrite one Control Map node's assignment list and its derived ports. */
 function withPlayerControlRow(node: StudioNode, controls: string[]): StudioNode {
   return {
     ...node,
@@ -1747,7 +1747,7 @@ export const useGraphStore = create<GraphState>()(
           // trailing socket names its row from the target port, and the target
           // port is only real once this row is.
           const nodes = s.nodes.map((node) => (
-            node.id === pending.nodeId && node.data.nodeType === 'PlayerControls'
+            node.id === pending.nodeId && node.data.nodeType === 'ControlMap'
               ? withPlayerControlRow(node, withPlayerControlAssignment(node.data.properties.controls, functionId))
               : node
           ))
@@ -1760,7 +1760,7 @@ export const useGraphStore = create<GraphState>()(
       removePlayerControlAssignment: (nodeId, functionId) =>
         set((s) => ({
           nodes: s.nodes.map((node) => (
-            node.id === nodeId && node.data.nodeType === 'PlayerControls'
+            node.id === nodeId && node.data.nodeType === 'ControlMap'
               ? withPlayerControlRow(node, withoutPlayerControlAssignment(node.data.properties.controls, functionId))
               : node
           )),
@@ -3216,7 +3216,7 @@ function editNodeIn(
         ...n.data,
         properties,
         ...(n.data.nodeType === 'ButtonBank' ? { outputs: buttonBankOutputs(properties.buttons) } : {}),
-        ...(n.data.nodeType === 'PlayerControls' ? { inputs: playerControlInputs(properties.controls) } : {}),
+        ...(n.data.nodeType === 'ControlMap' ? { inputs: playerControlInputs(properties.controls) } : {}),
       },
     }
   })

@@ -47,7 +47,7 @@ Three distinct concepts (Library ≠ Collection):
 [Library]  --drag-->  (pattern groups on canvas)
                               |
                      Collection node  --patternset--┐
-Player Controls  ----------------------controls----┼-->  Music Player  --frame-->  LED output
+Control Map  ----------------------controls----┼-->  Music Player  --frame-->  LED output
 Player Particles --------------------particleFx----┘          ^
                                                     transition pool + beat triggers
 ```
@@ -123,14 +123,14 @@ display displays it.
 
 ```
 Encoder ─┐
-Buttons ─┼─► Player Controls ──playercontrols──► Music Player ──patternselect──► Info Display
+Buttons ─┼─► Control Map ──playercontrols──► Music Player ──patternselect──► Info Display
          ┘                                            │
                                                     frame
                                                       ▼
                                                   LED output
 ```
 
-**Player Controls** grows the physical half, beside the volume and brightness
+**Control Map** grows the physical half, beside the volume and brightness
 inputs it already carries. That is what the node is for: it is where physical
 inputs become intent. A knob is not a selection and a button is not a command
 until something says so, and having one node say it is what stops a display, a
@@ -363,7 +363,7 @@ unshipped follow-up if flash-size or build-time pressure ever calls for it.
    preview.
 4. **Codegen** ✅ — per-pattern `render_pN()` functions + the controller `.ino`
    (random pattern + random transition on triggers), as a single file rather
-   than per-pattern `.h`s (see above). Player Controls and Player Particles are
+   than per-pattern `.h`s (see above). Control Map and Player Particles are
    compiled as explicit optional input bundles.
 
 All four phases are implemented. Hardware validation now covers the controller

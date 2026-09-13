@@ -1746,11 +1746,21 @@ export function generateCpp(
    * the browser follows — see state/masterSpeed.ts.
    */
   const speedNode = sorted.find((n) => n.data.nodeType === 'MasterSpeed')
+  // A control bundle wins over the node's own slider, and only while it is
+  // carrying a speed — a bundle that arrives without the Master Speed job
+  // assigned leaves the slider alone, exactly as the browser does.
+  const speedBundle = speedNode && incoming.get(`${speedNode.id}:controls`)
+  const speedBundleExpr = speedBundle
+    ? `n_${safeId(speedBundle.srcId)}_${safeId(speedBundle.srcPort)}`
+    : null
   const masterSpeedEmit: MasterSpeedEmit = {
     present: !!speedNode,
-    speedExpr: speedNode && incoming.has(`${speedNode.id}:speed`)
-      ? floatExpr(speedNode.id, 'speed', props(speedNode), 'speed', MASTER_SPEED_DEFAULT)
-      : null,
+    speedExpr: speedBundleExpr
+      ? `(${speedBundleExpr}.hasSpeed ? ${speedBundleExpr}.speed : `
+        + `${clampMasterSpeed(speedNode ? props(speedNode).speed : MASTER_SPEED_DEFAULT).toFixed(4)}f)`
+      : speedNode && incoming.has(`${speedNode.id}:speed`)
+        ? floatExpr(speedNode.id, 'speed', props(speedNode), 'speed', MASTER_SPEED_DEFAULT)
+        : null,
     initial: clampMasterSpeed(speedNode ? props(speedNode).speed : MASTER_SPEED_DEFAULT),
     min: MASTER_SPEED_MIN,
     max: MASTER_SPEED_MAX,
@@ -6075,7 +6085,7 @@ export function generateCpp(
        * a touch panel — so all this case adds is the edge rules, and those
        * come from the same module the evaluator reads.
        */
-      case 'PlayerControls': {
+      case 'ControlMap': {
         const wired = (port: string) => incoming.has(`${node.id}:${port}`)
         // Repeat exactly where the evaluator repeats: an adjustment ramps
         // while held, an action fires once per press however long you lean on
@@ -6091,6 +6101,7 @@ export function generateCpp(
           volumeExpr: wired('volume') ? f('volume', 'volume', 0) : null,
           brightnessExpr: wired('brightness') ? f('brightness', 'brightness', 0) : null,
           patternPositionExpr: wired('patternSelect') ? f('patternSelect', 'patternSelect', 0) : null,
+          speedExpr: wired('masterSpeed') ? f('masterSpeed', 'masterSpeed', 1) : null,
           settings: normalizeButtonEdgeSettings(p),
           volumeStep: Math.max(0, Number(p.volumeStep ?? 0.05)),
           brightnessStep: Math.max(0, Number(p.brightnessStep ?? 0.05)),
@@ -6961,7 +6972,7 @@ export function generateCpp(
   if (playerControlNodes.length > 0) {
     lines.push(PLAYER_CONTROLS_CPP)
     // Latch state is per output rather than per bundle: two fixtures wired to
-    // one Player Controls both go dark on a press, and each then remembers its
+    // one Control Map both go dark on a press, and each then remembers its
     // own level from there.
     for (const output of ledLatchOutputs) lines.push(ledOutputLatchGlobalCpp(output))
     lines.push(``)

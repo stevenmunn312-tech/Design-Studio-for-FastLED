@@ -47,7 +47,7 @@ const IDS = ['a', 'b', 'c']
 const GROUPS = Object.fromEntries(IDS.map((id) => [id, solid()])) as unknown as GroupRegistry
 
 /**
- * Collection -> engine -> panel, encoder and press through Player Controls.
+ * Collection -> engine -> panel, encoder and press through Control Map.
  *
  * The engine is a parameter because the two templates that draw a browser are
  * reached by different nodes: a Slideshow builds the show controller, a Music
@@ -58,7 +58,7 @@ function benchGraph(engine: 'PatternMaster' | 'PatternSlideshow' = 'PatternMaste
   const nodes = [
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4, chipset: 'WS2812B', colorOrder: 'GRB' }),
     node('coll', 'PatternCollection', { patternIds: IDS }),
-    node('ctl', 'PlayerControls', {}),
+    node('ctl', 'ControlMap', {}),
     node('master', engine, {}),
     node('enc', 'EncoderInput', { pinA: 8, pinB: 9, pinSW: 10, pullup: true }),
     node('brw', 'InfoDisplay', {

@@ -325,7 +325,7 @@ const musicPlayerRuntimeState = new Map<string, MusicPlayerRuntimeState>()
  * What each LED output remembers between presses on its `controls` wire.
  *
  * Per output instance, like every other stateful node here, because two
- * fixtures wired to one Player Controls are two fixtures: pressing blackout
+ * fixtures wired to one Control Map are two fixtures: pressing blackout
  * darkens both, and each then remembers its own state from there.
  */
 const ledOutputLatchState = new Map<string, LedOutputLatch>()
@@ -5046,7 +5046,7 @@ export interface StorageSignal {
   label: string
 }
 
-/** Semantic commands and values carried by a Player Controls cable. Command
+/** Semantic commands and values carried by a Control Map cable. Command
  * booleans are one-evaluation pulses. Absolute controls are omitted when no
  * local or chained absolute source exists; deltas accumulate across chains. */
 export interface PlayerControls {
@@ -5059,7 +5059,15 @@ export interface PlayerControls {
   brightness?: number
   brightnessDelta: number
   /**
-   * Pattern-selection intent, from Player Controls.
+   * Master Speed, when a control has been given that job.
+   *
+   * Absent rather than 1 when nobody is driving it, so an unwired bundle
+   * cannot quietly overrule the node's own slider — the same reason `volume`
+   * and `brightness` are optional.
+   */
+  speed?: number
+  /**
+   * Pattern-selection intent, from Control Map.
    *
    * `patternSteps` is whole detents already — the encoder's running count is
    * turned into steps where the encoder is read, so the player receives a
@@ -7277,7 +7285,7 @@ function createEvalNode(
         break
       }
 
-      case 'PlayerControls': {
+      case 'ControlMap': {
         const key = stateKey(id)
         const nowMs = t * 1000
         let state = playerControlsState.get(key)
@@ -7333,6 +7341,10 @@ function createEvalNode(
         else if (upstream?.volume != null) controls.volume = clamp01(upstream.volume)
         if (incoming.has(`${id}:brightness`)) controls.brightness = clamp01(Number(input(id, 'brightness', 0)))
         else if (upstream?.brightness != null) controls.brightness = clamp01(upstream.brightness)
+        // Absolutes all follow one rule: wired here beats wired upstream, and
+        // unwired stays absent so nothing downstream is overruled by silence.
+        if (incoming.has(`${id}:masterSpeed`)) controls.speed = Number(input(id, 'masterSpeed', 1))
+        else if (upstream?.speed != null) controls.speed = upstream.speed
         playerControlsState.set(key, state)
         out = { controls }
         break
@@ -8609,7 +8621,7 @@ function createEvalNode(
         )
         // A bundle carries a toggle and a delta, so it needs somewhere to
         // toggle and to nudge. Folded once per pass: node outputs are memoised
-        // above, so a second output reading the same Player Controls sees the
+        // above, so a second output reading the same Control Map sees the
         // same single-frame press rather than a second one.
         const key = stateKey(id)
         let latch = ledOutputLatchState.get(key)
@@ -8628,9 +8640,19 @@ function createEvalNode(
       // one this pass is already running on, so the value is read by whatever
       // owns the clock — the preview loop, a recording — and takes effect on
       // the next frame. See state/masterSpeed.ts on why that lag is the point.
-      case 'MasterSpeed':
-        out = { speed: clampMasterSpeed(num(id, 'speed', props, 'speed', MASTER_SPEED_DEFAULT)) }
+      case 'MasterSpeed': {
+        // A control bundle wins over the node's own slider, and only while it
+        // is actually carrying a speed: a bundle that reaches here without the
+        // Master Speed job assigned leaves the slider alone.
+        const bundle = input(id, 'controls', null)
+        const fromControls = isPlayerControls(bundle) && typeof bundle.speed === 'number'
+          ? bundle.speed
+          : null
+        out = {
+          speed: clampMasterSpeed(fromControls ?? num(id, 'speed', props, 'speed', MASTER_SPEED_DEFAULT)),
+        }
         break
+      }
 
       // Canvas-only annotation — no ports, nothing to evaluate.
       case 'Comment':
