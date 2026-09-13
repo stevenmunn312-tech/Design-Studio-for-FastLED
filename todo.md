@@ -269,8 +269,8 @@ matrix, not a reason to postpone testing earlier changes.
   section says so rather than implying it exists.
 
 
-- [x] **HW-30 · Widgets read the panel's source (M; part of the control
-  restructure).** Done. *A reading is a field, not a cable.* A widget can name a
+- [x] **HW-30 · Widgets read the panel's source, and templates follow the wire
+  (M; closes the control restructure).** Done. *A reading is a field, not a cable.* A widget can name a
   field of the source wired into its panel — the inspector's **Reads** row, one
   select listing what that source carries, narrowed by data type the way the
   Control Map picker is — and a bound widget mints no socket. Five cables from a
@@ -306,9 +306,21 @@ matrix, not a reason to postpone testing earlier changes.
   would have blocked an upload for a template dropped on a panel before its
   player was wired.
 
-  Still open, and the last piece of the restructure: the screen designer offering
-  a **mapped** set of templates first, chosen by what the panel is wired to.
-  `npm test` (4,952 tests), `npm run lint` and `tsc -b` pass; no compile run is
+  The template shelf is ordered by the same bindings. `displayTemplatesForSource`
+  calls a template *mapped* to a source when every field it binds is one that
+  source publishes, so the layouts a wired panel can fill come first under a
+  **Mapped to** heading and adding a binding re-files its template on its own —
+  no per-template list of source kinds to keep in step, and none can claim a
+  source that could not feed it. It promotes rather than filters, the stance
+  pattern author tags take: the four templates that bind nothing read every value
+  off the graph and suit any panel, so they stay reachable, and a panel with no
+  source yet gets one ungrouped list rather than a guess. A ninth template,
+  **Clock**, was added for the same derivation's sake — an RTC is the one source
+  ordinary firmware answers for, and "Mapped to RTC Clock" would otherwise have
+  been an empty group. Regenerating the template goldens added only the three new
+  clock keys and changed no existing layout.
+
+  `npm test` (4,960 tests), `npm run lint` and `tsc -b` pass; no compile run is
   claimed — the new firmware is the name-string reader and the bound expressions,
   and HW-13's matrix is where they get built.
 

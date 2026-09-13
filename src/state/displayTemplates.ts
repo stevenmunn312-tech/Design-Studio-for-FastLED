@@ -8,8 +8,11 @@ import type {
 import { constrainDisplayWidgetBounds, nextDisplayWidgetId } from './displayEditor'
 import { defaultDisplayWidgetProperties } from './displayRegistry'
 import { displayControlAssetId, type DisplayControlIconName } from './displayAssets'
+import { displaySourceFields } from './displaySourceFields'
+import type { DisplaySignalKind } from './displaySignal'
 
 export type DisplayTemplateId =
+  | 'clock'
   | 'now-playing'
   | 'minimal-transport'
   | 'pattern-deck'
@@ -50,6 +53,45 @@ export interface DisplayTemplate {
   squareWidgets?: readonly DisplayTemplateWidget[]
 }
 
+/**
+ * Which templates the source wired into a panel can actually fill.
+ *
+ * Derived from the bindings a template already carries, never from a second
+ * list of source kinds per template: a template is mapped to a source when
+ * every field it binds is a field that source publishes, so adding a binding
+ * re-files the template on its own and no template can claim a source that
+ * cannot feed it. Now Playing names six player fields and is offered on a
+ * player; Pattern Deck names the pattern and is offered on both a player and a
+ * slideshow, because both carry a selection; Clock names the time and is offered
+ * on an RTC.
+ *
+ * It promotes, never excludes — the same stance pattern author tags take. A
+ * template binding nothing (LED Performance, Audio Reactor, Diagnostics, DMX
+ * Monitor) reads every value off the graph and is correct on any panel, so
+ * hiding it behind a source it does not need would remove the layouts a screen
+ * with no source at all is built from.
+ */
+export function templateSourceFields(template: DisplayTemplate): string[] {
+  return [...new Set(template.widgets
+    .map((widget) => String(widget.properties?.source ?? ''))
+    .filter((field) => field.length > 0))]
+}
+
+export function templateMatchesSource(template: DisplayTemplate, kind: DisplaySignalKind): boolean {
+  const fields = templateSourceFields(template)
+  if (fields.length === 0) return false
+  const offered = new Set(displaySourceFields(kind).map((field) => field.id))
+  return fields.every((field) => offered.has(field))
+}
+
+export function displayTemplatesForSource(kind: DisplaySignalKind | null | undefined): {
+  mapped: readonly DisplayTemplate[]
+  other: readonly DisplayTemplate[]
+} {
+  const mapped = kind ? DISPLAY_TEMPLATES.filter((template) => templateMatchesSource(template, kind)) : []
+  return { mapped, other: DISPLAY_TEMPLATES.filter((template) => !mapped.includes(template)) }
+}
+
 /** Templates are authored against the reference screen; a smaller document
  * clamps them through the same constraint every hand-placed widget uses. */
 export const DISPLAY_TEMPLATE_REFERENCE_SIZE = { width: 320, height: 240 } as const
@@ -88,6 +130,9 @@ const TEMPLATE_CONTROL_ICONS: Readonly<Record<string, DisplayControlIconName>> =
  * holds the variants in step.
  */
 const TEMPLATE_WIDGET_SOURCES: Readonly<Record<string, string>> = {
+  Time: 'time',
+  Date: 'date',
+  'Clock set': 'valid',
   Title: 'title',
   Track: 'title',
   Artist: 'artist',
@@ -124,6 +169,34 @@ const widget = (
  * a validation error.
  */
 export const DISPLAY_TEMPLATES: readonly DisplayTemplate[] = [
+  {
+    /*
+     * The one template a normal sketch can fill on its own.
+     *
+     * A clock is the only source ordinary firmware answers for — its Music
+     * Player renders as a black fill and a Pattern Slideshow builds the show
+     * controller instead — so this is the template that works on a bare panel
+     * with an RTC beside it and nothing else in the graph.
+     */
+    id: 'clock',
+    label: 'Clock',
+    description: 'The time and date from the RTC wired into the panel, and whether it has been set.',
+    widgets: [
+      widget('Text', 'Time', [16, 56, 288, 64], { fontSize: 48, align: 'center' }),
+      widget('Text', 'Date', [16, 136, 288, 32], { fontSize: 24, align: 'center' }),
+      widget('Status Indicator', 'Clock set', [112, 184, 96, 40], { offLabel: 'NOT SET', onLabel: 'SET' }),
+    ],
+    portraitWidgets: [
+      widget('Text', 'Time', [8, 96, 224, 64], { fontSize: 48, align: 'center' }),
+      widget('Text', 'Date', [8, 176, 224, 32], { fontSize: 24, align: 'center' }),
+      widget('Status Indicator', 'Clock set', [72, 232, 96, 40], { offLabel: 'NOT SET', onLabel: 'SET' }),
+    ],
+    squareWidgets: [
+      widget('Text', 'Time', [8, 48, 224, 64], { fontSize: 48, align: 'center' }),
+      widget('Text', 'Date', [8, 128, 224, 32], { fontSize: 24, align: 'center' }),
+      widget('Status Indicator', 'Clock set', [72, 176, 96, 40], { offLabel: 'NOT SET', onLabel: 'SET' }),
+    ],
+  },
   {
     id: 'now-playing',
     label: 'Now Playing',

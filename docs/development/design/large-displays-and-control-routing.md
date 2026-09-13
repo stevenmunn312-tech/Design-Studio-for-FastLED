@@ -177,6 +177,18 @@ widget label like `TEMPLATE_CONTROL_ICONS` beside it, so a portrait composition
 cannot bind a field its landscape twin leaves on a wire — which would make a
 panel's rotation quietly change which sockets it has.
 
+Those bindings are also what orders the template shelf.
+`displayTemplatesForSource` calls a template **mapped** to a source when every
+field it binds is one that source publishes, so the layouts a wired panel can
+fill come first and adding a binding re-files its template on its own — there is
+no per-template list of source kinds to keep in step, and none can claim a source
+that could not feed it. It promotes rather than filters, the same stance pattern
+author tags take: a template binding nothing reads every value off the graph and
+is correct on any panel, so the four that do stay reachable, and a panel with no
+source yet gets one ungrouped list rather than a guess. Clock exists partly for
+this: an RTC is the one source ordinary firmware answers for, and without it
+"Mapped to RTC Clock" would have been an empty group.
+
 `normalizeDisplaySource` is the import boundary, and deliberately cannot ask
 which source is wired in: a document has no panel in hand, and a design saved
 against a player then moved to a slideshow keeps the binding it was drawn with

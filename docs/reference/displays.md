@@ -155,10 +155,20 @@ Button or Toggle. The picker changes control art only, while the Screen
 **Theme** in the inspector changes the display's colours and background.
 Templates use the currently selected icon theme for their transport and action
 controls, including Shuffle, Auto advance, and Freeze.
-All eight built-in templates — Now Playing, Minimal Transport, Pattern Deck,
-Show Status, LED Performance, Audio Reactor, Diagnostics, and DMX Monitor —
-have separate 320×240 and 240×320 compositions. The editor places the portrait
+All nine built-in templates — Clock, Now Playing, Minimal Transport, Pattern
+Deck, Show Status, LED Performance, Audio Reactor, Diagnostics, and DMX Monitor
+— have separate 320×240 and 240×320 compositions. The editor places the portrait
 composition directly rather than squeezing or clipping the landscape one.
+The shelf is ordered by what the panel is wired to. The layouts that source can
+fill come first, under a **Mapped to** heading naming it — Now Playing and
+Minimal Transport for a Music Player, Pattern Deck and Show Status for either a
+player or a Pattern Slideshow, Clock for an RTC — and everything else follows
+under **Other layouts**. Which templates are mapped is derived from the readings
+each one already takes from the panel's source, so nothing is hidden: the four
+templates that read every value off the graph (LED Performance, Audio Reactor,
+Diagnostics, DMX Monitor) are correct on any panel, and a panel with no source
+yet shows one ungrouped list.
+
 Themed icon-only Buttons and Toggles paint inside their saved border-box bounds;
 those bounds remain the complete touch target, at least 48×48 px with 8 px
 between neighbouring controls. A recognised template switches between its

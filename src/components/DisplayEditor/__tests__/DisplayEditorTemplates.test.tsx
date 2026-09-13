@@ -4,7 +4,8 @@ import DisplayEditor from '../DisplayEditor'
 import { createDisplayDocument, displayLayoutIssues } from '../../../state/displayEditor'
 import { displayAsset, displayAssetUrl } from '../../../state/displayAssets'
 import { useDisplayRuntimeStore } from '../../../state/displayRuntimeStore'
-import { useGraphStore } from '../../../state/graphStore'
+import { useGraphStore, type StudioNode } from '../../../state/graphStore'
+import { NODE_LIBRARY, libraryDefaults } from '../../../state/nodeLibrary'
 import { displayControlHitBounds, isDisplayTouchTarget } from '../../../state/displayRegistry'
 import { DISPLAY_TEMPLATES } from '../../../state/displayTemplates'
 import { useUiStore } from '../../../state/uiStore'
@@ -27,6 +28,51 @@ describe('DisplayEditor portrait templates', () => {
       designWorkspaceView: { kind: 'display', displayId: 'panel' },
       fitViewRequest: { nonce: 0 },
     })
+  })
+
+  const libraryNode = (id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode => {
+    const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)!
+    return { id, type: 'studioNode', position: { x: 0, y: 0 }, data: {
+      label: definition.label, nodeType, category: definition.category,
+      properties: { ...libraryDefaults(nodeType), ...properties },
+      inputs: definition.inputs, outputs: definition.outputs,
+    } } as unknown as StudioNode
+  }
+
+  /*
+   * The shelf follows the panel's own wire.
+   *
+   * The layouts the wired source can fill come first, under a heading naming
+   * that source, and everything else stays below it: a template reading its
+   * values off the graph is correct on any panel, so promoting the mapped ones
+   * must not hide the rest.
+   */
+  it('puts the layouts the wired source can fill at the top of the shelf', () => {
+    useGraphStore.setState({
+      nodes: [
+        libraryNode('tft', 'TransportDisplay', {
+          partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', displayId: 'panel',
+        }),
+        libraryNode('rtc', 'RTCInput'),
+      ],
+      edges: [{ id: 'e-clock', source: 'rtc', sourceHandle: 'display', target: 'tft', targetHandle: 'display' } as never],
+    })
+    const view = render(<DisplayEditor />)
+    expect(view.getByRole('heading', { name: 'Mapped to RTC Clock' })).toBeTruthy()
+    expect(view.getByRole('heading', { name: 'Other layouts' })).toBeTruthy()
+    // Reachable either way — the grouping promotes, it does not filter.
+    for (const template of DISPLAY_TEMPLATES) {
+      expect(view.getByRole('button', { name: `Insert ${template.label} template` })).toBeTruthy()
+    }
+  })
+
+  /*
+   * Nothing wired, nothing to map against: one ungrouped list, as before.
+   */
+  it('leaves the shelf ungrouped while the panel has no source', () => {
+    const view = render(<DisplayEditor />)
+    expect(view.queryByRole('heading', { name: /^Mapped to / })).toBeNull()
+    expect(view.queryByRole('heading', { name: 'Other layouts' })).toBeNull()
   })
 
   it.each(DISPLAY_TEMPLATES)(

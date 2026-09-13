@@ -157,6 +157,22 @@
   letter-spacing: normal;
 }
 
+/* The group heading above each half of the template shelf: the layouts the
+   panel's wired source can fill, then everything else. */
+.paletteGroup {
+  margin: 10px 0 4px;
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.paletteGroup:first-of-type {
+  margin-top: 0;
+}
+
 .paletteList {
   display: grid;
   gap: 5px;

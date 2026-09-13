@@ -5,6 +5,8 @@ import { DISPLAY_SOURCE_FROM_GRAPH } from '../displaySourceFields'
 import {
   DISPLAY_TEMPLATES,
   displayTemplate,
+  displayTemplatesForSource,
+  templateSourceFields,
   DISPLAY_TEMPLATE_REFERENCE_SIZE,
   applyDisplayTemplate,
 } from '../displayTemplates'
@@ -20,6 +22,7 @@ function referenceDocument() {
 describe('custom display templates', () => {
   it('covers the planned starting layouts exactly once', () => {
     expect(DISPLAY_TEMPLATES.map((template) => template.id)).toEqual([
+      'clock',
       'now-playing',
       'minimal-transport',
       'pattern-deck',
@@ -135,6 +138,44 @@ describe('custom display templates', () => {
         : widget)),
     }
     expect(displayDocumentPorts(released).inputs.map((port) => port.id)).toEqual(['widget:text:value'])
+  })
+
+  /*
+   * Which templates a source can fill is derived from their bindings.
+   *
+   * Never a per-template list of source kinds: a template is mapped when every
+   * field it binds is one that source publishes, so adding a binding re-files
+   * the template on its own and none can claim a source that cannot feed it.
+   */
+  it('offers the layouts the wired source can fill, without hiding the rest', () => {
+    const ids = (templates: readonly { id: string }[]) => templates.map((template) => template.id)
+    // Both a player and a slideshow carry a selection, so a screen that only
+    // names the pattern fits either; only the player has a track.
+    expect(ids(displayTemplatesForSource('player').mapped))
+      .toEqual(['now-playing', 'minimal-transport', 'pattern-deck', 'show-status'])
+    expect(ids(displayTemplatesForSource('slideshow').mapped)).toEqual(['pattern-deck', 'show-status'])
+    expect(ids(displayTemplatesForSource('clock').mapped)).toEqual(['clock'])
+
+    // Promotes, never excludes: every template stays reachable, and the four
+    // that bind nothing read their values off the graph and suit any panel.
+    for (const kind of ['player', 'slideshow', 'clock'] as const) {
+      const { mapped, other } = displayTemplatesForSource(kind)
+      expect([...ids(mapped), ...ids(other)].sort()).toEqual(ids(DISPLAY_TEMPLATES).sort())
+      expect(mapped.some((template) => templateSourceFields(template).length === 0)).toBe(false)
+    }
+  })
+
+  /*
+   * With nothing wired there is nothing to map against.
+   *
+   * The honest answer is one ungrouped list rather than a guess at where the
+   * design will end up — a screen can be drawn long before its panel has a
+   * source, and four of the templates never need one.
+   */
+  it('maps nothing when the panel has no source', () => {
+    const { mapped, other } = displayTemplatesForSource(null)
+    expect(mapped).toEqual([])
+    expect(other).toEqual(DISPLAY_TEMPLATES)
   })
 
   /*

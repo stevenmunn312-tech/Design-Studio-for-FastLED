@@ -98,11 +98,15 @@ state input), Slider (`float` out with reserved state input), and Dial (the same
 value contract with vertical-drag touch interaction).
 
 Button is one semantic widget with text, icon, or text-plus-icon presentation;
-there are not separate transport or image-button behaviours. Now Playing,
+there are not separate transport or image-button behaviours. Clock, Now Playing,
 Minimal Transport, Pattern Deck, Show Status, LED Performance, Audio Reactor,
-Diagnostics and DMX Monitor are templates composed from ordinary widgets. A template mints
-the same visible typed ports as placing those widgets individually and never
-gets a private player or graph runtime.
+Diagnostics and DMX Monitor are templates composed from ordinary widgets. A
+template mints the same visible typed ports as placing those widgets
+individually and never gets a private player or graph runtime — its readings may
+be bound to the panel's own source rather than to a cable, which is a visible
+property on each widget rather than a hidden runtime. Which templates the editor
+offers first is derived from exactly those bindings, so a template cannot claim
+a source that could not feed it.
 
 Colour Picker, Choice Strip, Step Control, XY Pad, Launch Pad and Arc Gauge are
 the next palette after the one-screen runtime is proven. They are named now so

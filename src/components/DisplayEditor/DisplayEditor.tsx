@@ -43,8 +43,9 @@ import {
   resolveDisplayThemeTokens,
 } from '../../state/displayTheme'
 import {
-  DISPLAY_TEMPLATES,
   applyDisplayTemplate,
+  displayTemplatesForSource,
+  type DisplayTemplate,
   displayTemplate,
   type DisplayTemplateId,
 } from '../../state/displayTemplates'
@@ -346,6 +347,7 @@ export default function DisplayEditor() {
     ? documentDisplaySourceKind(displayId, rootGraphNodes(state), rootGraphEdges(state))
     : null))
   const sourceLabel = sourceKind ? DISPLAY_SOURCE_LABELS[sourceKind] : ''
+  const templates = displayTemplatesForSource(sourceKind)
   const viewportRef = useRef<HTMLDivElement>(null)
   const gesture = useRef<Gesture | null>(null)
   const [draft, setDraft] = useState<DisplayDocument | null>(persisted ?? null)
@@ -501,6 +503,29 @@ export default function DisplayEditor() {
     commit(next, `${template.label} template inserted with ${added.length} widgets. ${validationAnnouncement(displayLayoutIssues(next))}`)
     setSelectedIds(added.map((widget) => widget.id))
   }
+
+  /** One shelf entry, shared by the mapped group and the rest. */
+  const templateButton = (template: DisplayTemplate) => (
+    <button
+      key={template.id}
+      type="button"
+      className={styles.templateButton}
+      aria-label={`Insert ${template.label} template`}
+      title={template.description}
+      onClick={() => insertTemplate(template.id)}
+    >
+      {displayAsset(`template:${template.id}`) && (
+        <img
+          className={styles.templatePreview}
+          src={displayAssetUrl(displayAsset(`template:${template.id}`)!)}
+          alt=""
+          aria-hidden="true"
+        />
+      )}
+      <span>{template.label}</span>
+      <small>{template.widgets.length} widgets</small>
+    </button>
+  )
 
   const beginGesture = (event: ReactPointerEvent, widgetId: string, kind: Gesture['kind']) => {
     if (event.button !== 0) return
@@ -826,28 +851,26 @@ export default function DisplayEditor() {
             </section>
             <h2>Templates</h2>
             <p>Insert a starting layout of ordinary widgets.</p>
+            {/*
+              * The layouts the wired source can fill come first.
+              *
+              * Which those are is derived from the bindings each template
+              * carries, so the list follows the panel's own wire rather than a
+              * per-template list of sources. Nothing is hidden: a template that
+              * reads everything off the graph is correct on any panel, and a
+              * panel with nothing wired simply has no mapped group.
+              */}
+            {templates.mapped.length > 0 && (
+              <>
+                <h3 className={styles.paletteGroup}>Mapped to {sourceLabel}</h3>
+                <div className={styles.paletteList}>
+                  {templates.mapped.map(templateButton)}
+                </div>
+                <h3 className={styles.paletteGroup}>Other layouts</h3>
+              </>
+            )}
             <div className={styles.paletteList}>
-              {DISPLAY_TEMPLATES.map((template) => (
-                <button
-                  key={template.id}
-                  type="button"
-                  className={styles.templateButton}
-                  aria-label={`Insert ${template.label} template`}
-                  title={template.description}
-                  onClick={() => insertTemplate(template.id)}
-                >
-                  {displayAsset(`template:${template.id}`) && (
-                    <img
-                      className={styles.templatePreview}
-                      src={displayAssetUrl(displayAsset(`template:${template.id}`)!)}
-                      alt=""
-                      aria-hidden="true"
-                    />
-                  )}
-                  <span>{template.label}</span>
-                  <small>{template.widgets.length} widgets</small>
-                </button>
-              ))}
+              {templates.other.map(templateButton)}
             </div>
           </aside>
         )}

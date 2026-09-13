@@ -1,4 +1,33 @@
 {
+  "240x240/clock": {
+    "widgets": [
+      {
+        "label": "Time",
+        "type": "Text",
+        "x": 8,
+        "y": 48,
+        "width": 224,
+        "height": 64
+      },
+      {
+        "label": "Date",
+        "type": "Text",
+        "x": 8,
+        "y": 128,
+        "width": 224,
+        "height": 32
+      },
+      {
+        "label": "Clock set",
+        "type": "Status Indicator",
+        "x": 72,
+        "y": 176,
+        "width": 96,
+        "height": 40
+      }
+    ],
+    "issues": []
+  },
   "240x240/now-playing": {
     "widgets": [
       {
@@ -479,6 +508,35 @@
     ],
     "issues": []
   },
+  "240x320/clock": {
+    "widgets": [
+      {
+        "label": "Time",
+        "type": "Text",
+        "x": 8,
+        "y": 96,
+        "width": 224,
+        "height": 64
+      },
+      {
+        "label": "Date",
+        "type": "Text",
+        "x": 8,
+        "y": 176,
+        "width": 224,
+        "height": 32
+      },
+      {
+        "label": "Clock set",
+        "type": "Status Indicator",
+        "x": 72,
+        "y": 232,
+        "width": 96,
+        "height": 40
+      }
+    ],
+    "issues": []
+  },
   "240x320/now-playing": {
     "widgets": [
       {
@@ -955,6 +1013,35 @@
         "y": 232,
         "width": 208,
         "height": 24
+      }
+    ],
+    "issues": []
+  },
+  "320x240/clock": {
+    "widgets": [
+      {
+        "label": "Time",
+        "type": "Text",
+        "x": 16,
+        "y": 56,
+        "width": 288,
+        "height": 64
+      },
+      {
+        "label": "Date",
+        "type": "Text",
+        "x": 16,
+        "y": 136,
+        "width": 288,
+        "height": 32
+      },
+      {
+        "label": "Clock set",
+        "type": "Status Indicator",
+        "x": 112,
+        "y": 184,
+        "width": 96,
+        "height": 40
       }
     ],
     "issues": []
