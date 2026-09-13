@@ -52,6 +52,28 @@ function evaluate(displayProps: Record<string, unknown>, options: {
     { lit: boolean; layout: string; surface: TftSurface | null } | undefined
 }
 
+/**
+ * Evaluate the glass rather than the screen.
+ *
+ * Touch left the panel when a display became an output only, so these read the
+ * Touch node that shares the module. The rules being asserted are unchanged —
+ * a button fires once on the press, a slider tracks while held, a panel that
+ * cannot be touched stays inert — they are simply read from the node that now
+ * owns them.
+ */
+function evaluateTouch(displayProps: Record<string, unknown>, options: {
+  source?: string
+} = {}) {
+  const tft = node('tft', 'TransportDisplay', { partId: PLAIN, ...displayProps })
+  const touch = node('touch', 'TouchInput', { panelId: 'tft' })
+  const sourceNodes = options.source ? [node('src', options.source)] : []
+  const sourceEdges = options.source ? [edge('feed', 'src', 'display', 'tft', 'display')] : []
+  const result = evaluateGraphFull(
+    [output, tft, touch, ...sourceNodes], [...sourceEdges], 1.5, 8, 8,
+  )
+  return (result.outputs.get('touch') ?? {}) as unknown as { controls: Record<string, unknown> }
+}
+
 function litCount(surface: TftSurface): number {
   let n = 0
   for (let y = 0; y < surface.height; y++) {
@@ -136,7 +158,7 @@ describe('touch published from the preview', () => {
   })
 
   it('publishes an inert player-controls bundle without a preview touch', () => {
-    const value = evaluate({}) as unknown as { controls: Record<string, unknown> }
+    const value = evaluateTouch({})
     expect(value.controls).toEqual({
       playPause: false, previous: false, next: false,
       volumeDelta: 0, ledToggle: false, brightnessDelta: 0,
@@ -153,8 +175,8 @@ describe('touch published from the preview', () => {
     })
 
     const props = { partId: TOUCH, tftLayout: 'Fixed Transport' }
-    const first = evaluate(props, { source: 'PatternMaster' }) as unknown as { controls: Record<string, unknown> }
-    const held = evaluate(props, { source: 'PatternMaster' }) as unknown as { controls: Record<string, unknown> }
+    const first = evaluateTouch(props, { source: 'PatternMaster' })
+    const held = evaluateTouch(props, { source: 'PatternMaster' })
     expect(first.controls.next).toBe(true)
     expect(held.controls.next).toBe(false)
   })
@@ -167,10 +189,7 @@ describe('touch published from the preview', () => {
       y: g.volume.y + 1,
     })
 
-    const value = evaluate(
-      { partId: TOUCH, tftLayout: 'Fixed Transport' },
-      { source: 'PatternMaster' },
-    ) as unknown as { controls: Record<string, unknown> }
+    const value = evaluateTouch({ partId: TOUCH, tftLayout: 'Fixed Transport' }, { source: 'PatternMaster' })
     expect(value.controls.volume).toBeCloseTo(0.5, 1)
   })
 
@@ -182,13 +201,14 @@ describe('touch published from the preview', () => {
       y: g.playPause.rect.y + 1,
     })
     const tft = node('tft', 'TransportDisplay', { partId: TOUCH, tftLayout: 'Fixed Transport' })
+    const touch = node('touch', 'TouchInput', { panelId: 'tft' })
     const player = node('src', 'PatternMaster')
     const playerControls = node('pc', 'PlayerControls')
     const result = evaluateGraphFull(
-      [output, tft, player, playerControls],
+      [output, tft, touch, player, playerControls],
       [
         edge('feed', 'src', 'display', 'tft', 'display'),
-        edge('controls', 'tft', 'controls', 'pc', 'controlsIn'),
+        edge('controls', 'touch', 'controls', 'pc', 'controlsIn'),
       ],
       1.5, 8, 8,
     )
@@ -202,20 +222,14 @@ describe('touch published from the preview', () => {
   // is a legitimate state.
   it('publishes nothing from a Show Status panel', () => {
     useTransportDisplayTouchStore.getState().setTouch('tft', { pressed: true, x: 40, y: 40 })
-    const value = evaluate(
-      { partId: TOUCH },
-      { source: 'PatternSlideshow' },
-    ) as unknown as { controls: Record<string, unknown> }
+    const value = evaluateTouch({ partId: TOUCH }, { source: 'PatternSlideshow' })
     expect(value.controls.ledToggle).toBe(false)
     expect(value.controls.brightness).toBeUndefined()
   })
 
   it('keeps a non-touch module inert even if stale browser input exists', () => {
     useTransportDisplayTouchStore.getState().setTouch('tft', { pressed: true, x: 1, y: 1 })
-    const value = evaluate(
-      { partId: PLAIN, tftLayout: 'Fixed Transport' },
-      { source: 'PatternMaster' },
-    ) as unknown as { controls: Record<string, unknown> }
+    const value = evaluateTouch({ partId: PLAIN, tftLayout: 'Fixed Transport' }, { source: 'PatternMaster' })
     expect(value.controls.playPause).toBe(false)
     expect(value.controls.next).toBe(false)
   })

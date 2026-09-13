@@ -2774,15 +2774,13 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'input',
     inputs: [],
     outputs: [{ id: 'controls', label: 'Controls', dataType: 'playercontrols' }],
+    // No pins of its own: the digitiser's five lines are wiring on the same
+    // module as the screen, so they stay with the part on the panel where the
+    // Build Diagram and the pin checker already look for them. What lives here
+    // is what belongs to the touch surface itself — where the glass reads from,
+    // which is measured by calibrating rather than typed.
     defaultProperties: {
       panelId: '',
-      touchCsPin: 15,
-      touchIrqPin: 2,
-      // Sharing the display's bus is the useful default; the separately broken
-      // out touch header can move to another SPI bus without changing anything.
-      touchSckPin: 18,
-      touchMosiPin: 23,
-      touchMisoPin: 19,
       touchXMin: 200,
       touchXMax: 3900,
       touchYMin: 200,
@@ -2950,7 +2948,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'customDisplay', label: 'Screen Design', dataType: 'customdisplay' },
       { id: 'enabled', label: 'Enabled', dataType: 'bool' },
     ],
-    outputs: [{ id: 'controls', label: 'Controls', dataType: 'playercontrols' }],
+    // Nothing comes out of a display. What a finger does on the glass leaves
+    // through the Touch node that shares this module — see `TouchInput`.
+    outputs: [],
     defaultProperties: {
       partId: 'st7789-tft-240x240',
       tftLayout: 'Now Playing',
@@ -4453,11 +4453,6 @@ export const FORMULA_LANG_HELP = 'Variables: x, y, t, cx, cy, r, angle, W, H, a,
 /** Per-node overrides for property names whose meaning collides across nodes. */
 export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, string>> = {
   TouchInput: {
-    touchCsPin: 'Chip select for the touch digitiser. It is a separate chip from the display and needs a select line of its own.',
-    touchIrqPin: 'Interrupt line the digitiser pulls low while the glass is being pressed.',
-    touchSckPin: 'Clock line. Shares the display bus by default; change it only if the touch header is wired to another bus.',
-    touchMosiPin: 'Data to the digitiser. Shares the display bus by default.',
-    touchMisoPin: 'Data from the digitiser. Shares the display bus by default.',
     touchXMin: 'Measured raw X minimum for this touch module (0-4095). Use Calibrate touch rather than typing these.',
     touchXMax: 'Measured raw X maximum for this touch module (0-4095).',
     touchYMin: 'Measured raw Y minimum for this touch module (0-4095).',

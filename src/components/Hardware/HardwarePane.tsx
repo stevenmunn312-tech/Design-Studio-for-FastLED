@@ -1473,6 +1473,32 @@ export default function HardwarePane() {
       const size = displayResolution(moduleId ?? '') ?? { width: 320, height: 240 }
       setDisplayDocument(createDisplayDocument(nodeId, size.width, size.height))
     }
+    /*
+     * A touch panel is two chips, so it arrives as two nodes.
+     *
+     * Both from one deliberate action — taking the module off the shelf —
+     * rather than one appearing later because a button was pressed. The link
+     * between them is set here and never typed, since they are one part.
+     */
+    if (isHardwareManagedSignalNodeType(entry.nodeType)
+      && Boolean(partById(moduleId ?? '')?.display?.touchController)) {
+      const touchDefinition = NODE_LIBRARY.find((candidate) => candidate.type === 'TouchInput')
+      if (touchDefinition) {
+        addNode({
+          id: `TouchInput-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+          type: 'studioNode',
+          position: { x: viewCenter.x + 260, y: viewCenter.y },
+          data: {
+            label: touchDefinition.label,
+            nodeType: touchDefinition.type,
+            category: touchDefinition.category,
+            properties: { ...touchDefinition.defaultProperties, panelId: nodeId },
+            inputs: touchDefinition.inputs,
+            outputs: touchDefinition.outputs,
+          },
+        } as never)
+      }
+    }
     const audioNodes = nodes.filter((node) => node.data.nodeType === 'Audio')
     if (entry.nodeType === 'StereoVuMeter' && audioNodes.length === 1) {
       connectRoot({

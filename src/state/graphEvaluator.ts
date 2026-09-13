@@ -37,7 +37,7 @@ import {
   TRANSPORT_ARTWORK_W,
   type TransportDisplayData, type TransportDisplayLayout, type TransportClockData,
 } from './transportDisplay'
-import { TFT_CONTROLLERS, asTftRotation, tftLine, type TftSurface } from './tftSurface'
+import { TFT_CONTROLLERS, asTftRotation, tftLine, type TftController, type TftRotation, type TftSurface } from './tftSurface'
 import { touchRegionAt, transportTouchRegions } from './transportTouch'
 import { partById } from './partCatalogue'
 import {
@@ -232,6 +232,72 @@ interface PlayerControlsState {
 }
 const playerControlsState = new Map<string, PlayerControlsState>()
 const transportDisplayTouchState = new Map<string, { pressed: boolean }>()
+
+/**
+ * What a finger on a panel's glass is doing, as a controls bundle.
+ *
+ * Shared because two nodes need the same answer from opposite sides: the Touch
+ * node publishes it, and the panel's own Diagnostics screen draws it. The edge
+ * rules are the firmware's — a momentary action fires once on the touch-down
+ * edge, an absolute slider tracks for as long as the finger stays down — so a
+ * held finger cannot fire a button every evaluator tick here and once on the
+ * device.
+ */
+/** A bundle with nothing happening on it. */
+function blankPlayerControls(): PlayerControls {
+  return {
+    playPause: false, previous: false, next: false,
+    volumeDelta: 0, ledToggle: false, brightnessDelta: 0,
+    patternSteps: 0, patternConfirm: false,
+  }
+}
+
+/**
+ * Whether a finger is on the glass, without touching the edge state.
+ *
+ * A level, not an event. The panel's own Diagnostics screen draws this, and it
+ * must not consume the press: the edge belongs to the Touch node, and when both
+ * ran the edge logic whichever evaluated first swallowed the press and the
+ * other saw a finger that had always been there.
+ */
+function panelTouchPressed(panelNodeId: string, live: boolean): {
+  pressed: boolean
+  touch: { x: number; y: number } | null
+} {
+  const touch = useTransportDisplayTouchStore.getState().touches.get(panelNodeId)
+  return {
+    pressed: live && Boolean(touch?.pressed),
+    touch: touch ? { x: touch.x, y: touch.y } : null,
+  }
+}
+
+function panelTouchControls(
+  touchKey: string,
+  panelNodeId: string,
+  controller: TftController,
+  rotation: TftRotation,
+  layout: TransportDisplayLayout,
+  live: boolean,
+): PlayerControls {
+  const controls = blankPlayerControls()
+  const touch = useTransportDisplayTouchStore.getState().touches.get(panelNodeId)
+  const pressed = live && Boolean(touch?.pressed)
+  const previousTouch = transportDisplayTouchState.get(touchKey) ?? { pressed: false }
+  const hit = pressed && touch
+    ? touchRegionAt(touch, transportTouchRegions(controller, rotation, layout))
+    : null
+  if (hit?.action === 'volume' && hit.value != null) controls.volume = hit.value
+  if (hit?.action === 'brightness' && hit.value != null) controls.brightness = hit.value
+  if (pressed && !previousTouch.pressed && hit) {
+    if (hit.action === 'playPause') controls.playPause = true
+    else if (hit.action === 'previous') controls.previous = true
+    else if (hit.action === 'next') controls.next = true
+    else if (hit.action === 'ledToggle') controls.ledToggle = true
+  }
+  previousTouch.pressed = pressed
+  transportDisplayTouchState.set(touchKey, previousTouch)
+  return controls
+}
 const transportArtworkCache = new Map<string, {
   nodes: StudioNode[]
   edges: StudioEdge[]
@@ -7372,6 +7438,44 @@ function createEvalNode(
         break
       }
 
+      /*
+       * The glass in front of a Display Panel.
+       *
+       * Reads the panel it belongs to rather than a wire: the two nodes are one
+       * physical module, and a press means nothing without the panel's size,
+       * rotation and the screen it is currently drawing. A panel switched off
+       * reads no touch at all, which is the same rule the firmware applies.
+       */
+      case 'TouchInput': {
+        const panel = nodeMap.get(String(props.panelId ?? ''))
+        if (!panel || panel.data.nodeType !== 'TransportDisplay') {
+          out = { controls: blankPlayerControls() }
+          break
+        }
+        const panelId = panel.id
+        const panelProps = panel.data.properties as Record<string, unknown>
+        const panelEnabled = incoming.has(`${panelId}:enabled`)
+          ? Boolean(input(panelId, 'enabled', true))
+          : panelProps.enabled !== false
+        const touchCapable = Boolean(partById(String(panelProps.partId ?? ''))?.display?.touchController)
+        const panelController = tftControllerForProps(panelProps) ?? TFT_CONTROLLERS.ST7789
+        const panelRotation = asTftRotation(panelProps.tftRotation)
+        const panelSignalValue = input(panelId, 'display', null)
+        const panelSignal = isDisplaySignal(panelSignalValue) ? panelSignalValue : null
+        const panelLayout: TransportDisplayLayout =
+          asTransportDisplayLayout(panelProps.tftLayout) === 'Diagnostics'
+            ? 'Diagnostics'
+            : (panelSignal ? transportLayoutForKind(panelSignal.kind, panelProps.tftLayout) : null) ?? 'Waiting'
+        // Keyed on the panel, not on this node: the edge state belongs to the
+        // glass, and it is the same glass however many nodes look at it.
+        const controls = panelTouchControls(
+          stateKey(panelId), panelId, panelController, panelRotation, panelLayout,
+          panelEnabled && touchCapable,
+        )
+        out = { controls }
+        break
+      }
+
       case 'TransportDisplay': {
         // A terminal like the OLED beside it, and it draws through
         // state/transportDisplay.ts for the same reason: the node body, the
@@ -7397,37 +7501,14 @@ function createEvalNode(
         const layout: TransportDisplayLayout = diagnostics
           ? 'Diagnostics'
           : (signal ? transportLayoutForKind(signal.kind, props.tftLayout) : null) ?? 'Waiting'
-        const controls: PlayerControls = {
-          playPause: false, previous: false, next: false,
-          volumeDelta: 0, ledToggle: false, brightnessDelta: 0,
-          patternSteps: 0, patternConfirm: false,
-        }
-        const touchKey = stateKey(id)
-        const touch = useTransportDisplayTouchStore.getState().touches.get(id)
+        // The glass is read by the Touch node beside this one, not here: a
+        // display is an output. What the panel still needs is whether a finger
+        // is down, because its own Diagnostics screen draws that.
         const touchCapable = Boolean(partById(String(props.partId ?? ''))?.display?.touchController)
-        const pressed = enabled && touchCapable && Boolean(touch?.pressed)
-        const previousTouch = transportDisplayTouchState.get(touchKey) ?? { pressed: false }
-        const hit = pressed && touch
-          ? touchRegionAt(touch, transportTouchRegions(controller, rotation, layout))
-          : null
-
-        // Firmware publishes momentary actions only on the touch-down edge and
-        // absolute sliders for as long as the finger stays down. Do the same
-        // here so chaining through Player Controls cannot fire a button every
-        // evaluator tick while it is held.
-        if (hit?.action === 'volume' && hit.value != null) controls.volume = hit.value
-        if (hit?.action === 'brightness' && hit.value != null) controls.brightness = hit.value
-        if (pressed && !previousTouch.pressed && hit) {
-          if (hit.action === 'playPause') controls.playPause = true
-          else if (hit.action === 'previous') controls.previous = true
-          else if (hit.action === 'next') controls.next = true
-          else if (hit.action === 'ledToggle') controls.ledToggle = true
-        }
-        previousTouch.pressed = pressed
-        transportDisplayTouchState.set(touchKey, previousTouch)
+        const { pressed, touch } = panelTouchPressed(id, enabled && touchCapable)
 
         if (!enabled) {
-          out = { lit: false, layout, surface: null, controls }
+          out = { lit: false, layout, surface: null }
           break
         }
 
@@ -7534,7 +7615,7 @@ function createEvalNode(
           }
         }
 
-        out = { lit: true, layout, surface: renderTransportDisplay(controller, rotation, payload), controls }
+        out = { lit: true, layout, surface: renderTransportDisplay(controller, rotation, payload) }
         break
       }
 

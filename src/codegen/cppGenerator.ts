@@ -5218,11 +5218,14 @@ export function generateCpp(
         const diagnosticTouch = layout === 'Diagnostics' && touchCapable
         // A panel samples touch for either of two reasons: to report raw
         // coordinates on the Diagnostics screen, or because something is
-        // listening to its buttons. The second is new — until an LED output
-        // could latch a bundle there was nothing in a normal sketch for a
-        // press to reach, and validation refused the wire instead.
-        const publishesControls = touchCapable
-          && edges.some((e) => e.source === node.id && e.sourceHandle === 'controls')
+        // listening to its buttons. The listening is no longer done through a
+        // port on the panel — a display has no outputs — so the question is
+        // whether the Touch node sharing this module has its Controls wired
+        // anywhere. The pins are still the panel's, because the digitiser's
+        // lines are wiring on this module.
+        const publishesControls = touchCapable && nodes.some((entry) => entry.data.nodeType === 'TouchInput'
+          && String((entry.data.properties as Record<string, unknown>).panelId ?? '') === node.id
+          && edges.some((e) => e.source === entry.id && e.sourceHandle === 'controls'))
         const emit: TftDisplayEmit = {
           id,
           controller,
@@ -5263,6 +5266,9 @@ export function generateCpp(
         // emit the pictures instead.
         tftDisplays.push(emit)
         if (diagnosticTouch || publishesControls) {
+          const touchNode = nodes.find((entry) => entry.data.nodeType === 'TouchInput'
+            && String((entry.data.properties as Record<string, unknown>).panelId ?? '') === node.id)
+          const touchProps = (touchNode?.data.properties ?? {}) as Record<string, unknown>
           const touch: TftTouchEmit = {
             id, controller, rotation, layout, enabledExpr: `_tftOn_${id}`,
             telemetry: emitTelemetry,
@@ -5272,20 +5278,27 @@ export function generateCpp(
               sckPin: intProp(p.touchSckPin, 18, 0, MAX_PIN_NUMBER),
               mosiPin: intProp(p.touchMosiPin, 23, 0, MAX_PIN_NUMBER),
               misoPin: intProp(p.touchMisoPin, 19, 0, MAX_PIN_NUMBER),
-              xMin: intProp(p.touchXMin, 200, 0, 4095),
-              xMax: intProp(p.touchXMax, 3900, 0, 4095),
-              yMin: intProp(p.touchYMin, 200, 0, 4095),
-              yMax: intProp(p.touchYMax, 3900, 0, 4095),
+              // Calibration belongs to the glass, so it is read from the Touch
+              // node when there is one. A panel showing its own Diagnostics
+              // screen with no Touch node beside it still needs bounds, and
+              // falls back to the library defaults.
+              xMin: intProp(touchProps.touchXMin, 200, 0, 4095),
+              xMax: intProp(touchProps.touchXMax, 3900, 0, 4095),
+              yMin: intProp(touchProps.touchYMin, 200, 0, 4095),
+              yMax: intProp(touchProps.touchYMax, 3900, 0, 4095),
             },
           }
           tftTouches.push(touch)
           setupLines.push(...tftTouchSetupCpp(touch))
-          if (publishesControls) {
-            // The panel publishes the same bundle a Player Controls node does,
-            // resolved from the same hit geometry the browser preview uses.
-            playerControlNodes.push(id)
-            ln(`  PlayerControlsValue ${v('controls')};`)
-            for (const line of tftTouchServiceCpp(touch, { kind: 'bundle', variable: v('controls') })) ln(line)
+          if (publishesControls && touchNode) {
+            // Named for the Touch node, because that is what downstream reads:
+            // the bundle is this glass's output, and the panel is only where
+            // the digitiser happens to be wired.
+            const touchId = safeId(touchNode.id)
+            const bundle = `n_${touchId}_controls`
+            playerControlNodes.push(touchId)
+            ln(`  PlayerControlsValue ${bundle};`)
+            for (const line of tftTouchServiceCpp(touch, { kind: 'bundle', variable: bundle })) ln(line)
           } else {
             for (const line of tftTouchServiceCpp(touch)) ln(line)
           }

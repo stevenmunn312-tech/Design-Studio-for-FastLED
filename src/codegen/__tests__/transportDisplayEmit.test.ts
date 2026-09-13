@@ -294,15 +294,19 @@ describe('a touch panel driving an LED output', () => {
   })
   const frameWire = wire('ef', 'c', 'frame', 'out', 'frame')
 
+  // The glass is its own node now, so the wire into the LED output leaves the
+  // Touch node rather than the panel. The digitiser's pins stay on the panel,
+  // where the module's wiring lives.
+  const touch = node('touch', 'TouchInput', { panelId: 'tft' })
   const build = (layout = 'Show Status') => generateCpp(
-    [solid, panel(layout), out],
-    [frameWire, wire('t', 'tft', 'controls', 'out', 'controls')],
+    [solid, panel(layout), touch, out],
+    [frameWire, wire('t', 'touch', 'controls', 'out', 'controls')],
   )
 
   it('samples the controller and publishes a bundle', () => {
     const src = build()
     expect(src).toContain('struct PlayerControlsValue')
-    expect(src).toContain('PlayerControlsValue n_tft_controls;')
+    expect(src).toContain('PlayerControlsValue n_touch_controls;')
     expect(src).toContain('_xptPoint(')
   })
 
@@ -312,16 +316,16 @@ describe('a touch panel driving an LED output', () => {
   // custom Display node, whose authored buttons this generator does emit.
   it('writes no layout actions, because a waiting screen has no controls', () => {
     const src = build()
-    expect(src).not.toContain('n_tft_controls.ledToggle = true;')
-    expect(src).not.toContain('n_tft_controls.hasBrightness = true;')
-    expect(src).not.toContain('n_tft_controls.playPause = true;')
+    expect(src).not.toContain('n_touch_controls.ledToggle = true;')
+    expect(src).not.toContain('n_touch_controls.hasBrightness = true;')
+    expect(src).not.toContain('n_touch_controls.playPause = true;')
   })
 
   // Whatever a panel does publish must still reach the latch, and must never
   // reach for a player transport function no normal sketch defines.
   it('feeds the output latch without naming a player transport', () => {
     const src = build()
-    expect(src).toContain('n_tft_controls')
+    expect(src).toContain('n_touch_controls')
     expect(src).toContain('_ledOn_out')
     for (const symbol of ['changePlayerTrack', 'applyPlayerBrightness', 'audio.pauseResume']) {
       expect(src).not.toContain(symbol)

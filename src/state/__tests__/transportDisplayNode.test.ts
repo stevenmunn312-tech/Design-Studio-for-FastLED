@@ -27,13 +27,27 @@ function display(id: string, over: Record<string, unknown> = {}): StudioNode {
 }
 
 describe('TransportDisplay registration', () => {
-  it('is a workbench-owned signal terminal with a player-controls output', () => {
+  // A display is an output, end of the line like an LED output. Nothing leaves
+  // it: what a finger does on the glass leaves through the Touch node that
+  // shares the module, because a thing that shows you something is not also
+  // where your intent came from.
+  it('is a workbench-owned signal terminal that nothing comes out of', () => {
     const def = NODE_LIBRARY.find((entry) => entry.type === 'TransportDisplay')!
     expect(def.label).toBe('Display Panel')
     expect(def.category).toBe('output')
-    expect(def.outputs).toEqual([{ id: 'controls', label: 'Controls', dataType: 'playercontrols' }])
+    expect(def.outputs).toEqual([])
     expect(isHardwareManagedSignalNodeType(def.type)).toBe(true)
     expect(isHardwareLibraryHiddenNodeType(def.type)).toBe(true)
+  })
+
+  it('sends the glass out through a Touch node instead', () => {
+    const touch = NODE_LIBRARY.find((entry) => entry.type === 'TouchInput')!
+    expect(touch.label).toBe('Touch')
+    expect(touch.inputs).toEqual([])
+    expect(touch.outputs).toEqual([{ id: 'controls', label: 'Controls', dataType: 'playercontrols' }])
+    // Its pins are not here: the digitiser's five lines are wiring on the same
+    // module as the screen, and stay with the part on the panel.
+    expect(Object.keys(touch.defaultProperties ?? {}).filter((key) => key.endsWith('Pin'))).toEqual([])
   })
 
   // The mismatch this pins was real: the node shipped an `artwork` port of

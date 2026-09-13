@@ -27,15 +27,22 @@ describe('the Build Diagram draws every part on the bench', () => {
    * the displays. Deriving the set from hardware ownership is the fix; this is
    * the test that keeps it derived.
    */
-  // `Display` is the one exception: since the panel/document split (see
-  // docs/development/design/large-displays-and-control-routing.md) it has no
-  // pins and no physical existence of its own — it draws nothing until wired
-  // to a TransportDisplay panel's `customDisplay` input, which this
-  // one-node-in-isolation check cannot express. Its manifest behaviour when
-  // wired is covered directly in customDisplayControlGraph's own tests.
+  /*
+   * Two exceptions, both nodes with no physical presence of their own.
+   *
+   * `Display` draws nothing until wired to a panel's `customDisplay` input,
+   * which this one-node-in-isolation check cannot express; its manifest
+   * behaviour when wired is covered in customDisplayControlGraph's own tests.
+   *
+   * `TouchInput` is the digitiser of a panel that the diagram has already
+   * drawn. It is one module with two chips on it, not two parts on the bench,
+   * and its pins are the panel's — so drawing it separately would put the same
+   * module on the diagram twice.
+   */
   const bench = NODE_LIBRARY
     .map((def) => def.type)
-    .filter((type) => isHardwareNodeType(type) && type !== 'Board' && type !== 'Display')
+    .filter((type) => isHardwareNodeType(type)
+      && type !== 'Board' && type !== 'Display' && type !== 'TouchInput')
 
   it('found the workbench-owned parts to check', () => {
     expect(bench.length).toBeGreaterThan(8)

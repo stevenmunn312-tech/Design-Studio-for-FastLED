@@ -2307,6 +2307,21 @@ export const useGraphStore = create<GraphState>()(
         const displayId = node.data.nodeType === 'Display'
           ? String(node.data.properties.displayId ?? node.id)
           : null
+        /*
+         * A panel takes its glass with it.
+         *
+         * The two nodes are one physical module, added together and removed
+         * together — a Touch node left behind would point at a panel that no
+         * longer exists, publishing nothing and explaining nothing.
+         */
+        const searchIn = inActive ? state.nodes : rootGraphNodes(state)
+        const removeIds = new Set([id])
+        if (node.data.nodeType === 'TransportDisplay') {
+          for (const entry of searchIn) {
+            if (entry.data.nodeType !== 'TouchInput') continue
+            if (String(entry.data.properties.panelId ?? '') === id) removeIds.add(entry.id)
+          }
+        }
         scheduleOrphanGraphPrune()
         set((s) => {
           const withoutDisplayDocument = (result: Partial<GraphState>): Partial<GraphState> => {
@@ -2318,11 +2333,11 @@ export const useGraphStore = create<GraphState>()(
           }
           if (inActive) {
             return withoutDisplayDocument(
-              removeNodeAndEdges(s.nodes, s.edges, s.selectedNodeId, s.performanceDeck, new Set([id])),
+              removeNodeAndEdges(s.nodes, s.edges, s.selectedNodeId, s.performanceDeck, removeIds),
             )
           }
           const removed = removeNodeAndEdges(
-            rootGraphNodes(s), rootGraphEdges(s), s.selectedNodeId, s.performanceDeck, new Set([id]))
+            rootGraphNodes(s), rootGraphEdges(s), s.selectedNodeId, s.performanceDeck, removeIds)
           const { nodes, edges, ...rest } = removed
           return withoutDisplayDocument({ ...rest, ...withRootContent(s, { nodes, edges }) })
         })
