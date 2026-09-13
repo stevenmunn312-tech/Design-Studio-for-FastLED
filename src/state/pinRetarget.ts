@@ -41,6 +41,7 @@ import {
 import { OLED_TRANSPORT_PINS } from './oledSurface'
 import { sdSpiPinsForBoard, type SdSpiPins } from './sdPinDefaults'
 import { normalizeButtonBankEntries, type ButtonBankEntry } from './buttonBank'
+import { integratedPinsFor } from './integratedBoardHardware'
 
 /** Property holding the values the app last assigned, keyed by pin property. */
 export const ASSIGNED_PINS_KEY = 'assignedPins'
@@ -484,6 +485,16 @@ export function retargetHardwarePins(
     const plan = PART_PIN_PLANS[node.data.nodeType]
     if (!plan) return {}
     const properties = node.data.properties as Record<string, unknown>
+    /*
+     * Hardware soldered to the controller board outranks every rule below it.
+     *
+     * A CYD's panel is on the pins it is on: there is no choice to remember,
+     * nothing to restore, and nowhere to move it to. Answering here rather
+     * than with a `fromProfile` plan is what also takes those pins out of the
+     * pool, so the LED output added next is not handed the backlight.
+     */
+    const integrated = integratedPinsFor(node.data.nodeType, properties, boardKey)
+    if (integrated) return integrated
     const stampedFor = properties[ASSIGNED_BOARD_KEY]
     const remembered = userPinsByBoard(properties)[boardKey] ?? {}
     const out: Record<string, number> = { ...remembered }

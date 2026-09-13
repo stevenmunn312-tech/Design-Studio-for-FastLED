@@ -71,6 +71,12 @@ import {
   withPlayerControlAssignment, withoutPlayerControlAssignment,
 } from './playerControlAssignments'
 import { syncAutomaticStereoVuLedCounts, VU_LED_COUNT_CUSTOM_KEY } from './stereoVuSizing'
+import {
+  INTEGRATED_BOARD_PROFILE_KEY,
+  integratedTouchDisplayForBoard,
+  matchesIntegratedTouchDisplay,
+} from './integratedBoardHardware'
+import { partById } from './partCatalogue'
 
 export interface StudioNodeData extends Record<string, unknown> {
   label: string
@@ -224,6 +230,8 @@ interface GraphState {
   clearSelection: () => void
   updateNodeProperty: (id: string, key: string, value: unknown) => void
   updateNodeProperties: (id: string, updates: Record<string, unknown>) => void
+  /** Select an exact board and materialise hardware physically integrated into it. */
+  selectBoardProfile: (id: string, profileId: string) => void
   setNodeMinimized: (id: string, minimized: boolean) => void
   setAllNodesMinimized: (minimized: boolean) => void
   /** Move every hardware part's app-assigned pins onto `fqbn`'s board,
@@ -2069,6 +2077,94 @@ export const useGraphStore = create<GraphState>()(
           updates,
           Object.prototype.hasOwnProperty.call(updates, 'ledCount'),
         )),
+
+      /*
+       * Choosing the exact board, and bringing whatever is soldered to it.
+       *
+       * Separate from `updateNodeProperty` because on an integrated board the
+       * profile is not just a label: a CYD arrives with a panel and a touch
+       * digitiser already wired, on pins nobody chose. Adding them by hand and
+       * overriding twelve pins one at a time is what the bench notes describe,
+       * and it is the app asking the user to re-enter a fact it already knows.
+       *
+       * Idempotent, and adoption-first: a panel this already placed, or one the
+       * user wired to the same fixed pinout themselves, is updated in place
+       * rather than duplicated. `pinRetarget` keeps those pins still from then
+       * on — see `integratedPinsFor`.
+       */
+      selectBoardProfile: (id, profileId) => set((s) => {
+        const rootNodes = rootGraphNodes(s)
+        const board = rootNodes.find((node) => node.id === id && node.data.nodeType === 'Board')
+        if (!board) return s
+
+        let nodes = rootNodes.map((node) => node.id === id
+          ? { ...node, data: { ...node.data, properties: { ...node.data.properties, profileId } } }
+          : node)
+        const integrated = integratedTouchDisplayForBoard(profileId)
+        const definition = LIBRARY_DEF.get('TransportDisplay')
+        if (!integrated || !definition) return withRootNodes(s, nodes)
+
+        const used = new Set(nodes.map((node) => node.id))
+        const existing = nodes.find((node) => node.data.nodeType === 'TransportDisplay'
+          && node.data.properties[INTEGRATED_BOARD_PROFILE_KEY] === profileId)
+          ?? nodes.find((node) => node.data.nodeType === 'TransportDisplay'
+            && matchesIntegratedTouchDisplay(node.data.properties, integrated))
+        const panelId = existing?.id ?? uniqueId(`TransportDisplay-${Date.now()}`, used)
+        used.add(panelId)
+        const panelProperties: Record<string, unknown> = {
+          ...(existing ? existing.data.properties : libraryDefaults(definition.type)),
+          ...integrated.panelProperties,
+          [INTEGRATED_BOARD_PROFILE_KEY]: profileId,
+        }
+        // Off beside the hidden Board node rather than at the origin, so a
+        // graph already on the canvas is not landed on.
+        const panelPosition = existing?.position ?? { x: board.position.x + 260, y: board.position.y }
+        nodes = existing
+          ? nodes.map((node) => node.id === panelId
+            ? { ...node, data: { ...node.data, properties: panelProperties } }
+            : node)
+          : [...nodes, {
+            id: panelId,
+            type: 'studioNode',
+            position: panelPosition,
+            data: {
+              label: definition.label,
+              nodeType: definition.type,
+              category: definition.category,
+              properties: panelProperties,
+              inputs: definition.inputs,
+              outputs: definition.outputs,
+            },
+          } as StudioNode]
+
+        // The glass is a second node because it is a second chip, exactly as
+        // taking the module off the shelf in the hardware view produces two.
+        // Whether this board has one is the catalogue's answer, not a flag
+        // repeated here.
+        const touchDefinition = LIBRARY_DEF.get('TouchInput')
+        const hasTouchController = Boolean(
+          partById(String(panelProperties.partId ?? ''))?.display?.touchController,
+        )
+        const touchPresent = nodes.some((node) => node.data.nodeType === 'TouchInput'
+          && String(node.data.properties.panelId ?? '') === panelId)
+        if (touchDefinition && hasTouchController && !touchPresent) {
+          nodes = [...nodes, {
+            id: uniqueId(`TouchInput-${Date.now()}`, used),
+            type: 'studioNode',
+            position: { x: panelPosition.x + 260, y: panelPosition.y },
+            data: {
+              label: touchDefinition.label,
+              nodeType: touchDefinition.type,
+              category: touchDefinition.category,
+              properties: { ...libraryDefaults(touchDefinition.type), panelId },
+              inputs: touchDefinition.inputs,
+              outputs: touchDefinition.outputs,
+            },
+          } as StudioNode]
+        }
+
+        return withRootNodes(s, nodes)
+      }),
 
       setNodeMinimized: (id, minimized) =>
         set((s) => ({

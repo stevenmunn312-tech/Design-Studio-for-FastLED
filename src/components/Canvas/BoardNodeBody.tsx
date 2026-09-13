@@ -27,6 +27,7 @@ interface Props { nodeId: string }
 
 export default function BoardNodeBody({ nodeId }: Props) {
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
+  const selectBoardProfile = useGraphStore((s) => s.selectBoardProfile)
   const pinProperty = useGraphStore((s) => s.pinProperty)
   const unpinProperty = useGraphStore((s) => s.unpinProperty)
   const brightnessPin = useGraphStore((s) => s.performanceDeck.pins.find(
@@ -64,7 +65,7 @@ export default function BoardNodeBody({ nodeId }: Props) {
   const familyBoards = useMemo(() => boardProfilesForFamily(familyId), [familyId])
 
   function chooseBoard(nextId: string) {
-    updateNodeProperty(nodeId, 'profileId', nextId)
+    selectBoardProfile(nodeId, nextId)
     const next = boardProfileById(nextId)
     // Profiles list the specific FQBN first and the family fallback after, so
     // the first entry is the closest match for this exact board.

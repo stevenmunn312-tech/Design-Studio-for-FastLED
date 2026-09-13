@@ -315,7 +315,7 @@ export default function BuildDiagramWorkspace() {
   const boardNodeId = useMemo(
     () => nodes.find((node) => node.data.nodeType === 'Board')?.id ?? ROOT_BOARD_NODE_ID,
     [nodes])
-  const updateNodeProperty = useGraphStore((state) => state.updateNodeProperty)
+  const selectBoardProfile = useGraphStore((state) => state.selectBoardProfile)
   const setSelectedFqbn = useUploadStore((state) => state.setSelectedFqbn)
   // A chosen exact board only applies while it still matches the upload target.
   // Switching FQBN used to leave the old board's render and pin map in place —
@@ -529,7 +529,7 @@ export default function BuildDiagramWorkspace() {
     // this view. Profiles list their specific FQBN first, so mirroring the
     // first entry sharpens a family-level upload target the same way the
     // hardware view's picker does.
-    updateNodeProperty(boardNodeId, 'profileId', profileId)
+    selectBoardProfile(boardNodeId, profileId)
     const fqbn = boardProfileById(profileId)?.compatibleFqbns[0]
     if (fqbn && fqbn !== selectedFqbn) setSelectedFqbn(fqbn)
     setSelectedItemId('controller')
