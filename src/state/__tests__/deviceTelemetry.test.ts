@@ -6,6 +6,7 @@ import {
   accumulateTelemetry,
   formatTelemetryReport,
   parseTelemetryLine,
+  parseTelemetryTouchSample,
   startTelemetryRun,
   telemetryHeapSlopeBytesPerHour,
   telemetryLeaking,
@@ -77,6 +78,25 @@ describe('parseTelemetryLine', () => {
 
   it('reports an interval the firmware can share', () => {
     expect(TELEMETRY_INTERVAL_MS).toBeGreaterThan(0)
+  })
+})
+
+describe('parseTelemetryTouchSample', () => {
+  it('reads a raw touch sample from the shared marked line', () => {
+    expect(parseTelemetryTouchSample(`${TELEMETRY_MARKER} touchx=217 touchy=3891`))
+      .toEqual({ rawX: 217, rawY: 3891 })
+  })
+
+  it('can share a line with the regular device report', () => {
+    expect(parseTelemetryTouchSample(`${LINE} touchx=400 touchy=3500`))
+      .toEqual({ rawX: 400, rawY: 3500 })
+    expect(parseTelemetryLine(`${LINE} touchx=400 touchy=3500`)?.uptimeSec).toBe(3600)
+  })
+
+  it('rejects partial, fractional, and out-of-range raw readings', () => {
+    expect(parseTelemetryTouchSample(`${TELEMETRY_MARKER} touchx=100`)).toBeNull()
+    expect(parseTelemetryTouchSample(`${TELEMETRY_MARKER} touchx=1.5 touchy=20`)).toBeNull()
+    expect(parseTelemetryTouchSample(`${TELEMETRY_MARKER} touchx=4096 touchy=20`)).toBeNull()
   })
 })
 

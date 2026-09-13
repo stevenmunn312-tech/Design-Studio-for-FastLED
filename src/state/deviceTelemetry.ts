@@ -16,6 +16,15 @@
 /** The marker that opens a telemetry line, findable anywhere in it. */
 export const TELEMETRY_MARKER = 'FLS_STAT'
 
+/** Keys reserved for raw touch calibration samples on the telemetry line. */
+export const TELEMETRY_TOUCH_X_KEY = 'touchx'
+export const TELEMETRY_TOUCH_Y_KEY = 'touchy'
+
+export interface DeviceTouchSample {
+  rawX: number
+  rawY: number
+}
+
 /**
  * How often the device reports, in milliseconds.
  *
@@ -60,14 +69,7 @@ function numeric(value: string | undefined): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-/**
- * Read one telemetry line, or null if this is not one.
- *
- * Tolerant by design: the serial stream carries the sketch's own logs, a boot
- * banner and sometimes half a line, so anything unparsable is simply not a
- * sample. The marker may sit behind a timestamp or log prefix.
- */
-export function parseTelemetryLine(line: string): DeviceTelemetrySample | null {
+function telemetryFields(line: string): Map<string, string> | null {
   const at = line.indexOf(TELEMETRY_MARKER)
   if (at < 0) return null
   const fields = new Map<string, string>()
@@ -76,6 +78,19 @@ export function parseTelemetryLine(line: string): DeviceTelemetrySample | null {
     if (split <= 0) continue
     fields.set(token.slice(0, split).toLowerCase(), token.slice(split + 1))
   }
+  return fields
+}
+
+/**
+ * Read one telemetry line, or null if this is not one.
+ *
+ * Tolerant by design: the serial stream carries the sketch's own logs, a boot
+ * banner and sometimes half a line, so anything unparsable is simply not a
+ * sample. The marker may sit behind a timestamp or log prefix.
+ */
+export function parseTelemetryLine(line: string): DeviceTelemetrySample | null {
+  const fields = telemetryFields(line)
+  if (!fields) return null
   for (const key of REQUIRED) {
     if (numeric(fields.get(key)) === null) return null
   }
@@ -90,6 +105,25 @@ export function parseTelemetryLine(line: string): DeviceTelemetrySample | null {
     touchLatencyMs: numeric(fields.get('touchms')),
     drawBufferBytes: numeric(fields.get('drawbuf')),
   }
+}
+
+/**
+ * Read a raw touch sample carried by the shared telemetry marker.
+ *
+ * Calibration firmware may emit these short lines at touch-sampling speed,
+ * independently of the two-second health report. Requiring both named fields,
+ * integer ADC values and the controller's 12-bit range prevents log traffic or
+ * a partial line from moving the wizard forward.
+ */
+export function parseTelemetryTouchSample(line: string): DeviceTouchSample | null {
+  const fields = telemetryFields(line)
+  if (!fields) return null
+  const rawX = numeric(fields.get(TELEMETRY_TOUCH_X_KEY))
+  const rawY = numeric(fields.get(TELEMETRY_TOUCH_Y_KEY))
+  if (rawX === null || rawY === null
+    || !Number.isInteger(rawX) || !Number.isInteger(rawY)
+    || rawX < 0 || rawX > 4095 || rawY < 0 || rawY > 4095) return null
+  return { rawX, rawY }
 }
 
 /**

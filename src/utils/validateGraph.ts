@@ -1904,8 +1904,9 @@ export function findDisplayGeneratorIssues(
         + 'Give the panel a screen design whose Toggle and Slider outputs drive the LED output for blackout and brightness, '
         + "or disconnect the Touch node's Controls to keep this fixed screen read-only.")
     }
+    const calibrationProps = (touchNode?.data.properties ?? props) as Record<string, unknown>
     const raw = (key: string, fallback: number) => {
-      const value = Number(props[key] ?? fallback)
+      const value = Number(calibrationProps[key] ?? fallback)
       return Number.isFinite(value) ? value : fallback
     }
     const xMin = raw('touchXMin', 200)

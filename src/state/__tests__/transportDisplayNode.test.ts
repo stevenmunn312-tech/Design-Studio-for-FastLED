@@ -48,6 +48,14 @@ describe('TransportDisplay registration', () => {
     // Its pins are not here: the digitiser's five lines are wiring on the same
     // module as the screen, and stay with the part on the panel.
     expect(Object.keys(touch.defaultProperties ?? {}).filter((key) => key.endsWith('Pin'))).toEqual([])
+    expect(touch.defaultProperties).toMatchObject({
+      touchXMin: 200, touchXMax: 3900, touchYMin: 200, touchYMax: 3900,
+    })
+    for (const key of ['touchXMin', 'touchXMax', 'touchYMin', 'touchYMax']) {
+      expect(propertyMeta('TouchInput', key)).toEqual({ control: 'slider', min: 0, max: 4095, step: 1 })
+    }
+    expect(NODE_LIBRARY.find((entry) => entry.type === 'TransportDisplay')?.defaultProperties)
+      .not.toHaveProperty('touchXMin')
   })
 
   // The mismatch this pins was real: the node shipped an `artwork` port of
@@ -124,10 +132,6 @@ describe('TransportDisplay wiring', () => {
       expect(isPropertyEnabled('TransportDisplay', key, { partId: TOUCH }), key).toBe(true)
     }
     expect(isPropertyEnabled('TransportDisplay', 'backlightPin', { partId: PLAIN })).toBe(true)
-    for (const key of ['touchXMin', 'touchXMax', 'touchYMin', 'touchYMax']) {
-      expect(isPropertyEnabled('TransportDisplay', key, { partId: PLAIN }), key).toBe(false)
-      expect(isPropertyEnabled('TransportDisplay', key, { partId: TOUCH }), key).toBe(true)
-    }
   })
 
   it('claims only the plain module SPI and control lines', () => {

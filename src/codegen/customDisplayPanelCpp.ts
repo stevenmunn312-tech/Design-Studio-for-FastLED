@@ -79,10 +79,18 @@ export interface CustomDisplayPanelEmit {
   enabledExpr?: string
 }
 
-export function customDisplayPanelFromProps(id: string, p: Record<string, unknown>): CustomDisplayPanelEmit {
+export function customDisplayPanelFromProps(
+  id: string,
+  p: Record<string, unknown>,
+  calibration: Record<string, unknown> = p,
+): CustomDisplayPanelEmit {
   const integer = (key: string, fallback: number, max = MAX_PIN_NUMBER) => {
     const value = Math.round(Number(p[key] ?? fallback))
     return Number.isFinite(value) ? Math.max(0, Math.min(max, value)) : fallback
+  }
+  const calibrationInteger = (key: string, fallback: number) => {
+    const value = Math.round(Number(calibration[key] ?? fallback))
+    return Number.isFinite(value) ? Math.max(0, Math.min(4095, value)) : fallback
   }
   return {
     id: customDisplayId(id), controller: tftControllerForProps(p) ?? TFT_CONTROLLERS.ST7789V,
@@ -92,8 +100,8 @@ export function customDisplayPanelFromProps(id: string, p: Record<string, unknow
     touch: partById(String(p.partId ?? ''))?.display?.touchController ? {
       csPin: integer('touchCsPin', 15), irqPin: integer('touchIrqPin', 2),
       sckPin: integer('touchSckPin', 18), mosiPin: integer('touchMosiPin', 23), misoPin: integer('touchMisoPin', 19),
-      xMin: integer('touchXMin', 200, 4095), xMax: integer('touchXMax', 3900, 4095),
-      yMin: integer('touchYMin', 200, 4095), yMax: integer('touchYMax', 3900, 4095),
+      xMin: calibrationInteger('touchXMin', 200), xMax: calibrationInteger('touchXMax', 3900),
+      yMin: calibrationInteger('touchYMin', 200), yMax: calibrationInteger('touchYMax', 3900),
     } : undefined,
   }
 }

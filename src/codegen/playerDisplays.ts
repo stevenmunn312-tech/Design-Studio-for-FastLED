@@ -396,6 +396,7 @@ export function playerDisplaysFromGraph(
       // working only for an edge the editor cannot create.
       const touchNode = nodes.find((candidate) => candidate.data.nodeType === 'TouchInput'
         && String(candidate.data.properties.panelId ?? '') === node.id)
+      const touchProps = (touchNode?.data.properties ?? {}) as Record<string, unknown>
       // Diagnostics is device lifecycle rather than content, so it comes from
       // the property and never asks what is plugged in. Everything else is the
       // one envelope, resolved exactly as the OLED above resolves its own.
@@ -444,10 +445,10 @@ export function playerDisplaysFromGraph(
             sckPin: intProp(props.touchSckPin, 18),
             mosiPin: intProp(props.touchMosiPin, 23),
             misoPin: intProp(props.touchMisoPin, 19),
-            xMin: touchRawProp(props.touchXMin, 200),
-            xMax: touchRawProp(props.touchXMax, 3900),
-            yMin: touchRawProp(props.touchYMin, 200),
-            yMax: touchRawProp(props.touchYMax, 3900),
+            xMin: touchRawProp(touchProps.touchXMin, 200),
+            xMax: touchRawProp(touchProps.touchXMax, 3900),
+            yMin: touchRawProp(touchProps.touchYMin, 200),
+            yMax: touchRawProp(touchProps.touchYMax, 3900),
           }
           : null,
         enabled: props.enabled !== false,

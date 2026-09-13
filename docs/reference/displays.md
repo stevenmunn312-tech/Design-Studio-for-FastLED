@@ -81,11 +81,16 @@ connected. Diagnostics shows mapped touch coordinates on XPT2046 modules and
 identifies a non-touch panel as such. Choose the previous layout to return to
 your content. Upload the changed design to run the check on the device.
 
-The panel also exposes **Touch X Min/Max** and **Touch Y Min/Max** for touch
-modules. These are raw 0–4095 bounds; use measurements from the exact module,
-then save the project and upload again. The defaults are provisional.
-Diagnostics shows mapped pixels, not raw samples, and browser touches cannot
-calibrate the physical controller. Guided calibration remains HW-11 work.
+The companion **Touch** node owns **Touch X Min/Max** and **Touch Y Min/Max**.
+These are raw 0–4095 bounds from the exact digitiser; the 200/3900 defaults are
+provisional. Use **Calibrate touch** to collect five readings at each corner and
+save all four bounds together, then save the project and upload again.
+
+The browser wizard listens on the Output console's existing serial connection
+for `FLS_STAT touchx=<value> touchy=<value>` lines. Emitting those raw samples is
+a separate firmware step and requires the maintainer to compile and upload a
+calibration-enabled sketch. Diagnostics still shows mapped pixels, not raw
+samples, and browser touches cannot calibrate the physical controller.
 
 ## Touch
 
@@ -252,5 +257,6 @@ The [compile record](../development/display-compile-checks.md) preserves histori
 normal/show/player builds through both toolchains; it is not a fresh validation
 of the panel/document split. Calibration, rotation on real modules, bus sharing
 under load, LED rate and runtime memory still require physical checks. The
-calibration wizard is not implemented; default numeric bounds are not a measured
-calibration for your module.
+browser calibration wizard is implemented, but its raw-sample firmware emitter
+and on-device verification remain separate work; default numeric bounds are not
+a measured calibration for your module.

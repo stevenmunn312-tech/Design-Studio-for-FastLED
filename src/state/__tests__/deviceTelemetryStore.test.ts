@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { TELEMETRY_MARKER } from '../deviceTelemetry'
 import { useDeviceTelemetryStore } from '../deviceTelemetryStore'
+import { useTouchCalibrationStore } from '../touchCalibrationStore'
 
 vi.mock('../../utils/backendClient', () => ({
   monitorSerial: vi.fn(async () => {}),
@@ -14,6 +15,7 @@ function line(overrides: Record<string, number | string> = {}): string {
 describe('device telemetry store', () => {
   beforeEach(() => {
     useDeviceTelemetryStore.getState().reset()
+    useTouchCalibrationStore.getState().cancel()
   })
 
   it('accumulates whole lines into a run', () => {
@@ -42,6 +44,16 @@ describe('device telemetry store', () => {
     expect(state.run).toBeNull()
     expect(state.otherLines).toBe(2)
     expect(state.version).toBe(0)
+  })
+
+  it('forwards raw touch lines to calibration without counting them as noise', () => {
+    useTouchCalibrationStore.getState().start('touch')
+    useTouchCalibrationStore.getState().beginCorner()
+    useDeviceTelemetryStore.getState().ingest(`${TELEMETRY_MARKER} touchx=230 touchy=3810\n`)
+    const capture = useTouchCalibrationStore.getState().session
+    expect(capture?.samples.topLeft).toEqual([{ x: 230, y: 3810 }])
+    expect(useDeviceTelemetryStore.getState().otherLines).toBe(0)
+    expect(useDeviceTelemetryStore.getState().version).toBe(0)
   })
 
   it('does not let an endless unterminated line grow without bound', () => {

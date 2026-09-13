@@ -17,9 +17,11 @@ import {
   accumulateTelemetry,
   formatTelemetryReport,
   parseTelemetryLine,
+  parseTelemetryTouchSample,
   type TelemetryRun,
   type TelemetryReportMeta,
 } from './deviceTelemetry'
+import { useTouchCalibrationStore } from './touchCalibrationStore'
 
 interface DeviceTelemetryState {
   run: TelemetryRun | null
@@ -60,9 +62,14 @@ export const useDeviceTelemetryStore = create<DeviceTelemetryState>((set, get) =
     for (const line of lines) {
       if (!line.trim()) continue
       const sample = parseTelemetryLine(line)
-      if (!sample) { other += 1; continue }
-      run = accumulateTelemetry(run, sample)
-      accepted += 1
+      const touch = parseTelemetryTouchSample(line)
+      if (touch) useTouchCalibrationStore.getState().ingestRawSample({ x: touch.rawX, y: touch.rawY })
+      if (sample) {
+        run = accumulateTelemetry(run, sample)
+        accepted += 1
+      } else if (!touch) {
+        other += 1
+      }
     }
     if (accepted === 0 && other === 0) return
     set((state) => ({

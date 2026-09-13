@@ -5208,7 +5208,10 @@ export function generateCpp(
             // rather than to the glass it happens to be drawn on.
             assets: opts.customDisplayAssets?.[documentId],
           }
-          const panel = customDisplayPanelFromProps(id, p)
+          const touchProps = (nodes.find((entry) => entry.data.nodeType === 'TouchInput'
+            && String((entry.data.properties as Record<string, unknown>).panelId ?? '') === node.id)
+            ?.data.properties ?? {}) as Record<string, unknown>
+          const panel = customDisplayPanelFromProps(id, p, touchProps)
           panel.manualTouch = true
           panel.telemetry = emitTelemetry
           // The same Enabled the fixed layouts below already honour. Without

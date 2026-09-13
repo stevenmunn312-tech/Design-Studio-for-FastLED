@@ -103,6 +103,14 @@ describe('normal-sketch codegen for the custom Display node', () => {
     expect(src).toContain('_xptPoint(15, 2, 18, 23, 19,')
   })
 
+  it('reads custom-screen calibration from the panel companion Touch node', () => {
+    const touch = node('tft-touch', 'TouchInput', {
+      panelId: 'tft', touchXMin: 321, touchXMax: 3789, touchYMin: 245, touchYMax: 3821,
+    })
+    const src = generateCpp([output, panel(), touch], [], {}, { displayDocuments: documents })
+    expect(src).toContain('_xptPoint(15, 2, 18, 23, 19, 321, 3789, 245, 3821,')
+  })
+
   it('wires a graph string into the Text widget and the Toggle output into an LED output input', () => {
     const edges = [
       edge('e-title', 'title', 'text', 'tft', 'widget:text:value'),

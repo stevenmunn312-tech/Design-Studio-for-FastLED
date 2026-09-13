@@ -2,7 +2,17 @@ import { describe, expect, it } from 'vitest'
 import { fixedTransportGeometry, nowPlayingGeometry } from '../transportDisplay'
 import { TFT_CONTROLLERS, tftRotatedSize, type TftRotation } from '../tftSurface'
 import {
-  DEFAULT_XPT2046_CALIBRATION, mapTransportTouch, touchRegionAt, transportTouchRegions,
+  DEFAULT_XPT2046_CALIBRATION,
+  TOUCH_CALIBRATION_CORNERS,
+  TOUCH_CALIBRATION_SAMPLES_PER_CORNER,
+  beginTouchCalibrationCorner,
+  captureTouchCalibrationSample,
+  createTouchCalibrationCapture,
+  mapTransportTouch,
+  retryTouchCalibrationCorner,
+  touchCalibrationFromSamples,
+  touchRegionAt,
+  transportTouchRegions,
 } from '../transportTouch'
 
 const panel = TFT_CONTROLLERS.ST7789V
@@ -81,5 +91,62 @@ describe('fixed-layout touch regions', () => {
     expect(touchRegionAt({ x: volume.x + volume.w - 1, y: volume.y }, regions))
       .toEqual({ action: 'volume', value: 1 })
     expect(touchRegionAt({ x: 0, y: 0 }, regions)).toBeNull()
+  })
+})
+
+describe('guided touch calibration', () => {
+  const points = {
+    topLeft: { x: 220, y: 210 },
+    topRight: { x: 3880, y: 205 },
+    bottomRight: { x: 3890, y: 3870 },
+    bottomLeft: { x: 215, y: 3885 },
+  } as const
+
+  function fillCurrent(capture: ReturnType<typeof createTouchCalibrationCapture>) {
+    const corner = TOUCH_CALIBRATION_CORNERS[capture.cornerIndex].id
+    let next = capture
+    for (let i = 0; i < TOUCH_CALIBRATION_SAMPLES_PER_CORNER; i += 1) {
+      const point = points[corner]
+      next = captureTouchCalibrationSample(next, {
+        x: point.x + (i === 0 ? 40 : 0),
+        y: point.y + (i === 0 ? -40 : 0),
+      })
+    }
+    return next
+  }
+
+  it('ignores readings until the current corner is armed', () => {
+    const capture = captureTouchCalibrationSample(createTouchCalibrationCapture(), { x: 200, y: 200 })
+    expect(capture.samples.topLeft).toEqual([])
+    expect(capture.phase).toBe('ready')
+  })
+
+  it('captures every corner and derives jitter-resistant raw bounds', () => {
+    let capture = createTouchCalibrationCapture()
+    for (let corner = 0; corner < TOUCH_CALIBRATION_CORNERS.length; corner += 1) {
+      capture = beginTouchCalibrationCorner(capture)
+      capture = fillCurrent(capture)
+    }
+    expect(capture.phase).toBe('complete')
+    expect(capture.result).toEqual({ xMin: 215, xMax: 3890, yMin: 205, yMax: 3885 })
+  })
+
+  it('rejects out-of-range readings and lets a captured corner be retried', () => {
+    let capture = beginTouchCalibrationCorner(createTouchCalibrationCapture())
+    capture = captureTouchCalibrationSample(capture, { x: -1, y: 200 })
+    expect(capture.samples.topLeft).toHaveLength(0)
+    capture = fillCurrent(capture)
+    expect(capture.phase).toBe('captured')
+    capture = retryTouchCalibrationCorner(capture)
+    expect(capture.phase).toBe('collecting')
+    expect(capture.samples.topLeft).toEqual([])
+  })
+
+  it('refuses bounds that do not span both axes', () => {
+    const samples = Object.fromEntries(TOUCH_CALIBRATION_CORNERS.map(({ id }) => [
+      id,
+      Array.from({ length: TOUCH_CALIBRATION_SAMPLES_PER_CORNER }, () => ({ x: 1000, y: 1000 })),
+    ])) as Parameters<typeof touchCalibrationFromSamples>[0]
+    expect(touchCalibrationFromSamples(samples)).toBeNull()
   })
 })

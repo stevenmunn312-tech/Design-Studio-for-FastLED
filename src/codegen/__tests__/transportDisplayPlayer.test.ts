@@ -184,9 +184,10 @@ describe('XPT2046 player controls', () => {
     node('tft', 'TransportDisplay', {
       partId: TOUCH, tftRotation: '90', touchCsPin: 15, touchIrqPin: 2,
       touchSckPin: 18, touchMosiPin: 23, touchMisoPin: 19,
-      touchXMin: 321, touchXMax: 3789, touchYMin: 245, touchYMax: 3821,
     }),
-    node('tft-touch', 'TouchInput', { panelId: 'tft' }),
+    node('tft-touch', 'TouchInput', {
+      panelId: 'tft', touchXMin: 321, touchXMax: 3789, touchYMin: 245, touchYMax: 3821,
+    }),
     node('pc', 'ControlMap'),
     node('m', 'PatternMaster'),
   ]

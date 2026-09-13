@@ -2970,10 +2970,6 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       touchSckPin: 18,
       touchMosiPin: 23,
       touchMisoPin: 19,
-      touchXMin: 200,
-      touchXMax: 3900,
-      touchYMin: 200,
-      touchYMax: 3900,
       enabled: true,
     },
   },
@@ -3784,6 +3780,12 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
 // speedRange.ts), so the slider is uniform even where the underlying range
 // differs.
 const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
+const TOUCH_CALIBRATION_META: Record<string, PropertyControl> = {
+  touchXMin: { control: 'slider', min: 0, max: 4095, step: 1 },
+  touchXMax: { control: 'slider', min: 0, max: 4095, step: 1 },
+  touchYMin: { control: 'slider', min: 0, max: 4095, step: 1 },
+  touchYMax: { control: 'slider', min: 0, max: 4095, step: 1 },
+}
 
 // Per-node overrides for property names that collide across nodes with a
 // different meaning or range. Most `speed`/`scale` sliders are 0–1 (normalised
@@ -3793,11 +3795,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   TransportDisplay: {
     tftLayout: { control: 'select', options: ['Now Playing', 'Fixed Transport', 'Show Status', 'Diagnostics'] },
     tftRotation: { control: 'select', options: ['0', '90', '180', '270'] },
-    touchXMin: { control: 'slider', min: 0, max: 4095, step: 1 },
-    touchXMax: { control: 'slider', min: 0, max: 4095, step: 1 },
-    touchYMin: { control: 'slider', min: 0, max: 4095, step: 1 },
-    touchYMax: { control: 'slider', min: 0, max: 4095, step: 1 },
   },
+  TouchInput: TOUCH_CALIBRATION_META,
   InfoDisplay: {
     oledRotation: { control: 'select', options: OLED_ROTATIONS },
     // Hex, because that is what the module's silkscreen and its datasheet
@@ -4451,10 +4450,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   TransportDisplay: {
     enabled: 'Turns the panel off without removing it from the build: the screen goes dark, touch is not read, and anything it publishes rests at zero. It is still compiled and can be switched back on, so wire this to a button or a schedule to darken a screen at night. Unwired, the panel stays on.',
     tftLayout: 'Presentation for the connected Display source. Diagnostics shows a panel self-test and mapped touch coordinates; disconnect Screen Design to use it. Select the previous presentation to return to your content.',
-    touchXMin: 'Measured raw X minimum for this touch module (0–4095). Defaults are provisional; the guided calibration wizard is not available yet.',
-    touchXMax: 'Measured raw X maximum for this touch module (0–4095). Save the project and upload again after changing calibration bounds.',
-    touchYMin: 'Measured raw Y minimum for this touch module (0–4095). Diagnostics reports mapped screen pixels, not raw calibration samples.',
-    touchYMax: 'Measured raw Y maximum for this touch module (0–4095). Browser touches simulate screen pixels and cannot calibrate the physical controller.',
   },
   StereoVuMeter: {
     targetOutputId: 'The LED matrix or HUB75 panel these rails visually flank. Empty keeps the fixture standalone.',
@@ -5255,9 +5250,6 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     && (TRANSPORT_DISPLAY_BASE_PINS.includes(key as never)
       || TRANSPORT_DISPLAY_TOUCH_PINS.includes(key as never))) {
     return transportDisplayPinKeysForProps(properties).includes(key)
-  }
-  if (nodeType === 'TransportDisplay' && key.startsWith('touch') && !key.endsWith('Pin')) {
-    return Boolean(partById(String(properties.partId ?? ''))?.display?.touchController)
   }
   if (nodeType === 'DMXInput') {
     const artnet = String(properties.inputMode ?? 'Art-Net') === 'Art-Net'

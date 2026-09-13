@@ -85,6 +85,7 @@ const TransportDisplayNodeBody = lazy(() => import('./TransportDisplayNodeBody')
 const InfoDisplayNodeBody = lazy(() => import('./InfoDisplayNodeBody'))
 const SegmentDisplayNodeBody = lazy(() => import('./SegmentDisplayNodeBody'))
 const StereoVuMeterNodeBody = lazy(() => import('./StereoVuMeterNodeBody'))
+const TouchCalibrationBody = lazy(() => import('./TouchCalibrationBody'))
 
 type PortDef = { id: string; label: string; dataType: string }
 
@@ -1634,6 +1635,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           {d.nodeType === 'InfoDisplay' && <InfoDisplayNodeBody nodeId={id} />}
           {d.nodeType === 'SegmentDisplay' && <SegmentDisplayNodeBody nodeId={id} />}
           {d.nodeType === 'StereoVuMeter' && <StereoVuMeterNodeBody nodeId={id} />}
+          {d.nodeType === 'TouchInput' && <TouchCalibrationBody nodeId={id} />}
 
           {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
           {d.nodeType === 'Transition' && <TransitionPickerBody nodeId={id} />}

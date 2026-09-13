@@ -199,8 +199,11 @@ For a panel self-test, disconnect its Screen Design wire and choose
 Upload to check the physical panel and mapped XPT2046 touch coordinates; choose
 the previous layout and reconnect the document to restore content. Touch X/Y
 Min/Max properties take measured raw bounds for that exact module. Save and
-upload after changing them. Defaults are provisional, Diagnostics is not a raw
-sample collector, and the guided calibration wizard remains unimplemented.
+upload after changing them. Defaults are provisional and Diagnostics is not a
+raw sample collector. The companion Touch node's **Calibrate touch** wizard can
+capture the four corners when the running firmware emits raw `FLS_STAT` lines
+with `touchx` and `touchy` over the existing Output serial connection. Firmware
+support and its required maintainer-run compile remain separate work.
 
 The panel/document software repairs are implemented; shared documents are
 refused, so use one per panel. Fresh compile runs and mounted-document bench

@@ -661,8 +661,10 @@ matrix, not a reason to postpone testing earlier changes.
   Remaining: the rig, four runs and the hour, against
   [the bench procedure](docs/development/testing/display-budget-bench.md) whose
   tables are deliberately empty until measured — then the budgets get set from
-  those numbers. Guided calibration is the other half of this item and is not
-  started; the raw bounds remain sliders on the panel node.
+  those numbers. The browser half of guided calibration now lives on the Touch
+  node and consumes raw `FLS_STAT` samples through the existing Output serial
+  reader. Emitting those samples is still separate firmware work requiring a
+  maintainer-run compile, followed by on-device verification.
 - [ ] **HW-12 · Integrated display boards (M; after HW-11).** Verify controller
   identity and fixed pins per proposed board, including the ESP32-2432S028
   bring-up unit; add exact profiles/bus ownership and missing drivers only after
