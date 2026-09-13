@@ -7,6 +7,7 @@ import { customDisplayAssetRequests } from '../../state/customDisplayResources'
 import { generateShowSketch } from '../showGenerator'
 import { showControlRouting } from '../showControlRouting'
 import { buildGraphDiagnostics, findOutputRuntimeIssues, findDisplayGeneratorIssues } from '../../utils/validateGraph'
+import { assertWireable } from '../../test-utils/assertWireable'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)!
@@ -34,16 +35,23 @@ function document(id = 'screen'): DisplayDocument {
   for (const type of ['Slider', 'Toggle', 'Numeric Readout', 'Text'] as const) doc = addDisplayWidget(doc, type)
   return doc
 }
-const generate = (nodes: StudioNode[], edges: StudioEdge[], documents: DisplayDocumentRegistry) =>
+const generateUnchecked = (nodes: StudioNode[], edges: StudioEdge[], documents: DisplayDocumentRegistry) =>
   generateShowSketch([...root, ...nodes], [...routing, ...edges], groups, { displayDocuments: documents })
+const generate = (nodes: StudioNode[], edges: StudioEdge[], documents: DisplayDocumentRegistry) => {
+  const graphNodes = [...root, ...nodes]
+  const graphEdges = [...routing, ...edges]
+  assertWireable(graphNodes, graphEdges, documents)
+  return generateShowSketch(graphNodes, graphEdges, groups, { displayDocuments: documents })
+}
 
 describe('custom displays in generative shows', () => {
   it('samples touch before scalar feedback, renders LEDs, then updates widgets and flushes LVGL', () => {
     const doc = document()
     const numberId = doc.widgets.find((widget) => widget.type === 'Numeric Readout')!.id
-    const nodes = [panel('tft'), node('math', 'Math', { mathOp: 'add', b: 0.25 }), node('controls', 'ControlMap'), node('format', 'FormatNumber')]
+    const nodes = [panel('tft'), node('math', 'Math', { mathOp: 'add', b: 0.25 }),
+      node('controls', 'ControlMap', { controls: ['brightness'] }), node('format', 'FormatNumber')]
     const edges = [edge('tft', 'widget:slider:out', 'math', 'a'), edge('math', 'result', 'tft', 'widget:slider:set'),
-      edge('math', 'result', 'screen', `widget:${numberId}:value`), edge('math', 'result', 'format', 'value'),
+      edge('math', 'result', 'tft', `widget:${numberId}:value`), edge('math', 'result', 'format', 'value'),
       edge('format', 'text', 'tft', 'widget:text:value'), edge('math', 'result', 'controls', 'brightness'),
       edge('controls', 'controls', 'out', 'controls'), edge('tft', 'widget:toggle:out', 'out', 'enabled')]
     const cpp = generate(nodes, edges, { screen: doc })
@@ -141,7 +149,7 @@ describe('custom displays in generative shows', () => {
     expect(findDisplayGeneratorIssues([...root, panel('tft')], [...routing]).errors)
       .toEqual([expect.stringContaining('screen document is missing')])
     const nodes = [...root, panel('tft'), node('wave', 'Wave')]
-    const edges = [...routing, edge('wave', 'value', 'tft', 'widget:slider:set')]
+    const edges = [...routing, edge('wave', 'result', 'tft', 'widget:slider:set')]
     const documents = { screen: document() }
     expect(findOutputRuntimeIssues(nodes, edges, documents).errors.join(' ')).toContain('unsupported')
     expect(buildGraphDiagnostics(nodes, edges, { displayDocuments: documents })).toContainEqual(expect.objectContaining({ message: expect.stringContaining('widget input') }))
@@ -151,7 +159,7 @@ describe('custom displays in generative shows', () => {
   it('refuses stale handles, unsupported colour/pattern ports, wrong types and identifier collisions', () => {
     const doc = addDisplayWidget(addDisplayWidget(document(), 'Colour Swatch'), 'Pattern Browser')
     for (const target of ['widget:deleted:value', ...doc.widgets.filter((w) => ['Colour Swatch', 'Pattern Browser'].includes(w.type)).map((w) => `widget:${w.id}:value`)]) {
-      expect(() => generate(
+      expect(() => generateUnchecked(
         [panel('tft'), node('text', 'TextValue')],
         [edge('text', 'text', 'tft', target)],
         { screen: doc },
@@ -179,7 +187,7 @@ describe('custom displays in generative shows', () => {
   it('browses the collection from a Button widget', () => {
     const doc = addDisplayWidget(createDisplayDocument('screen', 240, 320), 'Button')
     const buttonId = doc.widgets.at(-1)!.id
-    const nodes = [panel('tft'), node('controls', 'ControlMap')]
+    const nodes = [panel('tft'), node('controls', 'ControlMap', { controls: ['patternNext'] })]
     const edges = [edge('tft', `widget:${buttonId}:out`, 'controls', 'patternNext'),
       edge('controls', 'controls', 'show', 'controls')]
     expect(showControlRouting([...root, ...nodes], [...routing, ...edges], { screen: doc }).errors).toEqual([])

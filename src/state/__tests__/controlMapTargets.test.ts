@@ -15,6 +15,7 @@ import { generateCpp } from '../../codegen/cppGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../nodeLibrary'
 import { PLAYER_CONTROL_FUNCTIONS, playerControlInputs, sensiblePlayerControls } from '../playerControlAssignments'
 import type { StudioNode, StudioEdge } from '../graphStore'
+import { assertWireable } from '../../test-utils/assertWireable'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -40,23 +41,23 @@ const edge = (source: string, sourceHandle: string, target: string, targetHandle
  */
 function graph(controlValue: number, speedProperty = 1, assigned = ['masterSpeed']) {
   const wired = assigned.includes('masterSpeed')
-  return {
-    nodes: [
-      node('board', 'Board'),
-      node('knob', 'Math', { mathOp: 'add', a: controlValue, b: 0 }),
-      node('map', 'ControlMap', { controls: assigned }),
-      node('clock', 'MasterSpeed', { speed: speedProperty }),
-      // Animated on purpose: the master clock is only emitted into a sketch
-      // that reads `t`, and a solid colour never does.
-      node('fill', 'Plasma'),
-      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4 }),
-    ],
-    edges: [
-      ...(wired ? [edge('knob', 'result', 'map', 'masterSpeed')] : []),
-      edge('map', 'controls', 'clock', 'controls'),
-      edge('fill', 'frame', 'out', 'frame'),
-    ],
-  }
+  const nodes = [
+    node('board', 'Board'),
+    node('knob', 'Math', { mathOp: 'add', a: controlValue, b: 0 }),
+    node('map', 'ControlMap', { controls: assigned }),
+    node('clock', 'MasterSpeed', { speed: speedProperty }),
+    // Animated on purpose: the master clock is only emitted into a sketch
+    // that reads `t`, and a solid colour never does.
+    node('fill', 'Plasma'),
+    node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4 }),
+  ]
+  const edges = [
+    ...(wired ? [edge('knob', 'result', 'map', 'masterSpeed')] : []),
+    edge('map', 'controls', 'clock', 'controls'),
+    edge('fill', 'frame', 'out', 'frame'),
+  ]
+  assertWireable(nodes, edges)
+  return { nodes, edges }
 }
 
 describe('a control given a job that is not a player\'s', () => {

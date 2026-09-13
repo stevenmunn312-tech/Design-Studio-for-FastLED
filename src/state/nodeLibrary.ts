@@ -2924,10 +2924,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   },
   {
     // Fixed colour layouts for the transport appliance. Every layout keeps
-    // the same stable port set. Touch-capable modules publish the same control
-    // bundle Control Map chains, while a panel without touch publishes an
-    // inert bundle. Output-category terminals remain evaluator/codegen roots
-    // even when they publish controls; see the derived terminal rules.
+    // the same stable content inputs. Touch-capable modules publish their
+    // control bundle through the linked TouchInput node; the panel itself is
+    // an output-category terminal with no outputs.
     type: 'TransportDisplay',
     label: 'Display Panel',
     category: 'output',

@@ -391,6 +391,11 @@ export function playerDisplaysFromGraph(
     if (node.data.nodeType === 'TransportDisplay') {
       const partId = String(props.partId ?? 'st7789-tft-240x240')
       const part = partById(partId)
+      // Touch leaves through the Touch node that names this panel, not through
+      // the panel itself. Falling back to the panel id kept legacy callers
+      // working only for an edge the editor cannot create.
+      const touchNode = nodes.find((candidate) => candidate.data.nodeType === 'TouchInput'
+        && String(candidate.data.properties.panelId ?? '') === node.id)
       // Diagnostics is device lifecycle rather than content, so it comes from
       // the property and never asks what is plugged in. Everything else is the
       // one envelope, resolved exactly as the OLED above resolves its own.
@@ -431,7 +436,8 @@ export function playerDisplaysFromGraph(
         touch: part?.display?.touchController
           && (diagnostics
             || options.controlTouchIds?.has(node.id)
-            || (transportTouch && displayControlsPlayer(node.id, edges, byId)))
+            || (transportTouch && touchNode !== undefined
+              && displayControlsPlayer(touchNode.id, edges, byId)))
           ? {
             csPin: intProp(props.touchCsPin, 15),
             irqPin: intProp(props.touchIrqPin, 2),

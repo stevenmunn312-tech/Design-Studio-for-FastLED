@@ -4,6 +4,7 @@ import { generateShowSketch } from '../showGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { DEFAULT_BUTTON_EDGE_SETTINGS } from '../../state/transportBridge'
+import { assertWireable } from '../../test-utils/assertWireable'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const def = NODE_LIBRARY.find((n) => n.type === nodeType)!
@@ -35,7 +36,12 @@ const groups = {
 const show = [node('collection', 'PatternCollection', { patternIds: ['p'] }), node('show', 'PatternSlideshow')]
 const frameEdges = [edge('collection', 'patternset', 'show', 'patternset'), edge('show', 'frame', 'out', 'frame')]
 const direct = edge('panel-touch', 'controls', 'out', 'controls')
-const build = (nodes: StudioNode[], edges: StudioEdge[]) => generateShowSketch([...show, ...nodes, touchNode()], [...frameEdges, ...edges], groups)
+const build = (nodes: StudioNode[], edges: StudioEdge[]) => {
+  const graphNodes = [...show, ...nodes, touchNode()]
+  const graphEdges = [...frameEdges, ...edges]
+  assertWireable(graphNodes, graphEdges)
+  return generateShowSketch(graphNodes, graphEdges, groups)
+}
 const count = (cpp: string, text: string) => cpp.split(text).length - 1
 
 describe('fixed touch routing in generative shows', () => {
@@ -62,14 +68,20 @@ describe('fixed touch routing in generative shows', () => {
   })
 
   it('shares the normal sketch bundle and GPIO emitters across chained controls', () => {
-    const controls = [node('last', 'ControlMap', { brightnessStep: 0.125 }), node('first', 'ControlMap')]
+    const controls = [
+      node('last', 'ControlMap', { controls: ['brightness', 'brightnessDown'], brightnessStep: 0.125 }),
+      node('first', 'ControlMap'),
+    ]
     const knob = node('knob', 'PotInput', { pin: 33 })
     const button = node('button', 'ButtonInput', { pin: 32 })
     const nodes = [output(), ...controls, knob, button, panel()]
     const edges = [edge('panel-touch', 'controls', 'first', 'controlsIn'),
       edge('first', 'controls', 'last', 'controlsIn'), edge('last', 'controls', 'out', 'controls'),
       edge('knob', 'value', 'last', 'brightness'), edge('button', 'pressed', 'last', 'brightnessDown')]
-    const normal = generateCpp([...nodes, node('solid', 'SolidColor')], [...edges, edge('solid', 'frame', 'out', 'frame')])
+    const normalNodes = [...nodes, node('solid', 'SolidColor'), touchNode()]
+    const normalEdges = [...edges, edge('solid', 'frame', 'out', 'frame')]
+    assertWireable(normalNodes, normalEdges)
+    const normal = generateCpp(normalNodes, normalEdges)
     const generated = build(nodes, edges)
     const { debounceMs, repeatDelayMs, repeatIntervalMs } = DEFAULT_BUTTON_EDGE_SETTINGS
     // The bundle's name differs by generator, and has to: a template declares
@@ -120,14 +132,14 @@ describe('fixed touch routing in generative shows', () => {
   })
 
   it('refuses arbitrary graph bindings rather than emitting a partial control chain', () => {
-    expect(() => build([panel(), output(), node('pc', 'ControlMap'), node('wave', 'Wave')], [
+    expect(() => build([panel(), output(), node('pc', 'ControlMap', { controls: ['brightness'] }), node('wave', 'Wave')], [
       edge('panel-touch', 'controls', 'pc', 'controlsIn'), edge('pc', 'controls', 'out', 'controls'),
-      edge('wave', 'value', 'pc', 'brightness'),
+      edge('wave', 'result', 'pc', 'brightness'),
     ])).toThrow('cannot evaluate the wire feeding brightness')
   })
 
   it('evaluates a shared scalar chain before its button mapper and fixed TFT readouts', () => {
-    const cpp = build([output(), panel(), node('pc', 'ControlMap'), node('knob', 'PotInput', { pin: 33 }),
+    const cpp = build([output(), panel(), node('pc', 'ControlMap', { controls: ['ledToggle', 'brightness'] }), node('knob', 'PotInput', { pin: 33 }),
       node('map', 'MapRange', { outMax: 2 }), node('compare', 'Compare', { b: 0.75 }),
       node('format', 'FormatNumber', { decimals: 2 }), node('title', 'TextValue', { text: 'LIVE SHOW' })], [
       edge('knob', 'value', 'map', 'value'), edge('map', 'result', 'compare', 'a'),

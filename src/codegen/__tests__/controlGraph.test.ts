@@ -5,6 +5,9 @@ import { createControlGraph, controlGraphCpp, controlReferenceCpp, MAX_CONTROL_G
 import { SCALAR_CONTROL_NODES, scalarControlInputDefaults } from '../scalarControlCpp'
 import { generateCpp } from '../cppGenerator'
 import { evaluateGraphFull } from '../../state/graphEvaluator'
+import { addDisplayWidget, createDisplayDocument } from '../../state/displayEditor'
+import { displayDocumentPorts } from '../../state/displayRegistry'
+import { assertWireable } from '../../test-utils/assertWireable'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -48,14 +51,25 @@ describe('typed control graph', () => {
   })
 
   it('uses the normal-sketch emitters for a numeric chain and formatted text', () => {
+    const document = addDisplayWidget(createDisplayDocument('screen', 240, 320), 'Text')
+    const displayPorts = displayDocumentPorts(document)
+    const tft = node('tft', 'TransportDisplay', { displayId: 'screen' })
+    tft.data.inputs = [...(tft.data.inputs as never[]), ...displayPorts.inputs]
+    tft.data.outputs = displayPorts.outputs
     const nodes = [node('knob', 'PotInput'), node('map', 'MapRange', { outMin: -1, outMax: 1 }),
-      node('clamp', 'Clamp'), node('format', 'FormatNumber', { decimals: 2, suffix: ' V' }), node('tft', 'TransportDisplay')]
+      node('clamp', 'Clamp'), node('format', 'FormatNumber', { decimals: 2, suffix: ' V' }), tft]
     const edges = [edge('knob', 'value', 'map', 'value'), edge('map', 'result', 'clamp', 'value'),
-      edge('clamp', 'result', 'format', 'value'), edge('format', 'text', 'tft', 'title')]
+      edge('clamp', 'result', 'format', 'value'), edge('format', 'text', 'tft', 'widget:text:value')]
+    assertWireable(nodes, edges, { screen: document })
     const graph = createControlGraph(nodes, edges)
-    graph.input('tft', 'title', 'string')
+    graph.input('tft', 'widget:text:value', 'string')
     const emitted = controlGraphCpp(graph)
-    const normal = generateCpp([...nodes, node('out', 'MatrixOutput')], edges)
+    const normal = generateCpp(
+      [...nodes, node('out', 'MatrixOutput')],
+      edges,
+      {},
+      { displayDocuments: { screen: document } },
+    )
     for (const line of emitted.loop) expect(normal).toContain(line)
     for (const helper of emitted.helpers) expect(normal).toContain(helper)
     expect(emitted.loop.join('\n')).not.toContain('String(')

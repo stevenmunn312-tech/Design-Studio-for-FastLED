@@ -6,6 +6,7 @@ import { customDisplayAssetRequests } from '../../state/customDisplayResources'
 import { buildShowPlayer, buildShowPlayerForMeasurement, buildShowPayload } from '../../utils/showUpload'
 import { buildGraphDiagnostics, findDisplayGeneratorIssues, findOutputRuntimeIssues } from '../../utils/validateGraph'
 import { playerControlGraph } from '../playerControlGraph'
+import { assertWireable } from '../../test-utils/assertWireable'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -32,13 +33,20 @@ function document(id = 'screen') {
   return doc
 }
 const docs = { screen: document() }
-const generate = (nodes: StudioNode[], edges: StudioEdge[], collection = true) => buildShowPlayer([...root, ...nodes], [...route, ...edges], groups, {
-  patternSet: collection ? ['pattern'] : [], bakedAudio: false, genericPlayer: collection, preferredTrack: '', displayDocuments: docs,
-})
+const generate = (nodes: StudioNode[], edges: StudioEdge[], collection = true) => {
+  const graphNodes = [...root, ...nodes]
+  const graphEdges = [...route, ...edges]
+  assertWireable(graphNodes, graphEdges, docs)
+  return buildShowPlayer(graphNodes, graphEdges, groups, {
+    patternSet: collection ? ['pattern'] : [], bakedAudio: false, genericPlayer: collection, preferredTrack: '', displayDocuments: docs,
+  })
+}
 
 describe('custom displays in SD-player firmware', () => {
   it.each([false, true])('runs widget controls and publishes track readouts with or without collection renderers (%s)', (collection) => {
-    const nodes = [panel('tft'), node('song', 'SongInfo'), node('controls', 'ControlMap', { debounceMs: 0 }), node('math', 'Math', { mathOp: 'multiply', b: 0.5 })]
+    const nodes = [panel('tft'), node('song', 'SongInfo'), node('controls', 'ControlMap', {
+      controls: ['brightness', 'playPause'], debounceMs: 0,
+    }), node('math', 'Math', { mathOp: 'multiply', b: 0.5 })]
     const edges = [edge('tft', 'widget:slider:out', 'math', 'a'), edge('math', 'result', 'controls', 'brightness'),
       edge('tft', 'widget:button:out', 'controls', 'playPause'), edge('controls', 'controls', 'player', 'controls'),
       // The track report is opened by a Song Info node now; the player itself
@@ -76,7 +84,7 @@ describe('custom displays in SD-player firmware', () => {
   })
 
   it('keeps synchronized volume normalized to the player control setting under an amplifier cap', () => {
-    const cpp = generate([panel('tft'), node('song', 'SongInfo'), node('controls', 'ControlMap')], [
+    const cpp = generate([panel('tft'), node('song', 'SongInfo'), node('controls', 'ControlMap', { controls: ['volume'] })], [
       edge('tft', 'widget:slider:out', 'controls', 'volume'), edge('controls', 'controls', 'player', 'controls'),
       edge('player', 'display', 'song', 'display'), edge('song', 'volume', 'tft', 'widget:slider:set'),
     ])
@@ -86,14 +94,15 @@ describe('custom displays in SD-player firmware', () => {
     expect(cpp.indexOf('float n_song_volume = playerVolume;')).toBeLessThan(cpp.indexOf('playerVolume = constrain((n_controls_controls.hasVolume'))
   })
 
-  it('shares scalar computations between widget readouts, fixed screens and chained controls', () => {
-    const nodes = [panel('tft'), node('map', 'MapRange'), node('format', 'FormatNumber'), node('first', 'ControlMap'),
-      node('last', 'ControlMap', { debounceMs: 55 }), node('button', 'ButtonInput', { pin: 12, pullup: false }),
+  it('shares scalar computations between widget readouts and chained controls', () => {
+    const nodes = [panel('tft'), node('map', 'MapRange'), node('format', 'FormatNumber'),
+      node('first', 'ControlMap', { controls: ['volume'] }),
+      node('last', 'ControlMap', { controls: ['next'], debounceMs: 55 }), node('button', 'ButtonInput', { pin: 12, pullup: false }),
       node('fixed', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Fixed Transport' }),
       // Touch leaves through its own node now; the panel has no outputs.
       node('fixed-touch', 'TouchInput', { panelId: 'fixed' })]
     const edges = [edge('tft', 'widget:slider:out', 'map', 'value'), edge('map', 'result', 'format', 'value'),
-      edge('format', 'text', 'tft', 'widget:text:value'), edge('format', 'text', 'fixed', 'title'),
+      edge('format', 'text', 'tft', 'widget:text:value'),
       edge('map', 'result', 'first', 'volume'), edge('fixed-touch', 'controls', 'first', 'controlsIn'),
       edge('first', 'controls', 'last', 'controlsIn'), edge('button', 'pressed', 'last', 'next'),
       edge('last', 'controls', 'player', 'controls')]
@@ -109,13 +118,16 @@ describe('custom displays in SD-player firmware', () => {
   })
 
   it('rejects unsupported sources, wrong types and output wires before code generation', () => {
-    const nodes = [...root, node('wave', 'Wave'), node('controls', 'ControlMap')]
-    const edges = [...route, edge('wave', 'value', 'controls', 'brightness'), edge('controls', 'controls', 'player', 'controls')]
+    const nodes = [...root, node('wave', 'Wave'), node('controls', 'ControlMap', { controls: ['brightness'] })]
+    const edges = [...route, edge('wave', 'result', 'controls', 'brightness'), edge('controls', 'controls', 'player', 'controls')]
     const issues = playerControlGraph(nodes, edges, docs).errors
     expect(issues.join(' ')).toContain('an SD player cannot evaluate')
     expect(() => buildShowPlayer(nodes, edges, {}, { bakedAudio: false, preferredTrack: '', displayDocuments: docs })).toThrow('unsupported')
     expect(buildGraphDiagnostics(nodes, edges, { displayDocuments: docs })).toContainEqual(expect.objectContaining({ message: expect.stringContaining('cannot evaluate') }))
-    expect(() => generate([panel('tft')], [edge('player', 'title', 'tft', 'widget:slider:set')])).toThrow('requires float')
+    expect(() => generate(
+      [panel('tft'), node('text', 'TextValue')],
+      [edge('text', 'text', 'tft', 'widget:slider:set')],
+    )).toThrow('requires float')
     expect(() => generate([panel('tft')], [edge('tft', 'widget:slider:out', 'out', 'brightness')])).toThrow('Control Map')
   })
 

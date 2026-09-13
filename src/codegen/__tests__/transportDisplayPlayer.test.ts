@@ -5,6 +5,7 @@ import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { TFT_DISPLAY_CPP_FORWARD } from '../tftDisplayCpp'
 import { fixedTransportGeometry, nowPlayingGeometry } from '../../state/transportDisplay'
+import { assertWireable } from '../../test-utils/assertWireable'
 
 const PLAIN = 'st7789-tft-240x240'
 const TOUCH = 'st7789v-xpt2046-touch-240x320'
@@ -24,8 +25,10 @@ function node(id: string, nodeType: string, props: Record<string, unknown> = {})
 const edge = (id: string, s: string, sh: string, t: string, th: string) =>
   ({ id, source: s, target: t, sourceHandle: sh, targetHandle: th } as unknown as StudioEdge)
 
-const resolve = (nodes: StudioNode[], edges: StudioEdge[] = []) =>
-  playerDisplaysFromGraph(nodes as never, edges as never)
+const resolve = (nodes: StudioNode[], edges: StudioEdge[] = []) => {
+  assertWireable(nodes, edges)
+  return playerDisplaysFromGraph(nodes as never, edges as never)
+}
 
 const sketch = (nodes: StudioNode[], edges: StudioEdge[] = []) =>
   generatePlayerSketch({}, undefined, { displays: resolve(nodes, edges) })
@@ -183,12 +186,13 @@ describe('XPT2046 player controls', () => {
       touchSckPin: 18, touchMosiPin: 23, touchMisoPin: 19,
       touchXMin: 321, touchXMax: 3789, touchYMin: 245, touchYMax: 3821,
     }),
+    node('tft-touch', 'TouchInput', { panelId: 'tft' }),
     node('pc', 'ControlMap'),
     node('m', 'PatternMaster'),
   ]
   const wires = [
     edge('feed', 'm', 'display', 'tft', 'display'),
-    edge('touch-controls', 'tft', 'controls', 'pc', 'controlsIn'),
+    edge('touch-controls', 'tft-touch', 'controls', 'pc', 'controlsIn'),
     edge('player-controls', 'pc', 'controls', 'm', 'controls'),
   ]
 

@@ -11,6 +11,7 @@ import {
   playerControlHint,
   sensiblePlayerControls,
 } from '../playerControlAssignments'
+import { assertWireable } from '../../test-utils/assertWireable'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const def = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -173,6 +174,7 @@ describe('assigning a control through the picker', () => {
     useGraphStore.getState().assignPlayerControl('playPause')
 
     const state = useGraphStore.getState()
+    assertWireable(state.nodes, state.edges)
     expect(state.pendingControlAssignment).toBeNull()
     expect(controlsOf('pc')).toEqual(['playPause'])
     expect(portsOf('pc')).toEqual(['controlsIn', 'playPause', PLAYER_CONTROL_ADD_HANDLE])
@@ -221,6 +223,7 @@ describe('assigning a control through the picker', () => {
     useGraphStore.getState().assignPlayerControl('patternConfirm')
 
     const state = useGraphStore.getState()
+    assertWireable(state.nodes, state.edges)
     const bank = state.nodes.find((candidate) => candidate.id === 'bank')!
     const buttons = bank.data.properties.buttons as Array<{ id: string; label: string }>
     expect(buttons).toHaveLength(1)

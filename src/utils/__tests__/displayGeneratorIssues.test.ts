@@ -1,8 +1,14 @@
 import { describe, it, expect } from 'vitest'
-import { buildGraphDiagnostics, findDisplayGeneratorIssues, findOutputRuntimeIssues } from '../validateGraph'
+import {
+  buildGraphDiagnostics,
+  findDisplayGeneratorIssues as uncheckedFindDisplayGeneratorIssues,
+  findOutputRuntimeIssues,
+} from '../validateGraph'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import { createDisplayDocument } from '../../state/displayEditor'
+import type { DisplayDocumentRegistry } from '../../state/displayDocument'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
+import { assertWireable } from '../../test-utils/assertWireable'
 
 function node(id: string, nodeType: string, props: Record<string, unknown> = {}): StudioNode {
   const def = NODE_LIBRARY.find((n) => n.type === nodeType)
@@ -16,6 +22,15 @@ function node(id: string, nodeType: string, props: Record<string, unknown> = {})
 }
 function edge(id: string, s: string, sh: string, t: string, th: string): StudioEdge {
   return { id, source: s, target: t, sourceHandle: sh, targetHandle: th } as unknown as StudioEdge
+}
+
+function findDisplayGeneratorIssues(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  documents: DisplayDocumentRegistry = {},
+) {
+  assertWireable(nodes, edges, documents)
+  return uncheckedFindDisplayGeneratorIssues(nodes, edges, documents)
 }
 
 const oled = () => node('oled', 'InfoDisplay', { partId: 'sh1106-oled-128x64', infoLayout: 'Now Playing' })
@@ -130,7 +145,7 @@ describe('fixed touch output routing validation', () => {
 
   it('names an unsupported mapper input rather than silently dropping its physical override', () => {
     const nodes = [...show, out(), panel, controls, node('wave', 'Wave'), touch('panel')]
-    const edges = [...showEdges, ...chain, edge('unsupported', 'wave', 'value', 'controls', 'brightness')]
+    const edges = [...showEdges, ...chain, edge('unsupported', 'wave', 'result', 'controls', 'brightness')]
     expect(findOutputRuntimeIssues(nodes, edges).errors).toEqual([
       expect.stringContaining('cannot evaluate the wire feeding brightness'),
     ])
@@ -145,11 +160,11 @@ describe('fixed touch output routing validation', () => {
     expect(findOutputRuntimeIssues(nodes, edges).errors).toEqual([])
   })
 
-  it('accepts shared scalar calculations for a show mapper and fixed screen', () => {
-    const nodes = [...show, out(), panel, controls, node('pot', 'PotInput'), node('map', 'MapRange'), node('format', 'FormatNumber'), touch('panel')]
+  it('accepts supported scalar calculations for a show mapper', () => {
+    const assignedControls = node('controls', 'ControlMap', { controls: ['brightness'] })
+    const nodes = [...show, out(), panel, assignedControls, node('pot', 'PotInput'), node('map', 'MapRange'), touch('panel')]
     const edges = [...showEdges, ...chain, edge('pot-map', 'pot', 'value', 'map', 'value'),
-      edge('map-control', 'map', 'result', 'controls', 'brightness'),
-      edge('map-format', 'map', 'result', 'format', 'value'), edge('format-panel', 'format', 'text', 'panel', 'section')]
+      edge('map-control', 'map', 'result', 'controls', 'brightness')]
     expect(findOutputRuntimeIssues(nodes, edges).errors).toEqual([])
     expect(findDisplayGeneratorIssues(nodes, edges).errors).toEqual([
       expect.stringContaining('Toggle and Slider outputs'),
