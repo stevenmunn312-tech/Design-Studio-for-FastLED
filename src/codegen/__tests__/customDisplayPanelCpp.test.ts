@@ -89,6 +89,12 @@ describe('custom display panel driver', () => {
     expect(customDisplayPanelHelpersCpp(emit())).not.toContain('_xptPoint')
   })
 
+  it('keeps the last pressed point for the release sample', () => {
+    const helpers = customDisplayPanelHelpersCpp(touchEmit())
+    expect(helpers).toContain('static int16_t x = 0, y = 0;')
+    expect(helpers).not.toContain('int16_t x = 0, y = 0; uint16_t rawX')
+  })
+
   it('streams rate-limited raw samples only in telemetry builds', () => {
     const enabled = touchEmit({ telemetry: true })
     const source = `${customDisplayPanelGlobalCpp(enabled)}\n${customDisplayPanelHelpersCpp(enabled)}`

@@ -217,7 +217,11 @@ function panelIndevCpp(emit: CustomDisplayPanelEmit): string {
   const id = emit.id
   const t = emit.touch
   return `static void _cdIndevRead_${id}(lv_indev_t *indev, lv_indev_data_t *data) {
-  int16_t x = 0, y = 0; uint16_t rawX = 0, rawY = 0;
+  // LVGL uses the pointer position on the release sample too. Keep the last
+  // pressed point: _xptPoint returns before writing x/y when IRQ goes high,
+  // and resetting them to (0, 0) here would snap sliders back to minimum.
+  static int16_t x = 0, y = 0;
+  uint16_t rawX = 0, rawY = 0;
   if (!_cdPanelOn_${id}) { data->state = LV_INDEV_STATE_RELEASED; return; }
   bool pressed = _xptPoint(${t.csPin}, ${t.irqPin}, ${t.sckPin}, ${t.mosiPin}, ${t.misoPin}, `
     + `${t.xFrom}, ${t.xTo}, ${t.yFrom}, ${t.yTo}, `
