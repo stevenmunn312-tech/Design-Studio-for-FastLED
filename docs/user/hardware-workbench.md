@@ -203,7 +203,8 @@ upload after changing them. Defaults are provisional and Diagnostics is not a
 raw sample collector. The companion Touch node's **Calibrate touch** wizard can
 capture the four corners when the running firmware emits raw `FLS_STAT` lines
 with `touchx` and `touchy` over the existing Output serial connection. Enable
-**Report telemetry** on the Board node, compile and upload, then connect that
+**Report telemetry** in the board settings — click the board on this bench —
+compile and upload, then connect that
 same port from the wizard. Saving calibration updates the Touch node; save the
 project and compile/upload once more to run with the measured bounds.
 

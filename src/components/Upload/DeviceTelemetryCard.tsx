@@ -82,8 +82,8 @@ export default function DeviceTelemetryCard() {
       ) : (
         <p className={styles.note}>
           {serialConnected
-            ? `Listening on ${selectedPort}. Nothing reported yet — turn on “Report telemetry” on the Board node, upload, and a line arrives every ${Math.round(TELEMETRY_INTERVAL_MS / 1000)} s.`
-            : 'Connect to the board’s serial port to read what it reports. Needs “Report telemetry” on the Board node and a fresh upload.'}
+            ? `Listening on ${selectedPort}. Nothing reported yet — turn on “Report telemetry” in the Hardware tab’s board settings, upload, and a line arrives every ${Math.round(TELEMETRY_INTERVAL_MS / 1000)} s.`
+            : 'Connect to the board’s serial port to read what it reports. Needs “Report telemetry” in the Hardware tab’s board settings and a fresh upload.'}
           {otherLines > 0 ? ` (${otherLines} other lines seen.)` : ''}
         </p>
       )}

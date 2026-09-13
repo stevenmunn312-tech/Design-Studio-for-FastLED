@@ -88,7 +88,8 @@ save all four bounds together, then save the project and upload again.
 
 The browser wizard listens on the Output console's existing serial connection
 for `FLS_STAT touchx=<value> touchy=<value>` lines. Turn on **Report telemetry**
-on the Board node, then compile and upload that calibration-enabled sketch; it
+in the board settings — the **Hardware** tab, click the board on the bench —
+then compile and upload that calibration-enabled sketch; it
 streams raw samples while the panel is held. Diagnostics still shows mapped
 pixels, not raw samples, and browser touches cannot calibrate the physical
 controller.

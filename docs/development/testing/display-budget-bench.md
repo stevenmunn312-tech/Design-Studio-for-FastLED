@@ -11,8 +11,9 @@ hour.
 
 ## What the device reports
 
-Turn on **Report telemetry** on the Board node and upload. Every two seconds the
-sketch prints one line:
+Turn on **Report telemetry** in the board settings — the **Hardware** tab, click
+the board on the bench — and upload. Every two seconds the sketch prints one
+line:
 
 ```
 FLS_STAT uptime=3600 heap=142112 minheap=138904 fps=58.9 loopmax=21 psram=4194304 psramtotal=8388608 touchms=12 drawbuf=9600
