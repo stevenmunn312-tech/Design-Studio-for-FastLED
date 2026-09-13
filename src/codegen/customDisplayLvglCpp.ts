@@ -151,7 +151,7 @@ function stateStyleLines(
   tokens: DisplayWidgetStateTokens,
   state: 'PRESSED' | 'CHECKED' | 'DISABLED',
 ): string[] {
-  return styleLines(target, tokens, `LV_PART_MAIN | LV_STATE_${state}`)
+  return styleLines(target, tokens, `_cdSel(LV_PART_MAIN, LV_STATE_${state})`)
 }
 
 /**
@@ -247,8 +247,8 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: DisplayWidget, in
     lines.push(`  lv_obj_set_style_bg_color(${obj}, lv_color_hex(${colorHex(base.thumbColor)}), LV_PART_KNOB);`)
     lines.push(`  lv_obj_set_style_bg_opa(${obj}, LV_OPA_COVER, LV_PART_INDICATOR);`)
     lines.push(`  lv_obj_set_style_bg_opa(${obj}, LV_OPA_COVER, LV_PART_KNOB);`)
-    lines.push(`  lv_obj_set_style_bg_color(${obj}, lv_color_hex(${colorHex(theme.states.active.indicatorColor)}), LV_PART_INDICATOR | LV_STATE_CHECKED);`)
-    lines.push(`  lv_obj_set_style_bg_color(${obj}, lv_color_hex(${colorHex(theme.states.pressed.thumbColor)}), LV_PART_KNOB | LV_STATE_PRESSED);`)
+    lines.push(`  lv_obj_set_style_bg_color(${obj}, lv_color_hex(${colorHex(theme.states.active.indicatorColor)}), _cdSel(LV_PART_INDICATOR, LV_STATE_CHECKED));`)
+    lines.push(`  lv_obj_set_style_bg_color(${obj}, lv_color_hex(${colorHex(theme.states.pressed.thumbColor)}), _cdSel(LV_PART_KNOB, LV_STATE_PRESSED));`)
   }
 
   if (widget.type === 'Slider' || widget.type === 'Dial') {
@@ -350,6 +350,16 @@ function controlContentsLines(
 export const CUSTOM_DISPLAY_LVGL_HELPERS = `// ── Custom display / LVGL 9 ─────────────────────────────────────────────────
 #define CD_VALUE_SCALE ${CUSTOM_DISPLAY_LVGL_VALUE_SCALE}
 #define CD_TEXT_BYTES ${DISPLAY_TEXT_BUFFER_BYTES}
+
+// A style selector is the union of a part and a state, and LVGL 9.5 deprecates
+// combining those two enum types with a bare | -- the result is an
+// lv_style_selector_t, not either enum. Each operand is widened before the or,
+// rather than the result being cast after it: casting the result would leave
+// the deprecated enum-to-enum operation happening inside the parentheses.
+// One helper, so a new state-qualified style cannot reintroduce it per site.
+static inline lv_style_selector_t _cdSel(lv_part_t part, lv_state_t state) {
+  return (lv_style_selector_t)part | (lv_style_selector_t)state;
+}
 
 struct CustomDisplayWidgetRuntime {
   lv_obj_t *object;

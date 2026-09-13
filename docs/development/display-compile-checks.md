@@ -176,9 +176,25 @@ buffers are allocated on top of it.
 ## Results
 
 Every fixture passed. The source hash is the generated `.ino`, so a figure can
-be tied to the exact sketch that produced it; each was checked against the
-current generator output after the run, so no row describes a sketch that no
-longer regenerates.
+be tied to the exact sketch that produced it, and each row matched the generator
+output at the time of the run.
+
+> **Six of these rows now predate the emitter.** After the run, the LVGL emitter
+> stopped composing style selectors as `LV_PART_x | LV_STATE_y` — LVGL 9.5
+> deprecates a bitwise operation between those two enum types — and emits
+> `_cdSel(part, state)` instead, which widens each operand to
+> `lv_style_selector_t` before the or. Only sketches that draw a custom screen
+> contain a selector, so **Normal, Generative show, SD player, Disabled panel,
+> Two panels and Bench telemetry** regenerate to a different hash than the table
+> records; **Isolated TFT, Headless controls, both Part families rows and Classic
+> ESP32** are untouched and still regenerate to exactly the hash below.
+>
+> The change is warnings-only on the engine that reported them (fbuild: 66 per
+> custom-screen sketch) and invisible on the engine that produced this table,
+> since Arduino CLI compiles this path with `-w`. So the six rows remain evidence
+> that those shapes build, and are no longer evidence about the exact bytes: a
+> rerun is what would restore that, and is worth folding into the fbuild pass
+> rather than spending a second Arduino CLI matrix on.
 
 | Fixture | Source SHA-256 | Result | Flash bytes | Static RAM bytes |
 | --- | --- | --- | --- | ---: |
@@ -233,6 +249,9 @@ against their pre-regression records under a different source hash.
 ### Not established here
 
 fbuild has not been run against this source, so there are no second-engine rows.
+Its 66-warning selector deprecation is fixed in the emitter but unverified by a
+build; that fix is the first thing an fbuild pass should confirm, and doing so
+would refresh the six rows the note above marks as predating it.
 Physical behaviour is untouched by any of this: refresh speed, touch accuracy,
 heap headroom under load, SPI coexistence and audio continuity all remain HW-11
 and HW-13 bench work.
