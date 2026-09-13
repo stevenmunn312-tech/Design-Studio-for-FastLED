@@ -666,10 +666,9 @@ function withPlayerControlRow(node: StudioNode, controls: string[]): StudioNode 
  * handles on the same node, so it needs its own small map rather than falling
  * out of the same-handle replacement below.
  */
-const EXCLUSIVE_SIBLING_INPUT: Record<string, string> = {
-  display: 'customDisplay',
-  customDisplay: 'display',
-}
+// A panel has one content input again: its screen design is a property, not a
+// wire, so there is no sibling handle for a new cable to displace.
+const EXCLUSIVE_SIBLING_INPUT: Record<string, string> = {}
 
 /**
  * Fit a design to the physical glass at the moment its mount becomes real.

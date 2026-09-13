@@ -252,9 +252,11 @@ describe('normal-sketch codegen for the custom Display node', () => {
    */
   it('cannot share a design between panels or leave one unmounted', () => {
     const plan = customDisplayMountPlan([panel(), panel('second', { displayId: 'other' }), output])
+    // Two panels, two designs. The plan has no other shape to describe: the
+    // fields that reported a shared or unmounted design are gone with the
+    // states they reported.
     expect(plan.mounted.map((mount) => mount.documentId)).toEqual(['screen', 'other'])
-    expect(plan.shared).toEqual([])
-    expect(plan.unmounted).toEqual([])
+    expect(Object.keys(plan)).toEqual(['mounted'])
   })
 
   it('emits no screen for a panel that has no design', () => {

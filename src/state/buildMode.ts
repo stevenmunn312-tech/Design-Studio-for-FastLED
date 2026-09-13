@@ -138,7 +138,7 @@ function standaloneDisplayOutput<T extends BuildModeNode>(
       && node.data.properties.enabled !== false)
     .map((node) => [node.id, node]))
   if (edges.some((edge) => active.has(edge.target)
-    && (edge.targetHandle === 'display' || edge.targetHandle === 'customDisplay'))) return true
+    && edge.targetHandle === 'display')) return true
   return [...active.values()].some((node) => node.data.nodeType === 'TransportDisplay'
     && String(node.data.properties.tftLayout ?? '') === 'Diagnostics')
 }

@@ -37,7 +37,7 @@ import { CUSTOM_DISPLAY_LVGL_HEAP_BYTES } from '../codegen/customDisplayLvglCpp'
 import { customDisplayRamBytes } from '../codegen/customDisplayRam'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import { showControlRouting, showControlOutputIds } from '../codegen/showControlRouting'
-import { customDisplayMountPlan, mountedCustomDisplays, mountedSizeIssue, sharedDocumentIssue, unmountedDocumentIssue } from '../state/mountedDisplays'
+import { customDisplayMountPlan, mountedCustomDisplays, mountedSizeIssue } from '../state/mountedDisplays'
 import { transportTouchRegions } from '../state/transportTouch'
 import { resolveBuildMode } from '../state/buildMode'
 import {
@@ -1775,28 +1775,10 @@ export function findDisplayGeneratorIssues(
     const issue = mountedSizeIssue(nodeLabel(mounted.document), mounted.geometry, document.designSize)
     if (issue) errors.push(issue)
   }
-  // One design, one panel. Every symbol a custom screen emits is keyed by its
-  // document node, so a second panel showing the same document would declare
-  // the widget globals and the screen object twice; the template planner
-  // already refused this as an identifier collision while normal codegen
-  // emitted the duplicate. Say so in the one place all three build paths read,
-  // and name the repair — a copy of the design, not a shared one, because two
-  // panels showing one document would also be two fingers on one set of
-  // widgets with no policy for which wins.
-  for (const { document, panels } of mountPlan.shared) {
-    errors.push(sharedDocumentIssue(nodeLabel(document), panels.map(nodeLabel)))
-  }
   // A design nobody has plugged in is free to sit in the workspace — it costs
   // no RAM, bakes no images and blocks no build. What it cannot do is drive
   // anything: its widgets are never created, so a normal sketch referenced a
   // control variable it had not declared. The wire is the mistake, not the
-  // design.
-  for (const document of mountPlan.unmounted) {
-    const driven = edges.filter((edge) => edge.source === document.id && edge.sourceHandle !== 'customDisplay')
-    if (driven.length === 0) continue
-    errors.push(unmountedDocumentIssue(nodeLabel(document), driven.length))
-  }
-
   for (const issue of templateControls?.custom.errors ?? []) {
     if (!errors.includes(issue)) errors.push(issue)
   }

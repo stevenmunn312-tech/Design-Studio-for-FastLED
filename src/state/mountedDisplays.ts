@@ -114,12 +114,8 @@ export function mountedSizeIssue(
  * driving a control that does not exist.
  */
 export interface CustomDisplayMountPlan {
-  /** One panel per document node, in graph order. */
+  /** Every panel with a screen design, in graph order. */
   mounted: MountedCustomDisplay[]
-  /** Documents plugged into more than one panel, with every panel showing them. */
-  shared: { document: StudioNode; panels: StudioNode[] }[]
-  /** `Display` nodes no panel shows. */
-  unmounted: StudioNode[]
 }
 
 export function customDisplayMountPlan(nodes: readonly StudioNode[]): CustomDisplayMountPlan {
@@ -132,26 +128,6 @@ export function customDisplayMountPlan(nodes: readonly StudioNode[]): CustomDisp
    * cases keep compiling while they are removed, and so the shape of this plan
    * does not have to change twice.
    */
-  return { mounted: mountedCustomDisplays(nodes), shared: [], unmounted: [] }
+  return { mounted: mountedCustomDisplays(nodes) }
 }
 
-/**
- * Why one design cannot drive two panels.
- *
- * Stated once so deploy validation and the two template planners say the same
- * sentence, and so the merge in `findDisplayGeneratorIssues` reports it once
- * rather than twice in slightly different words.
- */
-export function sharedDocumentIssue(documentLabel: string, panelLabels: readonly string[]): string {
-  return `${documentLabel} is plugged into ${panelLabels.length} panels (${panelLabels.join(', ')}). `
-    + 'A screen design drives one panel: copy the Screen Design node and wire a copy to each panel, '
-    + 'or disconnect all but one.'
-}
-
-/** Why a wire out of an unplugged design leads nowhere. */
-export function unmountedDocumentIssue(documentLabel: string, drivenCount: number): string {
-  return `${documentLabel} drives ${drivenCount === 1 ? 'a control' : `${drivenCount} controls`}, `
-    + 'but it is not plugged into a panel, so its widgets are never built. '
-    + "Wire its Screen Design output to a Display Panel's Screen Design input, "
-    + 'or disconnect the widget wires.'
-}

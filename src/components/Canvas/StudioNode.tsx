@@ -377,7 +377,8 @@ const LivePropertyControls = memo(function LivePropertyControls({
    */
   const mountedScreenDesign = useGraphStore((s) => {
     if (nodeType !== 'TransportDisplay') return false
-    return rootGraphEdges(s).some((edge) => edge.target === nodeId && edge.targetHandle === 'customDisplay')
+    // The panel owns its design, so this is a property rather than an edge.
+    return Boolean(rootGraphNodes(s).find((node) => node.id === nodeId)?.data.properties.displayId)
   })
 
   const isMatrixOutput = nodeType === 'MatrixOutput'
