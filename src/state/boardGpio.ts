@@ -1,6 +1,18 @@
 export type GpioCapability = 'digitalInput' | 'digitalOutput' | 'analogInput' | 'pullup'
 export const MAX_PIN_NUMBER = 255
 
+/**
+ * "This line is not driven from a GPIO."
+ *
+ * The same 255 as the range's top end, and deliberately so: it is the value
+ * the generated firmware already guards on (`if (rst != 255)`), so a line the
+ * module ties on its own PCB — an integrated board's hard-wired panel reset,
+ * an always-on backlight — is stated with the number the sketch understands
+ * rather than a second convention. Only pin properties the firmware actually
+ * guards may carry it; `pinPropertyIsUnwired` in nodeLibrary.ts says which.
+ */
+export const NO_PIN = MAX_PIN_NUMBER
+
 export interface PinNote {
   pin: number
   /** Human-facing board label such as A0. Numeric values remain the values

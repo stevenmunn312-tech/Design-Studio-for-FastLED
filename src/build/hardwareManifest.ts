@@ -5,6 +5,7 @@ import {
   gpioRequirementForProperty,
   libraryDefaults,
   oledTransportForProps,
+  pinPropertyIsUnwired,
   transportDisplayPinKeysForProps,
   type GpioPropertyRequirement,
 } from '../state/nodeLibrary'
@@ -153,6 +154,10 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
   const push = (node: StudioNode, label: string, propertyKey: string, value: unknown) => {
     if (typeof value !== 'number' || !Number.isFinite(value)) return
     const nodeType = node.data.nodeType
+    // A line the module ties on its own PCB claims no GPIO, so it must not
+    // enter this walk: everything downstream — board compatibility, collision
+    // checking, allocation, the diagram's wires — reads a use as a pin in use.
+    if (pinPropertyIsUnwired(nodeType, propertyKey, value)) return
     const props = node.data.properties as Record<string, unknown>
     uses.push({
       label,
@@ -647,7 +652,11 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const props = node.data.properties as Record<string, unknown>
         const partId = String(props.partId ?? 'st7789-tft-240x240')
         const entry = partById(partId)
+        // A tied reset or an always-on backlight is configured, not missing:
+        // it contributes no pin use, so asking for one would report a
+        // correctly-wired integrated panel as incomplete.
         const keys = transportDisplayPinKeysForProps(props)
+          .filter((key) => !pinPropertyIsUnwired('TransportDisplay', key, props[key]))
         const complete = keys.every((key) => pins.some((pin) => pin.propertyKey === key))
         return {
           ...buildPeripheralItem(node, 'transport-display', `${entry?.label ?? 'Colour TFT'} display`, pins),

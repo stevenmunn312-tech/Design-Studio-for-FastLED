@@ -4,7 +4,7 @@ import { STUDIO_PALETTES } from './paletteCatalog'
 import { evaluateScalarExpression } from './scalarExpression'
 import { MIC_DEFAULTS, MIC_MAX_GAIN } from '../audio/micAnalysis'
 import { ANIMARTRIX_EFFECTS } from '../animartrix/catalog'
-import { MAX_PIN_NUMBER, type GpioCapability } from './boardGpio'
+import { MAX_PIN_NUMBER, NO_PIN, type GpioCapability } from './boardGpio'
 import { EASE_TYPES } from './easing'
 import { DATE_TIME_TEXT_MODES } from './displayText'
 import { SEGMENT_BRIGHTNESS_MIN, SEGMENT_BRIGHTNESS_MAX, segmentControllerFor } from './segmentDisplay'
@@ -5221,6 +5221,31 @@ const TRANSPORT_DISPLAY_BASE_PINS = [
 const TRANSPORT_DISPLAY_TOUCH_PINS = [
   'misoPin', 'touchCsPin', 'touchIrqPin', 'touchSckPin', 'touchMosiPin', 'touchMisoPin',
 ] as const
+
+/**
+ * Pin properties that may read `NO_PIN` because the firmware guards them.
+ *
+ * Derived from the sketch, not from taste: `tftDisplayCpp`/`customDisplayPanelCpp`
+ * skip reset and backlight when they are 255, and `tftTouchCpp` skips the touch
+ * IRQ, so those three lines — and only those — can honestly be described as not
+ * wired. An OLED's reset is driven unconditionally, which is why `InfoDisplay`
+ * has no entry here.
+ */
+const UNWIRABLE_PIN_PROPERTIES: Record<string, readonly string[]> = {
+  TransportDisplay: ['resetPin', 'backlightPin', 'touchIrqPin'],
+}
+
+/**
+ * Whether this pin property is stating that nothing is wired to it.
+ *
+ * Every walk that treats a pin property as a claim on a GPIO — pin collection,
+ * board compatibility, allocation, the Build Diagram's wires — has to ask this
+ * first, or an integrated board's tied panel reset reads as a part sitting on
+ * GPIO 255 and the build is refused for wiring that does not exist.
+ */
+export function pinPropertyIsUnwired(nodeType: string, key: string, value: unknown): boolean {
+  return value === NO_PIN && (UNWIRABLE_PIN_PROPERTIES[nodeType]?.includes(key) ?? false)
+}
 
 /** Pins physically present for the selected catalogued colour-display module. */
 export function transportDisplayPinKeysForProps(properties: Record<string, unknown>): string[] {
