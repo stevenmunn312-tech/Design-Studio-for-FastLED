@@ -111,9 +111,17 @@ export const useTouchCalibrationStore = create<TouchCalibrationState>((set, get)
         : state)
       return
     }
-    // `runUpload` stops serial before flashing and the helper holds the port
-    // through it, so the listener can only be started once it has finished.
-    await useUploadStore.getState().startSerial()
+    /*
+     * Started, never awaited.
+     *
+     * `startSerial` resolves when the connection *ends*, not when it opens — it
+     * awaits the read loop — so awaiting it here left the wizard on "Uploading…"
+     * for as long as the port stayed open, which is to say forever. It flips
+     * `serialConnected` synchronously before that first await, so the state is
+     * already true by the time this call returns. Every other caller treats it
+     * the same way (`void startSerial()`).
+     */
+    void useUploadStore.getState().startSerial()
     set((state) => state.session
       ? {
         session: {

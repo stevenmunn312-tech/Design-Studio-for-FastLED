@@ -76,7 +76,18 @@ describe('Touch calibration node action', () => {
     // matters here is that it asks for them, in order, and gives the port
     // back. Whether a real flash succeeds is the helper's business.
     runUpload = vi.fn(async () => {})
-    startSerial = vi.fn(async () => { useUploadStore.setState({ serialConnected: true } as never) })
+    /*
+     * Modelled the way the real one behaves, which a resolving stub hid.
+     *
+     * `startSerial` flips `serialConnected` synchronously and then awaits the
+     * read loop, so its promise settles when the port *closes* — never, while
+     * calibration is running. A stub that resolved let an `await` on it pass
+     * here and hang the wizard on a real board.
+     */
+    startSerial = vi.fn(() => {
+      useUploadStore.setState({ serialConnected: true } as never)
+      return new Promise(() => {})
+    })
     stopSerial = vi.fn(() => { useUploadStore.setState({ serialConnected: false } as never) })
     useUploadStore.setState({
       selectedPort: 'COM7',
