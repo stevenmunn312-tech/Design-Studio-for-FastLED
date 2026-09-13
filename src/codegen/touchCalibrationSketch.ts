@@ -59,6 +59,9 @@ export interface TouchCalibrationSketchTarget {
  *  small enough that its centre is near the extreme being measured. */
 const TARGET = 28
 
+/** Half-width of the dot left where a press landed. */
+const MARK = 2
+
 /**
  * Text metrics, from the same constants the emitted `_tftTextWidth` uses.
  *
@@ -170,11 +173,28 @@ export function generateTouchCalibrationSketch(target: TouchCalibrationSketchTar
       + `${target.touchMosiPin}, ${target.touchMisoPin}, ${RAW_MIN}, ${RAW_MAX}, ${RAW_MIN}, ${RAW_MAX}, `
       + `${target.controller.width}, ${target.controller.height}, ${ROTATION_CODE[target.rotation]}, `
       + 'x, y, rawX, rawY);',
-    '  (void)x; (void)y;',
     '  if (pressed) {',
     '    uint32_t now = millis();',
     `    if (_calSampleMs == 0 || (uint32_t)(now - _calSampleMs) >= ${TELEMETRY_TOUCH_INTERVAL_MS}u) {`,
     `      ${telemetryTouchSampleCpp('rawX', 'rawY')}`,
+    /*
+     * A mark where the press landed, so the glass answers as well as the
+     * wizard — a panel that draws nothing is indistinguishable from a
+     * digitiser nobody wired.
+     *
+     * Inside the sample interval rather than every pass, so a held finger
+     * costs one small blit per reading instead of one every eight
+     * milliseconds down a bit-banged bus. Marks accumulate: erasing one would
+     * take the corner box underneath it too, and four presses leaving four
+     * dots is the more useful picture anyway.
+     *
+     * Drawn at the *uncalibrated* position, which is the point rather than a
+     * shortcoming — a dot on the opposite side to the finger is this panel's
+     * reversed axis, made visible.
+     */
+    `      _tftFillRect(_calPanel, constrain(x - ${MARK}, 0, ${size.width - MARK * 2 - 1}), `
+      + `constrain(y - ${MARK}, 0, ${size.height - MARK * 2 - 1}), `
+      + `${MARK * 2 + 1}, ${MARK * 2 + 1}, TFT_C_ON);`,
     '      _calSampleMs = now;',
     '    }',
     '  } else {',

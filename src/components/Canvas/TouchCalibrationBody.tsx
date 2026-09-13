@@ -63,6 +63,10 @@ function TouchCalibrationDialog({ nodeId }: { nodeId: string }) {
       touchXMax: session.result.xMax,
       touchYMin: session.result.yMin,
       touchYMax: session.result.yMax,
+      // Direction is half the answer: a range alone maps a reversed axis to
+      // the mirror of where the press happened.
+      touchFlipX: session.result.flipX === true,
+      touchFlipY: session.result.flipY === true,
     })
     cancel()
   }
@@ -208,6 +212,15 @@ function TouchCalibrationDialog({ nodeId }: { nodeId: string }) {
                           <div><dt>Y min</dt><dd>{session.result.yMin}</dd></div>
                           <div><dt>Y max</dt><dd>{session.result.yMax}</dd></div>
                         </dl>
+                        {(session.result.flipX || session.result.flipY) && (
+                          <p className={styles.axisNote}>
+                            This digitiser counts backwards along{' '}
+                            {session.result.flipX && session.result.flipY
+                              ? 'both axes'
+                              : session.result.flipX ? 'X (right to left)' : 'Y (bottom to top)'}.
+                            Saved with the bounds, so presses land where you made them.
+                          </p>
+                        )}
                         <div className={styles.actions}>
                           <button type="button" className={styles.secondaryButton} onClick={restart}>Restart</button>
                           <button type="button" className={styles.primaryButton} onClick={save}>Save calibration</button>

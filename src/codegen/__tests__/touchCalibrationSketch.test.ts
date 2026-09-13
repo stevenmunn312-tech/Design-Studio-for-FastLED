@@ -110,6 +110,26 @@ describe('the touch calibration sketch', () => {
     expect(new Set(scales).size).toBe(1)
   })
 
+  /*
+   * A mark where the press landed.
+   *
+   * Drawn on the sample tick rather than every pass, so a held finger costs
+   * one small blit per reading instead of one every eight milliseconds down a
+   * bit-banged bus — and clamped, because a reading at the very edge would
+   * otherwise start a rect that runs off the panel.
+   */
+  it('marks the glass where the touch landed', () => {
+    const sketch = sketchFor(CYD)
+    const loop = sketch.slice(sketch.indexOf('void loop()'))
+    expect(loop).toMatch(/_tftFillRect\(_calPanel, constrain\(x - \d+, 0, \d+\)/)
+    // Inside the interval guard, beside the reading it corresponds to.
+    const guard = loop.indexOf('_calSampleMs == 0')
+    const mark = loop.indexOf('_tftFillRect(_calPanel, constrain(')
+    expect(guard).toBeGreaterThan(-1)
+    expect(mark).toBeGreaterThan(guard)
+    expect(mark).toBeLessThan(loop.indexOf('_calSampleMs = now;'))
+  })
+
   // Rotation is the panel's, and the touch mapping has to use the same one or
   // the targets drawn and the coordinates reported disagree.
   it('follows the panel rotation', () => {

@@ -333,3 +333,14 @@
   .capturePanel { min-height: 220px; }
   .footer { align-items: flex-start; flex-direction: column; }
 }
+
+/* A measured fact about the hardware, not a warning: the run succeeded. */
+.axisNote {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-output) 10%, transparent);
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  line-height: 1.4;
+}
