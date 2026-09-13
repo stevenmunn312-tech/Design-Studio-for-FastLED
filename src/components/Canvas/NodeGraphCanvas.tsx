@@ -26,7 +26,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useShallow } from 'zustand/react/shallow'
-import { rootGraphEdges, useGraphStore } from '../../state/graphStore'
+import { useGraphStore } from '../../state/graphStore'
 import type { StudioEdge } from '../../state/graphStore'
 import { findSignalRangeHints } from '../../utils/validateGraph'
 import { useUiStore } from '../../state/uiStore'
@@ -665,15 +665,12 @@ function NodeGraphCanvasInner() {
     (_e, node) => {
       const d = node.data as { nodeType?: string; properties?: { groupId?: string; displayId?: string } }
       if (d.nodeType === 'Group' && d.properties?.groupId) enterGraph(d.properties.groupId)
-      // Only a mounted design can be opened, for the same reason the node's
-      // own Edit button is disabled until then: an unmounted document has no
-      // size to draw at (HW-07).
-      if (d.nodeType === 'Display') {
-        const graph = useGraphStore.getState()
-        const mounted = rootGraphEdges(graph)
-          .some((edge) => edge.source === node.id && edge.targetHandle === 'customDisplay')
-        if (mounted) useUiStore.getState().openDisplayWorkspace(d.properties?.displayId ?? node.id)
-        else useUiStore.getState().setStatus('Connect this screen design to a Display Panel to edit it', 'info')
+      // A panel with a screen design opens it; one without says so, since
+      // there is nothing to draw yet.
+      if (d.nodeType === 'TransportDisplay') {
+        const designId = String(d.properties?.displayId ?? '')
+        if (designId) useUiStore.getState().openDisplayWorkspace(designId)
+        else useUiStore.getState().setStatus('This panel has no screen design yet — use Create screen design', 'info')
       }
     },
     [enterGraph]

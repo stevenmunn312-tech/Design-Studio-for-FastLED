@@ -33,8 +33,11 @@ function edge(id: string, source: string, sourceHandle: string, target: string, 
 }
 
 function screen(id = 'screen', displayId = 'panel'): StudioNode {
-  return node(id, 'Display', { displayId }, {
+  // The panel carries the screen drawn on it, so the widget ports are its own.
+  return node(id, 'TransportDisplay', { displayId, partId: 'st7789v-xpt2046-touch-240x320' }, {
     inputs: [
+      { id: 'display', label: 'Display', dataType: 'display' },
+      { id: 'enabled', label: 'Enabled', dataType: 'bool' },
       { id: 'widget:title:value', label: 'Title', dataType: 'string' },
       { id: 'widget:slider:set', label: 'Set', dataType: 'float' },
     ],

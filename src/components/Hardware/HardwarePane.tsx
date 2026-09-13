@@ -15,13 +15,12 @@ import { withAssignedPins } from '../../state/pinRetarget'
 import { boardI2cDefault } from '../../build/boardI2cDefaults'
 import { sdSpiPinsForBoard } from '../../state/sdPinDefaults'
 import {
-  displayResolution, partById, partDimensionsMm, partPinLabelForProperty,
+  partById, partDimensionsMm, partPinLabelForProperty,
   partRenderSrc, ringDiameterMm,
 } from '../../state/partCatalogue'
 import { buttonBankHandle, normalizeButtonBankEntries } from '../../state/buttonBank'
 import { partRenderForNodeType } from '../../state/partRenders'
 import { partOptionProperty, partOptionsFor, resolvePartIdentity } from '../../state/partOptions'
-import { createDisplayDocument } from '../../state/displayEditor'
 import PartIdentity from './PartIdentity'
 import { useUploadStore } from '../../state/uploadStore'
 import {
@@ -187,7 +186,7 @@ function modulePinKeys(nodeType: string, moduleId: string | undefined): readonly
   // Asking the board for the union would reserve five pins for a module with
   // two, and drawing it would label wires the module does not bring out.
   if (nodeType === 'InfoDisplay') return OLED_TRANSPORT_PINS[oledTransportFor(entry?.display?.interface)]
-  if (nodeType === 'TransportDisplay' || nodeType === 'Display') return transportDisplayPinKeysForProps({ partId: moduleId })
+  if (nodeType === 'TransportDisplay') return transportDisplayPinKeysForProps({ partId: moduleId })
   if (nodeType !== 'SegmentDisplay') return null
   return segmentControllerFor(entry?.display?.controller).pins
 }
@@ -225,17 +224,6 @@ const FIXTURE_PARTS: readonly FixturePartEntry[] = [
       { key: 'sckPin' }, { key: 'mosiPin' }, { key: 'csPin' },
       { key: 'dcPin' }, { key: 'resetPin' }, { key: 'backlightPin' },
     ],
-  },
-  {
-    // No pins, no footprint, no render — the panel/document split (see
-    // docs/development/design/large-displays-and-control-routing.md) left
-    // this node with no physical existence of its own. It opens a document
-    // that drives whichever TransportDisplay panel its `customDisplay`
-    // output is wired to.
-    nodeType: 'Display',
-    partId: 'custom-display',
-    label: 'Screen design',
-    hint: 'A screen you draw, shown by the Display panel it is wired to',
   },
   {
     // Two modules behind one node: the SH1106 on SPI and the SSD1306 on I2C.
@@ -583,7 +571,6 @@ function OutputLink({ signalKey, effects, label, link, visualScale }: {
 
 export default function HardwarePane() {
   const addNode = useGraphStore((state) => state.addNode)
-  const setDisplayDocument = useGraphStore((state) => state.setDisplayDocument)
   const connectRoot = useGraphStore((state) => state.connectRoot)
   const removeNodeCompletely = useGraphStore((state) => state.removeNodeCompletely)
   // The bench is the project's hardware, which lives in the root graph — so it
@@ -1462,17 +1449,12 @@ export default function HardwarePane() {
           ),
           ...(moduleProperty && moduleId ? { [moduleProperty]: moduleId } : {}),
           ...(targetOutputId !== undefined ? { targetOutputId } : {}),
-          ...(entry.nodeType === 'Display' ? { displayId: nodeId } : {}),
           ...vuSizing,
         },
         inputs: definition.inputs,
         outputs: definition.outputs,
       },
     } as never)
-    if (entry.nodeType === 'Display') {
-      const size = displayResolution(moduleId ?? '') ?? { width: 320, height: 240 }
-      setDisplayDocument(createDisplayDocument(nodeId, size.width, size.height))
-    }
     /*
      * A touch panel is two chips, so it arrives as two nodes.
      *
@@ -1616,7 +1598,6 @@ export default function HardwarePane() {
   const segmentDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'SegmentDisplay')
   const infoDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'InfoDisplay')
   const transportDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'TransportDisplay')
-  const customDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'Display')
   const stereoVuFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'StereoVuMeter')
   const stereoVuBlocker = stereoVuFixture
     ? stereoVuFixture.singleton && hasPartOfType(stereoVuFixture.nodeType)
@@ -1672,20 +1653,9 @@ export default function HardwarePane() {
         ...moduleItems('SegmentDisplay', segmentDisplayFixture),
         ...moduleItems('InfoDisplay', infoDisplayFixture),
         ...moduleItems('TransportDisplay', transportDisplayFixture),
-        // Not `moduleItems`: Display selects no catalogued module of its own
-        // — the panel/document split left it with no `partOptions` at all —
-        // so it needs a direct entry, the same pattern StereoVuMeter uses
-        // below for the same reason.
-        ...(customDisplayFixture ? [{
-          key: customDisplayFixture.partId,
-          nodeType: customDisplayFixture.nodeType,
-          label: customDisplayFixture.label,
-          hint: customDisplayFixture.hint,
-          visual: 'custom-display',
-          disabled: false,
-          disabledReason: null,
-          onSelect: () => addFixturePart(customDisplayFixture),
-        }] : []),
+        // No "Screen design" entry: a screen is drawn on a panel, so it is
+        // added from the panel rather than taken off a shelf of physical
+        // parts it was never one of.
       ],
     },
     {

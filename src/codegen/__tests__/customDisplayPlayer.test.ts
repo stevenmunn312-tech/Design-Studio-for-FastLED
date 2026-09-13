@@ -20,14 +20,12 @@ const root = [node('player', 'PatternMaster'), node('out', 'MatrixOutput', { wid
   node('sd', 'SDCard'), node('amp', 'Amplifier', { maxVolume: 6 })]
 const route = [edge('player', 'frame', 'out', 'frame')]
 const groups = { pattern: { nodes: [node('fill', 'SolidColor'), node('end', 'GroupOutput')], edges: [edge('fill', 'frame', 'end', 'frame')] } }
-// Panel/document split: the document (`screen`) has no pins of its own; a
-// `TransportDisplay` panel carries them, wired through `customDisplay`. See
-// docs/development/design/large-displays-and-control-routing.md.
-const screen = (id = 'screen', properties: Record<string, unknown> = {}) => node(id, 'Display', { displayId: id, ...properties })
+// A panel owns the screen drawn on it: one node, no mount wire. The panel is
+// `tft` and the design it holds is `screen`, which is what keys every widget
+// symbol the assertions below name.
 const panel = (id: string, properties: Record<string, unknown> = {}) => node(id, 'TransportDisplay', {
-  partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', ...properties,
+  partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', displayId: 'screen', ...properties,
 })
-const link = (docId: string, panelId: string) => edge(docId, 'customDisplay', panelId, 'customDisplay')
 function document(id = 'screen') {
   let doc = createDisplayDocument(id, 240, 320)
   for (const type of ['Slider', 'Button', 'Text', 'Progress', 'Timecode'] as const) doc = addDisplayWidget(doc, type)
@@ -40,14 +38,14 @@ const generate = (nodes: StudioNode[], edges: StudioEdge[], collection = true) =
 
 describe('custom displays in SD-player firmware', () => {
   it.each([false, true])('runs widget controls and publishes track readouts with or without collection renderers (%s)', (collection) => {
-    const nodes = [screen(), panel('tft'), node('song', 'SongInfo'), node('controls', 'PlayerControls', { debounceMs: 0 }), node('math', 'Math', { mathOp: 'multiply', b: 0.5 })]
-    const edges = [link('screen', 'tft'), edge('screen', 'widget:slider:out', 'math', 'a'), edge('math', 'result', 'controls', 'brightness'),
-      edge('screen', 'widget:button:out', 'controls', 'playPause'), edge('controls', 'controls', 'player', 'controls'),
+    const nodes = [panel('tft'), node('song', 'SongInfo'), node('controls', 'PlayerControls', { debounceMs: 0 }), node('math', 'Math', { mathOp: 'multiply', b: 0.5 })]
+    const edges = [edge('tft', 'widget:slider:out', 'math', 'a'), edge('math', 'result', 'controls', 'brightness'),
+      edge('tft', 'widget:button:out', 'controls', 'playPause'), edge('controls', 'controls', 'player', 'controls'),
       // The track report is opened by a Song Info node now; the player itself
       // publishes one envelope rather than a port per field.
       edge('player', 'display', 'song', 'display'),
-      edge('song', 'title', 'screen', 'widget:text:value'), edge('song', 'progress', 'screen', 'widget:progress:value'),
-      edge('song', 'elapsed', 'screen', 'widget:timecode:value')]
+      edge('song', 'title', 'tft', 'widget:text:value'), edge('song', 'progress', 'tft', 'widget:progress:value'),
+      edge('song', 'elapsed', 'tft', 'widget:timecode:value')]
     const cpp = generate(nodes, edges, collection)
     const loop = cpp.slice(cpp.indexOf('void loop() {'))
     expect(cpp).toContain('lv_display_set_default(_cdDisp_tft);')
@@ -62,7 +60,7 @@ describe('custom displays in SD-player firmware', () => {
     expect(loop).toContain('float n_song_progress = songProgress();')
     expect(loop).toContain('float n_song_elapsed = songElapsedSec();')
     expect(loop).not.toContain('n_song_album')
-    const ordered = ['if (provTransferring) return;', 'lv_indev_read(_cdIndev_tft)', 'float n_screen_widget_slider_out',
+    const ordered = ['if (provTransferring) return;', 'lv_indev_read(_cdIndev_tft)', 'float n_tft_widget_slider_out',
       'float n_math_result', 'n_controls_controls.hasBrightness = true;', 'if (n_controls_controls.playPause && audio.pauseResume())', 'audio.loop();']
     const offsets = ordered.map((part) => loop.indexOf(part))
     expect(offsets.every((offset) => offset >= 0)).toBe(true)
@@ -78,10 +76,9 @@ describe('custom displays in SD-player firmware', () => {
   })
 
   it('keeps synchronized volume normalized to the player control setting under an amplifier cap', () => {
-    const cpp = generate([screen(), panel('tft'), node('song', 'SongInfo'), node('controls', 'PlayerControls')], [
-      link('screen', 'tft'),
-      edge('screen', 'widget:slider:out', 'controls', 'volume'), edge('controls', 'controls', 'player', 'controls'),
-      edge('player', 'display', 'song', 'display'), edge('song', 'volume', 'screen', 'widget:slider:set'),
+    const cpp = generate([panel('tft'), node('song', 'SongInfo'), node('controls', 'PlayerControls')], [
+      edge('tft', 'widget:slider:out', 'controls', 'volume'), edge('controls', 'controls', 'player', 'controls'),
+      edge('player', 'display', 'song', 'display'), edge('song', 'volume', 'tft', 'widget:slider:set'),
     ])
     expect(cpp).toContain('lroundf(playerVolume * 6)')
     expect(cpp).toContain('float n_song_volume = playerVolume;')
@@ -90,11 +87,11 @@ describe('custom displays in SD-player firmware', () => {
   })
 
   it('shares scalar computations between widget readouts, fixed screens and chained controls', () => {
-    const nodes = [screen(), panel('tft'), node('map', 'MapRange'), node('format', 'FormatNumber'), node('first', 'PlayerControls'),
+    const nodes = [panel('tft'), node('map', 'MapRange'), node('format', 'FormatNumber'), node('first', 'PlayerControls'),
       node('last', 'PlayerControls', { debounceMs: 55 }), node('button', 'ButtonInput', { pin: 12, pullup: false }),
       node('fixed', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Fixed Transport' })]
-    const edges = [link('screen', 'tft'), edge('screen', 'widget:slider:out', 'map', 'value'), edge('map', 'result', 'format', 'value'),
-      edge('format', 'text', 'screen', 'widget:text:value'), edge('format', 'text', 'fixed', 'title'),
+    const edges = [edge('tft', 'widget:slider:out', 'map', 'value'), edge('map', 'result', 'format', 'value'),
+      edge('format', 'text', 'tft', 'widget:text:value'), edge('format', 'text', 'fixed', 'title'),
       edge('map', 'result', 'first', 'volume'), edge('fixed', 'controls', 'first', 'controlsIn'),
       edge('first', 'controls', 'last', 'controlsIn'), edge('button', 'pressed', 'last', 'next'),
       edge('last', 'controls', 'player', 'controls')]
@@ -110,14 +107,14 @@ describe('custom displays in SD-player firmware', () => {
   })
 
   it('rejects unsupported sources, wrong types and output wires before code generation', () => {
-    const nodes = [...root, screen(), node('wave', 'Wave'), node('controls', 'PlayerControls')]
+    const nodes = [...root, node('wave', 'Wave'), node('controls', 'PlayerControls')]
     const edges = [...route, edge('wave', 'value', 'controls', 'brightness'), edge('controls', 'controls', 'player', 'controls')]
     const issues = playerControlGraph(nodes, edges, docs).errors
     expect(issues.join(' ')).toContain('an SD player cannot evaluate')
     expect(() => buildShowPlayer(nodes, edges, {}, { bakedAudio: false, preferredTrack: '', displayDocuments: docs })).toThrow('unsupported')
     expect(buildGraphDiagnostics(nodes, edges, { displayDocuments: docs })).toContainEqual(expect.objectContaining({ message: expect.stringContaining('cannot evaluate') }))
-    expect(() => generate([screen(), panel('tft')], [link('screen', 'tft'), edge('player', 'title', 'screen', 'widget:slider:set')])).toThrow('requires float')
-    expect(() => generate([screen(), panel('tft')], [link('screen', 'tft'), edge('screen', 'widget:slider:out', 'out', 'brightness')])).toThrow('Player Controls')
+    expect(() => generate([panel('tft')], [edge('player', 'title', 'tft', 'widget:slider:set')])).toThrow('requires float')
+    expect(() => generate([panel('tft')], [edge('tft', 'widget:slider:out', 'out', 'brightness')])).toThrow('Player Controls')
   })
 
   it('uses identical prepared asset bytes for measurement and the actual upload payload', () => {
@@ -126,8 +123,8 @@ describe('custom displays in SD-player firmware', () => {
     art.bounds = { x: 0, y: 0, width: 2, height: 1 }
     const asset = { ...customDisplayAssetRequests(doc)[0], data: new Uint8Array([0x12, 0x34]) }
     const options = { displayDocuments: { screen: doc }, customDisplayAssets: { screen: [asset] } }
-    const nodes = [...root, screen(), panel('tft')]
-    const edges = [...route, link('screen', 'tft')]
+    const nodes = [...root, panel('tft')]
+    const edges = [...route]
     const measured = buildShowPlayerForMeasurement(nodes, edges, {}, '', false, '', options)
     const uploaded = buildShowPayload(nodes, edges, [], {}, options)?.player
     expect(measured).toBe(uploaded)

@@ -10,7 +10,7 @@
 // happens to be in hand. Reading it off the document is what let a landscape
 // design stay attached to a portrait panel.
 
-import type { StudioNode, StudioEdge } from './graphStore'
+import type { StudioNode } from './graphStore'
 import { tftControllerForProps } from './nodeLibrary'
 import { asTftRotation, TFT_CONTROLLERS, tftRotatedSize, type TftController, type TftRotation } from './tftSurface'
 
@@ -38,26 +38,27 @@ export interface MountedCustomDisplay {
 }
 
 /**
- * Every panel showing an authored document, paired with the document.
+ * Every panel with a screen design, and the design.
  *
- * The walk starts at the panel, not the document: a document nothing is
- * plugged into has no physical existence, so it has no geometry to check, no
- * pins to claim and nothing to emit. Panels are the physical facts.
+ * A design belongs to the panel it was drawn on. It used to live on a node of
+ * its own, wired across — which meant a design could be drawn at a size no
+ * panel had, plugged into two panels at once, or plugged into none, and each
+ * of those had to be detected and refused. A panel owning its own design makes
+ * all three unsayable rather than caught.
+ *
+ * `document` is the panel itself, so everything downstream that asks a mounted
+ * display for its document id keeps working: the id is the panel's, and the
+ * symbols keyed by it are as unique as the panel is.
  */
-export function mountedCustomDisplays(
-  nodes: readonly StudioNode[],
-  edges: readonly StudioEdge[],
-): MountedCustomDisplay[] {
-  const byId = new Map(nodes.map((node) => [node.id, node]))
+export function mountedCustomDisplays(nodes: readonly StudioNode[]): MountedCustomDisplay[] {
   return nodes.flatMap((panel) => {
     if (panel.data.nodeType !== 'TransportDisplay') return []
-    const wire = edges.find((edge) => edge.target === panel.id && edge.targetHandle === 'customDisplay')
-    const document = wire && byId.get(wire.source)
-    if (!document || document.data.nodeType !== 'Display') return []
+    const documentId = String(panel.data.properties.displayId ?? '')
+    if (!documentId) return []
     return [{
       panel,
-      document,
-      documentId: String(document.data.properties.displayId ?? document.id),
+      document: panel,
+      documentId,
       geometry: mountedPanelGeometry(panel.data.properties),
     }]
   })
@@ -67,9 +68,8 @@ export function mountedCustomDisplays(
 export function panelsShowingDocument(
   documentId: string,
   nodes: readonly StudioNode[],
-  edges: readonly StudioEdge[],
 ): StudioNode[] {
-  return mountedCustomDisplays(nodes, edges)
+  return mountedCustomDisplays(nodes)
     .filter((mounted) => mounted.documentId === documentId)
     .map((mounted) => mounted.panel)
 }
@@ -122,23 +122,17 @@ export interface CustomDisplayMountPlan {
   unmounted: StudioNode[]
 }
 
-export function customDisplayMountPlan(
-  nodes: readonly StudioNode[],
-  edges: readonly StudioEdge[],
-): CustomDisplayMountPlan {
-  const byDocumentNode = new Map<string, MountedCustomDisplay[]>()
-  for (const mount of mountedCustomDisplays(nodes, edges)) {
-    const showings = byDocumentNode.get(mount.document.id)
-    if (showings) showings.push(mount)
-    else byDocumentNode.set(mount.document.id, [mount])
-  }
-  const showings = [...byDocumentNode.values()]
-  return {
-    mounted: showings.map((panels) => panels[0]),
-    shared: showings.filter((panels) => panels.length > 1)
-      .map((panels) => ({ document: panels[0].document, panels: panels.map((mount) => mount.panel) })),
-    unmounted: nodes.filter((node) => node.data.nodeType === 'Display' && !byDocumentNode.has(node.id)),
-  }
+export function customDisplayMountPlan(nodes: readonly StudioNode[]): CustomDisplayMountPlan {
+  /*
+   * `shared` and `unmounted` are empty, and cannot be otherwise.
+   *
+   * They were the two ways a design could be wrong when it lived on a node of
+   * its own: plugged into two panels, or into none. A design that belongs to
+   * its panel can be neither. The fields stay so the callers that report those
+   * cases keep compiling while they are removed, and so the shape of this plan
+   * does not have to change twice.
+   */
+  return { mounted: mountedCustomDisplays(nodes), shared: [], unmounted: [] }
 }
 
 /**

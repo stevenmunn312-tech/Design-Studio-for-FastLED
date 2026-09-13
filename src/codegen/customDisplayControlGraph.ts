@@ -2,7 +2,8 @@ import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import { displayWidgetPorts } from '../state/displayRegistry'
 import { customDisplayResourceIssues } from '../state/customDisplayResources'
-import { customDisplayMountPlan, mountedPanelGeometry, mountedSizeIssue, sharedDocumentIssue, unmountedDocumentIssue } from '../state/mountedDisplays'
+import { customDisplayMountPlan, mountedPanelGeometry, mountedSizeIssue } from '../state/mountedDisplays'
+import { parseDisplayWidgetPortId } from '../state/displayRegistry'
 import { controlReferenceCpp, type ControlReference, type createControlGraph } from './controlGraph'
 import { customDisplayId } from './customDisplayId'
 import { customDisplayPanelFromProps } from './customDisplayPanelCpp'
@@ -37,15 +38,12 @@ export function customDisplaySampleCpp(sample: CustomDisplaySample, gate: string
  * docs/development/design/large-displays-and-control-routing.md) means a
  * document has no pins of its own: this walks `TransportDisplay` panels with
  * a wired `customDisplay` input instead of `Display` nodes directly, pulling
- * physical config from the panel and widgets/document from whichever
- * `Display` node is wired to it. An unwired document builds nothing here, the
- * same way it builds nothing in codegen — it has no physical existence — but
- * it is no longer silent: a wire out of one is reported, because the control
- * it names is never created.
+ * physical config and widgets both from the panel, which owns the screen drawn
+ * on it. A panel with no design builds nothing here, the same way it builds
+ * nothing in codegen.
  */
 export function customDisplayControlPlan(
   nodes: StudioNode[],
-  edges: StudioEdge[],
   documents: DisplayDocumentRegistry = {},
   generatorLabel = 'the show',
 ) {
@@ -57,22 +55,18 @@ export function customDisplayControlPlan(
   // "identifiers collide after sanitization", which named the wrong problem,
   // and a document on none was simply invisible while its widget wires still
   // asked the control graph for values.
-  const mountPlan = customDisplayMountPlan(nodes, edges)
-  for (const { document, panels } of mountPlan.shared) {
-    errors.push(sharedDocumentIssue(String(document.data.label || document.id), panels.map((panel) => String(panel.data.label || panel.id))))
-  }
-  for (const document of mountPlan.unmounted) {
-    const driven = edges.filter((edge) => edge.source === document.id && edge.sourceHandle !== 'customDisplay')
-    if (driven.length > 0) errors.push(unmountedDocumentIssue(String(document.data.label || document.id), driven.length))
-  }
-  const displays = mountPlan.mounted.flatMap(({ panel: panelNode, document: node }) => {
+  // Two shapes this used to have to diagnose are now unsayable: a design on
+  // two panels, and a design on none. A panel owns the screen drawn on it, so
+  // there is no wire to plug wrongly.
+  const mountPlan = customDisplayMountPlan(nodes)
+  const displays = mountPlan.mounted.flatMap(({ panel: panelNode, document: node, documentId }) => {
     const label = String(node.data.label || node.id)
-    const document = documents[String(node.data.properties.displayId ?? node.id)]
+    const document = documents[documentId]
     if (!document) {
       errors.push(`${label}: the screen document is missing. Open the display editor to configure it.`)
       return []
     }
-    const id = customDisplayId(node.id)
+    const id = customDisplayId(documentId)
     if (symbols.has(id)) errors.push(`${label}: display identifiers collide after sanitization. Recreate this display.`)
     symbols.add(id)
     const panel = { ...customDisplayPanelFromProps(customDisplayId(panelNode.id), panelNode.data.properties), manualTouch: true }
@@ -106,7 +100,7 @@ export function customDisplayControlPlan(
       if (!expression) errors.push(`${label}.${port.label}: this widget has no firmware output.`)
       samples.push({ type: port.dataType, variable: controlReferenceCpp(reference), expression: expression ?? '' })
     }
-    return [{ nodeId: node.id, panelNodeId: panelNode.id, label, enabled, ports, emit, panel, bindings, samples }]
+    return [{ nodeId: node.id, documentId, panelNodeId: panelNode.id, label, enabled, ports, emit, panel, bindings, samples }]
   })
   return { displays, errors, sources }
 }
@@ -114,6 +108,11 @@ export function customDisplayControlPlan(
 export function bindCustomDisplayControls(plan: ReturnType<typeof customDisplayControlPlan>, graph: ReturnType<typeof createControlGraph>, edges: StudioEdge[], generatorLabel = 'the show'): void {
   for (const display of plan.displays) {
     for (const edge of edges.filter((edge) => edge.target === display.nodeId)) {
+      // The panel's own inputs are not widget bindings. Now that the screen
+      // belongs to the panel, `display` and `enabled` arrive on the same node
+      // as the widgets, and this walk would otherwise report a wired Enabled
+      // as a widget binding the show cannot evaluate.
+      if (!parseDisplayWidgetPortId(String(edge.targetHandle ?? ''))) continue
       const port = display.ports.find((port) => port.direction === 'input' && port.id === edge.targetHandle)
       if (!port || (port.dataType !== 'float' && port.dataType !== 'bool' && port.dataType !== 'string')) {
         plan.errors.push(`${display.label}: ${generatorLabel} cannot evaluate ${port?.label ?? edge.targetHandle}. Use a float, boolean or text widget binding supported by the control graph.`)

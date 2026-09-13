@@ -28,8 +28,12 @@ function edge(id: string, source: string, sourceHandle: string, target: string, 
 // One screen carrying a widget with two roles (a synchronized Slider), a
 // read-only Text and a Button, so the case cannot pass by assuming one value
 // per widget.
-const screen = (props: Record<string, unknown> = {}) => node('screen', 'Display', { displayId: 'panel', ...props }, {
+const screen = (props: Record<string, unknown> = {}) => node('screen', 'TransportDisplay', {
+  displayId: 'panel', partId: 'st7789v-xpt2046-touch-240x320', ...props,
+}, {
   inputs: [
+    { id: 'display', label: 'Display', dataType: 'display' },
+    { id: 'enabled', label: 'Enabled', dataType: 'bool' },
     { id: 'widget:text:value', label: 'Title', dataType: 'string' },
     { id: 'widget:slider:set', label: 'Volume Set', dataType: 'float' },
   ],
@@ -73,7 +77,10 @@ describe('custom Display node evaluation', () => {
   it('rests an untouched control at its type value and leaves unwired roles unpublished', () => {
     const outputs = evaluateGraphFull([screen()], [], 1, 8, 8, {}, true).outputs.get('screen')!
 
-    expect(outputs).toEqual({ 'widget:slider:out': 0, 'widget:button:out': false })
+    // The panel's own readings ride on the same object, so the widget values
+    // are checked by name rather than by comparing the whole output.
+    expect(outputs['widget:slider:out']).toBe(0)
+    expect(outputs['widget:button:out']).toBe(false)
     expect(runtime().readDisplayWidget('panel', 'text')).toBeUndefined()
     expect(runtime().readDisplayWidget('panel', 'slider')).toBeUndefined()
   })

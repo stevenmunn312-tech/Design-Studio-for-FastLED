@@ -371,31 +371,27 @@ describe('NodeGraphCanvas start screen', () => {
     expect(runTidyMock).toHaveBeenCalledOnce()
   })
 
-  it('opens a screen design on double-click only once a panel gives it a size', () => {
-    const documentNode = {
-      id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
+  it('opens a panel’s screen design on double-click, and says so when it has none', () => {
+    const bare = {
+      id: 'tft', type: 'studioNode', position: { x: 0, y: 0 },
       data: {
-        label: 'Custom Display', nodeType: 'Display', category: 'output',
-        properties: { displayId: 'panel' }, inputs: [], outputs: [],
+        label: 'Display Panel', nodeType: 'TransportDisplay', category: 'output',
+        properties: { displayId: '' }, inputs: [], outputs: [],
       },
     }
-    useGraphStore.getState().loadGraph([documentNode as never], [])
+    useGraphStore.getState().loadGraph([bare as never], [])
     useUiStore.setState({ designWorkspaceView: { kind: 'graph' } })
     render(<NodeGraphCanvas />)
     const onNodeDoubleClick = reactFlowProps.onNodeDoubleClick as (event: unknown, node: unknown) => void
 
-    onNodeDoubleClick({}, documentNode)
+    onNodeDoubleClick({}, bare)
     expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'graph' })
     expect(useUiStore.getState().statusText)
-      .toBe('Connect this screen design to a Display Panel to edit it')
+      .toBe('This panel has no screen design yet — use Create screen design')
 
-    useGraphStore.setState({
-      edges: [{
-        id: 'mount', source: 'screen', sourceHandle: 'customDisplay',
-        target: 'tft', targetHandle: 'customDisplay',
-      } as never],
-    })
-    onNodeDoubleClick({}, documentNode)
+    const drawn = { ...bare, data: { ...bare.data, properties: { displayId: 'panel' } } }
+    useGraphStore.getState().loadGraph([drawn as never], [])
+    onNodeDoubleClick({}, drawn)
     expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'display', displayId: 'panel' })
   })
 

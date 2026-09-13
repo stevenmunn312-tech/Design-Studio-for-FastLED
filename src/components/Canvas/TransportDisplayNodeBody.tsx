@@ -28,19 +28,16 @@ function isTftSurface(value: unknown): value is TftSurface {
 export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const props = useGraphStore((state) => state.nodes.find((node) => node.id === nodeId)?.data.properties)
-  // A wired Screen Design takes over the panel (see the panel/document split
-  // in docs/development/design/large-displays-and-control-routing.md). Resolve
-  // that document here so the compact panel and the editor Run surface share
-  // the same live widget renderer and values.
-  const customDisplayNodeId = useGraphStore((state) => state.edges.find(
-    (edge) => edge.target === nodeId && edge.targetHandle === 'customDisplay',
-  )?.source ?? '')
-  const customDisplayId = useGraphStore((state) => {
-    const node = state.nodes.find((entry) => entry.id === customDisplayNodeId)
-    return node ? String(node.data.properties.displayId ?? node.id) : ''
-  })
-  const customDocument = useGraphStore((state) => state.displayDocuments[customDisplayId])
-  const customDisplayWired = customDisplayNodeId !== ''
+  // The screen drawn on this panel, which the panel owns. Resolved here so the
+  // compact panel and the editor Run surface share the same live widget
+  // renderer and values.
+  const customDisplayId = useGraphStore((state) => String(
+    state.nodes.find((entry) => entry.id === nodeId)?.data.properties.displayId ?? '',
+  ))
+  const customDocument = useGraphStore((state) => (customDisplayId
+    ? state.displayDocuments[customDisplayId]
+    : undefined))
+  const customDisplayWired = customDisplayId !== ''
   const createScreenDesignForPanel = useGraphStore((state) => state.createScreenDesignForPanel)
   const openDisplayWorkspace = useUiStore((state) => state.openDisplayWorkspace)
   const setStatus = useUiStore((state) => state.setStatus)
@@ -61,19 +58,17 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
   const height = surface?.height ?? fallbackSize.height
 
   /*
-   * Authoring a screen starts at the panel (HW-07).
+   * Authoring a screen starts at the panel, and stays there.
    *
-   * A design has no size until something physical says what size it is, so
-   * rather than let one be drawn loose and reported wrong afterwards, the
-   * panel mints it: one `Display` node, one document already the right size,
-   * one visible `customDisplay` cable — the same edge the user could have
-   * dragged, not a hidden binding.
+   * A design has no size until something physical says what size it is, and
+   * the panel is that something — so it simply gains a screen at its own
+   * rotated size. No node appears on the canvas and no cable is drawn, because
+   * the design belongs to this glass.
    */
   const createScreenDesign = useCallback(() => {
-    const documentNodeId = `Display-${Date.now()}-${Math.round(Math.random() * 1e6)}`
-    createScreenDesignForPanel(nodeId, documentNodeId)
-    openDisplayWorkspace(documentNodeId)
-    setStatus('Screen design created and connected to this panel', 'success')
+    createScreenDesignForPanel(nodeId)
+    openDisplayWorkspace(nodeId)
+    setStatus('Screen design added to this panel', 'success')
   }, [createScreenDesignForPanel, nodeId, openDisplayWorkspace, setStatus])
 
   const designAction = customDisplayWired

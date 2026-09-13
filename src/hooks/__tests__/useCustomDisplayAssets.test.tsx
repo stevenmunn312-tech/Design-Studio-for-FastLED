@@ -10,22 +10,19 @@ vi.mock('../../utils/bakeCustomDisplayAssets', () => ({ bakeCustomDisplayAssets:
 
 const screenNode = {
   id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
-  data: { nodeType: 'Display', label: 'Touch panel', category: 'output',
+  data: { nodeType: 'TransportDisplay', label: 'Touch panel', category: 'output',
     properties: { displayId: 'document' }, inputs: [], outputs: [] },
 } as StudioNode
 
-/** The panel a design has to be plugged into before any of this is real. */
-function panelNode(id: string): StudioNode {
-  return { ...screenNode, id, data: { ...screenNode.data, nodeType: 'TransportDisplay', label: id,
-    properties: { partId: 'st7789v-xpt2046-touch-240x320' } } } as StudioNode
-}
-function mount(document: string, panel: string): StudioEdge {
-  return { id: `${document}-${panel}`, source: document, sourceHandle: 'customDisplay',
-    target: panel, targetHandle: 'customDisplay' } as StudioEdge
+/** A panel with a design of its own. There is nothing to plug it into. */
+function panelNode(id: string, displayId: string): StudioNode {
+  return { ...screenNode, id, data: { ...screenNode.data, label: id,
+    properties: { partId: 'st7789v-xpt2046-touch-240x320', displayId } } } as StudioNode
 }
 
-const nodes = [screenNode, panelNode('panel')]
-const edges = [mount('screen', 'panel')]
+const nodes = [{ ...screenNode, data: { ...screenNode.data,
+  properties: { partId: 'st7789v-xpt2046-touch-240x320', displayId: 'document' } } } as StudioNode]
+const edges: StudioEdge[] = []
 
 function documentWithArt(width = 2) {
   const document = createDisplayDocument('document')
@@ -47,7 +44,15 @@ describe('firmware display asset preparation', () => {
     useGraphStore.setState({ trusted: true, displayDocuments: { document: documentWithArt() } })
   })
 
-  it('shares a bake between build consumers and keys finished bytes by node, not document', async () => {
+  /*
+   * Keyed by the design, which is also what the emitted symbol names use.
+   *
+   * They used to be keyed by node, because two panels could show one document
+   * and each needed an entry. A design belongs to its panel now, so the two
+   * keys are the same thing and the document is the honest one: the artwork is
+   * the screen's, not the glass's.
+   */
+  it('shares a bake between build consumers and keys finished bytes by design', async () => {
     const pending = deferred()
     vi.mocked(bakeCustomDisplayAssets).mockReturnValue(pending.promise)
     const first = renderHook(() => useCustomDisplayAssets(nodes, true, edges))
@@ -60,7 +65,7 @@ describe('firmware display asset preparation', () => {
       data: new Uint8Array([4, 8]),
     }
     await act(async () => pending.resolve({ assets: [asset], issues: [] }))
-    expect(first.result.current.assets).toEqual({ screen: [asset] })
+    expect(first.result.current.assets).toEqual({ document: [asset] })
     expect(second.result.current.assets).toEqual(first.result.current.assets)
   })
 
@@ -77,26 +82,20 @@ describe('firmware display asset preparation', () => {
     expect(result.current.documents.document.widgets[0].bounds.width).toBe(3)
   })
 
-  it('shares a failed bake across nodes using the same document without publishing partial assets', async () => {
+  it('keeps one failed bake from publishing partial assets for the others', async () => {
     const otherDocument = documentWithArt(3)
     useGraphStore.setState({ displayDocuments: { ...useGraphStore.getState().displayDocuments, other: otherDocument } })
     const pending = deferred()
     const otherAsset = { ...customDisplayAssetRequests(otherDocument)[0], data: new Uint8Array([1, 2, 3]) }
     vi.mocked(bakeCustomDisplayAssets).mockReturnValueOnce(pending.promise)
       .mockResolvedValueOnce({ assets: [otherAsset], issues: [] })
-    // Two copies of one design and a third design, each on a panel of its own —
-    // the shape a user reaches for when they want the same screen twice.
-    const sharedNodes = [...nodes,
-      { ...screenNode, id: 'duplicate', data: { ...screenNode.data, label: 'Second panel' } },
-      { ...screenNode, id: 'other', data: { ...screenNode.data, properties: { displayId: 'other' } } },
-      panelNode('panel2'), panelNode('panel3'),
-    ]
-    const sharedEdges = [...edges, mount('duplicate', 'panel2'), mount('other', 'panel3')]
-    const { result } = renderHook(() => useCustomDisplayAssets(sharedNodes, true, sharedEdges))
-    // Independent documents can prepare while the first decoder is pending.
+    // Two panels, two designs. Each bakes on its own, so a decoder still
+    // working on the first cannot hold up the second.
+    const sharedNodes = [...nodes, panelNode('other', 'other')]
+    const { result } = renderHook(() => useCustomDisplayAssets(sharedNodes, true, edges))
     expect(bakeCustomDisplayAssets).toHaveBeenCalledTimes(2)
     await act(async () => pending.resolve({ assets: [], issues: [{ code: 'asset-data', message: 'Power: decoder failed' }] }))
-    expect(result.current.errors).toEqual(['Touch panel: Power: decoder failed', 'Second panel: Power: decoder failed'])
+    expect(result.current.errors).toEqual(['Touch panel: Power: decoder failed'])
     expect(result.current.assets).toEqual({})
     expect(bakeCustomDisplayAssets).toHaveBeenCalledTimes(2)
   })
@@ -142,14 +141,14 @@ describe('firmware display asset preparation', () => {
     expect(bakeCustomDisplayAssets).toHaveBeenCalledTimes(2)
   })
 
-  it('does not fetch for an unsupported generator or an unmounted design', () => {
+  it('does not fetch for an unsupported generator, or for a panel with no design', () => {
     renderHook(() => useCustomDisplayAssets(nodes, false, edges))
     renderHook(() => useCustomDisplayAssets([], true, []))
-    // A design left in the workspace with nothing plugged into it emits no
-    // firmware, so its artwork is never fetched and can never block a build.
-    const orphan = renderHook(() => useCustomDisplayAssets(nodes, true, []))
-    expect(orphan.result.current.pending).toBe(false)
-    expect(orphan.result.current.errors).toEqual([])
+    // A panel that has not been given a screen emits no widgets, so there is
+    // no artwork to fetch and nothing that can block a build.
+    const bare = renderHook(() => useCustomDisplayAssets([panelNode('bare', '')], true, []))
+    expect(bare.result.current.pending).toBe(false)
+    expect(bare.result.current.errors).toEqual([])
     expect(bakeCustomDisplayAssets).not.toHaveBeenCalled()
   })
 
@@ -166,29 +165,27 @@ describe('firmware display asset preparation', () => {
 
   it.each(['show', 'player'])('reports unsupported %s wiring before baking and responds to wire-only edits', async (generator) => {
     const masterType = generator === 'player' ? 'PatternMaster' : 'PatternSlideshow'
-    const showNodes = [screenNode, ...['PatternCollection', masterType, 'MatrixOutput', 'TextValue',
+    const showNodes = [{ ...screenNode, data: { ...screenNode.data,
+      properties: { partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90', displayId: 'document' } } },
+    ...['PatternCollection', masterType, 'MatrixOutput', 'TextValue',
       ...(generator === 'player' ? ['SDCard', 'Amplifier'] : [])].map((nodeType) => ({
       ...screenNode, id: nodeType, data: { ...screenNode.data, nodeType, properties: { patternIds: ['p'] } },
     })),
-    // Panel/document split: the document ('screen') needs a wired
-    // TransportDisplay panel to be considered at all, the same way codegen
-    // requires one now. Rotation is the panel's property now, not the
-    // document's — a 240x320 panel rotated 90 degrees mounts as 320x240,
-    // matching the document's default design size.
-    { ...screenNode, id: 'panel', data: { ...screenNode.data, nodeType: 'TransportDisplay', properties: { partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90' } } }]
+    // The panel carries the design. Rotation is its property — a 240x320 panel
+    // rotated 90 degrees mounts as 320x240, matching the document's default
+    // design size.
+    ]
     const showEdges = [
       { id: '1', source: 'PatternCollection', sourceHandle: 'patternset', target: masterType, targetHandle: 'patternset' },
       { id: '2', source: masterType, sourceHandle: 'frame', target: 'MatrixOutput', targetHandle: 'frame' },
-      // The customDisplay link stays present across the rerender below; only
-      // the bad widget wire (last) gets dropped.
-      { id: '3', source: 'screen', sourceHandle: 'customDisplay', target: 'panel', targetHandle: 'customDisplay' },
+      // Only the bad widget wire (last) gets dropped by the rerender below.
       { id: '4', source: 'TextValue', sourceHandle: 'text', target: 'screen', targetHandle: 'widget:deleted:value' },
     ] as StudioEdge[]
     vi.mocked(bakeCustomDisplayAssets).mockResolvedValue({ assets: [], issues: [] })
     const { result, rerender } = renderHook(({ wires }) => useCustomDisplayAssets(showNodes, true, wires), { initialProps: { wires: showEdges } })
     expect(result.current.errors.join(' ')).toContain('widget:deleted:value')
     expect(bakeCustomDisplayAssets).not.toHaveBeenCalled()
-    rerender({ wires: showEdges.slice(0, 3) })
+    rerender({ wires: showEdges.slice(0, 2) })
     await waitFor(() => expect(result.current.pending).toBe(false))
     expect(result.current.errors).toEqual([])
     expect(bakeCustomDisplayAssets).toHaveBeenCalledTimes(1)

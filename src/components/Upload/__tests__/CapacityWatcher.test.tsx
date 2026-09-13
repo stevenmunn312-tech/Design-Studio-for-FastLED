@@ -75,22 +75,18 @@ describe('CapacityWatcher', () => {
     document.widgets = [{ id: 'art', type: 'Image/Icon', label: 'Art',
       bounds: { x: 0, y: 0, width: 24, height: 24 },
       properties: { assetId: 'icon:power', tint: true } }]
-    // Panel/document split: the document has no pins of its own, so a
-    // TransportDisplay panel carries them and a customDisplay wire connects
-    // the two. See docs/development/design/large-displays-and-control-routing.md.
-    const panel = {
-      ...output, id: 'panel', data: { ...output.data, nodeType: 'TransportDisplay',
-        properties: { partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90' } },
-    }
+    // One node: the panel carries its pins, its rotation and the screen drawn
+    // on it.
     const screen = {
-      ...output, id: 'screen', data: { ...output.data, nodeType: 'Display',
-        properties: { displayId: document.displayId } },
+      ...output, id: 'screen', data: { ...output.data, nodeType: 'TransportDisplay',
+        properties: {
+          partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90',
+          displayId: document.displayId,
+        } },
     }
     useGraphStore.setState({
-      nodes: [...useGraphStore.getState().nodes, panel, screen] as never[],
-      edges: [...useGraphStore.getState().edges, {
-        id: 'link', source: 'screen', sourceHandle: 'customDisplay', target: 'panel', targetHandle: 'customDisplay',
-      }] as never[],
+      nodes: [...useGraphStore.getState().nodes, screen] as never[],
+      edges: [...useGraphStore.getState().edges] as never[],
       displayDocuments: { [document.displayId]: document },
     })
     if (generator !== 'normal') {
@@ -112,7 +108,7 @@ describe('CapacityWatcher', () => {
     }
     render(<CapacityWatcher />)
     expect(useCapacityStore.getState().target?.code).toBeNull()
-    await waitFor(() => expect(useCapacityStore.getState().target?.code).toContain('_cdAsset_screen_0_map[] PROGMEM'))
+    await waitFor(() => expect(useCapacityStore.getState().target?.code).toContain('_cdAsset_screen_document_0_map[] PROGMEM'))
     const originalCode = useCapacityStore.getState().target?.code
     if (generator === 'show') expect(originalCode).toContain('void renderPattern(')
     if (generator === 'player') expect(originalCode).toContain('Music-Sync Player')
@@ -373,7 +369,7 @@ describe('CapacityWatcher', () => {
     const screen = {
       ...output,
       id: 'screen',
-      data: { ...output.data, nodeType: 'Display', properties: { displayId: document.displayId } },
+      data: { ...output.data, nodeType: 'TransportDisplay', properties: { displayId: document.displayId } },
     }
     useGraphStore.setState({
       nodes: [...useGraphStore.getState().nodes, board, panel, screen] as never[],

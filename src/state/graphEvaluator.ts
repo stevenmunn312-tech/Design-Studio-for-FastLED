@@ -7357,7 +7357,7 @@ function createEvalNode(
         const layout = signal ? infoLayoutForKind(signal.kind) : 'Waiting'
 
         if (!enabled) {
-          out = { lit: false, layout, surface: null }
+          Object.assign(out, { lit: false, layout, surface: null })
           break
         }
 
@@ -7507,8 +7507,61 @@ function createEvalNode(
         const touchCapable = Boolean(partById(String(props.partId ?? ''))?.display?.touchController)
         const { pressed, touch } = panelTouchPressed(id, enabled && touchCapable)
 
+        /*
+         * The screen drawn on this panel, if it has one.
+         *
+         * Its widget ports are this node's ports now, so the publish/sample
+         * pass that used to live on a document node happens here. The ordering
+         * is the one the plan states and is load-bearing: a finger's value was
+         * sampled into the runtime store before this pass and leaves on `out`
+         * now, while graph-driven values are published into the store for the
+         * panel to draw afterward.
+         */
+        const designId = String(props.displayId ?? '')
+        const widgetInputs = ((node.data.inputs as { id: string; dataType?: string }[] | undefined) ?? [])
+          .filter((port) => parseDisplayWidgetPortId(port.id))
+        const widgetOutputs = ((node.data.outputs as { id: string; dataType?: string }[] | undefined) ?? [])
+          .filter((port) => parseDisplayWidgetPortId(port.id))
+        if (designId && widgetOutputs.length > 0) {
+          const runtime = useDisplayRuntimeStore.getState()
+          // An untouched control publishes its type's rest value until a finger
+          // moves it or a wired `set` arrives; a disabled screen publishes only
+          // rest values.
+          for (const port of widgetOutputs) {
+            const parsed = parseDisplayWidgetPortId(port.id)!
+            const rest = port.dataType === 'bool' ? false : 0
+            out[port.id] = enabled
+              ? runtime.sampleDisplayWidgetOutput(designId, parsed.widgetId, rest)
+              : rest
+          }
+          /*
+           * Memoize before reading a single input.
+           *
+           * A synchronized control's `out -> graph -> set` path comes back into
+           * this same node, so resolving inputs re-enters it. Left to the
+           * evaluator's recursion guard that re-entry yields `{}` and the loop
+           * silently carries a fallback instead of the finger's value. These
+           * outputs are a pure function of touch state sampled before this
+           * pass, so whoever asks, in whatever order, gets the same answer.
+           */
+          memo.set(id, out)
+        }
+        if (designId && enabled) {
+          const runtime = useDisplayRuntimeStore.getState()
+          for (const port of widgetInputs) {
+            const parsed = parseDisplayWidgetPortId(port.id)!
+            if (!incoming.has(`${id}:${port.id}`)) continue
+            const value = input(id, port.id, null)
+            if (value === null || Array.isArray(value)) continue
+            runtime.publishDisplayRoleValue(designId, parsed.widgetId, parsed.role, value as DisplayRuntimeValue)
+          }
+        }
+
+        // Assigned onto the same object rather than replacing it: the widget
+        // values above are already published on `out`, and a dark panel still
+        // reports its controls at rest rather than not at all.
         if (!enabled) {
-          out = { lit: false, layout, surface: null }
+          Object.assign(out, { lit: false, layout, surface: null })
           break
         }
 
@@ -7615,67 +7668,7 @@ function createEvalNode(
           }
         }
 
-        out = { lit: true, layout, surface: renderTransportDisplay(controller, rotation, payload) }
-        break
-      }
-
-      case 'Display': {
-        /*
-         * The freeform touch screen. Its ports are minted from the display
-         * document's stable widget roles and persisted on the node, so a port
-         * id — widget id plus role — is the whole contract this case needs; the
-         * declarative document stays with the editor.
-         *
-         * Ordering is the one stated in the plan. A finger's value was sampled
-         * into the runtime store before this pass and leaves on `out` now,
-         * while graph-driven values are published into the store here for the
-         * panel to draw afterward. A widget may own more than one role, so both
-         * directions walk ports rather than assuming one value each.
-         */
-        const displayId = String(props.displayId ?? id)
-        const runtime = useDisplayRuntimeStore.getState()
-        const enabled = props.enabled !== false
-        const widgetInputs = (node.data.inputs as { id: string; dataType?: string }[] | undefined) ?? []
-        const widgetOutputs = (node.data.outputs as { id: string; dataType?: string }[] | undefined) ?? []
-
-        // An untouched control publishes its type's rest value — false for a
-        // latch, zero for a ranged control — until a finger moves it or a wired
-        // `set` value arrives. A pending touch gets one sample even if it was
-        // released between frames; later samples use the authoritative `set`.
-        // A disabled screen publishes only rest values.
-        for (const port of widgetOutputs) {
-          const parsed = parseDisplayWidgetPortId(port.id)
-          if (!parsed) continue
-          const rest = port.dataType === 'bool' ? false : 0
-          out[port.id] = enabled
-            ? runtime.sampleDisplayWidgetOutput(displayId, parsed.widgetId, rest)
-            : rest
-        }
-
-        /*
-         * Memoize the outputs before reading a single input.
-         *
-         * A synchronized control's `out → graph → set` path comes back into
-         * this same node, so resolving inputs re-enters it. Left to the
-         * evaluator's recursion guard that re-entry yields `{}` and the loop
-         * silently carries a fallback instead of the finger's value — the guard
-         * deciding user-facing behaviour by accident. Publishing first is
-         * sound rather than a trick: these outputs are a pure function of touch
-         * state sampled before this pass and depend on no input, so whoever
-         * asks, in whatever order, gets the same answer. Every other loop
-         * through a screen is refused in validation.
-         */
-        memo.set(id, out)
-
-        if (enabled) {
-          for (const port of widgetInputs) {
-            const parsed = parseDisplayWidgetPortId(port.id)
-            if (!parsed || !incoming.has(`${id}:${port.id}`)) continue
-            const value = input(id, port.id, null)
-            if (value === null || Array.isArray(value)) continue
-            runtime.publishDisplayRoleValue(displayId, parsed.widgetId, parsed.role, value as DisplayRuntimeValue)
-          }
-        }
+        Object.assign(out, { lit: true, layout, surface: renderTransportDisplay(controller, rotation, payload) })
         break
       }
 
@@ -8791,8 +8784,12 @@ function hotNodeIds(nodes: StudioNode[], edges: StudioEdge[]): Set<string> {
   const pending: string[] = []
   for (const n of nodes) {
     const nodeType = String((n.data as { nodeType?: unknown }).nodeType)
-    const liveCustomDisplay = nodeType === 'Display'
-      && edges.some((edge) => edge.target === n.id && edge.targetHandle !== 'customDisplay')
+    // A panel with something wired into a widget runs at preview cadence, not
+    // on the slow publish frames: a readout that updates twice a second is not
+    // a readout. The panel is already a terminal, so this only adds the wired
+    // case to what HOT_NODE_TYPES covers.
+    const liveCustomDisplay = nodeType === 'TransportDisplay'
+      && edges.some((edge) => edge.target === n.id && edge.targetHandle?.startsWith('widget:'))
     if (HOT_NODE_TYPES.has(nodeType) || liveCustomDisplay) {
       hot.add(n.id)
       pending.push(n.id)

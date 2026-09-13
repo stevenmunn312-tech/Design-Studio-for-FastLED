@@ -182,19 +182,14 @@ describe('MatrixOutputDeployPopup', () => {
     vi.mocked(bakeCustomDisplayAssets).mockReturnValue(new Promise((done) => { resolve = done }))
     useGraphStore.setState({
       nodes: [...useGraphStore.getState().nodes, {
+        // The panel carries the screen drawn on it; artwork is prepared for it.
         id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
-        data: { nodeType: 'Display', label: 'Touch panel', category: 'output',
-          properties: { displayId: 'document' }, inputs: [], outputs: [] },
-      }, {
-        // The panel the design is plugged into: artwork is prepared for
-        // mounted screens, so an unwired document bakes nothing.
-        id: 'glass', type: 'studioNode', position: { x: 0, y: 0 },
-        data: { nodeType: 'TransportDisplay', label: 'Panel', category: 'output',
-          properties: { partId: 'st7789v-xpt2046-touch-240x320' }, inputs: [], outputs: [] },
+        data: { nodeType: 'TransportDisplay', label: 'Touch panel', category: 'output',
+          properties: { partId: 'st7789v-xpt2046-touch-240x320', displayId: 'document' },
+          inputs: [], outputs: [] },
       }] as never[],
       edges: [
         { id: 'frame', source: 'pattern', target: 'matrix', sourceHandle: 'frame', targetHandle: 'frame' },
-        { id: 'mount', source: 'screen', target: 'glass', sourceHandle: 'customDisplay', targetHandle: 'customDisplay' },
       ],
       displayDocuments: { document },
     })
@@ -235,12 +230,12 @@ describe('MatrixOutputDeployPopup', () => {
     fireEvent.click(getByRole('button', { name: /Export .ino/ }))
     await waitFor(() => expect(useUploadStore.getState().exportIno).toHaveBeenCalledWith('// sketch'))
     expect(generateCpp).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.anything(),
-      expect.objectContaining({ displayDocuments: { document }, customDisplayAssets: { screen: baked } }))
+      expect.objectContaining({ displayDocuments: { document }, customDisplayAssets: { document: baked } }))
     vi.mocked(generateCpp).mockClear()
     fireEvent.click(getByRole('button', { name: '↑ Upload' }))
     await waitFor(() => expect(useUploadStore.getState().runUpload).toHaveBeenCalledWith('// sketch', undefined))
     expect(generateCpp).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.anything(),
-      expect.objectContaining({ displayDocuments: { document }, customDisplayAssets: { screen: baked } }))
+      expect.objectContaining({ displayDocuments: { document }, customDisplayAssets: { document: baked } }))
   })
 
   it('keeps readiness collapsed behind the action-needed gate', () => {
@@ -626,20 +621,14 @@ describe('MatrixOutputDeployPopup SD-show upload', () => {
     vi.mocked(bakeCustomDisplayAssets).mockReturnValue(new Promise((done) => { resolve = done }))
     useGraphStore.setState({
       nodes: [...useGraphStore.getState().nodes, {
+        // The module, its rotation and the screen drawn on it are all the
+        // panel's, so one node decides whether artwork is baked at all.
         id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
-        data: { label: 'Screen', nodeType: 'Display', category: 'output',
-          properties: { displayId: 'panel' }, inputs: [], outputs: [] },
-      }, {
-        // The module and its rotation are the panel's now; the design is only
-        // real once it is plugged into one, which is what decides whether its
-        // artwork is baked at all.
-        id: 'glass', type: 'studioNode', position: { x: 0, y: 0 },
-        data: { label: 'Panel', nodeType: 'TransportDisplay', category: 'output',
-          properties: { partId: 'st7789v-xpt2046-touch-240x320' }, inputs: [], outputs: [] },
+        data: { label: 'Screen', nodeType: 'TransportDisplay', category: 'output',
+          properties: { partId: 'st7789v-xpt2046-touch-240x320', displayId: 'panel' },
+          inputs: [], outputs: [] },
       }] as never[],
-      edges: [...useGraphStore.getState().edges,
-        { id: 'mount', source: 'screen', target: 'glass', sourceHandle: 'customDisplay', targetHandle: 'customDisplay' },
-      ] as never[],
+      edges: [...useGraphStore.getState().edges] as never[],
       displayDocuments: { panel: document },
     })
     const { getByRole } = render(<MatrixOutputDeployPopup />)
@@ -650,7 +639,7 @@ describe('MatrixOutputDeployPopup SD-show upload', () => {
     fireEvent.click(getByRole('button', { name: /Upload show/ }))
     await waitFor(() => expect(showUpload.buildShowPayload).toHaveBeenCalledWith(
       expect.anything(), expect.anything(), expect.anything(), expect.anything(),
-      expect.objectContaining({ displayDocuments: { panel: document }, customDisplayAssets: { screen: baked } }),
+      expect.objectContaining({ displayDocuments: { panel: document }, customDisplayAssets: { panel: baked } }),
     ))
   })
 

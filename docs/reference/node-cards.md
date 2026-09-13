@@ -1044,12 +1044,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Display Panel example graph](../../public/node-cards/graphs/transport-display.svg)
 
-### Screen Design
-
-![Screen Design node](../../public/node-cards/display.svg)
-
-![Screen Design example graph](../../public/node-cards/graphs/display.svg)
-
 ### Master Speed
 
 ![Master Speed node](../../public/node-cards/master-speed.svg)

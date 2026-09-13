@@ -34,7 +34,7 @@ export function customDisplayShowCpp(plan: ReturnType<typeof customDisplayContro
     setup.push('  lv_init();', customDisplayLvglTimingSetupCpp())
   }
   for (const display of displays) {
-    const emit = { ...display.emit, assets: assets[display.nodeId] ?? [] }
+    const emit = { ...display.emit, assets: assets[display.documentId] ?? [] }
     helpers.push(customDisplayAssetsCpp(emit.id, emit.document, emit.assets), customDisplayLvglGlobalCpp(emit),
       customDisplayPanelGlobalCpp(display.panel), customDisplayPanelHelpersCpp(display.panel))
     setup.push(...customDisplayPanelSetupCpp(display.panel), ...customDisplayLvglSetupCpp(emit))

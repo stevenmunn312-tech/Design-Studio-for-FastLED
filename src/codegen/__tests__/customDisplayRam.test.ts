@@ -23,13 +23,15 @@ const output = node('leds', 'MatrixOutput', { width: 4, height: 4 })
  * from, so it is what this has to be priced from.
  */
 function screen(id: string, rotation = '0') {
+  // One node: the panel owns the screen drawn on it, so there is nothing to
+  // mount and no wire to draw.
   return {
     nodes: [
-      node(id, 'Display', { displayId: id }),
-      node(`${id}-panel`, 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', tftRotation: rotation }),
+      node(`${id}-panel`, 'TransportDisplay', {
+        partId: 'st7789v-xpt2046-touch-240x320', tftRotation: rotation, displayId: id,
+      }),
     ],
-    edges: [{ id: `${id}-mount`, source: id, sourceHandle: 'customDisplay',
-      target: `${id}-panel`, targetHandle: 'customDisplay' } as unknown as StudioEdge],
+    edges: [] as StudioEdge[],
   }
 }
 /** Every node and wire in a graph holding the given screens beside one output. */
@@ -57,25 +59,24 @@ describe('custom display firmware RAM', () => {
     expect(estimateFirmwareRam([output], [], documents)!.displayBytes).toBe(0)
   })
 
-  it('charges nothing for a design no panel shows, and nothing twice for one on two', () => {
+  /*
+   * The unpriceable states are gone rather than handled.
+   *
+   * A design used to be able to hang off no panel (priced at nothing) or two
+   * (priced once, not twice). Both were cases this estimate had to know about.
+   * A panel owning its design leaves only the honest question: a panel with a
+   * screen costs its buffer and caches, and a panel without one costs what its
+   * fixed layout costs.
+   */
+  it('prices a panel with a design, and a bare panel as its fixed layout', () => {
     const documents = { a: addDisplayWidget(createDisplayDocument('a'), 'Text') }
     const mounted = graph(screen('a'))
     const priced = estimateFirmwareRam(mounted.nodes, mounted.edges, documents)!.displayBytes
-    // Unplugged: no draw buffer, no widget caches, and no LVGL heap either —
-    // the whole helper is absent from a sketch with no mounted screen. The
-    // panel is still there, and is priced as the fixed layout it now shows.
-    expect(estimateFirmwareRam(mounted.nodes, [], documents)!.displayBytes).toBe(TFT_PANEL_RAM_BYTES)
-    // One document on two panels is refused by validation; the estimate agrees
-    // with the sketch that would be built rather than double-counting it.
-    const second = node('a-panel-2', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320' })
-    const shared = estimateFirmwareRam(
-      [...mounted.nodes, second],
-      [...mounted.edges, { id: 'm2', source: 'a', sourceHandle: 'customDisplay',
-        target: second.id, targetHandle: 'customDisplay' } as unknown as StudioEdge],
-      documents,
-    )!.displayBytes
-    // The spare panel is priced as the fixed-layout screen it falls back to.
-    expect(shared - priced).toBe(TFT_PANEL_RAM_BYTES)
+    expect(priced).toBeGreaterThan(TFT_PANEL_RAM_BYTES)
+
+    const bare = node('bare-panel', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320' })
+    const withBare = estimateFirmwareRam([...mounted.nodes, bare], mounted.edges, documents)!.displayBytes
+    expect(withBare - priced).toBe(TFT_PANEL_RAM_BYTES)
   })
 
   it('prices the same rotated pixel buffer emitted into the sketch, even with a stale document size', () => {

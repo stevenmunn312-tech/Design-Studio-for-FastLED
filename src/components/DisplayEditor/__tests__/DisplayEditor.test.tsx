@@ -6,7 +6,7 @@ import { useGraphStore } from '../../../state/graphStore'
 import { useDisplayRuntimeStore } from '../../../state/displayRuntimeStore'
 import { useUiStore } from '../../../state/uiStore'
 import { NODE_LIBRARY, libraryDefaults } from '../../../state/nodeLibrary'
-import type { StudioEdge, StudioNode } from '../../../state/graphStore'
+import type { StudioNode } from '../../../state/graphStore'
 
 describe('DisplayEditor', () => {
   beforeEach(() => {
@@ -101,7 +101,7 @@ describe('DisplayEditor', () => {
     const screen = {
       id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
       data: {
-        label: 'Custom Display', nodeType: 'Display', category: 'output',
+        label: 'Display Panel', nodeType: 'TransportDisplay', category: 'output',
         properties: { displayId: 'panel' }, inputs: [], outputs: [],
       },
     } as unknown as StudioNode
@@ -131,7 +131,7 @@ describe('DisplayEditor', () => {
       nodes: [{
         id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
         data: {
-          label: 'Custom Display', nodeType: 'Display', category: 'output',
+          label: 'Display Panel', nodeType: 'TransportDisplay', category: 'output',
           properties: { displayId: 'panel' }, inputs: [], outputs: [],
         },
       } as unknown as StudioNode],
@@ -145,10 +145,10 @@ describe('DisplayEditor', () => {
       'text', 'text-2', 'button', 'toggle', 'button-2', 'slider',
     ])
     const screen = useGraphStore.getState().nodes.find((node) => node.id === 'screen')!
-    // The node's own `customDisplay` output — the wire that mounts this design
-    // on a panel — survives every document edit; the widget ports follow it.
+    // A display has no outputs of its own, so the panel's ports are exactly the
+    // widgets its design declares.
     expect((screen.data.outputs as { id: string }[]).map((port) => port.id))
-      .toEqual(['customDisplay', 'widget:button:out', 'widget:toggle:out', 'widget:button-2:out', 'widget:slider:out'])
+      .toEqual(['widget:button:out', 'widget:toggle:out', 'widget:button-2:out', 'widget:slider:out'])
     expect(view.getByRole('status', { name: 'Display editor announcements' }).textContent).toContain(
       'Minimal Transport template inserted with 5 widgets.',
     )
@@ -191,18 +191,16 @@ describe('DisplayEditor', () => {
       inputs: definition.inputs, outputs: definition.outputs,
     } } as unknown as StudioNode
   }
-  const documentNode = () => libraryNode('screen', 'Display', { displayId: 'panel' })
+  // One node: the panel carries the design, so there is no document node to
+  // mount and no cable between them. `tft` is the panel and `panel` is the id
+  // of the screen drawn on it.
   const panelNode = () => libraryNode('tft', 'TransportDisplay', {
-    partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0',
+    partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', displayId: 'panel',
   })
 
-  const mountEdge = {
-    id: 'mount', source: 'screen', sourceHandle: 'customDisplay', target: 'tft', targetHandle: 'customDisplay',
-  } as unknown as StudioEdge
-
-  it('switches an unmounted design between portrait and landscape, retaining a valid layout', () => {
+  it('switches a design between portrait and landscape, retaining a valid layout', () => {
     useGraphStore.getState().setDisplayDocument(createDisplayDocument('panel', 240, 320))
-    useGraphStore.setState({ nodes: [documentNode()] })
+    useGraphStore.setState({ nodes: [panelNode()] })
     const view = render(<DisplayEditor />)
     fireEvent.click(view.getByRole('button', { name: 'Insert LED Performance template' }))
     fireEvent.click(view.getByRole('button', { name: 'Landscape' }))
@@ -226,7 +224,7 @@ describe('DisplayEditor', () => {
    */
   it('rotates the panel a mounted design is plugged into, and sizes the design from it', () => {
     useGraphStore.getState().setDisplayDocument(createDisplayDocument('panel', 240, 320))
-    useGraphStore.setState({ nodes: [documentNode(), panelNode()], edges: [mountEdge] })
+    useGraphStore.setState({ nodes: [panelNode()], edges: [] })
     const view = render(<DisplayEditor />)
     fireEvent.click(view.getByRole('button', { name: 'Landscape' }))
 
@@ -235,9 +233,6 @@ describe('DisplayEditor', () => {
     expect(useGraphStore.getState().displayDocuments.panel).toMatchObject({
       designSize: { width: 320, height: 240 }, orientation: '90',
     })
-    // The document node keeps no physical property of its own.
-    expect(useGraphStore.getState().nodes.find((node) => node.id === 'screen')?.data.properties.tftRotation)
-      .toBeUndefined()
 
     fireEvent.click(view.getByRole('button', { name: 'Portrait' }))
     expect(panel()?.data.properties.tftRotation).toBe('0')
@@ -249,7 +244,7 @@ describe('DisplayEditor', () => {
   it('names the panel it is drawn for and offers the way back to it', () => {
     // The panel states the size, so the editor should not leave the author to
     // find it again on the canvas (HW-07).
-    useGraphStore.setState({ nodes: [documentNode(), panelNode()], edges: [mountEdge] })
+    useGraphStore.setState({ nodes: [panelNode()], edges: [] })
     const view = render(<DisplayEditor />)
 
     const back = view.getByRole('button', { name: 'Display Panel' })
@@ -259,10 +254,12 @@ describe('DisplayEditor', () => {
     expect(useGraphStore.getState().selectedNodeId).toBe('tft')
   })
 
-  it('offers no panel link while the design is unmounted', () => {
-    useGraphStore.setState({ nodes: [documentNode()], edges: [] })
+  // There is no unmounted state to test: a design belongs to the panel it was
+  // drawn on, so the way back to that panel is always there.
+  it('always names the panel it belongs to', () => {
+    useGraphStore.setState({ nodes: [panelNode()], edges: [] })
     const view = render(<DisplayEditor />)
-    expect(view.queryByRole('button', { name: 'Display Panel' })).toBeNull()
+    expect(view.getByRole('button', { name: 'Display Panel' })).toBeTruthy()
   })
 
   it('shows the pack artwork on the widget palette and the template list', () => {

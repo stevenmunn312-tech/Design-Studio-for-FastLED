@@ -54,13 +54,10 @@ const tft = node('tft', 'TransportDisplay', {
 // TransportDisplay panel carries them and a `customDisplay` wire connects
 // the two — see docs/development/design/large-displays-and-control-routing.md.
 const customPanel = node('customPanel', 'TransportDisplay', {
+  displayId: 'custom',
   partId: 'st7789-tft-240x240', tftRotation: '0',
   csPin: 15, dcPin: 2, resetPin: 4, sckPin: 14, mosiPin: 13, backlightPin: 27,
 })
-const custom = node('custom', 'Display', { displayId: 'custom' })
-const customLink = {
-  id: 'custom-link', source: 'custom', target: 'customPanel', sourceHandle: 'customDisplay', targetHandle: 'customDisplay',
-} as unknown as StudioEdge
 const customDisplayDocuments: DisplayDocumentRegistry = {
   custom: addDisplayWidget(createDisplayDocument('custom', 240, 240), 'Text'),
 }
@@ -115,7 +112,7 @@ describe('normal sketches', () => {
 
   it('names the custom display widget struct before any function that takes one', () => {
     declaredBeforeAnyFunction(
-      generateCpp([output, customPanel, custom], [customLink], {}, { displayDocuments: customDisplayDocuments }),
+      generateCpp([output, customPanel], [], {}, { displayDocuments: customDisplayDocuments }),
       CUSTOM_DISPLAY_LVGL_FORWARD,
     )
   })
@@ -137,7 +134,7 @@ describe('normal sketches', () => {
   // A forward declaration is only worth anything if the definition follows it.
   it('still defines the struct it forward-declared', () => {
     const src = generateCpp(
-      [output, oled, segment, tft, customPanel, custom], [customLink], {}, { displayDocuments: customDisplayDocuments },
+      [output, oled, segment, tft, customPanel], [], {}, { displayDocuments: customDisplayDocuments },
     )
     expect(src).toContain('struct OledPanel {')
     expect(src).toContain('struct SegDisplay {')
@@ -160,10 +157,10 @@ describe('every struct a function takes by reference', () => {
     ['pattern browser', () => generateCpp([output, collection, browser], [browserWire])],
     ['transport display', () => generateCpp([output, tft], [])],
     ['custom display', () => generateCpp(
-      [output, customPanel, custom], [customLink], {}, { displayDocuments: customDisplayDocuments },
+      [output, customPanel], [], {}, { displayDocuments: customDisplayDocuments },
     )],
     ['all of them', () => generateCpp(
-      [output, oled, segment, tft, collection, browser, customPanel, custom], [browserWire, customLink], {},
+      [output, oled, segment, tft, collection, browser, customPanel], [browserWire], {},
       { displayDocuments: customDisplayDocuments },
     )],
   ]

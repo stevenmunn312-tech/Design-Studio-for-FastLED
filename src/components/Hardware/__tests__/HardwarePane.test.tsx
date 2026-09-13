@@ -125,23 +125,19 @@ describe('HardwarePane', () => {
     expect(within(document.body).getByText('SDA 21 · SCL 22')).toBeTruthy()
   })
 
-  it('adds a custom touch display with its own document and stable identity', () => {
+  it('adds a touch panel together with the glass in front of it', () => {
     render(<HardwarePane />)
 
-    // Not option-driven any more — Display selects no catalogued module of
-    // its own, so it's one direct menu entry rather than a choice of parts.
-    // See the panel/document split in
-    // docs/development/design/large-displays-and-control-routing.md.
-    addDisplay('Screen design', 'A screen you draw, shown by the Display panel it is wired to')
+    // No "Screen design" entry on a shelf of physical parts: a screen is drawn
+    // on a panel. What a touch module does bring is a second node, because the
+    // digitiser is a second chip.
+    addDisplay('ST7789V 2.4-inch + touch', '240x320 colour TFT with XPT2046 touch')
 
     const state = useGraphStore.getState()
-    const display = state.nodes.find((entry) => entry.data.nodeType === 'Display')
-    expect(display).toBeTruthy()
-    expect(display!.data.properties).toEqual({ displayId: display!.id })
-    expect(state.displayDocuments[display!.id]).toMatchObject({
-      displayId: display!.id,
-      designSize: { width: 320, height: 240 },
-    })
+    const panel = state.nodes.find((entry) => entry.data.nodeType === 'TransportDisplay')
+    const touch = state.nodes.find((entry) => entry.data.nodeType === 'TouchInput')
+    expect(panel).toBeTruthy()
+    expect(touch?.data.properties.panelId).toBe(panel!.id)
   })
 
   it.each([
@@ -203,7 +199,7 @@ describe('HardwarePane', () => {
   // called — verified directly here since there is no longer a bench
   // interaction to drive it through.
   it('removes a custom display and its document from the root graph while a group is open', () => {
-    const display = node('Display', 'custom-screen', { displayId: 'custom-screen' }) as never
+    const display = node('TransportDisplay', 'custom-screen', { displayId: 'custom-screen' }) as never
     useGraphStore.setState({
       nodes: [],
       edges: [],

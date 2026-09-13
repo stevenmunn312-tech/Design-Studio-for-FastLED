@@ -1687,7 +1687,10 @@ export function generateCpp(
   // Custom widget outputs are sampled before evaluation; their input wires
   // publish after evaluation. Treating both as one graph vertex invents a
   // cycle for ordinary slider -> Math -> readout/set wiring on the same panel.
-  const sorted = topoSort(live, edges.filter((edge) => nodeMap.get(edge.target)?.data.nodeType !== 'Display'))
+  // Edges into a panel are left out of the ordering: a display has no outputs,
+  // so it cannot be part of a cycle as a source, and a synchronized widget's
+  // `out -> graph -> set` path would otherwise look like one.
+  const sorted = topoSort(live, edges.filter((edge) => nodeMap.get(edge.target)?.data.nodeType !== 'TransportDisplay'))
 
   /*
    * The node feeding the output used to fill its own `buf_` and then have the
@@ -1957,7 +1960,7 @@ export function generateCpp(
   // to the fixed-layout arm below and comes up as a Waiting screen. Validation
   // refuses that graph outright, so this is what a refused build would look
   // like rather than a shape anyone is meant to ship.
-  const customMounts = customDisplayMountPlan(nodes, edges)
+  const customMounts = customDisplayMountPlan(nodes)
   const customDisplayOwners = new Set(customMounts.mounted.map((mount) => mount.panel.id))
 
   // A document no panel shows builds no widgets, so a wire out of one used to
@@ -5122,14 +5125,15 @@ export function generateCpp(
         // matters: the panel's setup lines must precede the document's, since
         // LVGL creates widgets against whichever display was most recently
         // made the default.
-        const customUp = incoming.get(`${node.id}:customDisplay`)
-        const documentNode = customUp && nodeMap.get(customUp.srcId)
-        const document = documentNode
-          ? opts.displayDocuments?.[String(props(documentNode).displayId ?? documentNode.id)]
-          : undefined
+        // The screen drawn on this panel, which the panel owns: no wire to
+        // follow and no second node to find. The document id is still what
+        // keys every widget symbol, so a design keeps its identifiers whatever
+        // the panel is called.
+        const documentId = String(p.displayId ?? '')
+        const document = documentId ? opts.displayDocuments?.[documentId] : undefined
 
-        if (documentNode && document && customDisplayOwners.has(node.id)) {
-          const docId = safeId(documentNode.id)
+        if (document && customDisplayOwners.has(node.id)) {
+          const docId = safeId(documentId)
           const ports = displayDocumentPorts(document)
           const widgetInputExpr = (up: { srcId: string; srcPort: string } | undefined, dataType: string | undefined): string | null => {
             if (!up || dataType === 'patternselect') return null
@@ -5143,7 +5147,7 @@ export function generateCpp(
           for (const port of ports.inputs) {
             const parsed = parseDisplayWidgetPortId(port.id)
             if (!parsed) continue
-            const expr = widgetInputExpr(incoming.get(`${documentNode.id}:${port.id}`), port.dataType)
+            const expr = widgetInputExpr(incoming.get(`${node.id}:${port.id}`), port.dataType)
             if (expr === null) continue
             const bindings = bindingsByWidget[parsed.widgetId] ?? (bindingsByWidget[parsed.widgetId] = [])
             bindings.push({ role: parsed.role, expression: expr })
@@ -5151,7 +5155,9 @@ export function generateCpp(
 
           const custom: CustomDisplayLvglEmit = {
             id: docId, document, bindings: bindingsByWidget,
-            assets: opts.customDisplayAssets?.[documentNode.id],
+            // Keyed by the design, because the artwork belongs to the screen
+            // rather than to the glass it happens to be drawn on.
+            assets: opts.customDisplayAssets?.[documentId],
           }
           const panel = customDisplayPanelFromProps(id, p)
           panel.manualTouch = true
@@ -5179,7 +5185,11 @@ export function generateCpp(
             const expr = customDisplayLvglOutputExpression(custom, parsed.widgetId)
             if (expr === null) continue
             const cppType = port.dataType === 'bool' ? 'bool' : 'float'
-            const name = `n_${docId}_${safeId(port.id)}`
+            // Named for the panel, because that is the node a wire leaves: a
+            // consumer resolves `n_<source node>_<port>`, and the source is the
+            // panel whose glass the widget is on. The screen's own internals
+            // stay keyed by the document id.
+            const name = `n_${id}_${safeId(port.id)}`
             const rest = cppType === 'bool' ? 'false' : '0.0f'
             // A control nobody can touch reports its rest value rather than
             // the position its finger left it in.
@@ -5339,17 +5349,6 @@ export function generateCpp(
         segmentDisplays.push(emit)
         for (const line of segmentDisplaySetupCpp(emit)) setupLines.push(line)
         for (const line of segmentDisplayLoopCpp(emit)) ln(line)
-        break
-      }
-
-      case 'Display': {
-        // The design, not the glass — see the panel/document split in
-        // docs/development/design/large-displays-and-control-routing.md.
-        // This node has no pins any more, so it emits nothing on its own;
-        // whichever TransportDisplay panel has this document wired to its
-        // `customDisplay` input does the actual widget-binding resolution
-        // and LVGL emission, keyed by this node's own id so a wire drawn
-        // from a widget's output port still resolves correctly.
         break
       }
 

@@ -45,12 +45,11 @@ describe('fixed touch output routing validation', () => {
     // Every other branch here reads the resolved fixed layout, which is
     // Waiting once a design owns the glass — so they would advise wiring
     // Music Player to the Display input, which drops the design.
-    const design = node('screen', 'Display', { displayId: 'screen' })
-    const nodes = [out(), panel, controls, design]
-    const edges = [
-      edge('mount', 'screen', 'customDisplay', 'panel', 'customDisplay'),
-      ...chain,
-    ]
+    const designed = node('panel', 'TransportDisplay', {
+      partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Show Status', displayId: 'screen',
+    })
+    const nodes = [out(), designed, controls]
+    const edges = [...chain]
     const errors = findDisplayGeneratorIssues(nodes, edges, {
       screen: createDisplayDocument('screen', 240, 320),
     }).errors
@@ -139,10 +138,10 @@ describe('displays a build cannot drive', () => {
   // same way the browser preview does, so a normal sketch is no longer
   // refused — see the show/player cases below for what still is.
   it('leaves a custom display to the normal sketch, which can now draw it', () => {
-    const custom = node('custom', 'Display', { displayId: 'custom' })
-    const panel = node('panel', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320' })
-    const mount = edge('mount', 'custom', 'customDisplay', 'panel', 'customDisplay')
-    expect(findDisplayGeneratorIssues([out(), custom, panel], [mount], {
+    const panel = node('panel', 'TransportDisplay', {
+      partId: 'st7789v-xpt2046-touch-240x320', displayId: 'custom',
+    })
+    expect(findDisplayGeneratorIssues([out(), panel], [], {
       custom: createDisplayDocument('custom', 240, 320),
     })).toEqual({ errors: [], warnings: [] })
   })
@@ -392,56 +391,39 @@ describe('displays a build cannot drive', () => {
   })
 
   it('requires the saved custom document for a player build', () => {
-    const custom = node('custom', 'Display', { displayId: 'custom' })
-    // The document needs a wired panel to be considered at all — see the
-    // panel/document split in
-    // docs/development/design/large-displays-and-control-routing.md.
-    const customPanel = node('customPanel', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320' })
+    const customPanel = node('customPanel', 'TransportDisplay', {
+      partId: 'st7789v-xpt2046-touch-240x320', displayId: 'custom',
+    })
     const master = node('master', 'PatternMaster')
-    const nodes = [out(), custom, customPanel, master, node('sd', 'SDCard'), node('amp', 'Amplifier')]
+    const nodes = [out(), customPanel, master, node('sd', 'SDCard'), node('amp', 'Amplifier')]
     const issues = findDisplayGeneratorIssues(nodes, [
       edge('frame', 'master', 'frame', 'out', 'frame'),
-      edge('link', 'custom', 'customDisplay', 'customPanel', 'customDisplay'),
     ])
     expect(issues.errors).toHaveLength(1)
     expect(issues.errors[0]).toContain('screen document is missing')
   })
 
-  it('refuses one design plugged into two panels, and takes the copies', () => {
-    // Every symbol a screen emits is keyed by its document, so two panels
-    // showing one design meant declaring it twice. The repair is a copy of the
-    // design, not a shared one: two panels on one document would also be two
-    // fingers on one set of widgets with no rule for which wins.
-    const design = node('custom', 'Display', { displayId: 'custom' })
-    const first = node('panelA', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320' })
-    const second = node('panelB', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320' })
-    const documents = { custom: createDisplayDocument('custom', 240, 320) }
-    const mount = [
-      edge('m1', 'custom', 'customDisplay', 'panelA', 'customDisplay'),
-      edge('m2', 'custom', 'customDisplay', 'panelB', 'customDisplay'),
-    ]
-    const shared = findDisplayGeneratorIssues([out(), design, first, second], mount, documents).errors
-    expect(shared).toEqual([expect.stringContaining('is plugged into 2 panels')])
-    expect(shared[0]).toContain('copy the Screen Design node')
-    // Two independent copies, one panel each, is the supported shape.
-    const copy = node('copy', 'Display', { displayId: 'copy' })
-    expect(findDisplayGeneratorIssues(
-      [out(), design, copy, first, second],
-      [mount[0], edge('m2', 'copy', 'customDisplay', 'panelB', 'customDisplay')],
-      { ...documents, copy: createDisplayDocument('copy', 240, 320) },
-    ).errors).toEqual([])
-  })
-
-  it('names a design driving a control while plugged into nothing, and leaves an idle one alone', () => {
-    // Unplugged, its widgets are never built, so the wire names a control that
-    // does not exist. The design itself is fine sitting in the workspace.
-    const design = node('custom', 'Display', { displayId: 'custom' })
-    const documents = { custom: createDisplayDocument('custom', 240, 320) }
-    expect(findDisplayGeneratorIssues([out(), design], [], documents).errors).toEqual([])
-    const driven = findDisplayGeneratorIssues([out(), design],
-      [edge('w', 'custom', 'widget:toggle:out', 'out', 'enabled')], documents).errors
-    expect(driven).toEqual([expect.stringContaining('not plugged into a panel')])
-    expect(driven[0]).toContain('drives a control')
+  /*
+   * Two refusals retired, because the graphs they refused cannot be drawn.
+   *
+   * A design used to live on a node of its own, so it could be plugged into two
+   * panels — every widget symbol declared twice, a sketch that cannot link — or
+   * into none, leaving wires naming controls that were never built. Both needed
+   * detecting and explaining. A panel owning its design makes them unsayable,
+   * and two panels are simply two designs.
+   */
+  it('gives two panels two designs, with nothing to refuse', () => {
+    const first = node('panelA', 'TransportDisplay', {
+      partId: 'st7789v-xpt2046-touch-240x320', displayId: 'custom',
+    })
+    const second = node('panelB', 'TransportDisplay', {
+      partId: 'st7789v-xpt2046-touch-240x320', displayId: 'copy',
+    })
+    const documents = {
+      custom: createDisplayDocument('custom', 240, 320),
+      copy: createDisplayDocument('copy', 240, 320),
+    }
+    expect(findDisplayGeneratorIssues([out(), first, second], [], documents).errors).toEqual([])
   })
 })
 
@@ -539,14 +521,14 @@ describe('a Pattern Slideshow show', () => {
   })
 
   it('names a missing custom document in the show controller', () => {
-    const custom = node('custom', 'Display', { displayId: 'custom' })
-    // The document needs a wired panel to be considered at all — see the
-    // panel/document split in
-    // docs/development/design/large-displays-and-control-routing.md.
-    const customPanel = node('customPanel', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320' })
+    // A panel naming a design whose document is not in the workspace: the
+    // saved file is gone, or the workspace was loaded without it.
+    const customPanel = node('customPanel', 'TransportDisplay', {
+      partId: 'st7789v-xpt2046-touch-240x320', displayId: 'custom',
+    })
     const issues = findDisplayGeneratorIssues(
-      [master, collection, out, custom, customPanel],
-      [...showEdges, edge('link', 'custom', 'customDisplay', 'customPanel', 'customDisplay')],
+      [master, collection, out, customPanel],
+      [...showEdges],
     )
     expect(issues.errors).toHaveLength(1)
     expect(issues.errors[0]).toContain('screen document is missing')

@@ -115,16 +115,11 @@ describe('a normal sketch', () => {
     }))
     const src = generateCpp([
       node('out', 'MatrixOutput', { width: 8, height: 8 }),
-      node('panel-a', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320' }),
-      node('panel-b', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320' }),
-      node('screen-a', 'Display', { displayId: 'document' }),
-      node('screen-b', 'Display', { displayId: 'document' }),
-    ], [
-      edge('link-a', 'screen-a', 'customDisplay', 'panel-a', 'customDisplay'),
-      edge('link-b', 'screen-b', 'customDisplay', 'panel-b', 'customDisplay'),
-    ], {}, {
-      displayDocuments: { document },
-      customDisplayAssets: { 'screen-a': assets, 'screen-b': assets },
+      node('panel-a', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', displayId: 'docA' }),
+      node('panel-b', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', displayId: 'docB' }),
+    ], [], {}, {
+      displayDocuments: { docA: document, docB: document },
+      customDisplayAssets: { docA: assets, docB: assets },
     })
     expect(src.match(/lv_image_set_src/g)).toHaveLength(2)
     expect(src.match(/_map\[\] PROGMEM/g)).toHaveLength(2)

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import { addDisplayWidget, createDisplayDocument } from '../../state/displayEditor'
 import { generateCpp } from '../cppGenerator'
-import type { StudioEdge, StudioNode } from '../../state/graphStore'
+import type { StudioNode } from '../../state/graphStore'
 
 /**
  * A sketch that never draws an LED does not carry FastLED.
@@ -28,8 +28,6 @@ function node(id: string, nodeType: string, properties: Record<string, unknown> 
   } as StudioNode
 }
 
-const edge = (source: string, sourceHandle: string, target: string, targetHandle: string): StudioEdge =>
-  ({ id: `${source}-${sourceHandle}-${target}-${targetHandle}`, source, sourceHandle, target, targetHandle }) as StudioEdge
 
 function sketch(withOutput: boolean): string {
   let document = createDisplayDocument('Display-1', 320, 240)
@@ -37,14 +35,13 @@ function sketch(withOutput: boolean): string {
   document.widgets[0].label = 'Left Top'
   const nodes = [
     node('board', 'Board'),
-    node('screen', 'Display', { displayId: 'Display-1' }),
     node('panel', 'TransportDisplay', {
-      partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90',
+      partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90', displayId: 'Display-1',
       sckPin: 1, mosiPin: 2, misoPin: 8, csPin: 4, dcPin: 5, resetPin: 6, backlightPin: 7,
     }),
     ...(withOutput ? [node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 10 })] : []),
   ]
-  return generateCpp(nodes, [edge('screen', 'customDisplay', 'panel', 'customDisplay')], {}, {
+  return generateCpp(nodes, [], {}, {
     displayDocuments: { 'Display-1': document },
   } as never)
 }

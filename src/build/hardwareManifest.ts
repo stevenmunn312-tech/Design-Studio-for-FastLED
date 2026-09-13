@@ -104,7 +104,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'SegmentDisplay',
   'InfoDisplay',
   'TransportDisplay',
-  'Display',
+  'TouchInput',
 ])
 
 const BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS = new Set([
@@ -638,10 +638,10 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             : [`This OLED has no complete ${labels} pin set configured.`],
         }
       }
-      // Display (the document node) names no peripheral item — it has no
-      // pins and no physical existence, so there is nothing here to report as
-      // supported or unsupported. The panel it is wired to is what shows up.
-      case 'Display':
+      // The Touch node names no peripheral item of its own: it is the
+      // digitiser of a panel this diagram already draws, one module with two
+      // chips rather than two parts on the bench.
+      case 'TouchInput':
         return []
       case 'TransportDisplay': {
         const props = node.data.properties as Record<string, unknown>

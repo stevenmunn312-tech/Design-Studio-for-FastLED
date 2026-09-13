@@ -326,7 +326,7 @@ export default function DisplayEditor() {
   // names it and offers the way back to it rather than leaving the author to
   // find it on the canvas (HW-07).
   const mountedPanel = useGraphStore((state) => (displayId
-    ? panelsShowingDocument(displayId, rootGraphNodes(state), rootGraphEdges(state))[0]
+    ? panelsShowingDocument(displayId, rootGraphNodes(state))[0]
     : undefined))
   const viewportRef = useRef<HTMLDivElement>(null)
   const gesture = useRef<Gesture | null>(null)
@@ -567,8 +567,8 @@ export default function DisplayEditor() {
     if (widgetIds.length === 0) return
     const state = useGraphStore.getState()
     const displayNode = rootGraphNodes(state).find((node) => (
-      node.data.nodeType === 'Display'
-      && String(node.data.properties.displayId ?? node.id) === displayId
+      node.data.nodeType === 'TransportDisplay'
+      && String(node.data.properties.displayId ?? '') === displayId
     ))
     const portIds = new Set(document.widgets
       .filter((widget) => widgetIds.includes(widget.id))
@@ -624,7 +624,7 @@ export default function DisplayEditor() {
   const setDisplayOrientation = (orientation: Extract<DisplayOrientation, '0' | '90'>) => {
     const state = useGraphStore.getState()
     const panels = displayId
-      ? panelsShowingDocument(displayId, rootGraphNodes(state), rootGraphEdges(state))
+      ? panelsShowingDocument(displayId, rootGraphNodes(state))
       : []
     for (const panel of panels) updateNodeProperty(panel.id, 'tftRotation', orientation)
     const mounted = panels[0]

@@ -13,7 +13,7 @@ const HARDWARE_MANAGED_SIGNAL_NODE_TYPES = new Set([
   // Auxiliary displays. Signal-carrying — they consume values and text — but
   // owned by the bench like any other physical part, so they live in the root
   // graph and are added from the workbench rather than the node library.
-  'SegmentDisplay', 'InfoDisplay', 'TransportDisplay', 'Display',
+  'SegmentDisplay', 'InfoDisplay', 'TransportDisplay',
   // The glass in front of a touch panel. Part of the same module as the panel,
   // added and removed with it, so the bench owns it the same way.
   'TouchInput',
@@ -26,7 +26,7 @@ const HARDWARE_LIBRARY_HIDDEN_NODE_TYPES = new Set([
   'Board', 'MicInput', 'LineInput', 'ButtonInput', 'ButtonBank', 'PotInput', 'EncoderInput', 'RTCInput', 'MatrixOutput',
   'StereoVuMeter',
   'MotionInput', 'LightInput',
-  'SegmentDisplay', 'InfoDisplay', 'TransportDisplay', 'Display', 'TouchInput',
+  'SegmentDisplay', 'InfoDisplay', 'TransportDisplay', 'TouchInput',
   // Carry no signal, so they have no business on the signal canvas at all —
   // they live as hidden nodes purely so their settings persist with the
   // workspace and the player generator can keep scanning for them.

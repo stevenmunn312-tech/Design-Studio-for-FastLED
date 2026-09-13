@@ -553,7 +553,7 @@ describe('MenuBar file menu', () => {
     const imported = {
       nodes: [{
         id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
-        data: { label: 'Display', nodeType: 'Display', category: 'hardware', properties: { displayId: 'screen' }, inputs: [], outputs: [] },
+        data: { label: 'Display', nodeType: 'TransportDisplay', category: 'hardware', properties: { displayId: 'screen' }, inputs: [], outputs: [] },
       }],
       edges: [],
       displayDocuments: { arbitraryKey: displayDocument },

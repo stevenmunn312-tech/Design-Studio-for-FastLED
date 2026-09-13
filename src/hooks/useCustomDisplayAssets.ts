@@ -54,7 +54,7 @@ export function useCustomDisplayAssets(nodes: StudioNode[], enabled: boolean, ed
     // build will contain — and worse, a broken asset in a design left over in
     // the workspace refused an upload that never referenced it. The same walk
     // the generators, the RAM estimate and validation use decides what is real.
-    if (enabled) for (const mounted of customDisplayMountPlan(nodes, edges).mounted) {
+    if (enabled) for (const mounted of customDisplayMountPlan(nodes).mounted) {
       const node = mounted.document
       const document = documents[mounted.documentId]
       const label = String(node.data.label || 'Display')
@@ -63,7 +63,7 @@ export function useCustomDisplayAssets(nodes: StudioNode[], enabled: boolean, ed
         continue
       }
       errors.push(...customDisplayResourceIssues(document).map((issue) => `${label}: ${issue.message}`))
-      if (customDisplayAssetRequests(document).length > 0) targets.push({ nodeId: node.id, label, document })
+      if (customDisplayAssetRequests(document).length > 0) targets.push({ nodeId: mounted.documentId, label, document })
     }
     /*
      * Broken control routing blocks a bake, but it is reported separately as

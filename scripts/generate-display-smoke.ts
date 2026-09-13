@@ -53,7 +53,6 @@ const board = () => node('board', 'Board', {
   profileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc', usePsram: true,
 })
 const output = () => node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4 })
-const screen = (id = 'screen') => node(id, 'Display', { displayId: id })
 const panel = (id: string, properties: Record<string, unknown> = {}) => node(id, 'TransportDisplay', {
   partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0',
   // CS 14, not 10: the SD card in the player fixture holds 10, and two devices
@@ -62,7 +61,6 @@ const panel = (id: string, properties: Record<string, unknown> = {}) => node(id,
   touchSckPin: 12, touchMosiPin: 11, touchMisoPin: 13, touchCsPin: 6, touchIrqPin: 5,
   ...properties,
 })
-const mount = (documentId: string, panelId: string) => edge(documentId, 'customDisplay', panelId, 'customDisplay')
 const groups = {
   pattern: {
     nodes: [node('fill', 'SolidColor'), node('end', 'GroupOutput')],
@@ -75,13 +73,12 @@ const options = displayOptions({ screen: document })
 const controls = () => node('controls', 'PlayerControls', { debounceMs: 0 })
 const math = () => node('math', 'Math', { mathOp: 'multiply', b: 0.5 })
 const format = () => node('format', 'FormatNumber', { decimals: 2 })
-const common = [board(), output(), screen(), panel('custom-tft'), controls(), math(), format()]
+const common = [board(), output(), panel('custom-tft', { displayId: 'screen' }), controls(), math(), format()]
 const commonWires = [
-  mount('screen', 'custom-tft'),
-  edge('screen', 'widget:slider:out', 'math', 'a'),
+  edge('custom-tft', 'widget:slider:out', 'math', 'a'),
   edge('math', 'result', 'format', 'value'),
-  edge('format', 'text', 'screen', 'widget:text:value'),
-  edge('math', 'result', 'screen', 'widget:numeric-readout:value'),
+  edge('format', 'text', 'custom-tft', 'widget:text:value'),
+  edge('math', 'result', 'custom-tft', 'widget:numeric-readout:value'),
   edge('math', 'result', 'controls', 'brightness'),
 ]
 
@@ -96,7 +93,7 @@ const fixedPanel = () => panel('fixed-tft', {
 const normalNodes = [...common, fixedPanel(), rtc(), node('fill', 'SolidColor')]
 const normalEdges = [
   ...commonWires,
-  edge('screen', 'widget:button:out', 'controls', 'playPause'),
+  edge('custom-tft', 'widget:button:out', 'controls', 'playPause'),
   edge('controls', 'controls', 'out', 'controls'),
   edge('fill', 'frame', 'out', 'frame'),
   edge('rtc', 'display', 'fixed-tft', 'display'),
@@ -108,7 +105,7 @@ const showNodes = [
 ]
 const showEdges = [
   ...commonWires,
-  edge('screen', 'widget:button:out', 'controls', 'patternNext'),
+  edge('custom-tft', 'widget:button:out', 'controls', 'patternNext'),
   edge('controls', 'controls', 'show', 'controls'),
   edge('collection', 'patternset', 'show', 'patternset'),
   edge('show', 'frame', 'out', 'frame'),
@@ -121,48 +118,20 @@ const playerNodes = [
 ]
 const playerEdges = [
   ...commonWires,
-  edge('screen', 'widget:button:out', 'controls', 'playPause'),
+  edge('custom-tft', 'widget:button:out', 'controls', 'playPause'),
   edge('controls', 'controls', 'player', 'controls'),
   edge('player', 'frame', 'out', 'frame'),
   edge('player', 'display', 'fixed-tft', 'display'),
   edge('player', 'display', 'song', 'display'),
-  edge('song', 'title', 'screen', 'widget:text:value'),
-  edge('song', 'elapsed', 'screen', 'widget:timecode:value'),
-  edge('song', 'progress', 'screen', 'widget:progress:value'),
-  edge('song', 'playing', 'screen', 'widget:status-indicator:value'),
+  edge('song', 'title', 'custom-tft', 'widget:text:value'),
+  edge('song', 'elapsed', 'custom-tft', 'widget:timecode:value'),
+  edge('song', 'progress', 'custom-tft', 'widget:progress:value'),
+  edge('song', 'playing', 'custom-tft', 'widget:status-indicator:value'),
 ]
 
 const secondDocument = addDisplayWidget(createDisplayDocument('deck', 240, 320), 'Text')
 const multiOptions = displayOptions({ screen: document, deck: secondDocument })
 
-/*
- * The two graphs validation refuses, generated anyway.
- *
- * One design wired to two panels, and a second design wired to no panel at all
- * while still driving a control. Both are named and refused before an upload,
- * so neither is a shape to ship — but a refused graph is still generated while
- * the message is being read, and it has to be well-formed C++ rather than a
- * sketch that declares one screen's widgets twice or reads a variable it never
- * declared. The first panel builds the shared design and the spare falls
- * through to its own fixed layout; the unplugged design's widget reads at rest.
- * Only a compiler can check that, which is why these shapes get a fixture
- * instead of resting on their unit tests alone.
- */
-const looseDocument = addDisplayWidget(createDisplayDocument('loose', 240, 320), 'Slider')
-const refusedOptions = displayOptions({ screen: document, loose: looseDocument })
-const refusedNodes = [
-  board(), output(), node('fill', 'SolidColor'), math(),
-  screen(), panel('custom-tft'),
-  panel('spare-tft', { csPin: 16, dcPin: 17, resetPin: 18, backlightPin: 21, touchCsPin: 1, touchIrqPin: 2 }),
-  screen('loose'),
-]
-const refusedEdges = [
-  mount('screen', 'custom-tft'),
-  mount('screen', 'spare-tft'),
-  edge('fill', 'frame', 'out', 'frame'),
-  edge('loose', 'widget:slider:out', 'math', 'a'),
-  edge('math', 'result', 'out', 'brightness'),
-]
 const partNodes = [
   node('segment-tm1637', 'SegmentDisplay', { partId: 'tm1637-4digit-display', clkPin: 2, dioPin: 3 }),
   node('segment-max7219', 'SegmentDisplay', { partId: 'max7219-8digit-7segment', clkPin: 12, dinPin: 11, csPin: 10 }),
@@ -251,12 +220,14 @@ const sketches: Record<string, string> = {
     groups,
   ),
   disabled: generateCpp(
-    [board(), output(), screen(), panel('custom-tft', { enabled: false }), node('fill', 'SolidColor')],
-    [mount('screen', 'custom-tft'), edge('fill', 'frame', 'out', 'frame')], {}, options,
+    [board(), output(), panel('custom-tft', { enabled: false, displayId: 'screen' }), node('fill', 'SolidColor')],
+    [edge('fill', 'frame', 'out', 'frame')], {}, options,
   ),
   'multi-panel': generateCpp(
-    [board(), output(), screen(), panel('custom-tft'), screen('deck'), panel('deck-tft', { csPin: 16, dcPin: 17, resetPin: 18, backlightPin: 21 }), node('fill', 'SolidColor')],
-    [mount('screen', 'custom-tft'), mount('deck', 'deck-tft'), edge('fill', 'frame', 'out', 'frame')], {}, multiOptions,
+    [board(), output(), panel('custom-tft', { displayId: 'screen' }),
+      panel('deck-tft', { displayId: 'deck', csPin: 16, dcPin: 17, resetPin: 18, backlightPin: 21 }),
+      node('fill', 'SolidColor')],
+    [edge('fill', 'frame', 'out', 'frame')], {}, multiOptions,
   ),
   'part-families': generateCpp(
     [board(), output(), rtc(), node('fill', 'SolidColor'), ...partNodes],
@@ -266,7 +237,6 @@ const sketches: Record<string, string> = {
     [board(), output(), rtc(), node('fill', 'SolidColor'), ...altPartNodes],
     [edge('fill', 'frame', 'out', 'frame'), ...altPartNodes.map((entry) => edge('rtc', 'display', entry.id, 'display'))],
   ),
-  'refused-mounts': generateCpp(refusedNodes, refusedEdges, {}, refusedOptions),
   telemetry: generateCpp(telemetryNodes, normalEdges, {}, options),
   'classic-esp32-fixed': generateCpp(classicNodes, classicEdges),
 }
@@ -283,7 +253,6 @@ const fixtureGraphs: Record<string, { nodes: StudioNode[]; edges: StudioEdge[] }
   player: { nodes: playerNodes, edges: playerEdges },
   'part-families': { nodes: [board(), output(), rtc(), ...partNodes], edges: [] },
   'part-families-i2c': { nodes: [board(), output(), rtc(), ...altPartNodes], edges: [] },
-  'refused-mounts': { nodes: refusedNodes, edges: refusedEdges },
   telemetry: { nodes: telemetryNodes, edges: normalEdges },
   'classic-esp32-fixed': { nodes: classicNodes, edges: classicEdges },
 }
@@ -323,7 +292,7 @@ for (const entry of catalogueDisplays()) {
 }
 
 const requiredSymbols: Record<string, readonly string[]> = {
-  normal: ['lv_display_set_default(_cdDisp_custom_tft)', 'n_screen_widget_slider_out', '_cdSetText(_cd_screen[4]', '_tftClockValid_fixed_tft'],
+  normal: ['lv_display_set_default(_cdDisp_custom_tft)', 'n_custom_tft_widget_slider_out', '_cdSetText(_cd_screen[4]', '_tftClockValid_fixed_tft'],
   show: ['lv_display_set_default(_cdDisp_custom_tft)', '_pcE_controls_patternNext.update', '_selUpdate(_sel_show', '_tftHigh_fixed_tft'],
   player: ['lv_display_set_default(_cdDisp_custom_tft)', 'char n_song_title[64]', '_cdSetText(_cd_screen[4], n_song_title)', 'audio.loop();'],
   'isolated-tft': ['_tftClockValid_fixed_tft', '_tftPaint(_tft_fixed_tft'],
@@ -332,8 +301,6 @@ const requiredSymbols: Record<string, readonly string[]> = {
   'multi-panel': ['_cdScreen_screen = lv_obj_create', '_cdScreen_deck = lv_obj_create', '_cdDisp_custom_tft', '_cdDisp_deck_tft'],
   'part-families': ['SEG_KIND_TM1637', 'SEG_KIND_MAX7219', '_oledBeginSpi', '_oledBeginI2c', '_tftPaint'],
   'part-families-i2c': ['_oledBeginI2c', '#include <Wire.h>'],
-  'refused-mounts': ['lv_display_set_default(_cdDisp_custom_tft)', 'static TftPanel _tft_spare_tft',
-    '_tftPaint(_tft_spare_tft', 'n_loose_widget_slider_out = 0.0f'],
   telemetry: ['void _telReport() {', 'FLS_STAT uptime=', '_telTouchPress();', 'drawbuf=',
     'Serial.begin(115200)'],
   'classic-esp32-fixed': ['_tftClockValid_classic_tft', '_oledBeginI2c', 'SEG_KIND_TM1637'],
@@ -346,24 +313,6 @@ for (const [name, symbols] of Object.entries(requiredSymbols)) {
   }
 }
 if (sketches.headless.includes('#include <lvgl.h>')) throw new Error('headless.ino unexpectedly includes LVGL')
-
-/*
- * The shared design is built once, and the shapes that must emit nothing do.
- *
- * `includes` cannot express either. A design declared twice is a link error
- * rather than a missing symbol, which is the failure this fixture exists to
- * catch; and the spare panel having no LVGL display of its own, and the
- * unplugged design no screen object at all, are what make the refused build
- * well-formed rather than merely compiling.
- */
-const refusedSketch = sketches['refused-mounts']
-const sharedScreenDeclarations = refusedSketch.split('lv_obj_t *_cdScreen_screen').length - 1
-if (sharedScreenDeclarations !== 1) {
-  throw new Error(`refused-mounts.ino declares the shared screen ${sharedScreenDeclarations} times, expected once`)
-}
-for (const absent of ['_cdDisp_spare_tft', '_cdScreen_loose']) {
-  if (refusedSketch.includes(absent)) throw new Error(`refused-mounts.ino unexpectedly emits ${absent}`)
-}
 
 const outputDirectory = resolve(process.argv[2] ?? 'artifacts/display-compile')
 mkdirSync(outputDirectory, { recursive: true })

@@ -350,46 +350,16 @@ describe('graphStore — grouping', () => {
     expect(e[0].targetHandle).toBe('frame')
   })
 
-  it('onConnect drops the sibling Display/Custom Display wire on the same panel', () => {
-    reset(
-      [node('rtc', 'RTCInput', {}), node('doc', 'Display', {}), node('panel', 'TransportDisplay', {})],
-      [edge('e1', 'rtc', 'display', 'panel', 'display')],
-    )
-    useGraphStore.getState().onConnect({
-      source: 'doc', sourceHandle: 'customDisplay', target: 'panel', targetHandle: 'customDisplay',
-    })
-    const e = useGraphStore.getState().edges
-    expect(e).toHaveLength(1)
-    expect(e[0].source).toBe('doc')
-    expect(e[0].targetHandle).toBe('customDisplay')
 
-    // And the reverse direction: wiring `display` again drops `customDisplay`.
-    useGraphStore.getState().onConnect({
-      source: 'rtc', sourceHandle: 'display', target: 'panel', targetHandle: 'display',
-    })
-    const e2 = useGraphStore.getState().edges
-    expect(e2).toHaveLength(1)
-    expect(e2[0].source).toBe('rtc')
-    expect(e2[0].targetHandle).toBe('display')
-  })
-
-  it('fits a screen design to the panel geometry when its mount wire is created or rotated', () => {
+  it('fits a screen design when its panel is rotated', () => {
     reset([
-      node('doc', 'Display', { displayId: 'screen' }),
       node('panel', 'TransportDisplay', {
         partId: 'st7789v-xpt2046-touch-240x320',
         tftRotation: '90',
+        displayId: 'screen',
       }),
     ])
     useGraphStore.getState().setDisplayDocument(createDisplayDocument('screen', 240, 320))
-
-    useGraphStore.getState().onConnect({
-      source: 'doc', sourceHandle: 'customDisplay', target: 'panel', targetHandle: 'customDisplay',
-    })
-    expect(useGraphStore.getState().displayDocuments.screen).toMatchObject({
-      designSize: { width: 320, height: 240 },
-      orientation: '90',
-    })
 
     useGraphStore.getState().updateNodeProperty('panel', 'tftRotation', '0')
     expect(useGraphStore.getState().displayDocuments.screen).toMatchObject({
@@ -1152,7 +1122,7 @@ describe('graphStore — custom display documents', () => {
     useGraphStore.getState().loadGraph([], [])
     expect(useGraphStore.getState().displayDocuments).toEqual({})
 
-    useGraphStore.getState().loadGraph([node('screen', 'Display', { displayId: 'panel' })], [], {
+    useGraphStore.getState().loadGraph([node('screen', 'TransportDisplay', { displayId: 'panel' })], [], {
       displayDocuments: {
         untrustedKey: { ...displayDocument, orientation: 'invalid' as never },
         old: { ...displayDocument, schemaVersion: 2 as never, displayId: 'old' },
@@ -1163,7 +1133,7 @@ describe('graphStore — custom display documents', () => {
   })
 
   it('drops a loaded display document whose physical Display node was orphaned', () => {
-    useGraphStore.getState().loadGraph([node('screen', 'Display', { displayId: 'panel' })], [], {
+    useGraphStore.getState().loadGraph([node('screen', 'TransportDisplay', { displayId: 'panel' })], [], {
       displayDocuments: {
         panel: displayDocument,
         orphan: { ...displayDocument, displayId: 'orphan' },
@@ -1235,7 +1205,7 @@ describe('graphStore — custom display documents', () => {
     vi.useFakeTimers()
     try {
       reset([
-        node('screen', 'Display', { displayId: 'panel' }),
+        node('screen', 'TransportDisplay', { displayId: 'panel' }),
         node('board', 'Board', { brightness: 100 }),
         node('source', 'TextValue'),
         node('sink', 'Not'),
@@ -1250,11 +1220,12 @@ describe('graphStore — custom display documents', () => {
         const screen = state.nodes.find((entry) => entry.id === 'screen')!
         const widgetPorts = displayDocumentPorts(document)
         expect(state.displayDocuments.panel).toEqual(document)
-        expect(screen.data.inputs).toEqual(widgetPorts.inputs)
-        expect(screen.data.outputs).toEqual([
-          { id: 'customDisplay', label: 'Screen Design', dataType: 'customdisplay' },
-          ...widgetPorts.outputs,
+        expect(screen.data.inputs).toEqual([
+          { id: 'display', label: 'Display', dataType: 'display' },
+          { id: 'enabled', label: 'Enabled', dataType: 'bool' },
+          ...widgetPorts.inputs,
         ])
+        expect(screen.data.outputs).toEqual(widgetPorts.outputs)
         expect(state.edges.map((entry) => entry.id)).toEqual(edgeIds)
       }
       vi.advanceTimersByTime(400)
@@ -1306,46 +1277,48 @@ describe('graphStore — custom display documents', () => {
   })
 
   /*
-   * A design is mounted on a panel by an ordinary wire, and that wire has to
-   * survive the two things that happen to it constantly: reopening the
-   * workspace, and editing the design. The port sync used to replace the
-   * Display node's whole port set with its widget ports, so `customDisplay`
-   * vanished and the edge filter dropped the mount — a saved screen came back
-   * unplugged from the panel it was drawn for.
+   * A design belongs to its panel, and its widget ports have to survive the two
+   * things that happen constantly: reopening the workspace, and editing the
+   * design. The port sync used to replace a node's whole port set with its
+   * widget ports, which stripped the identity ports and the edge filter then
+   * dropped their cables. The panel's own Display and Enabled inputs are the
+   * ones at stake now.
    */
-  it('keeps a design mounted on its panel across a load and an edit', () => {
-    const mount = edge('mount', 'screen', 'customDisplay', 'tft', 'customDisplay')
+  it('keeps a panel’s own inputs and its widget ports across a load and an edit', () => {
     useGraphStore.getState().loadGraph(
-      [node('screen', 'Display', { displayId: 'panel' }),
-        node('tft', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320' })],
-      [mount],
+      [node('tft', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', displayId: 'panel' }),
+        node('rtc', 'RTCInput', {})],
+      [edge('feed', 'rtc', 'display', 'tft', 'display')],
     )
-    const mounted = () => useGraphStore.getState().edges.some((entry) => entry.id === 'mount')
-    expect(mounted()).toBe(true)
+    const fed = () => useGraphStore.getState().edges.some((entry) => entry.id === 'feed')
+    expect(fed()).toBe(true)
 
     useGraphStore.getState().setDisplayDocument(addDisplayWidget(createDisplayDocument('panel'), 'Slider'))
-    expect(mounted()).toBe(true)
-    const screen = useGraphStore.getState().nodes.find((entry) => entry.id === 'screen')!
-    expect((screen.data.outputs as { id: string }[]).map((port) => port.id))
-      .toEqual(['customDisplay', 'widget:slider:out'])
+    expect(fed()).toBe(true)
+    const panel = useGraphStore.getState().nodes.find((entry) => entry.id === 'tft')!
+    // A Slider is synchronized, so it contributes an input as well as an output.
+    expect((panel.data.inputs as { id: string }[]).map((port) => port.id))
+      .toEqual(['display', 'enabled', 'widget:slider:set'])
+    expect((panel.data.outputs as { id: string }[]).map((port) => port.id)).toEqual(['widget:slider:out'])
   })
 
   it('derives stable outer-node ports and keeps cables across label edits', () => {
-    reset([node('screen', 'Display', { displayId: 'panel' })])
+    reset([node('screen', 'TransportDisplay', { displayId: 'panel' })])
     let document = addDisplayWidget(createDisplayDocument('panel'), 'Text')
     document = addDisplayWidget(document, 'Toggle')
     useGraphStore.getState().setDisplayDocument(document)
 
     let screen = useGraphStore.getState().nodes[0]
+    // The panel's own content and Enabled inputs lead, and the widget ports
+    // follow them. Replacing the whole set with widget ports dropped the wires
+    // feeding those inputs, on load and on every edit.
     expect(screen.data.inputs).toEqual([
+      { id: 'display', label: 'Display', dataType: 'display' },
+      { id: 'enabled', label: 'Enabled', dataType: 'bool' },
       { id: 'widget:text:value', label: 'Text', dataType: 'string' },
       { id: 'widget:toggle:set', label: 'Toggle Set', dataType: 'bool' },
     ])
-    // The library's own `customDisplay` output leads, and the widget ports
-    // follow it. Replacing the whole set with widget ports dropped the wire
-    // that mounts this design on a panel, on load and on every edit.
     expect(screen.data.outputs).toEqual([
-      { id: 'customDisplay', label: 'Screen Design', dataType: 'customdisplay' },
       { id: 'widget:toggle:out', label: 'Toggle Output', dataType: 'bool' },
     ])
 
@@ -1368,7 +1341,7 @@ describe('graphStore — custom display documents', () => {
   it('removes disappeared widget cables in the same undo step as the document edit', () => {
     vi.useFakeTimers()
     try {
-      reset([node('screen', 'Display', { displayId: 'panel' })])
+      reset([node('screen', 'TransportDisplay', { displayId: 'panel' })])
       let document = addDisplayWidget(createDisplayDocument('panel'), 'Text')
       document = addDisplayWidget(document, 'Button')
       useGraphStore.getState().setDisplayDocument(document)
@@ -1384,7 +1357,8 @@ describe('graphStore — custom display documents', () => {
       useGraphStore.getState().setDisplayDocument(removeDisplayWidget(document, 'text'))
       vi.advanceTimersByTime(400)
       expect(useGraphStore.getState().edges.map((entry) => entry.id)).toEqual(['button-wire'])
-      expect(useGraphStore.getState().nodes[0].data.inputs).toEqual([])
+      expect((useGraphStore.getState().nodes[0].data.inputs as { id: string }[]).map((port) => port.id))
+        .toEqual(['display', 'enabled'])
 
       useGraphStore.temporal.getState().undo()
       expect(useGraphStore.getState().displayDocuments.panel.widgets.map((widget) => widget.id)).toEqual(['text', 'button'])
@@ -1398,7 +1372,7 @@ describe('graphStore — custom display documents', () => {
     vi.useFakeTimers()
     try {
       reset([
-        node('screen', 'Display', { displayId: 'panel' }),
+        node('screen', 'TransportDisplay', { displayId: 'panel' }),
         node('source', 'TextValue'),
         node('sink', 'Not'),
       ])
@@ -1429,7 +1403,8 @@ describe('graphStore — custom display documents', () => {
 
       useGraphStore.temporal.getState().redo()
       expect(useGraphStore.getState().displayDocuments.panel.widgets.map((widget) => widget.id)).toEqual(['button'])
-      expect(useGraphStore.getState().nodes[0].data.inputs).toEqual([])
+      expect((useGraphStore.getState().nodes[0].data.inputs as { id: string }[]).map((port) => port.id))
+        .toEqual(['display', 'enabled'])
       expect(useGraphStore.getState().edges.map((entry) => entry.id)).toEqual(['button-wire'])
     } finally {
       leaveDisplayHistoryScope('panel')
@@ -1439,7 +1414,7 @@ describe('graphStore — custom display documents', () => {
   })
 
   it('does not carry a cable across an in-place widget port-type change', () => {
-    reset([node('screen', 'Display', { displayId: 'panel' })])
+    reset([node('screen', 'TransportDisplay', { displayId: 'panel' })])
     const document = addDisplayWidget(createDisplayDocument('panel'), 'Text')
     useGraphStore.getState().setDisplayDocument(document)
     useGraphStore.setState({ edges: [edge('wire', 'source', 'text', 'screen', 'widget:text:value')] })
@@ -1459,7 +1434,7 @@ describe('graphStore — custom display documents', () => {
   })
 
   it('gives duplicated custom-display nodes independent documents', () => {
-    reset([node('screen', 'Display', { displayId: 'panel' })])
+    reset([node('screen', 'TransportDisplay', { displayId: 'panel' })])
     const document = addDisplayWidget(createDisplayDocument('panel'), 'Button')
     useGraphStore.getState().setDisplayDocument(document)
     useGraphStore.getState().duplicateNode('screen')
@@ -1473,7 +1448,7 @@ describe('graphStore — custom display documents', () => {
   })
 
   it('removes a custom display document with its physical node', () => {
-    reset([node('screen', 'Display', { displayId: 'panel' })])
+    reset([node('screen', 'TransportDisplay', { displayId: 'panel' })])
     useGraphStore.getState().setDisplayDocument(createDisplayDocument('panel'))
     useGraphStore.getState().removeNodeCompletely('screen')
     expect(useGraphStore.getState().nodes).toEqual([])

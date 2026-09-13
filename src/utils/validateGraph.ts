@@ -502,10 +502,9 @@ export const DISPLAY_NODE_TYPES = new Set([
  */
 function displayRamBytes(
   nodes: StudioNode[],
-  edges: readonly StudioEdge[],
   documents?: DisplayDocumentRegistry,
 ): number {
-  const mounted = customDisplayMountPlan(nodes, edges).mounted
+  const mounted = customDisplayMountPlan(nodes).mounted
   const customPanels = new Set(mounted.map((mount) => mount.panel.id))
   return nodes.reduce(
     (sum, n) => {
@@ -715,7 +714,7 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[], di
 
   // Displays are sinks, so they are not in `reachable` and never will be —
   // they are walked *from*, not to. Count them over the whole graph instead.
-  const displayBytes = displayRamBytes(nodes, edges, displayDocuments)
+  const displayBytes = displayRamBytes(nodes, displayDocuments)
 
   const ledsArrayBytes = ledCount * 3
   const usesPsram = controllerSettings(nodes).usePsram
@@ -1769,8 +1768,8 @@ export function findDisplayGeneratorIssues(
   // design onto a portrait panel without a word. The template plan resolves
   // this through the same helper, so its copy of the message is dropped rather
   // than reported twice.
-  const mountPlan = customDisplayMountPlan(nodes, edges)
-  for (const mounted of mountedCustomDisplays(nodes, edges)) {
+  const mountPlan = customDisplayMountPlan(nodes)
+  for (const mounted of mountedCustomDisplays(nodes)) {
     const document = displayDocuments?.[mounted.documentId]
     if (!document) continue
     const issue = mountedSizeIssue(nodeLabel(mounted.document), mounted.geometry, document.designSize)

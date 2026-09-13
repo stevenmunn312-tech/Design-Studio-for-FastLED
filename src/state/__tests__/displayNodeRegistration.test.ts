@@ -90,18 +90,21 @@ describe('display node registration contracts', () => {
     }
   })
 
-  it('keeps custom ports document-driven and leaves fixed layouts and pins on the Display Panel', () => {
-    // Looked up directly, not through `displays` above — Display selects no
-    // module of its own any more, so it never appears in that derivation.
-    const definition = NODE_LIBRARY.find((node) => node.type === 'Display')!
-    expect(definition.inputs).toEqual([])
-    // One static output, the wire a TransportDisplay panel's `customDisplay`
-    // input accepts. Every other port stays widget-derived.
-    expect(definition.outputs).toEqual([{ id: 'customDisplay', label: 'Screen Design', dataType: 'customdisplay' }])
-    expect(definition.defaultProperties).not.toHaveProperty('tftLayout')
-    // No pins, no partId, no physical existence at all — just which document
-    // this node opens.
-    expect(definition.defaultProperties).toEqual({ displayId: '' })
-    expect(partOptionsFor(definition.type)).toEqual([])
+  /*
+   * A screen belongs to the panel it is drawn on.
+   *
+   * There was a `Display` node holding the widgets, wired across to a panel
+   * holding the pins. It had no pins, no module and no physical existence — it
+   * appeared in a shelf of parts admitting in a comment that it had "no pins,
+   * no footprint, no render". The panel carries the design now, and the widget
+   * ports are its own.
+   */
+  it('has no separate document node, and the panel names its own design', () => {
+    expect(NODE_LIBRARY.find((node) => node.type === 'Display')).toBeUndefined()
+    const panel = NODE_LIBRARY.find((node) => node.type === 'TransportDisplay')!
+    expect(panel.defaultProperties).toHaveProperty('displayId', '')
+    expect(panel.inputs.map((port) => port.id)).toEqual(['display', 'enabled'])
+    // Nothing comes out of a display; touch leaves through its own node.
+    expect(panel.outputs).toEqual([])
   })
 })

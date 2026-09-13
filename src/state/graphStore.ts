@@ -164,7 +164,7 @@ interface GraphState {
    *  glass, and the ordinary `customDisplay` edge between them — in one
    *  undoable step. `documentNodeId` is minted by the caller so it can open
    *  the editor on the design it just made. */
-  createScreenDesignForPanel: (panelId: string, documentNodeId: string) => void
+  createScreenDesignForPanel: (panelId: string) => void
   pinProperty: (nodeId: string, propertyKey: string) => void
   unpinProperty: (pinId: string) => void
   renamePin: (pinId: string, label: string) => void
@@ -679,19 +679,23 @@ const EXCLUSIVE_SIBLING_INPUT: Record<string, string> = {
  * resize in the same store transaction makes a wrong-sized first edit
  * impossible. Reconnecting to another panel uses this same path.
  */
-function displayDocumentsForMount(
+/**
+ * Re-fit a panel's screen design when the panel changes shape.
+ *
+ * Rotation and module belong to the panel, and the design has to match the
+ * glass — so changing either re-fits the design rather than leaving it a size
+ * no screen has. The design belongs to the panel, so there is no wire to follow
+ * to find it.
+ */
+function displayDocumentsForMountedPanel(
   nodes: StudioNode[],
   documents: DisplayDocumentRegistry,
-  connection: Connection,
+  panelId: string,
 ): DisplayDocumentRegistry {
-  if (connection.sourceHandle !== 'customDisplay' || connection.targetHandle !== 'customDisplay') {
-    return documents
-  }
-  const documentNode = nodes.find((node) => node.id === connection.source && node.data.nodeType === 'Display')
-  const panel = nodes.find((node) => node.id === connection.target && node.data.nodeType === 'TransportDisplay')
-  if (!documentNode || !panel) return documents
-  const displayId = String(documentNode.data.properties.displayId ?? documentNode.id)
-  const document = documents[displayId]
+  const panel = nodes.find((node) => node.id === panelId && node.data.nodeType === 'TransportDisplay')
+  if (!panel) return documents
+  const displayId = String(panel.data.properties.displayId ?? '')
+  const document = displayId ? documents[displayId] : undefined
   if (!document) return documents
   const geometry = mountedPanelGeometry(panel.data.properties)
   if (document.designSize.width === geometry.width
@@ -705,22 +709,6 @@ function displayDocumentsForMount(
       geometry.rotation,
     ),
   }
-}
-
-function displayDocumentsForMountedPanel(
-  nodes: StudioNode[],
-  edges: StudioEdge[],
-  documents: DisplayDocumentRegistry,
-  panelId: string,
-): DisplayDocumentRegistry {
-  const mount = edges.find((edge) => edge.target === panelId && edge.targetHandle === 'customDisplay')
-  if (!mount) return documents
-  return displayDocumentsForMount(nodes, documents, {
-    source: mount.source,
-    sourceHandle: mount.sourceHandle ?? null,
-    target: panelId,
-    targetHandle: mount.targetHandle ?? null,
-  })
 }
 
 function completeConnection(s: GraphState, connection: Connection): Partial<GraphState> {
@@ -740,7 +728,6 @@ function completeConnection(s: GraphState, connection: Connection): Partial<Grap
   return {
     edges,
     nodes: withAdoptedMirrorPin(grown.nodes, edges, resolved),
-    displayDocuments: displayDocumentsForMount(grown.nodes, s.displayDocuments, resolved),
     pendingControlAssignment: null,
   }
 }
@@ -1100,15 +1087,16 @@ function syncDisplayNodesInContent(
     changedOutputTypes: Set<string>
   }>()
   const nodes = content.nodes.map((node) => {
-    if (node.data.nodeType !== 'Display') return node
-    const displayId = String(node.data.properties.displayId ?? node.id)
-    const document = documents[displayId]
+    // The panel owns its screen design, so the widget ports are the panel's.
+    // A panel with no design has no widget ports and is left exactly as the
+    // library declares it.
+    if (node.data.nodeType !== 'TransportDisplay') return node
+    const displayId = String(node.data.properties.displayId ?? '')
+    const document = displayId ? documents[displayId] : undefined
     // The document contributes widget ports; the node's own identity ports —
-    // `customDisplay`, the wire that mounts this design on a panel — come from
-    // the library, as they do for every other node. Replacing the whole set
-    // with the document's widget ports stripped that output, and the edge
-    // filter below then dropped the mount wire on load and on every edit: a
-    // saved screen came back unplugged from the panel it was drawn for.
+    // Display and Enabled — come from the library, as they do for every other
+    // node. Replacing the whole set with the document's widget ports stripped
+    // those, and the edge filter below then dropped the wires feeding them.
     const library = LIBRARY_DEF.get(node.data.nodeType)
     const widgetPorts = document ? displayDocumentPorts(document) : { inputs: [], outputs: [] }
     const ports = {
@@ -1160,10 +1148,12 @@ function syncDisplayProjection(
   displayEdgeSource: GraphContent,
   displayId?: string,
 ): GraphContent {
+  // The panel carrying this design: its widget ports and their cables are what
+  // a display-history step owns.
   const displayNodeIds = new Set(content.nodes
-    .filter((node) => node.data.nodeType === 'Display'
+    .filter((node) => node.data.nodeType === 'TransportDisplay'
       && (displayId === undefined
-        || String(node.data.properties.displayId ?? node.id) === displayId))
+        || String(node.data.properties.displayId ?? '') === displayId))
     .map((node) => node.id))
   const contentNodeIds = new Set(content.nodes.map((node) => node.id))
   const contentEdgeIds = new Set(content.edges.map((edge) => edge.id))
@@ -1196,8 +1186,8 @@ function pruneOrphanDisplayDocuments(
   rootNodes: StudioNode[],
 ): DisplayDocumentRegistry {
   const owned = new Set(rootNodes
-    .filter((node) => node.data.nodeType === 'Display')
-    .map((node) => String(node.data.properties.displayId ?? node.id)))
+    .filter((node) => node.data.nodeType === 'TransportDisplay')
+    .map((node) => String(node.data.properties.displayId ?? '')))
   const entries = Object.entries(documents).filter(([displayId]) => owned.has(displayId))
   return entries.length === Object.keys(documents).length ? documents : Object.fromEntries(entries)
 }
@@ -1207,8 +1197,11 @@ function duplicateNodeDocument(
   newId: string,
   documents: DisplayDocumentRegistry,
 ): { node: StudioNode; document?: DisplayDocument } {
-  if (node.data.nodeType !== 'Display') return { node: { ...node, id: newId } }
-  const sourceDisplayId = String(node.data.properties.displayId ?? node.id)
+  // Duplicating a panel duplicates the screen drawn on it: the design belongs
+  // to the panel, so a copy of the panel is a copy of the screen, with widgets
+  // of its own rather than two panels arguing over one set.
+  if (node.data.nodeType !== 'TransportDisplay') return { node: { ...node, id: newId } }
+  const sourceDisplayId = String(node.data.properties.displayId ?? '')
   const source = documents[sourceDisplayId]
   const document = source ? { ...structuredClone(source), displayId: newId } : undefined
   const ports = document ? displayDocumentPorts(document) : { inputs: [], outputs: [] }
@@ -1482,58 +1475,35 @@ export const useGraphStore = create<GraphState>()(
        * a design half-created is exactly the unsized state this action exists
        * to make unreachable.
        */
-      createScreenDesignForPanel: (panelId, documentNodeId) => set((s) => {
+      /*
+       * Give a panel a screen to draw.
+       *
+       * One store write: the document exists at the panel's own rotated size,
+       * keyed by the panel, and the panel names it. Nothing is minted on the
+       * canvas and nothing is wired, because the design belongs to the glass
+       * it was drawn for — there is no second node to place and no cable to
+       * forget.
+       */
+      createScreenDesignForPanel: (panelId) => set((s) => {
         const nodes = rootGraphNodes(s)
-        const rootEdges = rootGraphEdges(s)
         const panel = nodes.find((node) => node.id === panelId && node.data.nodeType === 'TransportDisplay')
-        const definition = LIBRARY_DEF.get('Display')
-        if (!panel || !definition) return {}
-        // Already showing a design: this is the create action, not a swap.
-        if (rootEdges.some((edge) => edge.target === panelId && edge.targetHandle === 'customDisplay')) return {}
+        if (!panel) return {}
+        // Already has one: this is the create action, not a swap.
+        if (String(panel.data.properties.displayId ?? '')) return {}
         const geometry = mountedPanelGeometry(panel.data.properties)
-        const node: StudioNode = {
-          id: documentNodeId,
-          type: 'studioNode',
-          position: { x: panel.position.x - 360, y: panel.position.y },
-          data: {
-            label: definition.label,
-            nodeType: definition.type,
-            category: definition.category,
-            properties: { displayId: documentNodeId },
-            inputs: [],
-            outputs: definition.outputs,
-          },
-        } as StudioNode
-        const connection = {
-          source: documentNodeId,
-          sourceHandle: 'customDisplay',
-          target: panelId,
-          targetHandle: 'customDisplay',
-        }
-        // The two content inputs are exclusive, so a fixed-layout wire steps
-        // aside the same way it does when the user drags this cable by hand.
-        const edges = addEdge(
-          {
-            ...connection,
-            type: 'glowEdge',
-            reconnectable: 'target',
-            style: { stroke: edgeStrokeForPort(node, 'customDisplay') },
-          },
-          rootEdges.filter((edge) => !(edge.target === panelId
-            && (edge.targetHandle === 'customDisplay' || edge.targetHandle === 'display'))),
-        )
+        const documentId = panelId
         const displayDocuments = {
           ...s.displayDocuments,
-          [documentNodeId]: createDisplayDocument(
-            documentNodeId,
-            geometry.width,
-            geometry.height,
-            geometry.rotation,
-          ),
+          [documentId]: createDisplayDocument(documentId, geometry.width, geometry.height, geometry.rotation),
         }
         return {
           displayDocuments,
-          ...withRootContent(s, { nodes: [...nodes, node], edges }),
+          ...withRootContent(s, {
+            nodes: nodes.map((node) => (node.id === panelId
+              ? { ...node, data: { ...node.data, properties: { ...node.data.properties, displayId: documentId } } }
+              : node)),
+            edges: rootGraphEdges(s),
+          }),
         }
       }),
 
@@ -1818,7 +1788,6 @@ export const useGraphStore = create<GraphState>()(
               edges,
               nodes: withAdoptedMirrorPin(grown.nodes, edges, resolved),
             }),
-            displayDocuments: displayDocumentsForMount(grown.nodes, s.displayDocuments, resolved),
           }
         }),
 
@@ -1876,7 +1845,6 @@ export const useGraphStore = create<GraphState>()(
           const color = edgeStrokeForPort(src, newConnection.sourceHandle ?? undefined)
           return {
             edges: edges.map((edge) => edge.id === oldEdge.id ? { ...edge, style: { ...edge.style, stroke: color } } : edge),
-            displayDocuments: displayDocumentsForMount(s.nodes, s.displayDocuments, newConnection),
           }
         }),
 
@@ -2304,8 +2272,10 @@ export const useGraphStore = create<GraphState>()(
         // A part removed mid-question ends the question, whether or not it was
         // one of the two nodes the drop was between.
         if (state.pendingControlAssignment) set({ pendingControlAssignment: null })
-        const displayId = node.data.nodeType === 'Display'
-          ? String(node.data.properties.displayId ?? node.id)
+        // A panel takes its screen design with it: the design belongs to the
+        // glass, so there is nothing left to keep it for.
+        const displayId = node.data.nodeType === 'TransportDisplay'
+          ? String(node.data.properties.displayId ?? '') || null
           : null
         /*
          * A panel takes its glass with it.
@@ -3283,12 +3253,7 @@ function editNodePropertyAndSyncVu(
   const displayDocuments = target?.data.nodeType === 'TransportDisplay'
     && (Object.prototype.hasOwnProperty.call(updates, 'partId')
       || Object.prototype.hasOwnProperty.call(updates, 'tftRotation'))
-    ? displayDocumentsForMountedPanel(
-        syncedRoot,
-        rootGraphEdges(s),
-        s.displayDocuments,
-        target.id,
-      )
+    ? displayDocumentsForMountedPanel(syncedRoot, s.displayDocuments, target.id)
     : s.displayDocuments
   const resized = displayDocuments === s.displayDocuments ? {} : { displayDocuments }
   if (s.activeGraphId === ROOT_GRAPH_ID) return { ...edited, nodes: syncedRoot, ...resized }

@@ -2945,7 +2945,6 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // selection that identifies the baked picture.
     inputs: [
       { id: 'display', label: 'Display', dataType: 'display' },
-      { id: 'customDisplay', label: 'Screen Design', dataType: 'customdisplay' },
       { id: 'enabled', label: 'Enabled', dataType: 'bool' },
     ],
     // Nothing comes out of a display. What a finger does on the glass leaves
@@ -2953,6 +2952,11 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [],
     defaultProperties: {
       partId: 'st7789-tft-240x240',
+      // The screen drawn on this panel, when there is one. Empty means the
+      // panel shows one of the fixed layouts below. A design belongs to the
+      // glass it was drawn for, so this is the panel's own id rather than a
+      // wire to a document somewhere else on the canvas.
+      displayId: '',
       tftLayout: 'Now Playing',
       tftRotation: '0',
       sckPin: 18,
@@ -2974,23 +2978,6 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       touchYMin: 200,
       touchYMax: 3900,
       enabled: true,
-    },
-  },
-  {
-    // The design, not the glass. It has no pins, no bus, and no physical
-    // existence — a `TransportDisplay` panel elsewhere on the bench owns
-    // those, and this document reaches one only through the `customDisplay`
-    // wire its one static output carries. Its per-widget ports are
-    // deliberately empty here: they are derived from the matching
-    // DisplayDocument's stable widget roles by the graph store, then
-    // persisted on the node for React Flow and imports.
-    type: 'Display',
-    label: 'Screen Design',
-    category: 'output',
-    inputs: [],
-    outputs: [{ id: 'customDisplay', label: 'Screen Design', dataType: 'customdisplay' }],
-    defaultProperties: {
-      displayId: '',
     },
   },
   {
@@ -3550,7 +3537,6 @@ export const PORT_COLORS: Record<string, string> = {
   patternset: '#38a6ff',
   patternselect: '#7fd1ff',
   display: '#ffe066',
-  customdisplay: '#ffb300',
   transitionset: '#b388ff',
   playercontrols: '#ff8a65',
   playerparticles: '#ce93d8',
