@@ -12,9 +12,12 @@ import {
   isBoardProfileCompatibleWithFqbn,
   UNMAPPED_CAPABILITY_IDS,
   UNLISTED_SAFETY_IDS,
+  lacksPinAdvice,
   validateBoardProfiles,
 } from '../boardProfiles'
 import type { PhysicalBoardProfile } from '../boardProfiles'
+import { CYD_TOUCH_DISPLAY } from '../../state/integratedBoardHardware'
+import { NO_PIN } from '../../state/boardGpio'
 
 /** Minimal profile that passes the pre-existing checks, so each test below
  *  fails only on the capability rule it is actually about. */
@@ -378,5 +381,73 @@ describe('module flash size', () => {
     expect(selectedBoardFlashMb([
       { data: { nodeType: 'Board', properties: { profileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc' } } },
     ])).toBe(16)
+  })
+})
+
+
+describe('a board whose package carries no pin safety', () => {
+  // `pinSafetySummary` is a field of the Blender board asset, and the CYD's
+  // package has none — it arrived as an integrated controller/display package
+  // rather than as a devkit. Hand-authored safety fills that gap; these tests
+  // exist because the gap itself used to be invisible.
+  const cyd = () => boardProfileById(CYD_TOUCH_DISPLAY.boardProfileId)
+
+  it('counts a profile with no safety data at all as a gap, not as complete', () => {
+    // The shape that hid: the old check asked whether the allowlist was empty,
+    // which a profile carrying no `pinSafety` at all can never be. So a board
+    // with no advice whatsoever passed the audit while the allocator fell
+    // through to chip-level rules behind it.
+    const withPins = { pins: [{ id: 'p1', label: 'GPIO4', role: 'gpio' as const, anchorId: 'a1', gpio: 4 }] }
+    expect(lacksPinAdvice(fixture(withPins))).toBe(true)
+    expect(lacksPinAdvice(fixture({
+      ...withPins,
+      pinSafety: { safeGeneralPurpose: [], useWithCaution: {}, boardReservedOrNotExposed: {} },
+    }))).toBe(true)
+    expect(lacksPinAdvice(fixture({
+      ...withPins,
+      pinSafety: { safeGeneralPurpose: [4], useWithCaution: {}, boardReservedOrNotExposed: {} },
+    }))).toBe(false)
+    // A board with no pin map has nothing to advise about.
+    expect(lacksPinAdvice(fixture())).toBe(false)
+  })
+
+  it('offers the two pads the CYD actually brings out, and nothing else', () => {
+    // Four GPIO pads, two of them spoken for: GPIO21 is the fitted panel's
+    // backlight and GPIO35 is input-only on a classic ESP32.
+    expect(cyd()?.pinSafety?.safeGeneralPurpose).toEqual([22, 27])
+    for (const pin of [22, 27]) {
+      expect(boardPinForGpio(cyd(), pin)?.label, `GPIO${pin} is a pad`).toBe(`GPIO${pin}`)
+      expect(boardPinVerdict(cyd(), pin)).toEqual({ standing: 'safe' })
+    }
+    expect(boardPinVerdict(cyd(), 35).standing).toBe('caution')
+  })
+
+  it('reserves the UART pins the chip-level fallback used to offer first', () => {
+    // The symptom that sent us looking: with no board-level advice, an LED
+    // output added on this board was offered GPIO1 — the USB-serial TX.
+    expect(boardPinVerdict(cyd(), 1).standing).toBe('reserved')
+    expect(boardPinVerdict(cyd(), 3).standing).toBe('reserved')
+  })
+
+  it('reserves every pin the fitted display is soldered to, and no tied line', () => {
+    // Derived from `integratedBoardHardware.ts` rather than restated, so a
+    // bench rerun that corrects a pin there corrects this with it.
+    for (const [key, value] of Object.entries(CYD_TOUCH_DISPLAY.panelProperties)) {
+      if (typeof value !== 'number') continue
+      if (value === NO_PIN) {
+        // The panel reset is tied to the board's own EN line. There is no GPIO
+        // to reserve, and reserving 255 would invent a pin.
+        expect(boardPinVerdict(cyd(), value).standing).toBe('unknown')
+        continue
+      }
+      expect(boardPinVerdict(cyd(), value).standing, key).toBe('reserved')
+    }
+    // The backlight is a pad someone can reach, so its reason has to say what
+    // is already on it rather than claiming it is not brought out.
+    expect(boardPinVerdict(cyd(), 21).reason).toMatch(/touch display \(backlight\)/)
+  })
+
+  it('explains itself in the board notes as well as per pin', () => {
+    expect(cyd()?.safetyNotes?.join(' ')).toMatch(/four GPIO pads/)
   })
 })

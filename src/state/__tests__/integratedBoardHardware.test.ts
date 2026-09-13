@@ -8,7 +8,8 @@ import {
 import { retargetHardwarePins } from '../pinRetarget'
 import { boardProfileById } from '../../build/boardProfiles'
 import { collectPinUses } from '../../build/hardwareManifest'
-import { findPinConflicts } from '../../utils/validateGraph'
+import { findPinConflicts, findExactBoardPinIssues } from '../../utils/validateGraph'
+import { assignPartPins } from '../partPinAssignment'
 import { NO_PIN } from '../boardGpio'
 import { ROOT_BOARD_NODE_ID } from '../hardware'
 
@@ -115,17 +116,69 @@ describe('soldered pins survive the pin walk', () => {
     const before = [
       node('board', 'Board', { profileId: CYD }),
       fitted(),
+      // Both start on pins the panel is soldered to, which is what arriving
+      // from another board looks like.
       node('leds', 'MatrixOutput', { dataPin: 14, chipset: 'WS2812B' }),
-      node('rtc', 'RTCInput', {}),
+      node('button', 'ButtonInput', { pin: 13 }),
     ]
     const { nodes } = retargetHardwarePins(before, boardProfileById(CYD), CYD_FQBN, CLASSIC)
     expect(findPinConflicts(nodes, [])).toEqual([])
     const panelPins = new Set(Object.values(CYD_TOUCH_DISPLAY.panelProperties)
       .filter((value): value is number => typeof value === 'number' && value !== NO_PIN))
+    const pads = new Set([22, 27])
     for (const use of collectPinUses(nodes)) {
       if (use.nodeId === 'panel') continue
       expect(panelPins.has(use.pin), `${use.label} landed on GPIO ${use.pin}`).toBe(false)
+      // ...and onto a pad this board actually brings out, rather than onto
+      // whatever the chip-level table happened to name first.
+      expect(pads.has(use.pin), `${use.label} landed on GPIO ${use.pin}`).toBe(true)
     }
+  })
+
+  // Two pads is the whole pool, so a graph can ask for one part too many. What
+  // matters then is that it is said out loud: the part that could not be moved
+  // keeps the pin it arrived on, and validation names it.
+  it('says why when the board has no pad left for a part', () => {
+    const before = [
+      node('board', 'Board', { profileId: CYD }),
+      fitted(),
+      node('leds', 'MatrixOutput', { dataPin: 14, chipset: 'WS2812B' }),
+      node('rtc', 'RTCInput', { timeSource: 'DS3231' }),
+    ]
+    const { nodes } = retargetHardwarePins(before, boardProfileById(CYD), CYD_FQBN, CLASSIC)
+    // The clock takes the board's own I2C bus, which is both pads.
+    const rtc = nodes.find((n) => n.id === 'rtc')!
+    expect([rtc.data.properties.sdaPin, rtc.data.properties.sclPin]).toEqual([27, 22])
+    // The LED output has nowhere to go and stays where it arrived — reported,
+    // not silently left on soldered hardware.
+    expect(nodes.find((n) => n.id === 'leds')!.data.properties.dataPin).toBe(14)
+    expect(findExactBoardPinIssues(nodes).errors.join(' ')).toMatch(/pin 14.*touch display/)
+  })
+
+  // The symptom in HW-12: with no board-level advice the allocator fell
+  // through to the chip table, whose first entry on a classic ESP32 is GPIO1.
+  it('offers a new part a pad, never the USB-serial pins', () => {
+    const profile = boardProfileById(CYD)
+    const first = assignPartPins(profile, CYD_FQBN, [], [{ key: 'pin' }])
+    expect(first.ok && [22, 27].includes(first.pins.pin)).toBe(true)
+
+    const bothTaken = [
+      node('a', 'ButtonInput', { pin: 22 }),
+      node('b', 'ButtonInput', { pin: 27 }),
+    ]
+    expect(assignPartPins(profile, CYD_FQBN, bothTaken, [{ key: 'pin' }])).toEqual({
+      ok: false,
+      reason: 'No free GPIO on this board',
+    })
+  })
+
+  // Reserved *for* the panel, not denied *to* it. Without this exemption every
+  // graph on this board reports eleven errors it can do nothing about.
+  it('does not report the fitted panel against its own pins', () => {
+    expect(findExactBoardPinIssues([
+      node('board', 'Board', { profileId: CYD }),
+      fitted(),
+    ])).toEqual({ errors: [], warnings: [] })
   })
 })
 

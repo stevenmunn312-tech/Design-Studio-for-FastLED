@@ -2,6 +2,7 @@ import type { BuildTargetFamily } from './buildProfile'
 import { targetFamilyFromFqbn } from './buildProfile'
 import { BOARD_CAPABILITY_DATA, GENERATED_BOARD_PROFILES } from './generated/boardCapabilityData'
 import { boardI2cDefault } from './boardI2cDefaults'
+import { boardPinSafetyOverride } from './boardPinSafetyOverrides'
 import type {
   BoardCapabilityData,
   BoardPeripheralPins,
@@ -718,16 +719,17 @@ function withoutI2cBusCollisions(
 
 const MERGED_AUTHORED: PhysicalBoardProfile[] = AUTHORED_PROFILES.map((profile) => {
   const imported: BoardCapabilityData | undefined = BOARD_CAPABILITY_DATA[profile.id]
-  if (!imported) return profile
+  const authored = boardPinSafetyOverride(profile.id)
+  if (!imported && !authored) return profile
   return {
     ...profile,
-    processor: profile.processor ?? imported.processor,
-    memory: profile.memory ?? imported.memory,
-    internalRamBudgetBytes: profile.internalRamBudgetBytes ?? imported.internalRamBudgetBytes,
-    pinSafety: profile.pinSafety ?? imported.pinSafety,
-    peripheralPins: withoutI2cBusCollisions(profile.id, profile.peripheralPins ?? imported.peripheralPins),
-    render: profile.render ?? imported.render,
-    safetyNotes: profile.safetyNotes ?? imported.safetyNotes,
+    processor: profile.processor ?? imported?.processor,
+    memory: profile.memory ?? imported?.memory,
+    internalRamBudgetBytes: profile.internalRamBudgetBytes ?? imported?.internalRamBudgetBytes,
+    pinSafety: profile.pinSafety ?? authored?.pinSafety ?? imported?.pinSafety,
+    peripheralPins: withoutI2cBusCollisions(profile.id, profile.peripheralPins ?? imported?.peripheralPins),
+    render: profile.render ?? imported?.render,
+    safetyNotes: profile.safetyNotes ?? authored?.safetyNotes ?? imported?.safetyNotes,
   }
 })
 
@@ -746,6 +748,7 @@ const IMPORTED_PROFILES: PhysicalBoardProfile[] = GENERATED_BOARD_PROFILES
   .map((generated) => {
     const families = [...new Set(generated.compatibleFqbns.map(targetFamilyFromFqbn))]
     const capability: BoardCapabilityData = BOARD_CAPABILITY_DATA[generated.id] ?? {}
+    const authored = boardPinSafetyOverride(generated.id)
     return {
       ...generated,
       targetFamilies: families,
@@ -758,10 +761,10 @@ const IMPORTED_PROFILES: PhysicalBoardProfile[] = GENERATED_BOARD_PROFILES
       processor: capability.processor,
       memory: capability.memory,
       internalRamBudgetBytes: capability.internalRamBudgetBytes,
-      pinSafety: capability.pinSafety,
+      pinSafety: authored?.pinSafety ?? capability.pinSafety,
       peripheralPins: withoutI2cBusCollisions(generated.id, capability.peripheralPins),
       render: capability.render,
-      safetyNotes: capability.safetyNotes,
+      safetyNotes: authored?.safetyNotes ?? capability.safetyNotes,
     }
   })
 
@@ -834,16 +837,26 @@ export function boardProfilesForFamily(familyId: string): PhysicalBoardProfile[]
 }
 
 /**
- * Profiles whose source manifest carries safety commentary but no list of
- * known-good pins. Their pins all report `unknown`, which is honest but means
- * the board can give no positive pin advice — a data gap to fill upstream in
- * the board asset, not something the app can infer.
+ * Profiles that bring out header pins but can give no positive pin advice for
+ * them — a data gap to fill upstream in the board asset, or in
+ * `boardPinSafetyOverrides.ts` when the asset cannot carry it.
+ *
+ * Two shapes of gap, and the second one hid for as long as it existed: a
+ * profile whose safety data lists no known-good pin, and a profile carrying no
+ * safety data *at all*. Only the first was reported, so the CYD — the one
+ * board in the catalogue whose package has no `pinSafetySummary` — read as
+ * complete while `assignPartPins` silently fell through to the chip-level GPIO
+ * table and offered pins the board does not bring out.
  */
-export const UNLISTED_SAFETY_IDS: string[] = BOARD_PROFILES
+export function lacksPinAdvice(profile: PhysicalBoardProfile): boolean {
   // A board such as MatrixPortal can intentionally expose no general-purpose
   // header rail. An empty allowlist is complete data in that case, not a gap.
-  .filter((p) => (p.pins?.length ?? 0) > 0)
-  .filter((p) => p.pinSafety && p.pinSafety.safeGeneralPurpose.length === 0)
+  if ((profile.pins?.length ?? 0) === 0) return false
+  return !profile.pinSafety || profile.pinSafety.safeGeneralPurpose.length === 0
+}
+
+export const UNLISTED_SAFETY_IDS: string[] = BOARD_PROFILES
+  .filter(lacksPinAdvice)
   .map((p) => p.id)
   .sort()
 

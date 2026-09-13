@@ -137,10 +137,41 @@ tied reset from reading as a part sitting on GPIO 255 and refusing the build
 over wiring that does not exist. An OLED drives its reset unconditionally and
 therefore has no exemption.
 
-What this does **not** yet model is the rest of such a board: the CYD's
-imported profile carries no `pinSafety`, so pins for other parts still come
-from the chip-level table rather than the four pads it actually breaks out.
-That is HW-12's remaining half, and it needs bench evidence rather than code.
+The rest of such a board is a second question: what is left for everything
+else. The CYD's package carries no `pinSafetySummary`, so its imported profile
+arrived with no `pinSafety` at all and every other part's pins came from the
+chip-level table — which on a classic ESP32 starts at GPIO1, this board's
+USB-serial TX. `src/build/boardPinSafetyOverrides.ts` supplies that missing
+half by hand, the same way `boardI2cDefaults.ts` supplies a bus the manifests
+cannot see, and it wins over imported data for the same reason a hand-authored
+profile does.
+
+Two things about its shape are worth keeping.
+
+- The reserved half is **derived** from `integratedBoardHardware.ts` rather
+  than restated, so a bench rerun that corrects a panel pin corrects the safety
+  table with it. A line the board ties off-GPIO carries `NO_PIN` and reserves
+  nothing, because no GPIO is involved.
+- A pin reserved *for* the fitted panel is not denied *to* it.
+  `findExactBoardPinIssues` turns a reserved pin into a build-blocking error,
+  so without an exemption every graph on this board reported eleven errors
+  about wiring nobody chose and nobody can change. Validation asks
+  `integratedPinsFor` — the same question `pinRetarget`'s `ownedNow` asks
+  before every other rule — rather than answering it a second way.
+
+The pool that leaves is **GPIO22 and GPIO27**: of the four GPIO pads the board
+brings out, GPIO21 drives the fitted panel's backlight and GPIO35 is input-only
+on a classic ESP32. Two pads is a small pool, and a graph can ask for one part
+too many — a DS3231 takes the board's own I²C bus, which is both of them. The
+part that cannot be placed keeps the pin it arrived on and validation names it,
+which is the honest outcome for a board with two free pads; it is not a
+substitute for an allocator that can say "this board is full" in its own words.
+
+Still not modelled, and deliberately: this board's onboard microSD slot, RGB
+LED, light sensor and speaker amplifier. Their pins are well documented for the
+family but have not been measured on the bench unit, and the allowlist already
+keeps them out of the allocator's reach — an unmeasured pin is better left
+`unknown` than described wrongly.
 
 ## LED outputs
 

@@ -9,6 +9,25 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- The ESP32-2432S028R ("CYD") offered pins it does not bring out. Its board
+  package carries no pin-safety summary, so the profile arrived with none at
+  all and every part added to it drew from the chip-level ESP32 table — whose
+  first entry is GPIO1, this board's USB-serial TX. The board now states what
+  it actually exposes: a pool of GPIO22 and GPIO27, since of its four GPIO pads
+  GPIO21 drives the fitted panel's backlight and GPIO35 is input-only, and
+  every pin the panel and digitiser are soldered to is reserved with the reason
+  showing in the pinout view. Two pads is a small pool, so a graph can ask for
+  one part too many — a DS3231 takes the board's own I²C bus, which is both of
+  them — and the part that cannot be placed now earns a named error instead of
+  a plausible-looking pin on hardware already using it.
+
+- A board with no pin-safety data at all was not counted as missing any. The
+  audit behind "every board with header pins has positive pin advice" asked
+  whether a profile's list of known-good pins was empty, which a profile
+  carrying no such list can never be, so the one board in the catalogue with no
+  data read as complete while the allocator quietly fell back to chip-level
+  rules behind it.
+
 - A music-synced show is no longer packaged after its Pattern Collection has
   moved underneath it. A show schedules patterns by *position*, and the player
   compiles one pattern table from the first ready show, so reordering the

@@ -51,6 +51,7 @@ import {
   busAssignmentFor,
 } from '../state/busTopology'
 import { boardPinVerdict, boardProfileById } from '../build/boardProfiles'
+import { integratedPinsFor } from '../state/integratedBoardHardware'
 import type { PhysicalBoardProfile } from '../build/boardProfiles'
 import { recommendedSupplyCurrentMa } from '../build/powerSupplySizing'
 import { pinWarningForCapability } from '../state/boardGpio'
@@ -907,14 +908,32 @@ export function selectedBoardProfile(nodes: StudioNode[]): PhysicalBoardProfile 
  * Silent when no Board node is present, when its profile carries no safety
  * data, or when a pin's standing is `unknown` — an allowlist is not exhaustive,
  * so absence is not evidence against a pin.
+ *
+ * And silent for a board's own fitted hardware. A CYD's panel pins are
+ * reserved *for* the panel, not denied *to* it: reporting them would make
+ * every graph on that board unbuildable over wiring nobody chose and nobody
+ * can change. `integratedPinsFor` is the same question `pinRetarget.ownedNow`
+ * asks before every other rule, asked here rather than answered a second way.
  */
 export function findExactBoardPinIssues(nodes: StudioNode[]): BoardPinCompatibility {
   const profile = selectedBoardProfile(nodes)
   const errors: string[] = []
   const warnings: string[] = []
   if (!profile?.pinSafety) return { errors, warnings }
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  const isOwnFittedPin = (nodeId: string, propertyKey: string, pin: number): boolean => {
+    const node = byId.get(nodeId)
+    if (!node) return false
+    const fitted = integratedPinsFor(
+      String(node.data.nodeType),
+      node.data.properties as Record<string, unknown>,
+      profile.id,
+    )
+    return fitted?.[propertyKey] === pin
+  }
   for (const use of collectPinUses(nodes)) {
     if (!isValidPinNumber(use.pin)) continue
+    if (isOwnFittedPin(use.nodeId, use.propertyKey, use.pin)) continue
     const verdict = boardPinVerdict(profile, use.pin)
     if (verdict.standing === 'reserved') {
       errors.push(`${use.label} uses pin ${use.pin}, which isn't available on a ${profile.label}: ${verdict.reason}`)

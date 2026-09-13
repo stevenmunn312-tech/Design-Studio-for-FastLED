@@ -688,11 +688,34 @@ matrix, not a reason to postpone testing earlier changes.
   connections surviving board selection is therefore met; the rest of the exit
   condition is not.
 
-  *Still open:* controller identity; the profile's missing `pinSafety` — with
-  none, pins for every other part still come from the chip-level table, so an
-  LED output added on this board is offered GPIO1 (UART0 TX); and the three
-  real generators' touch paths, since only the calibration instrument has been
-  flashed to this unit. All need bench evidence, not code.
+  *Pin safety landed 2026-09-14 (app-side, no new bench evidence).* The CYD's
+  package carries no `pinSafetySummary`, so its profile had no `pinSafety` and
+  every other part's pins came from the chip-level table — GPIO1, this board's
+  USB-serial TX, first among them.
+  [`boardPinSafetyOverrides.ts`](src/build/boardPinSafetyOverrides.ts) supplies
+  it by hand beside `boardI2cDefaults.ts`, deriving the reserved half from
+  `integratedBoardHardware.ts` so a bench correction there carries through. The
+  pool is GPIO22/GPIO27 — of the four pads the board brings out, GPIO21 is the
+  panel backlight and GPIO35 is input-only.
+
+  Two things fell out of it. A pin reserved *for* the fitted panel was being
+  denied *to* it: `findExactBoardPinIssues` turns reserved into a build
+  blocker, so every CYD graph reported eleven errors about wiring nobody can
+  change; validation now asks `integratedPinsFor`, the same question the
+  retarget asks. And the gap that hid this: `UNLISTED_SAFETY_IDS` asked whether
+  a profile's allowlist was *empty*, which a profile carrying no `pinSafety` at
+  all can never be — so the one board in the catalogue with no safety data read
+  as complete. It now reports both shapes, and the existing "every board with
+  header pins has positive pin advice" test has teeth.
+
+  *Still open:* controller identity; the three real generators' touch paths,
+  since only the calibration instrument has been flashed to this unit; and this
+  board's onboard microSD, RGB LED, light sensor and amplifier pins, left
+  unrecorded rather than taken from family documentation. All need bench
+  evidence, not code. Two pads is also a genuinely small pool — a DS3231 takes
+  both — and the part that cannot be placed keeps the pin it arrived on and is
+  reported as a reserved-pin error; an allocator that says "this board is full"
+  in its own words is a separate improvement, not part of this row.
 - [ ] **HW-13 · Remaining firmware/bench matrix (L).** *Arduino CLI half done
   2026-09-13: all eleven display fixtures pass on current-model source, recorded
   in [the compile record](docs/development/display-compile-checks.md). fbuild has
