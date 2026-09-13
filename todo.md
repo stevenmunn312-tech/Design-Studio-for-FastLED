@@ -679,10 +679,20 @@ matrix, not a reason to postpone testing earlier changes.
   moved off GPIO21 (the panel backlight) to GPIO27/22, the two output-capable
   pads it breaks out. See [hardware nodes](docs/development/design/hardware-nodes.md#boards-with-hardware-already-on-them).
 
-  *Still open:* controller identity, and the profile's missing `pinSafety` —
-  with none, pins for every other part still come from the chip-level table, so
-  an LED output added on this board is offered GPIO1 (UART0 TX). Both need bench
-  evidence, not code.
+  *Bench evidence, 2026-09-14:* the stored pin map drove the real panel and
+  digitiser with nothing typed in, the tied reset held, the classic-ESP32
+  `pinMode(36, INPUT)` IRQ repair is confirmed on device, and a guided
+  calibration measured this unit's reversed X axis and mapped presses back
+  under the finger. Recorded in
+  [the support matrix](docs/release/beta-support-matrix.md). Internal
+  connections surviving board selection is therefore met; the rest of the exit
+  condition is not.
+
+  *Still open:* controller identity; the profile's missing `pinSafety` — with
+  none, pins for every other part still come from the chip-level table, so an
+  LED output added on this board is offered GPIO1 (UART0 TX); and the three
+  real generators' touch paths, since only the calibration instrument has been
+  flashed to this unit. All need bench evidence, not code.
 - [ ] **HW-13 · Remaining firmware/bench matrix (L).** *Arduino CLI half done
   2026-09-13: all eleven display fixtures pass on current-model source, recorded
   in [the compile record](docs/development/display-compile-checks.md). fbuild has

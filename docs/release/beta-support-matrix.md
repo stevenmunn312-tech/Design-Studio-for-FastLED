@@ -333,6 +333,44 @@ they name.
   app repeating what this bring-up measured — so the promotion conditions above
   are unchanged, and the same physical unit still needs to confirm it.
 
+  **2026-09-14 — guided touch calibration on the bring-up unit, still not a
+  support row.** Windows 11 Home 10.0.26200, Chrome, arduino-cli 1.5.1 with
+  ESP32 core 3.3.11, `esp32:esp32:esp32` on COM6. fbuild 2.5.22 was installed
+  but not the active engine for this run.
+
+  Selecting the **ESP32-2432S028R** board profile added its fitted panel and
+  Touch node, and those stored pins drove real hardware with nothing typed in:
+  CS 15, DC 2, SCK 14, MOSI 13, MISO 12, backlight 21 for the LCD, and CS 33,
+  IRQ 36, SCK 25, MOSI 32, MISO 39 for the XPT2046. This is the step the
+  2026-09-08 entry above records doing by hand for every pin. The panel also
+  initialised with its reset modelled as tied (`255`, no GPIO), confirming that
+  reading of the board.
+
+  The wizard's own measuring sketch compiled, uploaded and ran: backlight on,
+  four numbered corner targets and its instruction drawn, raw samples streamed
+  as `FLS_STAT touchx/touchy`, and four corners captured. **This closes the
+  pending IRQ rerun** the 2026-09-10 entry left open — touch answered with the
+  generated `pinMode(36, INPUT)` path for classic-ESP32 GPIO34-39, so the
+  `gpio_pullup_en` error 85 repair is confirmed on device rather than reasoned.
+
+  The run measured X running right-to-left and Y top-to-bottom, agreeing with
+  the 2026-09-10 probe, and saved `touchXMin 408 / touchXMax 3646 / touchYMin
+  331 / touchYMax 3674` with `touchFlipX` set and `touchFlipY` clear. The span
+  is inset relative to that probe's edge-derived figures because the wizard
+  asks for the centre of a 28-pixel corner box rather than the extreme edge;
+  the *direction* is what the two runs agree on. Re-entering the wizard after
+  saving drew each mark under the finger that made it, which exercises the
+  descending-span mapping in `_xptPoint` on device.
+
+  **Not established by this run.** The controller identity remains unknown.
+  Only the measuring sketch ran: the three real generators' touch paths (fixed
+  layouts in a normal sketch, the SD player, an LVGL screen design) emit the
+  same span through the same helper and are covered by
+  `reversedTouchAxis.test.ts`, but none of them has been flashed to this unit
+  with a saved calibration. Nothing here speaks to Now Playing / Fixed
+  Transport / Show Status, SD and audio sharing the SPI bus, load or soak — so
+  the promotion conditions in the entry above are unchanged.
+
 ## CI-covered host/platform coverage
 
 These jobs reduce risk, but they are not substitutes for manual browser or
