@@ -2,6 +2,8 @@ import { useMemo } from 'react'
 import { useGraphStore, useRootNodes } from '../../state/graphStore'
 import { boardHasUsbCdc, boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import { controllerSettings } from '../../state/controllerSettings'
+import { propertyDescription } from '../../state/nodeLibrary'
+import { boardSupportsTelemetry } from '../../codegen/deviceTelemetryCpp'
 import { serialRouteSummary } from '../../state/serialRouting'
 import { estimatePowerLoad } from '../../utils/validateGraph'
 import ClampedNumberInput from './ClampedNumberInput'
@@ -45,6 +47,20 @@ export default function BoardNodeBody({ nodeId }: Props) {
     return typeof props?.profileId === 'string' ? props.profileId : ''
   }, [graphNodes, nodeId])
 
+  /*
+   * Read straight off the node rather than through `controllerSettings`.
+   *
+   * That type is durable controller *policy* — settings the firmware can only
+   * apply once, which travel with the project. Telemetry is the opposite: an
+   * instrument switched on for one measuring session and off again, which is
+   * what the property's own description already says.
+   */
+  const reportTelemetry = useMemo(() => {
+    const node = graphNodes.find((n) => n.id === nodeId)
+    const props = node?.data.properties as Record<string, unknown> | undefined
+    return props?.reportTelemetry === true
+  }, [graphNodes, nodeId])
+
   // One board per sketch is a fact of codegen, not a preference — a second
   // Board node has no meaning, so say so rather than silently letting one win.
   const boardNodeCount = useMemo(
@@ -57,6 +73,9 @@ export default function BoardNodeBody({ nodeId }: Props) {
   const psramOptions = boardTarget?.psram
   const psramSupported = !!psramOptions || !!profile?.psramMode
   const hasUsbCdc = boardHasUsbCdc(selectedFqbn)
+  // The same question the generator asks before emitting any of it, so the
+  // switch below cannot offer output the build would not produce.
+  const telemetrySupported = boardSupportsTelemetry(profile?.targetFamilies)
   const settings = useMemo(() => controllerSettings(graphNodes), [graphNodes])
   const power = useMemo(() => estimatePowerLoad(graphNodes), [graphNodes])
   const psramChoice = psramOptions?.find((option) => option.id === settings.psramMode) ?? psramOptions?.[0]
@@ -262,6 +281,33 @@ export default function BoardNodeBody({ nodeId }: Props) {
             </label>
           </div>
         )}
+
+        {/*
+          * The Bench group `PROPERTY_GROUPS.Board` has always declared, finally
+          * given somewhere to draw. Grouped property controls render on the
+          * canvas node, and Board is hidden there, so the one switch three
+          * generators read had no control anywhere — while the Upload tab's
+          * telemetry card and the Touch node's calibration wizard both told you
+          * to turn it on.
+          *
+          */}
+        <div className={styles.psramBlock}>
+          {telemetrySupported ? (
+            <label className={styles.checkField} title={propertyDescription('Board', 'reportTelemetry')}>
+              <input type="checkbox" checked={reportTelemetry} aria-label="Report telemetry"
+                onChange={(event) => updateNodeProperty(nodeId, 'reportTelemetry', event.target.checked)} />
+              <span>Report telemetry</span>
+            </label>
+          ) : (
+            <p className={styles.pending}>Telemetry needs an ESP32 or ESP8266 target.</p>
+          )}
+          <small className={styles.benchNote}>
+            A bench instrument: prints heap, frame rate, touch response and raw
+            touch samples to Serial, for the Upload tab’s telemetry card and the
+            Touch node’s calibration wizard. Upload after changing it, and leave
+            it off for a finished build.
+          </small>
+        </div>
       </div>
 
       {boardNodeCount > 1 && (
