@@ -1222,7 +1222,15 @@ function textAxisStartExpr(valueExpr: string, sizeVar: string, lengthExpr: strin
   return align === 'end' ? `(${edge}) - (${lengthExpr})` : edge
 }
 
-const RTC_CPP_FORWARD = 'struct _RtcDateTime;'
+/*
+ * Both RTC structs, ahead of the hoisted prototypes.
+ *
+ * The .ino preprocessor hoists a prototype for every function above all
+ * user type definitions, so a function taking either struct by reference
+ * needs it forward-declared here. `_RtcDateTimeValue` joined the list when
+ * the bound clock helpers were retyped onto the value a graph wire carries.
+ */
+const RTC_CPP_FORWARD = 'struct _RtcDateTime;\nstruct _RtcDateTimeValue;'
 
 function rtcHelperCpp(): string[] {
   return [
@@ -1303,14 +1311,17 @@ function rtcHelperCpp(): string[] {
     '',
     '// One clock, formatted one way. A widget bound to the time and a fixed',
     '// Clock screen beside it must not disagree about what the hour looks like.',
-    'const char *_rtcClockText(const _RtcDateTime &dt) {',
+    '// Takes the value a graph wire carries, not the parse helper\'s own struct:',
+    '// they hold the same reading in different field types, and only this one',
+    '// is what a panel is actually handed.',
+    'const char *_rtcClockText(const _RtcDateTimeValue &dt) {',
     '  static char text[16];',
     '  if (!dt.valid) { snprintf(text, sizeof(text), "--:--:--"); return text; }',
     '  snprintf(text, sizeof(text), "%02d:%02d:%02d", (int)dt.hour, (int)dt.minute, (int)dt.second);',
     '  return text;',
     '}',
     '',
-    'const char *_rtcDateText(const _RtcDateTime &dt) {',
+    'const char *_rtcDateText(const _RtcDateTimeValue &dt) {',
     '  static char text[16];',
     '  if (!dt.valid) { text[0] = 0; return text; }',
     '  snprintf(text, sizeof(text), "%04d-%02d-%02d", (int)dt.year, (int)dt.month, (int)dt.day);',
@@ -1701,13 +1712,29 @@ export function generateCpp(
     return true
   }
 
-  // Custom widget outputs are sampled before evaluation; their input wires
-  // publish after evaluation. Treating both as one graph vertex invents a
-  // cycle for ordinary slider -> Math -> readout/set wiring on the same panel.
-  // Edges into a panel are left out of the ordering: a display has no outputs,
-  // so it cannot be part of a cycle as a source, and a synchronized widget's
-  // `out -> graph -> set` path would otherwise look like one.
-  const sorted = topoSort(live, edges.filter((edge) => nodeMap.get(edge.target)?.data.nodeType !== 'TransportDisplay'))
+  /*
+   * Widget wires are left out of the ordering; a panel's own inputs are not.
+   *
+   * Custom widget outputs are sampled before evaluation and their input wires
+   * publish after it, so treating both as one graph vertex invents a cycle for
+   * ordinary slider -> Math -> readout/set wiring on the same panel.
+   *
+   * This used to drop *every* edge into a panel, on the reasoning that a
+   * display has no outputs and so cannot be a cycle's source. That stopped
+   * being true when the document node was folded into the panel and the widget
+   * outputs moved onto it — and the over-broad filter took `display` and
+   * `enabled` with it. A source feeding nothing but a panel then had no reason
+   * to be ordered before it, so an RTC driving a fixed Clock layout emitted its
+   * value *after* the block that reads it: a sketch naming an undeclared
+   * variable, which every text-level test reads as correct.
+   *
+   * `topoSort` is a DFS over a visited set, so a genuine feedback loop through
+   * `enabled` orders arbitrarily rather than hanging.
+   */
+  const sorted = topoSort(live, edges.filter((edge) => (
+    nodeMap.get(edge.target)?.data.nodeType !== 'TransportDisplay'
+      || !parseDisplayWidgetPortId(String(edge.targetHandle ?? ''))
+  )))
 
   /*
    * The node feeding the output used to fill its own `buf_` and then have the

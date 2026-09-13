@@ -1,36 +1,18 @@
 # Display firmware compile checks
 
-> **All twelve fixtures carry current-model evidence (2026-09-11/12), from two
-> independent runs on two toolchain versions.** The generator was repaired first:
-> `scripts/generate-display-smoke.ts` builds on the panel/document split — a
-> `Display` node, a `TransportDisplay` panel and a `customDisplay` mount edge
-> between them — and the removed field ports are gone (see
-> [review F9](reports/hardware-branch-review.md#f9--p2--compile-fixtures-still-use-the-removed-graph-shape)
-> for how the fixtures came to be wrong).
+> **Evidence for the current model, Arduino CLI only.** Every figure below comes
+> from one run against the shipped graph: a `TransportDisplay` panel that owns
+> the screen drawn on it (no document node, no mount edge), touch on its own
+> node, Control Map, and widgets that read the panel's source instead of drawing
+> a cable. The second engine has not been run against this source yet, so there
+> are no fbuild rows — an absent row is the honest record of a build nobody has
+> made, not a gap to be filled in from an older one.
 >
-> The local runs built every fixture on **both** engines — twenty runs, all
-> passing, Arduino CLI 1.5.1 and fbuild 2.5.22 — plus `refused-mounts` for HW-03's
-> two refused shapes and `telemetry` for HW-11's bench instrument. A parallel
-> session built the same ten on **Arduino CLI 1.5.2-rc.1** and reached no fbuild
-> figures, its environment being unable to complete fbuild's platform download.
-> Both sets are recorded below rather than one replacing the other: the same
-> fixture at the same source hash under two CLI versions is what tells you the
-> noise floor between them.
->
-> **Which rows are current, checked by regenerating on the merged tree rather
-> than assumed.** HW-28's Pattern Browser styling changed the LVGL output, and
-> the parallel run was made after it: the generator emits `1db869428c2f` for the
-> normal fixture today, which is that run's recorded hash, so **its figures are
-> the current ones for every LVGL-bearing fixture**. The local Arduino CLI rows
-> for those same fixtures (`96e3235d7172` and its siblings) predate the change
-> and are superseded; the local fbuild rows are superseded as figures but remain
-> the only fbuild evidence on record. The non-LVGL fixtures — isolated TFT,
-> headless, both part-family sketches and the classic-ESP32 one — are unaffected
-> and current on both engines: `isolated-tft` regenerates at `ab8b3351b884`,
-> exactly the hash both runs recorded. The `telemetry` fixture is LVGL-bearing
-> and now emits `bb82571a7d57`, so its figures below are superseded too; what
-> they establish — that the block compiles and what it costs — is unchanged by a
-> styling edit elsewhere in the sketch.
+> Earlier runs are not reproduced here. They were built from sketches that no
+> longer regenerate, so their sizes cannot be tied to anything in the tree and
+> their hashes cannot be checked. What was durable about them — the toolchain
+> defects they exposed — is in [Findings](#findings), which is cumulative; the
+> tables themselves are in Git history.
 
 
 These fixtures exercise custom LVGL displays alongside the fixed TFT transport
@@ -39,6 +21,17 @@ includes a slider, button, toggle, dial, readouts, meters, a status indicator an
 a two-byte A8 icon. Slider data passes through Math and Format Number to both
 screens and through Control Map to the output/player. The SD player also
 publishes track time and progress and compiles a collected Solid Color pattern.
+
+The three generator fixtures also bind widgets to the source wired into their
+panel, which is what puts the binding path into a compiled sketch rather than
+only into a unit test. Each binds a string, a `set` role and a float, so a role
+that is not `value` is covered too — a Toggle shows its reading on `set`. What
+each build can answer differs, and the fixtures follow that: a normal sketch
+resolves the clock through `_rtcClockText`, the show resolves a pattern name
+through `_patNameStr_show` and the flash table that turns on with it, and the
+player resolves the track through `songTitle`. The generator asserts those exact
+expressions, so a later regeneration cannot quietly drop them and leave the
+matrix compiling an unbound screen.
 
 This is compile evidence, not a physical wiring or touch-layout example. It does
 not establish display refresh speed, touch accuracy, heap headroom, SPI
@@ -79,16 +72,9 @@ python scripts/compile-display-smoke.py fbuild artifacts/display-compile/part-fa
 python scripts/compile-display-smoke.py fbuild artifacts/display-compile/part-families-i2c.ino
 ```
 
-The two graphs the app refuses, generated anyway — one design wired to two
-panels, and a design wired to no panel while still driving a control. Neither is
-a shape to ship; both are compiled because a refused graph is still generated
-while its message is being read, and only a compiler can say the result is
-well-formed rather than a sketch declaring one screen's widgets twice:
-
-```powershell
-python scripts/compile-display-smoke.py arduino-cli artifacts/display-compile/refused-mounts.ino
-python scripts/compile-display-smoke.py fbuild artifacts/display-compile/refused-mounts.ino
-```
+There is no fixture for a design on two panels or on none. Those shapes were
+compiled once, while they were still expressible; a panel owns its design now, so
+neither can be built in the app to be generated from.
 
 The bench instrument, which is the normal graph with the Board's telemetry
 property on:
@@ -173,277 +159,3 @@ The initial runs exposed these gaps, now covered by regression tests:
   completion marker and are retried. A version comment in the helper's sketch
   also invalidates Arduino's cached caller object when the audio API changes;
   identical rebuilds retain their source mtime and library cache.
-
-## Recorded environment
-
-Windows, 4 to 11 September 2026. Arduino CLI 1.5.1 with ESP32 core 3.3.11 and
-FastLED 3.10.5; fbuild 2.5.22 with Arduino-ESP32 3.3.9 and vendored FastLED commit
-`e52abeb26d1b3c4bf857e86ba5f9020ae805de73`. Both use LVGL 9.5.0 and player audio
-checkouts tagged 3.0.12. These are separate toolchain builds, not a controlled
-binary-size comparison between engines.
-
-The local JSON reports record the generated source SHA-256, completion time,
-target, exit status and sizes. Arduino reports flash against its 3 MB application
-partition; this fbuild environment reports against the full 16 MB flash. Neither
-static RAM report measures runtime heap or PSRAM use.
-
-## Results
-
-Sizes below use the compilers' final byte summaries. The helper JSON can round
-fbuild sizes because it also accepts that engine's KB/MB display format.
-
-### Current model, all ten fixtures on Arduino CLI, 2026-09-11
-
-Linux, 11 September 2026. Arduino CLI 1.5.2-rc.1 with ESP32 core 3.3.11, FastLED
-3.10.5 and LVGL 9.5.0 (installed lazily by the helper), player audio checkout
-tagged 3.0.12. Nine fixtures on
-`esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB`;
-the classic-ESP32 fixture on `esp32:esp32:esp32` as its own target. Every run
-exited zero. The source hash is the generated `.ino`, so a figure can be tied to
-the exact sketch that produced it.
-
-| Fixture | Source SHA-256 | Result | Flash bytes | Static RAM bytes |
-| --- | --- | --- | --- | ---: |
-| Normal | `1db869428c2f` | Passed | 633,039 (20%) | 105,644 (32%) |
-| Generative show | `dac549be5897` | Passed | 637,223 (20%) | 106,020 (32%) |
-| SD player | `ff9133a09018` | Passed | 1,314,095 (41%) | 121,892 (37%) |
-| Isolated TFT | `ab8b3351b884` | Passed | 301,024 (9%) | 23,016 (7%) |
-| Headless controls | `ef9b0a4cfe7b` | Passed | 426,831 (13%) | 27,636 (8%) |
-| Disabled panel | `3d1cb471a093` | Passed | 628,367 (19%) | 105,276 (32%) |
-| Two panels, two designs | `5bcea64fd269` | Passed | 630,487 (20%) | 115,068 (35%) |
-| Part families (SPI) | `bfda657994bb` | Passed | 471,851 (14%) | 37,884 (11%) |
-| Part families (I²C) | `7e2e4f5fc37c` | Passed | 459,987 (14%) | 31,012 (9%) |
-
-The classic ESP32, a different chip family with a 1.25 MB application partition
-and the fixed layouts only:
-
-| Fixture | Source SHA-256 | Result | Flash bytes | Static RAM bytes |
-| --- | --- | --- | --- | ---: |
-| Classic ESP32, fixed layouts | `03da992ff2ff` | Passed | 428,011 (32%) | 31,508 (9%) |
-
-The five LVGL fixtures were rebuilt after the Pattern Browser font fix below,
-so every hash here is the sketch that produced its own figures. That fix costs
-40 to 52 bytes of flash and no RAM — one font/align/long-mode/line-space style
-per browser.
-
-Two figures are worth reading rather than filing. The isolated-TFT fixture is the
-smallest at 301,024 bytes because it is the screen-only shape, and
-`withoutUnusedFastLed` drops the FastLED include entirely — compile evidence for
-an invariant that until now only a unit test asserted. And the disabled-panel
-fixture costs almost exactly what the normal one does (628,323 against 632,999),
-which is the intended design: a switched-off panel is still built so it can be
-switched back on.
-
-**Found by these runs: the Pattern Browser drew at the wrong size on device.**
-Comparing each sketch's `// FLS-LVGL-FONTS:` marker against the
-`&lv_font_montserrat_N` faces it actually references showed one declared face
-nothing used. The Pattern Browser is created as an `lv_label` (a placeholder
-until its collection-thumbnail slice lands), but the font/align/long-mode block
-was gated on `lvglEmitter === 'label'` and its emitter id is
-`pattern-browser` — so it inherited LVGL's built-in default face while the DOM
-preview honoured the authored size, and the face the marker had already
-compiled into flash for it went unused. Text styling now follows the LVGL class
-the widget is created as, `lvglWidgetClass`, rather than the emitter id.
-`src/codegen/__tests__/customDisplayLvglFonts.test.ts` holds both directions at
-one distinct size per widget; the compile matrix could not have caught it,
-because every fixture it builds uses a single size.
-
-<a id="fbuild-outstanding"></a>**This run reached no fbuild figures, and the
-reason is worth keeping.** fbuild 2.5.22 is installed and runs there, but its
-platform package download does not complete in that environment — `curl` fetches
-the same `platform-espressif32.zip` URL through the proxy while fbuild's own
-downloader gives up at byte offset 0. An environment limit rather than a defect
-in this repository, and the thing to check first if the matrix is ever attempted
-from the cloud again. The fbuild half of the matrix was completed locally
-instead; those figures are in the sections below.
-
-### Current model, 2026-09-11
-
-The seven shapes with no generator of their own, built against the current
-fixtures. Arduino CLI 1.5.1 (ESP32 core 3.3.11, FastLED 3.10.5, LVGL 9.5.0) and
-fbuild 2.5.22 (vendored FastLED `e52abeb26d1b`), on
-`esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB`
-except the classic-ESP32 fixture, which is `esp32:esp32:esp32`. The source hash
-is the generated `.ino`, so a figure can be tied to the exact sketch that
-produced it.
-
-| Fixture | Source SHA-256 | Engine | Result | Flash bytes | Static RAM bytes |
-| --- | --- | --- | --- | ---: | ---: |
-| Isolated TFT | `ab8b3351b884` | Arduino CLI | Passed | 301,072 (9%) | 23,016 (7%) |
-| Isolated TFT | `ab8b3351b884` | fbuild | Passed (rerun 2026-09-12) | 625,316 (4%) | 75,684 (23%) |
-| Headless controls | `ef9b0a4cfe7b` | Arduino CLI | Passed | 427,151 (13%) | 27,636 (8%) |
-| Headless controls | `ef9b0a4cfe7b` | fbuild | Passed | 743,117 (4%) | 80,855 (25%) |
-| Disabled panel | `cf03c253eb74` | Arduino CLI | Passed | 628,643 (19%) | 105,276 (32%) |
-| Disabled panel | `cf03c253eb74` | fbuild | Passed | 953,283 (6%) | 160,860 (49%) |
-| Two panels, two designs | `d1f7034eea21` | Arduino CLI | Passed | 630,759 (20%) | 115,068 (35%) |
-| Two panels, two designs | `d1f7034eea21` | fbuild | Passed | 955,443 (6%) | 170,650 (52%) |
-| Part families (SPI) | `bfda657994bb` | Arduino CLI | Passed | 472,171 (15%) | 37,884 (11%) |
-| Part families (SPI) | `bfda657994bb` | fbuild | Passed | 793,897 (5%) | 94,484 (29%) |
-| Part families (I²C) | `7e2e4f5fc37c` | Arduino CLI | Passed | 460,307 (14%) | 31,012 (9%) |
-| Part families (I²C) | `7e2e4f5fc37c` | fbuild | Passed | 778,824 (5%) | 87,552 (27%) |
-| Classic ESP32, fixed layouts | `03da992ff2ff` | Arduino CLI | Passed | 428,331 (32%) | 31,508 (9%) |
-| Classic ESP32, fixed layouts | `03da992ff2ff` | fbuild | Passed | 669,194 (16%) | 31,549 (10%) |
-
-The classic-ESP32 percentages are against that chip's own ceilings — a 1.31 MB
-application partition and 320 KB of RAM — so they are the one pair in the table
-that is not measured against the S3 figures above them.
-
-**One leg failed here and passed on a rerun.** On 2026-09-11 `isolated-tft`
-under fbuild ended with `daemon error: lost connection to daemon mid-build`,
-after 4h 08m of wall clock, having emitted nothing past its board banner, while
-Arduino CLI built the identical hash in 1m 55s. Rerun on 2026-09-12 against the
-same source, same engine and same machine, it passed in 5m 23s. So the death was
-environmental, not a property of this fixture — but it is fbuild's own failure
-mode and is not yet written up in
-[the fbuild report](reports/fbuild-workarounds.md), which is worth doing while
-the daemon log still holds it.
-
-Two results are worth reading for what they prove beyond the exit code. The
-screen-only sketch is the first compiled since FastLED is trimmed out of a
-build that draws no LEDs: `isolated-tft.ino` mentions neither `FastLED` nor
-`CRGB`, paces itself with a plain `delay(16)`, and is the smallest S3 fixture in
-the set at 301 KB. And the LVGL background-opacity fix has two-engine proof
-here, through the disabled-panel and two-panel fixtures, which carry 34 and 36
-`bg_opa` pairs; it reached the three generator fixtures too, which is exactly
-why their figures below are superseded.
-
-Wall-clock totals in these logs are not build cost. Several of them — 7h 41m on
-headless under Arduino CLI, 24m on the disabled panel — are a build waiting its
-turn, since the helper clocks from before the lock is acquired.
-
-### The three generator paths, 2026-09-12
-
-Rebuilt on the current fixtures, after the LVGL background-opacity pairing
-(`fd143099`) and the FastLED trim (`8a7334ea`) changed what the generator emits.
-These supersede the 2026-09-10 figures, which described sketches it no longer
-produces.
-
-| Fixture | Source SHA-256 | Engine | Result | Flash bytes | Static RAM bytes |
-| --- | --- | --- | --- | ---: | ---: |
-| Normal | `96e3235d7172` | Arduino CLI | Passed | 633,319 (20%) | 105,644 (32%) |
-| Normal | `96e3235d7172` | fbuild | Passed | 957,962 (6%) | 161,229 (49%) |
-| Generative show | `8098a5107e36` | Arduino CLI | Passed | 637,435 (20%) | 106,020 (32%) |
-| Generative show | `8098a5107e36` | fbuild | Passed | 963,246 (6%) | 161,833 (49%) |
-| SD player | `887c16d16f4e` | Arduino CLI | Passed | 1,314,363 (41%) | 121,892 (37%) |
-| SD player | `887c16d16f4e` | fbuild | Passed | 1,635,779 (10%) | 176,712 (54%) |
-
-The player's fbuild leg needed the Windows LVGL archive recovery
-([issue 12](reports/fbuild-workarounds.md)): fbuild failed twice with
-`local library 'lvgl' failed to compile: failed to spawn [...]`, the helper
-archived LVGL through a response file in 1.2s, and the retry linked in 29.1s.
-That is the documented recovery behaving as designed, and it does not affect the
-sizes.
-
-**What the LVGL fix cost, measured rather than assumed.** Against the 2026-09-10
-figures for the same three paths, flash grew by 520, 500 and 516 bytes under
-Arduino CLI and by 512 bytes on both the normal and show paths under fbuild.
-Static RAM is identical to the byte in every case, which is what a style-value
-change should do: 34 `bg_opa` call sites per sketch, no new allocation. The
-player's fbuild delta cannot be stated — see the rounding note below.
-
-**Read fbuild's flash figures with their precision in mind.** The JSON report
-derives them from the engine's displayed summary, which switches unit as the
-number grows: KB for the two lighter paths, MB for the player. fbuild's own build
-line carries full bytes — 957,960 / 161,228 for the normal path, 963,244 /
-161,836 for the show, 1,635,416 / 176,708 for the player — and on the player that
-is 363 bytes below the MB-rounded 1,635,779 above, whose precision is about
-±5 KB. Since 2026-09-10 recorded the same rounded value for that leg, no
-byte-level comparison is possible there; the other two are exact.
-
-Superseded figures, kept only as the comparison those deltas are measured
-against: normal 632,799 / 105,644 (Arduino CLI) and 957,450 / 161,229 (fbuild);
-show 636,935 / 106,020 and 962,734 / 161,833; player 1,313,847 / 121,892 and
-1,635,779 / 176,712. The percentages there and here are not comparable across
-engines — Arduino CLI measures flash against the 3 MB application partition, this
-fbuild environment against the full 16 MB — and the static RAM figures differ
-between engines for the same sketch because the two link different framework
-builds and count different sections. Compare an engine against itself over time,
-never one against the other.
-
-**One warning, sixty-six times, in every custom-screen sketch.** fbuild compiles
-without `-w` and reports what Arduino CLI hides:
-`bitwise operation between different enumeration types 'lv_part_t' and
-'lv_state_t' is deprecated [-Wdeprecated-enum-enum-conversion]`. It is the LVGL
-emitter composing style selectors as `LV_PART_x | LV_STATE_y`, which LVGL 9.5
-wants typed as `lv_style_selector_t`. Warnings only, and every build here passed,
-but they become errors if the deprecation is ever promoted. The fixtures with no
-custom screen — `isolated-tft` among them — emit none, which is the expected
-shape of the finding rather than a separate result.
-
-### Refused mounts, 2026-09-12
-
-The two graphs the app refuses, generated anyway: one design wired to two panels,
-and a design wired to no panel while still driving a control.
-
-| Fixture | Source SHA-256 | Engine | Result | Flash bytes | Static RAM bytes |
-| --- | --- | --- | --- | ---: | ---: |
-| Refused mounts | `2e9f94eb8940` | Arduino CLI | Passed | 630,979 (20%) | 105,588 (32%) |
-| Refused mounts | `2e9f94eb8940` | fbuild | Passed | 955,597 (6%) | 161,167 (49%) |
-
-**The saving is the evidence, not the exit code.** Against `multi-panel` — the
-legal shape, two designs on two panels, same board — this uses 9,480 bytes less
-RAM under Arduino CLI and 9,483 less under fbuild. A 240x20 RGB565 partial draw
-buffer is 9,600 bytes, so both toolchains independently measure the spare panel
-as having allocated no custom display of its own: it fell through to its fixed
-layout, and the unplugged design cost nothing at all. That is the claim these
-shapes make — emitted once, and an idle document priced at zero — measured rather
-than read off the emitted text. Three structural properties are asserted in the
-generator besides, where a compiler cannot help: the shared screen object is
-declared exactly once (a second definition is a link error, not a missing
-symbol), the spare panel gets no `lv_display_t`, and the unplugged design gets no
-screen object.
-
-fbuild's leg needed the Windows LVGL archive recovery, as the player's did: two
-`failed to spawn` errors, a response-file archive in 1.0s, and a retry that linked
-in 30.2s. Two of the three custom-screen fixtures built on fbuild have now needed
-it, so treat it as the normal path on this platform rather than an exception. Its
-precise bytes, from the engine's own build line, are 955,600 flash and 161,172
-RAM; the table's figures come from the KB-rounded display summary.
-
-### Bench telemetry, 2026-09-12
-
-The normal fixture's own graph with the Board's `reportTelemetry` property on —
-a separate sketch rather than that fixture flipped, because its hash is recorded
-evidence and rewriting it to prove one block compiles would invalidate the table
-above.
-
-| Fixture | Source SHA-256 | Engine | Result | Flash bytes | Static RAM bytes |
-| --- | --- | --- | --- | ---: | ---: |
-| Telemetry | `f9e668bf421e` | Arduino CLI | Passed | 637,763 (20%) | 105,684 (32%) |
-
-**What the instrument costs**, against the same graph with the property off
-(`normal`, 633,319 / 105,644): **4,444 bytes of flash and 40 bytes of RAM**. The
-flash is mostly `Serial.printf`'s float conversions. The 40 bytes is exactly the
-nine statics the emitter declares — five counters, three touch fields and the
-pending flag, four bytes each with the bool padded — which matters more than it
-looks: an instrument that consumed the resource it measures would be reporting
-partly on itself.
-
-Three things the compiled source confirms beyond the exit code: the press stamp
-sits inside the LVGL read callback (`if (pressed && !_cdTouchPrev_custom_tft)
-_telTouchPress();`), the draw buffer is reported as
-`sizeof(_cdPanelBuf_custom_tft)` rather than a number the generator guessed, and
-Serial is opened exactly once. Not yet built under fbuild, which compiles
-without `-w` and would be the one to show any warning this block provokes.
-
-### Earlier graph model — superseded, retained for comparison
-
-Not current proof, and for a different reason than the tables above: these were
-built before the panel/document split, from the fixture shape
-[review F9](reports/hardware-branch-review.md#f9--p2--compile-fixtures-still-use-the-removed-graph-shape)
-describes, so they describe a graph shape that no longer exists. They are kept
-only so the same three paths can be compared across the model change.
-
-| Fixture | Engine | Result | Flash bytes | Static RAM bytes |
-| --- | --- | --- | --- | ---: |
-| Normal | Arduino CLI | Passed | 631,471 | 105,276 |
-| Normal | fbuild | Passed | 956,128 | 160,860 |
-| Generative show | Arduino CLI | Passed | 636,367 | 105,380 |
-| Generative show | fbuild | Passed | 962,136 | 161,212 |
-| SD player | fbuild | Passed | 1,632,988 | 176,084 |
-| SD player | Arduino CLI | Passed | 1,312,015 | 121,268 |
-
-Frontend verification: 4,171 tests passed, 13 skipped; lint and the production
-build passed. The existing application bundle-size warning remains. Lint excludes
-the temporary upstream source checkout at `artifacts/fbuild-source`. The focused
-backend suite passed 105 tests.
