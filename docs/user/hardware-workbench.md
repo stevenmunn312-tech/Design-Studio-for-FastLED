@@ -200,13 +200,14 @@ Upload to check the physical panel and mapped XPT2046 touch coordinates; choose
 the previous layout and reconnect the document to restore content. Touch X/Y
 Min/Max properties take measured raw bounds for that exact module. Save and
 upload after changing them. Defaults are provisional and Diagnostics is not a
-raw sample collector. The companion Touch node's **Calibrate touch** wizard can
-capture the four corners when the running firmware emits raw `FLS_STAT` lines
-with `touchx` and `touchy` over the existing Output serial connection. Enable
-**Report telemetry** in the board settings — click the board on this bench —
-compile and upload, then connect that
-same port from the wizard. Saving calibration updates the Touch node; save the
-project and compile/upload once more to run with the measured bounds.
+raw sample collector. The companion Touch node's **Calibrate touch** wizard
+captures the four corners for you: choose the board's port, press **Upload
+calibration sketch**, and it flashes a temporary measuring sketch built from
+the panel alone, listens for the raw readings it prints, and guides you corner
+by corner. It works on a graph that cannot otherwise be deployed — a screen
+with no LED output, say — because the sketch is built from the panel, not the
+graph. Saving updates the Touch node and releases the port; upload your project
+again to run with the measured bounds.
 
 The panel/document software repairs are implemented; shared documents are
 refused, so use one per panel. Fresh compile runs and mounted-document bench

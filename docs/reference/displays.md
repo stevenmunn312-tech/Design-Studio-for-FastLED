@@ -83,16 +83,19 @@ your content. Upload the changed design to run the check on the device.
 
 The companion **Touch** node owns **Touch X Min/Max** and **Touch Y Min/Max**.
 These are raw 0–4095 bounds from the exact digitiser; the 200/3900 defaults are
-provisional. Use **Calibrate touch** to collect five readings at each corner and
-save all four bounds together, then save the project and upload again.
+provisional. **Calibrate touch** measures them.
 
-The browser wizard listens on the Output console's existing serial connection
-for `FLS_STAT touchx=<value> touchy=<value>` lines. Turn on **Report telemetry**
-in the board settings — the **Hardware** tab, click the board on the bench —
-then compile and upload that calibration-enabled sketch; it
-streams raw samples while the panel is held. Diagnostics still shows mapped
-pixels, not raw samples, and browser touches cannot calibrate the physical
-controller.
+The wizard drives the board itself. Choose the port, press **Upload calibration
+sketch**, and it flashes a small measuring sketch built from the panel alone —
+no LED output, no graph validation, no FastLED — then opens serial and reads
+the `FLS_STAT touchx=<value> touchy=<value>` lines it prints while the glass is
+held. The panel shows four numbered boxes matching the wizard's corner map;
+press the middle of the one it asks for. Saving writes the four bounds to the
+Touch node and releases the port. The board is left running the measuring
+sketch, so upload your project again afterwards.
+
+Diagnostics still shows mapped pixels, not raw samples, and browser touches
+cannot calibrate the physical controller.
 
 ## Touch
 

@@ -6,14 +6,21 @@
 > argued with rather than measured against.
 
 The software half is built: a Board property makes the firmware report itself,
-and the Upload tab reads those reports. What remains is a rig, four runs and an
-hour.
+and a card reads those reports. Neither is currently reachable from the UI (see
+below). What remains is a rig, four runs and an hour.
 
 ## What the device reports
 
-Turn on **Report telemetry** in the board settings — the **Hardware** tab, click
-the board on the bench — and upload. Every two seconds the sketch prints one
-line:
+> **Currently not reachable from the UI.** `reportTelemetry` is still a Board
+> property and all three generators still honour it, but the control that set
+> it and the Upload tab's telemetry card were both removed: telemetry existed
+> for touch calibration, which now flashes its own measuring sketch and needs
+> no user-facing switch. `DeviceTelemetryCard.tsx` is kept for this bench —
+> running HW-11 means mounting it again and setting the property, either from
+> a restored control or in a saved workspace.
+
+With `reportTelemetry` set on the Board node, every two seconds the sketch
+prints one line:
 
 ```
 FLS_STAT uptime=3600 heap=142112 minheap=138904 fps=58.9 loopmax=21 psram=4194304 psramtotal=8388608 touchms=12 drawbuf=9600
@@ -36,8 +43,8 @@ allowed to break the build.
 
 ## Reading it
 
-In the Upload tab, the **Device telemetry** card appears whenever the Board asks
-for telemetry. Press **Listen** — it shares the Output console's serial
+`DeviceTelemetryCard` is the reader. Press **Listen** — it shares the Output
+console's serial
 connection rather than opening its own, because the helper holds a port
 exclusively and two readers cannot both have it.
 
