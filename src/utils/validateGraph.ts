@@ -497,11 +497,10 @@ export const DISPLAY_NODE_TYPES = new Set([
 /**
  * Internal RAM the displays present in `nodes` add to the sketch.
  *
- * Custom screens are priced from the mounted-panel plan rather than from the
- * `Display` nodes on the canvas, which is what the generators emit from: an
- * unplugged design produces no firmware and so costs nothing, and the panel
- * showing one is not also charged for the fixed-layout field caches it never
- * emits. The panel is what states the rotation, so rotating it really does
+ * Custom screens are priced from the mounted-panel plan, which is what the
+ * generators emit from: a design no panel names produces no firmware and so
+ * costs nothing, and the panel drawing one is not also charged for the
+ * fixed-layout field caches it never emits. The panel is what states the rotation, so rotating it really does
  * move the draw buffer — reading rotation off the document priced a portrait
  * buffer for a landscape screen.
  */
@@ -1835,13 +1834,27 @@ export function findDisplayGeneratorIssues(
   for (const display of displays.filter((node) => node.data.nodeType === 'TransportDisplay')) {
     const props = display.data.properties as Record<string, unknown>
     if (!partById(String(props.partId ?? ''))?.display?.touchController) continue
-    const controlsWired = edges.some((edge) => edge.source === display.id && edge.sourceHandle === 'controls')
+    /*
+     * Touch leaves through the Touch node, not the panel.
+     *
+     * A panel has no outputs at all now — the digitiser is a separate chip and
+     * became a node of its own, linked to the glass by `panelId`. This asked
+     * whether the *panel* sourced a `controls` edge, which nothing can do, so
+     * every branch below was unreachable and a genuinely misrouted touch panel
+     * was reported as fine.
+     */
+    const touchNode = nodes.find((node) => node.data.nodeType === 'TouchInput'
+      && String((node.data.properties as Record<string, unknown>).panelId ?? '') === display.id)
+    const controlsWired = !!touchNode
+      && edges.some((edge) => edge.source === touchNode.id && edge.sourceHandle === 'controls')
     // A fixed panel's touch regions are transport and volume — no layout emits
     // pattern intent — so an LED output's latch is the only thing it can
     // command outside a player build. In a show it has to be an output that
     // show actually renders: a latch on an output the slideshow never draws to
     // is a wire to a part of the graph the controller does not build.
-    const destinations = controlChainDestinations(display.id, edges as never, nodeById as never)
+    const destinations = touchNode
+      ? controlChainDestinations(touchNode.id, edges as never, nodeById as never)
+      : new Set<string>()
     const reachesOutput = [...destinations].some((id) =>
       nodeById.get(id)?.data.nodeType === 'MatrixOutput'
       && (renderedShowOutputs === null || renderedShowOutputs.has(id)))
@@ -1849,46 +1862,47 @@ export function findDisplayGeneratorIssues(
     const touchActions = resolved
       ? transportTouchRegions(resolved.controller, resolved.rotation, resolved.layout)
       : []
-    // A panel showing a Screen Design has no fixed layout to sample, so its
-    // own Controls output is inert whatever the build. Say that first: every
-    // branch below reads the resolved layout, which is Waiting here, and
-    // would hand back advice that repairs the wrong thing — "wire Music
-    // Player to its Display input" would drop the design the panel is
-    // showing. The touch is the document's, and so are the outputs.
+    // A panel showing a screen design has no fixed layout to sample, so its
+    // Touch node is inert whatever the build. Say that first: every branch
+    // below reads the resolved layout, which is Waiting here, and would hand
+    // back advice that repairs the wrong thing — telling someone to choose a
+    // fixed transport layout when the glass is drawing their design. The
+    // touch belongs to the design, and so do the outputs.
     if (controlsWired && customMountedPanels.has(display.id)) {
       errors.push(
-        `${nodeLabel(display)} is showing a screen design, so its own Controls output publishes nothing — `
-        + "the design owns the touch. Wire that design's own Toggle, Button and Slider outputs to what they "
-        + "should command, and disconnect this panel's Controls.",
+        `${nodeLabel(display)} is showing a screen design, so its Touch node publishes nothing — `
+        + "the design owns the touch. Wire the design's own Toggle, Button and Slider outputs on the panel to "
+        + "what they should command, and disconnect the Touch node's Controls.",
       )
     } else if (controlsWired && generator === 'sketch' && !reachesOutput) {
       errors.push(
-        `${nodeLabel(display)} has its Controls output wired, but the chain does not reach anything a normal sketch can act on. `
+        `${nodeLabel(display)} has its Touch node's Controls wired, but the chain does not reach anything a normal sketch can act on. `
         + "Wire it through to an LED output's Controls input to drive blackout and brightness, "
         + 'disconnect it to use the panel as a read-only display, or export a music-player build through Upload show to SD.',
       )
     } else if (controlsWired && generator === 'show' && !reachesOutput) {
       errors.push(
-        `${nodeLabel(display)} has its Controls output wired, but the chain does not reach a slideshow LED output's Controls input. `
+        `${nodeLabel(display)} has its Touch node's Controls wired, but the chain does not reach a slideshow LED output's Controls input. `
         + 'A show has no transport to command from a fixed screen; '
         + 'disconnect Controls for a read-only display, or use a music-player build for music actions.',
       )
     } else if (controlsWired && generator === 'player'
       && (!build.engine || !destinations.has(build.engine.id))) {
       errors.push(
-        `${nodeLabel(display)} has its Controls output wired, but that chain does not reach Music Player through Control Map. `
+        `${nodeLabel(display)} has its Touch node's Controls wired, but that chain does not reach Music Player through Control Map. `
         + 'Complete the control chain so the player sketch samples touch, or disconnect Controls to use the panel as read-only.',
       )
     } else if (controlsWired && generator === 'player' && touchActions.length === 0) {
-      errors.push(`${nodeLabel(display)} resolves to the read-only ${resolved?.layout ?? 'Waiting'} layout, so its Controls wire emits no actions. `
-        + 'Wire Music Player to its Display input and choose Now Playing or Fixed Transport, or disconnect Controls.')
+      errors.push(`${nodeLabel(display)} resolves to the read-only ${resolved?.layout ?? 'Waiting'} layout, so its Touch node emits no actions. `
+        + "Wire Music Player to the panel's Display input and choose Now Playing or Fixed Transport, "
+        + "or disconnect the Touch node's Controls.")
     } else if (controlsWired && generator !== 'player' && reachesOutput) {
       const actionDescription = touchActions.length > 0
         ? 'only music transport and volume actions, which an LED output cannot consume'
         : 'no touch actions'
       errors.push(`${nodeLabel(display)} resolves to ${resolved?.layout ?? 'Waiting'}, which has ${actionDescription}. `
-        + 'Use a custom screen with Toggle and Slider widget outputs wired to the LED output for blackout and brightness, '
-        + 'or disconnect Controls to keep this fixed screen read-only.')
+        + 'Give the panel a screen design whose Toggle and Slider outputs drive the LED output for blackout and brightness, '
+        + "or disconnect the Touch node's Controls to keep this fixed screen read-only.")
     }
     const raw = (key: string, fallback: number) => {
       const value = Number(props[key] ?? fallback)

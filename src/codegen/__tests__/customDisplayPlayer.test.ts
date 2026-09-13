@@ -89,10 +89,12 @@ describe('custom displays in SD-player firmware', () => {
   it('shares scalar computations between widget readouts, fixed screens and chained controls', () => {
     const nodes = [panel('tft'), node('map', 'MapRange'), node('format', 'FormatNumber'), node('first', 'ControlMap'),
       node('last', 'ControlMap', { debounceMs: 55 }), node('button', 'ButtonInput', { pin: 12, pullup: false }),
-      node('fixed', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Fixed Transport' })]
+      node('fixed', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Fixed Transport' }),
+      // Touch leaves through its own node now; the panel has no outputs.
+      node('fixed-touch', 'TouchInput', { panelId: 'fixed' })]
     const edges = [edge('tft', 'widget:slider:out', 'map', 'value'), edge('map', 'result', 'format', 'value'),
       edge('format', 'text', 'tft', 'widget:text:value'), edge('format', 'text', 'fixed', 'title'),
-      edge('map', 'result', 'first', 'volume'), edge('fixed', 'controls', 'first', 'controlsIn'),
+      edge('map', 'result', 'first', 'volume'), edge('fixed-touch', 'controls', 'first', 'controlsIn'),
       edge('first', 'controls', 'last', 'controlsIn'), edge('button', 'pressed', 'last', 'next'),
       edge('last', 'controls', 'player', 'controls')]
     const cpp = generate(nodes, edges)

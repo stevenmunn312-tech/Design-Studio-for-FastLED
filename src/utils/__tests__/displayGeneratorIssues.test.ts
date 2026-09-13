@@ -19,26 +19,78 @@ function edge(id: string, s: string, sh: string, t: string, th: string): StudioE
 }
 
 const oled = () => node('oled', 'InfoDisplay', { partId: 'sh1106-oled-128x64', infoLayout: 'Now Playing' })
+
+/**
+ * The Touch node that shares a panel's module.
+ *
+ * A panel has no outputs: the digitiser is a separate chip and became a node of
+ * its own, linked to the glass by `panelId`. These fixtures used to draw the
+ * controls edge straight from the panel, which nothing in the app can do — so
+ * they exercised a shape that could not occur and kept passing while the
+ * validation they cover had quietly become unreachable.
+ */
+const touch = (panelId: string) => node(`${panelId}-touch`, 'TouchInput', { panelId })
 const out = () => node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4 })
+
+/*
+ * A panel cannot source a controls edge, so no fixture may pretend it can.
+ *
+ * Every test in this file once drew the touch chain straight from the panel.
+ * The app has not been able to create that edge since the digitiser became a
+ * node of its own, so the validation under test was unreachable in production
+ * while the fixtures kept it looking covered — the worst kind of green.
+ *
+ * Asserted against the library rather than by reading the fixtures: if
+ * `TransportDisplay` ever regains an output, this stops being a rule and should
+ * fail here rather than quietly permit the old shape back.
+ */
+describe('touch fixtures match what the app can build', () => {
+  it('gives TransportDisplay no outputs to wire a control chain from', () => {
+    const definition = NODE_LIBRARY.find((entry) => entry.type === 'TransportDisplay')
+    expect(definition?.outputs).toEqual([])
+  })
+
+  it('leaves touch on the Touch node, linked to its panel by property', () => {
+    const definition = NODE_LIBRARY.find((entry) => entry.type === 'TouchInput')
+    expect(definition?.outputs).toEqual([
+      expect.objectContaining({ id: 'controls', dataType: 'playercontrols' }),
+    ])
+    expect(definition?.inputs).toEqual([])
+    expect(definition?.defaultProperties).toHaveProperty('panelId')
+  })
+})
 
 describe('fixed touch output routing validation', () => {
   const panel = node('panel', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Show Status' })
   const controls = node('controls', 'ControlMap')
   const show = [node('show', 'PatternSlideshow'), node('set', 'PatternCollection', { patternIds: ['p'] })]
   const showEdges = [edge('set', 'set', 'patternset', 'show', 'patternset'), edge('frame', 'show', 'frame', 'out', 'frame')]
-  const chain = [edge('touch', 'panel', 'controls', 'controls', 'controlsIn'), edge('latch', 'controls', 'controls', 'out', 'controls')]
+  const chain = [edge('touch', 'panel-touch', 'controls', 'controls', 'controlsIn'), edge('latch', 'controls', 'controls', 'out', 'controls')]
 
   it.each(['direct', 'chained'])('rejects a %s fixed-screen show route and agrees in Graph Health', (mode) => {
-    const nodes = [...show, out(), panel, controls]
-    const edges = [...showEdges, ...(mode === 'direct' ? [edge('latch', 'panel', 'controls', 'out', 'controls')] : chain)]
+    const nodes = [...show, out(), panel, controls, touch('panel')]
+    const edges = [...showEdges, ...(mode === 'direct' ? [edge('latch', 'panel-touch', 'controls', 'out', 'controls')] : chain)]
     expect(findDisplayGeneratorIssues(nodes, edges).errors).toEqual([
-      expect.stringContaining('Toggle and Slider widget outputs'),
+      expect.stringContaining('Toggle and Slider outputs'),
     ])
     expect(findOutputRuntimeIssues(nodes, edges).errors).toEqual([])
     expect(buildGraphDiagnostics(nodes, edges).filter((d) =>
       d.id.startsWith('display-generator-error') || d.id.startsWith('output-runtime'))).toEqual([
       expect.objectContaining({ id: 'display-generator-error-0' }),
     ])
+  })
+
+  it('accepts a touch panel whose Touch node is not wired anywhere', () => {
+    // The panel is read-only, which is a perfectly ordinary thing to build.
+    const nodes = [...show, out(), panel, controls, touch('panel')]
+    expect(findDisplayGeneratorIssues(nodes, showEdges).errors).toEqual([])
+  })
+
+  it('says nothing about a panel with no Touch node at all', () => {
+    // A non-touch module, or one whose Touch node was deleted: there is no
+    // chain to judge, so the block must not invent one.
+    const nodes = [...show, out(), panel, controls]
+    expect(findDisplayGeneratorIssues(nodes, showEdges).errors).toEqual([])
   })
 
   it('names the design, not the layout, when a mounted panel has its Controls wired', () => {
@@ -48,7 +100,7 @@ describe('fixed touch output routing validation', () => {
     const designed = node('panel', 'TransportDisplay', {
       partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Show Status', displayId: 'screen',
     })
-    const nodes = [out(), designed, controls]
+    const nodes = [out(), designed, controls, touch('panel')]
     const edges = [...chain]
     const errors = findDisplayGeneratorIssues(nodes, edges, {
       screen: createDisplayDocument('screen', 240, 320),
@@ -61,14 +113,14 @@ describe('fixed touch output routing validation', () => {
   it('refuses a layout whose actions an LED output cannot consume in either generator', () => {
     const transport = node('panel', 'TransportDisplay', { ...panel.data.properties, tftLayout: 'Fixed Transport' })
     for (const template of [false, true]) {
-      const errors = findDisplayGeneratorIssues([out(), transport, controls, ...(template ? show : [])],
+      const errors = findDisplayGeneratorIssues([out(), transport, touch('panel'), controls, ...(template ? show : [])],
         [...chain, ...(template ? showEdges : [])]).errors
-      expect(errors).toEqual([expect.stringContaining('Toggle and Slider widget outputs')])
+      expect(errors).toEqual([expect.stringContaining('Toggle and Slider outputs')])
     }
   })
 
   it('does not accept a chain ending at an output the selected slideshow never renders', () => {
-    const nodes = [...show, out(), panel, controls, node('other', 'MatrixOutput')]
+    const nodes = [...show, out(), panel, controls, node('other', 'MatrixOutput'), touch('panel')]
     const edges = [...showEdges, chain[0], edge('wrong', 'controls', 'controls', 'other', 'controls')]
     expect(findDisplayGeneratorIssues(nodes, edges).errors).toEqual([
       expect.stringContaining('does not reach a slideshow LED output'),
@@ -77,7 +129,7 @@ describe('fixed touch output routing validation', () => {
   })
 
   it('names an unsupported mapper input rather than silently dropping its physical override', () => {
-    const nodes = [...show, out(), panel, controls, node('wave', 'Wave')]
+    const nodes = [...show, out(), panel, controls, node('wave', 'Wave'), touch('panel')]
     const edges = [...showEdges, ...chain, edge('unsupported', 'wave', 'value', 'controls', 'brightness')]
     expect(findOutputRuntimeIssues(nodes, edges).errors).toEqual([
       expect.stringContaining('cannot evaluate the wire feeding brightness'),
@@ -88,19 +140,19 @@ describe('fixed touch output routing validation', () => {
   })
 
   it('accepts scalar output inputs beside a supported bundle', () => {
-    const nodes = [...show, out(), panel, controls, node('pot', 'PotInput')]
+    const nodes = [...show, out(), panel, controls, node('pot', 'PotInput'), touch('panel')]
     const edges = [...showEdges, ...chain, edge('scalar', 'pot', 'value', 'out', 'brightness')]
     expect(findOutputRuntimeIssues(nodes, edges).errors).toEqual([])
   })
 
   it('accepts shared scalar calculations for a show mapper and fixed screen', () => {
-    const nodes = [...show, out(), panel, controls, node('pot', 'PotInput'), node('map', 'MapRange'), node('format', 'FormatNumber')]
+    const nodes = [...show, out(), panel, controls, node('pot', 'PotInput'), node('map', 'MapRange'), node('format', 'FormatNumber'), touch('panel')]
     const edges = [...showEdges, ...chain, edge('pot-map', 'pot', 'value', 'map', 'value'),
       edge('map-control', 'map', 'result', 'controls', 'brightness'),
       edge('map-format', 'map', 'result', 'format', 'value'), edge('format-panel', 'format', 'text', 'panel', 'section')]
     expect(findOutputRuntimeIssues(nodes, edges).errors).toEqual([])
     expect(findDisplayGeneratorIssues(nodes, edges).errors).toEqual([
-      expect.stringContaining('Toggle and Slider widget outputs'),
+      expect.stringContaining('Toggle and Slider outputs'),
     ])
   })
 
@@ -116,7 +168,7 @@ describe('fixed touch output routing validation', () => {
   })
 
   it('retains SD-player validation for controls connected only to an LED output', () => {
-    const nodes = [out(), panel, controls, node('player', 'PatternMaster'), node('sd', 'SDCard'), node('amp', 'Amplifier')]
+    const nodes = [out(), panel, controls, node('player', 'PatternMaster'), node('sd', 'SDCard'), node('amp', 'Amplifier'), touch('panel')]
     const edges = [...chain, edge('frame', 'player', 'frame', 'out', 'frame')]
     expect(findDisplayGeneratorIssues(nodes, edges).errors).toEqual([
       expect.stringContaining('does not reach Music Player'),
@@ -237,7 +289,7 @@ describe('displays a build cannot drive', () => {
     const transport = node('transport', 'TransportDisplay', {
       partId: 'st7789-tft-240x240', tftLayout: 'Now Playing',
     })
-    const issues = findDisplayGeneratorIssues([out(), transport], [])
+    const issues = findDisplayGeneratorIssues([out(), transport, touch('transport')], [])
     expect(issues.errors).toEqual([])
     expect(issues.warnings).toEqual([])
   })
@@ -246,7 +298,7 @@ describe('displays a build cannot drive', () => {
     const transport = node('transport', 'TransportDisplay', {
       partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Now Playing',
     })
-    expect(findDisplayGeneratorIssues([out(), transport], [])).toEqual({ errors: [], warnings: [] })
+    expect(findDisplayGeneratorIssues([out(), transport, touch('transport')], [])).toEqual({ errors: [], warnings: [] })
   })
 
   it('blocks touch controls a normal sketch would silently ignore', () => {
@@ -255,8 +307,8 @@ describe('displays a build cannot drive', () => {
     })
     const controls = node('controls', 'ControlMap')
     const issues = findDisplayGeneratorIssues(
-      [out(), transport, controls],
-      [edge('touch', 'transport', 'controls', 'controls', 'controlsIn')],
+      [out(), transport, touch('transport'), controls],
+      [edge('touch', 'transport-touch', 'controls', 'controls', 'controlsIn')],
     )
     expect(issues.errors).toHaveLength(1)
     // Not "cannot sample touch" any more — it can. The chain simply ends at a
@@ -280,13 +332,13 @@ describe('displays a build cannot drive', () => {
     })
     const controls = node('controls', 'ControlMap')
     const issues = findDisplayGeneratorIssues(
-      [out(), transport, controls],
+      [out(), transport, touch('transport'), controls],
       [
-        edge('touch', 'transport', 'controls', 'controls', 'controlsIn'),
+        edge('touch', 'transport-touch', 'controls', 'controls', 'controlsIn'),
         edge('latch', 'controls', 'controls', 'out', 'controls'),
       ],
     )
-    expect(issues.errors).toEqual([expect.stringContaining('Toggle and Slider widget outputs')])
+    expect(issues.errors).toEqual([expect.stringContaining('Toggle and Slider outputs')])
   })
 
   it('rejects one wired straight to the output, with no Control Map between', () => {
@@ -294,10 +346,10 @@ describe('displays a build cannot drive', () => {
       partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Show Status',
     })
     const issues = findDisplayGeneratorIssues(
-      [out(), transport],
-      [edge('latch', 'transport', 'controls', 'out', 'controls')],
+      [out(), transport, touch('transport')],
+      [edge('latch', 'transport-touch', 'controls', 'out', 'controls')],
     )
-    expect(issues.errors).toEqual([expect.stringContaining('Toggle and Slider widget outputs')])
+    expect(issues.errors).toEqual([expect.stringContaining('Toggle and Slider outputs')])
   })
 
   // Music Player is not somewhere a *normal* sketch can act on: it renders as
@@ -309,9 +361,9 @@ describe('displays a build cannot drive', () => {
     const master = node('master', 'PatternMaster')
     const controls = node('controls', 'ControlMap')
     const issues = findDisplayGeneratorIssues(
-      [out(), transport, controls, master],
+      [out(), transport, touch('transport'), controls, master],
       [
-        edge('touch', 'transport', 'controls', 'controls', 'controlsIn'),
+        edge('touch', 'transport-touch', 'controls', 'controls', 'controlsIn'),
         edge('cmd', 'controls', 'controls', 'master', 'controls'),
       ],
     )
@@ -325,8 +377,8 @@ describe('displays a build cannot drive', () => {
     })
     const controls = node('controls', 'ControlMap')
     const diagnostics = buildGraphDiagnostics(
-      [out(), transport, controls],
-      [edge('touch', 'transport', 'controls', 'controls', 'controlsIn')],
+      [out(), transport, touch('transport'), controls],
+      [edge('touch', 'transport-touch', 'controls', 'controls', 'controlsIn')],
     )
     expect(diagnostics).toContainEqual(expect.objectContaining({
       id: 'display-generator-error-0',
@@ -342,11 +394,11 @@ describe('displays a build cannot drive', () => {
     })
     const master = node('master', 'PatternMaster')
     const controls = node('controls', 'ControlMap')
-    const nodes = [out(), transport, master, controls, node('sd', 'SDCard'), node('amp', 'Amplifier')]
+    const nodes = [out(), transport, master, controls, node('sd', 'SDCard'), node('amp', 'Amplifier'), touch('transport')]
     const wires = [
       edge('frame', 'master', 'frame', 'out', 'frame'),
       edge('display', 'master', 'display', 'transport', 'display'),
-      edge('touch', 'transport', 'controls', 'controls', 'controlsIn'),
+      edge('touch', 'transport-touch', 'controls', 'controls', 'controlsIn'),
     ]
     const issues = findDisplayGeneratorIssues(nodes, wires)
     expect(issues.errors).toHaveLength(1)
@@ -359,11 +411,11 @@ describe('displays a build cannot drive', () => {
     })
     const master = node('master', 'PatternMaster')
     const controls = node('controls', 'ControlMap')
-    const nodes = [out(), transport, master, controls, node('sd', 'SDCard'), node('amp', 'Amplifier')]
+    const nodes = [out(), transport, master, controls, node('sd', 'SDCard'), node('amp', 'Amplifier'), touch('transport')]
     const wires = [
       edge('frame', 'master', 'frame', 'out', 'frame'),
       edge('display', 'master', 'display', 'transport', 'display'),
-      edge('touch', 'transport', 'controls', 'controls', 'controlsIn'),
+      edge('touch', 'transport-touch', 'controls', 'controls', 'controlsIn'),
       edge('player', 'controls', 'controls', 'master', 'controls'),
     ]
     expect(findDisplayGeneratorIssues(nodes, wires).errors).toEqual([])
@@ -374,7 +426,7 @@ describe('displays a build cannot drive', () => {
       partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Now Playing',
       touchXMin: 3900, touchXMax: 200, touchYMin: 200, touchYMax: 3900,
     })
-    const issues = findDisplayGeneratorIssues([out(), transport], [])
+    const issues = findDisplayGeneratorIssues([out(), transport, touch('transport')], [])
     expect(issues.errors).toHaveLength(1)
     expect(issues.errors[0]).toContain('invalid touch calibration')
     expect(issues.errors[0]).toContain('0 and 4095')
@@ -385,7 +437,7 @@ describe('displays a build cannot drive', () => {
       partId: 'st7789-tft-240x240', tftLayout: 'Now Playing',
     })
     // With a card this is the player sketch, which draws displays.
-    const nodes = [out(), transport, node('pg', 'PerformanceGenerator'), node('sd', 'SDCard')]
+    const nodes = [out(), transport, node('pg', 'PerformanceGenerator'), node('sd', 'SDCard'), touch('transport')]
     expect(findDisplayGeneratorIssues(nodes, [edge('e', 'pg', 'frame', 'out', 'frame')]).errors)
       .toEqual([])
   })
@@ -457,9 +509,9 @@ describe('a Pattern Slideshow show', () => {
     })
     const controls = node('controls', 'ControlMap')
     const { errors } = findDisplayGeneratorIssues(
-      [master, collection, out, transport, controls],
+      [master, collection, out, transport, touch('transport'), controls],
       [...showEdges,
-        edge('touch', 'transport', 'controls', 'controls', 'controlsIn'),
+        edge('touch', 'transport-touch', 'controls', 'controls', 'controlsIn'),
         edge('cmd', 'controls', 'controls', 'master', 'controls')],
     )
     expect(errors).toHaveLength(1)

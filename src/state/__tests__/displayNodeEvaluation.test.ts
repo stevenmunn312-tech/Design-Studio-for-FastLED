@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { evaluateGraphFull } from '../graphEvaluator'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { useDisplayRuntimeStore } from '../displayRuntimeStore'
+import { useTransportDisplayTouchStore } from '../transportDisplayTouchStore'
+import { fixedTransportGeometry } from '../transportDisplay'
 import type { StudioNode, StudioEdge } from '../graphStore'
 
 function node(
@@ -217,6 +219,48 @@ describe('custom Display node evaluation', () => {
     const edges = [edge('e-clock', 'rtc', 'display', 'screen', 'display')]
     evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true)
     expect(runtime().readDisplayWidget('panel', 'text')).toBeUndefined()
+  })
+
+  /*
+   * A panel drawing a screen design reports no fixed-layout touch.
+   *
+   * The combination is the ordinary one, not a corner case: a design reads the
+   * source wired into its panel, so a design sits on a panel with a Music
+   * Player on its Display input — exactly the shape whose fixed layout would
+   * otherwise resolve and hand back that layout's play/pause region for glass
+   * drawing something else. The design owns the touch; its widgets publish on
+   * the panel's own outputs.
+   *
+   * Two panels in one graph, pressed at the same real hit coordinates, rather
+   * than one panel read twice. A press is a rising *edge* keyed on the glass,
+   * so reading the same panel twice makes the second answer false whatever the
+   * rule is — a version of this test written that way passed with the guard
+   * disabled, which is no test at all.
+   */
+  it('reports no fixed-layout touch for a panel drawing a screen design', () => {
+    const geometry = fixedTransportGeometry(240, 320)
+    const panelProperties = { partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Fixed Transport' }
+    const nodes = [
+      node('plain', 'TransportDisplay', { ...panelProperties, displayId: '' }),
+      node('plain-touch', 'TouchInput', { panelId: 'plain' }),
+      node('designed', 'TransportDisplay', { ...panelProperties, displayId: 'design' }),
+      node('designed-touch', 'TouchInput', { panelId: 'designed' }),
+      node('player', 'PatternMaster'),
+    ]
+    const edges = [
+      edge('e-plain', 'player', 'display', 'plain', 'display'),
+      edge('e-designed', 'player', 'display', 'designed', 'display'),
+    ]
+    const press = { pressed: true, x: geometry.playPause.rect.x + 1, y: geometry.playPause.rect.y + 1 }
+    useTransportDisplayTouchStore.getState().clear()
+    useTransportDisplayTouchStore.getState().setTouch('plain', press)
+    useTransportDisplayTouchStore.getState().setTouch('designed', press)
+
+    const outputs = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true).outputs
+    const controls = (id: string) => outputs.get(id)?.controls as { playPause?: boolean } | undefined
+
+    expect(controls('plain-touch')?.playPause).toBe(true)
+    expect(controls('designed-touch')?.playPause).toBe(false)
   })
 
   // Run mode and the mounted panel thumbnail paint these values now, so a

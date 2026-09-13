@@ -104,13 +104,35 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
       errors.add(`${label(source.id)}: the Control Map chain contains a cycle. Remove a Controls In wire before exporting.`)
       return null
     }
+    const p = source.data.properties
+    /*
+     * Touch arrives from the Touch node, and resolves to the glass it reads.
+     *
+     * This used to accept a `TransportDisplay` as the source of a controls
+     * edge. A panel has no outputs at all now — the digitiser became a node of
+     * its own — so that branch could never be taken and a touch panel wired
+     * through Control Map was reported as a wire the template cannot evaluate.
+     *
+     * The bundle itself stays keyed on the *panel*: `touchIds` is what makes
+     * the display half declare `PlayerControlsValue` beside that panel's touch
+     * service, so the chain has to read the variable that service writes rather
+     * than one named after this node.
+     */
+    if (source.data.nodeType === 'TouchInput') {
+      const panel = byId.get(String(p.panelId ?? ''))
+      const touchCapable = panel?.data.nodeType === 'TransportDisplay'
+        && Boolean(partById(String(panel.data.properties.partId ?? ''))?.display?.touchController)
+      if (!panel || !touchCapable) {
+        unsupported(edge.target, edge.targetHandle ?? 'Controls')
+        return null
+      }
+      touchIds.add(panel.id)
+      done.add(source.id)
+      return controlBundleVariable(panel.id)
+    }
     const variable = controlBundleVariable(source.id)
     if (done.has(source.id)) return variable
-    const p = source.data.properties
-    if (source.data.nodeType === 'TransportDisplay'
-      && partById(String(p.partId ?? ''))?.display?.touchController) {
-      touchIds.add(source.id)
-    } else if (source.data.nodeType === 'ControlMap') {
+    if (source.data.nodeType === 'ControlMap') {
       visiting.add(source.id)
       const parent = incoming.get(`${source.id}:controlsIn`)
       const upstream = parent ? visit(parent) : null

@@ -35,13 +35,11 @@ export function customDisplaySampleCpp(sample: CustomDisplaySample, gate: string
  * Widget outputs are samples independent of Set inputs, including feedback
  * crossing multiple displays. Validation and template codegen share this plan.
  *
- * The panel/document split (see
- * docs/development/design/large-displays-and-control-routing.md) means a
- * document has no pins of its own: this walks `TransportDisplay` panels with
- * a wired `customDisplay` input instead of `Display` nodes directly, pulling
- * physical config and widgets both from the panel, which owns the screen drawn
- * on it. A panel with no design builds nothing here, the same way it builds
- * nothing in codegen.
+ * A panel owns the screen drawn on it (see
+ * docs/development/design/large-displays-and-control-routing.md), so this
+ * walks `TransportDisplay` panels that name a design in `displayId`, pulling
+ * physical config and widgets both from the panel. A panel with no design
+ * builds nothing here, the same way it builds nothing in codegen.
  */
 export function customDisplayControlPlan(
   nodes: StudioNode[],

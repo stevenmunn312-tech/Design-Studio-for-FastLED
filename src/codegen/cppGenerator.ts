@@ -356,10 +356,10 @@ function reachableFromOutputs(nodes: StudioNode[], edges: StudioEdge[]): StudioN
     // No explicit root for the custom Display document node: it has no
     // physical existence of its own any more (see the panel/document split in
     // docs/development/design/large-displays-and-control-routing.md), so an
-    // unwired one correctly has nothing to draw with. Its liveness now comes
-    // from an ordinary edge into a TransportDisplay panel's `customDisplay`
-    // input — TransportDisplay is already a root above, and the backward walk
-    // below follows every incoming edge regardless of which port it targets.
+    // unwired one correctly has nothing to draw with. A screen design is the
+    // panel's own property now rather than a node wired into it, so there is
+    // no mount edge to follow: the panel is already a root above, and its
+    // design comes with it.
   ]
 
   const sources = new Map<string, string[]>()
@@ -1518,7 +1518,7 @@ export function generateCpp(
   // Handed in rather than baked here — baking evaluates patterns, and a text
   // emitter has no business doing that, nor any way to know whether the
   // workspace has been trusted. See utils/browserThumbnails.ts.
-  // `displayDocuments`: a custom Display node's own DisplayDocument (widgets,
+  // `displayDocuments`: the screen design a panel names (widgets,
   // bounds, theme) is not on the node — the node carries only its persisted
   // ports and physical/pin properties — so it has to be handed in, keyed by
   // displayId, the same way artworks is. `customDisplayAssets`: the finished
@@ -1974,7 +1974,7 @@ export function generateCpp(
   // Diagnostics screen or to publish a control bundle from their buttons.
   const tftTouches: TftTouchEmit[] = []
   // The freeform LVGL screens: one control/object-tree emit and one physical
-  // panel/touch driver emit per custom Display node, kept apart because they
+  // panel/touch driver emit per screen design, kept apart because they
   // come from different modules — the first is a pure function of the
   // document, the second is real hardware setup neither module wants to own.
   /*
@@ -5140,14 +5140,13 @@ export function generateCpp(
 
       case 'TransportDisplay': {
         needsDisplayText.v = true
-        // Two content inputs, exclusive (see
-        // docs/development/design/large-displays-and-control-routing.md,
-        // Decisions 1/2): `customDisplay` wins when wired, driving this
-        // panel's own pins with the wired `Display` document's widgets
-        // through the same LVGL machinery a standalone Display node used
-        // before the panel/document split. The document itself carries no
-        // pins any more, so its widget bindings and outputs stay keyed by its
-        // own id (matching what any wire drawn from its ports already
+        // A panel draws its own screen design when it has one, and one of the
+        // fixed layouts otherwise (see
+        // docs/development/design/large-displays-and-control-routing.md).
+        // The design is named by the panel's `displayId` rather than wired in,
+        // so there is no second content input to be exclusive with. Its widget
+        // bindings and outputs stay keyed by the design's own id (matching
+        // what any wire drawn from its ports already
         // expects) while the physical driver — struct instance, SPI pins,
         // LVGL display object — is keyed by this panel's id. Call order
         // matters: the panel's setup lines must precede the document's, since

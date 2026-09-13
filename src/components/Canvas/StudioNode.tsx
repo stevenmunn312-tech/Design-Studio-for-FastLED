@@ -492,7 +492,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
         const rowTitle = wired
           ? 'Driven by connection'
           : ownedByDesign
-            ? 'The mounted Screen Design draws this panel. Disconnect it to use a fixed layout.'
+            ? 'This panel draws its own Screen Design, so the fixed layout is unused. Edit the design to change what it shows.'
             : gated
               ? 'Not used by this mode'
               : expressionCapable

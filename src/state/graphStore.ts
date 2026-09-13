@@ -1073,7 +1073,7 @@ function restoreStashedHistory(graphId: string): void {
   })
 }
 
-/** Keep a freeform Display node's React Flow port metadata and cables derived
+/** Keep a panel's React Flow port metadata and cables derived
  * from its document. A document edit and any cable cleanup must land in the
  * same store write so undo can never restore one without the other. */
 function syncDisplayNodesInContent(

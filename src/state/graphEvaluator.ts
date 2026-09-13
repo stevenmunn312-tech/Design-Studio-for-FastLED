@@ -7467,6 +7467,21 @@ function createEvalNode(
         }
         const panelId = panel.id
         const panelProps = panel.data.properties as Record<string, unknown>
+        /*
+         * A panel drawing a screen design has no fixed layout to sample.
+         *
+         * Its widgets own the touch and publish on their own outputs, so this
+         * node reports nothing rather than the hit regions of a layout the
+         * glass is not showing. The combination is not exotic: a design reads
+         * the source wired into its panel, so a Now Playing design sits on a
+         * panel with a Music Player on its Display input — exactly the shape
+         * that would otherwise resolve to the fixed Now Playing layout and
+         * hand back its play/pause and volume regions.
+         */
+        if (String(panelProps.displayId ?? '')) {
+          out = { controls: blankPlayerControls() }
+          break
+        }
         const panelEnabled = incoming.has(`${panelId}:enabled`)
           ? Boolean(input(panelId, 'enabled', true))
           : panelProps.enabled !== false

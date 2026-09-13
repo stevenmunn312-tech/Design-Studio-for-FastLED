@@ -14,6 +14,14 @@ function node(id: string, nodeType: string, properties: Record<string, unknown> 
 }
 const edge = (s: string, sh: string, t: string, th: string): StudioEdge =>
   ({ id: `${s}-${sh}-${t}-${th}`, source: s, sourceHandle: sh, target: t, targetHandle: th }) as StudioEdge
+/**
+ * The Touch node that shares the panel's module.
+ *
+ * Touch leaves through this node, not the panel: a panel has no outputs since
+ * the digitiser became a node of its own. These fixtures drew the chain from
+ * the panel, which nothing in the app can do.
+ */
+const touchNode = () => node('panel-touch', 'TouchInput', { panelId: 'touch-panel' })
 const panel = (properties = {}) => node('touch-panel', 'TransportDisplay', {
   partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Show Status', ...properties,
 })
@@ -26,8 +34,8 @@ const groups = {
 }
 const show = [node('collection', 'PatternCollection', { patternIds: ['p'] }), node('show', 'PatternSlideshow')]
 const frameEdges = [edge('collection', 'patternset', 'show', 'patternset'), edge('show', 'frame', 'out', 'frame')]
-const direct = edge('touch-panel', 'controls', 'out', 'controls')
-const build = (nodes: StudioNode[], edges: StudioEdge[]) => generateShowSketch([...show, ...nodes], [...frameEdges, ...edges], groups)
+const direct = edge('panel-touch', 'controls', 'out', 'controls')
+const build = (nodes: StudioNode[], edges: StudioEdge[]) => generateShowSketch([...show, ...nodes, touchNode()], [...frameEdges, ...edges], groups)
 const count = (cpp: string, text: string) => cpp.split(text).length - 1
 
 describe('fixed touch routing in generative shows', () => {
@@ -58,14 +66,18 @@ describe('fixed touch routing in generative shows', () => {
     const knob = node('knob', 'PotInput', { pin: 33 })
     const button = node('button', 'ButtonInput', { pin: 32 })
     const nodes = [output(), ...controls, knob, button, panel()]
-    const edges = [edge('touch-panel', 'controls', 'first', 'controlsIn'),
+    const edges = [edge('panel-touch', 'controls', 'first', 'controlsIn'),
       edge('first', 'controls', 'last', 'controlsIn'), edge('last', 'controls', 'out', 'controls'),
       edge('knob', 'value', 'last', 'brightness'), edge('button', 'pressed', 'last', 'brightnessDown')]
     const normal = generateCpp([...nodes, node('solid', 'SolidColor')], [...edges, edge('solid', 'frame', 'out', 'frame')])
     const generated = build(nodes, edges)
     const { debounceMs, repeatDelayMs, repeatIntervalMs } = DEFAULT_BUTTON_EDGE_SETTINGS
-    for (const cpp of [normal, generated]) {
-      expect(cpp).toContain('n_first_controls = n_touch_panel_controls;')
+    // The bundle's name differs by generator, and has to: a template declares
+    // it beside the panel's own touch service, so it is keyed on the glass,
+    // while a normal sketch names it after the Touch node's output like any
+    // other node value. Everything downstream of the first hop is shared.
+    for (const [cpp, bundle] of [[normal, 'n_panel_touch_controls'], [generated, 'n_touch_panel_controls']] as const) {
+      expect(cpp).toContain(`n_first_controls = ${bundle};`)
       expect(cpp).toContain('n_last_controls = n_first_controls;')
       expect(cpp).toContain('float n_knob_value = analogRead(33) / 4095.0f;')
       expect(cpp).toContain('pinMode(32, INPUT_PULLUP);')
@@ -80,7 +92,7 @@ describe('fixed touch routing in generative shows', () => {
 
   it('fans out one sample to independent physical arrays without dimming the shared frame', () => {
     const cpp = build([panel(), output(), output('other', { dataPin: 6 })], [direct,
-      edge('show', 'frame', 'other', 'frame'), edge('touch-panel', 'controls', 'other', 'controls')])
+      edge('show', 'frame', 'other', 'frame'), edge('panel-touch', 'controls', 'other', 'controls')])
     const loop = cpp.slice(cpp.indexOf('void loop() {'))
     expect(count(loop, '_xptPoint(')).toBe(1)
     for (const id of ['out', 'other']) {
@@ -109,7 +121,7 @@ describe('fixed touch routing in generative shows', () => {
 
   it('refuses arbitrary graph bindings rather than emitting a partial control chain', () => {
     expect(() => build([panel(), output(), node('pc', 'ControlMap'), node('wave', 'Wave')], [
-      edge('touch-panel', 'controls', 'pc', 'controlsIn'), edge('pc', 'controls', 'out', 'controls'),
+      edge('panel-touch', 'controls', 'pc', 'controlsIn'), edge('pc', 'controls', 'out', 'controls'),
       edge('wave', 'value', 'pc', 'brightness'),
     ])).toThrow('cannot evaluate the wire feeding brightness')
   })

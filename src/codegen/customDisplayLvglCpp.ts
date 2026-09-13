@@ -1,5 +1,5 @@
 import { customDisplayId as safeId } from './customDisplayId'
-// Deterministic LVGL 9 object tree for the freeform Display node.
+// Deterministic LVGL 9 object tree for a panel's own screen design.
 //
 // This module deliberately stops at the LVGL boundary. The panel driver and
 // browser-side rasterizer are separate slices, while customDisplayAssetsCpp

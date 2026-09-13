@@ -2931,18 +2931,16 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'TransportDisplay',
     label: 'Display Panel',
     category: 'output',
-    // Two content inputs, exclusive: `display` for the fixed layouts above,
-    // `customDisplay` for a document authored on a `Display` node elsewhere on
-    // the bench. Wiring one drops the other (graphStore's connection handling
-    // enforces this), so the panel always shows exactly what was plugged in
-    // last — never two sources arguing over one screen. `tftLayout` only picks
-    // between the treatments the *wired* source offers, so a property can
-    // change how a player panel is drawn and can never make it show a
-    // slideshow. The seventeen per-field ports `display` replaces were the
-    // custom-UI capability in disguise; `customDisplay` is that capability
-    // done properly, as a document rather than loose wires. Artwork rides the
-    // `display` envelope too, since the player owns both the track and the
-    // selection that identifies the baked picture.
+    // One content input. `display` carries whatever the wired source publishes,
+    // and `tftLayout` picks only between the treatments *that* source offers —
+    // so a property can change how a player panel is drawn and can never make
+    // it show a slideshow. The seventeen per-field ports `display` replaces
+    // were the custom-UI capability in disguise; a screen design is that
+    // capability done properly, and belongs to the panel (`displayId` below)
+    // rather than arriving on a second, competing content wire. Artwork rides
+    // the `display` envelope too, since the player owns both the track and the
+    // selection that identifies the baked picture. A design and a source are
+    // not rivals: the design reads the source through its widgets' bindings.
     inputs: [
       { id: 'display', label: 'Display', dataType: 'display' },
       { id: 'enabled', label: 'Enabled', dataType: 'bool' },

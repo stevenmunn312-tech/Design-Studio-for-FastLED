@@ -106,6 +106,59 @@ describe('StudioNode', () => {
       .toBe('Diagnostics')
   })
 
+  /*
+   * A panel drawing its own screen design has no use for the fixed layout.
+   *
+   * Shown and disabled rather than hidden: the fixed layout is still what the
+   * panel falls back to the moment the design is removed, so hiding the control
+   * would make that fallback undiscoverable. The gate reads the panel's own
+   * `displayId`, because that is what decides the answer — it used to look for
+   * an edge into a `customDisplay` input, which no longer exists, so the
+   * control stayed editable on every panel and moving it did nothing.
+   */
+  it('disables the fixed layout while the panel carries a screen design', () => {
+    const player = { ...makeNode('PatternMaster', {}), id: 'player' }
+    const panel = {
+      ...makeNode('TransportDisplay', { tftLayout: 'Now Playing', displayId: 'design' }),
+      id: 'panel',
+    }
+    useGraphStore.setState({
+      nodes: [player, panel],
+      edges: [{
+        id: 'player-screen', source: player.id, sourceHandle: 'display',
+        target: panel.id, targetHandle: 'display',
+      } as never],
+    })
+    const props = { id: panel.id, data: panel.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
+    const view = render(<StudioNode {...props} />)
+    const layout = view.getByLabelText('layout value') as HTMLSelectElement
+
+    expect(layout.disabled).toBe(true)
+    // The explanation lives on the property row, and has to name the design
+    // rather than a mount cable to disconnect: there is no such cable now.
+    expect(layout.closest('[title]')?.getAttribute('title'))
+      .toContain('draws its own Screen Design')
+  })
+
+  it('leaves the fixed layout editable on a panel with no screen design', () => {
+    const player = { ...makeNode('PatternMaster', {}), id: 'player' }
+    const panel = {
+      ...makeNode('TransportDisplay', { tftLayout: 'Now Playing', displayId: '' }),
+      id: 'panel',
+    }
+    useGraphStore.setState({
+      nodes: [player, panel],
+      edges: [{
+        id: 'player-screen', source: player.id, sourceHandle: 'display',
+        target: panel.id, targetHandle: 'display',
+      } as never],
+    })
+    const props = { id: panel.id, data: panel.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
+    const view = render(<StudioNode {...props} />)
+
+    expect((view.getByLabelText('layout value') as HTMLSelectElement).disabled).toBe(false)
+  })
+
   it('minimizes to the header and node type, preserves port handles, restores, and deletes', () => {
     const node = makeNode('SolidColor', { r: 255, g: 0, b: 128 })
     const view = renderNode(node)
