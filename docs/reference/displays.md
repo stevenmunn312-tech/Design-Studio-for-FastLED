@@ -90,9 +90,18 @@ sketch**, and it flashes a small measuring sketch built from the panel alone —
 no LED output, no graph validation, no FastLED — then opens serial and reads
 the `FLS_STAT touchx=<value> touchy=<value>` lines it prints while the glass is
 held. The panel shows four numbered boxes matching the wizard's corner map;
-press the middle of the one it asks for. Saving writes the four bounds to the
-Touch node and releases the port. The board is left running the measuring
-sketch, so upload your project again afterwards.
+press the middle of the one it asks for, and a dot is left where the press
+landed. Saving writes the bounds to the Touch node and releases the port. The
+board is left running the measuring sketch, so upload your project again
+afterwards.
+
+The run also measures **which way the digitiser counts**, saved as **Touch Flip
+X** and **Touch Flip Y**. A range cannot carry that — the same two numbers
+describe an axis read in either direction — so a reversed panel used to map
+every press to the mirror of where it happened while the calibration itself
+looked correct. The dots show it as it happens: on a reversed axis they land on
+the opposite side to your finger, because the measuring sketch draws them
+uncalibrated. The wizard names the finding before you save.
 
 Diagnostics still shows mapped pixels, not raw samples, and browser touches
 cannot calibrate the physical controller.
