@@ -99,6 +99,49 @@ Board/profile selection and the durable controller policy live with the
 project. The selected USB port, build engine, toolchain/core state, and current
 readiness remain desk-local deployment state.
 
+### Boards with hardware already on them
+
+Most boards are a controller and nothing else, so the bench model holds: you
+add a part, and Studio allocates pins for it. An integrated board breaks that
+in one direction only — its panel is soldered to the same PCB, on pins nobody
+chose. Allocating for it is not merely unhelpful, it is wrong every time: the
+bench notes for the ESP32-2432S028R ("CYD") record every one of its twelve
+display pins being typed in by hand before the board would light up.
+
+`src/state/integratedBoardHardware.ts` states what is fitted to which board
+profile, and two things read it.
+
+- `graphStore.selectBoardProfile` — the one action both board pickers call —
+  materializes the panel and its `TouchInput` when that profile is chosen. It
+  is idempotent and adoption-first: a panel it placed earlier, or one the user
+  wired to the same fixed pinout themselves, is updated in place rather than
+  duplicated. Whether the glass gets a Touch node is the part catalogue's
+  answer (`display.touchController`), not a second flag here.
+- `pinRetarget`'s `ownedNow` answers with those pins before any other rule, so
+  they are claimed — every other part routes around them — and never moved,
+  because there is nowhere to move them to. Board-fitted wiring outranks even
+  a remembered user choice: there is no choice to remember.
+
+The marker property `integratedBoardProfileId` names the board a panel is
+fitted to. Leaving that board does not delete the panel — a screen design or a
+wired layout is the user's work — it simply stops being fitted hardware, and
+its pins become movable like any other module's. Selecting the board again
+re-adopts it through the marker.
+
+A board can also tie a line off-GPIO: the CYD's panel reset is wired to its own
+`EN`. That is stated as `NO_PIN` (255), the value the generated firmware
+already guards on, and `pinPropertyIsUnwired` in `nodeLibrary.ts` names the
+only properties allowed to carry it — exactly the ones a sketch guards. Every
+pin claim derives from `collectPinUses`, so exempting it there is what keeps a
+tied reset from reading as a part sitting on GPIO 255 and refusing the build
+over wiring that does not exist. An OLED drives its reset unconditionally and
+therefore has no exemption.
+
+What this does **not** yet model is the rest of such a board: the CYD's
+imported profile carries no `pinSafety`, so pins for other parts still come
+from the chip-level table rather than the four pads it actually breaks out.
+That is HW-12's remaining half, and it needs bench evidence rather than code.
+
 ## LED outputs
 
 One `MatrixOutput` implementation backs five physical forms exposed separately

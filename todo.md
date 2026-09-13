@@ -670,6 +670,19 @@ matrix, not a reason to postpone testing earlier changes.
   bring-up unit; add exact profiles/bus ownership and missing drivers only after
   identification. Exit: internal connections survive board selection/validation
   and bench evidence names the exact hardware and tested actions.
+
+  *App half landed:* selecting the ESP32-2432S028R profile now materializes its
+  fitted panel and Touch node on the bench-measured pins, adopting one already
+  wired by hand rather than duplicating it; the retarget pass claims those pins
+  and never moves them; the panel reset, tied to `EN` on this board, is stated
+  as `NO_PIN` and no longer reads as a part on GPIO 255. The board's I2C default
+  moved off GPIO21 (the panel backlight) to GPIO27/22, the two output-capable
+  pads it breaks out. See [hardware nodes](docs/development/design/hardware-nodes.md#boards-with-hardware-already-on-them).
+
+  *Still open:* controller identity, and the profile's missing `pinSafety` —
+  with none, pins for every other part still come from the chip-level table, so
+  an LED output added on this board is offered GPIO1 (UART0 TX). Both need bench
+  evidence, not code.
 - [ ] **HW-13 · Remaining firmware/bench matrix (L).** *Arduino CLI half done
   2026-09-13: all eleven display fixtures pass on current-model source, recorded
   in [the compile record](docs/development/display-compile-checks.md). fbuild has

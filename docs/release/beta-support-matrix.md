@@ -323,6 +323,16 @@ they name.
   Studio-generated touch, SD/audio sharing and load/soak results is still
   required before promotion.
 
+  **2026-09-14 app-side follow-up — still not a support row.** The hand-pin-
+  entry step both runs above describe is gone: selecting the ESP32-2432S028R
+  board profile now adds the panel and its Touch node already wired to the
+  pins recorded here, holds them against board retargeting, and keeps them out
+  of the pool every other part draws from. The panel reset is modelled as tied
+  rather than as GPIO 255, and this board's default I2C bus moved to GPIO27/22
+  because GPIO21 is the backlight. None of that is bench evidence — it is the
+  app repeating what this bring-up measured — so the promotion conditions above
+  are unchanged, and the same physical unit still needs to confirm it.
+
 ## CI-covered host/platform coverage
 
 These jobs reduce risk, but they are not substitutes for manual browser or
