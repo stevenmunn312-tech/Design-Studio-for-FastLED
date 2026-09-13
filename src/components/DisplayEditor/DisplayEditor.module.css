@@ -144,6 +144,19 @@
   line-height: 1.45;
 }
 
+/* One line under the Reads picker, explaining whether this widget still mints
+   a socket on the panel. The consequence is on the canvas, not in the editor,
+   so it has to be said here. */
+.hint {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.4;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 .paletteList {
   display: grid;
   gap: 5px;

@@ -8,7 +8,8 @@ import { createControlGraph, controlReferenceCpp, type ControlReference } from '
 import { NODE_LIBRARY } from '../state/nodeLibrary'
 import { PLAYER_CONTROL_BUTTONS, type PlayerControlsEmit } from './playerControlsCpp'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
-import { customDisplayControlPlan, bindCustomDisplayControls } from './customDisplayControlGraph'
+import { customDisplayControlPlan, bindCustomDisplayControls, bindCustomDisplaySources } from './customDisplayControlGraph'
+import type { DisplaySourceExpressions } from './displaySourceExpressions'
 
 const safeId = (id: string) => id.replace(/[^a-zA-Z0-9_]/g, '_')
 
@@ -52,6 +53,14 @@ export interface TemplateControlContext {
   sampledSources?: readonly ControlReference[]
   /** The destinations that are LED outputs, and so also carry Enabled/Brightness. */
   scalarOutputIds?: ReadonlySet<string>
+  /**
+   * What this template can answer for a widget bound to the panel's source.
+   *
+   * The same table its fixed layouts read, so a Now Playing screen and a
+   * hand-drawn one cannot report the track two different ways, and a field the
+   * template has no reading for is refused on both.
+   */
+  sourceExpressions?: DisplaySourceExpressions
 }
 
 export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[], documents: DisplayDocumentRegistry | undefined, context: TemplateControlContext) {
@@ -61,6 +70,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
   const custom = customDisplayControlPlan(nodes, documents, context.widgetLabel)
   const graph = createControlGraph(nodes, edges, [...custom.sources, ...(context.sampledSources ?? [])])
   bindCustomDisplayControls(custom, graph, edges, context.widgetLabel)
+  bindCustomDisplaySources(custom, context.sourceExpressions ?? {})
   const displaySources = new Map<string, string>()
   const controls: PlayerControlsEmit[] = []
   const bundles = new Map<string, string>()

@@ -70,17 +70,50 @@ const TEMPLATE_CONTROL_ICONS: Readonly<Record<string, DisplayControlIconName>> =
   Freeze: 'freeze',
 }
 
+/**
+ * The reading a template's widget takes from the panel's own source.
+ *
+ * A Now Playing screen wired to a Music Player used to be five cables drawn
+ * from the node already plugged into the panel beside it, so these arrive bound
+ * and the template mints no socket for them. A panel with nothing wired (or a
+ * build that cannot answer the field) leaves the widget showing its own text,
+ * the same blank a fixed Now Playing layout leaves, and validation says which
+ * reading is missing.
+ *
+ * Keyed by label like `TEMPLATE_CONTROL_ICONS` above, and for the same reason:
+ * the label is the template's own presentation name and port identity still
+ * comes from the widget id. Keying it here rather than repeating a `source`
+ * property in every size variant is also what stops a portrait layout binding
+ * a field its landscape twin leaves on a wire — `displayTemplateGolden.test.ts`
+ * holds the variants in step.
+ */
+const TEMPLATE_WIDGET_SOURCES: Readonly<Record<string, string>> = {
+  Title: 'title',
+  Track: 'title',
+  Artist: 'artist',
+  Elapsed: 'elapsed',
+  Remaining: 'remaining',
+  Position: 'progress',
+  Play: 'playing',
+  Volume: 'volume',
+  Collection: 'patternName',
+}
+
 const widget = (
   type: DisplayWidgetType,
   label: string,
   bounds: readonly [number, number, number, number],
   properties?: Readonly<Record<string, DisplayWidgetProperty>>,
-): DisplayTemplateWidget => ({
-  type,
-  label,
-  bounds: { x: bounds[0], y: bounds[1], width: bounds[2], height: bounds[3] },
-  properties,
-})
+): DisplayTemplateWidget => {
+  const source = TEMPLATE_WIDGET_SOURCES[label]
+  return {
+    type,
+    label,
+    bounds: { x: bounds[0], y: bounds[1], width: bounds[2], height: bounds[3] },
+    // An explicit property wins, so a template that wants a wire can say so.
+    properties: source ? { source, ...properties } : properties,
+  }
+}
 
 /**
  * Starting layouts made of ordinary widgets. A template mints the same visible

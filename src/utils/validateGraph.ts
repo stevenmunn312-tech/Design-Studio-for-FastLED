@@ -37,8 +37,13 @@ import { CUSTOM_DISPLAY_LVGL_HEAP_BYTES } from '../codegen/customDisplayLvglCpp'
 import { customDisplayRamBytes } from '../codegen/customDisplayRam'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import { showControlRouting, showControlOutputIds } from '../codegen/showControlRouting'
-import { customDisplayMountPlan, mountedCustomDisplays, mountedSizeIssue } from '../state/mountedDisplays'
+import {
+  customDisplayMountPlan, mountedCustomDisplays, mountedSizeIssue, panelDisplaySourceKind,
+} from '../state/mountedDisplays'
 import { transportTouchRegions } from '../state/transportTouch'
+import {
+  normalSketchSourceExpressions, resolveBoundWidgets, unresolvedBindingIssue, PROBE_CLOCK_EXPR,
+} from '../codegen/displaySourceExpressions'
 import { resolveBuildMode } from '../state/buildMode'
 import {
   findPinCollisions, findI2cAddressCollisions, pinCollisionMessage,
@@ -1723,6 +1728,13 @@ export function findOutputRuntimeIssues(
  * it is built around and nothing else; a display fed from a Wave has no value
  * to show there however reasonable the wire looks on the canvas.
  */
+/** How each build path names itself in a sentence about what it cannot supply. */
+const GENERATOR_LABELS: Record<'sketch' | 'show' | 'player', string> = {
+  sketch: 'a normal sketch',
+  show: 'a generated show controller',
+  player: 'an SD player',
+}
+
 export function findDisplayGeneratorIssues(
   nodes: StudioNode[],
   edges: StudioEdge[],
@@ -1781,6 +1793,37 @@ export function findDisplayGeneratorIssues(
   // control variable it had not declared. The wire is the mistake, not the
   for (const issue of templateControls?.custom.errors ?? []) {
     if (!errors.includes(issue)) errors.push(issue)
+  }
+
+  /*
+   * Widgets reading a field this build has no source for.
+   *
+   * A warning rather than an error, and deliberately so: a binding is often a
+   * template's default — a Now Playing screen dropped on a panel before the
+   * Music Player is wired — and the widget draws its own fallback text, the
+   * same blank a fixed Now Playing layout leaves for the same missing reading.
+   * Saying it once per panel and field is enough to explain a screen that looks
+   * emptier than the editor did.
+   */
+  if (templateControls) {
+    for (const { label, field } of templateControls.custom.unresolvedSources) {
+      warnings.push(unresolvedBindingIssue(label, field, GENERATOR_LABELS[generator]))
+    }
+  } else {
+    for (const mounted of mountPlan.mounted) {
+      const document = displayDocuments?.[mounted.documentId]
+      if (!document) continue
+      // A normal sketch answers for a clock and nothing else: its Music Player
+      // renders as a black fill and a Pattern Slideshow would have built the
+      // show controller instead. The probe asks which fields the table holds,
+      // not what they emit to.
+      const kind = panelDisplaySourceKind(mounted.panel, nodes, edges)
+      const table = normalSketchSourceExpressions(kind === 'clock' ? PROBE_CLOCK_EXPR : null)
+      const unresolved = resolveBoundWidgets(mounted.panel.data.properties.widgetSources, table).unresolved
+      for (const { field } of unresolved) {
+        warnings.push(unresolvedBindingIssue(nodeLabel(mounted.panel), field, GENERATOR_LABELS.sketch))
+      }
+    }
   }
 
   // The outputs this show renders, resolved once for every panel below.

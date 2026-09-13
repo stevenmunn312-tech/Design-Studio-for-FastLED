@@ -1118,6 +1118,47 @@ describe('graphStore — custom display documents', () => {
 
   beforeEach(() => reset())
 
+  /*
+   * Which widgets read the panel's source, derived onto the node.
+   *
+   * Evaluation and all three generators work from the node, and a bound widget
+   * has no port to carry the fact — so this is the one projection that tells
+   * them. One direction only: the document is the truth and this is rewritten on
+   * every edit, so the two cannot drift. The roles come from the widget's own
+   * ports rather than being assumed to be `value`, because a Slider shows its
+   * reading on `set`.
+   */
+  it('projects bound widgets onto the panel and drops the sockets they no longer need', () => {
+    reset([node('screen', 'TransportDisplay', { displayId: 'panel' })])
+    let document = addDisplayWidget(createDisplayDocument('panel'), 'Text')
+    document = addDisplayWidget(document, 'Slider')
+    useGraphStore.getState().setDisplayDocument(document)
+    const panel = () => useGraphStore.getState().nodes.find((entry) => entry.id === 'screen')!.data as unknown as {
+      properties: Record<string, unknown>
+      inputs: { id: string }[]
+      outputs: { id: string }[]
+    }
+    expect(panel().properties.widgetSources).toEqual({})
+    expect(panel().inputs.map((port) => port.id))
+      .toEqual(['display', 'enabled', 'widget:text:value', 'widget:slider:set'])
+
+    useGraphStore.getState().setDisplayDocument({
+      ...document,
+      widgets: document.widgets.map((widget) => ({
+        ...widget,
+        properties: { ...widget.properties, source: widget.type === 'Text' ? 'title' : 'progress' },
+      })),
+    })
+    expect(panel().properties.widgetSources).toEqual({
+      text: { field: 'title', roles: ['value'] },
+      slider: { field: 'progress', roles: ['set'] },
+    })
+    expect(panel().inputs.map((port) => port.id)).toEqual(['display', 'enabled'])
+    // The control still publishes what a finger did to it: binding decides where
+    // a reading comes from, not whether a control reports itself.
+    expect(panel().outputs.map((port) => port.id)).toEqual(['widget:slider:out'])
+  })
+
   it('defaults missing workspace data to an empty registry and normalizes loaded data', () => {
     useGraphStore.getState().loadGraph([], [])
     expect(useGraphStore.getState().displayDocuments).toEqual({})

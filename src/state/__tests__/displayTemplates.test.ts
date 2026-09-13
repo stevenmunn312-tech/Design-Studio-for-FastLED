@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createDisplayDocument, displayLayoutIssues, resizeDisplayDocument } from '../displayEditor'
-import { displayDocumentPorts, displayWidgetPorts } from '../displayRegistry'
+import { displayDocumentPorts, displayWidgetIsBound } from '../displayRegistry'
+import { DISPLAY_SOURCE_FROM_GRAPH } from '../displaySourceFields'
 import {
   DISPLAY_TEMPLATES,
   displayTemplate,
@@ -93,14 +94,22 @@ describe('custom display templates', () => {
     expect(portrait.widgets[0].bounds.height).not.toBe(reflowed.height)
   })
 
-  it('inserts ordinary widgets that mint the ports they would mint one at a time', () => {
+  /*
+   * The readings arrive bound; only the controls arrive on wires.
+   *
+   * This template used to mint six input sockets on the panel, and filling them
+   * meant drawing six cables from the Music Player already wired to the panel
+   * beside them. Each reading now names a field of that source instead, so the
+   * screen works the moment it is placed. A control is unchanged: what a finger
+   * did to it is still published on a wire.
+   */
+  it('arrives with its readings bound to the panel source and its controls still on wires', () => {
     const document = applyDisplayTemplate(referenceDocument(), 'now-playing')
     const ports = displayDocumentPorts(document)
-    expect(ports.inputs.map((port) => port.id)).toEqual(
-      document.widgets.flatMap((widget) => displayWidgetPorts(widget)
-        .filter((port) => port.direction === 'input')
-        .map((port) => port.id)),
-    )
+    expect(ports.inputs).toEqual([])
+    expect(document.widgets.filter((widget) => displayWidgetIsBound(widget))
+      .map((widget) => widget.properties.source))
+      .toEqual(['title', 'artist', 'elapsed', 'remaining', 'progress', 'playing'])
     expect(ports.outputs.map((port) => port.id)).toEqual([
       'widget:button:out',
       'widget:toggle:out',
@@ -108,6 +117,43 @@ describe('custom display templates', () => {
     ])
     expect(document.widgets.find((widget) => widget.id === 'toggle')?.properties)
       .toMatchObject({ offLabel: 'Play', onLabel: 'Pause', presentation: 'text' })
+  })
+
+  /*
+   * Binding is a property, so it is reversible and the ports follow it.
+   *
+   * The socket has to come back when an author wants a computed value on that
+   * readout instead — otherwise a template's convenience would be a one-way
+   * door out of the graph.
+   */
+  it('mints the socket again for a reading switched back to the graph', () => {
+    const document = applyDisplayTemplate(referenceDocument(), 'now-playing')
+    const released = {
+      ...document,
+      widgets: document.widgets.map((widget) => (widget.id === 'text'
+        ? { ...widget, properties: { ...widget.properties, source: DISPLAY_SOURCE_FROM_GRAPH } }
+        : widget)),
+    }
+    expect(displayDocumentPorts(released).inputs.map((port) => port.id)).toEqual(['widget:text:value'])
+  })
+
+  /*
+   * A template's size variants have to agree about what is bound.
+   *
+   * The bindings are keyed by the template's own widget label rather than
+   * repeated in each composition, precisely so a portrait layout cannot bind a
+   * field its landscape twin leaves on a wire — which would make a panel's
+   * rotation quietly change which sockets it has.
+   */
+  it('binds the same fields in every size variant of a template', () => {
+    for (const template of DISPLAY_TEMPLATES) {
+      const bindings = (widgets: readonly { label: string; properties?: Readonly<Record<string, unknown>> }[]) =>
+        widgets.map((widget) => `${widget.label}=${String(widget.properties?.source ?? '')}`)
+      const expected = bindings(template.widgets)
+      for (const variant of [template.portraitWidgets, template.squareWidgets]) {
+        if (variant) expect(bindings(variant)).toEqual(expected)
+      }
+    }
   })
 
   it('uses the selected themed icon set for template controls when one is supplied', () => {

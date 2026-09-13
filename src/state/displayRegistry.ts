@@ -7,6 +7,10 @@ import type {
 } from './displayDocument'
 import { displayAsset, normalizeDisplayAssetId } from './displayAssets'
 import type { NodePort } from '../types'
+import {
+  DISPLAY_SOURCE_FROM_GRAPH, displaySourceFields, normalizeDisplaySource, type DisplaySourceField,
+} from './displaySourceFields'
+import type { DisplaySignalKind } from './displaySignal'
 
 export type DisplayClass = 'touch-tft'
 export type DisplayWidgetPortDirection = 'input' | 'output'
@@ -364,6 +368,16 @@ export function normalizeDisplayWidgetProperties(
   const result: Record<string, DisplayWidgetProperty> = {}
   const definitions = new Map(DISPLAY_WIDGET_LIBRARY[type].propertyInspector.map((item) => [item.key, item]))
   for (const [key, raw] of Object.entries(source).slice(0, maximumPropertyCount)) {
+    if (key === 'source') {
+      // Not an inspector property: which fields exist depends on what is wired
+      // into the panel, and a document cannot see that. Checked against the
+      // catalogue of every field any source offers, the way an asset id is
+      // checked against the installed pack, so a foreign or retired id is
+      // dropped here rather than persisted as a dangling binding.
+      const id = normalizeDisplaySource(raw)
+      if (id) result[key] = id
+      continue
+    }
     const definition = definitions.get(key)
     if (!definition) continue
     const control = definition.control
@@ -432,19 +446,58 @@ export function displayWidgetPorts(widget: Pick<DisplayWidget, 'id' | 'type' | '
   }))
 }
 
-/** Graph-facing ports for the outer Display node, derived only from stable
- * widget ids and registry roles. Editable labels affect presentation but never
- * cable identity. */
+/**
+ * Whether this widget reads its value from the source wired into the panel.
+ *
+ * A bound widget draws no cable, so it mints no input port. Its outputs are
+ * untouched: binding is about where a reading comes from, and a control still
+ * publishes what a finger did to it.
+ */
+export function displayWidgetIsBound(widget: Pick<DisplayWidget, 'properties'>): boolean {
+  const source = widget.properties?.source
+  return typeof source === 'string' && source !== '' && source !== DISPLAY_SOURCE_FROM_GRAPH
+}
+
+/** Whether this widget shows a reading at all, and so has something to bind. */
+export function displayWidgetTakesValue(type: DisplayWidgetType): boolean {
+  return DISPLAY_WIDGET_LIBRARY[type].portRoles.some((port) => port.direction === 'input')
+}
+
+/**
+ * The fields of the panel's source this widget could actually show.
+ *
+ * Narrowed by data type, the same exact match the Control Map picker uses and
+ * for the same reason: a track title on a Progress bar and a pattern number on
+ * a Text line are both wires that would connect and show nothing. A widget with
+ * no input role offers nothing — a Button has no reading to take.
+ */
+export function displaySourceFieldsForWidget(
+  kind: DisplaySignalKind | null | undefined,
+  type: DisplayWidgetType,
+): readonly DisplaySourceField[] {
+  const accepted = new Set(DISPLAY_WIDGET_LIBRARY[type].portRoles
+    .filter((port) => port.direction === 'input')
+    .map((port) => port.dataType))
+  if (accepted.size === 0) return []
+  return displaySourceFields(kind).filter((field) => accepted.has(field.dataType))
+}
+
+/** Graph-facing ports for the panel, derived only from stable widget ids and
+ * registry roles. Editable labels affect presentation but never cable
+ * identity, and a widget bound to the panel's own source has no input port to
+ * draw a cable into. */
 export function displayDocumentPorts(
   document: Pick<DisplayDocument, 'widgets'>,
 ): { inputs: NodePort[]; outputs: NodePort[] } {
   const inputs: NodePort[] = []
   const outputs: NodePort[] = []
   for (const widget of document.widgets) {
+    const bound = displayWidgetIsBound(widget)
     for (const port of displayWidgetPorts(widget)) {
       const resolved = { id: port.id, label: port.label, dataType: port.dataType }
-      if (port.direction === 'input') inputs.push(resolved)
-      else outputs.push(resolved)
+      if (port.direction === 'input') {
+        if (!bound) inputs.push(resolved)
+      } else outputs.push(resolved)
     }
   }
   return { inputs, outputs }

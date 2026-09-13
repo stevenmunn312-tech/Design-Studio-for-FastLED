@@ -54,7 +54,11 @@ import {
   TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit,
 } from './tftTouchCpp'
 import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './patternSelectionCpp'
-import { patternNameTableCpp, patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
+import { patternNameStringCpp, patternNameTableCpp, patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
+import {
+  bindsAnyField, DISPLAY_NAME_SOURCE_FIELDS, DISPLAY_SELECTION_SOURCE_FIELDS,
+} from './displaySourceExpressions'
+import { boundDisplaySourceFields } from './customDisplayControlGraph'
 import { transportArtworkTableCpp } from './transportArtworkCpp'
 import type { BrowserThumbnails } from '../utils/browserThumbnails'
 import type { PatternNames } from '../utils/patternNames'
@@ -64,7 +68,10 @@ import {
   stereoVuGlobalCpp, stereoVuLoopCpp,
 } from './stereoVuMeterCpp'
 import { masterShowClockLoopCpp, type MasterSpeedEmit } from './masterSpeedCpp'
-import { controlBundleVariable, showControlRouting, type ShowControlRouting } from './showControlRouting'
+import {
+  controlBundleVariable, showControlRouting, SHOW_PATTERN_INDEX, SHOW_SELECTION_STEM,
+  type ShowControlRouting,
+} from './showControlRouting'
 import { controlGraphCpp } from './controlGraph'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import { customDisplayShowCpp, type CustomDisplayAssets } from './customDisplayShowCpp'
@@ -335,19 +342,6 @@ export function buildPatternRenderers(
   }
 }
 
-/**
- * One show, one collection, one cursor.
- *
- * Same reasoning as the player's stem: a controller sketch runs exactly one
- * show, so two panels wired to it must read one selection and one thumbnail
- * table. Stem-composed symbol names (_sel_show, THUMB_COUNT_show) are derived
- * from this by both the emitting and the referencing code.
- */
-const SHOW_SELECTION_STEM = 'show'
-
-/** The show's running pattern index, readable from anywhere in the sketch. */
-const SHOW_PATTERN_INDEX = 'showPatternIndex'
-
 type ResolvedShowDisplays = ReturnType<typeof playerDisplaysFromGraph>
 
 /**
@@ -369,24 +363,33 @@ interface ShowSelectionPlan {
   commands: string | null
   /** Whether a panel names patterns, and so needs the name table in flash. */
   names: boolean
+  /** Whether a name is wanted as an expression, not into a caller's buffer. */
+  nameStrings: boolean
 }
 
 function showSelectionPlan(
   displays: ResolvedShowDisplays,
   hasArtwork: boolean,
   patternCommands: string | null,
+  boundFields: ReadonlySet<string> = new Set(),
 ): ShowSelectionPlan {
   // Naming a pattern and picturing one are different needs: a Show Status
   // panel names without picturing, so the name table follows this rather than
   // the browser's thumbnail table.
-  const names = displays.info.some((display) => display.layout === 'Pattern Browser')
+  const nameStrings = bindsAnyField(boundFields, DISPLAY_NAME_SOURCE_FIELDS)
+  const names = nameStrings
+    || displays.info.some((display) => display.layout === 'Pattern Browser')
     || displays.tft.some((display) => display.layout === 'Show Status')
   return {
-    used: names || hasArtwork || patternCommands !== null,
+    // A bound widget is one more reader of the cursor, counted here beside the
+    // fixed layouts rather than left to reference a variable no line declares.
+    used: names || hasArtwork || patternCommands !== null
+      || bindsAnyField(boundFields, DISPLAY_SELECTION_SOURCE_FIELDS),
     variable: `_sel_${SHOW_SELECTION_STEM}`,
     stem: SHOW_SELECTION_STEM,
     commands: patternCommands,
     names,
+    nameStrings,
   }
 }
 
@@ -415,6 +418,9 @@ function showSelectionCpp(plan: ShowSelectionPlan, patternCount: number, names: 
       PATTERN_SELECTION_CPP,
       `static PatternSel ${plan.variable};`,
       ...(plan.names ? [patternNameTableCpp(plan.stem, names)] : []),
+      // Only for a screen that wants the name as one expression; the fixed
+      // layouts read into their own buffers and would pay for nothing.
+      ...(plan.nameStrings ? [patternNameStringCpp(plan.stem)] : []),
     ],
     setup: [`  _selBegin(${plan.variable});`],
     // A slideshow has no split between what you are looking at and what is
@@ -776,6 +782,7 @@ export function generateShowSketch(
     resolvedDisplays.tft.some((display) => display.layout === 'Now Playing')
       && (Object.values(opts.artworks ?? {})[0] ?? []).length > 0,
     controls.patternCommands,
+    boundDisplaySourceFields(controls.custom),
   )
   const selectionCpp = showSelectionCpp(
     selection, renderers.count,

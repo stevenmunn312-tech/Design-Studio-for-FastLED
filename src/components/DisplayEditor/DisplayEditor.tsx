@@ -17,6 +17,8 @@ import {
 } from '../../state/graphStore'
 import {
   DISPLAY_WIDGET_LIBRARY,
+  displaySourceFieldsForWidget,
+  displayWidgetTakesValue,
   displayControlHitBounds,
   displayWidgetGlyphId,
   displayWidgetPorts,
@@ -61,7 +63,11 @@ import {
   displayThemePreset,
 } from '../../state/displayThemePresets'
 import { useDisplayRuntimeStore } from '../../state/displayRuntimeStore'
-import { mountedPanelGeometry, panelsShowingDocument } from '../../state/mountedDisplays'
+import {
+  documentDisplaySourceKind, mountedPanelGeometry, panelsShowingDocument,
+} from '../../state/mountedDisplays'
+import { DISPLAY_SOURCE_LABELS } from '../../state/displaySignal'
+import { DISPLAY_SOURCE_FROM_GRAPH } from '../../state/displaySourceFields'
 import { useUiStore } from '../../state/uiStore'
 import DisplayWidgetPreview from './DisplayWidgetPreview'
 import DisplayRuntimeWidgets from './DisplayRuntimeWidgets'
@@ -328,6 +334,18 @@ export default function DisplayEditor() {
   const mountedPanel = useGraphStore((state) => (displayId
     ? panelsShowingDocument(displayId, rootGraphNodes(state))[0]
     : undefined))
+  /*
+   * What the panel this design sits on is showing.
+   *
+   * A widget can read a field of that source instead of drawing a cable, so
+   * the inspector needs the source's field list. Nothing wired means no fields,
+   * which is the honest answer: the widget keeps its own text until a source
+   * arrives.
+   */
+  const sourceKind = useGraphStore((state) => (displayId
+    ? documentDisplaySourceKind(displayId, rootGraphNodes(state), rootGraphEdges(state))
+    : null))
+  const sourceLabel = sourceKind ? DISPLAY_SOURCE_LABELS[sourceKind] : ''
   const viewportRef = useRef<HTMLDivElement>(null)
   const gesture = useRef<Gesture | null>(null)
   const [draft, setDraft] = useState<DisplayDocument | null>(persisted ?? null)
@@ -920,6 +938,36 @@ export default function DisplayEditor() {
                   <label key={key}>{key}<input type="number" value={selected.bounds[key]} onChange={(event) => commit(updateDisplayWidget(document, selected.id, (widget) => ({ ...widget, bounds: { ...widget.bounds, [key]: Number(event.target.value) } })))} /></label>
                 ))}
               </div>
+              {displayWidgetTakesValue(selected.type) && (() => {
+                const fields = displaySourceFieldsForWidget(sourceKind, selected.type)
+                const source = typeof selected.properties.source === 'string' ? selected.properties.source : ''
+                const setSource = (next: string) => commit(updateDisplayWidget(document, selected.id, (widget) => ({
+                  ...widget,
+                  properties: { ...widget.properties, source: next },
+                })))
+                return (
+                  <label>Reads
+                    <select
+                      value={fields.some((field) => field.id === source) ? source : DISPLAY_SOURCE_FROM_GRAPH}
+                      onChange={(event) => setSource(event.target.value)}
+                    >
+                      <option value={DISPLAY_SOURCE_FROM_GRAPH}>A wire from the graph</option>
+                      {fields.map((field) => (
+                        <option key={field.id} value={field.id}>
+                          {sourceLabel} {field.label}
+                        </option>
+                      ))}
+                    </select>
+                    <span className={styles.hint}>
+                      {fields.length === 0
+                        ? 'Nothing is wired into this panel yet, so there are no readings to take. The widget mints a socket for a wire instead.'
+                        : source && source !== DISPLAY_SOURCE_FROM_GRAPH
+                          ? 'Taken straight from the panel’s source, so this widget mints no socket.'
+                          : 'This widget mints a socket on the panel for a wire.'}
+                    </span>
+                  </label>
+                )
+              })()}
               <div className={styles.properties}>
                 {DISPLAY_WIDGET_LIBRARY[selected.type].propertyInspector.map((property) => {
                   const value = selected.properties[property.key]

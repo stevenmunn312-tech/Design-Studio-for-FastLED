@@ -10,7 +10,8 @@
 // happens to be in hand. Reading it off the document is what let a landscape
 // design stay attached to a portrait panel.
 
-import type { StudioNode } from './graphStore'
+import type { StudioEdge, StudioNode } from './graphStore'
+import { DISPLAY_SOURCE_NODE_TYPES, type DisplaySignalKind } from './displaySignal'
 import { tftControllerForProps } from './nodeLibrary'
 import { asTftRotation, TFT_CONTROLLERS, tftRotatedSize, type TftController, type TftRotation } from './tftSurface'
 
@@ -62,6 +63,42 @@ export function mountedCustomDisplays(nodes: readonly StudioNode[]): MountedCust
       geometry: mountedPanelGeometry(panel.data.properties),
     }]
   })
+}
+
+/**
+ * What a panel is showing, without evaluating anything.
+ *
+ * One `display` edge resolved through the table the generators already read, so
+ * the editor offering fields to bind, validation reporting a field nothing can
+ * answer, and the sketch emitting the reading all agree about the source.
+ */
+export function panelDisplaySourceKind(
+  panel: StudioNode,
+  nodes: readonly StudioNode[],
+  edges: readonly StudioEdge[],
+): DisplaySignalKind | null {
+  const edge = edges.find((candidate) => candidate.target === panel.id && candidate.targetHandle === 'display')
+  if (!edge) return null
+  const source = nodes.find((node) => node.id === edge.source)
+  return (source && DISPLAY_SOURCE_NODE_TYPES[source.data.nodeType]) ?? null
+}
+
+/**
+ * What the panel showing this design is showing.
+ *
+ * The design editor's question: it has a document id and needs to know which
+ * fields a widget on it can be bound to. A design belongs to one panel, so the
+ * first (and only) panel showing it is the answer, and a design nobody has put
+ * on a panel yet offers nothing — which is the honest answer rather than a
+ * guess at where it will end up.
+ */
+export function documentDisplaySourceKind(
+  documentId: string,
+  nodes: readonly StudioNode[],
+  edges: readonly StudioEdge[],
+): DisplaySignalKind | null {
+  const panel = panelsShowingDocument(documentId, nodes)[0]
+  return panel ? panelDisplaySourceKind(panel, nodes, edges) : null
 }
 
 /** The panels a given document is mounted on, in graph order. */

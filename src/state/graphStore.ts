@@ -52,7 +52,7 @@ import {
   type DisplayDocument,
   type DisplayDocumentRegistry,
 } from './displayDocument'
-import { displayDocumentPorts } from './displayRegistry'
+import { displayDocumentPorts, displayWidgetIsBound, displayWidgetPorts } from './displayRegistry'
 import { libraryDefaults, spliceTargetPorts } from './nodeLibrary'
 import { createDisplayDocument, resizeDisplayDocument } from './displayEditor'
 import { mountedPanelGeometry } from './mountedDisplays'
@@ -1098,6 +1098,24 @@ function syncDisplayNodesInContent(
     // those, and the edge filter below then dropped the wires feeding them.
     const library = LIBRARY_DEF.get(node.data.nodeType)
     const widgetPorts = document ? displayDocumentPorts(document) : { inputs: [], outputs: [] }
+    /*
+     * Which widgets read the panel's own source, derived onto the node.
+     *
+     * The same reason the ports are derived here: evaluation and the
+     * generators work from the node, and a bound widget has no port to carry
+     * the fact. One direction only — the document is the truth and this is its
+     * projection, rewritten on every edit, so the two cannot drift.
+     */
+    const widgetSources: Record<string, { field: string; roles: string[] }> = {}
+    for (const widget of document?.widgets ?? []) {
+      if (!displayWidgetIsBound(widget)) continue
+      // The roles a cable would have fed. Derived from the widget's own ports
+      // rather than assumed to be `value`: a Slider shows its reading on `set`.
+      const roles = displayWidgetPorts(widget)
+        .filter((port) => port.direction === 'input')
+        .map((port) => port.role)
+      widgetSources[widget.id] = { field: String(widget.properties?.source), roles }
+    }
     const ports = {
       inputs: [...(library?.inputs ?? []), ...widgetPorts.inputs],
       outputs: [...(library?.outputs ?? []), ...widgetPorts.outputs],
@@ -1121,7 +1139,11 @@ function syncDisplayNodesInContent(
     })
     return {
       ...node,
-      data: { ...node.data, properties: { ...node.data.properties, displayId }, ...ports },
+      data: {
+        ...node.data,
+        properties: { ...node.data.properties, displayId, widgetSources },
+        ...ports,
+      },
     }
   })
   if (portsByNode.size === 0) return content

@@ -95,12 +95,13 @@ through the scalar control graph, which is what `controlSources` carries.
 | RTC Clock Display → Display | Clock (implemented for normal firmware) |
 | Music Player Display → Display | Now Playing or Fixed Transport |
 | Pattern Slideshow Display → Display | Show Status |
-| Custom Display document → Custom Display | Authored LVGL screen |
+| A screen design on the panel itself (`displayId`) | Authored LVGL screen |
 | Nothing | Waiting for a signal |
 
-Display and Custom Display inputs are exclusive. Connecting either removes the
-other content edge through `completeConnection`. `customdisplay` is a distinct
-data type, so OLED/segment panels cannot accept a custom document.
+A panel owns the screen drawn on it, so there is no second content input and no
+mount edge to make exclusive: `displayId` names the design and the `display`
+wire names the source its widgets read. A panel with both draws the design and
+feeds it from that source.
 
 `tftLayout` is a presentation choice within the connected source's treatments;
 it cannot choose another source's content. `transportLayoutForKind` resolves it.
@@ -118,6 +119,70 @@ needs no bake, no trust decision and no flash budget, so a TFT-only show still
 names what it plays. Cursor emission is derived from every consumer — browser,
 Show Status, artwork, and anything commanding it — rather than from OLED
 presence.
+
+### Readings without wires
+
+A widget can name a **field** of the source wired into the panel instead of
+minting a socket and waiting for a cable. A Now Playing screen with five
+readings was otherwise five cables drawn from the Music Player already plugged
+into the panel beside them — the values were there, just not offered.
+
+The field catalogue is derived, not restated: `state/displaySourceFields.ts`
+maps the player's fields from `SONG_INFO_PORTS`, so a field added to a track
+report is offered on a screen the same day and cannot be offered under a name
+nothing publishes. `displaySourceFieldsForWidget` narrows by data type the way
+the Control Map picker does, and for the same reason — a track title on a
+progress bar is a connection that would show nothing.
+
+Four things read one `source` property:
+
+| Reader | What it does with it |
+| --- | --- |
+| `displayDocumentPorts` | A bound widget mints no input port |
+| `syncDisplayNodesInContent` | Projects `widgetSources` onto the panel node |
+| `graphEvaluator` | Publishes the field out of the live envelope |
+| The three generators | Emit the expression their build can answer with |
+
+The projection is what makes the rest work: evaluation and every generator work
+from the node, and a bound widget has no port to carry the fact. It is one
+direction only — the document is the truth, the projection is rewritten on every
+edit — so the two cannot drift.
+
+Which fields a build can answer is a fact about the *generator*, so each owns a
+table beside its routing walk rather than in its emitter, because validation and
+the asset hook resolve bindings through that same walk:
+
+| Build | Table | Answers |
+| --- | --- | --- |
+| Normal sketch | `normalSketchSourceExpressions` | The clock, through the same `_rtcClockText`/`_rtcDateText` helpers the fixed Clock layout uses |
+| SD player | `PLAYER_SOURCE_EXPRESSIONS` | `PLAYER_SONG_EXPRESSIONS` plus its own selection |
+| Generative show | `SHOW_SOURCE_EXPRESSIONS` | The pattern it is running, from the one cursor the pixels already follow |
+
+A bound **pattern name** is the one reading that costs flash, so it turns the
+name table and the cursor on the way a Pattern Browser does
+(`DISPLAY_NAME_SOURCE_FIELDS` / `DISPLAY_SELECTION_SOURCE_FIELDS`), and
+`patternNameStringCpp` wraps the buffer reader in the smallest thing that
+returns a pointer, since a widget binding is one expression with nowhere to put
+a declaration.
+
+A field a build cannot answer is a **warning**, not an error: the widget draws
+its own text — the same blank a fixed Now Playing layout leaves for the same
+missing reading — and `unresolvedBindingIssue` names the field and the build.
+This is deliberately weaker than the stance taken on a *cable*, which is refused
+outright, because a binding is often a template's default rather than something
+somebody wired wrong.
+
+Templates bind through `TEMPLATE_WIDGET_SOURCES`, keyed by the template's own
+widget label like `TEMPLATE_CONTROL_ICONS` beside it, so a portrait composition
+cannot bind a field its landscape twin leaves on a wire — which would make a
+panel's rotation quietly change which sockets it has.
+
+`normalizeDisplaySource` is the import boundary, and deliberately cannot ask
+which source is wired in: a document has no panel in hand, and a design saved
+against a player then moved to a slideshow keeps the binding it was drawn with
+rather than having it erased. It validates against every field any source
+offers — the relationship `normalizeDisplayAssetId` has with the installed pack
+— and the wired source's own gaps are reported at build time instead.
 
 ## Reporting state
 

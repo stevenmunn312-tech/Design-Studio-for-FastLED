@@ -3,8 +3,37 @@ import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import { SONG_INFO_PORTS } from '../state/songInfo'
 import { PLAYER_SONG_EXPRESSIONS } from './playerSongInfoCpp'
 import { templateControlRouting } from './templateControlRouting'
+import { playerSourceExpressions } from './displaySourceExpressions'
 import { controlReferenceCpp, type ControlReference } from './controlGraph'
 import { DISPLAY_TEXT_BUFFER_BYTES } from '../state/displayText'
+
+/**
+ * One player, one cursor, one collection.
+ *
+ * Stem-composed symbol names (_sel_player, THUMB_COUNT_player) are derived from
+ * this by both the emitting and the referencing code.
+ */
+export const PLAYER_SELECTION_STEM = 'player'
+
+/**
+ * What an SD player can answer for a widget bound to its panel's source.
+ *
+ * The track it is holding, from the one table the fixed layouts already read,
+ * plus the pattern it is rendering. It lives beside the routing walk rather
+ * than in the sketch generator because validation, the asset hook and the
+ * sketch all resolve their bindings through this one walk — a table held by the
+ * generator alone would have had the other two reporting every bound field as
+ * unanswerable.
+ */
+export const PLAYER_SOURCE_EXPRESSIONS = playerSourceExpressions(PLAYER_SONG_EXPRESSIONS, {
+  // Counted from one, matching what the browser publishes and what a person
+  // reading "3 of 12" expects.
+  indexExpr: `((float)(_sel_${PLAYER_SELECTION_STEM}.active + 1))`,
+  countExpr: '((float)PATTERN_COUNT)',
+  nameExpr: `_patNameStr_${PLAYER_SELECTION_STEM}(_sel_${PLAYER_SELECTION_STEM}.active)`,
+  highlightNameExpr: `_patNameStr_${PLAYER_SELECTION_STEM}(_sel_${PLAYER_SELECTION_STEM}.highlight)`,
+  browsingExpr: `_selBrowsing(_sel_${PLAYER_SELECTION_STEM})`,
+})
 
 /** Only the Music Player this template runs owns runtime song sources. */
 export function playerControlGraph(
@@ -28,6 +57,7 @@ export function playerControlGraph(
   const routing = templateControlRouting(nodes, edges, documents, {
     label: 'an SD player', widgetLabel: 'the SD player',
     destinationIds: new Set(master ? [master.id] : []), sampledSources: sources,
+    sourceExpressions: PLAYER_SOURCE_EXPRESSIONS,
   })
   for (const output of nodes.filter((node) => node.data.nodeType === 'MatrixOutput')) {
     if (edges.some((edge) => edge.target === output.id && ['enabled', 'brightness', 'controls'].includes(edge.targetHandle ?? ''))) {

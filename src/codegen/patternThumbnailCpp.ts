@@ -20,7 +20,7 @@
 import {
   THUMBNAIL_W, THUMBNAIL_H, THUMBNAIL_BYTES, type PatternThumbnail,
 } from '../state/patternThumbnail'
-import { cppStringLiteral, displayString } from '../state/displayText'
+import { cppStringLiteral, displayString, DISPLAY_TEXT_BUFFER_BYTES } from '../state/displayText'
 
 /** Identifier-safe stem so several collections cannot collide in one sketch. */
 function stem(id: string): string {
@@ -70,6 +70,30 @@ static void _patName_${s}_read(char *dst, size_t dstSize, uint16_t index) {
   strncpy_P(dst, (const char *)pgm_read_ptr(&_patNames_${s}[index]), dstSize - 1);
   dst[dstSize - 1] = 0;
 }`}
+`
+}
+
+/**
+ * The same name, as an expression rather than into a caller's buffer.
+ *
+ * The fixed layouts declare a local buffer and read into it, because they are
+ * already emitting a block of statements. A bound widget is handed to
+ * `_cdSetText` as one expression with nowhere to put a declaration, so this
+ * wraps the reader in the smallest thing that returns a pointer.
+ *
+ * One shared buffer is safe because `_cdSetText` copies what it is given
+ * before the next publish line runs: two widgets naming two patterns each read
+ * their own value in turn rather than both seeing the last one. Emitted only
+ * when something calls it, so a build with no bound name pays neither the
+ * buffer nor an unused-function warning.
+ */
+export function patternNameStringCpp(id: string): string {
+  const s = stem(id)
+  return `static char _patNameStr_${s}_buf[${DISPLAY_TEXT_BUFFER_BYTES}];
+static const char *_patNameStr_${s}(uint16_t index) {
+  _patName_${s}_read(_patNameStr_${s}_buf, sizeof(_patNameStr_${s}_buf), index);
+  return _patNameStr_${s}_buf;
+}
 `
 }
 

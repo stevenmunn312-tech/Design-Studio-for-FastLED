@@ -4,7 +4,8 @@ import { useDmxStore } from './dmxStore'
 import { useHardwareInputStore } from './hardwareInputStore'
 import { useTransportDisplayTouchStore } from './transportDisplayTouchStore'
 import { useDisplayRuntimeStore, type DisplayRuntimeValue } from './displayRuntimeStore'
-import { parseDisplayWidgetPortId } from './displayRegistry'
+import { parseDisplayWidgetPortId, type DisplayWidgetPortRoleId } from './displayRegistry'
+import { readDisplaySourceField } from './displaySourceFields'
 import { useMidiStore } from './midiStore'
 import { blankDmxSnapshot, clampDmxChannel, clampDmxByte, type DmxSnapshot } from './dmx'
 import { rtcPreviewSnapshot, type RtcPreview } from './rtc'
@@ -7566,6 +7567,29 @@ function createEvalNode(
             const value = input(id, port.id, null)
             if (value === null || Array.isArray(value)) continue
             runtime.publishDisplayRoleValue(designId, parsed.widgetId, parsed.role, value as DisplayRuntimeValue)
+          }
+          /*
+           * Widgets reading the panel's own source rather than a cable.
+           *
+           * The values were already here — the source is wired to this very
+           * node for the fixed layouts to draw — so a Now Playing screen needs
+           * no wires at all. A field this source does not carry publishes
+           * nothing rather than a zero, so a screen wired to a slideshow shows
+           * its blank where a track title would be instead of claiming one.
+           */
+          const bindings = props.widgetSources
+          if (bindings && typeof bindings === 'object') {
+            for (const [widgetId, binding] of Object.entries(bindings as Record<string, unknown>)) {
+              const entry = binding as { field?: unknown; roles?: unknown }
+              const value = readDisplaySourceField(signal, String(entry?.field ?? ''))
+              if (value === null) continue
+              const roles = Array.isArray(entry?.roles) ? entry.roles : ['value']
+              for (const role of roles) {
+                runtime.publishDisplayRoleValue(
+                  designId, widgetId, role as DisplayWidgetPortRoleId, value as DisplayRuntimeValue,
+                )
+              }
+            }
           }
         }
 

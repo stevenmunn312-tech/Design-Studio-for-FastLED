@@ -8,6 +8,7 @@ import { controlReferenceCpp, type ControlReference, type createControlGraph } f
 import { customDisplayId } from './customDisplayId'
 import { customDisplayPanelFromProps } from './customDisplayPanelCpp'
 import { customDisplayLvglOutputExpression, type CustomDisplayLvglEmit, type CustomDisplayLvglBinding } from './customDisplayLvglCpp'
+import { resolveBoundWidgets, type DisplaySourceExpressions } from './displaySourceExpressions'
 
 /** One widget output snapshot, before it is known whether it needs a gate. */
 export interface CustomDisplaySample {
@@ -48,6 +49,13 @@ export function customDisplayControlPlan(
   generatorLabel = 'the show',
 ) {
   const errors: string[] = [], sources: ControlReference[] = []
+  // Bindings this generator has no reading for. Separate from `errors` on
+  // purpose: a cable the user drew into a field the build cannot answer is a
+  // mistake worth refusing, but a *binding* is often a template's default —
+  // a Now Playing screen placed on a panel with no player wired yet. The
+  // screen draws its own fallback text, exactly as the fixed layouts do for
+  // the same missing reading, and validation says so without blocking a build.
+  const unresolvedSources: { label: string; field: string }[] = []
   const symbols = new Set<string>()
   // The one mounted-screen walk, shared with deploy validation, the RAM
   // estimate and the normal generator. It also answers the two shapes this
@@ -100,9 +108,13 @@ export function customDisplayControlPlan(
       if (!expression) errors.push(`${label}.${port.label}: this widget has no firmware output.`)
       samples.push({ type: port.dataType, variable: controlReferenceCpp(reference), expression: expression ?? '' })
     }
-    return [{ nodeId: node.id, documentId, panelNodeId: panelNode.id, label, enabled, ports, emit, panel, bindings, samples }]
+    return [{ nodeId: node.id, documentId, panelNodeId: panelNode.id, label, enabled, ports, emit, panel, bindings, samples,
+      // The panel's projection of which widgets read its source rather than a
+      // cable. Kept rather than resolved here: which fields have a reading is
+      // the generator's fact, not the plan's.
+      widgetSources: panelNode.data.properties.widgetSources }]
   })
-  return { displays, errors, sources }
+  return { displays, errors, sources, unresolvedSources }
 }
 
 export function bindCustomDisplayControls(plan: ReturnType<typeof customDisplayControlPlan>, graph: ReturnType<typeof createControlGraph>, edges: StudioEdge[], generatorLabel = 'the show'): void {
@@ -127,4 +139,41 @@ export function bindCustomDisplayControls(plan: ReturnType<typeof customDisplayC
       bindings.push({ role: port.role, expression: controlReferenceCpp(reference) })
     }
   }
+}
+
+/**
+ * Bind the widgets that read the panel's source instead of a cable.
+ *
+ * The cable half above walks edges; this walks the projection the graph store
+ * keeps on the panel, and asks the generator's own table for a reading. A
+ * field the generator cannot answer is recorded by name rather than filled in,
+ * and the widget keeps its own fallback — the same blank the fixed layouts
+ * leave for a reading their build has no source for.
+ */
+export function bindCustomDisplaySources(
+  plan: ReturnType<typeof customDisplayControlPlan>,
+  expressions: DisplaySourceExpressions,
+): void {
+  for (const display of plan.displays) {
+    const resolved = resolveBoundWidgets(display.widgetSources, expressions)
+    for (const bound of resolved.bindings) {
+      const bindings = display.bindings[bound.widgetId] ?? (display.bindings[bound.widgetId] = [])
+      bindings.push({ role: bound.role as CustomDisplayLvglBinding['role'], expression: bound.expression })
+    }
+    for (const { field } of resolved.unresolved) {
+      plan.unresolvedSources.push({ label: display.label, field })
+    }
+  }
+}
+
+/** Every source field bound on any screen in this plan. */
+export function boundDisplaySourceFields(plan: ReturnType<typeof customDisplayControlPlan>): Set<string> {
+  const fields = new Set<string>()
+  for (const display of plan.displays) {
+    for (const entry of Object.values((display.widgetSources ?? {}) as Record<string, { field?: unknown }>)) {
+      const field = String(entry?.field ?? '')
+      if (field) fields.add(field)
+    }
+  }
+  return fields
 }

@@ -269,6 +269,49 @@ matrix, not a reason to postpone testing earlier changes.
   section says so rather than implying it exists.
 
 
+- [x] **HW-30 · Widgets read the panel's source (M; part of the control
+  restructure).** Done. *A reading is a field, not a cable.* A widget can name a
+  field of the source wired into its panel — the inspector's **Reads** row, one
+  select listing what that source carries, narrowed by data type the way the
+  Control Map picker is — and a bound widget mints no socket. Five cables from a
+  Music Player already plugged into the panel beside a Now Playing screen is what
+  this removes, and the eight templates arrive bound
+  (`TEMPLATE_WIDGET_SOURCES`, keyed by the template's own label so a portrait
+  composition cannot bind a field its landscape twin leaves on a wire).
+
+  The field catalogue is derived rather than restated: the player's fields come
+  from `SONG_INFO_PORTS`, so one added to a track report is offered on a screen
+  the same day. One `source` property is read by four things — the port list, the
+  `widgetSources` projection onto the panel node, the evaluator, and the
+  generators — and the projection is what makes the rest work, since evaluation
+  and every generator work from the node and a bound widget has no port to carry
+  the fact.
+
+  Which fields a build can answer is a fact about the generator, so each owns its
+  table beside its routing walk rather than in its emitter — validation and the
+  asset-bake hook resolve bindings through that same walk, and a table held by
+  the generator alone had both of them reporting every bound field as
+  unanswerable. A normal sketch answers for the clock through the same
+  `_rtcClockText` helpers the fixed Clock layout uses, so a bound time widget and
+  a Clock screen beside it cannot format the hour two different ways; the player
+  answers from `PLAYER_SONG_EXPRESSIONS`; the show answers from the one cursor
+  the pixels already follow. A bound pattern *name* is the one reading that costs
+  flash, so it turns the name table and the cursor on exactly the way a Pattern
+  Browser does.
+
+  A field a build cannot answer is a **warning**, not an error — deliberately
+  weaker than the stance on a cable, which is refused: the widget draws its own
+  text, the same blank a fixed Now Playing layout leaves for the same missing
+  reading, and the message names the field and the build. Making it an error
+  would have blocked an upload for a template dropped on a panel before its
+  player was wired.
+
+  Still open, and the last piece of the restructure: the screen designer offering
+  a **mapped** set of templates first, chosen by what the panel is wired to.
+  `npm test` (4,952 tests), `npm run lint` and `tsc -b` pass; no compile run is
+  claimed — the new firmware is the name-string reader and the bound expressions,
+  and HW-13's matrix is where they get built.
+
 - [x] **HW-07 · Connected authoring (M; after HW-04/05).** Exits met; the
   connected starters and visual/help pass are HW-08's scope, not this item's.
 
@@ -317,9 +360,10 @@ matrix, not a reason to postpone testing earlier changes.
   a missed one on a wrong wire. `npm test` (4,608 tests), `npm run lint` and
   `tsc -b` pass.
 
-  Exit met: actions and readings are traceable in visible edges — the mount
-  cable, the widget ports and the control chain are all ordinary wires — and no
-  template introduces a hidden binding.
+  Exit met: actions and readings are traceable — the widget ports and the
+  control chain are ordinary wires, and a reading taken from the panel's own
+  source instead of a cable says so in one place, the widget's **Reads** row in
+  the inspector (HW-30). No template carries a binding that is not shown there.
 - [ ] **HW-08 · Starters, visual QA and help (M; after HW-07).** Connected live
   dimming, slideshow browse/confirm and music transport/readback examples;
   update in-app Help, descriptions/cards and guides together. Snapshot fixed

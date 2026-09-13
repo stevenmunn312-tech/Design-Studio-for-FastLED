@@ -82,6 +82,7 @@ import {
 } from './customDisplayPanelCpp'
 import { displayDocumentPorts, parseDisplayWidgetPortId } from '../state/displayRegistry'
 import { customDisplayMountPlan } from '../state/mountedDisplays'
+import { normalSketchSourceExpressions, resolveBoundWidgets } from './displaySourceExpressions'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import type { BakedCustomDisplayAsset } from '../state/customDisplayResources'
 import { customDisplayAssetsCpp } from './customDisplayAssetsCpp'
@@ -1298,6 +1299,22 @@ function rtcHelperCpp(): string[] {
     "    case 'D': return 12;",
     "    default: return 0;",
     '  }',
+    '}',
+    '',
+    '// One clock, formatted one way. A widget bound to the time and a fixed',
+    '// Clock screen beside it must not disagree about what the hour looks like.',
+    'const char *_rtcClockText(const _RtcDateTime &dt) {',
+    '  static char text[16];',
+    '  if (!dt.valid) { snprintf(text, sizeof(text), "--:--:--"); return text; }',
+    '  snprintf(text, sizeof(text), "%02d:%02d:%02d", (int)dt.hour, (int)dt.minute, (int)dt.second);',
+    '  return text;',
+    '}',
+    '',
+    'const char *_rtcDateText(const _RtcDateTime &dt) {',
+    '  static char text[16];',
+    '  if (!dt.valid) { text[0] = 0; return text; }',
+    '  snprintf(text, sizeof(text), "%04d-%02d-%02d", (int)dt.year, (int)dt.month, (int)dt.day);',
+    '  return text;',
     '}',
     '',
     'bool _rtcParseBuildStamp(const char *dateStr, const char *timeStr, _RtcDateTime &out) {',
@@ -5115,6 +5132,16 @@ export function generateCpp(
         // the panel is called.
         const documentId = String(p.displayId ?? '')
         const document = documentId ? opts.displayDocuments?.[documentId] : undefined
+        // What this sketch can answer for a bound widget. A clock, and nothing
+        // else: a Music Player in a normal sketch renders as a black fill, so
+        // its fields are the same blanks the fixed layouts below leave.
+        const panelDisplayUp = incoming.get(`${node.id}:display`)
+        const panelSourceKind = panelDisplayUp
+          ? DISPLAY_SOURCE_NODE_TYPES[String(nodeMap.get(panelDisplayUp.srcId)?.data.nodeType ?? '')]
+          : null
+        const panelClockExpr = panelSourceKind === 'clock' && panelDisplayUp
+          ? `n_${safeId(panelDisplayUp.srcId)}_dateTime`
+          : null
 
         if (document && customDisplayOwners.has(node.id)) {
           const docId = safeId(documentId)
@@ -5135,6 +5162,18 @@ export function generateCpp(
             if (expr === null) continue
             const bindings = bindingsByWidget[parsed.widgetId] ?? (bindingsByWidget[parsed.widgetId] = [])
             bindings.push({ role: parsed.role, expression: expr })
+          }
+          /*
+           * Widgets reading the panel's own source rather than a cable.
+           *
+           * A normal sketch can answer for a clock and nothing else: a Music
+           * Player in one renders as a black fill, so its fields are the same
+           * blanks the fixed layouts above already leave. A field this sketch
+           * has no reading for is reported by name rather than filled in.
+           */
+          for (const bound of resolveBoundWidgets(p.widgetSources, normalSketchSourceExpressions(panelClockExpr)).bindings) {
+            const bindings = bindingsByWidget[bound.widgetId] ?? (bindingsByWidget[bound.widgetId] = [])
+            bindings.push({ role: bound.role as CustomDisplayLvglBinding['role'], expression: bound.expression })
           }
 
           const custom: CustomDisplayLvglEmit = {

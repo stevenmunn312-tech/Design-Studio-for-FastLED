@@ -170,6 +170,55 @@ describe('custom Display node evaluation', () => {
     expect(runtime().readDisplayWidget('panel', 'slider')?.roleValues.get('set')).toBe(0.9)
   })
 
+  /*
+   * A widget reading the panel's source publishes without a cable.
+   *
+   * The values were already on this node — the source is wired here for the
+   * fixed layouts to draw — so the readings a Now Playing screen wants needed
+   * five cables from a player already plugged in beside it. `widgetSources` is
+   * the graph store's projection of which widget reads which field, and the
+   * roles come from the widget's own ports rather than being assumed to be
+   * `value`: a Slider shows its reading on `set`.
+   */
+  it('publishes a bound widget from the source wired into the panel', () => {
+    const nodes = [
+      node('screen', 'TransportDisplay', {
+        displayId: 'panel', partId: 'st7789v-xpt2046-touch-240x320',
+        widgetSources: {
+          text: { field: 'time', roles: ['value'] },
+          slider: { field: 'second', roles: ['set'] },
+        },
+      }, { inputs: [{ id: 'display', label: 'Display', dataType: 'display' }], outputs: [] }),
+      node('rtc', 'RTCInput'),
+    ]
+    const edges = [edge('e-clock', 'rtc', 'display', 'screen', 'display')]
+    evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true)
+    const time = runtime().readDisplayWidget('panel', 'text')?.roleValues.get('value')
+    expect(typeof time).toBe('string')
+    expect(time).toMatch(/^\d\d:\d\d:\d\d$/)
+    expect(typeof runtime().readDisplayWidget('panel', 'slider')?.roleValues.get('set')).toBe('number')
+  })
+
+  /*
+   * A field the wired source does not carry publishes nothing.
+   *
+   * Not a zero and not an empty string: a screen drawn against a player and
+   * then moved to a clock has to show its own blank where a track title would
+   * be, rather than claim the clock is playing something.
+   */
+  it('publishes nothing for a field this source does not carry', () => {
+    const nodes = [
+      node('screen', 'TransportDisplay', {
+        displayId: 'panel', partId: 'st7789v-xpt2046-touch-240x320',
+        widgetSources: { text: { field: 'title', roles: ['value'] } },
+      }, { inputs: [{ id: 'display', label: 'Display', dataType: 'display' }], outputs: [] }),
+      node('rtc', 'RTCInput'),
+    ]
+    const edges = [edge('e-clock', 'rtc', 'display', 'screen', 'display')]
+    evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true)
+    expect(runtime().readDisplayWidget('panel', 'text')).toBeUndefined()
+  })
+
   // Run mode and the mounted panel thumbnail paint these values now, so a
   // wired display and its upstream inputs are sampled on every preview frame.
   it('publishes wired display readings on every preview frame', () => {

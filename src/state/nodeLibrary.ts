@@ -4362,6 +4362,9 @@ export const INTERNAL_PROPERTY_KEYS: ReadonlySet<string> = new Set([
   // hardware shelf, which is also where a different module is chosen, so the
   // id itself is never something to type.
   'partId',
+  // Which widgets read the panel's own source rather than a cable. Projected
+  // from the screen design on every edit, never typed.
+  'widgetSources',
   // Which Display Panel a Touch node is the glass of. The two are one physical
   // module and are added together; the node says which panel in words.
   'panelId',

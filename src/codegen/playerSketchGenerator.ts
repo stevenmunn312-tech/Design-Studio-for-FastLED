@@ -32,7 +32,12 @@ import {
   tftDisplayHelpersCpp, TFT_DISPLAY_CPP_FORWARD, tftDisplayGlobalCpp,
   tftDisplaySetupCpp, tftDisplayLoopCpp, type TftDisplayEmit,
 } from './tftDisplayCpp'
-import { patternNameTableCpp, patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
+import { patternNameStringCpp, patternNameTableCpp, patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
+import { PLAYER_SELECTION_STEM } from './playerControlGraph'
+import {
+  bindsAnyField, DISPLAY_NAME_SOURCE_FIELDS, DISPLAY_SELECTION_SOURCE_FIELDS,
+} from './displaySourceExpressions'
+import { boundDisplaySourceFields } from './customDisplayControlGraph'
 import { TRANSITION_HELPER_CPP } from './transitionHelperCpp'
 import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './patternSelectionCpp'
 import { TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit } from './tftTouchCpp'
@@ -42,7 +47,6 @@ import type { TransportArtworks } from '../utils/transportArtworks'
 import { transportArtworkTableCpp } from './transportArtworkCpp'
 
 /** The player's own selection. A player sketch has exactly one show. */
-const PLAYER_SELECTION_STEM = 'player'
 import {
   SEGMENT_DISPLAY_CPP_HELPERS, SEGMENT_DISPLAY_CPP_FORWARD, segmentDisplayGlobalCpp,
   segmentDisplaySetupCpp, segmentDisplayLoopCpp,
@@ -752,7 +756,13 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
   // The player cursor belongs to the player, not to whichever panel happens
   // to show it. Physical pattern controls need the same state even when there
   // is no OLED Pattern Browser in the build.
+  // A widget bound to the panel's source is one more reader of the cursor,
+  // counted here beside the fixed layouts rather than left to reference a
+  // variable no line declares.
+  const boundFields = graphRouting ? boundDisplaySourceFields(graphRouting.custom) : new Set<string>()
+  const boundNames = bindsAnyField(boundFields, DISPLAY_NAME_SOURCE_FIELDS)
   const hasPatternSelection = browserEmits.length > 0 || hasPatternControls || hasTftArtwork
+    || bindsAnyField(boundFields, DISPLAY_SELECTION_SOURCE_FIELDS)
   const infoEmits = displays.info.map((display) => ({
     id: safePlayerId(display.id),
     controller: display.controller,
@@ -891,9 +901,12 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
       : '',
     // Names are keyed the same way and emitted beside the pictures, but from
     // their own source: a collection too large to picture still has names.
-    browserEmits.length > 0
+    browserEmits.length > 0 || boundNames
       ? patternNameTableCpp(PLAYER_SELECTION_STEM, Object.values(opts.patternNames ?? {})[0] ?? [])
       : '',
+    // Only for a screen that wants the name as one expression; the fixed
+    // layouts read into their own buffers and would pay for nothing.
+    boundNames ? patternNameStringCpp(PLAYER_SELECTION_STEM) : '',
     hasPatternSelection ? `static PatternSel _sel_${PLAYER_SELECTION_STEM};` : '',
     hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_HELPERS : '',
     hasSegmentDisplays ? segmentEmits.map(segmentDisplayGlobalCpp).join('\n') : '',
