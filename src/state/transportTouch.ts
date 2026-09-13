@@ -13,10 +13,26 @@ export interface TouchCalibration {
   xMax: number
   yMin: number
   yMax: number
+  /**
+   * Whether the digitiser counts *up* in the opposite direction to the panel.
+   *
+   * A range cannot say this — `xMin`/`xMax` are the two readings the glass
+   * produces at its edges, and which edge is which is a separate fact. The
+   * repository's own CYD reads 3850 at the left and 290 at the right with USB
+   * at the bottom, so a bounds-only calibration mapped every press to the
+   * mirror of where it happened and there was no way to say so.
+   *
+   * Kept beside the bounds rather than folded into them (as a descending
+   * `xMin > xMax` would) so the stored numbers stay honest: a minimum holding
+   * the larger value breaks the sliders that show it, the validation that
+   * checks it and anyone reading the saved project.
+   */
+  flipX?: boolean
+  flipY?: boolean
 }
 
 export const DEFAULT_XPT2046_CALIBRATION: TouchCalibration = {
-  xMin: 200, xMax: 3900, yMin: 200, yMax: 3900,
+  xMin: 200, xMax: 3900, yMin: 200, yMax: 3900, flipX: false, flipY: false,
 }
 
 export interface TouchPoint { x: number; y: number }
@@ -125,13 +141,78 @@ export function touchCalibrationFromSamples(
   }))
   const x = representatives.map((point) => point.x)
   const y = representatives.map((point) => point.y)
+  const [topLeft, topRight, bottomRight, bottomLeft] = representatives
+  /*
+   * Direction, from the corners themselves.
+   *
+   * The bounds are symmetric — min and max say nothing about which edge
+   * produced which — but the run knows which corner it asked for, so the
+   * direction is free. Both opposite edges are averaged rather than one
+   * sampled, since a slightly skewed press on a single corner would otherwise
+   * decide the answer on its own.
+   */
+  const acrossX = ((topRight.x - topLeft.x) + (bottomRight.x - bottomLeft.x)) / 2
+  const downY = ((bottomLeft.y - topLeft.y) + (bottomRight.y - topRight.y)) / 2
   const result = {
     xMin: Math.min(...x),
     xMax: Math.max(...x),
     yMin: Math.min(...y),
     yMax: Math.max(...y),
+    flipX: acrossX < 0,
+    flipY: downY < 0,
   }
   return result.xMin < result.xMax && result.yMin < result.yMax ? result : null
+}
+
+/**
+ * The two readings to map between, low end first, with the flip applied.
+ *
+ * Flipping a linear map is the same as swapping its endpoints, so this is
+ * where a reversed axis becomes ordinary arithmetic — one helper rather than
+ * the same conditional in the browser mapper and three generators, which is
+ * exactly the shape of thing that drifts. The two sides then differ only in
+ * language.
+ */
+export function orientedTouchSpan(
+  low: number,
+  high: number,
+  flipped: boolean | undefined,
+): { from: number; to: number } {
+  return flipped ? { from: high, to: low } : { from: low, to: high }
+}
+
+/** A Touch node's stored calibration, defaults filled in and clamped. */
+export function touchCalibrationFromProps(
+  properties: Record<string, unknown> | undefined,
+): TouchCalibration {
+  const raw = (key: string, fallback: number) => {
+    const value = Math.round(Number(properties?.[key] ?? fallback))
+    return Number.isFinite(value) ? Math.max(0, Math.min(4095, value)) : fallback
+  }
+  return {
+    xMin: raw('touchXMin', DEFAULT_XPT2046_CALIBRATION.xMin),
+    xMax: raw('touchXMax', DEFAULT_XPT2046_CALIBRATION.xMax),
+    yMin: raw('touchYMin', DEFAULT_XPT2046_CALIBRATION.yMin),
+    yMax: raw('touchYMax', DEFAULT_XPT2046_CALIBRATION.yMax),
+    flipX: properties?.touchFlipX === true,
+    flipY: properties?.touchFlipY === true,
+  }
+}
+
+/**
+ * The four numbers a generator emits, oriented.
+ *
+ * Named `from`/`to` rather than min/max because after a flip the first is the
+ * larger — the stored property keeps the honest name, the emitted argument
+ * carries the direction.
+ */
+export function emittedTouchBounds(properties: Record<string, unknown> | undefined): {
+  xFrom: number; xTo: number; yFrom: number; yTo: number
+} {
+  const calibration = touchCalibrationFromProps(properties)
+  const x = orientedTouchSpan(calibration.xMin, calibration.xMax, calibration.flipX)
+  const y = orientedTouchSpan(calibration.yMin, calibration.yMax, calibration.flipY)
+  return { xFrom: x.from, xTo: x.to, yFrom: y.from, yTo: y.to }
 }
 
 /** Feed one parsed serial reading into the currently armed corner. */
@@ -163,9 +244,10 @@ export function captureTouchCalibrationSample(
   }
 }
 
-function calibrated(raw: number, low: number, high: number, pixels: number): number {
-  if (!Number.isFinite(raw) || !Number.isFinite(low) || !Number.isFinite(high) || high <= low || pixels <= 1) return 0
-  const unit = Math.max(0, Math.min(1, (raw - low) / (high - low)))
+/** `from` may exceed `to`: a reversed axis is a descending span, not an error. */
+function calibrated(raw: number, from: number, to: number, pixels: number): number {
+  if (!Number.isFinite(raw) || !Number.isFinite(from) || !Number.isFinite(to) || from === to || pixels <= 1) return 0
+  const unit = Math.max(0, Math.min(1, (raw - from) / (to - from)))
   return Math.round(unit * (pixels - 1))
 }
 
@@ -181,8 +263,10 @@ export function mapTransportTouch(
     || !Number.isFinite(calibration.xMin) || !Number.isFinite(calibration.xMax)
     || !Number.isFinite(calibration.yMin) || !Number.isFinite(calibration.yMax)
     || calibration.xMax <= calibration.xMin || calibration.yMax <= calibration.yMin) return null
-  const x = calibrated(rawX, calibration.xMin, calibration.xMax, controller.width)
-  const y = calibrated(rawY, calibration.yMin, calibration.yMax, controller.height)
+  const xSpan = orientedTouchSpan(calibration.xMin, calibration.xMax, calibration.flipX)
+  const ySpan = orientedTouchSpan(calibration.yMin, calibration.yMax, calibration.flipY)
+  const x = calibrated(rawX, xSpan.from, xSpan.to, controller.width)
+  const y = calibrated(rawY, ySpan.from, ySpan.to, controller.height)
   switch (rotation) {
     case '90': return { x: controller.height - 1 - y, y: x }
     case '180': return { x: controller.width - 1 - x, y: controller.height - 1 - y }

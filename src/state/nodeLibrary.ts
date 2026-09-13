@@ -2785,6 +2785,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       touchXMax: 3900,
       touchYMin: 200,
       touchYMax: 3900,
+      // Which way the digitiser counts, which a range cannot say. Measured by
+      // Calibrate touch, never typed: it is a fact about the glass.
+      touchFlipX: false,
+      touchFlipY: false,
     },
   },
   {
@@ -4443,6 +4447,8 @@ export const FORMULA_LANG_HELP = 'Variables: x, y, t, cx, cy, r, angle, W, H, a,
 export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, string>> = {
   TouchInput: {
     touchXMin: 'Measured raw X minimum for this touch module (0-4095). Use Calibrate touch rather than typing these.',
+    touchFlipX: 'Set when this digitiser reads its X axis right-to-left. Measured by Calibrate touch.',
+    touchFlipY: 'Set when this digitiser reads its Y axis bottom-to-top. Measured by Calibrate touch.',
     touchXMax: 'Measured raw X maximum for this touch module (0-4095).',
     touchYMin: 'Measured raw Y minimum for this touch module (0-4095).',
     touchYMax: 'Measured raw Y maximum for this touch module (0-4095).',

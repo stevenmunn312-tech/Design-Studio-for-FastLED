@@ -12,6 +12,7 @@ import {
   retryTouchCalibrationCorner,
   touchCalibrationFromSamples,
   touchRegionAt,
+  type TouchCalibrationCorner,
   transportTouchRegions,
 } from '../transportTouch'
 
@@ -115,6 +116,54 @@ describe('guided touch calibration', () => {
     return next
   }
 
+  /*
+   * The repository's own CYD, from the bench record: raw X runs right-to-left
+   * with USB at the bottom, raw Y top-to-bottom. A bounds-only calibration
+   * cannot say this — min and max are the same two numbers either way — so
+   * every press mapped to the mirror of where it happened and the run looked
+   * like a success.
+   */
+  const reversedX = {
+    topLeft: { x: 3850, y: 100 },
+    topRight: { x: 290, y: 105 },
+    bottomRight: { x: 295, y: 3640 },
+    bottomLeft: { x: 3840, y: 3630 },
+  } as const
+
+  function fourCorners(at: Record<TouchCalibrationCorner, { x: number; y: number }>) {
+    return Object.fromEntries(TOUCH_CALIBRATION_CORNERS.map(({ id }) => [
+      id,
+      Array.from({ length: TOUCH_CALIBRATION_SAMPLES_PER_CORNER }, () => at[id]),
+    ])) as Record<TouchCalibrationCorner, { x: number; y: number }[]>
+  }
+
+  it('reads the axis direction out of the corners it asked for', () => {
+    const result = touchCalibrationFromSamples(fourCorners(reversedX))
+    // The bounds are unchanged — direction is the fact they cannot carry.
+    expect(result).toMatchObject({ xMin: 290, xMax: 3850, flipX: true, flipY: false })
+  })
+
+  it('calls an ordinary panel neither way round', () => {
+    expect(touchCalibrationFromSamples(fourCorners(points)))
+      .toMatchObject({ flipX: false, flipY: false })
+  })
+
+  // The reason the flag exists: without it the left edge answers as the right.
+  it('maps a reversed axis to the side the finger was on', () => {
+    const calibration = touchCalibrationFromSamples(fourCorners(reversedX))!
+    const controller = TFT_CONTROLLERS.ST7789V
+    const left = mapTransportTouch(reversedX.topLeft.x, reversedX.topLeft.y, controller, '0', calibration)
+    const right = mapTransportTouch(reversedX.topRight.x, reversedX.topRight.y, controller, '0', calibration)
+    expect(left!.x).toBe(0)
+    expect(right!.x).toBe(controller.width - 1)
+
+    // And the same bounds without the flag land on the opposite sides, which
+    // is exactly what the bench saw.
+    const blind = { ...calibration, flipX: false }
+    expect(mapTransportTouch(reversedX.topLeft.x, reversedX.topLeft.y, controller, '0', blind)!.x)
+      .toBe(controller.width - 1)
+  })
+
   it('ignores readings until the current corner is armed', () => {
     const capture = captureTouchCalibrationSample(createTouchCalibrationCapture(), { x: 200, y: 200 })
     expect(capture.samples.topLeft).toEqual([])
@@ -128,7 +177,9 @@ describe('guided touch calibration', () => {
       capture = fillCurrent(capture)
     }
     expect(capture.phase).toBe('complete')
-    expect(capture.result).toEqual({ xMin: 215, xMax: 3890, yMin: 205, yMax: 3885 })
+    expect(capture.result).toEqual({
+      xMin: 215, xMax: 3890, yMin: 205, yMax: 3885, flipX: false, flipY: false,
+    })
   })
 
   it('rejects out-of-range readings and lets a captured corner be retried', () => {
