@@ -129,7 +129,7 @@ describe('NodeGraphCanvas start screen', () => {
     expect(canvasContextMenuProps.flowPosition).toEqual(useUiStore.getState().viewCenter)
   })
 
-  it('gives the graph, nodes, and connections descriptive accessible names', () => {
+  it('gives the graph, nodes, and connections descriptive accessible names', async () => {
     useGraphStore.getState().loadGraph([
       {
         id: 'source',
@@ -163,13 +163,24 @@ describe('NodeGraphCanvas start screen', () => {
     expect(reactFlowProps['aria-label']).toBe('Node graph editor')
     expect(reactFlowProps.nodes).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'source', ariaLabel: 'Solid Color node. 1 input, 1 output.' }),
-      expect.objectContaining({ id: 'output', ariaLabel: 'LED Matrix node. 4 inputs, 0 outputs.' }),
+      // Frame and Controls. Enabled and Brightness are property inputs: they
+      // are fields until exposed, and counting sockets nobody can see sends a
+      // keyboard user hunting for two that are not there.
+      expect.objectContaining({ id: 'output', ariaLabel: 'LED Matrix node. 2 inputs, 0 outputs.' }),
     ]))
     expect(reactFlowProps.edges).toEqual([
       expect.objectContaining({
         ariaLabel: 'Connection from Solid Color Frame output to LED Matrix Frame input.',
       }),
     ])
+    // A saved graph that uses one of those sockets still announces it, the
+    // same rule that keeps a wired socket drawn.
+    useGraphStore.setState({ edges: [...useGraphStore.getState().edges, {
+      id: 'dim', source: 'source', sourceHandle: 'frame', target: 'output', targetHandle: 'brightness',
+    }] })
+    await waitFor(() => expect(reactFlowProps.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'output', ariaLabel: 'LED Matrix node. 3 inputs, 0 outputs.' }),
+    ])))
   })
 
   it('folds a selected microphone source into its Audio node', () => {

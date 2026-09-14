@@ -32,6 +32,7 @@ import { findSignalRangeHints } from '../../utils/validateGraph'
 import { useUiStore } from '../../state/uiStore'
 import { usePatternLibrary } from '../../state/patternLibrary'
 import { NODE_LIBRARY, CATEGORY_COLOR, nodeDisplayLabel, portsCompatible, spliceTargetPorts } from '../../state/nodeLibrary'
+import { exposedPropertyInputs, propertyInputsFor } from '../../state/propertyInputs'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import StudioNode from './StudioNode'
 import GlowEdge from './GlowEdge'
@@ -70,6 +71,7 @@ function saveViewport(vp: Viewport) {
 }
 
 const SNAP_GRID: [number, number] = [20, 20]
+const EMPTY_HANDLES: ReadonlySet<string> = new Set()
 
 // How close (in flow units) a dropped node must land to a noodle to splice into
 // it, and fallback node dimensions when a node hasn't been measured yet.
@@ -1017,6 +1019,18 @@ function NodeGraphCanvasInner() {
 
   const spliceEdgeId = spliceCue?.edgeId ?? null
   const focusedNodes = useMemo(() => signalPathFor(edges, selectedNodeId), [edges, selectedNodeId])
+  // Which of each node's inputs are wired, so a property socket a saved graph
+  // uses is counted as present even when it was never explicitly exposed.
+  const wiredInputs = useMemo(() => {
+    const wired = new Map<string, Set<string>>()
+    for (const edge of edges) {
+      if (!edge.target || !edge.targetHandle) continue
+      const ports = wired.get(edge.target) ?? new Set<string>()
+      ports.add(edge.targetHandle)
+      wired.set(edge.target, ports)
+    }
+    return wired
+  }, [edges])
   const accessibleNodes = useMemo(() => nodes.map((node) => {
     const data = node.data as {
       label?: string
@@ -1024,9 +1038,19 @@ function NodeGraphCanvasInner() {
       properties?: Record<string, unknown>
       inputs?: AccessiblePort[]
       outputs?: AccessiblePort[]
+      exposedInputs?: string[]
     }
     const label = nodeDisplayLabel(data.nodeType ?? '', data.properties ?? {}, data.label ?? data.nodeType ?? 'Untitled')
-    const inputs = data.inputs?.length ?? 0
+    // Count the sockets actually drawn, not the ports the library declares: a
+    // property input is a field until it is exposed, and announcing four
+    // sockets on a node showing one sends a keyboard user hunting for three.
+    const declared = data.inputs ?? []
+    const propertyInputs = propertyInputsFor(data.nodeType ?? '')
+    const inputs = propertyInputs.length === 0
+      ? declared.length
+      : declared.filter((port) => !propertyInputs.some((property) => property.id === port.id)).length
+        + exposedPropertyInputs(data.nodeType ?? '', data.exposedInputs,
+          wiredInputs.get(node.id) ?? EMPTY_HANDLES).length
     const outputs = data.outputs?.length ?? 0
     return {
       ...node,
@@ -1044,7 +1068,7 @@ function NodeGraphCanvasInner() {
       // something the moment the pulse ends undoes the thing you asked for.
       zIndex: node.id === selectedNodeId ? 1000 : undefined,
     }
-  }), [nodes, selectedNodeId])
+  }), [nodes, selectedNodeId, wiredInputs])
   const accessibleNodeInfo = useMemo(() => new Map(nodes.map((node) => {
     const data = node.data as {
       label?: string
