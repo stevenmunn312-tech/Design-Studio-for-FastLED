@@ -39,7 +39,12 @@ const screen = (props: Record<string, unknown> = {}) => node('screen', 'Transpor
     { id: 'widget:text:value', label: 'Title', dataType: 'string' },
     { id: 'widget:slider:set', label: 'Volume Set', dataType: 'float' },
   ],
+  outputs: [],
+})
+
+const touch = (id = 'touch', panelId = 'screen') => node(id, 'TouchInput', { panelId }, {
   outputs: [
+    { id: 'controls', label: 'Controls', dataType: 'playercontrols' },
     { id: 'widget:slider:out', label: 'Volume Output', dataType: 'float' },
     { id: 'widget:button:out', label: 'Skip', dataType: 'bool' },
   ],
@@ -48,6 +53,7 @@ const screen = (props: Record<string, unknown> = {}) => node('screen', 'Transpor
 const graph = () => ({
   nodes: [
     screen(),
+    touch(),
     node('title', 'TextValue', { text: 'Aurora Drift' }),
     node('level', 'Math', { mathOp: 'add', a: 0.5, b: 0.25 }),
   ],
@@ -68,7 +74,7 @@ describe('custom Display node evaluation', () => {
     const { nodes, edges } = graph()
     runtime().touchDisplayWidget('panel', 'slider', 0.25)
 
-    const outputs = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true).outputs.get('screen')!
+    const outputs = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true).outputs.get('touch')!
 
     expect(runtime().readDisplayWidget('panel', 'text')?.roleValues.get('value')).toBe('Aurora Drift')
     expect(runtime().readDisplayWidget('panel', 'slider')?.roleValues.get('set')).toBe(0.75)
@@ -77,7 +83,7 @@ describe('custom Display node evaluation', () => {
   })
 
   it('rests an untouched control at its type value and leaves unwired roles unpublished', () => {
-    const outputs = evaluateGraphFull([screen()], [], 1, 8, 8, {}, true).outputs.get('screen')!
+    const outputs = evaluateGraphFull([screen(), touch()], [], 1, 8, 8, {}, true).outputs.get('touch')!
 
     // The panel's own readings ride on the same object, so the widget values
     // are checked by name rather than by comparing the whole output.
@@ -92,8 +98,8 @@ describe('custom Display node evaluation', () => {
     runtime().touchDisplayWidget('panel', 'slider', 0.25)
     runtime().releaseDisplayWidget('panel', 'slider')
 
-    const first = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true).outputs.get('screen')!
-    const second = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true).outputs.get('screen')!
+    const first = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true).outputs.get('touch')!
+    const second = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true).outputs.get('touch')!
 
     expect(first['widget:slider:out']).toBe(0.25)
     expect(second['widget:slider:out']).toBe(0.75)
@@ -104,7 +110,7 @@ describe('custom Display node evaluation', () => {
     nodes[0] = screen({ enabled: false })
     runtime().touchDisplayWidget('panel', 'slider', 0.25)
 
-    const outputs = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true).outputs.get('screen')!
+    const outputs = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true).outputs.get('touch')!
 
     expect(outputs['widget:slider:out']).toBe(0)
     expect(runtime().readDisplayWidget('panel', 'text')).toBeUndefined()
@@ -120,15 +126,16 @@ describe('custom Display node evaluation', () => {
   it('carries the sampled touch value around a loop through one screen', () => {
     const nodes = [
       screen(),
+      touch(),
       // Wired to the slider's own Set: the registry's synchronized control.
       node('sync', 'Math', { mathOp: 'add', a: 0, b: 0.25 }),
       // Wired to a different widget: an ordinary panel loop, equally valid.
       node('cross', 'Math', { mathOp: 'add', a: 0, b: 1 }),
     ]
     const edges = [
-      edge('e-out', 'screen', 'widget:slider:out', 'sync', 'a'),
+      edge('e-out', 'touch', 'widget:slider:out', 'sync', 'a'),
       edge('e-set', 'sync', 'result', 'screen', 'widget:slider:set'),
-      edge('e-cross-in', 'screen', 'widget:button:out', 'cross', 'a'),
+      edge('e-cross-in', 'touch', 'widget:button:out', 'cross', 'a'),
       edge('e-cross-out', 'cross', 'result', 'screen', 'widget:text:value'),
     ]
     runtime().touchDisplayWidget('panel', 'slider', 0.5)
@@ -137,7 +144,7 @@ describe('custom Display node evaluation', () => {
     useDisplayRuntimeStore.setState({ sampleDisplayWidgetOutput: sample })
     let outputs: Record<string, unknown>
     try {
-      outputs = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true).outputs.get('screen')!
+      outputs = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true).outputs.get('touch')!
     } finally {
       useDisplayRuntimeStore.setState({ sampleDisplayWidgetOutput: originalSample })
     }
@@ -155,13 +162,13 @@ describe('custom Display node evaluation', () => {
     const second: StudioNode = {
       ...first,
       id: 'screen-b',
-      data: { ...first.data, properties: { displayId: 'deck' } },
+      data: { ...first.data, properties: { ...first.data.properties, displayId: 'deck' } },
     }
-    const nodes = [first, second, node('link', 'Math', { mathOp: 'add', a: 0, b: 0 })]
+    const nodes = [first, touch(), second, touch('touch-b', 'screen-b'), node('link', 'Math', { mathOp: 'add', a: 0, b: 0 })]
     const edges = [
-      edge('e-a-out', 'screen', 'widget:slider:out', 'link', 'a'),
+      edge('e-a-out', 'touch', 'widget:slider:out', 'link', 'a'),
       edge('e-b-set', 'link', 'result', 'screen-b', 'widget:slider:set'),
-      edge('e-b-out', 'screen-b', 'widget:slider:out', 'screen', 'widget:slider:set'),
+      edge('e-b-out', 'touch-b', 'widget:slider:out', 'screen', 'widget:slider:set'),
     ]
     runtime().touchDisplayWidget('panel', 'slider', 0.4)
     runtime().touchDisplayWidget('deck', 'slider', 0.9)

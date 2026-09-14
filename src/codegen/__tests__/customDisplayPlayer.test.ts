@@ -27,6 +27,7 @@ const groups = { pattern: { nodes: [node('fill', 'SolidColor'), node('end', 'Gro
 const panel = (id: string, properties: Record<string, unknown> = {}) => node(id, 'TransportDisplay', {
   partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', displayId: 'screen', ...properties,
 })
+const touch = (panelId = 'tft', id = `${panelId}-touch`) => node(id, 'TouchInput', { panelId })
 function document(id = 'screen') {
   let doc = createDisplayDocument(id, 240, 320)
   for (const type of ['Slider', 'Button', 'Text', 'Progress', 'Timecode'] as const) doc = addDisplayWidget(doc, type)
@@ -44,11 +45,11 @@ const generate = (nodes: StudioNode[], edges: StudioEdge[], collection = true) =
 
 describe('custom displays in SD-player firmware', () => {
   it.each([false, true])('runs widget controls and publishes track readouts with or without collection renderers (%s)', (collection) => {
-    const nodes = [panel('tft'), node('song', 'SongInfo'), node('controls', 'ControlMap', {
+    const nodes = [panel('tft'), touch(), node('song', 'SongInfo'), node('controls', 'ControlMap', {
       controls: ['brightness', 'playPause'], debounceMs: 0,
     }), node('math', 'Math', { mathOp: 'multiply', b: 0.5 })]
-    const edges = [edge('tft', 'widget:slider:out', 'math', 'a'), edge('math', 'result', 'controls', 'brightness'),
-      edge('tft', 'widget:button:out', 'controls', 'playPause'), edge('controls', 'controls', 'player', 'controls'),
+    const edges = [edge('tft-touch', 'widget:slider:out', 'math', 'a'), edge('math', 'result', 'controls', 'brightness'),
+      edge('tft-touch', 'widget:button:out', 'controls', 'playPause'), edge('controls', 'controls', 'player', 'controls'),
       // The track report is opened by a Song Info node now; the player itself
       // publishes one envelope rather than a port per field.
       edge('player', 'display', 'song', 'display'),
@@ -68,7 +69,7 @@ describe('custom displays in SD-player firmware', () => {
     expect(loop).toContain('float n_song_progress = songProgress();')
     expect(loop).toContain('float n_song_elapsed = songElapsedSec();')
     expect(loop).not.toContain('n_song_album')
-    const ordered = ['if (provTransferring) return;', 'lv_indev_read(_cdIndev_tft)', 'float n_tft_widget_slider_out',
+    const ordered = ['if (provTransferring) return;', 'lv_indev_read(_cdIndev_tft)', 'float n_tft_touch_widget_slider_out',
       'float n_math_result', 'n_controls_controls.hasBrightness = true;', 'if (n_controls_controls.playPause && audio.pauseResume())', 'audio.loop();']
     const offsets = ordered.map((part) => loop.indexOf(part))
     expect(offsets.every((offset) => offset >= 0)).toBe(true)
@@ -84,8 +85,8 @@ describe('custom displays in SD-player firmware', () => {
   })
 
   it('keeps synchronized volume normalized to the player control setting under an amplifier cap', () => {
-    const cpp = generate([panel('tft'), node('song', 'SongInfo'), node('controls', 'ControlMap', { controls: ['volume'] })], [
-      edge('tft', 'widget:slider:out', 'controls', 'volume'), edge('controls', 'controls', 'player', 'controls'),
+    const cpp = generate([panel('tft'), touch(), node('song', 'SongInfo'), node('controls', 'ControlMap', { controls: ['volume'] })], [
+      edge('tft-touch', 'widget:slider:out', 'controls', 'volume'), edge('controls', 'controls', 'player', 'controls'),
       edge('player', 'display', 'song', 'display'), edge('song', 'volume', 'tft', 'widget:slider:set'),
     ])
     expect(cpp).toContain('lroundf(playerVolume * 6)')
@@ -95,13 +96,13 @@ describe('custom displays in SD-player firmware', () => {
   })
 
   it('shares scalar computations between widget readouts and chained controls', () => {
-    const nodes = [panel('tft'), node('map', 'MapRange'), node('format', 'FormatNumber'),
+    const nodes = [panel('tft'), touch(), node('map', 'MapRange'), node('format', 'FormatNumber'),
       node('first', 'ControlMap', { controls: ['volume'] }),
       node('last', 'ControlMap', { controls: ['next'], debounceMs: 55 }), node('button', 'ButtonInput', { pin: 12, pullup: false }),
       node('fixed', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Fixed Transport' }),
       // Touch leaves through its own node now; the panel has no outputs.
       node('fixed-touch', 'TouchInput', { panelId: 'fixed' })]
-    const edges = [edge('tft', 'widget:slider:out', 'map', 'value'), edge('map', 'result', 'format', 'value'),
+    const edges = [edge('tft-touch', 'widget:slider:out', 'map', 'value'), edge('map', 'result', 'format', 'value'),
       edge('format', 'text', 'tft', 'widget:text:value'),
       edge('map', 'result', 'first', 'volume'), edge('fixed-touch', 'controls', 'first', 'controlsIn'),
       edge('first', 'controls', 'last', 'controlsIn'), edge('button', 'pressed', 'last', 'next'),
@@ -128,7 +129,7 @@ describe('custom displays in SD-player firmware', () => {
       [panel('tft'), node('text', 'TextValue')],
       [edge('text', 'text', 'tft', 'widget:slider:set')],
     )).toThrow('requires float')
-    expect(() => generate([panel('tft')], [edge('tft', 'widget:slider:out', 'out', 'brightness')])).toThrow('Control Map')
+    expect(() => generate([panel('tft'), touch()], [edge('tft-touch', 'widget:slider:out', 'out', 'brightness')])).toThrow('Control Map')
   })
 
   it('uses identical prepared asset bytes for measurement and the actual upload payload', () => {

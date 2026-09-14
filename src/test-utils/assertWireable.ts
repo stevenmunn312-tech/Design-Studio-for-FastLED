@@ -25,6 +25,7 @@ const DEFINITIONS = new Map(NODE_LIBRARY.map((definition) => [definition.type, d
 function effectivePorts(
   node: WireableNode,
   documents: DisplayDocumentRegistry,
+  nodesById: ReadonlyMap<string, WireableNode>,
 ): { inputs: readonly { id: string }[]; outputs: readonly { id: string }[] } {
   const definition = DEFINITIONS.get(node.data.nodeType)
   const properties = node.data.properties ?? {}
@@ -42,6 +43,15 @@ function effectivePorts(
     const document = displayId ? documents[displayId] : undefined
     const widgetPorts = document ? displayDocumentPorts(document) : { inputs: [], outputs: [] }
     inputs = [...inputs, ...widgetPorts.inputs]
+  }
+  if (node.data.nodeType === 'TouchInput') {
+    const panelId = String(properties.panelId ?? '')
+    const panel = panelId ? nodesById.get(panelId) : undefined
+    const displayId = panel?.data.nodeType === 'TransportDisplay'
+      ? String(panel.data.properties.displayId ?? '')
+      : ''
+    const document = displayId ? documents[displayId] : undefined
+    const widgetPorts = document ? displayDocumentPorts(document) : { inputs: [], outputs: [] }
     outputs = [...outputs, ...widgetPorts.outputs]
   }
 
@@ -74,7 +84,7 @@ export function assertWireable(
     if (!source) {
       issues.push(`Edge "${edge.id}" names missing source node "${edge.source}".`)
     } else {
-      const ports = effectivePorts(source, displayDocuments).outputs
+      const ports = effectivePorts(source, displayDocuments, byId).outputs
       const handle = edge.sourceHandle ?? ''
       if (!ports.some((port) => port.id === handle)) {
         issues.push(
@@ -88,7 +98,7 @@ export function assertWireable(
     if (!target) {
       issues.push(`Edge "${edge.id}" names missing target node "${edge.target}".`)
     } else {
-      const ports = effectivePorts(target, displayDocuments).inputs
+      const ports = effectivePorts(target, displayDocuments, byId).inputs
       const handle = edge.targetHandle ?? ''
       if (!ports.some((port) => port.id === handle)) {
         issues.push(

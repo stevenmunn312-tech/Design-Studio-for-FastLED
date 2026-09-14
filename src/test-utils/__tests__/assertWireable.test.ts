@@ -49,21 +49,22 @@ describe('assertWireable', () => {
     )).toThrow('available inputs: controlsIn, playPause, add-control')
   })
 
-  it('derives panel widget ports from the display document', () => {
+  it('derives panel widget inputs and touch widget outputs from the display document', () => {
     let document = createDisplayDocument('screen', 240, 320)
     document = addDisplayWidget(document, 'Slider')
     const panel = node('panel', 'TransportDisplay', { displayId: 'screen' })
+    const touch = node('touch', 'TouchInput', { panelId: 'panel' })
     const math = node('math', 'Math')
 
     assertWireable(
-      [panel, math],
-      [edge('slider', 'panel', 'widget:slider:out', 'math', 'a')],
+      [panel, touch, math],
+      [edge('slider', 'touch', 'widget:slider:out', 'math', 'a')],
       { screen: document },
     )
     expect(() => assertWireable(
-      [panel, math],
-      [edge('missing-document', 'panel', 'widget:slider:out', 'math', 'a')],
-    )).toThrow('available outputs: (none)')
+      [panel, touch, math],
+      [edge('missing-document', 'touch', 'widget:slider:out', 'math', 'a')],
+    )).toThrow('available outputs: controls')
   })
 
   it('reports every impossible endpoint in one failure', () => {

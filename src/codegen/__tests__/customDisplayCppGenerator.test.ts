@@ -64,6 +64,8 @@ function panel(id = 'tft', overrides: Record<string, unknown> = {}): StudioNode 
   })
 }
 
+const touch = (panelId = 'tft', id = `${panelId}-touch`) => node(id, 'TouchInput', { panelId })
+
 const output = node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4, chipset: 'WS2812B', colorOrder: 'GRB' })
 const title = node('title', 'TextValue', { text: 'Aurora Drift' })
 
@@ -115,19 +117,19 @@ describe('normal-sketch codegen for the custom Display node', () => {
     const edges = [
       edge('e-title', 'title', 'text', 'tft', 'widget:text:value'),
       edge('e-frame', 'title', 'text', 'out', 'frame'), // irrelevant wire, keeps `out` reachable trivially; real frame wiring not needed for this assertion
-      edge('e-enable', 'tft', 'widget:toggle:out', 'out', 'enabled'),
+      edge('e-enable', 'tft-touch', 'widget:toggle:out', 'out', 'enabled'),
       ]
-    const src = generateCpp([output, panel(), title], edges, {}, { displayDocuments: documents })
+    const src = generateCpp([output, panel(), touch(), title], edges, {}, { displayDocuments: documents })
 
     // The widget's `value` role reads the upstream string variable directly.
     expect(src).toContain('_cdSetText(_cd_screen[1], n_title_text);')
     // The widget's `out` role becomes an ordinary declared node output,
     // still keyed by the document node — the panel it happens to be wired
     // to today has no bearing on the wire's own identity.
-    expect(src).toMatch(/bool n_tft_widget_toggle_out = _cdBoolOutput\(_cd_screen\[0\]\);/)
+    expect(src).toMatch(/bool n_tft_touch_widget_toggle_out = _cdBoolOutput\(_cd_screen\[0\]\);/)
     // ...which the LED output reads through the exact same mechanism any
     // other node's bool output would be read through.
-    expect(src).toContain('n_tft_widget_toggle_out')
+    expect(src).toContain('n_tft_touch_widget_toggle_out')
   })
 
   it('names the finished struct before any function definition, needing no forward declaration for its own panel struct', () => {
@@ -181,15 +183,15 @@ describe('normal-sketch codegen for the custom Display node', () => {
 
   it('samples all widget outputs before scalar feedback and publishes after evaluation', () => {
     const wideDoc = addDisplayWidget(document(), 'Slider')
-    const nodes = [panel(), node('math', 'Math', { mathOp: 'multiply', b: 0.5 }),
+    const nodes = [panel(), touch(), node('math', 'Math', { mathOp: 'multiply', b: 0.5 }),
       node('format', 'FormatNumber'), output]
-    const edges = [edge('a', 'tft', 'widget:slider:out', 'math', 'a'),
+    const edges = [edge('a', 'tft-touch', 'widget:slider:out', 'math', 'a'),
       edge('b', 'math', 'result', 'format', 'value'), edge('c', 'format', 'text', 'tft', 'widget:text:value'),
       edge('d', 'math', 'result', 'tft', 'widget:slider:set'), edge('e', 'math', 'result', 'out', 'brightness')]
     // Deliberately stale copied ports: the document remains authoritative.
     const cpp = generateCpp(nodes, edges, {}, { displayDocuments: { screen: wideDoc } })
     const loop = cpp.slice(cpp.indexOf('void loop() {'))
-    const order = ['lv_indev_read(_cdIndev_tft)', 'float n_tft_widget_slider_out =',
+    const order = ['lv_indev_read(_cdIndev_tft)', 'float n_tft_touch_widget_slider_out =',
       'float n_math_result =', '_dsFormatNumber(n_format_text,', 'FastLED.show();',
       '_cdSetText(_cd_screen[1], n_format_text);', '_cdServiceLvgl();'].map((text) => loop.indexOf(text))
     expect(order.every((index) => index >= 0)).toBe(true)
@@ -205,29 +207,29 @@ describe('normal-sketch codegen for the custom Display node', () => {
    * rest — and the panel is still built, so it can be turned back on.
    */
   it('holds a disabled panel dark, untouched and at rest', () => {
-    const on = generateCpp([output, panel()], [], {}, { displayDocuments: documents })
-    const off = generateCpp([output, panel('tft', { enabled: false })], [], {}, { displayDocuments: documents })
+    const on = generateCpp([output, panel(), touch()], [], {}, { displayDocuments: documents })
+    const off = generateCpp([output, panel('tft', { enabled: false }), touch()], [], {}, { displayDocuments: documents })
     expect(off).not.toEqual(on)
     expect(off).toContain('static bool _cdPanelOn_tft = false;')
     expect(off).toContain('if (_cdPanel_tft.bl != 255) digitalWrite(_cdPanel_tft.bl, _cdPanelOn_tft ? HIGH : LOW);')
     expect(off).toContain('if (_cdPanelOn_tft) lv_indev_read(_cdIndev_tft);')
-    expect(off).toContain('bool n_tft_widget_toggle_out = _cdPanelOn_tft ? (_cdBoolOutput')
+    expect(off).toContain('bool n_tft_touch_widget_toggle_out = _cdPanelOn_tft ? (_cdBoolOutput')
     // Still built, so re-enabling has something to switch on.
     expect(off).toContain('lv_init();')
     // An always-on panel pays nothing for the gate.
     expect(on).toContain('static bool _cdPanelOn_tft = true;')
     expect(on).toContain('  lv_indev_read(_cdIndev_tft);')
-    expect(on).toContain('bool n_tft_widget_toggle_out = _cdBoolOutput')
+    expect(on).toContain('bool n_tft_touch_widget_toggle_out = _cdBoolOutput')
   })
 
   // The wire is the same signal as the property, and reaches the same latch.
   it('takes a wired Enabled as the panel gate', () => {
     const button = node('btn', 'ButtonInput', { pin: 12 }, { outputs: [{ id: 'pressed', label: 'Pressed', dataType: 'bool' }] })
-    const src = generateCpp([output, panel(), button],
+    const src = generateCpp([output, panel(), touch(), button],
       [edge('gate', 'btn', 'pressed', 'tft', 'enabled')], {}, { displayDocuments: documents })
     expect(src).toContain('_cdPanelOn_tft = _cdOn_tft;')
     expect(src).toContain('if (_cdPanelOn_tft) lv_indev_read(_cdIndev_tft);')
-    expect(src).toContain('bool n_tft_widget_toggle_out = _cdPanelOn_tft ? (_cdBoolOutput')
+    expect(src).toContain('bool n_tft_touch_widget_toggle_out = _cdPanelOn_tft ? (_cdBoolOutput')
   })
 
   it('keeps one widget snapshot across native output passes and cross-screen feedback', () => {
@@ -235,17 +237,17 @@ describe('normal-sketch codegen for the custom Display node', () => {
     const strip = node('strip', 'MatrixOutput', { form: 'strip', ledCount: 16, dataPin: 6 })
     const fill = node('fill', 'SolidColor')
     const edges = [edge('a', 'fill', 'frame', 'out', 'frame'), edge('b', 'fill', 'frame', 'strip', 'frame'),
-      edge('c', 'tft', 'widget:toggle:out', 'other-tft', 'widget:toggle:set'),
-      edge('d', 'other-tft', 'widget:toggle:out', 'tft', 'widget:toggle:set')]
-    const cpp = generateCpp([output, strip, panel(), otherPanel, fill], edges, {},
+      edge('c', 'tft-touch', 'widget:toggle:out', 'other-tft', 'widget:toggle:set'),
+      edge('d', 'other-tft-touch', 'widget:toggle:out', 'tft', 'widget:toggle:set')]
+    const cpp = generateCpp([output, strip, panel(), touch(), otherPanel, touch('other-tft'), fill], edges, {},
       { displayDocuments: { screen: document(), other: document() } })
     const loop = cpp.slice(cpp.indexOf('void loop() {'))
-    expect(cpp).toContain('static bool n_tft_widget_toggle_out;')
+    expect(cpp).toContain('static bool n_tft_touch_widget_toggle_out;')
     expect(cpp).toContain('float renderOutputPass(float t) {')
-    expect(loop.indexOf('lv_indev_read(_cdIndev_other_tft)')).toBeLessThan(loop.indexOf('n_tft_widget_toggle_out ='))
-    expect(loop.indexOf('n_other_tft_widget_toggle_out =')).toBeLessThan(loop.indexOf('renderOutputPass<'))
+    expect(loop.indexOf('lv_indev_read(_cdIndev_other_tft)')).toBeLessThan(loop.indexOf('n_tft_touch_widget_toggle_out ='))
+    expect(loop.indexOf('n_other_tft_touch_widget_toggle_out =')).toBeLessThan(loop.indexOf('renderOutputPass<'))
     expect(loop.indexOf('FastLED.show();')).toBeLessThan(loop.indexOf('_cdServiceLvgl();'))
-    expect(loop.match(/n_tft_widget_toggle_out =/g)).toHaveLength(1)
+    expect(loop.match(/n_tft_touch_widget_toggle_out =/g)).toHaveLength(1)
   })
 
   /*

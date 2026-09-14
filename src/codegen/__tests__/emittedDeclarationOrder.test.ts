@@ -46,6 +46,7 @@ const panel = (id: string, properties: Record<string, unknown> = {}) => node(id,
   sckPin: 12, mosiPin: 11, misoPin: 13, csPin: 14, dcPin: 9, resetPin: 8, backlightPin: 7,
   ...properties,
 })
+const touch = (panelId = 'tft', id = `${panelId}-touch`) => node(id, 'TouchInput', { panelId })
 
 /**
  * Every `n_<node>_<port>` local the loop reads, paired with where it is set.
@@ -107,11 +108,11 @@ describe('emitted declaration order', () => {
   it('orders a panel whose own widget output feeds back into it', () => {
     const nodes = [
       node('board', 'Board'), node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4 }),
-      panel('tft'), node('math', 'Math', { mathOp: 'multiply', b: 0.5 }), node('fill', 'SolidColor'),
+      panel('tft'), touch(), node('math', 'Math', { mathOp: 'multiply', b: 0.5 }), node('fill', 'SolidColor'),
     ]
     const edges = [
       edge('fill', 'frame', 'out', 'frame'),
-      edge('tft', 'widget:slider:out', 'math', 'a'),
+      edge('tft-touch', 'widget:slider:out', 'math', 'a'),
       edge('math', 'result', 'tft', 'widget:slider:set'),
     ]
     expect(() => generateCpp(nodes, edges)).not.toThrow()

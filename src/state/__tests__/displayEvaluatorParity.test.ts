@@ -33,7 +33,7 @@ function edge(id: string, source: string, sourceHandle: string, target: string, 
 }
 
 function screen(id = 'screen', displayId = 'panel'): StudioNode {
-  // The panel carries the screen drawn on it, so the widget ports are its own.
+  // The panel carries the screen drawn on it, so widget input ports are its own.
   return node(id, 'TransportDisplay', { displayId, partId: 'st7789v-xpt2046-touch-240x320' }, {
     inputs: [
       { id: 'display', label: 'Display', dataType: 'display' },
@@ -41,7 +41,14 @@ function screen(id = 'screen', displayId = 'panel'): StudioNode {
       { id: 'widget:title:value', label: 'Title', dataType: 'string' },
       { id: 'widget:slider:set', label: 'Set', dataType: 'float' },
     ],
+    outputs: [],
+  })
+}
+
+function touch(id = 'touch', panelId = 'screen'): StudioNode {
+  return node(id, 'TouchInput', { panelId }, {
     outputs: [
+      { id: 'controls', label: 'Controls', dataType: 'playercontrols' },
       { id: 'widget:button:out', label: 'Button', dataType: 'bool' },
       { id: 'widget:slider:out', label: 'Slider', dataType: 'float' },
     ],
@@ -77,7 +84,7 @@ describe('display evaluator parity', () => {
     })
     const custom = screen()
     const result = evaluateGraphFull(
-      [format, custom],
+      [format, custom, touch()],
       [edge('custom-title', 'format', 'text', 'screen', 'widget:title:value')],
       0,
       8,
@@ -125,7 +132,7 @@ describe('display evaluator parity', () => {
     runtime.touchDisplayWidget('panel', 'slider', 0.4)
 
     const result = evaluateGraphFull(
-      [custom, title, level],
+      [custom, touch(), title, level],
       [
         edge('title', 'title', 'text', 'screen', 'widget:title:value'),
         edge('level', 'level', 'result', 'screen', 'widget:slider:set'),
@@ -135,7 +142,7 @@ describe('display evaluator parity', () => {
       8,
     )
 
-    expect(result.outputs.get('screen')).toMatchObject({
+    expect(result.outputs.get('touch')).toMatchObject({
       'widget:button:out': true,
       'widget:slider:out': 0.4,
     })
@@ -153,8 +160,8 @@ describe('display evaluator parity', () => {
     runtime.touchDisplayWidget('panel', 'slider', 0.4)
 
     evaluateGraphFull(
-      [custom],
-      [edge('slider-readout', 'screen', 'widget:slider:out', 'screen', 'widget:readout:value')],
+      [custom, touch()],
+      [edge('slider-readout', 'touch', 'widget:slider:out', 'screen', 'widget:readout:value')],
       0,
       8,
       8,
@@ -178,7 +185,7 @@ describe('display evaluator parity', () => {
     const custom = screen()
 
     evaluateGraphFull(
-      [player, song, custom],
+      [player, song, custom, touch()],
       [
         edge('player-song', 'player', 'display', 'song', 'display'),
         edge('song-title', 'song', 'title', 'screen', 'widget:title:value'),
@@ -199,14 +206,14 @@ describe('display evaluator parity', () => {
     const runtime = useDisplayRuntimeStore.getState()
     runtime.touchDisplayWidget('panel', 'slider', 0.4)
 
-    const held = evaluateGraphFull([custom, level], edges, 0, 8, 8).outputs.get('screen')!
+    const held = evaluateGraphFull([custom, touch(), level], edges, 0, 8, 8).outputs.get('touch')!
     expect(held['widget:slider:out']).toBe(0.4)
     // Input roles are deliberately published after output sampling: the
     // graph cannot overwrite a finger in the same pass.
     expect(runtime.readDisplayWidget('panel', 'slider')?.roleValues.get('set')).toBe(0.75)
 
     runtime.releaseDisplayWidget('panel', 'slider')
-    const released = evaluateGraphFull([custom, level], edges, 1, 8, 8).outputs.get('screen')!
+    const released = evaluateGraphFull([custom, touch(), level], edges, 1, 8, 8).outputs.get('touch')!
     expect(released['widget:slider:out']).toBe(0.75)
   })
 
@@ -244,9 +251,9 @@ describe('display evaluator parity', () => {
     useDisplayRuntimeStore.getState().touchDisplayWidget('panel', 'slider', 0.5)
 
     const result = evaluateGraphFull(
-      [custom, add],
+      [custom, touch(), add],
       [
-        edge('out', 'screen', 'widget:slider:out', 'add', 'a'),
+        edge('out', 'touch', 'widget:slider:out', 'add', 'a'),
         edge('set', 'add', 'result', 'screen', 'widget:slider:set'),
       ],
       0,
@@ -254,7 +261,7 @@ describe('display evaluator parity', () => {
       8,
     )
 
-    expect(result.outputs.get('screen')?.['widget:slider:out']).toBe(0.5)
+    expect(result.outputs.get('touch')?.['widget:slider:out']).toBe(0.5)
     expect(useDisplayRuntimeStore.getState().readDisplayWidget('panel', 'slider')?.roleValues.get('set')).toBe(0.75)
   })
 })

@@ -616,13 +616,19 @@ export default function DisplayEditor() {
       node.data.nodeType === 'TransportDisplay'
       && String(node.data.properties.displayId ?? '') === displayId
     ))
+    const touchNode = displayNode
+      ? rootGraphNodes(state).find((node) => (
+          node.data.nodeType === 'TouchInput'
+          && String(node.data.properties.panelId ?? '') === displayNode.id
+        )) ?? null
+      : null
     const portIds = new Set(document.widgets
       .filter((widget) => widgetIds.includes(widget.id))
       .flatMap((widget) => displayWidgetPorts(widget).map((port) => port.id)))
     const wiredEdges = displayNode
       ? rootGraphEdges(state).filter((edge) => (
-          (edge.source === displayNode.id && portIds.has(edge.sourceHandle ?? ''))
-          || (edge.target === displayNode.id && portIds.has(edge.targetHandle ?? ''))
+          (edge.target === displayNode.id && portIds.has(edge.targetHandle ?? ''))
+          || (touchNode !== null && edge.source === touchNode.id && portIds.has(edge.sourceHandle ?? ''))
         ))
       : []
     if (wiredEdges.length > 0) {

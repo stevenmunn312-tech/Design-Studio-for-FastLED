@@ -5220,9 +5220,9 @@ export function generateCpp(
             // rather than to the glass it happens to be drawn on.
             assets: opts.customDisplayAssets?.[documentId],
           }
-          const touchProps = (nodes.find((entry) => entry.data.nodeType === 'TouchInput'
+          const touchNode = nodes.find((entry) => entry.data.nodeType === 'TouchInput'
             && String((entry.data.properties as Record<string, unknown>).panelId ?? '') === node.id)
-            ?.data.properties ?? {}) as Record<string, unknown>
+          const touchProps = (touchNode?.data.properties ?? {}) as Record<string, unknown>
           const panel = customDisplayPanelFromProps(id, p, touchProps)
           panel.manualTouch = true
           panel.telemetry = emitTelemetry
@@ -5249,11 +5249,12 @@ export function generateCpp(
             const expr = customDisplayLvglOutputExpression(custom, parsed.widgetId)
             if (expr === null) continue
             const cppType = port.dataType === 'bool' ? 'bool' : 'float'
-            // Named for the panel, because that is the node a wire leaves: a
-            // consumer resolves `n_<source node>_<port>`, and the source is the
-            // panel whose glass the widget is on. The screen's own internals
-            // stay keyed by the document id.
-            const name = `n_${id}_${safeId(port.id)}`
+            if (!touchNode) continue
+            // Named for the Touch node, because that is the node a wire leaves:
+            // the panel draws the widget, but the touch surface publishes the
+            // control value. The screen's own internals stay keyed by the
+            // document id.
+            const name = `n_${safeId(touchNode.id)}_${safeId(port.id)}`
             const rest = cppType === 'bool' ? 'false' : '0.0f'
             // A control nobody can touch reports its rest value rather than
             // the position its finger left it in.

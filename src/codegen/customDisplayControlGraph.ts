@@ -76,6 +76,8 @@ export function customDisplayControlPlan(
     if (symbols.has(id)) errors.push(`${label}: display identifiers collide after sanitization. Recreate this display.`)
     symbols.add(id)
     const panel = { ...customDisplayPanelFromProps(customDisplayId(panelNode.id), panelNode.data.properties), manualTouch: true }
+    const touchNode = nodes.find((candidate) => candidate.data.nodeType === 'TouchInput'
+      && String(candidate.data.properties.panelId ?? '') === panelNode.id)
     // The panel states the size; the document is what has to match it. Shared
     // with deploy validation so a normal sketch reports the same mismatch this
     // template refuses to build.
@@ -100,13 +102,15 @@ export function customDisplayControlPlan(
         errors.push(`${label}.${port.label}: this widget output is unsupported by ${generatorLabel} control graph.`)
         continue
       }
-      const reference = { nodeId: node.id, port: port.id, type: port.dataType }
-      sources.push(reference)
+      const reference = touchNode
+        ? { nodeId: touchNode.id, port: port.id, type: port.dataType }
+        : null
+      if (reference) sources.push(reference)
       const expression = customDisplayLvglOutputExpression(emit, port.widgetId)
       if (!expression) errors.push(`${label}.${port.label}: this widget has no firmware output.`)
-      samples.push({ type: port.dataType, variable: controlReferenceCpp(reference), expression: expression ?? '' })
+      if (reference) samples.push({ type: port.dataType, variable: controlReferenceCpp(reference), expression: expression ?? '' })
     }
-    return [{ nodeId: node.id, documentId, panelNodeId: panelNode.id, label, enabled, ports, emit, panel, bindings, samples,
+    return [{ nodeId: node.id, documentId, panelNodeId: panelNode.id, touchNodeId: touchNode?.id ?? null, label, enabled, ports, emit, panel, bindings, samples,
       // The panel's projection of which widgets read its source rather than a
       // cable. Kept rather than resolved here: which fields have a reading is
       // the generator's fact, not the plan's.

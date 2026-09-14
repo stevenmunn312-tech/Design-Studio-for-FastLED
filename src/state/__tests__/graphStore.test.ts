@@ -1128,8 +1128,11 @@ describe('graphStore — custom display documents', () => {
    * ports rather than being assumed to be `value`, because a Slider shows its
    * reading on `set`.
    */
-  it('projects bound widgets onto the panel and drops the sockets they no longer need', () => {
-    reset([node('screen', 'TransportDisplay', { displayId: 'panel' })])
+  it('projects bound widgets onto the panel and touch node, dropping sockets they no longer need', () => {
+    reset([
+      node('screen', 'TransportDisplay', { displayId: 'panel' }),
+      node('touch', 'TouchInput', { panelId: 'screen' }),
+    ])
     let document = addDisplayWidget(createDisplayDocument('panel'), 'Text')
     document = addDisplayWidget(document, 'Slider')
     useGraphStore.getState().setDisplayDocument(document)
@@ -1138,9 +1141,14 @@ describe('graphStore — custom display documents', () => {
       inputs: { id: string }[]
       outputs: { id: string }[]
     }
+    const touch = () => useGraphStore.getState().nodes.find((entry) => entry.id === 'touch')!.data as unknown as {
+      outputs: { id: string }[]
+    }
     expect(panel().properties.widgetSources).toEqual({})
     expect(panel().inputs.map((port) => port.id))
       .toEqual(['display', 'enabled', 'widget:text:value', 'widget:slider:set'])
+    expect(panel().outputs.map((port) => port.id)).toEqual([])
+    expect(touch().outputs.map((port) => port.id)).toEqual(['controls', 'widget:slider:out'])
 
     useGraphStore.getState().setDisplayDocument({
       ...document,
@@ -1156,7 +1164,7 @@ describe('graphStore — custom display documents', () => {
     expect(panel().inputs.map((port) => port.id)).toEqual(['display', 'enabled'])
     // The control still publishes what a finger did to it: binding decides where
     // a reading comes from, not whether a control reports itself.
-    expect(panel().outputs.map((port) => port.id)).toEqual(['widget:slider:out'])
+    expect(touch().outputs.map((port) => port.id)).toEqual(['controls', 'widget:slider:out'])
   })
 
   it('defaults missing workspace data to an empty registry and normalizes loaded data', () => {
@@ -1247,6 +1255,7 @@ describe('graphStore — custom display documents', () => {
     try {
       reset([
         node('screen', 'TransportDisplay', { displayId: 'panel' }),
+        node('touch', 'TouchInput', { panelId: 'screen' }),
         node('board', 'Board', { brightness: 100 }),
         node('source', 'TextValue'),
         node('sink', 'Not'),
@@ -1259,6 +1268,7 @@ describe('graphStore — custom display documents', () => {
       const expectProjection = (document: typeof original, edgeIds: string[]) => {
         const state = useGraphStore.getState()
         const screen = state.nodes.find((entry) => entry.id === 'screen')!
+        const touch = state.nodes.find((entry) => entry.id === 'touch')!
         const widgetPorts = displayDocumentPorts(document)
         expect(state.displayDocuments.panel).toEqual(document)
         expect(screen.data.inputs).toEqual([
@@ -1266,7 +1276,11 @@ describe('graphStore — custom display documents', () => {
           { id: 'enabled', label: 'Enabled', dataType: 'bool' },
           ...widgetPorts.inputs,
         ])
-        expect(screen.data.outputs).toEqual(widgetPorts.outputs)
+        expect(screen.data.outputs).toEqual([])
+        expect(touch.data.outputs).toEqual([
+          { id: 'controls', label: 'Controls', dataType: 'playercontrols' },
+          ...widgetPorts.outputs,
+        ])
         expect(state.edges.map((entry) => entry.id)).toEqual(edgeIds)
       }
       vi.advanceTimersByTime(400)
@@ -1278,7 +1292,7 @@ describe('graphStore — custom display documents', () => {
       useGraphStore.setState({
         edges: [
           ...useGraphStore.getState().edges,
-          edge('shuffle-wire', 'screen', 'widget:toggle:out', 'sink', 'x'),
+          edge('shuffle-wire', 'touch', 'widget:toggle:out', 'sink', 'x'),
         ],
       })
       vi.advanceTimersByTime(400)
@@ -1328,6 +1342,7 @@ describe('graphStore — custom display documents', () => {
   it('keeps a panel’s own inputs and its widget ports across a load and an edit', () => {
     useGraphStore.getState().loadGraph(
       [node('tft', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', displayId: 'panel' }),
+        node('touch', 'TouchInput', { panelId: 'tft' }),
         node('rtc', 'RTCInput', {})],
       [edge('feed', 'rtc', 'display', 'tft', 'display')],
     )
@@ -1340,11 +1355,16 @@ describe('graphStore — custom display documents', () => {
     // A Slider is synchronized, so it contributes an input as well as an output.
     expect((panel.data.inputs as { id: string }[]).map((port) => port.id))
       .toEqual(['display', 'enabled', 'widget:slider:set'])
-    expect((panel.data.outputs as { id: string }[]).map((port) => port.id)).toEqual(['widget:slider:out'])
+    expect((panel.data.outputs as { id: string }[]).map((port) => port.id)).toEqual([])
+    const touch = useGraphStore.getState().nodes.find((entry) => entry.id === 'touch')!
+    expect((touch.data.outputs as { id: string }[]).map((port) => port.id)).toEqual(['controls', 'widget:slider:out'])
   })
 
   it('derives stable outer-node ports and keeps cables across label edits', () => {
-    reset([node('screen', 'TransportDisplay', { displayId: 'panel' })])
+    reset([
+      node('screen', 'TransportDisplay', { displayId: 'panel' }),
+      node('touch', 'TouchInput', { panelId: 'screen' }),
+    ])
     let document = addDisplayWidget(createDisplayDocument('panel'), 'Text')
     document = addDisplayWidget(document, 'Toggle')
     useGraphStore.getState().setDisplayDocument(document)
@@ -1359,21 +1379,25 @@ describe('graphStore — custom display documents', () => {
       { id: 'widget:text:value', label: 'Text', dataType: 'string' },
       { id: 'widget:toggle:set', label: 'Toggle Set', dataType: 'bool' },
     ])
-    expect(screen.data.outputs).toEqual([
+    let touch = useGraphStore.getState().nodes.find((entry) => entry.id === 'touch')!
+    expect(screen.data.outputs).toEqual([])
+    expect(touch.data.outputs).toEqual([
+      { id: 'controls', label: 'Controls', dataType: 'playercontrols' },
       { id: 'widget:toggle:out', label: 'Toggle Output', dataType: 'bool' },
     ])
 
     useGraphStore.setState({
       edges: [
         edge('text-wire', 'source', 'text', 'screen', 'widget:text:value'),
-        edge('toggle-wire', 'screen', 'widget:toggle:out', 'sink', 'x'),
+        edge('toggle-wire', 'touch', 'widget:toggle:out', 'sink', 'x'),
       ],
     })
     document = updateDisplayWidget(document, 'toggle', (widget) => ({ ...widget, label: 'Blackout' }))
     useGraphStore.getState().setDisplayDocument(document)
 
     screen = useGraphStore.getState().nodes[0]
-    expect(screen.data.outputs).toContainEqual({
+    touch = useGraphStore.getState().nodes.find((entry) => entry.id === 'touch')!
+    expect(touch.data.outputs).toContainEqual({
       id: 'widget:toggle:out', label: 'Blackout Output', dataType: 'bool',
     })
     expect(useGraphStore.getState().edges.map((entry) => entry.id)).toEqual(['text-wire', 'toggle-wire'])
@@ -1382,14 +1406,17 @@ describe('graphStore — custom display documents', () => {
   it('removes disappeared widget cables in the same undo step as the document edit', () => {
     vi.useFakeTimers()
     try {
-      reset([node('screen', 'TransportDisplay', { displayId: 'panel' })])
+      reset([
+        node('screen', 'TransportDisplay', { displayId: 'panel' }),
+        node('touch', 'TouchInput', { panelId: 'screen' }),
+      ])
       let document = addDisplayWidget(createDisplayDocument('panel'), 'Text')
       document = addDisplayWidget(document, 'Button')
       useGraphStore.getState().setDisplayDocument(document)
       useGraphStore.setState({
         edges: [
           edge('text-wire', 'source', 'text', 'screen', 'widget:text:value'),
-          edge('button-wire', 'screen', 'widget:button:out', 'sink', 'x'),
+          edge('button-wire', 'touch', 'widget:button:out', 'sink', 'x'),
         ],
       })
       vi.advanceTimersByTime(400)
@@ -1414,6 +1441,7 @@ describe('graphStore — custom display documents', () => {
     try {
       reset([
         node('screen', 'TransportDisplay', { displayId: 'panel' }),
+        node('touch', 'TouchInput', { panelId: 'screen' }),
         node('source', 'TextValue'),
         node('sink', 'Not'),
       ])
@@ -1423,7 +1451,7 @@ describe('graphStore — custom display documents', () => {
       useGraphStore.setState({
         edges: [
           edge('text-wire', 'source', 'text', 'screen', 'widget:text:value'),
-          edge('button-wire', 'screen', 'widget:button:out', 'sink', 'x'),
+          edge('button-wire', 'touch', 'widget:button:out', 'sink', 'x'),
         ],
       })
       vi.advanceTimersByTime(400)

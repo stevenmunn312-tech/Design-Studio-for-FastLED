@@ -105,14 +105,21 @@ describe('DisplayEditor', () => {
         properties: { displayId: 'panel' }, inputs: [], outputs: [],
       },
     } as unknown as StudioNode
-    useGraphStore.setState({ nodes: [screen] })
+    const touch = {
+      id: 'touch', type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        label: 'Touch', nodeType: 'TouchInput', category: 'input',
+        properties: { panelId: 'screen' }, inputs: [], outputs: [],
+      },
+    } as unknown as StudioNode
+    useGraphStore.setState({ nodes: [screen, touch] })
     const confirm = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true)
     useUiStore.setState({ requestConfirm: confirm })
     const view = render(<DisplayEditor />)
     fireEvent.click(view.getByRole('button', { name: 'Add Button widget' }))
     useGraphStore.setState({
       edges: [{
-        id: 'wired', source: 'screen', sourceHandle: 'widget:button:out',
+        id: 'wired', source: 'touch', sourceHandle: 'widget:button:out',
         target: 'sink', targetHandle: 'x',
       }],
     })
@@ -134,6 +141,12 @@ describe('DisplayEditor', () => {
           label: 'Display Panel', nodeType: 'TransportDisplay', category: 'output',
           properties: { displayId: 'panel' }, inputs: [], outputs: [],
         },
+      } as unknown as StudioNode, {
+        id: 'touch', type: 'studioNode', position: { x: 0, y: 0 },
+        data: {
+          label: 'Touch', nodeType: 'TouchInput', category: 'input',
+          properties: { panelId: 'screen' }, inputs: [], outputs: [],
+        },
       } as unknown as StudioNode],
     })
     const view = render(<DisplayEditor />)
@@ -145,10 +158,10 @@ describe('DisplayEditor', () => {
       'text', 'text-2', 'button', 'toggle', 'button-2', 'slider',
     ])
     const screen = useGraphStore.getState().nodes.find((node) => node.id === 'screen')!
-    // A display has no outputs of its own, so the panel's ports are exactly the
-    // widgets its design declares.
-    expect((screen.data.outputs as { id: string }[]).map((port) => port.id))
-      .toEqual(['widget:button:out', 'widget:toggle:out', 'widget:button-2:out', 'widget:slider:out'])
+    const touch = useGraphStore.getState().nodes.find((node) => node.id === 'touch')!
+    expect((screen.data.outputs as { id: string }[]).map((port) => port.id)).toEqual([])
+    expect((touch.data.outputs as { id: string }[]).map((port) => port.id))
+      .toEqual(['controls', 'widget:button:out', 'widget:toggle:out', 'widget:button-2:out', 'widget:slider:out'])
     expect(view.getByRole('status', { name: 'Display editor announcements' }).textContent).toContain(
       'Minimal Transport template inserted with 5 widgets.',
     )

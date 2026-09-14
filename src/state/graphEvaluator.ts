@@ -7516,6 +7516,10 @@ function createEvalNode(
         }
         const panelId = panel.id
         const panelProps = panel.data.properties as Record<string, unknown>
+        const panelEnabled = incoming.has(`${panelId}:enabled`)
+          ? Boolean(input(panelId, 'enabled', true))
+          : panelProps.enabled !== false
+        const touchCapable = Boolean(partById(String(panelProps.partId ?? ''))?.display?.touchController)
         /*
          * A panel drawing a screen design has no fixed layout to sample.
          *
@@ -7527,14 +7531,23 @@ function createEvalNode(
          * that would otherwise resolve to the fixed Now Playing layout and
          * hand back its play/pause and volume regions.
          */
-        if (String(panelProps.displayId ?? '')) {
+        const designId = String(panelProps.displayId ?? '')
+        if (designId) {
           out = { controls: blankPlayerControls() }
+          const widgetOutputs = ((node.data.outputs as { id: string; dataType?: string }[] | undefined) ?? [])
+            .filter((port) => parseDisplayWidgetPortId(port.id))
+          if (widgetOutputs.length > 0) {
+            const runtime = useDisplayRuntimeStore.getState()
+            for (const port of widgetOutputs) {
+              const parsed = parseDisplayWidgetPortId(port.id)!
+              const rest = port.dataType === 'bool' ? false : 0
+              out[port.id] = panelEnabled && touchCapable
+                ? runtime.sampleDisplayWidgetOutput(designId, parsed.widgetId, rest)
+                : rest
+            }
+          }
           break
         }
-        const panelEnabled = incoming.has(`${panelId}:enabled`)
-          ? Boolean(input(panelId, 'enabled', true))
-          : panelProps.enabled !== false
-        const touchCapable = Boolean(partById(String(panelProps.partId ?? ''))?.display?.touchController)
         const panelController = tftControllerForProps(panelProps) ?? TFT_CONTROLLERS.ST7789
         const panelRotation = asTftRotation(panelProps.tftRotation)
         const panelSignalValue = input(panelId, 'display', null)
@@ -7587,42 +7600,14 @@ function createEvalNode(
         /*
          * The screen drawn on this panel, if it has one.
          *
-         * Its widget ports are this node's ports now, so the publish/sample
-         * pass that used to live on a document node happens here. The ordering
-         * is the one the plan states and is load-bearing: a finger's value was
-         * sampled into the runtime store before this pass and leaves on `out`
-         * now, while graph-driven values are published into the store for the
-         * panel to draw afterward.
+         * Widget inputs are the panel's ports: graph-driven values publish
+         * into the runtime store for the panel to draw. Widget outputs are
+         * sampled by the paired Touch node above, so the panel remains an
+         * output-category terminal even when it hosts interactive controls.
          */
         const designId = String(props.displayId ?? '')
         const widgetInputs = ((node.data.inputs as { id: string; dataType?: string }[] | undefined) ?? [])
           .filter((port) => parseDisplayWidgetPortId(port.id))
-        const widgetOutputs = ((node.data.outputs as { id: string; dataType?: string }[] | undefined) ?? [])
-          .filter((port) => parseDisplayWidgetPortId(port.id))
-        if (designId && widgetOutputs.length > 0) {
-          const runtime = useDisplayRuntimeStore.getState()
-          // An untouched control publishes its type's rest value until a finger
-          // moves it or a wired `set` arrives; a disabled screen publishes only
-          // rest values.
-          for (const port of widgetOutputs) {
-            const parsed = parseDisplayWidgetPortId(port.id)!
-            const rest = port.dataType === 'bool' ? false : 0
-            out[port.id] = enabled
-              ? runtime.sampleDisplayWidgetOutput(designId, parsed.widgetId, rest)
-              : rest
-          }
-          /*
-           * Memoize before reading a single input.
-           *
-           * A synchronized control's `out -> graph -> set` path comes back into
-           * this same node, so resolving inputs re-enters it. Left to the
-           * evaluator's recursion guard that re-entry yields `{}` and the loop
-           * silently carries a fallback instead of the finger's value. These
-           * outputs are a pure function of touch state sampled before this
-           * pass, so whoever asks, in whatever order, gets the same answer.
-           */
-          memo.set(id, out)
-        }
         if (designId && enabled) {
           const runtime = useDisplayRuntimeStore.getState()
           for (const port of widgetInputs) {

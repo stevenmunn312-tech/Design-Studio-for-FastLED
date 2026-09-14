@@ -29,6 +29,7 @@ const groups = { pattern: { nodes: [node('fill', 'SolidColor'), node('end', 'Gro
 const panel = (id: string, properties: Record<string, unknown> = {}) => node(id, 'TransportDisplay', {
   partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', displayId: 'screen', ...properties,
 })
+const touch = (panelId = 'tft', id = `${panelId}-touch`) => node(id, 'TouchInput', { panelId })
 
 function document(id = 'screen'): DisplayDocument {
   let doc = createDisplayDocument(id, 240, 320)
@@ -48,12 +49,12 @@ describe('custom displays in generative shows', () => {
   it('samples touch before scalar feedback, renders LEDs, then updates widgets and flushes LVGL', () => {
     const doc = document()
     const numberId = doc.widgets.find((widget) => widget.type === 'Numeric Readout')!.id
-    const nodes = [panel('tft'), node('math', 'Math', { mathOp: 'add', b: 0.25 }),
+    const nodes = [panel('tft'), touch(), node('math', 'Math', { mathOp: 'add', b: 0.25 }),
       node('controls', 'ControlMap', { controls: ['brightness'] }), node('format', 'FormatNumber')]
-    const edges = [edge('tft', 'widget:slider:out', 'math', 'a'), edge('math', 'result', 'tft', 'widget:slider:set'),
+    const edges = [edge('tft-touch', 'widget:slider:out', 'math', 'a'), edge('math', 'result', 'tft', 'widget:slider:set'),
       edge('math', 'result', 'tft', `widget:${numberId}:value`), edge('math', 'result', 'format', 'value'),
       edge('format', 'text', 'tft', 'widget:text:value'), edge('math', 'result', 'controls', 'brightness'),
-      edge('controls', 'controls', 'out', 'controls'), edge('tft', 'widget:toggle:out', 'out', 'enabled')]
+      edge('controls', 'controls', 'out', 'controls'), edge('tft-touch', 'widget:toggle:out', 'out', 'enabled')]
     const cpp = generate(nodes, edges, { screen: doc })
     expect(showControlRouting([...root, ...nodes], [...routing, ...edges], { screen: doc }).errors).toEqual([])
     const setup = cpp.slice(cpp.indexOf('void setup() {'), cpp.indexOf('void loop() {'))
@@ -61,9 +62,9 @@ describe('custom displays in generative shows', () => {
     expect(setup.indexOf('lv_init();')).toBeLessThan(setup.indexOf('lv_display_create'))
     expect(setup.indexOf('lv_display_set_default(_cdDisp_tft)')).toBeLessThan(setup.indexOf('_cdScreen_screen = lv_obj_create'))
     expect(setup).toContain('lv_indev_set_mode(_cdIndev_tft, LV_INDEV_MODE_EVENT);')
-    const ordered = ['lv_indev_read(_cdIndev_tft);', 'float n_tft_widget_slider_out = _cdFloatOutput',
-      'float n_math_result = (n_tft_widget_slider_out) + (0.25);', 'n_controls_controls.brightness',
-      'if (!((n_tft_widget_toggle_out) && _ledOn_out))', 'FastLED.show();', '_cdSetText(_cd_screen[3], n_format_text);', '_cdServiceLvgl();']
+    const ordered = ['lv_indev_read(_cdIndev_tft);', 'float n_tft_touch_widget_slider_out = _cdFloatOutput',
+      'float n_math_result = (n_tft_touch_widget_slider_out) + (0.25);', 'n_controls_controls.brightness',
+      'if (!((n_tft_touch_widget_toggle_out) && _ledOn_out))', 'FastLED.show();', '_cdSetText(_cd_screen[3], n_format_text);', '_cdServiceLvgl();']
     const positions = ordered.map((part) => loop.indexOf(part))
     expect(positions.every((position) => position >= 0), loop).toBe(true)
     expect(positions).toEqual([...positions].sort((a, b) => a - b))
@@ -74,28 +75,28 @@ describe('custom displays in generative shows', () => {
   })
 
   it('snapshots both screens before cross-screen feedback and uses distinct panel types', () => {
-    const cpp = generate([panel('tft1', { displayId: '1-first' }), panel('tft2', { displayId: 'second' })], [
-      edge('tft1', 'widget:slider:out', 'tft2', 'widget:slider:set'),
-      edge('tft2', 'widget:slider:out', 'tft1', 'widget:slider:set'),
+    const cpp = generate([panel('tft1', { displayId: '1-first' }), touch('tft1'), panel('tft2', { displayId: 'second' }), touch('tft2')], [
+      edge('tft1-touch', 'widget:slider:out', 'tft2', 'widget:slider:set'),
+      edge('tft2-touch', 'widget:slider:out', 'tft1', 'widget:slider:set'),
     ], { '1-first': document('1-first'), second: document('second') })
     expect(cpp).toContain('struct CustomDisplayPanel_tft1 {')
     expect(cpp).toContain('struct CustomDisplayPanel_tft2 {')
     expect(cpp.match(/lv_init\(\);/g)).toHaveLength(1)
     expect(cpp.match(/static uint16_t _xptRead12/g)).toHaveLength(1)
     const loop = cpp.slice(cpp.indexOf('void loop() {'))
-    expect(loop.indexOf('lv_indev_read(_cdIndev_tft2)')).toBeLessThan(loop.indexOf('float n_tft1_widget_slider_out'))
-    expect(loop.indexOf('float n_tft2_widget_slider_out')).toBeLessThan(loop.indexOf('constrain((float)(n_tft1_widget_slider_out)'))
+    expect(loop.indexOf('lv_indev_read(_cdIndev_tft2)')).toBeLessThan(loop.indexOf('float n_tft1_touch_widget_slider_out'))
+    expect(loop.indexOf('float n_tft2_touch_widget_slider_out')).toBeLessThan(loop.indexOf('constrain((float)(n_tft1_touch_widget_slider_out)'))
     expect(cpp.indexOf('lv_display_set_default(_cdDisp_tft2)')).toBeLessThan(cpp.indexOf('_cdScreen_second = lv_obj_create'))
   })
 
   it('composes scalar brightness with the Controls latch and supports HUB75', () => {
-    const nodes = [panel('tft'), node('controls', 'ControlMap')]
-    const edges = [edge('tft', 'widget:slider:out', 'out', 'brightness'), edge('controls', 'controls', 'out', 'controls')]
+    const nodes = [panel('tft'), touch(), node('controls', 'ControlMap')]
+    const edges = [edge('tft-touch', 'widget:slider:out', 'out', 'brightness'), edge('controls', 'controls', 'out', 'controls')]
     const cpp = generate(nodes, edges, { screen: document() })
-    expect(cpp).toContain('constrain(n_tft_widget_slider_out, 0.0f, 1.0f) * _ledLevel_out')
+    expect(cpp).toContain('constrain(n_tft_touch_widget_slider_out, 0.0f, 1.0f) * _ledLevel_out')
     const hubNodes = [...root.filter((n) => n.id !== 'out'), node('out', 'MatrixOutput', { chipset: 'HUB75', width: 64, height: 32 }), ...nodes]
     const hub = generateShowSketch(hubNodes, [...routing, ...edges], groups, { displayDocuments: { screen: document() } })
-    expect(hub).toContain('constrain(n_tft_widget_slider_out, 0.0f, 1.0f) * _ledLevel_out')
+    expect(hub).toContain('constrain(n_tft_touch_widget_slider_out, 0.0f, 1.0f) * _ledLevel_out')
     expect(hub).toContain('setBrightness8')
   })
 
@@ -107,12 +108,12 @@ describe('custom displays in generative shows', () => {
    */
   it('builds a disabled display but holds it dark, untouched and at rest', () => {
     const cpp = generate(
-      [panel('tft', { enabled: false })],
-      [edge('tft', 'widget:slider:out', 'out', 'brightness')],
+      [panel('tft', { enabled: false }), touch()],
+      [edge('tft-touch', 'widget:slider:out', 'out', 'brightness')],
       { screen: document() },
     )
     expect(cpp).toContain('static bool _cdPanelOn_tft = false;')
-    expect(cpp).toContain('float n_tft_widget_slider_out = _cdPanelOn_tft ? (_cdFloatOutput')
+    expect(cpp).toContain('float n_tft_touch_widget_slider_out = _cdPanelOn_tft ? (_cdFloatOutput')
     expect(cpp).toContain('if (_cdPanel_tft.bl != 255) digitalWrite(_cdPanel_tft.bl, _cdPanelOn_tft ? HIGH : LOW);')
     expect(cpp).toContain('if (_cdPanelOn_tft) lv_indev_read(_cdIndev_tft);')
     expect(cpp).toContain('lv_init();')
@@ -166,8 +167,8 @@ describe('custom displays in generative shows', () => {
       )).toThrow('show cannot evaluate')
     }
     expect(() => generate(
-      [panel('tft')],
-      [edge('tft', 'widget:toggle:out', 'tft', 'widget:slider:set')],
+      [panel('tft'), touch()],
+      [edge('tft-touch', 'widget:toggle:out', 'tft', 'widget:slider:set')],
       { screen: document() },
     )).toThrow('requires float')
     // Two designs whose ids differ only by a character `safeId` folds. They
@@ -187,13 +188,13 @@ describe('custom displays in generative shows', () => {
   it('browses the collection from a Button widget', () => {
     const doc = addDisplayWidget(createDisplayDocument('screen', 240, 320), 'Button')
     const buttonId = doc.widgets.at(-1)!.id
-    const nodes = [panel('tft'), node('controls', 'ControlMap', { controls: ['patternNext'] })]
-    const edges = [edge('tft', `widget:${buttonId}:out`, 'controls', 'patternNext'),
+    const nodes = [panel('tft'), touch(), node('controls', 'ControlMap', { controls: ['patternNext'] })]
+    const edges = [edge('tft-touch', `widget:${buttonId}:out`, 'controls', 'patternNext'),
       edge('controls', 'controls', 'show', 'controls')]
     expect(showControlRouting([...root, ...nodes], [...routing, ...edges], { screen: doc }).errors).toEqual([])
     const cpp = generate(nodes, edges, { screen: doc })
-    expect(cpp).toContain(`bool n_tft_widget_${buttonId}_out = _cdBoolOutput(`)
-    expect(cpp).toContain(`_pcE_controls_patternNext.update(n_tft_widget_${buttonId}_out`)
+    expect(cpp).toContain(`bool n_tft_touch_widget_${buttonId}_out = _cdBoolOutput(`)
+    expect(cpp).toContain(`_pcE_controls_patternNext.update(n_tft_touch_widget_${buttonId}_out`)
     expect(cpp).toContain('_selUpdate(_sel_show, PATTERN_COUNT, millis(), n_controls_controls.patternSteps,')
   })
 })

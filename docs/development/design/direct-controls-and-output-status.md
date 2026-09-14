@@ -1,6 +1,6 @@
 # Direct controls and LED output status
 
-Status: in progress — steps 2 and 3 are landed, the rest is pending.
+Status: in progress — steps 2 and 3 are landed, step 4 is partly underway.
 2026-09-14. Target: Hardware, ahead of v1.0.0. Behaviour below is a mix of
 implemented and specified; the checklist at the foot says which is which.
 
@@ -198,6 +198,12 @@ sweep and the widget-role half.
 
 ### 4. Derive named Touch outputs from the panel
 
+- [x] Move custom screen widget output sockets from the Display Panel to the
+  paired Touch node. Widget input sockets remain on the panel, because the
+  panel draws graph values into widgets; Button/Toggle/Slider/Dial outputs now
+  leave through Touch in preview, normal sketches, show controllers and SD
+  players. Deleting a wired widget and display-document undo/redo track both
+  the panel input cables and Touch output cables.
 - [ ] Derive outputs from the associated panel's actual interactive widgets:
   button = held boolean, toggle = stored boolean, slider/dial = numeric value.
   Reuse widget registry roles and stable IDs; give fixed-layout controls stable

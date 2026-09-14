@@ -12,7 +12,7 @@ import {
   addEdge,
   reconnectEdge,
 } from '@xyflow/react'
-import type { NodeCategory } from '../types'
+import type { NodeCategory, NodePort } from '../types'
 import { NODE_LIBRARY, portColor } from './nodeLibrary'
 import { normalizeExposedInputs, propertyInputsFor } from './propertyInputs'
 import type { GroupRegistry } from './graphEvaluator'
@@ -1100,37 +1100,51 @@ function syncDisplayNodesInContent(
   documents: DisplayDocumentRegistry,
 ): GraphContent {
   const portsByNode = new Map<string, {
-    ports: ReturnType<typeof displayDocumentPorts>
+    ports: { inputs: NodePort[]; outputs: NodePort[] }
     changedInputTypes: Set<string>
     changedOutputTypes: Set<string>
   }>()
+  const panelsById = new Map(content.nodes
+    .filter((node) => node.data.nodeType === 'TransportDisplay')
+    .map((node) => [node.id, node]))
   const nodes = content.nodes.map((node) => {
-    // The panel owns its screen design, so the widget ports are the panel's.
-    // A panel with no design has no widget ports and is left exactly as the
-    // library declares it.
-    if (node.data.nodeType !== 'TransportDisplay') return node
-    const displayId = String(node.data.properties.displayId ?? '')
-    const document = displayId ? documents[displayId] : undefined
-    // The document contributes widget ports; the node's own identity ports —
-    // Display and Enabled — come from the library, as they do for every other
-    // node. Replacing the whole set with the document's widget ports stripped
-    // those, and the edge filter below then dropped the wires feeding them.
     const library = LIBRARY_DEF.get(node.data.nodeType)
-    const widgetPorts = document ? displayDocumentPorts(document) : { inputs: [], outputs: [] }
-    /*
-     * Which widgets read the panel's own source, derived onto the node.
-     *
-     * The same reason the ports are derived here: evaluation and the
-     * generators work from the node, and a bound widget has no port to carry
-     * the fact. One direction only — the document is the truth and this is its
-     * projection, rewritten on every edit, so the two cannot drift. The rule
-     * itself is shared with the compile fixtures, which build their graphs
-     * without a store and would otherwise keep a second copy of it.
-     */
-    const widgetSources = displayWidgetSources(document)
-    const ports = {
-      inputs: [...(library?.inputs ?? []), ...widgetPorts.inputs],
-      outputs: [...(library?.outputs ?? []), ...widgetPorts.outputs],
+    let ports: { inputs: NodePort[]; outputs: NodePort[] } | null = null
+    let properties = node.data.properties
+    if (node.data.nodeType === 'TransportDisplay') {
+      const displayId = String(node.data.properties.displayId ?? '')
+      const document = displayId ? documents[displayId] : undefined
+      const widgetPorts = document ? displayDocumentPorts(document) : { inputs: [], outputs: [] }
+      /*
+       * Widget inputs stay on the panel because the panel draws values into
+       * widgets. Widget outputs belong to the paired Touch node below, because
+       * they are finger intent rather than screen content.
+       */
+      ports = {
+        inputs: [...(library?.inputs ?? []), ...widgetPorts.inputs],
+        outputs: [...(library?.outputs ?? [])],
+      }
+      /*
+       * Which widgets read the panel's own source, derived onto the node.
+       *
+       * The same reason the ports are derived here: evaluation and the
+       * generators work from the node, and a bound widget has no port to carry
+       * the fact. One direction only — the document is the truth and this is
+       * its projection, rewritten on every edit, so the two cannot drift.
+       */
+      properties = { ...node.data.properties, displayId, widgetSources: displayWidgetSources(document) }
+    } else if (node.data.nodeType === 'TouchInput') {
+      const panelId = String(node.data.properties.panelId ?? '')
+      const panel = panelsById.get(panelId)
+      const displayId = panel ? String(panel.data.properties.displayId ?? '') : ''
+      const document = displayId ? documents[displayId] : undefined
+      const widgetPorts = document ? displayDocumentPorts(document) : { inputs: [], outputs: [] }
+      ports = {
+        inputs: [...(library?.inputs ?? [])],
+        outputs: [...(library?.outputs ?? []), ...widgetPorts.outputs],
+      }
+    } else {
+      return node
     }
     const previousInputs = new Map(
       ((node.data.inputs as Array<{ id: string; dataType: string }> | undefined) ?? [])
@@ -1141,7 +1155,7 @@ function syncDisplayNodesInContent(
         .map((port) => [port.id, port.dataType]),
     )
     portsByNode.set(node.id, {
-      ports,
+      ports: ports!,
       changedInputTypes: new Set(ports.inputs
         .filter((port) => previousInputs.has(port.id) && previousInputs.get(port.id) !== port.dataType)
         .map((port) => port.id)),
@@ -1153,8 +1167,8 @@ function syncDisplayNodesInContent(
       ...node,
       data: {
         ...node.data,
-        properties: { ...node.data.properties, displayId, widgetSources },
-        ...ports,
+        properties,
+        ...ports!,
       },
     }
   })
@@ -1181,13 +1195,18 @@ function syncDisplayProjection(
   displayEdgeSource: GraphContent,
   displayId?: string,
 ): GraphContent {
-  // The panel carrying this design: its widget ports and their cables are what
+  // The panel carrying this design, plus the Touch node that publishes that
+  // panel's widget controls: their document-derived ports and cables are what
   // a display-history step owns.
   const displayNodeIds = new Set(content.nodes
     .filter((node) => node.data.nodeType === 'TransportDisplay'
       && (displayId === undefined
         || String(node.data.properties.displayId ?? '') === displayId))
     .map((node) => node.id))
+  for (const node of content.nodes) {
+    if (node.data.nodeType !== 'TouchInput') continue
+    if (displayNodeIds.has(String(node.data.properties.panelId ?? ''))) displayNodeIds.add(node.id)
+  }
   const contentNodeIds = new Set(content.nodes.map((node) => node.id))
   const contentEdgeIds = new Set(content.edges.map((edge) => edge.id))
   const touchesDisplay = (edge: StudioEdge) => (
@@ -1238,6 +1257,7 @@ function duplicateNodeDocument(
   const source = documents[sourceDisplayId]
   const document = source ? { ...structuredClone(source), displayId: newId } : undefined
   const ports = document ? displayDocumentPorts(document) : { inputs: [], outputs: [] }
+  const library = LIBRARY_DEF.get('TransportDisplay')
   return {
     node: {
       ...node,
@@ -1245,7 +1265,8 @@ function duplicateNodeDocument(
       data: {
         ...node.data,
         properties: { ...node.data.properties, displayId: newId },
-        ...ports,
+        inputs: [...(library?.inputs ?? []), ...ports.inputs],
+        outputs: [...(library?.outputs ?? [])],
       },
     },
     document,
