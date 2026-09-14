@@ -258,6 +258,20 @@ matrix, not a reason to postpone testing earlier changes.
 
 ## 2. Make the workflow understandable
 
+- [ ] **Direct controls and LED output status redesign.** Implement the
+  [agreed design and ordered checklist](docs/development/design/direct-controls-and-output-status.md):
+  named Touch widget outputs, property inputs exposed on demand, optional Control
+  Map bundles and LED-output status screens. Include template/fixed-layout
+  auto-wiring only when destinations are unambiguous, using ordinary editable
+  wires; preserve manual connections and offer **Connect template controls**
+  for missing assignments. Review every existing node's inputs: keep main data
+  ports and all connected sockets visible, expose optional parameters/actions
+  on demand, and provide a visible **Expose input…** affordance. Keep port colours
+  tied to actual data types; highlight compatibility and required conversions
+  while dragging instead of recolouring connected targets. Detailed completion
+  state and verification live in the design checklist; mark this umbrella item
+  done only when its implementation and evidence are complete.
+
 - [x] **HW-29 · Finish the Displays help page (S; after the control restructure).**
   Done, now that HW-30 closed the restructure the two gaps were waiting on.
 

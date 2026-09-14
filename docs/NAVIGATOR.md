@@ -42,6 +42,10 @@ build/architecture overview aimed at contributors.
 ## Development
 
 - [Design notes](development/design/)
+  - [Direct controls and LED output status](development/design/direct-controls-and-output-status.md)
+    — agreed next design: named Touch widget outputs, property inputs exposed
+      on demand, optional control bundles and LED-output status screens; includes
+      the ordered implementation checklist.
   - [One canvas, four workspaces](development/design/workspace-tabs.md)
     — replacing the split graph/hardware canvas with Hardware · Build Diagram ·
     Graph · Upload tabs, why co-visibility was not what connected them, and how
