@@ -210,6 +210,7 @@ function NodeGraphCanvasInner() {
   const {
     setStatus,
     setSparkPort,
+    setConnectionDrag,
     setViewCenter,
     draggingNodeType,
     setDraggingNodeType,
@@ -226,6 +227,7 @@ function NodeGraphCanvasInner() {
   } = useUiStore(useShallow((s) => ({
     setStatus: s.setStatus,
     setSparkPort: s.setSparkPort,
+    setConnectionDrag: s.setConnectionDrag,
     setViewCenter: s.setViewCenter,
     draggingNodeType: s.draggingNodeType,
     setDraggingNodeType: s.setDraggingNodeType,
@@ -575,9 +577,18 @@ function NodeGraphCanvasInner() {
       // drop can offer a compatible-node picker.
       if (params.handleType === 'source' && params.nodeId) {
         const srcNode = getNode(params.nodeId)
-        const out = (srcNode?.data as { outputs?: Array<{ id: string; dataType: string }> })?.outputs
+        const srcData = srcNode?.data as { nodeType?: string; outputs?: Array<{ id: string; dataType: string }> } | undefined
+        const out = srcData?.outputs
           ?.find((p) => p.id === (params.handleId ?? undefined))
-        if (out) connectFrom.current = { nodeId: params.nodeId, handleId: out.id, dataType: out.dataType }
+        if (out) {
+          connectFrom.current = { nodeId: params.nodeId, handleId: out.id, dataType: out.dataType }
+          setConnectionDrag({
+            sourceNodeId: params.nodeId,
+            sourceNodeType: String(srcData?.nodeType ?? ''),
+            sourcePortId: out.id,
+            sourceDataType: out.dataType,
+          })
+        }
         return
       }
       // Dragging from a connected input handle is an unplug/reroute gesture.
@@ -591,7 +602,7 @@ function NodeGraphCanvasInner() {
         }
       }
     },
-    [edges, getNode, removeEdge]
+    [edges, getNode, removeEdge, setConnectionDrag]
   )
 
   const onConnectEnd: OnConnectEnd = useCallback(
@@ -600,6 +611,7 @@ function NodeGraphCanvasInner() {
       const detached = detaching.current
       connectFrom.current = null
       detaching.current = null
+      setConnectionDrag(null)
       if (reconnecting.current) return
       if (detached && !state?.toHandle) {
         playNoodleDisconnectSfx()
@@ -635,7 +647,7 @@ function NodeGraphCanvasInner() {
         setStatus('Incompatible port types — connection blocked', 'error')
       }
     },
-    [setStatus, screenToFlowPosition, setNodeInputExposed, handleConnect]
+    [setStatus, screenToFlowPosition, setNodeInputExposed, handleConnect, setConnectionDrag]
   )
 
   // After the picker adds + auto-wires a node from a dropped noodle, nudge the
@@ -673,7 +685,8 @@ function NodeGraphCanvasInner() {
     reconnecting.current = true
     reconnectLanded.current = false
     connectFrom.current = null
-  }, [])
+    setConnectionDrag(null)
+  }, [setConnectionDrag])
 
   const onReconnect: OnReconnect = useCallback(
     (oldEdge, newConnection) => {
@@ -693,8 +706,9 @@ function NodeGraphCanvasInner() {
         setStatus('Noodle unplugged', 'info')
       }
       reconnecting.current = false
+      setConnectionDrag(null)
     },
-    [removeEdge, setStatus]
+    [removeEdge, setStatus, setConnectionDrag]
   )
 
   const onNodeClick: NodeMouseHandler = useCallback(

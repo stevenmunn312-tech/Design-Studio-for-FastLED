@@ -32,6 +32,8 @@ describe('property input exposure', () => {
       }
     }
     expect(propertyInputsFor('Board')).toEqual([])
+    expect(propertyInputsFor('Blend').map((port) => port.propertyKey)).toEqual(['amount'])
+    expect(normalizeExposedInputs('Blend', undefined)).toEqual([])
     expect(propertyInputsFor('Juggle').map((port) => port.propertyKey)).toEqual(['speed', 'count', 'fade', 'palette'])
     expect(normalizeExposedInputs('Juggle', undefined)).toEqual([])
     expect(normalizeExposedInputs('TransportDisplay', undefined)).toEqual(['enabled'])

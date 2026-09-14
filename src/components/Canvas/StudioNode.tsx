@@ -4,8 +4,8 @@ import type { NodeProps, Node } from '@xyflow/react'
 import { rootGraphEdges, rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { compositionDims } from '../../state/outputRouting'
 import type { StudioEdge, StudioNodeData } from '../../state/graphStore'
-import { useUiStore } from '../../state/uiStore'
-import { NODE_LIBRARY, NODE_DESCRIPTIONS, CATEGORY_ACCENT_VAR, portColor, propertyMeta, propertyDescription, propertyLabel, hasClampableInputs, bypassPort, nodeDisplayLabel, isInternalProperty, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression, isGpioPinProperty, gpioRequirementForProperty } from '../../state/nodeLibrary'
+import { useUiStore, type ConnectionDragHint } from '../../state/uiStore'
+import { NODE_LIBRARY, NODE_DESCRIPTIONS, CATEGORY_ACCENT_VAR, portColor, portsCompatible, propertyMeta, propertyDescription, propertyLabel, hasClampableInputs, bypassPort, nodeDisplayLabel, isInternalProperty, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression, isGpioPinProperty, gpioRequirementForProperty } from '../../state/nodeLibrary'
 import { isPinnableProperty } from '../../state/performanceDeck'
 import { useUploadStore, boardGpioInfo } from '../../state/uploadStore'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../../state/scalarExpression'
@@ -73,6 +73,7 @@ import { NODE_HANDLE_STYLE } from './nodeHandleStyle'
 import { exposedPropertyInputs, propertyInputsFor } from '../../state/propertyInputs'
 import PropertyInputMenu from './PropertyInputMenu'
 import type { FloatingAnchor } from '../Hardware/FloatingMenu'
+import { formatSignalRange, isNormalizedOutput, signalRangeMismatch } from '../../state/signalRange'
 
 const MusicLibraryNodeBody = lazy(() => import('./MusicLibraryNodeBody'))
 const PerformanceGeneratorBody = lazy(() => import('./PerformanceGeneratorBody'))
@@ -91,6 +92,11 @@ const StereoVuMeterNodeBody = lazy(() => import('./StereoVuMeterNodeBody'))
 const TouchCalibrationBody = lazy(() => import('./TouchCalibrationBody'))
 
 type PortDef = { id: string; label: string; dataType: string }
+type ConnectionTargetHint = {
+  kind: 'compatible' | 'range' | 'conversion' | 'blocked'
+  title: string
+  aria: string
+}
 
 const PROP_GROUPS_STORAGE_PREFIX = 'design-studio-for-fastled.propGroupsOpen.'
 
@@ -163,6 +169,51 @@ function activateHandleFromKeyboard(event: React.KeyboardEvent<HTMLDivElement>) 
   event.preventDefault()
   event.stopPropagation()
   event.currentTarget.click()
+}
+
+function connectionTargetHint(
+  targetNodeType: string,
+  targetPort: { id: string; dataType: string },
+  drag: ConnectionDragHint | null,
+): ConnectionTargetHint | null {
+  if (!drag) return null
+  if (!portsCompatible(drag.sourceDataType, targetPort.dataType)) {
+    return {
+      kind: 'blocked',
+      title: `${drag.sourceDataType} cannot connect to ${targetPort.dataType}.`,
+      aria: `Incompatible with dragged ${drag.sourceDataType} output.`,
+    }
+  }
+  const range = isNormalizedOutput(drag.sourceNodeType, drag.sourcePortId)
+    ? signalRangeMismatch(targetNodeType, targetPort.id)
+    : null
+  if (range) {
+    const span = formatSignalRange(range)
+    return {
+      kind: 'range',
+      title: `Compatible type, but this 0-1 source only covers the bottom of ${span}. Use Map Range for full control.`,
+      aria: `Compatible, with range warning. Use Map Range for the ${span} target range.`,
+    }
+  }
+  if (drag.sourceDataType !== targetPort.dataType) {
+    return {
+      kind: 'conversion',
+      title: `${drag.sourceDataType} can connect to ${targetPort.dataType}; add Trigger or Map Range if you need explicit conversion behaviour.`,
+      aria: `Compatible ${drag.sourceDataType} to ${targetPort.dataType} conversion.`,
+    }
+  }
+  return {
+    kind: 'compatible',
+    title: `Compatible ${targetPort.dataType} target.`,
+    aria: `Compatible ${targetPort.dataType} target.`,
+  }
+}
+
+function connectionHintClass(hint: ConnectionTargetHint | null): string {
+  if (!hint) return ''
+  if (hint.kind === 'blocked') return styles.connectionBlocked
+  if (hint.kind === 'range' || hint.kind === 'conversion') return styles.connectionNeedsAdapter
+  return styles.connectionCompatible
 }
 
 function SliderProperty({
@@ -316,6 +367,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
   unpinProperty,
 }: LivePropertyControlsProps) {
   const propertyInputs = propertyInputsFor(nodeType)
+  const connectionDrag = useUiStore((s) => s.connectionDrag)
   const setNodeInputExposed = useGraphStore((s) => s.setNodeInputExposed)
   const disconnectInput = useGraphStore((s) => s.disconnectInput)
   const focusNode = useGraphStore((s) => s.selectNode)
@@ -582,14 +634,20 @@ const LivePropertyControls = memo(function LivePropertyControls({
             : transportDisplaySourceKind
               ? transportLayoutForKind(transportDisplaySourceKind, val) ?? 'Waiting'
               : 'Waiting'
-          : typeof live === 'string' && selectOptions.includes(live as never)
+            : typeof live === 'string' && selectOptions.includes(live as never)
             ? live
             : String(val)
+        const connectionHint = propertyInput
+          ? connectionTargetHint(nodeType, propertyInput, connectionDrag)
+          : null
+        const hintedTitle = connectionHint
+          ? [rowTitle, connectionHint.title].filter(Boolean).join(' ')
+          : rowTitle
         return (
           <div
             key={key}
-            className={`${styles.propRow}${disabled ? ` ${styles.wired}` : ''}`}
-            title={rowTitle}
+            className={`${styles.propRow}${disabled ? ` ${styles.wired}` : ''}${connectionHint ? ` ${connectionHintClass(connectionHint)}` : ''}`}
+            title={hintedTitle}
             /* A noodle dropped on the row exposes this socket and lands on it,
                so a hidden property is still a drop target. The canvas reads
                these three off the DOM under the pointer — see NodeGraphCanvas. */
@@ -604,10 +662,10 @@ const LivePropertyControls = memo(function LivePropertyControls({
           >
             {exposedInput && (
               <Handle type="target" position={Position.Left} id={exposedInput.id}
-                title={`${exposedInput.label} · ${exposedInput.dataType}`} role="button"
+                title={`${exposedInput.label} · ${exposedInput.dataType}${connectionHint ? ` — ${connectionHint.title}` : ''}`} role="button"
                 tabIndex={locked ? -1 : 0} isConnectable={!locked} aria-disabled={locked}
-                aria-label={`Connect to ${nodeLabel} ${exposedInput.label} input, ${exposedInput.dataType}. Press Enter or Space to choose a source port.`}
-                onKeyDown={activateHandleFromKeyboard} className={styles.propertyHandle}
+                aria-label={`Connect to ${nodeLabel} ${exposedInput.label} input, ${exposedInput.dataType}${connectionHint ? `. ${connectionHint.aria}` : ''}. Press Enter or Space to choose a source port.`}
+                onKeyDown={activateHandleFromKeyboard} className={`${styles.propertyHandle}${connectionHint ? ` ${connectionHintClass(connectionHint)}` : ''}`}
                 style={{ ...NODE_HANDLE_STYLE, top: '50%', background: portColor(exposedInput.dataType),
                   boxShadow: `0 0 6px ${portColor(exposedInput.dataType)}` }} />
             )}
@@ -1025,6 +1083,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   }, [])
   const performanceMode = useUiStore((s) => s.performanceMode)
   const uiEffectsEnabled = useUiStore((s) => s.uiEffectsEnabled)
+  const connectionDrag = useUiStore((s) => s.connectionDrag)
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
   const selectedBoardProfile = useGraphStore((s) => selectedPhysicalBoardProfile(rootGraphNodes(s)))
   const signalPathDimEnabled = useUiStore((s) => s.signalPathDimEnabled)
@@ -1419,19 +1478,21 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       <div className={styles.header} style={{ background: accent }} title={headerTooltip}>
         {minimized && compactInputs.map((input, index) => {
           const inputColor = portColor(input.dataType)
+          const connectionHint = connectionTargetHint(d.nodeType, input, connectionDrag)
           return (
             <Handle
               key={`compact-input-${input.id}`}
               type="target"
               position={Position.Left}
               id={input.id}
-              title={`${input.label} · ${input.dataType}`}
+              title={`${input.label} · ${input.dataType}${connectionHint ? ` — ${connectionHint.title}` : ''}`}
               role="button"
               tabIndex={micUnavailable ? -1 : 0}
               isConnectable={!micUnavailable}
               aria-disabled={micUnavailable}
-              aria-label={`Connect to ${displayName} ${input.label} input, ${input.dataType}. Press Enter or Space to ${sourceMap.has(input.id) ? 'replace the existing connection' : 'choose a source port'}.`}
+              aria-label={`Connect to ${displayName} ${input.label} input, ${input.dataType}${connectionHint ? `. ${connectionHint.aria}` : ''}. Press Enter or Space to ${sourceMap.has(input.id) ? 'replace the existing connection' : 'choose a source port'}.`}
               onKeyDown={activateHandleFromKeyboard}
+              className={connectionHintClass(connectionHint)}
               style={{
                 ...NODE_HANDLE_STYLE,
                 top: `${((index + 1) / (compactInputs.length + 1)) * 100}%`,
@@ -1680,21 +1741,23 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           const output = outputs[i]
           const inputColor = input ? portColor(input.dataType) : null
           const outputColor = output ? portColor(output.dataType) : null
+          const inputHint = input ? connectionTargetHint(d.nodeType, input, connectionDrag) : null
           return (
-            <div key={i} className={styles.portRow}>
+            <div key={i} className={`${styles.portRow}${inputHint ? ` ${connectionHintClass(inputHint)}` : ''}`}>
               {input && inputColor && (
                 <>
                   <Handle
                     type="target"
                     position={Position.Left}
                     id={input.id}
-                    title={`${input.label} · ${input.dataType}`}
+                    title={`${input.label} · ${input.dataType}${inputHint ? ` — ${inputHint.title}` : ''}`}
                     role="button"
                     tabIndex={micUnavailable ? -1 : 0}
                     isConnectable={!micUnavailable}
                     aria-disabled={micUnavailable}
-                    aria-label={`Connect to ${displayName} ${input.label} input, ${input.dataType}. Press Enter or Space to ${sourceMap.has(input.id) ? 'replace the existing connection' : 'choose a source port'}.`}
+                    aria-label={`Connect to ${displayName} ${input.label} input, ${input.dataType}${inputHint ? `. ${inputHint.aria}` : ''}. Press Enter or Space to ${sourceMap.has(input.id) ? 'replace the existing connection' : 'choose a source port'}.`}
                     onKeyDown={activateHandleFromKeyboard}
+                    className={connectionHintClass(inputHint)}
                     style={{ ...NODE_HANDLE_STYLE, top: '50%', left: -8, background: inputColor, boxShadow: `0 0 6px ${inputColor}` }}
                   />
                   {sparkPortId === input.id && <span className={styles.spark} />}

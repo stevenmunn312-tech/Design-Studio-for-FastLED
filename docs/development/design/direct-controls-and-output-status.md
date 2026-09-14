@@ -1,6 +1,6 @@
 # Direct controls and LED output status
 
-Status: in progress — steps 2 and 3 are largely landed, the rest is pending.
+Status: in progress — steps 2 and 3 are landed, the rest is pending.
 2026-09-14. Target: Hardware, ahead of v1.0.0. Behaviour below is a mix of
 implemented and specified; the checklist at the foot says which is which.
 
@@ -175,13 +175,18 @@ sweep and the widget-role half.
   hiding must never silently disconnect it. Explain excluded fields and ranges.
   A wired row names the driving *node*, and its menu offers showing what drives
   it and pulling that one wire; there is no Hide while a wire is attached.
-- [ ] Apply the main-versus-optional visibility rules to the initial nodes.
-  Verify a compact Juggle retains Frame and a Blend retains both frame inputs;
-  revealing, connecting, collapsing and reloading must preserve wired sockets.
-- [ ] Keep base port colours sourced from the shared data-type palette. Add
+- [x] Apply the main-versus-optional visibility rules to the initial nodes.
+  Compact Juggle keeps its Frame output while its value controls start hidden;
+  Blend keeps A/B and Frame visible while Opacity is an optional property input.
+  `StudioNode.test.tsx` covers exposing and wired persistence for these sockets,
+  and `propertyInputs.test.ts` covers the shared registry/defaults.
+- [x] Keep base port colours sourced from the shared data-type palette. Add
   drag-time compatible/incompatible highlights and conversion hints, including
-  same-type range mismatches. Check connect/disconnect, selection, configurable
-  control type changes and keyboard access without relying on colour alone.
+  same-type range mismatches. During an output drag, target handles and hidden
+  property rows are marked compatible, blocked or adapter-needed without
+  changing their type colour; titles and aria labels carry the same message,
+  including Map Range hints for 0-1 sources feeding wider ranges. Covered by
+  `StudioNode.test.tsx`; `npm run build` also passed.
 
 ### 4. Derive named Touch outputs from the panel
 

@@ -67,7 +67,7 @@ describe('StudioNode', () => {
     usePreviewStore.setState({ outputs: new Map() })
     useAudioStore.setState({ active: false, bass: 0, mids: 0, treble: 0, beat: false, bpm: 120, spectrum: Array(16).fill(0) })
     useNodeDefaults.setState({ overrides: {}, micOverridesByFqbn: {} })
-    useUiStore.setState({ uiEffectsEnabled: true })
+    useUiStore.setState({ uiEffectsEnabled: true, connectionDrag: null })
     // Default board matches the app's own default (ESP32-S3, which has a GPIO
     // table) so pin-picker tests aren't sensitive to another test's selection.
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
@@ -114,6 +114,86 @@ describe('StudioNode', () => {
     expect(view.getByRole('menuitem', { name: /Disconnect Count/ })).toBeTruthy()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(view.queryByRole('menu')).toBeNull()
+  })
+
+  it('keeps Blend frame ports visible while Opacity is an optional property input', () => {
+    const n = makeNode('Blend', { blendMode: 'normal', amount: 0.5 })
+    useGraphStore.setState({ nodes: [n], edges: [] })
+    function ConnectedNode() {
+      const current = useGraphStore((s) => s.nodes[0])
+      return <StudioNode {...({ id: current.id, data: current.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>)} />
+    }
+    const view = render(<ConnectedNode />)
+
+    expect(view.container.querySelector('[data-handle="target:a"]')).toBeTruthy()
+    expect(view.container.querySelector('[data-handle="target:b"]')).toBeTruthy()
+    expect(view.container.querySelector('[data-handle="source:frame"]')).toBeTruthy()
+    expect(view.container.querySelector('[data-handle="target:amount"]')).toBeNull()
+
+    fireEvent.click(view.getByRole('button', { name: 'Expose input…' }))
+    fireEvent.click(view.getByRole('menuitem', { name: /Expose input: Opacity/ }))
+    expect(view.container.querySelector('[data-handle="target:amount"]')).toBeTruthy()
+
+    act(() => {
+      useGraphStore.setState({
+        nodes: [{ ...n, data: { ...n.data, exposedInputs: [] } }],
+        edges: [{ id: 'amount-wire', source: 'knob', sourceHandle: 'value', target: n.id, targetHandle: 'amount' }],
+      })
+    })
+    expect(view.container.querySelector('[data-handle="target:amount"]')).toBeTruthy()
+  })
+
+  it('marks compatible and incompatible targets during an output drag without changing base port colours', () => {
+    const n = makeNode('MatrixOutput', { form: 'matrix', width: 16, height: 16, enabled: true, outputBrightness: 1 })
+    useGraphStore.setState({ nodes: [n], edges: [] })
+    useUiStore.setState({
+      connectionDrag: {
+        sourceNodeId: 'solid',
+        sourceNodeType: 'SolidColor',
+        sourcePortId: 'frame',
+        sourceDataType: 'frame',
+      },
+    })
+    const view = renderNode(n)
+    const frame = view.container.querySelector('[data-handle="target:frame"]') as HTMLElement
+    const frameColor = frame.style.background
+
+    expect(frame.className).toContain('connectionCompatible')
+    expect(frame.getAttribute('aria-label')).toContain('Compatible frame target')
+
+    useUiStore.setState({
+      connectionDrag: {
+        sourceNodeId: 'button',
+        sourceNodeType: 'ButtonInput',
+        sourcePortId: 'pressed',
+        sourceDataType: 'bool',
+      },
+    })
+    view.rerender(<StudioNode {...({ id: n.id, data: n.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>)} />)
+    const blocked = view.container.querySelector('[data-handle="target:frame"]') as HTMLElement
+
+    expect(blocked.className).toContain('connectionBlocked')
+    expect(blocked.style.background).toBe(frameColor)
+    expect(blocked.getAttribute('aria-label')).toContain('Incompatible with dragged bool output')
+  })
+
+  it('warns on normalized float sources that need Map Range for a wider property target', () => {
+    const n = makeNode('Juggle', { speed: 0.5, count: 4, fade: 0.22, palette: 'rainbow' })
+    useGraphStore.setState({ nodes: [n], edges: [] })
+    useUiStore.setState({
+      connectionDrag: {
+        sourceNodeId: 'pot',
+        sourceNodeType: 'PotInput',
+        sourcePortId: 'value',
+        sourceDataType: 'float',
+      },
+    })
+    const view = renderNode(n)
+    const countRow = view.container.querySelector(`[data-property-input="${n.id}|count"]`) as HTMLElement
+
+    expect(countRow.className).toContain('connectionNeedsAdapter')
+    expect(countRow.title).toContain('Use Map Range')
+    expect(countRow.title).toContain('1–8')
   })
 
   it('offers a wired property its source and a disconnect, and tags the row as a drop target', () => {

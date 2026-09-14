@@ -41,6 +41,13 @@ export type DesignWorkspaceView =
   | { kind: 'graph' }
   | { kind: 'display'; displayId: string }
 
+export interface ConnectionDragHint {
+  sourceNodeId: string
+  sourceNodeType: string
+  sourcePortId: string
+  sourceDataType: string
+}
+
 export interface HelpNodeReferenceState {
   search: string
   expandedCategory: NodeCategory | null
@@ -196,6 +203,8 @@ interface UiState {
   sparkPort: { nodeId: string; portId: string } | null
   /** Sidebar node currently being dragged, used for canvas drop affordances. */
   draggingNodeType: string | null
+  /** Output noodle currently being dragged, used to mark compatible targets. */
+  connectionDrag: ConnectionDragHint | null
   /** Centre of the visible canvas in flow coordinates — where click-to-add
    *  drops a node so it lands on screen wherever the user has panned. */
   viewCenter: { x: number; y: number }
@@ -279,6 +288,7 @@ interface UiState {
   setMemoryMb: (memoryMb: number | null) => void
   setSparkPort: (port: { nodeId: string; portId: string } | null) => void
   setDraggingNodeType: (nodeType: string | null) => void
+  setConnectionDrag: (drag: ConnectionDragHint | null) => void
   setViewCenter: (center: { x: number; y: number }) => void
   requestFitView: (nodeIds?: string[]) => void
   /** Bring the graph canvas to the front and frame `nodeIds` on it. Every
@@ -372,6 +382,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   memoryMb: null,
   sparkPort: null,
   draggingNodeType: null,
+  connectionDrag: null,
   viewCenter: { x: 300, y: 250 },
   hardwarePaneTab: (load<string>(HARDWARE_TAB_KEY, 'hardware') === 'upload' ? 'upload' : 'hardware') as HardwarePaneTab,
   hardwareShelfTarget: null,
@@ -542,6 +553,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   setMemoryMb: (memoryMb) => set({ memoryMb }),
   setSparkPort: (port) => set({ sparkPort: port }),
   setDraggingNodeType: (draggingNodeType) => set({ draggingNodeType }),
+  setConnectionDrag: (connectionDrag) => set({ connectionDrag }),
   setViewCenter: (center) => set({ viewCenter: center }),
   requestFitView: (nodeIds) => set((state) => ({
     fitViewRequest: { nonce: state.fitViewRequest.nonce + 1, nodeIds },

@@ -91,6 +91,7 @@ describe('NodeGraphCanvas start screen', () => {
       statusText: 'Ready',
       statusLevel: 'idle',
       testSignal: false,
+      connectionDrag: null,
     })
     startAudioMock.mockClear()
     stopAudioMock.mockClear()
@@ -382,7 +383,14 @@ describe('NodeGraphCanvas start screen', () => {
     const pointer = vi.spyOn(document, 'elementsFromPoint').mockReturnValue([row])
 
     onConnectStart({}, { nodeId: 'pot', handleId: 'value', handleType: 'source' })
+    expect(useUiStore.getState().connectionDrag).toEqual({
+      sourceNodeId: 'pot',
+      sourceNodeType: 'PotInput',
+      sourcePortId: 'value',
+      sourceDataType: 'float',
+    })
     onConnectEnd(new MouseEvent('mouseup', { clientX: 30, clientY: 30 }), { toHandle: null })
+    expect(useUiStore.getState().connectionDrag).toBeNull()
 
     const juggle = useGraphStore.getState().nodes.find((node) => node.id === 'juggle')
     expect(juggle?.data.exposedInputs).toEqual(['count'])

@@ -540,6 +540,44 @@
   padding-right: 10px;
 }
 
+.connectionCompatible,
+.connectionNeedsAdapter,
+.connectionBlocked {
+  transition: opacity 120ms ease-out, box-shadow 120ms ease-out, background-color 120ms ease-out;
+}
+
+.portRow.connectionCompatible,
+.propRow.connectionCompatible {
+  background: color-mix(in srgb, var(--success, #56f39a) 8%, transparent);
+}
+
+.portRow.connectionNeedsAdapter,
+.propRow.connectionNeedsAdapter {
+  background: color-mix(in srgb, var(--warning, #ffd24a) 10%, transparent);
+}
+
+.portRow.connectionBlocked,
+.propRow.connectionBlocked {
+  opacity: 0.46;
+}
+
+span.connectionCompatible {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--success, #56f39a) 42%, transparent),
+    0 0 10px color-mix(in srgb, var(--success, #56f39a) 48%, transparent) !important;
+}
+
+span.connectionNeedsAdapter {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--warning, #ffd24a) 46%, transparent),
+    0 0 10px color-mix(in srgb, var(--warning, #ffd24a) 50%, transparent) !important;
+}
+
+span.connectionBlocked {
+  opacity: 0.38;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger, #ff5a6f) 38%, transparent) !important;
+}
+
 /* Inline property editors on the node body */
 .props {
   display: flex;
