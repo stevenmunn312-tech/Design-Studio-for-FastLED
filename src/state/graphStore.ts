@@ -13,7 +13,7 @@ import {
   reconnectEdge,
 } from '@xyflow/react'
 import type { NodeCategory, NodePort } from '../types'
-import { NODE_LIBRARY, portColor } from './nodeLibrary'
+import { NODE_LIBRARY, portColor, propertyLabel, propertyMeta } from './nodeLibrary'
 import { normalizeExposedInputs, propertyInputsFor } from './propertyInputs'
 import type { GroupRegistry } from './graphEvaluator'
 import type { SavedPattern } from './patternLibrary'
@@ -53,7 +53,13 @@ import {
   type DisplayDocument,
   type DisplayDocumentRegistry,
 } from './displayDocument'
-import { displayDocumentPorts, displayWidgetSources } from './displayRegistry'
+import {
+  defaultDisplayWidgetProperties,
+  displayDocumentPorts,
+  displayWidgetDefinition,
+  displayWidgetSources,
+  parseDisplayWidgetPortId,
+} from './displayRegistry'
 import { libraryDefaults, spliceTargetPorts } from './nodeLibrary'
 import { createDisplayDocument, resizeDisplayDocument } from './displayEditor'
 import { mountedPanelGeometry } from './mountedDisplays'
@@ -607,6 +613,76 @@ function withAdoptedMirrorPin(
     : node)
 }
 
+function withAdoptedDisplayControlRange(
+  s: GraphState,
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  connection: Connection,
+): { nodes: StudioNode[]; edges: StudioEdge[]; displayDocuments: DisplayDocumentRegistry } {
+  if (!connection.source || !connection.sourceHandle || !connection.target || !connection.targetHandle) {
+    return { nodes, edges, displayDocuments: s.displayDocuments }
+  }
+  const parsed = parseDisplayWidgetPortId(connection.sourceHandle)
+  if (parsed?.role !== 'out') return { nodes, edges, displayDocuments: s.displayDocuments }
+  const source = nodes.find((node) => node.id === connection.source)
+  if (!source || source.data.nodeType !== 'TouchInput') return { nodes, edges, displayDocuments: s.displayDocuments }
+  const target = nodes.find((node) => node.id === connection.target)
+  if (!target) return { nodes, edges, displayDocuments: s.displayDocuments }
+  const propertyInput = propertyInputsFor(target.data.nodeType)
+    .find((port) => port.id === connection.targetHandle)
+  if (!propertyInput || propertyInput.dataType !== 'float') {
+    return { nodes, edges, displayDocuments: s.displayDocuments }
+  }
+  const meta = propertyMeta(target.data.nodeType, propertyInput.propertyKey)
+  if (meta?.control !== 'slider') return { nodes, edges, displayDocuments: s.displayDocuments }
+  const alreadyShared = s.edges.some((edge) =>
+    edge.source === connection.source && edge.sourceHandle === connection.sourceHandle)
+  if (alreadyShared) return { nodes, edges, displayDocuments: s.displayDocuments }
+
+  const panelId = String(source.data.properties.panelId ?? '')
+  const panel = nodes.find((node) => node.id === panelId && node.data.nodeType === 'TransportDisplay')
+  const displayId = panel ? String(panel.data.properties.displayId ?? '') : ''
+  const document = displayId ? s.displayDocuments[displayId] : undefined
+  const widget = document?.widgets.find((entry) => entry.id === parsed.widgetId)
+  if (!document || !widget || (widget.type !== 'Slider' && widget.type !== 'Dial')) {
+    return { nodes, edges, displayDocuments: s.displayDocuments }
+  }
+  const definition = displayWidgetDefinition(widget.type)
+  const defaults = defaultDisplayWidgetProperties(widget.type)
+  const unconfigured = widget.label === definition.label
+    && widget.properties.source === undefined
+    && widget.properties.min === defaults.min
+    && widget.properties.max === defaults.max
+    && widget.properties.step === defaults.step
+  if (!unconfigured) return { nodes, edges, displayDocuments: s.displayDocuments }
+
+  // Only a brand-new semantic control adopts a target; configured or shared
+  // controls keep their source contract and need an explicit mapper/repair.
+  const nextDocument: DisplayDocument = {
+    ...document,
+    widgets: document.widgets.map((entry) => entry.id === widget.id
+      ? {
+          ...entry,
+          label: (() => {
+            const label = propertyLabel(target.data.nodeType, propertyInput.propertyKey)
+            return label === propertyInput.propertyKey ? propertyInput.label : label
+          })(),
+          properties: {
+            ...entry.properties,
+            min: meta.min,
+            max: meta.max,
+            step: meta.step,
+          },
+        }
+      : entry),
+  }
+  const displayDocuments = { ...s.displayDocuments, [displayId]: nextDocument }
+  return {
+    displayDocuments,
+    ...syncDisplayNodesInContent({ nodes, edges }, displayDocuments),
+  }
+}
+
 /**
  * Complete a Button Bank's trailing connection.
  *
@@ -743,9 +819,14 @@ function completeConnection(s: GraphState, connection: Connection): Partial<Grap
   // `reconnectable: 'target'` lets a noodle be unplugged/re-routed from
   // the input (target) end only — grab it at the input port and drag.
   const edges = addEdge({ ...resolved, type: 'glowEdge', reconnectable: 'target', style: { stroke: color } }, replaced)
-  return {
+  const adopted = withAdoptedDisplayControlRange(
+    s,
+    withAdoptedMirrorPin(grown.nodes, edges, resolved),
     edges,
-    nodes: withAdoptedMirrorPin(grown.nodes, edges, resolved),
+    resolved,
+  )
+  return {
+    ...adopted,
     pendingControlAssignment: null,
   }
 }

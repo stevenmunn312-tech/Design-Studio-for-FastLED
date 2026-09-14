@@ -1403,6 +1403,88 @@ describe('graphStore — custom display documents', () => {
     expect(useGraphStore.getState().edges.map((entry) => entry.id)).toEqual(['text-wire', 'toggle-wire'])
   })
 
+  it('adopts a target property range for a fresh touch slider on first connection', () => {
+    reset([
+      node('screen', 'TransportDisplay', { displayId: 'panel' }),
+      node('touch', 'TouchInput', { panelId: 'screen' }),
+      node('juggle', 'Juggle', { speed: 0.5, count: 4, fade: 0.22, palette: 'rainbow' }),
+    ])
+    useGraphStore.getState().setDisplayDocument(addDisplayWidget(createDisplayDocument('panel'), 'Slider'))
+
+    useGraphStore.getState().onConnect({
+      source: 'touch',
+      sourceHandle: 'widget:slider:out',
+      target: 'juggle',
+      targetHandle: 'count',
+    })
+
+    const slider = useGraphStore.getState().displayDocuments.panel.widgets.find((widget) => widget.id === 'slider')!
+    expect(slider.label).toBe('Count')
+    expect(slider.properties).toMatchObject({ min: 1, max: 8, step: 1 })
+    const touch = useGraphStore.getState().nodes.find((entry) => entry.id === 'touch')!
+    expect(touch.data.outputs).toContainEqual({
+      id: 'widget:slider:out',
+      label: 'Count Output',
+      dataType: 'float',
+    })
+    expect(useGraphStore.getState().edges).toHaveLength(1)
+  })
+
+  it('preserves a configured touch slider domain when connected to a property', () => {
+    reset([
+      node('screen', 'TransportDisplay', { displayId: 'panel' }),
+      node('touch', 'TouchInput', { panelId: 'screen' }),
+      node('juggle', 'Juggle', { speed: 0.5, count: 4, fade: 0.22, palette: 'rainbow' }),
+    ])
+    const document = updateDisplayWidget(
+      addDisplayWidget(createDisplayDocument('panel'), 'Slider'),
+      'slider',
+      (widget) => ({
+        ...widget,
+        label: 'Manual Rate',
+        properties: { ...widget.properties, min: -2, max: 2, step: 0.5 },
+      }),
+    )
+    useGraphStore.getState().setDisplayDocument(document)
+
+    useGraphStore.getState().onConnect({
+      source: 'touch',
+      sourceHandle: 'widget:slider:out',
+      target: 'juggle',
+      targetHandle: 'count',
+    })
+
+    const slider = useGraphStore.getState().displayDocuments.panel.widgets.find((widget) => widget.id === 'slider')!
+    expect(slider.label).toBe('Manual Rate')
+    expect(slider.properties).toMatchObject({ min: -2, max: 2, step: 0.5 })
+  })
+
+  it('does not adopt a new range when a touch slider is already shared', () => {
+    reset([
+      node('screen', 'TransportDisplay', { displayId: 'panel' }),
+      node('touch', 'TouchInput', { panelId: 'screen' }),
+      node('juggle-a', 'Juggle', { speed: 0.5, count: 4, fade: 0.22, palette: 'rainbow' }),
+      node('juggle-b', 'Juggle', { speed: 0.5, count: 4, fade: 0.22, palette: 'rainbow' }),
+    ], [
+      edge('existing', 'touch', 'widget:slider:out', 'juggle-a', 'speed'),
+    ])
+    useGraphStore.getState().setDisplayDocument(addDisplayWidget(createDisplayDocument('panel'), 'Slider'))
+
+    useGraphStore.getState().onConnect({
+      source: 'touch',
+      sourceHandle: 'widget:slider:out',
+      target: 'juggle-b',
+      targetHandle: 'count',
+    })
+
+    const slider = useGraphStore.getState().displayDocuments.panel.widgets.find((widget) => widget.id === 'slider')!
+    expect(slider.label).toBe('Slider')
+    expect(slider.properties).toMatchObject({ min: 0, max: 1, step: 0.01 })
+    const edgeIds = useGraphStore.getState().edges.map((entry) => entry.id)
+    expect(edgeIds).toContain('existing')
+    expect(edgeIds).toHaveLength(2)
+  })
+
   it('removes disappeared widget cables in the same undo step as the document edit', () => {
     vi.useFakeTimers()
     try {
