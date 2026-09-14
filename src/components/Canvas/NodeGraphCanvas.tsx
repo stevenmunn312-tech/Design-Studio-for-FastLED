@@ -111,6 +111,28 @@ function hoveredSpliceEdgeAt(x: number, y: number): string | undefined {
   return undefined
 }
 
+/**
+ * The property row under the pointer, if any.
+ *
+ * A property input's socket is hidden until it is exposed, so there is often
+ * nothing for React Flow to end a connection on — but the row is right there
+ * on screen and is what the user is aiming at. StudioNode tags each row with
+ * the node, the port and the port's type for exactly this.
+ */
+function propertyInputUnder(
+  x: number, y: number,
+): { nodeId: string; portId: string; dataType: string } | undefined {
+  for (const element of document.elementsFromPoint(x, y)) {
+    const row = element.closest('[data-property-input]')
+    const value = row?.getAttribute('data-property-input')
+    if (!value) continue
+    const [nodeId, portId] = value.split('|')
+    if (!nodeId || !portId) continue
+    return { nodeId, portId, dataType: row?.getAttribute('data-property-type') ?? '' }
+  }
+  return undefined
+}
+
 function hoveredNodeId(eventTarget: EventTarget | null): string | undefined {
   if (!(eventTarget instanceof Element)) return undefined
   return eventTarget.closest('.react-flow__node')?.getAttribute('data-id') ?? undefined
@@ -122,7 +144,7 @@ function NodeGraphCanvasInner() {
   // re-renders it on every unrelated store write (clipboard, trust flag,
   // performance-deck edits, …) on top of the node/edge churn it genuinely
   // needs.
-  const { nodes: allNodes, edges: allEdges, selectedNodeId, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, insertNodeOnEdge, spliceNodeOnEdge, spreadNodes, instantiatePattern, addToCollection, addPatternToCollection, enterGraph, removeEdge, reconnectNoodle } =
+  const { nodes: allNodes, edges: allEdges, selectedNodeId, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, insertNodeOnEdge, spliceNodeOnEdge, spreadNodes, instantiatePattern, addToCollection, addPatternToCollection, enterGraph, removeEdge, reconnectNoodle, setNodeInputExposed } =
     useGraphStore(useShallow((s) => ({
       nodes: s.nodes,
       edges: s.edges,
@@ -140,6 +162,7 @@ function NodeGraphCanvasInner() {
       addPatternToCollection: s.addPatternToCollection,
       enterGraph: s.enterGraph,
       removeEdge: s.removeEdge,
+      setNodeInputExposed: s.setNodeInputExposed,
       reconnectNoodle: s.reconnectNoodle,
     })))
   const nodes = useMemo(
@@ -585,6 +608,22 @@ function NodeGraphCanvasInner() {
       // offer a picker of nodes that have a compatible input, then auto-wire.
       if (origin && !state?.toHandle) {
         const pt = 'changedTouches' in event ? event.changedTouches[0] : event
+        // A property row is a drop target even when its socket is hidden:
+        // exposing it and landing the noodle on it is one gesture, and one
+        // undo step, because both edits happen in the same tick.
+        const property = propertyInputUnder(pt.clientX, pt.clientY)
+        if (property) {
+          if (!portsCompatible(origin.dataType, property.dataType)) {
+            setStatus(`${origin.dataType} cannot drive a ${property.dataType} property`, 'error')
+            return
+          }
+          setNodeInputExposed(property.nodeId, property.portId, true)
+          handleConnect({
+            source: origin.nodeId, sourceHandle: origin.handleId,
+            target: property.nodeId, targetHandle: property.portId,
+          })
+          return
+        }
         const fp = screenToFlowPosition({ x: pt.clientX, y: pt.clientY })
         menuOpenedAt.current = Date.now()
         setCanvasMenu({ x: pt.clientX, y: pt.clientY, fx: fp.x, fy: fp.y, connectFrom: origin })
@@ -594,7 +633,7 @@ function NodeGraphCanvasInner() {
         setStatus('Incompatible port types — connection blocked', 'error')
       }
     },
-    [setStatus, screenToFlowPosition]
+    [setStatus, screenToFlowPosition, setNodeInputExposed, handleConnect]
   )
 
   // After the picker adds + auto-wires a node from a dropped noodle, nudge the

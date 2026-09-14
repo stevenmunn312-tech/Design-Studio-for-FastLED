@@ -46,3 +46,8 @@
   flex-shrink: 0;
   border-radius: 50%;
 }
+
+/* The two actions a wired socket offers, kept together as one port's block. */
+.group {
+  display: contents;
+}

@@ -59,6 +59,19 @@ describe('property input exposure', () => {
     expect(useGraphStore.getState()).toBe(before)
   })
 
+  it('pulls one wire without touching the node’s saved value or its other inputs', () => {
+    useGraphStore.setState({ edges: [
+      { id: 'count-wire', source: 'src', sourceHandle: 'out', target: 'juggle', targetHandle: 'count' },
+      { id: 'fade-wire', source: 'src', sourceHandle: 'out', target: 'juggle', targetHandle: 'fade' },
+    ] })
+    useGraphStore.getState().disconnectInput('juggle', 'count')
+    expect(useGraphStore.getState().edges.map((edge) => edge.id)).toEqual(['fade-wire'])
+    expect(useGraphStore.getState().nodes[0].data.properties.count).toBe(4)
+    const before = useGraphStore.getState()
+    useGraphStore.getState().disconnectInput('juggle', 'count')
+    expect(useGraphStore.getState()).toBe(before)
+  })
+
   it('keeps exposure through workspace serialization, load and undo/redo', () => {
     useGraphStore.getState().setNodeInputExposed('juggle', 'fade', true)
     vi.advanceTimersByTime(500)

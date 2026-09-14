@@ -237,6 +237,8 @@ interface GraphState {
   selectBoardProfile: (id: string, profileId: string) => void
   setNodeMinimized: (id: string, minimized: boolean) => void
   setNodeInputExposed: (id: string, portId: string, exposed: boolean) => void
+  /** Pull whatever drives one input, leaving the node's own field in charge. */
+  disconnectInput: (id: string, portId: string) => void
   setAllNodesMinimized: (minimized: boolean) => void
   /** Move every hardware part's app-assigned pins onto `fqbn`'s board,
    *  leaving pins the user has edited exactly where they are. */
@@ -2502,6 +2504,14 @@ export const useGraphStore = create<GraphState>()(
         set((s) => ({
           edges: s.edges.filter((e) => e.source !== id && e.target !== id),
         })),
+
+      disconnectInput: (id, portId) => set((s) => {
+        const active = s.nodes.some((node) => node.id === id)
+        const edges = active ? s.edges : rootGraphEdges(s)
+        const kept = edges.filter((edge) => !(edge.target === id && edge.targetHandle === portId))
+        if (kept.length === edges.length) return s
+        return active ? { edges: kept } : withRootContent(s, { edges: kept })
+      }),
 
       enterGraph: (id) =>
         set((s) => {

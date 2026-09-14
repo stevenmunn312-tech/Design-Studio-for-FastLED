@@ -317,6 +317,10 @@ const LivePropertyControls = memo(function LivePropertyControls({
 }: LivePropertyControlsProps) {
   const propertyInputs = propertyInputsFor(nodeType)
   const setNodeInputExposed = useGraphStore((s) => s.setNodeInputExposed)
+  const disconnectInput = useGraphStore((s) => s.disconnectInput)
+  const focusNode = useGraphStore((s) => s.selectNode)
+  const revealGraphNodes = useUiStore((s) => s.revealGraphNodes)
+  const flashNode = useUiStore((s) => s.flashNode)
   const [inputMenu, setInputMenu] = useState<{ anchor: FloatingAnchor; propertyKey?: string } | null>(null)
   const closeInputMenu = useCallback(() => setInputMenu(null), [])
   const updateNodeInternals = useUpdateNodeInternals()
@@ -376,6 +380,33 @@ const LivePropertyControls = memo(function LivePropertyControls({
     [liveJson]
   )
   const liveFor = (propKey: string): unknown => liveValues[portFor(propKey)]
+  // A wired row says what is driving it. The upstream node's *label*, never
+  // its id: an id is a uuid, which tells the reader nothing about the graph.
+  const sourceLabelJson = useGraphStore((s) => {
+    if (sourceMap.size === 0) return ''
+    const labels: Record<string, string> = {}
+    for (const { srcId } of sourceMap.values()) {
+      const source = s.nodes.find((entry) => entry.id === srcId)
+      if (source) labels[srcId] = String(source.data.label ?? source.data.nodeType)
+    }
+    return JSON.stringify(labels)
+  })
+  const sourceLabels = useMemo<Record<string, string>>(
+    () => (sourceLabelJson ? JSON.parse(sourceLabelJson) : {}),
+    [sourceLabelJson],
+  )
+  const describeSource = (portId: string): string | undefined => {
+    const source = sourceMap.get(portId)
+    return source ? `${sourceLabels[source.srcId] ?? 'a node'} · ${source.srcPort}` : undefined
+  }
+  /** Follow a wire back to whatever is driving it, the way Graph Health does. */
+  const traceSource = (portId: string) => {
+    const srcId = sourceMap.get(portId)?.srcId
+    if (!srcId) return
+    focusNode(srcId)
+    revealGraphNodes([srcId])
+    flashNode(srcId)
+  }
   const expressionDimsKey = useGraphStore((s) => {
     const { w, h } = compositionDims(rootGraphNodes(s), rootGraphEdges(s))
     return `${w}:${h}`
@@ -444,8 +475,10 @@ const LivePropertyControls = memo(function LivePropertyControls({
       {inputMenu && !locked && (
         <PropertyInputMenu anchor={inputMenu.anchor} nodeType={nodeType}
           ports={inputMenu.propertyKey ? propertyInputs.filter((port) => port.propertyKey === inputMenu.propertyKey) : propertyInputs}
-          visibleIds={exposedInputIds} connected={sourceMap}
-          onChange={(portId, exposed) => setNodeInputExposed(nodeId, portId, exposed)} onClose={closeInputMenu} />
+          visibleIds={exposedInputIds} connected={sourceMap} describeSource={describeSource}
+          onChange={(portId, exposed) => setNodeInputExposed(nodeId, portId, exposed)}
+          onTrace={traceSource} onDisconnect={(portId) => disconnectInput(nodeId, portId)}
+          onClose={closeInputMenu} />
       )}
       {isGroupInput && (() => {
         // Group-input role: tag this input so a Performance Generator show
@@ -526,9 +559,8 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 : gpioRequirement.pullup && !pinSupports(gpioPin, 'pullup')
                   ? `Pin ${val} has no internal pull-up`
                   : pinWarningForCapability(gpioPin, gpioRequirement.capability) ?? gpioPin.note
-        const source = sourceMap.get(portFor(key))
         const rowTitle = wired
-          ? `Driven by ${source?.srcId} · ${source?.srcPort}. Disconnect to restore the saved value.`
+          ? `Driven by ${describeSource(portFor(key))}. Disconnect to restore the saved value.`
           : ownedByDesign
             ? 'This panel draws its own Screen Design, so the fixed layout is unused. Edit the design to change what it shows.'
             : gated
@@ -558,6 +590,11 @@ const LivePropertyControls = memo(function LivePropertyControls({
             key={key}
             className={`${styles.propRow}${disabled ? ` ${styles.wired}` : ''}`}
             title={rowTitle}
+            /* A noodle dropped on the row exposes this socket and lands on it,
+               so a hidden property is still a drop target. The canvas reads
+               these three off the DOM under the pointer — see NodeGraphCanvas. */
+            data-property-input={propertyInput ? `${nodeId}|${propertyInput.id}` : undefined}
+            data-property-type={propertyInput?.dataType}
             onContextMenu={propertyInput ? (event) => {
               event.preventDefault()
               event.stopPropagation()

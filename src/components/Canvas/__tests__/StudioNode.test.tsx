@@ -107,9 +107,39 @@ describe('StudioNode', () => {
     expect((view.container.querySelector('[data-handle="target:count"]') as HTMLElement).style.background).toBe(color)
     expect((view.getByLabelText('count value') as HTMLInputElement).disabled).toBe(true)
     fireEvent.click(view.getByRole('button', { name: 'Expose input…' }))
-    expect((view.getByRole('menuitem', { name: /Connected: Count/ }) as HTMLButtonElement).disabled).toBe(true)
+    // A wired socket has no Hide: the wire would go with it. What it offers
+    // instead is where the value comes from and a way to pull it.
+    expect(view.queryByRole('menuitem', { name: /Hide input: Count/ })).toBeNull()
+    expect(view.getByRole('menuitem', { name: /Show what drives Count/ })).toBeTruthy()
+    expect(view.getByRole('menuitem', { name: /Disconnect Count/ })).toBeTruthy()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(view.queryByRole('menu')).toBeNull()
+  })
+
+  it('offers a wired property its source and a disconnect, and tags the row as a drop target', () => {
+    const n = makeNode('Juggle', { speed: 0.5, count: 4 })
+    const pot = { ...makeNode('PotInput', { pin: 34 }), id: 'pot', data: { ...makeNode('PotInput', { pin: 34 }).data, label: 'Speed knob' } }
+    useGraphStore.setState({ nodes: [pot, n], edges: [
+      { id: 'count-wire', source: 'pot', sourceHandle: 'value', target: n.id, targetHandle: 'count' },
+    ] })
+    function ConnectedNode() {
+      const current = useGraphStore((s) => s.nodes[1])
+      return <StudioNode {...({ id: current.id, data: current.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>)} />
+    }
+    const view = render(<ConnectedNode />)
+    // The row is a drop target whether or not its socket is showing, which is
+    // what lets a noodle dropped on it expose and connect in one gesture.
+    const row = view.container.querySelector(`[data-property-input="${n.id}|count"]`) as HTMLElement
+    expect(row).toBeTruthy()
+    expect(row.getAttribute('data-property-type')).toBe('float')
+    expect(row.title).toContain('Speed knob · value')
+
+    fireEvent.contextMenu(row)
+    expect(view.getByRole('menuitem', { name: /Show what drives Count/ }).textContent)
+      .toContain('Speed knob · value')
+    fireEvent.click(view.getByRole('menuitem', { name: /Disconnect Count/ }))
+    expect(useGraphStore.getState().edges).toEqual([])
+    expect((view.getByLabelText('count value') as HTMLInputElement).disabled).toBe(false)
   })
 
   it('keeps connected optional inputs on loaded and collapsed nodes', () => {

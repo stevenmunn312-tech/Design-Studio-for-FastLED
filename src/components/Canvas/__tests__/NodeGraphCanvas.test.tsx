@@ -329,6 +329,68 @@ describe('NodeGraphCanvas start screen', () => {
     expect(useUiStore.getState().statusText).toBe('Noodle unplugged')
   })
 
+  /*
+   * A property's socket is hidden until it is exposed, so React Flow has
+   * nothing to end the connection on — the row itself is the target, and
+   * StudioNode tags it for this. Exposing and connecting land in one tick, so
+   * the history burst makes them one undo step.
+   */
+  it('exposes and connects a property input when a noodle is dropped on its row', () => {
+    useGraphStore.getState().loadGraph([
+      {
+        id: 'pot', type: 'studioNode', position: { x: 0, y: 0 },
+        data: {
+          nodeType: 'PotInput', label: 'Pot', category: 'input', properties: { pin: 34 },
+          inputs: [], outputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
+        },
+      },
+      {
+        id: 'juggle', type: 'studioNode', position: { x: 260, y: 0 },
+        data: {
+          nodeType: 'Juggle', label: 'Juggle', category: 'pattern',
+          properties: { speed: 0.5, count: 4, fade: 0.22, palette: 'rainbow' },
+          inputs: [
+            { id: 'speed', label: 'Speed', dataType: 'float' },
+            { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+            { id: 'count', label: 'Count', dataType: 'float' },
+          ],
+          outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+        },
+      },
+    ], [])
+    getNodeMock.mockImplementation((id: string) =>
+      useGraphStore.getState().nodes.find((node) => node.id === id))
+
+    render(<NodeGraphCanvas />)
+    const onConnectStart = reactFlowProps.onConnectStart as (event: unknown, params: { nodeId: string; handleId: string; handleType: string }) => void
+    const onConnectEnd = reactFlowProps.onConnectEnd as (event: MouseEvent, state: { toHandle: null }) => void
+    const row = document.createElement('div')
+    row.setAttribute('data-property-input', 'juggle|count')
+    row.setAttribute('data-property-type', 'float')
+    document.body.appendChild(row)
+    const pointer = vi.spyOn(document, 'elementsFromPoint').mockReturnValue([row])
+
+    onConnectStart({}, { nodeId: 'pot', handleId: 'value', handleType: 'source' })
+    onConnectEnd(new MouseEvent('mouseup', { clientX: 30, clientY: 30 }), { toHandle: null })
+
+    const juggle = useGraphStore.getState().nodes.find((node) => node.id === 'juggle')
+    expect(juggle?.data.exposedInputs).toEqual(['count'])
+    expect(useGraphStore.getState().edges).toMatchObject([
+      { source: 'pot', sourceHandle: 'value', target: 'juggle', targetHandle: 'count' },
+    ])
+
+    // A palette cannot drive a number, and saying so beats wiring it anyway.
+    row.setAttribute('data-property-input', 'juggle|paletteIn')
+    row.setAttribute('data-property-type', 'palette')
+    onConnectStart({}, { nodeId: 'pot', handleId: 'value', handleType: 'source' })
+    onConnectEnd(new MouseEvent('mouseup', { clientX: 30, clientY: 30 }), { toHandle: null })
+    expect(useGraphStore.getState().edges).toHaveLength(1)
+    expect(useUiStore.getState().statusText).toContain('cannot drive')
+
+    pointer.mockRestore()
+    row.remove()
+  })
+
   it('tidies after an existing loose node is spliced into a connection', () => {
     useGraphStore.getState().loadGraph([
       {

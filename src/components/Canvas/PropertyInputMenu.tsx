@@ -10,11 +10,19 @@ interface Props {
   ports: readonly PropertyInput[]
   visibleIds: readonly string[]
   connected: ReadonlyMap<string, unknown>
+  /** What drives a wired port, named for a reader: "Pot · Value". */
+  describeSource: (id: string) => string | undefined
   onChange: (id: string, visible: boolean) => void
+  /** Select and frame whatever drives this port. */
+  onTrace: (id: string) => void
+  onDisconnect: (id: string) => void
   onClose: () => void
 }
 
-export default function PropertyInputMenu({ anchor, nodeType, ports, visibleIds, connected, onChange, onClose }: Props) {
+export default function PropertyInputMenu({
+  anchor, nodeType, ports, visibleIds, connected, describeSource,
+  onChange, onTrace, onDisconnect, onClose,
+}: Props) {
   const panelRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     const previous = document.activeElement
@@ -55,16 +63,39 @@ export default function PropertyInputMenu({ anchor, nodeType, ports, visibleIds,
         }}>
         {ports.map((port) => {
           const visible = visibleIds.includes(port.id)
-          const wired = connected.has(port.id)
           const meta = propertyMeta(nodeType, port.propertyKey)
           const range = meta?.control === 'slider' ? ` · ${meta.min}–${meta.max}` : ''
+          const dot = <span className={styles.dot} style={{ background: portColor(port.dataType) }} />
+          // A wired socket cannot be hidden — the wire would go with it — so
+          // the two things worth offering instead are finding what drives it
+          // and pulling that wire, which restores the field beside the socket.
+          if (connected.has(port.id)) {
+            return (
+              <div key={port.id} className={styles.group}>
+                <button type="button" role="menuitem" className={styles.item}
+                  onClick={() => { onTrace(port.id); onClose() }}>
+                  {dot}
+                  <span>Show what drives {port.label}
+                    <small>{describeSource(port.id) ?? port.dataType}</small>
+                  </span>
+                </button>
+                <button type="button" role="menuitem" className={styles.item}
+                  onClick={() => { onDisconnect(port.id); onClose() }}>
+                  {dot}
+                  <span>Disconnect {port.label}
+                    <small>restores the saved value</small>
+                  </span>
+                </button>
+              </div>
+            )
+          }
           return (
-            <button key={port.id} type="button" role="menuitem" disabled={wired}
-              className={styles.item} title={wired ? 'Disconnect this input before hiding it' : undefined}
+            <button key={port.id} type="button" role="menuitem"
+              className={styles.item}
               onClick={() => { onChange(port.id, !visible); onClose() }}>
-              <span className={styles.dot} style={{ background: portColor(port.dataType) }} />
-              <span>{wired ? 'Connected' : visible ? 'Hide input' : 'Expose input'}: {port.label}
-                <small>{port.dataType}{range}{wired ? ' · disconnect to hide' : ''}</small>
+              {dot}
+              <span>{visible ? 'Hide input' : 'Expose input'}: {port.label}
+                <small>{port.dataType}{range}</small>
               </span>
             </button>
           )
