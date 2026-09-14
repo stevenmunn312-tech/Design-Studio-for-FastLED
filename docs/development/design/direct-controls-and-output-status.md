@@ -86,6 +86,14 @@ on/off behaviour. Play/Pause and Next are actions, not ordinary stored values.
   mix, select or logic operation. One source may intentionally feed several
   destinations. Numeric domains, units, rounding and conversions are visible;
   use Map Range where needed rather than silently changing existing semantics.
+- A newly created, unconfigured direct UI control may adopt the destination
+  property's domain when it is first connected: label, numeric range, step,
+  integer rounding and units should match the property it now controls. This is
+  allowed only when the control has no existing semantic range and is not already
+  driving another destination. Existing configured controls should offer an
+  explicit **Match target range** repair instead of changing silently. Sensors,
+  audio features, pots, random/generated values and shared sources keep their
+  own source contract; use Map Range per edge when those domains need adapting.
 - Control Map becomes optional: useful for conversion, action handling or a
   named bundle such as Playback controls. A direct value connection needs no
   pass-through mapper. Ordinary action inputs must also work without a bundle.
@@ -193,7 +201,11 @@ sweep and the widget-role half.
 - [ ] Derive outputs from the associated panel's actual interactive widgets:
   button = held boolean, toggle = stored boolean, slider/dial = numeric value.
   Reuse widget registry roles and stable IDs; give fixed-layout controls stable
-  semantic IDs. Read-only layouts expose no fictitious controls.
+  semantic IDs. Read-only layouts expose no fictitious controls. When a new
+  slider or dial is created by wiring it to a property, initialise its range,
+  step and unit metadata from that property; when an existing slider/dial is
+  connected, preserve its current domain and offer **Match target range** if it
+  is the only destination.
 - [ ] Move interaction routing to those Touch outputs, with one state owner per
   widget and no duplicated output on the panel. Preserve panel pairing,
   calibration, rotation, capture/release, disable/re-enable and deletion rules.
