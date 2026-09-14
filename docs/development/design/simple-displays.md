@@ -134,11 +134,26 @@ Sources publish it on a `display` output of dataType `display`. A source may
 publish it alongside its existing ports; the envelope is an additional view of
 what the node already knows, never a second computation of it.
 
-`PerformanceGenerator` is listed in the original decision as a player-like
-source and is **not** wired up yet: its playback lives outside the evaluator
-(`showPlayback.ts`, the node body), so its `display` output would publish a
-blank transport in preview and lie about a build. It joins when it has a
-reading to publish.
+`PerformanceGenerator` is the second source publishing `player`, and it took a
+reading to publish before it could. Its playback lives outside the evaluator
+(`showPlayback.ts`, the node body), so the node body now publishes what it knows
+— the track, through `playerTransport.ts`, and the pattern the timed show file
+has scheduled, resolved against the ShowFile with `showStateAt` and carried
+beside the position as `patternIndex`. The evaluator reads that back, and only
+for the generator that actually owns the transport: a second generator on the
+canvas is not playing this one's song, and a panel wired to it says so rather
+than mirroring whichever node registered last.
+
+Two node types on one kind is deliberate rather than a duplication. Both are
+holding a file off the card, both build the same SD player sketch, and what a
+panel can say about either is the same list of things — so they answer on one
+kind rather than on two that would each need their own layouts, field catalogue
+and templates. What differs is where the patterns come from, and that shows up
+on the *control* side rather than the display side: see
+[collection-driven performance](collection-driven-performance.md#the-generator-as-a-player).
+Because the kind label names the archetype, the design editor reads the wired
+node's own label instead (`documentDisplaySourceLabel`) — "Mapped to Music
+Player" is the wrong caption for a Performance Generator.
 
 ## Firmware resolution
 

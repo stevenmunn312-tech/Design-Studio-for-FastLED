@@ -339,6 +339,54 @@ fixed-switch one whenever the wired `PerformanceGenerator` has a collection.
   → legacy enum mode. `patternset` only (no song) → undefined; likely disable
   export and warn via `validateGraph`.
 
+## The generator as a player
+
+Shipped after the collection work above, and the reason it belongs here: once a
+Performance Generator is scheduling a *user's* collection, the node is the
+front panel of a real appliance rather than an export stage.
+
+The firmware behind it was already a player. `resolveBuildMode` selects
+`performance-show`, which builds `playerSketchGenerator.ts` — the same sketch a
+Music Player builds. It mounts the card, decodes a track, drives an amplifier
+and blits to one LED output. So the generator's ports were the only thing
+saying otherwise.
+
+**Inputs, in the order a show is described.** `music`, then the `patternset` it
+schedules, then the `transitions` pool it moves between them, then `controls`
+last. Declaration order is load-bearing beyond reading well: `spliceTargetPorts`
+walks it for a drag-to-splice drop, so the primary input stays first.
+
+**`display` out.** The same envelope Music Player publishes, on the same
+`player` kind — see [simple displays](simple-displays.md#the-signal) for why one
+kind serves both. Everything downstream followed from
+`DISPLAY_SOURCE_NODE_TYPES` plus one correction in `buildMode.ts`:
+`templateDisplaySourceIds` was hardcoded to the two engines that had a Display
+output, so a panel wired to a generator resolved to Waiting and its thumbnails
+and artwork were never baked. It is now simply the selected engine.
+
+**`controls` in, but not all of them.** A Performance Generator is a player
+minus the collection cursor. It holds the track and the lamp — transport,
+volume, blackout and dimming all reach the same `playerControlApplyCpp` — but
+its patterns come from the timed show file, so a Next Pattern button would mint
+a port, wire, validate, and be overwritten by the following `SET_PATTERN`. That
+is why it is its own `PlayerControlDestination` (`'performance'`) rather than a
+second `'player'`: the picker offers it transport and lights and stops there.
+
+**The cursor follows the pixels.** The corollary of the above. `_sel_player` is
+what a panel reads to name the pattern, and in a performance build nothing was
+moving it — the generic player's rotation is the only writer, and that path is
+compiled out. Left alone the cursor stays at 0 and a panel names the first
+pattern for the whole song while the LEDs play something else. The show's
+`patternId` is pushed through `_selSetActive` each pass, for the same reason the
+generic player's own rotation goes through it: the panel and the pixels must not
+be able to disagree.
+
+**Starter.** The Music-synced SD Show starter ships a Pattern Collection wired
+to `patternset`. It was optional, and optional here means an analysed song is
+scheduled against the built-in enum patterns rather than against anything the
+user made — the workflow this whole note exists to enable, one unwired node away
+from not happening.
+
 ## Touch list (for the eventual implementation)
 
 - `nodeLibrary.ts` — `PerformanceGenerator` gets `patternset` input +
