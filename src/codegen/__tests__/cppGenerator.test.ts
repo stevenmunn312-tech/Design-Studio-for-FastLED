@@ -3419,6 +3419,25 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     expect(cpp).toContain('float _travel=sinf(t*_spd*(2.5f+_d*0.35f)+_d*0.9f+_phase)*0.5f+0.5f;')
     expect(cpp).toContain('ColorFromPalette(paldef_rainbow, (uint8_t)fmodf((_travel*0.35f+_d/(float)_dots)*255.0f, 255.0f));')
   })
+
+  it('Juggle reads live Count, Speed and Fade wires instead of baking their saved values', () => {
+    const jg = node('jg', 'Juggle', 'pattern', { speed: 0, count: 1, fade: 0 })
+    const count = node('count', 'Math', 'math', { a: 3.6, b: 0 })
+    const speed = node('speed', 'Math', 'math', { a: 0.7, b: 0 })
+    const fade = node('fade', 'Math', 'math', { a: 0.9, b: 0 })
+    const cpp = generateCpp([jg, count, speed, fade, outputNode], [
+      edge('frame', 'jg', 'out', 'frame', 'frame'),
+      edge('count-wire', 'count', 'jg', 'result', 'count'),
+      edge('speed-wire', 'speed', 'jg', 'result', 'speed'),
+      edge('fade-wire', 'fade', 'jg', 'result', 'fade'),
+    ])
+    expect(cpp).toContain('const float _count=n_count_result;')
+    expect(cpp).toContain('isfinite(_count) ? (int)roundf(constrain(_count,1.0f,8.0f)) : 4')
+    expect(cpp).toContain('n_speed_result')
+    expect(cpp).toContain('_fd=constrain((n_fade_result),0.0f,1.0f)')
+    expect(cpp.indexOf('float n_count_result')).toBeLessThan(cpp.indexOf('const float _count='))
+    expect(cpp).not.toContain('const int _dots=1;')
+  })
 })
 
 describe('Saturation / RGBToHSV (codegen)', () => {

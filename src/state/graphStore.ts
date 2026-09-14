@@ -14,6 +14,7 @@ import {
 } from '@xyflow/react'
 import type { NodeCategory } from '../types'
 import { NODE_LIBRARY, portColor } from './nodeLibrary'
+import { normalizeExposedInputs, propertyInputsFor } from './propertyInputs'
 import type { GroupRegistry } from './graphEvaluator'
 import type { SavedPattern } from './patternLibrary'
 import { isPatternContentTrusted, trustPatternContent } from './patternTrust'
@@ -85,6 +86,8 @@ export interface StudioNodeData extends Record<string, unknown> {
   properties: Record<string, unknown>
   /** Canvas-only presentation state; collapsed nodes keep their graph ports. */
   minimized?: boolean
+  /** Canvas property sockets; wired inputs remain visible regardless of this list. */
+  exposedInputs?: string[]
 }
 
 export type StudioNode = Node<StudioNodeData>
@@ -233,6 +236,7 @@ interface GraphState {
   /** Select an exact board and materialise hardware physically integrated into it. */
   selectBoardProfile: (id: string, profileId: string) => void
   setNodeMinimized: (id: string, minimized: boolean) => void
+  setNodeInputExposed: (id: string, portId: string, exposed: boolean) => void
   setAllNodesMinimized: (minimized: boolean) => void
   /** Move every hardware part's app-assigned pins onto `fqbn`'s board,
    *  leaving pins the user has edited exactly where they are. */
@@ -549,7 +553,12 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     const hidden = isHardwareOnlyNodeType(nodeType)
       ? { hidden: true, selectable: false, draggable: false }
       : {}
-    return { ...n, ...hidden, data: { ...data, nodeType, label, category, properties, inputs, outputs } }
+    return { ...n, ...hidden, data: {
+      ...data, nodeType, label, category, properties, inputs, outputs,
+      ...(data.exposedInputs !== undefined
+        ? { exposedInputs: normalizeExposedInputs(nodeType, data.exposedInputs) }
+        : {}),
+    } }
   })
   return { nodes: syncAutomaticStereoVuLedCounts(normalizedNodes), edges: edges.map((e) => ({ ...e })) }
 }
@@ -2164,6 +2173,22 @@ export const useGraphStore = create<GraphState>()(
         }
 
         return withRootNodes(s, nodes)
+      }),
+
+      setNodeInputExposed: (id, portId, exposed) => set((s) => {
+        const active = s.nodes.some((node) => node.id === id)
+        const nodes = active ? s.nodes : rootGraphNodes(s)
+        const edges = active ? s.edges : rootGraphEdges(s)
+        const node = nodes.find((entry) => entry.id === id)
+        if (!node || !propertyInputsFor(node.data.nodeType).some((port) => port.id === portId)) return s
+        if (!exposed && edges.some((edge) => edge.target === id && edge.targetHandle === portId)) return s
+        const current = normalizeExposedInputs(node.data.nodeType, node.data.exposedInputs)
+        const next = normalizeExposedInputs(node.data.nodeType, exposed
+          ? [...current, portId] : current.filter((entry) => entry !== portId))
+        if (current.join('|') === next.join('|')) return s
+        const updated = nodes.map((entry) => entry.id === id
+          ? { ...entry, data: { ...entry.data, exposedInputs: next } } : entry)
+        return active ? { nodes: updated } : withRootNodes(s, updated)
       }),
 
       setNodeMinimized: (id, minimized) =>

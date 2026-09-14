@@ -4069,6 +4069,37 @@ describe('Pride2015 and Pacifica', () => {
     const juggling = litCount('juggle-four', { speed: 1, count: 4, fade: 0.12, palette: 'rainbow' })
     expect(juggling).toBeGreaterThan(sinelonish)
   })
+
+  it.each([
+    [1, 1], [3.6, 4], [8, 8], [500, 8], [-10, 1],
+  ])('Juggle wired count %s renders as %s dots and restores its manual count on disconnect', (value, expected) => {
+    const source = node('juggle-count-source', 'Math', 'math', { a: value, b: 0, mathOp: 'add' })
+    const gen = node(`wired-juggle-${value}`, 'Juggle', 'pattern', { count: 2, fade: 1 })
+    const reference = node(`reference-juggle-${value}`, 'Juggle', 'pattern', { count: expected, fade: 1 })
+    const wired = withOutput(gen)
+    const manual = withOutput(reference)
+    const control = edge('count-control', source.id, 'result', gen.id, 'count')
+    const frame = structuredClone(evaluateGraph([source, ...wired.nodes], [...wired.edges, control], 20, W, H))
+    expect(frame).toEqual(evaluateGraph(manual.nodes, manual.edges, 20, W, H))
+    reference.data.properties.count = 2
+    expect(evaluateGraph(wired.nodes, wired.edges, 30, W, H))
+      .toEqual(evaluateGraph(manual.nodes, manual.edges, 30, W, H))
+    expect(gen.data.properties.count).toBe(2)
+  })
+
+  it('Juggle wires Speed and Fade through the same path as their manual values', () => {
+    const gen = node('juggle-wired-parameters', 'Juggle', 'pattern', { speed: 0, fade: 0, count: 4 })
+    const reference = node('juggle-manual-parameters', 'Juggle', 'pattern', { speed: 0.7, fade: 0.9, count: 4 })
+    const speed = node('juggle-speed-source', 'Math', 'math', { a: 0.7, b: 0 })
+    const fade = node('juggle-fade-source', 'Math', 'math', { a: 0.9, b: 0 })
+    const wired = withOutput(gen)
+    const manual = withOutput(reference)
+    const controls = [edge('speed-control', speed.id, 'result', gen.id, 'speed'), edge('fade-control', fade.id, 'result', gen.id, 'fade')]
+    for (const tick of [0, 10, 20]) {
+      expect(evaluateGraph([speed, fade, ...wired.nodes], [...wired.edges, ...controls], tick, W, H))
+        .toEqual(evaluateGraph(manual.nodes, manual.edges, tick, W, H))
+    }
+  })
 })
 
 // ── Saturation / RGBToHSV ─────────────────────────────────────────────────────

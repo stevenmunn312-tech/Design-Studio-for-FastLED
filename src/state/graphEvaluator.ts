@@ -2,6 +2,7 @@ import type { StudioNode, StudioEdge } from './graphStore'
 import { useAudioStore } from './audioStore'
 import { useDmxStore } from './dmxStore'
 import { useHardwareInputStore } from './hardwareInputStore'
+import { JUGGLE_COUNT, juggleDotCount } from './juggle'
 import { useTransportDisplayTouchStore } from './transportDisplayTouchStore'
 import { useDisplayRuntimeStore, type DisplayRuntimeValue } from './displayRuntimeStore'
 import { parseDisplayWidgetPortId, type DisplayWidgetPortRoleId } from './displayRegistry'
@@ -1611,7 +1612,7 @@ function evalJuggle(
     }
   }
 
-  const dots = Math.max(1, Math.round(count))
+  const dots = juggleDotCount(count)
   const laneY = (i: number) =>
     dots <= 1 ? Math.round((H - 1) / 2) : Math.round(((i + 0.5) * H) / dots - 0.5)
   const addDot = (x: number, y: number, color: RGB, strength: number) => {
@@ -6124,7 +6125,7 @@ function createEvalNode(
 
       case 'Juggle': {
         const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.Juggle)
-        const count = Number(props.count ?? 4)
+        const count = num(id, 'count', props, 'count', JUGGLE_COUNT.default)
         const fade = num(id, 'fade', props, 'fade', 0.22)
         const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
         out = { frame: evalJuggle(stateKey(id), speed, count, fade, t, palette, normalizedSeed(props.seed), W, H) }

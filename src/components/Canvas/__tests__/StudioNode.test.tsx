@@ -84,6 +84,47 @@ describe('StudioNode', () => {
     expect(getByText('Color')).toBeTruthy()          // input port label
   })
 
+  it('exposes Juggle property sockets from the menu and context menu, preserving their type colours', () => {
+    const n = makeNode('Juggle', { speed: 0.5, count: 4, fade: 0.22, palette: 'rainbow' })
+    useGraphStore.setState({ nodes: [n], edges: [] })
+    function ConnectedNode() {
+      const current = useGraphStore((s) => s.nodes[0])
+      return <StudioNode {...({ id: current.id, data: current.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>)} />
+    }
+    const view = render(<ConnectedNode />)
+    expect(view.container.querySelector('[data-handle="target:count"]')).toBeNull()
+    expect(view.container.querySelector('[data-handle="source:frame"]')).toBeTruthy()
+    fireEvent.click(view.getByRole('button', { name: 'Expose input…' }))
+    fireEvent.click(view.getByRole('menuitem', { name: /Expose input: Count/ }))
+    const handle = view.container.querySelector('[data-handle="target:count"]') as HTMLElement
+    expect(handle).toBeTruthy()
+    expect(handle.parentElement?.contains(view.getByLabelText('count value'))).toBe(true)
+    const color = handle.style.background
+    fireEvent.contextMenu(view.getByLabelText('fade value'))
+    fireEvent.click(view.getByRole('menuitem', { name: /Expose input: Fade/ }))
+    expect(view.container.querySelector('[data-handle="target:fade"]')).toBeTruthy()
+    act(() => useGraphStore.setState({ edges: [{ id: 'count-wire', source: 'knob', sourceHandle: 'value', target: n.id, targetHandle: 'count' }] }))
+    expect((view.container.querySelector('[data-handle="target:count"]') as HTMLElement).style.background).toBe(color)
+    expect((view.getByLabelText('count value') as HTMLInputElement).disabled).toBe(true)
+    fireEvent.click(view.getByRole('button', { name: 'Expose input…' }))
+    expect((view.getByRole('menuitem', { name: /Connected: Count/ }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(view.queryByRole('menu')).toBeNull()
+  })
+
+  it('keeps connected optional inputs on loaded and collapsed nodes', () => {
+    const n = makeNode('Juggle', { speed: 0.5, count: 4 })
+    n.data.exposedInputs = []
+    useGraphStore.setState({ nodes: [n], edges: [{ id: 'count-wire', source: 'knob', sourceHandle: 'value', target: n.id, targetHandle: 'count' }] })
+    const props = { id: n.id, data: n.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
+    const view = render(<StudioNode {...props} />)
+    expect(view.container.querySelectorAll('[data-handle="target:count"]')).toHaveLength(1)
+    view.rerender(<StudioNode {...props} data={{ ...n.data, minimized: true }} />)
+    const handle = view.container.querySelector('[data-handle="target:count"]') as HTMLElement
+    expect(handle).toBeTruthy()
+    expect(handle.style.top).toBe('50%')
+  })
+
   it('shows the active clock layout instead of unrelated display choices', () => {
     const rtc = { ...makeNode('RTCInput', {}), id: 'rtc' }
     const panel = { ...makeNode('TransportDisplay', { tftLayout: 'Now Playing' }), id: 'panel' }

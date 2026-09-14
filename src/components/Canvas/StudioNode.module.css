@@ -552,10 +552,37 @@
 }
 
 .propRow {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 6px;
+}
+
+/* Match portRow's -8px socket offset; grouped fields add 2px indentation. */
+.propertyHandle {
+  left: -8px;
+}
+
+.propGroupRows .propertyHandle {
+  left: -10px;
+}
+
+.exposeInputs {
+  align-self: flex-start;
+  border: 0;
+  border-radius: 3px;
+  padding: 3px 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: var(--fs-caption);
+  cursor: pointer;
+}
+
+.exposeInputs:hover, .exposeInputs:focus-visible {
+  color: var(--text-primary);
+  outline: 1px solid var(--border-glow);
 }
 
 /* A property whose port is wired: the editor is disabled but still shows the

@@ -1,4 +1,4 @@
-import { lazy, memo, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Handle, Position, useUpdateNodeInternals } from '@xyflow/react'
 import type { NodeProps, Node } from '@xyflow/react'
 import { rootGraphEdges, rootGraphNodes, useGraphStore } from '../../state/graphStore'
@@ -70,6 +70,9 @@ import {
 } from '../../state/transportDisplay'
 import styles from './StudioNode.module.css'
 import { NODE_HANDLE_STYLE } from './nodeHandleStyle'
+import { exposedPropertyInputs, propertyInputsFor } from '../../state/propertyInputs'
+import PropertyInputMenu from './PropertyInputMenu'
+import type { FloatingAnchor } from '../Hardware/FloatingMenu'
 
 const MusicLibraryNodeBody = lazy(() => import('./MusicLibraryNodeBody'))
 const PerformanceGeneratorBody = lazy(() => import('./PerformanceGeneratorBody'))
@@ -268,6 +271,7 @@ interface LivePropertyControlsProps {
   rawProps: Record<string, unknown>
   props: Record<string, unknown>
   sourceMap: Map<string, { srcId: string; srcPort: string }>
+  exposedInputIds: readonly string[]
   uiEffectsEnabled: boolean
   locked: boolean
   editable: [string, unknown][]
@@ -294,6 +298,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
   rawProps,
   props,
   sourceMap,
+  exposedInputIds,
   uiEffectsEnabled,
   locked,
   editable,
@@ -310,6 +315,21 @@ const LivePropertyControls = memo(function LivePropertyControls({
   pinProperty,
   unpinProperty,
 }: LivePropertyControlsProps) {
+  const propertyInputs = propertyInputsFor(nodeType)
+  const setNodeInputExposed = useGraphStore((s) => s.setNodeInputExposed)
+  const [inputMenu, setInputMenu] = useState<{ anchor: FloatingAnchor; propertyKey?: string } | null>(null)
+  const closeInputMenu = useCallback(() => setInputMenu(null), [])
+  const updateNodeInternals = useUpdateNodeInternals()
+  const propertyAreaRef = useRef<HTMLDivElement>(null)
+  // Property groups and previews can move row sockets without changing IDs.
+  useEffect(() => {
+    if (propertyInputs.length === 0 || typeof ResizeObserver === 'undefined') return
+    const area = propertyAreaRef.current
+    if (!area) return
+    const observer = new ResizeObserver(() => updateNodeInternals(nodeId))
+    observer.observe(area)
+    return () => observer.disconnect()
+  }, [nodeId, propertyInputs, updateNodeInternals])
   // Non-hardware nodes with generated pins (currently DMX) retain the shared
   // picker here until they gain a physical part in the hardware workbench.
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
@@ -327,7 +347,8 @@ const LivePropertyControls = memo(function LivePropertyControls({
   // Port id matching a property key drives that property (evaluator convention);
   // the `paletteIn` port drives the `palette` property, and the `color` port
   // drives the `r/g/b` swatch.
-  const portFor = (propKey: string) => (propKey === 'palette' ? 'paletteIn' : propKey)
+  const portFor = (propKey: string) => propertyInputs.find((port) => port.propertyKey === propKey)?.id
+    ?? (propKey === 'palette' ? 'paletteIn' : propKey)
   const drivenBy = (propKey: string) => sourceMap.has(portFor(propKey))
 
   // Live upstream values for this node's wired inputs, pulled from the shared
@@ -412,7 +433,20 @@ const LivePropertyControls = memo(function LivePropertyControls({
   if (!(hasRGB || editable.length > 0 || showClamp || showBypass || isGroupInput || showSetDefault || isMatrixOutput)) return null
 
   return (
-    <div className={styles.props}>
+    <div ref={propertyAreaRef} className={styles.props}>
+      {propertyInputs.length > 0 && (
+        <button type="button" className={`nodrag ${styles.exposeInputs}`} disabled={locked}
+          aria-haspopup="menu" aria-expanded={inputMenu !== null}
+          onClick={(event) => setInputMenu({ anchor: event.currentTarget })}>
+          Expose input…
+        </button>
+      )}
+      {inputMenu && !locked && (
+        <PropertyInputMenu anchor={inputMenu.anchor} nodeType={nodeType}
+          ports={inputMenu.propertyKey ? propertyInputs.filter((port) => port.propertyKey === inputMenu.propertyKey) : propertyInputs}
+          visibleIds={exposedInputIds} connected={sourceMap}
+          onChange={(portId, exposed) => setNodeInputExposed(nodeId, portId, exposed)} onClose={closeInputMenu} />
+      )}
       {isGroupInput && (() => {
         // Group-input role: tag this input so a Performance Generator show
         // drives it (energy/speed/palette). Sets `paramId` to the role name
@@ -459,6 +493,8 @@ const LivePropertyControls = memo(function LivePropertyControls({
       })()}
       {(() => {
         const renderPropRow = ([key, val]: [string, unknown]) => {
+        const propertyInput = propertyInputs.find((port) => port.propertyKey === key)
+        const exposedInput = propertyInput && exposedInputIds.includes(propertyInput.id) ? propertyInput : undefined
         const meta = propertyMeta(nodeType, key)
         const displayLabel = propertyLabel(nodeType, key)
         const controlLabel = displayLabel
@@ -490,8 +526,9 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 : gpioRequirement.pullup && !pinSupports(gpioPin, 'pullup')
                   ? `Pin ${val} has no internal pull-up`
                   : pinWarningForCapability(gpioPin, gpioRequirement.capability) ?? gpioPin.note
+        const source = sourceMap.get(portFor(key))
         const rowTitle = wired
-          ? 'Driven by connection'
+          ? `Driven by ${source?.srcId} · ${source?.srcPort}. Disconnect to restore the saved value.`
           : ownedByDesign
             ? 'This panel draws its own Screen Design, so the fixed layout is unused. Edit the design to change what it shows.'
             : gated
@@ -521,7 +558,22 @@ const LivePropertyControls = memo(function LivePropertyControls({
             key={key}
             className={`${styles.propRow}${disabled ? ` ${styles.wired}` : ''}`}
             title={rowTitle}
+            onContextMenu={propertyInput ? (event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              if (!locked) setInputMenu({ anchor: { left: event.clientX, right: event.clientX,
+                top: event.clientY, bottom: event.clientY }, propertyKey: key })
+            } : undefined}
           >
+            {exposedInput && (
+              <Handle type="target" position={Position.Left} id={exposedInput.id}
+                title={`${exposedInput.label} · ${exposedInput.dataType}`} role="button"
+                tabIndex={locked ? -1 : 0} isConnectable={!locked} aria-disabled={locked}
+                aria-label={`Connect to ${nodeLabel} ${exposedInput.label} input, ${exposedInput.dataType}. Press Enter or Space to choose a source port.`}
+                onKeyDown={activateHandleFromKeyboard} className={styles.propertyHandle}
+                style={{ ...NODE_HANDLE_STYLE, top: '50%', background: portColor(exposedInput.dataType),
+                  boxShadow: `0 0 6px ${portColor(exposedInput.dataType)}` }} />
+            )}
             <span className={styles.propKey} title={key}>{displayLabel}</span>
             {meta?.control === 'select' ? (
               <select
@@ -710,6 +762,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 )
               })() : null
               const renderedRows = rows.map((row) => renderPropRow(row))
+              const exposedRows = rows.filter(([key]) => exposedInputIds.includes(portFor(key)))
               return (
                 <div key={group.key} className={styles.propGroup}>
                   <button
@@ -734,6 +787,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                         : renderedRows}
                     </div>
                   )}
+                  {!open && exposedRows.map((row) => renderPropRow(row))}
                 </div>
               )
             })}
@@ -969,7 +1023,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const minimized = d.minimized === true
   // A panel's ports are the library's plus whatever widgets its screen design
   // declares, so they are read from the node rather than the library.
-  const inputs = (d.nodeType === 'TransportDisplay'
+  const declaredInputs = (d.nodeType === 'TransportDisplay'
     ? d.inputs ?? def?.inputs ?? []
     : d.nodeType === 'ControlMap'
       ? playerControlInputs(rawProps.controls)
@@ -977,8 +1031,6 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const outputs = (d.nodeType === 'ButtonBank'
     ? buttonBankOutputs(rawProps.buttons)
     : d.nodeType === 'TransportDisplay' ? d.outputs ?? [] : def?.outputs ?? d.outputs ?? []) as PortDef[]
-  const portLayoutKey = `${inputs.map((port) => port.id).join('|')}::${outputs.map((port) => port.id).join('|')}`
-  const rowCount = d.nodeType === 'ButtonBank' ? 0 : Math.max(inputs.length, outputs.length)
 
   // Which of this node's input ports are wired, and to which upstream port. When
   // a port is wired the evaluator ignores the matching property, so its inline
@@ -995,6 +1047,13 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     }
     return m
   }, [incomingKey])
+  const propertyInputs = propertyInputsFor(d.nodeType)
+  const exposedInputs = exposedPropertyInputs(d.nodeType, d.exposedInputs, new Set(sourceMap.keys()))
+  const exposedInputIds = exposedInputs.map((port) => port.id)
+  const inputs = declaredInputs.filter((port) => !propertyInputs.some((property) => property.id === port.id))
+  const compactInputs = [...inputs, ...exposedInputs]
+  const portLayoutKey = `${compactInputs.map((port) => port.id).join('|')}::${outputs.map((port) => port.id).join('|')}`
+  const rowCount = d.nodeType === 'ButtonBank' ? 0 : Math.max(inputs.length, outputs.length)
   const paletteEditorLiveJson = usePreviewStore((s) => {
     if (d.nodeType !== 'CustomPalette' && d.nodeType !== 'Poline') return ''
     const ports = d.nodeType === 'CustomPalette'
@@ -1321,7 +1380,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     >
       <span ref={signalAuraRef} className={styles.signalAura} aria-hidden="true" />
       <div className={styles.header} style={{ background: accent }} title={headerTooltip}>
-        {minimized && inputs.map((input, index) => {
+        {minimized && compactInputs.map((input, index) => {
           const inputColor = portColor(input.dataType)
           return (
             <Handle
@@ -1338,7 +1397,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
               onKeyDown={activateHandleFromKeyboard}
               style={{
                 ...NODE_HANDLE_STYLE,
-                top: `${((index + 1) / (inputs.length + 1)) * 100}%`,
+                top: `${((index + 1) / (compactInputs.length + 1)) * 100}%`,
                 left: -8,
                 background: inputColor,
                 boxShadow: `0 0 6px ${inputColor}`,
@@ -1678,6 +1737,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           rawProps={rawProps}
           props={props}
           sourceMap={sourceMap}
+          exposedInputIds={exposedInputIds}
           uiEffectsEnabled={uiEffectsEnabled}
           locked={bakeLocked || micUnavailable}
           editable={editable}

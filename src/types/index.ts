@@ -18,6 +18,10 @@ export interface NodeDefinition {
   subcategory?: string
   inputs: NodePort[]
   outputs: NodePort[]
+  /** Verified runtime property -> existing input id. Unlisted inputs stay visible. */
+  propertyInputs?: Record<string, string>
+  /** Property inputs shown before the user chooses an exposure list. */
+  defaultExposedInputs?: string[]
   /**
    * Which input an existing noodle should land on when this node is dropped
    * onto it, where declaration order does not already answer it.

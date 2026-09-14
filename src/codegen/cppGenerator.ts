@@ -1,4 +1,5 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
+import { JUGGLE_COUNT, juggleDotCount } from '../state/juggle'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import {
   BEAT_FLASH_ATTACK_MAX_SEC,
@@ -3516,13 +3517,18 @@ export function generateCpp(
         needsT.v = true
         const ob = ownBuf()
         const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.Juggle)
-        const dots = Math.max(1, Math.round(Number(p.count ?? 4)))
+        const dots = juggleDotCount(Number(p.count ?? JUGGLE_COUNT.default))
         const fade = `constrain((${f('fade', 'fade', 0.22)}),0.0f,1.0f)`
         const seed = seedProp(p)
         const pal = paletteExpr(node.id, 'paletteIn', p)
         ln(`  {`)
         ln(`    float _spd=${speed}, _fd=${fade};`)
-        ln(`    const int _dots=${dots};`)
+        if (incoming.has(`${node.id}:count`)) {
+          ln(`    const float _count=${f('count', 'count', JUGGLE_COUNT.default)};`)
+          ln(`    const int _dots=isfinite(_count) ? (int)roundf(constrain(_count,${JUGGLE_COUNT.min}.0f,${JUGGLE_COUNT.max}.0f)) : ${JUGGLE_COUNT.default};`)
+        } else {
+          ln(`    const int _dots=${dots};`)
+        }
         ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)(_fd * 255.0f));`)
         ln(`    for(int _d=0; _d<_dots; _d++){`)
         ln(`      float _phase=${seed ? `${(seed * 0.013).toFixed(3)}f+_d*0.17f` : '0.0f'};`)

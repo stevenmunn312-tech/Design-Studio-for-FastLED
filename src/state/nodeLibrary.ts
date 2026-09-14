@@ -19,6 +19,7 @@ import {
 } from './oledSurface'
 import { tftControllerFor, type TftController } from './tftSurface'
 import { LED_OUTPUT_RUNTIME_PORTS } from './ledOutputRuntime'
+import { JUGGLE_COUNT } from './juggle'
 import { MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './masterSpeed'
 import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, outputForm } from './ledOutputForm'
@@ -569,9 +570,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'count', label: 'Count', dataType: 'float' },
+      { id: 'fade', label: 'Fade', dataType: 'float' },
     ],
+    propertyInputs: { speed: 'speed', count: 'count', fade: 'fade', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.5, count: 4, fade: 0.22, palette: 'rainbow', seed: 0 },
+    defaultProperties: { speed: 0.5, count: JUGGLE_COUNT.default, fade: 0.22, palette: 'rainbow', seed: 0 },
   },
   {
     type: 'SpectrumBars',
@@ -2904,6 +2908,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'InfoDisplay',
     label: 'Info Display',
     category: 'output',
+    propertyInputs: { enabled: 'enabled' },
+    defaultExposedInputs: ['enabled'],
     inputs: [
       { id: 'display', label: 'Display', dataType: 'display' },
       { id: 'enabled', label: 'Enabled', dataType: 'bool' },
@@ -2934,6 +2940,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'TransportDisplay',
     label: 'Display Panel',
     category: 'output',
+    propertyInputs: { enabled: 'enabled' },
+    defaultExposedInputs: ['enabled'],
     // One content input. `display` carries whatever the wired source publishes,
     // and `tftLayout` picks only between the treatments *that* source offers —
     // so a property can change how a player panel is drawn and can never make
@@ -3012,6 +3020,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'SegmentDisplay',
     label: 'Segment Display',
     category: 'output',
+    propertyInputs: { enabled: 'enabled' },
+    defaultExposedInputs: ['enabled'],
     inputs: [
       { id: 'display', label: 'Display', dataType: 'display' },
       { id: 'enabled', label: 'Enabled', dataType: 'bool' },
@@ -4142,7 +4152,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Juggle:          {
     speed: N01,
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
-    count: { control: 'slider', min: 1, max: 8, step: 1 },
+    count: { control: 'slider', min: JUGGLE_COUNT.min, max: JUGGLE_COUNT.max, step: 1 },
   },
   Particles: {
     rate:    { control: 'slider', min: 0, max: 1, step: 0.01 },
