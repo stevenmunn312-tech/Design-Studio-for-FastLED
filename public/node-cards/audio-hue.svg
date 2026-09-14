@@ -44,21 +44,21 @@
 <circle cx="156.0" cy="186" r="5" fill="#d633ff"/>
 <text x="232" y="190" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0.5</text>
 </g>
-<text x="8" y="211" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">bassWeight</text>
+<text x="8" y="211" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">bass weight</text>
 <g>
 <rect x="120" y="205" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
 <rect x="120" y="205" width="36.0" height="4" rx="2" fill="#d633ff"/>
 <circle cx="156.0" cy="207" r="5" fill="#d633ff"/>
 <text x="232" y="211" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0.5</text>
 </g>
-<text x="8" y="232" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">midsWeight</text>
+<text x="8" y="232" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">mids weight</text>
 <g>
 <rect x="120" y="226" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
 <rect x="120" y="226" width="21.6" height="4" rx="2" fill="#d633ff"/>
 <circle cx="141.6" cy="228" r="5" fill="#d633ff"/>
 <text x="232" y="232" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0.3</text>
 </g>
-<text x="8" y="253" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">trebleWeight</text>
+<text x="8" y="253" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">treble weight</text>
 <g>
 <rect x="120" y="247" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
 <rect x="120" y="247" width="14.4" height="4" rx="2" fill="#d633ff"/>

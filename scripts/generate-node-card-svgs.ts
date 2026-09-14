@@ -20,7 +20,7 @@ import { mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   NODE_LIBRARY, CATEGORIES, CATEGORY_COLOR, categoryNodes, portColor,
-  propertyMeta, isPropertyEnabled, propertyGroupsFor, hasClampableInputs,
+  propertyMeta, propertyLabel, isPropertyEnabled, propertyGroupsFor, hasClampableInputs,
   bypassPort, nodeDisplayLabel, libraryDefaults,
 } from '../src/state/nodeLibrary'
 import { evaluateGraphFull, resetEvaluatorState } from '../src/state/graphEvaluator'
@@ -204,10 +204,12 @@ function showsRGBSwatch(def: NodeDefinition, props: Record<string, unknown>): bo
 type PropRow =
   | { kind: 'swatch'; rgb: [number, number, number] }
   | { kind: 'group'; label: string }
-  | { kind: 'slider'; key: string; value: number; min: number; max: number; disabled: boolean }
-  | { kind: 'select'; key: string; value: string; disabled: boolean }
-  | { kind: 'checkbox'; key: string; value: boolean; disabled: boolean }
-  | { kind: 'input'; key: string; value: string; disabled: boolean }
+  // `key` identifies the property (meta, exposed sockets); `label` is what the
+  // canvas prints for it, which is not always the raw key.
+  | { kind: 'slider'; key: string; label: string; value: number; min: number; max: number; disabled: boolean }
+  | { kind: 'select'; key: string; label: string; value: string; disabled: boolean }
+  | { kind: 'checkbox'; key: string; label: string; value: boolean; disabled: boolean }
+  | { kind: 'input'; key: string; label: string; value: string; disabled: boolean }
 
 function buildPropRows(def: NodeDefinition, props: Record<string, unknown>): PropRow[] {
   const rows: PropRow[] = []
@@ -218,12 +220,13 @@ function buildPropRows(def: NodeDefinition, props: Record<string, unknown>): Pro
   const entryRow = ([key, val]: [string, unknown]): PropRow => {
     const disabled = !isPropertyEnabled(def.type, key, props)
     const meta = propertyMeta(def.type, key)
+    const label = propertyLabel(def.type, key)
     if (meta?.control === 'slider' && typeof val === 'number') {
-      return { kind: 'slider', key, value: val, min: meta.min, max: meta.max, disabled }
+      return { kind: 'slider', key, label, value: val, min: meta.min, max: meta.max, disabled }
     }
-    if (meta?.control === 'select') return { kind: 'select', key, value: String(val), disabled }
-    if (typeof val === 'boolean') return { kind: 'checkbox', key, value: val, disabled }
-    return { kind: 'input', key, value: fmtVal(val), disabled }
+    if (meta?.control === 'select') return { kind: 'select', key, label, value: String(val), disabled }
+    if (typeof val === 'boolean') return { kind: 'checkbox', key, label, value: val, disabled }
+    return { kind: 'input', key, label, value: fmtVal(val), disabled }
   }
   const groups = propertyGroupsFor(def.type)
   if (groups) {
@@ -237,13 +240,13 @@ function buildPropRows(def: NodeDefinition, props: Record<string, unknown>): Pro
     for (const e of entries) rows.push(entryRow(e))
   }
   if (hasClampableInputs(def.type, def.inputs)) {
-    rows.push({ kind: 'checkbox', key: 'clamp inputs', value: false, disabled: false })
+    rows.push({ kind: 'checkbox', key: 'clamp inputs', label: 'clamp inputs', value: false, disabled: false })
   }
   if (bypassPort(def.outputs, def.inputs) != null) {
-    rows.push({ kind: 'checkbox', key: 'bypass', value: false, disabled: false })
+    rows.push({ kind: 'checkbox', key: 'bypass', label: 'bypass', value: false, disabled: false })
   }
   if (def.type === 'MicInput' || def.type === 'MatrixOutput') {
-    rows.push({ kind: 'checkbox', key: 'set default', value: false, disabled: false })
+    rows.push({ kind: 'checkbox', key: 'set default', label: 'set default', value: false, disabled: false })
   }
   return rows
 }
@@ -488,7 +491,7 @@ function propRowSvg(row: PropRow, y: number): string {
       const trackW = 72, valW = 34
       const trackX = right - valW - 6 - trackW
       const frac = Math.max(0, Math.min(1, (row.value - row.min) / (row.max - row.min || 1)))
-      parts.push(key(row.key, trackX - BODY_PAD - 6))
+      parts.push(key(row.label, trackX - BODY_PAD - 6))
       parts.push(`<g${dim}>`)
       parts.push(`<rect x="${trackX}" y="${cy - 2}" width="${trackW}" height="4" rx="2" fill="${C.track}" opacity="0.85"/>`)
       parts.push(`<rect x="${trackX}" y="${cy - 2}" width="${(trackW * frac).toFixed(1)}" height="4" rx="2" fill="${C.slider}"/>`)
@@ -499,7 +502,7 @@ function propRowSvg(row: PropRow, y: number): string {
     }
     case 'select': {
       const w = 84, x = right - w
-      parts.push(key(row.key, x - BODY_PAD - 6))
+      parts.push(key(row.label, x - BODY_PAD - 6))
       parts.push(`<g${dim}>`)
       parts.push(`<rect x="${x}" y="${cy - 8}" width="${w}" height="16" rx="4" fill="${C.field}" stroke="${C.border}"/>`)
       parts.push(`<text x="${x + 4}" y="${cy + 4}" font-family=${JSON.stringify(MONO)} font-size="11" fill="${C.text}">${esc(truncate(row.value, w - 18, 6.6))}</text>`)
@@ -509,7 +512,7 @@ function propRowSvg(row: PropRow, y: number): string {
     }
     case 'checkbox': {
       const s = 12, x = right - s
-      parts.push(key(row.key, x - BODY_PAD - 6))
+      parts.push(key(row.label, x - BODY_PAD - 6))
       parts.push(`<g${dim}>`)
       if (row.value) {
         parts.push(`<rect x="${x}" y="${cy - s / 2}" width="${s}" height="${s}" rx="3" fill="${C.slider}"/>`)
@@ -522,7 +525,7 @@ function propRowSvg(row: PropRow, y: number): string {
     }
     case 'input': {
       const w = 72, x = right - w
-      parts.push(key(row.key, x - BODY_PAD - 6))
+      parts.push(key(row.label, x - BODY_PAD - 6))
       parts.push(`<g${dim}>`)
       parts.push(`<rect x="${x}" y="${cy - 8}" width="${w}" height="16" rx="4" fill="${C.field}" stroke="${C.border}"/>`)
       parts.push(`<text x="${x + 4}" y="${cy + 4}" font-family=${JSON.stringify(MONO)} font-size="11" fill="${C.text}">${esc(truncate(row.value, w - 8, 6.6))}</text>`)
