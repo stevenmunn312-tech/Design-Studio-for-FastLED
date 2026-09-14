@@ -211,6 +211,38 @@ describe('DisplayEditor', () => {
     partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', displayId: 'panel',
   })
 
+  it('offers an explicit repair to match a configured slider to its single target range', () => {
+    useGraphStore.setState({
+      nodes: [
+        panelNode(),
+        libraryNode('touch', 'TouchInput', { panelId: 'tft' }),
+        libraryNode('juggle', 'Juggle', { count: 4 }),
+      ],
+      edges: [],
+    })
+    const view = render(<DisplayEditor />)
+    fireEvent.click(view.getByRole('button', { name: 'Add Slider widget' }))
+    fireEvent.change(view.getByLabelText('Minimum'), { target: { value: '-2' } })
+    fireEvent.change(view.getByLabelText('Maximum'), { target: { value: '2' } })
+    fireEvent.change(view.getByLabelText('Step'), { target: { value: '0.5' } })
+
+    act(() => useGraphStore.setState({
+      edges: [{
+        id: 'slider-to-count',
+        source: 'touch',
+        sourceHandle: 'widget:slider:out',
+        target: 'juggle',
+        targetHandle: 'count',
+      }],
+    }))
+
+    fireEvent.click(view.getByRole('button', { name: /Match target range/ }))
+
+    const slider = useGraphStore.getState().displayDocuments.panel.widgets.find((widget) => widget.id === 'slider')!
+    expect(slider.properties).toMatchObject({ min: 1, max: 8, step: 1 })
+    expect(view.queryByRole('button', { name: /Match target range/ })).toBeNull()
+  })
+
   it('switches a design between portrait and landscape, retaining a valid layout', () => {
     useGraphStore.getState().setDisplayDocument(createDisplayDocument('panel', 240, 320))
     useGraphStore.setState({ nodes: [panelNode()] })

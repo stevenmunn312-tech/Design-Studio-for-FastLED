@@ -67,6 +67,7 @@ import { useDisplayRuntimeStore } from '../../state/displayRuntimeStore'
 import {
   documentDisplaySourceKind, documentDisplaySourceLabel, mountedPanelGeometry, panelsShowingDocument,
 } from '../../state/mountedDisplays'
+import { displayWidgetTargetRangeRepair } from '../../state/displayControlRangeRepair'
 import { DISPLAY_SOURCE_FROM_GRAPH } from '../../state/displaySourceFields'
 import { useUiStore } from '../../state/uiStore'
 import DisplayWidgetPreview from './DisplayWidgetPreview'
@@ -363,6 +364,16 @@ export default function DisplayEditor() {
   // audition a control family without unexpectedly repainting their screen.
   const [controlThemeId, setControlThemeId] = useState(() => DISPLAY_THEME_PRESETS[0]?.id ?? '')
   const [announcement, setAnnouncement] = useState('Display editor opened.')
+  const graphNodesForRangeRepair = useGraphStore((state) => rootGraphNodes(state))
+  const graphEdgesForRangeRepair = useGraphStore((state) => rootGraphEdges(state))
+  const targetRangeRepair = useMemo(() => {
+    const current = draft ?? persisted
+    if (!displayId || selectedIds.length !== 1 || !current) return null
+    const widget = current.widgets.find((entry) => entry.id === selectedIds[0])
+    return widget
+      ? displayWidgetTargetRangeRepair(displayId, widget, graphNodesForRangeRepair, graphEdgesForRangeRepair)
+      : null
+  }, [displayId, draft, graphEdgesForRangeRepair, graphNodesForRangeRepair, persisted, selectedIds])
 
   useEffect(() => {
     if (!displayId) return
@@ -591,6 +602,19 @@ export default function DisplayEditor() {
 
   const selectedWidgets = document.widgets.filter((widget) => selectedIds.includes(widget.id))
   const selected = selectedWidgets.length === 1 ? selectedWidgets[0] : null
+
+  const matchTargetRange = () => {
+    if (!selected || !targetRangeRepair) return
+    commit(updateDisplayWidget(document, selected.id, (widget) => ({
+      ...widget,
+      properties: {
+        ...widget.properties,
+        min: targetRangeRepair.min,
+        max: targetRangeRepair.max,
+        step: targetRangeRepair.step,
+      },
+    })), `${selected.label || selected.type} range matched ${targetRangeRepair.targetLabel}.`)
+  }
 
   const applySelectionTransform = (next: DisplayDocument, message: string) => {
     if (next === document) return
@@ -1055,6 +1079,12 @@ export default function DisplayEditor() {
                   )
                 })}
               </div>
+              {targetRangeRepair && (
+                <button type="button" onClick={matchTargetRange}>
+                  Match target range
+                  <small>{targetRangeRepair.targetLabel}: {targetRangeRepair.min}-{targetRangeRepair.max}, step {targetRangeRepair.step}</small>
+                </button>
+              )}
               <dl className={styles.ports}>
                 {DISPLAY_WIDGET_LIBRARY[selected.type].portRoles.map((port) => (
                   <div key={port.role}><dt>{port.label}</dt><dd>{port.direction} · {port.dataType}</dd></div>
