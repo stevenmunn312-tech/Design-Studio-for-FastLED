@@ -182,6 +182,14 @@ describe('starterTemplates', () => {
     const output = nodes.find((n) => (n.data as StudioNodeData).nodeType === 'MatrixOutput')!
     expect(edges.some((e) => e.source === generator.id && e.target === output.id
       && e.sourceHandle === 'frame' && e.targetHandle === 'frame')).toBe(true)
+
+    // The collection is the show's vocabulary: a .show schedules patterns by
+    // position in it, so a starter without one analyses a song against the
+    // built-in patterns rather than against anything the user made.
+    const collection = nodes.find((n) => (n.data as StudioNodeData).nodeType === 'PatternCollection')!
+    expect(collection).toBeTruthy()
+    expect(edges.some((e) => e.source === collection.id && e.target === generator.id
+      && e.sourceHandle === 'patternset' && e.targetHandle === 'patternset')).toBe(true)
   })
 
   for (const template of STARTER_TEMPLATES) {

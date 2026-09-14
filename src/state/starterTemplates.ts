@@ -387,12 +387,19 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     description: 'Analyze songs, preview a timed performance, and package the music and show files for SD-card playback.',
     completionSteps: [
       'Drop songs into Music Library and run analysis to create timed show files.',
+      'Build a pattern, select its nodes, create a Group, then connect that Group frame to Pattern Collection.',
       'Preview a song in Performance Generator and adjust its energy, hold, palette, and transition settings.',
-      'Optionally wire a Pattern Collection or Transitions node into Performance Generator.',
       'Check the SD Card and Amplifier pins in the hardware view — swap the MAX98357A for your own module if it differs — then upload the show from the Upload tab.',
     ],
     nodeSpecs: [
       { id: 'lib', type: 'MusicLibrary', col: 0, row: 0 },
+      // The show's vocabulary, and no longer optional in the starter. A show
+      // schedules patterns by *position* in this collection, so the collection
+      // is what the generated .show file is written against — an analysed song
+      // with nothing wired here produces a show of built-in patterns rather
+      // than of the user's own. Empty to begin with, which Graph Health says
+      // in words; the same node the Music Player starter opens with.
+      { id: 'collection', type: 'PatternCollection', col: 0, row: 1 },
       { id: 'perf', type: 'PerformanceGenerator', col: 1, row: 0 },
       // The show plays on LEDs, and the edge into this output is what says so.
       // The player drives them from the card rather than through that edge, but
@@ -409,7 +416,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
 
       tutorialNote(
         'guide', 0, -1,
-        'OFFLINE SHOW\nImport and analyse music, then preview the timeline.\nSD Card packages it; the LED output uploads it.',
+        'OFFLINE SHOW\nImport and analyse music, add your patterns to the collection, then preview the timeline.\nSD Card packages it; the LED output uploads it.',
         TRY_COLOR,
       ),
     ],
@@ -418,6 +425,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     // the hardware the result is going to.
     edgeSpecs: [
       { source: 'lib', sourceHandle: 'music', target: 'perf', targetHandle: 'music' },
+      { source: 'collection', sourceHandle: 'patternset', target: 'perf', targetHandle: 'patternset' },
       { source: 'perf', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
     ],
   }),
