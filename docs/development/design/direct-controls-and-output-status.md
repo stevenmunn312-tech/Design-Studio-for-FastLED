@@ -1,8 +1,8 @@
 # Direct controls and LED output status
 
-Status: agreed design direction; implementation pending. 2026-09-14.
-Target: Hardware, ahead of v1.0.0. This document specifies future behaviour;
-it does not describe features as already implemented.
+Status: in progress — steps 2 and 3 are largely landed, the rest is pending.
+2026-09-14. Target: Hardware, ahead of v1.0.0. Behaviour below is a mix of
+implemented and specified; the checklist at the foot says which is which.
 
 ## Brief explanation
 
@@ -112,6 +112,14 @@ Each step includes its own focused checks before the next depends on it.
 
 ### 1. Define the shared control contract
 
+Partly settled ahead of the inventory, by the nodes steps 2 and 3 proved
+against: a property input's identity is the port the node already declares
+(`propertyInputs` in `NodeDefinition`), its default exposure is
+`defaultExposedInputs`, a node's own list lives on `StudioNodeData.exposedInputs`
+and is bounded to declared ports on load, and an edge always overrides that list
+so a wired socket cannot be hidden. What remains below is the catalogue-wide
+sweep and the widget-role half.
+
 - [ ] Inventory properties and actions by node type: existing input, exposable
   runtime value, action, or rebuild-only setting. Record runtime support for
   normal sketches, slideshow shows and SD/performance players, including
@@ -128,26 +136,45 @@ Each step includes its own focused checks before the next depends on it.
 
 ### 2. Implement property inputs end to end
 
-- [ ] Add one shared resolver for manual versus wired property values; reuse
+- [x] Add one shared resolver for manual versus wired property values; reuse
   existing inputs and retain the manual value as the disconnected fallback.
   Implement evaluation, firmware emission and validation before offering a field.
-- [ ] Prove the first cases: Juggle Speed, Count and Fade; LED output Brightness;
+  `src/state/propertyInputs.ts` is the registry — a node declares
+  `propertyInputs` (property key -> an input port it already has) and nothing is
+  declared until both the evaluator and every generator read the property
+  through that port. The LED output's own pair resolves through
+  `ledOutputManualRuntime`/`ledOutputManualExprs`, so preview, normal sketch and
+  show controller take wire-then-field in one order.
+- [x] Prove the first cases: Juggle Speed, Count and Fade; LED output Brightness;
   and display Enabled. Include correct ranges, integer handling, incompatible
-  sources and two attempted sources for one target.
-- [ ] Persist exposed inputs through save/load, copy/paste, group instances and
+  sources and two attempted sources for one target. Juggle's dot count is bounded
+  then rounded once, in `src/state/juggle.ts`, so 3.6 means the same number of
+  dots on both sides; a second source on one socket replaces the first
+  (`completeConnection`), and an incompatible drop is refused by name.
+- [x] Persist exposed inputs through save/load, copy/paste, group instances and
   undo/redo. Reject missing targets and unsupported generator paths with named
-  repairs through the shared Graph Health/deploy validation route.
+  repairs through the shared Graph Health/deploy validation route. An imported
+  `exposedInputs` list is bounded to the node's declared ports, and an SD player
+  build — which owns brightness through its transport — refuses a dialled-down
+  LED output by name rather than coming up full on the bench.
 
 ### 3. Add the property connection workflow
 
-- [ ] Add **Expose input** to the property context menu and an accessible
+- [x] Add **Expose input** to the property context menu and an accessible
   keyboard/menu equivalent, plus a visible **Expose input…** affordance on each
-  eligible node. Show an existing socket rather than duplicating it.
-- [ ] Support dragging a compatible connection onto a property to expose and
+  eligible node. Show an existing socket rather than duplicating it. The socket
+  is the port the node already declares, so exposing one changes only whether it
+  is drawn — the evaluator, the generators and validation needed no teaching.
+- [x] Support dragging a compatible connection onto a property to expose and
   connect it in one undoable operation. Keep property/socket positioning aligned.
-- [ ] Show live value, controlling source and a trace/disconnect action. Allow
+  The row itself is the drop target (`data-property-input`), since a hidden
+  socket gives React Flow nothing to end the connection on; both edits land in
+  one tick, which the history burst collapses into one undo step.
+- [x] Show live value, controlling source and a trace/disconnect action. Allow
   unused sockets to be hidden; a wired socket must remain visible, and
   hiding must never silently disconnect it. Explain excluded fields and ranges.
+  A wired row names the driving *node*, and its menu offers showing what drives
+  it and pulling that one wire; there is no Hide while a wire is attached.
 - [ ] Apply the main-versus-optional visibility rules to the initial nodes.
   Verify a compact Juggle retains Frame and a Blend retains both frame inputs;
   revealing, connecting, collapsing and reloading must preserve wired sockets.

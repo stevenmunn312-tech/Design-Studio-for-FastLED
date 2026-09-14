@@ -59,6 +59,15 @@ describe('property input exposure', () => {
     expect(useGraphStore.getState()).toBe(before)
   })
 
+  // A wired property has one value source: combining two means an explicit
+  // mix or select node, not two noodles quietly summing on one socket.
+  it('lets the second source replace the first rather than both driving one property', () => {
+    const store = useGraphStore.getState()
+    store.onConnect({ source: 'a', sourceHandle: 'out', target: 'juggle', targetHandle: 'count' })
+    store.onConnect({ source: 'b', sourceHandle: 'out', target: 'juggle', targetHandle: 'count' })
+    expect(useGraphStore.getState().edges.map((edge) => edge.source)).toEqual(['b'])
+  })
+
   it('pulls one wire without touching the node’s saved value or its other inputs', () => {
     useGraphStore.setState({ edges: [
       { id: 'count-wire', source: 'src', sourceHandle: 'out', target: 'juggle', targetHandle: 'count' },
