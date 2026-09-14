@@ -1,6 +1,6 @@
 # Direct controls and LED output status
 
-Status: in progress — steps 2 and 3 are landed, step 4 is partly underway.
+Status: in progress — steps 2, 3 and the Touch-output core of step 4 are landed.
 2026-09-14. Target: Hardware, ahead of v1.0.0. Behaviour below is a mix of
 implemented and specified; the checklist at the foot says which is which.
 
@@ -204,18 +204,18 @@ sweep and the widget-role half.
   leave through Touch in preview, normal sketches, show controllers and SD
   players. Deleting a wired widget and display-document undo/redo track both
   the panel input cables and Touch output cables.
-- [ ] Derive outputs from the associated panel's actual interactive widgets:
+- [x] Derive outputs from the associated panel's actual interactive widgets:
   button = held boolean, toggle = stored boolean, slider/dial = numeric value.
   Reuse widget registry roles and stable IDs; give fixed-layout controls stable
   semantic IDs. Read-only layouts expose no fictitious controls. When a new
   slider or dial is created by wiring it to a property, initialise its range,
-  step and unit metadata from that property; when an existing slider/dial is
-  connected, preserve its current domain and offer **Match target range** if it
-  is the only destination.
-- [ ] Move interaction routing to those Touch outputs, with one state owner per
+  step and unit metadata from that property.
+- [ ] Add the explicit **Match target range** repair for an existing configured
+  slider/dial that is connected to exactly one destination.
+- [x] Move interaction routing to those Touch outputs, with one state owner per
   widget and no duplicated output on the panel. Preserve panel pairing,
   calibration, rotation, capture/release, disable/re-enable and deletion rules.
-- [ ] Implement matching preview and firmware sampling. Verify a screen slider
+- [x] Implement matching preview and firmware sampling. Verify a screen slider
   drives Juggle directly and a physical button drives the panel's Enabled input.
   Verify widget rename/reorder, duplicate labels, removal and layout replacement.
 

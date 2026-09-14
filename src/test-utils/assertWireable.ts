@@ -1,5 +1,5 @@
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
-import { displayDocumentPorts } from '../state/displayRegistry'
+import { displayDocumentInputPorts, displayDocumentTouchOutputPorts } from '../state/displayRegistry'
 import { buttonBankOutputs } from '../state/buttonBank'
 import { NODE_LIBRARY } from '../state/nodeLibrary'
 import { playerControlInputs } from '../state/playerControlAssignments'
@@ -41,8 +41,7 @@ function effectivePorts(
   if (node.data.nodeType === 'TransportDisplay') {
     const displayId = String(properties.displayId ?? '')
     const document = displayId ? documents[displayId] : undefined
-    const widgetPorts = document ? displayDocumentPorts(document) : { inputs: [], outputs: [] }
-    inputs = [...inputs, ...widgetPorts.inputs]
+    inputs = [...inputs, ...(document ? displayDocumentInputPorts(document) : [])]
   }
   if (node.data.nodeType === 'TouchInput') {
     const panelId = String(properties.panelId ?? '')
@@ -51,8 +50,7 @@ function effectivePorts(
       ? String(panel.data.properties.displayId ?? '')
       : ''
     const document = displayId ? documents[displayId] : undefined
-    const widgetPorts = document ? displayDocumentPorts(document) : { inputs: [], outputs: [] }
-    outputs = [...outputs, ...widgetPorts.outputs]
+    outputs = [...outputs, ...(document ? displayDocumentTouchOutputPorts(document) : [])]
   }
 
   return { inputs, outputs }

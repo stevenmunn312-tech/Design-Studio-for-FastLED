@@ -3,6 +3,7 @@ import { evaluateGraphFull, resetEvaluatorState } from '../graphEvaluator'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { useDisplayRuntimeStore } from '../displayRuntimeStore'
 import { useGraphStore } from '../graphStore'
+import { useHardwareInputStore } from '../hardwareInputStore'
 import { usePlayerTransport } from '../playerTransport'
 import type { StudioEdge, StudioNode } from '../graphStore'
 
@@ -60,6 +61,7 @@ describe('display evaluator parity', () => {
   beforeEach(() => {
     resetEvaluatorState()
     useDisplayRuntimeStore.getState().resetDisplayRuntime()
+    useHardwareInputStore.setState({ button: new Map(), pot: new Map(), encoder: new Map() })
     usePlayerTransport.setState({ transport: null, posMs: 0, playing: false })
   })
 
@@ -148,6 +150,44 @@ describe('display evaluator parity', () => {
     })
     expect(runtime.readDisplayWidget('panel', 'title')?.roleValues.get('value')).toBe('MIDNIGHT DRIVE')
     expect(runtime.readDisplayWidget('panel', 'slider')?.roleValues.get('set')).toBe(0.75)
+  })
+
+  it('uses a Touch slider output as a direct Juggle Speed property input', () => {
+    const custom = screen()
+    const controlled = node('juggle-controlled', 'Juggle', { speed: 0, count: 4, fade: 0.9 })
+    const manual = node('juggle-manual', 'Juggle', { speed: 0.7, count: 4, fade: 0.9 })
+    useDisplayRuntimeStore.getState().touchDisplayWidget('panel', 'slider', 0.7)
+
+    const controlledFrame = evaluateGraphFull(
+      [custom, touch(), controlled],
+      [edge('speed', 'touch', 'widget:slider:out', 'juggle-controlled', 'speed')],
+      20,
+      8,
+      8,
+    ).outputs.get('juggle-controlled')?.frame
+    const manualFrame = evaluateGraphFull([manual], [], 20, 8, 8)
+      .outputs.get('juggle-manual')?.frame
+
+    expect(controlledFrame).toEqual(manualFrame)
+  })
+
+  it('lets a physical button gate a custom panel Enabled input in preview', () => {
+    const custom = screen()
+    const button = node('panel-enable', 'ButtonInput')
+    const edges = [edge('enable', 'panel-enable', 'pressed', 'screen', 'enabled')]
+    const runtime = useDisplayRuntimeStore.getState()
+    runtime.touchDisplayWidget('panel', 'slider', 0.5)
+
+    useHardwareInputStore.getState().setButton('panel-enable', false)
+    const disabled = evaluateGraphFull([custom, touch(), button], edges, 0, 8, 8)
+      .outputs.get('touch') as Record<string, unknown>
+    expect(disabled['widget:slider:out']).toBe(0)
+    expect(runtime.readDisplayWidget('panel', 'slider')?.roleValues.get('set')).toBeUndefined()
+
+    useHardwareInputStore.getState().setButton('panel-enable', true)
+    const enabled = evaluateGraphFull([custom, touch(), button], edges, 1, 8, 8)
+      .outputs.get('touch') as Record<string, unknown>
+    expect(enabled['widget:slider:out']).toBe(0.5)
   })
 
   it('publishes Slider output into a passive readout in the same frame', () => {

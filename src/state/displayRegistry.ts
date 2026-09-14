@@ -446,6 +446,17 @@ export function displayWidgetPorts(widget: Pick<DisplayWidget, 'id' | 'type' | '
   }))
 }
 
+/** Ports that graph values feed into the panel so it can draw widgets. */
+export function displayWidgetInputPorts(widget: Pick<DisplayWidget, 'id' | 'type' | 'label' | 'properties'>): ResolvedDisplayWidgetPort[] {
+  if (displayWidgetIsBound(widget)) return []
+  return displayWidgetPorts(widget).filter((port) => port.direction === 'input')
+}
+
+/** Ports that finger-operated widgets publish through the paired Touch node. */
+export function displayWidgetTouchOutputPorts(widget: Pick<DisplayWidget, 'id' | 'type' | 'label'>): ResolvedDisplayWidgetPort[] {
+  return displayWidgetPorts(widget).filter((port) => port.direction === 'output')
+}
+
 /**
  * Whether this widget reads its value from the source wired into the panel.
  *
@@ -518,18 +529,36 @@ export function displayWidgetSources(
 export function displayDocumentPorts(
   document: Pick<DisplayDocument, 'widgets'>,
 ): { inputs: NodePort[]; outputs: NodePort[] } {
+  return {
+    inputs: displayDocumentInputPorts(document),
+    outputs: displayDocumentTouchOutputPorts(document),
+  }
+}
+
+/** Graph-facing widget inputs for the panel that owns this document. */
+export function displayDocumentInputPorts(
+  document: Pick<DisplayDocument, 'widgets'>,
+): NodePort[] {
   const inputs: NodePort[] = []
-  const outputs: NodePort[] = []
   for (const widget of document.widgets) {
-    const bound = displayWidgetIsBound(widget)
-    for (const port of displayWidgetPorts(widget)) {
-      const resolved = { id: port.id, label: port.label, dataType: port.dataType }
-      if (port.direction === 'input') {
-        if (!bound) inputs.push(resolved)
-      } else outputs.push(resolved)
+    for (const port of displayWidgetInputPorts(widget)) {
+      inputs.push({ id: port.id, label: port.label, dataType: port.dataType })
     }
   }
-  return { inputs, outputs }
+  return inputs
+}
+
+/** Graph-facing widget outputs for the Touch node paired with this document. */
+export function displayDocumentTouchOutputPorts(
+  document: Pick<DisplayDocument, 'widgets'>,
+): NodePort[] {
+  const outputs: NodePort[] = []
+  for (const widget of document.widgets) {
+    for (const port of displayWidgetTouchOutputPorts(widget)) {
+      outputs.push({ id: port.id, label: port.label, dataType: port.dataType })
+    }
+  }
+  return outputs
 }
 
 export function defaultDisplayWidgetProperties(type: DisplayWidgetType): Record<string, DisplayWidgetProperty> {

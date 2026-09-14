@@ -7,7 +7,9 @@ import {
   displayControlHitBounds,
   defaultDisplayWidgetBounds,
   defaultDisplayWidgetProperties,
+  displayDocumentInputPorts,
   displayDocumentPorts,
+  displayDocumentTouchOutputPorts,
   displayWidgetPortId,
   displayWidgetPorts,
   displayWidgetValidationIssues,
@@ -77,6 +79,52 @@ describe('display widget registry', () => {
     })
     expect(ports.inputs.map((port) => port.id)).toEqual(['widget:title:value', 'widget:volume:set'])
     expect(ports.outputs.map((port) => port.id)).toEqual(['widget:volume:out'])
+    expect(displayDocumentInputPorts({
+      widgets: [
+        widget({ id: 'title', type: 'Text', label: 'Title' }),
+        widget({ id: 'volume', type: 'Slider', label: 'Volume' }),
+      ],
+    }).map((port) => port.id)).toEqual(['widget:title:value', 'widget:volume:set'])
+    expect(displayDocumentTouchOutputPorts({
+      widgets: [
+        widget({ id: 'title', type: 'Text', label: 'Title' }),
+        widget({ id: 'volume', type: 'Slider', label: 'Volume' }),
+      ],
+    }).map((port) => port.id)).toEqual(['widget:volume:out'])
+  })
+
+  it('keeps bound readings off the panel while interactive controls still publish through Touch', () => {
+    const document = {
+      widgets: [
+        widget({
+          id: 'title',
+          type: 'Text',
+          label: 'Title',
+          properties: { source: 'title' },
+        }),
+        widget({
+          id: 'volume',
+          type: 'Slider',
+          label: 'Volume',
+          properties: { min: 0, max: 1, step: 0.01, orientation: 'horizontal', source: 'volume' },
+        }),
+      ],
+    }
+    expect(displayDocumentInputPorts(document).map((port) => port.id)).toEqual([])
+    expect(displayDocumentTouchOutputPorts(document).map((port) => port.id)).toEqual(['widget:volume:out'])
+  })
+
+  it('keeps duplicate widget labels distinct and preserves identities across reorder', () => {
+    const first = widget({ id: 'speed-a', label: 'Speed' })
+    const second = widget({ id: 'speed-b', label: 'Speed', bounds: { x: 8, y: 80, width: 120, height: 48 } })
+    const original = displayDocumentTouchOutputPorts({ widgets: [first, second] })
+    const reordered = displayDocumentTouchOutputPorts({ widgets: [second, first] })
+
+    expect(original).toEqual([
+      { id: 'widget:speed-a:out', label: 'Speed Output', dataType: 'float' },
+      { id: 'widget:speed-b:out', label: 'Speed Output', dataType: 'float' },
+    ])
+    expect(reordered.map((port) => port.id)).toEqual(['widget:speed-b:out', 'widget:speed-a:out'])
   })
 
   it('provides independent defaults and registry-owned minimum bounds', () => {

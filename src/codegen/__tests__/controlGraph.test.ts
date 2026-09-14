@@ -55,9 +55,13 @@ describe('typed control graph', () => {
     const displayPorts = displayDocumentPorts(document)
     const tft = node('tft', 'TransportDisplay', { displayId: 'screen' })
     tft.data.inputs = [...(tft.data.inputs as never[]), ...displayPorts.inputs]
-    tft.data.outputs = displayPorts.outputs
+    const touch = node('tft-touch', 'TouchInput', { panelId: 'tft' })
+    touch.data.outputs = [
+      ...(touch.data.outputs as never[]),
+      ...displayPorts.outputs,
+    ]
     const nodes = [node('knob', 'PotInput'), node('map', 'MapRange', { outMin: -1, outMax: 1 }),
-      node('clamp', 'Clamp'), node('format', 'FormatNumber', { decimals: 2, suffix: ' V' }), tft]
+      node('clamp', 'Clamp'), node('format', 'FormatNumber', { decimals: 2, suffix: ' V' }), tft, touch]
     const edges = [edge('knob', 'value', 'map', 'value'), edge('map', 'result', 'clamp', 'value'),
       edge('clamp', 'result', 'format', 'value'), edge('format', 'text', 'tft', 'widget:text:value')]
     assertWireable(nodes, edges, { screen: document })

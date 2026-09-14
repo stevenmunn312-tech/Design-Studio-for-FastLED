@@ -55,7 +55,9 @@ import {
 } from './displayDocument'
 import {
   defaultDisplayWidgetProperties,
+  displayDocumentInputPorts,
   displayDocumentPorts,
+  displayDocumentTouchOutputPorts,
   displayWidgetDefinition,
   displayWidgetSources,
   parseDisplayWidgetPortId,
@@ -1199,14 +1201,13 @@ function syncDisplayNodesInContent(
     if (node.data.nodeType === 'TransportDisplay') {
       const displayId = String(node.data.properties.displayId ?? '')
       const document = displayId ? documents[displayId] : undefined
-      const widgetPorts = document ? displayDocumentPorts(document) : { inputs: [], outputs: [] }
       /*
        * Widget inputs stay on the panel because the panel draws values into
        * widgets. Widget outputs belong to the paired Touch node below, because
        * they are finger intent rather than screen content.
        */
       ports = {
-        inputs: [...(library?.inputs ?? []), ...widgetPorts.inputs],
+        inputs: [...(library?.inputs ?? []), ...(document ? displayDocumentInputPorts(document) : [])],
         outputs: [...(library?.outputs ?? [])],
       }
       /*
@@ -1223,7 +1224,6 @@ function syncDisplayNodesInContent(
       const panel = panelsById.get(panelId)
       const displayId = panel ? String(panel.data.properties.displayId ?? '') : ''
       const document = displayId ? documents[displayId] : undefined
-      const widgetPorts = document ? displayDocumentPorts(document) : { inputs: [], outputs: [] }
       /*
        * Fixed-layout control outputs: when the panel has no custom design, the
        * Touch node exposes one output per control in the current layout.
@@ -1260,7 +1260,11 @@ function syncDisplayNodesInContent(
       }
       ports = {
         inputs: [...(library?.inputs ?? [])],
-        outputs: [...(library?.outputs ?? []), ...widgetPorts.outputs, ...fixedControlPorts],
+        outputs: [
+          ...(library?.outputs ?? []),
+          ...(document ? displayDocumentTouchOutputPorts(document) : []),
+          ...fixedControlPorts,
+        ],
       }
     } else {
       return node

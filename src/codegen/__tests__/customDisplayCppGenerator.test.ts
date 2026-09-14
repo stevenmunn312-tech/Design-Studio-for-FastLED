@@ -60,11 +60,16 @@ function panel(id = 'tft', overrides: Record<string, unknown> = {}): StudioNode 
       { id: 'enabled', label: 'Enabled', dataType: 'bool' },
       { id: 'widget:text:value', label: 'Title', dataType: 'string' },
     ],
-    outputs: [{ id: 'widget:toggle:out', label: 'Toggle Output', dataType: 'bool' }],
+    outputs: [],
   })
 }
 
-const touch = (panelId = 'tft', id = `${panelId}-touch`) => node(id, 'TouchInput', { panelId })
+const touch = (panelId = 'tft', id = `${panelId}-touch`) => node(id, 'TouchInput', { panelId }, {
+  outputs: [
+    { id: 'controls', label: 'Controls', dataType: 'playercontrols' },
+    { id: 'widget:toggle:out', label: 'Toggle Output', dataType: 'bool' },
+  ],
+})
 
 const output = node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4, chipset: 'WS2812B', colorOrder: 'GRB' })
 const title = node('title', 'TextValue', { text: 'Aurora Drift' })
