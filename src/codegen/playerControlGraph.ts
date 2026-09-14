@@ -69,9 +69,10 @@ export function playerControlGraph(
     destinationIds: new Set(master ? [master.id] : []), sampledSources: sources,
     sourceExpressions: PLAYER_SOURCE_EXPRESSIONS,
   })
+  const outputRuntimePorts = ['enabled', 'brightness', 'controls', 'ledToggle', 'brightnessUp', 'brightnessDown']
   for (const output of nodes.filter((node) => node.data.nodeType === 'MatrixOutput')) {
-    if (edges.some((edge) => edge.target === output.id && ['enabled', 'brightness', 'controls'].includes(edge.targetHandle ?? ''))) {
-      routing.errors.push(`${output.data.label || output.id}: an SD player build cannot read Enabled, Brightness or Controls wired to the LED output. `
+    if (edges.some((edge) => edge.target === output.id && outputRuntimePorts.includes(edge.targetHandle ?? ''))) {
+      routing.errors.push(`${output.data.label || output.id}: an SD player build cannot read Enabled, Brightness, Controls or LED actions wired to the LED output. `
         + `Wire these controls through Control Map to ${master?.data.nodeType === 'PerformanceGenerator' ? 'Performance Generator' : 'Music Player'} instead.`)
     }
   }

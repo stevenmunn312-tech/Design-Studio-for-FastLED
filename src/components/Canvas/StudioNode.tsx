@@ -70,7 +70,7 @@ import {
 } from '../../state/transportDisplay'
 import styles from './StudioNode.module.css'
 import { NODE_HANDLE_STYLE } from './nodeHandleStyle'
-import { exposedPropertyInputs, propertyInputsFor } from '../../state/propertyInputs'
+import { exposableInputsFor, exposedNodeInputs, propertyInputsFor } from '../../state/propertyInputs'
 import PropertyInputMenu from './PropertyInputMenu'
 import type { FloatingAnchor } from '../Hardware/FloatingMenu'
 import { formatSignalRange, isNormalizedOutput, signalRangeMismatch } from '../../state/signalRange'
@@ -367,6 +367,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
   unpinProperty,
 }: LivePropertyControlsProps) {
   const propertyInputs = propertyInputsFor(nodeType)
+  const exposableInputs = exposableInputsFor(nodeType)
   const connectionDrag = useUiStore((s) => s.connectionDrag)
   const setNodeInputExposed = useGraphStore((s) => s.setNodeInputExposed)
   const disconnectInput = useGraphStore((s) => s.disconnectInput)
@@ -379,13 +380,13 @@ const LivePropertyControls = memo(function LivePropertyControls({
   const propertyAreaRef = useRef<HTMLDivElement>(null)
   // Property groups and previews can move row sockets without changing IDs.
   useEffect(() => {
-    if (propertyInputs.length === 0 || typeof ResizeObserver === 'undefined') return
+    if (exposableInputs.length === 0 || typeof ResizeObserver === 'undefined') return
     const area = propertyAreaRef.current
     if (!area) return
     const observer = new ResizeObserver(() => updateNodeInternals(nodeId))
     observer.observe(area)
     return () => observer.disconnect()
-  }, [nodeId, propertyInputs, updateNodeInternals])
+  }, [nodeId, exposableInputs, updateNodeInternals])
   // Non-hardware nodes with generated pins (currently DMX) retain the shared
   // picker here until they gain a physical part in the hardware workbench.
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
@@ -517,7 +518,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
 
   return (
     <div ref={propertyAreaRef} className={styles.props}>
-      {propertyInputs.length > 0 && (
+      {exposableInputs.length > 0 && (
         <button type="button" className={`nodrag ${styles.exposeInputs}`} disabled={locked}
           aria-haspopup="menu" aria-expanded={inputMenu !== null}
           onClick={(event) => setInputMenu({ anchor: event.currentTarget })}>
@@ -526,7 +527,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
       )}
       {inputMenu && !locked && (
         <PropertyInputMenu anchor={inputMenu.anchor} nodeType={nodeType}
-          ports={inputMenu.propertyKey ? propertyInputs.filter((port) => port.propertyKey === inputMenu.propertyKey) : propertyInputs}
+          ports={inputMenu.propertyKey ? exposableInputs.filter((port) => port.propertyKey === inputMenu.propertyKey) : exposableInputs}
           visibleIds={exposedInputIds} connected={sourceMap} describeSource={describeSource}
           onChange={(portId, exposed) => setNodeInputExposed(nodeId, portId, exposed)}
           onTrace={traceSource} onDisconnect={(portId) => disconnectInput(nodeId, portId)}
@@ -1143,10 +1144,10 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     }
     return m
   }, [incomingKey])
-  const propertyInputs = propertyInputsFor(d.nodeType)
-  const exposedInputs = exposedPropertyInputs(d.nodeType, d.exposedInputs, new Set(sourceMap.keys()))
+  const exposableInputs = exposableInputsFor(d.nodeType)
+  const exposedInputs = exposedNodeInputs(d.nodeType, d.exposedInputs, new Set(sourceMap.keys()))
   const exposedInputIds = exposedInputs.map((port) => port.id)
-  const inputs = declaredInputs.filter((port) => !propertyInputs.some((property) => property.id === port.id))
+  const inputs = declaredInputs.filter((port) => !exposableInputs.some((exposable) => exposable.id === port.id))
   const compactInputs = [...inputs, ...exposedInputs]
   const portLayoutKey = `${compactInputs.map((port) => port.id).join('|')}::${outputs.map((port) => port.id).join('|')}`
   const rowCount = d.nodeType === 'ButtonBank' ? 0 : Math.max(inputs.length, outputs.length)

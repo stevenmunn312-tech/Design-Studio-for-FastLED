@@ -32,7 +32,7 @@ import { findSignalRangeHints } from '../../utils/validateGraph'
 import { useUiStore } from '../../state/uiStore'
 import { usePatternLibrary } from '../../state/patternLibrary'
 import { NODE_LIBRARY, CATEGORY_COLOR, nodeDisplayLabel, portsCompatible, spliceTargetPorts } from '../../state/nodeLibrary'
-import { exposedPropertyInputs, propertyInputsFor } from '../../state/propertyInputs'
+import { exposableInputsFor, exposedNodeInputs } from '../../state/propertyInputs'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import StudioNode from './StudioNode'
 import GlowEdge from './GlowEdge'
@@ -1059,11 +1059,11 @@ function NodeGraphCanvasInner() {
     // property input is a field until it is exposed, and announcing four
     // sockets on a node showing one sends a keyboard user hunting for three.
     const declared = data.inputs ?? []
-    const propertyInputs = propertyInputsFor(data.nodeType ?? '')
-    const inputs = propertyInputs.length === 0
+    const exposableInputs = exposableInputsFor(data.nodeType ?? '')
+    const inputs = exposableInputs.length === 0
       ? declared.length
-      : declared.filter((port) => !propertyInputs.some((property) => property.id === port.id)).length
-        + exposedPropertyInputs(data.nodeType ?? '', data.exposedInputs,
+      : declared.filter((port) => !exposableInputs.some((exposable) => exposable.id === port.id)).length
+        + exposedNodeInputs(data.nodeType ?? '', data.exposedInputs,
           wiredInputs.get(node.id) ?? EMPTY_HANDLES).length
     const outputs = data.outputs?.length ?? 0
     return {

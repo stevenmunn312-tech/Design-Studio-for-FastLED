@@ -43,6 +43,12 @@ export const LED_OUTPUT_RUNTIME_PORTS = [
   { id: 'controls', label: 'Controls', dataType: 'playercontrols' },
 ] as const
 
+export const LED_OUTPUT_ACTION_PORTS = [
+  { id: 'ledToggle', label: 'Toggle blackout', dataType: 'bool' },
+  { id: 'brightnessUp', label: 'Brightness Up', dataType: 'bool' },
+  { id: 'brightnessDown', label: 'Brightness Down', dataType: 'bool' },
+] as const
+
 /** An output with nothing wired and nothing dialled: lit, undimmed, free. */
 export const LED_OUTPUT_RUNTIME_DEFAULT: LedOutputRuntime = { enabled: true, brightness: 1 }
 

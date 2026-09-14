@@ -1,13 +1,13 @@
 import { useEffect, useRef } from 'react'
 import FloatingMenu, { type FloatingAnchor } from '../Hardware/FloatingMenu'
 import { portColor, propertyMeta } from '../../state/nodeLibrary'
-import type { PropertyInput } from '../../state/propertyInputs'
+import type { ExposableInput } from '../../state/propertyInputs'
 import styles from './PropertyInputMenu.module.css'
 
 interface Props {
   anchor: FloatingAnchor
   nodeType: string
-  ports: readonly PropertyInput[]
+  ports: readonly ExposableInput[]
   visibleIds: readonly string[]
   connected: ReadonlyMap<string, unknown>
   /** What drives a wired port, named for a reader: "Pot · Value". */
@@ -63,9 +63,10 @@ export default function PropertyInputMenu({
         }}>
         {ports.map((port) => {
           const visible = visibleIds.includes(port.id)
-          const meta = propertyMeta(nodeType, port.propertyKey)
+          const meta = port.propertyKey ? propertyMeta(nodeType, port.propertyKey) : undefined
           const range = meta?.control === 'slider' ? ` · ${meta.min}–${meta.max}` : ''
           const dot = <span className={styles.dot} style={{ background: portColor(port.dataType) }} />
+          const kindLabel = port.kind === 'action' ? 'action' : 'input'
           // A wired socket cannot be hidden — the wire would go with it — so
           // the two things worth offering instead are finding what drives it
           // and pulling that wire, which restores the field beside the socket.
@@ -94,7 +95,7 @@ export default function PropertyInputMenu({
               className={styles.item}
               onClick={() => { onChange(port.id, !visible); onClose() }}>
               {dot}
-              <span>{visible ? 'Hide input' : 'Expose input'}: {port.label}
+              <span>{visible ? `Hide ${kindLabel}` : `Expose ${kindLabel}`}: {port.label}
                 <small>{port.dataType}{range}</small>
               </span>
             </button>

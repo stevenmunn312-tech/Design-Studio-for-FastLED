@@ -1,7 +1,7 @@
 # Direct controls and LED output status
 
-Status: in progress — steps 2, 3, the Touch-output core of step 4 and
-Match target range are landed.
+Status: in progress — steps 2, 3, the Touch-output core of step 4,
+Match target range and the LED-output action slice of step 5 are landed.
 2026-09-14. Target: Hardware, ahead of v1.0.0. Behaviour below is a mix of
 implemented and specified; the checklist at the foot says which is which.
 
@@ -221,6 +221,17 @@ sweep and the widget-role half.
   Verify widget rename/reorder, duplicate labels, removal and layout replacement.
 
 ### 5. Make actions and optional mapping explicit
+
+Partly landed for LED outputs: `MatrixOutput` now declares on-demand
+`ledToggle`, `brightnessUp` and `brightnessDown` action inputs beside its
+continuous Enabled/Brightness property inputs and Controls bundle. The exposure
+registry distinguishes property inputs from action inputs while keeping the
+same "wired sockets remain visible" rule. Preview, normal sketches and show
+controllers fold those direct actions through the same `PlayerControlsValue`
+and LED-output latch as Control Map; SD-player builds refuse them and point the
+user back to Control Map. Held physical buttons are edged/debounced before they
+toggle blackout; already-pulsed fixed-touch action outputs pass through without
+being swallowed.
 
 - [ ] Expose named destination actions on demand, including Play/Pause, Next and
   Toggle blackout. Share press-edge, debounce and repeat rules so holding a

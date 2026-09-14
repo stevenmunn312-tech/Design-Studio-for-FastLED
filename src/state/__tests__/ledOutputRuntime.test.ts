@@ -7,6 +7,7 @@ import {
 import { resetEvaluatorState } from '../graphEvaluator'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { evaluateGraphFull } from '../graphEvaluator'
+import { useHardwareInputStore } from '../hardwareInputStore'
 import { findOutputRuntimeIssues, selectedGenerator } from '../../utils/validateGraph'
 import { generateCpp } from '../../codegen/cppGenerator'
 import type { Frame } from '../ledColor'
@@ -490,6 +491,22 @@ describe('a button reaching the output through Control Map', () => {
     // 0.5 from the wire times 0.5 from the latch.
     expect(frame?.[0][0].r).toBeCloseTo(63.75, 1)
   })
+
+  it('toggles blackout from a direct action input once per held press', () => {
+    resetEvaluatorState()
+    useHardwareInputStore.setState({ button: new Map(), pot: new Map(), encoder: new Map() })
+    const button = node('b', 'ButtonInput', { pin: 4, pullup: true })
+    const wires = [frameEdge, edge('e1', 'b', 'pressed', 'out', 'ledToggle')]
+    expect(pass([white, button, output()], wires, 0)?.[0][0])
+      .toEqual({ r: 255, g: 255, b: 255 })
+    useHardwareInputStore.getState().setButton('b', true)
+    expect(pass([white, button, output()], wires, 1)?.[0][0])
+      .toEqual({ r: 255, g: 255, b: 255 })
+    expect(pass([white, button, output()], wires, 3)?.[0][0])
+      .toEqual({ r: 0, g: 0, b: 0 })
+    expect(pass([white, button, output()], wires, 6)?.[0][0])
+      .toEqual({ r: 0, g: 0, b: 0 })
+  })
 })
 
 describe('the emitted sketch, for a bundle', () => {
@@ -508,6 +525,16 @@ describe('the emitted sketch, for a bundle', () => {
     expect(src).toContain('static bool _ledOn_out = true; static float _ledLevel_out = 1.0f;')
     expect(src).toContain('static CtlEdge _pcE_ctl_ledToggle;')
     expect(src).toContain('if (n_ctl_controls.ledToggle) _ledOn_out = !_ledOn_out;')
+  })
+
+  it('emits a direct LED action through the output latch without a Control Map node', () => {
+    const src = generateCpp(
+      [white, button, output()],
+      [frameEdge, edge('e1', 'b', 'pressed', 'out', 'ledToggle')],
+    )
+    expect(src).toContain('PlayerControlsValue n_out_direct_controls;')
+    expect(src).toContain('static CtlEdge _pcE_out_direct_ledToggle;')
+    expect(src).toContain('if (n_out_direct_controls.ledToggle) _ledOn_out = !_ledOn_out;')
   })
 
   // The firmware mirror of composeLedOutputRuntime: the latch is a factor, not

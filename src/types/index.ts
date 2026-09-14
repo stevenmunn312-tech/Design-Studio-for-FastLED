@@ -20,6 +20,8 @@ export interface NodeDefinition {
   outputs: NodePort[]
   /** Verified runtime property -> existing input id. Unlisted inputs stay visible. */
   propertyInputs?: Record<string, string>
+  /** Optional action/control input ids shown on demand like property inputs. */
+  actionInputs?: string[]
   /** Property inputs shown before the user chooses an exposure list. */
   defaultExposedInputs?: string[]
   /**

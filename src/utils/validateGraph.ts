@@ -1730,7 +1730,7 @@ export function findOutputRuntimeIssues(
 
   // The show's Controls and scalar paths are resolved above. The SD player owns its own
   // transport latch rather than these per-output inputs.
-  const RUNTIME_PORTS = new Set(['enabled', 'brightness', 'controls'])
+  const RUNTIME_PORTS = new Set(['enabled', 'brightness', 'controls', 'ledToggle', 'brightnessUp', 'brightnessDown'])
   const wired = nodes.filter((node) => node.data.nodeType === 'MatrixOutput'
     && edges.some((edge) => edge.target === node.id
       && RUNTIME_PORTS.has(String(edge.targetHandle))
@@ -1739,7 +1739,7 @@ export function findOutputRuntimeIssues(
 
   const errors: string[] = []
   const names = wired.map((node) => nodeLabel(node)).join(', ')
-  errors.push(`${names}: a generated show controller cannot read these Enabled, Brightness or Controls wires. `
+  errors.push(`${names}: a generated show controller cannot read these Enabled, Brightness or LED action wires. `
     + 'Wire supported controls to a slideshow LED output; use a normal sketch for other output routes.')
 
   return { errors: [...errors, ...speedErrors, ...(templateControls?.errors ?? [])] }

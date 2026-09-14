@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NODE_LIBRARY } from '../nodeLibrary'
-import { exposedPropertyInputs, normalizeExposedInputs, propertyInputsFor } from '../propertyInputs'
+import { exposableInputsFor, exposedPropertyInputs, normalizeExposedInputs, propertyInputsFor } from '../propertyInputs'
 import { ROOT_GRAPH_ID, useGraphStore, type StudioNode } from '../graphStore'
 import { captureWorkspace } from '../workspacePersistence'
 
@@ -37,6 +37,8 @@ describe('property input exposure', () => {
     expect(propertyInputsFor('Juggle').map((port) => port.propertyKey)).toEqual(['speed', 'count', 'fade', 'palette'])
     expect(normalizeExposedInputs('Juggle', undefined)).toEqual([])
     expect(normalizeExposedInputs('TransportDisplay', undefined)).toEqual(['enabled'])
+    expect(exposableInputsFor('MatrixOutput').filter((port) => port.kind === 'action').map((port) => port.id))
+      .toEqual(['ledToggle', 'brightnessUp', 'brightnessDown'])
   })
 
   it('bounds imported visibility data and reveals wired ports without mutating the graph', () => {
@@ -55,6 +57,10 @@ describe('property input exposure', () => {
     expect(useGraphStore.getState().nodes[0].data.exposedInputs).toEqual([])
     store.setNodeInputExposed('juggle', 'seed', true)
     expect(useGraphStore.getState().nodes[0].data.exposedInputs).toEqual([])
+    useGraphStore.setState({ nodes: [node('out', 'MatrixOutput')] })
+    useGraphStore.getState().setNodeInputExposed('out', 'ledToggle', true)
+    expect(useGraphStore.getState().nodes[0].data.exposedInputs).toEqual(['ledToggle'])
+    useGraphStore.setState({ nodes: [node('juggle')], edges: [] })
     useGraphStore.setState({ edges: [{ id: 'wire', source: 'source', sourceHandle: 'out', target: 'juggle', targetHandle: 'count' }] })
     const before = useGraphStore.getState()
     store.setNodeInputExposed('juggle', 'count', false)

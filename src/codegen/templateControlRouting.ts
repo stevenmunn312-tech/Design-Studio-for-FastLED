@@ -159,16 +159,50 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
   }
   for (const id of context.destinationIds) {
     const destination = byId.get(id)!
+    let directEmit: PlayerControlsEmit | null = null
     if (context.scalarOutputIds?.has(id)) {
       scalarOutputs.set(id, {
         enabledExpr: sourceExpr(destination, 'enabled', 'bool'),
         brightnessExpr: sourceExpr(destination, 'brightness', 'float'),
       })
+      const directButtons = ([
+        ['ledToggle', false],
+        ['brightnessUp', true],
+        ['brightnessDown', true],
+      ] as const).flatMap(([port, repeat]) => {
+        const expr = sourceExpr(destination, port, 'bool')
+        return expr ? [{ port, repeat, expr }] : []
+      })
+      if (directButtons.length > 0) {
+        const directId = `${id}_direct`
+        const variable = controlBundleVariable(directId)
+        directEmit = {
+          id: safeId(directId),
+          variable,
+          upstream: null,
+          buttons: directButtons,
+          volumeExpr: null,
+          brightnessExpr: null,
+          patternPositionExpr: null,
+          settings: { debounceMs: 0, repeatDelayMs: 400, repeatIntervalMs: 120 },
+          volumeStep: 0.05,
+          brightnessStep: 0.05,
+        }
+        controls.push(directEmit)
+        bundles.set(id, variable)
+      }
     }
     const edge = incoming.get(`${id}:controls`)
     if (!edge) continue
     const variable = visit(edge)
-    if (variable) bundles.set(id, variable)
+    if (variable) {
+      if (directEmit) {
+        directEmit.upstream = variable
+        bundles.set(id, directEmit.variable)
+      } else {
+        bundles.set(id, variable)
+      }
+    }
   }
   // Enabled is a control wire like any other now: the panel keeps one latch,
   // written where its expression is evaluable and read by the drawing, touch

@@ -8765,6 +8765,35 @@ function createEvalNode(
         }
         const controlsValue = input(id, 'controls', null)
         if (isPlayerControls(controlsValue)) applyLedControls(latch, controlsValue)
+        const directPorts = ['ledToggle', 'brightnessUp', 'brightnessDown'] as const
+        if (directPorts.some((port) => incoming.has(`${id}:${port}`))) {
+          const directKey = stateKey(`${id}/direct-actions`)
+          const nowMs = t * 1000
+          let state = playerControlsState.get(directKey)
+          if (!state || t < state.lastT) state = { lastT: t, buttons: {} }
+          state.lastT = t
+          const edgeSettings = normalizeButtonEdgeSettings({})
+          const directButton = (port: typeof directPorts[number], repeat: boolean): boolean => {
+            const wire = incoming.get(`${id}:${port}`)
+            if (!wire) return false
+            const raw = Boolean(input(id, port, false))
+            const source = nodeMap.get(wire.srcId)
+            if (source?.data.nodeType === 'TouchInput' && wire.srcPort === port) return raw
+            let bs = state!.buttons[port]
+            if (!bs) {
+              bs = blankButtonEdgeState(nowMs)
+              state!.buttons[port] = bs
+            }
+            return buttonEdge(bs, raw, nowMs, repeat, edgeSettings)
+          }
+          applyLedControls(latch, {
+            ledToggle: directButton('ledToggle', false),
+            brightnessDelta:
+              (directButton('brightnessUp', true) ? 0.05 : 0)
+              - (directButton('brightnessDown', true) ? 0.05 : 0),
+          })
+          playerControlsState.set(directKey, state)
+        }
         const runtime = composeLedOutputRuntime(resolved, latch)
         out = { frame: frame ? applyLedOutputRuntime(frame, runtime) : null }
         break

@@ -6797,9 +6797,32 @@ export function generateCpp(
         // Before anything reads _ledOn_/_ledLevel_ below. Topological order
         // puts the node that built the bundle earlier in the same loop body,
         // so it is a local in scope here.
+        const directActionPorts = ['ledToggle', 'brightnessUp', 'brightnessDown'] as const
+        const directButtons = directActionPorts
+          .filter((port) => incoming.has(`${node.id}:${port}`))
+          .map((port) => ({ port, expr: boolExpr(node.id, port), repeat: port !== 'ledToggle' }))
+        if (directButtons.length > 0) {
+          const directId = `${id}_direct`
+          const variable = `n_${directId}_controls`
+          for (const line of playerControlsServiceCpp({
+            id: directId,
+            variable,
+            upstream: null,
+            buttons: directButtons,
+            volumeExpr: null,
+            brightnessExpr: null,
+            patternPositionExpr: null,
+            settings: { debounceMs: 0, repeatDelayMs: 400, repeatIntervalMs: 120 },
+            volumeStep: 0.05,
+            brightnessStep: 0.05,
+          })) ln(line)
+          playerControlNodes.push(directId)
+          if (!ledLatchOutputs.includes(id)) ledLatchOutputs.push(id)
+          for (const line of ledOutputLatchCpp({ id, controls: variable })) ln(line)
+        }
         const controlsWire = incoming.get(`${node.id}:controls`)
         if (controlsWire) {
-          ledLatchOutputs.push(id)
+          if (!ledLatchOutputs.includes(id)) ledLatchOutputs.push(id)
           for (const line of ledOutputLatchCpp({
             id, controls: `n_${safeId(controlsWire.srcId)}_${safeId(controlsWire.srcPort)}`,
           })) ln(line)

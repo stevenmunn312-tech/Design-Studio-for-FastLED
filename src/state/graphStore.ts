@@ -14,7 +14,7 @@ import {
 } from '@xyflow/react'
 import type { NodeCategory, NodePort } from '../types'
 import { NODE_LIBRARY, portColor, propertyLabel, propertyMeta } from './nodeLibrary'
-import { normalizeExposedInputs, propertyInputsFor } from './propertyInputs'
+import { exposableInputsFor, normalizeExposedInputs, propertyInputsFor } from './propertyInputs'
 import type { GroupRegistry } from './graphEvaluator'
 import type { SavedPattern } from './patternLibrary'
 import { isPatternContentTrusted, trustPatternContent } from './patternTrust'
@@ -2326,7 +2326,7 @@ export const useGraphStore = create<GraphState>()(
         const nodes = active ? s.nodes : rootGraphNodes(s)
         const edges = active ? s.edges : rootGraphEdges(s)
         const node = nodes.find((entry) => entry.id === id)
-        if (!node || !propertyInputsFor(node.data.nodeType).some((port) => port.id === portId)) return s
+        if (!node || !exposableInputsFor(node.data.nodeType).some((port) => port.id === portId)) return s
         if (!exposed && edges.some((edge) => edge.target === id && edge.targetHandle === portId)) return s
         const current = normalizeExposedInputs(node.data.nodeType, node.data.exposedInputs)
         const next = normalizeExposedInputs(node.data.nodeType, exposed

@@ -18,7 +18,7 @@ import {
   type OledController, type OledTransport,
 } from './oledSurface'
 import { tftControllerFor, type TftController } from './tftSurface'
-import { LED_OUTPUT_RUNTIME_PORTS } from './ledOutputRuntime'
+import { LED_OUTPUT_ACTION_PORTS, LED_OUTPUT_RUNTIME_PORTS } from './ledOutputRuntime'
 import { JUGGLE_COUNT } from './juggle'
 import { MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './masterSpeed'
 import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
@@ -2590,11 +2590,13 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // reach the fixture in a build with no Music Player in it. Unwired means
       // whatever the two fields below say — see state/ledOutputRuntime.ts.
       ...LED_OUTPUT_RUNTIME_PORTS,
+      ...LED_OUTPUT_ACTION_PORTS,
     ],
     // Sockets on demand: a fixture's blackout and dimmer are fields until
     // something is wired to them. `controls` is a bundle rather than a value
     // and has no field to fall back to, so it stays an ordinary port.
     propertyInputs: { enabled: 'enabled', outputBrightness: 'brightness' },
+    actionInputs: LED_OUTPUT_ACTION_PORTS.map((port) => port.id),
     outputs: [],
     defaultProperties: {
       // What this output physically is — string / matrix / ring / corkscrew /
