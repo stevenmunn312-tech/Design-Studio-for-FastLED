@@ -38,6 +38,7 @@ import {
   ringSampleMap,
   ringStartAngle,
 } from '../src/state/ledOutputForm'
+import { exposedPropertyInputs, propertyInputsFor } from '../src/state/propertyInputs'
 import { tidyLayout } from '../src/utils/tidyLayout'
 import { nodeReferenceSlug as kebab } from '../src/utils/nodeReferenceAssets'
 import type { LiveExampleSpec } from '../src/utils/insertLiveExample'
@@ -433,9 +434,11 @@ function scopeSvg(y: number, accent: string): string {
   ].join('\n')
 }
 
-function portRowSvg(def: NodeDefinition, i: number, y: number): string {
-  const input = def.inputs[i]
-  const output = def.outputs[i]
+type NodePorts = NodeDefinition['inputs']
+
+function portRowSvg(inputs: NodePorts, outputs: NodePorts, i: number, y: number): string {
+  const input = inputs[i]
+  const output = outputs[i]
   const cy = y + ROW_H / 2
   const parts: string[] = []
   if (input) {
@@ -451,6 +454,17 @@ function portRowSvg(def: NodeDefinition, i: number, y: number): string {
     parts.push(`<text x="${NODE_W - 10}" y="${cy + 4}" text-anchor="end" font-family=${JSON.stringify(MONO)} font-size="12" fill="${C.dim}">${esc(output.label)}</text>`)
   }
   return parts.join('\n')
+}
+
+/** The socket an exposed property input draws beside its own row (StudioNode's
+ *  `.propertyHandle`), so a card shows a property port where the canvas puts it
+ *  rather than as a separate port row. */
+function propSocketSvg(dataType: string, cy: number): string {
+  const col = portColor(dataType)
+  return [
+    `<circle cx="-2" cy="${cy}" r="9" fill="${col}" opacity="0.25"/>`,
+    `<circle cx="-2" cy="${cy}" r="6" fill="${col}" stroke="${C.canvas}" stroke-width="1.5"/>`,
+  ].join('\n')
 }
 
 function propRowSvg(row: PropRow, y: number): string {
@@ -594,7 +608,11 @@ interface NodeInner {
 
 /** Render one node box at origin (0,0): header, ports, controls, preview.
  *  Shared by the single-node cards and the example-graph images. */
-function nodeInner(def: NodeDefinition, overrides?: Record<string, unknown>): NodeInner {
+function nodeInner(
+  def: NodeDefinition,
+  overrides?: Record<string, unknown>,
+  connected: ReadonlySet<string> = new Set(),
+): NodeInner {
   const props = { ...libraryDefaults(def.type), ...overrides }
   const isComment = def.type === 'Comment'
   const isHardwareInput = def.type === 'ButtonInput' || def.type === 'PotInput' || def.type === 'EncoderInput'
@@ -604,10 +622,19 @@ function nodeInner(def: NodeDefinition, overrides?: Record<string, unknown>): No
   const accent = isComment && /^#[0-9a-f]{6}$/i.test(commentColor)
     ? commentColor
     : CATEGORY_COLOR[def.category] ?? '#9aa0a6'
-  const rowCount = Math.max(def.inputs.length, def.outputs.length)
+  // Property inputs live on their own property row, exposed on demand, so the
+  // port rows are only what a fresh node actually shows (src/state/propertyInputs.ts).
+  const propertyInputs = propertyInputsFor(def.type)
+  const exposedByKey = new Map(exposedPropertyInputs(def.type, undefined, connected)
+    .map((port) => [port.propertyKey, port] as const))
+  const portInputs = def.inputs.filter((port) => !propertyInputs.some((property) => property.id === port.id))
+  const rowCount = Math.max(portInputs.length, def.outputs.length)
   const hasScope = def.type === 'Wave' || def.type === 'ComplexWave'
   const strip = EMBEDDED_UI[def.type]
   const propRows = isComment ? [] : buildPropRows(def, props)
+  // Filled while the props section renders, then merged into `portY` so an
+  // example graph can wire a socket that sits on a property row.
+  const propPortY = new Map<string, number>()
 
   // Body children in StudioNode order: preview, scope, port rows, embedded
   // body, props.
@@ -628,7 +655,7 @@ function nodeInner(def: NodeDefinition, overrides?: Record<string, unknown>): No
     })
   }
   for (let i = 0; i < rowCount; i++) {
-    children.push({ h: ROW_H, portRow: i, render: (y) => portRowSvg(def, i, y) })
+    children.push({ h: ROW_H, portRow: i, render: (y) => portRowSvg(portInputs, def.outputs, i, y) })
   }
   if (strip) children.push({ h: STRIP_H, render: (y) => stripSvg(strip, y) })
   if (isComment) children.push({ h: NOTE_H, render: (y) => noteSvg(String(props.text ?? 'Note'), y) })
@@ -641,6 +668,12 @@ function nodeInner(def: NodeDefinition, overrides?: Record<string, unknown>): No
         let ry = y + 4 + 1 + 6
         for (const row of propRows) {
           parts.push(propRowSvg(row, ry))
+          const exposed = 'key' in row ? exposedByKey.get(row.key) : undefined
+          if (exposed) {
+            const cy = ry + PROP_ROW_H / 2
+            parts.push(propSocketSvg(exposed.dataType, cy))
+            propPortY.set(exposed.id, cy)
+          }
           ry += PROP_ROW_H + PROP_GAP
         }
         return parts.join('\n')
@@ -660,7 +693,7 @@ function nodeInner(def: NodeDefinition, overrides?: Record<string, unknown>): No
     body.push(c.render(y))
     if (c.portRow != null) {
       const cy = y + ROW_H / 2
-      const input = def.inputs[c.portRow]
+      const input = portInputs[c.portRow]
       const output = def.outputs[c.portRow]
       if (input) portY.set(input.id, cy)
       if (output) portY.set(output.id, cy)
@@ -674,6 +707,7 @@ function nodeInner(def: NodeDefinition, overrides?: Record<string, unknown>): No
     headerSvg(def, accent, props),
     ...body,
   ].join('\n')
+  for (const [id, cy] of propPortY) portY.set(id, cy)
   return { h: nodeH, svg, portY }
 }
 
@@ -815,9 +849,20 @@ function mainPreviewSvg(frame: Frame | null, label: string, properties: Record<s
 // button inserts — at the spec's own canvas positions, with GlowEdge-style
 // noodles (colour from the source node's category, like the canvas).
 function exampleGraphSvg(spec: LiveExampleSpec): string {
+  // A wired property input is revealed on the card the same way the canvas
+  // reveals it, so an example graph's noodle always has a socket to land on.
+  const wired = new Map<string, Set<string>>()
+  for (const edge of spec.edges) {
+    if (!edge.targetHandle) continue
+    const ports = wired.get(edge.target) ?? new Set<string>()
+    ports.add(edge.targetHandle)
+    wired.set(edge.target, ports)
+  }
   const raw = spec.nodes.flatMap((n) => {
     const def = NODE_LIBRARY.find((d) => d.type === n.type)
-    return def ? [{ key: n.key, def, x: n.dx, y: n.dy, inner: nodeInner(def, n.properties) }] : []
+    return def
+      ? [{ key: n.key, def, x: n.dx, y: n.dy, inner: nodeInner(def, n.properties, wired.get(n.key)) }]
+      : []
   })
   // Run the exact Tidy Graph algorithm with the SVG node measurements. The
   // live spec was already tidied with estimated canvas sizes; this second pass

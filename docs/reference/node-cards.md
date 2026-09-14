@@ -960,9 +960,9 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ### Control Map
 
-![Control Map node](../../public/node-cards/player-controls.svg)
+![Control Map node](../../public/node-cards/control-map.svg)
 
-![Control Map example graph](../../public/node-cards/graphs/player-controls.svg)
+![Control Map example graph](../../public/node-cards/graphs/control-map.svg)
 
 ### Player Particles
 
