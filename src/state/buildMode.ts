@@ -46,7 +46,7 @@ export interface BuildModeResolution<T extends BuildModeNode = BuildModeNode> {
   /**
    * Engine nodes whose Display envelope this fixed template can publish.
    * Null means a normal graph evaluates its own sources; an empty set means a
-   * template (currently a performance player) has no graph display source.
+   * template selected no engine at all.
    */
   templateDisplaySourceIds: ReadonlySet<string> | null
   capabilities: BuildCapabilities
@@ -152,9 +152,12 @@ function resolution<T extends BuildModeNode>(
   standaloneVu: boolean,
   standaloneDisplay: boolean,
 ): BuildModeResolution<T> {
-  const templateDisplaySourceIds = mode === 'sketch' ? null
-    : new Set(engine && (engineKind === 'music-player' || engineKind === 'pattern-slideshow')
-      ? [engine.id] : [])
+  // Every fixed template that has a graph node publishing a Display envelope
+  // names it here. A performance show joined the list when Performance
+  // Generator gained its `display` output: it builds the same SD player sketch
+  // a Music Player does, so the same panels, the same baked thumbnails and the
+  // same artwork resolve against it.
+  const templateDisplaySourceIds = mode === 'sketch' ? null : new Set(engine ? [engine.id] : [])
   return {
     mode,
     engineKind,

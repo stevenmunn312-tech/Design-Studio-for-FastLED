@@ -47,7 +47,7 @@ export interface PlayerControlFunction {
 }
 
 /**
- * The three things a `playercontrols` cable can end at.
+ * The things a `playercontrols` cable can end at.
  *
  * `codegen/playerDisplays.ts` walks the graph to find which of these a given
  * bundle actually reaches; this is the other half of the same fact — which of
@@ -56,17 +56,26 @@ export interface PlayerControlFunction {
  * output has a blackout and a dimmer and nothing else. A Pattern Slideshow has
  * a cursor and no transport at all: it is a show, not a player.
  *
+ * A Performance Generator is a player missing exactly one of those three. It
+ * holds a track off the card and drives the same lamp — the firmware behind it
+ * is the same SD player sketch — but its patterns are scheduled by the timed
+ * show file, so a cursor anyone can turn has nothing to move: the next
+ * SET_PATTERN would overwrite it on the following loop. It is its own
+ * destination rather than a second `player` so that the picker offers it
+ * transport, volume and lights and stops at Pattern Selection.
+ *
  * Naming a function's destinations is what lets the picker refuse to offer
  * Volume to a bundle that only reaches an LED output — a wire that connects,
  * validates and does nothing, which is the worst kind.
  */
-export type PlayerControlDestination = 'player' | 'output' | 'engine' | 'speed'
+export type PlayerControlDestination = 'player' | 'performance' | 'output' | 'engine' | 'speed'
 
-/** Transport and volume: only the node holding the track can act on these. */
-const PLAYER_ONLY: readonly PlayerControlDestination[] = ['player']
-/** Blackout and dimming: the player's lamp, and an LED output's own latch. */
-const LIGHTS: readonly PlayerControlDestination[] = ['player', 'output']
-/** Pattern intent: the player's collection, and a slideshow's cursor. */
+/** Transport and volume: only a node holding the track can act on these. */
+const TRANSPORT: readonly PlayerControlDestination[] = ['player', 'performance']
+/** Blackout and dimming: a player's lamp, and an LED output's own latch. */
+const LIGHTS: readonly PlayerControlDestination[] = ['player', 'performance', 'output']
+/** Pattern intent: the player's collection, and a slideshow's cursor. A timed
+ * show has neither — its patterns come from the show file. */
 const PATTERNS: readonly PlayerControlDestination[] = ['player', 'engine']
 /** The one clock every animated node reads. Only Master Speed scales it. */
 const SPEED: readonly PlayerControlDestination[] = ['speed']
@@ -79,12 +88,12 @@ const SPEED: readonly PlayerControlDestination[] = ['speed']
  * taught about it — which is the same reason `SONG_INFO_PORTS` is one list.
  */
 export const PLAYER_CONTROL_FUNCTIONS: readonly PlayerControlFunction[] = [
-  { id: 'playPause', label: 'Play / Pause', dataType: 'bool', kind: 'momentary', group: 'Transport', destinations: PLAYER_ONLY },
-  { id: 'previous', label: 'Previous', dataType: 'bool', kind: 'momentary', group: 'Transport', destinations: PLAYER_ONLY },
-  { id: 'next', label: 'Next', dataType: 'bool', kind: 'momentary', group: 'Transport', destinations: PLAYER_ONLY },
-  { id: 'volume', label: 'Volume', dataType: 'float', kind: 'continuous', group: 'Volume', destinations: PLAYER_ONLY },
-  { id: 'volumeUp', label: 'Volume Up', dataType: 'bool', kind: 'momentary', group: 'Volume', destinations: PLAYER_ONLY },
-  { id: 'volumeDown', label: 'Volume Down', dataType: 'bool', kind: 'momentary', group: 'Volume', destinations: PLAYER_ONLY },
+  { id: 'playPause', label: 'Play / Pause', dataType: 'bool', kind: 'momentary', group: 'Transport', destinations: TRANSPORT },
+  { id: 'previous', label: 'Previous', dataType: 'bool', kind: 'momentary', group: 'Transport', destinations: TRANSPORT },
+  { id: 'next', label: 'Next', dataType: 'bool', kind: 'momentary', group: 'Transport', destinations: TRANSPORT },
+  { id: 'volume', label: 'Volume', dataType: 'float', kind: 'continuous', group: 'Volume', destinations: TRANSPORT },
+  { id: 'volumeUp', label: 'Volume Up', dataType: 'bool', kind: 'momentary', group: 'Volume', destinations: TRANSPORT },
+  { id: 'volumeDown', label: 'Volume Down', dataType: 'bool', kind: 'momentary', group: 'Volume', destinations: TRANSPORT },
   { id: 'ledToggle', label: 'LED On / Off', dataType: 'bool', kind: 'momentary', group: 'Lights', destinations: LIGHTS },
   { id: 'brightness', label: 'Brightness', dataType: 'float', kind: 'continuous', group: 'Lights', destinations: LIGHTS },
   { id: 'brightnessUp', label: 'Brightness Up', dataType: 'bool', kind: 'momentary', group: 'Lights', destinations: LIGHTS },

@@ -168,6 +168,7 @@ export type ControlChainSink = PlayerControlDestination
 /** The node types a chain can end at, and what each of them is. */
 const CONTROL_CHAIN_SINKS: Record<string, ControlChainSink | undefined> = {
   PatternMaster: 'player',
+  PerformanceGenerator: 'performance',
   MatrixOutput: 'output',
   PatternSlideshow: 'engine',
   MasterSpeed: 'speed',
@@ -227,7 +228,10 @@ export function displayControlsPlayer(
   edges: ConfigEdge[],
   byId: Map<string, ConfigNode>,
 ): boolean {
-  return controlChainSinks(displayId, edges, byId).has('player')
+  const sinks = controlChainSinks(displayId, edges, byId)
+  // Either engine is a transport this sketch can command: both build the same
+  // SD player, and both are holding a file to play, pause and skip through.
+  return sinks.has('player') || sinks.has('performance')
 }
 
 /*

@@ -35,11 +35,21 @@ export const PLAYER_SOURCE_EXPRESSIONS = playerSourceExpressions(PLAYER_SONG_EXP
   browsingExpr: `_selBrowsing(_sel_${PLAYER_SELECTION_STEM})`,
 })
 
-/** Only the Music Player this template runs owns runtime song sources. */
+/**
+ * The node types this template runs, and whose runtime song sources it owns.
+ *
+ * Both build this sketch: a Music Player decodes a track and rotates its own
+ * collection, a Performance Generator plays one against a timed show file.
+ * Either is holding a file, so either can answer for the track — which is why
+ * they share `DISPLAY_SOURCE_NODE_TYPES`' `player` kind as well.
+ */
+const PLAYER_ENGINE_NODE_TYPES = ['PatternMaster', 'PerformanceGenerator']
+
+/** Only the engine this template runs owns runtime song sources. */
 export function playerControlGraph(
   nodes: StudioNode[], edges: StudioEdge[], documents?: DisplayDocumentRegistry, engineId?: string,
 ) {
-  const master = nodes.find((node) => node.data.nodeType === 'PatternMaster'
+  const master = nodes.find((node) => PLAYER_ENGINE_NODE_TYPES.includes(node.data.nodeType)
     && (!engineId || node.id === engineId))
   // The track report is opened by a Song Info node now, not by the player's
   // own ports. Only one actually fed by this player counts: an unwired Song
@@ -61,8 +71,8 @@ export function playerControlGraph(
   })
   for (const output of nodes.filter((node) => node.data.nodeType === 'MatrixOutput')) {
     if (edges.some((edge) => edge.target === output.id && ['enabled', 'brightness', 'controls'].includes(edge.targetHandle ?? ''))) {
-      routing.errors.push(`${output.data.label || output.id}: a music-player build cannot read Enabled, Brightness or Controls wired to the LED output. `
-        + 'Wire these controls through Control Map to Music Player instead.')
+      routing.errors.push(`${output.data.label || output.id}: an SD player build cannot read Enabled, Brightness or Controls wired to the LED output. `
+        + `Wire these controls through Control Map to ${master?.data.nodeType === 'PerformanceGenerator' ? 'Performance Generator' : 'Music Player'} instead.`)
     }
   }
   // Snapshot strings too: a Next action can reset tag buffers in this pass.

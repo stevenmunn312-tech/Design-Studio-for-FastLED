@@ -24,7 +24,12 @@ export function artworkPlayer(
   const sourceIds = edges
     .filter((edge) => edge.target === display.id && edge.targetHandle === 'display')
     .map((edge) => edge.source)
-  return nodes.find((node) => sourceIds.includes(node.id) && node.data.nodeType === 'PatternMaster')
+  // Derived from the source registry rather than named: both engines that
+  // publish a `player` envelope carry the collection and the active index this
+  // needs, and listing one of them here would have silently skipped baking a
+  // Performance Generator's artwork while its panel drew an empty frame.
+  return nodes.find((node) => sourceIds.includes(node.id)
+    && DISPLAY_SOURCE_NODE_TYPES[node.data.nodeType] === 'player')
 }
 
 /**

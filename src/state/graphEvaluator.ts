@@ -323,6 +323,54 @@ interface MusicPlayerRuntimeState {
 const musicPlayerRuntimeState = new Map<string, MusicPlayerRuntimeState>()
 
 /**
+ * Fold a control bundle into the engine's own transport, lamp and volume.
+ *
+ * Shared by the two nodes that hold a track — Music Player and Performance
+ * Generator — because a press means one thing to a player and the firmware
+ * behind both is the same SD player sketch. A transport command leaves through
+ * the preview player (it owns the `<audio>` element either way); the lamp and
+ * the level stay here, where the node that reads them can apply them.
+ */
+function applyPlayerTransportControls(
+  key: string, controls: PlayerControls,
+): MusicPlayerRuntimeState {
+  const existing = musicPlayerRuntimeState.get(key)
+  const previousVolume = existing?.volume
+  const runtime = existing ?? {
+    ledEnabled: true,
+    brightness: controls.brightness ?? 1,
+    volume: controls.volume ?? 1,
+    controls,
+  }
+  if (controls.volume != null) runtime.volume = controls.volume
+  runtime.volume = clamp01(runtime.volume + controls.volumeDelta)
+  if (controls.brightness != null) runtime.brightness = controls.brightness
+  runtime.brightness = clamp01(runtime.brightness + controls.brightnessDelta)
+  if (controls.ledToggle) runtime.ledEnabled = !runtime.ledEnabled
+  runtime.controls = controls
+  musicPlayerRuntimeState.set(key, runtime)
+
+  const volumeChanged = (controls.volume != null || controls.volumeDelta !== 0)
+    && (previousVolume == null || Math.abs(previousVolume - runtime.volume) > 1e-6)
+  if (controls.playPause || controls.previous || controls.next || volumeChanged) {
+    usePlayerTransport.getState().dispatchControls({
+      sourceId: key,
+      playPause: controls.playPause,
+      previous: controls.previous,
+      next: controls.next,
+      ...(volumeChanged ? { volume: runtime.volume } : {}),
+    })
+  }
+  return runtime
+}
+
+/** The bundle a `controls` port carries, or an all-idle one when unwired. */
+const IDLE_PLAYER_CONTROLS: PlayerControls = {
+  playPause: false, previous: false, next: false, volumeDelta: 0,
+  ledToggle: false, brightnessDelta: 0, patternSteps: 0, patternConfirm: false,
+}
+
+/**
  * What each LED output remembers between presses on its `controls` wire.
  *
  * Per output instance, like every other stateful node here, because two
@@ -7846,37 +7894,10 @@ function createEvalNode(
         }
         const key = stateKey(id)
         const controlsValue = input(id, 'controls', null)
-        const controls: PlayerControls = isPlayerControls(controlsValue) ? controlsValue : {
-          playPause: false, previous: false, next: false, volumeDelta: 0,
-          ledToggle: false, brightnessDelta: 0, patternSteps: 0, patternConfirm: false,
-        }
-        const existingRuntime = musicPlayerRuntimeState.get(key)
-        const previousVolume = existingRuntime?.volume
-        const runtime = existingRuntime ?? {
-          ledEnabled: true,
-          brightness: controls.brightness ?? 1,
-          volume: controls.volume ?? 1,
-          controls,
-        }
-        if (controls.volume != null) runtime.volume = controls.volume
-        runtime.volume = clamp01(runtime.volume + controls.volumeDelta)
-        if (controls.brightness != null) runtime.brightness = controls.brightness
-        runtime.brightness = clamp01(runtime.brightness + controls.brightnessDelta)
-        if (controls.ledToggle) runtime.ledEnabled = !runtime.ledEnabled
-        runtime.controls = controls
-        musicPlayerRuntimeState.set(key, runtime)
-
-        const volumeChanged = (controls.volume != null || controls.volumeDelta !== 0)
-          && (previousVolume == null || Math.abs(previousVolume - runtime.volume) > 1e-6)
-        if (controls.playPause || controls.previous || controls.next || volumeChanged) {
-          usePlayerTransport.getState().dispatchControls({
-            sourceId: key,
-            playPause: controls.playPause,
-            previous: controls.previous,
-            next: controls.next,
-            ...(volumeChanged ? { volume: runtime.volume } : {}),
-          })
-        }
+        const controls: PlayerControls = isPlayerControls(controlsValue)
+          ? controlsValue
+          : IDLE_PLAYER_CONTROLS
+        const runtime = applyPlayerTransportControls(key, controls)
 
         // One selection per player. The show's own advance goes through it
         // too (inside evalPatternShow), so a confirmed pattern and a
@@ -8631,7 +8652,7 @@ function createEvalNode(
         out = { music: true }
         break
 
-      case 'PerformanceGenerator':
+      case 'PerformanceGenerator': {
         // The `frame` edge names the show's destination; it does not carry it.
         // Playback lives in the node body (PerformanceGeneratorBody) and, opt-in
         // via `showInMainPreview`, reaches the main LED preview through
@@ -8639,8 +8660,64 @@ function createEvalNode(
         // it, because a show is driven by an audio transport that the evaluator's
         // tick has no relationship to. So the port emits blank: with nothing
         // playing, nothing is what the LEDs are doing.
-        out = { frame: blankFrame(W, H), shows: null }
+        //
+        // `display` is a different matter, and is real here. This generator is
+        // holding a track, and the body publishes what it knows about it to the
+        // shared transport; a panel reads that the same way it reads a Music
+        // Player's. The blackout and dimming a bundle latches are kept for the
+        // level the panel reports, but cannot darken this preview: the show
+        // frame is composited outside the evaluator (above), so there is no
+        // frame here to scale. On the device both apply — the SD player sketch
+        // this graph builds is the same one a Music Player builds.
+        const key = stateKey(id)
+        const controlsValue = input(id, 'controls', null)
+        const runtime = applyPlayerTransportControls(
+          key, isPlayerControls(controlsValue) ? controlsValue : IDLE_PLAYER_CONTROLS,
+        )
+
+        // Only the generator that actually owns the preview transport may
+        // report a track. A second generator on the canvas is not playing this
+        // one's song, and a panel wired to it must say so rather than mirror
+        // whichever node happened to register last.
+        const player = usePlayerTransport.getState()
+        const owned = player.transport?.nodeId === id
+        const songInfo = resolveSongInfo({
+          title: owned ? player.transport?.title ?? '' : '',
+          posMs: owned ? player.posMs : 0,
+          durationMs: owned ? player.transport?.durationMs ?? 0 : 0,
+          playing: owned && player.playing,
+          loaded: owned,
+          volume: runtime.volume,
+        })
+
+        // Which pattern the show is on, from the show file itself: the body
+        // resolves it against the timeline and publishes it beside the
+        // position. Unlike a Music Player there is no cursor to browse here —
+        // the timeline schedules the patterns — so the highlight is the active
+        // one and `browsing` is never true.
+        const ids = (input(id, 'patternset', null) as string[] | null) ?? []
+        const activeIndex = owned && player.patternIndex >= 0
+          ? Math.min(player.patternIndex, Math.max(0, ids.length - 1))
+          : 0
+        const graphNames = useGraphStore.getState().graphs
+        const selection: PatternSelectValue | null = ids.length > 0
+          ? {
+            ids,
+            names: ids.map((gid) => graphNames[gid]?.name ?? ''),
+            activeIndex,
+            highlightIndex: activeIndex,
+            count: ids.length,
+            browsing: false,
+          }
+          : null
+
+        out = {
+          frame: blankFrame(W, H),
+          shows: null,
+          display: { kind: 'player', song: songInfo, selection } satisfies DisplaySignal,
+        }
         break
+      }
 
       case 'SDCard':
         out = {}

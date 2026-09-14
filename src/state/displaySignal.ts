@@ -67,9 +67,19 @@ export const DISPLAY_SOURCE_LABELS: Record<DisplaySignalKind, string> = {
   slideshow: 'Pattern Slideshow',
 }
 
-/** The node types that publish each kind, for resolution without evaluation. */
+/**
+ * The node types that publish each kind, for resolution without evaluation.
+ *
+ * Two nodes publish `player`, and they are not a duplication: both are holding
+ * a file off the card, and both build the same SD player sketch. Music Player
+ * decodes a track and rotates its collection live; Performance Generator plays
+ * a track against a timed show file. What a panel can say about either is the
+ * same list of things, so they answer on the same kind rather than on two kinds
+ * that would each need their own layouts, field catalogue and templates.
+ */
 export const DISPLAY_SOURCE_NODE_TYPES: Record<string, DisplaySignalKind> = {
   RTCInput: 'clock',
   PatternMaster: 'player',
+  PerformanceGenerator: 'player',
   PatternSlideshow: 'slideshow',
 }

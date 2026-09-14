@@ -24,6 +24,17 @@ interface PlayerTransportState {
   transport: ShowTransport | null
   posMs: number
   playing: boolean
+  /**
+   * Which pattern the playing show is on: an index into its `patternSet`, or
+   * -1 when there is no collection show to read one from.
+   *
+   * A live reading beside posMs rather than part of the transport's identity.
+   * It is published by the generator's own body because that is where the
+   * ShowFile lives; the evaluator needs it to say which pattern a panel wired
+   * to the generator is naming, and deriving it there would mean the graph
+   * evaluator reaching into the music library to find the file again.
+   */
+  patternIndex: number
   volume: number
   /** Monotonic command envelope published by a graph-level Control Map
    * bundle. The preview player consumes each serial exactly once. */
@@ -32,7 +43,7 @@ interface PlayerTransportState {
   setTransport: (t: ShowTransport) => void
   /** Release the player if this node currently owns it. */
   clearTransport: (nodeId: string) => void
-  setPos: (posMs: number, playing: boolean) => void
+  setPos: (posMs: number, playing: boolean, patternIndex?: number) => void
   setVolume: (v: number) => void
   dispatchControls: (command: PreviewPlayerCommand) => void
 }
@@ -64,15 +75,18 @@ export const usePlayerTransport = create<PlayerTransportState>()((set) => ({
   transport: null,
   posMs: 0,
   playing: false,
+  patternIndex: -1,
   volume: savedVolume(),
   controlSerial: 0,
   controlCommand: null,
   setTransport: (transport) => set({ transport }),
   clearTransport: (nodeId) =>
     set((s) =>
-      s.transport?.nodeId === nodeId ? { transport: null, posMs: 0, playing: false } : s,
+      s.transport?.nodeId === nodeId
+        ? { transport: null, posMs: 0, playing: false, patternIndex: -1 }
+        : s,
     ),
-  setPos: (posMs, playing) => set({ posMs, playing }),
+  setPos: (posMs, playing, patternIndex = -1) => set({ posMs, playing, patternIndex }),
   setVolume: (volume) => {
     const v = Math.max(0, Math.min(1, volume))
     try {

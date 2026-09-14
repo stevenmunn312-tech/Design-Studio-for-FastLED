@@ -243,11 +243,14 @@ function safePlayerId(id: string): string {
   return id.replace(/[^A-Za-z0-9_]/g, '_')
 }
 
+/** The engines this sketch is generated for; see playerControlGraph.ts. */
+const PLAYER_ENGINE_NODE_TYPES = ['PatternMaster', 'PerformanceGenerator']
+
 export function playerControlsFromGraph(
   nodes: ConfigNode[], edges: ShowTargetEdge[], engineId?: string,
 ): PlayerControlsConfig {
   const byId = new Map(nodes.map((node) => [node.id, node]))
-  const master = nodes.find((node) => node.data.nodeType === 'PatternMaster'
+  const master = nodes.find((node) => PLAYER_ENGINE_NODE_TYPES.includes(node.data.nodeType)
     && (!engineId || node.id === engineId))
   const bundle = master && edges.find((edge) =>
     edge.target === master.id && edge.targetHandle === 'controls')
@@ -1974,7 +1977,14 @@ ${publishDisplaysCpp}
     applyEvent(showEvents[eventIdx]);
     eventIdx++;
   }
-${bakedAudio ? decoderTap
+${!genericPlayer && hasPatternSelection ? `  // The show file schedules the patterns, so the cursor follows the pixels
+  // rather than the other way round. Through _selSetActive for the same
+  // reason the generic player's own rotation goes through it: a panel and the
+  // LEDs must not be able to name two different patterns. Without this the
+  // cursor never leaves 0 and a Pattern Browser reports the first pattern for
+  // the whole song.
+  _selSetActive(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, (uint16_t)patternId);
+` : ''}${bakedAudio ? decoderTap
     ? '  if (!_decoderTapLive) updateShowAudio(posMs);  // startup/failure fallback\n'
     : '  updateShowAudio(posMs);   // song-synced FFT → pattern audio globals\n' : ''}
 ${particleFx && genericPlayer && decoderTap ? `  // Player Particles turns the live decoder beat into a configured burst.

@@ -3122,12 +3122,30 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     label: 'Performance Generator',
     category: 'show',
     inputs: [
+      // Music first, then the collection it schedules, then the pool of styles
+      // it moves between them: the order a show is actually described in, and
+      // the order a drag-to-splice drop walks (`spliceTargetPorts`).
       { id: 'music', label: 'Music', dataType: 'music' },
-      { id: 'transitions', label: 'Transitions', dataType: 'transitionset' },
       { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
+      { id: 'transitions', label: 'Transitions', dataType: 'transitionset' },
+      // Last, because it is the only input that is not part of authoring the
+      // show. The SD performance player holds the track and the lamp exactly
+      // as the SD music player does, so the same bundle drives its transport,
+      // volume, blackout and dimming — but not its patterns, which come from
+      // the timed show file rather than from a cursor anyone can turn. That is
+      // why it is its own `PlayerControlDestination` ('performance') rather
+      // than reusing the player's: a Next Pattern button here would mint a
+      // port, wire, validate, and be overwritten by the next SET_PATTERN.
+      { id: 'controls', label: 'Controls', dataType: 'playercontrols' },
     ],
     outputs: [
       { id: 'frame', label: 'Show', dataType: 'frame' },
+      // The same envelope Music Player publishes, because the firmware behind
+      // both is the same SD player sketch: it is holding a file, so it can
+      // answer for the track, and the show file says which pattern is running.
+      // A panel wired here therefore gets the player layouts and the player
+      // field list, not a second vocabulary that means the same things.
+      { id: 'display', label: 'Display', dataType: 'display' },
     ],
     defaultProperties: {
       beatIntensity:      0.8,

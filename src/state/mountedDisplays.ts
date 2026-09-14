@@ -11,7 +11,7 @@
 // design stay attached to a portrait panel.
 
 import type { StudioEdge, StudioNode } from './graphStore'
-import { DISPLAY_SOURCE_NODE_TYPES, type DisplaySignalKind } from './displaySignal'
+import { DISPLAY_SOURCE_LABELS, DISPLAY_SOURCE_NODE_TYPES, type DisplaySignalKind } from './displaySignal'
 import { tftControllerForProps } from './nodeLibrary'
 import { asTftRotation, TFT_CONTROLLERS, tftRotatedSize, type TftController, type TftRotation } from './tftSurface'
 
@@ -99,6 +99,33 @@ export function documentDisplaySourceKind(
 ): DisplaySignalKind | null {
   const panel = panelsShowingDocument(documentId, nodes)[0]
   return panel ? panelDisplaySourceKind(panel, nodes, edges) : null
+}
+
+/**
+ * What to call the node feeding this design, in the editor's own copy.
+ *
+ * The kind label names the archetype, which is the right word for a generator
+ * message ("this sketch cannot answer a player source") and the wrong one for a
+ * field list the author is reading — two node types publish `player`, so half
+ * of them would be told they are binding a Music Player's title while a
+ * Performance Generator is what is wired. The node's own label is the exact
+ * answer, and the kind label remains the fallback for nothing wired.
+ */
+export function documentDisplaySourceLabel(
+  documentId: string,
+  nodes: readonly StudioNode[],
+  edges: readonly StudioEdge[],
+): string {
+  const panel = panelsShowingDocument(documentId, nodes)[0]
+  const edge = panel && edges.find((candidate) =>
+    candidate.target === panel.id && candidate.targetHandle === 'display')
+  const source = edge && nodes.find((node) => node.id === edge.source)
+  if (source && DISPLAY_SOURCE_NODE_TYPES[source.data.nodeType]) {
+    const label = String(source.data.label ?? '').trim()
+    if (label) return label
+  }
+  const kind = panel ? panelDisplaySourceKind(panel, nodes, edges) : null
+  return kind ? DISPLAY_SOURCE_LABELS[kind] : ''
 }
 
 /** The panels a given document is mounted on, in graph order. */

@@ -75,6 +75,17 @@ describe('what a control can sensibly be given to do', () => {
     expect(sensiblePlayerControls('bool', [], { reachable: toPlayer }).map((entry) => entry.id))
       .toEqual(PLAYER_CONTROL_FUNCTIONS.filter((entry) => entry.dataType === 'bool').map((entry) => entry.id))
 
+    // A Performance Generator is a player minus the collection: it holds the
+    // track and the lamp, but its patterns are scheduled by the timed show
+    // file, so a cursor has nothing to move — the next SET_PATTERN overwrites
+    // whatever a press selected.
+    const toPerformance = new Set(['performance'] as const)
+    expect(sensiblePlayerControls('bool', [], { reachable: toPerformance }).map((entry) => entry.id))
+      .toEqual(['playPause', 'previous', 'next', 'volumeUp', 'volumeDown',
+        'ledToggle', 'brightnessUp', 'brightnessDown'])
+    expect(sensiblePlayerControls('float', [], { reachable: toPerformance }).map((entry) => entry.id))
+      .toEqual(['volume', 'brightness'])
+
     // Two destinations union rather than intersect.
     expect(sensiblePlayerControls('bool', [], { reachable: new Set(['output', 'engine'] as const) }).map((entry) => entry.id))
       .toEqual(['ledToggle', 'brightnessUp', 'brightnessDown', 'patternPrevious', 'patternNext', 'patternConfirm'])

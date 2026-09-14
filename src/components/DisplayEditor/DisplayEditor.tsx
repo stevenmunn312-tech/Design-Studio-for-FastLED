@@ -65,9 +65,8 @@ import {
 } from '../../state/displayThemePresets'
 import { useDisplayRuntimeStore } from '../../state/displayRuntimeStore'
 import {
-  documentDisplaySourceKind, mountedPanelGeometry, panelsShowingDocument,
+  documentDisplaySourceKind, documentDisplaySourceLabel, mountedPanelGeometry, panelsShowingDocument,
 } from '../../state/mountedDisplays'
-import { DISPLAY_SOURCE_LABELS } from '../../state/displaySignal'
 import { DISPLAY_SOURCE_FROM_GRAPH } from '../../state/displaySourceFields'
 import { useUiStore } from '../../state/uiStore'
 import DisplayWidgetPreview from './DisplayWidgetPreview'
@@ -346,7 +345,11 @@ export default function DisplayEditor() {
   const sourceKind = useGraphStore((state) => (displayId
     ? documentDisplaySourceKind(displayId, rootGraphNodes(state), rootGraphEdges(state))
     : null))
-  const sourceLabel = sourceKind ? DISPLAY_SOURCE_LABELS[sourceKind] : ''
+  // The node's own name, not the kind's: two node types publish the player
+  // envelope, and this label is read beside the field the author is binding.
+  const sourceLabel = useGraphStore((state) => (displayId
+    ? documentDisplaySourceLabel(displayId, rootGraphNodes(state), rootGraphEdges(state))
+    : ''))
   const templates = displayTemplatesForSource(sourceKind)
   const viewportRef = useRef<HTMLDivElement>(null)
   const gesture = useRef<Gesture | null>(null)

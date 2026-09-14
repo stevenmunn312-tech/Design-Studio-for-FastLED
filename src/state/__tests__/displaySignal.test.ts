@@ -36,7 +36,7 @@ const GROUPS = Object.fromEntries(IDS.map((id, i) => [id, {
 }]))
 
 /** Each source, wired to one OLED and one segment module. */
-function graphFor(source: 'clock' | 'player' | 'slideshow') {
+function graphFor(source: string) {
   const panels = [
     node('oled', 'InfoDisplay', { partId: 'sh1106-oled-128x64' }),
     node('seg', 'SegmentDisplay', { partId: 'tm1637-4digit-display', clkPin: 18, dioPin: 19 }),
@@ -45,14 +45,13 @@ function graphFor(source: 'clock' | 'player' | 'slideshow') {
     edge('w1', 'src', 'display', 'oled', 'display'),
     edge('w2', 'src', 'display', 'seg', 'display'),
   ]
-  if (source === 'clock') {
+  if (source === 'RTCInput') {
     return { nodes: [node('src', 'RTCInput', { timeSource: 'Compile Time' }), ...panels], edges: wires }
   }
-  const type = source === 'player' ? 'PatternMaster' : 'PatternSlideshow'
   return {
     nodes: [
       node('coll', 'PatternCollection', { patternIds: IDS }),
-      node('src', type, {}),
+      node('src', source, {}),
       node('out', 'MatrixOutput', {}),
       ...panels,
     ],
@@ -64,7 +63,7 @@ function graphFor(source: 'clock' | 'player' | 'slideshow') {
   }
 }
 
-function run(source: 'clock' | 'player' | 'slideshow') {
+function run(source: string) {
   const { nodes, edges } = graphFor(source)
   return evaluateGraphFull(nodes, edges, 30, 4, 4, GROUPS).outputs
 }
@@ -75,11 +74,10 @@ describe('the display envelope', () => {
   it('is published by every source the model names', () => {
     // The map is what codegen and validation resolve a kind from without
     // evaluating anything, so it has to agree with what the nodes emit.
+    // Driven by the node type rather than by the kind, since two node types
+    // publish `player` — pairing by kind silently ran one of them as the other.
     for (const [nodeType, kind] of Object.entries(DISPLAY_SOURCE_NODE_TYPES)) {
-      const source = ({ RTCInput: 'clock', PatternMaster: 'player', PatternSlideshow: 'slideshow' } as const)[
-        nodeType as 'RTCInput' | 'PatternMaster' | 'PatternSlideshow'
-      ]
-      const signal = run(source).get('src')?.display
+      const signal = run(nodeType).get('src')?.display
       expect(isDisplaySignal(signal), nodeType).toBe(true)
       expect((signal as DisplaySignal).kind, nodeType).toBe(kind)
     }
@@ -89,7 +87,7 @@ describe('the display envelope', () => {
   // second computation of it: a panel and a custom UI reading the same player
   // must not be told different things.
   it('says the same thing as the ports beside it', () => {
-    const outputs = run('player')
+    const outputs = run('PatternMaster')
     const signal = outputs.get('src')?.display as DisplaySignal
     expect(signal.kind).toBe('player')
     if (signal.kind !== 'player') return
@@ -100,7 +98,7 @@ describe('the display envelope', () => {
   })
 
   it('carries the selection a slideshow publishes on its own port', () => {
-    const outputs = run('slideshow')
+    const outputs = run('PatternSlideshow')
     const signal = outputs.get('src')?.display as DisplaySignal
     expect(signal.kind).toBe('slideshow')
     if (signal.kind !== 'slideshow') return
@@ -111,8 +109,14 @@ describe('the display envelope', () => {
 describe('what a panel makes of it', () => {
   beforeEach(() => resetEvaluatorState())
 
+  // One node type per kind. Two publish `player`; either draws the same screen,
+  // which is the whole reason they share the kind.
+  const SOURCE_NODE_TYPE = {
+    clock: 'RTCInput', player: 'PatternMaster', slideshow: 'PatternSlideshow',
+  } as const
+
   it.each(['clock', 'player', 'slideshow'] as const)('draws the %s screen', (source) => {
-    const outputs = run(source)
+    const outputs = run(SOURCE_NODE_TYPE[source])
     expect(outputs.get('oled')?.layout).toBe(infoLayoutForKind(source))
     // The segment module has no layout to report, so its mode is read from the
     // characters: only the clock and the elapsed track use the colon pair.

@@ -584,9 +584,16 @@ describe('nodeLibrary', () => {
     // MatrixOutput came first in the node array, and the canvas showed a chain
     // that stopped in mid-air next to an output asking to be fed.
     // `shows` stays gone: it was a cable to the SD Card, which is a bench part.
+    // `display` is the second output, and is a real one: the generator holds a
+    // track, so it answers for it on the same envelope Music Player publishes.
     expect(NODE_LIBRARY.find((n) => n.type === 'PerformanceGenerator')?.outputs).toEqual([
       { id: 'frame', label: 'Show', dataType: 'frame' },
+      { id: 'display', label: 'Display', dataType: 'display' },
     ])
+    // Music first, then the collection it schedules, then the transition pool,
+    // and Controls last — the one input that is not part of authoring a show.
+    expect(NODE_LIBRARY.find((n) => n.type === 'PerformanceGenerator')?.inputs.map((p) => p.id))
+      .toEqual(['music', 'patternset', 'transitions', 'controls'])
     expect(NODE_LIBRARY.find((n) => n.type === 'PerformanceGenerator')?.defaultProperties).toMatchObject({
       useGroupInputs: true,
       showInMainPreview: false,

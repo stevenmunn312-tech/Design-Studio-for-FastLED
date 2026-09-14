@@ -97,7 +97,9 @@ describe('build mode resolution', () => {
       output: { id: 'out' },
       capabilities: { fixedTransportControls: false },
     })
-    expect([...build.templateDisplaySourceIds!]).toEqual([])
+    // The generator publishes a Display envelope of its own now, so the panels,
+    // thumbnails and artwork a performance show carries resolve against it.
+    expect([...build.templateDisplaySourceIds!]).toEqual(['performance'])
   })
 
   it('preserves a standalone VU as a buildable Music Player output', () => {

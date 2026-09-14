@@ -345,9 +345,16 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
   useEffect(() => () => usePlayerTransport.getState().clearTransport(nodeId), [nodeId])
 
   // Keep the shared player's position/state and this element's volume in sync.
+  //
+  // The pattern the show is on rides along, because this is the only place the
+  // ShowFile and the clock are both in hand. A panel wired to this generator's
+  // Display output reads it back through the evaluator, so the name on the
+  // screen is the pattern the timeline actually scheduled rather than a guess
+  // at the first entry in the collection.
   useEffect(() => {
-    usePlayerTransport.getState().setPos(posMs, playing)
-  }, [posMs, playing])
+    const patternIndex = show?.patternSet?.length ? showStateAt(show, posMs).patternIndex : -1
+    usePlayerTransport.getState().setPos(posMs, playing, patternIndex)
+  }, [posMs, playing, show])
   const volume = usePlayerTransport((s) => s.volume)
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume
