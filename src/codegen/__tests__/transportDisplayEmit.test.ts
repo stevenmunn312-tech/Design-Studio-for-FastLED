@@ -310,6 +310,43 @@ describe('a touch panel driving an LED output', () => {
     expect(src).toContain('_xptPoint(')
   })
 
+  it('samples the controller for a direct fixed-layout output without a Control Map', () => {
+    const player = node('player', 'PatternMaster')
+    const juggle = node('juggle', 'Juggle', { speed: 0 })
+    const src = generateCpp(
+      [player, panel('Fixed Transport'), touch, juggle, out],
+      [
+        wire('feed', 'player', 'display', 'tft', 'display'),
+        wire('speed', 'touch', 'volume', 'juggle', 'speed'),
+        wire('frame', 'juggle', 'frame', 'out', 'frame'),
+      ],
+    )
+
+    expect(src).toContain('float n_touch_volume = 0.0f;')
+    expect(src).toContain('n_touch_volume = constrain((_touchX_tft')
+    expect(src).toContain('n_touch_volume = 0.0f;')
+    expect(src).not.toContain('PlayerControlsValue n_touch_controls;')
+  })
+
+  it('publishes direct outputs and the Controls bundle from one touch sample', () => {
+    const player = node('player', 'PatternMaster')
+    const juggle = node('juggle', 'Juggle', { speed: 0 })
+    const src = generateCpp(
+      [player, panel('Fixed Transport'), touch, juggle, out],
+      [
+        wire('feed', 'player', 'display', 'tft', 'display'),
+        wire('speed', 'touch', 'volume', 'juggle', 'speed'),
+        wire('controls', 'touch', 'controls', 'out', 'controls'),
+        wire('frame', 'juggle', 'frame', 'out', 'frame'),
+      ],
+    )
+
+    expect(src).toContain('PlayerControlsValue n_touch_controls;')
+    expect(src).toContain('float n_touch_volume = 0.0f;')
+    expect(src).toContain('n_touch_volume = constrain((_touchX_tft')
+    expect(src).toContain('n_touch_controls.hasVolume = true;')
+  })
+
   // A normal sketch draws the waiting screen, which has no controls on it, so
   // there is no hit region to write and the bundle stays inert. Touch-driven
   // LED control did not disappear with the fixed layouts — it moved to the

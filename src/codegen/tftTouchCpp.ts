@@ -107,13 +107,10 @@ function inside(x: string, y: string, rect: { x: number; y: number; w: number; h
 /**
  * Where a press goes once the panel has decided what was pressed.
  *
- * Two sinks, because two generators have different things to press *on*. The
- * player calls its own transport directly, which is why this file could hard-
- * code those calls for as long as the player was the only generator sampling
- * touch. A normal sketch has no transport at all: its panel publishes the same
- * `playercontrols` bundle a Control Map node does, and whatever is wired
- * downstream decides what that means — today an LED output's blackout and
- * dimming latch.
+ * The player sketch can press its own transport directly. A normal sketch has
+ * no transport at all, so its panel publishes either the same `playercontrols`
+ * bundle a Control Map node does, direct scalar/boolean outputs for property
+ * wires, or both from the same sample.
  *
  * Parameterising the sink rather than the whole function keeps the part that
  * matters — which rectangle is which action — resolved once from the shared
@@ -125,6 +122,42 @@ export type TftTouchSink =
   | { kind: 'player' }
   /** Fill a PlayerControlsValue local, as codegen/playerControlsCpp.ts defines it. */
   | { kind: 'bundle'; variable: string }
+  /**
+   * Write individual variables for direct wiring (no Control Map needed).
+   * Each key is an action name mapped to its C++ variable and rest type.
+   */
+  | { kind: 'direct'; variables: Record<string, { variable: string; dataType: 'bool' | 'float' }> }
+  /**
+   * Fill the bundle and direct variables from the same touch sample.
+   */
+  | {
+    kind: 'bundleDirect'
+    variable: string
+    variables: Record<string, { variable: string; dataType: 'bool' | 'float' }>
+  }
+
+function directSinkStatement(
+  variables: Record<string, { variable: string; dataType: 'bool' | 'float' }>,
+  action: string,
+  valueExpr: string | null,
+): string | null {
+  const entry = variables[action]
+  if (!entry) return null
+  if (valueExpr !== null) return `${entry.variable} = ${valueExpr};`
+  return `${entry.variable} = true;`
+}
+
+function bundleSinkStatement(variable: string, action: string, valueExpr: string | null): string | null {
+  switch (action) {
+    case 'playPause': return `${variable}.playPause = true;`
+    case 'previous': return `${variable}.previous = true;`
+    case 'next': return `${variable}.next = true;`
+    case 'ledToggle': return `${variable}.ledToggle = true;`
+    case 'volume': return `${variable}.hasVolume = true; ${variable}.volume = ${valueExpr};`
+    case 'brightness': return `${variable}.hasBrightness = true; ${variable}.brightness = ${valueExpr};`
+    default: return null
+  }
+}
 
 function sinkStatements(
   sink: TftTouchSink,
@@ -142,16 +175,17 @@ function sinkStatements(
       default: return null
     }
   }
-  const v = sink.variable
-  switch (action) {
-    case 'playPause': return `${v}.playPause = true;`
-    case 'previous': return `${v}.previous = true;`
-    case 'next': return `${v}.next = true;`
-    case 'ledToggle': return `${v}.ledToggle = true;`
-    case 'volume': return `${v}.hasVolume = true; ${v}.volume = ${valueExpr};`
-    case 'brightness': return `${v}.hasBrightness = true; ${v}.brightness = ${valueExpr};`
-    default: return null
+  if (sink.kind === 'direct') {
+    return directSinkStatement(sink.variables, action, valueExpr)
   }
+  if (sink.kind === 'bundleDirect') {
+    const statements = [
+      directSinkStatement(sink.variables, action, valueExpr),
+      bundleSinkStatement(sink.variable, action, valueExpr),
+    ].filter((entry): entry is string => Boolean(entry))
+    return statements.length > 0 ? statements.join(' ') : null
+  }
+  return bundleSinkStatement(sink.variable, action, valueExpr)
 }
 
 export function tftTouchServiceCpp(
@@ -188,6 +222,15 @@ export function tftTouchServiceCpp(
       `      }`,
       `    } else { ${sampleClock} = 0; }`,
     )
+  }
+  // Direct variables reset to rest value every pass, before the region tests
+  // write into whichever one the finger is on.  A momentary action therefore
+  // fires for exactly one loop iteration; a continuous one holds its value
+  // only while the finger stays down.
+  if (sink.kind === 'direct' || sink.kind === 'bundleDirect') {
+    for (const entry of Object.values(sink.variables)) {
+      lines.push(`    ${entry.variable} = ${entry.dataType === 'float' ? '0.0f' : 'false'};`)
+    }
   }
   for (const region of regions) {
     const hit = `(${inside(pointX, pointY, region.rect)})`

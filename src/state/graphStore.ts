@@ -60,7 +60,7 @@ import {
   displayWidgetSources,
   parseDisplayWidgetPortId,
 } from './displayRegistry'
-import { libraryDefaults, spliceTargetPorts } from './nodeLibrary'
+import { libraryDefaults, spliceTargetPorts, tftControllerForProps } from './nodeLibrary'
 import { createDisplayDocument, resizeDisplayDocument } from './displayEditor'
 import { mountedPanelGeometry } from './mountedDisplays'
 import { useUploadStore } from './uploadStore'
@@ -84,6 +84,10 @@ import {
   matchesIntegratedTouchDisplay,
 } from './integratedBoardHardware'
 import { partById } from './partCatalogue'
+import { DISPLAY_SOURCE_NODE_TYPES } from './displaySignal'
+import { asTransportDisplayLayout, transportLayoutForKind } from './transportDisplay'
+import { asTftRotation } from './tftSurface'
+import { transportTouchActions, TRANSPORT_TOUCH_ACTION_TYPES, TRANSPORT_TOUCH_ACTION_LABELS } from './transportTouch'
 
 export interface StudioNodeData extends Record<string, unknown> {
   label: string
@@ -1220,9 +1224,43 @@ function syncDisplayNodesInContent(
       const displayId = panel ? String(panel.data.properties.displayId ?? '') : ''
       const document = displayId ? documents[displayId] : undefined
       const widgetPorts = document ? displayDocumentPorts(document) : { inputs: [], outputs: [] }
+      /*
+       * Fixed-layout control outputs: when the panel has no custom design, the
+       * Touch node exposes one output per control in the current layout.
+       *
+       * The layout is resolved from the panel's `display` input edge so that a
+       * Waiting panel (no source wired) exposes no fictitious controls and a
+       * Now Playing panel exposes only playPause and volume — the two controls
+       * its layout actually draws.  These ports sit beside the existing
+       * `controls` bundle output and the custom-design widget outputs.
+       */
+      const fixedControlPorts: NodePort[] = []
+      if (panel && !displayId) {
+        const panelProps = panel.data.properties as Record<string, unknown>
+        const touchCapable = Boolean(partById(String(panelProps.partId ?? ''))?.display?.touchController)
+        if (touchCapable) {
+          const displayEdge = content.edges.find((e) => e.target === panel.id && e.targetHandle === 'display')
+          const sourceNode = displayEdge ? content.nodes.find((n) => n.id === displayEdge.source) : undefined
+          const kind = sourceNode ? DISPLAY_SOURCE_NODE_TYPES[String(sourceNode.data.nodeType ?? '')] : undefined
+          const layout = asTransportDisplayLayout(panelProps.tftLayout) === 'Diagnostics'
+            ? 'Diagnostics'
+            : (kind ? transportLayoutForKind(kind, panelProps.tftLayout) : null) ?? 'Waiting'
+          const controller = tftControllerForProps(panelProps)
+          const rotation = asTftRotation(panelProps.tftRotation)
+          if (controller) {
+            for (const action of transportTouchActions(controller, rotation, layout)) {
+              fixedControlPorts.push({
+                id: action,
+                label: TRANSPORT_TOUCH_ACTION_LABELS[action],
+                dataType: TRANSPORT_TOUCH_ACTION_TYPES[action],
+              })
+            }
+          }
+        }
+      }
       ports = {
         inputs: [...(library?.inputs ?? [])],
-        outputs: [...(library?.outputs ?? []), ...widgetPorts.outputs],
+        outputs: [...(library?.outputs ?? []), ...widgetPorts.outputs, ...fixedControlPorts],
       }
     } else {
       return node

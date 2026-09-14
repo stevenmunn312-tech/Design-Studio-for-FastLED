@@ -1167,6 +1167,32 @@ describe('graphStore — custom display documents', () => {
     expect(touch().outputs.map((port) => port.id)).toEqual(['controls', 'widget:slider:out'])
   })
 
+  it('projects fixed-layout touch outputs from the panel actually on the glass', () => {
+    const panel = node('screen', 'TransportDisplay', {
+      partId: 'st7789v-xpt2046-touch-240x320',
+      tftLayout: 'Fixed Transport',
+    })
+    const touch = node('touch', 'TouchInput', { panelId: 'screen' })
+    const player = node('player', 'PatternMaster')
+    useGraphStore.getState().loadGraph(
+      [panel, touch, player],
+      [edge('display', 'player', 'display', 'screen', 'display')],
+    )
+
+    expect(useGraphStore.getState().nodes.find((entry) => entry.id === 'touch')?.data.outputs)
+      .toEqual([
+        { id: 'controls', label: 'Controls', dataType: 'playercontrols' },
+        { id: 'previous', label: 'Previous', dataType: 'bool' },
+        { id: 'playPause', label: 'Play / Pause', dataType: 'bool' },
+        { id: 'next', label: 'Next', dataType: 'bool' },
+        { id: 'volume', label: 'Volume', dataType: 'float' },
+      ])
+
+    useGraphStore.getState().loadGraph([panel, touch], [])
+    expect(useGraphStore.getState().nodes.find((entry) => entry.id === 'touch')?.data.outputs)
+      .toEqual([{ id: 'controls', label: 'Controls', dataType: 'playercontrols' }])
+  })
+
   it('defaults missing workspace data to an empty registry and normalizes loaded data', () => {
     useGraphStore.getState().loadGraph([], [])
     expect(useGraphStore.getState().displayDocuments).toEqual({})

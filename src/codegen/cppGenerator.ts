@@ -112,7 +112,7 @@ import {
   type Inmp441FirmwareBackend,
 } from '../state/micPinDefaults'
 import { sanitizePin } from './hardwarePins'
-import { emittedTouchBounds } from '../state/transportTouch'
+import { emittedTouchBounds, TRANSPORT_TOUCH_ACTION_TYPES, type TransportTouchAction } from '../state/transportTouch'
 import { resolveWireframeMesh, meshBoundingRadius, WIREFRAME_FIT_MARGIN, WIREFRAME_CAM_FAR, WIREFRAME_CAM_NEAR } from '../state/wireframeModel'
 import { resolveAudioCapabilitySource } from '../state/audioCapabilities'
 import { amplifierIdleCpp } from './amplifierIdle'
@@ -5291,16 +5291,33 @@ export function generateCpp(
         const rotation = asTftRotation(p.tftRotation)
         const touchCapable = Boolean(partById(String(p.partId ?? ''))?.display?.touchController)
         const diagnosticTouch = layout === 'Diagnostics' && touchCapable
-        // A panel samples touch for either of two reasons: to report raw
-        // coordinates on the Diagnostics screen, or because something is
-        // listening to its buttons. The listening is no longer done through a
-        // port on the panel — a display has no outputs — so the question is
-        // whether the Touch node sharing this module has its Controls wired
-        // anywhere. The pins are still the panel's, because the digitiser's
-        // lines are wiring on this module.
-        const publishesControls = touchCapable && nodes.some((entry) => entry.data.nodeType === 'TouchInput'
-          && String((entry.data.properties as Record<string, unknown>).panelId ?? '') === node.id
-          && edges.some((e) => e.source === entry.id && e.sourceHandle === 'controls'))
+        const touchNode = touchCapable
+          ? nodes.find((entry) => entry.data.nodeType === 'TouchInput'
+            && String((entry.data.properties as Record<string, unknown>).panelId ?? '') === node.id)
+          : undefined
+        const directVars: Record<string, { variable: string; dataType: 'bool' | 'float' }> = {}
+        if (touchNode) {
+          const touchId = safeId(touchNode.id)
+          for (const edge of edges) {
+            if (edge.source !== touchNode.id) continue
+            const action = edge.sourceHandle as TransportTouchAction
+            if (!action || !TRANSPORT_TOUCH_ACTION_TYPES[action]) continue
+            const dataType = TRANSPORT_TOUCH_ACTION_TYPES[action]
+            const varName = `n_${touchId}_${safeId(action)}`
+            if (directVars[action]) continue
+            directVars[action] = { variable: varName, dataType }
+          }
+        }
+        // A panel samples touch when Diagnostics needs raw coordinates, when
+        // the Controls bundle is wired, or when a fixed-layout action is wired
+        // directly. The listening is no longer done through a port on the panel
+        // — a display has no outputs — so the question is whether the Touch
+        // node sharing this module has any of those outputs wired. The pins are
+        // still the panel's, because the digitiser's lines are wiring on this
+        // module.
+        const publishesControls = Boolean(touchNode
+          && edges.some((e) => e.source === touchNode.id && e.sourceHandle === 'controls'))
+        const publishesDirectControls = Object.keys(directVars).length > 0
         const emit: TftDisplayEmit = {
           id,
           controller,
@@ -5340,9 +5357,7 @@ export function generateCpp(
         // never resolve that layout — the two template generators bake and
         // emit the pictures instead.
         tftDisplays.push(emit)
-        if (diagnosticTouch || publishesControls) {
-          const touchNode = nodes.find((entry) => entry.data.nodeType === 'TouchInput'
-            && String((entry.data.properties as Record<string, unknown>).panelId ?? '') === node.id)
+        if (diagnosticTouch || publishesControls || publishesDirectControls) {
           const touchProps = (touchNode?.data.properties ?? {}) as Record<string, unknown>
           const touch: TftTouchEmit = {
             id, controller, rotation, layout, enabledExpr: `_tftOn_${id}`,
@@ -5364,6 +5379,13 @@ export function generateCpp(
           }
           tftTouches.push(touch)
           setupLines.push(...tftTouchSetupCpp(touch))
+          for (const { variable, dataType } of Object.values(directVars)) {
+            if (dataType === 'bool') {
+              ln(`  bool ${variable} = false;`)
+            } else {
+              ln(`  float ${variable} = 0.0f;`)
+            }
+          }
           if (publishesControls && touchNode) {
             // Named for the Touch node, because that is what downstream reads:
             // the bundle is this glass's output, and the panel is only where
@@ -5372,7 +5394,12 @@ export function generateCpp(
             const bundle = `n_${touchId}_controls`
             playerControlNodes.push(touchId)
             ln(`  PlayerControlsValue ${bundle};`)
-            for (const line of tftTouchServiceCpp(touch, { kind: 'bundle', variable: bundle })) ln(line)
+            const sink = publishesDirectControls
+              ? { kind: 'bundleDirect' as const, variable: bundle, variables: directVars }
+              : { kind: 'bundle' as const, variable: bundle }
+            for (const line of tftTouchServiceCpp(touch, sink)) ln(line)
+          } else if (publishesDirectControls) {
+            for (const line of tftTouchServiceCpp(touch, { kind: 'direct', variables: directVars })) ln(line)
           } else {
             for (const line of tftTouchServiceCpp(touch)) ln(line)
           }

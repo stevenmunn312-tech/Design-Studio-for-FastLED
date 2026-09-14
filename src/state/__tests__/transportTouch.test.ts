@@ -13,6 +13,7 @@ import {
   touchCalibrationFromSamples,
   touchRegionAt,
   type TouchCalibrationCorner,
+  transportTouchActions,
   transportTouchRegions,
 } from '../transportTouch'
 
@@ -84,6 +85,12 @@ describe('fixed-layout touch regions', () => {
       { action: 'next', rect: g.next.rect },
       { action: 'volume', rect: g.volume, valueAxis: 'x' },
     ])
+  })
+
+  it('derives its published actions from the visible controls', () => {
+    expect(transportTouchActions(panel, '0', 'Fixed Transport'))
+      .toEqual(['previous', 'playPause', 'next', 'volume'])
+    expect(transportTouchActions(panel, '0', 'Show Status')).toEqual([])
   })
 
   it('returns an absolute slider value and rejects empty panel space', () => {

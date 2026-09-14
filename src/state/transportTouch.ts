@@ -277,11 +277,50 @@ export function mapTransportTouch(
 
 export type TransportTouchAction = 'playPause' | 'previous' | 'next' | 'volume' | 'ledToggle' | 'brightness'
 
+/** The data type each fixed-layout touch action publishes. */
+export const TRANSPORT_TOUCH_ACTION_TYPES: Record<TransportTouchAction, 'bool' | 'float'> = {
+  playPause: 'bool',
+  previous: 'bool',
+  next: 'bool',
+  volume: 'float',
+  ledToggle: 'bool',
+  brightness: 'float',
+}
+
+/** Human label for each fixed-layout touch action. */
+export const TRANSPORT_TOUCH_ACTION_LABELS: Record<TransportTouchAction, string> = {
+  playPause: 'Play / Pause',
+  previous: 'Previous',
+  next: 'Next',
+  volume: 'Volume',
+  ledToggle: 'LED On / Off',
+  brightness: 'Brightness',
+}
+
 export interface TransportTouchRegion {
   action: TransportTouchAction
   rect: TftRect
   /** Continuous controls publish an absolute 0-1 value across this axis. */
   valueAxis?: 'x'
+}
+
+/**
+ * The distinct actions present in a fixed layout's touch regions.
+ *
+ * Derived from `transportTouchRegions` rather than hand-listed, so a new
+ * control added to a layout joins this list on its own and a layout that
+ * drops one drops it here too.  Read-only layouts return an empty set.
+ */
+export function transportTouchActions(
+  controller: TftController,
+  rotation: TftRotation,
+  layout: TransportDisplayLayout,
+): readonly TransportTouchAction[] {
+  const seen = new Set<TransportTouchAction>()
+  for (const region of transportTouchRegions(controller, rotation, layout)) {
+    seen.add(region.action)
+  }
+  return [...seen]
 }
 
 /** Interactive regions already visible in each fixed layout. */

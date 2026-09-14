@@ -40,7 +40,7 @@ import {
   type TransportDisplayData, type TransportDisplayLayout, type TransportClockData,
 } from './transportDisplay'
 import { TFT_CONTROLLERS, asTftRotation, tftLine, type TftController, type TftRotation, type TftSurface } from './tftSurface'
-import { touchRegionAt, transportTouchRegions } from './transportTouch'
+import { touchRegionAt, transportTouchRegions, TRANSPORT_TOUCH_ACTION_TYPES, type TransportTouchAction } from './transportTouch'
 import { partById } from './partCatalogue'
 import {
   displayString, formatNumberText, normalizeNumberFormat,
@@ -7556,13 +7556,41 @@ function createEvalNode(
           asTransportDisplayLayout(panelProps.tftLayout) === 'Diagnostics'
             ? 'Diagnostics'
             : (panelSignal ? transportLayoutForKind(panelSignal.kind, panelProps.tftLayout) : null) ?? 'Waiting'
+        /*
+         * Individual fixed-layout control outputs, one per touch action in
+         * the current layout.
+         *
+         * Momentary actions (playPause, previous, next, ledToggle) fire on the
+         * press edge only.  Continuous actions (volume, brightness) publish the
+         * current 0-1 value while held and zero at rest.
+         *
+         * These sit beside the `controls` bundle so a Touch→property wire
+         * needs no Control Map pass-through.
+         */
+        const touchKey = stateKey(panelId)
+        const touch = useTransportDisplayTouchStore.getState().touches.get(panelId)
+        const pressed = panelEnabled && touchCapable && Boolean(touch?.pressed)
+        const wasPressed = Boolean(transportDisplayTouchState.get(touchKey)?.pressed)
+        const hit = pressed && touch
+          ? touchRegionAt(touch, transportTouchRegions(panelController, panelRotation, panelLayout))
+          : null
         // Keyed on the panel, not on this node: the edge state belongs to the
         // glass, and it is the same glass however many nodes look at it.
         const controls = panelTouchControls(
-          stateKey(panelId), panelId, panelController, panelRotation, panelLayout,
+          touchKey, panelId, panelController, panelRotation, panelLayout,
           panelEnabled && touchCapable,
         )
         out = { controls }
+        const nodeOutputs = (node.data.outputs as { id: string; dataType?: string }[] | undefined) ?? []
+        for (const port of nodeOutputs) {
+          const action = port.id as TransportTouchAction
+          if (!TRANSPORT_TOUCH_ACTION_TYPES[action]) continue
+          if (port.dataType === 'bool') {
+            out[action] = pressed && !wasPressed && hit?.action === action
+          } else {
+            out[action] = hit?.action === action && hit.value != null ? hit.value : 0
+          }
+        }
         break
       }
 

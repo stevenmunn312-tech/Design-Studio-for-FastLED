@@ -181,6 +181,49 @@ describe('touch published from the preview', () => {
     expect(held.controls.next).toBe(false)
   })
 
+  it('publishes direct fixed-layout outputs with the same edge and slider rules', () => {
+    const g = fixedTransportGeometry(240, 320)
+    const tft = node('tft', 'TransportDisplay', { partId: TOUCH, tftLayout: 'Fixed Transport' })
+    const touch = node('touch', 'TouchInput', { panelId: 'tft' })
+    const touchOutputs = touch.data.outputs as Array<{ id: string; label: string; dataType: string }>
+    touch.data.outputs = [
+      ...touchOutputs,
+      { id: 'next', label: 'Next', dataType: 'bool' },
+      { id: 'volume', label: 'Volume', dataType: 'float' },
+    ]
+    const player = node('src', 'PatternMaster')
+
+    useTransportDisplayTouchStore.getState().setTouch('tft', {
+      pressed: true,
+      x: g.next.rect.x + 1,
+      y: g.next.rect.y + 1,
+    })
+    const first = evaluateGraphFull(
+      [output, tft, touch, player],
+      [edge('feed', 'src', 'display', 'tft', 'display')],
+      1.5, 8, 8,
+    ).outputs.get('touch') as Record<string, unknown>
+    const held = evaluateGraphFull(
+      [output, tft, touch, player],
+      [edge('feed', 'src', 'display', 'tft', 'display')],
+      1.5, 8, 8,
+    ).outputs.get('touch') as Record<string, unknown>
+    expect(first.next).toBe(true)
+    expect(held.next).toBe(false)
+
+    useTransportDisplayTouchStore.getState().setTouch('tft', {
+      pressed: true,
+      x: g.volume.x + Math.floor((g.volume.w - 1) / 2),
+      y: g.volume.y + 1,
+    })
+    const slider = evaluateGraphFull(
+      [output, tft, touch, player],
+      [edge('feed', 'src', 'display', 'tft', 'display')],
+      1.5, 8, 8,
+    ).outputs.get('touch') as Record<string, unknown>
+    expect(slider.volume as number).toBeCloseTo(0.5, 1)
+  })
+
   it('publishes an absolute slider while the touch is held', () => {
     const g = fixedTransportGeometry(240, 320)
     useTransportDisplayTouchStore.getState().setTouch('tft', {
