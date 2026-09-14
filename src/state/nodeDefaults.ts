@@ -27,7 +27,15 @@ function sanitizeProperties(nodeType: string, properties: Record<string, unknown
   // value on every new output, where the Board migration reads it as 0-255 and
   // 0.85 becomes 1. Removing the control is not enough on its own: the saved
   // default outlives the project that created it.
-  if (nodeType === 'MatrixOutput') delete sanitized.brightness
+  // The output's own blackout and dimmer go the same way, for a different
+  // reason: they are runtime state rather than rig wiring. "Set Default" pins
+  // the pins, chipset and geometry a bench keeps, and a fixture left dark or
+  // dimmed for one show must not start every future output that way.
+  if (nodeType === 'MatrixOutput') {
+    delete sanitized.brightness
+    delete sanitized.enabled
+    delete sanitized.outputBrightness
+  }
   return sanitized
 }
 

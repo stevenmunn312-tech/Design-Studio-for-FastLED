@@ -76,7 +76,7 @@ import { controlGraphCpp } from './controlGraph'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import { customDisplayShowCpp, type CustomDisplayAssets } from './customDisplayShowCpp'
 import { PLAYER_CONTROLS_CPP, playerControlsServiceCpp, ledOutputLatchGlobalCpp, ledOutputLatchCpp } from './playerControlsCpp'
-import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp } from './ledOutputRuntimeCpp'
+import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp, ledOutputManualExprs } from './ledOutputRuntimeCpp'
 import {
   clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MAX, MASTER_SPEED_MIN,
 } from '../state/masterSpeed'
@@ -802,8 +802,12 @@ export function generateShowSketch(
     const id = safeId(outputId)
     const scalar = controls.scalarOutputs.get(outputId)
     const latched = controls.outputs.has(outputId)
-    const enabled = scalar?.enabledExpr
-    const brightness = scalar?.brightnessExpr
+    // An unwired port means the field beside it, exactly as it does in the
+    // normal sketch and the preview.
+    const manual = ledOutputManualExprs(
+      nodes.find((node) => node.id === outputId)?.data.properties)
+    const enabled = scalar?.enabledExpr ?? manual.enabledExpr
+    const brightness = scalar?.brightnessExpr ?? manual.brightnessExpr
     return { id,
       enabledExpr: latched ? enabled ? `(${enabled}) && _ledOn_${id}` : `_ledOn_${id}` : enabled ?? null,
       brightnessExpr: latched ? brightness ? `constrain(${brightness}, 0.0f, 1.0f) * _ledLevel_${id}` : `_ledLevel_${id}` : brightness ?? null,

@@ -7,6 +7,7 @@ import {
   supportsScalarExpression,
 } from '../state/nodeLibrary'
 import { isLinearForm, outputForm, outputLedTotal } from '../state/ledOutputForm'
+import { isLedOutputPassThrough, ledOutputManualRuntime } from '../state/ledOutputRuntime'
 import { PALETTE_BUILDER_NODE_TYPES } from '../state/nodeLibrary'
 import { formatSignalRange, isNormalizedOutput, signalRangeMismatch } from '../state/signalRange'
 import type { SignalRangeMismatch } from '../state/signalRange'
@@ -1711,7 +1712,19 @@ export function findOutputRuntimeIssues(
     ? showControlRouting(nodes, edges, displayDocuments, build.engine?.id)
     : generator === 'player'
       ? playerControlGraph(nodes, edges, displayDocuments, build.engine?.id) : null
-  if (generator === 'player') return { errors: [...speedErrors, ...(templateControls?.errors ?? [])] }
+  // The player owns its brightness through the transport, so the two fields
+  // beside an output's sockets are as unreadable to it as a wire would be.
+  // Silence there is the "only works in preview" failure: the LEDs come up
+  // full on the bench while the canvas shows the fixture dimmed.
+  const dialled = nodes.filter((node) => node.data.nodeType === 'MatrixOutput'
+    && !isLedOutputPassThrough(ledOutputManualRuntime(node.data.properties)))
+  if (generator === 'player') {
+    const fields = dialled.length > 0
+      ? [`${dialled.map((node) => nodeLabel(node)).join(', ')}: an SD player build cannot read an LED output's own Enabled or Brightness field. `
+        + 'Restore them to lit and full, and dim the fixture through Control Map, which the player already reads.']
+      : []
+    return { errors: [...fields, ...speedErrors, ...(templateControls?.errors ?? [])] }
+  }
   const showOutputs = generator === 'show'
     ? showControlOutputIds(nodes, edges, build.engine?.id) : new Set<string>()
 

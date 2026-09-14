@@ -61,6 +61,16 @@ describe('showGenerator', () => {
     expect(cpp).not.toContain('#define DATA_PIN 3')
   })
 
+  // An unwired port means the field beside it here exactly as it does in a
+  // normal sketch, so how bright a fixture runs cannot depend on which engine
+  // the graph happens to build.
+  it('honours an LED output dialled down on its own field', () => {
+    const dimmed = [nodes[0], nodes[1], node('out', 'MatrixOutput',
+      { width: 8, height: 8, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB', outputBrightness: 0.5 })]
+    expect(generateShowSketch(dimmed, edges, groups)).toContain('constrain(0.500f, 0.0f, 1.0f)')
+    expect(generateShowSketch(nodes, edges, groups)).not.toContain('LED output run-time controls')
+  })
+
   it('emits a render function per pattern and a controller', () => {
     const cpp = generateShowSketch(nodes, edges, groups)
     expect(cpp).toContain('#define PATTERN_COUNT 2')

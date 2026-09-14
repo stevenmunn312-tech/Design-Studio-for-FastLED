@@ -43,8 +43,21 @@ export const LED_OUTPUT_RUNTIME_PORTS = [
   { id: 'controls', label: 'Controls', dataType: 'playercontrols' },
 ] as const
 
-/** An output with nothing wired: lit, undimmed, and costing nothing. */
+/** An output with nothing wired and nothing dialled: lit, undimmed, free. */
 export const LED_OUTPUT_RUNTIME_DEFAULT: LedOutputRuntime = { enabled: true, brightness: 1 }
+
+/**
+ * What this output's own two fields say, before any wire.
+ *
+ * A wired port overrides the field beside it and a disconnected one falls
+ * back to it, which is the whole contract of a property input. The dimmer is
+ * stored as `outputBrightness` rather than `brightness` because a graph with
+ * no Board node still reads a MatrixOutput's `brightness` as FastLED's master
+ * 0-255 — see `legacyBrightness` in state/controllerSettings.ts.
+ */
+export function ledOutputManualRuntime(props: Record<string, unknown> | undefined): LedOutputRuntime {
+  return resolveLedOutputRuntime(props?.enabled, props?.outputBrightness)
+}
 
 /**
  * Read the two ports, defaulting to "no opinion".

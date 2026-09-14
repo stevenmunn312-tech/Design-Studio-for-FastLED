@@ -11,8 +11,28 @@
 // break parity is a per-branch implementation, which is exactly what emitting
 // here avoids.
 //
-// Nothing is emitted when neither port is wired, so an output nobody has
-// touched generates the sketch it always did.
+// Nothing is emitted when neither port is wired and neither field has been
+// moved, so an output nobody has touched generates the sketch it always did.
+
+import { ledOutputManualRuntime } from '../state/ledOutputRuntime'
+
+/**
+ * What this output's own fields contribute when nothing is wired to a port.
+ *
+ * Null for a field still at its identity — lit, undimmed — because that is
+ * the difference between "the user dialled full" and "the user never touched
+ * this", and only the second may leave the sketch unchanged.
+ */
+export function ledOutputManualExprs(props: Record<string, unknown> | undefined): {
+  enabledExpr: string | null
+  brightnessExpr: string | null
+} {
+  const manual = ledOutputManualRuntime(props)
+  return {
+    enabledExpr: manual.enabled ? null : 'false',
+    brightnessExpr: manual.brightness >= 1 ? null : `${manual.brightness.toFixed(3)}f`,
+  }
+}
 
 /** One output's physical destination, whatever geometry produced it. */
 export interface LedOutputRuntimeEmit {

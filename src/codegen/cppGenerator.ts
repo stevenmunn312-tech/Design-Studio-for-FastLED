@@ -40,7 +40,7 @@ import {
 import { clampSegmentBrightness, segmentControllerFor } from '../state/segmentDisplay'
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
 import { isPaletteBuilderNodeType, NODE_LIBRARY, oledControllerForProps, oledTransportForProps, tftControllerForProps } from '../state/nodeLibrary'
-import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp } from './ledOutputRuntimeCpp'
+import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp, ledOutputManualExprs } from './ledOutputRuntimeCpp'
 import {
   PLAYER_CONTROLS_CPP, PLAYER_CONTROL_BUTTONS, playerControlsServiceCpp,
   ledOutputLatchGlobalCpp, ledOutputLatchCpp,
@@ -2035,20 +2035,25 @@ export function generateCpp(
       return `buf_${safeId(up.srcId)}`
     }
     /*
-     * This output's blackout and dimming wires, for `ledOutputRuntimeCpp`.
+     * This output's blackout and dimming, for `ledOutputRuntimeCpp`.
      *
-     * Null where nothing is wired, so an output nobody has touched emits
+     * A wire where there is one, and otherwise the field beside the socket —
+     * the same order the evaluator resolves them in, so the bench and the
+     * preview agree. Null on both sides where the port is unwired *and* the
+     * field is still lit and undimmed, so an output nobody has touched emits
      * nothing at all and its sketch is byte-for-byte the one it always was.
-     * The properties are not consulted: unlike brightness on the Board, these
-     * exist only as cables — a stored value would be a second, invisible
-     * dimmer disagreeing with the visible one.
+     * The dimmer reads `outputBrightness`: a MatrixOutput's `brightness` is
+     * still master brightness to a Board-less graph.
      */
     const outputRuntimeEmit = (target: StudioNode, array: string, count: string) => {
       const stem = safeId(target.id)
-      const wiredEnabled = incoming.has(`${target.id}:enabled`) ? boolExpr(target.id, 'enabled') : null
+      const manual = ledOutputManualExprs(props(target))
+      const wiredEnabled = incoming.has(`${target.id}:enabled`)
+        ? boolExpr(target.id, 'enabled')
+        : manual.enabledExpr
       const wiredBrightness = incoming.has(`${target.id}:brightness`)
         ? floatExpr(target.id, 'brightness', props(target), 'brightness', 1)
-        : null
+        : manual.brightnessExpr
       // A latched bundle is one more factor, combined the way
       // composeLedOutputRuntime combines it: ANDed for blackout, multiplied for
       // level. Neither port needs a precedence rule that way — an unwired one

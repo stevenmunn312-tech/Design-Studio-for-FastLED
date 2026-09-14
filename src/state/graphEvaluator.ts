@@ -19,7 +19,7 @@ import {
   type SegmentFrame,
 } from './segmentDisplay'
 import {
-  resolveLedOutputRuntime, applyLedOutputRuntime, composeLedOutputRuntime,
+  resolveLedOutputRuntime, ledOutputManualRuntime, applyLedOutputRuntime, composeLedOutputRuntime,
   blankLedOutputLatch, applyLedControls, type LedOutputLatch,
 } from './ledOutputRuntime'
 import { clampMasterSpeed, MASTER_SPEED_DEFAULT } from './masterSpeed'
@@ -8732,9 +8732,13 @@ function createEvalNode(
         // than scaling in place: this frame is the upstream node's pooled
         // buffer, shared with a second output and with node previews.
         const frame = input(id, 'frame', null) as Frame | null
-        const wired = resolveLedOutputRuntime(
-          incoming.has(`${id}:enabled`) ? input(id, 'enabled', true) : undefined,
-          incoming.has(`${id}:brightness`) ? input(id, 'brightness', 1) : undefined,
+        // A wired port speaks for the field beside it; an unwired one leaves
+        // the field to speak, so unplugging a dimmer restores what the slider
+        // says rather than jumping to full.
+        const manual = ledOutputManualRuntime(props)
+        const resolved = resolveLedOutputRuntime(
+          incoming.has(`${id}:enabled`) ? input(id, 'enabled', true) : manual.enabled,
+          incoming.has(`${id}:brightness`) ? input(id, 'brightness', 1) : manual.brightness,
         )
         // A bundle carries a toggle and a delta, so it needs somewhere to
         // toggle and to nudge. Folded once per pass: node outputs are memoised
@@ -8748,7 +8752,7 @@ function createEvalNode(
         }
         const controlsValue = input(id, 'controls', null)
         if (isPlayerControls(controlsValue)) applyLedControls(latch, controlsValue)
-        const runtime = composeLedOutputRuntime(wired, latch)
+        const runtime = composeLedOutputRuntime(resolved, latch)
         out = { frame: frame ? applyLedOutputRuntime(frame, runtime) : null }
         break
       }

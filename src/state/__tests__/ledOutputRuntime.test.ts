@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   LED_OUTPUT_RUNTIME_PORTS, LED_OUTPUT_RUNTIME_DEFAULT,
-  resolveLedOutputRuntime, isLedOutputPassThrough, applyLedOutputRuntime,
+  resolveLedOutputRuntime, ledOutputManualRuntime, isLedOutputPassThrough, applyLedOutputRuntime,
   blankLedOutputLatch, applyLedControls, composeLedOutputRuntime,
 } from '../ledOutputRuntime'
 import { resetEvaluatorState } from '../graphEvaluator'
@@ -76,6 +76,23 @@ describe('resolving the two wires', () => {
       expect(def?.inputs?.some((input) => input.id === port.id), port.id).toBe(true)
     }
   })
+
+  /*
+   * The field beside the socket is what an unwired port means, and what a
+   * disconnected one falls back to. It is stored as `outputBrightness`: a
+   * graph with no Board node still reads a MatrixOutput's `brightness` as
+   * FastLED's master 0-255, so one field of each scale cannot share a name.
+   */
+  it('reads the two fields on the output itself, under a name master brightness cannot claim', () => {
+    expect(ledOutputManualRuntime(undefined)).toEqual(LED_OUTPUT_RUNTIME_DEFAULT)
+    expect(ledOutputManualRuntime({ enabled: false })).toMatchObject({ enabled: false })
+    expect(ledOutputManualRuntime({ outputBrightness: 0.4 }).brightness).toBe(0.4)
+    expect(ledOutputManualRuntime({ brightness: 200 }).brightness).toBe(1)
+    const def = NODE_LIBRARY.find((entry) => entry.type === 'MatrixOutput')
+    expect(def?.defaultProperties).toMatchObject({ enabled: true, outputBrightness: 1 })
+    expect(def?.defaultProperties).not.toHaveProperty('brightness')
+    expect(def?.propertyInputs).toEqual({ enabled: 'enabled', outputBrightness: 'brightness' })
+  })
 })
 
 describe('applying it to a frame', () => {
@@ -109,6 +126,24 @@ describe('the preview reads the same wires', () => {
   it('leaves an untouched output alone', () => {
     const frame = renderedFrame([white, output()], [frameEdge])
     expect(frame?.[0][0]).toEqual({ r: 255, g: 255, b: 255 })
+  })
+
+  it('dims and blacks out from the fields on the output itself', () => {
+    expect(renderedFrame([white, output({ outputBrightness: 0.5 })], [frameEdge])?.[0][0].r)
+      .toBeCloseTo(127.5, 1)
+    expect(renderedFrame([white, output({ enabled: false })], [frameEdge])?.[0][0])
+      .toEqual({ r: 0, g: 0, b: 0 })
+  })
+
+  // Disconnecting restores the saved value rather than jumping to full, which
+  // is the whole contract of a property input.
+  it('falls back to the field when the wire is pulled, and defers to it while wired', () => {
+    const level = node('k', 'PotInput', { pin: 4 })
+    const dialled = output({ outputBrightness: 0.25 })
+    const wired = renderedFrame([white, level, dialled],
+      [frameEdge, edge('eb', 'k', 'value', 'out', 'brightness')])
+    expect(wired?.[0][0].r).toBeCloseTo(127.5, 1)
+    expect(renderedFrame([white, level, dialled], [frameEdge])?.[0][0].r).toBeCloseTo(63.75, 1)
   })
 
   it('dims from a wired level', () => {
@@ -152,6 +187,28 @@ describe('the emitted sketch', () => {
     const src = generateCpp([white, output()], [frameEdge])
     expect(src).not.toContain('_outLevel_out')
     expect(src).not.toContain('LED output run-time controls')
+  })
+
+  // A field left at its identity is "never touched" and must still emit
+  // nothing; a field the user moved is a value the bench has to honour.
+  it('emits the dialled fields, and only once they leave their identity', () => {
+    expect(generateCpp([white, output({ enabled: true, outputBrightness: 1 })], [frameEdge]))
+      .not.toContain('LED output run-time controls')
+    const dimmed = generateCpp([white, output({ outputBrightness: 0.5 })], [frameEdge])
+    expect(dimmed).toContain('constrain(0.500f, 0.0f, 1.0f)')
+    expect(dimmed).toContain('nscale8_video(_outLevel_out)')
+    expect(generateCpp([white, output({ enabled: false })], [frameEdge]))
+      .toContain('if (!(false)) fill_solid(leds, NUM_LEDS, CRGB::Black);')
+  })
+
+  // A wire speaks for the field beside it, so the literal must not survive
+  // beside the expression as a second, competing dimmer.
+  it('drops the field once a wire lands on the same port', () => {
+    const pot = node('p', 'PotInput', { pin: 34 })
+    const src = generateCpp([white, pot, output({ outputBrightness: 0.5 })],
+      [frameEdge, edge('eb', 'p', 'value', 'out', 'brightness')])
+    expect(src).not.toContain('0.500f')
+    expect(src).toContain('nscale8_video(_outLevel_out)')
   })
 
   it('blacks the strip out on a wired enable', () => {
@@ -234,6 +291,23 @@ describe('what a show or player build cannot honour', () => {
     const { errors } = findOutputRuntimeIssues(player, edges)
     expect(selectedGenerator(player, edges)).toBe('player')
     expect(errors.join(' ')).toContain('Control Map')
+  })
+
+  // The show honours the fields the same way a normal sketch does, so there is
+  // nothing to warn about there. The player cannot: it owns brightness through
+  // the transport, and a fixture the canvas draws dimmed would come up full on
+  // the bench with nothing said.
+  it('refuses a dialled-down output only on the build that cannot read it', () => {
+    const { nodes, edges } = showGraph()
+    const dimmed = nodes.map((entry) => entry.id === 'out'
+      ? output({ enabled: false, outputBrightness: 0.5 }) : entry)
+    expect(findOutputRuntimeIssues(dimmed, edges.filter((e) => e.id !== 'ee')).errors).toEqual([])
+    const player = [master, ...dimmed.slice(1), node('sd', 'SDCard'), node('amp', 'Amplifier')]
+    const { errors } = findOutputRuntimeIssues(player, edges.filter((e) => e.id !== 'ee'))
+    expect(errors.join(' ')).toContain('cannot read an LED output')
+    expect(errors.join(' ')).toContain('Control Map')
+    const lit = [master, ...nodes.slice(1), node('sd', 'SDCard'), node('amp', 'Amplifier')]
+    expect(findOutputRuntimeIssues(lit, edges.filter((e) => e.id !== 'ee')).errors).toEqual([])
   })
 
   it('says nothing about a show whose outputs carry no such wire', () => {

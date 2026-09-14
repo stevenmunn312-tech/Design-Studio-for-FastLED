@@ -2587,9 +2587,13 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'frame',  label: 'Frame',   dataType: 'frame' },
       // Blackout and dimming as wires, so a button and a knob on the bench
       // reach the fixture in a build with no Music Player in it. Unwired means
-      // lit and undimmed — see state/ledOutputRuntime.ts.
+      // whatever the two fields below say — see state/ledOutputRuntime.ts.
       ...LED_OUTPUT_RUNTIME_PORTS,
     ],
+    // Sockets on demand: a fixture's blackout and dimmer are fields until
+    // something is wired to them. `controls` is a bundle rather than a value
+    // and has no field to fall back to, so it stays an ordinary port.
+    propertyInputs: { enabled: 'enabled', outputBrightness: 'brightness' },
     outputs: [],
     defaultProperties: {
       // What this output physically is — string / matrix / ring / corkscrew /
@@ -2597,6 +2601,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // as its own entry. The form is
       // what decides which of the properties below apply at all.
       form: 'matrix',
+      // This fixture's own blackout and dimmer — the value an unwired
+      // `enabled`/`brightness` port means, and the value a disconnected wire
+      // falls back to. `outputBrightness` rather than `brightness` on purpose:
+      // a Board-less graph still reads a MatrixOutput's `brightness` as
+      // FastLED's master 0-255 (state/controllerSettings.ts), so one frame-
+      // scale field under that name is two controls on two scales again.
+      enabled: true,
+      outputBrightness: 1,
       width: 16,
       height: 16,
       // String, ring, and corkscrew forms are one chain of `ledCount` LEDs;
@@ -3955,6 +3967,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   MatrixOutput: {
     form: { control: 'select', options: LED_OUTPUT_FORMS },
+    outputBrightness: { control: 'slider', min: 0, max: 1, step: 0.01 },
     dataPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     clockPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     ledCount: { control: 'slider', min: 1, max: MAX_LED_RUN, step: 1 },
@@ -4578,6 +4591,9 @@ export function propertyDescription(nodeType: string, key: string): string | und
 
 /** Per-node overrides for a property's displayed label (defaults to the raw key). */
 export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
+  MatrixOutput: {
+    outputBrightness: 'brightness',
+  },
   TransportDisplay: {
     tftLayout: 'layout',
     tftRotation: 'rotation',
