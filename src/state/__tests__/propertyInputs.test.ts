@@ -39,6 +39,12 @@ describe('property input exposure', () => {
     expect(normalizeExposedInputs('TransportDisplay', undefined)).toEqual(['enabled'])
     expect(exposableInputsFor('MatrixOutput').filter((port) => port.kind === 'action').map((port) => port.id))
       .toEqual(['ledToggle', 'brightnessUp', 'brightnessDown'])
+    expect(exposableInputsFor('PatternMaster').filter((port) => port.kind === 'action').map((port) => port.id))
+      .toEqual(['playPause', 'previous', 'next', 'volumeUp', 'volumeDown', 'ledToggle', 'brightnessUp', 'brightnessDown', 'patternPrevious', 'patternNext', 'patternConfirm'])
+    expect(exposableInputsFor('PatternSlideshow').filter((port) => port.kind === 'action').map((port) => port.id))
+      .toEqual(['patternPrevious', 'patternNext', 'patternConfirm'])
+    expect(exposableInputsFor('PerformanceGenerator').filter((port) => port.kind === 'action').map((port) => port.id))
+      .toEqual(['playPause', 'previous', 'next', 'volumeUp', 'volumeDown', 'ledToggle', 'brightnessUp', 'brightnessDown'])
   })
 
   it('bounds imported visibility data and reveals wired ports without mutating the graph', () => {

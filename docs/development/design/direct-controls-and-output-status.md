@@ -2,7 +2,7 @@
 
 Status: in progress — step 1 inventory and contract are documented;
 steps 2, 3, the Touch-output core of step 4, Match target range and the
-LED-output action slice of step 5 are landed; fallback-backed
+destination-action slice of step 5 are landed; fallback-backed
 `propertyInputs` declarations are landed from the catalogue.
 2026-09-14. Target: Hardware, ahead of v1.0.0. Behaviour below is a mix of
 implemented and specified; the checklist at the foot says which is which.
@@ -214,7 +214,8 @@ and the firmware's `CtlEdge`/`CtlDetent` structs.
 | LED output `controls` bundle | ✓ | ✓ | ✓ |
 | Display panel `enabled` | ✓ | ✓ | ✓ |
 | Juggle `speed`/`count`/`fade`/`palette` | ✓ | ✓ | ✓ |
-| Pattern player transport (Play/Pause etc.) | N/A | N/A | ✓ (via Control Map) |
+| Pattern player transport actions (Play/Pause etc.) | N/A | N/A | ✓ (direct or via Control Map) |
+| Pattern slideshow actions (Next Pattern etc.) | N/A | ✓ (direct or via Control Map) | N/A |
 | Pattern slideshow `interval` | ✓ | ✓ | N/A |
 | Master Speed | ✓ | ✗ | ✗ |
 
@@ -351,9 +352,16 @@ user back to Control Map. Held physical buttons are edged/debounced before they
 toggle blackout; already-pulsed fixed-touch action outputs pass through without
 being swallowed.
 
-- [ ] Expose named destination actions on demand, including Play/Pause, Next and
+- [x] Expose named destination actions on demand, including Play/Pause, Next and
   Toggle blackout. Share press-edge, debounce and repeat rules so holding a
   button never repeatedly toggles a destination unintentionally.
+  → `PatternMaster`, `PerformanceGenerator`, `PatternSlideshow` and
+  `MatrixOutput` now declare their supported momentary `PlayerControls`
+  actions as on-demand action inputs. Preview folds direct wires into the same
+  bundle semantics as Control Map; the show and SD-player template routers emit
+  direct destination bundles before applying transport, pattern and LED-output
+  latches. Focused coverage: `propertyInputs.test.ts`, `graphEvaluator.test.ts`,
+  `customDisplayPlayer.test.ts`, `transportDisplayShow.test.ts`.
 - [ ] Reuse or complete explicit toggle, increment/decrement and range-mapping
   operations. Show initial state and step/range settings where applicable.
 - [ ] Retain useful Control Map bundles as an optional compact workflow; remove

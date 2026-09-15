@@ -80,6 +80,7 @@ import { useDecoderAudioStore } from './decoderAudioStore'
 import { resolveStorageCapabilitySource } from './storageCapabilities'
 import { usePlayerTransport } from './playerTransport'
 import { buttonBankHandle, normalizeButtonBankEntries } from './buttonBank'
+import { playerControlActionPortsFor, playerControlActionRepeats } from './playerControlAssignments'
 import { resolveStereoLevels } from '../audio/stereoLevels'
 import {
   renderStereoVu, stereoVuSettings, type StereoVuFrame, type StereoVuState,
@@ -363,6 +364,73 @@ function applyPlayerTransportControls(
     })
   }
   return runtime
+}
+
+function combinePlayerControls(base: PlayerControls, direct: PlayerControls | null): PlayerControls {
+  if (!direct) return base
+  const controls: PlayerControls = {
+    playPause: base.playPause || direct.playPause,
+    previous: base.previous || direct.previous,
+    next: base.next || direct.next,
+    volumeDelta: base.volumeDelta + direct.volumeDelta,
+    ledToggle: base.ledToggle || direct.ledToggle,
+    brightnessDelta: base.brightnessDelta + direct.brightnessDelta,
+    patternSteps: base.patternSteps + direct.patternSteps,
+    patternConfirm: base.patternConfirm || direct.patternConfirm,
+  }
+  if (base.volume != null) controls.volume = base.volume
+  if (direct.volume != null) controls.volume = direct.volume
+  if (base.brightness != null) controls.brightness = base.brightness
+  if (direct.brightness != null) controls.brightness = direct.brightness
+  if (base.speed != null) controls.speed = base.speed
+  if (direct.speed != null) controls.speed = direct.speed
+  return controls
+}
+
+function directPlayerActionControls(
+  ownerId: string,
+  key: string,
+  ports: readonly { id: string }[],
+  t: number,
+  incoming: ReadonlyMap<string, { srcId: string; srcPort: string }>,
+  input: (nodeId: string, port: string, fallback: PortValue) => PortValue,
+  nodeMap: ReadonlyMap<string, StudioNode>,
+): PlayerControls | null {
+  const active = ports.filter((port) => incoming.has(`${ownerId}:${port.id}`)).map((port) => port.id)
+  if (active.length === 0) return null
+  const controls = blankPlayerControls()
+  const directKey = key
+  const nowMs = t * 1000
+  let state = playerControlsState.get(directKey)
+  if (!state || t < state.lastT) state = { lastT: t, buttons: {} }
+  state.lastT = t
+  const edgeSettings = normalizeButtonEdgeSettings({})
+  const pressed = (port: string): boolean => {
+    const wire = incoming.get(`${ownerId}:${port}`)
+    if (!wire) return false
+    const raw = Boolean(input(ownerId, port, false))
+    const source = nodeMap.get(wire.srcId)
+    if (source?.data.nodeType === 'TouchInput' && wire.srcPort === port) return raw
+    let bs = state!.buttons[port]
+    if (!bs) {
+      bs = blankButtonEdgeState(nowMs)
+      state!.buttons[port] = bs
+    }
+    return buttonEdge(bs, raw, nowMs, playerControlActionRepeats(port), edgeSettings)
+  }
+  if (active.includes('playPause')) controls.playPause = pressed('playPause')
+  if (active.includes('previous')) controls.previous = pressed('previous')
+  if (active.includes('next')) controls.next = pressed('next')
+  if (active.includes('ledToggle')) controls.ledToggle = pressed('ledToggle')
+  if (active.includes('volumeUp')) controls.volumeDelta += pressed('volumeUp') ? 0.05 : 0
+  if (active.includes('volumeDown')) controls.volumeDelta -= pressed('volumeDown') ? 0.05 : 0
+  if (active.includes('brightnessUp')) controls.brightnessDelta += pressed('brightnessUp') ? 0.05 : 0
+  if (active.includes('brightnessDown')) controls.brightnessDelta -= pressed('brightnessDown') ? 0.05 : 0
+  if (active.includes('patternNext')) controls.patternSteps += pressed('patternNext') ? 1 : 0
+  if (active.includes('patternPrevious')) controls.patternSteps -= pressed('patternPrevious') ? 1 : 0
+  if (active.includes('patternConfirm')) controls.patternConfirm = pressed('patternConfirm')
+  playerControlsState.set(directKey, state)
+  return controls
 }
 
 /** The bundle a `controls` port carries, or an all-idle one when unwired. */
@@ -7908,9 +7976,16 @@ function createEvalNode(
         }
         const key = stateKey(id)
         const controlsValue = input(id, 'controls', null)
-        const controls: PlayerControls = isPlayerControls(controlsValue)
+        const bundleControls: PlayerControls = isPlayerControls(controlsValue)
           ? controlsValue
           : IDLE_PLAYER_CONTROLS
+        const controls = combinePlayerControls(
+          bundleControls,
+          directPlayerActionControls(
+            id, stateKey(`${id}/direct-actions`), playerControlActionPortsFor('player'),
+            t, incoming, input, nodeMap,
+          ),
+        )
         const runtime = applyPlayerTransportControls(key, controls)
 
         // One selection per player. The show's own advance goes through it
@@ -8021,7 +8096,13 @@ function createEvalNode(
         // looking at and what is playing to show anybody, so a step *is* the
         // change — which is what `confirm` on the same update means.
         const controlsValue = input(id, 'controls', null)
-        const controls = isPlayerControls(controlsValue) ? controlsValue : null
+        const controls = combinePlayerControls(
+          isPlayerControls(controlsValue) ? controlsValue : IDLE_PLAYER_CONTROLS,
+          directPlayerActionControls(
+            id, stateKey(`${id}/direct-actions`), playerControlActionPortsFor('engine'),
+            elapsedT, incoming, input, nodeMap,
+          ),
+        )
         const steps = controls ? Math.trunc(controls.patternSteps) : 0
         updatePatternSelection(selection, {
           ids,
@@ -8685,8 +8766,15 @@ function createEvalNode(
         // this graph builds is the same one a Music Player builds.
         const key = stateKey(id)
         const controlsValue = input(id, 'controls', null)
+        const controls = combinePlayerControls(
+          isPlayerControls(controlsValue) ? controlsValue : IDLE_PLAYER_CONTROLS,
+          directPlayerActionControls(
+            id, stateKey(`${id}/direct-actions`), playerControlActionPortsFor('performance'),
+            t, incoming, input, nodeMap,
+          ),
+        )
         const runtime = applyPlayerTransportControls(
-          key, isPlayerControls(controlsValue) ? controlsValue : IDLE_PLAYER_CONTROLS,
+          key, controls,
         )
 
         // Only the generator that actually owns the preview transport may

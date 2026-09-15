@@ -115,6 +115,16 @@ describe('fixed touch routing in generative shows', () => {
     expect(loop).not.toContain('fill_solid(leds, NUM_LEDS, CRGB::Black);')
   })
 
+  it('emits direct slideshow action inputs for pattern commands', () => {
+    const button = node('button', 'ButtonInput', { pin: 32 })
+    const cpp = build([output(), button], [edge('button', 'pressed', 'show', 'patternNext')])
+    const loop = cpp.slice(cpp.indexOf('void loop() {'))
+    expect(cpp).toContain('PlayerControlsValue n_show_direct_controls;')
+    expect(cpp).toContain('static CtlEdge _pcE_show_direct_patternNext;')
+    expect(loop).toContain('n_show_direct_controls.patternSteps += 1;')
+    expect(loop).toContain('_selUpdate(_sel_show, PATTERN_COUNT, millis(), n_show_direct_controls.patternSteps, n_show_direct_controls.patternSteps != 0 || n_show_direct_controls.patternConfirm);')
+  })
+
   it('dims HUB75 through the driver before its blit', () => {
     const cpp = build([panel(), output('out', { chipset: 'HUB75' })], [direct])
     const loop = cpp.slice(cpp.indexOf('void loop() {'))

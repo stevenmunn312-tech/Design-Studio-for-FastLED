@@ -118,9 +118,22 @@ export const PLAYER_CONTROL_FUNCTIONS: readonly PlayerControlFunction[] = [
 ]
 
 const BY_ID = new Map(PLAYER_CONTROL_FUNCTIONS.map((entry) => [entry.id, entry]))
+const REPEATING_ACTIONS = new Set(['volumeUp', 'volumeDown', 'brightnessUp', 'brightnessDown', 'patternPrevious', 'patternNext'])
 
 export function playerControlFunction(id: unknown): PlayerControlFunction | undefined {
   return typeof id === 'string' ? BY_ID.get(id) : undefined
+}
+
+export function playerControlActionPortsFor(destination: PlayerControlDestination): NodePort[] {
+  return PLAYER_CONTROL_FUNCTIONS
+    .filter((entry) => entry.dataType === 'bool'
+      && entry.kind === 'momentary'
+      && entry.destinations.includes(destination))
+    .map((entry) => ({ id: entry.id, label: entry.label, dataType: entry.dataType }))
+}
+
+export function playerControlActionRepeats(id: string): boolean {
+  return REPEATING_ACTIONS.has(id)
 }
 
 /** The bundle input, which is always present — it is not an assignment. */

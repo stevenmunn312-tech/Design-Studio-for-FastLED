@@ -67,6 +67,7 @@ import { waveSample, combineWaves } from '../wave'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import type { StudioNode, StudioEdge } from '../graphStore'
 import { useHardwareInputStore } from '../hardwareInputStore'
+import { usePlayerTransport } from '../playerTransport'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -2648,6 +2649,38 @@ describe('evaluateGraph', () => {
     ;(toggle.data.properties as Record<string, unknown>).a = 1
     const off = evaluateGraphFull(nodes, edges, 1, 4, 4, groups).frame!
     expect(litPixels(off)).toBe(0)
+  })
+
+  it('Music Player consumes direct action inputs with the same edge rules', () => {
+    resetEvaluatorState()
+    usePlayerTransport.setState({ controlSerial: 0, controlCommand: null })
+    const collection = node('direct_collection', 'PatternCollection', 'show', { patternIds: ['direct_group'] })
+    const press = node('direct_press', 'Compare', 'math', { a: 0, b: 0.5 })
+    const player = node('direct_player', 'PatternMaster', 'show', { minTime: 999, maxTime: 999, transitionSec: 1 })
+    const output = node('direct_output', 'MatrixOutput', 'output', {})
+    const solid = node('direct_solid', 'SolidColor', 'pattern', { r: 80, g: 40, b: 20 })
+    const groupOut = node('direct_group_out', 'GroupOutput', 'output', {})
+    const groups = { direct_group: { nodes: [solid, groupOut], edges: [edge('direct_ge', solid.id, 'frame', groupOut.id, 'frame')] } }
+    const nodes = [collection, press, player, output]
+    const edges = [
+      edge('direct_e1', collection.id, 'patternset', player.id, 'patternset'),
+      edge('direct_e2', press.id, 'result', player.id, 'playPause'),
+      edge('direct_e3', press.id, 'result', player.id, 'ledToggle'),
+      edge('direct_e4', player.id, 'frame', output.id, 'frame'),
+    ]
+
+    expect(evaluateGraphFull(nodes, edges, 0, 4, 4, groups).frame?.[0][0]).toEqual({ r: 80, g: 40, b: 20 })
+    ;(press.data.properties as Record<string, unknown>).a = 1
+    expect(evaluateGraphFull(nodes, edges, 1, 4, 4, groups).frame?.[0][0]).toEqual({ r: 80, g: 40, b: 20 })
+    const off = evaluateGraphFull(nodes, edges, 3, 4, 4, groups).frame!
+    expect(litPixels(off)).toBe(0)
+    expect(usePlayerTransport.getState().controlCommand).toMatchObject({
+      sourceId: 'direct_player',
+      playPause: true,
+    })
+    expect(usePlayerTransport.getState().controlSerial).toBe(1)
+    evaluateGraphFull(nodes, edges, 6, 4, 4, groups)
+    expect(usePlayerTransport.getState().controlSerial).toBe(1)
   })
 
   it('PatternMaster forwards its wired audio input into absorbed groups', () => {

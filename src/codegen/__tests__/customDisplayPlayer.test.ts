@@ -118,6 +118,15 @@ describe('custom displays in SD-player firmware', () => {
     expect(cpp).toContain('if (n_last_controls.next) changePlayerTrack(1);')
   })
 
+  it('emits direct player action inputs without requiring Control Map', () => {
+    const nodes = [node('button', 'ButtonInput', { pin: 12, pullup: true })]
+    const cpp = generate(nodes, [edge('button', 'pressed', 'player', 'playPause')])
+    expect(cpp).toContain('PlayerControlsValue n_player_direct_controls;')
+    expect(cpp).toContain('static CtlEdge _pcE_player_direct_playPause;')
+    expect(cpp).toContain('if (n_player_direct_controls.playPause && audio.pauseResume()) playerPaused = !playerPaused;')
+    expect(cpp).not.toContain('n_controls_controls')
+  })
+
   it('rejects unsupported sources, wrong types and output wires before code generation', () => {
     const nodes = [...root, node('wave', 'Wave'), node('controls', 'ControlMap', { controls: ['brightness'] })]
     const edges = [...route, edge('wave', 'result', 'controls', 'brightness'), edge('controls', 'controls', 'player', 'controls')]

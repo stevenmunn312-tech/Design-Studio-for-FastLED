@@ -10,7 +10,7 @@ import { DATE_TIME_TEXT_MODES } from './displayText'
 import { SEGMENT_BRIGHTNESS_MIN, SEGMENT_BRIGHTNESS_MAX, segmentControllerFor } from './segmentDisplay'
 import { partById } from './partCatalogue'
 import { SONG_INFO_PORTS } from './songInfo'
-import { playerControlInputs } from './playerControlAssignments'
+import { playerControlActionPortsFor, playerControlInputs } from './playerControlAssignments'
 import { PATTERN_SLIDESHOW_ORDERS } from './patternSlideshow'
 import {
   OLED_ROTATIONS, OLED_TRANSPORT_PINS, OLED_I2C_ADDRESS_OPTIONS, DEFAULT_OLED_I2C_ADDRESS,
@@ -2295,8 +2295,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'minTime',     label: 'Min Time',    dataType: 'float' },
       { id: 'maxTime',     label: 'Max Time',    dataType: 'float' },
       { id: 'transitionSec', label: 'Transition', dataType: 'float' },
+      ...playerControlActionPortsFor('player'),
     ],
     propertyInputs: { minTime: 'minTime', maxTime: 'maxTime', transitionSec: 'transitionSec' },
+    actionInputs: playerControlActionPortsFor('player').map((port) => port.id),
     outputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       // Technically I/O: commands arrive on `controls` and the resulting
@@ -2411,8 +2413,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'patternset',  label: 'Patterns',    dataType: 'patternset' },
       { id: 'transitions', label: 'Transitions', dataType: 'transitionset' },
       { id: 'interval',    label: 'Interval',    dataType: 'float' },
+      ...playerControlActionPortsFor('engine'),
     ],
     propertyInputs: { interval: 'interval' },
+    actionInputs: playerControlActionPortsFor('engine').map((port) => port.id),
     outputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       // Published for a panel to read, exactly as the player publishes its own.
@@ -3264,7 +3268,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // than reusing the player's: a Next Pattern button here would mint a
       // port, wire, validate, and be overwritten by the next SET_PATTERN.
       { id: 'controls', label: 'Controls', dataType: 'playercontrols' },
+      ...playerControlActionPortsFor('performance'),
     ],
+    actionInputs: playerControlActionPortsFor('performance').map((port) => port.id),
     outputs: [
       { id: 'frame', label: 'Show', dataType: 'frame' },
       // The same envelope Music Player publishes, because the firmware behind
