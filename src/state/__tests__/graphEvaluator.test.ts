@@ -3519,6 +3519,14 @@ describe('signal utility nodes', () => {
     expect(b(4, 1)).toBe(false)  // rising edge again → toggled back off
   })
 
+  it('Trigger toggle can start on before the first press', () => {
+    const graph = (on: number) => [boolSrc('trti', on), node('trgi', 'Trigger', 'math', { triggerOp: 'toggle', initialState: true })]
+    const edges = [edge('e', 'trti', 'result', 'trgi', 'trigger')]
+    const b = (tick: number, on: number) => evaluateScalar(graph(on), edges, 'trgi', 'out', tick) === 1
+    expect(b(0, 0)).toBe(true)
+    expect(b(1, 1)).toBe(false)
+  })
+
   it('Trigger oneShot holds true for holdTime after a rising edge, ignoring retriggers while high', () => {
     const graph = (on: number) => [boolSrc('tro', on), node('tro1', 'Trigger', 'math', { triggerOp: 'oneShot', holdTime: 0.5 })]
     const edges = [edge('e', 'tro', 'result', 'tro1', 'trigger')]

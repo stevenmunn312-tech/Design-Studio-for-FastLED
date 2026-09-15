@@ -4,7 +4,8 @@ Status: in progress — step 1 inventory and contract are documented;
 steps 2, 3, the Touch-output core of step 4, Match target range and the
 destination-action slice of step 5 are landed; fallback-backed
 `propertyInputs` declarations are landed from the catalogue; the
-direct-plus-bundle action collision gate is landed.
+direct-plus-bundle action collision gate is landed; explicit toggle initial
+state, repeat-step settings and Map Range repair are landed.
 2026-09-14. Target: Hardware, ahead of v1.0.0. Behaviour below is a mix of
 implemented and specified; the checklist at the foot says which is which.
 
@@ -372,8 +373,13 @@ controls invoking the same action remain valid.
   another momentary action both directly and through Control Map. The rule is a
   deploy-blocking error and a Graph Health diagnostic, covered by
   `validateGraph.test.ts` and `deployGates.test.ts`.
-- [ ] Reuse or complete explicit toggle, increment/decrement and range-mapping
+- [x] Reuse or complete explicit toggle, increment/decrement and range-mapping
   operations. Show initial state and step/range settings where applicable.
+  Trigger's Toggle variant now exposes an `initialState` field and preview plus
+  firmware initialise the latched output from it. Control Map keeps the
+  debounce, repeat and volume/brightness step settings for increment/decrement
+  actions. Range mismatches point at Map Range while dragging and in Graph
+  Health, whose repair inserts a configured 0-1 -> target-domain Map Range.
 - [ ] Retain useful Control Map bundles as an optional compact workflow; remove
   mandatory pass-through chains. Route each action to its actual owner and
   reconcile player/show lighting routes.

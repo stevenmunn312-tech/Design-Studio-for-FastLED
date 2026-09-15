@@ -5459,7 +5459,7 @@ export function generateCpp(
         const trig = boolExpr(node.id, 'trigger')
         const outVar = v('out')
         if (op === 'toggle') {
-          ln(`  static bool ${outVar} = false; static bool _trP_${id} = false;`)
+          ln(`  static bool ${outVar} = ${p.initialState === true ? 'true' : 'false'}; static bool _trP_${id} = false;`)
           ln(`  { bool _t = (${trig}); if (_t && !_trP_${id}) ${outVar} = !${outVar}; _trP_${id} = _t; }`)
         } else if (op === 'oneShot') {
           const ms = Math.max(20, Math.round(Number(p.holdTime ?? 0.1) * 1000))

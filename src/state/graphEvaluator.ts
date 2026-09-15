@@ -7036,7 +7036,17 @@ function createEvalNode(
         // Interval/Envelope above.
         const reset = prevSt !== undefined && t < prevSt.t
         const st: TriggerState = (!prevSt || reset)
-          ? { t, prevTrig: trig, candidate: trig, candidateSince: t, committed: trig, toggleOut: false, firedAt: -Infinity, count: 0, scheduled: null }
+          ? {
+              t,
+              prevTrig: trig,
+              candidate: trig,
+              candidateSince: t,
+              committed: trig,
+              toggleOut: Boolean(props.initialState),
+              firedAt: -Infinity,
+              count: 0,
+              scheduled: null,
+            }
           : { ...prevSt, t }
 
         let result = false

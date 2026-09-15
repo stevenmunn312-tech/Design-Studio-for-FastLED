@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType } from '../hardware'
 import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, PROPERTY_GROUPS, isPropertyEnabled, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel } from '../nodeLibrary'
 import { EASE_TYPES } from '../easing'
-import { PLAYER_CONTROL_FUNCTIONS } from '../playerControlAssignments'
+import { PLAYER_CONTROL_FUNCTIONS, playerControlActionPortsFor } from '../playerControlAssignments'
 
 describe('nodeLibrary', () => {
   it('defines dedicated semantic Music Player control and particle bundles', () => {
@@ -47,10 +47,13 @@ describe('nodeLibrary', () => {
     ])
 
     const player = NODE_LIBRARY.find((n) => n.type === 'PatternMaster')!
+    const playerActions = playerControlActionPortsFor('player').map((port) => port.id)
     expect(player.inputs.map((input) => input.id)).toEqual([
       'audio', 'controls', 'patternset', 'transitions', 'particleFx',
       'beat', 'minTime', 'maxTime', 'transitionSec',
+      ...playerActions,
     ])
+    expect(player.actionInputs).toEqual(playerActions)
     expect(player.inputs).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'controls', dataType: 'playercontrols' }),
       expect.objectContaining({ id: 'particleFx', dataType: 'playerparticles' }),
@@ -541,6 +544,14 @@ describe('nodeLibrary', () => {
     expect(isPropertyEnabled('ScheduleTrigger', 'endHour', { scheduleMode: 'Trigger' })).toBe(false)
   })
 
+  it('Trigger shows initial state only for the Toggle variant', () => {
+    const trigger = NODE_LIBRARY.find((n) => n.type === 'Trigger')
+    expect(trigger?.defaultProperties).toMatchObject({ initialState: false })
+    expect(isPropertyEnabled('Trigger', 'initialState', { triggerOp: 'toggle' })).toBe(true)
+    expect(isPropertyEnabled('Trigger', 'initialState', { triggerOp: 'debounce' })).toBe(false)
+    expect(isPropertyEnabled('Trigger', 'stableTime', { triggerOp: 'toggle' })).toBe(false)
+  })
+
   it('ClockDisplay offers RTC-fed clock layouts plus stopwatch/timer controls', () => {
     const clock = NODE_LIBRARY.find((n) => n.type === 'ClockDisplay')
     expect(clock?.category).toBe('pattern')
@@ -591,10 +602,13 @@ describe('nodeLibrary', () => {
       { id: 'display', label: 'Display', dataType: 'display' },
     ])
     // Music first, then the collection it schedules, then the transition pool,
-    // and Controls last — the one input that is not part of authoring a show.
-    expect(NODE_LIBRARY.find((n) => n.type === 'PerformanceGenerator')?.inputs.map((p) => p.id))
-      .toEqual(['music', 'patternset', 'transitions', 'controls'])
-    expect(NODE_LIBRARY.find((n) => n.type === 'PerformanceGenerator')?.defaultProperties).toMatchObject({
+    // then Controls and its on-demand direct actions.
+    const generator = NODE_LIBRARY.find((n) => n.type === 'PerformanceGenerator')
+    const performanceActions = playerControlActionPortsFor('performance').map((port) => port.id)
+    expect(generator?.inputs.map((p) => p.id))
+      .toEqual(['music', 'patternset', 'transitions', 'controls', ...performanceActions])
+    expect(generator?.actionInputs).toEqual(performanceActions)
+    expect(generator?.defaultProperties).toMatchObject({
       useGroupInputs: true,
       showInMainPreview: false,
     })

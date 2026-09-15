@@ -1619,6 +1619,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [{ id: 'out', label: 'Out', dataType: 'bool' }],
     defaultProperties: {
       triggerOp: 'debounce',
+      initialState: false,
       stableTime: 0.05,
       holdTime: 0.1,
       divideBy: 2,
@@ -5553,6 +5554,7 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   if (nodeType === 'Trigger') {
     const op = String(properties.triggerOp ?? 'debounce')
     switch (key) {
+      case 'initialState': return op === 'toggle'
       case 'stableTime': return op === 'debounce'
       case 'holdTime':   return op === 'oneShot'
       case 'divideBy':   return op === 'pulseDivider'

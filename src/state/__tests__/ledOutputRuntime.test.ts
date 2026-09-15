@@ -537,6 +537,19 @@ describe('the emitted sketch, for a bundle', () => {
     expect(src).toContain('if (n_out_direct_controls.ledToggle) _ledOn_out = !_ledOn_out;')
   })
 
+  it('emits a Trigger toggle with its configured initial state', () => {
+    const trigger = node('trg', 'Trigger', { triggerOp: 'toggle', initialState: true })
+    const src = generateCpp(
+      [white, button, trigger, output()],
+      [
+        frameEdge,
+        edge('e1', 'b', 'pressed', 'trg', 'trigger'),
+        edge('e2', 'trg', 'out', 'out', 'ledToggle'),
+      ],
+    )
+    expect(src).toContain('static bool n_trg_out = true; static bool _trP_trg = false;')
+  })
+
   // The firmware mirror of composeLedOutputRuntime: the latch is a factor, not
   // an override, so the wired expression is still in there beside it.
   it('reads the latch through the same runtime block the wires use', () => {
