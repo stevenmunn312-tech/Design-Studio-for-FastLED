@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { fixedTransportGeometry, nowPlayingGeometry } from '../transportDisplay'
+import {
+  fixedTransportGeometry, nowPlayingGeometry,
+  TRANSPORT_DISPLAY_LAYOUTS, type TransportDisplayLayout,
+} from '../transportDisplay'
 import { TFT_CONTROLLERS, tftRotatedSize, type TftRotation } from '../tftSurface'
 import {
   DEFAULT_XPT2046_CALIBRATION,
@@ -206,5 +209,42 @@ describe('guided touch calibration', () => {
       Array.from({ length: TOUCH_CALIBRATION_SAMPLES_PER_CORNER }, () => ({ x: 1000, y: 1000 })),
     ])) as Parameters<typeof touchCalibrationFromSamples>[0]
     expect(touchCalibrationFromSamples(samples)).toBeNull()
+  })
+})
+
+/*
+ * A layout publishes only the controls it draws.
+ *
+ * This used to be decided by falling through to Now Playing's regions for any
+ * layout not named above them, which is the wrong way round: a screen that
+ * draws no controls reported playPause and volume from rectangles with nothing
+ * in them. A Clock panel answered a press on its date row as a transport
+ * command, and LED Status inherited the same phantom controls the day it was
+ * added — while its own comment said it was read-only.
+ *
+ * Derived over the whole layout list rather than checking the two that were
+ * wrong, so a layout added later is read-only until someone writes its regions
+ * — safe by default for a report screen, and an obvious omission for an
+ * interactive one.
+ */
+describe('only interactive layouts publish touch actions', () => {
+  const INTERACTIVE = new Set<TransportDisplayLayout>(['Now Playing', 'Fixed Transport'])
+
+  it.each(TRANSPORT_DISPLAY_LAYOUTS)('%s', (layout) => {
+    const regions = transportTouchRegions(TFT_CONTROLLERS.ST7789V, '0', layout)
+    if (INTERACTIVE.has(layout)) {
+      expect(regions.length, layout).toBeGreaterThan(0)
+      return
+    }
+    expect(regions, layout).toEqual([])
+  })
+
+  // The two that do draw controls, named so a silent regression in either is a
+  // failure rather than a quietly shorter list.
+  it('draws the transport it advertises', () => {
+    const fixed = transportTouchRegions(TFT_CONTROLLERS.ST7789V, '0', 'Fixed Transport')
+    expect(fixed.map((region) => region.action)).toEqual(['previous', 'playPause', 'next', 'volume'])
+    const playing = transportTouchRegions(TFT_CONTROLLERS.ST7789V, '0', 'Now Playing')
+    expect(playing.map((region) => region.action)).toEqual(['playPause', 'volume'])
   })
 })

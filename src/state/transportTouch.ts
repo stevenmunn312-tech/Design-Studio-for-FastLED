@@ -330,14 +330,30 @@ export function transportTouchRegions(
   layout: TransportDisplayLayout,
 ): TransportTouchRegion[] {
   const { width, height } = tftRotatedSize(controller, rotation)
-  if (layout === 'Diagnostics' || layout === 'Waiting') return []
-  // Show Status is read-only. It used to offer an LED toggle and a brightness
-  // bar, but both were drawn from readings a Slideshow does not have; the
-  // controls went with them to the custom-display layer, which can wire an LED
-  // output's Controls input directly. A panel that reports without commanding
-  // is a legitimate state — `findDisplayGeneratorIssues` only objects to a
-  // touch chain that reaches nothing, not to a display that publishes none.
-  if (layout === 'Show Status') return []
+  /*
+   * Named, never defaulted.
+   *
+   * Only two layouts draw anything a finger can operate, and this used to say
+   * so by listing the silent ones and letting everything else fall through to
+   * Now Playing's regions. That is backwards: a layout that draws no controls
+   * would publish playPause and volume from rectangles with nothing in them,
+   * and it did — a Clock panel reported a transport press from the middle of
+   * its date row, and LED Status inherited the same phantom controls the day
+   * it was added.
+   *
+   * Turning it around costs nothing and makes the safe answer the default: a
+   * layout added later publishes nothing until someone writes its regions,
+   * which is the correct starting point for a read-only screen and an obvious
+   * omission for an interactive one.
+   *
+   * Show Status and LED Status are read-only on purpose. Both used to be
+   * expected to carry an LED toggle and a brightness bar; those were drawn
+   * from readings neither source has, and the controls went to the
+   * custom-display layer, which can wire an LED output's inputs directly. A
+   * panel that reports without commanding is a legitimate state —
+   * `findDisplayGeneratorIssues` objects to a touch chain that reaches
+   * nothing, not to a display that publishes none.
+   */
   if (layout === 'Fixed Transport') {
     const g = fixedTransportGeometry(width, height)
     return [
@@ -347,11 +363,14 @@ export function transportTouchRegions(
       { action: 'volume', rect: g.volume, valueAxis: 'x' },
     ]
   }
-  const g = nowPlayingGeometry(width, height)
-  return [
-    { action: 'playPause', rect: g.state },
-    { action: 'volume', rect: g.volume, valueAxis: 'x' },
-  ]
+  if (layout === 'Now Playing') {
+    const g = nowPlayingGeometry(width, height)
+    return [
+      { action: 'playPause', rect: g.state },
+      { action: 'volume', rect: g.volume, valueAxis: 'x' },
+    ]
+  }
+  return []
 }
 
 export function touchRegionAt(
