@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowRequirementErrors, estimatePowerLoad, estimateFirmwareRam, estimateLedRefreshTime, findMirroredOutputMismatches, findShowOutputFormErrors, findAudioCapabilityErrors, findPlayerControlMappingWarnings, findSharedControlSourceWarnings, findSignalRangeWarnings, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowRequirementErrors, estimatePowerLoad, estimateFirmwareRam, estimateLedRefreshTime, findMirroredOutputMismatches, findShowOutputFormErrors, findAudioCapabilityErrors, findPlayerControlMappingWarnings, findSharedControlSourceWarnings, findSignalRangeWarnings, findPanelEnableRecoveryIssues, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
 import { OLED_PANEL_RAM_BYTES } from '../../codegen/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../../codegen/segmentDisplayCpp'
 import { TFT_PANEL_RAM_BYTES } from '../../codegen/tftDisplayCpp'
@@ -1872,5 +1872,85 @@ describe('LED strings count toward the hardware estimates', () => {
       },
     } as unknown as StudioNode
     expect(estimatePowerLoad([panel, ledString('s', 60)])!.ledCount).toBe((16 * 16) + 60)
+  })
+})
+
+/*
+ * A panel switched off by its own glass has nothing left to switch it on.
+ *
+ * The firmware is behaving as specified here — off means dark, no touch read,
+ * outputs at rest — so nothing downstream will report it. It is a shape only
+ * the graph can see, and only before the board is flashed.
+ */
+describe('findPanelEnableRecoveryIssues', () => {
+  const panel = (id = 'tft') => node(id, 'TransportDisplay', {
+    partId: 'st7789v-xpt2046-touch-240x320', displayId: 'screen',
+  })
+  const touchFor = (panelId = 'tft') => node(`${panelId}-touch`, 'TouchInput', { panelId })
+  const wire = (id: string, source: string, sourceHandle: string, target: string, targetHandle: string): StudioEdge =>
+    ({ id, source, sourceHandle, target, targetHandle }) as unknown as StudioEdge
+
+  it('warns when the panel’s own Touch node is the only source of Enabled', () => {
+    const issues = findPanelEnableRecoveryIssues(
+      [panel(), touchFor()],
+      [wire('e', 'tft-touch', 'widget:toggle:out', 'tft', 'enabled')],
+    )
+    expect(issues).toHaveLength(1)
+    expect(issues[0]).toMatchObject({ panelId: 'tft', touchNodeId: 'tft-touch' })
+    expect(issues[0].message).toContain('cannot turn it back on')
+
+    const diagnostics = buildGraphDiagnostics(
+      [panel(), touchFor()],
+      [wire('e', 'tft-touch', 'widget:toggle:out', 'tft', 'enabled')],
+    ).filter((entry) => entry.id.startsWith('panel-enable-recovery-'))
+    expect(diagnostics).toHaveLength(1)
+    // A warning, not an error: the graph builds and does exactly what it says.
+    expect(diagnostics[0].severity).toBe('warning')
+    expect(diagnostics[0].nodeIds).toEqual(['tft', 'tft-touch'])
+  })
+
+  it('sees through a latch and any other logic in between', () => {
+    const issues = findPanelEnableRecoveryIssues(
+      [panel(), touchFor(), node('latch', 'Trigger', { triggerOp: 'toggle' }), node('invert', 'Not')],
+      [
+        wire('a', 'tft-touch', 'widget:toggle:out', 'latch', 'trigger'),
+        wire('b', 'latch', 'out', 'invert', 'x'),
+        wire('c', 'invert', 'result', 'tft', 'enabled'),
+      ],
+    )
+    expect(issues).toHaveLength(1)
+  })
+
+  it('stays quiet when an independent source can bring it back', () => {
+    // Max over the two booleans is an OR: either source can raise Enabled.
+    const nodes = [panel(), touchFor(), node('btn', 'ButtonInput', { pin: 12 }), node('any', 'Math', { mathOp: 'max' })]
+    expect(findPanelEnableRecoveryIssues(nodes, [
+      wire('a', 'tft-touch', 'widget:toggle:out', 'any', 'a'),
+      wire('b', 'btn', 'pressed', 'any', 'b'),
+      wire('c', 'any', 'result', 'tft', 'enabled'),
+    ])).toEqual([])
+
+    // The button alone.
+    expect(findPanelEnableRecoveryIssues(nodes, [
+      wire('a', 'btn', 'pressed', 'tft', 'enabled'),
+    ])).toEqual([])
+  })
+
+  it('treats another panel’s glass as an independent route', () => {
+    const issues = findPanelEnableRecoveryIssues(
+      [panel(), touchFor(), panel('deck'), touchFor('deck')],
+      [wire('a', 'deck-touch', 'widget:toggle:out', 'tft', 'enabled')],
+    )
+    expect(issues).toEqual([])
+  })
+
+  it('says nothing about an unwired Enabled or a panel with no glass', () => {
+    // The property is the gate; no touch can move it.
+    expect(findPanelEnableRecoveryIssues([panel(), touchFor()], [])).toEqual([])
+    // No paired Touch node at all — nothing to disable it from.
+    expect(findPanelEnableRecoveryIssues(
+      [panel(), node('btn', 'ButtonInput', { pin: 12 })],
+      [wire('a', 'btn', 'pressed', 'tft', 'enabled')],
+    )).toEqual([])
   })
 })

@@ -2095,6 +2095,84 @@ export function findDisplayGeneratorIssues(
   return { errors, warnings }
 }
 
+export interface PanelEnableRecoveryIssue {
+  panelId: string
+  touchNodeId: string
+  panelLabel: string
+  message: string
+  fix: string
+}
+
+/**
+ * A panel whose only way back on is the glass it just turned off.
+ *
+ * Enabled is one runtime signal with one meaning everywhere: dark, no touch
+ * read, widget outputs at rest. That contract is what makes this shape a trap
+ * rather than a bug — the firmware is behaving exactly as specified, and the
+ * panel is simply unreachable until the board is reflashed or power-cycled.
+ *
+ * Deliberately not repaired by waking the panel on the next press, and not by
+ * quietly converting the toggle into a momentary control: either would make
+ * Enabled mean something different on this panel than on every other one, and
+ * the user asked for a latch. It is reported so the consequence is visible at
+ * the moment the connection is drawn, and left to the user to answer — usually
+ * with a physical button, a schedule, or a second panel.
+ *
+ * The rule is the unambiguous one: warn only when the panel's own Touch node
+ * is the *sole* origin of the signal. An origin is a node in the upstream
+ * closure of Enabled with nothing feeding it, so a Toggle, a Control Map or
+ * any amount of logic between the glass and the panel is seen through. A graph
+ * that also mixes in some constant is not flagged, which can miss a contrived
+ * shape; that is the right way to be wrong here, because a warning that fires
+ * on a correct graph is what teaches people to stop reading the drawer.
+ */
+export function findPanelEnableRecoveryIssues(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+): PanelEnableRecoveryIssue[] {
+  const panels = nodes.filter((node) => node.data.nodeType === 'TransportDisplay')
+  if (panels.length === 0) return []
+
+  const incoming = new Map<string, StudioEdge[]>()
+  for (const edge of edges) incoming.set(edge.target, [...(incoming.get(edge.target) ?? []), edge])
+
+  const issues: PanelEnableRecoveryIssue[] = []
+  for (const panel of panels) {
+    const enabledEdges = (incoming.get(panel.id) ?? []).filter((edge) => edge.targetHandle === 'enabled')
+    if (enabledEdges.length === 0) continue
+    const touchNode = nodes.find((node) => node.data.nodeType === 'TouchInput'
+      && String(node.data.properties.panelId ?? '') === panel.id)
+    if (!touchNode) continue
+
+    // Upstream closure of Enabled, collecting the nodes nothing feeds.
+    const origins = new Set<string>()
+    const seen = new Set<string>()
+    const pending = enabledEdges.map((edge) => edge.source)
+    while (pending.length > 0) {
+      const id = pending.pop()!
+      if (seen.has(id)) continue
+      seen.add(id)
+      const sources = (incoming.get(id) ?? []).map((edge) => edge.source)
+      if (sources.length === 0) origins.add(id)
+      else pending.push(...sources)
+    }
+    if (origins.size !== 1 || !origins.has(touchNode.id)) continue
+
+    const label = nodeLabel(panel)
+    issues.push({
+      panelId: panel.id,
+      touchNodeId: touchNode.id,
+      panelLabel: label,
+      message: `${label} is switched off by its own touchscreen and by nothing else. `
+        + 'A panel that is off reads no touch, so the control that turned it off cannot turn it back on '
+        + 'and the screen stays dark until the board is restarted.',
+      fix: 'Give Enabled a second source the panel does not own — a physical button, a schedule, or a '
+        + 'control on another panel. Combine the two with a logic node rather than replacing this wire.',
+    })
+  }
+  return issues
+}
+
 interface SignalRangeIssue {
   edgeId: string
   sourceId: string
@@ -2812,6 +2890,21 @@ export function buildGraphDiagnostics(
       fix: issue.fix,
       nodeIds: issue.nodeIds,
       nodeLabel: issue.nodeLabel,
+    })
+  }
+  // A warning, not an error: the graph is buildable and does what it says.
+  // What it does is just unrecoverable from the glass, which is worth seeing
+  // while the wire is being drawn rather than on a bench.
+  for (const issue of findPanelEnableRecoveryIssues(nodes, edges)) {
+    diagnostics.push({
+      id: `panel-enable-recovery-${issue.panelId}`,
+      severity: 'warning',
+      category: 'connection',
+      title: 'This panel cannot be switched back on',
+      message: issue.message,
+      fix: issue.fix,
+      nodeIds: [issue.panelId, issue.touchNodeId],
+      nodeLabel: issue.panelLabel,
     })
   }
 
