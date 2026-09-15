@@ -240,6 +240,17 @@ export function templateControlPlan(
 
     // Every control widget publishes on the one `out` role.
     const sourcePort = displayWidgetPortId(widget.id, 'out')
+
+    /*
+     * A control that already has a job keeps it.
+     *
+     * One press is one event — the rule `sharedControlSourceIssues` enforces
+     * for a Control Map — and it is what stops a panel rewired from a player
+     * to a slideshow ending up with its Next button driving both. Checked on
+     * the control's own output rather than on the destination, because the
+     * destination is exactly the thing that just changed.
+     */
+    if (edges.some((edge) => edge.source === touchNode.id && edge.sourceHandle === sourcePort)) continue
     // Never overwrite an occupied input, and never wire the same control
     // twice: repeated use has to be idempotent, and a manual rewire has to
     // survive. Both are the same check — something is already there.

@@ -13,6 +13,7 @@ import {
   leaveDisplayHistoryScope,
   rootGraphEdges,
   rootGraphNodes,
+  connectTemplateControls,
   useGraphStore,
 } from '../../state/graphStore'
 import {
@@ -509,13 +510,55 @@ export default function DisplayEditor() {
     commit({ ...document, theme: { ...document.theme, background: { kind: 'image', assetId: asset.id } } }, `${asset.label} background applied.`)
   }
 
+  /**
+   * What auto-wiring did, as a sentence.
+   *
+   * The controls it left alone matter more than the ones it connected: a
+   * connected control is visible on the canvas, while an unconnected one is
+   * indistinguishable from a bug unless something says why. The first reason
+   * is named in full rather than counted, because with one source wired they
+   * are usually all the same reason.
+   */
+  const routingAnnouncement = (result: ReturnType<typeof connectTemplateControls>): string => {
+    const wired = result.connected > 0
+      ? `Connected ${result.connected} control${result.connected === 1 ? '' : 's'}.`
+      : 'No controls were connected.'
+    if (result.unrouted.length === 0) return wired
+    return `${wired} ${result.unrouted.length} left unconnected: ${result.unrouted[0].reason}`
+  }
+
   const insertTemplate = (id: DisplayTemplateId) => {
     const template = displayTemplate(id)
     if (!template) return
     const next = applyDisplayTemplate(document, id, controlThemeId)
     const added = next.widgets.slice(document.widgets.length)
-    commit(next, `${template.label} template inserted with ${added.length} widgets. ${validationAnnouncement(displayLayoutIssues(next))}`)
+    const placed = `${template.label} template inserted with ${added.length} widgets. ${validationAnnouncement(displayLayoutIssues(next))}`
+    commit(next, placed)
     setSelectedIds(added.map((widget) => widget.id))
+    // In the same tick as the commit above, so the widgets and the wires they
+    // command with collapse into one undo step. A template that took two undos
+    // to remove would be worse than one that arrived unwired.
+    if (!mountedPanel) return
+    const routed = connectTemplateControls(mountedPanel.id)
+    // Appended rather than replacing: what was placed and what it reached are
+    // both worth hearing, and the screen-reader announcement is one string.
+    if (routed.connected > 0 || routed.unrouted.length > 0) {
+      setAnnouncement(`${placed} ${routingAnnouncement(routed)}`)
+    }
+  }
+
+  /**
+   * Fill in the connections a template could not make when it was placed.
+   *
+   * The same action, offered again: a panel wired to its player after the
+   * screen was drawn has destinations it did not have before. Repeated use is
+   * idempotent because the plan declines an input that already has something
+   * on it — including the wire this action drew last time — so pressing it
+   * twice is safe and pressing it after a manual rewire respects the rewire.
+   */
+  const connectControls = () => {
+    if (!mountedPanel) return
+    setAnnouncement(routingAnnouncement(connectTemplateControls(mountedPanel.id)))
   }
 
   /** One shelf entry, shared by the mapped group and the rest. */
@@ -884,6 +927,15 @@ export default function DisplayEditor() {
             </section>
             <h2>Templates</h2>
             <p>Insert a starting layout of ordinary widgets.</p>
+            {mountedPanel && (
+              <button
+                type="button"
+                className={styles.templateConnect}
+                onClick={connectControls}
+              >
+                Connect template controls
+              </button>
+            )}
             {/*
               * The layouts the wired source can fill come first.
               *

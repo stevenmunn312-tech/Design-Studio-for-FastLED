@@ -15,6 +15,7 @@ import {
 import type { NodeCategory, NodePort } from '../types'
 import { NODE_LIBRARY, portColor, propertyLabel, propertyMeta } from './nodeLibrary'
 import { exposableInputsFor, normalizeExposedInputs, propertyInputsFor } from './propertyInputs'
+import { templateControlPlan, type TemplateControlPlan } from './templateControlRouting'
 import type { GroupRegistry } from './graphEvaluator'
 import type { SavedPattern } from './patternLibrary'
 import { isPatternContentTrusted, trustPatternContent } from './patternTrust'
@@ -3429,6 +3430,112 @@ export function useRootEdges(): StudioEdge[] {
  * from inside a group would otherwise be a silent no-op, since the node being
  * edited is not in the active graph at all.
  */
+/**
+ * Connect a template's controls to what they command, in one undoable step.
+ *
+ * The plan is `templateControlPlan`'s; this only performs it. Everything the
+ * wires need lands in a single `set`, so the whole operation is one entry in
+ * the history stack: the edges, the sockets they need drawn, and any adapter
+ * node a conversion required. An auto-wire that took three undos to remove
+ * would be worse than no auto-wire.
+ *
+ * Idempotent by construction rather than by a guard here: the plan already
+ * declines a destination that has something wired to it, including the wire
+ * this action drew last time. So a second run connects nothing, and a wire the
+ * user has since rerouted or deleted deliberately is respected — it either
+ * occupies the input (left alone) or is genuinely missing (offered again),
+ * which are the two honest answers.
+ *
+ * Returns the plan it acted on, so a caller can say what happened and — more
+ * usefully — what did not.
+ */
+export function connectTemplateControls(panelId: string): TemplateControlPlan & { connected: number } {
+  const state = useGraphStore.getState()
+  const panel = state.nodes.find((node) => node.id === panelId)
+  const documentId = String((panel?.data.properties as Record<string, unknown> | undefined)?.displayId ?? '')
+  const document = documentId ? state.displayDocuments[documentId] : undefined
+  if (!panel || !document) return { wires: [], unrouted: [], connected: 0 }
+
+  const plan = templateControlPlan(panel, document, state.nodes, state.edges)
+  if (plan.wires.length === 0) return { ...plan, connected: 0 }
+
+  const touchNode = state.nodes.find((node) => node.data.nodeType === 'TouchInput'
+    && String((node.data.properties as Record<string, unknown>).panelId ?? '') === panelId)
+  if (!touchNode) return { ...plan, connected: 0 }
+
+  const notDefinition = LIBRARY_DEF.get('Not')
+  let connected = 0
+
+  useGraphStore.setState((s) => {
+    let nodes = s.nodes
+    let edges = s.edges
+    // Adapters stack down the canvas beside the panel rather than piling up at
+    // one point, so two of them on one screen are separately clickable.
+    let adapterIndex = 0
+
+    const connect = (
+      sourceId: string, sourceHandle: string, targetId: string, targetHandle: string,
+    ) => {
+      const source = nodes.find((node) => node.id === sourceId)
+      edges = [...edges, {
+        id: `tpl-${sourceId}-${sourceHandle}-${targetId}-${targetHandle}`,
+        source: sourceId,
+        sourceHandle,
+        target: targetId,
+        targetHandle,
+        type: 'glowEdge',
+        reconnectable: 'target',
+        style: { stroke: edgeStrokeForPort(source, sourceHandle) },
+      } as unknown as StudioEdge]
+    }
+
+    for (const wire of plan.wires) {
+      // Draw the socket the wire lands on. An action or property input is a
+      // field until something is wired to it, and an edge into a socket nobody
+      // can see is the state `exposedPropertyInputs` exists to prevent.
+      const target = nodes.find((node) => node.id === wire.targetId)
+      if (target && exposableInputsFor(target.data.nodeType).some((port) => port.id === wire.targetPort)) {
+        const current = normalizeExposedInputs(target.data.nodeType, target.data.exposedInputs)
+        if (!current.includes(wire.targetPort)) {
+          const next = normalizeExposedInputs(target.data.nodeType, [...current, wire.targetPort])
+          nodes = nodes.map((node) => node.id === wire.targetId
+            ? { ...node, data: { ...node.data, exposedInputs: next } } : node)
+        }
+      }
+
+      if (wire.adapter === 'invert' && notDefinition) {
+        // A conversion the user can see, select and delete. Placed rather than
+        // folded into the edge because one boolean must not mean two different
+        // things depending on which port it happened to land on.
+        const id = `Not-${Date.now()}-${Math.round(Math.random() * 1e6)}-${adapterIndex}`
+        nodes = [...nodes, {
+          id,
+          type: 'studioNode',
+          position: { x: panel.position.x + 320, y: panel.position.y + (adapterIndex * 120) },
+          data: {
+            label: notDefinition.label,
+            nodeType: notDefinition.type,
+            category: notDefinition.category,
+            properties: { ...libraryDefaults('Not') },
+            inputs: notDefinition.inputs,
+            outputs: notDefinition.outputs,
+          },
+        } as unknown as StudioNode]
+        adapterIndex += 1
+        connect(touchNode.id, wire.sourcePort, id, 'x')
+        connect(id, 'result', wire.targetId, wire.targetPort)
+      } else {
+        connect(touchNode.id, wire.sourcePort, wire.targetId, wire.targetPort)
+      }
+      connected += 1
+    }
+
+    return { nodes, edges }
+  })
+
+  return { ...plan, connected }
+}
+
 /**
  * Put a Map Range on a wire that carries the wrong domain.
  *
