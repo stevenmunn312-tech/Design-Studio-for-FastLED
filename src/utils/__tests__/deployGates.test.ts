@@ -244,6 +244,25 @@ const CASES: GateCase[] = [
     names: ['CustomFormula', 'digitalWrite'],
     diagnostic: 'cf-formula',
   },
+  {
+    name: 'one action source reaches a destination directly and through Control Map',
+    nodes: [
+      node('sc', 'SolidColor'),
+      node('btn', 'ButtonInput', { pin: 12 }),
+      node('controls', 'ControlMap', { controls: ['ledToggle'] }),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ],
+    edges: [
+      edge('frame', 'sc', 'out'),
+      { id: 'mapped', source: 'btn', sourceHandle: 'pressed', target: 'controls', targetHandle: 'ledToggle' } as unknown as StudioEdge,
+      { id: 'bundle', source: 'controls', sourceHandle: 'controls', target: 'out', targetHandle: 'controls' } as unknown as StudioEdge,
+      { id: 'direct', source: 'btn', sourceHandle: 'pressed', target: 'out', targetHandle: 'ledToggle' } as unknown as StudioEdge,
+    ],
+    fqbn: S3,
+    blocks: /LED On \/ Off reaches MatrixOutput twice/,
+    names: ['LED On / Off', 'MatrixOutput', 'Control Map route'],
+    diagnostic: 'direct-control-collision-out-ledToggle-btn-pressed',
+  },
 ]
 
 describe('deploy gates — each failure class blocks with an actionable message', () => {

@@ -3,7 +3,8 @@
 Status: in progress — step 1 inventory and contract are documented;
 steps 2, 3, the Touch-output core of step 4, Match target range and the
 destination-action slice of step 5 are landed; fallback-backed
-`propertyInputs` declarations are landed from the catalogue.
+`propertyInputs` declarations are landed from the catalogue; the
+direct-plus-bundle action collision gate is landed.
 2026-09-14. Target: Hardware, ahead of v1.0.0. Behaviour below is a mix of
 implemented and specified; the checklist at the foot says which is which.
 
@@ -350,7 +351,10 @@ controllers fold those direct actions through the same `PlayerControlsValue`
 and LED-output latch as Control Map; SD-player builds refuse them and point the
 user back to Control Map. Held physical buttons are edged/debounced before they
 toggle blackout; already-pulsed fixed-touch action outputs pass through without
-being swallowed.
+being swallowed. Validation now rejects the one doubled route that would apply
+a single press twice: the same source output wired to the same destination
+action both directly and through an upstream Control Map bundle. Separate
+controls invoking the same action remain valid.
 
 - [x] Expose named destination actions on demand, including Play/Pause, Next and
   Toggle blackout. Share press-edge, debounce and repeat rules so holding a
@@ -362,11 +366,17 @@ being swallowed.
   direct destination bundles before applying transport, pattern and LED-output
   latches. Focused coverage: `propertyInputs.test.ts`, `graphEvaluator.test.ts`,
   `customDisplayPlayer.test.ts`, `transportDisplayShow.test.ts`.
+- [x] Reject a direct-plus-bundle action collision for the same source and
+  destination action. Two separate buttons may still invoke the same action,
+  but one `pressed` output cannot reach **LED On / Off**, **Next Pattern** or
+  another momentary action both directly and through Control Map. The rule is a
+  deploy-blocking error and a Graph Health diagnostic, covered by
+  `validateGraph.test.ts` and `deployGates.test.ts`.
 - [ ] Reuse or complete explicit toggle, increment/decrement and range-mapping
   operations. Show initial state and step/range settings where applicable.
 - [ ] Retain useful Control Map bundles as an optional compact workflow; remove
-  mandatory pass-through chains. Route each action to its actual owner, reconcile
-  player/show lighting routes, and reject a direct-plus-bundle action collision.
+  mandatory pass-through chains. Route each action to its actual owner and
+  reconcile player/show lighting routes.
 
 ### 6. Preserve feedback and evaluation order
 

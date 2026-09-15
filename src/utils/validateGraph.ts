@@ -1384,6 +1384,7 @@ export function findDeployBlockingErrors(
     ...findScalarExpressionErrors(nodes),
     ...findFormulaErrors(nodes),
     ...findBoardCompatibilityErrors(nodes, selectedFqbn),
+    ...directControlCollisionIssues(nodes, edges).map((issue) => `${issue.title}. ${issue.fix}`),
     ...displayIssues.errors,
     ...runtimeIssues,
     ...showEngineIssues(nodes, edges)
@@ -1453,6 +1454,15 @@ interface PlayerControlMappingIssue {
   nodeIds: string[]
   nodeLabel: string
   message: string
+}
+
+interface DirectControlCollisionIssue {
+  id: string
+  nodeIds: string[]
+  nodeLabel: string
+  title: string
+  message: string
+  fix: string
 }
 
 interface ShowEngineIssue {
@@ -1588,6 +1598,91 @@ function playerControlMappingIssues(nodes: StudioNode[], edges: StudioEdge[]): P
         nodeIds: component,
         nodeLabel: nodeLabel(first),
         message: `${domain === 'volume' ? 'Volume' : 'Brightness'} has both an absolute control and up/down buttons in the same Control Map chain`,
+      })
+    }
+  }
+  return issues
+}
+
+/**
+ * A single physical action must not reach the same destination twice: once
+ * directly and once through a Control Map bundle.
+ *
+ * Two separate buttons mapped to the same Play/Pause or LED Toggle action are
+ * fine. The bad shape is one source output feeding both routes. LED outputs
+ * apply their bundle and direct inputs in separate passes, so a doubled
+ * blackout press toggles off and immediately back on; slideshow pattern steps
+ * can similarly advance twice.
+ */
+function directControlCollisionIssues(nodes: StudioNode[], edges: StudioEdge[]): DirectControlCollisionIssue[] {
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  const libraryByType = new Map(NODE_LIBRARY.map((definition) => [definition.type, definition]))
+  const controlMaps = new Set(nodes.filter((node) => node.data.nodeType === 'ControlMap').map((node) => node.id))
+  const upstreamMaps = new Map<string, string[]>()
+  for (const edge of edges) {
+    if (edge.targetHandle !== 'controlsIn' || !controlMaps.has(edge.source) || !controlMaps.has(edge.target)) continue
+    upstreamMaps.set(edge.target, [...(upstreamMaps.get(edge.target) ?? []), edge.source])
+  }
+
+  const upstreamClosure = (root: string): string[] => {
+    const seen = new Set<string>()
+    const pending = [root]
+    while (pending.length > 0) {
+      const id = pending.pop()!
+      if (seen.has(id)) continue
+      seen.add(id)
+      pending.push(...(upstreamMaps.get(id) ?? []))
+    }
+    return [...seen]
+  }
+
+  const sourceKey = (edge: StudioEdge): string => `${edge.source}:${edge.sourceHandle ?? ''}`
+  const issues: DirectControlCollisionIssue[] = []
+  const seenIssues = new Set<string>()
+  for (const destination of nodes) {
+    const actionInputs = new Set(libraryByType.get(destination.data.nodeType)?.actionInputs ?? [])
+    if (actionInputs.size === 0) continue
+    const controlsEdges = edges.filter((edge) =>
+      edge.target === destination.id
+      && edge.targetHandle === 'controls'
+      && controlMaps.has(edge.source))
+    if (controlsEdges.length === 0) continue
+
+    const bundledSources = new Map<string, { edge: StudioEdge; controlMapId: string }>()
+    for (const controlsEdge of controlsEdges) {
+      for (const controlMapId of upstreamClosure(controlsEdge.source)) {
+        for (const controlEdge of edges) {
+          if (controlEdge.target !== controlMapId) continue
+          const action = playerControlFunction(controlEdge.targetHandle)
+          if (!action || action.kind !== 'momentary' || !actionInputs.has(action.id)) continue
+          bundledSources.set(`${action.id}|${sourceKey(controlEdge)}`, { edge: controlEdge, controlMapId })
+        }
+      }
+    }
+    if (bundledSources.size === 0) continue
+
+    for (const directEdge of edges) {
+      if (directEdge.target !== destination.id) continue
+      const action = playerControlFunction(directEdge.targetHandle)
+      if (!action || action.kind !== 'momentary' || !actionInputs.has(action.id)) continue
+      const duplicate = bundledSources.get(`${action.id}|${sourceKey(directEdge)}`)
+      if (!duplicate) continue
+      const issueId = `direct-control-collision-${destination.id}-${action.id}-${directEdge.source}-${directEdge.sourceHandle ?? 'out'}`
+      if (seenIssues.has(issueId)) continue
+      seenIssues.add(issueId)
+      const source = byId.get(directEdge.source)
+      const controlMap = byId.get(duplicate.controlMapId)
+      const sourceName = source ? nodeLabel(source) : directEdge.source
+      const destinationName = nodeLabel(destination)
+      const controlMapName = controlMap ? nodeLabel(controlMap) : 'Control Map'
+      issues.push({
+        id: issueId,
+        nodeIds: [directEdge.source, duplicate.controlMapId, destination.id],
+        nodeLabel: destinationName,
+        title: `${action.label} reaches ${destinationName} twice`,
+        message: `${sourceName} sends ${action.label} to ${destinationName} both directly and through ${controlMapName}. `
+          + 'That one press would be applied twice.',
+        fix: 'Keep either the direct action wire or the Control Map route for that source, not both.',
       })
     }
   }
@@ -2703,6 +2798,18 @@ export function buildGraphDiagnostics(
       title: `${issue.domain === 'volume' ? 'Volume' : 'Brightness'} controls conflict`,
       message: `${issue.message}. The absolute control will override button changes.`,
       fix: `Disconnect either the absolute ${issue.domain} input or its up/down button inputs from this Control Map chain.`,
+      nodeIds: issue.nodeIds,
+      nodeLabel: issue.nodeLabel,
+    })
+  }
+  for (const issue of directControlCollisionIssues(nodes, edges)) {
+    diagnostics.push({
+      id: issue.id,
+      severity: 'error',
+      category: 'connection',
+      title: issue.title,
+      message: issue.message,
+      fix: issue.fix,
       nodeIds: issue.nodeIds,
       nodeLabel: issue.nodeLabel,
     })

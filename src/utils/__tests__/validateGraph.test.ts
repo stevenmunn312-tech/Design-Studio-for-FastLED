@@ -88,6 +88,48 @@ describe('validateGraph', () => {
     expect(findSharedControlSourceWarnings([one, two, controls], wires)).toEqual([])
   })
 
+  it('rejects one action source routed both directly and through Control Map', () => {
+    const solid = libraryNode('solid', 'SolidColor')
+    const button = libraryNode('btn', 'ButtonInput')
+    const controls = libraryNode('controls', 'ControlMap', { controls: ['ledToggle'] })
+    const output = libraryNode('out', 'MatrixOutput')
+    const wires = [
+      { id: 'frame', source: solid.id, sourceHandle: 'frame', target: output.id, targetHandle: 'frame' },
+      { id: 'bundle-action', source: button.id, sourceHandle: 'pressed', target: controls.id, targetHandle: 'ledToggle' },
+      { id: 'bundle', source: controls.id, sourceHandle: 'controls', target: output.id, targetHandle: 'controls' },
+      { id: 'direct-action', source: button.id, sourceHandle: 'pressed', target: output.id, targetHandle: 'ledToggle' },
+    ] as unknown as StudioEdge[]
+
+    expect(validateGraph([solid, button, controls, output], wires).errors).toContain(
+      'LED On / Off reaches LED Matrix twice. Keep either the direct action wire or the Control Map route for that source, not both.',
+    )
+    expect(buildGraphDiagnostics([solid, button, controls, output], wires)).toContainEqual(expect.objectContaining({
+      id: 'direct-control-collision-out-ledToggle-btn-pressed',
+      severity: 'error',
+      title: 'LED On / Off reaches LED Matrix twice',
+      nodeIds: ['btn', 'controls', 'out'],
+    }))
+  })
+
+  it('allows separate controls to invoke the same action directly and through a bundle', () => {
+    const solid = libraryNode('solid', 'SolidColor')
+    const bundledButton = libraryNode('bundled', 'ButtonInput')
+    const directButton = libraryNode('direct', 'ButtonInput')
+    const controls = libraryNode('controls', 'ControlMap', { controls: ['ledToggle'] })
+    const output = libraryNode('out', 'MatrixOutput')
+    const wires = [
+      { id: 'frame', source: solid.id, sourceHandle: 'frame', target: output.id, targetHandle: 'frame' },
+      { id: 'bundle-action', source: bundledButton.id, sourceHandle: 'pressed', target: controls.id, targetHandle: 'ledToggle' },
+      { id: 'bundle', source: controls.id, sourceHandle: 'controls', target: output.id, targetHandle: 'controls' },
+      { id: 'direct-action', source: directButton.id, sourceHandle: 'pressed', target: output.id, targetHandle: 'ledToggle' },
+    ] as unknown as StudioEdge[]
+
+    expect(validateGraph([solid, bundledButton, directButton, controls, output], wires).errors)
+      .not.toContainEqual(expect.stringContaining('reaches LED Matrix twice'))
+    expect(buildGraphDiagnostics([solid, bundledButton, directButton, controls, output], wires))
+      .not.toContainEqual(expect.objectContaining({ id: expect.stringContaining('direct-control-collision') }))
+  })
+
   it('names a 0-1 signal wired into an input that reads some other domain', () => {
     // The graph looks right, nothing errors, and the fire never lights: the
     // band sets Sparking to about 1 out of 255. Only this check can say so.
