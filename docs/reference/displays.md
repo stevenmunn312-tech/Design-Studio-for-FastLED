@@ -47,9 +47,10 @@ an unwired panel explicitly reports that state. Rotation and enabled state are
 graph settings.
 
 The slideshow owns the current pattern and highlighted selection. The OLED
-reports that state; physical browsing controls go through Control Map to
-Pattern Slideshow. Pattern thumbnails are baked during export, so upload again
-after changing the collection.
+reports that state; physical browsing controls go to Pattern Slideshow's named
+action inputs, or through Control Map when you want a compact bundle. Pattern
+thumbnails are baked during export, so upload again after changing the
+collection.
 
 Select the actual OLED module before assigning pins. The SH1106 SPI module is
 not interchangeable with the SSD1306 I²C module. For SSD1306, match its address
@@ -64,10 +65,13 @@ panels say Waiting. Alternatively, connect a document's **Screen Design**
 output. The two content inputs are exclusive: the newest content wire replaces
 the other. Enabled remains a separate input/property.
 
-For fixed music touch on XPT2046, route **Controls → Control Map Controls In
-→ Music Control Map**. Show Status and Clock are read-only. For custom
-touch, wire individual controls from the **document node**; the physical panel's
-fixed Controls output does not replace those widget ports.
+For fixed music touch on XPT2046, wire named Touch outputs such as **Play /
+Pause** directly to matching Music Player action inputs, or route **Touch
+Controls → Control Map Controls In → Music Player Controls** when you want one
+compact bundle, continuous volume/brightness, chaining or repeat settings. Show
+Status and Clock are read-only. For custom touch, wire individual widget outputs
+from the companion **Touch** node; the fixed-layout Controls output does not
+replace those widget ports.
 
 The normal generator can render a clock. Show/player templates only read their
 own supported source kinds, so an arbitrary RTC wire there remains unresolved.
@@ -118,15 +122,17 @@ linked from that moment. The digitiser is a separate chip from the display
 controller, which is why it is a separate node; its five lines are still pins on
 the panel, where the Build Diagram and the pin checker look for them.
 
-Touch has no inputs and one **Controls** output carrying the presses the panel's
-current fixed layout defines — Previous, Play/Pause, Next and volume on **Fixed
-Transport**; play/pause and volume on **Now Playing**; nothing on read-only
-layouts such as Show Status or Waiting. Wire it to **Control Map** to give those
-presses a job.
+Touch has no inputs. It has a compact **Controls** output plus named outputs for
+the actions the current fixed layout defines — Previous, Play/Pause, Next and
+volume on **Fixed Transport**; play/pause and volume on **Now Playing**; nothing
+on read-only layouts such as Show Status or Waiting. Wire a named output
+directly to the destination that owns it, or wire **Controls** to **Control Map**
+when you want a bundled path.
 
 A panel showing a screen design has no fixed layout underneath for Touch to
-read, so it reports nothing there. The design owns the touch instead: each
-Button, Toggle, Slider and Dial publishes on its own output on the panel node.
+read, so the fixed-layout Controls output rests. The design owns the touch
+instead: each Button, Toggle, Slider and Dial publishes on its own output on the
+companion Touch node.
 
 The output rests at zero whenever the panel is disabled or the module has no
 touch controller, so a dark panel cannot hold the last press anybody made.
@@ -175,14 +181,16 @@ fields on offer are whatever the source wired into the panel publishes, narrowed
 to those the widget can show, so a track title is never offered to a progress
 bar.
 
-The panel exposes the roles of its actual widgets, so a new empty screen adds no
-widget ports to it. A widget with one port uses its widget label on the graph socket; a
-control with multiple ports appends Output or Set. The inspector shows the role
-and type. For a first connection, add a Slider and Numeric Readout and connect
-the slider's Output to the readout's Value. For formatted text, insert Format
-Number between the slider and a Text widget. For music-player actions, connect
-widget outputs to the appropriate Control Map inputs and that node to Music
-Player. Route SD-player brightness and volume through that same chain.
+The panel exposes widget input roles, and the companion Touch node exposes
+widget output roles, so a new empty screen adds no widget ports to either node.
+A widget with one port uses its widget label on the graph socket; a control with
+multiple ports appends Output or Set. The inspector shows the role and type. For
+a first connection, add a Slider and Numeric Readout and connect the slider's
+Output on Touch to the readout's Value on the panel. For formatted text, insert
+Format Number between the slider and a Text widget. For music-player actions,
+connect widget outputs directly to named action inputs where available, or use
+Control Map when you need volume, brightness, chaining or a bundle. Route
+SD-player brightness and volume through that same chain.
 
 A synchronized control belongs to the finger while held. After release, a wired
 **Set** value becomes authoritative. With Set unwired, the last local value is
@@ -255,7 +263,7 @@ evaluate every wire connected to it.
 | --- | --- |
 | No widget graph ports | Add widgets in Edit screen design; the empty document only has its Screen Design content output. |
 | Control snaps back after release | Inspect its Set wire; that source becomes authoritative after touch. |
-| Template does not control playback | Connect widget outputs through Control Map to Music Player. |
+| Template does not control playback | Connect widget outputs from Touch to Music Player action inputs, or through Control Map when the control is continuous or bundled. |
 | Build reports an unsupported widget input | Replace the upstream path with supported scalar nodes, or use a normal sketch where that path is supported. |
 | Screen document size does not match | Reopen the editor after changing the mounted module or rotation and resolve the reported size/layout issue. |
 | Asset preparation or trust issue | Choose an installed asset and complete the project's trust review before building. |

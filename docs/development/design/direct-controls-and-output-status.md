@@ -1,8 +1,8 @@
 # Direct controls and LED output status
 
 Status: in progress — step 1 inventory and contract are documented;
-steps 2, 3, the Touch-output core of step 4, Match target range and the
-destination-action slice of step 5 are landed; fallback-backed
+steps 2, 3, 4, Match target range and
+step 5 are landed; fallback-backed
 `propertyInputs` declarations are landed from the catalogue; the
 direct-plus-bundle action collision gate is landed; explicit toggle initial
 state, repeat-step settings and Map Range repair are landed.
@@ -380,9 +380,18 @@ controls invoking the same action remain valid.
   debounce, repeat and volume/brightness step settings for increment/decrement
   actions. Range mismatches point at Map Range while dragging and in Graph
   Health, whose repair inserts a configured 0-1 -> target-domain Map Range.
-- [ ] Retain useful Control Map bundles as an optional compact workflow; remove
+- [x] Retain useful Control Map bundles as an optional compact workflow; remove
   mandatory pass-through chains. Route each action to its actual owner and
   reconcile player/show lighting routes.
+  → Direct named action inputs now exist on Music Player, Performance
+  Generator, Pattern Slideshow and LED output, and fixed/custom touch controls
+  may wire to those owners without a pass-through Control Map when the action is
+  already named. Control Map remains for compact bundles, continuous player
+  volume/brightness, conversion, chaining, debounce/repeat settings and
+  multi-destination wiring. SD-player builds still reject per-fixture LED output
+  fields/actions and point lighting controls at the player transport path,
+  while generated shows accept only controls targeting the slideshow's rendered
+  LED outputs.
 
 ### 6. Preserve feedback and evaluation order
 

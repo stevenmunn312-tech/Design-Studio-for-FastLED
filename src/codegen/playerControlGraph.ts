@@ -73,7 +73,7 @@ export function playerControlGraph(
   for (const output of nodes.filter((node) => node.data.nodeType === 'MatrixOutput')) {
     if (edges.some((edge) => edge.target === output.id && outputRuntimePorts.includes(edge.targetHandle ?? ''))) {
       routing.errors.push(`${output.data.label || output.id}: an SD player build cannot read Enabled, Brightness, Controls or LED actions wired to the LED output. `
-        + `Wire these controls through Control Map to ${master?.data.nodeType === 'PerformanceGenerator' ? 'Performance Generator' : 'Music Player'} instead.`)
+        + `Route lighting through ${master?.data.nodeType === 'PerformanceGenerator' ? 'Performance Generator' : 'Music Player'} instead; use Control Map for continuous brightness or a named direct action where one exists.`)
     }
   }
   // Snapshot strings too: a Next action can reset tag buffers in this pass.

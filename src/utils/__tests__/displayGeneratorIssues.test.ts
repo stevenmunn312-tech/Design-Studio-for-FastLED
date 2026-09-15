@@ -417,7 +417,7 @@ describe('displays a build cannot drive', () => {
     ]
     const issues = findDisplayGeneratorIssues(nodes, wires)
     expect(issues.errors).toHaveLength(1)
-    expect(issues.errors[0]).toContain('does not reach Music Player through Control Map')
+    expect(issues.errors[0]).toContain('does not reach Music Player')
   })
 
   it('accepts a touch chain that reaches Music Player in a player build', () => {

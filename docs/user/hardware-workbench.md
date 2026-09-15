@@ -118,13 +118,14 @@ browser preview and generated firmware.
 
 Blackout, dimming and pattern intent are wires, not project settings. Add the
 control as a part — **Potentiometer**, **Button**, **Rotary Encoder** — then
-drag its output onto **Control Map**. Dropping on its trailing socket asks
-what that control should do and mints a port named for the job, offering only
-the jobs this chain can actually carry out: a bundle ending at an LED output is
-offered blackout and dimming, one ending at a Pattern Slideshow is offered
-pattern intent, and one reaching Music Player is offered all of it. Each option
-says whether it is an edge (*on each press*) or a position (*holds its
-position, 0 to 1*).
+wire it to the property or named action it should control. Use **Control Map**
+when you want one compact bundle, conversion, chaining or repeat settings.
+Dropping on its trailing socket asks what that control should do and mints a
+port named for the job, offering only the jobs this chain can actually carry
+out: a bundle ending at an LED output is offered blackout and dimming, one
+ending at a Pattern Slideshow is offered pattern intent, and one reaching Music
+Player is offered all of it. Each option says whether it is an edge (*on each
+press*) or a position (*holds its position, 0 to 1*).
 
 The node's single **Controls** output then goes to whatever should obey it:
 
@@ -161,9 +162,12 @@ Pattern Slideshow selects its pattern status/browser. The TFT's presentation
 setting chooses between treatments of its connected source. There are no
 separate Title/Artist/Progress inputs on the physical panel.
 
-For fixed music touch, connect **Display Panel Controls → Control Map
-Controls In → Music Control Map**. Custom screens use their individual
-widget outputs instead. Fixed Show Status and Clock screens have no touch actions.
+For fixed music touch, wire named Touch outputs such as **Play / Pause** straight
+to matching Music Player action inputs, or connect **Touch Controls → Control Map
+Controls In → Music Player Controls** when you want one compact bundle or need
+continuous volume/brightness. Custom screens publish their individual widget
+outputs on the companion Touch node. Fixed Show Status and Clock screens have no
+touch actions.
 
 ### Design a custom screen
 
@@ -186,8 +190,8 @@ widget outputs instead. Fixed Show Status and Clock screens have no touch action
    never disagree.
 4. Return with **Graph**, or with the panel's own name in the breadcrumb to
    land on it. A 0–1 Slider can drive a normal-sketch LED output's Brightness
-   input. For SD music playback, assign brightness/volume through **Player
-   Controls → Music Player**. For track text, connect **Music Player Display →
+   input. For SD music playback, assign brightness/volume through **Control Map
+   → Music Player**. For track text, connect **Music Player Display →
    Song Info Display**, then **Song Info Title → Text widget input**.
 5. **Run** exercises local touch controls and repaints graph-fed readouts as
    the graph publishes them. It is a simulation, not a hardware connection:

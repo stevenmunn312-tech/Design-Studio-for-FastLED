@@ -518,10 +518,10 @@ function DisplaysTab() {
           Add a touch-capable panel from <strong>Add Hardware → Displays</strong> and you get the <strong>Display Panel</strong> and a <strong>Touch</strong> node together, already linked. You never wire them to each other or type which panel the Touch node reads — they are one part, and taking it off the shelf was the one decision. The panel keeps all the pins, including the digitiser&rsquo;s five lines, because that is where the Build Diagram and the pin checker look for them.
         </div>
         <div className={styles.text}>
-          The Touch node has a single <strong>Controls</strong> output. Whatever the panel&rsquo;s presentation puts under your finger comes out of it: a <strong>Fixed Transport</strong> screen gives you Previous, Play/Pause, Next and a volume strip, a <strong>Now Playing</strong> screen gives play/pause and volume. Wire that one cable to a <strong>Control Map</strong> and the presses become whatever you point them at.
+          The Touch node has a compact <strong>Controls</strong> output and, when the fixed presentation has controls, named outputs for the same jobs. A <strong>Fixed Transport</strong> screen gives you Previous, Play/Pause, Next and a volume strip; a <strong>Now Playing</strong> screen gives play/pause and volume. Wire a named action directly to the thing that owns it, or send the bundle through <strong>Control Map</strong> when you want one cable or continuous volume.
         </div>
         <div className={styles.text}>
-          A panel showing a <strong>screen design</strong> is different: the design owns the touch. Its Buttons, Toggles, Sliders and Dials each publish on their own output on the panel, so you wire the one you mean rather than a single bundle. The Touch node stays quiet there — there is no fixed layout under the design for it to read.
+          A panel showing a <strong>screen design</strong> is different: the design owns the touch. Its Buttons, Toggles, Sliders and Dials each publish on their own output on the companion Touch node, so you wire the one you mean rather than a single bundle. The fixed-layout Controls output stays quiet there — there is no fixed layout under the design for it to read.
         </div>
         <div className={styles.note}>
           Touch follows <strong>Enabled</strong>. A dark panel is not read, and the Controls output rests at zero rather than holding the last thing anybody pressed.
@@ -533,7 +533,7 @@ function DisplaysTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Connecting controls to displays</div>
         <div className={styles.lede}>
-          Controls do not belong to displays. A screen, a button on a bench and a knob on a panel all produce the same thing, and <strong>Control Map</strong> is where you say what it should do.
+          Controls do not belong to displays. A screen, a button on a bench and a knob on a panel all produce the same thing: a typed wire that can go straight to its owner, or through <strong>Control Map</strong> when you want a compact bundle.
         </div>
         <div className={styles.text}>
           Drop a Control Map and it starts almost empty: one <strong>Controls In</strong> input for chaining, and one trailing <strong>Connect control…</strong> socket. Drag any control into that socket and a picker asks what the control is for. Choose, and the node grows a port named for the job — Play / Pause, Volume, Brightness, Next Pattern — with a fresh empty socket beneath it. You end up with a node that lists exactly the jobs you have given it instead of fourteen sockets you have to read past.

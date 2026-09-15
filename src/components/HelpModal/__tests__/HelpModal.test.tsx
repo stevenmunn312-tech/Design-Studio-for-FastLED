@@ -237,6 +237,8 @@ describe('HelpModal session state', () => {
     expect(view.getByText(/already linked/)).toBeTruthy()
     // A screen design owns its own touch; the Touch node reads fixed layouts.
     expect(view.getByText(/the design owns the touch/)).toBeTruthy()
+    expect(view.getByText(/companion Touch node/)).toBeTruthy()
+    expect(view.getByText(/named action directly/)).toBeTruthy()
     // Control Map mints a port per job, and the picker narrows three ways.
     expect(view.getByText(/Connect control…/)).toBeTruthy()
     expect(view.getByText('By what it is')).toBeTruthy()

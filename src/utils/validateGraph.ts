@@ -1997,8 +1997,8 @@ export function findDisplayGeneratorIssues(
     // touch belongs to the design, and so do the outputs.
     if (controlsWired && customMountedPanels.has(display.id)) {
       errors.push(
-        `${nodeLabel(display)} is showing a screen design, so its Touch node publishes nothing — `
-        + "the design owns the touch. Wire the design's own Toggle, Button and Slider outputs on the panel to "
+        `${nodeLabel(display)} is showing a screen design, so its Touch node's fixed Controls output publishes nothing — `
+        + "the design owns the touch. Wire the design's own Toggle, Button and Slider outputs on the Touch node to "
         + "what they should command, and disconnect the Touch node's Controls.",
       )
     } else if (controlsWired && generator === 'sketch' && !reachesOutput) {
@@ -2016,7 +2016,7 @@ export function findDisplayGeneratorIssues(
     } else if (controlsWired && generator === 'player'
       && (!build.engine || !destinations.has(build.engine.id))) {
       errors.push(
-        `${nodeLabel(display)} has its Touch node's Controls wired, but that chain does not reach Music Player through Control Map. `
+        `${nodeLabel(display)} has its Touch node's Controls wired, but that chain does not reach Music Player. `
         + 'Complete the control chain so the player sketch samples touch, or disconnect Controls to use the panel as read-only.',
       )
     } else if (controlsWired && generator === 'player' && touchActions.length === 0) {
