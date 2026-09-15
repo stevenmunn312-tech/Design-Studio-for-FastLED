@@ -789,9 +789,15 @@ describe('StudioNode', () => {
     const sliders = Array.from(container.querySelectorAll('input[type="range"]')) as HTMLInputElement[]
     expect(getByText('speed')).toBeTruthy()
     expect(getByText('scale')).toBeTruthy()
-    expect(sliders).toHaveLength(2)
-    expect(sliders.every((slider) => slider.disabled)).toBe(true)
-    expect(sliders.map((slider) => slider.value)).toEqual(expect.arrayContaining(['0.17', '0.83']))
+    // Counted by what is *wired* rather than by the node's total slider count:
+    // this node also carries its audio bands as fields now, and the rule under
+    // test is about the two with a cable on them, not about how many rows the
+    // node happens to draw.
+    const wired = sliders.filter((slider) => slider.disabled)
+    expect(wired).toHaveLength(2)
+    expect(wired.map((slider) => slider.value)).toEqual(expect.arrayContaining(['0.17', '0.83']))
+    // And the unwired ones stay operable, which is the other half of the rule.
+    expect(sliders.some((slider) => !slider.disabled)).toBe(true)
   })
 
   it('disables a wired Math input field and shows the live upstream value', () => {

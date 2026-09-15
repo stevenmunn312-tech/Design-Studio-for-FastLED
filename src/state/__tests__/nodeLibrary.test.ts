@@ -356,7 +356,17 @@ describe('nodeLibrary', () => {
     expect(animartrix?.inputs.map((p) => p.id)).toEqual([
       'bass', 'mids', 'treble', 'kick', 'snare', 'hihat', 'beat', 'speed',
     ])
-    expect(animartrix?.defaultProperties).toEqual({ effect: 'Water', speed: 0.65, audioAmount: 1 })
+    expect(animartrix?.defaultProperties).toMatchObject({ effect: 'Water', speed: 0.65, audioAmount: 1 })
+    // Each band is a field as well as a socket, holding exactly the reading the
+    // evaluator and the generator already fell back to — so an unwired band is
+    // dialable for judging the pattern without audio, and reads the same as it
+    // always did until someone moves it.
+    expect(animartrix?.defaultProperties).toMatchObject({
+      bass: 0, mids: 0, treble: 0, kick: 0, snare: 0, hihat: 0,
+    })
+    expect(animartrix?.propertyInputs).toMatchObject({
+      bass: 'bass', mids: 'mids', treble: 'treble', kick: 'kick', snare: 'snare', hihat: 'hihat',
+    })
     expect(propertyMeta('Animartrix', 'effect')).toMatchObject({
       control: 'select',
       options: ['Water', 'Polar Waves', 'RGB Blobs', 'Spiralus', 'Complex Kaleido'],

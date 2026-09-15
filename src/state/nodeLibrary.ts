@@ -410,9 +410,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'sparking', label: 'Sparking', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { cooling: 'cooling', sparking: 'sparking', palette: 'paletteIn' },
+    propertyInputs: { intensity: 'intensity', cooling: 'cooling', sparking: 'sparking', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
+      // Wire-or-field: the same reading the evaluator and the generator already
+      // fall back to, now dialable so a pattern can be judged without audio.
+      intensity: 0.7,
       cooling: 55, sparking: 120, palette: 'fire',
       direction: 'up', turbulence: 1, paletteMix: 1, mirror: false, seed: 0,
     },
@@ -778,9 +781,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'bass', label: 'Bass', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { palette: 'paletteIn' },
+    propertyInputs: { bass: 'bass', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { palette: 'lava' },
+    defaultProperties: {
+      // Wire-or-field: the same reading the evaluator and the generator already
+      // fall back to, now dialable so a pattern can be judged without audio.
+      bass: 0,
+      palette: 'lava',
+    },
   },
   {
     type: 'BassRings',
@@ -793,9 +801,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { bass: 'bass', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { energy: 0.7, speed: 1.0, palette: 'lava' },
+    defaultProperties: {
+      // Wire-or-field: the same reading the evaluator and the generator already
+      // fall back to, now dialable so a pattern can be judged without audio.
+      bass: 0.5,
+      energy: 0.7, speed: 1.0, palette: 'lava',
+    },
   },
   {
     type: 'MidrangeWaves',
@@ -808,9 +821,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { mids: 'mids', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { energy: 0.7, speed: 1.0, palette: 'ocean' },
+    defaultProperties: {
+      // Wire-or-field: the same reading the evaluator and the generator already
+      // fall back to, now dialable so a pattern can be judged without audio.
+      mids: 0.5,
+      energy: 0.7, speed: 1.0, palette: 'ocean',
+    },
   },
   {
     type: 'MidrangeBloom',
@@ -823,9 +841,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { mids: 'mids', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { energy: 0.7, speed: 1.0, palette: 'party' },
+    defaultProperties: {
+      // Wire-or-field: the same reading the evaluator and the generator already
+      // fall back to, now dialable so a pattern can be judged without audio.
+      mids: 0.5,
+      energy: 0.7, speed: 1.0, palette: 'party',
+    },
   },
   {
     type: 'TrebleSparks',
@@ -837,9 +860,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'density', label: 'Density', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { density: 'density', palette: 'paletteIn' },
+    propertyInputs: { treble: 'treble', density: 'density', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { density: 0.5, palette: 'ice' },
+    defaultProperties: {
+      // Wire-or-field: the same reading the evaluator and the generator already
+      // fall back to, now dialable so a pattern can be judged without audio.
+      treble: 0.5,
+      density: 0.5, palette: 'ice',
+    },
   },
   {
     type: 'TreblePrism',
@@ -852,9 +880,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { treble: 'treble', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { energy: 0.7, speed: 1.0, palette: 'amethyst' },
+    defaultProperties: {
+      // Wire-or-field: the same reading the evaluator and the generator already
+      // fall back to, now dialable so a pattern can be judged without audio.
+      treble: 0.5,
+      energy: 0.7, speed: 1.0, palette: 'amethyst',
+    },
   },
   {
     type: 'AudioCascade',
@@ -869,9 +902,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { energy: 0.7, speed: 1.0, palette: 'rainbow' },
+    defaultProperties: {
+      // Wire-or-field: the same reading the evaluator and the generator already
+      // fall back to, now dialable so a pattern can be judged without audio.
+      bass: 0.5, mids: 0.5, treble: 0.5,
+      energy: 0.7, speed: 1.0, palette: 'rainbow',
+    },
   },
   {
     type: 'BeatFlash',
@@ -918,9 +956,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'tiles', label: 'Tiles', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { energy: 'energy', speed: 'speed', tiles: 'tiles', palette: 'paletteIn' },
+    propertyInputs: { hihat: 'hihat', kick: 'kick', snare: 'snare', energy: 'energy', speed: 'speed', tiles: 'tiles', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
+      // Wire-or-field: the same reading the evaluator and the generator already
+      // fall back to, now dialable so a pattern can be judged without audio.
+      hihat: 0, kick: 0, snare: 0,
       energy: 0.7, speed: 1.0, tiles: 1, palette: 'volcano',
       count: 8, decay: 1, thickness: 1, spawnSpread: 0, blendMode: 'add',
     },
@@ -938,9 +979,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { vocals: 'vocals', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { energy: 0.7, speed: 1.0, palette: 'aurora' },
+    defaultProperties: {
+      // Wire-or-field: the same reading the evaluator and the generator already
+      // fall back to, now dialable so a pattern can be judged without audio.
+      vocals: 0,
+      energy: 0.7, speed: 1.0, palette: 'aurora',
+    },
   },
   {
     // Wedge-mirrored plasma that punches wider/spins harder on each beat.
@@ -973,9 +1019,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { energy: 0.7, speed: 1.0, palette: 'peacock', tiles: 4 },
+    defaultProperties: {
+      // Wire-or-field: the same reading the evaluator and the generator already
+      // fall back to, now dialable so a pattern can be judged without audio.
+      bass: 0.5, mids: 0.5, treble: 0.5,
+      energy: 0.7, speed: 1.0, palette: 'peacock', tiles: 4,
+    },
   },
   {
     // Three-tier metaball blobs — kick/snare/hihat each spawn their own tier.
@@ -989,9 +1040,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'hihat', label: 'Hi-Hat', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { palette: 'paletteIn' },
+    propertyInputs: { hihat: 'hihat', kick: 'kick', snare: 'snare', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
+      // Wire-or-field: the same reading the evaluator and the generator already
+      // fall back to, now dialable so a pattern can be judged without audio.
+      hihat: 0, kick: 0, snare: 0,
       palette: 'party',
       count: 12, size: 1, decay: 1, spawnSpread: 1, blendMode: 'add',
     },
@@ -1010,9 +1064,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'energy', label: 'Energy', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
     ],
-    propertyInputs: { energy: 'energy', speed: 'speed' },
+    propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble', energy: 'energy', speed: 'speed' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { energy: 0.7, speed: 1.0 },
+    defaultProperties: {
+      // Wire-or-field: the same reading the evaluator and the generator already
+      // fall back to, now dialable so a pattern can be judged without audio.
+      bass: 0.5, mids: 0.5, treble: 0.5,
+      energy: 0.7, speed: 1.0,
+    },
   },
   {
     // Radial bloom whose sample coordinates are pushed through noise turbulence.
@@ -1028,9 +1087,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { energy: 0.7, speed: 1.0, palette: 'deepsea' },
+    defaultProperties: {
+      // Wire-or-field: the same reading the evaluator and the generator already
+      // fall back to, now dialable so a pattern can be judged without audio.
+      bass: 0.5, mids: 0.5, treble: 0.5,
+      energy: 0.7, speed: 1.0, palette: 'deepsea',
+    },
   },
   {
     // Gravitational-lensing rings — bass drives density, rings bunch near the well.
@@ -1044,9 +1108,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'color', label: 'Color', dataType: 'color' },
     ],
-    propertyInputs: { energy: 'energy', speed: 'speed' },
+    propertyInputs: { bass: 'bass', energy: 'energy', speed: 'speed' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { energy: 0.7, speed: 1.0, r: 80, g: 160, b: 255 },
+    defaultProperties: {
+      // Wire-or-field: the same reading the evaluator and the generator already
+      // fall back to, now dialable so a pattern can be judged without audio.
+      bass: 0.5,
+      energy: 0.7, speed: 1.0, r: 80, g: 160, b: 255,
+    },
   },
   {
     // A pool of expanding, fading ripples — one born on each trigger pulse.
@@ -1081,9 +1150,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { hihat: 'hihat', mids: 'mids', treble: 'treble', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { energy: 0.7, speed: 1.0, palette: 'amethyst' },
+    defaultProperties: {
+      // Wire-or-field: the same reading the evaluator and the generator already
+      // fall back to, now dialable so a pattern can be judged without audio.
+      hihat: 0, mids: 0.5, treble: 0.5,
+      energy: 0.7, speed: 1.0, palette: 'amethyst',
+    },
   },
 
   // ── More pattern nodes ─────────────────────────────────────────────────
@@ -2129,9 +2203,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'scale', label: 'Scale', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { speed: 'speed', scale: 'scale', palette: 'paletteIn' },
+    propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble', speed: 'speed', scale: 'scale', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.5, scale: 0.5, palette: 'rainbow' },
+    defaultProperties: {
+      // Wire-or-field: the same reading the evaluator and the generator already
+      // fall back to, now dialable so a pattern can be judged without audio.
+      bass: 0.5, mids: 0.5, treble: 0.3,
+      speed: 0.5, scale: 0.5, palette: 'rainbow',
+    },
   },
   {
     // Persistent palette advection: a moving Lissajous segment, a rainbow
@@ -2149,8 +2228,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'beat', label: 'Beat', dataType: 'bool' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
+    propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
+      // Wire-or-field: the same reading the evaluator and the generator already
+      // fall back to, now dialable so a pattern can be judged without audio.
+      bass: 0, mids: 0, treble: 0,
       injectionMode: 'Moving Line', flowMode: 'Scrolling',
       xSpeed: 0.1, xAmplitude: 1, xFrequency: 0.33,
       ySpeed: 0.1, yAmplitude: 1, yFrequency: 0.32,
@@ -2175,9 +2258,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'beat', label: 'Beat', dataType: 'bool' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
     ],
-    propertyInputs: { speed: 'speed' },
+    propertyInputs: { bass: 'bass', hihat: 'hihat', kick: 'kick', mids: 'mids', snare: 'snare', treble: 'treble', speed: 'speed' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { effect: 'Water', speed: 0.65, audioAmount: 1 },
+    defaultProperties: {
+      // Wire-or-field: the same reading the evaluator and the generator already
+      // fall back to, now dialable so a pattern can be judged without audio.
+      bass: 0, hihat: 0, kick: 0, mids: 0, snare: 0, treble: 0,
+      effect: 'Water', speed: 0.65, audioAmount: 1,
+    },
   },
   {
     // Gray-Scott reaction-diffusion — organic spots/stripes that evolve.
