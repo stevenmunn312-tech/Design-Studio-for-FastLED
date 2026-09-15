@@ -132,3 +132,37 @@ describe('property input fallbacks', () => {
     expect(mismatches).toEqual([])
   })
 })
+
+/*
+ * A palette socket and a palette field are one control, everywhere.
+ *
+ * `paletteExpr` (generator) and `pal` (evaluator) both resolve a `paletteIn`
+ * port wire-first and fall back to the node's own `palette` field, on every
+ * node that has the pair. That is the property-input contract already, so the
+ * declaration is the only thing that can be missing — and four nodes were
+ * missing it, which showed up as a palette socket that could not be hidden
+ * while the identical socket on the node beside it could.
+ *
+ * Derived over the catalogue rather than listed, so the next node to grow a
+ * palette input joins the rule instead of quietly sitting outside it. Only the
+ * categories whose palette is a *tuning* parameter are covered: a Palette
+ * Sampler's input is the substance it operates on, and step 1 settled that
+ * colour and field nodes keep every input visible.
+ */
+describe('palette inputs', () => {
+  const TUNING_CATEGORIES = new Set(['pattern', 'show', 'output'])
+
+  it('declares the pairing wherever the port and the field both exist', () => {
+    const missing: string[] = []
+    let checked = 0
+    for (const definition of NODE_LIBRARY) {
+      if (!TUNING_CATEGORIES.has(definition.category)) continue
+      if (!definition.inputs.some((port) => port.id === 'paletteIn')) continue
+      if (!Object.prototype.hasOwnProperty.call(definition.defaultProperties ?? {}, 'palette')) continue
+      checked += 1
+      if (definition.propertyInputs?.palette !== 'paletteIn') missing.push(definition.type)
+    }
+    expect(checked, 'nothing was checked — the catalogue query has stopped matching').toBeGreaterThan(20)
+    expect(missing).toEqual([])
+  })
+})

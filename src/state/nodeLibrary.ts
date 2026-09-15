@@ -633,6 +633,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'audio', label: 'Audio', dataType: 'audio' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
+    propertyInputs: { palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       style: 'Bars', bands: 16, gain: 1.25, smoothing: 0.58, tilt: 0.2,
@@ -1243,6 +1244,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
+    propertyInputs: { palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       formulaType: 'phyllotaxis',
@@ -2228,7 +2230,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'beat', label: 'Beat', dataType: 'bool' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble' },
+    propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
@@ -2930,6 +2932,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'audio', label: 'Audio', dataType: 'audio' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
+    propertyInputs: { palette: 'paletteIn' },
     outputs: [],
     defaultProperties: {
       targetOutputId: '',
