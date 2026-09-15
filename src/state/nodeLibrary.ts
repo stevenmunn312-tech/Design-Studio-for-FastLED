@@ -259,7 +259,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'radius', label: 'Radius', dataType: 'float' },
       { id: 'thickness', label: 'Thickness', dataType: 'float' },
     ],
-    propertyInputs: { cx: 'cx', cy: 'cy', radius: 'radius', thickness: 'thickness' },
+    propertyInputs: { cx: 'cx', cy: 'cy', radius: 'radius', thickness: 'thickness', fill: 'fill', edge: 'edge' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { cx: 0.5, cy: 0.5, radius: 6, scaleWithMatrix: true, thickness: 1.5, wrap: false, filled: true, fill: '#ff3080', edge: '#ff0080' },
   },
@@ -304,6 +304,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'thickness', label: 'Thickness', dataType: 'float' },
     ],
     propertyInputs: {
+      fill: 'fill', edge: 'edge',
       cx: 'cx', cy: 'cy', size: 'size', aspect: 'aspect',
       sides: 'sides', rotation: 'rotation', thickness: 'thickness',
     },
