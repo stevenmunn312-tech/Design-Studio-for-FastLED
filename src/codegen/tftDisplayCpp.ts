@@ -42,7 +42,7 @@ import {
   showStatusGeometry, transportClockGeometry, transportWaitingGeometry,
   type TransportDisplayLayout,
 } from '../state/transportDisplay'
-import { ledStatusFixtureText } from '../state/ledOutputRuntime'
+import { ledStatusCountText } from '../state/ledOutputRuntime'
 import { DISPLAY_WAITING_TEXT } from '../state/displaySignal'
 
 /**
@@ -908,7 +908,7 @@ function ledStatusLoop(display: TftDisplayEmit, width: number, height: number): 
   const g = ledStatusGeometry(width, height)
   const s = LED_STATUS_TEXT_SLOTS
   const status = display.ledStatus
-  const fixture = status ? ledStatusFixtureText(status.formLabel, status.ledCount) : ''
+  const fixture = status ? ledStatusCountText(status.ledCount) : ''
   const lines: string[] = [
     `      const char *_tftName_${id} = ${cppStringLiteral(status?.name ?? '')};`,
     `      if (_tftTextDirty(${p}, ${s.name}, _tftName_${id}) || _tftFull_${id}) `

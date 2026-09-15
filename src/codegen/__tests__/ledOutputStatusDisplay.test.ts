@@ -35,6 +35,9 @@ function node(id: string, nodeType: string, properties: Record<string, unknown> 
 const edge = (s: string, sh: string, t: string, th: string): StudioEdge =>
   ({ id: `${s}-${sh}-${t}-${th}`, source: s, sourceHandle: sh, target: t, targetHandle: th }) as StudioEdge
 
+/* An LED output titles itself after its form — `nodeDisplayLabel` maps `form`
+ * through `LED_OUTPUT_FORM_LABELS` — so the label passed here is deliberately
+ * ignored by the status, which is the point of the assertions below. */
 const output = (id = 'out', props: Record<string, unknown> = {}, label = 'Stage Wash') =>
   node(id, 'MatrixOutput', { form: 'strip', ledCount: 144, dataPin: 27, ...props }, label)
 const fill = node('fill', 'SolidColor')
@@ -66,7 +69,7 @@ describe('an LED output reporting itself', () => {
     expect(signal).toMatchObject({
       kind: 'ledOutput',
       status: {
-        name: 'Stage Wash', formLabel: 'LED String', ledCount: 144,
+        name: 'LED String', formLabel: 'LED String', ledCount: 144,
         enabled: false, brightness: 0.5,
       },
     })
@@ -75,12 +78,14 @@ describe('an LED output reporting itself', () => {
   it('names the output rather than guessing a pattern name from the graph', () => {
     // Two patterns blended into one fixture: there is no single pattern name
     // to report, and picking one of them would be wrong half the time.
-    const nodes = [output('out', {}, 'Monitor Strip'), node('a', 'SolidColor'), node('b', 'Noise'),
-      node('mix', 'Blend')]
+    const nodes = [output('out', { form: 'ring', ledCount: 24 }), node('a', 'SolidColor'),
+      node('b', 'Noise'), node('mix', 'Blend')]
     const edges = [edge('a', 'frame', 'mix', 'a'), edge('b', 'frame', 'mix', 'b'),
       edge('mix', 'frame', 'out', 'frame')]
     const signal = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true).outputs.get('out')!.display
-    expect(signal).toMatchObject({ kind: 'ledOutput', status: { name: 'Monitor Strip' } })
+    // Its own title, taken the way the canvas takes it — from the form, not
+    // from `data.label`, which nothing persists.
+    expect(signal).toMatchObject({ kind: 'ledOutput', status: { name: 'LED Ring' } })
   })
 
   /*
@@ -95,8 +100,8 @@ describe('an LED output reporting itself', () => {
     const loop = loopOf(generateCpp(nodes, edges))
 
     // Compile-time facts, emitted as literals.
-    expect(loop).toContain('"Stage Wash"')
-    expect(loop).toContain('"LED String 144"')
+    expect(loop).toContain('"LED String"')
+    expect(loop).toContain('"144 LEDS"')
     // The live reading, and it is the same expression the fixture is dimmed by.
     expect(loop).toContain('float _oledLvl_oled = constrain((float)(n_knob_value), 0.0f, 1.0f);')
     expect(loop).toContain('_oledBar(_oled_oled, 2, 26, 124, 7, _oledLvl_oled);')
@@ -113,8 +118,8 @@ describe('an LED output reporting itself', () => {
     const nodes = [output(), fill, tft]
     const edges = [edge('fill', 'frame', 'out', 'frame'), edge('out', 'display', 'tft', 'display')]
     const loop = loopOf(generateCpp(nodes, edges))
-    expect(loop).toContain('const char *_tftName_tft = "Stage Wash";')
-    expect(loop).toContain('const char *_tftFixture_tft = "LED String 144";')
+    expect(loop).toContain('const char *_tftName_tft = "LED String";')
+    expect(loop).toContain('const char *_tftFixture_tft = "144 LEDS";')
     expect(loop).toContain('const char *_tftState_tft = _tftLit_tft ? "ON" : "BLACKOUT";')
     expect(loop).toContain('_tftLevel_tft')
   })
@@ -142,15 +147,15 @@ describe('an LED output reporting itself', () => {
   })
 
   it('keeps two fixtures independent', () => {
-    const second = output('deck', { ledCount: 60, dataPin: 26 }, 'Monitor Strip')
+    const second = output('deck', { form: 'ring', ledCount: 60, dataPin: 26 })
     const nodes = [output(), second, fill, node('knob', 'PotInput', { pin: 33 })]
     const edges = [edge('fill', 'frame', 'out', 'frame'), edge('fill', 'frame', 'deck', 'frame'),
       edge('knob', 'value', 'out', 'brightness')]
     const result = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true)
-    expect(result.outputs.get('out')!.display).toMatchObject({ status: { name: 'Stage Wash', ledCount: 144 } })
+    expect(result.outputs.get('out')!.display).toMatchObject({ status: { name: 'LED String', ledCount: 144 } })
     // The second fixture is undimmed: one output's knob must not read across.
     expect(result.outputs.get('deck')!.display).toMatchObject({
-      status: { name: 'Monitor Strip', ledCount: 60, brightness: 1, enabled: true },
+      status: { name: 'LED Ring', ledCount: 60, brightness: 1, enabled: true },
     })
   })
 
@@ -175,7 +180,7 @@ describe('an LED output reporting itself', () => {
     const nodes = [output(), fill, oled]
     const loop = loopOf(generateCpp(nodes, [edge('fill', 'frame', 'out', 'frame')]))
     expect(loop).toContain('WAITING FOR A SIGNAL')
-    expect(loop).not.toContain('"LED String 144"')
+    expect(loop).not.toContain('"144 LEDS"')
   })
 })
 

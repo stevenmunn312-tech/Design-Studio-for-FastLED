@@ -108,22 +108,22 @@
     "width": 240,
     "height": 240,
     "colors": 4,
-    "coverage": 2.84,
-    "hash": "04d340df"
+    "coverage": 2.38,
+    "hash": "26b0b76c"
   },
   "tft/240x240/LED Status/blackout": {
     "width": 240,
     "height": 240,
     "colors": 4,
-    "coverage": 3.19,
-    "hash": "782436fe"
+    "coverage": 2.74,
+    "hash": "bd17db45"
   },
   "tft/240x240/LED Status/full": {
     "width": 240,
     "height": 240,
     "colors": 4,
-    "coverage": 3.06,
-    "hash": "e1b5bf9f"
+    "coverage": 2.6,
+    "hash": "c6f7042c"
   },
   "tft/240x240/LED Status/at-rest": {
     "width": 240,
@@ -262,22 +262,22 @@
     "width": 240,
     "height": 320,
     "colors": 4,
-    "coverage": 2.13,
-    "hash": "113600df"
+    "coverage": 1.79,
+    "hash": "f63d036c"
   },
   "tft/240x320/LED Status/blackout": {
     "width": 240,
     "height": 320,
     "colors": 4,
-    "coverage": 2.4,
-    "hash": "8486f6fe"
+    "coverage": 2.05,
+    "hash": "8ca42745"
   },
   "tft/240x320/LED Status/full": {
     "width": 240,
     "height": 320,
     "colors": 4,
-    "coverage": 2.29,
-    "hash": "ee187f9f"
+    "coverage": 1.95,
+    "hash": "9683502c"
   },
   "tft/240x320/LED Status/at-rest": {
     "width": 240,
@@ -416,22 +416,22 @@
     "width": 320,
     "height": 240,
     "colors": 4,
-    "coverage": 2.13,
-    "hash": "b4b4d51f"
+    "coverage": 1.79,
+    "hash": "16ed602c"
   },
   "tft/320x240/LED Status/blackout": {
     "width": 320,
     "height": 240,
     "colors": 4,
-    "coverage": 2.4,
-    "hash": "11d2423e"
+    "coverage": 2.05,
+    "hash": "df3a4705"
   },
   "tft/320x240/LED Status/full": {
     "width": 320,
     "height": 240,
     "colors": 4,
-    "coverage": 2.29,
-    "hash": "7370919f"
+    "coverage": 1.95,
+    "hash": "902498ac"
   },
   "tft/320x240/LED Status/at-rest": {
     "width": 320,
@@ -542,22 +542,22 @@
     "width": 128,
     "height": 64,
     "colors": 2,
-    "coverage": 11.68,
-    "hash": "09c62f5a"
+    "coverage": 10.99,
+    "hash": "b0e6213b"
   },
   "oled/128x64/LED Status/blackout": {
     "width": 128,
     "height": 64,
     "colors": 2,
-    "coverage": 12.3,
-    "hash": "09aa4527"
+    "coverage": 11.61,
+    "hash": "ab3ccb46"
   },
   "oled/128x64/LED Status/full": {
     "width": 128,
     "height": 64,
     "colors": 2,
-    "coverage": 13.93,
-    "hash": "5e357c48"
+    "coverage": 13.23,
+    "hash": "63af0a29"
   },
   "oled/128x64/LED Status/at-rest": {
     "width": 128,

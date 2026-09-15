@@ -16,7 +16,7 @@ import {
   browserGeometry, clockGeometry, ledStatusGeometry, nowPlayingGeometry, waitingGeometry,
   type InfoDisplayLayout,
 } from '../state/infoDisplay'
-import { ledStatusFixtureText } from '../state/ledOutputRuntime'
+import { ledStatusCountText } from '../state/ledOutputRuntime'
 import { DISPLAY_WAITING_TEXT } from '../state/displaySignal'
 import {
   OLED_LETTER_SPACING, OLED_PAGE_HEIGHT,
@@ -671,7 +671,7 @@ export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
     // and they are different faults to go looking for.
     const st = display.ledStatus
     const g = ledStatusGeometry(width, height)
-    const fixture = st ? ledStatusFixtureText(st.formLabel, st.ledCount) : ''
+    const fixture = st ? ledStatusCountText(st.ledCount) : ''
     const enabled = st?.enabledExpr ?? 'false'
     const brightness = st?.brightnessExpr ?? '0.0f'
     const level = `_oledLvl_${display.id}`

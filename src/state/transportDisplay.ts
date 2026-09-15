@@ -26,7 +26,7 @@ import {
 } from './tftSurface'
 import { formatTransportTime } from './transportBridge'
 import { displayString } from './displayText'
-import { ledStatusFixtureText, ledStatusLevelText } from './ledOutputRuntime'
+import { ledStatusCountText, ledStatusLevelText } from './ledOutputRuntime'
 import { DISPLAY_WAITING_TEXT, type DisplaySignalKind } from './displaySignal'
 
 export const TRANSPORT_DISPLAY_LAYOUTS = [
@@ -736,7 +736,7 @@ export function drawTransportLedStatus(surface: TftSurface, data: TransportLedSt
   const c = TRANSPORT_COLORS
 
   drawTftField(surface, g.name, displayString(data.name), c.text, c.background)
-  drawTftField(surface, g.fixture, ledStatusFixtureText(data.formLabel, data.ledCount), c.dim, c.background)
+  drawTftField(surface, g.fixture, ledStatusCountText(data.ledCount), c.dim, c.background)
   // Accent for lit and off-colour for dark, so the one row that says whether
   // anything is on at all reads before the words do.
   drawTftField(

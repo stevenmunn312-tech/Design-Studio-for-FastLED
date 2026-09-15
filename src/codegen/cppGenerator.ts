@@ -39,7 +39,7 @@ import {
 } from './segmentDisplayCpp'
 import { clampSegmentBrightness, segmentControllerFor, segmentModeForKind } from '../state/segmentDisplay'
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
-import { isPaletteBuilderNodeType, NODE_LIBRARY, oledControllerForProps, oledTransportForProps, tftControllerForProps } from '../state/nodeLibrary'
+import { isPaletteBuilderNodeType, NODE_LIBRARY, oledControllerForProps, oledTransportForProps, tftControllerForProps, nodeDisplayLabel } from '../state/nodeLibrary'
 import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp, ledOutputManualExprs } from './ledOutputRuntimeCpp'
 import { LED_OUTPUT_ACTION_PORTS, LED_OUTPUT_RUNTIME_DEFAULT, ledOutputStatus } from '../state/ledOutputRuntime'
 import {
@@ -2104,7 +2104,12 @@ export function generateCpp(
       // The runtime handed in supplies only geometry and naming here; the two
       // live readings are expressions, resolved above.
       const status = ledOutputStatus(
-        String(source.data.label ?? 'LED output'), props(source), LED_OUTPUT_RUNTIME_DEFAULT,
+        // The same title the canvas draws, and for the same reason the
+        // evaluator resolves it this way: a node label is not persisted.
+        nodeDisplayLabel(
+          source.data.nodeType, props(source), String(source.data.label ?? 'LED output'),
+        ),
+        props(source), LED_OUTPUT_RUNTIME_DEFAULT,
       )
       return {
         name: status.name,

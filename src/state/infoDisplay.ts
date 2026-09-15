@@ -20,7 +20,7 @@ import {
 } from './oledSurface'
 import { DISPLAY_WAITING_TEXT, type DisplaySignalKind } from './displaySignal'
 import { FONT_H } from './font'
-import { ledStatusFixtureText, ledStatusLevelText } from './ledOutputRuntime'
+import { ledStatusCountText, ledStatusLevelText } from './ledOutputRuntime'
 import { formatTransportTime } from './transportBridge'
 import { THUMBNAIL_W, THUMBNAIL_H, type PatternThumbnail } from './patternThumbnail'
 
@@ -495,7 +495,7 @@ export function drawLedStatus(surface: OledSurface, data: InfoLedStatusData): vo
   drawOledText(surface, g.name.x, g.name.y, fitOledText(data.name, g.name.w))
   drawOledText(
     surface, g.fixture.x, g.fixture.y,
-    fitOledText(ledStatusFixtureText(data.formLabel, data.ledCount), g.fixture.w),
+    fitOledText(ledStatusCountText(data.ledCount), g.fixture.w),
   )
   drawOledText(
     surface, g.state.x, g.state.y,

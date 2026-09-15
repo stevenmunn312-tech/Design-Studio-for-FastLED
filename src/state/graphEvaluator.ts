@@ -64,7 +64,7 @@ import { imagePaletteStops16, type ImagePaletteSource } from './imagePalette'
 import { waveSample, combineWaves } from './wave'
 import { polinePalette, hexToRgb } from './polinePalette'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette } from './customPalette'
-import { inputClampRange, bypassPort, oledControllerForProps, tftControllerForProps, resolveNodeScalarExpressions, NODE_LIBRARY } from './nodeLibrary'
+import { inputClampRange, bypassPort, oledControllerForProps, tftControllerForProps, resolveNodeScalarExpressions, NODE_LIBRARY, nodeDisplayLabel } from './nodeLibrary'
 import { makeShims, SHIM_NAMES } from './fastledShims'
 import { compileNodeFormula, type FormulaFn } from './formulaLang'
 import { createBeatDetectorState, denormalizeBeatParam, updateBeatDetectorFromSpectrum } from '../audio/beatDetection'
@@ -8932,7 +8932,13 @@ function createEvalNode(
         // fixture is doing, not what one of the three factors asked for.
         const status: DisplaySignal = {
           kind: 'ledOutput',
-          status: ledOutputStatus(String(node.data.label ?? 'LED output'), props, runtime),
+          // Titled the way the canvas titles it. `data.label` is not persisted
+          // — `normalizeLoadedGraph` replaces it with the library default on
+          // every load — so reading it directly made a reloaded LED String
+          // report itself as "LED Matrix".
+          status: ledOutputStatus(
+            nodeDisplayLabel(type, props, String(node.data.label ?? 'LED output')), props, runtime,
+          ),
         }
         out = { frame: frame ? applyLedOutputRuntime(frame, runtime) : null, display: status }
         break

@@ -99,7 +99,10 @@ function fixtureThumbnail(): PatternThumbnail {
 const ARTWORK = fixtureArtwork()
 const THUMBNAIL = fixtureThumbnail()
 
-const LED_STATUS = { name: 'Stage Wash', formLabel: 'LED String', ledCount: 144 }
+// An LED output titles itself after its form, so the name row and the
+// `outputForm` reading are the same string by design — the row under it
+// carries the count rather than repeating the form.
+const LED_STATUS = { name: 'LED String', formLabel: 'LED String', ledCount: 144 }
 
 const TRACK_TITLE = 'Nightdrive Over the Estuary'
 const TRACK_ARTIST = 'The Long Meridian'

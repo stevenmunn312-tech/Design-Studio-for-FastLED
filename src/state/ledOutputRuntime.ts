@@ -19,7 +19,6 @@
 // both linear, so the order does not change the result.
 
 import type { Frame } from './ledColor'
-import { displayString } from './displayText'
 import { LED_OUTPUT_FORM_LABELS, outputForm, outputLedTotal, type LedOutputForm } from './ledOutputForm'
 
 /** What a Frame is worth once the output's own wires have had their say. */
@@ -177,15 +176,20 @@ export function composeLedOutputRuntime(
  * factors feeding it asked for. A screen showing the knob position while a
  * blackout button holds the fixture dark would be worse than no screen.
  *
- * `name` is the output's own label, never a pattern name. A fixture is fed by
- * whatever the graph ends in, which is routinely a Blend of two patterns or a
- * chain several nodes long — there is no single name to report, and picking
- * one of the two would be wrong half the time. The thing that does have a
- * stable name is the fixture, and that is what a person reading a rack of
- * status panels needs anyway.
+ * `name` is the output's own title, never a pattern name. A fixture is fed by
+ * whatever the graph ends in, routinely a Blend of two patterns or a chain
+ * several nodes long — there is no single name to report, and picking one of
+ * the two would be wrong half the time.
+ *
+ * The caller resolves it, and must resolve it the way the canvas does —
+ * through `nodeDisplayLabel`, which titles an LED output after its form.
+ * Reading `data.label` directly looked equivalent and was not: nothing
+ * persists a node label, and `normalizeLoadedGraph` replaces it with the
+ * library default on every load, so a reloaded LED String reported itself as
+ * "LED Matrix".
  */
 export interface LedOutputStatus {
-  /** The output node's own label — "Stage Wash", not the pattern feeding it. */
+  /** The fixture's own title — "LED String", not the pattern feeding it. */
   name: string
   /** Effective blackout. False means dark whatever the level says. */
   enabled: boolean
@@ -199,26 +203,24 @@ export interface LedOutputStatus {
 }
 
 /**
- * The fixture's own description: what it is and how much of it there is.
+ * How much fixture there is, for the row under its name.
  *
  * Here rather than in either renderer, because both panel classes draw this
- * row and a mono OLED and a colour TFT describing the same fixture two
- * different ways is exactly the drift the shared-helper rule exists to stop.
+ * row and a mono OLED and a colour TFT describing one fixture two different
+ * ways is the drift the shared-helper rule exists to stop.
  *
- * One row rather than two: neither half is worth a line of a small panel on
- * its own, and they are read together — "LED String 60" answers "which of the
- * three strings is this" in a way that either half alone does not.
+ * The count alone, because the row above already carries the form: an LED
+ * output titles itself after what it is (`nodeDisplayLabel` maps `form`
+ * through `LED_OUTPUT_FORM_LABELS`), so "LED String" over "LED String 144"
+ * spends the two most valuable rows of a small panel saying one thing twice.
  *
- * Blank without a form, rather than the count alone. Only the at-rest reading
- * has no form — a real fixture always has one — and a lone "0" on the row
- * under an empty name reads as a fixture with no LEDs rather than as a panel
- * with nothing to report.
+ * Blank for a fixture with no LEDs, which only the at-rest reading is: a lone
+ * "0" under an empty name reads as a broken fixture rather than as a panel
+ * with nothing to report yet.
  */
-export function ledStatusFixtureText(formLabel: string, ledCount: number): string {
-  const label = displayString(formLabel)
-  if (!label) return ''
+export function ledStatusCountText(ledCount: number): string {
   const total = Number.isFinite(ledCount) ? Math.max(0, Math.floor(ledCount)) : 0
-  return `${label} ${total}`
+  return total > 0 ? `${total} LEDS` : ''
 }
 
 /**
