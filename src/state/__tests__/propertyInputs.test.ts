@@ -37,6 +37,8 @@ describe('property input exposure', () => {
     expect(propertyInputsFor('Juggle').map((port) => port.propertyKey)).toEqual(['speed', 'count', 'fade', 'palette'])
     expect(normalizeExposedInputs('Juggle', undefined)).toEqual([])
     expect(normalizeExposedInputs('TransportDisplay', undefined)).toEqual(['enabled'])
+    expect(propertyInputsFor('PatternMaster').map((port) => port.propertyKey))
+      .toEqual(['volume', 'minTime', 'maxTime', 'transitionSec'])
     expect(exposableInputsFor('MatrixOutput').filter((port) => port.kind === 'action').map((port) => port.id))
       .toEqual(['ledToggle', 'brightnessUp', 'brightnessDown'])
     expect(exposableInputsFor('PatternMaster').filter((port) => port.kind === 'action').map((port) => port.id))

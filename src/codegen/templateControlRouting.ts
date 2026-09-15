@@ -168,7 +168,13 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
       const expr = sourceExpr(destination, port, 'bool')
       return expr ? [{ port, repeat, expr }] : []
     })
-    if (directButtons.length > 0) {
+    const directPropertyInputs = NODE_LIBRARY
+      .find((definition) => definition.type === destination.data.nodeType)
+      ?.propertyInputs ?? {}
+    const directVolumeExpr = directPropertyInputs.volume === 'volume'
+      ? sourceExpr(destination, 'volume', 'float')
+      : null
+    if (directButtons.length > 0 || directVolumeExpr) {
       const directId = `${id}_direct`
       const variable = controlBundleVariable(directId)
       directEmit = {
@@ -176,7 +182,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
         variable,
         upstream: null,
         buttons: directButtons,
-        volumeExpr: null,
+        volumeExpr: directVolumeExpr,
         brightnessExpr: null,
         patternPositionExpr: null,
         settings: { debounceMs: 0, repeatDelayMs: 400, repeatIntervalMs: 120 },

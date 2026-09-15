@@ -50,7 +50,7 @@ describe('nodeLibrary', () => {
     const playerActions = playerControlActionPortsFor('player').map((port) => port.id)
     expect(player.inputs.map((input) => input.id)).toEqual([
       'audio', 'controls', 'patternset', 'transitions', 'particleFx',
-      'beat', 'minTime', 'maxTime', 'transitionSec',
+      'beat', 'volume', 'minTime', 'maxTime', 'transitionSec',
       ...playerActions,
     ])
     expect(player.actionInputs).toEqual(playerActions)

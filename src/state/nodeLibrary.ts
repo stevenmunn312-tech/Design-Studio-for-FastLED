@@ -2384,12 +2384,13 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'transitions', label: 'Transitions', dataType: 'transitionset' },
       { id: 'particleFx',  label: 'Particle FX', dataType: 'playerparticles' },
       { id: 'beat',        label: 'Beat',        dataType: 'bool' },
+      { id: 'volume',      label: 'Volume',      dataType: 'float' },
       { id: 'minTime',     label: 'Min Time',    dataType: 'float' },
       { id: 'maxTime',     label: 'Max Time',    dataType: 'float' },
       { id: 'transitionSec', label: 'Transition', dataType: 'float' },
       ...playerControlActionPortsFor('player'),
     ],
-    propertyInputs: { minTime: 'minTime', maxTime: 'maxTime', transitionSec: 'transitionSec' },
+    propertyInputs: { volume: 'volume', minTime: 'minTime', maxTime: 'maxTime', transitionSec: 'transitionSec' },
     actionInputs: playerControlActionPortsFor('player').map((port) => port.id),
     outputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
@@ -2405,7 +2406,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'display', label: 'Display', dataType: 'display' },
     ],
     defaultProperties: {
-      minTime: 4, maxTime: 12, transitionSec: 1,
+      volume: 1, minTime: 4, maxTime: 12, transitionSec: 1,
       // Transition styles come from a wired TransitionSet; unwired ⇒ crossfade.
       // Controls and particle FX are supplied by their dedicated bundle nodes.
       seed: 0,
@@ -4499,7 +4500,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Counter:           { rate:  { control: 'slider', min: 0, max: 5,   step: 0.1 } },
   GameOfLife:        { speed: { control: 'slider', min: 1, max: 30,  step: 1 }, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   ReactionDiffusion: { speed: { control: 'slider', min: 1, max: 30,  step: 1 }, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
-  PatternMaster:     { seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
+  PatternMaster: {
+    volume: N01,
+    seed: { control: 'slider', min: 0, max: 9999, step: 1 },
+  },
   PatternSlideshow: {
     order: { control: 'select', options: PATTERN_SLIDESHOW_ORDERS },
     interval: { control: 'slider', min: 1, max: 300, step: 1 },

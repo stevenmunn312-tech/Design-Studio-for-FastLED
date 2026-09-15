@@ -550,11 +550,12 @@ drifts — a list beside one generator says nothing about the other two.
   pulse on *either* edge and no node produces one (`Trigger`'s one-shot fires on
   the rising edge only), so it is left alone and said out loud.
 
-  **Volume is refused for a plainer reason:** `PatternMaster` has no `volume`
-  input at all. The reading exists only inside the `playercontrols` bundle, so
-  the route is a Control Map — a node with its own configuration rather than a
-  conversion, and therefore the user's to place. Giving the player a real
-  continuous input is step 9's kind of work.
+  **Volume is direct now:** `PatternMaster` has a real continuous `volume`
+  property input, so a template slider can wire straight to the player when the
+  panel is showing that player. Control Map is still useful for chained
+  physical controls, bundled transport, repeat settings and configured
+  volume-step buttons, but it is no longer required for a single absolute
+  volume slider.
 
   **Blackout is wired through an adapter.** True means dark on the control and
   true means lit on `enabled`, so a `Not` is placed between them: visible,
@@ -604,11 +605,12 @@ drifts — a list beside one generator says nothing about the other two.
 - [ ] Cover group boundaries and supported player/show pattern parameters.
   Distinguish live parameters from bake-time settings, and report remaining
   exclusions explicitly. Never offer a control that only works in preview.
-  → Not started. The concrete case waiting here is the one step 8 named: a
-  player's **Volume** has no direct input at all — the reading exists only
-  inside the `playercontrols` bundle — so a template's volume slider is refused
-  rather than wired. Giving `PatternMaster` a real continuous `volume` input
-  means teaching the evaluator and the player template, not just declaring it.
+  → Partly. The concrete case step 8 named is landed: a player's **Volume** is
+  now a direct continuous `PatternMaster.volume` input, consumed by preview and
+  the SD-player control graph, so a template's volume slider can wire straight
+  to the player. Remaining work in this item is the broader group-boundary and
+  player/show parameter audit, including explicit reporting of bake-time-only
+  exclusions.
 - [ ] Apply the step-1 visibility audit across the full existing node catalogue.
   Keep main data ports visible, expose optional properties/actions on demand and
   retain all connected sockets. Check loaded graphs, group interfaces and the

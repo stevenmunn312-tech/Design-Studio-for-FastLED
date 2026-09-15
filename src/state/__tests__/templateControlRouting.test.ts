@@ -156,13 +156,13 @@ describe('declining rather than guessing', () => {
     expect(reasons(plan).transportPlayPause).toContain('takes Play / Pause as a press')
   })
 
-  it('refuses a volume slider, which has no direct port to land on', () => {
+  it('sends a volume slider to the player volume port', () => {
     const plan = templateControlPlan(
       panel, templated('minimal-transport'), [panel, touch, player],
       [edge('player', 'display', 'tft', 'display')],
     )
-    expect(routes(plan).transportVolume).toBeUndefined()
-    expect(reasons(plan).transportVolume).toContain('Control Map')
+    expect(routes(plan).transportVolume).toBe('player.volume')
+    expect(reasons(plan).transportVolume).toBeUndefined()
   })
 
   it('never overwrites an input something else already drives', () => {

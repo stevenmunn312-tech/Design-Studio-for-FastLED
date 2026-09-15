@@ -72,6 +72,20 @@ describe('connectTemplateControls', () => {
     expect(player.data.exposedInputs).toEqual(expect.arrayContaining(['previous', 'next']))
   })
 
+  it('wires a player volume template control and exposes the hidden property port', () => {
+    setup(node('player', 'PatternMaster', {}, 'Music Player'), 'minimal-transport')
+    const result = connectTemplateControls('tft')
+
+    expect(result.connected).toBe(3)
+    expect(routed()).toEqual([
+      'player.next <- TouchInput',
+      'player.previous <- TouchInput',
+      'player.volume <- TouchInput',
+    ])
+    const player = useGraphStore.getState().nodes.find((entry) => entry.id === 'player')!
+    expect(player.data.exposedInputs).toEqual(expect.arrayContaining(['previous', 'next', 'volume']))
+  })
+
   /*
    * True means dark on the control and true means lit on the port. The
    * conversion is a node on the canvas rather than a reinterpretation inside

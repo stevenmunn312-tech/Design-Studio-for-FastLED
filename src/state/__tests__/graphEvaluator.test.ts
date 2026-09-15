@@ -2683,6 +2683,31 @@ describe('evaluateGraph', () => {
     expect(usePlayerTransport.getState().controlSerial).toBe(1)
   })
 
+  it('Music Player consumes a direct volume input as an absolute transport level', () => {
+    resetEvaluatorState()
+    usePlayerTransport.setState({ controlSerial: 0, controlCommand: null, volume: 1 })
+    const collection = node('vol_collection', 'PatternCollection', 'show', { patternIds: ['vol_group'] })
+    const volume = node('vol_knob', 'Math', 'math', { mathOp: 'add', a: 0.37, b: 0 })
+    const player = node('vol_player', 'PatternMaster', 'show', { minTime: 999, maxTime: 999, transitionSec: 1 })
+    const output = node('vol_output', 'MatrixOutput', 'output', {})
+    const solid = node('vol_solid', 'SolidColor', 'pattern', { r: 80, g: 40, b: 20 })
+    const groupOut = node('vol_group_out', 'GroupOutput', 'output', {})
+    const groups = { vol_group: { nodes: [solid, groupOut], edges: [edge('vol_ge', solid.id, 'frame', groupOut.id, 'frame')] } }
+    const nodes = [collection, volume, player, output]
+    const edges = [
+      edge('vol_e1', collection.id, 'patternset', player.id, 'patternset'),
+      edge('vol_e2', volume.id, 'result', player.id, 'volume'),
+      edge('vol_e3', player.id, 'frame', output.id, 'frame'),
+    ]
+
+    evaluateGraphFull(nodes, edges, 0, 4, 4, groups)
+    expect(usePlayerTransport.getState().controlCommand).toMatchObject({
+      sourceId: 'vol_player',
+      volume: 0.37,
+    })
+    expect(usePlayerTransport.getState().controlSerial).toBe(1)
+  })
+
   it('PatternMaster forwards its wired audio input into absorbed groups', () => {
     mockAudio.active = true
     mockAudio.micActive = true

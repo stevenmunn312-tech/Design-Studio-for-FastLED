@@ -8023,13 +8023,16 @@ function createEvalNode(
         const bundleControls: PlayerControls = isPlayerControls(controlsValue)
           ? controlsValue
           : IDLE_PLAYER_CONTROLS
-        const controls = combinePlayerControls(
+        let controls = combinePlayerControls(
           bundleControls,
           directPlayerActionControls(
             id, stateKey(`${id}/direct-actions`), playerControlActionPortsFor('player'),
             t, incoming, input, nodeMap,
           ),
         )
+        if (incoming.has(`${id}:volume`)) {
+          controls = { ...controls, volume: clamp01(num(id, 'volume', props, 'volume', 1)) }
+        }
         const runtime = applyPlayerTransportControls(key, controls)
 
         // One selection per player. The show's own advance goes through it

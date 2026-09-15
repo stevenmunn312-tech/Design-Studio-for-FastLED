@@ -134,11 +134,7 @@ const ROLE_TARGETS: Readonly<Record<TemplateControlRole, Partial<Record<DisplayS
   // Blackout toggle is true-means-dark, so it arrives through a Not.
   outputBrightness: { ledOutput: { port: 'brightness' } },
   outputBlackout: { ledOutput: { port: 'enabled', adapter: 'invert' } },
-  // No direct port exists: a player's volume lives inside the `playercontrols`
-  // bundle and nowhere else, so the only route is a Control Map. That is a
-  // node with its own configuration rather than a conversion, so it is left
-  // for the user to place deliberately and reported by name here.
-  transportVolume: {},
+  transportVolume: { player: { port: 'volume' } },
 }
 
 /**

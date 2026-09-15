@@ -127,6 +127,16 @@ describe('custom displays in SD-player firmware', () => {
     expect(cpp).not.toContain('n_controls_controls')
   })
 
+  it('emits direct player volume without requiring Control Map', () => {
+    const nodes = [panel('tft'), touch()]
+    const cpp = generate(nodes, [edge('tft-touch', 'widget:slider:out', 'player', 'volume')])
+    expect(cpp).toContain('PlayerControlsValue n_player_direct_controls;')
+    expect(cpp).toContain('n_player_direct_controls.volume = constrain(n_tft_touch_widget_slider_out, 0.0f, 1.0f);')
+    expect(cpp).toContain('playerVolume = constrain((n_player_direct_controls.hasVolume ? n_player_direct_controls.volume : playerVolume) + n_player_direct_controls.volumeDelta, 0.0f, 1.0f);')
+    expect(cpp).toContain('applyPlayerVolume();')
+    expect(cpp).not.toContain('n_controls_controls')
+  })
+
   it('rejects unsupported sources, wrong types and output wires before code generation', () => {
     const nodes = [...root, node('wave', 'Wave'), node('controls', 'ControlMap', { controls: ['brightness'] })]
     const edges = [...route, edge('wave', 'result', 'controls', 'brightness'), edge('controls', 'controls', 'player', 'controls')]
