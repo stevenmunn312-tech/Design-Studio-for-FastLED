@@ -1,7 +1,9 @@
 # Direct controls and LED output status
 
-Status: in progress — steps 2, 3, the Touch-output core of step 4,
-Match target range and the LED-output action slice of step 5 are landed.
+Status: in progress — step 1 inventory and contract are documented;
+steps 2, 3, the Touch-output core of step 4, Match target range and the
+LED-output action slice of step 5 are landed; fallback-backed
+`propertyInputs` declarations are landed from the catalogue.
 2026-09-14. Target: Hardware, ahead of v1.0.0. Behaviour below is a mix of
 implemented and specified; the checklist at the foot says which is which.
 
@@ -126,22 +128,138 @@ against: a property input's identity is the port the node already declares
 (`propertyInputs` in `NodeDefinition`), its default exposure is
 `defaultExposedInputs`, a node's own list lives on `StudioNodeData.exposedInputs`
 and is bounded to declared ports on load, and an edge always overrides that list
-so a wired socket cannot be hidden. What remains below is the catalogue-wide
-sweep and the widget-role half.
+so a wired socket cannot be hidden. The catalogue-wide sweep is complete;
+fallback-backed pattern/composite/show/display declarations are landed, and
+what remains is the smaller set of live external inputs that need explicit
+manual fallback semantics before they can hide behind `propertyInputs`.
 
-- [ ] Inventory properties and actions by node type: existing input, exposable
+- [x] Inventory properties and actions by node type: existing input, exposable
   runtime value, action, or rebuild-only setting. Record runtime support for
   normal sketches, slideshow shows and SD/performance players, including
   parameters inside reusable groups and patterns whose values are baked.
-- [ ] Audit every existing node's inputs and classify default-visible main data
+  → [Property input catalogue](property-input-catalogue.md).
+- [x] Audit every existing node's inputs and classify default-visible main data
   ports versus optional property/action ports. Record default exposure in shared
   metadata; preserve existing port IDs and always reveal connected sockets.
-- [ ] Define shared metadata for type, range/units, defaults, enum choices,
+  → Resolved: math/signal/color/field/audio nodes keep all inputs visible;
+  pattern/composite/show nodes with mixed inputs get `propertyInputs` for
+  optional tuning parameters.
+- [x] Define shared metadata for type, range/units, defaults, enum choices,
   integer rounding, action semantics and supported execution paths. Preserve
   existing port identities and numeric-domain behaviour where inputs exist.
-- [ ] Define stable exposed-property and widget-role identities, persistence,
+  → Documented below in [Shared metadata](#shared-metadata).
+- [x] Define stable exposed-property and widget-role identities, persistence,
   one-source rules and atomic undo/redo operations. Hardware is a breaking
   development line: remove superseded models cleanly without pre-1.0 migrations.
+  → Documented below in [Identities and persistence](#identities-and-persistence).
+
+### Shared metadata
+
+Every existing authority is preserved; this section collects them in one place.
+
+#### Type, range, units, defaults, enum choices
+
+`PROPERTY_META` in `src/state/nodeLibrary.ts` (line 3664) defines the editor
+control for every property name: `slider` with `min`/`max`/`step`, or `select`
+with `options`. `PROPERTY_META_OVERRIDES` (line 3841) supplies per-node
+overrides where the same property name means different things on different
+nodes. `inputClampRange` (line 4948) derives a property's numeric domain from
+its slider, used by the evaluator's `clampInputs` toggle and by
+`signalRange.ts` for Map Range hints. `defaultProperties` on each
+`NodeDefinition` supplies the fallback value.
+
+#### Speed/scale denormalization
+
+`src/state/speedRange.ts` maps the 0–1 slider onto each node's internal
+animation rate. `SPEED_MAX` and `SCALE_MAX` tables are the single source for
+both the evaluator (`denormRate`) and codegen (`rateCpp`). Bundled nodes
+(`Noise`, `FormulaPoints`, `FormulaField`) key their maps by variant.
+
+#### Integer rounding
+
+`Juggle`'s `count` is bounded then rounded once in `src/state/juggle.ts`,
+so 3.6 means the same number of dots in preview and firmware. Other nodes
+with integer-domain inputs (e.g. `Particles.count`, `Starfield.count`,
+`Array.count`) use `Math.round` or `floor(v + 0.5)` in the evaluator and
+`roundf` / `(int)(v + 0.5f)` in codegen. The `count` property slider has
+`step: 1` which rounds the manual value; a wired float is rounded at the
+consumption site.
+
+#### Action semantics
+
+| Action | Kind | Type | Behaviour |
+|--------|------|------|-----------|
+| `ledToggle` | momentary | bool | Edge-triggered (press only). Debounced in `transportBridge.ts`. Toggles the per-output blackout latch. Held button does not repeat. |
+| `brightnessUp` | momentary | bool | Edge-triggered. Increments brightness by a fixed step. Held repeats at a configurable rate. |
+| `brightnessDown` | momentary | bool | Edge-triggered. Decrements brightness. Same repeat rules as Up. |
+| `playPause` | momentary | bool | Edge-triggered. Toggles player transport. Debounced. |
+| `next` / `previous` | momentary | bool | Edge-triggered. Advances/skips track. Debounced. |
+| `volume` | continuous | float | Level (0–1). Holds its position. |
+| `volumeUp` / `volumeDown` | momentary | bool | Edge-triggered with repeat. |
+| `patternSelect` | continuous | float | Encoder position (whole detents). Converted from raw count at read site. |
+| `patternPrevious` / `patternNext` | momentary | bool | Edge-triggered. One step per press. |
+| `patternConfirm` | momentary | bool | Edge-triggered. Commits highlighted pattern. |
+| `masterSpeed` | continuous | float | Level (0–1). Accumulates, never multiplies. |
+
+Debounce and repeat parameters live in `src/state/transportBridge.ts`.
+Edge detection is shared between the evaluator's `PlayerControls` bundle
+and the firmware's `CtlEdge`/`CtlDetent` structs.
+
+#### Supported execution paths
+
+| Destination | Normal sketch | Slideshow show | SD/Performance player |
+|-------------|:---:|:---:|:---:|
+| LED output `enabled`/`brightness` | ✓ | ✓ | ✗ (owned by transport) |
+| LED output `ledToggle`/`brightnessUp`/`brightnessDown` | ✓ | ✓ | ✗ (use Control Map) |
+| LED output `controls` bundle | ✓ | ✓ | ✓ |
+| Display panel `enabled` | ✓ | ✓ | ✓ |
+| Juggle `speed`/`count`/`fade`/`palette` | ✓ | ✓ | ✓ |
+| Pattern player transport (Play/Pause etc.) | N/A | N/A | ✓ (via Control Map) |
+| Pattern slideshow `interval` | ✓ | ✓ | N/A |
+| Master Speed | ✓ | ✗ | ✗ |
+
+The SD player refuses direct LED output property/action wires by name —
+its transport owns brightness. Normal sketches and slideshow shows accept
+them. Control Map bundles work everywhere their destination exists.
+
+### Identities and persistence
+
+#### Exposed-property identity
+
+A property input is identified by `{nodeType}.{propertyKey}` mapping to
+`{portId}`. The port is one the node already declares in `def.inputs`.
+The registry is `src/state/propertyInputs.ts`. Exposing a socket changes
+only whether it is drawn — the evaluator, generators and validation
+already read the property through it.
+
+#### Widget-role identity
+
+A display widget output is identified by `widget:<widgetId>:<role>` where
+`role` is `value` (slider/dial), `pressed` (button), or `active` (toggle).
+Parsed through `parseDisplayWidgetPortId`. Labels and positions never
+identify wires — renaming a widget preserves its connections.
+
+#### Persistence
+
+`StudioNodeData.exposedInputs` stores the visible subset per node instance.
+On load, `normalizeExposedInputs` bounds it to declared ports. An edge
+always overrides the list — `exposedNodeInputs` adds any wired port,
+and `setNodeInputExposed` refuses to hide one. `defaultExposedInputs`
+on `NodeDefinition` supplies the initial set before the user chooses.
+
+#### One-source rules
+
+`completeConnection` replaces the first source on a socket. A second
+source cannot be added — the drop is refused by name. Combining sources
+requires an explicit mix, select or logic node. One source may feed
+several destinations.
+
+#### Atomic undo/redo
+
+Exposing and connecting in one operation (dragging onto a property row)
+lands both edits in one tick. The history burst collapses them into one
+undo step. The same applies to template auto-wiring: create edges and
+expose inputs together, undoable as one operation.
 
 ### 2. Implement property inputs end to end
 
