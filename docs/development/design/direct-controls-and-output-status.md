@@ -2,7 +2,8 @@
 
 Status: in progress — step 1 inventory and contract are documented;
 steps 2, 3, 4, Match target range, step 5,
-step 6, step 7 and step 8 are landed; step 9 is partly landed; fallback-backed
+step 6, step 7 and step 8 are landed; steps 9 and 10 are partly landed
+(step 10's software verification is complete; compilation and bench are not); fallback-backed
 `propertyInputs` declarations are landed from the catalogue; the
 direct-plus-bundle action collision gate is landed; explicit toggle initial
 state, repeat-step settings and Map Range repair are landed; the control pass
@@ -615,20 +616,55 @@ drifts — a list beside one generator says nothing about the other two.
 
 ### 10. Verify the complete workflows
 
-- [ ] Exercise Juggle + LED String + status display, with direct touch Speed and
+- [x] Exercise Juggle + LED String + status display, with direct touch Speed and
   Brightness and a physical Enabled button. Check held versus toggle behaviour,
   disconnect fallback, save/reload, undo/redo and source tracing.
-- [ ] Exercise Music Player, Pattern Slideshow and Performance Generator with
+  → `directControlWorkflow.test.ts` builds that graph once and asks the
+  questions above of it. It earned its place on the first run by finding a bug
+  every focused test had missed: the status panel read `node.data.label` for
+  the fixture's name, and nothing persists a node label — the canvas derives
+  the title through `nodeDisplayLabel` and `normalizeLoadedGraph` overwrites
+  the stored one — so a panel on an LED String reported "LED Matrix", and
+  would have again after every reload. That is the class of failure only a
+  whole-workflow test reaches: each part was correct, and the fixtures that
+  proved it all set a label by hand and none reloaded a graph.
+  Held-versus-latched is driven through the hardware input store rather than
+  inferred, because a button on Enabled that quietly became a latch looks
+  identical on the canvas and is opposite on a bench.
+- [~] Exercise Music Player, Pattern Slideshow and Performance Generator with
   named direct controls and optional bundles. Check playback, fixture versus
   show dimming, feedback, multiple outputs and invalid-route diagnostics.
-- [ ] Exercise template auto-wiring alongside manual edits and optional bundles;
+  → Partly. The routes each engine accepts and refuses are covered by the
+  step-5 suites (`customDisplayPlayer.test.ts`, `transportDisplayShow.test.ts`,
+  `deployGates.test.ts`), and the workflow file adds the two checks that need
+  more than one feature at once: a button wired straight to a slideshow pattern
+  step builds clean, and one press reaching the same action both directly and
+  through a Control Map is refused by name. Not exercised as a workflow:
+  fixture-versus-show dimming with multiple outputs, and widget feedback under
+  playback. Those want the bench more than they want another fixture.
+- [x] Exercise template auto-wiring alongside manual edits and optional bundles;
   verify no duplicate actions or redirected connections. Review compact node
   layouts and confirm type colours remain stable through connection changes,
   with useful type/range hints and an accessible non-colour equivalent.
-- [ ] Run focused regressions, repository tests, lint and production build;
+  → `connectTemplateControls.test.ts` covers the auto-wiring half: a second run
+  connects nothing, a manual reroute is respected, re-pointing a panel neither
+  retargets the old wires nor doubles the control onto the new source. Port
+  colours, drag-time compatibility marking and the aria equivalents were
+  settled in step 3 and are held by `StudioNode.test.tsx`.
+- [~] Run focused regressions, repository tests, lint and production build;
   compile representative normal/show/player firmware. Check real touch,
   enable/re-enable and LED/status response on hardware. Record software,
   compilation and bench results separately; do not infer hardware success.
+  → **Software: done.** `npm test` 5218 passed / 13 skipped, `tsc -b` clean,
+  `npm run lint` clean, `npm run build` clean (PWA precache 149 entries).
+  → **Compilation: not run.** Representative normal/show/player firmware still
+  needs building; `scripts/generate-display-smoke.mjs` writes the fixtures and
+  `scripts/compile-display-smoke.py` builds them.
+  → **Bench: not run**, and deliberately not inferred. Real touch,
+  enable/re-enable, and LED/status response on hardware are the three readings
+  nothing above substitutes for — the status panel bug found here was a naming
+  fault a test could catch, and the ones left are timing and wiring faults that
+  it cannot.
 
 ### 11. Finish documentation and examples
 
