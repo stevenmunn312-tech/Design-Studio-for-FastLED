@@ -38,6 +38,12 @@
  * Nothing here mutates. It is read by the applier, by the "Connect template
  * controls" action, and by tests, which is what keeps the second and third
  * from drifting from the first.
+ *
+ * Named for the plan it produces, deliberately not "routing": `codegen/
+ * templateControlRouting.ts` is a different thing entirely — how a *generator*
+ * resolves the controls a template sketch already has — and the two sat under
+ * one name long enough to be worth separating. This one decides what *should*
+ * be wired on the canvas; that one emits what already is.
  */
 
 import type { DisplayDocument, DisplayWidget } from './displayDocument'

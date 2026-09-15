@@ -10,7 +10,7 @@ import { defaultDisplayWidgetProperties } from './displayRegistry'
 import { displayControlAssetId, type DisplayControlIconName } from './displayAssets'
 import { displaySourceFields } from './displaySourceFields'
 import type { DisplaySignalKind } from './displaySignal'
-import { TEMPLATE_CONTROL_ROLES } from './templateControlRouting'
+import { TEMPLATE_CONTROL_ROLES } from './templateControlPlan'
 
 export type DisplayTemplateId =
   | 'clock'

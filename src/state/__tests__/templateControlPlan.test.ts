@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest'
 import { addDisplayWidget, createDisplayDocument, updateDisplayWidget } from '../displayEditor'
 import { applyDisplayTemplate } from '../displayTemplates'
 import { NODE_LIBRARY, libraryDefaults } from '../nodeLibrary'
-import { templateControlPlan, widgetControlRole } from '../templateControlRouting'
+import { templateControlPlan, widgetControlRole } from '../templateControlPlan'
 import type { DisplayDocument } from '../displayDocument'
 import type { StudioEdge, StudioNode } from '../graphStore'
 

@@ -15,7 +15,7 @@ import {
 import type { NodeCategory, NodePort } from '../types'
 import { NODE_LIBRARY, portColor, propertyLabel, propertyMeta } from './nodeLibrary'
 import { exposableInputsFor, normalizeExposedInputs, propertyInputsFor } from './propertyInputs'
-import { templateControlPlan, type TemplateControlPlan } from './templateControlRouting'
+import { templateControlPlan, type TemplateControlPlan } from './templateControlPlan'
 import type { GroupRegistry } from './graphEvaluator'
 import type { SavedPattern } from './patternLibrary'
 import { isPatternContentTrusted, trustPatternContent } from './patternTrust'
