@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { useDisplayRuntimeStore } from '../displayRuntimeStore'
+import { resolvedDisplayControlValue, useDisplayRuntimeStore } from '../displayRuntimeStore'
 
 const runtime = () => useDisplayRuntimeStore.getState()
 
@@ -45,6 +45,39 @@ describe('custom display runtime store', () => {
 
     expect(runtime().sampleDisplayWidgetOutput('panel', 'toggle', false)).toBe(true)
     expect(runtime().sampleDisplayWidgetOutput('panel', 'toggle', false)).toBe(false)
+  })
+
+  /*
+   * A second control moving the same value while a finger is on the first.
+   *
+   * Ownership is the whole point of the latch: the held control keeps sending
+   * what the finger says, and the value arriving from elsewhere must not fight
+   * it mid-drag — a slider that loses this jitters under the finger. On
+   * release the other control wins on the very next sample, because the
+   * finger's intent has already been delivered by the samples taken while it
+   * was down. The extra pending sample exists for the one case where it has
+   * not: a tap that begins and ends between two passes, covered above.
+   *
+   * The firmware says this in the same two lines per widget
+   * (`synchronizedUpdateLines` in customDisplayLvglCpp.ts): skip the publish
+   * while `touchOwned || touchPending`, then clear `touchPending` once the
+   * finger is off.
+   */
+  it('keeps a held control against another control, and hands over on release', () => {
+    runtime().publishDisplayRoleValue('panel', 'level', 'set', 0.2)
+    runtime().touchDisplayWidget('panel', 'level', 0.8)
+
+    // The other control moves the shared value while this one is held.
+    runtime().publishDisplayRoleValue('panel', 'level', 'set', 0.35)
+    expect(runtime().sampleDisplayWidgetOutput('panel', 'level', 0)).toBe(0.8)
+    expect(resolvedDisplayControlValue(runtime().readDisplayWidget('panel', 'level'), 0)).toBe(0.8)
+    // Still the finger's on a second pass; the graph value does not creep in.
+    runtime().publishDisplayRoleValue('panel', 'level', 'set', 0.4)
+    expect(runtime().sampleDisplayWidgetOutput('panel', 'level', 0)).toBe(0.8)
+
+    runtime().releaseDisplayWidget('panel', 'level')
+    expect(runtime().sampleDisplayWidgetOutput('panel', 'level', 0)).toBe(0.4)
+    expect(resolvedDisplayControlValue(runtime().readDisplayWidget('panel', 'level'), 0)).toBe(0.4)
   })
 
   it('marks a widget dirty only when something it draws changed, and clears it once', () => {
