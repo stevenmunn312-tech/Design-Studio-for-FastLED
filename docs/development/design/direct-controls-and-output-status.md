@@ -1,12 +1,13 @@
 # Direct controls and LED output status
 
 Status: in progress — step 1 inventory and contract are documented;
-steps 2, 3, 4, Match target range and
-step 5 are landed; fallback-backed
+steps 2, 3, 4, Match target range, step 5 and
+step 6 are landed; fallback-backed
 `propertyInputs` declarations are landed from the catalogue; the
 direct-plus-bundle action collision gate is landed; explicit toggle initial
-state, repeat-step settings and Map Range repair are landed.
-2026-09-14. Target: Hardware, ahead of v1.0.0. Behaviour below is a mix of
+state, repeat-step settings and Map Range repair are landed; the control pass
+phase model and the self-disabled-panel warning are landed.
+2026-09-15. Target: Hardware, ahead of v1.0.0. Behaviour below is a mix of
 implemented and specified; the checklist at the foot says which is which.
 
 ## Brief explanation
@@ -395,13 +396,54 @@ controls invoking the same action remain valid.
 
 ### 6. Preserve feedback and evaluation order
 
-- [ ] Use a shared phase model: sample touch, resolve controls and graph values,
+The order was already the same everywhere; what was missing was anywhere that
+said so. Each generator carried its own hand-listed ordering assertion, or
+none, which is the shape of check that passes while the thing it describes
+drifts — a list beside one generator says nothing about the other two.
+
+- [x] Use a shared phase model: sample touch, resolve controls and graph values,
   apply destination state, publish status/widget feedback, then refresh screens.
   Specify the prior-sample boundary wherever feedback needs state; do not ignore
   arbitrary graph cycles to make a screen connection pass validation.
-- [ ] Preserve slider/toggle feedback ownership while pressed and on release,
+  → `src/state/controlPhases.ts` states the six phases once, splits them into
+  an **input** half (sample, snapshot) and an **output** half (resolve, apply,
+  publish, refresh), and names the emitted anchors each phase leaves behind.
+  The split is load-bearing rather than cosmetic: the input half must *close*
+  before anything acts on it, so every binding — including feedback that
+  crosses two screens — reads one snapshot; the output half may run more than
+  once in a pass, because the SD player publishes and repaints on its
+  track-advance exit as well as at the foot of the loop.
+  `controlPhaseOrder.test.ts` asserts the order over what all three generators
+  actually emit, plus the generated compile fixtures when they are present, and
+  carries a negative control so a checker that cannot fail is caught.
+  **Prior-sample boundary:** both input phases read the panel's own Enabled
+  latch (`_cdPanelOn_<id>`), which the apply phase writes later in the same
+  pass, so on the one frame a wired Enabled changes they see the previous
+  value. That is deliberate — the alternative is evaluating the same expression
+  at three sites that can disagree. Cycles are unchanged and stay narrow:
+  `cppGenerator.ts` drops only edges whose `targetHandle` parses as
+  `widget:<id>:<role>` from the topological sort, never `display` or `enabled`,
+  which remain real dependencies (`emittedDeclarationOrder.test.ts`).
+- [x] Preserve slider/toggle feedback ownership while pressed and on release,
   including changes made by another control. Verify independent panels, disabled
   widgets at rest, and the independent recovery route for a self-disabled panel.
+  → A held control keeps the finger's value against a second control writing
+  the same `set`, and hands over on the next sample after release — the extra
+  pending sample exists only for a tap that begins and ends between two passes.
+  Firmware says the same thing in `synchronizedUpdateLines`. Independent panels
+  and disabled-at-rest were already held by `displayRuntimeStore.test.ts` and
+  `displayNodeEvaluation.test.ts`; the recovery route was the real gap and is
+  now `findPanelEnableRecoveryIssues` in `validateGraph.ts`: a Graph Health
+  **warning** when the panel's own Touch node is the sole origin of its Enabled
+  signal, seen through any amount of latching or logic in between. A warning
+  rather than an error because the graph builds and does exactly what it says;
+  it is simply unrecoverable from the glass. Deliberately not repaired by
+  waking the panel on the next press or by turning the toggle momentary —
+  either would make Enabled mean something different on this panel than on
+  every other one. It warns only when that Touch node is the *sole* origin, so
+  a contrived graph mixing in a constant is missed; that is the right way to be
+  wrong, because a warning that fires on a correct graph teaches people to stop
+  reading the drawer.
 
 ### 7. Add LED output Display signals
 
