@@ -2,12 +2,13 @@
 
 Status: in progress — step 1 inventory and contract are documented;
 steps 2, 3, 4, Match target range, step 5,
-step 6 and step 7 are landed; fallback-backed
+step 6, step 7 and step 8 are landed; fallback-backed
 `propertyInputs` declarations are landed from the catalogue; the
 direct-plus-bundle action collision gate is landed; explicit toggle initial
 state, repeat-step settings and Map Range repair are landed; the control pass
 phase model and the self-disabled-panel warning are landed; LED outputs
-publish their own status and the three panel classes render it.
+publish their own status and the three panel classes render it; template
+controls resolve and connect their own destinations.
 2026-09-15. Target: Hardware, ahead of v1.0.0. Behaviour below is a mix of
 implemented and specified; the checklist at the foot says which is which.
 
@@ -499,19 +500,71 @@ drifts — a list beside one generator says nothing about the other two.
 
 ### 8. Auto-wire templates and fixed layouts
 
-- [ ] Describe controls with stable semantic roles and derive candidate targets
+- [x] Describe controls with stable semantic roles and derive candidate targets
   from the display's actual source and graph context. Resolve only unambiguous,
   supported destinations; do not guess from editable names or node proximity.
-- [ ] On initial template/layout creation, create valid ordinary edges and any
+  → `TemplateControlRole` is stamped onto a widget when the template places it,
+  the same way a bound `source` is, and kept across a save — so renaming "Next"
+  to "Skip" cannot quietly stop the control being recognised, the same reason
+  widget ports are keyed by id. The role ids live in `displayRegistry.ts`,
+  which owns what a widget may carry; `templateControlRouting.ts` owns what to
+  do with one. A role is deliberately coarser than a port: `transportNext` is
+  one gesture whether the graph turns it into a track skip or a pattern step.
+  The destination is the node wired into the panel's **Display** input and
+  nothing else — a graph with exactly one LED output still does not get a
+  Brightness slider wired to it while the panel is showing a player, because
+  that is inference, and an auto-wire nobody asked for is harder to unpick than
+  one that never happened.
+- [x] On initial template/layout creation, create valid ordinary edges and any
   required exposed inputs together in one undoable operation. Leave unavailable,
   ambiguous or occupied destinations untouched with a clear connection hint.
-- [ ] Add **Connect template controls** to connect currently missing controls.
+  → `connectTemplateControls` does the edges, the sockets and any adapter in a
+  single `set`, so one undo removes the lot. Every refusal carries a reason,
+  because an unconnected control is indistinguishable from a bug unless
+  something says why.
+- [x] Add **Connect template controls** to connect currently missing controls.
   Repeated use is idempotent. Respect manual edits, deletions and rerouting;
   changing the display source or layout must never silently retarget wires.
-- [ ] Verify player Play/Pause and Volume, LED Status Brightness and Blackout,
+  → Idempotent by construction rather than by a guard: the plan declines an
+  input that already has something on it, including the wire this action drew
+  last time. Nothing is ever retargeted or overwritten — only added — and a
+  control that already drives something is not offered a second job, checked on
+  the control's own output because when a panel is re-pointed the *destination*
+  is exactly what changed. Without that a Next button would end up driving the
+  old player and the new slideshow at once.
+- [x] Verify player Play/Pause and Volume, LED Status Brightness and Blackout,
   a template created without a source, multiple possible targets, existing input
   connections, source replacement, manual rewiring, save/reload and undo/redo.
   Read-only layouts produce no automatic control connections.
+  → Covered by `templateControlRouting.test.ts` (resolution and every refusal)
+  and `connectTemplateControls.test.ts` (what reaches the store, the single
+  undo, idempotency, source replacement). Three results are worth stating
+  rather than burying:
+
+  **Play/Pause is refused, not wired.** The template's Play control is a Toggle
+  — a latch — and `playPause` is a momentary action. Wiring them commands the
+  transport when the switch goes on and does nothing when it goes off, so the
+  switch and the player disagree from the second press. Correcting it needs a
+  pulse on *either* edge and no node produces one (`Trigger`'s one-shot fires on
+  the rising edge only), so it is left alone and said out loud.
+
+  **Volume is refused for a plainer reason:** `PatternMaster` has no `volume`
+  input at all. The reading exists only inside the `playercontrols` bundle, so
+  the route is a Control Map — a node with its own configuration rather than a
+  conversion, and therefore the user's to place. Giving the player a real
+  continuous input is step 9's kind of work.
+
+  **Blackout is wired through an adapter.** True means dark on the control and
+  true means lit on `enabled`, so a `Not` is placed between them: visible,
+  selectable, deletable, and removed by the same single undo. Folding the
+  inversion into the edge would make one boolean mean two different things
+  depending on which port it landed on.
+
+  "Multiple possible targets" cannot arise by construction — resolution reads
+  the one source wired into the panel, so there is never a second candidate to
+  choose between. Read-only fixed layouts produce nothing for the same
+  structural reason: a panel with no screen design has no widgets to carry
+  roles, so there is nothing to route.
 
 ### 9. Extend the property catalogue and declutter existing nodes
 
