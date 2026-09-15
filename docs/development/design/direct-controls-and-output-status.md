@@ -1,12 +1,13 @@
 # Direct controls and LED output status
 
 Status: in progress — step 1 inventory and contract are documented;
-steps 2, 3, 4, Match target range, step 5 and
-step 6 are landed; fallback-backed
+steps 2, 3, 4, Match target range, step 5,
+step 6 and step 7 are landed; fallback-backed
 `propertyInputs` declarations are landed from the catalogue; the
 direct-plus-bundle action collision gate is landed; explicit toggle initial
 state, repeat-step settings and Map Range repair are landed; the control pass
-phase model and the self-disabled-panel warning are landed.
+phase model and the self-disabled-panel warning are landed; LED outputs
+publish their own status and the three panel classes render it.
 2026-09-15. Target: Hardware, ahead of v1.0.0. Behaviour below is a mix of
 implemented and specified; the checklist at the foot says which is which.
 
@@ -447,16 +448,54 @@ drifts — a list beside one generator says nothing about the other two.
 
 ### 7. Add LED output Display signals
 
-- [ ] Add a shared LED-output status kind and a Display socket on every LED
+- [x] Add a shared LED-output status kind and a Display socket on every LED
   output form. Publish resolved runtime state after controls are applied, with
   a precise definition of effective brightness and blackout. Do not infer a
   single pattern name from a blended graph; use the output's own label.
-- [ ] Add LED Status rendering and custom-widget bindings. Define an appropriate
+  → `ledOutput` joins `DISPLAY_SIGNAL_KINDS`, carrying a `LedOutputStatus`
+  (`ledOutputRuntime.ts`): name, form label, LED count, and the effective
+  `enabled`/`brightness`. **Effective** means what `composeLedOutputRuntime`
+  already returns — blackout ANDed and level multiplied across the field, the
+  wire, and the control latch — so a panel says what the fixture is doing
+  rather than what one of the three factors asked for. A screen showing the
+  knob position while a blackout holds the fixture dark would be worse than no
+  screen. The socket is one `display` output on `MatrixOutput`, so every form
+  has it, and the count comes from the shared `outputLedTotal` so a HUB75 wall
+  reports the wall. `name` is the output's own label: a fixture is fed by
+  whatever the graph ends in — routinely a Blend — so there is no single
+  pattern name to report, and picking one would be wrong half the time.
+- [x] Add LED Status rendering and custom-widget bindings. Define an appropriate
   representation for each panel class, including a documented numeric reading
   for segment displays. Match preview and every applicable firmware generator.
-- [ ] Update rendering/codegen terminal discovery so adding an output socket
+  → An `LED Status` layout on the colour panel (name, fixture, ON/BLACKOUT,
+  level) and on the OLED (the same four readings plus a bar), both resolving
+  one geometry function per class and sharing `ledStatusFixtureText` /
+  `ledStatusLevelText` so a mono and a colour panel cannot describe one fixture
+  two ways. The segment module's documented reading is `renderSegmentLevel`:
+  **whole percent of effective output, 0–100**, so a blacked-out fixture reads
+  0 rather than its dimmer position — four digits hold one number, and 85
+  beside a dark fixture sends someone hunting a wiring fault. The panels with
+  room to say both draw BLACKOUT *beside* the level the fixture would return
+  to, which is the pair the golden vectors freeze. Custom widgets bind through
+  `LED_OUTPUT_FIELDS`, answered in firmware by `normalSketchSourceExpressions`.
+  A normal sketch is the only generator that can answer at all; the two
+  template generators report the wire as unreadable through the walk they
+  already use, which `MatrixOutput` joining `DISPLAY_SOURCE_NODE_TYPES` put it
+  inside without a second rule.
+- [x] Update rendering/codegen terminal discovery so adding an output socket
   cannot prune the LED fixture or its upstream graph. Verify rendering with the
   Display socket both wired and unwired, and independent status for two fixtures.
+  → Nothing to update: both terminal registries already derive from "inputs,
+  and either no outputs *or* the output category", and it is that second half
+  that carries this change. Without it the fixture and everything feeding it
+  would be pruned out of a sketch that compiles and uploads cleanly and lights
+  nothing, so it is asserted rather than assumed. Ordering is the other half
+  and is why `Display` is a real port: the edge places the panel after the
+  output in the topological sort, so the level drawn is the one this pass
+  applied. Covered by `ledOutputStatusDisplay.test.ts` — wired and unwired,
+  two independent fixtures, every form, and brace balance on the three new
+  emitters, since an unbalanced block is the one mistake a `toContain`
+  assertion reads as correct.
 
 ### 8. Auto-wire templates and fixed layouts
 
