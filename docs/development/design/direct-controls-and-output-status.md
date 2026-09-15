@@ -2,13 +2,14 @@
 
 Status: in progress — step 1 inventory and contract are documented;
 steps 2, 3, 4, Match target range, step 5,
-step 6, step 7 and step 8 are landed; fallback-backed
+step 6, step 7 and step 8 are landed; step 9 is partly landed; fallback-backed
 `propertyInputs` declarations are landed from the catalogue; the
 direct-plus-bundle action collision gate is landed; explicit toggle initial
 state, repeat-step settings and Map Range repair are landed; the control pass
 phase model and the self-disabled-panel warning are landed; LED outputs
 publish their own status and the three panel classes render it; template
-controls resolve and connect their own destinations.
+controls resolve and connect their own destinations; the audio, palette and
+shape-colour property inputs are declared with guards behind them.
 2026-09-15. Target: Hardware, ahead of v1.0.0. Behaviour below is a mix of
 implemented and specified; the checklist at the foot says which is which.
 
@@ -568,12 +569,45 @@ drifts — a list beside one generator says nothing about the other two.
 
 ### 9. Extend the property catalogue and declutter existing nodes
 
-- [ ] Work through the step-1 inventory: numeric and boolean runtime fields,
+- [x] Work through the step-1 inventory: numeric and boolean runtime fields,
   then supported colour, palette, selection and text fields. Supply adapters
   where required; do not silently coerce unlike types.
+  → **Numeric.** The inventory's deferred group was the audio bands: nineteen
+  pattern nodes carried `bass`/`mids`/`treble`/`kick`/`snare`/`hihat`/`vocals`
+  (and Fire's `intensity`) as sockets with no field behind them. Both sides
+  already read them wire-then-field-then-literal with identical call shapes, so
+  only the field was missing; each now holds exactly the literal the code fell
+  back to, making the change inert until someone moves the slider. The literals
+  were extracted from `graphEvaluator.ts` and `cppGenerator.ts` and
+  cross-checked against each other rather than transcribed — half are 0 and
+  half are 0.5, and a typo would silently re-render saved projects.
+  **Palette and colour.** Four missed `paletteIn` declarations, plus Circle and
+  Shape's `fill`/`edge`. All were already wire-then-field on both sides; only
+  the declaration was absent, which showed as a socket that could not be hidden
+  while its neighbours could.
+  **Boolean: deliberately not done, and not a gap to close later as written.**
+  `beat`, `silence` and the trigger inputs read no property on *either* side —
+  they are `input(id, 'beat', false)` and `boolExpr(...)`, with no field to
+  fall back to — so exposing them is a code change on both sides rather than a
+  declaration. It should also not be a checkbox: a beat is a pulse, and a held
+  boolean is the wrong affordance for one. If these become controllable they
+  want a momentary action input, not a property input.
+  **Selection and text** remain open; no node currently reads either
+  wire-then-field, so each is a code change per node rather than a declaration.
+  Two guards now hold the rules that were only conventions:
+  `propertyInputFallbacks.test.ts` requires a declared input's field to equal
+  the literal its code falls back to (the silent-behaviour-change hazard above),
+  holds the evaluator and the generator to one literal across 100+ comparisons,
+  and derives the palette-declaration rule over the catalogue so the next node
+  to grow a palette input joins it. Both refuse to pass on an empty parse.
 - [ ] Cover group boundaries and supported player/show pattern parameters.
   Distinguish live parameters from bake-time settings, and report remaining
   exclusions explicitly. Never offer a control that only works in preview.
+  → Not started. The concrete case waiting here is the one step 8 named: a
+  player's **Volume** has no direct input at all — the reading exists only
+  inside the `playercontrols` bundle — so a template's volume slider is refused
+  rather than wired. Giving `PatternMaster` a real continuous `volume` input
+  means teaching the evaluator and the player template, not just declaring it.
 - [ ] Apply the step-1 visibility audit across the full existing node catalogue.
   Keep main data ports visible, expose optional properties/actions on demand and
   retain all connected sockets. Check loaded graphs, group interfaces and the

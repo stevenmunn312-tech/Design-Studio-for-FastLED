@@ -5,8 +5,8 @@ Auto-generated inventory for the Step 1 audit of
 174 nodes, every input classified as **main** (always visible) or **optional**
 (hideable, exposable on demand), plus action inputs.
 
-Status: draft — classification proposed; `NODE_LIBRARY` declarations are
-landing in slices.
+Status: classification settled; `NODE_LIBRARY` declarations landed in slices,
+with the remainder deferred for stated reasons rather than pending.
 
 Implementation status:
 
@@ -17,10 +17,27 @@ Implementation status:
   RadialBurst through Particles, Mirror/Trails/FrameFeedback, GradientFrame,
   FractalNoise through GameOfLife, Transition, PlayerParticles, PatternMaster,
   PatternSlideshow, CustomFormula, TransportDisplay and MatrixOutput.
-- Deferred: optional inputs whose nodes do not yet have matching
-  `defaultProperties` fallbacks, such as ClockDisplay's external time fields,
-  `Fire.intensity`, trigger inputs and the individual audio feature bands.
-  Add the fallback intentionally before exposing those ports.
+- Landed since: every audio feature band on the nineteen pattern nodes that
+  carried one, plus `Fire.intensity`, the four missed `paletteIn` declarations
+  (SpectrumVisualizer, FormulaPoints, ColorTrails, StereoVuMeter) and Circle's
+  and Shape's `fill`/`edge`. Each field holds exactly the literal both the
+  evaluator and the generator already fell back to, so the change is inert
+  until someone moves the slider; `propertyInputFallbacks.test.ts` now enforces
+  that relationship rather than leaving it to care.
+- Deferred, with reasons rather than as a backlog:
+  - **Boolean and trigger inputs** (`beat`, `silence`, `trigger`, `tap`,
+    `sync`, `reset`). These read no property on either side, so exposing one is
+    a code change on both rather than a declaration — and a held checkbox is
+    the wrong affordance for a pulse. If they become controllable they want a
+    momentary *action* input, not a property input.
+  - **ClockDisplay's external time fields** (`secondsOfDay`, `valid`, `day`,
+    `month`), for the same reason: no field behind them.
+  - **Text and Boids colour**, whose fallback is three separate `r`/`g`/`b`
+    properties rather than one field, so there is no single key for a
+    `propertyInputs` mapping to name.
+  - **Math, signal, colour and field nodes generally.** Their inputs are the
+    substance they operate on, and step 1 settled that they keep every input
+    visible — so an undeclared input there is the decision, not an omission.
 
 ## Classification rules
 
