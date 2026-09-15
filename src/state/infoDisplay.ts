@@ -20,6 +20,7 @@ import {
 } from './oledSurface'
 import { DISPLAY_WAITING_TEXT, type DisplaySignalKind } from './displaySignal'
 import { FONT_H } from './font'
+import { ledStatusFixtureText, ledStatusLevelText } from './ledOutputRuntime'
 import { formatTransportTime } from './transportBridge'
 import { THUMBNAIL_W, THUMBNAIL_H, type PatternThumbnail } from './patternThumbnail'
 
@@ -31,13 +32,14 @@ import { THUMBNAIL_W, THUMBNAIL_H, type PatternThumbnail } from './patternThumbn
  * cannot exist that no source produces, and a source cannot exist that no
  * layout draws.
  */
-export const INFO_DISPLAY_LAYOUTS = ['Waiting', 'Clock', 'Now Playing', 'Pattern Browser'] as const
+export const INFO_DISPLAY_LAYOUTS = ['Waiting', 'Clock', 'Now Playing', 'Pattern Browser', 'LED Status'] as const
 export type InfoDisplayLayout = (typeof INFO_DISPLAY_LAYOUTS)[number]
 
 const LAYOUT_BY_KIND: Record<DisplaySignalKind, InfoDisplayLayout> = {
   clock: 'Clock',
   player: 'Now Playing',
   slideshow: 'Pattern Browser',
+  ledOutput: 'LED Status',
 }
 
 /** The screen a plugged-in source produces. */
@@ -202,6 +204,7 @@ export type InfoDisplayData =
   | { layout: 'Now Playing'; data: NowPlayingData }
   | { layout: 'Clock'; data: ClockData }
   | { layout: 'Pattern Browser'; data: PatternBrowserData }
+  | { layout: 'LED Status'; data: InfoLedStatusData }
 
 export interface WaitingGeometry {
   message: InfoField
@@ -445,6 +448,64 @@ export function drawClock(surface: OledSurface, data: ClockData): void {
   drawOledText(surface, g.health.x, g.health.y, fitOledText(health, g.health.w))
 }
 
+/**
+ * LED Status: which fixture this is, and what it is actually doing.
+ *
+ * The mono twin of the colour panel's layout of the same name. Four rows and a
+ * bar is all 128x64 has, so the bar carries the level and the words carry
+ * everything a bar cannot: which fixture, what shape, and whether it is dark.
+ *
+ * The state row spells BLACKOUT rather than leaving the bar to imply it. A
+ * blacked-out fixture and one dimmed to zero draw the same empty bar, and they
+ * are different faults to go looking for.
+ */
+export interface InfoLedStatusData {
+  name: string
+  formLabel: string
+  ledCount: number
+  enabled: boolean
+  brightness: number
+}
+
+export interface LedStatusGeometry {
+  name: InfoField
+  fixture: InfoField
+  state: InfoField
+  /** Dropped on a panel with no room for it, like the clock's health rule. */
+  bar: InfoRect | null
+}
+
+export function ledStatusGeometry(width: number, height: number): LedStatusGeometry {
+  const { margin, barHeight } = INFO_LAYOUT
+  const inner = width - (margin * 2)
+  const pitch = infoRowPitch(height, 3, barHeight + 2)
+  const row = (index: number) => margin + (index * pitch)
+  const barY = row(3)
+  return {
+    name: { x: margin, y: row(0), w: inner },
+    fixture: { x: margin, y: row(1), w: inner },
+    state: { x: margin, y: row(2), w: inner },
+    bar: fits(barY + barHeight - 1, height) ? { x: margin, y: barY, w: inner, h: barHeight } : null,
+  }
+}
+
+export function drawLedStatus(surface: OledSurface, data: InfoLedStatusData): void {
+  const g = ledStatusGeometry(surface.width, surface.height)
+
+  drawOledText(surface, g.name.x, g.name.y, fitOledText(data.name, g.name.w))
+  drawOledText(
+    surface, g.fixture.x, g.fixture.y,
+    fitOledText(ledStatusFixtureText(data.formLabel, data.ledCount), g.fixture.w),
+  )
+  drawOledText(
+    surface, g.state.x, g.state.y,
+    fitOledText(`${data.enabled ? 'ON' : 'BLACKOUT'} ${ledStatusLevelText(data.brightness)}`, g.state.w),
+  )
+  // The level, even while dark: it is what the fixture returns to, and an
+  // empty bar under the word BLACKOUT would claim the dimmer was also down.
+  if (g.bar) drawProgressBar(surface, g.bar.x, g.bar.y, g.bar.w, g.bar.h, data.brightness)
+}
+
 /** Render any layout onto a fresh surface for `controller`. */
 export function renderInfoDisplay(controller: OledController, input: InfoDisplayData): OledSurface {
   const surface = createOledSurface(controller)
@@ -454,6 +515,7 @@ export function renderInfoDisplay(controller: OledController, input: InfoDisplay
     case 'Now Playing': drawNowPlaying(surface, input.data); break
     case 'Clock': drawClock(surface, input.data); break
     case 'Pattern Browser': drawPatternBrowser(surface, input.data); break
+    case 'LED Status': drawLedStatus(surface, input.data); break
   }
   return surface
 }
@@ -482,6 +544,8 @@ export function blankInfoData(layout: InfoDisplayLayout): InfoDisplayData {
         layout,
         data: { title: '', elapsedSec: 0, durationSec: 0, progress: 0, playing: false, volume: 0 },
       }
+    case 'LED Status':
+      return { layout, data: { name: '', formLabel: '', ledCount: 0, enabled: false, brightness: 0 } }
     default:
       return { layout: 'Waiting' }
   }

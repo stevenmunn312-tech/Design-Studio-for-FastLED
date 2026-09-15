@@ -166,8 +166,9 @@ describe('NodeGraphCanvas start screen', () => {
       expect.objectContaining({ id: 'source', ariaLabel: 'Solid Color node. 1 input, 1 output.' }),
       // Frame and Controls. Enabled and Brightness are property inputs: they
       // are fields until exposed, and counting sockets nobody can see sends a
-      // keyboard user hunting for two that are not there.
-      expect.objectContaining({ id: 'output', ariaLabel: 'LED Matrix node. 2 inputs, 0 outputs.' }),
+      // keyboard user hunting for two that are not there. The one output is
+      // Display — what this fixture is doing, for a status screen.
+      expect.objectContaining({ id: 'output', ariaLabel: 'LED Matrix node. 2 inputs, 1 output.' }),
     ]))
     expect(reactFlowProps.edges).toEqual([
       expect.objectContaining({
@@ -180,7 +181,7 @@ describe('NodeGraphCanvas start screen', () => {
       id: 'dim', source: 'source', sourceHandle: 'frame', target: 'output', targetHandle: 'brightness',
     }] })
     await waitFor(() => expect(reactFlowProps.nodes).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: 'output', ariaLabel: 'LED Matrix node. 3 inputs, 0 outputs.' }),
+      expect.objectContaining({ id: 'output', ariaLabel: 'LED Matrix node. 3 inputs, 1 output.' }),
     ])))
   })
 

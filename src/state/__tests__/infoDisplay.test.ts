@@ -47,7 +47,7 @@ const nowPlaying = (over: Partial<NowPlayingData> = {}) =>
 
 describe('layout selection', () => {
   it('offers one layout per source, plus the one for no source at all', () => {
-    expect([...INFO_DISPLAY_LAYOUTS]).toEqual(['Waiting', 'Clock', 'Now Playing', 'Pattern Browser'])
+    expect([...INFO_DISPLAY_LAYOUTS]).toEqual(['Waiting', 'Clock', 'Now Playing', 'Pattern Browser', 'LED Status'])
   })
 
   // The Pattern Browser was held back until the runtime selection contract and

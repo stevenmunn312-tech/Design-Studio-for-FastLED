@@ -44,6 +44,7 @@ import {
 import { transportTouchRegions } from '../state/transportTouch'
 import {
   normalSketchSourceExpressions, resolveBoundWidgets, unresolvedBindingIssue, PROBE_CLOCK_EXPR,
+  PROBE_LED_STATUS,
 } from '../codegen/displaySourceExpressions'
 import { resolveBuildMode } from '../state/buildMode'
 import {
@@ -1944,7 +1945,10 @@ export function findDisplayGeneratorIssues(
       // show controller instead. The probe asks which fields the table holds,
       // not what they emit to.
       const kind = panelDisplaySourceKind(mounted.panel, nodes, edges)
-      const table = normalSketchSourceExpressions(kind === 'clock' ? PROBE_CLOCK_EXPR : null)
+      const table = normalSketchSourceExpressions(
+        kind === 'clock' ? PROBE_CLOCK_EXPR : null,
+        kind === 'ledOutput' ? PROBE_LED_STATUS : null,
+      )
       const unresolved = resolveBoundWidgets(mounted.panel.data.properties.widgetSources, table).unresolved
       for (const { field } of unresolved) {
         warnings.push(unresolvedBindingIssue(nodeLabel(mounted.panel), field, GENERATOR_LABELS.sketch))

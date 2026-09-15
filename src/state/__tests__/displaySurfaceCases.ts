@@ -99,6 +99,8 @@ function fixtureThumbnail(): PatternThumbnail {
 const ARTWORK = fixtureArtwork()
 const THUMBNAIL = fixtureThumbnail()
 
+const LED_STATUS = { name: 'Stage Wash', formLabel: 'LED String', ledCount: 144 }
+
 const TRACK_TITLE = 'Nightdrive Over the Estuary'
 const TRACK_ARTIST = 'The Long Meridian'
 
@@ -148,6 +150,14 @@ const TFT_STATES: Record<TransportDisplayLayout, Record<string, TransportDisplay
     'running': { layout: 'Show Status', data: { patternName: 'Aurora Drift', patternIndex: 2, patternCount: 9, highlightName: 'Aurora Drift', highlightIndex: 2, browsing: false } },
     'browsing': { layout: 'Show Status', data: { patternName: 'Aurora Drift', patternIndex: 2, patternCount: 9, highlightName: 'Ember Cascade', highlightIndex: 5, browsing: true } },
   },
+  'LED Status': {
+    'lit': { layout: 'LED Status', data: { ...LED_STATUS, enabled: true, brightness: 0.72 } },
+    // Dark with the dimmer still up, which is the reading the layout exists to
+    // make unambiguous: BLACKOUT beside 72%, not an empty bar that would look
+    // the same as a fixture dimmed to nothing.
+    'blackout': { layout: 'LED Status', data: { ...LED_STATUS, enabled: false, brightness: 0.72 } },
+    'full': { layout: 'LED Status', data: { ...LED_STATUS, enabled: true, brightness: 1 } },
+  },
   'Diagnostics': {
     'untouched': { layout: 'Diagnostics', data: { touchAvailable: true, pressed: false, x: 0, y: 0 } },
     'pressed': { layout: 'Diagnostics', data: { touchAvailable: true, pressed: true, x: 148, y: 92, rawX: 1832, rawY: 2410 } },
@@ -174,6 +184,13 @@ const OLED_STATES: Record<InfoDisplayLayout, Record<string, InfoDisplayData>> = 
     // A collection over its flash budget keeps its names and loses its
     // pictures; that has to read as a missing picture, not as no patterns.
     'no-thumbnail': { layout: 'Pattern Browser', data: { name: 'Ember Cascade', ordinal: 6, count: 9, thumbnail: null, browsing: true, activeName: 'Aurora Drift' } },
+  },
+  'LED Status': {
+    'lit': { layout: 'LED Status', data: { ...LED_STATUS, enabled: true, brightness: 0.72 } },
+    // Same pair as the colour panel: dark with the dimmer up is the reading
+    // both layouts exist to keep distinguishable from dimmed to nothing.
+    'blackout': { layout: 'LED Status', data: { ...LED_STATUS, enabled: false, brightness: 0.72 } },
+    'full': { layout: 'LED Status', data: { ...LED_STATUS, enabled: true, brightness: 1 } },
   },
 }
 

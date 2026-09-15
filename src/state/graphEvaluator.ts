@@ -15,12 +15,14 @@ import {
 } from './transportBridge'
 import {
   clampSegmentBrightness, segmentDashes, renderSegmentClock,
-  renderSegmentIndex, segmentFrameText, blankSegmentFrame, segmentControllerFor,
+  renderSegmentIndex,
+  renderSegmentLevel, segmentFrameText, blankSegmentFrame, segmentControllerFor,
   type SegmentFrame,
 } from './segmentDisplay'
 import {
   resolveLedOutputRuntime, ledOutputManualRuntime, applyLedOutputRuntime, composeLedOutputRuntime,
   blankLedOutputLatch, applyLedControls, type LedOutputLatch,
+  ledOutputStatus,
 } from './ledOutputRuntime'
 import { clampMasterSpeed, MASTER_SPEED_DEFAULT } from './masterSpeed'
 import {
@@ -7556,6 +7558,18 @@ function createEvalNode(
               }
               : (blankInfoData('Clock') as { layout: 'Clock'; data: { timeText: string; dateText: string; valid: boolean; synced: boolean } }).data,
           }
+        } else if (signal.kind === 'ledOutput') {
+          const status = signal.status
+          payload = {
+            layout: 'LED Status',
+            data: {
+              name: oledLine(status.name),
+              formLabel: status.formLabel,
+              ledCount: status.ledCount,
+              enabled: status.enabled,
+              brightness: clamp01(status.brightness),
+            },
+          }
         } else {
           // One envelope carrying a whole SongInfo, so there is no per-field
           // port to forget — which is what left the panel unable to show a
@@ -7798,6 +7812,22 @@ function createEvalNode(
               browsing: selection?.browsing === true,
             },
           }
+        } else if (layout === 'LED Status') {
+          // Blank rather than a plausible zero when the wire is not an output:
+          // the layout is only reachable from an `ledOutput` source, so the
+          // null branch is a panel mid-rewire rather than a state to invent a
+          // reading for.
+          const status = signal.kind === 'ledOutput' ? signal.status : null
+          payload = {
+            layout: 'LED Status',
+            data: {
+              name: tftLine(status?.name ?? ''),
+              formLabel: status?.formLabel ?? '',
+              ledCount: status?.ledCount ?? 0,
+              enabled: status?.enabled === true,
+              brightness: clamp01(status?.brightness ?? 0),
+            },
+          }
         } else if (layout === 'Fixed Transport') {
           const song = signal.kind === 'player' ? signal.song : null
           const selection = signal.kind === 'player' ? signal.selection : null
@@ -7909,6 +7939,10 @@ function createEvalNode(
             Math.floor(elapsed / 60), elapsed % 60,
             blink && segCtl.hasColon, segCtl.digits, 0,
           )
+        } else if (signal.kind === 'ledOutput') {
+          // Effective output as whole percent — see renderSegmentLevel on why
+          // a blacked-out fixture reads 0 rather than its dimmer position.
+          segment = renderSegmentLevel(signal.status.brightness, signal.status.enabled, segCtl.digits)
         } else {
           const selection = signal.selection
           segment = selection.count > 0
@@ -8893,7 +8927,14 @@ function createEvalNode(
           playerControlsState.set(directKey, state)
         }
         const runtime = composeLedOutputRuntime(resolved, latch)
-        out = { frame: frame ? applyLedOutputRuntime(frame, runtime) : null }
+        // The fixture's own reading, published beside the frame it just
+        // scaled. Resolved rather than wired: a status panel must say what the
+        // fixture is doing, not what one of the three factors asked for.
+        const status: DisplaySignal = {
+          kind: 'ledOutput',
+          status: ledOutputStatus(String(node.data.label ?? 'LED output'), props, runtime),
+        }
+        out = { frame: frame ? applyLedOutputRuntime(frame, runtime) : null, display: status }
         break
       }
 

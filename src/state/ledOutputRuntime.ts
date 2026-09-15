@@ -19,6 +19,8 @@
 // both linear, so the order does not change the result.
 
 import type { Frame } from './ledColor'
+import { displayString } from './displayText'
+import { LED_OUTPUT_FORM_LABELS, outputForm, outputLedTotal, type LedOutputForm } from './ledOutputForm'
 
 /** What a Frame is worth once the output's own wires have had their say. */
 export interface LedOutputRuntime {
@@ -162,6 +164,92 @@ export function composeLedOutputRuntime(
   return {
     enabled: wired.enabled && latch.enabled,
     brightness: Math.max(0, Math.min(1, wired.brightness * latch.brightness)),
+  }
+}
+
+/**
+ * What a fixture reports about itself, once its own wires have had their say.
+ *
+ * This is the reading a status screen draws, and it is deliberately the
+ * *resolved* state rather than the inputs it came from: `enabled` and
+ * `brightness` here are what `composeLedOutputRuntime` returned, so a panel
+ * says what the fixture is actually doing rather than what one of the three
+ * factors feeding it asked for. A screen showing the knob position while a
+ * blackout button holds the fixture dark would be worse than no screen.
+ *
+ * `name` is the output's own label, never a pattern name. A fixture is fed by
+ * whatever the graph ends in, which is routinely a Blend of two patterns or a
+ * chain several nodes long — there is no single name to report, and picking
+ * one of the two would be wrong half the time. The thing that does have a
+ * stable name is the fixture, and that is what a person reading a rack of
+ * status panels needs anyway.
+ */
+export interface LedOutputStatus {
+  /** The output node's own label — "Stage Wash", not the pattern feeding it. */
+  name: string
+  /** Effective blackout. False means dark whatever the level says. */
+  enabled: boolean
+  /** Effective 0-1 level, after every factor has multiplied. */
+  brightness: number
+  /** LEDs on this fixture, by its form: a run length or a grid total. */
+  ledCount: number
+  form: LedOutputForm
+  /** How the form reads in user-facing copy — "LED String", "HUB75 Panel". */
+  formLabel: string
+}
+
+/**
+ * The fixture's own description: what it is and how much of it there is.
+ *
+ * Here rather than in either renderer, because both panel classes draw this
+ * row and a mono OLED and a colour TFT describing the same fixture two
+ * different ways is exactly the drift the shared-helper rule exists to stop.
+ *
+ * One row rather than two: neither half is worth a line of a small panel on
+ * its own, and they are read together — "LED String 60" answers "which of the
+ * three strings is this" in a way that either half alone does not.
+ *
+ * Blank without a form, rather than the count alone. Only the at-rest reading
+ * has no form — a real fixture always has one — and a lone "0" on the row
+ * under an empty name reads as a fixture with no LEDs rather than as a panel
+ * with nothing to report.
+ */
+export function ledStatusFixtureText(formLabel: string, ledCount: number): string {
+  const label = displayString(formLabel)
+  if (!label) return ''
+  const total = Number.isFinite(ledCount) ? Math.max(0, Math.floor(ledCount)) : 0
+  return `${label} ${total}`
+}
+
+/**
+ * The level as a percentage.
+ *
+ * Whole percent: a status panel is read across a room, and the digit that
+ * would separate 71.4 from 71.8 is knob noise rather than a reading anyone
+ * acts on. Reported while blacked out too — it is the level the fixture
+ * returns to, and blanking it would make a blackout look like a fault.
+ */
+export function ledStatusLevelText(brightness: number): string {
+  const level = Number.isFinite(brightness) ? Math.max(0, Math.min(1, brightness)) : 0
+  return `${Math.round(level * 100)}%`
+}
+
+/** The fixture's own reading, from its label, its geometry and its resolved
+ *  runtime. One helper so preview and every generator report the same five
+ *  things about the same output. */
+export function ledOutputStatus(
+  name: string,
+  props: Record<string, unknown>,
+  runtime: LedOutputRuntime,
+): LedOutputStatus {
+  const form = outputForm(props)
+  return {
+    name,
+    enabled: runtime.enabled,
+    brightness: runtime.brightness,
+    ledCount: outputLedTotal(props),
+    form,
+    formLabel: LED_OUTPUT_FORM_LABELS[form],
   }
 }
 

@@ -61,7 +61,7 @@ export function segmentControllerFor(controller: string | undefined): SegmentCon
  * position in a track, or a position in a collection, and each of those has
  * exactly one source that means it.
  */
-export const SEGMENT_DISPLAY_MODES = ['Waiting', 'Clock', 'Elapsed', 'Index'] as const
+export const SEGMENT_DISPLAY_MODES = ['Waiting', 'Clock', 'Elapsed', 'Index', 'Level'] as const
 export type SegmentDisplayMode = (typeof SEGMENT_DISPLAY_MODES)[number]
 
 const MODE_BY_KIND: Record<DisplaySignalKind, SegmentDisplayMode> = {
@@ -70,6 +70,9 @@ const MODE_BY_KIND: Record<DisplaySignalKind, SegmentDisplayMode> = {
   // only thing four digits can say well about a player.
   player: 'Elapsed',
   slideshow: 'Index',
+  // The one number four digits can say about a fixture. See renderSegmentLevel
+  // for why it is the *effective* level rather than the dimmer position.
+  ledOutput: 'Level',
 }
 
 export function segmentModeForKind(kind: DisplaySignalKind): SegmentDisplayMode {
@@ -194,6 +197,35 @@ export function renderSegmentIndex(
   const body = String(Math.abs(n))
   if (n < 0 || body.length > digits) return dashes(digits)
   return { digits: body.padStart(digits, ' '), colon: false, decimalAt: -1, lit: true }
+}
+
+/**
+ * Render an LED output's level, as whole percent right-aligned: 0 to 100.
+ *
+ * The documented reading for this module class. Four digits can hold exactly
+ * one number, so the choice is which one, and it is the *effective* level —
+ * what the fixture is actually putting out — rather than where the dimmer
+ * happens to be set. A blacked-out fixture therefore reads 0 even with the
+ * dimmer at 85, which is the honest answer to "is anything coming out of this
+ * string": the alternative reads 85 beside a dark fixture and sends someone
+ * looking for a wiring fault.
+ *
+ * The colour and mono panels have room to say both, and do — they draw
+ * BLACKOUT beside the level the fixture would return to. This module does not,
+ * and inventing a fifth digit or a flashing convention to squeeze it in would
+ * be a reading nobody could interpret without the manual.
+ *
+ * Percent rather than 0-1 because `0.85` spends two digits on a leading zero
+ * and a point to say what `85` says plainly.
+ */
+export function renderSegmentLevel(
+  brightness: number,
+  enabled: boolean,
+  digits = DEFAULT_SEGMENT_CONTROLLER.digits,
+): SegmentFrame {
+  if (!Number.isFinite(brightness)) return dashes(digits)
+  const level = enabled ? Math.max(0, Math.min(1, brightness)) : 0
+  return renderSegmentIndex(Math.round(level * 100), digits)
 }
 
 /** A frame as one readable string, for a node body or a test. */

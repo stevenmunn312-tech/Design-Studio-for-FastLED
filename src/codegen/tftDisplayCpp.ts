@@ -38,10 +38,11 @@ import {
 } from '../state/tftSurface'
 import {
   TRANSPORT_ARTWORK_H, TRANSPORT_ARTWORK_W, TRANSPORT_COLORS,
-  diagnosticsGeometry, fixedTransportGeometry, nowPlayingGeometry, showStatusGeometry,
-  transportClockGeometry, transportWaitingGeometry,
+  diagnosticsGeometry, fixedTransportGeometry, ledStatusGeometry, nowPlayingGeometry,
+  showStatusGeometry, transportClockGeometry, transportWaitingGeometry,
   type TransportDisplayLayout,
 } from '../state/transportDisplay'
+import { ledStatusFixtureText } from '../state/ledOutputRuntime'
 import { DISPLAY_WAITING_TEXT } from '../state/displaySignal'
 
 /**
@@ -88,6 +89,10 @@ const SHOW_STATUS_TEXT_SLOTS = {
 /** Show Status draws no bars or indicators, so it caches no numeric fields. */
 const SHOW_STATUS_VALUE_SLOTS = {} as const
 
+const LED_STATUS_TEXT_SLOTS = { name: 0, fixture: 1, state: 2, level: 3 } as const
+/** LED Status draws no bars or indicators, so it caches no numeric fields. */
+const LED_STATUS_VALUE_SLOTS = {} as const
+
 const FIXED_TRANSPORT_TEXT_SLOTS = { title: 0, pattern: 1, state: 2 } as const
 const FIXED_TRANSPORT_VALUE_SLOTS = { volume: 0 } as const
 
@@ -98,12 +103,14 @@ const CLOCK_VALUE_SLOTS = {} as const
 const TFT_TEXT_SLOTS = Math.max(
   Object.keys(NOW_PLAYING_TEXT_SLOTS).length,
   Object.keys(SHOW_STATUS_TEXT_SLOTS).length,
+  Object.keys(LED_STATUS_TEXT_SLOTS).length,
   Object.keys(FIXED_TRANSPORT_TEXT_SLOTS).length,
   Object.keys(CLOCK_TEXT_SLOTS).length,
 )
 const TFT_VALUE_SLOTS = Math.max(
   Object.keys(NOW_PLAYING_VALUE_SLOTS).length,
   Object.keys(SHOW_STATUS_VALUE_SLOTS).length,
+  Object.keys(LED_STATUS_VALUE_SLOTS).length,
   Object.keys(FIXED_TRANSPORT_VALUE_SLOTS).length,
   Object.keys(CLOCK_VALUE_SLOTS).length,
 )
@@ -657,6 +664,23 @@ export interface TftDisplayEmit {
    * two were emitted together.
    */
   patternNames?: { tableStem: string; selVar: string }
+  /**
+   * LED Status: what the wired fixture is, and what it is doing.
+   *
+   * The first three are settled at generation time — a fixture's name, form
+   * and LED count cannot change on the device — so only the two that a wire
+   * can move are expressions. Absent when no LED output is wired, which draws
+   * the layout's own blank rather than inventing a fixture.
+   */
+  ledStatus?: {
+    name: string
+    formLabel: string
+    ledCount: number
+    /** C++ bool: the effective blackout, after every factor. */
+    enabledExpr: string
+    /** C++ float 0-1: the effective level, after every factor. */
+    brightnessExpr: string
+  }
   /** Whether Diagnostics can read a live XPT2046 point. */
   diagnosticTouch?: boolean
   /**
@@ -866,6 +890,58 @@ function showStatusLoop(display: TftDisplayEmit, width: number, height: number):
   return lines
 }
 
+/**
+ * LED Status: which fixture this is, and what it is actually doing.
+ *
+ * The device twin of `drawTransportLedStatus`, resolving the same geometry
+ * function so the two cannot disagree about where a row sits. The two static
+ * rows are string literals rather than runtime reads because a fixture's name
+ * and shape are compile-time facts — only the state and the level move.
+ *
+ * `_tftLevelPct` rounds the way `ledStatusLevelText` does, through `lroundf`
+ * on a value already clamped to 0-1, so a level of 0.715 reads 72 on both
+ * sides rather than 71 on one of them.
+ */
+function ledStatusLoop(display: TftDisplayEmit, width: number, height: number): string[] {
+  const p = `_tft_${display.id}`
+  const id = display.id
+  const g = ledStatusGeometry(width, height)
+  const s = LED_STATUS_TEXT_SLOTS
+  const status = display.ledStatus
+  const fixture = status ? ledStatusFixtureText(status.formLabel, status.ledCount) : ''
+  const lines: string[] = [
+    `      const char *_tftName_${id} = ${cppStringLiteral(status?.name ?? '')};`,
+    `      if (_tftTextDirty(${p}, ${s.name}, _tftName_${id}) || _tftFull_${id}) `
+      + `_tftField(${p}, ${fieldArgs(g.name)}, _tftName_${id}, TFT_C_TEXT, TFT_C_BG);`,
+    `      const char *_tftFixture_${id} = ${cppStringLiteral(fixture)};`,
+    `      if (_tftTextDirty(${p}, ${s.fixture}, _tftFixture_${id}) || _tftFull_${id}) `
+      + `_tftField(${p}, ${fieldArgs(g.fixture)}, _tftFixture_${id}, TFT_C_DIM, TFT_C_BG);`,
+  ]
+
+  // Nothing wired: the layout's at-rest reading, which is dark at zero rather
+  // than a fixture invented to fill the rows.
+  const enabled = status?.enabledExpr ?? 'false'
+  const brightness = status?.brightnessExpr ?? '0.0f'
+
+  lines.push(
+    `      bool _tftLit_${id} = ${enabled};`,
+    `      const char *_tftState_${id} = _tftLit_${id} ? "ON" : "BLACKOUT";`,
+    `      if (_tftTextDirty(${p}, ${s.state}, _tftState_${id}) || _tftFull_${id}) `
+      + `_tftField(${p}, ${fieldArgs(g.state)}, _tftState_${id}, `
+      + `_tftLit_${id} ? TFT_C_ON : TFT_C_OFF, TFT_C_BG);`,
+    // Drawn while dark too, matching the browser: it is the level the fixture
+    // returns to, and blanking it would make a blackout look like a fault.
+    `      char _tftLevel_${id}[8];`,
+    `      snprintf(_tftLevel_${id}, sizeof(_tftLevel_${id}), "%ld%%", `
+      + `(long)lroundf(constrain((float)(${brightness}), 0.0f, 1.0f) * 100.0f));`,
+    `      if (_tftTextDirty(${p}, ${s.level}, _tftLevel_${id}) || _tftFull_${id}) `
+      + `_tftField(${p}, ${fieldArgs(g.level)}, _tftLevel_${id}, `
+      + `_tftLit_${id} ? TFT_C_TEXT : TFT_C_DIM, TFT_C_BG);`,
+  )
+
+  return lines
+}
+
 function fixedTransportLoop(display: TftDisplayEmit, width: number, height: number): string[] {
   const p = `_tft_${display.id}`
   const id = display.id
@@ -1036,6 +1112,8 @@ export function tftDisplayLoopCpp(display: TftDisplayEmit): string[] {
     ? diagnosticsLoop(display, size.width, size.height)
     : display.layout === 'Show Status'
       ? showStatusLoop(display, size.width, size.height)
+    : display.layout === 'LED Status'
+      ? ledStatusLoop(display, size.width, size.height)
     : display.layout === 'Fixed Transport'
       ? fixedTransportLoop(display, size.width, size.height)
       : nowPlayingLoop(display, size.width, size.height)

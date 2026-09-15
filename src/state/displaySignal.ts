@@ -14,6 +14,7 @@
 //
 // See docs/development/design/simple-displays.md.
 
+import type { LedOutputStatus } from './ledOutputRuntime'
 import type { SongInfo } from './songInfo'
 import type { PatternSelectValue } from './patternSelection'
 import type { RtcPreview } from './rtc'
@@ -24,7 +25,7 @@ import type { RtcPreview } from './rtc'
  * Adding a kind is adding a layout to every simple display at once, which is
  * the point: a panel cannot support a source in one place and not another.
  */
-export const DISPLAY_SIGNAL_KINDS = ['clock', 'player', 'slideshow'] as const
+export const DISPLAY_SIGNAL_KINDS = ['clock', 'player', 'slideshow', 'ledOutput'] as const
 export type DisplaySignalKind = (typeof DISPLAY_SIGNAL_KINDS)[number]
 
 export type DisplaySignal =
@@ -42,6 +43,18 @@ export type DisplaySignal =
    */
   | { kind: 'player'; song: SongInfo; selection: PatternSelectValue | null }
   | { kind: 'slideshow'; selection: PatternSelectValue }
+  /**
+   * A fixture reporting on itself.
+   *
+   * The odd one out, and deliberately so: the other three kinds are published
+   * by a node whose whole job is to hold the thing being reported, while this
+   * one comes off the LED output that is *also* the end of the render chain.
+   * That is what makes a status screen possible in a graph with no player and
+   * no slideshow in it — a Juggle, a string, and a panel saying how bright it
+   * is. See state/ledOutputRuntime.ts for why the reading is the resolved
+   * runtime rather than the wires feeding it.
+   */
+  | { kind: 'ledOutput'; status: LedOutputStatus }
 
 /** Whether a port value is a display signal. */
 export function isDisplaySignal(value: unknown): value is DisplaySignal {
@@ -65,7 +78,30 @@ export const DISPLAY_SOURCE_LABELS: Record<DisplaySignalKind, string> = {
   clock: 'RTC Clock',
   player: 'Music Player',
   slideshow: 'Pattern Slideshow',
+  ledOutput: 'LED output',
 }
+
+/**
+ * The sources a *simple* display can be filled from in a normal sketch.
+ *
+ * A normal sketch compiles the whole graph, so it can read anything the graph
+ * computes — but a player and a slideshow are not computed there, they *are*
+ * the other two generators. Wiring one into an OLED or a segment module in a
+ * normal sketch builds a different generator entirely, which validation
+ * reports before upload; the panel draws its Waiting screen meanwhile rather
+ * than a layout it cannot fill.
+ *
+ * An LED output is the opposite case, and the reason this is a list rather
+ * than `kind === 'clock'` written at each display: the fixture is part of the
+ * compiled graph, its resolved state is right there in the loop, and a normal
+ * sketch is the only generator that can report it at all.
+ *
+ * A colour `TransportDisplay` deliberately does *not* narrow this way. Its
+ * layouts carry touch regions as well as content, and Fixed Transport's
+ * finger-sized buttons driving a Juggle in a player-less sketch is a supported
+ * shape — the rows read blank and the glass still works.
+ */
+export const SKETCH_DISPLAY_SOURCE_KINDS: readonly DisplaySignalKind[] = ['clock', 'ledOutput']
 
 /**
  * The node types that publish each kind, for resolution without evaluation.
@@ -82,4 +118,5 @@ export const DISPLAY_SOURCE_NODE_TYPES: Record<string, DisplaySignalKind> = {
   PatternMaster: 'player',
   PerformanceGenerator: 'player',
   PatternSlideshow: 'slideshow',
+  MatrixOutput: 'ledOutput',
 }

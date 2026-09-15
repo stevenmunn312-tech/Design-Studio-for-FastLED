@@ -26,10 +26,11 @@ import {
 } from './tftSurface'
 import { formatTransportTime } from './transportBridge'
 import { displayString } from './displayText'
+import { ledStatusFixtureText, ledStatusLevelText } from './ledOutputRuntime'
 import { DISPLAY_WAITING_TEXT, type DisplaySignalKind } from './displaySignal'
 
 export const TRANSPORT_DISPLAY_LAYOUTS = [
-  'Waiting', 'Clock', 'Now Playing', 'Fixed Transport', 'Show Status', 'Diagnostics',
+  'Waiting', 'Clock', 'Now Playing', 'Fixed Transport', 'Show Status', 'LED Status', 'Diagnostics',
 ] as const
 export type TransportDisplayLayout = (typeof TRANSPORT_DISPLAY_LAYOUTS)[number]
 
@@ -60,6 +61,7 @@ const TRANSPORT_LAYOUTS_BY_KIND: Record<DisplaySignalKind, readonly TransportDis
   clock: ['Clock'],
   player: ['Now Playing', 'Fixed Transport'],
   slideshow: ['Show Status'],
+  ledOutput: ['LED Status'],
 }
 
 /** Choices that can actually affect the currently wired source, plus self-test. */
@@ -661,6 +663,92 @@ export function drawTransportShowStatus(surface: TftSurface, data: TransportShow
   )
 }
 
+// ── LED Status ──────────────────────────────────────────────────────────────
+
+/**
+ * What a fixture is doing, drawn large.
+ *
+ * The reading `TransportShowStatusData` explicitly gave up — see the note
+ * there: output state and brightness "belong to the LED output rather than to
+ * the show", and only ever resolved in a normal sketch wired from arbitrary
+ * graph nodes. They come back here, published by the output that owns them, so
+ * a Juggle driving a string can have a status panel with no player and no
+ * slideshow anywhere in the graph.
+ *
+ * Read-only, like Show Status: `transportTouchRegions` returns nothing for it.
+ * A panel that both reports a fixture and dims it would be reporting a value
+ * it is itself changing, and the control that belongs here is a wire from a
+ * Touch node into the output's own Brightness — visible on the canvas, which
+ * is the point of the whole direct-controls model.
+ */
+export interface TransportLedStatusData {
+  /** The output node's own label, never the pattern feeding it. */
+  name: string
+  /** "LED String", "HUB75 Panel" — what the fixture is. */
+  formLabel: string
+  ledCount: number
+  /** Effective blackout, after every factor. */
+  enabled: boolean
+  /** Effective 0-1 level, after every factor. */
+  brightness: number
+}
+
+export interface LedStatusGeometry {
+  name: TftField
+  fixture: TftField
+  state: TftField
+  level: TftField
+}
+
+const LED_STATUS_ON = 'ON'
+const LED_STATUS_OFF = 'BLACKOUT'
+
+/**
+ * Resolve the LED Status layout for a panel of this size.
+ *
+ * Name at the top and level at the bottom, mirroring Show Status so the two
+ * status screens do not put their most important row in different places. The
+ * state row sits directly above the level because they are one reading between
+ * them: BLACKOUT with a level still showing is not a contradiction, it is what
+ * the fixture returns to when the blackout is released.
+ */
+export function ledStatusGeometry(width: number, height: number): LedStatusGeometry {
+  const inner = width - (M.margin * 2)
+  const bodyH = tftTextHeight(M.bodyScale)
+  const headingH = tftTextHeight(M.headingScale)
+
+  const nameY = M.margin
+  const fixtureY = nameY + headingH + M.rowGap
+  const levelY = height - M.margin - headingH
+  const stateY = levelY - M.rowGap - bodyH
+
+  return {
+    name: field(M.margin, nameY, inner, M.headingScale, 'left'),
+    fixture: field(M.margin, fixtureY, inner, M.bodyScale, 'left'),
+    state: field(M.margin, stateY, inner, M.bodyScale, 'left'),
+    level: field(M.margin, levelY, inner, M.headingScale, 'left'),
+  }
+}
+
+/** LED Status: which fixture this is, and what it is actually doing. */
+export function drawTransportLedStatus(surface: TftSurface, data: TransportLedStatusData): void {
+  const g = ledStatusGeometry(surface.width, surface.height)
+  const c = TRANSPORT_COLORS
+
+  drawTftField(surface, g.name, displayString(data.name), c.text, c.background)
+  drawTftField(surface, g.fixture, ledStatusFixtureText(data.formLabel, data.ledCount), c.dim, c.background)
+  // Accent for lit and off-colour for dark, so the one row that says whether
+  // anything is on at all reads before the words do.
+  drawTftField(
+    surface, g.state, data.enabled ? LED_STATUS_ON : LED_STATUS_OFF,
+    data.enabled ? c.on : c.off, c.background,
+  )
+  drawTftField(
+    surface, g.level, ledStatusLevelText(data.brightness),
+    data.enabled ? c.text : c.dim, c.background,
+  )
+}
+
 // ── Diagnostics ─────────────────────────────────────────────────────────────────────────────
 
 export interface TransportDiagnosticsData {
@@ -809,6 +897,7 @@ export type TransportDisplayData =
   | { layout: 'Now Playing'; data: TransportNowPlayingData }
   | { layout: 'Fixed Transport'; data: TransportFixedData }
   | { layout: 'Show Status'; data: TransportShowStatusData }
+  | { layout: 'LED Status'; data: TransportLedStatusData }
   | { layout: 'Diagnostics'; data: TransportDiagnosticsData }
 
 /** Render any layout onto a fresh surface for `controller` mounted at `rotation`. */
@@ -825,6 +914,7 @@ export function renderTransportDisplay(
     case 'Now Playing': drawTransportNowPlaying(surface, input.data); break
     case 'Fixed Transport': drawTransportFixed(surface, input.data); break
     case 'Show Status': drawTransportShowStatus(surface, input.data); break
+    case 'LED Status': drawTransportLedStatus(surface, input.data); break
     case 'Diagnostics': drawTransportDiagnostics(surface, input.data); break
   }
   return surface
@@ -852,6 +942,12 @@ export function blankTransportData(layout: TransportDisplayLayout): TransportDis
         patternName: '', patternIndex: 0, patternCount: 0,
         highlightName: '', highlightIndex: 0, browsing: false,
       },
+    }
+  }
+  if (layout === 'LED Status') {
+    return {
+      layout,
+      data: { name: '', formLabel: '', ledCount: 0, enabled: false, brightness: 0 },
     }
   }
   if (layout === 'Diagnostics') {

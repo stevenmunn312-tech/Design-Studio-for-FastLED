@@ -339,6 +339,14 @@ export interface SegmentDisplayEmit {
   showColon: boolean
   valueExpr: string | null
   dateTimeExpr: string | null
+  /**
+   * Level mode: the fixture's effective blackout and 0-1 level.
+   *
+   * Two expressions rather than one pre-multiplied number, so the module can
+   * apply the same rule `renderSegmentLevel` does: blacked out reads 0, not
+   * the dimmer position. Absent when no LED output is wired, which dashes.
+   */
+  ledStatus?: { enabledExpr: string; brightnessExpr: string }
   enabledExpr: string
   /** Zero for healthy, otherwise one of the generated SEG_FAULT_* values. */
   faultCodeExpr?: string | null
@@ -394,6 +402,19 @@ export function segmentDisplayLoopCpp(display: SegmentDisplayEmit): string[] {
     lines.push(
       `    } else {`,
       `      _segIndex(${v}, ${digits}, ${display.valueExpr ?? '0'});`,
+    )
+  } else if (display.mode === 'Level') {
+    // The documented reading for this module class: the *effective* output as
+    // whole percent, so a blacked-out fixture reads 0 rather than the level it
+    // would return to. See renderSegmentLevel — the panels with room to say
+    // both draw BLACKOUT beside the level; four digits do not have that room,
+    // and 85 beside a dark fixture sends someone hunting a wiring fault.
+    const st = display.ledStatus
+    lines.push(
+      `    } else {`,
+      `      float _segLvl_${display.id} = (${st ? st.enabledExpr : 'false'}) `
+        + `? constrain((float)(${st ? st.brightnessExpr : '0.0f'}), 0.0f, 1.0f) : 0.0f;`,
+      `      _segIndex(${v}, ${digits}, (long)lroundf(_segLvl_${display.id} * 100.0f));`,
     )
   } else if (display.mode === 'Elapsed') {
     // M:SS through the clock renderer, because minutes and seconds on a colon

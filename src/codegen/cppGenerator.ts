@@ -37,11 +37,11 @@ import {
   SEGMENT_DISPLAY_CPP_HELPERS, SEGMENT_DISPLAY_CPP_FORWARD, segmentDisplayGlobalCpp, segmentDisplaySetupCpp,
   segmentDisplayLoopCpp, type SegmentDisplayEmit,
 } from './segmentDisplayCpp'
-import { clampSegmentBrightness, segmentControllerFor } from '../state/segmentDisplay'
+import { clampSegmentBrightness, segmentControllerFor, segmentModeForKind } from '../state/segmentDisplay'
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
 import { isPaletteBuilderNodeType, NODE_LIBRARY, oledControllerForProps, oledTransportForProps, tftControllerForProps } from '../state/nodeLibrary'
 import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp, ledOutputManualExprs } from './ledOutputRuntimeCpp'
-import { LED_OUTPUT_ACTION_PORTS } from '../state/ledOutputRuntime'
+import { LED_OUTPUT_ACTION_PORTS, LED_OUTPUT_RUNTIME_DEFAULT, ledOutputStatus } from '../state/ledOutputRuntime'
 import {
   PLAYER_CONTROLS_CPP, PLAYER_CONTROL_BUTTONS, playerControlsServiceCpp,
   ledOutputLatchGlobalCpp, ledOutputLatchCpp,
@@ -58,7 +58,8 @@ import {
   infoDisplayHelpersCpp, INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp, infoDisplaySetupCpp,
   infoDisplayLoopCpp, infoDisplayStartupStageBatchCpp, columnOffsetFor, type InfoDisplayEmit,
 } from './infoDisplayCpp'
-import { DISPLAY_SOURCE_NODE_TYPES } from '../state/displaySignal'
+import { infoLayoutForKind } from '../state/infoDisplay'
+import { DISPLAY_SOURCE_NODE_TYPES, SKETCH_DISPLAY_SOURCE_KINDS } from '../state/displaySignal'
 import {
   tftDisplayHelpersCpp, TFT_DISPLAY_CPP_FORWARD, TFT_DISPLAY_CPP_INCLUDES,
   tftDisplayGlobalCpp, tftDisplaySetupCpp, tftDisplayLoopCpp, type TftDisplayEmit,
@@ -2078,6 +2079,39 @@ export function generateCpp(
         brightnessExpr: latched
           ? (wiredBrightness ? `(${wiredBrightness}) * _ledLevel_${stem}` : `_ledLevel_${stem}`)
           : wiredBrightness,
+      }
+    }
+
+    /*
+     * What a status panel draws about the LED output wired into it.
+     *
+     * The same two expressions `ledOutputRuntimeCpp` scales the pixels with,
+     * so a panel reporting 72% and a fixture running at 72% are the same
+     * number by construction rather than by two agreeing calculations. The
+     * other three readings are compile-time facts — a fixture's name, form and
+     * LED count cannot change on the device — and come from the same
+     * `ledOutputStatus` helper the evaluator uses, so the fixture row reads
+     * identically in preview and on the glass.
+     *
+     * Ordering is what makes this correct, and it is not incidental: the
+     * `display` edge puts the panel after the output in the topological sort,
+     * so `_ledOn_`/`_ledLevel_` are this pass's values rather than last
+     * pass's. That is the whole reason the Display socket is a real port.
+     */
+    const ledStatusEmit = (source: StudioNode | undefined | null) => {
+      if (!source || source.data.nodeType !== 'MatrixOutput') return undefined
+      const runtime = outputRuntimeEmit(source, '', '')
+      // The runtime handed in supplies only geometry and naming here; the two
+      // live readings are expressions, resolved above.
+      const status = ledOutputStatus(
+        String(source.data.label ?? 'LED output'), props(source), LED_OUTPUT_RUNTIME_DEFAULT,
+      )
+      return {
+        name: status.name,
+        formLabel: status.formLabel,
+        ledCount: status.ledCount,
+        enabledExpr: runtime.enabledExpr ?? 'true',
+        brightnessExpr: runtime.brightnessExpr ?? '1.0f',
       }
     }
 
@@ -5139,7 +5173,8 @@ export function generateCpp(
           columnOffset: columnOffsetFor(controller),
           segmentRemap: oledRotationCommands(asOledRotation(p.oledRotation)).segmentRemap,
           comScan: oledRotationCommands(asOledRotation(p.oledRotation)).comScan,
-          layout: clockExpr ? 'Clock' : 'Waiting',
+          layout: kind && SKETCH_DISPLAY_SOURCE_KINDS.includes(kind) ? infoLayoutForKind(kind) : 'Waiting',
+          ledStatus: kind === 'ledOutput' ? ledStatusEmit(displaySource) : undefined,
           enabledExpr: incoming.get(`${node.id}:enabled`)
             ? boolExpr(node.id, 'enabled')
             : (p.enabled === false ? 'false' : 'true'),
@@ -5179,15 +5214,22 @@ export function generateCpp(
         // the panel is called.
         const documentId = String(p.displayId ?? '')
         const document = documentId ? opts.displayDocuments?.[documentId] : undefined
-        // What this sketch can answer for a bound widget. A clock, and nothing
-        // else: a Music Player in a normal sketch renders as a black fill, so
-        // its fields are the same blanks the fixed layouts below leave.
+        // What this sketch can answer for a bound widget: a clock, and the
+        // LED output it is driving. Not a player or a slideshow — one of those
+        // in a normal sketch renders as a black fill, so its fields are the
+        // same blanks the fixed layouts below leave.
         const panelDisplayUp = incoming.get(`${node.id}:display`)
         const panelSourceKind = panelDisplayUp
           ? DISPLAY_SOURCE_NODE_TYPES[String(nodeMap.get(panelDisplayUp.srcId)?.data.nodeType ?? '')]
           : null
         const panelClockExpr = panelSourceKind === 'clock' && panelDisplayUp
           ? `n_${safeId(panelDisplayUp.srcId)}_dateTime`
+          : null
+        // The other source a normal sketch can fill a bound widget from: the
+        // fixture this sketch is driving, read the same way the fixed LED
+        // Status layout above reads it.
+        const panelLedStatus = panelSourceKind === 'ledOutput' && panelDisplayUp
+          ? ledStatusEmit(nodeMap.get(panelDisplayUp.srcId))
           : null
 
         if (document && customDisplayOwners.has(node.id)) {
@@ -5213,12 +5255,13 @@ export function generateCpp(
           /*
            * Widgets reading the panel's own source rather than a cable.
            *
-           * A normal sketch can answer for a clock and nothing else: a Music
-           * Player in one renders as a black fill, so its fields are the same
-           * blanks the fixed layouts above already leave. A field this sketch
-           * has no reading for is reported by name rather than filled in.
+           * A normal sketch can answer for a clock and for the fixture it
+           * drives. Not a player: one in a normal sketch renders as a black
+           * fill, so its fields are the same blanks the fixed layouts above
+           * already leave. A field this sketch has no reading for is reported
+           * by name rather than filled in.
            */
-          for (const bound of resolveBoundWidgets(p.widgetSources, normalSketchSourceExpressions(panelClockExpr)).bindings) {
+          for (const bound of resolveBoundWidgets(p.widgetSources, normalSketchSourceExpressions(panelClockExpr, panelLedStatus)).bindings) {
             const bindings = bindingsByWidget[bound.widgetId] ?? (bindingsByWidget[bound.widgetId] = [])
             bindings.push({ role: bound.role as CustomDisplayLvglBinding['role'], expression: bound.expression })
           }
@@ -5295,6 +5338,11 @@ export function generateCpp(
           : null
         const layout: TransportDisplayLayout = asTransportDisplayLayout(p.tftLayout) === 'Diagnostics'
           ? 'Diagnostics'
+          // Deliberately not narrowed to the kinds a normal sketch can fill.
+          // A colour panel's layout carries touch regions as well as content,
+          // and Fixed Transport's finger-sized buttons driving a Juggle in a
+          // player-less sketch is a supported shape: the rows read blank and
+          // the glass still works.
           : (kind ? transportLayoutForKind(kind, p.tftLayout) : null) ?? 'Waiting'
         const controller = tftControllerForProps(p) ?? TFT_CONTROLLERS.ST7789
         const rotation = asTftRotation(p.tftRotation)
@@ -5359,6 +5407,7 @@ export function generateCpp(
           browsingExpr: 'false',
           highlightNameExpr: null,
           highlightIndexExpr: '0.0f',
+          ledStatus: kind === 'ledOutput' ? ledStatusEmit(displaySource) : undefined,
           diagnosticTouch,
         }
         // No artwork table here. Now Playing is a player screen and a player
@@ -5438,7 +5487,8 @@ export function generateCpp(
           dataPin: isMax ? intProp(p.dinPin, 19, 0, MAX_PIN_NUMBER) : intProp(p.dioPin, 19, 0, MAX_PIN_NUMBER),
           csPin: intProp(p.csPin, 21, 0, MAX_PIN_NUMBER),
           brightness: clampSegmentBrightness(p.brightness, segCtl),
-          mode: segClockExpr ? 'Clock' : 'Waiting',
+          mode: segKind && SKETCH_DISPLAY_SOURCE_KINDS.includes(segKind) ? segmentModeForKind(segKind) : 'Waiting',
+          ledStatus: segKind === 'ledOutput' ? ledStatusEmit(displaySource) : undefined,
           showColon: p.showColon !== false,
           valueExpr: '0.0f',
           dateTimeExpr: segClockExpr,

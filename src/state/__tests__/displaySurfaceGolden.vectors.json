@@ -104,6 +104,34 @@
     "coverage": 0.74,
     "hash": "45ee0f65"
   },
+  "tft/240x240/LED Status/lit": {
+    "width": 240,
+    "height": 240,
+    "colors": 4,
+    "coverage": 2.84,
+    "hash": "04d340df"
+  },
+  "tft/240x240/LED Status/blackout": {
+    "width": 240,
+    "height": 240,
+    "colors": 4,
+    "coverage": 3.19,
+    "hash": "782436fe"
+  },
+  "tft/240x240/LED Status/full": {
+    "width": 240,
+    "height": 240,
+    "colors": 4,
+    "coverage": 3.06,
+    "hash": "e1b5bf9f"
+  },
+  "tft/240x240/LED Status/at-rest": {
+    "width": 240,
+    "height": 240,
+    "colors": 3,
+    "coverage": 0.82,
+    "hash": "dab6604b"
+  },
   "tft/240x240/Diagnostics/untouched": {
     "width": 240,
     "height": 240,
@@ -229,6 +257,34 @@
     "colors": 2,
     "coverage": 0.56,
     "hash": "925b4365"
+  },
+  "tft/240x320/LED Status/lit": {
+    "width": 240,
+    "height": 320,
+    "colors": 4,
+    "coverage": 2.13,
+    "hash": "113600df"
+  },
+  "tft/240x320/LED Status/blackout": {
+    "width": 240,
+    "height": 320,
+    "colors": 4,
+    "coverage": 2.4,
+    "hash": "8486f6fe"
+  },
+  "tft/240x320/LED Status/full": {
+    "width": 240,
+    "height": 320,
+    "colors": 4,
+    "coverage": 2.29,
+    "hash": "ee187f9f"
+  },
+  "tft/240x320/LED Status/at-rest": {
+    "width": 240,
+    "height": 320,
+    "colors": 3,
+    "coverage": 0.62,
+    "hash": "afb9144b"
   },
   "tft/240x320/Diagnostics/untouched": {
     "width": 240,
@@ -356,6 +412,34 @@
     "coverage": 0.56,
     "hash": "0aba5865"
   },
+  "tft/320x240/LED Status/lit": {
+    "width": 320,
+    "height": 240,
+    "colors": 4,
+    "coverage": 2.13,
+    "hash": "b4b4d51f"
+  },
+  "tft/320x240/LED Status/blackout": {
+    "width": 320,
+    "height": 240,
+    "colors": 4,
+    "coverage": 2.4,
+    "hash": "11d2423e"
+  },
+  "tft/320x240/LED Status/full": {
+    "width": 320,
+    "height": 240,
+    "colors": 4,
+    "coverage": 2.29,
+    "hash": "7370919f"
+  },
+  "tft/320x240/LED Status/at-rest": {
+    "width": 320,
+    "height": 240,
+    "colors": 3,
+    "coverage": 0.62,
+    "hash": "50c8dd4b"
+  },
   "tft/320x240/Diagnostics/untouched": {
     "width": 320,
     "height": 240,
@@ -453,5 +537,33 @@
     "colors": 2,
     "coverage": 1.31,
     "hash": "963cc75e"
+  },
+  "oled/128x64/LED Status/lit": {
+    "width": 128,
+    "height": 64,
+    "colors": 2,
+    "coverage": 11.68,
+    "hash": "09c62f5a"
+  },
+  "oled/128x64/LED Status/blackout": {
+    "width": 128,
+    "height": 64,
+    "colors": 2,
+    "coverage": 12.3,
+    "hash": "09aa4527"
+  },
+  "oled/128x64/LED Status/full": {
+    "width": 128,
+    "height": 64,
+    "colors": 2,
+    "coverage": 13.93,
+    "hash": "5e357c48"
+  },
+  "oled/128x64/LED Status/at-rest": {
+    "width": 128,
+    "height": 64,
+    "colors": 2,
+    "coverage": 4.31,
+    "hash": "f159274a"
   }
 }

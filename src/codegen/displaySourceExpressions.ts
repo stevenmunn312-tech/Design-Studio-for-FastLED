@@ -14,6 +14,8 @@
 // by being deliberately empty: an unanswerable reading is said out loud rather
 // than filled with a plausible zero.
 
+import { cppStringLiteral } from '../state/displayText'
+
 /**
  * The readings a generator can supply, named by source field.
  *
@@ -83,19 +85,56 @@ export function unresolvedBindingIssue(
  */
 export const PROBE_CLOCK_EXPR = '_probeClock'
 
+/** The same trick for an LED output, whose readings are two expressions and
+ *  three compile-time facts. Shape only; never reaches emitted code. */
+export const PROBE_LED_STATUS: LedStatusExpressions = {
+  name: '', formLabel: '', ledCount: 0, enabledExpr: '_probeLit', brightnessExpr: '_probeLevel',
+}
+
+/**
+ * The readings a fixture publishes about itself, as the sketch holds them.
+ *
+ * Name, form and count are settled at generation time; only the two a wire can
+ * move are expressions. Same shape the fixed LED Status layouts take, so a
+ * bound widget and a fixed layout on the panel beside it report one fixture
+ * one way.
+ */
+export interface LedStatusExpressions {
+  name: string
+  formLabel: string
+  ledCount: number
+  enabledExpr: string
+  brightnessExpr: string
+}
+
 /**
  * What a normal sketch can answer.
  *
- * A clock, and the parts of it a widget can show. Everything else is absent on
- * purpose: a Music Player in a normal sketch renders as a black fill, and a
- * Pattern Slideshow builds the show controller instead, so neither a track
- * field nor a pattern field has a reading here to give.
+ * A clock and an LED output, and the parts of each a widget can show.
+ * Everything else is absent on purpose: a Music Player in a normal sketch
+ * renders as a black fill, and a Pattern Slideshow builds the show controller
+ * instead, so neither a track field nor a pattern field has a reading here.
  *
- * The clock strings reuse the helpers the fixed Clock layout already emits, so
- * a widget showing the time and a Clock screen beside it cannot format it two
- * different ways.
+ * The clock strings reuse the helpers the fixed Clock layout already emits,
+ * and the fixture row reuses `ledStatusFixtureText`, so a widget showing a
+ * reading and the fixed screen beside it cannot say it two different ways.
  */
-export function normalSketchSourceExpressions(clockExpr: string | null): DisplaySourceExpressions {
+export function normalSketchSourceExpressions(
+  clockExpr: string | null,
+  ledStatus?: LedStatusExpressions | null,
+): DisplaySourceExpressions {
+  if (ledStatus) {
+    const level = `constrain((float)(${ledStatus.brightnessExpr}), 0.0f, 1.0f)`
+    return {
+      outputName: cppStringLiteral(ledStatus.name),
+      outputForm: cppStringLiteral(ledStatus.formLabel),
+      ledCount: `${ledStatus.ledCount}.0f`,
+      lit: ledStatus.enabledExpr,
+      brightness: level,
+      // Whole percent, the same rounding `ledStatusLevelText` does.
+      level: `((float)lroundf(${level} * 100.0f))`,
+    }
+  }
   if (!clockExpr) return {}
   return {
     time: `_rtcClockText(${clockExpr})`,

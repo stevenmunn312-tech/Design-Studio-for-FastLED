@@ -2704,7 +2704,13 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // and has no field to fall back to, so it stays an ordinary port.
     propertyInputs: { enabled: 'enabled', outputBrightness: 'brightness' },
     actionInputs: LED_OUTPUT_ACTION_PORTS.map((port) => port.id),
-    outputs: [],
+    // The one output a fixture has, and it is not pixels: what this output is
+    // *doing*, for a status screen. It is what lets a graph with no player and
+    // no slideshow drive a panel. `MatrixOutput` stays a terminal despite now
+    // having an output port, because both terminal registries derive from
+    // "inputs, and either no outputs or the output category" rather than from
+    // "no outputs" alone — see reachableFromOutputs in cppGenerator.ts.
+    outputs: [{ id: 'display', label: 'Display', dataType: 'display' }],
     defaultProperties: {
       // What this output physically is — string / matrix / ring / corkscrew /
       // HUB75 panel (src/state/ledOutputForm.ts). The hardware view offers each

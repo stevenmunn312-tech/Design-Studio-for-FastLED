@@ -13,9 +13,10 @@
 import { DEFAULT_FONT, FONT_H, FONT_W } from '../state/font'
 import {
   INFO_BOOT_STAGE_MIN_MS, INFO_BOOT_TITLE, bootStatusGeometry,
-  browserGeometry, clockGeometry, nowPlayingGeometry, waitingGeometry,
+  browserGeometry, clockGeometry, ledStatusGeometry, nowPlayingGeometry, waitingGeometry,
   type InfoDisplayLayout,
 } from '../state/infoDisplay'
+import { ledStatusFixtureText } from '../state/ledOutputRuntime'
 import { DISPLAY_WAITING_TEXT } from '../state/displaySignal'
 import {
   OLED_LETTER_SPACING, OLED_PAGE_HEIGHT,
@@ -428,6 +429,21 @@ export interface InfoDisplayEmit {
   durationExpr: string
   dateTimeExpr: string | null
   /**
+   * LED Status: what the wired fixture is, and what it is doing.
+   *
+   * Name, form and count are settled at generation time — they cannot change
+   * on the device — so only the two a wire can move are expressions. Absent
+   * when no LED output is wired, which draws the layout's at-rest reading
+   * rather than inventing a fixture.
+   */
+  ledStatus?: {
+    name: string
+    formLabel: string
+    ledCount: number
+    enabledExpr: string
+    brightnessExpr: string
+  }
+  /**
    * The appliance card shown during boot and whenever `faultExpr` returns a
    * message. These are generator-owned facts, not another graph-selected
    * layout. `faultExpr` is a C++ `const char *` expression or `nullptr`.
@@ -646,6 +662,36 @@ export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
     if (g.hint) lines.push(
       `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), "WIRE A SOURCE TO DISPLAY", ${g.hint.w});`,
       `      _oledText(${p}, max(${g.hint.x}, (${width} - _oledTextWidth(_oledBuf_${display.id})) / 2), ${g.hint.y}, _oledBuf_${display.id});`,
+    )
+  } else if (display.layout === 'LED Status') {
+    // The mono twin of the colour panel's layout of the same name, resolving
+    // the same geometry function so the two cannot place a row differently.
+    // The state row spells BLACKOUT rather than leaving an empty bar to imply
+    // it: a blacked-out fixture and one dimmed to nothing draw the same bar,
+    // and they are different faults to go looking for.
+    const st = display.ledStatus
+    const g = ledStatusGeometry(width, height)
+    const fixture = st ? ledStatusFixtureText(st.formLabel, st.ledCount) : ''
+    const enabled = st?.enabledExpr ?? 'false'
+    const brightness = st?.brightnessExpr ?? '0.0f'
+    const level = `_oledLvl_${display.id}`
+    lines.push(
+      `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), ${cppStringLiteral(st?.name ?? '')}, ${g.name.w});`,
+      `      _oledText(${p}, ${g.name.x}, ${g.name.y}, _oledBuf_${display.id});`,
+      `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), ${cppStringLiteral(fixture)}, ${g.fixture.w});`,
+      `      _oledText(${p}, ${g.fixture.x}, ${g.fixture.y}, _oledBuf_${display.id});`,
+      `      float ${level} = constrain((float)(${brightness}), 0.0f, 1.0f);`,
+      `      char _oledState_${display.id}[24];`,
+      `      snprintf(_oledState_${display.id}, sizeof(_oledState_${display.id}), "%s %ld%%", `
+        + `(${enabled}) ? "ON" : "BLACKOUT", (long)lroundf(${level} * 100.0f));`,
+      `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), _oledState_${display.id}, ${g.state.w});`,
+      `      _oledText(${p}, ${g.state.x}, ${g.state.y}, _oledBuf_${display.id});`,
+    )
+    // Drawn while dark too, matching the browser: it is the level the fixture
+    // returns to, and an empty bar under BLACKOUT would claim the dimmer was
+    // also down.
+    if (g.bar) lines.push(
+      `      _oledBar(${p}, ${g.bar.x}, ${g.bar.y}, ${g.bar.w}, ${g.bar.h}, ${level});`,
     )
   } else if (display.layout === 'Pattern Browser') {
     const b = display.browser

@@ -63,10 +63,29 @@ const PLAYER_FIELDS: readonly DisplaySourceField[] = [
   ...SELECTION_FIELDS,
 ]
 
+/**
+ * A fixture's own readings, the same five the LED Status layouts draw.
+ *
+ * `level` is a percentage rather than the 0-1 the signal carries, because a
+ * widget binding lands in a text or numeric readout and "85" is what a person
+ * reads off a panel; a widget that wants the 0-1 for a bar has `brightness`
+ * beside it. Both are the *effective* values, so a bound readout and the fixed
+ * layout beside it cannot disagree about whether the lights are on.
+ */
+const LED_OUTPUT_FIELDS: readonly DisplaySourceField[] = [
+  { id: 'outputName', label: 'Output name', dataType: 'string' },
+  { id: 'outputForm', label: 'Output type', dataType: 'string' },
+  { id: 'ledCount', label: 'LED count', dataType: 'float' },
+  { id: 'lit', label: 'Lit', dataType: 'bool' },
+  { id: 'brightness', label: 'Brightness', dataType: 'float' },
+  { id: 'level', label: 'Brightness percent', dataType: 'float' },
+]
+
 const BY_KIND: Record<DisplaySignalKind, readonly DisplaySourceField[]> = {
   player: PLAYER_FIELDS,
   clock: CLOCK_FIELDS,
   slideshow: SLIDESHOW_FIELDS,
+  ledOutput: LED_OUTPUT_FIELDS,
 }
 
 /**
@@ -140,7 +159,19 @@ export function readDisplaySourceField(
       default: return null
     }
   }
-  const selection = signal.kind === 'player' ? signal.selection : signal.selection
+  if (signal.kind === 'ledOutput') {
+    const status = signal.status
+    switch (id) {
+      case 'outputName': return status.name
+      case 'outputForm': return status.formLabel
+      case 'ledCount': return status.ledCount
+      case 'lit': return status.enabled
+      case 'brightness': return status.brightness
+      case 'level': return Math.round(Math.max(0, Math.min(1, status.brightness)) * 100)
+      default: return null
+    }
+  }
+  const selection = signal.selection
   if (signal.kind === 'player') {
     const port = SONG_INFO_PORTS.find((entry) => entry.id === id)
     if (port) {
