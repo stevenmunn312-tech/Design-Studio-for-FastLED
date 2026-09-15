@@ -10,6 +10,7 @@ import { defaultDisplayWidgetProperties } from './displayRegistry'
 import { displayControlAssetId, type DisplayControlIconName } from './displayAssets'
 import { displaySourceFields } from './displaySourceFields'
 import type { DisplaySignalKind } from './displaySignal'
+import { TEMPLATE_CONTROL_ROLES } from './templateControlRouting'
 
 export type DisplayTemplateId =
   | 'clock'
@@ -151,12 +152,19 @@ const widget = (
   properties?: Readonly<Record<string, DisplayWidgetProperty>>,
 ): DisplayTemplateWidget => {
   const source = TEMPLATE_WIDGET_SOURCES[label]
+  // What this control is *for*, stamped on the widget rather than looked up
+  // from its label later. A label is the template's presentation name and the
+  // user may rename it; the role has to survive that, the same way a widget's
+  // port identity survives it. See state/templateControlRouting.ts.
+  const controlRole = TEMPLATE_CONTROL_ROLES[label]
   return {
     type,
     label,
     bounds: { x: bounds[0], y: bounds[1], width: bounds[2], height: bounds[3] },
     // An explicit property wins, so a template that wants a wire can say so.
-    properties: source ? { source, ...properties } : properties,
+    properties: (source || controlRole)
+      ? { ...(source ? { source } : {}), ...(controlRole ? { controlRole } : {}), ...properties }
+      : properties,
   }
 }
 

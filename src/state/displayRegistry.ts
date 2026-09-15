@@ -14,6 +14,41 @@ import type { DisplaySignalKind } from './displaySignal'
 
 export type DisplayClass = 'touch-tft'
 export type DisplayWidgetPortDirection = 'input' | 'output'
+/**
+ * What a template control is *for*, independent of its label and position.
+ *
+ * Declared here rather than beside the routing that consumes it because this
+ * module owns what a widget may carry: `normalizeDisplayWidgetProperties`
+ * below has to keep `controlRole` across a save, and importing the routing
+ * module to ask would be a cycle. Routing owns what to *do* with a role;
+ * the registry owns that the role is a thing a widget can hold at all.
+ *
+ * Coarser than any destination port on purpose: `transportNext` is one role
+ * whether the panel shows a Music Player (where it skips a track) or a Pattern
+ * Slideshow (where it advances the collection).
+ */
+export type TemplateControlRole =
+  | 'transportPrevious'
+  | 'transportPlayPause'
+  | 'transportNext'
+  | 'transportVolume'
+  | 'patternConfirm'
+  | 'outputBrightness'
+  | 'outputBlackout'
+
+export const TEMPLATE_CONTROL_ROLE_IDS: readonly TemplateControlRole[] = [
+  'transportPrevious', 'transportPlayPause', 'transportNext', 'transportVolume',
+  'patternConfirm', 'outputBrightness', 'outputBlackout',
+]
+
+/** A stored role, or null. The boundary check for an untrusted document — the
+ *  same stance `normalizeDisplaySource` takes toward a bound field. */
+export function normalizeDisplayControlRole(value: unknown): TemplateControlRole | null {
+  return typeof value === 'string' && (TEMPLATE_CONTROL_ROLE_IDS as readonly string[]).includes(value)
+    ? value as TemplateControlRole
+    : null
+}
+
 export type DisplayWidgetPortRoleId = 'value' | 'out' | 'set'
 export type DisplayWidgetPortDataType = 'string' | 'float' | 'bool' | 'color' | 'patternselect'
 export type DisplayWidgetState = 'default' | 'pressed' | 'active' | 'inactive' | 'disabled'
@@ -368,6 +403,16 @@ export function normalizeDisplayWidgetProperties(
   const result: Record<string, DisplayWidgetProperty> = {}
   const definitions = new Map(DISPLAY_WIDGET_LIBRARY[type].propertyInspector.map((item) => [item.key, item]))
   for (const [key, raw] of Object.entries(source).slice(0, maximumPropertyCount)) {
+    if (key === 'controlRole') {
+      // Not an inspector property either: a role is stamped by the template
+      // that placed the widget, never typed by hand. It has to survive a save
+      // or auto-wiring would silently stop recognising a reloaded screen's
+      // controls, so it is kept — bounded to the declared set, so a foreign
+      // document cannot introduce one nothing routes.
+      const role = normalizeDisplayControlRole(raw)
+      if (role) result[key] = role
+      continue
+    }
     if (key === 'source') {
       // Not an inspector property: which fields exist depends on what is wired
       // into the panel, and a document cannot see that. Checked against the
