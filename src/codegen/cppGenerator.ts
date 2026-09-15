@@ -41,6 +41,7 @@ import { clampSegmentBrightness, segmentControllerFor } from '../state/segmentDi
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
 import { isPaletteBuilderNodeType, NODE_LIBRARY, oledControllerForProps, oledTransportForProps, tftControllerForProps } from '../state/nodeLibrary'
 import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp, ledOutputManualExprs } from './ledOutputRuntimeCpp'
+import { LED_OUTPUT_ACTION_PORTS } from '../state/ledOutputRuntime'
 import {
   PLAYER_CONTROLS_CPP, PLAYER_CONTROL_BUTTONS, playerControlsServiceCpp,
   ledOutputLatchGlobalCpp, ledOutputLatchCpp,
@@ -2058,7 +2059,15 @@ export function generateCpp(
       // composeLedOutputRuntime combines it: ANDed for blackout, multiplied for
       // level. Neither port needs a precedence rule that way — an unwired one
       // contributes its identity and vanishes from the expression.
+      //
+      // The direct action ports count as well as the bundle, and asking only
+      // about `controls` was a silent parity break: a button on Toggle
+      // blackout emitted its latch, flipped `_ledOn_`, and then emitted no
+      // runtime block to read it, because both expressions were still null.
+      // The preview blacked the fixture out and the device did nothing.
+      // Derived from the port list rather than a second copy of the three ids.
       const latched = incoming.has(`${target.id}:controls`)
+        || LED_OUTPUT_ACTION_PORTS.some((port) => incoming.has(`${target.id}:${port.id}`))
       return {
         id: stem,
         array,

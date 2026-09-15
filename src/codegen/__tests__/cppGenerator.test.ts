@@ -4068,3 +4068,50 @@ describe('starter templates', () => {
     }
   })
 })
+
+/*
+ * A direct action wire has to reach the pixels, not just the latch.
+ *
+ * `outputRuntimeEmit` decided whether to emit the run-time block from whether
+ * anything could move the latch, and asked only about the `controls` bundle.
+ * A button wired straight to Toggle blackout therefore emitted its latch,
+ * flipped `_ledOn_`, and emitted nothing that read it: the preview blacked the
+ * fixture out and the device carried on lit. Silent, and only visible on a
+ * bench — which is the class of parity break these generators exist to avoid.
+ *
+ * Asserted through the pixels rather than through the latch, because the latch
+ * was always correct; what was missing was a reader.
+ */
+describe('direct LED output actions reach the fixture', () => {
+  const graph = (targetHandle: string) => ({
+    nodes: [
+      node('out', 'MatrixOutput', 'output', { width: 8, height: 8, dataPin: 27 }),
+      node('fill', 'SolidColor', 'pattern'),
+      node('btn', 'ButtonInput', 'input', { pin: 12 }),
+    ],
+    edges: [
+      edge('f', 'fill', 'out', 'frame', 'frame'),
+      edge('a', 'btn', 'out', 'pressed', targetHandle),
+    ],
+  })
+
+  it.each(['ledToggle', 'brightnessUp', 'brightnessDown'])('emits a reader for %s', (handle) => {
+    const { nodes, edges } = graph(handle)
+    const loop = generateCpp(nodes, edges).split('void loop() {')[1]
+    // The latch moves...
+    expect(loop).toContain('{ // LED output controls latch')
+    // ...and something downstream acts on where it moved to.
+    expect(loop).toContain('{ // LED output run-time controls')
+    expect(loop).toContain('if (!(_ledOn_out))')
+    expect(loop).toContain('_ledLevel_out')
+  })
+
+  it('still emits nothing for an output nobody has touched', () => {
+    const loop = generateCpp(
+      [node('out', 'MatrixOutput', 'output', { width: 8, height: 8, dataPin: 27 }), node('fill', 'SolidColor', 'pattern')],
+      [edge('f', 'fill', 'out', 'frame', 'frame')],
+    ).split('void loop() {')[1]
+    expect(loop).not.toContain('LED output run-time controls')
+    expect(loop).not.toContain('LED output controls latch')
+  })
+})
