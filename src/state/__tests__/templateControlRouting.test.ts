@@ -79,7 +79,7 @@ describe('resolving a destination from the wired source', () => {
       panel, templated('now-playing'), [panel, touch, player],
       [edge('player', 'display', 'tft', 'display')],
     )
-    expect(routes(plan)).toEqual({ transportPrevious: 'player.previous', transportNext: 'player.next' })
+    expect(routes(plan)).toEqual({ transportPrevious: 'player.previous', transportNext: 'player.next', transportPlayPause: 'player.playPause' })
   })
 
   /*
@@ -142,18 +142,17 @@ describe('declining rather than guessing', () => {
   })
 
   /*
-   * A Toggle is a latch and Play / Pause is a press. Wiring them toggles the
-   * transport when the switch goes on and does nothing when it goes off, so
-   * the switch and the player disagree from the second press onward. No node
-   * pulses on both edges, so this is a refusal rather than an adapter.
+   * A Toggle is a latch and Play / Pause is a press. A Trigger in Changed
+   * mode pulses on both edges, turning the latch's transitions into
+   * momentary presses so the switch and the player stay in agreement.
    */
-  it('refuses a latch driving a momentary transport action', () => {
+  it('converts a latch driving a momentary transport action through a pulse-on-change adapter', () => {
     const plan = templateControlPlan(
       panel, templated('now-playing'), [panel, touch, player],
       [edge('player', 'display', 'tft', 'display')],
     )
-    expect(routes(plan).transportPlayPause).toBeUndefined()
-    expect(reasons(plan).transportPlayPause).toContain('takes Play / Pause as a press')
+    expect(routes(plan).transportPlayPause).toBe('player.playPause')
+    expect(plan.wires.find((w) => w.role === 'transportPlayPause')!.adapter).toBe('pulseOnChange')
   })
 
   it('sends a volume slider to the player volume port', () => {
@@ -187,14 +186,16 @@ describe('declining rather than guessing', () => {
     const document = templated('now-playing')
     const nextWidget = document.widgets.find((widget) => widget.label === 'Next')!
     const prevWidget = document.widgets.find((widget) => widget.label === 'Previous')!
+    const playWidget = document.widgets.find((widget) => widget.label === 'Play')!
     const graphEdges = [
       edge('player', 'display', 'tft', 'display'),
       edge('tft-touch', `widget:${nextWidget.id}:out`, 'player', 'next'),
       edge('tft-touch', `widget:${prevWidget.id}:out`, 'player', 'previous'),
+      edge('tft-touch', `widget:${playWidget.id}:out`, 'player', 'playPause'),
     ]
     const plan = templateControlPlan(panel, document, [panel, touch, player], graphEdges)
     expect(plan.wires).toEqual([])
-    expect(plan.unrouted.map((entry) => entry.role)).toEqual(['transportPlayPause'])
+    expect(plan.unrouted).toEqual([])
   })
 
   it('ignores a hand-placed control, which has declared no purpose', () => {

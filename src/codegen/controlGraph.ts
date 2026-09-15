@@ -6,7 +6,7 @@ import { inputClampRange, resolveNodeScalarExpressions } from '../state/nodeLibr
 import { compositionDims } from '../state/outputRouting'
 import { controlInputCpp, type ControlInputEmission } from './controlInputCpp'
 import { DISPLAY_TEXT_CPP_HELPERS } from './displayTextCpp'
-import { MAP_FLOAT_CPP, SCALAR_CONTROL_NODES, scalarControlCpp, scalarControlInputDefaults, type ControlDataType } from './scalarControlCpp'
+import { MAP_FLOAT_CPP, SCALAR_CONTROL_NODES, scalarControlCpp, scalarControlInputDefaults, scalarControlInputType, type ControlDataType } from './scalarControlCpp'
 
 export const MAX_CONTROL_GRAPH_NODES = 256
 const safeId = (id: string) => id.replace(/[^a-zA-Z0-9_]/g, '_')
@@ -71,7 +71,7 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
       for (const [input, fallback] of Object.entries(scalarControlInputDefaults(node.data.nodeType, properties))) {
         const edge = incoming.get(`${nodeId}:${input}`)
         if (edge) {
-          const upstream = resolve(edge.source, edge.sourceHandle ?? '', 'float')
+          const upstream = resolve(edge.source, edge.sourceHandle ?? '', scalarControlInputType(node.data.nodeType, input))
           if (!upstream) { visiting.delete(nodeId); return null }
           const clamp = properties.clampInputs ? inputClampRange(node.data.nodeType, input) : null
           inputs[input] = { kind: 'reference', reference: upstream, ...(clamp ? { clamp } : {}) }

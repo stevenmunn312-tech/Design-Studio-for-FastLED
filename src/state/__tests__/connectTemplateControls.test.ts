@@ -61,9 +61,10 @@ describe('connectTemplateControls', () => {
     setup(node('player', 'PatternMaster', {}, 'Music Player'), 'now-playing')
     const result = connectTemplateControls('tft')
 
-    expect(result.connected).toBe(2)
+    expect(result.connected).toBe(3)
     expect(routed()).toEqual([
       'player.next <- TouchInput',
+      'player.playPause <- TouchInput',
       'player.previous <- TouchInput',
     ])
     // The action inputs are fields until something is wired to them, so the
@@ -76,14 +77,15 @@ describe('connectTemplateControls', () => {
     setup(node('player', 'PatternMaster', {}, 'Music Player'), 'minimal-transport')
     const result = connectTemplateControls('tft')
 
-    expect(result.connected).toBe(3)
+    expect(result.connected).toBe(4)
     expect(routed()).toEqual([
       'player.next <- TouchInput',
+      'player.playPause <- TouchInput',
       'player.previous <- TouchInput',
       'player.volume <- TouchInput',
     ])
     const player = useGraphStore.getState().nodes.find((entry) => entry.id === 'player')!
-    expect(player.data.exposedInputs).toEqual(expect.arrayContaining(['previous', 'next', 'volume']))
+    expect(player.data.exposedInputs).toEqual(expect.arrayContaining(['previous', 'next', 'volume', 'playPause']))
   })
 
   /*
@@ -130,7 +132,7 @@ describe('connectTemplateControls', () => {
 
   it('does nothing the second time, and respects a wire the user rerouted', () => {
     setup(node('player', 'PatternMaster'), 'now-playing')
-    expect(connectTemplateControls('tft').connected).toBe(2)
+    expect(connectTemplateControls('tft').connected).toBe(3)
     const afterFirst = useGraphStore.getState().edges.length
 
     const again = connectTemplateControls('tft')
@@ -176,7 +178,7 @@ describe('connectTemplateControls', () => {
 
     const state = useGraphStore.getState()
     useGraphStore.setState({ edges: [...state.edges, edge('src', 'player', 'display', 'tft', 'display')] })
-    expect(connectTemplateControls('tft').connected).toBe(2)
+    expect(connectTemplateControls('tft').connected).toBe(3)
   })
 })
 
@@ -198,7 +200,7 @@ describe('replacing the panel source', () => {
 
   it('never retargets wires that already exist, or doubles them onto the new source', () => {
     setup(node('player', 'PatternMaster'), 'now-playing')
-    expect(connectTemplateControls('tft').connected).toBe(2)
+    expect(connectTemplateControls('tft').connected).toBe(3)
     const wiredToPlayer = routed()
 
     // The user re-points the panel at a slideshow.

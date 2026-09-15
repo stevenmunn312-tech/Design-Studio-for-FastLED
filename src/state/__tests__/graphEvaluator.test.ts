@@ -3552,6 +3552,27 @@ describe('signal utility nodes', () => {
     expect(b(1, 1)).toBe(false)
   })
 
+  /*
+   * Changed is the variant a latch needs to command a momentary action.
+   *
+   * One Shot fires on the rising edge only, so a switch driving Play / Pause
+   * through it would command the transport on the way on and do nothing on the
+   * way off — the two disagree from the second press. This pulses on either
+   * transition, which is what makes a Toggle widget safe to wire to an action.
+   */
+  it('Trigger changed pulses on both edges and nowhere else', () => {
+    const graph = (on: number) => [boolSrc('trc', on), node('trc1', 'Trigger', 'math', { triggerOp: 'changed' })]
+    const edges = [edge('e', 'trc', 'result', 'trc1', 'trigger')]
+    const b = (tick: number, on: number) => evaluateScalar(graph(on), edges, 'trc1', 'out', tick) === 1
+    // The opening sample is not a change: state seeds from the first reading,
+    // so a graph whose switch starts on does not fire a press nobody made.
+    expect(b(0, 1)).toBe(false)
+    expect(b(1, 1)).toBe(false)  // held, no transition
+    expect(b(2, 0)).toBe(true)   // falling edge counts too — the point of it
+    expect(b(3, 0)).toBe(false)  // held low
+    expect(b(4, 1)).toBe(true)   // rising edge
+  })
+
   it('Trigger oneShot holds true for holdTime after a rising edge, ignoring retriggers while high', () => {
     const graph = (on: number) => [boolSrc('tro', on), node('tro1', 'Trigger', 'math', { triggerOp: 'oneShot', holdTime: 0.5 })]
     const edges = [edge('e', 'tro', 'result', 'tro1', 'trigger')]

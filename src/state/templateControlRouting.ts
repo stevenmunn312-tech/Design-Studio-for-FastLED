@@ -29,7 +29,11 @@
  * the applier places a `Not` — visible on the canvas, removed by one undo, and
  * the same shape as the Map Range a Graph Health repair inserts. Silently
  * flipping the value inside the evaluator would make one boolean mean two
- * things depending on which port it landed on.
+ * things depending on which port it landed on. `pulseOnChange` is the same
+ * idea for the other mismatch: a Toggle is a latch and Play / Pause is a press,
+ * so a `Trigger` in Changed mode turns both of its transitions into commands.
+ * One Shot would not do — it fires on the rising edge only, so the switch and
+ * the transport would disagree from the second press onward.
  *
  * Nothing here mutates. It is read by the applier, by the "Connect template
  * controls" action, and by tests, which is what keeps the second and third
@@ -75,10 +79,12 @@ export function widgetControlRole(widget: Pick<DisplayWidget, 'properties'>): Te
  * How a control's value has to be changed on the way to its destination.
  *
  * `none` is one edge. `invert` is a `Not`, for a control whose true means the
- * opposite of its destination's true. Anything a conversion cannot fix is not
- * an adapter — it is a refusal, and appears in `unrouted` instead.
+ * opposite of its destination's true. `pulseOnChange` is a `Trigger` in Changed
+ * mode, turning a latch's on and off transitions into momentary presses.
+ * Anything a conversion cannot fix is not an adapter — it is a refusal, and
+ * appears in `unrouted` instead.
  */
-export type TemplateControlAdapter = 'none' | 'invert'
+export type TemplateControlAdapter = 'none' | 'invert' | 'pulseOnChange'
 
 export interface TemplateControlWire {
   widgetId: string
@@ -137,16 +143,7 @@ const ROLE_TARGETS: Readonly<Record<TemplateControlRole, Partial<Record<DisplayS
   transportVolume: { player: { port: 'volume' } },
 }
 
-/**
- * Controls whose destination exists but cannot be commanded by this widget.
- *
- * A Toggle is a latch and `playPause` is a momentary action: wiring them
- * together toggles the transport when the switch goes on and does nothing when
- * it goes off, so the switch and the player disagree from the first press.
- * Fixing it needs a pulse on *either* edge, and no node produces one — Trigger
- * one-shot fires on the rising edge only. Left unwired and said out loud,
- * rather than connected in a way that desynchronises on the second press.
- */
+/** Controls whose latch output has to become a one-frame command. */
 const LATCH_ROLES_NEEDING_AN_EDGE: ReadonlySet<TemplateControlRole> = new Set(['transportPlayPause'])
 
 /** Widget types that publish a latch rather than a press. */
@@ -214,15 +211,6 @@ export function templateControlPlan(
       continue
     }
 
-    if (LATCH_ROLES_NEEDING_AN_EDGE.has(role) && LATCH_WIDGETS.has(widget.type)) {
-      unrouted.push({
-        widgetId: widget.id, role,
-        reason: `${sourceLabel(sourceNode)} takes Play / Pause as a press, and this is a switch. `
-          + 'Wire it through Control Map, or use a Button, so the player and the switch cannot disagree.',
-      })
-      continue
-    }
-
     const target = ROLE_TARGETS[role][sourceKind]
     if (!target) {
       unrouted.push({
@@ -269,7 +257,12 @@ export function templateControlPlan(
       sourcePort,
       targetId: sourceNode.id,
       targetPort: target.port,
-      adapter: target.adapter ?? 'none',
+      // A latch driving a momentary action becomes a press on either
+      // transition, so the switch and the thing it commands cannot disagree
+      // from the second press onward.
+      adapter: LATCH_ROLES_NEEDING_AN_EDGE.has(role) && LATCH_WIDGETS.has(widget.type)
+        ? 'pulseOnChange'
+        : target.adapter ?? 'none',
     })
   }
 

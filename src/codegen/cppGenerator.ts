@@ -5525,6 +5525,9 @@ export function generateCpp(
         if (op === 'toggle') {
           ln(`  static bool ${outVar} = ${p.initialState === true ? 'true' : 'false'}; static bool _trP_${id} = false;`)
           ln(`  { bool _t = (${trig}); if (_t && !_trP_${id}) ${outVar} = !${outVar}; _trP_${id} = _t; }`)
+        } else if (op === 'changed') {
+          ln(`  static bool _trP_${id} = false, _trInit_${id} = false; bool ${outVar} = false;`)
+          ln(`  { bool _t = (${trig}); if (!_trInit_${id}) { _trP_${id} = _t; _trInit_${id} = true; } else { ${outVar} = (_t != _trP_${id}); _trP_${id} = _t; } }`)
         } else if (op === 'oneShot') {
           const ms = Math.max(20, Math.round(Number(p.holdTime ?? 0.1) * 1000))
           ln(`  static uint32_t _trT_${id} = 0xFFFFFFFFu; static bool _trP_${id} = false;`)

@@ -34,7 +34,7 @@ describe('typed control graph', () => {
       const definition = NODE_LIBRARY.find((entry) => entry.type === type)!
       expect(definition.outputs).toContainEqual(expect.objectContaining({ id: output.port, dataType: output.type }))
       expect(Object.keys(scalarControlInputDefaults(type, libraryDefaults(type))).sort())
-        .toEqual(definition.inputs.filter((port) => port.dataType === 'float').map((port) => port.id).sort())
+        .toEqual(definition.inputs.filter((port) => ['float', 'bool'].includes(port.dataType)).map((port) => port.id).sort())
     }
   })
 

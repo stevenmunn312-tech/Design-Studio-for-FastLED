@@ -12,6 +12,7 @@ export const SCALAR_CONTROL_NODES: Record<string, { port: string; type: ControlD
   Sin: { port: 'result', type: 'float' },
   Cos: { port: 'result', type: 'float' },
   Compare: { port: 'result', type: 'bool' },
+  Trigger: { port: 'out', type: 'bool' },
   TextValue: { port: 'text', type: 'string' },
   FormatNumber: { port: 'text', type: 'string' },
 }
@@ -28,9 +29,15 @@ export function scalarControlInputDefaults(type: string, props: Record<string, u
     case 'MapRange': return { value: 0, inMin: 0, inMax: 1, outMin: 0, outMax: 1 }
     case 'Sin': case 'Cos': return { x: 0 }
     case 'Compare': return { a: 0, b: 0.5 }
+    case 'Trigger': return { trigger: 0 }
     case 'FormatNumber': return { value: 0 }
     default: return {}
   }
+}
+
+export function scalarControlInputType(type: string, port: string): ControlDataType {
+  if (type === 'Trigger' && port === 'trigger') return 'bool'
+  return 'float'
 }
 
 export const MAP_FLOAT_CPP = `float mapFloat(float x, float inMin, float inMax, float outMin, float outMax) {
@@ -66,6 +73,51 @@ export function scalarControlCpp(
     case 'Sin': expression = `sin((${f.x}) * TWO_PI)`; break
     case 'Cos': expression = `cos((${f.x}) * TWO_PI)`; break
     case 'Compare': expression = `(${f.a}) > (${f.b})`; break
+    case 'Trigger': {
+      const op = String(props.triggerOp ?? 'debounce')
+      if (op === 'toggle') {
+        loop = [
+          `  static bool ${output} = ${props.initialState === true ? 'true' : 'false'}; static bool _trP_${id} = false;`,
+          `  { bool _t = (${f.trigger}); if (_t && !_trP_${id}) ${output} = !${output}; _trP_${id} = _t; }`,
+        ]
+      } else if (op === 'changed') {
+        loop = [
+          `  static bool _trP_${id} = false, _trInit_${id} = false; bool ${output} = false;`,
+          `  { bool _t = (${f.trigger}); if (!_trInit_${id}) { _trP_${id} = _t; _trInit_${id} = true; } else { ${output} = (_t != _trP_${id}); _trP_${id} = _t; } }`,
+        ]
+      } else if (op === 'oneShot') {
+        const ms = Math.max(20, Math.round(Number(props.holdTime ?? 0.1) * 1000))
+        loop = [
+          `  static uint32_t _trT_${id} = 0xFFFFFFFFu; static bool _trP_${id} = false;`,
+          `  { bool _t = (${f.trigger}); if (_t && !_trP_${id}) _trT_${id} = millis(); _trP_${id} = _t; }`,
+          `  bool ${output} = (millis() - _trT_${id}) < ${ms}u;`,
+        ]
+      } else if (op === 'pulseDivider') {
+        const n = Math.max(2, Math.round(Number(props.divideBy ?? 2)))
+        loop = [
+          `  static uint8_t _trC_${id} = 0; static bool _trP_${id} = false; bool ${output} = false;`,
+          `  { bool _t = (${f.trigger}); if (_t && !_trP_${id}) { _trC_${id}++; if (_trC_${id} >= ${n}) { _trC_${id} = 0; ${output} = true; } } _trP_${id} = _t; }`,
+        ]
+      } else if (op === 'delay') {
+        const ms = Math.max(10, Math.round(Number(props.delayTime ?? 0.5) * 1000))
+        loop = [
+          `  static uint32_t _trS_${id} = 0; static bool _trA_${id} = false, _trP_${id} = false; bool ${output} = false;`,
+          `  { bool _t = (${f.trigger}); if (_t && !_trP_${id}) { _trS_${id} = millis() + ${ms}u; _trA_${id} = true; } _trP_${id} = _t; }`,
+          `  if (_trA_${id} && millis() >= _trS_${id}) { ${output} = true; _trA_${id} = false; }`,
+        ]
+      } else {
+        const ms = Math.max(5, Math.round(Number(props.stableTime ?? 0.05) * 1000))
+        loop = [
+          `  static bool _trC_${id} = false, _trCommit_${id} = false, _trInit_${id} = false; static uint32_t _trSince_${id} = 0;`,
+          `  { bool _t = (${f.trigger});`,
+          `    if (!_trInit_${id}) { _trC_${id} = _t; _trCommit_${id} = _t; _trSince_${id} = millis(); _trInit_${id} = true; }`,
+          `    else { if (_t != _trC_${id}) { _trC_${id} = _t; _trSince_${id} = millis(); }`,
+          `      if (_t == _trC_${id} && (millis() - _trSince_${id}) >= ${ms}u) _trCommit_${id} = _t; } }`,
+          `  bool ${output} = _trCommit_${id};`,
+        ]
+      }
+      break
+    }
     case 'TextValue': loop = [textValueCpp(output, displayString(props.text ?? ''))]; break
     case 'FormatNumber': loop = formatNumberCpp(output, f.value, normalizeNumberFormat(props)); break
   }

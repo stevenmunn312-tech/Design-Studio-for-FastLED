@@ -7065,6 +7065,10 @@ function createEvalNode(
             result = st.toggleOut
             break
           }
+          case 'changed': {
+            result = trig !== st.prevTrig
+            break
+          }
           case 'oneShot': {
             const holdTime = Math.max(0.01, Number(props.holdTime ?? 0.1))
             if (trig && !st.prevTrig) st.firedAt = t

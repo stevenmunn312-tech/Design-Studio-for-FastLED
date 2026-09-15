@@ -1685,8 +1685,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { a: 0, b: 0.5 },
   },
   {
-    // Bundled trigger/edge utility — `triggerOp` selects Debounce, Toggle/Flip-
-    // Flop, One Shot, Pulse Divider, or Trigger Delay. All five share the same
+    // Bundled trigger/edge utility — `triggerOp` selects Debounce, Changed,
+    // Toggle/Flip-Flop, One Shot, Pulse Divider, or Trigger Delay. All share the same
     // bool-in/bool-out signature; the variant-specific timing/count property is
     // gated by isPropertyEnabled. See PROPERTY_META.triggerOp.
     type: 'Trigger',
@@ -3556,7 +3556,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Envelope: 'Ramps up on a trigger, then decays to 0 over the decay time.',
   Not: 'Logical NOT of a boolean.',
   Compare: 'True when a > b.',
-  Trigger: 'Debounce, Toggle, One Shot, Pulse Divider, or Trigger Delay on a bool.',
+  Trigger: 'Debounce, Changed, Toggle, One Shot, Pulse Divider, or Trigger Delay on a bool.',
   TextValue: 'A fixed line of text for a display to show.',
   FormatNumber: 'Turns a number into display text with decimals, padding, and units.',
   FormatDateTime: 'Turns a clock reading into display text such as HH:MM.',
@@ -3910,7 +3910,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   glowAmount:     { control: 'slider', min: 0, max: 1, step: 0.01 },
   easeType:       { control: 'select', options: [...EASE_TYPES] },
   easing:         { control: 'select', options: ['linear', 'sine', 'quad', 'cubic'] },
-  triggerOp:      { control: 'select', options: ['debounce', 'toggle', 'oneShot', 'pulseDivider', 'delay'] },
+  triggerOp:      { control: 'select', options: ['debounce', 'changed', 'toggle', 'oneShot', 'pulseDivider', 'delay'] },
   feedbackTransform: { control: 'select', options: ['none', 'translate', 'rotate', 'scale'] },
   delayFrames:    { control: 'slider', min: 1, max: 32, step: 1 },
   stableTime:     { control: 'slider', min: 0.01, max: 1, step: 0.01 },
@@ -5409,7 +5409,7 @@ const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, stri
   },
   Trigger: {
     prop: 'triggerOp',
-    labels: { debounce: 'Debounce', toggle: 'Toggle', oneShot: 'One Shot', pulseDivider: 'Pulse Divider', delay: 'Trigger Delay' },
+    labels: { debounce: 'Debounce', changed: 'Changed', toggle: 'Toggle', oneShot: 'One Shot', pulseDivider: 'Pulse Divider', delay: 'Trigger Delay' },
   },
 }
 

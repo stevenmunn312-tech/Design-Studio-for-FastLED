@@ -3205,6 +3205,24 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
     expect(cpp).toContain('n_trt_out = !n_trt_out;')
   })
 
+  /*
+   * Changed pulses on either transition, and seeds itself on the first pass.
+   *
+   * The seeding is the half worth asserting: without it a graph whose switch
+   * starts on would fire a press nobody made, on the device only, because the
+   * evaluator seeds its own `prevTrig` from the first reading. Two sides of one
+   * rule, and this is the side a preview cannot show you.
+   */
+  it('Trigger changed pulses on both edges after seeding its first sample', () => {
+    const t = tail('trc', 'out')
+    const cpp = generateCpp([node('trc', 'Trigger', 'math', { triggerOp: 'changed' }), ...t.nodes], t.edges)
+    expect(cpp).toContain('_trInit_trc')
+    // Either transition, not just the rising one.
+    expect(cpp).toContain('n_trc_out = (_t != _trP_trc);')
+    // The opening sample seeds rather than fires.
+    expect(cpp).toContain('if (!_trInit_trc) { _trP_trc = _t; _trInit_trc = true; }')
+  })
+
   it('Trigger oneShot holds true for holdTime after a rising edge', () => {
     const t = tail('tro', 'out')
     const cpp = generateCpp([node('tro', 'Trigger', 'math', { triggerOp: 'oneShot', holdTime: 0.3 }), ...t.nodes], t.edges)
