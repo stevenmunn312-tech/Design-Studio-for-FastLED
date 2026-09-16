@@ -13,6 +13,7 @@ import {
   STANDARD_BUNDLED_PATTERNS,
 } from '../bundledPatterns'
 import { captureWindows } from '../patternRating'
+import type { Frame } from '../ledColor'
 import { useGraphStore, ROOT_GRAPH_ID } from '../graphStore'
 import type { StudioNode, StudioEdge } from '../graphStore'
 
@@ -236,7 +237,10 @@ describe('patternLibrary', () => {
   })
 
   it('lights the third audio shelf under a pulse so a silent graph cannot ship', async () => {
-    const maxBrightness = (frames: { r: number; g: number; b: number }[][][]) => {
+    // `captureWindows` yields Frame[][] - windows of frames, each Frame being
+    // RGB[][] - so the loop below is four deep. The annotation said three,
+    // which made `row` an RGB and its iteration a type error.
+    const maxBrightness = (frames: Frame[][]) => {
       let max = 0
       for (const window of frames) for (const frame of window) for (const row of frame) for (const px of row) {
         max = Math.max(max, Math.max(px.r, px.g, px.b) / 255)
