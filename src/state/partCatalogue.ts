@@ -150,6 +150,33 @@ export function catalogueDisplays(): PartCatalogueEntry[] {
   return Object.values(PART_CATALOGUE).filter((entry) => entry.display !== undefined)
 }
 
+/**
+ * Catalogued displays that no part menu offers, and why each is held back.
+ *
+ * A modelled part is not the same as a drivable one. These have real assets,
+ * measured dimensions and measured pad geometry, so they belong in the
+ * catalogue - but listing one in a menu would be a claim the firmware cannot
+ * keep, because nothing can generate a working sketch for it yet.
+ *
+ * Stated once because three places ask the question and they had drifted:
+ * `displayPartCoverage.test.ts` (a rendered part must be offered or named
+ * here), `hardwareRegistries.test.ts` (the same rule from the node side), and
+ * `scripts/generate-display-smoke.ts` (which refuses to build a fixture set
+ * that silently omits a part). Naming an id here rather than skipping
+ * unoffered parts is what keeps a *newly* unoffered part a failure.
+ *
+ * - `ili9341-xpt2046-touch-320x240`: modelled but undriven.
+ * - `ili9341-xc4630-parallel-touch-320x240`: the parallel write path exists,
+ *   but its resistive panel has no touch controller and shares four pins with
+ *   the data bus, so there is no touch path yet.
+ *
+ * Remove an id the moment a build of that part can light up, not before.
+ */
+export const CATALOGUE_ONLY_DISPLAY_PART_IDS: readonly string[] = [
+  'ili9341-xc4630-parallel-touch-320x240',
+  'ili9341-xpt2046-touch-320x240',
+]
+
 /** The panel geometry a fixed layout is computed against. */
 export function displayResolution(partId: string): { width: number; height: number } | null {
   const spec = partById(partId)?.display

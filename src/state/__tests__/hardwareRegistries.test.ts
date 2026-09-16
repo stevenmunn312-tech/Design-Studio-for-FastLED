@@ -4,7 +4,7 @@ import { isHardwareNodeType, isHardwareManagedSignalNodeType } from '../hardware
 import { PART_PIN_PLANS } from '../pinRetarget'
 import { PART_OPTIONS, partOptionsFor } from '../partOptions'
 import { busAssignmentFor } from '../busTopology'
-import { catalogueDisplays, partById } from '../partCatalogue'
+import { catalogueDisplays, partById, CATALOGUE_ONLY_DISPLAY_PART_IDS } from '../partCatalogue'
 
 /*
  * A new hardware part has to be registered in several places, and every one of
@@ -92,14 +92,11 @@ describe('hardware registries stay in step', () => {
     const missing = catalogueDisplays()
       .map((entry) => entry.partId)
       .filter((partId) => !offered.has(partId))
-    // Both ids are modelled-but-undriven panels, and this list must stay in
-    // step with `CATALOGUE_ONLY` in displayPartCoverage.test.ts, which records
-    // why each one is held back and what removes it. The XC4630 is an 8-bit
-    // parallel bus with no transport on our side yet.
-    expect(missing, 'catalogued displays no node offers').toEqual([
-      'ili9341-xc4630-parallel-touch-320x240',
-      'ili9341-xpt2046-touch-320x240',
-    ])
+    // The parts nothing offers must be exactly the ones the catalogue says are
+    // held back - no more, so a part cannot go missing from every menu by
+    // accident, and no fewer, so an id left here after its driver lands fails.
+    expect(missing, 'catalogued displays no node offers')
+      .toEqual([...CATALOGUE_ONLY_DISPLAY_PART_IDS].sort())
   })
 
   // A display remains a terminal after touch gives it an output; if category

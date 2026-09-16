@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { MODULE_PAD_GEOMETRY, peripheralPadLabel, peripheralSignalPadIndex } from '../physicalDiagramLayout'
-import { catalogueDisplays, partPinLabelForProperty } from '../../../state/partCatalogue'
+import { catalogueDisplays, partPinLabelForProperty, CATALOGUE_ONLY_DISPLAY_PART_IDS } from '../../../state/partCatalogue'
 import { partOptionsFor } from '../../../state/partOptions'
 import { OLED_TRANSPORT_PINS, oledTransportFor } from '../../../state/oledSurface'
 import { segmentControllerForProps, transportDisplayPinKeysForProps } from '../../../state/nodeLibrary'
@@ -41,25 +41,9 @@ const DISPLAY_NODES: Array<{
   },
 ]
 
-/*
- * Catalogued, rendered, and deliberately absent from every menu: the ILI9341
- * touch panel is modelled but not driven, and listing it would be a claim the
- * firmware cannot keep. Naming it here rather than skipping unoffered parts is
- * what makes a *newly* unoffered part a failure.
- *
- * The XC4630 shield is here for the same reason and is expected to leave.
- * Every display this app drives is SPI or I2C, and that board is an 8-bit
- * parallel bus, so nothing can generate a sketch for it yet: it needs a
- * parallel transport beside the SPI one in `tftDisplayCpp.ts`, an ILI9341
- * controller descriptor, and a resistive-touch path to replace the XPT2046
- * reads. Its asset, dimensions and pad geometry are real and measured, so it
- * belongs in the catalogue now; it earns a part-menu entry when a build of it
- * can actually light up. Remove this id then, not before.
- */
-const CATALOGUE_ONLY = [
-  'ili9341-xpt2046-touch-320x240',
-  'ili9341-xc4630-parallel-touch-320x240',
-]
+// Held once beside the catalogue, because this test, the node-side
+// registry check and the smoke-fixture generator all ask it.
+const CATALOGUE_ONLY = CATALOGUE_ONLY_DISPLAY_PART_IDS
 
 function displayOf(partId: string) {
   return catalogueDisplays().find((entry) => entry.partId === partId)!.display!

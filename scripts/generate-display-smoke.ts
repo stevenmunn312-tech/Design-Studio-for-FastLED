@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { StudioNode, StudioEdge } from '../src/state/graphStore'
 import { NODE_LIBRARY, libraryDefaults } from '../src/state/nodeLibrary'
-import { catalogueDisplays } from '../src/state/partCatalogue'
+import { catalogueDisplays, CATALOGUE_ONLY_DISPLAY_PART_IDS } from '../src/state/partCatalogue'
 import { partOptionsFor } from '../src/state/partOptions'
 import { findPinConflicts } from '../src/utils/validateGraph'
 import { assertWireable } from '../src/test-utils/assertWireable'
@@ -362,10 +362,10 @@ for (const [name, graph] of Object.entries(fixtureGraphs)) {
  * `displayPartCoverage.test.ts` derives its cases: a display imported tomorrow
  * should fail here until it has been compiled once, instead of quietly staying
  * outside the matrix — which is exactly what happened to the generic four-pin
- * SSD1306. `CATALOGUE_ONLY` names the modelled-but-undriven ILI9341, so that a
+ * SSD1306. `CATALOGUE_ONLY` comes from the catalogue itself, so that a
  * *newly* unoffered part is still a failure rather than a silent skip.
  */
-const CATALOGUE_ONLY = ['ili9341-xpt2046-touch-320x240']
+const CATALOGUE_ONLY = CATALOGUE_ONLY_DISPLAY_PART_IDS
 const fixtureNodes = [...partNodes, ...altPartNodes, ...common, fixedPanel(), ...playerNodes]
 const compiledParts = new Set(fixtureNodes.map((entry) => String(entry.data.properties.partId ?? '')))
 const offeredParts = new Set(['InfoDisplay', 'TransportDisplay', 'SegmentDisplay']
