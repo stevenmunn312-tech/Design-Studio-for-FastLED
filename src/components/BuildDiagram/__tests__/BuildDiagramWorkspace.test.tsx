@@ -7,6 +7,9 @@ import { useUploadStore } from '../../../state/uploadStore'
 import { micPinDefaultsForBoard } from '../../../state/micPinDefaults'
 import { BOARD_PROFILES } from '../../../build/boardProfiles'
 import { POWER_FEED_PAIR_GAP } from '../physicalDiagramLayout'
+import { NODE_LIBRARY } from '../../../state/nodeLibrary'
+import { TFT_TRANSPORT_PINS } from '../../../state/tftSurface'
+import { partPinLabelForProperty } from '../../../state/partCatalogue'
 
 function matrixNode(dataPin = 14, width = 16, height = 16, id = 'out', extra: Record<string, unknown> = {}) {
   return {
@@ -113,6 +116,27 @@ function amplifierNode() {
       },
       inputs: [],
       outputs: [],
+    },
+  }
+}
+
+function parallelTftNode(extra: Record<string, unknown> = {}) {
+  const def = NODE_LIBRARY.find((entry) => entry.type === 'TransportDisplay')
+  return {
+    id: 'tft',
+    type: 'studioNode',
+    position: { x: 0, y: 0 },
+    data: {
+      label: def?.label ?? 'Display Panel',
+      nodeType: 'TransportDisplay',
+      category: 'output',
+      properties: {
+        ...def?.defaultProperties,
+        partId: 'ili9341-xc4630-parallel-touch-320x240',
+        ...extra,
+      },
+      inputs: def?.inputs ?? [],
+      outputs: def?.outputs ?? [],
     },
   }
 }
@@ -743,6 +767,101 @@ describe('BuildDiagramWorkspace', () => {
     expect(signalXs).toEqual([...signalXs].sort((a, b) => a - b))
     expect(Math.min(...signalXs)).toBeGreaterThan(vccX)
     expect(Math.max(...signalXs)).toBeLessThan(gndX)
+  })
+
+  it('draws the XC4630 parallel shield with wires on both header rows', () => {
+    // The first 8-bit parallel panel, and the first whose pads sit on two
+    // edges. A filtered-out part would leave the LED output on the sheet; a
+    // thrown render would empty the whole diagram. This names which it is.
+    const partId = 'ili9341-xc4630-parallel-touch-320x240'
+    useGraphStore.setState({
+      nodes: [boardNode(), parallelTftNode()] as never[],
+    })
+    selectDevKit()
+    const { container, queryByText } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+
+    expect(queryByText('Exact board required')).toBeNull()
+    expect(diagram, 'the sheet itself must still render').toBeTruthy()
+    expect(diagram?.querySelector('[data-output-card]'), 'a thrown sheet would also drop the controller').toBeFalsy()
+    expect(
+      diagram?.querySelector(`[data-component-render="${partId}"]`),
+      'XC4630 render missing — the panel was filtered, not a thrown sheet',
+    ).toBeTruthy()
+
+    const keys = [...TFT_TRANSPORT_PINS.parallel]
+    const padYs = keys.map((key) => {
+      const wire = `transport-display:tft:${key}`
+      expect(diagram?.querySelector(`[data-wire="${wire}"]`), wire).toBeTruthy()
+      const cy = Number(
+        diagram?.querySelector(`[data-terminal="transport-display:tft-${wire}"] circle`)
+          ?.getAttribute('cy'),
+      )
+      expect(Number.isFinite(cy), `${key} pad y`).toBe(true)
+      return cy
+    })
+    // Two header rows, not one: J2/J1 along the top, J3/J4 along the bottom.
+    expect(new Set(padYs.map((y) => y.toFixed(1))).size).toBe(2)
+
+    const artwork = diagram?.querySelector(`[data-component-render="${partId}"]`)
+    const boardTop = Number(artwork?.getAttribute('y'))
+    const boardHeight = Number(artwork?.getAttribute('height'))
+    const topY = Math.min(...padYs)
+    const bottomY = Math.max(...padYs)
+    expect((topY - boardTop) / boardHeight).toBeLessThan(0.25)
+    expect((bottomY - boardTop) / boardHeight).toBeGreaterThan(0.75)
+
+    for (const key of keys) {
+      const label = partPinLabelForProperty(partId, key)
+      const title = diagram
+        ?.querySelector(`[data-terminal="transport-display:tft-transport-display:tft:${key}"] title`)
+        ?.textContent ?? ''
+      expect(title, key).toContain(label)
+    }
+  })
+
+  it('keeps the XC4630 on screen after the opening fit', () => {
+    // jsdom reports a 0-size viewport, so the opening fit used to no-op in
+    // tests and leave identity transform — which is why the pad test above
+    // passed while a real pane hid the shield. A 13-wire row plus the PSU
+    // stack is taller than the pane at the 55% zoom floor, and centering on
+    // that whole sheet parked the panel above the clip. Reset (identity)
+    // brought it back. Mock a real pane so the fit actually runs.
+    const viewW = 720
+    const viewH = 480
+    const widthSpy = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(viewW)
+    const heightSpy = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(viewH)
+    try {
+      useGraphStore.setState({
+        // A 64×64 output makes a tall PSU stack. Centering the opening fit on
+        // that whole sheet at the 55% zoom floor parked the shield above the
+        // clip — Reset (identity) brought it back on a tall pane.
+        nodes: [boardNode(), matrixNode(14, 64, 64), parallelTftNode()] as never[],
+      })
+      selectDevKit()
+      const { container } = render(<BuildDiagramWorkspace />)
+      const canvas = container.querySelector('[data-pan-surface="true"]')
+      const artwork = container.querySelector(
+        '[data-component-render="ili9341-xc4630-parallel-touch-320x240"]',
+      )
+      expect(artwork, 'the shield must still be in the SVG').toBeTruthy()
+      const partY = Number(artwork?.getAttribute('y'))
+      const partH = Number(artwork?.getAttribute('height'))
+      const style = canvas?.getAttribute('style') ?? ''
+      const translate = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(style)
+      const scale = /scale\(([-\d.]+)\)/.exec(style)
+      const panY = Number(translate?.[2] ?? 0)
+      const zoom = Number(scale?.[1] ?? 1)
+      const mid = panY + (partY + partH / 2) * zoom
+      expect(style, 'opening fit must actually run against the mocked pane').not.toBe('')
+      expect(mid, `opening fit hid the shield (zoom ${zoom}, panY ${panY}, part y ${partY}, style ${style})`)
+        .toBeGreaterThan(0)
+      expect(mid, `opening fit hid the shield (zoom ${zoom}, panY ${panY}, part y ${partY}, style ${style})`)
+        .toBeLessThan(viewH)
+    } finally {
+      widthSpy.mockRestore()
+      heightSpy.mockRestore()
+    }
   })
 
   it('draws the SD card module with the ESP-32D SPI bus in the build diagram', () => {

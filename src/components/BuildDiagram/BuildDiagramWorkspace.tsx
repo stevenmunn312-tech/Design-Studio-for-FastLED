@@ -31,7 +31,13 @@ import {
   sectionIncludesItem,
   type BuildSectionId,
 } from './diagramSections'
-import { physicalAssemblyDiagramHeight } from './physicalDiagramLayout'
+import {
+  COMMON_NET_CALLOUT_GAP,
+  COMMON_NET_CALLOUT_HEIGHT,
+  DIAGRAM_LEGEND_BAND,
+  diagramContentBottom,
+  physicalAssemblyDiagramHeight,
+} from './physicalDiagramLayout'
 import { inlineSvgImages } from './svgExport'
 import { panOffsetForPointerZoom } from './viewportZoom'
 import styles from './BuildDiagramWorkspace.module.css'
@@ -55,6 +61,8 @@ type DiagramPan = { x: number; y: number }
 type ViewportPanState = { pointerId: number; startX: number; startY: number; startPan: DiagramPan }
 
 const MIN_ZOOM = 0.55
+/** Fit may go lower so a tall sheet (a 13-wire shield, a PSU stack) still frames. */
+const FIT_MIN_ZOOM = 0.2
 const MAX_ZOOM = 1.8
 const ZOOM_STEP = 0.15
 const FIT_PADDING = 48
@@ -274,6 +282,10 @@ function controllerBoxSize(anchors: PhysicalBoardPinAnchor[] | undefined) {
 
 function clampZoom(value: number) {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number(value.toFixed(2))))
+}
+
+function clampFitZoom(value: number) {
+  return Math.min(MAX_ZOOM, Math.max(FIT_MIN_ZOOM, Number(value.toFixed(2))))
 }
 
 function boundsForLayouts(
@@ -611,20 +623,30 @@ export default function BuildDiagramWorkspace() {
       return layout
     })
   }, [controllerBox.width, controllerBox.x, primaryItems])
-  const visibleItemIds = useMemo(() => new Set(visiblePrimaryItems.map((item) => item.id)), [visiblePrimaryItems])
-  const visibleDeviceLayouts = useMemo(
-    () => allDeviceLayouts.filter((layout) => visibleItemIds.has(layout.itemId)),
-    [allDeviceLayouts, visibleItemIds],
-  )
   const canvasHeight = physicalAssemblyDiagramHeight(visiblePrimaryItems, visibleElectricalPlan, activeSection.layers)
   const allBounds = useMemo(() => {
     const bounds = boundsForLayouts(controllerBox, allDeviceLayouts)
     return { ...bounds, height: Math.max(bounds.height, canvasHeight - bounds.y) }
   }, [allDeviceLayouts, canvasHeight, controllerBox])
-  const visibleBounds = useMemo(() => {
-    const bounds = boundsForLayouts(controllerBox, visibleDeviceLayouts)
-    return { ...bounds, height: Math.max(bounds.height, canvasHeight - bounds.y) }
-  }, [canvasHeight, controllerBox, visibleDeviceLayouts])
+  /*
+   * Opening fit frames the controller and parts, not the PSU stack. A 13-wire
+   * shield plus a 64×64 feed plan is taller than the pane at the manual zoom
+   * floor, and centering on that whole sheet parked the shield above the clip
+   * until Reset restored identity. Power has its own section for the stack.
+   */
+  const hardwareFitBounds = useMemo(() => {
+    if (activeSection.layers.powerDistribution && !activeSection.layers.signalWires) {
+      return { x: 0, y: 0, width: 1120, height: canvasHeight }
+    }
+    const bottom = diagramContentBottom(visiblePrimaryItems, activeSection.layers)
+    return {
+      x: 0,
+      y: 0,
+      width: 1120,
+      height: Math.max(400, bottom
+        + COMMON_NET_CALLOUT_GAP + COMMON_NET_CALLOUT_HEIGHT + DIAGRAM_LEGEND_BAND),
+    }
+  }, [activeSection.layers, canvasHeight, visiblePrimaryItems])
 
   const boardAnchorsById = useMemo(() => new Map((exactBoard?.pinAnchors ?? []).map((anchor) => [anchor.id, anchor])), [exactBoard])
   const canRenderControllerPins = !!exactBoard && boardAnchorsById.size > 0 && (exactBoard.pins?.length ?? 0) > 0
@@ -717,10 +739,14 @@ export default function BuildDiagramWorkspace() {
         : 'The exported reference includes the selected board confidence, calculation ruleset, connections, and parts plan.'
 
   const canvasWidth = 1120
-  const updateViewport = (nextZoom: number, focusRect?: { x: number; y: number; width: number; height: number }) => {
+  const updateViewport = (
+    nextZoom: number,
+    focusRect?: { x: number; y: number; width: number; height: number },
+    fit = false,
+  ) => {
     const viewport = viewportRef.current
     const canvas = diagramCanvasRef.current
-    const zoom = clampZoom(nextZoom)
+    const zoom = fit ? clampFitZoom(nextZoom) : clampZoom(nextZoom)
     setDiagramZoom(zoom)
     if (!viewport || !canvas) return
     if (focusRect) {
@@ -750,18 +776,18 @@ export default function BuildDiagramWorkspace() {
     if (viewport.clientWidth < FIT_PADDING || viewport.clientHeight < FIT_PADDING) return
     const widthZoom = (viewport.clientWidth - FIT_PADDING) / allBounds.width
     const heightZoom = (viewport.clientHeight - FIT_PADDING) / allBounds.height
-    const fitZoom = clampZoom(Math.min(widthZoom, heightZoom, 1))
-    updateViewport(fitZoom, allBounds)
+    const fitZoom = clampFitZoom(Math.min(widthZoom, heightZoom, 1))
+    updateViewport(fitZoom, allBounds, true)
   }
 
   const fitVisible = () => {
     const viewport = viewportRef.current
     if (!viewport) return
     if (viewport.clientWidth < FIT_PADDING || viewport.clientHeight < FIT_PADDING) return
-    const widthZoom = (viewport.clientWidth - FIT_PADDING) / visibleBounds.width
-    const heightZoom = (viewport.clientHeight - FIT_PADDING) / visibleBounds.height
-    const fitZoom = clampZoom(Math.min(widthZoom, heightZoom, 1))
-    updateViewport(fitZoom, visibleBounds)
+    const widthZoom = (viewport.clientWidth - FIT_PADDING) / hardwareFitBounds.width
+    const heightZoom = (viewport.clientHeight - FIT_PADDING) / hardwareFitBounds.height
+    const fitZoom = clampFitZoom(Math.min(widthZoom, heightZoom, 1))
+    updateViewport(fitZoom, hardwareFitBounds, true)
   }
 
   const focusSelected = () => {
