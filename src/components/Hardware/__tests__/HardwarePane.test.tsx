@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
-import { fireEvent, render as renderView, screen, within } from '@testing-library/react'
+import { fireEvent, render as renderView, screen, waitFor, within } from '@testing-library/react'
 import HardwarePane from '../HardwarePane'
 import { HARDWARE_SHELF_HOST_ID } from '../HardwarePartsShelf'
 import { ROOT_GRAPH_ID, rootGraphNodes, useGraphStore } from '../../../state/graphStore'
@@ -77,6 +77,7 @@ describe('HardwarePane', () => {
       previewPanelOpen: false,
       uiEffectsEnabled: true,
       hardwareInspectorNodeId: null,
+      controllerHintDismissed: false,
     })
   })
 
@@ -97,6 +98,20 @@ describe('HardwarePane', () => {
 
     expect(rings()).toHaveLength(0)
     expect(screen.queryByText(/Add hardware here/)).toBeNull()
+  })
+
+  it('retires the rings once the controller has been clicked', async () => {
+    const { container } = render(<HardwarePane />)
+    const rings = () => container.querySelector('[class*="attention"]')
+    expect(rings()).toBeTruthy()
+
+    fireEvent.click(screen.getByTitle('Click for board options'))
+
+    // It fades rather than blinking out, so it is still there — transparent —
+    // for the length of the fade, and gone after it.
+    expect(rings()?.className).toMatch(/attentionLeaving/)
+    expect(useUiStore.getState().controllerHintDismissed).toBe(true)
+    await waitFor(() => expect(rings()).toBeNull())
   })
 
   it('counts a fixture on the bench as something on the bench', () => {

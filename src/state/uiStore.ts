@@ -217,6 +217,15 @@ interface UiState {
   hardwareShelfTarget: string | null
   /** Hardware part whose physical wiring inspector is open. Session-only. */
   hardwareInspectorNodeId: string | null
+  /**
+   * Whether the blank bench's "click the controller" nudge has been answered.
+   *
+   * Set by clicking the controller, and cleared only when a blank project
+   * begins. Session state rather than the project's: it records that this
+   * person has been shown the thing, so it must survive leaving the tab and
+   * coming back — a hint that returns after you have acted on it is nagging.
+   */
+  controllerHintDismissed: boolean
   /** Monotonic fit-view request consumed by the canvas. */
   fitViewRequest: { nonce: number; nodeIds?: string[] }
   /**
@@ -254,6 +263,8 @@ interface UiState {
   setHardwareShelfCategory: (id: string | null) => void
   openHardwareShelf: (nodeType: string) => void
   clearHardwareShelfTarget: () => void
+  dismissControllerHint: () => void
+  restoreControllerHint: () => void
   toggleBuildDiagram: () => void
   openBuildDiagram: () => void
   closeBuildDiagram: () => void
@@ -387,6 +398,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   hardwarePaneTab: (load<string>(HARDWARE_TAB_KEY, 'hardware') === 'upload' ? 'upload' : 'hardware') as HardwarePaneTab,
   hardwareShelfTarget: null,
   hardwareInspectorNodeId: null,
+  controllerHintDismissed: false,
   fitViewRequest: { nonce: 0 },
   nodeFlash: { nodeId: null, nonce: 0 },
   theme: load<AppTheme>(THEME_KEY, 'dark'),
@@ -452,6 +464,8 @@ export const useUiStore = create<UiState>((set, get) => ({
     hardwareShelfTarget,
   }),
   clearHardwareShelfTarget: () => set({ hardwareShelfTarget: null }),
+  dismissControllerHint: () => set({ controllerHintDismissed: true }),
+  restoreControllerHint: () => set({ controllerHintDismissed: false }),
   // These three set `workspaceMode` directly rather than through
   // `setWorkspaceMode`, so they each have to leave the editor too.
   toggleBuildDiagram: () => set((s) => ({

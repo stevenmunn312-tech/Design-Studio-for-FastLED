@@ -60,6 +60,9 @@ export function landOnStartingWorkspace() {
   // being worked in, and a wall of open categories buries the controller the
   // first decision is actually about.
   ui.setHardwareShelfCategory(null)
+  // A new blank project is a new bench, so the controller nudge is owed again
+  // even to someone who answered it on the last one.
+  ui.restoreControllerHint()
   useUiStore.setState({ sidebarOpen: true })
 }
 

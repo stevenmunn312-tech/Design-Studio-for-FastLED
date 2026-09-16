@@ -38,6 +38,12 @@ describe('startFlow', () => {
     expect(useUiStore.getState().hardwareShelfCategory).toBeNull()
   })
 
+  it('owes the controller nudge again on a new blank project', () => {
+    useUiStore.getState().dismissControllerHint()
+    startBlankCanvas()
+    expect(useUiStore.getState().controllerHintDismissed).toBe(false)
+  })
+
   it('leaves a workspace with content where it is', () => {
     startTemplateById('juggle')
     useUiStore.setState({ workspaceMode: 'graph' })

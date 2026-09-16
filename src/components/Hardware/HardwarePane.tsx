@@ -88,6 +88,9 @@ import styles from './HardwarePane.module.css'
 const MatrixOutputDeployPopup = lazy(() => import('../Upload/MatrixOutputDeployPopup'))
 const BoardNodeBody = lazy(() => import('../Canvas/BoardNodeBody'))
 
+/** How long the controller rings take to bow out once the board is clicked. */
+const CONTROLLER_HINT_FADE_MS = 600
+
 const MIC_NODE_TYPE = 'MicInput'
 
 /*
@@ -603,6 +606,8 @@ export default function HardwarePane() {
   const shelfTarget = useUiStore((state) => state.hardwareShelfTarget)
   const clearShelfTarget = useUiStore((state) => state.clearHardwareShelfTarget)
   const inspectorNodeId = useUiStore((state) => state.hardwareInspectorNodeId)
+  const controllerHintDismissed = useUiStore((state) => state.controllerHintDismissed)
+  const dismissControllerHint = useUiStore((state) => state.dismissControllerHint)
   const setInspectorNodeId = useUiStore((state) => state.setHardwareInspectorNodeId)
   const [shelfHost, setShelfHost] = useState<HTMLElement | null>(null)
   const [boardMenu, setBoardMenu] = useState<{ anchor: PlacementBox } | null>(null)
@@ -1101,6 +1106,21 @@ export default function HardwarePane() {
     if (!previous) return
     adjustForContentShift(next.x - previous.x, next.y - previous.y)
   }, [adjustForContentShift, placed, stageBox.height, stageBox.width])
+
+  /*
+   * The rings outlive their dismissal by exactly one fade, so clicking the
+   * controller reads as the hint answering rather than the hint blinking out.
+   * Kept in step with the CSS by handing it the same number.
+   */
+  const [controllerHintMounted, setControllerHintMounted] = useState(true)
+  useEffect(() => {
+    if (!controllerHintDismissed) {
+      setControllerHintMounted(true)
+      return
+    }
+    const timer = setTimeout(() => setControllerHintMounted(false), CONTROLLER_HINT_FADE_MS)
+    return () => clearTimeout(timer)
+  }, [controllerHintDismissed])
 
   const partStyle = (id: string): CSSProperties | undefined => {
     const part = placed.get(id)
@@ -1848,8 +1868,15 @@ export default function HardwarePane() {
             </Fragment>
           ))}
 
-          {benchIsEmpty && (
-            <div className={styles.attention} style={partStyle(BOARD_PART_ID)} aria-hidden="true">
+          {benchIsEmpty && controllerHintMounted && (
+            <div
+              className={`${styles.attention} ${controllerHintDismissed ? styles.attentionLeaving : ''}`}
+              style={{
+                ...partStyle(BOARD_PART_ID),
+                '--ring-fade': `${CONTROLLER_HINT_FADE_MS}ms`,
+              } as CSSProperties}
+              aria-hidden="true"
+            >
               <span /><span /><span />
             </div>
           )}
@@ -1861,6 +1888,8 @@ export default function HardwarePane() {
             style={partStyle(BOARD_PART_ID)}
             onClick={() => {
               if (view.consumedByPan()) return
+              // The nudge has been answered; it does not need saying again.
+              dismissControllerHint()
               openBoardMenu(boardCardRef.current?.getBoundingClientRect() ?? null)
             }}
             onContextMenu={(event) => {

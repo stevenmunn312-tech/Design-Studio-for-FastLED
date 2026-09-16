@@ -131,6 +131,15 @@
   position: absolute;
   z-index: 0;
   pointer-events: none;
+  /* The fade-out length is set inline from the component, which also decides
+     when to stop rendering — one number, so the rings cannot vanish mid-fade
+     or linger invisibly after it. */
+  transition: opacity var(--ring-fade, 600ms) ease-out;
+}
+
+/* Answered: the controller has been clicked, so the hint bows out. */
+.attentionLeaving {
+  opacity: 0;
 }
 
 .attention span {
