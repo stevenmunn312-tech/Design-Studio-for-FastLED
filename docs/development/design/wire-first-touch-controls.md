@@ -1,6 +1,7 @@
 # Wire-first touch controls
 
-Status: proposed 2026-09-17, from bench use. Nothing below is implemented.
+Status: agreed 2026-09-17, from bench use. Decisions settled; no code has
+landed. The checklist at the foot says what is outstanding.
 Target: Hardware, ahead of v1.0.0.
 
 ## Brief explanation
@@ -127,9 +128,9 @@ that most needs its scope stated.
 
 `portRoles` says which: **Button**, **Toggle**, **Slider** and **Dial** are the
 widget types with an `out` port. Everything else either reads a value (Text,
-Value, Gauge, Bar, Colour, Pattern and the rest — all `input(...)`) or draws
-nothing but itself (Image — `portRoles: []`, which the palette labels
-"Visual").
+Numeric Readout, Timecode, Progress, Value Meter, Status Indicator, Colour
+Swatch, Pattern Browser — all `input(...)`) or draws nothing but itself
+(Image/Icon — `portRoles: []`, which the palette labels "Visual").
 
 Any rule of the form "a widget without a connection is not available / is
 removed" applies **only to those four**. A bound readout deliberately mints no
@@ -164,8 +165,11 @@ cannot break its wire.
 
 ## What this touches
 
-`bounds` becomes optional on `DisplayWidget`, which is one field and one bump
-of `DISPLAY_DOCUMENT_SCHEMA_VERSION`. The cost is not the field — it is that
+`bounds` becomes optional on `DisplayWidget`. `DISPLAY_DOCUMENT_SCHEMA_VERSION`
+is deliberately **not** bumped: `normalizeDisplayDocument` rejects any document
+whose version it does not recognise, so bumping would drop every screen design
+already saved, to buy nothing — a v1 document has bounds on every widget and
+reads correctly as the new shape. The cost is not the field — it is that
 every walk over `document.widgets` must then answer whether it means **ports**
 or **pixels**:
 
@@ -185,21 +189,57 @@ This is the display registration-points hazard: missing one fails quietly and
 differently each time. Hold them in step with a derived test in the style of
 `hardwareRegistries.test.ts` rather than with care.
 
-## Open questions
+### Measured, not estimated
 
-- **Two controls on one property.** A coarse Dial and a fine Slider on the same
-  knob is a reasonable thing to want, but `templateControlPlan` already
-  declines any destination port that has something wired to it, and two
-  controls fighting over one value needs a stated precedence. Proposed: refuse
-  the second wire with a reason, as the template planner does.
-- **Deleting the panel.** The document is named by the panel's `displayId`, so
-  deleting the panel already takes the design with it. The Touch node and its
-  edges go too — existing behaviour, but worth confirming it reads as
-  deliberate rather than as this feature losing work.
-- **Colour.** "Active is green" was considered and is not proposed here: edges
-  already carry colour meaning by data type and signal role, and colour-only
-  status fails for colour-blind users. Dimming reads as inactive regardless of
-  hue, which is what the inert state above uses.
+A first pass made `bounds` optional to see what the compiler would say. It
+found **160 sites across 15 files**, which is the audit working rather than a
+sign the approach is wrong — but two of them are hazards the compiler *cannot*
+see, and they set the shape the refactor should take:
+
+- `resizeDisplayDocument` maps `document.widgets` against
+  `canonicalDisplayTemplateBounds(document.widgets, ...)` **by index**. Mixing
+  unplaced widgets into that array silently misaligns every template bound by
+  one per unplaced widget. A `?.` guard compiles and is wrong.
+- `firstAvailableBounds` tests a candidate rectangle against every widget's
+  `bounds` to find free space. An unplaced widget has none, so a guard that
+  skips it is correct, but a guard that defaults it is a phantom obstacle.
+
+Both say the same thing: `displayEditor.ts` is a geometry engine and should
+never see an unplaced widget at all. Rather than guarding ~42 sites inside it,
+narrow once at its boundary — a helper that hands the callback only the placed
+widgets, contiguously indexed, and re-joins the unplaced ones afterwards. The
+index-alignment class of bug then cannot be written.
+
+`displayRegistry.ts` (11 sites) is the opposite half and must **not** narrow:
+it mints ports, which every widget has.
+
+## One control per property
+
+The second wire onto an already-driven property input is **refused, with a
+reason** — the stance `templateControlPlan` already takes when it declines any
+destination port that has something wired to it. A coarse Dial and a fine
+Slider on one knob is a reasonable thing to want, but two controls writing one
+value need a stated precedence, and there is no honest one: whichever is
+sampled last wins, which is a frame-ordering accident rather than a design.
+
+The refusal is a sentence, not a dead gesture. Retargeting stays easy because
+deleting the first wire releases the property immediately.
+
+## Deleting a panel takes its screen, and that is deliberate
+
+A document is named by its panel's `displayId`, so deleting the panel already
+takes the design, the Touch node and their edges with it. That is existing
+behaviour and it stays: the screen is part of the panel, not a document the
+panel happens to reference — which is the same reasoning that made a design
+shared by two panels unsayable rather than merely refused.
+
+## Dimming, not colour
+
+"Active is green" is rejected. Edges already carry colour meaning by data type
+and signal role, so a status hue would collide with the one already there, and
+colour-only status fails for colour-blind users. Dimming reads as inactive
+regardless of hue, and it is what the inert state above already uses on the
+wire — so the widget and its wire say the same thing the same way.
 
 ## Checklist
 
@@ -213,3 +253,4 @@ differently each time. Hold them in step with a derived test in the style of
 - [ ] Graph Health reports both directions with a repair; nothing auto-deletes.
 - [ ] Range adoption at placement reuses `displayControlRangeRepair`'s
       derivation rather than copying it.
+- [ ] A second wire onto a driven property input is refused with a reason.
