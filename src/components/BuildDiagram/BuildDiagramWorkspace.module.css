@@ -5,6 +5,15 @@
     minmax(0, 1fr)
     minmax(300px, var(--build-detail-width, 360px));
   gap: 16px;
+  /*
+   * The workspace tab host is a block, not a flex container, so `flex: 1` says
+   * nothing and the grid sized to its own tallest column instead of the pane.
+   * The diagram viewport inherited that height (5245px in a 900px window), and
+   * the opening fit centred the sheet a full screen below the clip — the pane
+   * read as blank until Reset put identity back. Its two sibling workspaces
+   * fill the same host with `height: 100%`.
+   */
+  height: 100%;
   flex: 1;
   min-height: 0;
   padding: 16px;
