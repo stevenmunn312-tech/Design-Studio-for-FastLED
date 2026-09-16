@@ -1,7 +1,8 @@
 # Wire-first touch controls
 
-Status: agreed 2026-09-17, from bench use. Decisions settled; no code has
-landed. The checklist at the foot says what is outstanding.
+Status: agreed 2026-09-17, from bench use. Step 1 (the schema and the
+ports-versus-pixels audit) has landed; nothing user-visible has changed yet.
+The checklist at the foot says what is outstanding.
 Target: Hardware, ahead of v1.0.0.
 
 ## Brief explanation
@@ -210,8 +211,27 @@ narrow once at its boundary — a helper that hands the callback only the placed
 widgets, contiguously indexed, and re-joins the unplaced ones afterwards. The
 index-alignment class of bug then cannot be written.
 
-`displayRegistry.ts` (11 sites) is the opposite half and must **not** narrow:
-it mints ports, which every widget has.
+`displayRegistry.ts` is the opposite half and must **not** narrow: it mints
+ports, which every widget has. Its two *geometry* helpers do — `displayControlHitBounds`
+takes a placed widget, and the minimum-size checks in `displayWidgetValidationIssues`
+are skipped for a widget with no size, while its display-class and property
+checks still apply to every widget.
+
+### How it came out
+
+`overPlacedWidgets` in `displayEditor.ts` is the narrowing: it hands a pass
+only the placed widgets, contiguously indexed, and re-joins the unplaced ones
+in their original positions. `DisplayRuntimeWidgets` is a second one worth
+naming — narrowing that single component covered both of its consumers, the
+editor's Run surface and the panel thumbnail.
+
+The third index pairing was the one not predicted: `customDisplayResources.ts`
+registers a baked asset under a `widgetIndex`, and `customDisplayLvglCpp.ts`
+looks it up by the index of the widget it is emitting. Those are two modules
+counting what has to be the same list, so the emitter now takes every walk
+through one `emittedWidgets` accessor and the `widgetIndex` type says which
+list it indexes. Counting differently there does not fail a build — it draws
+one widget's icon on another.
 
 ## One control per property
 
@@ -243,8 +263,9 @@ wire — so the widget and its wire say the same thing the same way.
 
 ## Checklist
 
-- [ ] `bounds` optional on `DisplayWidget`; schema version bumped; every walk
-      above audited and held by a derived test.
+- [x] `bounds` optional on `DisplayWidget`; every walk audited and held by
+      `src/state/__tests__/unplacedWidgets.test.ts`. The schema version is
+      **not** bumped, for the reason above.
 - [ ] Widget type, range, step and label derived from the dropped-on property.
 - [ ] Drop on a property row mints widget + edge in one undo step.
 - [ ] "Connected" group in the designer, derived from absent bounds.

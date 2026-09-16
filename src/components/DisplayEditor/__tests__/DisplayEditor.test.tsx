@@ -64,7 +64,7 @@ describe('DisplayEditor', () => {
 
     expect(view.getByRole('heading', { name: '2 widgets' })).toBeTruthy()
     fireEvent.click(view.getByRole('button', { name: 'Left' }))
-    expect(useGraphStore.getState().displayDocuments.panel.widgets.map((widget) => widget.bounds.x)).toEqual([0, 0])
+    expect(useGraphStore.getState().displayDocuments.panel.widgets.map((widget) => widget.bounds!.x)).toEqual([0, 0])
 
     fireEvent.click(view.getByRole('button', { name: 'Copy' }))
     fireEvent.click(view.getByRole('button', { name: 'Paste' }))

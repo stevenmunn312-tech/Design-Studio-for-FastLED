@@ -1,5 +1,5 @@
 import { displayAsset, type DisplayAssetEntry } from './displayAssets'
-import type { DisplayDocument, DisplayWidget } from './displayDocument'
+import { placedWidgets, type DisplayDocument, type DisplayWidget, type PlacedDisplayWidget } from './displayDocument'
 import { displayWidgetTextTokens } from './displayTheme'
 
 /** Font sizes supplied by LVGL 9.5's pinned Montserrat bitmap set. */
@@ -12,6 +12,16 @@ export const CUSTOM_DISPLAY_ASSET_MAX_DIMENSION = 1024
 export type CustomDisplayAssetFormat = 'a8' | 'rgb565' | 'rgb565a8'
 export type CustomDisplayAssetOwner =
   | { kind: 'background' }
+  /**
+   * Which widget owns this asset, as an index into the document's **placed**
+   * widgets — `placedWidgets(document)`, not `document.widgets`.
+   *
+   * `customDisplayLvglCpp.ts` looks an asset up by the index of the widget it
+   * is emitting, so the two modules have to be counting the same list. An
+   * unplaced widget in one and not the other shifts every lookup past it, and
+   * the failure is a device drawing the wrong icon rather than anything that
+   * refuses to build.
+   */
   | { kind: 'widget'; widgetIndex: number }
 
 export interface CustomDisplayAssetRequest {
@@ -56,7 +66,7 @@ export function customDisplayFontSize(size: number): number {
 /** Only fonts that a document actually paints are enabled in lv_conf.h. */
 export function customDisplayFontSizes(document: DisplayDocument): number[] {
   const sizes = new Set<number>()
-  for (const widget of document.widgets) {
+  for (const widget of placedWidgets(document)) {
     const hasText = widget.type === 'Text'
       || widget.type === 'Numeric Readout'
       || widget.type === 'Timecode'
@@ -69,7 +79,7 @@ export function customDisplayFontSizes(document: DisplayDocument): number[] {
   return sizes.size > 0 ? [...sizes].sort((a, b) => a - b) : [14]
 }
 
-function assetDimensions(widget: DisplayWidget, asset: DisplayAssetEntry, document: DisplayDocument): { width: number; height: number } {
+function assetDimensions(widget: PlacedDisplayWidget, asset: DisplayAssetEntry, document: DisplayDocument): { width: number; height: number } {
   if (widget.type === 'Image/Icon') return widget.bounds
   // Control icons match the DOM preview's 1.6em high glyph, or fill an
   // icon-only control. Preserve the source aspect ratio without a device-side
@@ -116,7 +126,7 @@ export function customDisplayAssetRequests(document: DisplayDocument): CustomDis
   if (document.theme.background.kind === 'image') {
     addRequest(requests, document.theme.background.assetId, document.designSize, { kind: 'background' }, { opaque: true, fit: 'fill' })
   }
-  document.widgets.forEach((widget, widgetIndex) => {
+  placedWidgets(document).forEach((widget, widgetIndex) => {
     const assetId = stringProperty(widget, 'assetId')
     const asset = displayAsset(assetId)
     if (!asset) return
@@ -150,7 +160,7 @@ export function customDisplayResourceIssues(
     referenced.set(`${use}:${assetId}`, { assetId, use })
   }
   if (document.theme.background.kind === 'image') addReference(document.theme.background.assetId, 'background')
-  for (const widget of document.widgets) {
+  for (const widget of placedWidgets(document)) {
     const assetId = stringProperty(widget, 'assetId')
     if (!assetId) continue
     if (widget.type === 'Image/Icon') addReference(assetId, 'image')

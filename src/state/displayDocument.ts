@@ -63,8 +63,38 @@ export interface DisplayWidget {
   id: string
   type: DisplayWidgetType
   label: string
-  bounds: DisplayBounds
+  /**
+   * Where it sits on the screen, absent until it is placed.
+   *
+   * A control created by wiring it exists — it has a port id and a real edge —
+   * before anyone has decided where it goes, and the screen designer lists
+   * those in its "Connected" group. The presence of bounds is the whole
+   * distinction between connected and placed; there is no third state and no
+   * second list. See docs/development/design/wire-first-touch-controls.md.
+   *
+   * Every walk over a document's widgets therefore has to say whether it means
+   * *ports* (all of them) or *pixels* (only the placed ones). Optional rather
+   * than a `placed` flag beside a dummy rectangle so that question is a
+   * compile error at each site rather than something to remember.
+   */
+  bounds?: DisplayBounds
   properties: Record<string, DisplayWidgetProperty>
+}
+
+/** A widget on the screen, so its geometry can be read without a check. */
+export interface PlacedDisplayWidget extends DisplayWidget {
+  bounds: DisplayBounds
+}
+
+export function isPlacedWidget(widget: DisplayWidget): widget is PlacedDisplayWidget {
+  return widget.bounds !== undefined
+}
+
+/** The pixels half: everything that draws, costs flash, or takes a touch. */
+export function placedWidgets(
+  document: Pick<DisplayDocument, 'widgets'> | null | undefined,
+): PlacedDisplayWidget[] {
+  return (document?.widgets ?? []).filter(isPlacedWidget)
 }
 
 export interface DisplayDocument {
@@ -188,21 +218,28 @@ function normalizeWidget(value: unknown, width: number, height: number): Display
   const source = record(value)
   const bounds = record(source?.bounds)
   const id = normalizedId(source?.id)
-  if (!source || !bounds || !id || typeof source.type !== 'string' || !WIDGET_TYPE_SET.has(source.type)) return null
-  const x = boundedInteger(bounds.x, 0, 0, width - 1)
-  const y = boundedInteger(bounds.y, 0, 0, height - 1)
+  if (!source || !id || typeof source.type !== 'string' || !WIDGET_TYPE_SET.has(source.type)) return null
+  // Missing or malformed bounds now mean *unplaced* rather than *drop it*, which
+  // is both what the feature needs and the safer reading for an imported
+  // document: an unplaced widget draws nothing and costs no flash, where a
+  // dropped one simply went missing.
+  const placedBounds = bounds ? (() => {
+    const x = boundedInteger(bounds.x, 0, 0, width - 1)
+    const y = boundedInteger(bounds.y, 0, 0, height - 1)
+    return {
+      x,
+      y,
+      width: boundedInteger(bounds.width, 1, 1, width - x),
+      height: boundedInteger(bounds.height, 1, 1, height - y),
+    }
+  })() : undefined
   return {
     id,
     type: source.type as DisplayWidgetType,
     label: typeof source.label === 'string'
       ? [...source.label].slice(0, DISPLAY_DOCUMENT_LIMITS.labelLength).join('')
       : '',
-    bounds: {
-      x,
-      y,
-      width: boundedInteger(bounds.width, 1, 1, width - x),
-      height: boundedInteger(bounds.height, 1, 1, height - y),
-    },
+    ...(placedBounds ? { bounds: placedBounds } : {}),
     properties: normalizeProperties(source.type as DisplayWidgetType, source.properties),
   }
 }

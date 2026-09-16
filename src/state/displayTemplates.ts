@@ -4,6 +4,7 @@ import type {
   DisplayWidget,
   DisplayWidgetProperty,
   DisplayWidgetType,
+  PlacedDisplayWidget,
 } from './displayDocument'
 import { constrainDisplayWidgetBounds, nextDisplayWidgetId } from './displayEditor'
 import { defaultDisplayWidgetProperties } from './displayRegistry'
@@ -497,7 +498,7 @@ function templateCompositions(template: DisplayTemplate): Array<readonly Display
  * resize behaviour instead of discarding the edit.
  */
 export function canonicalDisplayTemplateBounds(
-  widgets: readonly DisplayWidget[],
+  widgets: readonly PlacedDisplayWidget[],
   width: number,
   height: number,
 ): DisplayBounds[] | undefined {

@@ -98,16 +98,16 @@ describe('DisplayEditor portrait templates', () => {
       for (const [index, element] of renderedWidgets.entries()) {
         const placed = document.widgets[index]
         expect(element.dataset.widgetType).toBe(placed.type)
-        expect(element.style.left).toBe(`${placed.bounds.x}px`)
-        expect(element.style.top).toBe(`${placed.bounds.y}px`)
-        expect(element.style.width).toBe(`${placed.bounds.width}px`)
-        expect(element.style.height).toBe(`${placed.bounds.height}px`)
+        expect(element.style.left).toBe(`${placed.bounds!.x}px`)
+        expect(element.style.top).toBe(`${placed.bounds!.y}px`)
+        expect(element.style.width).toBe(`${placed.bounds!.width}px`)
+        expect(element.style.height).toBe(`${placed.bounds!.height}px`)
 
         if (!isDisplayTouchTarget(placed.type)) continue
         // Template controls are already at least the registry touch minimum,
         // so the browser and LVGL do not need a hit region outside their
         // visible, non-overlapping placement.
-        expect(displayControlHitBounds(placed)).toEqual(placed.bounds)
+        expect(displayControlHitBounds({ type: placed.type, bounds: placed.bounds! })).toEqual(placed.bounds)
         if (placed.type !== 'Button' && placed.type !== 'Toggle') continue
         const asset = displayAsset(String(placed.properties.assetId ?? ''))
         expect(placed.properties.presentation).toBe('icon')

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DISPLAY_DOCUMENT_LIMITS, DISPLAY_WIDGET_TYPES, type DisplayWidget } from '../displayDocument'
+import { DISPLAY_DOCUMENT_LIMITS, DISPLAY_WIDGET_TYPES, type DisplayWidget , PlacedDisplayWidget} from '../displayDocument'
 import {
   DISPLAY_CONTROL_TRACK_PX,
   DISPLAY_TOUCH_TARGET_MIN_PX,
@@ -17,7 +17,7 @@ import {
   normalizeDisplayWidgetProperties,
 } from '../displayRegistry'
 
-function widget(overrides: Partial<DisplayWidget> = {}): DisplayWidget {
+function widget(overrides: Partial<DisplayWidget> = {}): PlacedDisplayWidget {
   return {
     id: 'volume',
     type: 'Slider',

@@ -7,7 +7,13 @@ import { customDisplayId as safeId } from './customDisplayId'
 // function of a normalized DisplayDocument: objects, styles, font selection,
 // callbacks, bounded caches and bindings.
 
-import type { DisplayDocument, DisplayWidget, DisplayWidgetProperty } from '../state/displayDocument'
+import {
+  placedWidgets,
+  type DisplayDocument,
+  type DisplayWidget,
+  type DisplayWidgetProperty,
+  type PlacedDisplayWidget,
+} from '../state/displayDocument'
 import { displayWidgetDefinition, type DisplayWidgetPortRoleId } from '../state/displayRegistry'
 import { resolveDisplayThemeTokens, displayWidgetTextTokens, type DisplayWidgetStateTokens } from '../state/displayTheme'
 import { DISPLAY_TEXT_BUFFER_BYTES, cppStringLiteral, displayString, normalizeNumberFormat } from '../state/displayText'
@@ -195,7 +201,7 @@ function controlKind(widget: DisplayWidget): number {
   return 0
 }
 
-function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: DisplayWidget, index: number): string[] {
+function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidget, index: number): string[] {
   const theme = resolveDisplayThemeTokens(emit.document.theme)
   const base = widget.type === 'Toggle' || widget.type === 'Status Indicator'
     ? theme.states.inactive
@@ -520,9 +526,23 @@ export function customDisplayLvglTimingLoopCpp(): string {
 
 /** Per-display globals. Widget ids and labels are never identifiers: only the
  * codegen-owned display stem and stable array indices occur in declarations. */
+/**
+ * The widgets this screen emits, in the order that *is* the runtime array.
+ *
+ * Only placed widgets draw, and the index into this list is the widget's
+ * runtime slot — and also the `widgetIndex` its baked asset was registered
+ * under in `customDisplayResources.ts`. Both modules count the placed list, so
+ * every walk here has to come through this one accessor: a walk over
+ * `document.widgets` would number the slots differently and the screen would
+ * quietly draw one widget's icon on another.
+ */
+function emittedWidgets(emit: CustomDisplayLvglEmit): PlacedDisplayWidget[] {
+  return placedWidgets(emit.document)
+}
+
 export function customDisplayLvglGlobalCpp(emit: CustomDisplayLvglEmit): string {
   const id = safeId(emit.id)
-  const count = Math.max(1, emit.document.widgets.length)
+  const count = Math.max(1, emittedWidgets(emit).length)
   return [
     `// FLS-LVGL-FONTS:${customDisplayFontSizes(emit.document).join(',')}`,
     `static lv_obj_t *_cdScreen_${id} = nullptr;`,
@@ -558,7 +578,7 @@ export function customDisplayLvglSetupCpp(emit: CustomDisplayLvglEmit): string[]
     lines.push(`  lv_obj_set_pos(_cdBackground_${id}, 0, 0);`)
     lines.push(`  lv_obj_set_size(_cdBackground_${id}, ${emit.document.designSize.width}, ${emit.document.designSize.height});`)
   }
-  emit.document.widgets.forEach((widget, index) => lines.push(...setupWidgetLines(emit, widget, index)))
+  emittedWidgets(emit).forEach((widget, index) => lines.push(...setupWidgetLines(emit, widget, index)))
   lines.push(`  lv_screen_load(_cdScreen_${id});`)
   return lines
 }
@@ -629,7 +649,7 @@ function synchronizedUpdateLines(emit: CustomDisplayLvglEmit, widget: DisplayWid
  * and the later scheduling slice decides when LVGL flushes it. */
 export function customDisplayLvglLoopCpp(emit: CustomDisplayLvglEmit): string[] {
   const lines: string[] = []
-  emit.document.widgets.forEach((widget, index) => {
+  emittedWidgets(emit).forEach((widget, index) => {
     lines.push(...passiveUpdateLines(emit, widget, index))
     lines.push(...synchronizedUpdateLines(emit, widget, index))
   })
@@ -641,9 +661,10 @@ export function customDisplayLvglOutputExpression(
   emit: CustomDisplayLvglEmit,
   widgetId: string,
 ): string | null {
-  const index = emit.document.widgets.findIndex((widget) => widget.id === widgetId)
+  const widgets = emittedWidgets(emit)
+  const index = widgets.findIndex((widget) => widget.id === widgetId)
   if (index < 0) return null
-  const widget = emit.document.widgets[index]
+  const widget = widgets[index]
   if (widget.type === 'Button' || widget.type === 'Toggle') return `_cdBoolOutput(${runtime(emit, index)})`
   if (widget.type === 'Slider' || widget.type === 'Dial') return `_cdFloatOutput(${runtime(emit, index)})`
   return null

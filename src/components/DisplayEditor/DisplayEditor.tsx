@@ -38,7 +38,16 @@ import {
   updateDisplayWidget,
   type DisplayLayoutIssue,
 } from '../../state/displayEditor'
-import type { DisplayBounds, DisplayDocument, DisplayOrientation, DisplayWidget, DisplayWidgetType } from '../../state/displayDocument'
+import {
+  isPlacedWidget,
+  placedWidgets,
+  type DisplayBounds,
+  type DisplayDocument,
+  type DisplayOrientation,
+  type DisplayWidget,
+  type DisplayWidgetType,
+  type PlacedDisplayWidget,
+} from '../../state/displayDocument'
 import {
   displayWidgetVisualState,
   resolveDisplayThemeTokens,
@@ -101,7 +110,7 @@ type Gesture = {
 type DisplayEditorMode = 'design' | 'run'
 
 interface RunDisplayWidgetProps {
-  widget: DisplayWidget
+  widget: PlacedDisplayWidget
   theme: DisplayDocument['theme']
   value: unknown
   /** `held` marks a value the finger still owns, so the runtime store knows a
@@ -299,6 +308,10 @@ function widgetAnnouncement(
   const ports = DISPLAY_WIDGET_LIBRARY[widget.type].portRoles
     .map((port) => `${port.direction} ${port.dataType} ${port.role}`)
     .join(', ')
+  // A connected widget has no position to read out until it is placed.
+  if (!isPlacedWidget(widget)) {
+    return `${widget.label || widget.type}. ${widget.type}. Connected, not yet placed. Ports: ${ports}.`
+  }
   const { x, y, width, height } = widget.bounds
   const widgetIssues = issuesForWidget(issues, widget.id)
   const validation = widgetIssues.length > 0
@@ -454,7 +467,9 @@ export default function DisplayEditor() {
   const add = (type: DisplayWidgetType) => {
     const next = addDisplayWidget(document, type)
     const widget = next.widgets.at(-1)!
-    commit(next, `${widget.type} added at ${widget.bounds.x}, ${widget.bounds.y}.`)
+    commit(next, widget.bounds
+      ? `${widget.type} added at ${widget.bounds.x}, ${widget.bounds.y}.`
+      : `${widget.type} added.`)
     setSelectedIds([widget.id])
   }
 
@@ -475,7 +490,9 @@ export default function DisplayEditor() {
       }],
     }
     const added = configured.widgets.at(-1)!
-    commit(configured, `${asset.label} control added at ${added.bounds.x}, ${added.bounds.y}.`)
+    commit(configured, added.bounds
+      ? `${asset.label} control added at ${added.bounds.x}, ${added.bounds.y}.`
+      : `${asset.label} control added.`)
     setSelectedIds([added.id])
   }
 
@@ -587,7 +604,9 @@ export default function DisplayEditor() {
   const beginGesture = (event: ReactPointerEvent, widgetId: string, kind: Gesture['kind']) => {
     if (event.button !== 0) return
     const widget = document.widgets.find((entry) => entry.id === widgetId)
-    if (!widget) return
+    // Only a widget on the canvas can be dragged; one in the Connected group
+    // has no geometry to move.
+    if (!widget || !isPlacedWidget(widget)) return
     event.stopPropagation()
     const additive = event.shiftKey || event.ctrlKey || event.metaKey
     if (additive && selectedIds.includes(widgetId)) {
@@ -987,7 +1006,7 @@ export default function DisplayEditor() {
                     />
                   )}
                 </DisplayRuntimeWidgets>
-              ) : document.widgets.map((widget) => {
+              ) : placedWidgets(document).map((widget) => {
                 const definition = DISPLAY_WIDGET_LIBRARY[widget.type]
                 const isSelected = selectedIds.includes(widget.id)
                 const widgetIssues = issuesByWidget.get(widget.id) ?? []
@@ -1041,11 +1060,13 @@ export default function DisplayEditor() {
           {selected ? (
             <>
               <label>Label<input value={selected.label} maxLength={80} onChange={(event) => commit(updateDisplayWidget(document, selected.id, (widget) => ({ ...widget, label: event.target.value })))} /></label>
-              <div className={styles.bounds}>
-                {(['x', 'y', 'width', 'height'] as const).map((key) => (
-                  <label key={key}>{key}<input type="number" value={selected.bounds[key]} onChange={(event) => commit(updateDisplayWidget(document, selected.id, (widget) => ({ ...widget, bounds: { ...widget.bounds, [key]: Number(event.target.value) } })))} /></label>
-                ))}
-              </div>
+              {isPlacedWidget(selected) && (
+                <div className={styles.bounds}>
+                  {(['x', 'y', 'width', 'height'] as const).map((key) => (
+                    <label key={key}>{key}<input type="number" value={selected.bounds[key]} onChange={(event) => commit(updateDisplayWidget(document, selected.id, (widget) => (widget.bounds ? { ...widget, bounds: { ...widget.bounds, [key]: Number(event.target.value) } } : widget)))} /></label>
+                  ))}
+                </div>
+              )}
               {displayWidgetTakesValue(selected.type) && (() => {
                 const fields = displaySourceFieldsForWidget(sourceKind, selected.type)
                 const source = typeof selected.properties.source === 'string' ? selected.properties.source : ''

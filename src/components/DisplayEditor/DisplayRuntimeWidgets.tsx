@@ -1,5 +1,5 @@
 import { useCallback, useSyncExternalStore, type ReactNode } from 'react'
-import type { DisplayDocument, DisplayWidget } from '../../state/displayDocument'
+import { placedWidgets, type DisplayDocument, type PlacedDisplayWidget } from '../../state/displayDocument'
 import { useDisplayRuntimeStore } from '../../state/displayRuntimeStore'
 import { displayRunValue } from './displayRunPreview'
 
@@ -15,7 +15,7 @@ export default function DisplayRuntimeWidgets({
 }: {
   displayId: string
   document: DisplayDocument
-  children: (widget: DisplayWidget, value: unknown) => ReactNode
+  children: (widget: PlacedDisplayWidget, value: unknown) => ReactNode
 }) {
   const subscribe = useCallback(
     (listener: () => void) => useDisplayRuntimeStore.getState().subscribeDisplay(displayId, listener),
@@ -28,7 +28,10 @@ export default function DisplayRuntimeWidgets({
   useSyncExternalStore(subscribe, snapshot, snapshot)
 
   const runtime = useDisplayRuntimeStore.getState()
-  return document.widgets.map((widget) => (
+  // Only what is on the screen draws. A widget that has been wired but not yet
+  // placed lives in the designer's Connected group, not on the glass — and this
+  // one narrowing covers both consumers, the Run surface and the thumbnail.
+  return placedWidgets(document).map((widget) => (
     children(widget, displayRunValue(widget, runtime.readDisplayWidget(displayId, widget.id)))
   ))
 }

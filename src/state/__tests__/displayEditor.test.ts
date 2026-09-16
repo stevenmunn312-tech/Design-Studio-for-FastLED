@@ -16,6 +16,17 @@ import {
   translateDisplayWidgets,
   updateDisplayWidget,
 } from '../displayEditor'
+import type { DisplayBounds, DisplayWidget } from '../displayDocument'
+
+/**
+ * Every widget in these fixtures is placed, so read its geometry without a
+ * guard per line. A widget with no bounds is connected but not on the screen,
+ * which none of these cases is about — so this throwing is the assertion.
+ */
+function at(widget: DisplayWidget | undefined): DisplayBounds {
+  if (!widget?.bounds) throw new Error(`expected a placed widget, got ${widget?.id ?? 'nothing'}`)
+  return widget.bounds
+}
 
 describe('custom display editor model', () => {
   it('creates an independent versioned touch document', () => {
@@ -57,11 +68,11 @@ describe('custom display editor model', () => {
     }
     const portrait = resizeDisplayDocument(landscape, { width: 240, height: 320 }, '0')
     for (const [index, widget] of portrait.widgets.entries()) {
-      expect(widget.bounds.width, widget.label).toBe(landscape.widgets[index].bounds.width)
-      expect(widget.bounds.height, widget.label).toBe(landscape.widgets[index].bounds.height)
+      expect(at(widget).width, widget.label).toBe(at(landscape.widgets[index]).width)
+      expect(at(widget).height, widget.label).toBe(at(landscape.widgets[index]).height)
     }
     // Reading order holds: the first widget stays above the second.
-    expect(portrait.widgets[0].bounds.y).toBeLessThan(portrait.widgets[1].bounds.y)
+    expect(at(portrait.widgets[0]).y).toBeLessThan(at(portrait.widgets[1]).y)
     expect(displayLayoutIssues(portrait)).toEqual([])
 
     // Rotating back is not bit-exact and cannot be: a widget keeping its size
@@ -77,8 +88,8 @@ describe('custom display editor model', () => {
     expect(again.widgets.map((widget) => widget.bounds))
       .toEqual(restored.widgets.map((widget) => widget.bounds))
     for (const [index, widget] of restored.widgets.entries()) {
-      expect(widget.bounds.width, widget.label).toBe(landscape.widgets[index].bounds.width)
-      expect(widget.bounds.height, widget.label).toBe(landscape.widgets[index].bounds.height)
+      expect(at(widget).width, widget.label).toBe(at(landscape.widgets[index]).width)
+      expect(at(widget).height, widget.label).toBe(at(landscape.widgets[index]).height)
     }
     expect(displayLayoutIssues(restored)).toEqual([])
   })
@@ -93,8 +104,8 @@ describe('custom display editor model', () => {
       ],
     }
     const portrait = resizeDisplayDocument(landscape, { width: 240, height: 320 }, '0')
-    expect(portrait.widgets[0].bounds.width).toBe(240)
-    expect(portrait.widgets[0].bounds.x).toBe(0)
+    expect(at(portrait.widgets[0]).width).toBe(240)
+    expect(at(portrait.widgets[0]).x).toBe(0)
   })
 
   it('adds registry-backed widgets with stable unique ids and free positions', () => {
@@ -115,7 +126,7 @@ describe('custom display editor model', () => {
     const withButton = addDisplayWidget(document, 'Button')
     const moved = updateDisplayWidget(withButton, 'button', (widget) => ({
       ...widget,
-      bounds: { ...widget.bounds, x: 21, y: 17 },
+      bounds: { ...at(widget), x: 21, y: 17 },
     }))
     expect(moved.widgets[0].bounds).toMatchObject({ x: 24, y: 16 })
   })
@@ -137,12 +148,12 @@ describe('custom display editor model', () => {
     document = addDisplayWidget(document, 'Button')
     document = addDisplayWidget(document, 'Button')
     const [first, second] = document.widgets
-    expect(second.bounds.x - (first.bounds.x + first.bounds.width)).toBeGreaterThanOrEqual(DISPLAY_TOUCH_SEPARATION_PX)
+    expect(at(second).x - (at(first).x + at(first).width)).toBeGreaterThanOrEqual(DISPLAY_TOUCH_SEPARATION_PX)
     expect(displayLayoutIssues(document)).toEqual([])
 
     const adjacent = updateDisplayWidget(document, 'button-2', (widget) => ({
       ...widget,
-      bounds: { ...widget.bounds, x: first.bounds.x + first.bounds.width },
+      bounds: { ...at(widget), x: at(first).x + at(first).width },
     }))
     expect(displayLayoutIssues(adjacent)).toEqual([{
       widgetId: 'button',
@@ -153,14 +164,14 @@ describe('custom display editor model', () => {
 
     const overlapping = updateDisplayWidget(adjacent, 'button-2', (widget) => ({
       ...widget,
-      bounds: { ...widget.bounds, x: first.bounds.x + 16 },
+      bounds: { ...at(widget), x: at(first).x + 16 },
     }))
     expect(displayLayoutIssues(overlapping).map((issue) => issue.code)).toEqual(['collision'])
 
     let withCaption = addDisplayWidget(document, 'Text')
     withCaption = updateDisplayWidget(withCaption, 'text', (widget) => ({
       ...widget,
-      bounds: { ...widget.bounds, x: first.bounds.x, y: first.bounds.y + first.bounds.height },
+      bounds: { ...at(widget), x: at(first).x, y: at(first).y + at(first).height },
     }))
     expect(displayLayoutIssues(withCaption)).toEqual([])
   })
@@ -168,12 +179,12 @@ describe('custom display editor model', () => {
   it('moves a multi-selection as a bounded group without changing its spacing', () => {
     let document = addDisplayWidget(createDisplayDocument('panel', 160, 80), 'Button')
     document = addDisplayWidget(document, 'Button')
-    const beforeGap = document.widgets[1].bounds.x - document.widgets[0].bounds.x
+    const beforeGap = at(document.widgets[1]).x - at(document.widgets[0]).x
     const moved = translateDisplayWidgets(document, ['button', 'button-2'], 500, 8)
 
-    expect(moved.widgets[1].bounds.x + moved.widgets[1].bounds.width).toBe(160)
-    expect(moved.widgets[1].bounds.x - moved.widgets[0].bounds.x).toBe(beforeGap)
-    expect(moved.widgets.map((widget) => widget.bounds.y)).toEqual([8, 8])
+    expect(at(moved.widgets[1]).x + at(moved.widgets[1]).width).toBe(160)
+    expect(at(moved.widgets[1]).x - at(moved.widgets[0]).x).toBe(beforeGap)
+    expect(moved.widgets.map((widget) => at(widget).y)).toEqual([8, 8])
   })
 
   it('aligns and distributes selected widgets while leaving other widgets untouched', () => {
@@ -182,17 +193,17 @@ describe('custom display editor model', () => {
     document = addDisplayWidget(document, 'Button')
     document = addDisplayWidget(document, 'Button')
     document = addDisplayWidget(document, 'Text')
-    document = updateDisplayWidget(document, 'button', (widget) => ({ ...widget, bounds: { ...widget.bounds, x: 0, y: 0 } }))
-    document = updateDisplayWidget(document, 'button-2', (widget) => ({ ...widget, bounds: { ...widget.bounds, x: 48, y: 40 } }))
-    document = updateDisplayWidget(document, 'button-3', (widget) => ({ ...widget, bounds: { ...widget.bounds, x: 144, y: 80 } }))
+    document = updateDisplayWidget(document, 'button', (widget) => ({ ...widget, bounds: { ...at(widget), x: 0, y: 0 } }))
+    document = updateDisplayWidget(document, 'button-2', (widget) => ({ ...widget, bounds: { ...at(widget), x: 48, y: 40 } }))
+    document = updateDisplayWidget(document, 'button-3', (widget) => ({ ...widget, bounds: { ...at(widget), x: 144, y: 80 } }))
     const textBounds = document.widgets.find((widget) => widget.id === 'text')!.bounds
 
     const aligned = alignDisplayWidgets(document, ['button', 'button-2', 'button-3'], 'top')
-    expect(aligned.widgets.slice(0, 3).map((widget) => widget.bounds.y)).toEqual([0, 0, 0])
+    expect(aligned.widgets.slice(0, 3).map((widget) => at(widget).y)).toEqual([0, 0, 0])
     expect(aligned.widgets.find((widget) => widget.id === 'text')!.bounds).toEqual(textBounds)
 
     const distributed = distributeDisplayWidgets(document, ['button', 'button-2', 'button-3'], 'horizontal')
-    expect(distributed.widgets.slice(0, 3).map((widget) => widget.bounds.x)).toEqual([0, 72, 144])
+    expect(distributed.widgets.slice(0, 3).map((widget) => at(widget).x)).toEqual([0, 72, 144])
   })
 
   it('copies, duplicates, pastes and removes a selection with fresh stable ids', () => {
@@ -204,7 +215,7 @@ describe('custom display editor model', () => {
 
     const pasted = pasteDisplayWidgets(duplicated.document, document.widgets, 16)
     expect(pasted.widgetIds).toEqual(['button-3', 'text-3'])
-    expect(pasted.document.widgets.find((widget) => widget.id === 'button-3')?.bounds.x).toBe(16)
+    expect(at(pasted.document.widgets.find((widget) => widget.id === 'button-3')).x).toBe(16)
     expect(removeDisplayWidgets(pasted.document, pasted.widgetIds).widgets).toHaveLength(4)
   })
 })

@@ -79,7 +79,7 @@ describe('firmware display asset preparation', () => {
     expect(result.current.pending).toBe(false)
     await act(async () => old.resolve({ assets: [], issues: [{ code: 'asset-data', message: 'Old failure' }] }))
     expect(result.current.errors).toEqual([])
-    expect(result.current.documents.document.widgets[0].bounds.width).toBe(3)
+    expect(result.current.documents.document.widgets[0].bounds!.width).toBe(3)
   })
 
   it('keeps one failed bake from publishing partial assets for the others', async () => {

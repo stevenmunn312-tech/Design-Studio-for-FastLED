@@ -57,7 +57,7 @@ describe('custom display asset baker', () => {
       .mockResolvedValueOnce(new Uint8ClampedArray(8))
       .mockRejectedValueOnce(new Error('decoder failed'))
     const result = await bakeCustomDisplayAssets(
-      { ...createDisplayDocument('panel'), widgets: [art, { ...art, id: 'large-art', bounds: { ...art.bounds, width: 3 } }] },
+      { ...createDisplayDocument('panel'), widgets: [art, { ...art, id: 'large-art', bounds: { ...art.bounds!, width: 3 } }] },
       rasterize,
     )
     expect(rasterize).toHaveBeenCalledTimes(2)

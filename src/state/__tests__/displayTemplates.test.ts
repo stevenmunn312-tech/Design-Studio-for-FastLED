@@ -81,7 +81,7 @@ describe('custom display templates', () => {
     const customised = {
       ...landscape,
       widgets: landscape.widgets.map((widget, index) => (
-        index === 0 ? { ...widget, bounds: { ...widget.bounds, x: 8 } } : widget
+        index === 0 ? { ...widget, bounds: { ...widget.bounds!, x: 8 } } : widget
       )),
     }
 
@@ -94,7 +94,7 @@ describe('custom display templates', () => {
     // same grid line.
     const reflowed = displayTemplate('pattern-deck')!.portraitWidgets[0].bounds
     expect(portrait.widgets[0].bounds).toMatchObject({ width: 240, height: 88 })
-    expect(portrait.widgets[0].bounds.height).not.toBe(reflowed.height)
+    expect(portrait.widgets[0].bounds!.height).not.toBe(reflowed.height)
   })
 
   /*
@@ -222,7 +222,7 @@ describe('custom display templates', () => {
       ...portrait,
       widgets: portrait.widgets.map((widget) => (
         ['Previous', 'Play', 'Next'].includes(widget.label)
-          ? { ...widget, bounds: { ...widget.bounds, width: 48, height: 88 } }
+          ? { ...widget, bounds: { ...widget.bounds!, width: 48, height: 88 } }
           : widget
       )),
     }
@@ -261,8 +261,8 @@ describe('custom display templates', () => {
   it('clamps a template authored for the reference screen onto a smaller display', () => {
     const document = applyDisplayTemplate(createDisplayDocument('panel', 160, 128), 'pattern-deck')
     for (const widget of document.widgets) {
-      expect(widget.bounds.x + widget.bounds.width).toBeLessThanOrEqual(160)
-      expect(widget.bounds.y + widget.bounds.height).toBeLessThanOrEqual(128)
+      expect(widget.bounds!.x + widget.bounds!.width).toBeLessThanOrEqual(160)
+      expect(widget.bounds!.y + widget.bounds!.height).toBeLessThanOrEqual(128)
     }
   })
 })

@@ -4,6 +4,7 @@ import type {
   DisplayWidget,
   DisplayWidgetProperty,
   DisplayWidgetType,
+  PlacedDisplayWidget,
 } from './displayDocument'
 import { displayAsset, normalizeDisplayAssetId } from './displayAssets'
 import type { NodePort } from '../types'
@@ -632,7 +633,7 @@ export function isDisplayTouchTarget(type: DisplayWidgetType): boolean {
  * constrained and is larger for one that arrived through import, and it is
  * always the whole control rather than the thin track a slider paints. LVGL
  * takes the per-side difference as its extended click area. */
-export function displayControlHitBounds(widget: Pick<DisplayWidget, 'type' | 'bounds'>): DisplayBounds {
+export function displayControlHitBounds(widget: Pick<PlacedDisplayWidget, 'type' | 'bounds'>): DisplayBounds {
   const touch = DISPLAY_WIDGET_LIBRARY[widget.type].minimumTouchSize
   if (!touch) return { ...widget.bounds }
   const width = Math.max(widget.bounds.width, touch.width)
@@ -654,14 +655,17 @@ export function displayWidgetValidationIssues(
   if (!definition.allowedDisplayClasses.includes(displayClass)) {
     issues.push({ code: 'display-class', message: `${definition.label} is not supported on this display.` })
   }
-  if (widget.bounds.width < definition.minimumVisualSize.width || widget.bounds.height < definition.minimumVisualSize.height) {
+  // A widget not yet placed has no size to be too small — the checks that
+  // remain (its display class, its own properties) are true of it regardless.
+  const bounds = widget.bounds
+  if (bounds && (bounds.width < definition.minimumVisualSize.width || bounds.height < definition.minimumVisualSize.height)) {
     issues.push({
       code: 'visual-size',
       message: `${definition.label} needs at least ${definition.minimumVisualSize.width}×${definition.minimumVisualSize.height} px.`,
     })
   }
   const touch = definition.minimumTouchSize
-  if (touch && (widget.bounds.width < touch.width || widget.bounds.height < touch.height)) {
+  if (bounds && touch && (bounds.width < touch.width || bounds.height < touch.height)) {
     issues.push({
       code: 'touch-size',
       message: `${definition.label} needs a ${touch.width}×${touch.height} px touch target.`,

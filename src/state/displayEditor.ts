@@ -6,6 +6,9 @@ import {
   type DisplayOrientation,
   type DisplayWidget,
   type DisplayWidgetType,
+  type PlacedDisplayWidget,
+  isPlacedWidget,
+  placedWidgets,
 } from './displayDocument'
 import {
   DISPLAY_TOUCH_SEPARATION_PX,
@@ -18,6 +21,28 @@ import {
   type DisplayClass,
 } from './displayRegistry'
 import { canonicalDisplayTemplateBounds } from './displayTemplates'
+
+/**
+ * Run a geometry pass over the screen, leaving anything not on it untouched.
+ *
+ * Every function in this module is about pixels, and a widget that has been
+ * wired but not yet dragged onto the design has none. Narrowing here, once, is
+ * what stops each of them having to remember: the pass is handed only the
+ * placed widgets, contiguously indexed, and the unplaced ones are re-joined in
+ * their original positions afterwards.
+ *
+ * The contiguous indexing is the point rather than a detail. `resizeDisplayDocument`
+ * pairs widgets to `canonicalDisplayTemplateBounds` **by index**, so an
+ * unplaced widget in that array would shift every template bound after it —
+ * a fault a `bounds?.x` guard compiles cleanly past.
+ */
+function overPlacedWidgets(
+  document: DisplayDocument,
+  pass: (placed: PlacedDisplayWidget[]) => DisplayWidget[],
+): DisplayWidget[] {
+  const replaced = new Map(pass(placedWidgets(document)).map((widget) => [widget.id, widget]))
+  return document.widgets.map((widget) => replaced.get(widget.id) ?? widget)
+}
 
 export interface DisplayLayoutIssue {
   widgetId: string
@@ -71,8 +96,9 @@ export function resizeDisplayDocument(
   const scaleX = width / Math.max(1, document.designSize.width)
   const scaleY = height / Math.max(1, document.designSize.height)
   const target = { designSize: { width, height }, gridSize: document.gridSize }
-  const templateBounds = canonicalDisplayTemplateBounds(document.widgets, width, height)
-  const scaled = document.widgets.map((widget, index) => ({
+  const onScreen = placedWidgets(document)
+  const templateBounds = canonicalDisplayTemplateBounds(onScreen, width, height)
+  const scaled = onScreen.map((widget, index) => ({
     ...widget,
     bounds: (() => {
       if (templateBounds) return templateBounds[index]
@@ -97,7 +123,7 @@ export function resizeDisplayDocument(
   // gap after their minimum sizes are restored. Keep each visual's relative
   // placement, then nudge only a later conflicting control down to the next
   // grid line. This never affects a same-row pair whose hit regions are apart.
-  const placed: DisplayWidget[] = []
+  const placed: PlacedDisplayWidget[] = []
   for (const widget of [...scaled].sort((a, b) => a.bounds.y - b.bounds.y || a.bounds.x - b.bounds.x)) {
     let bounds = widget.bounds
     for (let attempt = 0; attempt < scaled.length; attempt++) {
@@ -118,15 +144,19 @@ export function resizeDisplayDocument(
     placed.push({ ...widget, bounds })
   }
   const boundsById = new Map(placed.map((widget) => [widget.id, widget.bounds]))
+  const settled = new Map(scaled.map((widget) =>
+    [widget.id, { ...widget, bounds: boundsById.get(widget.id) ?? widget.bounds }]))
   return {
     ...document,
     designSize: { width, height },
     orientation,
-    widgets: scaled.map((widget) => ({ ...widget, bounds: boundsById.get(widget.id) ?? widget.bounds })),
+    // Unplaced widgets keep their place in the list and gain no geometry: a
+    // rotation turns the glass, and they are not on it.
+    widgets: document.widgets.map((widget) => settled.get(widget.id) ?? widget),
   }
 }
 
-function preservesControlAspect(widget: DisplayWidget): boolean {
+function preservesControlAspect(widget: PlacedDisplayWidget): boolean {
   if ((widget.type !== 'Button' && widget.type !== 'Toggle') || widget.properties.presentation !== 'icon') return false
   const assetId = typeof widget.properties.assetId === 'string' ? widget.properties.assetId : ''
   if (!assetId) return false
@@ -149,7 +179,7 @@ function preservesControlAspect(widget: DisplayWidget): boolean {
  * scale factors it used to be derived from described the damage rather than
  * the original, and mean nothing once neither axis is scaled.
  */
-function squaredControlSize(widget: DisplayWidget, gridSize: number): number | undefined {
+function squaredControlSize(widget: PlacedDisplayWidget, gridSize: number): number | undefined {
   if (!preservesControlAspect(widget)) return undefined
   if (widget.bounds.width === widget.bounds.height) return undefined
   return snap(Math.max(widget.bounds.width, widget.bounds.height), gridSize)
@@ -175,7 +205,7 @@ export function boundsIntersect(a: DisplayBounds, b: DisplayBounds, gap = 0): bo
     && a.y + a.height + gap > b.y
 }
 
-type PlacedWidget = Pick<DisplayWidget, 'type' | 'bounds'>
+type PlacedWidget = Pick<PlacedDisplayWidget, 'type' | 'bounds'>
 
 /** Two controls are too close when one finger could land on both: their hit
  * regions come within the touch separation of each other. Widgets that are not
@@ -221,7 +251,7 @@ function firstAvailableBounds(document: DisplayDocument, type: DisplayWidgetType
     for (let x = 0; x <= document.designSize.width - candidate.width; x += step) {
       const at = { ...candidate, x, y }
       const placed: PlacedWidget = { type, bounds: at }
-      const blocked = document.widgets.some((widget) => (
+      const blocked = placedWidgets(document).some((widget) => (
         boundsIntersect(at, widget.bounds) || displayWidgetsTooClose(placed, widget)
       ))
       if (!blocked) return at
@@ -252,10 +282,9 @@ export function updateDisplayWidget(
     if (widget.id !== widgetId) return widget
     changed = true
     const next = update(widget)
-    return {
-      ...next,
-      bounds: constrainDisplayWidgetBounds(document, next.type, next.bounds),
-    }
+    return next.bounds
+      ? { ...next, bounds: constrainDisplayWidgetBounds(document, next.type, next.bounds) }
+      : next
   })
   return changed ? { ...document, widgets } : document
 }
@@ -272,10 +301,9 @@ export function updateDisplayWidgets(
     if (!ids.has(widget.id)) return widget
     changed = true
     const next = update(widget)
-    return {
-      ...next,
-      bounds: constrainDisplayWidgetBounds(document, next.type, next.bounds),
-    }
+    return next.bounds
+      ? { ...next, bounds: constrainDisplayWidgetBounds(document, next.type, next.bounds) }
+      : next
   })
   return changed ? { ...document, widgets } : document
 }
@@ -300,11 +328,13 @@ export function duplicateDisplayWidget(document: DisplayDocument, widgetId: stri
     ...source,
     id: nextDisplayWidgetId(document, source.type),
     label: `${source.label} copy`,
-    bounds: constrainDisplayWidgetBounds(document, source.type, {
-      ...source.bounds,
-      x: source.bounds.x + offset,
-      y: source.bounds.y + offset,
-    }),
+    ...(isPlacedWidget(source) ? {
+      bounds: constrainDisplayWidgetBounds(document, source.type, {
+        ...source.bounds,
+        x: source.bounds.x + offset,
+        y: source.bounds.y + offset,
+      }),
+    } : {}),
     properties: { ...source.properties },
   }
   return { ...document, widgets: [...document.widgets, duplicate] }
@@ -323,11 +353,13 @@ export function pasteDisplayWidgets(
       ...source,
       id: nextDisplayWidgetId(working, source.type),
       label: source.label,
-      bounds: constrainDisplayWidgetBounds(document, source.type, {
-        ...source.bounds,
-        x: source.bounds.x + offset,
-        y: source.bounds.y + offset,
-      }),
+      ...(isPlacedWidget(source) ? {
+        bounds: constrainDisplayWidgetBounds(document, source.type, {
+          ...source.bounds,
+          x: source.bounds.x + offset,
+          y: source.bounds.y + offset,
+        }),
+      } : {}),
       properties: { ...source.properties },
     }
     pasted.push(copy)
@@ -352,7 +384,7 @@ export function translateDisplayWidgets(
   snapToGrid = true,
 ): DisplayDocument {
   const ids = new Set(widgetIds)
-  const selected = document.widgets.filter((widget) => ids.has(widget.id))
+  const selected = placedWidgets(document).filter((widget) => ids.has(widget.id))
   if (selected.length === 0) return document
   const minX = Math.min(...selected.map((widget) => widget.bounds.x))
   const minY = Math.min(...selected.map((widget) => widget.bounds.y))
@@ -365,9 +397,9 @@ export function translateDisplayWidgets(
   if (offsetX === 0 && offsetY === 0) return document
   return {
     ...document,
-    widgets: document.widgets.map((widget) => ids.has(widget.id)
+    widgets: overPlacedWidgets(document, (placed) => placed.map((widget) => ids.has(widget.id)
       ? { ...widget, bounds: { ...widget.bounds, x: widget.bounds.x + offsetX, y: widget.bounds.y + offsetY } }
-      : widget),
+      : widget)),
   }
 }
 
@@ -379,13 +411,14 @@ export function alignDisplayWidgets(
   alignment: DisplayAlignment,
 ): DisplayDocument {
   const ids = new Set(widgetIds)
-  const selected = document.widgets.filter((widget) => ids.has(widget.id))
+  const selected = placedWidgets(document).filter((widget) => ids.has(widget.id))
   if (selected.length < 2) return document
   const left = Math.min(...selected.map((widget) => widget.bounds.x))
   const right = Math.max(...selected.map((widget) => widget.bounds.x + widget.bounds.width))
   const top = Math.min(...selected.map((widget) => widget.bounds.y))
   const bottom = Math.max(...selected.map((widget) => widget.bounds.y + widget.bounds.height))
   return updateDisplayWidgets(document, ids, (widget) => {
+    if (!isPlacedWidget(widget)) return widget
     const bounds = { ...widget.bounds }
     if (alignment === 'left') bounds.x = left
     if (alignment === 'horizontal-centre') bounds.x = (left + right - bounds.width) / 2
@@ -405,7 +438,7 @@ export function distributeDisplayWidgets(
   direction: DisplayDistribution,
 ): DisplayDocument {
   const ids = new Set(widgetIds)
-  const selected = document.widgets.filter((widget) => ids.has(widget.id))
+  const selected = placedWidgets(document).filter((widget) => ids.has(widget.id))
   if (selected.length < 3) return document
   const horizontal = direction === 'horizontal'
   const ordered = [...selected].sort((a, b) => {
@@ -424,6 +457,7 @@ export function distributeDisplayWidgets(
   const step = (lastCentre - firstCentre) / (ordered.length - 1)
   const centres = new Map(ordered.map((widget, index) => [widget.id, firstCentre + step * index]))
   return updateDisplayWidgets(document, ids, (widget) => {
+    if (!isPlacedWidget(widget)) return widget
     const centre = centres.get(widget.id)!
     return {
       ...widget,
@@ -439,17 +473,23 @@ export function displayLayoutIssues(
   displayClass: DisplayClass = 'touch-tft',
 ): DisplayLayoutIssue[] {
   const issues: DisplayLayoutIssue[] = []
-  for (let index = 0; index < document.widgets.length; index++) {
-    const widget = document.widgets[index]
+  // Whether a widget suits this display is true of it whether or not it is on
+  // the screen, so this half reads every widget. The geometric checks below
+  // read only the placed ones, which are the only ones with geometry.
+  for (const widget of document.widgets) {
+    for (const issue of displayWidgetValidationIssues(widget, displayClass)) {
+      issues.push({ widgetId: widget.id, code: 'widget', message: issue.message })
+    }
+  }
+  const onScreen = placedWidgets(document)
+  for (let index = 0; index < onScreen.length; index++) {
+    const widget = onScreen[index]
     const { x, y, width, height } = widget.bounds
     if (x < 0 || y < 0 || width < 1 || height < 1
       || x + width > document.designSize.width || y + height > document.designSize.height) {
       issues.push({ widgetId: widget.id, code: 'bounds', message: `${widget.label} extends beyond the screen.` })
     }
-    for (const issue of displayWidgetValidationIssues(widget, displayClass)) {
-      issues.push({ widgetId: widget.id, code: 'widget', message: issue.message })
-    }
-    for (const other of document.widgets.slice(index + 1)) {
+    for (const other of onScreen.slice(index + 1)) {
       if (boundsIntersect(widget.bounds, other.bounds)) {
         issues.push({
           widgetId: widget.id,

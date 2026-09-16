@@ -114,7 +114,7 @@ describe('CapacityWatcher', () => {
     if (generator === 'player') expect(originalCode).toContain('Music-Sync Player')
     expect(originalCode).toContain('.w = 24')
     const edited = { ...document, widgets: [{ ...document.widgets[0],
-      bounds: { ...document.widgets[0].bounds, width: 32 } }] }
+      bounds: { ...document.widgets[0].bounds!, width: 32 } }] }
     act(() => useGraphStore.setState({ displayDocuments: { [document.displayId]: edited } }))
     expect(useCapacityStore.getState().target?.code).toBeNull()
     await waitFor(() => expect(useCapacityStore.getState().target?.code).toContain('.w = 32'))

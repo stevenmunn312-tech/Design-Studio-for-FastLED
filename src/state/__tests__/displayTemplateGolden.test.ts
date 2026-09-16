@@ -3,6 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { DISPLAY_TEMPLATES, applyDisplayTemplate, templateComposition } from '../displayTemplates'
 import { createDisplayDocument, displayLayoutIssues } from '../displayEditor'
+import { placedWidgets } from '../displayDocument'
 import { TFT_CONTROLLERS, TFT_ROTATIONS, tftRotatedSize } from '../tftSurface'
 
 /**
@@ -54,7 +55,7 @@ for (const [key, size] of MOUNTED_SIZES) {
       template.id,
     )
     produced[`${key}/${template.id}`] = {
-      widgets: document.widgets.map((widget) => ({
+      widgets: placedWidgets(document).map((widget) => ({
         label: widget.label,
         type: widget.type,
         ...widget.bounds,
