@@ -49,6 +49,12 @@ build/architecture overview aimed at contributors.
       the ordered implementation checklist and the four reference
       workflows of the current model. Steps 1–9 and 11 landed; step 10
       representative firmware compiled on both engines; bench still open.
+  - [Wire-first touch controls](development/design/wire-first-touch-controls.md)
+    — proposed: create a touch control by dropping a wire on the property it
+      drives, so its type, range, step and label come from the property rather
+      than from a repair afterwards; the widget then waits in a derived
+      "Connected" group until it is placed. Nothing auto-deletes — one inert
+      state with three causes. Not implemented.
   - [One canvas, four workspaces](development/design/workspace-tabs.md)
     — replacing the split graph/hardware canvas with Hardware · Build Diagram ·
     Graph · Upload tabs, why co-visibility was not what connected them, and how

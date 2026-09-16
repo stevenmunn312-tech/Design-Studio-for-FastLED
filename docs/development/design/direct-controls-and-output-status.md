@@ -7,6 +7,10 @@ done on both engines; bench is not run. 2026-09-15.
 Target: Hardware, ahead of v1.0.0. Behaviour below is a mix of
 implemented and specified; the checklist at the foot says which is which.
 
+A proposed successor to the control half of this note — creating a touch
+control by wiring it rather than by drawing it — is in
+[wire-first-touch-controls.md](wire-first-touch-controls.md).
+
 ## Brief explanation
 
 The graph should show which control changes which value. Every interactive
