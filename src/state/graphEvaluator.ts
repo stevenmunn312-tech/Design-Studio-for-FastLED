@@ -8272,28 +8272,29 @@ function createEvalNode(
 
       // Curated closed-form fields (rose/superformula/spiral/tiling/lissajous)
       // selected by a dropdown instead of free text — see
-      // docs/development/design/formula-pattern-nodes.md. No wired inputs;
-      // every control is a property.
+      // docs/development/design/formula-pattern-nodes.md. Every knob is a
+      // property input; only the chosen variant's are read, so a wire into a
+      // knob another formulaType owns is inert rather than wrong.
       case 'FormulaField': {
         const fp: FormulaFieldParams = {
           formulaType: String(props.formulaType ?? 'rose'),
-          speed: Number(props.speed ?? 0.3),
-          petals: Number(props.petals ?? 5),
-          offset: Number(props.offset ?? 0),
-          symmetry: Number(props.symmetry ?? 6),
-          n1: Number(props.n1 ?? 0.3),
-          n2: Number(props.n2 ?? 0.3),
-          n3: Number(props.n3 ?? 0.3),
-          a: Number(props.a ?? 1),
-          b: Number(props.b ?? 1),
-          turns: Number(props.turns ?? 3),
-          tightness: Number(props.tightness ?? 0.15),
-          bandWidth: Number(props.bandWidth ?? 0.25),
-          density: Number(props.density ?? 12),
-          phase: Number(props.phase ?? 0),
-          freqA: Number(props.freqA ?? 3),
-          freqB: Number(props.freqB ?? 2),
-          thickness: Number(props.thickness ?? 0.1),
+          speed: num(id, 'speed', props, 'speed', 0.3),
+          petals: num(id, 'petals', props, 'petals', 5),
+          offset: num(id, 'offset', props, 'offset', 0),
+          symmetry: num(id, 'symmetry', props, 'symmetry', 6),
+          n1: num(id, 'n1', props, 'n1', 0.3),
+          n2: num(id, 'n2', props, 'n2', 0.3),
+          n3: num(id, 'n3', props, 'n3', 0.3),
+          a: num(id, 'a', props, 'a', 1),
+          b: num(id, 'b', props, 'b', 1),
+          turns: num(id, 'turns', props, 'turns', 3),
+          tightness: num(id, 'tightness', props, 'tightness', 0.15),
+          bandWidth: num(id, 'bandWidth', props, 'bandWidth', 0.25),
+          density: num(id, 'density', props, 'density', 12),
+          phase: num(id, 'phase', props, 'phase', 0),
+          freqA: num(id, 'freqA', props, 'freqA', 3),
+          freqB: num(id, 'freqB', props, 'freqB', 2),
+          thickness: num(id, 'thickness', props, 'thickness', 0.1),
         }
         out = { field: evalFormulaField(fp, t, W, H) }
         break

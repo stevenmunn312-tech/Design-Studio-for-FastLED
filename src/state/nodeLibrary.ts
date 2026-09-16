@@ -2611,7 +2611,44 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'FormulaField',
     label: 'Formula Field',
     category: 'field',
-    inputs: [],
+    /*
+     * Every knob is a property input, so a touch control or an LFO can drive
+     * the shape live. Ports are named after their property, the convention the
+     * rest of `propertyInputs` follows.
+     *
+     * Only the knobs `isPropertyEnabled` allows for the chosen `formulaType`
+     * do anything: the generator emits one variant's block, and the evaluator
+     * reads one variant's params, so a wire into another variant's knob is
+     * inert by construction rather than by a rule anyone has to maintain.
+     * `formulaType` itself stays a property — the generator bakes one variant
+     * at generation time and has nothing to branch on at runtime.
+     */
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'petals', label: 'Petals', dataType: 'float' },
+      { id: 'offset', label: 'Offset', dataType: 'float' },
+      { id: 'symmetry', label: 'Symmetry', dataType: 'float' },
+      { id: 'n1', label: 'N1', dataType: 'float' },
+      { id: 'n2', label: 'N2', dataType: 'float' },
+      { id: 'n3', label: 'N3', dataType: 'float' },
+      { id: 'a', label: 'A', dataType: 'float' },
+      { id: 'b', label: 'B', dataType: 'float' },
+      { id: 'turns', label: 'Turns', dataType: 'float' },
+      { id: 'tightness', label: 'Tightness', dataType: 'float' },
+      { id: 'bandWidth', label: 'Band Width', dataType: 'float' },
+      { id: 'density', label: 'Density', dataType: 'float' },
+      { id: 'phase', label: 'Phase', dataType: 'float' },
+      { id: 'freqA', label: 'Freq A', dataType: 'float' },
+      { id: 'freqB', label: 'Freq B', dataType: 'float' },
+      { id: 'thickness', label: 'Thickness', dataType: 'float' },
+    ],
+    propertyInputs: {
+      speed: 'speed', petals: 'petals', offset: 'offset',
+      symmetry: 'symmetry', n1: 'n1', n2: 'n2', n3: 'n3', a: 'a', b: 'b',
+      turns: 'turns', tightness: 'tightness', bandWidth: 'bandWidth',
+      density: 'density', phase: 'phase',
+      freqA: 'freqA', freqB: 'freqB', thickness: 'thickness',
+    },
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
     defaultProperties: {
       formulaType: 'rose',

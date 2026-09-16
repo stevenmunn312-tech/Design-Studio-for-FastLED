@@ -208,6 +208,22 @@ describe('StudioNode', () => {
     expect(blocked.getAttribute('aria-label')).toContain('Incompatible with dragged bool output')
   })
 
+  /*
+   * Formula Field's knobs became property inputs, and the row renderer is
+   * generic — it reads the registry rather than a list of node types — so this
+   * asserts the registry change reaches the canvas, and that a knob belonging
+   * to another formulaType is still a drop target (the wire is allowed; it
+   * just draws dark until the variant changes).
+   */
+  it('offers every Formula Field knob as a drop target, whatever the variant', () => {
+    const n = makeNode('FormulaField', { formulaType: 'rose', petals: 5, symmetry: 6 })
+    useGraphStore.setState({ nodes: [n], edges: [] })
+    const view = renderNode(n)
+    for (const key of ['petals', 'offset', 'symmetry', 'freqA', 'thickness', 'speed']) {
+      expect(view.container.querySelector(`[data-property-input="${n.id}|${key}"]`), key).toBeTruthy()
+    }
+  })
+
   it('warns on normalized float sources that need Map Range for a wider property target', () => {
     const n = makeNode('Juggle', { speed: 0.5, count: 4, fade: 0.22, palette: 'rainbow' })
     useGraphStore.setState({ nodes: [n], edges: [] })

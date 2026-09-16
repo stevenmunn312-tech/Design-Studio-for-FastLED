@@ -6449,82 +6449,94 @@ export function generateCpp(
         needsT.v = true
         const of = ownField()
         const formulaType = String(p.formulaType ?? 'rose')
-        const speed01 = Math.max(0, Math.min(1, Number(p.speed ?? 0.3)))
-        const rotRate = speed01 * (FORMULA_FIELD_SPEED_MAX[formulaType] ?? 1)
-        const rotLit = floatLit(rotRate)
+        /*
+         * Each knob is hoisted to a `float` local once per frame, not baked as
+         * a literal, because they are property inputs now and a wired one is
+         * only known at runtime. `f()` still emits a bare literal when nothing
+         * is wired, so an untouched node compiles to what it always did; the
+         * clamps moved from generation-time `Math.max` into emitted `fmaxf` so
+         * a wired value is bounded the same way the evaluator bounds it.
+         *
+         * Hoisted above the pixel loops rather than inlined: the inner
+         * expressions read a local instead of a constant, which costs the same
+         * per pixel, and the derived ones (1/n1, the spiral period) are
+         * computed once a frame instead of once a pixel.
+         */
+        const speedMax = floatLit(FORMULA_FIELD_SPEED_MAX[formulaType] ?? 1)
+        const spd = `  float _spd=constrain(${f('speed', 'speed', 0.3)},0.0f,1.0f)*${speedMax}; float _rot=t*_spd;`
         switch (formulaType) {
           case 'superformula': {
-            const m = floatLit(Math.max(1, Number(p.symmetry ?? 6)))
-            const invN1 = floatLit(1 / Math.max(0.05, Number(p.n1 ?? 0.3)))
-            const n2 = floatLit(Math.max(0.05, Number(p.n2 ?? 0.3)))
-            const n3 = floatLit(Math.max(0.05, Number(p.n3 ?? 0.3)))
-            const sfA = floatLit(Math.max(0.05, Number(p.a ?? 1)))
-            const sfB = floatLit(Math.max(0.05, Number(p.b ?? 1)))
-            ln(`  { /* Formula Field: superformula */ float _rot=t*${rotLit};`)
+            ln(`  { /* Formula Field: superformula */`)
+            ln(spd)
+            ln(`    float _m=fmaxf(1.0f,${f('symmetry', 'symmetry', 6)});`)
+            ln(`    float _invN1=1.0f/fmaxf(0.05f,${f('n1', 'n1', 0.3)});`)
+            ln(`    float _n2=fmaxf(0.05f,${f('n2', 'n2', 0.3)}),_n3=fmaxf(0.05f,${f('n3', 'n3', 0.3)});`)
+            ln(`    float _sfA=fmaxf(0.05f,${f('a', 'a', 1)}),_sfB=fmaxf(0.05f,${f('b', 'b', 1)});`)
             ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
             ln(`      float _cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),_cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
             ln(`      float _r=sqrtf(_cx*_cx+_cy*_cy),_theta=atan2f(_cy,_cx)+_rot;`)
-            ln(`      float _t1=fabsf(cosf(${m}*_theta/4.0f)/${sfA}),_t2=fabsf(sinf(${m}*_theta/4.0f)/${sfB});`)
-            ln(`      float _raux=powf(powf(_t1,${n2})+powf(_t2,${n3}),-${invN1});`)
+            ln(`      float _t1=fabsf(cosf(_m*_theta/4.0f)/_sfA),_t2=fabsf(sinf(_m*_theta/4.0f)/_sfB);`)
+            ln(`      float _raux=powf(powf(_t1,_n2)+powf(_t2,_n3),-_invN1);`)
             ln(`      ${of}[_y*WIDTH+_x]=constrain(1.0f-(_r-_raux)/0.06f,0.0f,1.0f);}}`)
             break
           }
           case 'fibonacciSpiral': {
-            const nTurns = Math.max(1, Number(p.turns ?? 3))
-            const aSp = floatLit(Math.max(0.02, Number(p.tightness ?? 0.15)))
-            const bw = floatLit(Math.max(0.02, Number(p.bandWidth ?? 0.25)))
-            const period = (2 * Math.PI) / nTurns
-            const periodLit = floatLit(period)
             const lnPhiLit = floatLit(Math.log(GOLDEN_RATIO))
-            ln(`  { /* Formula Field: fibonacciSpiral */ float _rot=t*${rotLit};`)
+            ln(`  { /* Formula Field: fibonacciSpiral */`)
+            ln(spd)
+            ln(`    float _turns=fmaxf(1.0f,${f('turns', 'turns', 3)});`)
+            ln(`    float _period=6.2831853f/_turns;`)
+            ln(`    float _aSp=fmaxf(0.02f,${f('tightness', 'tightness', 0.15)});`)
+            ln(`    float _bw=fmaxf(0.02f,${f('bandWidth', 'bandWidth', 0.25)});`)
             ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
             ln(`      float _cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),_cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
             ln(`      float _r=sqrtf(_cx*_cx+_cy*_cy); if(_r<1e-4f)_r=1e-4f;`)
             ln(`      float _ang=atan2f(_cy,_cx);`)
-            ln(`      float _phaseAtR=(3.14159265f/2.0f)*logf(_r/${aSp})/${lnPhiLit};`)
-            ln(`      float _delta=fmodf(_ang+_rot-_phaseAtR,${periodLit}); if(_delta<0.0f)_delta+=${periodLit};`)
-            ln(`      if(_delta>${periodLit}/2.0f)_delta=${periodLit}-_delta;`)
-            ln(`      ${of}[_y*WIDTH+_x]=constrain(1.0f-_delta/${bw},0.0f,1.0f);}}`)
+            ln(`      float _phaseAtR=(3.14159265f/2.0f)*logf(_r/_aSp)/${lnPhiLit};`)
+            ln(`      float _delta=fmodf(_ang+_rot-_phaseAtR,_period); if(_delta<0.0f)_delta+=_period;`)
+            ln(`      if(_delta>_period/2.0f)_delta=_period-_delta;`)
+            ln(`      ${of}[_y*WIDTH+_x]=constrain(1.0f-_delta/_bw,0.0f,1.0f);}}`)
             break
           }
           case 'goldenTiling': {
-            const dens = floatLit(Math.max(1, Number(p.density ?? 12)))
-            const phase = floatLit(Number(p.phase ?? 0))
             const invPhi = floatLit(1 / GOLDEN_RATIO)
-            ln(`  { /* Formula Field: goldenTiling */ float _rot=t*${rotLit};`)
+            ln(`  { /* Formula Field: goldenTiling */`)
+            ln(spd)
+            ln(`    float _dens=fmaxf(1.0f,${f('density', 'density', 12)}),_phase=${f('phase', 'phase', 0)};`)
             ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
             ln(`      float _cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),_cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
             ln(`      float _r=sqrtf(_cx*_cx+_cy*_cy);`)
-            ln(`      float _n=floorf(_r*${dens}+_rot+${phase});`)
+            ln(`      float _n=floorf(_r*_dens+_rot+_phase);`)
             ln(`      float _g=_n*${invPhi};`)
             ln(`      ${of}[_y*WIDTH+_x]=_g-floorf(_g);}}`)
             break
           }
           case 'lissajousField': {
-            const freqA = floatLit(Math.max(1, Number(p.freqA ?? 3)))
-            const freqB = floatLit(Math.max(1, Number(p.freqB ?? 2)))
-            const thickness = floatLit(Math.max(0.02, Number(p.thickness ?? 0.1)))
-            ln(`  { /* Formula Field: lissajousField */ float _rot=t*${rotLit};`)
+            ln(`  { /* Formula Field: lissajousField */`)
+            ln(spd)
+            ln(`    float _fa=fmaxf(1.0f,${f('freqA', 'freqA', 3)}),_fb=fmaxf(1.0f,${f('freqB', 'freqB', 2)});`)
+            ln(`    float _thick=fmaxf(0.02f,${f('thickness', 'thickness', 0.1)});`)
             ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
             ln(`      float _cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),_cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
             ln(`      float _minDSq=1e9f;`)
             ln(`      for(int _s=0;_s<${LISSAJOUS_FIELD_SAMPLES};_s++){`)
             ln(`        float _sp=((float)_s/${LISSAJOUS_FIELD_SAMPLES}.0f)*6.2831853f;`)
-            ln(`        float _lx=sinf(${freqA}*_sp+_rot),_ly=sinf(${freqB}*_sp);`)
+            ln(`        float _lx=sinf(_fa*_sp+_rot),_ly=sinf(_fb*_sp);`)
             ln(`        float _dx=_cx-_lx,_dy=_cy-_ly,_dSq=_dx*_dx+_dy*_dy;`)
             ln(`        if(_dSq<_minDSq)_minDSq=_dSq; }`)
-            ln(`      ${of}[_y*WIDTH+_x]=constrain(1.0f-sqrtf(_minDSq)/${thickness},0.0f,1.0f);}}`)
+            ln(`      ${of}[_y*WIDTH+_x]=constrain(1.0f-sqrtf(_minDSq)/_thick,0.0f,1.0f);}}`)
             break
           }
           case 'rose':
           default: {
-            const k = floatLit(Math.max(1, Number(p.petals ?? 5)))
-            const offsetRad = floatLit((Number(p.offset ?? 0) * Math.PI) / 180)
-            ln(`  { /* Formula Field: rose */ float _rot=t*${rotLit};`)
+            ln(`  { /* Formula Field: rose */`)
+            ln(spd)
+            ln(`    float _k=fmaxf(1.0f,${f('petals', 'petals', 5)});`)
+            ln(`    float _off=(${f('offset', 'offset', 0)})*0.0174532925f;`)
             ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
             ln(`      float _cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),_cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
             ln(`      float _r=sqrtf(_cx*_cx+_cy*_cy),_ang=atan2f(_cy,_cx);`)
-            ln(`      float _rr=cosf(${k}*(_ang+${offsetRad}+_rot));`)
+            ln(`      float _rr=cosf(_k*(_ang+_off+_rot));`)
             ln(`      ${of}[_y*WIDTH+_x]=constrain((_rr+1.0f)/2.0f*(1.0f-_r*0.15f),0.0f,1.0f);}}`)
             break
           }

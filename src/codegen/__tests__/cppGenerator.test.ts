@@ -2235,53 +2235,80 @@ describe('Formula Field codegen', () => {
     }
   }
 
-  it('emits a dedicated block per formulaType, baked at generation time', () => {
+  /*
+   * One block per formulaType is still chosen at generation time — the variant
+   * is a property and there is nothing to branch on at runtime. What is no
+   * longer baked is the knobs: they are property inputs, so each is hoisted to
+   * a float local once per frame. An unwired one still folds to its literal in
+   * the local's initialiser, so an untouched node compiles to what it always
+   * did; the test below wires one and checks it reads the upstream instead.
+   */
+  it('emits a dedicated block per formulaType, with its knobs as frame locals', () => {
     const ff = node('ff', 'FormulaField', 'field', { formulaType: 'rose', petals: 4, speed: 0.5 })
     const t = tail('ff')
     const cpp = generateCpp([ff, ...t.nodes], t.edges)
     expect(cpp).toContain('float field_ff[NUM_LEDS];')
     expect(cpp).toContain('/* Formula Field: rose */')
-    expect(cpp).toContain('cosf(4.0f*(_ang+0.0f+_rot))')
+    expect(cpp).toContain('float _k=fmaxf(1.0f,4);')
+    expect(cpp).toContain('cosf(_k*(_ang+_off+_rot))')
     expect(cpp).toContain('field_ff[_y*WIDTH+_x]=constrain((_rr+1.0f)/2.0f*(1.0f-_r*0.15f),0.0f,1.0f);')
     expect(cpp).toContain('float t = millis()')   // needsT triggered
   })
 
-  it('superformula bakes its Gielis parameters', () => {
+  it('reads a wired knob from the graph rather than baking the slider', () => {
+    // The point of the property inputs: preview and firmware both follow the
+    // wire. A baked literal here would be the parity break the registry's own
+    // comment warns about — the preview moving while the board does not.
+    const wave = node('w', 'Wave', 'signal', { amplitude: 1, frequency: 1, phase: 0 })
+    const ff = node('ff', 'FormulaField', 'field', { formulaType: 'rose', petals: 4 })
+    const t = tail('ff')
+    const cpp = generateCpp([wave, ff, ...t.nodes],
+      [edge('wp', 'w', 'ff', 'result', 'petals'), ...t.edges])
+    expect(cpp).toContain('float _k=fmaxf(1.0f,n_w_result);')
+    expect(cpp).not.toContain('float _k=fmaxf(1.0f,4);')
+  })
+
+  it('superformula hoists its Gielis parameters', () => {
     const ff = node('ff', 'FormulaField', 'field', {
       formulaType: 'superformula', symmetry: 8, n1: 1, n2: 1, n3: 1, a: 1, b: 1, speed: 0,
     })
     const t = tail('ff')
     const cpp = generateCpp([ff, ...t.nodes], t.edges)
     expect(cpp).toContain('/* Formula Field: superformula */')
-    expect(cpp).toContain('powf(powf(_t1,1.0f)+powf(_t2,1.0f),-1.0f)')
+    expect(cpp).toContain('float _invN1=1.0f/fmaxf(0.05f,1);')
+    expect(cpp).toContain('powf(powf(_t1,_n2)+powf(_t2,_n3),-_invN1)')
   })
 
-  it('fibonacciSpiral bakes turns into the angular period', () => {
+  it('fibonacciSpiral derives the angular period from turns', () => {
     const ff = node('ff', 'FormulaField', 'field', {
       formulaType: 'fibonacciSpiral', turns: 4, tightness: 0.15, bandWidth: 0.25, speed: 0,
     })
     const t = tail('ff')
     const cpp = generateCpp([ff, ...t.nodes], t.edges)
     expect(cpp).toContain('/* Formula Field: fibonacciSpiral */')
-    // period = 2π/4 ≈ 1.5708
-    expect(cpp).toContain('fmodf(_ang+_rot-_phaseAtR,1.5708f)')
+    // period = 2π/turns, now divided once a frame rather than at generation.
+    expect(cpp).toContain('float _turns=fmaxf(1.0f,4);')
+    expect(cpp).toContain('float _period=6.2831853f/_turns;')
+    expect(cpp).toContain('fmodf(_ang+_rot-_phaseAtR,_period)')
   })
 
-  it('goldenTiling bakes density and phase', () => {
+  it('goldenTiling hoists density and phase', () => {
     const ff = node('ff', 'FormulaField', 'field', { formulaType: 'goldenTiling', density: 20, phase: 0.25, speed: 0 })
     const t = tail('ff')
     const cpp = generateCpp([ff, ...t.nodes], t.edges)
     expect(cpp).toContain('/* Formula Field: goldenTiling */')
-    expect(cpp).toContain('_r*20.0f+_rot+0.25f')
+    expect(cpp).toContain('float _dens=fmaxf(1.0f,20),_phase=0.25;')
+    expect(cpp).toContain('_r*_dens+_rot+_phase')
   })
 
-  it('lissajousField bakes the sample count and frequencies', () => {
+  it('lissajousField bakes the sample count and hoists the frequencies', () => {
     const ff = node('ff', 'FormulaField', 'field', { formulaType: 'lissajousField', freqA: 5, freqB: 4, thickness: 0.1, speed: 0 })
     const t = tail('ff')
     const cpp = generateCpp([ff, ...t.nodes], t.edges)
     expect(cpp).toContain('/* Formula Field: lissajousField */')
     expect(cpp).toContain('for(int _s=0;_s<48;_s++)')
-    expect(cpp).toContain('sinf(5.0f*_sp+_rot),_ly=sinf(4.0f*_sp)')
+    expect(cpp).toContain('float _fa=fmaxf(1.0f,5),_fb=fmaxf(1.0f,4);')
+    expect(cpp).toContain('sinf(_fa*_sp+_rot),_ly=sinf(_fb*_sp)')
   })
 
   it('CustomFormula referencing PHI emits the golden-ratio #define', () => {
