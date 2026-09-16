@@ -998,6 +998,35 @@ export default function HardwarePane() {
   )
 
   /*
+   * Nothing on the bench but the controller — read once, so the hint that says
+   * so, the rings that point at the controller and the framing below cannot
+   * disagree. Fixtures count only when they draw a box, the same test the
+   * renderer makes: a Display node with no footprint is in the list for its
+   * menus but is not on the bench to look at.
+   */
+  const benchIsEmpty = inputParts.length === 0
+    && ledOutputs.length === 0
+    && fixtureParts.every((part) => !part.entry.footprint)
+
+  /*
+   * What a fit frames. Normally the whole arrangement, captions included, so
+   * nothing a part says about itself lands off screen.
+   *
+   * An empty bench is framed on the controller alone. Its caption is anchored
+   * to its left, so centring the pair leaves the board itself sitting right of
+   * centre — visibly off in the one view whose entire subject is that board.
+   * There is room for the caption either way: the board is a hundred-odd pixels
+   * wide in a viewport measured in hundreds.
+   */
+  const framingBounds = useMemo(() => {
+    if (!benchIsEmpty) return arrangementBounds
+    const board = placed.get(BOARD_PART_ID)
+    return board
+      ? { x: board.x, y: board.y, width: board.width, height: board.height }
+      : arrangementBounds
+  }, [arrangementBounds, benchIsEmpty, placed])
+
+  /*
    * Arrive framed.
    *
    * The bench used to live in a pane a fraction of the window tall, where the
@@ -1015,16 +1044,16 @@ export default function HardwarePane() {
   const fittedOnArrival = useRef(false)
   const fitToStage = view.fit
   useEffect(() => {
-    if (fittedOnArrival.current || !arrangementBounds) return
+    if (fittedOnArrival.current || !framingBounds) return
     if (stageBox.width <= 0 || stageBox.height <= 0) return
     fittedOnArrival.current = true
-    fitToStage(arrangementBounds, {
+    fitToStage(framingBounds, {
       x: leftInset,
       y: 0,
       width: Math.max(1, stageBox.width - leftInset - rightInset),
       height: Math.max(1, stageBox.height),
     })
-  }, [arrangementBounds, fitToStage, leftInset, rightInset, stageBox])
+  }, [fitToStage, framingBounds, leftInset, rightInset, stageBox])
   /*
    * The emitters each broken run actually draws. Taken from the layout's own
    * cut, so the box it was given, the tape photo behind it and the live cells
@@ -1819,6 +1848,12 @@ export default function HardwarePane() {
             </Fragment>
           ))}
 
+          {benchIsEmpty && (
+            <div className={styles.attention} style={partStyle(BOARD_PART_ID)} aria-hidden="true">
+              <span /><span /><span />
+            </div>
+          )}
+
           <button
             ref={boardCardRef}
             type="button"
@@ -2037,7 +2072,7 @@ export default function HardwarePane() {
           ))}
         </div>
 
-        {inputParts.length === 0 && ledOutputs.length === 0 && (
+        {benchIsEmpty && (
           <p className={styles.emptyHint}>
             Add hardware here to keep the board and the graph in sync.
           </p>
@@ -2053,15 +2088,15 @@ export default function HardwarePane() {
             type="button"
             className={styles.fitViewButton}
             onClick={() => {
-              if (!arrangementBounds) return
-              view.fit(arrangementBounds, {
+              if (!framingBounds) return
+              view.fit(framingBounds, {
                 x: leftInset,
                 y: 0,
                 width: Math.max(1, stageBox.width - leftInset - rightInset),
                 height: Math.max(1, stageBox.height),
               })
             }}
-            disabled={!arrangementBounds}
+            disabled={!framingBounds}
             title="Fit all hardware in view"
             aria-label="Fit view"
           >

@@ -80,6 +80,35 @@ describe('HardwarePane', () => {
     })
   })
 
+  /*
+   * The blank bench points at the one thing there is to do. Rings are decor,
+   * so they are asserted through the same reading the hint uses rather than by
+   * appearance — and they must stop once a part arrives, since a hint that
+   * never ends is a distraction.
+   */
+  it('rings the controller while the bench holds nothing else', () => {
+    const { container } = render(<HardwarePane />)
+    const rings = () => container.querySelectorAll('[class*="attention"] span')
+
+    expect(rings().length).toBeGreaterThan(0)
+    expect(screen.getByText(/Add hardware here/)).toBeTruthy()
+
+    addPart('Inputs', 'DS3231 RTC module')
+
+    expect(rings()).toHaveLength(0)
+    expect(screen.queryByText(/Add hardware here/)).toBeNull()
+  })
+
+  it('counts a fixture on the bench as something on the bench', () => {
+    // The hint this reading came from only looked at inputs and LED outputs,
+    // so a bench holding a panel still called itself empty.
+    const { container } = render(<HardwarePane />)
+    addDisplay('TM1637 4-digit')
+
+    expect(container.querySelectorAll('[class*="attention"] span')).toHaveLength(0)
+    expect(screen.queryByText(/Add hardware here/)).toBeNull()
+  })
+
   it('draws an ambient backdrop that never takes a pointer event', () => {
     const { container } = render(<HardwarePane />)
     const atmosphere = container.querySelector('[class*="atmosphere"]')

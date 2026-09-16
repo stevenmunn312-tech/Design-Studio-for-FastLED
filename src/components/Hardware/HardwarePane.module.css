@@ -116,6 +116,58 @@
   to { transform: translateY(680%); }
 }
 
+/*
+ * "Here is the thing to click." Rings contract onto the controller while the
+ * bench is otherwise empty, and stop as soon as a part is added — an idle
+ * animation that never ends is a distraction, not a hint.
+ *
+ * Drawn inside the transformed world and sized from the board's own laid-out
+ * box, so they stay on the board through a pan or a zoom without a second
+ * copy of where the board is. No `filter` anywhere near them: this animates
+ * indefinitely, and a CSS filter on an endlessly-animated element leaks
+ * compositor memory in Chromium (see GlowEdge.module.css).
+ */
+.attention {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.attention span {
+  position: absolute;
+  inset: 50% 50%;
+  width: 0;
+  height: 0;
+  border: 1px solid color-mix(in srgb, var(--field-color) 42%, transparent);
+  border-radius: 50%;
+  box-shadow: 0 0 22px color-mix(in srgb, var(--field-color) 12%, transparent);
+  /* Slow, and the delays are exact thirds of it so the three stay evenly
+     spaced — a ring should drift inward at the edge of notice rather than
+     pulse. Change the duration and the two delays together. */
+  animation: benchAttention 9s cubic-bezier(0.32, 0.12, 0.2, 1) infinite;
+}
+
+.attention span:nth-child(2) { animation-delay: 3s; }
+.attention span:nth-child(3) { animation-delay: 6s; }
+
+@keyframes benchAttention {
+  0% { margin: -560px; width: 1120px; height: 1120px; opacity: 0; }
+  22% { opacity: 0.5; }
+  100% { margin: -110px; width: 220px; height: 220px; opacity: 0; }
+}
+
+/* A hint that pulses forever is exactly what motion sensitivity means; the
+   rings hold at their closest size so the controller is still ringed. */
+@media (prefers-reduced-motion: reduce) {
+  .attention span {
+    margin: -110px;
+    width: 220px;
+    height: 220px;
+    opacity: 0.22;
+    animation: none;
+  }
+}
+
 /* The panned/zoomed world. The layout already centres the arrangement in the
    usable area, so a reset lands exactly back on it. */
 .world {

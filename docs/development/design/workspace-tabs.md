@@ -58,6 +58,21 @@ installed (boot, File ▸ New Project, Start with a blank canvas) call it.
 Emptiness is counted without the Board node, since every root graph carries
 one whether or not a board was chosen.
 
+A blank landing also arranges the bench for the one decision it is asking
+for: the parts shelf is **open** — it is what the tab is for — with every
+category **collapsed**, since nothing is on the bench yet and so no section of
+the shelf is the one being worked in. The bench frames the controller itself
+rather than the controller plus its caption, which hangs to its left and would
+otherwise leave the board sitting right of centre in the one view whose whole
+subject is that board. While the bench holds nothing else, rings contract onto
+the controller to say where to click; they stop the moment a part is added,
+because a hint that never ends is a distraction.
+
+Both full-canvas workspaces draw the same ambient field behind their content,
+from one palette in `src/themes/tokens.css`. The graph keeps its interactive
+layers — cursor wake, focus veil, the live-signal overrides — since those
+answer questions about a running patch and the bench is not running.
+
 The status bar stays put beneath all four. That is what makes tabs safe rather
 than a way to hide problems: graph health, pin state, module count, board and
 port are visible whichever workspace is showing, so nothing goes quiet just
