@@ -12,6 +12,7 @@ import {
   STANDARD_CATEGORY_ID,
   STANDARD_BUNDLED_PATTERNS,
 } from '../bundledPatterns'
+import { captureWindows } from '../patternRating'
 import { useGraphStore, ROOT_GRAPH_ID } from '../graphStore'
 import type { StudioNode, StudioEdge } from '../graphStore'
 
@@ -203,14 +204,25 @@ describe('patternLibrary', () => {
 
   it('ships immutable bundled patterns for both built-in shelves', async () => {
     expect(STANDARD_BUNDLED_PATTERNS).toHaveLength(20)
-    expect(AUDIO_BUNDLED_PATTERNS).toHaveLength(40)
-    expect(BUNDLED_PATTERNS).toHaveLength(60)
+    expect(AUDIO_BUNDLED_PATTERNS).toHaveLength(50)
+    expect(BUNDLED_PATTERNS).toHaveLength(70)
     expect(STANDARD_BUNDLED_PATTERNS.every((pattern) => (
       pattern.bundled && pattern.categoryId === STANDARD_CATEGORY_ID
     ))).toBe(true)
     expect(AUDIO_BUNDLED_PATTERNS.every((pattern) => (
       pattern.bundled && pattern.categoryId === AUDIO_REACTIVE_CATEGORY_ID
     ))).toBe(true)
+    const shelfThree = [
+      'Juggle After Dark', 'Confetti Cannonade', 'Firefly Congregation',
+      'Spectra Mosaic Night', 'Midrange Bloom Cathedral', 'Boid Thunder Flock',
+      'Radial Kick Halo', 'Pacifica Whitecap Storm', 'Heartline Tracer',
+      'Plasma Beat Lattice',
+    ]
+    expect(AUDIO_BUNDLED_PATTERNS.slice(40).map((pattern) => pattern.name)).toEqual(shelfThree)
+    for (const pattern of AUDIO_BUNDLED_PATTERNS.slice(40)) {
+      expect(pattern.inputs).toEqual([{ id: 'param0', label: 'Audio', dataType: 'audio' }])
+      expect(pattern.subgraph.nodes.some((node) => node.data.nodeType === 'GroupInput')).toBe(true)
+    }
     expect(BUILT_IN_PATTERN_CATEGORIES.map((category) => category.id)).toEqual([
       STANDARD_CATEGORY_ID,
       AUDIO_REACTIVE_CATEGORY_ID,
@@ -221,6 +233,20 @@ describe('patternLibrary', () => {
     usePatternLibrary.getState().renamePattern(bundled.id, 'Changed')
     expect(await usePatternLibrary.getState().deletePattern(bundled.id)).toBe(false)
     expect(usePatternLibrary.getState().patterns[0].name).toBe(bundled.name)
+  })
+
+  it('lights the third audio shelf under a pulse so a silent graph cannot ship', async () => {
+    const maxBrightness = (frames: { r: number; g: number; b: number }[][][]) => {
+      let max = 0
+      for (const window of frames) for (const frame of window) for (const row of frame) for (const px of row) {
+        max = Math.max(max, Math.max(px.r, px.g, px.b) / 255)
+      }
+      return max
+    }
+    for (const pattern of AUDIO_BUNDLED_PATTERNS.slice(40)) {
+      const windows = await captureWindows(pattern, 16, 16, {}, true, 'pulse', 1)
+      expect(maxBrightness(windows), pattern.name).toBeGreaterThan(0.12)
+    }
   })
 
   it('keeps built-in audio patterns on the settled response baseline', () => {

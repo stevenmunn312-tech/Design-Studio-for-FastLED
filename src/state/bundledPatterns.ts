@@ -49,6 +49,7 @@ import turbulentDeep from '../assets/bundled-patterns/Turbulent Deep.json'
 import ultravioletLavaLamp from '../assets/bundled-patterns/Ultraviolet Lava Lamp.json'
 import vocalGravityVeil from '../assets/bundled-patterns/Vocal Gravity Veil.json'
 import wireframeBassCage from '../assets/bundled-patterns/Wireframe Bass Cage.json'
+import { AUDIO_SHELF_THREE_SEEDS } from './bundledAudioShelf3'
 
 export const AUDIO_REACTIVE_CATEGORY_ID = 'audio-reactive'
 export const STANDARD_CATEGORY_ID = 'standard'
@@ -774,6 +775,9 @@ const AUDIO_PATTERN_SEEDS = [
   ultravioletLavaLamp,
   vocalGravityVeil,
   wireframeBassCage,
+  // Shelf three — appended, never interleaved. Ids stay `bundled-audio-NN`
+  // from position, so a collection that names 01–40 is not retargeted.
+  ...AUDIO_SHELF_THREE_SEEDS,
 ] as unknown as BundledSeed[]
 
 /**
@@ -784,8 +788,8 @@ const AUDIO_PATTERN_SEEDS = [
  *
  * Keyed by name and kept as one table rather than as an argument to twenty
  * `pattern(...)` calls, so these are read, compared and revised as a set — and
- * so the twenty audio patterns, which arrive as JSON assets, are judged in the
- * same place as the standard shelf.
+ * so the audio patterns, which arrive as JSON assets plus the TypeScript
+ * third shelf, are judged in the same place as the standard shelf.
  *
  * Most entries name one or two outputs, never all three: a tag on every
  * pattern ranks nothing. Absent is a real answer and the right one whenever a
@@ -868,6 +872,21 @@ const BUNDLED_BEST_ON: Record<string, PatternFormTag[]> = {
   'Ultraviolet Lava Lamp': ['matrix'],
   'Vocal Gravity Veil': ['matrix', 'ring'],
   'Wireframe Bass Cage': ['matrix'],
+
+  // Audio-reactive shelf three. Each is built around a visual engine the
+  // earlier shelves did not star, so the tag follows that engine: juggle and
+  // confetti are line-native, a heart path and a bloom want a plane or a
+  // circle, and the flock / mosaic / halo collapse without a second axis.
+  'Juggle After Dark': ['string', 'ring'],
+  'Confetti Cannonade': ['string', 'matrix'],
+  'Firefly Congregation': ['matrix'],
+  'Spectra Mosaic Night': ['matrix'],
+  'Midrange Bloom Cathedral': ['matrix', 'ring'],
+  'Boid Thunder Flock': ['matrix'],
+  'Radial Kick Halo': ['matrix', 'ring'],
+  'Pacifica Whitecap Storm': ['string', 'ring'],
+  'Heartline Tracer': ['matrix', 'ring'],
+  'Plasma Beat Lattice': ['matrix', 'ring'],
 }
 
 /** Every name in the table above, so a test can prove each one still matches a
