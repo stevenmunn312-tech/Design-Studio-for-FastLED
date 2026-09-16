@@ -57,6 +57,15 @@ export interface PartDisplaySpec {
   interface: string
   /** Touch controller when one is fitted, else null. */
   touchController: string | null
+  /**
+   * How touch is read when there is no controller to name.
+   *
+   * `resistive-shared` is a bare sheet wired across four lines the LCD bus
+   * already owns. It has no digitiser, so `touchController` is honestly null -
+   * and a panel that asked only that question read this board as having no
+   * touch at all and never emitted its read.
+   */
+  touchSurface?: 'resistive-shared' | null
 }
 
 export interface PartCatalogueEntry {
@@ -174,14 +183,10 @@ export function catalogueDisplays(): PartCatalogueEntry[] {
  * unoffered parts is what keeps a *newly* unoffered part a failure.
  *
  * - `ili9341-xpt2046-touch-320x240`: modelled but undriven.
- * - `ili9341-xc4630-parallel-touch-320x240`: the parallel write path exists,
- *   but its resistive panel has no touch controller and shares four pins with
- *   the data bus, so there is no touch path yet.
  *
  * Remove an id the moment a build of that part can light up, not before.
  */
 export const CATALOGUE_ONLY_DISPLAY_PART_IDS: readonly string[] = [
-  'ili9341-xc4630-parallel-touch-320x240',
   'ili9341-xpt2046-touch-320x240',
 ]
 

@@ -53,6 +53,19 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
     { key: 'touchSckPin', label: 'TOUCH SCK', kind: 'pin' },
     { key: 'touchMosiPin', label: 'TOUCH MOSI', kind: 'pin' },
     { key: 'touchMisoPin', label: 'TOUCH MISO', kind: 'pin' },
+    // 8-bit parallel lines. Labelled as the shield silkscreens them, so the
+    // field beside a jumper reads the same as the pad it goes to; which of
+    // these a panel shows is `transportDisplayPinKeysForProps`'s answer.
+    { key: 'wrPin', label: 'LCD_WR', kind: 'pin' },
+    { key: 'rdPin', label: 'LCD_RD', kind: 'pin' },
+    { key: 'd0Pin', label: 'LCD_D0', kind: 'pin' },
+    { key: 'd1Pin', label: 'LCD_D1', kind: 'pin' },
+    { key: 'd2Pin', label: 'LCD_D2', kind: 'pin' },
+    { key: 'd3Pin', label: 'LCD_D3', kind: 'pin' },
+    { key: 'd4Pin', label: 'LCD_D4', kind: 'pin' },
+    { key: 'd5Pin', label: 'LCD_D5', kind: 'pin' },
+    { key: 'd6Pin', label: 'LCD_D6', kind: 'pin' },
+    { key: 'd7Pin', label: 'LCD_D7', kind: 'pin' },
   ],
   Display: [
     { key: 'sckPin', label: 'SCK', kind: 'pin' },

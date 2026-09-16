@@ -692,6 +692,15 @@ export interface TftDisplayEmit {
   resetPin: number
   sckPin: number
   mosiPin: number
+  /**
+   * An 8-bit parallel panel's own lines, least-significant data bit first.
+   *
+   * Absent means SPI, which is what every caller that predates the second
+   * transport hands over and what `_tftBegin` defaults to. Present, the eight
+   * data lines and the write/read strobes replace the clock and data-out
+   * above - a parallel panel has neither.
+   */
+  parallel?: { dataPins: readonly number[]; wrPin: number; rdPin: number }
   /** 255 when the module ties its backlight high and there is nothing to drive. */
   backlightPin: number
   enabledExpr: string
@@ -766,11 +775,24 @@ export function tftDisplaySetupCpp(display: TftDisplayEmit): string[] {
   const size = tftRotatedSize(display.controller, display.rotation)
   const origin = tftWindowOrigin(display.controller, display.rotation)
   const madctl = tftMadctl(display.controller, display.rotation)
+  const geometry = `${size.width}, ${size.height}, ${origin.col}, ${origin.row}, `
+    + `0x${madctl.toString(16).padStart(2, '0')}, ${display.controller.invert}, TFT_C_BG`
+  if (!display.parallel) {
+    return [
+      `  _tftBegin(_tft_${display.id}, ${display.csPin}, ${display.dcPin}, ${display.resetPin}, `
+        + `${display.sckPin}, ${display.mosiPin}, ${display.backlightPin}, ${geometry});`,
+    ]
+  }
+  // The data lines are handed over as an array because `_tftBegin` decides the
+  // transport from whether it got one. SCK and MOSI are passed as NO_PIN: a
+  // parallel panel has neither, and naming a real GPIO there would claim a pad
+  // nothing drives.
+  const lines = display.parallel.dataPins.join(', ')
   return [
+    `  static const uint8_t _tftData_${display.id}[8] = { ${lines} };`,
     `  _tftBegin(_tft_${display.id}, ${display.csPin}, ${display.dcPin}, ${display.resetPin}, `
-      + `${display.sckPin}, ${display.mosiPin}, ${display.backlightPin}, `
-      + `${size.width}, ${size.height}, ${origin.col}, ${origin.row}, `
-      + `0x${madctl.toString(16).padStart(2, '0')}, ${display.controller.invert}, TFT_C_BG);`,
+      + `255, 255, ${display.backlightPin}, ${geometry}, `
+      + `_tftData_${display.id}, ${display.parallel.wrPin}, ${display.parallel.rdPin});`,
   ]
 }
 

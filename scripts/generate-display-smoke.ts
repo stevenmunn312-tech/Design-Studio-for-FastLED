@@ -235,6 +235,24 @@ const altPartNodes = [
 ]
 
 /*
+ * The parallel shield, in its own sketch.
+ *
+ * Thirteen lines is more than any other display here, and four of them are
+ * touch electrodes that have to sit on ADC1, so sharing the crowded
+ * `part-families` set would let the pin budget decide the test rather than the
+ * generator. It carries a Touch node because the sheet is the point: without
+ * one the sketch compiles the panel and never emits `_resPoint`.
+ */
+const parallelNodes = [
+  panel('tft-xc4630', {
+    partId: 'ili9341-xc4630-parallel-touch-320x240',
+    csPin: 5, dcPin: 9, resetPin: 21, wrPin: 33, rdPin: 34,
+    d0Pin: 7, d1Pin: 8, d2Pin: 39, d3Pin: 40, d4Pin: 41, d5Pin: 42, d6Pin: 47, d7Pin: 48,
+  }),
+  touch('tft-xc4630'),
+]
+
+/*
  * The other board the support matrix advertises.
  *
  * Every fixture above is an ESP32-S3. A classic ESP32 is a different chip
@@ -331,6 +349,16 @@ const sketches: Record<string, string> = {
     [board(), output(), rtc(), node('fill', 'SolidColor'), ...altPartNodes],
     [edge('fill', 'frame', 'out', 'frame'), ...altPartNodes.map((entry) => edge('rtc', 'display', entry.id, 'display'))],
   ),
+  'part-parallel': generateCpp(
+    [board(), output(), rtc(), node('fill', 'SolidColor'), ...parallelNodes],
+    [
+      edge('fill', 'frame', 'out', 'frame'),
+      edge('rtc', 'display', 'tft-xc4630', 'display'),
+      // The sheet has to reach something, or the panel compiles and the read
+      // is never emitted - which is the half of this part worth proving.
+      edge('tft-xc4630-touch', 'controls', 'out', 'controls'),
+    ],
+  ),
   telemetry: generateCpp(telemetryNodes, normalEdges, {}, clockOptions),
   'classic-esp32-fixed': generateCpp(classicNodes, classicEdges),
 }
@@ -347,6 +375,7 @@ const fixtureGraphs: Record<string, { nodes: StudioNode[]; edges: StudioEdge[] }
   player: { nodes: playerNodes, edges: playerEdges },
   'part-families': { nodes: [board(), output(), rtc(), ...partNodes], edges: [] },
   'part-families-i2c': { nodes: [board(), output(), rtc(), ...altPartNodes], edges: [] },
+  'part-parallel': { nodes: [board(), output(), rtc(), ...parallelNodes], edges: [] },
   telemetry: { nodes: telemetryNodes, edges: normalEdges },
   'classic-esp32-fixed': { nodes: classicNodes, edges: classicEdges },
 }
@@ -366,7 +395,7 @@ for (const [name, graph] of Object.entries(fixtureGraphs)) {
  * *newly* unoffered part is still a failure rather than a silent skip.
  */
 const CATALOGUE_ONLY = CATALOGUE_ONLY_DISPLAY_PART_IDS
-const fixtureNodes = [...partNodes, ...altPartNodes, ...common, fixedPanel(), ...playerNodes]
+const fixtureNodes = [...partNodes, ...altPartNodes, ...parallelNodes, ...common, fixedPanel(), ...playerNodes]
 const compiledParts = new Set(fixtureNodes.map((entry) => String(entry.data.properties.partId ?? '')))
 const offeredParts = new Set(['InfoDisplay', 'TransportDisplay', 'SegmentDisplay']
   .flatMap((nodeType) => partOptionsFor(nodeType).map((option) => option.id)))

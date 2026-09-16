@@ -139,6 +139,11 @@ def read_part(part_dir: Path) -> dict | None:
                 "resolutionPx": [resolution[0], resolution[1]],
                 "interface": display["interface"],
                 "touchController": display.get("touchController") or None,
+                # A panel can have a touch surface and no touch controller: a
+                # bare resistive sheet is two layers wired to lines the LCD
+                # already owns, with nothing to name as a digitiser. Without
+                # this the app reads "no controller" as "no touch".
+                "touchSurface": display.get("touchSurface") or None,
             }
         else:
             print(f"  ! {part_id}: display block is incomplete — skipped",

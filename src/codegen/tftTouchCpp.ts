@@ -30,6 +30,15 @@ export interface TftTouchEmit {
     csPin: number; irqPin: number; sckPin: number; mosiPin: number; misoPin: number
     xFrom: number; xTo: number; yFrom: number; yTo: number
   }
+  /**
+   * A bare resistive sheet's four electrodes, when there is no digitiser.
+   *
+   * Absent means an XPT2046 on its own header, which is every panel that
+   * predates this. Present, these are four of the panel's *own* LCD lines
+   * borrowed for the duration of a read - not a second header, which is why
+   * they arrive from the panel's pin properties rather than from a touch one.
+   */
+  resistive?: { xpPin: number; xmPin: number; ypPin: number; ymPin: number }
 }
 
 export function tftTouchGlobalCpp(display: TftTouchEmit): string {
@@ -164,6 +173,10 @@ static bool _resPoint(uint8_t xp, uint8_t xm, uint8_t yp, uint8_t ym,
 
 export function tftTouchSetupCpp(display: TftTouchEmit): string[] {
   const t = display.touch
+  // A resistive sheet needs no setup of its own: its four lines are the
+  // panel's, already configured as outputs by `_tftBegin`, and each read
+  // borrows and returns them. Claiming them again here would fight that.
+  if (display.resistive) return []
   return [
     `  pinMode(${t.csPin}, OUTPUT); digitalWrite(${t.csPin}, HIGH);`,
     `  pinMode(${t.sckPin}, OUTPUT); digitalWrite(${t.sckPin}, LOW);`,
@@ -291,8 +304,14 @@ export function tftTouchServiceCpp(
   const regions = transportTouchRegions(display.controller, display.rotation, display.layout)
   const lines = [
     `  {`,
-    `    ${down} = (${display.enabledExpr}) && _xptPoint(${t.csPin}, ${t.irqPin}, ${t.sckPin}, ${t.mosiPin}, ${t.misoPin}, `
-      + `${t.xFrom}, ${t.xTo}, ${t.yFrom}, ${t.yTo}, ${display.controller.width}, ${display.controller.height}, ${rotation}, ${pointX}, ${pointY}, ${rawX}, ${rawY});`,
+    // Same span, same rotation, same outputs - the two readers differ only in
+    // how the raw counts are obtained, which is why `_touchMap` is shared.
+    ...(display.resistive
+      ? [`    ${down} = (${display.enabledExpr}) && _resPoint(${display.resistive.xpPin}, ${display.resistive.xmPin}, `
+        + `${display.resistive.ypPin}, ${display.resistive.ymPin}, `
+        + `${t.xFrom}, ${t.xTo}, ${t.yFrom}, ${t.yTo}, ${display.controller.width}, ${display.controller.height}, ${rotation}, ${pointX}, ${pointY}, ${rawX}, ${rawY});`]
+      : [`    ${down} = (${display.enabledExpr}) && _xptPoint(${t.csPin}, ${t.irqPin}, ${t.sckPin}, ${t.mosiPin}, ${t.misoPin}, `
+        + `${t.xFrom}, ${t.xTo}, ${t.yFrom}, ${t.yTo}, ${display.controller.width}, ${display.controller.height}, ${rotation}, ${pointX}, ${pointY}, ${rawX}, ${rawY});`]),
     `    static bool _touchPrev_${id} = false;`,
   ]
   // On the down edge only, and before the region tests, so the stamp measures

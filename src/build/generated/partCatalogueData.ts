@@ -290,7 +290,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
         240
       ],
       "interface": "8-bit parallel",
-      "touchController": null
+      "touchController": null,
+      "touchSurface": "resistive-shared"
     },
     "render": {
       "file": "parts/ili9341-xc4630-parallel-touch-320x240.webp",
@@ -335,7 +336,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
         240
       ],
       "interface": "SPI",
-      "touchController": "XPT2046"
+      "touchController": "XPT2046",
+      "touchSurface": null
     },
     "render": {
       "file": "parts/ili9341-xpt2046-touch-320x240.webp",
@@ -433,7 +435,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
         7
       ],
       "interface": "SPI-like DIN + CLK + CS/LOAD",
-      "touchController": null
+      "touchController": null,
+      "touchSurface": null
     },
     "render": {
       "file": "parts/max7219-8digit-7segment.webp",
@@ -761,7 +764,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
         64
       ],
       "interface": "4-wire SPI",
-      "touchController": null
+      "touchController": null,
+      "touchSurface": null
     },
     "render": {
       "file": "parts/sh1106-oled-096-128x64-spi.webp",
@@ -801,7 +805,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
         64
       ],
       "interface": "4-wire SPI",
-      "touchController": null
+      "touchController": null,
+      "touchSurface": null
     },
     "render": {
       "file": "parts/sh1106-oled-128x64.webp",
@@ -840,7 +845,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
         64
       ],
       "interface": "I2C",
-      "touchController": null
+      "touchController": null,
+      "touchSurface": null
     },
     "render": {
       "file": "parts/sh1106-oled-128x64-i2c.webp",
@@ -952,7 +958,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
         64
       ],
       "interface": "I2C",
-      "touchController": null
+      "touchController": null,
+      "touchSurface": null
     },
     "render": {
       "file": "parts/ssd1306-oled-096-128x64-i2c.webp",
@@ -993,7 +1000,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
         64
       ],
       "interface": "I2C (SPI-capable breakout)",
-      "touchController": null
+      "touchController": null,
+      "touchSurface": null
     },
     "render": {
       "file": "parts/ssd1306-oled-128x64.webp",
@@ -1035,7 +1043,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
         240
       ],
       "interface": "4-wire SPI",
-      "touchController": null
+      "touchController": null,
+      "touchSurface": null
     },
     "render": {
       "file": "parts/st7789-tft-240x240.webp",
@@ -1083,7 +1092,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
         320
       ],
       "interface": "4-wire SPI shared with XPT2046 and microSD",
-      "touchController": "XPT2046"
+      "touchController": "XPT2046",
+      "touchSurface": null
     },
     "render": {
       "file": "parts/st7789v-xpt2046-touch-240x320.webp",
@@ -1120,7 +1130,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
         7
       ],
       "interface": "CLK + DIO",
-      "touchController": null
+      "touchController": null,
+      "touchSurface": null
     },
     "render": {
       "file": "parts/tm1637-4digit-display.webp",

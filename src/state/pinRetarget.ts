@@ -213,9 +213,13 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
     ],
   },
   TransportDisplay: {
+    // Both transports' lines. `keysFor` narrows this to the ones a given module
+    // actually has, so a retarget never moves a pin the fitted panel lacks.
     keys: [
       'sckPin', 'mosiPin', 'misoPin', 'csPin', 'dcPin', 'resetPin', 'backlightPin',
       'touchCsPin', 'touchIrqPin', 'touchSckPin', 'touchMosiPin', 'touchMisoPin',
+      'wrPin', 'rdPin',
+      'd0Pin', 'd1Pin', 'd2Pin', 'd3Pin', 'd4Pin', 'd5Pin', 'd6Pin', 'd7Pin',
     ],
     keysFor: transportDisplayPinKeysForProps,
     requests: [
@@ -224,6 +228,16 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
       { key: 'touchCsPin' }, { key: 'touchIrqPin', capability: 'digitalInput' },
       { key: 'touchSckPin' }, { key: 'touchMosiPin' },
       { key: 'touchMisoPin', capability: 'digitalInput' },
+      // The four that double as touch electrodes ask for analogInput, which is
+      // what keeps a retarget from landing them on ADC2 - readable on a bench
+      // and dead once the radio is on. csPin and dcPin appear twice on purpose:
+      // `keysFor` leaves only the set this module has, and on an SPI panel they
+      // are ordinary outputs.
+      { key: 'csPin', capability: 'analogInput' }, { key: 'dcPin', capability: 'analogInput' },
+      { key: 'd0Pin', capability: 'analogInput' }, { key: 'd1Pin', capability: 'analogInput' },
+      { key: 'wrPin' }, { key: 'rdPin' },
+      { key: 'd2Pin' }, { key: 'd3Pin' }, { key: 'd4Pin' },
+      { key: 'd5Pin' }, { key: 'd6Pin' }, { key: 'd7Pin' },
     ],
   },
   // Display (the document node) has no plan — it has no pins to retarget.

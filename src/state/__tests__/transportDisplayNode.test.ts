@@ -7,11 +7,12 @@ import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType } from
 import { NODE_LIBRARY, isPropertyEnabled, libraryDefaults, propertyMeta } from '../nodeLibrary'
 import { PART_FIELDS } from '../partFields'
 import { partOptionsFor } from '../partOptions'
-import { retargetHardwarePins } from '../pinRetarget'
+import { PART_PIN_PLANS, retargetHardwarePins } from '../pinRetarget'
 import { TRANSPORT_DISPLAY_LAYOUTS, transportLayoutChoicesForKind, transportLayoutForKind } from '../transportDisplay'
 import { DISPLAY_SIGNAL_KINDS } from '../displaySignal'
 
 const PLAIN = 'st7789-tft-240x240'
+const PARALLEL = 'ili9341-xc4630-parallel-touch-320x240'
 const TOUCH = 'st7789v-xpt2046-touch-240x320'
 
 function display(id: string, over: Record<string, unknown> = {}): StudioNode {
@@ -99,8 +100,9 @@ describe('TransportDisplay registration', () => {
     expect(reachable.size).toBeGreaterThan(0)
   })
 
-  it('offers only the two module profiles in scope', () => {
-    expect(partOptionsFor('TransportDisplay').map((option) => option.id)).toEqual([PLAIN, TOUCH])
+  it('offers only the module profiles in scope', () => {
+    expect(partOptionsFor('TransportDisplay').map((option) => option.id))
+      .toEqual([PLAIN, PARALLEL, TOUCH])
   })
 
   it('makes the source-independent Diagnostics screen selectable', () => {
@@ -118,10 +120,17 @@ describe('TransportDisplay registration', () => {
   })
 
   it('makes every physical pin reachable from the hardware editor', () => {
-    expect(PART_FIELDS.TransportDisplay.map((field) => field.key)).toEqual([
-      'sckPin', 'mosiPin', 'misoPin', 'csPin', 'dcPin', 'resetPin', 'backlightPin',
-      'touchCsPin', 'touchIrqPin', 'touchSckPin', 'touchMosiPin', 'touchMisoPin',
-    ])
+    // Derived rather than listed: a pin the retarget plan can move but the
+    // editor cannot show is a pin the user has no way to correct. Listing the
+    // names here meant this drifted the moment a second transport arrived,
+    // while saying nothing about the property that mattered.
+    const editable = new Set(PART_FIELDS.TransportDisplay
+      .filter((field) => field.kind === 'pin')
+      .map((field) => field.key))
+    for (const key of PART_PIN_PLANS.TransportDisplay.keys) {
+      expect(editable, `${key} can be retargeted but has no field`).toContain(key)
+    }
+    expect(editable.size).toBe(PART_PIN_PLANS.TransportDisplay.keys.length)
   })
 })
 

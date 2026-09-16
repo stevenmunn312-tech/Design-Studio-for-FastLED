@@ -197,6 +197,12 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
         note: 'A square 240x240 colour display with no touch controller.',
       },
       {
+        id: 'ili9341-xc4630-parallel-touch-320x240',
+        label: 'XC4630 2.8-inch shield + touch',
+        summary: '320x240 ILI9341 over an 8-bit parallel bus',
+        note: 'An Arduino-shield form factor, so it is wired with jumpers rather than seated: thirteen lines for the panel, and no touch header at all. The resistive sheet has no controller and borrows four of those same lines, which is why they must sit on ADC1 - on ADC2 a press reads fine until something enables Wi-Fi. This product ships different controllers between revisions under identical silkscreen; the driver targets the ILI9341 one.',
+      },
+      {
         id: 'st7789v-xpt2046-touch-240x320',
         label: 'ST7789V 2.4-inch + touch',
         summary: '240x320 colour TFT with XPT2046 touch',
