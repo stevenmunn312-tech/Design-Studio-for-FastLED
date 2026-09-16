@@ -5,7 +5,6 @@ import { ROOT_GRAPH_ID, useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/uploadStore'
 import { micPinDefaultsForBoard } from '../../../state/micPinDefaults'
-import { BOARD_PROFILES } from '../../../build/boardProfiles'
 import { POWER_FEED_PAIR_GAP } from '../physicalDiagramLayout'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import { TFT_TRANSPORT_PINS } from '../../../state/tftSurface'
@@ -228,15 +227,15 @@ describe('BuildDiagramWorkspace', () => {
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3', selectedPort: 'COM7' })
   })
 
-  it('starts with a compact controller, graph hardware, power summary, and idle details panel', () => {
-    const { getByRole, getByText, queryByLabelText, queryByText } = render(<BuildDiagramWorkspace />)
+  it('starts with graph hardware, power summary, and idle details in the one panel', () => {
+    const { getByText, queryByLabelText, queryByText, queryByRole } = render(<BuildDiagramWorkspace />)
 
     expect(getByText('Exact board required')).toBeTruthy()
-    expect(getByRole('img', { name: 'ESP32-S3 controller family' })).toBeTruthy()
-    expect(getByRole('button', { name: 'Choose your board' })).toBeTruthy()
+    // The board is chosen on the Hardware tab; this view only reports it.
+    expect(queryByRole('button', { name: 'Choose your board' })).toBeNull()
     expect(getByText('Graph hardware')).toBeTruthy()
     expect(getByText('Power summary')).toBeTruthy()
-    expect(getByText('Choose a board or select graph hardware to see its build details.')).toBeTruthy()
+    expect(getByText('Select the controller or graph hardware to see its build details.')).toBeTruthy()
     expect(queryByText('Selected item')).toBeNull()
     expect(queryByText('Readiness')).toBeNull()
     expect(queryByLabelText('Preferred path')).toBeNull()
@@ -247,10 +246,8 @@ describe('BuildDiagramWorkspace', () => {
   })
 
   it('generates a complete build reference immediately after board selection', () => {
-    const { getByRole, getByText, queryByText } = render(<BuildDiagramWorkspace />)
-    fireEvent.click(getByRole('button', { name: 'Choose your board' }))
-    expect(getByRole('dialog', { name: 'Choose your board' })).toBeTruthy()
-    fireEvent.click(getByText('Espressif ESP32-S3-DevKitC-1'))
+    selectDevKit()
+    const { getByText, queryByText } = render(<BuildDiagramWorkspace />)
 
     expect(getByText('Build reference: ready', { selector: 'li' })).toBeTruthy()
     expect(getByText('Exact board: confirmed', { selector: 'li' })).toBeTruthy()
@@ -294,17 +291,6 @@ describe('BuildDiagramWorkspace', () => {
     expect(getByText('Exact board: confirmed', { selector: 'li' })).toBeTruthy()
     // The graph's own hardware is still listed, not an empty bench.
     expect(getAllByText('Matrix Output').length).toBeGreaterThan(0)
-  })
-
-  it('records a board picked here on the Board node itself', () => {
-    const { getByRole, getByText } = render(<BuildDiagramWorkspace />)
-    fireEvent.click(getByRole('button', { name: 'Choose your board' }))
-    fireEvent.click(getByText('Espressif ESP32-S3-DevKitC-1'))
-
-    const board = (useGraphStore.getState().nodes as unknown as Array<{
-      data: { nodeType: string; properties: Record<string, unknown> }
-    }>).find((node) => node.data.nodeType === 'Board')
-    expect(board?.data.properties.profileId).toBe('espressif-esp32-s3-devkitc-1')
   })
 
   it('stops using a saved exact board once the upload target no longer matches', () => {
@@ -1311,8 +1297,6 @@ describe('BuildDiagramWorkspace', () => {
 
     fireEvent.click(getByText('Widen build panel'))
     expect(workspace.getAttribute('style')).toContain('--build-sidebar-width: 372px')
-    fireEvent.click(getByText('Narrow details'))
-    expect(workspace.getAttribute('style')).toContain('--build-detail-width: 328px')
   })
 
   it('uses a four-by-four LED preview and labels the recommended PSU power', () => {
@@ -1428,41 +1412,5 @@ describe('BuildDiagramWorkspace', () => {
 
     fireEvent(window, new Event('afterprint'))
     expect(document.body.querySelector('[data-build-print-document]')).toBeNull()
-  })
-
-  it('shows identifying details for all supported exact boards', () => {
-    const { container, getByRole, getByText } = render(<BuildDiagramWorkspace />)
-    fireEvent.click(getByRole('button', { name: 'Choose your board' }))
-
-    expect(getByRole('img', { name: 'Generic ESP32-S3 N16R8, 44-pin dual USB-C pinout' })).toBeTruthy()
-    expect(getByRole('img', { name: 'Espressif ESP32-S3-DevKitC-1 pinout' })).toBeTruthy()
-    expect(getByRole('img', { name: 'Seeed Studio XIAO ESP32S3 pinout' })).toBeTruthy()
-    expect(getByText('Generic ESP32-S3 N16R8, 44-pin dual USB-C')).toBeTruthy()
-    expect(getByText('Espressif ESP32-S3-DevKitC-1')).toBeTruthy()
-    expect(getByText('Seeed Studio XIAO ESP32S3')).toBeTruthy()
-    expect(getByText('D4 / GPIO5')).toBeTruthy()
-    expect(getByRole('img', { name: 'LOLIN S3, 40-pin dual USB-C pinout' })).toBeTruthy()
-    // Derived rather than hardcoded, so adding a board doesn't fail this.
-    const previews = container.querySelectorAll('svg[aria-label$=" pinout"]')
-    expect(previews).toHaveLength(
-      BOARD_PROFILES.filter((profile) => profile.targetFamilies.includes('esp32-s3')).length
-    )
-    for (const preview of previews) {
-      expect(preview.querySelector('[data-board-usb="bottom"]')?.getAttribute('y')).toBe('370')
-    }
-    const devKitPreview = getByRole('img', { name: 'Espressif ESP32-S3-DevKitC-1 pinout' })
-    expect(devKitPreview.querySelector('[data-pin-id="j1-4"]')?.getAttribute('data-pin-side')).toBe('left')
-    expect(devKitPreview.querySelectorAll('[data-board-usb="bottom"]')).toHaveLength(2)
-    expect(devKitPreview.textContent).toContain('USB_D+ / GPIO20')
-    expect(devKitPreview.textContent).toContain('GPIO0 / BOOT')
-    const xiaoPreview = getByRole('img', { name: 'Seeed Studio XIAO ESP32S3 pinout' })
-    // Stored USB-down like every other board now, so the underside expansion
-    // pads sit at the USB end instead of being flipped to the top by the
-    // per-board rotation this profile used to need.
-    expect(xiaoPreview.querySelector('[data-pin-id="bottom-1"]')?.getAttribute('data-pin-side')).toBe('bottom')
-    const xiaoLeft = [...xiaoPreview.querySelectorAll('[data-pin-side="left"]')]
-      .map((node) => node.textContent)
-    expect(xiaoLeft[0]).toContain('D7 / GPIO44')
-    expect(xiaoLeft[6]).toContain('5V')
   })
 })

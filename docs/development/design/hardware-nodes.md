@@ -111,8 +111,9 @@ display pins being typed in by hand before the board would light up.
 `src/state/integratedBoardHardware.ts` states what is fitted to which board
 profile, and two things read it.
 
-- `graphStore.selectBoardProfile` — the one action both board pickers call —
-  materializes the panel and its `TouchInput` when that profile is chosen. It
+- `graphStore.selectBoardProfile` — the one action the board picker calls;
+  `BoardNodeBody` on the Hardware tab is the only one, Build Diagram having
+  been reduced to reporting the board rather than choosing it — materializes the panel and its `TouchInput` when that profile is chosen. It
   is idempotent and adoption-first: a panel it placed earlier, or one the user
   wired to the same fixed pinout themselves, is updated in place rather than
   duplicated. Whether the glass gets a Touch node is the part catalogue's

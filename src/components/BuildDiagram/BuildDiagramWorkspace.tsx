@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerE
 import { createPortal, flushSync } from 'react-dom'
 import {
   boardProfileById,
-  compatibleBoardProfilesForFqbn,
   isBoardProfileCompatibleWithFqbn,
   selectedPhysicalBoardProfile,
   type PhysicalBoardPinAnchor,
@@ -19,7 +18,6 @@ import { bomCsv, buildBomRows, buildConnectionRows, connectionsCsv } from '../..
 import { boardPinForUse, boardPinLabelForUse, buildHardwareManifest, type HardwareManifestItem, type HardwarePinUse } from '../../build/hardwareManifest'
 import { fuseBlockAllocations } from '../../build/powerDistribution'
 import { rootGraphNodes, useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
-import { ROOT_BOARD_NODE_ID } from '../../state/hardware'
 import { useProjectStore } from '../../state/projectStore'
 import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import PhysicalAssemblyDiagram from './PhysicalAssemblyDiagram'
@@ -70,9 +68,6 @@ const PANEL_WIDTH_STEP = 32
 const DEFAULT_SIDEBAR_WIDTH = 340
 const MIN_SIDEBAR_WIDTH = 280
 const MAX_SIDEBAR_WIDTH = 420
-const DEFAULT_DETAIL_WIDTH = 360
-const MIN_DETAIL_WIDTH = 300
-const MAX_DETAIL_WIDTH = 440
 
 function downloadBuildFile(contents: string, filename: string, type: string) {
   const url = URL.createObjectURL(new Blob([contents], { type }))
@@ -140,107 +135,6 @@ function itemFingerprint(
       })),
     },
   })
-}
-
-function GenericControllerOutline({ label }: { label: string }) {
-  return (
-    <div className={styles.genericController} role="img" aria-label={`${label} controller family`}>
-      <svg viewBox="0 0 320 150" aria-hidden="true">
-        <rect x="52" y="18" width="216" height="114" rx="18" />
-        <rect x="130" y="115" width="60" height="30" rx="7" />
-        <rect x="88" y="48" width="144" height="58" rx="9" />
-        {Array.from({ length: 8 }, (_, index) => <circle key={`left-${index}`} cx="38" cy={28 + (index * 14)} r="4" />)}
-        {Array.from({ length: 8 }, (_, index) => <circle key={`right-${index}`} cx="282" cy={28 + (index * 14)} r="4" />)}
-      </svg>
-      <strong>{label}</strong>
-    </div>
-  )
-}
-
-function boardPinColor(role: PhysicalBoardPinProfile['role'], unavailable: boolean) {
-  if (unavailable) return '#9b4b4b'
-  if (role === 'power-in' || role === 'power-out') return '#d84c42'
-  if (role === 'ground') return '#26383b'
-  if (role === 'analog') return '#d77d32'
-  if (role === 'reserved') return '#6d7478'
-  return '#65a94f'
-}
-
-function BoardPinoutPreview({ profile }: { profile: PhysicalBoardProfile }) {
-  const anchorById = new Map((profile.pinAnchors ?? []).map((anchor) => [anchor.id, anchor]))
-  const pinsBySide = (side: PhysicalBoardPinAnchor['labelAlign']) => (profile.pins ?? [])
-    .filter((pin) => anchorById.get(pin.anchorId)?.labelAlign === side)
-  // Every profile stores its rails USB-down, so no per-board rotation here.
-  // The XIAO used to need one because its map was held in another orientation.
-  const leftPins = pinsBySide('left')
-  const rightPins = pinsBySide('right')
-  const bottomPins = pinsBySide('bottom')
-  const topPins = pinsBySide('top')
-  const isDevKitC = profile.id === 'espressif-esp32-s3-devkitc-1'
-  const verticalY = (index: number, count: number) => count <= 1 ? 214 : 42 + ((344 * index) / (count - 1))
-  const horizontalX = (index: number, count: number) => count <= 1 ? 280 : 210 + ((140 * index) / (count - 1))
-
-  return (
-    <svg className={styles.boardPinout} viewBox="0 0 560 430" role="img" aria-label={`${profile.label} pinout`}>
-      <rect x="198" y="28" width="164" height="366" rx={isDevKitC ? 5 : 24} className={`${styles.pinoutBoardBody} ${isDevKitC ? styles.pinoutDevKitBody : ''}`} />
-      {isDevKitC ? <>
-        <rect x="220" y="42" width="120" height="148" rx="5" className={styles.pinoutDevKitModule} />
-        <path d="M232 50h96v28h-14V61h-17v17h-17V61h-17v17h-17V61h-14z" className={styles.pinoutDevKitAntenna} />
-        <rect x="228" y="82" width="104" height="98" rx="3" className={styles.pinoutDevKitShield} />
-        <text x="280" y="107" textAnchor="middle" className={styles.pinoutBoardName}>ESP32-S3-WROOM</text>
-        <circle cx="252" cy="230" r="10" className={styles.pinoutDevKitLed} />
-        <text x="268" y="234" className={styles.pinoutDeviceText}>RGB IO38</text>
-        <rect x="258" y="270" width="44" height="46" rx="4" className={styles.pinoutDevKitChip} />
-        <text x="280" y="297" textAnchor="middle" className={styles.pinoutDeviceText}>CP2102</text>
-        <rect x="226" y="330" width="38" height="24" rx="5" className={styles.pinoutDevKitButton} />
-        <rect x="296" y="330" width="38" height="24" rx="5" className={styles.pinoutDevKitButton} />
-        <text x="245" y="326" textAnchor="middle" className={styles.pinoutDeviceText}>BOOT</text>
-        <text x="315" y="326" textAnchor="middle" className={styles.pinoutDeviceText}>RESET</text>
-        <rect data-board-usb="bottom" x="218" y="370" width="56" height="48" rx="6" className={styles.pinoutUsb} />
-        <rect data-board-usb="bottom" x="286" y="370" width="56" height="48" rx="6" className={styles.pinoutUsb} />
-        <text x="246" y="367" textAnchor="middle" className={styles.pinoutDeviceText}>UART</text>
-        <text x="314" y="367" textAnchor="middle" className={styles.pinoutDeviceText}>USB</text>
-      </> : <>
-        <rect data-board-usb="bottom" x="250" y="370" width="60" height="48" rx="8" className={styles.pinoutUsb} />
-        <rect x="220" y="164" width="120" height="174" rx="10" className={styles.pinoutModule} />
-        <text x="280" y="256" textAnchor="middle" className={styles.pinoutBoardName}>{profile.model}</text>
-      </>}
-      {leftPins.map((pin, index) => {
-        const y = verticalY(index, leftPins.length)
-        return <g key={pin.id} data-pin-id={pin.id} data-pin-side="left" opacity={pin.availability === 'unavailable' ? 0.58 : 1}>
-          <rect x="12" y={y - 8} width="174" height="16" rx="4" fill={boardPinColor(pin.role, pin.availability === 'unavailable')} />
-          <text x="178" y={y + 3} textAnchor="end" className={styles.pinoutPinText}>{pin.label}</text>
-          <line x1="186" y1={y} x2="198" y2={y} className={styles.pinoutLead} />
-          <circle cx="198" cy={y} r="5" className={styles.pinoutPad} />
-        </g>
-      })}
-      {rightPins.map((pin, index) => {
-        const y = verticalY(index, rightPins.length)
-        return <g key={pin.id} data-pin-id={pin.id} data-pin-side="right" opacity={pin.availability === 'unavailable' ? 0.58 : 1}>
-          <line x1="362" y1={y} x2="374" y2={y} className={styles.pinoutLead} />
-          <circle cx="362" cy={y} r="5" className={styles.pinoutPad} />
-          <rect x="374" y={y - 8} width="174" height="16" rx="4" fill={boardPinColor(pin.role, pin.availability === 'unavailable')} />
-          <text x="382" y={y + 3} className={styles.pinoutPinText}>{pin.label}</text>
-        </g>
-      })}
-      {bottomPins.map((pin, index) => {
-        const x = horizontalX(index, bottomPins.length)
-        return <g key={pin.id} data-pin-id={pin.id} data-pin-side="bottom" opacity={pin.availability === 'unavailable' ? 0.58 : 1}>
-          <line x1={x} y1="394" x2={x} y2="406" className={styles.pinoutLead} />
-          <circle cx={x} cy="394" r="5" className={styles.pinoutPad} />
-          <text x={x} y="421" textAnchor="middle" className={styles.pinoutBottomText}>{pin.label}</text>
-        </g>
-      })}
-      {topPins.map((pin, index) => {
-        const x = horizontalX(index, topPins.length)
-        return <g key={pin.id} data-pin-id={pin.id} data-pin-side="top" opacity={pin.availability === 'unavailable' ? 0.58 : 1}>
-          <text x={x} y="10" textAnchor="middle" className={styles.pinoutBottomText}>{pin.label}</text>
-          <line x1={x} y1="16" x2={x} y2="28" className={styles.pinoutLead} />
-          <circle cx={x} cy="28" r="5" className={styles.pinoutPad} />
-        </g>
-      })}
-    </svg>
-  )
 }
 
 function EyeIcon({ crossed = false }: { crossed?: boolean }) {
@@ -317,23 +211,17 @@ export default function BuildDiagramWorkspace() {
   const selectedFqbn = useUploadStore((state) => state.selectedFqbn)
   const manifest = useMemo(() => buildHardwareManifest(nodes, edges, selectedFqbn), [nodes, edges, selectedFqbn])
   const buildProfile = ensureBuildProfile(storedBuildProfile)
-  const boardOptions = useMemo(() => compatibleBoardProfilesForFqbn(selectedFqbn), [selectedFqbn])
   // The Board node is where the user says which controller is on the bench, so
   // it is the only place this view may read that from. Build Diagram used to
   // keep its own `buildProfile.physicalBoardProfileId`, which meant a graph
   // whose Board node already named an exact board still opened here on "Exact
   // board required" — two views disagreeing about the same physical fact.
   const benchBoardProfileId = useGraphStore((state) => selectedPhysicalBoardProfile(rootGraphNodes(state))?.id)
-  const boardNodeId = useMemo(
-    () => nodes.find((node) => node.data.nodeType === 'Board')?.id ?? ROOT_BOARD_NODE_ID,
-    [nodes])
-  const selectBoardProfile = useGraphStore((state) => state.selectBoardProfile)
-  const setSelectedFqbn = useUploadStore((state) => state.setSelectedFqbn)
   // A chosen exact board only applies while it still matches the upload target.
   // Switching FQBN used to leave the old board's render and pin map in place —
   // an ESP32 wiring diagram presented as if it were for the newly selected S3.
-  // Dropping back to "choose your board" makes the diagram ask again rather
-  // than quietly show wiring for hardware that is no longer selected. The id
+  // Dropping back to the empty state sends the user to the Hardware tab rather
+  // than quietly showing wiring for hardware that is no longer selected. The id
   // stays on the Board node, so switching the target back restores it.
   const exactBoard = isBoardProfileCompatibleWithFqbn(benchBoardProfileId, selectedFqbn)
     ? boardProfileById(benchBoardProfileId ?? '')
@@ -341,11 +229,8 @@ export default function BuildDiagramWorkspace() {
   const selectedTarget = boardByFqbn(selectedFqbn)
   const [selectedItemId, setSelectedItemId] = useState<string>(() => exactBoard ? 'controller' : '')
   const [isolatedItemId, setIsolatedItemId] = useState<string | null>(null)
-  const [boardPickerOpen, setBoardPickerOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [detailPaneCollapsed, setDetailPaneCollapsed] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH)
-  const [detailPaneWidth, setDetailPaneWidth] = useState(DEFAULT_DETAIL_WIDTH)
   const [diagramZoom, setDiagramZoom] = useState(1)
   const [diagramPan, setDiagramPan] = useState<DiagramPan>({ x: 0, y: 0 })
   const [printSheetsMounted, setPrintSheetsMounted] = useState(false)
@@ -421,15 +306,6 @@ export default function BuildDiagramWorkspace() {
       media?.removeEventListener?.('change', onMediaChange)
     }
   }, [])
-
-  useEffect(() => {
-    if (!boardPickerOpen) return
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setBoardPickerOpen(false)
-    }
-    window.addEventListener('keydown', closeOnEscape)
-    return () => window.removeEventListener('keydown', closeOnEscape)
-  }, [boardPickerOpen])
 
   const selectedItem = selectedItemId === 'controller'
     ? manifest.controller
@@ -535,19 +411,6 @@ export default function BuildDiagramWorkspace() {
     })
   }
 
-  const selectExactBoard = (profileId: string) => {
-    // Writes the bench's own record of the board, the same act as picking it in
-    // the hardware view — anything less would leave this view's answer local to
-    // this view. Profiles list their specific FQBN first, so mirroring the
-    // first entry sharpens a family-level upload target the same way the
-    // hardware view's picker does.
-    selectBoardProfile(boardNodeId, profileId)
-    const fqbn = boardProfileById(profileId)?.compatibleFqbns[0]
-    if (fqbn && fqbn !== selectedFqbn) setSelectedFqbn(fqbn)
-    setSelectedItemId('controller')
-    setBoardPickerOpen(false)
-  }
-
   const setExportMode = (mode: BuildExportMode) => {
     patchBuildProfile((current) => ({
       ...current,
@@ -592,10 +455,6 @@ export default function BuildDiagramWorkspace() {
 
   const adjustSidebarWidth = (delta: number) => {
     setSidebarWidth((current) => Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, current + delta)))
-  }
-
-  const adjustDetailPaneWidth = (delta: number) => {
-    setDetailPaneWidth((current) => Math.min(MAX_DETAIL_WIDTH, Math.max(MIN_DETAIL_WIDTH, current + delta)))
   }
 
   const controllerBox = useMemo(() => {
@@ -886,7 +745,6 @@ export default function BuildDiagramWorkspace() {
 
   const workspaceStyle = {
     '--build-sidebar-width': `${sidebarWidth}px`,
-    '--build-detail-width': `${detailPaneWidth}px`,
   } as CSSProperties
 
   return (
@@ -894,7 +752,6 @@ export default function BuildDiagramWorkspace() {
       className={[
         styles.workspace,
         sidebarCollapsed ? styles.workspaceSidebarCollapsed : '',
-        detailPaneCollapsed ? styles.workspaceDetailCollapsed : '',
         exportMode === 'complete-build' ? styles.exportCompleteMode : '',
       ].join(' ').trim()}
       aria-label="Build Diagram workspace"
@@ -937,18 +794,6 @@ export default function BuildDiagramWorkspace() {
                 </button>
               </div>
             </div>
-
-            <section className={`${styles.card} ${styles.controllerChooserCard}`}>
-              <GenericControllerOutline label={selectedTarget?.label ?? 'Microcontroller'} />
-              {boardOptions.length === 0 ? (
-                <p className={styles.warningText}>No reviewed board variants are available for this controller family yet.</p>
-              ) : (
-                <button type="button" className={styles.chooseBoardButton} aria-haspopup="dialog" onClick={() => setBoardPickerOpen(true)}>
-                  Choose your board
-                </button>
-              )}
-              {exactBoard && <span className={styles.selectedBoardVariant}>{exactBoard.label}</span>}
-            </section>
 
             <section className={`${styles.card} ${styles.compactHardwareCard}`}>
               <h3 className={styles.cardTitle}>Graph hardware</h3>
@@ -1019,180 +864,6 @@ export default function BuildDiagramWorkspace() {
                 </ul>
               </section>
             )}
-          </>
-        )}
-      </aside>
-
-      <main className={styles.diagramPane}>
-        <div className={styles.diagramHeader}>
-          <div>
-            <h2 className={styles.panelTitle}>Wiring Diagram</h2>
-            <p className={styles.panelSubtitle}>
-              {!exactBoard
-                ? 'Select an exact board profile to unlock controller-aware wiring details.'
-                : !canRenderControllerPins
-                  ? `${exactBoard.label} selected. This profile still needs a reviewed physical pin map before controller-side wiring can be drawn.`
-                  : activeSection.id === 'all'
-                    ? `${exactBoard.label} selected. Connections now resolve against that exact board's pin map.`
-                    : activeSection.summary}
-            </p>
-          </div>
-          <div className={styles.diagramToolbar}>
-            <span
-              className={styles.zoomPill}
-              title="Drag empty space with the left mouse button to move. Scroll to zoom at the cursor."
-            >
-              Zoom {Math.round(diagramZoom * 100)}%
-            </span>
-            <button type="button" className={styles.smallButton} aria-label="Zoom out" title="Zoom out" onClick={() => updateViewport(diagramZoom - ZOOM_STEP)}>
-              <span aria-hidden="true">-</span><i className={styles.visuallyHidden}>Zoom out</i>
-            </button>
-            <button type="button" className={styles.smallButton} aria-label="Zoom in" title="Zoom in" onClick={() => updateViewport(diagramZoom + ZOOM_STEP)}>
-              <span aria-hidden="true">+</span><i className={styles.visuallyHidden}>Zoom in</i>
-            </button>
-            <button type="button" className={styles.smallButton} onClick={fitAll} disabled={!exactBoard}>
-              <span aria-hidden="true">Fit</span><span className={styles.visuallyHidden}>Fit all</span>
-            </button>
-            <button type="button" className={styles.smallButton} onClick={focusSelected} disabled={!exactBoard}>
-              <span aria-hidden="true">Focus</span><span className={styles.visuallyHidden}>Focus selected</span>
-            </button>
-            <button type="button" className={styles.smallButton} onClick={resetView} disabled={!exactBoard}>
-              <span aria-hidden="true">Reset</span><span className={styles.visuallyHidden}>Reset view</span>
-            </button>
-            <button type="button" className={styles.resetButton} onClick={() => setIsolatedItemId(null)} disabled={!isolatedItemId}>
-              All
-            </button>
-          </div>
-        </div>
-
-        {exactBoard && sections.length > 1 && (
-          <div className={styles.sectionTabs} role="tablist" aria-label="Wiring diagram sections">
-            {sections.map((section) => (
-              <button
-                key={section.id}
-                type="button"
-                role="tab"
-                aria-selected={section.id === activeSection.id}
-                title={section.summary}
-                className={`${styles.sectionTab} ${section.id === activeSection.id ? styles.sectionTabActive : ''}`}
-                onClick={() => setSectionId(section.id)}
-              >
-                {section.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {!exactBoard ? (
-          <div className={styles.emptyState}>
-            <h3 className={styles.emptyTitle}>Exact board required</h3>
-            <p className={styles.copy}>
-              The graph already defines logical GPIO numbers and hardware roles. Build Diagram now needs the exact physical controller board before it can show trustworthy physical references.
-            </p>
-          </div>
-        ) : (
-          <div
-            ref={viewportRef}
-            className={styles.diagramViewport}
-            onPointerDown={startViewportPan}
-            onPointerMove={handleViewportPan}
-            onPointerUp={stopViewportPan}
-            onPointerCancel={stopViewportPan}
-            onWheel={handleViewportWheel}
-          >
-            <div className={styles.diagramSurface}>
-              <div
-                ref={diagramCanvasRef}
-                className={styles.diagramCanvas}
-                style={{
-                  width: `${canvasWidth}px`,
-                  height: `${canvasHeight}px`,
-                  transform: `translate(${diagramPan.x}px, ${diagramPan.y}px) scale(${diagramZoom})`,
-                }}
-                data-pan-surface="true"
-                data-build-export-root="current-view"
-              >
-                <PhysicalAssemblyDiagram
-                  boardProfile={exactBoard}
-                  items={visiblePrimaryItems}
-                  plan={visibleElectricalPlan}
-                  layers={activeSection.layers}
-                  exportScope="current-view"
-                  selectedItemId={selectedItemId}
-                  onSelectItem={setSelectedItemId}
-                  connections={allConnections.map((connection) => ({
-                    id: connection.id,
-                    itemId: connection.itemId,
-                    pinLabel: boardPinLabelForUse(exactBoard, connection.pinUse),
-                    useLabel: connection.pinUse.label,
-                    boardAnchorId: connection.boardPin?.anchorId,
-                  }))}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-        {exactBoard && (
-          <div className={styles.exportDiagramHidden} aria-hidden="true" data-build-export-root="complete-build">
-            <PhysicalAssemblyDiagram
-              boardProfile={exactBoard}
-              items={primaryItems}
-              plan={electricalPlan}
-              exportScope="complete-build"
-              selectedItemId="controller"
-              onSelectItem={() => undefined}
-              connections={primaryItems.flatMap((item) => item.pins.map((pin) => {
-                const boardPin = boardPinForUse(exactBoard, pin)
-                return {
-                  id: `${item.id}:${pin.propertyKey}`,
-                  itemId: item.id,
-                  pinLabel: boardPinLabelForUse(exactBoard, pin),
-                  useLabel: pin.label,
-                  boardAnchorId: boardPin?.anchorId,
-                }
-              }))}
-            />
-          </div>
-        )}
-      </main>
-
-      <aside className={styles.detailPane}>
-        {detailPaneCollapsed ? (
-          <button type="button" className={styles.collapsedRail} onClick={() => setDetailPaneCollapsed(false)}>
-            Show details
-          </button>
-        ) : (
-          <>
-            <div className={styles.detailHeader}>
-              <h2 className={styles.panelTitle}>Details</h2>
-              <div className={styles.headerActions}>
-                <div className={styles.panelSizeControls}>
-                  <button
-                    type="button"
-                    className={styles.smallButton}
-                    onClick={() => adjustDetailPaneWidth(-PANEL_WIDTH_STEP)}
-                    disabled={detailPaneWidth <= MIN_DETAIL_WIDTH}
-                    aria-label="Narrow details panel"
-                    title="Narrow details panel"
-                  >
-                    <span aria-hidden="true">-</span><span className={styles.visuallyHidden}>Narrow details</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.smallButton}
-                    onClick={() => adjustDetailPaneWidth(PANEL_WIDTH_STEP)}
-                    disabled={detailPaneWidth >= MAX_DETAIL_WIDTH}
-                    aria-label="Widen details panel"
-                    title="Widen details panel"
-                  >
-                    <span aria-hidden="true">+</span><span className={styles.visuallyHidden}>Widen details</span>
-                  </button>
-                </div>
-                <button type="button" className={styles.smallButton} onClick={() => setDetailPaneCollapsed(true)}>
-                  <span aria-hidden="true">&gt;&gt;</span><span className={styles.visuallyHidden}>Hide details</span>
-                </button>
-              </div>
-            </div>
 
             {selectedItemId ? <>
             <section className={styles.card}>
@@ -1463,11 +1134,145 @@ export default function BuildDiagramWorkspace() {
               </div>
             </section>
             </> : (
-              <p className={styles.detailIdle}>Choose a board or select graph hardware to see its build details.</p>
+              <p className={styles.detailIdle}>Select the controller or graph hardware to see its build details.</p>
             )}
           </>
         )}
       </aside>
+
+      <main className={styles.diagramPane}>
+        <div className={styles.diagramHeader}>
+          <div>
+            <h2 className={styles.panelTitle}>Wiring Diagram</h2>
+            <p className={styles.panelSubtitle}>
+              {!exactBoard
+                ? 'Select an exact board profile to unlock controller-aware wiring details.'
+                : !canRenderControllerPins
+                  ? `${exactBoard.label} selected. This profile still needs a reviewed physical pin map before controller-side wiring can be drawn.`
+                  : activeSection.id === 'all'
+                    ? `${exactBoard.label} selected. Connections now resolve against that exact board's pin map.`
+                    : activeSection.summary}
+            </p>
+          </div>
+          <div className={styles.diagramToolbar}>
+            <span
+              className={styles.zoomPill}
+              title="Drag empty space with the left mouse button to move. Scroll to zoom at the cursor."
+            >
+              Zoom {Math.round(diagramZoom * 100)}%
+            </span>
+            <button type="button" className={styles.smallButton} aria-label="Zoom out" title="Zoom out" onClick={() => updateViewport(diagramZoom - ZOOM_STEP)}>
+              <span aria-hidden="true">-</span><i className={styles.visuallyHidden}>Zoom out</i>
+            </button>
+            <button type="button" className={styles.smallButton} aria-label="Zoom in" title="Zoom in" onClick={() => updateViewport(diagramZoom + ZOOM_STEP)}>
+              <span aria-hidden="true">+</span><i className={styles.visuallyHidden}>Zoom in</i>
+            </button>
+            <button type="button" className={styles.smallButton} onClick={fitAll} disabled={!exactBoard}>
+              <span aria-hidden="true">Fit</span><span className={styles.visuallyHidden}>Fit all</span>
+            </button>
+            <button type="button" className={styles.smallButton} onClick={focusSelected} disabled={!exactBoard}>
+              <span aria-hidden="true">Focus</span><span className={styles.visuallyHidden}>Focus selected</span>
+            </button>
+            <button type="button" className={styles.smallButton} onClick={resetView} disabled={!exactBoard}>
+              <span aria-hidden="true">Reset</span><span className={styles.visuallyHidden}>Reset view</span>
+            </button>
+            <button type="button" className={styles.resetButton} onClick={() => setIsolatedItemId(null)} disabled={!isolatedItemId}>
+              All
+            </button>
+          </div>
+        </div>
+
+        {exactBoard && sections.length > 1 && (
+          <div className={styles.sectionTabs} role="tablist" aria-label="Wiring diagram sections">
+            {sections.map((section) => (
+              <button
+                key={section.id}
+                type="button"
+                role="tab"
+                aria-selected={section.id === activeSection.id}
+                title={section.summary}
+                className={`${styles.sectionTab} ${section.id === activeSection.id ? styles.sectionTabActive : ''}`}
+                onClick={() => setSectionId(section.id)}
+              >
+                {section.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {!exactBoard ? (
+          <div className={styles.emptyState}>
+            <h3 className={styles.emptyTitle}>Exact board required</h3>
+            <p className={styles.copy}>
+              The graph already defines logical GPIO numbers and hardware roles. Build Diagram now needs the exact physical controller board before it can show trustworthy physical references. Choose it on the Hardware tab.
+            </p>
+          </div>
+        ) : (
+          <div
+            ref={viewportRef}
+            className={styles.diagramViewport}
+            onPointerDown={startViewportPan}
+            onPointerMove={handleViewportPan}
+            onPointerUp={stopViewportPan}
+            onPointerCancel={stopViewportPan}
+            onWheel={handleViewportWheel}
+          >
+            <div className={styles.diagramSurface}>
+              <div
+                ref={diagramCanvasRef}
+                className={styles.diagramCanvas}
+                style={{
+                  width: `${canvasWidth}px`,
+                  height: `${canvasHeight}px`,
+                  transform: `translate(${diagramPan.x}px, ${diagramPan.y}px) scale(${diagramZoom})`,
+                }}
+                data-pan-surface="true"
+                data-build-export-root="current-view"
+              >
+                <PhysicalAssemblyDiagram
+                  boardProfile={exactBoard}
+                  items={visiblePrimaryItems}
+                  plan={visibleElectricalPlan}
+                  layers={activeSection.layers}
+                  exportScope="current-view"
+                  selectedItemId={selectedItemId}
+                  onSelectItem={setSelectedItemId}
+                  connections={allConnections.map((connection) => ({
+                    id: connection.id,
+                    itemId: connection.itemId,
+                    pinLabel: boardPinLabelForUse(exactBoard, connection.pinUse),
+                    useLabel: connection.pinUse.label,
+                    boardAnchorId: connection.boardPin?.anchorId,
+                  }))}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+        {exactBoard && (
+          <div className={styles.exportDiagramHidden} aria-hidden="true" data-build-export-root="complete-build">
+            <PhysicalAssemblyDiagram
+              boardProfile={exactBoard}
+              items={primaryItems}
+              plan={electricalPlan}
+              exportScope="complete-build"
+              selectedItemId="controller"
+              onSelectItem={() => undefined}
+              connections={primaryItems.flatMap((item) => item.pins.map((pin) => {
+                const boardPin = boardPinForUse(exactBoard, pin)
+                return {
+                  id: `${item.id}:${pin.propertyKey}`,
+                  itemId: item.id,
+                  pinLabel: boardPinLabelForUse(exactBoard, pin),
+                  useLabel: pin.label,
+                  boardAnchorId: boardPin?.anchorId,
+                }
+              }))}
+            />
+          </div>
+        )}
+      </main>
+
       {/* Printed straight onto the body: the workspace is a fixed, clipped,
           three-column viewport, and the sheets must not inherit any of it. */}
       {exactBoard && printSheetsMounted && createPortal(
@@ -1512,34 +1317,6 @@ export default function BuildDiagramWorkspace() {
           ] : []}
         />,
         document.body,
-      )}
-      {boardPickerOpen && (
-        <div className={styles.boardPickerBackdrop} onMouseDown={(event) => {
-          if (event.target === event.currentTarget) setBoardPickerOpen(false)
-        }}>
-          <section className={styles.boardPickerDialog} role="dialog" aria-modal="true" aria-labelledby="board-picker-title">
-            <div className={styles.boardPickerHeader}>
-              <div>
-                <h2 id="board-picker-title" className={styles.boardPickerTitle}>Choose your board</h2>
-                <p>Scroll sideways to compare reviewed pinouts.</p>
-              </div>
-              <button type="button" className={styles.boardPickerClose} aria-label="Close board picker" onClick={() => setBoardPickerOpen(false)}>Close</button>
-            </div>
-            <div className={styles.boardPickerScroller}>
-              {boardOptions.map((profile) => (
-                <button
-                  key={profile.id}
-                  type="button"
-                  className={`${styles.boardPickerCard} ${benchBoardProfileId === profile.id ? styles.boardPickerCardActive : ''}`}
-                  onClick={() => selectExactBoard(profile.id)}
-                >
-                  <BoardPinoutPreview profile={profile} />
-                  <strong>{profile.label}</strong>
-                </button>
-              ))}
-            </div>
-          </section>
-        </div>
       )}
     </section>
   )
