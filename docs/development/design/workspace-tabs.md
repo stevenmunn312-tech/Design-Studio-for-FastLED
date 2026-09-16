@@ -1,8 +1,8 @@
 # One canvas, four workspaces
 
 Status: proposed 2026-09-08, from bench use. Replaces the split graph/hardware
-canvas with four full-canvas workspaces selected by tabs: **Hardware · Build
-Diagram · Graph · Upload**.
+canvas with four full-canvas workspaces selected by tabs: **Hardware · Graph ·
+Upload · Build Diagram**.
 
 ## Why
 
@@ -39,14 +39,16 @@ Four workspaces, each taking the whole canvas, selected by a tab strip:
 | Tab | Content |
 | --- | --- |
 | Hardware | The bench — parts, board, wiring |
-| Build Diagram | The assembly drawing (already a full-canvas mode today) |
 | Graph | The node canvas (and the Display editor, which replaces it in place) |
 | Upload | Compile, capacity and flashing |
+| Build Diagram | The assembly drawing (already a full-canvas mode today) |
 
 **Order tells the build story; the default is where the work is.** The order
-above reads as a newcomer's path — choose parts, see them wired, program them,
-flash them. The landing workspace on open is nevertheless **Graph**, because
-that is where the hours go.
+above reads as the sequence the work is actually done in — name the hardware,
+write the effect, flash it, then take the wiring diagram to the bench. Build
+Diagram sits last because it is the output of the other three, consulted at
+the soldering iron rather than while authoring. The landing workspace on open
+is nevertheless **Graph**, because that is where the hours go.
 
 The status bar stays put beneath all four. That is what makes tabs safe rather
 than a way to hide problems: graph health, pin state, module count, board and

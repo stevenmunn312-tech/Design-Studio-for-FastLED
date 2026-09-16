@@ -17,10 +17,12 @@ describe('WorkspaceTabs', () => {
     useGraphStore.setState({ nodes: [], edges: [] } as never)
   })
 
-  it('offers the four workspaces and lands a session on the graph', () => {
+  it('offers the four workspaces in build order and lands a session on the graph', () => {
     render(<WorkspaceTabs />)
+    // The sequence the work is actually done in: name the hardware, write the
+    // effect, flash it, then take the wiring diagram to the bench.
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent))
-      .toEqual(['Hardware', 'Build Diagram', 'Graph', 'Upload'])
+      .toEqual(['Hardware', 'Graph', 'Upload', 'Build Diagram'])
     expect(screen.getByRole('tab', { name: 'Graph' }).getAttribute('aria-selected')).toBe('true')
   })
 

@@ -7,14 +7,16 @@ import styles from './WorkspaceTabs.module.css'
  * The four workspaces, each taking the whole canvas.
  *
  * See docs/development/design/workspace-tabs.md. The order tells the build
- * story — choose parts, see them wired, program them, flash them — while the
- * store lands a session on Graph, because that is where the hours go.
+ * story in the sequence it is actually done — name the hardware, write the
+ * effect, flash it, then take the wiring diagram to the bench, which is the
+ * other three's output. The store lands a session on Graph, because that is
+ * where the hours go.
  */
 const TABS: { mode: WorkspaceMode; label: string }[] = [
   { mode: 'hardware', label: 'Hardware' },
-  { mode: 'build', label: 'Build Diagram' },
   { mode: 'graph', label: 'Graph' },
   { mode: 'upload', label: 'Upload' },
+  { mode: 'build', label: 'Build Diagram' },
 ]
 
 /**
