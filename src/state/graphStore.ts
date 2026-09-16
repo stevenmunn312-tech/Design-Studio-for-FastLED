@@ -86,7 +86,7 @@ import {
   integratedTouchDisplayForBoard,
   matchesIntegratedTouchDisplay,
 } from './integratedBoardHardware'
-import { partById } from './partCatalogue'
+import { displayHasTouch } from './partCatalogue'
 import { DISPLAY_SOURCE_NODE_TYPES } from './displaySignal'
 import { asTransportDisplayLayout, transportLayoutForKind } from './transportDisplay'
 import { asTftRotation } from './tftSurface'
@@ -1256,7 +1256,7 @@ function syncDisplayNodesInContent(
       const fixedControlPorts: NodePort[] = []
       if (panel && !displayId) {
         const panelProps = panel.data.properties as Record<string, unknown>
-        const touchCapable = Boolean(partById(String(panelProps.partId ?? ''))?.display?.touchController)
+        const touchCapable = displayHasTouch(String(panelProps.partId ?? ''))
         if (touchCapable) {
           const displayEdge = content.edges.find((e) => e.target === panel.id && e.targetHandle === 'display')
           const sourceNode = displayEdge ? content.nodes.find((n) => n.id === displayEdge.source) : undefined
@@ -2316,9 +2316,7 @@ export const useGraphStore = create<GraphState>()(
         // Whether this board has one is the catalogue's answer, not a flag
         // repeated here.
         const touchDefinition = LIBRARY_DEF.get('TouchInput')
-        const hasTouchController = Boolean(
-          partById(String(panelProperties.partId ?? ''))?.display?.touchController,
-        )
+        const hasTouchController = displayHasTouch(String(panelProperties.partId ?? ''))
         const touchPresent = nodes.some((node) => node.data.nodeType === 'TouchInput'
           && String(node.data.properties.panelId ?? '') === panelId)
         if (touchDefinition && hasTouchController && !touchPresent) {

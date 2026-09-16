@@ -61,7 +61,7 @@ import { inmp441SupportedForBoard, INMP441_UNSUPPORTED_MESSAGE } from '../state/
 import { controllerSettings } from '../state/controllerSettings'
 import { isHardwareManagedSignalNodeType } from '../state/hardware'
 import { partOptionsFor } from '../state/partOptions'
-import { partById } from '../state/partCatalogue'
+import { displayHasTouch, partById } from '../state/partCatalogue'
 import { resolveAudioCapabilitySource, selectedAudioCapabilityKind } from '../state/audioCapabilities'
 import { resolveStorageCapabilitySource } from '../state/storageCapabilities'
 
@@ -1964,7 +1964,7 @@ export function findDisplayGeneratorIssues(
 
   for (const display of displays.filter((node) => node.data.nodeType === 'TransportDisplay')) {
     const props = display.data.properties as Record<string, unknown>
-    if (!partById(String(props.partId ?? ''))?.display?.touchController) continue
+    if (!displayHasTouch(String(props.partId ?? ''))) continue
     /*
      * Touch leaves through the Touch node, not the panel.
      *

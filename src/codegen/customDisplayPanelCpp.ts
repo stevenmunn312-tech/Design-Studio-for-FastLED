@@ -19,7 +19,7 @@ import {
 } from '../state/tftSurface'
 import { TELEMETRY_TOUCH_INTERVAL_MS } from '../state/deviceTelemetry'
 import { tftControllerForProps } from '../state/nodeLibrary'
-import { partById } from '../state/partCatalogue'
+import { displayHasTouch } from '../state/partCatalogue'
 import { emittedTouchBounds } from '../state/transportTouch'
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
 import { customDisplayId } from './customDisplayId'
@@ -96,7 +96,7 @@ export function customDisplayPanelFromProps(
     rotation: asTftRotation(p.tftRotation),
     csPin: integer('csPin', 5), dcPin: integer('dcPin', 16), resetPin: integer('resetPin', 17),
     sckPin: integer('sckPin', 18), mosiPin: integer('mosiPin', 23), backlightPin: integer('backlightPin', 4),
-    touch: partById(String(p.partId ?? ''))?.display?.touchController ? {
+    touch: displayHasTouch(String(p.partId ?? '')) ? {
       csPin: integer('touchCsPin', 15), irqPin: integer('touchIrqPin', 2),
       sckPin: integer('touchSckPin', 18), mosiPin: integer('touchMosiPin', 23), misoPin: integer('touchMisoPin', 19),
       // See emittedTouchBounds: a reversed axis leaves here as a descending

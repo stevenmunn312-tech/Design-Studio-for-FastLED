@@ -4,7 +4,7 @@ import { useUiStore } from '../../state/uiStore'
 import { usePreviewStore } from '../../state/previewStore'
 import { tftControllerForProps } from '../../state/nodeLibrary'
 import { asTftRotation, rgb565Components, TFT_CONTROLLERS, tftRotatedSize, type TftSurface } from '../../state/tftSurface'
-import { partById } from '../../state/partCatalogue'
+import { displayHasTouch } from '../../state/partCatalogue'
 import { useTransportDisplayTouchStore } from '../../state/transportDisplayTouchStore'
 import { DISPLAY_WIDGET_LIBRARY } from '../../state/displayRegistry'
 import { displayWidgetVisualState, resolveDisplayThemeTokens } from '../../state/displayTheme'
@@ -49,7 +49,7 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
   const surface = customDisplayWired ? null : (isTftSurface(live) ? live : null)
   const setTouch = useTransportDisplayTouchStore((state) => state.setTouch)
   const releaseTouch = useTransportDisplayTouchStore((state) => state.releaseTouch)
-  const touchCapable = Boolean(partById(String((props as Record<string, unknown> | undefined)?.partId ?? ''))?.display?.touchController)
+  const touchCapable = displayHasTouch(String((props as Record<string, unknown> | undefined)?.partId ?? ''))
   const fallbackSize = useMemo(() => tftRotatedSize(
     tftControllerForProps((props ?? {}) as Record<string, unknown>) ?? TFT_CONTROLLERS.ST7789,
     asTftRotation((props as Record<string, unknown> | undefined)?.tftRotation),

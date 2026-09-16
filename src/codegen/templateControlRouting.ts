@@ -2,7 +2,7 @@
 // IR and fixed/custom touch panels. Each template supplies its destinations
 // and runtime sources. Validation uses this same resolver as emission.
 import type { StudioNode, StudioEdge } from '../state/graphStore'
-import { partById } from '../state/partCatalogue'
+import { displayHasTouch } from '../state/partCatalogue'
 import { normalizeButtonEdgeSettings } from '../state/transportBridge'
 import { createControlGraph, controlReferenceCpp, type ControlReference } from './controlGraph'
 import { NODE_LIBRARY } from '../state/nodeLibrary'
@@ -121,7 +121,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
     if (source.data.nodeType === 'TouchInput') {
       const panel = byId.get(String(p.panelId ?? ''))
       const touchCapable = panel?.data.nodeType === 'TransportDisplay'
-        && Boolean(partById(String(panel.data.properties.partId ?? ''))?.display?.touchController)
+        && displayHasTouch(String(panel.data.properties.partId ?? ''))
       if (!panel || !touchCapable) {
         unsupported(edge.target, edge.targetHandle ?? 'Controls')
         return null

@@ -16,7 +16,7 @@ import {
   transportDisplayPinKeysForProps, tftTransportForProps,
 } from '../nodeLibrary'
 import { BOARD_GPIO_BY_FQBN, pinSupports, pinWarningForCapability } from '../boardGpio'
-import { partPinLabelForProperty } from '../partCatalogue'
+import { catalogueDisplays, displayHasTouch, partById as catPart, partPinLabelForProperty } from '../partCatalogue'
 
 const XC4630 = 'ili9341-xc4630-parallel-touch-320x240'
 const ST7789V = 'st7789v-xpt2046-touch-240x320'
@@ -128,5 +128,42 @@ describe('parallel pin labels', () => {
     expect(partPinLabelForProperty(XC4630, 'rdPin')).toBe('LCD_RD')
     expect(partPinLabelForProperty(XC4630, 'd0Pin')).toBe('LCD_D0')
     expect(partPinLabelForProperty(XC4630, 'd7Pin')).toBe('LCD_D7')
+  })
+})
+
+describe('a panel can have touch without naming a digitiser', () => {
+  it('reports touch for a bare sheet, which has no controller to name', () => {
+    // The whole point of the distinction: this board's `touchController` is
+    // honestly null, and a reader that asked only that treated it as having no
+    // touch at all - which is what stopped the hardware view pairing a Touch
+    // node with it and stopped the generator emitting the read.
+    expect(catPart(XC4630)?.display?.touchController).toBeNull()
+    expect(catPart(XC4630)?.display?.touchSurface).toBe('resistive-shared')
+    expect(displayHasTouch(XC4630)).toBe(true)
+  })
+
+  it('still reports touch for a panel that does name one', () => {
+    expect(catPart(ST7789V)?.display?.touchController).toBe('XPT2046')
+    expect(displayHasTouch(ST7789V)).toBe(true)
+  })
+
+  it('reports none for a panel with neither', () => {
+    expect(displayHasTouch('st7789-tft-240x240')).toBe(false)
+    expect(displayHasTouch('ssd1306-oled-128x64')).toBe(false)
+    expect(displayHasTouch('not-a-part')).toBe(false)
+  })
+
+  it('is the only way the question is asked', () => {
+    // Ten readers asked `display.touchController` directly and answered "no
+    // touch" for a controller-less sheet. Two may still ask the narrow
+    // question - the pin gate needs a digitiser before an SPI panel has a
+    // touch *header*, and the manifest records the controller's identity -
+    // and every other caller goes through the predicate.
+    const touched = catalogueDisplays().filter((entry) => displayHasTouch(entry.partId))
+    expect(touched.map((entry) => entry.partId).sort()).toEqual([
+      'ili9341-xc4630-parallel-touch-320x240',
+      'ili9341-xpt2046-touch-320x240',
+      'st7789v-xpt2046-touch-240x320',
+    ])
   })
 })

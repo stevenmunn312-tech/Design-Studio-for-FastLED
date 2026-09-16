@@ -15,7 +15,7 @@ import { withAssignedPins } from '../../state/pinRetarget'
 import { boardI2cDefault } from '../../build/boardI2cDefaults'
 import { sdSpiPinsForBoard } from '../../state/sdPinDefaults'
 import {
-  partById, partDimensionsMm, partPinLabelForProperty,
+  displayHasTouch, partById, partDimensionsMm, partPinLabelForProperty,
   partRenderSrc, ringDiameterMm,
 } from '../../state/partCatalogue'
 import { buttonBankHandle, normalizeButtonBankEntries } from '../../state/buttonBank'
@@ -1469,7 +1469,7 @@ export default function HardwarePane() {
      * between them is set here and never typed, since they are one part.
      */
     if (isHardwareManagedSignalNodeType(entry.nodeType)
-      && Boolean(partById(moduleId ?? '')?.display?.touchController)) {
+      && displayHasTouch(moduleId ?? '')) {
       const touchDefinition = NODE_LIBRARY.find((candidate) => candidate.type === 'TouchInput')
       if (touchDefinition) {
         addNode({

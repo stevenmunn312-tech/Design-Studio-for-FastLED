@@ -93,7 +93,7 @@ import { customDisplayAssetsCpp } from './customDisplayAssetsCpp'
 import {
   oledRotationCommands, asOledRotation, asOledAddress, OLED_CONTROLLERS,
 } from '../state/oledSurface'
-import { partById } from '../state/partCatalogue'
+import { displayHasTouch, partById } from '../state/partCatalogue'
 import { asDateTimeTextMode } from '../state/displayText'
 import { particleRadius } from '../state/particleScale'
 import { buildXYTable, rotatePoint, tileRotationAt } from '../state/xyLayout'
@@ -5374,8 +5374,7 @@ export function generateCpp(
         // A panel can read touch without naming a digitiser: a bare resistive
         // sheet has no controller at all, so asking only for one read this
         // board as having no touch and emitted the panel without its read.
-        const touchSpec = partById(String(p.partId ?? ''))?.display
-        const touchCapable = Boolean(touchSpec?.touchController || touchSpec?.touchSurface)
+        const touchCapable = displayHasTouch(String(p.partId ?? ''))
         const diagnosticTouch = layout === 'Diagnostics' && touchCapable
         const touchNode = touchCapable
           ? nodes.find((entry) => entry.data.nodeType === 'TouchInput'

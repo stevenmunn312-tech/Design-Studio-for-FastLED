@@ -162,6 +162,26 @@ export function isDisplayPart(partId: string): boolean {
   return partById(partId)?.display !== undefined
 }
 
+/**
+ * Whether a catalogued display can report a touch at all.
+ *
+ * Not the same question as which digitiser it uses. A bare resistive sheet has
+ * no controller to name - it is two layers wired across lines the LCD bus
+ * already owns - so `touchController` is honestly null on such a panel and
+ * every reader that asked only that read it as having no touch. That is one
+ * question with one answer, so it lives here rather than being spelled out at
+ * each of the ten places that ask it.
+ *
+ * Two callers deliberately still ask the narrower question: the pin gate, for
+ * which an SPI panel needs a digitiser before it has a touch *header* to wire,
+ * and the hardware manifest, which records the controller's identity and for
+ * which null is the truth.
+ */
+export function displayHasTouch(partId: string): boolean {
+  const display = partById(partId)?.display
+  return Boolean(display?.touchController || display?.touchSurface)
+}
+
 /** Every catalogued display, in catalogue order. */
 export function catalogueDisplays(): PartCatalogueEntry[] {
   return Object.values(PART_CATALOGUE).filter((entry) => entry.display !== undefined)

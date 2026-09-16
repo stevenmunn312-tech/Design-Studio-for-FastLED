@@ -43,7 +43,7 @@ import {
 } from './transportDisplay'
 import { TFT_CONTROLLERS, asTftRotation, tftLine, type TftController, type TftRotation, type TftSurface } from './tftSurface'
 import { touchRegionAt, transportTouchRegions, TRANSPORT_TOUCH_ACTION_TYPES, type TransportTouchAction } from './transportTouch'
-import { partById } from './partCatalogue'
+import { displayHasTouch, partById } from './partCatalogue'
 import {
   displayString, formatNumberText, normalizeNumberFormat,
   formatDateTimeText, asDateTimeTextMode, type DateTimeTextFields,
@@ -7615,7 +7615,7 @@ function createEvalNode(
         const panelEnabled = incoming.has(`${panelId}:enabled`)
           ? Boolean(input(panelId, 'enabled', true))
           : panelProps.enabled !== false
-        const touchCapable = Boolean(partById(String(panelProps.partId ?? ''))?.display?.touchController)
+        const touchCapable = displayHasTouch(String(panelProps.partId ?? ''))
         /*
          * A panel drawing a screen design has no fixed layout to sample.
          *
@@ -7718,7 +7718,7 @@ function createEvalNode(
         // The glass is read by the Touch node beside this one, not here: a
         // display is an output. What the panel still needs is whether a finger
         // is down, because its own Diagnostics screen draws that.
-        const touchCapable = Boolean(partById(String(props.partId ?? ''))?.display?.touchController)
+        const touchCapable = displayHasTouch(String(props.partId ?? ''))
         const { pressed, touch } = panelTouchPressed(id, enabled && touchCapable)
 
         /*

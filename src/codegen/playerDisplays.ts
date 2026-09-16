@@ -33,7 +33,7 @@ import {
 } from '../state/transportDisplay'
 import { asTftRotation, TFT_CONTROLLERS, type TftController, type TftRotation } from '../state/tftSurface'
 import { segmentModeForKind, segmentControllerFor, clampSegmentBrightness, type SegmentDisplayMode } from '../state/segmentDisplay'
-import { partById } from '../state/partCatalogue'
+import { displayHasTouch, partById } from '../state/partCatalogue'
 import { emittedTouchBounds } from '../state/transportTouch'
 import type { PlayerControlDestination } from '../state/playerControlAssignments'
 import { PLAYER_SONG_EXPRESSIONS } from './playerSongInfoCpp'
@@ -434,7 +434,7 @@ export function playerDisplaysFromGraph(
         sckPin: intProp(props.sckPin, 18),
         mosiPin: intProp(props.mosiPin, 23),
         backlightPin: intProp(props.backlightPin, 4),
-        touch: part?.display?.touchController
+        touch: displayHasTouch(part?.partId ?? '')
           && (diagnostics
             || options.controlTouchIds?.has(node.id)
             || (transportTouch && touchNode !== undefined
