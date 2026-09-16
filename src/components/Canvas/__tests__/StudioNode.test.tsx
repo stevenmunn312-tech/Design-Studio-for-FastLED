@@ -96,7 +96,7 @@ describe('StudioNode', () => {
       data: {
         ...touch.data,
         outputs: [
-          ...touch.data.outputs,
+          ...(touch.data.outputs as { id: string; label: string; dataType: string }[]),
           { id: 'widget:slider:out', label: 'Speed Output', dataType: 'float' },
           { id: 'widget:slider-2:out', label: 'Brightness Output', dataType: 'float' },
         ],
