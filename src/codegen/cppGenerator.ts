@@ -38,8 +38,8 @@ import {
   segmentDisplayLoopCpp, type SegmentDisplayEmit,
 } from './segmentDisplayCpp'
 import { clampSegmentBrightness, segmentControllerFor, segmentModeForKind } from '../state/segmentDisplay'
-import { MAX_PIN_NUMBER } from '../state/boardGpio'
-import { isPaletteBuilderNodeType, NODE_LIBRARY, oledControllerForProps, oledTransportForProps, tftControllerForProps, nodeDisplayLabel } from '../state/nodeLibrary'
+import { MAX_PIN_NUMBER, NO_PIN } from '../state/boardGpio'
+import { isPaletteBuilderNodeType, NODE_LIBRARY, oledControllerForProps, oledTransportForProps, tftControllerForProps, tftTransportForProps, transportDisplayPinKeysForProps, nodeDisplayLabel } from '../state/nodeLibrary'
 import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp, ledOutputManualExprs } from './ledOutputRuntimeCpp'
 import { LED_OUTPUT_ACTION_PORTS, LED_OUTPUT_RUNTIME_DEFAULT, ledOutputStatus } from '../state/ledOutputRuntime'
 import {
@@ -67,9 +67,10 @@ import {
 import {
   asTransportDisplayLayout, transportLayoutForKind, type TransportDisplayLayout,
 } from '../state/transportDisplay'
-import { asTftRotation, TFT_CONTROLLERS } from '../state/tftSurface'
+import { asTftRotation, TFT_CONTROLLERS, PARALLEL_TOUCH_ELECTRODES } from '../state/tftSurface'
 import {
-  TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit,
+  TFT_TOUCH_CPP_HELPERS, RESISTIVE_TOUCH_CPP_HELPERS,
+  tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit,
 } from './tftTouchCpp'
 import {
   CUSTOM_DISPLAY_LVGL_FORWARD, CUSTOM_DISPLAY_LVGL_HELPERS, CUSTOM_DISPLAY_LVGL_INCLUDE,
@@ -1735,10 +1736,29 @@ export function generateCpp(
    * `topoSort` is a DFS over a visited set, so a genuine feedback loop through
    * `enabled` orders arbitrarily rather than hanging.
    */
-  const sorted = topoSort(live, edges.filter((edge) => (
-    nodeMap.get(edge.target)?.data.nodeType !== 'TransportDisplay'
-      || !parseDisplayWidgetPortId(String(edge.targetHandle ?? ''))
-  )))
+  const sorted = topoSort(live, edges
+    .filter((edge) => (
+      nodeMap.get(edge.target)?.data.nodeType !== 'TransportDisplay'
+        || !parseDisplayWidgetPortId(String(edge.targetHandle ?? ''))
+    ))
+    /*
+     * A Touch node emits nothing of its own.
+     *
+     * The bundle its `controls` output names is declared inside the emit case
+     * of the *panel* it belongs to, because the pins are the panel's. Ordering
+     * a consumer after the Touch node therefore guarantees nothing: the panel
+     * can still land later, and the reader then names a variable that does not
+     * exist yet. Wiring a Touch node straight into an LED output's Controls is
+     * a supported shape, and it emitted exactly that until this rewrite - the
+     * existing fixtures all happened to route through a Control Map, whose own
+     * node does emit, which is why it went unnoticed.
+     */
+    .map((edge) => {
+      const source = nodeMap.get(String(edge.source ?? ''))
+      if (source?.data.nodeType !== 'TouchInput') return edge
+      const panelId = String((source.data.properties as Record<string, unknown>).panelId ?? '')
+      return nodeMap.has(panelId) ? { ...edge, source: panelId } : edge
+    }))
 
   /*
    * The node feeding the output used to fill its own `buf_` and then have the
@@ -5351,7 +5371,11 @@ export function generateCpp(
           : (kind ? transportLayoutForKind(kind, p.tftLayout) : null) ?? 'Waiting'
         const controller = tftControllerForProps(p) ?? TFT_CONTROLLERS.ST7789
         const rotation = asTftRotation(p.tftRotation)
-        const touchCapable = Boolean(partById(String(p.partId ?? ''))?.display?.touchController)
+        // A panel can read touch without naming a digitiser: a bare resistive
+        // sheet has no controller at all, so asking only for one read this
+        // board as having no touch and emitted the panel without its read.
+        const touchSpec = partById(String(p.partId ?? ''))?.display
+        const touchCapable = Boolean(touchSpec?.touchController || touchSpec?.touchSurface)
         const diagnosticTouch = layout === 'Diagnostics' && touchCapable
         const touchNode = touchCapable
           ? nodes.find((entry) => entry.data.nodeType === 'TouchInput'
@@ -5390,7 +5414,14 @@ export function generateCpp(
           resetPin: intProp(p.resetPin, 17, 0, MAX_PIN_NUMBER),
           sckPin: intProp(p.sckPin, 18, 0, MAX_PIN_NUMBER),
           mosiPin: intProp(p.mosiPin, 23, 0, MAX_PIN_NUMBER),
-          backlightPin: intProp(p.backlightPin, 4, 0, MAX_PIN_NUMBER),
+          // A line the fitted module does not have is not wired, whatever the
+          // property still holds from another module. The XC4630 has no BL pin
+          // at all, and emitting the stored default put its backlight on the
+          // same GPIO as a data line - a collision no pin check could see,
+          // because an ungated property is never claimed in the first place.
+          backlightPin: transportDisplayPinKeysForProps(p).includes('backlightPin')
+            ? intProp(p.backlightPin, 4, 0, MAX_PIN_NUMBER)
+            : NO_PIN,
           enabledExpr: incoming.get(`${node.id}:enabled`)
             ? boolExpr(node.id, 'enabled')
             : (p.enabled === false ? 'false' : 'true'),
@@ -5419,6 +5450,18 @@ export function generateCpp(
         // in a normal sketch renders as a black fill, so this generator can
         // never resolve that layout — the two template generators bake and
         // emit the pictures instead.
+        // Which bus this module speaks, and - for a bare sheet - which of its
+        // own lines the read borrows. Both come from the part rather than from
+        // anything the graph says, because they are facts about the module.
+        const tftTransport = tftTransportForProps(p)
+        if (tftTransport === 'parallel') {
+          emit.parallel = {
+            dataPins: Array.from({ length: 8 }, (_, bit) =>
+              intProp(p[`d${bit}Pin`], bit, 0, MAX_PIN_NUMBER)),
+            wrPin: intProp(p.wrPin, 33, 0, MAX_PIN_NUMBER),
+            rdPin: intProp(p.rdPin, 34, 0, MAX_PIN_NUMBER),
+          }
+        }
         tftDisplays.push(emit)
         if (diagnosticTouch || publishesControls || publishesDirectControls) {
           const touchProps = (touchNode?.data.properties ?? {}) as Record<string, unknown>
@@ -5439,6 +5482,18 @@ export function generateCpp(
               // span so the firmware's one linear map covers both directions.
               ...emittedTouchBounds(touchProps),
             },
+            // The electrode map names which panel property plays each role, so
+            // the four are read from the panel - they are its lines, borrowed.
+            ...(tftTransport === 'parallel'
+              ? {
+                resistive: {
+                  xpPin: intProp(p[PARALLEL_TOUCH_ELECTRODES.xp], 7, 0, MAX_PIN_NUMBER),
+                  xmPin: intProp(p[PARALLEL_TOUCH_ELECTRODES.xm], 9, 0, MAX_PIN_NUMBER),
+                  ypPin: intProp(p[PARALLEL_TOUCH_ELECTRODES.yp], 5, 0, MAX_PIN_NUMBER),
+                  ymPin: intProp(p[PARALLEL_TOUCH_ELECTRODES.ym], 8, 0, MAX_PIN_NUMBER),
+                },
+              }
+              : {}),
           }
           tftTouches.push(touch)
           setupLines.push(...tftTouchSetupCpp(touch))
@@ -7182,6 +7237,10 @@ export function generateCpp(
   const emitXptPointHelpersOnce = (): void => {
     if (xptPointHelpersEmitted) return
     lines.push(TFT_TOUCH_CPP_HELPERS)
+    // `_resPoint` calls `_touchMap`, which lives in the block above, so it is
+    // only ever appended after it - and only when a bare sheet is fitted,
+    // since an SPI-only build has no use for the analog reads.
+    if (tftTouches.some((touch) => touch.resistive)) lines.push(RESISTIVE_TOUCH_CPP_HELPERS)
     xptPointHelpersEmitted = true
   }
   if (tftDisplays.length > 0) {
