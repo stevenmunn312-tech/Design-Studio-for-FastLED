@@ -1,9 +1,10 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useGraphStore, useRootNodes } from '../../state/graphStore'
 import { boardHasUsbCdc, boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import { controllerSettings } from '../../state/controllerSettings'
 import { serialRouteSummary } from '../../state/serialRouting'
 import { estimatePowerLoad } from '../../utils/validateGraph'
+import BoardPinoutPicker from './BoardPinoutPicker'
 import ClampedNumberInput from './ClampedNumberInput'
 import {
   BOARD_PROFILE_FAMILIES,
@@ -38,6 +39,7 @@ export default function BoardNodeBody({ nodeId }: Props) {
   const selectedPort = useUploadStore((s) => s.selectedPort)
   const ports = useUploadStore((s) => s.ports)
   const graphNodes = useRootNodes()
+  const [pinoutPickerOpen, setPinoutPickerOpen] = useState(false)
 
   const profileId = useMemo(() => {
     const node = graphNodes.find((n) => n.id === nodeId)
@@ -124,6 +126,18 @@ export default function BoardNodeBody({ nodeId }: Props) {
         <button
           type="button"
           className={styles.eyeBtn}
+          onClick={() => setPinoutPickerOpen(true)}
+          disabled={familyBoards.length === 0}
+          title={familyBoards.length > 0
+            ? 'Compare the pinouts in this family and pick one'
+            : 'Choose a family first'}
+          aria-label="Compare board pinouts"
+        >
+          ⊞
+        </button>
+        <button
+          type="button"
+          className={styles.eyeBtn}
           onClick={() => profile && openPinout(profile.id)}
           disabled={!profile}
           title={profile ? `View the ${profile.label} pinout` : 'Choose a board first'}
@@ -132,6 +146,18 @@ export default function BoardNodeBody({ nodeId }: Props) {
           👁
         </button>
       </div>
+
+      {pinoutPickerOpen && (
+        <BoardPinoutPicker
+          profiles={familyBoards}
+          selectedId={profileId}
+          onPick={(id) => {
+            chooseBoard(id)
+            setPinoutPickerOpen(false)
+          }}
+          onClose={() => setPinoutPickerOpen(false)}
+        />
+      )}
 
       {!profile && (
         <p className={styles.empty}>

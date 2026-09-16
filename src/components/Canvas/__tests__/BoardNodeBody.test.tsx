@@ -70,6 +70,46 @@ describe('BoardNodeBody', () => {
     }
   })
 
+  /*
+   * The side-by-side pinout comparison, moved here when Build Diagram was
+   * reduced to reporting the board rather than choosing it. Derived from the
+   * family's own profiles rather than a board list, so adding a board doesn't
+   * fail this — it just has to draw.
+   */
+  it('compares every reviewed pinout in the chosen family and picks one', () => {
+    render(<BoardNodeBody nodeId="b1" />)
+    const compare = screen.getByLabelText('Compare board pinouts') as HTMLButtonElement
+    // Nothing to compare until a family narrows the field.
+    expect(compare.disabled).toBe(true)
+
+    fireEvent.change(screen.getByLabelText('Board family'), { target: { value: 'esp32-s3' } })
+    fireEvent.click(screen.getByLabelText('Compare board pinouts'))
+    expect(screen.getByRole('dialog', { name: 'Choose your board' })).toBeTruthy()
+
+    const family = boardProfilesForFamily('esp32-s3')
+    expect(family.length).toBeGreaterThan(1)
+    for (const profile of family) {
+      expect(screen.getByRole('img', { name: `${profile.label} pinout` }), profile.id).toBeTruthy()
+    }
+    // Every profile stores its rails USB-down, so no preview rotates.
+    for (const preview of document.querySelectorAll('svg[aria-label$=" pinout"]')) {
+      expect(preview.querySelector('[data-board-usb="bottom"]')?.getAttribute('y')).toBe('370')
+    }
+
+    const devKit = screen.getByRole('img', { name: 'Espressif ESP32-S3-DevKitC-1 pinout' })
+    expect(devKit.querySelector('[data-pin-id="j1-4"]')?.getAttribute('data-pin-side')).toBe('left')
+    expect(devKit.querySelectorAll('[data-board-usb="bottom"]')).toHaveLength(2)
+    expect(devKit.textContent).toContain('USB_D+ / GPIO20')
+
+    // Changing family already selected its first board, so pick a different
+    // one — otherwise the assertion would pass without the picker doing a thing.
+    const board = screen.getByLabelText('Controller board') as HTMLSelectElement
+    const other = family.find((profile) => profile.id !== board.value)!
+    fireEvent.click(screen.getByText(other.label, { selector: 'strong' }))
+    expect(screen.queryByRole('dialog', { name: 'Choose your board' })).toBeNull()
+    expect((screen.getByLabelText('Controller board') as HTMLSelectElement).value).toBe(other.id)
+  })
+
   it('filters the board selector to the chosen family', () => {
     render(<BoardNodeBody nodeId="b1" />)
 
