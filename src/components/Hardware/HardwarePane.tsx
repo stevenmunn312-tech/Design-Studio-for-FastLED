@@ -5,7 +5,8 @@ import amplifierRender from '../../assets/components/max98357a-i2s-amplifier.web
 import { useGraphStore, useRootEdges, useRootNodes, type StudioNode } from '../../state/graphStore'
 import { usePreviewStore } from '../../state/previewStore'
 import { useUiStore } from '../../state/uiStore'
-import { CATEGORY_COLOR, NODE_LIBRARY, transportDisplayPinKeysForProps } from '../../state/nodeLibrary'
+import { CATEGORY_COLOR, NODE_LIBRARY, gpioRequirementForProperty, transportDisplayPinKeysForProps } from '../../state/nodeLibrary'
+import { PART_FIELDS } from '../../state/partFields'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { nextFreeLedDataPin } from '../../state/ledPinAssignment'
 import { assignPartPins, type PartPinRequest } from '../../state/partPinAssignment'
@@ -172,13 +173,10 @@ interface FixturePartEntry {
  * and leave the one it does unassigned, so the request follows the chosen
  * module rather than the node type.
  */
-const MODULE_PIN_LABELS: Record<string, string> = {
-  clkPin: 'CLK', dioPin: 'DIO', dinPin: 'DIN', csPin: 'CS',
-  dcPin: 'DC', resetPin: 'RESET', sckPin: 'SCK', mosiPin: 'MOSI',
-  misoPin: 'MISO', backlightPin: 'BACKLIGHT', sdaPin: 'SDA', sclPin: 'SCL',
-  touchCsPin: 'T_CS', touchIrqPin: 'T_IRQ', touchSckPin: 'T_CLK',
-  touchMosiPin: 'T_DIN', touchMisoPin: 'T_DO',
-}
+const MODULE_PIN_LABELS: Record<string, string> = Object.fromEntries(
+  Object.values(PART_FIELDS).flatMap((fields) =>
+    fields.filter((field) => field.kind === 'pin').map((field) => [field.key, field.label])),
+)
 
 function modulePinKeys(nodeType: string, moduleId: string | undefined): readonly string[] | null {
   const entry = partById(String(moduleId ?? ''))
@@ -189,6 +187,16 @@ function modulePinKeys(nodeType: string, moduleId: string | undefined): readonly
   if (nodeType === 'TransportDisplay') return transportDisplayPinKeysForProps({ partId: moduleId })
   if (nodeType !== 'SegmentDisplay') return null
   return segmentControllerFor(entry?.display?.controller).pins
+}
+
+function fixturePinRequests(nodeType: string, moduleId: string | undefined): readonly PartPinRequest[] | undefined {
+  const keys = modulePinKeys(nodeType, moduleId)
+  if (!keys) return undefined
+  const properties = { partId: moduleId }
+  return keys.map((key) => {
+    const capability = gpioRequirementForProperty(nodeType, key, properties)?.capability
+    return capability ? { key, capability } : { key }
+  })
 }
 
 const FIXTURE_PARTS: readonly FixturePartEntry[] = [
@@ -1400,14 +1408,14 @@ export default function HardwarePane() {
     // A part the board profile does not place picks free GPIO the same way an
     // input part does, so a second display lands on its own pins rather than
     // silently colliding with the first.
-    const moduleKeys = modulePinKeys(entry.nodeType, moduleId)
-    const pinRequests = moduleKeys
-      ? moduleKeys.map((key) => ({ key }))
-      : entry.pinRequests
+    const pinRequests = fixturePinRequests(entry.nodeType, moduleId) ?? entry.pinRequests
     const requested = pinRequests?.length
       ? assignPartPins(boardProfile, selectedFqbn, nodes, pinRequests)
       : null
-    if (requested && !requested.ok) return
+    if (requested && !requested.ok) {
+      setStatus(requested.reason, 'error')
+      return
+    }
     const profilePins = sdSpiPins
       ? {
           sdCsPin: sdSpiPins.cs,
@@ -1586,17 +1594,24 @@ export default function HardwarePane() {
   ): HardwareShelfItem[] => {
     if (!fixture) return []
     const blocked = Boolean(fixture.singleton && hasPartOfType(fixture.nodeType))
-    return partOptionsFor(nodeType).map((option) => ({
-      key: `${nodeType}:${option.id}`,
-      nodeType,
-      label: option.label,
-      hint: option.summary ?? fixture.hint,
-      renderSrc: partRenderSrc(option.id),
-      visual: option.id,
-      disabled: blocked,
-      disabledReason: blocked ? `One ${fixture.label.toLowerCase()} per board` : null,
-      onSelect: () => addFixturePart(fixture, option.id),
-    }))
+    return partOptionsFor(nodeType).map((option) => {
+      const pinRequests = fixturePinRequests(nodeType, option.id) ?? fixture.pinRequests
+      const assigned = !blocked && pinRequests?.length
+        ? assignPartPins(boardProfile, selectedFqbn, nodes, pinRequests)
+        : { ok: true as const }
+      const pinBlocked = assigned.ok ? null : assigned.reason
+      return {
+        key: `${nodeType}:${option.id}`,
+        nodeType,
+        label: option.label,
+        hint: option.summary ?? fixture.hint,
+        renderSrc: partRenderSrc(option.id),
+        visual: option.id,
+        disabled: blocked || pinBlocked !== null,
+        disabledReason: blocked ? `One ${fixture.label.toLowerCase()} per board` : pinBlocked,
+        onSelect: () => addFixturePart(fixture, option.id),
+      }
+    })
   }
 
   const sdCardFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'SDCard')

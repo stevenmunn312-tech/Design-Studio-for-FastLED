@@ -6,7 +6,7 @@ import { HARDWARE_SHELF_HOST_ID } from '../HardwarePartsShelf'
 import { ROOT_GRAPH_ID, rootGraphNodes, useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/uploadStore'
-import { NODE_LIBRARY } from '../../../state/nodeLibrary'
+import { NODE_LIBRARY, gpioRequirementForProperty, transportDisplayPinKeysForProps } from '../../../state/nodeLibrary'
 import { DEFAULT_BOARD_PROFILE_ID, ROOT_BOARD_NODE_ID } from '../../../state/hardware'
 
 class ResizeObserverStub {
@@ -54,12 +54,9 @@ function addPart(category: string, label: string) {
 // (distinguished by summary), and SSD1306/SH1106 (I2C) now both summarise as
 // "128x64 white OLED over I2C" (distinguished by label). Matching on both
 // finds the one button that has each.
-function addDisplay(label: string, summary: string) {
+function addDisplay(label: string) {
   openShelfCategory('Displays')
-  const button = screen.getAllByText(summary)
-    .map((el) => el.closest('button')!)
-    .find((candidate) => within(candidate).queryByText(label))
-  fireEvent.click(button!)
+  fireEvent.click(screen.getByRole('button', { name: `Add ${label}` }))
 }
 
 describe('HardwarePane', () => {
@@ -125,13 +122,44 @@ describe('HardwarePane', () => {
     expect(within(document.body).getByText('SDA 21 · SCL 22')).toBeTruthy()
   })
 
+  it('adds the XC4630 with every parallel line assigned so the Build Diagram can draw it', () => {
+    render(<HardwarePane />)
+    addDisplay('XC4630 2.8-inch shield + touch')
+
+    const panel = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'TransportDisplay')
+    expect(panel, 'the shelf click must actually place the shield').toBeTruthy()
+    const keys = transportDisplayPinKeysForProps(panel!.data.properties as Record<string, unknown>)
+    expect(keys.length).toBe(13)
+    for (const key of keys) {
+      expect(Number.isFinite(Number(panel!.data.properties[key])), `${key} was not assigned`).toBe(true)
+    }
+    // The four touch electrodes have to sit on ADC pins. Digital-first
+    // assignment spent those on strobes and then refused the shield.
+    for (const key of ['csPin', 'dcPin', 'd0Pin', 'd1Pin']) {
+      expect(gpioRequirementForProperty('TransportDisplay', key, panel!.data.properties)?.capability)
+        .toBe('analogInput')
+    }
+  })
+
+  it('does not offer the XC4630 on a board that cannot spare thirteen GPIOs', () => {
+    useGraphStore.setState({
+      nodes: [node('Board', ROOT_BOARD_NODE_ID, { profileId: 'esp32-2432s028r' }) as never],
+    })
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32' })
+    render(<HardwarePane />)
+    openShelfCategory('Displays')
+    const button = screen.getByRole('button', { name: 'Add XC4630 2.8-inch shield + touch' })
+    expect((button as HTMLButtonElement).disabled).toBe(true)
+    expect((button as HTMLButtonElement).title).toMatch(/No free (GPIO|analog-capable pin)/i)
+  })
+
   it('adds a touch panel together with the glass in front of it', () => {
     render(<HardwarePane />)
 
     // No "Screen design" entry on a shelf of physical parts: a screen is drawn
     // on a panel. What a touch module does bring is a second node, because the
     // digitiser is a second chip.
-    addDisplay('ST7789V 2.4-inch + touch', '240x320 colour TFT with XPT2046 touch')
+    addDisplay('ST7789V 2.4-inch + touch')
 
     const state = useGraphStore.getState()
     const panel = state.nodes.find((entry) => entry.data.nodeType === 'TransportDisplay')
@@ -149,14 +177,15 @@ describe('HardwarePane', () => {
     ['InfoDisplay', 'SSD1306 0.96-inch (4-pin)', '128x64 white OLED over I2C', 'ssd1306-oled-096-128x64-i2c'],
     ['InfoDisplay', 'SSD1306 0.96-inch (Adafruit)', '128x64 white OLED over I2C', 'ssd1306-oled-128x64'],
     ['TransportDisplay', 'ST7789 1.54-inch', '240x240 colour TFT over SPI', 'st7789-tft-240x240'],
+    ['TransportDisplay', 'XC4630 2.8-inch shield + touch', '320x240 ILI9341 over an 8-bit parallel bus', 'ili9341-xc4630-parallel-touch-320x240'],
     ['TransportDisplay', 'ST7789V 2.4-inch + touch', '240x320 colour TFT with XPT2046 touch', 'st7789v-xpt2046-touch-240x320'],
     // Display is deliberately not a row here: it selects no catalogued
     // module of its own since the panel/document split, so it has no "exact
     // module chosen" to assert. Covered by the dedicated test above instead.
-  ])('adds %s as the exact catalogued module chosen in the display menu', (nodeType, label, summary, partId) => {
+  ])('adds %s as the exact catalogued module chosen in the display menu', (nodeType, label, _summary, partId) => {
     render(<HardwarePane />)
 
-    addDisplay(label, summary)
+    addDisplay(label)
 
     const display = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === nodeType)
     expect(display?.data.properties.partId).toBe(partId)
@@ -180,8 +209,8 @@ describe('HardwarePane', () => {
     })
     render(<HardwarePane />)
 
-    addDisplay('TM1637 4-digit', 'Two-wire 7-segment with a colon')
-    addDisplay('TM1637 4-digit', 'Two-wire 7-segment with a colon')
+    addDisplay('TM1637 4-digit')
+    addDisplay('TM1637 4-digit')
 
     const state = useGraphStore.getState()
     const displays = rootGraphNodes(state).filter((entry) => entry.data.nodeType === 'SegmentDisplay')

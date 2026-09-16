@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { buildHardwareManifest } from '../hardwareManifest'
-import { NODE_LIBRARY } from '../../state/nodeLibrary'
+import { NODE_LIBRARY, transportDisplayPinKeysForProps } from '../../state/nodeLibrary'
 import { isHardwareNodeType } from '../../state/hardware'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
+import { TFT_TRANSPORT_PINS } from '../../state/tftSurface'
+import { partPinLabelForProperty } from '../../state/partCatalogue'
+import { partOptionsFor } from '../../state/partOptions'
 import type { StudioNode } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, props: Record<string, unknown> = {}): StudioNode {
@@ -97,6 +100,44 @@ describe('the Build Diagram draws every part on the bench', () => {
       'touchCsPin', 'touchIrqPin', 'touchMisoPin', 'touchMosiPin', 'touchSckPin',
     ])
     expect(tft.supported).toBe(true)
+  })
+
+  it.each(partOptionsFor('TransportDisplay').map((option) => [option.id, option.label] as const))(
+    'keeps %s (%s) on the diagram as a complete part',
+    (partId) => {
+      // Completeness used to read as "every SPI key produced a pin use". A
+      // parallel shield then dropped out of primaryItems and the sheet drew
+      // nothing, even though every line it actually has was assigned.
+      const tft = buildHardwareManifest(
+        [node('tft', 'TransportDisplay', { partId })], [], FQBN,
+      )
+      const item = tft.items.find((entry) => entry.sourceNodeId === 'tft')!
+      const keys = transportDisplayPinKeysForProps({ partId })
+
+      expect(item.kind).toBe('transport-display')
+      expect(item.supported, item.reasons?.join('; ')).toBe(true)
+      expect(tft.primaryItems.some((entry) => entry.sourceNodeId === 'tft')).toBe(true)
+      expect(item.pins.map((pin) => pin.propertyKey)).toEqual(keys)
+      const labels = Object.fromEntries(item.pins.map((pin) => [pin.propertyKey, pin.label]))
+      for (const key of keys) {
+        const printed = partPinLabelForProperty(partId, key)
+        expect(printed, `${key} has no silkscreen name`).not.toBeNull()
+        expect(labels[key], `${key} fell through to an SPI-only label map`).not.toMatch(/undefined/)
+        expect(labels[key], key).toMatch(new RegExp(` ${printed}$`))
+      }
+    },
+  )
+
+  it('does not describe a parallel panel as an incomplete SPI module', () => {
+    const partId = 'ili9341-xc4630-parallel-touch-320x240'
+    const tft = buildHardwareManifest(
+      [node('tft', 'TransportDisplay', { partId, wrPin: undefined })], [], FQBN,
+    )
+    const item = tft.items.find((entry) => entry.sourceNodeId === 'tft')!
+    expect(item.supported).toBe(false)
+    expect(item.reasons?.join(' ')).not.toMatch(/SPI/)
+    expect(item.reasons?.join(' ')).toMatch(/parallel/i)
+    expect(TFT_TRANSPORT_PINS.parallel).toContain('wrPin')
   })
 
   it('uses the square colour display silkscreen names throughout the manifest', () => {

@@ -100,7 +100,17 @@ export function assignPartPins(
     : (BOARD_GPIO_BY_FQBN[fqbn]?.recommended ?? []).map((note) => note.pin)
 
   const pins: Record<string, number> = {}
-  for (const request of requests) {
+  // Analog is the stricter capability: every analog-capable pin can also drive
+  // a digital line, but not the reverse. Assigning digital first on a mixed
+  // part (the XC4630's four touch electrodes plus nine strobes) lets the
+  // strobes eat the ADC pins and then reports "no analog pin" on a board that
+  // still had four. Analog first is the same order `assignPartPins` already
+  // uses within a capability — clean, then warned — one level up.
+  const ordered = [...requests].sort((left, right) => (
+    Number(left.capability === 'analogInput' ? 0 : 1)
+    - Number(right.capability === 'analogInput' ? 0 : 1)
+  ))
+  for (const request of ordered) {
     // A caveat is role-specific. ADC2 is a poor automatic choice for an
     // analog input while Wi-Fi is active, but it is an ordinary GPIO for I2S,
     // SPI, and LED data. Keep applicable caveats last without penalising a

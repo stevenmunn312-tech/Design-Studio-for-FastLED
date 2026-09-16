@@ -92,6 +92,24 @@ describe('assignPartPins', () => {
       expect(result).toEqual({ ok: false, reason: 'No free analog-capable pin on this board' })
     })
 
+    it('assigns analog lines before digital ones so a mixed part still finds ADCs', () => {
+      // Four analog electrodes and two strobes, six analog-capable pins and
+      // two digital-only. Digital-first would spend four ADCs on strobes and
+      // then refuse the electrodes on a board that still had four ADCs.
+      const result = assignPartPins(profile([21, 33, 7, 8, 9, 10]), ESP32_S3, [], [
+        { key: 'wrPin' }, { key: 'rdPin' },
+        { key: 'csPin', capability: 'analogInput' },
+        { key: 'dcPin', capability: 'analogInput' },
+        { key: 'd0Pin', capability: 'analogInput' },
+        { key: 'd1Pin', capability: 'analogInput' },
+      ])
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(new Set([result.pins.csPin, result.pins.dcPin, result.pins.d0Pin, result.pins.d1Pin]))
+        .toEqual(new Set([7, 8, 9, 10]))
+      expect(new Set([result.pins.wrPin, result.pins.rdPin])).toEqual(new Set([21, 33]))
+    })
+
     it('never assumes an unlisted pin has an ADC', () => {
       // 99 is not in any table. Digital is a safe assumption on an exposed pin;
       // an ADC is not, and guessing wrong is the silent failure.

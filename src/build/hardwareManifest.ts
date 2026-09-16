@@ -6,6 +6,7 @@ import {
   libraryDefaults,
   oledTransportForProps,
   pinPropertyIsUnwired,
+  tftTransportForProps,
   transportDisplayPinKeysForProps,
   type GpioPropertyRequirement,
 } from '../state/nodeLibrary'
@@ -23,6 +24,7 @@ import { segmentControllerFor } from '../state/segmentDisplay'
 import { OLED_TRANSPORT_PINS, asOledAddress, oledAddressLabel } from '../state/oledSurface'
 import { isHardwareNodeType } from '../state/hardware'
 import { partById, partPinLabelForProperty } from '../state/partCatalogue'
+import { PART_FIELDS } from '../state/partFields'
 import type { BusAssignment } from '../state/busTopology'
 import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
 import { resolvePartIdentity } from '../state/partOptions'
@@ -117,6 +119,17 @@ const BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS = new Set([
 
 function nodeLabel(node: StudioNode): string {
   return String(node.data.label ?? node.data.nodeType)
+}
+
+/**
+ * Silkscreen first, then the hardware field's own name, then the property key.
+ * A hand-listed SPI map left parallel lines unlabelled (`undefined` on the
+ * wire) the moment a second transport arrived.
+ */
+function pinPropertyLabel(partId: string, nodeType: string, key: string): string {
+  return partPinLabelForProperty(partId, key)
+    ?? PART_FIELDS[nodeType]?.find((field) => field.key === key)?.label
+    ?? key
 }
 
 function matrixOutputLabel(node: StudioNode, ordinal: number, count: number): string {
@@ -238,14 +251,8 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
       // item in either switch below either, for the same reason.
       case 'TransportDisplay': {
         const partId = String(props.partId ?? 'st7789-tft-240x240')
-        const labels: Record<string, string> = {
-          sckPin: 'SCK', mosiPin: 'MOSI', misoPin: 'MISO', csPin: 'CS', dcPin: 'DC',
-          resetPin: 'RESET', backlightPin: 'BACKLIGHT', touchCsPin: 'TOUCH CS',
-          touchIrqPin: 'TOUCH IRQ', touchSckPin: 'TOUCH SCK',
-          touchMosiPin: 'TOUCH MOSI', touchMisoPin: 'TOUCH MISO',
-        }
         for (const key of transportDisplayPinKeysForProps(props)) {
-          const label = partPinLabelForProperty(partId, key) ?? labels[key]
+          const label = pinPropertyLabel(partId, 'TransportDisplay', key)
           push(node, `${baseLabel} ${label}`, key, props[key])
         }
         break
@@ -658,6 +665,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const keys = transportDisplayPinKeysForProps(props)
           .filter((key) => !pinPropertyIsUnwired('TransportDisplay', key, props[key]))
         const complete = keys.every((key) => pins.some((pin) => pin.propertyKey === key))
+        const bus = tftTransportForProps(props) === 'parallel' ? 'parallel' : 'SPI'
         return {
           ...buildPeripheralItem(node, 'transport-display', `${entry?.label ?? 'Colour TFT'} display`, pins),
           supported: complete,
@@ -670,7 +678,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           },
           reasons: complete
             ? undefined
-            : ['This colour display does not have its complete SPI pin set configured.'],
+            : [`This colour display does not have its complete ${bus} pin set configured.`],
         }
       }
       case 'SDCard': {
