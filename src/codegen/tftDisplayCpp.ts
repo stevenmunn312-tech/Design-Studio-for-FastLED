@@ -274,6 +274,17 @@ struct TftPanel {
   uint8_t cs, dc, rst, sck, mosi;
   // Backlight. 255 means the module ties it high and there is nothing to drive.
   uint8_t bl;
+  // Which bus this panel speaks. The same controller ships on both: an ILI9341
+  // is an ILI9341 whether its bytes arrive down one data line or eight, so the
+  // command set, windowing and every layout above are shared and only the three
+  // bus primitives below branch.
+  bool parallel;
+  // 8-bit parallel only. Data lines least-significant first, then the write
+  // strobe the controller latches on, then the read strobe. RD is never
+  // pulsed - nothing here reads the panel - but it is held high so the panel
+  // does not drive the bus back while we are writing it.
+  uint8_t d[8];
+  uint8_t wr, rd;
   // Visible size as mounted, so a rotated panel is not a special case here.
   int16_t w, h;
   // Where the visible window starts in controller RAM at this rotation. Zero
@@ -293,24 +304,51 @@ struct TftPanel {
 
 // ── Bus ─────────────────────────────────────────────────────────────────────
 
+/*
+ * Every write below is the same shape whichever bus is fitted: open, put a
+ * command byte out with DC low, put data bytes out with DC high, close. Only
+ * these three know which transport is underneath, which is why the command,
+ * command+data, colour-run and artwork writers that follow are identical for
+ * an SPI breakout and a parallel shield.
+ */
+
+static inline void _tftTxnBegin(TftPanel &p) {
+  // A parallel bus has no transaction to open: CS alone selects the panel, and
+  // its data lines belong to it for the whole build.
+  if (!p.parallel) SPI.beginTransaction(_tftSpi);
+}
+
+static inline void _tftTxnEnd(TftPanel &p) {
+  if (!p.parallel) SPI.endTransaction();
+}
+
+static inline void _tftWrite8(TftPanel &p, uint8_t value) {
+  if (!p.parallel) { SPI.transfer(value); return; }
+  // Eight lines, then a low-going strobe: the controller latches the byte on
+  // WR's rising edge, so the pulse has to close before the next byte is set up.
+  for (uint8_t b = 0; b < 8; b++) digitalWrite(p.d[b], (value >> b) & 1);
+  digitalWrite(p.wr, LOW);
+  digitalWrite(p.wr, HIGH);
+}
+
 static void _tftCommand(TftPanel &p, uint8_t value) {
-  SPI.beginTransaction(_tftSpi);
+  _tftTxnBegin(p);
   digitalWrite(p.dc, LOW);
   digitalWrite(p.cs, LOW);
-  SPI.transfer(value);
+  _tftWrite8(p, value);
   digitalWrite(p.cs, HIGH);
-  SPI.endTransaction();
+  _tftTxnEnd(p);
 }
 
 static void _tftCommandData(TftPanel &p, uint8_t command, const uint8_t *data, uint8_t count) {
-  SPI.beginTransaction(_tftSpi);
+  _tftTxnBegin(p);
   digitalWrite(p.dc, LOW);
   digitalWrite(p.cs, LOW);
-  SPI.transfer(command);
+  _tftWrite8(p, command);
   digitalWrite(p.dc, HIGH);
-  for (uint8_t i = 0; i < count; i++) SPI.transfer(data[i]);
+  for (uint8_t i = 0; i < count; i++) _tftWrite8(p, data[i]);
   digitalWrite(p.cs, HIGH);
-  SPI.endTransaction();
+  _tftTxnEnd(p);
 }
 
 // Address the rectangle about to be written. The column and row offsets are
@@ -333,14 +371,14 @@ static void _tftWindow(TftPanel &p, int x, int y, int w, int h) {
 static void _tftRun(TftPanel &p, uint16_t color, uint32_t count) {
   uint8_t hi = (uint8_t)(color >> 8);
   uint8_t lo = (uint8_t)(color & 0xFF);
-  SPI.beginTransaction(_tftSpi);
+  _tftTxnBegin(p);
   digitalWrite(p.dc, LOW);
   digitalWrite(p.cs, LOW);
-  SPI.transfer(TFT_RAMWR);
+  _tftWrite8(p, TFT_RAMWR);
   digitalWrite(p.dc, HIGH);
-  while (count--) { SPI.transfer(hi); SPI.transfer(lo); }
+  while (count--) { _tftWrite8(p, hi); _tftWrite8(p, lo); }
   digitalWrite(p.cs, HIGH);
-  SPI.endTransaction();
+  _tftTxnEnd(p);
 }
 
 static void _tftFillRect(TftPanel &p, int x, int y, int w, int h, uint16_t color) {
@@ -371,11 +409,21 @@ static void _tftBacklight(TftPanel &p, bool on) {
   digitalWrite(p.bl, on ? HIGH : LOW);
 }
 
+/*
+ * dataPins is what selects the transport: null for an SPI panel, an array of
+ * eight for a parallel one. Defaulted so every existing SPI caller is unchanged
+ * - a panel that says nothing about eight data lines does not have them.
+ */
 static void _tftBegin(TftPanel &p, uint8_t cs, uint8_t dc, uint8_t rst, uint8_t sck,
                       uint8_t mosi, uint8_t bl, int16_t w, int16_t h,
                       uint16_t colStart, uint16_t rowStart, uint8_t madctl,
-                      bool invert, uint16_t background) {
+                      bool invert, uint16_t background,
+                      const uint8_t *dataPins = nullptr,
+                      uint8_t wr = 255, uint8_t rd = 255) {
   p.cs = cs; p.dc = dc; p.rst = rst; p.sck = sck; p.mosi = mosi; p.bl = bl;
+  p.parallel = (dataPins != nullptr);
+  p.wr = wr; p.rd = rd;
+  for (uint8_t b = 0; b < 8; b++) p.d[b] = p.parallel ? dataPins[b] : 255;
   p.w = w; p.h = h; p.colStart = colStart; p.rowStart = rowStart;
   p.madctl = madctl;
   p.lit = false; p.painted = false;
@@ -388,7 +436,17 @@ static void _tftBegin(TftPanel &p, uint8_t cs, uint8_t dc, uint8_t rst, uint8_t 
   if (rst != 255) pinMode(rst, OUTPUT);
   if (bl != 255) { pinMode(bl, OUTPUT); digitalWrite(bl, LOW); }
 
-  if (!_tftSpiStarted) {
+  if (p.parallel) {
+    // The eight data lines idle low and WR idles high, so the first strobe of
+    // the first byte is a real edge rather than a level the panel was already
+    // sitting at.
+    for (uint8_t b = 0; b < 8; b++) { pinMode(p.d[b], OUTPUT); digitalWrite(p.d[b], LOW); }
+    pinMode(p.wr, OUTPUT); digitalWrite(p.wr, HIGH);
+    // RD is never pulsed here - nothing reads the panel - but it has to be
+    // driven high and left there. Floating or low, the controller drives the
+    // data lines back at us and every write collides with its output.
+    if (p.rd != 255) { pinMode(p.rd, OUTPUT); digitalWrite(p.rd, HIGH); }
+  } else if (!_tftSpiStarted) {
 #if defined(ESP32)
     // The GPIO matrix routes the peripheral to whichever pins the build chose,
     // so an arbitrary pinout still gets hardware SPI. There is no MISO and no
@@ -610,14 +668,14 @@ static void _tftTime(char *dst, size_t dstSize, float seconds) {
 static void _tftArt(TftPanel &p, int x, int y, int w, int h, const uint8_t *data) {
   _tftWindow(p, x, y, w, h);
   uint32_t count = (uint32_t)w * (uint32_t)h * 2;
-  SPI.beginTransaction(_tftSpi);
+  _tftTxnBegin(p);
   digitalWrite(p.dc, LOW);
   digitalWrite(p.cs, LOW);
-  SPI.transfer(TFT_RAMWR);
+  _tftWrite8(p, TFT_RAMWR);
   digitalWrite(p.dc, HIGH);
-  for (uint32_t i = 0; i < count; i++) SPI.transfer(pgm_read_byte(&data[i]));
+  for (uint32_t i = 0; i < count; i++) _tftWrite8(p, pgm_read_byte(&data[i]));
   digitalWrite(p.cs, HIGH);
-  SPI.endTransaction();
+  _tftTxnEnd(p);
 }
 `
 }
