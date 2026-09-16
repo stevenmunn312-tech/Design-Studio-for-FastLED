@@ -9,8 +9,9 @@ import styles from './WorkspaceTabs.module.css'
  * See docs/development/design/workspace-tabs.md. The order tells the build
  * story in the sequence it is actually done — name the hardware, write the
  * effect, flash it, then take the wiring diagram to the bench, which is the
- * other three's output. The store lands a session on Graph, because that is
- * where the hours go.
+ * other three's output. A session with anything in it lands on Graph, because
+ * that is where the hours go; a blank one lands on Hardware, where choosing a
+ * board is the only work available.
  */
 const TABS: { mode: WorkspaceMode; label: string }[] = [
   { mode: 'hardware', label: 'Hardware' },

@@ -47,8 +47,16 @@ Four workspaces, each taking the whole canvas, selected by a tab strip:
 above reads as the sequence the work is actually done in — name the hardware,
 write the effect, flash it, then take the wiring diagram to the bench. Build
 Diagram sits last because it is the output of the other three, consulted at
-the soldering iron rather than while authoring. The landing workspace on open
-is nevertheless **Graph**, because that is where the hours go.
+the soldering iron rather than while authoring.
+
+The landing workspace is **Graph** for a project with anything in it, because
+that is where the hours go, and **Hardware** for a blank one, because choosing
+a board is the only work a blank project offers — a blank Graph canvas asks
+for wiring against hardware nobody has named. `landOnStartingWorkspace` in
+`src/utils/startFlow.ts` owns that rule; the three moments a workspace is
+installed (boot, File ▸ New Project, Start with a blank canvas) call it.
+Emptiness is counted without the Board node, since every root graph carries
+one whether or not a board was chosen.
 
 The status bar stays put beneath all four. That is what makes tabs safe rather
 than a way to hide problems: graph health, pin state, module count, board and

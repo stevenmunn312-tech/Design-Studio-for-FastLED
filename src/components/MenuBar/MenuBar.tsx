@@ -27,6 +27,7 @@ import {
   suggestProjectFileName,
 } from '../../utils/projectFileIO'
 import { saveProjectWithFallbacks } from '../../utils/projectDialogs'
+import { landOnStartingWorkspace } from '../../utils/startFlow'
 import { runTidy } from '../../utils/tidyGraph'
 import { buildShareUrl } from '../../utils/shareGraph'
 import { openCommunityTab, postToCommunityTab, suggestPatternFileName } from '../../utils/communityUpload'
@@ -444,6 +445,7 @@ export default function MenuBar() {
     const project = useProjectStore.getState().createProject(defaultName, blankWorkspace())
     useGraphStore.getState().loadGraph([], [])
     useGraphStore.temporal.getState().clear()
+    landOnStartingWorkspace()
     setStatus(`Created project "${project.name}"`, 'success')
   }
 

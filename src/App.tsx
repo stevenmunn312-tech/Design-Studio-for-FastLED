@@ -22,6 +22,7 @@ import { readSharedWorkspace, clearShareHash } from './utils/shareGraph'
 import { pushSnapshot } from './state/snapshotHistory'
 import { blankWorkspace, captureWorkspace } from './state/workspacePersistence'
 import { nextDefaultProjectName } from './utils/projectFileIO'
+import { landOnStartingWorkspace } from './utils/startFlow'
 import { promptTrustIfNeeded } from './utils/trustPrompt'
 import TrustBanner from './components/TrustBanner/TrustBanner'
 import GraphHealthDrawer from './components/GraphHealth/GraphHealthDrawer'
@@ -212,6 +213,7 @@ export default function App() {
         )
       if (!current) return
       useGraphStore.getState().loadGraph(current.workspace.nodes, current.workspace.edges, current.workspace)
+      landOnStartingWorkspace()
       await waitForMusicLibraryRestore()
       if (cancelled) return
       workspaceHydrated.current = true

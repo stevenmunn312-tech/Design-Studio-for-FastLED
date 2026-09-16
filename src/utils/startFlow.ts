@@ -36,6 +36,23 @@ function finishStartFlow(choice: string | 'blank', statusText: string, nodeIds?:
   if (options?.closeTemplates) ui.closeTemplates()
 }
 
+/**
+ * Land a freshly installed workspace on the tab that has work to offer.
+ *
+ * A project with nothing in it opens on Hardware, because choosing the board
+ * and the parts is the only work there is — a blank Graph canvas asks for
+ * wiring against hardware nobody has named. Anything with content is left
+ * where it is, which is Graph, because that is where the hours go.
+ *
+ * Emptiness is counted without the Board node: every root graph carries one
+ * whether or not a board was chosen, so a node count would never read zero.
+ */
+export function landOnStartingWorkspace() {
+  const blank = rootGraphNodes(useGraphStore.getState())
+    .every((node) => node.data.nodeType === 'Board')
+  if (blank) useUiStore.getState().setWorkspaceMode('hardware')
+}
+
 export function startTemplate(template: StarterTemplate, options?: StartFlowOptions) {
   const generation = ++startFlowGeneration
   const graph = useGraphStore.getState()
@@ -80,4 +97,5 @@ export function startBlankCanvas(options?: StartFlowOptions) {
   // had it — this is the one moment where that state means nothing.
   useUiStore.getState().setHardwareShelfCategory(null)
   finishStartFlow('blank', 'Started with a blank canvas', undefined, options)
+  landOnStartingWorkspace()
 }

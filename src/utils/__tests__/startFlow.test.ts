@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { startBlankCanvas, startTemplateById } from '../startFlow'
+import { landOnStartingWorkspace, startBlankCanvas, startTemplateById } from '../startFlow'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 
@@ -20,6 +20,33 @@ describe('startFlow', () => {
     expect(useUiStore.getState().hardwareShelfCategory).toBeNull()
     // The Board survives a blank canvas; it describes the bench, not the patch.
     expect(useGraphStore.getState().nodes.filter((node) => node.data.nodeType !== 'Board')).toEqual([])
+  })
+
+  /*
+   * Where a freshly installed workspace lands. Blank goes to Hardware because
+   * naming a board is the only work available; a blank Graph canvas asks for
+   * wiring against hardware nobody has chosen.
+   */
+  it('lands a blank sketch on Hardware', () => {
+    useUiStore.setState({ workspaceMode: 'build' })
+    startBlankCanvas()
+    expect(useUiStore.getState().workspaceMode).toBe('hardware')
+  })
+
+  it('leaves a workspace with content where it is', () => {
+    startTemplateById('juggle')
+    useUiStore.setState({ workspaceMode: 'graph' })
+    landOnStartingWorkspace()
+    expect(useUiStore.getState().workspaceMode).toBe('graph')
+  })
+
+  it('counts emptiness without the Board node every root graph carries', () => {
+    // A node count would never read zero, so the rule would never fire.
+    useGraphStore.getState().loadGraph([], [])
+    expect(useGraphStore.getState().nodes.some((node) => node.data.nodeType === 'Board')).toBe(true)
+    useUiStore.setState({ workspaceMode: 'graph' })
+    landOnStartingWorkspace()
+    expect(useUiStore.getState().workspaceMode).toBe('hardware')
   })
 
   it('leaves the shelf as the user had it when a starter is loaded', () => {
