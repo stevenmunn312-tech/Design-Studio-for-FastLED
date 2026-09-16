@@ -1180,6 +1180,24 @@ function restoreStashedHistory(graphId: string): void {
   })
 }
 
+/**
+ * Node types whose ports are derived onto the node rather than declared in the
+ * library, and so must be read from `node.data`, never from `NODE_LIBRARY`.
+ *
+ * Exactly the two branches of `syncDisplayNodesInContent` below: a panel gains
+ * one input per widget its screen design draws, and the Touch node paired with
+ * it gains one output per widget a finger can operate. Reading the library for
+ * either shows only what was declared — for a Touch node that is the `controls`
+ * bundle alone, so every named control a screen design publishes is invisible
+ * on the canvas while being present in the saved file, wired correctly by the
+ * store, and honoured by the generators. Derived rather than listed per reader,
+ * because the outputs half arrived only when touch became its own node and the
+ * canvas was not taught.
+ */
+export function hasDerivedDisplayPorts(nodeType: string): boolean {
+  return nodeType === 'TransportDisplay' || nodeType === 'TouchInput'
+}
+
 /** Keep a panel's React Flow port metadata and cables derived
  * from its document. A document edit and any cable cleanup must land in the
  * same store write so undo can never restore one without the other. */

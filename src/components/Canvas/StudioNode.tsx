@@ -1,7 +1,7 @@
 import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Handle, Position, useUpdateNodeInternals } from '@xyflow/react'
 import type { NodeProps, Node } from '@xyflow/react'
-import { rootGraphEdges, rootGraphNodes, useGraphStore } from '../../state/graphStore'
+import { hasDerivedDisplayPorts, rootGraphEdges, rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { compositionDims } from '../../state/outputRouting'
 import type { StudioEdge, StudioNodeData } from '../../state/graphStore'
 import { useUiStore, type ConnectionDragHint } from '../../state/uiStore'
@@ -1118,16 +1118,22 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const categoryAccent = CATEGORY_ACCENT_VAR[d.category] ?? 'var(--accent-output)'
   const rawProps = d.properties as Record<string, unknown>
   const minimized = d.minimized === true
-  // A panel's ports are the library's plus whatever widgets its screen design
-  // declares, so they are read from the node rather than the library.
-  const declaredInputs = (d.nodeType === 'TransportDisplay'
+  // A screen design's ports are derived onto the node by the store — widget
+  // inputs onto the panel, widget outputs onto the Touch node paired with it —
+  // so both halves are read from the node rather than the library. Asking the
+  // library for a Touch node's outputs returns the declared `controls` bundle
+  // alone, which draws a node with none of the named controls its screen
+  // publishes even though the wiring and the saved file both have them.
+  const declaredInputs = (hasDerivedDisplayPorts(d.nodeType)
     ? d.inputs ?? def?.inputs ?? []
     : d.nodeType === 'ControlMap'
       ? playerControlInputs(rawProps.controls)
       : def?.inputs ?? d.inputs ?? []) as PortDef[]
   const outputs = (d.nodeType === 'ButtonBank'
     ? buttonBankOutputs(rawProps.buttons)
-    : d.nodeType === 'TransportDisplay' ? d.outputs ?? [] : def?.outputs ?? d.outputs ?? []) as PortDef[]
+    : hasDerivedDisplayPorts(d.nodeType)
+      ? d.outputs ?? def?.outputs ?? []
+      : def?.outputs ?? d.outputs ?? []) as PortDef[]
 
   // Which of this node's input ports are wired, and to which upstream port. When
   // a port is wired the evaluator ignores the matching property, so its inline

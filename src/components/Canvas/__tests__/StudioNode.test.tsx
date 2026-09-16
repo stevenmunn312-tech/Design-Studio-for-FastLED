@@ -78,6 +78,37 @@ describe('StudioNode', () => {
     localStorage.clear()
   })
 
+  /*
+   * A Touch node draws the controls its panel's screen design publishes.
+   *
+   * Those ports are minted onto the node by the store, never declared in
+   * `NODE_LIBRARY`, which carries the `controls` bundle alone. Reading the
+   * library here drew a Touch node with nothing but Controls on it while the
+   * saved workspace, the wiring and the generators all had the named ports —
+   * so the only symptom was that a slider on the glass could not be wired to
+   * anything, with the bundle's refusal ("playercontrols cannot drive a float
+   * property") standing in as the explanation.
+   */
+  it('draws the widget outputs its panel design publishes, not just the bundle', () => {
+    const touch = makeNode('TouchInput', { panelId: 'panel' })
+    const { getByText, queryByText } = renderNode({
+      ...touch,
+      data: {
+        ...touch.data,
+        outputs: [
+          ...touch.data.outputs,
+          { id: 'widget:slider:out', label: 'Speed Output', dataType: 'float' },
+          { id: 'widget:slider-2:out', label: 'Brightness Output', dataType: 'float' },
+        ],
+      },
+    } as unknown as StudioNodeT)
+
+    expect(getByText('Controls')).toBeTruthy()
+    expect(getByText('Speed Output')).toBeTruthy()
+    expect(getByText('Brightness Output')).toBeTruthy()
+    expect(queryByText('Volume Output')).toBeNull()
+  })
+
   it('renders the node label and port labels', () => {
     const { getByText } = renderNode(makeNode('SolidColor', { r: 255, g: 0, b: 128 }))
     expect(getByText('Solid Color')).toBeTruthy()   // header
