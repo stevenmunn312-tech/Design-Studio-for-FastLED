@@ -3,6 +3,7 @@ import { getBezierPath, useReactFlow } from '@xyflow/react'
 import type { EdgeProps } from '@xyflow/react'
 import { CATEGORY_COLOR } from '../../state/nodeLibrary'
 import { useGraphStore } from '../../state/graphStore'
+import { wiredPropertyIsInert } from '../../state/propertyInputs'
 import { usePreviewStore } from '../../state/previewStore'
 import { useUiStore } from '../../state/uiStore'
 import { familyMotion, signalFamily } from './noodleMotion'
@@ -35,11 +36,25 @@ function GlowEdge({
   targetPosition,
   source,
   sourceHandleId,
+  target,
+  targetHandleId,
   style,
   data,
 }: EdgeProps) {
   const { getNode } = useReactFlow()
   const sourceNode = getNode(source)
+  /*
+   * A wire into a property the destination is currently ignoring is drawn
+   * dark: the connection is real, it is just not doing anything under the
+   * node's present settings. Read from the target rather than stored on the
+   * edge, so changing a Formula Field's variant re-lights its knobs' wires
+   * with nothing to keep in step.
+   */
+  const targetNode = getNode(target)
+  const targetData = targetNode?.data as
+    { nodeType?: string; properties?: Record<string, unknown> } | undefined
+  const inert = wiredPropertyIsInert(
+    targetData?.nodeType ?? '', targetHandleId, targetData?.properties ?? {})
   const category = (sourceNode?.data as { category?: string })?.category ?? 'output'
   const sourceType = (sourceNode?.data as { outputs?: Array<{ id: string; dataType: string }> } | undefined)?.outputs
     ?.find((output) => output.id === sourceHandleId)?.dataType
@@ -108,7 +123,7 @@ function GlowEdge({
 
   if (!uiEffectsEnabled) {
     return (
-      <g className={focusState === 'dim' ? styles.focusDim : focusState === 'active' ? styles.focusActive : ''}>
+      <g className={`${focusState === 'dim' ? styles.focusDim : focusState === 'active' ? styles.focusActive : ''} ${inert ? styles.inert : ''}`}>
         {hoverHitPath}
         {spliceArmed && (
           <path
@@ -146,7 +161,7 @@ function GlowEdge({
   }
 
   return (
-    <g className={`${familyClass} ${focusState === 'dim' ? styles.focusDim : focusState === 'active' ? styles.focusActive : ''}`}>
+    <g className={`${familyClass} ${focusState === 'dim' ? styles.focusDim : focusState === 'active' ? styles.focusActive : ''} ${inert ? styles.inert : ''}`}>
       {hoverHitPath}
       {/* During a sidebar drag this transparent stroke makes the real curved
           noodle—not a straight-line approximation—the splice hit target. */}

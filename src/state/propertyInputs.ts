@@ -1,4 +1,4 @@
-import { NODE_LIBRARY } from './nodeLibrary'
+import { isPropertyEnabled, NODE_LIBRARY } from './nodeLibrary'
 import type { NodePort } from '../types'
 
 export interface PropertyInput extends NodePort {
@@ -42,6 +42,26 @@ const EXPOSABLES = new Map(NODE_LIBRARY.map((definition) => {
 
 export function propertyInputsFor(nodeType: string): readonly PropertyInput[] {
   return INPUTS.get(nodeType) ?? EMPTY
+}
+
+/**
+ * Is this wire landing on a property its own node is currently ignoring?
+ *
+ * A node may disable a property from its other properties — a Formula Field
+ * knob belongs to one `formulaType` and is dead under the others — and a wire
+ * into it is then real but doing nothing. Worth saying rather than refusing:
+ * the edge is still correct and a dropdown away from being live again, and
+ * nothing downstream needs to change, since the evaluator and the generator
+ * each read only the variant they are building.
+ */
+export function wiredPropertyIsInert(
+  nodeType: string,
+  targetHandle: string | null | undefined,
+  properties: Record<string, unknown>,
+): boolean {
+  if (!targetHandle) return false
+  const input = propertyInputsFor(nodeType).find((port) => port.id === targetHandle)
+  return input ? !isPropertyEnabled(nodeType, input.propertyKey, properties) : false
 }
 
 export function exposableInputsFor(nodeType: string): readonly ExposableInput[] {

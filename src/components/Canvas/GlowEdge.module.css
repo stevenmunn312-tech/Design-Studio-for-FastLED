@@ -65,6 +65,25 @@
   display: none;
 }
 
+/*
+ * A wire into a property its destination is currently ignoring — a Formula
+ * Field knob belonging to another `formulaType`, say. Dark rather than hidden:
+ * the connection is real and one dropdown away from being live again.
+ *
+ * Packets go, which is both honest (nothing is flowing) and necessary: the
+ * saturate() below is a CSS filter, and a filter on an endlessly-animated
+ * element leaks GPU compositor memory in Chromium.
+ */
+.inert {
+  opacity: 0.2;
+  filter: saturate(0.25);
+  transition: opacity 180ms ease-out, filter 180ms ease-out;
+}
+
+.inert .packet {
+  display: none;
+}
+
 .focusActive {
   opacity: 1;
   transition: opacity 180ms ease-out;

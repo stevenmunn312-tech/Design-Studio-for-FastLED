@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NODE_LIBRARY } from '../nodeLibrary'
-import { exposableInputsFor, exposedPropertyInputs, normalizeExposedInputs, propertyInputsFor } from '../propertyInputs'
+import { exposableInputsFor, exposedPropertyInputs, normalizeExposedInputs, propertyInputsFor, wiredPropertyIsInert } from '../propertyInputs'
 import { ROOT_GRAPH_ID, useGraphStore, type StudioNode } from '../graphStore'
 import { captureWorkspace } from '../workspacePersistence'
 
@@ -126,5 +126,27 @@ describe('property input exposure', () => {
     expect(copy.data.exposedInputs).toEqual(['count'])
     useGraphStore.getState().setNodeInputExposed(copy.id, 'fade', true)
     expect(useGraphStore.getState().nodes.find((entry) => entry.id === 'juggle')?.data.exposedInputs).toEqual(['count'])
+  })
+})
+
+describe('wiredPropertyIsInert', () => {
+  /*
+   * A Formula Field knob belongs to one variant. Wiring a control to `petals`
+   * and then switching to superformula leaves a real edge that does nothing,
+   * and the canvas draws it dark rather than removing it — the variant is a
+   * dropdown away from making it live again.
+   */
+  it('reports a wire into a property the chosen variant does not use', () => {
+    expect(wiredPropertyIsInert('FormulaField', 'petals', { formulaType: 'rose' })).toBe(false)
+    expect(wiredPropertyIsInert('FormulaField', 'petals', { formulaType: 'superformula' })).toBe(true)
+    expect(wiredPropertyIsInert('FormulaField', 'symmetry', { formulaType: 'superformula' })).toBe(false)
+  })
+
+  it('says nothing about a port that is not a property input', () => {
+    // Speed is live under every variant; a non-property port and a missing
+    // handle are both simply not this rule's business.
+    expect(wiredPropertyIsInert('FormulaField', 'speed', { formulaType: 'goldenTiling' })).toBe(false)
+    expect(wiredPropertyIsInert('FormulaField', 'field', { formulaType: 'rose' })).toBe(false)
+    expect(wiredPropertyIsInert('FormulaField', null, { formulaType: 'rose' })).toBe(false)
   })
 })
