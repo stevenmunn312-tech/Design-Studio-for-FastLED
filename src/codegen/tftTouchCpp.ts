@@ -51,13 +51,17 @@ static uint16_t _xptRead12(uint8_t cs, uint8_t sck, uint8_t mosi, uint8_t miso, 
   return (word >> 3) & 0x0FFF;
 }
 
-static bool _xptPoint(uint8_t cs, uint8_t irq, uint8_t sck, uint8_t mosi, uint8_t miso,
+/*
+ * Raw digitiser counts to rotated screen pixels.
+ *
+ * Shared by every reader, because the calibration span is the one thing two
+ * touch paths must not each have an opinion about: a digitiser chip and a bare
+ * resistive sheet disagree about how a reading is *obtained* and agree
+ * completely about what it means once obtained.
+ */
+static bool _touchMap(uint16_t rawX, uint16_t rawY,
                       int rawXFrom, int rawXTo, int rawYFrom, int rawYTo,
-                      int nativeW, int nativeH, uint8_t rotation, int16_t &x, int16_t &y,
-                      uint16_t &rawX, uint16_t &rawY) {
-  if (irq != 255 && digitalRead(irq) != LOW) return false;
-  rawX = _xptRead12(cs, sck, mosi, miso, 0xD0);
-  rawY = _xptRead12(cs, sck, mosi, miso, 0x90);
+                      int nativeW, int nativeH, uint8_t rotation, int16_t &x, int16_t &y) {
   // A descending span is a reversed axis, not an error: flipping a linear map
   // is the same as swapping its endpoints, so the caller hands them over in
   // the order the glass actually counts and this stays one multiply. Both
@@ -71,6 +75,90 @@ static bool _xptPoint(uint8_t cs, uint8_t irq, uint8_t sck, uint8_t mosi, uint8_
   else if (rotation == 3) { x = py; y = nativeW - 1 - px; }
   else { x = px; y = py; }
   return true;
+}
+
+static bool _xptPoint(uint8_t cs, uint8_t irq, uint8_t sck, uint8_t mosi, uint8_t miso,
+                      int rawXFrom, int rawXTo, int rawYFrom, int rawYTo,
+                      int nativeW, int nativeH, uint8_t rotation, int16_t &x, int16_t &y,
+                      uint16_t &rawX, uint16_t &rawY) {
+  if (irq != 255 && digitalRead(irq) != LOW) return false;
+  rawX = _xptRead12(cs, sck, mosi, miso, 0xD0);
+  rawY = _xptRead12(cs, sck, mosi, miso, 0x90);
+  return _touchMap(rawX, rawY, rawXFrom, rawXTo, rawYFrom, rawYTo, nativeW, nativeH, rotation, x, y);
+}
+`
+
+/*
+ * A bare resistive sheet, read through four of the panel's own LCD lines.
+ *
+ * There is no controller here and no chip select: the sheet is two resistive
+ * layers, and a reading means driving a gradient across one axis and measuring
+ * where the finger taps it on the other. That is why these four pins need
+ * `analogInput` while the panel's other nine do not.
+ *
+ * Every one of them is an LCD data or control line the rest of the frame drives
+ * as an output, so the contract here is strict: leave all four outputs again
+ * before returning, whatever happens in between. A read that returns early
+ * without restoring them hands the next panel write a pin still configured as
+ * an input, and because this panel has no framebuffer the corrupted write stays
+ * on the glass until that field changes on its own.
+ */
+export const RESISTIVE_TOUCH_CPP_HELPERS = `// ── Bare resistive touch ─────────────────────────────────────────────────────
+// Reads four LCD lines as a touch sheet, then hands them back as outputs.
+
+// A finger shorts the two layers, so pressure reads as a small difference
+// across the sheet. Bench-tunable: too low and the panel reports phantom
+// presses from its own leakage, too high and a light touch is ignored.
+#ifndef TOUCH_Z_MIN
+#define TOUCH_Z_MIN 220
+#endif
+
+// Settling time after reversing a pin's direction. The sheet is resistive and
+// the ADC samples fast enough to catch the previous level without it.
+#ifndef TOUCH_SETTLE_US
+#define TOUCH_SETTLE_US 24
+#endif
+
+static void _resRelease(uint8_t xp, uint8_t xm, uint8_t yp, uint8_t ym) {
+  // Back to the LCD bus. Driven low rather than left floating so the next
+  // write starts from the same level every other data line idles at.
+  pinMode(xp, OUTPUT); digitalWrite(xp, LOW);
+  pinMode(xm, OUTPUT); digitalWrite(xm, LOW);
+  pinMode(yp, OUTPUT); digitalWrite(yp, LOW);
+  pinMode(ym, OUTPUT); digitalWrite(ym, LOW);
+}
+
+static bool _resPoint(uint8_t xp, uint8_t xm, uint8_t yp, uint8_t ym,
+                      int rawXFrom, int rawXTo, int rawYFrom, int rawYTo,
+                      int nativeW, int nativeH, uint8_t rotation, int16_t &x, int16_t &y,
+                      uint16_t &rawX, uint16_t &rawY) {
+  // Pressure first: no point measuring a position nobody is touching.
+  pinMode(xp, OUTPUT); digitalWrite(xp, LOW);
+  pinMode(yp, OUTPUT); digitalWrite(yp, HIGH);
+  pinMode(xm, INPUT);
+  pinMode(ym, INPUT);
+  delayMicroseconds(TOUCH_SETTLE_US);
+  int z = analogRead(xm);
+  if (z < TOUCH_Z_MIN) { _resRelease(xp, xm, yp, ym); return false; }
+
+  // X: gradient across the X layer, measured on Y+.
+  pinMode(xp, OUTPUT); digitalWrite(xp, HIGH);
+  pinMode(xm, OUTPUT); digitalWrite(xm, LOW);
+  pinMode(yp, INPUT);
+  pinMode(ym, INPUT);
+  delayMicroseconds(TOUCH_SETTLE_US);
+  rawX = (uint16_t)analogRead(yp);
+
+  // Y: the same, one layer over, measured on X-.
+  pinMode(yp, OUTPUT); digitalWrite(yp, HIGH);
+  pinMode(ym, OUTPUT); digitalWrite(ym, LOW);
+  pinMode(xp, INPUT);
+  pinMode(xm, INPUT);
+  delayMicroseconds(TOUCH_SETTLE_US);
+  rawY = (uint16_t)analogRead(xm);
+
+  _resRelease(xp, xm, yp, ym);
+  return _touchMap(rawX, rawY, rawXFrom, rawXTo, rawYFrom, rawYTo, nativeW, nativeH, rotation, x, y);
 }
 `
 
