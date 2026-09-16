@@ -74,9 +74,20 @@ export interface TftController {
 /**
  * The catalogued colour controllers.
  *
- * One driver covers both. The 2.4-inch module turned out to be an ST7789V
- * rather than the ILI9341 its form factor suggests, which is what let the two
- * share everything below.
+ * The two ST7789s share everything: the 2.4-inch module turned out to be an
+ * ST7789V rather than the ILI9341 its form factor suggests, so one driver
+ * covered both and the descriptors differ only in size and inversion.
+ *
+ * The ILI9341 is the first that does not. It differs on both fields a panel
+ * can silently get wrong - subpixel order and inversion polarity - and one of
+ * its two catalogued modules speaks 8-bit parallel rather than SPI, which is a
+ * fact about the *module* and so is derived by `tftTransportFor` below rather
+ * than stated here. A controller is not a transport.
+ *
+ * Its `invert: false` is taken from the datasheet's power-on state, not from a
+ * bench run, and `invert` is documented above as a per-module bench value. If a
+ * built panel comes up as a photographic negative, that field is the first
+ * thing to try.
  */
 export const TFT_CONTROLLERS: Record<string, TftController> = {
   ST7789: {
@@ -87,6 +98,43 @@ export const TFT_CONTROLLERS: Record<string, TftController> = {
     id: 'ST7789V', width: 240, height: 320, ramWidth: 240, ramHeight: 320,
     columnOffset: 0, rowOffset: 0, colorOrder: 'RGB', invert: false,
   },
+  /*
+   * Native portrait 240x320, as the descriptor contract requires; the two
+   * catalogued ILI9341 modules both declare a landscape 320x240 resolution and
+   * `tftControllerForProps` overrides these figures from the catalogue.
+   *
+   * BGR and no inversion are where it parts company with the ST7789s above.
+   * The ILI9341 wires its subpixels the other way round, so MADCTL bit 3 has to
+   * be set or every panel shows a plausible picture with red and blue swapped,
+   * and unlike the ST7789 it powers up already the right way round, so driving
+   * INVON would produce a photographic negative.
+   */
+  ILI9341: {
+    id: 'ILI9341', width: 240, height: 320, ramWidth: 240, ramHeight: 320,
+    columnOffset: 0, rowOffset: 0, colorOrder: 'BGR', invert: false,
+  },
+}
+
+/** How a panel's controller is wired to the board. */
+export const TFT_TRANSPORTS = ['spi', 'parallel'] as const
+export type TftTransport = (typeof TFT_TRANSPORTS)[number]
+
+/**
+ * The transport a catalogued part's declared interface names.
+ *
+ * The OLED sibling (`oledTransportFor`) matches its leading token, because an
+ * OLED breakout leads with what it is. A TFT does not: the XC4630 declares
+ * "8-bit parallel", which leads with the bus width, so this searches for the
+ * word instead. Anything that does not say parallel is SPI, which is both the
+ * four-wire default and the safer wrong answer - an unexpected SPI panel just
+ * stays dark, while driving a real SPI panel with eight data strobes would put
+ * the write pulse on pins another part may own.
+ *
+ * Derived rather than listed per part, so a catalogue re-import that adds a
+ * parallel module needs no code change here.
+ */
+export function tftTransportFor(declaredInterface: string | undefined): TftTransport {
+  return /parallel/i.test(declaredInterface ?? '') ? 'parallel' : 'spi'
 }
 
 /**

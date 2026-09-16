@@ -78,7 +78,11 @@ describe('controllers', () => {
   })
 
   it('does not answer for a controller it has no descriptor for', () => {
-    expect(tftControllerFor('ILI9341')).toBeNull()
+    // ILI9341 used to be the example here and is now driven, so the stand-in
+    // is ST7781: a controller that genuinely ships on some XC4630 revisions
+    // under the same silkscreen as the ILI9341 one, and that nothing here can
+    // drive. Answering for it would hand a real board the wrong command set.
+    expect(tftControllerFor('ST7781')).toBeNull()
     expect(tftControllerFor('SH1106')).toBeNull()
     expect(tftControllerFor(undefined)).toBeNull()
   })
