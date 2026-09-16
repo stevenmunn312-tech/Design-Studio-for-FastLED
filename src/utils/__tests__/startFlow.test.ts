@@ -27,10 +27,15 @@ describe('startFlow', () => {
    * naming a board is the only work available; a blank Graph canvas asks for
    * wiring against hardware nobody has chosen.
    */
-  it('lands a blank sketch on Hardware', () => {
-    useUiStore.setState({ workspaceMode: 'build' })
+  it('lands a blank sketch on Hardware, shelf open and every category shut', () => {
+    useUiStore.setState({ workspaceMode: 'build', sidebarOpen: false })
+    useUiStore.getState().setHardwareShelfCategory('displays')
     startBlankCanvas()
     expect(useUiStore.getState().workspaceMode).toBe('hardware')
+    // The shelf is what the tab is for, so it is open; nothing is on the bench
+    // yet, so no section of it is the one being worked in.
+    expect(useUiStore.getState().sidebarOpen).toBe(true)
+    expect(useUiStore.getState().hardwareShelfCategory).toBeNull()
   })
 
   it('leaves a workspace with content where it is', () => {

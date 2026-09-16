@@ -50,7 +50,17 @@ function finishStartFlow(choice: string | 'blank', statusText: string, nodeIds?:
 export function landOnStartingWorkspace() {
   const blank = rootGraphNodes(useGraphStore.getState())
     .every((node) => node.data.nodeType === 'Board')
-  if (blank) useUiStore.getState().setWorkspaceMode('hardware')
+  if (!blank) return
+  // Through the action rather than `setState`, so a display editor left open
+  // is dismissed with it — see the `leavingDisplayEditor` rule in uiStore.
+  const ui = useUiStore.getState()
+  ui.setWorkspaceMode('hardware')
+  // The shelf is open — it is what the tab is for — but every category is
+  // collapsed: nothing is on the bench yet, so no section of it is the one
+  // being worked in, and a wall of open categories buries the controller the
+  // first decision is actually about.
+  ui.setHardwareShelfCategory(null)
+  useUiStore.setState({ sidebarOpen: true })
 }
 
 export function startTemplate(template: StarterTemplate, options?: StartFlowOptions) {
