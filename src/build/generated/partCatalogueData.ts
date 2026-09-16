@@ -242,6 +242,63 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 14.961
     }
   },
+  "ili9341-xc4630-parallel-touch-320x240": {
+    "partId": "ili9341-xc4630-parallel-touch-320x240",
+    "label": "XC4630 2.8-inch 320x240 ILI9341 parallel TFT shield",
+    "category": "display",
+    "dimensionsMm": {
+      "width": 77.0,
+      "height": 52.0
+    },
+    "manufacturer": "Duinotech / Jaycar XC4630",
+    "logicVoltage": "5 V supply; 3.3 V logic behind two 74LVC245A buffers",
+    "pinLabelsLeftToRight": [
+      "LCD_D2",
+      "LCD_D3",
+      "LCD_D4",
+      "LCD_D5",
+      "LCD_D6",
+      "LCD_D7",
+      "LCD_D0",
+      "LCD_D1",
+      "SD_SS",
+      "SD_DI",
+      "SD_DO",
+      "SD_SCK",
+      "LCD_RST",
+      "LCD_CS",
+      "LCD_RS",
+      "LCD_WR",
+      "LCD_RD",
+      "GND",
+      "5V",
+      "3V3"
+    ],
+    "notes": [
+      "Duinotech XC4630, silkscreened '2.8\"TFT LCD Shield'. Arduino UNO/MEGA shield form factor with an 8-bit parallel LCD bus, not SPI.",
+      "Controller identity confirmed by register read on the physical board: reg(0x00D3) returned 93 41, i.e. ILI9341. This product ships with varying controllers between revisions, so the identity is per-board rather than per-model.",
+      "Two 74LVC245A octal bus transceivers (U2, U3) buffer the LCD bus and an SOT-223 regulator supplies 3.3 V, so the shield accepts 5 V logic while the panel runs at 3.3 V.",
+      "The resistive touch panel has no dedicated controller and no dedicated pins: it shares LCD_CS, LCD_RS, LCD_D0 and LCD_D1, which are read as analog inputs with the pin modes temporarily reversed.",
+      "All four headers are rear-mounted because the LCD covers the front, so the render shows the component face and the pin labels it carries.",
+      "The microSD slot is wired to the Arduino hardware SPI pins and is independent of the parallel LCD bus.",
+      "The 2x10 footprint at the left edge is unpopulated and is rendered as bare plated through-holes."
+    ],
+    "display": {
+      "controller": "ILI9341",
+      "resolutionPx": [
+        320,
+        240
+      ],
+      "interface": "8-bit parallel",
+      "touchController": null
+    },
+    "render": {
+      "file": "parts/ili9341-xc4630-parallel-touch-320x240.webp",
+      "widthPx": 944,
+      "heightPx": 644,
+      "pxPerMm": 12.0
+    }
+  },
   "ili9341-xpt2046-touch-320x240": {
     "partId": "ili9341-xpt2046-touch-320x240",
     "label": "ILI9341 2.8-inch 320x240 TFT with XPT2046 touch",

@@ -92,7 +92,12 @@ describe('hardware registries stay in step', () => {
     const missing = catalogueDisplays()
       .map((entry) => entry.partId)
       .filter((partId) => !offered.has(partId))
+    // Both ids are modelled-but-undriven panels, and this list must stay in
+    // step with `CATALOGUE_ONLY` in displayPartCoverage.test.ts, which records
+    // why each one is held back and what removes it. The XC4630 is an 8-bit
+    // parallel bus with no transport on our side yet.
     expect(missing, 'catalogued displays no node offers').toEqual([
+      'ili9341-xc4630-parallel-touch-320x240',
       'ili9341-xpt2046-touch-320x240',
     ])
   })

@@ -294,6 +294,23 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
     [316.6, 346.2, 376.8, 407.6, 438, 468.3, 498.7, 529.1, 560, 590.4, 621.1, 651.2],
     968, 586.7, 608,
   ),
+  /*
+   * The one part whose pads are not a single edge row.
+   *
+   * It is an Arduino shield, so its four headers sit in the UNO arrangement:
+   * J2 and J1 along the top edge, J3 and J4 along the bottom. The order below
+   * follows `pinLabelsLeftToRight` exactly — the whole top edge left to right,
+   * then the whole bottom edge — and skips each header's unlabelled positions
+   * (J2's first two, J1's last two, J3's last, and three of J4's), because a
+   * pad point exists per *catalogued* pin rather than per physical pin.
+   */
+  'ili9341-xc4630-parallel-touch-320x240': [
+    ...padRow(
+      [219.9, 250.4, 280.8, 311.3, 341.8, 372.3, 430.1, 460.6, 491.1, 521.6, 552, 582.5],
+      944, 40, 644,
+    ),
+    ...padRow([152.2, 182.7, 213.2, 243.6, 274.1, 376.6, 437.6, 468], 944, 590.8, 644),
+  ],
 }
 
 /**
