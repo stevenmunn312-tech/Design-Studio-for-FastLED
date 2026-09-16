@@ -46,6 +46,76 @@
   cursor: grabbing;
 }
 
+/*
+ * Ambient background, the bench's share of what the graph canvas already draws
+ * — same palette (tokens.css `--field-*`), quieter and centred on the middle of
+ * the stage rather than on the graph's 44% focus. Its interactive layers (the
+ * cursor wake, the focus veil, the live-signal overrides) stay on the graph:
+ * they answer questions about a running patch, and the bench is not running.
+ *
+ * Purely decorative, so it is `aria-hidden` and never takes a pointer event.
+ */
+.atmosphere {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.benchField,
+.benchLattice,
+.benchOrbits,
+.benchScan {
+  position: absolute;
+  inset: 0;
+}
+
+.benchField {
+  opacity: 0.1;
+  background:
+    radial-gradient(circle at 50% 46%, color-mix(in srgb, var(--field-color) 24%, transparent), transparent 34%),
+    radial-gradient(circle at 12% 80%, color-mix(in srgb, var(--field-color-2) 15%, transparent), transparent 28%),
+    radial-gradient(circle at 88% 20%, color-mix(in srgb, var(--field-color-3) 17%, transparent), transparent 30%);
+}
+
+.benchLattice {
+  opacity: 0.1;
+  background-image:
+    linear-gradient(rgba(190, 216, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(190, 216, 255, 0.035) 1px, transparent 1px);
+  background-size: 20px 20px, 20px 20px;
+  -webkit-mask-image: radial-gradient(circle at 50% 46%, black 30%, transparent 92%);
+  mask-image: radial-gradient(circle at 50% 46%, black 30%, transparent 92%);
+}
+
+.benchOrbits {
+  opacity: 0.1;
+  background:
+    radial-gradient(circle at 50% 46%, transparent 0 18%, rgba(255, 255, 255, 0.028) 18.2% 18.45%, transparent 18.7%),
+    radial-gradient(circle at 50% 46%, transparent 0 32%, color-mix(in srgb, var(--field-color) 14%, transparent) 32.2% 32.45%, transparent 32.8%),
+    radial-gradient(circle at 50% 46%, transparent 0 46%, color-mix(in srgb, var(--field-color-2) 11%, transparent) 46.2% 46.45%, transparent 46.8%),
+    radial-gradient(circle at 50% 46%, transparent 0 62%, color-mix(in srgb, var(--field-color-3) 10%, transparent) 62.2% 62.45%, transparent 62.8%);
+}
+
+/* The graph canvas's scan band, sweeping the bench top to bottom. No
+   `filter: blur()` here: this animates forever, and a CSS filter on an
+   endlessly-animated element leaks GPU compositor memory unbounded in Chromium
+   (see GlowEdge.module.css). The gradient is already soft without one. */
+.benchScan {
+  top: -22%;
+  height: 18%;
+  opacity: 0.12;
+  background:
+    linear-gradient(180deg, transparent, color-mix(in srgb, var(--field-color) 18%, transparent), transparent),
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06) 50%, transparent);
+  animation: benchScan 14s linear infinite;
+}
+
+@keyframes benchScan {
+  to { transform: translateY(680%); }
+}
+
 /* The panned/zoomed world. The layout already centres the arrangement in the
    usable area, so a reset lands exactly back on it. */
 .world {

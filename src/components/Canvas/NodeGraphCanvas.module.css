@@ -1,7 +1,5 @@
 .canvas {
-  --field-color: rgb(0 191 255);
-  --field-color-2: rgb(255 77 141);
-  --field-color-3: rgb(0 224 164);
+  /* The field palette itself lives in tokens.css, shared with the bench. */
   --field-energy: 0.12;
   --field-focus-energy: 0;
   --field-x: 50%;

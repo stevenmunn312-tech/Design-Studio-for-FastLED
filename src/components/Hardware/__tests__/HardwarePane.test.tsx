@@ -80,6 +80,13 @@ describe('HardwarePane', () => {
     })
   })
 
+  it('draws an ambient backdrop that never takes a pointer event', () => {
+    const { container } = render(<HardwarePane />)
+    const atmosphere = container.querySelector('[class*="atmosphere"]')
+    expect(atmosphere).toBeTruthy()
+    expect(atmosphere?.getAttribute('aria-hidden')).toBe('true')
+  })
+
   it('keeps the bench usable while a pattern group is the active graph', () => {
     // Hardware lives in the root graph, so stepping into a group used to leave
     // this pane looking at an empty bench with no board.

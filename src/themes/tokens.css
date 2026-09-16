@@ -82,6 +82,14 @@
   /* Animations */
   --anim-hover: 150ms ease-out;
   --anim-transition: 1200ms ease-in-out;
+
+  /* Ambient field — the drifting colour behind a full-canvas workspace. Shared
+     so the graph canvas and the hardware bench read as one room rather than
+     two that happen to be dark. Each workspace still sets its own
+     `--field-energy`, which is how loud its own atmosphere is. */
+  --field-color: rgb(0 191 255);
+  --field-color-2: rgb(255 77 141);
+  --field-color-3: rgb(0 224 164);
 }
 
 /* ── Solarized Dark ────────────────────────────────────────────────────────── */

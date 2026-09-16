@@ -1736,6 +1736,12 @@ export default function HardwarePane() {
         hidden={paneTab !== 'hardware'}
         {...view.handlers}
       >
+        <div className={styles.atmosphere} aria-hidden="true">
+          <div className={styles.benchField} />
+          <div className={styles.benchLattice} />
+          <div className={styles.benchOrbits} />
+          <div className={styles.benchScan} />
+        </div>
         <div
           className={styles.world}
           style={{ transform: `translate(${view.transform.x}px, ${view.transform.y}px) scale(${view.transform.k})` }}
