@@ -9,7 +9,12 @@ import { useNodeDefaults } from '../nodeDefaults'
 import { controllerSettings } from '../controllerSettings'
 import { addDisplayWidget, createDisplayDocument, removeDisplayWidget, updateDisplayWidget } from '../displayEditor'
 import { applyDisplayTemplate } from '../displayTemplates'
-import { displayDocumentPorts } from '../displayRegistry'
+import {
+  displayDocumentPorts,
+  TOUCH_CONTROL_ADD_DATA_TYPE,
+  TOUCH_CONTROL_ADD_HANDLE,
+  TOUCH_CONTROL_ADD_LABEL,
+} from '../displayRegistry'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -50,6 +55,17 @@ function reset(nodes: StudioNode[] = [], edges: StudioEdge[] = []) {
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
+
+/**
+ * The Touch node's trailing socket, present whenever it has a screen design to
+ * put a control on. Named here so these expectations read as "the widget ports
+ * plus the invitation" rather than spelling it out four times.
+ */
+const ADD_CONTROL_PORT = {
+  id: TOUCH_CONTROL_ADD_HANDLE,
+  label: TOUCH_CONTROL_ADD_LABEL,
+  dataType: TOUCH_CONTROL_ADD_DATA_TYPE,
+}
 
 describe('graphStore — grouping', () => {
   beforeEach(() => reset())
@@ -1148,7 +1164,8 @@ describe('graphStore — custom display documents', () => {
     expect(panel().inputs.map((port) => port.id))
       .toEqual(['display', 'enabled', 'widget:text:value', 'widget:slider:set'])
     expect(panel().outputs.map((port) => port.id)).toEqual([])
-    expect(touch().outputs.map((port) => port.id)).toEqual(['controls', 'widget:slider:out'])
+    expect(touch().outputs.map((port) => port.id))
+      .toEqual(['controls', 'widget:slider:out', TOUCH_CONTROL_ADD_HANDLE])
 
     useGraphStore.getState().setDisplayDocument({
       ...document,
@@ -1164,7 +1181,8 @@ describe('graphStore — custom display documents', () => {
     expect(panel().inputs.map((port) => port.id)).toEqual(['display', 'enabled'])
     // The control still publishes what a finger did to it: binding decides where
     // a reading comes from, not whether a control reports itself.
-    expect(touch().outputs.map((port) => port.id)).toEqual(['controls', 'widget:slider:out'])
+    expect(touch().outputs.map((port) => port.id))
+      .toEqual(['controls', 'widget:slider:out', TOUCH_CONTROL_ADD_HANDLE])
   })
 
   it('projects fixed-layout touch outputs from the panel actually on the glass', () => {
@@ -1189,6 +1207,7 @@ describe('graphStore — custom display documents', () => {
       ])
 
     useGraphStore.getState().loadGraph([panel, touch], [])
+    // No screen design, so no invitation to add a control to one.
     expect(useGraphStore.getState().nodes.find((entry) => entry.id === 'touch')?.data.outputs)
       .toEqual([{ id: 'controls', label: 'Controls', dataType: 'playercontrols' }])
   })
@@ -1306,6 +1325,7 @@ describe('graphStore — custom display documents', () => {
         expect(touch.data.outputs).toEqual([
           { id: 'controls', label: 'Controls', dataType: 'playercontrols' },
           ...widgetPorts.outputs,
+          ADD_CONTROL_PORT,
         ])
         expect(state.edges.map((entry) => entry.id)).toEqual(edgeIds)
       }
@@ -1383,7 +1403,8 @@ describe('graphStore — custom display documents', () => {
       .toEqual(['display', 'enabled', 'widget:slider:set'])
     expect((panel.data.outputs as { id: string }[]).map((port) => port.id)).toEqual([])
     const touch = useGraphStore.getState().nodes.find((entry) => entry.id === 'touch')!
-    expect((touch.data.outputs as { id: string }[]).map((port) => port.id)).toEqual(['controls', 'widget:slider:out'])
+    expect((touch.data.outputs as { id: string }[]).map((port) => port.id))
+      .toEqual(['controls', 'widget:slider:out', TOUCH_CONTROL_ADD_HANDLE])
   })
 
   it('derives stable outer-node ports and keeps cables across label edits', () => {
@@ -1410,6 +1431,7 @@ describe('graphStore — custom display documents', () => {
     expect(touch.data.outputs).toEqual([
       { id: 'controls', label: 'Controls', dataType: 'playercontrols' },
       { id: 'widget:toggle:out', label: 'Toggle Output', dataType: 'bool' },
+      ADD_CONTROL_PORT,
     ])
 
     useGraphStore.setState({

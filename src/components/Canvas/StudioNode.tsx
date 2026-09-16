@@ -71,6 +71,8 @@ import {
 import styles from './StudioNode.module.css'
 import { NODE_HANDLE_STYLE } from './nodeHandleStyle'
 import { exposableInputsFor, exposedNodeInputs, propertyInputsFor } from '../../state/propertyInputs'
+import { TOUCH_CONTROL_ADD_HANDLE } from '../../state/displayRegistry'
+import { touchControlPlan } from '../../state/wireFirstControls'
 import PropertyInputMenu from './PropertyInputMenu'
 import type { FloatingAnchor } from '../Hardware/FloatingMenu'
 import { formatSignalRange, isNormalizedOutput, signalRangeMismatch } from '../../state/signalRange'
@@ -175,8 +177,24 @@ function connectionTargetHint(
   targetNodeType: string,
   targetPort: { id: string; dataType: string },
   drag: ConnectionDragHint | null,
+  target?: { properties: Record<string, unknown>; driven: boolean },
 ): ConnectionTargetHint | null {
   if (!drag) return null
+  // A Touch node's trailing socket creates the control it lands on, so it is
+  // judged by what the property can take rather than by port compatibility —
+  // its own type deliberately matches nothing. Asking here rather than only on
+  // drop means the reason shows while the noodle is still in the air.
+  if (drag.sourcePortId === TOUCH_CONTROL_ADD_HANDLE) {
+    const plan = touchControlPlan(
+      targetNodeType, targetPort.id, target?.properties ?? {}, target?.driven ?? false)
+    return plan.ok
+      ? {
+          kind: 'compatible',
+          title: `Creates a ${plan.spec.type} for ${plan.spec.label}.`,
+          aria: `Creates a ${plan.spec.type} control for ${plan.spec.label}.`,
+        }
+      : { kind: 'blocked', title: plan.refusal.message, aria: plan.refusal.message }
+  }
   if (!portsCompatible(drag.sourceDataType, targetPort.dataType)) {
     return {
       kind: 'blocked',
@@ -639,7 +657,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
             ? live
             : String(val)
         const connectionHint = propertyInput
-          ? connectionTargetHint(nodeType, propertyInput, connectionDrag)
+          ? connectionTargetHint(nodeType, propertyInput, connectionDrag, { properties: props, driven: wired })
           : null
         const hintedTitle = connectionHint
           ? [rowTitle, connectionHint.title].filter(Boolean).join(' ')

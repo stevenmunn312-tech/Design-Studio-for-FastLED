@@ -1,8 +1,8 @@
 # Wire-first touch controls
 
-Status: agreed 2026-09-17, from bench use. Step 1 (the schema and the
-ports-versus-pixels audit) has landed; nothing user-visible has changed yet.
-The checklist at the foot says what is outstanding.
+Status: agreed 2026-09-17, from bench use. Steps 1 and 2 have landed — a
+control can now be created by wiring it, and waits unplaced until the designer
+half arrives. The checklist at the foot says what is outstanding.
 Target: Hardware, ahead of v1.0.0.
 
 ## Brief explanation
@@ -43,6 +43,21 @@ of creation.
 
 Wire-first also removes the workspace round trip. You are in the graph, looking
 at the knob you want controllable, and you say so there.
+
+### What landed for the gesture
+
+The Touch node grows a trailing `add-control` output whenever it has a screen
+design to put a control on — absent, rather than refusing after the fact, on a
+panel drawing a fixed layout. Its dataType is its own (`newcontrol`), which
+`portsCompatible` matches against nothing, so the ordinary connect path cannot
+use it and the only thing that acts on it is the wire-first drop.
+
+That also means the *hint* shown while a noodle is in the air has to ask the
+same question the drop does, rather than comparing port types — otherwise every
+valid row would read "newcontrol cannot connect to float". `connectionTargetHint`
+branches on the handle and runs `touchControlPlan`, so a row says either what it
+will create ("Creates a Slider for Petals") or why it will not, before the drop
+rather than after it.
 
 ## The flow
 
@@ -266,12 +281,15 @@ wire — so the widget and its wire say the same thing the same way.
 - [x] `bounds` optional on `DisplayWidget`; every walk audited and held by
       `src/state/__tests__/unplacedWidgets.test.ts`. The schema version is
       **not** bumped, for the reason above.
-- [ ] Widget type, range, step and label derived from the dropped-on property.
-- [ ] Drop on a property row mints widget + edge in one undo step.
+- [x] Widget type, range, step and label derived from the dropped-on property
+      (`touchControlPlan` in `wireFirstControls.ts`).
+- [x] Drop on a property row mints widget + edge in one undo step
+      (`connectTouchControl` in `graphStore.ts`), from the Touch node's own
+      trailing `add-control` socket.
 - [ ] "Connected" group in the designer, derived from absent bounds.
 - [ ] Place / delete moves a widget between the group and the screen.
 - [ ] One inert predicate covering all three causes, on wire and widget.
 - [ ] Graph Health reports both directions with a repair; nothing auto-deletes.
-- [ ] Range adoption at placement reuses `displayControlRangeRepair`'s
-      derivation rather than copying it.
-- [ ] A second wire onto a driven property input is refused with a reason.
+- [ ] Range adoption at *placement* (the widget-first path already shares the
+      derivation through `adoptedControlRange`; placement itself is step 4).
+- [x] A second wire onto a driven property input is refused with a reason.

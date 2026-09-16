@@ -26,7 +26,8 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useShallow } from 'zustand/react/shallow'
-import { useGraphStore } from '../../state/graphStore'
+import { connectTouchControl, useGraphStore } from '../../state/graphStore'
+import { TOUCH_CONTROL_ADD_HANDLE } from '../../state/displayRegistry'
 import type { StudioEdge } from '../../state/graphStore'
 import { findSignalRangeHints } from '../../utils/validateGraph'
 import { useUiStore } from '../../state/uiStore'
@@ -627,6 +628,19 @@ function NodeGraphCanvasInner() {
         // undo step, because both edits happen in the same tick.
         const property = propertyInputUnder(pt.clientX, pt.clientY)
         if (property) {
+          // The Touch node's trailing socket creates the control it drops on
+          // rather than connecting an existing one, so it is judged by what the
+          // property can take rather than by port compatibility — its own type
+          // deliberately matches nothing.
+          if (origin.handleId === TOUCH_CONTROL_ADD_HANDLE) {
+            const plan = connectTouchControl(origin.nodeId, property.nodeId, property.portId)
+            if (plan.ok) {
+              setStatus(`${plan.spec.label} control added — place it in the screen designer`, 'success')
+            } else {
+              setStatus(plan.refusal.message, 'error')
+            }
+            return
+          }
           if (!portsCompatible(origin.dataType, property.dataType)) {
             setStatus(`${origin.dataType} cannot drive a ${property.dataType} property`, 'error')
             return

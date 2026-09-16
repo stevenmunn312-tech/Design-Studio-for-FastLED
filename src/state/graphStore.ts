@@ -13,7 +13,7 @@ import {
   reconnectEdge,
 } from '@xyflow/react'
 import type { NodeCategory, NodePort } from '../types'
-import { NODE_LIBRARY, portColor, propertyLabel, propertyMeta } from './nodeLibrary'
+import { NODE_LIBRARY, portColor } from './nodeLibrary'
 import { exposableInputsFor, normalizeExposedInputs, propertyInputsFor } from './propertyInputs'
 import { templateControlPlan, type TemplateControlPlan } from './templateControlPlan'
 import type { GroupRegistry } from './graphEvaluator'
@@ -61,10 +61,20 @@ import {
   displayDocumentTouchOutputPorts,
   displayWidgetDefinition,
   displayWidgetSources,
+  displayWidgetPortId,
   parseDisplayWidgetPortId,
+  TOUCH_CONTROL_ADD_DATA_TYPE,
+  TOUCH_CONTROL_ADD_HANDLE,
+  TOUCH_CONTROL_ADD_LABEL,
 } from './displayRegistry'
 import { libraryDefaults, spliceTargetPorts, tftControllerForProps } from './nodeLibrary'
-import { createDisplayDocument, resizeDisplayDocument } from './displayEditor'
+import { createDisplayDocument, nextDisplayWidgetId, resizeDisplayDocument } from './displayEditor'
+import {
+  adoptedControlRange,
+  touchControlPlan,
+  touchControlWidget,
+  type TouchControlPlan,
+} from './wireFirstControls'
 import { mountedPanelGeometry } from './mountedDisplays'
 import { useUploadStore } from './uploadStore'
 import { assignPartPins } from './partPinAssignment'
@@ -640,8 +650,11 @@ function withAdoptedDisplayControlRange(
   if (!propertyInput || propertyInput.dataType !== 'float') {
     return { nodes, edges, displayDocuments: s.displayDocuments }
   }
-  const meta = propertyMeta(target.data.nodeType, propertyInput.propertyKey)
-  if (meta?.control !== 'slider') return { nodes, edges, displayDocuments: s.displayDocuments }
+  // The same derivation the wire-first path applies at creation; here it runs
+  // when an existing unconfigured control is wired to a property instead.
+  const adopted = adoptedControlRange(
+    target.data.nodeType, propertyInput.propertyKey, propertyInput.label)
+  if (!adopted) return { nodes, edges, displayDocuments: s.displayDocuments }
   const alreadyShared = s.edges.some((edge) =>
     edge.source === connection.source && edge.sourceHandle === connection.sourceHandle)
   if (alreadyShared) return { nodes, edges, displayDocuments: s.displayDocuments }
@@ -670,15 +683,12 @@ function withAdoptedDisplayControlRange(
     widgets: document.widgets.map((entry) => entry.id === widget.id
       ? {
           ...entry,
-          label: (() => {
-            const label = propertyLabel(target.data.nodeType, propertyInput.propertyKey)
-            return label === propertyInput.propertyKey ? propertyInput.label : label
-          })(),
+          label: adopted.label,
           properties: {
             ...entry.properties,
-            min: meta.min,
-            max: meta.max,
-            step: meta.step,
+            min: adopted.min,
+            max: adopted.max,
+            step: adopted.step,
           },
         }
       : entry),
@@ -1283,6 +1293,14 @@ function syncDisplayNodesInContent(
           ...(library?.outputs ?? []),
           ...(document ? displayDocumentTouchOutputPorts(document) : []),
           ...fixedControlPorts,
+          // The invitation, last: a screen design to put a control on is all
+          // this needs, and it does not disappear once controls exist — a
+          // panel can always take another.
+          ...(document ? [{
+            id: TOUCH_CONTROL_ADD_HANDLE,
+            label: TOUCH_CONTROL_ADD_LABEL,
+            dataType: TOUCH_CONTROL_ADD_DATA_TYPE,
+          }] : []),
         ],
       }
     } else {
@@ -3550,6 +3568,101 @@ export function connectTemplateControls(panelId: string): TemplateControlPlan & 
   })
 
   return { ...plan, connected }
+}
+
+/**
+ * Create a touch control by wiring it, in one undoable step.
+ *
+ * The gesture is a noodle dragged from a Touch node's trailing socket and
+ * dropped on a property row. What lands is a widget in the panel's screen
+ * design and an edge from that widget's own output to the property — both in
+ * a single `set`, because a control whose wire survived its own undo would be
+ * a control nothing can explain.
+ *
+ * The widget arrives with **no bounds**: it exists, it has a port, the edge is
+ * real, and it waits in the designer's Connected group until someone says
+ * where it goes. See docs/development/design/wire-first-touch-controls.md.
+ *
+ * Returns the plan so the caller can say why nothing happened — every refusal
+ * carries a sentence rather than a dead gesture.
+ */
+export function connectTouchControl(
+  touchNodeId: string,
+  targetId: string,
+  targetPort: string,
+): TouchControlPlan {
+  const state = useGraphStore.getState()
+  const touch = state.nodes.find((node) => node.id === touchNodeId)
+  const target = state.nodes.find((node) => node.id === targetId)
+  if (!touch || touch.data.nodeType !== 'TouchInput' || !target) {
+    return { ok: false, refusal: { code: 'not-a-property-input', message: 'That control has nothing to connect from.' } }
+  }
+
+  const panelId = String((touch.data.properties as Record<string, unknown>).panelId ?? '')
+  const panel = state.nodes.find((node) => node.id === panelId && node.data.nodeType === 'TransportDisplay')
+  const displayId = panel ? String(panel.data.properties.displayId ?? '') : ''
+  const document = displayId ? state.displayDocuments[displayId] : undefined
+  if (!document) {
+    return {
+      ok: false,
+      refusal: {
+        code: 'not-a-property-input',
+        message: 'This Touch node has no screen design to put a control on.',
+      },
+    }
+  }
+
+  const driven = state.edges.some((edge) => edge.target === targetId && edge.targetHandle === targetPort)
+  const plan = touchControlPlan(
+    target.data.nodeType,
+    targetPort,
+    target.data.properties as Record<string, unknown>,
+    driven,
+  )
+  if (!plan.ok) return plan
+
+  const widgetId = nextDisplayWidgetId(document, plan.spec.type)
+  const sourceHandle = displayWidgetPortId(widgetId, 'out')
+
+  useGraphStore.setState((s) => {
+    const nextDocument: DisplayDocument = {
+      ...document,
+      widgets: [...document.widgets, touchControlWidget(widgetId, plan.spec)],
+    }
+    const displayDocuments = { ...s.displayDocuments, [displayId]: nextDocument }
+
+    // Draw the socket the wire lands on: a property input is a field until
+    // something is wired to it, and an edge into a socket nobody can see is
+    // the state `exposedPropertyInputs` exists to prevent.
+    let nodes = s.nodes
+    const current = normalizeExposedInputs(target.data.nodeType, target.data.exposedInputs)
+    if (exposableInputsFor(target.data.nodeType).some((port) => port.id === targetPort)
+      && !current.includes(targetPort)) {
+      const next = normalizeExposedInputs(target.data.nodeType, [...current, targetPort])
+      nodes = nodes.map((node) => node.id === targetId
+        ? { ...node, data: { ...node.data, exposedInputs: next } } : node)
+    }
+
+    const edges = [...s.edges, {
+      id: `touch-${touchNodeId}-${widgetId}-${targetId}-${targetPort}`,
+      source: touchNodeId,
+      sourceHandle,
+      target: targetId,
+      targetHandle: targetPort,
+      type: 'glowEdge',
+      reconnectable: 'target',
+      style: { stroke: edgeStrokeForPort(touch, sourceHandle) },
+    } as unknown as StudioEdge]
+
+    // Ports are resynced in the same write, so the Touch node gains the new
+    // widget's output at the moment the edge referencing it appears.
+    return {
+      displayDocuments,
+      ...syncDisplayNodesInContent({ nodes, edges }, displayDocuments),
+    }
+  })
+
+  return plan
 }
 
 /**

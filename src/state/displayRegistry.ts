@@ -466,6 +466,20 @@ export function displayWidgetPortId(widgetId: string, role: DisplayWidgetPortRol
   return `widget:${widgetId}:${role}`
 }
 
+/**
+ * The Touch node's trailing socket: drag from here, drop on a property row,
+ * and the control that drives it is created there.
+ *
+ * It carries a dataType of its own so it is inert to the ordinary connect
+ * path — `portsCompatible` matches nothing against it — and the only thing
+ * that can act on it is the wire-first drop, which checks what the property
+ * can actually take. The same shape `PlayerControls` uses for `add-control`,
+ * minus its picker: here the property being dropped on names the control.
+ */
+export const TOUCH_CONTROL_ADD_HANDLE = 'add-control'
+export const TOUCH_CONTROL_ADD_DATA_TYPE = 'newcontrol'
+export const TOUCH_CONTROL_ADD_LABEL = 'Add control…'
+
 const WIDGET_PORT_ROLES: readonly DisplayWidgetPortRoleId[] = ['value', 'out', 'set']
 
 /** Read a minted port id back into the widget and role it names. The port id is

@@ -1,3 +1,4 @@
+import { TOUCH_CONTROL_ADD_HANDLE } from '../../../state/displayRegistry'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import DisplayEditor from '../DisplayEditor'
@@ -161,7 +162,8 @@ describe('DisplayEditor', () => {
     const touch = useGraphStore.getState().nodes.find((node) => node.id === 'touch')!
     expect((screen.data.outputs as { id: string }[]).map((port) => port.id)).toEqual([])
     expect((touch.data.outputs as { id: string }[]).map((port) => port.id))
-      .toEqual(['controls', 'widget:button:out', 'widget:toggle:out', 'widget:button-2:out', 'widget:slider:out'])
+      .toEqual(['controls', 'widget:button:out', 'widget:toggle:out', 'widget:button-2:out',
+        'widget:slider:out', TOUCH_CONTROL_ADD_HANDLE])
     expect(view.getByRole('status', { name: 'Display editor announcements' }).textContent).toContain(
       'Minimal Transport template inserted with 5 widgets.',
     )
